@@ -17,8 +17,6 @@ func ResolveSitePublicPath(cfg ResolvedSiteConfig, canonicalPath, locale string)
 	} else {
 		canonicalPath = normalizeLocalePath(canonicalPath)
 	}
-	canonicalPath, _ = StripSupportedLocalePrefix(canonicalPath, cfg.SupportedLocales)
-
 	locale = matchSupportedLocale(locale, cfg.SupportedLocales)
 	if locale == "" {
 		locale = matchSupportedLocale(cfg.DefaultLocale, cfg.SupportedLocales)
@@ -26,8 +24,21 @@ func ResolveSitePublicPath(cfg ResolvedSiteConfig, canonicalPath, locale string)
 	if locale == "" {
 		locale = strings.ToLower(strings.TrimSpace(cfg.DefaultLocale))
 	}
+	canonicalPath = canonicalSitePathWithoutLocalePrefix(canonicalPath, locale, cfg.SupportedLocales)
 	localized := LocalizedPath(canonicalPath, locale, cfg.DefaultLocale, cfg.LocalePrefixMode)
 	return normalizeLocalePath(admin.PrefixBasePath(cfg.BasePath, localized))
+}
+
+func canonicalSitePathWithoutLocalePrefix(path, targetLocale string, supported []string) string {
+	canonical, prefixLocale := StripSupportedLocalePrefix(path, supported)
+	if prefixLocale == "" {
+		return path
+	}
+	segments := strings.Split(strings.Trim(normalizeLocalePath(path), "/"), "/")
+	if len(segments) == 1 && !strings.EqualFold(prefixLocale, strings.TrimSpace(targetLocale)) {
+		return normalizeLocalePath(path)
+	}
+	return canonical
 }
 
 // LocalizedPath rewrites a canonical path using the configured locale prefix policy.

@@ -316,23 +316,6 @@ func callSiteErrorRenderObserver(ctx context.Context, observer SiteErrorRenderOb
 	observer.ObserveSiteErrorRender(ctx, event)
 }
 
-func cloneSiteErrorViewContext(input router.ViewContext) router.ViewContext {
-	out := cloneViewContext(input)
-	if raw := anyMap(out["site_error"]); raw != nil {
-		out["site_error"] = cloneAnyMap(raw)
-	}
-	if raw := anyMap(out["site_theme"]); raw != nil {
-		out["site_theme"] = cloneSiteThemeContract(raw)
-	}
-	if values := anyStringSlice(out["available_locales"]); len(values) > 0 {
-		out["available_locales"] = cloneStrings(values)
-	}
-	if values := anyStringSlice(out["supported_locales"]); len(values) > 0 {
-		out["supported_locales"] = cloneStrings(values)
-	}
-	return out
-}
-
 func cloneSiteErrorRequestState(input RequestState) RequestState {
 	out := input
 	out.SupportedLocales = cloneStrings(input.SupportedLocales)
@@ -397,24 +380,174 @@ func RenderSiteErrorHTML(
 }
 
 func completeSiteErrorRequestState(c router.Context, cfg ResolvedSiteConfig, input RequestState) RequestState {
-	fallback := fallbackRequestState(c, cfg, "/")
-	out := cloneSiteErrorRequestState(input)
-	if strings.TrimSpace(out.Locale) == "" {
-		out.Locale = fallback.Locale
+	out := cloneSiteErrorRequestState(fallbackRequestState(c, cfg, "/"))
+	overlay := cloneSiteErrorRequestState(input)
+	overlaySiteErrorLocaleState(&out, overlay)
+	overlaySiteErrorPreviewState(&out, overlay)
+	overlaySiteErrorThemeState(&out, overlay)
+	overlaySiteErrorPathState(&out, overlay)
+	if input.ViewContext != nil {
+		maps.Copy(out.ViewContext, overlay.ViewContext)
 	}
-	if strings.TrimSpace(out.DefaultLocale) == "" {
-		out.DefaultLocale = fallback.DefaultLocale
-	}
-	if len(out.SupportedLocales) == 0 {
-		out.SupportedLocales = cloneStrings(fallback.SupportedLocales)
-	}
-	if strings.TrimSpace(out.BasePath) == "" {
-		out.BasePath = fallback.BasePath
-	}
-	if len(out.ViewContext) == 0 {
-		out.ViewContext = cloneSiteErrorViewContext(fallback.ViewContext)
-	}
+	applySiteErrorStateViewOverrides(out.ViewContext, overlay, input)
 	return out
+}
+
+func overlaySiteErrorLocaleState(out *RequestState, overlay RequestState) {
+	if out == nil {
+		return
+	}
+	if strings.TrimSpace(overlay.Locale) != "" {
+		out.Locale = overlay.Locale
+	}
+	if strings.TrimSpace(overlay.DefaultLocale) != "" {
+		out.DefaultLocale = overlay.DefaultLocale
+	}
+	if len(overlay.SupportedLocales) > 0 {
+		out.SupportedLocales = overlay.SupportedLocales
+	}
+	if strings.TrimSpace(overlay.Environment) != "" {
+		out.Environment = overlay.Environment
+	}
+	if strings.TrimSpace(overlay.ContentChannel) != "" {
+		out.ContentChannel = overlay.ContentChannel
+	}
+	if overlay.AllowLocaleFallback {
+		out.AllowLocaleFallback = true
+	}
+}
+
+func overlaySiteErrorPreviewState(out *RequestState, overlay RequestState) {
+	if out == nil {
+		return
+	}
+	if overlay.PreviewTokenPresent {
+		out.PreviewTokenPresent = true
+	}
+	if overlay.PreviewTokenValid {
+		out.PreviewTokenValid = true
+	}
+	if overlay.IsPreview {
+		out.IsPreview = true
+	}
+	if strings.TrimSpace(overlay.PreviewToken) != "" {
+		out.PreviewToken = overlay.PreviewToken
+	}
+	if strings.TrimSpace(overlay.PreviewEntityType) != "" {
+		out.PreviewEntityType = overlay.PreviewEntityType
+	}
+	if strings.TrimSpace(overlay.PreviewContentID) != "" {
+		out.PreviewContentID = overlay.PreviewContentID
+	}
+}
+
+func overlaySiteErrorThemeState(out *RequestState, overlay RequestState) {
+	if out == nil {
+		return
+	}
+	if strings.TrimSpace(overlay.ThemeName) != "" {
+		out.ThemeName = overlay.ThemeName
+	}
+	if strings.TrimSpace(overlay.ThemeVariant) != "" {
+		out.ThemeVariant = overlay.ThemeVariant
+	}
+	if overlay.Theme != nil {
+		out.Theme = overlay.Theme
+	}
+	if overlay.SiteTheme != nil {
+		out.SiteTheme = overlay.SiteTheme
+	}
+}
+
+func overlaySiteErrorPathState(out *RequestState, overlay RequestState) {
+	if out == nil {
+		return
+	}
+	if strings.TrimSpace(overlay.BasePath) != "" {
+		out.BasePath = overlay.BasePath
+	}
+	if strings.TrimSpace(overlay.AssetBasePath) != "" {
+		out.AssetBasePath = overlay.AssetBasePath
+	}
+	if strings.TrimSpace(overlay.ActivePath) != "" {
+		out.ActivePath = overlay.ActivePath
+	}
+}
+
+func applySiteErrorStateViewOverrides(viewCtx router.ViewContext, overlay RequestState, input RequestState) {
+	if viewCtx == nil {
+		return
+	}
+	applySiteErrorLocaleViewOverrides(viewCtx, overlay, input)
+	applySiteErrorPreviewViewOverrides(viewCtx, overlay, input)
+	applySiteErrorThemeViewOverrides(viewCtx, overlay, input)
+	applySiteErrorPathViewOverrides(viewCtx, overlay, input)
+}
+
+func applySiteErrorLocaleViewOverrides(viewCtx router.ViewContext, overlay RequestState, input RequestState) {
+	if strings.TrimSpace(input.Locale) != "" {
+		viewCtx["locale"] = overlay.Locale
+	}
+	if strings.TrimSpace(input.DefaultLocale) != "" {
+		viewCtx["default_locale"] = overlay.DefaultLocale
+	}
+	if len(input.SupportedLocales) > 0 {
+		viewCtx["supported_locales"] = cloneStrings(overlay.SupportedLocales)
+	}
+	if strings.TrimSpace(input.Environment) != "" {
+		viewCtx["environment"] = overlay.Environment
+	}
+	if strings.TrimSpace(input.ContentChannel) != "" {
+		viewCtx["content_channel"] = overlay.ContentChannel
+	}
+	if input.AllowLocaleFallback {
+		viewCtx["allow_locale_fallback"] = true
+	}
+}
+
+func applySiteErrorPreviewViewOverrides(viewCtx router.ViewContext, overlay RequestState, input RequestState) {
+	if input.PreviewTokenPresent {
+		viewCtx["preview_token_present"] = true
+	}
+	if input.PreviewTokenValid {
+		viewCtx["preview_token_valid"] = true
+	}
+	if input.IsPreview {
+		viewCtx["is_preview"] = true
+	}
+	if strings.TrimSpace(input.PreviewEntityType) != "" {
+		viewCtx["preview_entity_type"] = overlay.PreviewEntityType
+	}
+	if strings.TrimSpace(input.PreviewContentID) != "" {
+		viewCtx["preview_content_id"] = overlay.PreviewContentID
+	}
+}
+
+func applySiteErrorThemeViewOverrides(viewCtx router.ViewContext, overlay RequestState, input RequestState) {
+	if strings.TrimSpace(input.ThemeName) != "" {
+		viewCtx["theme_name"] = overlay.ThemeName
+	}
+	if strings.TrimSpace(input.ThemeVariant) != "" {
+		viewCtx["theme_variant"] = overlay.ThemeVariant
+	}
+	if input.Theme != nil {
+		viewCtx["theme"] = cloneThemePayload(overlay.Theme)
+	}
+	if input.SiteTheme != nil {
+		viewCtx["site_theme"] = cloneSiteThemeContract(overlay.SiteTheme)
+	}
+}
+
+func applySiteErrorPathViewOverrides(viewCtx router.ViewContext, overlay RequestState, input RequestState) {
+	if strings.TrimSpace(input.BasePath) != "" {
+		viewCtx["base_path"] = overlay.BasePath
+	}
+	if strings.TrimSpace(input.AssetBasePath) != "" {
+		viewCtx["asset_base_path"] = overlay.AssetBasePath
+	}
+	if strings.TrimSpace(input.ActivePath) != "" {
+		viewCtx["active_path"] = overlay.ActivePath
+	}
 }
 
 func siteErrorRenderEvent(siteErr SiteRuntimeError, candidate SiteErrorTemplateCandidate, outcome string, attempt int) SiteErrorRenderEvent {

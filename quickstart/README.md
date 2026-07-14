@@ -1361,9 +1361,12 @@ Theme keys resolve after request theme context is available through `site_theme.
 
 - `site.RenderSiteErrorHTML` is the HTML-only host API. Keep application-specific JSON negotiation and payloads in the host, then call the shared renderer for HTML.
 - `site.SiteErrorContextProvider` lets registered site modules add safe localized fields after normal request context has run. Normal `SiteModule.ViewContext` methods are not rerun.
+- Mutable map, slice, and array view data is recursively isolated between the request, providers, and render candidates. Opaque pointer/service values are passed through as read-only capabilities.
+- Host-owned calls inherit the complete middleware request state; explicit `State` and `ViewContext` values overlay prepared theme, preview, locale, channel, and path context instead of replacing it wholesale.
 - The base `site_error` model contains only normalized `code`, `status`, and locale/base-path-aware `home_href`. Providers own any visitor copy or compatibility projections.
 - `site.SiteErrorRenderObserver` receives sanitized attempt/selection provenance without view data, rendered bytes, tokens, or stack traces. Observer panics cannot change the visitor response.
 - `site.ResolveSitePublicPath` converts a canonical path into the configured locale/base-path public path and avoids duplicate locale prefixes.
+- Locale-like single-segment canonical slugs are preserved when they belong to a different locale, so `/bo` remains a valid default-locale path while multi-segment localized inputs still normalize predictably.
 - `HEAD` preserves the requested status and headers without a body. If every candidate fails, the response contains only the requested status.
 
 Legacy configuration remains valid. Use `ErrorPolicy` when candidate ordering needs theme keys or multiple fallbacks; existing single-template fields do not require migration.
