@@ -386,8 +386,13 @@ Queue filter controls:
 - By default, quickstart keeps compatible lightweight queue filters.
 - Set `TranslationQueueConfig.EnhancedFilterSelects=true` to render endpoint-backed Advanced Filters.
 - Enhanced mode renders `entity_type` as a remote select, and `assignee_id`, `reviewer_id`, and `family_id` as typeahead controls.
+- Content type accepts `entity_type` (canonical) plus the compatibility aliases `content_type` and `type`.
+- Source-title and source-path matching use case-insensitive contains semantics. The canonical keys are `title__ilike` and `path__ilike`; `title__contains`, `source_title__ilike`, `source_title__contains`, `path__contains`, `source_path__ilike`, and `source_path__contains` remain accepted aliases.
 - These controls still submit the existing query keys, so bookmarked URLs, presets, chips, pagination, grouped views, and server-family queue mode keep working.
 - Existing raw IDs are hydrated into readable labels when option endpoints can resolve them. If JavaScript is disabled, an endpoint fails, or a value cannot be resolved, the editable raw-value field remains usable.
+- Queue pages use `page` and `per_page`. Filter and page-size changes reset to page 1; previous/next navigation preserves active filters, sort, grouping, review state, channel, and auth-derived tenant/org scope.
+- Flat-mode totals count assignments. In server-family mode, the top-level total and page range count families while assignment totals remain available in grouping metadata.
+- SSR remains the default. The explicit `translation_client_render=1` diagnostic mode hydrates the same URL query and scope contract without applying an implicit preset when the URL already contains queue state.
 
 Core queue API routes:
 
