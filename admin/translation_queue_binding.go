@@ -152,6 +152,10 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 			Err:       err,
 		})
 	}()
+	err = validateTranslationQueuePredicateQuery(c)
+	if err != nil {
+		return nil, err
+	}
 	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
 	if err != nil {
 		return nil, err
@@ -353,13 +357,10 @@ func (b *translationQueueBinding) serverFamilyAssignmentGroups(adminCtx AdminCon
 		rows = append(rows, b.serverFamilyParentRow(family, filter, page, perPage, channel))
 	}
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
-	reviewerMetadata, countsErr := b.optimizedReviewerAggregateMetadata(adminCtx.Context, repo, filter, actorID, now)
-	if countsErr != nil {
-		reviewerMetadata = unavailableReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
-		if !errors.Is(countsErr, ErrTranslationAssignmentQueryUnsupported) {
-			reviewerMetadata = degradedReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
-		}
-	}
+	// Reviewer aggregates describe assignment lists, while this response is
+	// paginated by family. Report them unavailable instead of presenting global
+	// counts as though they described the active family page.
+	reviewerMetadata := unavailableReviewerAggregateMetadata(TranslationQueueReviewAggregateCountKeys())
 	meta := b.assignmentListMeta(page, perPage, result.FamilyTotal, now, actorID, reviewerMetadata, grouping, len(rows), result.AssignmentTotal, channel, true)
 	meta["total"] = result.FamilyTotal
 	meta["family_total"] = result.FamilyTotal
@@ -387,6 +388,10 @@ func (b *translationQueueBinding) FamilyAssignments(c router.Context, familyID s
 			Err:       err,
 		})
 	}()
+	err = validateTranslationQueuePredicateQuery(c)
+	if err != nil {
+		return nil, err
+	}
 	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
 	if err != nil {
 		return nil, err
@@ -442,6 +447,33 @@ func (b *translationQueueBinding) FamilyAssignments(c router.Context, familyID s
 			"order":     translationQueueSortOrder(filter.SortDesc),
 		}, channel),
 	}, nil
+}
+
+func validateTranslationQueuePredicateQuery(c router.Context) error {
+	if c == nil {
+		return nil
+	}
+	for key, raw := range c.Queries() {
+		key = strings.TrimSpace(strings.ToLower(key))
+		if key == "" || strings.TrimSpace(raw) == "" || !strings.Contains(key, "__") {
+			continue
+		}
+		field, operator, _ := strings.Cut(key, "__")
+		supportedField := field == "title" || field == "source_title" || field == "path" || field == "source_path"
+		supportedOperator := operator == "ilike" || operator == "contains"
+		if supportedField && supportedOperator {
+			continue
+		}
+		return validationDomainError("unsupported assignment queue predicate", map[string]any{
+			"field":               key,
+			"predicate_field":     field,
+			"operator":            operator,
+			"supported_fields":    []string{"title", "source_title", "path", "source_path"},
+			"supported_operators": []string{"ilike", "contains"},
+			"reason_code":         "queue_predicate_unsupported",
+		})
+	}
+	return nil
 }
 
 func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignmentID, action string, body map[string]any) (payload any, err error) {
@@ -1190,6 +1222,10 @@ func translationQueueSnapshotFilterValue(filters map[string]any, key string) str
 		candidates = append(candidates, "reviewState")
 	case "entity_type":
 		candidates = append(candidates, "entityType", "content_type", "contentType", "type")
+	case "title__ilike":
+		candidates = append(candidates, "title__contains", "source_title__ilike", "source_title__contains", "titleContains")
+	case "path__ilike":
+		candidates = append(candidates, "path__contains", "source_path__ilike", "source_path__contains", "pathContains")
 	case "family_id":
 		candidates = append(candidates, "familyId")
 	case "target_locale", "locale":
@@ -1321,6 +1357,12 @@ func translationQueueSnapshotFilterPayload(filter translationAssignmentListFilte
 	if filter.EntityType != "" {
 		payload["entity_type"] = filter.EntityType
 	}
+	if filter.TitleContains != "" {
+		payload["title__ilike"] = filter.TitleContains
+	}
+	if filter.PathContains != "" {
+		payload["path__ilike"] = filter.PathContains
+	}
 	if filter.FamilyID != "" {
 		payload["family_id"] = filter.FamilyID
 	}
@@ -1360,6 +1402,12 @@ func translationQueueSnapshotFilterSummary(filter translationAssignmentListFilte
 	}
 	if filter.EntityType != "" {
 		summary = append(summary, "Type: "+strings.ReplaceAll(filter.EntityType, ",", ", "))
+	}
+	if filter.TitleContains != "" {
+		summary = append(summary, "Title contains: "+filter.TitleContains)
+	}
+	if filter.PathContains != "" {
+		summary = append(summary, "Path contains: "+filter.PathContains)
 	}
 	if filter.FamilyID != "" {
 		summary = append(summary, "Family: "+filter.FamilyID)
@@ -1479,12 +1527,24 @@ func (b *translationQueueBinding) assignmentPage(ctx context.Context, repo Trans
 			return result.Items, result.Total, true, nil
 		}
 	}
+	if translationQueueRequiresOptimizedPageQuery(filter) {
+		return nil, 0, false, validationDomainError("assignment repository cannot evaluate the requested queue predicates", map[string]any{
+			"field":       "filters",
+			"reason_code": "queue_predicate_query_unsupported",
+		})
+	}
 	allAssignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
 	if err != nil {
 		return nil, 0, false, err
 	}
 	assignments, total := b.filterAssignments(ctx, allAssignments, filter, page, perPage, environment, now)
 	return assignments, total, false, nil
+}
+
+func translationQueueRequiresOptimizedPageQuery(filter translationAssignmentListFilter) bool {
+	return strings.TrimSpace(filter.EntityType) != "" ||
+		strings.TrimSpace(filter.TitleContains) != "" ||
+		strings.TrimSpace(filter.PathContains) != ""
 }
 
 func listAssignmentPageFromQueryStore(ctx context.Context, queryStore TranslationAssignmentPageQueryStore, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) (TranslationAssignmentPageQueryResult, bool, error) {
@@ -1579,7 +1639,18 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 	if !translationQueueListFilterMatches(filter.EntityType, assignment.EntityType, normalizeTranslationQueueEntityTypeFilterValue) {
 		return false
 	}
+	if !translationQueueContainsFold(assignment.SourceTitle, filter.TitleContains) {
+		return false
+	}
+	if !translationQueueContainsFold(assignment.SourcePath, filter.PathContains) {
+		return false
+	}
 	return translationQueueAssignmentScopeMatches(assignment, filter)
+}
+
+func translationQueueContainsFold(candidate, predicate string) bool {
+	predicate = strings.TrimSpace(strings.ToLower(predicate))
+	return predicate == "" || strings.Contains(strings.ToLower(candidate), predicate)
 }
 
 func translationQueueAssignmentScopeMatches(assignment TranslationAssignment, filter translationAssignmentListFilter) bool {

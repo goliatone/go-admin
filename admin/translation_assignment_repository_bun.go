@@ -481,35 +481,26 @@ func listOptionsFromAssignmentPageQuery(input TranslationAssignmentPageQueryInpu
 		return ListOptions{Page: input.Page, PerPage: input.PerPage, Filters: map[string]any{"assignment_id": "__no_assignment__"}}, false
 	}
 	filters := map[string]any{}
-	if filter.TenantID != "" {
-		filters[ScopeTenantIDKey] = filter.TenantID
-	}
-	if filter.OrgID != "" {
-		filters[ScopeOrgIDKey] = filter.OrgID
-	}
-	if filter.FamilyID != "" {
-		filters["family_id"] = filter.FamilyID
-	}
-	if filter.Status != "" {
-		filters["status"] = filter.Status
-	}
-	if filter.AssigneeID != "" {
-		filters["assignee_id"] = filter.AssigneeID
-	}
-	if filter.ReviewerID != "" {
-		filters["reviewer_id"] = filter.ReviewerID
-	}
-	if filter.Locale != "" {
-		filters["target_locale"] = filter.Locale
-	}
-	if filter.Priority != "" {
-		filters["priority"] = filter.Priority
-	}
-	if filter.EntityType != "" {
-		filters["entity_type"] = filter.EntityType
-	}
-	if filter.DueState != "" {
-		filters["due_state"] = filter.DueState
+	for _, entry := range []struct {
+		key   string
+		value string
+	}{
+		{ScopeTenantIDKey, filter.TenantID},
+		{ScopeOrgIDKey, filter.OrgID},
+		{"family_id", filter.FamilyID},
+		{"status", filter.Status},
+		{"assignee_id", filter.AssigneeID},
+		{"reviewer_id", filter.ReviewerID},
+		{"target_locale", filter.Locale},
+		{"priority", filter.Priority},
+		{"entity_type", filter.EntityType},
+		{"title__ilike", filter.TitleContains},
+		{"path__ilike", filter.PathContains},
+		{"due_state", filter.DueState},
+	} {
+		if entry.value != "" {
+			filters[entry.key] = entry.value
+		}
 	}
 	sortBy := strings.TrimSpace(strings.ToLower(filter.SortBy))
 	if sortBy == "" {
@@ -570,14 +561,7 @@ var bunAssignmentFilterColumns = map[string]string{
 }
 
 func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQL bunAssignmentDueDateSQL) {
-	if key == "overdue" {
-		if toBool(raw) {
-			query.Where(dueSQL.expr+" IS NOT NULL").Where(dueSQL.expr+" < ?", dueSQL.now)
-		}
-		return
-	}
-	if key == "due_state" {
-		applyBunAssignmentDueStateFilter(query, toString(raw), dueSQL)
+	if applyBunAssignmentDerivedFilter(query, key, raw, dueSQL) {
 		return
 	}
 	values := normalizedBunAssignmentFilterValues(key, raw)
@@ -599,6 +583,33 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 	if column, ok := bunAssignmentFilterColumns[key]; ok {
 		query.Where(column+" IN (?)", bun.List(values))
 	}
+}
+
+func applyBunAssignmentDerivedFilter(query *bun.SelectQuery, key string, raw any, dueSQL bunAssignmentDueDateSQL) bool {
+	switch key {
+	case "overdue":
+		if toBool(raw) {
+			query.Where(dueSQL.expr+" IS NOT NULL").Where(dueSQL.expr+" < ?", dueSQL.now)
+		}
+	case "due_state":
+		applyBunAssignmentDueStateFilter(query, toString(raw), dueSQL)
+	case "title__ilike", "title__contains", "source_title__ilike", "source_title__contains":
+		applyBunAssignmentContainsFilter(query, "source_title", raw)
+	case "path__ilike", "path__contains", "source_path__ilike", "source_path__contains":
+		applyBunAssignmentContainsFilter(query, "source_path", raw)
+	default:
+		return false
+	}
+	return true
+}
+
+func applyBunAssignmentContainsFilter(query *bun.SelectQuery, column string, raw any) {
+	value := strings.TrimSpace(strings.ToLower(toString(raw)))
+	if query == nil || value == "" {
+		return
+	}
+	value = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value)
+	query.Where("LOWER("+column+") LIKE ? ESCAPE '\\'", "%"+value+"%")
 }
 
 func normalizedBunAssignmentFilterValues(key string, raw any) []string {

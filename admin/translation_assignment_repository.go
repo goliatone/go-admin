@@ -277,6 +277,85 @@ func (r *InMemoryTranslationAssignmentRepository) List(_ context.Context, opts L
 	return paginated, total, nil
 }
 
+// ListAssignmentPage evaluates the canonical queue query contract in memory.
+// Keeping this repository on the optimized interface prevents development and
+// test environments from falling back to an unbounded broad read.
+func (r *InMemoryTranslationAssignmentRepository) ListAssignmentPage(ctx context.Context, input TranslationAssignmentPageQueryInput) (TranslationAssignmentPageQueryResult, error) {
+	if r == nil {
+		return TranslationAssignmentPageQueryResult{}, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	_ = ctx
+	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) != "" {
+		return TranslationAssignmentPageQueryResult{}, ErrTranslationAssignmentQueryUnsupported
+	}
+	now := input.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	r.mu.Lock()
+	items := make([]TranslationAssignment, 0, len(r.byID))
+	for _, assignment := range r.byID {
+		if matchesAssignmentListFilter(assignment, input.Filter, now) {
+			items = append(items, cloneTranslationAssignment(assignment))
+		}
+	}
+	r.mu.Unlock()
+	sortAssignments(items, input.Filter.SortBy, input.Filter.SortDesc, now)
+	total := len(items)
+	page, perPage := normalizeTranslationAssignmentPagination(input.Page, input.PerPage, total, 50)
+	start := (page - 1) * perPage
+	if start >= total {
+		return TranslationAssignmentPageQueryResult{Items: []TranslationAssignment{}, Total: total}, nil
+	}
+	end := min(start+perPage, total)
+	return TranslationAssignmentPageQueryResult{Items: items[start:end], Total: total}, nil
+}
+
+// AssignmentReviewerAggregateSummary returns the reviewer counts that can be
+// derived from assignment state alone. QA-blocked counts require the queue's
+// family/editor runtime, so the repository reports that key as unavailable.
+func (r *InMemoryTranslationAssignmentRepository) AssignmentReviewerAggregateSummary(_ context.Context, input TranslationAssignmentReviewerAggregateInput) (TranslationAssignmentReviewerAggregateSummary, error) {
+	summary := TranslationAssignmentReviewerAggregateSummary{Counts: initializedReviewerAggregateCountMap()}
+	if r == nil {
+		return summary, serviceNotConfiguredDomainError("translation assignment repository", nil)
+	}
+	actorID := strings.TrimSpace(input.ActorID)
+	if actorID == "" {
+		return summary, nil
+	}
+	summary.Unavailable = []string{"review_blocked"}
+	now := input.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	scope := translationAssignmentListFilter{
+		TenantID: strings.TrimSpace(input.TenantID),
+		OrgID:    strings.TrimSpace(input.OrgID),
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, assignment := range r.byID {
+		if !translationQueueAssignmentScopeMatches(assignment, scope) {
+			continue
+		}
+		reviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+		if !strings.EqualFold(reviewerID, actorID) {
+			continue
+		}
+		switch assignment.Status {
+		case AssignmentStatusInReview:
+			summary.Counts["review_inbox"]++
+			if translationQueueDueState(assignment.DueDate, now) == translationQueueDueStateOverdue {
+				summary.Counts["review_overdue"]++
+			}
+		case AssignmentStatusChangesRequested:
+			summary.Counts["review_changes_requested"]++
+		}
+	}
+	return summary, nil
+}
+
 func normalizeTranslationAssignmentPagination(page, perPage, total, defaultPerPage int) (int, int) {
 	if page <= 0 {
 		page = 1
@@ -505,29 +584,26 @@ func (r *InMemoryTranslationAssignmentRepository) ListAssignmentSnapshot(ctx con
 	if normalizeTranslationQueueReviewState(input.Filter.ReviewState) != "" {
 		return TranslationAssignmentSnapshotQueryResult{}, ErrTranslationAssignmentQueryUnsupported
 	}
+	_ = ctx
 	pageSize := input.Limit
 	if pageSize <= 0 {
 		pageSize = 1_000
 	}
-	opts, _ := listOptionsFromAssignmentPageQuery(TranslationAssignmentPageQueryInput{
-		Filter:  input.Filter,
-		Page:    1,
-		PerPage: pageSize,
-		Now:     input.Now,
-	})
-	items, total, err := r.List(ctx, ListOptions{
-		Page:     opts.Page,
-		PerPage:  opts.PerPage,
-		SortBy:   opts.SortBy,
-		SortDesc: opts.SortDesc,
-		Filters:  opts.Filters,
-	})
-	if err != nil {
-		return TranslationAssignmentSnapshotQueryResult{}, err
+	now := input.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
 	}
-	if total > pageSize {
-		items = items[:min(len(items), pageSize)]
+	r.mu.Lock()
+	items := make([]TranslationAssignment, 0, len(r.byID))
+	for _, assignment := range r.byID {
+		if matchesAssignmentListFilter(assignment, input.Filter, now) {
+			items = append(items, cloneTranslationAssignment(assignment))
+		}
 	}
+	r.mu.Unlock()
+	sortAssignments(items, input.Filter.SortBy, input.Filter.SortDesc, now)
+	total := len(items)
+	items = items[:min(len(items), pageSize)]
 	selections := make([]TranslationAssignmentSnapshotSelection, 0, len(items))
 	for idx, assignment := range items {
 		selections = append(selections, TranslationAssignmentSnapshotSelection{
@@ -967,12 +1043,8 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 }
 
 func translationAssignmentMatchesFilter(assignment TranslationAssignment, key string, raw any, now time.Time) bool {
-	if key == "overdue" {
-		return !toBool(raw) || (assignment.DueDate != nil && !assignment.DueDate.After(now))
-	}
-	value := strings.TrimSpace(strings.ToLower(toString(raw)))
-	if key == "due_state" {
-		return value == "" || normalizeTranslationQueueDueState(value) == translationQueueDueState(assignment.DueDate, now)
+	if matched, handled := translationAssignmentMatchesDerivedFilter(assignment, key, raw, now); handled {
+		return matched
 	}
 	expected, handled := translationAssignmentFilterStringValue(assignment, key)
 	if !handled {
@@ -983,6 +1055,22 @@ func translationAssignmentMatchesFilter(assignment TranslationAssignment, key st
 		return true
 	}
 	return slices.Contains(values, expected)
+}
+
+func translationAssignmentMatchesDerivedFilter(assignment TranslationAssignment, key string, raw any, now time.Time) (bool, bool) {
+	value := strings.TrimSpace(strings.ToLower(toString(raw)))
+	switch key {
+	case "overdue":
+		return !toBool(raw) || (assignment.DueDate != nil && !assignment.DueDate.After(now)), true
+	case "due_state":
+		return value == "" || normalizeTranslationQueueDueState(value) == translationQueueDueState(assignment.DueDate, now), true
+	case "title__ilike", "title__contains", "source_title__ilike", "source_title__contains":
+		return value == "" || strings.Contains(strings.ToLower(assignment.SourceTitle), value), true
+	case "path__ilike", "path__contains", "source_path__ilike", "source_path__contains":
+		return value == "" || strings.Contains(strings.ToLower(assignment.SourcePath), value), true
+	default:
+		return false, false
+	}
 }
 
 func normalizedInMemoryAssignmentFilterValues(key string, raw any) []string {
@@ -1017,6 +1105,8 @@ func normalizedInMemoryAssignmentFilterValues(key string, raw any) []string {
 
 func translationAssignmentFilterStringValue(assignment TranslationAssignment, key string) (string, bool) {
 	switch key {
+	case "assignment_id", "id":
+		return strings.ToLower(assignment.ID), true
 	case "status":
 		return strings.ToLower(string(assignment.Status)), true
 	case "target_locale", "locale":
