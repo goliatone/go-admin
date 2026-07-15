@@ -1,10 +1,29 @@
 # Changelog
 
+# [0.114.3](https://github.com/goliatone/go-admin/compare/v0.114.2...v0.114.3) - (2026-07-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Debug transport middleware auth ([e08a567](https://github.com/goliatone/go-admin/commit/e08a56757e7e70bfcf2818ff7978c1022a38326e))  - (goliatone)
+- Browser CSRF implementation ([c1f5476](https://github.com/goliatone/go-admin/commit/c1f54762405afb28b72dc7fc1586828b3cff5da9))  - (goliatone)
+- Debug auth for command panel ([7345667](https://github.com/goliatone/go-admin/commit/7345667f412c43e8a70a85ff5311e15b9c9d7865))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([5c446d2](https://github.com/goliatone/go-admin/commit/5c446d24209903b8a74ec858e25ce3c98d392533))  - (goliatone)
+
 # [0.114.2](https://github.com/goliatone/go-admin/compare/v0.114.1...v0.114.2) - (2026-07-14)
+
+
+New patch release: v0.114.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Error runtime and locale path support ([5cddb5e](https://github.com/goliatone/go-admin/commit/5cddb5ea6602f286d84915cec0932e959eeece03))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.114.2 ([16bc4ab](https://github.com/goliatone/go-admin/commit/16bc4ab2aa78d64196c10aa08e29770b4f35c278))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
