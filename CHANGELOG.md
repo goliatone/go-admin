@@ -1,6 +1,30 @@
 # Changelog
 
+# [0.115.1](https://github.com/goliatone/go-admin/compare/v0.115.0...v0.115.1) - (2026-07-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Conditional template update ([5ace492](https://github.com/goliatone/go-admin/commit/5ace4920f5309df606fd394dde9f2b8efcfdbda6))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Include provenance in template ([f15f718](https://github.com/goliatone/go-admin/commit/f15f71809d26abe98df8db780d270e84cbeed7fa))  - (goliatone)
+- Background task to lifecycle ([0cb8a79](https://github.com/goliatone/go-admin/commit/0cb8a79505fbf374599d365f81fdf4d20859fd18))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([7449723](https://github.com/goliatone/go-admin/commit/7449723b05bd2439837ac0490e542847df448338))  - (goliatone)
+- Update deps ([ec1a5e1](https://github.com/goliatone/go-admin/commit/ec1a5e1589c18bec078d967fcc00973cbe66bdb1))  - (goliatone)
+- Update tests ([446becd](https://github.com/goliatone/go-admin/commit/446becd4eb07eeb753f6d2b4921d157fa21dc5d4))  - (goliatone)
+
 # [0.115.0](https://github.com/goliatone/go-admin/compare/v0.114.5...v0.115.0) - (2026-07-15)
+
+
+New minor release: v0.115.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.115.0 ([97705c9](https://github.com/goliatone/go-admin/commit/97705c9f7d2ef8c482db016e7610457c7e794bb0))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
