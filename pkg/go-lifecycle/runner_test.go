@@ -101,6 +101,121 @@ func TestDegradedRetryableAndIgnoredPoliciesRecordWithoutStopping(t *testing.T) 
 	}
 }
 
+func TestTaskPanicsFollowConfiguredErrorPolicies(t *testing.T) {
+	t.Run("fatal returns a typed panic error", func(t *testing.T) {
+		panicCause := errors.New("fatal panic")
+		registry := NewRegistry()
+		mustRegister(t, registry, Task{
+			Name:  "fatal-panic",
+			Phase: PhasePreBind,
+			Run: func(context.Context) error {
+				panic(panicCause)
+			},
+		})
+
+		runner := MustNewRunner(registry)
+		err := runner.RunPreBind(context.Background())
+		if err == nil {
+			t.Fatal("RunPreBind() error = nil, want recovered panic")
+		}
+		if !errors.Is(err, panicCause) {
+			t.Fatalf("RunPreBind() error = %v, want wrapped panic cause", err)
+		}
+		var panicErr *PanicError
+		if !errors.As(err, &panicErr) {
+			t.Fatalf("RunPreBind() error type = %T, want *PanicError", err)
+		}
+		if panicErr.TaskName() != "fatal-panic" || panicErr.Recovered() != panicCause {
+			t.Fatalf("panic error = %#v, want task and recovered cause", panicErr)
+		}
+		if stack := string(panicErr.StackTrace()); !strings.Contains(stack, "TestTaskPanicsFollowConfiguredErrorPolicies") {
+			t.Fatalf("panic stack does not identify test task: %q", stack)
+		}
+		fatal := findTask(t, runner.Snapshot(), "fatal-panic")
+		if fatal.State != StateFailed || fatal.Attempts != 1 || !strings.Contains(fatal.Error, "fatal panic") {
+			t.Fatalf("fatal panic snapshot = %+v", fatal)
+		}
+	})
+
+	t.Run("non-fatal policies record and continue", func(t *testing.T) {
+		registry := NewRegistry()
+		mustRegister(t, registry, Task{
+			Name:   "degraded-panic",
+			Phase:  PhasePostBind,
+			Policy: ErrorPolicyDegraded,
+			Run:    func(context.Context) error { panic("degraded panic") },
+		})
+		mustRegister(t, registry, Task{
+			Name:   "ignored-panic",
+			Phase:  PhasePostBind,
+			Policy: ErrorPolicyIgnored,
+			Run:    func(context.Context) error { panic("ignored panic") },
+		})
+
+		runner := MustNewRunner(registry)
+		if err := runner.RunPostBind(context.Background()); err != nil {
+			t.Fatalf("RunPostBind() error = %v", err)
+		}
+		snapshot := runner.Snapshot()
+		degraded := findTask(t, snapshot, "degraded-panic")
+		if degraded.State != StateDegraded || !strings.Contains(degraded.Error, "degraded panic") {
+			t.Fatalf("degraded panic snapshot = %+v", degraded)
+		}
+		ignored := findTask(t, snapshot, "ignored-panic")
+		if ignored.State != StateIgnored || !strings.Contains(ignored.Error, "ignored panic") {
+			t.Fatalf("ignored panic snapshot = %+v", ignored)
+		}
+	})
+
+	t.Run("retryable retries a panic", func(t *testing.T) {
+		registry := NewRegistry()
+		var attempts atomic.Int32
+		mustRegister(t, registry, Task{
+			Name:        "retryable-panic",
+			Phase:       PhasePostBind,
+			Policy:      ErrorPolicyRetryable,
+			MaxAttempts: 2,
+			Run: func(context.Context) error {
+				if attempts.Add(1) == 1 {
+					panic("retry me")
+				}
+				return nil
+			},
+		})
+
+		runner := MustNewRunner(registry)
+		if err := runner.RunPostBind(context.Background()); err != nil {
+			t.Fatalf("RunPostBind() error = %v", err)
+		}
+		task := findTask(t, runner.Snapshot(), "retryable-panic")
+		if task.State != StateSucceeded || task.Attempts != 2 || attempts.Load() != 2 {
+			t.Fatalf("retryable panic snapshot = %+v attempts=%d", task, attempts.Load())
+		}
+	})
+}
+
+func TestBackgroundTaskPanicIsContained(t *testing.T) {
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:   "background-panic",
+		Phase:  PhaseBackground,
+		Policy: ErrorPolicyDegraded,
+		Run:    func(context.Context) error { panic("background panic") },
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.StartBackground(context.Background()); err != nil {
+		t.Fatalf("StartBackground() error = %v", err)
+	}
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+	task := findTask(t, runner.Snapshot(), "background-panic")
+	if task.State != StateDegraded || task.Attempts != 1 || !strings.Contains(task.Error, "background panic") {
+		t.Fatalf("background panic snapshot = %+v", task)
+	}
+}
+
 func TestRunReadyMarksRunnerReadyAndMarkServingIsExplicit(t *testing.T) {
 	registry := NewRegistry()
 	mustRegister(t, registry, Task{Name: "ready", Phase: PhaseReady, Run: func(context.Context) error { return nil }})
