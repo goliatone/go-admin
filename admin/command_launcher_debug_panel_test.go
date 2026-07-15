@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -378,6 +379,28 @@ func TestCommandLauncherOptionResolverRejectsUnregisteredSource(t *testing.T) {
 	}
 	if len(options.calls) != 0 {
 		t.Fatalf("provider must not be called for an unregistered source, got %#v", options.calls)
+	}
+}
+
+func TestCommandLauncherOptionResolverReturnsProviderFailure(t *testing.T) {
+	options := &commandLauncherTestOptionProvider{err: fmt.Errorf("catalog unavailable")}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+
+	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
+		"command_id": "catalog.inspect",
+		"field_path": "entity_id",
+	})
+	if err == nil || !strings.Contains(err.Error(), "catalog unavailable") {
+		t.Fatalf("expected provider failure to retain actionable cause, got %v", err)
 	}
 }
 
