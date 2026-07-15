@@ -168,6 +168,7 @@ export type ServerPanelUI = {
       description?: string;
       help?: string;
       required?: boolean;
+      sensitive?: boolean;
       options?: string[];
       option_items?: Array<{
         value?: string;

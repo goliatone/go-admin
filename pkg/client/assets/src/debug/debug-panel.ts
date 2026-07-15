@@ -66,7 +66,7 @@ import {
   replPanelIDs,
 } from './shared/runtime-helpers.js';
 import { renderDebugIconRef } from './shared/icons.js';
-import { buildPanelActionPayload } from './shared/panel-actions.js';
+import { buildPanelActionPayload, panelActionHasSensitiveFields } from './shared/panel-actions.js';
 import { hydrateServerPanelDefinitions } from './shared/server-definitions.js';
 import {
   attachCommandLauncherListeners,
@@ -1167,8 +1167,16 @@ export class DebugPanel {
       return;
     }
     const payload = payloadOverride || buildPanelActionPayload(element);
+    let persistedPayload = payload;
     if (panelID === 'commands' && element instanceof HTMLFormElement) {
-      this.commandLauncherLastPayloads.set(actionID, clonePanelActionPayload(payload));
+      persistedPayload = buildPanelActionPayload(element, { excludeSensitive: true });
+      if (panelActionHasSensitiveFields(element)) {
+        // Retrying would either retain a secret or silently dispatch without it.
+        // Require the operator to re-enter sensitive values in the live form.
+        this.commandLauncherLastPayloads.delete(actionID);
+      } else {
+        this.commandLauncherLastPayloads.set(actionID, clonePanelActionPayload(payload));
+      }
     }
     if (button) {
       button.disabled = true;
@@ -1200,7 +1208,7 @@ export class DebugPanel {
         { at: Date.now(), durationMs: Date.now() - startedAt }
       );
       if (panelID === 'commands') {
-        recordCommandLauncherInvocation(payload);
+        recordCommandLauncherInvocation(persistedPayload);
       }
       if (result.event) {
         this.handleEvent(result.event);

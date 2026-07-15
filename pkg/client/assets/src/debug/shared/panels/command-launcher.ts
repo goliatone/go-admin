@@ -14,6 +14,7 @@
 
 import { escapeHTML } from '../utils.js';
 import { registerServerPanelConsoleRenderer, type ServerPanelConsoleRendererContext } from '../server-definitions.js';
+import { buildPanelActionPayload, panelActionHasSensitiveFields } from '../panel-actions.js';
 import { httpRequest, readExpectedHTTPJSON, readHTTPErrorResult } from '../../../shared/transport/http-client.js';
 
 const COMMAND_LAUNCHER_PANEL_ID = 'commands';
@@ -29,6 +30,7 @@ type ServerActionField = {
   description?: string;
   help?: string;
   required?: boolean;
+  sensitive?: boolean;
   options?: string[];
   option_items?: ServerActionOption[];
   option_source?: ServerActionOptionSource;
@@ -327,8 +329,14 @@ function mergeActionFieldPresentation(action: ServerAction, schemaFields: Map<st
         return field;
       }
       const merged: ServerActionField = { ...field };
+      if (!own(merged, 'sensitive') && schema.sensitive === true) {
+        merged.sensitive = true;
+      }
       if (!own(merged, 'default') && own(schema, 'default')) {
         merged.default = schema.default;
+      }
+      if (merged.sensitive === true) {
+        delete merged.default;
       }
       if (!own(merged, 'display_hints') && own(schema, 'display_hints')) {
         merged.display_hints = schema.display_hints;
@@ -450,13 +458,17 @@ function normalizedOptionItems(field: ServerActionField): Array<Required<Pick<Se
 function optionSourceDependencies(source: ServerActionOptionSource | undefined): string[] {
   const raw = source?.params?.depends_on;
   const values = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
-  return values.map(str).filter(Boolean);
+  return values.map((value) => normalizedPayloadPath(str(value))).filter(Boolean);
+}
+
+function normalizedPayloadPath(value: string): string {
+  return value.trim().replace(/^payload\./, '');
 }
 
 function optionSourceAttrs(field: ServerActionField, payloadPath: string): string {
   const sourceID = str(field.option_source?.id);
   if (!sourceID) return '';
-  const fieldPath = payloadPath.replace(/^payload\./, '');
+  const fieldPath = normalizedPayloadPath(payloadPath);
   const depends = optionSourceDependencies(field.option_source).join(',');
   return ` data-cmdl-option-source="${escapeHTML(sourceID)}" data-cmdl-option-field="${escapeHTML(fieldPath)}"${depends ? ` data-cmdl-option-depends="${escapeHTML(depends)}"` : ''}`;
 }
@@ -480,6 +492,7 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
   const payloadPath = str(field.payload_path) || name;
   const fieldId = `cmdl-${actionId}-${name}-${index}`;
   const required = field.required === true;
+  const sensitive = field.sensitive === true;
   const reqMark = required ? '<span class="cmdl-field__req" title="Required">*</span>' : '';
   const placeholder = str(field.placeholder);
   const placeholderAttr = placeholder ? ` placeholder="${escapeHTML(placeholder)}"` : '';
@@ -498,10 +511,19 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
     ? `<small class="cmdl-field__source" data-cmdl-option-status>${options.length > 0 ? '' : 'Options load when this command is selected.'}</small>`
     : '';
   const requiredAttr = required ? ' required' : '';
-  const baseAttrs = `id="${escapeHTML(fieldId)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${requiredAttr}`;
+  const baseAttrs = `id="${escapeHTML(fieldId)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${sensitive ? ' data-action-field-sensitive="true"' : ''}${requiredAttr}`;
   const errorSmall = `<small class="cmdl-field__error" data-action-field-error="${escapeHTML(payloadPath)}" data-action-field-name="${escapeHTML(name)}" data-action-id="${escapeHTML(actionId)}" hidden></small>`;
 
   // Boolean → full-width toggle row.
+  if (sensitive) {
+    return `
+      <div class="cmdl-field"${sourceAttrs}>
+        <label class="cmdl-field__label" for="${escapeHTML(fieldId)}">${escapeHTML(label)}${reqMark}</label>
+        <input type="password" ${baseAttrs}${placeholderAttr} autocomplete="new-password" spellcheck="false">
+        ${help}${sourceStatus}${errorSmall}
+      </div>`;
+  }
+
   if (isBooleanKind(kind)) {
     const checked = field.default === true ? ' checked' : '';
     return `
@@ -658,6 +680,7 @@ function renderForm(entry: CatalogEntry): string {
   const confirm = str(action.confirm_text);
   const requiresConfirm = action.requires_confirm === true;
   const mutating = entry.descriptor?.mutating === true;
+  const hasSensitiveFields = fields.some((field) => field.sensitive === true);
 
   let body = '';
   if (fields.length === 0) {
@@ -678,12 +701,12 @@ function renderForm(entry: CatalogEntry): string {
         <button type="button" class="cmdl-recall__save" data-cmdl-save-preset>Save preset</button>
       </div>
       <div class="cmdl-form__fields" data-cmdl-fields>${sectionsHtml}</div>
-      <div class="cmdl-form__json" data-cmdl-json hidden>
+      ${hasSensitiveFields ? '' : `<div class="cmdl-form__json" data-cmdl-json hidden>
         <textarea class="cmdl-json-editor" data-cmdl-json-editor
           data-action-field="__payload__" data-action-field-kind="json" data-action-field-path="payload"
           rows="10" spellcheck="false" aria-label="Raw JSON payload"></textarea>
         <div class="cmdl-json-error" data-cmdl-json-error hidden></div>
-      </div>`;
+      </div>`}`;
   }
 
   // Mutating / confirm-required commands gate dispatch with an inline two-step
@@ -695,8 +718,11 @@ function renderForm(entry: CatalogEntry): string {
   const note = mutating
     ? '<span class="cmdl-form__note">Confirms before running</span>'
     : '';
-  const jsonToggle = fields.length > 0
+  const jsonToggle = fields.length > 0 && !hasSensitiveFields
     ? '<button type="button" class="cmdl-btn cmdl-btn--ghost cmdl-btn--json" data-cmdl-json-toggle title="Edit the raw JSON payload">JSON</button>'
+    : '';
+  const sensitiveNote = hasSensitiveFields
+    ? '<span class="cmdl-form__note">Sensitive values are never saved and must be re-entered</span>'
     : '';
   const confirmRow = needsConfirm
     ? `
@@ -723,6 +749,7 @@ function renderForm(entry: CatalogEntry): string {
           <button type="reset" class="cmdl-btn cmdl-btn--ghost">Reset</button>
           ${jsonToggle}
           ${note}
+          ${sensitiveNote}
         </div>${confirmRow}
       </div>
     </form>`;
@@ -1328,20 +1355,22 @@ async function refreshDynamicOptionField(field: HTMLElement): Promise<void> {
 }
 
 async function refreshDynamicOptions(scope: HTMLElement, dependency = ''): Promise<void> {
+  const normalizedDependency = normalizedPayloadPath(dependency);
   const fields = Array.from(scope.querySelectorAll<HTMLElement>('[data-cmdl-option-source]'));
   await Promise.all(fields
     .filter((field) => {
-      if (!dependency) return true;
-      const dependencies = (field.dataset.cmdlOptionDepends || '').split(',').map(str).filter(Boolean);
-      return dependencies.includes(dependency);
+      if (!normalizedDependency) return true;
+      const dependencies = (field.dataset.cmdlOptionDepends || '').split(',').map((value) => normalizedPayloadPath(str(value))).filter(Boolean);
+      return dependencies.includes(normalizedDependency);
     })
     .map((field) => refreshDynamicOptionField(field)));
 }
 
-function scheduleDependentOptionRefresh(form: HTMLElement, dependency: string): void {
+function scheduleDependentOptionRefresh(form: HTMLElement, changedFields: string[]): void {
+  const changed = new Set(changedFields.map(normalizedPayloadPath).filter(Boolean));
   form.querySelectorAll<HTMLElement>('[data-cmdl-option-source]').forEach((field) => {
-    const dependencies = (field.dataset.cmdlOptionDepends || '').split(',').map(str).filter(Boolean);
-    if (!dependencies.includes(dependency)) return;
+    const dependencies = (field.dataset.cmdlOptionDepends || '').split(',').map((value) => normalizedPayloadPath(str(value))).filter(Boolean);
+    if (!dependencies.some((dependency) => changed.has(dependency))) return;
     const existing = optionRefreshTimers.get(field);
     if (existing !== undefined) window.clearTimeout(existing);
     optionRefreshTimers.set(field, window.setTimeout(() => void refreshDynamicOptionField(field), 200));
@@ -1384,9 +1413,12 @@ function captureFormDraft(form: HTMLElement): void {
   }
   const draft: Record<string, string> = {};
   form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
-    const name = str(field.dataset.actionField);
-    if (name) {
-      draft[name] = readFieldDraftValue(field);
+    if (field.dataset.actionFieldSensitive === 'true') {
+      return;
+    }
+    const key = normalizedPayloadPath(str(field.dataset.actionFieldPath)) || str(field.dataset.actionField);
+    if (key) {
+      draft[key] = readFieldDraftValue(field);
     }
   });
   formDrafts.set(actionId, draft);
@@ -1406,9 +1438,12 @@ function applyFormDraft(form: HTMLElement): void {
     return;
   }
   form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
-    const name = str(field.dataset.actionField);
-    if (name && Object.prototype.hasOwnProperty.call(draft, name)) {
-      applyFieldDraftValue(field, draft[name]);
+    if (field.dataset.actionFieldSensitive === 'true') {
+      return;
+    }
+    const key = normalizedPayloadPath(str(field.dataset.actionFieldPath)) || str(field.dataset.actionField);
+    if (key && Object.prototype.hasOwnProperty.call(draft, key)) {
+      applyFieldDraftValue(field, draft[key]);
     }
   });
 }
@@ -1487,52 +1522,28 @@ export function recordCommandLauncherInvocation(envelope: unknown): void {
   writeInvocationStore(key, existing.slice(0, RECENT_LIMIT));
 }
 
-function readActionFieldValue(field: HTMLElement): unknown {
-  const kind = lower(field.dataset.actionFieldKind);
-  if (field instanceof HTMLInputElement && field.type === 'checkbox') {
-    return field.checked;
-  }
-  const raw = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement ? field.value.trim() : '';
-  if (raw === '') {
-    return undefined;
-  }
-  if (kind === 'number' || kind === 'integer') {
-    const num = Number(raw);
-    return Number.isFinite(num) ? num : raw;
-  }
-  if (kind === 'string_list' || kind === 'array') {
-    return raw.split(/[\n,]/g).map((token) => token.trim()).filter(Boolean);
-  }
-  if (kind === 'json' || kind === 'object') {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return raw;
-    }
-  }
-  return raw;
-}
-
 // Read the active form's inner field payload (skips the suspended JSON editor).
 function collectFormPayload(form: HTMLElement): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
-    // Skip the inactive editor (a hidden ancestor inside the form) but not the
-    // whole detail block when the command happens to be unselected.
-    const hidden = field.closest('[hidden]');
-    if (hidden && form.contains(hidden)) {
-      return;
+  const envelope = buildPanelActionPayload(form, { excludeSensitive: true });
+  const inner = envelope.payload;
+  return inner && typeof inner === 'object' && !Array.isArray(inner)
+    ? inner as Record<string, unknown>
+    : {};
+}
+
+function readPayloadPath(payload: Record<string, unknown>, path: string): { found: boolean; value?: unknown } {
+  const parts = normalizedPayloadPath(path).split('.').map(str).filter(Boolean);
+  if (parts.length === 0) {
+    return { found: false };
+  }
+  let current: unknown = payload;
+  for (const part of parts) {
+    if (!current || typeof current !== 'object' || Array.isArray(current) || !Object.prototype.hasOwnProperty.call(current, part)) {
+      return { found: false };
     }
-    const name = str(field.dataset.actionField);
-    if (!name || name.startsWith('__')) {
-      return;
-    }
-    const value = readActionFieldValue(field);
-    if (value !== undefined) {
-      out[name] = value;
-    }
-  });
-  return out;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return { found: true, value: current };
 }
 
 function applyLoadedValue(field: HTMLElement, value: unknown): void {
@@ -1561,8 +1572,17 @@ function applyLoadedValue(field: HTMLElement, value: unknown): void {
 
 function loadInvocationIntoForm(form: HTMLElement, inner: Record<string, unknown>): void {
   form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
+    if (field.dataset.actionFieldSensitive === 'true') {
+      return;
+    }
     const name = str(field.dataset.actionField);
-    if (name && Object.prototype.hasOwnProperty.call(inner, name)) {
+    const path = normalizedPayloadPath(str(field.dataset.actionFieldPath)) || name;
+    const resolved = readPayloadPath(inner, path);
+    if (resolved.found) {
+      applyLoadedValue(field, resolved.value);
+    } else if (name && Object.prototype.hasOwnProperty.call(inner, name)) {
+      // Backward compatibility for presets saved by clients that flattened
+      // nested field paths to the field name.
       applyLoadedValue(field, inner[name]);
     }
   });
@@ -1644,6 +1664,9 @@ function handleRecallAction(target: HTMLElement, root: HTMLElement): boolean {
 // ============================================================================
 
 function setJsonMode(form: HTMLElement, on: boolean): void {
+  if (panelActionHasSensitiveFields(form)) {
+    return;
+  }
   const fields = form.querySelector<HTMLElement>('[data-cmdl-fields]');
   const jsonBox = form.querySelector<HTMLElement>('[data-cmdl-json]');
   const editor = form.querySelector<HTMLTextAreaElement>('[data-cmdl-json-editor]');
@@ -1956,8 +1979,9 @@ export function attachCommandLauncherListeners(container: HTMLElement, options: 
     if (field) {
       captureFormFor(field);
       const form = field.closest<HTMLElement>('[data-panel-action-form]');
-      const dependency = str(field.dataset.actionField) || str(field.dataset.actionFieldPath).replace(/^payload\./, '');
-      if (form && dependency) scheduleDependentOptionRefresh(form, dependency);
+      const dependencyPath = normalizedPayloadPath(str(field.dataset.actionFieldPath));
+      const dependencyName = str(field.dataset.actionField);
+      if (form && (dependencyPath || dependencyName)) scheduleDependentOptionRefresh(form, [dependencyPath, dependencyName]);
       if (field instanceof HTMLSelectElement) {
         const description = field.selectedOptions[0]?.dataset.optionDescription || '';
         const output = field.closest<HTMLElement>('.cmdl-field')?.querySelector<HTMLElement>('[data-cmdl-option-description]');

@@ -1176,6 +1176,82 @@ test('commands panel confirms inline (no browser dialog) and retry reuses the la
   assert.deepEqual(confirmations, []);
 });
 
+test('commands panel dispatches sensitive values without retaining them for recall or retry', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.debugPath = '/admin/debug-commands-sensitive';
+  consoleEl.dataset.panels = JSON.stringify(['commands']);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', 'commands');
+
+  let submittedPayload;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = String(input);
+    if (url.endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: 'commands',
+          label: 'Commands',
+          snapshot_key: 'commands',
+          ui: {
+            views: { console: { renderer: 'json', title: 'Commands' } },
+            actions: [{
+              id: 'dispatch_secure',
+              label: 'Secure operation',
+              payload: { command_id: 'secure.operation', payload: {}, options: { mode: 'inline' } },
+              fields: [
+                { name: 'scope', label: 'Scope', kind: 'text', payload_path: 'payload.context.scope' },
+                { name: 'api_token', label: 'API token', kind: 'text', payload_path: 'payload.credentials.api_token', sensitive: true },
+              ],
+            }],
+          },
+        }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        commands: {
+          commands: [{ id: 'secure.operation', label: 'Secure operation', group: 'Secure', execution_mode: 'inline' }],
+          diagnostics: [],
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.endsWith('/api/panels/commands/actions/dispatch_secure')) {
+      submittedPayload = JSON.parse(init.body);
+      return new Response(JSON.stringify({ ok: true, message: 'Command complete', data: { receipt: { Accepted: true, Mode: 'inline' } } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await waitForAssertion(() => {
+    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]'));
+  });
+  const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]');
+  assert.equal(form.querySelector('[data-action-field="api_token"]').dataset.actionFieldSensitive, 'true');
+  form.querySelector('[data-action-field="scope"]').value = 'archive';
+  form.querySelector('[data-action-field="api_token"]').value = 'dispatch-only-secret';
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  await waitForAssertion(() => {
+    assert.deepEqual(submittedPayload, {
+      command_id: 'secure.operation',
+      payload: { context: { scope: 'archive' }, credentials: { api_token: 'dispatch-only-secret' } },
+      options: { mode: 'inline' },
+    });
+    assert.equal(dom.window.document.querySelector('[data-cmdl-retry]'), null);
+    const persisted = dom.window.localStorage.getItem('cmdl:recent:secure.operation') || '';
+    assert.match(persisted, /"scope":"archive"/);
+    assert.equal(persisted.includes('dispatch-only-secret'), false);
+    assert.equal(persisted.includes('api_token'), false);
+  });
+});
+
 test('commands panel surfaces rich error details from a failed dispatch', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);

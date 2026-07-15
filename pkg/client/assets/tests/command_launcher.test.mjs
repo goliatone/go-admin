@@ -18,6 +18,7 @@ async function loadJSDOM() {
 const { JSDOM } = await loadJSDOM();
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const sourcePath = path.resolve(testFileDir, '../src/debug/shared/panels/command-launcher.ts');
+const panelActionsPath = path.resolve(testFileDir, '../src/debug/shared/panel-actions.ts');
 
 async function importLauncher() {
   const stats = fs.statSync(sourcePath);
@@ -37,6 +38,20 @@ async function importLauncher() {
     });
   }
   return import(`${pathToFileURL(outputPath).href}`);
+}
+
+async function importPanelActions() {
+  const outputPath = path.join(os.tmpdir(), `go-admin-panel-actions-${crypto.createHash('sha1').update(panelActionsPath).digest('hex')}.mjs`);
+  await build({
+    entryPoints: [panelActionsPath],
+    outfile: outputPath,
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: ['es2020'],
+    logLevel: 'silent',
+  });
+  return import(`${pathToFileURL(outputPath).href}?${Date.now()}`);
 }
 
 const serverDefsPath = path.resolve(testFileDir, '../src/debug/shared/server-definitions.ts');
@@ -110,6 +125,33 @@ function sampleData() {
   };
 }
 
+function sensitiveNestedDef() {
+  return {
+    id: 'commands',
+    ui: {
+      schema_version: '1',
+      metadata: { option_resolver_action: 'resolve_options' },
+      actions: [{
+        id: 'dispatch_secure',
+        label: 'Secure operation',
+        payload: { command_id: 'secure.operation', payload: {}, options: { mode: 'inline' } },
+        fields: [
+          { name: 'region', label: 'Region', kind: 'select', payload_path: 'payload.context.region', options: ['us', 'eu'] },
+          { name: 'api_token', label: 'API token', kind: 'string', payload_path: 'payload.credentials.api_token', sensitive: true, default: 'must-not-render' },
+          {
+            name: 'target', label: 'Target', kind: 'select', payload_path: 'payload.context.target',
+            option_source: { id: 'secure.targets', dynamic: true, params: { depends_on: ['payload.context.region'] } },
+          },
+        ],
+      }],
+    },
+  };
+}
+
+function sensitiveNestedData() {
+  return { commands: [{ id: 'secure.operation', group: 'Secure', execution_mode: 'inline' }], diagnostics: [] };
+}
+
 function hintedDef() {
   return {
     id: 'commands',
@@ -167,6 +209,7 @@ function setWindowGlobals(win) {
   globalThis.Element = win.Element;
   globalThis.Node = win.Node;
   globalThis.HTMLElement = win.HTMLElement;
+  globalThis.HTMLFormElement = win.HTMLFormElement;
   globalThis.HTMLInputElement = win.HTMLInputElement;
   globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
@@ -225,6 +268,38 @@ test('maps field kinds to the right controls and reuses the dispatch contract', 
   assert.match(html, /<select[^>]*data-action-field="locale"[\s\S]*?<option value="en"/);
   // payload path preserved
   assert.match(html, /data-action-field-path="payload\.batch_size"/);
+});
+
+test('renders sensitive fields as passwords and keeps them only in the live dispatch payload', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const { buildPanelActionPayload, panelActionHasSensitiveFields } = await importPanelActions();
+  const html = renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true });
+  const dom = mount(html);
+  const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]');
+  const token = form.querySelector('[data-action-field="api_token"]');
+  const region = form.querySelector('[data-action-field="region"]');
+
+  assert.equal(token.type, 'password');
+  assert.equal(token.autocomplete, 'new-password');
+  assert.equal(token.dataset.actionFieldSensitive, 'true');
+  assert.equal(token.value, '');
+  assert.doesNotMatch(html, /must-not-render/);
+  assert.equal(form.querySelector('[data-cmdl-json-toggle]'), null);
+  assert.equal(form.querySelector('[data-cmdl-json-editor]'), null);
+  assert.equal(panelActionHasSensitiveFields(form), true);
+
+  region.value = 'eu';
+  token.value = 'operator-secret';
+  assert.deepEqual(buildPanelActionPayload(form), {
+    command_id: 'secure.operation',
+    payload: { context: { region: 'eu' }, credentials: { api_token: 'operator-secret' } },
+    options: { mode: 'inline' },
+  });
+  assert.deepEqual(buildPanelActionPayload(form, { excludeSensitive: true }), {
+    command_id: 'secure.operation',
+    payload: { context: { region: 'eu' } },
+    options: { mode: 'inline' },
+  });
 });
 
 test('renders rich scalar choices and keeps multi-value choices as chips', async () => {
@@ -326,6 +401,41 @@ test('refreshes dependent dynamic choices with the current form payload', async 
     assert.equal(source.options[1].value, 'sql-source');
     assert.equal(source.options[1].textContent, 'SQL source');
     assert.match(host.querySelector('[data-cmdl-option-status]').textContent, /1 option available/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('refreshes nested dependent choices with a nested payload and excludes sensitive values', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  const requests = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, options) => {
+    requests.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ data: { option_items: [{ value: 'archive', label: 'Archive' }] } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
+    host.querySelector('[data-cmdl-item="dispatch_secure"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const token = host.querySelector('[data-action-field="api_token"]');
+    const region = host.querySelector('[data-action-field="region"]');
+    token.value = 'do-not-send-to-provider';
+    token.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    region.value = 'eu';
+    region.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 260));
+
+    const last = requests.at(-1);
+    assert.equal(last.field_path, 'context.target');
+    assert.deepEqual(last.payload, { context: { region: 'eu' } });
+    assert.equal(JSON.stringify(last).includes('do-not-send-to-provider'), false);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -918,6 +1028,34 @@ test('saving and deleting a preset round-trips through storage', async () => {
   assert.match(preset.textContent, /My preset/);
   recall.querySelector('[data-cmdl-del-preset="0"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   assert.equal(recall.querySelector('[data-cmdl-load="preset:0"]'), null);
+});
+
+test('drafts and presets preserve nested values without retaining sensitive fields', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const firstDOM = mount(renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true }));
+  const firstHost = firstDOM.window.document.getElementById('host');
+  firstDOM.window.prompt = () => 'Safe preset';
+  attachCommandLauncherListeners(firstHost);
+  firstHost.querySelector('[data-cmdl-item="dispatch_secure"]').dispatchEvent(new firstDOM.window.MouseEvent('click', { bubbles: true }));
+
+  const region = firstHost.querySelector('[data-action-field="region"]');
+  const token = firstHost.querySelector('[data-action-field="api_token"]');
+  region.value = 'eu';
+  region.dispatchEvent(new firstDOM.window.Event('change', { bubbles: true }));
+  token.value = 'never-persist';
+  token.dispatchEvent(new firstDOM.window.Event('input', { bubbles: true }));
+  firstHost.querySelector('[data-cmdl-save-preset]').dispatchEvent(new firstDOM.window.MouseEvent('click', { bubbles: true }));
+
+  const stored = firstDOM.window.localStorage.getItem('cmdl:preset:secure.operation');
+  assert.match(stored, /"context":\{"region":"eu"\}/);
+  assert.equal(stored.includes('never-persist'), false);
+  assert.equal(stored.includes('api_token'), false);
+
+  const secondDOM = mount(renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true }));
+  const secondHost = secondDOM.window.document.getElementById('host');
+  attachCommandLauncherListeners(secondHost);
+  assert.equal(secondHost.querySelector('[data-action-field="region"]').value, 'eu');
+  assert.equal(secondHost.querySelector('[data-action-field="api_token"]').value, '');
 });
 
 // ---- Phase 3 T13: JSON ↔ form power mode ----

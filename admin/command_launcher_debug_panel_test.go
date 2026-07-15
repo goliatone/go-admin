@@ -287,14 +287,15 @@ func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testin
 			{Name: "limit", Path: "limit", Type: "integer"},
 			{Name: "tags", Path: "filters.tags", Type: "array"},
 			{Name: "metadata", Path: "metadata", Type: "object"},
+			{Name: "api_token", Path: "credentials.api_token", Type: "string", Sensitive: true, Default: "must-not-serialize"},
 			{Name: "status", Path: "filters.status", Kind: "select", Type: "string", StaticOptions: []command.CommandOption{
 				{Value: "draft", Label: "Draft"},
 				{Value: "published", Label: "Published"},
 			}},
 		},
 	}}, nil)
-	if len(fields) != 5 {
-		t.Fatalf("expected five fields, got %#v", fields)
+	if len(fields) != 6 {
+		t.Fatalf("expected six fields, got %#v", fields)
 	}
 	byName := map[string]debugregistry.PanelUIActionField{}
 	for _, field := range fields {
@@ -311,6 +312,9 @@ func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testin
 	}
 	if byName["metadata"].Kind != "json" || byName["metadata"].PayloadPath != "payload.metadata" {
 		t.Fatalf("unexpected json field: %#v", byName["metadata"])
+	}
+	if !byName["api_token"].Sensitive || byName["api_token"].Default != nil || byName["api_token"].PayloadPath != "payload.credentials.api_token" {
+		t.Fatalf("unexpected sensitive field: %#v", byName["api_token"])
 	}
 	if byName["status"].Kind != "select" || len(byName["status"].Options) != 2 || len(byName["status"].OptionItems) != 2 || byName["status"].OptionItems[0].Label != "Draft" {
 		t.Fatalf("unexpected select field: %#v", byName["status"])
@@ -491,8 +495,8 @@ func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
 		byPath[path] = field
 	}
 	field := byPath["entity_id"]
-	if field["default"] != "entity-1" || field["help"] != "Pick an entity" {
-		t.Fatalf("expected default/help in serialized schema, got %#v", field)
+	if _, exists := field["default"]; exists || field["help"] != "Pick an entity" {
+		t.Fatalf("expected sensitive default to be omitted while help remains, got %#v", field)
 	}
 	if field["sensitive"] != true {
 		t.Fatalf("expected sensitive descriptor flag to round-trip, got %#v", field)

@@ -402,7 +402,8 @@ function renderPanelActionField(
   const placeholderAttr = placeholder ? ` placeholder="${escapeHTML(placeholder)}"` : '';
   const description = normalizeText(field.description);
   const help = normalizeText(field.help);
-  const baseAttrs = `id="${escapeHTML(fieldID)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${required}`;
+  const sensitive = field.sensitive === true;
+  const baseAttrs = `id="${escapeHTML(fieldID)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${sensitive ? ' data-action-field-sensitive="true"' : ''}${required}`;
   const options = Array.isArray(field.options) ? field.options.map((option) => normalizeText(option)).filter(Boolean) : [];
   const optionItems = Array.isArray(field.option_items)
     ? field.option_items
@@ -414,7 +415,9 @@ function renderPanelActionField(
       .filter((option) => option.value)
     : [];
   let control = '';
-  if (kind === 'boolean' || kind === 'checkbox') {
+  if (sensitive) {
+    control = `<input type="password" ${baseAttrs}${placeholderAttr} autocomplete="new-password" spellcheck="false">`;
+  } else if (kind === 'boolean' || kind === 'checkbox') {
     control = `<input type="checkbox" ${baseAttrs}>`;
   } else if (kind === 'select' || optionItems.length > 0 || options.length > 0) {
     const renderedOptions = optionItems.length > 0

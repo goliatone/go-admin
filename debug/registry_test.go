@@ -196,6 +196,46 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	}
 }
 
+func TestPanelDefinitionSensitiveActionFieldOmitsDefault(t *testing.T) {
+	registry := NewPanelRegistry()
+	err := registry.Register("commands", PanelConfig{
+		UI: &PanelUI{
+			Views: PanelUIViews{Console: &PanelUIView{Renderer: PanelRendererJSON}},
+			Actions: []PanelUIAction{{
+				ID: "dispatch",
+				Fields: []PanelUIActionField{{
+					Name:      "api_token",
+					Sensitive: true,
+					Default:   "must-not-serialize",
+				}},
+			}},
+		},
+		Actions: map[string]PanelActionHandler{
+			"dispatch": func(context.Context, PanelActionRequest) (PanelActionResult, error) {
+				return PanelActionResult{OK: true}, nil
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	registration, ok := registry.Registration("commands")
+	if !ok || registration.Definition.UI == nil || len(registration.Definition.UI.Actions) != 1 {
+		t.Fatalf("expected normalized command action, got %#v", registration.Definition)
+	}
+	field := registration.Definition.UI.Actions[0].Fields[0]
+	if !field.Sensitive || field.Default != nil {
+		t.Fatalf("expected sensitive field without a serialized default, got %#v", field)
+	}
+	payload, err := json.Marshal(field)
+	if err != nil {
+		t.Fatalf("marshal field: %v", err)
+	}
+	if strings.Contains(string(payload), "must-not-serialize") || !strings.Contains(string(payload), `"sensitive":true`) {
+		t.Fatalf("unexpected sensitive field wire contract: %s", payload)
+	}
+}
+
 func TestPanelDefinitionsWithContextAppliesDefinitionFilter(t *testing.T) {
 	type contextKey string
 	const allowActionsKey contextKey = "allow-actions"

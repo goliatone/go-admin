@@ -1,4 +1,8 @@
-export function buildPanelActionPayload(element: HTMLElement): Record<string, unknown> {
+export type PanelActionPayloadOptions = {
+  excludeSensitive?: boolean;
+};
+
+export function buildPanelActionPayload(element: HTMLElement, options: PanelActionPayloadOptions = {}): Record<string, unknown> {
   const payload = parseBasePayload(element.dataset.actionPayload);
   if (!(element instanceof HTMLFormElement)) {
     return payload;
@@ -15,6 +19,10 @@ export function buildPanelActionPayload(element: HTMLElement): Record<string, un
     if (!path) {
       return;
     }
+    if (options.excludeSensitive && field.dataset.actionFieldSensitive === 'true') {
+      deletePayloadPath(payload, path);
+      return;
+    }
     const value = readFieldValue(field);
     if (value === undefined) {
       return;
@@ -22,6 +30,10 @@ export function buildPanelActionPayload(element: HTMLElement): Record<string, un
     setPayloadPath(payload, path, value);
   });
   return payload;
+}
+
+export function panelActionHasSensitiveFields(element: HTMLElement): boolean {
+  return element.querySelector('[data-action-field-sensitive="true"]') !== null;
 }
 
 function parseBasePayload(raw: string | undefined): Record<string, unknown> {
@@ -87,4 +99,31 @@ function setPayloadPath(payload: Record<string, unknown>, path: string, value: u
     current = current[part] as Record<string, unknown>;
   });
   current[parts[parts.length - 1]] = value;
+}
+
+function deletePayloadPath(payload: Record<string, unknown>, path: string): void {
+  const parts = path.split('.').map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return;
+  }
+  const parents: Array<{ value: Record<string, unknown>; key: string }> = [];
+  let current: Record<string, unknown> = payload;
+  for (const part of parts.slice(0, -1)) {
+    const next = current[part];
+    if (!next || typeof next !== 'object' || Array.isArray(next)) {
+      return;
+    }
+    parents.push({ value: current, key: part });
+    current = next as Record<string, unknown>;
+  }
+  delete current[parts[parts.length - 1]];
+  for (let index = parents.length - 1; index >= 0; index -= 1) {
+    const parent = parents[index];
+    const child = parent.value[parent.key];
+    if (child && typeof child === 'object' && !Array.isArray(child) && Object.keys(child as Record<string, unknown>).length === 0) {
+      delete parent.value[parent.key];
+    } else {
+      break;
+    }
+  }
 }
