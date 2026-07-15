@@ -236,7 +236,7 @@ func (r *Runner) runTask(ctx context.Context, task Task) error {
 		if task.Timeout > 0 {
 			runCtx, cancel = context.WithTimeout(ctx, task.Timeout)
 		}
-		err := task.Run(runCtx)
+		err := runTaskAttempt(runCtx, task)
 		if cancel != nil {
 			cancel()
 		}
@@ -267,6 +267,15 @@ func (r *Runner) runTask(ctx context.Context, task Task) error {
 		return fmt.Errorf("lifecycle task %q failed: %w", task.Name, lastErr)
 	}
 	return nil
+}
+
+func runTaskAttempt(ctx context.Context, task Task) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = newPanicError(task.Name, recovered)
+		}
+	}()
+	return task.Run(ctx)
 }
 
 func (r *Runner) markRunning(task Task) {

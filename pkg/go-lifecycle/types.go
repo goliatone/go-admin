@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -42,6 +43,65 @@ const (
 
 // TaskFunc is a unit of lifecycle work.
 type TaskFunc func(context.Context) error
+
+// PanicError reports a panic recovered while executing a lifecycle task.
+// Error returns a bounded diagnostic suitable for snapshots. Recovered and
+// StackTrace retain the original value and stack for internal diagnostics.
+type PanicError struct {
+	taskName  string
+	recovered any
+	stack     []byte
+}
+
+func newPanicError(taskName string, recovered any) *PanicError {
+	return &PanicError{
+		taskName:  taskName,
+		recovered: recovered,
+		stack:     debug.Stack(),
+	}
+}
+
+// Error implements error without exposing the recovered stack in serialized
+// lifecycle snapshots.
+func (e *PanicError) Error() string {
+	if e == nil {
+		return "lifecycle task panicked"
+	}
+	return fmt.Sprintf("lifecycle task %q panicked: %v", e.taskName, e.recovered)
+}
+
+// Unwrap preserves an error used as the panic value for errors.Is/errors.As.
+func (e *PanicError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	err, _ := e.recovered.(error)
+	return err
+}
+
+// TaskName returns the task that panicked.
+func (e *PanicError) TaskName() string {
+	if e == nil {
+		return ""
+	}
+	return e.taskName
+}
+
+// Recovered returns the original panic value.
+func (e *PanicError) Recovered() any {
+	if e == nil {
+		return nil
+	}
+	return e.recovered
+}
+
+// StackTrace returns a defensive copy of the recovered panic stack.
+func (e *PanicError) StackTrace() []byte {
+	if e == nil || len(e.stack) == 0 {
+		return nil
+	}
+	return append([]byte(nil), e.stack...)
+}
 
 // Task describes a registered lifecycle task.
 type Task struct {
