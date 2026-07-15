@@ -331,6 +331,68 @@ test('refreshes dependent dynamic choices with the current form payload', async 
   }
 });
 
+test('ignores stale dynamic-option responses after a dependency changes', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const def = {
+    id: 'commands',
+    ui: {
+      schema_version: '1',
+      metadata: { option_resolver_action: 'resolve_options' },
+      actions: [{
+        id: 'dispatch_ingest',
+        label: 'Ingest',
+        payload: { command_id: 'transcript.ingest', payload: {}, options: { mode: 'inline' } },
+        fields: [
+          { name: 'source_kind', label: 'Source kind', kind: 'select', payload_path: 'payload.source_kind', options: ['folder', 'sql'] },
+          {
+            name: 'source_ref', label: 'Source', kind: 'select', payload_path: 'payload.source_ref',
+            option_source: { id: 'garchen.transcript_sources', dynamic: true, params: { depends_on: ['source_kind'] } },
+          },
+        ],
+      }],
+    },
+  };
+  const data = { commands: [{ id: 'transcript.ingest', group: 'Transcript', execution_mode: 'inline' }], diagnostics: [] };
+  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  const originalFetch = globalThis.fetch;
+  let resolveFirst;
+  let requestCount = 0;
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      return new Promise((resolve) => { resolveFirst = resolve; });
+    }
+    return new Response(JSON.stringify({ data: { option_items: [{ value: 'sql-source', label: 'SQL source' }] } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
+    host.querySelector('[data-cmdl-item="dispatch_ingest"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const kind = host.querySelector('[data-action-field="source_kind"]');
+    kind.value = 'sql';
+    kind.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 240));
+    assert.equal(requestCount, 2);
+
+    resolveFirst(new Response(JSON.stringify({ data: { option_items: [{ value: 'folder-source', label: 'Folder source' }] } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const source = host.querySelector('[data-action-field="source_ref"]');
+    assert.equal(source.options[1].value, 'sql-source');
+    assert.equal(Array.from(source.options).some((option) => option.value === 'folder-source'), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('groups required/list fields as Parameters and booleans as Options', async () => {
   const { renderCommandLauncherConsole } = await importLauncher();
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
