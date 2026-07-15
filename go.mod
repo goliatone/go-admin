@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-formgen v0.29.1
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
-	github.com/goliatone/go-logger v0.8.1
+	github.com/goliatone/go-logger v0.8.2
 	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-options v0.7.2
