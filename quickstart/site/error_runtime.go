@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -65,7 +66,10 @@ type SiteRuntimeError struct {
 	AvailableLocales []string `json:"available_locales"`
 	ContentType      string   `json:"content_type"`
 	SlugOrPath       string   `json:"slug_or_path"`
+	Cause            error    `json:"-"`
 }
+
+func (e SiteRuntimeError) Unwrap() error { return e.Cause }
 
 func (e SiteRuntimeError) Error() string {
 	message := strings.TrimSpace(e.Message)
@@ -233,7 +237,35 @@ func normalizeSiteRuntimeError(siteErr SiteRuntimeError) SiteRuntimeError {
 		AvailableLocales: cloneStrings(siteErr.AvailableLocales),
 		ContentType:      strings.TrimSpace(siteErr.ContentType),
 		SlugOrPath:       strings.TrimSpace(siteErr.SlugOrPath),
+		Cause:            siteErr.Cause,
 	}
+}
+
+func siteTemplateRenderFailure(fallback SiteRuntimeError, provenance DeliveryProvenance, cause error) SiteRuntimeError {
+	metadata := map[string]any{
+		"route_family":       provenance.RouteFamily,
+		"mode":               provenance.Mode,
+		"requested_template": provenance.RequestedTemplate,
+		"template_attempts":  append([]DeliveryTemplateAttempt{}, provenance.TemplateAttempts...),
+	}
+	var structured error
+	if cause != nil {
+		structured = goerrors.Wrap(cause, goerrors.CategoryInternal, "public site template render failed").
+			WithCode(500).
+			WithTextCode("PUBLIC_TEMPLATE_RENDER_FAILED").
+			WithMetadata(metadata)
+	} else {
+		structured = goerrors.New("public site template render failed", goerrors.CategoryInternal).
+			WithCode(500).
+			WithTextCode("PUBLIC_TEMPLATE_RENDER_FAILED").
+			WithMetadata(metadata)
+	}
+	fallback.Code = "public_template_render_failed"
+	fallback.Status = 500
+	fallback.Message = "the requested page could not be rendered"
+	fallback.ContentType = provenance.RouteFamily
+	fallback.Cause = structured
+	return fallback
 }
 
 func buildSiteErrorViewContext(
