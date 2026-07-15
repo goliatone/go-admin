@@ -177,6 +177,9 @@ func TestCommandLauncherPanelMissingDispatchShowsCatalogWithoutActions(t *testin
 	if len(def.UI.Actions) != 0 {
 		t.Fatalf("expected no executable actions without dispatch permission, got %#v", def.UI.Actions)
 	}
+	if resolver := def.UI.Metadata["option_resolver_action"]; resolver != nil {
+		t.Fatalf("option resolver metadata must not be exposed without its protected action, got %#v", resolver)
+	}
 	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, def.UI.Metadata["diagnostics"], "diagnostics metadata")
 	if len(diagnostics) != 1 || diagnostics[0].Code != "missing_command_dispatch" {
 		t.Fatalf("expected missing dispatch diagnostic, got %#v", diagnostics)
@@ -192,6 +195,31 @@ func TestCommandLauncherPanelMissingDispatchShowsCatalogWithoutActions(t *testin
 	}
 	if len(snapshot.Commands[0].Input.Fields) != 0 {
 		t.Fatalf("snapshot must not serialize command form schema without executable action: %#v", snapshot.Commands[0].Input)
+	}
+}
+
+func TestCommandLauncherPanelWithoutOptionProviderDoesNotAdvertiseResolver(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	def, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || def.UI == nil {
+		t.Fatal("expected command launcher panel definition")
+	}
+	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != "dispatch_catalog_inspect" {
+		t.Fatalf("expected only the command action, got %#v", def.UI.Actions)
+	}
+	if resolver := def.UI.Metadata["option_resolver_action"]; resolver != nil {
+		t.Fatalf("option resolver metadata must not be advertised without a provider, got %#v", resolver)
 	}
 }
 
