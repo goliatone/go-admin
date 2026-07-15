@@ -2,11 +2,15 @@ package site
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -31,6 +35,80 @@ func TestSiteTemplateResponsePayloadIncludesTemplateAndClonedContext(t *testing.
 	if got := anyString(viewCtx["theme"]); got != "admin" {
 		t.Fatalf("expected original view context unchanged, got %q", got)
 	}
+}
+
+func TestRenderSiteTemplateResponseReportsSelectedTemplateProvenance(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/provenance", nil)
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set(DeliveryProvenanceRequestHeader, "1")
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, req, nil, &siteResponseViews{successfulTemplate: "site/selected"})
+	if err := renderSiteTemplateResponse(ctx, RequestState{}, cfg, siteTemplateResponse{
+		TemplateNames: []string{"site/missing", "site/selected"},
+		ViewContext:   router.ViewContext{},
+		FallbackError: SiteRuntimeError{Status: 500},
+		Provenance: DeliveryProvenance{
+			RouteFamily:       "guide",
+			Mode:              "collection",
+			RequestedTemplate: "site/missing",
+		},
+	}); err != nil {
+		t.Fatalf("render response: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected success, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get(deliveryProvenanceSelectedTemplateHeader); got != "site/selected" {
+		t.Fatalf("selected template header=%q", got)
+	}
+	if got := rec.Header().Get(deliveryProvenanceFallbackHeader); got != "true" {
+		t.Fatalf("fallback header=%q", got)
+	}
+	var attempts []DeliveryTemplateAttempt
+	if err := json.Unmarshal([]byte(rec.Header().Get(deliveryProvenanceTemplateAttemptsHeader)), &attempts); err != nil {
+		t.Fatalf("decode attempts: %v", err)
+	}
+	if len(attempts) != 2 || attempts[0].Outcome != "failed" || attempts[1].Outcome != "selected" {
+		t.Fatalf("unexpected attempts: %+v", attempts)
+	}
+}
+
+func TestSiteTemplateRenderFailurePreservesStructuredCause(t *testing.T) {
+	cause := errors.New("template syntax error")
+	siteErr := siteTemplateRenderFailure(SiteRuntimeError{}, DeliveryProvenance{
+		RouteFamily:       "guide",
+		Mode:              "collection",
+		RequestedTemplate: "site/guides/list",
+		TemplateAttempts: []DeliveryTemplateAttempt{{
+			Template: "site/guides/list",
+			Outcome:  "failed",
+		}},
+	}, cause)
+	if siteErr.Code != "public_template_render_failed" || siteErr.Status != http.StatusInternalServerError {
+		t.Fatalf("unexpected site error: %+v", siteErr)
+	}
+	if !errors.Is(siteErr, cause) {
+		t.Fatalf("expected wrapped cause compatibility, got %v", siteErr)
+	}
+	var structured *goerrors.Error
+	if !errors.As(siteErr, &structured) || structured.TextCode != "PUBLIC_TEMPLATE_RENDER_FAILED" {
+		t.Fatalf("expected structured template error, got %#v", structured)
+	}
+}
+
+type siteResponseViews struct {
+	successfulTemplate string
+}
+
+func (v *siteResponseViews) Load() error { return nil }
+
+func (v *siteResponseViews) Render(out io.Writer, name string, _ any, _ ...string) error {
+	if name != v.successfulTemplate {
+		return errors.New("template not found")
+	}
+	_, err := out.Write([]byte("rendered"))
+	return err
 }
 
 func TestSiteTemplateResponsePayloadPrefersExplicitResponseTemplateAlias(t *testing.T) {

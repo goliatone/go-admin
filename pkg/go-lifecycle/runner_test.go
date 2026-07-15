@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -156,6 +157,16 @@ func TestTaskPanicsFollowConfiguredErrorPolicies(t *testing.T) {
 		if err := runner.RunPostBind(context.Background()); err != nil {
 			t.Fatalf("RunPostBind() error = %v", err)
 		}
+		failures := runner.Failures()
+		if len(failures) != 2 {
+			t.Fatalf("Failures() count = %d, want 2", len(failures))
+		}
+		for _, failure := range failures {
+			var panicErr *PanicError
+			if !errors.As(failure, &panicErr) || len(panicErr.StackTrace()) == 0 {
+				t.Fatalf("failure = %#v, want accessible PanicError stack", failure)
+			}
+		}
 		snapshot := runner.Snapshot()
 		degraded := findTask(t, snapshot, "degraded-panic")
 		if degraded.State != StateDegraded || !strings.Contains(degraded.Error, "degraded panic") {
@@ -191,6 +202,10 @@ func TestTaskPanicsFollowConfiguredErrorPolicies(t *testing.T) {
 		if task.State != StateSucceeded || task.Attempts != 2 || attempts.Load() != 2 {
 			t.Fatalf("retryable panic snapshot = %+v attempts=%d", task, attempts.Load())
 		}
+		failures := runner.Failures()
+		if len(failures) != 1 || failures[0].Terminal || failures[0].Attempt != 1 {
+			t.Fatalf("retryable panic failures = %#v, want retained nonterminal first attempt", failures)
+		}
 	})
 }
 
@@ -207,12 +222,107 @@ func TestBackgroundTaskPanicIsContained(t *testing.T) {
 	if err := runner.StartBackground(context.Background()); err != nil {
 		t.Fatalf("StartBackground() error = %v", err)
 	}
+	failure := <-runner.BackgroundFailures()
+	if failure.Policy != ErrorPolicyDegraded || !failure.Terminal {
+		t.Fatalf("background failure = %#v, want terminal degraded event", failure)
+	}
+	var panicErr *PanicError
+	if !errors.As(failure, &panicErr) || len(panicErr.StackTrace()) == 0 {
+		t.Fatalf("background failure = %#v, want accessible PanicError stack", failure)
+	}
 	if err := runner.Shutdown(context.Background()); err != nil {
 		t.Fatalf("Shutdown() error = %v", err)
 	}
 	task := findTask(t, runner.Snapshot(), "background-panic")
 	if task.State != StateDegraded || task.Attempts != 1 || !strings.Contains(task.Error, "background panic") {
 		t.Fatalf("background panic snapshot = %+v", task)
+	}
+}
+
+func TestFatalBackgroundFailureIsPublishedAndReturnedByShutdown(t *testing.T) {
+	panicCause := errors.New("fatal background panic")
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:   "fatal-background",
+		Phase:  PhaseBackground,
+		Policy: ErrorPolicyFatal,
+		Run:    func(context.Context) error { panic(panicCause) },
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.StartBackground(context.Background()); err != nil {
+		t.Fatalf("StartBackground() error = %v", err)
+	}
+	select {
+	case failure := <-runner.BackgroundFailures():
+		if failure.TaskName != "fatal-background" || failure.Policy != ErrorPolicyFatal || !failure.Terminal {
+			t.Fatalf("background failure = %#v", failure)
+		}
+		if !errors.Is(failure, panicCause) {
+			t.Fatalf("background failure = %v, want panic cause", failure)
+		}
+		var panicErr *PanicError
+		if !errors.As(failure, &panicErr) || len(panicErr.StackTrace()) == 0 {
+			t.Fatalf("background failure = %#v, want PanicError stack", failure)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for fatal background failure")
+	}
+
+	shutdownErr := runner.Shutdown(context.Background())
+	if !errors.Is(shutdownErr, panicCause) {
+		t.Fatalf("Shutdown() error = %v, want fatal background cause", shutdownErr)
+	}
+}
+
+func TestPanicErrorDiagnosticIsBoundedAndRawValueIsPreserved(t *testing.T) {
+	panicValue := strings.Repeat("界", maxPanicDiagnosticBytes)
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name: "bounded-panic",
+		Run:  func(context.Context) error { panic(panicValue) },
+	})
+
+	err := MustNewRunner(registry).RunPreBind(context.Background())
+	var panicErr *PanicError
+	if !errors.As(err, &panicErr) {
+		t.Fatalf("RunPreBind() error = %v, want PanicError", err)
+	}
+	if got := len(panicErr.Error()); got > maxPanicDiagnosticBytes {
+		t.Fatalf("PanicError.Error() bytes = %d, want <= %d", got, maxPanicDiagnosticBytes)
+	}
+	if panicErr.Recovered() != panicValue {
+		t.Fatal("PanicError.Recovered() did not retain complete panic value")
+	}
+	if !strings.HasSuffix(panicErr.Error(), "…") {
+		t.Fatalf("PanicError.Error() = %q, want truncation marker", panicErr.Error())
+	}
+}
+
+func TestTaskFailureHistoryIsBounded(t *testing.T) {
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:        "many-attempts",
+		Phase:       PhasePostBind,
+		Policy:      ErrorPolicyRetryable,
+		MaxAttempts: maxTaskFailureHistory + 2,
+		Run:         func(context.Context) error { return fmt.Errorf("still failing") },
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.RunPostBind(context.Background()); err != nil {
+		t.Fatalf("RunPostBind() error = %v", err)
+	}
+	failures := runner.Failures()
+	if len(failures) != maxTaskFailureHistory {
+		t.Fatalf("Failures() count = %d, want %d", len(failures), maxTaskFailureHistory)
+	}
+	if failures[0].Attempt != 3 || failures[len(failures)-1].Attempt != maxTaskFailureHistory+2 || !failures[len(failures)-1].Terminal {
+		t.Fatalf("bounded failures = first %#v last %#v", failures[0], failures[len(failures)-1])
+	}
+	failures[0].TaskName = "mutated"
+	if got := runner.Failures()[0].TaskName; got != "many-attempts" {
+		t.Fatalf("mutating Failures() changed runner history to %q", got)
 	}
 }
 

@@ -21,18 +21,26 @@ func TestDeliveryCapabilitySupportDefaultsAndTemplateCandidates(t *testing.T) {
 	if got := capability.detailRoutePattern(); got != "/pages/:slug" {
 		t.Fatalf("expected default detail route /pages/:slug, got %q", got)
 	}
-	if got, want := capability.listTemplateCandidates(), []string{"site/pages", defaultDeliveryListTemplate}; !reflect.DeepEqual(got, want) {
+	if got, want := capability.listTemplateCandidates(), []string{"site/pages"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected list templates %v, got %v", want, got)
 	}
-	if got, want := capability.detailTemplateCandidates(), []string{"site/page", defaultDeliveryDetailTemplate}; !reflect.DeepEqual(got, want) {
+	if got, want := capability.detailTemplateCandidates(), []string{"site/page"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected detail templates %v, got %v", want, got)
 	}
 	if got, want := capability.homeTemplateCandidates(map[string]any{
 		"manifest_partials": map[string]any{
 			siteThemeTemplateKeyHomePage: "templates/site/home/page.html",
 		},
-	}), []string{"site/home/page", "site/page", defaultDeliveryDetailTemplate}; !reflect.DeepEqual(got, want) {
+	}), []string{"site/home/page", "site/page"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected homepage templates %v, got %v", want, got)
+	}
+
+	generic := deliveryCapability{TypeSlug: "article"}
+	if got, want := generic.listTemplateCandidates(), []string{"site/articles", defaultDeliveryListTemplate}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected unconfigured list templates %v, got %v", want, got)
+	}
+	if got, want := generic.detailTemplateCandidates(), []string{"site/article", defaultDeliveryDetailTemplate}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected unconfigured detail templates %v, got %v", want, got)
 	}
 }
 
