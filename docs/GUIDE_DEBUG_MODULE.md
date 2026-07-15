@@ -1102,6 +1102,13 @@ The built-in `commands` debug panel renders command descriptors from
 
 - Use `CommandInputField.Default` for prefilled values.
 - Use `CommandInputField.Description` or `Help` for inline field help.
+- Use `CommandInputField.StaticOptions` when the accepted values are finite.
+  Each `CommandOption` may provide a stable value, friendly label,
+  description, disabled state, and JSON-safe metadata.
+- Use `CommandInputField.OptionSource` with
+  `Dependencies.CommandOptionProvider` for bounded request-scoped values. Put
+  dependent field paths in `OptionSource.Params["depends_on"]` as a string or
+  string array.
 - Use `CommandInputField.DisplayHints` for launcher-only presentation hints:
   - `section`: string section label.
   - `advanced`: boolean.
@@ -1113,6 +1120,16 @@ go-admin serializes these values into `PanelUIActionField` as `default` and
 rendering and dispatch; `serialized_schemas` is supporting metadata. Do not put
 functions, raw HTML, or non-JSON values in descriptor defaults or display hints.
 Unsupported values are dropped.
+
+Scalar option-backed fields render as selects. Array/`string_list` fields keep
+their multi-value chips control and add selectable option choices. Dynamic
+options resolve through a hidden `commands` panel action using the existing
+debug authentication, CSRF, and request-scoped action authorization. The server
+matches the requested command field and source id against the authorized
+descriptor before invoking the provider, and forwards the current form payload
+so dependent catalogs can filter safely. A missing provider is reported in
+launcher diagnostics; provider failures and valid empty results render inline
+at the affected field.
 
 The result panel exposes receipt metadata such as correlation id, dispatch id,
 execution mode, and status reference when the command response includes them.

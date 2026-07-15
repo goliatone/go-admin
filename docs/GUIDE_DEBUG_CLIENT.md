@@ -629,6 +629,12 @@ Launcher fields use these presentation inputs when available:
 
 - `default`: prefilled into the typed control.
 - `description` or `help`: rendered as inline field help.
+- `option_items`: rich choices with stable values, friendly labels,
+  descriptions, disabled state, and safe metadata; legacy `options` remains a
+  value-only fallback.
+- `option_source`: marks a request-scoped dynamic catalog. Dependency paths in
+  `option_source.params.depends_on` trigger a debounced refresh using the
+  current form payload.
 - `display_hints.section`: authored section label.
 - `display_hints.advanced`: moves the field to the collapsible Advanced section.
 - `display_hints.units`: rendered next to the field help.
@@ -636,6 +642,13 @@ Launcher fields use these presentation inputs when available:
 If action fields and `serialized_schemas` disagree, action fields win. If no
 section/advanced hints are present, the client falls back to heuristic grouping
 so older descriptors still render.
+
+Option-backed scalar fields render as selects. Option-backed arrays and
+`string_list` fields remain multi-value chips and expose choice buttons, so a
+known list is not collapsed into a single-select control. Dynamic fields show
+loading, ready, empty, and error state inline; stale responses are ignored and
+current draft values are retained. The resolver capability is not advertised
+when the server has no provider/protected action.
 
 Command results stay inline in the panel. The result card shows receipt metadata
 such as correlation id, dispatch id, execution mode, and status reference when
