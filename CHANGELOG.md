@@ -1,12 +1,30 @@
 # Changelog
 
+# [0.114.4](https://github.com/goliatone/go-admin/compare/v0.114.3...v0.114.4) - (2026-07-15)
+
+## <!-- 16 -->➕ Add
+
+- Debug panel command info include meta ([3e45017](https://github.com/goliatone/go-admin/commit/3e45017a97ee6a1e9769771531e98b27e490b633))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([1126970](https://github.com/goliatone/go-admin/commit/1126970486d6a0a54e702ab15dc74d27fd2af7ea))  - (goliatone)
+- Update tests ([7e88974](https://github.com/goliatone/go-admin/commit/7e88974383a2e67fcb606630432d4f529f4ae1b7))  - (goliatone)
+
 # [0.114.3](https://github.com/goliatone/go-admin/compare/v0.114.2...v0.114.3) - (2026-07-15)
+
+
+New patch release: v0.114.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Debug transport middleware auth ([e08a567](https://github.com/goliatone/go-admin/commit/e08a56757e7e70bfcf2818ff7978c1022a38326e))  - (goliatone)
 - Browser CSRF implementation ([c1f5476](https://github.com/goliatone/go-admin/commit/c1f54762405afb28b72dc7fc1586828b3cff5da9))  - (goliatone)
 - Debug auth for command panel ([7345667](https://github.com/goliatone/go-admin/commit/7345667f412c43e8a70a85ff5311e15b9c9d7865))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.114.3 ([570b194](https://github.com/goliatone/go-admin/commit/570b194592965fe7e23ae2605cf9bcbe9e7772c4))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
