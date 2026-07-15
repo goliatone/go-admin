@@ -108,8 +108,12 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   assert.match(debugPanelSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((debugPanelSource.match(/httpRequest\(`\$\{this\.debugPath\}/g) || []).length >= 3);
   assert.match(debugPanelSource, /readHTTPErrorResult\(response, `Action failed \(\$\{response\.status\}\)`/);
+  assert.match(debugPanelSource, /readExpectedHTTPJSON<\{ ok\?: boolean; message\?: string;/);
   assert.match(debugToolbarSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(debugToolbarSource, /readHTTPError\(response, `Action failed \(\$\{response\.status\}\)`/);
+  assert.match(debugToolbarSource, /readExpectedHTTPJSON<\{ ok\?: boolean; message\?: string;/);
+  assert.doesNotMatch(debugPanelSource, /const result = await response\.json\(\)/);
+  assert.doesNotMatch(debugToolbarSource, /const result = await response\.json\(\)/);
 
   assert.match(integrationMappingsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((integrationMappingsSource.match(/await httpRequest\(/g) || []).length >= 4);

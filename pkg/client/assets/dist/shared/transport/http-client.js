@@ -1,122 +1,153 @@
-var d = /* @__PURE__ */ new Set([
+var T = class extends Error {
+  constructor(t) {
+    super("Authentication required. Please sign in and try again."), this.name = "HTTPAuthenticationRequiredError", this.loginURL = t;
+  }
+}, u = class extends Error {
+  constructor(t, e, r) {
+    super(t), this.name = "HTTPResponseProtocolError", this.status = e.status, this.contentType = r, this.responseURL = e.url;
+  }
+}, l = /* @__PURE__ */ new Set([
   "POST",
   "PUT",
   "PATCH",
   "DELETE"
 ]);
-function T() {
+function p() {
   return typeof document > "u" || !document?.querySelector ? "" : document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")?.trim() || "";
 }
-function y(e) {
-  const t = String(e || "GET").trim().toUpperCase() || "GET";
-  return d.has(t);
+function y(t) {
+  const e = String(t || "GET").trim().toUpperCase() || "GET";
+  return l.has(e);
 }
-function m(e) {
-  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(e)) return !0;
+function m(t) {
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(t)) return !0;
   if (typeof location > "u" || !location?.origin) return !1;
   try {
-    return new URL(e, location.origin).origin === location.origin;
+    return new URL(t, location.origin).origin === location.origin;
   } catch {
     return !1;
   }
 }
-function l(e, t, r) {
-  if (!y(t.method) || r.has("X-CSRF-Token") || !m(e)) return;
-  const n = T();
+function h(t, e, r) {
+  if (!y(e.method) || r.has("X-CSRF-Token") || !m(t)) return;
+  const n = p();
   n && r.set("X-CSRF-Token", n);
 }
-async function p(e, t = {}) {
-  const { json: r, idempotencyKey: n, accept: o, headers: s, ...c } = t, i = new Headers(s || {});
+async function g(t, e = {}) {
+  const { json: r, idempotencyKey: n, accept: o, headers: s, ...c } = e, i = new Headers(s || {});
   o ? i.set("Accept", o) : i.has("Accept") || i.set("Accept", "application/json"), n && n.trim() && i.set("X-Idempotency-Key", n.trim());
   let a = c.body;
-  return r !== void 0 && (i.has("Content-Type") || i.set("Content-Type", "application/json"), a = JSON.stringify(r)), l(e, c, i), fetch(e, {
+  return r !== void 0 && (i.has("Content-Type") || i.set("Content-Type", "application/json"), a = JSON.stringify(r)), h(t, c, i), fetch(t, {
     ...c,
     headers: i,
     body: a
   });
 }
-function g(e) {
-  if (!e || typeof e != "object") return "";
-  if (typeof e.error == "string" && e.error.trim()) return e.error.trim();
-  if (e.error && typeof e.error == "object") {
-    const t = e.error.message;
-    if (typeof t == "string" && t.trim()) return t.trim();
+function w(t) {
+  if (!t || typeof t != "object") return "";
+  if (typeof t.error == "string" && t.error.trim()) return t.error.trim();
+  if (t.error && typeof t.error == "object") {
+    const e = t.error.message;
+    if (typeof e == "string" && e.trim()) return e.trim();
   }
-  return typeof e.message == "string" && e.message.trim() ? e.message.trim() : "";
+  return typeof t.message == "string" && t.message.trim() ? t.message.trim() : "";
 }
-function w(e) {
-  if (!e || typeof e != "object") return "";
-  if (e.error && typeof e.error == "object") {
-    const t = e.error.code;
-    if (typeof t == "string" && t.trim()) return t.trim();
+function P(t) {
+  if (!t || typeof t != "object") return "";
+  if (t.error && typeof t.error == "object") {
+    const e = t.error.code;
+    if (typeof e == "string" && e.trim()) return e.trim();
   }
-  return typeof e.code == "string" && e.code.trim() ? e.code.trim() : "";
+  return typeof t.code == "string" && t.code.trim() ? t.code.trim() : "";
 }
-function S(e) {
-  if (!e || typeof e != "object" || !e.error || typeof e.error != "object") return {};
-  const t = e.error.details;
-  return t && typeof t == "object" && !Array.isArray(t) ? t : {};
+function S(t) {
+  if (!t || typeof t != "object" || !t.error || typeof t.error != "object") return {};
+  const e = t.error.details;
+  return e && typeof e == "object" && !Array.isArray(e) ? e : {};
 }
-function u(e) {
+function f(t) {
   try {
-    return JSON.parse(e);
+    return JSON.parse(t);
   } catch {
     return null;
   }
 }
-async function H(e) {
-  const t = e.headers.get("content-type") ?? "";
+async function b(t) {
+  const e = t.headers.get("content-type") ?? "";
   try {
-    const r = (await e.text()).trim();
+    const r = (await t.text()).trim();
     if (!r) return {
       payload: null,
       rawText: "",
-      contentType: t
+      contentType: e
     };
-    if (t.includes("json")) {
-      const n = u(r);
+    if (e.includes("json")) {
+      const n = f(r);
       if (n !== null) return {
         payload: n,
         rawText: r,
-        contentType: t
+        contentType: e
       };
     }
     return {
       payload: r,
       rawText: r,
-      contentType: t
+      contentType: e
     };
   } catch {
     return {
       payload: null,
       rawText: "",
-      contentType: t
+      contentType: e
     };
   }
 }
-async function h(e, t) {
+async function E(t, e) {
   try {
-    const r = await e.json();
-    return r === void 0 ? t : r;
+    const r = await t.json();
+    return r === void 0 ? e : r;
   } catch {
-    return t;
+    return e;
   }
 }
-async function j(e) {
-  return await e.json();
+async function R(t) {
+  return await t.json();
 }
-async function b(e) {
-  const t = await h(e, {});
-  return !t || typeof t != "object" || Array.isArray(t) ? {} : t;
+async function A(t) {
+  const e = (t.headers.get("content-type") || "").trim().toLowerCase(), r = String(t.url || "").trim();
+  if (t.redirected && e.includes("text/html") && x(r)) throw new T(r);
+  if (!j(e)) throw new u(`Expected a JSON response but received ${e || "an unspecified content type"}.`, t, e);
+  try {
+    return await t.json();
+  } catch {
+    throw new u("Expected a valid JSON response.", t, e);
+  }
 }
-async function f(e, t = "Request failed", r = {}) {
+function j(t) {
+  const e = t.split(";", 1)[0]?.trim() || "";
+  return e === "application/json" || e.endsWith("+json");
+}
+function x(t) {
+  if (!t) return !1;
+  try {
+    const e = typeof location < "u" && location?.origin ? location.origin : "http://localhost", r = new URL(t, e).pathname.toLowerCase().replace(/\/+$/g, "");
+    return r === "/login" || r.endsWith("/login") || r.endsWith("/sign-in") || r.endsWith("/signin");
+  } catch {
+    return !1;
+  }
+}
+async function C(t) {
+  const e = await E(t, {});
+  return !e || typeof e != "object" || Array.isArray(e) ? {} : e;
+}
+async function d(t, e = "Request failed", r = {}) {
   const n = r.appendStatusToFallback !== !1;
   try {
-    const o = (await e.text()).trim();
+    const o = (await t.text()).trim();
     if (o) {
-      const s = u(o);
+      const s = f(o);
       if (s && typeof s == "object") {
-        const c = g(s);
+        const c = w(s);
         if (c) return {
           message: c,
           payload: s,
@@ -132,39 +163,42 @@ async function f(e, t = "Request failed", r = {}) {
   } catch {
   }
   return {
-    message: n ? `${t}: ${e.status}` : t,
+    message: n ? `${e}: ${t.status}` : e,
     payload: null,
     rawText: ""
   };
 }
-async function P(e, t = "Request failed", r = {}) {
-  return (await f(e, t, r)).message;
+async function H(t, e = "Request failed", r = {}) {
+  return (await d(t, e, r)).message;
 }
-async function x(e, t = "Request failed", r = {}) {
-  const n = await f(e, t, r), o = n.payload && typeof n.payload == "object" ? n.payload : null;
+async function O(t, e = "Request failed", r = {}) {
+  const n = await d(t, e, r), o = n.payload && typeof n.payload == "object" ? n.payload : null;
   return {
     ...n,
-    code: w(o),
+    code: P(o),
     details: S(o)
   };
 }
-async function E(e, t = {}) {
-  const r = await p(e, t);
-  if (!r.ok) throw new Error(await P(r));
-  return j(r);
+async function q(t, e = {}) {
+  const r = await g(t, e);
+  if (!r.ok) throw new Error(await H(r));
+  return R(r);
 }
 export {
-  l as appendCSRFHeader,
-  E as httpJSON,
-  p as httpRequest,
-  T as readCSRFToken,
-  P as readHTTPError,
-  f as readHTTPErrorResult,
-  j as readHTTPJSON,
-  b as readHTTPJSONObject,
-  h as readHTTPJSONValue,
-  H as readHTTPResponsePayload,
-  x as readHTTPStructuredErrorResult
+  T as HTTPAuthenticationRequiredError,
+  u as HTTPResponseProtocolError,
+  h as appendCSRFHeader,
+  q as httpJSON,
+  g as httpRequest,
+  p as readCSRFToken,
+  A as readExpectedHTTPJSON,
+  H as readHTTPError,
+  d as readHTTPErrorResult,
+  R as readHTTPJSON,
+  C as readHTTPJSONObject,
+  E as readHTTPJSONValue,
+  b as readHTTPResponsePayload,
+  O as readHTTPStructuredErrorResult
 };
 
 //# sourceMappingURL=http-client.js.map

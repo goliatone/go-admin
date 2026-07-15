@@ -109,6 +109,43 @@ test('shared http error reader unwraps json and preserves fallback options', asy
   });
   assert.deepEqual(await httpClient.readHTTPJSON(typedJSONResponse), { ok: true, count: 4 });
 
+  const problemJSONResponse = new Response(JSON.stringify({ title: 'Unauthorized' }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/problem+json; charset=utf-8' },
+  });
+  assert.deepEqual(await httpClient.readExpectedHTTPJSON(problemJSONResponse), { title: 'Unauthorized' });
+
+  const loginHTMLResponse = new Response('<!doctype html><title>Sign in</title>', {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+  Object.defineProperties(loginHTMLResponse, {
+    redirected: { value: true },
+    url: { value: 'http://example.com/admin/login' },
+  });
+  await assert.rejects(
+    httpClient.readExpectedHTTPJSON(loginHTMLResponse),
+    (error) => {
+      assert.ok(error instanceof httpClient.HTTPAuthenticationRequiredError);
+      assert.equal(error.message, 'Authentication required. Please sign in and try again.');
+      assert.equal(error.loginURL, 'http://example.com/admin/login');
+      return true;
+    },
+  );
+
+  const unexpectedHTMLResponse = new Response('<!doctype html><title>Unexpected</title>', {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+  });
+  await assert.rejects(
+    httpClient.readExpectedHTTPJSON(unexpectedHTMLResponse),
+    (error) => {
+      assert.ok(error instanceof httpClient.HTTPResponseProtocolError);
+      assert.equal(error.message, 'Expected a JSON response but received text/html.');
+      return true;
+    },
+  );
+
   const invalidJsonValueResponse = new Response('{bad', {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
@@ -179,7 +216,10 @@ test('http error reader callers now route through shared transport helper', () =
   assert.equal((sourceManagementPagesSource.match(/response\.json\(\) as Promise</g) || []).length, 0);
 
   assert.match(httpClientSource, /export async function readHTTPJSON<T>\(/);
+  assert.match(httpClientSource, /export async function readExpectedHTTPJSON<T>\(/);
   assert.match(httpClientSource, /return await response\.json\(\) as T;/);
+  assert.match(httpClientSource, /throw new HTTPAuthenticationRequiredError\(responseURL\)/);
+  assert.match(httpClientSource, /if \(!isJSONContentType\(contentType\)\)/);
 
   assert.match(esignApiClientSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(esignApiClientSource, /readHTTPErrorResult\(response, fallback/);

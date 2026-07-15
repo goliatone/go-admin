@@ -1260,6 +1260,68 @@ test('commands panel surfaces rich error details from a failed dispatch', async 
   );
 });
 
+test('commands panel reports followed login HTML as authentication required', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.debugPath = '/admin/debug-commands-auth-redirect';
+  consoleEl.dataset.panels = JSON.stringify(['commands']);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', 'commands');
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: 'commands', label: 'Commands', snapshot_key: 'commands',
+          ui: {
+            views: { console: { renderer: 'json', title: 'Commands' } },
+            actions: [{
+              id: 'dispatch_archive_repair', label: 'Repair variants', submit_label: 'Run command',
+              payload: { command_id: 'archive.repair', payload: {}, options: { mode: 'inline' } },
+              fields: [],
+            }],
+          },
+        }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        commands: { commands: [{ id: 'archive.repair', label: 'Repair variants', group: 'Archive', mutating: false, execution_mode: 'inline' }], diagnostics: [] },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.endsWith('/api/panels/commands/actions/dispatch_archive_repair')) {
+      const response = new Response('<!doctype html><title>Admin login</title>', {
+        status: 200,
+        headers: { 'content-type': 'text/html; charset=utf-8' },
+      });
+      Object.defineProperties(response, {
+        redirected: { value: true },
+        url: { value: 'http://127.0.0.1:9090/admin/login' },
+      });
+      return response;
+    }
+    return new Response(JSON.stringify({ sessions: [] }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await waitForAssertion(() => {
+    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]'));
+  });
+
+  const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]');
+  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+
+  await waitForAssertion(() => {
+    const card = dom.window.document.querySelector('[data-panel-action-result="commands"] .cmdl-result__card--error');
+    assert.ok(card, 'authentication error card rendered');
+    assert.match(card.textContent, /Authentication required\. Please sign in and try again\./);
+    assert.doesNotMatch(card.textContent, /Unexpected token/);
+  });
+});
+
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {
   const dom = new JSDOM(`
     <!doctype html>

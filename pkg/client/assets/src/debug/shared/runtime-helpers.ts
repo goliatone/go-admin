@@ -8,6 +8,7 @@ import {
 } from './panel-registry.js';
 import type { CustomLogEntry, DebugSnapshot, CustomSnapshot, LogEntry, RequestEntry, SQLEntry } from './types.js';
 import { isSlowDuration } from './utils.js';
+import { httpRequest, readExpectedHTTPJSON } from '../../shared/transport/http-client.js';
 
 type DebugReplCommandPayload = {
   command?: string;
@@ -193,13 +194,13 @@ export function normalizeReplCommands(value: unknown): DebugReplCommand[] {
 
 export async function fetchDebugSnapshot(debugPath: string): Promise<DebugSnapshot | null> {
   try {
-    const response = await fetch(`${debugPath}/api/snapshot`, {
+    const response = await httpRequest(`${debugPath}/api/snapshot`, {
       credentials: 'same-origin',
     });
     if (!response.ok) {
       return null;
     }
-    return (await response.json()) as DebugSnapshot;
+    return await readExpectedHTTPJSON<DebugSnapshot>(response);
   } catch {
     return null;
   }

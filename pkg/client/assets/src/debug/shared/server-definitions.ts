@@ -18,6 +18,7 @@ import type {
   ServerPanelUIView,
 } from './types.js';
 import { escapeHTML } from './utils.js';
+import { httpRequest, readExpectedHTTPJSON } from '../../shared/transport/http-client.js';
 
 const SUPPORTED_RENDERERS = new Set(['metrics', 'key_value', 'table', 'status_list', 'timeline', 'json', 'stack']);
 const SUPPORTED_SCHEMA_VERSION = '1';
@@ -540,14 +541,14 @@ export async function fetchServerPanelDefinitions(
     if (controller && timeoutMs > 0) {
       timeoutID = setTimeout(() => controller.abort(), timeoutMs);
     }
-    const response = await fetch(`${base}/api/panels`, {
+    const response = await httpRequest(`${base}/api/panels`, {
       credentials: 'same-origin',
       signal: controller?.signal,
     });
     if (!response.ok) {
       return [];
     }
-    const payload = (await response.json()) as ServerPanelDefinitionsResponse;
+    const payload = await readExpectedHTTPJSON<ServerPanelDefinitionsResponse>(response);
     return Array.isArray(payload.panels) ? payload.panels : [];
   } catch {
     return [];

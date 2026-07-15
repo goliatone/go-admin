@@ -76,7 +76,7 @@ import {
   getCommandLauncherLiveStatus,
   recordCommandLauncherInvocation,
 } from './shared/panels/command-launcher.js';
-import { httpRequest, readHTTPErrorResult } from '../shared/transport/http-client.js';
+import { httpRequest, readExpectedHTTPJSON, readHTTPErrorResult } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
 
@@ -487,7 +487,7 @@ export class DebugPanel {
       if (!response.ok) {
         return false;
       }
-      const payload = (await response.json()) as PanelOrderPreferenceResponse;
+      const payload = await readExpectedHTTPJSON<PanelOrderPreferenceResponse>(response);
       if (!payload?.available || !payload.found) {
         return false;
       }
@@ -1189,7 +1189,7 @@ export class DebugPanel {
         this.showPanelActionResult(panelID, 'error', errorResult.message, actionID, errorResult.payload, undefined, { at: Date.now(), durationMs: Date.now() - startedAt });
         return;
       }
-      const result = await response.json() as { ok?: boolean; message?: string; data?: unknown; errors?: Record<string, unknown>; refresh?: boolean; event?: DebugEvent };
+      const result = await readExpectedHTTPJSON<{ ok?: boolean; message?: string; data?: unknown; errors?: Record<string, unknown>; refresh?: boolean; event?: DebugEvent }>(response);
       this.showPanelActionResult(
         panelID,
         result.ok === false ? 'error' : 'ok',
@@ -1749,14 +1749,14 @@ export class DebugPanel {
     this.sessionsLoading = true;
     this.sessionsError = null;
     try {
-      const response = await fetch(`${this.debugPath}/api/sessions`, {
+      const response = await httpRequest(`${this.debugPath}/api/sessions`, {
         credentials: 'same-origin',
       });
       if (!response.ok) {
         this.sessionsError = 'Failed to load active sessions.';
         return;
       }
-      const payload = (await response.json()) as { sessions?: DebugUserSession[] };
+      const payload = await readExpectedHTTPJSON<{ sessions?: DebugUserSession[] }>(response);
       this.sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
       this.sessionsLoaded = true;
       this.sessionsUpdatedAt = new Date();
@@ -2190,13 +2190,13 @@ export class DebugPanel {
       return;
     }
     try {
-      const response = await fetch(`${this.debugPath}/api/snapshot`, {
+      const response = await httpRequest(`${this.debugPath}/api/snapshot`, {
         credentials: 'same-origin',
       });
       if (!response.ok) {
         return;
       }
-      const payload = (await response.json()) as DebugSnapshot;
+      const payload = await readExpectedHTTPJSON<DebugSnapshot>(response);
       this.applySnapshot(payload);
     } catch {
       // ignore fetch errors
@@ -2231,17 +2231,9 @@ export class DebugPanel {
   }
 
   private async parseJSONResponse(response: Response): Promise<Record<string, any> | null> {
-    const contentType = (response.headers.get('content-type') || '').toLowerCase();
-    if (!contentType.includes('application/json')) {
-      return null;
-    }
-    try {
-      const payload = (await response.json()) as unknown;
-      if (payload && typeof payload === 'object') {
-        return payload as Record<string, any>;
-      }
-    } catch {
-      // ignore malformed json payloads
+    const payload = await readExpectedHTTPJSON<unknown>(response);
+    if (payload && typeof payload === 'object') {
+      return payload as Record<string, any>;
     }
     return null;
   }

@@ -31,6 +31,30 @@ export interface HTTPStructuredErrorReadResult extends HTTPErrorReadResult {
   details: Record<string, unknown>;
 }
 
+export class HTTPAuthenticationRequiredError extends Error {
+  readonly loginURL: string;
+
+  constructor(loginURL: string) {
+    super('Authentication required. Please sign in and try again.');
+    this.name = 'HTTPAuthenticationRequiredError';
+    this.loginURL = loginURL;
+  }
+}
+
+export class HTTPResponseProtocolError extends Error {
+  readonly status: number;
+  readonly contentType: string;
+  readonly responseURL: string;
+
+  constructor(message: string, response: Response, contentType: string) {
+    super(message);
+    this.name = 'HTTPResponseProtocolError';
+    this.status = response.status;
+    this.contentType = contentType;
+    this.responseURL = response.url;
+  }
+}
+
 const unsafeMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function readCSRFToken(): string {
@@ -216,6 +240,52 @@ export async function readHTTPJSON<T>(
   response: Response,
 ): Promise<T> {
   return await response.json() as T;
+}
+
+// readExpectedHTTPJSON validates the response contract before parsing. Use it
+// for JSON-only transports where a followed browser login redirect would
+// otherwise turn HTML into a misleading JSON syntax error.
+export async function readExpectedHTTPJSON<T>(
+  response: Response,
+): Promise<T> {
+  const contentType = (response.headers.get('content-type') || '').trim().toLowerCase();
+  const responseURL = String(response.url || '').trim();
+  if (response.redirected && contentType.includes('text/html') && isLoginResponseURL(responseURL)) {
+    throw new HTTPAuthenticationRequiredError(responseURL);
+  }
+  if (!isJSONContentType(contentType)) {
+    const received = contentType || 'an unspecified content type';
+    throw new HTTPResponseProtocolError(
+      `Expected a JSON response but received ${received}.`,
+      response,
+      contentType,
+    );
+  }
+  try {
+    return await response.json() as T;
+  } catch {
+    throw new HTTPResponseProtocolError('Expected a valid JSON response.', response, contentType);
+  }
+}
+
+function isJSONContentType(contentType: string): boolean {
+  const mediaType = contentType.split(';', 1)[0]?.trim() || '';
+  return mediaType === 'application/json' || mediaType.endsWith('+json');
+}
+
+function isLoginResponseURL(responseURL: string): boolean {
+  if (!responseURL) {
+    return false;
+  }
+  try {
+    const base = typeof location !== 'undefined' && location?.origin
+      ? location.origin
+      : 'http://localhost';
+    const pathname = new URL(responseURL, base).pathname.toLowerCase().replace(/\/+$/g, '');
+    return pathname === '/login' || pathname.endsWith('/login') || pathname.endsWith('/sign-in') || pathname.endsWith('/signin');
+  } catch {
+    return false;
+  }
 }
 
 export async function readHTTPJSONObject(

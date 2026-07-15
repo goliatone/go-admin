@@ -138,6 +138,7 @@ test('debug toolbar helpers fetch snapshots and count summary state through one 
   try {
     globalThis.fetch = async () => ({
       ok: true,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
       async json() {
         return { requests: [{ status: 200 }] };
       },
@@ -209,6 +210,7 @@ test('debug toolbar helpers hydrate server panel definitions without overwriting
       assert.equal(String(url), '/debug-hydration/api/panels');
       return {
         ok: true,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
         async json() {
           return {
             panels: [
