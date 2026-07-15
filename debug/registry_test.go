@@ -76,11 +76,20 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 					Refresh:     true,
 					Fields: []PanelUIActionField{
 						{
-							Name:         "File_ID",
-							Label:        "File ID",
-							Kind:         "string",
-							PayloadPath:  "payload.file_id",
-							Required:     true,
+							Name:        "File_ID",
+							Label:       "File ID",
+							Kind:        "string",
+							PayloadPath: "payload.file_id",
+							Placeholder: "e.g. file-123",
+							Description: "Stable file identifier.",
+							Help:        "Copy this from the file details page.",
+							Required:    true,
+							Options:     []string{"legacy", " legacy ", ""},
+							OptionItems: []PanelUIActionOption{
+								{Value: "active", Label: "Active file", Description: "Available for processing", Metadata: map[string]any{"group": "current", "unsafe": func() {}}},
+								{Value: "archived", Label: "Archived file", Disabled: true},
+							},
+							OptionSource: &PanelUIActionOptionSource{ID: " Catalog.Files ", Label: "Catalog files", Dynamic: true, CacheScope: " Request ", Params: map[string]any{"depends_on": []string{"kind"}, "unsafe": func() {}}},
 							Default:      map[string]any{"value": "123", "unsafe": func() {}},
 							DisplayHints: map[string]any{"section": "Scope", "unsafe": func() {}, "raw_html": "<b>bad</b>"},
 						},
@@ -135,6 +144,28 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	}
 	if len(def.UI.Actions[0].Fields) != 1 || def.UI.Actions[0].Fields[0].Name != "file_id" || def.UI.Actions[0].Fields[0].PayloadPath != "payload.file_id" {
 		t.Fatalf("expected normalized action field, got %+v", def.UI.Actions[0].Fields)
+	}
+	field := def.UI.Actions[0].Fields[0]
+	if field.Placeholder != "e.g. file-123" || field.Description != "Stable file identifier." || field.Help != "Copy this from the file details page." {
+		t.Fatalf("expected field guidance to remain distinct, got %+v", field)
+	}
+	if len(field.Options) != 2 || field.Options[1] != "legacy" {
+		t.Fatalf("expected legacy options to remain compatible, got %+v", field.Options)
+	}
+	if len(field.OptionItems) != 2 || field.OptionItems[0].Label != "Active file" || !field.OptionItems[1].Disabled {
+		t.Fatalf("expected rich options to be normalized, got %+v", field.OptionItems)
+	}
+	if _, ok := field.OptionItems[0].Metadata["unsafe"]; ok {
+		t.Fatalf("expected unsafe option metadata to be dropped, got %+v", field.OptionItems[0].Metadata)
+	}
+	if field.OptionSource == nil || field.OptionSource.ID != "catalog.files" || field.OptionSource.CacheScope != "request" || !field.OptionSource.Dynamic {
+		t.Fatalf("expected option source to be normalized, got %+v", field.OptionSource)
+	}
+	if _, ok := field.OptionSource.Params["unsafe"]; ok {
+		t.Fatalf("expected unsafe option-source params to be dropped, got %+v", field.OptionSource.Params)
+	}
+	if dependsOn, ok := field.OptionSource.Params["depends_on"].([]any); !ok || len(dependsOn) != 1 || dependsOn[0] != "kind" {
+		t.Fatalf("expected typed option-source dependencies to survive normalization, got %+v", field.OptionSource.Params)
 	}
 	defaultValue, ok := def.UI.Actions[0].Fields[0].Default.(map[string]any)
 	if !ok || defaultValue["value"] != "123" {

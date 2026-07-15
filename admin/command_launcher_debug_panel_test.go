@@ -41,9 +41,20 @@ func (p *commandLauncherTestOptionProvider) CommandOptions(_ context.Context, re
 		return nil, p.err
 	}
 	return []command.CommandOption{
-		{Value: "entity-1", Label: "Entity 1"},
-		{Value: "entity-2", Label: "Entity 2"},
+		{Value: "entity-1", Label: "Entity 1", Description: "Primary entity"},
+		{Value: "entity-2", Label: "Entity 2", Description: "Archived entity", Disabled: true, Metadata: map[string]any{"reason": "archived"}},
 	}, nil
+}
+
+func commandLauncherTestAction(t *testing.T, actions []debugregistry.PanelUIAction, id string) debugregistry.PanelUIAction {
+	t.Helper()
+	for _, action := range actions {
+		if action.ID == id {
+			return action
+		}
+	}
+	t.Fatalf("expected action %q, got %#v", id, actions)
+	return debugregistry.PanelUIAction{}
 }
 
 func commandLauncherTestDescriptor() command.CommandDescriptor {
@@ -105,12 +116,13 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	if def.UI == nil || def.UI.ActionLayout == nil || def.UI.ActionLayout.Mode != debugregistry.PanelActionLayoutSelect {
 		t.Fatalf("expected selectable command launcher UI, got %#v", def.UI)
 	}
-	if len(def.UI.Actions) != 1 {
-		t.Fatalf("expected one executable action, got %#v", def.UI.Actions)
+	if len(def.UI.Actions) != 2 {
+		t.Fatalf("expected executable and hidden option resolver actions, got %#v", def.UI.Actions)
 	}
-	action := def.UI.Actions[0]
-	if action.ID != "dispatch_catalog_inspect" {
-		t.Fatalf("unexpected action id %q", action.ID)
+	action := commandLauncherTestAction(t, def.UI.Actions, "dispatch_catalog_inspect")
+	resolver := commandLauncherTestAction(t, def.UI.Actions, commandLauncherResolveOptionsAction)
+	if !resolver.Hidden || resolver.Kind != "command_options" {
+		t.Fatalf("expected hidden option resolver action, got %#v", resolver)
 	}
 	if action.Payload["command_id"] != "catalog.inspect" {
 		t.Fatalf("expected canonical command_id payload, got %#v", action.Payload)
@@ -124,6 +136,12 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	}
 	if len(action.Fields[0].Options) != 2 || action.Fields[0].Options[0] != "entity-1" {
 		t.Fatalf("expected request-scoped dynamic options, got %#v", action.Fields[0].Options)
+	}
+	if len(action.Fields[0].OptionItems) != 2 || action.Fields[0].OptionItems[0].Label != "Entity 1" || action.Fields[0].OptionItems[0].Description != "Primary entity" || !action.Fields[0].OptionItems[1].Disabled {
+		t.Fatalf("expected rich request-scoped dynamic options, got %#v", action.Fields[0].OptionItems)
+	}
+	if action.Fields[0].OptionSource == nil || action.Fields[0].OptionSource.ID != "catalog.entities" || !action.Fields[0].OptionSource.Dynamic {
+		t.Fatalf("expected dynamic option source metadata, got %#v", action.Fields[0].OptionSource)
 	}
 	if len(options.calls) != 1 || options.calls[0].CommandID != "catalog.inspect" || options.calls[0].Source.ID != "catalog.entities" {
 		t.Fatalf("expected authorized dynamic option provider call, got %#v", options.calls)
@@ -226,9 +244,10 @@ func TestCommandLauncherPanelHonorsDescriptorResourceHint(t *testing.T) {
 	if !ok || def.UI == nil {
 		t.Fatalf("expected command launcher panel definition")
 	}
-	if len(def.UI.Actions) != 1 {
+	if len(def.UI.Actions) != 2 {
 		t.Fatalf("expected descriptor to authorize against resource hint, got %#v", def.UI.Actions)
 	}
+	commandLauncherTestAction(t, def.UI.Actions, "dispatch_catalog_inspect")
 }
 
 func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testing.T) {
@@ -264,8 +283,73 @@ func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testin
 	if byName["metadata"].Kind != "json" || byName["metadata"].PayloadPath != "payload.metadata" {
 		t.Fatalf("unexpected json field: %#v", byName["metadata"])
 	}
-	if byName["status"].Kind != "select" || len(byName["status"].Options) != 2 {
+	if byName["status"].Kind != "select" || len(byName["status"].Options) != 2 || len(byName["status"].OptionItems) != 2 || byName["status"].OptionItems[0].Label != "Draft" {
 		t.Fatalf("unexpected select field: %#v", byName["status"])
+	}
+}
+
+func TestCommandLauncherOptionResolverForwardsCurrentPayloadAndRichOptions(t *testing.T) {
+	descriptor := commandLauncherTestDescriptor()
+	descriptor.Input.Fields[0].OptionSource.Params = map[string]any{"depends_on": []string{"entity_kind"}}
+	options := &commandLauncherTestOptionProvider{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{descriptor}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+
+	result, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
+		"command_id": "catalog.inspect",
+		"field_path": "entity_id",
+		"source_id":  "catalog.entities",
+		"payload": map[string]any{
+			"entity_kind": "article",
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolve command options: %v", err)
+	}
+	data := mustCommandLauncherType[map[string]any](t, result.Data, "option resolver data")
+	if !result.OK || data["empty"] != false {
+		t.Fatalf("expected successful non-empty option result, got %#v", result)
+	}
+	if len(options.calls) != 1 || options.calls[0].Payload["entity_kind"] != "article" {
+		t.Fatalf("expected current form payload to reach provider, got %#v", options.calls)
+	}
+	items := mustCommandLauncherType[[]debugregistry.PanelUIActionOption](t, data["option_items"], "resolved option items")
+	if len(items) != 2 || items[0].Description != "Primary entity" || !items[1].Disabled || items[1].Metadata["reason"] != "archived" {
+		t.Fatalf("expected rich option result, got %#v", items)
+	}
+}
+
+func TestCommandLauncherOptionResolverRejectsUnregisteredSource(t *testing.T) {
+	options := &commandLauncherTestOptionProvider{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+
+	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
+		"command_id": "catalog.inspect",
+		"field_path": "entity_id",
+		"source_id":  "catalog.unregistered",
+	})
+	if err == nil {
+		t.Fatal("expected mismatched source to be rejected")
+	}
+	if len(options.calls) != 0 {
+		t.Fatalf("provider must not be called for an unregistered source, got %#v", options.calls)
 	}
 }
 
