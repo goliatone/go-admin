@@ -118,6 +118,7 @@ type PanelUIAction struct {
 	Kind            string               `json:"kind,omitempty"`
 	ConfirmText     string               `json:"confirm_text,omitempty"`
 	RequiresConfirm bool                 `json:"requires_confirm,omitempty"`
+	Hidden          bool                 `json:"hidden,omitempty"`
 	Refresh         bool                 `json:"refresh,omitempty"`
 	UpdatePolicy    string               `json:"update_policy,omitempty"`
 	Payload         map[string]any       `json:"payload,omitempty"`
@@ -126,16 +127,41 @@ type PanelUIAction struct {
 
 // PanelUIActionField declares a typed input that is merged into an action payload.
 type PanelUIActionField struct {
-	Name         string         `json:"name"`
-	Label        string         `json:"label,omitempty"`
-	Kind         string         `json:"kind,omitempty"`
-	PayloadPath  string         `json:"payload_path,omitempty"`
-	Placeholder  string         `json:"placeholder,omitempty"`
-	Description  string         `json:"description,omitempty"`
-	Required     bool           `json:"required,omitempty"`
-	Options      []string       `json:"options,omitempty"`
-	Default      any            `json:"default,omitempty"`
-	DisplayHints map[string]any `json:"display_hints,omitempty"`
+	Name         string                     `json:"name"`
+	Label        string                     `json:"label,omitempty"`
+	Kind         string                     `json:"kind,omitempty"`
+	PayloadPath  string                     `json:"payload_path,omitempty"`
+	Placeholder  string                     `json:"placeholder,omitempty"`
+	Description  string                     `json:"description,omitempty"`
+	Help         string                     `json:"help,omitempty"`
+	Required     bool                       `json:"required,omitempty"`
+	Options      []string                   `json:"options,omitempty"`
+	OptionItems  []PanelUIActionOption      `json:"option_items,omitempty"`
+	OptionSource *PanelUIActionOptionSource `json:"option_source,omitempty"`
+	Default      any                        `json:"default,omitempty"`
+	DisplayHints map[string]any             `json:"display_hints,omitempty"`
+}
+
+// PanelUIActionOption preserves a stable submitted value separately from its
+// operator-facing label and guidance. Options remains available on the field as
+// a legacy value-only projection for older debug clients.
+type PanelUIActionOption struct {
+	Value       string         `json:"value"`
+	Label       string         `json:"label,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Disabled    bool           `json:"disabled,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}
+
+// PanelUIActionOptionSource describes a request-scoped option source that the
+// client may refresh. Params is declarative and JSON-safe; source execution is
+// still authorized and matched to the registered command descriptor server-side.
+type PanelUIActionOptionSource struct {
+	ID         string         `json:"id"`
+	Label      string         `json:"label,omitempty"`
+	Dynamic    bool           `json:"dynamic,omitempty"`
+	CacheScope string         `json:"cache_scope,omitempty"`
+	Params     map[string]any `json:"params,omitempty"`
 }
 
 // PanelUIColumn declares a table column option.
@@ -823,6 +849,7 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 			Kind:            normalizeID(action.Kind),
 			ConfirmText:     trimSafeText(action.ConfirmText),
 			RequiresConfirm: action.RequiresConfirm,
+			Hidden:          action.Hidden,
 			Refresh:         action.Refresh,
 			UpdatePolicy:    normalizeEventPolicyMode(action.UpdatePolicy),
 			Payload:         cloneJSONSafeMap(action.Payload),
@@ -862,8 +889,11 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 			PayloadPath:  trimSafeText(field.PayloadPath),
 			Placeholder:  trimSafeText(field.Placeholder),
 			Description:  trimSafeText(field.Description),
+			Help:         trimSafeText(field.Help),
 			Required:     field.Required,
 			Options:      options,
+			OptionItems:  normalizePanelUIActionOptions(field.OptionItems),
+			OptionSource: normalizePanelUIActionOptionSource(field.OptionSource),
 			DisplayHints: cloneJSONSafeMap(field.DisplayHints),
 		}
 		if defaultValue, ok := cloneJSONSafeValue(field.Default); ok {
@@ -876,6 +906,50 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 		out = append(out, normalized)
 	}
 	return out
+}
+
+func normalizePanelUIActionOptions(options []PanelUIActionOption) []PanelUIActionOption {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make([]PanelUIActionOption, 0, len(options))
+	seen := map[string]bool{}
+	for _, option := range options {
+		value := trimSafeText(option.Value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		label := trimSafeText(option.Label)
+		if label == "" {
+			label = value
+		}
+		out = append(out, PanelUIActionOption{
+			Value:       value,
+			Label:       label,
+			Description: trimSafeText(option.Description),
+			Disabled:    option.Disabled,
+			Metadata:    cloneJSONSafeMap(option.Metadata),
+		})
+	}
+	return out
+}
+
+func normalizePanelUIActionOptionSource(source *PanelUIActionOptionSource) *PanelUIActionOptionSource {
+	if source == nil {
+		return nil
+	}
+	id := normalizeID(source.ID)
+	if id == "" {
+		return nil
+	}
+	return &PanelUIActionOptionSource{
+		ID:         id,
+		Label:      trimSafeText(source.Label),
+		Dynamic:    source.Dynamic,
+		CacheScope: normalizeID(source.CacheScope),
+		Params:     cloneJSONSafeMap(source.Params),
+	}
 }
 
 // PanelDefinitionHasAction reports whether a request-scoped panel definition exposes an action.
@@ -1040,6 +1114,14 @@ func cloneJSONSafeValue(value any) (any, bool) {
 		}
 		return typed, true
 	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if cloned, ok := cloneJSONSafeValue(item); ok {
+				out = append(out, cloned)
+			}
+		}
+		return out, true
+	case []string:
 		out := make([]any, 0, len(typed))
 		for _, item := range typed {
 			if cloned, ok := cloneJSONSafeValue(item); ok {

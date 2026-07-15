@@ -16,8 +16,9 @@ import (
 const (
 	DebugPanelCommandLauncher = "commands"
 
-	commandLauncherDispatchPermission = "admin.commands.dispatch"
-	commandLauncherReadPermission     = "admin.commands.read"
+	commandLauncherDispatchPermission   = "admin.commands.dispatch"
+	commandLauncherReadPermission       = "admin.commands.read"
+	commandLauncherResolveOptionsAction = "resolve_options"
 )
 
 type CommandLauncherSnapshot struct {
@@ -121,6 +122,9 @@ func commandLauncherDefinitionFilter(adm *Admin) debugregistry.PanelDefinitionFi
 		state := buildCommandLauncherState(ctx, adm)
 		diagnostics := append([]CommandLauncherDiagnostic(nil), state.Diagnostics...)
 		actions := commandLauncherActions(ctx, adm, state.Executable, &diagnostics)
+		if adm.commandOptionProvider != nil && commandLauncherDynamicOptionFieldCount(state.Executable) > 0 {
+			actions = append(actions, commandLauncherOptionResolverAction())
+		}
 		filtered.UI = commandLauncherPanelUI(state.Executable, diagnostics, actions)
 		return filtered
 	}
@@ -165,13 +169,14 @@ func commandLauncherPanelUI(commands []gocommand.CommandDescriptor, diagnostics 
 	}
 	ui.Actions = actions
 	ui.Metadata = map[string]any{
-		"rpc_method":           RPCMethodCommandDispatch,
-		"payload_contract":     "Submit {command_id, payload, options}; dispatch uses go-command/rpc envelopes.",
-		"formgen_compatible":   true,
-		"catalog_provider":     true,
-		"dynamic_options":      "request_scoped",
-		"diagnostics":          diagnostics,
-		"action_authorization": "admin.commands.read + command-specific permission + admin.commands.dispatch",
+		"rpc_method":             RPCMethodCommandDispatch,
+		"payload_contract":       "Submit {command_id, payload, options}; dispatch uses go-command/rpc envelopes.",
+		"formgen_compatible":     true,
+		"catalog_provider":       true,
+		"dynamic_options":        "request_scoped",
+		"option_resolver_action": commandLauncherResolveOptionsAction,
+		"diagnostics":            diagnostics,
+		"action_authorization":   "admin.commands.read + command-specific permission + admin.commands.dispatch",
 	}
 	if schemas := commandLauncherFormSchemas(commands); len(schemas) > 0 {
 		ui.Metadata["serialized_schemas"] = schemas
@@ -400,7 +405,94 @@ func commandLauncherActionHandlers(adm *Admin) map[string]debugregistry.PanelAct
 			return runCommandLauncherAction(ctx, adm, commandID, req.Payload)
 		}
 	}
+	if adm.commandOptionProvider != nil {
+		handlers[commandLauncherResolveOptionsAction] = func(ctx context.Context, req debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+			return runCommandLauncherOptionResolver(ctx, adm, req.Payload)
+		}
+	}
 	return handlers
+}
+
+func commandLauncherOptionResolverAction() debugregistry.PanelUIAction {
+	return debugregistry.PanelUIAction{
+		ID:     commandLauncherResolveOptionsAction,
+		Label:  "Resolve command options",
+		Kind:   "command_options",
+		Hidden: true,
+	}
+}
+
+func runCommandLauncherOptionResolver(ctx context.Context, adm *Admin, payload map[string]any) (debugregistry.PanelActionResult, error) {
+	if adm == nil || adm.commandOptionProvider == nil {
+		return debugregistry.PanelActionResult{}, serviceNotConfiguredDomainError("command option provider", map[string]any{"component": "command_launcher"})
+	}
+	commandID := commandLauncherString(payload["command_id"])
+	fieldPath := commandLauncherString(firstNonNil(payload["field_path"], payload["field_name"], payload["field_id"]))
+	if commandID == "" || fieldPath == "" {
+		return debugregistry.PanelActionResult{}, validationDomainError("command id and field path are required", map[string]any{
+			"command_id": commandID,
+			"field_path": fieldPath,
+		})
+	}
+
+	state := buildCommandLauncherState(ctx, adm)
+	var descriptor *gocommand.CommandDescriptor
+	for i := range state.Executable {
+		if state.Executable[i].ID == commandID {
+			descriptor = &state.Executable[i]
+			break
+		}
+	}
+	if descriptor == nil {
+		return debugregistry.PanelActionResult{}, ErrForbidden
+	}
+
+	var field *gocommand.CommandInputField
+	for i := range descriptor.Input.Fields {
+		candidate := &descriptor.Input.Fields[i]
+		if fieldPath == strings.TrimSpace(candidate.Path) ||
+			fieldPath == strings.TrimSpace(candidate.Name) ||
+			fieldPath == strings.TrimSpace(candidate.ID) {
+			field = candidate
+			break
+		}
+	}
+	if field == nil || field.OptionSource == nil || strings.TrimSpace(field.OptionSource.ID) == "" {
+		return debugregistry.PanelActionResult{}, validationDomainError("command field does not declare a dynamic option source", map[string]any{
+			"command_id": commandID,
+			"field_path": fieldPath,
+		})
+	}
+	if requestedSource := commandLauncherString(payload["source_id"]); requestedSource != "" && requestedSource != strings.TrimSpace(field.OptionSource.ID) {
+		return debugregistry.PanelActionResult{}, validationDomainError("command option source does not match the registered descriptor", map[string]any{
+			"command_id":          commandID,
+			"field_path":          fieldPath,
+			"requested_source_id": requestedSource,
+		})
+	}
+
+	currentPayload := commandLauncherMap(payload["payload"])
+	options, err := adm.commandOptionProvider.CommandOptions(ctx, gocommand.CommandOptionRequest{
+		CommandID: commandID,
+		FieldID:   field.ID,
+		FieldName: field.Name,
+		FieldPath: field.Path,
+		Source:    *field.OptionSource,
+		Payload:   currentPayload,
+	})
+	if err != nil {
+		return debugregistry.PanelActionResult{}, fmt.Errorf("resolve command options for %s.%s: %w", commandID, fieldPath, err)
+	}
+	items := commandLauncherPanelOptionItems(options)
+	return debugregistry.PanelActionResult{
+		OK:      true,
+		Message: "Command options resolved",
+		Data: map[string]any{
+			"options":      commandLauncherOptionValues(options),
+			"option_items": items,
+			"empty":        len(items) == 0,
+		},
+	}, nil
 }
 
 // commandStatusEventType is the debug WebSocket event type the command launcher
@@ -549,6 +641,7 @@ func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor goc
 		if path == "" {
 			continue
 		}
+		optionItems := commandLauncherFieldOptionItems(ctx, adm, descriptor, field, diagnostics)
 		fields = append(fields, debugregistry.PanelUIActionField{
 			Name:         firstNonEmptyString(field.Name, field.ID, path),
 			Label:        field.Label,
@@ -556,8 +649,11 @@ func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor goc
 			PayloadPath:  "payload." + path,
 			Placeholder:  field.Placeholder,
 			Description:  firstNonEmptyString(field.Description, field.Help),
+			Help:         field.Help,
 			Required:     field.Required,
-			Options:      commandLauncherFieldOptions(ctx, adm, descriptor, field, diagnostics),
+			Options:      commandLauncherOptionValues(optionItems),
+			OptionItems:  commandLauncherPanelOptionItems(optionItems),
+			OptionSource: commandLauncherPanelOptionSource(field.OptionSource),
 			Default:      commandLauncherJSONSafeValue(field.Default),
 			DisplayHints: commandLauncherFieldDisplayHints(field),
 		})
@@ -565,9 +661,9 @@ func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor goc
 	return fields
 }
 
-func commandLauncherFieldOptions(ctx context.Context, adm *Admin, descriptor gocommand.CommandDescriptor, field gocommand.CommandInputField, diagnostics *[]CommandLauncherDiagnostic) []string {
+func commandLauncherFieldOptionItems(ctx context.Context, adm *Admin, descriptor gocommand.CommandDescriptor, field gocommand.CommandInputField, diagnostics *[]CommandLauncherDiagnostic) []gocommand.CommandOption {
 	if len(field.StaticOptions) > 0 {
-		return commandLauncherStaticOptions(field.StaticOptions)
+		return append([]gocommand.CommandOption(nil), field.StaticOptions...)
 	}
 	if field.OptionSource == nil {
 		return nil
@@ -590,7 +686,54 @@ func commandLauncherFieldOptions(ctx context.Context, adm *Admin, descriptor goc
 		}))
 		return nil
 	}
-	return commandLauncherStaticOptions(options)
+	return options
+}
+
+func commandLauncherOptionValues(options []gocommand.CommandOption) []string {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(options))
+	for _, option := range options {
+		if value := strings.TrimSpace(option.Value); value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func commandLauncherPanelOptionItems(options []gocommand.CommandOption) []debugregistry.PanelUIActionOption {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make([]debugregistry.PanelUIActionOption, 0, len(options))
+	for _, option := range options {
+		value := strings.TrimSpace(option.Value)
+		if value == "" {
+			continue
+		}
+		out = append(out, debugregistry.PanelUIActionOption{
+			Value:       value,
+			Label:       firstNonEmptyString(option.Label, value),
+			Description: option.Description,
+			Disabled:    option.Disabled,
+			Metadata:    commandLauncherJSONSafeMap(option.Metadata),
+		})
+	}
+	return out
+}
+
+func commandLauncherPanelOptionSource(source *gocommand.CommandOptionSourceRef) *debugregistry.PanelUIActionOptionSource {
+	if source == nil || strings.TrimSpace(source.ID) == "" {
+		return nil
+	}
+	return &debugregistry.PanelUIActionOptionSource{
+		ID:         source.ID,
+		Label:      source.Label,
+		Dynamic:    source.Dynamic,
+		CacheScope: source.CacheScope,
+		Params:     commandLauncherJSONSafeMap(source.Params),
+	}
 }
 
 func appendCommandLauncherDiagnostic(diagnostics *[]CommandLauncherDiagnostic, diagnostic CommandLauncherDiagnostic) {
