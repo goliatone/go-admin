@@ -135,3 +135,27 @@ func enforceAdminAPIBrowserCSRF(c router.Context, cfg auth.Config) error {
 func enforceProtectedSurfaceAPIBrowserCSRF(c router.Context, cfg auth.Config) error {
 	return enforceAdminAPIBrowserCSRF(c, cfg)
 }
+
+// enforceAdminAuthenticatorBrowserCSRF applies the browser-session CSRF
+// contract through the configured admin authenticator without coupling callers
+// to go-auth's concrete configuration type. Bearer-authenticated requests do
+// not use a browser session and therefore bypass this check.
+func enforceAdminAuthenticatorBrowserCSRF(c router.Context, admin *Admin) error {
+	if c == nil || !adminMethodRequiresCSRF(c.Method()) {
+		return nil
+	}
+	protector := adminBrowserCSRFProtector(admin)
+	if protector == nil {
+		if adminRequestUsesCookies(c) {
+			return newAdminBrowserCSRFError(nil)
+		}
+		return nil
+	}
+	if !protector.UsesBrowserSession(c) {
+		return nil
+	}
+	if err := protector.EnforceBrowserCSRF(c); err != nil {
+		return newAdminBrowserCSRFError(err)
+	}
+	return nil
+}
