@@ -319,6 +319,148 @@ func TestDebugPanelActionEndpointDispatchesRegisteredHandler(t *testing.T) {
 	}
 }
 
+func TestDebugAPIAuthFailuresReturnJSONWithoutBrowserRedirect(t *testing.T) {
+	const panelID = "authenticated_action_transport_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	called := false
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Authenticated Action Transport",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON},
+			},
+			Actions: []debugregistry.PanelUIAction{{ID: "refresh", Label: "Refresh"}},
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"refresh": func(context.Context, debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				called = true
+				return debugregistry.PanelActionResult{OK: true, Message: "refreshed"}, nil
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register action panel: %v", err)
+	}
+
+	debugCfg := DebugConfig{
+		Enabled:    true,
+		Permission: debugDefaultPermission,
+		Panels:     []string{panelID},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+
+	authCfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: cfg}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, authCfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	redirectCalls := 0
+	goAuth := NewGoAuthAuthenticator(routeAuth, authCfg, WithAuthErrorHandler(func(c router.Context, _ error) error {
+		redirectCalls++
+		status := http.StatusFound
+		if c.Method() != http.MethodGet {
+			status = http.StatusSeeOther
+		}
+		return c.Redirect("/login", status)
+	}))
+	adm.WithAuth(goAuth, &AuthConfig{LoginPath: "/login", RedirectPath: "/admin"})
+	adm.WithAuthorizer(allowAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	actionPath := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
+	actionPath = strings.Replace(actionPath, ":action", "refresh", 1)
+	unauthenticatedReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, actionPath, strings.NewReader(`{}`))
+	unauthenticatedReq.Header.Set("Accept", "application/json")
+	unauthenticatedReq.Header.Set("Content-Type", "application/json")
+	unauthenticatedRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(unauthenticatedRes, unauthenticatedReq)
+
+	if unauthenticatedRes.Code != http.StatusUnauthorized {
+		t.Fatalf("expected unauthenticated debug API status 401, got %d body=%s", unauthenticatedRes.Code, unauthenticatedRes.Body.String())
+	}
+	if location := strings.TrimSpace(unauthenticatedRes.Header().Get("Location")); location != "" {
+		t.Fatalf("expected debug API auth failure without redirect, got Location %q", location)
+	}
+	if contentType := unauthenticatedRes.Header().Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("expected debug API auth failure JSON content type, got %q", contentType)
+	}
+	if redirectCalls != 0 {
+		t.Fatalf("expected debug API to bypass browser auth error handler, got %d calls", redirectCalls)
+	}
+	if called {
+		t.Fatal("expected rejected debug API request not to invoke the panel action")
+	}
+	var authError map[string]any
+	if err := json.Unmarshal(unauthenticatedRes.Body.Bytes(), &authError); err != nil {
+		t.Fatalf("decode debug API auth error: %v", err)
+	}
+	if _, ok := authError["error"].(map[string]any); !ok {
+		t.Fatalf("expected structured debug API auth error, got %#v", authError)
+	}
+
+	dashboardPath := debugRoutePath(adm, debugCfg, "admin.debug", "index")
+	dashboardReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, dashboardPath, nil)
+	dashboardRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(dashboardRes, dashboardReq)
+	if dashboardRes.Code != http.StatusFound {
+		t.Fatalf("expected unauthenticated debug dashboard redirect, got %d body=%s", dashboardRes.Code, dashboardRes.Body.String())
+	}
+	if location := dashboardRes.Header().Get("Location"); location != "/login" {
+		t.Fatalf("expected debug dashboard redirect to /login, got %q", location)
+	}
+	if redirectCalls != 1 {
+		t.Fatalf("expected browser auth error handler for dashboard only, got %d calls", redirectCalls)
+	}
+
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	cookieReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, actionPath, strings.NewReader(`{}`))
+	cookieReq.Header.Set("Content-Type", "application/json")
+	cookieReq.AddCookie(&http.Cookie{Name: authCfg.GetContextKey(), Value: token})
+	cookieRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(cookieRes, cookieReq)
+	if cookieRes.Code != http.StatusBadRequest {
+		t.Fatalf("expected cookie-authenticated debug API request without CSRF to fail, got %d body=%s", cookieRes.Code, cookieRes.Body.String())
+	}
+	if location := strings.TrimSpace(cookieRes.Header().Get("Location")); location != "" {
+		t.Fatalf("expected debug API CSRF failure without redirect, got Location %q", location)
+	}
+	if called {
+		t.Fatal("expected debug API CSRF failure not to invoke the panel action")
+	}
+
+	bearerReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, actionPath, strings.NewReader(`{}`))
+	bearerReq.Header.Set("Authorization", "Bearer "+token)
+	bearerReq.Header.Set("Content-Type", "application/json")
+	bearerRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(bearerRes, bearerReq)
+	if bearerRes.Code != http.StatusOK {
+		t.Fatalf("expected bearer-authenticated debug API request to succeed, got %d body=%s", bearerRes.Code, bearerRes.Body.String())
+	}
+	if !called {
+		t.Fatal("expected authenticated debug API request to invoke the panel action")
+	}
+}
+
 func TestDebugCollectorRunPanelActionRequiresContextVisibleAction(t *testing.T) {
 	type contextKey string
 	const allowActionKey contextKey = "allow-action"
