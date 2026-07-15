@@ -1670,26 +1670,7 @@ func translationExchangeResolutionPayloads(resolutions []TranslationExchangeConf
 }
 
 func enforceTranslationExchangeCSRF(c router.Context, admin *Admin) error {
-	if c == nil {
-		return nil
-	}
-	if !adminMethodRequiresCSRF(c.Method()) {
-		return nil
-	}
-	protector := adminBrowserCSRFProtector(admin)
-	if protector == nil {
-		if adminRequestUsesCookies(c) {
-			return newAdminBrowserCSRFError(nil)
-		}
-		return nil
-	}
-	if !protector.UsesBrowserSession(c) {
-		return nil
-	}
-	if err := protector.EnforceBrowserCSRF(c); err != nil {
-		return newAdminBrowserCSRFError(err)
-	}
-	return nil
+	return enforceAdminAuthenticatorBrowserCSRF(c, admin)
 }
 
 func parseOptionalJSONMap(raw []byte) (map[string]any, error) {
