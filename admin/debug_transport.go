@@ -146,14 +146,15 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		return
 	}
 	basePath := m.debugBasePath(admin)
-	access := debugAccessMiddleware(admin, m.config, m.permission)
-	sessionAccess := debugAccessMiddleware(admin, m.config, debugSessionViewPermission)
+	browserAccess := debugAccessMiddleware(admin, m.config, m.permission)
+	apiAccess := debugAPIAccessMiddleware(admin, m.config, m.permission)
+	sessionAPIAccess := debugAPIAccessMiddleware(admin, m.config, debugSessionViewPermission)
 
 	if !featureEnabled(admin.featureGate, FeatureDashboard) {
-		m.registerDebugDashboardRoute(admin, basePath, access)
+		m.registerDebugDashboardRoute(admin, basePath, browserAccess)
 	}
-	m.registerDebugCoreAPIRoutes(admin, access, sessionAccess)
-	m.registerDebugPreferenceRoutes(admin, access)
+	m.registerDebugCoreAPIRoutes(admin, apiAccess, sessionAPIAccess)
+	m.registerDebugPreferenceRoutes(admin, apiAccess)
 	m.registerDebugJSErrorRoute(admin)
 }
 
@@ -1069,6 +1070,27 @@ func debugAccessMiddleware(admin *Admin, cfg DebugConfig, permission string) rou
 			}
 			return next(c)
 		})
+	}
+}
+
+// debugAPIAccessMiddleware keeps the Debug JSON transport independent from
+// browser-oriented auth error handlers. In particular, a rejected API request
+// must not be redirected to an HTML login page and then parsed as JSON by the
+// Debug client.
+func debugAPIAccessMiddleware(admin *Admin, cfg DebugConfig, permission string) router.MiddlewareFunc {
+	if admin == nil {
+		return nil
+	}
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			if err := debugAuthorizeRequest(admin, cfg, permission, c); err != nil {
+				return writeError(c, err)
+			}
+			if err := enforceAdminAuthenticatorBrowserCSRF(c, admin); err != nil {
+				return writeError(c, err)
+			}
+			return next(c)
+		}
 	}
 }
 
