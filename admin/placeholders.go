@@ -397,7 +397,10 @@ func (a *GoAuthAuthenticator) normalizeAuthError(err error) error {
 		return goerrors.New("unauthorized", goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
 	}
 	if mapped, _ := presenter.Present(err); mapped != nil {
-		return mapped
+		// RequestAuthenticator is the non-redirecting protected-API contract.
+		// Preserve the provider's diagnostic text code and metadata, but do not
+		// expose token parsing failures as a client payload-validation status.
+		return mapped.Clone().WithCode(goerrors.CodeUnauthorized)
 	}
 	return goerrors.New(err.Error(), goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
 }
