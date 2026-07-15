@@ -14,6 +14,7 @@ type siteTemplateResponse struct {
 	JSONPayload    map[string]any
 	ViewContext    router.ViewContext
 	FallbackError  SiteRuntimeError
+	Provenance     DeliveryProvenance
 }
 
 func siteTemplateResponsePayload(templateName string, viewCtx router.ViewContext, extra map[string]any) map[string]any {
@@ -54,13 +55,23 @@ func renderSiteTemplateResponse(c router.Context, state RequestState, cfg Resolv
 	if response.TemplateStatus > 0 {
 		c.Status(response.TemplateStatus)
 	}
+	provenance := cloneDeliveryProvenance(response.Provenance)
+	var lastErr error
 	for _, templateName := range response.TemplateNames {
 		if strings.TrimSpace(templateName) == "" {
 			continue
 		}
 		if err := renderSiteTemplate(c, templateName, response.ViewContext); err == nil {
+			appendDeliveryTemplateAttempt(&provenance, templateName, "selected")
+			finalizeDeliveryProvenance(&provenance, templateName, "PUBLIC_SITE_DELIVERY_RENDERED")
+			writeDeliveryProvenanceHeaders(c, provenance)
 			return nil
+		} else {
+			lastErr = err
+			appendDeliveryTemplateAttempt(&provenance, templateName, "failed")
 		}
 	}
-	return renderSiteRuntimeError(c, state, cfg, response.FallbackError)
+	finalizeDeliveryProvenance(&provenance, "", "PUBLIC_TEMPLATE_RENDER_FAILED")
+	writeDeliveryProvenanceHeaders(c, provenance)
+	return renderSiteRuntimeError(c, state, cfg, siteTemplateRenderFailure(response.FallbackError, provenance, lastErr))
 }

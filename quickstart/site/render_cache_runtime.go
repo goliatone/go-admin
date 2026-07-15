@@ -47,13 +47,20 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	if freshness == renderCacheFreshnessStale {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusStale, "", decision.Key)
 		r.triggerRenderCacheStaleRevalidation(c, state, decision, response)
+		provenance := cloneDeliveryProvenance(response.Provenance)
+		provenance.CacheStatus = renderCacheStatusStale
+		writeDeliveryProvenanceHeaders(c, provenance)
 		return true, decision, replayRenderedSiteResponse(c, response)
 	}
 	r.writeRenderCacheDebugHeaders(c, renderCacheStatusHit, "", decision.Key)
+	provenance := cloneDeliveryProvenance(response.Provenance)
+	provenance.CacheStatus = renderCacheStatusHit
+	writeDeliveryProvenanceHeaders(c, provenance)
 	return true, decision, replayRenderedSiteResponse(c, response)
 }
 
 func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, state RequestState, decision renderCacheDecision, result renderedSiteTemplateResult, resolution *deliveryResolution) error {
+	writeDeliveryProvenanceHeaders(c, result.Provenance)
 	if r == nil || !decision.Cacheable || strings.TrimSpace(decision.Key) == "" {
 		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
@@ -204,6 +211,7 @@ func cloneRenderedSiteResponse(response RenderedSiteResponse) RenderedSiteRespon
 	response.Headers = cloneRenderCacheHeaderMap(response.Headers)
 	response.Body = append([]byte{}, response.Body...)
 	response.Tags = cloneStrings(response.Tags)
+	response.Provenance = cloneDeliveryProvenance(response.Provenance)
 	return response
 }
 

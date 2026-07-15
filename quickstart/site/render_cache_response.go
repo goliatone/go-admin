@@ -20,12 +20,15 @@ type RenderedSiteResponse struct {
 	FreshUntil  time.Time           `json:"fresh_until"`
 	StaleUntil  time.Time           `json:"stale_until"`
 	Tags        []string            `json:"tags"`
+	Provenance  DeliveryProvenance  `json:"provenance,omitempty"`
 }
 
 type renderedSiteTemplateResult struct {
 	Status       int
 	TemplateName string
 	Rendered     RenderedTemplate
+	Provenance   DeliveryProvenance
+	LastError    error
 }
 
 type renderCacheCaptureError struct {
@@ -70,6 +73,8 @@ func renderSiteTemplateResponseWithOverride(
 	response siteTemplateResponse,
 	renderer RenderCacheTemplateRenderer,
 ) (renderedSiteTemplateResult, error) {
+	provenance := cloneDeliveryProvenance(response.Provenance)
+	var lastErr error
 	status := response.TemplateStatus
 	if status <= 0 {
 		status = http.StatusOK
@@ -81,8 +86,12 @@ func renderSiteTemplateResponseWithOverride(
 		}
 		rendered, err := renderer.RenderSiteTemplate(RequestContext(c), templateName, siteTemplateContext(c, response.ViewContext))
 		if err != nil {
+			lastErr = err
+			appendDeliveryTemplateAttempt(&provenance, templateName, "failed")
 			continue
 		}
+		appendDeliveryTemplateAttempt(&provenance, templateName, "selected")
+		finalizeDeliveryProvenance(&provenance, templateName, "PUBLIC_SITE_DELIVERY_RENDERED")
 		if strings.TrimSpace(rendered.ContentType) == "" {
 			rendered.ContentType = "text/html; charset=utf-8"
 		}
@@ -90,9 +99,11 @@ func renderSiteTemplateResponseWithOverride(
 			Status:       status,
 			TemplateName: templateName,
 			Rendered:     rendered,
+			Provenance:   provenance,
 		}, nil
 	}
-	return renderedSiteTemplateResult{}, nil
+	finalizeDeliveryProvenance(&provenance, "", "PUBLIC_TEMPLATE_RENDER_FAILED")
+	return renderedSiteTemplateResult{Provenance: provenance, LastError: lastErr}, nil
 }
 
 func renderSiteTemplateResponseWithRouterCapture(
@@ -100,6 +111,8 @@ func renderSiteTemplateResponseWithRouterCapture(
 	response siteTemplateResponse,
 	policy RenderCachePolicy,
 ) (renderedSiteTemplateResult, error) {
+	provenance := cloneDeliveryProvenance(response.Provenance)
+	var lastErr error
 	status := response.TemplateStatus
 	if status <= 0 {
 		status = http.StatusOK
@@ -116,10 +129,14 @@ func renderSiteTemplateResponseWithRouterCapture(
 		if err != nil {
 			reason := renderCacheCaptureFailureReason(err)
 			if reason == renderCacheReasonRenderError {
+				lastErr = err
+				appendDeliveryTemplateAttempt(&provenance, templateName, "failed")
 				continue
 			}
 			return renderedSiteTemplateResult{}, renderCacheCaptureError{Reason: reason, Err: err}
 		}
+		appendDeliveryTemplateAttempt(&provenance, templateName, "selected")
+		finalizeDeliveryProvenance(&provenance, templateName, "PUBLIC_SITE_DELIVERY_RENDERED")
 		rendered := renderedTemplateFromCapturedResponse(captured)
 		if strings.TrimSpace(rendered.ContentType) == "" {
 			rendered.ContentType = "text/html; charset=utf-8"
@@ -128,9 +145,11 @@ func renderSiteTemplateResponseWithRouterCapture(
 			Status:       captured.StatusCode,
 			TemplateName: templateName,
 			Rendered:     rendered,
+			Provenance:   provenance,
 		}, nil
 	}
-	return renderedSiteTemplateResult{}, nil
+	finalizeDeliveryProvenance(&provenance, "", "PUBLIC_TEMPLATE_RENDER_FAILED")
+	return renderedSiteTemplateResult{Provenance: provenance, LastError: lastErr}, nil
 }
 
 func renderedTemplateFromCapturedResponse(captured *router.CapturedResponse) RenderedTemplate {
@@ -255,6 +274,7 @@ func newRenderedSiteResponse(result renderedSiteTemplateResult, policy RenderCac
 		FreshUntil:  freshUntil,
 		StaleUntil:  staleUntil,
 		Tags:        cloneStrings(tags),
+		Provenance:  cloneDeliveryProvenance(result.Provenance),
 	}, "", true
 }
 
