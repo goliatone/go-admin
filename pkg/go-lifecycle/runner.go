@@ -10,17 +10,27 @@ import (
 
 // Runner executes registered lifecycle tasks and captures status.
 type Runner struct {
-	mu         sync.Mutex
-	tasks      []registeredTask
-	status     map[string]*taskStatus
-	serving    bool
-	ready      bool
-	startedAt  time.Time
-	updatedAt  time.Time
-	background context.Context
-	cancelBG   context.CancelFunc
-	bgStarted  bool
-	bgDone     chan struct{}
+	mu              sync.Mutex
+	tasks           []registeredTask
+	status          map[string]*taskStatus
+	failures        []TaskFailure
+	serving         bool
+	ready           bool
+	startedAt       time.Time
+	updatedAt       time.Time
+	background      context.Context
+	cancelBG        context.CancelFunc
+	bgStarted       bool
+	bgDone          chan struct{}
+	bgFailures      chan *TaskFailure
+	backgroundFatal []TaskFailure
+}
+
+const maxTaskFailureHistory = 256
+
+type taskRunResult struct {
+	phaseErr        error
+	terminalFailure *TaskFailure
 }
 
 type taskStatus struct {
@@ -40,15 +50,20 @@ func NewRunner(registry *Registry) (*Runner, error) {
 	}
 	tasks := registry.registeredTasks()
 	status := make(map[string]*taskStatus, len(tasks))
+	backgroundTasks := 0
 	for _, rt := range tasks {
 		status[rt.task.Name] = &taskStatus{task: rt.task, state: StatePending}
+		if rt.task.Phase == PhaseBackground {
+			backgroundTasks++
+		}
 	}
 	now := time.Now().UTC()
 	return &Runner{
-		tasks:     tasks,
-		status:    status,
-		startedAt: now,
-		updatedAt: now,
+		tasks:      tasks,
+		status:     status,
+		startedAt:  now,
+		updatedAt:  now,
+		bgFailures: make(chan *TaskFailure, backgroundTasks),
 	}, nil
 }
 
@@ -90,11 +105,11 @@ func (r *Runner) RunPhase(ctx context.Context, phase Phase) error {
 	}
 	var errs []error
 	for _, rt := range r.phaseTasks(phase) {
-		err := r.runTask(ctx, rt.task)
-		if err == nil {
+		result := r.runTask(ctx, rt.task)
+		if result.phaseErr == nil {
 			continue
 		}
-		errs = append(errs, err)
+		errs = append(errs, result.phaseErr)
 		if rt.task.Policy == ErrorPolicyFatal {
 			return errors.Join(errs...)
 		}
@@ -129,13 +144,15 @@ func (r *Runner) StartBackground(ctx context.Context) error {
 		task := rt.task
 		go func() {
 			defer wg.Done()
-			if err := r.runTask(bgCtx, task); err != nil {
-				return
+			result := r.runTask(bgCtx, task)
+			if result.terminalFailure != nil {
+				r.publishBackgroundFailure(*result.terminalFailure)
 			}
 		}()
 	}
 	go func() {
 		wg.Wait()
+		close(r.bgFailures)
 		close(r.bgDone)
 	}()
 	return nil
@@ -164,7 +181,34 @@ func (r *Runner) Shutdown(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	return r.RunPhase(ctx, PhaseShutdown)
+	backgroundErr := r.backgroundFatalError()
+	shutdownErr := r.RunPhase(ctx, PhaseShutdown)
+	return errors.Join(backgroundErr, shutdownErr)
+}
+
+// BackgroundFailures publishes one terminal failure for each failed
+// background task. The channel closes after all background tasks exit.
+func (r *Runner) BackgroundFailures() <-chan *TaskFailure {
+	if r == nil {
+		return nil
+	}
+	return r.bgFailures
+}
+
+// Failures returns a defensive copy of bounded raw failed-attempt history.
+// Unlike Snapshot, entries retain typed errors and recovered panic stacks.
+func (r *Runner) Failures() []*TaskFailure {
+	if r == nil {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]*TaskFailure, 0, len(r.failures))
+	for i := range r.failures {
+		failure := r.failures[i]
+		out = append(out, &failure)
+	}
+	return out
 }
 
 // MarkServing records that the host has proven listener availability.
@@ -223,9 +267,10 @@ func (r *Runner) phaseTasksLocked(phase Phase) []registeredTask {
 	return out
 }
 
-func (r *Runner) runTask(ctx context.Context, task Task) error {
+func (r *Runner) runTask(ctx context.Context, task Task) taskRunResult {
 	r.markRunning(task)
 	var lastErr error
+	var terminalFailure *TaskFailure
 	attempts := task.MaxAttempts
 	if task.Policy != ErrorPolicyRetryable {
 		attempts = 1
@@ -243,30 +288,57 @@ func (r *Runner) runTask(ctx context.Context, task Task) error {
 		r.markAttempt(task, attempt)
 		if err == nil {
 			r.markComplete(task, StateSucceeded, nil)
-			return nil
+			return taskRunResult{}
 		}
 		if task.Phase == PhaseBackground && errors.Is(err, context.Canceled) {
 			r.markComplete(task, StateCancelled, err)
-			return nil
+			return taskRunResult{}
 		}
 		lastErr = err
-		if task.Policy != ErrorPolicyRetryable {
+		terminal := task.Policy != ErrorPolicyRetryable || attempt == attempts
+		state := StateRunning
+		if terminal {
+			state = failureState(task.Policy)
+		}
+		failure := TaskFailure{
+			TaskName:   task.Name,
+			Phase:      task.Phase,
+			Policy:     task.Policy,
+			State:      state,
+			Attempt:    attempt,
+			Terminal:   terminal,
+			OccurredAt: time.Now().UTC(),
+			Cause:      err,
+		}
+		r.recordFailure(failure)
+		if terminal {
+			terminalFailure = &failure
+		}
+		if terminal {
 			break
 		}
 	}
 
-	state := StateFailed
-	switch task.Policy {
-	case ErrorPolicyDegraded, ErrorPolicyRetryable:
-		state = StateDegraded
-	case ErrorPolicyIgnored:
-		state = StateIgnored
-	}
+	state := failureState(task.Policy)
 	r.markComplete(task, state, lastErr)
 	if task.Policy == ErrorPolicyFatal {
-		return fmt.Errorf("lifecycle task %q failed: %w", task.Name, lastErr)
+		return taskRunResult{
+			phaseErr:        fmt.Errorf("lifecycle task %q failed: %w", task.Name, lastErr),
+			terminalFailure: terminalFailure,
+		}
 	}
-	return nil
+	return taskRunResult{terminalFailure: terminalFailure}
+}
+
+func failureState(policy ErrorPolicy) State {
+	switch policy {
+	case ErrorPolicyDegraded, ErrorPolicyRetryable:
+		return StateDegraded
+	case ErrorPolicyIgnored:
+		return StateIgnored
+	default:
+		return StateFailed
+	}
 }
 
 func runTaskAttempt(ctx context.Context, task Task) (err error) {
@@ -292,6 +364,41 @@ func (r *Runner) markRunning(task Task) {
 	status.duration = 0
 	status.err = nil
 	r.touchLocked()
+}
+
+func (r *Runner) recordFailure(failure TaskFailure) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.failures) == maxTaskFailureHistory {
+		copy(r.failures, r.failures[1:])
+		r.failures[len(r.failures)-1] = failure
+		return
+	}
+	r.failures = append(r.failures, failure)
+}
+
+func (r *Runner) publishBackgroundFailure(failure TaskFailure) {
+	r.mu.Lock()
+	if failure.Policy == ErrorPolicyFatal {
+		r.backgroundFatal = append(r.backgroundFatal, failure)
+	}
+	channel := r.bgFailures
+	r.mu.Unlock()
+	channel <- &failure
+}
+
+func (r *Runner) backgroundFatalError() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if len(r.backgroundFatal) == 0 {
+		return nil
+	}
+	errs := make([]error, 0, len(r.backgroundFatal))
+	for i := range r.backgroundFatal {
+		failure := r.backgroundFatal[i]
+		errs = append(errs, &failure)
+	}
+	return errors.Join(errs...)
 }
 
 func (r *Runner) markAttempt(task Task, attempt int) {

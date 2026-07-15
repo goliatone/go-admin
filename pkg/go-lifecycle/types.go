@@ -7,6 +7,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Phase identifies a lifecycle execution phase.
@@ -44,6 +45,8 @@ const (
 // TaskFunc is a unit of lifecycle work.
 type TaskFunc func(context.Context) error
 
+const maxPanicDiagnosticBytes = 1024
+
 // PanicError reports a panic recovered while executing a lifecycle task.
 // Error returns a bounded diagnostic suitable for snapshots. Recovered and
 // StackTrace retain the original value and stack for internal diagnostics.
@@ -67,7 +70,7 @@ func (e *PanicError) Error() string {
 	if e == nil {
 		return "lifecycle task panicked"
 	}
-	return fmt.Sprintf("lifecycle task %q panicked: %v", e.taskName, e.recovered)
+	return boundedDiagnostic(fmt.Sprintf("lifecycle task %q panicked: %v", e.taskName, e.recovered), maxPanicDiagnosticBytes)
 }
 
 // Unwrap preserves an error used as the panic value for errors.Is/errors.As.
@@ -101,6 +104,51 @@ func (e *PanicError) StackTrace() []byte {
 		return nil
 	}
 	return append([]byte(nil), e.stack...)
+}
+
+func boundedDiagnostic(value string, limit int) string {
+	value = strings.ToValidUTF8(value, "�")
+	if limit <= 0 || len(value) <= limit {
+		return value
+	}
+	limit -= len("…")
+	for limit > 0 && !utf8.ValidString(value[:limit]) {
+		limit--
+	}
+	return value[:limit] + "…"
+}
+
+// TaskFailure preserves a raw failed lifecycle attempt outside the JSON-safe
+// snapshot. Cause may carry a PanicError and its stack trace.
+type TaskFailure struct {
+	TaskName   string      `json:"task_name"`
+	Phase      Phase       `json:"phase"`
+	Policy     ErrorPolicy `json:"policy"`
+	State      State       `json:"state"`
+	Attempt    int         `json:"attempt"`
+	Terminal   bool        `json:"terminal"`
+	OccurredAt time.Time   `json:"occurred_at"`
+	Cause      error       `json:"-"`
+}
+
+// Error implements error while retaining the underlying cause for errors.Is
+// and errors.As.
+func (f *TaskFailure) Error() string {
+	if f == nil {
+		return "lifecycle task failed"
+	}
+	if f.Cause == nil {
+		return fmt.Sprintf("lifecycle task %q attempt %d failed", f.TaskName, f.Attempt)
+	}
+	return fmt.Sprintf("lifecycle task %q attempt %d failed: %v", f.TaskName, f.Attempt, f.Cause)
+}
+
+// Unwrap returns the raw task failure.
+func (f *TaskFailure) Unwrap() error {
+	if f == nil {
+		return nil
+	}
+	return f.Cause
 }
 
 // Task describes a registered lifecycle task.
