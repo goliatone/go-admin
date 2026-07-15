@@ -1,11 +1,29 @@
 # Changelog
 
+# [0.115.0](https://github.com/goliatone/go-admin/compare/v0.114.5...v0.115.0) - (2026-07-15)
+
+## <!-- 16 -->➕ Add
+
+- Panic error handler ([769c77f](https://github.com/goliatone/go-admin/commit/769c77f362d90bdac98b53380c251f6de28f9a84))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([a73a185](https://github.com/goliatone/go-admin/commit/a73a185f72e6d196a263388b5027574ac8d91209))  - (goliatone)
+- Update tests ([f147cbf](https://github.com/goliatone/go-admin/commit/f147cbfd0e30e3a298489ce63b10eeb705516f69))  - (goliatone)
+
 # [0.114.5](https://github.com/goliatone/go-admin/compare/v0.114.4...v0.114.5) - (2026-07-15)
+
+
+New patch release: v0.114.5
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([f63ec05](https://github.com/goliatone/go-admin/commit/f63ec05e71c53a3de79388c25566fcc63a861b34))  - (goliatone)
 - Render command fields ([522c65d](https://github.com/goliatone/go-admin/commit/522c65d977f3def660e26c10a89f8e1751ec8a65))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.114.5 ([8785946](https://github.com/goliatone/go-admin/commit/8785946462d4cf18225631c71f5990921e672078))  - (goliatone)
 
 # [0.114.4](https://github.com/goliatone/go-admin/compare/v0.114.3...v0.114.4) - (2026-07-15)
 
