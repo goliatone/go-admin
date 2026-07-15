@@ -23,7 +23,11 @@ type Runner struct {
 	bgStarted       bool
 	bgDone          chan struct{}
 	bgFailures      chan *TaskFailure
+	bgFailuresOnce  sync.Once
 	backgroundFatal []TaskFailure
+	shuttingDown    bool
+	shutdownOnce    sync.Once
+	shutdownErr     error
 }
 
 const maxTaskFailureHistory = 256
@@ -126,6 +130,10 @@ func (r *Runner) StartBackground(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	r.mu.Lock()
+	if r.shuttingDown {
+		r.mu.Unlock()
+		return fmt.Errorf("lifecycle: background tasks cannot start after shutdown begins")
+	}
 	if r.bgStarted {
 		r.mu.Unlock()
 		return fmt.Errorf("lifecycle: background tasks already started")
@@ -152,7 +160,7 @@ func (r *Runner) StartBackground(ctx context.Context) error {
 	}
 	go func() {
 		wg.Wait()
-		close(r.bgFailures)
+		r.closeBackgroundFailures()
 		close(r.bgDone)
 	}()
 	return nil
@@ -168,9 +176,14 @@ func (r *Runner) Shutdown(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	r.mu.Lock()
+	r.shuttingDown = true
 	cancel := r.cancelBG
 	done := r.bgDone
+	started := r.bgStarted
 	r.mu.Unlock()
+	if !started {
+		r.closeBackgroundFailures()
+	}
 	if cancel != nil {
 		cancel()
 	}
@@ -178,11 +191,14 @@ func (r *Runner) Shutdown(ctx context.Context) error {
 		select {
 		case <-done:
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.Join(
+				r.backgroundFatalError(),
+				&ShutdownIncompleteError{Cause: ctx.Err()},
+			)
 		}
 	}
 	backgroundErr := r.backgroundFatalError()
-	shutdownErr := r.RunPhase(ctx, PhaseShutdown)
+	shutdownErr := r.runShutdownTasks(ctx)
 	return errors.Join(backgroundErr, shutdownErr)
 }
 
@@ -282,6 +298,7 @@ func (r *Runner) runTask(ctx context.Context, task Task) taskRunResult {
 			runCtx, cancel = context.WithTimeout(ctx, task.Timeout)
 		}
 		err := runTaskAttempt(runCtx, task)
+		parentStopped := ctx.Err() != nil
 		if cancel != nil {
 			cancel()
 		}
@@ -290,7 +307,7 @@ func (r *Runner) runTask(ctx context.Context, task Task) taskRunResult {
 			r.markComplete(task, StateSucceeded, nil)
 			return taskRunResult{}
 		}
-		if task.Phase == PhaseBackground && errors.Is(err, context.Canceled) {
+		if task.Phase == PhaseBackground && parentStopped && errors.Is(err, context.Canceled) {
 			r.markComplete(task, StateCancelled, err)
 			return taskRunResult{}
 		}
@@ -385,6 +402,19 @@ func (r *Runner) publishBackgroundFailure(failure TaskFailure) {
 	channel := r.bgFailures
 	r.mu.Unlock()
 	channel <- &failure
+}
+
+func (r *Runner) closeBackgroundFailures() {
+	r.bgFailuresOnce.Do(func() {
+		close(r.bgFailures)
+	})
+}
+
+func (r *Runner) runShutdownTasks(ctx context.Context) error {
+	r.shutdownOnce.Do(func() {
+		r.shutdownErr = r.RunPhase(ctx, PhaseShutdown)
+	})
+	return r.shutdownErr
 }
 
 func (r *Runner) backgroundFatalError() error {

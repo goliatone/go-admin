@@ -131,6 +131,30 @@ type TaskFailure struct {
 	Cause      error       `json:"-"`
 }
 
+// ShutdownIncompleteError reports that background tasks were still running
+// when the caller's shutdown context expired. Shutdown hooks have not run and
+// callers must not close resources used by those tasks. Shutdown may be called
+// again with a fresh context after the workers exit.
+type ShutdownIncompleteError struct {
+	Cause error
+}
+
+// Error implements error.
+func (e *ShutdownIncompleteError) Error() string {
+	if e == nil || e.Cause == nil {
+		return "lifecycle: shutdown incomplete; background tasks are still running"
+	}
+	return fmt.Sprintf("lifecycle: shutdown incomplete; background tasks are still running: %v", e.Cause)
+}
+
+// Unwrap exposes the context error that interrupted shutdown.
+func (e *ShutdownIncompleteError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
+}
+
 // Error implements error while retaining the underlying cause for errors.Is
 // and errors.As.
 func (f *TaskFailure) Error() string {

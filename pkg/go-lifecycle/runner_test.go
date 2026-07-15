@@ -275,6 +275,140 @@ func TestFatalBackgroundFailureIsPublishedAndReturnedByShutdown(t *testing.T) {
 	}
 }
 
+func TestBackgroundContextCanceledWithoutParentCancellationFollowsFatalPolicy(t *testing.T) {
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:   "independent-cancellation",
+		Phase:  PhaseBackground,
+		Policy: ErrorPolicyFatal,
+		Run:    func(context.Context) error { return context.Canceled },
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.StartBackground(context.Background()); err != nil {
+		t.Fatalf("StartBackground() error = %v", err)
+	}
+	failure, ok := <-runner.BackgroundFailures()
+	if !ok || failure == nil {
+		t.Fatal("BackgroundFailures() closed without publishing the fatal cancellation")
+	}
+	if !errors.Is(failure, context.Canceled) || failure.State != StateFailed {
+		t.Fatalf("failure = %#v, want failed context cancellation", failure)
+	}
+	if failures := runner.Failures(); len(failures) != 1 || !errors.Is(failures[0], context.Canceled) {
+		t.Fatalf("Failures() = %#v, want retained context cancellation", failures)
+	}
+	if err := runner.Shutdown(context.Background()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Shutdown() error = %v, want retained context cancellation", err)
+	}
+}
+
+func TestShutdownTimeoutPreservesFatalFailureAndDefersTeardown(t *testing.T) {
+	fatalCause := errors.New("fatal background failure")
+	release := make(chan struct{})
+	started := make(chan struct{})
+	var shutdownRuns atomic.Int32
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:   "fatal-worker",
+		Phase:  PhaseBackground,
+		Policy: ErrorPolicyFatal,
+		Run:    func(context.Context) error { return fatalCause },
+	})
+	mustRegister(t, registry, Task{
+		Name:   "stuck-worker",
+		Phase:  PhaseBackground,
+		Policy: ErrorPolicyDegraded,
+		Run: func(context.Context) error {
+			close(started)
+			<-release
+			return nil
+		},
+	})
+	mustRegister(t, registry, Task{
+		Name:  "shutdown-hook",
+		Phase: PhaseShutdown,
+		Run: func(context.Context) error {
+			shutdownRuns.Add(1)
+			return nil
+		},
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.StartBackground(context.Background()); err != nil {
+		t.Fatalf("StartBackground() error = %v", err)
+	}
+	<-started
+	failure := <-runner.BackgroundFailures()
+	if !errors.Is(failure, fatalCause) {
+		t.Fatalf("background failure = %v, want fatal cause", failure)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	err := runner.Shutdown(ctx)
+	cancel()
+	var incomplete *ShutdownIncompleteError
+	if !errors.As(err, &incomplete) || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Shutdown() error = %v, want incomplete deadline error", err)
+	}
+	if !errors.Is(err, fatalCause) {
+		t.Fatalf("Shutdown() error = %v, want retained fatal cause", err)
+	}
+	if got := shutdownRuns.Load(); got != 0 {
+		t.Fatalf("shutdown hook runs = %d, want 0 while worker is running", got)
+	}
+
+	close(release)
+	if err := runner.Shutdown(context.Background()); !errors.Is(err, fatalCause) {
+		t.Fatalf("retry Shutdown() error = %v, want retained fatal cause", err)
+	}
+	if got := shutdownRuns.Load(); got != 1 {
+		t.Fatalf("shutdown hook runs = %d, want 1 after worker exit", got)
+	}
+	if err := runner.Shutdown(context.Background()); !errors.Is(err, fatalCause) {
+		t.Fatalf("repeated Shutdown() error = %v, want retained fatal cause", err)
+	}
+	if got := shutdownRuns.Load(); got != 1 {
+		t.Fatalf("shutdown hook runs = %d, want idempotent execution", got)
+	}
+}
+
+func TestShutdownBeforeBackgroundStartClosesSupervisionAndIsIdempotent(t *testing.T) {
+	var shutdownRuns atomic.Int32
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:   "future-worker",
+		Phase:  PhaseBackground,
+		Policy: ErrorPolicyFatal,
+		Run:    func(context.Context) error { return nil },
+	})
+	mustRegister(t, registry, Task{
+		Name:  "shutdown-hook",
+		Phase: PhaseShutdown,
+		Run: func(context.Context) error {
+			shutdownRuns.Add(1)
+			return nil
+		},
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+	if _, ok := <-runner.BackgroundFailures(); ok {
+		t.Fatal("BackgroundFailures() remained open after shutdown-before-start")
+	}
+	if err := runner.StartBackground(context.Background()); err == nil {
+		t.Fatal("StartBackground() succeeded after shutdown")
+	}
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("repeated Shutdown() error = %v", err)
+	}
+	if got := shutdownRuns.Load(); got != 1 {
+		t.Fatalf("shutdown hook runs = %d, want 1", got)
+	}
+}
+
 func TestPanicErrorDiagnosticIsBoundedAndRawValueIsPreserved(t *testing.T) {
 	panicValue := strings.Repeat("界", maxPanicDiagnosticBytes)
 	registry := NewRegistry()
