@@ -107,8 +107,8 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 		t.Fatalf("register rich panel: %v", err)
 	}
 
-	registration, ok := registry.Registration("cache")
-	if !ok {
+	registration, registrationFound := registry.Registration("cache")
+	if !registrationFound {
 		t.Fatalf("expected panel registration")
 	}
 	def := registration.Definition
@@ -155,29 +155,29 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	if len(field.OptionItems) != 2 || field.OptionItems[0].Label != "Active file" || !field.OptionItems[1].Disabled {
 		t.Fatalf("expected rich options to be normalized, got %+v", field.OptionItems)
 	}
-	if _, ok := field.OptionItems[0].Metadata["unsafe"]; ok {
+	if _, hasUnsafeMetadata := field.OptionItems[0].Metadata["unsafe"]; hasUnsafeMetadata {
 		t.Fatalf("expected unsafe option metadata to be dropped, got %+v", field.OptionItems[0].Metadata)
 	}
 	if field.OptionSource == nil || field.OptionSource.ID != "catalog.files" || field.OptionSource.CacheScope != "request" || !field.OptionSource.Dynamic {
 		t.Fatalf("expected option source to be normalized, got %+v", field.OptionSource)
 	}
-	if _, ok := field.OptionSource.Params["unsafe"]; ok {
+	if _, hasUnsafeParam := field.OptionSource.Params["unsafe"]; hasUnsafeParam {
 		t.Fatalf("expected unsafe option-source params to be dropped, got %+v", field.OptionSource.Params)
 	}
-	if dependsOn, ok := field.OptionSource.Params["depends_on"].([]any); !ok || len(dependsOn) != 1 || dependsOn[0] != "kind" {
+	if dependsOn, dependenciesOK := field.OptionSource.Params["depends_on"].([]any); !dependenciesOK || len(dependsOn) != 1 || dependsOn[0] != "kind" {
 		t.Fatalf("expected typed option-source dependencies to survive normalization, got %+v", field.OptionSource.Params)
 	}
-	defaultValue, ok := def.UI.Actions[0].Fields[0].Default.(map[string]any)
-	if !ok || defaultValue["value"] != "123" {
+	defaultValue, defaultOK := def.UI.Actions[0].Fields[0].Default.(map[string]any)
+	if !defaultOK || defaultValue["value"] != "123" {
 		t.Fatalf("expected JSON-safe field default, got %+v", def.UI.Actions[0].Fields[0].Default)
 	}
-	if _, ok := defaultValue["unsafe"]; ok {
+	if _, hasUnsafeDefault := defaultValue["unsafe"]; hasUnsafeDefault {
 		t.Fatalf("expected unsafe default value to be dropped, got %+v", def.UI.Actions[0].Fields[0].Default)
 	}
 	if got := def.UI.Actions[0].Fields[0].DisplayHints; got["section"] != "Scope" {
 		t.Fatalf("expected JSON-safe field display hints, got %+v", got)
 	}
-	if _, ok := def.UI.Actions[0].Fields[0].DisplayHints["unsafe"]; ok {
+	if _, hasUnsafeHint := def.UI.Actions[0].Fields[0].DisplayHints["unsafe"]; hasUnsafeHint {
 		t.Fatalf("expected unsafe display hint to be dropped, got %+v", def.UI.Actions[0].Fields[0].DisplayHints)
 	}
 	if len(registration.Actions) != 1 || registration.Actions["refresh"] == nil {

@@ -441,27 +441,12 @@ func runCommandLauncherOptionResolver(ctx context.Context, adm *Admin, payload m
 	}
 
 	state := buildCommandLauncherState(ctx, adm)
-	var descriptor *gocommand.CommandDescriptor
-	for i := range state.Executable {
-		if state.Executable[i].ID == commandID {
-			descriptor = &state.Executable[i]
-			break
-		}
-	}
+	descriptor := commandLauncherExecutableDescriptor(state.Executable, commandID)
 	if descriptor == nil {
 		return debugregistry.PanelActionResult{}, ErrForbidden
 	}
 
-	var field *gocommand.CommandInputField
-	for i := range descriptor.Input.Fields {
-		candidate := &descriptor.Input.Fields[i]
-		if fieldPath == strings.TrimSpace(candidate.Path) ||
-			fieldPath == strings.TrimSpace(candidate.Name) ||
-			fieldPath == strings.TrimSpace(candidate.ID) {
-			field = candidate
-			break
-		}
-	}
+	field := commandLauncherInputField(descriptor.Input.Fields, fieldPath)
 	if field == nil || field.OptionSource == nil || strings.TrimSpace(field.OptionSource.ID) == "" {
 		return debugregistry.PanelActionResult{}, validationDomainError("command field does not declare a dynamic option source", map[string]any{
 			"command_id": commandID,
@@ -498,6 +483,30 @@ func runCommandLauncherOptionResolver(ctx context.Context, adm *Admin, payload m
 			"empty":        len(items) == 0,
 		},
 	}, nil
+}
+
+func commandLauncherExecutableDescriptor(descriptors []gocommand.CommandDescriptor, commandID string) *gocommand.CommandDescriptor {
+	for i := range descriptors {
+		if descriptors[i].ID == commandID {
+			return &descriptors[i]
+		}
+	}
+	return nil
+}
+
+func commandLauncherInputField(fields []gocommand.CommandInputField, fieldPath string) *gocommand.CommandInputField {
+	for i := range fields {
+		if commandLauncherInputFieldMatches(fields[i], fieldPath) {
+			return &fields[i]
+		}
+	}
+	return nil
+}
+
+func commandLauncherInputFieldMatches(field gocommand.CommandInputField, fieldPath string) bool {
+	return fieldPath == strings.TrimSpace(field.Path) ||
+		fieldPath == strings.TrimSpace(field.Name) ||
+		fieldPath == strings.TrimSpace(field.ID)
 }
 
 // commandStatusEventType is the debug WebSocket event type the command launcher
@@ -1006,21 +1015,6 @@ func commandLauncherSafeString(value string) string {
 		return ""
 	}
 	return value
-}
-
-func commandLauncherStaticOptions(options []gocommand.CommandOption) []string {
-	if len(options) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(options))
-	for _, option := range options {
-		value := strings.TrimSpace(option.Value)
-		if value == "" {
-			continue
-		}
-		out = append(out, value)
-	}
-	return out
 }
 
 func commandLauncherStringList(value any) []string {
