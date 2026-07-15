@@ -45,6 +45,11 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 				resolution.AvailableLocales,
 			),
 		},
+		Provenance: deliveryProvenanceForResolution(
+			resolution,
+			map[bool]string{true: renderCacheStatusMiss, false: renderCacheStatusBypass}[cacheDecision.Cacheable],
+			r.renderCache.policy.RenderVersion,
+		),
 	}
 	if cacheDecision.Cacheable {
 		result, err := renderSiteTemplateResponseCaptured(c, response, r.renderCache.policy)
@@ -59,7 +64,7 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 		}
 		if result.Status <= 0 || strings.TrimSpace(result.TemplateName) == "" {
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
-			return renderSiteRuntimeError(c, state, r.siteCfg, response.FallbackError)
+			return renderSiteRuntimeError(c, state, r.siteCfg, siteTemplateRenderFailure(response.FallbackError, result.Provenance, result.LastError))
 		}
 		return r.writeCapturedRenderCacheResponse(c, state, cacheDecision, result, resolution)
 	}
