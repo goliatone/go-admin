@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.114.5](https://github.com/goliatone/go-admin/compare/v0.114.4...v0.114.5) - (2026-07-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([f63ec05](https://github.com/goliatone/go-admin/commit/f63ec05e71c53a3de79388c25566fcc63a861b34))  - (goliatone)
+- Render command fields ([522c65d](https://github.com/goliatone/go-admin/commit/522c65d977f3def660e26c10a89f8e1751ec8a65))  - (goliatone)
+
 # [0.114.4](https://github.com/goliatone/go-admin/compare/v0.114.3...v0.114.4) - (2026-07-15)
+
+
+New patch release: v0.114.4
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.114.4 ([6266e55](https://github.com/goliatone/go-admin/commit/6266e555d91cdaed4134a4eaeb00f15a8e53082d))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
