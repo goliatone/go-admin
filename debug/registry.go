@@ -135,6 +135,7 @@ type PanelUIActionField struct {
 	Description  string                     `json:"description,omitempty"`
 	Help         string                     `json:"help,omitempty"`
 	Required     bool                       `json:"required,omitempty"`
+	Sensitive    bool                       `json:"sensitive,omitempty"`
 	Options      []string                   `json:"options,omitempty"`
 	OptionItems  []PanelUIActionOption      `json:"option_items,omitempty"`
 	OptionSource *PanelUIActionOptionSource `json:"option_source,omitempty"`
@@ -891,12 +892,13 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 			Description:  trimSafeText(field.Description),
 			Help:         trimSafeText(field.Help),
 			Required:     field.Required,
+			Sensitive:    field.Sensitive,
 			Options:      options,
 			OptionItems:  normalizePanelUIActionOptions(field.OptionItems),
 			OptionSource: normalizePanelUIActionOptionSource(field.OptionSource),
 			DisplayHints: cloneJSONSafeMap(field.DisplayHints),
 		}
-		if defaultValue, ok := cloneJSONSafeValue(field.Default); ok {
+		if defaultValue, ok := cloneJSONSafeValue(field.Default); ok && !field.Sensitive {
 			if text, isText := defaultValue.(string); isText && text == "" {
 				out = append(out, normalized)
 				continue

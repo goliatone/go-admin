@@ -967,9 +967,20 @@ test('panelDefinitionFromServer applies the commands console override (filters o
   const otherDef = panelDefinitionFromServer({
     id: 'cache',
     label: 'Cache',
-    ui: { schema_version: '1', views: { console: { renderer: 'json', bind: '$' } } },
+    ui: {
+      schema_version: '1',
+      views: { console: { renderer: 'json', bind: '$' } },
+      actions: [{
+        id: 'authenticate',
+        label: 'Authenticate',
+        fields: [{ name: 'token', label: 'Token', sensitive: true, payload_path: 'credentials.token' }],
+      }],
+    },
   });
-  assert.doesNotMatch(otherDef.renderConsole({ a: 1 }, {}, {}), /data-cmdl-root/);
+  const otherHTML = otherDef.renderConsole({ a: 1 }, {}, {});
+  assert.doesNotMatch(otherHTML, /data-cmdl-root/);
+  assert.match(otherHTML, /type="password"[^>]*data-action-field-sensitive="true"/);
+  assert.match(otherHTML, /autocomplete="new-password"/);
 });
 
 // ---- Phase 3 T11: live command status over the debug WS ----

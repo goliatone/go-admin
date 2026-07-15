@@ -656,14 +656,22 @@ func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor goc
 			Description:  firstNonEmptyString(field.Description, field.Help),
 			Help:         field.Help,
 			Required:     field.Required,
+			Sensitive:    field.Sensitive,
 			Options:      commandLauncherOptionValues(optionItems),
 			OptionItems:  commandLauncherPanelOptionItems(optionItems),
 			OptionSource: commandLauncherPanelOptionSource(field.OptionSource),
-			Default:      commandLauncherJSONSafeValue(field.Default),
+			Default:      commandLauncherFieldDefault(field),
 			DisplayHints: commandLauncherFieldDisplayHints(field),
 		})
 	}
 	return fields
+}
+
+func commandLauncherFieldDefault(field gocommand.CommandInputField) any {
+	if field.Sensitive {
+		return nil
+	}
+	return commandLauncherJSONSafeValue(field.Default)
 }
 
 func commandLauncherFieldOptionItems(ctx context.Context, adm *Admin, descriptor gocommand.CommandDescriptor, field gocommand.CommandInputField, diagnostics *[]CommandLauncherDiagnostic) []gocommand.CommandOption {
@@ -797,7 +805,7 @@ func commandLauncherSerializedFields(fields []gocommand.CommandInputField) []map
 		setCommandLauncherString(serialized, "placeholder", field.Placeholder)
 		setCommandLauncherString(serialized, "description", field.Description)
 		setCommandLauncherString(serialized, "help", field.Help)
-		if defaultValue := commandLauncherJSONSafeValue(field.Default); defaultValue != nil {
+		if defaultValue := commandLauncherFieldDefault(field); defaultValue != nil {
 			serialized["default"] = defaultValue
 		}
 		if hints := commandLauncherFieldDisplayHints(field); len(hints) > 0 {
