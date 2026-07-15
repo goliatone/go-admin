@@ -14,6 +14,7 @@
 
 import { escapeHTML } from '../utils.js';
 import { registerServerPanelConsoleRenderer, type ServerPanelConsoleRendererContext } from '../server-definitions.js';
+import { httpRequest, readExpectedHTTPJSON, readHTTPErrorResult } from '../../../shared/transport/http-client.js';
 
 const COMMAND_LAUNCHER_PANEL_ID = 'commands';
 
@@ -29,8 +30,27 @@ type ServerActionField = {
   help?: string;
   required?: boolean;
   options?: string[];
+  option_items?: ServerActionOption[];
+  option_source?: ServerActionOptionSource;
   default?: unknown;
   display_hints?: Record<string, unknown>;
+  static_options?: ServerActionOption[];
+};
+
+type ServerActionOption = {
+  value?: string;
+  label?: string;
+  description?: string;
+  disabled?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+type ServerActionOptionSource = {
+  id?: string;
+  label?: string;
+  dynamic?: boolean;
+  cache_scope?: string;
+  params?: Record<string, unknown>;
 };
 
 type ServerAction = {
@@ -313,6 +333,12 @@ function mergeActionFieldPresentation(action: ServerAction, schemaFields: Map<st
       if (!own(merged, 'display_hints') && own(schema, 'display_hints')) {
         merged.display_hints = schema.display_hints;
       }
+      if (!own(merged, 'option_items') && Array.isArray(schema.static_options)) {
+        merged.option_items = schema.static_options;
+      }
+      if (!own(merged, 'option_source') && own(schema, 'option_source')) {
+        merged.option_source = schema.option_source;
+      }
       if (!str(merged.description)) {
         merged.description = str(schema.description) || str(schema.help);
       }
@@ -396,6 +422,54 @@ function renderList(grouped: Array<{ group: string; items: CatalogEntry[] }>, to
 // Detail + form rendering
 // ============================================================================
 
+function normalizedOptionItems(field: ServerActionField): Array<Required<Pick<ServerActionOption, 'value' | 'label'>> & ServerActionOption> {
+  const rich = Array.isArray(field.option_items) ? field.option_items : [];
+  const legacy: ServerActionOption[] = Array.isArray(field.options)
+    ? field.options.map((value) => ({ value: str(value), label: str(value) }))
+    : [];
+  const source: ServerActionOption[] = rich.length > 0 ? rich : legacy;
+  const seen = new Set<string>();
+  return source
+    .map((option) => {
+      const value = str(option?.value);
+      return {
+        ...option,
+        value,
+        label: str(option?.label) || value,
+        description: str(option?.description),
+        disabled: option?.disabled === true,
+      };
+    })
+    .filter((option) => {
+      if (!option.value || seen.has(option.value)) return false;
+      seen.add(option.value);
+      return true;
+    });
+}
+
+function optionSourceDependencies(source: ServerActionOptionSource | undefined): string[] {
+  const raw = source?.params?.depends_on;
+  const values = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(',') : [];
+  return values.map(str).filter(Boolean);
+}
+
+function optionSourceAttrs(field: ServerActionField, payloadPath: string): string {
+  const sourceID = str(field.option_source?.id);
+  if (!sourceID) return '';
+  const fieldPath = payloadPath.replace(/^payload\./, '');
+  const depends = optionSourceDependencies(field.option_source).join(',');
+  return ` data-cmdl-option-source="${escapeHTML(sourceID)}" data-cmdl-option-field="${escapeHTML(fieldPath)}"${depends ? ` data-cmdl-option-depends="${escapeHTML(depends)}"` : ''}`;
+}
+
+function renderOptionChoiceButtons(items: ReturnType<typeof normalizedOptionItems>): string {
+  if (items.length === 0) return '';
+  return `<div class="cmdl-option-choices" data-cmdl-option-choices>${items.map((option) => `
+    <button type="button" class="cmdl-option-choice" data-cmdl-option-value="${escapeHTML(option.value)}"
+      ${option.disabled ? 'disabled' : ''}${option.description ? ` title="${escapeHTML(option.description)}"` : ''}>
+      <span>${escapeHTML(option.label)}</span>${option.description ? `<small>${escapeHTML(option.description)}</small>` : ''}
+    </button>`).join('')}</div>`;
+}
+
 function fieldControl(field: ServerActionField, actionId: string, index: number): string {
   const name = str(field.name);
   if (!name) {
@@ -409,14 +483,20 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
   const reqMark = required ? '<span class="cmdl-field__req" title="Required">*</span>' : '';
   const placeholder = str(field.placeholder);
   const placeholderAttr = placeholder ? ` placeholder="${escapeHTML(placeholder)}"` : '';
-  const description = str(field.description) || str(field.help);
+  const description = str(field.description);
+  const helpText = str(field.help);
   const units = presentationString(field.display_hints?.units);
   const helpParts = [
     description ? `<span>${escapeHTML(description)}</span>` : '',
+    helpText && helpText !== description ? `<span>${escapeHTML(helpText)}</span>` : '',
     units ? `<span class="cmdl-field__units">Units: ${escapeHTML(units)}</span>` : '',
   ].filter(Boolean);
   const help = helpParts.length ? `<small class="cmdl-field__help">${helpParts.join(' ')}</small>` : '';
-  const options = Array.isArray(field.options) ? field.options.map(str).filter(Boolean) : [];
+  const options = normalizedOptionItems(field);
+  const sourceAttrs = optionSourceAttrs(field, payloadPath);
+  const sourceStatus = field.option_source
+    ? `<small class="cmdl-field__source" data-cmdl-option-status>${options.length > 0 ? '' : 'Options load when this command is selected.'}</small>`
+    : '';
   const requiredAttr = required ? ' required' : '';
   const baseAttrs = `id="${escapeHTML(fieldId)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${requiredAttr}`;
   const errorSmall = `<small class="cmdl-field__error" data-action-field-error="${escapeHTML(payloadPath)}" data-action-field-name="${escapeHTML(name)}" data-action-id="${escapeHTML(actionId)}" hidden></small>`;
@@ -425,30 +505,22 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
   if (isBooleanKind(kind)) {
     const checked = field.default === true ? ' checked' : '';
     return `
-      <div class="cmdl-field cmdl-field--full cmdl-field--bool">
+      <div class="cmdl-field cmdl-field--full cmdl-field--bool"${sourceAttrs}>
         <label class="cmdl-toggle">
           <input type="checkbox" ${baseAttrs}${checked}>
           <span class="cmdl-toggle__track" aria-hidden="true"></span>
           <span class="cmdl-toggle__text">${escapeHTML(label)}${reqMark}</span>
         </label>
-        ${help}${errorSmall}
+        ${help}${sourceStatus}${errorSmall}
       </div>`;
   }
 
   let control = '';
-  if (options.length > 0 || kind === 'select') {
-    const defaultValue = scalarAttr(field.default);
-    control = `<select ${baseAttrs}><option value=""></option>${options
-      .map((option) => `<option value="${escapeHTML(option)}"${option === defaultValue ? ' selected' : ''}>${escapeHTML(option)}</option>`)
-      .join('')}</select>`;
-  } else if (kind === 'number' || kind === 'integer') {
-    const valueAttr = scalarAttr(field.default);
-    control = `<input type="number" ${baseAttrs}${placeholderAttr}${valueAttr ? ` value="${escapeHTML(valueAttr)}"` : ''}>`;
-  } else if (kind === 'string_list' || kind === 'array') {
+  if (kind === 'string_list' || kind === 'array') {
     const defaults = Array.isArray(field.default) ? (field.default as unknown[]).map(str).filter(Boolean) : [];
-    const entryPlaceholder = placeholder || 'Add a value, press Enter';
+    const entryPlaceholder = placeholder || (options.length > 0 ? 'Choose values below or type another value' : 'Add a value, press Enter');
     return `
-      <div class="cmdl-field cmdl-field--full cmdl-field--list">
+      <div class="cmdl-field cmdl-field--full cmdl-field--list"${sourceAttrs}>
         <label class="cmdl-field__label" for="${escapeHTML(fieldId)}">${escapeHTML(label)}${reqMark}</label>
         <div class="cmdl-chips" data-cmdl-chips${required ? ' data-cmdl-chips-required="true"' : ''}>
           <span class="cmdl-chips__tags" data-cmdl-chips-tags></span>
@@ -458,8 +530,18 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
             data-action-field-path="${escapeHTML(payloadPath)}"
             data-cmdl-chips-value value="${escapeHTML(defaults.join('\n'))}">
         </div>
-        ${help}${errorSmall}
+        ${renderOptionChoiceButtons(options)}
+        ${help}${sourceStatus}${errorSmall}
       </div>`;
+  } else if (options.length > 0 || kind === 'select' || field.option_source) {
+    const defaultValue = scalarAttr(field.default);
+    const unavailable = options.length === 0 && Boolean(field.option_source);
+    control = `<select ${baseAttrs} data-cmdl-option-control${unavailable ? ' disabled' : ''}><option value="">${unavailable ? 'Options unavailable' : ''}</option>${options
+      .map((option) => `<option value="${escapeHTML(option.value)}"${option.value === defaultValue ? ' selected' : ''}${option.disabled ? ' disabled' : ''}${option.description ? ` title="${escapeHTML(option.description)}" data-option-description="${escapeHTML(option.description)}"` : ''}>${escapeHTML(option.label)}</option>`)
+      .join('')}</select><small class="cmdl-field__option-description" data-cmdl-option-description></small>`;
+  } else if (kind === 'number' || kind === 'integer') {
+    const valueAttr = scalarAttr(field.default);
+    control = `<input type="number" ${baseAttrs}${placeholderAttr}${valueAttr ? ` value="${escapeHTML(valueAttr)}"` : ''}>`;
   } else if (kind === 'json' || kind === 'object' || kind === 'textarea') {
     const defaultText = field.default !== undefined && field.default !== null ? JSON.stringify(field.default, null, 2) : '';
     control = `<textarea ${baseAttrs}${placeholderAttr} rows="3">${escapeHTML(defaultText)}</textarea>`;
@@ -469,10 +551,10 @@ function fieldControl(field: ServerActionField, actionId: string, index: number)
   }
 
   return `
-    <div class="cmdl-field">
+    <div class="cmdl-field"${sourceAttrs}>
       <label class="cmdl-field__label" for="${escapeHTML(fieldId)}">${escapeHTML(label)}${reqMark}</label>
       ${control}
-      ${help}${errorSmall}
+      ${help}${sourceStatus}${errorSmall}
     </div>`;
 }
 
@@ -626,7 +708,7 @@ function renderForm(entry: CatalogEntry): string {
     : '';
 
   return `
-    <form class="cmdl-form" data-panel-action-form data-cmdl-mode="form"
+    <form class="cmdl-form" data-panel-action-form data-cmdl-mode="form" data-cmdl-command="${escapeHTML(entry.commandId)}"
       data-panel-id="${escapeHTML(COMMAND_LAUNCHER_PANEL_ID)}"
       data-action-id="${escapeHTML(entry.actionId)}"
       data-action-confirm="${escapeHTML(confirm)}"
@@ -713,10 +795,13 @@ function renderDiagnostics(diagnostics: DiagnosticLike[]): string {
 export function renderCommandLauncherConsole(ctx: ServerPanelConsoleRendererContext): string {
   const { def, data } = ctx;
   const { entries, diagnostics } = buildCatalog(def, data);
+  const metadata = def.ui?.metadata && typeof def.ui.metadata === 'object' ? def.ui.metadata as Record<string, unknown> : {};
+  const resolverAction = str(metadata.option_resolver_action);
+  const resolverAttr = resolverAction ? ` data-cmdl-option-resolver="${escapeHTML(resolverAction)}"` : '';
 
   if (entries.length === 0) {
     return `
-      <div class="cmdl" data-cmdl-root>
+      <div class="cmdl" data-cmdl-root${resolverAttr}>
         <div class="cmdl__empty-panel">No commands are available to run.</div>
         ${renderDiagnostics(diagnostics)}
         <div class="cmdl-result" data-panel-action-result="${escapeHTML(COMMAND_LAUNCHER_PANEL_ID)}"></div>
@@ -727,7 +812,7 @@ export function renderCommandLauncherConsole(ctx: ServerPanelConsoleRendererCont
   const details = entries.map(renderDetailBlock).join('');
 
   return `
-    <div class="cmdl" data-cmdl-root>
+    <div class="cmdl" data-cmdl-root${resolverAttr}>
       <div class="cmdl__body" data-cmdl-body>
         ${renderList(grouped, entries.length)}
         <div class="cmdl__resizer" data-cmdl-resizer role="separator" aria-orientation="vertical"
@@ -1078,6 +1163,10 @@ function selectCommand(root: HTMLElement, actionId: string): void {
     item.classList.toggle('cmdl-item--active', active);
     item.setAttribute('aria-selected', active ? 'true' : 'false');
   });
+  const detail = root.querySelector<HTMLElement>(`[data-cmdl-detail="${attrValueEscape(actionId)}"]`);
+  if (detail) {
+    void refreshDynamicOptions(detail);
+  }
 }
 
 function applyFilter(root: HTMLElement, term: string): void {
@@ -1134,6 +1223,129 @@ function renderChipTags(holder: HTMLElement, tokens: string[]): void {
   if (entry) {
     entry.required = holder.dataset.cmdlChipsRequired === 'true' && tokens.length === 0;
   }
+  const field = holder.closest<HTMLElement>('[data-cmdl-option-source]');
+  field?.querySelectorAll<HTMLElement>('[data-cmdl-option-value]').forEach((option) => {
+    option.classList.toggle('cmdl-option-choice--selected', tokens.includes(option.dataset.cmdlOptionValue || ''));
+  });
+}
+
+const optionRequestVersions = new WeakMap<HTMLElement, number>();
+const optionRefreshTimers = new WeakMap<HTMLElement, number>();
+
+function setOptionStatus(field: HTMLElement, message: string, state = ''): void {
+  const status = field.querySelector<HTMLElement>('[data-cmdl-option-status]');
+  if (status) {
+    status.textContent = message;
+    status.dataset.state = state;
+  }
+}
+
+function renderResolvedOptionChoices(items: ReturnType<typeof normalizedOptionItems>): string {
+  return items.map((option) => `
+    <button type="button" class="cmdl-option-choice" data-cmdl-option-value="${escapeHTML(option.value)}"
+      ${option.disabled ? 'disabled' : ''}${option.description ? ` title="${escapeHTML(option.description)}"` : ''}>
+      <span>${escapeHTML(option.label)}</span>${option.description ? `<small>${escapeHTML(option.description)}</small>` : ''}
+    </button>`).join('');
+}
+
+function applyResolvedOptions(field: HTMLElement, rawItems: ServerActionOption[]): void {
+  const items = normalizedOptionItems({ option_items: rawItems });
+  const select = field.querySelector<HTMLSelectElement>('[data-cmdl-option-control]');
+  if (select) {
+    const previous = select.value;
+    select.innerHTML = `<option value=""></option>${items.map((option) =>
+      `<option value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}${option.description ? ` data-option-description="${escapeHTML(option.description)}"` : ''}>${escapeHTML(option.label)}</option>`
+    ).join('')}`;
+    if (previous && !items.some((option) => option.value === previous)) {
+      select.insertAdjacentHTML('beforeend', `<option value="${escapeHTML(previous)}" data-option-stale="true">${escapeHTML(previous)} (current)</option>`);
+    }
+    select.value = previous;
+    select.disabled = items.length === 0;
+  }
+  let choices = field.querySelector<HTMLElement>('[data-cmdl-option-choices]');
+  const chips = field.querySelector<HTMLElement>('[data-cmdl-chips]');
+  if (chips && !choices) {
+    choices = document.createElement('div');
+    choices.className = 'cmdl-option-choices';
+    choices.dataset.cmdlOptionChoices = '';
+    chips.insertAdjacentElement('afterend', choices);
+  }
+  if (choices) {
+    choices.innerHTML = renderResolvedOptionChoices(items);
+    if (chips) renderChipTags(chips, chipTokens(chips));
+  }
+  setOptionStatus(field, items.length === 0 ? 'No options are currently available.' : `${items.length} option${items.length === 1 ? '' : 's'} available.`, items.length === 0 ? 'empty' : 'ready');
+}
+
+async function refreshDynamicOptionField(field: HTMLElement): Promise<void> {
+  const root = field.closest<HTMLElement>('[data-cmdl-root]');
+  const form = field.closest<HTMLElement>('[data-panel-action-form]');
+  const debugPath = root?.dataset.cmdlDebugPath || '';
+  const actionID = root?.dataset.cmdlOptionResolver || '';
+  const commandID = form?.dataset.cmdlCommand || '';
+  const fieldPath = field.dataset.cmdlOptionField || '';
+  const sourceID = field.dataset.cmdlOptionSource || '';
+  if (!root || !form || !debugPath || !actionID || !commandID || !fieldPath || !sourceID) {
+    if (sourceID && (!debugPath || !actionID)) {
+      setOptionStatus(field, 'Dynamic options are unavailable because no option resolver is configured.', 'error');
+    }
+    return;
+  }
+  const version = (optionRequestVersions.get(field) || 0) + 1;
+  optionRequestVersions.set(field, version);
+  setOptionStatus(field, 'Loading options…', 'loading');
+  const control = field.querySelector<HTMLSelectElement>('[data-cmdl-option-control]');
+  if (control) control.disabled = true;
+  try {
+    const response = await httpRequest(`${debugPath}/api/panels/${COMMAND_LAUNCHER_PANEL_ID}/actions/${encodeURIComponent(actionID)}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        command_id: commandID,
+        field_path: fieldPath,
+        source_id: sourceID,
+        payload: collectFormPayload(form),
+      }),
+    });
+    if (!response.ok) {
+      const failure = await readHTTPErrorResult(response, `Options failed to load (${response.status})`, { appendStatusToFallback: false });
+      throw new Error(failure.message);
+    }
+    const result = await readExpectedHTTPJSON<{ data?: { option_items?: ServerActionOption[]; options?: string[] } }>(response);
+    if (optionRequestVersions.get(field) !== version) return;
+    const rich = Array.isArray(result.data?.option_items) ? result.data!.option_items! : [];
+    const legacy = Array.isArray(result.data?.options)
+      ? result.data!.options!.map((value) => ({ value, label: value }))
+      : [];
+    applyResolvedOptions(field, rich.length > 0 ? rich : legacy);
+  } catch (error) {
+    if (optionRequestVersions.get(field) !== version) return;
+    const message = error instanceof Error ? error.message : 'Options failed to load.';
+    setOptionStatus(field, message, 'error');
+    if (control) control.disabled = control.options.length <= 1;
+  }
+}
+
+async function refreshDynamicOptions(scope: HTMLElement, dependency = ''): Promise<void> {
+  const fields = Array.from(scope.querySelectorAll<HTMLElement>('[data-cmdl-option-source]'));
+  await Promise.all(fields
+    .filter((field) => {
+      if (!dependency) return true;
+      const dependencies = (field.dataset.cmdlOptionDepends || '').split(',').map(str).filter(Boolean);
+      return dependencies.includes(dependency);
+    })
+    .map((field) => refreshDynamicOptionField(field)));
+}
+
+function scheduleDependentOptionRefresh(form: HTMLElement, dependency: string): void {
+  form.querySelectorAll<HTMLElement>('[data-cmdl-option-source]').forEach((field) => {
+    const dependencies = (field.dataset.cmdlOptionDepends || '').split(',').map(str).filter(Boolean);
+    if (!dependencies.includes(dependency)) return;
+    const existing = optionRefreshTimers.get(field);
+    if (existing !== undefined) window.clearTimeout(existing);
+    optionRefreshTimers.set(field, window.setTimeout(() => void refreshDynamicOptionField(field), 200));
+  });
 }
 
 function readFieldDraftValue(field: HTMLElement): string {
@@ -1607,11 +1819,12 @@ function setConfirmRow(form: HTMLElement, show: boolean): void {
   }
 }
 
-export function attachCommandLauncherListeners(container: HTMLElement): void {
+export function attachCommandLauncherListeners(container: HTMLElement, options: { debugPath?: string } = {}): void {
   const root = container.querySelector<HTMLElement>('[data-cmdl-root]');
   if (!root) {
     return;
   }
+  root.dataset.cmdlDebugPath = str(options.debugPath);
 
   initChips(root);
 
@@ -1700,6 +1913,20 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
         }
       }
     }
+
+    const optionChoice = target.closest<HTMLElement>('[data-cmdl-option-value]');
+    if (optionChoice && !optionChoice.hasAttribute('disabled')) {
+      const field = optionChoice.closest<HTMLElement>('[data-cmdl-option-source], .cmdl-field--list');
+      const holder = field?.querySelector<HTMLElement>('[data-cmdl-chips]');
+      const value = optionChoice.dataset.cmdlOptionValue || '';
+      if (holder && value) {
+        const tokens = chipTokens(holder);
+        const index = tokens.indexOf(value);
+        if (index >= 0) tokens.splice(index, 1); else tokens.push(value);
+        renderChipTags(holder, tokens);
+        captureFormFor(holder);
+      }
+    }
   });
 
   if (filter) {
@@ -1728,6 +1955,14 @@ export function attachCommandLauncherListeners(container: HTMLElement): void {
     const field = target?.closest<HTMLElement>('[data-action-field]');
     if (field) {
       captureFormFor(field);
+      const form = field.closest<HTMLElement>('[data-panel-action-form]');
+      const dependency = str(field.dataset.actionField) || str(field.dataset.actionFieldPath).replace(/^payload\./, '');
+      if (form && dependency) scheduleDependentOptionRefresh(form, dependency);
+      if (field instanceof HTMLSelectElement) {
+        const description = field.selectedOptions[0]?.dataset.optionDescription || '';
+        const output = field.closest<HTMLElement>('.cmdl-field')?.querySelector<HTMLElement>('[data-cmdl-option-description]');
+        if (output) output.textContent = description;
+      }
     }
   };
   root.addEventListener('input', captureFromEvent);

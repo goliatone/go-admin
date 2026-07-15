@@ -1,10 +1,10 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { A as H, C as c, D as O, E as D, F as j, M as F, O as V, _ as N, b as B, c as G, d as _, f as K, g as Q, h as Y, k as J, l as U, m as W, p as X, t as Z, u as tt, v as et, y as at, z as k } from "../chunks/builtin-panels-DXkYcS1n.js";
+import { A as H, C as c, D as O, E as D, F as j, M as F, O as V, _ as N, b as B, c as G, d as _, f as K, g as Q, h as Y, k as J, l as U, m as W, p as X, t as Z, u as tt, v as et, y as at, z as k } from "../chunks/builtin-panels-CVQrNFzw.js";
 import { t as st } from "../chunks/repl-panel-Dvtc4bMw.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
-import { M as b, P as v, S as rt, T as nt, W as it, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as qt, l as Lt, m as pt, n as E, o as P, p as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-DqfsBBaQ.js";
+import { M as b, P as v, S as rt, T as nt, W as it, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as qt, l as Lt, m as pt, n as E, o as P, p as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-DNaNqHXt.js";
 var gt = `
   :host {
     --toolbar-bg: #1e1e2e;

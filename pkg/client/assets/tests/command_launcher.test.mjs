@@ -227,6 +227,110 @@ test('maps field kinds to the right controls and reuses the dispatch contract', 
   assert.match(html, /data-action-field-path="payload\.batch_size"/);
 });
 
+test('renders rich scalar choices and keeps multi-value choices as chips', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const def = {
+    id: 'commands',
+    ui: {
+      schema_version: '1',
+      actions: [{
+        id: 'dispatch_rich',
+        label: 'Rich options',
+        payload: { command_id: 'demo.rich', payload: {}, options: { mode: 'inline' } },
+        fields: [
+          {
+            name: 'environment', label: 'Environment', kind: 'select', payload_path: 'payload.environment',
+            description: 'Deployment environment.', help: 'Choose the environment that owns the data.',
+            option_items: [
+              { value: 'prod', label: 'Production', description: 'Live data' },
+              { value: 'retired', label: 'Retired', description: 'No longer writable', disabled: true },
+            ],
+          },
+          {
+            name: 'indexes', label: 'Indexes', kind: 'string_list', payload_path: 'payload.indexes',
+            option_items: [
+              { value: 'site_content', label: 'Site content', description: 'Pages and articles' },
+              { value: 'archive_media', label: 'Archive media' },
+            ],
+          },
+        ],
+      }],
+    },
+  };
+  const data = { commands: [{ id: 'demo.rich', group: 'Demo', execution_mode: 'inline' }], diagnostics: [] };
+  const html = renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true });
+
+  assert.match(html, /<option value="prod"[^>]*data-option-description="Live data"[^>]*>Production<\/option>/);
+  assert.match(html, /<option value="retired" disabled[^>]*>Retired<\/option>/);
+  assert.match(html, /Deployment environment\./);
+  assert.match(html, /Choose the environment that owns the data\./);
+  assert.match(html, /data-cmdl-chips-value[^>]*data-action-field="indexes"|data-action-field="indexes"[^>]*data-cmdl-chips-value/);
+  assert.match(html, /data-cmdl-option-value="site_content"[\s\S]*?Site content[\s\S]*?Pages and articles/);
+  assert.doesNotMatch(html, /<select[^>]*data-action-field="indexes"/);
+});
+
+test('refreshes dependent dynamic choices with the current form payload', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const def = {
+    id: 'commands',
+    ui: {
+      schema_version: '1',
+      metadata: { option_resolver_action: 'resolve_options' },
+      actions: [{
+        id: 'dispatch_ingest',
+        label: 'Ingest',
+        payload: { command_id: 'transcript.ingest', payload: {}, options: { mode: 'inline' } },
+        fields: [
+          { name: 'source_kind', label: 'Source kind', kind: 'select', payload_path: 'payload.source_kind', options: ['folder', 'sql'] },
+          {
+            name: 'source_ref', label: 'Source', kind: 'select', payload_path: 'payload.source_ref',
+            option_source: { id: 'garchen.transcript_sources', dynamic: true, params: { depends_on: ['source_kind'] } },
+          },
+        ],
+      }],
+    },
+  };
+  const data = { commands: [{ id: 'transcript.ingest', group: 'Transcript', execution_mode: 'inline' }], diagnostics: [] };
+  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.getElementById('host');
+  const requests = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push({ url: String(url), body });
+    const kind = body.payload.source_kind || 'all';
+    return new Response(JSON.stringify({
+      data: {
+        option_items: [{ value: `${kind}-source`, label: `${kind.toUpperCase()} source`, description: `Approved ${kind} source` }],
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
+    host.querySelector('[data-cmdl-item="dispatch_ingest"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const kind = host.querySelector('[data-action-field="source_kind"]');
+    kind.value = 'sql';
+    kind.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 260));
+
+    const last = requests.at(-1);
+    assert.equal(last.url, '/admin/debug/api/panels/commands/actions/resolve_options');
+    assert.equal(last.body.command_id, 'transcript.ingest');
+    assert.equal(last.body.field_path, 'source_ref');
+    assert.equal(last.body.source_id, 'garchen.transcript_sources');
+    assert.equal(last.body.payload.source_kind, 'sql');
+    const source = host.querySelector('[data-action-field="source_ref"]');
+    assert.equal(source.disabled, false);
+    assert.equal(source.options[1].value, 'sql-source');
+    assert.equal(source.options[1].textContent, 'SQL source');
+    assert.match(host.querySelector('[data-cmdl-option-status]').textContent, /1 option available/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('groups required/list fields as Parameters and booleans as Options', async () => {
   const { renderCommandLauncherConsole } = await importLauncher();
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });

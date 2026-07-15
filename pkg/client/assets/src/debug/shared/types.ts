@@ -155,6 +155,7 @@ export type ServerPanelUI = {
     kind?: string;
     confirm_text?: string;
     requires_confirm?: boolean;
+    hidden?: boolean;
     refresh?: boolean;
     update_policy?: string;
     payload?: Record<string, unknown>;
@@ -165,8 +166,25 @@ export type ServerPanelUI = {
       payload_path?: string;
       placeholder?: string;
       description?: string;
+      help?: string;
       required?: boolean;
       options?: string[];
+      option_items?: Array<{
+        value?: string;
+        label?: string;
+        description?: string;
+        disabled?: boolean;
+        metadata?: Record<string, unknown>;
+      }>;
+      option_source?: {
+        id?: string;
+        label?: string;
+        dynamic?: boolean;
+        cache_scope?: string;
+        params?: Record<string, unknown>;
+      };
+      default?: unknown;
+      display_hints?: Record<string, unknown>;
     }>;
   }>;
   metadata?: Record<string, unknown>;

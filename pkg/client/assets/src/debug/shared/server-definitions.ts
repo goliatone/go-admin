@@ -293,7 +293,7 @@ function renderDegradedNotice(
 
 function renderPanelActionControls(serverDef: ServerPanelDefinition, styles: StyleConfig): string {
   const panelID = normalizeID(serverDef.id);
-  const actions = serverDef.ui?.actions || [];
+  const actions = (serverDef.ui?.actions || []).filter((action) => action.hidden !== true);
   if (!panelID || actions.length === 0) {
     return '';
   }
@@ -401,13 +401,26 @@ function renderPanelActionField(
   const placeholder = normalizeText(field.placeholder);
   const placeholderAttr = placeholder ? ` placeholder="${escapeHTML(placeholder)}"` : '';
   const description = normalizeText(field.description);
+  const help = normalizeText(field.help);
   const baseAttrs = `id="${escapeHTML(fieldID)}" data-action-field="${escapeHTML(name)}" data-action-field-kind="${escapeHTML(kind)}" data-action-field-path="${escapeHTML(payloadPath)}"${required}`;
   const options = Array.isArray(field.options) ? field.options.map((option) => normalizeText(option)).filter(Boolean) : [];
+  const optionItems = Array.isArray(field.option_items)
+    ? field.option_items
+      .map((option) => ({
+        value: normalizeText(option?.value),
+        label: normalizeText(option?.label) || normalizeText(option?.value),
+        disabled: option?.disabled === true,
+      }))
+      .filter((option) => option.value)
+    : [];
   let control = '';
   if (kind === 'boolean' || kind === 'checkbox') {
     control = `<input type="checkbox" ${baseAttrs}>`;
-  } else if (kind === 'select' || options.length > 0) {
-    control = `<select ${baseAttrs}><option value=""></option>${options.map((option) => `<option value="${escapeHTML(option)}">${escapeHTML(option)}</option>`).join('')}</select>`;
+  } else if (kind === 'select' || optionItems.length > 0 || options.length > 0) {
+    const renderedOptions = optionItems.length > 0
+      ? optionItems.map((option) => `<option value="${escapeHTML(option.value)}"${option.disabled ? ' disabled' : ''}>${escapeHTML(option.label)}</option>`).join('')
+      : options.map((option) => `<option value="${escapeHTML(option)}">${escapeHTML(option)}</option>`).join('');
+    control = `<select ${baseAttrs}><option value=""></option>${renderedOptions}</select>`;
   } else if (kind === 'number' || kind === 'integer') {
     control = `<input type="number" ${baseAttrs}${placeholderAttr}>`;
   } else if (kind === 'textarea' || kind === 'json' || kind === 'string_list') {
@@ -426,6 +439,7 @@ function renderPanelActionField(
         hidden
       ></small>
       ${description ? `<small>${escapeHTML(description)}</small>` : ''}
+      ${help && help !== description ? `<small>${escapeHTML(help)}</small>` : ''}
     </label>
   `;
 }

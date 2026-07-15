@@ -1820,6 +1820,11 @@ section.debug-json-panel {
 .cmdl-field__req { color: var(--debug-error); margin-left: 2px; }
 .cmdl-field__help { font-size: 0.625rem; color: var(--debug-text-muted); }
 .cmdl-field__error { font-size: 0.625rem; color: var(--debug-error); }
+.cmdl-field__source,
+.cmdl-field__option-description { min-height: 0.75rem; font-size: 0.625rem; color: var(--debug-text-muted); }
+.cmdl-field__source[data-state="loading"] { color: var(--debug-accent); }
+.cmdl-field__source[data-state="error"] { color: var(--debug-error); }
+.cmdl-field__source[data-state="empty"] { color: var(--debug-warning); }
 
 .cmdl-field input[type="text"],
 .cmdl-field input[type="number"],
@@ -1920,6 +1925,31 @@ section.debug-json-panel {
   padding: 2px;
 }
 .cmdl-chips__entry:focus { outline: none; }
+
+.cmdl-option-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 5px;
+}
+.cmdl-option-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 5px 7px;
+  border: 1px solid var(--debug-border);
+  border-radius: 5px;
+  background: var(--debug-surface);
+  color: var(--debug-text);
+  font: inherit;
+  font-size: 0.6875rem;
+  text-align: left;
+  cursor: pointer;
+}
+.cmdl-option-choice small { color: var(--debug-text-muted); font-size: 0.59375rem; }
+.cmdl-option-choice:hover:not(:disabled),
+.cmdl-option-choice--selected { border-color: var(--debug-accent); background: rgba(137, 180, 250, 0.12); }
+.cmdl-option-choice:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* action bar */
 .cmdl-form__bar {

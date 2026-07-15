@@ -1121,7 +1121,7 @@ export class DebugPanel {
     }
     this.attachPanelActionListeners();
     if (panel === 'commands') {
-      attachCommandLauncherListeners(this.panelEl);
+      attachCommandLauncherListeners(this.panelEl, { debugPath: this.debugPath });
     }
     this.renderStoredPanelActionResult(panel);
   }
