@@ -1,10 +1,10 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { A as H, C as c, D as O, E as D, F as j, M as F, O as V, _ as N, b as B, c as G, d as _, f as K, g as Q, h as Y, k as J, l as U, m as W, p as X, t as Z, u as tt, v as et, y as at, z as k } from "../chunks/builtin-panels-CVQrNFzw.js";
+import { A as H, B as k, D as O, I as D, N as j, O as F, _ as V, b as N, d as B, f as G, g as _, h as K, j as Q, k as Y, l as J, m as U, p as W, t as X, u as Z, v as tt, w as c, x as et, y as at } from "../chunks/builtin-panels-DOTy-NEd.js";
 import { t as st } from "../chunks/repl-panel-Dvtc4bMw.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
-import { M as b, P as v, S as rt, T as nt, W as it, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as qt, l as Lt, m as pt, n as E, o as P, p as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-DNaNqHXt.js";
+import { M as b, P as v, S as rt, T as nt, W as it, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as qt, l as Lt, m as pt, n as E, o as P, p as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-BeRQu0qp.js";
 var gt = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1095,7 +1095,7 @@ function w(a, t, e = 50, s) {
   const r = s?.newestFirst ?? !0, i = s?.slowThresholdMs ?? e;
   switch (a) {
     case "requests":
-      return at(t.requests || [], d, {
+      return N(t.requests || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1106,7 +1106,7 @@ function w(a, t, e = 50, s) {
         maxDetailLength: 80
       });
     case "sql":
-      return j(t.sql || [], d, {
+      return D(t.sql || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1114,7 +1114,7 @@ function w(a, t, e = 50, s) {
         useIconCopyButton: !1
       });
     case "logs":
-      return Q(t.logs || [], d, {
+      return V(t.logs || [], d, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1128,7 +1128,7 @@ function w(a, t, e = 50, s) {
         showCount: !1
       });
     case "routes":
-      return X(t.routes || [], d, { showName: !1 });
+      return U(t.routes || [], d, { showName: !1 });
     case "template":
       return b("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
@@ -1140,14 +1140,14 @@ function w(a, t, e = 50, s) {
         showCount: !1
       });
     case "jserrors":
-      return tt(t.jserrors || [], d, {
+      return B(t.jserrors || [], d, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return _(t.custom || {}, d, {
+      return G(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1179,7 +1179,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   constructor() {
     super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
-    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new N({
+    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new tt({
       styles: c,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
@@ -1193,8 +1193,8 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       onNeedFullRender: () => this.updateContent()
     }), this.logsView = new v({
       styles: c,
-      keyOf: W,
-      renderRow: (t) => Y(t, c, {
+      keyOf: K,
+      renderRow: (t) => _(t, c, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1207,8 +1207,8 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
-      keyOf: B,
-      renderRow: (t) => et(t, c, {
+      keyOf: et,
+      renderRow: (t) => at(t, c, {
         slowThresholdMs: this.slowThresholdMs,
         truncatePath: !0,
         maxPathLength: 50,
@@ -1218,26 +1218,26 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("requests") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (t) => V(t, this.expandedRequests, { useIconFeedback: !1 })
+      onAdopt: (t) => Y(t, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new v({
       styles: c,
-      keyOf: G,
-      renderRow: (t) => U(t, c, { compact: !0 }),
+      keyOf: J,
+      renderRow: (t) => Z(t, c, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (t) => J(t, {
+      onAdopt: (t) => H(t, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (t) => F(t, {
+      onRestore: (t) => j(t, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new K({
+    }), this.registryLiveList = new W({
       styles: c,
       getRenderOptions: () => ({}),
       onNeedFullRender: () => this.updateContent()
@@ -1600,7 +1600,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     if (!s || !o) return;
     const r = t.dataset.actionConfirm || "";
     if ((t.dataset.actionRequiresConfirm === "true" || r) && !window.confirm(r || "Run this debug panel action?")) return;
-    const i = Z(t);
+    const i = X(t);
     e && (e.disabled = !0);
     try {
       const n = await M(`${this.debugPath}/api/panels/${encodeURIComponent(s)}/actions/${encodeURIComponent(o)}`, {
@@ -1673,13 +1673,13 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    O(this.shadow);
+    F(this.shadow);
   }
   attachCopyListeners() {
-    D(this.shadow, { useIconFeedback: !1 });
+    O(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    H(this.shadow, (t, e) => {
+    Q(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
