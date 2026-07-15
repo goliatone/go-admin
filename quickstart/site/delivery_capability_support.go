@@ -74,7 +74,9 @@ func (c deliveryCapability) detailTemplateCandidates() []string {
 	}
 	appendTemplate(c.DetailTemplate)
 	appendTemplate("site/" + singularTypeSlug(c.TypeSlug))
-	appendTemplate(defaultDeliveryDetailTemplate)
+	if strings.TrimSpace(c.DetailTemplate) == "" {
+		appendTemplate(defaultDeliveryDetailTemplate)
+	}
 	return out
 }
 
@@ -112,7 +114,9 @@ func (c deliveryCapability) listTemplateCandidates() []string {
 	}
 	appendTemplate(c.ListTemplate)
 	appendTemplate("site/" + pluralTypeSlug(c.TypeSlug))
-	appendTemplate(defaultDeliveryListTemplate)
+	if strings.TrimSpace(c.ListTemplate) == "" {
+		appendTemplate(defaultDeliveryListTemplate)
+	}
 	return out
 }
 
