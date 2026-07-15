@@ -169,14 +169,19 @@ func commandLauncherPanelUI(commands []gocommand.CommandDescriptor, diagnostics 
 	}
 	ui.Actions = actions
 	ui.Metadata = map[string]any{
-		"rpc_method":             RPCMethodCommandDispatch,
-		"payload_contract":       "Submit {command_id, payload, options}; dispatch uses go-command/rpc envelopes.",
-		"formgen_compatible":     true,
-		"catalog_provider":       true,
-		"dynamic_options":        "request_scoped",
-		"option_resolver_action": commandLauncherResolveOptionsAction,
-		"diagnostics":            diagnostics,
-		"action_authorization":   "admin.commands.read + command-specific permission + admin.commands.dispatch",
+		"rpc_method":           RPCMethodCommandDispatch,
+		"payload_contract":     "Submit {command_id, payload, options}; dispatch uses go-command/rpc envelopes.",
+		"formgen_compatible":   true,
+		"catalog_provider":     true,
+		"dynamic_options":      "request_scoped",
+		"diagnostics":          diagnostics,
+		"action_authorization": "admin.commands.read + command-specific permission + admin.commands.dispatch",
+	}
+	for _, action := range actions {
+		if action.ID == commandLauncherResolveOptionsAction && action.Hidden {
+			ui.Metadata["option_resolver_action"] = commandLauncherResolveOptionsAction
+			break
+		}
 	}
 	if schemas := commandLauncherFormSchemas(commands); len(schemas) > 0 {
 		ui.Metadata["serialized_schemas"] = schemas
