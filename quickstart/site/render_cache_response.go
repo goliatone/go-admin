@@ -20,7 +20,7 @@ type RenderedSiteResponse struct {
 	FreshUntil  time.Time           `json:"fresh_until"`
 	StaleUntil  time.Time           `json:"stale_until"`
 	Tags        []string            `json:"tags"`
-	Provenance  DeliveryProvenance  `json:"provenance,omitempty"`
+	Provenance  DeliveryProvenance  `json:"provenance"`
 }
 
 type renderedSiteTemplateResult struct {
