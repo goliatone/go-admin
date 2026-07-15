@@ -1,10 +1,27 @@
 # Changelog
 
+# [0.115.2](https://github.com/goliatone/go-admin/compare/v0.115.1...v0.115.2) - (2026-07-15)
+
+## <!-- 16 -->➕ Add
+
+- Explicit retryable shutdown semantics ([7db6273](https://github.com/goliatone/go-admin/commit/7db6273eeff6e4fba500e6b72394ec9a22e89795))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([d932246](https://github.com/goliatone/go-admin/commit/d9322461ad8814cad4ae2cfbd38840b7f0427779))  - (goliatone)
+
 # [0.115.1](https://github.com/goliatone/go-admin/compare/v0.115.0...v0.115.1) - (2026-07-15)
+
+
+New patch release: v0.115.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Conditional template update ([5ace492](https://github.com/goliatone/go-admin/commit/5ace4920f5309df606fd394dde9f2b8efcfdbda6))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.115.1 ([3a43265](https://github.com/goliatone/go-admin/commit/3a4326563dc18c53aeadcbda58157db118a8d2a2))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
