@@ -57,14 +57,22 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 			var captureErr renderCacheCaptureError
 			if errors.As(err, &captureErr) && captureErr.Reason != renderCacheReasonRenderError {
 				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, captureErr.Reason, cacheDecision.Key)
+				response.Provenance.CacheStatus = renderCacheStatusBypass
 				return renderSiteTemplateResponse(c, state, r.siteCfg, response)
 			}
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
-			return renderSiteRuntimeError(c, state, r.siteCfg, response.FallbackError)
+			provenance := cloneDeliveryProvenance(response.Provenance)
+			provenance.CacheStatus = renderCacheStatusBypass
+			finalizeDeliveryProvenance(&provenance, "", DeliveryTextCodeRenderFailed)
+			writeDeliveryProvenanceHeaders(c, provenance)
+			return renderSiteRuntimeError(c, state, r.siteCfg, siteTemplateRenderFailure(response.FallbackError, provenance, err))
 		}
 		if result.Status <= 0 || strings.TrimSpace(result.TemplateName) == "" {
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
-			return renderSiteRuntimeError(c, state, r.siteCfg, siteTemplateRenderFailure(response.FallbackError, result.Provenance, result.LastError))
+			provenance := cloneDeliveryProvenance(result.Provenance)
+			provenance.CacheStatus = renderCacheStatusBypass
+			writeDeliveryProvenanceHeaders(c, provenance)
+			return renderSiteRuntimeError(c, state, r.siteCfg, siteTemplateRenderFailure(response.FallbackError, provenance, result.LastError))
 		}
 		return r.writeCapturedRenderCacheResponse(c, state, cacheDecision, result, resolution)
 	}

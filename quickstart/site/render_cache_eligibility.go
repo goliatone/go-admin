@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	renderCacheStatusBypass = "bypass"
-	renderCacheStatusMiss   = "miss"
-	renderCacheStatusHit    = "hit"
-	renderCacheStatusStale  = "stale"
+	renderCacheStatusBypass = DeliveryCacheStatusBypass
+	renderCacheStatusMiss   = DeliveryCacheStatusMiss
+	renderCacheStatusHit    = DeliveryCacheStatusHit
+	renderCacheStatusStale  = DeliveryCacheStatusStale
 
 	renderCacheReasonDisabled             = "disabled"
 	renderCacheReasonMissingStore         = "missing_store"

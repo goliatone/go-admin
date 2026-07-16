@@ -63,7 +63,7 @@ func renderSiteTemplateResponse(c router.Context, state RequestState, cfg Resolv
 		}
 		if err := renderSiteTemplate(c, templateName, response.ViewContext); err == nil {
 			appendDeliveryTemplateAttempt(&provenance, templateName, "selected")
-			finalizeDeliveryProvenance(&provenance, templateName, "PUBLIC_SITE_DELIVERY_RENDERED")
+			finalizeDeliveryProvenance(&provenance, templateName, DeliveryTextCodeRendered)
 			writeDeliveryProvenanceHeaders(c, provenance)
 			return nil
 		} else {
@@ -71,7 +71,7 @@ func renderSiteTemplateResponse(c router.Context, state RequestState, cfg Resolv
 			appendDeliveryTemplateAttempt(&provenance, templateName, "failed")
 		}
 	}
-	finalizeDeliveryProvenance(&provenance, "", "PUBLIC_TEMPLATE_RENDER_FAILED")
+	finalizeDeliveryProvenance(&provenance, "", DeliveryTextCodeRenderFailed)
 	writeDeliveryProvenanceHeaders(c, provenance)
 	return renderSiteRuntimeError(c, state, cfg, siteTemplateRenderFailure(response.FallbackError, provenance, lastErr))
 }

@@ -60,22 +60,22 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 }
 
 func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, state RequestState, decision renderCacheDecision, result renderedSiteTemplateResult, resolution *deliveryResolution) error {
-	writeDeliveryProvenanceHeaders(c, result.Provenance)
 	if r == nil || !decision.Cacheable || strings.TrimSpace(decision.Key) == "" {
-		return writeRenderedTemplate(c, result.Status, result.Rendered)
+		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
 	policy := normalizeRenderCachePolicy(r.renderCache.policy)
 	if !renderCacheStatusAllowed(result.Status, policy.CacheableStatuses) {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonStatus, decision.Key)
-		return writeRenderedTemplate(c, result.Status, result.Rendered)
+		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
 	response, reason, ok := newRenderedSiteResponse(result, policy, renderCacheTagsForResolution(r.siteCfg, state, decision, resolution), time.Now())
 	if !ok {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, reason, decision.Key)
-		return writeRenderedTemplate(c, result.Status, result.Rendered)
+		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
 	if err := r.renderCache.store.Set(RequestContext(c), decision.Key, response, renderCacheStoreTTL(policy)); err != nil {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+		writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 		if policy.FailClosed {
 			return c.SendStatus(http.StatusServiceUnavailable)
 		}
@@ -85,12 +85,14 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 		if policy.RequireTagIndex {
 			if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
 				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+				writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 				if policy.FailClosed {
 					return c.SendStatus(http.StatusServiceUnavailable)
 				}
 				return writeRenderedTemplate(c, result.Status, result.Rendered)
 			}
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonTagIndexWriteError, decision.Key)
+			writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 			if policy.FailClosed {
 				return c.SendStatus(http.StatusServiceUnavailable)
 			}
@@ -98,6 +100,17 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 		}
 	}
 	r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
+	return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusMiss)
+}
+
+func deliveryProvenanceWithCacheStatus(provenance DeliveryProvenance, cacheStatus string) DeliveryProvenance {
+	provenance = cloneDeliveryProvenance(provenance)
+	provenance.CacheStatus = strings.TrimSpace(cacheStatus)
+	return provenance
+}
+
+func writeRenderedTemplateWithProvenance(c router.Context, result renderedSiteTemplateResult, cacheStatus string) error {
+	writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, cacheStatus))
 	return writeRenderedTemplate(c, result.Status, result.Rendered)
 }
 

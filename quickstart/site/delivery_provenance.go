@@ -2,6 +2,9 @@ package site
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -10,18 +13,40 @@ import (
 
 const (
 	DeliveryProvenanceRequestHeader = "X-Site-Delivery-Provenance"
+	DeliveryTextCodeRendered        = "PUBLIC_SITE_DELIVERY_RENDERED"
+	DeliveryTextCodeRenderFailed    = "PUBLIC_TEMPLATE_RENDER_FAILED"
+	DeliveryCacheStatusBypass       = "bypass"
+	DeliveryCacheStatusMiss         = "miss"
+	DeliveryCacheStatusHit          = "hit"
+	DeliveryCacheStatusStale        = "stale"
 
-	deliveryProvenanceRouteFamilyHeader       = "X-Site-Delivery-Route-Family"
-	deliveryProvenanceOwnerKindHeader         = "X-Site-Delivery-Owner-Kind"
-	deliveryProvenanceModeHeader              = "X-Site-Delivery-Mode"
-	deliveryProvenanceRequestedTemplateHeader = "X-Site-Delivery-Requested-Template"
-	deliveryProvenanceSelectedTemplateHeader  = "X-Site-Delivery-Selected-Template"
-	deliveryProvenanceTemplateAttemptsHeader  = "X-Site-Delivery-Template-Attempts"
-	deliveryProvenanceFallbackHeader          = "X-Site-Delivery-Fallback-Used"
-	deliveryProvenanceCacheStatusHeader       = "X-Site-Delivery-Cache-Status"
-	deliveryProvenanceRenderVersionHeader     = "X-Site-Delivery-Render-Version"
-	deliveryProvenanceSemanticIdentityHeader  = "X-Site-Delivery-Semantic-Identity"
-	deliveryProvenanceTextCodeHeader          = "X-Site-Delivery-Text-Code"
+	DeliveryProvenanceRouteFamilyHeader       = "X-Site-Delivery-Route-Family"
+	DeliveryProvenanceOwnerKindHeader         = "X-Site-Delivery-Owner-Kind"
+	DeliveryProvenanceModeHeader              = "X-Site-Delivery-Mode"
+	DeliveryProvenanceRequestedTemplateHeader = "X-Site-Delivery-Requested-Template"
+	DeliveryProvenanceSelectedTemplateHeader  = "X-Site-Delivery-Selected-Template"
+	DeliveryProvenanceTemplateAttemptsHeader  = "X-Site-Delivery-Template-Attempts"
+	DeliveryProvenanceFallbackHeader          = "X-Site-Delivery-Fallback-Used"
+	DeliveryProvenanceCacheStatusHeader       = "X-Site-Delivery-Cache-Status"
+	DeliveryProvenanceRenderVersionHeader     = "X-Site-Delivery-Render-Version"
+	DeliveryProvenanceSemanticIdentityHeader  = "X-Site-Delivery-Semantic-Identity"
+	DeliveryProvenanceTextCodeHeader          = "X-Site-Delivery-Text-Code"
+)
+
+// Retain the package-private names for source compatibility with internal
+// tests while exposing one transport contract to host probe adapters.
+const (
+	deliveryProvenanceRouteFamilyHeader       = DeliveryProvenanceRouteFamilyHeader
+	deliveryProvenanceOwnerKindHeader         = DeliveryProvenanceOwnerKindHeader
+	deliveryProvenanceModeHeader              = DeliveryProvenanceModeHeader
+	deliveryProvenanceRequestedTemplateHeader = DeliveryProvenanceRequestedTemplateHeader
+	deliveryProvenanceSelectedTemplateHeader  = DeliveryProvenanceSelectedTemplateHeader
+	deliveryProvenanceTemplateAttemptsHeader  = DeliveryProvenanceTemplateAttemptsHeader
+	deliveryProvenanceFallbackHeader          = DeliveryProvenanceFallbackHeader
+	deliveryProvenanceCacheStatusHeader       = DeliveryProvenanceCacheStatusHeader
+	deliveryProvenanceRenderVersionHeader     = DeliveryProvenanceRenderVersionHeader
+	deliveryProvenanceSemanticIdentityHeader  = DeliveryProvenanceSemanticIdentityHeader
+	deliveryProvenanceTextCodeHeader          = DeliveryProvenanceTextCodeHeader
 )
 
 // DeliveryTemplateAttempt is a sanitized record of one template attempt.
@@ -46,6 +71,87 @@ type DeliveryProvenance struct {
 	RenderVersion     string                    `json:"render_version,omitempty"`
 	SemanticIdentity  string                    `json:"semantic_identity,omitempty"`
 	TextCode          string                    `json:"text_code,omitempty"`
+}
+
+// ParseDeliveryProvenanceHeaders decodes the sanitized delivery transport
+// contract. Malformed attempt data is returned as an error instead of being
+// silently discarded by host diagnostics.
+func ParseDeliveryProvenanceHeaders(headers http.Header) (DeliveryProvenance, error) {
+	if headers == nil {
+		return DeliveryProvenance{}, nil
+	}
+	provenance := DeliveryProvenance{
+		RouteFamily:       strings.TrimSpace(headers.Get(DeliveryProvenanceRouteFamilyHeader)),
+		OwnerKind:         strings.TrimSpace(headers.Get(DeliveryProvenanceOwnerKindHeader)),
+		Mode:              strings.TrimSpace(headers.Get(DeliveryProvenanceModeHeader)),
+		RequestedTemplate: strings.TrimSpace(headers.Get(DeliveryProvenanceRequestedTemplateHeader)),
+		SelectedTemplate:  strings.TrimSpace(headers.Get(DeliveryProvenanceSelectedTemplateHeader)),
+		FallbackUsed:      strings.EqualFold(strings.TrimSpace(headers.Get(DeliveryProvenanceFallbackHeader)), "true"),
+		CacheStatus:       strings.TrimSpace(headers.Get(DeliveryProvenanceCacheStatusHeader)),
+		RenderVersion:     strings.TrimSpace(headers.Get(DeliveryProvenanceRenderVersionHeader)),
+		SemanticIdentity:  strings.TrimSpace(headers.Get(DeliveryProvenanceSemanticIdentityHeader)),
+		TextCode:          strings.TrimSpace(headers.Get(DeliveryProvenanceTextCodeHeader)),
+	}
+	rawAttempts := strings.TrimSpace(headers.Get(DeliveryProvenanceTemplateAttemptsHeader))
+	if rawAttempts != "" {
+		if err := json.Unmarshal([]byte(rawAttempts), &provenance.TemplateAttempts); err != nil {
+			return DeliveryProvenance{}, fmt.Errorf("decode site delivery template attempts: %w", err)
+		}
+	}
+	return provenance, nil
+}
+
+// ValidateFinalized verifies that a finalized delivery observation contains
+// enough information to be authoritative. Render failures may omit a selected
+// template, but successful observations must identify the selected attempt.
+func (p DeliveryProvenance) ValidateFinalized() error {
+	missing := make([]string, 0, 8)
+	for name, value := range map[string]string{
+		"route_family":       p.RouteFamily,
+		"owner_kind":         p.OwnerKind,
+		"mode":               p.Mode,
+		"requested_template": p.RequestedTemplate,
+		"cache_status":       p.CacheStatus,
+		"render_version":     p.RenderVersion,
+		"semantic_identity":  p.SemanticIdentity,
+		"text_code":          p.TextCode,
+	} {
+		if strings.TrimSpace(value) == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(p.TemplateAttempts) == 0 {
+		missing = append(missing, "template_attempts")
+	}
+	if len(missing) > 0 {
+		slices.Sort(missing)
+		return fmt.Errorf("site delivery provenance is incomplete: missing %s", strings.Join(missing, ", "))
+	}
+	switch strings.TrimSpace(p.CacheStatus) {
+	case DeliveryCacheStatusBypass, DeliveryCacheStatusMiss, DeliveryCacheStatusHit, DeliveryCacheStatusStale:
+	default:
+		return fmt.Errorf("site delivery provenance has invalid cache status %q", p.CacheStatus)
+	}
+	last := p.TemplateAttempts[len(p.TemplateAttempts)-1]
+	switch strings.TrimSpace(p.TextCode) {
+	case DeliveryTextCodeRendered:
+		if strings.TrimSpace(p.SelectedTemplate) == "" {
+			return fmt.Errorf("site delivery provenance is incomplete: missing selected_template")
+		}
+		if strings.TrimSpace(last.Template) != strings.TrimSpace(p.SelectedTemplate) || strings.TrimSpace(last.Outcome) != "selected" {
+			return fmt.Errorf("site delivery provenance selected template does not match the final selected attempt")
+		}
+	case DeliveryTextCodeRenderFailed:
+		if strings.TrimSpace(p.SelectedTemplate) != "" {
+			return fmt.Errorf("site delivery provenance render failure unexpectedly selected template %q", p.SelectedTemplate)
+		}
+		if strings.TrimSpace(last.Template) == "" || strings.TrimSpace(last.Outcome) != "failed" {
+			return fmt.Errorf("site delivery provenance render failure does not end with a failed attempt")
+		}
+	default:
+		return fmt.Errorf("site delivery provenance has invalid text code %q", p.TextCode)
+	}
+	return nil
 }
 
 func deliveryProvenanceForResolution(resolution *deliveryResolution, cacheStatus, renderVersion string) DeliveryProvenance {

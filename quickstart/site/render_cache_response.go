@@ -91,7 +91,7 @@ func renderSiteTemplateResponseWithOverride(
 			continue
 		}
 		appendDeliveryTemplateAttempt(&provenance, templateName, "selected")
-		finalizeDeliveryProvenance(&provenance, templateName, "PUBLIC_SITE_DELIVERY_RENDERED")
+		finalizeDeliveryProvenance(&provenance, templateName, DeliveryTextCodeRendered)
 		if strings.TrimSpace(rendered.ContentType) == "" {
 			rendered.ContentType = "text/html; charset=utf-8"
 		}
@@ -102,7 +102,7 @@ func renderSiteTemplateResponseWithOverride(
 			Provenance:   provenance,
 		}, nil
 	}
-	finalizeDeliveryProvenance(&provenance, "", "PUBLIC_TEMPLATE_RENDER_FAILED")
+	finalizeDeliveryProvenance(&provenance, "", DeliveryTextCodeRenderFailed)
 	return renderedSiteTemplateResult{Provenance: provenance, LastError: lastErr}, nil
 }
 
@@ -136,7 +136,7 @@ func renderSiteTemplateResponseWithRouterCapture(
 			return renderedSiteTemplateResult{}, renderCacheCaptureError{Reason: reason, Err: err}
 		}
 		appendDeliveryTemplateAttempt(&provenance, templateName, "selected")
-		finalizeDeliveryProvenance(&provenance, templateName, "PUBLIC_SITE_DELIVERY_RENDERED")
+		finalizeDeliveryProvenance(&provenance, templateName, DeliveryTextCodeRendered)
 		rendered := renderedTemplateFromCapturedResponse(captured)
 		if strings.TrimSpace(rendered.ContentType) == "" {
 			rendered.ContentType = "text/html; charset=utf-8"
@@ -148,7 +148,7 @@ func renderSiteTemplateResponseWithRouterCapture(
 			Provenance:   provenance,
 		}, nil
 	}
-	finalizeDeliveryProvenance(&provenance, "", "PUBLIC_TEMPLATE_RENDER_FAILED")
+	finalizeDeliveryProvenance(&provenance, "", DeliveryTextCodeRenderFailed)
 	return renderedSiteTemplateResult{Provenance: provenance, LastError: lastErr}, nil
 }
 
