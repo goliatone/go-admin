@@ -10,24 +10,27 @@ import (
 
 // Runner executes registered lifecycle tasks and captures status.
 type Runner struct {
-	mu              sync.Mutex
-	tasks           []registeredTask
-	status          map[string]*taskStatus
-	failures        []TaskFailure
-	serving         bool
-	ready           bool
-	startedAt       time.Time
-	updatedAt       time.Time
-	background      context.Context
-	cancelBG        context.CancelFunc
-	bgStarted       bool
-	bgDone          chan struct{}
-	bgFailures      chan *TaskFailure
-	bgFailuresOnce  sync.Once
-	backgroundFatal []TaskFailure
-	shuttingDown    bool
-	shutdownOnce    sync.Once
-	shutdownErr     error
+	mu               sync.Mutex
+	tasks            []registeredTask
+	status           map[string]*taskStatus
+	failures         []TaskFailure
+	serving          bool
+	ready            bool
+	startedAt        time.Time
+	updatedAt        time.Time
+	background       context.Context
+	cancelBG         context.CancelFunc
+	bgStarted        bool
+	bgDone           chan struct{}
+	bgComplete       bool
+	bgFailures       chan *TaskFailure
+	bgFailuresOnce   sync.Once
+	backgroundFatal  []TaskFailure
+	shuttingDown     bool
+	shutdownStarted  bool
+	shutdownDone     chan struct{}
+	shutdownComplete bool
+	shutdownErr      error
 }
 
 const maxTaskFailureHistory = 256
@@ -161,13 +164,17 @@ func (r *Runner) StartBackground(ctx context.Context) error {
 	go func() {
 		wg.Wait()
 		r.closeBackgroundFailures()
+		r.mu.Lock()
+		r.bgComplete = true
+		r.mu.Unlock()
 		close(r.bgDone)
 	}()
 	return nil
 }
 
-// Shutdown cancels background tasks, waits for them to finish, and runs
-// shutdown tasks.
+// Shutdown cancels background tasks, waits for them to finish, and runs every
+// shutdown task. Fatal, degraded, and exhausted retryable shutdown failures are
+// returned together; ignored failures remain available through diagnostics.
 func (r *Runner) Shutdown(ctx context.Context) error {
 	if r == nil {
 		return fmt.Errorf("lifecycle: runner is nil")
@@ -176,10 +183,18 @@ func (r *Runner) Shutdown(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	r.mu.Lock()
+	if r.shutdownComplete {
+		err := r.shutdownErr
+		r.mu.Unlock()
+		return err
+	}
 	r.shuttingDown = true
 	cancel := r.cancelBG
 	done := r.bgDone
 	started := r.bgStarted
+	if !started {
+		r.bgComplete = true
+	}
 	r.mu.Unlock()
 	if !started {
 		r.closeBackgroundFailures()
@@ -187,19 +202,10 @@ func (r *Runner) Shutdown(ctx context.Context) error {
 	if cancel != nil {
 		cancel()
 	}
-	if done != nil {
-		select {
-		case <-done:
-		case <-ctx.Done():
-			return errors.Join(
-				r.backgroundFatalError(),
-				&ShutdownIncompleteError{Cause: ctx.Err()},
-			)
-		}
+	if err := r.waitForBackground(ctx, done); err != nil {
+		return errors.Join(r.backgroundFatalError(), err)
 	}
-	backgroundErr := r.backgroundFatalError()
-	shutdownErr := r.runShutdownTasks(ctx)
-	return errors.Join(backgroundErr, shutdownErr)
+	return r.finishShutdown(ctx)
 }
 
 // BackgroundFailures publishes one terminal failure for each failed
@@ -410,11 +416,97 @@ func (r *Runner) closeBackgroundFailures() {
 	})
 }
 
-func (r *Runner) runShutdownTasks(ctx context.Context) error {
-	r.shutdownOnce.Do(func() {
-		r.shutdownErr = r.RunPhase(ctx, PhaseShutdown)
-	})
-	return r.shutdownErr
+func (r *Runner) waitForBackground(ctx context.Context, done <-chan struct{}) error {
+	if r.backgroundComplete() {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		if r.backgroundComplete() {
+			return nil
+		}
+		return &ShutdownIncompleteError{
+			Cause: ctx.Err(),
+			Stage: ShutdownStageBackground,
+		}
+	}
+}
+
+func (r *Runner) backgroundComplete() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.bgComplete
+}
+
+func (r *Runner) finishShutdown(ctx context.Context) error {
+	r.mu.Lock()
+	if r.shutdownComplete {
+		err := r.shutdownErr
+		r.mu.Unlock()
+		return err
+	}
+	if r.shutdownStarted {
+		done := r.shutdownDone
+		r.mu.Unlock()
+		select {
+		case <-done:
+			return r.completedShutdownError()
+		case <-ctx.Done():
+			if err, complete := r.completedShutdownResult(); complete {
+				return err
+			}
+			return errors.Join(
+				r.backgroundFatalError(),
+				&ShutdownIncompleteError{Cause: ctx.Err(), Stage: ShutdownStageTasks},
+			)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		r.mu.Unlock()
+		return errors.Join(
+			r.backgroundFatalError(),
+			&ShutdownIncompleteError{Cause: err, Stage: ShutdownStageTasks},
+		)
+	}
+	r.shutdownStarted = true
+	r.shutdownDone = make(chan struct{})
+	done := r.shutdownDone
+	r.mu.Unlock()
+
+	shutdownErr := r.executeShutdownTasks(ctx)
+	finalErr := errors.Join(r.backgroundFatalError(), shutdownErr)
+
+	r.mu.Lock()
+	r.shutdownErr = finalErr
+	r.shutdownComplete = true
+	close(done)
+	r.mu.Unlock()
+	return finalErr
+}
+
+func (r *Runner) executeShutdownTasks(ctx context.Context) error {
+	var errs []error
+	for _, rt := range r.phaseTasks(PhaseShutdown) {
+		result := r.runTask(ctx, rt.task)
+		if result.terminalFailure == nil || rt.task.Policy == ErrorPolicyIgnored {
+			continue
+		}
+		errs = append(errs, result.terminalFailure)
+	}
+	return errors.Join(errs...)
+}
+
+func (r *Runner) completedShutdownError() error {
+	err, _ := r.completedShutdownResult()
+	return err
+}
+
+func (r *Runner) completedShutdownResult() (error, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.shutdownErr, r.shutdownComplete
 }
 
 func (r *Runner) backgroundFatalError() error {
