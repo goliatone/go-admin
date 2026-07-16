@@ -97,6 +97,49 @@ func TestSiteTemplateRenderFailurePreservesStructuredCause(t *testing.T) {
 	}
 }
 
+func TestDeliveryProvenanceHeaderContractParsesAndValidates(t *testing.T) {
+	headers := http.Header{}
+	headers.Set(DeliveryProvenanceRouteFamilyHeader, "guide")
+	headers.Set(DeliveryProvenanceOwnerKindHeader, "content_type")
+	headers.Set(DeliveryProvenanceModeHeader, "collection")
+	headers.Set(DeliveryProvenanceRequestedTemplateHeader, "site/guides/list")
+	headers.Set(DeliveryProvenanceSelectedTemplateHeader, "site/guides/list")
+	headers.Set(DeliveryProvenanceTemplateAttemptsHeader, `[{"template":"site/guides/list","outcome":"selected"}]`)
+	headers.Set(DeliveryProvenanceCacheStatusHeader, "hit")
+	headers.Set(DeliveryProvenanceRenderVersionHeader, "2")
+	headers.Set(DeliveryProvenanceSemanticIdentityHeader, "guide:collection")
+	headers.Set(DeliveryProvenanceTextCodeHeader, "PUBLIC_SITE_DELIVERY_RENDERED")
+	provenance, err := ParseDeliveryProvenanceHeaders(headers)
+	if err != nil {
+		t.Fatalf("parse provenance: %v", err)
+	}
+	if err := provenance.ValidateFinalized(); err != nil {
+		t.Fatalf("validate provenance: %v", err)
+	}
+	failure := provenance
+	failure.SelectedTemplate = ""
+	failure.CacheStatus = DeliveryCacheStatusBypass
+	failure.TextCode = DeliveryTextCodeRenderFailed
+	failure.TemplateAttempts = []DeliveryTemplateAttempt{{Template: "site/guides/list", Outcome: "failed"}}
+	if err := failure.ValidateFinalized(); err != nil {
+		t.Fatalf("validate terminal failure provenance: %v", err)
+	}
+	invalid := provenance
+	invalid.CacheStatus = "pending"
+	if err := invalid.ValidateFinalized(); err == nil {
+		t.Fatal("invalid finalized cache status unexpectedly validated")
+	}
+	invalid = provenance
+	invalid.TextCode = "PUBLIC_SITE_DELIVERY_UNKNOWN"
+	if err := invalid.ValidateFinalized(); err == nil {
+		t.Fatal("unknown finalized text code unexpectedly validated")
+	}
+	headers.Set(DeliveryProvenanceTemplateAttemptsHeader, "{")
+	if _, err := ParseDeliveryProvenanceHeaders(headers); err == nil {
+		t.Fatal("malformed template attempts unexpectedly parsed")
+	}
+}
+
 type siteResponseViews struct {
 	successfulTemplate string
 }

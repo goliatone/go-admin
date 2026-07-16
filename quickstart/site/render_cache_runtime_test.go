@@ -766,7 +766,11 @@ func TestRenderCacheRenderErrorsBypassStorage(t *testing.T) {
 	); err != nil {
 		t.Fatalf("register site routes: %v", err)
 	}
-	rec := performSiteRequestRaw(t, server, "/about", "text/html")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/about", nil)
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set(DeliveryProvenanceRequestHeader, "1")
+	rec := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rec, req)
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("request status=%d body=%s", rec.Code, rec.Body.String())
 	}
@@ -778,6 +782,13 @@ func TestRenderCacheRenderErrorsBypassStorage(t *testing.T) {
 	}
 	if len(store.items) != 0 {
 		t.Fatalf("expected render error not to be stored, got %d items", len(store.items))
+	}
+	provenance, err := ParseDeliveryProvenanceHeaders(rec.Result().Header)
+	if err != nil {
+		t.Fatalf("parse terminal render provenance: %v", err)
+	}
+	if provenance.TextCode != "PUBLIC_TEMPLATE_RENDER_FAILED" || provenance.CacheStatus != renderCacheStatusBypass || len(provenance.TemplateAttempts) == 0 {
+		t.Fatalf("terminal render failure lost delivery provenance: %+v", provenance)
 	}
 }
 
@@ -883,6 +894,36 @@ func TestRenderCacheWriteErrorsAreObservableBeforeCommit(t *testing.T) {
 				t.Fatalf("expected failed Set not to store items, got %d", len(store.items))
 			}
 		})
+	}
+}
+
+func TestRenderCacheWriteBypassReportsFinalDeliveryCacheStatus(t *testing.T) {
+	store := newTestRenderCacheStore()
+	store.setErr = errors.New("cache write failed")
+	services := newRenderCacheDeliveryServices(t)
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(
+		server.Router(), nil, admin.Config{DefaultLocale: "en"},
+		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+		WithDeliveryServices(services, services),
+		WithRenderCache(store, RenderCachePolicy{
+			Enabled: true, FreshTTL: time.Minute, DebugHeaders: true,
+			TemplateRenderer: &testRenderCacheRenderer{},
+		}),
+	); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/about", nil)
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set(DeliveryProvenanceRequestHeader, "1")
+	rec := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rec, req)
+	provenance, err := ParseDeliveryProvenanceHeaders(rec.Result().Header)
+	if err != nil {
+		t.Fatalf("parse delivery provenance: %v", err)
+	}
+	if provenance.CacheStatus != renderCacheStatusBypass {
+		t.Fatalf("cache write bypass reported cache status %q: %+v", provenance.CacheStatus, provenance)
 	}
 }
 

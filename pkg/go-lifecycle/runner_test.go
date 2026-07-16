@@ -351,6 +351,9 @@ func TestShutdownTimeoutPreservesFatalFailureAndDefersTeardown(t *testing.T) {
 	if !errors.As(err, &incomplete) || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Shutdown() error = %v, want incomplete deadline error", err)
 	}
+	if incomplete.Stage != ShutdownStageBackground {
+		t.Fatalf("Shutdown() incomplete stage = %s, want %s", incomplete.Stage, ShutdownStageBackground)
+	}
 	if !errors.Is(err, fatalCause) {
 		t.Fatalf("Shutdown() error = %v, want retained fatal cause", err)
 	}
@@ -406,6 +409,149 @@ func TestShutdownBeforeBackgroundStartClosesSupervisionAndIsIdempotent(t *testin
 	}
 	if got := shutdownRuns.Load(); got != 1 {
 		t.Fatalf("shutdown hook runs = %d, want 1", got)
+	}
+}
+
+func TestCompletedShutdownResultWinsOverCanceledCallerContext(t *testing.T) {
+	var shutdownRuns atomic.Int32
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:  "worker",
+		Phase: PhaseBackground,
+		Run: func(ctx context.Context) error {
+			<-ctx.Done()
+			return ctx.Err()
+		},
+	})
+	mustRegister(t, registry, Task{
+		Name:  "shutdown-hook",
+		Phase: PhaseShutdown,
+		Run: func(context.Context) error {
+			shutdownRuns.Add(1)
+			return nil
+		},
+	})
+
+	runner := MustNewRunner(registry)
+	if err := runner.StartBackground(context.Background()); err != nil {
+		t.Fatalf("StartBackground() error = %v", err)
+	}
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for i := 0; i < 200; i++ {
+		if err := runner.Shutdown(ctx); err != nil {
+			t.Fatalf("repeated Shutdown() call %d error = %v, want cached completion", i, err)
+		}
+	}
+	if got := shutdownRuns.Load(); got != 1 {
+		t.Fatalf("shutdown hook runs = %d, want 1", got)
+	}
+}
+
+func TestCanceledContextBeforeShutdownTasksIsRetryable(t *testing.T) {
+	var shutdownRuns atomic.Int32
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:  "shutdown-hook",
+		Phase: PhaseShutdown,
+		Run: func(context.Context) error {
+			shutdownRuns.Add(1)
+			return nil
+		},
+	})
+	runner := MustNewRunner(registry)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := runner.Shutdown(ctx)
+	var incomplete *ShutdownIncompleteError
+	if !errors.As(err, &incomplete) || incomplete.Stage != ShutdownStageTasks {
+		t.Fatalf("Shutdown() error = %v, want incomplete shutdown-tasks stage", err)
+	}
+	if got := shutdownRuns.Load(); got != 0 {
+		t.Fatalf("shutdown hook runs = %d, want 0", got)
+	}
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("retry Shutdown() error = %v", err)
+	}
+	if got := shutdownRuns.Load(); got != 1 {
+		t.Fatalf("shutdown hook runs after retry = %d, want 1", got)
+	}
+}
+
+func TestShutdownReturnsNonIgnoredFailuresAndContinuesAllHooks(t *testing.T) {
+	degradedCause := errors.New("degraded teardown")
+	retryableCause := errors.New("retryable teardown")
+	fatalCause := errors.New("fatal teardown")
+	ignoredCause := errors.New("ignored teardown")
+	var runs atomic.Int32
+	registry := NewRegistry()
+	for _, task := range []Task{
+		{Name: "degraded", Phase: PhaseShutdown, Priority: 40, Policy: ErrorPolicyDegraded, Run: func(context.Context) error { runs.Add(1); return degradedCause }},
+		{Name: "retryable", Phase: PhaseShutdown, Priority: 30, Policy: ErrorPolicyRetryable, MaxAttempts: 2, Run: func(context.Context) error { runs.Add(1); return retryableCause }},
+		{Name: "fatal", Phase: PhaseShutdown, Priority: 20, Policy: ErrorPolicyFatal, Run: func(context.Context) error { runs.Add(1); return fatalCause }},
+		{Name: "ignored", Phase: PhaseShutdown, Priority: 10, Policy: ErrorPolicyIgnored, Run: func(context.Context) error { runs.Add(1); return ignoredCause }},
+	} {
+		mustRegister(t, registry, task)
+	}
+
+	runner := MustNewRunner(registry)
+	err := runner.Shutdown(context.Background())
+	for _, cause := range []error{degradedCause, retryableCause, fatalCause} {
+		if !errors.Is(err, cause) {
+			t.Fatalf("Shutdown() error = %v, want cause %v", err, cause)
+		}
+	}
+	if errors.Is(err, ignoredCause) {
+		t.Fatalf("Shutdown() error = %v, did not want ignored cause", err)
+	}
+	if got := runs.Load(); got != 5 {
+		t.Fatalf("shutdown attempts = %d, want 5", got)
+	}
+	if failures := runner.Failures(); len(failures) != 5 {
+		t.Fatalf("Failures() count = %d, want 5", len(failures))
+	}
+}
+
+func TestConcurrentShutdownCallerCanTimeoutWhileTasksContinue(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:  "blocking-shutdown",
+		Phase: PhaseShutdown,
+		Run: func(context.Context) error {
+			close(started)
+			<-release
+			return nil
+		},
+	})
+	runner := MustNewRunner(registry)
+
+	firstResult := make(chan error, 1)
+	go func() {
+		firstResult <- runner.Shutdown(context.Background())
+	}()
+	<-started
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := runner.Shutdown(ctx)
+	var incomplete *ShutdownIncompleteError
+	if !errors.As(err, &incomplete) || incomplete.Stage != ShutdownStageTasks {
+		t.Fatalf("concurrent Shutdown() error = %v, want incomplete shutdown-tasks stage", err)
+	}
+
+	close(release)
+	if err := <-firstResult; err != nil {
+		t.Fatalf("first Shutdown() error = %v", err)
+	}
+	if err := runner.Shutdown(ctx); err != nil {
+		t.Fatalf("completed Shutdown() with canceled context error = %v", err)
 	}
 }
 
