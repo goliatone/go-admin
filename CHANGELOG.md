@@ -1,6 +1,38 @@
 # Changelog
 
+# [0.115.3](https://github.com/goliatone/go-admin/compare/v0.115.2...v0.115.3) - (2026-07-16)
+
+
+## Migration Notes
+
+- `pkg/go-lifecycle.Runner.Shutdown` now attempts every registered shutdown
+  task and returns joined terminal failures for fatal, degraded, and exhausted
+  retryable policies. Ignored shutdown failures remain diagnostic-only.
+- `ShutdownIncompleteError.Stage` distinguishes unfinished background work from
+  unfinished shutdown tasks. Once shutdown completes, later calls return the
+  same cached result even when their caller context is already cancelled.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Check shutdown cycles ([92bb988](https://github.com/goliatone/go-admin/commit/92bb9886e23d3adf6fcb1d6c3a42b4b05b3d841c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Check delivery provenance ([01a87f7](https://github.com/goliatone/go-admin/commit/01a87f79795ba2d95bb1f555fb4705b7e7902d95))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([87beae6](https://github.com/goliatone/go-admin/commit/87beae6d313555acca02d097c47d0c09546e5564))  - (goliatone)
+- Update tests ([d18ff2b](https://github.com/goliatone/go-admin/commit/d18ff2ba590c820d2e73dd46db07bedb672b5c6f))  - (goliatone)
+
 # [0.115.2](https://github.com/goliatone/go-admin/compare/v0.115.1...v0.115.2) - (2026-07-15)
+
+
+New patch release: v0.115.2
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.115.2 ([5eba37e](https://github.com/goliatone/go-admin/commit/5eba37e15bd3ebbc16f98e4e64949b521550a9f3))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
