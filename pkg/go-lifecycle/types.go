@@ -32,7 +32,8 @@ const (
 type ErrorPolicy string
 
 const (
-	// ErrorPolicyFatal stops the phase and returns an error.
+	// ErrorPolicyFatal stops ordinary phases and returns an error. Shutdown is
+	// best-effort: remaining shutdown tasks still run and the failure is joined.
 	ErrorPolicyFatal ErrorPolicy = "fatal"
 	// ErrorPolicyDegraded records the failure and allows execution to continue.
 	ErrorPolicyDegraded ErrorPolicy = "degraded"
@@ -131,20 +132,38 @@ type TaskFailure struct {
 	Cause      error       `json:"-"`
 }
 
-// ShutdownIncompleteError reports that background tasks were still running
-// when the caller's shutdown context expired. Shutdown hooks have not run and
-// callers must not close resources used by those tasks. Shutdown may be called
-// again with a fresh context after the workers exit.
+// ShutdownStage identifies the unfinished part of a retryable shutdown.
+type ShutdownStage string
+
+const (
+	// ShutdownStageBackground means background tasks have not all exited.
+	ShutdownStageBackground ShutdownStage = "background"
+	// ShutdownStageTasks means shutdown tasks have not all completed.
+	ShutdownStageTasks ShutdownStage = "shutdown_tasks"
+)
+
+// ShutdownIncompleteError reports that the caller's context expired before a
+// shutdown stage completed. Callers must not close shared resources until a
+// later Shutdown call completes without this error.
 type ShutdownIncompleteError struct {
 	Cause error
+	Stage ShutdownStage
 }
 
 // Error implements error.
 func (e *ShutdownIncompleteError) Error() string {
-	if e == nil || e.Cause == nil {
-		return "lifecycle: shutdown incomplete; background tasks are still running"
+	stage := ShutdownStageBackground
+	if e != nil && e.Stage != "" {
+		stage = e.Stage
 	}
-	return fmt.Sprintf("lifecycle: shutdown incomplete; background tasks are still running: %v", e.Cause)
+	message := "lifecycle: shutdown incomplete; background tasks are still running"
+	if stage == ShutdownStageTasks {
+		message = "lifecycle: shutdown incomplete; shutdown tasks have not completed"
+	}
+	if e == nil || e.Cause == nil {
+		return message
+	}
+	return fmt.Sprintf("%s: %v", message, e.Cause)
 }
 
 // Unwrap exposes the context error that interrupted shutdown.
