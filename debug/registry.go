@@ -123,6 +123,18 @@ type PanelUIAction struct {
 	UpdatePolicy    string               `json:"update_policy,omitempty"`
 	Payload         map[string]any       `json:"payload,omitempty"`
 	Fields          []PanelUIActionField `json:"fields,omitempty"`
+	Form            *PanelUIActionForm   `json:"form,omitempty"`
+}
+
+// PanelUIActionForm carries trusted server-generated form markup. HTML must be
+// produced by the named renderer; callers must never place operator-authored or
+// command-authored raw markup in this contract.
+type PanelUIActionForm struct {
+	Renderer     string `json:"renderer"`
+	OperationID  string `json:"operation_id"`
+	HTML         string `json:"html"`
+	ModelVersion string `json:"model_version,omitempty"`
+	Sensitive    bool   `json:"sensitive,omitempty"`
 }
 
 // PanelUIActionField declares a typed input that is merged into an action payload.
@@ -855,9 +867,28 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 			UpdatePolicy:    normalizeEventPolicyMode(action.UpdatePolicy),
 			Payload:         cloneJSONSafeMap(action.Payload),
 			Fields:          normalizePanelUIActionFields(action.Fields),
+			Form:            normalizePanelUIActionForm(action.Form),
 		})
 	}
 	return out
+}
+
+func normalizePanelUIActionForm(input *PanelUIActionForm) *PanelUIActionForm {
+	if input == nil {
+		return nil
+	}
+	renderer := normalizeID(input.Renderer)
+	operationID := strings.TrimSpace(input.OperationID)
+	if renderer == "" || operationID == "" {
+		return nil
+	}
+	return &PanelUIActionForm{
+		Renderer:     renderer,
+		OperationID:  operationID,
+		HTML:         input.HTML,
+		ModelVersion: trimSafeText(input.ModelVersion),
+		Sensitive:    input.Sensitive,
+	}
 }
 
 func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionField {
