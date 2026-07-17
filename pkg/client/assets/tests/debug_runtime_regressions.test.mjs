@@ -57,6 +57,42 @@ function setGlobals(win) {
   globalThis.Response = globalThis.Response || win.Response;
 }
 
+function installDOMFormgenRuntime() {
+  const readValues = (root) => {
+    const values = {};
+    root.querySelectorAll('[name]').forEach((input) => {
+      const segments = input.name.split('.').filter(Boolean);
+      if (segments.length === 0) return;
+      let target = values;
+      segments.forEach((segment, index) => {
+        if (index === segments.length - 1) {
+          target[segment] = input.value;
+          return;
+        }
+        target[segment] ||= {};
+        target = target[segment];
+      });
+    });
+    return values;
+  };
+  globalThis.FormgenRelationships = {
+    async initFormgenRoot() { return { destroy() {} }; },
+    Formgen: {
+      attach(root) {
+        return {
+          getValues: () => readValues(root),
+          setValues() {},
+          setErrors() {},
+          clearErrors() {},
+          onChange() { return () => {}; },
+          focus() { return true; },
+          destroy() {},
+        };
+      },
+    },
+  };
+}
+
 function createDebugDOM() {
   return new JSDOM(`
     <!doctype html>
@@ -1044,6 +1080,7 @@ test('debug panel renders selectable action forms and field validation errors', 
 test('commands panel confirms inline (no browser dialog) and retry reuses the last submitted payload', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
+  installDOMFormgenRuntime();
   globalThis.WebSocket = OpenWebSocket;
   dom.window.WebSocket = OpenWebSocket;
   const consoleEl = dom.window.document.querySelector('[data-debug-console]');
@@ -1077,13 +1114,11 @@ test('commands panel confirms inline (no browser dialog) and retry reuses the la
               confirm_text: 'Run Generate archive?',
               requires_confirm: true,
               payload: { command_id: 'archive.generate', payload: {}, options: { mode: 'queued' } },
-              fields: [{
-                name: 'scope',
-                label: 'Scope',
-                kind: 'text',
-                payload_path: 'payload.scope',
-                default: 'daily',
-              }],
+              form: {
+                renderer: 'formgen',
+                operation_id: 'dispatch_archive_generate.edit',
+                html: '<div data-formgen-auto-init="true"><label for="scope">Scope</label><input id="scope" name="scope" value="daily"></div>',
+              },
             }],
           },
         }],
@@ -1135,11 +1170,18 @@ test('commands panel confirms inline (no browser dialog) and retry reuses the la
 
   debugModule.initDebugPanel(consoleEl);
   await waitForAssertion(() => {
-    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]'));
+    const item = dom.window.document.querySelector('[data-cmdl-item="dispatch_archive_generate"]');
+    assert.ok(item);
+    item.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  });
+  await waitForAssertion(() => {
+    const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
+    assert.ok(form);
+    assert.equal(form.dataset.cmdlFormgenReady, 'true');
   });
 
   const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
-  const input = form.querySelector('[data-action-field="scope"]');
+  const input = form.querySelector('[name="scope"]');
   input.value = 'custom-run';
 
   // First submit reveals the inline confirmation instead of dispatching.
@@ -1179,6 +1221,7 @@ test('commands panel confirms inline (no browser dialog) and retry reuses the la
 test('commands panel dispatches sensitive values without retaining them for recall or retry', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
+  installDOMFormgenRuntime();
   globalThis.WebSocket = OpenWebSocket;
   dom.window.WebSocket = OpenWebSocket;
   const consoleEl = dom.window.document.querySelector('[data-debug-console]');
@@ -1201,10 +1244,12 @@ test('commands panel dispatches sensitive values without retaining them for reca
               id: 'dispatch_secure',
               label: 'Secure operation',
               payload: { command_id: 'secure.operation', payload: {}, options: { mode: 'inline' } },
-              fields: [
-                { name: 'scope', label: 'Scope', kind: 'text', payload_path: 'payload.context.scope' },
-                { name: 'api_token', label: 'API token', kind: 'text', payload_path: 'payload.credentials.api_token', sensitive: true },
-              ],
+              form: {
+                renderer: 'formgen',
+                operation_id: 'dispatch_secure.edit',
+                sensitive: true,
+                html: '<div data-formgen-auto-init="true"><label for="scope">Scope</label><input id="scope" name="context.scope"><label for="api-token">API token</label><input id="api-token" name="credentials.api_token" type="password"></div>',
+              },
             }],
           },
         }],
@@ -1230,12 +1275,19 @@ test('commands panel dispatches sensitive values without retaining them for reca
 
   debugModule.initDebugPanel(consoleEl);
   await waitForAssertion(() => {
-    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]'));
+    const item = dom.window.document.querySelector('[data-cmdl-item="dispatch_secure"]');
+    assert.ok(item);
+    item.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  });
+  await waitForAssertion(() => {
+    const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]');
+    assert.ok(form);
+    assert.equal(form.dataset.cmdlFormgenReady, 'true');
   });
   const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]');
-  assert.equal(form.querySelector('[data-action-field="api_token"]').dataset.actionFieldSensitive, 'true');
-  form.querySelector('[data-action-field="scope"]').value = 'archive';
-  form.querySelector('[data-action-field="api_token"]').value = 'dispatch-only-secret';
+  assert.equal(form.querySelector('[data-cmdl-controller-payload]').dataset.actionFieldSensitive, 'true');
+  form.querySelector('[name="context.scope"]').value = 'archive';
+  form.querySelector('[name="credentials.api_token"]').value = 'dispatch-only-secret';
   form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
 
   await waitForAssertion(() => {
@@ -1246,15 +1298,14 @@ test('commands panel dispatches sensitive values without retaining them for reca
     });
     assert.equal(dom.window.document.querySelector('[data-cmdl-retry]'), null);
     const persisted = dom.window.localStorage.getItem('cmdl:recent:secure.operation') || '';
-    assert.match(persisted, /"scope":"archive"/);
-    assert.equal(persisted.includes('dispatch-only-secret'), false);
-    assert.equal(persisted.includes('api_token'), false);
+    assert.equal(persisted, '', 'sensitive generated forms do not persist partial or complete payloads');
   });
 });
 
 test('commands panel surfaces rich error details from a failed dispatch', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
+  installDOMFormgenRuntime();
   globalThis.WebSocket = OpenWebSocket;
   dom.window.WebSocket = OpenWebSocket;
   const consoleEl = dom.window.document.querySelector('[data-debug-console]');
@@ -1275,7 +1326,7 @@ test('commands panel surfaces rich error details from a failed dispatch', async 
             actions: [{
               id: 'dispatch_archive_repair', label: 'Repair variants', submit_label: 'Run command',
               payload: { command_id: 'archive.repair', payload: {}, options: { mode: 'inline' } },
-              fields: [],
+              form: { renderer: 'formgen', operation_id: 'dispatch_archive_repair.edit', html: '' },
             }],
           },
         }],
@@ -1308,7 +1359,14 @@ test('commands panel surfaces rich error details from a failed dispatch', async 
 
   debugModule.initDebugPanel(consoleEl);
   await waitForAssertion(() => {
-    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]'));
+    const item = dom.window.document.querySelector('[data-cmdl-item="dispatch_archive_repair"]');
+    assert.ok(item);
+    item.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  });
+  await waitForAssertion(() => {
+    const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]');
+    assert.ok(form);
+    assert.equal(form.dataset.cmdlFormgenReady, 'true');
   });
 
   const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]');
@@ -1339,6 +1397,7 @@ test('commands panel surfaces rich error details from a failed dispatch', async 
 test('commands panel reports followed login HTML as authentication required', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
+  installDOMFormgenRuntime();
   globalThis.WebSocket = OpenWebSocket;
   dom.window.WebSocket = OpenWebSocket;
   const consoleEl = dom.window.document.querySelector('[data-debug-console]');
@@ -1357,7 +1416,7 @@ test('commands panel reports followed login HTML as authentication required', as
             actions: [{
               id: 'dispatch_archive_repair', label: 'Repair variants', submit_label: 'Run command',
               payload: { command_id: 'archive.repair', payload: {}, options: { mode: 'inline' } },
-              fields: [],
+              form: { renderer: 'formgen', operation_id: 'dispatch_archive_repair.edit', html: '' },
             }],
           },
         }],
@@ -1384,7 +1443,14 @@ test('commands panel reports followed login HTML as authentication required', as
 
   debugModule.initDebugPanel(consoleEl);
   await waitForAssertion(() => {
-    assert.ok(dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]'));
+    const item = dom.window.document.querySelector('[data-cmdl-item="dispatch_archive_repair"]');
+    assert.ok(item);
+    item.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  });
+  await waitForAssertion(() => {
+    const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]');
+    assert.ok(form);
+    assert.equal(form.dataset.cmdlFormgenReady, 'true');
   });
 
   const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_repair"]');

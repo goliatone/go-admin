@@ -220,198 +220,85 @@
 /* ---- form ---- */
 .cmdl-form { margin-top: 14px; }
 
-.cmdl-section {
+.cmdl-form__fields > [data-formgen-auto-init] {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  --bg-primary: var(--debug-bg);
+  --border-color: var(--debug-border);
+  --formgen-grid-gap: 12px;
+}
+
+.cmdl-form__fields :is(.formgen-section, .formgen-fieldset) {
   border: 1px solid var(--debug-border);
   border-radius: 8px;
   margin: 0 0 12px;
-  padding: 0;
-  min-width: 0;
-}
-.cmdl-section__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 7px 12px;
-  background: var(--debug-bg-secondary);
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--debug-accent);
-}
-.cmdl-section__head--toggle { cursor: pointer; color: var(--debug-text); }
-.cmdl-section__head--toggle:focus-visible { outline: 1px solid var(--debug-accent); }
-.cmdl-section__count {
-  margin-left: auto;
-  font-size: 0.625rem;
-  color: var(--debug-text-muted);
-  text-transform: none;
-}
-.cmdl-section__caret {
-  width: 0;
-  height: 0;
-  border-left: 5px solid var(--debug-text-muted);
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  transition: transform 0.15s;
-  transform: rotate(90deg);
-}
-.cmdl-section--collapsed .cmdl-section__caret { transform: rotate(0deg); }
-.cmdl-section--collapsed .cmdl-section__grid { display: none; }
-
-.cmdl-section__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
   padding: 12px;
-}
-
-.cmdl-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   min-width: 0;
 }
-.cmdl-field--full { grid-column: 1 / -1; }
 
-.cmdl-field__label {
-  font-size: 0.6875rem;
-  color: var(--debug-text);
+.cmdl-form__fields details.formgen-section,
+.cmdl-form__fields details.formgen-fieldset {
+  padding: 0;
 }
-.cmdl-field__req { color: var(--debug-error); margin-left: 2px; }
-.cmdl-field__help { font-size: 0.625rem; color: var(--debug-text-muted); }
-.cmdl-field__error { font-size: 0.625rem; color: var(--debug-error); }
-.cmdl-field__source,
-.cmdl-field__option-description { min-height: 0.75rem; font-size: 0.625rem; color: var(--debug-text-muted); }
-.cmdl-field__source[data-state="loading"] { color: var(--debug-accent); }
-.cmdl-field__source[data-state="error"] { color: var(--debug-error); }
-.cmdl-field__source[data-state="empty"] { color: var(--debug-warning); }
 
-.cmdl-field input[type="text"],
-.cmdl-field input[type="number"],
-.cmdl-field select,
-.cmdl-field textarea {
+.cmdl-form__fields details > summary {
+  padding: 8px 12px;
+  background: var(--debug-bg-secondary);
+  color: var(--debug-text);
+  list-style-position: inside;
+}
+
+.cmdl-form__fields details > :not(summary) {
+  margin: 12px;
+}
+
+.cmdl-form__fields :is(.formgen-section, .formgen-fieldset) h2 {
+  color: var(--debug-accent);
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cmdl-form__fields .formgen-grid {
+  gap: 12px;
+}
+
+.cmdl-form__fields [data-component] {
+  min-width: 0;
+}
+
+.cmdl-form__fields [data-component] label,
+.cmdl-form__fields [data-component] [role="group"] > :first-child {
+  color: var(--debug-text);
+  font-size: 0.6875rem;
+}
+
+.cmdl-form__fields [data-component] :is(p, small) {
+  color: var(--debug-text-muted);
+  font-size: 0.625rem;
+}
+
+.cmdl-form__fields [data-component] :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea
+) {
   width: 100%;
   box-sizing: border-box;
   background: var(--debug-bg);
-  border: 1px solid var(--debug-border);
+  border-color: var(--debug-border);
   border-radius: 6px;
   color: var(--debug-text);
   font-family: inherit;
   font-size: 0.75rem;
   padding: 6px 9px;
 }
-.cmdl-field input:focus,
-.cmdl-field select:focus,
-.cmdl-field textarea:focus {
-  outline: none;
+
+.cmdl-form__fields [data-component] :is(input, select, textarea):focus {
   border-color: var(--debug-accent);
   box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.18);
 }
-.cmdl-field textarea { resize: vertical; min-height: 56px; }
-
-/* boolean toggle */
-.cmdl-field--bool { gap: 6px; }
-.cmdl-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.cmdl-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-.cmdl-toggle__track {
-  position: relative;
-  width: 34px;
-  height: 18px;
-  border-radius: 20px;
-  background: var(--debug-border);
-  flex: 0 0 auto;
-  transition: background 0.15s;
-}
-.cmdl-toggle__track::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--debug-text-muted);
-  transition: left 0.15s, background 0.15s;
-}
-.cmdl-toggle input:checked + .cmdl-toggle__track { background: rgba(166, 227, 161, 0.35); }
-.cmdl-toggle input:checked + .cmdl-toggle__track::after { left: 18px; background: var(--debug-success); }
-.cmdl-toggle input:focus-visible + .cmdl-toggle__track { box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.4); }
-.cmdl-toggle__text { font-size: 0.75rem; color: var(--debug-text); }
-
-/* chips / token input */
-.cmdl-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-  background: var(--debug-bg);
-  border: 1px solid var(--debug-border);
-  border-radius: 6px;
-  padding: 5px 7px;
-  min-height: 32px;
-}
-.cmdl-chips:focus-within {
-  border-color: var(--debug-accent);
-  box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.18);
-}
-.cmdl-chips__tags { display: contents; }
-.cmdl-chip-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(137, 180, 250, 0.12);
-  color: var(--debug-accent);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.6875rem;
-}
-.cmdl-chip-tag__x {
-  background: none;
-  border: none;
-  color: var(--debug-accent);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  line-height: 1;
-  padding: 0;
-}
-.cmdl-chips__entry {
-  flex: 1 1 60px;
-  min-width: 60px;
-  background: none;
-  border: none;
-  color: var(--debug-text);
-  font-family: inherit;
-  font-size: 0.75rem;
-  padding: 2px;
-}
-.cmdl-chips__entry:focus { outline: none; }
-
-.cmdl-option-choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 5px;
-}
-.cmdl-option-choice {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 5px 7px;
-  border: 1px solid var(--debug-border);
-  border-radius: 5px;
-  background: var(--debug-surface);
-  color: var(--debug-text);
-  font: inherit;
-  font-size: 0.6875rem;
-  text-align: left;
-  cursor: pointer;
-}
-.cmdl-option-choice small { color: var(--debug-text-muted); font-size: 0.59375rem; }
-.cmdl-option-choice:hover:not(:disabled),
-.cmdl-option-choice--selected { border-color: var(--debug-accent); background: rgba(137, 180, 250, 0.12); }
-.cmdl-option-choice:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* action bar */
 .cmdl-form__bar {
@@ -651,9 +538,6 @@
   border: 1px solid var(--debug-border);
 }
 .cmdl-locked-note code { color: var(--debug-text); }
-
-/* per-field units hint (Phase 2 display_hints.units) */
-.cmdl-field__units { color: var(--debug-text-muted); opacity: 0.85; }
 
 /* live command status pill (Phase 3 T11) */
 .cmdl-result__live {
