@@ -177,8 +177,8 @@ github.com/goliatone/go-auth/adapters/featuregate v0.44.1 h1:bHTfCSJ5N0wBY0qJKEB
 github.com/goliatone/go-auth/adapters/featuregate v0.44.1/go.mod h1:OfVSA2d7vEm1QiKLtullHTPrHLqJgFFS64g8nkCK7OA=
 github.com/goliatone/go-cache v0.1.0 h1:hbIuZdtjdWJeb0BSOybU096Q0NC/xEOpTXPJqAktDRY=
 github.com/goliatone/go-cache v0.1.0/go.mod h1:JTIwNrs4jaQlu/6h3GOa/rPcMlp2UttvN7aXe8V4v0s=
-github.com/goliatone/go-command v0.22.0 h1:qy9MCEeLH+8SUPuVKBQeHrSRrvFKEtgjFfwyPDd2ZQw=
-github.com/goliatone/go-command v0.22.0/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
+github.com/goliatone/go-command v0.23.1 h1:X1gA8cvDVeFhdq0dJHpjGTxFGZ4P8gluadR/1LVVOrk=
+github.com/goliatone/go-command v0.23.1/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-config v0.13.0 h1:PjaVEqnQvlC3Nqq66vKL5yEFGiqLMinoQ4vqLfCVxyw=

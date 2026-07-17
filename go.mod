@@ -13,7 +13,7 @@ require (
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cms v0.60.2
-	github.com/goliatone/go-command v0.22.0
+	github.com/goliatone/go-command v0.23.1
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
 	github.com/goliatone/go-dashboard v0.13.1
@@ -222,3 +222,6 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
+
+// Temporary while the embedded-root and rich-option contracts are released upstream.
+replace github.com/goliatone/go-formgen => ../go-formgen
