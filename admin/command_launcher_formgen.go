@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -74,46 +75,80 @@ func adaptCommandLauncherFormgenSchema(descriptor gocommand.CommandDescriptor) (
 		return commandLauncherFormgenSchema{RawJSONSchema: raw, OperationID: schemaID + ".edit", NoInput: true}, nil, err
 	}
 
+	root, schemaID, sectionByPath, diagnostics, err := prepareCommandLauncherFormgenRoot(descriptor, schemaID)
+	if err != nil || len(diagnostics) > 0 {
+		return commandLauncherFormgenSchema{}, diagnostics, err
+	}
+	diagnostics = mergeCommandLauncherFormgenFields(root, descriptor, sectionByPath)
+
+	raw, err := json.Marshal(root)
+	if err != nil {
+		return commandLauncherFormgenSchema{}, diagnostics, fmt.Errorf("command launcher formgen: encode JSON Schema: %w", err)
+	}
+	return commandLauncherFormgenSchema{
+		RawJSONSchema: raw,
+		OperationID:   schemaID + ".edit",
+		Sensitive:     commandLauncherFormgenSchemaHasSensitiveField(root),
+	}, diagnostics, nil
+}
+
+func prepareCommandLauncherFormgenRoot(descriptor gocommand.CommandDescriptor, schemaID string) (map[string]any, string, map[string]string, []CommandLauncherDiagnostic, error) {
 	root, err := cloneCommandLauncherSchema(descriptor.Input.JSONSchema)
 	if err != nil {
-		return commandLauncherFormgenSchema{}, nil, fmt.Errorf("command launcher formgen: clone JSON Schema: %w", err)
+		return nil, "", nil, nil, fmt.Errorf("command launcher formgen: clone JSON Schema: %w", err)
 	}
 	if root == nil {
 		root = map[string]any{}
 	}
-	if schemaType, _ := root["type"].(string); schemaType != "" && schemaType != "object" {
-		return commandLauncherFormgenSchema{}, []CommandLauncherDiagnostic{commandLauncherFormgenConflictDiagnostic(descriptor.ID, "", "command schema root must be an object")}, nil
+	if path, conflict := validateCommandLauncherAuthoredSchema(root); conflict != "" {
+		return nil, "", nil, []CommandLauncherDiagnostic{
+			commandLauncherFormgenConflictDiagnostic(descriptor.ID, path, conflict),
+		}, nil
+	}
+	if schemaType := commandLauncherSchemaString(root["type"]); schemaType != "" && schemaType != "object" {
+		return nil, "", nil, []CommandLauncherDiagnostic{
+			commandLauncherFormgenConflictDiagnostic(descriptor.ID, "", "command schema root must be an object"),
+		}, nil
 	}
 	root["type"] = "object"
-	if _, exists := root["$schema"]; !exists {
-		root["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-	}
-	if authoredID, _ := root["$id"].(string); strings.TrimSpace(authoredID) != "" {
-		schemaID = strings.TrimSpace(authoredID)
-	} else {
-		root["$id"] = schemaID
-	}
-	if _, ok := root["properties"].(map[string]any); !ok {
+	setCommandLauncherFormgenRootDefaults(root, descriptor, &schemaID)
+	if commandLauncherSchemaObject(root["properties"]) == nil {
 		if root["properties"] != nil {
-			return commandLauncherFormgenSchema{}, []CommandLauncherDiagnostic{commandLauncherFormgenConflictDiagnostic(descriptor.ID, "", "command schema properties must be an object")}, nil
+			return nil, "", nil, []CommandLauncherDiagnostic{
+				commandLauncherFormgenConflictDiagnostic(descriptor.ID, "", "command schema properties must be an object"),
+			}, nil
 		}
 		root["properties"] = map[string]any{}
 	}
-	if title := commandLauncherLabel(descriptor); title != "" {
-		if _, exists := root["title"]; !exists {
-			root["title"] = title
-		}
-	}
 	sectionByPath, sections := commandLauncherFormgenSections(descriptor.Input.Fields)
 	if len(sections) > 0 {
-		formgen, _ := root["x-formgen"].(map[string]any)
+		formgen := commandLauncherSchemaObject(root["x-formgen"])
 		if formgen == nil {
 			formgen = map[string]any{}
 			root["x-formgen"] = formgen
 		}
 		setMissingCommandLauncherSchemaValue(formgen, "layout.sections", sections)
 	}
+	return root, schemaID, sectionByPath, nil, nil
+}
 
+func setCommandLauncherFormgenRootDefaults(root map[string]any, descriptor gocommand.CommandDescriptor, schemaID *string) {
+	if _, exists := root["$schema"]; !exists {
+		root["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+	}
+	if authoredID := strings.TrimSpace(commandLauncherSchemaString(root["$id"])); authoredID != "" {
+		*schemaID = authoredID
+	} else {
+		root["$id"] = *schemaID
+	}
+	if title := commandLauncherLabel(descriptor); title != "" {
+		if _, exists := root["title"]; !exists {
+			root["title"] = title
+		}
+	}
+}
+
+func mergeCommandLauncherFormgenFields(root map[string]any, descriptor gocommand.CommandDescriptor, sectionByPath map[string]string) []CommandLauncherDiagnostic {
 	diagnostics := make([]CommandLauncherDiagnostic, 0)
 	for index, field := range descriptor.Input.Fields {
 		path := commandLauncherFormgenFieldPath(field)
@@ -150,22 +185,13 @@ func adaptCommandLauncherFormgenSchema(descriptor gocommand.CommandDescriptor) (
 		}
 		appendCommandLauncherSchemaRequired(parent, leaf)
 	}
-
-	raw, err := json.Marshal(root)
-	if err != nil {
-		return commandLauncherFormgenSchema{}, diagnostics, fmt.Errorf("command launcher formgen: encode JSON Schema: %w", err)
-	}
-	return commandLauncherFormgenSchema{
-		RawJSONSchema: raw,
-		OperationID:   schemaID + ".edit",
-		Sensitive:     commandLauncherFormgenSchemaHasSensitiveField(root),
-	}, diagnostics, nil
+	return diagnostics
 }
 
 func commandLauncherFormgenSchemaHasSensitiveField(value any) bool {
 	switch typed := value.(type) {
 	case map[string]any:
-		if format, _ := typed["format"].(string); strings.EqualFold(strings.TrimSpace(format), "password") {
+		if format := commandLauncherSchemaString(typed["format"]); strings.EqualFold(strings.TrimSpace(format), "password") {
 			return true
 		}
 		for _, key := range []string{
@@ -180,7 +206,7 @@ func commandLauncherFormgenSchemaHasSensitiveField(value any) bool {
 			"x-formgen": {"sensitive", "secret"},
 			"x-admin":   {"secret"},
 		} {
-			nested, _ := typed[namespace].(map[string]any)
+			nested := commandLauncherSchemaObject(typed[namespace])
 			for _, key := range keys {
 				if marked, ok := commandLauncherPresentationBool(nested[key]); ok && marked {
 					return true
@@ -193,10 +219,8 @@ func commandLauncherFormgenSchemaHasSensitiveField(value any) bool {
 			}
 		}
 	case []any:
-		for _, child := range typed {
-			if commandLauncherFormgenSchemaHasSensitiveField(child) {
-				return true
-			}
+		if slices.ContainsFunc(typed, commandLauncherFormgenSchemaHasSensitiveField) {
+			return true
 		}
 	}
 	return false
@@ -222,13 +246,13 @@ func commandLauncherFormgenFieldPath(field gocommand.CommandInputField) string {
 }
 
 func ensureCommandLauncherSchemaProperty(root map[string]any, path string) (map[string]any, map[string]any, string, string) {
-	segments := strings.Split(path, ".")
+	segments, conflict := commandLauncherFormgenPathSegments(path)
+	if conflict != "" {
+		return nil, nil, "", conflict
+	}
+
 	current := root
-	for index, rawSegment := range segments {
-		segment := strings.TrimSpace(rawSegment)
-		if segment == "" || strings.ContainsAny(segment, "[]") {
-			return nil, nil, "", "field path contains an unsupported segment"
-		}
+	for index, segment := range segments {
 		properties, ok := current["properties"].(map[string]any)
 		if !ok {
 			return nil, nil, "", "field path traverses a non-object schema"
@@ -241,7 +265,7 @@ func ensureCommandLauncherSchemaProperty(root map[string]any, path string) (map[
 		if index == len(segments)-1 {
 			return property, current, segment, ""
 		}
-		if propertyType, _ := property["type"].(string); propertyType != "" && propertyType != "object" {
+		if propertyType := commandLauncherSchemaString(property["type"]); propertyType != "" && propertyType != "object" {
 			return nil, nil, "", "field path traverses an explicitly non-object property"
 		}
 		property["type"] = "object"
@@ -254,6 +278,120 @@ func ensureCommandLauncherSchemaProperty(root map[string]any, path string) (map[
 		current = property
 	}
 	return nil, nil, "", "field path is empty"
+}
+
+func commandLauncherFormgenPathSegments(path string) ([]string, string) {
+	rawSegments := strings.Split(path, ".")
+	segments := make([]string, 0, len(rawSegments))
+	for _, rawSegment := range rawSegments {
+		segment := strings.TrimSpace(rawSegment)
+		if segment == "" || strings.ContainsAny(segment, "[]") {
+			return nil, "field path contains an unsupported segment"
+		}
+		if commandLauncherUnsafePropertySegment(segment) {
+			return nil, "field path contains an unsafe property segment"
+		}
+		segments = append(segments, segment)
+	}
+	return segments, ""
+}
+
+func validateCommandLauncherAuthoredSchema(root map[string]any) (string, string) {
+	return validateCommandLauncherAuthoredSchemaNode(root, nil)
+}
+
+func validateCommandLauncherAuthoredSchemaNode(node map[string]any, propertyPath []string) (string, string) {
+	if conflictPath, conflict := validateCommandLauncherAuthoredProperties(node, propertyPath); conflict != "" {
+		return conflictPath, conflict
+	}
+	if conflictPath, conflict := validateCommandLauncherAuthoredDirectChildren(node, propertyPath); conflict != "" {
+		return conflictPath, conflict
+	}
+	if conflictPath, conflict := validateCommandLauncherAuthoredBranches(node, propertyPath); conflict != "" {
+		return conflictPath, conflict
+	}
+	return validateCommandLauncherAuthoredDefinitions(node, propertyPath)
+}
+
+func validateCommandLauncherAuthoredProperties(node map[string]any, propertyPath []string) (string, string) {
+	if properties, ok := node["properties"].(map[string]any); ok {
+		names := make([]string, 0, len(properties))
+		for name := range properties {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			path := appendCommandLauncherSchemaPath(propertyPath, name)
+			if _, conflict := commandLauncherFormgenPathSegments(name); conflict != "" {
+				return strings.Join(path, "."), conflict
+			}
+			if child, ok := properties[name].(map[string]any); ok {
+				if conflictPath, conflict := validateCommandLauncherAuthoredSchemaNode(child, path); conflict != "" {
+					return conflictPath, conflict
+				}
+			}
+		}
+	}
+	return "", ""
+}
+
+func validateCommandLauncherAuthoredDirectChildren(node map[string]any, propertyPath []string) (string, string) {
+	for _, keyword := range []string{"items", "contains", "additionalProperties", "propertyNames", "if", "then", "else", "not", "unevaluatedProperties", "contentSchema"} {
+		if child, ok := node[keyword].(map[string]any); ok {
+			if conflictPath, conflict := validateCommandLauncherAuthoredSchemaNode(child, propertyPath); conflict != "" {
+				return conflictPath, conflict
+			}
+		}
+	}
+	return "", ""
+}
+
+func validateCommandLauncherAuthoredBranches(node map[string]any, propertyPath []string) (string, string) {
+	for _, keyword := range []string{"allOf", "anyOf", "oneOf", "prefixItems"} {
+		children := commandLauncherSchemaArray(node[keyword])
+		for _, value := range children {
+			if child, ok := value.(map[string]any); ok {
+				if conflictPath, conflict := validateCommandLauncherAuthoredSchemaNode(child, propertyPath); conflict != "" {
+					return conflictPath, conflict
+				}
+			}
+		}
+	}
+	return "", ""
+}
+
+func validateCommandLauncherAuthoredDefinitions(node map[string]any, propertyPath []string) (string, string) {
+	for _, keyword := range []string{"$defs", "definitions", "dependentSchemas"} {
+		children := commandLauncherSchemaObject(node[keyword])
+		names := make([]string, 0, len(children))
+		for name := range children {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			if child, ok := children[name].(map[string]any); ok {
+				if conflictPath, conflict := validateCommandLauncherAuthoredSchemaNode(child, propertyPath); conflict != "" {
+					return conflictPath, conflict
+				}
+			}
+		}
+	}
+	return "", ""
+}
+
+func appendCommandLauncherSchemaPath(path []string, segment string) []string {
+	output := make([]string, len(path), len(path)+1)
+	copy(output, path)
+	return append(output, segment)
+}
+
+func commandLauncherUnsafePropertySegment(segment string) bool {
+	switch segment {
+	case "__proto__", "constructor", "prototype":
+		return true
+	default:
+		return false
+	}
 }
 
 func mergeCommandLauncherFieldShape(property map[string]any, field gocommand.CommandInputField) {
@@ -319,7 +457,7 @@ func commandLauncherFormgenJSONType(field gocommand.CommandInputField) string {
 }
 
 func mergeCommandLauncherFieldPresentation(property map[string]any, commandID, path, sectionID string, index int, field gocommand.CommandInputField) {
-	formgen, _ := property["x-formgen"].(map[string]any)
+	formgen := commandLauncherSchemaObject(property["x-formgen"])
 	if formgen == nil {
 		formgen = map[string]any{}
 		property["x-formgen"] = formgen
@@ -384,7 +522,7 @@ func mergeCommandLauncherFieldPresentation(property map[string]any, commandID, p
 }
 
 func mergeCommandLauncherFormgenGrid(formgen map[string]any, compact bool) {
-	grid, _ := formgen["grid"].(map[string]any)
+	grid := commandLauncherSchemaObject(formgen["grid"])
 	if grid == nil {
 		grid = map[string]any{}
 		formgen["grid"] = grid
@@ -393,13 +531,13 @@ func mergeCommandLauncherFormgenGrid(formgen map[string]any, compact bool) {
 	if !compact {
 		return
 	}
-	breakpoints, _ := grid["breakpoints"].(map[string]any)
+	breakpoints := commandLauncherSchemaObject(grid["breakpoints"])
 	if breakpoints == nil {
 		breakpoints = map[string]any{}
 		grid["breakpoints"] = breakpoints
 	}
 	for name, span := range map[string]int{"md": 6, "lg": 4} {
-		entry, _ := breakpoints[name].(map[string]any)
+		entry := commandLauncherSchemaObject(breakpoints[name])
 		if entry == nil {
 			entry = map[string]any{}
 			breakpoints[name] = entry
@@ -493,18 +631,18 @@ func commandLauncherFormgenSections(fields []gocommand.CommandInputField) (map[s
 }
 
 func assignCommandLauncherTopLevelSection(root map[string]any, path, sectionID string) string {
-	properties, _ := root["properties"].(map[string]any)
+	properties := commandLauncherSchemaObject(root["properties"])
 	top := strings.TrimSpace(strings.Split(path, ".")[0])
-	property, _ := properties[top].(map[string]any)
+	property := commandLauncherSchemaObject(properties[top])
 	if property == nil {
 		return "field section could not be assigned to its top-level property"
 	}
-	formgen, _ := property["x-formgen"].(map[string]any)
+	formgen := commandLauncherSchemaObject(property["x-formgen"])
 	if formgen == nil {
 		formgen = map[string]any{}
 		property["x-formgen"] = formgen
 	}
-	if existing, _ := formgen["layout.section"].(string); existing != "" && existing != sectionID {
+	if existing := commandLauncherSchemaString(formgen["layout.section"]); existing != "" && existing != sectionID {
 		return "nested fields assign incompatible sections to the same top-level object"
 	}
 	setMissingCommandLauncherSchemaValue(formgen, "layout.section", sectionID)
@@ -549,13 +687,37 @@ func appendCommandLauncherSchemaRequired(schema map[string]any, field string) {
 	if field == "" {
 		return
 	}
-	required, _ := schema["required"].([]any)
+	required := commandLauncherSchemaArray(schema["required"])
 	for _, value := range required {
 		if value == field {
 			return
 		}
 	}
 	schema["required"] = append(required, field)
+}
+
+func commandLauncherSchemaString(value any) string {
+	text, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return text
+}
+
+func commandLauncherSchemaObject(value any) map[string]any {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return object
+}
+
+func commandLauncherSchemaArray(value any) []any {
+	array, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	return array
 }
 
 func commandLauncherFormgenConflictDiagnostic(commandID, path, message string) CommandLauncherDiagnostic {

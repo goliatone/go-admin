@@ -482,11 +482,14 @@ func runCommandLauncherOptionResolver(ctx context.Context, adm *Admin, payload m
 			"field_path": fieldPath,
 		})
 	}
-	if requestedSource := commandLauncherString(payload["source_id"]); requestedSource != "" && requestedSource != strings.TrimSpace(field.OptionSource.ID) {
+	requestedSource := commandLauncherString(payload["source_id"])
+	declaredSource := strings.TrimSpace(field.OptionSource.ID)
+	if requestedSource == "" || requestedSource != declaredSource {
 		return debugregistry.PanelActionResult{}, validationDomainError("command option source does not match the registered descriptor", map[string]any{
 			"command_id":          commandID,
 			"field_path":          fieldPath,
 			"requested_source_id": requestedSource,
+			"declared_source_id":  declaredSource,
 		})
 	}
 
@@ -975,8 +978,8 @@ func uniqueCommandLauncherActionDescriptors(input []gocommand.CommandDescriptor)
 			"error",
 			"Command execution is disabled because the catalog contains duplicate command identity.",
 			map[string]any{
-				"command_id":      identity.commandID,
-				"action_id":       actionID,
+				"command_id":       identity.commandID,
+				"action_id":        actionID,
 				"descriptor_count": identity.count,
 			},
 		))
