@@ -95,6 +95,100 @@ func commandLauncherTestDescriptor() command.CommandDescriptor {
 	}
 }
 
+func commandLauncherNoInputTestDescriptor(id string) command.CommandDescriptor {
+	return command.CommandDescriptor{
+		ID:            id,
+		Label:         id,
+		ExposeInAdmin: true,
+		ExecutionMode: command.ExecutionModeInline,
+		Input:         command.CommandInputSchema{NoInput: true},
+	}
+}
+
+func TestCommandLauncherActionIDsPreserveDistinctCommandIdentity(t *testing.T) {
+	commandIDs := []string{"foo.bar", "foo-bar", "foo/bar", "foo:bar", "FOO.BAR"}
+	descriptors := make([]command.CommandDescriptor, 0, len(commandIDs))
+	for _, commandID := range commandIDs {
+		descriptors = append(descriptors, commandLauncherNoInputTestDescriptor(commandID))
+	}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: descriptors},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	registration, ok := debugregistry.Panel(DebugPanelCommands)
+	if !ok {
+		t.Fatal("expected command launcher panel registration")
+	}
+	definition := registration.DefinitionForContext(context.Background())
+	if definition.UI == nil || len(definition.UI.Actions) != len(commandIDs) {
+		t.Fatalf("expected one action per distinct command, got %#v", definition.UI)
+	}
+	seen := map[string]string{}
+	for _, action := range definition.UI.Actions {
+		commandID := mustCommandLauncherType[string](t, action.Payload["command_id"], "command ID")
+		if commandID == "" {
+			t.Fatalf("expected canonical command payload, got %#v", action.Payload)
+		}
+		if previous, exists := seen[action.ID]; exists {
+			t.Fatalf("command %q collides with %q at action %q", commandID, previous, action.ID)
+		}
+		seen[action.ID] = commandID
+		if action.ID != commandLauncherActionID(commandID) {
+			t.Fatalf("action %q does not preserve command identity %q", action.ID, commandID)
+		}
+		if registration.Actions[action.ID] == nil {
+			t.Fatalf("action %q has no matching handler", action.ID)
+		}
+	}
+}
+
+func TestCommandLauncherDuplicateCommandIdentityFailsClosed(t *testing.T) {
+	descriptors := []command.CommandDescriptor{
+		commandLauncherNoInputTestDescriptor("catalog.duplicate"),
+		commandLauncherNoInputTestDescriptor("catalog.duplicate"),
+	}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: descriptors},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	registration, ok := debugregistry.Panel(DebugPanelCommands)
+	if !ok {
+		t.Fatal("expected command launcher panel registration")
+	}
+	actionID := commandLauncherActionID("catalog.duplicate")
+	if registration.Actions[actionID] != nil {
+		t.Fatalf("duplicate command action %q must not have a handler", actionID)
+	}
+	definition := registration.DefinitionForContext(context.Background())
+	if definition.UI == nil {
+		t.Fatal("expected command launcher panel UI")
+	}
+	if debugregistry.PanelDefinitionHasAction(definition, actionID) {
+		t.Fatalf("duplicate command action %q must not be exposed", actionID)
+	}
+	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, definition.UI.Metadata["diagnostics"], "diagnostics")
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == "duplicate_command_action_id" && diagnostic.Metadata["action_id"] == actionID && diagnostic.Metadata["descriptor_count"] == 2 {
+			return
+		}
+	}
+	t.Fatalf("expected duplicate command action diagnostic, got %#v", diagnostics)
+}
+
 func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testing.T) {
 	options := &commandLauncherTestOptionProvider{}
 	adm := mustNewAdmin(t, Config{}, Dependencies{
@@ -120,7 +214,7 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	if len(def.UI.Actions) != 2 {
 		t.Fatalf("expected executable and hidden option resolver actions, got %#v", def.UI.Actions)
 	}
-	action := commandLauncherTestAction(t, def.UI.Actions, "dispatch_catalog_inspect")
+	action := commandLauncherTestAction(t, def.UI.Actions, commandLauncherActionID("catalog.inspect"))
 	resolver := commandLauncherTestAction(t, def.UI.Actions, commandLauncherResolveOptionsAction)
 	if !resolver.Hidden || resolver.Kind != "command_options" {
 		t.Fatalf("expected hidden option resolver action, got %#v", resolver)
@@ -207,7 +301,7 @@ func TestCommandLauncherPanelWithoutOptionProviderDoesNotAdvertiseResolver(t *te
 	if !ok || def.UI == nil {
 		t.Fatal("expected command launcher panel definition")
 	}
-	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != "dispatch_catalog_inspect" {
+	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != commandLauncherActionID("catalog.inspect") {
 		t.Fatalf("expected only the command action, got %#v", def.UI.Actions)
 	}
 	if resolver := def.UI.Metadata["option_resolver_action"]; resolver != nil {
@@ -238,7 +332,7 @@ func TestCommandLauncherPanelKeepsCatalogWhenOneFormCannotRender(t *testing.T) {
 	if !ok || def.UI == nil {
 		t.Fatal("expected command launcher panel definition")
 	}
-	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != "dispatch_catalog_inspect" {
+	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != commandLauncherActionID("catalog.inspect") {
 		t.Fatalf("expected only valid command action, got %#v", def.UI.Actions)
 	}
 	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, def.UI.Metadata["diagnostics"], "diagnostics")
@@ -305,7 +399,7 @@ func TestCommandLauncherPanelHonorsDescriptorResourceHint(t *testing.T) {
 	if len(def.UI.Actions) != 2 {
 		t.Fatalf("expected descriptor to authorize against resource hint, got %#v", def.UI.Actions)
 	}
-	commandLauncherTestAction(t, def.UI.Actions, "dispatch_catalog_inspect")
+	commandLauncherTestAction(t, def.UI.Actions, commandLauncherActionID("catalog.inspect"))
 }
 
 func TestCommandLauncherOptionResolverForwardsCurrentPayloadAndRichOptions(t *testing.T) {
@@ -373,6 +467,31 @@ func TestCommandLauncherOptionResolverRejectsUnregisteredSource(t *testing.T) {
 	}
 }
 
+func TestCommandLauncherOptionResolverRejectsMissingSource(t *testing.T) {
+	options := &commandLauncherTestOptionProvider{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog:        commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		CommandOptionProvider: options,
+		FeatureGate:           featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+
+	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
+		"command_id": "catalog.inspect",
+		"field_path": "entity_id",
+	})
+	if err == nil {
+		t.Fatal("expected missing source to be rejected")
+	}
+	if len(options.calls) != 0 {
+		t.Fatalf("provider must not be called without exact source identity, got %#v", options.calls)
+	}
+}
+
 func TestCommandLauncherOptionResolverReturnsProviderFailure(t *testing.T) {
 	options := &commandLauncherTestOptionProvider{err: fmt.Errorf("catalog unavailable")}
 	adm := mustNewAdmin(t, Config{}, Dependencies{
@@ -389,6 +508,7 @@ func TestCommandLauncherOptionResolverReturnsProviderFailure(t *testing.T) {
 	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
 		"command_id": "catalog.inspect",
 		"field_path": "entity_id",
+		"source_id":  "catalog.entities",
 	})
 	if err == nil || !strings.Contains(err.Error(), "catalog unavailable") {
 		t.Fatalf("expected provider failure to retain actionable cause, got %v", err)
@@ -519,18 +639,19 @@ func TestCommandLauncherActionDispatchesThroughDebugCollector(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected command launcher panel registration")
 	}
-	if registration.Actions["dispatch_rpc_dispatch_test"] == nil {
+	actionID := commandLauncherActionID("rpc.dispatch.test")
+	if registration.Actions[actionID] == nil {
 		t.Fatalf("expected dynamic command launcher handler to be registered, got %+v", registration.Actions)
 	}
 	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "debug-user", Subject: "debug-user"})
-	if !debugregistry.PanelDefinitionHasAction(registration.DefinitionForContext(ctx), "dispatch_rpc_dispatch_test") {
+	if !debugregistry.PanelDefinitionHasAction(registration.DefinitionForContext(ctx), actionID) {
 		t.Fatalf("expected request-scoped command launcher definition to expose dispatch action")
 	}
 
 	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommands}})
 	result, err := collector.RunPanelAction(ctx, debugregistry.PanelActionRequest{
 		PanelID:  DebugPanelCommands,
-		ActionID: "dispatch_rpc_dispatch_test",
+		ActionID: actionID,
 		Payload: map[string]any{
 			"payload": map[string]any{"value": "ok"},
 			"ids":     []any{"one", "two"},

@@ -51,7 +51,8 @@ func TestAdaptCommandLauncherFormgenSchemaSchemaOnly(t *testing.T) {
 		t.Fatalf("operation id = %q", adapted.OperationID)
 	}
 	root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
-	count := root["properties"].(map[string]any)["count"].(map[string]any)
+	properties := mustCommandLauncherType[map[string]any](t, root["properties"], "root properties")
+	count := mustCommandLauncherType[map[string]any](t, properties["count"], "count property")
 	if count["type"] != "integer" || count["minimum"] != float64(1) {
 		t.Fatalf("count = %#v", count)
 	}
@@ -95,27 +96,30 @@ func TestAdaptCommandLauncherFormgenSchemaFieldsOnlyPreservesPresentation(t *tes
 		t.Fatalf("diagnostics = %#v", diagnostics)
 	}
 	root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
-	scope := root["properties"].(map[string]any)["scope"].(map[string]any)
-	region := scope["properties"].(map[string]any)["region"].(map[string]any)
+	properties := mustCommandLauncherType[map[string]any](t, root["properties"], "root properties")
+	scope := mustCommandLauncherType[map[string]any](t, properties["scope"], "scope property")
+	scopeProperties := mustCommandLauncherType[map[string]any](t, scope["properties"], "scope properties")
+	region := mustCommandLauncherType[map[string]any](t, scopeProperties["region"], "region property")
 	if region["type"] != "string" || region["default"] != "us" || region["description"] != "Target region" {
 		t.Fatalf("region = %#v", region)
 	}
-	ui := region["x-formgen"].(map[string]any)
+	ui := mustCommandLauncherType[map[string]any](t, region["x-formgen"], "region formgen metadata")
 	if ui["label"] != "Region" || ui["placeholder"] != "Select a region" || ui["helpText"] != "Choose carefully" || ui["section"] != "Scope" || ui["unit"] != "region" {
 		t.Fatalf("region UI = %#v", ui)
 	}
-	rootUI := root["x-formgen"].(map[string]any)
-	if len(rootUI["layout.sections"].([]any)) != 2 {
+	rootUI := mustCommandLauncherType[map[string]any](t, root["x-formgen"], "root formgen metadata")
+	sections := mustCommandLauncherType[[]any](t, rootUI["layout.sections"], "layout sections")
+	if len(sections) != 2 {
 		t.Fatalf("layout sections = %#v", rootUI["layout.sections"])
 	}
-	scopeUI := scope["x-formgen"].(map[string]any)
+	scopeUI := mustCommandLauncherType[map[string]any](t, scope["x-formgen"], "scope formgen metadata")
 	if scopeUI["layout.section"] == "" {
 		t.Fatalf("top-level nested object section missing: %#v", scopeUI)
 	}
-	if required := scope["required"].([]any); len(required) != 1 || required[0] != "region" {
+	if required := mustCommandLauncherType[[]any](t, scope["required"], "scope required fields"); len(required) != 1 || required[0] != "region" {
 		t.Fatalf("required = %#v", required)
 	}
-	dryRun := root["properties"].(map[string]any)["dry_run"].(map[string]any)
+	dryRun := mustCommandLauncherType[map[string]any](t, properties["dry_run"], "dry_run property")
 	if dryRun["x-formgen-sensitive"] != true {
 		t.Fatalf("sensitive marker missing: %#v", dryRun)
 	}
@@ -138,11 +142,14 @@ func TestAdaptCommandLauncherFormgenSchemaExplicitSchemaWinsAndFieldsSupplement(
 	if err != nil || len(diagnostics) != 0 {
 		t.Fatalf("adapt err=%v diagnostics=%#v", err, diagnostics)
 	}
-	limit := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)["properties"].(map[string]any)["limit"].(map[string]any)
+	root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
+	properties := mustCommandLauncherType[map[string]any](t, root["properties"], "root properties")
+	limit := mustCommandLauncherType[map[string]any](t, properties["limit"], "limit property")
 	if limit["type"] != "integer" || limit["minimum"] != float64(5) || limit["default"] != float64(25) || limit["maximum"] != float64(500) {
 		t.Fatalf("limit = %#v", limit)
 	}
-	if label := limit["x-formgen"].(map[string]any)["label"]; label != "Authored limit" {
+	limitUI := mustCommandLauncherType[map[string]any](t, limit["x-formgen"], "limit formgen metadata")
+	if label := limitUI["label"]; label != "Authored limit" {
 		t.Fatalf("label = %v", label)
 	}
 }
@@ -156,17 +163,21 @@ func TestAdaptCommandLauncherFormgenSchemaRichAndDynamicOptions(t *testing.T) {
 	if err != nil || len(diagnostics) != 0 {
 		t.Fatalf("adapt err=%v diagnostics=%#v", err, diagnostics)
 	}
-	properties := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)["properties"].(map[string]any)
-	option := properties["mode"].(map[string]any)["x-formgen"].(map[string]any)["options"].([]any)[0].(map[string]any)
+	root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
+	properties := mustCommandLauncherType[map[string]any](t, root["properties"], "root properties")
+	mode := mustCommandLauncherType[map[string]any](t, properties["mode"], "mode property")
+	modeUI := mustCommandLauncherType[map[string]any](t, mode["x-formgen"], "mode formgen metadata")
+	options := mustCommandLauncherType[[]any](t, modeUI["options"], "mode options")
+	option := mustCommandLauncherType[map[string]any](t, options[0], "first mode option")
 	if option["value"] != "safe" || option["description"] != "Recommended" || option["disabled"] != true {
 		t.Fatalf("option = %#v", option)
 	}
-	worker := properties["worker"].(map[string]any)
-	endpoint := worker["x-endpoint"].(map[string]any)
+	worker := mustCommandLauncherType[map[string]any](t, properties["worker"], "worker property")
+	endpoint := mustCommandLauncherType[map[string]any](t, worker["x-endpoint"], "worker endpoint")
 	if endpoint["url"] != "command-options://jobs.run/worker" || endpoint["method"] != "POST" {
 		t.Fatalf("endpoint = %#v", endpoint)
 	}
-	dynamic := endpoint["dynamicParams"].(map[string]any)
+	dynamic := mustCommandLauncherType[map[string]any](t, endpoint["dynamicParams"], "worker dynamic parameters")
 	if dynamic["dependency_1"] != "mode" {
 		t.Fatalf("dynamic params = %#v", dynamic)
 	}
@@ -189,13 +200,145 @@ func TestAdaptCommandLauncherFormgenSchemaReportsNestedConflict(t *testing.T) {
 	}
 }
 
+func TestAdaptCommandLauncherFormgenSchemaRejectsUnsafePropertyPaths(t *testing.T) {
+	for _, path := range []string{
+		"__proto__.polluted",
+		"constructor.prototype.polluted",
+		"safe.__proto__",
+		"safe.prototype.value",
+	} {
+		t.Run(strings.ReplaceAll(path, ".", "_"), func(t *testing.T) {
+			adapted, diagnostics, err := adaptCommandLauncherFormgenSchema(gocommand.CommandDescriptor{
+				ID: "unsafe.path",
+				Input: gocommand.CommandInputSchema{
+					Fields: []gocommand.CommandInputField{{Path: path, Type: "string"}},
+				},
+			})
+			if err != nil {
+				t.Fatalf("adapt: %v", err)
+			}
+			if len(diagnostics) != 1 || diagnostics[0].Code != "formgen_schema_conflict" || diagnostics[0].Metadata["field_path"] != path {
+				t.Fatalf("expected unsafe path diagnostic for %q, got %#v", path, diagnostics)
+			}
+			if !strings.Contains(diagnostics[0].Message, "unsafe property segment") {
+				t.Fatalf("expected actionable unsafe path message, got %#v", diagnostics[0])
+			}
+			root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
+			if properties := mustCommandLauncherType[map[string]any](t, root["properties"], "root properties"); len(properties) != 0 {
+				t.Fatalf("unsafe path %q must not create schema properties, got %#v", path, properties)
+			}
+		})
+	}
+}
+
+func TestAdaptCommandLauncherFormgenSchemaRejectsUnsafeAuthoredProperties(t *testing.T) {
+	tests := []struct {
+		name       string
+		schema     map[string]any
+		wantPath   string
+		wantReason string
+	}{
+		{
+			name: "top level",
+			schema: map[string]any{"type": "object", "properties": map[string]any{
+				"__proto__": map[string]any{"type": "string"},
+			}},
+			wantPath: "__proto__", wantReason: "unsafe property segment",
+		},
+		{
+			name: "nested object",
+			schema: map[string]any{"type": "object", "properties": map[string]any{
+				"safe": map[string]any{"type": "object", "properties": map[string]any{
+					"constructor": map[string]any{"type": "string"},
+				}},
+			}},
+			wantPath: "safe.constructor", wantReason: "unsafe property segment",
+		},
+		{
+			name: "array item",
+			schema: map[string]any{"type": "object", "properties": map[string]any{
+				"rows": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
+					"prototype": map[string]any{"type": "string"},
+				}}},
+			}},
+			wantPath: "rows.prototype", wantReason: "unsafe property segment",
+		},
+		{
+			name: "composition branch",
+			schema: map[string]any{"type": "object", "properties": map[string]any{
+				"block": map[string]any{"oneOf": []any{
+					map[string]any{"type": "object", "properties": map[string]any{
+						"constructor.prototype": map[string]any{"type": "string"},
+					}},
+				}},
+			}},
+			wantPath: "block.constructor.prototype", wantReason: "unsafe property segment",
+		},
+		{
+			name: "definition",
+			schema: map[string]any{"type": "object", "$defs": map[string]any{
+				"unsafe": map[string]any{"type": "object", "properties": map[string]any{
+					"prototype": map[string]any{"type": "string"},
+				}},
+			}},
+			wantPath: "prototype", wantReason: "unsafe property segment",
+		},
+		{
+			name: "bracket path",
+			schema: map[string]any{"type": "object", "properties": map[string]any{
+				"safe[__proto__]": map[string]any{"type": "string"},
+			}},
+			wantPath: "safe[__proto__]", wantReason: "unsupported segment",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			adapted, diagnostics, err := adaptCommandLauncherFormgenSchema(gocommand.CommandDescriptor{
+				ID:    "unsafe.schema",
+				Input: gocommand.CommandInputSchema{JSONSchema: test.schema},
+			})
+			if err != nil {
+				t.Fatalf("adapt: %v", err)
+			}
+			if len(adapted.RawJSONSchema) != 0 {
+				t.Fatalf("unsafe authored schema must fail closed, got %s", adapted.RawJSONSchema)
+			}
+			if len(diagnostics) != 1 || diagnostics[0].Code != "formgen_schema_conflict" || diagnostics[0].Metadata["field_path"] != test.wantPath {
+				t.Fatalf("expected unsafe authored property diagnostic for %q, got %#v", test.wantPath, diagnostics)
+			}
+			if !strings.Contains(diagnostics[0].Message, test.wantReason) {
+				t.Fatalf("expected %q in diagnostic, got %#v", test.wantReason, diagnostics[0])
+			}
+		})
+	}
+}
+
+func TestAdaptCommandLauncherFormgenSchemaAllowsSafeAuthoredSchemaTrees(t *testing.T) {
+	adapted, diagnostics, err := adaptCommandLauncherFormgenSchema(gocommand.CommandDescriptor{
+		ID: "safe.schema",
+		Input: gocommand.CommandInputSchema{JSONSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"constructor_id": map[string]any{"type": "string"},
+				"rows": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
+					"prototype_version": map[string]any{"type": "string"},
+				}}},
+			},
+		}},
+	})
+	if err != nil || len(diagnostics) != 0 || len(adapted.RawJSONSchema) == 0 {
+		t.Fatalf("adapted=%#v diagnostics=%#v err=%v", adapted, diagnostics, err)
+	}
+}
+
 func TestAdaptCommandLauncherFormgenSchemaNoInput(t *testing.T) {
 	adapted, diagnostics, err := adaptCommandLauncherFormgenSchema(gocommand.CommandDescriptor{ID: "health.check", Input: gocommand.CommandInputSchema{NoInput: true}})
 	if err != nil || len(diagnostics) != 0 || !adapted.NoInput {
 		t.Fatalf("adapted=%#v diagnostics=%#v err=%v", adapted, diagnostics, err)
 	}
 	root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
-	if len(root["properties"].(map[string]any)) != 0 {
+	if len(mustCommandLauncherType[map[string]any](t, root["properties"], "root properties")) != 0 {
 		t.Fatalf("schema = %#v", root)
 	}
 }
