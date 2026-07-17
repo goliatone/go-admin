@@ -1109,27 +1109,39 @@ The built-in `commands` debug panel renders command descriptors from
   `Dependencies.CommandOptionProvider` for bounded request-scoped values. Put
   dependent field paths in `OptionSource.Params["depends_on"]` as a string or
   string array.
-- Use `CommandInputField.DisplayHints` for launcher-only presentation hints:
+- Use `CommandInputField.DisplayHints` for generated form presentation hints:
   - `section`: string section label.
   - `advanced`: boolean.
   - `units`: string suffix/help text.
 
-go-admin serializes these values into `PanelUIActionField` as `default` and
-`display_hints`, and mirrors sanitized values in
-`ui.metadata.serialized_schemas`. The action field contract is authoritative for
-rendering and dispatch; `serialized_schemas` is supporting metadata. Do not put
-functions, raw HTML, or non-JSON values in descriptor defaults or display hints.
-Unsupported values are dropped.
+go-admin adapts the authorized descriptor to JSON Schema and formgen UI
+metadata, then renders trusted fields-only HTML through a shared vanilla
+orchestrator. The action exposes a typed `form` descriptor with renderer,
+operation id, HTML, model version, and sensitive-state metadata. It does not
+expose a parallel `fields` projection or serialized-schema fallback. If
+generation fails, the command remains visible but is not executable and a
+diagnostic explains the failure.
 
-Scalar option-backed fields render as selects. Array/`string_list` fields keep
-their multi-value chips control and add selectable option choices. Dynamic
-options resolve through a hidden `commands` panel action using the existing
-debug authentication, CSRF, and request-scoped action authorization. The server
-matches the requested command field and source id against the authorized
-descriptor before invoking the provider, and forwards the current form payload
-so dependent catalogs can filter safely. A missing provider is reported in
-launcher diagnostics; provider failures and valid empty results render inline
-at the affected field.
+The action-level sensitive flag is derived from the fully adapted schema, not
+only from ordered fields. `CommandInputField.Sensitive`, `format: password`,
+and formgen/admin secret extensions therefore all disable launcher draft,
+preset, JSON, recent-run, and retry persistence.
+
+The launcher retains only the catalog, form shell, confirmation, recall/JSON
+controls, and result card. Formgen owns sections, widgets, values,
+defaults/reset, field errors/focus, and option state through a root-scoped
+controller and resolver registry. Responsive grid hints keep scalar fields
+full-width on narrow screens and compact at larger breakpoints; boolean, array,
+object, JSON, and textarea controls remain full-width.
+
+Dynamic options resolve through a hidden `commands` panel action using existing
+debug authentication, CSRF, and request-scoped authorization. The server
+reauthorizes the request, matches command, field, and source ids against the
+current descriptor, and forwards the controller's current payload. Formgen owns
+dependency debounce, cancellation/stale-response rejection, loading/empty/error
+state, caching, selection preservation, and select/chips updates. Missing
+providers are reported in launcher diagnostics; provider errors stay inline on
+the affected generated field.
 
 The result panel exposes receipt metadata such as correlation id, dispatch id,
 execution mode, and status reference when the command response includes them.

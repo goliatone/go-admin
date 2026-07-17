@@ -387,6 +387,26 @@ disabled by the client runtime. Internal markers are stripped before CMS
 persistence. JSON requests keep normal behavior unless update intent is enabled
 for the content type, in which case browser-form markers are required.
 
+## Embedded Fields-Only Forms
+
+The Debug Console command launcher is the reference host-owned-shell pattern.
+The server adapts an authorized command descriptor to JSON Schema and renders it
+through a shared go-formgen orchestrator with `render.RenderModeFields`. The
+result is trusted server-generated field HTML; the launcher supplies the outer
+form, confirmation, action bar, persistence controls, and result view.
+
+The browser initializes each selected root with
+`FormgenRelationships.initFormgenRoot`, then attaches a registry-aware
+`Formgen` controller. Use controller methods for values, hydration, reset,
+errors, focus, change subscription, and teardown. Protected generic option
+requests should be rewritten or signed in the root's `beforeFetch` hook; keep
+debounce, cancellation, stale-response rejection, cache, widget state, and DOM
+updates inside formgen.
+
+Do not emit both generated HTML and a host-specific field projection as a
+fallback. If generation fails, keep the surrounding resource visible, disable
+the action, and surface a diagnostic.
+
 ## Security And Validation
 
 Form metadata is not a security boundary.
