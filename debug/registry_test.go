@@ -74,6 +74,9 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 					Label:       "Refresh",
 					SubmitLabel: "Run refresh",
 					Refresh:     true,
+					Form: &PanelUIActionForm{
+						Renderer: " formgen ", OperationID: "refresh.form", HTML: `<input name="safe">`, ModelVersion: " v1 ", Sensitive: true,
+					},
 					Fields: []PanelUIActionField{
 						{
 							Name:        "File_ID",
@@ -182,6 +185,9 @@ func TestPanelDefinitionRichUINormalizesWireContract(t *testing.T) {
 	}
 	if len(registration.Actions) != 1 || registration.Actions["refresh"] == nil {
 		t.Fatalf("expected normalized handler storage, got %+v", registration.Actions)
+	}
+	if form := def.UI.Actions[0].Form; form == nil || form.Renderer != "formgen" || form.OperationID != "refresh.form" || form.HTML != `<input name="safe">` || form.ModelVersion != "v1" || !form.Sensitive {
+		t.Fatalf("expected generated form descriptor to survive normalization, got %#v", form)
 	}
 
 	payload, err := json.Marshal(def)

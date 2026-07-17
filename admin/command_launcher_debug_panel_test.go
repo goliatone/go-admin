@@ -132,30 +132,21 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	if optionsPayload["mode"] != command.ExecutionModeInline {
 		t.Fatalf("expected dispatch options mode in action payload, got %#v", action.Payload)
 	}
-	if len(action.Fields) != 1 || action.Fields[0].PayloadPath != "payload.entity_id" {
-		t.Fatalf("expected go-formgen-compatible payload path, got %#v", action.Fields)
+	if len(action.Fields) != 0 {
+		t.Fatalf("legacy launcher fields must not accompany generated forms, got %#v", action.Fields)
 	}
-	if len(action.Fields[0].Options) != 2 || action.Fields[0].Options[0] != "entity-1" {
-		t.Fatalf("expected request-scoped dynamic options, got %#v", action.Fields[0].Options)
+	if action.Form == nil || action.Form.Renderer != "formgen" || action.Form.OperationID == "" {
+		t.Fatalf("expected typed formgen descriptor, got %#v", action.Form)
 	}
-	if len(action.Fields[0].OptionItems) != 2 || action.Fields[0].OptionItems[0].Label != "Entity 1" || action.Fields[0].OptionItems[0].Description != "Primary entity" || !action.Fields[0].OptionItems[1].Disabled {
-		t.Fatalf("expected rich request-scoped dynamic options, got %#v", action.Fields[0].OptionItems)
+	if !strings.Contains(action.Form.HTML, `name="entity_id"`) || !strings.Contains(action.Form.HTML, commandLauncherOptionEndpointScheme+"catalog.inspect/entity_id") {
+		t.Fatalf("expected generated dynamic field HTML, got %s", action.Form.HTML)
 	}
-	if action.Fields[0].OptionSource == nil || action.Fields[0].OptionSource.ID != "catalog.entities" || !action.Fields[0].OptionSource.Dynamic {
-		t.Fatalf("expected dynamic option source metadata, got %#v", action.Fields[0].OptionSource)
-	}
-	if len(options.calls) != 1 || options.calls[0].CommandID != "catalog.inspect" || options.calls[0].Source.ID != "catalog.entities" {
-		t.Fatalf("expected authorized dynamic option provider call, got %#v", options.calls)
+	if len(options.calls) != 0 {
+		t.Fatalf("definition rendering must not invoke request-scoped option providers, got %#v", options.calls)
 	}
 
-	schemas, ok := def.UI.Metadata["serialized_schemas"].(map[string]any)
-	if !ok || schemas["catalog.inspect"] == nil {
-		t.Fatalf("expected serialized form schema metadata, got %#v", def.UI.Metadata)
-	}
-	schema := mustCommandLauncherType[map[string]any](t, schemas["catalog.inspect"], "catalog.inspect schema")
-	formgen := mustCommandLauncherType[map[string]any](t, schema["x-formgen"], "x-formgen metadata")
-	if formgen["mode"] != "command-launcher" || formgen["payload_paths"] != true {
-		t.Fatalf("expected command launcher formgen metadata, got %#v", formgen)
+	if schemas := def.UI.Metadata["serialized_schemas"]; schemas != nil {
+		t.Fatalf("legacy serialized schemas must not accompany generated forms, got %#v", schemas)
 	}
 }
 
@@ -224,6 +215,44 @@ func TestCommandLauncherPanelWithoutOptionProviderDoesNotAdvertiseResolver(t *te
 	}
 }
 
+func TestCommandLauncherPanelKeepsCatalogWhenOneFormCannotRender(t *testing.T) {
+	valid := commandLauncherTestDescriptor()
+	invalid := commandLauncherTestDescriptor()
+	invalid.ID = "catalog.invalid"
+	invalid.MessageType = invalid.ID
+	invalid.Input.JSONSchema = map[string]any{"type": "string"}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{valid, invalid}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+			"admin.catalog.invalid|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	def, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || def.UI == nil {
+		t.Fatal("expected command launcher panel definition")
+	}
+	if len(def.UI.Actions) != 1 || def.UI.Actions[0].ID != "dispatch_catalog_inspect" {
+		t.Fatalf("expected only valid command action, got %#v", def.UI.Actions)
+	}
+	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, def.UI.Metadata["diagnostics"], "diagnostics")
+	found := false
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == "formgen_schema_conflict" && diagnostic.Metadata["command_id"] == "catalog.invalid" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected invalid form diagnostic, got %#v", diagnostics)
+	}
+}
+
 func TestCommandLauncherPanelDoesNotLeakHiddenCommandSchemas(t *testing.T) {
 	adm := mustNewAdmin(t, Config{}, Dependencies{
 		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
@@ -277,48 +306,6 @@ func TestCommandLauncherPanelHonorsDescriptorResourceHint(t *testing.T) {
 		t.Fatalf("expected descriptor to authorize against resource hint, got %#v", def.UI.Actions)
 	}
 	commandLauncherTestAction(t, def.UI.Actions, "dispatch_catalog_inspect")
-}
-
-func TestCommandLauncherActionFieldsSupportFormgenCompatibleFieldKinds(t *testing.T) {
-	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{
-		Type: "object",
-		Fields: []command.CommandInputField{
-			{Name: "enabled", Path: "enabled", Type: "boolean", Required: true},
-			{Name: "limit", Path: "limit", Type: "integer"},
-			{Name: "tags", Path: "filters.tags", Type: "array"},
-			{Name: "metadata", Path: "metadata", Type: "object"},
-			{Name: "api_token", Path: "credentials.api_token", Type: "string", Sensitive: true, Default: "must-not-serialize"},
-			{Name: "status", Path: "filters.status", Kind: "select", Type: "string", StaticOptions: []command.CommandOption{
-				{Value: "draft", Label: "Draft"},
-				{Value: "published", Label: "Published"},
-			}},
-		},
-	}}, nil)
-	if len(fields) != 6 {
-		t.Fatalf("expected six fields, got %#v", fields)
-	}
-	byName := map[string]debugregistry.PanelUIActionField{}
-	for _, field := range fields {
-		byName[field.Name] = field
-	}
-	if byName["enabled"].Kind != "boolean" || byName["enabled"].PayloadPath != "payload.enabled" || !byName["enabled"].Required {
-		t.Fatalf("unexpected boolean field: %#v", byName["enabled"])
-	}
-	if byName["limit"].Kind != "number" || byName["limit"].PayloadPath != "payload.limit" {
-		t.Fatalf("unexpected number field: %#v", byName["limit"])
-	}
-	if byName["tags"].Kind != "string_list" || byName["tags"].PayloadPath != "payload.filters.tags" {
-		t.Fatalf("unexpected array field: %#v", byName["tags"])
-	}
-	if byName["metadata"].Kind != "json" || byName["metadata"].PayloadPath != "payload.metadata" {
-		t.Fatalf("unexpected json field: %#v", byName["metadata"])
-	}
-	if !byName["api_token"].Sensitive || byName["api_token"].Default != nil || byName["api_token"].PayloadPath != "payload.credentials.api_token" {
-		t.Fatalf("unexpected sensitive field: %#v", byName["api_token"])
-	}
-	if byName["status"].Kind != "select" || len(byName["status"].Options) != 2 || len(byName["status"].OptionItems) != 2 || byName["status"].OptionItems[0].Label != "Draft" {
-		t.Fatalf("unexpected select field: %#v", byName["status"])
-	}
 }
 
 func TestCommandLauncherOptionResolverForwardsCurrentPayloadAndRichOptions(t *testing.T) {
@@ -405,161 +392,6 @@ func TestCommandLauncherOptionResolverReturnsProviderFailure(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "catalog unavailable") {
 		t.Fatalf("expected provider failure to retain actionable cause, got %v", err)
-	}
-}
-
-func TestCommandLauncherActionFieldsSerializePresentationHints(t *testing.T) {
-	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{
-		Type: "object",
-		Fields: []command.CommandInputField{
-			{
-				Name:    "limit",
-				Path:    "limit",
-				Type:    "integer",
-				Help:    "Maximum rows to scan",
-				Default: 50,
-				DisplayHints: map[string]any{
-					"section":     "Scope",
-					"advanced":    "true",
-					"units":       "rows",
-					"raw_html":    "<b>unsafe</b>",
-					"unsupported": []any{func() {}},
-				},
-			},
-		},
-	}}, nil)
-	if len(fields) != 1 {
-		t.Fatalf("expected one field, got %#v", fields)
-	}
-	field := fields[0]
-	if field.Default != 50 {
-		t.Fatalf("expected default to round-trip, got %#v", field.Default)
-	}
-	if field.Description != "Maximum rows to scan" {
-		t.Fatalf("expected help fallback in description, got %q", field.Description)
-	}
-	if got := field.DisplayHints; got["section"] != "Scope" || got["advanced"] != true || got["units"] != "rows" {
-		t.Fatalf("expected sanitized display hints, got %#v", got)
-	}
-	if _, ok := field.DisplayHints["raw_html"]; ok {
-		t.Fatalf("unexpected unsafe display hint: %#v", field.DisplayHints)
-	}
-	payload, err := json.Marshal(field)
-	if err != nil {
-		t.Fatalf("marshal field: %v", err)
-	}
-	if !json.Valid(payload) {
-		t.Fatalf("expected JSON-safe field, got %s", payload)
-	}
-}
-
-func TestCommandLauncherSerializedSchemasMirrorPresentationHints(t *testing.T) {
-	descriptor := commandLauncherTestDescriptor()
-	descriptor.Input.Fields[0].Help = "Pick an entity"
-	descriptor.Input.Fields[0].Default = "entity-1"
-	descriptor.Input.Fields[0].Sensitive = true
-	descriptor.Input.Fields[0].OptionSource.Label = "Catalog entities"
-	descriptor.Input.Fields[0].OptionSource.RedactionHint = "id-only"
-	descriptor.Input.Fields[0].OptionSource.Params = map[string]any{
-		"tenant": "default",
-		"limit":  25,
-	}
-	descriptor.Input.Fields[0].Validation = map[string]any{
-		"min_length": 3,
-	}
-	descriptor.Input.Fields[0].DisplayHints = map[string]any{
-		"section":  "Scope",
-		"advanced": false,
-		"units":    "id",
-		"onclick":  func() {},
-	}
-	descriptor.Input.Fields = append(descriptor.Input.Fields, command.CommandInputField{
-		Name: "status",
-		Path: "status",
-		Type: "string",
-		Kind: "select",
-		StaticOptions: []command.CommandOption{
-			{Value: "active", Label: "Active", Description: "Runnable entries"},
-			{Value: "deleted", Label: "Deleted", Description: "Unavailable entries", Disabled: true, Metadata: map[string]any{"reason": "archived"}},
-		},
-	})
-	schemas := commandLauncherFormSchemas([]command.CommandDescriptor{descriptor})
-	schema := mustCommandLauncherType[map[string]any](t, schemas["catalog.inspect"], "catalog.inspect schema")
-	fields := mustCommandLauncherType[[]map[string]any](t, schema["fields"], "schema fields")
-	if len(fields) != 2 {
-		t.Fatalf("expected two serialized fields, got %#v", fields)
-	}
-	byPath := map[string]map[string]any{}
-	for _, field := range fields {
-		path := mustCommandLauncherType[string](t, field["path"], fmt.Sprintf("field path for %#v", field))
-		byPath[path] = field
-	}
-	field := byPath["entity_id"]
-	if _, exists := field["default"]; exists || field["help"] != "Pick an entity" {
-		t.Fatalf("expected sensitive default to be omitted while help remains, got %#v", field)
-	}
-	if field["sensitive"] != true {
-		t.Fatalf("expected sensitive descriptor flag to round-trip, got %#v", field)
-	}
-	hints := mustCommandLauncherType[map[string]any](t, field["display_hints"], "field display hints")
-	if hints["section"] != "Scope" || hints["advanced"] != false || hints["units"] != "id" {
-		t.Fatalf("expected mirrored display hints, got %#v", hints)
-	}
-	if _, ok := hints["onclick"]; ok {
-		t.Fatalf("unexpected unsafe display hint in schema: %#v", hints)
-	}
-	source := mustCommandLauncherType[map[string]any](t, field["option_source"], "field option source")
-	if source["id"] != "catalog.entities" || source["label"] != "Catalog entities" || source["dynamic"] != true || source["cache_scope"] != "request" || source["redaction_hint"] != "id-only" {
-		t.Fatalf("expected full option source descriptor, got %#v", source)
-	}
-	params := mustCommandLauncherType[map[string]any](t, source["params"], "option source params")
-	if params["tenant"] != "default" || params["limit"] != 25 {
-		t.Fatalf("expected option source params to round-trip, got %#v", params)
-	}
-	validation := mustCommandLauncherType[map[string]any](t, field["validation"], "field validation")
-	if validation["min_length"] != 3 {
-		t.Fatalf("expected validation metadata to round-trip, got %#v", validation)
-	}
-	status := byPath["status"]
-	options := mustCommandLauncherType[[]map[string]any](t, status["static_options"], "status static options")
-	if len(options) != 2 || options[0]["description"] != "Runnable entries" || options[1]["disabled"] != true {
-		t.Fatalf("expected full static option descriptors, got %#v", options)
-	}
-	metadata := mustCommandLauncherType[map[string]any](t, options[1]["metadata"], "static option metadata")
-	if metadata["reason"] != "archived" {
-		t.Fatalf("expected static option metadata to round-trip, got %#v", metadata)
-	}
-	payload, err := json.Marshal(schemas)
-	if err != nil {
-		t.Fatalf("marshal schemas: %v", err)
-	}
-	if !json.Valid(payload) {
-		t.Fatalf("expected JSON-safe schemas, got %s", payload)
-	}
-}
-
-func TestCommandLauncherActionFieldsOmitAbsentPresentationHints(t *testing.T) {
-	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{
-		Type: "object",
-		Fields: []command.CommandInputField{
-			{Name: "query", Path: "query", Type: "string"},
-		},
-	}}, nil)
-	if len(fields) != 1 {
-		t.Fatalf("expected one field, got %#v", fields)
-	}
-	if fields[0].Default != nil {
-		t.Fatalf("expected absent default to remain empty, got %#v", fields[0].Default)
-	}
-	if fields[0].DisplayHints != nil {
-		t.Fatalf("expected absent display hints to remain empty, got %#v", fields[0].DisplayHints)
-	}
-}
-
-func TestCommandLauncherActionFieldsSupportNoInputCommands(t *testing.T) {
-	fields := commandLauncherActionFields(context.Background(), nil, command.CommandDescriptor{Input: command.CommandInputSchema{NoInput: true}}, nil)
-	if len(fields) != 0 {
-		t.Fatalf("expected no fields for no-input command, got %#v", fields)
 	}
 }
 

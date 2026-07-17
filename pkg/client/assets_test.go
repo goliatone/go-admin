@@ -40,6 +40,15 @@ func TestTemplatesEmbedIncludesDebugIndex(t *testing.T) {
 	if _, err := fs.Stat(Templates(), "resources/debug/index.html"); err != nil {
 		t.Fatalf("expected embedded debug index template: %v", err)
 	}
+	data, err := fs.ReadFile(Templates(), "resources/debug/index.html")
+	if err != nil {
+		t.Fatalf("read embedded debug index template: %v", err)
+	}
+	for _, asset := range []string{"formgen/formgen-vanilla.css", "runtime/formgen-behaviors.min.js", "runtime/formgen-relationships.min.js"} {
+		if !strings.Contains(string(data), asset) {
+			t.Fatalf("expected debug index template to include %q", asset)
+		}
+	}
 }
 
 func TestTemplatesEmbedContentTypesEditorIncludesRelationshipsRuntime(t *testing.T) {
