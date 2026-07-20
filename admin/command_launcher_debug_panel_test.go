@@ -29,6 +29,18 @@ func (c *mutableCommandLauncherTestCatalog) CommandDescriptors() []command.Comma
 	return append([]command.CommandDescriptor(nil), c.descriptors...)
 }
 
+type commandLauncherDispatchTestMessage struct {
+	Value string
+}
+
+func (commandLauncherDispatchTestMessage) Type() string { return "rpc.dispatch.test" }
+
+type commandLauncherLateDispatchTestMessage struct {
+	Value string
+}
+
+func (commandLauncherLateDispatchTestMessage) Type() string { return "rpc.dispatch.late" }
+
 func mustCommandLauncherType[T any](t *testing.T, value any, label string) T {
 	t.Helper()
 	typed, ok := value.(T)
@@ -117,6 +129,42 @@ func commandLauncherNoInputTestDescriptor(id string) command.CommandDescriptor {
 	}
 }
 
+func allowCommandLauncherTestRPC(adm *Admin, commandIDs ...string) {
+	if adm == nil {
+		return
+	}
+	if adm.config.Commands.RPC.Commands == nil {
+		adm.config.Commands.RPC.Commands = map[string]RPCCommandRule{}
+	}
+	for _, commandID := range commandIDs {
+		if _, exists := adm.config.Commands.RPC.Commands[commandID]; !exists {
+			adm.config.Commands.RPC.Commands[commandID] = RPCCommandRule{
+				Permission: commandLauncherDispatchPermission,
+				Resource:   defaultRPCCommandResource,
+			}
+		}
+	}
+}
+
+func enableCommandLauncherTestCommands(adm *Admin, commandIDs ...string) {
+	allowCommandLauncherTestRPC(adm, commandIDs...)
+	if adm == nil || adm.commandBus == nil {
+		return
+	}
+	for _, commandID := range commandIDs {
+		if commandID == "" {
+			continue
+		}
+		adm.commandBus.mu.Lock()
+		if adm.commandBus.dispatchers[commandID] == nil {
+			adm.commandBus.dispatchers[commandID] = func(context.Context, map[string]any, []string, command.DispatchOptions) (command.DispatchReceipt, error) {
+				return command.DispatchReceipt{Accepted: true}, nil
+			}
+		}
+		adm.commandBus.mu.Unlock()
+	}
+}
+
 func TestCommandLauncherActionIDsPreserveDistinctCommandIdentity(t *testing.T) {
 	commandIDs := []string{"foo.bar", "foo-bar", "foo/bar", "foo:bar", "FOO.BAR"}
 	descriptors := make([]command.CommandDescriptor, 0, len(commandIDs))
@@ -131,6 +179,7 @@ func TestCommandLauncherActionIDsPreserveDistinctCommandIdentity(t *testing.T) {
 			"admin.commands.dispatch|commands": true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, commandIDs...)
 	RegisterCommandLauncherDebugPanel(adm)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
 
@@ -213,6 +262,7 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 	RegisterCommandLauncherDebugPanel(adm)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
 
@@ -296,6 +346,66 @@ func TestCommandLauncherPanelMissingDispatchShowsCatalogWithoutActions(t *testin
 	}
 }
 
+func TestCommandLauncherPanelDoesNotAdvertiseCommandsMissingRPCRules(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	definition, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || definition.UI == nil {
+		t.Fatal("expected command launcher panel definition")
+	}
+	if len(definition.UI.Actions) != 0 {
+		t.Fatalf("command without an RPC rule must not be advertised as executable: %#v", definition.UI.Actions)
+	}
+	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, definition.UI.Metadata["diagnostics"], "diagnostics")
+	if len(diagnostics) != 1 || diagnostics[0].Code != "rpc_command_rule_gaps" {
+		t.Fatalf("expected an RPC rule diagnostic, got %#v", diagnostics)
+	}
+	commandIDs := mustCommandLauncherType[[]string](t, diagnostics[0].Metadata["command_ids"], "diagnostic command ids")
+	if len(commandIDs) != 1 || commandIDs[0] != "catalog.inspect" {
+		t.Fatalf("expected the missing RPC command id, got %#v", commandIDs)
+	}
+}
+
+func TestCommandLauncherPanelDoesNotAdvertiseCommandsMissingDispatchers(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{RPC: RPCCommandConfig{Commands: map[string]RPCCommandRule{
+			"catalog.inspect": {Permission: commandLauncherDispatchPermission},
+		}}},
+	}, Dependencies{
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+			"admin.catalog.inspect|commands":   true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	definition, ok := debugregistry.PanelDefinitionForContext(context.Background(), DebugPanelCommands)
+	if !ok || definition.UI == nil {
+		t.Fatal("expected command launcher panel definition")
+	}
+	if len(definition.UI.Actions) != 0 {
+		t.Fatalf("command without a dispatcher must not be advertised as executable: %#v", definition.UI.Actions)
+	}
+	diagnostics := mustCommandLauncherType[[]CommandLauncherDiagnostic](t, definition.UI.Metadata["diagnostics"], "diagnostics")
+	if len(diagnostics) != 1 || diagnostics[0].Code != "command_registration_gaps" {
+		t.Fatalf("expected a command registration diagnostic, got %#v", diagnostics)
+	}
+}
+
 func TestCommandLauncherPanelWithoutOptionProviderDoesNotAdvertiseResolver(t *testing.T) {
 	adm := mustNewAdmin(t, Config{}, Dependencies{
 		CommandCatalog: commandLauncherTestCatalog{descriptors: []command.CommandDescriptor{commandLauncherTestDescriptor()}},
@@ -306,6 +416,7 @@ func TestCommandLauncherPanelWithoutOptionProviderDoesNotAdvertiseResolver(t *te
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 	RegisterCommandLauncherDebugPanel(adm)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
 
@@ -337,6 +448,7 @@ func TestCommandLauncherPanelKeepsCatalogWhenOneFormCannotRender(t *testing.T) {
 			"admin.catalog.invalid|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect", "catalog.invalid")
 	RegisterCommandLauncherDebugPanel(adm)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
 
@@ -401,6 +513,7 @@ func TestCommandLauncherPanelHonorsDescriptorResourceHint(t *testing.T) {
 			"admin.catalog.inspect|catalog":    true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 	RegisterCommandLauncherDebugPanel(adm)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
 
@@ -428,6 +541,7 @@ func TestCommandLauncherOptionResolverForwardsCurrentPayloadAndRichOptions(t *te
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 
 	result, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
 		"command_id": "catalog.inspect",
@@ -465,6 +579,7 @@ func TestCommandLauncherOptionResolverRejectsUnregisteredSource(t *testing.T) {
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 
 	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
 		"command_id": "catalog.inspect",
@@ -491,6 +606,7 @@ func TestCommandLauncherOptionResolverRejectsMissingSource(t *testing.T) {
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 
 	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
 		"command_id": "catalog.inspect",
@@ -516,6 +632,7 @@ func TestCommandLauncherOptionResolverReturnsProviderFailure(t *testing.T) {
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 
 	_, err := runCommandLauncherOptionResolver(context.Background(), adm, map[string]any{
 		"command_id": "catalog.inspect",
@@ -555,18 +672,18 @@ func TestCommandLauncherActionForwardsIDsAndDispatchOptions(t *testing.T) {
 			return nil
 		},
 	})
-	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[rpcDispatchTestMessage](func(_ context.Context, _ rpcDispatchTestMessage) error {
+	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[commandLauncherDispatchTestMessage](func(_ context.Context, _ commandLauncherDispatchTestMessage) error {
 		return nil
 	})); err != nil {
 		t.Fatalf("register command: %v", err)
 	}
-	if err := RegisterMessageFactory(adm.Commands(), "rpc.dispatch.test", func(payload map[string]any, ids []string) (rpcDispatchTestMessage, error) {
+	if err := RegisterMessageFactory(adm.Commands(), "rpc.dispatch.test", func(payload map[string]any, ids []string) (commandLauncherDispatchTestMessage, error) {
 		factoryIDs = append([]string(nil), ids...)
 		value, ok := payload["value"].(string)
 		if !ok {
-			return rpcDispatchTestMessage{}, fmt.Errorf("expected string value payload, got %T", payload["value"])
+			return commandLauncherDispatchTestMessage{}, fmt.Errorf("expected string value payload, got %T", payload["value"])
 		}
-		return rpcDispatchTestMessage{Value: value}, nil
+		return commandLauncherDispatchTestMessage{Value: value}, nil
 	}); err != nil {
 		t.Fatalf("register message factory: %v", err)
 	}
@@ -698,7 +815,11 @@ func TestCommandLauncherActionDispatchesThroughDebugCollector(t *testing.T) {
 func TestCommandLauncherResolvesCatalogActionsAddedAfterPanelRegistration(t *testing.T) {
 	const commandID = "rpc.dispatch.late"
 	catalog := &mutableCommandLauncherTestCatalog{}
-	adm := mustNewAdmin(t, Config{}, Dependencies{
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{RPC: RPCCommandConfig{Commands: map[string]RPCCommandRule{
+			commandID: {Permission: commandLauncherDispatchPermission},
+		}}},
+	}, Dependencies{
 		CommandCatalog: catalog,
 		FeatureGate:    featureGateFromKeys(FeatureCommands),
 		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
@@ -719,15 +840,16 @@ func TestCommandLauncherResolvesCatalogActionsAddedAfterPanelRegistration(t *tes
 	}
 
 	catalog.descriptors = []command.CommandDescriptor{commandLauncherNoInputTestDescriptor(commandID)}
+	allowCommandLauncherTestRPC(adm, commandID)
 	dispatched := false
-	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[rpcDispatchTestMessage](func(_ context.Context, _ rpcDispatchTestMessage) error {
+	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[commandLauncherLateDispatchTestMessage](func(_ context.Context, _ commandLauncherLateDispatchTestMessage) error {
 		dispatched = true
 		return nil
 	})); err != nil {
 		t.Fatalf("register command: %v", err)
 	}
-	if err := RegisterMessageFactory(adm.Commands(), commandID, func(map[string]any, []string) (rpcDispatchTestMessage, error) {
-		return rpcDispatchTestMessage{Value: "late"}, nil
+	if err := RegisterMessageFactory(adm.Commands(), commandID, func(map[string]any, []string) (commandLauncherLateDispatchTestMessage, error) {
+		return commandLauncherLateDispatchTestMessage{Value: "late"}, nil
 	}); err != nil {
 		t.Fatalf("register message factory: %v", err)
 	}
@@ -772,6 +894,7 @@ func TestCommandLauncherDoctorCheckReportsReadyAndPermissionGaps(t *testing.T) {
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 	RegisterCommandLauncherDoctorCheck(adm)
 
 	report := adm.RunDoctor(context.Background())
@@ -847,6 +970,7 @@ func TestCommandLauncherDoctorCheckReportsMissingDynamicOptionProvider(t *testin
 			"admin.catalog.inspect|commands":   true,
 		}},
 	})
+	enableCommandLauncherTestCommands(adm, "catalog.inspect")
 	RegisterCommandLauncherDoctorCheck(adm)
 
 	report := adm.RunDoctor(context.Background())

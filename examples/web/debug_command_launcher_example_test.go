@@ -54,6 +54,33 @@ func TestExampleDebugCommandCatalogCoversLauncherFlows(t *testing.T) {
 	}
 }
 
+func TestConfigureExampleDebugCommandRPCAddsSafeRulesWithoutOverwritingHostRules(t *testing.T) {
+	cfg := coreadmin.Config{
+		Commands: coreadmin.CommandConfig{
+			RPC: coreadmin.RPCCommandConfig{
+				Commands: map[string]coreadmin.RPCCommandRule{
+					exampleEchoCommandID: {Permission: "example.custom.permission", Resource: "custom"},
+				},
+			},
+		},
+	}
+
+	configureExampleDebugCommandRPC(&cfg)
+
+	if len(cfg.Commands.RPC.Commands) != 3 {
+		t.Fatalf("RPC command rule count = %d, want 3", len(cfg.Commands.RPC.Commands))
+	}
+	if rule := cfg.Commands.RPC.Commands[exampleEchoCommandID]; rule.Permission != "example.custom.permission" || rule.Resource != "custom" {
+		t.Fatalf("existing host rule was overwritten: %#v", rule)
+	}
+	for _, commandID := range []string{exampleMaintenanceCommandID, exampleHealthCommandID} {
+		rule, ok := cfg.Commands.RPC.Commands[commandID]
+		if !ok || rule.Permission != exampleDebugCommandPermission || rule.Resource != "commands" {
+			t.Fatalf("unexpected RPC rule for %s: %#v", commandID, rule)
+		}
+	}
+}
+
 func TestExampleDebugCommandsDispatchInlineResults(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
 		bus := coreadmin.NewCommandBus(true)

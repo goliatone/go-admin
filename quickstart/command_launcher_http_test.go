@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -58,7 +59,11 @@ type quickstartLauncherEchoMessage struct {
 	Message string
 }
 
+func (quickstartLauncherEchoMessage) Type() string { return quickstartLauncherEchoCommandID }
+
 func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
 	debugregistry.UnregisterPanel(admin.DebugPanelCommands)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(admin.DebugPanelCommands) })
 
@@ -71,6 +76,12 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 			Panels:  []string{admin.DebugPanelCommands},
 		}),
 	)
+	cfg.Commands.RPC.Commands = map[string]admin.RPCCommandRule{
+		quickstartLauncherEchoCommandID: {
+			Permission: "admin.commands.dispatch",
+			Resource:   "commands",
+		},
+	}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
@@ -97,7 +108,11 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 		t.Fatalf("register echo command: %v", err)
 	}
 	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartLauncherEchoCommandID, func(payload map[string]any, _ []string) (quickstartLauncherEchoMessage, error) {
-		return quickstartLauncherEchoMessage{Message: strings.TrimSpace(payload["message"].(string))}, nil
+		message, ok := payload["message"].(string)
+		if !ok {
+			return quickstartLauncherEchoMessage{}, fmt.Errorf("message must be a string, got %T", payload["message"])
+		}
+		return quickstartLauncherEchoMessage{Message: strings.TrimSpace(message)}, nil
 	}); err != nil {
 		t.Fatalf("register echo message factory: %v", err)
 	}
