@@ -71,6 +71,7 @@ const (
 	exampleEchoCommandID          = "example.debug.echo"
 	exampleMaintenanceCommandID   = "example.debug.maintenance"
 	exampleHealthCommandID        = "example.debug.health"
+	exampleDebugCommandPermission = "admin.commands.dispatch"
 )
 
 type exampleDebugCommandCatalog struct{}
@@ -573,6 +574,7 @@ func main() {
 	}
 	if debugEnabled {
 		quickstart.AddDebugPanels(&cfg, coreadmin.DebugPanelCommands)
+		configureExampleDebugCommandRPC(&cfg)
 	}
 	debugPanelCatalog := quickstart.DefaultDebugPanelCatalog()
 	debugPanelCatalog[exportPipelinePanelID] = func(_ *admin.Config, _ quickstart.DebugPanelDeps) {
@@ -4005,6 +4007,28 @@ func setupDebugConsoleCommands(adm *admin.Admin, logf func(string, ...any)) erro
 		return fmt.Errorf("debug console command bus is unavailable")
 	}
 	return registerDebugConsoleCommands(adm.Commands(), logf)
+}
+
+func configureExampleDebugCommandRPC(cfg *coreadmin.Config) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Commands.RPC.Commands == nil {
+		cfg.Commands.RPC.Commands = map[string]coreadmin.RPCCommandRule{}
+	}
+	for _, commandID := range []string{
+		exampleEchoCommandID,
+		exampleMaintenanceCommandID,
+		exampleHealthCommandID,
+	} {
+		if _, exists := cfg.Commands.RPC.Commands[commandID]; exists {
+			continue
+		}
+		cfg.Commands.RPC.Commands[commandID] = coreadmin.RPCCommandRule{
+			Permission: exampleDebugCommandPermission,
+			Resource:   "commands",
+		}
+	}
 }
 
 func registerDebugConsoleCommands(bus *coreadmin.CommandBus, logf func(string, ...any)) error {
