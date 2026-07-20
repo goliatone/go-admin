@@ -217,7 +217,40 @@ Common filter aliases are forwarded:
 
 The runtime also forwards actor and request metadata so providers can apply tenant, user, authorization, experiment, or observability policies without parsing the HTTP request again.
 
-Empty public search queries return an empty page and do not call the provider.
+Empty public search queries return an empty page and do not call the provider
+unless an explicit `FilterOnlyPolicy` is enabled. Filter-only execution requires
+an eligible configured filter, range, or landing constraint, stays within the
+configured page/page-size/candidate ceilings, and requires the provider to
+implement `admin.FilterOnlyRequestValidator`. Unknown, stripped, ignored, or
+unacknowledged constraints fail closed before `Search` is called.
+
+Application product variants use `admin.SearchVariant`; they do not reuse
+`go-search.SearchMode`, which continues to mean lexical, semantic, or hybrid
+retrieval. Configure variant and presentation policies on `SiteConfig.Search`:
+
+``` go
+Search: quicksite.SiteSearchConfig{
+    VariantPolicy: &quicksite.SiteSearchVariantPolicy{
+        QueryParameter: "variant",
+        Default:        admin.SearchVariant("metadata"),
+        Allowed: []admin.SearchVariant{
+            admin.SearchVariant("metadata"),
+            admin.SearchVariant("transcripts"),
+        },
+        IncludeInSuggestions: true,
+    },
+    PageSizePolicy: &quicksite.SiteSearchPageSizePolicy{
+        Default: 25,
+        Allowed: []int{10, 25, 50},
+    },
+}
+```
+
+`RegisterSiteRoutes` validates explicit policies before registering routes.
+`ResolveSiteConfig` remains an errorless normalization helper. A nil policy
+preserves legacy behavior; a present policy must satisfy its allowlist and
+ceiling rules. The configured variant parameter is reserved and can never
+become a provider filter.
 
 ## Site Search Response Contract
 
@@ -229,7 +262,9 @@ The public API response shape is:
     "hits": [],
     "page": 1,
     "per_page": 10,
-    "total": 0
+    "total": 0,
+    "total_accuracy": "exact",
+    "counts": []
   },
   "meta": {
     "query": "archive",
@@ -240,10 +275,22 @@ The public API response shape is:
     "facets": [],
     "indexes": ["site_content"],
     "collections": ["site_content"],
-    "landing": null
+    "landing": null,
+    "variant": "metadata"
   }
 }
 ```
+
+Each normalized hit may include typed `evidence` plus the presentation-friendly
+`found_in` collection. Named counts are ordered by key and carry `value`,
+`accuracy`, and an optional diagnostic. An absent count was not requested;
+`value: 0, accuracy: exact` is measured zero; `accuracy: unavailable` requires a
+diagnostic and its numeric value must not be presented as a measured zero.
+
+Primary `total_accuracy` is separate from named counts. Evidence similarly
+distinguishes absent/not-requested from `complete`, `partial`, `unsupported`,
+and `unavailable`; non-complete states carry a diagnostic. Highlighted snippets
+are untrusted provider output and must be escaped or sanitized by custom themes.
 
 Suggest responses use:
 
