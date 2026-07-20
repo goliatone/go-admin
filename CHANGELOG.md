@@ -1,6 +1,22 @@
 # Changelog
 
+# [0.117.0](https://github.com/goliatone/go-admin/compare/v0.116.0...v0.117.0) - (2026-07-20)
+
+## <!-- 16 -->➕ Add
+
+- Search evidence, counts, filters and safety policies, candidate ceilings ([326f18e](https://github.com/goliatone/go-admin/commit/326f18e135a76330a320127826ec6cade747a612))  - (goliatone)
+- Search policy validation ([91218fc](https://github.com/goliatone/go-admin/commit/91218fc1e497f82e4c2bbaa11efacd114b4b4b57))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([fa0f2d9](https://github.com/goliatone/go-admin/commit/fa0f2d9357f405822b5b87d3a4f903338580c03b))  - (goliatone)
+- Update docs ([69a42ff](https://github.com/goliatone/go-admin/commit/69a42ff3d2eea86fdbc24b1e000257201e714bac))  - (goliatone)
+- Update tests ([60abdc7](https://github.com/goliatone/go-admin/commit/60abdc7f491e516a2dfdeb5297d863972d00076d))  - (goliatone)
+
 # [0.116.0](https://github.com/goliatone/go-admin/compare/v0.115.3...v0.116.0) - (2026-07-20)
+
+
+New minor release: v0.116.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
@@ -8,6 +24,10 @@
 - Error presenter and mapping ([5f94649](https://github.com/goliatone/go-admin/commit/5f94649e7b983b58f8cdfe33834c9ca218e64a84))  - (goliatone)
 - Add default background ([6ca4f46](https://github.com/goliatone/go-admin/commit/6ca4f46f161d9381559d2d7e43a990fa352cfe3d))  - (goliatone)
 - Command launcher formgen ([a31fb13](https://github.com/goliatone/go-admin/commit/a31fb134df87adab9f4711a550905e25e7065890))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.116.0 ([c91ef8e](https://github.com/goliatone/go-admin/commit/c91ef8eb9a1478cff215a66b8f0f60dc8525ef38))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
