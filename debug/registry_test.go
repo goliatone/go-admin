@@ -342,6 +342,76 @@ func TestPanelRegistrationStoresHandlersForDynamicallyExposedActions(t *testing.
 	}
 }
 
+func TestPanelRegistrationResolvesRequestScopedActionAfterVisibilityCheck(t *testing.T) {
+	type contextKey string
+	const exposeActionKey contextKey = "expose-action"
+	resolverCalls := 0
+	registry := NewPanelRegistry()
+	err := registry.Register("commands", PanelConfig{
+		UI: &PanelUI{
+			Views:   PanelUIViews{Console: JSONView("")},
+			Actions: []PanelUIAction{{ID: "dispatch_late", Label: "Dispatch late command"}},
+		},
+		Definition: func(ctx context.Context, definition PanelDefinition) PanelDefinition {
+			if ctx.Value(exposeActionKey) == true {
+				return definition
+			}
+			filtered := definition
+			if definition.UI != nil {
+				ui := *definition.UI
+				ui.Actions = nil
+				filtered.UI = &ui
+			}
+			return filtered
+		},
+		ActionResolver: func(_ context.Context, actionID string) PanelActionHandler {
+			resolverCalls++
+			if actionID != "dispatch_late" {
+				return nil
+			}
+			return func(context.Context, PanelActionRequest) (PanelActionResult, error) {
+				return PanelActionResult{OK: true, Message: "resolved"}, nil
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	registration, ok := registry.Registration("commands")
+	if !ok {
+		t.Fatal("expected panel registration")
+	}
+	if registration.ActionHandlerForContext(context.Background(), "dispatch_late") != nil {
+		t.Fatal("expected hidden action not to resolve")
+	}
+	if resolverCalls != 0 {
+		t.Fatalf("expected visibility rejection before resolver, got %d resolver calls", resolverCalls)
+	}
+
+	ctx := context.WithValue(context.Background(), exposeActionKey, true)
+	handler := registration.ActionHandlerForContext(ctx, " DISPATCH_LATE ")
+	if handler == nil {
+		t.Fatal("expected visible action to resolve")
+	}
+	result, err := handler(ctx, PanelActionRequest{PanelID: "commands", ActionID: "dispatch_late"})
+	if err != nil {
+		t.Fatalf("run resolved handler: %v", err)
+	}
+	if !result.OK || result.Message != "resolved" {
+		t.Fatalf("unexpected resolved result: %#v", result)
+	}
+	if resolverCalls != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolverCalls)
+	}
+	if registration.ActionHandlerForContext(ctx, "dispatch_missing") != nil {
+		t.Fatal("expected unadvertised action not to resolve")
+	}
+	if resolverCalls != 1 {
+		t.Fatalf("expected unadvertised action rejection before resolver, got %d calls", resolverCalls)
+	}
+}
+
 func TestPanelDefinitionsWithContextDoesNotHoldLockDuringFilter(t *testing.T) {
 	type registryContextKey string
 	const registerLateKey registryContextKey = "register-late"

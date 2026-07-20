@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,6 +16,17 @@ import (
 
 type commandLauncherTestCatalog struct {
 	descriptors []command.CommandDescriptor
+}
+
+type mutableCommandLauncherTestCatalog struct {
+	descriptors []command.CommandDescriptor
+}
+
+func (c *mutableCommandLauncherTestCatalog) CommandDescriptors() []command.CommandDescriptor {
+	if c == nil {
+		return nil
+	}
+	return append([]command.CommandDescriptor(nil), c.descriptors...)
 }
 
 func mustCommandLauncherType[T any](t *testing.T, value any, label string) T {
@@ -644,8 +656,9 @@ func TestCommandLauncherActionDispatchesThroughDebugCollector(t *testing.T) {
 		t.Fatalf("expected dynamic command launcher handler to be registered, got %+v", registration.Actions)
 	}
 	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "debug-user", Subject: "debug-user"})
-	if !debugregistry.PanelDefinitionHasAction(registration.DefinitionForContext(ctx), actionID) {
-		t.Fatalf("expected request-scoped command launcher definition to expose dispatch action")
+	definition := registration.DefinitionForContext(ctx)
+	if !debugregistry.PanelDefinitionHasAction(definition, actionID) {
+		t.Fatalf("expected request-scoped command launcher definition to expose dispatch action, got %#v", definition.UI)
 	}
 
 	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommands}})
@@ -679,6 +692,71 @@ func TestCommandLauncherActionDispatchesThroughDebugCollector(t *testing.T) {
 		policyInput.Dispatch.CorrelationID != "corr-1" ||
 		policyInput.Dispatch.Metadata["source"] != "debug-panel" {
 		t.Fatalf("expected dispatch options to reach policy hook, got %#v", policyInput.Dispatch)
+	}
+}
+
+func TestCommandLauncherResolvesCatalogActionsAddedAfterPanelRegistration(t *testing.T) {
+	const commandID = "rpc.dispatch.late"
+	catalog := &mutableCommandLauncherTestCatalog{}
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		CommandCatalog: catalog,
+		FeatureGate:    featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands":     true,
+			"admin.commands.dispatch|commands": true,
+		}},
+	})
+	RegisterCommandLauncherDebugPanel(adm)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommands) })
+
+	registration, ok := debugregistry.Panel(DebugPanelCommands)
+	if !ok {
+		t.Fatal("expected command launcher panel registration")
+	}
+	actionID := commandLauncherActionID(commandID)
+	if registration.Actions[actionID] != nil {
+		t.Fatalf("did not expect late action in bootstrap handler snapshot: %+v", registration.Actions)
+	}
+
+	catalog.descriptors = []command.CommandDescriptor{commandLauncherNoInputTestDescriptor(commandID)}
+	dispatched := false
+	if _, err := RegisterCommand(adm.Commands(), command.CommandFunc[rpcDispatchTestMessage](func(_ context.Context, _ rpcDispatchTestMessage) error {
+		dispatched = true
+		return nil
+	})); err != nil {
+		t.Fatalf("register command: %v", err)
+	}
+	if err := RegisterMessageFactory(adm.Commands(), commandID, func(map[string]any, []string) (rpcDispatchTestMessage, error) {
+		return rpcDispatchTestMessage{Value: "late"}, nil
+	}); err != nil {
+		t.Fatalf("register message factory: %v", err)
+	}
+
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "debug-user", Subject: "debug-user"})
+	definition := registration.DefinitionForContext(ctx)
+	if !debugregistry.PanelDefinitionHasAction(definition, actionID) {
+		t.Fatalf("expected current catalog action in request-scoped definition, got %#v", definition.UI)
+	}
+	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommands}})
+	result, err := collector.RunPanelAction(ctx, debugregistry.PanelActionRequest{
+		PanelID:  DebugPanelCommands,
+		ActionID: actionID,
+		Payload: map[string]any{
+			"command_id": commandID,
+			"payload":    map[string]any{},
+			"options":    map[string]any{"mode": command.ExecutionModeInline},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dispatch late catalog action: %v", err)
+	}
+	if !result.OK || !dispatched {
+		t.Fatalf("expected late action dispatch, result=%#v dispatched=%t", result, dispatched)
+	}
+
+	catalog.descriptors = nil
+	if _, err := collector.RunPanelAction(ctx, debugregistry.PanelActionRequest{PanelID: DebugPanelCommands, ActionID: actionID}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expected removed catalog action to fail closed, got %v", err)
 	}
 }
 
