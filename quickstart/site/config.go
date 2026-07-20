@@ -96,10 +96,40 @@ type SiteViewConfig struct {
 
 // SiteSearchConfig controls optional site search routes.
 type SiteSearchConfig struct {
-	Route       string   `json:"route"`
-	Endpoint    string   `json:"endpoint"`
-	Indexes     []string `json:"indexes,omitempty"`
-	Collections []string `json:"collections"`
+	Route                string                          `json:"route"`
+	Endpoint             string                          `json:"endpoint"`
+	Indexes              []string                        `json:"indexes,omitempty"`
+	Collections          []string                        `json:"collections"`
+	VariantPolicy        *SiteSearchVariantPolicy        `json:"variant_policy,omitempty"`
+	PageSizePolicy       *SiteSearchPageSizePolicy       `json:"page_size_policy,omitempty"`
+	FilterOnlyPolicy     *SiteSearchFilterOnlyPolicy     `json:"filter_only_policy,omitempty"`
+	FacetExpansionPolicy *SiteSearchFacetExpansionPolicy `json:"facet_expansion_policy,omitempty"`
+}
+
+type SiteSearchVariantPolicy struct {
+	QueryParameter       string                `json:"query_parameter"`
+	Default              admin.SearchVariant   `json:"default,omitempty"`
+	Allowed              []admin.SearchVariant `json:"allowed"`
+	IncludeInSuggestions bool                  `json:"include_in_suggestions"`
+}
+
+type SiteSearchPageSizePolicy struct {
+	Default int   `json:"default"`
+	Allowed []int `json:"allowed"`
+}
+
+type SiteSearchFilterOnlyPolicy struct {
+	Enabled                    bool     `json:"enabled"`
+	EligibleFilterFields       []string `json:"eligible_filter_fields"`
+	EligibleRangeFields        []string `json:"eligible_range_fields"`
+	EligibleLandingConstraints []string `json:"eligible_landing_constraints"`
+	MaxPage                    int      `json:"max_page"`
+	MaxPageSize                int      `json:"max_page_size"`
+	MaxCandidates              int      `json:"max_candidates"`
+}
+
+type SiteSearchFacetExpansionPolicy struct {
+	Fields []string `json:"fields"`
 }
 
 // SiteFeatures controls runtime feature gates.

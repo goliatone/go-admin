@@ -41,7 +41,7 @@ func searchIndexValues(c router.Context, fallback []string) []string {
 	return cloneStrings(fallback)
 }
 
-func searchBaseFilters(c router.Context) map[string][]string {
+func searchBaseFilters(c router.Context, additionalReserved ...string) map[string][]string {
 	out := map[string][]string{}
 	if c == nil {
 		return out
@@ -68,6 +68,11 @@ func searchBaseFilters(c router.Context) map[string][]string {
 		"environment":     {},
 		"preview_token":   {},
 		"view_profile":    {},
+	}
+	for _, key := range additionalReserved {
+		if key = strings.TrimSpace(key); key != "" {
+			reserved[key] = struct{}{}
+		}
 	}
 	for key := range c.Queries() {
 		normalizedKey := strings.TrimSpace(key)

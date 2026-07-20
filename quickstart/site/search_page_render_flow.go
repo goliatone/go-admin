@@ -11,18 +11,19 @@ func (r *searchRuntime) renderPage(c router.Context, topicSlug string) error {
 	flow := r.prepareSearchPageFlow(c, topicSlug)
 	ctx := r.searchViewContext(c, flow.state, flow.req, flow.result, flow.facets, flow.indexes, flow.landing, flow.err)
 	if flow.err != nil {
+		status := searchErrorStatus(flow.err)
 		return renderSiteTemplateResponse(c, flow.state, r.siteCfg, siteTemplateResponse{
-			JSONStatus:     502,
-			TemplateStatus: 502,
+			JSONStatus:     status,
+			TemplateStatus: status,
 			TemplateNames:  []string{searchTemplate},
 			JSONPayload: siteTemplateResponsePayload(searchTemplate, ctx, map[string]any{
 				"error": searchUnavailableErrorPayload(flow.err),
 			}),
 			ViewContext: ctx,
 			FallbackError: SiteRuntimeError{
-				Code:            searchUnavailableErrorCode,
-				Status:          502,
-				Message:         "search service unavailable",
+				Code:            searchErrorCode(flow.err),
+				Status:          status,
+				Message:         strings.TrimSpace(flow.err.Error()),
 				RequestedLocale: strings.TrimSpace(flow.req.Locale),
 			},
 		})
@@ -66,8 +67,41 @@ func (r *searchRuntime) searchViewContext(
 	view["search_endpoint"] = strings.TrimSpace(r.siteCfg.Search.Endpoint)
 	view["search_suggest_endpoint"] = strings.TrimSpace(searchSuggestRoute(r.siteCfg.Search.Endpoint))
 	projection.apply(view)
+	r.applySearchPolicyViewContext(view, req)
 	return mergeSiteContentViewContext(view, map[string]any{
 		"kind": "search",
 		"mode": "search",
 	})
+}
+
+func (r *searchRuntime) applySearchPolicyViewContext(view router.ViewContext, req admin.SearchRequest) {
+	if r == nil || view == nil {
+		return
+	}
+	variantParameter := r.searchVariantParameter()
+	allowedVariants := []string{}
+	if policy := r.siteCfg.Search.VariantPolicy; policy != nil {
+		for _, value := range policy.Allowed {
+			allowedVariants = append(allowedVariants, string(value))
+		}
+	}
+	pageSizes := []int{}
+	if policy := r.siteCfg.Search.PageSizePolicy; policy != nil {
+		pageSizes = append(pageSizes, policy.Allowed...)
+	}
+	expandedFacets := []string{}
+	if policy := r.siteCfg.Search.FacetExpansionPolicy; policy != nil {
+		expandedFacets = append(expandedFacets, policy.Fields...)
+	}
+	view["search_variant_query_param"] = variantParameter
+	view["search_allowed_variants"] = allowedVariants
+	view["search_allowed_page_sizes"] = pageSizes
+	view["search_facet_default_expansion"] = expandedFacets
+	if nested, ok := view["search"].(map[string]any); ok {
+		nested["variant_query_param"] = variantParameter
+		nested["allowed_variants"] = allowedVariants
+		nested["allowed_page_sizes"] = pageSizes
+		nested["facet_default_expansion"] = expandedFacets
+		nested["variant"] = strings.TrimSpace(string(req.Variant))
+	}
 }

@@ -23,7 +23,10 @@ func (r *searchRuntime) prepareSearchSuggestFlow(c router.Context) searchSuggest
 	req, indexes := r.translateSuggestRequest(c, state)
 	result := admin.SuggestResult{Suggestions: []string{}}
 	var suggestErr error
-	if strings.TrimSpace(req.Query) != "" {
+	if suggestErr = r.validateSearchVariant(req.Variant); suggestErr == nil && strings.TrimSpace(req.Query) != "" {
+		if policy := r.siteCfg.Search.VariantPolicy; policy != nil && !policy.IncludeInSuggestions {
+			req.Variant = ""
+		}
 		result, suggestErr = r.provider.Suggest(RequestContext(c), req)
 	}
 	return searchSuggestFlow{

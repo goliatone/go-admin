@@ -23,7 +23,7 @@ func (r *searchRuntime) prepareSearchPageFlow(c router.Context, topicSlug string
 	}
 	state := fallbackRequestState(c, r.siteCfg, r.siteCfg.Search.Route)
 	req, facets, indexes, landing := r.translateSearchRequest(c, state, strings.TrimSpace(topicSlug))
-	result, searchErr := r.executeSearch(c, req)
+	result, searchErr := r.executeSearchWithLanding(c, req, landing)
 	return searchPageFlow{
 		state:   state,
 		req:     req,

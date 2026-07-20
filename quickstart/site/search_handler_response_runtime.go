@@ -5,7 +5,7 @@ import router "github.com/goliatone/go-router"
 func (r *searchRuntime) searchAPIHandlerPayload(c router.Context) (int, map[string]any) {
 	flow := r.prepareSearchPageFlow(c, "")
 	if flow.err != nil {
-		return 502, searchAPIErrorResponse(flow.err)
+		return searchErrorStatus(flow.err), searchAPIErrorResponse(flow.err)
 	}
 
 	envelope := buildSearchResultEnvelope(
@@ -27,7 +27,7 @@ func (r *searchRuntime) respondSearchAPI(c router.Context) error {
 func (r *searchRuntime) searchSuggestHandlerPayload(c router.Context) (int, map[string]any) {
 	flow := r.prepareSearchSuggestFlow(c)
 	if flow.err != nil {
-		return 502, searchAPIErrorResponse(flow.err)
+		return searchErrorStatus(flow.err), searchAPIErrorResponse(flow.err)
 	}
 	return 200, searchSuggestAPIResponse(flow.result, flow.req, flow.indexes)
 }

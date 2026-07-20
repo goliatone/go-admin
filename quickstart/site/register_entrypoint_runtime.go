@@ -14,6 +14,9 @@ func registerSiteRoutes[T any](
 	siteCfg SiteConfig,
 	opts []SiteOption,
 ) error {
+	if err := ValidateSiteConfig(cfg, siteCfg); err != nil {
+		return fmt.Errorf("invalid site config: %w", err)
+	}
 	if r == nil {
 		return fmt.Errorf("site router is required")
 	}

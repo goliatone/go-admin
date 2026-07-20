@@ -897,7 +897,10 @@ Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) 
 
 The CRUD guide covers the full CRUD/DataGrid/action wiring contract. The search
 guide covers admin global search, public site search, `go-search` adapter
-wiring, and panel DataGrid search distinctions.
+wiring, application-defined variants, typed evidence and named counts,
+validated page-size policy, bounded filter-only execution, and panel DataGrid
+search distinctions. Optional search policy blocks are validated by
+`site.RegisterSiteRoutes`; nil blocks preserve legacy behavior.
 
 Password reset UI defaults to two pages:
 

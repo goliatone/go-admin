@@ -209,11 +209,64 @@ func resolveSiteViewConfig(input SiteViewConfig) ResolvedSiteViewConfig {
 func resolveSiteSearchConfig(input SiteSearchConfig) SiteSearchConfig {
 	indexes := normalizedSearchIndexes(input)
 	return SiteSearchConfig{
-		Route:       normalizePathOrDefault(input.Route, DefaultSearchRoute),
-		Endpoint:    normalizePathOrDefault(input.Endpoint, DefaultSearchEndpoint),
-		Indexes:     indexes,
-		Collections: cloneStrings(indexes),
+		Route:                normalizePathOrDefault(input.Route, DefaultSearchRoute),
+		Endpoint:             normalizePathOrDefault(input.Endpoint, DefaultSearchEndpoint),
+		Indexes:              indexes,
+		Collections:          cloneStrings(indexes),
+		VariantPolicy:        cloneSearchVariantPolicy(input.VariantPolicy),
+		PageSizePolicy:       cloneSearchPageSizePolicy(input.PageSizePolicy),
+		FilterOnlyPolicy:     cloneSearchFilterOnlyPolicy(input.FilterOnlyPolicy),
+		FacetExpansionPolicy: cloneSearchFacetExpansionPolicy(input.FacetExpansionPolicy),
 	}
+}
+
+func cloneSearchVariantPolicy(input *SiteSearchVariantPolicy) *SiteSearchVariantPolicy {
+	if input == nil {
+		return nil
+	}
+	out := *input
+	out.QueryParameter = strings.TrimSpace(out.QueryParameter)
+	if out.QueryParameter == "" {
+		out.QueryParameter = "variant"
+	}
+	out.Default = admin.SearchVariant(strings.TrimSpace(string(out.Default)))
+	out.Allowed = append([]admin.SearchVariant(nil), input.Allowed...)
+	for i := range out.Allowed {
+		out.Allowed[i] = admin.SearchVariant(strings.TrimSpace(string(out.Allowed[i])))
+	}
+	return &out
+}
+
+func cloneSearchPageSizePolicy(input *SiteSearchPageSizePolicy) *SiteSearchPageSizePolicy {
+	if input == nil {
+		return nil
+	}
+	out := *input
+	out.Allowed = append([]int(nil), input.Allowed...)
+	return &out
+}
+
+func cloneSearchFilterOnlyPolicy(input *SiteSearchFilterOnlyPolicy) *SiteSearchFilterOnlyPolicy {
+	if input == nil {
+		return nil
+	}
+	out := *input
+	out.EligibleFilterFields = searchDedupeStrings(input.EligibleFilterFields)
+	out.EligibleRangeFields = searchDedupeStrings(input.EligibleRangeFields)
+	out.EligibleLandingConstraints = searchDedupeStrings(input.EligibleLandingConstraints)
+	return &out
+}
+
+func cloneSearchFacetExpansionPolicy(input *SiteSearchFacetExpansionPolicy) *SiteSearchFacetExpansionPolicy {
+	if input == nil {
+		return nil
+	}
+	out := *input
+	out.Fields = searchDedupeStrings(input.Fields)
+	if out.Fields == nil {
+		out.Fields = []string{}
+	}
+	return &out
 }
 
 func resolveSiteFeatures(input SiteFeatures) ResolvedSiteFeatures {

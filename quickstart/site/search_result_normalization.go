@@ -1,6 +1,7 @@
 package site
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -9,10 +10,12 @@ import (
 )
 
 type normalizedSearchResult struct {
-	Hits        []map[string]any `json:"hits"`
-	Facets      []map[string]any `json:"facets"`
-	FilterChips []map[string]any `json:"filter_chips"`
-	Pagination  map[string]any   `json:"pagination"`
+	Hits          []map[string]any `json:"hits"`
+	Facets        []map[string]any `json:"facets"`
+	FilterChips   []map[string]any `json:"filter_chips"`
+	Pagination    map[string]any   `json:"pagination"`
+	Counts        []map[string]any `json:"counts,omitempty"`
+	TotalAccuracy string           `json:"total_accuracy,omitempty"`
 }
 
 func normalizeSearchResults(
@@ -83,22 +86,25 @@ func normalizeSearchResults(
 	nextQuery := cloneSearchFilters(currentQuery)
 	nextQuery["page"] = []string{strconv.Itoa(nextPage)}
 	pagination := map[string]any{
-		"page":      page,
-		"per_page":  perPage,
-		"total":     result.Total,
-		"has_prev":  hasPrev,
-		"has_next":  hasNext,
-		"prev_page": prevPage,
-		"next_page": nextPage,
-		"prev_url":  searchURLWithQuery(baseRoute, prevQuery),
-		"next_url":  searchURLWithQuery(baseRoute, nextQuery),
+		"page":           page,
+		"per_page":       perPage,
+		"total":          result.Total,
+		"has_prev":       hasPrev,
+		"has_next":       hasNext,
+		"prev_page":      prevPage,
+		"next_page":      nextPage,
+		"prev_url":       searchURLWithQuery(baseRoute, prevQuery),
+		"next_url":       searchURLWithQuery(baseRoute, nextQuery),
+		"total_accuracy": string(result.TotalAccuracy),
 	}
 
 	return normalizedSearchResult{
-		Hits:        hits,
-		Facets:      facets,
-		FilterChips: chips,
-		Pagination:  pagination,
+		Hits:          hits,
+		Facets:        facets,
+		FilterChips:   chips,
+		Pagination:    pagination,
+		Counts:        normalizeSearchCounts(result.Counts),
+		TotalAccuracy: string(result.TotalAccuracy),
 	}
 }
 
@@ -121,6 +127,8 @@ func normalizeSearchHit(hit admin.SearchHit) map[string]any {
 		"parent_summary":   strings.TrimSpace(hit.ParentSummary),
 		"anchor":           hit.Anchor,
 		"metadata":         cloneAnyMap(hit.Metadata),
+		"evidence":         normalizeSearchEvidence(hit.Evidence),
+		"found_in":         normalizeSearchEvidenceLocations(hit.Evidence),
 	}
 	if out["title"] == "" {
 		out["title"] = strings.TrimSpace(anyString(hit.Fields["title"]))
@@ -137,6 +145,46 @@ func normalizeSearchHit(hit admin.SearchHit) map[string]any {
 	}
 	if badge := strings.TrimSpace(anyString(fields["result_badge"])); badge != "" {
 		out["badge"] = badge
+	}
+	return out
+}
+
+func normalizeSearchCounts(counts map[string]admin.SearchCount) []map[string]any {
+	keys := make([]string, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	out := make([]map[string]any, 0, len(keys))
+	for _, key := range keys {
+		count := counts[key]
+		out = append(out, map[string]any{"key": key, "value": count.Value, "accuracy": string(count.Accuracy), "diagnostic": count.Diagnostic})
+	}
+	return out
+}
+
+func normalizeSearchEvidence(evidence *admin.SearchEvidence) map[string]any {
+	if evidence == nil {
+		return nil
+	}
+	return map[string]any{"exact": evidence.Exact, "status": string(evidence.Status), "diagnostic": evidence.Diagnostic, "locations": normalizeSearchEvidenceLocations(evidence)}
+}
+
+func normalizeSearchEvidenceLocations(evidence *admin.SearchEvidence) []map[string]any {
+	if evidence == nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(evidence.Locations))
+	for _, location := range evidence.Locations {
+		samples := make([]map[string]any, 0, len(location.Samples))
+		for _, sample := range location.Samples {
+			var snippet map[string]any
+			if sample.Snippet != nil {
+				snippet = map[string]any{"text": sample.Snippet.Text, "highlighted": sample.Snippet.Highlighted}
+			}
+			samples = append(samples, map[string]any{"document_id": sample.DocumentID, "field": sample.Field, "locale": sample.Locale, "snippet": snippet, "chunk_ordinal": sample.ChunkOrdinal, "anchor": sample.Anchor})
+		}
+		out = append(out, map[string]any{"location": location.Location, "count": location.Count, "samples": samples})
 	}
 	return out
 }

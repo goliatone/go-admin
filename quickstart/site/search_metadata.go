@@ -1,6 +1,7 @@
 package site
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -12,10 +13,25 @@ func searchUnavailableErrorPayload(err error) map[string]any {
 		message = strings.TrimSpace(err.Error())
 	}
 	return map[string]any{
-		"code":    searchUnavailableErrorCode,
-		"status":  502,
+		"code":    searchErrorCode(err),
+		"status":  searchErrorStatus(err),
 		"message": message,
 	}
+}
+
+func searchErrorStatus(err error) int {
+	var clientErr searchClientError
+	if errors.As(err, &clientErr) {
+		return 400
+	}
+	return 502
+}
+
+func searchErrorCode(err error) string {
+	if searchErrorStatus(err) == 400 {
+		return "invalid_search_request"
+	}
+	return searchUnavailableErrorCode
 }
 
 func searchCollectionsMetadata(indexes []string) map[string]any {
@@ -50,6 +66,7 @@ func searchPageResponseMeta(
 	out["locale"] = strings.TrimSpace(req.Locale)
 	out["sort"] = strings.TrimSpace(req.Sort)
 	out["filters"] = cloneSearchFilters(req.Filters)
+	out["variant"] = strings.TrimSpace(string(req.Variant))
 	out["ranges"] = cloneSearchRanges(req.Ranges)
 	out["facets"] = cloneStrings(facets)
 	out["landing"] = landingMetadata(landing)
@@ -61,5 +78,6 @@ func searchSuggestResponseMeta(req admin.SuggestRequest, indexes []string) map[s
 	out["query"] = strings.TrimSpace(req.Query)
 	out["locale"] = strings.TrimSpace(req.Locale)
 	out["filters"] = cloneSearchFilters(req.Filters)
+	out["variant"] = strings.TrimSpace(string(req.Variant))
 	return out
 }
