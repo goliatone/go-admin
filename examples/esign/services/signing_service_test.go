@@ -3378,7 +3378,8 @@ func TestSigningServiceCreatePublicReviewThreadRejectsInternalVisibility(t *test
 	if err == nil {
 		t.Fatal("expected public internal review thread creation to fail")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "internal") {
+	var mapped *goerrors.Error
+	if !errors.As(err, &mapped) || mapped == nil || !strings.Contains(strings.ToLower(mapped.Message), "internal") {
 		t.Fatalf("expected internal visibility error, got %v", err)
 	}
 }

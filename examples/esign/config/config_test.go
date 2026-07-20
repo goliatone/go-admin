@@ -1,10 +1,13 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	goconfig "github.com/goliatone/go-config/config"
 )
 
 func TestLoadAppliesAPPPrefixOverrides(t *testing.T) {
@@ -136,7 +139,7 @@ func TestLoadIgnoresLegacyTopLevelPostgresDSNForPostgresDialect(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected load error when persistence.postgres.dsn is unset even when legacy top-level key is provided")
 	}
-	if !strings.Contains(err.Error(), "persistence.postgres.dsn is required") {
+	if !validationReportContains(err, "persistence.postgres.dsn is required") {
 		t.Fatalf("expected persistence.postgres.dsn required validation error, got %v", err)
 	}
 }
@@ -162,7 +165,7 @@ func TestLoadRejectsUnsupportedRepositoryDialect(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected load error for unsupported repository dialect")
 	}
-	if !strings.Contains(err.Error(), "runtime.repository_dialect") {
+	if !validationReportContains(err, "runtime.repository_dialect") {
 		t.Fatalf("expected repository_dialect validation error, got %v", err)
 	}
 }
@@ -184,9 +187,22 @@ func TestLoadRequiresPostgresDSNWhenPostgresDialectSelected(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected load error when postgres dialect selected without dsn")
 	}
-	if !strings.Contains(err.Error(), "persistence.postgres.dsn is required") {
+	if !validationReportContains(err, "persistence.postgres.dsn is required") {
 		t.Fatalf("expected persistence.postgres.dsn required validation error, got %v", err)
 	}
+}
+
+func validationReportContains(err error, fragment string) bool {
+	var report *goconfig.ValidationReport
+	if !errors.As(err, &report) || report == nil {
+		return false
+	}
+	for _, issue := range report.Issues {
+		if strings.Contains(issue.Message, fragment) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestLoadDefaultsUseStableSQLiteDSNForDevelopment(t *testing.T) {
