@@ -10,6 +10,7 @@ import (
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-masker"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/query"
@@ -319,7 +320,7 @@ func resolveActivityDependencies(deps Dependencies) (ActivitySink, activity.Acti
 	}
 	activityPolicy := deps.ActivityAccessPolicy
 	if activityPolicy == nil {
-		activityPolicy = activity.NewDefaultAccessPolicy()
+		activityPolicy = newDefaultActivityAccessPolicy()
 	}
 	activityFeed := deps.ActivityFeedQuery
 	if activityFeed == nil {
@@ -333,6 +334,18 @@ func resolveActivityDependencies(deps Dependencies) (ActivitySink, activity.Acti
 		activityFeed = query.NewActivityFeedQuery(deps.ActivityRepository, nil, opts...)
 	}
 	return activitySink, activityPolicy, activityFeed
+}
+
+func newDefaultActivityAccessPolicy(opts ...activity.AccessPolicyOption) *activity.DefaultAccessPolicy {
+	secureMasker, err := masker.NewSecure(
+		masker.WithMaskField("actor_email", masker.MaskTypeRedact),
+		masker.WithMaskField("session_id", masker.MaskTypeRedact),
+	)
+	if err != nil {
+		panic("go-admin: create secure activity masker: " + err.Error())
+	}
+	opts = append(opts, activity.WithPolicyMasker(secureMasker))
+	return activity.NewDefaultAccessPolicy(opts...)
 }
 
 func resolveDebugDependencies(cfg Config, deps Dependencies) (DebugREPLSessionStore, *DebugREPLSessionManager, *DebugREPLCommandCatalog, DebugUserSessionStore, *ActionDiagnosticsStore) {
