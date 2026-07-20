@@ -166,8 +166,8 @@ func TestQuickstartRoutingStartupReportLogsDoctorOutputAndOverrideMounts(t *test
 	if check.Status == admin.DoctorSeverityError {
 		t.Fatalf("expected routing doctor check to avoid error status, got %q", check.Status)
 	}
-	roots, _ := check.Metadata["roots"].(map[string]string)
-	if roots == nil || roots["admin"] != "/control" || roots["api"] != "/control/api" {
+	roots, rootsOK := check.Metadata["roots"].(map[string]string)
+	if !rootsOK || roots["admin"] != "/control" || roots["api"] != "/control/api" {
 		t.Fatalf("expected routing doctor roots metadata, got %#v", check.Metadata["roots"])
 	}
 	reportText := strings.TrimSpace(fmt.Sprint(check.Metadata["report_text"]))

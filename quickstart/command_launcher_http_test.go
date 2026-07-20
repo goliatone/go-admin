@@ -92,7 +92,7 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 		},
 	}
 	catalog := &quickstartLauncherCatalog{}
-	adm, _, err := NewAdmin(
+	adm, _, newAdminErr := NewAdmin(
 		cfg,
 		AdapterHooks{},
 		WithAdminDependencies(admin.Dependencies{
@@ -105,8 +105,8 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 			"debug":    true,
 		}),
 	)
-	if err != nil {
-		t.Fatalf("NewAdmin: %v", err)
+	if newAdminErr != nil {
+		t.Fatalf("NewAdmin: %v", newAdminErr)
 	}
 	t.Cleanup(adm.Commands().Reset)
 
@@ -151,14 +151,18 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 	catalog.descriptors = []gocommand.CommandDescriptor{quickstartLauncherEchoDescriptor()}
 
 	discoveryRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/debug/api/panels", nil)
-	discoveryResponse, err := server.WrappedRouter().Test(discoveryRequest, -1)
-	if err != nil {
-		t.Fatalf("discover debug panels: %v", err)
+	discoveryResponse, discoveryErr := server.WrappedRouter().Test(discoveryRequest, -1)
+	if discoveryErr != nil {
+		t.Fatalf("discover debug panels: %v", discoveryErr)
 	}
-	defer discoveryResponse.Body.Close()
-	discoveryBody, err := io.ReadAll(discoveryResponse.Body)
-	if err != nil {
-		t.Fatalf("read discovery response: %v", err)
+	defer func() {
+		if closeErr := discoveryResponse.Body.Close(); closeErr != nil {
+			t.Errorf("close discovery response: %v", closeErr)
+		}
+	}()
+	discoveryBody, readDiscoveryErr := io.ReadAll(discoveryResponse.Body)
+	if readDiscoveryErr != nil {
+		t.Fatalf("read discovery response: %v", readDiscoveryErr)
 	}
 	if discoveryResponse.StatusCode != http.StatusOK {
 		t.Fatalf("expected discovery 200, got %d body=%s", discoveryResponse.StatusCode, discoveryBody)
@@ -166,8 +170,8 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 	var discovery struct {
 		Panels []debugregistry.PanelDefinition `json:"panels"`
 	}
-	if err := json.Unmarshal(discoveryBody, &discovery); err != nil {
-		t.Fatalf("decode discovery response: %v", err)
+	if decodeDiscoveryErr := json.Unmarshal(discoveryBody, &discovery); decodeDiscoveryErr != nil {
+		t.Fatalf("decode discovery response: %v", decodeDiscoveryErr)
 	}
 	action := findQuickstartLauncherAction(t, discovery.Panels, quickstartLauncherEchoCommandID)
 
@@ -176,28 +180,32 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 		payload = map[string]any{}
 	}
 	payload["payload"] = map[string]any{"message": "end-to-end echo"}
-	requestBody, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatalf("encode dispatch request: %v", err)
+	requestBody, encodeRequestErr := json.Marshal(payload)
+	if encodeRequestErr != nil {
+		t.Fatalf("encode dispatch request: %v", encodeRequestErr)
 	}
 	dispatchPath := "/admin/debug/api/panels/commands/actions/" + action.ID
 	dispatchRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, dispatchPath, bytes.NewReader(requestBody))
 	dispatchRequest.Header.Set("Content-Type", "application/json")
-	dispatchResponse, err := server.WrappedRouter().Test(dispatchRequest, -1)
-	if err != nil {
-		t.Fatalf("dispatch echo action: %v", err)
+	dispatchResponse, dispatchErr := server.WrappedRouter().Test(dispatchRequest, -1)
+	if dispatchErr != nil {
+		t.Fatalf("dispatch echo action: %v", dispatchErr)
 	}
-	defer dispatchResponse.Body.Close()
-	dispatchBody, err := io.ReadAll(dispatchResponse.Body)
-	if err != nil {
-		t.Fatalf("read dispatch response: %v", err)
+	defer func() {
+		if closeErr := dispatchResponse.Body.Close(); closeErr != nil {
+			t.Errorf("close dispatch response: %v", closeErr)
+		}
+	}()
+	dispatchBody, readDispatchErr := io.ReadAll(dispatchResponse.Body)
+	if readDispatchErr != nil {
+		t.Fatalf("read dispatch response: %v", readDispatchErr)
 	}
 	if dispatchResponse.StatusCode != http.StatusOK {
 		t.Fatalf("expected dispatch 200, got %d body=%s", dispatchResponse.StatusCode, dispatchBody)
 	}
 	var dispatchResult debugregistry.PanelActionResult
-	if err := json.Unmarshal(dispatchBody, &dispatchResult); err != nil {
-		t.Fatalf("decode dispatch response: %v", err)
+	if decodeDispatchErr := json.Unmarshal(dispatchBody, &dispatchResult); decodeDispatchErr != nil {
+		t.Fatalf("decode dispatch response: %v", decodeDispatchErr)
 	}
 	if !dispatchResult.OK {
 		t.Fatalf("expected successful dispatch result, got %#v", dispatchResult)

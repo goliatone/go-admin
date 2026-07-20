@@ -21,6 +21,7 @@ func errorDetail(err error) string {
 		if current == nil {
 			continue
 		}
+		//nolint:errorlint // Test diagnostics inspect each exact node before unwrapping it.
 		if structured, ok := current.(*goerrors.Error); ok {
 			details = append(details, structured.Message)
 			for _, validation := range structured.ValidationErrors {
@@ -29,6 +30,7 @@ func errorDetail(err error) string {
 		} else {
 			details = append(details, current.Error())
 		}
+		//nolint:errorlint // Exact unwrap shape is required to traverse joined error trees.
 		switch wrapped := current.(type) {
 		case interface{ Unwrap() []error }:
 			pending = append(pending, wrapped.Unwrap()...)
