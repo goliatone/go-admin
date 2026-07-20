@@ -45,6 +45,7 @@
           autocomplete="off"
           data-site-search-input
           data-site-search-suggest-endpoint="{{ search_suggest_endpoint|default:'/api/v1/site/search/suggest' }}"
+          data-site-search-suggest-variant-param="{{ search_suggest_variant_query_param }}"
           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none"
         >
         <div data-site-search-suggestions class="absolute left-0 right-0 top-full z-10 mt-2 hidden rounded-xl border border-slate-200 bg-white shadow-lg"></div>
@@ -288,6 +289,11 @@
     params.set('q', query);
     const localeInput = document.querySelector('input[name="locale"]');
     if (localeInput && localeInput.value.trim()) params.set('locale', localeInput.value.trim());
+    const variantParam = (input.dataset.siteSearchSuggestVariantParam || '').trim();
+    const variantInput = document.querySelector('[data-site-search-variant]');
+    if (variantParam && variantInput && variantInput.value.trim()) {
+      params.set(variantParam, variantInput.value.trim());
+    }
     const response = await fetch(endpoint + '?' + params.toString(), {
       headers: { Accept: 'application/json' }
     });
