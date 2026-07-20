@@ -122,28 +122,32 @@ func (p *GoSearchSiteProvider) Search(ctx context.Context, req SearchRequest) (S
 		return SearchResultPage{}, nil
 	}
 	page, err := p.search.Query(ctx, searchadapter.ToSearchRequest(p.indexes, searchadapter.SiteSearchRequest{
-		Query:    req.Query,
-		Locale:   req.Locale,
-		Page:     req.Page,
-		PerPage:  req.PerPage,
-		Sort:     req.Sort,
-		Filters:  req.Filters,
-		Ranges:   toAdapterSearchRanges(req.Ranges),
-		Actor:    req.Actor,
-		Request:  req.Request,
-		Metadata: req.Metadata,
+		Query:         req.Query,
+		Locale:        req.Locale,
+		Page:          req.Page,
+		PerPage:       req.PerPage,
+		Sort:          req.Sort,
+		Filters:       req.Filters,
+		Ranges:        toAdapterSearchRanges(req.Ranges),
+		Actor:         req.Actor,
+		Request:       req.Request,
+		Metadata:      req.Metadata,
+		Variant:       string(req.Variant),
+		MaxCandidates: req.MaxCandidates,
 	}))
 	if err != nil {
 		return SearchResultPage{}, err
 	}
 	result := searchadapter.SiteResultFromPage(page)
 	return SearchResultPage{
-		Hits:     toAdminSearchHits(result.Hits),
-		Facets:   toAdminSearchFacets(result.Facets),
-		Page:     result.Page,
-		PerPage:  result.PerPage,
-		Total:    result.Total,
-		Metadata: result.Metadata,
+		Hits:          toAdminSearchHits(result.Hits),
+		Facets:        toAdminSearchFacets(result.Facets),
+		Page:          result.Page,
+		PerPage:       result.PerPage,
+		Total:         result.Total,
+		TotalAccuracy: SearchTotalAccuracy(result.TotalAccuracy),
+		Counts:        toAdminSearchCounts(result.Counts),
+		Metadata:      result.Metadata,
 	}, nil
 }
 
@@ -159,6 +163,7 @@ func (p *GoSearchSiteProvider) Suggest(ctx context.Context, req SuggestRequest) 
 		Actor:    req.Actor,
 		Request:  req.Request,
 		Metadata: req.Metadata,
+		Variant:  string(req.Variant),
 	}))
 	if err != nil {
 		return SuggestResult{}, err
@@ -284,9 +289,57 @@ func toAdminSearchHits(hits []searchadapter.SiteSearchHit) []SearchHit {
 			ParentSummary:   hit.ParentSummary,
 			Anchor:          hit.Anchor,
 			Metadata:        hit.Metadata,
+			Evidence:        toAdminSearchEvidence(hit.Evidence),
 		})
 	}
 	return out
+}
+
+func toAdminSearchCounts(counts map[string]searchadapter.SiteSearchCount) map[string]SearchCount {
+	if len(counts) == 0 {
+		return nil
+	}
+	out := make(map[string]SearchCount, len(counts))
+	for key, count := range counts {
+		out[key] = SearchCount{Value: count.Value, Accuracy: SearchCountAccuracy(count.Accuracy), Diagnostic: count.Diagnostic}
+	}
+	return out
+}
+
+func toAdminSearchEvidence(evidence *searchadapter.SiteMatchEvidence) *SearchEvidence {
+	if evidence == nil {
+		return nil
+	}
+	out := &SearchEvidence{Exact: evidence.Exact, Status: SearchEvidenceStatus(evidence.Status), Diagnostic: evidence.Diagnostic, Locations: make([]SearchEvidenceLocation, 0, len(evidence.Locations))}
+	for _, location := range evidence.Locations {
+		mapped := SearchEvidenceLocation{Location: location.Location, Count: location.Count, Samples: make([]SearchEvidenceSample, 0, len(location.Samples))}
+		for _, sample := range location.Samples {
+			item := SearchEvidenceSample{DocumentID: sample.DocumentID, Field: sample.Field, Locale: sample.Locale, ChunkOrdinal: cloneSearchInt(sample.ChunkOrdinal), Anchor: cloneSearchAnchor(sample.Anchor)}
+			if sample.Snippet != nil {
+				item.Snippet = &SearchEvidenceSnippet{Text: sample.Snippet.Text, Highlighted: sample.Snippet.Highlighted}
+			}
+			mapped.Samples = append(mapped.Samples, item)
+		}
+		out.Locations = append(out.Locations, mapped)
+	}
+	return out
+}
+
+func cloneSearchInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	out := *value
+	return &out
+}
+
+func cloneSearchAnchor(value any) any {
+	anchor, ok := value.(*searchtypes.MediaAnchor)
+	if !ok || anchor == nil {
+		return value
+	}
+	out := *anchor
+	return &out
 }
 
 func toAdapterSearchRanges(ranges []SearchRange) []searchadapter.SiteSearchRange {

@@ -33,7 +33,7 @@
       </button>
     </div>
 
-    <form method="get" action="{{ search_route|default:'/search' }}" class="mt-4 grid gap-3 md:grid-cols-[1fr_180px_160px_auto]">
+    <form method="get" action="{{ search_route|default:'/search' }}" class="mt-4 grid gap-3 md:grid-cols-[1fr_repeat(3,minmax(120px,180px))_auto]">
       <label class="sr-only" for="site-search-query">Search query</label>
       <div class="relative">
         <input
@@ -49,6 +49,13 @@
         >
         <div data-site-search-suggestions class="absolute left-0 right-0 top-full z-10 mt-2 hidden rounded-xl border border-slate-200 bg-white shadow-lg"></div>
       </div>
+      {% if search_allowed_variants %}
+      <select name="{{ search_variant_query_param|default:'variant' }}" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm" data-site-search-variant>
+        {% for variant in search_allowed_variants %}
+          <option value="{{ variant }}" {% if variant == search_variant %}selected{% endif %}>{{ variant }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
       <input
         type="text"
         name="locale"
@@ -61,6 +68,13 @@
           <option value="{{ option.value }}" {% if option.active %}selected{% endif %}>{{ option.label }}</option>
         {% endfor %}
       </select>
+      {% if search_allowed_page_sizes %}
+      <select name="per_page" class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm">
+        {% for size in search_allowed_page_sizes %}
+          <option value="{{ size }}" {% if size == search.per_page %}selected{% endif %}>{{ size }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
       <button type="submit" class="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800">
         Search
       </button>
@@ -87,6 +101,8 @@
         <input type="hidden" name="q" value="{{ search_query|default:search.query }}">
         <input type="hidden" name="locale" value="{{ search.locale|default:locale|default:default_locale|default:'en' }}">
         <input type="hidden" name="sort" value="{{ search.sort|default:'' }}">
+        {% if search_variant %}<input type="hidden" name="{{ search_variant_query_param|default:'variant' }}" value="{{ search_variant }}">{% endif %}
+        {% if search.per_page %}<input type="hidden" name="per_page" value="{{ search.per_page }}">{% endif %}
 
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">Filters</h2>
@@ -193,11 +209,19 @@
               </div>
 
               {% if hit.highlighted %}
-                <p class="mt-3 text-sm leading-6 text-slate-700">{{ hit.highlighted|safe }}</p>
+                <p class="mt-3 text-sm leading-6 text-slate-700">{{ hit.highlighted }}</p>
               {% elif hit.snippet %}
                 <p class="mt-3 text-sm leading-6 text-slate-700">{{ hit.snippet }}</p>
               {% elif hit.summary %}
                 <p class="mt-3 text-sm leading-6 text-slate-600">{{ hit.summary }}</p>
+              {% endif %}
+
+              {% if hit.found_in %}
+                <ul class="mt-3 space-y-1 text-xs text-slate-500" data-site-search-evidence>
+                  {% for location in hit.found_in %}
+                    <li>{{ location.location }} · {{ location.count }}</li>
+                  {% endfor %}
+                </ul>
               {% endif %}
 
               <div class="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
