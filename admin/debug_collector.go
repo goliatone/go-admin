@@ -821,11 +821,8 @@ func (c *DebugCollector) RunPanelAction(ctx context.Context, req debugregistry.P
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	handler := registration.Actions[actionID]
+	handler := registration.ActionHandlerForContext(ctx, actionID)
 	if handler == nil {
-		return debugregistry.PanelActionResult{}, ErrNotFound
-	}
-	if !debugregistry.PanelDefinitionHasAction(registration.DefinitionForContext(ctx), actionID) {
 		return debugregistry.PanelActionResult{}, ErrNotFound
 	}
 	req.PanelID = panelID

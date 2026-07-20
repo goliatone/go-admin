@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -64,11 +65,25 @@ func RegisterCommandLauncherDebugPanel(adm *Admin) {
 				Diagnostics: state.Diagnostics,
 			}
 		},
-		UI:         commandLauncherPanelUI(nil, nil, nil),
-		Definition: commandLauncherDefinitionFilter(adm),
-		Actions:    commandLauncherActionHandlers(adm),
+		UI:             commandLauncherPanelUI(nil, nil, nil),
+		Definition:     commandLauncherDefinitionFilter(adm),
+		Actions:        commandLauncherActionHandlers(adm),
+		ActionResolver: commandLauncherActionResolver(adm),
 	}); err != nil {
 		return
+	}
+}
+
+func commandLauncherActionResolver(adm *Admin) debugregistry.PanelActionHandlerResolver {
+	if adm == nil || adm.commandCatalog == nil {
+		return nil
+	}
+	return func(_ context.Context, actionID string) debugregistry.PanelActionHandler {
+		actionID = strings.ToLower(strings.TrimSpace(actionID))
+		if actionID == "" {
+			return nil
+		}
+		return commandLauncherActionHandlers(adm)[actionID]
 	}
 }
 
@@ -236,7 +251,10 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		state.Diagnostics = append(state.Diagnostics, commandLauncherDiagnostic("missing_command_dispatch", "warning", "Command discovery is available, but execution requires admin.commands.dispatch.", map[string]any{"visible_command_count": len(state.Visible)}))
 		return state
 	}
-	state.Executable = append(state.Executable, state.Visible...)
+	state.Executable, state.Diagnostics = commandLauncherExecutableDescriptors(adm, state.Visible, state.Diagnostics)
+	if len(state.Executable) == 0 {
+		return state
+	}
 	if adm.commandOptionProvider == nil {
 		if dynamicCount := commandLauncherDynamicOptionFieldCount(state.Executable); dynamicCount > 0 {
 			state.Diagnostics = append(state.Diagnostics, commandLauncherDiagnostic("option_provider_unavailable", "warning", "Command option provider is not configured for dynamic command options.", map[string]any{
@@ -245,6 +263,54 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		}
 	}
 	return state
+}
+
+func commandLauncherExecutableDescriptors(adm *Admin, visible []gocommand.CommandDescriptor, diagnostics []CommandLauncherDiagnostic) ([]gocommand.CommandDescriptor, []CommandLauncherDiagnostic) {
+	executable := make([]gocommand.CommandDescriptor, 0, len(visible))
+	missingRPCRules := make([]string, 0)
+	unregisteredCommands := make([]string, 0)
+	for _, descriptor := range visible {
+		descriptor = normalizeCommandLauncherDescriptor(descriptor)
+		if descriptor.ID == "" {
+			continue
+		}
+		if adm == nil {
+			unregisteredCommands = append(unregisteredCommands, descriptor.ID)
+			continue
+		}
+		if _, ok := adm.config.Commands.RPC.ResolveRule(descriptor.ID); !ok {
+			missingRPCRules = append(missingRPCRules, descriptor.ID)
+			continue
+		}
+		if adm.Commands() == nil || !adm.Commands().CommandRegistration(descriptor.ID).CanDispatch() {
+			unregisteredCommands = append(unregisteredCommands, descriptor.ID)
+			continue
+		}
+		executable = append(executable, descriptor)
+	}
+	if len(missingRPCRules) > 0 {
+		diagnostics = append(diagnostics, commandLauncherDiagnostic(
+			"rpc_command_rule_gaps",
+			"warning",
+			"Some visible commands are not executable because they are not allowlisted in commands.rpc.commands.",
+			map[string]any{
+				"command_ids":   missingRPCRules,
+				"command_count": len(missingRPCRules),
+			},
+		))
+	}
+	if len(unregisteredCommands) > 0 {
+		diagnostics = append(diagnostics, commandLauncherDiagnostic(
+			"command_registration_gaps",
+			"warning",
+			"Some visible commands are not executable because their handler or name-based dispatcher is not registered.",
+			map[string]any{
+				"command_ids":   unregisteredCommands,
+				"command_count": len(unregisteredCommands),
+			},
+		))
+	}
+	return executable, diagnostics
 }
 
 func visibleCommandLauncherDescriptors(ctx context.Context, adm *Admin, registered []gocommand.CommandDescriptor) ([]gocommand.CommandDescriptor, int) {
@@ -587,6 +653,19 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 	if adm == nil || adm.RPCServer() == nil {
 		return debugregistry.PanelActionResult{}, serviceNotConfiguredDomainError("command launcher", map[string]any{"component": "command_launcher"})
 	}
+	if _, ok := adm.config.Commands.RPC.ResolveRule(commandID); !ok {
+		return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command is not enabled for RPC dispatch", map[string]any{
+			"component":     "command_launcher",
+			"command_id":    commandID,
+			"configuration": "commands.rpc.commands",
+		})
+	}
+	if adm.Commands() == nil || !adm.Commands().CommandRegistration(commandID).CanDispatch() {
+		return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command handler or dispatcher is not registered", map[string]any{
+			"component":  "command_launcher",
+			"command_id": commandID,
+		})
+	}
 	state := buildCommandLauncherState(ctx, adm)
 	var allowed bool
 	for _, descriptor := range state.Executable {
@@ -617,6 +696,12 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 		},
 	})
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command dispatch capability changed after discovery", map[string]any{
+				"component":  "command_launcher",
+				"command_id": commandID,
+			})
+		}
 		return debugregistry.PanelActionResult{}, err
 	}
 	message, data := commandLauncherActionResultData(adm, commandID, result)
