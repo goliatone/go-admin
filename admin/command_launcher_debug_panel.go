@@ -282,7 +282,11 @@ func commandLauncherExecutableDescriptors(adm *Admin, visible []gocommand.Comman
 			missingRPCRules = append(missingRPCRules, descriptor.ID)
 			continue
 		}
-		if adm.Commands() == nil || !adm.Commands().CommandRegistration(descriptor.ID).CanDispatch() {
+		registration := CommandRegistrationState{}
+		if adm.Commands() != nil {
+			registration = adm.Commands().CommandRegistration(descriptor.ID)
+		}
+		if !registration.Dispatcher && !registration.ResultDispatcher {
 			unregisteredCommands = append(unregisteredCommands, descriptor.ID)
 			continue
 		}
@@ -660,7 +664,11 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 			"configuration": "commands.rpc.commands",
 		})
 	}
-	if adm.Commands() == nil || !adm.Commands().CommandRegistration(commandID).CanDispatch() {
+	registration := CommandRegistrationState{}
+	if adm.Commands() != nil {
+		registration = adm.Commands().CommandRegistration(commandID)
+	}
+	if !registration.Dispatcher && !registration.ResultDispatcher {
 		return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command handler or dispatcher is not registered", map[string]any{
 			"component":  "command_launcher",
 			"command_id": commandID,
