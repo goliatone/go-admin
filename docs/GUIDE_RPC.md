@@ -623,6 +623,14 @@ Common RPC failures:
 - policy hook rejection: hook error is returned
 - command factory or handler failure: structured command error is returned
 
+The Debug Console Commands panel applies this policy during discovery. It only
+advertises a dispatch action when the catalog command has a matching
+`commands.rpc.commands` rule and a registered name-based dispatcher. Commands
+with missing transport or dispatcher wiring remain visible with readiness
+diagnostics, rather than exposing a panel action that can only return 404. A
+direct RPC request for a command omitted from the allowlist still returns not
+found, preserving the deny-by-default transport contract.
+
 Commands and policy hooks should return typed domain errors when the client
 needs to distinguish validation, permission, conflict, stale state, or missing
 dependency cases. Do not rely on ad hoc error strings for user-facing flows.

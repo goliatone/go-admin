@@ -220,7 +220,7 @@ func TestTranslationExchangeValidatingExporterRejectsUnsupportedConfiguredFilter
 		SourceLocale:  "en",
 		TargetLocales: []string{"bo"},
 	}, ui)
-	if err == nil || !strings.Contains(err.Error(), "unsupported exchange resource") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported exchange resource") {
 		t.Fatalf("expected unsupported resource validation error, got %v", err)
 	}
 	_, err = validateTranslationExchangeExportFilter(admin.TranslationExportFilter{
@@ -228,7 +228,7 @@ func TestTranslationExchangeValidatingExporterRejectsUnsupportedConfiguredFilter
 		SourceLocale:  "es",
 		TargetLocales: []string{"bo"},
 	}, ui)
-	if err == nil || !strings.Contains(err.Error(), "unsupported source locale") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported source locale") {
 		t.Fatalf("expected unsupported source validation error, got %v", err)
 	}
 	_, err = validateTranslationExchangeExportFilter(admin.TranslationExportFilter{
@@ -236,7 +236,7 @@ func TestTranslationExchangeValidatingExporterRejectsUnsupportedConfiguredFilter
 		SourceLocale:  "en",
 		TargetLocales: []string{"es"},
 	}, ui)
-	if err == nil || !strings.Contains(err.Error(), "unsupported target locale") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported target locale") {
 		t.Fatalf("expected unsupported target validation error, got %v", err)
 	}
 }
@@ -265,7 +265,7 @@ func TestTranslationExchangeValidatingExporterPreservesResourceIDs(t *testing.T)
 		SourceLocale:  "en",
 		TargetLocales: []string{"bo"},
 	}, ui)
-	if err == nil || !strings.Contains(err.Error(), "unsupported exchange resource") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported exchange resource") {
 		t.Fatalf("expected case-mismatched resource ID rejected, got %v", err)
 	}
 }
@@ -298,7 +298,7 @@ func TestNewAdminTranslationExchangeValidatesConfiguredFiltersBeforeServiceExpor
 		},
 		Output: &admin.TranslationExportResult{},
 	})
-	if err == nil || !strings.Contains(err.Error(), "unsupported target locale") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported target locale") {
 		t.Fatalf("expected unsupported target locale error, got %v", err)
 	}
 	if len(store.exportFilters) != 0 {
@@ -364,7 +364,7 @@ func TestNewAdminTranslationExchangeValidatesConfiguredFiltersBeforeCustomExport
 		},
 		Output: &admin.TranslationExportResult{},
 	})
-	if err == nil || !strings.Contains(err.Error(), "unsupported target locale") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported target locale") {
 		t.Fatalf("expected unsupported target locale error, got %v", err)
 	}
 	if exporter.calls != 0 {
@@ -496,7 +496,7 @@ func TestValidateTranslationExchangeExportFilterRejectsSentinelTargetModes(t *te
 		SourceLocale:  "en",
 		TargetLocales: []string{"none"},
 	}, ui)
-	if err == nil || !strings.Contains(err.Error(), "unsupported target locale") {
+	if err == nil || !strings.Contains(errorDetail(err), "unsupported target locale") {
 		t.Fatalf("expected unsupported sentinel target locale error, got %v", err)
 	}
 }

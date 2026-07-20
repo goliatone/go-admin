@@ -27,7 +27,7 @@ func TestAdminNewFailsWhenWorkflowAuthoringCutoverSchemaMissing(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected startup failure when authoring cutover schema is missing")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "cutover schema missing") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "cutover schema missing") {
 		t.Fatalf("expected cutover schema error, got %v", err)
 	}
 }

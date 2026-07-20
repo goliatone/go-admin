@@ -38,7 +38,8 @@ func TestUserManagementModuleRegisterFailsWhenCommandRegistrationFails(t *testin
 	if err == nil {
 		t.Fatalf("expected initialize to fail when user command registration runs after registry initialization")
 	}
-	if !strings.Contains(err.Error(), userActivateCommandName) || !strings.Contains(err.Error(), "initialized") {
+	detail := errorDetail(err)
+	if !strings.Contains(detail, userActivateCommandName) || !strings.Contains(detail, "initialized") {
 		t.Fatalf("expected registration error to mention %q and initialized registry, got %v", userActivateCommandName, err)
 	}
 }
@@ -60,7 +61,7 @@ func TestContentTypeBuilderModuleRegisterFailsWhenFactoryRegistrationFails(t *te
 	if err == nil {
 		t.Fatalf("expected initialize to fail when content type command factory registration collides")
 	}
-	if !strings.Contains(err.Error(), contentTypeCreateCommandName) {
+	if !strings.Contains(errorDetail(err), contentTypeCreateCommandName) {
 		t.Fatalf("expected duplicate factory error to mention %q, got %v", contentTypeCreateCommandName, err)
 	}
 }

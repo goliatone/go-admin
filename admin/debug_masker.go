@@ -82,14 +82,20 @@ func registerDebugMaskField(m *masker.Masker, field, maskType string) {
 	if field == "" || maskType == "" {
 		return
 	}
-	m.RegisterMaskField(field, maskType)
+	if err := m.RegisterMaskField(field, maskType); err != nil {
+		return
+	}
 	lower := strings.ToLower(field)
 	if lower != field {
-		m.RegisterMaskField(lower, maskType)
+		if err := m.RegisterMaskField(lower, maskType); err != nil {
+			return
+		}
 	}
 	canonical := http.CanonicalHeaderKey(field)
 	if canonical != field && canonical != lower {
-		m.RegisterMaskField(canonical, maskType)
+		if err := m.RegisterMaskField(canonical, maskType); err != nil {
+			return
+		}
 	}
 }
 

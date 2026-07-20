@@ -523,7 +523,7 @@ func TestGoCMSContentAdapterCreateTranslationRequiresAdminContentWriteService(t 
 	if contentSvc.createTranslationCnt != 0 {
 		t.Fatalf("expected legacy content CreateTranslation to stay unused, got %d calls", contentSvc.createTranslationCnt)
 	}
-	if got := err.Error(); !strings.Contains(got, "go-cms AdminContentWrite service not configured") {
+	if got := errorDetail(err); !strings.Contains(got, "go-cms AdminContentWrite service not configured") {
 		t.Fatalf("expected admin write configuration error, got %v", err)
 	}
 }

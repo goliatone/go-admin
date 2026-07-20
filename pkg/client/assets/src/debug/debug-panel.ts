@@ -75,6 +75,9 @@ import {
   applyCommandLauncherStatusEvent,
   getCommandLauncherLiveStatus,
   recordCommandLauncherInvocation,
+	applyCommandLauncherControllerErrors,
+	loadCommandLauncherControllerValues,
+	detachCommandLauncherControllers,
 } from './shared/panels/command-launcher.js';
 import { httpRequest, readExpectedHTTPJSON, readHTTPErrorResult } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
@@ -1092,6 +1095,7 @@ export class DebugPanel {
       }
     }
 
+	detachCommandLauncherControllers();
     this.panelEl.innerHTML = content;
     if (panel === 'logs') {
       this.applyLogsAutoScroll();
@@ -1265,7 +1269,9 @@ export class DebugPanel {
       }
       // Map validation paths onto the originating fields (side-effect). The card
       // lists the full set, so the leftover return value is intentionally unused.
-      this.renderPanelActionErrors(fieldErrors, result.actionID);
+	  if (!result.actionID || !applyCommandLauncherControllerErrors(result.actionID, fieldErrors)) {
+		this.renderPanelActionErrors(fieldErrors, result.actionID);
+	  }
       const canRetry = Boolean(result.actionID && this.commandLauncherLastPayloads.has(result.actionID));
       const liveStatus = getCommandLauncherLiveStatus(parsed.correlationId);
       target.innerHTML = renderCommandLauncherResultCard(parsed, { canRetry, at: result.at, durationMs: result.durationMs, liveStatus });
@@ -1306,6 +1312,7 @@ export class DebugPanel {
     if (!form) {
       return;
     }
+	loadCommandLauncherControllerValues(actionID, payload);
     void this.runPanelAction(form, button, clonePanelActionPayload(payload));
   }
 

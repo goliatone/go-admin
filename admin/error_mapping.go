@@ -539,19 +539,44 @@ func translationExistsMetadataForCMSError(err error) map[string]any {
 
 func preferSpecificMappedError(err error) *goerrors.Error {
 	var first *goerrors.Error
-	for current := err; current != nil; current = errors.Unwrap(current) {
-		var typed *goerrors.Error
-		if !errors.As(current, &typed) || typed == nil {
-			continue
-		}
+	walkErrorTree(err, func(typed *goerrors.Error) bool {
 		if first == nil {
 			first = typed
 		}
 		if !isGenericHandlerErrorTextCode(typed.TextCode) {
-			return typed
+			first = typed
+			return false
+		}
+		return true
+	})
+	return first
+}
+
+func walkErrorTree(err error, visit func(*goerrors.Error) bool) {
+	if err == nil || visit == nil {
+		return
+	}
+	pending := []error{err}
+	for len(pending) > 0 {
+		current := pending[0]
+		pending = pending[1:]
+		if current == nil {
+			continue
+		}
+		//nolint:errorlint // This walker must inspect the exact node before unwrapping it.
+		if typed, ok := current.(*goerrors.Error); ok && typed != nil {
+			if !visit(typed) {
+				return
+			}
+		}
+		//nolint:errorlint // Exact unwrap shape is required to traverse joined error trees.
+		switch wrapped := current.(type) {
+		case interface{ Unwrap() []error }:
+			pending = append(wrapped.Unwrap(), pending...)
+		case interface{ Unwrap() error }:
+			pending = append([]error{wrapped.Unwrap()}, pending...)
 		}
 	}
-	return first
 }
 
 func recoverDomainErrorFromGenericHandler(err error) *goerrors.Error {

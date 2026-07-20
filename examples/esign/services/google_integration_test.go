@@ -143,11 +143,11 @@ func TestMapGoogleProviderErrorMapsTypedFailures(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mapped := MapGoogleProviderError(tc.err)
 			var coded *goerrors.Error
-			if !strings.Contains(mapped.Error(), strings.TrimSpace(tc.err.Error())) {
-				t.Fatalf("expected mapped error to preserve message, got %v", mapped)
-			}
 			if !asGoError(mapped, &coded) {
 				t.Fatalf("expected mapped goerrors.Error, got %T", mapped)
+			}
+			if !strings.Contains(coded.Message, strings.TrimSpace(tc.err.Error())) {
+				t.Fatalf("expected mapped error to preserve message, got %v", mapped)
 			}
 			if coded.TextCode != tc.wantCode {
 				t.Fatalf("expected text code %s, got %s", tc.wantCode, coded.TextCode)

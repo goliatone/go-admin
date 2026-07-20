@@ -248,7 +248,7 @@ func TestTranslationQueuePredicatePageFailsClosedWithoutQueryStore(t *testing.T)
 	if err == nil {
 		t.Fatalf("expected predicate page to fail closed when optimized query support is unavailable")
 	}
-	if !strings.Contains(err.Error(), "queue predicates") {
+	if !strings.Contains(errorDetail(err), "queue predicates") {
 		t.Fatalf("expected structured predicate query error, got %v", err)
 	}
 }

@@ -253,7 +253,7 @@ func TestFSMLifecycleActivitySinkAdapterFailureModeFailClosedBlocksTransitions(t
 	if response != nil {
 		t.Fatalf("expected nil response in fail-closed path, got %+v", response)
 	}
-	if !strings.Contains(err.Error(), "lifecycle hook failed") {
+	if !strings.Contains(errorDetail(err), "lifecycle hook failed") {
 		t.Fatalf("expected lifecycle hook failure error, got %v", err)
 	}
 	if failingSink.calls == 0 {

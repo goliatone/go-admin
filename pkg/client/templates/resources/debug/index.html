@@ -6,6 +6,7 @@
   <title>Debug Console</title>
   {{ csrf_meta|safe }}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <link rel="stylesheet" href="{{ adminURL("formgen/formgen-vanilla.css") }}">
   <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/debug.css") }}">
 </head>
 <body>
@@ -69,6 +70,8 @@
     <span class="debug-path-badge">{{ debug_path }}</span>
   </footer>
 
+  <script src="{{ adminURL("runtime/formgen-behaviors.min.js") }}" defer></script>
+  <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
   <script type="module" src="{{ adminURL("assets/dist/debug/index.js") }}"></script>
 </body>
 </html>

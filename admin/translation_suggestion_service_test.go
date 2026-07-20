@@ -372,7 +372,7 @@ func TestDefaultTranslationSuggestionServiceDeniesBeforeProvider(t *testing.T) {
 	if provider.calls != 0 {
 		t.Fatalf("provider was called despite denial: %d", provider.calls)
 	}
-	if !strings.Contains(err.Error(), "Quota exhausted") {
+	if !strings.Contains(errorDetail(err), "Quota exhausted") {
 		t.Fatalf("expected safe denial reason, got %v", err)
 	}
 }
@@ -429,7 +429,7 @@ func TestDefaultTranslationSuggestionServiceDeniesPermissionBeforeContextLoad(t 
 	if provider.calls != 0 {
 		t.Fatalf("provider was called before permission denial: %d", provider.calls)
 	}
-	if !strings.Contains(err.Error(), "permission") {
+	if !strings.Contains(errorDetail(err), "permission") {
 		t.Fatalf("expected permission denial, got %v", err)
 	}
 }
@@ -504,7 +504,7 @@ func TestDefaultTranslationSuggestionServicePropagatesSafePolicyDenialReasons(t 
 			if provider.calls != 0 {
 				t.Fatalf("provider was called despite denial: %d", provider.calls)
 			}
-			if !strings.Contains(err.Error(), tc.reason) {
+			if !strings.Contains(errorDetail(err), tc.reason) {
 				t.Fatalf("expected safe denial reason %q, got %v", tc.reason, err)
 			}
 		})

@@ -795,8 +795,7 @@ func makeAuthErrorHandler(cfg demoAuthConfig) func(router.Context, error) error 
 		// API routes: return JSON so fetch requests don’t turn into template errors
 		if strings.Contains(c.Path(), "/api/") || strings.Contains(c.Path(), "/crud/") {
 			c.Status(status)
-			includeStack := presenter.IncludeStackTrace()
-			return c.JSON(status, mapped.ToErrorResponse(includeStack, mapped.StackTrace))
+			return c.JSON(status, presenter.ErrorResponse(mapped))
 		}
 
 		// HTML routes: redirect to the configured login path

@@ -78,10 +78,14 @@ func registerRedactionMaskField(m *masker.Masker, field, maskType string) {
 	if maskType == "" {
 		maskType = redactionMaskTypeAny
 	}
-	m.RegisterMaskField(field, maskType)
+	if err := m.RegisterMaskField(field, maskType); err != nil {
+		return
+	}
 	lower := strings.ToLower(field)
 	if lower != field {
-		m.RegisterMaskField(lower, maskType)
+		if err := m.RegisterMaskField(lower, maskType); err != nil {
+			return
+		}
 	}
 }
 

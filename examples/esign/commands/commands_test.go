@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -541,7 +542,8 @@ func TestAgreementSendCommandReturnsValidationErrorWhenAlreadySent(t *testing.T)
 	if agreementSvc.resendCalls != 0 {
 		t.Fatalf("expected resend call count 0, got %d", agreementSvc.resendCalls)
 	}
-	if !strings.Contains(err.Error(), "esign.agreements.send") {
+	var mapped *goerrors.Error
+	if !errors.As(err, &mapped) || mapped == nil || !strings.Contains(mapped.Message, "esign.agreements.send") {
 		t.Fatalf("expected send command validation wrapper, got %v", err)
 	}
 }

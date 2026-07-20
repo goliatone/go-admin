@@ -97,18 +97,17 @@ function sampleDef() {
           confirm_text: 'Run Generate projections?',
           requires_confirm: true,
           payload: { command_id: 'archive.generate_projections', payload: {}, options: { mode: 'queued' } },
-          fields: [
-            { name: 'full_dataset', label: 'Full dataset', kind: 'boolean', payload_path: 'payload.full_dataset' },
-            { name: 'event_ids', label: 'Event IDs', kind: 'string_list', payload_path: 'payload.event_ids' },
-            { name: 'batch_size', label: 'Batch size', kind: 'number', payload_path: 'payload.batch_size', default: 100 },
-            { name: 'locale', label: 'Locale', kind: 'string', payload_path: 'payload.locale', options: ['en', 'es'] },
-          ],
+          form: {
+            renderer: 'formgen',
+            operation_id: 'dispatch_archive_generate.edit',
+            html: '<div data-formgen-auto-init="true"><label for="fg-batch">Batch size</label><input id="fg-batch" name="batch_size" type="number" value="100"></div>',
+          },
         },
         {
           id: 'dispatch_search_health',
           label: 'Search health',
           payload: { command_id: 'search.health', payload: {}, options: { mode: 'inline' } },
-          fields: [],
+          form: { renderer: 'formgen', operation_id: 'dispatch_search_health.edit', html: '' },
         },
       ],
     },
@@ -125,81 +124,48 @@ function sampleData() {
   };
 }
 
-function sensitiveNestedDef() {
+function generatedDef({ sensitive = false } = {}) {
   return {
     id: 'commands',
     ui: {
       schema_version: '1',
-      metadata: { option_resolver_action: 'resolve_options' },
       actions: [{
-        id: 'dispatch_secure',
-        label: 'Secure operation',
-        payload: { command_id: 'secure.operation', payload: {}, options: { mode: 'inline' } },
-        fields: [
-          { name: 'region', label: 'Region', kind: 'select', payload_path: 'payload.context.region', options: ['us', 'eu'] },
-          { name: 'api_token', label: 'API token', kind: 'string', payload_path: 'payload.credentials.api_token', sensitive: true, default: 'must-not-render' },
-          {
-            name: 'target', label: 'Target', kind: 'select', payload_path: 'payload.context.target',
-            option_source: { id: 'secure.targets', dynamic: true, params: { depends_on: ['payload.context.region'] } },
-          },
-        ],
+        id: 'dispatch_generated',
+        label: 'Generated command',
+        payload: { command_id: 'generated.run', payload: {}, options: { mode: 'inline' } },
+        form: {
+          renderer: 'formgen',
+          operation_id: 'dispatch_generated.edit',
+          sensitive,
+          html: '<div data-formgen-auto-init="true"><label for="fg-count">Count</label><input id="fg-count" name="count" type="number" value="7"></div>',
+        },
       }],
     },
   };
 }
 
-function sensitiveNestedData() {
-  return { commands: [{ id: 'secure.operation', group: 'Secure', execution_mode: 'inline' }], diagnostics: [] };
+function generatedData() {
+  return { commands: [{ id: 'generated.run', group: 'Generated', execution_mode: 'inline' }], diagnostics: [] };
 }
 
-function hintedDef() {
+function installFormgenRuntime(initial = {}) {
+  let values = structuredClone(initial);
+  const controller = () => ({
+    getValues: () => structuredClone(values),
+    setValues(next) { values = structuredClone(next); },
+    setErrors() {},
+    clearErrors() {},
+    onChange() { return () => {}; },
+    focus() { return true; },
+    destroy() {},
+  });
+  globalThis.FormgenRelationships = {
+    async initFormgenRoot() { return { destroy() {} }; },
+    Formgen: { attach: controller },
+  };
   return {
-    id: 'commands',
-    ui: {
-      schema_version: '1',
-      metadata: {
-        serialized_schemas: {
-          'archive.generate_projections': {
-            fields: [
-              {
-                name: 'batch_size',
-                path: 'batch_size',
-                help: 'Schema fallback help',
-                default: 250,
-                display_hints: { section: 'Schema scope', advanced: true, units: 'items' },
-              },
-              {
-                name: 'locale',
-                path: 'locale',
-                help: 'Locale from schema',
-                default: 'es',
-                display_hints: { section: 'Localization', units: 'locale code' },
-              },
-            ],
-          },
-        },
-      },
-      actions: [
-        {
-          id: 'dispatch_archive_generate',
-          label: 'Generate projections',
-          payload: { command_id: 'archive.generate_projections', payload: {}, options: { mode: 'queued' } },
-          fields: [
-            {
-              name: 'batch_size',
-              label: 'Batch size',
-              kind: 'number',
-              payload_path: 'payload.batch_size',
-              description: 'Action help wins',
-              default: 100,
-              display_hints: { section: 'Scope', units: 'records' },
-            },
-            { name: 'locale', label: 'Locale', kind: 'string', payload_path: 'payload.locale', options: ['en', 'es'] },
-            { name: 'dry_run', label: 'Dry run', kind: 'boolean', payload_path: 'payload.dry_run', display_hints: { advanced: true } },
-          ],
-        },
-      ],
-    },
+    get: () => structuredClone(values),
+    set(next) { values = structuredClone(next); },
   };
 }
 
@@ -229,6 +195,159 @@ beforeEach(async () => {
   const { resetCommandLauncherState } = await importLauncher();
   resetCommandLauncherState();
   try { globalThis.localStorage?.clear(); } catch { /* no storage */ }
+  delete globalThis.FormgenRelationships;
+  delete globalThis.Formgen;
+});
+
+test('generated forms use the formgen controller for values, errors, drafts, and teardown', async () => {
+  const {
+    renderCommandLauncherConsole,
+    attachCommandLauncherListeners,
+    applyCommandLauncherControllerErrors,
+  } = await importLauncher();
+  const calls = { init: 0, attach: 0, setValues: [], errors: [], focus: [], destroy: 0 };
+  let changeCallback;
+  let values = { count: 7 };
+  const runtime = {
+    async initFormgenRoot(root) {
+      calls.init += 1;
+      assert.equal(root.hasAttribute('data-formgen-auto-init'), true);
+      return { destroy() {} };
+    },
+    Formgen: {
+      attach() {
+        calls.attach += 1;
+        return {
+          getValues: () => ({ ...values }),
+          setValues(next) { calls.setValues.push(next); values = { ...next }; },
+          setErrors(next) { calls.errors.push(next); },
+          clearErrors() {},
+          onChange(callback) { changeCallback = callback; return () => {}; },
+          focus(name) { calls.focus.push(name); return true; },
+          destroy() { calls.destroy += 1; },
+        };
+      },
+    },
+  };
+  globalThis.FormgenRelationships = runtime;
+
+  const first = mount(renderCommandLauncherConsole({ def: generatedDef(), data: generatedData(), styles: {}, useIconCopyButton: true }));
+  const firstHost = first.window.document.querySelector('#host');
+  attachCommandLauncherListeners(firstHost);
+  firstHost.querySelector('[data-cmdl-item]').dispatchEvent(new first.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const form = firstHost.querySelector('[data-panel-action-form]');
+  assert.equal(calls.init, 1);
+  assert.equal(calls.attach, 2);
+  assert.equal(form.querySelector('[data-cmdl-formgen-submit]').disabled, false);
+  assert.deepEqual(JSON.parse(form.querySelector('[data-cmdl-controller-payload]').value), { count: 7 });
+
+  values = { count: 12 };
+  changeCallback(values, new first.window.Event('input'));
+  assert.deepEqual(JSON.parse(form.querySelector('[data-cmdl-controller-payload]').value), { count: 12 });
+  assert.equal(applyCommandLauncherControllerErrors('dispatch_generated', { 'payload.count': 'too large' }), true);
+  assert.deepEqual(calls.errors.at(-1), { count: 'too large' });
+  assert.equal(calls.focus.at(-1), 'count');
+
+  const second = mount(renderCommandLauncherConsole({ def: generatedDef(), data: generatedData(), styles: {}, useIconCopyButton: true }));
+  const secondHost = second.window.document.querySelector('#host');
+  attachCommandLauncherListeners(secondHost);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(calls.destroy, 3);
+  assert.deepEqual(calls.setValues.at(-1), { count: 12 });
+});
+
+test('Reset delegates default restoration to the formgen controller', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  let values = { count: 7 };
+  let resets = 0;
+  const controller = () => ({
+    getValues: () => ({ ...values }),
+    setValues(next) { values = { ...next }; },
+    reset() { resets += 1; values = { count: 7 }; },
+    setErrors() {},
+    clearErrors() {},
+    onChange() { return () => {}; },
+    focus() { return true; },
+    destroy() {},
+  });
+  globalThis.FormgenRelationships = {
+    async initFormgenRoot() { return { destroy() {} }; },
+    Formgen: { attach: controller },
+  };
+
+  const dom = mount(renderCommandLauncherConsole({ def: generatedDef(), data: generatedData(), styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.querySelector('#host');
+  attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const form = host.querySelector('[data-panel-action-form]');
+  values = { count: 99 };
+  form.dispatchEvent(new dom.window.Event('reset', { bubbles: true, cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(resets, 1);
+  assert.deepEqual(JSON.parse(form.querySelector('[data-cmdl-controller-payload]').value), { count: 7 });
+});
+
+test('generated dynamic options adapt formgen requests to the protected panel action with current values and CSRF', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const def = generatedDef();
+  def.ui.metadata = { option_resolver_action: 'resolve_options' };
+  let adaptedRequest;
+  const controller = {
+    getValues: () => ({ region: 'us', nested: { kind: 'archive' } }),
+    setValues() {}, setErrors() {}, clearErrors() {}, onChange() { return () => {}; }, focus() { return true; }, destroy() {},
+  };
+  globalThis.FormgenRelationships = {
+    async initFormgenRoot(_root, config) {
+      const request = {
+        url: 'command-options://generated.run/target?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
+        init: { method: 'POST', headers: { Accept: 'application/json' }, signal: new AbortController().signal },
+      };
+      await config.beforeFetch({ element: _root.querySelector('input'), request });
+      adaptedRequest = request;
+      return { destroy() {} };
+    },
+    Formgen: { attach: () => controller },
+  };
+  const dom = mount(renderCommandLauncherConsole({ def, data: generatedData(), styles: {}, useIconCopyButton: true }));
+  const meta = dom.window.document.createElement('meta');
+  meta.name = 'csrf-token';
+  meta.content = 'csrf-test';
+  dom.window.document.head.appendChild(meta);
+  const host = dom.window.document.querySelector('#host');
+  attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
+  host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(adaptedRequest.url, '/admin/debug/api/panels/commands/actions/resolve_options');
+  assert.equal(adaptedRequest.init.method, 'POST');
+  assert.equal(adaptedRequest.init.credentials, 'same-origin');
+  assert.equal(new Headers(adaptedRequest.init.headers).get('X-CSRF-Token'), 'csrf-test');
+  assert.deepEqual(JSON.parse(adaptedRequest.init.body), {
+    command_id: 'generated.run',
+    field_path: 'target',
+    source_id: 'targets.available',
+    payload: { region: 'us', nested: { kind: 'archive' } },
+  });
+  assert.equal(adaptedRequest.init.signal.aborted, false);
+});
+
+test('generated sensitive forms mark the controller bridge sensitive and disable recall/JSON persistence', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const { panelActionHasSensitiveFields, buildPanelActionPayload } = await importPanelActions();
+  const dom = mount(renderCommandLauncherConsole({ def: generatedDef({ sensitive: true }), data: generatedData(), styles: {}, useIconCopyButton: true }));
+  const form = dom.window.document.querySelector('[data-panel-action-form]');
+  const bridge = form.querySelector('[data-cmdl-controller-payload]');
+  bridge.value = JSON.stringify({ token: 'live-only' });
+  assert.equal(panelActionHasSensitiveFields(form), true);
+  assert.deepEqual(buildPanelActionPayload(form), { command_id: 'generated.run', payload: { token: 'live-only' }, options: { mode: 'inline' } });
+  assert.deepEqual(buildPanelActionPayload(form, { excludeSensitive: true }), { command_id: 'generated.run', options: { mode: 'inline' } });
+  assert.equal(form.querySelector('[data-cmdl-recall]'), null);
+  assert.equal(form.querySelector('[data-cmdl-json-toggle]'), null);
 });
 
 test('renders grouped catalog with execution + mutating badges', async () => {
@@ -248,291 +367,7 @@ test('renders grouped catalog with execution + mutating badges', async () => {
   assert.match(html, /data-panel-action-result="commands"/);
 });
 
-test('maps field kinds to the right controls and reuses the dispatch contract', async () => {
-  const { renderCommandLauncherConsole } = await importLauncher();
-  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
-
-  // form carries the existing data-panel-action-* contract
-  assert.match(html, /data-panel-action-form/);
-  assert.match(html, /data-action-id="dispatch_archive_generate"/);
-  assert.match(html, /data-action-requires-confirm="true"/);
-  assert.match(html, /data-action-payload='[^']*archive\.generate_projections/);
-
-  // boolean -> toggle checkbox
-  assert.match(html, /type="checkbox"[^>]*data-action-field="full_dataset"[^>]*data-action-field-kind="boolean"/);
-  // string_list -> chips with hidden value holder
-  assert.match(html, /data-cmdl-chips-value[^>]*data-action-field-kind="string_list"|data-action-field-kind="string_list"[^>]*data-cmdl-chips-value/);
-  // number -> number input with default value
-  assert.match(html, /type="number"[^>]*data-action-field="batch_size"[^>]*value="100"|value="100"[^>]*data-action-field="batch_size"/);
-  // options -> select
-  assert.match(html, /<select[^>]*data-action-field="locale"[\s\S]*?<option value="en"/);
-  // payload path preserved
-  assert.match(html, /data-action-field-path="payload\.batch_size"/);
-});
-
-test('renders sensitive fields as passwords and keeps them only in the live dispatch payload', async () => {
-  const { renderCommandLauncherConsole } = await importLauncher();
-  const { buildPanelActionPayload, panelActionHasSensitiveFields } = await importPanelActions();
-  const html = renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true });
-  const dom = mount(html);
-  const form = dom.window.document.querySelector('[data-panel-action-form][data-action-id="dispatch_secure"]');
-  const token = form.querySelector('[data-action-field="api_token"]');
-  const region = form.querySelector('[data-action-field="region"]');
-
-  assert.equal(token.type, 'password');
-  assert.equal(token.autocomplete, 'new-password');
-  assert.equal(token.dataset.actionFieldSensitive, 'true');
-  assert.equal(token.value, '');
-  assert.doesNotMatch(html, /must-not-render/);
-  assert.equal(form.querySelector('[data-cmdl-json-toggle]'), null);
-  assert.equal(form.querySelector('[data-cmdl-json-editor]'), null);
-  assert.equal(panelActionHasSensitiveFields(form), true);
-
-  region.value = 'eu';
-  token.value = 'operator-secret';
-  assert.deepEqual(buildPanelActionPayload(form), {
-    command_id: 'secure.operation',
-    payload: { context: { region: 'eu' }, credentials: { api_token: 'operator-secret' } },
-    options: { mode: 'inline' },
-  });
-  assert.deepEqual(buildPanelActionPayload(form, { excludeSensitive: true }), {
-    command_id: 'secure.operation',
-    payload: { context: { region: 'eu' } },
-    options: { mode: 'inline' },
-  });
-});
-
-test('renders rich scalar choices and keeps multi-value choices as chips', async () => {
-  const { renderCommandLauncherConsole } = await importLauncher();
-  const def = {
-    id: 'commands',
-    ui: {
-      schema_version: '1',
-      actions: [{
-        id: 'dispatch_rich',
-        label: 'Rich options',
-        payload: { command_id: 'demo.rich', payload: {}, options: { mode: 'inline' } },
-        fields: [
-          {
-            name: 'environment', label: 'Environment', kind: 'select', payload_path: 'payload.environment',
-            description: 'Deployment environment.', help: 'Choose the environment that owns the data.',
-            option_items: [
-              { value: 'prod', label: 'Production', description: 'Live data' },
-              { value: 'retired', label: 'Retired', description: 'No longer writable', disabled: true },
-            ],
-          },
-          {
-            name: 'indexes', label: 'Indexes', kind: 'string_list', payload_path: 'payload.indexes',
-            option_items: [
-              { value: 'site_content', label: 'Site content', description: 'Pages and articles' },
-              { value: 'archive_media', label: 'Archive media' },
-            ],
-          },
-        ],
-      }],
-    },
-  };
-  const data = { commands: [{ id: 'demo.rich', group: 'Demo', execution_mode: 'inline' }], diagnostics: [] };
-  const html = renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true });
-
-  assert.match(html, /<option value="prod"[^>]*data-option-description="Live data"[^>]*>Production<\/option>/);
-  assert.match(html, /<option value="retired" disabled[^>]*>Retired<\/option>/);
-  assert.match(html, /Deployment environment\./);
-  assert.match(html, /Choose the environment that owns the data\./);
-  assert.match(html, /data-cmdl-chips-value[^>]*data-action-field="indexes"|data-action-field="indexes"[^>]*data-cmdl-chips-value/);
-  assert.match(html, /data-cmdl-option-value="site_content"[\s\S]*?Site content[\s\S]*?Pages and articles/);
-  assert.doesNotMatch(html, /<select[^>]*data-action-field="indexes"/);
-});
-
-test('refreshes dependent dynamic choices with the current form payload', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const def = {
-    id: 'commands',
-    ui: {
-      schema_version: '1',
-      metadata: { option_resolver_action: 'resolve_options' },
-      actions: [{
-        id: 'dispatch_ingest',
-        label: 'Ingest',
-        payload: { command_id: 'transcript.ingest', payload: {}, options: { mode: 'inline' } },
-        fields: [
-          { name: 'source_kind', label: 'Source kind', kind: 'select', payload_path: 'payload.source_kind', options: ['folder', 'sql'] },
-          {
-            name: 'source_ref', label: 'Source', kind: 'select', payload_path: 'payload.source_ref',
-            option_source: { id: 'garchen.transcript_sources', dynamic: true, params: { depends_on: ['source_kind'] } },
-          },
-        ],
-      }],
-    },
-  };
-  const data = { commands: [{ id: 'transcript.ingest', group: 'Transcript', execution_mode: 'inline' }], diagnostics: [] };
-  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
-  const host = dom.window.document.getElementById('host');
-  const requests = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url, options) => {
-    const body = JSON.parse(options.body);
-    requests.push({ url: String(url), body });
-    const kind = body.payload.source_kind || 'all';
-    return new Response(JSON.stringify({
-      data: {
-        option_items: [{ value: `${kind}-source`, label: `${kind.toUpperCase()} source`, description: `Approved ${kind} source` }],
-      },
-    }), { status: 200, headers: { 'content-type': 'application/json' } });
-  };
-  try {
-    attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
-    host.querySelector('[data-cmdl-item="dispatch_ingest"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    const kind = host.querySelector('[data-action-field="source_kind"]');
-    kind.value = 'sql';
-    kind.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 260));
-
-    const last = requests.at(-1);
-    assert.equal(last.url, '/admin/debug/api/panels/commands/actions/resolve_options');
-    assert.equal(last.body.command_id, 'transcript.ingest');
-    assert.equal(last.body.field_path, 'source_ref');
-    assert.equal(last.body.source_id, 'garchen.transcript_sources');
-    assert.equal(last.body.payload.source_kind, 'sql');
-    const source = host.querySelector('[data-action-field="source_ref"]');
-    assert.equal(source.disabled, false);
-    assert.equal(source.options[1].value, 'sql-source');
-    assert.equal(source.options[1].textContent, 'SQL source');
-    assert.match(host.querySelector('[data-cmdl-option-status]').textContent, /1 option available/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('refreshes nested dependent choices with a nested payload and excludes sensitive values', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const dom = mount(renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true }));
-  const host = dom.window.document.getElementById('host');
-  const requests = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (_url, options) => {
-    requests.push(JSON.parse(options.body));
-    return new Response(JSON.stringify({ data: { option_items: [{ value: 'archive', label: 'Archive' }] } }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
-  try {
-    attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
-    host.querySelector('[data-cmdl-item="dispatch_secure"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    const token = host.querySelector('[data-action-field="api_token"]');
-    const region = host.querySelector('[data-action-field="region"]');
-    token.value = 'do-not-send-to-provider';
-    token.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
-    region.value = 'eu';
-    region.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 260));
-
-    const last = requests.at(-1);
-    assert.equal(last.field_path, 'context.target');
-    assert.deepEqual(last.payload, { context: { region: 'eu' } });
-    assert.equal(JSON.stringify(last).includes('do-not-send-to-provider'), false);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('ignores stale dynamic-option responses after a dependency changes', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const def = {
-    id: 'commands',
-    ui: {
-      schema_version: '1',
-      metadata: { option_resolver_action: 'resolve_options' },
-      actions: [{
-        id: 'dispatch_ingest',
-        label: 'Ingest',
-        payload: { command_id: 'transcript.ingest', payload: {}, options: { mode: 'inline' } },
-        fields: [
-          { name: 'source_kind', label: 'Source kind', kind: 'select', payload_path: 'payload.source_kind', options: ['folder', 'sql'] },
-          {
-            name: 'source_ref', label: 'Source', kind: 'select', payload_path: 'payload.source_ref',
-            option_source: { id: 'garchen.transcript_sources', dynamic: true, params: { depends_on: ['source_kind'] } },
-          },
-        ],
-      }],
-    },
-  };
-  const data = { commands: [{ id: 'transcript.ingest', group: 'Transcript', execution_mode: 'inline' }], diagnostics: [] };
-  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
-  const host = dom.window.document.getElementById('host');
-  const originalFetch = globalThis.fetch;
-  let resolveFirst;
-  let requestCount = 0;
-  globalThis.fetch = async () => {
-    requestCount += 1;
-    if (requestCount === 1) {
-      return new Promise((resolve) => { resolveFirst = resolve; });
-    }
-    return new Response(JSON.stringify({ data: { option_items: [{ value: 'sql-source', label: 'SQL source' }] } }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
-  try {
-    attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
-    host.querySelector('[data-cmdl-item="dispatch_ingest"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    const kind = host.querySelector('[data-action-field="source_kind"]');
-    kind.value = 'sql';
-    kind.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 240));
-    assert.equal(requestCount, 2);
-
-    resolveFirst(new Response(JSON.stringify({ data: { option_items: [{ value: 'folder-source', label: 'Folder source' }] } }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    }));
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    const source = host.querySelector('[data-action-field="source_ref"]');
-    assert.equal(source.options[1].value, 'sql-source');
-    assert.equal(Array.from(source.options).some((option) => option.value === 'folder-source'), false);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('groups required/list fields as Parameters and booleans as Options', async () => {
-  const { renderCommandLauncherConsole } = await importLauncher();
-  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
-  assert.match(html, /cmdl-section__head">Parameters/);
-  assert.match(html, /cmdl-section__head">Options/);
-});
-
-test('uses authored sections, units and defaults from action fields first', async () => {
-  const { renderCommandLauncherConsole } = await importLauncher();
-  const html = renderCommandLauncherConsole({ def: hintedDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
-
-  assert.match(html, /cmdl-section__head">Scope/);
-  assert.doesNotMatch(html, /cmdl-section__head">Schema scope/);
-  assert.match(html, /cmdl-section__head--toggle[\s\S]*?Advanced/);
-  assert.match(html, /data-action-field="batch_size"[^>]*value="100"|value="100"[^>]*data-action-field="batch_size"/);
-  assert.match(html, /Action help wins/);
-  assert.match(html, /Units: records/);
-});
-
-test('uses serialized schema presentation only when action fields omit it', async () => {
-  const { renderCommandLauncherConsole } = await importLauncher();
-  const html = renderCommandLauncherConsole({ def: hintedDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
-
-  assert.match(html, /cmdl-section__head">Localization/);
-  assert.match(html, /<select[^>]*data-action-field="locale"[\s\S]*?<option value="es" selected>es<\/option>/);
-  assert.match(html, /Locale from schema/);
-  assert.match(html, /Units: locale code/);
-});
-
-test('commands with no fields render a no-arguments form', async () => {
+test('generated commands with empty HTML render a no-arguments form', async () => {
   const { renderCommandLauncherConsole } = await importLauncher();
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
   assert.match(html, /data-cmdl-detail="dispatch_search_health"[\s\S]*?cmdl-form__noargs/);
@@ -543,7 +378,10 @@ test('clicking a catalog row reveals its form; filtering narrows the list', asyn
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
   const dom = mount(html);
   const host = dom.window.document.getElementById('host');
+  installFormgenRuntime({ batch_size: 100 });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   const archiveItem = host.querySelector('[data-cmdl-item="dispatch_archive_generate"]');
   archiveItem.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
@@ -566,7 +404,10 @@ test('mutating commands confirm inline instead of using a browser dialog', async
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
   const dom = mount(html);
   const host = dom.window.document.getElementById('host');
+  installFormgenRuntime({ batch_size: 100 });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   const form = host.querySelector('[data-action-id="dispatch_archive_generate"]');
   // The launcher owns confirmation: it tells the host to skip window.confirm.
@@ -612,7 +453,10 @@ test('clicking Confirm run arms the form and dispatches', async () => {
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
   const dom = mount(html);
   const host = dom.window.document.getElementById('host');
+  installFormgenRuntime({ batch_size: 100 });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   const form = host.querySelector('[data-action-id="dispatch_archive_generate"]');
   let dispatched = 0;
   host.addEventListener('submit', (event) => {
@@ -659,24 +503,6 @@ test('master list width persists and is adjustable via keyboard', async () => {
 
   resizer.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
   assert.equal(body.style.getPropertyValue('--cmdl-sidebar-w'), '300px');
-});
-
-test('chips input accepts tokens via Enter and syncs the hidden value', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
-  const dom = mount(html);
-  const host = dom.window.document.getElementById('host');
-  attachCommandLauncherListeners(host);
-
-  const holder = host.querySelector('[data-cmdl-chips]');
-  const entry = holder.querySelector('[data-cmdl-chips-entry]');
-  entry.value = 'evt_1';
-  entry.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-
-  const hidden = holder.querySelector('[data-cmdl-chips-value]');
-  assert.equal(hidden.value, 'evt_1');
-  assert.match(holder.innerHTML, /cmdl-chip-tag/);
-  assert.equal(entry.value, '');
 });
 
 test('extractCommandLauncherResult parses receipt, validation errors and kinds', async () => {
@@ -821,7 +647,12 @@ test('shows visible-but-not-executable commands as locked, with no form', async 
     ui: {
       schema_version: '1',
       actions: [
-        { id: 'dispatch_run_x', label: 'Run X', payload: { command_id: 'demo.x', payload: {}, options: { mode: 'inline' } }, fields: [{ name: 'note', label: 'Note', kind: 'string', payload_path: 'payload.note' }] },
+        {
+          id: 'dispatch_run_x',
+          label: 'Run X',
+          payload: { command_id: 'demo.x', payload: {}, options: { mode: 'inline' } },
+          form: { renderer: 'formgen', operation_id: 'dispatch_run_x.edit', html: '<div data-formgen-auto-init="true"><input name="note"></div>' },
+        },
       ],
     },
   };
@@ -849,6 +680,23 @@ test('catalog shows visible commands even when nothing is executable', async () 
   assert.doesNotMatch(html, /No commands are available to run/);
 });
 
+test('actions without a generated form stay visible but cannot fall back to launcher fields', async () => {
+  const { renderCommandLauncherConsole } = await importLauncher();
+  const def = {
+    id: 'commands',
+    ui: { actions: [{
+      id: 'dispatch_legacy',
+      payload: { command_id: 'demo.legacy' },
+      fields: [{ name: 'unsafe_fallback', kind: 'string' }],
+    }] },
+  };
+  const data = { commands: [{ id: 'demo.legacy', group: 'Demo' }], diagnostics: [] };
+  const html = renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true });
+  assert.match(html, /data-cmdl-item="cmd:demo\.legacy"/);
+  assert.match(html, /cmdl-locked-note/);
+  assert.doesNotMatch(html, /data-panel-action-form|unsafe_fallback/);
+});
+
 // ---- IR2-L1: rejected without validation errors ----
 test('rejected-without-validation result is not mislabeled VALIDATION_ERROR', async () => {
   const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
@@ -861,68 +709,6 @@ test('rejected-without-validation result is not mislabeled VALIDATION_ERROR', as
 });
 
 // ---- IR2-H1: form drafts survive a re-render ----
-test('form drafts (selection + field values + chips) survive a re-render', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const render = () => renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
-
-  const dom1 = mount(render());
-  const host1 = dom1.window.document.getElementById('host');
-  attachCommandLauncherListeners(host1);
-  host1.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom1.window.MouseEvent('click', { bubbles: true }));
-  const batch = host1.querySelector('[data-action-field="batch_size"]');
-  batch.value = '999';
-  batch.dispatchEvent(new dom1.window.Event('input', { bubbles: true }));
-  const entry1 = host1.querySelector('[data-cmdl-chips-entry]');
-  entry1.value = 'evt_keep';
-  entry1.dispatchEvent(new dom1.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-
-  // Fresh re-render + re-attach; module-scope drafts must rehydrate the DOM.
-  const dom2 = mount(render());
-  const host2 = dom2.window.document.getElementById('host');
-  attachCommandLauncherListeners(host2);
-  assert.equal(host2.querySelector('[data-cmdl-detail="dispatch_archive_generate"]').hidden, false);
-  assert.equal(host2.querySelector('[data-action-field="batch_size"]').value, '999');
-  assert.equal(host2.querySelector('[data-cmdl-chips-value]').value, 'evt_keep');
-});
-
-// ---- IR2-L2: pending chip flush + required enforcement on the visible input ----
-test('pending chip text is committed on submit', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
-  const host = dom.window.document.getElementById('host');
-  attachCommandLauncherListeners(host);
-  const form = host.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
-  const holder = form.querySelector('[data-cmdl-chips]');
-  const entry = holder.querySelector('[data-cmdl-chips-entry]');
-  entry.value = 'pending_value';
-  // This is a confirm-required command; arm it so the submit reaches the dispatch
-  // path where pending chip text is flushed (the inline gate is covered elsewhere).
-  form.dataset.cmdlArmed = 'true';
-  form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-  assert.equal(holder.querySelector('[data-cmdl-chips-value]').value, 'pending_value');
-  assert.equal(entry.value, '');
-});
-
-test('required list field validates on the visible entry, not the hidden input', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const def = {
-    id: 'commands',
-    ui: { schema_version: '1', actions: [{ id: 'dispatch_req', label: 'Req', payload: { command_id: 'demo.req', payload: {}, options: { mode: 'inline' } }, fields: [{ name: 'ids', label: 'IDs', kind: 'string_list', payload_path: 'payload.ids', required: true }] }] },
-  };
-  const data = { commands: [{ id: 'demo.req', group: 'Demo', execution_mode: 'inline' }], diagnostics: [] };
-  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
-  const host = dom.window.document.getElementById('host');
-  attachCommandLauncherListeners(host);
-  const holder = host.querySelector('[data-cmdl-chips]');
-  const entry = holder.querySelector('[data-cmdl-chips-entry]');
-  assert.equal(entry.required, true);
-  assert.equal(holder.querySelector('[data-cmdl-chips-value]').hasAttribute('required'), false);
-  entry.value = 'a';
-  entry.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  assert.equal(entry.required, false);
-});
-
-// ---- keyboard selection ----
 test('keyboard: ArrowDown from filter focuses first item, Enter selects it', async () => {
   const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
   const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
@@ -956,7 +742,12 @@ test('panelDefinitionFromServer applies the commands console override (filters o
     ui: {
       schema_version: '1',
       views: { console: { renderer: 'stack', sections: [] } },
-      actions: [{ id: 'dispatch_x', label: 'X', payload: { command_id: 'demo.x', payload: {}, options: { mode: 'inline' } }, fields: [] }],
+      actions: [{
+        id: 'dispatch_x',
+        label: 'X',
+        payload: { command_id: 'demo.x', payload: {}, options: { mode: 'inline' } },
+        form: { renderer: 'formgen', operation_id: 'dispatch_x.edit', html: '' },
+      }],
     },
   });
   assert.ok(commandsDef);
@@ -1013,15 +804,17 @@ test('recording an invocation surfaces a recall chip that loads it into the form
   const { renderCommandLauncherConsole, attachCommandLauncherListeners, recordCommandLauncherInvocation } = await importLauncher();
   const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
   const host = dom.window.document.getElementById('host');
+  const state = installFormgenRuntime({ batch_size: 100 });
   recordCommandLauncherInvocation({ command_id: 'archive.generate_projections', payload: { batch_size: 500, event_ids: ['evt_x'] } });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   const recall = host.querySelector('[data-cmdl-recall][data-cmdl-command="archive.generate_projections"]');
   const chip = recall.querySelector('[data-cmdl-load="recent:0"]');
   assert.ok(chip);
   chip.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-  assert.equal(host.querySelector('[data-action-field="batch_size"]').value, '500');
-  assert.equal(host.querySelector('[data-cmdl-chips-value]').value, 'evt_x');
+  assert.deepEqual(state.get(), { batch_size: 500, event_ids: ['evt_x'] });
 });
 
 test('saving and deleting a preset round-trips through storage', async () => {
@@ -1029,55 +822,31 @@ test('saving and deleting a preset round-trips through storage', async () => {
   const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
   const host = dom.window.document.getElementById('host');
   dom.window.prompt = () => 'My preset';
+  const state = installFormgenRuntime({ batch_size: 42 });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   const recall = host.querySelector('[data-cmdl-recall][data-cmdl-command="archive.generate_projections"]');
-  host.querySelector('[data-action-field="batch_size"]').value = '42';
   recall.querySelector('[data-cmdl-save-preset]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   const preset = recall.querySelector('[data-cmdl-load="preset:0"]');
   assert.ok(preset);
   assert.match(preset.textContent, /My preset/);
   recall.querySelector('[data-cmdl-del-preset="0"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   assert.equal(recall.querySelector('[data-cmdl-load="preset:0"]'), null);
+  assert.deepEqual(state.get(), { batch_size: 42 });
 });
 
-test('drafts and presets preserve nested values without retaining sensitive fields', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
-  const firstDOM = mount(renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true }));
-  const firstHost = firstDOM.window.document.getElementById('host');
-  firstDOM.window.prompt = () => 'Safe preset';
-  attachCommandLauncherListeners(firstHost);
-  firstHost.querySelector('[data-cmdl-item="dispatch_secure"]').dispatchEvent(new firstDOM.window.MouseEvent('click', { bubbles: true }));
-
-  const region = firstHost.querySelector('[data-action-field="region"]');
-  const token = firstHost.querySelector('[data-action-field="api_token"]');
-  region.value = 'eu';
-  region.dispatchEvent(new firstDOM.window.Event('change', { bubbles: true }));
-  token.value = 'never-persist';
-  token.dispatchEvent(new firstDOM.window.Event('input', { bubbles: true }));
-  firstHost.querySelector('[data-cmdl-save-preset]').dispatchEvent(new firstDOM.window.MouseEvent('click', { bubbles: true }));
-
-  const stored = firstDOM.window.localStorage.getItem('cmdl:preset:secure.operation');
-  assert.match(stored, /"context":\{"region":"eu"\}/);
-  assert.equal(stored.includes('never-persist'), false);
-  assert.equal(stored.includes('api_token'), false);
-
-  const secondDOM = mount(renderCommandLauncherConsole({ def: sensitiveNestedDef(), data: sensitiveNestedData(), styles: {}, useIconCopyButton: true }));
-  const secondHost = secondDOM.window.document.getElementById('host');
-  attachCommandLauncherListeners(secondHost);
-  assert.equal(secondHost.querySelector('[data-action-field="region"]').value, 'eu');
-  assert.equal(secondHost.querySelector('[data-action-field="api_token"]').value, '');
-});
-
-// ---- Phase 3 T13: JSON ↔ form power mode ----
 test('JSON toggle swaps editors and applies edited JSON back to the form', async () => {
   const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
   const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
   const host = dom.window.document.getElementById('host');
+  const state = installFormgenRuntime({ batch_size: 7 });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   const form = host.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
-  host.querySelector('[data-action-field="batch_size"]').value = '7';
   form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   assert.equal(form.dataset.cmdlMode, 'json');
   assert.equal(form.querySelector('[data-cmdl-fields]').hidden, true);
@@ -1087,15 +856,17 @@ test('JSON toggle swaps editors and applies edited JSON back to the form', async
   editor.value = JSON.stringify({ batch_size: 99, locale: 'es' });
   form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   assert.equal(form.dataset.cmdlMode, 'form');
-  assert.equal(form.querySelector('[data-action-field="batch_size"]').value, '99');
-  assert.equal(form.querySelector('[data-action-field="locale"]').value, 'es');
+  assert.deepEqual(state.get(), { batch_size: 99, locale: 'es' });
 });
 
 test('invalid JSON keeps the editor open and shows an error', async () => {
   const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
   const dom = mount(renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true }));
   const host = dom.window.document.getElementById('host');
+  installFormgenRuntime({ batch_size: 7 });
   attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item="dispatch_archive_generate"]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   const form = host.querySelector('[data-panel-action-form][data-action-id="dispatch_archive_generate"]');
   form.querySelector('[data-cmdl-json-toggle]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));

@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 	"github.com/phpdave11/gofpdf"
 	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
@@ -309,7 +311,8 @@ func TestReadableArtifactRendererRenderExecutedBlocksUnsupportedCompatibilityTie
 	if err == nil {
 		t.Fatalf("expected unsupported compatibility tier to block render")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "pdf compatibility unsupported") {
+	var mapped *goerrors.Error
+	if !errors.As(err, &mapped) || mapped == nil || !strings.Contains(strings.ToLower(mapped.Message), "pdf compatibility unsupported") {
 		t.Fatalf("expected pdf compatibility unsupported error, got %v", err)
 	}
 }

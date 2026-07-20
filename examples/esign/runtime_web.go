@@ -455,7 +455,7 @@ func makeESignAuthErrorHandler(cfg eSignAuthConfig) func(router.Context, error) 
 		}
 		if strings.Contains(c.Path(), "/api/") || strings.Contains(c.Path(), "/crud/") {
 			c.Status(status)
-			return c.JSON(status, mapped.ToErrorResponse(presenter.IncludeStackTrace(), mapped.StackTrace))
+			return c.JSON(status, presenter.ErrorResponse(mapped))
 		}
 		loginPath := strings.TrimSpace(cfg.GetRejectedRouteDefault())
 		if loginPath == "" {

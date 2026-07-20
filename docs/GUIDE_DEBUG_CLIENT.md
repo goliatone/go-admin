@@ -621,34 +621,27 @@ ws.onmessage = (event) => {
 ## 9. Command Launcher Panel
 
 The `commands` debug panel is server-hydrated but uses a dedicated console
-renderer override. The server action contract remains authoritative:
-`ui.actions[].fields[]` drives form rendering and dispatch, while
-`ui.metadata.serialized_schemas` is only supporting schema metadata.
+renderer override. Executable actions carry a server-produced
+`ui.actions[].form` descriptor with `renderer: "formgen"`, an operation id,
+trusted fields-only HTML, model version, and sensitive-state flag. Actions
+without a valid generated form remain visible as locked catalog entries; the
+client has no legacy field renderer fallback.
 
-Launcher fields use these presentation inputs when available:
+When a command is selected, the launcher initializes the embedded formgen root
+and attaches one controller/resolver registry for that active form. Controller
+methods own value collection, draft and preset hydration, JSON mode, Reset,
+validation errors, focus, Retry values, and teardown. Sensitive forms disable
+launcher persistence and mark the dispatch bridge sensitive. Command switches,
+panel replacement, and snapshot hydration destroy the old controller and option
+registry.
 
-- `default`: prefilled into the typed control.
-- `description` or `help`: rendered as inline field help.
-- `option_items`: rich choices with stable values, friendly labels,
-  descriptions, disabled state, and safe metadata; legacy `options` remains a
-  value-only fallback.
-- `option_source`: marks a request-scoped dynamic catalog. Dependency paths in
-  `option_source.params.depends_on` trigger a debounced refresh using the
-  current form payload.
-- `display_hints.section`: authored section label.
-- `display_hints.advanced`: moves the field to the collapsible Advanced section.
-- `display_hints.units`: rendered next to the field help.
-
-If action fields and `serialized_schemas` disagree, action fields win. If no
-section/advanced hints are present, the client falls back to heuristic grouping
-so older descriptors still render.
-
-Option-backed scalar fields render as selects. Option-backed arrays and
-`string_list` fields remain multi-value chips and expose choice buttons, so a
-known list is not collapsed into a single-select control. Dynamic fields show
-loading, ready, empty, and error state inline; stale responses are ignored and
-current draft values are retained. The resolver capability is not advertised
-when the server has no provider/protected action.
+Generic formgen select/chips resolvers own dynamic option refresh, debounce,
+cancellation/stale-response rejection, cache, loading/empty/error state, and
+selection preservation. A host `beforeFetch` hook rewrites the
+renderer-neutral option request to the protected hidden panel action with
+current controller values and a CSRF token. Catalog navigation, inline
+confirmation, recall controls, JSON toggle, and the result shell remain
+launcher-owned.
 
 Command results stay inline in the panel. The result card shows receipt metadata
 such as correlation id, dispatch id, execution mode, and status reference when

@@ -171,7 +171,7 @@ func (r fiberErrorHandlerRuntime) renderAPIError(c *fiber.Ctx, err error, resolv
 		code = status
 		mapped.Code = code
 	}
-	return c.Status(code).JSON(mapped.ToErrorResponse(r.presenter.IncludeStackTrace(), mapped.StackTrace))
+	return c.Status(code).JSON(r.presenter.ErrorResponse(mapped))
 }
 
 func applyFiberErrorOverride(mapped *goerrors.Error, resolved resolvedFiberError, status *int) {

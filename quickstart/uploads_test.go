@@ -119,7 +119,7 @@ func TestNewUploadHandlerReturnsBadRequestWhenFileMissing(t *testing.T) {
 
 	err := handler(ctx)
 	require.Error(t, err)
-	require.Contains(t, strings.ToLower(err.Error()), "no file")
+	require.Contains(t, strings.ToLower(errorDetail(err)), "no file")
 }
 
 func TestNewUploadHandlerResolvesUploadSubdirPerRequest(t *testing.T) {

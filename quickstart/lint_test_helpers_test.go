@@ -1,18 +1,10 @@
-package admin
+package quickstart
 
 import (
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
 )
-
-func mustAs[T any](v any) T {
-	out, ok := v.(T)
-	if !ok {
-		panic("unexpected test fixture type")
-	}
-	return out
-}
 
 // errorDetail returns internal diagnostics for assertions without weakening the
 // public Error() contract, which intentionally exposes only safe messages.

@@ -36,7 +36,7 @@ func TestInMemoryMenuServiceRejectsSelfParentUpdate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected self-parent update to fail")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "parent cannot reference itself") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "parent cannot reference itself") {
 		t.Fatalf("expected self-parent validation error, got %v", err)
 	}
 }
@@ -82,7 +82,7 @@ func TestInMemoryMenuServiceRejectsCycleUpdate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected cycle update to fail")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "cycle") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "cycle") {
 		t.Fatalf("expected cycle validation error, got %v", err)
 	}
 }
@@ -104,7 +104,7 @@ func TestGoCMSMenuAdapterRejectsSelfParentUpsert(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected self-parent upsert to fail")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "parent cannot reference itself") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "parent cannot reference itself") {
 		t.Fatalf("expected self-parent validation error, got %v", err)
 	}
 }
@@ -154,7 +154,7 @@ func TestGoCMSMenuAdapterRejectsCycleUpdate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected cycle update to fail")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "cycle") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "cycle") {
 		t.Fatalf("expected cycle validation error, got %v", err)
 	}
 }

@@ -127,7 +127,7 @@ func TestGoCMSMenuAdapterRawMenuItemsRejectEnvironmentScope(t *testing.T) {
 		Environment:       "preview",
 		EnvironmentSource: "config.nav_environment",
 	})
-	if err == nil || !strings.Contains(err.Error(), "environment-scoped reads") {
+	if err == nil || !strings.Contains(errorDetail(err), "environment-scoped reads") {
 		t.Fatalf("expected environment-scope rejection, got %v", err)
 	}
 }

@@ -19,6 +19,12 @@ type PanelClearFunc func(ctx context.Context) error
 // action to be present in the request-scoped panel definition.
 type PanelActionHandler func(ctx context.Context, req PanelActionRequest) (PanelActionResult, error)
 
+// PanelActionHandlerResolver resolves handlers whose action set is backed by
+// request-scoped or mutable provider state. The collector still requires the
+// action to be present in the current request-scoped panel definition before
+// invoking a resolved handler.
+type PanelActionHandlerResolver func(ctx context.Context, actionID string) PanelActionHandler
+
 // PanelDefinitionFilter adapts panel discovery metadata for a request context.
 type PanelDefinitionFilter func(ctx context.Context, definition PanelDefinition) PanelDefinition
 
@@ -123,6 +129,18 @@ type PanelUIAction struct {
 	UpdatePolicy    string               `json:"update_policy,omitempty"`
 	Payload         map[string]any       `json:"payload,omitempty"`
 	Fields          []PanelUIActionField `json:"fields,omitempty"`
+	Form            *PanelUIActionForm   `json:"form,omitempty"`
+}
+
+// PanelUIActionForm carries trusted server-generated form markup. HTML must be
+// produced by the named renderer; callers must never place operator-authored or
+// command-authored raw markup in this contract.
+type PanelUIActionForm struct {
+	Renderer     string `json:"renderer"`
+	OperationID  string `json:"operation_id"`
+	HTML         string `json:"html"`
+	ModelVersion string `json:"model_version,omitempty"`
+	Sensitive    bool   `json:"sensitive,omitempty"`
 }
 
 // PanelUIActionField declares a typed input that is merged into an action payload.
@@ -282,6 +300,7 @@ type PanelConfig struct {
 	UI              *PanelUI                      `json:"ui,omitempty"`
 	Definition      PanelDefinitionFilter         `json:"-"`
 	Actions         map[string]PanelActionHandler `json:"-"`
+	ActionResolver  PanelActionHandlerResolver    `json:"-"`
 }
 
 // PanelDefinition describes a registered panel for client discovery.
@@ -302,11 +321,12 @@ type PanelDefinition struct {
 
 // PanelRegistration stores definition metadata and server hooks.
 type PanelRegistration struct {
-	Definition PanelDefinition               `json:"definition"`
-	Filter     PanelDefinitionFilter         `json:"-"`
-	Snapshot   PanelSnapshotFunc             `json:"snapshot"`
-	Clear      PanelClearFunc                `json:"clear"`
-	Actions    map[string]PanelActionHandler `json:"-"`
+	Definition     PanelDefinition               `json:"definition"`
+	Filter         PanelDefinitionFilter         `json:"-"`
+	Snapshot       PanelSnapshotFunc             `json:"snapshot"`
+	Clear          PanelClearFunc                `json:"clear"`
+	Actions        map[string]PanelActionHandler `json:"-"`
+	ActionResolver PanelActionHandlerResolver    `json:"-"`
 }
 
 // PanelRegistry stores registered panels and metadata.
@@ -573,14 +593,15 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 		def.Metadata = cloneMetadata(config.Metadata)
 	}
 	if config.UI != nil {
-		def.UI = normalizePanelUI(config.UI, config.Actions)
+		def.UI = normalizePanelUI(config.UI, config.Actions, config.ActionResolver != nil)
 	}
 	return PanelRegistration{
-		Definition: def,
-		Filter:     config.Definition,
-		Snapshot:   config.Snapshot,
-		Clear:      config.Clear,
-		Actions:    normalizeActionHandlers(config.Actions),
+		Definition:     def,
+		Filter:         config.Definition,
+		Snapshot:       config.Snapshot,
+		Clear:          config.Clear,
+		Actions:        normalizeActionHandlers(config.Actions),
+		ActionResolver: config.ActionResolver,
 	}
 }
 
@@ -598,6 +619,29 @@ func (r PanelRegistration) definitionForContext(ctx context.Context) PanelDefini
 		}
 	}
 	return def
+}
+
+// ActionHandlerForContext returns a handler only when the action is exposed by
+// the current request-scoped definition. Fixed handlers are preferred; the
+// resolver is consulted only when no fixed handler matches.
+func (r PanelRegistration) ActionHandlerForContext(ctx context.Context, actionID string) PanelActionHandler {
+	actionID = normalizeID(actionID)
+	if actionID == "" || (len(r.Actions) == 0 && r.ActionResolver == nil) {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !PanelDefinitionHasAction(r.definitionForContext(ctx), actionID) {
+		return nil
+	}
+	if handler := panelActionHandlerFor(r.Actions, actionID); handler != nil {
+		return handler
+	}
+	if r.ActionResolver == nil {
+		return nil
+	}
+	return r.ActionResolver(ctx, actionID)
 }
 
 func supportsToolbar(value *bool) bool {
@@ -673,7 +717,7 @@ func cloneMetadata(input map[string]any) map[string]any {
 }
 
 //nolint:gocyclo // panel UI normalization handles a fixed legacy schema matrix in one place.
-func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *PanelUI {
+func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler, hasResolver bool) *PanelUI {
 	if input == nil {
 		return nil
 	}
@@ -714,7 +758,7 @@ func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *P
 			ui.ActionLayout = layout
 		}
 	}
-	ui.Actions = normalizePanelUIActions(input.Actions, handlers)
+	ui.Actions = normalizePanelUIActions(input.Actions, handlers, hasResolver)
 	if len(input.Metadata) > 0 {
 		ui.Metadata = cloneJSONSafeMap(input.Metadata)
 	}
@@ -824,8 +868,8 @@ func normalizePanelUIActionLayout(input *PanelUIActionLayout) *PanelUIActionLayo
 	}
 }
 
-func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelActionHandler) []PanelUIAction {
-	if len(actions) == 0 || len(handlers) == 0 {
+func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelActionHandler, hasResolver bool) []PanelUIAction {
+	if len(actions) == 0 || (len(handlers) == 0 && !hasResolver) {
 		return nil
 	}
 	seen := map[string]bool{}
@@ -835,7 +879,7 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 		if id == "" || seen[id] {
 			continue
 		}
-		if panelActionHandlerFor(handlers, id) == nil {
+		if panelActionHandlerFor(handlers, id) == nil && !hasResolver {
 			continue
 		}
 		label := trimSafeText(action.Label)
@@ -855,9 +899,28 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 			UpdatePolicy:    normalizeEventPolicyMode(action.UpdatePolicy),
 			Payload:         cloneJSONSafeMap(action.Payload),
 			Fields:          normalizePanelUIActionFields(action.Fields),
+			Form:            normalizePanelUIActionForm(action.Form),
 		})
 	}
 	return out
+}
+
+func normalizePanelUIActionForm(input *PanelUIActionForm) *PanelUIActionForm {
+	if input == nil {
+		return nil
+	}
+	renderer := normalizeID(input.Renderer)
+	operationID := strings.TrimSpace(input.OperationID)
+	if renderer == "" || operationID == "" {
+		return nil
+	}
+	return &PanelUIActionForm{
+		Renderer:     renderer,
+		OperationID:  operationID,
+		HTML:         input.HTML,
+		ModelVersion: trimSafeText(input.ModelVersion),
+		Sensitive:    input.Sensitive,
+	}
 }
 
 func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionField {

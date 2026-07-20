@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -63,11 +65,25 @@ func RegisterCommandLauncherDebugPanel(adm *Admin) {
 				Diagnostics: state.Diagnostics,
 			}
 		},
-		UI:         commandLauncherPanelUI(nil, nil, nil),
-		Definition: commandLauncherDefinitionFilter(adm),
-		Actions:    commandLauncherActionHandlers(adm),
+		UI:             commandLauncherPanelUI(nil, nil, nil),
+		Definition:     commandLauncherDefinitionFilter(adm),
+		Actions:        commandLauncherActionHandlers(adm),
+		ActionResolver: commandLauncherActionResolver(adm),
 	}); err != nil {
 		return
+	}
+}
+
+func commandLauncherActionResolver(adm *Admin) debugregistry.PanelActionHandlerResolver {
+	if adm == nil || adm.commandCatalog == nil {
+		return nil
+	}
+	return func(_ context.Context, actionID string) debugregistry.PanelActionHandler {
+		actionID = strings.ToLower(strings.TrimSpace(actionID))
+		if actionID == "" {
+			return nil
+		}
+		return commandLauncherActionHandlers(adm)[actionID]
 	}
 }
 
@@ -183,9 +199,6 @@ func commandLauncherPanelUI(commands []gocommand.CommandDescriptor, diagnostics 
 			break
 		}
 	}
-	if schemas := commandLauncherFormSchemas(commands); len(schemas) > 0 {
-		ui.Metadata["serialized_schemas"] = schemas
-	}
 	return ui
 }
 
@@ -212,7 +225,9 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		state.Diagnostics = append(state.Diagnostics, commandLauncherDiagnostic("missing_command_read", "warning", "Command catalog is hidden because the actor lacks admin.commands.read.", nil))
 		return state
 	}
-	state.Visible, state.HiddenByCommandPermissions = visibleCommandLauncherDescriptors(ctx, adm, state.Registered)
+	uniqueDescriptors, duplicateDiagnostics := uniqueCommandLauncherActionDescriptors(state.Registered)
+	state.Diagnostics = append(state.Diagnostics, duplicateDiagnostics...)
+	state.Visible, state.HiddenByCommandPermissions = visibleCommandLauncherDescriptors(ctx, adm, uniqueDescriptors)
 	if len(state.Visible) == 0 {
 		code := "no_visible_commands"
 		message := "No command descriptors are visible for this actor."
@@ -236,7 +251,10 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		state.Diagnostics = append(state.Diagnostics, commandLauncherDiagnostic("missing_command_dispatch", "warning", "Command discovery is available, but execution requires admin.commands.dispatch.", map[string]any{"visible_command_count": len(state.Visible)}))
 		return state
 	}
-	state.Executable = append(state.Executable, state.Visible...)
+	state.Executable, state.Diagnostics = commandLauncherExecutableDescriptors(adm, state.Visible, state.Diagnostics)
+	if len(state.Executable) == 0 {
+		return state
+	}
 	if adm.commandOptionProvider == nil {
 		if dynamicCount := commandLauncherDynamicOptionFieldCount(state.Executable); dynamicCount > 0 {
 			state.Diagnostics = append(state.Diagnostics, commandLauncherDiagnostic("option_provider_unavailable", "warning", "Command option provider is not configured for dynamic command options.", map[string]any{
@@ -245,6 +263,58 @@ func buildCommandLauncherState(ctx context.Context, adm *Admin) commandLauncherS
 		}
 	}
 	return state
+}
+
+func commandLauncherExecutableDescriptors(adm *Admin, visible []gocommand.CommandDescriptor, diagnostics []CommandLauncherDiagnostic) ([]gocommand.CommandDescriptor, []CommandLauncherDiagnostic) {
+	executable := make([]gocommand.CommandDescriptor, 0, len(visible))
+	missingRPCRules := make([]string, 0)
+	unregisteredCommands := make([]string, 0)
+	for _, descriptor := range visible {
+		descriptor = normalizeCommandLauncherDescriptor(descriptor)
+		if descriptor.ID == "" {
+			continue
+		}
+		if adm == nil {
+			unregisteredCommands = append(unregisteredCommands, descriptor.ID)
+			continue
+		}
+		if _, ok := adm.config.Commands.RPC.ResolveRule(descriptor.ID); !ok {
+			missingRPCRules = append(missingRPCRules, descriptor.ID)
+			continue
+		}
+		registration := CommandRegistrationState{}
+		if adm.Commands() != nil {
+			registration = adm.Commands().CommandRegistration(descriptor.ID)
+		}
+		if !registration.Dispatcher && !registration.ResultDispatcher {
+			unregisteredCommands = append(unregisteredCommands, descriptor.ID)
+			continue
+		}
+		executable = append(executable, descriptor)
+	}
+	if len(missingRPCRules) > 0 {
+		diagnostics = append(diagnostics, commandLauncherDiagnostic(
+			"rpc_command_rule_gaps",
+			"warning",
+			"Some visible commands are not executable because they are not allowlisted in commands.rpc.commands.",
+			map[string]any{
+				"command_ids":   missingRPCRules,
+				"command_count": len(missingRPCRules),
+			},
+		))
+	}
+	if len(unregisteredCommands) > 0 {
+		diagnostics = append(diagnostics, commandLauncherDiagnostic(
+			"command_registration_gaps",
+			"warning",
+			"Some visible commands are not executable because their handler or name-based dispatcher is not registered.",
+			map[string]any{
+				"command_ids":   unregisteredCommands,
+				"command_count": len(unregisteredCommands),
+			},
+		))
+	}
+	return executable, diagnostics
 }
 
 func visibleCommandLauncherDescriptors(ctx context.Context, adm *Admin, registered []gocommand.CommandDescriptor) ([]gocommand.CommandDescriptor, int) {
@@ -368,6 +438,28 @@ func commandLauncherActions(ctx context.Context, adm *Admin, commands []gocomman
 		if actionID == "" {
 			continue
 		}
+		formSchema, formDiagnostics, err := adaptCommandLauncherFormgenSchema(descriptor)
+		for _, diagnostic := range formDiagnostics {
+			appendCommandLauncherDiagnostic(diagnostics, diagnostic)
+		}
+		if err != nil || len(formDiagnostics) > 0 {
+			message := "Command form could not be generated."
+			if err != nil {
+				message = err.Error()
+			}
+			appendCommandLauncherDiagnostic(diagnostics, commandLauncherDiagnostic("formgen_render_failed", "warning", message, map[string]any{"command_id": descriptor.ID}))
+			continue
+		}
+		formRenderer, err := sharedCommandLauncherFormgenRenderer()
+		if err != nil {
+			appendCommandLauncherDiagnostic(diagnostics, commandLauncherDiagnostic("formgen_render_failed", "warning", err.Error(), map[string]any{"command_id": descriptor.ID}))
+			continue
+		}
+		formHTML, err := formRenderer.render(ctx, formSchema)
+		if err != nil {
+			appendCommandLauncherDiagnostic(diagnostics, commandLauncherDiagnostic("formgen_render_failed", "warning", err.Error(), map[string]any{"command_id": descriptor.ID}))
+			continue
+		}
 		confirmText := ""
 		if descriptor.Mutating {
 			confirmText = fmt.Sprintf("Run %s?", commandLauncherLabel(descriptor))
@@ -388,7 +480,13 @@ func commandLauncherActions(ctx context.Context, adm *Admin, commands []gocomman
 					"mode": descriptor.ExecutionMode,
 				},
 			},
-			Fields: commandLauncherActionFields(ctx, adm, descriptor, diagnostics),
+			Form: &debugregistry.PanelUIActionForm{
+				Renderer:     "formgen",
+				OperationID:  formSchema.OperationID,
+				HTML:         string(formHTML),
+				ModelVersion: "go-formgen/v1",
+				Sensitive:    formSchema.Sensitive,
+			},
 		})
 	}
 	return actions
@@ -399,7 +497,8 @@ func commandLauncherActionHandlers(adm *Admin) map[string]debugregistry.PanelAct
 		return nil
 	}
 	handlers := map[string]debugregistry.PanelActionHandler{}
-	for _, raw := range adm.commandCatalog.CommandDescriptors() {
+	descriptors, _ := uniqueCommandLauncherActionDescriptors(adm.commandCatalog.CommandDescriptors())
+	for _, raw := range descriptors {
 		descriptor := normalizeCommandLauncherDescriptor(raw)
 		actionID := commandLauncherActionID(descriptor.ID)
 		if actionID == "" {
@@ -453,11 +552,14 @@ func runCommandLauncherOptionResolver(ctx context.Context, adm *Admin, payload m
 			"field_path": fieldPath,
 		})
 	}
-	if requestedSource := commandLauncherString(payload["source_id"]); requestedSource != "" && requestedSource != strings.TrimSpace(field.OptionSource.ID) {
+	requestedSource := commandLauncherString(payload["source_id"])
+	declaredSource := strings.TrimSpace(field.OptionSource.ID)
+	if requestedSource == "" || requestedSource != declaredSource {
 		return debugregistry.PanelActionResult{}, validationDomainError("command option source does not match the registered descriptor", map[string]any{
 			"command_id":          commandID,
 			"field_path":          fieldPath,
 			"requested_source_id": requestedSource,
+			"declared_source_id":  declaredSource,
 		})
 	}
 
@@ -555,6 +657,23 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 	if adm == nil || adm.RPCServer() == nil {
 		return debugregistry.PanelActionResult{}, serviceNotConfiguredDomainError("command launcher", map[string]any{"component": "command_launcher"})
 	}
+	if _, ok := adm.config.Commands.RPC.ResolveRule(commandID); !ok {
+		return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command is not enabled for RPC dispatch", map[string]any{
+			"component":     "command_launcher",
+			"command_id":    commandID,
+			"configuration": "commands.rpc.commands",
+		})
+	}
+	registration := CommandRegistrationState{}
+	if adm.Commands() != nil {
+		registration = adm.Commands().CommandRegistration(commandID)
+	}
+	if !registration.Dispatcher && !registration.ResultDispatcher {
+		return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command handler or dispatcher is not registered", map[string]any{
+			"component":  "command_launcher",
+			"command_id": commandID,
+		})
+	}
 	state := buildCommandLauncherState(ctx, adm)
 	var allowed bool
 	for _, descriptor := range state.Executable {
@@ -585,6 +704,12 @@ func runCommandLauncherAction(ctx context.Context, adm *Admin, commandID string,
 		},
 	})
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return debugregistry.PanelActionResult{}, serviceUnavailableDomainError("command dispatch capability changed after discovery", map[string]any{
+				"component":  "command_launcher",
+				"command_id": commandID,
+			})
+		}
 		return debugregistry.PanelActionResult{}, err
 	}
 	message, data := commandLauncherActionResultData(adm, commandID, result)
@@ -641,76 +766,6 @@ func commandLauncherPublishDispatchStatus(adm *Admin, commandID, message string,
 	})
 }
 
-func commandLauncherActionFields(ctx context.Context, adm *Admin, descriptor gocommand.CommandDescriptor, diagnostics *[]CommandLauncherDiagnostic) []debugregistry.PanelUIActionField {
-	input := descriptor.Input
-	if input.NoInput || len(input.Fields) == 0 {
-		return nil
-	}
-	fields := make([]debugregistry.PanelUIActionField, 0, len(input.Fields))
-	for _, field := range input.Fields {
-		path := strings.TrimSpace(field.Path)
-		if path == "" {
-			path = strings.TrimSpace(field.Name)
-		}
-		if path == "" {
-			continue
-		}
-		optionItems := commandLauncherFieldOptionItems(ctx, adm, descriptor, field, diagnostics)
-		fields = append(fields, debugregistry.PanelUIActionField{
-			Name:         firstNonEmptyString(field.Name, field.ID, path),
-			Label:        field.Label,
-			Kind:         commandLauncherFieldKind(field),
-			PayloadPath:  "payload." + path,
-			Placeholder:  field.Placeholder,
-			Description:  firstNonEmptyString(field.Description, field.Help),
-			Help:         field.Help,
-			Required:     field.Required,
-			Sensitive:    field.Sensitive,
-			Options:      commandLauncherOptionValues(optionItems),
-			OptionItems:  commandLauncherPanelOptionItems(optionItems),
-			OptionSource: commandLauncherPanelOptionSource(field.OptionSource),
-			Default:      commandLauncherFieldDefault(field),
-			DisplayHints: commandLauncherFieldDisplayHints(field),
-		})
-	}
-	return fields
-}
-
-func commandLauncherFieldDefault(field gocommand.CommandInputField) any {
-	if field.Sensitive {
-		return nil
-	}
-	return commandLauncherJSONSafeValue(field.Default)
-}
-
-func commandLauncherFieldOptionItems(ctx context.Context, adm *Admin, descriptor gocommand.CommandDescriptor, field gocommand.CommandInputField, diagnostics *[]CommandLauncherDiagnostic) []gocommand.CommandOption {
-	if len(field.StaticOptions) > 0 {
-		return append([]gocommand.CommandOption(nil), field.StaticOptions...)
-	}
-	if field.OptionSource == nil {
-		return nil
-	}
-	if adm == nil || adm.commandOptionProvider == nil {
-		return nil
-	}
-	options, err := adm.commandOptionProvider.CommandOptions(ctx, gocommand.CommandOptionRequest{
-		CommandID: descriptor.ID,
-		FieldID:   field.ID,
-		FieldName: field.Name,
-		FieldPath: field.Path,
-		Source:    *field.OptionSource,
-	})
-	if err != nil {
-		appendCommandLauncherDiagnostic(diagnostics, commandLauncherDiagnostic("option_source_unavailable", "warning", "Command option source could not be loaded.", map[string]any{
-			"command_id": descriptor.ID,
-			"field_path": field.Path,
-			"source_id":  field.OptionSource.ID,
-		}))
-		return nil
-	}
-	return options
-}
-
 func commandLauncherOptionValues(options []gocommand.CommandOption) []string {
 	if len(options) == 0 {
 		return nil
@@ -745,168 +800,11 @@ func commandLauncherPanelOptionItems(options []gocommand.CommandOption) []debugr
 	return out
 }
 
-func commandLauncherPanelOptionSource(source *gocommand.CommandOptionSourceRef) *debugregistry.PanelUIActionOptionSource {
-	if source == nil || strings.TrimSpace(source.ID) == "" {
-		return nil
-	}
-	return &debugregistry.PanelUIActionOptionSource{
-		ID:         source.ID,
-		Label:      source.Label,
-		Dynamic:    source.Dynamic,
-		CacheScope: source.CacheScope,
-		Params:     commandLauncherJSONSafeMap(source.Params),
-	}
-}
-
 func appendCommandLauncherDiagnostic(diagnostics *[]CommandLauncherDiagnostic, diagnostic CommandLauncherDiagnostic) {
 	if diagnostics == nil {
 		return
 	}
 	*diagnostics = append(*diagnostics, diagnostic)
-}
-
-func commandLauncherFormSchemas(commands []gocommand.CommandDescriptor) map[string]any {
-	if len(commands) == 0 {
-		return nil
-	}
-	out := map[string]any{}
-	for _, descriptor := range commands {
-		descriptor = normalizeCommandLauncherDescriptor(descriptor)
-		if descriptor.ID == "" {
-			continue
-		}
-		out[descriptor.ID] = map[string]any{
-			"schema":         descriptor.Input.JSONSchema,
-			"fields":         commandLauncherSerializedFields(descriptor.Input.Fields),
-			"required":       descriptor.Input.Required,
-			"no_input":       descriptor.Input.NoInput,
-			"payload_prefix": "payload",
-			"x-formgen": map[string]any{
-				"mode":          "command-launcher",
-				"payload_paths": true,
-			},
-		}
-	}
-	return out
-}
-
-func commandLauncherSerializedFields(fields []gocommand.CommandInputField) []map[string]any {
-	if len(fields) == 0 {
-		return nil
-	}
-	out := make([]map[string]any, 0, len(fields))
-	for _, field := range fields {
-		serialized := map[string]any{
-			"id":     strings.TrimSpace(field.ID),
-			"name":   strings.TrimSpace(field.Name),
-			"path":   strings.TrimSpace(field.Path),
-			"label":  strings.TrimSpace(field.Label),
-			"kind":   strings.TrimSpace(field.Kind),
-			"type":   strings.TrimSpace(field.Type),
-			"format": strings.TrimSpace(field.Format),
-		}
-		if field.Required {
-			serialized["required"] = true
-		}
-		if field.Sensitive {
-			serialized["sensitive"] = true
-		}
-		setCommandLauncherString(serialized, "placeholder", field.Placeholder)
-		setCommandLauncherString(serialized, "description", field.Description)
-		setCommandLauncherString(serialized, "help", field.Help)
-		if defaultValue := commandLauncherFieldDefault(field); defaultValue != nil {
-			serialized["default"] = defaultValue
-		}
-		if hints := commandLauncherFieldDisplayHints(field); len(hints) > 0 {
-			serialized["display_hints"] = hints
-		}
-		if len(field.StaticOptions) > 0 {
-			serialized["static_options"] = commandLauncherSerializedOptions(field.StaticOptions)
-		}
-		if field.OptionSource != nil {
-			source := map[string]any{
-				"id":          strings.TrimSpace(field.OptionSource.ID),
-				"label":       strings.TrimSpace(field.OptionSource.Label),
-				"cache_scope": strings.TrimSpace(field.OptionSource.CacheScope),
-			}
-			if field.OptionSource.Dynamic {
-				source["dynamic"] = true
-			}
-			setCommandLauncherString(source, "redaction_hint", field.OptionSource.RedactionHint)
-			if params := commandLauncherJSONSafeMap(field.OptionSource.Params); len(params) > 0 {
-				source["params"] = params
-			}
-			if source = compactCommandLauncherMap(source); len(source) > 0 {
-				serialized["option_source"] = source
-			}
-		}
-		if validation := commandLauncherJSONSafeMap(field.Validation); len(validation) > 0 {
-			serialized["validation"] = validation
-		}
-		out = append(out, compactCommandLauncherMap(serialized))
-	}
-	return out
-}
-
-func commandLauncherSerializedOptions(options []gocommand.CommandOption) []map[string]any {
-	if len(options) == 0 {
-		return nil
-	}
-	out := make([]map[string]any, 0, len(options))
-	for _, option := range options {
-		serialized := map[string]any{
-			"value": strings.TrimSpace(option.Value),
-			"label": strings.TrimSpace(option.Label),
-		}
-		setCommandLauncherString(serialized, "description", option.Description)
-		if option.Disabled {
-			serialized["disabled"] = true
-		}
-		if metadata := commandLauncherJSONSafeMap(option.Metadata); len(metadata) > 0 {
-			serialized["metadata"] = metadata
-		}
-		out = append(out, compactCommandLauncherMap(serialized))
-	}
-	return out
-}
-
-func setCommandLauncherString(target map[string]any, key string, value string) {
-	if value = commandLauncherSafeString(value); value != "" {
-		target[key] = value
-	}
-}
-
-func compactCommandLauncherMap(input map[string]any) map[string]any {
-	for key, value := range input {
-		if key == "" || value == nil {
-			delete(input, key)
-			continue
-		}
-		if text, ok := value.(string); ok && text == "" {
-			delete(input, key)
-		}
-	}
-	return input
-}
-
-func commandLauncherFieldDisplayHints(field gocommand.CommandInputField) map[string]any {
-	if len(field.DisplayHints) == 0 {
-		return nil
-	}
-	out := map[string]any{}
-	if section := commandLauncherPresentationString(field.DisplayHints["section"]); section != "" {
-		out["section"] = section
-	}
-	if advanced, ok := commandLauncherPresentationBool(field.DisplayHints["advanced"]); ok {
-		out["advanced"] = advanced
-	}
-	if units := commandLauncherPresentationString(field.DisplayHints["units"]); units != "" {
-		out["units"] = units
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 func commandLauncherPresentationString(value any) string {
@@ -1125,31 +1023,61 @@ func firstNonNil(values ...any) any {
 	return nil
 }
 
-func commandLauncherFieldKind(field gocommand.CommandInputField) string {
-	if kind := strings.TrimSpace(field.Kind); kind != "" {
-		return kind
-	}
-	switch strings.ToLower(strings.TrimSpace(field.Type)) {
-	case "boolean":
-		return "boolean"
-	case "integer", "number":
-		return "number"
-	case "array":
-		return "string_list"
-	case "object":
-		return "json"
-	default:
-		return "string"
-	}
-}
-
 func commandLauncherActionID(commandID string) string {
-	commandID = strings.TrimSpace(strings.ToLower(commandID))
+	commandID = strings.TrimSpace(commandID)
 	if commandID == "" {
 		return ""
 	}
-	replacer := strings.NewReplacer(".", "_", "-", "_", ":", "_", "/", "_")
-	return "dispatch_" + replacer.Replace(commandID)
+	return "dispatch_" + hex.EncodeToString([]byte(commandID))
+}
+
+func uniqueCommandLauncherActionDescriptors(input []gocommand.CommandDescriptor) ([]gocommand.CommandDescriptor, []CommandLauncherDiagnostic) {
+	type actionIdentity struct {
+		commandID string
+		count     int
+	}
+
+	identities := make(map[string]actionIdentity, len(input))
+	normalized := make([]gocommand.CommandDescriptor, 0, len(input))
+	for _, raw := range input {
+		descriptor := normalizeCommandLauncherDescriptor(raw)
+		actionID := commandLauncherActionID(descriptor.ID)
+		if actionID == "" {
+			continue
+		}
+		identity := identities[actionID]
+		identity.commandID = descriptor.ID
+		identity.count++
+		identities[actionID] = identity
+		normalized = append(normalized, descriptor)
+	}
+
+	unique := make([]gocommand.CommandDescriptor, 0, len(normalized))
+	diagnostics := make([]CommandLauncherDiagnostic, 0)
+	reported := make(map[string]struct{})
+	for _, descriptor := range normalized {
+		actionID := commandLauncherActionID(descriptor.ID)
+		identity := identities[actionID]
+		if identity.count == 1 {
+			unique = append(unique, descriptor)
+			continue
+		}
+		if _, exists := reported[actionID]; exists {
+			continue
+		}
+		reported[actionID] = struct{}{}
+		diagnostics = append(diagnostics, commandLauncherDiagnostic(
+			"duplicate_command_action_id",
+			"error",
+			"Command execution is disabled because the catalog contains duplicate command identity.",
+			map[string]any{
+				"command_id":       identity.commandID,
+				"action_id":        actionID,
+				"descriptor_count": identity.count,
+			},
+		))
+	}
+	return unique, diagnostics
 }
 
 func commandLauncherLabel(descriptor gocommand.CommandDescriptor) string {

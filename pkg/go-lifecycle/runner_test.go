@@ -126,7 +126,8 @@ func TestTaskPanicsFollowConfiguredErrorPolicies(t *testing.T) {
 		if !errors.As(err, &panicErr) {
 			t.Fatalf("RunPreBind() error type = %T, want *PanicError", err)
 		}
-		if panicErr.TaskName() != "fatal-panic" || panicErr.Recovered() != panicCause {
+		recoveredErr, ok := panicErr.Recovered().(error)
+		if panicErr.TaskName() != "fatal-panic" || !ok || !errors.Is(recoveredErr, panicCause) {
 			t.Fatalf("panic error = %#v, want task and recovered cause", panicErr)
 		}
 		if stack := string(panicErr.StackTrace()); !strings.Contains(stack, "TestTaskPanicsFollowConfiguredErrorPolicies") {
@@ -442,7 +443,7 @@ func TestCompletedShutdownResultWinsOverCanceledCallerContext(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		if err := runner.Shutdown(ctx); err != nil {
 			t.Fatalf("repeated Shutdown() call %d error = %v, want cached completion", i, err)
 		}
