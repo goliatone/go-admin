@@ -1132,6 +1132,26 @@ debug.SetRegistryVersion("v1")
 The collector-based `RegisterPanel` method remains supported and automatically
 registers panel metadata with the registry when used.
 
+Fixed action sets should use `PanelConfig.Actions`. Catalog-backed or otherwise
+late-bound action sets can additionally provide `ActionResolver`:
+
+```go
+debug.RegisterPanel("operations", debug.PanelConfig{
+    UI:         baseUI,
+    Definition: requestScopedDefinition,
+    ActionResolver: func(ctx context.Context, actionID string) debug.PanelActionHandler {
+        return currentCatalogHandler(ctx, actionID)
+    },
+})
+```
+
+The registry treats handlers as server capabilities and
+`PanelDefinition.UI.Actions` as the request-scoped visibility contract. Action
+dispatch first verifies that the current filtered definition exposes the
+normalized action id, then uses a fixed handler or the resolver. A resolver is
+therefore suitable for mutable catalogs, but it is not an authorization bypass:
+hidden, removed, malformed, and unresolved actions return not found.
+
 ### Command Launcher Presentation Hints
 
 The built-in `commands` debug panel renders command descriptors from
