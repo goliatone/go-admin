@@ -1,20 +1,44 @@
 # Changelog
 
+# [0.116.0](https://github.com/goliatone/go-admin/compare/v0.115.3...v0.116.0) - (2026-07-20)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Maker output ([024a70c](https://github.com/goliatone/go-admin/commit/024a70c98c41085340a004a3a233c5561683035f))  - (goliatone)
+- Error presenter and mapping ([5f94649](https://github.com/goliatone/go-admin/commit/5f94649e7b983b58f8cdfe33834c9ca218e64a84))  - (goliatone)
+- Add default background ([6ca4f46](https://github.com/goliatone/go-admin/commit/6ca4f46f161d9381559d2d7e43a990fa352cfe3d))  - (goliatone)
+- Command launcher formgen ([a31fb13](https://github.com/goliatone/go-admin/commit/a31fb134df87adab9f4711a550905e25e7065890))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Action resolver for registry ([56d2ece](https://github.com/goliatone/go-admin/commit/56d2ecedff4207a0470a9584a459caf09e945bf5))  - (goliatone)
+- Command registration in panel ([5a10096](https://github.com/goliatone/go-admin/commit/5a10096b8caa64977a6ed02536719f75a0d523ba))  - (goliatone)
+- Debug panel command launcher ([559a0ad](https://github.com/goliatone/go-admin/commit/559a0adfeb3707453a762a756e325d10b56149c2))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- PR [#6](https://github.com/goliatone/go-admin/pull/6): launcher formgen ([fa9b1d1](https://github.com/goliatone/go-admin/commit/fa9b1d1a0ce08d4a9ea3347642d67fe30e44481c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([0d353dd](https://github.com/goliatone/go-admin/commit/0d353ddd9427c3d70f7d50cd37fdc553be8c0381))  - (goliatone)
+- Update tests ([3917c40](https://github.com/goliatone/go-admin/commit/3917c40a520667d1c142b7c8f5f017fa259c3f18))  - (goliatone)
+- Update deps ([5f81db3](https://github.com/goliatone/go-admin/commit/5f81db3b6e9c8d75bc38ed13be280c917300dd1b))  - (goliatone)
+- Update examples ([dfe664b](https://github.com/goliatone/go-admin/commit/dfe664b59efe7b39c229b068c05291fa63d34f2c))  - (goliatone)
+- Update docs ([f862847](https://github.com/goliatone/go-admin/commit/f862847d1a7e59f571c181e8d0ecd021ee6f10b4))  - (goliatone)
+
 # [0.115.3](https://github.com/goliatone/go-admin/compare/v0.115.2...v0.115.3) - (2026-07-16)
 
 
-## Migration Notes
-
-- `pkg/go-lifecycle.Runner.Shutdown` now attempts every registered shutdown
-  task and returns joined terminal failures for fatal, degraded, and exhausted
-  retryable policies. Ignored shutdown failures remain diagnostic-only.
-- `ShutdownIncompleteError.Stage` distinguishes unfinished background work from
-  unfinished shutdown tasks. Once shutdown completes, later calls return the
-  same cached result even when their caller context is already cancelled.
+New patch release: v0.115.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Check shutdown cycles ([92bb988](https://github.com/goliatone/go-admin/commit/92bb9886e23d3adf6fcb1d6c3a42b4b05b3d841c))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.115.3 ([cd3c92f](https://github.com/goliatone/go-admin/commit/cd3c92f2afc4a1a3d41a867adf040cd5ae61fac8))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
