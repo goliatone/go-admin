@@ -30,8 +30,8 @@ require (
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.59.0
-	github.com/goliatone/go-search v0.12.0
-	github.com/goliatone/go-search/adapters/goadmin v0.12.0
+	github.com/goliatone/go-search v0.13.0
+	github.com/goliatone/go-search/adapters/goadmin v0.13.0
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0
