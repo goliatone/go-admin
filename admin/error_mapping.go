@@ -563,11 +563,13 @@ func walkErrorTree(err error, visit func(*goerrors.Error) bool) {
 		if current == nil {
 			continue
 		}
+		//nolint:errorlint // This walker must inspect the exact node before unwrapping it.
 		if typed, ok := current.(*goerrors.Error); ok && typed != nil {
 			if !visit(typed) {
 				return
 			}
 		}
+		//nolint:errorlint // Exact unwrap shape is required to traverse joined error trees.
 		switch wrapped := current.(type) {
 		case interface{ Unwrap() []error }:
 			pending = append(wrapped.Unwrap(), pending...)
