@@ -20,10 +20,19 @@ import (
 
 const quickstartLauncherEchoCommandID = "quickstart.debug.echo"
 
-type quickstartLauncherCatalog struct{}
+type quickstartLauncherCatalog struct {
+	descriptors []gocommand.CommandDescriptor
+}
 
-func (quickstartLauncherCatalog) CommandDescriptors() []gocommand.CommandDescriptor {
-	return []gocommand.CommandDescriptor{{
+func (c *quickstartLauncherCatalog) CommandDescriptors() []gocommand.CommandDescriptor {
+	if c == nil {
+		return nil
+	}
+	return append([]gocommand.CommandDescriptor(nil), c.descriptors...)
+}
+
+func quickstartLauncherEchoDescriptor() gocommand.CommandDescriptor {
+	return gocommand.CommandDescriptor{
 		ID:            quickstartLauncherEchoCommandID,
 		Label:         "Echo",
 		ExposeInAdmin: true,
@@ -38,7 +47,7 @@ func (quickstartLauncherCatalog) CommandDescriptors() []gocommand.CommandDescrip
 			}},
 			Required: []string{"message"},
 		},
-	}}
+	}
 }
 
 type quickstartLauncherAuthenticator struct{}
@@ -82,13 +91,14 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 			Resource:   "commands",
 		},
 	}
+	catalog := &quickstartLauncherCatalog{}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
 		WithAdminDependencies(admin.Dependencies{
 			Authenticator:  quickstartLauncherAuthenticator{},
 			Authorizer:     quickstartLauncherAuthorizer{},
-			CommandCatalog: quickstartLauncherCatalog{},
+			CommandCatalog: catalog,
 		}),
 		WithFeatureDefaults(map[string]bool{
 			"commands": true,
@@ -131,6 +141,14 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 		t.Fatalf("initialize admin: %v", err)
 	}
 	server.Init()
+	registration, ok := debugregistry.Panel(admin.DebugPanelCommands)
+	if !ok {
+		t.Fatal("expected command launcher panel registration")
+	}
+	if len(registration.Actions) != 0 {
+		t.Fatalf("expected empty bootstrap handler snapshot, got %+v", registration.Actions)
+	}
+	catalog.descriptors = []gocommand.CommandDescriptor{quickstartLauncherEchoDescriptor()}
 
 	discoveryRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/debug/api/panels", nil)
 	discoveryResponse, err := server.WrappedRouter().Test(discoveryRequest, -1)
