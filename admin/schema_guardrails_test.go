@@ -139,7 +139,7 @@ func TestSchemaGuardrails_ValidateUISchema_SizeLimit(t *testing.T) {
 
 	err := g.ValidateUISchema(largeUISchema, jsonSchema)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "exceeds maximum size")
+	assert.Contains(t, errorDetail(err), "exceeds maximum size")
 }
 
 func TestSchemaGuardrails_ValidateUISchema_InvalidFieldReference(t *testing.T) {
@@ -160,7 +160,7 @@ func TestSchemaGuardrails_ValidateUISchema_InvalidFieldReference(t *testing.T) {
 
 	err := g.ValidateUISchema(uiSchema, jsonSchema)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "non-existent field")
+	assert.Contains(t, errorDetail(err), "non-existent field")
 }
 
 func TestSchemaGuardrails_ValidateUISchema_Valid(t *testing.T) {

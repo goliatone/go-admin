@@ -114,7 +114,7 @@ func TestParseTranslationExportInputRejectsClientIdentityFields(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected actor_id to be rejected")
 	}
-	if !strings.Contains(err.Error(), "auth-derived identity fields") {
+	if !strings.Contains(errorDetail(err), "auth-derived identity fields") {
 		t.Fatalf("expected identity-field error, got %v", err)
 	}
 }
@@ -127,7 +127,7 @@ func TestParseTranslationImportJSONRejectsClientIdentityFields(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected tenant_id to be rejected")
 	}
-	if !strings.Contains(err.Error(), "auth-derived identity fields") {
+	if !strings.Contains(errorDetail(err), "auth-derived identity fields") {
 		t.Fatalf("expected identity-field error, got %v", err)
 	}
 }

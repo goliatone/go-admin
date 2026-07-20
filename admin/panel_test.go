@@ -648,7 +648,7 @@ func TestPanelBuilderBuildRequiresCreateUIContractForCanonicalRoute(t *testing.T
 	if err == nil {
 		t.Fatalf("expected create-ui contract validation error")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "form fields") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "form fields") {
 		t.Fatalf("expected form field validation error message, got %v", err)
 	}
 }

@@ -810,7 +810,7 @@ func TestAdminPersistMenuItemsFailsLoudlyForRouteMissingModuleItem(t *testing.T)
 	if err == nil {
 		t.Fatalf("expected route-missing module item to fail")
 	}
-	if !strings.Contains(err.Error(), "navigation route target missing") {
+	if !strings.Contains(errorDetail(err), "navigation route target missing") {
 		t.Fatalf("expected route-missing error, got %v", err)
 	}
 	report := adm.NavigationLifecycleReport()
@@ -839,7 +839,7 @@ func TestAdminPersistMenuItemsFailsForRouteMissingModuleItemInAutoDevMode(t *tes
 	if err == nil {
 		t.Fatalf("expected route-missing module item to fail in dev auto mode")
 	}
-	if !strings.Contains(err.Error(), "navigation route target missing") {
+	if !strings.Contains(errorDetail(err), "navigation route target missing") {
 		t.Fatalf("expected route-missing error, got %v", err)
 	}
 	report := adm.NavigationLifecycleReport()
@@ -907,7 +907,7 @@ func TestAdminPersistMenuItemsFailsWhenRawInventoryProviderErrors(t *testing.T) 
 		Menu:   "admin_main",
 		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
 	}})
-	if err == nil || !strings.Contains(err.Error(), "navigation raw inventory unavailable") {
+	if err == nil || !strings.Contains(errorDetail(err), "navigation raw inventory unavailable") {
 		t.Fatalf("expected raw inventory error, got %v", err)
 	}
 	report := adm.NavigationLifecycleReport()
@@ -995,7 +995,7 @@ func TestAdminPersistMenuItemsFailsWhenAddReportsTargetMissing(t *testing.T) {
 		Menu:   "admin_main",
 		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
 	}})
-	if err == nil || !strings.Contains(err.Error(), "navigation route target missing") {
+	if err == nil || !strings.Contains(errorDetail(err), "navigation route target missing") {
 		t.Fatalf("expected route-missing error from target-missing add, got %v", err)
 	}
 	report := adm.NavigationLifecycleReport()
@@ -1032,7 +1032,7 @@ func TestAdminPersistMenuItemsFailsWhenRepairAddReportsTargetMissing(t *testing.
 		Menu:   "admin_main",
 		Target: map[string]any{"type": "url", "path": "/admin/media", "key": "media"},
 	}})
-	if err == nil || !strings.Contains(err.Error(), "navigation route target missing") {
+	if err == nil || !strings.Contains(errorDetail(err), "navigation route target missing") {
 		t.Fatalf("expected route-missing error from target-missing repair add, got %v", err)
 	}
 	report := adm.NavigationLifecycleReport()
@@ -1260,7 +1260,7 @@ func TestNavigationContributionLifecycleRejectsLateWritesInStrictMode(t *testing
 		Locale: "en",
 		Target: map[string]any{"type": "url", "path": "/admin/late", "key": "late"},
 	}})
-	if err == nil || !strings.Contains(err.Error(), "navigation contributions closed") {
+	if err == nil || !strings.Contains(errorDetail(err), "navigation contributions closed") {
 		t.Fatalf("expected late write rejection, got %v", err)
 	}
 }
@@ -1326,7 +1326,7 @@ func TestNavigationContributionLifecycleRetainsQueuedWritesWhenFlushFails(t *tes
 		t.Fatalf("queue late navigation item: %v", err)
 	}
 	err := adm.FlushQueuedNavigationContributions(ctx)
-	if err == nil || !strings.Contains(err.Error(), "navigation raw inventory unavailable") {
+	if err == nil || !strings.Contains(errorDetail(err), "navigation raw inventory unavailable") {
 		t.Fatalf("expected raw inventory flush error, got %v", err)
 	}
 	if got := adm.NavigationLifecycleReport().QueuedItems; got != 1 {

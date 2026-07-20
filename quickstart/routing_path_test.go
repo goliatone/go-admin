@@ -252,7 +252,7 @@ func TestQuickstartRoutingConflictFailsStartupEvenWhenFiberRuntimeOptionsRelaxCo
 	if err == nil {
 		t.Fatalf("expected startup routing conflict failure")
 	}
-	if !strings.Contains(strings.ToLower(err.Error()), "routing") {
+	if !strings.Contains(strings.ToLower(errorDetail(err)), "routing") {
 		t.Fatalf("expected routing failure, got %v", err)
 	}
 

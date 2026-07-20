@@ -568,7 +568,7 @@ func TestActivityPolicyScopingSanitizerAndMachineFiltering(t *testing.T) {
 			},
 		},
 	}
-	policy := usersactivity.NewDefaultAccessPolicy(
+	policy := newDefaultActivityAccessPolicy(
 		usersactivity.WithPolicyFilterOptions(usersactivity.WithMachineActivityEnabled(false)),
 	)
 	server := setupActivityServer(t, Dependencies{

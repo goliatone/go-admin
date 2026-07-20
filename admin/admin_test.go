@@ -249,7 +249,7 @@ func TestInitializeRequiresAuthenticatorByDefault(t *testing.T) {
 	}
 
 	err = adm.Initialize(router.NewHTTPServer().Router())
-	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "authenticator") {
+	if err == nil || !strings.Contains(strings.ToLower(errorDetail(err)), "authenticator") {
 		t.Fatalf("expected missing authenticator startup failure, got %v", err)
 	}
 }
@@ -280,7 +280,7 @@ func TestBootWithContextRequiresAuthenticatorByDefault(t *testing.T) {
 	adm.router = router.NewHTTPServer().Router()
 
 	err = adm.BootWithContext(context.Background())
-	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "authenticator") {
+	if err == nil || !strings.Contains(strings.ToLower(errorDetail(err)), "authenticator") {
 		t.Fatalf("expected missing authenticator boot failure, got %v", err)
 	}
 }
@@ -455,7 +455,7 @@ func TestInitializeFailsWhenGlobalCommandRegistryAlreadyInitializedExternally(t 
 	if err == nil {
 		t.Fatalf("expected initialize to fail when registry was started outside admin lifecycle")
 	}
-	if !strings.Contains(err.Error(), "command registry already initialized outside admin lifecycle") {
+	if !strings.Contains(errorDetail(err), "command registry already initialized outside admin lifecycle") {
 		t.Fatalf("expected bootstrap isolation error, got %v", err)
 	}
 	if adm.commandRegistryInitialized {
