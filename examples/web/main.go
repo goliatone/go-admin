@@ -40,6 +40,7 @@ import (
 	"github.com/goliatone/go-admin/quickstart"
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	authlib "github.com/goliatone/go-auth"
+	gocommand "github.com/goliatone/go-command"
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
@@ -67,7 +68,190 @@ const (
 	authzPreflightDefaultRolesCSV = "superadmin,owner"
 	defaultSiteContentChannel     = "default"
 	exampleAppInfoPath            = "/.well-known/app-info"
+	exampleEchoCommandID          = "example.debug.echo"
+	exampleMaintenanceCommandID   = "example.debug.maintenance"
+	exampleHealthCommandID        = "example.debug.health"
 )
+
+type exampleDebugCommandCatalog struct{}
+
+func (exampleDebugCommandCatalog) CommandDescriptors() []gocommand.CommandDescriptor {
+	return []gocommand.CommandDescriptor{
+		{
+			ID:            exampleEchoCommandID,
+			Label:         "Echo a message",
+			Summary:       "Render a message using several common form controls.",
+			Description:   "Exercises required text, static options, numeric validation, defaults, and a toggle.",
+			Domain:        "example",
+			Group:         "Examples",
+			Tags:          []string{"example", "formgen", "read-only"},
+			ExposeInAdmin: true,
+			ExecutionMode: gocommand.ExecutionModeInline,
+			Input: gocommand.CommandInputSchema{
+				Type: "object",
+				Fields: []gocommand.CommandInputField{
+					{
+						Path:        "message",
+						Label:       "Message",
+						Type:        "string",
+						Required:    true,
+						Placeholder: "Hello from the command launcher",
+						Help:        "The text returned by the sample command.",
+						Validation:  map[string]any{"minLength": 1, "maxLength": 160},
+						DisplayHints: map[string]any{
+							"section": "Message",
+						},
+					},
+					{
+						Path:    "tone",
+						Label:   "Tone",
+						Kind:    "select",
+						Type:    "string",
+						Default: "friendly",
+						StaticOptions: []gocommand.CommandOption{
+							{Value: "friendly", Label: "Friendly", Description: "Add a welcoming prefix."},
+							{Value: "concise", Label: "Concise", Description: "Return only the supplied message."},
+							{Value: "urgent", Label: "Urgent", Description: "Add an urgency prefix."},
+						},
+						DisplayHints: map[string]any{"section": "Presentation"},
+					},
+					{
+						Path:         "repeat",
+						Label:        "Repeat",
+						Type:         "integer",
+						Default:      1,
+						Validation:   map[string]any{"minimum": 1, "maximum": 5},
+						DisplayHints: map[string]any{"section": "Presentation", "units": "times"},
+					},
+					{
+						Path:         "uppercase",
+						Label:        "Uppercase output",
+						Kind:         "toggle",
+						Type:         "boolean",
+						Default:      false,
+						DisplayHints: map[string]any{"section": "Presentation"},
+					},
+				},
+				Required: []string{"message"},
+			},
+			Result: gocommand.CommandResultDescriptor{Inline: true, ReceiptExpected: true},
+		},
+		{
+			ID:            exampleMaintenanceCommandID,
+			Label:         "Simulate maintenance",
+			Summary:       "Preview a mutating command confirmation flow without changing data.",
+			Description:   "Exercises confirmation, select, numeric, toggle, and textarea controls.",
+			Domain:        "example",
+			Group:         "Examples",
+			Tags:          []string{"example", "formgen", "mutating"},
+			ExposeInAdmin: true,
+			Mutating:      true,
+			ExecutionMode: gocommand.ExecutionModeInline,
+			Input: gocommand.CommandInputSchema{
+				Type: "object",
+				Fields: []gocommand.CommandInputField{
+					{
+						Path:     "environment",
+						Label:    "Environment",
+						Kind:     "select",
+						Type:     "string",
+						Required: true,
+						Default:  "staging",
+						StaticOptions: []gocommand.CommandOption{
+							{Value: "development", Label: "Development"},
+							{Value: "staging", Label: "Staging", Description: "Recommended for this sample."},
+							{Value: "production", Label: "Production", Description: "Still simulation-only; no data is changed."},
+						},
+						DisplayHints: map[string]any{"section": "Maintenance window"},
+					},
+					{
+						Path:         "duration_minutes",
+						Label:        "Duration",
+						Type:         "integer",
+						Required:     true,
+						Default:      15,
+						Validation:   map[string]any{"minimum": 5, "maximum": 120},
+						DisplayHints: map[string]any{"section": "Maintenance window", "units": "minutes"},
+					},
+					{
+						Path:         "notify_team",
+						Label:        "Notify team",
+						Kind:         "toggle",
+						Type:         "boolean",
+						Default:      true,
+						DisplayHints: map[string]any{"section": "Communication"},
+					},
+					{
+						Path:         "notes",
+						Label:        "Operator notes",
+						Kind:         "textarea",
+						Type:         "string",
+						Placeholder:  "What is being tested?",
+						Validation:   map[string]any{"maxLength": 500},
+						DisplayHints: map[string]any{"section": "Communication", "advanced": true},
+					},
+				},
+				Required: []string{"environment", "duration_minutes"},
+			},
+			Result: gocommand.CommandResultDescriptor{Inline: true, ReceiptExpected: true},
+		},
+		{
+			ID:            exampleHealthCommandID,
+			Label:         "Check example health",
+			Summary:       "Run a no-input command and return a timestamped result.",
+			Domain:        "example",
+			Group:         "Examples",
+			Tags:          []string{"example", "health", "read-only"},
+			ExposeInAdmin: true,
+			ExecutionMode: gocommand.ExecutionModeInline,
+			Input:         gocommand.CommandInputSchema{Type: "object", NoInput: true},
+			Result:        gocommand.CommandResultDescriptor{Inline: true, ReceiptExpected: true},
+		},
+	}
+}
+
+type exampleEchoMessage struct {
+	Message   string `json:"message"`
+	Tone      string `json:"tone"`
+	Repeat    int    `json:"repeat"`
+	Uppercase bool   `json:"uppercase"`
+}
+
+func (exampleEchoMessage) Type() string { return exampleEchoCommandID }
+
+type exampleEchoResult struct {
+	Output     string `json:"output"`
+	Tone       string `json:"tone"`
+	Repeat     int    `json:"repeat"`
+	ExecutedAt string `json:"executed_at"`
+}
+
+type exampleMaintenanceMessage struct {
+	Environment     string `json:"environment"`
+	DurationMinutes int    `json:"duration_minutes"`
+	NotifyTeam      bool   `json:"notify_team"`
+	Notes           string `json:"notes,omitempty"`
+}
+
+func (exampleMaintenanceMessage) Type() string { return exampleMaintenanceCommandID }
+
+type exampleMaintenanceResult struct {
+	Status          string `json:"status"`
+	Environment     string `json:"environment"`
+	DurationMinutes int    `json:"duration_minutes"`
+	Notification    string `json:"notification"`
+	ExecutedAt      string `json:"executed_at"`
+}
+
+type exampleHealthMessage struct{}
+
+func (exampleHealthMessage) Type() string { return exampleHealthCommandID }
+
+type exampleHealthResult struct {
+	Status      string `json:"status"`
+	Application string `json:"application"`
+	CheckedAt   string `json:"checked_at"`
+}
 
 func exampleEntryNavigationOptions() coreadmin.EntryNavigationOptions {
 	enabled := true
@@ -387,6 +571,9 @@ func main() {
 	if debugEnabled && featureDefaults["export"] {
 		quickstart.AddDebugPanels(&cfg, exportPipelinePanelID)
 	}
+	if debugEnabled {
+		quickstart.AddDebugPanels(&cfg, coreadmin.DebugPanelCommands)
+	}
 	debugPanelCatalog := quickstart.DefaultDebugPanelCatalog()
 	debugPanelCatalog[exportPipelinePanelID] = func(_ *admin.Config, _ quickstart.DebugPanelDeps) {
 		registerExportPipelinePanel(exportBundle)
@@ -406,6 +593,9 @@ func main() {
 		ExportMetadata:  exportBundle.Metadata,
 		LoggerProvider:  rootLogger,
 		Logger:          rootLogger,
+	}
+	if debugEnabled {
+		adminDeps.CommandCatalog = exampleDebugCommandCatalog{}
 	}
 	if usersDeps.ActivityRepo != nil {
 		adminDeps.ActivityRepository = usersDeps.ActivityRepo
@@ -1112,6 +1302,11 @@ func main() {
 		}),
 	); err != nil {
 		fatalf("failed to register modules: %v", err)
+	}
+	if debugEnabled {
+		if err := setupDebugConsoleCommands(adm, infof); err != nil {
+			fatalf("failed to register debug console sample commands: %v", err)
+		}
 	}
 	logTranslationNavigationSnapshot(context.Background(), "after-module-registrar", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
 	if err := ensureCoreContentPanels(adm, dataStores.Pages, dataStores.Posts); err != nil {
@@ -3799,6 +3994,158 @@ func setupSearch(adm *admin.Admin, dataStores *stores.DataStores) {
 
 	engine.Register("users", search.NewUsersSearchAdapter(dataStores.Users))
 	engine.Register("media", search.NewMediaSearchAdapter(dataStores.Media))
+}
+
+// setupDebugConsoleCommands registers safe, example-owned commands before
+// Admin.Initialize starts the process-wide go-command registry. Their catalog
+// descriptors are supplied earlier through admin.Dependencies so the Debug
+// Console can render each input form with go-formgen during module setup.
+func setupDebugConsoleCommands(adm *admin.Admin, logf func(string, ...any)) error {
+	if adm == nil || adm.Commands() == nil {
+		return fmt.Errorf("debug console command bus is unavailable")
+	}
+	return registerDebugConsoleCommands(adm.Commands(), logf)
+}
+
+func registerDebugConsoleCommands(bus *coreadmin.CommandBus, logf func(string, ...any)) error {
+	if _, err := admin.RegisterCommand(bus, gocommand.CommandFunc[exampleEchoMessage](func(ctx context.Context, msg exampleEchoMessage) error {
+		output := msg.Message
+		switch msg.Tone {
+		case "friendly":
+			output = "Hello! " + output
+		case "urgent":
+			output = "URGENT: " + output
+		}
+		if msg.Uppercase {
+			output = strings.ToUpper(output)
+		}
+		lines := make([]string, msg.Repeat)
+		for index := range lines {
+			lines[index] = output
+		}
+		result := exampleEchoResult{
+			Output:     strings.Join(lines, "\n"),
+			Tone:       msg.Tone,
+			Repeat:     msg.Repeat,
+			ExecutedAt: time.Now().UTC().Format(time.RFC3339),
+		}
+		if collector := gocommand.ResultFromContext[exampleEchoResult](ctx); collector != nil {
+			collector.Store(result)
+		}
+		if logf != nil {
+			logf("debug command executed: id=%s tone=%s repeat=%d", exampleEchoCommandID, msg.Tone, msg.Repeat)
+		}
+		return nil
+	})); err != nil {
+		return fmt.Errorf("register %s handler: %w", exampleEchoCommandID, err)
+	}
+	if err := coreadmin.RegisterMessageResultFactory[exampleEchoMessage, exampleEchoResult](bus, exampleEchoCommandID, buildExampleEchoMessage); err != nil {
+		return fmt.Errorf("register %s factory: %w", exampleEchoCommandID, err)
+	}
+
+	if _, err := admin.RegisterCommand(bus, gocommand.CommandFunc[exampleMaintenanceMessage](func(ctx context.Context, msg exampleMaintenanceMessage) error {
+		notification := "skipped"
+		if msg.NotifyTeam {
+			notification = "simulated"
+		}
+		result := exampleMaintenanceResult{
+			Status:          "simulated",
+			Environment:     msg.Environment,
+			DurationMinutes: msg.DurationMinutes,
+			Notification:    notification,
+			ExecutedAt:      time.Now().UTC().Format(time.RFC3339),
+		}
+		if collector := gocommand.ResultFromContext[exampleMaintenanceResult](ctx); collector != nil {
+			collector.Store(result)
+		}
+		if logf != nil {
+			logf("debug command executed: id=%s environment=%s duration_minutes=%d simulated=true", exampleMaintenanceCommandID, msg.Environment, msg.DurationMinutes)
+		}
+		return nil
+	})); err != nil {
+		return fmt.Errorf("register %s handler: %w", exampleMaintenanceCommandID, err)
+	}
+	if err := coreadmin.RegisterMessageResultFactory[exampleMaintenanceMessage, exampleMaintenanceResult](bus, exampleMaintenanceCommandID, buildExampleMaintenanceMessage); err != nil {
+		return fmt.Errorf("register %s factory: %w", exampleMaintenanceCommandID, err)
+	}
+
+	if _, err := admin.RegisterCommand(bus, gocommand.CommandFunc[exampleHealthMessage](func(ctx context.Context, _ exampleHealthMessage) error {
+		result := exampleHealthResult{
+			Status:      "ok",
+			Application: "go-admin web example",
+			CheckedAt:   time.Now().UTC().Format(time.RFC3339),
+		}
+		if collector := gocommand.ResultFromContext[exampleHealthResult](ctx); collector != nil {
+			collector.Store(result)
+		}
+		if logf != nil {
+			logf("debug command executed: id=%s status=ok", exampleHealthCommandID)
+		}
+		return nil
+	})); err != nil {
+		return fmt.Errorf("register %s handler: %w", exampleHealthCommandID, err)
+	}
+	if err := coreadmin.RegisterMessageResultFactory[exampleHealthMessage, exampleHealthResult](bus, exampleHealthCommandID, buildExampleHealthMessage); err != nil {
+		return fmt.Errorf("register %s factory: %w", exampleHealthCommandID, err)
+	}
+
+	return nil
+}
+
+func buildExampleEchoMessage(payload map[string]any, _ []string) (exampleEchoMessage, error) {
+	message := primitives.StringFromAny(payload["message"])
+	if message == "" {
+		return exampleEchoMessage{}, fmt.Errorf("message is required")
+	}
+	tone := strings.ToLower(primitives.StringFromAny(payload["tone"]))
+	if tone == "" {
+		tone = "friendly"
+	}
+	if tone != "friendly" && tone != "concise" && tone != "urgent" {
+		return exampleEchoMessage{}, fmt.Errorf("tone must be friendly, concise, or urgent")
+	}
+	repeat, ok := primitives.IntFromAny(payload["repeat"])
+	if !ok {
+		repeat = 1
+	}
+	if repeat < 1 || repeat > 5 {
+		return exampleEchoMessage{}, fmt.Errorf("repeat must be between 1 and 5")
+	}
+	uppercase, _ := primitives.BoolFromAny(payload["uppercase"])
+	return exampleEchoMessage{Message: message, Tone: tone, Repeat: repeat, Uppercase: uppercase}, nil
+}
+
+func buildExampleMaintenanceMessage(payload map[string]any, _ []string) (exampleMaintenanceMessage, error) {
+	environment := strings.ToLower(primitives.StringFromAny(payload["environment"]))
+	if environment == "" {
+		environment = "staging"
+	}
+	if environment != "development" && environment != "staging" && environment != "production" {
+		return exampleMaintenanceMessage{}, fmt.Errorf("environment must be development, staging, or production")
+	}
+	duration, ok := primitives.IntFromAny(payload["duration_minutes"])
+	if !ok {
+		duration = 15
+	}
+	if duration < 5 || duration > 120 {
+		return exampleMaintenanceMessage{}, fmt.Errorf("duration_minutes must be between 5 and 120")
+	}
+	notifyTeam := true
+	if value, exists := payload["notify_team"]; exists {
+		if parsed, valid := primitives.BoolFromAny(value); valid {
+			notifyTeam = parsed
+		}
+	}
+	return exampleMaintenanceMessage{
+		Environment:     environment,
+		DurationMinutes: duration,
+		NotifyTeam:      notifyTeam,
+		Notes:           primitives.StringFromAny(payload["notes"]),
+	}, nil
+}
+
+func buildExampleHealthMessage(_ map[string]any, _ []string) (exampleHealthMessage, error) {
+	return exampleHealthMessage{}, nil
 }
 
 // setupJobs registers job commands. The admin orchestrator wires these command.CronCommand
