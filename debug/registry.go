@@ -321,12 +321,12 @@ type PanelDefinition struct {
 
 // PanelRegistration stores definition metadata and server hooks.
 type PanelRegistration struct {
-	Definition PanelDefinition               `json:"definition"`
-	Filter     PanelDefinitionFilter         `json:"-"`
-	Snapshot   PanelSnapshotFunc             `json:"snapshot"`
-	Clear      PanelClearFunc                `json:"clear"`
-	Actions    map[string]PanelActionHandler `json:"-"`
-	Resolver   PanelActionHandlerResolver    `json:"-"`
+	Definition     PanelDefinition               `json:"definition"`
+	Filter         PanelDefinitionFilter         `json:"-"`
+	Snapshot       PanelSnapshotFunc             `json:"snapshot"`
+	Clear          PanelClearFunc                `json:"clear"`
+	Actions        map[string]PanelActionHandler `json:"-"`
+	ActionResolver PanelActionHandlerResolver    `json:"-"`
 }
 
 // PanelRegistry stores registered panels and metadata.
@@ -596,12 +596,12 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 		def.UI = normalizePanelUI(config.UI, config.Actions, config.ActionResolver != nil)
 	}
 	return PanelRegistration{
-		Definition: def,
-		Filter:     config.Definition,
-		Snapshot:   config.Snapshot,
-		Clear:      config.Clear,
-		Actions:    normalizeActionHandlers(config.Actions),
-		Resolver:   config.ActionResolver,
+		Definition:     def,
+		Filter:         config.Definition,
+		Snapshot:       config.Snapshot,
+		Clear:          config.Clear,
+		Actions:        normalizeActionHandlers(config.Actions),
+		ActionResolver: config.ActionResolver,
 	}
 }
 
@@ -626,7 +626,7 @@ func (r PanelRegistration) definitionForContext(ctx context.Context) PanelDefini
 // resolver is consulted only when no fixed handler matches.
 func (r PanelRegistration) ActionHandlerForContext(ctx context.Context, actionID string) PanelActionHandler {
 	actionID = normalizeID(actionID)
-	if actionID == "" || (len(r.Actions) == 0 && r.Resolver == nil) {
+	if actionID == "" || (len(r.Actions) == 0 && r.ActionResolver == nil) {
 		return nil
 	}
 	if !PanelDefinitionHasAction(r.definitionForContext(ctx), actionID) {
@@ -635,10 +635,10 @@ func (r PanelRegistration) ActionHandlerForContext(ctx context.Context, actionID
 	if handler := panelActionHandlerFor(r.Actions, actionID); handler != nil {
 		return handler
 	}
-	if r.Resolver == nil {
+	if r.ActionResolver == nil {
 		return nil
 	}
-	return r.Resolver(ctx, actionID)
+	return r.ActionResolver(ctx, actionID)
 }
 
 func supportsToolbar(value *bool) bool {
