@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -14,6 +16,18 @@ func (siteSearchProviderStub) Search(_ context.Context, req SearchRequest) (Sear
 		PerPage: req.PerPage,
 		Total:   1,
 	}, nil
+}
+
+func TestSearchFoundationContractsRemainAdditiveAtZeroValue(t *testing.T) {
+	payload, err := json.Marshal(SearchResultPage{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(payload)
+	if strings.Contains(body, `"counts"`) || strings.Contains(body, `"total_accuracy"`) {
+		t.Fatalf("optional fields leaked into zero value: %s", body)
+	}
+	var _ SearchProvider = siteSearchProviderStub{}
 }
 
 func (siteSearchProviderStub) Suggest(_ context.Context, req SuggestRequest) (SuggestResult, error) {

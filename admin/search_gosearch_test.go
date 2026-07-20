@@ -93,8 +93,11 @@ func TestGoSearchGlobalAdapterUsesGoSearchQuery(t *testing.T) {
 }
 
 func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
+	ordinal := 1
 	search := &stubSearchQuery{
 		page: searchtypes.SearchResultPage{
+			TotalAccuracy: searchtypes.TotalAccuracyExact,
+			Counts:        map[string]searchtypes.SearchCount{"transcript_matches": {Value: 1, Accuracy: searchtypes.CountAccuracyExact}},
 			Hits: []searchtypes.SearchHit{{
 				ID:      "1",
 				Type:    "page",
@@ -110,6 +113,7 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 				Ranking: &searchtypes.AppliedRankingSignals{
 					Editorial: []searchtypes.AppliedEditorialSignal{{RuleID: "pin-1", Action: searchtypes.EditorialActionPin}},
 				},
+				Evidence: &searchtypes.MatchEvidenceSummary{Exact: true, Status: searchtypes.EvidenceStatusComplete, Locations: []searchtypes.MatchEvidenceLocation{{Location: "transcript", Count: 1, Samples: []searchtypes.MatchEvidenceSample{{DocumentID: "segment-1", Locale: "bo", Snippet: &searchtypes.SearchSnippet{Text: "text"}, ChunkOrdinal: &ordinal}}}}},
 			}},
 			Facets: []searchtypes.SearchFacet{{
 				Field:       "topic_hierarchy",
@@ -143,12 +147,16 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 		Page:    1,
 		PerPage: 10,
 		Ranges:  []SearchRange{{Field: "published_year", GTE: 2024}},
+		Variant: SearchVariant("transcripts"),
 	})
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
 	if len(page.Hits) != 1 || search.last.Indexes[0] != "media" {
 		t.Fatalf("page=%#v request=%#v", page, search.last)
+	}
+	if search.last.Metadata["search_variant"] != "transcripts" || page.TotalAccuracy != SearchTotalAccuracyExact || page.Counts["transcript_matches"].Value != 1 || page.Hits[0].Evidence.Locations[0].Samples[0].Locale != "bo" {
+		t.Fatalf("foundation translation: page=%#v request=%#v", page, search.last)
 	}
 	if page.Hits[0].Highlighted != "<mark>archive</mark> chant" || page.Hits[0].ParentTitle != "Ocean Wind" || page.Hits[0].Anchor == nil {
 		t.Fatalf("expected richer hit translation, got %+v", page.Hits[0])
@@ -160,12 +168,15 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 	if !ok || rangeExpr.Field != "published_year" || rangeExpr.GTE != 2024 {
 		t.Fatalf("expected published_year range filter, got %#v", search.last.Filters)
 	}
-	result, err := provider.Suggest(context.Background(), SuggestRequest{Query: "oce", Limit: 5, Locale: "en"})
+	result, err := provider.Suggest(context.Background(), SuggestRequest{Query: "oce", Limit: 5, Locale: "en", Variant: SearchVariant("transcripts")})
 	if err != nil {
 		t.Fatalf("suggest: %v", err)
 	}
 	if len(result.Suggestions) != 1 || suggest.last.Indexes[0] != "media" {
 		t.Fatalf("result=%#v request=%#v", result, suggest.last)
+	}
+	if suggest.last.Metadata["search_variant"] != "transcripts" {
+		t.Fatalf("suggest variant metadata = %#v", suggest.last.Metadata)
 	}
 }
 
