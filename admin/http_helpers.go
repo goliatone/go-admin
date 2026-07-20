@@ -29,8 +29,7 @@ func writeError(c router.Context, err error) error {
 		mapped = goerrors.New("unknown error", goerrors.CategoryInternal).WithCode(status)
 	}
 	c.Status(status)
-	includeStack := presenter.IncludeStackTrace()
-	return c.JSON(status, mapped.ToErrorResponse(includeStack, mapped.StackTrace))
+	return c.JSON(status, presenter.ErrorResponse(mapped))
 }
 
 func parseJSONBody(c router.Context) (map[string]any, error) {
