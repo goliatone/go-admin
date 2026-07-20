@@ -37,6 +37,9 @@ func validateSearchVariantPolicy(policy *SiteSearchVariantPolicy) error {
 			return fmt.Errorf("search variant query parameter %q is invalid", parameter)
 		}
 	}
+	if searchQueryParameterConflicts(parameter) {
+		return fmt.Errorf("search variant query parameter %q conflicts with a quickstart search query key", parameter)
+	}
 	allowed := make([]string, 0, len(policy.Allowed))
 	for _, value := range policy.Allowed {
 		value := strings.TrimSpace(string(value))

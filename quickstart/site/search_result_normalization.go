@@ -44,9 +44,9 @@ func normalizeSearchResults(
 			active := bucket.Selected || searchFilterContains(activeFilters[facetName], value)
 			nextQuery := cloneSearchFilters(currentQuery)
 			if active {
-				searchRemoveFilterValue(nextQuery, facetName, value)
+				searchRemoveCanonicalFilterValue(nextQuery, facetName, value)
 			} else {
-				searchAddFilterValue(nextQuery, facetName, value)
+				searchAddCanonicalFilterValue(nextQuery, facetName, value)
 			}
 			buckets = append(buckets, map[string]any{
 				"value":        value,
@@ -78,7 +78,7 @@ func normalizeSearchResults(
 	page := searchPositiveOrFallback(result.Page, 1)
 	perPage := searchPositiveOrFallback(result.PerPage, 10)
 	hasPrev := page > 1
-	hasNext := result.Total > page*perPage
+	hasNext := searchHasNextPage(result, page, perPage)
 	prevPage := max(page-1, 1)
 	nextPage := page + 1
 	prevQuery := cloneSearchFilters(currentQuery)
@@ -105,6 +105,18 @@ func normalizeSearchResults(
 		Pagination:    pagination,
 		Counts:        normalizeSearchCounts(result.Counts),
 		TotalAccuracy: string(result.TotalAccuracy),
+	}
+}
+
+func searchHasNextPage(result admin.SearchResultPage, page, perPage int) bool {
+	if result.Total > page*perPage {
+		return true
+	}
+	switch result.TotalAccuracy {
+	case admin.SearchTotalAccuracyLowerBound, admin.SearchTotalAccuracyApproximate:
+		return len(result.Hits) >= perPage
+	default:
+		return false
 	}
 }
 

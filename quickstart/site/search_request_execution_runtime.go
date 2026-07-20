@@ -15,6 +15,11 @@ func (r *searchRuntime) executeSearch(c router.Context, req admin.SearchRequest)
 }
 
 func (r *searchRuntime) executeSearchWithLanding(c router.Context, req admin.SearchRequest, landing *searchLandingState) (admin.SearchResultPage, error) {
+	result, _, err := r.executeSearchWithLandingState(c, req, landing)
+	return result, err
+}
+
+func (r *searchRuntime) executeSearchWithLandingState(c router.Context, req admin.SearchRequest, landing *searchLandingState) (admin.SearchResultPage, bool, error) {
 	page := searchPositiveOrFallback(req.Page, 1)
 	defaultPageSize := 10
 	if r != nil && r.siteCfg.Search.PageSizePolicy != nil {
@@ -30,21 +35,21 @@ func (r *searchRuntime) executeSearchWithLanding(c router.Context, req admin.Sea
 	req.Page = page
 	req.PerPage = perPage
 	if err := r.validateSearchRequestPolicy(req); err != nil {
-		return empty, err
+		return empty, false, err
 	}
 	if strings.TrimSpace(req.Query) == "" {
 		prepared, err := r.prepareFilterOnlyRequest(RequestContext(c), req, landing)
 		if err != nil {
-			return empty, err
+			return empty, false, err
 		}
 		if prepared == nil {
-			return empty, nil
+			return empty, false, nil
 		}
 		req = *prepared
 	}
 	result, err := r.provider.Search(RequestContext(c), req)
 	if err != nil {
-		return empty, err
+		return empty, true, err
 	}
 	if result.Page <= 0 {
 		result.Page = page
@@ -55,7 +60,7 @@ func (r *searchRuntime) executeSearchWithLanding(c router.Context, req admin.Sea
 	if result.Hits == nil {
 		result.Hits = []admin.SearchHit{}
 	}
-	return result, nil
+	return result, true, nil
 }
 
 type searchClientError struct{ message string }

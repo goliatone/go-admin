@@ -13,6 +13,7 @@ func (r *searchRuntime) searchAPIHandlerPayload(c router.Context) (int, map[stri
 		flow.req,
 		requestSearchRoute(c, r.baseRoute),
 		searchCurrentQueryValues(c),
+		flow.executed,
 		false,
 	)
 

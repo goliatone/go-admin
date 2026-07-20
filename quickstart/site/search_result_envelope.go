@@ -15,6 +15,7 @@ type searchResultEnvelope struct {
 	PerPage       int              `json:"per_page"`
 	Total         int              `json:"total"`
 	HasQuery      bool             `json:"has_query"`
+	HasSearch     bool             `json:"has_search"`
 	HasResults    bool             `json:"has_results"`
 	ZeroResults   bool             `json:"zero_results"`
 	TotalAccuracy string           `json:"total_accuracy,omitempty"`
@@ -26,6 +27,7 @@ func buildSearchResultEnvelope(
 	req admin.SearchRequest,
 	activeRoute string,
 	queryValues map[string][]string,
+	executed bool,
 	hasError bool,
 ) searchResultEnvelope {
 	normalized := normalizeSearchResults(result, req.Filters, activeRoute, queryValues)
@@ -40,8 +42,9 @@ func buildSearchResultEnvelope(
 		PerPage:       searchPositiveOrFallback(result.PerPage, req.PerPage),
 		Total:         result.Total,
 		HasQuery:      hasQuery,
+		HasSearch:     executed,
 		HasResults:    hasResults,
-		ZeroResults:   hasQuery && !hasResults && !hasError,
+		ZeroResults:   executed && !hasResults && !hasError,
 		TotalAccuracy: normalized.TotalAccuracy,
 		Counts:        normalized.Counts,
 	}
@@ -50,6 +53,7 @@ func buildSearchResultEnvelope(
 func searchPageState(envelope searchResultEnvelope, hasError bool) map[string]any {
 	return map[string]any{
 		"has_query":    envelope.HasQuery,
+		"has_search":   envelope.HasSearch,
 		"has_results":  envelope.HasResults,
 		"zero_results": envelope.ZeroResults,
 		"has_error":    hasError,
@@ -60,6 +64,10 @@ func searchAPIData(envelope searchResultEnvelope) map[string]any {
 	return map[string]any{
 		"hits":           envelope.Hits,
 		"facets":         envelope.Facets,
+		"has_query":      envelope.HasQuery,
+		"has_search":     envelope.HasSearch,
+		"has_results":    envelope.HasResults,
+		"zero_results":   envelope.ZeroResults,
 		"page":           envelope.Page,
 		"per_page":       envelope.PerPage,
 		"total":          envelope.Total,

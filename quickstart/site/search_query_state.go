@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/goliatone/go-admin/admin"
 )
 
 func searchFilterChips(filters map[string][]string, baseRoute string, currentQuery map[string][]string) []map[string]any {
@@ -27,7 +29,7 @@ func searchFilterChips(filters map[string][]string, baseRoute string, currentQue
 				continue
 			}
 			nextQuery := cloneSearchFilters(currentQuery)
-			searchRemoveFilterValue(nextQuery, key, value)
+			searchRemoveCanonicalFilterValue(nextQuery, key, value)
 			out = append(out, map[string]any{
 				"key":        key,
 				"value":      value,
@@ -39,7 +41,7 @@ func searchFilterChips(filters map[string][]string, baseRoute string, currentQue
 	return out
 }
 
-func searchClearURL(baseRoute string, currentQuery map[string][]string) string {
+func searchClearURL(baseRoute string, currentQuery map[string][]string, activeFilters map[string][]string, ranges []admin.SearchRange) string {
 	next := cloneSearchFilters(currentQuery)
 	for key := range next {
 		switch {
@@ -61,6 +63,17 @@ func searchClearURL(baseRoute string, currentQuery map[string][]string) string {
 		if key == "content_type" || key == "tag" || key == "category" || key == "date_from" || key == "date_to" {
 			delete(next, key)
 		}
+	}
+	for field := range activeFilters {
+		searchDeleteCanonicalFilter(next, field)
+	}
+	for _, item := range ranges {
+		field := strings.TrimSpace(item.Field)
+		if field == "" {
+			continue
+		}
+		delete(next, field+"_gte")
+		delete(next, field+"_lte")
 	}
 	return searchURLWithQuery(baseRoute, next)
 }
@@ -135,6 +148,39 @@ func searchRemoveFilterValue(filters map[string][]string, key, value string) {
 		return
 	}
 	filters[key] = out
+}
+
+func searchAddCanonicalFilterValue(filters map[string][]string, key string, values ...string) {
+	rawKeys := searchRawFilterKeys(filters, key)
+	if len(rawKeys) == 0 {
+		searchAddFilterValue(filters, searchCanonicalFilterKey(key), values...)
+		return
+	}
+	searchAddFilterValue(filters, rawKeys[0], values...)
+}
+
+func searchRemoveCanonicalFilterValue(filters map[string][]string, key, value string) {
+	for _, rawKey := range searchRawFilterKeys(filters, key) {
+		searchRemoveFilterValue(filters, rawKey, value)
+	}
+}
+
+func searchDeleteCanonicalFilter(filters map[string][]string, key string) {
+	for _, rawKey := range searchRawFilterKeys(filters, key) {
+		delete(filters, rawKey)
+	}
+}
+
+func searchRawFilterKeys(filters map[string][]string, key string) []string {
+	canonical := searchCanonicalFilterKey(key)
+	out := make([]string, 0, 1)
+	for rawKey := range filters {
+		if strings.EqualFold(searchCanonicalFilterKey(rawKey), canonical) {
+			out = append(out, rawKey)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func searchFilterContains(values []string, target string) bool {

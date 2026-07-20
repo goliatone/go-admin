@@ -56,7 +56,7 @@ func TestNormalizeSearchResultsBuildsFacetToggleAndPaginationURLs(t *testing.T) 
 		},
 		map[string][]string{"tag": {"go"}},
 		"/search",
-		map[string][]string{"q": {"archive"}, "tag": {"go"}},
+		map[string][]string{"q": {"archive"}, "filter.tag": {"go"}},
 	)
 
 	if len(result.Hits) != 1 || anyString(result.Hits[0]["url"]) != "/post/hello" {
@@ -72,14 +72,47 @@ func TestNormalizeSearchResultsBuildsFacetToggleAndPaginationURLs(t *testing.T) 
 	if anyString(buckets[0]["url"]) != "/search?q=archive" {
 		t.Fatalf("expected active bucket url to remove filter, got %+v", buckets[0])
 	}
-	if anyString(buckets[1]["url"]) != "/search?q=archive&tag=go&tag=news" {
+	if anyString(buckets[1]["url"]) != "/search?filter.tag=go&filter.tag=news&q=archive" {
 		t.Fatalf("expected inactive bucket url to add filter, got %+v", buckets[1])
 	}
-	if anyString(result.Pagination["prev_url"]) != "/search?page=1&q=archive&tag=go" {
+	if anyString(result.Pagination["prev_url"]) != "/search?filter.tag=go&page=1&q=archive" {
 		t.Fatalf("expected prev pagination url, got %+v", result.Pagination)
 	}
-	if anyString(result.Pagination["next_url"]) != "/search?page=3&q=archive&tag=go" {
+	if anyString(result.Pagination["next_url"]) != "/search?filter.tag=go&page=3&q=archive" {
 		t.Fatalf("expected next pagination url, got %+v", result.Pagination)
+	}
+}
+
+func TestNormalizeSearchResultsUsesAccuracyForNextPage(t *testing.T) {
+	hits := make([]admin.SearchHit, 10)
+	for i := range hits {
+		hits[i] = admin.SearchHit{ID: string(rune('a' + i))}
+	}
+	for _, tc := range []struct {
+		name     string
+		accuracy admin.SearchTotalAccuracy
+		hits     []admin.SearchHit
+		want     bool
+	}{
+		{name: "lower bound full page", accuracy: admin.SearchTotalAccuracyLowerBound, hits: hits, want: true},
+		{name: "approximate full page", accuracy: admin.SearchTotalAccuracyApproximate, hits: hits, want: true},
+		{name: "lower bound short page", accuracy: admin.SearchTotalAccuracyLowerBound, hits: hits[:9]},
+		{name: "approximate short page", accuracy: admin.SearchTotalAccuracyApproximate, hits: hits[:9]},
+		{name: "exact full page", accuracy: admin.SearchTotalAccuracyExact, hits: hits},
+		{name: "legacy full page", hits: hits},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := normalizeSearchResults(admin.SearchResultPage{
+				Hits:          tc.hits,
+				Page:          1,
+				PerPage:       10,
+				Total:         10,
+				TotalAccuracy: tc.accuracy,
+			}, nil, "/search", nil)
+			if got := anyBool(result.Pagination["has_next"]); got != tc.want {
+				t.Fatalf("has_next = %t, want %t: %+v", got, tc.want, result.Pagination)
+			}
+		})
 	}
 }
 

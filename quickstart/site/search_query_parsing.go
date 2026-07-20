@@ -9,6 +9,65 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+var searchOwnedQueryKeys = map[string]struct{}{
+	"q":               {},
+	"query":           {},
+	"search":          {},
+	"page":            {},
+	"per_page":        {},
+	"limit":           {},
+	"offset":          {},
+	"sort":            {},
+	"order":           {},
+	"facet":           {},
+	"facets":          {},
+	"index":           {},
+	"indexes":         {},
+	"format":          {},
+	"collection":      {},
+	"collections":     {},
+	"accept_language": {},
+	"env":             {},
+	"environment":     {},
+	"preview_token":   {},
+	"view_profile":    {},
+	"locale":          {},
+	"content_type":    {},
+	"content_types":   {},
+	"type":            {},
+	"tag":             {},
+	"tags":            {},
+	"category":        {},
+	"categories":      {},
+	"date_from":       {},
+	"from":            {},
+	"start_date":      {},
+	"date_to":         {},
+	"to":              {},
+	"end_date":        {},
+}
+
+var searchFilterQueryPrefixes = []string{"filter.", "filter_", "filters.", "facet_"}
+
+func searchQueryParameterConflicts(parameter string) bool {
+	parameter = strings.TrimSpace(parameter)
+	if parameter == "" {
+		return false
+	}
+	if _, owned := searchOwnedQueryKeys[parameter]; owned {
+		return true
+	}
+	if _, _, rangeControl := searchRangeKeyParts(parameter); rangeControl {
+		return true
+	}
+	for _, prefix := range searchFilterQueryPrefixes {
+		if strings.HasPrefix(parameter, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func searchCurrentQueryValues(c router.Context) map[string][]string {
 	if c == nil {
 		return map[string][]string{}
@@ -46,32 +105,15 @@ func searchBaseFilters(c router.Context, additionalReserved ...string) map[strin
 	if c == nil {
 		return out
 	}
-	reserved := map[string]struct{}{
-		"q":               {},
-		"query":           {},
-		"search":          {},
-		"page":            {},
-		"per_page":        {},
-		"limit":           {},
-		"offset":          {},
-		"sort":            {},
-		"order":           {},
-		"facet":           {},
-		"facets":          {},
-		"index":           {},
-		"indexes":         {},
-		"format":          {},
-		"collection":      {},
-		"collections":     {},
-		"accept_language": {},
-		"env":             {},
-		"environment":     {},
-		"preview_token":   {},
-		"view_profile":    {},
+	reserved := make(map[string]struct{}, len(searchOwnedQueryKeys)+len(additionalReserved))
+	for key := range searchOwnedQueryKeys {
+		reserved[key] = struct{}{}
 	}
+	additionalReservedSet := make(map[string]struct{}, len(additionalReserved))
 	for _, key := range additionalReserved {
 		if key = strings.TrimSpace(key); key != "" {
 			reserved[key] = struct{}{}
+			additionalReservedSet[key] = struct{}{}
 		}
 	}
 	for key := range c.Queries() {
@@ -89,27 +131,34 @@ func searchBaseFilters(c router.Context, additionalReserved ...string) map[strin
 		if len(values) == 0 {
 			continue
 		}
-		switch {
-		case strings.HasPrefix(normalizedKey, "filter."):
-			normalizedKey = strings.TrimPrefix(normalizedKey, "filter.")
-		case strings.HasPrefix(normalizedKey, "filter_"):
-			normalizedKey = strings.TrimPrefix(normalizedKey, "filter_")
-		case strings.HasPrefix(normalizedKey, "filters."):
-			normalizedKey = strings.TrimPrefix(normalizedKey, "filters.")
-		case strings.HasPrefix(normalizedKey, "facet_"):
-			normalizedKey = strings.TrimPrefix(normalizedKey, "facet_")
-		}
+		normalizedKey = searchCanonicalFilterKey(normalizedKey)
 		searchAddFilterValue(out, normalizedKey, values...)
 	}
 
-	searchForwardFilterAlias(out, c, "locale", "locale")
-	searchForwardFilterAlias(out, c, "content_type", "content_type", "content_types", "type")
-	searchForwardFilterAlias(out, c, "tag", "tag", "tags")
-	searchForwardFilterAlias(out, c, "category", "category", "categories")
-	searchForwardFilterAlias(out, c, "date_from", "date_from", "from", "start_date")
-	searchForwardFilterAlias(out, c, "date_to", "date_to", "to", "end_date")
+	searchForwardFilterAlias(out, c, additionalReservedSet, "locale", "locale")
+	searchForwardFilterAlias(out, c, additionalReservedSet, "content_type", "content_type", "content_types", "type")
+	searchForwardFilterAlias(out, c, additionalReservedSet, "tag", "tag", "tags")
+	searchForwardFilterAlias(out, c, additionalReservedSet, "category", "category", "categories")
+	searchForwardFilterAlias(out, c, additionalReservedSet, "date_from", "date_from", "from", "start_date")
+	searchForwardFilterAlias(out, c, additionalReservedSet, "date_to", "date_to", "to", "end_date")
 
 	return out
+}
+
+func searchCanonicalFilterKey(key string) string {
+	key = strings.TrimSpace(key)
+	switch {
+	case strings.HasPrefix(key, "filter."):
+		return strings.TrimPrefix(key, "filter.")
+	case strings.HasPrefix(key, "filter_"):
+		return strings.TrimPrefix(key, "filter_")
+	case strings.HasPrefix(key, "filters."):
+		return strings.TrimPrefix(key, "filters.")
+	case strings.HasPrefix(key, "facet_"):
+		return strings.TrimPrefix(key, "facet_")
+	default:
+		return key
+	}
 }
 
 func searchBaseRanges(c router.Context) []admin.SearchRange {
@@ -219,8 +268,11 @@ func searchParseRangeValue(raw string) any {
 	return raw
 }
 
-func searchForwardFilterAlias(target map[string][]string, c router.Context, canonical string, aliases ...string) {
+func searchForwardFilterAlias(target map[string][]string, c router.Context, reserved map[string]struct{}, canonical string, aliases ...string) {
 	for _, alias := range aliases {
+		if _, skip := reserved[alias]; skip {
+			continue
+		}
 		values := searchQueryValues(c, alias)
 		if len(values) == 0 {
 			continue

@@ -147,6 +147,12 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 		Page:    1,
 		PerPage: 10,
 		Ranges:  []SearchRange{{Field: "published_year", GTE: 2024}},
+		Actor: map[string]any{
+			"actor_id":        "user-7",
+			"tenant_id":       "tenant-2",
+			"organization_id": "org-3",
+			"role":            "editor",
+		},
 		Variant: SearchVariant("transcripts"),
 	})
 	if err != nil {
@@ -158,6 +164,9 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 	if search.last.Metadata["search_variant"] != "transcripts" || page.TotalAccuracy != SearchTotalAccuracyExact || page.Counts["transcript_matches"].Value != 1 || page.Hits[0].Evidence.Locations[0].Samples[0].Locale != "bo" {
 		t.Fatalf("foundation translation: page=%#v request=%#v", page, search.last)
 	}
+	if search.last.Actor.UserID != "user-7" || search.last.Actor.TenantID != "tenant-2" || search.last.Actor.OrgID != "org-3" || search.last.Actor.Metadata["role"] != "editor" {
+		t.Fatalf("search actor translation: %#v", search.last.Actor)
+	}
 	if page.Hits[0].Highlighted != "<mark>archive</mark> chant" || page.Hits[0].ParentTitle != "Ocean Wind" || page.Hits[0].Anchor == nil {
 		t.Fatalf("expected richer hit translation, got %+v", page.Hits[0])
 	}
@@ -168,7 +177,10 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 	if !ok || rangeExpr.Field != "published_year" || rangeExpr.GTE != 2024 {
 		t.Fatalf("expected published_year range filter, got %#v", search.last.Filters)
 	}
-	result, err := provider.Suggest(context.Background(), SuggestRequest{Query: "oce", Limit: 5, Locale: "en", Variant: SearchVariant("transcripts")})
+	result, err := provider.Suggest(context.Background(), SuggestRequest{
+		Query: "oce", Limit: 5, Locale: "en", Variant: SearchVariant("transcripts"),
+		Actor: map[string]any{"actor_id": "user-7", "tenant_id": "tenant-2"},
+	})
 	if err != nil {
 		t.Fatalf("suggest: %v", err)
 	}
@@ -177,6 +189,9 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 	}
 	if suggest.last.Metadata["search_variant"] != "transcripts" {
 		t.Fatalf("suggest variant metadata = %#v", suggest.last.Metadata)
+	}
+	if suggest.last.Actor.UserID != "user-7" || suggest.last.Actor.TenantID != "tenant-2" {
+		t.Fatalf("suggest actor translation: %#v", suggest.last.Actor)
 	}
 }
 

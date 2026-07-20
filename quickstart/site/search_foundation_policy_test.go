@@ -59,6 +59,41 @@ func TestValidateSiteConfigSearchPolicies(t *testing.T) {
 	}
 }
 
+func TestValidateSiteConfigRejectsVariantQueryParameterCollisions(t *testing.T) {
+	for _, parameter := range []string{
+		"q",
+		"locale",
+		"content_type",
+		"content_types",
+		"type",
+		"published_year_gte",
+		"duration_seconds_lte",
+		"filter_topic",
+		"facet_category",
+	} {
+		t.Run(parameter, func(t *testing.T) {
+			err := ValidateSiteConfig(admin.Config{}, SiteConfig{Search: SiteSearchConfig{
+				VariantPolicy: &SiteSearchVariantPolicy{
+					QueryParameter: parameter,
+					Allowed:        []admin.SearchVariant{"metadata"},
+				},
+			}})
+			if err == nil {
+				t.Fatalf("expected %q to conflict with quickstart search query keys", parameter)
+			}
+		})
+	}
+
+	if err := ValidateSiteConfig(admin.Config{}, SiteConfig{Search: SiteSearchConfig{
+		VariantPolicy: &SiteSearchVariantPolicy{
+			QueryParameter: "result_mode",
+			Allowed:        []admin.SearchVariant{"metadata"},
+		},
+	}}); err != nil {
+		t.Fatalf("expected a non-conflicting custom parameter to validate: %v", err)
+	}
+}
+
 func TestSearchVariantIsTypedReservedAndDefaultsPageSize(t *testing.T) {
 	runtime := &searchRuntime{siteCfg: ResolveSiteConfig(admin.Config{}, SiteConfig{Search: foundationSearchConfig()})}
 	ctx := router.NewMockContext()

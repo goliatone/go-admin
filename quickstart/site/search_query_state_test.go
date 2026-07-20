@@ -1,6 +1,10 @@
 package site
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/goliatone/go-admin/admin"
+)
 
 func TestSearchFilterChipsBuildRemoveURLs(t *testing.T) {
 	chips := searchFilterChips(
@@ -40,10 +44,36 @@ func TestSearchClearURLRemovesFilterAndRangeKeysOnly(t *testing.T) {
 		"published_year_gte": {"2024"},
 		"tag":                {"architecture"},
 		"sort":               {"published_year:desc"},
-	})
+	}, map[string][]string{
+		"visibility": {"public"},
+		"tag":        {"go", "architecture"},
+	}, []admin.SearchRange{{Field: "published_year", GTE: 2024}})
 
 	if got != "/search?q=archive&sort=published_year%3Adesc" {
 		t.Fatalf("expected clear url to preserve only non-filter state, got %q", got)
+	}
+}
+
+func TestSearchFilterChipsRemovePrefixedQueryKeys(t *testing.T) {
+	chips := searchFilterChips(
+		map[string][]string{"topic": {"tara"}},
+		"/search",
+		map[string][]string{"q": {"archive"}, "filter.topic": {"tara"}},
+	)
+	if len(chips) != 1 || anyString(chips[0]["remove_url"]) != "/search?q=archive" {
+		t.Fatalf("prefixed filter removal = %+v", chips)
+	}
+}
+
+func TestSearchClearURLRemovesArbitraryEffectiveBareFilters(t *testing.T) {
+	got := searchClearURL(
+		"/search",
+		map[string][]string{"q": {"archive"}, "speaker": {"rinpoche"}, "mode": {"transcripts"}},
+		map[string][]string{"speaker": {"rinpoche"}},
+		nil,
+	)
+	if got != "/search?mode=transcripts&q=archive" {
+		t.Fatalf("clear effective custom filter = %q", got)
 	}
 }
 

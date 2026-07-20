@@ -9,7 +9,7 @@ import (
 
 func (r *searchRuntime) renderPage(c router.Context, topicSlug string) error {
 	flow := r.prepareSearchPageFlow(c, topicSlug)
-	ctx := r.searchViewContext(c, flow.state, flow.req, flow.result, flow.facets, flow.indexes, flow.landing, flow.err)
+	ctx := r.searchViewContext(c, flow.state, flow.req, flow.result, flow.facets, flow.indexes, flow.landing, flow.executed, flow.err)
 	if flow.err != nil {
 		status := searchErrorStatus(flow.err)
 		return renderSiteTemplateResponse(c, flow.state, r.siteCfg, siteTemplateResponse{
@@ -50,6 +50,7 @@ func (r *searchRuntime) searchViewContext(
 	facets []string,
 	indexes []string,
 	landing *searchLandingState,
+	executed bool,
 	searchErr error,
 ) router.ViewContext {
 	view := newRuntimeViewContext(state)
@@ -60,7 +61,7 @@ func (r *searchRuntime) searchViewContext(
 		errorPayload = searchUnavailableErrorPayload(searchErr)
 		delete(errorPayload, "status")
 	}
-	envelope := buildSearchResultEnvelope(result, req, activeRoute, queryValues, len(errorPayload) > 0)
+	envelope := buildSearchResultEnvelope(result, req, activeRoute, queryValues, executed, len(errorPayload) > 0)
 	projection := buildSearchPageViewProjection(req, envelope, facets, indexes, landing, activeRoute, queryValues, errorPayload)
 
 	view["search_route"] = activeRoute
@@ -79,8 +80,12 @@ func (r *searchRuntime) applySearchPolicyViewContext(view router.ViewContext, re
 		return
 	}
 	variantParameter := r.searchVariantParameter()
+	suggestVariantParameter := ""
 	allowedVariants := []string{}
 	if policy := r.siteCfg.Search.VariantPolicy; policy != nil {
+		if policy.IncludeInSuggestions {
+			suggestVariantParameter = variantParameter
+		}
 		for _, value := range policy.Allowed {
 			allowedVariants = append(allowedVariants, string(value))
 		}
@@ -94,11 +99,13 @@ func (r *searchRuntime) applySearchPolicyViewContext(view router.ViewContext, re
 		expandedFacets = append(expandedFacets, policy.Fields...)
 	}
 	view["search_variant_query_param"] = variantParameter
+	view["search_suggest_variant_query_param"] = suggestVariantParameter
 	view["search_allowed_variants"] = allowedVariants
 	view["search_allowed_page_sizes"] = pageSizes
 	view["search_facet_default_expansion"] = expandedFacets
 	if nested, ok := view["search"].(map[string]any); ok {
 		nested["variant_query_param"] = variantParameter
+		nested["suggest_variant_query_param"] = suggestVariantParameter
 		nested["allowed_variants"] = allowedVariants
 		nested["allowed_page_sizes"] = pageSizes
 		nested["facet_default_expansion"] = expandedFacets

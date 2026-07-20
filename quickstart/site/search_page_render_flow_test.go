@@ -36,7 +36,7 @@ func TestSearchPageRenderFlowSearchViewContextClonesRequestStateViewContext(t *t
 		Total:   0,
 	}
 
-	view := runtime.searchViewContext(ctx, state, req, result, nil, nil, nil, nil)
+	view := runtime.searchViewContext(ctx, state, req, result, nil, nil, nil, true, nil)
 	if got := anyString(view["search_route"]); got != "/search" {
 		t.Fatalf("expected search_route /search, got %q", got)
 	}
@@ -68,6 +68,7 @@ func TestSearchPageRenderFlowSearchViewContextIncludesErrorPayloadWithoutStatus(
 		nil,
 		nil,
 		nil,
+		true,
 		errors.New("provider offline"),
 	)
 
@@ -77,6 +78,32 @@ func TestSearchPageRenderFlowSearchViewContextIncludesErrorPayloadWithoutStatus(
 	}
 	if _, ok := searchErr["status"]; ok {
 		t.Fatalf("expected page view-context error payload to omit status, got %+v", searchErr)
+	}
+}
+
+func TestApplySearchPolicyViewContextScopesSuggestionVariantPropagation(t *testing.T) {
+	config := foundationSearchConfig()
+	runtime := &searchRuntime{siteCfg: ResolveSiteConfig(admin.Config{}, SiteConfig{Search: config})}
+	view := router.ViewContext{"search": map[string]any{}}
+	runtime.applySearchPolicyViewContext(view, admin.SearchRequest{Variant: "transcripts"})
+
+	if got := anyString(view["search_suggest_variant_query_param"]); got != "mode" {
+		t.Fatalf("enabled suggestion variant parameter = %q", got)
+	}
+	if got := anyString(nestedMapFromAny(view["search"])["suggest_variant_query_param"]); got != "mode" {
+		t.Fatalf("nested enabled suggestion variant parameter = %q", got)
+	}
+
+	config.VariantPolicy.IncludeInSuggestions = false
+	runtime = &searchRuntime{siteCfg: ResolveSiteConfig(admin.Config{}, SiteConfig{Search: config})}
+	view = router.ViewContext{"search": map[string]any{}}
+	runtime.applySearchPolicyViewContext(view, admin.SearchRequest{Variant: "transcripts"})
+
+	if got := anyString(view["search_suggest_variant_query_param"]); got != "" {
+		t.Fatalf("disabled suggestion variant parameter = %q", got)
+	}
+	if got := anyString(nestedMapFromAny(view["search"])["suggest_variant_query_param"]); got != "" {
+		t.Fatalf("nested disabled suggestion variant parameter = %q", got)
 	}
 }
 

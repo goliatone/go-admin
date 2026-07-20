@@ -25,6 +25,39 @@ func TestSearchRequestExecutionRuntimeExecuteSearchReturnsEmptyDefaultsForBlankQ
 	}
 }
 
+func TestSearchRequestExecutionRuntimeReportsWhetherProviderRan(t *testing.T) {
+	provider := &foundationSearchProvider{}
+	idleRuntime := &searchRuntime{provider: provider}
+	_, executed, err := idleRuntime.executeSearchWithLandingState(nil, admin.SearchRequest{Page: 1, PerPage: 10}, nil)
+	if err != nil || executed || provider.searchCalls != 0 {
+		t.Fatalf("idle blank search execution = %t, err = %v, calls = %d", executed, err, provider.searchCalls)
+	}
+
+	runtime := &searchRuntime{
+		provider: provider,
+		siteCfg:  ResolveSiteConfig(admin.Config{}, SiteConfig{Search: foundationSearchConfig()}),
+	}
+
+	_, executed, err = runtime.executeSearchWithLandingState(nil, admin.SearchRequest{Page: 1, PerPage: 25}, nil)
+	if err == nil || executed || provider.searchCalls != 0 {
+		t.Fatalf("unconstrained blank search execution = %t, err = %v, calls = %d", executed, err, provider.searchCalls)
+	}
+
+	result, executed, err := runtime.executeSearchWithLandingState(nil, admin.SearchRequest{
+		Page:    1,
+		PerPage: 25,
+		Filters: map[string][]string{"topic": {"tara"}},
+	}, nil)
+	if err != nil || !executed || provider.searchCalls != 1 || len(result.Hits) != 0 {
+		t.Fatalf("bounded filter-only execution = %t, err = %v, calls = %d, result = %+v", executed, err, provider.searchCalls, result)
+	}
+
+	envelope := buildSearchResultEnvelope(result, provider.last, "/search", nil, executed, false)
+	if envelope.HasQuery || !envelope.HasSearch || !envelope.ZeroResults {
+		t.Fatalf("bounded filter-only envelope = %+v", envelope)
+	}
+}
+
 func TestSearchRequestExecutionRuntimeExecuteSearchNormalizesProviderResultDefaults(t *testing.T) {
 	provider := &recordingSiteSearchProvider{
 		searchResult: admin.SearchResultPage{

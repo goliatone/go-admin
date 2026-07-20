@@ -36,6 +36,7 @@ func TestBuildSearchResultEnvelope(t *testing.T) {
 		},
 		"/search",
 		map[string][]string{"q": {"hello"}},
+		true,
 		false,
 	)
 
@@ -59,6 +60,38 @@ func TestBuildSearchResultEnvelope(t *testing.T) {
 	}
 }
 
+func TestBuildSearchResultEnvelopeRepresentsFilterOnlyZeroResults(t *testing.T) {
+	envelope := buildSearchResultEnvelope(
+		admin.SearchResultPage{Hits: []admin.SearchHit{}, Page: 1, PerPage: 10},
+		admin.SearchRequest{Filters: map[string][]string{"topic": {"tara"}}, Page: 1, PerPage: 10},
+		"/search",
+		map[string][]string{"filter.topic": {"tara"}},
+		true,
+		false,
+	)
+	if envelope.HasQuery || !envelope.HasSearch || !envelope.ZeroResults {
+		t.Fatalf("filter-only execution state = %+v", envelope)
+	}
+	state := searchPageState(envelope, false)
+	if !anyBool(state["has_search"]) || !anyBool(state["zero_results"]) {
+		t.Fatalf("filter-only page state = %+v", state)
+	}
+}
+
+func TestBuildSearchResultEnvelopeDoesNotInventExecutionForBlankLanding(t *testing.T) {
+	envelope := buildSearchResultEnvelope(
+		admin.SearchResultPage{Hits: []admin.SearchHit{}, Page: 1, PerPage: 10},
+		admin.SearchRequest{Page: 1, PerPage: 10},
+		"/search",
+		nil,
+		false,
+		false,
+	)
+	if envelope.HasSearch || envelope.ZeroResults {
+		t.Fatalf("blank landing state = %+v", envelope)
+	}
+}
+
 func TestSearchPageStateAndAPIData(t *testing.T) {
 	envelope := searchResultEnvelope{
 		Hits:        []map[string]any{{"id": "post-1"}},
@@ -69,6 +102,7 @@ func TestSearchPageStateAndAPIData(t *testing.T) {
 		PerPage:     10,
 		Total:       0,
 		HasQuery:    true,
+		HasSearch:   true,
 		HasResults:  false,
 		ZeroResults: true,
 	}
@@ -79,6 +113,9 @@ func TestSearchPageStateAndAPIData(t *testing.T) {
 	}
 
 	data := searchAPIData(envelope)
+	if !anyBool(data["has_query"]) || !anyBool(data["has_search"]) || anyBool(data["has_results"]) || !anyBool(data["zero_results"]) {
+		t.Fatalf("unexpected API state %+v", data)
+	}
 	if got := intFromAny(data["page"]); got != 1 {
 		t.Fatalf("expected API data page 1, got %d", got)
 	}

@@ -60,7 +60,7 @@ func buildSearchPageViewProjection(
 		indexes:       cloneStrings(indexes),
 		collections:   cloneStrings(indexes),
 		facetsActive:  cloneStrings(facets),
-		clearURL:      searchClearURL(activeRoute, queryValues),
+		clearURL:      searchClearURL(activeRoute, queryValues, req.Filters, req.Ranges),
 		landing:       landingMetadata(landing),
 		state:         searchPageState(envelope, len(errorPayload) > 0),
 		errorPayload:  errorPayload,
