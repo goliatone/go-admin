@@ -1,6 +1,23 @@
 # Changelog
 
+# [0.118.0](https://github.com/goliatone/go-admin/compare/v0.117.0...v0.118.0) - (2026-07-20)
+
+## <!-- 16 -->➕ Add
+
+- Search limits and grouping ([3da8ccb](https://github.com/goliatone/go-admin/commit/3da8ccbd3b2f4ce46a480fd5ba57d57c9e913c09))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([34491eb](https://github.com/goliatone/go-admin/commit/34491eb7f4d4431e8501c6e0f38a51abde1a86b5))  - (goliatone)
+
 # [0.117.0](https://github.com/goliatone/go-admin/compare/v0.116.0...v0.117.0) - (2026-07-20)
+
+
+New minor release: v0.117.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.117.0 ([7b8552a](https://github.com/goliatone/go-admin/commit/7b8552a7f9f31c0b01f7e4f0568a53ec4951afc3))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
