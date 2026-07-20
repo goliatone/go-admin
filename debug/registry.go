@@ -629,6 +629,9 @@ func (r PanelRegistration) ActionHandlerForContext(ctx context.Context, actionID
 	if actionID == "" || (len(r.Actions) == 0 && r.ActionResolver == nil) {
 		return nil
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if !PanelDefinitionHasAction(r.definitionForContext(ctx), actionID) {
 		return nil
 	}
