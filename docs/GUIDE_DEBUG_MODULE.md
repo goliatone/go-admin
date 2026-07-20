@@ -614,6 +614,7 @@ if collector != nil {
 | Routes | `routes` | Registered routes | Auto-captured on init |
 | JS Errors | `jserrors` | Frontend JS errors | Inline collector script |
 | Permissions | `permissions` | Permission diagnostics | Auto-captured on request |
+| Commands | `commands` | Catalog-backed command launcher | `Dependencies.CommandCatalog` + command RPC rules |
 | Shell | `shell` | Shell REPL (xterm.js) | `DebugConfig.Repl` |
 | App Console | `console` | App REPL (yaegi) | `DebugConfig.Repl` |
 | Custom | `custom` | Custom debug data | `Set()`, `Log()` |
@@ -621,6 +622,42 @@ if collector != nil {
 Note: The `shell` and `console` panels use dedicated WebSocket endpoints and are
 disabled until you enable `DebugConfig.Repl` and include the panel IDs in
 `DebugConfig.Panels`.
+
+### Commands Panel Readiness
+
+The Commands panel keeps visible catalog entries separate from executable
+actions. A command is runnable only when all of these are true:
+
+- the command feature and `admin.commands.read` / `admin.commands.dispatch`
+  permissions are enabled;
+- descriptor-specific permissions pass;
+- the command has an explicit rule in `Config.Commands.RPC.Commands`; and
+- a name-based dispatcher is registered on `Admin.Commands()`.
+
+Commands that fail the final two checks remain visible, but no dispatch action
+is advertised. The panel reports `rpc_command_rule_gaps` or
+`command_registration_gaps` with the affected command IDs. This preserves the
+deny-by-default RPC policy and prevents discovery from offering actions that
+would later fail as generic 404s.
+
+Register RPC rules before constructing the admin and register handlers/factories
+before `Admin.Initialize`:
+
+```go
+cfg.Commands.RPC.Commands = map[string]admin.RPCCommandRule{
+    "maintenance.reindex": {
+        Permission: "admin.commands.dispatch",
+        Resource:   "commands",
+    },
+}
+
+admin.RegisterCommand(adm.Commands(), maintenanceReindexHandler)
+admin.RegisterMessageFactory(adm.Commands(), "maintenance.reindex", buildMaintenanceReindex)
+```
+
+Catalog-backed actions are resolved from current catalog state at request time.
+Adding or removing a descriptor does not require re-registering the panel, and
+removed or request-hidden commands fail closed.
 
 ### Enabling/Disabling Panels
 
