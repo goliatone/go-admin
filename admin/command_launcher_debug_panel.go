@@ -1024,6 +1024,13 @@ func firstNonNil(values ...any) any {
 }
 
 func commandLauncherActionID(commandID string) string {
+	return CommandLauncherActionID(commandID)
+}
+
+// CommandLauncherActionID returns the stable panel action identifier for a
+// command descriptor. Integrations can use it to navigate to and preselect a
+// command without duplicating the launcher's collision-safe encoding.
+func CommandLauncherActionID(commandID string) string {
 	commandID = strings.TrimSpace(commandID)
 	if commandID == "" {
 		return ""
