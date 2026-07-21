@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/modules"
@@ -155,6 +156,11 @@ func (a *Admin) registerLoadedModule(ctx context.Context, mod modules.Module, ro
 	moduleID := strings.TrimSpace(mod.Manifest().ID)
 	stagedPublicRouter := newStagedAdminRouter(publicRouter)
 	stagedProtectedRouter := newStagedAdminRouter(protectedRouter)
+	routingContext := routingContexts[moduleID]
+	mountRouters, mountStages, err := a.stagedModuleMountRouters(routingContext, authMiddleware, publicRouter)
+	if err != nil {
+		return err
+	}
 	moduleCtx := ModuleContext{
 		Admin:           a,
 		Router:          stagedProtectedRouter,
@@ -163,7 +169,8 @@ func (a *Admin) registerLoadedModule(ctx context.Context, mod modules.Module, ro
 		AuthMiddleware:  authMiddleware,
 		Locale:          a.config.DefaultLocale,
 		Translator:      a.translator,
-		Routing:         routingContexts[moduleID],
+		Routing:         routingContext,
+		MountRouters:    mountRouters,
 	}
 	if err := registrar.Register(moduleCtx); err != nil {
 		return err
@@ -173,7 +180,61 @@ func (a *Admin) registerLoadedModule(ctx context.Context, mod modules.Module, ro
 	}
 	stagedPublicRouter.Commit()
 	stagedProtectedRouter.Commit()
+	mountNames := make([]string, 0, len(mountStages))
+	for name := range mountStages {
+		mountNames = append(mountNames, name)
+	}
+	slices.Sort(mountNames)
+	for _, name := range mountNames {
+		mountStages[name].Commit()
+	}
 	return nil
+}
+
+func (a *Admin) stagedModuleMountRouters(ctx routing.ModuleContext, authMiddleware router.MiddlewareFunc, publicRouter AdminRouter) (map[string]AdminRouter, map[string]*stagedAdminRouter, error) {
+	if len(ctx.Resolved.Mounts) == 0 {
+		return nil, nil, nil
+	}
+	provider, hasProvider := a.router.(ModuleMountRouterProvider)
+	routers := make(map[string]AdminRouter, len(ctx.Resolved.Mounts))
+	stages := make(map[string]*stagedAdminRouter, len(ctx.Resolved.Mounts))
+	for name, mount := range ctx.Resolved.Mounts {
+		var target AdminRouter
+		if hasProvider {
+			target, _ = provider.ModuleMountRouter(mount.Surface)
+		}
+		if target == nil {
+			switch mount.Surface {
+			case routing.SurfaceUI, routing.SurfaceAPI:
+				target = publicRouter
+			case routing.SurfacePublicAPI:
+				target = publicRouter
+			default:
+				return nil, nil, validationDomainError("named module mount surface is unavailable from the host router", map[string]any{
+					"component": "modules",
+					"module":    ctx.Contract.Slug,
+					"mount":     name,
+					"surface":   mount.Surface,
+				})
+			}
+		}
+		switch mount.Surface {
+		case routing.SurfaceUI, routing.SurfaceAPI, routing.SurfaceProtectedAppUI, routing.SurfaceProtectedAppAPI:
+			target = wrapAdminRouter(target, authMiddleware)
+		case routing.SurfacePublicAPI, routing.SurfacePublicSite:
+		default:
+			return nil, nil, validationDomainError("named module mount uses unsupported module surface", map[string]any{
+				"component": "modules",
+				"module":    ctx.Contract.Slug,
+				"mount":     name,
+				"surface":   mount.Surface,
+			})
+		}
+		stage := newStagedAdminRouter(target)
+		routers[name] = stage
+		stages[name] = stage
+	}
+	return routers, stages, nil
 }
 
 func (a *Admin) validateModuleStartup(ctx context.Context, moduleID string, registrar Module) error {
