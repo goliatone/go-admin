@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.118.1](https://github.com/goliatone/go-admin/compare/v0.118.0...v0.118.1) - (2026-07-21)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([b5d5149](https://github.com/goliatone/go-admin/commit/b5d5149e9047530263ee19641ded7b698cd1d26b))  - (goliatone)
+- Update examples ([c7fec88](https://github.com/goliatone/go-admin/commit/c7fec886e78d8b2194cd5089883611a453e13c82))  - (goliatone)
+
 # [0.118.0](https://github.com/goliatone/go-admin/compare/v0.117.0...v0.118.0) - (2026-07-20)
+
+
+New minor release: v0.118.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.118.0 ([ad9fcb5](https://github.com/goliatone/go-admin/commit/ad9fcb5d4c379d9e867fc4b06b433abf6ed4fb8e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
