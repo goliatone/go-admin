@@ -7,7 +7,6 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"net/http"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -632,17 +631,84 @@ func debugStatusFromError(err error) int {
 	return http.StatusInternalServerError
 }
 
-// DebugLogHandler forwards slog records into the debug collector.
+// DebugCollectorProvider resolves the active collector at log handling time.
+// Returning nil is valid during startup, shutdown, or when debug capture is disabled.
+type DebugCollectorProvider func() *DebugCollector
+
+// DebugLogContext contains optional request and trace correlation metadata.
+type DebugLogContext struct {
+	RequestID string
+	TraceID   string
+	SpanID    string
+}
+
+// DebugLogContextResolver extracts correlation metadata from a log context.
+type DebugLogContextResolver func(context.Context) DebugLogContext
+
+// DebugLogLimits bounds normalized values retained by the debug collector.
+type DebugLogLimits struct {
+	MaxDepth           int
+	MaxCollectionItems int
+	MaxStringBytes     int
+	MaxStackBytes      int
+	MaxEventBytes      int
+}
+
+// DebugLogHandlerOption configures final-record normalization and metadata.
+type DebugLogHandlerOption func(*debugLogHandlerConfig)
+
+type debugLogHandlerConfig struct {
+	contextResolver DebugLogContextResolver
+	limits          DebugLogLimits
+}
+
+// WithDebugLogContextResolver overrides request/trace metadata extraction.
+func WithDebugLogContextResolver(resolver DebugLogContextResolver) DebugLogHandlerOption {
+	return func(cfg *debugLogHandlerConfig) {
+		if resolver != nil {
+			cfg.contextResolver = resolver
+		}
+	}
+}
+
+// WithDebugLogLimits overrides normalization limits. Non-positive fields use defaults.
+func WithDebugLogLimits(limits DebugLogLimits) DebugLogHandlerOption {
+	return func(cfg *debugLogHandlerConfig) {
+		cfg.limits = normalizeDebugLogLimits(limits)
+	}
+}
+
+// DebugLogHandler forwards final slog records into the debug collector.
 type DebugLogHandler struct {
-	collector *DebugCollector
-	next      slog.Handler
-	attrs     []slog.Attr
-	groups    []string
+	provider DebugCollectorProvider
+	next     slog.Handler
+	attrs    []debugLogBoundAttr
+	groups   []string
+	config   debugLogHandlerConfig
+}
+
+type debugLogBoundAttr struct {
+	attr   slog.Attr
+	groups []string
 }
 
 // NewDebugLogHandler creates a slog.Handler that forwards to the debug collector and an optional delegate.
 func NewDebugLogHandler(collector *DebugCollector, next slog.Handler) *DebugLogHandler {
-	return &DebugLogHandler{collector: collector, next: next}
+	return NewDebugLogHandlerProvider(func() *DebugCollector { return collector }, next)
+}
+
+// NewDebugLogHandlerProvider creates a handler that resolves its collector for every record.
+func NewDebugLogHandlerProvider(provider DebugCollectorProvider, next slog.Handler, options ...DebugLogHandlerOption) *DebugLogHandler {
+	cfg := debugLogHandlerConfig{
+		contextResolver: defaultDebugLogContextResolver,
+		limits:          normalizeDebugLogLimits(DebugLogLimits{}),
+	}
+	for _, option := range options {
+		if option != nil {
+			option(&cfg)
+		}
+	}
+	return &DebugLogHandler{provider: provider, next: next, config: cfg}
 }
 
 func (h *DebugLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -653,7 +719,7 @@ func (h *DebugLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	if h.next != nil {
 		nextEnabled = h.next.Enabled(ctx, level)
 	}
-	collectorEnabled := h.collector != nil
+	collectorEnabled := h.resolveCollector() != nil
 	return nextEnabled || collectorEnabled
 }
 
@@ -661,23 +727,73 @@ func (h *DebugLogHandler) Handle(ctx context.Context, r slog.Record) error {
 	if h == nil {
 		return nil
 	}
-	if h.collector != nil {
-		sessionMeta := debugSessionContextFromContext(ctx)
-		entry := LogEntry{
-			Timestamp: r.Time,
-			SessionID: sessionMeta.SessionID,
-			UserID:    sessionMeta.UserID,
-			Level:     r.Level.String(),
-			Message:   r.Message,
-			Fields:    debugSlogFields(h.attrs, h.groups, r),
-			Source:    debugSlogSource(r),
-		}
-		h.collector.CaptureLog(entry)
+	if collector := h.resolveCollector(); collector != nil {
+		h.capture(ctx, r, collector)
 	}
 	if h.next != nil && h.next.Enabled(ctx, r.Level) {
 		return h.next.Handle(ctx, r)
 	}
 	return nil
+}
+
+func (h *DebugLogHandler) resolveCollector() (collector *DebugCollector) {
+	if h == nil || h.provider == nil {
+		return nil
+	}
+	defer func() {
+		if recover() != nil {
+			collector = nil
+		}
+	}()
+	return h.provider()
+}
+
+func (h *DebugLogHandler) capture(ctx context.Context, record slog.Record, collector *DebugCollector) {
+	defer func() {
+		_ = recover()
+	}()
+	sessionMeta := debugSessionContextFromContext(ctx)
+	logContext := h.resolveContext(ctx)
+	message, fields := debugNormalizeSlogRecord(h.attrs, h.groups, record, h.config.limits)
+	logger := debugTakeStringField(fields, "logger")
+	caller, source := debugSlogCaller(record)
+	collector.CaptureLog(LogEntry{
+		Timestamp: record.Time,
+		SessionID: sessionMeta.SessionID,
+		UserID:    sessionMeta.UserID,
+		Level:     record.Level.String(),
+		Message:   message,
+		Logger:    logger,
+		Caller:    caller,
+		TraceID:   strings.TrimSpace(logContext.TraceID),
+		SpanID:    strings.TrimSpace(logContext.SpanID),
+		RequestID: strings.TrimSpace(logContext.RequestID),
+		Fields:    fields,
+		Source:    source,
+	})
+}
+
+func (h *DebugLogHandler) resolveContext(ctx context.Context) (metadata DebugLogContext) {
+	if h == nil || h.config.contextResolver == nil {
+		return DebugLogContext{}
+	}
+	defer func() {
+		if recover() != nil {
+			metadata = DebugLogContext{}
+		}
+	}()
+	return h.config.contextResolver(ctx)
+}
+
+func defaultDebugLogContextResolver(ctx context.Context) DebugLogContext {
+	requestID := strings.TrimSpace(requestIDFromContext(ctx))
+	if requestID == "" {
+		requestID = strings.TrimSpace(correlationIDFromContext(ctx))
+	}
+	return DebugLogContext{
+		RequestID: requestID,
+		TraceID:   strings.TrimSpace(traceIDFromContext(ctx)),
+	}
 }
 
 func (h *DebugLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -688,15 +804,21 @@ func (h *DebugLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if next != nil {
 		next = next.WithAttrs(attrs)
 	}
-	merged := make([]slog.Attr, 0, len(h.attrs)+len(attrs))
+	merged := make([]debugLogBoundAttr, 0, len(h.attrs)+len(attrs))
 	merged = append(merged, h.attrs...)
-	merged = append(merged, attrs...)
 	groups := append([]string{}, h.groups...)
+	for _, attr := range attrs {
+		merged = append(merged, debugLogBoundAttr{
+			attr:   attr,
+			groups: append([]string(nil), groups...),
+		})
+	}
 	return &DebugLogHandler{
-		collector: h.collector,
-		next:      next,
-		attrs:     merged,
-		groups:    groups,
+		provider: h.provider,
+		next:     next,
+		attrs:    merged,
+		groups:   groups,
+		config:   h.config,
 	}
 }
 
@@ -712,93 +834,14 @@ func (h *DebugLogHandler) WithGroup(name string) slog.Handler {
 	if strings.TrimSpace(name) != "" {
 		groups = append(groups, name)
 	}
-	attrs := append([]slog.Attr{}, h.attrs...)
+	attrs := append([]debugLogBoundAttr{}, h.attrs...)
 	return &DebugLogHandler{
-		collector: h.collector,
-		next:      next,
-		attrs:     attrs,
-		groups:    groups,
+		provider: h.provider,
+		next:     next,
+		attrs:    attrs,
+		groups:   groups,
+		config:   h.config,
 	}
-}
-
-func debugSlogFields(attrs []slog.Attr, groups []string, r slog.Record) map[string]any {
-	if len(attrs) == 0 && r.NumAttrs() == 0 {
-		return nil
-	}
-	out := map[string]any{}
-	for _, attr := range attrs {
-		debugAddSlogAttr(out, groups, attr)
-	}
-	r.Attrs(func(attr slog.Attr) bool {
-		debugAddSlogAttr(out, groups, attr)
-		return true
-	})
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func debugAddSlogAttr(dest map[string]any, groups []string, attr slog.Attr) {
-	if dest == nil {
-		return
-	}
-	attr.Value = attr.Value.Resolve()
-	if attr.Value.Kind() == slog.KindGroup {
-		nested := groups
-		if strings.TrimSpace(attr.Key) != "" {
-			nested = append(nested, attr.Key)
-		}
-		for _, groupAttr := range attr.Value.Group() {
-			debugAddSlogAttr(dest, nested, groupAttr)
-		}
-		return
-	}
-	key := strings.TrimSpace(attr.Key)
-	if key == "" {
-		return
-	}
-	target := dest
-	if len(groups) > 0 {
-		target = debugEnsureGroup(dest, groups)
-	}
-	target[key] = attr.Value.Any()
-}
-
-func debugEnsureGroup(dest map[string]any, groups []string) map[string]any {
-	current := dest
-	for _, group := range groups {
-		group = strings.TrimSpace(group)
-		if group == "" {
-			continue
-		}
-		next, ok := current[group]
-		child, okChild := next.(map[string]any)
-		if !ok || !okChild {
-			child = map[string]any{}
-			current[group] = child
-		}
-		current = child
-	}
-	return current
-}
-
-func debugSlogSource(r slog.Record) string {
-	if r.PC == 0 {
-		return ""
-	}
-	frames := runtime.CallersFrames([]uintptr{r.PC})
-	frame, _ := frames.Next()
-	if frame.File == "" && frame.Function == "" {
-		return ""
-	}
-	if frame.Function != "" {
-		return frame.Function
-	}
-	if frame.Line > 0 {
-		return fmt.Sprintf("%s:%d", frame.File, frame.Line)
-	}
-	return frame.File
 }
 
 // RouteEntry captures router information for the routes panel.

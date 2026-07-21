@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -21,6 +22,8 @@ const (
 var (
 	debugMaskerOnce sync.Once
 	debugMaskerRef  *masker.Masker
+	debugMaskCfgMu  sync.Mutex
+	debugMaskCfgSet = map[string]struct{}{}
 )
 
 var debugMaskFields = map[string]string{
@@ -43,9 +46,39 @@ func debugMasker(cfg DebugConfig) *masker.Masker {
 	debugMaskerOnce.Do(func() {
 		debugMaskerRef = masker.Default
 		registerDebugMaskFields(debugMaskerRef, debugMaskFields)
-		registerDebugMaskConfig(debugMaskerRef, cfg)
 	})
+	registerDebugMaskConfigOnce(debugMaskerRef, cfg)
 	return debugMaskerRef
+}
+
+func registerDebugMaskConfigOnce(m *masker.Masker, cfg DebugConfig) {
+	if m == nil || len(cfg.MaskFieldTypes) == 0 {
+		return
+	}
+	fingerprint := debugMaskConfigFingerprint(cfg.MaskFieldTypes)
+	debugMaskCfgMu.Lock()
+	defer debugMaskCfgMu.Unlock()
+	if _, exists := debugMaskCfgSet[fingerprint]; exists {
+		return
+	}
+	registerDebugMaskConfig(m, cfg)
+	debugMaskCfgSet[fingerprint] = struct{}{}
+}
+
+func debugMaskConfigFingerprint(fields map[string]string) string {
+	keys := make([]string, 0, len(fields))
+	for field := range fields {
+		keys = append(keys, field)
+	}
+	sort.Strings(keys)
+	var fingerprint strings.Builder
+	for _, field := range keys {
+		fingerprint.WriteString(field)
+		fingerprint.WriteByte(0)
+		fingerprint.WriteString(fields[field])
+		fingerprint.WriteByte(0)
+	}
+	return fingerprint.String()
 }
 
 func registerDebugMaskConfig(m *masker.Masker, cfg DebugConfig) {
@@ -119,6 +152,38 @@ func debugMaskMap(cfg DebugConfig, data map[string]any) map[string]any {
 		return typed
 	}
 	return data
+}
+
+func debugMaskLogFields(cfg DebugConfig, data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(data))
+	for key, value := range data {
+		if debugIsSensitiveField(cfg, key) {
+			out[key] = debugMaskFieldValue(cfg, key, value)
+			continue
+		}
+		out[key] = debugMaskLogValue(cfg, value)
+	}
+	return debugMaskMap(cfg, out)
+}
+
+func debugMaskLogValue(cfg DebugConfig, value any) any {
+	switch typed := value.(type) {
+	case string:
+		return debugMaskInlineString(cfg, typed)
+	case map[string]any:
+		return debugMaskLogFields(cfg, typed)
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = debugMaskLogValue(cfg, item)
+		}
+		return out
+	default:
+		return value
+	}
 }
 
 func debugMaskStringMap(cfg DebugConfig, data map[string]string) map[string]string {

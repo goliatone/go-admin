@@ -14,6 +14,7 @@ import (
 	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
+	"github.com/google/uuid"
 )
 
 const debugSubscriberBuffer = 64
@@ -107,13 +108,26 @@ type SQLEntry struct {
 
 // LogEntry captures server log messages.
 type LogEntry struct {
+	ID        string         `json:"id,omitempty"`
 	Timestamp time.Time      `json:"timestamp"`
 	SessionID string         `json:"session_id,omitempty"`
 	UserID    string         `json:"user_id,omitempty"`
 	Level     string         `json:"level"`
 	Message   string         `json:"message"`
+	Logger    string         `json:"logger,omitempty"`
+	Caller    *LogCaller     `json:"caller,omitempty"`
+	TraceID   string         `json:"trace_id,omitempty"`
+	SpanID    string         `json:"span_id,omitempty"`
+	RequestID string         `json:"request_id,omitempty"`
 	Fields    map[string]any `json:"fields,omitempty"`
 	Source    string         `json:"source,omitempty"`
+}
+
+// LogCaller identifies the application frame associated with a log record.
+type LogCaller struct {
+	Function string `json:"function,omitempty"`
+	File     string `json:"file,omitempty"`
+	Line     int    `json:"line,omitempty"`
 }
 
 // CustomLogEntry captures custom debug logs.
@@ -403,9 +417,12 @@ func (c *DebugCollector) CaptureLog(entry LogEntry) {
 	if entry.Timestamp.IsZero() {
 		entry.Timestamp = time.Now()
 	}
-	if len(entry.Fields) > 0 {
-		entry.Fields = debugMaskMap(c.config, entry.Fields)
+	if strings.TrimSpace(entry.ID) == "" {
+		entry.ID = uuid.NewString()
 	}
+	entry.Message, entry.Fields = debugNormalizeLogContent(entry.Message, entry.Fields, DebugLogLimits{})
+	entry.Message = debugMaskInlineString(c.config, entry.Message)
+	entry.Fields = debugMaskLogFields(c.config, entry.Fields)
 	log := c.serverLog
 	if log != nil {
 		log.Add(entry)
