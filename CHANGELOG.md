@@ -1,6 +1,51 @@
 # Changelog
 
+# [0.119.0](https://github.com/goliatone/go-admin/compare/v0.118.3...v0.119.0) - (2026-07-21)
+
+
+## Structured Debug Console logs
+
+- Debug log capture now observes the final enriched `slog.Record`, retaining normalized fields, error stacks, logger identity, caller metadata, and request/trace correlation IDs.
+- The full Debug Console Logs tab now provides stable expandable rows, nested search, prioritized error diagnostics, and Copy JSON/Copy stack actions. The compact toolbar remains unchanged by default.
+- Log normalization and recursive masking are bounded and panic-safe for cyclic, oversized, unsupported, and non-finite values.
+
+## Migration Notes
+
+`NewDebugLogHandler` remains compatible for collectors available during logger construction. When the collector is initialized or replaced later, use the provider-aware constructor at the final handler seam:
+
+```go
+logger := glog.NewLogger(
+	glog.WithHandlerWrapper(func(next slog.Handler) slog.Handler {
+		return admin.NewDebugLogHandlerProvider(adm.Debug, next)
+	}),
+)
+```
+
+Use `WithDebugLogContextResolver` when the application has a custom trace/span carrier. Use `WithDebugLogLimits` only when the default depth, collection, string, stack, or total-event limits need adjustment.
+
+## <!-- 16 -->➕ Add
+
+- Mount router helper ([51790bc](https://github.com/goliatone/go-admin/commit/51790bc034dde1323db8e2c086f4d45bf63dfaa9))  - (goliatone)
+- Debug log panel improvements ([ec6a61b](https://github.com/goliatone/go-admin/commit/ec6a61ba0dba43020218682d2d7ce028a97bce63))  - (goliatone)
+- Try replace route setup ([310335e](https://github.com/goliatone/go-admin/commit/310335e76ad7bf9706060fb834122d1505793728))  - (goliatone)
+- Doctor route check ([39bfeb7](https://github.com/goliatone/go-admin/commit/39bfeb7a7f3ac95c309ee210d588c462782263f4))  - (goliatone)
+- New debug log handler provider ([cff2273](https://github.com/goliatone/go-admin/commit/cff2273d5c22da3b30ec2a0213c70795f1f9ec61))  - (goliatone)
+- Debug log normalizer ([9e95322](https://github.com/goliatone/go-admin/commit/9e95322a7057fa21cedf66222b5f1924c7737058))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([8ffbd4b](https://github.com/goliatone/go-admin/commit/8ffbd4b355f7640988b7d0349ec32930e9eeae31))  - (goliatone)
+- Update tests ([b110ead](https://github.com/goliatone/go-admin/commit/b110eadf80f73b9f110369f8c1867f81d4c492fa))  - (goliatone)
+- Update deps ([a31e856](https://github.com/goliatone/go-admin/commit/a31e8565b6bcab9e35fb4d493940a2c546876f9b))  - (goliatone)
+
 # [0.118.3](https://github.com/goliatone/go-admin/compare/v0.118.2...v0.118.3) - (2026-07-21)
+
+
+New patch release: v0.118.3
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.118.3 ([816a26b](https://github.com/goliatone/go-admin/commit/816a26bd70b9c58429b129809a849abcbb381df2))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
