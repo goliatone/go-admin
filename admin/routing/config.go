@@ -1,6 +1,12 @@
 package routing
 
-import "strings"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
+var defaultReservedRoutePrefixes = []string{"/.well-known", "/assets", "/healthz", "/static", "/status"}
 
 type ConflictPolicy string
 
@@ -19,6 +25,7 @@ type Config struct {
 	Roots                  RootsConfig             `json:"roots"`
 	Modules                map[string]ModuleConfig `json:"modules"`
 	Manifest               ManifestConfig          `json:"manifest"`
+	ReservedPrefixes       []string                `json:"reserved_prefixes,omitempty"`
 }
 
 type RootsConfig struct {
@@ -96,8 +103,13 @@ func NormalizeConfig(cfg Config, input RootDerivationInput) Config {
 	cfg.ProtectedAppEnabled = cfg.ProtectedAppEnabled || input.ProtectedAppEnabled
 
 	cfg.Roots = MergeRoots(DeriveDefaultRoots(input), NormalizeRoots(cfg.Roots))
-	cfg.Modules = normalizeModuleConfigs(cfg.Modules)
+	// Preserve colliding raw names long enough for NewPlanner to report them;
+	// valid configurations retain the historical normalized Config contract.
+	if err := validateNamedMountConfigNames(cfg.Modules); err == nil {
+		cfg.Modules = normalizeModuleConfigs(cfg.Modules)
+	}
 	cfg.Manifest = normalizeManifestConfig(cfg.Manifest)
+	cfg.ReservedPrefixes = normalizeFallbackPaths(append(append([]string{}, defaultReservedRoutePrefixes...), cfg.ReservedPrefixes...))
 
 	return cfg
 }
@@ -156,11 +168,38 @@ func normalizeNamedMountOverrides(mounts map[string]NamedMountOverride) map[stri
 	}
 	out := make(map[string]NamedMountOverride, len(mounts))
 	for name, mount := range mounts {
-		out[normalizePathSegment(name)] = NamedMountOverride{
+		out[NormalizeMountName(name)] = NamedMountOverride{
 			Surface:   NormalizeRouteSurface(mount.Surface),
 			Base:      normalizeAbsolutePath(mount.Base),
 			GroupPath: strings.Trim(strings.TrimSpace(mount.GroupPath), "."),
 		}
 	}
 	return out
+}
+
+func validateNamedMountConfigNames(modules map[string]ModuleConfig) error {
+	moduleNames := make([]string, 0, len(modules))
+	for moduleName := range modules {
+		moduleNames = append(moduleNames, moduleName)
+	}
+	slices.Sort(moduleNames)
+	for _, moduleName := range moduleNames {
+		seen := map[string]string{}
+		names := make([]string, 0, len(modules[moduleName].Mounts))
+		for name := range modules[moduleName].Mounts {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			canonical := NormalizeMountName(name)
+			if canonical == "" {
+				return fmt.Errorf("module %q named mount name is required", moduleName)
+			}
+			if existing, ok := seen[canonical]; ok {
+				return fmt.Errorf("module %q named mounts %q and %q normalize to the same name %q", moduleName, existing, name, canonical)
+			}
+			seen[canonical] = name
+		}
+	}
+	return nil
 }
