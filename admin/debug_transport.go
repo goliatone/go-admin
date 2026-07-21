@@ -18,7 +18,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const debugEventSnapshot = "snapshot"
+const (
+	debugEventSnapshot            = "snapshot"
+	debugEventSnapshotInvalidated = "snapshot_invalidated"
+)
 
 const debugPanelOrderPreferenceKey = "ui.debug.console.panel_order"
 
@@ -105,7 +108,7 @@ func (s *debugSubscription) unsubscribe(panels []string) {
 }
 
 func (s *debugSubscription) allows(eventType string) bool {
-	if eventType == debugEventSnapshot {
+	if eventType == debugEventSnapshot || eventType == debugEventSnapshotInvalidated {
 		return true
 	}
 	if s == nil || len(s.events) == 0 {
@@ -524,7 +527,7 @@ func (m *DebugModule) handleDebugClear(c router.Context) error {
 		return writeJSON(c, map[string]string{"status": "ok"})
 	}
 	m.collector.Clear()
-	m.publishSnapshot()
+	m.publishSnapshotInvalidation()
 	return writeJSON(c, map[string]string{"status": "ok"})
 }
 
@@ -539,7 +542,7 @@ func (m *DebugModule) handleDebugClearPanel(c router.Context) error {
 	if !m.collector.ClearPanel(panelID) {
 		return writeError(c, ErrNotFound)
 	}
-	m.publishSnapshot()
+	m.publishSnapshotInvalidation()
 	return writeJSON(c, map[string]string{"status": "ok", "panel": panelID})
 }
 
@@ -581,7 +584,7 @@ func (m *DebugModule) handleDebugPanelAction(c router.Context) error {
 		return writeError(c, err)
 	}
 	if result.Refresh {
-		m.publishSnapshot()
+		m.publishSnapshotInvalidation()
 	}
 	return writeJSON(c, result)
 }
@@ -624,7 +627,7 @@ func (m *DebugModule) handleDebugDoctorAction(c router.Context) error {
 			return writeError(c, err)
 		}
 	}
-	m.publishSnapshot()
+	m.publishSnapshotInvalidation()
 	return writeJSON(c, map[string]any{
 		"status":  "ok",
 		"check":   result.CheckID,
@@ -937,20 +940,23 @@ func (m *DebugModule) clearDebugPanels(panels []string) {
 	normalized := debugpanels.NormalizePanelIDs(panels)
 	if len(normalized) == 0 {
 		m.collector.Clear()
-		m.publishSnapshot()
+		m.publishSnapshotInvalidation()
 		return
 	}
 	for _, panel := range normalized {
 		_ = m.collector.ClearPanel(panel)
 	}
-	m.publishSnapshot()
+	m.publishSnapshotInvalidation()
 }
 
-func (m *DebugModule) publishSnapshot() {
+// publishSnapshotInvalidation tells each connected client to request a fresh snapshot over
+// its own authenticated connection. Snapshot payloads can contain request-scoped
+// panel data and must never be evaluated once and broadcast to every subscriber.
+func (m *DebugModule) publishSnapshotInvalidation() {
 	if m == nil || m.collector == nil {
 		return
 	}
-	m.collector.publish(debugEventSnapshot, m.collector.Snapshot())
+	m.collector.publish(debugEventSnapshotInvalidated, nil)
 }
 
 func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext) error {
@@ -1009,6 +1015,9 @@ func debugSessionUpgradeString(c router.WebSocketContext, key string) string {
 }
 
 func debugSessionEventAllowed(event DebugEvent, sessionID string, includeGlobals bool) bool {
+	if event.Type == debugEventSnapshotInvalidated {
+		return true
+	}
 	if event.Type == debugEventSnapshot {
 		return false
 	}

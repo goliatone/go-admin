@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"strings"
 
 	modinternal "github.com/goliatone/go-admin/admin/internal/modules"
 	"github.com/goliatone/go-admin/admin/routing"
@@ -34,7 +33,7 @@ type ModuleContext struct {
 }
 
 func (c ModuleContext) MountRouter(name string) (AdminRouter, bool) {
-	r, ok := c.MountRouters[strings.ToLower(strings.TrimSpace(name))]
+	r, ok := c.MountRouters[routing.NormalizeMountName(name)]
 	return r, ok
 }
 

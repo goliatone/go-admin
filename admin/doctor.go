@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -32,8 +33,9 @@ var (
 type DoctorActionKind string
 
 const (
-	DoctorActionKindManual DoctorActionKind = "manual"
-	DoctorActionKindAuto   DoctorActionKind = "auto"
+	DoctorActionKindManual   DoctorActionKind = "manual"
+	DoctorActionKindAuto     DoctorActionKind = "auto"
+	DoctorActionKindNavigate DoctorActionKind = "navigate"
 )
 
 // DoctorActionRun executes a doctor action handler.
@@ -90,6 +92,7 @@ type DoctorFinding struct {
 type DoctorCheckOutput struct {
 	Summary  string          `json:"summary,omitempty"`
 	Findings []DoctorFinding `json:"findings,omitempty"`
+	Action   *DoctorAction   `json:"action,omitempty"`
 	Metadata map[string]any  `json:"metadata,omitempty"`
 }
 
@@ -216,6 +219,9 @@ func (a *Admin) RunDoctorAction(ctx context.Context, checkID string, input map[s
 	if actionState == nil {
 		return DoctorActionExecution{}, ErrDoctorActionUnavailable
 	}
+	if actionState.Kind == DoctorActionKindNavigate {
+		return DoctorActionExecution{}, ErrDoctorActionNotRunnable
+	}
 	if !actionState.Runnable {
 		return DoctorActionExecution{}, ErrDoctorActionNotRunnable
 	}
@@ -330,7 +336,11 @@ func runDoctorCheck(ctx context.Context, adm *Admin, check DoctorCheck) DoctorCh
 	if result.Summary == "" {
 		result.Summary = defaultDoctorSummary(result.Status, result.Findings)
 	}
-	result.Action = doctorActionState(check.Action, result.Status)
+	action := check.Action
+	if output.Action != nil && output.Action.Kind == DoctorActionKindNavigate {
+		action = output.Action
+	}
+	result.Action = doctorActionState(action, result.Status)
 	return result
 }
 
@@ -420,7 +430,7 @@ func normalizeDoctorAction(action *DoctorAction) *DoctorAction {
 		out.Description = "Review findings and apply the suggested remediation."
 	}
 	switch out.Kind {
-	case DoctorActionKindAuto, DoctorActionKindManual:
+	case DoctorActionKindAuto, DoctorActionKindManual, DoctorActionKindNavigate:
 	default:
 		if out.Run != nil {
 			out.Kind = DoctorActionKindAuto
@@ -448,6 +458,12 @@ func normalizeDoctorAction(action *DoctorAction) *DoctorAction {
 		out.AllowedStatuses = allowed
 	}
 	out.Metadata = primitives.CloneAnyMapNilOnEmpty(out.Metadata)
+	if out.Kind == DoctorActionKindNavigate {
+		out.Run = nil
+		out.RequiresConfirmation = false
+		out.ConfirmText = ""
+		out.Metadata = normalizeDoctorNavigationMetadata(out.Metadata)
+	}
 	return &out
 }
 
@@ -457,6 +473,11 @@ func doctorActionState(action *DoctorAction, status DoctorSeverity) *DoctorActio
 		return nil
 	}
 	applicable := doctorActionApplies(status, normalized.AllowedStatuses)
+	runnable := applicable && normalized.Run != nil
+	if normalized.Kind == DoctorActionKindNavigate {
+		panelID, ok := normalized.Metadata["panel_id"].(string)
+		runnable = applicable && ok && strings.TrimSpace(panelID) != ""
+	}
 	return &DoctorActionState{
 		Label:                normalized.Label,
 		CTA:                  normalized.CTA,
@@ -466,9 +487,54 @@ func doctorActionState(action *DoctorAction, status DoctorSeverity) *DoctorActio
 		RequiresConfirmation: normalized.RequiresConfirmation,
 		ConfirmText:          normalized.ConfirmText,
 		Applicable:           applicable,
-		Runnable:             applicable && normalized.Run != nil,
+		Runnable:             runnable,
 		Metadata:             primitives.CloneAnyMapNilOnEmpty(normalized.Metadata),
 	}
+}
+
+const (
+	doctorNavigationMaxPanelIDBytes = 128
+	doctorNavigationMaxStateBytes   = 16 * 1024
+)
+
+func normalizeDoctorNavigationMetadata(metadata map[string]any) map[string]any {
+	panelID, ok := metadata["panel_id"].(string)
+	if !ok {
+		return nil
+	}
+	panelID = strings.TrimSpace(panelID)
+	if panelID == "" || len(panelID) > doctorNavigationMaxPanelIDBytes || !validDoctorPanelID(panelID) {
+		return nil
+	}
+	out := map[string]any{"panel_id": panelID}
+	state, ok := metadata["state"].(map[string]any)
+	if !ok || len(state) == 0 {
+		return out
+	}
+	state = primitives.CloneAnyMapNilOnEmpty(state)
+	payload, err := json.Marshal(state)
+	if err != nil || len(payload) > doctorNavigationMaxStateBytes {
+		return out
+	}
+	out["state"] = state
+	return out
+}
+
+func validDoctorPanelID(panelID string) bool {
+	for index := 0; index < len(panelID); index++ {
+		char := panelID[index]
+		if !isDoctorPanelIDChar(char) {
+			return false
+		}
+	}
+	return true
+}
+
+func isDoctorPanelIDChar(char byte) bool {
+	return (char >= 'a' && char <= 'z') ||
+		(char >= 'A' && char <= 'Z') ||
+		(char >= '0' && char <= '9') ||
+		strings.ContainsRune("._:-", rune(char))
 }
 
 func doctorActionApplies(status DoctorSeverity, allowed []DoctorSeverity) bool {
