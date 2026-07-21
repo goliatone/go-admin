@@ -246,6 +246,95 @@ Operationally:
 Do not rely on route registration order to keep site fallback from swallowing
 admin, API, or system paths.
 
+### Registration lifecycle and asynchronous modules
+
+Router adapters now expose an explicit collection boundary. Complete route
+registration before the first call that seals the adapter:
+
+- `Server.Init()`
+- `Server.Serve(...)`
+- `Server.WrappedRouter()`
+
+`WrappedRouter()` is an initialization/sealing call, not a read-only accessor.
+Fiber specificity ordering, runtime snapshot capture, and miss-handler
+installation happen at this boundary. Route or miss-handler mutation after it
+panics with a typed `router.RegistrationError` wrapping
+`router.ErrRouterSealed`; `TryReplace` and `TryUpsert` return that error
+directly. Concurrent declarations before sealing are serialized. Mutating
+routes while requests are being served is intentionally unsupported.
+
+Modules may perform asynchronous discovery or preparation. The host must await
+all required tasks and commit their declarations before initializing or serving
+the router. Pre-seal registration is safe from several goroutines, but a single
+startup coordinator should still own error collection and the final seal.
+
+`HostRouter` surfaces enforce domain ownership at registration time; they do
+not create independent physical routers. Passing the shared backing router to
+a module bypasses those checks and can still introduce a wildcard that shadows
+another surface.
+
+Use explicit replacement when a host intentionally customizes a route already
+declared by a package:
+
+```go
+replacer, ok := host.AdminUI().(router.RouteReplacer)
+if !ok {
+    return errors.New("router does not support explicit replacement")
+}
+if _, err := replacer.TryReplace(router.GET, previewPath, previewHandler); err != nil {
+    return err
+}
+```
+
+If the package-owned route is feature-gated and can legitimately be absent,
+use `router.RouteUpserter` instead. `TryUpsert` explicitly reports whether it
+replaced the exact route or added it; do not emulate this with a duplicate
+registration or direct Fiber call.
+
+Do not unwrap Fiber and call `app.Get(...)`; that seals the planned router and
+bypasses ownership, conflict, and runtime diagnostics.
+
+### Named module mounts
+
+The legacy `UIRoutes`, `APIRoutes`, and `PublicAPIRoutes` fields remain
+supported. A module that contributes to several roots declares named relative
+route sets, while the host authorizes every name with a surface and absolute
+base:
+
+```go
+// Module declaration
+routing.ModuleContract{
+    Slug: "my_module",
+    Mounts: map[string]routing.NamedMountContract{
+        "admin":      {Routes: map[string]string{"my_module.admin": "/"}},
+        "options":    {Routes: map[string]string{"my_module.options": "/"}},
+        "standalone": {Routes: map[string]string{"my_module.home": "/"}},
+    },
+}
+
+// Host configuration
+cfg.Routing.Modules["my_module"] = routing.ModuleConfig{
+    Mounts: map[string]routing.NamedMountOverride{
+        "admin":      {Surface: routing.SurfaceUI, Base: "/admin/extensions/my-module"},
+        "options":    {Surface: routing.SurfacePublicSite, Base: "/options"},
+        "standalone": {Surface: routing.SurfacePublicSite, Base: "/my-module"},
+    },
+}
+```
+
+During `Register`, resolve both capabilities from the same name:
+
+```go
+mountRouter, ok := ctx.MountRouter("standalone")
+path := ctx.Routing.MountRoutePath("standalone", "my_module.home")
+if ok && path != "" {
+    mountRouter.Get(path, handler)
+}
+```
+
+The planner rejects missing authorization, host-only surfaces, a base outside
+the selected surface root, or claiming a reserved root directly.
+
 ## Theme scope isolation
 
 Admin and public-site theme resolution are intentionally separate.
@@ -289,6 +378,13 @@ Recommended checks for route-changing work:
 - confirm fallback mode, allowed methods, and reserved prefixes in the report
 - review manifest diffs for renamed route keys, moved paths, or new public API
   exposure
+
+The `quickstart.routing` Doctor check combines the planner manifest with
+`go-router`'s physical dispatch snapshot. After sealing it reports declared
+routes missing from the mounted table and later routes shadowed by an earlier
+duplicate, parameter, or catch-all route. Before sealing it emits a provisional
+lifecycle warning. Representative authenticated HTTP probes remain recommended
+for application-specific authorization and handler behavior.
 
 ## Migration guide
 
