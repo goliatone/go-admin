@@ -460,7 +460,7 @@ func TestDebugCollectorLogSnapshotAndLiveEventMatch(t *testing.T) {
 func TestDebugCollectorCustomProducerUsesSharedEventBudget(t *testing.T) {
 	collector := newLogTestCollector(10)
 	fields := make(map[string]any, 24)
-	for i := 0; i < 24; i++ {
+	for i := range 24 {
 		fields[fmt.Sprintf("field_%02d", i)] = strings.Repeat("x", debugLogDefaultMaxStringBytes)
 	}
 	collector.CaptureLog(LogEntry{
