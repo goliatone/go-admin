@@ -183,16 +183,12 @@ func AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin) {
 	if adm == nil || !cfg.Debug.Enabled || !cfg.Debug.CaptureLogs {
 		return
 	}
-	collector := adm.Debug()
-	if collector == nil {
-		return
-	}
 	adm.AttachDebugLogBridge()
 	if _, ok := slog.Default().Handler().(*admin.DebugLogHandler); ok {
 		return
 	}
 	delegate := safeDebugLogDelegate(slog.Default().Handler())
-	handler := admin.NewDebugLogHandler(collector, delegate)
+	handler := admin.NewDebugLogHandlerProvider(adm.Debug, delegate)
 	slog.SetDefault(slog.New(handler))
 }
 
