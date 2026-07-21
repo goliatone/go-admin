@@ -384,10 +384,10 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 	return admin.DoctorCheck{
 		ID:          "quickstart.routing",
 		Label:       "Quickstart Routing Policy",
-		Description: "Validates routing roots, module mounts, and startup conflict state.",
-		Help:        "Summarizes effective routing roots and resolved module mount bases. Conflicts here indicate startup should fail before router mutation even when runtime router options are relaxed.",
+		Description: "Validates routing roots, module mounts, lifecycle state, and physical reachability.",
+		Help:        "Combines the declarative route plan with the router's mounted dispatch order so missing and shadowed routes are visible.",
 		Action: admin.NewManualDoctorAction(
-			"Review routing roots, explicit module route contracts, and per-module mount overrides. Resolve any conflicts before retrying startup.",
+			"Review routing roots, module contracts, and the runtime route table. Register every module before the router is sealed and remove unintended wildcard overlap.",
 			"Inspect routing policy",
 		),
 		Run: func(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
@@ -395,7 +395,7 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 				return admin.DoctorCheckOutput{}
 			}
 
-			report := adm.RoutingReport()
+			report := adm.RefreshRoutingReport()
 			findings := []admin.DoctorFinding{}
 			roots := map[string]string{
 				"admin":      strings.TrimSpace(report.EffectiveRoots.AdminRoot),
@@ -444,6 +444,51 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 					Hint:      "Review adapter/runtime capability warnings and keep routing diagnostics enabled during rollout",
 				})
 			}
+			if report.Runtime != nil && report.Runtime.Available {
+				if report.Runtime.State != "sealed" {
+					findings = append(findings, admin.DoctorFinding{
+						Severity:  admin.DoctorSeverityWarn,
+						Code:      "quickstart.routing.not_sealed",
+						Component: "routing.runtime",
+						Message:   fmt.Sprintf("Runtime route plan is %s; physical reachability is provisional", report.Runtime.State),
+						Hint:      "Await module registration and start the server through the go-router Server lifecycle",
+					})
+				}
+				if report.Runtime.State == "sealed" {
+					for _, missing := range report.Runtime.MissingRoutes {
+						findings = append(findings, admin.DoctorFinding{
+							Severity:  admin.DoctorSeverityError,
+							Code:      "quickstart.routing.route_missing",
+							Component: "routing.runtime",
+							Message:   fmt.Sprintf("Declared route %s %s is absent from the mounted route table", missing.Method, missing.Path),
+							Hint:      "Register the handler through its HostRouter surface before the server seals the route plan",
+							Metadata: map[string]any{
+								"owner":      missing.Owner,
+								"route_name": missing.RouteName,
+								"method":     missing.Method,
+								"path":       missing.Path,
+							},
+						})
+					}
+				}
+				for _, shadow := range report.Runtime.Shadows {
+					findings = append(findings, admin.DoctorFinding{
+						Severity:  admin.DoctorSeverityError,
+						Code:      "quickstart.routing.route_shadowed",
+						Component: "routing.runtime",
+						Message:   fmt.Sprintf("Route %s %s is shadowed by earlier route %s", shadow.Method, shadow.Path, shadow.ShadowedByPath),
+						Hint:      "Remove the wildcard/parameter overlap or enable deterministic specificity ordering before sealing",
+						Metadata: map[string]any{
+							"method":            shadow.Method,
+							"path":              shadow.Path,
+							"route_index":       shadow.RouteIndex,
+							"shadowed_by_path":  shadow.ShadowedByPath,
+							"shadowed_by_index": shadow.ShadowedByIndex,
+							"reason":            shadow.Reason,
+						},
+					})
+				}
+			}
 
 			summary := fmt.Sprintf(
 				"admin=%s api=%s public_api=%s modules=%d fallbacks=%d conflicts=%d",
@@ -465,6 +510,7 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 					"fallbacks":   routingDoctorFallbackMetadata(report.Fallbacks),
 					"conflicts":   routingDoctorConflictMetadata(report.Conflicts),
 					"warnings":    append([]string{}, report.Warnings...),
+					"runtime":     report.Runtime,
 					"report_text": routing.FormatStartupReport(report),
 				},
 			}
@@ -1072,13 +1118,21 @@ func routingDoctorSummaryMetadata(summary routing.RouteSummary) map[string]any {
 	}
 }
 
-func routingDoctorModuleMetadata(modules []routing.ResolvedModule) []map[string]string {
+func routingDoctorModuleMetadata(modules []routing.ResolvedModule) []map[string]any {
 	if len(modules) == 0 {
 		return nil
 	}
-	entries := make([]map[string]string, 0, len(modules))
+	entries := make([]map[string]any, 0, len(modules))
 	for _, module := range modules {
-		entries = append(entries, map[string]string{
+		mounts := make(map[string]map[string]string, len(module.Mounts))
+		for name, mount := range module.Mounts {
+			mounts[name] = map[string]string{
+				"surface":    strings.TrimSpace(mount.Surface),
+				"base":       strings.TrimSpace(mount.Base),
+				"group_path": strings.TrimSpace(mount.GroupPath),
+			}
+		}
+		entries = append(entries, map[string]any{
 			"slug":             strings.TrimSpace(module.Slug),
 			"ui":               strings.TrimSpace(module.UIMountBase),
 			"api":              strings.TrimSpace(module.APIMountBase),
@@ -1086,6 +1140,7 @@ func routingDoctorModuleMetadata(modules []routing.ResolvedModule) []map[string]
 			"ui_group":         strings.TrimSpace(module.UIGroupPath),
 			"api_group":        strings.TrimSpace(module.APIGroupPath),
 			"public_api_group": strings.TrimSpace(module.PublicAPIGroupPath),
+			"mounts":           mounts,
 		})
 	}
 	return entries
