@@ -70,6 +70,7 @@ type hostSiteSurfaceRouter[T any] struct {
 
 type hostAdminRouter[T any] struct {
 	surface *hostSurfaceRouter[T]
+	host    *hostRouter[T]
 }
 
 // NewHostRouter returns explicit route-registration surfaces backed by the
@@ -90,6 +91,7 @@ func NewHostRouter[T any](r router.Router[T], cfg coreadmin.Config) HostRouter[T
 	host.static = host.newSurface(r.Group(""), nil)
 	host.admin = &hostAdminRouter[T]{
 		surface: host.newSurface(r.Group(""), host.validateAdminRoute),
+		host:    host,
 	}
 	return host
 }
@@ -311,6 +313,32 @@ func (r *hostSiteSurfaceRouter[T]) Use(m ...router.MiddlewareFunc) router.Router
 func (r hostSurfaceRouter[T]) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.validate(path, hostRouteStandard)
 	return r.router.Handle(method, path, handler, mw...)
+}
+
+func (r hostSurfaceRouter[T]) TryReplace(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) (router.RouteInfo, error) {
+	r.validate(path, hostRouteStandard)
+	replacer, ok := any(r.router).(router.RouteReplacer)
+	if !ok {
+		return nil, fmt.Errorf("quickstart host router: backing router does not support explicit route replacement")
+	}
+	return replacer.TryReplace(method, path, handler, mw...)
+}
+
+func (r hostSurfaceRouter[T]) TryUpsert(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) (router.RouteInfo, bool, error) {
+	r.validate(path, hostRouteStandard)
+	upserter, ok := any(r.router).(router.RouteUpserter)
+	if !ok {
+		return nil, false, fmt.Errorf("quickstart host router: backing router does not support explicit route upsert")
+	}
+	return upserter.TryUpsert(method, path, handler, mw...)
+}
+
+func (r hostSurfaceRouter[T]) RegistrationSnapshot() router.RegistrationSnapshot {
+	inspector, ok := any(r.router).(router.RegistrationInspector)
+	if !ok {
+		return router.RegistrationSnapshot{}
+	}
+	return inspector.RegistrationSnapshot()
 }
 
 func (r hostSurfaceRouter[T]) Group(prefix string) router.Router[T] {
@@ -750,6 +778,49 @@ func joinHostScopePrefix(scopePrefix, routePath string) string {
 
 func (r hostAdminRouter[T]) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.surface.Handle(method, path, handler, mw...)
+}
+
+func (r hostAdminRouter[T]) TryReplace(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) (router.RouteInfo, error) {
+	if r.surface == nil {
+		return nil, fmt.Errorf("quickstart host router: admin surface is unavailable")
+	}
+	return r.surface.TryReplace(method, path, handler, mw...)
+}
+
+func (r hostAdminRouter[T]) TryUpsert(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) (router.RouteInfo, bool, error) {
+	if r.surface == nil {
+		return nil, false, fmt.Errorf("quickstart host router: admin surface is unavailable")
+	}
+	return r.surface.TryUpsert(method, path, handler, mw...)
+}
+
+func (r hostAdminRouter[T]) RegistrationSnapshot() router.RegistrationSnapshot {
+	if r.surface == nil {
+		return router.RegistrationSnapshot{}
+	}
+	return r.surface.RegistrationSnapshot()
+}
+
+func (r hostAdminRouter[T]) ModuleMountRouter(surface string) (coreadmin.AdminRouter, bool) {
+	if r.host == nil {
+		return nil, false
+	}
+	switch adminrouting.NormalizeRouteSurface(surface) {
+	case adminrouting.SurfaceUI:
+		return r.host.adminUI, true
+	case adminrouting.SurfaceAPI:
+		return r.host.adminAPI, true
+	case adminrouting.SurfaceProtectedAppUI:
+		return r.host.protectedUI, true
+	case adminrouting.SurfaceProtectedAppAPI:
+		return r.host.protectedAPI, true
+	case adminrouting.SurfacePublicAPI:
+		return r.host.publicAPI, true
+	case adminrouting.SurfacePublicSite:
+		return r.host.publicSite, true
+	default:
+		return nil, false
+	}
 }
 
 func (r hostAdminRouter[T]) Group(prefix string) router.Router[T] {
