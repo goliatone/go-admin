@@ -31,6 +31,7 @@ type Admin struct {
 	featureCatalogResolver          catalog.MessageResolver
 	urlManager                      *urlkit.RouteManager
 	routingPlanner                  routing.Planner
+	routingReportMu                 sync.RWMutex
 	routingReport                   routing.StartupReport
 	registry                        *Registry
 	cms                             CMSContainer
@@ -168,7 +169,9 @@ func (a *Admin) RoutingReport() routing.StartupReport {
 	if a == nil {
 		return routing.StartupReport{}
 	}
-	return a.routingReport
+	a.routingReportMu.RLock()
+	defer a.routingReportMu.RUnlock()
+	return routing.CloneStartupReport(a.routingReport)
 }
 
 // WithAuth attaches an authenticator for route protection.
