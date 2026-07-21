@@ -1,6 +1,31 @@
 # Changelog
 
+# [0.120.0](https://github.com/goliatone/go-admin/compare/v0.119.1...v0.120.0) - (2026-07-21)
+
+## <!-- 16 -->➕ Add
+
+- Routing report for doctor ([eabfda2](https://github.com/goliatone/go-admin/commit/eabfda2901abde142eb45c810fb8229f2270af5f))  - (goliatone)
+- Routing preserve prefixes ([fa709ea](https://github.com/goliatone/go-admin/commit/fa709ea58a15a59da68e9946840613243b8713a6))  - (goliatone)
+- Expose command launcher action id ([2fafa9d](https://github.com/goliatone/go-admin/commit/2fafa9dc9810ea0f0764ffb9d7be6778cf281709))  - (goliatone)
+- Router try replace with options ([703760c](https://github.com/goliatone/go-admin/commit/703760c1bbc359303a2d5ff72724466f074fb1c0))  - (goliatone)
+- Doctor checks for routes ([44b53a1](https://github.com/goliatone/go-admin/commit/44b53a1a9990d392cdc8f05d49e2a1f8ccfd2860))  - (goliatone)
+- Routing keep preserved prefixes ([3272997](https://github.com/goliatone/go-admin/commit/3272997ee2db6fa12f2328179adad44de42b22b7))  - (goliatone)
+- Doctor navigation and shared panels ([c743361](https://github.com/goliatone/go-admin/commit/c7433616bbad265b260b148fecd836fca4954533))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([ab0c58d](https://github.com/goliatone/go-admin/commit/ab0c58d3ccfce87dedebf42a06ba100edffa9112))  - (goliatone)
+- Update deps ([748b4cf](https://github.com/goliatone/go-admin/commit/748b4cf57189ecb8a0ff81fc2fde1132ef7585ea))  - (goliatone)
+- Update tests ([b8503cf](https://github.com/goliatone/go-admin/commit/b8503cf2d5e6298ad4e94180d95a4e0b5ca52a21))  - (goliatone)
+
 # [0.119.1](https://github.com/goliatone/go-admin/compare/v0.119.0...v0.119.1) - (2026-07-21)
+
+
+New patch release: v0.119.1
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.119.1 ([4a0ebbe](https://github.com/goliatone/go-admin/commit/4a0ebbe3a02617a39f2a2cd90982e3b81c682ff1))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
