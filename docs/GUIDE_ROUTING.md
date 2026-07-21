@@ -256,8 +256,8 @@ registration before the first call that seals the adapter:
 - `Server.WrappedRouter()`
 
 `WrappedRouter()` is an initialization/sealing call, not a read-only accessor.
-Fiber specificity ordering, runtime snapshot capture, and miss-handler
-installation happen at this boundary. Route or miss-handler mutation after it
+Fiber containment ordering, runtime snapshot capture, and miss-handler
+installation happen atomically at this boundary. Route or miss-handler mutation after it
 panics with a typed `router.RegistrationError` wrapping
 `router.ErrRouterSealed`; `TryReplace` and `TryUpsert` return that error
 directly. Concurrent declarations before sealing are serialized. Mutating
@@ -289,26 +289,40 @@ if _, err := replacer.TryReplace(router.GET, previewPath, previewHandler); err !
 If the package-owned route is feature-gated and can legitimately be absent,
 use `router.RouteUpserter` instead. `TryUpsert` explicitly reports whether it
 replaced the exact route or added it; do not emulate this with a duplicate
-registration or direct Fiber call.
+registration or direct Fiber call. Replacement preserves the existing route
+middleware by default, and upsert additions run through ordinary conflict
+validation. Use `router.RouteMutator` with `ReplaceMiddleware: true` only when
+the entire middleware chain must intentionally change. When middleware is only
+needed for the feature-gated add case, use
+`RouteMutationOptions{MiddlewareOnAddOnly: true}` so replacing an already
+protected route does not apply authentication or authorization twice.
 
-Do not unwrap Fiber and call `app.Get(...)`; that seals the planned router and
-bypasses ownership, conflict, and runtime diagnostics.
+Do not unwrap Fiber and call `app.Get(...)`; direct Fiber registration bypasses
+ownership, conflict handling, ordering, and runtime diagnostics. Obtaining the
+app through `WrappedRouter()` also seals the planned router first.
 
 ### Named module mounts
 
-The legacy `UIRoutes`, `APIRoutes`, and `PublicAPIRoutes` fields remain
-supported. A module that contributes to several roots declares named relative
-route sets, while the host authorizes every name with a surface and absolute
-base:
+The legacy path-only `UIRoutes`, `APIRoutes`, and `PublicAPIRoutes` fields remain
+supported. New modules should use typed declarations so conflict validation and
+Doctor can reconcile the exact method/path pair. A module that contributes to
+several roots declares named relative route sets, while the host authorizes
+every name with a surface and absolute base:
 
 ```go
 // Module declaration
 routing.ModuleContract{
     Slug: "my_module",
     Mounts: map[string]routing.NamedMountContract{
-        "admin":      {Routes: map[string]string{"my_module.admin": "/"}},
-        "options":    {Routes: map[string]string{"my_module.options": "/"}},
-        "standalone": {Routes: map[string]string{"my_module.home": "/"}},
+        "admin": {RouteDeclarations: map[string]routing.RouteDeclaration{
+            "my_module.admin": {Method: router.GET, Path: "/"},
+        }},
+        "options": {RouteDeclarations: map[string]routing.RouteDeclaration{
+            "my_module.options": {Method: router.GET, Path: "/"},
+        }},
+        "standalone": {RouteDeclarations: map[string]routing.RouteDeclaration{
+            "my_module.home": {Method: router.GET, Path: "/"},
+        }},
     },
 }
 
@@ -332,8 +346,17 @@ if ok && path != "" {
 }
 ```
 
-The planner rejects missing authorization, host-only surfaces, a base outside
-the selected surface root, or claiming a reserved root directly.
+Mount names are canonical lowercase identifiers; whitespace and surrounding
+slashes are ignored, and canonical collisions are rejected. The planner rejects
+missing authorization, host-only surfaces, a base outside the selected surface
+root, a public-site base owned by admin/API/system/static routing, or claiming a
+reserved root directly.
+
+Doctor reports a typed declaration as missing when its exact method/path pair
+is absent after sealing. Legacy path-only declarations appear as one aggregated
+`route_method_unknown` warning because their physical method cannot be proven;
+migrate them to `RouteDeclaration` before treating runtime reconciliation as
+complete.
 
 ## Theme scope isolation
 
