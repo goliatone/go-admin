@@ -85,13 +85,21 @@ func (a *Admin) logRoutingStartupReport(stage string, err error) {
 	a.loggerFor("admin.routing").Info("routing startup report", attrs...)
 }
 
-func routingLogModules(modules []routing.ResolvedModule) []map[string]string {
+func routingLogModules(modules []routing.ResolvedModule) []map[string]any {
 	if len(modules) == 0 {
 		return nil
 	}
-	out := make([]map[string]string, 0, len(modules))
+	out := make([]map[string]any, 0, len(modules))
 	for _, module := range modules {
-		out = append(out, map[string]string{
+		mounts := make(map[string]map[string]string, len(module.Mounts))
+		for name, mount := range module.Mounts {
+			mounts[name] = map[string]string{
+				"surface":    strings.TrimSpace(mount.Surface),
+				"base":       strings.TrimSpace(mount.Base),
+				"group_path": strings.TrimSpace(mount.GroupPath),
+			}
+		}
+		out = append(out, map[string]any{
 			"slug":             strings.TrimSpace(module.Slug),
 			"ui":               strings.TrimSpace(module.UIMountBase),
 			"api":              strings.TrimSpace(module.APIMountBase),
@@ -99,6 +107,7 @@ func routingLogModules(modules []routing.ResolvedModule) []map[string]string {
 			"ui_group":         strings.TrimSpace(module.UIGroupPath),
 			"api_group":        strings.TrimSpace(module.APIGroupPath),
 			"public_api_group": strings.TrimSpace(module.PublicAPIGroupPath),
+			"mounts":           mounts,
 		})
 	}
 	return out
@@ -196,7 +205,8 @@ type runtimeRouterAdapter interface {
 }
 
 type adminRouterRoutingAdapter struct {
-	router runtimeRouterAdapter
+	router    runtimeRouterAdapter
+	inspector router.RegistrationInspector
 }
 
 func newAdminRouterRoutingAdapter(r AdminRouter) *adminRouterRoutingAdapter {
@@ -207,7 +217,29 @@ func newAdminRouterRoutingAdapter(r AdminRouter) *adminRouterRoutingAdapter {
 	if !ok {
 		return nil
 	}
-	return &adminRouterRoutingAdapter{router: adapter}
+	return &adminRouterRoutingAdapter{
+		router:    adapter,
+		inspector: findRegistrationInspector(any(r)),
+	}
+}
+
+type underlyingRouterProvider interface {
+	UnderlyingRouter() any
+}
+
+func findRegistrationInspector(candidate any) router.RegistrationInspector {
+	for depth := 0; candidate != nil && depth < 16; depth++ {
+		if inspector, ok := candidate.(router.RegistrationInspector); ok {
+			return inspector
+		}
+		unwrapper, ok := candidate.(underlyingRouterProvider)
+		if !ok {
+			return nil
+		}
+		next := unwrapper.UnderlyingRouter()
+		candidate = next
+	}
+	return nil
 }
 
 func (a *adminRouterRoutingAdapter) Routes() []router.RouteDefinition {
@@ -222,6 +254,13 @@ func (a *adminRouterRoutingAdapter) ValidateRoutes() []error {
 		return nil
 	}
 	return a.router.ValidateRoutes()
+}
+
+func (a *adminRouterRoutingAdapter) RegistrationSnapshot() (router.RegistrationSnapshot, bool) {
+	if a == nil || a.inspector == nil {
+		return router.RegistrationSnapshot{}, false
+	}
+	return a.inspector.RegistrationSnapshot(), true
 }
 
 func (a *adminRouterRoutingAdapter) RoutingRouterCapabilities() routing.RouterCapabilities {
@@ -243,13 +282,19 @@ func (a *Admin) refreshRoutingReport() {
 		base.Warnings,
 		routing.BuildAdapterWarnings(newURLKitRoutingAdapter(a.urlManager), newAdminRouterRoutingAdapter(a.router)),
 	)
-	a.routingReport = routing.BuildStartupReport(
+	report := routing.BuildStartupReport(
 		base.EffectiveRoots,
 		base.Modules,
 		a.routingPlanner.Manifest(),
 		base.Conflicts,
 		warnings,
 	)
+	adapter := newAdminRouterRoutingAdapter(a.router)
+	if snapshot, ok := adapter.RegistrationSnapshot(); ok {
+		runtimeReport := routing.BuildRuntimeReport(a.routingPlanner.Manifest(), snapshot)
+		report.Runtime = &runtimeReport
+	}
+	a.routingReport = report
 }
 
 // RefreshRoutingReport recomputes the cached routing report after planner mutations.
