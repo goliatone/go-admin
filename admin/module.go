@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 
 	modinternal "github.com/goliatone/go-admin/admin/internal/modules"
 	"github.com/goliatone/go-admin/admin/routing"
@@ -27,6 +28,14 @@ type ModuleContext struct {
 	Locale         string                `json:"locale"`
 	Translator     Translator            `json:"translator"`
 	Routing        routing.ModuleContext `json:"routing"`
+	// MountRouters exposes host-authorized named routing surfaces declared in
+	// Routing. Modules should resolve paths through Routing.MountRoutePath.
+	MountRouters map[string]AdminRouter `json:"-"`
+}
+
+func (c ModuleContext) MountRouter(name string) (AdminRouter, bool) {
+	r, ok := c.MountRouters[strings.ToLower(strings.TrimSpace(name))]
+	return r, ok
 }
 
 // Module defines the minimal contract for pluggable slices.
@@ -39,6 +48,12 @@ type Module interface {
 // RouteContractProvider exposes the explicit routing contract required for mounted modules.
 type RouteContractProvider interface {
 	RouteContract() routing.ModuleContract
+}
+
+// ModuleMountRouterProvider is implemented by host routers that can resolve a
+// validated routing surface to its concrete registration router.
+type ModuleMountRouterProvider interface {
+	ModuleMountRouter(surface string) (AdminRouter, bool)
 }
 
 // ModuleStartupPolicy controls how startup validation errors are handled.
