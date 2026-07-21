@@ -36,6 +36,67 @@ export function panelActionHasSensitiveFields(element: HTMLElement): boolean {
   return element.querySelector('[data-action-field-sensitive="true"]') !== null;
 }
 
+export function applyPanelActionPayload(form: HTMLFormElement, payload: Record<string, unknown>): void {
+  form.querySelectorAll<HTMLElement>('[data-action-field]').forEach((field) => {
+    const path = (field.dataset.actionFieldPath || field.dataset.actionField || '').trim();
+    if (!path) {
+      return;
+    }
+    const value = payloadPathValue(payload, path);
+    if (value === undefined) {
+      return;
+    }
+    if (field instanceof HTMLInputElement && field.type === 'checkbox') {
+      field.checked = Boolean(value);
+    } else if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement) {
+      const kind = (field.dataset.actionFieldKind || '').trim().toLowerCase();
+      if (kind === 'string_list' && Array.isArray(value)) {
+        field.value = value.map((item) => String(item)).join('\n');
+      } else if (kind === 'json' && typeof value === 'object' && value !== null) {
+        field.value = JSON.stringify(value, null, 2);
+      } else {
+        field.value = String(value);
+      }
+    }
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+export function applyPanelActionNavigation(root: ParentNode, panelID: string, state: Record<string, unknown>): boolean {
+  const actionID = String(state.action_id || '').trim();
+  if (!panelID || !actionID) {
+    return false;
+  }
+  const picker = Array.from(root.querySelectorAll<HTMLSelectElement>('[data-panel-action-picker]'))
+    .find((candidate) => candidate.dataset.panelActionPicker === panelID);
+  if (!picker || !Array.from(picker.options).some((option) => option.value === actionID)) {
+    return false;
+  }
+  picker.value = actionID;
+  picker.dispatchEvent(new Event('change', { bubbles: true }));
+
+  const payload = state.payload && typeof state.payload === 'object' && !Array.isArray(state.payload)
+    ? state.payload as Record<string, unknown>
+    : {};
+  const form = Array.from(root.querySelectorAll<HTMLFormElement>('[data-panel-action-form]'))
+    .find((candidate) => candidate.dataset.panelId === panelID && candidate.dataset.actionId === actionID);
+  if (form) {
+    applyPanelActionPayload(form, payload);
+  }
+  return true;
+}
+
+function payloadPathValue(payload: Record<string, unknown>, path: string): unknown {
+  let current: unknown = payload;
+  for (const part of path.split('.').map((item) => item.trim()).filter(Boolean)) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
 function parseBasePayload(raw: string | undefined): Record<string, unknown> {
   if (!raw) {
     return {};

@@ -130,6 +130,7 @@ export {
   renderPermissionsPanelCompact,
   renderDoctorPanel,
   renderDoctorPanelCompact,
+  doctorNavigation,
   renderSiteRenderCachePanel,
   renderSiteRenderCachePanelCompact,
   renderSchemaTable,
@@ -141,6 +142,8 @@ export {
   RegistryLiveListManager,
   type RegistryLiveListHost,
 } from './shared/panels/index.js';
+
+export { applyPanelActionNavigation, applyPanelActionPayload } from './shared/panel-actions.js';
 
 // Server-defined (schema) panels
 export { panelDefinitionFromServer } from './shared/server-definitions.js';

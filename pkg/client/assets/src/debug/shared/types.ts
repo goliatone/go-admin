@@ -303,7 +303,7 @@ export type DoctorActionState = {
   label?: string;
   cta?: string;
   description?: string;
-  kind?: 'manual' | 'auto';
+  kind?: 'manual' | 'auto' | 'navigate';
   allowed_statuses?: DoctorSeverity[];
   requires_confirmation?: boolean;
   confirm_text?: string;

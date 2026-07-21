@@ -286,6 +286,23 @@ function renderFindings(findings: DoctorFinding[] | undefined): string {
 // Action Components
 // ============================================================================
 
+export type DoctorNavigation = { panelID: string; state: Record<string, unknown> };
+
+export function doctorNavigation(action: DoctorActionState | undefined): DoctorNavigation | null {
+  if (!action || action.kind !== 'navigate' || !action.metadata || typeof action.metadata !== 'object') {
+    return null;
+  }
+  const panelID = String(action.metadata.panel_id || '').trim();
+  if (!panelID || !/^[A-Za-z0-9._:-]{1,128}$/.test(panelID)) {
+    return null;
+  }
+  const candidate = action.metadata.state;
+  const state = candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+    ? candidate as Record<string, unknown>
+    : {};
+  return { panelID, state };
+}
+
 function renderAction(checkId: string, action: DoctorActionState | undefined): string {
   if (!action) {
     return '';
@@ -298,6 +315,7 @@ function renderAction(checkId: string, action: DoctorActionState | undefined): s
   const requiresConfirmation = Boolean(action.requires_confirmation);
   const confirmText = String(action.confirm_text || '').trim();
   const kind = action.kind || 'manual';
+  const navigation = kind === 'navigate' ? doctorNavigation(action) : null;
 
   // Determine button state
   let buttonState = 'enabled';
@@ -311,7 +329,12 @@ function renderAction(checkId: string, action: DoctorActionState | undefined): s
     stateMessage = kind === 'manual' ? 'Manual action required' : 'Action not available';
   }
 
-  const buttonDisabled = buttonState !== 'enabled';
+  const buttonDisabled = buttonState !== 'enabled' || (kind === 'navigate' && !navigation);
+  const actionAttributes = navigation
+    ? `data-doctor-action-navigate="${escapeHTML(navigation.panelID)}" data-doctor-action-state="${escapeHTML(encodeURIComponent(JSON.stringify(navigation.state)))}"`
+    : kind === 'navigate'
+      ? ''
+      : `data-doctor-action-run="${escapeHTML(checkId)}"`;
   const buttonStyle = buttonDisabled
     ? 'background: #374151; color: #6b7280; cursor: not-allowed;'
     : 'background: #3b82f6; color: #fff; cursor: pointer;';
@@ -345,7 +368,7 @@ function renderAction(checkId: string, action: DoctorActionState | undefined): s
           <button
             type="button"
             class="debug-btn"
-            data-doctor-action-run="${escapeHTML(checkId)}"
+            ${actionAttributes}
             ${confirmText ? `data-doctor-action-confirm="${escapeHTML(confirmText)}"` : ''}
             ${requiresConfirmation ? 'data-doctor-action-requires-confirmation="true"' : ''}
             ${buttonDisabled ? 'disabled' : ''}

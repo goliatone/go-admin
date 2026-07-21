@@ -1,7 +1,7 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { A as H, C as O, E as c, F as D, H as k, M as j, N as F, R as V, S as N, _ as B, b as G, d as _, f as K, h as Q, j as Y, k as J, l as U, m as W, p as X, t as Z, u as tt, v as et, x as at } from "../chunks/builtin-panels-BwYqXDcT.js";
+import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as Y, g as J, h as U, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-LsMU86_3.js";
 import { t as st } from "../chunks/repl-panel-Dvtc4bMw.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
 import { M as b, P as v, S as rt, T as nt, W as it, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as qt, l as Lt, m as pt, n as E, o as P, p as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-C0QmC9Ua.js";
@@ -1095,7 +1095,7 @@ function w(a, t, e = 50, s) {
   const r = s?.newestFirst ?? !0, i = s?.slowThresholdMs ?? e;
   switch (a) {
     case "requests":
-      return N(t.requests || [], d, {
+      return B(t.requests || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1106,7 +1106,7 @@ function w(a, t, e = 50, s) {
         maxDetailLength: 80
       });
     case "sql":
-      return V(t.sql || [], d, {
+      return _(t.sql || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1114,7 +1114,7 @@ function w(a, t, e = 50, s) {
         useIconCopyButton: !1
       });
     case "logs":
-      return et(t.logs || [], d, {
+      return at(t.logs || [], d, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1128,7 +1128,7 @@ function w(a, t, e = 50, s) {
         showCount: !1
       });
     case "routes":
-      return W(t.routes || [], d, { showName: !1 });
+      return K(t.routes || [], d, { showName: !1 });
     case "template":
       return b("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
@@ -1140,14 +1140,14 @@ function w(a, t, e = 50, s) {
         showCount: !1
       });
     case "jserrors":
-      return _(t.jserrors || [], d, {
+      return W(t.jserrors || [], d, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return K(t.custom || {}, d, {
+      return U(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1179,7 +1179,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   constructor() {
     super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
-    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new G({
+    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new H({
       styles: c,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
@@ -1193,8 +1193,8 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       onNeedFullRender: () => this.updateContent()
     }), this.logsView = new v({
       styles: c,
-      keyOf: Q,
-      renderRow: (t) => B(t, c, {
+      keyOf: tt,
+      renderRow: (t) => Q(t, c, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1208,7 +1208,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
       keyOf: O,
-      renderRow: (t) => at(t, c, {
+      renderRow: (t) => et(t, c, {
         slowThresholdMs: this.slowThresholdMs,
         truncatePath: !0,
         maxPathLength: 50,
@@ -1218,26 +1218,26 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("requests") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (t) => Y(t, this.expandedRequests, { useIconFeedback: !1 })
+      onAdopt: (t) => N(t, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new v({
       styles: c,
-      keyOf: U,
-      renderRow: (t) => tt(t, c, { compact: !0 }),
+      keyOf: Y,
+      renderRow: (t) => X(t, c, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (t) => j(t, {
+      onAdopt: (t) => D(t, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (t) => D(t, {
+      onRestore: (t) => G(t, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new X({
+    }), this.registryLiveList = new J({
       styles: c,
       getRenderOptions: () => ({}),
       onNeedFullRender: () => this.updateContent()
@@ -1673,13 +1673,13 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    H(this.shadow);
+    V(this.shadow);
   }
   attachCopyListeners() {
-    J(this.shadow, { useIconFeedback: !1 });
+    F(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    F(this.shadow, (t, e) => {
+    j(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }

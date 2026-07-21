@@ -13,6 +13,8 @@ export type DebugCommand = {
 
 export type DebugStreamStatus = 'connected' | 'disconnected' | 'reconnecting' | 'error';
 
+export const debugSnapshotInvalidatedEvent = 'snapshot_invalidated';
+
 export type DebugStreamOptions = {
   basePath?: string;
   url?: string;
@@ -174,6 +176,10 @@ export class DebugStream {
       }
       try {
         const parsed = JSON.parse(event.data) as DebugEvent;
+        if (parsed?.type === debugSnapshotInvalidatedEvent) {
+          this.requestSnapshot();
+          return;
+        }
         this.options.onEvent?.(parsed);
       } catch {
         // ignore malformed payloads

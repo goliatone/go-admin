@@ -67,7 +67,7 @@ import {
   replPanelIDs,
 } from './shared/runtime-helpers.js';
 import { renderDebugIconRef } from './shared/icons.js';
-import { buildPanelActionPayload, panelActionHasSensitiveFields } from './shared/panel-actions.js';
+import { applyPanelActionNavigation, buildPanelActionPayload, panelActionHasSensitiveFields } from './shared/panel-actions.js';
 import { hydrateServerPanelDefinitions } from './shared/server-definitions.js';
 import {
   attachCommandLauncherListeners,
@@ -748,6 +748,11 @@ export class DebugPanel {
       if (!target) {
         return;
       }
+      const navigationButton = target.closest<HTMLButtonElement>('[data-doctor-action-navigate]');
+      if (navigationButton && !navigationButton.disabled) {
+        this.navigateFromDoctorAction(navigationButton);
+        return;
+      }
       const button = target.closest<HTMLButtonElement>('[data-doctor-action-run]');
       if (!button || button.disabled) {
         return;
@@ -1348,6 +1353,31 @@ export class DebugPanel {
     launcher.querySelectorAll<HTMLElement>('[data-panel-action-choice]').forEach((choice) => {
       choice.hidden = choice.dataset.panelActionChoice !== selected;
     });
+  }
+
+  private navigateFromDoctorAction(button: HTMLButtonElement): void {
+    const panelID = this.normalizePanelID(button.dataset.doctorActionNavigate || '');
+    if (!panelID || !this.panels.includes(panelID)) {
+      return;
+    }
+    let state: Record<string, unknown> = {};
+    try {
+      const decoded = decodeURIComponent(button.dataset.doctorActionState || '');
+      const parsed = decoded ? JSON.parse(decoded) : {};
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        state = parsed as Record<string, unknown>;
+      }
+    } catch {
+      state = {};
+    }
+    this.activePanel = panelID;
+    this.persistActivePanel();
+    this.renderActivePanel();
+    this.applyDoctorNavigationState(panelID, state);
+  }
+
+  private applyDoctorNavigationState(panelID: string, state: Record<string, unknown>): void {
+    applyPanelActionNavigation(this.panelEl, panelID, state);
   }
 
   private clearPanelActionErrors(): void {

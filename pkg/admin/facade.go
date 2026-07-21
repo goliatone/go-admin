@@ -100,6 +100,7 @@ const (
 	ContentTypeCapabilityKeyPermission             = core.ContentTypeCapabilityKeyPermission
 	ContentTypeCapabilityKeyPermissions            = core.ContentTypeCapabilityKeyPermissions
 	ContentTypeCapabilityKeySEO                    = core.ContentTypeCapabilityKeySEO
+	ContentTypeCapabilityKeySearchContent          = core.ContentTypeCapabilityKeySearchContent
 	ContentTypeCapabilityKeyTranslation            = core.ContentTypeCapabilityKeyTranslation
 	ContentTypeCapabilityKeyTranslations           = core.ContentTypeCapabilityKeyTranslations
 	ContentTypeCapabilityKeyTree                   = core.ContentTypeCapabilityKeyTree
@@ -113,6 +114,8 @@ const (
 	DebugLayoutAdmin                               = core.DebugLayoutAdmin
 	DebugLayoutStandalone                          = core.DebugLayoutStandalone
 	DebugPanelActions                              = core.DebugPanelActions
+	DebugPanelCommandLauncher                      = core.DebugPanelCommandLauncher
+	DebugPanelCommands                             = core.DebugPanelCommands
 	DebugPanelConfig                               = core.DebugPanelConfig
 	DebugPanelConsole                              = core.DebugPanelConsole
 	DebugPanelCustom                               = core.DebugPanelCustom
@@ -130,6 +133,7 @@ const (
 	DebugREPLKindShell                             = core.DebugREPLKindShell
 	DebugREPLOverrideKeyMetadata                   = core.DebugREPLOverrideKeyMetadata
 	DebugREPLOverrideTokenMetadata                 = core.DebugREPLOverrideTokenMetadata
+	DefaultEntryNavigationActivityAction           = core.DefaultEntryNavigationActivityAction
 	DefaultIconLibrary                             = core.DefaultIconLibrary
 	DefaultPreviewHTMLMaxSizeBytes                 = core.DefaultPreviewHTMLMaxSizeBytes
 	DefaultSchemaMaxDepth                          = core.DefaultSchemaMaxDepth
@@ -138,6 +142,7 @@ const (
 	DefaultUISchemaMaxSizeBytes                    = core.DefaultUISchemaMaxSizeBytes
 	DoctorActionKindAuto                           = core.DoctorActionKindAuto
 	DoctorActionKindManual                         = core.DoctorActionKindManual
+	DoctorActionKindNavigate                       = core.DoctorActionKindNavigate
 	DoctorSeverityError                            = core.DoctorSeverityError
 	DoctorSeverityInfo                             = core.DoctorSeverityInfo
 	DoctorSeverityOK                               = core.DoctorSeverityOK
@@ -273,7 +278,6 @@ const (
 	PermAdminContentModelingManage                 = core.PermAdminContentModelingManage
 	PermAdminContentTypesView                      = core.PermAdminContentTypesView
 	PermAdminDashboardView                         = core.PermAdminDashboardView
-	PermAdminWildcard                              = core.PermAdminWildcard
 	PermAdminDebugRepl                             = core.PermAdminDebugRepl
 	PermAdminDebugReplExec                         = core.PermAdminDebugReplExec
 	PermAdminDebugSessionAttach                    = core.PermAdminDebugSessionAttach
@@ -347,6 +351,7 @@ const (
 	PermAdminUsersEdit                             = core.PermAdminUsersEdit
 	PermAdminUsersImport                           = core.PermAdminUsersImport
 	PermAdminUsersView                             = core.PermAdminUsersView
+	PermAdminWildcard                              = core.PermAdminWildcard
 	PreferenceLevelOrg                             = core.PreferenceLevelOrg
 	PreferenceLevelSystem                          = core.PreferenceLevelSystem
 	PreferenceLevelTenant                          = core.PreferenceLevelTenant
@@ -385,6 +390,17 @@ const (
 	ScopePolicySingle                              = core.ScopePolicySingle
 	ScopeTenantIDKey                               = core.ScopeTenantIDKey
 	ScopeTenantKey                                 = core.ScopeTenantKey
+	SearchCountAccuracyApproximate                 = core.SearchCountAccuracyApproximate
+	SearchCountAccuracyExact                       = core.SearchCountAccuracyExact
+	SearchCountAccuracyLowerBound                  = core.SearchCountAccuracyLowerBound
+	SearchCountAccuracyUnavailable                 = core.SearchCountAccuracyUnavailable
+	SearchEvidenceStatusComplete                   = core.SearchEvidenceStatusComplete
+	SearchEvidenceStatusPartial                    = core.SearchEvidenceStatusPartial
+	SearchEvidenceStatusUnavailable                = core.SearchEvidenceStatusUnavailable
+	SearchEvidenceStatusUnsupported                = core.SearchEvidenceStatusUnsupported
+	SearchTotalAccuracyApproximate                 = core.SearchTotalAccuracyApproximate
+	SearchTotalAccuracyExact                       = core.SearchTotalAccuracyExact
+	SearchTotalAccuracyLowerBound                  = core.SearchTotalAccuracyLowerBound
 	SettingsScopeDefault                           = core.SettingsScopeDefault
 	SettingsScopeSite                              = core.SettingsScopeSite
 	SettingsScopeSystem                            = core.SettingsScopeSystem
@@ -443,11 +459,26 @@ const (
 	TextCodeValidationError                        = core.TextCodeValidationError
 	TextCodeWorkflowInvalidTransition              = core.TextCodeWorkflowInvalidTransition
 	TextCodeWorkflowNotFound                       = core.TextCodeWorkflowNotFound
+	TranslationActorOptionPurposeAssignee          = core.TranslationActorOptionPurposeAssignee
+	TranslationActorOptionPurposeReviewer          = core.TranslationActorOptionPurposeReviewer
 	TranslationSSRSurfaceDashboard                 = core.TranslationSSRSurfaceDashboard
 	TranslationSSRSurfaceEditor                    = core.TranslationSSRSurfaceEditor
+	TranslationSSRSurfaceExchange                  = core.TranslationSSRSurfaceExchange
+	TranslationSSRSurfaceFamilyAssignments         = core.TranslationSSRSurfaceFamilyAssignments
 	TranslationSSRSurfaceFamilyDetail              = core.TranslationSSRSurfaceFamilyDetail
 	TranslationSSRSurfaceFamilyList                = core.TranslationSSRSurfaceFamilyList
+	TranslationSSRSurfaceMatrix                    = core.TranslationSSRSurfaceMatrix
 	TranslationSSRSurfaceQueue                     = core.TranslationSSRSurfaceQueue
+	TranslationSuggestionGenerateCommandName       = core.TranslationSuggestionGenerateCommandName
+	TranslationSuggestionReasonEmptySource         = core.TranslationSuggestionReasonEmptySource
+	TranslationSuggestionReasonFieldUnsupported    = core.TranslationSuggestionReasonFieldUnsupported
+	TranslationSuggestionReasonPermissionDenied    = core.TranslationSuggestionReasonPermissionDenied
+	TranslationSuggestionReasonPolicyDenied        = core.TranslationSuggestionReasonPolicyDenied
+	TranslationSuggestionReasonProviderUnavailable = core.TranslationSuggestionReasonProviderUnavailable
+	TranslationSuggestionReasonQuotaExceeded       = core.TranslationSuggestionReasonQuotaExceeded
+	TranslationSuggestionReasonRateLimited         = core.TranslationSuggestionReasonRateLimited
+	TranslationSuggestionReasonReadOnlyAssignment  = core.TranslationSuggestionReasonReadOnlyAssignment
+	TranslationSuggestionReasonServiceUnavailable  = core.TranslationSuggestionReasonServiceUnavailable
 	UpdateRoleOperation                            = core.UpdateRoleOperation
 	WidgetActivityFeed                             = core.WidgetActivityFeed
 	WidgetBarChart                                 = core.WidgetBarChart
@@ -633,7 +664,13 @@ type (
 	CommandBus                                        = core.CommandBus
 	CommandConfig                                     = core.CommandConfig
 	CommandExecutionPolicy                            = core.CommandExecutionPolicy
+	CommandLauncherDiagnostic                         = core.CommandLauncherDiagnostic
+	CommandLauncherSnapshot                           = core.CommandLauncherSnapshot
+	CommandRegistrationState                          = core.CommandRegistrationState
+	CommandResultFailureReporter                      = core.CommandResultFailureReporter
+	CommandStatusEvent                                = core.CommandStatusEvent
 	Config                                            = core.Config
+	ContentPreviewPathOptions                         = core.ContentPreviewPathOptions
 	ContentTranslation                                = core.ContentTranslation
 	ContentTypeBuilderModule                          = core.ContentTypeBuilderModule
 	ContentTypeBuilderOption                          = core.ContentTypeBuilderOption
@@ -660,16 +697,15 @@ type (
 	DashboardRendererFunc                             = core.DashboardRendererFunc
 	DashboardWidgetInstance                           = core.DashboardWidgetInstance
 	DebugCollector                                    = core.DebugCollector
+	DebugCollectorProvider                            = core.DebugCollectorProvider
 	DebugConfig                                       = core.DebugConfig
 	DebugEvent                                        = core.DebugEvent
 	DebugLayoutMode                                   = core.DebugLayoutMode
+	DebugLogContext                                   = core.DebugLogContext
+	DebugLogContextResolver                           = core.DebugLogContextResolver
 	DebugLogHandler                                   = core.DebugLogHandler
 	DebugLogHandlerOption                             = core.DebugLogHandlerOption
 	DebugLogLimits                                    = core.DebugLogLimits
-	DebugLogContext                                   = core.DebugLogContext
-	DebugLogContextResolver                           = core.DebugLogContextResolver
-	DebugCollectorProvider                            = core.DebugCollectorProvider
-	LogCaller                                         = core.LogCaller
 	DebugModule                                       = core.DebugModule
 	DebugPanel                                        = core.DebugPanel
 	DebugPanelActionProvider                          = core.DebugPanelActionProvider
@@ -694,6 +730,7 @@ type (
 	DefaultPageMapper                                 = core.DefaultPageMapper
 	DefaultTranslationQueueAutoCreateHook             = core.DefaultTranslationQueueAutoCreateHook
 	DefaultTranslationQueueService                    = core.DefaultTranslationQueueService
+	DefaultTranslationSuggestionService               = core.DefaultTranslationSuggestionService
 	DeliveryContentService                            = core.DeliveryContentService
 	DeliveryMenuService                               = core.DeliveryMenuService
 	DeliveryOptions                                   = core.DeliveryOptions
@@ -732,9 +769,16 @@ type (
 	EnhancedMutationResponder                         = core.EnhancedMutationResponder
 	EnhancedToast                                     = core.EnhancedToast
 	EnsureMenuParentsOptions                          = core.EnsureMenuParentsOptions
+	EntryNavigationEvaluation                         = core.EntryNavigationEvaluation
+	EntryNavigationOptions                            = core.EntryNavigationOptions
+	EntryNavigationPolicy                             = core.EntryNavigationPolicy
+	EntryNavigationTypeOptions                        = core.EntryNavigationTypeOptions
+	EntryNavigationViewModel                          = core.EntryNavigationViewModel
+	EntryNavigationViewModelInput                     = core.EntryNavigationViewModelInput
 	EnvironmentInfo                                   = core.EnvironmentInfo
 	ErrorConfig                                       = core.ErrorConfig
 	ErrorPresenter                                    = core.ErrorPresenter
+	ErrorResponse                                     = core.ErrorResponse
 	ExportColumn                                      = core.ExportColumn
 	ExportConfig                                      = core.ExportConfig
 	ExportDefinition                                  = core.ExportDefinition
@@ -760,6 +804,7 @@ type (
 	FieldTypeRegistry                                 = core.FieldTypeRegistry
 	FieldsLogger                                      = core.FieldsLogger
 	Filter                                            = core.Filter
+	FilterOnlyRequestValidator                        = core.FilterOnlyRequestValidator
 	FormgenSchemaValidator                            = core.FormgenSchemaValidator
 	GoAuthAuthenticator                               = core.GoAuthAuthenticator
 	GoAuthAuthenticatorOption                         = core.GoAuthAuthenticatorOption
@@ -835,6 +880,7 @@ type (
 	LocalePathMigrationSummary                        = core.LocalePathMigrationSummary
 	LocalePathRecordClassification                    = core.LocalePathRecordClassification
 	LocalePathRouteKeyReadiness                       = core.LocalePathRouteKeyReadiness
+	LogCaller                                         = core.LogCaller
 	LogEntry                                          = core.LogEntry
 	Logger                                            = core.Logger
 	LoggerProvider                                    = core.LoggerProvider
@@ -924,15 +970,16 @@ type (
 	Module                                            = core.Module
 	ModuleContext                                     = core.ModuleContext
 	ModuleManifest                                    = core.ModuleManifest
+	ModuleMountRouterProvider                         = core.ModuleMountRouterProvider
 	ModuleStartupPolicy                               = core.ModuleStartupPolicy
 	ModuleStartupValidator                            = core.ModuleStartupValidator
 	MutationFallback                                  = core.MutationFallback
 	MutationPresentation                              = core.MutationPresentation
 	Navigation                                        = core.Navigation
 	NavigationClassification                          = core.NavigationClassification
+	NavigationContributionPolicy                      = core.NavigationContributionPolicy
 	NavigationConvergenceCoordinator                  = core.NavigationConvergenceCoordinator
 	NavigationConvergenceScope                        = core.NavigationConvergenceScope
-	NavigationContributionPolicy                      = core.NavigationContributionPolicy
 	NavigationCoordinationReport                      = core.NavigationCoordinationReport
 	NavigationDoctorExpectedItem                      = core.NavigationDoctorExpectedItem
 	NavigationDoctorItem                              = core.NavigationDoctorItem
@@ -941,8 +988,10 @@ type (
 	NavigationItem                                    = core.NavigationItem
 	NavigationLifecycleReport                         = core.NavigationLifecycleReport
 	NavigationOwner                                   = core.NavigationOwner
-	NavigationPersistenceReport                       = core.NavigationPersistenceReport
+	NavigationPermissionDeclaration                   = core.NavigationPermissionDeclaration
 	NavigationPermissionDeniedMode                    = core.NavigationPermissionDeniedMode
+	NavigationPermissionRegistry                      = core.NavigationPermissionRegistry
+	NavigationPersistenceReport                       = core.NavigationPersistenceReport
 	NavigationRawInventoryOptions                     = core.NavigationRawInventoryOptions
 	NavigationRouteMissingPolicy                      = core.NavigationRouteMissingPolicy
 	NoopCLIHandler                                    = core.NoopCLIHandler
@@ -990,6 +1039,8 @@ type (
 	PanelUIRouteMode                                  = core.PanelUIRouteMode
 	PermissionDeniedError                             = core.PermissionDeniedError
 	PermissionEntry                                   = core.PermissionEntry
+	PermissionPolicyFinding                           = core.PermissionPolicyFinding
+	PermissionPolicyReport                            = core.PermissionPolicyReport
 	PermissionResolverFunc                            = core.PermissionResolverFunc
 	PermissionResolverMetrics                         = core.PermissionResolverMetrics
 	PermissionsDebugPanel                             = core.PermissionsDebugPanel
@@ -1012,6 +1063,7 @@ type (
 	PreferencesStoreAdapter                           = core.PreferencesStoreAdapter
 	PreferencesUpsertInput                            = core.PreferencesUpsertInput
 	PreferencesViewContextBuilder                     = core.PreferencesViewContextBuilder
+	PresentedError                                    = core.PresentedError
 	PreviewService                                    = core.PreviewService
 	PreviewToken                                      = core.PreviewToken
 	Priority                                          = core.Priority
@@ -1070,7 +1122,14 @@ type (
 	ScopePolicy                                       = core.ScopePolicy
 	ScopePolicyMode                                   = core.ScopePolicyMode
 	SearchAdapter                                     = core.SearchAdapter
+	SearchCount                                       = core.SearchCount
+	SearchCountAccuracy                               = core.SearchCountAccuracy
 	SearchEngine                                      = core.SearchEngine
+	SearchEvidence                                    = core.SearchEvidence
+	SearchEvidenceLocation                            = core.SearchEvidenceLocation
+	SearchEvidenceSample                              = core.SearchEvidenceSample
+	SearchEvidenceSnippet                             = core.SearchEvidenceSnippet
+	SearchEvidenceStatus                              = core.SearchEvidenceStatus
 	SearchFacet                                       = core.SearchFacet
 	SearchFacetTerm                                   = core.SearchFacetTerm
 	SearchHit                                         = core.SearchHit
@@ -1079,6 +1138,8 @@ type (
 	SearchRequest                                     = core.SearchRequest
 	SearchResult                                      = core.SearchResult
 	SearchResultPage                                  = core.SearchResultPage
+	SearchTotalAccuracy                               = core.SearchTotalAccuracy
+	SearchVariant                                     = core.SearchVariant
 	SettingDefinition                                 = core.SettingDefinition
 	SettingFieldEnricher                              = core.SettingFieldEnricher
 	SettingOption                                     = core.SettingOption
@@ -1127,6 +1188,10 @@ type (
 	ThemeProvider                                     = core.ThemeProvider
 	ThemeSelection                                    = core.ThemeSelection
 	ThemeSelector                                     = core.ThemeSelector
+	TranslationActorOption                            = core.TranslationActorOption
+	TranslationActorOptionProvider                    = core.TranslationActorOptionProvider
+	TranslationActorOptionPurpose                     = core.TranslationActorOptionPurpose
+	TranslationActorOptionQuery                       = core.TranslationActorOptionQuery
 	TranslationAlreadyExistsError                     = core.TranslationAlreadyExistsError
 	TranslationAssignment                             = core.TranslationAssignment
 	TranslationAssignmentConflictError                = core.TranslationAssignmentConflictError
@@ -1138,7 +1203,12 @@ type (
 	TranslationAssignmentFamilyGroupQueryInput        = core.TranslationAssignmentFamilyGroupQueryInput
 	TranslationAssignmentFamilyGroupQueryResult       = core.TranslationAssignmentFamilyGroupQueryResult
 	TranslationAssignmentFamilyGroupingStore          = core.TranslationAssignmentFamilyGroupingStore
+	TranslationAssignmentFamilyOptionQueryInput       = core.TranslationAssignmentFamilyOptionQueryInput
+	TranslationAssignmentFamilyOptionQueryResult      = core.TranslationAssignmentFamilyOptionQueryResult
+	TranslationAssignmentFamilyOptionQueryStore       = core.TranslationAssignmentFamilyOptionQueryStore
+	TranslationAssignmentGroupOption                  = core.TranslationAssignmentGroupOption
 	TranslationAssignmentMyWorkSummaryInput           = core.TranslationAssignmentMyWorkSummaryInput
+	TranslationAssignmentOptionStore                  = core.TranslationAssignmentOptionStore
 	TranslationAssignmentPageQueryInput               = core.TranslationAssignmentPageQueryInput
 	TranslationAssignmentPageQueryResult              = core.TranslationAssignmentPageQueryResult
 	TranslationAssignmentPageQueryStore               = core.TranslationAssignmentPageQueryStore
@@ -1167,6 +1237,7 @@ type (
 	TranslationEditorMemorySuggestionInput            = core.TranslationEditorMemorySuggestionInput
 	TranslationEditorMemorySuggestionStore            = core.TranslationEditorMemorySuggestionStore
 	TranslationExchangeApplier                        = core.TranslationExchangeApplier
+	TranslationExchangeApplyDefaults                  = core.TranslationExchangeApplyDefaults
 	TranslationExchangeApplyRequest                   = core.TranslationExchangeApplyRequest
 	TranslationExchangeConflictError                  = core.TranslationExchangeConflictError
 	TranslationExchangeConflictInfo                   = core.TranslationExchangeConflictInfo
@@ -1175,6 +1246,8 @@ type (
 	TranslationExchangeInvalidPayloadError            = core.TranslationExchangeInvalidPayloadError
 	TranslationExchangeLinkage                        = core.TranslationExchangeLinkage
 	TranslationExchangeLinkageKey                     = core.TranslationExchangeLinkageKey
+	TranslationExchangeLocaleOption                   = core.TranslationExchangeLocaleOption
+	TranslationExchangeResourceOption                 = core.TranslationExchangeResourceOption
 	TranslationExchangeResult                         = core.TranslationExchangeResult
 	TranslationExchangeRow                            = core.TranslationExchangeRow
 	TranslationExchangeRowResult                      = core.TranslationExchangeRowResult
@@ -1184,6 +1257,8 @@ type (
 	TranslationExchangeServiceOption                  = core.TranslationExchangeServiceOption
 	TranslationExchangeStore                          = core.TranslationExchangeStore
 	TranslationExchangeSummary                        = core.TranslationExchangeSummary
+	TranslationExchangeTemplateOption                 = core.TranslationExchangeTemplateOption
+	TranslationExchangeUIConfig                       = core.TranslationExchangeUIConfig
 	TranslationExchangeUnsupportedFormatError         = core.TranslationExchangeUnsupportedFormatError
 	TranslationExchangeValidator                      = core.TranslationExchangeValidator
 	TranslationExportCommand                          = core.TranslationExportCommand
@@ -1235,8 +1310,23 @@ type (
 	TranslationQueueReleaseCommand                    = core.TranslationQueueReleaseCommand
 	TranslationQueueReleaseInput                      = core.TranslationQueueReleaseInput
 	TranslationQueueService                           = core.TranslationQueueService
+	TranslationQueueStatsFromRepository               = core.TranslationQueueStatsFromRepository
+	TranslationQueueStatsService                      = core.TranslationQueueStatsService
+	TranslationQueueStatsSnapshot                     = core.TranslationQueueStatsSnapshot
+	TranslationQueueSubmitCommand                     = core.TranslationQueueSubmitCommand
+	TranslationQueueSubmitInput                       = core.TranslationQueueSubmitInput
+	TranslationQueueUIOptions                         = core.TranslationQueueUIOptions
+	TranslationRequirements                           = core.TranslationRequirements
+	TranslationRequirementsResolver                   = core.TranslationRequirementsResolver
+	TranslationRequirementsResolverFunc               = core.TranslationRequirementsResolverFunc
+	TranslationSSRPage                                = core.TranslationSSRPage
+	TranslationSSRPresenter                           = core.TranslationSSRPresenter
+	TranslationSSRPresenterInput                      = core.TranslationSSRPresenterInput
+	TranslationSSRResourceResult                      = core.TranslationSSRResourceResult
+	TranslationSuggestionActionEvaluator              = core.TranslationSuggestionActionEvaluator
 	TranslationSuggestionAllowAllEligibility          = core.TranslationSuggestionAllowAllEligibility
 	TranslationSuggestionAssignmentContext            = core.TranslationSuggestionAssignmentContext
+	TranslationSuggestionAssistContextExtractor       = core.TranslationSuggestionAssistContextExtractor
 	TranslationSuggestionContextLoader                = core.TranslationSuggestionContextLoader
 	TranslationSuggestionDecision                     = core.TranslationSuggestionDecision
 	TranslationSuggestionDependencyConfigurer         = core.TranslationSuggestionDependencyConfigurer
@@ -1249,18 +1339,6 @@ type (
 	TranslationSuggestionResult                       = core.TranslationSuggestionResult
 	TranslationSuggestionService                      = core.TranslationSuggestionService
 	TranslationSuggestionServiceDependencies          = core.TranslationSuggestionServiceDependencies
-	TranslationQueueStatsFromRepository               = core.TranslationQueueStatsFromRepository
-	TranslationQueueStatsService                      = core.TranslationQueueStatsService
-	TranslationQueueStatsSnapshot                     = core.TranslationQueueStatsSnapshot
-	TranslationQueueSubmitCommand                     = core.TranslationQueueSubmitCommand
-	TranslationQueueSubmitInput                       = core.TranslationQueueSubmitInput
-	TranslationRequirements                           = core.TranslationRequirements
-	TranslationRequirementsResolver                   = core.TranslationRequirementsResolver
-	TranslationRequirementsResolverFunc               = core.TranslationRequirementsResolverFunc
-	TranslationSSRPage                                = core.TranslationSSRPage
-	TranslationSSRPresenter                           = core.TranslationSSRPresenter
-	TranslationSSRPresenterInput                      = core.TranslationSSRPresenterInput
-	TranslationSSRResourceResult                      = core.TranslationSSRResourceResult
 	TranslationSummaryWidgetPayload                   = core.TranslationSummaryWidgetPayload
 	Translator                                        = core.Translator
 	TranslatorAware                                   = core.TranslatorAware
@@ -1338,6 +1416,14 @@ func ActionResponseCollectorFromContext(ctx context.Context) *ActionResponseColl
 	return core.ActionResponseCollectorFromContext(ctx)
 }
 
+func ApplyEntryNavigationReadContract(record map[string]any, policy EntryNavigationPolicy) map[string]any {
+	return core.ApplyEntryNavigationReadContract(record, policy)
+}
+
+func ApplyEntryNavigationWriteContract(record map[string]any, policy EntryNavigationPolicy, always bool) error {
+	return core.ApplyEntryNavigationWriteContract(record, policy, always)
+}
+
 func ApplyLocalePathMigration(ctx context.Context, svc CMSContentService, report LocalePathMigrationReport) (LocalePathMigrationApplyResult, error) {
 	return core.ApplyLocalePathMigration(ctx, svc, report)
 }
@@ -1376,6 +1462,10 @@ func BlockLibraryPickerDescriptorWithAPIBase(basePath string, apiBase string) co
 
 func BoolPtr(value bool) *bool {
 	return core.BoolPtr(value)
+}
+
+func BuildEntryNavigationViewModel(input EntryNavigationViewModelInput) (EntryNavigationViewModel, error) {
+	return core.BuildEntryNavigationViewModel(input)
 }
 
 func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) {
@@ -1462,8 +1552,20 @@ func CollectIconContributions(contributor IconContributor, callbacks IconContrib
 	return core.CollectIconContributions(contributor, callbacks)
 }
 
+func CommandLauncherActionID(commandID string) string {
+	return core.CommandLauncherActionID(commandID)
+}
+
+func CommandResultFailure(result any) error {
+	return core.CommandResultFailure(result)
+}
+
 func ComposeAdminDashboardPage(page dashboard.Page) AdminDashboardPage {
 	return core.ComposeAdminDashboardPage(page)
+}
+
+func ConfigureTranslationSuggestionServiceDependencies(service TranslationSuggestionService, deps TranslationSuggestionServiceDependencies) {
+	core.ConfigureTranslationSuggestionServiceDependencies(service, deps)
 }
 
 func ContentChannelFromContext(ctx context.Context) string {
@@ -1534,8 +1636,16 @@ func DefaultIconSecurityPolicy() IconSecurityPolicy {
 	return core.DefaultIconSecurityPolicy()
 }
 
+func DefaultNavigationPermissionRegistry(cfg Config) *NavigationPermissionRegistry {
+	return core.DefaultNavigationPermissionRegistry(cfg)
+}
+
 func DefaultSchemaRateLimiter() *RateLimiter {
 	return core.DefaultSchemaRateLimiter()
+}
+
+func DefaultTranslationSuggestionRPCCommandRule() RPCCommandRule {
+	return core.DefaultTranslationSuggestionRPCCommandRule()
 }
 
 func DeliveryGraphQLControllers() []registrar.Controller {
@@ -1578,8 +1688,28 @@ func EnsureWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 	return core.EnsureWorkflowAuthoringCutover(ctx, db)
 }
 
+func EntryNavigationPolicyFromContentType(contentType CMSContentType) EntryNavigationPolicy {
+	return core.EntryNavigationPolicyFromContentType(contentType)
+}
+
+func EntryNavigationPolicyFromOptions(contentType CMSContentType, options EntryNavigationOptions) EntryNavigationPolicy {
+	return core.EntryNavigationPolicyFromOptions(contentType, options)
+}
+
 func EnvironmentFromContext(ctx context.Context) string {
 	return core.EnvironmentFromContext(ctx)
+}
+
+func EvaluateEntryNavigation(rawOverrides any, policy EntryNavigationPolicy, strict bool) (EntryNavigationEvaluation, error) {
+	return core.EvaluateEntryNavigation(rawOverrides, policy, strict)
+}
+
+func EvaluateEntryNavigationFromRecord(record map[string]any, policy EntryNavigationPolicy) (EntryNavigationEvaluation, bool) {
+	return core.EvaluateEntryNavigationFromRecord(record, policy)
+}
+
+func EvaluateEntryNavigationVisibility(eligible []string, overrides map[string]string, defaultSet map[string]struct{}, policy EntryNavigationPolicy) (map[string]bool, []string) {
+	return core.EvaluateEntryNavigationVisibility(eligible, overrides, defaultSet, policy)
 }
 
 func ExtractContentPath(data map[string]any, metadata map[string]any, fallback string) string {
@@ -1662,6 +1792,10 @@ func NavigationClassifications() []NavigationClassification {
 	return core.NavigationClassifications()
 }
 
+func NavigationOverrideModes() []string {
+	return core.NavigationOverrideModes()
+}
+
 func New(cfg Config, deps Dependencies) (*Admin, error) {
 	return core.New(cfg, deps)
 }
@@ -1702,8 +1836,16 @@ func NewAdminContentReadService(content CMSContentService, contentTypes ...CMSCo
 	return core.NewAdminContentReadService(content, contentTypes...)
 }
 
+func NewAdminContentReadServiceWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions, contentTypes ...CMSContentTypeService) AdminContentReadService {
+	return core.NewAdminContentReadServiceWithEntryNavigationOptions(content, options, contentTypes...)
+}
+
 func NewAdminContentWriteService(content CMSContentService, contentTypes ...CMSContentTypeService) AdminContentWriteService {
 	return core.NewAdminContentWriteService(content, contentTypes...)
+}
+
+func NewAdminContentWriteServiceWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions, contentTypes ...CMSContentTypeService) AdminContentWriteService {
+	return core.NewAdminContentWriteServiceWithEntryNavigationOptions(content, options, contentTypes...)
 }
 
 func NewAdminObjectResolver(cfg AdminObjectResolverConfig) activity.ObjectResolver {
@@ -1758,8 +1900,16 @@ func NewCMSContentRepository(content CMSContentService) *CMSContentRepository {
 	return core.NewCMSContentRepository(content)
 }
 
+func NewCMSContentRepositoryWithEntryNavigationOptions(content CMSContentService, options EntryNavigationOptions) *CMSContentRepository {
+	return core.NewCMSContentRepositoryWithEntryNavigationOptions(content, options)
+}
+
 func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
 	return core.NewCMSContentTypeEntryRepository(content, contentType)
+}
+
+func NewCMSContentTypeEntryRepositoryWithEntryNavigationOptions(content CMSContentService, contentType CMSContentType, options EntryNavigationOptions) *CMSContentTypeEntryRepository {
+	return core.NewCMSContentTypeEntryRepositoryWithEntryNavigationOptions(content, contentType, options)
 }
 
 func NewCMSContentTypeRepository(types CMSContentTypeService) *CMSContentTypeRepository {
@@ -1808,14 +1958,6 @@ func NewDebugLogHandler(collector *DebugCollector, next slog.Handler) *DebugLogH
 
 func NewDebugLogHandlerProvider(provider DebugCollectorProvider, next slog.Handler, options ...DebugLogHandlerOption) *DebugLogHandler {
 	return core.NewDebugLogHandlerProvider(provider, next, options...)
-}
-
-func WithDebugLogContextResolver(resolver DebugLogContextResolver) DebugLogHandlerOption {
-	return core.WithDebugLogContextResolver(resolver)
-}
-
-func WithDebugLogLimits(limits DebugLogLimits) DebugLogHandlerOption {
-	return core.WithDebugLogLimits(limits)
 }
 
 func NewDebugModule(config DebugConfig) *DebugModule {
@@ -2110,6 +2252,10 @@ func NewNavigation(menuSvc CMSMenuService, authorizer Authorizer) *Navigation {
 	return core.NewNavigation(menuSvc, authorizer)
 }
 
+func NewNavigationPermissionRegistry(declarations ...NavigationPermissionDeclaration) *NavigationPermissionRegistry {
+	return core.NewNavigationPermissionRegistry(declarations...)
+}
+
 func NewNoopCMSContainer() *NoopCMSContainer {
 	return core.NewNoopCMSContainer()
 }
@@ -2238,6 +2384,10 @@ func NewTranslationSSRPresenter(a *Admin) TranslationSSRPresenter {
 	return core.NewTranslationSSRPresenter(a)
 }
 
+func NewTranslationSuggestionContextLoader(adm *Admin) TranslationSuggestionContextLoader {
+	return core.NewTranslationSuggestionContextLoader(adm)
+}
+
 func NewUserManagementModule(opts ...UserManagementModuleOption) *UserManagementModule {
 	return core.NewUserManagementModule(opts...)
 }
@@ -2298,6 +2448,14 @@ func NormalizeMenuSlug(raw string) string {
 	return core.NormalizeMenuSlug(raw)
 }
 
+func NormalizeNavigationOverrideMap(raw any) (map[string]string, error) {
+	return core.NormalizeNavigationOverrideMap(raw)
+}
+
+func NormalizeNavigationOverrideMode(raw string) string {
+	return core.NormalizeNavigationOverrideMode(raw)
+}
+
 func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode) NavigationPermissionDeniedMode {
 	return core.NormalizeNavigationPermissionDeniedMode(mode)
 }
@@ -2322,12 +2480,12 @@ func ParseMediaDeliveryRange(header string, size int64) (MediaDeliveryRange, boo
 	return core.ParseMediaDeliveryRange(header, size)
 }
 
-func PermissionMatrixDescriptor(basePath string) components.Descriptor {
-	return core.PermissionMatrixDescriptor(basePath)
-}
-
 func PermissionGrantMatches(grant string, permission string) bool {
 	return core.PermissionGrantMatches(grant, permission)
+}
+
+func PermissionMatrixDescriptor(basePath string) components.Descriptor {
+	return core.PermissionMatrixDescriptor(basePath)
 }
 
 func PrefixBasePath(basePath string, routePath string) string {
@@ -2348,6 +2506,14 @@ func RegisterActionDiagnosticsDebugPanel(admin *Admin) {
 
 func RegisterBuiltinIconLibraries(svc *IconService) error {
 	return core.RegisterBuiltinIconLibraries(svc)
+}
+
+func RegisterCommandLauncherDebugPanel(adm *Admin) {
+	core.RegisterCommandLauncherDebugPanel(adm)
+}
+
+func RegisterCommandLauncherDoctorCheck(adm *Admin) {
+	core.RegisterCommandLauncherDoctorCheck(adm)
 }
 
 func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpts ...runner.Option) (dispatcher.Subscription, error) {
@@ -2406,28 +2572,20 @@ func RegisterTranslationQueueCommands(bus *CommandBus, service TranslationQueueS
 	return core.RegisterTranslationQueueCommands(bus, service)
 }
 
-func RegisterTranslationSuggestionCommandFactories(bus *CommandBus) error {
-	return core.RegisterTranslationSuggestionCommandFactories(bus)
-}
-
-func RegisterTranslationSuggestionCommands(bus *CommandBus, service TranslationSuggestionService) error {
-	return core.RegisterTranslationSuggestionCommands(bus, service)
-}
-
-func ConfigureTranslationSuggestionServiceDependencies(service TranslationSuggestionService, deps TranslationSuggestionServiceDependencies) {
-	core.ConfigureTranslationSuggestionServiceDependencies(service, deps)
-}
-
-func NewTranslationSuggestionContextLoader(admin *Admin) TranslationSuggestionContextLoader {
-	return core.NewTranslationSuggestionContextLoader(admin)
-}
-
 func RegisterTranslationQueuePanel(admin *Admin, repo TranslationAssignmentRepository) (*Panel, error) {
 	return core.RegisterTranslationQueuePanel(admin, repo)
 }
 
 func RegisterTranslationQueueTabs(admin *Admin) error {
 	return core.RegisterTranslationQueueTabs(admin)
+}
+
+func RegisterTranslationSuggestionCommandFactories(bus *CommandBus) error {
+	return core.RegisterTranslationSuggestionCommandFactories(bus)
+}
+
+func RegisterTranslationSuggestionCommands(bus *CommandBus, service TranslationSuggestionService) error {
+	return core.RegisterTranslationSuggestionCommands(bus, service)
 }
 
 func RenderFamilyDetailFragments(targets []FamilyDetailFragmentTarget, renderer FamilyDetailFragmentRenderer) ([]EnhancedFragment, error) {
@@ -2464,6 +2622,22 @@ func ResolveContentPath(content CMSContent, fallback string) string {
 
 func ResolveContentPreviewPath(record map[string]any) string {
 	return core.ResolveContentPreviewPath(record)
+}
+
+func ResolveContentPreviewPathWithOptions(record map[string]any, opts ContentPreviewPathOptions) string {
+	return core.ResolveContentPreviewPathWithOptions(record, opts)
+}
+
+func ResolveEntryNavigationPolicy(ctx context.Context, service CMSContentTypeService, contentTypeKey string) (EntryNavigationPolicy, bool) {
+	return core.ResolveEntryNavigationPolicy(ctx, service, contentTypeKey)
+}
+
+func ResolveEntryNavigationPolicyWithOptions(ctx context.Context, service CMSContentTypeService, contentTypeKey string, options EntryNavigationOptions) (EntryNavigationPolicy, bool) {
+	return core.ResolveEntryNavigationPolicyWithOptions(ctx, service, contentTypeKey, options)
+}
+
+func ResolveEntryNavigationVisibility(location string, overrides map[string]string, defaultSet map[string]struct{}, policy EntryNavigationPolicy) bool {
+	return core.ResolveEntryNavigationVisibility(location, overrides, defaultSet, policy)
 }
 
 func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (TranslationExchangeLinkageKey, error) {
@@ -2578,6 +2752,10 @@ func ValidateAndNormalizeContentTypeCapabilities(capabilities map[string]any) (m
 	return core.ValidateAndNormalizeContentTypeCapabilities(capabilities)
 }
 
+func ValidateEntryNavigationOverrides(overrides map[string]string, eligible []string, strict bool) (map[string]string, error) {
+	return core.ValidateEntryNavigationOverrides(overrides, eligible, strict)
+}
+
 func ValidateJSONPointerFormat(pointer string) bool {
 	return core.ValidateJSONPointerFormat(pointer)
 }
@@ -2678,12 +2856,12 @@ func WithContentTypeID(id string) CMSContentListOption {
 	return core.WithContentTypeID(id)
 }
 
-func WithFamilyID(id string) CMSContentListOption {
-	return core.WithFamilyID(id)
+func WithDebugLogContextResolver(resolver DebugLogContextResolver) DebugLogHandlerOption {
+	return core.WithDebugLogContextResolver(resolver)
 }
 
-func WithFamilyIDs(ids ...string) CMSContentListOption {
-	return core.WithFamilyIDs(ids...)
+func WithDebugLogLimits(limits DebugLogLimits) DebugLogHandlerOption {
+	return core.WithDebugLogLimits(limits)
 }
 
 func WithDefaultLibrary(library string) IconServiceOption {
@@ -2752,6 +2930,14 @@ func WithFSMWorkflowStateStore(store flow.StateStore) FSMWorkflowEngineOption {
 
 func WithFallbackIcon(icon string) IconServiceOption {
 	return core.WithFallbackIcon(icon)
+}
+
+func WithFamilyID(id string) CMSContentListOption {
+	return core.WithFamilyID(id)
+}
+
+func WithFamilyIDs(ids ...string) CMSContentListOption {
+	return core.WithFamilyIDs(ids...)
 }
 
 func WithIconSecurityPolicy(policy IconSecurityPolicy) IconServiceOption {
