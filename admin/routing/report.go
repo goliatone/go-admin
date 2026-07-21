@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,13 +28,14 @@ type StartupReport struct {
 }
 
 type RuntimeReport struct {
-	Available      bool                     `json:"available"`
-	State          router.RegistrationState `json:"state,omitempty"`
-	Revision       uint64                   `json:"revision,omitempty"`
-	DeclaredRoutes int                      `json:"declared_routes"`
-	MountedRoutes  int                      `json:"mounted_routes"`
-	MissingRoutes  []RuntimeRouteIssue      `json:"missing_routes,omitempty"`
-	Shadows        []router.RouteShadow     `json:"shadows,omitempty"`
+	Available          bool                     `json:"available"`
+	State              router.RegistrationState `json:"state,omitempty"`
+	Revision           uint64                   `json:"revision,omitempty"`
+	DeclaredRoutes     int                      `json:"declared_routes"`
+	MountedRoutes      int                      `json:"mounted_routes"`
+	MissingRoutes      []RuntimeRouteIssue      `json:"missing_routes,omitempty"`
+	UnverifiableRoutes []RuntimeRouteIssue      `json:"unverifiable_routes,omitempty"`
+	Shadows            []router.RouteShadow     `json:"shadows,omitempty"`
 }
 
 type RuntimeRouteIssue struct {
@@ -55,25 +57,90 @@ func BuildRuntimeReport(manifest Manifest, snapshot router.RegistrationSnapshot)
 	}
 
 	mounted := make(map[string]struct{}, len(snapshot.MountedRoutes))
+	mountedPaths := make(map[string]struct{}, len(snapshot.MountedRoutes))
 	for _, route := range snapshot.MountedRoutes {
 		mounted[runtimeRouteKey(string(route.Method), route.Path)] = struct{}{}
+		mountedPaths[strings.TrimSpace(route.Path)] = struct{}{}
 	}
 	for _, entry := range NormalizeManifest(manifest).Entries {
-		if entry.Method == "" || entry.Method == ManifestMethodUnknown || entry.Path == "" {
+		if entry.Path == "" {
+			continue
+		}
+		if entry.Method == "" || entry.Method == ManifestMethodUnknown {
+			reason := "legacy route declaration has no HTTP method; method reachability cannot be verified"
+			if _, ok := mountedPaths[strings.TrimSpace(entry.Path)]; ok {
+				reason = "legacy route declaration has no HTTP method; path presence is verified but method reachability is unknown"
+			}
+			report.UnverifiableRoutes = append(report.UnverifiableRoutes, runtimeRouteIssue(entry, reason))
 			continue
 		}
 		if _, ok := mounted[runtimeRouteKey(entry.Method, entry.Path)]; ok {
 			continue
 		}
-		report.MissingRoutes = append(report.MissingRoutes, RuntimeRouteIssue{
-			Owner:     entry.Owner,
-			RouteName: entry.RouteName,
-			Method:    entry.Method,
-			Path:      entry.Path,
-			Reason:    "declared manifest route is absent from the mounted route table",
-		})
+		report.MissingRoutes = append(report.MissingRoutes, runtimeRouteIssue(entry, "declared manifest route is absent from the mounted route table"))
 	}
 	return report
+}
+
+func runtimeRouteIssue(entry ManifestEntry, reason string) RuntimeRouteIssue {
+	return RuntimeRouteIssue{
+		Owner:     entry.Owner,
+		RouteName: entry.RouteName,
+		Method:    entry.Method,
+		Path:      entry.Path,
+		Reason:    reason,
+	}
+}
+
+// CloneStartupReport returns an immutable-by-convention copy suitable for
+// concurrent caches and diagnostics callers.
+func CloneStartupReport(report StartupReport) StartupReport {
+	report.Modules = append([]ResolvedModule(nil), report.Modules...)
+	for index := range report.Modules {
+		if len(report.Modules[index].Mounts) == 0 {
+			continue
+		}
+		mounts := make(map[string]ResolvedMount, len(report.Modules[index].Mounts))
+		maps.Copy(mounts, report.Modules[index].Mounts)
+		report.Modules[index].Mounts = mounts
+	}
+	report.RouteSummary.Modules = append([]string(nil), report.RouteSummary.Modules...)
+	report.RouteSummary.Domains = append([]string(nil), report.RouteSummary.Domains...)
+	if report.RouteSummary.DomainCounts != nil {
+		counts := make(map[string]int, len(report.RouteSummary.DomainCounts))
+		maps.Copy(counts, report.RouteSummary.DomainCounts)
+		report.RouteSummary.DomainCounts = counts
+	}
+	report.Fallbacks = append([]FallbackEntry(nil), report.Fallbacks...)
+	for index := range report.Fallbacks {
+		report.Fallbacks[index].AllowedMethods = append([]string(nil), report.Fallbacks[index].AllowedMethods...)
+		report.Fallbacks[index].AllowedExactPaths = append([]string(nil), report.Fallbacks[index].AllowedExactPaths...)
+		report.Fallbacks[index].AllowedPathPrefixes = append([]string(nil), report.Fallbacks[index].AllowedPathPrefixes...)
+		report.Fallbacks[index].ReservedPrefixes = append([]string(nil), report.Fallbacks[index].ReservedPrefixes...)
+	}
+	report.Conflicts = append([]Conflict(nil), report.Conflicts...)
+	for index := range report.Conflicts {
+		report.Conflicts[index].Existing = cloneStringMap(report.Conflicts[index].Existing)
+		report.Conflicts[index].Incoming = cloneStringMap(report.Conflicts[index].Incoming)
+	}
+	report.Warnings = append([]string(nil), report.Warnings...)
+	if report.Runtime != nil {
+		runtimeCopy := *report.Runtime
+		runtimeCopy.MissingRoutes = append([]RuntimeRouteIssue(nil), report.Runtime.MissingRoutes...)
+		runtimeCopy.UnverifiableRoutes = append([]RuntimeRouteIssue(nil), report.Runtime.UnverifiableRoutes...)
+		runtimeCopy.Shadows = append([]router.RouteShadow(nil), report.Runtime.Shadows...)
+		report.Runtime = &runtimeCopy
+	}
+	return report
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	maps.Copy(out, values)
+	return out
 }
 
 func runtimeRouteKey(method, path string) string {
@@ -214,19 +281,33 @@ func FormatStartupReport(report StartupReport) string {
 			" module=" + strconv.Itoa(report.RouteSummary.ModuleRoutes) +
 			" fallback=" + strconv.Itoa(report.RouteSummary.FallbackRoutes),
 	}
-	if len(report.RouteSummary.Domains) > 0 {
-		parts := make([]string, 0, len(report.RouteSummary.Domains))
-		for _, domain := range report.RouteSummary.Domains {
-			parts = append(parts, domain+"="+strconv.Itoa(report.RouteSummary.DomainCounts[domain]))
+	lines = appendReportDomains(lines, report.RouteSummary)
+	lines = appendReportModules(lines, report.Modules)
+	lines = appendReportFallbacks(lines, report.Fallbacks)
+	lines = appendReportConflicts(lines, report.Conflicts)
+	lines = appendReportWarnings(lines, report.Warnings)
+	lines = appendRuntimeReport(lines, report.Runtime)
+
+	return strings.Join(lines, "\n")
+}
+
+func appendReportDomains(lines []string, summary RouteSummary) []string {
+	if len(summary.Domains) > 0 {
+		parts := make([]string, 0, len(summary.Domains))
+		for _, domain := range summary.Domains {
+			parts = append(parts, domain+"="+strconv.Itoa(summary.DomainCounts[domain]))
 		}
 		lines = append(lines, "domains: "+strings.Join(parts, " "))
 	}
+	return lines
+}
 
-	if len(report.Modules) == 0 {
+func appendReportModules(lines []string, modules []ResolvedModule) []string {
+	if len(modules) == 0 {
 		lines = append(lines, "modules: none")
 	} else {
 		lines = append(lines, "modules:")
-		for _, module := range report.Modules {
+		for _, module := range modules {
 			lines = append(lines, "  - "+module.Slug+
 				" ui="+printablePath(module.UIMountBase)+
 				" api="+printablePath(module.APIMountBase)+
@@ -247,12 +328,15 @@ func FormatStartupReport(report StartupReport) string {
 			}
 		}
 	}
+	return lines
+}
 
-	if len(report.Fallbacks) == 0 {
+func appendReportFallbacks(lines []string, fallbacks []FallbackEntry) []string {
+	if len(fallbacks) == 0 {
 		lines = append(lines, "fallbacks: none")
 	} else {
 		lines = append(lines, "fallbacks:")
-		for _, fallback := range report.Fallbacks {
+		for _, fallback := range fallbacks {
 			fallback = NormalizeFallbackEntry(fallback)
 			lines = append(lines,
 				"  - owner="+printablePath(fallback.Owner)+
@@ -268,41 +352,53 @@ func FormatStartupReport(report StartupReport) string {
 			)
 		}
 	}
+	return lines
+}
 
-	if len(report.Conflicts) == 0 {
+func appendReportConflicts(lines []string, conflicts []Conflict) []string {
+	if len(conflicts) == 0 {
 		lines = append(lines, "conflicts: none")
 	} else {
 		lines = append(lines, "conflicts:")
-		for _, conflict := range report.Conflicts {
+		for _, conflict := range conflicts {
 			lines = append(lines, "  - "+strings.TrimSpace(conflict.Kind)+": "+strings.TrimSpace(conflict.Message))
 		}
 	}
+	return lines
+}
 
-	if len(report.Warnings) == 0 {
+func appendReportWarnings(lines []string, warnings []string) []string {
+	if len(warnings) == 0 {
 		lines = append(lines, "warnings: none")
 	} else {
 		lines = append(lines, "warnings:")
-		for _, warning := range report.Warnings {
+		for _, warning := range warnings {
 			lines = append(lines, "  - "+warning)
 		}
 	}
+	return lines
+}
 
-	if report.Runtime != nil {
-		lines = append(lines, "runtime: state="+printablePath(string(report.Runtime.State))+
-			" revision="+strconv.FormatUint(report.Runtime.Revision, 10)+
-			" declared="+strconv.Itoa(report.Runtime.DeclaredRoutes)+
-			" mounted="+strconv.Itoa(report.Runtime.MountedRoutes)+
-			" missing="+strconv.Itoa(len(report.Runtime.MissingRoutes))+
-			" shadowed="+strconv.Itoa(len(report.Runtime.Shadows)))
-		for _, missing := range report.Runtime.MissingRoutes {
+func appendRuntimeReport(lines []string, runtimeReport *RuntimeReport) []string {
+	if runtimeReport != nil {
+		lines = append(lines, "runtime: state="+printablePath(string(runtimeReport.State))+
+			" revision="+strconv.FormatUint(runtimeReport.Revision, 10)+
+			" declared="+strconv.Itoa(runtimeReport.DeclaredRoutes)+
+			" mounted="+strconv.Itoa(runtimeReport.MountedRoutes)+
+			" missing="+strconv.Itoa(len(runtimeReport.MissingRoutes))+
+			" unverifiable="+strconv.Itoa(len(runtimeReport.UnverifiableRoutes))+
+			" shadowed="+strconv.Itoa(len(runtimeReport.Shadows)))
+		for _, missing := range runtimeReport.MissingRoutes {
 			lines = append(lines, "  - missing: "+missing.Method+" "+missing.Path+" owner="+printablePath(missing.Owner))
 		}
-		for _, shadow := range report.Runtime.Shadows {
+		for _, unverifiable := range runtimeReport.UnverifiableRoutes {
+			lines = append(lines, "  - unverifiable: "+unverifiable.Method+" "+unverifiable.Path+" owner="+printablePath(unverifiable.Owner))
+		}
+		for _, shadow := range runtimeReport.Shadows {
 			lines = append(lines, "  - shadowed: "+string(shadow.Method)+" "+shadow.Path+" by="+shadow.ShadowedByPath)
 		}
 	}
-
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 func printablePath(value string) string {

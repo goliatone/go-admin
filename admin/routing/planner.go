@@ -58,9 +58,13 @@ type modulePlan struct {
 }
 
 func NewPlanner(cfg Config, urls URLKitAdapter) (Planner, error) {
+	if err := validateNamedMountConfigNames(cfg.Modules); err != nil {
+		return nil, err
+	}
 	cfg.Roots = NormalizeRoots(cfg.Roots)
 	cfg.Modules = normalizeModuleConfigs(cfg.Modules)
 	cfg.Manifest = normalizeManifestConfig(cfg.Manifest)
+	cfg.ReservedPrefixes = normalizeFallbackPaths(append(append([]string{}, defaultReservedRoutePrefixes...), cfg.ReservedPrefixes...))
 
 	planner := &planner{
 		cfg:         cfg,
@@ -221,7 +225,7 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 		}
 		resolved.UIMountBase = base
 		resolved.UIGroupPath = deriveUIGroupPath()
-		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfaceUI, resolved.UIGroupPath, resolved.UIMountBase, contract.UIRoutes)...)
+		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfaceUI, resolved.UIGroupPath, resolved.UIMountBase, contract.UIRoutes, contract.UIRouteDeclarations)...)
 	}
 
 	if len(contract.APIRoutes) > 0 {
@@ -231,7 +235,7 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 		}
 		resolved.APIMountBase = base
 		resolved.APIGroupPath = deriveAPIGroupPath(p.cfg.Roots)
-		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfaceAPI, resolved.APIGroupPath, resolved.APIMountBase, contract.APIRoutes)...)
+		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfaceAPI, resolved.APIGroupPath, resolved.APIMountBase, contract.APIRoutes, contract.APIRouteDeclarations)...)
 	}
 
 	if len(contract.PublicAPIRoutes) > 0 {
@@ -241,7 +245,7 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 		}
 		resolved.PublicAPIMountBase = base
 		resolved.PublicAPIGroupPath = derivePublicAPIGroupPath(p.cfg.Roots)
-		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfacePublicAPI, resolved.PublicAPIGroupPath, resolved.PublicAPIMountBase, contract.PublicAPIRoutes)...)
+		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfacePublicAPI, resolved.PublicAPIGroupPath, resolved.PublicAPIMountBase, contract.PublicAPIRoutes, contract.PublicAPIRouteDeclarations)...)
 	}
 
 	if len(contract.Mounts) > 0 {
@@ -257,13 +261,13 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 			if !ok {
 				return ResolvedModule{}, nil, fmt.Errorf("module %q named mount %q requires a host-authorized mount configuration", contract.Slug, name)
 			}
-			base, groupPath, err := resolveNamedMount(p.cfg.Roots, contract.Slug, name, override)
+			base, groupPath, err := resolveNamedMount(p.cfg.Roots, p.cfg.ReservedPrefixes, contract.Slug, name, override)
 			if err != nil {
 				return ResolvedModule{}, nil, err
 			}
 			resolvedMount := ResolvedMount{Name: name, Surface: override.Surface, Base: base, GroupPath: groupPath}
 			resolved.Mounts[name] = resolvedMount
-			entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, override.Surface, groupPath, base, declaration.Routes)...)
+			entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, override.Surface, groupPath, base, declaration.Routes, declaration.RouteDeclarations)...)
 		}
 	}
 
@@ -599,6 +603,12 @@ func validatePlannerRoots(roots RootsConfig) error {
 }
 
 func validateModuleContract(contract ModuleContract, cfg Config) (ModuleContract, error) {
+	if err := validateNamedMountContractNames(contract.Mounts); err != nil {
+		return ModuleContract{}, err
+	}
+	if err := validateRouteDeclarationSources(contract); err != nil {
+		return ModuleContract{}, err
+	}
 	contract = NormalizeModuleContract(contract)
 	if contract.Slug == "" {
 		return ModuleContract{}, errors.New("module slug is required")
@@ -616,25 +626,29 @@ func validateModuleContract(contract ModuleContract, cfg Config) (ModuleContract
 		if err := validateRouteTable(surface.slug, surface.name, surface.routes); err != nil {
 			return ModuleContract{}, err
 		}
+		if err := validateRouteDeclarations(surface.name, surface.declarations); err != nil {
+			return ModuleContract{}, err
+		}
 	}
 
 	return contract, nil
 }
 
 type surfaceSpec struct {
-	slug   string
-	name   string
-	routes map[string]string
+	slug         string
+	name         string
+	routes       map[string]string
+	declarations map[string]RouteDeclaration
 }
 
 func surfaceSpecs(contract ModuleContract) []surfaceSpec {
 	specs := []surfaceSpec{
-		{slug: contract.Slug, name: SurfaceUI, routes: contract.UIRoutes},
-		{slug: contract.Slug, name: SurfaceAPI, routes: contract.APIRoutes},
-		{slug: contract.Slug, name: SurfacePublicAPI, routes: contract.PublicAPIRoutes},
+		{slug: contract.Slug, name: SurfaceUI, routes: contract.UIRoutes, declarations: contract.UIRouteDeclarations},
+		{slug: contract.Slug, name: SurfaceAPI, routes: contract.APIRoutes, declarations: contract.APIRouteDeclarations},
+		{slug: contract.Slug, name: SurfacePublicAPI, routes: contract.PublicAPIRoutes, declarations: contract.PublicAPIRouteDeclarations},
 	}
 	for name, mount := range contract.Mounts {
-		specs = append(specs, surfaceSpec{slug: contract.Slug, name: "mount." + name, routes: mount.Routes})
+		specs = append(specs, surfaceSpec{slug: contract.Slug, name: "mount." + name, routes: mount.Routes, declarations: mount.RouteDeclarations})
 	}
 	return specs
 }
@@ -650,6 +664,15 @@ func validateRouteTable(slug, surface string, routes map[string]string) error {
 		}
 		if strings.TrimSpace(routePath) == "" {
 			return fmt.Errorf("%s route %q must declare a relative path", surface, key)
+		}
+	}
+	return nil
+}
+
+func validateRouteDeclarations(surface string, declarations map[string]RouteDeclaration) error {
+	for routeKey, declaration := range declarations {
+		if strings.TrimSpace(string(declaration.Method)) == "" {
+			return fmt.Errorf("%s route %q must declare an HTTP method", surface, routeKey)
 		}
 	}
 	return nil
@@ -673,7 +696,7 @@ func resolveSurfaceMount(root, slug, override, surface string) (string, error) {
 	return JoinAbsolutePath(root, slug), nil
 }
 
-func resolveNamedMount(roots RootsConfig, slug, name string, override NamedMountOverride) (string, string, error) {
+func resolveNamedMount(roots RootsConfig, reservedPrefixes []string, slug, name string, override NamedMountOverride) (string, string, error) {
 	surface := NormalizeRouteSurface(override.Surface)
 	if surface == "" {
 		return "", "", fmt.Errorf("module %q named mount %q must declare a supported surface", slug, name)
@@ -695,11 +718,42 @@ func resolveNamedMount(roots RootsConfig, slug, name string, override NamedMount
 	if root != "" && base == normalizeAbsolutePath(root) {
 		return "", "", fmt.Errorf("module %q named mount %q cannot claim reserved host root %q", slug, name, root)
 	}
+	if surface == SurfacePublicSite {
+		if base == "/" {
+			return "", "", fmt.Errorf("module %q named mount %q cannot claim reserved public site root %q", slug, name, base)
+		}
+		if owner := reservedNamedMountOwner(roots, reservedPrefixes, base); owner != "" {
+			return "", "", fmt.Errorf("module %q named mount %q base %q belongs to reserved %s surface", slug, name, base, owner)
+		}
+	}
 	groupPath := strings.Trim(strings.TrimSpace(override.GroupPath), ".")
 	if groupPath == "" {
 		groupPath = defaultNamedMountGroupPath(roots, surface)
 	}
 	return base, groupPath, nil
+}
+
+func reservedNamedMountOwner(roots RootsConfig, reservedPrefixes []string, base string) string {
+	for _, candidate := range []struct {
+		name string
+		root string
+	}{
+		{name: SurfaceProtectedAppAPI, root: roots.ProtectedAppAPIRoot},
+		{name: SurfaceProtectedAppUI, root: roots.ProtectedAppRoot},
+		{name: SurfacePublicAPI, root: roots.PublicAPIRoot},
+		{name: SurfaceAPI, root: roots.APIRoot},
+		{name: SurfaceUI, root: roots.AdminRoot},
+	} {
+		if candidate.root != "" && pathWithinRoot(candidate.root, base) {
+			return candidate.name
+		}
+	}
+	for _, prefix := range reservedPrefixes {
+		if pathWithinRoot(prefix, base) {
+			return "host"
+		}
+	}
+	return ""
 }
 
 func defaultNamedMountGroupPath(roots RootsConfig, surface string) string {
@@ -736,7 +790,7 @@ func rootForSurface(roots RootsConfig, surface string) string {
 	}
 }
 
-func buildManifestEntries(slug, routeNamePrefix, surface, groupPath, mountBase string, routes map[string]string) []ManifestEntry {
+func buildManifestEntries(slug, routeNamePrefix, surface, groupPath, mountBase string, routes map[string]string, declarations map[string]RouteDeclaration) []ManifestEntry {
 	keys := make([]string, 0, len(routes))
 	for routeKey := range routes {
 		keys = append(keys, routeKey)
@@ -746,12 +800,16 @@ func buildManifestEntries(slug, routeNamePrefix, surface, groupPath, mountBase s
 	entries := make([]ManifestEntry, 0, len(keys))
 	for _, routeKey := range keys {
 		routePath := routes[routeKey]
+		method := ManifestMethodUnknown
+		if declaration, ok := declarations[routeKey]; ok {
+			method = strings.ToUpper(strings.TrimSpace(string(declaration.Method)))
+		}
 		entries = append(entries, ManifestEntry{
 			Owner:     "module:" + slug,
 			Surface:   surface,
 			RouteKey:  routeKey,
 			RouteName: buildSurfaceRouteName(groupPath, routeKey, slug, routeNamePrefix),
-			Method:    ManifestMethodUnknown,
+			Method:    method,
 			Path:      joinMountPath(mountBase, routePath),
 			GroupPath: groupPath,
 		})

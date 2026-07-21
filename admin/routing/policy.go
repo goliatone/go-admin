@@ -192,6 +192,12 @@ func normalizePathSegment(value string) string {
 	return strings.Trim(strings.TrimSpace(value), "/")
 }
 
+// NormalizeMountName returns the canonical identifier used by module
+// contracts, host configuration, routing contexts, and runtime router lookup.
+func NormalizeMountName(value string) string {
+	return strings.ToLower(normalizePathSegment(value))
+}
+
 func cleanPath(value string, allowRoot bool) string {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
