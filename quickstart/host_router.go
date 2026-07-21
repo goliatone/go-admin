@@ -333,6 +333,24 @@ func (r hostSurfaceRouter[T]) TryUpsert(method router.HTTPMethod, path string, h
 	return upserter.TryUpsert(method, path, handler, mw...)
 }
 
+func (r hostSurfaceRouter[T]) TryReplaceWithOptions(method router.HTTPMethod, path string, handler router.HandlerFunc, options router.RouteMutationOptions, mw ...router.MiddlewareFunc) (router.RouteInfo, error) {
+	r.validate(path, hostRouteStandard)
+	mutator, ok := any(r.router).(router.RouteMutator)
+	if !ok {
+		return nil, fmt.Errorf("quickstart host router: backing router does not support route mutation options")
+	}
+	return mutator.TryReplaceWithOptions(method, path, handler, options, mw...)
+}
+
+func (r hostSurfaceRouter[T]) TryUpsertWithOptions(method router.HTTPMethod, path string, handler router.HandlerFunc, options router.RouteMutationOptions, mw ...router.MiddlewareFunc) (router.RouteInfo, bool, error) {
+	r.validate(path, hostRouteStandard)
+	mutator, ok := any(r.router).(router.RouteMutator)
+	if !ok {
+		return nil, false, fmt.Errorf("quickstart host router: backing router does not support route mutation options")
+	}
+	return mutator.TryUpsertWithOptions(method, path, handler, options, mw...)
+}
+
 func (r hostSurfaceRouter[T]) RegistrationSnapshot() router.RegistrationSnapshot {
 	inspector, ok := any(r.router).(router.RegistrationInspector)
 	if !ok {
@@ -792,6 +810,20 @@ func (r hostAdminRouter[T]) TryUpsert(method router.HTTPMethod, path string, han
 		return nil, false, fmt.Errorf("quickstart host router: admin surface is unavailable")
 	}
 	return r.surface.TryUpsert(method, path, handler, mw...)
+}
+
+func (r hostAdminRouter[T]) TryReplaceWithOptions(method router.HTTPMethod, path string, handler router.HandlerFunc, options router.RouteMutationOptions, mw ...router.MiddlewareFunc) (router.RouteInfo, error) {
+	if r.surface == nil {
+		return nil, fmt.Errorf("quickstart host router: admin surface is unavailable")
+	}
+	return r.surface.TryReplaceWithOptions(method, path, handler, options, mw...)
+}
+
+func (r hostAdminRouter[T]) TryUpsertWithOptions(method router.HTTPMethod, path string, handler router.HandlerFunc, options router.RouteMutationOptions, mw ...router.MiddlewareFunc) (router.RouteInfo, bool, error) {
+	if r.surface == nil {
+		return nil, false, fmt.Errorf("quickstart host router: admin surface is unavailable")
+	}
+	return r.surface.TryUpsertWithOptions(method, path, handler, options, mw...)
 }
 
 func (r hostAdminRouter[T]) RegistrationSnapshot() router.RegistrationSnapshot {
