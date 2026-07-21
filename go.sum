@@ -204,8 +204,8 @@ github.com/goliatone/go-i18n v0.5.0 h1:xc2mYv0XWoMHpfyDj6JEJS53cUUDCvAtSjieG2OYd
 github.com/goliatone/go-i18n v0.5.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
 github.com/goliatone/go-job v0.19.0 h1:xdjp9aWTst9vwiiCLGQUuwSnfXt8ehbVhRfYjw6mUoY=
 github.com/goliatone/go-job v0.19.0/go.mod h1:WbBgtMg6VBycejrgyPaKatMOMMUobuRbhlrzQtnjLYk=
-github.com/goliatone/go-logger v0.8.4 h1:xZw73b0dqRBXSiTC0gHdH3p93YyKf3179bEaWsGK3hE=
-github.com/goliatone/go-logger v0.8.4/go.mod h1:hWv7Tj+af3E0vjJIHR52JmmK3jKk6rCKFtvhCC/3jXE=
+github.com/goliatone/go-logger v0.9.0 h1:fnxp9Q438JX/CLU4/6a2IDLCvPdcNDguC4tbUS9noMY=
+github.com/goliatone/go-logger v0.9.0/go.mod h1:hWv7Tj+af3E0vjJIHR52JmmK3jKk6rCKFtvhCC/3jXE=
 github.com/goliatone/go-masker v0.2.0 h1:M+Xx+AVJqTpNCQNPrPgVL6ft7oao5oT+/jQ+G8XCYVg=
 github.com/goliatone/go-masker v0.2.0/go.mod h1:n+AV93IO1rNI35kjbjfV1gMkjuIOSDVEzfhABTlCf4U=
 github.com/goliatone/go-notifications v0.14.0 h1:csMzXqUb/GhZXkOngGLV5NxFqBk0KI5xDDVqmDOlrO0=
