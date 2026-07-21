@@ -96,3 +96,25 @@ func TestDebugWebSocketWritesSnapshot(t *testing.T) {
 		t.Fatalf("expected snapshot event, got %+v", ws.writes[0])
 	}
 }
+
+func TestDebugSnapshotPublicationInvalidatesWithoutSharedPayload(t *testing.T) {
+	cfg := DebugConfig{Panels: []string{DebugPanelDoctor}}
+	mod := NewDebugModule(cfg)
+	mod.collector = NewDebugCollector(cfg)
+	events := mod.collector.Subscribe("request-scoped-client")
+	defer mod.collector.Unsubscribe("request-scoped-client")
+
+	mod.publishSnapshotInvalidation()
+
+	select {
+	case event := <-events:
+		if event.Type != debugEventSnapshotInvalidated {
+			t.Fatalf("expected snapshot invalidation, got %q", event.Type)
+		}
+		if event.Payload != nil {
+			t.Fatalf("snapshot invalidation broadcast request-scoped payload: %#v", event.Payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for snapshot invalidation")
+	}
+}

@@ -210,6 +210,15 @@ func TestCommandLauncherActionIDsPreserveDistinctCommandIdentity(t *testing.T) {
 	}
 }
 
+func TestCommandLauncherActionIDIsStablePublicContract(t *testing.T) {
+	if got, want := CommandLauncherActionID("search.repair"), "dispatch_7365617263682e726570616972"; got != want {
+		t.Fatalf("CommandLauncherActionID() = %q, want %q", got, want)
+	}
+	if got := CommandLauncherActionID("  "); got != "" {
+		t.Fatalf("CommandLauncherActionID(empty) = %q", got)
+	}
+}
+
 func TestCommandLauncherDuplicateCommandIdentityFailsClosed(t *testing.T) {
 	descriptors := []command.CommandDescriptor{
 		commandLauncherNoInputTestDescriptor("catalog.duplicate"),

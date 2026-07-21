@@ -43,6 +43,39 @@ func TestHostRouterGroupedSurfacesPreserveOwnershipOnFiber(t *testing.T) {
 	}
 }
 
+func TestHostRouterPassesThroughConditionalRouteMutationOptions(t *testing.T) {
+	server := router.NewFiberAdapter()
+	cfg := quickstart.NewAdminConfig("/admin", "Host Router", "en")
+	host := quickstart.NewHostRouter(server.Router(), cfg)
+	existingCalls := 0
+	addOnlyCalls := 0
+	existing := func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error { existingCalls++; return next(c) }
+	}
+	addOnly := func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error { addOnlyCalls++; return next(c) }
+	}
+	host.AdminUI().Get("/admin/existing", jsonRouteHandler("original"), existing)
+
+	mutator, ok := host.AdminUI().(router.RouteMutator)
+	if !ok {
+		t.Fatal("admin host surface does not implement RouteMutator")
+	}
+	options := router.RouteMutationOptions{MiddlewareOnAddOnly: true}
+	if _, replaced, err := mutator.TryUpsertWithOptions(router.GET, "/admin/existing", jsonRouteHandler("replacement"), options, addOnly); err != nil || !replaced {
+		t.Fatalf("replace upsert: replaced=%t err=%v", replaced, err)
+	}
+	if _, replaced, err := mutator.TryUpsertWithOptions(router.GET, "/admin/missing", jsonRouteHandler("added"), options, addOnly); err != nil || replaced {
+		t.Fatalf("add upsert: replaced=%t err=%v", replaced, err)
+	}
+
+	assertJSONHandler(t, server, http.MethodGet, "/admin/existing", http.StatusOK, "replacement")
+	assertJSONHandler(t, server, http.MethodGet, "/admin/missing", http.StatusOK, "added")
+	if existingCalls != 1 || addOnlyCalls != 1 {
+		t.Fatalf("middleware calls existing=%d add-only=%d, want 1 and 1", existingCalls, addOnlyCalls)
+	}
+}
+
 func TestHostRouterGroupedSurfacesPreserveOwnershipOnHTTPRouter(t *testing.T) {
 	first, firstRoutes := buildHostRouterTestServer(t, router.NewHTTPServer(), []string{"host", "admin", "protected", "static", "site"})
 	second, secondRoutes := buildHostRouterTestServer(t, router.NewHTTPServer(), []string{"site", "static", "protected", "admin", "host"})

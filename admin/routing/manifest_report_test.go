@@ -52,6 +52,104 @@ func TestNormalizeManifestSortsEntriesAndFillsMethodMetadata(t *testing.T) {
 	}
 }
 
+func TestBuildRuntimeReportReconcilesTypedAndLegacyModuleRoutes(t *testing.T) {
+	manifest := Manifest{Entries: []ManifestEntry{
+		{Owner: "module:typed", RouteName: "typed.index", Method: "GET", Path: "/typed"},
+		{Owner: "module:legacy", RouteName: "legacy.index", Method: ManifestMethodUnknown, Path: "/legacy"},
+	}}
+	report := BuildRuntimeReport(manifest, router.RegistrationSnapshot{
+		State: router.RegistrationSealed,
+		MountedRoutes: []router.RouteDefinition{
+			{Method: router.POST, Path: "/typed"},
+		},
+	})
+	if len(report.MissingRoutes) != 1 || report.MissingRoutes[0].Path != "/typed" {
+		t.Fatalf("missing routes = %+v, want typed GET /typed", report.MissingRoutes)
+	}
+	if len(report.UnverifiableRoutes) != 1 || report.UnverifiableRoutes[0].Path != "/legacy" {
+		t.Fatalf("unverifiable routes = %+v, want legacy /legacy", report.UnverifiableRoutes)
+	}
+}
+
+func TestCloneStartupReportDeepCopiesMutableDiagnostics(t *testing.T) {
+	original := StartupReport{
+		Modules: []ResolvedModule{{Slug: "module", Mounts: map[string]ResolvedMount{"admin": {Name: "admin", Base: "/admin/module"}}}},
+		RouteSummary: RouteSummary{
+			Modules:      []string{"module"},
+			Domains:      []string{RouteDomainAdminUI},
+			DomainCounts: map[string]int{RouteDomainAdminUI: 1},
+		},
+		Fallbacks: []FallbackEntry{{AllowedMethods: []string{"GET"}, ReservedPrefixes: []string{"/admin"}}},
+		Conflicts: []Conflict{{Existing: map[string]string{"owner": "first"}, Incoming: map[string]string{"owner": "second"}}},
+		Warnings:  []string{"warning"},
+		Runtime: &RuntimeReport{
+			MissingRoutes:      []RuntimeRouteIssue{{Path: "/missing"}},
+			UnverifiableRoutes: []RuntimeRouteIssue{{Path: "/legacy"}},
+			Shadows:            []router.RouteShadow{{Path: "/shadowed"}},
+		},
+	}
+	clone := CloneStartupReport(original)
+	clone.Modules[0].Mounts["admin"] = ResolvedMount{Base: "/changed"}
+	clone.RouteSummary.Modules[0] = "changed"
+	clone.RouteSummary.Domains[0] = "changed"
+	clone.RouteSummary.DomainCounts[RouteDomainAdminUI] = 2
+	clone.Fallbacks[0].AllowedMethods[0] = "POST"
+	clone.Fallbacks[0].ReservedPrefixes[0] = "/changed"
+	clone.Conflicts[0].Existing["owner"] = "changed"
+	clone.Conflicts[0].Incoming["owner"] = "changed"
+	clone.Warnings[0] = "changed"
+	clone.Runtime.MissingRoutes[0].Path = "/changed"
+	clone.Runtime.UnverifiableRoutes[0].Path = "/changed"
+	clone.Runtime.Shadows[0].Path = "/changed"
+
+	if original.Modules[0].Mounts["admin"].Base != "/admin/module" ||
+		original.RouteSummary.Modules[0] != "module" ||
+		original.RouteSummary.Domains[0] != RouteDomainAdminUI ||
+		original.RouteSummary.DomainCounts[RouteDomainAdminUI] != 1 ||
+		original.Fallbacks[0].AllowedMethods[0] != "GET" ||
+		original.Fallbacks[0].ReservedPrefixes[0] != "/admin" ||
+		original.Conflicts[0].Existing["owner"] != "first" ||
+		original.Conflicts[0].Incoming["owner"] != "second" ||
+		original.Warnings[0] != "warning" ||
+		original.Runtime.MissingRoutes[0].Path != "/missing" ||
+		original.Runtime.UnverifiableRoutes[0].Path != "/legacy" ||
+		original.Runtime.Shadows[0].Path != "/shadowed" {
+		t.Fatalf("clone mutation changed original report: %+v", original)
+	}
+}
+
+func TestPlannerEmitsTypedRouteMethodsAndAllowsCrossMethodPathSharing(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Roots = RootsConfig{AdminRoot: "/admin", APIRoot: "/admin/api", PublicAPIRoot: "/api/v1"}
+	cfg.Modules = map[string]ModuleConfig{
+		"reader": {Mount: ModuleMountOverride{UIBase: "/admin/shared"}},
+		"writer": {Mount: ModuleMountOverride{UIBase: "/admin/shared"}},
+	}
+	planner, err := NewPlanner(cfg, nil)
+	if err != nil {
+		t.Fatalf("new planner: %v", err)
+	}
+	for _, contract := range []ModuleContract{
+		{Slug: "reader", UIRouteDeclarations: map[string]RouteDeclaration{
+			"reader.entry": {Method: router.GET, Path: "/shared"},
+		}},
+		{Slug: "writer", UIRouteDeclarations: map[string]RouteDeclaration{
+			"writer.entry": {Method: router.POST, Path: "/shared"},
+		}},
+	} {
+		if err := planner.RegisterModule(contract); err != nil {
+			t.Fatalf("register %s: %v", contract.Slug, err)
+		}
+	}
+	methods := map[string]bool{}
+	for _, entry := range planner.Manifest().Entries {
+		methods[entry.Method] = true
+	}
+	if !methods["GET"] || !methods["POST"] {
+		t.Fatalf("manifest methods = %v, want GET and POST", methods)
+	}
+}
+
 func TestDiffManifestsClassifiesAddedRemovedAndChangedEntries(t *testing.T) {
 	before := Manifest{
 		Entries: []ManifestEntry{

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin/routing"
@@ -28,6 +29,29 @@ func TestRuntimeRoutingAdaptersExposeCapabilityProviderHooks(t *testing.T) {
 	if caps := routerAdapter.RoutingRouterCapabilities(); caps != (routing.RouterCapabilities{}) {
 		t.Fatalf("expected zero-value router capabilities by default, got %+v", caps)
 	}
+}
+
+func TestRoutingReportSupportsConcurrentRefreshAndRead(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	server.Init()
+
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = adm.RefreshRoutingReport()
+		}()
+		go func() {
+			defer wg.Done()
+			_ = adm.RoutingReport()
+		}()
+	}
+	wg.Wait()
 }
 
 func TestRoutingReportRefreshIncludesRuntimeAdapterWarnings(t *testing.T) {

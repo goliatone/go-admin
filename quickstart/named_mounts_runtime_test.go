@@ -23,11 +23,68 @@ func (namedMountRuntimeModule) RouteContract() adminrouting.ModuleContract {
 	return adminrouting.ModuleContract{
 		Slug: "multi_mount",
 		Mounts: map[string]adminrouting.NamedMountContract{
-			"admin":      {Routes: map[string]string{"multi_mount.admin": "/"}},
-			"options":    {Routes: map[string]string{"multi_mount.options": "/"}},
-			"standalone": {Routes: map[string]string{"multi_mount.standalone": "/"}},
+			"admin": {RouteDeclarations: map[string]adminrouting.RouteDeclaration{
+				"multi_mount.admin": {Method: router.GET, Path: "/"},
+			}},
+			"options": {RouteDeclarations: map[string]adminrouting.RouteDeclaration{
+				"multi_mount.options": {Method: router.GET, Path: "/"},
+			}},
+			"standalone": {RouteDeclarations: map[string]adminrouting.RouteDeclaration{
+				"multi_mount.standalone": {Method: router.GET, Path: "/"},
+			}},
 		},
 	}
+}
+
+type missingNamedMountRuntimeModule struct{}
+
+func (missingNamedMountRuntimeModule) Manifest() admin.ModuleManifest {
+	return admin.ModuleManifest{ID: "missing.mount"}
+}
+
+func (missingNamedMountRuntimeModule) RouteContract() adminrouting.ModuleContract {
+	return adminrouting.ModuleContract{
+		Slug: "missing_mount",
+		Mounts: map[string]adminrouting.NamedMountContract{
+			"options": {RouteDeclarations: map[string]adminrouting.RouteDeclaration{
+				"missing_mount.options": {Method: router.GET, Path: "/"},
+			}},
+		},
+	}
+}
+
+func (missingNamedMountRuntimeModule) Register(admin.ModuleContext) error { return nil }
+
+func TestDoctorReportsTypedModuleRouteMissingFromMountedTable(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en", WithRoutingConfig(adminrouting.Config{
+		Modules: map[string]adminrouting.ModuleConfig{
+			"missing_mount": {Mounts: map[string]adminrouting.NamedMountOverride{
+				"options": {Surface: adminrouting.SurfacePublicSite, Base: "/options"},
+			}},
+		},
+	}))
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if err := adm.RegisterModule(missingNamedMountRuntimeModule{}); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	server := router.NewFiberAdapter()
+	host := NewHostRouter(server.Router(), cfg)
+	if err := adm.Initialize(host.Admin()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	server.Init()
+
+	output := quickstartDoctorRoutingCheck().Run(context.Background(), adm)
+	for _, finding := range output.Findings {
+		if finding.Code == "quickstart.routing.route_missing" && finding.Metadata["path"] == "/options" {
+			return
+		}
+	}
+	t.Fatalf("expected typed missing route finding, got %+v", output.Findings)
 }
 
 func (namedMountRuntimeModule) Register(ctx admin.ModuleContext) error {
@@ -73,11 +130,17 @@ func TestNamedModuleMountsRegisterAcrossHostSurfaces(t *testing.T) {
 		"/options":                "options",
 		"/my-module":              "standalone",
 	} {
-		response, err := app.Test(httptest.NewRequest(http.MethodGet, path, nil))
+		response, err := app.Test(httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
 		if err != nil {
 			t.Fatalf("GET %s: %v", path, err)
 		}
-		body, _ := io.ReadAll(response.Body)
+		body, readErr := io.ReadAll(response.Body)
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Fatalf("close GET %s response: %v", path, closeErr)
+		}
+		if readErr != nil {
+			t.Fatalf("read GET %s response: %v", path, readErr)
+		}
 		if response.StatusCode != http.StatusOK || string(body) != want {
 			t.Fatalf("GET %s = %d %q, want 200 %q", path, response.StatusCode, body, want)
 		}

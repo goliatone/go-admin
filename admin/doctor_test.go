@@ -139,6 +139,150 @@ func TestRunDoctorActionReturnsNotRunnableForManualChecks(t *testing.T) {
 	}
 }
 
+func TestDoctorCheckOutputCanProvideRequestScopedNavigationAction(t *testing.T) {
+	type permissionContextKey struct{}
+	adm := &Admin{}
+	adm.RegisterDoctorChecks(DoctorCheck{
+		ID:     "app.search",
+		Action: NewManualDoctorAction("Static fallback", "Resolve manually"),
+		Run: func(ctx context.Context, _ *Admin) DoctorCheckOutput {
+			output := DoctorCheckOutput{Findings: []DoctorFinding{{Severity: DoctorSeverityWarn, Message: "search is not ready"}}}
+			allowed, ok := ctx.Value(permissionContextKey{}).(bool)
+			if ok && allowed {
+				output.Action = &DoctorAction{
+					Kind: DoctorActionKindNavigate,
+					CTA:  "Open search repair",
+					Metadata: map[string]any{
+						"panel_id": "operational_commands",
+						"state": map[string]any{
+							"action_id": "search_repair",
+							"payload":   map[string]any{"indexes": []string{"archive_media"}},
+						},
+					},
+				}
+			}
+			return output
+		},
+	})
+
+	denied := adm.RunDoctor(context.Background())
+	if denied.Checks[0].Action == nil || denied.Checks[0].Action.Kind != DoctorActionKindManual {
+		t.Fatalf("static fallback action = %#v", denied.Checks[0].Action)
+	}
+	authorized := adm.RunDoctor(context.WithValue(context.Background(), permissionContextKey{}, true))
+	action := authorized.Checks[0].Action
+	if action == nil || action.Kind != DoctorActionKindNavigate || !action.Runnable {
+		t.Fatalf("dynamic navigation action = %#v", action)
+	}
+	if action.Metadata["panel_id"] != "operational_commands" {
+		t.Fatalf("navigation metadata = %#v", action.Metadata)
+	}
+	state, ok := action.Metadata["state"].(map[string]any)
+	if !ok || state["action_id"] != "search_repair" {
+		t.Fatalf("navigation state = %#v", action.Metadata["state"])
+	}
+}
+
+func TestRunDoctorActionRejectsRequestScopedNavigationBeforeStaticHandler(t *testing.T) {
+	type permissionContextKey struct{}
+	called := false
+	adm := &Admin{}
+	adm.RegisterDoctorChecks(DoctorCheck{
+		ID: "app.search",
+		Action: &DoctorAction{
+			Kind: DoctorActionKindAuto,
+			Run: func(context.Context, *Admin, DoctorCheckResult, map[string]any) (DoctorActionExecution, error) {
+				called = true
+				return DoctorActionExecution{}, nil
+			},
+		},
+		Run: func(ctx context.Context, _ *Admin) DoctorCheckOutput {
+			output := DoctorCheckOutput{Findings: []DoctorFinding{{Severity: DoctorSeverityWarn, Message: "search is not ready"}}}
+			allowed, ok := ctx.Value(permissionContextKey{}).(bool)
+			if ok && allowed {
+				output.Action = &DoctorAction{
+					Kind: DoctorActionKindNavigate,
+					Metadata: map[string]any{
+						"panel_id": "operational_commands",
+					},
+				}
+			}
+			return output
+		},
+	})
+
+	ctx := context.WithValue(context.Background(), permissionContextKey{}, true)
+	_, err := adm.RunDoctorAction(ctx, "app.search", nil)
+	if !errors.Is(err, ErrDoctorActionNotRunnable) {
+		t.Fatalf("expected navigation action to be non-runnable, got %v", err)
+	}
+	if called {
+		t.Fatalf("static executable handler ran for request-scoped navigation action")
+	}
+}
+
+func TestDoctorCheckOutputIgnoresRequestScopedExecutableAction(t *testing.T) {
+	static := NewManualDoctorAction("Static fallback", "Resolve manually")
+	result := runDoctorCheck(context.Background(), &Admin{}, DoctorCheck{
+		ID:     "app.search",
+		Action: static,
+		Run: func(context.Context, *Admin) DoctorCheckOutput {
+			return DoctorCheckOutput{
+				Findings: []DoctorFinding{{Severity: DoctorSeverityWarn, Message: "search is not ready"}},
+				Action: &DoctorAction{
+					Kind: DoctorActionKindAuto,
+					Run: func(context.Context, *Admin, DoctorCheckResult, map[string]any) (DoctorActionExecution, error) {
+						return DoctorActionExecution{}, nil
+					},
+				},
+			}
+		},
+	})
+	if result.Action == nil || result.Action.Kind != DoctorActionKindManual {
+		t.Fatalf("request-scoped executable action should use static fallback: %#v", result.Action)
+	}
+}
+
+func TestDoctorNavigationActionRejectsUnsafeOrOversizedMetadata(t *testing.T) {
+	nonString := doctorActionState(&DoctorAction{
+		Kind:     DoctorActionKindNavigate,
+		Metadata: map[string]any{"panel_id": 123},
+	}, DoctorSeverityWarn)
+	if nonString == nil || nonString.Runnable || len(nonString.Metadata) != 0 {
+		t.Fatalf("non-string navigation target = %#v", nonString)
+	}
+
+	unsafe := doctorActionState(&DoctorAction{
+		Kind:     DoctorActionKindNavigate,
+		Metadata: map[string]any{"panel_id": "../commands"},
+	}, DoctorSeverityWarn)
+	if unsafe == nil || unsafe.Runnable || len(unsafe.Metadata) != 0 {
+		t.Fatalf("unsafe navigation action = %#v", unsafe)
+	}
+
+	nonASCII := doctorActionState(&DoctorAction{
+		Kind:     DoctorActionKindNavigate,
+		Metadata: map[string]any{"panel_id": "opérations"},
+	}, DoctorSeverityWarn)
+	if nonASCII == nil || nonASCII.Runnable || len(nonASCII.Metadata) != 0 {
+		t.Fatalf("non-ASCII navigation action = %#v", nonASCII)
+	}
+
+	oversized := doctorActionState(&DoctorAction{
+		Kind: DoctorActionKindNavigate,
+		Metadata: map[string]any{
+			"panel_id": "commands",
+			"state":    map[string]any{"payload": strings.Repeat("x", doctorNavigationMaxStateBytes+1)},
+		},
+	}, DoctorSeverityWarn)
+	if oversized == nil || !oversized.Runnable {
+		t.Fatalf("navigation without optional state should remain usable: %#v", oversized)
+	}
+	if _, retained := oversized.Metadata["state"]; retained {
+		t.Fatalf("oversized navigation state retained: %#v", oversized.Metadata)
+	}
+}
+
 func TestDoctorDebugPanelCollectWithoutAdmin(t *testing.T) {
 	panel := NewDoctorDebugPanel(nil)
 	snapshot := panel.Collect(context.Background())

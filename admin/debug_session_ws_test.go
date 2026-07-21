@@ -122,4 +122,9 @@ func TestDebugSessionEventAllowed(t *testing.T) {
 	if debugSessionEventAllowed(event, sessionID, true) {
 		t.Fatalf("expected snapshot event to be denied")
 	}
+
+	event = DebugEvent{Type: debugEventSnapshotInvalidated}
+	if !debugSessionEventAllowed(event, sessionID, false) {
+		t.Fatalf("expected snapshot invalidation to refresh session clients")
+	}
 }
