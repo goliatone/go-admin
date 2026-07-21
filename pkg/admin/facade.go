@@ -664,6 +664,12 @@ type (
 	DebugEvent                                        = core.DebugEvent
 	DebugLayoutMode                                   = core.DebugLayoutMode
 	DebugLogHandler                                   = core.DebugLogHandler
+	DebugLogHandlerOption                             = core.DebugLogHandlerOption
+	DebugLogLimits                                    = core.DebugLogLimits
+	DebugLogContext                                   = core.DebugLogContext
+	DebugLogContextResolver                           = core.DebugLogContextResolver
+	DebugCollectorProvider                            = core.DebugCollectorProvider
+	LogCaller                                         = core.LogCaller
 	DebugModule                                       = core.DebugModule
 	DebugPanel                                        = core.DebugPanel
 	DebugPanelActionProvider                          = core.DebugPanelActionProvider
@@ -1798,6 +1804,18 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 
 func NewDebugLogHandler(collector *DebugCollector, next slog.Handler) *DebugLogHandler {
 	return core.NewDebugLogHandler(collector, next)
+}
+
+func NewDebugLogHandlerProvider(provider DebugCollectorProvider, next slog.Handler, options ...DebugLogHandlerOption) *DebugLogHandler {
+	return core.NewDebugLogHandlerProvider(provider, next, options...)
+}
+
+func WithDebugLogContextResolver(resolver DebugLogContextResolver) DebugLogHandlerOption {
+	return core.WithDebugLogContextResolver(resolver)
+}
+
+func WithDebugLogLimits(limits DebugLogLimits) DebugLogHandlerOption {
+	return core.WithDebugLogLimits(limits)
 }
 
 func NewDebugModule(config DebugConfig) *DebugModule {

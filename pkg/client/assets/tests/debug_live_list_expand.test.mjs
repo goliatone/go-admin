@@ -22,6 +22,7 @@ function setGlobals(win) {
   globalThis.HTMLInputElement = win.HTMLInputElement;
   globalThis.Event = win.Event;
   globalThis.MouseEvent = win.MouseEvent;
+  globalThis.KeyboardEvent = win.KeyboardEvent;
 }
 
 const bootstrapDOM = new JSDOM(`<!doctype html><html><body></body></html>`, { url: 'http://127.0.0.1:9090/' });
@@ -37,6 +38,11 @@ const {
   attachRowExpansion,
   restoreRowExpansion,
   attachRequestDetailListeners,
+  attachCopyListeners,
+  renderLogsPanel,
+  renderLogRow,
+  logRowKey,
+  logSearchText,
   consoleStyles,
 } = await import('../dist/debug/index.js');
 
@@ -63,6 +69,13 @@ test('requestRowKey/jsErrorRowKey prefer id and are otherwise deterministic + in
   assert.notEqual(jsErrorRowKey(e), jsErrorRowKey({ ...e, message: 'bang' }));
 });
 
+test('logRowKey prefers the server event id and preserves a deterministic legacy fallback', () => {
+  assert.equal(logRowKey({ id: 'log-uuid' }), 'log-uuid');
+  const legacy = { timestamp: '2026-07-21T13:38:49Z', level: 'error', message: 'not ready', source: 'monitor.go:12' };
+  assert.equal(logRowKey(legacy), logRowKey({ ...legacy }));
+  assert.notEqual(logRowKey(legacy), logRowKey({ ...legacy, message: 'ready' }));
+});
+
 // ---------------------------------------------------------------------------
 // Renderers emit live-list markup
 // ---------------------------------------------------------------------------
@@ -81,6 +94,55 @@ test('renderJSErrorsPanel marks a live-list tbody with keyed error rows', () => 
   assert.match(html, /<tbody data-live-list>/);
   assert.match(html, /data-row-key="e1"/);
   assert.match(html, /expandable-row/);
+});
+
+test('rich logs render an accessible summary plus prioritized structured details', () => {
+  const entry = {
+    id: 'log-1',
+    timestamp: '2026-07-21T13:38:49Z',
+    level: 'error',
+    message: 'public search readiness refresh failed',
+    logger: 'admin-server',
+    source: 'public_route_capabilities.go:1194',
+    caller: { function: 'runPublicSearchReadinessMonitor', file: '/app/public_route_capabilities.go', line: 1194 },
+    request_id: 'req-1',
+    trace_id: 'trace-1',
+    fields: {
+      zeta: 'last',
+      health: { provider: 'typesense', indexes: ['archive_media', 'site_content'] },
+      root_error: 'indexes are not ready',
+      error: 'validate public search provider health',
+      alpha: 'first',
+      stack: 'goroutine 1\nframe',
+    },
+  };
+  const html = renderLogsPanel([entry], consoleStyles, {
+    showSource: true,
+    truncateMessage: false,
+    expandable: true,
+  });
+
+  assert.match(html, /data-row-key="log-1"/);
+  assert.match(html, /role="button"/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /Copy JSON/);
+  assert.match(html, /Copy stack/);
+  assert.ok(html.indexOf('Error') < html.indexOf('Diagnostics'));
+  assert.ok(html.indexOf('Diagnostics') < html.indexOf('Context'));
+  assert.ok(html.indexOf('Context') < html.indexOf('Fields'));
+  assert.ok(html.indexOf('Alpha') < html.indexOf('Zeta'), 'remaining fields sorted deterministically');
+  assert.match(logSearchText(entry), /archive_media/);
+  assert.match(logSearchText(entry), /trace-1/);
+});
+
+test('compact logs remain a single legacy-compatible row', () => {
+  const html = renderLogsPanel([{ message: 'legacy', source: 'adapter.go:35', fields: { error: 'boom' } }], consoleStyles, {
+    showSource: false,
+    truncateMessage: true,
+  });
+  assert.doesNotMatch(html, /expansion-row/);
+  assert.doesNotMatch(html, /Copy JSON/);
+  assert.doesNotMatch(html, /role="button"/);
 });
 
 // ---------------------------------------------------------------------------
@@ -119,6 +181,54 @@ test('restoreRowExpansion re-applies .expanded after a full re-render', () => {
 
   restoreRowExpansion(root, { ...EXPAND_OPTS, expanded });
   assert.ok(root.querySelector('tr.expandable-row').classList.contains('expanded'), 'expansion restored from set');
+});
+
+test('log expansion supports keyboard operation and updates ARIA state', () => {
+  const entry = { id: 'log-keyboard', level: 'error', message: 'boom', fields: { error: 'cause' } };
+  const root = mount(`<table><tbody data-live-list>${renderLogRow(entry, consoleStyles, {
+    showSource: true,
+    truncateMessage: false,
+    expandable: true,
+  })}</tbody></table>`);
+  const expanded = new Set();
+  attachRowExpansion(root, { tableSelector: '[data-live-list]', ...EXPAND_OPTS, expanded });
+  const row = root.querySelector('tr.expandable-row');
+  const detail = row.nextElementSibling;
+
+  row.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  assert.ok(expanded.has('log-keyboard'));
+  assert.equal(row.getAttribute('aria-expanded'), 'true');
+  assert.equal(detail.getAttribute('aria-hidden'), 'false');
+
+  row.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+  assert.ok(!expanded.has('log-keyboard'));
+  assert.equal(row.getAttribute('aria-expanded'), 'false');
+  assert.equal(detail.getAttribute('aria-hidden'), 'true');
+});
+
+test('delegated log copy actions work for rows streamed after adoption', async () => {
+  const copied = [];
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: async (value) => copied.push(value) },
+    configurable: true,
+  });
+  const root = mount('<table><tbody data-live-list></tbody></table>');
+  attachCopyListeners(root, { feedbackDuration: 0, useIconFeedback: true });
+  root.querySelector('tbody').insertAdjacentHTML('afterbegin', renderLogRow({
+    id: 'log-copy',
+    level: 'error',
+    message: 'copy me',
+    fields: { error: 'boom', stack: 'frame one\nframe two' },
+  }, consoleStyles, { showSource: true, truncateMessage: false, expandable: true }));
+
+  root.querySelector('button[title="Copy normalized log event as JSON"]')
+    .dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  root.querySelector('button[title="Copy stack trace"]')
+    .dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(JSON.parse(copied[0]).id, 'log-copy');
+  assert.equal(copied[1], 'frame one\nframe two');
 });
 
 // ---------------------------------------------------------------------------
@@ -184,4 +294,57 @@ test('requests evict the oldest summary + detail together', () => {
   assert.equal(ctx.root.querySelector('tr[data-request-id="a"]'), null, 'a summary gone');
   assert.equal(ctx.root.querySelector('tr[data-detail-for="a"]'), null, 'a detail gone too');
   assert.equal(ctx.rowCount(), 4, 'exactly two logical rows remain');
+});
+
+test('live list reports evicted keys so hosts can discard expansion state', () => {
+  const root = mount('<table><tbody data-live-list><tr data-row-key="b"><td>b</td></tr><tr class="expansion-row"><td>detail</td></tr><tr data-row-key="a"><td>a</td></tr><tr class="expansion-row"><td>detail</td></tr></tbody></table>');
+  const frames = [];
+  const evicted = [];
+  const view = new LiveListView({
+    styles: consoleStyles,
+    keyOf: (entry) => entry.id,
+    renderRow: (entry) => `<tr data-row-key="${entry.id}"><td>${entry.id}</td></tr><tr class="expansion-row"><td>detail</td></tr>`,
+    getRenderOptions: () => ({ newestFirst: true }),
+    getMaxEntries: () => 2,
+    onEvict: (keys) => evicted.push(...keys),
+    scheduleFrame: (cb) => frames.push(cb),
+  });
+  view.adopt(root);
+  view.enqueue([{ id: 'c' }]);
+  frames.splice(0).forEach((cb) => cb());
+
+  assert.deepEqual(evicted, ['a']);
+  assert.equal(root.querySelector('[data-row-key="a"]'), null);
+  assert.equal(root.querySelectorAll('tr').length, 4, 'detail row evicted with its summary');
+});
+
+test('rich logs bound a sustained streaming burst before DOM insertion', () => {
+  const root = mount('<table><tbody data-live-list></tbody></table>');
+  const frames = [];
+  const view = new LiveListView({
+    styles: consoleStyles,
+    keyOf: logRowKey,
+    renderRow: (entry) => renderLogRow(entry, consoleStyles, {
+      showSource: true,
+      truncateMessage: false,
+      expandable: true,
+    }),
+    getRenderOptions: () => ({ newestFirst: true }),
+    getMaxEntries: () => 100,
+    scheduleFrame: (cb) => frames.push(cb),
+  });
+  view.adopt(root);
+  view.enqueue(Array.from({ length: 1000 }, (_, index) => ({
+    id: `log-${index}`,
+    level: 'info',
+    message: `event ${index}`,
+    fields: { nested: { index } },
+  })));
+  frames.splice(0).forEach((cb) => cb());
+
+  const summaries = root.querySelectorAll('tr[data-row-key]');
+  assert.equal(summaries.length, 100);
+  assert.equal(root.querySelectorAll('tbody > tr').length, 200, '100 summary/detail logical rows');
+  assert.equal(summaries[0].getAttribute('data-row-key'), 'log-999');
+  assert.equal(summaries[99].getAttribute('data-row-key'), 'log-900');
 });

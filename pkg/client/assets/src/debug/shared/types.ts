@@ -36,13 +36,25 @@ export type SQLEntry = {
 };
 
 export type LogEntry = {
+  id?: string;
   timestamp?: string;
   session_id?: string;
   user_id?: string;
   level?: string;
   message?: string;
+  logger?: string;
+  caller?: LogCaller;
+  trace_id?: string;
+  span_id?: string;
+  request_id?: string;
   fields?: Record<string, unknown>;
   source?: string;
+};
+
+export type LogCaller = {
+  function?: string;
+  file?: string;
+  line?: number;
 };
 
 export type RouteEntry = {

@@ -120,6 +120,8 @@ export {
   renderLogsPanel,
   renderLogRow,
   logRowKey,
+  logSearchText,
+  serializeLogEntry,
   renderRoutesPanel,
   renderJSONPanel,
   renderJSONViewer,

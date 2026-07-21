@@ -20608,7 +20608,10 @@ var pN = class {
     const A = [];
     for (const e of E)
       this.opts.shouldDisplay && !this.opts.shouldDisplay(e) || (fO(this.container, this.opts.renderRow(e), T), A.push(this.opts.keyOf(e)));
-    A.length > 0 && (yO(this.container, this.rowSelector, this.keyAttr, R, T), this.opts.onAfterAppend?.(this.container, A));
+    if (A.length > 0) {
+      const e = yO(this.container, this.rowSelector, this.keyAttr, R, T);
+      e.length > 0 && this.opts.onEvict?.(e), this.opts.onAfterAppend?.(this.container, A);
+    }
   }
   emitPending() {
     this.opts.onPendingChange?.(this.pending.length);
@@ -21500,4 +21503,4 @@ export {
   HN as z
 };
 
-//# sourceMappingURL=server-definitions-BeRQu0qp.js.map
+//# sourceMappingURL=server-definitions-C0QmC9Ua.js.map

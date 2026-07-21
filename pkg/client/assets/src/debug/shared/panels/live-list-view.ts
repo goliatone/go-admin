@@ -113,6 +113,8 @@ export interface LiveListViewOptions<T> {
   onRestore?(root: ParentNode, container: HTMLElement): void;
   /** Called after rows are appended in a flush (e.g. auto-scroll to the tail). */
   onAfterAppend?(container: HTMLElement, appendedKeys: string[]): void;
+  /** Called after bounded-list eviction removes logical rows. */
+  onEvict?(evictedKeys: string[]): void;
   /** Frame scheduler; injectable for tests. Defaults to requestAnimationFrame. */
   scheduleFrame?(cb: () => void): void;
 }
@@ -223,7 +225,8 @@ export class LiveListView<T> {
     }
 
     if (appendedKeys.length > 0) {
-      evictListOverflow(this.container, this.rowSelector, this.keyAttr, max, newestFirst);
+      const evictedKeys = evictListOverflow(this.container, this.rowSelector, this.keyAttr, max, newestFirst);
+      if (evictedKeys.length > 0) this.opts.onEvict?.(evictedKeys);
       this.opts.onAfterAppend?.(this.container, appendedKeys);
     }
   }

@@ -46,6 +46,7 @@ import {
   RegistryLiveListManager,
   renderLogRow,
   logRowKey,
+  logSearchText,
 } from './shared/panels/index.js';
 import {
   panelRegistry,
@@ -208,6 +209,7 @@ export class DebugPanel {
   private requestsView!: LiveListView<RequestEntry>;
   private jserrorsView!: LiveListView<JSErrorEntry>;
   private registryLiveList!: RegistryLiveListManager;
+  private logsExpanded: Set<string> = new Set();
   private jserrorsExpanded: Set<string> = new Set();
   private pauseButton: HTMLButtonElement | null = null;
   private maxLogEntries: number;
@@ -331,12 +333,33 @@ export class DebugPanel {
     this.logsView = new LiveListView<LogEntry>({
       styles: consoleStyles,
       keyOf: logRowKey,
-      renderRow: (entry) => renderLogRow(entry, consoleStyles, { showSource: true, truncateMessage: false }),
+      renderRow: (entry) => renderLogRow(entry, consoleStyles, {
+        showSource: true,
+        truncateMessage: false,
+        expandable: true,
+      }),
       getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
       getMaxEntries: () => this.maxLogEntries,
       shouldDisplay: (entry) => this.logEntryMatchesFilters(entry),
       onNeedFullRender: () => this.renderPanel(),
-      onAfterAppend: () => this.applyLogsAutoScroll(),
+      onAdopt: (root) =>
+        attachRowExpansion(root, {
+          tableSelector: '[data-live-list]',
+          rowSelector: 'tr.expandable-row',
+          keyAttr: 'data-row-key',
+          expanded: this.logsExpanded,
+        }),
+      onRestore: (root) =>
+        restoreRowExpansion(root, {
+          rowSelector: 'tr.expandable-row',
+          keyAttr: 'data-row-key',
+          expanded: this.logsExpanded,
+        }),
+      onEvict: (keys) => keys.forEach((key) => this.logsExpanded.delete(key)),
+      onAfterAppend: () => {
+        this.attachCopyButtonListeners();
+        this.applyLogsAutoScroll();
+      },
     });
 
     this.requestsView = new LiveListView<RequestEntry>({
@@ -1506,7 +1529,7 @@ export class DebugPanel {
       return false;
     }
     if (search) {
-      const haystack = `${entry.message || ''} ${entry.source || ''} ${formatJSON(entry.fields || {})}`.toLowerCase();
+      const haystack = logSearchText(entry);
       if (!haystack.includes(search.toLowerCase())) {
         return false;
       }
@@ -1538,6 +1561,7 @@ export class DebugPanel {
       showSortToggle: false, // Console has filter bar
       showSource: true, // Console shows source column
       truncateMessage: false, // Console shows full messages
+      expandable: true,
     });
   }
 
@@ -1864,6 +1888,7 @@ export class DebugPanel {
       extra: {},
     };
     this.expandedRequests.clear();
+    this.logsExpanded.clear();
     this.jserrorsExpanded.clear();
     this.eventCount = 0;
     this.lastEventAt = null;
@@ -2135,6 +2160,7 @@ export class DebugPanel {
         break;
       case 'logs':
         this.state.logs = (data as LogEntry[]) || [];
+        this.reconcileLogExpansion();
         break;
       case 'config':
         this.state.config = (data as Record<string, any>) || {};
@@ -2158,6 +2184,7 @@ export class DebugPanel {
     this.state.requests = ensureArray<RequestEntry>(next.requests);
     this.state.sql = ensureArray<SQLEntry>(next.sql);
     this.state.logs = ensureArray<LogEntry>(next.logs);
+    this.reconcileLogExpansion();
     this.state.config = next.config || {};
     this.state.routes = ensureArray<RouteEntry>(next.routes);
     const custom = next.custom || {};
@@ -2193,6 +2220,13 @@ export class DebugPanel {
     }
   }
 
+  private reconcileLogExpansion(): void {
+    const currentKeys = new Set(this.state.logs.map(logRowKey));
+    this.logsExpanded.forEach((key) => {
+      if (!currentKeys.has(key)) this.logsExpanded.delete(key);
+    });
+  }
+
   private isSlowQuery(entry: SQLEntry): boolean {
     return isSlowDuration(entry?.duration, this.slowThresholdMs);
   }
@@ -2222,6 +2256,7 @@ export class DebugPanel {
     if (!this.debugPath) {
       return;
     }
+    this.logsExpanded.clear();
     this.stream.clear();
     if (this.activeSessionId) {
       return;
@@ -2236,6 +2271,7 @@ export class DebugPanel {
       return;
     }
     const panel = this.activePanel;
+    if (panel === 'logs') this.logsExpanded.clear();
     this.stream.clear([panel]);
     if (this.activeSessionId) {
       return;

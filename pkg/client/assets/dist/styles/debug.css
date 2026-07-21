@@ -1316,6 +1316,11 @@ section.debug-json-panel {
   background: rgba(137, 180, 250, 0.08) !important;
 }
 
+.expandable-row:focus-visible {
+  outline: 2px solid var(--debug-accent);
+  outline-offset: -2px;
+}
+
 .expandable-row .expand-icon {
   display: inline-block;
   width: 14px;
@@ -1360,6 +1365,45 @@ section.debug-json-panel {
   display: flex;
   justify-content: flex-end;
   margin-bottom: 8px;
+}
+
+.debug-log-detail-actions {
+  align-items: center;
+  gap: 8px;
+}
+
+.debug-log-detail-section {
+  margin-top: 14px;
+}
+
+.debug-log-detail-section:first-of-type {
+  margin-top: 0;
+}
+
+.debug-log-detail-section h4 {
+  color: var(--debug-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.debug-log-detail-section .request-detail-kv dd pre {
+  background: rgba(30, 30, 46, 0.45);
+  border-radius: 4px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 8px 10px;
+}
+
+.debug-log-stack pre {
+  background: rgba(30, 30, 46, 0.6);
+  border: 1px solid var(--debug-border);
+  border-radius: 4px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 10px 12px;
 }
 
 /* Row with expanded content */
@@ -1534,6 +1578,14 @@ section.debug-json-panel {
 
 [data-request-id]:hover [data-expand-icon] {
   opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expandable-row,
+  .expandable-row .expand-icon,
+  [data-request-id] [data-expand-icon] {
+    transition: none;
+  }
 }
 
 /* Command launcher panel (master-detail) for the debug console.

@@ -25,6 +25,8 @@ export type CopyFeedbackOptions = {
   errorClass?: string;
 };
 
+const copyListenerRoots = new WeakSet<object>();
+
 /**
  * Copy text to clipboard with visual feedback on the button element.
  * Supports both console (icon-based) and toolbar (SVG-based) feedback styles.
@@ -86,7 +88,12 @@ export function attachCopyListeners(
   root: ParentNode,
   options: CopyFeedbackOptions = {}
 ): void {
-  root.querySelectorAll<HTMLButtonElement>('[data-copy-trigger]').forEach((btn) => {
+  if (copyListenerRoots.has(root)) return;
+  copyListenerRoots.add(root);
+  (root as ParentNode & EventTarget).addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    const btn = target?.closest<HTMLButtonElement>('[data-copy-trigger]');
+    if (!btn || !root.contains(btn)) return;
     // SQL copy buttons are owned by SqlLiveView (delegated, so newly streamed
     // rows work too). Skip them here to avoid double-binding/double-copy.
     if (btn.closest('[data-sql-table]')) return;
@@ -94,16 +101,14 @@ export function attachCopyListeners(
     // (delegated on [data-request-table]) so lazily-mounted detail buttons work.
     // Skip them here to avoid double-binding/double-copy.
     if (btn.closest('[data-request-table]')) return;
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
 
-      const container = btn.closest('[data-copy-content]');
-      if (!container) return;
+    const container = btn.closest('[data-copy-content]');
+    if (!container) return;
 
-      const content = container.getAttribute('data-copy-content') || '';
-      await copyToClipboard(content, btn, options);
-    });
+    const content = container.getAttribute('data-copy-content') || '';
+    void copyToClipboard(content, btn, options);
   });
 }
 
@@ -154,7 +159,7 @@ export type RowExpansionOptions = {
 export function attachRowExpansion(root: ParentNode, options: RowExpansionOptions): void {
   const { tableSelector, rowSelector, keyAttr, expanded } = options;
   root.querySelectorAll<HTMLElement>(tableSelector).forEach((table) => {
-    table.addEventListener('click', (e) => {
+    const toggle = (e: Event): void => {
       const target = e.target as HTMLElement;
       if (target.closest('a, button, input')) return;
       const row = target.closest<HTMLElement>(rowSelector);
@@ -163,13 +168,32 @@ export function attachRowExpansion(root: ParentNode, options: RowExpansionOption
       if (!key) return;
       if (expanded.has(key)) {
         expanded.delete(key);
-        row.classList.remove('expanded');
       } else {
         expanded.add(key);
-        row.classList.add('expanded');
       }
+      restoreExpandedRow(row, expanded.has(key));
+    };
+    table.addEventListener('click', toggle);
+    table.addEventListener('keydown', (e) => {
+      const keyboardEvent = e as KeyboardEvent;
+      if (keyboardEvent.key !== 'Enter' && keyboardEvent.key !== ' ') return;
+      const target = keyboardEvent.target as HTMLElement;
+      if (!target.matches(rowSelector)) return;
+      keyboardEvent.preventDefault();
+      toggle(e);
     });
   });
+}
+
+function restoreExpandedRow(row: HTMLElement, isExpanded: boolean): void {
+  row.classList.toggle('expanded', isExpanded);
+  if (row.hasAttribute('aria-expanded')) {
+    row.setAttribute('aria-expanded', String(isExpanded));
+  }
+  const detail = row.nextElementSibling;
+  if (detail?.classList.contains('expansion-row')) {
+    detail.setAttribute('aria-hidden', String(!isExpanded));
+  }
 }
 
 /**
@@ -183,8 +207,7 @@ export function restoreRowExpansion(
   const { rowSelector, keyAttr, expanded } = options;
   root.querySelectorAll<HTMLElement>(rowSelector).forEach((row) => {
     const key = row.getAttribute(keyAttr);
-    if (key && expanded.has(key)) row.classList.add('expanded');
-    else row.classList.remove('expanded');
+    restoreExpandedRow(row, !!key && expanded.has(key));
   });
 }
 

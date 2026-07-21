@@ -19,7 +19,14 @@ export {
   hashString,
   type LiveListViewOptions,
 } from './live-list-view.js';
-export { renderLogsPanel, renderLogRow, logRowKey, type LogsPanelOptions } from './logs.js';
+export {
+  renderLogsPanel,
+  renderLogRow,
+  logRowKey,
+  logSearchText,
+  serializeLogEntry,
+  type LogsPanelOptions,
+} from './logs.js';
 export { renderRoutesPanel, type RoutesPanelOptions } from './routes.js';
 export { renderJSONPanel, renderJSONViewer, type JSONPanelOptions } from './json.js';
 export {
