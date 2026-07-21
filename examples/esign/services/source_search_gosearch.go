@@ -25,6 +25,7 @@ const (
 	defaultSourceManagementGoSearchIndexName       = "esign_source_management"
 	defaultSourceManagementGoSearchRegistrationKey = "source_document"
 	defaultSourceManagementGoSearchSourceType      = "source_document"
+	defaultSourceManagementGoSearchActorID         = "esign_source_management"
 )
 
 type GoSearchSourceSearchConfig struct {
@@ -519,6 +520,11 @@ func sourceSearchGoSearchRequest(indexName string, scope stores.Scope, query Sou
 		Sort:    sourceSearchGoSearchSort(query.Sort),
 		Filters: sourceSearchGoSearchFilters(query),
 		Scope:   searchtypes.Scope{TenantID: scope.TenantID, OrgID: scope.OrgID},
+		Actor: searchtypes.ActorRef{
+			UserID:   defaultSourceManagementGoSearchActorID,
+			TenantID: scope.TenantID,
+			OrgID:    scope.OrgID,
+		},
 	}
 }
 
