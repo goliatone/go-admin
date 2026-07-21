@@ -1,27 +1,20 @@
 # Changelog
 
+# [0.119.1](https://github.com/goliatone/go-admin/compare/v0.119.0...v0.119.1) - (2026-07-21)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([1e9f827](https://github.com/goliatone/go-admin/commit/1e9f8271d057e604c502c60c21f0b84028958c52))  - (goliatone)
+- Update deps ([52d5535](https://github.com/goliatone/go-admin/commit/52d5535ae05b2d3544ccda253530f0a4c148e9aa))  - (goliatone)
+
 # [0.119.0](https://github.com/goliatone/go-admin/compare/v0.118.3...v0.119.0) - (2026-07-21)
 
 
-## Structured Debug Console logs
+New minor release: v0.119.0
 
-- Debug log capture now observes the final enriched `slog.Record`, retaining normalized fields, error stacks, logger identity, caller metadata, and request/trace correlation IDs.
-- The full Debug Console Logs tab now provides stable expandable rows, nested search, prioritized error diagnostics, and Copy JSON/Copy stack actions. The compact toolbar remains unchanged by default.
-- Log normalization and recursive masking are bounded and panic-safe for cyclic, oversized, unsupported, and non-finite values.
+## <!-- 13 -->📦 Bumps
 
-## Migration Notes
-
-`NewDebugLogHandler` remains compatible for collectors available during logger construction. When the collector is initialized or replaced later, use the provider-aware constructor at the final handler seam:
-
-```go
-logger := glog.NewLogger(
-	glog.WithHandlerWrapper(func(next slog.Handler) slog.Handler {
-		return admin.NewDebugLogHandlerProvider(adm.Debug, next)
-	}),
-)
-```
-
-Use `WithDebugLogContextResolver` when the application has a custom trace/span carrier. Use `WithDebugLogLimits` only when the default depth, collection, string, stack, or total-event limits need adjustment.
+- Bump version: v0.119.0 ([c9e08df](https://github.com/goliatone/go-admin/commit/c9e08dfbab2f5b320092c445fbf0eda0566dd07e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
