@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	router "github.com/goliatone/go-router"
 )
 
 const (
@@ -21,6 +23,61 @@ type StartupReport struct {
 	Fallbacks      []FallbackEntry  `json:"fallbacks,omitempty"`
 	Conflicts      []Conflict       `json:"conflicts,omitempty"`
 	Warnings       []string         `json:"warnings,omitempty"`
+	Runtime        *RuntimeReport   `json:"runtime,omitempty"`
+}
+
+type RuntimeReport struct {
+	Available      bool                     `json:"available"`
+	State          router.RegistrationState `json:"state,omitempty"`
+	Revision       uint64                   `json:"revision,omitempty"`
+	DeclaredRoutes int                      `json:"declared_routes"`
+	MountedRoutes  int                      `json:"mounted_routes"`
+	MissingRoutes  []RuntimeRouteIssue      `json:"missing_routes,omitempty"`
+	Shadows        []router.RouteShadow     `json:"shadows,omitempty"`
+}
+
+type RuntimeRouteIssue struct {
+	Owner     string `json:"owner,omitempty"`
+	RouteName string `json:"route_name,omitempty"`
+	Method    string `json:"method"`
+	Path      string `json:"path"`
+	Reason    string `json:"reason"`
+}
+
+func BuildRuntimeReport(manifest Manifest, snapshot router.RegistrationSnapshot) RuntimeReport {
+	report := RuntimeReport{
+		Available:      true,
+		State:          snapshot.State,
+		Revision:       snapshot.Revision,
+		DeclaredRoutes: len(snapshot.DeclaredRoutes),
+		MountedRoutes:  len(snapshot.MountedRoutes),
+		Shadows:        router.AnalyzeRouteShadows(snapshot.MountedRoutes),
+	}
+
+	mounted := make(map[string]struct{}, len(snapshot.MountedRoutes))
+	for _, route := range snapshot.MountedRoutes {
+		mounted[runtimeRouteKey(string(route.Method), route.Path)] = struct{}{}
+	}
+	for _, entry := range NormalizeManifest(manifest).Entries {
+		if entry.Method == "" || entry.Method == ManifestMethodUnknown || entry.Path == "" {
+			continue
+		}
+		if _, ok := mounted[runtimeRouteKey(entry.Method, entry.Path)]; ok {
+			continue
+		}
+		report.MissingRoutes = append(report.MissingRoutes, RuntimeRouteIssue{
+			Owner:     entry.Owner,
+			RouteName: entry.RouteName,
+			Method:    entry.Method,
+			Path:      entry.Path,
+			Reason:    "declared manifest route is absent from the mounted route table",
+		})
+	}
+	return report
+}
+
+func runtimeRouteKey(method, path string) string {
+	return strings.ToUpper(strings.TrimSpace(method)) + " " + strings.TrimSpace(path)
 }
 
 type RouteSummary struct {
@@ -174,6 +231,20 @@ func FormatStartupReport(report StartupReport) string {
 				" ui="+printablePath(module.UIMountBase)+
 				" api="+printablePath(module.APIMountBase)+
 				" public_api="+printablePath(module.PublicAPIMountBase))
+			if len(module.Mounts) > 0 {
+				names := make([]string, 0, len(module.Mounts))
+				for name := range module.Mounts {
+					names = append(names, name)
+				}
+				sort.Strings(names)
+				for _, name := range names {
+					mount := module.Mounts[name]
+					lines = append(lines, "      mount="+name+
+						" surface="+printablePath(mount.Surface)+
+						" base="+printablePath(mount.Base)+
+						" group="+printablePath(mount.GroupPath))
+				}
+			}
 		}
 	}
 
@@ -213,6 +284,21 @@ func FormatStartupReport(report StartupReport) string {
 		lines = append(lines, "warnings:")
 		for _, warning := range report.Warnings {
 			lines = append(lines, "  - "+warning)
+		}
+	}
+
+	if report.Runtime != nil {
+		lines = append(lines, "runtime: state="+printablePath(string(report.Runtime.State))+
+			" revision="+strconv.FormatUint(report.Runtime.Revision, 10)+
+			" declared="+strconv.Itoa(report.Runtime.DeclaredRoutes)+
+			" mounted="+strconv.Itoa(report.Runtime.MountedRoutes)+
+			" missing="+strconv.Itoa(len(report.Runtime.MissingRoutes))+
+			" shadowed="+strconv.Itoa(len(report.Runtime.Shadows)))
+		for _, missing := range report.Runtime.MissingRoutes {
+			lines = append(lines, "  - missing: "+missing.Method+" "+missing.Path+" owner="+printablePath(missing.Owner))
+		}
+		for _, shadow := range report.Runtime.Shadows {
+			lines = append(lines, "  - shadowed: "+string(shadow.Method)+" "+shadow.Path+" by="+shadow.ShadowedByPath)
 		}
 	}
 

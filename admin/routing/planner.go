@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	router "github.com/goliatone/go-router"
 )
 
 type URLKitAdapter interface {
@@ -196,11 +198,18 @@ func (p *planner) Report() StartupReport {
 	report.Fallbacks = append([]FallbackEntry{}, p.report.Fallbacks...)
 	report.Conflicts = append([]Conflict{}, p.report.Conflicts...)
 	report.Warnings = append([]string{}, p.report.Warnings...)
+	if p.report.Runtime != nil {
+		runtimeCopy := *p.report.Runtime
+		runtimeCopy.MissingRoutes = append([]RuntimeRouteIssue{}, p.report.Runtime.MissingRoutes...)
+		runtimeCopy.Shadows = append([]router.RouteShadow{}, p.report.Runtime.Shadows...)
+		report.Runtime = &runtimeCopy
+	}
 	return report
 }
 
 func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []ManifestEntry, error) {
-	mount := p.cfg.Modules[contract.Slug].Mount
+	moduleConfig := p.cfg.Modules[contract.Slug]
+	mount := moduleConfig.Mount
 
 	resolved := ResolvedModule{Slug: contract.Slug}
 	entries := make([]ManifestEntry, 0, routeTableLen(contract))
@@ -233,6 +242,29 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 		resolved.PublicAPIMountBase = base
 		resolved.PublicAPIGroupPath = derivePublicAPIGroupPath(p.cfg.Roots)
 		entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, SurfacePublicAPI, resolved.PublicAPIGroupPath, resolved.PublicAPIMountBase, contract.PublicAPIRoutes)...)
+	}
+
+	if len(contract.Mounts) > 0 {
+		resolved.Mounts = make(map[string]ResolvedMount, len(contract.Mounts))
+		names := make([]string, 0, len(contract.Mounts))
+		for name := range contract.Mounts {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			declaration := contract.Mounts[name]
+			override, ok := moduleConfig.Mounts[name]
+			if !ok {
+				return ResolvedModule{}, nil, fmt.Errorf("module %q named mount %q requires a host-authorized mount configuration", contract.Slug, name)
+			}
+			base, groupPath, err := resolveNamedMount(p.cfg.Roots, contract.Slug, name, override)
+			if err != nil {
+				return ResolvedModule{}, nil, err
+			}
+			resolvedMount := ResolvedMount{Name: name, Surface: override.Surface, Base: base, GroupPath: groupPath}
+			resolved.Mounts[name] = resolvedMount
+			entries = append(entries, buildManifestEntries(contract.Slug, contract.RouteNamePrefix, override.Surface, groupPath, base, declaration.Routes)...)
+		}
 	}
 
 	sortManifestEntries(entries)
@@ -596,11 +628,15 @@ type surfaceSpec struct {
 }
 
 func surfaceSpecs(contract ModuleContract) []surfaceSpec {
-	return []surfaceSpec{
+	specs := []surfaceSpec{
 		{slug: contract.Slug, name: SurfaceUI, routes: contract.UIRoutes},
 		{slug: contract.Slug, name: SurfaceAPI, routes: contract.APIRoutes},
 		{slug: contract.Slug, name: SurfacePublicAPI, routes: contract.PublicAPIRoutes},
 	}
+	for name, mount := range contract.Mounts {
+		specs = append(specs, surfaceSpec{slug: contract.Slug, name: "mount." + name, routes: mount.Routes})
+	}
+	return specs
 }
 
 func validateRouteTable(slug, surface string, routes map[string]string) error {
@@ -635,6 +671,69 @@ func resolveSurfaceMount(root, slug, override, surface string) (string, error) {
 	}
 
 	return JoinAbsolutePath(root, slug), nil
+}
+
+func resolveNamedMount(roots RootsConfig, slug, name string, override NamedMountOverride) (string, string, error) {
+	surface := NormalizeRouteSurface(override.Surface)
+	if surface == "" {
+		return "", "", fmt.Errorf("module %q named mount %q must declare a supported surface", slug, name)
+	}
+	switch surface {
+	case SurfaceUI, SurfaceAPI, SurfaceProtectedAppUI, SurfaceProtectedAppAPI, SurfacePublicAPI, SurfacePublicSite:
+	default:
+		return "", "", fmt.Errorf("module %q named mount %q cannot use host-only surface %q", slug, name, surface)
+	}
+
+	base := normalizeAbsolutePath(override.Base)
+	if base == "" {
+		return "", "", fmt.Errorf("module %q named mount %q requires an absolute host-authorized base", slug, name)
+	}
+	root := rootForSurface(roots, surface)
+	if !pathWithinRoot(root, base) {
+		return "", "", fmt.Errorf("module %q named mount %q base %q must remain under %s root %q", slug, name, base, surface, root)
+	}
+	if root != "" && base == normalizeAbsolutePath(root) {
+		return "", "", fmt.Errorf("module %q named mount %q cannot claim reserved host root %q", slug, name, root)
+	}
+	groupPath := strings.Trim(strings.TrimSpace(override.GroupPath), ".")
+	if groupPath == "" {
+		groupPath = defaultNamedMountGroupPath(roots, surface)
+	}
+	return base, groupPath, nil
+}
+
+func defaultNamedMountGroupPath(roots RootsConfig, surface string) string {
+	switch NormalizeRouteSurface(surface) {
+	case SurfaceAPI:
+		return deriveAPIGroupPath(roots)
+	case SurfacePublicAPI:
+		return derivePublicAPIGroupPath(roots)
+	case SurfacePublicSite:
+		return "public"
+	case SurfaceProtectedAppAPI:
+		return deriveAPIGroupPath(roots)
+	default:
+		return deriveUIGroupPath()
+	}
+}
+
+func rootForSurface(roots RootsConfig, surface string) string {
+	switch NormalizeRouteSurface(surface) {
+	case SurfaceUI:
+		return roots.AdminRoot
+	case SurfaceAPI:
+		return roots.APIRoot
+	case SurfaceProtectedAppUI:
+		return roots.ProtectedAppRoot
+	case SurfaceProtectedAppAPI:
+		return roots.ProtectedAppAPIRoot
+	case SurfacePublicAPI:
+		return roots.PublicAPIRoot
+	case SurfacePublicSite:
+		return ""
+	default:
+		return ""
+	}
 }
 
 func buildManifestEntries(slug, routeNamePrefix, surface, groupPath, mountBase string, routes map[string]string) []ManifestEntry {
@@ -693,7 +792,11 @@ func joinMountPath(base, relative string) string {
 }
 
 func routeTableLen(contract ModuleContract) int {
-	return len(contract.UIRoutes) + len(contract.APIRoutes) + len(contract.PublicAPIRoutes)
+	total := len(contract.UIRoutes) + len(contract.APIRoutes) + len(contract.PublicAPIRoutes)
+	for _, mount := range contract.Mounts {
+		total += len(mount.Routes)
+	}
+	return total
 }
 
 func pathWithinRoot(root, candidate string) bool {

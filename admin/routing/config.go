@@ -1,5 +1,7 @@
 package routing
 
+import "strings"
+
 type ConflictPolicy string
 
 const (
@@ -28,7 +30,14 @@ type RootsConfig struct {
 }
 
 type ModuleConfig struct {
-	Mount ModuleMountOverride `json:"mount"`
+	Mount  ModuleMountOverride           `json:"mount"`
+	Mounts map[string]NamedMountOverride `json:"mounts,omitempty"`
+}
+
+type NamedMountOverride struct {
+	Surface   string `json:"surface"`
+	Base      string `json:"base"`
+	GroupPath string `json:"group_path,omitempty"`
 }
 
 type ModuleMountOverride struct {
@@ -133,9 +142,25 @@ func normalizeModuleConfigs(cfg map[string]ModuleConfig) map[string]ModuleConfig
 	out := make(map[string]ModuleConfig, len(cfg))
 	for slug, module := range cfg {
 		out[slug] = ModuleConfig{
-			Mount: NormalizeMountOverride(module.Mount),
+			Mount:  NormalizeMountOverride(module.Mount),
+			Mounts: normalizeNamedMountOverrides(module.Mounts),
 		}
 	}
 
+	return out
+}
+
+func normalizeNamedMountOverrides(mounts map[string]NamedMountOverride) map[string]NamedMountOverride {
+	if len(mounts) == 0 {
+		return nil
+	}
+	out := make(map[string]NamedMountOverride, len(mounts))
+	for name, mount := range mounts {
+		out[normalizePathSegment(name)] = NamedMountOverride{
+			Surface:   NormalizeRouteSurface(mount.Surface),
+			Base:      normalizeAbsolutePath(mount.Base),
+			GroupPath: strings.Trim(strings.TrimSpace(mount.GroupPath), "."),
+		}
+	}
 	return out
 }

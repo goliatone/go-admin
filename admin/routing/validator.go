@@ -318,6 +318,9 @@ func validateOwnership(contract ModuleContract, resolved ResolvedModule, entries
 	conflicts = append(conflicts, validateSurfaceOwnership(contract.Slug, SurfaceUI, roots.AdminRoot, entries)...)
 	conflicts = append(conflicts, validateSurfaceOwnership(contract.Slug, SurfaceAPI, roots.APIRoot, entries)...)
 	conflicts = append(conflicts, validateSurfaceOwnership(contract.Slug, SurfacePublicAPI, roots.PublicAPIRoot, entries)...)
+	conflicts = append(conflicts, validateSurfaceOwnership(contract.Slug, SurfaceProtectedAppUI, roots.ProtectedAppRoot, entries)...)
+	conflicts = append(conflicts, validateSurfaceOwnership(contract.Slug, SurfaceProtectedAppAPI, roots.ProtectedAppAPIRoot, entries)...)
+	conflicts = append(conflicts, validateSurfaceOwnership(contract.Slug, SurfacePublicSite, "", entries)...)
 	return conflicts
 }
 
@@ -365,10 +368,10 @@ func validateSurfaceOwnership(slug, surface, root string, entries []ManifestEntr
 	return conflicts
 }
 
-func validateRouteNameOwnership(contract ModuleContract, resolved ResolvedModule, entries []ManifestEntry) []Conflict {
+func validateRouteNameOwnership(contract ModuleContract, _ ResolvedModule, entries []ManifestEntry) []Conflict {
 	conflicts := make([]Conflict, 0)
 	for _, entry := range entries {
-		expectedPrefix := buildOwnedRouteNamePrefix(groupPathForSurface(resolved, entry.Surface), contract.RouteNamePrefix, contract.Slug)
+		expectedPrefix := buildOwnedRouteNamePrefix(entry.GroupPath, contract.RouteNamePrefix, contract.Slug)
 		if expectedPrefix != "" && !strings.HasPrefix(strings.TrimSpace(entry.RouteName), expectedPrefix) {
 			conflicts = append(conflicts, Conflict{
 				Kind:      ConflictKindOwnershipViolation,

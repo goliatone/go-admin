@@ -1,6 +1,9 @@
 package routing
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPlannerResolvesHostAuthorizedNamedMounts(t *testing.T) {
 	cfg := DefaultConfig()
@@ -53,6 +56,16 @@ func TestPlannerResolvesHostAuthorizedNamedMounts(t *testing.T) {
 	}
 	if got := planner.Report().RouteSummary.ModuleRoutes; got != 3 {
 		t.Fatalf("module routes = %d, want 3", got)
+	}
+	reportText := FormatStartupReport(planner.Report())
+	for _, fragment := range []string{
+		"mount=admin surface=ui base=/admin/extensions/multi",
+		"mount=options surface=public_site base=/options",
+		"mount=standalone surface=public_site base=/my-module",
+	} {
+		if !strings.Contains(reportText, fragment) {
+			t.Fatalf("routing report missing %q:\n%s", fragment, reportText)
+		}
 	}
 }
 
