@@ -294,7 +294,9 @@ func (a *Admin) refreshRoutingReport() {
 		runtimeReport := routing.BuildRuntimeReport(a.routingPlanner.Manifest(), snapshot)
 		report.Runtime = &runtimeReport
 	}
-	a.routingReport = report
+	a.routingReportMu.Lock()
+	a.routingReport = routing.CloneStartupReport(report)
+	a.routingReportMu.Unlock()
 }
 
 // RefreshRoutingReport recomputes the cached routing report after planner mutations.
