@@ -623,9 +623,6 @@ func TestFiberRuntimeConfigOverridesAdapterAndFiberDefaults(t *testing.T) {
 	if server == nil {
 		t.Fatalf("expected server instance")
 	}
-	if got := server.WrappedRouter().Config().ReadBufferSize; got != 32768 {
-		t.Fatalf("expected read buffer size 32768 from runtime config, got %d", got)
-	}
 	r.Get("/runtime-conflict/:action", func(c gorouter.Context) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -640,6 +637,9 @@ func TestFiberRuntimeConfigOverridesAdapterAndFiberDefaults(t *testing.T) {
 	}()
 	if !didPanic {
 		t.Fatalf("expected strict path conflict mode from runtime config")
+	}
+	if got := server.WrappedRouter().Config().ReadBufferSize; got != 32768 {
+		t.Fatalf("expected read buffer size 32768 from runtime config, got %d", got)
 	}
 }
 

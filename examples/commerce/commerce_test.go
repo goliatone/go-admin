@@ -60,11 +60,11 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 			return fiber.New()
 		})
-		app := server.WrappedRouter()
 		r := server.Router()
 		if initErr := adm.Initialize(r); initErr != nil {
 			t.Fatalf("initialize admin: %v", initErr)
 		}
+		app := server.WrappedRouter()
 
 		token := tokens["Ada Lovelace"]
 		if token == "" {

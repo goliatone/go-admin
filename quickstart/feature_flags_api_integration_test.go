@@ -187,15 +187,16 @@ func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T)
 
 	server := router.NewFiberAdapter()
 	actorID := uuid.New()
-	server.WrappedRouter().Use(func(c *fiber.Ctx) error {
-		actor := &auth.ActorContext{
-			ActorID: actorID.String(),
-			Subject: actorID.String(),
-			Role:    "admin",
+	server.Router().Use(func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			actor := &auth.ActorContext{
+				ActorID: actorID.String(),
+				Subject: actorID.String(),
+				Role:    "admin",
+			}
+			c.SetContext(auth.WithActorContext(c.Context(), actor))
+			return next(c)
 		}
-		ctx := auth.WithActorContext(c.UserContext(), actor)
-		c.SetUserContext(ctx)
-		return c.Next()
 	})
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize error: %v", err)
