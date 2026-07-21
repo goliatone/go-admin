@@ -44,6 +44,7 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 			opt(&cfg)
 		}
 	}
+	cfg.Routing.ReservedPrefixes = append(cfg.Routing.ReservedPrefixes, resolveHostStaticPrefixes(cfg)...)
 
 	if strings.TrimSpace(cfg.Debug.BasePath) == "" {
 		cfg.Debug.BasePath = path.Join("/", cfg.BasePath, "debug")
