@@ -621,6 +621,8 @@ const commandStatusEventType = "command_status"
 // directly (see Admin.PublishCommandStatus) to report true completion of queued
 // commands, which core go-admin cannot observe on its own.
 type CommandStatusEvent struct {
+	RunID           string `json:"run_id,omitempty"`
+	Revision        uint64 `json:"revision,omitempty"`
 	CorrelationID   string `json:"correlation_id,omitempty"`
 	DispatchID      string `json:"dispatch_id,omitempty"`
 	CommandID       string `json:"command_id,omitempty"`
@@ -637,18 +639,38 @@ type CommandStatusEvent struct {
 // states automatically; queue/async workers can call this when a queued command
 // finishes so the launcher result panel updates live without a refresh.
 func (a *Admin) PublishCommandStatus(event CommandStatusEvent) {
+	a.PublishCommandStatusContext(context.Background(), event)
+}
+
+// PublishCommandStatusContext preserves the legacy command_status surface and,
+// when possible, forwards the transition through the canonical command-run
+// runtime so snapshots and live rows converge on the same projection.
+func (a *Admin) PublishCommandStatusContext(ctx context.Context, event CommandStatusEvent) {
+	if a == nil {
+		return
+	}
+	if strings.TrimSpace(event.State) == "" {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(event.At) == "" {
+		event.At = time.Now().UTC().Format(time.RFC3339)
+	}
+	if runtime := a.CommandRunRuntime(); runtime != nil && runtime.publishCompatibilityStatus(ctx, event) && runtime.hasActiveLauncherCompatibility() {
+		return
+	}
+	a.publishLegacyCommandStatus(event)
+}
+
+func (a *Admin) publishLegacyCommandStatus(event CommandStatusEvent) {
 	if a == nil {
 		return
 	}
 	collector := a.Debug()
 	if collector == nil {
 		return
-	}
-	if strings.TrimSpace(event.State) == "" {
-		return
-	}
-	if strings.TrimSpace(event.At) == "" {
-		event.At = time.Now().UTC().Format(time.RFC3339)
 	}
 	collector.PublishEvent(commandStatusEventType, event)
 }
@@ -745,9 +767,9 @@ func commandLauncherResponseData(response RPCCommandDispatchResponse) map[string
 }
 
 func commandLauncherPublishDispatchStatus(adm *Admin, commandID, message string, response RPCCommandDispatchResponse) {
-	// Broadcast the dispatch-time status over the debug WebSocket so every
-	// connected launcher reflects it live. Inline commands resolve to a terminal
-	// state here; queued commands report "accepted" until a host worker updates.
+	// The canonical observer is authoritative when the local runtime owns both
+	// publisher and projection roles. Legacy dispatch-time status remains the
+	// fallback for deployments that have not enabled that path.
 	state := "accepted"
 	switch {
 	case response.Result != nil:
@@ -755,7 +777,7 @@ func commandLauncherPublishDispatchStatus(adm *Admin, commandID, message string,
 	case len(response.ValidationErrors) > 0 || !response.Receipt.Accepted:
 		state = "failed"
 	}
-	adm.PublishCommandStatus(CommandStatusEvent{
+	event := CommandStatusEvent{
 		CorrelationID:   response.Receipt.CorrelationID,
 		DispatchID:      response.Receipt.DispatchID,
 		CommandID:       commandID,
@@ -763,7 +785,18 @@ func commandLauncherPublishDispatchStatus(adm *Admin, commandID, message string,
 		Mode:            string(response.Receipt.Mode),
 		Message:         message,
 		StatusReference: response.StatusReference,
-	})
+	}
+	if adm.commandRunLifecycleAuthoritative() {
+		if runtime := adm.CommandRunRuntime(); runtime != nil && runtime.hasActiveLauncherCompatibility() {
+			return
+		}
+		if strings.TrimSpace(event.At) == "" {
+			event.At = time.Now().UTC().Format(time.RFC3339)
+		}
+		adm.publishLegacyCommandStatus(event)
+		return
+	}
+	adm.PublishCommandStatus(event)
 }
 
 func commandLauncherOptionValues(options []gocommand.CommandOption) []string {

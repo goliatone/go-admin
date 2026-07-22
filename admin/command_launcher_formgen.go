@@ -14,7 +14,7 @@ import (
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla"
 )
 
-const commandLauncherOptionEndpointScheme = "command-options://"
+const commandLauncherOptionEndpoint = "command-options://resolve"
 
 type commandLauncherFormgenSchema struct {
 	RawJSONSchema []byte
@@ -510,7 +510,7 @@ func mergeCommandLauncherFieldPresentation(property map[string]any, commandID, p
 			"params": commandLauncherJSONSafeMap(field.OptionSource.Params),
 		}
 		endpoint := map[string]any{
-			"url":    commandLauncherOptionEndpointScheme + commandID + "/" + path,
+			"url":    commandLauncherOptionEndpoint,
 			"method": "POST", "resultsPath": "data.option_items", "valueField": "value", "labelField": "label",
 			"params": map[string]string{"command_id": commandID, "field_path": path, "source_id": strings.TrimSpace(field.OptionSource.ID)},
 		}
