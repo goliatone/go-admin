@@ -469,7 +469,11 @@ func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRou
 		}
 	}
 	applyAdminUITranslationCapabilityGates(&options, queueModuleEnabled, coreModuleEnabled, exchangeModuleEnabled)
-	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+	var urls urlkit.Resolver
+	if adm != nil {
+		urls = adm.URLs()
+	}
+	options.basePath = normalizeQuickstartRouteBasePath(resolveAdminBasePath(urls, options.basePath))
 	applyAdminUIRoutePathDefaults(&options)
 	if options.translationSSRPresenter == nil {
 		options.translationSSRPresenter = admin.NewTranslationSSRPresenter(adm)
