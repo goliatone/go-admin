@@ -6,6 +6,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
+	router "github.com/goliatone/go-router"
 	"path"
 	"time"
 
@@ -149,6 +150,9 @@ func (m *TenantsModule) RouteContract() routing.ModuleContract {
 		UIRoutes: map[string]string{
 			tenantsRouteKey: "/",
 		},
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			tenantsRouteKey: {Method: router.GET, Path: "/"},
+		},
 	}
 }
 
@@ -287,6 +291,9 @@ func (m *OrganizationsModule) RouteContract() routing.ModuleContract {
 		Slug: organizationsModuleID,
 		UIRoutes: map[string]string{
 			organizationsRouteKey: "/",
+		},
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			organizationsRouteKey: {Method: router.GET, Path: "/"},
 		},
 	}
 }
