@@ -35,6 +35,8 @@ func TestModuleContractForCapabilitiesOnlyAdvertisesMountedSurfaces(t *testing.T
 		wantExchange, wantQueue bool
 	}{
 		{name: "none"},
+		{name: "exchange only", exchange: true, wantUI: 1, wantAPI: 5, wantExchange: true},
+		{name: "queue only", queue: true, wantUI: 4, wantAPI: 10, wantQueue: true},
 		{name: "core", core: true, wantUI: 3, wantAPI: 7},
 		{name: "core exchange", core: true, exchange: true, wantUI: 4, wantAPI: 12, wantExchange: true},
 		{name: "core queue", core: true, queue: true, wantUI: 7, wantAPI: 17, wantQueue: true},

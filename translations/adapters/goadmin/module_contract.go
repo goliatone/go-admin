@@ -74,22 +74,21 @@ func ModuleContract() routing.ModuleContract {
 // ModuleContractForCapabilities returns only the routes mounted by the
 // enabled translation product surfaces.
 func ModuleContractForCapabilities(coreEnabled, exchangeEnabled, queueEnabled bool) routing.ModuleContract {
-	ui := ModuleUIRouteDeclarations()
-	api := ModuleAPIRouteDeclarations()
-	if !coreEnabled {
-		ui = nil
-		api = nil
-	} else {
-		filterDeclarations(ui, coreUIRouteKeys())
-		filterDeclarations(api, coreAPIRouteKeys())
-		if exchangeEnabled {
-			mergeDeclarations(ui, declarationsForKeys(ModuleUIRouteDeclarations(), exchangeUIRouteKeys()))
-			mergeDeclarations(api, declarationsForKeys(ModuleAPIRouteDeclarations(), exchangeAPIRouteKeys()))
-		}
-		if queueEnabled {
-			mergeDeclarations(ui, declarationsForKeys(ModuleUIRouteDeclarations(), queueUIRouteKeys()))
-			mergeDeclarations(api, declarationsForKeys(ModuleAPIRouteDeclarations(), queueAPIRouteKeys()))
-		}
+	ui := map[string]routing.RouteDeclaration{}
+	api := map[string]routing.RouteDeclaration{}
+	allUI := ModuleUIRouteDeclarations()
+	allAPI := ModuleAPIRouteDeclarations()
+	if coreEnabled {
+		mergeDeclarations(ui, declarationsForKeys(allUI, coreUIRouteKeys()))
+		mergeDeclarations(api, declarationsForKeys(allAPI, coreAPIRouteKeys()))
+	}
+	if exchangeEnabled {
+		mergeDeclarations(ui, declarationsForKeys(allUI, exchangeUIRouteKeys()))
+		mergeDeclarations(api, declarationsForKeys(allAPI, exchangeAPIRouteKeys()))
+	}
+	if queueEnabled {
+		mergeDeclarations(ui, declarationsForKeys(allUI, queueUIRouteKeys()))
+		mergeDeclarations(api, declarationsForKeys(allAPI, queueAPIRouteKeys()))
 	}
 	return routing.ModuleContract{
 		Slug:                 ModuleSlug,
@@ -147,18 +146,6 @@ func queueAPIRouteKeys() []string {
 		"translations.assignments.actions",
 		"translations.my_work",
 		"translations.queue",
-	}
-}
-
-func filterDeclarations(declarations map[string]routing.RouteDeclaration, allowed []string) {
-	allowedSet := make(map[string]struct{}, len(allowed))
-	for _, key := range allowed {
-		allowedSet[key] = struct{}{}
-	}
-	for key := range declarations {
-		if _, ok := allowedSet[key]; !ok {
-			delete(declarations, key)
-		}
 	}
 }
 
