@@ -179,8 +179,9 @@ func (m *DebugModule) captureResolvedPaths(ctx ModuleContext) {
 
 func (m *DebugModule) RouteContract() routing.ModuleContract {
 	return routing.ModuleContract{
-		Slug:     debugRoutingSlug,
-		UIRoutes: debugModuleRoutes(),
+		Slug:                debugRoutingSlug,
+		UIRoutes:            debugModuleRoutes(),
+		UIRouteDeclarations: debugModuleRouteDeclarations(),
 	}
 }
 
@@ -225,28 +226,37 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 }
 
 func debugModuleRoutes() map[string]string {
-	return map[string]string{
-		debugRouteKey:                 "/",
-		debugWSRouteKey:               "/ws",
-		debugSessionWSRouteKey:        "/session/:sessionId/ws",
-		debugREPLAppRouteKey:          "/repl/app/ws",
-		debugREPLShellRouteKey:        "/repl/shell/ws",
-		debugPanelsRouteKey:           "/api/panels",
-		debugSnapshotRouteKey:         "/api/snapshot",
-		debugSessionsRouteKey:         "/api/sessions",
-		debugClearRouteKey:            "/api/clear",
-		debugClearPanelRouteKey:       "/api/clear/:panel",
-		debugPanelActionRouteKey:      "/api/panels/:panel/actions/:action",
-		debugDoctorActionRouteKey:     "/api/doctor/:check/action",
-		debugPanelOrderPrefsRouteKey:  "/api/preferences/panel-order",
-		debugErrorsRouteKey:           "/api/errors",
-		debugDashboardRouteKey:        "/api/dashboard",
-		debugDashboardWidgetsRouteKey: "/api/dashboard/widgets",
-		debugDashboardWidgetRouteKey:  "/api/dashboard/widgets/:id",
-		debugDashboardReorderRouteKey: "/api/dashboard/widgets/reorder",
-		debugDashboardRefreshRouteKey: "/api/dashboard/widgets/refresh",
-		debugDashboardPrefsRouteKey:   "/api/dashboard/preferences",
-		debugDashboardWSRouteKey:      "/api/dashboard/ws",
+	declarations := debugModuleRouteDeclarations()
+	routes := make(map[string]string, len(declarations))
+	for key, declaration := range declarations {
+		routes[key] = declaration.Path
+	}
+	return routes
+}
+
+func debugModuleRouteDeclarations() map[string]routing.RouteDeclaration {
+	return map[string]routing.RouteDeclaration{
+		debugRouteKey:                 {Method: router.GET, Path: "/"},
+		debugWSRouteKey:               {Method: router.GET, Path: "/ws"},
+		debugSessionWSRouteKey:        {Method: router.GET, Path: "/session/:sessionId/ws"},
+		debugREPLAppRouteKey:          {Method: router.GET, Path: "/repl/app/ws"},
+		debugREPLShellRouteKey:        {Method: router.GET, Path: "/repl/shell/ws"},
+		debugPanelsRouteKey:           {Method: router.GET, Path: "/api/panels"},
+		debugSnapshotRouteKey:         {Method: router.GET, Path: "/api/snapshot"},
+		debugSessionsRouteKey:         {Method: router.GET, Path: "/api/sessions"},
+		debugClearRouteKey:            {Method: router.POST, Path: "/api/clear"},
+		debugClearPanelRouteKey:       {Method: router.POST, Path: "/api/clear/:panel"},
+		debugPanelActionRouteKey:      {Method: router.POST, Path: "/api/panels/:panel/actions/:action"},
+		debugDoctorActionRouteKey:     {Method: router.POST, Path: "/api/doctor/:check/action"},
+		debugPanelOrderPrefsRouteKey:  {Method: router.GET, Path: "/api/preferences/panel-order"},
+		debugErrorsRouteKey:           {Method: router.POST, Path: "/api/errors"},
+		debugDashboardRouteKey:        {Method: router.GET, Path: "/api/dashboard"},
+		debugDashboardWidgetsRouteKey: {Method: router.POST, Path: "/api/dashboard/widgets"},
+		debugDashboardWidgetRouteKey:  {Method: router.DELETE, Path: "/api/dashboard/widgets/:id"},
+		debugDashboardReorderRouteKey: {Method: router.POST, Path: "/api/dashboard/widgets/reorder"},
+		debugDashboardRefreshRouteKey: {Method: router.POST, Path: "/api/dashboard/widgets/refresh"},
+		debugDashboardPrefsRouteKey:   {Method: router.POST, Path: "/api/dashboard/preferences"},
+		debugDashboardWSRouteKey:      {Method: router.GET, Path: "/api/dashboard/ws"},
 	}
 }
 
@@ -330,33 +340,14 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	access := debugAccessMiddleware(a, cfg, cfg.Permission)
 	authHandler := debugAuthHandler(a, cfg, cfg.Permission)
 	registerFallback := a.debugDashboardFallbackRegistrar(cfg, access)
-	if _, ok := a.router.(router.Router[*fiber.App]); ok {
-		if err := registerFallback(); err != nil {
-			return err
-		}
-		return nil
-	}
 	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
 	controller := a.debugDashboardController(cfg)
 	registered, err := registerDashboardRoutesByRouterType(a.router, dashboardRouteRegistrars{
 		HTTP: func(rt router.Router[*httprouter.Router]) error {
-			group := rt.Group(basePath)
-			if access != nil {
-				group.Use(access)
-			}
-			if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
-				Router:         group,
-				Controller:     controller,
-				API:            a.dash.runtime.API,
-				Broadcast:      nil,
-				ViewerResolver: viewerResolver,
-				BasePath:       "/",
-				Routes:         routes,
-			}); err != nil {
-				return err
-			}
-			registerDebugDashboardWebSocket(group, routes.WebSocket, a.dash.runtime.Broadcast, authHandler)
-			return nil
+			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller)
+		},
+		Fiber: func(rt router.Router[*fiber.App]) error {
+			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller)
 		},
 	})
 	if err != nil {
@@ -368,6 +359,35 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	if err := registerFallback(); err != nil {
 		return err
 	}
+	return nil
+}
+
+func registerDebugDashboardRouter[T any](
+	admin *Admin,
+	rt router.Router[T],
+	basePath string,
+	routes dashboardrouter.RouteConfig,
+	access router.MiddlewareFunc,
+	authHandler router.HandlerFunc,
+	viewerResolver dashboardrouter.ViewerResolver,
+	controller *dashcmp.Controller,
+) error {
+	group := rt.Group(basePath)
+	if access != nil {
+		group.Use(access)
+	}
+	if err := dashboardrouter.Register(dashboardrouter.Config[T]{
+		Router:         group,
+		Controller:     controller,
+		API:            admin.dash.runtime.API,
+		Broadcast:      nil,
+		ViewerResolver: viewerResolver,
+		BasePath:       "/",
+		Routes:         routes,
+	}); err != nil {
+		return err
+	}
+	registerDebugDashboardWebSocket(group, routes.WebSocket, admin.dash.runtime.Broadcast, authHandler)
 	return nil
 }
 

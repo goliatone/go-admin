@@ -302,6 +302,10 @@ func (m *ContentTypeBuilderModule) RouteContract() routing.ModuleContract {
 			contentTypeBuilderTypesRouteKey:  "/types",
 			contentTypeBuilderBlocksRouteKey: "/block-library",
 		},
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			contentTypeBuilderTypesRouteKey:  {Method: router.GET, Path: "/types"},
+			contentTypeBuilderBlocksRouteKey: {Method: router.GET, Path: "/block-library"},
+		},
 	}
 }
 
