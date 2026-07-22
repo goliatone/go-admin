@@ -129,13 +129,20 @@ func (m *MediaModule) RouteContract() routing.ModuleContract {
 			mediaIndexRouteKey: "/",
 			mediaListRouteKey:  "/list",
 		},
-		APIRoutes: mediaAdminJSONRouteTable(),
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			mediaIndexRouteKey: {Method: router.GET, Path: "/"},
+			mediaListRouteKey:  {Method: router.GET, Path: "/list"},
+		},
+		APIRoutes:            mediaAdminJSONRouteTable(),
+		APIRouteDeclarations: mediaAdminJSONRouteDeclarations(),
 	}
 	if delivery.adminRoutesEnabled() {
 		maps.Copy(contract.APIRoutes, mediaDeliveryRouteTable())
+		maps.Copy(contract.APIRouteDeclarations, mediaDeliveryRouteDeclarations())
 	}
 	if delivery.publicRoutesEnabled() {
 		contract.PublicAPIRoutes = mediaDeliveryRouteTable()
+		contract.PublicAPIRouteDeclarations = mediaDeliveryRouteDeclarations()
 	}
 	return contract
 }
@@ -152,12 +159,33 @@ func mediaAdminJSONRouteTable() map[string]string {
 	}
 }
 
+func mediaAdminJSONRouteDeclarations() map[string]routing.RouteDeclaration {
+	return map[string]routing.RouteDeclaration{
+		mediaAssetsListRouteKey:   {Method: router.GET, Path: "/assets"},
+		mediaAssetsItemRouteKey:   {Method: router.GET, Path: "/assets/:id"},
+		mediaResolveRouteKey:      {Method: router.POST, Path: "/resolve"},
+		mediaUploadRouteKey:       {Method: router.POST, Path: "/upload"},
+		mediaPresignRouteKey:      {Method: router.POST, Path: "/presign"},
+		mediaConfirmRouteKey:      {Method: router.POST, Path: "/confirm"},
+		mediaCapabilitiesRouteKey: {Method: router.GET, Path: "/capabilities"},
+	}
+}
+
 func mediaDeliveryRouteTable() map[string]string {
 	return map[string]string{
 		mediaDeliveryAssetRouteKey:    "/delivery/:id/asset",
 		mediaDeliveryStreamRouteKey:   "/delivery/:id/stream",
 		mediaDeliveryPosterRouteKey:   "/delivery/:id/poster",
 		mediaDeliveryDownloadRouteKey: "/delivery/:id/download",
+	}
+}
+
+func mediaDeliveryRouteDeclarations() map[string]routing.RouteDeclaration {
+	return map[string]routing.RouteDeclaration{
+		mediaDeliveryAssetRouteKey:    {Method: router.GET, Path: "/delivery/:id/asset"},
+		mediaDeliveryStreamRouteKey:   {Method: router.GET, Path: "/delivery/:id/stream"},
+		mediaDeliveryPosterRouteKey:   {Method: router.GET, Path: "/delivery/:id/poster"},
+		mediaDeliveryDownloadRouteKey: {Method: router.GET, Path: "/delivery/:id/download"},
 	}
 }
 
