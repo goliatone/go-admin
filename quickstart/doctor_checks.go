@@ -10,6 +10,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/admin/routing"
+	router "github.com/goliatone/go-router"
 	"github.com/google/uuid"
 )
 
