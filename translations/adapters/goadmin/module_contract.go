@@ -71,6 +71,8 @@ func ModuleContract() routing.ModuleContract {
 	return routing.ModuleContract{
 		Slug:                 ModuleSlug,
 		RouteNamePrefix:      ModuleSlug,
+		UIRoutes:             ModuleUIRoutes(),
+		APIRoutes:            ModuleAPIRoutes(),
 		UIRouteDeclarations:  ModuleUIRouteDeclarations(),
 		APIRouteDeclarations: ModuleAPIRouteDeclarations(),
 	}
