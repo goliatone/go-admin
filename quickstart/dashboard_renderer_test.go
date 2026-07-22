@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/goliatone/go-admin/admin"
+	client "github.com/goliatone/go-admin/pkg/client"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	router "github.com/goliatone/go-router"
 )
@@ -37,6 +38,60 @@ func TestDashboardRendererUsesEmbeddedTemplates(t *testing.T) {
 	}
 	if !strings.Contains(html, "Main") {
 		t.Fatalf("expected area title, got %q", html)
+	}
+}
+
+func TestDashboardRendererUsesDebugAreaSlotAndAdminAssetBasePath(t *testing.T) {
+	renderer, err := newDashboardTemplateRenderer(WithDashboardTemplatesFS(client.Templates()))
+	if err != nil {
+		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
+	}
+	page := admin.AdminDashboardPage{
+		Dashboard: dashcmp.Page{
+			Title: "Debug Console",
+			Areas: []dashcmp.PageArea{
+				{
+					Slot: "main",
+					Code: "admin.debug",
+					Widgets: []dashcmp.WidgetFrame{
+						{
+							ID:         "debug-requests",
+							Definition: "admin.debug.panel.requests",
+							Area:       "admin.debug",
+							Span:       12,
+							Data:       map[string]any{"panel": "requests"},
+						},
+					},
+				},
+			},
+		},
+		Chrome: admin.AdminChromeState{
+			Title:         "Debug Console",
+			BasePath:      "/admin",
+			AssetBasePath: "/admin",
+			APIBasePath:   "/admin/debug/api",
+		},
+	}
+
+	html, err := renderer.RenderPage("dashboard_ssr.html", page)
+	if err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	for _, expected := range []string{
+		`href="/admin/assets/dist/styles/widgets.css"`,
+		`from '/admin/assets/dist/dashboard/index.js'`,
+		`data-area-code="admin.debug"`,
+		`data-area-grid="admin.debug"`,
+		`const apiBasePath = '/admin/debug/api'`,
+		`data-widget="debug-requests"`,
+		`dashboardState.areas.map((area) => area.code).filter(Boolean)`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected rendered debug dashboard to contain %q, got %q", expected, html)
+		}
+	}
+	if strings.Contains(html, `data-area-code="admin.dashboard.main"`) {
+		t.Fatalf("debug dashboard rendered the normal main area: %q", html)
 	}
 }
 

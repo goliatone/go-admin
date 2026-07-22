@@ -137,6 +137,42 @@ func TestDebugCollectorSnapshotWithContextUsesRequestContext(t *testing.T) {
 	}
 }
 
+func TestDebugCollectorPanelSnapshotSkipsOtherPanelsAndCanceledRequests(t *testing.T) {
+	panelIDs := []string{"targeted-panel-alpha", "targeted-panel-beta"}
+	collections := map[string]int{}
+	for _, panelID := range panelIDs {
+		panelID := panelID
+		if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+			SnapshotKey: panelID,
+			Snapshot: func(context.Context) any {
+				collections[panelID]++
+				return panelID
+			},
+		}); err != nil {
+			t.Fatalf("register panel %s: %v", panelID, err)
+		}
+		t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+	}
+
+	collector := NewDebugCollector(DebugConfig{Panels: panelIDs})
+	payload, ok := collector.panelSnapshotWithContext(context.Background(), panelIDs[0])
+	if !ok || payload != panelIDs[0] {
+		t.Fatalf("expected targeted panel payload, got %#v ok=%t", payload, ok)
+	}
+	if collections[panelIDs[0]] != 1 || collections[panelIDs[1]] != 0 {
+		t.Fatalf("expected only the requested panel to collect, got %+v", collections)
+	}
+
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if payload, ok := collector.panelSnapshotWithContext(canceled, panelIDs[1]); ok || payload != nil {
+		t.Fatalf("expected canceled panel collection to stop, got %#v ok=%t", payload, ok)
+	}
+	if collections[panelIDs[1]] != 0 {
+		t.Fatalf("expected canceled request not to collect, got %+v", collections)
+	}
+}
+
 func TestDebugCollectorPanelDefinitionsExposeEnabledRichUI(t *testing.T) {
 	const panelID = "rich_collector_panel"
 

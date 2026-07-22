@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin/routing"
@@ -111,6 +112,93 @@ func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
 		}
 		if resp.StatusCode != wantStatus {
 			t.Fatalf("expected %s to return %d, got %d", target, wantStatus, resp.StatusCode)
+		}
+	}
+}
+
+func TestDebugDashboardRendersDebugAreaWithAdminChromeAndOneSnapshotPerPanel(t *testing.T) {
+	type requestContextKey struct{}
+	type panelProbe struct {
+		collections atomic.Int32
+		contextSeen atomic.Bool
+	}
+	panelIDs := []string{"debug-dashboard-alpha", "debug-dashboard-beta"}
+	probes := map[string]*panelProbe{}
+	for _, panelID := range panelIDs {
+		panelID := panelID
+		probe := &panelProbe{}
+		probes[panelID] = probe
+		if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+			Label:       panelID,
+			SnapshotKey: panelID,
+			Snapshot: func(ctx context.Context) any {
+				probe.collections.Add(1)
+				probe.contextSeen.Store(ctx.Value(requestContextKey{}) == "debug-request")
+				return map[string]any{"panel": panelID}
+			},
+		}); err != nil {
+			t.Fatalf("register panel %s: %v", panelID, err)
+		}
+		t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+	}
+
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled:    true,
+			LayoutMode: DebugLayoutAdmin,
+			Panels:     panelIDs,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{
+		"debug":                  true,
+		string(FeatureDashboard): true,
+	})})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	renderer := &captureDashboardRenderer{}
+	adm.Dashboard().WithRenderer(renderer)
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	requestContext := context.WithValue(context.Background(), requestContextKey{}, "debug-request")
+	req := httptest.NewRequestWithContext(requestContext, http.MethodGet, "/admin/debug", nil)
+	req.Header.Set("X-Test-User", "debug-user")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected debug dashboard 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	page := renderer.lastPage
+	if renderer.lastTemplate != debugDefaultDashboardTemplate {
+		t.Fatalf("expected debug dashboard template %q, got %q", debugDefaultDashboardTemplate, renderer.lastTemplate)
+	}
+	if len(page.Dashboard.Areas) != 1 || page.Dashboard.Areas[0].Slot != "main" || page.Dashboard.Areas[0].Code != debugWidgetAreaCode {
+		t.Fatalf("expected one main debug area, got %+v", page.Dashboard.Areas)
+	}
+	if len(page.Dashboard.Areas[0].Widgets) != len(panelIDs) {
+		t.Fatalf("expected %d debug widgets, got %+v", len(panelIDs), page.Dashboard.Areas[0].Widgets)
+	}
+	if page.Chrome.Title != "Debug Console" || page.Chrome.BasePath != "/admin" || page.Chrome.AssetBasePath != "/admin" {
+		t.Fatalf("expected admin debug chrome paths, got %+v", page.Chrome)
+	}
+	if page.Chrome.APIBasePath != "/admin/debug/api" {
+		t.Fatalf("expected debug dashboard API base path, got %q", page.Chrome.APIBasePath)
+	}
+	for _, panelID := range panelIDs {
+		if got := probes[panelID].collections.Load(); got != 1 {
+			t.Fatalf("expected panel %s to collect once, got %d", panelID, got)
+		}
+		if !probes[panelID].contextSeen.Load() {
+			t.Fatalf("expected panel %s to receive request context", panelID)
 		}
 	}
 }
