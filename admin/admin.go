@@ -50,6 +50,8 @@ type Admin struct {
 	rpcCommandPolicyHook            RPCCommandPolicyHook
 	dashboard                       *Dashboard
 	debugCollector                  *DebugCollector
+	commandRunRuntimeMu             sync.Mutex
+	commandRunRuntime               *CommandRunRuntime
 	actionDiagnostics               *ActionDiagnosticsStore
 	replSessionStore                DebugREPLSessionStore
 	replSessionManager              *DebugREPLSessionManager
