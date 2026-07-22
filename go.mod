@@ -9,7 +9,7 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin/quickstart v0.122.0
+	github.com/goliatone/go-admin/quickstart v0.122.1
 	github.com/goliatone/go-auth v0.44.1
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cms v0.60.2
