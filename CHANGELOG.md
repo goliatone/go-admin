@@ -1,10 +1,25 @@
 # Changelog
 
+# [0.121.5](https://github.com/goliatone/go-admin/compare/v0.121.4...v0.121.5) - (2026-07-22)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([d8463fa](https://github.com/goliatone/go-admin/commit/d8463fa89c0fecf3762d37d5e44ff1dad1074c0f))  - (goliatone)
+- Update error handler ([355d68c](https://github.com/goliatone/go-admin/commit/355d68ca13b6fdd5ec2e5f754e7134edc6af9172))  - (goliatone)
+- Update tests ([0b30df6](https://github.com/goliatone/go-admin/commit/0b30df6051202a5d6c1b89b331e6f0d57dd40117))  - (goliatone)
+
 # [0.121.4](https://github.com/goliatone/go-admin/compare/v0.121.3...v0.121.4) - (2026-07-22)
+
+
+New patch release: v0.121.4
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Websocket handler ([7be2b72](https://github.com/goliatone/go-admin/commit/7be2b723b164b4034df07cd9a029b10cd73bd497))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.4 ([cebd8d2](https://github.com/goliatone/go-admin/commit/cebd8d28ea533c2aa9b91654fb7d7aa82ec18610))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
