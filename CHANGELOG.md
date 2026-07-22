@@ -1,24 +1,46 @@
 # Changelog
 
+# [0.121.3](https://github.com/goliatone/go-admin/compare/v0.121.2...v0.121.3) - (2026-07-22)
+
+
+## Migration Notes
+
+- Enable live Command Runs with `debug.command_runs.enabled` and an explicit process role. Single-process deployments may use the built-in local transport; split deployments must inject matching publisher/subscriber endpoints and keep driver lifecycle host-owned.
+- For Valkey fanout, release the go-admin command-run contracts before releasing the separately versioned `go-messaging/adapters/go-admin` module, then upgrade applications to both compatible versions.
+- Valkey Pub/Sub is ephemeral. Configure a shared durable `CommandRunStore` when reconnect snapshots must survive gateway restarts.
+- Shut down command-run runtimes before closing injected messaging drivers.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Release task ([0149818](https://github.com/goliatone/go-admin/commit/0149818c05f6eaea4592f451bbecfe36e17c0263))  - (goliatone)
+- Inflgiht events ([1f3a4cd](https://github.com/goliatone/go-admin/commit/1f3a4cd8f8dcdbd72b2c3034fe6aee4398783b38))  - (goliatone)
+- Command options URL ([ae20bfb](https://github.com/goliatone/go-admin/commit/ae20bfbfa5f1c9286b1ba25eb3952b0e6985bcbe))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Command run management ([7960e12](https://github.com/goliatone/go-admin/commit/7960e126c75a274a3385acb87efc36ab5a8831e5))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tasks ([3d4f713](https://github.com/goliatone/go-admin/commit/3d4f713a54b81f8fe41c86c0babf0a081474c1c5))  - (goliatone)
+- Update tests ([94e1507](https://github.com/goliatone/go-admin/commit/94e15076b50933b4eef07b51c7bef1dbaca1a215))  - (goliatone)
+- Update deps ([192bd68](https://github.com/goliatone/go-admin/commit/192bd68f69c740833d51c0e01eecdb67d8fc7a1b))  - (goliatone)
+- Udpate deps ([8adcd56](https://github.com/goliatone/go-admin/commit/8adcd56cdfd47a2282bbcc6c2695ff431ae2775e))  - (goliatone)
+- Update test ([f1382f7](https://github.com/goliatone/go-admin/commit/f1382f74c643a7d8a6f8da27910cc47e859072d7))  - (goliatone)
+- Update docs ([8182b4a](https://github.com/goliatone/go-admin/commit/8182b4a6ad94a944fb88de354c1b0275975221e9))  - (goliatone)
+
 # [0.121.2](https://github.com/goliatone/go-admin/compare/v0.121.1...v0.121.2) - (2026-07-22)
 
 
-## Fixes
-
-- Prevent Debug Console dynamic command-option sentinels from reaching the host
-  router. The launcher now rewrites both canonical `command-options://` URLs and
-  the legacy single-leading-slash form to the protected resolver action before
-  network dispatch.
-
-## Dependency Notes
-
-- Release the accompanying go-formgen absolute-URI normalization fix, then pin
-  that release in go-admin. The launcher compatibility path keeps older
-  go-formgen assets safe during mixed-version deployments.
+New patch release: v0.121.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Handling of command options in url ([d0ce498](https://github.com/goliatone/go-admin/commit/d0ce498c90e41a1316a9b5c997223918997b9ff8))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.2 ([1f731fc](https://github.com/goliatone/go-admin/commit/1f731fc8f44de04fd0828360d4ebd2a072bdd41c))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
