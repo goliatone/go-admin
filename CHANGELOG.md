@@ -1,10 +1,42 @@
 # Changelog
 
+# [0.121.2](https://github.com/goliatone/go-admin/compare/v0.121.1...v0.121.2) - (2026-07-22)
+
+
+## Fixes
+
+- Prevent Debug Console dynamic command-option sentinels from reaching the host
+  router. The launcher now rewrites both canonical `command-options://` URLs and
+  the legacy single-leading-slash form to the protected resolver action before
+  network dispatch.
+
+## Dependency Notes
+
+- Release the accompanying go-formgen absolute-URI normalization fix, then pin
+  that release in go-admin. The launcher compatibility path keeps older
+  go-formgen assets safe during mixed-version deployments.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Handling of command options in url ([d0ce498](https://github.com/goliatone/go-admin/commit/d0ce498c90e41a1316a9b5c997223918997b9ff8))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([68f6a20](https://github.com/goliatone/go-admin/commit/68f6a2014e42ee57a5d0119af723f76b9a5bc8e5))  - (goliatone)
+- Update test ([47343c1](https://github.com/goliatone/go-admin/commit/47343c1f3df505a906f17df7a058b88473d722bc))  - (goliatone)
+
 # [0.121.1](https://github.com/goliatone/go-admin/compare/v0.121.0...v0.121.1) - (2026-07-22)
+
+
+New patch release: v0.121.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Asset loading ([92ce58a](https://github.com/goliatone/go-admin/commit/92ce58ac322fcfbcfa8754f890b8db1fb431e715))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.1 ([183f794](https://github.com/goliatone/go-admin/commit/183f79443ec1063458c5bc95f316db6c211ac6de))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
