@@ -47,6 +47,12 @@ import {
   renderLogRow,
   logRowKey,
   logSearchText,
+  commandRunSelectionEvent,
+  commandRunsNavigationHref,
+  parseCommandRunsNavigation,
+  reconcileCommandRunsRows,
+  resetCommandRunsState,
+  setCommandRunsNavigationTarget,
 } from './shared/panels/index.js';
 import {
   panelRegistry,
@@ -76,9 +82,9 @@ import {
   applyCommandLauncherStatusEvent,
   getCommandLauncherLiveStatus,
   recordCommandLauncherInvocation,
-	applyCommandLauncherControllerErrors,
-	loadCommandLauncherControllerValues,
-	detachCommandLauncherControllers,
+  applyCommandLauncherControllerErrors,
+  loadCommandLauncherControllerValues,
+  detachCommandLauncherControllers,
 } from './shared/panels/command-launcher.js';
 import { httpRequest, readExpectedHTTPJSON, readHTTPErrorResult } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
@@ -245,6 +251,7 @@ export class DebugPanel {
   private tabsSortable: Sortable | null = null;
   private panelActionResults: Map<string, PanelActionResultView> = new Map();
   private commandLauncherLastPayloads: Map<string, Record<string, unknown>> = new Map();
+  private commandRunStateGeneration = 0;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -473,12 +480,21 @@ export class DebugPanel {
 
   private restoreActivePanel(): void {
     let restored: string | null = null;
+    let urlPanel: string | null = null;
     try {
       restored = this.normalizeStoredPanelID(sessionStorage.getItem(DEBUG_CONSOLE_ACTIVE_PANEL_KEY));
+      const params = new URLSearchParams(window.location.search);
+      urlPanel = this.normalizeStoredPanelID(params.get('panel'));
+      const target = parseCommandRunsNavigation(params.toString());
+      if (!urlPanel && (target.runID || target.correlationID) && this.panels.includes('command_runs')) {
+        urlPanel = 'command_runs';
+      }
+      if (urlPanel === 'command_runs') setCommandRunsNavigationTarget(target);
     } catch {
       restored = null;
+      urlPanel = null;
     }
-    this.activePanel = restored || this.normalizeStoredPanelID(this.activePanel) || this.panels[0] || 'template';
+    this.activePanel = urlPanel || restored || this.normalizeStoredPanelID(this.activePanel) || this.panels[0] || 'template';
   }
 
   private persistActivePanel(): void {
@@ -486,6 +502,24 @@ export class DebugPanel {
       sessionStorage.setItem(DEBUG_CONSOLE_ACTIVE_PANEL_KEY, this.activePanel);
     } catch {
       // Ignore blocked or unavailable browser storage.
+    }
+  }
+
+  private replacePanelURL(panel: string, runID = '', correlationID = ''): void {
+    try {
+      const current = window.location.href;
+      const href = panel === 'command_runs'
+        ? commandRunsNavigationHref(current, { runID, correlationID })
+        : (() => {
+            const url = new URL(current);
+            url.searchParams.set('panel', panel);
+            url.searchParams.delete('run_id');
+            url.searchParams.delete('correlation_id');
+            return `${url.pathname}${url.search}${url.hash}`;
+          })();
+      window.history.replaceState(window.history.state, '', href);
+    } catch {
+      // URL synchronization is an enhancement; panel navigation still works.
     }
   }
 
@@ -715,6 +749,7 @@ export class DebugPanel {
       }
       this.activePanel = panel;
       this.persistActivePanel();
+      this.replacePanelURL(panel);
       this.renderActivePanel();
     });
 
@@ -761,6 +796,13 @@ export class DebugPanel {
       const confirmText = button.dataset.doctorActionConfirm || '';
       const requiresConfirmation = button.dataset.doctorActionRequiresConfirmation === 'true';
       this.runDoctorAction(checkID, confirmText, requiresConfirmation);
+    });
+
+    this.panelEl.addEventListener(commandRunSelectionEvent, (event) => {
+      if (this.activePanel !== 'command_runs') return;
+      const detail = (event as CustomEvent<{ runID?: string }>).detail;
+      const runID = typeof detail?.runID === 'string' ? detail.runID : '';
+      if (runID) this.replacePanelURL('command_runs', runID);
     });
   }
 
@@ -1123,7 +1165,7 @@ export class DebugPanel {
       }
     }
 
-	detachCommandLauncherControllers();
+    detachCommandLauncherControllers();
     this.panelEl.innerHTML = content;
     if (panel === 'logs') {
       this.applyLogsAutoScroll();
@@ -1297,12 +1339,24 @@ export class DebugPanel {
       }
       // Map validation paths onto the originating fields (side-effect). The card
       // lists the full set, so the leftover return value is intentionally unused.
-	  if (!result.actionID || !applyCommandLauncherControllerErrors(result.actionID, fieldErrors)) {
-		this.renderPanelActionErrors(fieldErrors, result.actionID);
-	  }
+      if (!result.actionID || !applyCommandLauncherControllerErrors(result.actionID, fieldErrors)) {
+        this.renderPanelActionErrors(fieldErrors, result.actionID);
+      }
       const canRetry = Boolean(result.actionID && this.commandLauncherLastPayloads.has(result.actionID));
-      const liveStatus = getCommandLauncherLiveStatus(parsed.correlationId);
-      target.innerHTML = renderCommandLauncherResultCard(parsed, { canRetry, at: result.at, durationMs: result.durationMs, liveStatus });
+      const liveStatus = getCommandLauncherLiveStatus(parsed.correlationId || parsed.runId || parsed.dispatchId);
+      const commandRunsHref = (parsed.runId || liveStatus?.runID || parsed.correlationId || liveStatus?.correlationID)
+        ? commandRunsNavigationHref(window.location.href, {
+            runID: parsed.runId || liveStatus?.runID,
+            correlationID: parsed.correlationId || liveStatus?.correlationID,
+          })
+        : '';
+      target.innerHTML = renderCommandLauncherResultCard(parsed, {
+        canRetry,
+        at: result.at,
+        durationMs: result.durationMs,
+        liveStatus,
+        commandRunsHref,
+      });
       this.attachCommandLauncherResultActions(target, result.actionID);
       return;
     }
@@ -1340,7 +1394,7 @@ export class DebugPanel {
     if (!form) {
       return;
     }
-	loadCommandLauncherControllerValues(actionID, payload);
+    loadCommandLauncherControllerValues(actionID, payload);
     void this.runPanelAction(form, button, clonePanelActionPayload(payload));
   }
 
@@ -1920,6 +1974,9 @@ export class DebugPanel {
     this.expandedRequests.clear();
     this.logsExpanded.clear();
     this.jserrorsExpanded.clear();
+    resetCommandRunsState();
+    setCommandRunsNavigationTarget(parseCommandRunsNavigation(window.location.search));
+    this.commandRunStateGeneration += 1;
     this.eventCount = 0;
     this.lastEventAt = null;
     this.updateStatusMeta();
@@ -2082,6 +2139,10 @@ export class DebugPanel {
       const handler = def.handleEvent || ((current, payload) => defaultHandleEvent(current, payload, this.maxLogEntries));
       const newData = handler(currentData, event.payload);
       this.setStateForKey(snapshotKey, newData);
+      if (snapshotKey === 'command_runs') {
+        this.commandRunStateGeneration += 1;
+        reconcileCommandRunsRows(newData);
+      }
     } else {
       // Legacy handling for built-in panels (backward compatibility)
       switch (event.type) {
@@ -2128,10 +2189,12 @@ export class DebugPanel {
       } else if (panel === 'jserrors') {
         this.jserrorsView.enqueue([event.payload as JSErrorEntry]);
       } else if (this.registryLiveList.handles(def)) {
-        // Opt-in registry (incl. server schema) panels: append the newest state
-        // item incrementally instead of rebuilding the whole panel.
+        // Append panels consume the newest state item; keyed-upsert panels consume
+        // the event row itself because its position in state may be unchanged.
         const data = this.getStateForKey(getSnapshotKey(def!));
-        const item = Array.isArray(data) ? data[data.length - 1] : undefined;
+        const item = def!.liveList?.updateMode === 'upsert'
+          ? event.payload
+          : Array.isArray(data) ? data[data.length - 1] : undefined;
         this.registryLiveList.enqueue(def!, item);
       } else {
         this.renderPanel();
@@ -2207,8 +2270,11 @@ export class DebugPanel {
     }
   }
 
-  private applySnapshot(snapshot: DebugSnapshot): void {
+  private applySnapshot(snapshot: DebugSnapshot, expectedCommandRunGeneration?: number): void {
     const next = snapshot || {};
+    const currentCommandRuns = this.state.extra.command_runs;
+    const preserveCurrentCommandRuns = expectedCommandRunGeneration !== undefined
+      && expectedCommandRunGeneration !== this.commandRunStateGeneration;
     this.state.template = next.template || {};
     this.state.session = next.session || {};
     this.state.requests = ensureArray<RequestEntry>(next.requests);
@@ -2235,7 +2301,13 @@ export class DebugPanel {
         extra[panel] = (next as any)[panel];
       }
     });
+    if (preserveCurrentCommandRuns) {
+      if (currentCommandRuns !== undefined) extra.command_runs = currentCommandRuns;
+      else delete extra.command_runs;
+    }
     this.state.extra = extra;
+    this.commandRunStateGeneration += 1;
+    reconcileCommandRunsRows(extra.command_runs, true);
 
     this.updateTabCounts();
     this.renderPanel();
@@ -2268,6 +2340,7 @@ export class DebugPanel {
     if (this.activeSessionId) {
       return;
     }
+    const commandRunGeneration = this.commandRunStateGeneration;
     try {
       const response = await httpRequest(`${this.debugPath}/api/snapshot`, {
         credentials: 'same-origin',
@@ -2276,7 +2349,7 @@ export class DebugPanel {
         return;
       }
       const payload = await readExpectedHTTPJSON<DebugSnapshot>(response);
-      this.applySnapshot(payload);
+      this.applySnapshot(payload, commandRunGeneration);
     } catch {
       // ignore fetch errors
     }

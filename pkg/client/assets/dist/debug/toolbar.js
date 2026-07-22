@@ -1,10 +1,10 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as Y, g as J, h as U, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-LsMU86_3.js";
+import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as U, g as Y, h as J, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-BAFduW3V.js";
 import { t as st } from "../chunks/repl-panel-Dvtc4bMw.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
-import { M as b, P as v, S as rt, T as nt, W as it, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as qt, l as Lt, m as pt, n as E, o as P, p as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-C0QmC9Ua.js";
+import { G as b, S as rt, T as nt, _ as it, a as Pt, b as lt, c as C, d as y, f as dt, g as ct, h as qt, l as Lt, m as ht, n as E, o as P, p as pt, q as v, rt as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-BF5gvDyg.js";
 var gt = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1147,7 +1147,7 @@ function w(a, t, e = 50, s) {
         showSortToggle: !0
       });
     case "custom":
-      return U(t.custom || {}, d, {
+      return J(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1162,7 +1162,7 @@ function w(a, t, e = 50, s) {
   }
 }
 function x(a, t = 50) {
-  return pt(a, t);
+  return ht(a, t);
 }
 var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   static get observedAttributes() {
@@ -1221,7 +1221,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       onAdopt: (t) => N(t, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new v({
       styles: c,
-      keyOf: Y,
+      keyOf: U,
       renderRow: (t) => X(t, c, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
@@ -1237,8 +1237,9 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new J({
+    }), this.registryLiveList = new Y({
       styles: c,
+      allowUpsert: !1,
       getRenderOptions: () => ({}),
       onNeedFullRender: () => this.updateContent()
     });
@@ -1404,11 +1405,11 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = ht(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = ct(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
     const t = x(this.snapshot, this.slowThresholdMs), e = this.panels.map((n) => {
-      const l = ut(n), z = this.getPanelCount(n), T = this.activePanel === n ? "active" : "", R = ot(ct(n), {
+      const l = pt(n), z = this.getPanelCount(n), T = this.activePanel === n ? "active" : "", R = ot(dt(n), {
         size: "14px",
         extraClass: "tab-icon"
       });
@@ -1492,7 +1493,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (lt.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
+      t && (it.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
         const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         s && (s.textContent = String(this.getPanelCount(e)));
       });
@@ -1514,7 +1515,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   }
   getPanelCount(t) {
     const e = h.get(t);
-    if (e) return dt(this.snapshot, e);
+    if (e) return lt(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1631,7 +1632,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     if (!e) return;
     const s = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
     if (!s) return;
-    const o = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${u(it(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    const o = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${u(ut(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
     s.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${u(e.message)}</div>${o}`;
   }
   renderReplPanel(t, e) {
@@ -2221,13 +2222,13 @@ export {
   Lt as getDefaultPanels,
   f as getDefaultToolbarPanels,
   y as getPanelEventTypes,
-  ct as getPanelIcon,
-  ut as getPanelLabel,
+  dt as getPanelIcon,
+  pt as getPanelLabel,
   mt as initDebugManager,
   qt as isKnownPanel,
-  ht as normalizeReplCommands,
+  ct as normalizeReplCommands,
   w as renderPanel,
-  lt as replPanelIDs
+  it as replPanelIDs
 };
 
 //# sourceMappingURL=toolbar.js.map

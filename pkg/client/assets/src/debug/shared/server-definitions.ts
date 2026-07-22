@@ -19,6 +19,16 @@ import type {
 } from './types.js';
 import { escapeHTML } from './utils.js';
 import { httpRequest, readExpectedHTTPJSON } from '../../shared/transport/http-client.js';
+import {
+  attachCommandRunsInteractions,
+  commandRunKey,
+  commandRunRevision,
+  commandRunsEvicted,
+  commandRunTerminal,
+  renderCommandRunRow,
+  renderCommandRunsPanel,
+  restoreCommandRunsInteractions,
+} from './panels/command-runs.js';
 
 const SUPPORTED_RENDERERS = new Set(['metrics', 'key_value', 'table', 'status_list', 'timeline', 'json', 'stack']);
 const SUPPORTED_SCHEMA_VERSION = '1';
@@ -145,6 +155,14 @@ function applyEventPolicy(currentData: unknown, eventPayload: unknown, ui: Serve
     const next = [...currentData];
     const index = next.findIndex((item) => getPathValue(item, key) === payloadKey);
     if (index >= 0) {
+      const existing = next[index];
+      const incomingRevision = Number(getPathValue(payload, 'revision') || 0);
+      const existingRevision = Number(getPathValue(existing, 'revision') || 0);
+      const existingPhase = normalizeID(getPathValue(existing, 'phase'));
+      const incomingPhase = normalizeID(getPathValue(payload, 'phase'));
+      const terminal = new Set(['succeeded', 'failed', 'canceled', 'rejected']);
+      if (incomingRevision > 0 && existingRevision > 0 && incomingRevision <= existingRevision) return next;
+      if (terminal.has(existingPhase) && !terminal.has(incomingPhase)) return next;
       next[index] = payload;
     } else {
       next.push(payload);
@@ -489,7 +507,10 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   const degradedReason = unsupportedUIReason(serverDef.ui);
   const ui = degradedReason === null && isSupportedUI(serverDef.ui) ? serverDef.ui : undefined;
   const renderDef = ui ? serverDef : { ...serverDef, ui: undefined };
-  const consoleOverride = ui ? serverPanelConsoleRenderers.get(id) : undefined;
+  const commandRunsOverride: ServerPanelConsoleRenderer | undefined = id === 'command_runs' && ui
+    ? ({ data, styles }) => renderCommandRunsPanel(data, styles)
+    : undefined;
+  const consoleOverride = commandRunsOverride || (ui ? serverPanelConsoleRenderers.get(id) : undefined);
   const renderConsoleOverride = consoleOverride
     ? (data: unknown, styles: StyleConfig) => consoleOverride({ def: renderDef, data, styles, useIconCopyButton: true })
     : undefined;
@@ -511,7 +532,8 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   // array order (newest last), so this is `false`; an event policy can opt into
   // newest-first and both paths flip together — they can never diverge.
   const liveNewestFirst = normalizeID(ui?.events?.order) === 'newest_first';
-  const liveList = ui && primaryView && normalizeID(ui.events?.mode) === 'append'
+  const eventMode = normalizeID(ui?.events?.mode);
+  const liveList = ui && primaryView && eventMode === 'append'
     && isSchemaListRenderer(primaryView.renderer) && tableColumnsOk
     ? {
         renderRow: (item: unknown, styles: StyleConfig) =>
@@ -520,6 +542,20 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
         getMaxEntries: () =>
           typeof ui.events?.max_entries === 'number' ? ui.events.max_entries : 500,
         newestFirst: liveNewestFirst,
+      }
+    : undefined;
+  const commandRunsLiveList = ui && id === 'command_runs' && eventMode === 'upsert'
+    ? {
+        updateMode: 'upsert' as const,
+        renderRow: (item: unknown, styles: StyleConfig) => renderCommandRunRow(item, styles),
+        keyOf: commandRunKey,
+        revisionOf: commandRunRevision,
+        terminalOf: commandRunTerminal,
+        getMaxEntries: () => typeof ui.events?.max_entries === 'number' ? ui.events.max_entries : 500,
+        newestFirst: liveNewestFirst,
+        onAdopt: attachCommandRunsInteractions,
+        onRestore: restoreCommandRunsInteractions,
+        onEvict: commandRunsEvicted,
       }
     : undefined;
 
@@ -542,8 +578,8 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
     renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false, degradedReason, liveNewestFirst),
     // Custom console panels own their own filtering, so the generic object-key
     // search must not be applied to their structured snapshot payload.
-    showFilters: consoleOverride ? false : Boolean(ui?.filters?.length),
-    liveList,
+    showFilters: consoleOverride && id !== 'command_runs' ? false : Boolean(ui?.filters?.length),
+    liveList: commandRunsLiveList || liveList,
   };
 }
 

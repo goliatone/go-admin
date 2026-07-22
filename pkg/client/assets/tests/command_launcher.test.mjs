@@ -321,8 +321,9 @@ test('generated dynamic options adapt formgen requests to the protected panel ac
   globalThis.FormgenRelationships = {
     async initFormgenRoot(_root, config) {
       for (const url of [
-        '/command-options://generated.run/target?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
-        'command-options://generated.run/target?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
+        '/command-options://resolve?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
+        'command-options://resolve?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
+        'command-options://resolve?command_id=jobs%3Arun%23now%20%2F%20queued&field_path=worker%23slot%20%2F%20primary&source_id=workers%3Aavailable%23primary',
         '/api/public/options',
       ]) {
         const request = {
@@ -346,7 +347,7 @@ test('generated dynamic options adapt formgen requests to the protected panel ac
   host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(adaptedRequests.length, 3);
+  assert.equal(adaptedRequests.length, 4);
   for (const adaptedRequest of adaptedRequests.slice(0, 2)) {
     assert.equal(adaptedRequest.url, '/admin/debug/api/panels/commands/actions/resolve_options');
     assert.equal(adaptedRequest.init.method, 'POST');
@@ -360,9 +361,15 @@ test('generated dynamic options adapt formgen requests to the protected panel ac
     });
     assert.equal(adaptedRequest.init.signal.aborted, false);
   }
-  assert.equal(adaptedRequests[2].url, '/api/public/options');
-  assert.equal(adaptedRequests[2].init.credentials, undefined);
-  assert.equal(adaptedRequests[2].init.body, undefined);
+  assert.deepEqual(JSON.parse(adaptedRequests[2].init.body), {
+    command_id: 'jobs:run#now / queued',
+    field_path: 'worker#slot / primary',
+    source_id: 'workers:available#primary',
+    payload: { region: 'us', nested: { kind: 'archive' } },
+  });
+  assert.equal(adaptedRequests[3].url, '/api/public/options');
+  assert.equal(adaptedRequests[3].init.credentials, undefined);
+  assert.equal(adaptedRequests[3].init.body, undefined);
 });
 
 test('shipped formgen runtime rewrites dynamic options before network dispatch', async () => {
@@ -373,7 +380,7 @@ test('shipped formgen runtime rewrites dynamic options before network dispatch',
   def.ui.actions[0].form.html = `
     <div data-formgen-auto-init="true">
       <select name="indexes" multiple
-        data-endpoint-url="command-options://search.repair/indexes"
+        data-endpoint-url="command-options://resolve"
         data-endpoint-method="POST"
         data-endpoint-results-path="data.option_items"
         data-endpoint-value-field="value"
@@ -429,6 +436,61 @@ test('shipped formgen runtime rewrites dynamic options before network dispatch',
     Array.from(host.querySelectorAll('select[name="indexes"] option')).map((option) => option.value).filter(Boolean),
     ['site_content', 'archive_media'],
   );
+});
+
+test('browser-selected multi-value options remain arrays in the command dispatch payload', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const { buildPanelActionPayload } = await importPanelActions();
+  const def = generatedDef();
+  def.ui.actions[0].payload.command_id = 'search.repair';
+  def.ui.actions[0].form.html = `
+    <div data-formgen-auto-init="true">
+      <select name="indexes" multiple data-endpoint-renderer="chips">
+        <option value="site_content">Site content</option>
+        <option value="archive_media">Archive media</option>
+      </select>
+    </div>`;
+  const data = { commands: [{ id: 'search.repair', group: 'Search', execution_mode: 'queued' }], diagnostics: [] };
+  globalThis.FormgenRelationships = {
+    async initFormgenRoot() { return { destroy() {} }; },
+    Formgen: {
+      attach(root) {
+        return {
+          getValues() {
+            const select = root.querySelector('select[name="indexes"]');
+            return { indexes: Array.from(select.selectedOptions, (option) => option.value) };
+          },
+          setValues() {}, setErrors() {}, clearErrors() {}, onChange() { return () => {}; }, focus() { return true; }, destroy() {},
+        };
+      },
+    },
+  };
+
+  const dom = mount(renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true }));
+  const host = dom.window.document.querySelector('#host');
+  attachCommandLauncherListeners(host);
+  host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const form = host.querySelector('[data-panel-action-form]');
+  const indexes = form.querySelector('select[name="indexes"]');
+  for (const option of indexes.options) {
+    option.selected = option.value === 'site_content';
+  }
+  indexes.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  let submittedPayload;
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submittedPayload = buildPanelActionPayload(form);
+  });
+  form.dispatchEvent(new dom.window.SubmitEvent('submit', { bubbles: true, cancelable: true }));
+  assert.deepEqual(submittedPayload, {
+    command_id: 'search.repair',
+    payload: { indexes: ['site_content'] },
+    options: { mode: 'inline' },
+  });
 });
 
 test('generated sensitive forms mark the controller bridge sensitive and disable recall/JSON persistence', async () => {
@@ -884,6 +946,13 @@ test('applyCommandLauncherStatusEvent stores live status and guards terminal sta
   // PascalCase keys (Go DispatchReceipt) are also accepted.
   applyCommandLauncherStatusEvent({ CorrelationID: 'c2', State: 'failed' });
   assert.equal(getCommandLauncherLiveStatus('c2').state, 'failed');
+  // Canonical compatibility events are linked by correlation, run, and dispatch IDs.
+  applyCommandLauncherStatusEvent({ correlation_id: 'c3', run_id: 'run-3', dispatch_id: 'dispatch-3', state: 'canceled' });
+  assert.equal(getCommandLauncherLiveStatus('c3').state, 'canceled');
+  assert.equal(getCommandLauncherLiveStatus('run-3').state, 'canceled');
+  assert.equal(getCommandLauncherLiveStatus('dispatch-3').state, 'canceled');
+  applyCommandLauncherStatusEvent({ run_id: 'run-3', state: 'running' });
+  assert.equal(getCommandLauncherLiveStatus('run-3').state, 'canceled');
 });
 
 test('result card renders the live status pill', async () => {
@@ -892,6 +961,19 @@ test('result card renders the live status pill', async () => {
   const card = renderCommandLauncherResultCard(parsed, { liveStatus: { state: 'completed', message: 'done', at: '', code: '' } });
   assert.match(card, /cmdl-result__live--completed/);
   assert.match(card, />completed</);
+});
+
+test('launcher result card links to the canonical Command Runs target', async () => {
+  const { extractCommandLauncherResult, renderCommandLauncherResultCard } = await importLauncher();
+  const parsed = extractCommandLauncherResult('ok', 'Command dispatched', {
+    receipt: { Accepted: true, Mode: 'queued', CorrelationID: 'corr-link' },
+  });
+  const card = renderCommandLauncherResultCard(parsed, {
+    commandRunsHref: '/admin/debug?panel=command_runs&correlation_id=corr-link',
+  });
+  assert.match(card, /data-cmdl-command-runs/);
+  assert.match(card, /panel=command_runs&amp;correlation_id=corr-link/);
+  assert.match(card, />View command run</);
 });
 
 // ---- Phase 3 T12: recent & saved invocations ----

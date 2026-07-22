@@ -141,6 +141,21 @@ export {
   isSchemaListRenderer,
   RegistryLiveListManager,
   type RegistryLiveListHost,
+  renderCommandRunsPanel,
+  renderCommandRunRow,
+  commandRunKey,
+  commandRunRevision,
+  commandRunTerminal,
+  commandRunSelectionEvent,
+  parseCommandRunsNavigation,
+  commandRunsNavigationHref,
+  setCommandRunsNavigationTarget,
+  reconcileCommandRunsRows,
+  commandRunsSelection,
+  selectCommandRun,
+  resetCommandRunsState,
+  type CommandRunRow,
+  type CommandRunNavigationTarget,
 } from './shared/panels/index.js';
 
 export { applyPanelActionNavigation, applyPanelActionPayload } from './shared/panel-actions.js';

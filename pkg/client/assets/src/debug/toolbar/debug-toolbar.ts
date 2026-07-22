@@ -172,6 +172,7 @@ export class DebugToolbar extends HTMLElement {
     });
     this.registryLiveList = new RegistryLiveListManager({
       styles: toolbarStyleConfig,
+      allowUpsert: false,
       // Sort direction is owned by each panel's `liveList.newestFirst` (the single
       // source shared with its renderer), so the manager doesn't take a host sort.
       getRenderOptions: () => ({}),

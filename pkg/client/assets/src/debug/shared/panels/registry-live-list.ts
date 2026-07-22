@@ -25,6 +25,8 @@ export interface RegistryLiveListHost {
   onNeedFullRender: (def: PanelDefinition) => void;
   /** Frame scheduler shared by all panel views; injectable for tests. */
   scheduleFrame?: (cb: () => void) => void;
+  /** Whether this host can render focused upsert rows. Toolbar hosts disable it. */
+  allowUpsert?: boolean;
 }
 
 function safeStringify(value: unknown): string {
@@ -45,7 +47,8 @@ export class RegistryLiveListManager {
 
   /** Whether a panel definition opts into incremental rendering. */
   handles(def: PanelDefinition | undefined | null): boolean {
-    return !!def && !!def.liveList;
+    if (!def?.liveList) return false;
+    return def.liveList.updateMode !== 'upsert' || this.host.allowUpsert !== false;
   }
 
   /** Adopt the panel's live container after a full render. No-op if not opted in. */
@@ -72,6 +75,9 @@ export class RegistryLiveListManager {
       rowSelector: config.rowSelector,
       keyAttr: config.keyAttr,
       keyOf,
+      updateMode: config.updateMode,
+      revisionOf: config.revisionOf,
+      terminalOf: config.terminalOf,
       renderRow: (item) =>
         config.renderRow(item, this.host.styles, this.host.getRenderOptions(def) as PanelOptions),
       // Append direction is owned by the panel definition (`liveList.newestFirst`),
@@ -87,6 +93,9 @@ export class RegistryLiveListManager {
         ? (item) => this.host.shouldDisplay!(def, item)
         : undefined,
       onNeedFullRender: () => this.host.onNeedFullRender(def),
+      onAdopt: config.onAdopt,
+      onRestore: config.onRestore,
+      onEvict: config.onEvict,
       scheduleFrame: this.host.scheduleFrame,
     });
     this.views.set(def.id, view);

@@ -97,6 +97,12 @@ export interface LiveListViewOptions<T> {
   keyOf(item: T): string;
   /** Render a single item to HTML (may be more than one row for expandable items). */
   renderRow(item: T): string;
+  /** Append (default) or replace a logical row with the same stable key. */
+  updateMode?: 'append' | 'upsert';
+  /** Monotonic revision for duplicate/stale rejection in upsert mode. */
+  revisionOf?(item: T): number;
+  /** Terminal state guard for upsert mode. */
+  terminalOf?(item: T): boolean;
   /** Render options that may change between renders (e.g. sort order). */
   getRenderOptions(): { newestFirst?: boolean };
   /** Max visible items; overflow is evicted from the oldest edge. */
@@ -167,6 +173,10 @@ export class LiveListView<T> {
       this.emitPending();
       return;
     }
+    if (this.opts.updateMode === 'upsert' && items.some((item) => this.opts.terminalOf?.(item))) {
+      this.flush();
+      return;
+    }
     this.scheduleFlush();
   }
 
@@ -213,15 +223,43 @@ export class LiveListView<T> {
     const newestFirst = renderOptions.newestFirst !== false;
     const max = this.opts.getMaxEntries();
 
+    if (this.opts.updateMode === 'upsert') {
+      batch = this.collapseUpserts(batch);
+    }
+
     // Long pauses can buffer more than the cap; only the newest `max` survive
     // eviction, so skip inserting rows that would be evicted anyway.
     if (max && batch.length > max) batch = batch.slice(-max);
 
+    const preserveViewport = this.opts.updateMode === 'upsert';
+    const scrollTop = this.container.scrollTop;
+    const activeElement = typeof document !== 'undefined' ? document.activeElement as HTMLElement | null : null;
+    const focusedRow = activeElement && this.container.contains(activeElement)
+      ? activeElement.closest<HTMLElement>(this.rowSelector)
+      : null;
+    const focusedKey = focusedRow?.getAttribute(this.keyAttr) || '';
+    const focusedControl = activeElement?.hasAttribute('data-live-row-focus') === true;
     const appendedKeys: string[] = [];
     for (const item of batch) {
-      if (this.opts.shouldDisplay && !this.opts.shouldDisplay(item)) continue;
+      const key = this.opts.keyOf(item);
+      const existing = this.findRow(key);
+      if (this.opts.shouldDisplay && !this.opts.shouldDisplay(item)) {
+        if (existing && this.opts.updateMode === 'upsert') {
+          removeLogicalRow(existing, this.rowSelector);
+        }
+        continue;
+      }
+      if (this.opts.updateMode === 'upsert' && existing) {
+        if (!this.shouldReplace(existing, item)) continue;
+        existing.insertAdjacentHTML('beforebegin', this.opts.renderRow(item));
+        removeLogicalRow(existing, this.rowSelector);
+        this.decorateRow(this.findRow(key), item);
+        appendedKeys.push(key);
+        continue;
+      }
       appendListRow(this.container, this.opts.renderRow(item), newestFirst);
-      appendedKeys.push(this.opts.keyOf(item));
+      this.decorateRow(this.findRow(key), item);
+      appendedKeys.push(key);
     }
 
     if (appendedKeys.length > 0) {
@@ -229,6 +267,61 @@ export class LiveListView<T> {
       if (evictedKeys.length > 0) this.opts.onEvict?.(evictedKeys);
       this.opts.onAfterAppend?.(this.container, appendedKeys);
     }
+    if (preserveViewport) this.container.scrollTop = scrollTop;
+    this.opts.onRestore?.(this.root || this.container, this.container);
+    if (focusedKey && activeElement && !activeElement.isConnected) {
+      const replacement = this.findRow(focusedKey);
+      const focusTarget = focusedControl
+        ? replacement?.querySelector<HTMLElement>('[data-live-row-focus]')
+        : replacement;
+      focusTarget?.focus({ preventScroll: true });
+    }
+  }
+
+  private collapseUpserts(items: T[]): T[] {
+    const byKey = new Map<string, T>();
+    const order: string[] = [];
+    for (const item of items) {
+      const key = this.opts.keyOf(item);
+      const previous = byKey.get(key);
+      if (!previous) {
+        order.push(key);
+        byKey.set(key, item);
+        continue;
+      }
+      if (this.shouldAdvance(previous, item)) byKey.set(key, item);
+    }
+    return order.map((key) => byKey.get(key)!).filter(Boolean);
+  }
+
+  private shouldAdvance(previous: T, next: T): boolean {
+    const nextRevision = this.opts.revisionOf?.(next) ?? 0;
+    const previousRevision = this.opts.revisionOf?.(previous) ?? 0;
+    if (nextRevision > 0 && previousRevision > 0 && nextRevision <= previousRevision) return false;
+    const previousTerminal = this.opts.terminalOf?.(previous) === true;
+    if (previousTerminal && this.opts.terminalOf && !this.opts.terminalOf(next)) return false;
+    return true;
+  }
+
+  private findRow(key: string): HTMLElement | null {
+    if (!this.container) return null;
+    return Array.from(this.container.querySelectorAll<HTMLElement>(this.rowSelector))
+      .find((row) => row.getAttribute(this.keyAttr) === key) || null;
+  }
+
+  private shouldReplace(existing: HTMLElement, item: T): boolean {
+    const incomingRevision = this.opts.revisionOf?.(item) ?? 0;
+    const existingRevision = Number(existing.getAttribute('data-row-revision') || '0');
+    if (incomingRevision > 0 && existingRevision > 0 && incomingRevision <= existingRevision) return false;
+    const existingTerminal = existing.getAttribute('data-row-terminal') === 'true';
+    if (existingTerminal && this.opts.terminalOf && !this.opts.terminalOf(item)) return false;
+    return true;
+  }
+
+  private decorateRow(row: HTMLElement | null, item: T): void {
+    if (!row) return;
+    if (this.opts.revisionOf) row.setAttribute('data-row-revision', String(this.opts.revisionOf(item)));
+    if (this.opts.terminalOf) row.setAttribute('data-row-terminal', this.opts.terminalOf(item) ? 'true' : 'false');
   }
 
   private emitPending(): void {

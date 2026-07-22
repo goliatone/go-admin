@@ -123,14 +123,22 @@ const SIDEBAR_WIDTH_KEY = 'cmdl:sidebar-width';
 // Live command status received over the debug WebSocket (Phase 3 T11), keyed by
 // correlation id. The result card reflects the latest state for the command it
 // is showing — including completion pushed later by a host queue worker.
-export type CommandLiveStatus = { state: string; message: string; at: string; code: string };
+export type CommandLiveStatus = {
+  state: string;
+  message: string;
+  at: string;
+  code: string;
+  runID: string;
+  correlationID: string;
+  dispatchID: string;
+};
 const commandStatusByCorrelation = new Map<string, CommandLiveStatus>();
 
 // Clears session-scoped launcher state (selected command, filter text, form
 // drafts, live statuses). Exposed so a host can reset the launcher when the
 // debug session resets, and used by tests to isolate cases.
 export function resetCommandLauncherState(): void {
-	 destroyFormgenControllers();
+  destroyFormgenControllers();
   selectedActionId = '';
   filterText = '';
   sidebarWidth = 0;
@@ -138,26 +146,47 @@ export function resetCommandLauncherState(): void {
   commandStatusByCorrelation.clear();
 }
 
-const LIVE_STATE_ORDER: Record<string, number> = { submitting: 0, accepted: 1, running: 2, completed: 3, failed: 3 };
+const LIVE_STATE_ORDER: Record<string, number> = {
+  submitting: 0,
+  accepted: 1,
+  running: 2,
+  completed: 3,
+  failed: 3,
+  canceled: 3,
+  cancelled: 3,
+  rejected: 3,
+};
 
 // Store a command_status event. Later events win, but never regress a terminal
 // state (completed/failed) back to an earlier one from a stray/late event.
 export function applyCommandLauncherStatusEvent(payload: unknown): void {
   const event = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
-  const correlationId = str(event.correlation_id) || str(event.CorrelationID);
+  const identifiers = Array.from(new Set([
+    str(event.correlation_id) || str(event.CorrelationID),
+    str(event.run_id) || str(event.RunID),
+    str(event.dispatch_id) || str(event.DispatchID),
+  ].filter(Boolean)));
   const state = lower(event.state) || lower(event.State);
-  if (!correlationId || !state) {
+  if (identifiers.length === 0 || !state) {
     return;
   }
-  const existing = commandStatusByCorrelation.get(correlationId);
-  if (existing && (LIVE_STATE_ORDER[existing.state] ?? -1) > (LIVE_STATE_ORDER[state] ?? -1)) {
-    return;
-  }
-  commandStatusByCorrelation.set(correlationId, {
-    state,
-    message: str(event.message) || str(event.Message),
-    at: str(event.at) || str(event.At),
-    code: str(event.code) || str(event.Code),
+  const runID = str(event.run_id) || str(event.RunID);
+  const correlationID = str(event.correlation_id) || str(event.CorrelationID);
+  const dispatchID = str(event.dispatch_id) || str(event.DispatchID);
+  identifiers.forEach((identifier) => {
+    const existing = commandStatusByCorrelation.get(identifier);
+    if (existing && (LIVE_STATE_ORDER[existing.state] ?? -1) > (LIVE_STATE_ORDER[state] ?? -1)) {
+      return;
+    }
+    commandStatusByCorrelation.set(identifier, {
+      state,
+      message: str(event.message) || str(event.Message),
+      at: str(event.at) || str(event.At),
+      code: str(event.code) || str(event.Code),
+      runID,
+      correlationID,
+      dispatchID,
+    });
   });
 }
 
@@ -549,6 +578,7 @@ export type ParsedCommandResult = {
   message: string;
   code: string;
   correlationId: string;
+  runId: string;
   mode: string;
   dispatchId: string;
   statusReference: string;
@@ -709,6 +739,7 @@ export function extractCommandLauncherResult(
     message: str(message) || (kind === 'error' ? 'Command failed' : 'Command dispatched'),
     code,
     correlationId: pick(receipt, ['CorrelationID', 'correlation_id']),
+    runId: pick(receipt, ['RunID', 'run_id']) || pick(d, ['run_id', 'RunID']),
     mode: pick(receipt, ['Mode', 'mode']),
     dispatchId: pick(receipt, ['DispatchID', 'dispatch_id']),
     statusReference: str(d.status_reference) || str((d as Record<string, unknown>).statusReference),
@@ -752,7 +783,7 @@ function metaChip(icon: string, label: string, value: string): string {
 
 export function renderCommandLauncherResultCard(
   parsed: ParsedCommandResult,
-  options: { canRetry?: boolean; at?: number; durationMs?: number; liveStatus?: CommandLiveStatus } = {}
+  options: { canRetry?: boolean; at?: number; durationMs?: number; liveStatus?: CommandLiveStatus; commandRunsHref?: string } = {}
 ): string {
   const statusLabel = parsed.kind === 'error'
     ? 'Dispatch failed'
@@ -811,8 +842,14 @@ export function renderCommandLauncherResultCard(
   const raw = parsed.hasRaw
     ? `<details class="cmdl-result__raw"><summary>Raw response</summary><pre>${escapeHTML(parsed.rawJSON)}</pre></details>`
     : '';
-  const actions = options.canRetry
-    ? `<div class="cmdl-result__actions"><button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-retry>Retry</button></div>`
+  const commandRunsLink = options.commandRunsHref
+    ? `<a class="cmdl-btn cmdl-btn--ghost" data-cmdl-command-runs href="${escapeHTML(options.commandRunsHref)}">View command run</a>`
+    : '';
+  const retry = options.canRetry
+    ? '<button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-retry>Retry</button>'
+    : '';
+  const actions = commandRunsLink || retry
+    ? `<div class="cmdl-result__actions">${commandRunsLink}${retry}</div>`
     : '';
 
   return `

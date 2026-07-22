@@ -1128,6 +1128,67 @@ section.debug-json-panel {
   opacity: 0.5;
 }
 
+/* Command Runs keyed live table */
+.command-runs-table .command-run-row[aria-selected="true"] {
+  background: color-mix(in srgb, var(--debug-accent) 12%, transparent);
+}
+
+.command-run-toggle {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--debug-text-muted);
+  cursor: pointer;
+  margin-right: 6px;
+  padding: 2px 4px;
+}
+
+.command-run-toggle > span[aria-hidden="true"] {
+  display: inline-block;
+  transition: transform 120ms ease;
+}
+
+.command-run-toggle[aria-expanded="true"] > span[aria-hidden="true"] {
+  transform: rotate(90deg);
+}
+
+.command-run-toggle .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.command-run-phase--succeeded { color: var(--debug-success, #22c55e); }
+.command-run-phase--failed,
+.command-run-phase--rejected { color: var(--debug-error, #ef4444); }
+.command-run-phase--canceled { color: var(--debug-text-muted); }
+.command-run-phase--started,
+.command-run-phase--progress,
+.command-run-phase--checkpoint { color: var(--debug-accent); }
+
+.command-run-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 16px;
+  margin: 0 0 12px;
+}
+
+.command-run-details dt,
+.command-run-details dd { margin: 0; }
+
+.command-run-detail pre {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Status bar */
 .debug-status-bar {
   display: flex;

@@ -104,11 +104,8 @@ export interface PanelDefinition {
    * panel's render output must contain a `[data-live-list]` container with
    * `[data-row-key]` rows (see schema list renderers / RegistryLiveListManager).
    *
-   * NOTE: this is for APPEND-style panels only. On each event the host appends
-   * the newest array element (`data[data.length - 1]`) — i.e. it assumes
-   * `handleEvent` pushes the new item to the tail. Panels whose `handleEvent`
-   * mutates rows in place (upsert/merge) must NOT set `liveList`; they should
-   * stay on the full-render path until in-place row replacement is supported.
+   * Append panels insert at the configured edge. Upsert panels replace the
+   * logical row identified by key without rebuilding the containing panel.
    */
   liveList?: PanelLiveListConfig;
 }
@@ -121,6 +118,12 @@ export interface PanelLiveListConfig {
   renderRow: (item: unknown, styles: StyleConfig, options: PanelOptions) => string;
   /** Stable key per item. Defaults to a hash of the item. */
   keyOf?: (item: unknown) => string;
+  /** Append (default) or replace an existing logical row with the same key. */
+  updateMode?: 'append' | 'upsert';
+  /** Monotonic revision used to reject duplicates and older upserts. */
+  revisionOf?: (item: unknown) => number;
+  /** Terminal rows cannot regress to a later non-terminal upsert. */
+  terminalOf?: (item: unknown) => boolean;
   /**
    * Append direction. Must match how the panel's full render orders rows so the
    * incremental append lands at the same edge. `true` prepends (newest first);
@@ -136,6 +139,12 @@ export interface PanelLiveListConfig {
   keyAttr?: string;
   /** Max visible rows before eviction. Default 500. */
   getMaxEntries?: () => number;
+  /** Wire panel-specific delegated interaction listeners. */
+  onAdopt?: (root: ParentNode, container: HTMLElement) => void;
+  /** Restore selection/expansion/focus after adoption or row replacement. */
+  onRestore?: (root: ParentNode, container: HTMLElement) => void;
+  /** Reconcile panel state after bounded retention eviction. */
+  onEvict?: (keys: string[]) => void;
 }
 
 type PanelDefinitionSource = 'client' | 'server';
