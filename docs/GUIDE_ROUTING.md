@@ -87,11 +87,11 @@ func (*PartnerToolsModule) Manifest() admin.ModuleManifest {
 func (*PartnerToolsModule) RouteContract() routing.ModuleContract {
 	return routing.ModuleContract{
 		Slug: "partner_tools",
-		UIRoutes: map[string]string{
-			"partner_tools.index": "/",
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			"partner_tools.index": {Method: router.GET, Path: "/"},
 		},
-		APIRoutes: map[string]string{
-			"partner_tools.ping": "/ping",
+		APIRouteDeclarations: map[string]routing.RouteDeclaration{
+			"partner_tools.ping": {Method: router.GET, Path: "/ping"},
 		},
 	}
 }
@@ -121,19 +121,23 @@ func (*PartnerToolsModule) Register(ctx admin.ModuleContext) error {
    Use route templates such as `/`, `/queue`, or `/jobs/:id`.
    Do not hardcode `/admin/...`, `/api/...`, or other host bases in the module
    contract.
-4. Keep route ownership explicit.
+4. Declare the canonical HTTP method.
+   Use `RouteDeclaration` for every route that must be reconciled against the
+   mounted table. Path-only maps remain a migration input and cannot prove
+   method reachability.
+5. Keep route ownership explicit.
    Module route keys must use the `<slug>.` prefix and route names must use the
    module route-name prefix.
-5. Treat absolute mount bases as host-owned.
+6. Treat absolute mount bases as host-owned.
    Host policy belongs in `admin.Config.Routing.Modules[slug].Mount` or
    `quickstart.WithRoutingConfig(...)`, not in reusable external modules.
-6. Do not claim reserved roots directly.
+7. Do not claim reserved roots directly.
    Module mounts must remain under the effective admin, admin API, or public
    API roots.
-7. Expect collisions to fail startup.
+8. Expect collisions to fail startup.
    Method/path conflicts, route-name conflicts, slug violations, and ownership
    violations are release blockers.
-8. Preserve quickstart canonical-route precedence where applicable.
+9. Preserve quickstart canonical-route precedence where applicable.
    In quickstart content-entry HTML routing, concrete canonical routes must be
    registered before generic `/content/:name/*` handlers so routes like
    `/admin/content/documents/new` resolve to the intended browser owner.
@@ -405,9 +409,17 @@ Recommended checks for route-changing work:
 The `quickstart.routing` Doctor check combines the planner manifest with
 `go-router`'s physical dispatch snapshot. After sealing it reports declared
 routes missing from the mounted table and later routes shadowed by an earlier
-duplicate, parameter, or catch-all route. Before sealing it emits a provisional
-lifecycle warning. Representative authenticated HTTP probes remain recommended
-for application-specific authorization and handler behavior.
+duplicate, equivalent trailing-slash alias, parameter, or catch-all route.
+Before sealing it emits a provisional lifecycle warning. Package-native router
+and URL manager adapters advertise their supported checks; fallback warnings on
+those adapters indicate a dependency-version mismatch rather than an expected
+steady state. Representative authenticated HTTP probes remain recommended for
+application-specific authorization and handler behavior.
+
+Release capability changes from the dependency edge inward: `go-router` and
+`go-urlkit`, then route producers such as `go-export`, then `go-admin`, and
+finally the host. Do not publish a `go-admin` version whose declared `go-urlkit`
+dependency predates capability types referenced by its adapters.
 
 ## Migration guide
 
