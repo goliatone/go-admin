@@ -68,14 +68,112 @@ func AdminAPIRoutes() map[string]string {
 }
 
 func ModuleContract() routing.ModuleContract {
+	return ModuleContractForCapabilities(true, true, true)
+}
+
+// ModuleContractForCapabilities returns only the routes mounted by the
+// enabled translation product surfaces.
+func ModuleContractForCapabilities(coreEnabled, exchangeEnabled, queueEnabled bool) routing.ModuleContract {
+	ui := ModuleUIRouteDeclarations()
+	api := ModuleAPIRouteDeclarations()
+	if !coreEnabled {
+		ui = nil
+		api = nil
+	} else {
+		filterDeclarations(ui, coreUIRouteKeys())
+		filterDeclarations(api, coreAPIRouteKeys())
+		if exchangeEnabled {
+			mergeDeclarations(ui, declarationsForKeys(ModuleUIRouteDeclarations(), exchangeUIRouteKeys()))
+			mergeDeclarations(api, declarationsForKeys(ModuleAPIRouteDeclarations(), exchangeAPIRouteKeys()))
+		}
+		if queueEnabled {
+			mergeDeclarations(ui, declarationsForKeys(ModuleUIRouteDeclarations(), queueUIRouteKeys()))
+			mergeDeclarations(api, declarationsForKeys(ModuleAPIRouteDeclarations(), queueAPIRouteKeys()))
+		}
+	}
 	return routing.ModuleContract{
 		Slug:                 ModuleSlug,
 		RouteNamePrefix:      ModuleSlug,
-		UIRoutes:             ModuleUIRoutes(),
-		APIRoutes:            ModuleAPIRoutes(),
-		UIRouteDeclarations:  ModuleUIRouteDeclarations(),
-		APIRouteDeclarations: ModuleAPIRouteDeclarations(),
+		UIRoutes:             declarationPaths(ui),
+		APIRoutes:            declarationPaths(api),
+		UIRouteDeclarations:  ui,
+		APIRouteDeclarations: api,
 	}
+}
+
+func coreUIRouteKeys() []string {
+	return []string{"translations.matrix", "translations.families", "translations.families.id"}
+}
+
+func exchangeUIRouteKeys() []string {
+	return []string{"translations.exchange"}
+}
+
+func queueUIRouteKeys() []string {
+	return []string{"translations.dashboard", "translations.queue", "translations.families.assignments", "translations.assignments.edit"}
+}
+
+func coreAPIRouteKeys() []string {
+	return []string{
+		"translations.matrix",
+		"translations.matrix.actions.create_missing",
+		"translations.matrix.actions.export_selected",
+		"translations.families",
+		"translations.families.id",
+		"translations.families.variants",
+		"translations.sync.resources.id",
+	}
+}
+
+func exchangeAPIRouteKeys() []string {
+	return []string{
+		"translations.export",
+		"translations.template",
+		"translations.import.validate",
+		"translations.import.apply",
+		"translations.jobs.id",
+	}
+}
+
+func queueAPIRouteKeys() []string {
+	return []string{
+		"translations.dashboard",
+		"translations.assignments",
+		"translations.assignments.family_assignments",
+		"translations.assignments.id",
+		"translations.assignments.preview",
+		"translations.assignments.bulk_snapshot",
+		"translations.assignments.bulk_actions",
+		"translations.assignments.actions",
+		"translations.my_work",
+		"translations.queue",
+	}
+}
+
+func filterDeclarations(declarations map[string]routing.RouteDeclaration, allowed []string) {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		allowedSet[key] = struct{}{}
+	}
+	for key := range declarations {
+		if _, ok := allowedSet[key]; !ok {
+			delete(declarations, key)
+		}
+	}
+}
+
+func declarationsForKeys(source map[string]routing.RouteDeclaration, keys []string) map[string]routing.RouteDeclaration {
+	out := make(map[string]routing.RouteDeclaration, len(keys))
+	for _, key := range keys {
+		if declaration, ok := source[key]; ok {
+			out[key] = declaration
+		}
+	}
+	return out
+}
+
+func mergeDeclarations(target, source map[string]routing.RouteDeclaration) {
+	maps.Copy(target, source)
 }
 
 func declarationPaths(declarations map[string]routing.RouteDeclaration) map[string]string {
