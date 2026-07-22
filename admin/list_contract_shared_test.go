@@ -6,7 +6,7 @@ import (
 	"maps"
 	"testing"
 
-	admincontract "github.com/goliatone/go-admin/quickstart/admin"
+	"github.com/goliatone/go-admin/testkit/admincontract"
 )
 
 func TestPanelRepositoryListPaginationContracts(t *testing.T) {

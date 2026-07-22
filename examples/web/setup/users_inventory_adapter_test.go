@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	admincontract "github.com/goliatone/go-admin/quickstart/admin"
+	"github.com/goliatone/go-admin/testkit/admincontract"
 	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
