@@ -21,8 +21,11 @@ func TestDebugWebSocketReaderLifecycleSurvivesFiberHijackTeardown(t *testing.T) 
 	server.Router().WebSocket("/debug-reader-lifecycle", config, func(c router.WebSocketContext) error {
 		defer func() { handlerDone <- struct{}{} }()
 		defer closeDebugWebSocket(c)
-		reader := startDebugWebSocketJSONReader[debugCommand](c, 0, false)
-		defer reader.Stop(c)
+		reader, err := startDebugWebSocketJSONReader[debugCommand](c, 0, false)
+		if err != nil {
+			return err
+		}
+		defer reader.Stop() //nolint:errcheck // the test asserts the externally visible lifecycle outcome.
 
 		select {
 		case <-reader.messages:

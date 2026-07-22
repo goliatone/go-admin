@@ -32,6 +32,7 @@ func (s *stubWebSocketContext) WriteJSON(v any) error {
 	return nil
 }
 func (s *stubWebSocketContext) ReadJSON(_ any) error                                { return io.EOF }
+func (s *stubWebSocketContext) InterruptRead() error                                { return nil }
 func (s *stubWebSocketContext) WritePing(_ []byte) error                            { return nil }
 func (s *stubWebSocketContext) WritePong(_ []byte) error                            { return nil }
 func (s *stubWebSocketContext) Close() error                                        { return nil }

@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	router "github.com/goliatone/go-router"
 )
 
 var errDebugWebSocketTestWrite = errors.New("forced websocket write failure")
@@ -23,13 +25,14 @@ type blockingDebugWebSocketContext struct {
 	releaseOnce  sync.Once
 	returnOnce   sync.Once
 
-	readActive           atomic.Bool
-	writeCount           atomic.Int32
-	deadlineCalls        atomic.Int32
-	deadlineReleaseAfter atomic.Int32
-	closeCalls           atomic.Int32
-	closeBeforeRead      atomic.Bool
-	liveWriteFailure     error
+	readActive       atomic.Bool
+	writeCount       atomic.Int32
+	interruptCalls   atomic.Int32
+	closeCalls       atomic.Int32
+	closeBeforeRead  atomic.Bool
+	liveWriteFailure error
+	interruptErr     error
+	onInterrupt      func()
 }
 
 func newBlockingDebugWebSocketContext(ctx context.Context, liveWriteFailure error) *blockingDebugWebSocketContext {
@@ -44,7 +47,6 @@ func newBlockingDebugWebSocketContext(ctx context.Context, liveWriteFailure erro
 		readReturned:         make(chan struct{}),
 		liveWriteFailure:     liveWriteFailure,
 	}
-	ws.deadlineReleaseAfter.Store(1)
 	return ws
 }
 
@@ -68,30 +70,57 @@ func (c *blockingDebugWebSocketContext) WriteJSON(v any) error {
 	return c.stubWebSocketContext.WriteJSON(v)
 }
 
-func (c *blockingDebugWebSocketContext) SetReadDeadline(_ time.Time) error {
-	calls := c.deadlineCalls.Add(1)
-	if calls < c.deadlineReleaseAfter.Load() {
-		return nil
+func (c *blockingDebugWebSocketContext) InterruptRead() error {
+	c.interruptCalls.Add(1)
+	if c.onInterrupt != nil {
+		c.onInterrupt()
 	}
 	c.releaseOnce.Do(func() { close(c.readReleased) })
-	return nil
+	return c.interruptErr
 }
 
-func TestDebugWebSocketReaderStopRetriesReadInterruption(t *testing.T) {
+func TestDebugWebSocketReaderStopInterruptsReadOnceAndReturnsPermanentError(t *testing.T) {
 	ws := newBlockingDebugWebSocketContext(context.Background(), nil)
-	ws.deadlineReleaseAfter.Store(2)
-	reader := startDebugWebSocketJSONReader[debugCommand](ws, 0, false)
+	interruptErr := errors.New("forced terminal interrupt error")
+	ws.interruptErr = interruptErr
+	reader, err := startDebugWebSocketJSONReader[debugCommand](ws, 0, false)
+	if err != nil {
+		t.Fatalf("start reader: %v", err)
+	}
 	waitForDebugWebSocketSignal(t, ws.readStarted, "reader start")
 
-	stopped := make(chan struct{})
+	stopped := make(chan error, 1)
 	go func() {
-		reader.Stop(ws)
-		close(stopped)
+		stopped <- reader.Stop()
 	}()
-	waitForDebugWebSocketSignal(t, stopped, "retried read interruption")
+	select {
+	case err := <-stopped:
+		if !errors.Is(err, interruptErr) {
+			t.Fatalf("Stop error = %v, want permanent interrupt error", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Stop did not return after permanent interrupt error")
+	}
 
-	if got := ws.deadlineCalls.Load(); got < 2 {
-		t.Fatalf("read deadline calls = %d, want at least 2", got)
+	if got := ws.interruptCalls.Load(); got != 1 {
+		t.Fatalf("InterruptRead calls = %d, want 1", got)
+	}
+	if err := reader.Stop(); !errors.Is(err, interruptErr) {
+		t.Fatalf("second Stop error = %v, want permanent interrupt error", err)
+	}
+	if got := ws.interruptCalls.Load(); got != 1 {
+		t.Fatalf("InterruptRead calls after repeated Stop = %d, want 1", got)
+	}
+}
+
+func TestDebugWebSocketReaderRequiresSafeInterruptionCapability(t *testing.T) {
+	unsupported := struct{ router.WebSocketContext }{WebSocketContext: newStubWebSocketContext()}
+	reader, err := startDebugWebSocketJSONReader[debugCommand](unsupported, 0, false)
+	if reader != nil {
+		t.Fatal("reader was created without a WebSocketReadInterrupter")
+	}
+	if !errors.Is(err, errDebugWebSocketReadInterruptionUnsupported) {
+		t.Fatalf("start error = %v, want unsupported interruption error", err)
 	}
 }
 
@@ -158,6 +187,12 @@ func TestDebugWebSocketSubscriberClosureQuiescesReaderBeforeClose(t *testing.T) 
 	mod := NewDebugModule(DebugConfig{})
 	mod.collector = NewDebugCollector(DebugConfig{})
 	ws := newBlockingDebugWebSocketContext(context.Background(), nil)
+	var subscribersAtInterrupt atomic.Int32
+	ws.onInterrupt = func() {
+		mod.collector.mu.RLock()
+		defer mod.collector.mu.RUnlock()
+		subscribersAtInterrupt.Store(int32(len(mod.collector.subscribers)))
+	}
 
 	result := make(chan error, 1)
 	go func() {
@@ -187,6 +222,9 @@ func TestDebugWebSocketSubscriberClosureQuiescesReaderBeforeClose(t *testing.T) 
 	}
 
 	assertDebugWebSocketReaderQuiesced(t, ws)
+	if got := subscribersAtInterrupt.Load(); got != 0 {
+		t.Fatalf("subscribers at read interruption = %d, want 0", got)
+	}
 }
 
 func TestDebugREPLAppTimeoutQuiescesReaderBeforeClose(t *testing.T) {
@@ -275,9 +313,9 @@ func TestDebugSessionWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T
 
 type blockedDeliveryWebSocketContext struct {
 	*stubWebSocketContext
-	readCompleted chan struct{}
-	readOnce      sync.Once
-	deadlineCalls atomic.Int32
+	readCompleted  chan struct{}
+	readOnce       sync.Once
+	interruptCalls atomic.Int32
 }
 
 func (c *blockedDeliveryWebSocketContext) ReadJSON(v any) error {
@@ -290,8 +328,8 @@ func (c *blockedDeliveryWebSocketContext) ReadJSON(v any) error {
 	return nil
 }
 
-func (c *blockedDeliveryWebSocketContext) SetReadDeadline(_ time.Time) error {
-	c.deadlineCalls.Add(1)
+func (c *blockedDeliveryWebSocketContext) InterruptRead() error {
+	c.interruptCalls.Add(1)
 	return nil
 }
 
@@ -300,20 +338,67 @@ func TestDebugWebSocketReaderStopReleasesBlockedMessageDelivery(t *testing.T) {
 		stubWebSocketContext: newStubWebSocketContext(),
 		readCompleted:        make(chan struct{}),
 	}
-	reader := startDebugWebSocketJSONReader[debugREPLAppCommand](ws, 0, false)
+	reader, err := startDebugWebSocketJSONReader[debugREPLAppCommand](ws, 0, false)
+	if err != nil {
+		t.Fatalf("start reader: %v", err)
+	}
 	waitForDebugWebSocketSignal(t, ws.readCompleted, "first decoded command")
 
-	stopped := make(chan struct{})
+	stopped := make(chan error, 1)
 	go func() {
-		reader.Stop(ws)
-		close(stopped)
+		stopped <- reader.Stop()
 	}()
-	waitForDebugWebSocketSignal(t, stopped, "blocked delivery stop")
+	select {
+	case err := <-stopped:
+		if err != nil {
+			t.Fatalf("Stop error = %v, want nil", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for blocked delivery stop")
+	}
 
 	select {
 	case <-reader.done:
 	default:
 		t.Fatal("reader remained active after Stop")
+	}
+}
+
+func TestDebugREPLAppLoopPreservesTerminalReadErrorWhenMessagesClose(t *testing.T) {
+	readErr := errors.New("forced app websocket read error")
+	for range 100 {
+		commands := make(chan debugREPLAppCommand)
+		close(commands)
+		readErrors := make(chan error, 1)
+		readErrors <- readErr
+		closeReason := debugREPLAppCloseReasonUser
+
+		err := runDebugREPLAppLoop(nil, AdminContext{}, DebugREPLConfig{}, DebugREPLSession{}, nil, newStubWebSocketContext(), commands, readErrors, nil, &closeReason)
+		if !errors.Is(err, readErr) {
+			t.Fatalf("loop error = %v, want terminal read error", err)
+		}
+		if closeReason != debugREPLAppCloseReasonError {
+			t.Fatalf("close reason = %q, want %q", closeReason, debugREPLAppCloseReasonError)
+		}
+	}
+}
+
+func TestDebugREPLShellLoopPreservesTerminalReadErrorWhenMessagesClose(t *testing.T) {
+	readErr := errors.New("forced shell websocket read error")
+	for range 100 {
+		commands := make(chan debugREPLShellCommand)
+		close(commands)
+		readErrors := make(chan error, 1)
+		readErrors <- readErr
+		closeReason := debugREPLShellCloseReasonUser
+
+		err := runDebugREPLShellLoop(nil, context.Background(), DebugREPLConfig{}, DebugREPLSession{}, nil, newStubWebSocketContext(), commands, readErrors, nil, nil, nil, nil, &closeReason)
+		if !errors.Is(err, readErr) {
+			t.Fatalf("loop error = %v, want terminal read error", err)
+		}
+		if closeReason != debugREPLShellCloseReasonError {
+			t.Fatalf("close reason = %q, want %q", closeReason, debugREPLShellCloseReasonError)
+		}
 	}
 }
 
@@ -329,8 +414,8 @@ func waitForDebugWebSocketSignal(t *testing.T, signal <-chan struct{}, descripti
 func assertDebugWebSocketReaderQuiesced(t *testing.T, ws *blockingDebugWebSocketContext) {
 	t.Helper()
 	waitForDebugWebSocketSignal(t, ws.readReturned, "reader completion")
-	if ws.deadlineCalls.Load() == 0 {
-		t.Fatal("blocked reader was not interrupted with a read deadline")
+	if ws.interruptCalls.Load() == 0 {
+		t.Fatal("blocked reader was not interrupted")
 	}
 	if got := ws.closeCalls.Load(); got != 1 {
 		t.Fatalf("websocket close calls = %d, want 1", got)
