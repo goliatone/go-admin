@@ -98,6 +98,21 @@ func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
 			t.Errorf("missing Fiber debug dashboard route %s", expected)
 		}
 	}
+
+	app := server.WrappedRouter()
+	for target, wantStatus := range map[string]int{
+		"/dashboard/assets/echarts/echarts.min.js": http.StatusOK,
+		"/dashboard/assets/shell/shell.css":        http.StatusOK,
+		"/admin/dashboard/assets/shell/shell.css":  http.StatusNotFound,
+	} {
+		resp, err := app.Test(httptest.NewRequest(http.MethodGet, target, nil))
+		if err != nil {
+			t.Fatalf("request %s: %v", target, err)
+		}
+		if resp.StatusCode != wantStatus {
+			t.Fatalf("expected %s to return %d, got %d", target, wantStatus, resp.StatusCode)
+		}
+	}
 }
 
 func TestDebugRoutesDenyWhenNoAuthorizerOrIPAllowlistConfigured(t *testing.T) {
