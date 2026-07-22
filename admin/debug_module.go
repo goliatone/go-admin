@@ -343,14 +343,14 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	if a == nil || a.router == nil || a.debugCollector == nil {
 		return nil
 	}
+	cfg := a.debugCollector.config
+	if !debugConfigEnabled(cfg) || cfg.LayoutMode != DebugLayoutDashboard {
+		return nil
+	}
 	if err := a.ensureDashboard(context.Background()); err != nil {
 		return err
 	}
 	if a.dash == nil || a.dash.runtime == nil {
-		return nil
-	}
-	cfg := a.debugCollector.config
-	if !debugConfigEnabled(cfg) {
 		return nil
 	}
 	basePath, routes := debugDashboardRouteConfig(a, cfg)
