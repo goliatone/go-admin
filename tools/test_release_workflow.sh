@@ -45,6 +45,8 @@ function test_module_discovery {
 }
 
 function test_repository_module_boundaries {
+    local forbidden_imports
+
     if grep -q 'github.com/goliatone/go-admin/quickstart' "${repo_root}/go.mod"; then
         echo "published root module must not require quickstart" >&2
         return 1
@@ -52,6 +54,43 @@ function test_repository_module_boundaries {
     grep -q '^replace github.com/goliatone/go-admin => \.\.$' "${repo_root}/examples/go.mod"
     grep -q '^replace github.com/goliatone/go-admin/quickstart => ../quickstart$' "${repo_root}/examples/go.mod"
     grep -q '^[[:space:]]*\./examples$' "${repo_root}/go.work"
+
+    forbidden_imports=$(
+        find "${repo_root}" \
+            \( -type d \( \
+                -path "${repo_root}/examples" -o \
+                -name .git -o \
+                -name .ctx -o \
+                -name .tmp -o \
+                -name node_modules \
+            \) \) -prune -o \
+            -type f -name '*.go' \
+            -exec grep -Hn 'github\.com/goliatone/go-admin/examples' {} + || true
+    )
+    if [ -n "${forbidden_imports}" ]; then
+        echo "published root and quickstart packages must not import the examples module:" >&2
+        echo "${forbidden_imports}" >&2
+        return 1
+    fi
+}
+
+function test_real_quickstart_sync {
+    local snapshot_dir="${fixture_root}/real-quickstart-sync"
+    local path
+
+    mkdir -p "${snapshot_dir}/quickstart"
+    for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
+        cp "${repo_root}/${path}" "${snapshot_dir}/${path}"
+    done
+
+    (cd "${repo_root}" && quickstart:sync:check 0.999.0)
+
+    for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
+        if ! cmp -s "${repo_root}/${path}" "${snapshot_dir}/${path}"; then
+            echo "quickstart sync check did not restore ${path}" >&2
+            return 1
+        fi
+    done
 }
 
 function test_quickstart_sync_without_published_tag {
@@ -373,6 +412,7 @@ function test_release_success_end_to_end {
 
 test_module_discovery
 test_repository_module_boundaries
+test_real_quickstart_sync
 test_quickstart_sync_without_published_tag
 test_transaction_rollback
 test_release_failure_end_to_end
