@@ -637,6 +637,45 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 	return snapshot
 }
 
+// panelSnapshotWithContext returns the snapshot payload for one configured
+// panel without collecting every other panel. Dashboard widget providers use
+// this path so rendering P panels performs P collections instead of P².
+func (c *DebugCollector) panelSnapshotWithContext(ctx context.Context, panelID string) (any, bool) {
+	if c == nil {
+		return nil, false
+	}
+	panelID = debugpanels.NormalizePanelID(panelID)
+	if panelID == "" || !c.panelEnabled(panelID) {
+		return nil, false
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctx.Err() != nil {
+		return nil, false
+	}
+
+	state := c.snapshotState()
+	snapshot := c.collectBuiltinSnapshot(state)
+	c.collectPanelDataSnapshot(snapshot, state.panelData)
+	if payload, ok := snapshot[panelID]; ok {
+		return payload, true
+	}
+
+	ensureDebugBuiltinPanels()
+	if registration, ok := debugregistry.Panel(panelID); ok && registration.Snapshot != nil {
+		return debugcollector.ClonePanelPayload(debugMaskValue(c.config, registration.Snapshot(ctx))), true
+	}
+
+	for _, panel := range state.panels {
+		if panel == nil || debugpanels.NormalizePanelID(panel.ID()) != panelID {
+			continue
+		}
+		return debugcollector.ClonePanelPayload(debugMaskValue(c.config, panel.Collect(ctx))), true
+	}
+	return nil, false
+}
+
 type debugSnapshotState struct {
 	templateData map[string]any
 	sessionData  map[string]any
