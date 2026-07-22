@@ -174,12 +174,44 @@ func TestAdaptCommandLauncherFormgenSchemaRichAndDynamicOptions(t *testing.T) {
 	}
 	worker := mustCommandLauncherType[map[string]any](t, properties["worker"], "worker property")
 	endpoint := mustCommandLauncherType[map[string]any](t, worker["x-endpoint"], "worker endpoint")
-	if endpoint["url"] != "command-options://jobs.run/worker" || endpoint["method"] != "POST" {
+	if endpoint["url"] != "command-options://resolve" || endpoint["method"] != "POST" {
 		t.Fatalf("endpoint = %#v", endpoint)
+	}
+	params := mustCommandLauncherType[map[string]any](t, endpoint["params"], "worker endpoint parameters")
+	if params["command_id"] != "jobs.run" || params["field_path"] != "worker" || params["source_id"] != "workers.available" {
+		t.Fatalf("endpoint params = %#v", params)
 	}
 	dynamic := mustCommandLauncherType[map[string]any](t, endpoint["dynamicParams"], "worker dynamic parameters")
 	if dynamic["dependency_1"] != "mode" {
 		t.Fatalf("dynamic params = %#v", dynamic)
+	}
+}
+
+func TestAdaptCommandLauncherFormgenSchemaKeepsResolverIdentityOutOfSentinelURL(t *testing.T) {
+	descriptor := gocommand.CommandDescriptor{
+		ID: "jobs:run#now / queued",
+		Input: gocommand.CommandInputSchema{Fields: []gocommand.CommandInputField{{
+			Path: "worker#slot / primary",
+			OptionSource: &gocommand.CommandOptionSourceRef{
+				ID:      "workers:available#primary",
+				Dynamic: true,
+			},
+		}}},
+	}
+	adapted, diagnostics, err := adaptCommandLauncherFormgenSchema(descriptor)
+	if err != nil || len(diagnostics) != 0 {
+		t.Fatalf("adapt err=%v diagnostics=%#v", err, diagnostics)
+	}
+	root := decodeCommandLauncherSchema(t, adapted.RawJSONSchema)
+	properties := mustCommandLauncherType[map[string]any](t, root["properties"], "root properties")
+	worker := mustCommandLauncherType[map[string]any](t, properties["worker#slot / primary"], "punctuated worker property")
+	endpoint := mustCommandLauncherType[map[string]any](t, worker["x-endpoint"], "punctuated worker endpoint")
+	if endpoint["url"] != commandLauncherOptionEndpoint {
+		t.Fatalf("resolver identity leaked into endpoint URL: %#v", endpoint)
+	}
+	params := mustCommandLauncherType[map[string]any](t, endpoint["params"], "punctuated endpoint parameters")
+	if params["command_id"] != descriptor.ID || params["field_path"] != "worker#slot / primary" || params["source_id"] != "workers:available#primary" {
+		t.Fatalf("punctuated endpoint params = %#v", params)
 	}
 }
 

@@ -303,7 +303,7 @@ func TestCommandLauncherPanelSerializesExecutableActionsAndFormSchemas(t *testin
 	if action.Form == nil || action.Form.Renderer != "formgen" || action.Form.OperationID == "" {
 		t.Fatalf("expected typed formgen descriptor, got %#v", action.Form)
 	}
-	if !strings.Contains(action.Form.HTML, `name="entity_id"`) || !strings.Contains(action.Form.HTML, commandLauncherOptionEndpointScheme+"catalog.inspect/entity_id") {
+	if !strings.Contains(action.Form.HTML, `name="entity_id"`) || !strings.Contains(action.Form.HTML, commandLauncherOptionEndpoint) {
 		t.Fatalf("expected generated dynamic field HTML, got %s", action.Form.HTML)
 	}
 	if len(options.calls) != 0 {

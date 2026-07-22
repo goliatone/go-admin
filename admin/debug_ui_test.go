@@ -12,14 +12,15 @@ import (
 
 type stubWebSocketContext struct {
 	*router.MockContext
-	writes []any
+	writes      []any
+	upgradeData router.UpgradeData
 }
 
 func newStubWebSocketContext() *stubWebSocketContext {
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
 	mockCtx.On("IP").Return("").Maybe()
-	return &stubWebSocketContext{MockContext: mockCtx}
+	return &stubWebSocketContext{MockContext: mockCtx, upgradeData: router.UpgradeData{}}
 }
 
 func (s *stubWebSocketContext) IsWebSocket() bool                  { return true }
@@ -46,7 +47,10 @@ func (s *stubWebSocketContext) RemoteAddr() string                              
 func (s *stubWebSocketContext) LocalAddr() string                                   { return "" }
 func (s *stubWebSocketContext) IsConnected() bool                                   { return true }
 func (s *stubWebSocketContext) ConnectionID() string                                { return "stub-conn" }
-func (s *stubWebSocketContext) UpgradeData(_ string) (any, bool)                    { return nil, false }
+func (s *stubWebSocketContext) UpgradeData(key string) (any, bool) {
+	value, ok := s.upgradeData[key]
+	return value, ok
+}
 
 func TestDebugDashboardRendersTemplate(t *testing.T) {
 	cfg := DebugConfig{

@@ -597,8 +597,8 @@ func TestDebugCollectorPublishPrunesClosedSubscriberAndDeliversToHealthyOnes(t *
 		t.Fatalf("expected healthy subscription channel")
 	}
 
-	stale := make(chan DebugEvent, 1)
-	close(stale)
+	stale := newDebugEventSubscriber(1)
+	stale.Close()
 
 	collector.mu.Lock()
 	collector.subscribers["stale"] = stale
@@ -621,6 +621,104 @@ func TestDebugCollectorPublishPrunesClosedSubscriberAndDeliversToHealthyOnes(t *
 	collector.mu.RUnlock()
 	if stalePresent {
 		t.Fatalf("expected stale subscriber to be pruned after closed-channel send")
+	}
+}
+
+func TestDebugCollectorCoalescesCommandRunProgressWithoutLosingTerminalState(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{})
+	events := collector.Subscribe("slow-client")
+	if events == nil {
+		t.Fatal("expected subscription channel")
+	}
+	failures := make(chan DebugEvent, 1)
+	collector.SetDeliveryFailureHandler(func(event DebugEvent) {
+		select {
+		case failures <- event:
+		default:
+		}
+	})
+
+	for revision := uint64(1); revision <= 1000; revision++ {
+		phase := CommandRunPhaseProgress
+		if revision == 1000 {
+			phase = CommandRunPhaseSucceeded
+		}
+		collector.publish(commandRunDebugEventType, CommandRunRecord{CommandRunUpdate: CommandRunUpdate{
+			RunID:    "run-progress-burst",
+			Revision: revision,
+			Phase:    phase,
+			Scope:    CommandRunScope{TenantID: "tenant-a"},
+		}})
+	}
+
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				t.Fatal("subscriber disconnected during a coalescible progress burst")
+			}
+			state, ok := commandRunQueuedStateFromDebugEvent(event)
+			if ok && state.terminal {
+				if state.revision != 1000 {
+					t.Fatalf("terminal revision = %d, want 1000", state.revision)
+				}
+				select {
+				case failure := <-failures:
+					t.Fatalf("unexpected delivery failure: %+v", failure)
+				default:
+				}
+				collector.Unsubscribe("slow-client")
+				return
+			}
+		case <-deadline:
+			t.Fatal("terminal command-run state was not delivered")
+		}
+	}
+}
+
+func TestDebugCollectorDisconnectsOverflowedSubscriberAndReportsCommandRunFailure(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{})
+	events := collector.Subscribe("stalled-client")
+	failures := make(chan DebugEvent, 1)
+	collector.SetDeliveryFailureHandler(func(event DebugEvent) {
+		select {
+		case failures <- event:
+		default:
+		}
+	})
+
+	for index := 0; index < debugSubscriberBuffer+2; index++ {
+		collector.publish(commandRunDebugEventType, CommandRunRecord{CommandRunUpdate: CommandRunUpdate{
+			RunID:    "run-" + toString(index),
+			Revision: 1,
+			Phase:    CommandRunPhaseProgress,
+			Scope:    CommandRunScope{TenantID: "tenant-a"},
+		}})
+	}
+
+	select {
+	case event := <-failures:
+		if event.Type != commandRunDebugEventType {
+			t.Fatalf("failure event type = %q", event.Type)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected command-run delivery failure diagnostic")
+	}
+
+	select {
+	case _, ok := <-events:
+		if ok {
+			t.Fatal("expected overflowed subscriber channel to close")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("overflowed subscriber was not disconnected")
+	}
+	collector.mu.RLock()
+	_, present := collector.subscribers["stalled-client"]
+	collector.mu.RUnlock()
+	if present {
+		t.Fatal("overflowed subscriber remains registered")
 	}
 }
 

@@ -212,7 +212,7 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 	if !resolver.Hidden || resolver.Kind != "command_options" {
 		t.Fatalf("expected protected hidden option resolver, got %#v", resolver)
 	}
-	if action.Form == nil || !strings.Contains(action.Form.HTML, "command-options://"+quickstartLauncherEchoCommandID+"/indexes") {
+	if action.Form == nil || !strings.Contains(action.Form.HTML, "command-options://resolve") {
 		t.Fatalf("expected generated dynamic index field, got %#v", action.Form)
 	}
 
