@@ -172,15 +172,17 @@ const (
 // a bounded amount of recoverable state. Command-run updates are coalesced by
 // scoped run identity, so progress bursts cannot displace their terminal state.
 type debugEventSubscriber struct {
-	mu         sync.Mutex
-	out        chan DebugEvent
-	wake       chan struct{}
-	stop       chan struct{}
-	done       chan struct{}
-	closeOnce  sync.Once
-	pending    []DebugEvent
-	maxPending int
-	closed     bool
+	mu            sync.Mutex
+	out           chan DebugEvent
+	wake          chan struct{}
+	stop          chan struct{}
+	done          chan struct{}
+	closeOnce     sync.Once
+	pending       []DebugEvent
+	maxPending    int
+	inFlight      bool
+	inFlightEvent DebugEvent
+	closed        bool
 }
 
 func newDebugEventSubscriber(maxPending int) *debugEventSubscriber {
@@ -188,7 +190,7 @@ func newDebugEventSubscriber(maxPending int) *debugEventSubscriber {
 		maxPending = 1
 	}
 	subscriber := &debugEventSubscriber{
-		out:        make(chan DebugEvent),
+		out:        make(chan DebugEvent, 1),
 		wake:       make(chan struct{}, 1),
 		stop:       make(chan struct{}),
 		done:       make(chan struct{}),
@@ -229,6 +231,13 @@ func (s *debugEventSubscriber) Offer(event DebugEvent) debugSubscriberOffer {
 	if s.closed {
 		return debugSubscriberClosed
 	}
+	if !s.inFlight && len(s.pending) == 0 {
+		select {
+		case s.out <- event:
+			return debugSubscriberAccepted
+		default:
+		}
+	}
 
 	if incoming, ok := commandRunQueuedStateFromDebugEvent(event); ok {
 		for index := range s.pending {
@@ -254,6 +263,26 @@ func (s *debugEventSubscriber) Offer(event DebugEvent) debugSubscriberOffer {
 	return debugSubscriberAccepted
 }
 
+func (s *debugEventSubscriber) commandRunAtRisk(fallback DebugEvent) (DebugEvent, bool) {
+	if fallback.Type == commandRunDebugEventType {
+		return fallback, true
+	}
+	if s == nil {
+		return DebugEvent{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.inFlight && s.inFlightEvent.Type == commandRunDebugEventType {
+		return s.inFlightEvent, true
+	}
+	for _, event := range s.pending {
+		if event.Type == commandRunDebugEventType {
+			return event, true
+		}
+	}
+	return DebugEvent{}, false
+}
+
 func (s *debugEventSubscriber) run() {
 	defer close(s.done)
 	defer close(s.out)
@@ -271,10 +300,16 @@ func (s *debugEventSubscriber) run() {
 		event := s.pending[0]
 		copy(s.pending, s.pending[1:])
 		s.pending = s.pending[:len(s.pending)-1]
+		s.inFlight = true
+		s.inFlightEvent = event
 		s.mu.Unlock()
 
 		select {
 		case s.out <- event:
+			s.mu.Lock()
+			s.inFlight = false
+			s.inFlightEvent = DebugEvent{}
+			s.mu.Unlock()
 		case <-s.stop:
 			return
 		}
@@ -1325,10 +1360,11 @@ func (c *DebugCollector) publish(eventType string, payload any) {
 		case debugSubscriberClosed:
 			c.removeSubscriber(subscriber.id, subscriber.subscriber)
 		case debugSubscriberOverflow:
+			diagnosticEvent, commandRunAffected := subscriber.subscriber.commandRunAtRisk(event)
 			if c.removeSubscriber(subscriber.id, subscriber.subscriber) {
 				subscriber.subscriber.Close()
-				if failureHandler != nil && event.Type == commandRunDebugEventType {
-					failureHandler(event)
+				if failureHandler != nil && commandRunAffected {
+					failureHandler(diagnosticEvent)
 				}
 			}
 		}
