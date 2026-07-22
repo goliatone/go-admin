@@ -312,6 +312,19 @@ intentional. Remote not-ready, subscription, publication, rejection, drop, and
 projection failures are reported without payloads, tenant identifiers,
 credentials, or raw provider causes.
 
+Debug WebSocket delivery is bounded. Pending progress for the same scoped run
+is coalesced, and terminal state replaces pending progress. If a client falls
+behind on unrelated rows, the server closes that stale connection and records
+a dropped-event diagnostic; reconnect then restores the authorized projection
+from the configured store.
+
+Session Debug WebSockets include the same authenticated Command Runs snapshot
+when `SessionIncludeGlobalPanels` is enabled (the default). Initial snapshots,
+explicit snapshot requests, and live events all reuse the retained upgrade
+identity. Request, SQL, and log panels remain filtered to the selected session.
+Set `SessionIncludeGlobalPanels` to false to exclude all global panels,
+including Command Runs, from session views.
+
 For Valkey Pub/Sub worker/gateway assembly, channel isolation, and lifecycle
 examples, see the `go-messaging/adapters/go-admin` README.
 

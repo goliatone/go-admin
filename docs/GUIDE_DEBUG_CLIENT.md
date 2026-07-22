@@ -676,6 +676,13 @@ authoritative; a parallel HTTP fallback cannot overwrite newer WebSocket
 state. This recovers missed Pub/Sub/WebSocket events only when the configured
 server-side store still contains the run.
 
+The server coalesces pending progress for a scoped run and preserves terminal
+state. A client that exceeds the bounded queue on unrelated rows is
+disconnected so normal reconnect and snapshot recovery can re-establish a
+complete view. Session Debug clients receive the same scope-filtered Command
+Runs recovery snapshot when global panels are enabled; their request, SQL, and
+log rows remain limited to the selected session.
+
 ## 10. Build and Asset Pipeline
 
 The debug TypeScript source lives in `pkg/client/assets/src/debug/` and is
