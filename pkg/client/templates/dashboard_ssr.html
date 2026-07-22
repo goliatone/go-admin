@@ -23,44 +23,44 @@
 
 <div class="flex-1 p-8 overflow-y-auto" data-widget-grid>
   <div class="dashboard-grid grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <section class="widget-area lg:col-span-2" data-area-code="admin.dashboard.main">
-      <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Main Dashboard</h2>
-      <div class="widgets-grid" data-widgets-grid data-area-grid="admin.dashboard.main">
-        {% for area in areas %}
-          {% if area.code == "admin.dashboard.main" %}
+    {% for area in areas %}
+      {% if area.slot == "main" %}
+        <section class="widget-area {% if area.code == "admin.debug" %}lg:col-span-3{% else %}lg:col-span-2{% endif %}" data-area-code="{{ area.code }}">
+          <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">{% if area.code == "admin.debug" %}Debug Panels{% else %}Main Dashboard{% endif %}</h2>
+          <div class="widgets-grid" data-widgets-grid data-area-grid="{{ area.code }}">
             {% for widget in area.widgets %}
               {% include "dashboard_widget.html" %}
             {% endfor %}
-          {% endif %}
-        {% endfor %}
-      </div>
-    </section>
+          </div>
+        </section>
+      {% endif %}
+    {% endfor %}
 
-    <aside class="widget-area" data-area-code="admin.dashboard.sidebar">
-      <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Sidebar</h2>
-      <div class="widgets-grid" data-widgets-grid data-area-grid="admin.dashboard.sidebar">
-        {% for area in areas %}
-          {% if area.code == "admin.dashboard.sidebar" %}
+    {% for area in areas %}
+      {% if area.slot == "sidebar" %}
+        <aside class="widget-area" data-area-code="{{ area.code }}">
+          <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Sidebar</h2>
+          <div class="widgets-grid" data-widgets-grid data-area-grid="{{ area.code }}">
             {% for widget in area.widgets %}
               {% include "dashboard_widget.html" %}
             {% endfor %}
-          {% endif %}
-        {% endfor %}
-      </div>
-    </aside>
+          </div>
+        </aside>
+      {% endif %}
+    {% endfor %}
 
-    <section class="widget-area lg:col-span-3" data-area-code="admin.dashboard.footer">
-      <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Operations</h2>
-      <div class="widgets-grid" data-widgets-grid data-area-grid="admin.dashboard.footer">
-        {% for area in areas %}
-          {% if area.code == "admin.dashboard.footer" %}
+    {% for area in areas %}
+      {% if area.slot == "footer" %}
+        <section class="widget-area lg:col-span-3" data-area-code="{{ area.code }}">
+          <h2 class="widget-area__title text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Operations</h2>
+          <div class="widgets-grid" data-widgets-grid data-area-grid="{{ area.code }}">
             {% for widget in area.widgets %}
               {% include "dashboard_widget.html" %}
             {% endfor %}
-          {% endif %}
-        {% endfor %}
-      </div>
-    </section>
+          </div>
+        </section>
+      {% endif %}
+    {% endfor %}
   </div>
 </div>
 
@@ -188,7 +188,9 @@
       const grid = new WidgetGrid({
         apiEndpoint: dashboardApi,
         preferencesEndpoint: `${dashboardApi}/preferences`,
-        areas: ['admin.dashboard.main', 'admin.dashboard.sidebar', 'admin.dashboard.footer'],
+        areas: Array.isArray(dashboardState?.areas)
+          ? dashboardState.areas.map((area) => area.code).filter(Boolean)
+          : [],
         selectors: {
           hideBtn: '.hide-widget',
           resizeBtn: '.resize-widget',

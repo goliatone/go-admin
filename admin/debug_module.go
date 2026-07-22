@@ -326,14 +326,13 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 			DefaultSpan: panelSpan,
 			Permission:  m.permission,
 			Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
-				_ = ctx
 				_ = cfg
-				snapshot := m.collector.Snapshot()
+				panelData, _ := m.collector.panelSnapshotWithContext(ctx.Context, panelID)
 				return WidgetPayloadOf(DebugPanelWidgetPayload{
 					Panel: panelID,
 					Label: panelLabel,
 					Icon:  panelIcon,
-					Data:  snapshot[panelID],
+					Data:  panelData,
 				}), nil
 			},
 		})
@@ -355,7 +354,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		return nil
 	}
 	basePath, routes := debugDashboardRouteConfig(a, cfg)
-	viewerResolver := a.debugDashboardViewerResolver()
+	viewerResolver := a.debugDashboardViewerResolver(cfg)
 	access := debugAccessMiddleware(a, cfg, cfg.Permission)
 	authHandler := debugAuthHandler(a, cfg, cfg.Permission)
 	registerFallback := a.debugDashboardFallbackRegistrar(cfg, access)
@@ -421,7 +420,7 @@ func debugDashboardAssetRegistration(rt AdminRouter) dashboardrouter.AssetRegist
 	return dashboardrouter.AssetRegistrationModeRouter
 }
 
-func (a *Admin) debugDashboardViewerResolver() func(router.Context) dashcmp.ViewerContext {
+func (a *Admin) debugDashboardViewerResolver(cfg DebugConfig) func(router.Context) dashcmp.ViewerContext {
 	defaultLocale := a.config.DefaultLocale
 	return func(c router.Context) dashcmp.ViewerContext {
 		locale := strings.TrimSpace(c.Query("locale"))
@@ -430,7 +429,8 @@ func (a *Admin) debugDashboardViewerResolver() func(router.Context) dashcmp.View
 		}
 		adminCtx := a.adminContextFromRequest(c, locale)
 		if c != nil {
-			c.SetContext(adminCtx.Context)
+			chrome := adminChromeStateFromViewContext(a.debugDashboardPageViewContext(cfg, c))
+			c.SetContext(withAdminDashboardChrome(adminCtx.Context, chrome))
 		}
 		return dashcmp.ViewerContext{
 			UserID:          adminCtx.UserID,
@@ -438,6 +438,25 @@ func (a *Admin) debugDashboardViewerResolver() func(router.Context) dashcmp.View
 			FallbackLocales: append([]string{}, adminCtx.FallbackLocales...),
 		}
 	}
+}
+
+func (a *Admin) debugDashboardPageViewContext(cfg DebugConfig, c router.Context) router.ViewContext {
+	adminBase := strings.TrimSpace(adminBasePath(a.config))
+	if adminBase == "" {
+		adminBase = "/"
+	}
+	debugPath := debugRoutePath(a, cfg, "admin.debug", "index")
+	if debugPath == "" {
+		debugPath = debugBasePath(a, cfg)
+	}
+	view := router.ViewContext{
+		"title":           "Debug Console",
+		"base_path":       adminBase,
+		"asset_base_path": adminBase,
+		"api_base_path":   strings.TrimRight(debugPath, "/") + "/api",
+		"debug_path":      debugPath,
+	}
+	return buildDebugViewContext(a, cfg, c, view)
 }
 
 func (a *Admin) debugDashboardFallbackRegistrar(cfg DebugConfig, access router.MiddlewareFunc) func() error {
@@ -476,9 +495,11 @@ func (a *Admin) debugDashboardController(cfg DebugConfig) *dashcmp.Controller {
 		template = cfg.DashboardTemplate
 	}
 	return dashcmp.NewController(dashcmp.ControllerOptions{
-		Service:  a.dash.runtime.Service,
-		Renderer: a.dashboardRenderer(),
-		Template: template,
+		Service:       a.dash.runtime.Service,
+		Renderer:      a.dashboardRenderer(),
+		Template:      template,
+		Areas:         []dashcmp.AreaSlot{{Slot: "main", Code: debugWidgetAreaCode}},
+		PageDecorator: decorateDashboardControllerPage,
 	})
 }
 
