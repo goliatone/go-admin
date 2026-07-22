@@ -14,8 +14,8 @@ func TestRuntimeRoutingAdaptersExposeCapabilityProviderHooks(t *testing.T) {
 	if _, ok := any(urls).(routing.URLKitCapabilityProvider); !ok {
 		t.Fatal("expected urlkit adapter to satisfy URLKitCapabilityProvider")
 	}
-	if caps := urls.RoutingURLKitCapabilities(); caps != (routing.URLKitCapabilities{}) {
-		t.Fatalf("expected zero-value urlkit capabilities by default, got %+v", caps)
+	if caps := urls.RoutingURLKitCapabilities(); !caps.NativeStrictMutations || !caps.NativeManifest {
+		t.Fatalf("expected native urlkit capabilities, got %+v", caps)
 	}
 
 	server := router.NewHTTPServer()
@@ -26,8 +26,8 @@ func TestRuntimeRoutingAdaptersExposeCapabilityProviderHooks(t *testing.T) {
 	if _, ok := any(routerAdapter).(routing.RouterCapabilityProvider); !ok {
 		t.Fatal("expected router adapter to satisfy RouterCapabilityProvider")
 	}
-	if caps := routerAdapter.RoutingRouterCapabilities(); caps != (routing.RouterCapabilities{}) {
-		t.Fatalf("expected zero-value router capabilities by default, got %+v", caps)
+	if caps := routerAdapter.RoutingRouterCapabilities(); !caps.NativeRouteNamePolicy || !caps.NativeOwnershipChecks || !caps.NativeManifest {
+		t.Fatalf("expected native router capabilities, got %+v", caps)
 	}
 }
 
@@ -54,7 +54,7 @@ func TestRoutingReportSupportsConcurrentRefreshAndRead(t *testing.T) {
 	wg.Wait()
 }
 
-func TestRoutingReportRefreshIncludesRuntimeAdapterWarnings(t *testing.T) {
+func TestRoutingReportRefreshUsesNativeAdapterCapabilities(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -67,15 +67,9 @@ func TestRoutingReportRefreshIncludesRuntimeAdapterWarnings(t *testing.T) {
 	}
 
 	report := adm.RoutingReport()
-	warnings := strings.Join(report.Warnings, "\n")
-	for _, want := range []string{
-		"urlkit adapter does not advertise native strict mutation support",
-		"router adapter does not advertise native route-name policy support",
-		"router adapter does not advertise native ownership validation",
-		"router adapter does not advertise native manifest support",
-	} {
-		if !strings.Contains(warnings, want) {
-			t.Fatalf("expected routing report warnings to include %q, got %+v", want, report.Warnings)
+	for _, warning := range report.Warnings {
+		if strings.Contains(warning, "adapter does not advertise native") {
+			t.Fatalf("unexpected adapter fallback warning %q in %+v", warning, report.Warnings)
 		}
 	}
 }

@@ -61,6 +61,7 @@ func TestBuildRuntimeReportReconcilesTypedAndLegacyModuleRoutes(t *testing.T) {
 		State: router.RegistrationSealed,
 		MountedRoutes: []router.RouteDefinition{
 			{Method: router.POST, Path: "/typed"},
+			{Method: router.GET, Path: "/legacy"},
 		},
 	})
 	if len(report.MissingRoutes) != 1 || report.MissingRoutes[0].Path != "/typed" {
@@ -68,6 +69,19 @@ func TestBuildRuntimeReportReconcilesTypedAndLegacyModuleRoutes(t *testing.T) {
 	}
 	if len(report.UnverifiableRoutes) != 1 || report.UnverifiableRoutes[0].Path != "/legacy" {
 		t.Fatalf("unverifiable routes = %+v, want legacy /legacy", report.UnverifiableRoutes)
+	}
+}
+
+func TestBuildRuntimeReportTreatsAbsentLegacyPathAsMissing(t *testing.T) {
+	report := BuildRuntimeReport(Manifest{Entries: []ManifestEntry{
+		{Owner: "module:legacy", RouteName: "legacy.index", Method: ManifestMethodUnknown, Path: "/legacy"},
+	}}, router.RegistrationSnapshot{State: router.RegistrationSealed})
+
+	if len(report.MissingRoutes) != 1 || report.MissingRoutes[0].Path != "/legacy" {
+		t.Fatalf("missing routes = %+v, want absent legacy path", report.MissingRoutes)
+	}
+	if len(report.UnverifiableRoutes) != 0 {
+		t.Fatalf("unverifiable routes = %+v, want none for an absent path", report.UnverifiableRoutes)
 	}
 }
 
