@@ -1,6 +1,28 @@
 # Changelog
 
+# [0.121.1](https://github.com/goliatone/go-admin/compare/v0.121.0...v0.121.1) - (2026-07-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Asset loading ([92ce58a](https://github.com/goliatone/go-admin/commit/92ce58ac322fcfbcfa8754f890b8db1fb431e715))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Fix: debug layout dashboard layout ([b4770e4](https://github.com/goliatone/go-admin/commit/b4770e4c4549ad89deaab1e1ec2b89939aff6f7a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([76bc1df](https://github.com/goliatone/go-admin/commit/76bc1dfd012183dc3eb2b437721279892bd6ddb8))  - (goliatone)
+- Update test ([a2a8131](https://github.com/goliatone/go-admin/commit/a2a8131929380a3b4b82ece454d999df9a718f4b))  - (goliatone)
+
 # [0.121.0](https://github.com/goliatone/go-admin/compare/v0.120.3...v0.121.0) - (2026-07-22)
+
+
+New minor release: v0.121.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.0 ([489eadc](https://github.com/goliatone/go-admin/commit/489eadced1e8bab21cdbe744f79cb0259aecd8bd))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
