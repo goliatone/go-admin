@@ -247,6 +247,13 @@ Operationally:
 - `host.PublicSite()` owns public HTML/site delivery.
 - `host.Static()` owns static asset prefixes.
 
+Quickstart hosts must call `NewStaticAssets(host.Static(), ...)` before admin
+initialization. The `host.Admin()` capability reports that dashboard ECharts
+and shell assets are host-managed, so debug dashboard initialization registers
+only its HTML/API/WebSocket endpoints there. Core `go-admin` consumers that
+initialize with a raw router keep the standalone behavior where go-dashboard
+mounts its own embedded assets.
+
 Do not rely on route registration order to keep site fallback from swallowing
 admin, API, or system paths.
 
