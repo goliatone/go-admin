@@ -1,6 +1,6 @@
 module github.com/goliatone/go-admin
 
-go 1.26.4
+go 1.26.5
 
 exclude google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
 
@@ -30,8 +30,8 @@ require (
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.60.0
-	github.com/goliatone/go-search v0.14.4
-	github.com/goliatone/go-search/adapters/goadmin v0.14.4
+	github.com/goliatone/go-search v0.14.5
+	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0

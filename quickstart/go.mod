@@ -1,6 +1,6 @@
 module github.com/goliatone/go-admin/quickstart
 
-go 1.26.4
+go 1.26.5
 
 replace github.com/goliatone/go-admin => ..
 
@@ -35,7 +35,7 @@ require (
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-router v0.60.0
-	github.com/goliatone/go-search v0.14.4
+	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
@@ -131,7 +131,7 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.16.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-search/adapters/goadmin v0.14.4 // indirect
+	github.com/goliatone/go-search/adapters/goadmin v0.14.5 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.2 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
