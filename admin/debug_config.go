@@ -122,6 +122,8 @@ type DebugConfig struct {
 	// CommandLauncherDoctorEnabled registers command-launcher readiness checks even
 	// when the generic command launcher panel is not registered.
 	CommandLauncherDoctorEnabled bool `json:"command_launcher_doctor_enabled"`
+	// CommandRuns enables transport-neutral live command lifecycle projection.
+	CommandRuns CommandRunRuntimeConfig `json:"command_runs"`
 	// LayoutMode controls which debug template is rendered for the HTML route.
 	LayoutMode DebugLayoutMode `json:"layout_mode"`
 	// PageTemplate is the primary debug template used for HTML rendering.
@@ -194,6 +196,9 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	}
 	if cfg.Panels == nil {
 		cfg.Panels = append([]string{}, defaultDebugPanels...)
+		if cfg.CommandRuns.Enabled {
+			cfg.Panels = append(cfg.Panels, DebugPanelCommandRuns)
+		}
 	}
 	cfg.Panels = debugpanels.NormalizePanelIDs(cfg.Panels)
 	cfg.MaskFieldTypes = normalizeMaskFieldTypes(cfg.MaskFieldTypes)

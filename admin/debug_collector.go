@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	debugcollector "github.com/goliatone/go-admin/admin/internal/debugcollector"
 	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -62,7 +61,8 @@ type DebugCollector struct {
 	urls         urlkit.Resolver
 	sessionStore DebugUserSessionStore
 
-	subscribers map[string]chan DebugEvent
+	subscribers            map[string]*debugEventSubscriber
+	deliveryFailureHandler func(DebugEvent)
 }
 
 type debugPanelSnapshot struct {
@@ -160,6 +160,222 @@ type DebugEvent struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+type debugSubscriberOffer uint8
+
+const (
+	debugSubscriberAccepted debugSubscriberOffer = iota
+	debugSubscriberOverflow
+	debugSubscriberClosed
+)
+
+// debugEventSubscriber decouples publishers from browser writes while keeping
+// a bounded amount of recoverable state. Command-run updates are coalesced by
+// scoped run identity, so progress bursts cannot displace their terminal state.
+type debugEventSubscriber struct {
+	mu         sync.Mutex
+	out        chan DebugEvent
+	wake       chan struct{}
+	stop       chan struct{}
+	done       chan struct{}
+	closeOnce  sync.Once
+	pending    []DebugEvent
+	maxPending int
+	closed     bool
+}
+
+func newDebugEventSubscriber(maxPending int) *debugEventSubscriber {
+	if maxPending <= 0 {
+		maxPending = 1
+	}
+	subscriber := &debugEventSubscriber{
+		out:        make(chan DebugEvent),
+		wake:       make(chan struct{}, 1),
+		stop:       make(chan struct{}),
+		done:       make(chan struct{}),
+		pending:    make([]DebugEvent, 0, maxPending),
+		maxPending: maxPending,
+	}
+	go subscriber.run()
+	return subscriber
+}
+
+func (s *debugEventSubscriber) Events() <-chan DebugEvent {
+	if s == nil {
+		return nil
+	}
+	return s.out
+}
+
+func (s *debugEventSubscriber) Close() {
+	if s == nil {
+		return
+	}
+	s.closeOnce.Do(func() {
+		s.mu.Lock()
+		s.closed = true
+		s.pending = nil
+		s.mu.Unlock()
+		close(s.stop)
+	})
+	<-s.done
+}
+
+func (s *debugEventSubscriber) Offer(event DebugEvent) debugSubscriberOffer {
+	if s == nil {
+		return debugSubscriberClosed
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return debugSubscriberClosed
+	}
+
+	if incoming, ok := commandRunQueuedStateFromDebugEvent(event); ok {
+		for index := range s.pending {
+			existing, sameRun := commandRunQueuedStateFromDebugEvent(s.pending[index])
+			if !sameRun || existing.key != incoming.key {
+				continue
+			}
+			if commandRunQueuedStateAdvances(existing, incoming) {
+				s.pending[index] = event
+			}
+			return debugSubscriberAccepted
+		}
+	}
+
+	if len(s.pending) >= s.maxPending {
+		return debugSubscriberOverflow
+	}
+	s.pending = append(s.pending, event)
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+	return debugSubscriberAccepted
+}
+
+func (s *debugEventSubscriber) run() {
+	defer close(s.done)
+	defer close(s.out)
+	for {
+		s.mu.Lock()
+		if len(s.pending) == 0 {
+			s.mu.Unlock()
+			select {
+			case <-s.wake:
+				continue
+			case <-s.stop:
+				return
+			}
+		}
+		event := s.pending[0]
+		copy(s.pending, s.pending[1:])
+		s.pending = s.pending[:len(s.pending)-1]
+		s.mu.Unlock()
+
+		select {
+		case s.out <- event:
+		case <-s.stop:
+			return
+		}
+	}
+}
+
+type commandRunQueuedState struct {
+	key      string
+	revision uint64
+	terminal bool
+}
+
+func commandRunQueuedStateFromDebugEvent(event DebugEvent) (commandRunQueuedState, bool) {
+	if event.Type != commandRunDebugEventType {
+		return commandRunQueuedState{}, false
+	}
+	scope, ok := commandRunScopeFromDebugEvent(event)
+	if !ok {
+		return commandRunQueuedState{}, false
+	}
+	var runID string
+	var revision uint64
+	var phase CommandRunPhase
+	switch payload := event.Payload.(type) {
+	case CommandRunRecord:
+		runID, revision, phase = payload.RunID, payload.Revision, payload.Phase
+	case *CommandRunRecord:
+		if payload == nil {
+			return commandRunQueuedState{}, false
+		}
+		runID, revision, phase = payload.RunID, payload.Revision, payload.Phase
+	case CommandRunUpdate:
+		runID, revision, phase = payload.RunID, payload.Revision, payload.Phase
+	case *CommandRunUpdate:
+		if payload == nil {
+			return commandRunQueuedState{}, false
+		}
+		runID, revision, phase = payload.RunID, payload.Revision, payload.Phase
+	case map[string]any:
+		runID = strings.TrimSpace(toString(payload["run_id"]))
+		revision = debugEventUint64(payload["revision"])
+		phase = CommandRunPhase(strings.ToLower(strings.TrimSpace(toString(payload["phase"]))))
+	default:
+		return commandRunQueuedState{}, false
+	}
+	if runID == "" {
+		return commandRunQueuedState{}, false
+	}
+	scope = scope.Normalize()
+	key := strings.Join([]string{
+		scope.ApplicationID,
+		scope.EnvironmentID,
+		scope.TenantID,
+		scope.OrganizationID,
+		runID,
+	}, "\x00")
+	return commandRunQueuedState{key: key, revision: revision, terminal: phase.Terminal()}, true
+}
+
+func commandRunQueuedStateAdvances(existing, incoming commandRunQueuedState) bool {
+	if existing.terminal && !incoming.terminal {
+		return false
+	}
+	if existing.revision > 0 && incoming.revision > 0 && incoming.revision <= existing.revision {
+		return false
+	}
+	return true
+}
+
+func debugEventUint64(value any) uint64 {
+	switch typed := value.(type) {
+	case uint64:
+		return typed
+	case uint:
+		return uint64(typed)
+	case uint32:
+		return uint64(typed)
+	case int:
+		if typed >= 0 {
+			return uint64(typed)
+		}
+	case int64:
+		if typed >= 0 {
+			return uint64(typed)
+		}
+	case int32:
+		if typed >= 0 {
+			return uint64(typed)
+		}
+	case float64:
+		if typed >= 0 && typed < 18446744073709551616 && typed == float64(uint64(typed)) {
+			return uint64(typed)
+		}
+	case float32:
+		if typed >= 0 && typed == float32(uint64(typed)) {
+			return uint64(typed)
+		}
+	}
+	return 0
+}
+
 // DebugSessionSnapshotOptions controls session-scoped snapshot behavior.
 type DebugSessionSnapshotOptions struct {
 	IncludeGlobalPanels bool `json:"include_global_panels"`
@@ -189,7 +405,7 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 		jsErrorLog:           NewRingBuffer[JSErrorEntry](cfg.MaxLogEntries),
 		customData:           map[string]any{},
 		customLog:            NewRingBuffer[CustomLogEntry](cfg.MaxLogEntries),
-		subscribers:          map[string]chan DebugEvent{},
+		subscribers:          map[string]*debugEventSubscriber{},
 	}
 }
 
@@ -231,6 +447,19 @@ func (c *DebugCollector) SetLiveTransportEnabled(enabled bool) *DebugCollector {
 	}
 	c.mu.Lock()
 	c.liveTransportEnabled = enabled
+	c.mu.Unlock()
+	return c
+}
+
+// SetDeliveryFailureHandler installs a bounded callback for browser-edge
+// delivery failures. The callback must not block; it is invoked after the slow
+// subscriber has been detached for authoritative reconnect recovery.
+func (c *DebugCollector) SetDeliveryFailureHandler(handler func(DebugEvent)) *DebugCollector {
+	if c == nil {
+		return c
+	}
+	c.mu.Lock()
+	c.deliveryFailureHandler = handler
 	c.mu.Unlock()
 	return c
 }
@@ -588,14 +817,14 @@ func (c *DebugCollector) Subscribe(id string) <-chan DebugEvent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if existing, ok := c.subscribers[id]; ok {
-		return existing
+		return existing.Events()
 	}
-	ch := make(chan DebugEvent, debugSubscriberBuffer)
+	subscriber := newDebugEventSubscriber(debugSubscriberBuffer)
 	if c.subscribers == nil {
-		c.subscribers = map[string]chan DebugEvent{}
+		c.subscribers = map[string]*debugEventSubscriber{}
 	}
-	c.subscribers[id] = ch
-	return ch
+	c.subscribers[id] = subscriber
+	return subscriber.Events()
 }
 
 // Unsubscribe removes a WebSocket subscriber.
@@ -608,11 +837,11 @@ func (c *DebugCollector) Unsubscribe(id string) {
 		return
 	}
 	c.mu.Lock()
-	ch := c.subscribers[id]
+	subscriber := c.subscribers[id]
 	delete(c.subscribers, id)
 	c.mu.Unlock()
-	if ch != nil {
-		close(ch)
+	if subscriber != nil {
+		subscriber.Close()
 	}
 }
 
@@ -794,23 +1023,32 @@ func (c *DebugCollector) collectCustomPanelSnapshots(ctx context.Context, snapsh
 	}
 }
 
-// SessionSnapshot returns session-scoped debug data filtered by session ID.
+// SessionSnapshot returns session-scoped debug data filtered by session ID
+// using a background context for global panel collection.
 func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnapshotOptions) map[string]any {
+	return c.SessionSnapshotWithContext(context.Background(), sessionID, opts)
+}
+
+// SessionSnapshotWithContext returns session-scoped debug data and, when
+// requested, collects global panels through the authenticated caller context.
+// Session-owned request, SQL, and log rows always replace their global
+// counterparts so enabling global panels cannot widen those data sets.
+func (c *DebugCollector) SessionSnapshotWithContext(ctx context.Context, sessionID string, opts DebugSessionSnapshotOptions) map[string]any {
 	if c == nil {
 		return map[string]any{}
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return map[string]any{}
 	}
 
-	c.mu.RLock()
-	templateData := primitives.CloneAnyMap(c.templateData)
-	configData := primitives.CloneAnyMap(c.configData)
-	routesData := cloneRouteEntries(c.routesData)
-	c.mu.RUnlock()
-
 	snapshot := map[string]any{}
+	if opts.IncludeGlobalPanels {
+		snapshot = c.SnapshotWithContext(ctx)
+	}
 	if c.panelEnabled(DebugPanelRequests) && c.requestLog != nil {
 		snapshot[DebugPanelRequests] = debugcollector.FilterBySession(c.requestLog.Values(), sessionID, func(entry RequestEntry) string { return entry.SessionID })
 	}
@@ -819,18 +1057,6 @@ func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnap
 	}
 	if c.panelEnabled(DebugPanelLogs) && c.serverLog != nil {
 		snapshot[DebugPanelLogs] = debugcollector.FilterBySession(c.serverLog.Values(), sessionID, func(entry LogEntry) string { return entry.SessionID })
-	}
-
-	if opts.IncludeGlobalPanels {
-		if c.panelEnabled(DebugPanelTemplate) {
-			snapshot[DebugPanelTemplate] = templateData
-		}
-		if c.panelEnabled(DebugPanelConfig) && len(configData) > 0 {
-			snapshot[DebugPanelConfig] = debugMaskMap(c.config, configData)
-		}
-		if c.panelEnabled(DebugPanelRoutes) && len(routesData) > 0 {
-			snapshot[DebugPanelRoutes] = routesData
-		}
 	}
 	return snapshot
 }
@@ -909,8 +1135,17 @@ func (c *DebugCollector) maskPanelActionResult(result debugregistry.PanelActionR
 
 // Clear removes all stored debug data across panels.
 func (c *DebugCollector) Clear() {
+	c.ClearWithContext(context.Background())
+}
+
+// ClearWithContext removes stored debug data and preserves request scope for
+// registered panel clear hooks.
+func (c *DebugCollector) ClearWithContext(ctx context.Context) {
 	if c == nil {
 		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	c.mu.Lock()
 	c.templateData = map[string]any{}
@@ -936,7 +1171,6 @@ func (c *DebugCollector) Clear() {
 	if c.customLog != nil {
 		c.customLog.Clear()
 	}
-	ctx := context.Background()
 	for _, registration := range debugregistry.PanelRegistrations() {
 		id := debugpanels.NormalizePanelID(registration.Definition.ID)
 		if id == "" || !c.panelEnabled(id) {
@@ -950,8 +1184,17 @@ func (c *DebugCollector) Clear() {
 
 // ClearPanel removes stored data for a single panel.
 func (c *DebugCollector) ClearPanel(panelID string) bool {
+	return c.ClearPanelWithContext(context.Background(), panelID)
+}
+
+// ClearPanelWithContext clears a panel while retaining authenticated scope for
+// registered clear hooks.
+func (c *DebugCollector) ClearPanelWithContext(ctx context.Context, panelID string) bool {
 	if c == nil {
 		return false
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	panelID = debugpanels.NormalizePanelID(panelID)
 	if panelID == "" || !c.panelEnabled(panelID) {
@@ -960,7 +1203,7 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 	if c.clearBuiltinPanel(panelID) {
 		return true
 	}
-	return c.clearRegisteredOrDynamicPanel(panelID)
+	return c.clearRegisteredOrDynamicPanel(ctx, panelID)
 }
 
 func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
@@ -1000,10 +1243,10 @@ func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
 	return true
 }
 
-func (c *DebugCollector) clearRegisteredOrDynamicPanel(panelID string) bool {
+func (c *DebugCollector) clearRegisteredOrDynamicPanel(ctx context.Context, panelID string) bool {
 	reg, regOK := debugregistry.Panel(panelID)
 	if regOK && reg.Clear != nil {
-		_ = reg.Clear(context.Background()) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+		_ = reg.Clear(ctx) //nolint:errcheck // legacy bool API keeps existing best-effort behavior.
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -1069,52 +1312,45 @@ func (c *DebugCollector) publish(eventType string, payload any) {
 		Timestamp: time.Now(),
 	}
 	subscribers := make([]debugSubscriber, 0, len(c.subscribers))
-	for id, ch := range c.subscribers {
-		subscribers = append(subscribers, debugSubscriber{id: id, ch: ch})
+	for id, subscriber := range c.subscribers {
+		subscribers = append(subscribers, debugSubscriber{id: id, subscriber: subscriber})
 	}
+	failureHandler := c.deliveryFailureHandler
 	c.mu.RUnlock()
 
 	for _, subscriber := range subscribers {
-		if safeSend(subscriber.ch, event) {
-			c.removeSubscriberChannel(subscriber.id, subscriber.ch)
+		switch subscriber.subscriber.Offer(event) {
+		case debugSubscriberAccepted:
+			continue
+		case debugSubscriberClosed:
+			c.removeSubscriber(subscriber.id, subscriber.subscriber)
+		case debugSubscriberOverflow:
+			if c.removeSubscriber(subscriber.id, subscriber.subscriber) {
+				subscriber.subscriber.Close()
+				if failureHandler != nil && event.Type == commandRunDebugEventType {
+					failureHandler(event)
+				}
+			}
 		}
 	}
 }
 
 type debugSubscriber struct {
-	id string
-	ch chan DebugEvent
+	id         string
+	subscriber *debugEventSubscriber
 }
 
-func safeSend(ch chan DebugEvent, event DebugEvent) (closed bool) {
-	if ch == nil {
+func (c *DebugCollector) removeSubscriber(id string, subscriber *debugEventSubscriber) bool {
+	if c == nil || strings.TrimSpace(id) == "" || subscriber == nil {
 		return false
-	}
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			if strings.Contains(fmt.Sprint(recovered), "send on closed channel") {
-				closed = true
-				return
-			}
-			panic(recovered)
-		}
-	}()
-	select {
-	case ch <- event:
-	default:
-	}
-	return false
-}
-
-func (c *DebugCollector) removeSubscriberChannel(id string, ch chan DebugEvent) {
-	if c == nil || strings.TrimSpace(id) == "" || ch == nil {
-		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if existing, ok := c.subscribers[id]; ok && existing == ch {
+	if existing, ok := c.subscribers[id]; ok && existing == subscriber {
 		delete(c.subscribers, id)
+		return true
 	}
+	return false
 }
 
 func clonePanelData(input map[string]debugPanelSnapshot) map[string]debugPanelSnapshot {

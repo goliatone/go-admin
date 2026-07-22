@@ -111,8 +111,12 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.admin = ctx.Admin
 	m.applyModuleDefaults(ctx.Admin, cfg)
 	m.configureCollector(ctx.Admin, cfg)
+	if err := m.startCommandRunRuntime(ctx.Admin, cfg); err != nil {
+		return err
+	}
 	m.captureResolvedPaths(ctx)
 	ctx.Admin.debugCollector = m.collector
+	RegisterCommandRunsDebugPanel(ctx.Admin)
 	m.captureConfigSnapshot(ctx.Admin)
 	m.captureRoutesSnapshot(ctx.Admin)
 	m.registerDashboardArea(ctx.Admin)
@@ -129,6 +133,45 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	RegisterPermissionsDebugPanel(ctx.Admin)
 	RegisterActionDiagnosticsDebugPanel(ctx.Admin)
 	RegisterDoctorDebugPanel(ctx.Admin)
+	return nil
+}
+
+func (m *DebugModule) startCommandRunRuntime(admin *Admin, cfg DebugConfig) error {
+	if admin == nil || !cfg.CommandRuns.Enabled {
+		return nil
+	}
+	runtimeConfig := cfg.CommandRuns
+	if runtimeConfig.ApplicationID == "" {
+		runtimeConfig.ApplicationID = cfg.AppID
+	}
+	if runtimeConfig.EnvironmentID == "" {
+		runtimeConfig.EnvironmentID = cfg.Environment
+	}
+	previous := runtimeConfig.OnProjected
+	runtimeConfig.OnProjected = func(ctx context.Context, record CommandRunRecord) error {
+		var callbackErr error
+		if previous != nil {
+			callbackErr = previous(ctx, record.Clone())
+		}
+		if m.collector != nil {
+			m.collector.PublishEvent(commandRunDebugEventType, record.Clone())
+			m.collector.PublishEvent(commandStatusEventType, commandStatusEventFromCommandRunRecord(record))
+		}
+		return callbackErr
+	}
+	if err := admin.StartCommandRunRuntime(admin.LifecycleContext(), runtimeConfig); err != nil {
+		return err
+	}
+	if runtime := admin.CommandRunRuntime(); runtime != nil {
+		runtime.setLauncherCompatibility(true)
+		if m.collector != nil {
+			m.collector.SetDeliveryFailureHandler(func(event DebugEvent) {
+				if event.Type == commandRunDebugEventType {
+					runtime.recordBrowserDeliveryDrop()
+				}
+			})
+		}
+	}
 	return nil
 }
 

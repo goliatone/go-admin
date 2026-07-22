@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -126,5 +127,51 @@ func TestDebugSessionEventAllowed(t *testing.T) {
 	event = DebugEvent{Type: debugEventSnapshotInvalidated}
 	if !debugSessionEventAllowed(event, sessionID, false) {
 		t.Fatalf("expected snapshot invalidation to refresh session clients")
+	}
+}
+
+func TestDebugSessionSnapshotsIncludeOnlyAuthorizedCommandRuns(t *testing.T) {
+	panel, _, store := newCommandRunsPanelTestFixture(t, allowAuthorizer{})
+	applyCommandRunPanelUpdate(t, store, "run-a", "corr-a", "tenant-a", 1)
+	applyCommandRunPanelUpdate(t, store, "run-b", "corr-b", "tenant-b", 1)
+	RegisterCommandRunsDebugPanel(panel.admin)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+
+	mod := NewDebugModule(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	mod.admin = panel.admin
+	mod.collector = NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	upgradeCtx, cancel := context.WithCancel(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
+	access := mod.commandRunAccess(upgradeCtx)
+	cancel()
+	if access.ctx.Err() != nil {
+		t.Fatalf("retained session access inherited upgrade cancellation: %v", access.ctx.Err())
+	}
+
+	initial := newStubWebSocketContext()
+	if err := mod.writeDebugSessionSnapshot(initial, "session-1", true, access); err != nil {
+		t.Fatalf("initial session snapshot: %v", err)
+	}
+	assertCommandRunSnapshotForTenant(t, initial.writes, "run-a")
+
+	requested := newStubWebSocketContext()
+	if err := mod.handleDebugSessionCommand(requested, newDebugSubscription(access), debugCommand{Type: "snapshot"}, "session-1", true); err != nil {
+		t.Fatalf("requested session snapshot: %v", err)
+	}
+	assertCommandRunSnapshotForTenant(t, requested.writes, "run-a")
+
+	withoutGlobals := newStubWebSocketContext()
+	if err := mod.writeDebugSessionSnapshot(withoutGlobals, "session-1", false, access); err != nil {
+		t.Fatalf("session-only snapshot: %v", err)
+	}
+	event, ok := withoutGlobals.writes[0].(DebugEvent)
+	if !ok {
+		t.Fatalf("snapshot event = %#v", withoutGlobals.writes[0])
+	}
+	snapshot, ok := event.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("snapshot payload = %#v", event.Payload)
+	}
+	if _, exists := snapshot[DebugPanelCommandRuns]; exists {
+		t.Fatal("command runs leaked into a session-only snapshot")
 	}
 }

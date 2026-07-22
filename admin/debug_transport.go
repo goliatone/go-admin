@@ -35,6 +35,8 @@ const (
 	debugSessionUpgradeAdminContext = "debug_session_admin_context"
 	debugSessionUpgradeIP           = "debug_session_ip"
 	debugSessionUpgradeUserAgent    = "debug_session_user_agent"
+	debugUpgradeAdminContext        = "debug_admin_context"
+	debugUpgradeCommandRunAccess    = "debug_command_run_access"
 )
 
 var errDebugPanelRequired = goerrors.New("panel is required", goerrors.CategoryValidation).
@@ -71,15 +73,27 @@ type debugPanelOrderPreferenceResponse struct {
 }
 
 type debugSubscription struct {
-	events map[string]bool
+	events           map[string]bool
+	commandRunAccess *commandRunWebSocketAccess
+}
+
+type commandRunWebSocketAccess struct {
+	ctx        context.Context
+	selector   CommandRunSelector
+	authorizer CommandRunScopeAuthorizer
+	allowed    bool
 }
 
 type debugWebSocketRouter interface {
 	WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo
 }
 
-func newDebugSubscription() *debugSubscription {
-	return &debugSubscription{events: map[string]bool{}}
+func newDebugSubscription(access ...*commandRunWebSocketAccess) *debugSubscription {
+	subscription := &debugSubscription{events: map[string]bool{}}
+	if len(access) > 0 {
+		subscription.commandRunAccess = access[0]
+	}
+	return subscription
 }
 
 func (s *debugSubscription) subscribe(panels []string) {
@@ -115,6 +129,65 @@ func (s *debugSubscription) allows(eventType string) bool {
 		return true
 	}
 	return s.events[eventType]
+}
+
+func (s *debugSubscription) allowsEvent(event DebugEvent) bool {
+	if !s.allows(event.Type) {
+		return false
+	}
+	if event.Type != commandRunDebugEventType {
+		return true
+	}
+	return s != nil && s.commandRunAccess != nil && s.commandRunAccess.allows(event)
+}
+
+func (a *commandRunWebSocketAccess) allows(event DebugEvent) bool {
+	if a == nil || !a.allowed || event.Type != commandRunDebugEventType {
+		return false
+	}
+	scope, ok := commandRunScopeFromDebugEvent(event)
+	if !ok || !a.selector.Matches(scope) {
+		return false
+	}
+	if a.authorizer == nil {
+		return true
+	}
+	allowed, err := a.authorizer.AuthorizeCommandRun(a.ctx, scope)
+	return err == nil && allowed
+}
+
+func commandRunScopeFromDebugEvent(event DebugEvent) (CommandRunScope, bool) {
+	switch payload := event.Payload.(type) {
+	case CommandRunRecord:
+		return payload.Scope.Normalize(), true
+	case *CommandRunRecord:
+		if payload != nil {
+			return payload.Scope.Normalize(), true
+		}
+	case CommandRunUpdate:
+		return payload.Scope.Normalize(), true
+	case *CommandRunUpdate:
+		if payload != nil {
+			return payload.Scope.Normalize(), true
+		}
+	case map[string]any:
+		rawScope, exists := payload["scope"]
+		if !exists {
+			return CommandRunScope{}, false
+		}
+		switch scope := rawScope.(type) {
+		case CommandRunScope:
+			return scope.Normalize(), true
+		case map[string]any:
+			return CommandRunScope{
+				ApplicationID:  strings.TrimSpace(toString(scope["application_id"])),
+				EnvironmentID:  strings.TrimSpace(toString(scope["environment_id"])),
+				TenantID:       strings.TrimSpace(toString(scope["tenant_id"])),
+				OrganizationID: strings.TrimSpace(toString(scope["organization_id"])),
+			}, true
+		}
+	}
+	return CommandRunScope{}, false
 }
 
 func debugPanelEventTypes(panel string) []string {
@@ -248,20 +321,23 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 		m.collector.SetLiveTransportEnabled(false)
 		return
 	}
+	if m.admin == nil {
+		m.admin = admin
+	}
 	basePath := m.basePath
 	if basePath == "" {
 		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
 	}
-	authHandler := debugAuthHandler(admin, m.config, m.permission)
 	cfg := router.DefaultWebSocketConfig()
 	cfg.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
-		if authHandler == nil {
-			return nil, nil
-		}
-		if err := authHandler(c); err != nil {
+		adminCtx, err := debugAuthorizeRequestWithContext(admin, m.config, m.permission, c)
+		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return router.UpgradeData{
+			debugUpgradeAdminContext:     adminCtx,
+			debugUpgradeCommandRunAccess: m.commandRunAccess(adminCtx.Context),
+		}, nil
 	}
 	wsPath := debugRoutePath(admin, m.config, "admin.debug", "ws")
 	if wsPath == "" {
@@ -526,7 +602,7 @@ func (m *DebugModule) handleDebugClear(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, map[string]string{"status": "ok"})
 	}
-	m.collector.Clear()
+	m.collector.ClearWithContext(c.Context())
 	m.publishSnapshotInvalidation()
 	return writeJSON(c, map[string]string{"status": "ok"})
 }
@@ -539,7 +615,7 @@ func (m *DebugModule) handleDebugClearPanel(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, map[string]string{"status": "ok"})
 	}
-	if !m.collector.ClearPanel(panelID) {
+	if !m.collector.ClearPanelWithContext(c.Context(), panelID) {
 		return writeError(c, ErrNotFound)
 	}
 	m.publishSnapshotInvalidation()
@@ -693,18 +769,19 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 	if m == nil || m.collector == nil {
 		return ErrForbidden
 	}
+	access := m.commandRunAccessFromUpgrade(c)
 	events, unsubscribe := m.subscribeDebugEvents()
 	if events == nil {
 		return nil
 	}
 	defer unsubscribe()
 
-	if err := m.writeDebugSnapshot(c); err != nil {
+	if err := m.writeDebugSnapshot(c, access); err != nil {
 		return err
 	}
 
 	commandCh, done := startDebugCommandReader(c)
-	subscriptions := newDebugSubscription()
+	subscriptions := newDebugSubscription(access)
 	return m.runDebugWebSocketLoop(c, subscriptions, commandCh, done, events)
 }
 
@@ -762,7 +839,7 @@ func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscript
 }
 
 func writeSubscribedDebugEvent(c router.WebSocketContext, subscriptions *debugSubscription, event DebugEvent) error {
-	if !subscriptions.allows(event.Type) {
+	if !subscriptions.allowsEvent(event) {
 		return nil
 	}
 	return c.WriteJSON(event)
@@ -779,7 +856,9 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 	}
 	defer cleanup()
 
-	if err := m.writeDebugSessionSnapshot(c, sessionID, includeGlobals); err != nil {
+	adminCtx := debugSessionAdminContext(c)
+	access := m.commandRunAccess(adminCtx.Context)
+	if err := m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, access); err != nil {
 		return err
 	}
 
@@ -788,7 +867,7 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 	done := make(chan struct{})
 	go m.readDebugSessionCommands(c, commandCh, done)
 
-	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(), commandCh, done, events, sessionID, includeGlobals)
+	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(access), commandCh, done, events, sessionID, includeGlobals)
 }
 
 func (m *DebugModule) debugSessionWebSocketConfig(c router.WebSocketContext) (string, bool, error) {
@@ -850,7 +929,7 @@ func (m *DebugModule) readDebugSessionCommands(c router.WebSocketContext, comman
 }
 
 func writeDebugSessionEvent(c router.WebSocketContext, subscriptions *debugSubscription, event DebugEvent, sessionID string, includeGlobals bool) error {
-	if !subscriptions.allows(event.Type) || !debugSessionEventAllowed(event, sessionID, includeGlobals) {
+	if !subscriptions.allowsEvent(event) || !debugSessionEventAllowed(event, sessionID, includeGlobals) {
 		return nil
 	}
 	return c.WriteJSON(event)
@@ -908,10 +987,10 @@ func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subsc
 	case "unsubscribe":
 		subscriptions.unsubscribe(cmd.Panels)
 	case "snapshot":
-		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
+		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, subscriptions.commandRunAccess)
 	case "clear":
-		m.clearDebugPanels(cmd.Panels)
-		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
+		m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels)
+		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, subscriptions.commandRunAccess)
 	}
 	return nil
 }
@@ -926,25 +1005,28 @@ func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscription
 	case "unsubscribe":
 		subscriptions.unsubscribe(cmd.Panels)
 	case "snapshot":
-		return m.writeDebugSnapshot(c)
+		return m.writeDebugSnapshot(c, subscriptions.commandRunAccess)
 	case "clear":
-		m.clearDebugPanels(cmd.Panels)
+		m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels)
 	}
 	return nil
 }
 
-func (m *DebugModule) clearDebugPanels(panels []string) {
+func (m *DebugModule) clearDebugPanels(ctx context.Context, panels []string) {
 	if m == nil || m.collector == nil {
 		return
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	normalized := debugpanels.NormalizePanelIDs(panels)
 	if len(normalized) == 0 {
-		m.collector.Clear()
+		m.collector.ClearWithContext(ctx)
 		m.publishSnapshotInvalidation()
 		return
 	}
 	for _, panel := range normalized {
-		_ = m.collector.ClearPanel(panel)
+		_ = m.collector.ClearPanelWithContext(ctx, panel)
 	}
 	m.publishSnapshotInvalidation()
 }
@@ -959,13 +1041,16 @@ func (m *DebugModule) publishSnapshotInvalidation() {
 	m.collector.publish(debugEventSnapshotInvalidated, nil)
 }
 
-func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext) error {
+func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext, access ...*commandRunWebSocketAccess) error {
 	if m == nil || m.collector == nil {
 		return nil
 	}
 	ctx := context.Background()
 	if c != nil {
 		ctx = c.Context()
+	}
+	if len(access) > 0 && access[0] != nil && access[0].ctx != nil {
+		ctx = access[0].ctx
 	}
 	return c.WriteJSON(DebugEvent{
 		Type:      debugEventSnapshot,
@@ -974,11 +1059,71 @@ func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext) error {
 	})
 }
 
-func (m *DebugModule) writeDebugSessionSnapshot(c router.WebSocketContext, sessionID string, includeGlobals bool) error {
+func (m *DebugModule) commandRunAccess(ctx context.Context) *commandRunWebSocketAccess {
+	if ctx == nil {
+		ctx = context.Background()
+	} else {
+		ctx = context.WithoutCancel(ctx)
+	}
+	access := &commandRunWebSocketAccess{ctx: ctx}
+	panel := NewCommandRunsDebugPanel(m.admin)
+	if !panel.available(ctx) {
+		return access
+	}
+	selector, err := panel.selector(ctx)
+	if err != nil {
+		if panel.runtime != nil {
+			panel.runtime.reportError(err)
+		}
+		return access
+	}
+	access.selector = selector
+	access.authorizer = panel.runtime.config.ScopeAuthorizer
+	access.allowed = true
+	return access
+}
+
+func (m *DebugModule) commandRunAccessFromUpgrade(c router.WebSocketContext) *commandRunWebSocketAccess {
+	if c == nil {
+		return m.commandRunAccess(context.Background())
+	}
+	if raw, ok := c.UpgradeData(debugUpgradeCommandRunAccess); ok {
+		if access, ok := raw.(*commandRunWebSocketAccess); ok && access != nil {
+			return access
+		}
+	}
+	if raw, ok := c.UpgradeData(debugUpgradeAdminContext); ok {
+		if adminCtx, ok := raw.(AdminContext); ok && adminCtx.Context != nil {
+			return m.commandRunAccess(adminCtx.Context)
+		}
+	}
+	return m.commandRunAccess(c.Context())
+}
+
+func debugWebSocketAccessContext(c router.WebSocketContext, access *commandRunWebSocketAccess) context.Context {
+	if access != nil && access.ctx != nil {
+		return access.ctx
+	}
+	if c != nil && c.Context() != nil {
+		return c.Context()
+	}
+	return context.Background()
+}
+
+func (m *DebugModule) writeDebugSessionSnapshot(c router.WebSocketContext, sessionID string, includeGlobals bool, access ...*commandRunWebSocketAccess) error {
 	if m == nil || m.collector == nil {
 		return nil
 	}
-	snapshot := m.collector.SessionSnapshot(sessionID, DebugSessionSnapshotOptions{
+	ctx := context.Background()
+	if c != nil && c.Context() != nil {
+		ctx = c.Context()
+	}
+	if len(access) > 0 && access[0] != nil && access[0].ctx != nil {
+		ctx = access[0].ctx
+	} else if adminCtx := debugSessionAdminContextFromUpgrade(c); adminCtx.Context != nil {
+		ctx = context.WithoutCancel(adminCtx.Context)
+	}
+	snapshot := m.collector.SessionSnapshotWithContext(ctx, sessionID, DebugSessionSnapshotOptions{
 		IncludeGlobalPanels: includeGlobals,
 	})
 	return c.WriteJSON(DebugEvent{
