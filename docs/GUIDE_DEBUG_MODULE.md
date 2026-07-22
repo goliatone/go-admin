@@ -187,7 +187,7 @@ type DebugConfig struct {
     // Base path for debug routes (default: "{admin_base}/debug")
     BasePath string
 
-    // Render mode for /admin/debug ("standalone" or "admin")
+    // Render mode for /admin/debug ("standalone", "admin", or "dashboard")
     LayoutMode DebugLayoutMode
 
     // Template overrides for debug HTML
@@ -229,6 +229,7 @@ type DebugLayoutMode string
 const (
     DebugLayoutStandalone DebugLayoutMode = "standalone"
     DebugLayoutAdmin      DebugLayoutMode = "admin"
+    DebugLayoutDashboard  DebugLayoutMode = "dashboard"
 )
 ```
 
@@ -257,6 +258,10 @@ Set `LayoutMode` to `"admin"` to render the debug page inside the admin layout
 (sidebar, header, theme). The default admin template is
 `resources/debug/index_admin`, which embeds the standalone console in an iframe
 to avoid CSS conflicts.
+
+Set `LayoutMode` to `"dashboard"` only when the debug panels should be rendered
+as go-dashboard widgets. Enabling the dashboard feature by itself does not
+replace the standalone or admin-framed Debug Console route.
 
 ```go
 cfg.Debug = admin.DebugConfig{
@@ -442,9 +447,10 @@ The module is disabled when any of these conditions are true:
 
 When disabled, the module silently no-ops without errors.
 
-Note: if the dashboard feature is enabled and the router supports the go-dashboard
-routes, the debug UI uses `/api/dashboard/...` endpoints; otherwise it falls back
-to the debug HTML page served at `{debug_path}`.
+Note: when `LayoutMode` is `"dashboard"`, the router uses
+`/api/dashboard/...` endpoints when supported and otherwise falls back to the
+debug HTML page served at `{debug_path}`. The `standalone` and `admin` modes
+always retain the dedicated Debug Console route.
 
 ---
 

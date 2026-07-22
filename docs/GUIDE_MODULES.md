@@ -627,7 +627,7 @@ type DebugConfig struct {
     FeatureKey         string            // Feature gate key (defaults to "debug")
     Permission         string            // Debug view permission
     BasePath           string            // Optional path override
-    LayoutMode         DebugLayoutMode   // standalone or admin template layout
+    LayoutMode         DebugLayoutMode   // standalone, admin, or dashboard layout
     PageTemplate       string            // Primary debug template
     DashboardTemplate  string            // go-dashboard template override
     ViewContextBuilder DebugViewContextBuilder
@@ -2093,7 +2093,7 @@ their supporting runtime/configuration is registered.
 - The module is disabled by default; set `DebugConfig.Enabled=true` to opt in.
 - The module also requires the feature gate key (default key is `debug`; override with `DebugConfig.FeatureKey`).
 - Without `FeatureDashboard`, the debug module serves its fallback page and API routes.
-- With `FeatureDashboard`, debug panels are also registered as dashboard providers and can use dashboard runtime routes/widgets.
+- With `FeatureDashboard`, debug panels are also registered as dashboard providers; set `LayoutMode` to `dashboard` to opt into dashboard runtime routes/widgets.
 - CMS widget persistence is only required for persisted dashboard widget instances, not for the fallback debug console.
 - Disable by setting `Enabled=false` or providing an empty `Panels` list.
 
