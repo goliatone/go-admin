@@ -1,6 +1,24 @@
 # Changelog
 
+# [0.120.3](https://github.com/goliatone/go-admin/compare/v0.120.2...v0.120.3) - (2026-07-22)
+
+## <!-- 16 -->➕ Add
+
+- Dashboard assets management registration ([46b080a](https://github.com/goliatone/go-admin/commit/46b080a1fd5bbba22a34e32a8a9dd2df46430817))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([929dd72](https://github.com/goliatone/go-admin/commit/929dd7267e6003d84b1bcc277c1f9c9c2ff4c6ab))  - (goliatone)
+- Update test ([075f651](https://github.com/goliatone/go-admin/commit/075f65116e5b2fcf450e3101237da1baf9cb1012))  - (goliatone)
+
 # [0.120.2](https://github.com/goliatone/go-admin/compare/v0.120.1...v0.120.2) - (2026-07-22)
+
+
+New patch release: v0.120.2
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.120.2 ([5b9fb6a](https://github.com/goliatone/go-admin/commit/5b9fb6a849740dd2c788f05a8e602c4bc163287f))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
