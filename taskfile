@@ -189,6 +189,9 @@ function _go:module_dirs {
     if [ -f "quickstart/go.mod" ]; then
         printf '%s\n' "quickstart"
     fi
+    if [ -f "examples/go.mod" ]; then
+        printf '%s\n' "examples"
+    fi
 }
 
 function _go:module_relative_path {
@@ -1966,13 +1969,102 @@ function release:changelog:generate {
     git cliff --tag "${release_tag}" --output CHANGELOG.md
 }
 
+function release:transaction:backup_file {
+    local state_dir=${1}
+    local key=${2}
+    local path=${3}
+
+    if [ -e "${path}" ]; then
+        cp -p "${path}" "${state_dir}/${key}.data" || return 1
+        : > "${state_dir}/${key}.present" || return 1
+    fi
+}
+
+function release:transaction:restore_file {
+    local state_dir=${1}
+    local key=${2}
+    local path=${3}
+
+    if [ -f "${state_dir}/${key}.present" ]; then
+        cp -p "${state_dir}/${key}.data" "${path}" || return 1
+    else
+        rm -f "${path}" || return 1
+    fi
+}
+
+function release:transaction:backup {
+    local state_dir=${1}
+    local release_notes_file=${2}
+
+    release:transaction:backup_file "${state_dir}" version "${VERSION_FILE}" || return 1
+    release:transaction:backup_file "${state_dir}" changelog CHANGELOG.md || return 1
+    release:transaction:backup_file "${state_dir}" root_mod go.mod || return 1
+    release:transaction:backup_file "${state_dir}" root_sum go.sum || return 1
+    release:transaction:backup_file "${state_dir}" quickstart_mod quickstart/go.mod || return 1
+    release:transaction:backup_file "${state_dir}" quickstart_sum quickstart/go.sum || return 1
+    release:transaction:backup_file "${state_dir}" release_notes "${release_notes_file}" || return 1
+}
+
+function release:transaction:restore {
+    local state_dir=${1}
+    local release_notes_file=${2}
+    local restore_failed=0
+
+    release:transaction:restore_file "${state_dir}" version "${VERSION_FILE}" || restore_failed=1
+    release:transaction:restore_file "${state_dir}" changelog CHANGELOG.md || restore_failed=1
+    release:transaction:restore_file "${state_dir}" root_mod go.mod || restore_failed=1
+    release:transaction:restore_file "${state_dir}" root_sum go.sum || restore_failed=1
+    release:transaction:restore_file "${state_dir}" quickstart_mod quickstart/go.mod || restore_failed=1
+    release:transaction:restore_file "${state_dir}" quickstart_sum quickstart/go.sum || restore_failed=1
+    release:transaction:restore_file "${state_dir}" release_notes "${release_notes_file}" || restore_failed=1
+
+    return "${restore_failed}"
+}
+
+function release:transaction:cleanup {
+    local state_dir=${1}
+
+    if [ -n "${state_dir}" ] && [ -d "${state_dir}" ]; then
+        rm -rf "${state_dir}"
+    fi
+}
+
+function release:transaction:finish {
+    local status=${1}
+    local rollback_failed=0
+
+    trap - EXIT
+
+    if [ "${status}" -ne 0 ]; then
+        if [ "${release_quickstart_tag_created:-0}" -eq 1 ]; then
+            git tag -d "${quickstart_tag}" >/dev/null 2>&1 || rollback_failed=1
+        fi
+        if [ "${release_root_tag_created:-0}" -eq 1 ]; then
+            git tag -d "${release_tag}" >/dev/null 2>&1 || rollback_failed=1
+        fi
+        if [ "${release_commit_created:-0}" -eq 1 ]; then
+            git reset --mixed "${release_original_head}" >/dev/null 2>&1 || rollback_failed=1
+        fi
+        release:transaction:restore "${release_state_dir}" "${release_notes_file}" || rollback_failed=1
+        if [ "${rollback_failed}" -eq 0 ]; then
+            echo "Release failed; restored the pre-release working state." >&2
+        else
+            echo "Release failed and automatic rollback was incomplete; inspect the working tree and local release tags." >&2
+        fi
+    fi
+
+    release:transaction:cleanup "${release_state_dir}"
+    exit "${status}"
+}
+
 ##
 ## -----
 ##
 ## quickstart:sync
 ##
-## Keep the root and quickstart module requirements in sync with the shared
-## release tag. Both tags are published atomically by release().
+## Prepare independently valid root and quickstart module metadata for a shared
+## release. Quickstart is tidied through a temporary local root replacement
+## because the matching root tag does not exist until the atomic push.
 ##
 ## Arguments:
 ## @arg 1 {string} tag
@@ -1987,10 +2079,29 @@ function quickstart:sync {
         return 0
     fi
 
-    go mod edit -require=github.com/goliatone/go-admin/quickstart@v${tag} || return 1
-    (cd quickstart && go mod edit -require=github.com/goliatone/go-admin@v${tag}) || return 1
-    go mod tidy || return 1
-    (cd quickstart && go mod tidy) || return 1
+    GOWORK=off go mod tidy || return 1
+    (
+        cd quickstart || exit 1
+        go mod edit "-require=github.com/goliatone/go-admin@v${tag}" || exit 1
+        go mod edit "-replace=github.com/goliatone/go-admin=.." || exit 1
+        GOWORK=off go mod tidy || exit 1
+        go mod edit -dropreplace=github.com/goliatone/go-admin || exit 1
+    ) || return 1
+
+    if grep -Eq '^[[:space:]]*replace[[:space:]]+github\.com/goliatone/go-admin([[:space:]]|$)' quickstart/go.mod; then
+        echo "temporary quickstart root replacement was not removed" >&2
+        return 1
+    fi
+}
+
+##
+## -----
+##
+## release:test
+##
+## Validate module release preparation and transaction rollback behavior.
+function release:test {
+    bash ./tools/test_release_workflow.sh
 }
 
 
@@ -2014,6 +2125,11 @@ function release {
     local current_branch
     local release_notes_file
     local release_notes_enabled
+    local release_state_dir
+    local release_original_head
+    local release_commit_created
+    local release_root_tag_created
+    local release_quickstart_tag_created
 
     level=""
     message=""
@@ -2085,58 +2201,78 @@ function release {
         return 1
     fi
 
+    release_state_dir=$(mktemp -d "${TMPDIR:-/tmp}/go-admin-release.XXXXXX") || return 1
+    release_original_head=$(git rev-parse HEAD) || {
+        release:transaction:cleanup "${release_state_dir}"
+        return 1
+    }
+    release_commit_created=0
+    release_root_tag_created=0
+    release_quickstart_tag_created=0
+    release:transaction:backup "${release_state_dir}" "${release_notes_file}" || {
+        release:transaction:cleanup "${release_state_dir}"
+        return 1
+    }
+
+    (
+    trap 'release:transaction:finish "$?"' EXIT
+
     # Tags are the published release source of truth. If a prior release was
     # tagged outside this task, advance .version before calculating the next tag.
-    version:sync_from_tags || return 1
+    version:sync_from_tags || exit 1
 
     # Bump our version
-    tag=$(version:bump "${level}") || return 1
+    tag=$(version:bump "${level}") || exit 1
     release_tag="v${tag}"
     quickstart_tag="quickstart/v${tag}"
 
     if git rev-parse -q --verify "refs/tags/${release_tag}" >/dev/null; then
         echo "Release tag already exists: ${release_tag}" >&2
-        return 1
+        exit 1
     fi
 
     if git rev-parse -q --verify "refs/tags/${quickstart_tag}" >/dev/null; then
         echo "Quickstart release tag already exists: ${quickstart_tag}" >&2
-        return 1
+        exit 1
     fi
 
     # Set message: default to New major|minor|patch release: vx.x.x
     message=${message:-"New ${level} release: v${tag}"}
 
     # Update version file
-    version:set "${tag}" || return 1
+    version:set "${tag}" || exit 1
 
-    # Sync the mutually dependent modules to the atomically published tags.
-    quickstart:sync "${tag}" || return 1
+    # Prepare the acyclic published modules for their atomically published tags.
+    quickstart:sync "${tag}" || exit 1
 
     # Generate changelog before tagging so release tags include their notes.
     if [ "${release_notes_enabled}" -eq 1 ]; then
-        release:changelog:generate "${release_tag}" "${release_notes_file}" || return 1
+        release:changelog:generate "${release_tag}" "${release_notes_file}" || exit 1
     else
-        git cliff --tag "${release_tag}" --output CHANGELOG.md || return 1
+        git cliff --tag "${release_tag}" --output CHANGELOG.md || exit 1
     fi
 
     # Add updated version file to git
-    git add "${VERSION_FILE}" CHANGELOG.md go.mod go.sum || return 1
+    git add "${VERSION_FILE}" CHANGELOG.md go.mod go.sum || exit 1
     if [ -f "quickstart/go.mod" ]; then
-        git add quickstart/go.mod quickstart/go.sum || return 1
+        git add quickstart/go.mod quickstart/go.sum || exit 1
     fi
-    git commit -m "Bump version: v${tag}" || return 1
+    git commit -m "Bump version: v${tag}" || exit 1
+    release_commit_created=1
 
     # Create a new tag
-    git tag -a "${release_tag}" -m "${message}" || return 1
-    git tag -a "${quickstart_tag}" -m "Quickstart release: v${tag}" || return 1
+    git tag -a "${release_tag}" -m "${message}" || exit 1
+    release_root_tag_created=1
+    git tag -a "${quickstart_tag}" -m "Quickstart release: v${tag}" || exit 1
+    release_quickstart_tag_created=1
 
-    current_branch=$(git symbolic-ref --short HEAD) || return 1
+    current_branch=$(git symbolic-ref --short HEAD) || exit 1
 
     # Push branch and release tags together so the remote is not left half-published.
     git push --atomic origin "HEAD:${current_branch}" \
         "refs/tags/${release_tag}" \
-        "refs/tags/${quickstart_tag}" || return 1
+        "refs/tags/${quickstart_tag}" || exit 1
+    )
 }
 
 ##########################################
@@ -2165,6 +2301,9 @@ function help {
 }
 
 TIMEFORMAT="Task completed in %3lR"
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return 0
+fi
 if [ "$#" -eq 0 ]; then
     set -- help
 fi

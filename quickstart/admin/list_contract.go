@@ -1,3 +1,4 @@
+// Package admincontract provides reusable repository contract assertions.
 package admincontract
 
 import (
