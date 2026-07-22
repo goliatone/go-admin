@@ -153,7 +153,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	apiAccess := debugAPIAccessMiddleware(admin, m.config, m.permission)
 	sessionAPIAccess := debugAPIAccessMiddleware(admin, m.config, debugSessionViewPermission)
 
-	if !featureEnabled(admin.featureGate, FeatureDashboard) {
+	if m.config.LayoutMode != DebugLayoutDashboard || !featureEnabled(admin.featureGate, FeatureDashboard) {
 		m.registerDebugDashboardRoute(admin, basePath, browserAccess)
 	}
 	m.registerDebugCoreAPIRoutes(admin, apiAccess, sessionAPIAccess)
