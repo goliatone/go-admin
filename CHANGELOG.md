@@ -1,20 +1,31 @@
 # Changelog
 
+# [0.121.4](https://github.com/goliatone/go-admin/compare/v0.121.3...v0.121.4) - (2026-07-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Websocket handler ([7be2b72](https://github.com/goliatone/go-admin/commit/7be2b723b164b4034df07cd9a029b10cd73bd497))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tasks ([a11d851](https://github.com/goliatone/go-admin/commit/a11d8514fb8923c94f234758d5e1849632899127))  - (goliatone)
+- Update tests ([e8955ed](https://github.com/goliatone/go-admin/commit/e8955edcbcea5e066ff5dfbdc33b7bd3fb50c5cf))  - (goliatone)
+- Update deps ([7bf7c1e](https://github.com/goliatone/go-admin/commit/7bf7c1e9b97b53d9452380fd8ecc4e880013ec54))  - (goliatone)
+
 # [0.121.3](https://github.com/goliatone/go-admin/compare/v0.121.2...v0.121.3) - (2026-07-22)
 
 
-## Migration Notes
-
-- Enable live Command Runs with `debug.command_runs.enabled` and an explicit process role. Single-process deployments may use the built-in local transport; split deployments must inject matching publisher/subscriber endpoints and keep driver lifecycle host-owned.
-- For Valkey fanout, release the go-admin command-run contracts before releasing the separately versioned `go-messaging/adapters/go-admin` module, then upgrade applications to both compatible versions.
-- Valkey Pub/Sub is ephemeral. Configure a shared durable `CommandRunStore` when reconnect snapshots must survive gateway restarts.
-- Shut down command-run runtimes before closing injected messaging drivers.
+New patch release: v0.121.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Release task ([0149818](https://github.com/goliatone/go-admin/commit/0149818c05f6eaea4592f451bbecfe36e17c0263))  - (goliatone)
 - Inflgiht events ([1f3a4cd](https://github.com/goliatone/go-admin/commit/1f3a4cd8f8dcdbd72b2c3034fe6aee4398783b38))  - (goliatone)
 - Command options URL ([ae20bfb](https://github.com/goliatone/go-admin/commit/ae20bfbfa5f1c9286b1ba25eb3952b0e6985bcbe))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.3 ([bc004e9](https://github.com/goliatone/go-admin/commit/bc004e90e461312779d39de959ee3bd2656b0e0e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
