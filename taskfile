@@ -1961,11 +1961,7 @@ function release:notes:assert_temporary {
 }
 
 function release:worktree:assert_clean {
-    local release_notes_file=${1}
-    local normalized_notes_file
     local tracked_status
-    local untracked_file
-    local untracked_found=0
 
     tracked_status=$(git status --porcelain --untracked-files=no) || {
         echo "Unable to inspect tracked working tree state." >&2
@@ -1974,30 +1970,6 @@ function release:worktree:assert_clean {
     if [ -n "${tracked_status}" ]; then
         echo "Tracked working tree changes are present; commit or stash them before release." >&2
         git status --short --untracked-files=no >&2
-        return 1
-    fi
-
-    normalized_notes_file=${release_notes_file#./}
-    if [[ "${normalized_notes_file}" = "${PWD}/"* ]]; then
-        normalized_notes_file=${normalized_notes_file#"${PWD}/"}
-    fi
-
-    git ls-files --others --exclude-standard -z >/dev/null || {
-        echo "Unable to inspect untracked working tree state." >&2
-        return 1
-    }
-    while IFS= read -r -d '' untracked_file; do
-        if [ "${untracked_file}" = "${normalized_notes_file}" ]; then
-            continue
-        fi
-        if [ "${untracked_found}" -eq 0 ]; then
-            echo "Untracked, non-ignored files are present; release inputs must come from committed source." >&2
-        fi
-        echo "?? ${untracked_file}" >&2
-        untracked_found=1
-    done < <(git ls-files --others --exclude-standard -z)
-
-    if [ "${untracked_found}" -ne 0 ]; then
         return 1
     fi
 }
@@ -2124,7 +2096,7 @@ function release:transaction:finish {
             git tag -d "${release_tag}" >/dev/null 2>&1 || rollback_failed=1
         fi
         # The index may have changed even when git commit failed, so reset it on
-        # every transactional failure. The preflight guarantees it began clean.
+        # every transactional failure. The preflight guarantees the tracked index began clean.
         git reset --mixed "${release_original_head}" >/dev/null 2>&1 || rollback_failed=1
         release:transaction:restore "${release_state_dir}" "${release_notes_file}" || rollback_failed=1
         if [ "${rollback_failed}" -eq 0 ]; then
@@ -2347,7 +2319,7 @@ function release {
     level=${level:-"patch"}
 
     # Validate inputs before any operation that can advance the local branch.
-    release:worktree:assert_clean "${release_notes_file}" || return 1
+    release:worktree:assert_clean || return 1
 
     # Fetch all changes from origin
     git fetch --all --tags || return 1
@@ -2361,7 +2333,7 @@ function release {
     git pull --ff-only --tags || return 1
 
     # Pull hooks or concurrent local changes must not alter release inputs.
-    release:worktree:assert_clean "${release_notes_file}" || return 1
+    release:worktree:assert_clean || return 1
     release:tags:assert_aligned || return 1
 
     release_state_dir=$(mktemp -d "${TMPDIR:-/tmp}/go-admin-release.XXXXXX") || return 1

@@ -364,9 +364,8 @@ function test_failed_restore_preserves_snapshot {
     grep -q "Recovery snapshot preserved at: ${state_dir}" "${error_log}"
 }
 
-function test_release_rejects_untracked_input_before_pull {
+function test_release_ignores_untracked_input {
     local git_log="${fixture_root}/untracked-preflight-git.log"
-    local status
 
     function git {
         printf '%s\n' "$*" >> "${git_log}"
@@ -375,45 +374,40 @@ function test_release_rejects_untracked_input_before_pull {
                 return 0
             ;;
             ls-files)
-                if [ "${2:-}" = "--others" ]; then
-                    printf 'scratch.go\0'
-                    return 0
-                fi
-                return 1
+                printf 'scratch.go\0'
+                return 97
             ;;
         esac
-        return 0
+        return 1
     }
 
-    release patch && status=0 || status=$?
-    if [ "${status}" -eq 0 ]; then
-        echo "release accepted contaminating untracked input" >&2
-        return 1
-    fi
-    if grep -Eq '^(fetch|pull)' "${git_log}"; then
-        echo "release fetched or pulled before rejecting untracked input" >&2
+    release:worktree:assert_clean
+    if grep -q '^ls-files' "${git_log}"; then
+        echo "release preflight inspected untracked input" >&2
         return 1
     fi
 }
 
-function test_selected_untracked_notes_are_allowed {
+function test_release_rejects_tracked_input {
+    local status
+
     function git {
         case "${1:-}" in
             status)
-                return 0
-            ;;
-            ls-files)
-                if [ "${2:-}" = "--others" ]; then
-                    printf '.release-notes.md\0'
-                    return 0
+                if [ "${2:-}" = "--porcelain" ]; then
+                    printf ' M go.mod\n'
                 fi
-                return 1
+                return 0
             ;;
         esac
         return 1
     }
 
-    release:worktree:assert_clean .release-notes.md
+    release:worktree:assert_clean && status=0 || status=$?
+    if [ "${status}" -eq 0 ]; then
+        echo "release preflight accepted tracked input" >&2
+        return 1
+    fi
 }
 
 function test_release_rejects_tag_skew {
@@ -857,8 +851,8 @@ test_quickstart_sync_runs_tests
 test_quickstart_sync_check_restores_after_interruption
 test_transaction_rollback
 test_failed_restore_preserves_snapshot
-test_release_rejects_untracked_input_before_pull
-test_selected_untracked_notes_are_allowed
+test_release_ignores_untracked_input
+test_release_rejects_tracked_input
 test_release_rejects_tag_skew
 test_release_failure_end_to_end
 test_release_commit_failure_restores_index
