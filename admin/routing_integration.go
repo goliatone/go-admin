@@ -163,8 +163,12 @@ func newURLKitRoutingAdapter(manager *urlkit.RouteManager) urlKitRoutingAdapter 
 }
 
 func (a urlKitRoutingAdapter) RoutingURLKitCapabilities() routing.URLKitCapabilities {
-	if provider, ok := any(a.manager).(routing.URLKitCapabilityProvider); ok {
-		return provider.RoutingURLKitCapabilities()
+	if provider, ok := any(a.manager).(urlkit.RoutingCapabilityProvider); ok {
+		caps := provider.RoutingCapabilities()
+		return routing.URLKitCapabilities{
+			NativeStrictMutations: caps.StrictMutations,
+			NativeManifest:        caps.Manifest,
+		}
 	}
 	return routing.URLKitCapabilities{}
 }
@@ -267,8 +271,13 @@ func (a *adminRouterRoutingAdapter) RoutingRouterCapabilities() routing.RouterCa
 	if a == nil || a.router == nil {
 		return routing.RouterCapabilities{}
 	}
-	if provider, ok := any(a.router).(routing.RouterCapabilityProvider); ok {
-		return provider.RoutingRouterCapabilities()
+	if provider, ok := any(a.router).(router.RoutingCapabilityProvider); ok {
+		caps := provider.RoutingCapabilities()
+		return routing.RouterCapabilities{
+			NativeRouteNamePolicy: caps.RouteNamePolicy,
+			NativeOwnershipChecks: caps.OwnershipChecks,
+			NativeManifest:        caps.Manifest,
+		}
 	}
 	return routing.RouterCapabilities{}
 }

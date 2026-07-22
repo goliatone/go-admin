@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -116,6 +117,9 @@ func (m *ProfileModule) RouteContract() routing.ModuleContract {
 		Slug: profileModuleID,
 		UIRoutes: map[string]string{
 			profileRouteKey: "/",
+		},
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			profileRouteKey: {Method: router.GET, Path: "/"},
 		},
 	}
 }

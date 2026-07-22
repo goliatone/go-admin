@@ -53,7 +53,7 @@ func BuildRuntimeReport(manifest Manifest, snapshot router.RegistrationSnapshot)
 		Revision:       snapshot.Revision,
 		DeclaredRoutes: len(snapshot.DeclaredRoutes),
 		MountedRoutes:  len(snapshot.MountedRoutes),
-		Shadows:        router.AnalyzeRouteShadows(snapshot.MountedRoutes),
+		Shadows:        router.AnalyzeRouteShadowsWithSemantics(snapshot.MountedRoutes, snapshot.MatchingSemantics),
 	}
 
 	mounted := make(map[string]struct{}, len(snapshot.MountedRoutes))
@@ -67,11 +67,11 @@ func BuildRuntimeReport(manifest Manifest, snapshot router.RegistrationSnapshot)
 			continue
 		}
 		if entry.Method == "" || entry.Method == ManifestMethodUnknown {
-			reason := "legacy route declaration has no HTTP method; method reachability cannot be verified"
-			if _, ok := mountedPaths[strings.TrimSpace(entry.Path)]; ok {
-				reason = "legacy route declaration has no HTTP method; path presence is verified but method reachability is unknown"
+			if _, ok := mountedPaths[strings.TrimSpace(entry.Path)]; !ok {
+				report.MissingRoutes = append(report.MissingRoutes, runtimeRouteIssue(entry, "legacy route declaration path is absent from the mounted route table; HTTP method is also unknown"))
+				continue
 			}
-			report.UnverifiableRoutes = append(report.UnverifiableRoutes, runtimeRouteIssue(entry, reason))
+			report.UnverifiableRoutes = append(report.UnverifiableRoutes, runtimeRouteIssue(entry, "legacy route declaration has no HTTP method; path presence is verified but method reachability is unknown"))
 			continue
 		}
 		if _, ok := mounted[runtimeRouteKey(entry.Method, entry.Path)]; ok {
