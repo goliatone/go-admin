@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/google/uuid"
 )
@@ -447,16 +448,22 @@ func registerUserCommands(bus *CommandBus, service *UserManagementService) error
 }
 
 func (m *UserManagementModule) RouteContract() routing.ModuleContract {
-	routes := map[string]string{
+	routePaths := map[string]string{
 		usersRouteKey:      "/users",
 		usersRolesRouteKey: "/roles",
 	}
+	declarations := map[string]routing.RouteDeclaration{
+		usersRouteKey:      {Method: router.GET, Path: "/users"},
+		usersRolesRouteKey: {Method: router.GET, Path: "/roles"},
+	}
 	if m.enableUserProfilesPanel {
-		routes[usersProfilesRouteKey] = "/user-profiles"
+		routePaths[usersProfilesRouteKey] = "/user-profiles"
+		declarations[usersProfilesRouteKey] = routing.RouteDeclaration{Method: router.GET, Path: "/user-profiles"}
 	}
 	return routing.ModuleContract{
-		Slug:     usersModuleID,
-		UIRoutes: routes,
+		Slug:                usersModuleID,
+		UIRoutes:            routePaths,
+		UIRouteDeclarations: declarations,
 	}
 }
 
