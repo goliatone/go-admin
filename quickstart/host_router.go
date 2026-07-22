@@ -73,6 +73,13 @@ type hostAdminRouter[T any] struct {
 	host    *hostRouter[T]
 }
 
+// DashboardAssetsManagedExternally reports that quickstart owns dashboard
+// assets through HostRouter.Static and NewStaticAssets. Admin initialization
+// must therefore register only dashboard endpoints on this surface.
+func (r *hostAdminRouter[T]) DashboardAssetsManagedExternally() bool {
+	return r != nil && r.host != nil
+}
+
 // NewHostRouter returns explicit route-registration surfaces backed by the
 // provided router.
 func NewHostRouter[T any](r router.Router[T], cfg coreadmin.Config) HostRouter[T] {

@@ -595,6 +595,7 @@ type (
 	AdminPageWriteService                             = core.AdminPageWriteService
 	AdminRouter                                       = core.AdminRouter
 	AdminStaticRouter[T any]                          = core.AdminStaticRouter[T]
+	DashboardAssetOwnershipProvider                   = core.DashboardAssetOwnershipProvider
 	AssignmentStatus                                  = core.AssignmentStatus
 	AssignmentType                                    = core.AssignmentType
 	AuthConfig                                        = core.AuthConfig
