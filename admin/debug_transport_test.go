@@ -67,7 +67,7 @@ func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
 		Debug:         DebugConfig{Enabled: true},
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{
-		"debug":                 true,
+		"debug":                  true,
 		string(FeatureDashboard): true,
 	})})
 	adm.WithAuthorizer(allowAllDebugAuthorizer{})
