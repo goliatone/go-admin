@@ -134,18 +134,142 @@ function test_quickstart_sync_without_published_tag {
     fi
 }
 
+function test_examples_sync_tracks_coordinated_version {
+    local sync_fixture="${fixture_root}/examples-sync"
+
+    mkdir -p "${sync_fixture}/quickstart" "${sync_fixture}/examples"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin' \
+        '' \
+        'go 1.26.5' > "${sync_fixture}/go.mod"
+    printf '%s\n' 'package admin' '' 'const Name = "admin"' > "${sync_fixture}/admin.go"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin/quickstart' \
+        '' \
+        'go 1.26.5' \
+        '' \
+        'require github.com/goliatone/go-admin v0.121.2' > "${sync_fixture}/quickstart/go.mod"
+    printf '%s\n' \
+        'package quickstart' \
+        '' \
+        'import root "github.com/goliatone/go-admin"' \
+        '' \
+        'const Name = root.Name' > "${sync_fixture}/quickstart/quickstart.go"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin/examples' \
+        '' \
+        'go 1.26.5' \
+        '' \
+        'require (' \
+        '    github.com/goliatone/go-admin v0.121.2' \
+        '    github.com/goliatone/go-admin/quickstart v0.121.2' \
+        ')' \
+        '' \
+        'replace github.com/goliatone/go-admin => ..' \
+        '' \
+        'replace github.com/goliatone/go-admin/quickstart => ../quickstart' > "${sync_fixture}/examples/go.mod"
+    printf '%s\n' \
+        'package examples' \
+        '' \
+        'import (' \
+        '    root "github.com/goliatone/go-admin"' \
+        '    "github.com/goliatone/go-admin/quickstart"' \
+        ')' \
+        '' \
+        'const Name = root.Name + quickstart.Name' > "${sync_fixture}/examples/example.go"
+
+    (cd "${sync_fixture}" && examples:sync 0.999.0)
+
+    grep -q 'github.com/goliatone/go-admin v0.999.0' "${sync_fixture}/examples/go.mod"
+    grep -q 'github.com/goliatone/go-admin/quickstart v0.999.0' "${sync_fixture}/examples/go.mod"
+    grep -q '^replace github.com/goliatone/go-admin => \.\.$' "${sync_fixture}/examples/go.mod"
+    grep -q '^replace github.com/goliatone/go-admin/quickstart => ../quickstart$' "${sync_fixture}/examples/go.mod"
+}
+
+function test_quickstart_sync_runs_tests {
+    local sync_fixture="${fixture_root}/quickstart-sync-test-failure"
+    local status
+
+    mkdir -p "${sync_fixture}/quickstart"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin' \
+        '' \
+        'go 1.26.5' > "${sync_fixture}/go.mod"
+    printf '%s\n' \
+        'package admin' \
+        '' \
+        'const Name = "admin"' > "${sync_fixture}/admin.go"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin/quickstart' \
+        '' \
+        'go 1.26.5' \
+        '' \
+        'require github.com/goliatone/go-admin v0.121.2' > "${sync_fixture}/quickstart/go.mod"
+    printf '%s\n' \
+        'package quickstart' \
+        '' \
+        'import root "github.com/goliatone/go-admin"' \
+        '' \
+        'const RootName = root.Name' > "${sync_fixture}/quickstart/quickstart.go"
+    printf '%s\n' \
+        'package quickstart' \
+        '' \
+        'import "testing"' \
+        '' \
+        'func TestReleaseGate(t *testing.T) { t.Fatal("release test gate") }' > "${sync_fixture}/quickstart/release_gate_test.go"
+
+    (cd "${sync_fixture}" && quickstart:sync 0.999.0) \
+        > "${sync_fixture}/expected-test-failure.log" 2>&1 && status=0 || status=$?
+    if [ "${status}" -eq 0 ]; then
+        echo "quickstart sync ignored a failing package test" >&2
+        return 1
+    fi
+}
+
+function test_quickstart_sync_check_restores_after_interruption {
+    local sync_fixture="${fixture_root}/quickstart-sync-interrupted"
+    local status
+
+    mkdir -p "${sync_fixture}/quickstart"
+    printf '%s\n' 'root mod' > "${sync_fixture}/go.mod"
+    printf '%s\n' 'root sum' > "${sync_fixture}/go.sum"
+    printf '%s\n' 'quickstart mod' > "${sync_fixture}/quickstart/go.mod"
+    printf '%s\n' 'quickstart sum' > "${sync_fixture}/quickstart/go.sum"
+
+    (
+        cd "${sync_fixture}" || exit 1
+        function quickstart:sync {
+            printf '%s\n' 'changed root mod' > go.mod
+            printf '%s\n' 'changed quickstart mod' > quickstart/go.mod
+            /bin/sh -c 'kill -TERM "$PPID"'
+        }
+        quickstart:sync:check 0.999.0
+    ) && status=0 || status=$?
+
+    if [ "${status}" -ne 143 ]; then
+        echo "interrupted quickstart sync returned unexpected status: ${status}" >&2
+        return 1
+    fi
+    assert_file_content "${sync_fixture}/go.mod" 'root mod'
+    assert_file_content "${sync_fixture}/go.sum" 'root sum'
+    assert_file_content "${sync_fixture}/quickstart/go.mod" 'quickstart mod'
+    assert_file_content "${sync_fixture}/quickstart/go.sum" 'quickstart sum'
+}
+
 function test_transaction_rollback {
     local transaction_fixture="${fixture_root}/transaction"
     local git_log="${fixture_root}/git.log"
     local status
 
-    mkdir -p "${transaction_fixture}/quickstart"
+    mkdir -p "${transaction_fixture}/quickstart" "${transaction_fixture}/examples"
     printf '%s\n' '0.121.2' > "${transaction_fixture}/.version"
     printf '%s\n' 'old changelog' > "${transaction_fixture}/CHANGELOG.md"
     printf '%s\n' 'old root mod' > "${transaction_fixture}/go.mod"
     printf '%s\n' 'old root sum' > "${transaction_fixture}/go.sum"
     printf '%s\n' 'old quickstart mod' > "${transaction_fixture}/quickstart/go.mod"
     printf '%s\n' 'old quickstart sum' > "${transaction_fixture}/quickstart/go.sum"
+    printf '%s\n' 'old examples mod' > "${transaction_fixture}/examples/go.mod"
+    printf '%s\n' 'old examples sum' > "${transaction_fixture}/examples/go.sum"
     printf '%s\n' 'manual notes' > "${transaction_fixture}/.release-notes.md"
 
     (
@@ -174,6 +298,8 @@ function test_transaction_rollback {
         printf '%s\n' 'new root sum' > go.sum
         printf '%s\n' 'new quickstart mod' > quickstart/go.mod
         printf '%s\n' 'new quickstart sum' > quickstart/go.sum
+        printf '%s\n' 'new examples mod' > examples/go.mod
+        printf '%s\n' 'new examples sum' > examples/go.sum
         rm -f .release-notes.md
         exit 23
     ) && status=0 || status=$?
@@ -189,6 +315,8 @@ function test_transaction_rollback {
     assert_file_content "${transaction_fixture}/go.sum" 'old root sum'
     assert_file_content "${transaction_fixture}/quickstart/go.mod" 'old quickstart mod'
     assert_file_content "${transaction_fixture}/quickstart/go.sum" 'old quickstart sum'
+    assert_file_content "${transaction_fixture}/examples/go.mod" 'old examples mod'
+    assert_file_content "${transaction_fixture}/examples/go.sum" 'old examples sum'
     assert_file_content "${transaction_fixture}/.release-notes.md" 'manual notes'
 
     grep -q '^tag -d quickstart/v9.9.9$' "${git_log}"
@@ -201,12 +329,140 @@ function test_transaction_rollback {
     fi
 }
 
+function test_failed_restore_preserves_snapshot {
+    local state_dir="${fixture_root}/failed-restore-state"
+    local error_log="${fixture_root}/failed-restore.log"
+    local status
+
+    mkdir -p "${state_dir}"
+    (
+        release_state_dir="${state_dir}"
+        release_original_head=original-head
+        release_notes_file=.release-notes.md
+        release_root_tag_created=0
+        release_quickstart_tag_created=0
+
+        function git {
+            return 0
+        }
+        function release:transaction:restore {
+            return 1
+        }
+
+        trap 'release:transaction:finish "$?"' EXIT
+        exit 29
+    ) 2> "${error_log}" && status=0 || status=$?
+
+    if [ "${status}" -ne 29 ]; then
+        echo "failed restoration changed the original status: ${status}" >&2
+        return 1
+    fi
+    if [ ! -d "${state_dir}" ]; then
+        echo "failed restoration deleted its recovery snapshot" >&2
+        return 1
+    fi
+    grep -q "Recovery snapshot preserved at: ${state_dir}" "${error_log}"
+}
+
+function test_release_rejects_untracked_input_before_pull {
+    local git_log="${fixture_root}/untracked-preflight-git.log"
+    local status
+
+    function git {
+        printf '%s\n' "$*" >> "${git_log}"
+        case "${1:-}" in
+            status)
+                return 0
+            ;;
+            ls-files)
+                if [ "${2:-}" = "--others" ]; then
+                    printf 'scratch.go\0'
+                    return 0
+                fi
+                return 1
+            ;;
+        esac
+        return 0
+    }
+
+    release patch && status=0 || status=$?
+    if [ "${status}" -eq 0 ]; then
+        echo "release accepted contaminating untracked input" >&2
+        return 1
+    fi
+    if grep -Eq '^(fetch|pull)' "${git_log}"; then
+        echo "release fetched or pulled before rejecting untracked input" >&2
+        return 1
+    fi
+}
+
+function test_selected_untracked_notes_are_allowed {
+    function git {
+        case "${1:-}" in
+            status)
+                return 0
+            ;;
+            ls-files)
+                if [ "${2:-}" = "--others" ]; then
+                    printf '.release-notes.md\0'
+                    return 0
+                fi
+                return 1
+            ;;
+        esac
+        return 1
+    }
+
+    release:worktree:assert_clean .release-notes.md
+}
+
+function test_release_rejects_tag_skew {
+    local mode
+    local status
+
+    for mode in version commit; do
+        function git {
+            case "${1:-}" in
+                tag)
+                    if [ "${2:-}" = "--list" ]; then
+                        case "${3:-}" in
+                            quickstart/*)
+                                if [ "${mode}" = version ]; then
+                                    printf '%s\n' 'quickstart/v0.121.1'
+                                else
+                                    printf '%s\n' 'quickstart/v0.121.2'
+                                fi
+                            ;;
+                            *) printf '%s\n' 'v0.121.2' ;;
+                        esac
+                    fi
+                    return 0
+                ;;
+                rev-list)
+                    case "${4:-}" in
+                        quickstart/*) printf '%s\n' 'quickstart-commit' ;;
+                        *) printf '%s\n' 'root-commit' ;;
+                    esac
+                    return 0
+                ;;
+            esac
+            return 1
+        }
+
+        release:tags:assert_aligned && status=0 || status=$?
+        if [ "${status}" -eq 0 ]; then
+            echo "release accepted ${mode} skew between coordinated tags" >&2
+            return 1
+        fi
+    done
+}
+
 function test_release_failure_end_to_end {
     local release_fixture="${fixture_root}/release-e2e"
     local git_log="${fixture_root}/release-git.log"
     local status
 
-    mkdir -p "${release_fixture}/quickstart"
+    mkdir -p "${release_fixture}/quickstart" "${release_fixture}/examples"
     printf '%s\n' '0.121.2' > "${release_fixture}/.version"
     printf '%s\n' 'old changelog' > "${release_fixture}/CHANGELOG.md"
     printf '%s\n' 'manual notes' > "${release_fixture}/.release-notes.md"
@@ -230,6 +486,28 @@ function test_release_failure_end_to_end {
         'import root "github.com/goliatone/go-admin"' \
         '' \
         'const RootName = root.Name' > "${release_fixture}/quickstart/quickstart.go"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin/examples' \
+        '' \
+        'go 1.26.5' \
+        '' \
+        'require (' \
+        '    github.com/goliatone/go-admin v0.121.2' \
+        '    github.com/goliatone/go-admin/quickstart v0.121.2' \
+        ')' \
+        '' \
+        'replace github.com/goliatone/go-admin => ..' \
+        '' \
+        'replace github.com/goliatone/go-admin/quickstart => ../quickstart' > "${release_fixture}/examples/go.mod"
+    printf '%s\n' \
+        'package examples' \
+        '' \
+        'import (' \
+        '    root "github.com/goliatone/go-admin"' \
+        '    "github.com/goliatone/go-admin/quickstart"' \
+        ')' \
+        '' \
+        'const Name = root.Name + quickstart.RootName' > "${release_fixture}/examples/example.go"
 
     (
         cd "${release_fixture}" || exit 1
@@ -256,7 +534,14 @@ function test_release_failure_end_to_end {
                     return 0
                 ;;
                 ls-files)
+                    if [ "${2:-}" = "--others" ]; then
+                        return 0
+                    fi
                     return 1
+                ;;
+                rev-list)
+                    printf '%s\n' 'release-commit'
+                    return 0
                 ;;
                 cliff)
                     for arg in "$@"; do
@@ -269,7 +554,10 @@ function test_release_failure_end_to_end {
                 ;;
                 tag)
                     if [ "${2:-}" = "--list" ]; then
-                        printf '%s\n' 'v0.121.2'
+                        case "${3:-}" in
+                            quickstart/*) printf '%s\n' 'quickstart/v0.121.2' ;;
+                            *) printf '%s\n' 'v0.121.2' ;;
+                        esac
                     fi
                     return 0
                 ;;
@@ -303,6 +591,8 @@ function test_release_failure_end_to_end {
         echo "failed release left a quickstart replacement" >&2
         return 1
     fi
+    grep -q 'github.com/goliatone/go-admin v0.121.2' "${release_fixture}/examples/go.mod"
+    grep -q 'github.com/goliatone/go-admin/quickstart v0.121.2' "${release_fixture}/examples/go.mod"
 
     grep -q '^push --atomic origin HEAD:main refs/tags/v0.121.3 refs/tags/quickstart/v0.121.3$' "${git_log}"
     grep -q '^tag -d quickstart/v0.121.3$' "${git_log}"
@@ -310,9 +600,11 @@ function test_release_failure_end_to_end {
     grep -q '^reset --mixed original-head$' "${git_log}"
 }
 
-function test_release_success_end_to_end {
-    local release_fixture="${fixture_root}/release-success"
-    local git_log="${fixture_root}/release-success-git.log"
+function test_release_commit_failure_restores_index {
+    local release_fixture="${fixture_root}/release-commit-failure"
+    local git_log="${fixture_root}/release-commit-failure-git.log"
+    local index_state="${fixture_root}/release-commit-failure-index"
+    local status
 
     mkdir -p "${release_fixture}/quickstart"
     printf '%s\n' '0.121.2' > "${release_fixture}/.version"
@@ -338,6 +630,140 @@ function test_release_success_end_to_end {
         'import root "github.com/goliatone/go-admin"' \
         '' \
         'const RootName = root.Name' > "${release_fixture}/quickstart/quickstart.go"
+    printf '%s\n' 'clean' > "${index_state}"
+
+    (
+        cd "${release_fixture}" || exit 1
+        VERSION_FILE=.version
+
+        function git {
+            local previous=""
+            local arg
+
+            printf '%s\n' "$*" >> "${git_log}"
+            case "${1:-}" in
+                status|fetch|pull)
+                    return 0
+                ;;
+                symbolic-ref)
+                    printf '%s\n' 'main'
+                    return 0
+                ;;
+                ls-files)
+                    if [ "${2:-}" = "--others" ]; then
+                        return 0
+                    fi
+                    return 1
+                ;;
+                tag)
+                    if [ "${2:-}" = "--list" ]; then
+                        case "${3:-}" in
+                            quickstart/*) printf '%s\n' 'quickstart/v0.121.2' ;;
+                            *) printf '%s\n' 'v0.121.2' ;;
+                        esac
+                    fi
+                    return 0
+                ;;
+                rev-list)
+                    printf '%s\n' 'release-commit'
+                    return 0
+                ;;
+                rev-parse)
+                    if [ "${2:-}" = "HEAD" ]; then
+                        printf '%s\n' 'original-head'
+                        return 0
+                    fi
+                    return 1
+                ;;
+                cliff)
+                    for arg in "$@"; do
+                        if [ "${previous}" = "--output" ]; then
+                            printf '%s\n' 'generated changelog' > "${arg}"
+                        fi
+                        previous=${arg}
+                    done
+                    return 0
+                ;;
+                add)
+                    printf '%s\n' 'staged' > "${index_state}"
+                    return 0
+                ;;
+                commit)
+                    return 77
+                ;;
+                reset)
+                    printf '%s\n' 'clean' > "${index_state}"
+                    return 0
+                ;;
+            esac
+            echo "unexpected git invocation: $*" >&2
+            return 1
+        }
+
+        release patch
+    ) && status=0 || status=$?
+
+    if [ "${status}" -ne 1 ]; then
+        echo "commit failure returned unexpected status: ${status}" >&2
+        return 1
+    fi
+    assert_file_content "${index_state}" 'clean'
+    assert_file_content "${release_fixture}/.version" '0.121.2'
+    assert_file_content "${release_fixture}/CHANGELOG.md" 'old changelog'
+    assert_file_content "${release_fixture}/.release-notes.md" 'manual notes'
+    grep -q '^reset --mixed original-head$' "${git_log}"
+}
+
+function test_release_success_end_to_end {
+    local release_fixture="${fixture_root}/release-success"
+    local git_log="${fixture_root}/release-success-git.log"
+
+    mkdir -p "${release_fixture}/quickstart" "${release_fixture}/examples"
+    printf '%s\n' '0.121.2' > "${release_fixture}/.version"
+    printf '%s\n' 'old changelog' > "${release_fixture}/CHANGELOG.md"
+    printf '%s\n' 'manual notes' > "${release_fixture}/.release-notes.md"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin' \
+        '' \
+        'go 1.26.5' > "${release_fixture}/go.mod"
+    printf '%s\n' \
+        'package admin' \
+        '' \
+        'const Name = "admin"' > "${release_fixture}/admin.go"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin/quickstart' \
+        '' \
+        'go 1.26.5' \
+        '' \
+        'require github.com/goliatone/go-admin v0.121.2' > "${release_fixture}/quickstart/go.mod"
+    printf '%s\n' \
+        'package quickstart' \
+        '' \
+        'import root "github.com/goliatone/go-admin"' \
+        '' \
+        'const RootName = root.Name' > "${release_fixture}/quickstart/quickstart.go"
+    printf '%s\n' \
+        'module github.com/goliatone/go-admin/examples' \
+        '' \
+        'go 1.26.5' \
+        '' \
+        'require (' \
+        '    github.com/goliatone/go-admin v0.121.2' \
+        '    github.com/goliatone/go-admin/quickstart v0.121.2' \
+        ')' \
+        '' \
+        'replace github.com/goliatone/go-admin => ..' \
+        '' \
+        'replace github.com/goliatone/go-admin/quickstart => ../quickstart' > "${release_fixture}/examples/go.mod"
+    printf '%s\n' \
+        'package examples' \
+        '' \
+        'import (' \
+        '    root "github.com/goliatone/go-admin"' \
+        '    "github.com/goliatone/go-admin/quickstart"' \
+        ')' \
+        '' \
+        'const Name = root.Name + quickstart.RootName' > "${release_fixture}/examples/example.go"
 
     (
         cd "${release_fixture}" || exit 1
@@ -364,7 +790,14 @@ function test_release_success_end_to_end {
                     return 0
                 ;;
                 ls-files)
+                    if [ "${2:-}" = "--others" ]; then
+                        return 0
+                    fi
                     return 1
+                ;;
+                rev-list)
+                    printf '%s\n' 'release-commit'
+                    return 0
                 ;;
                 cliff)
                     for arg in "$@"; do
@@ -377,7 +810,10 @@ function test_release_success_end_to_end {
                 ;;
                 tag)
                     if [ "${2:-}" = "--list" ]; then
-                        printf '%s\n' 'v0.121.2'
+                        case "${3:-}" in
+                            quickstart/*) printf '%s\n' 'quickstart/v0.121.2' ;;
+                            *) printf '%s\n' 'v0.121.2' ;;
+                        esac
                     fi
                     return 0
                 ;;
@@ -403,6 +839,8 @@ function test_release_success_end_to_end {
         echo "successful release left a quickstart replacement" >&2
         return 1
     fi
+    grep -q 'github.com/goliatone/go-admin v0.121.3' "${release_fixture}/examples/go.mod"
+    grep -q 'github.com/goliatone/go-admin/quickstart v0.121.3' "${release_fixture}/examples/go.mod"
     grep -q '^push --atomic origin HEAD:main refs/tags/v0.121.3 refs/tags/quickstart/v0.121.3$' "${git_log}"
     if grep -q '^reset --mixed' "${git_log}"; then
         echo "successful release unexpectedly rolled back" >&2
@@ -414,8 +852,16 @@ test_module_discovery
 test_repository_module_boundaries
 test_real_quickstart_sync
 test_quickstart_sync_without_published_tag
+test_examples_sync_tracks_coordinated_version
+test_quickstart_sync_runs_tests
+test_quickstart_sync_check_restores_after_interruption
 test_transaction_rollback
+test_failed_restore_preserves_snapshot
+test_release_rejects_untracked_input_before_pull
+test_selected_untracked_notes_are_allowed
+test_release_rejects_tag_skew
 test_release_failure_end_to_end
+test_release_commit_failure_restores_index
 test_release_success_end_to_end
 
 echo "release workflow tests passed"

@@ -1898,9 +1898,17 @@ function version:is_greater {
 }
 
 function version:latest_release_tag {
-    git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
-        | sed -n 's/^v\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' \
-        | head -n 1
+    local tags
+
+    tags=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname) || return 1
+    printf '%s\n' "${tags}" | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/ { sub(/^v/, ""); print; exit }'
+}
+
+function version:latest_quickstart_release_tag {
+    local tags
+
+    tags=$(git tag --list 'quickstart/v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname) || return 1
+    printf '%s\n' "${tags}" | awk '/^quickstart\/v[0-9]+\.[0-9]+\.[0-9]+$/ { sub(/^quickstart\/v/, ""); print; exit }'
 }
 
 function version:sync_from_tags {
@@ -1948,6 +1956,75 @@ function release:notes:assert_temporary {
     if git ls-files --error-unmatch -- "${file}" >/dev/null 2>&1; then
         echo "Release notes file is tracked; refusing to consume it as temporary notes: ${file}" >&2
         echo "Use an ignored scratch file such as .release-notes.md, or set RELEASE_NOTES_FILE to an untracked path." >&2
+        return 1
+    fi
+}
+
+function release:worktree:assert_clean {
+    local release_notes_file=${1}
+    local normalized_notes_file
+    local tracked_status
+    local untracked_file
+    local untracked_found=0
+
+    tracked_status=$(git status --porcelain --untracked-files=no) || {
+        echo "Unable to inspect tracked working tree state." >&2
+        return 1
+    }
+    if [ -n "${tracked_status}" ]; then
+        echo "Tracked working tree changes are present; commit or stash them before release." >&2
+        git status --short --untracked-files=no >&2
+        return 1
+    fi
+
+    normalized_notes_file=${release_notes_file#./}
+    if [[ "${normalized_notes_file}" = "${PWD}/"* ]]; then
+        normalized_notes_file=${normalized_notes_file#"${PWD}/"}
+    fi
+
+    git ls-files --others --exclude-standard -z >/dev/null || {
+        echo "Unable to inspect untracked working tree state." >&2
+        return 1
+    }
+    while IFS= read -r -d '' untracked_file; do
+        if [ "${untracked_file}" = "${normalized_notes_file}" ]; then
+            continue
+        fi
+        if [ "${untracked_found}" -eq 0 ]; then
+            echo "Untracked, non-ignored files are present; release inputs must come from committed source." >&2
+        fi
+        echo "?? ${untracked_file}" >&2
+        untracked_found=1
+    done < <(git ls-files --others --exclude-standard -z)
+
+    if [ "${untracked_found}" -ne 0 ]; then
+        return 1
+    fi
+}
+
+function release:tags:assert_aligned {
+    local root_version
+    local quickstart_version
+    local root_commit
+    local quickstart_commit
+
+    root_version=$(version:latest_release_tag) || return 1
+    quickstart_version=$(version:latest_quickstart_release_tag) || return 1
+
+    if [ "${root_version}" != "${quickstart_version}" ]; then
+        echo "Published root and quickstart tags are not aligned: root=${root_version:-none}, quickstart=${quickstart_version:-none}." >&2
+        echo "Reconcile the existing tags before creating another coordinated release." >&2
+        return 1
+    fi
+    if [ -z "${root_version}" ]; then
+        return 0
+    fi
+
+    root_commit=$(git rev-list -n 1 "v${root_version}") || return 1
+    quickstart_commit=$(git rev-list -n 1 "quickstart/v${quickstart_version}") || return 1
+    if [ "${root_commit}" != "${quickstart_commit}" ]; then
+        echo "Published root and quickstart tags for v${root_version} point to different commits." >&2
+        echo "Reconcile the existing tags before creating another coordinated release." >&2
         return 1
     fi
 }
@@ -2002,6 +2079,8 @@ function release:transaction:backup {
     release:transaction:backup_file "${state_dir}" root_sum go.sum || return 1
     release:transaction:backup_file "${state_dir}" quickstart_mod quickstart/go.mod || return 1
     release:transaction:backup_file "${state_dir}" quickstart_sum quickstart/go.sum || return 1
+    release:transaction:backup_file "${state_dir}" examples_mod examples/go.mod || return 1
+    release:transaction:backup_file "${state_dir}" examples_sum examples/go.sum || return 1
     release:transaction:backup_file "${state_dir}" release_notes "${release_notes_file}" || return 1
 }
 
@@ -2016,6 +2095,8 @@ function release:transaction:restore {
     release:transaction:restore_file "${state_dir}" root_sum go.sum || restore_failed=1
     release:transaction:restore_file "${state_dir}" quickstart_mod quickstart/go.mod || restore_failed=1
     release:transaction:restore_file "${state_dir}" quickstart_sum quickstart/go.sum || restore_failed=1
+    release:transaction:restore_file "${state_dir}" examples_mod examples/go.mod || restore_failed=1
+    release:transaction:restore_file "${state_dir}" examples_sum examples/go.sum || restore_failed=1
     release:transaction:restore_file "${state_dir}" release_notes "${release_notes_file}" || restore_failed=1
 
     return "${restore_failed}"
@@ -2033,7 +2114,7 @@ function release:transaction:finish {
     local status=${1}
     local rollback_failed=0
 
-    trap - EXIT
+    trap - EXIT HUP INT TERM
 
     if [ "${status}" -ne 0 ]; then
         if [ "${release_quickstart_tag_created:-0}" -eq 1 ]; then
@@ -2042,18 +2123,21 @@ function release:transaction:finish {
         if [ "${release_root_tag_created:-0}" -eq 1 ]; then
             git tag -d "${release_tag}" >/dev/null 2>&1 || rollback_failed=1
         fi
-        if [ "${release_commit_created:-0}" -eq 1 ]; then
-            git reset --mixed "${release_original_head}" >/dev/null 2>&1 || rollback_failed=1
-        fi
+        # The index may have changed even when git commit failed, so reset it on
+        # every transactional failure. The preflight guarantees it began clean.
+        git reset --mixed "${release_original_head}" >/dev/null 2>&1 || rollback_failed=1
         release:transaction:restore "${release_state_dir}" "${release_notes_file}" || rollback_failed=1
         if [ "${rollback_failed}" -eq 0 ]; then
             echo "Release failed; restored the pre-release working state." >&2
         else
             echo "Release failed and automatic rollback was incomplete; inspect the working tree and local release tags." >&2
+            echo "Recovery snapshot preserved at: ${release_state_dir}" >&2
         fi
     fi
 
-    release:transaction:cleanup "${release_state_dir}"
+    if [ "${status}" -eq 0 ] || [ "${rollback_failed}" -eq 0 ]; then
+        release:transaction:cleanup "${release_state_dir}"
+    fi
     exit "${status}"
 }
 
@@ -2080,11 +2164,13 @@ function quickstart:sync {
     fi
 
     GOWORK=off go mod tidy || return 1
+    GOWORK=off go test -mod=readonly ./... || return 1
     (
         cd quickstart || exit 1
         go mod edit "-require=github.com/goliatone/go-admin@v${tag}" || exit 1
         go mod edit "-replace=github.com/goliatone/go-admin=.." || exit 1
         GOWORK=off go mod tidy || exit 1
+        GOWORK=off go test -mod=readonly ./... || exit 1
         go mod edit -dropreplace=github.com/goliatone/go-admin || exit 1
     ) || return 1
 
@@ -2092,6 +2178,24 @@ function quickstart:sync {
         echo "temporary quickstart root replacement was not removed" >&2
         return 1
     fi
+}
+
+function examples:sync {
+    local tag=${1}
+
+    if [ -z "${tag}" ]; then
+        exit 1
+    fi
+    if [ ! -f "examples/go.mod" ]; then
+        return 0
+    fi
+
+    (
+        cd examples || exit 1
+        go mod edit "-require=github.com/goliatone/go-admin@v${tag}" || exit 1
+        go mod edit "-require=github.com/goliatone/go-admin/quickstart@v${tag}" || exit 1
+        GOWORK=off go mod tidy || exit 1
+    )
 }
 
 ##
@@ -2104,11 +2208,31 @@ function quickstart:sync {
 ##
 ## Arguments:
 ## @arg 1 {string} [tag=0.999.0]
+function quickstart:sync:check:finish {
+    local status=${1}
+    local state_dir=${2}
+    local restore_status=0
+    local key
+    local path
+
+    trap - EXIT HUP INT TERM
+    for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
+        key=${path//\//_}
+        release:transaction:restore_file "${state_dir}" "${key}" "${path}" || restore_status=1
+    done
+
+    if [ "${restore_status}" -ne 0 ]; then
+        echo "quickstart sync check could not restore module metadata" >&2
+        echo "Recovery snapshot preserved at: ${state_dir}" >&2
+        exit 1
+    fi
+    release:transaction:cleanup "${state_dir}"
+    exit "${status}"
+}
+
 function quickstart:sync:check {
     local tag=${1:-0.999.0}
     local state_dir
-    local status=0
-    local restore_status=0
     local key
     local path
 
@@ -2121,26 +2245,13 @@ function quickstart:sync:check {
         }
     done
 
-    quickstart:sync "${tag}" || status=$?
-    if [ "${status}" -eq 0 ]; then
-        (
-            cd quickstart || exit 1
-            go mod edit -replace=github.com/goliatone/go-admin=.. || exit 1
-            GOWORK=off go test -mod=readonly ./...
-        ) || status=$?
-    fi
-
-    for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
-        key=${path//\//_}
-        release:transaction:restore_file "${state_dir}" "${key}" "${path}" || restore_status=1
-    done
-    release:transaction:cleanup "${state_dir}"
-
-    if [ "${restore_status}" -ne 0 ]; then
-        echo "quickstart sync check could not restore module metadata" >&2
-        return 1
-    fi
-    return "${status}"
+    (
+        trap 'quickstart:sync:check:finish "$?" "${state_dir}"' EXIT
+        trap 'exit 129' HUP
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        quickstart:sync "${tag}"
+    )
 }
 
 ##
@@ -2176,7 +2287,6 @@ function release {
     local release_notes_enabled
     local release_state_dir
     local release_original_head
-    local release_commit_created
     local release_root_tag_created
     local release_quickstart_tag_created
 
@@ -2236,26 +2346,29 @@ function release {
 
     level=${level:-"patch"}
 
+    # Validate inputs before any operation that can advance the local branch.
+    release:worktree:assert_clean "${release_notes_file}" || return 1
+
     # Fetch all changes from origin
     git fetch --all --tags || return 1
+
+    current_branch=$(git symbolic-ref --short HEAD) || {
+        echo "Release must run from a local branch, not a detached HEAD." >&2
+        return 1
+    }
 
     # Keep the local branch current without rewriting local release commits.
     git pull --ff-only --tags || return 1
 
-    # Release commits are generated from a clean tracked tree. Untracked local
-    # notes and artifacts are allowed because they are not part of the release.
-    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-        echo "Tracked working tree changes are present; commit or stash them before release." >&2
-        git status --short --untracked-files=no >&2
-        return 1
-    fi
+    # Pull hooks or concurrent local changes must not alter release inputs.
+    release:worktree:assert_clean "${release_notes_file}" || return 1
+    release:tags:assert_aligned || return 1
 
     release_state_dir=$(mktemp -d "${TMPDIR:-/tmp}/go-admin-release.XXXXXX") || return 1
     release_original_head=$(git rev-parse HEAD) || {
         release:transaction:cleanup "${release_state_dir}"
         return 1
     }
-    release_commit_created=0
     release_root_tag_created=0
     release_quickstart_tag_created=0
     release:transaction:backup "${release_state_dir}" "${release_notes_file}" || {
@@ -2265,6 +2378,9 @@ function release {
 
     (
     trap 'release:transaction:finish "$?"' EXIT
+    trap 'exit 129' HUP
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 
     # Tags are the published release source of truth. If a prior release was
     # tagged outside this task, advance .version before calculating the next tag.
@@ -2293,6 +2409,8 @@ function release {
 
     # Prepare the acyclic published modules for their atomically published tags.
     quickstart:sync "${tag}" || exit 1
+    # Keep the non-published examples module aligned with the coordinated tags.
+    examples:sync "${tag}" || exit 1
 
     # Generate changelog before tagging so release tags include their notes.
     if [ "${release_notes_enabled}" -eq 1 ]; then
@@ -2306,16 +2424,16 @@ function release {
     if [ -f "quickstart/go.mod" ]; then
         git add quickstart/go.mod quickstart/go.sum || exit 1
     fi
+    if [ -f "examples/go.mod" ]; then
+        git add examples/go.mod examples/go.sum || exit 1
+    fi
     git commit -m "Bump version: v${tag}" || exit 1
-    release_commit_created=1
 
     # Create a new tag
     git tag -a "${release_tag}" -m "${message}" || exit 1
     release_root_tag_created=1
     git tag -a "${quickstart_tag}" -m "Quickstart release: v${tag}" || exit 1
     release_quickstart_tag_created=1
-
-    current_branch=$(git symbolic-ref --short HEAD) || exit 1
 
     # Push branch and release tags together so the remote is not left half-published.
     git push --atomic origin "HEAD:${current_branch}" \
