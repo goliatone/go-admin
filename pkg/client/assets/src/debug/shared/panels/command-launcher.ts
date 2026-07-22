@@ -967,7 +967,8 @@ function markFormgenReady(form: HTMLElement, ready: boolean, message = ''): void
 function commandOptionResolverConfig(form: HTMLElement): Record<string, unknown> {
 	return {
 		beforeFetch(context: FormgenResolverContext) {
-			if (!context.request.url.startsWith(COMMAND_OPTION_ENDPOINT_SCHEME)) {
+			const sentinel = commandOptionSentinel(context.request.url);
+			if (!sentinel) {
 				return;
 			}
 			const launcher = form.closest<HTMLElement>('[data-cmdl-root]');
@@ -976,7 +977,6 @@ function commandOptionResolverConfig(form: HTMLElement): Record<string, unknown>
 			if (!debugPath || !actionId) {
 				throw new Error('Dynamic command options are unavailable because no protected resolver action is configured.');
 			}
-			const sentinel = new URL(context.request.url);
 			const commandId = sentinel.searchParams.get('command_id') || str(form.dataset.cmdlCommand);
 			const fieldPath = sentinel.searchParams.get('field_path') || '';
 			const sourceId = sentinel.searchParams.get('source_id') || '';
@@ -1001,6 +1001,24 @@ function commandOptionResolverConfig(form: HTMLElement): Record<string, unknown>
 			});
 		},
 	};
+}
+
+function commandOptionSentinel(rawURL: string): URL | null {
+	// go-formgen releases before the absolute-URI normalization fix converted a
+	// synthetic endpoint into `/command-options://...`. Accept that one exact
+	// legacy representation as well as the canonical scheme so mixed asset
+	// deployments cannot leak either form into the application router.
+	const candidate = rawURL.startsWith(`/${COMMAND_OPTION_ENDPOINT_SCHEME}`)
+		? rawURL.slice(1)
+		: rawURL;
+	if (!candidate.startsWith(COMMAND_OPTION_ENDPOINT_SCHEME)) {
+		return null;
+	}
+	try {
+		return new URL(candidate);
+	} catch {
+		throw new Error('Dynamic command option metadata contains an invalid resolver URL.');
+	}
 }
 
 function ensureFormgenController(form: HTMLElement): Promise<void> {

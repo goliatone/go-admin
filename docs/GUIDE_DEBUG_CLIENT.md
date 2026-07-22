@@ -639,7 +639,11 @@ Generic formgen select/chips resolvers own dynamic option refresh, debounce,
 cancellation/stale-response rejection, cache, loading/empty/error state, and
 selection preservation. A host `beforeFetch` hook rewrites the
 renderer-neutral option request to the protected hidden panel action with
-current controller values and a CSRF token. Catalog navigation, inline
+current controller values and a CSRF token. Formgen preserves absolute
+synthetic schemes such as `command-options://` until that hook runs; the
+launcher also accepts the historical `/command-options://` normalization for
+compatibility. In both cases the sentinel is rewritten before network dispatch
+and must never reach the application router. Catalog navigation, inline
 confirmation, recall controls, JSON toggle, and the result shell remain
 launcher-owned.
 

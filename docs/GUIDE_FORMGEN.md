@@ -401,7 +401,9 @@ The browser initializes each selected root with
 errors, focus, change subscription, and teardown. Protected generic option
 requests should be rewritten or signed in the root's `beforeFetch` hook; keep
 debounce, cancellation, stale-response rejection, cache, widget state, and DOM
-updates inside formgen.
+updates inside formgen. Absolute synthetic endpoint schemes are preserved until
+`beforeFetch`; a host that emits one must rewrite it to a real protected URL
+before the request reaches `fetch`.
 
 Do not emit both generated HTML and a host-specific field projection as a
 fallback. If generation fails, keep the surrounding resource visible, disable

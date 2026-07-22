@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { build } from 'esbuild';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -19,6 +20,22 @@ const { JSDOM } = await loadJSDOM();
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const sourcePath = path.resolve(testFileDir, '../src/debug/shared/panels/command-launcher.ts');
 const panelActionsPath = path.resolve(testFileDir, '../src/debug/shared/panel-actions.ts');
+const repoRoot = path.resolve(testFileDir, '../../../..');
+let pinnedFormgenRuntimeSource;
+
+function loadPinnedFormgenRuntimeSource() {
+  if (pinnedFormgenRuntimeSource) return pinnedFormgenRuntimeSource;
+  const moduleDir = execFileSync(
+    'go',
+    ['list', '-m', '-f', '{{.Dir}}', 'github.com/goliatone/go-formgen'],
+    { cwd: repoRoot, encoding: 'utf8' },
+  ).trim();
+  pinnedFormgenRuntimeSource = fs.readFileSync(
+    path.join(moduleDir, 'pkg/runtime/assets/formgen-relationships.min.js'),
+    'utf8',
+  );
+  return pinnedFormgenRuntimeSource;
+}
 
 async function importLauncher() {
   const stats = fs.statSync(sourcePath);
@@ -296,19 +313,25 @@ test('generated dynamic options adapt formgen requests to the protected panel ac
   const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
   const def = generatedDef();
   def.ui.metadata = { option_resolver_action: 'resolve_options' };
-  let adaptedRequest;
+  const adaptedRequests = [];
   const controller = {
     getValues: () => ({ region: 'us', nested: { kind: 'archive' } }),
     setValues() {}, setErrors() {}, clearErrors() {}, onChange() { return () => {}; }, focus() { return true; }, destroy() {},
   };
   globalThis.FormgenRelationships = {
     async initFormgenRoot(_root, config) {
-      const request = {
-        url: 'command-options://generated.run/target?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
-        init: { method: 'POST', headers: { Accept: 'application/json' }, signal: new AbortController().signal },
-      };
-      await config.beforeFetch({ element: _root.querySelector('input'), request });
-      adaptedRequest = request;
+      for (const url of [
+        '/command-options://generated.run/target?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
+        'command-options://generated.run/target?command_id=generated.run&field_path=target&source_id=targets.available&dependency_1=us',
+        '/api/public/options',
+      ]) {
+        const request = {
+          url,
+          init: { method: 'POST', headers: { Accept: 'application/json' }, signal: new AbortController().signal },
+        };
+        await config.beforeFetch({ element: _root.querySelector('input'), request });
+        adaptedRequests.push(request);
+      }
       return { destroy() {} };
     },
     Formgen: { attach: () => controller },
@@ -323,17 +346,89 @@ test('generated dynamic options adapt formgen requests to the protected panel ac
   host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  assert.equal(adaptedRequest.url, '/admin/debug/api/panels/commands/actions/resolve_options');
-  assert.equal(adaptedRequest.init.method, 'POST');
-  assert.equal(adaptedRequest.init.credentials, 'same-origin');
-  assert.equal(new Headers(adaptedRequest.init.headers).get('X-CSRF-Token'), 'csrf-test');
-  assert.deepEqual(JSON.parse(adaptedRequest.init.body), {
-    command_id: 'generated.run',
-    field_path: 'target',
-    source_id: 'targets.available',
-    payload: { region: 'us', nested: { kind: 'archive' } },
+  assert.equal(adaptedRequests.length, 3);
+  for (const adaptedRequest of adaptedRequests.slice(0, 2)) {
+    assert.equal(adaptedRequest.url, '/admin/debug/api/panels/commands/actions/resolve_options');
+    assert.equal(adaptedRequest.init.method, 'POST');
+    assert.equal(adaptedRequest.init.credentials, 'same-origin');
+    assert.equal(new Headers(adaptedRequest.init.headers).get('X-CSRF-Token'), 'csrf-test');
+    assert.deepEqual(JSON.parse(adaptedRequest.init.body), {
+      command_id: 'generated.run',
+      field_path: 'target',
+      source_id: 'targets.available',
+      payload: { region: 'us', nested: { kind: 'archive' } },
+    });
+    assert.equal(adaptedRequest.init.signal.aborted, false);
+  }
+  assert.equal(adaptedRequests[2].url, '/api/public/options');
+  assert.equal(adaptedRequests[2].init.credentials, undefined);
+  assert.equal(adaptedRequests[2].init.body, undefined);
+});
+
+test('shipped formgen runtime rewrites dynamic options before network dispatch', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const def = generatedDef();
+  def.ui.metadata = { option_resolver_action: 'resolve_options' };
+  def.ui.actions[0].payload.command_id = 'search.repair';
+  def.ui.actions[0].form.html = `
+    <div data-formgen-auto-init="true">
+      <select name="indexes" multiple
+        data-endpoint-url="command-options://search.repair/indexes"
+        data-endpoint-method="POST"
+        data-endpoint-results-path="data.option_items"
+        data-endpoint-value-field="value"
+        data-endpoint-label-field="label"
+        data-endpoint-renderer="chips"
+        data-endpoint-params-command_id="search.repair"
+        data-endpoint-params-field_path="indexes"
+        data-endpoint-params-source_id="garchen.search_indexes"></select>
+    </div>`;
+  const data = { commands: [{ id: 'search.repair', group: 'Search', execution_mode: 'queued' }], diagnostics: [] };
+  const html = renderCommandLauncherConsole({ def, data, styles: {}, useIconCopyButton: true });
+  const dom = new JSDOM(`<!doctype html><html><body><div id="host">${html}</div></body></html>`, {
+    url: 'http://localhost/admin/debug',
+    runScripts: 'dangerously',
   });
-  assert.equal(adaptedRequest.init.signal.aborted, false);
+  setWindowGlobals(dom.window);
+  const requests = [];
+  dom.window.fetch = async (url, init) => {
+    requests.push({ url: String(url), init });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        data: {
+          option_items: [
+            { value: 'site_content', label: 'Site content' },
+            { value: 'archive_media', label: 'Archive media' },
+          ],
+        },
+      }),
+    };
+  };
+  dom.window.eval(`${loadPinnedFormgenRuntimeSource()};window.__formgenRuntime = FormgenRelationships;`);
+  globalThis.FormgenRelationships = dom.window.__formgenRuntime;
+  globalThis.Formgen = dom.window.__formgenRuntime.Formgen;
+
+  const host = dom.window.document.querySelector('#host');
+  attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
+  host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/debug/api/panels/commands/actions/resolve_options');
+  assert.doesNotMatch(requests[0].url, /command-options:\/\//);
+  assert.equal(requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].init.body), {
+    command_id: 'search.repair',
+    field_path: 'indexes',
+    source_id: 'garchen.search_indexes',
+    payload: { indexes: [] },
+  });
+  assert.deepEqual(
+    Array.from(host.querySelectorAll('select[name="indexes"] option')).map((option) => option.value).filter(Boolean),
+    ['site_content', 'archive_media'],
+  );
 });
 
 test('generated sensitive forms mark the controller bridge sensitive and disable recall/JSON persistence', async () => {
