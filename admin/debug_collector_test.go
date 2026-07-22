@@ -141,7 +141,6 @@ func TestDebugCollectorPanelSnapshotSkipsOtherPanelsAndCanceledRequests(t *testi
 	panelIDs := []string{"targeted-panel-alpha", "targeted-panel-beta"}
 	collections := map[string]int{}
 	for _, panelID := range panelIDs {
-		panelID := panelID
 		if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
 			SnapshotKey: panelID,
 			Snapshot: func(context.Context) any {

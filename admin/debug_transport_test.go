@@ -65,7 +65,10 @@ func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-		Debug:         DebugConfig{Enabled: true},
+		Debug: DebugConfig{
+			Enabled:    true,
+			LayoutMode: DebugLayoutDashboard,
+		},
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{
 		"debug":                  true,
@@ -116,6 +119,43 @@ func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
 	}
 }
 
+func TestDebugAdminLayoutKeepsConsoleRouteWhenDashboardFeatureEnabled(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled:    true,
+			LayoutMode: DebugLayoutAdmin,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{
+		"debug":                  true,
+		string(FeatureDashboard): true,
+	})})
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	routes := map[string]bool{}
+	for _, route := range server.Router().Routes() {
+		routes[string(route.Method)+" "+route.Path] = true
+	}
+	if !routes["GET /admin/debug"] {
+		t.Fatalf("expected admin Debug Console route to remain registered, got %+v", routes)
+	}
+	for route := range routes {
+		if strings.Contains(route, "/admin/debug/api/dashboard") {
+			t.Fatalf("admin debug layout registered dashboard route %q", route)
+		}
+	}
+}
+
 func TestDebugDashboardRendersDebugAreaWithAdminChromeAndOneSnapshotPerPanel(t *testing.T) {
 	type requestContextKey struct{}
 	type panelProbe struct {
@@ -125,7 +165,6 @@ func TestDebugDashboardRendersDebugAreaWithAdminChromeAndOneSnapshotPerPanel(t *
 	panelIDs := []string{"debug-dashboard-alpha", "debug-dashboard-beta"}
 	probes := map[string]*panelProbe{}
 	for _, panelID := range panelIDs {
-		panelID := panelID
 		probe := &panelProbe{}
 		probes[panelID] = probe
 		if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
@@ -147,7 +186,7 @@ func TestDebugDashboardRendersDebugAreaWithAdminChromeAndOneSnapshotPerPanel(t *
 		DefaultLocale: "en",
 		Debug: DebugConfig{
 			Enabled:    true,
-			LayoutMode: DebugLayoutAdmin,
+			LayoutMode: DebugLayoutDashboard,
 			Panels:     panelIDs,
 		},
 	}
