@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	router "github.com/goliatone/go-router"
 
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -47,6 +48,9 @@ func (m *FeatureFlagsModule) RouteContract() routing.ModuleContract {
 		Slug: featureFlagsModuleID,
 		UIRoutes: map[string]string{
 			featureFlagsRouteKey: "/",
+		},
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			featureFlagsRouteKey: {Method: router.GET, Path: "/"},
 		},
 	}
 }
