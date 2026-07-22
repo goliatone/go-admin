@@ -1,6 +1,32 @@
 # Changelog
 
+# [0.120.1](https://github.com/goliatone/go-admin/compare/v0.120.0...v0.120.1) - (2026-07-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Resolve admin base path ([e53d311](https://github.com/goliatone/go-admin/commit/e53d31151e6568bc9e6c9bef812f259b43bd22fb))  - (goliatone)
+- Named routes ([705c81c](https://github.com/goliatone/go-admin/commit/705c81c06a9db64394facb9a846f1b3f043eca96))  - (goliatone)
+- Doctor checks for routes ([55ada75](https://github.com/goliatone/go-admin/commit/55ada755c05a7b1edcc2f81fa0397420d0e7a1f8))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Doctor checks for routes ([1b1ed08](https://github.com/goliatone/go-admin/commit/1b1ed08ac72836601556b7ff51a7064146f1da8b))  - (goliatone)
+- Ui and api routes ([4f40ded](https://github.com/goliatone/go-admin/commit/4f40dedd7598c139f3cb38569de09d14997024cb))  - (goliatone)
+- Named routes ([8eaaf1b](https://github.com/goliatone/go-admin/commit/8eaaf1beffcd35d8521f81b7ab9c5b7f1884fb32))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([2900caa](https://github.com/goliatone/go-admin/commit/2900caa00eace77d08c4db13d7ef7ac468648cc5))  - (goliatone)
+- Update test ([3a4d634](https://github.com/goliatone/go-admin/commit/3a4d634b28db305be268a918e017bed68203eec5))  - (goliatone)
+
 # [0.120.0](https://github.com/goliatone/go-admin/compare/v0.119.1...v0.120.0) - (2026-07-21)
+
+
+New minor release: v0.120.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.120.0 ([bc47a9f](https://github.com/goliatone/go-admin/commit/bc47a9f576b72820945a0d3bdb57a7bda938eb9d))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
