@@ -18,3 +18,11 @@ type AdminStaticRouter[T any] interface {
 	AdminRouter
 	Static(prefix, root string, config ...router.Static) router.Router[T]
 }
+
+// DashboardAssetOwnershipProvider is an optional router capability for hosts
+// that mount go-dashboard's embedded assets on a dedicated static surface.
+// Admin dashboard initialization uses it to avoid registering duplicate static
+// routes through the admin surface.
+type DashboardAssetOwnershipProvider interface {
+	DashboardAssetsManagedExternally() bool
+}

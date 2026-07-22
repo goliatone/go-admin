@@ -361,12 +361,13 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 	registerFallback := a.debugDashboardFallbackRegistrar(cfg, access)
 	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
 	controller := a.debugDashboardController(cfg)
+	assetRegistration := debugDashboardAssetRegistration(a.router)
 	registered, err := registerDashboardRoutesByRouterType(a.router, dashboardRouteRegistrars{
 		HTTP: func(rt router.Router[*httprouter.Router]) error {
-			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller)
+			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller, assetRegistration)
 		},
 		Fiber: func(rt router.Router[*fiber.App]) error {
-			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller)
+			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller, assetRegistration)
 		},
 	})
 	if err != nil {
@@ -390,24 +391,34 @@ func registerDebugDashboardRouter[T any](
 	authHandler router.HandlerFunc,
 	viewerResolver dashboardrouter.ViewerResolver,
 	controller *dashcmp.Controller,
+	assetRegistration dashboardrouter.AssetRegistrationMode,
 ) error {
 	group := rt.Group(basePath)
 	if access != nil {
 		group.Use(access)
 	}
 	if err := dashboardrouter.Register(dashboardrouter.Config[T]{
-		Router:         group,
-		Controller:     controller,
-		API:            admin.dash.runtime.API,
-		Broadcast:      nil,
-		ViewerResolver: viewerResolver,
-		BasePath:       "/",
-		Routes:         routes,
+		Router:            group,
+		AssetRouter:       rt,
+		Controller:        controller,
+		API:               admin.dash.runtime.API,
+		Broadcast:         nil,
+		ViewerResolver:    viewerResolver,
+		BasePath:          "/",
+		Routes:            routes,
+		AssetRegistration: assetRegistration,
 	}); err != nil {
 		return err
 	}
 	registerDebugDashboardWebSocket(group, routes.WebSocket, admin.dash.runtime.Broadcast, authHandler)
 	return nil
+}
+
+func debugDashboardAssetRegistration(rt AdminRouter) dashboardrouter.AssetRegistrationMode {
+	if provider, ok := rt.(DashboardAssetOwnershipProvider); ok && provider.DashboardAssetsManagedExternally() {
+		return dashboardrouter.AssetRegistrationModeExternal
+	}
+	return dashboardrouter.AssetRegistrationModeRouter
 }
 
 func (a *Admin) debugDashboardViewerResolver() func(router.Context) dashcmp.ViewerContext {
