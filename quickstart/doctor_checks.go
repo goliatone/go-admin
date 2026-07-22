@@ -523,16 +523,24 @@ func routingRuntimeFindings(runtimeReport *routing.RuntimeReport) []admin.Doctor
 		}
 	}
 	for _, shadow := range runtimeReport.Shadows {
+		severity := admin.DoctorSeverityError
+		code := "quickstart.routing.route_shadowed"
+		hint := "Remove the wildcard/parameter overlap or enable deterministic specificity ordering before sealing"
+		if shadow.Kind == router.RouteShadowTrailingSlashEquivalent {
+			severity = admin.DoctorSeverityWarn
+			code = "quickstart.routing.trailing_slash_alias"
+			hint = "Register only the canonical path when the router treats trailing slashes as equivalent"
+		}
 		findings = append(findings, admin.DoctorFinding{
-			Severity:  admin.DoctorSeverityError,
-			Code:      "quickstart.routing.route_shadowed",
+			Severity:  severity,
+			Code:      code,
 			Component: "routing.runtime",
 			Message:   fmt.Sprintf("Route %s %s is shadowed by earlier route %s", shadow.Method, shadow.Path, shadow.ShadowedByPath),
-			Hint:      "Remove the wildcard/parameter overlap or enable deterministic specificity ordering before sealing",
+			Hint:      hint,
 			Metadata: map[string]any{
 				"method": shadow.Method, "path": shadow.Path, "route_index": shadow.RouteIndex,
 				"shadowed_by_path": shadow.ShadowedByPath, "shadowed_by_index": shadow.ShadowedByIndex,
-				"reason": shadow.Reason,
+				"kind": shadow.Kind, "reason": shadow.Reason,
 			},
 		})
 	}
