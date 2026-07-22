@@ -336,7 +336,7 @@ func translationCapabilityRouteSpecs(adminGroup, adminAPIGroup string) []transla
 		{group: adminGroup, route: "translations.families.id", key: "admin.translations.families.id"},
 		{group: adminGroup, route: "translations.families.assignments", key: "admin.translations.families.assignments"},
 		{group: adminGroup, route: "translations.assignments", key: "admin.translations.assignments"},
-		{group: adminGroup, route: "translations.assignments.id", key: "admin.translations.assignments.id"},
+		{group: adminGroup, route: "translations.assignments.edit", key: "admin.translations.assignments.edit"},
 	}
 	for _, route := range []string{
 		"translations.export",

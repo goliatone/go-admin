@@ -790,8 +790,8 @@ func translationMatrixQuickActionTargets(adm *Admin) map[string]any {
 			"resolver_key": "admin.translations.families.id",
 		},
 		"assignment_editor": map[string]any{
-			"route":        "translations.assignments.id",
-			"resolver_key": "admin.translations.assignments.id",
+			"route":        "translations.assignments.edit",
+			"resolver_key": "admin.translations.assignments.edit",
 		},
 		"content_detail": map[string]any{
 			"base_path": strings.TrimRight(strings.TrimSpace(firstNonEmpty(adm.config.BasePath, "/admin")), "/"),
@@ -1092,8 +1092,8 @@ func translationMatrixOpenQuickAction(
 		if href := translationMatrixAssignmentEditorURL(adm, assignment.ID); href != "" {
 			action["enabled"] = true
 			action["href"] = href
-			action["route"] = "translations.assignments.id"
-			action["resolver_key"] = "admin.translations.assignments.id"
+			action["route"] = "translations.assignments.edit"
+			action["resolver_key"] = "admin.translations.assignments.edit"
 			action["label"] = "Open assignment"
 			action["description"] = "Open the assignment editor for this locale."
 			return action
