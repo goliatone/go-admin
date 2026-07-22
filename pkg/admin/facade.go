@@ -86,6 +86,25 @@ const (
 	AssignmentTypeOpenPool                         = core.AssignmentTypeOpenPool
 	CMSPageContentTypeSlug                         = core.CMSPageContentTypeSlug
 	CMSPagePolicyEntity                            = core.CMSPagePolicyEntity
+	CommandRunPhaseCanceled                        = core.CommandRunPhaseCanceled
+	CommandRunPhaseCheckpoint                      = core.CommandRunPhaseCheckpoint
+	CommandRunPhaseFailed                          = core.CommandRunPhaseFailed
+	CommandRunPhaseProgress                        = core.CommandRunPhaseProgress
+	CommandRunPhaseRejected                        = core.CommandRunPhaseRejected
+	CommandRunPhaseStarted                         = core.CommandRunPhaseStarted
+	CommandRunPhaseSubmitted                       = core.CommandRunPhaseSubmitted
+	CommandRunPhaseSucceeded                       = core.CommandRunPhaseSucceeded
+	CommandRunDiagnosticClosed                     = core.CommandRunDiagnosticClosed
+	CommandRunDiagnosticDegraded                   = core.CommandRunDiagnosticDegraded
+	CommandRunDiagnosticDisabled                   = core.CommandRunDiagnosticDisabled
+	CommandRunDiagnosticNotStarted                 = core.CommandRunDiagnosticNotStarted
+	CommandRunDiagnosticReady                      = core.CommandRunDiagnosticReady
+	CommandRunRoleGateway                          = core.CommandRunRoleGateway
+	CommandRunRoleMonolith                         = core.CommandRunRoleMonolith
+	CommandRunRolePublisher                        = core.CommandRunRolePublisher
+	CommandRunSchemaVersion                        = core.CommandRunSchemaVersion
+	CommandRunTransportDurabilityDurable           = core.CommandRunTransportDurabilityDurable
+	CommandRunTransportDurabilityEphemeral         = core.CommandRunTransportDurabilityEphemeral
 	ContentChannelScopeQueryParam                  = core.ContentChannelScopeQueryParam
 	ContentTypeCapabilityKeyBlockTypes             = core.ContentTypeCapabilityKeyBlockTypes
 	ContentTypeCapabilityKeyBlocks                 = core.ContentTypeCapabilityKeyBlocks
@@ -112,9 +131,11 @@ const (
 	CreateRoleOperation                            = core.CreateRoleOperation
 	CreateTranslationKey                           = core.CreateTranslationKey
 	DebugLayoutAdmin                               = core.DebugLayoutAdmin
+	DebugLayoutDashboard                           = core.DebugLayoutDashboard
 	DebugLayoutStandalone                          = core.DebugLayoutStandalone
 	DebugPanelActions                              = core.DebugPanelActions
 	DebugPanelCommandLauncher                      = core.DebugPanelCommandLauncher
+	DebugPanelCommandRuns                          = core.DebugPanelCommandRuns
 	DebugPanelCommands                             = core.DebugPanelCommands
 	DebugPanelConfig                               = core.DebugPanelConfig
 	DebugPanelConsole                              = core.DebugPanelConsole
@@ -512,11 +533,24 @@ const (
 
 var (
 	ErrAutosaveConflict                               = core.ErrAutosaveConflict
+	ErrCommandRunHandlerFailed                        = core.ErrCommandRunHandlerFailed
+	ErrCommandRunDeliveryDropped                      = core.ErrCommandRunDeliveryDropped
+	ErrCommandRunEnvelopeRejected                     = core.ErrCommandRunEnvelopeRejected
+	ErrCommandRunPublishFailed                        = core.ErrCommandRunPublishFailed
+	ErrCommandRunScopeRejected                        = core.ErrCommandRunScopeRejected
+	ErrCommandRunSubscriptionFailed                   = core.ErrCommandRunSubscriptionFailed
+	ErrCommandRunRuntimeClosed                        = core.ErrCommandRunRuntimeClosed
+	ErrCommandRunTransportBackpressure                = core.ErrCommandRunTransportBackpressure
+	ErrCommandRunTransportClosed                      = core.ErrCommandRunTransportClosed
 	ErrDoctorActionNotRunnable                        = core.ErrDoctorActionNotRunnable
 	ErrDoctorActionUnavailable                        = core.ErrDoctorActionUnavailable
 	ErrDoctorCheckNotFound                            = core.ErrDoctorCheckNotFound
 	ErrFeatureDisabled                                = core.ErrFeatureDisabled
 	ErrForbidden                                      = core.ErrForbidden
+	ErrInvalidCommandRunMemoryStoreConfig             = core.ErrInvalidCommandRunMemoryStoreConfig
+	ErrInvalidCommandRunRuntimeConfig                 = core.ErrInvalidCommandRunRuntimeConfig
+	ErrInvalidCommandRunSelector                      = core.ErrInvalidCommandRunSelector
+	ErrInvalidCommandRunUpdate                        = core.ErrInvalidCommandRunUpdate
 	ErrInvalidDependencies                            = core.ErrInvalidDependencies
 	ErrInvalidFeatureConfig                           = core.ErrInvalidFeatureConfig
 	ErrMenuSlugConflict                               = core.ErrMenuSlugConflict
@@ -595,7 +629,6 @@ type (
 	AdminPageWriteService                             = core.AdminPageWriteService
 	AdminRouter                                       = core.AdminRouter
 	AdminStaticRouter[T any]                          = core.AdminStaticRouter[T]
-	DashboardAssetOwnershipProvider                   = core.DashboardAssetOwnershipProvider
 	AssignmentStatus                                  = core.AssignmentStatus
 	AssignmentType                                    = core.AssignmentType
 	AuthConfig                                        = core.AuthConfig
@@ -669,6 +702,39 @@ type (
 	CommandLauncherSnapshot                           = core.CommandLauncherSnapshot
 	CommandRegistrationState                          = core.CommandRegistrationState
 	CommandResultFailureReporter                      = core.CommandResultFailureReporter
+	CommandRunContractLimits                          = core.CommandRunContractLimits
+	CommandRunDiagnostics                             = core.CommandRunDiagnostics
+	CommandRunDiagnosticStatus                        = core.CommandRunDiagnosticStatus
+	CommandRunFailure                                 = core.CommandRunFailure
+	CommandRunHandler                                 = core.CommandRunHandler
+	CommandRunMemoryStoreConfig                       = core.CommandRunMemoryStoreConfig
+	CommandRunObserverBridge                          = core.CommandRunObserverBridge
+	CommandRunObserverConfig                          = core.CommandRunObserverConfig
+	CommandRunPhase                                   = core.CommandRunPhase
+	CommandRunProcessRole                             = core.CommandRunProcessRole
+	CommandRunProjection                              = core.CommandRunProjection
+	CommandRunProjectionFunc                          = core.CommandRunProjectionFunc
+	CommandRunProjector                               = core.CommandRunProjector
+	CommandRunPublisher                               = core.CommandRunPublisher
+	CommandRunRecord                                  = core.CommandRunRecord
+	CommandRunRecordHandler                           = core.CommandRunRecordHandler
+	CommandRunRuntime                                 = core.CommandRunRuntime
+	CommandRunRuntimeConfig                           = core.CommandRunRuntimeConfig
+	CommandRunScope                                   = core.CommandRunScope
+	CommandRunScopeAuthorizer                         = core.CommandRunScopeAuthorizer
+	CommandRunScopeAuthorizerFuncs                    = core.CommandRunScopeAuthorizerFuncs
+	CommandRunScopeResolver                           = core.CommandRunScopeResolver
+	CommandRunScopeResolverFunc                       = core.CommandRunScopeResolverFunc
+	CommandRunSelector                                = core.CommandRunSelector
+	CommandRunStore                                   = core.CommandRunStore
+	CommandRunSubscriber                              = core.CommandRunSubscriber
+	CommandRunSubscription                            = core.CommandRunSubscription
+	CommandRunTransport                               = core.CommandRunTransport
+	CommandRunTransportCapabilities                   = core.CommandRunTransportCapabilities
+	CommandRunTransportDurability                     = core.CommandRunTransportDurability
+	CommandRunUpdate                                  = core.CommandRunUpdate
+	CommandRunsDebugPanel                             = core.CommandRunsDebugPanel
+	CommandRunsSnapshot                               = core.CommandRunsSnapshot
 	CommandStatusEvent                                = core.CommandStatusEvent
 	Config                                            = core.Config
 	ContentPreviewPathOptions                         = core.ContentPreviewPathOptions
@@ -684,6 +750,7 @@ type (
 	CountTranslator                                   = core.CountTranslator
 	CustomLogEntry                                    = core.CustomLogEntry
 	Dashboard                                         = core.Dashboard
+	DashboardAssetOwnershipProvider                   = core.DashboardAssetOwnershipProvider
 	DashboardDiagnosticsMsg                           = core.DashboardDiagnosticsMsg
 	DashboardDiagnosticsReport                        = core.DashboardDiagnosticsReport
 	DashboardHandle                                   = core.DashboardHandle
@@ -872,6 +939,8 @@ type (
 	LegacyChartSampleWidgetPayload                    = core.LegacyChartSampleWidgetPayload
 	ListOptions                                       = core.ListOptions
 	ListPredicate                                     = core.ListPredicate
+	LocalCommandRunTransport                          = core.LocalCommandRunTransport
+	LocalCommandRunTransportConfig                    = core.LocalCommandRunTransportConfig
 	LocalePathMigrationApplyResult                    = core.LocalePathMigrationApplyResult
 	LocalePathMigrationFamilyPlan                     = core.LocalePathMigrationFamilyPlan
 	LocalePathMigrationOptions                        = core.LocalePathMigrationOptions
@@ -959,6 +1028,7 @@ type (
 	MediaUploadRequest                                = core.MediaUploadRequest
 	MediaUploader                                     = core.MediaUploader
 	MediaValueMode                                    = core.MediaValueMode
+	MemoryCommandRunStore                             = core.MemoryCommandRunStore
 	MemoryRepository                                  = core.MemoryRepository
 	MemoryTranslationExchangeRuntimeStore             = core.MemoryTranslationExchangeRuntimeStore
 	Menu                                              = core.Menu
@@ -1617,6 +1687,14 @@ func DefaultCMSWorkflowActions() []Action {
 	return core.DefaultCMSWorkflowActions()
 }
 
+func DefaultCommandRunContractLimits() CommandRunContractLimits {
+	return core.DefaultCommandRunContractLimits()
+}
+
+func DefaultCommandRunRuntimeConfig() CommandRunRuntimeConfig {
+	return core.DefaultCommandRunRuntimeConfig()
+}
+
 func DefaultDebugPanels() []string {
 	return core.DefaultDebugPanels()
 }
@@ -1635,6 +1713,10 @@ func DefaultErrorPresenter() ErrorPresenter {
 
 func DefaultIconSecurityPolicy() IconSecurityPolicy {
 	return core.DefaultIconSecurityPolicy()
+}
+
+func DefaultLocalCommandRunTransportCapabilities() CommandRunTransportCapabilities {
+	return core.DefaultLocalCommandRunTransportCapabilities()
 }
 
 func DefaultNavigationPermissionRegistry(cfg Config) *NavigationPermissionRegistry {
@@ -1937,6 +2019,22 @@ func NewCommandBus(enabled bool) *CommandBus {
 	return core.NewCommandBus(enabled)
 }
 
+func NewCommandRunObserverBridge(config CommandRunObserverConfig) (*CommandRunObserverBridge, error) {
+	return core.NewCommandRunObserverBridge(config)
+}
+
+func NewCommandRunProjector(store CommandRunStore, limits CommandRunContractLimits) (*CommandRunProjector, error) {
+	return core.NewCommandRunProjector(store, limits)
+}
+
+func NewCommandRunRuntime(config CommandRunRuntimeConfig) (*CommandRunRuntime, error) {
+	return core.NewCommandRunRuntime(config)
+}
+
+func NewCommandRunsDebugPanel(adm *Admin) *CommandRunsDebugPanel {
+	return core.NewCommandRunsDebugPanel(adm)
+}
+
 func NewContentTypeBuilderModule(opts ...ContentTypeBuilderOption) *ContentTypeBuilderModule {
 	return core.NewContentTypeBuilderModule(opts...)
 }
@@ -2201,6 +2299,10 @@ func NewJobRegistry() *JobRegistry {
 	return core.NewJobRegistry()
 }
 
+func NewLocalCommandRunTransport(config LocalCommandRunTransportConfig) *LocalCommandRunTransport {
+	return core.NewLocalCommandRunTransport(config)
+}
+
 func NewLocalMediaDeliveryImported(path string, roots []string, contentType string) (*MediaDeliveryImported, error) {
 	return core.NewLocalMediaDeliveryImported(path, roots, contentType)
 }
@@ -2231,6 +2333,10 @@ func NewMediaDeliveryRegistry() *MediaDeliveryRegistry {
 
 func NewMediaModule() *MediaModule {
 	return core.NewMediaModule()
+}
+
+func NewMemoryCommandRunStore(config CommandRunMemoryStoreConfig) (*MemoryCommandRunStore, error) {
+	return core.NewMemoryCommandRunStore(config)
 }
 
 func NewMemoryRepository() *MemoryRepository {
@@ -2417,6 +2523,14 @@ func NormalizeBasePath(basePath string) string {
 	return core.NormalizeBasePath(basePath)
 }
 
+func NormalizeCommandRunRuntimeConfig(config CommandRunRuntimeConfig) (CommandRunRuntimeConfig, error) {
+	return core.NormalizeCommandRunRuntimeConfig(config)
+}
+
+func NormalizeCommandRunUpdate(update CommandRunUpdate, limits CommandRunContractLimits) (CommandRunUpdate, error) {
+	return core.NormalizeCommandRunUpdate(update, limits)
+}
+
 func NormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, map[string]string) {
 	return core.NormalizeContentTypeCapabilities(capabilities)
 }
@@ -2515,6 +2629,10 @@ func RegisterCommandLauncherDebugPanel(adm *Admin) {
 
 func RegisterCommandLauncherDoctorCheck(adm *Admin) {
 	core.RegisterCommandLauncherDoctorCheck(adm)
+}
+
+func RegisterCommandRunsDebugPanel(adm *Admin) {
+	core.RegisterCommandRunsDebugPanel(adm)
 }
 
 func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpts ...runner.Option) (dispatcher.Subscription, error) {
@@ -2751,6 +2869,14 @@ func TranslationStatusEnumContract() map[string]any {
 
 func ValidateAndNormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, error) {
 	return core.ValidateAndNormalizeContentTypeCapabilities(capabilities)
+}
+
+func ValidateCommandRunRuntimeConfig(config CommandRunRuntimeConfig) error {
+	return core.ValidateCommandRunRuntimeConfig(config)
+}
+
+func ValidateCommandRunUpdate(update CommandRunUpdate, limits CommandRunContractLimits) error {
+	return core.ValidateCommandRunUpdate(update, limits)
 }
 
 func ValidateEntryNavigationOverrides(overrides map[string]string, eligible []string, strict bool) (map[string]string, error) {
