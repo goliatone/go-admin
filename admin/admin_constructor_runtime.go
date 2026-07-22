@@ -467,10 +467,13 @@ func resolveRoutingPlanner(cfg Config, urlManager *urlkit.RouteManager, featureG
 	if err != nil {
 		return nil, routing.StartupReport{}, err
 	}
-	if routingPlanner == nil || (!featureEnabled(featureGate, FeatureCMS) && !featureEnabled(featureGate, FeatureTranslationExchange) && !featureEnabled(featureGate, FeatureTranslationQueue)) {
+	coreEnabled := featureEnabled(featureGate, FeatureCMS)
+	exchangeEnabled := featureEnabled(featureGate, FeatureTranslationExchange)
+	queueEnabled := featureEnabled(featureGate, FeatureTranslationQueue)
+	if routingPlanner == nil || (!coreEnabled && !exchangeEnabled && !queueEnabled) {
 		return routingPlanner, routingReport, nil
 	}
-	if err = routingPlanner.RegisterModule(translationgoadmin.ModuleContract()); err != nil {
+	if err = routingPlanner.RegisterModule(translationgoadmin.ModuleContractForCapabilities(coreEnabled, exchangeEnabled, queueEnabled)); err != nil {
 		return nil, routing.StartupReport{}, validationDomainError("translation routing registration failed", map[string]any{
 			"component": "translations",
 			"slug":      translationgoadmin.ModuleSlug,
