@@ -765,7 +765,7 @@ func (m *DebugModule) handleJSErrorReport(admin *Admin, c router.Context) error 
 	return writeJSON(c, map[string]string{"status": "ok"})
 }
 
-func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
+func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) (result error) {
 	if m == nil || m.collector == nil {
 		return ErrForbidden
 	}
@@ -775,14 +775,20 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 	if events == nil {
 		return nil
 	}
-	defer unsubscribe()
-
 	if err := m.writeDebugSnapshot(c, access); err != nil {
+		unsubscribe()
 		return err
 	}
 
-	reader := startDebugCommandReader(c)
-	defer reader.Stop(c)
+	reader, err := startDebugCommandReader(c)
+	if err != nil {
+		unsubscribe()
+		return err
+	}
+	defer func() {
+		result = preserveDebugWebSocketPrimaryError(result, reader.Stop())
+	}()
+	defer unsubscribe()
 	subscriptions := newDebugSubscription(access)
 	return m.runDebugWebSocketLoop(c, subscriptions, reader.messages, reader.done, events)
 }
@@ -795,7 +801,7 @@ func (m *DebugModule) subscribeDebugEvents() (<-chan DebugEvent, func()) {
 	}
 }
 
-func startDebugCommandReader(c router.WebSocketContext) *debugWebSocketJSONReader[debugCommand] {
+func startDebugCommandReader(c router.WebSocketContext) (*debugWebSocketJSONReader[debugCommand], error) {
 	return startDebugWebSocketJSONReader[debugCommand](c, 16, true)
 }
 
@@ -831,7 +837,7 @@ func writeSubscribedDebugEvent(c router.WebSocketContext, subscriptions *debugSu
 	return c.WriteJSON(event)
 }
 
-func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSocketContext) error {
+func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSocketContext) (result error) {
 	sessionID, includeGlobals, err := m.debugSessionWebSocketConfig(c)
 	if err != nil {
 		return err
@@ -841,17 +847,23 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 	if events == nil {
 		return nil
 	}
-	defer cleanup()
-
 	adminCtx := debugSessionAdminContext(c)
 	access := m.commandRunAccess(adminCtx.Context)
 	if err := m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, access); err != nil {
+		cleanup()
 		return err
 	}
 
 	m.recordDebugSessionAttach(admin, c, sessionID)
-	reader := startDebugCommandReader(c)
-	defer reader.Stop(c)
+	reader, err := startDebugCommandReader(c)
+	if err != nil {
+		cleanup()
+		return err
+	}
+	defer func() {
+		result = preserveDebugWebSocketPrimaryError(result, reader.Stop())
+	}()
+	defer cleanup()
 
 	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(access), reader.messages, reader.done, events, sessionID, includeGlobals)
 }

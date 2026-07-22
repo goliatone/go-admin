@@ -136,6 +136,8 @@ func TestDebugWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T) {
 	mod := NewDebugModule(DebugConfig{})
 	mod.collector = NewDebugCollector(DebugConfig{})
 	ws := newBlockingDebugWebSocketContext(context.Background(), errDebugWebSocketTestWrite)
+	interruptErr := errors.New("forced teardown interrupt failure")
+	ws.interruptErr = interruptErr
 
 	result := make(chan error, 1)
 	go func() {
@@ -149,6 +151,9 @@ func TestDebugWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T) {
 	case err := <-result:
 		if !errors.Is(err, errDebugWebSocketTestWrite) {
 			t.Fatalf("handler error = %v, want forced write failure", err)
+		}
+		if errors.Is(err, interruptErr) {
+			t.Fatalf("handler error = %v, teardown replaced or joined the primary write failure", err)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("handler did not finish after write failure")
@@ -290,6 +295,12 @@ func TestDebugSessionWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T
 	mod.collector = NewDebugCollector(DebugConfig{})
 	ws := newBlockingDebugWebSocketContext(context.Background(), errDebugWebSocketTestWrite)
 	ws.ParamsM["sessionId"] = "session-a"
+	var subscribersAtInterrupt atomic.Int32
+	ws.onInterrupt = func() {
+		mod.collector.mu.RLock()
+		defer mod.collector.mu.RUnlock()
+		subscribersAtInterrupt.Store(int32(len(mod.collector.subscribers)))
+	}
 
 	result := make(chan error, 1)
 	go func() {
@@ -309,6 +320,9 @@ func TestDebugSessionWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T
 	}
 
 	assertDebugWebSocketReaderQuiesced(t, ws)
+	if got := subscribersAtInterrupt.Load(); got != 0 {
+		t.Fatalf("session subscribers at read interruption = %d, want 0", got)
+	}
 }
 
 type blockedDeliveryWebSocketContext struct {

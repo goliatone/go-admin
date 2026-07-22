@@ -91,7 +91,7 @@ func (m *DebugModule) registerDebugREPLAppWebSocket(admin *Admin) {
 	})
 }
 
-func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSocketContext) error {
+func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSocketContext) (result error) {
 	if admin == nil || c == nil {
 		return ErrForbidden
 	}
@@ -110,8 +110,18 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 		return err
 	}
 
-	reader := debugREPLAppCommandReader(c)
-	defer reader.Stop(c)
+	reader, err := debugREPLAppCommandReader(c)
+	if err != nil {
+		closeReason = debugREPLAppCloseReasonError
+		return err
+	}
+	defer func() {
+		stopErr := reader.Stop()
+		result = preserveDebugWebSocketPrimaryError(result, stopErr)
+		if result != nil && stopErr != nil {
+			closeReason = debugREPLAppCloseReasonError
+		}
+	}()
 
 	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
 	defer stopTimeout()
@@ -129,6 +139,9 @@ func runDebugREPLAppLoop(admin *Admin, adminCtx AdminContext, replCfg DebugREPLC
 			return handleDebugREPLAppCommandReadError(err, closeReason)
 		case cmd, ok := <-commandCh:
 			if !ok {
+				if err, available := pendingDebugWebSocketReadError(commandErrCh); available {
+					return handleDebugREPLAppCommandReadError(err, closeReason)
+				}
 				*closeReason = debugREPLAppCloseReasonUser
 				return nil
 			}
@@ -191,7 +204,7 @@ func debugREPLAppReadyInterpreter(admin *Admin, adminCtx AdminContext, replCfg D
 	return fallback, nil
 }
 
-func debugREPLAppCommandReader(c router.WebSocketContext) *debugWebSocketJSONReader[debugREPLAppCommand] {
+func debugREPLAppCommandReader(c router.WebSocketContext) (*debugWebSocketJSONReader[debugREPLAppCommand], error) {
 	return startDebugWebSocketJSONReader[debugREPLAppCommand](c, 16, false)
 }
 

@@ -103,7 +103,7 @@ func (m *DebugModule) registerDebugREPLShellWebSocket(admin *Admin) {
 	})
 }
 
-func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSocketContext) error {
+func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSocketContext) (result error) {
 	if admin == nil || c == nil {
 		return ErrForbidden
 	}
@@ -123,8 +123,18 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 	}
 	defer debugREPLStopShell(cmd, ptmx)
 
-	reader := debugREPLShellCommandReader(c)
-	defer reader.Stop(c)
+	reader, err := debugREPLShellCommandReader(c)
+	if err != nil {
+		closeReason = debugREPLShellCloseReasonError
+		return err
+	}
+	defer func() {
+		stopErr := reader.Stop()
+		result = preserveDebugWebSocketPrimaryError(result, stopErr)
+		if result != nil && stopErr != nil {
+			closeReason = debugREPLShellCloseReasonError
+		}
+	}()
 
 	outputCh, ptyErrCh, done := debugREPLShellOutputReader(ptmx)
 	defer close(done)
@@ -150,6 +160,9 @@ func runDebugREPLShellLoop(admin *Admin, ctx context.Context, replCfg DebugREPLC
 			return handleDebugREPLShellCommandReadError(err, closeReason)
 		case cmd, ok := <-commandCh:
 			if !ok {
+				if err, available := pendingDebugWebSocketReadError(commandErrCh); available {
+					return handleDebugREPLShellCommandReadError(err, closeReason)
+				}
 				*closeReason = debugREPLShellCloseReasonUser
 				return nil
 			}
@@ -258,7 +271,7 @@ func debugREPLTimeoutChannel(maxSessionSeconds int) (<-chan time.Time, func()) {
 	return timer.C, func() { timer.Stop() }
 }
 
-func debugREPLShellCommandReader(c router.WebSocketContext) *debugWebSocketJSONReader[debugREPLShellCommand] {
+func debugREPLShellCommandReader(c router.WebSocketContext) (*debugWebSocketJSONReader[debugREPLShellCommand], error) {
 	return startDebugWebSocketJSONReader[debugREPLShellCommand](c, 16, false)
 }
 

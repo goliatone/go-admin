@@ -1,26 +1,32 @@
 package admin
 
 import (
+	"errors"
 	"sync"
-	"time"
 
 	router "github.com/goliatone/go-router"
 )
 
-const debugWebSocketReadInterruptRetry = 10 * time.Millisecond
+var errDebugWebSocketReadInterruptionUnsupported = errors.New("websocket adapter does not support concurrency-safe read interruption")
 
 // debugWebSocketJSONReader owns the lifetime of one WebSocket read goroutine.
 // Its owner must call Stop before returning control to the router so adapter
 // connection state cannot be reclaimed while ReadJSON is still in flight.
 type debugWebSocketJSONReader[T any] struct {
-	messages <-chan T
-	errors   <-chan error
-	done     <-chan struct{}
-	stop     chan struct{}
-	stopOnce sync.Once
+	messages      <-chan T
+	errors        <-chan error
+	done          <-chan struct{}
+	stop          chan struct{}
+	interruptRead func() error
+	stopOnce      sync.Once
+	stopErr       error
 }
 
-func startDebugWebSocketJSONReader[T any](c router.WebSocketContext, capacity int, dropWhenFull bool) *debugWebSocketJSONReader[T] {
+func startDebugWebSocketJSONReader[T any](c router.WebSocketContext, capacity int, dropWhenFull bool) (*debugWebSocketJSONReader[T], error) {
+	interrupter, ok := c.(router.WebSocketReadInterrupter)
+	if !ok {
+		return nil, errDebugWebSocketReadInterruptionUnsupported
+	}
 	if capacity < 0 {
 		capacity = 0
 	}
@@ -29,10 +35,11 @@ func startDebugWebSocketJSONReader[T any](c router.WebSocketContext, capacity in
 	done := make(chan struct{})
 	stop := make(chan struct{})
 	reader := &debugWebSocketJSONReader[T]{
-		messages: messages,
-		errors:   errors,
-		done:     done,
-		stop:     stop,
+		messages:      messages,
+		errors:        errors,
+		done:          done,
+		stop:          stop,
+		interruptRead: interrupter.InterruptRead,
 	}
 
 	go func() {
@@ -74,36 +81,43 @@ func startDebugWebSocketJSONReader[T any](c router.WebSocketContext, capacity in
 		}
 	}()
 
-	return reader
+	return reader, nil
 }
 
 // Stop prevents further message delivery, interrupts a blocked socket read,
 // and waits until the reader goroutine no longer owns connection state.
-func (r *debugWebSocketJSONReader[T]) Stop(c router.WebSocketContext) {
+func (r *debugWebSocketJSONReader[T]) Stop() error {
 	if r == nil {
-		return
+		return nil
 	}
 	r.stopOnce.Do(func() {
 		close(r.stop)
-	})
-
-	select {
-	case <-r.done:
-		return
-	default:
-	}
-
-	retry := time.NewTicker(debugWebSocketReadInterruptRetry)
-	defer retry.Stop()
-	for {
-		if c != nil {
-			_ = c.SetReadDeadline(time.Now()) //nolint:errcheck // retry plus the completion barrier remain authoritative.
-		}
 		select {
 		case <-r.done:
 			return
-		case <-retry.C:
+		default:
 		}
+		if r.interruptRead != nil {
+			r.stopErr = r.interruptRead()
+		}
+		<-r.done
+	})
+	return r.stopErr
+}
+
+func preserveDebugWebSocketPrimaryError(primary, teardown error) error {
+	if primary != nil {
+		return primary
+	}
+	return teardown
+}
+
+func pendingDebugWebSocketReadError(errors <-chan error) (error, bool) {
+	select {
+	case err := <-errors:
+		return err, true
+	default:
+		return nil, false
 	}
 }
 
