@@ -1,6 +1,23 @@
 # Changelog
 
+# [0.121.0](https://github.com/goliatone/go-admin/compare/v0.120.3...v0.121.0) - (2026-07-22)
+
+## <!-- 16 -->➕ Add
+
+- Debug collector panel snapshoot with context ([bf490d8](https://github.com/goliatone/go-admin/commit/bf490d84b42367d08c5f43fa6ae10fb371d562aa))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update test ([94994a7](https://github.com/goliatone/go-admin/commit/94994a7a98cdb2301f8ac3b8b515e5f919e1d2c8))  - (goliatone)
+
 # [0.120.3](https://github.com/goliatone/go-admin/compare/v0.120.2...v0.120.3) - (2026-07-22)
+
+
+New patch release: v0.120.3
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.120.3 ([e79e49f](https://github.com/goliatone/go-admin/commit/e79e49f1edf9dbd877b8ad524c759dd4794f47a9))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
