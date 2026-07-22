@@ -44,6 +44,7 @@ type DebugLayoutMode string
 const (
 	DebugLayoutStandalone DebugLayoutMode = "standalone"
 	DebugLayoutAdmin      DebugLayoutMode = "admin"
+	DebugLayoutDashboard  DebugLayoutMode = "dashboard"
 )
 
 // DebugViewContextBuilder can augment the view context for debug templates.
@@ -160,7 +161,7 @@ type DebugConfig struct {
 func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	layoutMode := DebugLayoutMode(strings.ToLower(strings.TrimSpace(string(cfg.LayoutMode))))
 	switch layoutMode {
-	case DebugLayoutAdmin, DebugLayoutStandalone:
+	case DebugLayoutAdmin, DebugLayoutStandalone, DebugLayoutDashboard:
 	default:
 		layoutMode = DebugLayoutStandalone
 	}
