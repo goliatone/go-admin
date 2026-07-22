@@ -50,8 +50,8 @@ Temporary Items
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Go workspace file
-go.work
+# This repository is a multi-module workspace; commit go.work so CI and fresh
+# clones resolve the root and quickstart modules the same way as local builds.
 go.work.sum
 .tmp
 node_modules

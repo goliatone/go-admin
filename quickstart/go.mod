@@ -2,16 +2,6 @@ module github.com/goliatone/go-admin/quickstart
 
 go 1.26.5
 
-replace github.com/goliatone/go-admin => ..
-
-replace github.com/goliatone/go-uploader => ../../go-uploader
-
-replace github.com/goliatone/go-router => ../../go-router
-
-replace github.com/goliatone/go-cms => ../../go-cms
-
-replace github.com/goliatone/go-repository-bun => ../../go-repository-bun
-
 require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
@@ -22,7 +12,7 @@ require (
 	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
 	github.com/goliatone/go-cache v0.1.0
 	github.com/goliatone/go-cms v0.60.2
-	github.com/goliatone/go-command v0.23.3
+	github.com/goliatone/go-command v0.24.1
 	github.com/goliatone/go-dashboard v0.14.0
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-export v0.9.0
@@ -52,8 +42,6 @@ require (
 	golang.org/x/text v0.39.0
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-replace github.com/goliatone/go-i18n => ../../go-i18n
 
 require (
 	cel.dev/expr v0.25.1 // indirect
