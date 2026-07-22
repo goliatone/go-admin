@@ -646,6 +646,7 @@ func defaultDoctorChecks() []DoctorCheck {
 		navigationPermissionPolicyDoctorCheck(),
 		featureWiringDoctorCheck(),
 		cmsWiringDoctorCheck(),
+		commandRunDoctorCheck(),
 	}
 }
 
