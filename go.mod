@@ -16,7 +16,7 @@ require (
 	github.com/goliatone/go-command v0.23.3
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
-	github.com/goliatone/go-dashboard v0.13.1
+	github.com/goliatone/go-dashboard v0.14.0
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-export v0.9.0
 	github.com/goliatone/go-featuregate v0.6.1
