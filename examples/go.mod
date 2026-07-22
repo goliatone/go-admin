@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
-	github.com/goliatone/go-router v0.60.2
+	github.com/goliatone/go-router v0.61.0
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-services v0.7.2
 	github.com/goliatone/go-theme v0.3.0
