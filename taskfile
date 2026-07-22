@@ -1971,8 +1971,8 @@ function release:changelog:generate {
 ##
 ## quickstart:sync
 ##
-## Keep quickstart module's go-admin requirement in sync
-## with the release tag.
+## Keep the root and quickstart module requirements in sync with the shared
+## release tag. Both tags are published atomically by release().
 ##
 ## Arguments:
 ## @arg 1 {string} tag
@@ -1987,8 +1987,10 @@ function quickstart:sync {
         return 0
     fi
 
-    (cd quickstart && go mod edit -require=github.com/goliatone/go-admin@v${tag})
-    (cd quickstart && go mod tidy)
+    go mod edit -require=github.com/goliatone/go-admin/quickstart@v${tag} || return 1
+    (cd quickstart && go mod edit -require=github.com/goliatone/go-admin@v${tag}) || return 1
+    go mod tidy || return 1
+    (cd quickstart && go mod tidy) || return 1
 }
 
 
@@ -2108,7 +2110,7 @@ function release {
     # Update version file
     version:set "${tag}" || return 1
 
-    # Sync quickstart module to the new tag
+    # Sync the mutually dependent modules to the atomically published tags.
     quickstart:sync "${tag}" || return 1
 
     # Generate changelog before tagging so release tags include their notes.
@@ -2119,7 +2121,7 @@ function release {
     fi
 
     # Add updated version file to git
-    git add "${VERSION_FILE}" CHANGELOG.md || return 1
+    git add "${VERSION_FILE}" CHANGELOG.md go.mod go.sum || return 1
     if [ -f "quickstart/go.mod" ]; then
         git add quickstart/go.mod quickstart/go.sum || return 1
     fi
