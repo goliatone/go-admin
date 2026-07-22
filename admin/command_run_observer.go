@@ -224,10 +224,7 @@ func commandRunCompatibilityRevision(phase CommandRunPhase, occurredAt time.Time
 	case phase.Terminal():
 		band = 3
 	}
-	nanos := occurredAt.UTC().UnixNano()
-	if nanos < 0 {
-		nanos = 0
-	}
+	nanos := max(occurredAt.UTC().UnixNano(), 0)
 	revision := band<<61 | uint64(nanos)&timeMask
 	if revision == 0 {
 		return 1

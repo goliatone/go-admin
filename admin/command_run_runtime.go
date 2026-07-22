@@ -79,7 +79,7 @@ type CommandRunRuntimeConfig struct {
 
 	PublishTimeout time.Duration            `json:"publish_timeout,omitempty"`
 	CloseTimeout   time.Duration            `json:"close_timeout,omitempty"`
-	ContractLimits CommandRunContractLimits `json:"contract_limits,omitempty"`
+	ContractLimits CommandRunContractLimits `json:"contract_limits"`
 
 	ScopeResolver   CommandRunScopeResolver   `json:"-"`
 	ScopeAuthorizer CommandRunScopeAuthorizer `json:"-"`

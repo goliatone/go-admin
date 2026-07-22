@@ -37,7 +37,7 @@ func TestDebugWebSocketReaderLifecycleSurvivesFiberHijackTeardown(t *testing.T) 
 	address, shutdown := startAdminFiberServer(t, server)
 	defer shutdown()
 
-	for attempt := 0; attempt < 4; attempt++ {
+	for attempt := range 4 {
 		conn, resp, err := websocket.DefaultDialer.Dial("ws://"+address+"/debug-reader-lifecycle", nil)
 		if err != nil {
 			if resp != nil {

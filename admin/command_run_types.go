@@ -98,7 +98,7 @@ func (s CommandRunScope) Empty() bool {
 // CommandRunSelector limits records and live updates to an authorized scope.
 // Global must be granted explicitly; an empty selector matches only unscoped data.
 type CommandRunSelector struct {
-	Scope  CommandRunScope `json:"scope,omitempty"`
+	Scope  CommandRunScope `json:"scope"`
 	Global bool            `json:"global,omitempty"`
 }
 

@@ -107,6 +107,7 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 	if admin == nil || c == nil {
 		return ErrForbidden
 	}
+	defer closeDebugWebSocket(c)
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
 	runtime, err := debugREPLStartSession(admin, c, DebugREPLKindShell, replCfg.ReadOnlyEnabled())
 	if err != nil {
@@ -122,7 +123,8 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 	}
 	defer debugREPLStopShell(cmd, ptmx)
 
-	commandCh, commandErrCh := debugREPLShellCommandReader(c)
+	reader := debugREPLShellCommandReader(c)
+	defer reader.Stop(c)
 
 	outputCh, ptyErrCh, done := debugREPLShellOutputReader(ptmx)
 	defer close(done)
@@ -135,7 +137,7 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
 	defer stopTimeout()
 
-	return runDebugREPLShellLoop(admin, runtime.adminCtx.Context, replCfg, runtime.session, ptmx, c, commandCh, commandErrCh, outputCh, ptyErrCh, cmdErrCh, timeoutCh, &closeReason)
+	return runDebugREPLShellLoop(admin, runtime.adminCtx.Context, replCfg, runtime.session, ptmx, c, reader.messages, reader.errors, outputCh, ptyErrCh, cmdErrCh, timeoutCh, &closeReason)
 }
 
 func runDebugREPLShellLoop(admin *Admin, ctx context.Context, replCfg DebugREPLConfig, session DebugREPLSession, ptmx *os.File, c router.WebSocketContext, commandCh <-chan debugREPLShellCommand, commandErrCh <-chan error, outputCh <-chan []byte, ptyErrCh <-chan error, cmdErrCh <-chan error, timeoutCh <-chan time.Time, closeReason *string) error {
@@ -256,21 +258,8 @@ func debugREPLTimeoutChannel(maxSessionSeconds int) (<-chan time.Time, func()) {
 	return timer.C, func() { timer.Stop() }
 }
 
-func debugREPLShellCommandReader(c router.WebSocketContext) (<-chan debugREPLShellCommand, <-chan error) {
-	commandCh := make(chan debugREPLShellCommand, 16)
-	commandErrCh := make(chan error, 1)
-	go func() {
-		defer close(commandCh)
-		for {
-			var cmd debugREPLShellCommand
-			if err := c.ReadJSON(&cmd); err != nil {
-				commandErrCh <- err
-				return
-			}
-			commandCh <- cmd
-		}
-	}()
-	return commandCh, commandErrCh
+func debugREPLShellCommandReader(c router.WebSocketContext) *debugWebSocketJSONReader[debugREPLShellCommand] {
+	return startDebugWebSocketJSONReader[debugREPLShellCommand](c, 16, false)
 }
 
 func debugREPLShellOutputReader(ptmx *os.File) (<-chan []byte, <-chan error, chan struct{}) {

@@ -769,6 +769,7 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 	if m == nil || m.collector == nil {
 		return ErrForbidden
 	}
+	defer closeDebugWebSocket(c)
 	access := m.commandRunAccessFromUpgrade(c)
 	events, unsubscribe := m.subscribeDebugEvents()
 	if events == nil {
@@ -780,9 +781,10 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 		return err
 	}
 
-	commandCh, done := startDebugCommandReader(c)
+	reader := startDebugCommandReader(c)
+	defer reader.Stop(c)
 	subscriptions := newDebugSubscription(access)
-	return m.runDebugWebSocketLoop(c, subscriptions, commandCh, done, events)
+	return m.runDebugWebSocketLoop(c, subscriptions, reader.messages, reader.done, events)
 }
 
 func (m *DebugModule) subscribeDebugEvents() (<-chan DebugEvent, func()) {
@@ -793,24 +795,8 @@ func (m *DebugModule) subscribeDebugEvents() (<-chan DebugEvent, func()) {
 	}
 }
 
-func startDebugCommandReader(c router.WebSocketContext) (<-chan debugCommand, <-chan struct{}) {
-	commandCh := make(chan debugCommand, 16)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		defer close(commandCh)
-		for {
-			var cmd debugCommand
-			if err := c.ReadJSON(&cmd); err != nil {
-				return
-			}
-			select {
-			case commandCh <- cmd:
-			default:
-			}
-		}
-	}()
-	return commandCh, done
+func startDebugCommandReader(c router.WebSocketContext) *debugWebSocketJSONReader[debugCommand] {
+	return startDebugWebSocketJSONReader[debugCommand](c, 16, true)
 }
 
 func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, done <-chan struct{}, events <-chan DebugEvent) error {
@@ -819,7 +805,7 @@ func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscript
 		case <-done:
 			return nil
 		case <-c.Context().Done():
-			return c.Close()
+			return nil
 		case cmd, ok := <-commandCh:
 			if !ok {
 				return nil
@@ -850,6 +836,7 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 	if err != nil {
 		return err
 	}
+	defer closeDebugWebSocket(c)
 	events, cleanup := m.subscribeDebugEvents()
 	if events == nil {
 		return nil
@@ -863,11 +850,10 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 	}
 
 	m.recordDebugSessionAttach(admin, c, sessionID)
-	commandCh := make(chan debugCommand, 16)
-	done := make(chan struct{})
-	go m.readDebugSessionCommands(c, commandCh, done)
+	reader := startDebugCommandReader(c)
+	defer reader.Stop(c)
 
-	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(access), commandCh, done, events, sessionID, includeGlobals)
+	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(access), reader.messages, reader.done, events, sessionID, includeGlobals)
 }
 
 func (m *DebugModule) debugSessionWebSocketConfig(c router.WebSocketContext) (string, bool, error) {
@@ -894,7 +880,7 @@ func (m *DebugModule) runDebugSessionWebSocketLoop(c router.WebSocketContext, su
 		case <-done:
 			return nil
 		case <-c.Context().Done():
-			return c.Close()
+			return nil
 		case cmd, ok := <-commandCh:
 			if !ok {
 				return nil
@@ -909,21 +895,6 @@ func (m *DebugModule) runDebugSessionWebSocketLoop(c router.WebSocketContext, su
 			if err := writeDebugSessionEvent(c, subscriptions, event, sessionID, includeGlobals); err != nil {
 				return err
 			}
-		}
-	}
-}
-
-func (m *DebugModule) readDebugSessionCommands(c router.WebSocketContext, commandCh chan<- debugCommand, done chan<- struct{}) {
-	defer close(done)
-	defer close(commandCh)
-	for {
-		var cmd debugCommand
-		if err := c.ReadJSON(&cmd); err != nil {
-			return
-		}
-		select {
-		case commandCh <- cmd:
-		default:
 		}
 	}
 }

@@ -95,6 +95,7 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 	if admin == nil || c == nil {
 		return ErrForbidden
 	}
+	defer closeDebugWebSocket(c)
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
 	runtime, err := debugREPLStartSession(admin, c, DebugREPLKindApp, replCfg.ReadOnlyEnabled())
 	if err != nil {
@@ -109,12 +110,13 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 		return err
 	}
 
-	commandCh, commandErrCh := debugREPLAppCommandReader(c)
+	reader := debugREPLAppCommandReader(c)
+	defer reader.Stop(c)
 
 	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
 	defer stopTimeout()
 
-	return runDebugREPLAppLoop(admin, runtime.adminCtx, replCfg, runtime.session, interpreter, c, commandCh, commandErrCh, timeoutCh, &closeReason)
+	return runDebugREPLAppLoop(admin, runtime.adminCtx, replCfg, runtime.session, interpreter, c, reader.messages, reader.errors, timeoutCh, &closeReason)
 }
 
 func runDebugREPLAppLoop(admin *Admin, adminCtx AdminContext, replCfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, commandCh <-chan debugREPLAppCommand, commandErrCh <-chan error, timeoutCh <-chan time.Time, closeReason *string) error {
@@ -189,21 +191,8 @@ func debugREPLAppReadyInterpreter(admin *Admin, adminCtx AdminContext, replCfg D
 	return fallback, nil
 }
 
-func debugREPLAppCommandReader(c router.WebSocketContext) (<-chan debugREPLAppCommand, <-chan error) {
-	commandCh := make(chan debugREPLAppCommand, 16)
-	commandErrCh := make(chan error, 1)
-	go func() {
-		defer close(commandCh)
-		for {
-			var cmd debugREPLAppCommand
-			if err := c.ReadJSON(&cmd); err != nil {
-				commandErrCh <- err
-				return
-			}
-			commandCh <- cmd
-		}
-	}()
-	return commandCh, commandErrCh
+func debugREPLAppCommandReader(c router.WebSocketContext) *debugWebSocketJSONReader[debugREPLAppCommand] {
+	return startDebugWebSocketJSONReader[debugREPLAppCommand](c, 16, false)
 }
 
 func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, cmd debugREPLAppCommand) error {

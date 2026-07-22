@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	debugregistry "github.com/goliatone/go-admin/debug"
@@ -242,8 +243,6 @@ func commandRunsPanelUI(maxEntries int) *debugregistry.PanelUI {
 
 func cloneCommandRunPanelMetadata(metadata map[string]any) map[string]any {
 	out := make(map[string]any, len(metadata)+2)
-	for key, value := range metadata {
-		out[key] = value
-	}
+	maps.Copy(out, metadata)
 	return out
 }

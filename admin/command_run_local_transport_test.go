@@ -136,7 +136,6 @@ func TestLocalCommandRunTransportConcurrentPublishAndClose(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	for publisher := range 8 {
-		publisher := publisher
 		wg.Go(func() {
 			for revision := 1; revision <= 50; revision++ {
 				update := localTransportTestUpdate(fmt.Sprintf("run-%d", publisher), uint64(revision))

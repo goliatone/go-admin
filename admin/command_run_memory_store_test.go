@@ -179,7 +179,6 @@ func TestMemoryCommandRunStoreConcurrentApplyListClear(t *testing.T) {
 	ctx := context.Background()
 	var wg sync.WaitGroup
 	for worker := range 8 {
-		worker := worker
 		wg.Go(func() {
 			for revision := 1; revision <= 50; revision++ {
 				update := validCommandRunUpdate()
