@@ -162,7 +162,7 @@ func TestCommandRunBrowserDeliveryOverflowDegradesRuntimeDiagnostics(t *testing.
 	t.Cleanup(func() { _ = adm.CloseCommandRunRuntime(context.Background()) })
 
 	events := collector.Subscribe("stalled-command-run-client")
-	for index := 0; index < debugSubscriberBuffer+2; index++ {
+	for index := 0; index < debugSubscriberBuffer+3; index++ {
 		collector.publish(commandRunDebugEventType, CommandRunRecord{CommandRunUpdate: CommandRunUpdate{
 			RunID:    "diagnostic-run-" + toString(index),
 			Revision: 1,
@@ -171,14 +171,7 @@ func TestCommandRunBrowserDeliveryOverflowDegradesRuntimeDiagnostics(t *testing.
 		}})
 	}
 
-	select {
-	case _, ok := <-events:
-		if ok {
-			t.Fatal("expected overflowed subscriber to close")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("overflowed subscriber was not disconnected")
-	}
+	awaitDebugSubscriberClosed(t, events)
 	diagnostics := adm.CommandRunRuntime().Diagnostics()
 	if diagnostics.DroppedEvents != 1 || diagnostics.Status != CommandRunDiagnosticDegraded {
 		t.Fatalf("diagnostics = %+v", diagnostics)

@@ -688,7 +688,7 @@ func TestDebugCollectorDisconnectsOverflowedSubscriberAndReportsCommandRunFailur
 		}
 	})
 
-	for index := 0; index < debugSubscriberBuffer+2; index++ {
+	for index := 0; index < debugSubscriberBuffer+3; index++ {
 		collector.publish(commandRunDebugEventType, CommandRunRecord{CommandRunUpdate: CommandRunUpdate{
 			RunID:    "run-" + toString(index),
 			Revision: 1,
@@ -706,19 +706,40 @@ func TestDebugCollectorDisconnectsOverflowedSubscriberAndReportsCommandRunFailur
 		t.Fatal("expected command-run delivery failure diagnostic")
 	}
 
-	select {
-	case _, ok := <-events:
-		if ok {
-			t.Fatal("expected overflowed subscriber channel to close")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("overflowed subscriber was not disconnected")
-	}
+	awaitDebugSubscriberClosed(t, events)
 	collector.mu.RLock()
 	_, present := collector.subscribers["stalled-client"]
 	collector.mu.RUnlock()
 	if present {
 		t.Fatal("overflowed subscriber remains registered")
+	}
+}
+
+func TestDebugSubscriberClassifiesQueuedCommandRunAtRiskOnUnrelatedOverflow(t *testing.T) {
+	subscriber := &debugEventSubscriber{
+		pending: []DebugEvent{
+			{Type: "request"},
+			{Type: commandRunDebugEventType, Payload: CommandRunRecord{CommandRunUpdate: CommandRunUpdate{RunID: "run-at-risk"}}},
+		},
+	}
+	event, ok := subscriber.commandRunAtRisk(DebugEvent{Type: "log"})
+	if !ok || event.Type != commandRunDebugEventType {
+		t.Fatalf("at-risk event = %+v, found=%v", event, ok)
+	}
+}
+
+func awaitDebugSubscriberClosed(t testing.TB, events <-chan DebugEvent) {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case _, ok := <-events:
+			if !ok {
+				return
+			}
+		case <-deadline:
+			t.Fatal("overflowed subscriber was not disconnected")
+		}
 	}
 }
 
