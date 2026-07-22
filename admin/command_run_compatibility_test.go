@@ -162,7 +162,7 @@ func TestCommandRunBrowserDeliveryOverflowDegradesRuntimeDiagnostics(t *testing.
 	t.Cleanup(func() { _ = adm.CloseCommandRunRuntime(context.Background()) })
 
 	events := collector.Subscribe("stalled-command-run-client")
-	for index := 0; index < debugSubscriberBuffer+3; index++ {
+	for index := range debugSubscriberBuffer + 3 {
 		collector.publish(commandRunDebugEventType, CommandRunRecord{CommandRunUpdate: CommandRunUpdate{
 			RunID:    "diagnostic-run-" + toString(index),
 			Revision: 1,

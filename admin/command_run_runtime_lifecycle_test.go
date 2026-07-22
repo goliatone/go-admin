@@ -180,13 +180,11 @@ func TestCommandRunRuntimeConcurrentStartAndBoundedClose(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	for range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			if err := runtime.Start(context.Background()); err != nil {
 				t.Errorf("start: %v", err)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

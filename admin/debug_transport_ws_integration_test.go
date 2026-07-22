@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"strings"
@@ -12,6 +13,62 @@ import (
 	router "github.com/goliatone/go-router"
 	"github.com/gorilla/websocket"
 )
+
+func TestDebugWebSocketReaderLifecycleSurvivesFiberHijackTeardown(t *testing.T) {
+	server := router.NewFiberAdapter().(*router.FiberAdapter) //nolint:errcheck // test requires the concrete Fiber adapter.
+	config := router.DefaultWebSocketConfig()
+	handlerDone := make(chan struct{}, 4)
+	server.Router().WebSocket("/debug-reader-lifecycle", config, func(c router.WebSocketContext) error {
+		defer func() { handlerDone <- struct{}{} }()
+		defer closeDebugWebSocket(c)
+		reader := startDebugWebSocketJSONReader[debugCommand](c, 0, false)
+		defer reader.Stop(c)
+
+		select {
+		case <-reader.messages:
+			return nil
+		case err := <-reader.errors:
+			return err
+		case <-time.After(time.Second):
+			return errors.New("timed out waiting for debug command")
+		}
+	})
+
+	address, shutdown := startAdminFiberServer(t, server)
+	defer shutdown()
+
+	for attempt := 0; attempt < 4; attempt++ {
+		conn, resp, err := websocket.DefaultDialer.Dial("ws://"+address+"/debug-reader-lifecycle", nil)
+		if err != nil {
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			t.Fatalf("attempt %d: websocket dial failed: %v", attempt+1, err)
+		}
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+
+		if err := conn.WriteJSON(map[string]string{"type": "subscribe"}); err != nil {
+			_ = conn.Close()
+			t.Fatalf("attempt %d: write command: %v", attempt+1, err)
+		}
+
+		select {
+		case <-handlerDone:
+		case <-time.After(time.Second):
+			_ = conn.Close()
+			t.Fatalf("attempt %d: handler did not quiesce reader and return", attempt+1)
+		}
+
+		_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+		if _, _, err := conn.ReadMessage(); err == nil {
+			_ = conn.Close()
+			t.Fatalf("attempt %d: expected server to close websocket", attempt+1)
+		}
+		_ = conn.Close()
+	}
+}
 
 func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *testing.T) {
 	cfg := Config{

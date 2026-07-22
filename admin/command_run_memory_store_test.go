@@ -178,11 +178,9 @@ func TestMemoryCommandRunStoreConcurrentApplyListClear(t *testing.T) {
 	store := newTestCommandRunStore(t, 100, 500)
 	ctx := context.Background()
 	var wg sync.WaitGroup
-	for worker := 0; worker < 8; worker++ {
+	for worker := range 8 {
 		worker := worker
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for revision := 1; revision <= 50; revision++ {
 				update := validCommandRunUpdate()
 				update.RunID = fmt.Sprintf("run-%d", worker)
@@ -191,7 +189,7 @@ func TestMemoryCommandRunStoreConcurrentApplyListClear(t *testing.T) {
 				_, _, _ = store.Apply(ctx, update)
 				_, _ = store.List(ctx, CommandRunSelector{Global: true})
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	rows, err := store.List(ctx, CommandRunSelector{Global: true})

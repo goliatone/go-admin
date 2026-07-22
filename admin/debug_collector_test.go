@@ -688,7 +688,7 @@ func TestDebugCollectorDisconnectsOverflowedSubscriberAndReportsCommandRunFailur
 		}
 	})
 
-	for index := 0; index < debugSubscriberBuffer+3; index++ {
+	for index := range debugSubscriberBuffer + 3 {
 		collector.publish(commandRunDebugEventType, CommandRunRecord{CommandRunUpdate: CommandRunUpdate{
 			RunID:    "run-" + toString(index),
 			Revision: 1,

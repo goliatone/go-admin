@@ -125,7 +125,7 @@ func TestLocalCommandRunTransportConcurrentPublishAndClose(t *testing.T) {
 	transport := NewLocalCommandRunTransport(LocalCommandRunTransportConfig{BufferSize: 256})
 	var handled atomic.Int64
 	const subscribers = 4
-	for i := 0; i < subscribers; i++ {
+	for i := range subscribers {
 		_, err := transport.SubscribeCommandRuns(context.Background(), CommandRunSelector{Global: true}, func(context.Context, CommandRunUpdate) error {
 			handled.Add(1)
 			return nil
@@ -135,16 +135,14 @@ func TestLocalCommandRunTransportConcurrentPublishAndClose(t *testing.T) {
 		}
 	}
 	var wg sync.WaitGroup
-	for publisher := 0; publisher < 8; publisher++ {
+	for publisher := range 8 {
 		publisher := publisher
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for revision := 1; revision <= 50; revision++ {
 				update := localTransportTestUpdate(fmt.Sprintf("run-%d", publisher), uint64(revision))
 				_ = transport.PublishCommandRun(context.Background(), update)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
