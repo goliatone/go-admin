@@ -100,6 +100,16 @@ func TestQuickstartRoutingStartupReportLogsDoctorOutputAndOverrideMounts(t *test
 	}
 
 	server, r := NewFiberServer(nil, cfg, adm, false, WithFiberLogger(false))
+	if err := RegisterAdminUIRoutes(
+		r,
+		cfg,
+		adm,
+		nil,
+		WithUIDashboardRoute(false),
+		WithUINotificationsRoute(false),
+	); err != nil {
+		t.Fatalf("RegisterAdminUIRoutes error: %v", err)
+	}
 	if err := adm.Initialize(r); err != nil {
 		t.Fatalf("Initialize error: %v report=%+v", err, adm.RoutingReport())
 	}
@@ -148,6 +158,8 @@ func TestQuickstartRoutingStartupReportLogsDoctorOutputAndOverrideMounts(t *test
 
 	paths := routeDefinitionPaths(r.Routes())
 	for _, want := range []string{
+		"/control/activity",
+		"/control/feature-flags",
 		"/control/workbench/reports-tools",
 		"/control/workbench/partner-tools",
 		"/control/api/reports_tools/ping",
