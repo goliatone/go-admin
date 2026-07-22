@@ -60,6 +60,46 @@ func TestDebugRoutesRequirePermission(t *testing.T) {
 	}
 }
 
+func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug:         DebugConfig{Enabled: true},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{
+		"debug":                 true,
+		string(FeatureDashboard): true,
+	})})
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewFiberAdapter()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	methodPaths := map[string]bool{}
+	for _, route := range server.Router().Routes() {
+		methodPaths[string(route.Method)+" "+route.Path] = true
+	}
+	for _, expected := range []string{
+		"GET /admin/debug",
+		"GET /admin/debug/api/dashboard",
+		"POST /admin/debug/api/dashboard/widgets",
+		"DELETE /admin/debug/api/dashboard/widgets/:id",
+		"POST /admin/debug/api/dashboard/widgets/reorder",
+		"POST /admin/debug/api/dashboard/widgets/refresh",
+		"POST /admin/debug/api/dashboard/preferences",
+		"GET /admin/debug/api/dashboard/ws",
+	} {
+		if !methodPaths[expected] {
+			t.Errorf("missing Fiber debug dashboard route %s", expected)
+		}
+	}
+}
+
 func TestDebugRoutesDenyWhenNoAuthorizerOrIPAllowlistConfigured(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
