@@ -116,6 +116,9 @@ func (m *PreferencesModule) RouteContract() routing.ModuleContract {
 		UIRoutes: map[string]string{
 			preferencesRouteKey: "/",
 		},
+		UIRouteDeclarations: map[string]routing.RouteDeclaration{
+			preferencesRouteKey: {Method: router.GET, Path: "/"},
+		},
 	}
 }
 
