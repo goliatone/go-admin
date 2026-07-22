@@ -2099,8 +2099,8 @@ function quickstart:sync {
 ##
 ## quickstart:sync:check
 ##
-## Exercise quickstart release preparation against the repository's real
-## package graph, then restore module metadata regardless of the result.
+## Exercise quickstart release preparation and tests against the repository's
+## real package graph, then restore module metadata regardless of the result.
 ##
 ## Arguments:
 ## @arg 1 {string} [tag=0.999.0]
@@ -2122,6 +2122,13 @@ function quickstart:sync:check {
     done
 
     quickstart:sync "${tag}" || status=$?
+    if [ "${status}" -eq 0 ]; then
+        (
+            cd quickstart || exit 1
+            go mod edit -replace=github.com/goliatone/go-admin=.. || exit 1
+            GOWORK=off go test -mod=readonly ./...
+        ) || status=$?
+    fi
 
     for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
         key=${path//\//_}
