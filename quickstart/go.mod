@@ -25,7 +25,7 @@ require (
 	github.com/goliatone/go-command v0.23.3
 	github.com/goliatone/go-dashboard v0.13.1
 	github.com/goliatone/go-errors v0.12.0
-	github.com/goliatone/go-export v0.8.0
+	github.com/goliatone/go-export v0.9.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.8.0
 	github.com/goliatone/go-featuregate v0.6.1
 	github.com/goliatone/go-formgen v0.30.1
@@ -39,7 +39,7 @@ require (
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
-	github.com/goliatone/go-urlkit v0.6.0
+	github.com/goliatone/go-urlkit v0.7.0
 	github.com/goliatone/go-users v0.24.1
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0

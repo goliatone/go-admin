@@ -194,8 +194,8 @@ github.com/goliatone/go-dashboard v0.13.1 h1:36fdu3itIJ7IWTed3btPLcQ5AFFkoEcYisg
 github.com/goliatone/go-dashboard v0.13.1/go.mod h1:AyKK4sy4dVnAt7mqGnH/cheyVOTt7BkYuF/ON3A9YXQ=
 github.com/goliatone/go-errors v0.12.0 h1:FI3FHJe+sogfD+MZJqx8OVGDJqav5PNq1xi1UAXjBwk=
 github.com/goliatone/go-errors v0.12.0/go.mod h1:LvR8nteHvrUTbS6N7Gm/2of9yRyyLoxIB4VFPk+wkVU=
-github.com/goliatone/go-export v0.8.0 h1:G4acXK8Dg5fdttQa9YY4eBm/3uO3D8L8fn21qV0EY2U=
-github.com/goliatone/go-export v0.8.0/go.mod h1:h6+mOySYAOlH5/0ZBbGkUv9qHTYHebFySLYZc9u1RBM=
+github.com/goliatone/go-export v0.9.0 h1:ch3tw79idL4d9g0fhbt/xdEx5jx1Ne67cZAdOqJT5gw=
+github.com/goliatone/go-export v0.9.0/go.mod h1:vcQcjF4ZDxYehlOqxfmmRAWX7tp4/HOXTFiHkDZZkIc=
 github.com/goliatone/go-export/adapters/template/go-template v0.8.0 h1:PmE32ksImd+b9Wd34v0UnNzsJ0hFIPW+VjigCLXCtDU=
 github.com/goliatone/go-export/adapters/template/go-template v0.8.0/go.mod h1:J0ZmWTrxSV0EjXqTyhyOgHdyJBVCEgL8zmWmH7MZwoc=
 github.com/goliatone/go-featuregate v0.6.1 h1:3fxOcSWTxpC3YxKJMDhM12j8vL/D+CUD7meS/L8b5CM=
@@ -238,8 +238,8 @@ github.com/goliatone/go-theme v0.3.0 h1:iuIuyjnhC+bY+gxYa+1E4m9K6cY5MM5DQAZpYLOk
 github.com/goliatone/go-theme v0.3.0/go.mod h1:ZmjyB8jDSzO1ABpVfw/UrnO4wgYllpdogvo7al4csOQ=
 github.com/goliatone/go-uploader v0.4.0 h1:fo4K1J8juZ2LoG31hlwS3OjmFYqt2I+qUhiOZvzbE3s=
 github.com/goliatone/go-uploader v0.4.0/go.mod h1:D4PFxAypbnZ3EAuRbk0sjPAwEmMxf+7b1eZ4U6TAync=
-github.com/goliatone/go-urlkit v0.6.0 h1:em91h2tkVjy8RVCfTd7MY3E7tDMKKn3+uFcempTTaMs=
-github.com/goliatone/go-urlkit v0.6.0/go.mod h1:QVCju3Z9io9mX+t2D7RCp+ja9PYrLNJoucWc124siFQ=
+github.com/goliatone/go-urlkit v0.7.0 h1:wc2JR4xLnft7Vne4LbNw/oLQdFHQkuIgoEU0Hi7NczI=
+github.com/goliatone/go-urlkit v0.7.0/go.mod h1:QVCju3Z9io9mX+t2D7RCp+ja9PYrLNJoucWc124siFQ=
 github.com/goliatone/go-users v0.24.1 h1:iTSHo5A5kMexVZJNC6UVlmUf4lsCL8A802dheg3eGRg=
 github.com/goliatone/go-users v0.24.1/go.mod h1:Yhcfa0QZ1PYBm4HPDUsUZXbAwGsxV4itbsNClQwCL6o=
 github.com/goliatone/hashid v0.2.2 h1:QyDBo3evEfF7Y9hd0ip630f4E2E3jajRZotC46rm8dk=
