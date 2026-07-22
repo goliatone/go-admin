@@ -562,6 +562,31 @@ quickstart.WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
 RPC only exposes the command transport. Hosts still own queue workers, feedback
 streams, and any command-specific reconciliation behavior.
 
+When Command Runs is enabled, inline dispatch is observed automatically.
+Queued execution needs both sides of the `go-command` lifecycle contract:
+
+```go
+if err := dispatcher.RegisterObservedExecutor(command.ExecutionModeQueued, queueExecutor); err != nil {
+    return err
+}
+
+// In the worker, preserve the accepted receipt's DispatchRunContext.
+return dispatcher.RunObservedCommand(ctx, runContext, func(runCtx context.Context) error {
+    return executeQueuedCommand(runCtx)
+})
+```
+
+The observed executor emits acceptance/rejection. `RunObservedCommand` emits
+started, progress/checkpoint, and terminal worker phases with the same run,
+dispatch, and correlation lineage. Registering an unobserved queued executor or
+calling the handler directly leaves the Command Runs row at acceptance because
+go-admin cannot infer remote worker execution.
+
+`Admin.PublishCommandStatus` remains a compatibility escape hatch for existing
+launcher integrations. It is not a replacement for observed queued execution;
+the observer-owned canonical update is authoritative and the projector safely
+deduplicates/rejects stale revisions.
+
 ## Workflow RPC Endpoints
 
 When the admin RPC server is present, go-admin registers workflow RPC endpoints

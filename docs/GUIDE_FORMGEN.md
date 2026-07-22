@@ -405,6 +405,12 @@ updates inside formgen. Absolute synthetic endpoint schemes are preserved until
 `beforeFetch`; a host that emits one must rewrite it to a real protected URL
 before the request reaches `fetch`.
 
+For command option resolution, go-admin emits the constant
+`command-options://resolve` sentinel and carries command, field, and source
+identity in encoded endpoint parameters. The sentinel itself is deliberately
+identity-free so URI-reserved punctuation cannot be parsed as transport
+structure.
+
 Do not emit both generated HTML and a host-specific field projection as a
 fallback. If generation fails, keep the surrounding resource visible, disable
 the action, and surface a diagnostic.

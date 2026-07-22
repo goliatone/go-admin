@@ -16,6 +16,7 @@ doctor checks, and permissions panels, see `GUIDE_AUTH_PERMISSIONS.md`.
 - Session data inspection
 - Frontend JavaScript error capture (uncaught exceptions, unhandled rejections, console.error)
 - Custom debug data injection
+- Live command-run projection with keyed progress/terminal updates
 - Shell + app REPL panels (disabled by default)
 - WebSocket-based live updates
 - Toolbar mode for inline debugging
@@ -210,6 +211,9 @@ type DebugConfig struct {
     // REPL configuration (shell + app console)
     Repl DebugREPLConfig
 
+    // Optional transport-neutral command lifecycle runtime
+    CommandRuns CommandRunRuntimeConfig
+
     // Enable inline toolbar on all admin pages
     ToolbarMode bool
 
@@ -251,6 +255,79 @@ const (
 | `ToolbarPanels` | `["requests", "sql", "logs", "jserrors", "routes", "config"]` |
 | `CaptureJSErrors` | `false` |
 | `ToolbarExcludePaths` | `["{debug_path}"]` |
+
+### Command Runs
+
+Enable the built-in Command Runs panel for a single-process application with
+the local bounded transport and memory projection:
+
+```go
+cfg.Debug = admin.DebugConfig{
+    Enabled:     true,
+    AppID:       "console",
+    Environment: "development",
+    CommandRuns: admin.CommandRunRuntimeConfig{
+        Enabled: true,
+        Role:    admin.CommandRunRoleMonolith,
+    },
+}
+```
+
+The Debug Module fills missing command-run application/environment identity
+from `DebugConfig.AppID` and `Environment`, starts the runtime, registers the
+`command_runs` panel, and projects full rows keyed by `run_id`. The local
+default is intentionally process-local, ephemeral, bounded by retention, and
+has no replay. It is suitable when command execution and the Debug WebSocket
+run in one process.
+
+Applications can inject `Transport`, or separate `Publisher` and `Subscriber`
+implementations, plus a custom `Store`, `Projection`, `ScopeResolver`, and
+`ScopeAuthorizer`. Roles are explicit:
+
+- `CommandRunRolePublisher`: a command worker publishes lifecycle updates.
+- `CommandRunRoleGateway`: a web node consumes, projects, and sends updates to
+  its authenticated local Debug WebSocket clients.
+- `CommandRunRoleMonolith`: both responsibilities; local transport is selected
+  only when no external endpoints are injected.
+
+The host owns injected drivers and routers. Start them before the Debug Module,
+then shut down in this order:
+
+```go
+closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+// First removes the observer and closes runtime-owned subscriptions.
+if err := quickstart.CloseCommandRunUpdates(closeCtx, adm); err != nil {
+    return err
+}
+// Then close the host-owned driver(s).
+return messagingComponents.CloseDriver(closeCtx)
+```
+
+`runtime.Diagnostics()` and the default `admin.debug.command_runs` Doctor check
+report role, readiness, provider-neutral capabilities, projection activity,
+and bounded failure counters. A healthy local ephemeral runtime is reported as
+intentional. Remote not-ready, subscription, publication, rejection, drop, and
+projection failures are reported without payloads, tenant identifiers,
+credentials, or raw provider causes.
+
+For Valkey Pub/Sub worker/gateway assembly, channel isolation, and lifecycle
+examples, see the `go-messaging/adapters/go-admin` README.
+
+Migration from launcher-only `command_status` updates can be incremental:
+
+1. Enable the local monolith runtime and confirm Command Runs plus the Doctor
+   check while existing `PublishCommandStatus` calls continue to work.
+2. Register queued executors and worker bodies through the observed
+   `go-command` helpers so one canonical run moves from acceptance to terminal.
+3. For split deployments, install a matching released go-admin adapter,
+   configure publisher/gateway roles, and give each web node its own Pub/Sub
+   subscription.
+4. Choose a shared/durable `CommandRunStore` if snapshots must survive gateway
+   restart; Pub/Sub itself cannot recover missed history.
+5. Remove application-owned compatibility publication only after launcher links,
+   Command Runs projection, reconnect snapshots, and Doctor counters are green.
 
 ### Admin Layout Rendering
 
@@ -1208,10 +1285,18 @@ the affected generated field.
 
 The result panel exposes receipt metadata such as correlation id, dispatch id,
 execution mode, and status reference when the command response includes them.
-There is currently no core command-run debug panel or route contract, so the
-launcher does not render a "View command run" link. Retry re-submits the last
-submitted payload through the same debug panel action route and repeats
-mutating-command confirmation.
+When the canonical runtime supplies a run id or correlation id, the launcher
+renders a link to `panel=command_runs` and the Command Runs panel focuses the
+matching row. Retry re-submits the last submitted payload through the same
+debug panel action route and repeats mutating-command confirmation.
+
+`Admin.PublishCommandStatus` remains source-compatible and feeds the canonical
+projection when enough identity is present; `command_status` remains a launcher
+compatibility event. The authoritative lifecycle path is the `go-command`
+observer. Queued executors must be registered with
+`dispatcher.RegisterObservedExecutor`, and delayed worker execution must run
+through `dispatcher.RunObservedCommand`, or only acceptance status can be
+observed.
 
 ### Example: Metrics Panel (Server-Side)
 

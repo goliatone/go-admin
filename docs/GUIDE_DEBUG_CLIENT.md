@@ -647,13 +647,34 @@ and must never reach the application router. Catalog navigation, inline
 confirmation, recall controls, JSON toggle, and the result shell remain
 launcher-owned.
 
+Use the constant sentinel `command-options://resolve`. Put command, field, and
+source identity only in encoded endpoint parameters; never place those values
+in the synthetic URI authority, path, query, or fragment. This keeps reserved
+characters such as `:`, `#`, `/`, and spaces from changing resolver identity.
+
 Command results stay inline in the panel. The result card shows receipt metadata
 such as correlation id, dispatch id, execution mode, and status reference when
-the backend returns them. There is no "View command run" link until a durable
-command-run panel or route defines a stable panel id, snapshot key, correlation
-filter, and anchor contract. The Retry button re-submits the last submitted
-payload through the same panel action path, including mutating-command
-confirmation.
+the backend returns them. A run id or correlation id enables a "View command
+run" link to the stable `command_runs` panel. The Retry button re-submits the
+last submitted payload through the same panel action path, including
+mutating-command confirmation.
+
+### Command Runs live list
+
+The `command_runs` panel receives authoritative snapshots and incremental
+`command_run` events. Rows are keyed by `run_id`; `revision` ordering and
+terminal-phase guards reject duplicate, stale, and regressing updates. Progress
+updates are coalesced per animation frame, while terminal updates flush
+immediately. Selection, expansion, active filters, focus, and scroll position
+survive keyed replacement.
+
+Deep links use `panel=command_runs&run_id=<id>` or
+`panel=command_runs&correlation_id=<id>`. If a selected run is no longer in the
+bounded snapshot, the panel shows an unavailable state instead of selecting a
+different row. On reconnect, the authenticated WebSocket snapshot is
+authoritative; a parallel HTTP fallback cannot overwrite newer WebSocket
+state. This recovers missed Pub/Sub/WebSocket events only when the configured
+server-side store still contains the run.
 
 ## 10. Build and Asset Pipeline
 
