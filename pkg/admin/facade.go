@@ -25,6 +25,7 @@ import (
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/pkg/types"
 	"github.com/uptrace/bun"
+	"io"
 	"io/fs"
 	"log/slog"
 	"time"
@@ -86,6 +87,11 @@ const (
 	AssignmentTypeOpenPool                         = core.AssignmentTypeOpenPool
 	CMSPageContentTypeSlug                         = core.CMSPageContentTypeSlug
 	CMSPagePolicyEntity                            = core.CMSPagePolicyEntity
+	CommandRunDiagnosticClosed                     = core.CommandRunDiagnosticClosed
+	CommandRunDiagnosticDegraded                   = core.CommandRunDiagnosticDegraded
+	CommandRunDiagnosticDisabled                   = core.CommandRunDiagnosticDisabled
+	CommandRunDiagnosticNotStarted                 = core.CommandRunDiagnosticNotStarted
+	CommandRunDiagnosticReady                      = core.CommandRunDiagnosticReady
 	CommandRunPhaseCanceled                        = core.CommandRunPhaseCanceled
 	CommandRunPhaseCheckpoint                      = core.CommandRunPhaseCheckpoint
 	CommandRunPhaseFailed                          = core.CommandRunPhaseFailed
@@ -94,11 +100,6 @@ const (
 	CommandRunPhaseStarted                         = core.CommandRunPhaseStarted
 	CommandRunPhaseSubmitted                       = core.CommandRunPhaseSubmitted
 	CommandRunPhaseSucceeded                       = core.CommandRunPhaseSucceeded
-	CommandRunDiagnosticClosed                     = core.CommandRunDiagnosticClosed
-	CommandRunDiagnosticDegraded                   = core.CommandRunDiagnosticDegraded
-	CommandRunDiagnosticDisabled                   = core.CommandRunDiagnosticDisabled
-	CommandRunDiagnosticNotStarted                 = core.CommandRunDiagnosticNotStarted
-	CommandRunDiagnosticReady                      = core.CommandRunDiagnosticReady
 	CommandRunRoleGateway                          = core.CommandRunRoleGateway
 	CommandRunRoleMonolith                         = core.CommandRunRoleMonolith
 	CommandRunRolePublisher                        = core.CommandRunRolePublisher
@@ -533,13 +534,13 @@ const (
 
 var (
 	ErrAutosaveConflict                               = core.ErrAutosaveConflict
-	ErrCommandRunHandlerFailed                        = core.ErrCommandRunHandlerFailed
 	ErrCommandRunDeliveryDropped                      = core.ErrCommandRunDeliveryDropped
 	ErrCommandRunEnvelopeRejected                     = core.ErrCommandRunEnvelopeRejected
+	ErrCommandRunHandlerFailed                        = core.ErrCommandRunHandlerFailed
 	ErrCommandRunPublishFailed                        = core.ErrCommandRunPublishFailed
+	ErrCommandRunRuntimeClosed                        = core.ErrCommandRunRuntimeClosed
 	ErrCommandRunScopeRejected                        = core.ErrCommandRunScopeRejected
 	ErrCommandRunSubscriptionFailed                   = core.ErrCommandRunSubscriptionFailed
-	ErrCommandRunRuntimeClosed                        = core.ErrCommandRunRuntimeClosed
 	ErrCommandRunTransportBackpressure                = core.ErrCommandRunTransportBackpressure
 	ErrCommandRunTransportClosed                      = core.ErrCommandRunTransportClosed
 	ErrDoctorActionNotRunnable                        = core.ErrDoctorActionNotRunnable
@@ -703,8 +704,8 @@ type (
 	CommandRegistrationState                          = core.CommandRegistrationState
 	CommandResultFailureReporter                      = core.CommandResultFailureReporter
 	CommandRunContractLimits                          = core.CommandRunContractLimits
-	CommandRunDiagnostics                             = core.CommandRunDiagnostics
 	CommandRunDiagnosticStatus                        = core.CommandRunDiagnosticStatus
+	CommandRunDiagnostics                             = core.CommandRunDiagnostics
 	CommandRunFailure                                 = core.CommandRunFailure
 	CommandRunHandler                                 = core.CommandRunHandler
 	CommandRunMemoryStoreConfig                       = core.CommandRunMemoryStoreConfig
@@ -806,6 +807,11 @@ type (
 	DeliveryServices                                  = core.DeliveryServices
 	DenyAllStrategy                                   = core.DenyAllStrategy
 	Dependencies                                      = core.Dependencies
+	DeploymentBuildInfo                               = core.DeploymentBuildInfo
+	DeploymentIdentity                                = core.DeploymentIdentity
+	DeploymentIdentityConfig                          = core.DeploymentIdentityConfig
+	DeploymentIdentityResolverOption                  = core.DeploymentIdentityResolverOption
+	DeploymentIdentitySnapshot                        = core.DeploymentIdentitySnapshot
 	DevErrorContext                                   = core.DevErrorContext
 	DisabledBulkService                               = core.DisabledBulkService
 	DisabledMediaLibrary                              = core.DisabledMediaLibrary
@@ -2747,6 +2753,10 @@ func ResolveContentPreviewPathWithOptions(record map[string]any, opts ContentPre
 	return core.ResolveContentPreviewPathWithOptions(record, opts)
 }
 
+func ResolveDeploymentIdentity(cfg Config, options ...DeploymentIdentityResolverOption) DeploymentIdentity {
+	return core.ResolveDeploymentIdentity(cfg, options...)
+}
+
 func ResolveEntryNavigationPolicy(ctx context.Context, service CMSContentTypeService, contentTypeKey string) (EntryNavigationPolicy, bool) {
 	return core.ResolveEntryNavigationPolicy(ctx, service, contentTypeKey)
 }
@@ -3001,6 +3011,26 @@ func WithDefaultVariant(variant string) IconServiceOption {
 
 func WithDeleteMissing(enabled bool) PreferencesOption {
 	return core.WithDeleteMissing(enabled)
+}
+
+func WithDeploymentBuildInfo(lookup func() (DeploymentBuildInfo, bool)) DeploymentIdentityResolverOption {
+	return core.WithDeploymentBuildInfo(lookup)
+}
+
+func WithDeploymentClock(now func() time.Time) DeploymentIdentityResolverOption {
+	return core.WithDeploymentClock(now)
+}
+
+func WithDeploymentEnvironmentLookup(lookup func(string) (string, bool)) DeploymentIdentityResolverOption {
+	return core.WithDeploymentEnvironmentLookup(lookup)
+}
+
+func WithDeploymentHostnameLookup(lookup func() (string, error)) DeploymentIdentityResolverOption {
+	return core.WithDeploymentHostnameLookup(lookup)
+}
+
+func WithDeploymentRandomSource(source io.Reader) DeploymentIdentityResolverOption {
+	return core.WithDeploymentRandomSource(source)
 }
 
 func WithDerivedFields() CMSContentListOption {
