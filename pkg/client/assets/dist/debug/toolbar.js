@@ -5,7 +5,7 @@ import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G,
 import { t as st } from "../chunks/repl-panel-BKc41M7P.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
 import { G as u, S as rt, T as nt, _ as it, a as qt, b as lt, c as E, d as y, f as dt, g as ct, h as Lt, l as zt, m as ht, n as C, o as P, p as pt, q as v, rt as bt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-BSnHY5ej.js";
-import { t as gt } from "../chunks/deployment-identity-3Tfk-LDW.js";
+import { t as gt } from "../chunks/deployment-identity-DpoEn5lR.js";
 var ft = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -2084,7 +2084,7 @@ var xt = `
     }));
   }
   render() {
-    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = gt(this.snapshot), o = this.toolbarExpanded ? "hidden" : "";
+    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = gt(this.snapshot, this.panels), o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
       <style>${xt}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">

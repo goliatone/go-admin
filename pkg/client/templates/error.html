@@ -340,7 +340,16 @@
                   {% if env_info.environment %}
                   <tr>
                     <td class="dev-kv-key">Environment</td>
-                    <td class="dev-kv-value">{{ env_info.environment }}</td>
+                    <td class="dev-kv-value">
+                      {% if env_info.deployment.environment_color %}
+                      <span class="dev-deployment-badge" style="--dev-deployment-color: {{ env_info.deployment.environment_color }}">
+                        <span class="dev-deployment-dot"></span>
+                        {{ env_info.environment }}
+                      </span>
+                      {% else %}
+                      {{ env_info.environment }}
+                      {% endif %}
+                    </td>
                   </tr>
                   {% endif %}
                   <tr>
@@ -351,6 +360,95 @@
               </table>
             </div>
           </div>
+
+          {% if env_info.deployment %}
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-server"></i>
+              <span>Deployment Identity</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  {% if env_info.deployment.app_name or env_info.deployment.app_id %}
+                  <tr>
+                    <td class="dev-kv-key">Application</td>
+                    <td class="dev-kv-value">{{ env_info.deployment.app_name|default:env_info.deployment.app_id }}</td>
+                  </tr>
+                  {% endif %}
+                  <tr>
+                    <td class="dev-kv-key">Instance Name</td>
+                    <td class="dev-kv-value dev-copy-value">
+                      <code>{{ env_info.deployment.instance_name }}</code>
+                      <button class="dev-btn-icon" onclick="copyToClipboard('{{ env_info.deployment.instance_name|escapejs }}')" title="Copy instance name"><i class="iconoir-copy"></i></button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="dev-kv-key">Instance ID</td>
+                    <td class="dev-kv-value dev-copy-value">
+                      <code>{{ env_info.deployment.instance_id }}</code>
+                      <button class="dev-btn-icon" onclick="copyToClipboard('{{ env_info.deployment.instance_id|escapejs }}')" title="Copy instance ID"><i class="iconoir-copy"></i></button>
+                    </td>
+                  </tr>
+                  {% if env_info.deployment.hostname %}
+                  <tr>
+                    <td class="dev-kv-key">Hostname</td>
+                    <td class="dev-kv-value">{{ env_info.deployment.hostname }}</td>
+                  </tr>
+                  {% endif %}
+                  {% if env_info.deployment.started_at %}
+                  <tr>
+                    <td class="dev-kv-key">Process Started</td>
+                    <td class="dev-kv-value">{{ env_info.deployment.started_at }}</td>
+                  </tr>
+                  {% endif %}
+                  <tr>
+                    <td class="dev-kv-key">Uptime</td>
+                    <td class="dev-kv-value">{{ env_info.deployment.uptime }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="dev-section">
+            <div class="dev-section-header">
+              <i class="iconoir-git-commit"></i>
+              <span>Build</span>
+            </div>
+            <div class="dev-section-content">
+              <table class="dev-kv-table">
+                <tbody>
+                  {% if env_info.deployment.commit_sha %}
+                  <tr>
+                    <td class="dev-kv-key">Commit</td>
+                    <td class="dev-kv-value dev-copy-value">
+                      <code>{{ env_info.deployment.commit_sha }}</code>
+                      <button class="dev-btn-icon" onclick="copyToClipboard('{{ env_info.deployment.commit_sha|escapejs }}')" title="Copy full commit"><i class="iconoir-copy"></i></button>
+                    </td>
+                  </tr>
+                  {% endif %}
+                  {% if env_info.deployment.git_ref %}
+                  <tr>
+                    <td class="dev-kv-key">Source Ref</td>
+                    <td class="dev-kv-value">{{ env_info.deployment.git_ref }}</td>
+                  </tr>
+                  {% endif %}
+                  {% if env_info.deployment.build_time %}
+                  <tr>
+                    <td class="dev-kv-key">Build Time</td>
+                    <td class="dev-kv-value">{{ env_info.deployment.build_time }}</td>
+                  </tr>
+                  {% endif %}
+                  <tr>
+                    <td class="dev-kv-key">Dirty Build</td>
+                    <td class="dev-kv-value">{% if env_info.deployment.build_modified %}Yes{% else %}No{% endif %}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
           {% endif %}
 
           <div class="dev-section">

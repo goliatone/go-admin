@@ -5,7 +5,13 @@ export type DeploymentIndicator = {
   color: string;
 };
 
-export function deploymentIndicator(snapshot: DebugSnapshot): DeploymentIndicator | null {
+export function deploymentIndicator(
+  snapshot: DebugSnapshot,
+  panels?: readonly string[]
+): DeploymentIndicator | null {
+  if (panels && !panels.some((panel) => panel.trim().toLowerCase() === 'deployment')) {
+    return null;
+  }
   const deployment = snapshot.deployment as DeploymentSnapshot | undefined;
   const environment = typeof deployment?.environment?.name === 'string'
     ? deployment.environment.name.trim()

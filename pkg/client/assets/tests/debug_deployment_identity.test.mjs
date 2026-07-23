@@ -40,3 +40,17 @@ test('deployment indicator rejects unsafe colors and tolerates legacy snapshots'
   assert.equal(toolbar.deploymentIndicator({}), null);
   assert.equal(toolbar.deploymentIndicator({ deployment: { environment: { name: 'prod' } } }), null);
 });
+
+test('deployment indicator honors toolbar panel configuration', () => {
+  const snapshot = {
+    deployment: {
+      environment: { name: 'production', color: '#22c55e' },
+      runtime: { instance_name: 'steady-heron' },
+    },
+  };
+  assert.equal(toolbar.deploymentIndicator(snapshot, ['requests', 'sql']), null);
+  assert.deepEqual(toolbar.deploymentIndicator(snapshot, ['requests', 'DEPLOYMENT']), {
+    label: 'PRODUCTION · steady-heron',
+    color: '#22c55e',
+  });
+});

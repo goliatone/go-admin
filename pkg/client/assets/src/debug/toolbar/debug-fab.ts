@@ -213,7 +213,7 @@ export class DebugFab extends HTMLElement {
     const counts = getCounts(this.snapshot);
     const hasErrors = counts.errors > 0;
     const hasSlowQueries = counts.slowQueries > 0;
-    const identity = deploymentIndicator(this.snapshot);
+    const identity = deploymentIndicator(this.snapshot, this.panels);
 
     // Hide FAB when toolbar is expanded
     const hiddenClass = this.toolbarExpanded ? 'hidden' : '';

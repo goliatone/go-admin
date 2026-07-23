@@ -141,6 +141,7 @@ const (
 	DebugPanelConfig                               = core.DebugPanelConfig
 	DebugPanelConsole                              = core.DebugPanelConsole
 	DebugPanelCustom                               = core.DebugPanelCustom
+	DebugPanelDeployment                           = core.DebugPanelDeployment
 	DebugPanelDoctor                               = core.DebugPanelDoctor
 	DebugPanelJSErrors                             = core.DebugPanelJSErrors
 	DebugPanelLogs                                 = core.DebugPanelLogs
@@ -809,6 +810,7 @@ type (
 	DenyAllStrategy                                   = core.DenyAllStrategy
 	Dependencies                                      = core.Dependencies
 	DeploymentBuildInfo                               = core.DeploymentBuildInfo
+	DeploymentDebugPanel                              = core.DeploymentDebugPanel
 	DeploymentIdentity                                = core.DeploymentIdentity
 	DeploymentIdentityConfig                          = core.DeploymentIdentityConfig
 	DeploymentIdentityResolverOption                  = core.DeploymentIdentityResolverOption
@@ -2106,6 +2108,10 @@ func NewDeliveryServices(container CMSContainer, opts DeliveryOptions) DeliveryS
 	return core.NewDeliveryServices(container, opts)
 }
 
+func NewDeploymentDebugPanel(adm *Admin) *DeploymentDebugPanel {
+	return core.NewDeploymentDebugPanel(adm)
+}
+
 func NewDoctorDebugPanel(admin *Admin) *DoctorDebugPanel {
 	return core.NewDoctorDebugPanel(admin)
 }
@@ -2660,6 +2666,10 @@ func RegisterDefaultCMSWorkflows(registrar WorkflowRegistrar) {
 
 func RegisterDeliveryGraphQLSchemas() {
 	core.RegisterDeliveryGraphQLSchemas()
+}
+
+func RegisterDeploymentDebugPanel(adm *Admin) {
+	core.RegisterDeploymentDebugPanel(adm)
 }
 
 func RegisterDoctorDebugPanel(admin *Admin) {
