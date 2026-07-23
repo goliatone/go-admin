@@ -46,9 +46,6 @@ func TestResolveAdminConstructorStateBuildsRuntimeDefaults(t *testing.T) {
 	if state.deploymentIdentity.InstanceID == "" || state.deploymentIdentity.InstanceName == "" {
 		t.Fatalf("expected deployment identity to resolve during construction: %+v", state.deploymentIdentity)
 	}
-	if got := DefaultErrorPresenter().DeploymentIdentity(); got.InstanceID != state.deploymentIdentity.InstanceID {
-		t.Fatalf("expected default presenter to share resolved identity: got=%+v want=%+v", got, state.deploymentIdentity)
-	}
 }
 
 func TestNewAdminRetainsResolvedDeploymentIdentity(t *testing.T) {
@@ -71,6 +68,9 @@ func TestNewAdminRetainsResolvedDeploymentIdentity(t *testing.T) {
 	if first.AppID != "admin-api" || first.InstanceName != "steady-heron" || first.InstanceID != "instance-a" {
 		t.Fatalf("unexpected retained identity: %+v", first)
 	}
+	if got := adm.ErrorPresenter().DeploymentIdentity(); got.InstanceID != first.InstanceID {
+		t.Fatalf("expected admin-scoped presenter identity: got=%+v want=%+v", got, first)
+	}
 
 	otherState, err := resolveAdminConstructorState(Config{}, Dependencies{})
 	if err != nil {
@@ -79,6 +79,62 @@ func TestNewAdminRetainsResolvedDeploymentIdentity(t *testing.T) {
 	other := newAdminFromConstructorState(otherState, Dependencies{}).DeploymentIdentity()
 	if other.InstanceID == first.InstanceID {
 		t.Fatalf("expected isolated admin identities, got %q", other.InstanceID)
+	}
+}
+
+func TestAdminConstructionDoesNotMutateDefaultErrorPresenter(t *testing.T) {
+	previous := DefaultErrorPresenter()
+	t.Cleanup(func() { SetDefaultErrorPresenter(previous) })
+
+	sentinel := NewErrorPresenter(ErrorConfig{InternalMessage: "sentinel"}).
+		WithDeploymentIdentity(DeploymentIdentity{
+			InstanceName: "sentinel-instance",
+			InstanceID:   "sentinel-id",
+		})
+	SetDefaultErrorPresenter(sentinel)
+
+	firstState, err := resolveAdminConstructorState(Config{
+		Deployment: DeploymentIdentityConfig{InstanceName: "first", InstanceID: "first-id"},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("resolve first admin state: %v", err)
+	}
+	secondState, err := resolveAdminConstructorState(Config{
+		Deployment: DeploymentIdentityConfig{InstanceName: "second", InstanceID: "second-id"},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("resolve second admin state: %v", err)
+	}
+	first := newAdminFromConstructorState(firstState, Dependencies{})
+	second := newAdminFromConstructorState(secondState, Dependencies{})
+
+	if got := first.ErrorPresenter().DeploymentIdentity().InstanceID; got != "first-id" {
+		t.Fatalf("first admin presenter changed: %q", got)
+	}
+	if got := second.ErrorPresenter().DeploymentIdentity().InstanceID; got != "second-id" {
+		t.Fatalf("second admin presenter mismatch: %q", got)
+	}
+	if got := DefaultErrorPresenter().DeploymentIdentity().InstanceID; got != "sentinel-id" {
+		t.Fatalf("admin construction changed explicit package default: %q", got)
+	}
+}
+
+func TestFailedAdminConstructionDoesNotMutateDefaultErrorPresenter(t *testing.T) {
+	previous := DefaultErrorPresenter()
+	t.Cleanup(func() { SetDefaultErrorPresenter(previous) })
+
+	SetDefaultErrorPresenter(NewErrorPresenter(ErrorConfig{}).
+		WithDeploymentIdentity(DeploymentIdentity{InstanceName: "sentinel", InstanceID: "sentinel-id"}))
+
+	_, err := New(Config{
+		FeatureCatalogPath: "/definitely/missing/go-admin-feature-catalog.json",
+		Deployment:         DeploymentIdentityConfig{InstanceName: "failed", InstanceID: "failed-id"},
+	}, Dependencies{})
+	if err == nil {
+		t.Fatal("expected construction to fail")
+	}
+	if got := DefaultErrorPresenter().DeploymentIdentity().InstanceID; got != "sentinel-id" {
+		t.Fatalf("failed construction changed explicit package default: %q", got)
 	}
 }
 

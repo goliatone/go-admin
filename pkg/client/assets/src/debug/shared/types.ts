@@ -79,6 +79,35 @@ export type CustomSnapshot = {
   logs?: CustomLogEntry[];
 };
 
+export type DeploymentSnapshot = {
+  application?: {
+    id?: string;
+    name?: string;
+    version?: string;
+  };
+  environment?: {
+    name?: string;
+    color?: string;
+  };
+  build?: {
+    commit_sha?: string;
+    commit_short?: string;
+    git_ref?: string;
+    build_time?: string;
+    modified?: boolean;
+    source?: string;
+    go_version?: string;
+  };
+  runtime?: {
+    instance_name?: string;
+    instance_id?: string;
+    instance_source?: string;
+    hostname?: string;
+    started_at?: string;
+    uptime?: string;
+  };
+};
+
 export type JSErrorEntry = {
   id?: string;
   timestamp?: string;
@@ -107,6 +136,7 @@ export type DebugSnapshot = {
   routes?: RouteEntry[];
   custom?: CustomSnapshot;
   doctor?: DoctorReport;
+  deployment?: DeploymentSnapshot;
   repl_commands?: unknown;
   // Allow extra panels via index signature
   [key: string]: unknown;

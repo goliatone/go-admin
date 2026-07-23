@@ -1,11 +1,12 @@
-import { escapeHTML as u } from "../shared/html.js";
+import { escapeHTML as p } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as U, g as Y, h as J, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-Dq-gX1JC.js";
+import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as U, g as Y, h as J, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-D3aDCLAC.js";
 import { t as st } from "../chunks/repl-panel-BKc41M7P.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
-import { G as b, S as rt, T as nt, _ as it, a as Pt, b as lt, c as C, d as y, f as dt, g as ct, h as qt, l as Lt, m as ht, n as E, o as P, p as pt, q as v, rt as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-BF5gvDyg.js";
-var gt = `
+import { G as u, S as rt, T as nt, _ as it, a as qt, b as lt, c as E, d as y, f as dt, g as ct, h as Lt, l as zt, m as ht, n as C, o as P, p as pt, q as v, rt as bt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-BSnHY5ej.js";
+import { t as gt } from "../chunks/deployment-identity-3Tfk-LDW.js";
+var ft = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1091,7 +1092,7 @@ var gt = `
 `, d = c;
 function w(a, t, e = 50, s) {
   const o = h.get(a);
-  if (o) return nt(o, bt(t, o), d, s || {}, "toolbar");
+  if (o) return nt(o, ut(t, o), d, s || {}, "toolbar");
   const r = s?.newestFirst ?? !0, i = s?.slowThresholdMs ?? e;
   switch (a) {
     case "requests":
@@ -1123,19 +1124,19 @@ function w(a, t, e = 50, s) {
         maxMessageLength: 100
       });
     case "config":
-      return b("Config", t.config || {}, d, {
+      return u("Config", t.config || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
       return K(t.routes || [], d, { showName: !1 });
     case "template":
-      return b("Template Context", t.template || {}, d, {
+      return u("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return b("Session", t.session || {}, d, {
+      return u("Session", t.session || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
@@ -1154,17 +1155,17 @@ function w(a, t, e = 50, s) {
       });
     default: {
       const n = t[a];
-      return n != null ? b(a.replace(/[_-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), n, d, {
+      return n != null ? u(a.replace(/[_-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), n, d, {
         useIconCopyButton: !1,
         showCount: !1
-      }) : `<div class="${d.emptyState}">Panel "${u(a)}" not available</div>`;
+      }) : `<div class="${d.emptyState}">Panel "${p(a)}" not available</div>`;
     }
   }
 }
 function x(a, t = 50) {
   return ht(a, t);
 }
-var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
+var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
   static get observedAttributes() {
     return [
       "base-path",
@@ -1248,7 +1249,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(t) {
-    if (await E(this.debugPath), !this.isInitializationStale(t)) {
+    if (await C(this.debugPath), !this.isInitializationStale(t)) {
       if (this.eventToPanel = g(), this.unsubscribeRegistry = h.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
@@ -1304,7 +1305,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
         const o = parseInt(e, 10);
-        !isNaN(o) && o >= p.MIN_HEIGHT && (this.customHeight = o);
+        !isNaN(o) && o >= b.MIN_HEIGHT && (this.customHeight = o);
       }
       const s = localStorage.getItem("debug-toolbar-sort-order");
       if (s) try {
@@ -1382,7 +1383,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     this.stream.subscribe(Array.from(t));
   }
   async fetchInitialSnapshot(t = this.initializeGeneration) {
-    const e = await C(this.debugPath);
+    const e = await E(this.debugPath);
     this.isInitializationStale(t) || e && this.applySnapshot(e);
   }
   handleEvent(t) {
@@ -1414,15 +1415,15 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
         extraClass: "tab-icon"
       });
       return `
-          <button class="tab ${T}" data-panel="${u(n)}">
+          <button class="tab ${T}" data-panel="${p(n)}">
             ${R}
-            <span class="tab-label">${u(l)}</span>
+            <span class="tab-label">${p(l)}</span>
             <span class="tab-count">${z}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || p.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || b.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${gt}</style>
+      <style>${ft}</style>
       <div class="toolbar ${s} ${o}" style="${i}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1632,8 +1633,8 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
     if (!e) return;
     const s = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
     if (!s) return;
-    const o = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${u(ut(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
-    s.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${u(e.message)}</div>${o}`;
+    const o = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${p(bt(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    s.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${p(e.message)}</div>${o}`;
   }
   renderReplPanel(t, e) {
     let s = this.replPanels.get(e);
@@ -1656,7 +1657,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
-    this.resizeStartHeight = e?.offsetHeight || p.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    this.resizeStartHeight = e?.offsetHeight || b.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
     const s = (i) => {
       this.handleResize(i.clientY);
     }, o = (i) => {
@@ -1668,7 +1669,7 @@ var m, S = "debug-toolbar-active-panel", q = class p extends HTMLElement {
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, s = window.innerHeight * p.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(p.MIN_HEIGHT, this.resizeStartHeight + e));
+    const e = this.resizeStartY - t, s = window.innerHeight * b.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(b.MIN_HEIGHT, this.resizeStartHeight + e));
     this.customHeight = o;
     const r = this.shadow.querySelector(".toolbar");
     r && (r.style.height = `${o}px`);
@@ -1709,7 +1710,7 @@ m.MIN_HEIGHT = 150;
 m.MAX_HEIGHT_RATIO = 0.8;
 m.DEFAULT_HEIGHT = 320;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", q);
-var ft = `
+var xt = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1773,6 +1774,32 @@ var ft = `
     width: 48px;
     height: 48px;
     flex-shrink: 0;
+  }
+
+  .fab-collapsed.has-identity {
+    width: auto;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 0 14px 0 12px;
+    gap: 8px;
+  }
+
+  .fab-identity-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--fab-environment, #64748b);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--fab-environment, #64748b) 70%, transparent);
+  }
+
+  .fab-identity-label {
+    max-width: 260px;
+    overflow: hidden;
+    color: var(--fab-text);
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .fab-icon {
@@ -1914,6 +1941,16 @@ var ft = `
       height: 44px;
     }
 
+    .fab-collapsed.has-identity {
+      width: auto;
+      max-width: calc(100vw - 24px);
+      padding-right: 12px;
+    }
+
+    .fab-identity-label {
+      max-width: 150px;
+    }
+
     .fab-icon {
       width: 20px;
       height: 20px;
@@ -1939,7 +1976,7 @@ var ft = `
       font-size: 8px;
     }
   }
-`, xt = class extends HTMLElement {
+`, mt = class extends HTMLElement {
   static get observedAttributes() {
     return [
       "debug-path",
@@ -1955,7 +1992,7 @@ var ft = `
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(a) {
-    if (await E(this.debugPath), !this.isInitializationStale(a)) {
+    if (await C(this.debugPath), !this.isInitializationStale(a)) {
       if (this.eventToPanel = g(), this.unsubscribeRegistry = h.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(a)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
@@ -2020,7 +2057,7 @@ var ft = `
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot(a = this.initializeGeneration) {
-    const t = await C(this.debugPath);
+    const t = await E(this.debugPath);
     this.isInitializationStale(a) || t && this.applySnapshot(t);
   }
   handleEvent(a) {
@@ -2040,24 +2077,28 @@ var ft = `
     }));
   }
   applySnapshot(a) {
-    this.snapshot = a || {}, this.updateCounters(), this.dispatchEvent(new CustomEvent("debug-snapshot", {
+    this.snapshot = a || {}, this.render(), this.dispatchEvent(new CustomEvent("debug-snapshot", {
       detail: { snapshot: this.snapshot },
       bubbles: !0,
       composed: !0
     }));
   }
   render() {
-    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = this.toolbarExpanded ? "hidden" : "";
+    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = gt(this.snapshot), o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${ft}</style>
-      <div class="fab ${s}" data-status="${this.connectionStatus}">
+      <style>${xt}</style>
+      <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
-        <div class="fab-collapsed">
+        <div class="fab-collapsed ${s ? "has-identity" : ""}" ${s ? `style="--fab-environment:${s.color}"` : ""}>
           <span class="fab-icon">
             <svg viewBox="0 0 24 24" stroke-width="1.5" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25C15.4148 2.25 18.157 4.93659 19.2445 8.53907L20.6646 7.82902C21.0351 7.64377 21.4856 7.79394 21.6709 8.16443C21.8561 8.53491 21.7059 8.98541 21.3355 9.17066L19.5919 10.0425C19.6958 10.6789 19.75 11.3341 19.75 12C19.75 12.4216 19.7283 12.839 19.6859 13.25H22C22.4142 13.25 22.75 13.5858 22.75 14C22.75 14.4142 22.4142 14.75 22 14.75H19.4347C19.2438 15.5659 18.9699 16.3431 18.6235 17.0629L20.5303 18.9697C20.8232 19.2626 20.8232 19.7374 20.5303 20.0303C20.2374 20.3232 19.7626 20.3232 19.4697 20.0303L17.8463 18.4069C16.4519 20.4331 14.3908 21.75 12 21.75C9.60921 21.75 7.54809 20.4331 6.15371 18.4069L4.53033 20.0303C4.23744 20.3232 3.76256 20.3232 3.46967 20.0303C3.17678 19.7374 3.17678 19.2626 3.46967 18.9697L5.37647 17.0629C5.03008 16.3431 4.7562 15.5659 4.56527 14.75H2C1.58579 14.75 1.25 14.4142 1.25 14C1.25 13.5858 1.58579 13.25 2 13.25H4.31407C4.27174 12.839 4.25 12.4216 4.25 12C4.25 11.3341 4.30423 10.6789 4.40814 10.0425L2.66455 9.17066C2.29406 8.98541 2.1439 8.53491 2.32914 8.16443C2.51438 7.79394 2.96488 7.64377 3.33537 7.82902L4.75547 8.53907C5.84297 4.93659 8.58522 2.25 12 2.25ZM11.25 19C11.25 19.4142 11.5858 19.75 12 19.75C12.4142 19.75 12.75 19.4142 12.75 19V9.73117C14.005 9.6696 15.2088 9.46632 16.1588 9.26042C16.5636 9.17268 16.8207 8.77339 16.7329 8.36857C16.6452 7.96376 16.2459 7.70672 15.8411 7.79445C14.7597 8.02883 13.3718 8.25 12 8.25C10.6281 8.25 9.24022 8.02883 8.15882 7.79445C7.75401 7.70672 7.35472 7.96376 7.26698 8.36857C7.17924 8.77339 7.43629 9.17268 7.8411 9.26042C8.79115 9.46632 9.99494 9.6696 11.25 9.73117V19Z" fill="currentColor"></path>
             </svg>
           </span>
+          ${s ? `
+            <span class="fab-identity-dot" aria-hidden="true"></span>
+            <span class="fab-identity-label" title="${p(s.label)}">${p(s.label)}</span>
+          ` : ""}
         </div>
         <div class="fab-expanded">
           <div class="fab-counter ${a.requests > 0 ? "has-items" : ""}">
@@ -2132,7 +2173,7 @@ var ft = `
     }));
   }
 };
-customElements.get("debug-fab") || customElements.define("debug-fab", xt);
+customElements.get("debug-fab") || customElements.define("debug-fab", mt);
 var L = class {
   constructor(a = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -2190,7 +2231,7 @@ var L = class {
     })));
   }
 };
-function mt() {
+function vt() {
   const a = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
   if (a ? e = {
@@ -2209,23 +2250,24 @@ function mt() {
   return s.init(), s;
 }
 window.DebugManager = L;
-window.initDebugManager = mt;
+window.initDebugManager = vt;
 export {
-  xt as DebugFab,
+  mt as DebugFab,
   L as DebugManager,
   q as DebugToolbar,
-  Pt as applyCustomEventPayload,
+  qt as applyCustomEventPayload,
   P as applyDebugEventToSnapshot,
   g as buildEventToPanel,
-  C as fetchDebugSnapshot,
+  gt as deploymentIndicator,
+  E as fetchDebugSnapshot,
   x as getCounts,
-  Lt as getDefaultPanels,
+  zt as getDefaultPanels,
   f as getDefaultToolbarPanels,
   y as getPanelEventTypes,
   dt as getPanelIcon,
   pt as getPanelLabel,
-  mt as initDebugManager,
-  qt as isKnownPanel,
+  vt as initDebugManager,
+  Lt as isKnownPanel,
   ct as normalizeReplCommands,
   w as renderPanel,
   it as replPanelIDs

@@ -7,7 +7,7 @@ import { initActionMenus as _a } from "../shared/action-menu.js";
 import { trimTrailingSlash as A } from "../shared/path-normalization.js";
 import { parseJSONValue as Ae } from "../shared/json-parse.js";
 import { asLooseBoolean as w, asNumberish as L, asRecord as p, asString as n, asStringArray as _ } from "../shared/coercion.js";
-import { A as Be, C as B, D as wa, E as La, F as $a, O as Ne, P as Aa, R as Ca, T as Sa, et as ka, k as Me, mt as Ta, tt as Ia, ut as X, v as qa, x as R, y as j } from "../chunks/translation-shared-Cy6-aSmF.js";
+import { A as Be, C as B, D as wa, E as La, F as $a, O as Ne, P as Aa, R as Ca, T as Sa, et as ka, k as Me, mt as Ta, tt as Ia, ut as X, v as qa, x as R, y as j } from "../chunks/translation-shared-opnbNxht.js";
 import { formatTranslationTimestampUTC as me, sentenceCaseToken as T } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Ra } from "../shared/record-normalization.js";
 import { initEnhancedActions as Pa } from "../shared/enhanced-action.js";

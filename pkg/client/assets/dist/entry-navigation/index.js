@@ -1,4 +1,4 @@
-import { a as i, i as r, n as t, o as n, r as o, s, t as e } from "../chunks/entry-navigation-DpuuC92n.js";
+import { a as i, i as r, n as t, o as n, r as o, s, t as e } from "../chunks/entry-navigation-6KbNQK0F.js";
 export {
   i as EntryNavigationAPIClient,
   n as EntryNavigationAPIError,

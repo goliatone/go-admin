@@ -475,6 +475,7 @@ func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T)
 	if preferencesItem == nil {
 		t.Fatalf("expected preferences utility menu item seeded")
 	}
+	assertMenuItemPermissions(t, preferencesItem, admin.PermAdminPreferencesView)
 	if parent := strings.TrimSpace(preferencesItem.ParentID); parent != "" {
 		t.Fatalf("expected preferences utility link to be top-level, got parent %q", parent)
 	}
@@ -483,10 +484,16 @@ func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T)
 	if profileItem == nil {
 		t.Fatalf("expected profile utility menu item seeded")
 	}
+	assertMenuItemPermissions(t, profileItem, admin.PermAdminProfileView)
 
-	helpItem := findMenuItemByRouteName(utilityMenu.Items, "admin.help")
-	if helpItem == nil {
-		t.Fatalf("expected help utility menu item seeded")
+	settingsItem := findMenuItemByRouteName(utilityMenu.Items, "admin.settings")
+	if settingsItem == nil {
+		t.Fatalf("expected settings utility menu item seeded")
+	}
+	assertMenuItemPermissions(t, settingsItem, admin.PermAdminSettingsView)
+
+	if helpItem := findMenuItemByRouteName(utilityMenu.Items, "admin.help"); helpItem != nil {
+		t.Fatalf("expected unowned help route to be absent, got %+v", helpItem)
 	}
 
 	mainMenu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
@@ -498,6 +505,181 @@ func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T)
 	}
 	if item := findMenuItemByRouteName(mainMenu.Items, "admin.preferences"); item != nil {
 		t.Fatalf("expected preferences not to be seeded into main menu")
+	}
+}
+
+func TestNewModuleRegistrarUsesConfiguredSidebarUtilityPermissions(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	cfg.SettingsPermission = "custom.settings.view"
+	cfg.PreferencesPermission = "custom.preferences.view"
+	cfg.ProfilePermission = "custom.profile.view"
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err = NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(true)); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	assertMenuItemPermissions(t, findMenuItemByRouteName(menu.Items, "admin.settings"), cfg.SettingsPermission)
+	assertMenuItemPermissions(t, findMenuItemByRouteName(menu.Items, "admin.preferences"), cfg.PreferencesPermission)
+	assertMenuItemPermissions(t, findMenuItemByRouteName(menu.Items, "admin.profile"), cfg.ProfilePermission)
+}
+
+func TestNewModuleRegistrarSelectsSidebarUtilityDefaults(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err = NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	if menu == nil {
+		t.Fatalf("expected Settings-only utility menu, got %+v", menu)
+	}
+	settings := findMenuItemByRouteName(menu.Items, "admin.settings")
+	if settings == nil {
+		t.Fatalf("expected Settings utility item, got %+v", menu.Items)
+	}
+	assertMenuItemPermissions(t, settings, admin.PermAdminSettingsView)
+	for _, routeName := range []string{"admin.preferences", "admin.profile", "admin.help"} {
+		if item := findMenuItemByRouteName(menu.Items, routeName); item != nil {
+			t.Fatalf("expected %s absent from Settings-only utility menu, got %+v", routeName, item)
+		}
+	}
+}
+
+func TestNewModuleRegistrarRetiresOnlyOmittedStandardUtilityRows(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err = NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(true)); err != nil {
+		t.Fatalf("seed all defaults: %v", err)
+	}
+
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	if err := SeedNavigation(context.Background(), SeedNavigationOptions{
+		MenuSvc:   adm.MenuService(),
+		MenuCode:  menuCode,
+		Locale:    cfg.DefaultLocale,
+		Reconcile: true,
+		Items: []admin.MenuItem{{
+			ID:     "utility.help",
+			Label:  "Legacy Help",
+			Locale: cfg.DefaultLocale,
+			Target: map[string]any{"type": "url", "path": "/admin/help", "key": "help"},
+		}},
+	}); err != nil {
+		t.Fatalf("seed legacy help row: %v", err)
+	}
+	if err := adm.MenuService().AddMenuItem(context.Background(), menuCode, admin.MenuItem{
+		ID:     "host.support",
+		Label:  "Host Support",
+		Locale: cfg.DefaultLocale,
+		Target: map[string]any{"type": "url", "path": "/support", "key": "host_support"},
+	}); err != nil {
+		t.Fatalf("seed host-owned utility row: %v", err)
+	}
+
+	if err = NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+	); err != nil {
+		t.Fatalf("transition to settings-only defaults: %v", err)
+	}
+	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve settings-only utility menu: %v", err)
+	}
+	if findMenuItemByRouteName(menu.Items, "admin.settings") == nil {
+		t.Fatalf("expected settings to remain, got %+v", menu.Items)
+	}
+	for _, routeName := range []string{"admin.preferences", "admin.profile", "admin.help"} {
+		if item := findMenuItemByRouteName(menu.Items, routeName); item != nil {
+			t.Fatalf("expected omitted %s row retired, got %+v", routeName, item)
+		}
+	}
+	if item := findMenuItemByTargetKeyForTest(menu.Items, "host_support"); item == nil {
+		t.Fatalf("expected host-owned row preserved, got %+v", menu.Items)
+	}
+
+	if err = NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(false)); err != nil {
+		t.Fatalf("disable defaults: %v", err)
+	}
+	menu, err = adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve disabled utility menu: %v", err)
+	}
+	if item := findMenuItemByRouteName(menu.Items, "admin.settings"); item != nil {
+		t.Fatalf("expected settings row retired when defaults disabled, got %+v", item)
+	}
+	if item := findMenuItemByTargetKeyForTest(menu.Items, "host_support"); item == nil {
+		t.Fatalf("expected host-owned row preserved after disabling defaults, got %+v", menu.Items)
+	}
+}
+
+func TestNewModuleRegistrarRetiresStandardUtilityRowWhenFeatureTurnsOff(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	gate := stubFeatureGate{flags: map[string]bool{string(admin.FeatureSettings): true}}
+	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithAdminDependencies(admin.Dependencies{FeatureGate: gate}))
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	register := func() error {
+		return NewModuleRegistrar(
+			adm,
+			cfg,
+			nil,
+			false,
+			WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+		)
+	}
+	if err := register(); err != nil {
+		t.Fatalf("seed enabled settings utility row: %v", err)
+	}
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil || findMenuItemByRouteName(menu.Items, "admin.settings") == nil {
+		t.Fatalf("expected enabled settings utility row, menu=%+v err=%v", menu, err)
+	}
+
+	gate.flags[string(admin.FeatureSettings)] = false
+	if err := register(); err != nil {
+		t.Fatalf("reconcile disabled settings feature: %v", err)
+	}
+	menu, err = adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu after feature disable: %v", err)
+	}
+	if item := findMenuItemByRouteName(menu.Items, "admin.settings"); item != nil {
+		t.Fatalf("expected feature-disabled settings row retired, got %+v", item)
 	}
 }
 
@@ -535,6 +717,87 @@ func TestNewModuleRegistrarSkipsSettingsUtilityItemWhenSettingsFeatureDisabled(t
 	if settingsItem := findMenuItemByRouteName(utilityMenu.Items, "admin.settings"); settingsItem != nil {
 		t.Fatalf("expected settings utility menu item to be omitted when settings feature is disabled")
 	}
+}
+
+func TestNewModuleRegistrarSkipsFeatureDisabledSidebarUtilityItems(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureSettings):    false,
+			string(admin.FeaturePreferences): false,
+			string(admin.FeatureProfile):     false,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err = NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithDefaultSidebarUtilityItems(true),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	for _, routeName := range []string{"admin.settings", "admin.preferences", "admin.profile", "admin.help"} {
+		if item := findMenuItemByRouteName(menu.Items, routeName); item != nil {
+			t.Fatalf("expected feature-disabled utility item %s absent, got %+v", routeName, item)
+		}
+	}
+}
+
+func TestCustomSidebarUtilityItemOverridesSelectedDefault(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	custom := admin.MenuItem{
+		ID:          "utility.settings",
+		Label:       "Workspace Settings",
+		Permissions: []string{"workspace.settings.view"},
+		Target: map[string]any{
+			"type": "url",
+			"path": "/workspace/settings",
+			"name": "workspace.settings",
+			"key":  "settings",
+		},
+	}
+	if err = NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithSidebarUtilityMenuItems(custom),
+		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	item := findMenuItemByRouteName(menu.Items, "workspace.settings")
+	if item == nil {
+		t.Fatalf("expected custom Settings item, got %+v", menu.Items)
+	}
+	if defaultItem := findMenuItemByRouteName(menu.Items, "admin.settings"); defaultItem != nil {
+		t.Fatalf("expected selected default deduped behind custom item, got %+v", defaultItem)
+	}
+	assertMenuItemPermissions(t, item, "workspace.settings.view")
 }
 
 func TestNewModuleRegistrarSeedsToolsMenuItemsUnderToolsGroup(t *testing.T) {
@@ -1035,6 +1298,21 @@ func findMenuItemByRouteName(items []admin.MenuItem, routeName string) *admin.Me
 		}
 	}
 	return nil
+}
+
+func assertMenuItemPermissions(t *testing.T, item *admin.MenuItem, want ...string) {
+	t.Helper()
+	if item == nil {
+		t.Fatalf("expected menu item with permissions %v", want)
+	}
+	if len(item.Permissions) != len(want) {
+		t.Fatalf("expected permissions %v, got %v", want, item.Permissions)
+	}
+	for idx := range want {
+		if item.Permissions[idx] != want[idx] {
+			t.Fatalf("expected permissions %v, got %v", want, item.Permissions)
+		}
+	}
 }
 
 func countMenuItemsByTargetKey(items []admin.MenuItem, key string) int {

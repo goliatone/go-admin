@@ -6,6 +6,32 @@ import (
 	"github.com/goliatone/go-command"
 )
 
+func TestEffectiveViewPermissionsMatchConfigDefaults(t *testing.T) {
+	cfg := Config{}
+	if got := EffectiveSettingsPermission(cfg); got != PermAdminSettingsView {
+		t.Fatalf("expected default settings permission, got %q", got)
+	}
+	if got := EffectivePreferencesPermission(cfg); got != PermAdminPreferencesView {
+		t.Fatalf("expected default preferences permission, got %q", got)
+	}
+	if got := EffectiveProfilePermission(cfg); got != PermAdminProfileView {
+		t.Fatalf("expected default profile permission, got %q", got)
+	}
+
+	cfg.SettingsPermission = " custom.settings.view "
+	cfg.PreferencesPermission = " custom.preferences.view "
+	cfg.ProfilePermission = " custom.profile.view "
+	if got := EffectiveSettingsPermission(cfg); got != "custom.settings.view" {
+		t.Fatalf("expected trimmed custom settings permission, got %q", got)
+	}
+	if got := EffectivePreferencesPermission(cfg); got != "custom.preferences.view" {
+		t.Fatalf("expected trimmed custom preferences permission, got %q", got)
+	}
+	if got := EffectiveProfilePermission(cfg); got != "custom.profile.view" {
+		t.Fatalf("expected trimmed custom profile permission, got %q", got)
+	}
+}
+
 func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	adm, err := New(Config{BasePath: "/admin"}, Dependencies{})
 	if err != nil {

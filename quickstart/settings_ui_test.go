@@ -1,10 +1,32 @@
 package quickstart
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
 )
+
+func TestRegisterSettingsUIRoutesEnforcesEffectiveDefaultPermission(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	cfg.SettingsPermission = ""
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	r := newCaptureRouter()
+	if err := RegisterSettingsUIRoutes(r, cfg, adm, nil); err != nil {
+		t.Fatalf("RegisterSettingsUIRoutes: %v", err)
+	}
+	handler := r.getHandlers["/admin/settings"]
+	if handler == nil {
+		t.Fatal("expected settings GET handler")
+	}
+	if err := handler(nil); !errors.Is(err, admin.ErrForbidden) {
+		t.Fatalf("expected blank caller config to enforce default permission, got %v", err)
+	}
+}
 
 func TestGroupSettingsProducesTypedViewModel(t *testing.T) {
 	values := map[string]admin.ResolvedSetting{

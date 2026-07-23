@@ -68,6 +68,34 @@ func TestNormalizeCommitAcceptsBoundedHex(t *testing.T) {
 	}
 }
 
+func TestResolveDeploymentIdentityReportsMixedInstanceProvenance(t *testing.T) {
+	now := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+	identity := ResolveDeploymentIdentity(Config{
+		Deployment: DeploymentIdentityConfig{InstanceName: "configured-name"},
+	}, resolverTestOptions(now, nil, DeploymentBuildInfo{}, bytes.NewReader(make([]byte, 64)))...)
+	if identity.InstanceSource != "mixed" || identity.InstanceID == "" {
+		t.Fatalf("expected mixed configured/generated provenance: %+v", identity)
+	}
+}
+
+func TestResolveDeploymentIdentityBoundsDisplayTextAndCopiesBuildTime(t *testing.T) {
+	now := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+	identity := ResolveDeploymentIdentity(Config{
+		Deployment: DeploymentIdentityConfig{
+			AppName:   strings.Repeat("a", 400),
+			BuildTime: "2026-07-23T11:00:00Z",
+		},
+	}, resolverTestOptions(now, nil, DeploymentBuildInfo{}, bytes.NewReader(make([]byte, 64)))...)
+	if len(identity.AppName) != 128 || identity.BuildTime == nil {
+		t.Fatalf("expected bounded text and build time: %+v", identity)
+	}
+	snapshot := identity.Snapshot(now)
+	*snapshot.BuildTime = snapshot.BuildTime.Add(time.Hour)
+	if snapshot.BuildTime.Equal(*identity.BuildTime) {
+		t.Fatal("snapshot build time pointer aliases immutable identity")
+	}
+}
+
 func TestResolveDeploymentIdentityBuildInfoAndInvalidSources(t *testing.T) {
 	now := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
 	values := map[string]string{
@@ -82,7 +110,7 @@ func TestResolveDeploymentIdentityBuildInfoAndInvalidSources(t *testing.T) {
 	if identity.CommitSHA != commit || identity.CommitShort != commit[:12] || identity.BuildSource != "go_build_info" {
 		t.Fatalf("unexpected build commit fallback: %+v", identity)
 	}
-	if identity.AppVersion != "v2.0.0" || identity.BuildTime.IsZero() {
+	if identity.AppVersion != "v2.0.0" || identity.BuildTime == nil || identity.BuildTime.IsZero() {
 		t.Fatalf("unexpected build fallback: %+v", identity)
 	}
 }

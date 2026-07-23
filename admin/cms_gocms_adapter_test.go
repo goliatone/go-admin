@@ -77,6 +77,17 @@ func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterMenuTreatsMissingMenuAsAbsent(t *testing.T) {
+	adapter := NewGoCMSMenuAdapterFromAny(newStubCMSMenuService())
+	menu, err := adapter.Menu(context.Background(), "admin.missing", "en")
+	if err != nil {
+		t.Fatalf("expected missing menu without an adapter error: %v", err)
+	}
+	if menu != nil {
+		t.Fatalf("expected nil missing menu, got %+v", menu)
+	}
+}
+
 func TestGoCMSMenuAdapterRawMenuItemsExposePersistedRows(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubCMSMenuService()

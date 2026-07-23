@@ -67,6 +67,32 @@ export const fabStyles = `
     flex-shrink: 0;
   }
 
+  .fab-collapsed.has-identity {
+    width: auto;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 0 14px 0 12px;
+    gap: 8px;
+  }
+
+  .fab-identity-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--fab-environment, #64748b);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--fab-environment, #64748b) 70%, transparent);
+  }
+
+  .fab-identity-label {
+    max-width: 260px;
+    overflow: hidden;
+    color: var(--fab-text);
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .fab-icon {
     width: 24px;
     height: 24px;
@@ -204,6 +230,16 @@ export const fabStyles = `
     .fab-collapsed {
       width: 44px;
       height: 44px;
+    }
+
+    .fab-collapsed.has-identity {
+      width: auto;
+      max-width: calc(100vw - 24px);
+      padding-right: 12px;
+    }
+
+    .fab-identity-label {
+      max-width: 150px;
     }
 
     .fab-icon {

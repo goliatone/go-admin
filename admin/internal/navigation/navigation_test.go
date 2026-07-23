@@ -2,8 +2,30 @@ package navigation
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
+
+type navigationMenuServiceStub struct {
+	menu          *Menu
+	err           error
+	exists        *bool
+	presenceCalls *int
+}
+
+func (s navigationMenuServiceStub) Menu(context.Context, string, string) (*Menu, error) {
+	return s.menu, s.err
+}
+
+func (s navigationMenuServiceStub) MenuExists(context.Context, string) (bool, error) {
+	if s.presenceCalls != nil {
+		(*s.presenceCalls)++
+	}
+	if s.exists == nil {
+		return s.menu != nil, nil
+	}
+	return *s.exists, nil
+}
 
 type translatorStub struct{}
 
@@ -47,6 +69,88 @@ func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
 	}
 	if items[2].Label != "B" {
 		t.Fatalf("expected last item B, got %q", items[2].Label)
+	}
+}
+
+func TestNavigationUsesMenuSpecificFallbacks(t *testing.T) {
+	nav := NewNavigation(nil, allowAllAuthorizer{})
+	nav.AddFallback(NavigationItem{ID: "primary", Label: "Primary"})
+	nav.SetMenuFallback("admin.utility", NavigationItem{ID: "settings", Label: "Settings"})
+	if _, ok := nav.MenuFallback("admin_utility"); !ok {
+		t.Fatal("expected canonical-equivalent menu code to resolve named fallback")
+	}
+
+	utility := nav.ResolveMenuWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if len(utility) != 1 || utility[0].ID != "settings" {
+		t.Fatalf("expected utility-specific fallback, got %+v", utility)
+	}
+	primary := nav.ResolveMenuWithOptions(context.Background(), "admin.main", "en", ResolveOptions{})
+	if len(primary) != 1 || primary[0].ID != "primary" {
+		t.Fatalf("expected global fallback for unconfigured menu, got %+v", primary)
+	}
+
+	nav.SetMenuFallback("admin.empty")
+	empty := nav.ResolveMenuWithOptions(context.Background(), "admin.empty", "en", ResolveOptions{})
+	if len(empty) != 0 {
+		t.Fatalf("expected explicit empty fallback, got %+v", empty)
+	}
+}
+
+func TestNavigationUsesMenuFallbackOnlyWhenCMSMenuIsUnavailable(t *testing.T) {
+	fallback := NavigationItem{ID: "settings", Label: "Settings"}
+
+	missing := NewNavigation(navigationMenuServiceStub{exists: new(false)}, allowAllAuthorizer{})
+	missing.SetMenuFallback("admin.utility", fallback)
+	missingResult := missing.ResolveMenuResultWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if missingResult.Source != ResolveSourceFallbackCMSMissing ||
+		len(missingResult.Items) != 1 ||
+		missingResult.Items[0].ID != "settings" {
+		t.Fatalf("expected missing CMS menu to use named fallback, got %+v", missingResult)
+	}
+
+	failed := NewNavigation(navigationMenuServiceStub{err: errors.New("unavailable")}, allowAllAuthorizer{})
+	failed.SetMenuFallback("admin.utility", fallback)
+	failedResult := failed.ResolveMenuResultWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if failedResult.Source != ResolveSourceFallbackCMSError ||
+		len(failedResult.Items) != 1 ||
+		failedResult.Items[0].ID != "settings" {
+		t.Fatalf("expected CMS error to use named fallback, got %+v", failedResult)
+	}
+
+	empty := NewNavigation(navigationMenuServiceStub{menu: &Menu{Code: "admin.utility"}, exists: new(true)}, allowAllAuthorizer{})
+	empty.SetMenuFallback("admin.utility", fallback)
+	emptyResult := empty.ResolveMenuResultWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if emptyResult.Source != ResolveSourceCMS || len(emptyResult.Items) != 0 {
+		t.Fatalf("expected existing empty CMS menu to remain authoritative, got %+v", emptyResult)
+	}
+}
+
+func TestNavigationChecksPresenceOnlyForEmptyCMSMenus(t *testing.T) {
+	calls := 0
+	nav := NewNavigation(navigationMenuServiceStub{
+		menu:          &Menu{Code: "admin.utility", Items: []MenuItem{{ID: "settings", Label: "Settings"}}},
+		presenceCalls: &calls,
+	}, allowAllAuthorizer{})
+
+	result := nav.ResolveMenuResultWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if result.Source != ResolveSourceCMS || len(result.Items) != 1 {
+		t.Fatalf("expected non-empty CMS menu, got %+v", result)
+	}
+	if calls != 0 {
+		t.Fatalf("expected no presence probe for non-empty menu, got %d", calls)
+	}
+
+	nav = NewNavigation(navigationMenuServiceStub{
+		menu:          &Menu{Code: "admin.utility"},
+		exists:        new(true),
+		presenceCalls: &calls,
+	}, allowAllAuthorizer{})
+	result = nav.ResolveMenuResultWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if result.Source != ResolveSourceCMS {
+		t.Fatalf("expected existing empty CMS menu, got %+v", result)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one presence probe for empty menu, got %d", calls)
 	}
 }
 

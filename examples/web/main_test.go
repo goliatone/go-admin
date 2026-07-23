@@ -62,6 +62,19 @@ func TestExampleEntryNavigationOptionsDocumentReusablePolicy(t *testing.T) {
 	}
 }
 
+func TestExampleDeploymentIdentityConfig(t *testing.T) {
+	cfg := exampleDeploymentIdentityConfig(" Example Admin ", " staging ")
+	if cfg.AppID != "go-admin-web-example" || cfg.AppName != "Example Admin" || cfg.Environment != "staging" {
+		t.Fatalf("unexpected deployment identity example: %+v", cfg)
+	}
+	if cfg.EnvironmentColors["staging"] != "#f59e0b" {
+		t.Fatalf("expected example staging color override: %+v", cfg.EnvironmentColors)
+	}
+	if cfg.InstanceName != "" || cfg.InstanceID != "" {
+		t.Fatalf("example should demonstrate generated instance identity: %+v", cfg)
+	}
+}
+
 func TestTriggerTestErrorPanicReturnsInternalError(t *testing.T) {
 	err := triggerTestError("panic")
 	if err == nil {

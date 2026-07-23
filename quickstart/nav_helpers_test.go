@@ -312,11 +312,22 @@ func TestWithNavLoadsUtilityItemsFromUtilityPlacement(t *testing.T) {
 	}
 }
 
-func TestWithNavFallsBackToDefaultUtilityItemsWhenUtilityMenuIsEmpty(t *testing.T) {
+func TestWithNavUsesSelectedUtilityFallbackWhenCMSMenuIsMissing(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("NewAdmin: %v", err)
+	}
+	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithSeedNavigation(false),
+		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar: %v", err)
 	}
 
 	view := WithNav(nil, adm, cfg, "", context.Background())
@@ -325,13 +336,117 @@ func TestWithNavFallsBackToDefaultUtilityItemsWhenUtilityMenuIsEmpty(t *testing.
 		t.Fatalf("expected nav_utility_items slice, got %T", view["nav_utility_items"])
 	}
 	if len(utilityItems) == 0 {
-		t.Fatalf("expected default utility nav items when utility placement is empty")
+		t.Fatalf("expected selected utility fallback when CMS menu is missing")
+	}
+	if len(utilityItems) != 1 {
+		t.Fatalf("expected Settings-only utility fallback, got %+v", utilityItems)
 	}
 	if utilityItems[0]["label"] != "Settings" {
 		t.Fatalf("expected default utility nav label Settings, got %v", utilityItems[0]["label"])
 	}
 	if utilityItems[0]["href"] != "/admin/settings" {
 		t.Fatalf("expected default utility settings href /admin/settings, got %v", utilityItems[0]["href"])
+	}
+}
+
+func TestWithNavDoesNotReplaceAuthoritativeEmptyUtilityMenu(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithSeedNavigation(false),
+		WithDefaultSidebarUtilityItems(true),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar: %v", err)
+	}
+	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	if _, err := adm.MenuService().CreateMenu(context.Background(), menuCode); err != nil {
+		t.Fatalf("create empty utility menu: %v", err)
+	}
+
+	view := WithNav(nil, adm, cfg, "", context.Background())
+	utilityItems, ok := view["nav_utility_items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected nav_utility_items slice, got %T", view["nav_utility_items"])
+	}
+	if len(utilityItems) != 0 {
+		t.Fatalf("expected authoritative empty utility menu to remain empty, got %+v", utilityItems)
+	}
+}
+
+func TestSelectedUtilityFallbackAppliesPermissionDeniedMode(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	adm.WithAuthorizer(denyAllQuickstartAuthorizer{})
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithSeedNavigation(false),
+		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar: %v", err)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeHide
+	hidden := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	if len(hidden) != 0 {
+		t.Fatalf("expected denied Settings fallback hidden, got %+v", hidden)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
+	disabled := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	if len(disabled) != 1 {
+		t.Fatalf("expected denied Settings fallback retained in disable mode, got %+v", disabled)
+	}
+	if disabled[0]["disabled"] != true ||
+		disabled[0]["disabled_reason_code"] != admin.NavigationDisabledReasonCodePermissionDenied ||
+		disabled[0]["missing_permission"] != admin.PermAdminSettingsView {
+		t.Fatalf("expected permission-denied metadata, got %+v", disabled[0])
+	}
+}
+
+func TestSeededUtilityMenuAppliesPermissionDeniedMode(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	adm.WithAuthorizer(denyAllQuickstartAuthorizer{})
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar: %v", err)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeHide
+	hidden := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	if len(hidden) != 0 {
+		t.Fatalf("expected denied seeded Settings item hidden, got %+v", hidden)
+	}
+
+	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
+	disabled := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	if len(disabled) != 1 {
+		t.Fatalf("expected denied seeded Settings retained in disable mode, got %+v", disabled)
+	}
+	if disabled[0]["missing_permission"] != admin.PermAdminSettingsView {
+		t.Fatalf("expected seeded missing permission %q, got %+v", admin.PermAdminSettingsView, disabled[0])
 	}
 }
 

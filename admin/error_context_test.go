@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	goerrors "github.com/goliatone/go-errors"
@@ -87,6 +89,87 @@ func TestWrappedControlFlowErrorsKeepCustomMessagesOutsideRouteBoundaries(t *tes
 	want := "custom user lookup failed: not found"
 	if mapped.Message != want {
 		t.Fatalf("mapped message = %q, want %q", mapped.Message, want)
+	}
+}
+
+func TestBuildDevErrorContextIncludesAttachedDeploymentIdentity(t *testing.T) {
+	startedAt := time.Now().Add(-5 * time.Minute).UTC()
+	identity := DeploymentIdentity{
+		AppName:          "Admin",
+		AppVersion:       "v1.2.3",
+		Environment:      "staging",
+		EnvironmentColor: defaultStagingColor,
+		InstanceName:     "brisk-otter",
+		InstanceID:       "instance-a",
+		CommitSHA:        "abcdef0123456789",
+		StartedAt:        startedAt,
+		GoVersion:        "go1.test",
+	}
+	presenter := NewErrorPresenter(ErrorConfig{DevMode: true, ShowEnvironment: true}).
+		WithDeploymentIdentity(identity)
+	ctx := presenter.BuildDevErrorContext(errors.New("boom"), nil)
+	if ctx == nil || ctx.EnvironmentInfo == nil || ctx.EnvironmentInfo.Deployment == nil {
+		t.Fatalf("expected deployment environment context: %+v", ctx)
+	}
+	got := ctx.EnvironmentInfo.Deployment
+	if got.InstanceID != identity.InstanceID || got.InstanceName != identity.InstanceName || got.CommitSHA != identity.CommitSHA {
+		t.Fatalf("deployment context mismatch: got=%+v want=%+v", got, identity)
+	}
+	if got.Uptime == "0s" || ctx.EnvironmentInfo.AppVersion != identity.AppVersion || ctx.EnvironmentInfo.Environment != "staging" {
+		t.Fatalf("missing derived deployment context: %+v", ctx.EnvironmentInfo)
+	}
+}
+
+func TestWithDeploymentIdentityNormalizesProvenance(t *testing.T) {
+	presenter := NewErrorPresenter(ErrorConfig{}).WithDeploymentIdentity(DeploymentIdentity{
+		InstanceName:   "instance",
+		InstanceID:     "instance-id",
+		BuildSource:    "GO_BUILD_INFO",
+		InstanceSource: "MIXED",
+	})
+	identity := presenter.DeploymentIdentity()
+	if identity.BuildSource != "go_build_info" || identity.InstanceSource != "mixed" {
+		t.Fatalf("expected canonical provenance, got %+v", identity)
+	}
+
+	presenter = presenter.WithDeploymentIdentity(DeploymentIdentity{
+		InstanceName:   "instance",
+		InstanceID:     "instance-id",
+		BuildSource:    strings.Repeat("x", 200),
+		InstanceSource: "custom<script>",
+	})
+	identity = presenter.DeploymentIdentity()
+	if identity.BuildSource != "" || identity.InstanceSource != "" {
+		t.Fatalf("unexpected untrusted provenance: %+v", identity)
+	}
+}
+
+func TestDefaultErrorPresenterCopiesMutableState(t *testing.T) {
+	previous := DefaultErrorPresenter()
+	t.Cleanup(func() { SetDefaultErrorPresenter(previous) })
+
+	presenter := NewErrorPresenter(ErrorConfig{AppRoots: []string{"/app"}})
+	SetDefaultErrorPresenter(presenter)
+	presenter.Config.AppRoots[0] = "/mutated-source"
+
+	first := DefaultErrorPresenter()
+	first.Config.AppRoots[0] = "/mutated-copy"
+	second := DefaultErrorPresenter()
+	if got := second.Config.AppRoots[0]; got != "/app" {
+		t.Fatalf("default presenter shared mutable config: %q", got)
+	}
+}
+
+func TestBuildDevErrorContextDoesNotExposeDeploymentOutsideDevMode(t *testing.T) {
+	presenter := NewErrorPresenter(ErrorConfig{ShowEnvironment: true}).
+		WithDeploymentIdentity(DeploymentIdentity{InstanceName: "hidden", InstanceID: "hidden"})
+	if ctx := presenter.BuildDevErrorContext(errors.New("boom"), nil); ctx != nil {
+		t.Fatalf("production presenter returned developer context: %+v", ctx)
+	}
+	response := presenter.ErrorResponse(goerrors.New("boom", goerrors.CategoryInternal))
+	encoded := fmt.Sprintf("%+v", response)
+	if strings.Contains(encoded, "hidden") {
+		t.Fatalf("generic production response exposed deployment identity: %s", encoded)
 	}
 }
 

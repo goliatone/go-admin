@@ -85,6 +85,23 @@ function formatValue(value: unknown, format: unknown): string {
   return text(value);
 }
 
+function renderKeyValue(value: unknown, format: unknown, empty: string, styles: StyleConfig): string {
+  const raw = value === undefined || value === null || value === '' ? empty : formatValue(value, format);
+  const kind = typeof format === 'string' ? format.trim().toLowerCase() : '';
+  if (kind === 'copy' && raw && raw !== empty) {
+    return `
+      <div data-copy-content="${escapeAttribute(raw)}">
+        <code>${escapeHTML(raw)}</code>
+        <button type="button" class="${styles.copyBtnSm}" data-copy-trigger title="Copy to clipboard">Copy</button>
+      </div>
+    `;
+  }
+  if (kind === 'color' && /^#[0-9a-f]{6}$/i.test(raw)) {
+    return `<span class="${styles.badge}" style="--debug-identity-color:${escapeAttribute(raw)}"><span aria-hidden="true" style="display:inline-block;width:.65em;height:.65em;border-radius:50%;background:var(--debug-identity-color);margin-right:.4em"></span>${escapeHTML(raw)}</span>`;
+  }
+  return escapeHTML(raw);
+}
+
 function renderTitle(title: string, styles: StyleConfig): string {
   return title ? `<h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3>` : '';
 }
@@ -146,8 +163,7 @@ export function renderSchemaKeyValue(
             const label = text(item.label || item.bind);
             const raw = pathValue(data, item.bind);
             const empty = text(item.empty || '');
-            const value = raw === undefined || raw === null || raw === '' ? empty : formatValue(raw, item.format);
-            return `<tr><th>${escapeHTML(label)}</th><td>${escapeHTML(value)}</td></tr>`;
+            return `<tr><th>${escapeHTML(label)}</th><td>${renderKeyValue(raw, item.format, empty, styles)}</td></tr>`;
           }).join('')}
         </tbody>
       </table>

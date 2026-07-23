@@ -398,6 +398,7 @@ const (
 	ResolveSourceCMS                               = core.ResolveSourceCMS
 	ResolveSourceFallbackCMSDisabled               = core.ResolveSourceFallbackCMSDisabled
 	ResolveSourceFallbackCMSError                  = core.ResolveSourceFallbackCMSError
+	ResolveSourceFallbackCMSMissing                = core.ResolveSourceFallbackCMSMissing
 	ResolveSourceFallbackNoCMS                     = core.ResolveSourceFallbackNoCMS
 	RolesOpenAPISource                             = core.RolesOpenAPISource
 	SchemaFormatJSONSchema                         = core.SchemaFormatJSONSchema
