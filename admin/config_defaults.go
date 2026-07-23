@@ -68,9 +68,7 @@ func applyPermissionConfigDefaults(cfg Config) Config {
 }
 
 func applySettingsPermissionDefaults(cfg Config) Config {
-	if cfg.SettingsPermission == "" {
-		cfg.SettingsPermission = PermAdminSettingsView
-	}
+	cfg.SettingsPermission = EffectiveSettingsPermission(cfg)
 	if cfg.SettingsUpdatePermission == "" {
 		cfg.SettingsUpdatePermission = PermAdminSettingsEdit
 	}
@@ -93,9 +91,7 @@ func applySettingsPermissionDefaults(cfg Config) Config {
 }
 
 func applyPreferencePermissionDefaults(cfg Config) Config {
-	if cfg.PreferencesPermission == "" {
-		cfg.PreferencesPermission = PermAdminPreferencesView
-	}
+	cfg.PreferencesPermission = EffectivePreferencesPermission(cfg)
 	if cfg.PreferencesUpdatePermission == "" {
 		cfg.PreferencesUpdatePermission = PermAdminPreferencesEdit
 	}
@@ -118,9 +114,7 @@ func applyPreferencePermissionDefaults(cfg Config) Config {
 }
 
 func applyIdentityPermissionDefaults(cfg Config) Config {
-	if cfg.ProfilePermission == "" {
-		cfg.ProfilePermission = PermAdminProfileView
-	}
+	cfg.ProfilePermission = EffectiveProfilePermission(cfg)
 	if cfg.ProfileUpdatePermission == "" {
 		cfg.ProfileUpdatePermission = PermAdminProfileEdit
 	}
@@ -152,6 +146,24 @@ func applyIdentityPermissionDefaults(cfg Config) Config {
 		cfg.RolesDeletePermission = PermAdminRolesDelete
 	}
 	return cfg
+}
+
+// EffectiveSettingsPermission returns the permission enforced by settings
+// routes and navigation when the caller leaves SettingsPermission unset.
+func EffectiveSettingsPermission(cfg Config) string {
+	return firstNonEmpty(strings.TrimSpace(cfg.SettingsPermission), PermAdminSettingsView)
+}
+
+// EffectivePreferencesPermission returns the permission enforced by
+// preferences routes and navigation when the caller leaves it unset.
+func EffectivePreferencesPermission(cfg Config) string {
+	return firstNonEmpty(strings.TrimSpace(cfg.PreferencesPermission), PermAdminPreferencesView)
+}
+
+// EffectiveProfilePermission returns the permission enforced by profile routes
+// and navigation when the caller leaves it unset.
+func EffectiveProfilePermission(cfg Config) string {
+	return firstNonEmpty(strings.TrimSpace(cfg.ProfilePermission), PermAdminProfileView)
 }
 
 func applyScopePermissionDefaults(cfg Config) Config {

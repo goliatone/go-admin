@@ -25,6 +25,7 @@ import (
 type Admin struct {
 	config                          Config
 	deploymentIdentity              DeploymentIdentity
+	errorPresenter                  ErrorPresenter
 	logger                          Logger
 	loggerProvider                  LoggerProvider
 	featureGate                     fggate.FeatureGate
@@ -140,7 +141,19 @@ func (a *Admin) DeploymentIdentity() DeploymentIdentity {
 	if a == nil {
 		return DeploymentIdentity{}
 	}
-	return a.deploymentIdentity
+	return a.deploymentIdentity.clone()
+}
+
+// ErrorPresenter returns the Admin-scoped presenter used by its registered
+// request handlers and development error surfaces.
+func (a *Admin) ErrorPresenter() ErrorPresenter {
+	if a == nil {
+		return NewErrorPresenter(ErrorConfig{})
+	}
+	if a.errorPresenter.Mappers == nil {
+		return NewErrorPresenter(a.config.Errors).WithDeploymentIdentity(a.deploymentIdentity)
+	}
+	return a.errorPresenter.clone()
 }
 
 type activityAware interface {
