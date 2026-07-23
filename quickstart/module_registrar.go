@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/navigationutil"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -19,6 +20,8 @@ type moduleRegistrarOptions struct {
 	toolsMenuItems                []admin.MenuItem
 	sidebarUtilityMenuItems       []admin.MenuItem
 	defaultSidebarUtilityMenu     bool
+	defaultSidebarUtilityItemKeys []SidebarUtilityItemKey
+	sidebarUtilityConfigured      bool
 	sidebarUtilityMenuCode        string
 	seed                          bool
 	seedOpts                      SeedNavigationOptions
@@ -50,16 +53,35 @@ type translationCapabilityMenuItemSpec struct {
 }
 
 type sidebarUtilityMenuItemSpec struct {
-	ID        string
-	Label     string
-	LabelKey  string
-	Icon      string
-	RouteName string
-	RoutePath []string
-	Name      string
-	Key       string
-	Position  int
-	Feature   admin.FeatureKey
+	ID         string
+	Label      string
+	LabelKey   string
+	Icon       string
+	RouteName  string
+	RoutePath  []string
+	Name       string
+	Key        string
+	Position   int
+	Feature    admin.FeatureKey
+	Permission func(admin.Config) string
+}
+
+// SidebarUtilityItemKey identifies a quickstart-owned standard utility item.
+type SidebarUtilityItemKey string
+
+const (
+	SidebarUtilityItemSettings    SidebarUtilityItemKey = "settings"
+	SidebarUtilityItemPreferences SidebarUtilityItemKey = "preferences"
+	SidebarUtilityItemProfile     SidebarUtilityItemKey = "profile"
+)
+
+// DefaultSidebarUtilityItemKeys returns the complete supported standard set.
+func DefaultSidebarUtilityItemKeys() []SidebarUtilityItemKey {
+	return []SidebarUtilityItemKey{
+		SidebarUtilityItemSettings,
+		SidebarUtilityItemPreferences,
+		SidebarUtilityItemProfile,
+	}
 }
 
 type menuSeedHook interface {
@@ -117,6 +139,7 @@ func WithSidebarUtilityMenuItems(items ...admin.MenuItem) ModuleRegistrarOption 
 		if opts == nil || len(items) == 0 {
 			return
 		}
+		opts.sidebarUtilityConfigured = true
 		opts.sidebarUtilityMenuItems = append(opts.sidebarUtilityMenuItems, items...)
 	}
 }
@@ -127,7 +150,25 @@ func WithDefaultSidebarUtilityItems(enabled bool) ModuleRegistrarOption {
 		if opts == nil {
 			return
 		}
+		opts.sidebarUtilityConfigured = true
 		opts.defaultSidebarUtilityMenu = enabled
+		opts.defaultSidebarUtilityItemKeys = nil
+		if enabled {
+			opts.defaultSidebarUtilityItemKeys = DefaultSidebarUtilityItemKeys()
+		}
+	}
+}
+
+// WithDefaultSidebarUtilityItemKeys selects quickstart-owned standard utility
+// items without requiring hosts to duplicate their descriptors.
+func WithDefaultSidebarUtilityItemKeys(keys ...SidebarUtilityItemKey) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil {
+			return
+		}
+		opts.sidebarUtilityConfigured = true
+		opts.defaultSidebarUtilityMenu = true
+		opts.defaultSidebarUtilityItemKeys = normalizeSidebarUtilityItemKeys(keys)
 	}
 }
 
@@ -342,11 +383,12 @@ func moduleRegistrarRawInventoryOptions(cfg admin.Config, menuCode string) admin
 }
 
 func (runtime moduleRegistrarSeedRuntime) seedNavigation() error {
+	mainMenuCode := runtime.mainMenuCode()
+	menuLocale := runtime.menuLocale()
+	runtime.configureUtilityMenuFallback(menuLocale)
 	if !runtime.options.seed || runtime.options.seedOpts.MenuSvc == nil {
 		return nil
 	}
-	mainMenuCode := runtime.mainMenuCode()
-	menuLocale := runtime.menuLocale()
 	if err := runtime.seedPrimaryMenu(mainMenuCode, menuLocale); err != nil {
 		return err
 	}
@@ -354,6 +396,26 @@ func (runtime moduleRegistrarSeedRuntime) seedNavigation() error {
 		return err
 	}
 	return runMenuSeedHooks(runtime.options.ctx, runtime.adm, runtime.ordered)
+}
+
+func (runtime moduleRegistrarSeedRuntime) configureUtilityMenuFallback(menuLocale string) {
+	if runtime.adm == nil || runtime.adm.Navigation() == nil {
+		return
+	}
+	menuCode := runtime.utilityMenuCode()
+	if !runtime.options.sidebarUtilityConfigured {
+		if _, configured := runtime.adm.Navigation().MenuFallback(menuCode); configured {
+			return
+		}
+		runtime.adm.Navigation().SetMenuFallback(menuCode)
+		return
+	}
+	items := normalizeMenuItemsForMenu(runtime.utilityMenuItems(menuLocale), menuCode, menuLocale)
+	navItems := make([]admin.NavigationItem, 0, len(items))
+	for _, item := range items {
+		navItems = append(navItems, menuItemAsNavigationItem(item))
+	}
+	runtime.adm.Navigation().SetMenuFallback(menuCode, navItems...)
 }
 
 func (runtime moduleRegistrarSeedRuntime) mainMenuCode() string {
@@ -408,23 +470,57 @@ func (runtime moduleRegistrarSeedRuntime) seedPrimaryMenu(mainMenuCode, menuLoca
 }
 
 func (runtime moduleRegistrarSeedRuntime) seedUtilityMenu(menuLocale string) error {
-	utilityItems := runtime.utilityMenuItems(menuLocale)
-	if len(utilityItems) == 0 {
+	if !runtime.options.sidebarUtilityConfigured {
 		return nil
 	}
+	utilityItems := runtime.utilityMenuItems(menuLocale)
 	utilityMenuCode := runtime.utilityMenuCode()
 	utilitySeedOpts := runtime.options.seedOpts
 	utilitySeedOpts.MenuCode = utilityMenuCode
 	utilitySeedOpts.Locale = menuLocale
 	utilitySeedOpts.Items = normalizeMenuItemsForMenu(utilityItems, utilityMenuCode, menuLocale)
 	utilitySeedOpts.Reconcile = true
+	utilitySeedOpts.RetireManagedExclusions = true
+	utilitySeedOpts.ManagedExclusions = sidebarUtilityManagedExclusions(
+		utilityMenuCode,
+		menuLocale,
+		utilitySeedOpts.Items,
+	)
 	return SeedNavigation(runtime.options.ctx, utilitySeedOpts)
+}
+
+func sidebarUtilityManagedExclusions(menuCode, locale string, desired []admin.MenuItem) []NavigationManagedExclusion {
+	desiredIDs := map[string]bool{}
+	for _, item := range normalizeMenuItemsForMenu(desired, menuCode, locale) {
+		id := navigationutil.CanonicalMenuItemPath(menuCode, item.ID)
+		desiredIDs[strings.ToLower(strings.TrimSpace(id))] = true
+	}
+	known := sidebarUtilityMenuItemSpecs()
+	known = append(known, sidebarUtilityMenuItemSpec{ID: "utility.help", Key: "help"})
+	exclusions := make([]NavigationManagedExclusion, 0, len(known))
+	for _, spec := range known {
+		id := navigationutil.CanonicalMenuItemPath(menuCode, spec.ID)
+		if id == "" || desiredIDs[strings.ToLower(id)] {
+			continue
+		}
+		exclusions = append(exclusions, NavigationManagedExclusion{
+			ID:     id,
+			Reason: "quickstart standard sidebar utility item is no longer selected or available",
+		})
+	}
+	return exclusions
 }
 
 func (runtime moduleRegistrarSeedRuntime) utilityMenuItems(menuLocale string) []admin.MenuItem {
 	utilityItems := append([]admin.MenuItem{}, runtime.options.sidebarUtilityMenuItems...)
 	if runtime.options.defaultSidebarUtilityMenu {
-		utilityItems = append(utilityItems, defaultSidebarUtilityMenuItems(runtime.adm, runtime.cfg, "", menuLocale)...)
+		utilityItems = append(utilityItems, defaultSidebarUtilityMenuItems(
+			runtime.adm,
+			runtime.cfg,
+			"",
+			menuLocale,
+			runtime.options.defaultSidebarUtilityItemKeys,
+		)...)
 	}
 	return dedupeMenuItems(utilityItems)
 }
@@ -904,7 +1000,13 @@ func resolveTranslationCapabilityMenuPath(urls urlkit.Resolver, fallbackBase, ro
 	}
 }
 
-func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode, locale string) []admin.MenuItem {
+func defaultSidebarUtilityMenuItems(
+	adm *admin.Admin,
+	cfg admin.Config,
+	menuCode,
+	locale string,
+	keys []SidebarUtilityItemKey,
+) []admin.MenuItem {
 	menuCode = admin.NormalizeMenuSlug(strings.TrimSpace(menuCode))
 	if menuCode == "" {
 		menuCode = admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode)
@@ -926,8 +1028,12 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 		return featureEnabled(adm.FeatureGate(), string(feature))
 	}
 
-	out := make([]admin.MenuItem, 0, 4)
+	selected := sidebarUtilityItemKeySet(keys)
+	out := make([]admin.MenuItem, 0, len(selected))
 	for _, spec := range sidebarUtilityMenuItemSpecs() {
+		if !selected[SidebarUtilityItemKey(spec.Key)] {
+			continue
+		}
 		if spec.Feature != "" && !featureIsEnabled(spec.Feature) {
 			continue
 		}
@@ -942,21 +1048,25 @@ func sidebarUtilityMenuItemSpecs() []sidebarUtilityMenuItemSpec {
 			ID: "utility.settings", Label: "Settings", LabelKey: "menu.settings", Icon: "settings",
 			RouteName: "settings", RoutePath: []string{"settings"}, Name: "admin.settings", Key: "settings",
 			Position: 10, Feature: admin.FeatureSettings,
+			Permission: func(cfg admin.Config) string {
+				return admin.EffectiveSettingsPermission(cfg)
+			},
 		},
 		{
 			ID: "utility.preferences", Label: "Preferences", LabelKey: "menu.preferences", Icon: "user-circle",
 			RouteName: "preferences", RoutePath: []string{"preferences"}, Name: "admin.preferences", Key: "preferences",
 			Position: 20, Feature: admin.FeaturePreferences,
+			Permission: func(cfg admin.Config) string {
+				return admin.EffectivePreferencesPermission(cfg)
+			},
 		},
 		{
 			ID: "utility.profile", Label: "Profile", LabelKey: "menu.profile", Icon: "user",
 			RouteName: "profile", RoutePath: []string{"profile"}, Name: "admin.profile", Key: "profile",
 			Position: 30, Feature: admin.FeatureProfile,
-		},
-		{
-			ID: "utility.help", Label: "Help", LabelKey: "menu.help", Icon: "question-mark",
-			RouteName: "help", RoutePath: []string{"help"}, Name: "admin.help", Key: "help",
-			Position: 40,
+			Permission: func(cfg admin.Config) string {
+				return admin.EffectiveProfilePermission(cfg)
+			},
 		},
 	}
 }
@@ -968,6 +1078,12 @@ func sidebarUtilityMenuItem(
 	locale string,
 	spec sidebarUtilityMenuItemSpec,
 ) admin.MenuItem {
+	permissions := []string{}
+	if spec.Permission != nil {
+		if permission := strings.TrimSpace(spec.Permission(cfg)); permission != "" {
+			permissions = append(permissions, permission)
+		}
+	}
 	return admin.MenuItem{
 		ID:       spec.ID,
 		Type:     admin.MenuItemTypeItem,
@@ -980,10 +1096,37 @@ func sidebarUtilityMenuItem(
 			"name": spec.Name,
 			"key":  spec.Key,
 		},
-		Position: intPtr(spec.Position),
-		Menu:     menuCode,
-		Locale:   locale,
+		Position:    intPtr(spec.Position),
+		Permissions: permissions,
+		Menu:        menuCode,
+		Locale:      locale,
 	}
+}
+
+func normalizeSidebarUtilityItemKeys(keys []SidebarUtilityItemKey) []SidebarUtilityItemKey {
+	selected := sidebarUtilityItemKeySet(keys)
+	out := make([]SidebarUtilityItemKey, 0, len(selected))
+	for _, key := range DefaultSidebarUtilityItemKeys() {
+		if selected[key] {
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
+func sidebarUtilityItemKeySet(keys []SidebarUtilityItemKey) map[SidebarUtilityItemKey]bool {
+	out := map[SidebarUtilityItemKey]bool{}
+	for _, key := range keys {
+		switch SidebarUtilityItemKey(strings.ToLower(strings.TrimSpace(string(key)))) {
+		case SidebarUtilityItemSettings:
+			out[SidebarUtilityItemSettings] = true
+		case SidebarUtilityItemPreferences:
+			out[SidebarUtilityItemPreferences] = true
+		case SidebarUtilityItemProfile:
+			out[SidebarUtilityItemProfile] = true
+		}
+	}
+	return out
 }
 
 func normalizeTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) TranslationCapabilityMenuMode {

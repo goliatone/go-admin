@@ -25,6 +25,7 @@ type NavigationReconcileOptions struct {
 	CapabilityOmissions     []string
 	PermissionFilteredItems []string
 	AllowDestructive        bool
+	RetireManagedExclusions bool
 	ManagedExclusions       []NavigationManagedExclusion
 }
 
@@ -780,7 +781,7 @@ func reconcileGeneratedNavigationExclusions(ctx context.Context, opts Navigation
 			item := matches[0]
 			report.RetiredManagedItems = append(report.RetiredManagedItems, item.ID)
 			report.DestructiveCandidates = append(report.DestructiveCandidates, item.ID)
-			if !opts.Apply || !opts.AllowDestructive {
+			if !opts.Apply || (!opts.AllowDestructive && !opts.RetireManagedExclusions) {
 				continue
 			}
 			if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, item.ID); err != nil && !errors.Is(err, admin.ErrMenuTargetNotFound) && !errors.Is(err, admin.ErrNotFound) {
