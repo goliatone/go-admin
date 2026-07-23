@@ -73,11 +73,12 @@ type RequestInfo struct {
 
 // EnvironmentInfo holds runtime environment details.
 type EnvironmentInfo struct {
-	GoVersion   string            `json:"go_version,omitempty"`
-	AppVersion  string            `json:"app_version,omitempty"`
-	Environment string            `json:"environment,omitempty"`
-	Debug       bool              `json:"debug"`
-	ConfigVars  map[string]string `json:"config_vars,omitempty"`
+	GoVersion   string                      `json:"go_version,omitempty"`
+	AppVersion  string                      `json:"app_version,omitempty"`
+	Environment string                      `json:"environment,omitempty"`
+	Debug       bool                        `json:"debug"`
+	ConfigVars  map[string]string           `json:"config_vars,omitempty"`
+	Deployment  *DeploymentIdentitySnapshot `json:"deployment,omitempty"`
 }
 
 // ExtractSourceContext reads source code around the given file and line.

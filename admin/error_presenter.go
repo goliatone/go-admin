@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,16 +18,55 @@ type ErrorPresenter struct {
 	deployment DeploymentIdentity
 }
 
+func (p ErrorPresenter) clone() ErrorPresenter {
+	p.Config.AppRoots = append([]string{}, p.Config.AppRoots...)
+	if p.Mappers != nil {
+		p.Mappers = append([]goerrors.ErrorMapper{}, p.Mappers...)
+	}
+	p.deployment = p.deployment.clone()
+	return p
+}
+
 // WithDeploymentIdentity returns a presenter carrying the already-resolved
 // process identity. It does not perform metadata discovery.
 func (p ErrorPresenter) WithDeploymentIdentity(identity DeploymentIdentity) ErrorPresenter {
+	identity = identity.clone()
+	identity.AppID = boundedPrintable(identity.AppID, 128)
+	identity.AppName = boundedPrintable(identity.AppName, 128)
+	identity.AppVersion = boundedPrintable(identity.AppVersion, 128)
+	identity.Environment = normalizeEnvironment(identity.Environment)
+	identity.EnvironmentColor = normalizeHexColor(identity.EnvironmentColor)
+	if identity.EnvironmentColor == "" {
+		identity.EnvironmentColor = defaultEnvironmentColor
+	}
+	identity.InstanceName = boundedPrintable(identity.InstanceName, 128)
+	identity.InstanceID = boundedPrintable(identity.InstanceID, 128)
+	identity.Hostname = boundedPrintable(identity.Hostname, 255)
+	identity.CommitSHA = normalizeCommit(identity.CommitSHA)
+	identity.CommitShort = shortCommit(identity.CommitSHA)
+	identity.GitRef = boundedPrintable(identity.GitRef, 256)
+	identity.GoVersion = boundedPrintable(identity.GoVersion, 64)
+	identity.BuildSource = normalizeDeploymentSource(identity.BuildSource,
+		"config", "environment", "provider_environment", "go_build_info")
+	identity.InstanceSource = normalizeDeploymentSource(identity.InstanceSource,
+		"configured", "generated", "mixed", "fallback")
 	p.deployment = identity
 	return p
 }
 
+func normalizeDeploymentSource(value string, allowed ...string) string {
+	value = strings.ToLower(boundedPrintable(value, 32))
+	for _, candidate := range allowed {
+		if value == candidate {
+			return value
+		}
+	}
+	return ""
+}
+
 // DeploymentIdentity returns the identity attached to this presenter.
 func (p ErrorPresenter) DeploymentIdentity() DeploymentIdentity {
-	return p.deployment
+	return p.deployment.clone()
 }
 
 var defaultErrorPresenter atomic.Value
@@ -45,14 +85,14 @@ func NewErrorPresenter(cfg ErrorConfig, mappers ...goerrors.ErrorMapper) ErrorPr
 
 // SetDefaultErrorPresenter overrides the package-level presenter used by helpers.
 func SetDefaultErrorPresenter(presenter ErrorPresenter) {
-	defaultErrorPresenter.Store(presenter)
+	defaultErrorPresenter.Store(presenter.clone())
 }
 
 // DefaultErrorPresenter returns the presenter used by writeError.
 func DefaultErrorPresenter() ErrorPresenter {
 	if stored := defaultErrorPresenter.Load(); stored != nil {
 		if presenter, ok := stored.(ErrorPresenter); ok {
-			return presenter
+			return presenter.clone()
 		}
 	}
 	return NewErrorPresenter(ErrorConfig{})
@@ -149,11 +189,23 @@ func (p ErrorPresenter) BuildDevErrorContext(err error, reqInfo *RequestInfo) *D
 
 	// Add environment info
 	if p.Config.ShowEnvironment {
-		ctx.EnvironmentInfo = &EnvironmentInfo{
+		environment := &EnvironmentInfo{
 			GoVersion:  runtime.Version(),
 			AppVersion: p.Config.AppVersion,
 			Debug:      p.Config.DevMode,
 		}
+		if p.deployment.InstanceID != "" || p.deployment.InstanceName != "" {
+			snapshot := p.deployment.Snapshot(time.Now())
+			environment.Deployment = &snapshot
+			environment.Environment = p.deployment.Environment
+			if p.deployment.AppVersion != "" {
+				environment.AppVersion = p.deployment.AppVersion
+			}
+			if p.deployment.GoVersion != "" {
+				environment.GoVersion = p.deployment.GoVersion
+			}
+		}
+		ctx.EnvironmentInfo = environment
 	}
 
 	return ctx
