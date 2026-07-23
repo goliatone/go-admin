@@ -1,10 +1,61 @@
 # Changelog
 
+# [0.122.0](https://github.com/goliatone/go-admin/compare/v0.121.7...v0.122.0) - (2026-07-23)
+
+
+## Navigation
+
+- Standard quickstart sidebar utility items now carry the configured Settings,
+  Preferences, and Profile view permissions in both CMS-backed and fallback
+  navigation.
+- Added `quickstart.WithDefaultSidebarUtilityItemKeys(...)` for granular
+  selection of standard utility items.
+- Removed the unowned `admin.help` link from the quickstart default set. Hosts
+  that register a Help route should contribute it with
+  `WithSidebarUtilityMenuItems`.
+- Empty utility menus are now authoritative. Quickstart only uses the selected
+  menu-specific fallback when the CMS menu is missing or unavailable; it no
+  longer repopulates a menu after permission filtering removes all entries.
+- Settings UI route registration now applies the same effective default view
+  permission as the admin runtime when callers leave the config field blank.
+- Quickstart retires omitted, disabled, feature-gated, and legacy standard
+  utility rows by exact generated identity while preserving host-owned and
+  unrelated generated rows.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Test setup ([acbfffe](https://github.com/goliatone/go-admin/commit/acbfffe2b3e68ab24be250e1f7bb1eb5b90ec305))  - (goliatone)
+- Code quality ([dd18706](https://github.com/goliatone/go-admin/commit/dd1870699d51f2817191a484dc036ef63cdccb24))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Menu construction flow ([fcbac51](https://github.com/goliatone/go-admin/commit/fcbac51328031ccad18b8579d1979bfecce12fe1))  - (goliatone)
+- Debug panel for deployment id ([e3c7009](https://github.com/goliatone/go-admin/commit/e3c70099d8534abcb82534378050c27c37870ee2))  - (goliatone)
+- Error presenter ([dfa4d6e](https://github.com/goliatone/go-admin/commit/dfa4d6e54ca7dcebd35e5e2b406e58f0d9fae232))  - (goliatone)
+- Menu exists check ([6d2fdc5](https://github.com/goliatone/go-admin/commit/6d2fdc5d9279be7a46d5fe349d0501590525db75))  - (goliatone)
+- Navigation helpers ([0740888](https://github.com/goliatone/go-admin/commit/0740888df63b2b01a083a2220c4a8726c8963e54))  - (goliatone)
+- Debug toolbar deployment identity ([df380f1](https://github.com/goliatone/go-admin/commit/df380f1c24b1b9e410c3013ad79d5e9d8984bb01))  - (goliatone)
+- Error presenter include app info and deployment identity ([9c0c004](https://github.com/goliatone/go-admin/commit/9c0c0048d175a73a3bcdf938df3863f16c193492))  - (goliatone)
+- Deployment identity ([3f713f4](https://github.com/goliatone/go-admin/commit/3f713f4bcfea7ab043e0db79c44a4bdddb32d096))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([15470d7](https://github.com/goliatone/go-admin/commit/15470d760f277a3474617310fea3a94b56068344))  - (goliatone)
+- Update examples ([188e171](https://github.com/goliatone/go-admin/commit/188e1713a57e3d63e6ae79433393545a6f4e088b))  - (goliatone)
+- Update tests ([e0fdf46](https://github.com/goliatone/go-admin/commit/e0fdf46854f9febeff4f128990d5de3de180ba26))  - (goliatone)
+
 # [0.121.7](https://github.com/goliatone/go-admin/compare/v0.121.6...v0.121.7) - (2026-07-23)
+
+
+New patch release: v0.121.7
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Websocket connection management ([ff0b318](https://github.com/goliatone/go-admin/commit/ff0b31872f5ff7fe1ecbb93c10550cafd24a5769))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.7 ([b8f4c37](https://github.com/goliatone/go-admin/commit/b8f4c37c14bd3f7596a820a40d75966fcffba406))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
