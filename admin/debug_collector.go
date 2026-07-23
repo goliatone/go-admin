@@ -164,7 +164,7 @@ type debugSubscriberOffer uint8
 
 const (
 	debugSubscriberAccepted debugSubscriberOffer = iota
-	debugSubscriberOverflow
+	debugSubscriberRecoveryRequired
 	debugSubscriberClosed
 )
 
@@ -172,17 +172,18 @@ const (
 // a bounded amount of recoverable state. Command-run updates are coalesced by
 // scoped run identity, so progress bursts cannot displace their terminal state.
 type debugEventSubscriber struct {
-	mu            sync.Mutex
-	out           chan DebugEvent
-	wake          chan struct{}
-	stop          chan struct{}
-	done          chan struct{}
-	closeOnce     sync.Once
-	pending       []DebugEvent
-	maxPending    int
-	inFlight      bool
-	inFlightEvent DebugEvent
-	closed        bool
+	mu              sync.Mutex
+	out             chan DebugEvent
+	wake            chan struct{}
+	stop            chan struct{}
+	done            chan struct{}
+	closeOnce       sync.Once
+	pending         []DebugEvent
+	maxPending      int
+	inFlight        bool
+	inFlightEvent   DebugEvent
+	recoveryPending bool
+	closed          bool
 }
 
 func newDebugEventSubscriber(maxPending int) *debugEventSubscriber {
@@ -222,19 +223,22 @@ func (s *debugEventSubscriber) Close() {
 	<-s.done
 }
 
-func (s *debugEventSubscriber) Offer(event DebugEvent) debugSubscriberOffer {
+func (s *debugEventSubscriber) Offer(event DebugEvent) (debugSubscriberOffer, DebugEvent) {
 	if s == nil {
-		return debugSubscriberClosed
+		return debugSubscriberClosed, DebugEvent{}
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
-		return debugSubscriberClosed
+		return debugSubscriberClosed, DebugEvent{}
+	}
+	if s.recoveryPending {
+		return debugSubscriberAccepted, DebugEvent{}
 	}
 	if !s.inFlight && len(s.pending) == 0 {
 		select {
 		case s.out <- event:
-			return debugSubscriberAccepted
+			return debugSubscriberAccepted, DebugEvent{}
 		default:
 		}
 	}
@@ -248,19 +252,33 @@ func (s *debugEventSubscriber) Offer(event DebugEvent) debugSubscriberOffer {
 			if commandRunQueuedStateAdvances(existing, incoming) {
 				s.pending[index] = event
 			}
-			return debugSubscriberAccepted
+			return debugSubscriberAccepted, DebugEvent{}
 		}
 	}
 
 	if len(s.pending) >= s.maxPending {
-		return debugSubscriberOverflow
+		diagnostic, _ := s.commandRunAtRiskLocked(event)
+		if diagnostic.Type == "" {
+			diagnostic = event
+		}
+		s.pending = s.pending[:0]
+		s.pending = append(s.pending, DebugEvent{
+			Type:      debugEventSnapshotInvalidated,
+			Timestamp: time.Now(),
+		})
+		s.recoveryPending = true
+		select {
+		case s.wake <- struct{}{}:
+		default:
+		}
+		return debugSubscriberRecoveryRequired, diagnostic
 	}
 	s.pending = append(s.pending, event)
 	select {
 	case s.wake <- struct{}{}:
 	default:
 	}
-	return debugSubscriberAccepted
+	return debugSubscriberAccepted, DebugEvent{}
 }
 
 func (s *debugEventSubscriber) commandRunAtRisk(fallback DebugEvent) (DebugEvent, bool) {
@@ -272,6 +290,10 @@ func (s *debugEventSubscriber) commandRunAtRisk(fallback DebugEvent) (DebugEvent
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.commandRunAtRiskLocked(fallback)
+}
+
+func (s *debugEventSubscriber) commandRunAtRiskLocked(fallback DebugEvent) (DebugEvent, bool) {
 	if s.inFlight && s.inFlightEvent.Type == commandRunDebugEventType {
 		return s.inFlightEvent, true
 	}
@@ -302,6 +324,9 @@ func (s *debugEventSubscriber) run() {
 		s.pending = s.pending[:len(s.pending)-1]
 		s.inFlight = true
 		s.inFlightEvent = event
+		if event.Type == debugEventSnapshotInvalidated {
+			s.recoveryPending = false
+		}
 		s.mu.Unlock()
 
 		select {
@@ -487,8 +512,8 @@ func (c *DebugCollector) SetLiveTransportEnabled(enabled bool) *DebugCollector {
 }
 
 // SetDeliveryFailureHandler installs a bounded callback for browser-edge
-// delivery failures. The callback must not block; it is invoked after the slow
-// subscriber has been detached for authoritative reconnect recovery.
+// delivery recoveries. The callback must not block; it is invoked after a slow
+// subscriber queue is compacted into an authoritative snapshot invalidation.
 func (c *DebugCollector) SetDeliveryFailureHandler(handler func(DebugEvent)) *DebugCollector {
 	if c == nil {
 		return c
@@ -1348,18 +1373,15 @@ func (c *DebugCollector) publish(eventType string, payload any) {
 	c.mu.RUnlock()
 
 	for _, subscriber := range subscribers {
-		switch subscriber.subscriber.Offer(event) {
+		offer, diagnostic := subscriber.subscriber.Offer(event)
+		switch offer {
 		case debugSubscriberAccepted:
 			continue
 		case debugSubscriberClosed:
 			c.removeSubscriber(subscriber.id, subscriber.subscriber)
-		case debugSubscriberOverflow:
-			diagnosticEvent, commandRunAffected := subscriber.subscriber.commandRunAtRisk(event)
-			if c.removeSubscriber(subscriber.id, subscriber.subscriber) {
-				subscriber.subscriber.Close()
-				if failureHandler != nil && commandRunAffected {
-					failureHandler(diagnosticEvent)
-				}
+		case debugSubscriberRecoveryRequired:
+			if failureHandler != nil {
+				failureHandler(diagnostic)
 			}
 		}
 	}
