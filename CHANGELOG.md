@@ -1,10 +1,32 @@
 # Changelog
 
+# [0.121.7](https://github.com/goliatone/go-admin/compare/v0.121.6...v0.121.7) - (2026-07-23)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Websocket connection management ([ff0b318](https://github.com/goliatone/go-admin/commit/ff0b31872f5ff7fe1ecbb93c10550cafd24a5769))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Subscribe collector update ([4abf5c5](https://github.com/goliatone/go-admin/commit/4abf5c5e45df3fc10af662bda0346de742ffeb2b))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([e89b391](https://github.com/goliatone/go-admin/commit/e89b3917362cded2340c9205d330b42fe3df9fe6))  - (goliatone)
+- Update tests ([9674667](https://github.com/goliatone/go-admin/commit/96746670f1a3680646179af80a53dbb7f067eeee))  - (goliatone)
+
 # [0.121.6](https://github.com/goliatone/go-admin/compare/v0.121.5...v0.121.6) - (2026-07-23)
+
+
+New patch release: v0.121.6
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Websocket reconnect ([fb5e80c](https://github.com/goliatone/go-admin/commit/fb5e80c70936a936990d1b1d8a1b664a8bbd2525))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.6 ([34e51ba](https://github.com/goliatone/go-admin/commit/34e51bab15704dbe593914f23ed4df6eeb131b9d))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
