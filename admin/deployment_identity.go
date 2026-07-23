@@ -49,23 +49,23 @@ type DeploymentIdentityConfig struct {
 // DeploymentIdentity is the immutable deployment identity resolved for one
 // Admin instance.
 type DeploymentIdentity struct {
-	AppID            string    `json:"app_id,omitempty"`
-	AppName          string    `json:"app_name,omitempty"`
-	AppVersion       string    `json:"app_version,omitempty"`
-	Environment      string    `json:"environment,omitempty"`
-	EnvironmentColor string    `json:"environment_color,omitempty"`
-	InstanceName     string    `json:"instance_name"`
-	InstanceID       string    `json:"instance_id"`
-	Hostname         string    `json:"hostname,omitempty"`
-	CommitSHA        string    `json:"commit_sha,omitempty"`
-	CommitShort      string    `json:"commit_short,omitempty"`
-	GitRef           string    `json:"git_ref,omitempty"`
-	BuildTime        time.Time `json:"build_time,omitempty"`
-	BuildModified    bool      `json:"build_modified,omitempty"`
-	BuildSource      string    `json:"build_source,omitempty"`
-	InstanceSource   string    `json:"instance_source,omitempty"`
-	StartedAt        time.Time `json:"started_at"`
-	GoVersion        string    `json:"go_version,omitempty"`
+	AppID            string     `json:"app_id,omitempty"`
+	AppName          string     `json:"app_name,omitempty"`
+	AppVersion       string     `json:"app_version,omitempty"`
+	Environment      string     `json:"environment,omitempty"`
+	EnvironmentColor string     `json:"environment_color,omitempty"`
+	InstanceName     string     `json:"instance_name"`
+	InstanceID       string     `json:"instance_id"`
+	Hostname         string     `json:"hostname,omitempty"`
+	CommitSHA        string     `json:"commit_sha,omitempty"`
+	CommitShort      string     `json:"commit_short,omitempty"`
+	GitRef           string     `json:"git_ref,omitempty"`
+	BuildTime        *time.Time `json:"build_time,omitempty"`
+	BuildModified    bool       `json:"build_modified,omitempty"`
+	BuildSource      string     `json:"build_source,omitempty"`
+	InstanceSource   string     `json:"instance_source,omitempty"`
+	StartedAt        time.Time  `json:"started_at"`
+	GoVersion        string     `json:"go_version,omitempty"`
 }
 
 // DeploymentIdentitySnapshot is the JSON-safe diagnostic view of an identity.
@@ -74,13 +74,21 @@ type DeploymentIdentitySnapshot struct {
 	Uptime string `json:"uptime"`
 }
 
+func (i DeploymentIdentity) clone() DeploymentIdentity {
+	if i.BuildTime != nil {
+		buildTime := *i.BuildTime
+		i.BuildTime = &buildTime
+	}
+	return i
+}
+
 // Snapshot derives time-varying display fields without mutating the identity.
 func (i DeploymentIdentity) Snapshot(now time.Time) DeploymentIdentitySnapshot {
 	uptime := time.Duration(0)
 	if !i.StartedAt.IsZero() && now.After(i.StartedAt) {
 		uptime = now.Sub(i.StartedAt).Round(time.Second)
 	}
-	return DeploymentIdentitySnapshot{DeploymentIdentity: i, Uptime: uptime.String()}
+	return DeploymentIdentitySnapshot{DeploymentIdentity: i.clone(), Uptime: uptime.String()}
 }
 
 // DeploymentBuildInfo is the bounded build metadata consumed by the resolver.
@@ -218,11 +226,11 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 	buildTime, buildTimeOK := parseBuildTime(build.VCSTime)
 	switch {
 	case configBuildTimeOK:
-		identity.BuildTime = configBuildTime
+		identity.BuildTime = &configBuildTime
 	case envBuildTimeOK:
-		identity.BuildTime = envBuildTime
+		identity.BuildTime = &envBuildTime
 	case buildTimeOK:
-		identity.BuildTime = buildTime
+		identity.BuildTime = &buildTime
 	}
 
 	identity.EnvironmentColor = resolveEnvironmentColor(
@@ -231,27 +239,37 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 		firstText(16, env("APP_ENV_COLOR")),
 		explicit.FallbackColor,
 	)
+	nameGenerated := false
+	nameFallback := false
 	if identity.InstanceName == "" {
 		if name, ok := randomDeploymentName(r.random); ok {
 			identity.InstanceName = name
-			identity.InstanceSource = "generated"
+			nameGenerated = true
 		} else {
 			identity.InstanceName = fallbackDeploymentName(identity.Hostname, startedAt)
-			identity.InstanceSource = "fallback"
+			nameFallback = true
 		}
-	} else {
-		identity.InstanceSource = "configured"
 	}
+	idGenerated := false
+	idFallback := false
 	if identity.InstanceID == "" {
 		if id, ok := randomUUID(r.random); ok {
 			identity.InstanceID = id
-			if identity.InstanceSource == "" {
-				identity.InstanceSource = "generated"
-			}
+			idGenerated = true
 		} else {
 			identity.InstanceID = fallbackInstanceID(identity.Hostname, startedAt)
-			identity.InstanceSource = "fallback"
+			idFallback = true
 		}
+	}
+	switch {
+	case nameFallback || idFallback:
+		identity.InstanceSource = "fallback"
+	case nameGenerated && idGenerated:
+		identity.InstanceSource = "generated"
+	case !nameGenerated && !idGenerated:
+		identity.InstanceSource = "configured"
+	default:
+		identity.InstanceSource = "mixed"
 	}
 	return identity
 }

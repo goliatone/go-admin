@@ -54,6 +54,7 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelSQL:         {Label: "SQL Queries", Span: debugPanelDefaultSpan},
 	DebugPanelLogs:        {Label: "Logs", Span: debugPanelDefaultSpan},
 	DebugPanelConfig:      {Label: "Config", Span: debugPanelDefaultSpan},
+	DebugPanelDeployment:  {Label: "Deployment", Icon: "iconoir-server", Span: debugPanelDefaultSpan},
 	DebugPanelRoutes:      {Label: "Routes", Span: debugPanelDefaultSpan},
 	DebugPanelCustom:      {Label: "Custom", Span: debugPanelDefaultSpan},
 	DebugPanelJSErrors:    {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
@@ -133,6 +134,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	RegisterPermissionsDebugPanel(ctx.Admin)
 	RegisterActionDiagnosticsDebugPanel(ctx.Admin)
 	RegisterDoctorDebugPanel(ctx.Admin)
+	RegisterDeploymentDebugPanel(ctx.Admin)
 	return nil
 }
 

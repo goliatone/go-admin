@@ -24,19 +24,20 @@ const (
 )
 
 const (
-	DebugPanelTemplate = "template"
-	DebugPanelSession  = "session"
-	DebugPanelRequests = "requests"
-	DebugPanelSQL      = "sql"
-	DebugPanelLogs     = "logs"
-	DebugPanelConfig   = "config"
-	DebugPanelRoutes   = "routes"
-	DebugPanelCustom   = "custom"
-	DebugPanelJSErrors = "jserrors"
-	DebugPanelShell    = "shell"
-	DebugPanelConsole  = "console"
-	DebugPanelCommands = DebugPanelCommandLauncher
-	DebugPanelDoctor   = "doctor"
+	DebugPanelTemplate   = "template"
+	DebugPanelSession    = "session"
+	DebugPanelRequests   = "requests"
+	DebugPanelSQL        = "sql"
+	DebugPanelLogs       = "logs"
+	DebugPanelConfig     = "config"
+	DebugPanelRoutes     = "routes"
+	DebugPanelCustom     = "custom"
+	DebugPanelJSErrors   = "jserrors"
+	DebugPanelShell      = "shell"
+	DebugPanelConsole    = "console"
+	DebugPanelCommands   = DebugPanelCommandLauncher
+	DebugPanelDoctor     = "doctor"
+	DebugPanelDeployment = "deployment"
 )
 
 // DebugLayoutMode controls how the debug UI is rendered.
@@ -61,6 +62,7 @@ var defaultDebugPanels = []string{
 	DebugPanelSQL,
 	DebugPanelLogs,
 	DebugPanelConfig,
+	DebugPanelDeployment,
 	DebugPanelRoutes,
 	DebugPanelCustom,
 	DebugPanelJSErrors,
@@ -75,6 +77,7 @@ var defaultToolbarPanels = []string{
 	DebugPanelJSErrors,
 	DebugPanelRoutes,
 	DebugPanelConfig,
+	DebugPanelDeployment,
 }
 
 // DefaultDebugPanels returns the default debug panel IDs.
