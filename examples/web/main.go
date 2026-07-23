@@ -412,6 +412,7 @@ func main() {
 			ExposeInternalMessage: &errorExposeOption,
 		}),
 	)
+	cfg.Deployment = exampleDeploymentIdentityConfig(cfg.Title, runtimeConfig.App.Env)
 	cfg.EntryNavigation = exampleEntryNavigationOptions()
 	cfg.ActivityActionLabels = exampleActivityActionLabels()
 	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
@@ -1724,6 +1725,19 @@ func main() {
 
 	if err := server.Serve(listenAddr); err != nil {
 		fatalf("server stopped: %v", err)
+	}
+}
+
+func exampleDeploymentIdentityConfig(appName, environment string) coreadmin.DeploymentIdentityConfig {
+	return coreadmin.DeploymentIdentityConfig{
+		AppID:       "go-admin-web-example",
+		AppName:     strings.TrimSpace(appName),
+		Environment: strings.TrimSpace(environment),
+		EnvironmentColors: map[string]string{
+			"development": "#ef4444",
+			"staging":     "#f59e0b",
+			"production":  "#22c55e",
+		},
 	}
 }
 
