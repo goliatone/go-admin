@@ -71,11 +71,78 @@ go test ./path/to/package -run TestName
 go test ./examples/esign/...
 ```
 
-## 5. Logging
+## 5. Build and Deployment Identity
+
+Go builds normally expose module version, Go version, `vcs.revision`,
+`vcs.time`, and `vcs.modified` through `runtime/debug.ReadBuildInfo`.
+Availability depends on the build context and Go VCS stamping; repackaged
+artifacts and builds without repository metadata may omit those settings.
+`Config.Deployment` and `APP_*` values always take precedence.
+
+For a host-owned linker contract, declare build variables in the application
+and copy them into admin configuration:
+
+```go
+var (
+    buildVersion = ""
+    buildCommit  = ""
+    buildTime    = ""
+)
+
+cfg.Deployment = admin.DeploymentIdentityConfig{
+    AppVersion: buildVersion,
+    CommitSHA:  buildCommit,
+    BuildTime:  buildTime,
+}
+```
+
+```bash
+go build -trimpath \
+  -ldflags "-X main.buildVersion=${VERSION} -X main.buildCommit=${COMMIT_SHA} -X main.buildTime=${BUILD_TIME}" \
+  ./cmd/admin
+```
+
+A dirty build is reported when Go supplies `vcs.modified=true`. Explicit
+version, commit, and build-time inputs still win field by field.
+
+GitHub Actions variables exist in the runner job; they do not automatically
+exist in a deployed process. Copy the exact artifact commit into the
+application contract:
+
+```yaml
+- name: Build
+  env:
+    APP_COMMIT_SHA: ${{ github.sha }}
+    APP_GIT_REF: ${{ github.ref }}
+    APP_VERSION: ${{ github.ref_name }}
+  run: |
+    docker build \
+      --build-arg APP_COMMIT_SHA \
+      --build-arg APP_GIT_REF \
+      --build-arg APP_VERSION \
+      -t ghcr.io/acme/admin:${GITHUB_SHA} .
+```
+
+```dockerfile
+ARG APP_COMMIT_SHA
+ARG APP_GIT_REF
+ARG APP_VERSION
+ARG APP_BUILD_TIME
+ENV APP_COMMIT_SHA=$APP_COMMIT_SHA \
+    APP_GIT_REF=$APP_GIT_REF \
+    APP_VERSION=$APP_VERSION \
+    APP_BUILD_TIME=$APP_BUILD_TIME
+```
+
+At runtime, orchestrators may set `APP_ENV`, `APP_INSTANCE_NAME`, and
+`APP_INSTANCE_ID` to match pod/container identity. Do not bake secrets or
+arbitrary environment dumps into deployment metadata.
+
+## 6. Logging
 
 This project uses `go-logger` compatible dependency injection (`glog.Logger` / `glog.LoggerProvider`) as the runtime logging baseline.
 
-### 5.1 Logging rules
+### 6.1 Logging rules
 
 - Resolve loggers through DI (`Dependencies.Logger`, `Dependencies.LoggerProvider`) and use scoped names where useful (`adm.NamedLogger("scope.name")`).
 - For runtime behavior in `admin/`, `quickstart/`, and `examples/`, avoid stdlib `log.Printf` and package-global logger state.
@@ -87,7 +154,7 @@ This project uses `go-logger` compatible dependency injection (`glog.Logger` / `
   - `method`, `path`, `status`, `duration_ms`, `remote_ip`, `user_agent`, `error`.
 - Do not log secrets, tokens, credentials, raw auth headers, or sensitive payloads.
 
-### 5.2 Debug Console integration
+### 6.2 Debug Console integration
 
 Server logs appear in Debug Console only if they flow through the debug collector path.
 
@@ -109,12 +176,12 @@ For Fiber apps using `quickstart.NewFiberServer`:
 
 `slog` remains the debug-capture transport. Runtime library callsites should still emit through the DI logger path so both app logs and request logs converge in the Debug Console stream.
 
-### 5.3 Legacy logging
+### 6.3 Legacy logging
 
 - Startup/fatal bootstrap logs should use the base app logger when available (for example `adm.NamedLogger("app.bootstrap")`).
 - Keep stdlib `log.Fatalf` only where process termination semantics are required before logger wiring is available.
 
-## 6. Testing and Validation
+## 7. Testing and Validation
 
 Rules:
 
@@ -122,7 +189,7 @@ Rules:
 - Prefer package-local tests near changed code.
 - If full suite cannot run due unrelated failures, run focused tests and report blockers explicitly.
 
-### 6.1 Noisy test logs (go-cms runtime)
+### 7.1 Noisy test logs (go-cms runtime)
 
 When tests use `examples/web/setup.SetupPersistentCMS`, go-cms runtime mutation logs (for example `logger=cms.pages`, `logger=cms.content`) are disabled by default under `go test`.
 
@@ -146,7 +213,7 @@ Validation checklist per change:
 3.  No unintended API/config contract changes.
 4.  Docs updated for behavior or workflow changes.
 
-## 7. Documentation and Task Hygiene
+## 8. Documentation and Task Hygiene
 
 When you change behavior:
 
@@ -165,7 +232,7 @@ Avoid docs for:
 - Temporary experiments.
 - Ambiguous TODOs without owner or acceptance criteria.
 
-## 8. Troubleshooting Patterns
+## 9. Troubleshooting Patterns
 
 If Debug Console logs are missing:
 

@@ -21,6 +21,31 @@ The metadata contract is migration-free: `password_temporary`, `password_change_
 The admin temporary password guide covers the full provisioning, auth wiring,
 password-change gate, and recovery flow.
 
+### Deployment identity
+
+Set `admin.Config.Deployment` before calling `quickstart.NewAdmin`. Quickstart
+keeps the identity resolved by that `Admin` when it builds the Fiber developer
+error handler, so the error page and debug surfaces report the same process:
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Orders", "en")
+cfg.Deployment = admin.DeploymentIdentityConfig{
+    AppID:       "orders-admin",
+    AppName:     "Orders Admin",
+    Environment: "development",
+}
+
+adm, _, err := quickstart.NewAdmin(cfg, quickstart.AdapterHooks{})
+```
+
+For deployed artifacts, inject `APP_COMMIT_SHA`, `APP_VERSION`,
+`APP_BUILD_TIME`, and `APP_GIT_REF`; use `APP_INSTANCE_NAME` and
+`APP_INSTANCE_ID` for orchestrator-owned runtime identity. Local processes get
+a generated readable name and UUID when those values are absent. See
+`docs/GUIDE_DEBUG_MODULE.md` for precedence, validation, and environment-color
+configuration, and `docs/GUIDE_DEVELOPMENT.md` for linker, GitHub Actions, and
+container examples.
+
 ## Storage-backed uploads
 - `NewStorageBundle(ctx context.Context, cfg StorageBundleConfig) (*StorageBundle, error)` - Inputs: shared `go-uploader` provider config, optional validator/logger/startup validation toggle. Outputs: configured storage provider plus uploader manager for host apps.
 - `StorageBundleConfig` reuses `go-uploader` provider config so host apps can select `fs`, `s3`, or `multi` without embedding backend-specific construction logic into app modules.

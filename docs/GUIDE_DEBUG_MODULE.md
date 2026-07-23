@@ -11,6 +11,7 @@ doctor checks, and permissions panels, see `GUIDE_AUTH_PERMISSIONS.md`.
 - HTTP request logging with timing metrics
 - Server log streaming via slog integration
 - Application configuration inspection
+- Deployment identity (application, environment, build, and process metadata)
 - Registered routes overview
 - Template context debugging
 - Session data inspection
@@ -251,10 +252,56 @@ const (
 | `MaxLogEntries` | `500` |
 | `MaxSQLQueries` | `200` |
 | `SlowQueryThreshold` | `50ms` |
-| `Panels` | `["template", "session", "requests", "sql", "logs", "config", "routes", "custom", "jserrors", "permissions", "actions"]` |
-| `ToolbarPanels` | `["requests", "sql", "logs", "jserrors", "routes", "config"]` |
+| `Panels` | `["template", "session", "requests", "sql", "logs", "config", "deployment", "routes", "custom", "jserrors", "permissions", "actions"]` |
+| `ToolbarPanels` | `["requests", "sql", "logs", "jserrors", "routes", "config", "deployment"]` |
 | `CaptureJSErrors` | `false` |
 | `ToolbarExcludePaths` | `["{debug_path}"]` |
+
+### Deployment identity
+
+`Config.Deployment` resolves once when the admin is constructed. The same
+identity is shown in the Deployment panel, expanded toolbar, collapsed FAB, and
+development error page:
+
+```go
+cfg.Deployment = admin.DeploymentIdentityConfig{
+    AppID:       "orders-admin",
+    AppName:     "Orders Admin",
+    AppVersion:  "v2.4.0",
+    Environment: "staging",
+    EnvironmentColors: map[string]string{
+        "staging": "#f59e0b",
+    },
+    // InstanceName and InstanceID may be set by an orchestrator. When empty,
+    // go-admin generates a process-scoped name and UUID.
+}
+```
+
+Each field resolves independently in this order:
+
+1. `Config.Deployment`
+2. compatible `DebugConfig.AppID`, `DebugConfig.AppName`,
+   `DebugConfig.Environment`, or `ErrorConfig.AppVersion`
+3. documented `APP_*` environment variables
+4. Go build information/runtime host metadata
+5. generated or empty fallback
+
+Supported deployment variables are `APP_ID`, `APP_NAME`, `APP_VERSION`,
+`APP_ENV`, `APP_ENV_COLOR`, `APP_INSTANCE_NAME`, `APP_INSTANCE_ID`,
+`APP_COMMIT_SHA`, `APP_GIT_REF`, and `APP_BUILD_TIME`. Build time must be
+RFC3339, commits must be 7–64 hexadecimal characters, and colors must be
+three- or six-digit hex colors. Invalid values are ignored without blocking
+startup. `GITHUB_SHA` is accepted only as a final commit fallback; prefer
+copying it into `APP_COMMIT_SHA` at the deployment boundary.
+
+Default environment colors are red for development (`#ef4444`), orange for
+staging (`#f97316`), green for production (`#22c55e`), and slate
+(`#64748b`) for unknown environments. Override them with
+`EnvironmentColors` and `FallbackColor`. These colors are presentation hints,
+not authorization or feature policy.
+
+Only the typed deployment allowlist is exposed. The Debug Module never
+serializes arbitrary process environment variables.
 
 ### Command Runs
 

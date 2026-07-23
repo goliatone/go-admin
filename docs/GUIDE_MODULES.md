@@ -2229,6 +2229,7 @@ if err != nil {
 | `WithToolsMenuItems(items...)`         | Append items to the quickstart Tools group |
 | `WithSidebarUtilityMenuItems(items...)` | Append fixed sidebar utility links   |
 | `WithDefaultSidebarUtilityItems(bool)` | Toggle quickstart-provided utility links |
+| `WithDefaultSidebarUtilityItemKeys(keys...)` | Select Settings, Preferences, and/or Profile defaults |
 | `WithSidebarUtilityMenuCode(code)`     | Override the utility menu code        |
 | `WithSeedNavigation(bool)`             | Toggle navigation seeding             |
 | `WithSeedNavigationOptions(fn)`        | Mutate seed options                   |
@@ -2241,6 +2242,25 @@ if err != nil {
 | `WithModuleFeatureGates(gates)`        | Enable feature-gated module filtering |
 | `WithModuleFeatureDisabledHandler(fn)` | Custom handler for disabled modules   |
 | `WithTranslationCapabilityMenuMode(mode)` | Control seeded translation links   |
+
+Standard utility entries carry the same configured view permissions as their
+destination handlers. Use granular selection when a host only owns a subset:
+
+```go
+quickstart.WithDefaultSidebarUtilityItemKeys(
+    quickstart.SidebarUtilityItemSettings,
+)
+```
+
+The standard set contains Settings, Preferences, and Profile. Help is
+host-owned and must be contributed with `WithSidebarUtilityMenuItems` when the
+host registers a matching route. Utility defaults are explicit: disabling
+them, or selecting no keys, leaves an otherwise empty utility menu empty.
+
+Quickstart registers the selected/custom utility set as a menu-specific
+fallback. It is used when the CMS menu is missing or unavailable, but does not
+replace an existing empty menu or a menu whose items were removed by permission
+filtering.
 
 ### Feature Gates in Quickstart
 
