@@ -110,6 +110,35 @@ func TestDebugLogHandlerProviderLifecycleAndDelegate(t *testing.T) {
 	}
 }
 
+func TestDebugLogHandlerSuppressesSnapshotCaptureButStillDelegates(t *testing.T) {
+	collector := newLogTestCollector(10)
+	delegateRecords := []slog.Record{}
+	handler := NewDebugLogHandlerProvider(
+		func() *DebugCollector { return collector },
+		newDebugRecordingHandler(&delegateRecords),
+	)
+
+	snapshotRecord := slog.NewRecord(time.Now(), slog.LevelInfo, "snapshot internal", 0)
+	if err := handler.Handle(withDebugCaptureSuppressed(context.Background()), snapshotRecord); err != nil {
+		t.Fatalf("handle snapshot record: %v", err)
+	}
+	if logs := capturedLogs(t, collector); len(logs) != 0 {
+		t.Fatalf("snapshot-internal log was captured: %+v", logs)
+	}
+	if len(delegateRecords) != 1 || delegateRecords[0].Message != "snapshot internal" {
+		t.Fatalf("suppression leaked into delegated logging: %+v", delegateRecords)
+	}
+
+	requestRecord := slog.NewRecord(time.Now(), slog.LevelInfo, "application request", 0)
+	if err := handler.Handle(context.Background(), requestRecord); err != nil {
+		t.Fatalf("handle request record: %v", err)
+	}
+	logs := capturedLogs(t, collector)
+	if len(logs) != 1 || logs[0].Message != "application request" {
+		t.Fatalf("ordinary log capture changed: %+v", logs)
+	}
+}
+
 func TestDebugLogHandlerStaticConstructorCompatibility(t *testing.T) {
 	collector := newLogTestCollector(10)
 	delegateRecords := []slog.Record{}

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
+	"github.com/uptrace/bun"
 )
 
 type stubNoWebSocketRouter struct{}
@@ -244,6 +246,74 @@ func TestDebugWebSocketReconnectWritesFreshStoreSnapshotBeforeLiveLoop(t *testin
 		t.Fatalf("reconnected websocket: %v", err)
 	}
 	assertCommandRunSnapshotRevision(t, reconnected.writes, "run-reconnect", 2)
+}
+
+func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
+	const panelID = "websocket_snapshot_capture_isolation"
+
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	var hook *DebugQueryHook
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		SnapshotKey: panelID,
+		Snapshot: func(ctx context.Context) any {
+			for i := 0; i < debugSubscriberBuffer+1; i++ {
+				hook.AfterQuery(ctx, &bun.QueryEvent{
+					Query:     "SELECT snapshot_internal",
+					StartTime: time.Now(),
+				})
+			}
+			return map[string]any{"ready": true}
+		},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	cfg := DebugConfig{
+		CaptureSQL: true,
+		Panels:     []string{DebugPanelSQL, panelID},
+	}
+	collector := NewDebugCollector(cfg)
+	hook = NewDebugQueryHook(collector)
+	mod := NewDebugModule(cfg)
+	mod.collector = collector
+
+	ctx, cancel := context.WithCancel(context.Background())
+	ws := newBlockingDebugWebSocketContext(ctx, nil)
+	handled := make(chan error, 1)
+	go func() {
+		handled <- mod.handleDebugWebSocket(ws)
+	}()
+	waitForDebugWebSocketSignal(t, ws.readStarted, "reader start after initial snapshot")
+
+	select {
+	case err := <-handled:
+		t.Fatalf("websocket returned immediately after snapshot: %v", err)
+	default:
+	}
+
+	hook.AfterQuery(context.Background(), &bun.QueryEvent{
+		Query:     "SELECT application_request",
+		StartTime: time.Now(),
+	})
+	deadline := time.Now().Add(time.Second)
+	for ws.writeCount.Load() < 2 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := ws.writeCount.Load(); got < 2 {
+		t.Fatalf("ordinary live SQL was not written after snapshot; writes=%d", got)
+	}
+
+	cancel()
+	select {
+	case err := <-handled:
+		if err != nil {
+			t.Fatalf("websocket shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("websocket did not stop after cancellation")
+	}
 }
 
 func TestCollectorCommandRunPayloadRemainsAuthorizable(t *testing.T) {

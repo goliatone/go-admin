@@ -48,6 +48,36 @@ func TestDebugQueryHookCapturesSQL(t *testing.T) {
 	}
 }
 
+func TestDebugQueryHookSuppressesSnapshotWork(t *testing.T) {
+	cfg := DebugConfig{
+		CaptureSQL: true,
+		Panels:     []string{DebugPanelSQL},
+	}
+	collector := NewDebugCollector(cfg)
+	hook := NewDebugQueryHook(collector)
+	event := &bun.QueryEvent{
+		Query:     "SELECT snapshot_internal",
+		StartTime: time.Now(),
+	}
+
+	hook.AfterQuery(withDebugCaptureSuppressed(context.Background()), event)
+
+	entries, ok := collector.Snapshot()[DebugPanelSQL].([]SQLEntry)
+	if !ok {
+		t.Fatalf("expected SQL snapshot slice, got %T", collector.Snapshot()[DebugPanelSQL])
+	}
+	if len(entries) != 0 {
+		t.Fatalf("snapshot-internal query was captured: %+v", entries)
+	}
+
+	event.Query = "SELECT application_request"
+	hook.AfterQuery(context.Background(), event)
+	entries = collector.Snapshot()[DebugPanelSQL].([]SQLEntry)
+	if len(entries) != 1 || entries[0].Query != "SELECT application_request" {
+		t.Fatalf("ordinary query capture changed: %+v", entries)
+	}
+}
+
 func TestDebugQueryHookSuppressesNoRowsError(t *testing.T) {
 	cfg := DebugConfig{
 		CaptureSQL: true,

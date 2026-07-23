@@ -9,6 +9,7 @@ import (
 
 	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
+	"github.com/uptrace/bun"
 )
 
 func TestDebugCollectorSnapshot(t *testing.T) {
@@ -134,6 +135,69 @@ func TestDebugCollectorSnapshotWithContextUsesRequestContext(t *testing.T) {
 	}
 	if got := toString(panelData["request_id"]); got != contextValue {
 		t.Fatalf("expected request context value %q, got %q", contextValue, got)
+	}
+}
+
+func TestDebugCollectorSnapshotDoesNotOverflowItsOwnSubscriber(t *testing.T) {
+	const panelID = "snapshot_capture_isolation_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	var hook *DebugQueryHook
+	var snapshotContextSuppressed bool
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		SnapshotKey: panelID,
+		Snapshot: func(ctx context.Context) any {
+			snapshotContextSuppressed = debugCaptureSuppressed(ctx)
+			for i := 0; i < debugSubscriberBuffer+1; i++ {
+				hook.AfterQuery(ctx, &bun.QueryEvent{
+					Query:     "SELECT snapshot_internal",
+					StartTime: time.Now(),
+				})
+			}
+			return map[string]any{"ready": true}
+		},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	collector := NewDebugCollector(DebugConfig{
+		CaptureSQL: true,
+		Panels:     []string{DebugPanelSQL, panelID},
+	})
+	hook = NewDebugQueryHook(collector)
+	events := collector.Subscribe("snapshot-isolation")
+	defer collector.Unsubscribe("snapshot-isolation")
+
+	snapshot := collector.SnapshotWithContext(context.Background())
+	if !snapshotContextSuppressed {
+		t.Fatal("panel provider did not receive capture-suppressed snapshot context")
+	}
+	if _, ok := snapshot[panelID]; !ok {
+		t.Fatalf("snapshot missing panel %q: %+v", panelID, snapshot)
+	}
+
+	hook.AfterQuery(context.Background(), &bun.QueryEvent{
+		Query:     "SELECT application_request",
+		StartTime: time.Now(),
+	})
+	select {
+	case event, ok := <-events:
+		if !ok {
+			t.Fatal("snapshot overflow closed its subscriber")
+		}
+		entry, ok := event.Payload.(SQLEntry)
+		if !ok || entry.Query != "SELECT application_request" {
+			t.Fatalf("first live event after snapshot = %#v", event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ordinary live SQL event was not delivered after snapshot")
+	}
+
+	entries, ok := collector.Snapshot()[DebugPanelSQL].([]SQLEntry)
+	if !ok || len(entries) != 1 || entries[0].Query != "SELECT application_request" {
+		t.Fatalf("snapshot queries leaked into SQL history: %+v", snapshot[DebugPanelSQL])
 	}
 }
 
