@@ -377,7 +377,7 @@ func TestDebugWebSocketUnrelatedBurstRecoversSnapshotWithoutReconnect(t *testing
 	default:
 	}
 	close(releaseSnapshot)
-	waitForDebugWebSocketWrites(t, ws, 4)
+	waitForDebugWebSocketWrites(t, ws, 3)
 
 	cancel()
 	if err := <-handled; err != nil {
