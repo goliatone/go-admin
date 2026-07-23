@@ -59,13 +59,20 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 		adm:          adm,
 		cfg:          cfg,
 		errorCfg:     errorCfg,
-		presenter:    admin.NewErrorPresenter(errorCfg, options.errorMappers...),
+		presenter:    errorPresenterWithAdminIdentity(admin.NewErrorPresenter(errorCfg, options.errorMappers...), adm),
 		routeDomains: newHostRouteDomainResolver(cfg),
 	}
 
 	return func(c *fiber.Ctx, err error) error {
 		return runtime.handle(c, err)
 	}
+}
+
+func errorPresenterWithAdminIdentity(presenter admin.ErrorPresenter, adm *admin.Admin) admin.ErrorPresenter {
+	if adm == nil {
+		return presenter
+	}
+	return presenter.WithDeploymentIdentity(adm.DeploymentIdentity())
 }
 
 type fiberErrorHandlerRuntime struct {

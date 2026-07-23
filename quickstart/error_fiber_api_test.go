@@ -59,3 +59,24 @@ func TestFiberErrorHandlerPreservesAPI404ForUnmatchedRoutes(t *testing.T) {
 		t.Fatalf("expected text_code NOT_FOUND, got %q payload=%+v", textCode, errPayload)
 	}
 }
+
+func TestErrorPresenterWithAdminIdentityUsesResolvedIdentity(t *testing.T) {
+	adm, err := admin.New(admin.Config{
+		Deployment: admin.DeploymentIdentityConfig{
+			InstanceName: "calm-otter",
+			InstanceID:   "instance-quickstart",
+		},
+	}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("construct admin: %v", err)
+	}
+	presenter := errorPresenterWithAdminIdentity(admin.NewErrorPresenter(admin.ErrorConfig{}), adm)
+	if got := presenter.DeploymentIdentity(); got != adm.DeploymentIdentity() {
+		t.Fatalf("presenter identity mismatch: got=%+v want=%+v", got, adm.DeploymentIdentity())
+	}
+
+	standalone := errorPresenterWithAdminIdentity(admin.NewErrorPresenter(admin.ErrorConfig{}), nil)
+	if got := standalone.DeploymentIdentity(); got.InstanceID != "" {
+		t.Fatalf("standalone presenter unexpectedly resolved identity: %+v", got)
+	}
+}
