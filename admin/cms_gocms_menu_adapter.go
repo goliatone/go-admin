@@ -303,10 +303,28 @@ func (a *GoCMSMenuAdapter) Menu(ctx context.Context, code, locale string) (*Menu
 
 	nodes, err := a.service.ResolveNavigation(ctx, menuCode, locale)
 	if err != nil {
+		if errors.Is(err, cms.ErrMenuNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	items := convertPublicNavigationNodes(nodes, menuCode, "")
 	return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Location: code, Items: items}, nil
+}
+
+// MenuExists reports whether go-cms has a persistent menu record for code.
+func (a *GoCMSMenuAdapter) MenuExists(ctx context.Context, code string) (bool, error) {
+	if a == nil || a.service == nil {
+		return false, ErrNotFound
+	}
+	_, err := a.service.GetMenuByCode(ctx, cms.CanonicalMenuCode(code))
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, cms.ErrMenuNotFound) {
+		return false, nil
+	}
+	return false, err
 }
 
 // RawMenuItems returns persisted go-cms menu rows without localized navigation filtering.
