@@ -206,16 +206,7 @@ func TestDebugWebSocketSubscriberClosureQuiescesReaderBeforeClose(t *testing.T) 
 	}()
 
 	waitForDebugWebSocketSignal(t, ws.readStarted, "reader start")
-	mod.collector.mu.RLock()
-	var subscriber *debugEventSubscriber
-	for _, candidate := range mod.collector.subscribers {
-		subscriber = candidate
-		break
-	}
-	mod.collector.mu.RUnlock()
-	if subscriber == nil {
-		t.Fatal("debug subscriber was not registered")
-	}
+	subscriber := waitForDebugSubscriber(t, mod.collector)
 	subscriber.Close()
 
 	select {
@@ -309,6 +300,7 @@ func TestDebugSessionWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T
 	}()
 
 	waitForDebugWebSocketSignal(t, ws.readStarted, "session reader start")
+	waitForDebugSubscriber(t, mod.collector)
 	mod.collector.publish(debugEventSnapshotInvalidated, nil)
 
 	select {
@@ -324,6 +316,22 @@ func TestDebugSessionWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T
 	if got := subscribersAtInterrupt.Load(); got != 0 {
 		t.Fatalf("session subscribers at read interruption = %d, want 0", got)
 	}
+}
+
+func waitForDebugSubscriber(t *testing.T, collector *DebugCollector) *debugEventSubscriber {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		collector.mu.RLock()
+		for _, subscriber := range collector.subscribers {
+			collector.mu.RUnlock()
+			return subscriber
+		}
+		collector.mu.RUnlock()
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("debug subscriber was not registered")
+	return nil
 }
 
 type blockedDeliveryWebSocketContext struct {
