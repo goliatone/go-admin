@@ -43,6 +43,43 @@ func TestResolveAdminConstructorStateBuildsRuntimeDefaults(t *testing.T) {
 	if state.defaultTheme.ChartTheme != "default" {
 		t.Fatalf("expected default chart theme variant, got %q", state.defaultTheme.ChartTheme)
 	}
+	if state.deploymentIdentity.InstanceID == "" || state.deploymentIdentity.InstanceName == "" {
+		t.Fatalf("expected deployment identity to resolve during construction: %+v", state.deploymentIdentity)
+	}
+	if got := DefaultErrorPresenter().DeploymentIdentity(); got.InstanceID != state.deploymentIdentity.InstanceID {
+		t.Fatalf("expected default presenter to share resolved identity: got=%+v want=%+v", got, state.deploymentIdentity)
+	}
+}
+
+func TestNewAdminRetainsResolvedDeploymentIdentity(t *testing.T) {
+	state, err := resolveAdminConstructorState(Config{
+		Deployment: DeploymentIdentityConfig{
+			AppID:        "admin-api",
+			InstanceName: "steady-heron",
+			InstanceID:   "instance-a",
+		},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("resolveAdminConstructorState: %v", err)
+	}
+	adm := newAdminFromConstructorState(state, Dependencies{})
+	first := adm.DeploymentIdentity()
+	second := adm.DeploymentIdentity()
+	if first != second {
+		t.Fatalf("expected stable identity copies: first=%+v second=%+v", first, second)
+	}
+	if first.AppID != "admin-api" || first.InstanceName != "steady-heron" || first.InstanceID != "instance-a" {
+		t.Fatalf("unexpected retained identity: %+v", first)
+	}
+
+	otherState, err := resolveAdminConstructorState(Config{}, Dependencies{})
+	if err != nil {
+		t.Fatalf("resolve second state: %v", err)
+	}
+	other := newAdminFromConstructorState(otherState, Dependencies{}).DeploymentIdentity()
+	if other.InstanceID == first.InstanceID {
+		t.Fatalf("expected isolated admin identities, got %q", other.InstanceID)
+	}
 }
 
 func TestResolveAdminConstructorStateCarriesThemeAssetOverrides(t *testing.T) {

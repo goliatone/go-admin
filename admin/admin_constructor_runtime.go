@@ -18,6 +18,7 @@ import (
 
 type adminConstructorState struct {
 	cfg                    Config
+	deploymentIdentity     DeploymentIdentity
 	registry               *Registry
 	container              CMSContainer
 	translator             Translator
@@ -79,7 +80,8 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstructorState, error) {
 	state := adminConstructorState{}
 	state.cfg = applyConfigDefaults(cfg)
-	SetDefaultErrorPresenter(NewErrorPresenter(state.cfg.Errors))
+	state.deploymentIdentity = ResolveDeploymentIdentity(state.cfg)
+	SetDefaultErrorPresenter(NewErrorPresenter(state.cfg.Errors).WithDeploymentIdentity(state.deploymentIdentity))
 	if err := deps.validate(state.cfg); err != nil {
 		return state, err
 	}
@@ -162,6 +164,7 @@ func resolveMediaDeliveryProjector(projector MediaDeliveryReferenceProjector) Me
 func newAdminFromConstructorState(state adminConstructorState, deps Dependencies) *Admin {
 	return &Admin{
 		config:                 state.cfg,
+		deploymentIdentity:     state.deploymentIdentity,
 		logger:                 state.logger,
 		loggerProvider:         state.loggerProvider,
 		featureGate:            state.featureGate,

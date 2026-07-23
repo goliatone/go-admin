@@ -24,6 +24,7 @@ import (
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
 	config                          Config
+	deploymentIdentity              DeploymentIdentity
 	logger                          Logger
 	loggerProvider                  LoggerProvider
 	featureGate                     fggate.FeatureGate
@@ -132,6 +133,14 @@ type Admin struct {
 	navigationConvergenceMu         sync.Mutex
 	navigationCoordinationWarnings  []string
 	navigationPermissionRegistry    *NavigationPermissionRegistry
+}
+
+// DeploymentIdentity returns the immutable identity resolved for this Admin.
+func (a *Admin) DeploymentIdentity() DeploymentIdentity {
+	if a == nil {
+		return DeploymentIdentity{}
+	}
+	return a.deploymentIdentity
 }
 
 type activityAware interface {

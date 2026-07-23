@@ -12,8 +12,21 @@ import (
 )
 
 type ErrorPresenter struct {
-	Config  ErrorConfig            `json:"config"`
-	Mappers []goerrors.ErrorMapper `json:"mappers"`
+	Config     ErrorConfig            `json:"config"`
+	Mappers    []goerrors.ErrorMapper `json:"mappers"`
+	deployment DeploymentIdentity
+}
+
+// WithDeploymentIdentity returns a presenter carrying the already-resolved
+// process identity. It does not perform metadata discovery.
+func (p ErrorPresenter) WithDeploymentIdentity(identity DeploymentIdentity) ErrorPresenter {
+	p.deployment = identity
+	return p
+}
+
+// DeploymentIdentity returns the identity attached to this presenter.
+func (p ErrorPresenter) DeploymentIdentity() DeploymentIdentity {
+	return p.deployment
 }
 
 var defaultErrorPresenter atomic.Value

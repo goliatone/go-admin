@@ -19,14 +19,15 @@ type Config struct {
 	ThemeTokenOverrides map[string]string `json:"theme_token_overrides,omitempty"`
 	// ThemeAssets carries final resolved asset URLs/paths that override themed assets
 	// after go-theme selection. Use reserved keys like "logo", "icon", and "favicon".
-	ThemeAssets            map[string]string `json:"theme_assets,omitempty"`
-	ThemeAssetPrefix       string            `json:"theme_asset_prefix"`
-	PreviewSecret          string            `json:"preview_secret"`
-	PreviewURLAllowedHosts []string          `json:"preview_url_allowed_hosts,omitempty"`
-	CMSConfig              any               `json:"cms_config"`
-	CMS                    CMSOptions        `json:"cms"`
-	Debug                  DebugConfig       `json:"debug"`
-	Errors                 ErrorConfig       `json:"errors"`
+	ThemeAssets            map[string]string        `json:"theme_assets,omitempty"`
+	ThemeAssetPrefix       string                   `json:"theme_asset_prefix"`
+	PreviewSecret          string                   `json:"preview_secret"`
+	PreviewURLAllowedHosts []string                 `json:"preview_url_allowed_hosts,omitempty"`
+	CMSConfig              any                      `json:"cms_config"`
+	CMS                    CMSOptions               `json:"cms"`
+	Debug                  DebugConfig              `json:"debug"`
+	Errors                 ErrorConfig              `json:"errors"`
+	Deployment             DeploymentIdentityConfig `json:"deployment"`
 
 	// LogoURL is the legacy override for the expanded/admin lockup asset.
 	// Prefer ThemeAssets["logo"] for new integrations.
