@@ -8,12 +8,12 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin v0.121.6
-	github.com/goliatone/go-auth v0.44.1
-	github.com/goliatone/go-auth/adapters/featuregate v0.44.1
+	github.com/goliatone/go-auth v0.44.2
+	github.com/goliatone/go-auth/adapters/featuregate v0.44.2
 	github.com/goliatone/go-cache v0.1.0
 	github.com/goliatone/go-cms v0.60.2
 	github.com/goliatone/go-command v0.24.1
-	github.com/goliatone/go-dashboard v0.14.0
+	github.com/goliatone/go-dashboard v0.14.1
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-export v0.9.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.9.0
@@ -24,7 +24,7 @@ require (
 	github.com/goliatone/go-logger v0.9.0
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.1
-	github.com/goliatone/go-router v0.61.0
+	github.com/goliatone/go-router v0.61.1
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
