@@ -30,13 +30,16 @@ type SeedNavigationOptions struct {
 	Reconcile bool                 `json:"reconcile"`
 	// AllowDestructive lets reconcile delete generated replacement candidates during apply.
 	// It is false by default so normal startup seeding preserves stale generated rows.
-	AllowDestructive bool                                `json:"allow_destructive"`
-	ResetEnv         string                              `json:"reset_env"`
-	Locale           string                              `json:"locale"`
-	RawInventory     admin.NavigationRawInventoryOptions `json:"raw_inventory"`
-	Logf             func(format string, args ...any)    `json:"logf"`
-	SkipLogger       bool                                `json:"skip_logger"`
-	Reportf          func(NavigationReconcileReport)     `json:"-"`
+	AllowDestructive bool `json:"allow_destructive"`
+	// RetireManagedExclusions allows deletion only for explicitly identified,
+	// quickstart-owned generated rows without enabling general destructive reconciliation.
+	RetireManagedExclusions bool                                `json:"retire_managed_exclusions"`
+	ResetEnv                string                              `json:"reset_env"`
+	Locale                  string                              `json:"locale"`
+	RawInventory            admin.NavigationRawInventoryOptions `json:"raw_inventory"`
+	Logf                    func(format string, args ...any)    `json:"logf"`
+	SkipLogger              bool                                `json:"skip_logger"`
+	Reportf                 func(NavigationReconcileReport)     `json:"-"`
 
 	CapabilityOmissions     []string                     `json:"capability_omissions,omitempty"`
 	PermissionFilteredItems []string                     `json:"permission_filtered_items,omitempty"`
@@ -145,6 +148,7 @@ func (runtime seedNavigationRuntime) reconcileOptions() NavigationReconcileOptio
 		Items:                   runtime.opts.Items,
 		Apply:                   true,
 		AllowDestructive:        runtime.opts.AllowDestructive,
+		RetireManagedExclusions: runtime.opts.RetireManagedExclusions,
 		RawInventory:            runtime.rawInventoryOptions(),
 		Logf:                    runtime.opts.Logf,
 		CapabilityOmissions:     runtime.opts.CapabilityOmissions,

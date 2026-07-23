@@ -105,7 +105,7 @@ func RegisterSettingsUIRoutes[T any](
 		Title:              cfg.Title,
 		Active:             options.active,
 		Feature:            string(admin.FeatureSettings),
-		Permission:         cfg.SettingsPermission,
+		Permission:         admin.EffectiveSettingsPermission(cfg),
 		ViewContextBuilder: options.viewContext,
 		Guard: func(c router.Context) error {
 			if adm.SettingsService() == nil {

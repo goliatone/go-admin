@@ -149,9 +149,6 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	navItems := BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
 	ctx["nav_items"] = navItems
 	utilityItems := BuildNavItemsForPlacement(adm, cfg, placements, SidebarPlacementUtility, reqCtx, active)
-	if len(utilityItems) == 0 {
-		utilityItems = buildDefaultUtilityNavItems(adm, cfg, reqCtx, active)
-	}
 	ctx["nav_utility_items"] = utilityItems
 	ctx["theme"] = adm.ThemePayload(reqCtx)
 	ctx["users_import_available"] = adm.UserImportEnabled()
@@ -233,32 +230,6 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	return entries
 }
 
-func buildDefaultUtilityNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, active string) []map[string]any {
-	if adm == nil {
-		return []map[string]any{}
-	}
-	scope := resolveNavRequestScope(ctx, cfg.DefaultLocale)
-	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, DefaultSidebarUtilityMenuCode)
-	items := defaultSidebarUtilityMenuItems(adm, cfg, menuCode, scope.MenuLocale)
-	if len(items) == 0 {
-		return []map[string]any{}
-	}
-
-	basePath := resolveAdminBasePath(adm.URLs(), adm.BasePath())
-	urls := adm.URLs()
-	permissionDeniedMode := admin.NormalizeNavigationPermissionDeniedMode(cfg.NavPermissionDeniedMode)
-	navItems := resolveFallbackMenuItems(ctx, adm, items, scope.MenuLocale, permissionDeniedMode)
-	entries := make([]map[string]any, 0, len(navItems))
-	for _, item := range navItems {
-		entry, _ := buildNavEntry(item, basePath, urls, active, scope)
-		if entry == nil {
-			continue
-		}
-		entries = append(entries, entry)
-	}
-	return entries
-}
-
 func resolveFallbackMenuItems(ctx context.Context, adm *admin.Admin, items []admin.MenuItem, locale string, mode admin.NavigationPermissionDeniedMode) []admin.NavigationItem {
 	if len(items) == 0 {
 		return nil
@@ -296,7 +267,19 @@ func menuItemAsNavigationItem(item admin.MenuItem) admin.NavigationItem {
 		Collapsible:   item.Collapsible,
 		Collapsed:     item.Collapsed,
 		Position:      item.Position,
+		Children:      menuItemsAsNavigationItems(item.Children),
 	}
+}
+
+func menuItemsAsNavigationItems(items []admin.MenuItem) []admin.NavigationItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]admin.NavigationItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, menuItemAsNavigationItem(item))
+	}
+	return out
 }
 
 func resolveNavRequestScope(ctx context.Context, defaultLocale string) navRequestScope {
