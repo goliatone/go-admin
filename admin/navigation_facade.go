@@ -18,6 +18,7 @@ const (
 	ResolveSourceFallbackNoCMS       = navinternal.ResolveSourceFallbackNoCMS
 	ResolveSourceFallbackCMSDisabled = navinternal.ResolveSourceFallbackCMSDisabled
 	ResolveSourceFallbackCMSError    = navinternal.ResolveSourceFallbackCMSError
+	ResolveSourceFallbackCMSMissing  = navinternal.ResolveSourceFallbackCMSMissing
 )
 
 // Navigation resolves menus from CMS or in-memory sources.

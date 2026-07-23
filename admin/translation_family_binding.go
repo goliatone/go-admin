@@ -405,7 +405,7 @@ func (b *translationFamilyBinding) CreateAssignmentMutation(c router.Context, id
 		adm = b.admin
 	}
 	req := adm.detectEnhancedMutationRequest(c)
-	responder := NewEnhancedMutationResponder().WithMediaType(adm.enhancedActionResponseMediaType())
+	responder := NewEnhancedMutationResponder(adm.ErrorPresenter()).WithMediaType(adm.enhancedActionResponseMediaType())
 	payload, request, err := b.createAssignmentPayload(c, id)
 	redirect := b.translationFamilyDetailRedirectForAssignment(c, id, request, payload)
 	if err != nil {

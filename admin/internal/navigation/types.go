@@ -65,6 +65,7 @@ const (
 	ResolveSourceFallbackNoCMS       ResolveSource = "fallback_no_cms"
 	ResolveSourceFallbackCMSDisabled ResolveSource = "fallback_cms_disabled"
 	ResolveSourceFallbackCMSError    ResolveSource = "fallback_cms_error"
+	ResolveSourceFallbackCMSMissing  ResolveSource = "fallback_cms_missing"
 )
 
 // ResolveResult carries resolved navigation items plus source diagnostics.
@@ -186,6 +187,13 @@ type Translator interface {
 // MenuService manages CMS-backed menus.
 type MenuService interface {
 	Menu(ctx context.Context, code, locale string) (*Menu, error)
+}
+
+// MenuPresence reports whether a menu exists independently of whether it has
+// visible items. Implementations should use persistent menu identity rather
+// than item count.
+type MenuPresence interface {
+	MenuExists(ctx context.Context, code string) (bool, error)
 }
 
 // NormalizeMenuItem ensures menu code is set and derives an ID when missing.

@@ -2,9 +2,10 @@ package navigation
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // NoopTranslator returns the key unchanged.
@@ -21,6 +22,7 @@ type Navigation struct {
 	menuSvc         MenuService
 	authorizer      Authorizer
 	fallback        []NavigationItem
+	menuFallbacks   map[string][]NavigationItem
 	defaultMenuCode string
 	useCMS          bool
 	translator      Translator
@@ -32,6 +34,7 @@ func NewNavigation(menuSvc MenuService, authorizer Authorizer) *Navigation {
 		menuSvc:         menuSvc,
 		authorizer:      authorizer,
 		fallback:        []NavigationItem{},
+		menuFallbacks:   map[string][]NavigationItem{},
 		defaultMenuCode: "admin.main",
 		useCMS:          menuSvc != nil,
 		translator:      NoopTranslator{},
@@ -103,6 +106,43 @@ func (n *Navigation) AddFallback(items ...NavigationItem) {
 	n.fallback = append(n.fallback, items...)
 }
 
+// SetMenuFallback replaces the fallback entries for a specific menu.
+//
+// An explicitly empty fallback is retained so a menu does not accidentally
+// inherit entries from the global fallback.
+func (n *Navigation) SetMenuFallback(menuCode string, items ...NavigationItem) {
+	if n == nil {
+		return
+	}
+	menuCode = canonicalMenuCode(menuCode)
+	if menuCode == "" {
+		return
+	}
+	if n.menuFallbacks == nil {
+		n.menuFallbacks = map[string][]NavigationItem{}
+	}
+	n.menuFallbacks[menuCode] = append([]NavigationItem{}, items...)
+}
+
+// MenuFallback returns the fallback registered for a specific menu.
+func (n *Navigation) MenuFallback(menuCode string) ([]NavigationItem, bool) {
+	if n == nil || n.menuFallbacks == nil {
+		return nil, false
+	}
+	items, ok := n.menuFallbacks[canonicalMenuCode(menuCode)]
+	if !ok {
+		return nil, false
+	}
+	return append([]NavigationItem{}, items...), true
+}
+
+func (n *Navigation) fallbackForMenu(menuCode string) []NavigationItem {
+	if items, ok := n.MenuFallback(menuCode); ok {
+		return items
+	}
+	return append([]NavigationItem{}, n.fallback...)
+}
+
 // UseCMS toggles whether to resolve navigation from the CMS menu service.
 func (n *Navigation) UseCMS(enabled bool) {
 	n.useCMS = enabled && n.menuSvc != nil
@@ -133,15 +173,16 @@ func (n *Navigation) ResolveMenuResultWithOptions(ctx context.Context, menuCode 
 		menuCode = n.defaultMenuCode
 	}
 	opts.PermissionDeniedMode = NormalizeNavigationPermissionDeniedMode(opts.PermissionDeniedMode)
+	fallback := n.fallbackForMenu(menuCode)
 	if n.menuSvc == nil {
-		items := orderNavigation(localize(n.translator, n.fallback, locale))
+		items := orderNavigation(localize(n.translator, fallback, locale))
 		return ResolveResult{
 			Items:  n.filter(items, ctx, opts),
 			Source: ResolveSourceFallbackNoCMS,
 		}
 	}
 	if !n.useCMS {
-		items := orderNavigation(localize(n.translator, n.fallback, locale))
+		items := orderNavigation(localize(n.translator, fallback, locale))
 		return ResolveResult{
 			Items:  n.filter(items, ctx, opts),
 			Source: ResolveSourceFallbackCMSDisabled,
@@ -149,11 +190,26 @@ func (n *Navigation) ResolveMenuResultWithOptions(ctx context.Context, menuCode 
 	}
 	menu, err := n.menuSvc.Menu(ctx, menuCode, locale)
 	if err != nil {
-		items := orderNavigation(localize(n.translator, n.fallback, locale))
+		items := orderNavigation(localize(n.translator, fallback, locale))
 		return ResolveResult{
 			Items:         n.filter(items, ctx, opts),
 			Source:        ResolveSourceFallbackCMSError,
 			FallbackError: err.Error(),
+		}
+	}
+	menuMissing := menu == nil
+	if menu != nil && len(menu.Items) == 0 {
+		if presence, ok := n.menuSvc.(MenuPresence); ok {
+			if exists, presenceErr := presence.MenuExists(ctx, menuCode); presenceErr == nil {
+				menuMissing = !exists
+			}
+		}
+	}
+	if menuMissing {
+		items := orderNavigation(localize(n.translator, fallback, locale))
+		return ResolveResult{
+			Items:  n.filter(items, ctx, opts),
+			Source: ResolveSourceFallbackCMSMissing,
 		}
 	}
 	items := orderNavigation(localize(n.translator, ConvertMenuItems(menu.Items, n.translator, locale), locale))
