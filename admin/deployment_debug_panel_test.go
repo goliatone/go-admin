@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 )
@@ -117,10 +118,5 @@ func assertDeploymentPanelInstance(t *testing.T, snapshot map[string]any, want s
 }
 
 func containsDeploymentPanel(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, expected)
 }

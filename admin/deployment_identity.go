@@ -424,7 +424,7 @@ func randomIndex(source io.Reader, size int) (int, bool) {
 	}
 	limit := 256 - (256 % size)
 	var value [1]byte
-	for attempts := 0; attempts < 128; attempts++ {
+	for range 128 {
 		if _, err := io.ReadFull(source, value[:]); err != nil {
 			return 0, false
 		}
@@ -447,13 +447,13 @@ func randomUUID(source io.Reader) (string, bool) {
 }
 
 func fallbackDeploymentName(hostname string, startedAt time.Time) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%d", hostname, startedAt.UnixNano(), fallbackSequence.Add(1))))
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s:%d:%d", hostname, startedAt.UnixNano(), fallbackSequence.Add(1)))
 	return deploymentAdjectives[int(sum[0])%len(deploymentAdjectives)] + "-" +
 		deploymentNouns[int(sum[1])%len(deploymentNouns)]
 }
 
 func fallbackInstanceID(hostname string, startedAt time.Time) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%d:%d", hostname, os.Getpid(), startedAt.UnixNano(), fallbackSequence.Add(1))))
+	sum := sha256.Sum256(fmt.Appendf(nil, "%s:%d:%d:%d", hostname, os.Getpid(), startedAt.UnixNano(), fallbackSequence.Add(1)))
 	value := sum[:16]
 	value[6] = (value[6] & 0x0f) | 0x40
 	value[8] = (value[8] & 0x3f) | 0x80

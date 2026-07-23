@@ -145,7 +145,7 @@ func TestResolveDeploymentIdentityConcurrentAndSnapshotStable(t *testing.T) {
 	const count = 16
 	var wg sync.WaitGroup
 	ids := make(chan string, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		wg.Add(1)
 		go func(seed byte) {
 			defer wg.Done()

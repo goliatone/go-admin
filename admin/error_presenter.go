@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -56,10 +57,8 @@ func (p ErrorPresenter) WithDeploymentIdentity(identity DeploymentIdentity) Erro
 
 func normalizeDeploymentSource(value string, allowed ...string) string {
 	value = strings.ToLower(boundedPrintable(value, 32))
-	for _, candidate := range allowed {
-		if value == candidate {
-			return value
-		}
+	if slices.Contains(allowed, value) {
+		return value
 	}
 	return ""
 }
