@@ -81,7 +81,6 @@ func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstruct
 	state := adminConstructorState{}
 	state.cfg = applyConfigDefaults(cfg)
 	state.deploymentIdentity = ResolveDeploymentIdentity(state.cfg)
-	SetDefaultErrorPresenter(NewErrorPresenter(state.cfg.Errors).WithDeploymentIdentity(state.deploymentIdentity))
 	if err := deps.validate(state.cfg); err != nil {
 		return state, err
 	}
@@ -162,9 +161,11 @@ func resolveMediaDeliveryProjector(projector MediaDeliveryReferenceProjector) Me
 }
 
 func newAdminFromConstructorState(state adminConstructorState, deps Dependencies) *Admin {
+	errorPresenter := NewErrorPresenter(state.cfg.Errors).WithDeploymentIdentity(state.deploymentIdentity)
 	return &Admin{
 		config:                 state.cfg,
 		deploymentIdentity:     state.deploymentIdentity,
+		errorPresenter:         errorPresenter,
 		logger:                 state.logger,
 		loggerProvider:         state.loggerProvider,
 		featureGate:            state.featureGate,

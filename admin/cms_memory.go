@@ -678,6 +678,17 @@ func (s *InMemoryMenuService) Menu(_ context.Context, code, locale string) (*Men
 	return &Menu{Code: state.slug, Slug: state.slug, ID: state.id, Location: state.location, Items: tree}, nil
 }
 
+// MenuExists reports whether a menu has been explicitly created.
+func (s *InMemoryMenuService) MenuExists(_ context.Context, code string) (bool, error) {
+	if s == nil {
+		return false, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	state, _ := s.resolveMenuState(code)
+	return state != nil, nil
+}
+
 // RawMenuItems returns persisted in-memory rows without locale or render filtering.
 func (s *InMemoryMenuService) RawMenuItems(_ context.Context, code string) ([]MenuItem, error) {
 	s.mu.Lock()
