@@ -75,6 +75,7 @@ type debugPanelOrderPreferenceResponse struct {
 type debugSubscription struct {
 	events           map[string]bool
 	commandRunAccess *commandRunWebSocketAccess
+	lifecycleContext context.Context
 }
 
 type commandRunWebSocketAccess struct {
@@ -771,26 +772,43 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) (result er
 	}
 	defer closeDebugWebSocket(c)
 	access := m.commandRunAccessFromUpgrade(c)
-	events, unsubscribe := m.subscribeDebugEvents()
-	if events == nil {
-		return nil
-	}
-	if err := m.writeDebugSnapshot(c, access); err != nil {
-		unsubscribe()
-		return err
-	}
-
 	reader, err := startDebugCommandReader(c)
 	if err != nil {
-		unsubscribe()
 		return err
 	}
 	defer func() {
 		result = preserveDebugWebSocketPrimaryError(result, reader.Stop())
 	}()
+	baseCtx := c.Context()
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	lifecycleCtx, cancelLifecycle := context.WithCancel(baseCtx)
+	watchStopped := make(chan struct{})
+	go func() {
+		select {
+		case <-reader.done:
+			cancelLifecycle()
+		case <-watchStopped:
+		}
+	}()
+	defer close(watchStopped)
+	defer cancelLifecycle()
+
+	events, unsubscribe := m.subscribeDebugEvents()
+	if events == nil {
+		return nil
+	}
 	defer unsubscribe()
 	subscriptions := newDebugSubscription(access)
-	return m.runDebugWebSocketLoop(c, subscriptions, reader.messages, reader.done, events)
+	subscriptions.lifecycleContext = lifecycleCtx
+	if err := m.writeDebugSnapshotForLifecycle(c, lifecycleCtx, access); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return debugWebSocketReadResult(reader.errors)
+		}
+		return err
+	}
+	return m.runDebugWebSocketLoop(c, subscriptions, reader.messages, reader.errors, reader.done, events)
 }
 
 func (m *DebugModule) subscribeDebugEvents() (<-chan DebugEvent, func()) {
@@ -805,23 +823,26 @@ func startDebugCommandReader(c router.WebSocketContext) (*debugWebSocketJSONRead
 	return startDebugWebSocketJSONReader[debugCommand](c, 16, true)
 }
 
-func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, done <-chan struct{}, events <-chan DebugEvent) error {
+func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, readErrors <-chan error, done <-chan struct{}, events <-chan DebugEvent) error {
 	for {
 		select {
 		case <-done:
-			return nil
+			return debugWebSocketReadResult(readErrors)
 		case <-c.Context().Done():
 			return nil
 		case cmd, ok := <-commandCh:
 			if !ok {
-				return nil
+				return debugWebSocketReadResult(readErrors)
 			}
 			if err := m.handleDebugCommand(c, subscriptions, cmd); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return debugWebSocketReadResult(readErrors)
+				}
 				return err
 			}
 		case event, ok := <-events:
 			if !ok {
-				return nil
+				return errDebugWebSocketSubscriberClosed
 			}
 			if err := writeSubscribedDebugEvent(c, subscriptions, event); err != nil {
 				return err
@@ -843,29 +864,48 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 		return err
 	}
 	defer closeDebugWebSocket(c)
-	events, cleanup := m.subscribeDebugEvents()
-	if events == nil {
-		return nil
-	}
 	adminCtx := debugSessionAdminContext(c)
 	access := m.commandRunAccess(adminCtx.Context)
-	if err := m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, access); err != nil {
-		cleanup()
-		return err
-	}
-
-	m.recordDebugSessionAttach(admin, c, sessionID)
 	reader, err := startDebugCommandReader(c)
 	if err != nil {
-		cleanup()
 		return err
 	}
 	defer func() {
 		result = preserveDebugWebSocketPrimaryError(result, reader.Stop())
 	}()
-	defer cleanup()
+	baseCtx := c.Context()
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	lifecycleCtx, cancelLifecycle := context.WithCancel(baseCtx)
+	watchStopped := make(chan struct{})
+	go func() {
+		select {
+		case <-reader.done:
+			cancelLifecycle()
+		case <-watchStopped:
+		}
+	}()
+	defer close(watchStopped)
+	defer cancelLifecycle()
 
-	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(access), reader.messages, reader.done, events, sessionID, includeGlobals)
+	events, cleanup := m.subscribeDebugEvents()
+	if events == nil {
+		return nil
+	}
+	defer cleanup()
+	subscriptions := newDebugSubscription(access)
+	subscriptions.lifecycleContext = lifecycleCtx
+	if err := m.writeDebugSessionSnapshotForLifecycle(c, lifecycleCtx, sessionID, includeGlobals, access); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return debugWebSocketReadResult(reader.errors)
+		}
+		return err
+	}
+
+	m.recordDebugSessionAttach(admin, c, sessionID)
+
+	return m.runDebugSessionWebSocketLoop(c, subscriptions, reader.messages, reader.errors, reader.done, events, sessionID, includeGlobals)
 }
 
 func (m *DebugModule) debugSessionWebSocketConfig(c router.WebSocketContext) (string, bool, error) {
@@ -886,23 +926,26 @@ func (m *DebugModule) recordDebugSessionAttach(admin *Admin, c router.WebSocketC
 	recordDebugSessionAttach(admin, adminCtx.Context, session, attachMeta)
 }
 
-func (m *DebugModule) runDebugSessionWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, done <-chan struct{}, events <-chan DebugEvent, sessionID string, includeGlobals bool) error {
+func (m *DebugModule) runDebugSessionWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, readErrors <-chan error, done <-chan struct{}, events <-chan DebugEvent, sessionID string, includeGlobals bool) error {
 	for {
 		select {
 		case <-done:
-			return nil
+			return debugWebSocketReadResult(readErrors)
 		case <-c.Context().Done():
 			return nil
 		case cmd, ok := <-commandCh:
 			if !ok {
-				return nil
+				return debugWebSocketReadResult(readErrors)
 			}
 			if err := m.handleDebugSessionCommand(c, subscriptions, cmd, sessionID, includeGlobals); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return debugWebSocketReadResult(readErrors)
+				}
 				return err
 			}
 		case event, ok := <-events:
 			if !ok {
-				return nil
+				return errDebugWebSocketSubscriberClosed
 			}
 			if err := writeDebugSessionEvent(c, subscriptions, event, sessionID, includeGlobals); err != nil {
 				return err
@@ -970,10 +1013,10 @@ func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subsc
 	case "unsubscribe":
 		subscriptions.unsubscribe(cmd.Panels)
 	case "snapshot":
-		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, subscriptions.commandRunAccess)
+		return m.writeDebugSessionSnapshotForLifecycle(c, subscriptions.lifecycleContext, sessionID, includeGlobals, subscriptions.commandRunAccess)
 	case "clear":
 		m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels)
-		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals, subscriptions.commandRunAccess)
+		return m.writeDebugSessionSnapshotForLifecycle(c, subscriptions.lifecycleContext, sessionID, includeGlobals, subscriptions.commandRunAccess)
 	}
 	return nil
 }
@@ -988,7 +1031,7 @@ func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscription
 	case "unsubscribe":
 		subscriptions.unsubscribe(cmd.Panels)
 	case "snapshot":
-		return m.writeDebugSnapshot(c, subscriptions.commandRunAccess)
+		return m.writeDebugSnapshotForLifecycle(c, subscriptions.lifecycleContext, subscriptions.commandRunAccess)
 	case "clear":
 		m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels)
 	}
@@ -1025,19 +1068,22 @@ func (m *DebugModule) publishSnapshotInvalidation() {
 }
 
 func (m *DebugModule) writeDebugSnapshot(c router.WebSocketContext, access ...*commandRunWebSocketAccess) error {
+	return m.writeDebugSnapshotForLifecycle(c, nil, access...)
+}
+
+func (m *DebugModule) writeDebugSnapshotForLifecycle(c router.WebSocketContext, lifecycle context.Context, access ...*commandRunWebSocketAccess) error {
 	if m == nil || m.collector == nil {
 		return nil
 	}
-	ctx := context.Background()
-	if c != nil {
-		ctx = c.Context()
-	}
-	if len(access) > 0 && access[0] != nil && access[0].ctx != nil {
-		ctx = access[0].ctx
+	ctx, cancel := m.debugSnapshotContext(c, lifecycle, access...)
+	defer cancel()
+	snapshot := m.collector.SnapshotWithContext(ctx)
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	return c.WriteJSON(DebugEvent{
 		Type:      debugEventSnapshot,
-		Payload:   m.collector.SnapshotWithContext(ctx),
+		Payload:   snapshot,
 		Timestamp: time.Now(),
 	})
 }
@@ -1093,22 +1139,59 @@ func debugWebSocketAccessContext(c router.WebSocketContext, access *commandRunWe
 	return context.Background()
 }
 
+type debugLifecycleValueContext struct {
+	context.Context
+	values context.Context
+}
+
+func (c debugLifecycleValueContext) Value(key any) any {
+	if c.values != nil {
+		if value := c.values.Value(key); value != nil {
+			return value
+		}
+	}
+	return c.Context.Value(key)
+}
+
+func (m *DebugModule) debugSnapshotContext(c router.WebSocketContext, lifecycle context.Context, access ...*commandRunWebSocketAccess) (context.Context, context.CancelFunc) {
+	if lifecycle == nil && c != nil {
+		lifecycle = c.Context()
+	}
+	if lifecycle == nil {
+		lifecycle = context.Background()
+	}
+	timed, cancel := context.WithTimeout(lifecycle, m.config.snapshotTimeout())
+	var values context.Context
+	if len(access) > 0 && access[0] != nil {
+		values = access[0].ctx
+	}
+	if values == nil {
+		return timed, cancel
+	}
+	return debugLifecycleValueContext{Context: timed, values: values}, cancel
+}
+
 func (m *DebugModule) writeDebugSessionSnapshot(c router.WebSocketContext, sessionID string, includeGlobals bool, access ...*commandRunWebSocketAccess) error {
+	return m.writeDebugSessionSnapshotForLifecycle(c, nil, sessionID, includeGlobals, access...)
+}
+
+func (m *DebugModule) writeDebugSessionSnapshotForLifecycle(c router.WebSocketContext, lifecycle context.Context, sessionID string, includeGlobals bool, access ...*commandRunWebSocketAccess) error {
 	if m == nil || m.collector == nil {
 		return nil
 	}
-	ctx := context.Background()
-	if c != nil && c.Context() != nil {
-		ctx = c.Context()
+	if len(access) == 0 || access[0] == nil {
+		if adminCtx := debugSessionAdminContextFromUpgrade(c); adminCtx.Context != nil {
+			access = []*commandRunWebSocketAccess{{ctx: context.WithoutCancel(adminCtx.Context)}}
+		}
 	}
-	if len(access) > 0 && access[0] != nil && access[0].ctx != nil {
-		ctx = access[0].ctx
-	} else if adminCtx := debugSessionAdminContextFromUpgrade(c); adminCtx.Context != nil {
-		ctx = context.WithoutCancel(adminCtx.Context)
-	}
+	ctx, cancel := m.debugSnapshotContext(c, lifecycle, access...)
+	defer cancel()
 	snapshot := m.collector.SessionSnapshotWithContext(ctx, sessionID, DebugSessionSnapshotOptions{
 		IncludeGlobalPanels: includeGlobals,
 	})
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return c.WriteJSON(DebugEvent{
 		Type:      debugEventSnapshot,
 		Payload:   snapshot,

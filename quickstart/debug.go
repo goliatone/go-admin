@@ -25,6 +25,7 @@ type DebugOption struct {
 	SessionIncludeGlobalPanels *bool          `json:"session_include_global_panels"`
 	SessionCookieName          string         `json:"session_cookie_name"`
 	SessionInactivityExpiry    *time.Duration `json:"session_inactivity_expiry"`
+	SnapshotTimeout            *time.Duration `json:"snapshot_timeout"`
 	CaptureSQL                 *bool          `json:"capture_sql"`
 	CaptureLogs                *bool          `json:"capture_logs"`
 	CaptureJSErrors            *bool          `json:"capture_js_errors"`
@@ -93,6 +94,9 @@ func applyDebugCoreOptions(debugCfg *admin.DebugConfig, opt DebugOption) {
 	}
 	if opt.TokenTTL != nil {
 		debugCfg.TokenTTL = *opt.TokenTTL
+	}
+	if opt.SnapshotTimeout != nil {
+		debugCfg.SnapshotTimeout = *opt.SnapshotTimeout
 	}
 }
 

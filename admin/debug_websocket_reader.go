@@ -1,13 +1,17 @@
 package admin
 
 import (
+	"context"
 	"errors"
+	"io"
 	"sync"
 
 	router "github.com/goliatone/go-router"
 )
 
 var errDebugWebSocketReadInterruptionUnsupported = errors.New("websocket adapter does not support concurrency-safe read interruption")
+var errDebugWebSocketReadFailed = errors.New("debug websocket read failed")
+var errDebugWebSocketSubscriberClosed = errors.New("debug websocket subscriber closed unexpectedly")
 
 // debugWebSocketJSONReader owns the lifetime of one WebSocket read goroutine.
 // Its owner must call Stop before returning control to the router so adapter
@@ -119,6 +123,18 @@ func pendingDebugWebSocketReadError(errors <-chan error) (error, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func debugWebSocketReadResult(readErrors <-chan error) error {
+	err, ok := pendingDebugWebSocketReadError(readErrors)
+	if !ok || err == nil {
+		return nil
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) ||
+		errors.Is(err, router.ErrConnectionClosed) || errors.Is(err, router.ErrWebSocketReadInterrupted) {
+		return nil
+	}
+	return errDebugWebSocketReadFailed
 }
 
 func closeDebugWebSocket(c router.WebSocketContext) {

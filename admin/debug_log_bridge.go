@@ -156,7 +156,7 @@ func (l *debugCollectorLogger) WithFields(fields map[string]any) Logger {
 }
 
 func (l *debugCollectorLogger) capture(level, msg string, args []any) {
-	if l == nil || l.collector == nil {
+	if l == nil || l.collector == nil || debugCaptureSuppressed(l.ctx) {
 		return
 	}
 	entry := LogEntry{

@@ -193,7 +193,10 @@ test('DebugStream accepts a fresh snapshot before later deltas on initial connec
   const scheduled = [];
   const originalSetTimeout = window.setTimeout;
   const originalClearTimeout = window.clearTimeout;
-  window.setTimeout = (callback) => { scheduled.push(callback); return scheduled.length; };
+  window.setTimeout = (callback, delay) => {
+    scheduled.push({ callback, delay });
+    return scheduled.length;
+  };
   window.clearTimeout = () => {};
 
   class FakeWebSocket {
@@ -223,7 +226,9 @@ test('DebugStream accepts a fresh snapshot before later deltas on initial connec
   first.onmessage({ data: JSON.stringify({ type: 'command_run', payload: row({ revision: 2 }) }) });
   first.readyState = 3;
   first.onclose();
-  scheduled.shift()();
+  const reconnectTimer = scheduled.find((timer) => timer.delay === 0);
+  assert.ok(reconnectTimer, 'close schedules a reconnect independently of the stability timer');
+  reconnectTimer.callback();
 
   const second = FakeWebSocket.instances[1];
   second.readyState = FakeWebSocket.OPEN;

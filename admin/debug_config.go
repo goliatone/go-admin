@@ -20,6 +20,7 @@ const (
 	debugDefaultSlowQueryThreshold = 50 * time.Millisecond
 	debugDefaultSessionCookieName  = "admin_debug_session"
 	debugDefaultSessionInactivity  = 30 * time.Minute
+	debugDefaultSnapshotTimeout    = 10 * time.Second
 )
 
 const (
@@ -138,9 +139,11 @@ type DebugConfig struct {
 	// When nil, debug secure detection only trusts direct TLS.
 	SecureRequestResolver DebugSecureRequestResolver `json:"secure_request_resolver"`
 	SlowQueryThreshold    time.Duration              `json:"slow_query_threshold"`
-	AllowedIPs            []string                   `json:"allowed_ips"`
-	PersistLayout         bool                       `json:"persist_layout"`
-	Repl                  DebugREPLConfig            `json:"repl"`
+	// SnapshotTimeout bounds initial and requested Debug snapshot collection.
+	SnapshotTimeout time.Duration   `json:"snapshot_timeout"`
+	AllowedIPs      []string        `json:"allowed_ips"`
+	PersistLayout   bool            `json:"persist_layout"`
+	Repl            DebugREPLConfig `json:"repl"`
 	// ToolbarMode injects a debug toolbar at the bottom of all admin pages.
 	// When true, the toolbar is shown in addition to the /admin/debug page.
 	ToolbarMode bool `json:"toolbar_mode"`
@@ -194,6 +197,9 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	if cfg.SlowQueryThreshold <= 0 {
 		cfg.SlowQueryThreshold = debugDefaultSlowQueryThreshold
 	}
+	if cfg.SnapshotTimeout <= 0 {
+		cfg.SnapshotTimeout = debugDefaultSnapshotTimeout
+	}
 	if cfg.Panels == nil {
 		cfg.Panels = append([]string{}, defaultDebugPanels...)
 		if cfg.CommandRuns.Enabled {
@@ -214,6 +220,13 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	cfg.ToolbarExcludePaths = normalizeDebugToolbarExcludePaths(cfg.ToolbarExcludePaths, cfg.BasePath)
 	cfg = normalizeDebugSessionConfig(cfg)
 	return cfg
+}
+
+func (cfg DebugConfig) snapshotTimeout() time.Duration {
+	if cfg.SnapshotTimeout <= 0 {
+		return debugDefaultSnapshotTimeout
+	}
+	return cfg.SnapshotTimeout
 }
 
 func normalizeDebugTemplates(cfg DebugConfig) DebugConfig {

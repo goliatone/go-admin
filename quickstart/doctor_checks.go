@@ -914,16 +914,19 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 	}
 }
 
-func quickstartDoctorBlockDefinitionsRun(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
+func quickstartDoctorBlockDefinitionsRun(ctx context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
 	if adm == nil {
 		return admin.DoctorCheckOutput{}
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	content := adm.ContentService()
 	if content == nil {
 		return quickstartDoctorMissingContentService()
 	}
 	effectiveEnv := defaultChannelKey
-	defs, err := content.BlockDefinitions(admin.WithContentChannel(context.Background(), effectiveEnv))
+	defs, err := content.BlockDefinitions(admin.WithContentChannel(ctx, effectiveEnv))
 	if err != nil {
 		return quickstartDoctorBlockDefinitionsFetchFailed(effectiveEnv, err)
 	}
@@ -937,7 +940,7 @@ func quickstartDoctorBlockDefinitionsRun(_ context.Context, adm *admin.Admin) ad
 		"available_types":   availableList,
 		"service_total":     len(defs),
 	}
-	visibility := quickstartDoctorBlockVisibility(adm, content, effectiveEnv)
+	visibility := quickstartDoctorBlockVisibility(ctx, adm, content, effectiveEnv)
 	applyBlockVisibilityMetadata(metadata, visibility)
 	findings = append(findings, blockVisibilityFindings(effectiveEnv, len(defs), visibility)...)
 	findings = append(findings, missingBlockDefinitionFindings(missing)...)
@@ -1023,9 +1026,12 @@ type blockVisibilityDiagnostic struct {
 	err          error
 }
 
-func quickstartDoctorBlockVisibility(adm *admin.Admin, content admin.CMSContentService, effectiveEnv string) blockVisibilityDiagnostic {
+func quickstartDoctorBlockVisibility(ctx context.Context, adm *admin.Admin, content admin.CMSContentService, effectiveEnv string) blockVisibilityDiagnostic {
 	diagnostic := blockVisibilityDiagnostic{total: -1}
-	listCtx := admin.WithContentChannel(context.Background(), effectiveEnv)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	listCtx := admin.WithContentChannel(ctx, effectiveEnv)
 	if total, err, ok := blockVisibilityFromPanel(adm, listCtx, effectiveEnv); ok {
 		diagnostic.total = total
 		diagnostic.source = "panel"
