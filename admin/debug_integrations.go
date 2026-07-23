@@ -752,6 +752,9 @@ func (h *DebugLogHandler) capture(ctx context.Context, record slog.Record, colle
 	defer func() {
 		_ = recover()
 	}()
+	if debugCaptureSuppressed(ctx) {
+		return
+	}
 	sessionMeta := debugSessionContextFromContext(ctx)
 	logContext := h.resolveContext(ctx)
 	message, fields := debugNormalizeSlogRecord(h.attrs, h.groups, record, h.config.limits)

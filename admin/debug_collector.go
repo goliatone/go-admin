@@ -890,9 +890,7 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 	if c == nil {
 		return map[string]any{}
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = withDebugCaptureSuppressed(ctx)
 	state := c.snapshotState()
 	snapshot := c.collectBuiltinSnapshot(state)
 	c.collectPanelDataSnapshot(snapshot, state.panelData)
@@ -912,9 +910,7 @@ func (c *DebugCollector) panelSnapshotWithContext(ctx context.Context, panelID s
 	if panelID == "" || !c.panelEnabled(panelID) {
 		return nil, false
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = withDebugCaptureSuppressed(ctx)
 	if ctx.Err() != nil {
 		return nil, false
 	}
@@ -1072,9 +1068,7 @@ func (c *DebugCollector) SessionSnapshotWithContext(ctx context.Context, session
 	if c == nil {
 		return map[string]any{}
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx = withDebugCaptureSuppressed(ctx)
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return map[string]any{}

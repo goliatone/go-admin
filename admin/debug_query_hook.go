@@ -37,6 +37,9 @@ func (h *DebugQueryHook) BeforeQuery(ctx context.Context, event *bun.QueryEvent)
 
 // AfterQuery captures query details after execution.
 func (h *DebugQueryHook) AfterQuery(ctx context.Context, event *bun.QueryEvent) {
+	if debugCaptureSuppressed(ctx) {
+		return
+	}
 	collector := h.debugCollector()
 	if collector == nil || event == nil {
 		return
