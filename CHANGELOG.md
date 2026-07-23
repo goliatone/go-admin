@@ -1,6 +1,23 @@
 # Changelog
 
+# [0.121.6](https://github.com/goliatone/go-admin/compare/v0.121.5...v0.121.6) - (2026-07-23)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Websocket reconnect ([fb5e80c](https://github.com/goliatone/go-admin/commit/fb5e80c70936a936990d1b1d8a1b664a8bbd2525))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([7ffc026](https://github.com/goliatone/go-admin/commit/7ffc026777888dc6cd33871e8d0fade1b35600ee))  - (goliatone)
+
 # [0.121.5](https://github.com/goliatone/go-admin/compare/v0.121.4...v0.121.5) - (2026-07-22)
+
+
+New patch release: v0.121.5
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.121.5 ([42cfd5b](https://github.com/goliatone/go-admin/commit/42cfd5b5a29c32bb068569bdd0a876ed89355c47))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
