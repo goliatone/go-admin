@@ -258,7 +258,7 @@ func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
 	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
 		SnapshotKey: panelID,
 		Snapshot: func(ctx context.Context) any {
-			for i := 0; i < debugSubscriberBuffer+1; i++ {
+			for range debugSubscriberBuffer + 1 {
 				hook.AfterQuery(ctx, &bun.QueryEvent{
 					Query:     "SELECT snapshot_internal",
 					StartTime: time.Now(),

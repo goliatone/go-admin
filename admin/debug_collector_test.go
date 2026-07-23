@@ -150,7 +150,7 @@ func TestDebugCollectorSnapshotDoesNotOverflowItsOwnSubscriber(t *testing.T) {
 		SnapshotKey: panelID,
 		Snapshot: func(ctx context.Context) any {
 			snapshotContextSuppressed = debugCaptureSuppressed(ctx)
-			for i := 0; i < debugSubscriberBuffer+1; i++ {
+			for range debugSubscriberBuffer + 1 {
 				hook.AfterQuery(ctx, &bun.QueryEvent{
 					Query:     "SELECT snapshot_internal",
 					StartTime: time.Now(),
