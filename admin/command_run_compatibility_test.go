@@ -171,7 +171,7 @@ func TestCommandRunBrowserDeliveryOverflowDegradesRuntimeDiagnostics(t *testing.
 		}})
 	}
 
-	awaitDebugSubscriberClosed(t, events)
+	awaitDebugSnapshotInvalidation(t, events)
 	diagnostics := adm.CommandRunRuntime().Diagnostics()
 	if diagnostics.DroppedEvents != 1 || diagnostics.Status != CommandRunDiagnosticDegraded {
 		t.Fatalf("diagnostics = %+v", diagnostics)

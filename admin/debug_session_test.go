@@ -51,6 +51,9 @@ func TestDebugRequestMiddlewareTagsSessionFromToken(t *testing.T) {
 
 func TestDebugSessionContextFromRequestCookieFallback(t *testing.T) {
 	cfg := normalizeDebugConfig(DebugConfig{}, "/admin")
+	if cfg.SnapshotTimeout != debugDefaultSnapshotTimeout {
+		t.Fatalf("snapshot timeout = %v, want %v", cfg.SnapshotTimeout, debugDefaultSnapshotTimeout)
+	}
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)

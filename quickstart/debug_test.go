@@ -113,6 +113,7 @@ func TestWithDebugConfigSetsFeatureDefaults(t *testing.T) {
 func TestWithDebugOptionsMapping(t *testing.T) {
 	tokenTTL := 15 * time.Minute
 	sessionTTL := 45 * time.Minute
+	snapshotTimeout := 7 * time.Second
 	enabled := true
 	remoteEnabled := true
 	sessionTracking := true
@@ -138,6 +139,7 @@ func TestWithDebugOptionsMapping(t *testing.T) {
 		SessionIncludeGlobalPanels: &sessionIncludeGlobalPanels,
 		SessionCookieName:          "debug_session_cookie",
 		SessionInactivityExpiry:    &sessionTTL,
+		SnapshotTimeout:            &snapshotTimeout,
 		CaptureSQL:                 &captureSQL,
 		CaptureLogs:                &captureLogs,
 		CaptureJSErrors:            &captureJSErrors,
@@ -211,6 +213,9 @@ func TestWithDebugOptionsMapping(t *testing.T) {
 	}
 	if cfg.Debug.SessionInactivityExpiry != 45*time.Minute {
 		t.Fatalf("expected session expiry 45m, got %v", cfg.Debug.SessionInactivityExpiry)
+	}
+	if cfg.Debug.SnapshotTimeout != 7*time.Second {
+		t.Fatalf("expected snapshot timeout 7s, got %v", cfg.Debug.SnapshotTimeout)
 	}
 	if len(cfg.Debug.ToolbarPanels) != 2 {
 		t.Fatalf("expected toolbar panels parsed, got %v", cfg.Debug.ToolbarPanels)

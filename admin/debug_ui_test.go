@@ -90,8 +90,8 @@ func TestDebugWebSocketWritesSnapshot(t *testing.T) {
 	mod.collector = NewDebugCollector(cfg)
 
 	ws := newStubWebSocketContext()
-	if err := mod.handleDebugWebSocket(ws); err != nil {
-		t.Fatalf("handle debug websocket: %v", err)
+	if err := mod.writeDebugSnapshot(ws); err != nil {
+		t.Fatalf("write debug websocket snapshot: %v", err)
 	}
 	if len(ws.writes) == 0 {
 		t.Fatalf("expected websocket snapshot write")

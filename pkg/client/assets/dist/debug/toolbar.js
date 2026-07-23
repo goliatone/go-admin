@@ -1,8 +1,8 @@
 import { escapeHTML as u } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as U, g as Y, h as J, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-BAFduW3V.js";
-import { t as st } from "../chunks/repl-panel-Dvtc4bMw.js";
+import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as U, g as Y, h as J, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-Dq-gX1JC.js";
+import { t as st } from "../chunks/repl-panel-BKc41M7P.js";
 import { i as ot } from "../chunks/icons-B_VaFfsl.js";
 import { G as b, S as rt, T as nt, _ as it, a as Pt, b as lt, c as C, d as y, f as dt, g as ct, h as qt, l as Lt, m as ht, n as E, o as P, p as pt, q as v, rt as ut, s as g, u as f, w as h, x as bt } from "../chunks/server-definitions-BF5gvDyg.js";
 var gt = `

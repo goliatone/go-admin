@@ -255,6 +255,22 @@ func TestDebugLogHandlerCapturesCanonicalEnrichedRecord(t *testing.T) {
 	}
 }
 
+func TestDebugCollectorLoggerBridgeSuppressesSnapshotCapture(t *testing.T) {
+	collector := newLogTestCollector(10)
+	logger := withDebugCollectorLogger("admin.doctor", ensureLogger(nil), collector)
+
+	logger.WithContext(withDebugCaptureSuppressed(context.Background())).Info("snapshot internal")
+	if logs := capturedLogs(t, collector); len(logs) != 0 {
+		t.Fatalf("suppressed bridge logs = %#v", logs)
+	}
+
+	logger.WithContext(context.Background()).Info("application log")
+	logs := capturedLogs(t, collector)
+	if len(logs) != 1 || logs[0].Message != "application log" {
+		t.Fatalf("ordinary bridge logs = %#v", logs)
+	}
+}
+
 type debugPanicLogValuer struct{}
 
 func (debugPanicLogValuer) LogValue() slog.Value { panic("valuer exploded") }

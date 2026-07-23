@@ -124,8 +124,12 @@ test('snapshot invalidation requests a viewer-scoped snapshot without forwarding
 	stream.connect();
 	const socket = FakeWebSocket.instances[0];
 	socket.onmessage({ data: JSON.stringify({ type: 'snapshot_invalidated', payload: { forbidden: true } }) });
+	socket.onmessage({ data: JSON.stringify({ type: 'snapshot_invalidated', payload: { duplicate: true } }) });
 
 	assert.deepEqual(socket.sent.map((value) => JSON.parse(value)), [{ type: 'snapshot' }]);
 	assert.deepEqual(forwarded, []);
+	socket.onmessage({ data: JSON.stringify({ type: 'snapshot', payload: {} }) });
+	socket.onmessage({ data: JSON.stringify({ type: 'snapshot_invalidated', payload: null }) });
+	assert.deepEqual(socket.sent.map((value) => JSON.parse(value)), [{ type: 'snapshot' }, { type: 'snapshot' }]);
 	stream.close();
 });

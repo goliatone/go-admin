@@ -741,7 +741,7 @@ func TestDebugCollectorCoalescesCommandRunProgressWithoutLosingTerminalState(t *
 	}
 }
 
-func TestDebugCollectorDisconnectsOverflowedSubscriberAndReportsCommandRunFailure(t *testing.T) {
+func TestDebugCollectorCompactsOverflowIntoSnapshotRecoveryAndReportsCommandRunFailure(t *testing.T) {
 	collector := NewDebugCollector(DebugConfig{})
 	events := collector.Subscribe("stalled-client")
 	failures := make(chan DebugEvent, 1)
@@ -770,12 +770,22 @@ func TestDebugCollectorDisconnectsOverflowedSubscriberAndReportsCommandRunFailur
 		t.Fatal("expected command-run delivery failure diagnostic")
 	}
 
-	awaitDebugSubscriberClosed(t, events)
+	awaitDebugSnapshotInvalidation(t, events)
 	collector.mu.RLock()
 	_, present := collector.subscribers["stalled-client"]
 	collector.mu.RUnlock()
-	if present {
-		t.Fatal("overflowed subscriber remains registered")
+	if !present {
+		t.Fatal("overflow recovery detached the subscriber")
+	}
+
+	collector.publish("request", map[string]any{"path": "/after-recovery"})
+	select {
+	case event, ok := <-events:
+		if !ok || event.Type != "request" {
+			t.Fatalf("post-recovery event = %+v, open=%v", event, ok)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscriber did not resume live delivery after recovery")
 	}
 }
 
@@ -792,17 +802,20 @@ func TestDebugSubscriberClassifiesQueuedCommandRunAtRiskOnUnrelatedOverflow(t *t
 	}
 }
 
-func awaitDebugSubscriberClosed(t testing.TB, events <-chan DebugEvent) {
+func awaitDebugSnapshotInvalidation(t testing.TB, events <-chan DebugEvent) {
 	t.Helper()
 	deadline := time.After(time.Second)
 	for {
 		select {
-		case _, ok := <-events:
+		case event, ok := <-events:
 			if !ok {
+				t.Fatal("subscriber closed before snapshot recovery")
+			}
+			if event.Type == debugEventSnapshotInvalidated {
 				return
 			}
 		case <-deadline:
-			t.Fatal("overflowed subscriber was not disconnected")
+			t.Fatal("overflowed subscriber did not request snapshot recovery")
 		}
 	}
 }

@@ -1872,3 +1872,143 @@ test('debug stream bounds websocket retries when the initial connection fails', 
   dom.window.setTimeout = originalSetTimeout;
   dom.window.clearTimeout = originalClearTimeout;
 });
+
+test('debug stream keeps retry backoff across short-lived successful upgrades', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+
+  const timers = new Map();
+  let timerID = 0;
+  dom.window.setTimeout = (callback, delay = 0) => {
+    timerID += 1;
+    timers.set(timerID, { callback, delay });
+    return timerID;
+  };
+  dom.window.clearTimeout = (id) => timers.delete(id);
+  globalThis.window.setTimeout = dom.window.setTimeout.bind(dom.window);
+  globalThis.window.clearTimeout = dom.window.clearTimeout.bind(dom.window);
+
+  const sockets = [];
+  class ShortLivedWebSocket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
+
+    constructor(url) {
+      this.url = url;
+      this.readyState = ShortLivedWebSocket.CONNECTING;
+      sockets.push(this);
+    }
+
+    open() {
+      this.readyState = ShortLivedWebSocket.OPEN;
+      this.onopen?.(new dom.window.Event('open'));
+    }
+
+    close() {
+      this.readyState = ShortLivedWebSocket.CLOSED;
+      this.onclose?.(new dom.window.Event('close'));
+    }
+
+    send() {}
+  }
+
+  globalThis.WebSocket = ShortLivedWebSocket;
+  dom.window.WebSocket = ShortLivedWebSocket;
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+
+  const stream = new debugModule.DebugStream({
+    url: 'ws://127.0.0.1:9090/admin/debug/ws',
+    maxReconnectAttempts: 3,
+    reconnectDelayMs: 10,
+    maxReconnectDelayMs: 100,
+    reconnectStabilityMs: 1000,
+  });
+  stream.connect();
+
+  const reconnectDelays = [];
+  for (let index = 0; index < 4; index += 1) {
+    sockets[index].open();
+    sockets[index].close();
+    const reconnect = [...timers.entries()].sort((a, b) => a[1].delay - b[1].delay)[0];
+    if (!reconnect) break;
+    const [id, timer] = reconnect;
+    timers.delete(id);
+    reconnectDelays.push(timer.delay);
+    timer.callback();
+  }
+
+  assert.equal(sockets.length, 4, 'three retries should follow the first provisional connection');
+  assert.equal(stream.getStatus(), 'disconnected');
+  assert.deepEqual(reconnectDelays, [12, 24, 48]);
+  Math.random = originalRandom;
+});
+
+test('debug stream resets retry budget only after the stability window', () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+
+  const timers = new Map();
+  let timerID = 0;
+  dom.window.setTimeout = (callback, delay = 0) => {
+    timerID += 1;
+    timers.set(timerID, { callback, delay });
+    return timerID;
+  };
+  dom.window.clearTimeout = (id) => timers.delete(id);
+  globalThis.window.setTimeout = dom.window.setTimeout.bind(dom.window);
+  globalThis.window.clearTimeout = dom.window.clearTimeout.bind(dom.window);
+
+  const sockets = [];
+  class StableWebSocket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
+    constructor() {
+      this.readyState = StableWebSocket.CONNECTING;
+      sockets.push(this);
+    }
+    open() {
+      this.readyState = StableWebSocket.OPEN;
+      this.onopen?.(new dom.window.Event('open'));
+    }
+    close() {
+      this.readyState = StableWebSocket.CLOSED;
+      this.onclose?.(new dom.window.Event('close'));
+    }
+    send() {}
+  }
+  globalThis.WebSocket = StableWebSocket;
+  dom.window.WebSocket = StableWebSocket;
+
+  const stream = new debugModule.DebugStream({
+    url: 'ws://127.0.0.1:9090/admin/debug/ws',
+    maxReconnectAttempts: 1,
+    reconnectDelayMs: 1,
+    maxReconnectDelayMs: 1,
+    reconnectStabilityMs: 50,
+  });
+  stream.connect();
+  sockets[0].open();
+  sockets[0].close();
+
+  let next = [...timers.entries()].sort((a, b) => a[1].delay - b[1].delay)[0];
+  timers.delete(next[0]);
+  next[1].callback();
+  sockets[1].open();
+
+  const stableTimer = [...timers.entries()].find(([, timer]) => timer.delay === 50);
+  assert.ok(stableTimer, 'stable connection should schedule a retry-budget reset');
+  timers.delete(stableTimer[0]);
+  stableTimer[1].callback();
+  sockets[1].close();
+
+  next = [...timers.entries()].sort((a, b) => a[1].delay - b[1].delay)[0];
+  assert.ok(next, 'closing after stability should receive a fresh retry budget');
+  timers.delete(next[0]);
+  next[1].callback();
+  assert.equal(sockets.length, 3);
+});

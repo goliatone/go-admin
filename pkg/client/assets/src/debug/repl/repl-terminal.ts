@@ -12,11 +12,13 @@ type DebugReplTerminalOptions = {
   container: HTMLElement;
   autoConnect?: boolean;
   onStatusChange?: (status: DebugReplStatus) => void;
+  reconnectStabilityMs?: number;
 };
 
 const defaultReconnectDelayMs = 1000;
 const defaultMaxReconnectDelayMs = 12000;
 const defaultMaxReconnectAttempts = 8;
+const defaultReconnectStabilityMs = 10000;
 
 const replSocketSuffix = (kind: DebugReplKind): string => {
   return kind === 'shell' ? 'repl/shell/ws' : 'repl/app/ws';
@@ -51,6 +53,7 @@ export class DebugReplTerminal {
   private status: DebugReplStatus = 'disconnected';
   private reconnectAttempts = 0;
   private reconnectTimer: number | null = null;
+  private reconnectStabilityTimer: number | null = null;
   private manualClose = false;
   private resetOnOpen = false;
   private resizeObserver: ResizeObserver | null = null;
@@ -98,10 +101,14 @@ export class DebugReplTerminal {
     this.manualClose = false;
     this.setStatus('connecting');
     const url = buildWebSocketURL(this.options.debugPath, this.options.kind);
-    this.socket = new WebSocket(url);
+    const socket = new WebSocket(url);
+    this.socket = socket;
 
-    this.socket.onopen = () => {
-      this.reconnectAttempts = 0;
+    socket.onopen = () => {
+      if (this.socket !== socket) {
+        return;
+      }
+      this.scheduleReconnectBudgetReset(socket);
       if (this.resetOnOpen) {
         this.resetOnOpen = false;
         this.resetTerminal();
@@ -114,14 +121,21 @@ export class DebugReplTerminal {
       this.sendResize();
     };
 
-    this.socket.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) {
+        return;
+      }
       if (!event || typeof event.data !== 'string') {
         return;
       }
       this.handleMessage(event.data);
     };
 
-    this.socket.onclose = () => {
+    socket.onclose = () => {
+      if (this.socket !== socket) {
+        return;
+      }
+      this.clearReconnectStabilityTimer();
       this.socket = null;
       if (this.manualClose) {
         this.setStatus('disconnected');
@@ -131,7 +145,10 @@ export class DebugReplTerminal {
       this.scheduleReconnect();
     };
 
-    this.socket.onerror = () => {
+    socket.onerror = () => {
+      if (this.socket !== socket) {
+        return;
+      }
       this.setStatus('error');
     };
   }
@@ -153,6 +170,7 @@ export class DebugReplTerminal {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearReconnectStabilityTimer();
     if (this.socket) {
       this.socket.close();
     }
@@ -399,8 +417,27 @@ export class DebugReplTerminal {
     this.reconnectAttempts += 1;
     this.resetOnOpen = true;
     this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = null;
       this.connect();
     }, backoff + jitter);
+  }
+
+  private clearReconnectStabilityTimer(): void {
+    if (this.reconnectStabilityTimer !== null) {
+      window.clearTimeout(this.reconnectStabilityTimer);
+      this.reconnectStabilityTimer = null;
+    }
+  }
+
+  private scheduleReconnectBudgetReset(socket: WebSocket): void {
+    this.clearReconnectStabilityTimer();
+    const stabilityMs = Math.max(this.options.reconnectStabilityMs ?? defaultReconnectStabilityMs, 0);
+    this.reconnectStabilityTimer = window.setTimeout(() => {
+      this.reconnectStabilityTimer = null;
+      if (this.socket === socket && socket.readyState === WebSocket.OPEN) {
+        this.reconnectAttempts = 0;
+      }
+    }, stabilityMs);
   }
 
   private resetTerminal(): void {

@@ -224,9 +224,15 @@ func TestDebugWebSocketReconnectWritesFreshStoreSnapshotBeforeLiveLoop(t *testin
 	mod.collector = NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
 	access := mod.commandRunAccess(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
 
-	first := newStubWebSocketContext()
+	firstCtx, cancelFirst := context.WithCancel(context.Background())
+	first := newBlockingDebugWebSocketContext(firstCtx, nil)
 	first.upgradeData[debugUpgradeCommandRunAccess] = access
-	if err := mod.handleDebugWebSocket(first); err != nil {
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- mod.handleDebugWebSocket(first) }()
+	waitForDebugWebSocketSignal(t, first.readStarted, "initial reconnect reader")
+	waitForDebugWebSocketWrites(t, first, 1)
+	cancelFirst()
+	if err := <-firstDone; err != nil {
 		t.Fatalf("initial websocket: %v", err)
 	}
 	assertCommandRunSnapshotRevision(t, first.writes, "run-reconnect", 1)
@@ -240,12 +246,29 @@ func TestDebugWebSocketReconnectWritesFreshStoreSnapshotBeforeLiveLoop(t *testin
 	if _, changed, err := store.Apply(context.Background(), next); err != nil || !changed {
 		t.Fatalf("apply reconnect update: changed=%v err=%v", changed, err)
 	}
-	reconnected := newStubWebSocketContext()
+	reconnectedCtx, cancelReconnected := context.WithCancel(context.Background())
+	reconnected := newBlockingDebugWebSocketContext(reconnectedCtx, nil)
 	reconnected.upgradeData[debugUpgradeCommandRunAccess] = access
-	if err := mod.handleDebugWebSocket(reconnected); err != nil {
+	reconnectedDone := make(chan error, 1)
+	go func() { reconnectedDone <- mod.handleDebugWebSocket(reconnected) }()
+	waitForDebugWebSocketSignal(t, reconnected.readStarted, "reconnected reader")
+	waitForDebugWebSocketWrites(t, reconnected, 1)
+	cancelReconnected()
+	if err := <-reconnectedDone; err != nil {
 		t.Fatalf("reconnected websocket: %v", err)
 	}
 	assertCommandRunSnapshotRevision(t, reconnected.writes, "run-reconnect", 2)
+}
+
+func waitForDebugWebSocketWrites(t testing.TB, ws *blockingDebugWebSocketContext, count int32) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for ws.writeCount.Load() < count && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := ws.writeCount.Load(); got < count {
+		t.Fatalf("websocket writes = %d, want at least %d", got, count)
+	}
 }
 
 func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
@@ -313,6 +336,155 @@ func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("websocket did not stop after cancellation")
+	}
+}
+
+func TestDebugWebSocketUnrelatedBurstRecoversSnapshotWithoutReconnect(t *testing.T) {
+	const panelID = "websocket_external_snapshot_burst"
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	snapshotStarted := make(chan struct{})
+	releaseSnapshot := make(chan struct{})
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		SnapshotKey: panelID,
+		Snapshot: func(context.Context) any {
+			close(snapshotStarted)
+			<-releaseSnapshot
+			return map[string]any{"ready": true}
+		},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	cfg := DebugConfig{Panels: []string{panelID}, SnapshotTimeout: time.Second}
+	collector := NewDebugCollector(cfg)
+	mod := NewDebugModule(cfg)
+	mod.collector = collector
+	ctx, cancel := context.WithCancel(context.Background())
+	ws := newBlockingDebugWebSocketContext(ctx, nil)
+	handled := make(chan error, 1)
+	go func() { handled <- mod.handleDebugWebSocket(ws) }()
+
+	waitForDebugWebSocketSignal(t, ws.readStarted, "reader start")
+	waitForDebugWebSocketSignal(t, snapshotStarted, "slow snapshot start")
+	for index := range debugSubscriberBuffer + 3 {
+		collector.publish("external_request", map[string]any{"index": index})
+	}
+	select {
+	case err := <-handled:
+		t.Fatalf("unrelated traffic closed websocket during snapshot: %v", err)
+	default:
+	}
+	close(releaseSnapshot)
+	waitForDebugWebSocketWrites(t, ws, 4)
+
+	cancel()
+	if err := <-handled; err != nil {
+		t.Fatalf("websocket shutdown: %v", err)
+	}
+	foundRecovery := false
+	for _, raw := range ws.writes {
+		if event, ok := raw.(DebugEvent); ok && event.Type == debugEventSnapshotInvalidated {
+			foundRecovery = true
+			break
+		}
+	}
+	if !foundRecovery {
+		t.Fatalf("writes did not contain snapshot recovery: %#v", ws.writes)
+	}
+}
+
+type debugSnapshotContextKey struct{}
+
+func TestDebugWebSocketSnapshotPreservesAccessValuesAndHonorsTimeout(t *testing.T) {
+	const panelID = "websocket_snapshot_timeout"
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	seenValue := make(chan any, 1)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		SnapshotKey: panelID,
+		Snapshot: func(ctx context.Context) any {
+			seenValue <- ctx.Value(debugSnapshotContextKey{})
+			<-ctx.Done()
+			return map[string]any{"canceled": true}
+		},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	cfg := DebugConfig{Panels: []string{panelID}, SnapshotTimeout: 20 * time.Millisecond}
+	mod := NewDebugModule(cfg)
+	mod.collector = NewDebugCollector(cfg)
+	access := &commandRunWebSocketAccess{
+		ctx: context.WithValue(context.Background(), debugSnapshotContextKey{}, "tenant-value"),
+	}
+	ws := newStubWebSocketContext()
+	err := mod.writeDebugSnapshot(ws, access)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("snapshot error = %v, want deadline exceeded", err)
+	}
+	if value := <-seenValue; value != "tenant-value" {
+		t.Fatalf("snapshot access value = %v", value)
+	}
+	if len(ws.writes) != 0 {
+		t.Fatalf("timed out snapshot was written: %#v", ws.writes)
+	}
+}
+
+func TestDebugWebSocketDisconnectCancelsInitialSnapshotAndClassifiesReadFailure(t *testing.T) {
+	const panelID = "websocket_snapshot_disconnect"
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	snapshotStarted := make(chan struct{})
+	snapshotCanceled := make(chan error, 1)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		SnapshotKey: panelID,
+		Snapshot: func(ctx context.Context) any {
+			close(snapshotStarted)
+			<-ctx.Done()
+			snapshotCanceled <- ctx.Err()
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	cfg := DebugConfig{Panels: []string{panelID}, SnapshotTimeout: time.Second}
+	mod := NewDebugModule(cfg)
+	mod.collector = NewDebugCollector(cfg)
+	ws := newBlockingDebugWebSocketContext(context.Background(), nil)
+	handled := make(chan error, 1)
+	go func() { handled <- mod.handleDebugWebSocket(ws) }()
+
+	waitForDebugWebSocketSignal(t, ws.readStarted, "reader before disconnect")
+	waitForDebugWebSocketSignal(t, snapshotStarted, "initial snapshot")
+	ws.releaseOnce.Do(func() { close(ws.readReleased) })
+
+	select {
+	case err := <-snapshotCanceled:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("snapshot cancellation = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("disconnect did not cancel the snapshot")
+	}
+	select {
+	case err := <-handled:
+		if !errors.Is(err, errDebugWebSocketReadFailed) {
+			t.Fatalf("handler error = %v, want classified read failure", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("handler did not return after reader failure")
+	}
+	waitForDebugWebSocketSignal(t, ws.readReturned, "reader completion")
+	if got := ws.interruptCalls.Load(); got != 0 {
+		t.Fatalf("natural reader failure interrupt calls = %d, want 0", got)
+	}
+	if got := ws.closeCalls.Load(); got != 1 || ws.closeBeforeRead.Load() {
+		t.Fatalf("websocket teardown close_calls=%d close_before_read=%v", got, ws.closeBeforeRead.Load())
 	}
 }
 

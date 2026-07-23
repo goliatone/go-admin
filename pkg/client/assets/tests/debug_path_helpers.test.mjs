@@ -37,3 +37,13 @@ test('debug callers now route through the shared path helper module', () => {
   assert.doesNotMatch(debugStreamSource, /const normalizeBasePath =/);
   assert.doesNotMatch(replTerminalSource, /const normalizeBasePath =/);
 });
+
+test('debug and REPL websocket retry budgets reset only after connection stability', () => {
+  const debugStreamSource = read(debugStreamSourcePath);
+  const replTerminalSource = read(replTerminalSourcePath);
+
+  assert.match(debugStreamSource, /scheduleReconnectBudgetReset\(socket\)/);
+  assert.match(replTerminalSource, /scheduleReconnectBudgetReset\(socket\)/);
+  assert.doesNotMatch(debugStreamSource, /onopen\s*=\s*\(\)\s*=>\s*\{\s*this\.reconnectAttempts\s*=\s*0/);
+  assert.doesNotMatch(replTerminalSource, /onopen\s*=\s*\(\)\s*=>\s*\{\s*this\.reconnectAttempts\s*=\s*0/);
+});

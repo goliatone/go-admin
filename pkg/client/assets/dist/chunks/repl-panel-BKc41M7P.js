@@ -2,17 +2,17 @@ import { t as ge } from "./chunk-BUbnbzFL.js";
 import { escapeHTML as pe } from "../shared/html.js";
 import { normalizeDebugBasePath as Ce } from "../debug/shared/path-helpers.js";
 import { r as ne } from "./icons-B_VaFfsl.js";
-var be = /* @__PURE__ */ ge(((A, U) => {
-  (function(z, q) {
-    if (typeof A == "object" && typeof U == "object") U.exports = q();
+var be = /* @__PURE__ */ ge(((R, U) => {
+  (function($, q) {
+    if (typeof R == "object" && typeof U == "object") U.exports = q();
     else if (typeof define == "function" && define.amd) define([], q);
     else {
       var V = q();
-      for (var Z in V) (typeof A == "object" ? A : z)[Z] = V[Z];
+      for (var Z in V) (typeof R == "object" ? R : $)[Z] = V[Z];
     }
   })(self, (() => (() => {
     "use strict";
-    var z = {
+    var $ = {
       4567: function(O, r, a) {
         var c = this && this.__decorate || function(i, o, l, v) {
           var d, h = arguments.length, m = h < 3 ? o : v === null ? v = Object.getOwnPropertyDescriptor(o, l) : v;
@@ -392,22 +392,22 @@ var be = /* @__PURE__ */ ge(((A, U) => {
                   };
                   let k = !1;
                   if (!o?.allowNonHttpProtocols) try {
-                    const R = new URL(x);
-                    ["http:", "https:"].includes(R.protocol) || (k = !0);
+                    const A = new URL(x);
+                    ["http:", "https:"].includes(A.protocol) || (k = !0);
                   } catch {
                     k = !0;
                   }
                   k || i.push({
                     text: x,
                     range: b,
-                    activate: (R, H) => o ? o.activate(R, H, b) : g(0, H),
-                    hover: (R, H) => {
+                    activate: (A, H) => o ? o.activate(A, H, b) : g(0, H),
+                    hover: (A, H) => {
                       var P;
-                      return (P = o?.hover) === null || P === void 0 ? void 0 : P.call(o, R, H, b);
+                      return (P = o?.hover) === null || P === void 0 ? void 0 : P.call(o, A, H, b);
                     },
-                    leave: (R, H) => {
+                    leave: (A, H) => {
                       var P;
-                      return (P = o?.leave) === null || P === void 0 ? void 0 : P.call(o, R, H, b);
+                      return (P = o?.leave) === null || P === void 0 ? void 0 : P.call(o, A, H, b);
                     }
                   });
                 }
@@ -488,8 +488,8 @@ WARNING: This link could potentially be dangerous`)) {
       },
       3236: (O, r, a) => {
         Object.defineProperty(r, "__esModule", { value: !0 }), r.Terminal = void 0;
-        const c = a(3614), f = a(3656), n = a(6465), u = a(9042), p = a(3730), g = a(1680), _ = a(3107), e = a(5744), s = a(2950), t = a(1296), i = a(428), o = a(4269), l = a(5114), v = a(8934), d = a(3230), h = a(9312), m = a(4725), E = a(6731), x = a(8055), b = a(8969), k = a(8460), R = a(844), H = a(6114), P = a(8437), M = a(2584), S = a(7399), y = a(5941), w = a(9074), L = a(2585), I = a(5435), F = a(4567), N = typeof window < "u" ? window.document : null;
-        class $ extends b.CoreTerminal {
+        const c = a(3614), f = a(3656), n = a(6465), u = a(9042), p = a(3730), g = a(1680), _ = a(3107), e = a(5744), s = a(2950), t = a(1296), i = a(428), o = a(4269), l = a(5114), v = a(8934), d = a(3230), h = a(9312), m = a(4725), E = a(6731), x = a(8055), b = a(8969), k = a(8460), A = a(844), H = a(6114), P = a(8437), M = a(2584), S = a(7399), y = a(5941), w = a(9074), L = a(2585), I = a(5435), F = a(4567), N = typeof window < "u" ? window.document : null;
+        class z extends b.CoreTerminal {
           get onFocus() {
             return this._onFocus.event;
           }
@@ -506,7 +506,7 @@ WARNING: This link could potentially be dangerous`)) {
             return this._onWillOpen.event;
           }
           constructor(C = {}) {
-            super(C), this.browser = H, this._keyDownHandled = !1, this._keyDownSeen = !1, this._keyPressHandled = !1, this._unprocessedDeadKey = !1, this._accessibilityManager = this.register(new R.MutableDisposable()), this._onCursorMove = this.register(new k.EventEmitter()), this.onCursorMove = this._onCursorMove.event, this._onKey = this.register(new k.EventEmitter()), this.onKey = this._onKey.event, this._onRender = this.register(new k.EventEmitter()), this.onRender = this._onRender.event, this._onSelectionChange = this.register(new k.EventEmitter()), this.onSelectionChange = this._onSelectionChange.event, this._onTitleChange = this.register(new k.EventEmitter()), this.onTitleChange = this._onTitleChange.event, this._onBell = this.register(new k.EventEmitter()), this.onBell = this._onBell.event, this._onFocus = this.register(new k.EventEmitter()), this._onBlur = this.register(new k.EventEmitter()), this._onA11yCharEmitter = this.register(new k.EventEmitter()), this._onA11yTabEmitter = this.register(new k.EventEmitter()), this._onWillOpen = this.register(new k.EventEmitter()), this._setup(), this.linkifier2 = this.register(this._instantiationService.createInstance(n.Linkifier2)), this.linkifier2.registerLinkProvider(this._instantiationService.createInstance(p.OscLinkProvider)), this._decorationService = this._instantiationService.createInstance(w.DecorationService), this._instantiationService.setService(L.IDecorationService, this._decorationService), this.register(this._inputHandler.onRequestBell((() => this._onBell.fire()))), this.register(this._inputHandler.onRequestRefreshRows(((D, T) => this.refresh(D, T)))), this.register(this._inputHandler.onRequestSendFocus((() => this._reportFocus()))), this.register(this._inputHandler.onRequestReset((() => this.reset()))), this.register(this._inputHandler.onRequestWindowsOptionsReport(((D) => this._reportWindowsOptions(D)))), this.register(this._inputHandler.onColor(((D) => this._handleColorEvent(D)))), this.register((0, k.forwardEvent)(this._inputHandler.onCursorMove, this._onCursorMove)), this.register((0, k.forwardEvent)(this._inputHandler.onTitleChange, this._onTitleChange)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yChar, this._onA11yCharEmitter)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yTab, this._onA11yTabEmitter)), this.register(this._bufferService.onResize(((D) => this._afterResize(D.cols, D.rows)))), this.register((0, R.toDisposable)((() => {
+            super(C), this.browser = H, this._keyDownHandled = !1, this._keyDownSeen = !1, this._keyPressHandled = !1, this._unprocessedDeadKey = !1, this._accessibilityManager = this.register(new A.MutableDisposable()), this._onCursorMove = this.register(new k.EventEmitter()), this.onCursorMove = this._onCursorMove.event, this._onKey = this.register(new k.EventEmitter()), this.onKey = this._onKey.event, this._onRender = this.register(new k.EventEmitter()), this.onRender = this._onRender.event, this._onSelectionChange = this.register(new k.EventEmitter()), this.onSelectionChange = this._onSelectionChange.event, this._onTitleChange = this.register(new k.EventEmitter()), this.onTitleChange = this._onTitleChange.event, this._onBell = this.register(new k.EventEmitter()), this.onBell = this._onBell.event, this._onFocus = this.register(new k.EventEmitter()), this._onBlur = this.register(new k.EventEmitter()), this._onA11yCharEmitter = this.register(new k.EventEmitter()), this._onA11yTabEmitter = this.register(new k.EventEmitter()), this._onWillOpen = this.register(new k.EventEmitter()), this._setup(), this.linkifier2 = this.register(this._instantiationService.createInstance(n.Linkifier2)), this.linkifier2.registerLinkProvider(this._instantiationService.createInstance(p.OscLinkProvider)), this._decorationService = this._instantiationService.createInstance(w.DecorationService), this._instantiationService.setService(L.IDecorationService, this._decorationService), this.register(this._inputHandler.onRequestBell((() => this._onBell.fire()))), this.register(this._inputHandler.onRequestRefreshRows(((D, T) => this.refresh(D, T)))), this.register(this._inputHandler.onRequestSendFocus((() => this._reportFocus()))), this.register(this._inputHandler.onRequestReset((() => this.reset()))), this.register(this._inputHandler.onRequestWindowsOptionsReport(((D) => this._reportWindowsOptions(D)))), this.register(this._inputHandler.onColor(((D) => this._handleColorEvent(D)))), this.register((0, k.forwardEvent)(this._inputHandler.onCursorMove, this._onCursorMove)), this.register((0, k.forwardEvent)(this._inputHandler.onTitleChange, this._onTitleChange)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yChar, this._onA11yCharEmitter)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yTab, this._onA11yTabEmitter)), this.register(this._bufferService.onResize(((D) => this._afterResize(D.cols, D.rows)))), this.register((0, A.toDisposable)((() => {
               var D, T;
               this._customKeyEventHandler = void 0, (T = (D = this.element) === null || D === void 0 ? void 0 : D.parentNode) === null || T === void 0 || T.removeChild(this.element);
             })));
@@ -853,7 +853,7 @@ WARNING: This link could potentially be dangerous`)) {
             if (this.options.cancelEvents || D) return C.preventDefault(), C.stopPropagation(), !1;
           }
         }
-        r.Terminal = $;
+        r.Terminal = z;
       },
       9924: (O, r) => {
         Object.defineProperty(r, "__esModule", { value: !0 }), r.TimeBasedDebouncer = void 0, r.TimeBasedDebouncer = class {
@@ -1338,8 +1338,8 @@ WARNING: This link could potentially be dangerous`)) {
             let m = 0;
             const E = v - n(v, h), x = d - n(d, h);
             for (let b = 0; b < Math.abs(E - x); b++) {
-              const k = u(v, d) === "A" ? -1 : 1, R = h.buffer.lines.get(E + k * b);
-              R != null && R.isWrapped && m++;
+              const k = u(v, d) === "A" ? -1 : 1, A = h.buffer.lines.get(E + k * b);
+              A != null && A.isWrapped && m++;
             }
             return m;
           })(e, s, t), g(u(e, s), i));
@@ -1372,13 +1372,13 @@ WARNING: This link could potentially be dangerous`)) {
           if (!t.buffer.hasScrollback) return (function(h, m, E, x, b, k) {
             return f(m, x, b, k).length === 0 ? "" : _(p(h, m, h, m - n(m, b), !1, b).length, g("D", k));
           })(o, l, 0, s, t, i) + f(l, s, t, i) + (function(h, m, E, x, b, k) {
-            let R;
-            R = f(m, x, b, k).length > 0 ? x - n(x, b) : m;
+            let A;
+            A = f(m, x, b, k).length > 0 ? x - n(x, b) : m;
             const H = x, P = (function(M, S, y, w, L, I) {
               let F;
               return F = f(y, w, L, I).length > 0 ? w - n(w, L) : S, M < y && F <= w || M >= y && F < w ? "C" : "D";
             })(h, m, E, x, b, k);
-            return _(p(h, R, E, H, P === "C", b).length, g(P, k));
+            return _(p(h, A, E, H, P === "C", b).length, g(P, k));
           })(o, l, e, s, t, i);
           let v;
           if (l === s) return v = o > e ? "D" : "C", _(Math.abs(o - e), g(v, i));
@@ -1390,28 +1390,28 @@ WARNING: This link could potentially be dangerous`)) {
         };
       },
       1296: function(O, r, a) {
-        var c = this && this.__decorate || function(b, k, R, H) {
-          var P, M = arguments.length, S = M < 3 ? k : H === null ? H = Object.getOwnPropertyDescriptor(k, R) : H;
-          if (typeof Reflect == "object" && typeof Reflect.decorate == "function") S = Reflect.decorate(b, k, R, H);
-          else for (var y = b.length - 1; y >= 0; y--) (P = b[y]) && (S = (M < 3 ? P(S) : M > 3 ? P(k, R, S) : P(k, R)) || S);
-          return M > 3 && S && Object.defineProperty(k, R, S), S;
+        var c = this && this.__decorate || function(b, k, A, H) {
+          var P, M = arguments.length, S = M < 3 ? k : H === null ? H = Object.getOwnPropertyDescriptor(k, A) : H;
+          if (typeof Reflect == "object" && typeof Reflect.decorate == "function") S = Reflect.decorate(b, k, A, H);
+          else for (var y = b.length - 1; y >= 0; y--) (P = b[y]) && (S = (M < 3 ? P(S) : M > 3 ? P(k, A, S) : P(k, A)) || S);
+          return M > 3 && S && Object.defineProperty(k, A, S), S;
         }, f = this && this.__param || function(b, k) {
-          return function(R, H) {
-            k(R, H, b);
+          return function(A, H) {
+            k(A, H, b);
           };
         };
         Object.defineProperty(r, "__esModule", { value: !0 }), r.DomRenderer = void 0;
         const n = a(3787), u = a(2550), p = a(2223), g = a(6171), _ = a(4725), e = a(8055), s = a(8460), t = a(844), i = a(2585), o = "xterm-dom-renderer-owner-", l = "xterm-rows", v = "xterm-fg-", d = "xterm-bg-", h = "xterm-focus", m = "xterm-selection";
         let E = 1, x = r.DomRenderer = class extends t.Disposable {
-          constructor(b, k, R, H, P, M, S, y, w, L) {
-            super(), this._element = b, this._screenElement = k, this._viewportElement = R, this._linkifier2 = H, this._charSizeService = M, this._optionsService = S, this._bufferService = y, this._coreBrowserService = w, this._themeService = L, this._terminalClass = E++, this._rowElements = [], this.onRequestRedraw = this.register(new s.EventEmitter()).event, this._rowContainer = document.createElement("div"), this._rowContainer.classList.add(l), this._rowContainer.style.lineHeight = "normal", this._rowContainer.setAttribute("aria-hidden", "true"), this._refreshRowElements(this._bufferService.cols, this._bufferService.rows), this._selectionContainer = document.createElement("div"), this._selectionContainer.classList.add(m), this._selectionContainer.setAttribute("aria-hidden", "true"), this.dimensions = (0, g.createRenderDimensions)(), this._updateDimensions(), this.register(this._optionsService.onOptionChange((() => this._handleOptionsChanged()))), this.register(this._themeService.onChangeColors(((I) => this._injectCss(I)))), this._injectCss(this._themeService.colors), this._rowFactory = P.createInstance(n.DomRendererRowFactory, document), this._element.classList.add(o + this._terminalClass), this._screenElement.appendChild(this._rowContainer), this._screenElement.appendChild(this._selectionContainer), this.register(this._linkifier2.onShowLinkUnderline(((I) => this._handleLinkHover(I)))), this.register(this._linkifier2.onHideLinkUnderline(((I) => this._handleLinkLeave(I)))), this.register((0, t.toDisposable)((() => {
+          constructor(b, k, A, H, P, M, S, y, w, L) {
+            super(), this._element = b, this._screenElement = k, this._viewportElement = A, this._linkifier2 = H, this._charSizeService = M, this._optionsService = S, this._bufferService = y, this._coreBrowserService = w, this._themeService = L, this._terminalClass = E++, this._rowElements = [], this.onRequestRedraw = this.register(new s.EventEmitter()).event, this._rowContainer = document.createElement("div"), this._rowContainer.classList.add(l), this._rowContainer.style.lineHeight = "normal", this._rowContainer.setAttribute("aria-hidden", "true"), this._refreshRowElements(this._bufferService.cols, this._bufferService.rows), this._selectionContainer = document.createElement("div"), this._selectionContainer.classList.add(m), this._selectionContainer.setAttribute("aria-hidden", "true"), this.dimensions = (0, g.createRenderDimensions)(), this._updateDimensions(), this.register(this._optionsService.onOptionChange((() => this._handleOptionsChanged()))), this.register(this._themeService.onChangeColors(((I) => this._injectCss(I)))), this._injectCss(this._themeService.colors), this._rowFactory = P.createInstance(n.DomRendererRowFactory, document), this._element.classList.add(o + this._terminalClass), this._screenElement.appendChild(this._rowContainer), this._screenElement.appendChild(this._selectionContainer), this.register(this._linkifier2.onShowLinkUnderline(((I) => this._handleLinkHover(I)))), this.register(this._linkifier2.onHideLinkUnderline(((I) => this._handleLinkLeave(I)))), this.register((0, t.toDisposable)((() => {
               this._element.classList.remove(o + this._terminalClass), this._rowContainer.remove(), this._selectionContainer.remove(), this._widthCache.dispose(), this._themeStyleElement.remove(), this._dimensionsStyleElement.remove();
             }))), this._widthCache = new u.WidthCache(document), this._widthCache.setFont(this._optionsService.rawOptions.fontFamily, this._optionsService.rawOptions.fontSize, this._optionsService.rawOptions.fontWeight, this._optionsService.rawOptions.fontWeightBold), this._setDefaultSpacing();
           }
           _updateDimensions() {
             const b = this._coreBrowserService.dpr;
             this.dimensions.device.char.width = this._charSizeService.width * b, this.dimensions.device.char.height = Math.ceil(this._charSizeService.height * b), this.dimensions.device.cell.width = this.dimensions.device.char.width + Math.round(this._optionsService.rawOptions.letterSpacing), this.dimensions.device.cell.height = Math.floor(this.dimensions.device.char.height * this._optionsService.rawOptions.lineHeight), this.dimensions.device.char.left = 0, this.dimensions.device.char.top = 0, this.dimensions.device.canvas.width = this.dimensions.device.cell.width * this._bufferService.cols, this.dimensions.device.canvas.height = this.dimensions.device.cell.height * this._bufferService.rows, this.dimensions.css.canvas.width = Math.round(this.dimensions.device.canvas.width / b), this.dimensions.css.canvas.height = Math.round(this.dimensions.device.canvas.height / b), this.dimensions.css.cell.width = this.dimensions.css.canvas.width / this._bufferService.cols, this.dimensions.css.cell.height = this.dimensions.css.canvas.height / this._bufferService.rows;
-            for (const R of this._rowElements) R.style.width = `${this.dimensions.css.canvas.width}px`, R.style.height = `${this.dimensions.css.cell.height}px`, R.style.lineHeight = `${this.dimensions.css.cell.height}px`, R.style.overflow = "hidden";
+            for (const A of this._rowElements) A.style.width = `${this.dimensions.css.canvas.width}px`, A.style.height = `${this.dimensions.css.cell.height}px`, A.style.lineHeight = `${this.dimensions.css.cell.height}px`, A.style.overflow = "hidden";
             this._dimensionsStyleElement || (this._dimensionsStyleElement = document.createElement("style"), this._screenElement.appendChild(this._dimensionsStyleElement));
             const k = `${this._terminalSelector} .${l} span { display: inline-block; height: 100%; vertical-align: top;}`;
             this._dimensionsStyleElement.textContent = k, this._selectionContainer.style.height = this._viewportElement.style.height, this._screenElement.style.width = `${this.dimensions.css.canvas.width}px`, this._screenElement.style.height = `${this.dimensions.css.canvas.height}px`;
@@ -1420,7 +1420,7 @@ WARNING: This link could potentially be dangerous`)) {
             this._themeStyleElement || (this._themeStyleElement = document.createElement("style"), this._screenElement.appendChild(this._themeStyleElement));
             let k = `${this._terminalSelector} .${l} { color: ${b.foreground.css}; font-family: ${this._optionsService.rawOptions.fontFamily}; font-size: ${this._optionsService.rawOptions.fontSize}px; font-kerning: none; white-space: pre}`;
             k += `${this._terminalSelector} .${l} .xterm-dim { color: ${e.color.multiplyOpacity(b.foreground, 0.5).css};}`, k += `${this._terminalSelector} span:not(.xterm-bold) { font-weight: ${this._optionsService.rawOptions.fontWeight};}${this._terminalSelector} span.xterm-bold { font-weight: ${this._optionsService.rawOptions.fontWeightBold};}${this._terminalSelector} span.xterm-italic { font-style: italic;}`, k += "@keyframes blink_box_shadow_" + this._terminalClass + " { 50% {  border-bottom-style: hidden; }}", k += "@keyframes blink_block_" + this._terminalClass + ` { 0% {  background-color: ${b.cursor.css};  color: ${b.cursorAccent.css}; } 50% {  background-color: inherit;  color: ${b.cursor.css}; }}`, k += `${this._terminalSelector} .${l}.${h} .xterm-cursor.xterm-cursor-blink:not(.xterm-cursor-block) { animation: blink_box_shadow_` + this._terminalClass + ` 1s step-end infinite;}${this._terminalSelector} .${l}.${h} .xterm-cursor.xterm-cursor-blink.xterm-cursor-block { animation: blink_block_` + this._terminalClass + ` 1s step-end infinite;}${this._terminalSelector} .${l} .xterm-cursor.xterm-cursor-block { background-color: ${b.cursor.css}; color: ${b.cursorAccent.css};}${this._terminalSelector} .${l} .xterm-cursor.xterm-cursor-outline { outline: 1px solid ${b.cursor.css}; outline-offset: -1px;}${this._terminalSelector} .${l} .xterm-cursor.xterm-cursor-bar { box-shadow: ${this._optionsService.rawOptions.cursorWidth}px 0 0 ${b.cursor.css} inset;}${this._terminalSelector} .${l} .xterm-cursor.xterm-cursor-underline { border-bottom: 1px ${b.cursor.css}; border-bottom-style: solid; height: calc(100% - 1px);}`, k += `${this._terminalSelector} .${m} { position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;}${this._terminalSelector}.focus .${m} div { position: absolute; background-color: ${b.selectionBackgroundOpaque.css};}${this._terminalSelector} .${m} div { position: absolute; background-color: ${b.selectionInactiveBackgroundOpaque.css};}`;
-            for (const [R, H] of b.ansi.entries()) k += `${this._terminalSelector} .${v}${R} { color: ${H.css}; }${this._terminalSelector} .${v}${R}.xterm-dim { color: ${e.color.multiplyOpacity(H, 0.5).css}; }${this._terminalSelector} .${d}${R} { background-color: ${H.css}; }`;
+            for (const [A, H] of b.ansi.entries()) k += `${this._terminalSelector} .${v}${A} { color: ${H.css}; }${this._terminalSelector} .${v}${A}.xterm-dim { color: ${e.color.multiplyOpacity(H, 0.5).css}; }${this._terminalSelector} .${d}${A} { background-color: ${H.css}; }`;
             k += `${this._terminalSelector} .${v}${p.INVERTED_DEFAULT_COLOR} { color: ${e.color.opaque(b.background).css}; }${this._terminalSelector} .${v}${p.INVERTED_DEFAULT_COLOR}.xterm-dim { color: ${e.color.multiplyOpacity(e.color.opaque(b.background), 0.5).css}; }${this._terminalSelector} .${d}${p.INVERTED_DEFAULT_COLOR} { background-color: ${b.foreground.css}; }`, this._themeStyleElement.textContent = k;
           }
           _setDefaultSpacing() {
@@ -1431,7 +1431,7 @@ WARNING: This link could potentially be dangerous`)) {
             this._updateDimensions(), this._widthCache.clear(), this._setDefaultSpacing();
           }
           _refreshRowElements(b, k) {
-            for (let R = this._rowElements.length; R <= k; R++) {
+            for (let A = this._rowElements.length; A <= k; A++) {
               const H = document.createElement("div");
               this._rowContainer.appendChild(H), this._rowElements.push(H);
             }
@@ -1449,12 +1449,12 @@ WARNING: This link could potentially be dangerous`)) {
           handleFocus() {
             this._rowContainer.classList.add(h), this.renderRows(this._bufferService.buffer.y, this._bufferService.buffer.y);
           }
-          handleSelectionChanged(b, k, R) {
-            if (this._selectionContainer.replaceChildren(), this._rowFactory.handleSelectionChanged(b, k, R), this.renderRows(0, this._bufferService.rows - 1), !b || !k) return;
+          handleSelectionChanged(b, k, A) {
+            if (this._selectionContainer.replaceChildren(), this._rowFactory.handleSelectionChanged(b, k, A), this.renderRows(0, this._bufferService.rows - 1), !b || !k) return;
             const H = b[1] - this._bufferService.buffer.ydisp, P = k[1] - this._bufferService.buffer.ydisp, M = Math.max(H, 0), S = Math.min(P, this._bufferService.rows - 1);
             if (M >= this._bufferService.rows || S < 0) return;
             const y = document.createDocumentFragment();
-            if (R) {
+            if (A) {
               const w = b[0] > k[0];
               y.appendChild(this._createSelectionElement(M, w ? k[0] : b[0], w ? b[0] : k[0], S - M + 1));
             } else {
@@ -1468,9 +1468,9 @@ WARNING: This link could potentially be dangerous`)) {
             }
             this._selectionContainer.appendChild(y);
           }
-          _createSelectionElement(b, k, R, H = 1) {
+          _createSelectionElement(b, k, A, H = 1) {
             const P = document.createElement("div");
-            return P.style.height = H * this.dimensions.css.cell.height + "px", P.style.top = b * this.dimensions.css.cell.height + "px", P.style.left = k * this.dimensions.css.cell.width + "px", P.style.width = this.dimensions.css.cell.width * (R - k) + "px", P;
+            return P.style.height = H * this.dimensions.css.cell.height + "px", P.style.top = b * this.dimensions.css.cell.height + "px", P.style.left = k * this.dimensions.css.cell.width + "px", P.style.width = this.dimensions.css.cell.width * (A - k) + "px", P;
           }
           handleCursorMove() {
           }
@@ -1481,9 +1481,9 @@ WARNING: This link could potentially be dangerous`)) {
             for (const b of this._rowElements) b.replaceChildren();
           }
           renderRows(b, k) {
-            const R = this._bufferService.buffer, H = R.ybase + R.y, P = Math.min(R.x, this._bufferService.cols - 1), M = this._optionsService.rawOptions.cursorBlink, S = this._optionsService.rawOptions.cursorStyle, y = this._optionsService.rawOptions.cursorInactiveStyle;
+            const A = this._bufferService.buffer, H = A.ybase + A.y, P = Math.min(A.x, this._bufferService.cols - 1), M = this._optionsService.rawOptions.cursorBlink, S = this._optionsService.rawOptions.cursorStyle, y = this._optionsService.rawOptions.cursorInactiveStyle;
             for (let w = b; w <= k; w++) {
-              const L = w + R.ydisp, I = this._rowElements[w], F = R.lines.get(L);
+              const L = w + A.ydisp, I = this._rowElements[w], F = A.lines.get(L);
               if (!I || !F) break;
               I.replaceChildren(...this._rowFactory.createRow(F, L, L === H, S, y, P, M, this.dimensions.css.cell.width, this._widthCache, -1, -1));
             }
@@ -1497,15 +1497,15 @@ WARNING: This link could potentially be dangerous`)) {
           _handleLinkLeave(b) {
             this._setCellUnderline(b.x1, b.x2, b.y1, b.y2, b.cols, !1);
           }
-          _setCellUnderline(b, k, R, H, P, M) {
-            R < 0 && (b = 0), H < 0 && (k = 0);
+          _setCellUnderline(b, k, A, H, P, M) {
+            A < 0 && (b = 0), H < 0 && (k = 0);
             const S = this._bufferService.rows - 1;
-            R = Math.max(Math.min(R, S), 0), H = Math.max(Math.min(H, S), 0), P = Math.min(P, this._bufferService.cols);
+            A = Math.max(Math.min(A, S), 0), H = Math.max(Math.min(H, S), 0), P = Math.min(P, this._bufferService.cols);
             const y = this._bufferService.buffer, w = y.ybase + y.y, L = Math.min(y.x, P - 1), I = this._optionsService.rawOptions.cursorBlink, F = this._optionsService.rawOptions.cursorStyle, N = this._optionsService.rawOptions.cursorInactiveStyle;
-            for (let $ = R; $ <= H; ++$) {
-              const X = $ + y.ydisp, C = this._rowElements[$], D = y.lines.get(X);
+            for (let z = A; z <= H; ++z) {
+              const X = z + y.ydisp, C = this._rowElements[z], D = y.lines.get(X);
               if (!C || !D) break;
-              C.replaceChildren(...this._rowFactory.createRow(D, X, X === w, F, N, L, I, this.dimensions.css.cell.width, this._widthCache, M ? $ === R ? b : 0 : -1, M ? ($ === H ? k : P) - 1 : -1));
+              C.replaceChildren(...this._rowFactory.createRow(D, X, X === w, F, N, L, I, this.dimensions.css.cell.width, this._widthCache, M ? z === A ? b : 0 : -1, M ? (z === H ? k : P) - 1 : -1));
             }
           }
         };
@@ -1538,11 +1538,11 @@ WARNING: This link could potentially be dangerous`)) {
           handleSelectionChanged(v, d, h) {
             this._selectionStart = v, this._selectionEnd = d, this._columnSelectMode = h;
           }
-          createRow(v, d, h, m, E, x, b, k, R, H, P) {
+          createRow(v, d, h, m, E, x, b, k, A, H, P) {
             const M = [], S = this._characterJoinerService.getJoinedCharacters(d), y = this._themeService.colors;
             let w, L = v.getNoBgTrimmedLength();
             h && L < x + 1 && (L = x + 1);
-            let I = 0, F = "", N = 0, $ = 0, X = 0, C = !1, D = 0, T = !1, B = 0;
+            let I = 0, F = "", N = 0, z = 0, X = 0, C = !1, D = 0, T = !1, B = 0;
             const j = [], W = H !== -1 && P !== -1;
             for (let G = 0; G < L; G++) {
               v.loadCell(G, this._workCell);
@@ -1560,14 +1560,14 @@ WARNING: This link could potentially be dangerous`)) {
                 ue = !0;
               }));
               let ce = K.getChars() || u.WHITESPACE_CELL_CHAR;
-              if (ce === " " && (K.isUnderline() || K.isOverline()) && (ce = " "), B = Y * k - R.get(ce, K.isBold(), K.isItalic()), w) {
-                if (I && (oe && T || !oe && !T && K.bg === N) && (oe && T && y.selectionForeground || K.fg === $) && K.extended.ext === X && _e === C && B === D && !de && !Q && !ue) {
+              if (ce === " " && (K.isUnderline() || K.isOverline()) && (ce = " "), B = Y * k - A.get(ce, K.isBold(), K.isItalic()), w) {
+                if (I && (oe && T || !oe && !T && K.bg === N) && (oe && T && y.selectionForeground || K.fg === z) && K.extended.ext === X && _e === C && B === D && !de && !Q && !ue) {
                   F += ce, I++;
                   continue;
                 }
                 I && (w.textContent = F), w = this._document.createElement("span"), I = 0, F = "";
               } else w = this._document.createElement("span");
-              if (N = K.bg, $ = K.fg, X = K.extended.ext, C = _e, D = B, T = oe, Q && x >= G && x <= re && (x = G), !this._coreService.isCursorHidden && de) {
+              if (N = K.bg, z = K.fg, X = K.extended.ext, C = _e, D = B, T = oe, Q && x >= G && x <= re && (x = G), !this._coreService.isCursorHidden && de) {
                 if (j.push("xterm-cursor"), this._coreBrowserService.isFocused) b && j.push("xterm-cursor-blink"), j.push(m === "bar" ? "xterm-cursor-bar" : m === "underline" ? "xterm-cursor-underline" : "xterm-cursor-block");
                 else if (E) switch (E) {
                   case "outline":
@@ -1632,8 +1632,8 @@ WARNING: This link could potentially be dangerous`)) {
             const b = this._getContrastCache(m);
             let k;
             if (E || x || (k = b.getColor(d.rgba, h.rgba)), k === void 0) {
-              const R = this._optionsService.rawOptions.minimumContrastRatio / (m.isDim() ? 2 : 1);
-              k = _.color.ensureContrastRatio(E || d, x || h, R), b.setColor((E || d).rgba, (x || h).rgba, k ?? null);
+              const A = this._optionsService.rawOptions.minimumContrastRatio / (m.isDim() ? 2 : 1);
+              k = _.color.ensureContrastRatio(E || d, x || h, A), b.setColor((E || d).rgba, (x || h).rgba, k ?? null);
             }
             return !!k && (this._addStyle(v, `color:${k.css}`), !0);
           }
@@ -2131,7 +2131,7 @@ WARNING: This link could potentially be dangerous`)) {
         var c = this && this.__decorate || function(d, h, m, E) {
           var x, b = arguments.length, k = b < 3 ? h : E === null ? E = Object.getOwnPropertyDescriptor(h, m) : E;
           if (typeof Reflect == "object" && typeof Reflect.decorate == "function") k = Reflect.decorate(d, h, m, E);
-          else for (var R = d.length - 1; R >= 0; R--) (x = d[R]) && (k = (b < 3 ? x(k) : b > 3 ? x(h, m, k) : x(h, m)) || k);
+          else for (var A = d.length - 1; A >= 0; A--) (x = d[A]) && (k = (b < 3 ? x(k) : b > 3 ? x(h, m, k) : x(h, m)) || k);
           return b > 3 && k && Object.defineProperty(h, m, k), k;
         }, f = this && this.__param || function(d, h) {
           return function(m, E) {
@@ -2141,8 +2141,8 @@ WARNING: This link could potentially be dangerous`)) {
         Object.defineProperty(r, "__esModule", { value: !0 }), r.SelectionService = void 0;
         const n = a(9806), u = a(9504), p = a(456), g = a(4725), _ = a(8460), e = a(844), s = a(6114), t = a(4841), i = a(511), o = a(2585), l = new RegExp(" ", "g");
         let v = r.SelectionService = class extends e.Disposable {
-          constructor(d, h, m, E, x, b, k, R, H) {
-            super(), this._element = d, this._screenElement = h, this._linkifier = m, this._bufferService = E, this._coreService = x, this._mouseService = b, this._optionsService = k, this._renderService = R, this._coreBrowserService = H, this._dragScrollAmount = 0, this._enabled = !0, this._workCell = new i.CellData(), this._mouseDownTimeStamp = 0, this._oldHasSelection = !1, this._oldSelectionStart = void 0, this._oldSelectionEnd = void 0, this._onLinuxMouseSelection = this.register(new _.EventEmitter()), this.onLinuxMouseSelection = this._onLinuxMouseSelection.event, this._onRedrawRequest = this.register(new _.EventEmitter()), this.onRequestRedraw = this._onRedrawRequest.event, this._onSelectionChange = this.register(new _.EventEmitter()), this.onSelectionChange = this._onSelectionChange.event, this._onRequestScrollLines = this.register(new _.EventEmitter()), this.onRequestScrollLines = this._onRequestScrollLines.event, this._mouseMoveListener = (P) => this._handleMouseMove(P), this._mouseUpListener = (P) => this._handleMouseUp(P), this._coreService.onUserInput((() => {
+          constructor(d, h, m, E, x, b, k, A, H) {
+            super(), this._element = d, this._screenElement = h, this._linkifier = m, this._bufferService = E, this._coreService = x, this._mouseService = b, this._optionsService = k, this._renderService = A, this._coreBrowserService = H, this._dragScrollAmount = 0, this._enabled = !0, this._workCell = new i.CellData(), this._mouseDownTimeStamp = 0, this._oldHasSelection = !1, this._oldSelectionStart = void 0, this._oldSelectionEnd = void 0, this._onLinuxMouseSelection = this.register(new _.EventEmitter()), this.onLinuxMouseSelection = this._onLinuxMouseSelection.event, this._onRedrawRequest = this.register(new _.EventEmitter()), this.onRequestRedraw = this._onRedrawRequest.event, this._onSelectionChange = this.register(new _.EventEmitter()), this.onSelectionChange = this._onSelectionChange.event, this._onRequestScrollLines = this.register(new _.EventEmitter()), this.onRequestScrollLines = this._onRequestScrollLines.event, this._mouseMoveListener = (P) => this._handleMouseMove(P), this._mouseUpListener = (P) => this._handleMouseUp(P), this._coreService.onUserInput((() => {
               this.hasSelection && this.clearSelection();
             })), this._trimListener = this._bufferService.buffer.lines.onTrim(((P) => this._handleTrim(P))), this.register(this._bufferService.buffers.onBufferActivate(((P) => this._handleBufferActivate(P)))), this.enable(), this._model = new p.SelectionModel(this._bufferService), this._activeSelectionMode = 0, this.register((0, e.toDisposable)((() => {
               this._removeMouseDownListeners();
@@ -2175,15 +2175,15 @@ WARNING: This link could potentially be dangerous`)) {
               if (d[0] === h[0]) return "";
               const x = d[0] < h[0] ? d[0] : h[0], b = d[0] < h[0] ? h[0] : d[0];
               for (let k = d[1]; k <= h[1]; k++) {
-                const R = m.translateBufferLineToString(k, !0, x, b);
-                E.push(R);
+                const A = m.translateBufferLineToString(k, !0, x, b);
+                E.push(A);
               }
             } else {
               const x = d[1] === h[1] ? h[0] : void 0;
               E.push(m.translateBufferLineToString(d[1], !0, d[0], x));
               for (let b = d[1] + 1; b <= h[1] - 1; b++) {
-                const k = m.lines.get(b), R = m.translateBufferLineToString(b, !0);
-                k?.isWrapped ? E[E.length - 1] += R : E.push(R);
+                const k = m.lines.get(b), A = m.translateBufferLineToString(b, !0);
+                k?.isWrapped ? E[E.length - 1] += A : E.push(A);
               }
               if (d[1] !== h[1]) {
                 const b = m.lines.get(h[1]), k = m.translateBufferLineToString(h[1], !0, 0, h[0]);
@@ -2343,20 +2343,20 @@ WARNING: This link could potentially be dangerous`)) {
             const x = this._bufferService.buffer, b = x.lines.get(d[1]);
             if (!b) return;
             const k = x.translateBufferLineToString(d[1], !1);
-            let R = this._convertViewportColToCharacterIndex(b, d[0]), H = R;
-            const P = d[0] - R;
+            let A = this._convertViewportColToCharacterIndex(b, d[0]), H = A;
+            const P = d[0] - A;
             let M = 0, S = 0, y = 0, w = 0;
-            if (k.charAt(R) === " ") {
-              for (; R > 0 && k.charAt(R - 1) === " "; ) R--;
+            if (k.charAt(A) === " ") {
+              for (; A > 0 && k.charAt(A - 1) === " "; ) A--;
               for (; H < k.length && k.charAt(H + 1) === " "; ) H++;
             } else {
               let F = d[0], N = d[0];
               b.getWidth(F) === 0 && (M++, F--), b.getWidth(N) === 2 && (S++, N++);
-              const $ = b.getString(N).length;
-              for ($ > 1 && (w += $ - 1, H += $ - 1); F > 0 && R > 0 && !this._isCharWordSeparator(b.loadCell(F - 1, this._workCell)); ) {
+              const z = b.getString(N).length;
+              for (z > 1 && (w += z - 1, H += z - 1); F > 0 && A > 0 && !this._isCharWordSeparator(b.loadCell(F - 1, this._workCell)); ) {
                 b.loadCell(F - 1, this._workCell);
                 const X = this._workCell.getChars().length;
-                this._workCell.getWidth() === 0 ? (M++, F--) : X > 1 && (y += X - 1, R -= X - 1), R--, F--;
+                this._workCell.getWidth() === 0 ? (M++, F--) : X > 1 && (y += X - 1, A -= X - 1), A--, F--;
               }
               for (; N < b.length && H + 1 < k.length && !this._isCharWordSeparator(b.loadCell(N + 1, this._workCell)); ) {
                 b.loadCell(N + 1, this._workCell);
@@ -2365,15 +2365,15 @@ WARNING: This link could potentially be dangerous`)) {
               }
             }
             H++;
-            let L = R + P - M + y, I = Math.min(this._bufferService.cols, H - R + M + S - y - w);
-            if (h || k.slice(R, H).trim() !== "") {
+            let L = A + P - M + y, I = Math.min(this._bufferService.cols, H - A + M + S - y - w);
+            if (h || k.slice(A, H).trim() !== "") {
               if (m && L === 0 && b.getCodePoint(0) !== 32) {
                 const F = x.lines.get(d[1] - 1);
                 if (F && b.isWrapped && F.getCodePoint(this._bufferService.cols - 1) !== 32) {
                   const N = this._getWordAt([this._bufferService.cols - 1, d[1] - 1], !1, !0, !1);
                   if (N) {
-                    const $ = this._bufferService.cols - N.start;
-                    L -= $, I += $;
+                    const z = this._bufferService.cols - N.start;
+                    L -= z, I += z;
                   }
                 }
               }
@@ -2441,7 +2441,7 @@ WARNING: This link could potentially be dangerous`)) {
         var c = this && this.__decorate || function(d, h, m, E) {
           var x, b = arguments.length, k = b < 3 ? h : E === null ? E = Object.getOwnPropertyDescriptor(h, m) : E;
           if (typeof Reflect == "object" && typeof Reflect.decorate == "function") k = Reflect.decorate(d, h, m, E);
-          else for (var R = d.length - 1; R >= 0; R--) (x = d[R]) && (k = (b < 3 ? x(k) : b > 3 ? x(h, m, k) : x(h, m)) || k);
+          else for (var A = d.length - 1; A >= 0; A--) (x = d[A]) && (k = (b < 3 ? x(k) : b > 3 ? x(h, m, k) : x(h, m)) || k);
           return b > 3 && k && Object.defineProperty(h, m, k), k;
         }, f = this && this.__param || function(d, h) {
           return function(m, E) {
@@ -2684,8 +2684,8 @@ WARNING: This link could potentially be dangerous`)) {
               css: h.css,
               rgba: h.rgba
             };
-            const m = h.rgba >> 24 & 255, E = h.rgba >> 16 & 255, x = h.rgba >> 8 & 255, b = d.rgba >> 24 & 255, k = d.rgba >> 16 & 255, R = d.rgba >> 8 & 255;
-            return f = b + Math.round((m - b) * p), n = k + Math.round((E - k) * p), u = R + Math.round((x - R) * p), {
+            const m = h.rgba >> 24 & 255, E = h.rgba >> 16 & 255, x = h.rgba >> 8 & 255, b = d.rgba >> 24 & 255, k = d.rgba >> 16 & 255, A = d.rgba >> 8 & 255;
+            return f = b + Math.round((m - b) * p), n = k + Math.round((E - k) * p), u = A + Math.round((x - A) * p), {
               css: g.toCss(f, n, u),
               rgba: g.toRgba(f, n, u)
             };
@@ -2755,15 +2755,15 @@ WARNING: This link could potentially be dangerous`)) {
         })(s || (r.rgb = s = {})), (function(l) {
           function v(h, m, E) {
             const x = h >> 24 & 255, b = h >> 16 & 255, k = h >> 8 & 255;
-            let R = m >> 24 & 255, H = m >> 16 & 255, P = m >> 8 & 255, M = o(s.relativeLuminance2(R, H, P), s.relativeLuminance2(x, b, k));
-            for (; M < E && (R > 0 || H > 0 || P > 0); ) R -= Math.max(0, Math.ceil(0.1 * R)), H -= Math.max(0, Math.ceil(0.1 * H)), P -= Math.max(0, Math.ceil(0.1 * P)), M = o(s.relativeLuminance2(R, H, P), s.relativeLuminance2(x, b, k));
-            return (R << 24 | H << 16 | P << 8 | 255) >>> 0;
+            let A = m >> 24 & 255, H = m >> 16 & 255, P = m >> 8 & 255, M = o(s.relativeLuminance2(A, H, P), s.relativeLuminance2(x, b, k));
+            for (; M < E && (A > 0 || H > 0 || P > 0); ) A -= Math.max(0, Math.ceil(0.1 * A)), H -= Math.max(0, Math.ceil(0.1 * H)), P -= Math.max(0, Math.ceil(0.1 * P)), M = o(s.relativeLuminance2(A, H, P), s.relativeLuminance2(x, b, k));
+            return (A << 24 | H << 16 | P << 8 | 255) >>> 0;
           }
           function d(h, m, E) {
             const x = h >> 24 & 255, b = h >> 16 & 255, k = h >> 8 & 255;
-            let R = m >> 24 & 255, H = m >> 16 & 255, P = m >> 8 & 255, M = o(s.relativeLuminance2(R, H, P), s.relativeLuminance2(x, b, k));
-            for (; M < E && (R < 255 || H < 255 || P < 255); ) R = Math.min(255, R + Math.ceil(0.1 * (255 - R))), H = Math.min(255, H + Math.ceil(0.1 * (255 - H))), P = Math.min(255, P + Math.ceil(0.1 * (255 - P))), M = o(s.relativeLuminance2(R, H, P), s.relativeLuminance2(x, b, k));
-            return (R << 24 | H << 16 | P << 8 | 255) >>> 0;
+            let A = m >> 24 & 255, H = m >> 16 & 255, P = m >> 8 & 255, M = o(s.relativeLuminance2(A, H, P), s.relativeLuminance2(x, b, k));
+            for (; M < E && (A < 255 || H < 255 || P < 255); ) A = Math.min(255, A + Math.ceil(0.1 * (255 - A))), H = Math.min(255, H + Math.ceil(0.1 * (255 - H))), P = Math.min(255, P + Math.ceil(0.1 * (255 - P))), M = o(s.relativeLuminance2(A, H, P), s.relativeLuminance2(x, b, k));
+            return (A << 24 | H << 16 | P << 8 | 255) >>> 0;
           }
           l.ensureContrastRatio = function(h, m, E) {
             const x = s.relativeLuminance(h >> 8), b = s.relativeLuminance(m >> 8);
@@ -2776,10 +2776,10 @@ WARNING: This link could potentially be dangerous`)) {
                 }
                 return H;
               }
-              const k = d(h, m, E), R = o(x, s.relativeLuminance(k >> 8));
-              if (R < E) {
+              const k = d(h, m, E), A = o(x, s.relativeLuminance(k >> 8));
+              if (A < E) {
                 const H = v(h, m, E);
-                return R > o(x, s.relativeLuminance(H >> 8)) ? k : H;
+                return A > o(x, s.relativeLuminance(H >> 8)) ? k : H;
               }
               return k;
             }
@@ -3001,12 +3001,12 @@ WARNING: This link could potentially be dangerous`)) {
           M[M.GET_WIN_SIZE_PIXELS = 0] = "GET_WIN_SIZE_PIXELS", M[M.GET_CELL_SIZE_PIXELS = 1] = "GET_CELL_SIZE_PIXELS";
         })(b || (r.WindowsOptionsReportType = b = {}));
         let k = 0;
-        class R extends g.Disposable {
+        class A extends g.Disposable {
           getAttrData() {
             return this._curAttrData;
           }
-          constructor(S, y, w, L, I, F, N, $, X = new p.EscapeSequenceParser()) {
-            super(), this._bufferService = S, this._charsetService = y, this._coreService = w, this._logService = L, this._optionsService = I, this._oscLinkService = F, this._coreMouseService = N, this._unicodeService = $, this._parser = X, this._parseBuffer = new Uint32Array(4096), this._stringDecoder = new _.StringToUtf32(), this._utf8Decoder = new _.Utf8ToUtf32(), this._workCell = new i.CellData(), this._windowTitle = "", this._iconName = "", this._windowTitleStack = [], this._iconNameStack = [], this._curAttrData = e.DEFAULT_ATTR_DATA.clone(), this._eraseAttrDataInternal = e.DEFAULT_ATTR_DATA.clone(), this._onRequestBell = this.register(new s.EventEmitter()), this.onRequestBell = this._onRequestBell.event, this._onRequestRefreshRows = this.register(new s.EventEmitter()), this.onRequestRefreshRows = this._onRequestRefreshRows.event, this._onRequestReset = this.register(new s.EventEmitter()), this.onRequestReset = this._onRequestReset.event, this._onRequestSendFocus = this.register(new s.EventEmitter()), this.onRequestSendFocus = this._onRequestSendFocus.event, this._onRequestSyncScrollBar = this.register(new s.EventEmitter()), this.onRequestSyncScrollBar = this._onRequestSyncScrollBar.event, this._onRequestWindowsOptionsReport = this.register(new s.EventEmitter()), this.onRequestWindowsOptionsReport = this._onRequestWindowsOptionsReport.event, this._onA11yChar = this.register(new s.EventEmitter()), this.onA11yChar = this._onA11yChar.event, this._onA11yTab = this.register(new s.EventEmitter()), this.onA11yTab = this._onA11yTab.event, this._onCursorMove = this.register(new s.EventEmitter()), this.onCursorMove = this._onCursorMove.event, this._onLineFeed = this.register(new s.EventEmitter()), this.onLineFeed = this._onLineFeed.event, this._onScroll = this.register(new s.EventEmitter()), this.onScroll = this._onScroll.event, this._onTitleChange = this.register(new s.EventEmitter()), this.onTitleChange = this._onTitleChange.event, this._onColor = this.register(new s.EventEmitter()), this.onColor = this._onColor.event, this._parseStack = {
+          constructor(S, y, w, L, I, F, N, z, X = new p.EscapeSequenceParser()) {
+            super(), this._bufferService = S, this._charsetService = y, this._coreService = w, this._logService = L, this._optionsService = I, this._oscLinkService = F, this._coreMouseService = N, this._unicodeService = z, this._parser = X, this._parseBuffer = new Uint32Array(4096), this._stringDecoder = new _.StringToUtf32(), this._utf8Decoder = new _.Utf8ToUtf32(), this._workCell = new i.CellData(), this._windowTitle = "", this._iconName = "", this._windowTitleStack = [], this._iconNameStack = [], this._curAttrData = e.DEFAULT_ATTR_DATA.clone(), this._eraseAttrDataInternal = e.DEFAULT_ATTR_DATA.clone(), this._onRequestBell = this.register(new s.EventEmitter()), this.onRequestBell = this._onRequestBell.event, this._onRequestRefreshRows = this.register(new s.EventEmitter()), this.onRequestRefreshRows = this._onRequestRefreshRows.event, this._onRequestReset = this.register(new s.EventEmitter()), this.onRequestReset = this._onRequestReset.event, this._onRequestSendFocus = this.register(new s.EventEmitter()), this.onRequestSendFocus = this._onRequestSendFocus.event, this._onRequestSyncScrollBar = this.register(new s.EventEmitter()), this.onRequestSyncScrollBar = this._onRequestSyncScrollBar.event, this._onRequestWindowsOptionsReport = this.register(new s.EventEmitter()), this.onRequestWindowsOptionsReport = this._onRequestWindowsOptionsReport.event, this._onA11yChar = this.register(new s.EventEmitter()), this.onA11yChar = this._onA11yChar.event, this._onA11yTab = this.register(new s.EventEmitter()), this.onA11yTab = this._onA11yTab.event, this._onCursorMove = this.register(new s.EventEmitter()), this.onCursorMove = this._onCursorMove.event, this._onLineFeed = this.register(new s.EventEmitter()), this.onLineFeed = this._onLineFeed.event, this._onScroll = this.register(new s.EventEmitter()), this.onScroll = this._onScroll.event, this._onTitleChange = this.register(new s.EventEmitter()), this.onTitleChange = this._onTitleChange.event, this._onColor = this.register(new s.EventEmitter()), this.onColor = this._onColor.event, this._parseStack = {
               paused: !1,
               cursorStartX: 0,
               cursorStartY: 0,
@@ -3139,19 +3139,19 @@ WARNING: This link could potentially be dangerous`)) {
               if (w = this._parser.parse(this._parseBuffer, this._parseStack.decodedLength, y)) return this._logSlowResolvingAsync(w), w;
               L = this._parseStack.cursorStartX, I = this._parseStack.cursorStartY, this._parseStack.paused = !1, S.length > E && (F = this._parseStack.position + E);
             }
-            if (this._logService.logLevel <= l.LogLevelEnum.DEBUG && this._logService.debug("parsing data" + (typeof S == "string" ? ` "${S}"` : ` "${Array.prototype.map.call(S, (($) => String.fromCharCode($))).join("")}"`), typeof S == "string" ? S.split("").map((($) => $.charCodeAt(0))) : S), this._parseBuffer.length < S.length && this._parseBuffer.length < E && (this._parseBuffer = new Uint32Array(Math.min(S.length, E))), N || this._dirtyRowTracker.clearRange(), S.length > E) for (let $ = F; $ < S.length; $ += E) {
-              const X = $ + E < S.length ? $ + E : S.length, C = typeof S == "string" ? this._stringDecoder.decode(S.substring($, X), this._parseBuffer) : this._utf8Decoder.decode(S.subarray($, X), this._parseBuffer);
-              if (w = this._parser.parse(this._parseBuffer, C)) return this._preserveStack(L, I, C, $), this._logSlowResolvingAsync(w), w;
+            if (this._logService.logLevel <= l.LogLevelEnum.DEBUG && this._logService.debug("parsing data" + (typeof S == "string" ? ` "${S}"` : ` "${Array.prototype.map.call(S, ((z) => String.fromCharCode(z))).join("")}"`), typeof S == "string" ? S.split("").map(((z) => z.charCodeAt(0))) : S), this._parseBuffer.length < S.length && this._parseBuffer.length < E && (this._parseBuffer = new Uint32Array(Math.min(S.length, E))), N || this._dirtyRowTracker.clearRange(), S.length > E) for (let z = F; z < S.length; z += E) {
+              const X = z + E < S.length ? z + E : S.length, C = typeof S == "string" ? this._stringDecoder.decode(S.substring(z, X), this._parseBuffer) : this._utf8Decoder.decode(S.subarray(z, X), this._parseBuffer);
+              if (w = this._parser.parse(this._parseBuffer, C)) return this._preserveStack(L, I, C, z), this._logSlowResolvingAsync(w), w;
             }
             else if (!N) {
-              const $ = typeof S == "string" ? this._stringDecoder.decode(S, this._parseBuffer) : this._utf8Decoder.decode(S, this._parseBuffer);
-              if (w = this._parser.parse(this._parseBuffer, $)) return this._preserveStack(L, I, $, 0), this._logSlowResolvingAsync(w), w;
+              const z = typeof S == "string" ? this._stringDecoder.decode(S, this._parseBuffer) : this._utf8Decoder.decode(S, this._parseBuffer);
+              if (w = this._parser.parse(this._parseBuffer, z)) return this._preserveStack(L, I, z, 0), this._logSlowResolvingAsync(w), w;
             }
             this._activeBuffer.x === L && this._activeBuffer.y === I || this._onCursorMove.fire(), this._onRequestRefreshRows.fire(this._dirtyRowTracker.start, this._dirtyRowTracker.end);
           }
           print(S, y, w) {
             let L, I;
-            const F = this._charsetService.charset, N = this._optionsService.rawOptions.screenReaderMode, $ = this._bufferService.cols, X = this._coreService.decPrivateModes.wraparound, C = this._coreService.modes.insertMode, D = this._curAttrData;
+            const F = this._charsetService.charset, N = this._optionsService.rawOptions.screenReaderMode, z = this._bufferService.cols, X = this._coreService.decPrivateModes.wraparound, C = this._coreService.modes.insertMode, D = this._curAttrData;
             let T = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
             this._dirtyRowTracker.markDirty(this._activeBuffer.y), this._activeBuffer.x && w - y > 0 && T.getWidth(this._activeBuffer.x - 1) === 2 && T.setCellFromCodePoint(this._activeBuffer.x - 1, 0, 1, D.fg, D.bg, D.extended);
             for (let B = y; B < w; ++B) {
@@ -3160,16 +3160,16 @@ WARNING: This link could potentially be dangerous`)) {
                 j && (L = j.charCodeAt(0));
               }
               if (N && this._onA11yChar.fire((0, _.stringFromCodePoint)(L)), this._getCurrentLinkId() && this._oscLinkService.addLineToLink(this._getCurrentLinkId(), this._activeBuffer.ybase + this._activeBuffer.y), I || !this._activeBuffer.x) {
-                if (this._activeBuffer.x + I - 1 >= $) {
+                if (this._activeBuffer.x + I - 1 >= z) {
                   if (X) {
-                    for (; this._activeBuffer.x < $; ) T.setCellFromCodePoint(this._activeBuffer.x++, 0, 1, D.fg, D.bg, D.extended);
+                    for (; this._activeBuffer.x < z; ) T.setCellFromCodePoint(this._activeBuffer.x++, 0, 1, D.fg, D.bg, D.extended);
                     this._activeBuffer.x = 0, this._activeBuffer.y++, this._activeBuffer.y === this._activeBuffer.scrollBottom + 1 ? (this._activeBuffer.y--, this._bufferService.scroll(this._eraseAttrData(), !0)) : (this._activeBuffer.y >= this._bufferService.rows && (this._activeBuffer.y = this._bufferService.rows - 1), this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y).isWrapped = !0), T = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
-                  } else if (this._activeBuffer.x = $ - 1, I === 2) continue;
+                  } else if (this._activeBuffer.x = z - 1, I === 2) continue;
                 }
-                if (C && (T.insertCells(this._activeBuffer.x, I, this._activeBuffer.getNullCell(D), D), T.getWidth($ - 1) === 2 && T.setCellFromCodePoint($ - 1, t.NULL_CELL_CODE, t.NULL_CELL_WIDTH, D.fg, D.bg, D.extended)), T.setCellFromCodePoint(this._activeBuffer.x++, L, I, D.fg, D.bg, D.extended), I > 0) for (; --I; ) T.setCellFromCodePoint(this._activeBuffer.x++, 0, 0, D.fg, D.bg, D.extended);
+                if (C && (T.insertCells(this._activeBuffer.x, I, this._activeBuffer.getNullCell(D), D), T.getWidth(z - 1) === 2 && T.setCellFromCodePoint(z - 1, t.NULL_CELL_CODE, t.NULL_CELL_WIDTH, D.fg, D.bg, D.extended)), T.setCellFromCodePoint(this._activeBuffer.x++, L, I, D.fg, D.bg, D.extended), I > 0) for (; --I; ) T.setCellFromCodePoint(this._activeBuffer.x++, 0, 0, D.fg, D.bg, D.extended);
               } else T.getWidth(this._activeBuffer.x - 1) ? T.addCodepointToCell(this._activeBuffer.x - 1, L) : T.addCodepointToCell(this._activeBuffer.x - 2, L);
             }
-            w - y > 0 && (T.loadCell(this._activeBuffer.x - 1, this._workCell), this._workCell.getWidth() === 2 || this._workCell.getCode() > 65535 ? this._parser.precedingCodepoint = 0 : this._workCell.isCombined() ? this._parser.precedingCodepoint = this._workCell.getChars().charCodeAt(0) : this._parser.precedingCodepoint = this._workCell.content), this._activeBuffer.x < $ && w - y > 0 && T.getWidth(this._activeBuffer.x) === 0 && !T.hasContent(this._activeBuffer.x) && T.setCellFromCodePoint(this._activeBuffer.x, 0, 1, D.fg, D.bg, D.extended), this._dirtyRowTracker.markDirty(this._activeBuffer.y);
+            w - y > 0 && (T.loadCell(this._activeBuffer.x - 1, this._workCell), this._workCell.getWidth() === 2 || this._workCell.getCode() > 65535 ? this._parser.precedingCodepoint = 0 : this._workCell.isCombined() ? this._parser.precedingCodepoint = this._workCell.getChars().charCodeAt(0) : this._parser.precedingCodepoint = this._workCell.content), this._activeBuffer.x < z && w - y > 0 && T.getWidth(this._activeBuffer.x) === 0 && !T.hasContent(this._activeBuffer.x) && T.setCellFromCodePoint(this._activeBuffer.x, 0, 1, D.fg, D.bg, D.extended), this._dirtyRowTracker.markDirty(this._activeBuffer.y);
           }
           registerCsiHandler(S, y) {
             return S.final !== "t" || S.prefix || S.intermediates ? this._parser.registerCsiHandler(S, y) : this._parser.registerCsiHandler(S, ((w) => !x(w.params[0], this._optionsService.rawOptions.windowOptions) || y(w)));
@@ -3568,8 +3568,8 @@ WARNING: This link could potentially be dangerous`)) {
             return !0;
           }
           requestMode(S, y) {
-            const w = this._coreService.decPrivateModes, { activeProtocol: L, activeEncoding: I } = this._coreMouseService, F = this._coreService, { buffers: N, cols: $ } = this._bufferService, { active: X, alt: C } = N, D = this._optionsService.rawOptions, T = (G) => G ? 1 : 2, B = S.params[0];
-            return j = B, W = y ? B === 2 ? 4 : B === 4 ? T(F.modes.insertMode) : B === 12 ? 3 : B === 20 ? T(D.convertEol) : 0 : B === 1 ? T(w.applicationCursorKeys) : B === 3 ? D.windowOptions.setWinLines ? $ === 80 ? 2 : $ === 132 ? 1 : 0 : 0 : B === 6 ? T(w.origin) : B === 7 ? T(w.wraparound) : B === 8 ? 3 : B === 9 ? T(L === "X10") : B === 12 ? T(D.cursorBlink) : B === 25 ? T(!F.isCursorHidden) : B === 45 ? T(w.reverseWraparound) : B === 66 ? T(w.applicationKeypad) : B === 67 ? 4 : B === 1e3 ? T(L === "VT200") : B === 1002 ? T(L === "DRAG") : B === 1003 ? T(L === "ANY") : B === 1004 ? T(w.sendFocus) : B === 1005 ? 4 : B === 1006 ? T(I === "SGR") : B === 1015 ? 4 : B === 1016 ? T(I === "SGR_PIXELS") : B === 1048 ? 1 : B === 47 || B === 1047 || B === 1049 ? T(X === C) : B === 2004 ? T(w.bracketedPasteMode) : 0, F.triggerDataEvent(`${n.C0.ESC}[${y ? "" : "?"}${j};${W}$y`), !0;
+            const w = this._coreService.decPrivateModes, { activeProtocol: L, activeEncoding: I } = this._coreMouseService, F = this._coreService, { buffers: N, cols: z } = this._bufferService, { active: X, alt: C } = N, D = this._optionsService.rawOptions, T = (G) => G ? 1 : 2, B = S.params[0];
+            return j = B, W = y ? B === 2 ? 4 : B === 4 ? T(F.modes.insertMode) : B === 12 ? 3 : B === 20 ? T(D.convertEol) : 0 : B === 1 ? T(w.applicationCursorKeys) : B === 3 ? D.windowOptions.setWinLines ? z === 80 ? 2 : z === 132 ? 1 : 0 : 0 : B === 6 ? T(w.origin) : B === 7 ? T(w.wraparound) : B === 8 ? 3 : B === 9 ? T(L === "X10") : B === 12 ? T(D.cursorBlink) : B === 25 ? T(!F.isCursorHidden) : B === 45 ? T(w.reverseWraparound) : B === 66 ? T(w.applicationKeypad) : B === 67 ? 4 : B === 1e3 ? T(L === "VT200") : B === 1002 ? T(L === "DRAG") : B === 1003 ? T(L === "ANY") : B === 1004 ? T(w.sendFocus) : B === 1005 ? 4 : B === 1006 ? T(I === "SGR") : B === 1015 ? 4 : B === 1016 ? T(I === "SGR_PIXELS") : B === 1048 ? 1 : B === 47 || B === 1047 || B === 1049 ? T(X === C) : B === 2004 ? T(w.bracketedPasteMode) : 0, F.triggerDataEvent(`${n.C0.ESC}[${y ? "" : "?"}${j};${W}$y`), !0;
             var j, W;
           }
           _updateAttrColor(S, y, w, L, I) {
@@ -3592,10 +3592,10 @@ WARNING: This link could potentially be dangerous`)) {
             do {
               if (L[F + I] = S.params[y + F], S.hasSubParams(y + F)) {
                 const N = S.getSubParams(y + F);
-                let $ = 0;
+                let z = 0;
                 do
-                  L[1] === 5 && (I = 1), L[F + $ + 1 + I] = N[$];
-                while (++$ < N.length && $ + F + 1 + I < L.length);
+                  L[1] === 5 && (I = 1), L[F + z + 1 + I] = N[z];
+                while (++z < N.length && z + F + 1 + I < L.length);
                 break;
               }
               if (L[1] === 5 && F + I >= 2 || L[1] === 2 && F + I >= 5) break;
@@ -3860,7 +3860,7 @@ WARNING: This link could potentially be dangerous`)) {
             this._dirtyRowTracker.markRangeDirty(S, y);
           }
         }
-        r.InputHandler = R;
+        r.InputHandler = A;
         let H = class {
           constructor(M) {
             this._bufferService = M, this.clearRange();
@@ -4376,8 +4376,8 @@ WARNING: This link could potentially be dangerous`)) {
               const E = this.ybase + this.y;
               if (E >= d && E < d + m.length) continue;
               const x = m[m.length - 1].getTrimmedLength(), b = (0, p.reflowSmallerGetNewLineLengths)(m, this._cols, t), k = b.length - m.length;
-              let R;
-              R = this.ybase === 0 && this.y !== this.lines.length - 1 ? Math.max(0, this.y - this.lines.maxLength + k) : Math.max(0, this.lines.length - this.lines.maxLength + k);
+              let A;
+              A = this.ybase === 0 && this.y !== this.lines.length - 1 ? Math.max(0, this.y - this.lines.maxLength + k) : Math.max(0, this.lines.length - this.lines.maxLength + k);
               const H = [];
               for (let L = 0; L < k; L++) {
                 const I = this.getBlankLine(u.DEFAULT_ATTR_DATA, !0);
@@ -4400,7 +4400,7 @@ WARNING: This link could potentially be dangerous`)) {
                 }
               }
               for (let L = 0; L < m.length; L++) b[L] < t && m[L].setCell(b[L], o);
-              let w = k - R;
+              let w = k - A;
               for (; w-- > 0; ) this.ybase === 0 ? this.y < i - 1 ? (this.y++, this.lines.pop()) : (this.ybase++, this.ydisp++) : this.ybase < Math.min(this.lines.maxLength, this.lines.length + v) - i && (this.ybase === this.ydisp && this.ydisp++, this.ybase++);
               this.savedY = Math.min(this.savedY + k, this.ybase + i - 1);
             }
@@ -4418,8 +4418,8 @@ WARNING: This link could potentially be dangerous`)) {
                   amount: b.newLines.length
                 }), k += b.newLines.length, b = l[++x];
               } else this.lines.set(P, h[E--]);
-              let R = 0;
-              for (let P = d.length - 1; P >= 0; P--) d[P].index += R, this.lines.onInsertEmitter.fire(d[P]), R += d[P].amount;
+              let A = 0;
+              for (let P = d.length - 1; P >= 0; P--) d[P].index += A, this.lines.onInsertEmitter.fire(d[P]), A += d[P].amount;
               const H = Math.max(0, m + v - this.lines.maxLength);
               H > 0 && this.lines.onTrimEmitter.fire(H);
             }
@@ -6909,7 +6909,7 @@ WARNING: This link could potentially be dangerous`)) {
       var r = q[O];
       if (r !== void 0) return r.exports;
       var a = q[O] = { exports: {} };
-      return z[O].call(a.exports, a, a.exports, V), a.exports;
+      return $[O].call(a.exports, a, a.exports, V), a.exports;
     }
     var Z = {};
     return (() => {
@@ -7138,14 +7138,14 @@ WARNING: This link could potentially be dangerous`)) {
       O.Terminal = _;
     })(), Z;
   })()));
-})), ye = /* @__PURE__ */ ge(((A, U) => {
-  (function(z, q) {
-    typeof A == "object" && typeof U == "object" ? U.exports = q() : typeof define == "function" && define.amd ? define([], q) : typeof A == "object" ? A.FitAddon = q() : z.FitAddon = q();
+})), ye = /* @__PURE__ */ ge(((R, U) => {
+  (function($, q) {
+    typeof R == "object" && typeof U == "object" ? U.exports = q() : typeof define == "function" && define.amd ? define([], q) : typeof R == "object" ? R.FitAddon = q() : $.FitAddon = q();
   })(self, (() => (() => {
     "use strict";
-    var z = {};
+    var $ = {};
     return (() => {
-      var q = z;
+      var q = $;
       Object.defineProperty(q, "__esModule", { value: !0 }), q.FitAddon = void 0, q.FitAddon = class {
         activate(V) {
           this._terminal = V;
@@ -7169,21 +7169,21 @@ WARNING: This link could potentially be dangerous`)) {
           };
         }
       };
-    })(), z;
+    })(), $;
   })()));
-})), we = ".xterm{cursor:text;-webkit-user-select:none;user-select:none;position:relative}.xterm.focus,.xterm:focus{outline:none}.xterm .xterm-helpers{z-index:5;position:absolute;top:0}.xterm .xterm-helper-textarea{opacity:0;z-index:-5;white-space:nowrap;resize:none;border:0;width:0;height:0;margin:0;padding:0;position:absolute;top:0;left:-9999em;overflow:hidden}.xterm .composition-view{color:#fff;white-space:nowrap;z-index:1;background:#000;display:none;position:absolute}.xterm .composition-view.active{display:block}.xterm .xterm-viewport{cursor:default;background-color:#000;position:absolute;top:0;bottom:0;left:0;right:0;overflow-y:scroll}.xterm .xterm-screen{position:relative}.xterm .xterm-screen canvas{position:absolute;top:0;left:0}.xterm .xterm-scroll-area{visibility:hidden}.xterm-char-measure-element{visibility:hidden;line-height:normal;display:inline-block;position:absolute;top:0;left:-9999em}.xterm.enable-mouse-events{cursor:default}.xterm.xterm-cursor-pointer,.xterm .xterm-cursor-pointer{cursor:pointer}.xterm.column-select.focus{cursor:crosshair}.xterm .xterm-accessibility,.xterm .xterm-message{z-index:10;color:#0000;pointer-events:none;position:absolute;top:0;bottom:0;left:0;right:0}.xterm .live-region{width:1px;height:1px;position:absolute;left:-9999px;overflow:hidden}.xterm-dim{opacity:1!important}.xterm-underline-1{text-decoration:underline}.xterm-underline-2{-webkit-text-decoration:underline double;text-decoration:underline double}.xterm-underline-3{-webkit-text-decoration:underline wavy;text-decoration:underline wavy}.xterm-underline-4{-webkit-text-decoration:underline dotted;text-decoration:underline dotted}.xterm-underline-5{-webkit-text-decoration:underline dashed;text-decoration:underline dashed}.xterm-overline{text-decoration:overline}.xterm-overline.xterm-underline-1{text-decoration:underline overline}.xterm-overline.xterm-underline-2{-webkit-text-decoration:overline double underline;-webkit-text-decoration:overline double underline;text-decoration:overline double underline}.xterm-overline.xterm-underline-3{-webkit-text-decoration:overline wavy underline;-webkit-text-decoration:overline wavy underline;text-decoration:overline wavy underline}.xterm-overline.xterm-underline-4{-webkit-text-decoration:overline dotted underline;-webkit-text-decoration:overline dotted underline;text-decoration:overline dotted underline}.xterm-overline.xterm-underline-5{-webkit-text-decoration:overline dashed underline;-webkit-text-decoration:overline dashed underline;text-decoration:overline dashed underline}.xterm-strikethrough{text-decoration:line-through}.xterm-screen .xterm-decoration-container .xterm-decoration{z-index:6;position:absolute}.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer{z-index:7}.xterm-decoration-overview-ruler{z-index:8;pointer-events:none;position:absolute;top:0;right:0}.xterm-decoration-top{z-index:2;position:relative}", Ee = be(), ke = ye(), Le = 1e3, xe = 12e3, De = 8, Re = (A) => A === "shell" ? "repl/shell/ws" : "repl/app/ws", Ae = (A, U) => {
-  const z = window.location.protocol === "https:" ? "wss:" : "ws:", q = Ce(A), V = Re(U);
-  return `${z}//${window.location.host}${q}/${V}`;
-}, Be = /* @__PURE__ */ (() => {
-  let A = !1;
+})), we = ".xterm{cursor:text;-webkit-user-select:none;user-select:none;position:relative}.xterm.focus,.xterm:focus{outline:none}.xterm .xterm-helpers{z-index:5;position:absolute;top:0}.xterm .xterm-helper-textarea{opacity:0;z-index:-5;white-space:nowrap;resize:none;border:0;width:0;height:0;margin:0;padding:0;position:absolute;top:0;left:-9999em;overflow:hidden}.xterm .composition-view{color:#fff;white-space:nowrap;z-index:1;background:#000;display:none;position:absolute}.xterm .composition-view.active{display:block}.xterm .xterm-viewport{cursor:default;background-color:#000;position:absolute;top:0;bottom:0;left:0;right:0;overflow-y:scroll}.xterm .xterm-screen{position:relative}.xterm .xterm-screen canvas{position:absolute;top:0;left:0}.xterm .xterm-scroll-area{visibility:hidden}.xterm-char-measure-element{visibility:hidden;line-height:normal;display:inline-block;position:absolute;top:0;left:-9999em}.xterm.enable-mouse-events{cursor:default}.xterm.xterm-cursor-pointer,.xterm .xterm-cursor-pointer{cursor:pointer}.xterm.column-select.focus{cursor:crosshair}.xterm .xterm-accessibility,.xterm .xterm-message{z-index:10;color:#0000;pointer-events:none;position:absolute;top:0;bottom:0;left:0;right:0}.xterm .live-region{width:1px;height:1px;position:absolute;left:-9999px;overflow:hidden}.xterm-dim{opacity:1!important}.xterm-underline-1{text-decoration:underline}.xterm-underline-2{-webkit-text-decoration:underline double;text-decoration:underline double}.xterm-underline-3{-webkit-text-decoration:underline wavy;text-decoration:underline wavy}.xterm-underline-4{-webkit-text-decoration:underline dotted;text-decoration:underline dotted}.xterm-underline-5{-webkit-text-decoration:underline dashed;text-decoration:underline dashed}.xterm-overline{text-decoration:overline}.xterm-overline.xterm-underline-1{text-decoration:underline overline}.xterm-overline.xterm-underline-2{-webkit-text-decoration:overline double underline;-webkit-text-decoration:overline double underline;text-decoration:overline double underline}.xterm-overline.xterm-underline-3{-webkit-text-decoration:overline wavy underline;-webkit-text-decoration:overline wavy underline;text-decoration:overline wavy underline}.xterm-overline.xterm-underline-4{-webkit-text-decoration:overline dotted underline;-webkit-text-decoration:overline dotted underline;text-decoration:overline dotted underline}.xterm-overline.xterm-underline-5{-webkit-text-decoration:overline dashed underline;-webkit-text-decoration:overline dashed underline;text-decoration:overline dashed underline}.xterm-strikethrough{text-decoration:line-through}.xterm-screen .xterm-decoration-container .xterm-decoration{z-index:6;position:absolute}.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer{z-index:7}.xterm-decoration-overview-ruler{z-index:8;pointer-events:none;position:absolute;top:0;right:0}.xterm-decoration-top{z-index:2;position:relative}", Ee = be(), ke = ye(), Le = 1e3, xe = 12e3, De = 8, Re = 1e4, Ae = (R) => R === "shell" ? "repl/shell/ws" : "repl/app/ws", Be = (R, U) => {
+  const $ = window.location.protocol === "https:" ? "wss:" : "ws:", q = Ce(R), V = Ae(U);
+  return `${$}//${window.location.host}${q}/${V}`;
+}, Te = /* @__PURE__ */ (() => {
+  let R = !1;
   return () => {
-    if (A) return;
+    if (R) return;
     const U = document.createElement("style");
-    U.setAttribute("data-debug-repl-xterm", "true"), U.textContent = we, document.head.appendChild(U), A = !0;
+    U.setAttribute("data-debug-repl-xterm", "true"), U.textContent = we, document.head.appendChild(U), R = !0;
   };
-})(), Te = class {
-  constructor(A) {
-    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = A, Be(), this.terminal = new Ee.Terminal({
+})(), Me = class {
+  constructor(R) {
+    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.reconnectStabilityTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = R, Te(), this.terminal = new Ee.Terminal({
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 12,
       lineHeight: 1.3,
@@ -7196,31 +7196,33 @@ WARNING: This link could potentially be dangerous`)) {
         cursor: "#f5e0dc",
         selectionBackground: "rgba(137, 180, 250, 0.35)"
       }
-    }), this.fitAddon = new ke.FitAddon(), this.terminal.loadAddon(this.fitAddon), this.terminal.open(A.container), this.fitAddon.fit(), this.terminal.focus(), this.bindTerminal(), this.observeResize(A.container), A.autoConnect !== !1 && this.connect();
+    }), this.fitAddon = new ke.FitAddon(), this.terminal.loadAddon(this.fitAddon), this.terminal.open(R.container), this.fitAddon.fit(), this.terminal.focus(), this.bindTerminal(), this.observeResize(R.container), R.autoConnect !== !1 && this.connect();
   }
   connect() {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) return;
     this.manualClose = !1, this.setStatus("connecting");
-    const A = Ae(this.options.debugPath, this.options.kind);
-    this.socket = new WebSocket(A), this.socket.onopen = () => {
-      this.reconnectAttempts = 0, this.resetOnOpen && (this.resetOnOpen = !1, this.resetTerminal()), this.setStatus("connected"), this.awaitingPrompt = !0, this.options.kind === "console" && this.writePrompt(), this.sendResize();
-    }, this.socket.onmessage = (U) => {
-      !U || typeof U.data != "string" || this.handleMessage(U.data);
-    }, this.socket.onclose = () => {
-      if (this.socket = null, this.manualClose) {
-        this.setStatus("disconnected");
-        return;
+    const R = Be(this.options.debugPath, this.options.kind), U = new WebSocket(R);
+    this.socket = U, U.onopen = () => {
+      this.socket === U && (this.scheduleReconnectBudgetReset(U), this.resetOnOpen && (this.resetOnOpen = !1, this.resetTerminal()), this.setStatus("connected"), this.awaitingPrompt = !0, this.options.kind === "console" && this.writePrompt(), this.sendResize());
+    }, U.onmessage = ($) => {
+      this.socket === U && (!$ || typeof $.data != "string" || this.handleMessage($.data));
+    }, U.onclose = () => {
+      if (this.socket === U) {
+        if (this.clearReconnectStabilityTimer(), this.socket = null, this.manualClose) {
+          this.setStatus("disconnected");
+          return;
+        }
+        this.setStatus("reconnecting"), this.scheduleReconnect();
       }
-      this.setStatus("reconnecting"), this.scheduleReconnect();
-    }, this.socket.onerror = () => {
-      this.setStatus("error");
+    }, U.onerror = () => {
+      this.socket === U && this.setStatus("error");
     };
   }
   reconnect() {
     this.resetOnOpen = !0, this.manualClose = !0, this.socket && this.socket.close(), this.manualClose = !1, this.reconnectAttempts = 0, this.connect();
   }
   disconnect() {
-    this.manualClose = !0, this.reconnectTimer !== null && (window.clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.socket && this.socket.close();
+    this.manualClose = !0, this.reconnectTimer !== null && (window.clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.clearReconnectStabilityTimer(), this.socket && this.socket.close();
   }
   kill() {
     this.sendCommand({ type: "close" }), this.disconnect();
@@ -7234,78 +7236,78 @@ WARNING: This link could potentially be dangerous`)) {
   focus() {
     this.terminal.focus();
   }
-  paste(A) {
-    A && (this.handlePaste(A), this.terminal.focus());
+  paste(R) {
+    R && (this.handlePaste(R), this.terminal.focus());
   }
   bindTerminal() {
-    if (this.terminal.attachCustomKeyEventHandler((A) => this.handleKeyEvent(A)), this.options.kind === "shell") {
-      this.terminal.onData((A) => {
+    if (this.terminal.attachCustomKeyEventHandler((R) => this.handleKeyEvent(R)), this.options.kind === "shell") {
+      this.terminal.onData((R) => {
         this.sendCommand({
           type: "input",
-          data: A
+          data: R
         });
       });
       return;
     }
-    this.terminal.onData((A) => this.handleConsoleInput(A));
+    this.terminal.onData((R) => this.handleConsoleInput(R));
   }
-  handleKeyEvent(A) {
-    if (!A) return !0;
-    const U = A.metaKey || A.ctrlKey;
-    if (U && A.shiftKey && A.code === "KeyC") {
-      const z = this.terminal.getSelection();
-      return z ? (navigator.clipboard?.writeText(z).catch(() => null), !1) : !0;
+  handleKeyEvent(R) {
+    if (!R) return !0;
+    const U = R.metaKey || R.ctrlKey;
+    if (U && R.shiftKey && R.code === "KeyC") {
+      const $ = this.terminal.getSelection();
+      return $ ? (navigator.clipboard?.writeText($).catch(() => null), !1) : !0;
     }
-    return U && A.shiftKey && A.code === "KeyV" ? (navigator.clipboard?.readText().then((z) => {
-      z && this.handlePaste(z);
+    return U && R.shiftKey && R.code === "KeyV" ? (navigator.clipboard?.readText().then(($) => {
+      $ && this.handlePaste($);
     }).catch(() => null), !1) : !0;
   }
-  handlePaste(A) {
-    if (A) {
+  handlePaste(R) {
+    if (R) {
       if (this.options.kind === "shell") {
         this.sendCommand({
           type: "input",
-          data: A
+          data: R
         });
         return;
       }
-      this.handleConsoleInput(A);
+      this.handleConsoleInput(R);
     }
   }
-  handleConsoleInput(A) {
-    if (!A) return;
-    const U = A.replace(/\r\n/g, `
+  handleConsoleInput(R) {
+    if (!R) return;
+    const U = R.replace(/\r\n/g, `
 `);
-    for (const z of U) {
+    for (const $ of U) {
       if (this.skipEscape) {
-        z >= "@" && z <= "~" && (this.skipEscape = !1);
+        $ >= "@" && $ <= "~" && (this.skipEscape = !1);
         continue;
       }
-      if (z === `
-` || z === "\r") {
+      if ($ === `
+` || $ === "\r") {
         this.submitLine();
         continue;
       }
-      if (z === "") {
+      if ($ === "") {
         this.terminal.write(`^C\r
 `), this.lineBuffer = "", this.writePrompt(!0);
         continue;
       }
-      if (z === "" || z === "\b") {
+      if ($ === "" || $ === "\b") {
         this.lineBuffer.length > 0 && (this.lineBuffer = this.lineBuffer.slice(0, -1), this.terminal.write("\b \b"));
         continue;
       }
-      if (z === "\x1B") {
+      if ($ === "\x1B") {
         this.skipEscape = !0;
         continue;
       }
-      this.lineBuffer += z, this.terminal.write(z);
+      this.lineBuffer += $, this.terminal.write($);
     }
   }
   submitLine() {
-    const A = this.lineBuffer.trim();
+    const R = this.lineBuffer.trim();
     if (this.lineBuffer = "", this.terminal.write(`\r
-`), !A) {
+`), !R) {
       this.writePrompt(!0);
       return;
     }
@@ -7316,50 +7318,50 @@ WARNING: This link could potentially be dangerous`)) {
     }
     this.sendCommand({
       type: "eval",
-      code: A
+      code: R
     }), this.awaitingPrompt = !0;
   }
-  handleMessage(A) {
+  handleMessage(R) {
     let U;
     try {
-      U = JSON.parse(A);
+      U = JSON.parse(R);
     } catch {
       return;
     }
     !U || !U.type || (this.options.kind === "shell" ? this.handleShellEvent(U) : this.handleConsoleEvent(U));
   }
-  handleShellEvent(A) {
-    if (A.type === "output" && typeof A.data == "string") {
-      this.terminal.write(A.data);
+  handleShellEvent(R) {
+    if (R.type === "output" && typeof R.data == "string") {
+      this.terminal.write(R.data);
       return;
     }
-    if (A.type === "exit") {
-      const U = Number(A.code ?? 0);
+    if (R.type === "exit") {
+      const U = Number(R.code ?? 0);
       this.terminal.write(`\r
 [session closed: ${U}]\r
 `);
     }
   }
-  handleConsoleEvent(A) {
-    if (A.type === "result") {
-      const U = typeof A.output == "string" ? A.output : String(A.output ?? "");
+  handleConsoleEvent(R) {
+    if (R.type === "result") {
+      const U = typeof R.output == "string" ? R.output : String(R.output ?? "");
       U && this.writeLine(U), this.writePrompt();
       return;
     }
-    if (A.type === "error") {
-      const U = typeof A.output == "string" ? A.output : String(A.output ?? "");
+    if (R.type === "error") {
+      const U = typeof R.output == "string" ? R.output : String(R.output ?? "");
       U && this.terminal.write(`\x1B[31m${U}\x1B[0m\r
 `), this.writePrompt();
     }
   }
-  writeLine(A) {
-    const U = A.replace(/\r?\n/g, `\r
+  writeLine(R) {
+    const U = R.replace(/\r?\n/g, `\r
 `);
     this.terminal.write(`${U}\r
 `);
   }
-  writePrompt(A = !1) {
-    this.options.kind === "console" && (!A && !this.awaitingPrompt || (this.awaitingPrompt = !1, this.terminal.write(this.prompt)));
+  writePrompt(R = !1) {
+    this.options.kind === "console" && (!R && !this.awaitingPrompt || (this.awaitingPrompt = !1, this.terminal.write(this.prompt)));
   }
   sendResize() {
     this.options.kind === "shell" && (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.terminal.cols || !this.terminal.rows || this.sendCommand({
@@ -7368,11 +7370,11 @@ WARNING: This link could potentially be dangerous`)) {
       rows: this.terminal.rows
     }));
   }
-  sendCommand(A) {
-    !A || !A.type || !this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.send(JSON.stringify(A));
+  sendCommand(R) {
+    !R || !R.type || !this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.send(JSON.stringify(R));
   }
-  setStatus(A) {
-    this.status !== A && (this.status = A, this.options.onStatusChange?.(A));
+  setStatus(R) {
+    this.status !== R && (this.status = R, this.options.onStatusChange?.(R));
   }
   scheduleReconnect() {
     if (this.manualClose) return;
@@ -7380,42 +7382,52 @@ WARNING: This link could potentially be dangerous`)) {
       this.setStatus("disconnected");
       return;
     }
-    const A = this.reconnectAttempts, U = Math.min(Le * Math.pow(2, A), xe), z = U * (0.2 + Math.random() * 0.3);
+    const R = this.reconnectAttempts, U = Math.min(Le * Math.pow(2, R), xe), $ = U * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1, this.resetOnOpen = !0, this.reconnectTimer = window.setTimeout(() => {
-      this.connect();
-    }, U + z);
+      this.reconnectTimer = null, this.connect();
+    }, U + $);
+  }
+  clearReconnectStabilityTimer() {
+    this.reconnectStabilityTimer !== null && (window.clearTimeout(this.reconnectStabilityTimer), this.reconnectStabilityTimer = null);
+  }
+  scheduleReconnectBudgetReset(R) {
+    this.clearReconnectStabilityTimer();
+    const U = Math.max(this.options.reconnectStabilityMs ?? Re, 0);
+    this.reconnectStabilityTimer = window.setTimeout(() => {
+      this.reconnectStabilityTimer = null, this.socket === R && R.readyState === WebSocket.OPEN && (this.reconnectAttempts = 0);
+    }, U);
   }
   resetTerminal() {
     this.lineBuffer = "", this.skipEscape = !1, this.awaitingPrompt = !0, this.terminal.reset();
   }
-  observeResize(A) {
-    !A || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
+  observeResize(R) {
+    !R || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
       this.fitAddon.fit(), this.sendResize();
-    }), this.resizeObserver.observe(A));
+    }), this.resizeObserver.observe(R));
   }
-}, Me = {
+}, Oe = {
   shell: "Shell Console",
   console: "App Console"
-}, Oe = {
+}, Pe = {
   shell: "Copy with Ctrl+Shift+C. Paste with Ctrl+Shift+V.",
   console: "Copy with Ctrl+Shift+C. Paste with Ctrl+Shift+V. Enter submits. Click a command to insert."
-}, Pe = {
+}, Ie = {
   disconnected: "disconnected",
   connecting: "connecting",
   connected: "connected",
   reconnecting: "reconnecting",
   error: "error"
-}, Ie = ne("terminal", {
+}, He = ne("terminal", {
   size: "var(--debug-repl-overlay-icon-size, 48px)",
   extraClass: "debug-repl__overlay-icon"
-}), He = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>', Fe = `<button class="debug-repl__overlay-btn" data-overlay-connect>${ne("connect", { size: "14px" })} Connect</button>`, ze = class {
-  constructor(A) {
-    this.commandsEl = null, this.connectButton = null, this.options = A, this.commands = Array.isArray(A.commands) ? A.commands : [], this.root = document.createElement("section"), this.root.className = "debug-repl", this.root.dataset.replKind = A.kind;
-    const U = A.kind === "console" ? this.renderCommands() : "";
+}), Fe = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>', We = `<button class="debug-repl__overlay-btn" data-overlay-connect>${ne("connect", { size: "14px" })} Connect</button>`, je = class {
+  constructor(R) {
+    this.commandsEl = null, this.connectButton = null, this.options = R, this.commands = Array.isArray(R.commands) ? R.commands : [], this.root = document.createElement("section"), this.root.className = "debug-repl", this.root.dataset.replKind = R.kind;
+    const U = R.kind === "console" ? this.renderCommands() : "";
     this.root.innerHTML = `
       <div class="debug-repl__header">
         <div class="debug-repl__title">
-          <span class="debug-repl__label">${Me[A.kind]}</span>
+          <span class="debug-repl__label">${Oe[R.kind]}</span>
           <div class="debug-repl__status" data-repl-status="disconnected">
             <span class="debug-repl__dot"></span>
             <span data-repl-status-text>disconnected</span>
@@ -7430,34 +7442,34 @@ WARNING: This link could potentially be dangerous`)) {
       <div class="debug-repl__body">
         <div class="debug-repl__terminal" data-repl-terminal data-terminal-disconnected="true">
           <div class="debug-repl__overlay" data-repl-overlay>
-            ${Ie}
             ${He}
             ${Fe}
+            ${We}
           </div>
         </div>
         ${U}
       </div>
       <div class="debug-repl__footer">
-        <span class="debug-repl__hint">${Oe[A.kind]}</span>
+        <span class="debug-repl__hint">${Pe[R.kind]}</span>
       </div>
-    `, this.statusEl = this.requireElement("[data-repl-status]", this.root), this.statusTextEl = this.requireElement("[data-repl-status-text]", this.root), this.terminalEl = this.requireElement("[data-repl-terminal]", this.root), this.overlayEl = this.requireElement("[data-repl-overlay]", this.root), this.actionsEl = this.requireElement(".debug-repl__actions", this.root), this.commandsEl = this.root.querySelector("[data-repl-commands]"), this.connectButton = this.actionsEl.querySelector('[data-repl-action="reconnect"]'), this.terminal = new Te({
-      kind: A.kind,
-      debugPath: A.debugPath,
+    `, this.statusEl = this.requireElement("[data-repl-status]", this.root), this.statusTextEl = this.requireElement("[data-repl-status-text]", this.root), this.terminalEl = this.requireElement("[data-repl-terminal]", this.root), this.overlayEl = this.requireElement("[data-repl-overlay]", this.root), this.actionsEl = this.requireElement(".debug-repl__actions", this.root), this.commandsEl = this.root.querySelector("[data-repl-commands]"), this.connectButton = this.actionsEl.querySelector('[data-repl-action="reconnect"]'), this.terminal = new Me({
+      kind: R.kind,
+      debugPath: R.debugPath,
       container: this.terminalEl,
       autoConnect: !1,
-      onStatusChange: (z) => this.updateStatus(z)
+      onStatusChange: ($) => this.updateStatus($)
     }), this.bindActions(), this.bindCommandActions(), this.bindOverlayConnect(), this.updateStatus("disconnected");
   }
-  attach(A) {
-    A && (A.innerHTML = "", A.appendChild(this.root), this.terminal.refresh(), this.terminal.focus());
+  attach(R) {
+    R && (R.innerHTML = "", R.appendChild(this.root), this.terminal.refresh(), this.terminal.focus());
   }
   bindActions() {
-    this.actionsEl.addEventListener("click", (A) => {
-      const U = A.target;
+    this.actionsEl.addEventListener("click", (R) => {
+      const U = R.target;
       if (!U) return;
-      const z = U.closest("[data-repl-action]");
-      if (z)
-        switch (z.dataset.replAction || "") {
+      const $ = U.closest("[data-repl-action]");
+      if ($)
+        switch ($.dataset.replAction || "") {
           case "reconnect":
             this.terminal.reconnect();
             break;
@@ -7473,33 +7485,33 @@ WARNING: This link could potentially be dangerous`)) {
     });
   }
   bindCommandActions() {
-    !this.commandsEl || this.options.kind !== "console" || this.commandsEl.addEventListener("click", (A) => {
-      const U = A.target;
+    !this.commandsEl || this.options.kind !== "console" || this.commandsEl.addEventListener("click", (R) => {
+      const U = R.target;
       if (!U) return;
-      const z = U.closest("[data-repl-command]");
-      if (!z) return;
-      const q = z.dataset.replCommand || "";
+      const $ = U.closest("[data-repl-command]");
+      if (!$) return;
+      const q = $.dataset.replCommand || "";
       q && (this.terminal.paste(`${q} `), this.terminal.focus());
     });
   }
   bindOverlayConnect() {
-    const A = this.overlayEl.querySelector("[data-overlay-connect]");
-    A && A.addEventListener("click", () => {
+    const R = this.overlayEl.querySelector("[data-overlay-connect]");
+    R && R.addEventListener("click", () => {
       this.terminal.connect();
     });
   }
-  updateStatus(A) {
-    const U = Pe[A] || A;
-    this.statusEl.dataset.replStatus = A, this.statusTextEl.textContent = U;
-    const z = A === "disconnected" || A === "error";
-    if (this.overlayEl.hidden = !z, this.terminalEl.dataset.terminalDisconnected = z ? "true" : "false", this.connectButton) {
-      const q = z ? "Connect" : "Reconnect", V = z ? "connect" : "refresh";
+  updateStatus(R) {
+    const U = Ie[R] || R;
+    this.statusEl.dataset.replStatus = R, this.statusTextEl.textContent = U;
+    const $ = R === "disconnected" || R === "error";
+    if (this.overlayEl.hidden = !$, this.terminalEl.dataset.terminalDisconnected = $ ? "true" : "false", this.connectButton) {
+      const q = $ ? "Connect" : "Reconnect", V = $ ? "connect" : "refresh";
       this.connectButton.innerHTML = `${ne(V, { size: "14px" })} ${q}`;
     }
   }
   renderCommands() {
     if (this.options.kind !== "console") return "";
-    const A = this.commands, U = A.length, z = A.map((q) => {
+    const R = this.commands, U = R.length, $ = R.map((q) => {
       const V = pe(q.command), Z = q.description ? `<div class="debug-repl__command-desc">${pe(q.description)}</div>` : "", O = Array.isArray(q.tags) && q.tags.length > 0 ? `<div class="debug-repl__command-tags">${q.tags.map((r) => `<span class="debug-repl__command-tag">${pe(r)}</span>`).join("")}</div>` : "";
       return `
           <button class="debug-repl__command" type="button" data-repl-command="${V}">
@@ -7519,20 +7531,20 @@ WARNING: This link could potentially be dangerous`)) {
           <span class="debug-repl__commands-count">${U}</span>
         </div>
         <div class="debug-repl__commands-list">
-          ${U > 0 ? z : '<div class="debug-repl__commands-empty">No exposed commands.</div>'}
+          ${U > 0 ? $ : '<div class="debug-repl__commands-empty">No exposed commands.</div>'}
         </div>
       </aside>
     `;
   }
-  requireElement(A, U) {
-    const z = U.querySelector(A);
-    if (!z) throw new Error(`Missing debug repl element: ${A}`);
-    return z;
+  requireElement(R, U) {
+    const $ = U.querySelector(R);
+    if (!$) throw new Error(`Missing debug repl element: ${R}`);
+    return $;
   }
 };
 export {
-  Te as n,
-  ze as t
+  Me as n,
+  je as t
 };
 
-//# sourceMappingURL=repl-panel-Dvtc4bMw.js.map
+//# sourceMappingURL=repl-panel-BKc41M7P.js.map

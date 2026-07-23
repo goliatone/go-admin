@@ -145,6 +145,7 @@ func TestDebugWebSocketWriteFailureQuiescesReaderBeforeClose(t *testing.T) {
 	}()
 
 	waitForDebugWebSocketSignal(t, ws.readStarted, "reader start")
+	waitForDebugWebSocketWrites(t, ws, 1)
 	mod.collector.publish(debugEventSnapshotInvalidated, nil)
 
 	select {
@@ -219,8 +220,8 @@ func TestDebugWebSocketSubscriberClosureQuiescesReaderBeforeClose(t *testing.T) 
 
 	select {
 	case err := <-result:
-		if err != nil {
-			t.Fatalf("handler error = %v, want nil", err)
+		if !errors.Is(err, errDebugWebSocketSubscriberClosed) {
+			t.Fatalf("handler error = %v, want subscriber closure classification", err)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("handler did not finish after subscriber closure")

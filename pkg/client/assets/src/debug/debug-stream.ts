@@ -22,6 +22,7 @@ export type DebugStreamOptions = {
   maxInitialReconnectAttempts?: number;
   reconnectDelayMs?: number;
   maxReconnectDelayMs?: number;
+  reconnectStabilityMs?: number;
   onEvent?: (event: DebugEvent) => void;
   onStatusChange?: (status: DebugStreamStatus) => void;
   onError?: (event: Event) => void;
@@ -48,6 +49,7 @@ const defaultReconnectDelayMs = 1000;
 const defaultMaxReconnectDelayMs = 12000;
 const defaultMaxReconnectAttempts = 8;
 const defaultMaxInitialReconnectAttempts = 1;
+const defaultReconnectStabilityMs = 10000;
 const defaultTokenRefreshBufferMs = 30000;
 
 const buildWebSocketURL = (basePath: string): string => {
@@ -129,11 +131,13 @@ export class DebugStream {
   protected options: DebugStreamOptions;
   protected ws: WebSocket | null = null;
   protected reconnectTimer: number | null = null;
+  protected reconnectStabilityTimer: number | null = null;
   protected reconnectAttempts = 0;
   protected manualClose = false;
   protected pendingCommands: DebugCommand[] = [];
   protected status: DebugStreamStatus = 'disconnected';
   protected hasConnected = false;
+  protected snapshotRecoveryPending = false;
 
   constructor(options: DebugStreamOptions) {
     this.options = options;
@@ -161,24 +165,37 @@ export class DebugStream {
       this.setStatus('error');
       return;
     }
-    this.ws = new WebSocket(url);
+    const socket = new WebSocket(url);
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    socket.onopen = () => {
+      if (this.ws !== socket) {
+        return;
+      }
       this.hasConnected = true;
-      this.reconnectAttempts = 0;
+      this.scheduleReconnectBudgetReset(socket);
       this.setStatus('connected');
       this.flushPending();
     };
 
-    this.ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.ws !== socket) {
+        return;
+      }
       if (!event || typeof event.data !== 'string') {
         return;
       }
       try {
         const parsed = JSON.parse(event.data) as DebugEvent;
         if (parsed?.type === debugSnapshotInvalidatedEvent) {
-          this.requestSnapshot();
+          if (!this.snapshotRecoveryPending) {
+            this.snapshotRecoveryPending = true;
+            this.requestSnapshot();
+          }
           return;
+        }
+        if (parsed?.type === 'snapshot') {
+          this.snapshotRecoveryPending = false;
         }
         this.options.onEvent?.(parsed);
       } catch {
@@ -186,7 +203,12 @@ export class DebugStream {
       }
     };
 
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      if (this.ws !== socket) {
+        return;
+      }
+      this.clearReconnectStabilityTimer();
+      this.snapshotRecoveryPending = false;
       this.ws = null;
       if (this.manualClose) {
         this.setStatus('disconnected');
@@ -196,7 +218,10 @@ export class DebugStream {
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = (event) => {
+    socket.onerror = (event) => {
+      if (this.ws !== socket) {
+        return;
+      }
       this.options.onError?.(event);
       this.setStatus('error');
     };
@@ -208,6 +233,7 @@ export class DebugStream {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearReconnectStabilityTimer();
     if (this.ws) {
       this.ws.close();
     }
@@ -264,6 +290,24 @@ export class DebugStream {
     for (const cmd of pending) {
       this.ws.send(JSON.stringify(cmd));
     }
+  }
+
+  protected clearReconnectStabilityTimer(): void {
+    if (this.reconnectStabilityTimer !== null) {
+      window.clearTimeout(this.reconnectStabilityTimer);
+      this.reconnectStabilityTimer = null;
+    }
+  }
+
+  protected scheduleReconnectBudgetReset(socket: WebSocket): void {
+    this.clearReconnectStabilityTimer();
+    const stabilityMs = Math.max(this.options.reconnectStabilityMs ?? defaultReconnectStabilityMs, 0);
+    this.reconnectStabilityTimer = window.setTimeout(() => {
+      this.reconnectStabilityTimer = null;
+      if (this.ws === socket && socket.readyState === WebSocket.OPEN) {
+        this.reconnectAttempts = 0;
+      }
+    }, stabilityMs);
   }
 
   protected scheduleReconnect(): void {
@@ -408,7 +452,6 @@ export class RemoteDebugStream extends DebugStream {
         return false;
       }
       this.setToken(result.token, result);
-      this.reconnectAttempts = 0;
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.ws.close();
       }

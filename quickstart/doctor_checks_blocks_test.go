@@ -12,6 +12,29 @@ type doctorBlocksListRepoStub struct {
 	visible int
 }
 
+type doctorContextKey struct{}
+
+type doctorContextContentService struct {
+	admin.CMSContentService
+	contexts []context.Context
+}
+
+func (s *doctorContextContentService) BlockDefinitions(ctx context.Context) ([]admin.CMSBlockDefinition, error) {
+	s.contexts = append(s.contexts, ctx)
+	return s.CMSContentService.BlockDefinitions(ctx)
+}
+
+type doctorContextCMSContainer struct {
+	content admin.CMSContentService
+}
+
+func (c doctorContextCMSContainer) WidgetService() admin.CMSWidgetService { return nil }
+func (c doctorContextCMSContainer) MenuService() admin.CMSMenuService     { return nil }
+func (c doctorContextCMSContainer) ContentService() admin.CMSContentService {
+	return c.content
+}
+func (c doctorContextCMSContainer) ContentTypeService() admin.CMSContentTypeService { return nil }
+
 func (r *doctorBlocksListRepoStub) List(_ context.Context, _ admin.ListOptions) ([]map[string]any, int, error) {
 	if r.visible < 0 {
 		r.visible = 0
@@ -177,4 +200,30 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsVisibilityMismatch(t *testi
 		}
 	}
 	t.Fatalf("expected visibility mismatch finding, got %+v", output.Findings)
+}
+
+func TestQuickstartDoctorBlockDefinitionsPropagatesSnapshotContext(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	adm, _, err := NewAdmin(NewAdminConfig("/admin", "Admin", "en"), AdapterHooks{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	tracking := &doctorContextContentService{CMSContentService: adm.ContentService()}
+	adm.UseCMS(doctorContextCMSContainer{content: tracking})
+	if err := adm.UnregisterPanel("block_definitions"); err != nil && !errors.Is(err, admin.ErrNotFound) {
+		t.Fatalf("unregister block definitions: %v", err)
+	}
+
+	ctx := context.WithValue(context.Background(), doctorContextKey{}, "snapshot-value")
+	quickstartDoctorBlockDefinitionsCheck().Run(ctx, adm)
+	if len(tracking.contexts) < 2 {
+		t.Fatalf("BlockDefinitions contexts = %d, want service and visibility calls", len(tracking.contexts))
+	}
+	for index, callCtx := range tracking.contexts {
+		if got := callCtx.Value(doctorContextKey{}); got != "snapshot-value" {
+			t.Fatalf("BlockDefinitions context %d value = %v", index, got)
+		}
+	}
 }
