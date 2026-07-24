@@ -316,7 +316,7 @@ func validTestPersona(name string) deploymentidentity.Persona {
 }
 
 func resolverTestOptions(now time.Time, env map[string]string, build DeploymentBuildInfo, randomSource io.Reader) []DeploymentIdentityResolverOption {
-	var source io.Reader = randomSource
+	source := randomSource
 	if randomSource == nil {
 		source = bytes.NewReader(make([]byte, 64))
 	}

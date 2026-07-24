@@ -28,8 +28,8 @@ func TestDevelopmentErrorTemplateRendersPersonaVariantsAndFallback(t *testing.T)
 		},
 	}
 
-	monogram := cloneTemplateContext(base)
-	monogram["env_info"].(map[string]any)["deployment"].(map[string]any)["persona"] = map[string]any{
+	monogram := cloneTemplateContext(t, base)
+	templateDeployment(t, monogram)["persona"] = map[string]any{
 		"name": "lively-raven", "algorithm": "go-admin-monogram", "version": "v1",
 		"visual": map[string]any{
 			"kind": "monogram", "text": "LR", "alt": "Lively raven",
@@ -46,8 +46,8 @@ func TestDevelopmentErrorTemplateRendersPersonaVariantsAndFallback(t *testing.T)
 		}
 	}
 
-	image := cloneTemplateContext(base)
-	image["env_info"].(map[string]any)["deployment"].(map[string]any)["persona"] = map[string]any{
+	image := cloneTemplateContext(t, base)
+	templateDeployment(t, image)["persona"] = map[string]any{
 		"name": "image-persona", "algorithm": "go-admin-identicon", "version": "v1",
 		"visual": map[string]any{
 			"kind": "image", "alt": "Image persona", "media_type": "image/png", "data": "iVBORw0KGgo=",
@@ -85,8 +85,9 @@ func TestProductionErrorTemplateContextCannotExposePersona(t *testing.T) {
 	}
 }
 
-func cloneTemplateContext(base pongo2.Context) pongo2.Context {
-	deployment := base["env_info"].(map[string]any)["deployment"].(map[string]any)
+func cloneTemplateContext(t *testing.T, base pongo2.Context) pongo2.Context {
+	t.Helper()
+	deployment := templateDeployment(t, base)
 	deploymentCopy := make(map[string]any, len(deployment))
 	maps.Copy(deploymentCopy, deployment)
 	envCopy := map[string]any{"debug": true, "deployment": deploymentCopy}
@@ -94,4 +95,19 @@ func cloneTemplateContext(base pongo2.Context) pongo2.Context {
 		"error_title": base["error_title"], "error_detail": base["error_detail"],
 		"dev_mode": true, "env_info": envCopy,
 	}
+}
+
+func templateDeployment(t *testing.T, context pongo2.Context) map[string]any {
+	t.Helper()
+	envInfo := mustTemplateMap(t, context["env_info"], "env_info")
+	return mustTemplateMap(t, envInfo["deployment"], "deployment")
+}
+
+func mustTemplateMap(t *testing.T, value any, label string) map[string]any {
+	t.Helper()
+	result, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("%s: expected map[string]any, got %T", label, value)
+	}
+	return result
 }

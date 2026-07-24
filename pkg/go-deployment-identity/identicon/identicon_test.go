@@ -48,9 +48,15 @@ func TestGridIsMirrored(t *testing.T) {
 }
 
 func TestGeneratorConcurrentDeterminism(t *testing.T) {
-	generator, _ := New(WithSize(96))
+	generator, err := New(WithSize(96))
+	if err != nil {
+		t.Fatal(err)
+	}
 	input := deploymentidentity.Input{Seed: "seed", Namespace: "app"}
-	want, _ := generator.Generate(input)
+	want, err := generator.Generate(input)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var wg sync.WaitGroup
 	for range 24 {
 		wg.Go(func() {
@@ -64,7 +70,10 @@ func TestGeneratorConcurrentDeterminism(t *testing.T) {
 }
 
 func TestGeneratorRollbackABAReproducesPersona(t *testing.T) {
-	generator, _ := New()
+	generator, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
 	namespace := "rollback-check"
 	first, err := generator.Generate(deploymentidentity.Input{Seed: "artifact-a", Namespace: namespace})
 	if err != nil {
@@ -93,10 +102,22 @@ func TestOptionsAreBoundedAndStable(t *testing.T) {
 	if _, err := New(WithVersion("v2")); err == nil {
 		t.Fatal("accepted invalid version")
 	}
-	first, _ := New(WithNamespace("shared"), WithPalettes(Palette{"#000000", "#ffffff"}))
-	second, _ := New(WithNamespace("shared"), WithPalettes(Palette{"#000000", "#ffffff"}))
-	a, _ := first.Generate(deploymentidentity.Input{Seed: "seed", Namespace: "ignored-a"})
-	b, _ := second.Generate(deploymentidentity.Input{Seed: "seed", Namespace: "ignored-b"})
+	first, err := New(WithNamespace("shared"), WithPalettes(Palette{"#000000", "#ffffff"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := New(WithNamespace("shared"), WithPalettes(Palette{"#000000", "#ffffff"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := first.Generate(deploymentidentity.Input{Seed: "seed", Namespace: "ignored-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := second.Generate(deploymentidentity.Input{Seed: "seed", Namespace: "ignored-b"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if a.Name != b.Name || !bytes.Equal(a.Visual.Data, b.Visual.Data) {
 		t.Fatal("equivalent effective configuration is unstable")
 	}

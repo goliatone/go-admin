@@ -109,11 +109,14 @@ func TestDeploymentDebugPanelUILeadsWithIdentityAndGroupsDetail(t *testing.T) {
 	console := definition.UI.Views.Console.Sections[1].Sections
 	formats := map[string]string{}
 	for _, section := range console {
-		fields, _ := section.Options["fields"].([]any)
+		fields := mustAnySlice(t, section.Options["fields"], section.Title+" fields")
 		for _, entry := range fields {
-			field, _ := entry.(map[string]any)
-			bind, _ := field["bind"].(string)
-			format, _ := field["format"].(string)
+			field := mustMapAny(t, entry, section.Title+" field")
+			bind := mustString(t, field["bind"], section.Title+" field bind")
+			format := ""
+			if declaredFormat, ok := field["format"].(string); ok {
+				format = declaredFormat
+			}
 			formats[section.Title+"."+bind] = format
 		}
 	}
@@ -163,9 +166,9 @@ func TestDeploymentIdentityMatchesDebugAndDevelopmentErrorSurfaces(t *testing.T)
 	RegisterDeploymentDebugPanel(adm)
 
 	snapshot := adm.debugCollector.Snapshot()
-	panel := snapshot[DebugPanelDeployment].(map[string]any)
-	runtimeData := panel["runtime"].(map[string]any)
-	buildData := panel["build"].(map[string]any)
+	panel := mustMapAny(t, snapshot[DebugPanelDeployment], "deployment panel")
+	runtimeData := mustMapAny(t, panel["runtime"], "deployment runtime")
+	buildData := mustMapAny(t, panel["build"], "deployment build")
 	personaData, ok := panel["persona"].(DeploymentPersona)
 	if !ok {
 		t.Fatalf("missing debug persona projection: %+v", panel["persona"])
