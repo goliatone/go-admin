@@ -1,6 +1,34 @@
 # Changelog
 
+# [0.123.1](https://github.com/goliatone/go-admin/compare/v0.123.0...v0.123.1) - (2026-07-24)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([37d793f](https://github.com/goliatone/go-admin/commit/37d793fd37e25c8d111581206a1cf8fad24783ec))  - (goliatone)
+- Png validation and error handling ([2f29694](https://github.com/goliatone/go-admin/commit/2f29694ee0e89810ebe87c3b5ad263b0fce6f1c2))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Deterministic identity persona ([194f4d2](https://github.com/goliatone/go-admin/commit/194f4d2fe2d888b93c70311796f2060831cf9fdf))  - (goliatone)
+- Deployment persona ([3a3dbb1](https://github.com/goliatone/go-admin/commit/3a3dbb1e6cf674e9f9c4f3be5a57a9a0a58abf5a))  - (goliatone)
+- Deployment identity ([401fdf5](https://github.com/goliatone/go-admin/commit/401fdf5eef02aa7ec995ddd20c2b7152827103a0))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([ae1f5c7](https://github.com/goliatone/go-admin/commit/ae1f5c731e38497908508df6ef476701f709d5e8))  - (goliatone)
+- Update testsg ([053171c](https://github.com/goliatone/go-admin/commit/053171ca94692619b274fbca20daa0f2e74518d9))  - (goliatone)
+- Code quality ([c86e3ef](https://github.com/goliatone/go-admin/commit/c86e3ef63574dd053a2df5c733b171ee0dfe5db8))  - (goliatone)
+- Update examples ([5da91a9](https://github.com/goliatone/go-admin/commit/5da91a9ea67420bd2340f570e9521ead103321ad))  - (goliatone)
+- Update docs ([f166faa](https://github.com/goliatone/go-admin/commit/f166faac3399be4500893d9bb13da32491df02b0))  - (goliatone)
+
 # [0.123.0](https://github.com/goliatone/go-admin/compare/v0.122.0...v0.123.0) - (2026-07-24)
+
+
+New minor release: v0.123.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.123.0 ([62e7f27](https://github.com/goliatone/go-admin/commit/62e7f27892fd6f253902cf449b523e6f83da189b))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
