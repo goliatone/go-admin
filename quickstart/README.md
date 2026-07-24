@@ -33,10 +33,18 @@ cfg.Deployment = admin.DeploymentIdentityConfig{
     AppID:       "orders-admin",
     AppName:     "Orders Admin",
     Environment: "development",
+    Persona: admin.DeploymentPersonaConfig{
+        Enabled: true,
+    },
 }
 
 adm, _, err := quickstart.NewAdmin(cfg, quickstart.AdapterHooks{})
 ```
+
+The optional persona identifies the artifact; `InstanceName` and `InstanceID`
+still identify the answering process. Its seed precedence is typed seed,
+`APP_DEPLOYMENT_SEED`, then the full resolved commit. A missing stable seed
+omits the persona.
 
 For deployed artifacts, inject `APP_COMMIT_SHA`, `APP_VERSION`,
 `APP_BUILD_TIME`, and `APP_GIT_REF`; use `APP_INSTANCE_NAME` and

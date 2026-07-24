@@ -288,11 +288,69 @@ Each field resolves independently in this order:
 
 Supported deployment variables are `APP_ID`, `APP_NAME`, `APP_VERSION`,
 `APP_ENV`, `APP_ENV_COLOR`, `APP_INSTANCE_NAME`, `APP_INSTANCE_ID`,
-`APP_COMMIT_SHA`, `APP_GIT_REF`, and `APP_BUILD_TIME`. Build time must be
+`APP_COMMIT_SHA`, `APP_GIT_REF`, `APP_BUILD_TIME`, and
+`APP_DEPLOYMENT_SEED`. Build time must be
 RFC3339, commits must be 7–64 hexadecimal characters, and colors must be
 three- or six-digit hex colors. Invalid values are ignored without blocking
 startup. `GITHUB_SHA` is accepted only as a final commit fallback; prefer
 copying it into `APP_COMMIT_SHA` at the deployment boundary.
+
+### Deterministic deployment persona
+
+A deployment persona is optional artifact identity; the instance name and ID
+remain process identity and continue to change independently across replicas
+and restarts. Enable the dependency-light default with:
+
+```go
+namespace := "orders-admin"
+cfg.Deployment.Persona = admin.DeploymentPersonaConfig{
+    Enabled:   true,
+    Namespace: &namespace,
+    // Seed overrides APP_DEPLOYMENT_SEED and the resolved full commit.
+    // Name optionally overrides only the generated display name.
+}
+```
+
+The stable seed precedence is typed `Persona.Seed`, then
+`APP_DEPLOYMENT_SEED`, then the normalized full commit SHA. If none is valid,
+the persona is omitted rather than claiming rollback stability. A nil
+namespace defaults to `AppID`; a pointer to an empty string explicitly shares
+the same seed mapping across applications. Keep a namespace stable across
+renames when historical rollback continuity matters.
+
+For a local PNG identicon, inject the optional generator:
+
+```go
+import "github.com/goliatone/go-admin/pkg/go-deployment-identity/identicon"
+
+generator, err := identicon.New(identicon.WithSize(64))
+if err != nil {
+    return err
+}
+deps.DeploymentPersonaGenerator = generator
+```
+
+Applications that do not import the identicon package can implement
+`deploymentidentity.Generator` or use `deploymentidentity.GeneratorFunc`.
+Core validates and copies all output; a failing or invalid custom generator
+falls back to the versioned core monogram without blocking startup.
+
+```go
+deps.DeploymentPersonaGenerator = deploymentidentity.GeneratorFunc(
+    func(input deploymentidentity.Input) (deploymentidentity.Persona, error) {
+        // Derive every field only from input and versioned application tables.
+        return myPersonaFor(input)
+    },
+)
+```
+
+Both built-in algorithms are versioned (`v1`) and pin their word tables,
+palette choices, digest separation, and graphics with golden vectors. A
+friendly name is not unique and is never an authorization or lookup key; the
+full commit remains the authoritative source identifier. The same commit can
+still describe differently rebuilt or dirty artifacts, so use an immutable
+artifact/image digest in `APP_DEPLOYMENT_SEED` when content-level distinction
+is required.
 
 Default environment colors are red for development (`#ef4444`), orange for
 staging (`#f97316`), green for production (`#22c55e`), and slate
@@ -305,11 +363,12 @@ serializes arbitrary process environment variables.
 
 The Deployment panel is declared with the shared panel UI schema, so the
 Debug Console and the expanded toolbar render the same contract. Both lead with
-an `identity` summary header (environment chip and color accent, instance name
-with a copy control, application name, and version/commit/uptime/host chips)
+an `identity` summary header (optional persona avatar/name, environment chip
+and color accent, application name, and version/commit/uptime/host chips)
 followed by grouped application, environment, build, and runtime detail in a
 responsive column layout. The collapsed floating indicator shows the same
-environment color, environment name, and instance name; it abbreviates the
+environment color and environment name plus the persona name/avatar when
+available, otherwise the instance name; it abbreviates the
 environment and then drops the instance name on narrow viewports, and it is
 suppressed entirely when `deployment` is excluded from `ToolbarPanels`. See
 `GUIDE_DEBUG_CLIENT.md` for the renderer and format vocabulary.

@@ -115,11 +115,13 @@ application contract:
     APP_COMMIT_SHA: ${{ github.sha }}
     APP_GIT_REF: ${{ github.ref }}
     APP_VERSION: ${{ github.ref_name }}
+    APP_DEPLOYMENT_SEED: ${{ github.sha }}
   run: |
     docker build \
       --build-arg APP_COMMIT_SHA \
       --build-arg APP_GIT_REF \
       --build-arg APP_VERSION \
+      --build-arg APP_DEPLOYMENT_SEED \
       -t ghcr.io/acme/admin:${GITHUB_SHA} .
 ```
 
@@ -128,11 +130,22 @@ ARG APP_COMMIT_SHA
 ARG APP_GIT_REF
 ARG APP_VERSION
 ARG APP_BUILD_TIME
+ARG APP_DEPLOYMENT_SEED
 ENV APP_COMMIT_SHA=$APP_COMMIT_SHA \
     APP_GIT_REF=$APP_GIT_REF \
     APP_VERSION=$APP_VERSION \
-    APP_BUILD_TIME=$APP_BUILD_TIME
+    APP_BUILD_TIME=$APP_BUILD_TIME \
+    APP_DEPLOYMENT_SEED=$APP_DEPLOYMENT_SEED
 ```
+
+For deterministic personas, set `APP_DEPLOYMENT_SEED` to the immutable image
+digest (for example `${{ steps.build.outputs.digest }}`) when the commit alone
+does not uniquely describe artifact contents. The seed is consumed only when
+`Config.Deployment.Persona.Enabled` is true. Typed `Persona.Seed` wins over
+the environment, and the resolved full commit is the final stable fallback.
+Rolling A → B → A with the same namespace, algorithm version, and generator
+configuration restores byte-equivalent persona output. Changing any of those
+inputs intentionally changes the persona.
 
 At runtime, orchestrators may set `APP_ENV`, `APP_INSTANCE_NAME`, and
 `APP_INSTANCE_ID` to match pod/container identity. Do not bake secrets or
