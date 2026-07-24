@@ -73,6 +73,9 @@ func TestExampleDeploymentIdentityConfig(t *testing.T) {
 	if cfg.InstanceName != "" || cfg.InstanceID != "" {
 		t.Fatalf("example should demonstrate generated instance identity: %+v", cfg)
 	}
+	if !cfg.Persona.Enabled || cfg.Persona.Namespace == nil || *cfg.Persona.Namespace != "go-admin-web-example" {
+		t.Fatalf("example should opt into the namespaced deployment persona: %+v", cfg.Persona)
+	}
 }
 
 func TestTriggerTestErrorPanicReturnsInternalError(t *testing.T) {

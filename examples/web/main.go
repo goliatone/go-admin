@@ -34,6 +34,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
+	"github.com/goliatone/go-admin/pkg/go-deployment-identity/identicon"
 	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
 	translationai "github.com/goliatone/go-admin/pkg/go-translation-ai"
 	translationaigoadmin "github.com/goliatone/go-admin/pkg/go-translation-ai/adapters/goadmin"
@@ -590,12 +591,17 @@ func main() {
 		},
 		debugPanelCatalog,
 	)
+	personaGenerator, err := identicon.New()
+	if err != nil {
+		fatalf("failed to configure deployment persona generator: %v", err)
+	}
 	adminDeps := admin.Dependencies{
-		ExportRegistry:  exportBundle.Registry,
-		ExportRegistrar: exportBundle.Registrar,
-		ExportMetadata:  exportBundle.Metadata,
-		LoggerProvider:  rootLogger,
-		Logger:          rootLogger,
+		ExportRegistry:             exportBundle.Registry,
+		ExportRegistrar:            exportBundle.Registrar,
+		ExportMetadata:             exportBundle.Metadata,
+		LoggerProvider:             rootLogger,
+		Logger:                     rootLogger,
+		DeploymentPersonaGenerator: personaGenerator,
 	}
 	if debugEnabled {
 		adminDeps.CommandCatalog = exampleDebugCommandCatalog{}
@@ -1729,6 +1735,7 @@ func main() {
 }
 
 func exampleDeploymentIdentityConfig(appName, environment string) coreadmin.DeploymentIdentityConfig {
+	namespace := "go-admin-web-example"
 	return coreadmin.DeploymentIdentityConfig{
 		AppID:       "go-admin-web-example",
 		AppName:     strings.TrimSpace(appName),
@@ -1737,6 +1744,10 @@ func exampleDeploymentIdentityConfig(appName, environment string) coreadmin.Depl
 			"development": "#ef4444",
 			"staging":     "#f59e0b",
 			"production":  "#22c55e",
+		},
+		Persona: coreadmin.DeploymentPersonaConfig{
+			Enabled:   true,
+			Namespace: &namespace,
 		},
 	}
 }
