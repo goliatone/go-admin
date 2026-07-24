@@ -303,6 +303,17 @@ not authorization or feature policy.
 Only the typed deployment allowlist is exposed. The Debug Module never
 serializes arbitrary process environment variables.
 
+The Deployment panel is declared with the shared panel UI schema, so the
+Debug Console and the expanded toolbar render the same contract. Both lead with
+an `identity` summary header (environment chip and color accent, instance name
+with a copy control, application name, and version/commit/uptime/host chips)
+followed by grouped application, environment, build, and runtime detail in a
+responsive column layout. The collapsed floating indicator shows the same
+environment color, environment name, and instance name; it abbreviates the
+environment and then drops the instance name on narrow viewports, and it is
+suppressed entirely when `deployment` is excluded from `ToolbarPanels`. See
+`GUIDE_DEBUG_CLIENT.md` for the renderer and format vocabulary.
+
 ### Command Runs
 
 Enable the built-in Command Runs panel for a single-process application with

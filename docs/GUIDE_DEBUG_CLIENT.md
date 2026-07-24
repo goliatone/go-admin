@@ -318,6 +318,59 @@ function renderPanel(
 ): string
 ```
 
+### Declarative schema renderers
+
+Server-declared panels (`debug.PanelConfig.UI`) are hydrated by the schema
+renderers instead of hand-written panel code. The supported `renderer` values
+are `metrics`, `key_value`, `identity`, `table`, `status_list`, `timeline`,
+`json`, and `stack`. An unknown renderer degrades to the JSON fallback and
+shows a "Panel UI degraded" notice, so older clients keep working against a
+newer server.
+
+`identity` presents one primary summary header — an accent color, an
+environment-style eyebrow chip, a title, a subtitle, and supporting chips — for
+panels that should lead with the value an operator recognizes first:
+
+```go
+view := debug.IdentityView("")
+view.Title = "Instance"
+view.Options = map[string]any{
+    "color_bind":    "environment.color", // validated hex only
+    "eyebrow_bind":  "environment.name",
+    "title_bind":    "runtime.instance_name",
+    "title_format":  "copy",
+    "title_label":   "instance name", // accessible name for the copy control
+    "subtitle_bind": "application.name",
+    "empty":         "Unnamed instance",
+    "chips": []map[string]any{
+        {"label": "Version", "bind": "application.version"},
+        {"label": "Uptime", "bind": "runtime.uptime"},
+    },
+}
+```
+
+`stack` accepts `options.layout: "grid"` (or `debug.GridStackView(...)`) to flow
+its sections into responsive columns at their natural height rather than
+stacking each section full width.
+
+`key_value` and `identity` chips accept these `format` values:
+
+| Format | Rendering |
+|--------|-----------|
+| `number` | Locale-grouped number |
+| `timestamp` | Locale time only — for request/log rows |
+| `datetime` | Locale date and time — for build and start instants |
+| `boolean` | `Yes` / `No` |
+| `copy` | Monospace value with a copy control that carries the full value |
+| `color` | Color swatch plus the normalized hex; rejects anything but `#rrggbb` |
+| `mono` | Monospace value |
+| `badge` | Badge chip |
+
+A field's `empty` text is rendered as a muted "unavailable" placeholder when the
+bound value is missing, so optional metadata degrades without fabricating a
+value. All labels and values are escaped; colors are the only payload values
+that reach CSS and are validated on both the server and the client.
+
 ### Example: reusing the JSON renderer
 
 ```typescript
