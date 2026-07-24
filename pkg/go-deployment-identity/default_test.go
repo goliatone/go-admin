@@ -79,6 +79,26 @@ func TestValidateRejectsInvalidPNG(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsIncompletePNGAfterValidConfig(t *testing.T) {
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	const pngHeaderAndIHDRBytes = 33
+	incomplete := append([]byte(nil), encoded.Bytes()[:pngHeaderAndIHDRBytes]...)
+	if _, err := png.DecodeConfig(bytes.NewReader(incomplete)); err != nil {
+		t.Fatalf("test payload must have a valid PNG config: %v", err)
+	}
+
+	_, err := Validate(Persona{
+		Name: "image", Algorithm: "test", Version: "v1",
+		Visual: Visual{Kind: VisualKindImage, Alt: "image", MediaType: MediaTypePNG, Data: incomplete},
+	})
+	if err == nil {
+		t.Fatal("Validate accepted an incomplete PNG payload")
+	}
+}
+
 func TestGeneratorFunc(t *testing.T) {
 	var generator Generator = GeneratorFunc(func(input Input) (Persona, error) {
 		return Persona{Name: input.Seed}, nil
@@ -86,5 +106,12 @@ func TestGeneratorFunc(t *testing.T) {
 	got, err := generator.Generate(Input{Seed: "ok"})
 	if err != nil || got.Name != "ok" {
 		t.Fatalf("Generate() = %+v, %v", got, err)
+	}
+}
+
+func TestGeneratorFuncRejectsNilFunction(t *testing.T) {
+	var generator Generator = GeneratorFunc(nil)
+	if _, err := generator.Generate(Input{Seed: "ignored"}); err == nil {
+		t.Fatal("nil GeneratorFunc did not return an error")
 	}
 }

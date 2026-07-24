@@ -239,6 +239,42 @@ func TestResolveDeploymentPersonaOptInFallbackAndCopies(t *testing.T) {
 	}
 }
 
+func TestResolveDeploymentPersonaFallsBackFromIncompletePNG(t *testing.T) {
+	generator, err := identicon.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	incomplete, err := generator.Generate(deploymentidentity.Input{Seed: "source", Namespace: "app"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const pngHeaderAndIHDRBytes = 33
+	incomplete.Visual.Data = append([]byte(nil), incomplete.Visual.Data[:pngHeaderAndIHDRBytes]...)
+
+	identity := ResolveDeploymentIdentity(Config{Deployment: DeploymentIdentityConfig{
+		AppID: "app", Persona: DeploymentPersonaConfig{Enabled: true, Seed: "seed"},
+	}}, WithDeploymentPersonaGenerator(deploymentidentity.GeneratorFunc(
+		func(deploymentidentity.Input) (deploymentidentity.Persona, error) {
+			return incomplete, nil
+		},
+	)))
+	if identity.Persona == nil || identity.Persona.Source != "fallback" {
+		t.Fatalf("expected fallback from incomplete PNG, got %+v", identity.Persona)
+	}
+	if identity.Persona.Visual.Kind != deploymentidentity.VisualKindMonogram {
+		t.Fatalf("expected validated default visual, got %+v", identity.Persona.Visual)
+	}
+}
+
+func TestResolveDeploymentPersonaFallsBackFromNilGeneratorFunc(t *testing.T) {
+	identity := ResolveDeploymentIdentity(Config{Deployment: DeploymentIdentityConfig{
+		AppID: "app", Persona: DeploymentPersonaConfig{Enabled: true, Seed: "seed"},
+	}}, WithDeploymentPersonaGenerator(deploymentidentity.GeneratorFunc(nil)))
+	if identity.Persona == nil || identity.Persona.Source != "fallback" {
+		t.Fatalf("expected fallback from nil generator function, got %+v", identity.Persona)
+	}
+}
+
 func TestDeploymentPersonaImageIsImmutableAcrossResolutionAndAccess(t *testing.T) {
 	identiconGenerator, err := identicon.New()
 	if err != nil {
