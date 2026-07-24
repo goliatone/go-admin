@@ -569,6 +569,28 @@ export const toolbarStyles = `
     min-width: 0;
   }
 
+  .debug-identity__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    overflow: hidden;
+    border: 1px solid var(--toolbar-border);
+    border-radius: 8px;
+    background: var(--persona-background, var(--toolbar-bg));
+    color: var(--persona-foreground, var(--toolbar-text));
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .debug-identity__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   .debug-identity__env {
     display: inline-flex;
     align-items: center;

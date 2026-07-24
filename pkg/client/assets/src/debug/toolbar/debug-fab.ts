@@ -15,6 +15,7 @@ import {
 import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
 import { escapeHTML } from '../shared/utils.js';
 import { deploymentIndicator } from '../shared/deployment-identity.js';
+import { renderDeploymentPersonaAvatar } from '../shared/deployment-persona.js';
 import '../shared/builtin-panels.js';
 
 export class DebugFab extends HTMLElement {
@@ -262,12 +263,13 @@ export class DebugFab extends HTMLElement {
           </span>
           ${identity ? `
             <span class="fab-identity">
+              ${identity.persona ? renderDeploymentPersonaAvatar(identity.persona, 'fab-persona-avatar') : ''}
               <span class="fab-identity-env">
                 <span class="fab-identity-dot" aria-hidden="true"></span>
                 <span class="fab-identity-env-full">${escapeHTML(identity.environment)}</span>
                 <span class="fab-identity-env-short">${escapeHTML(identity.environmentShort)}</span>
               </span>
-              <span class="fab-identity-name">${escapeHTML(identity.instance)}</span>
+              <span class="fab-identity-name">${escapeHTML(identity.persona?.name || identity.instance)}</span>
             </span>
           ` : ''}
         </div>

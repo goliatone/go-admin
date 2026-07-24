@@ -370,6 +370,31 @@
             <div class="dev-section-content">
               <table class="dev-kv-table">
                 <tbody>
+                  {% if env_info.deployment.persona %}
+                  <tr>
+                    <td class="dev-kv-key">Deployment Persona</td>
+                    <td class="dev-kv-value">
+                      <span class="dev-persona">
+                        {% if env_info.deployment.persona.visual.kind == "image" and env_info.deployment.persona.visual.media_type == "image/png" %}
+                        <span class="dev-persona-avatar">
+                          <img src="data:image/png;base64,{{ env_info.deployment.persona.visual.data }}" alt="{{ env_info.deployment.persona.visual.alt }}">
+                        </span>
+                        {% else %}
+                        <span
+                          class="dev-persona-avatar"
+                          role="img"
+                          aria-label="{{ env_info.deployment.persona.visual.alt }}"
+                          style="--dev-persona-background: {{ env_info.deployment.persona.visual.background }}; --dev-persona-foreground: {{ env_info.deployment.persona.visual.foreground }}"
+                        >{{ env_info.deployment.persona.visual.text }}</span>
+                        {% endif %}
+                        <span class="dev-persona-copy">
+                          <strong>{{ env_info.deployment.persona.name }}</strong>
+                          <small>{{ env_info.deployment.persona.algorithm }} / {{ env_info.deployment.persona.version }}</small>
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
+                  {% endif %}
                   {% if env_info.deployment.app_name or env_info.deployment.app_id %}
                   <tr>
                     <td class="dev-kv-key">Application</td>

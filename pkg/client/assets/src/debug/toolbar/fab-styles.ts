@@ -87,6 +87,28 @@ export const fabStyles = `
     min-width: 0;
   }
 
+  .fab-persona-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    overflow: hidden;
+    border: 1px solid var(--fab-border);
+    border-radius: 7px;
+    background: var(--persona-background, rgba(255, 255, 255, 0.08));
+    color: var(--persona-foreground, var(--fab-text));
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  .fab-persona-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   .fab-identity-env {
     display: inline-flex;
     align-items: center;

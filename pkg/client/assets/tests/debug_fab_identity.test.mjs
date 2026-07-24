@@ -27,6 +27,10 @@ const SNAPSHOT = {
   deployment: {
     application: { id: 'acme', name: 'Acme Admin', version: 'v1.24.3' },
     environment: { name: 'staging', color: '#f97316' },
+    persona: {
+      name: 'lively-raven',
+      visual: { kind: 'monogram', text: 'LR', alt: 'Lively raven', background: '#0f766e', foreground: '#f0fdfa' },
+    },
     build: { commit_sha: '9f2c1ab7de5540b6a0f31e77c9bd42a1e8b6d310', commit_short: '9f2c1ab' },
     runtime: { instance_name: 'brisk-otter', instance_id: 'abc-123', uptime: '3h17m22s' },
   },
@@ -76,7 +80,9 @@ test('collapsed FAB shows a compact, color-coded deployment identity', async () 
   assert.equal(collapsed.getAttribute('style'), '--fab-environment:#f97316');
   assert.equal(root.querySelector('.fab-identity-env-full').textContent, 'STAGING');
   assert.equal(root.querySelector('.fab-identity-env-short').textContent, 'STG');
-  assert.equal(root.querySelector('.fab-identity-name').textContent, 'brisk-otter');
+  assert.equal(root.querySelector('.fab-identity-name').textContent, 'lively-raven');
+  assert.equal(root.querySelector('.fab-persona-avatar').textContent, 'LR');
+  assert.equal(root.querySelector('.fab-persona-avatar').getAttribute('aria-label'), 'Lively raven');
 
   // The environment accent also drives the FAB-level status dot placement.
   assert.ok(root.querySelector('.fab').classList.contains('has-identity'));
@@ -95,6 +101,7 @@ test('collapsed FAB is keyboard operable and carries an accessible name', async 
   assert.match(label, /Open debug toolbar/);
   assert.match(label, /Environment: staging/);
   assert.match(label, /Instance: brisk-otter/);
+  assert.match(label, /Persona: lively-raven/);
   assert.match(label, /2 requests, 1 query, 1 log/);
   assert.match(label, /1 error/);
   assert.match(label, /Debug stream/);

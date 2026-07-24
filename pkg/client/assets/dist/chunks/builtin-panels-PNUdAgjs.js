@@ -1,7 +1,7 @@
 import { escapeAttribute as h, escapeHTML as a } from "../shared/html.js";
 import { normalizeDebugBasePath as pe } from "../debug/shared/path-helpers.js";
 import { r as m } from "./icons-B_VaFfsl.js";
-import { $ as C, J as $, Q as ue, X as te, Z as ge, a as be, at as F, ct as y, et as D, ft as R, it as U, lt as oe, nt as fe, ot as z, st as b, tt as he, ut as me, w as f, y as L } from "./server-definitions-CLmCY9H_.js";
+import { $ as ue, Q as te, X as $, a as ge, ct as z, dt as oe, et as be, ft as fe, it as he, lt as b, mt as R, nt as D, ot as U, rt as me, st as F, tt as C, ut as y, w as f, y as L } from "./server-definitions-4iGaxxbT.js";
 var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = pe(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -262,7 +262,7 @@ function Le(e, t, o) {
   `;
 }
 function H(e, t, o) {
-  const r = F(e.duration, o.slowThresholdMs), s = r.isSlow, n = !!e.error, i = T(e), d = h(i), c = `sql-row-${i}`, l = h(c), p = e.query || "", u = he(p, !0), g = [t.expandableRow];
+  const r = F(e.duration, o.slowThresholdMs), s = r.isSlow, n = !!e.error, i = T(e), d = h(i), c = `sql-row-${i}`, l = h(c), p = e.query || "", u = me(p, !0), g = [t.expandableRow];
   s && g.push(t.slowQuery), n && g.push(t.errorQuery);
   const x = s ? t.durationSlow : "", v = Le(t, o.useIconCopyButton || !1, c);
   return `
@@ -318,10 +318,10 @@ function P(e, t, o = {}) {
   `;
 }
 function ko(e, t, o, r) {
-  return ge(e, H(t, o, r), r.newestFirst !== !1), T(t);
+  return ue(e, H(t, o, r), r.newestFirst !== !1), T(t);
 }
 function Co(e, t, o) {
-  return ue(e, "tr[data-sql-id]", "data-sql-id", t, o);
+  return be(e, "tr[data-sql-id]", "data-sql-id", t, o);
 }
 var W = /* @__PURE__ */ new WeakSet();
 async function q(e, t, o = {}) {
@@ -510,7 +510,7 @@ var Pe = {
   badge: "badge",
   badgeMethod: (e) => `badge badge-method ${e.toLowerCase()}`,
   badgeStatus: (e) => {
-    const t = me(e);
+    const t = fe(e);
     return t ? `badge badge-status ${t}` : "badge badge-status";
   },
   badgeLevel: (e) => `badge badge-level ${oe(e)}`,
@@ -1091,7 +1091,7 @@ function ot(e, t) {
   `;
 }
 function rt(e, t, o) {
-  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, n = z(e), i = D(e, !0), d = tt(t, r), c = s ? `<span class="${t.muted}">${b(fe(e))} keys</span>` : "";
+  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, n = z(e), i = D(e, !0), d = tt(t, r), c = s ? `<span class="${t.muted}">${b(he(e))} keys</span>` : "";
   return `
     <div class="${t.jsonPanel}" data-copy-content="${a(n)}">
       <div class="${t.jsonHeader}">
@@ -3570,7 +3570,7 @@ var so = {
     const t = e || {};
     return (t.data ? Object.keys(t.data).length : 0) + (t.logs?.length || 0);
   },
-  handleEvent: (e, t) => be(e, t, 500),
+  handleEvent: (e, t) => ge(e, t, 500),
   supportsToolbar: !0
 }, go = {
   id: "jserrors",
@@ -3709,4 +3709,4 @@ export {
   ko as z
 };
 
-//# sourceMappingURL=builtin-panels-BsgOzEnY.js.map
+//# sourceMappingURL=builtin-panels-PNUdAgjs.js.map

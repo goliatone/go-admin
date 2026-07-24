@@ -1,4 +1,6 @@
 import type { DebugSnapshot, DeploymentSnapshot } from './types.js';
+import type { DeploymentPersona } from './types.js';
+import { normalizeDeploymentPersona } from './deployment-persona.js';
 
 export type DeploymentIndicator = {
   /** Canonical compact identity, e.g. `STAGING · brisk-otter`. */
@@ -11,6 +13,8 @@ export type DeploymentIndicator = {
   environmentShort: string;
   /** Human-friendly process name. */
   instance: string;
+  /** Stable artifact persona, when a bounded visual is available. */
+  persona?: DeploymentPersona;
   /** Full single-line summary for tooltips and accessible names. */
   title: string;
 };
@@ -75,20 +79,24 @@ export function deploymentIndicator(
     return null;
   }
   const upperEnvironment = environment.toUpperCase();
+  const persona = normalizeDeploymentPersona(deployment?.persona);
+  const displayName = persona?.name || instance;
   // Version and commit are optional context: present them when the payload has
   // them, omit them silently when an older server did not send them.
   const details = [
     `Environment: ${environment}`,
     `Instance: ${instance}`,
+    persona ? `Persona: ${persona.name}` : '',
     textField(deployment?.application?.version) ? `Version: ${textField(deployment?.application?.version)}` : '',
     textField(deployment?.build?.commit_short) ? `Commit: ${textField(deployment?.build?.commit_short)}` : '',
   ].filter(Boolean);
   return {
-    label: `${upperEnvironment} · ${instance}`,
+    label: `${upperEnvironment} · ${displayName}`,
     color: safeColor(deployment?.environment?.color),
     environment: upperEnvironment,
     environmentShort: shortEnvironment(environment),
     instance,
+    ...(persona ? { persona } : {}),
     title: details.join(' · '),
   };
 }

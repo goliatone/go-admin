@@ -1,28 +1,30 @@
 import { i as a, n, r as s, t as o } from "../chunks/icons-B_VaFfsl.js";
-import { _ as r, a as l, c as i, d as p, f as g, g as f, h as m, i as D, l as P, m as u, n as d, o as b, p as c, r as v, s as y, t as I, u as S, w as h } from "../chunks/server-definitions-CLmCY9H_.js";
-import { t as R } from "../chunks/deployment-identity-bJVcvaOc.js";
+import { J as t, Y as l, _ as i, a as p, c as m, d as g, f as D, g as P, h as f, i as d, l as u, m as b, n as v, o as y, p as c, r as I, s as S, t as h, u as E, w as R } from "../chunks/server-definitions-4iGaxxbT.js";
+import { t as T } from "../chunks/deployment-identity-OqtktVXM.js";
 export {
   o as DEBUG_ICON_REFS,
-  l as applyCustomEventPayload,
-  b as applyDebugEventToSnapshot,
-  y as buildEventToPanel,
-  R as deploymentIndicator,
-  i as fetchDebugSnapshot,
-  I as fetchServerPanelDefinitions,
+  p as applyCustomEventPayload,
+  y as applyDebugEventToSnapshot,
+  S as buildEventToPanel,
+  T as deploymentIndicator,
+  m as fetchDebugSnapshot,
+  h as fetchServerPanelDefinitions,
   n as getDebugIconRef,
-  P as getDefaultPanels,
-  S as getDefaultToolbarPanels,
-  p as getPanelEventTypes,
-  g as getPanelIcon,
+  u as getDefaultPanels,
+  E as getDefaultToolbarPanels,
+  g as getPanelEventTypes,
+  D as getPanelIcon,
   c as getPanelLabel,
-  u as getToolbarCounts,
-  d as hydrateServerPanelDefinitions,
-  m as isKnownPanel,
-  f as normalizeReplCommands,
-  v as panelDefinitionFromServer,
-  h as panelRegistry,
-  D as registerServerPanelConsoleRenderer,
+  b as getToolbarCounts,
+  v as hydrateServerPanelDefinitions,
+  f as isKnownPanel,
+  t as normalizeDeploymentPersona,
+  P as normalizeReplCommands,
+  I as panelDefinitionFromServer,
+  R as panelRegistry,
+  d as registerServerPanelConsoleRenderer,
   s as renderDebugIcon,
   a as renderDebugIconRef,
-  r as replPanelIDs
+  l as renderDeploymentPersonaAvatar,
+  i as replPanelIDs
 };

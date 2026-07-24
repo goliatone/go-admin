@@ -6,6 +6,7 @@ package admin
 import (
 	"context"
 	core "github.com/goliatone/go-admin/admin"
+	deploymentidentity "github.com/goliatone/go-admin/pkg/go-deployment-identity"
 	auth "github.com/goliatone/go-auth"
 	cms "github.com/goliatone/go-cms"
 	command "github.com/goliatone/go-command"
@@ -163,6 +164,9 @@ const (
 	DefaultSchemaMaxFields                         = core.DefaultSchemaMaxFields
 	DefaultSchemaMaxSizeBytes                      = core.DefaultSchemaMaxSizeBytes
 	DefaultUISchemaMaxSizeBytes                    = core.DefaultUISchemaMaxSizeBytes
+	DeploymentPersonaMediaTypePNG                  = core.DeploymentPersonaMediaTypePNG
+	DeploymentPersonaVisualImage                   = core.DeploymentPersonaVisualImage
+	DeploymentPersonaVisualMonogram                = core.DeploymentPersonaVisualMonogram
 	DoctorActionKindAuto                           = core.DoctorActionKindAuto
 	DoctorActionKindManual                         = core.DoctorActionKindManual
 	DoctorActionKindNavigate                       = core.DoctorActionKindNavigate
@@ -815,6 +819,12 @@ type (
 	DeploymentIdentityConfig                          = core.DeploymentIdentityConfig
 	DeploymentIdentityResolverOption                  = core.DeploymentIdentityResolverOption
 	DeploymentIdentitySnapshot                        = core.DeploymentIdentitySnapshot
+	DeploymentPersona                                 = core.DeploymentPersona
+	DeploymentPersonaConfig                           = core.DeploymentPersonaConfig
+	DeploymentPersonaGenerator                        = core.DeploymentPersonaGenerator
+	DeploymentPersonaGeneratorFunc                    = core.DeploymentPersonaGeneratorFunc
+	DeploymentPersonaInput                            = core.DeploymentPersonaInput
+	DeploymentPersonaVisual                           = core.DeploymentPersonaVisual
 	DevErrorContext                                   = core.DevErrorContext
 	DisabledBulkService                               = core.DisabledBulkService
 	DisabledMediaLibrary                              = core.DisabledMediaLibrary
@@ -1752,6 +1762,18 @@ func DomainErrorCodes() []DomainErrorCode {
 	return core.DomainErrorCodes()
 }
 
+func EffectivePreferencesPermission(cfg Config) string {
+	return core.EffectivePreferencesPermission(cfg)
+}
+
+func EffectiveProfilePermission(cfg Config) string {
+	return core.EffectiveProfilePermission(cfg)
+}
+
+func EffectiveSettingsPermission(cfg Config) string {
+	return core.EffectiveSettingsPermission(cfg)
+}
+
 func EmptyWidgetPayload() WidgetPayload {
 	return core.EmptyWidgetPayload()
 }
@@ -2086,6 +2108,10 @@ func NewDebugREPLCommandCatalog() *DebugREPLCommandCatalog {
 
 func NewDebugREPLSessionManager(store DebugREPLSessionStore, cfg DebugREPLConfig) *DebugREPLSessionManager {
 	return core.NewDebugREPLSessionManager(store, cfg)
+}
+
+func NewDefaultDeploymentPersonaGenerator() DeploymentPersonaGenerator {
+	return core.NewDefaultDeploymentPersonaGenerator()
 }
 
 func NewDefaultIconRenderer(policy IconSecurityPolicy) *DefaultIconRenderer {
@@ -2900,6 +2926,10 @@ func ValidateCommandRunUpdate(update CommandRunUpdate, limits CommandRunContract
 	return core.ValidateCommandRunUpdate(update, limits)
 }
 
+func ValidateDeploymentPersona(persona DeploymentPersona) (DeploymentPersona, error) {
+	return core.ValidateDeploymentPersona(persona)
+}
+
 func ValidateEntryNavigationOverrides(overrides map[string]string, eligible []string, strict bool) (map[string]string, error) {
 	return core.ValidateEntryNavigationOverrides(overrides, eligible, strict)
 }
@@ -3038,6 +3068,10 @@ func WithDeploymentEnvironmentLookup(lookup func(string) (string, bool)) Deploym
 
 func WithDeploymentHostnameLookup(lookup func() (string, error)) DeploymentIdentityResolverOption {
 	return core.WithDeploymentHostnameLookup(lookup)
+}
+
+func WithDeploymentPersonaGenerator(generator deploymentidentity.Generator) DeploymentIdentityResolverOption {
+	return core.WithDeploymentPersonaGenerator(generator)
 }
 
 func WithDeploymentRandomSource(source io.Reader) DeploymentIdentityResolverOption {

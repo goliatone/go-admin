@@ -89,6 +89,7 @@ export type DeploymentSnapshot = {
     name?: string;
     color?: string;
   };
+  persona?: DeploymentPersona;
   build?: {
     commit_sha?: string;
     commit_short?: string;
@@ -106,6 +107,24 @@ export type DeploymentSnapshot = {
     started_at?: string;
     uptime?: string;
   };
+};
+
+export type DeploymentPersona = {
+  name?: string;
+  algorithm?: string;
+  version?: string;
+  source?: string;
+  visual?: DeploymentPersonaVisual;
+};
+
+export type DeploymentPersonaVisual = {
+  kind?: 'monogram' | 'image' | string;
+  text?: string;
+  alt?: string;
+  background?: string;
+  foreground?: string;
+  media_type?: string;
+  data?: string;
 };
 
 export type JSErrorEntry = {

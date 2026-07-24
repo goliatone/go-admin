@@ -4,6 +4,7 @@ import { escapeHTML, formatNumber, formatTimestamp } from '../utils.js';
 import { escapeAttribute } from '../../../shared/html.js';
 import { hashString } from './live-list-view.js';
 import { renderJSONPanel } from './json.js';
+import { normalizeDeploymentPersona, renderDeploymentPersonaAvatar } from '../deployment-persona.js';
 
 type SchemaItem = Record<string, unknown>;
 
@@ -257,21 +258,35 @@ export function renderSchemaIdentity(
     (typeof bind === 'string' && bind.trim() !== '' ? pathValue(data, bind) : undefined);
   const accent = safeColor(bound(options.color_bind));
   const eyebrow = text(bound(options.eyebrow_bind)).trim();
-  const heading = text(bound(options.title_bind)).trim();
+  const primaryHeading = text(bound(options.title_bind)).trim();
+  const fallbackHeading = text(bound(options.title_fallback_bind)).trim();
+  const heading = primaryHeading || fallbackHeading;
   const subtitle = text(bound(options.subtitle_bind)).trim();
   const chips = optionItems(view, 'chips').filter((chip) => !isBlank(bound(chip.bind)));
+  const avatarValue = bound(options.avatar_bind);
+  const avatarName = text(bound(options.avatar_name_bind)).trim();
+  const avatarPersona = normalizeDeploymentPersona(
+    avatarValue && typeof avatarValue === 'object'
+      ? { name: avatarName || heading, visual: avatarValue }
+      : undefined
+  );
+  const avatar = renderDeploymentPersonaAvatar(avatarPersona, 'debug-identity__avatar');
   if (!eyebrow && !heading && chips.length === 0) {
     return `<div class="${styles.emptyState}">No ${escapeHTML((title || 'identity').toLowerCase())} details available</div>`;
   }
   const titleFormat = text(options.title_format);
+  const titleLabel = primaryHeading
+    ? text(options.title_label)
+    : text(options.title_fallback_label);
   const headingValue = heading
     ? (titleFormat === 'copy'
-        ? renderCopyValue(heading, styles, text(options.title_label) || title || 'value')
+        ? renderCopyValue(heading, styles, titleLabel || title || 'value')
         : `<span class="debug-identity__value">${escapeHTML(heading)}</span>`)
     : renderUnavailable(text(options.empty));
   return `
     <section class="debug-identity"${accent ? ` style="--debug-identity-color:${escapeAttribute(accent)}"` : ''}${accent ? '' : ' data-accent="none"'}>
       <div class="debug-identity__lead">
+        ${avatar}
         ${eyebrow
           ? `<span class="debug-identity__env"><span class="debug-identity__dot" aria-hidden="true"></span>${escapeHTML(eyebrow.toUpperCase())}</span>`
           : ''}

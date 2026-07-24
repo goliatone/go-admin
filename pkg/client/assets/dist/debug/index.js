@@ -1,10 +1,10 @@
 import { escapeHTML as p } from "../shared/html.js";
 import { httpRequest as R, readCSRFToken as Ye, readExpectedHTTPJSON as B, readHTTPErrorResult as Ze } from "../shared/transport/http-client.js";
 import { t as et } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { A as zs, B as Qs, C as tt, D as w, E as st, F as me, G as ge, H as Xs, K as Gs, L as Ws, M as rt, N as nt, O as Ys, P as at, R as ye, S as Zs, T as it, U as er, V as ot, W as tr, _ as lt, a as sr, b as ct, c as rr, d as nr, f as dt, g as ut, h as ht, i as k, j as ar, k as ir, l as or, m as ft, n as lr, o as cr, p as pt, r as be, s as dr, t as mt, u as ur, v as Ee, w as gt, x as yt, y as bt, z as hr } from "../chunks/builtin-panels-BsgOzEnY.js";
+import { A as zs, B as Qs, C as tt, D as w, E as st, F as me, G as ge, H as Xs, K as Gs, L as Ws, M as rt, N as nt, O as Ys, P as at, R as ye, S as Zs, T as it, U as er, V as ot, W as tr, _ as lt, a as sr, b as ct, c as rr, d as nr, f as dt, g as ut, h as ht, i as k, j as ar, k as ir, l as or, m as ft, n as lr, o as cr, p as pt, r as be, s as dr, t as mt, u as ur, v as Ee, w as gt, x as yt, y as bt, z as hr } from "../chunks/builtin-panels-PNUdAgjs.js";
 import { t as Et } from "../chunks/repl-panel-BKc41M7P.js";
 import { i as vt, n as mr, r as gr, t as yr } from "../chunks/icons-B_VaFfsl.js";
-import { $ as Er, A as ve, B as vr, C as Sr, D as wr, E as Pr, F as Ar, G as Cr, H as _r, I as St, J as wt, K as xr, L as Or, M as Se, N as we, O as Pt, P as Rr, Q as $r, R as Pe, S as V, T as Lr, U as Dr, V as Ir, W as kr, X as Y, Y as Tr, Z as qr, _ as At, a as Fr, at as Nr, b as Ct, c as Mr, ct as _t, d as xt, dt as Ot, f as Rt, ft as jr, g as $t, h as Lt, i as Dt, j as Br, k as Ur, l as It, lt as Jr, m as Hr, n as kt, nt as U, o as Kr, ot as Tt, p as Ae, q as Vr, r as zr, rt as J, s as Z, st as z, u as Qr, ut as Xr, v as Gr, w as $, x as Wr, y as qt, z as Yr } from "../chunks/server-definitions-CLmCY9H_.js";
+import { $ as Er, A as ve, B as vr, C as Sr, D as wr, E as Pr, F as Ar, G as Cr, H as _r, I as St, K as xr, L as Or, M as Se, N as we, O as wt, P as Rr, Q as Y, R as Pe, S as V, T as $r, U as Lr, V as Dr, W as Ir, X as Pt, Z as kr, _ as At, a as Tr, at as U, b as Ct, c as qr, ct as _t, d as xt, dt as Fr, et as Nr, f as Ot, ft as Mr, g as Rt, h as $t, i as Lt, it as J, j as jr, k as Br, l as Dt, lt as z, m as Ur, mt as Jr, n as It, o as Hr, p as Ae, pt as kt, q as Kr, r as Vr, s as Z, st as zr, tt as Qr, u as Xr, ut as Tt, v as Gr, w as $, x as Wr, y as qt, z as Yr } from "../chunks/server-definitions-4iGaxxbT.js";
 var Ft = class {
   add(e, t, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
@@ -1844,7 +1844,7 @@ function Fs(e, t = {}) {
 function Ge(e) {
   return e.replace(/["\\]/g, "\\$&");
 }
-Dt(K, fs);
+Lt(K, fs);
 var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, Me = (e) => {
   if (!e) return null;
   try {
@@ -1852,7 +1852,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   } catch {
     return null;
   }
-}, Ms = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : It(), ae = (e, t) => Yt(e, t), js = (e, t, s) => {
+}, Ms = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : Dt(), ae = (e, t) => Yt(e, t), js = (e, t, s) => {
   if (!e || !t) return;
   const r = t.split(".").map((a) => a.trim()).filter(Boolean);
   if (r.length === 0) return;
@@ -1876,7 +1876,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   constructor(e) {
     this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.logsExpanded = /* @__PURE__ */ new Set(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.pauseButton = null, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.commandLauncherLastPayloads = /* @__PURE__ */ new Map(), this.commandRunStateGeneration = 0, this.container = e;
     const t = Ms(Me(e.dataset.panels));
-    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = ie(e.dataset.maxLogEntries, 500), this.maxSQLQueries = ie(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = ie(e.dataset.slowThresholdMs, 50), this.replCommands = $t(Me(e.dataset.replCommands)), this.state = {
+    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = ie(e.dataset.maxLogEntries, 500), this.maxSQLQueries = ie(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = ie(e.dataset.slowThresholdMs, 50), this.replCommands = Rt(Me(e.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -2014,7 +2014,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   async initializeServerDefinitions() {
     const e = await this.loadServerPanelOrderPreference();
-    this.applyPanelOrder(), await kt(this.debugPath), this.eventToPanel = Z(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
+    this.applyPanelOrder(), await It(this.debugPath), this.eventToPanel = Z(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
   }
   subscribeToEvents() {
     const e = /* @__PURE__ */ new Set();
@@ -2200,7 +2200,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       if (!r || r.disabled) return;
       const n = r.dataset.doctorActionRun || "", a = r.dataset.doctorActionConfirm || "", i = r.dataset.doctorActionRequiresConfirmation === "true";
       this.runDoctorAction(n, a, i);
-    }), this.panelEl.addEventListener(Pt, (e) => {
+    }), this.panelEl.addEventListener(wt, (e) => {
       if (this.activePanel !== "command_runs") return;
       const t = e.detail, s = typeof t?.runID == "string" ? t.runID : "";
       s && this.replacePanelURL("command_runs", s);
@@ -2208,7 +2208,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderTabs() {
     const e = this.panels.map((t) => {
-      const s = t === this.activePanel ? "debug-tab--active" : "", r = vt(Rt(t), {
+      const s = t === this.activePanel ? "debug-tab--active" : "", r = vt(Ot(t), {
         size: "14px",
         extraClass: "debug-tab__icon"
       });
@@ -2588,7 +2588,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       }), this.attachCommandLauncherResultActions(s, t.actionID);
       return;
     }
-    const r = this.renderPanelActionErrors(t.errors, t.actionID), n = t.data === void 0 ? "" : `<pre class="${w.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${p(Tt(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    const r = this.renderPanelActionErrors(t.errors, t.actionID), n = t.data === void 0 ? "" : `<pre class="${w.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${p(_t(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
     s.innerHTML = `<div class="${t.status === "error" ? w.badgeError : w.badge}">${p(t.message)}</div>${r}${n}`;
   }
   attachCommandLauncherResultActions(e, t) {
@@ -2749,7 +2749,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     if (s.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const r = s.map((a) => {
-      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", l = _t(a.last_activity || a.started_at), d = z(a.request_count ?? 0), u = !!i && i === this.activeSessionId, h = u ? "detach" : "attach", g = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", S = a.ip || "-";
+      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", l = Tt(a.last_activity || a.started_at), d = z(a.request_count ?? 0), u = !!i && i === this.activeSessionId, h = u ? "detach" : "attach", g = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", S = a.ip || "-";
       return `
           <tr class="${y}">
             <td>
@@ -2809,7 +2809,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderJSONPanel(e, t, s) {
     const r = t && typeof t == "object" && !Array.isArray(t), n = Array.isArray(t);
-    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : wt(e, t, w, {
+    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : Pt(e, t, w, {
       useIconCopyButton: !0,
       showCount: !0,
       filterFn: s ? (a) => ae(a, s) : void 0
@@ -2924,9 +2924,9 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     }
     switch (e) {
       case "template":
-        return U(this.state.template);
+        return J(this.state.template);
       case "session":
-        return U(this.state.session);
+        return J(this.state.session);
       case "requests":
         return this.state.requests.length;
       case "sql":
@@ -2934,15 +2934,15 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       case "logs":
         return this.state.logs.length;
       case "config":
-        return U(this.state.config);
+        return J(this.state.config);
       case "routes":
         return this.state.routes.length;
       case "sessions":
         return this.sessions.length;
       case "custom":
-        return U(this.state.custom.data) + this.state.custom.logs.length;
+        return J(this.state.custom.data) + this.state.custom.logs.length;
       default:
-        return U(this.state.extra[e]);
+        return J(this.state.extra[e]);
     }
   }
   renderEmptyState(e) {
@@ -3008,7 +3008,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
         this.handleCustomEvent(e.payload);
         break;
       default:
-        Lt(t) || (this.state.extra[t] = e.payload);
+        $t(t) || (this.state.extra[t] = e.payload);
         break;
     }
     if (this.updateTabCounts(), t === this.activePanel) if (t === "sql") this.sqlView.enqueue([e.payload]);
@@ -3090,11 +3090,11 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   applySnapshot(e, t) {
     const s = e || {}, r = this.state.extra.command_runs, n = t !== void 0 && t !== this.commandRunStateGeneration;
-    this.state.template = s.template || {}, this.state.session = s.session || {}, this.state.requests = J(s.requests), this.state.sql = J(s.sql), this.state.logs = J(s.logs), this.reconcileLogExpansion(), this.state.config = s.config || {}, this.state.routes = J(s.routes);
+    this.state.template = s.template || {}, this.state.session = s.session || {}, this.state.requests = U(s.requests), this.state.sql = U(s.sql), this.state.logs = U(s.logs), this.reconcileLogExpansion(), this.state.config = s.config || {}, this.state.routes = U(s.routes);
     const a = s.custom || {};
     this.state.custom = {
       data: a.data || {},
-      logs: J(a.logs)
+      logs: U(a.logs)
     };
     const i = /* @__PURE__ */ new Set([
       "template",
@@ -3121,7 +3121,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     });
   }
   isSlowQuery(e) {
-    return Ot(e?.duration, this.slowThresholdMs);
+    return kt(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (!this.debugPath || this.activeSessionId) return;
@@ -3251,10 +3251,10 @@ export {
   ut as RegistryLiveListManager,
   Gs as RemoteDebugStream,
   tt as SqlLiveView,
-  qr as appendListRow,
+  Er as appendListRow,
   hr as appendSqlRowDOM,
-  Fr as applyCustomEventPayload,
-  Kr as applyDebugEventToSnapshot,
+  Tr as applyCustomEventPayload,
+  Hr as applyDebugEventToSnapshot,
   mt as applyPanelActionNavigation,
   lr as applyPanelActionPayload,
   rt as attachCopyListeners,
@@ -3264,48 +3264,48 @@ export {
   Z as buildEventToPanel,
   Pr as commandRunKey,
   wr as commandRunRevision,
-  Pt as commandRunSelectionEvent,
-  Ur as commandRunTerminal,
+  wt as commandRunSelectionEvent,
+  Br as commandRunTerminal,
   ve as commandRunsNavigationHref,
-  Br as commandRunsSelection,
+  jr as commandRunsSelection,
   w as consoleStyles,
   Ws as copyToClipboard,
-  U as countPayload,
+  J as countPayload,
   Gr as defaultGetCount,
   qt as defaultHandleEvent,
   dr as doctorNavigation,
   p as escapeHTML,
-  $r as evictListOverflow,
+  Nr as evictListOverflow,
   Qs as evictSqlOverflow,
-  Mr as fetchDebugSnapshot,
-  Nr as formatDuration,
-  Tt as formatJSON,
+  qr as fetchDebugSnapshot,
+  zr as formatDuration,
+  _t as formatJSON,
   z as formatNumber,
-  _t as formatTimestamp,
+  Tt as formatTimestamp,
   mr as getDebugIconRef,
-  It as getDefaultPanels,
-  Qr as getDefaultToolbarPanels,
-  Jr as getLevelClass,
+  Dt as getDefaultPanels,
+  Xr as getDefaultToolbarPanels,
+  Fr as getLevelClass,
   Ct as getPanelCount,
   Wr as getPanelData,
   xt as getPanelEventTypes,
-  Rt as getPanelIcon,
+  Ot as getPanelIcon,
   Ae as getPanelLabel,
   V as getSnapshotKey,
-  Xr as getStatusClass,
+  Mr as getStatusClass,
   Ys as getStyleConfig,
-  Hr as getToolbarCounts,
-  Er as hashString,
+  Ur as getToolbarCounts,
+  Qr as hashString,
   Us as initDebugPanel,
-  Lt as isKnownPanel,
+  $t as isKnownPanel,
   Yr as isSchemaListRenderer,
-  Ot as isSlowDuration,
+  kt as isSlowDuration,
   dt as jsErrorRowKey,
   Ee as logRowKey,
   bt as logSearchText,
   Sr as normalizeEventTypes,
-  $t as normalizeReplCommands,
-  zr as panelDefinitionFromServer,
+  Rt as normalizeReplCommands,
+  Vr as panelDefinitionFromServer,
   $ as panelRegistry,
   Se as parseCommandRunsNavigation,
   we as reconcileCommandRunsRows,
@@ -3318,11 +3318,11 @@ export {
   or as renderDoctorPanelCompact,
   pt as renderErrorRow,
   ft as renderJSErrorsPanel,
-  wt as renderJSONPanel,
-  Tr as renderJSONViewer,
+  Pt as renderJSONPanel,
+  kr as renderJSONViewer,
   ct as renderLogRow,
   yt as renderLogsPanel,
-  Lr as renderPanelContent,
+  $r as renderPanelContent,
   ur as renderPermissionsPanel,
   nr as renderPermissionsPanelCompact,
   gt as renderRequestRow,
@@ -3332,10 +3332,10 @@ export {
   Xs as renderSQLRow,
   er as renderSQLRowsHTML,
   vr as renderSchemaIdentity,
-  Ir as renderSchemaKeyValue,
+  Dr as renderSchemaKeyValue,
   _r as renderSchemaListRow,
-  Dr as renderSchemaMetrics,
-  kr as renderSchemaStatusList,
+  Lr as renderSchemaMetrics,
+  Ir as renderSchemaStatusList,
   Cr as renderSchemaTable,
   xr as renderSchemaTimeline,
   sr as renderSiteRenderCachePanel,
@@ -3344,13 +3344,13 @@ export {
   st as requestRowKey,
   St as resetCommandRunsState,
   ye as restoreRowExpansion,
-  Vr as schemaRowKey,
+  Kr as schemaRowKey,
   Or as selectCommandRun,
   Zs as serializeLogEntry,
   Pe as setCommandRunsNavigationTarget,
   tr as sqlRowKey,
   ir as toolbarStyles,
-  jr as truncate
+  Jr as truncate
 };
 
 //# sourceMappingURL=index.js.map

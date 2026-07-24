@@ -1156,6 +1156,29 @@ section.debug-json-panel {
   min-width: 0;
 }
 
+.debug-identity__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  overflow: hidden;
+  border: 1px solid var(--debug-border);
+  border-radius: 10px;
+  background: var(--persona-background, var(--debug-bg));
+  color: var(--persona-foreground, var(--debug-text));
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.debug-identity__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .debug-identity__env {
   display: inline-flex;
   align-items: center;

@@ -99,6 +99,54 @@ test('deployment indicator honors toolbar panel configuration', () => {
   assert.equal(shown.environmentShort, 'PROD');
 });
 
+test('deployment indicator prefers a validated persona and rejects malformed visuals', () => {
+  const base = {
+    environment: { name: 'staging', color: '#f97316' },
+    runtime: { instance_name: 'process-1' },
+  };
+  const shown = toolbar.deploymentIndicator({ deployment: {
+    ...base,
+    persona: {
+      name: 'lively-raven',
+      algorithm: 'go-admin-monogram',
+      version: 'v1',
+      visual: { kind: 'monogram', text: 'LR', alt: 'Lively raven', background: '#0f766e', foreground: '#f0fdfa' },
+    },
+  } });
+  assert.equal(shown.label, 'STAGING · lively-raven');
+  assert.equal(shown.instance, 'process-1');
+  assert.equal(shown.persona.name, 'lively-raven');
+  assert.match(shown.title, /Persona: lively-raven/);
+
+  const malformed = toolbar.deploymentIndicator({ deployment: {
+    ...base,
+    persona: {
+      name: '<script>',
+      visual: { kind: 'image', alt: 'bad', media_type: 'text/html', data: 'PHNjcmlwdD4=' },
+    },
+  } });
+  assert.equal(malformed.label, 'STAGING · process-1');
+  assert.equal(malformed.persona, undefined);
+});
+
+test('persona avatar constructs only bounded passive PNG data URLs', () => {
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  const html = toolbar.renderDeploymentPersonaAvatar({
+    name: 'image-persona',
+    visual: { kind: 'image', alt: 'Image persona', media_type: 'image/png', data: png },
+  });
+  assert.match(html, /^<span class="deployment-persona-avatar"><img src="data:image\/png;base64,/);
+  assert.match(html, /alt="Image persona"/);
+  assert.equal(toolbar.renderDeploymentPersonaAvatar({
+    name: 'bad',
+    visual: { kind: 'image', alt: 'bad', media_type: 'image/svg+xml', data: '<svg>' },
+  }), '');
+  assert.equal(toolbar.renderDeploymentPersonaAvatar({
+    name: 'oversized',
+    visual: { kind: 'image', alt: 'oversized', media_type: 'image/png', data: `iVBORw0KGgo${'A'.repeat(88_000)}` },
+  }), '');
+});
+
 // ---------------------------------------------------------------------------
 // Shared identity renderer
 // ---------------------------------------------------------------------------
@@ -172,6 +220,36 @@ test('identity renderer ignores unbound options instead of serializing the paylo
   assert.doesNotMatch(html, /debug-identity__subtitle/);
   assert.doesNotMatch(html, /application/);
   assert.match(html, /brisk-otter/);
+});
+
+test('identity renderer displays safe monogram and PNG avatars with title fallback', () => {
+  const personaView = {
+    ...identityView,
+    options: {
+      ...identityView.options,
+      title_bind: 'persona.name',
+      title_fallback_bind: 'runtime.instance_name',
+      title_fallback_label: 'instance name',
+      avatar_bind: 'persona.visual',
+      avatar_name_bind: 'persona.name',
+    },
+  };
+  const monogram = renderSchemaIdentity('Persona', {
+    ...fullPayload,
+    persona: {
+      name: 'lively-raven',
+      visual: { kind: 'monogram', text: 'LR', alt: 'Lively raven', background: '#0f766e', foreground: '#f0fdfa' },
+    },
+  }, personaView, consoleStyles);
+  assert.match(monogram, /debug-identity__avatar/);
+  assert.match(monogram, /aria-label="Lively raven"/);
+  assert.match(monogram, /--persona-background:#0f766e/);
+  assert.match(monogram, /data-copy-content="lively-raven"/);
+
+  const legacy = renderSchemaIdentity('Persona', fullPayload, personaView, consoleStyles);
+  assert.match(legacy, /data-copy-content="brisk-otter"/);
+  assert.match(legacy, /aria-label="Copy instance name"/);
+  assert.doesNotMatch(legacy, /debug-identity__avatar/);
 });
 
 // ---------------------------------------------------------------------------
