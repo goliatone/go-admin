@@ -1,10 +1,10 @@
 import { escapeHTML as p } from "../shared/html.js";
 import { httpRequest as R, readCSRFToken as Ye, readExpectedHTTPJSON as B, readHTTPErrorResult as Ze } from "../shared/transport/http-client.js";
 import { t as et } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { A as zs, B as Qs, C as tt, D as w, E as st, F as me, G as ge, H as Xs, K as Gs, L as Ws, M as rt, N as nt, O as Ys, P as at, R as ye, S as Zs, T as it, U as er, V as ot, W as tr, _ as lt, a as sr, b as ct, c as rr, d as nr, f as dt, g as ut, h as ht, i as k, j as ar, k as ir, l as or, m as ft, n as lr, o as cr, p as pt, r as be, s as dr, t as mt, u as ur, v as Ee, w as gt, x as yt, y as bt, z as hr } from "../chunks/builtin-panels-D3aDCLAC.js";
+import { A as zs, B as Qs, C as tt, D as w, E as st, F as me, G as ge, H as Xs, K as Gs, L as Ws, M as rt, N as nt, O as Ys, P as at, R as ye, S as Zs, T as it, U as er, V as ot, W as tr, _ as lt, a as sr, b as ct, c as rr, d as nr, f as dt, g as ut, h as ht, i as k, j as ar, k as ir, l as or, m as ft, n as lr, o as cr, p as pt, r as be, s as dr, t as mt, u as ur, v as Ee, w as gt, x as yt, y as bt, z as hr } from "../chunks/builtin-panels-BsgOzEnY.js";
 import { t as Et } from "../chunks/repl-panel-BKc41M7P.js";
 import { i as vt, n as mr, r as gr, t as yr } from "../chunks/icons-B_VaFfsl.js";
-import { $ as U, A as ve, B as Er, C as vr, D as Sr, E as wr, F as Pr, G as St, H as Ar, I as wt, J as Cr, K as _r, L as xr, M as Se, N as we, O as Pt, P as Or, R as Pe, S as V, T as Rr, U as $r, V as Lr, W as Dr, X as Ir, Y as kr, _ as At, a as Tr, at as Ct, b as _t, c as qr, ct as xt, d as Ot, et as J, f as Rt, g as $t, h as Lt, i as Dt, it as z, j as Fr, k as Nr, l as It, lt as Mr, m as jr, n as kt, nt as Br, o as Ur, ot as Jr, p as Ae, q as Y, r as Hr, rt as Tt, s as Z, st as Kr, u as Vr, v as zr, w as $, x as Qr, y as qt, z as Xr } from "../chunks/server-definitions-BSnHY5ej.js";
+import { $ as Er, A as ve, B as vr, C as Sr, D as wr, E as Pr, F as Ar, G as Cr, H as _r, I as St, J as wt, K as xr, L as Or, M as Se, N as we, O as Pt, P as Rr, Q as $r, R as Pe, S as V, T as Lr, U as Dr, V as Ir, W as kr, X as Y, Y as Tr, Z as qr, _ as At, a as Fr, at as Nr, b as Ct, c as Mr, ct as _t, d as xt, dt as Ot, f as Rt, ft as jr, g as $t, h as Lt, i as Dt, j as Br, k as Ur, l as It, lt as Jr, m as Hr, n as kt, nt as U, o as Kr, ot as Tt, p as Ae, q as Vr, r as zr, rt as J, s as Z, st as z, u as Qr, ut as Xr, v as Gr, w as $, x as Wr, y as qt, z as Yr } from "../chunks/server-definitions-CLmCY9H_.js";
 var Ft = class {
   add(e, t, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
@@ -2018,7 +2018,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   subscribeToEvents() {
     const e = /* @__PURE__ */ new Set();
-    for (const t of this.panels) for (const s of Ot(t)) e.add(s);
+    for (const t of this.panels) for (const s of xt(t)) e.add(s);
     this.stream.subscribe(Array.from(e));
   }
   normalizeStoredPanelID(e) {
@@ -2749,7 +2749,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     if (s.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const r = s.map((a) => {
-      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", l = Ct(a.last_activity || a.started_at), d = z(a.request_count ?? 0), u = !!i && i === this.activeSessionId, h = u ? "detach" : "attach", g = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", S = a.ip || "-";
+      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", l = _t(a.last_activity || a.started_at), d = z(a.request_count ?? 0), u = !!i && i === this.activeSessionId, h = u ? "detach" : "attach", g = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", S = a.ip || "-";
       return `
           <tr class="${y}">
             <td>
@@ -2809,7 +2809,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderJSONPanel(e, t, s) {
     const r = t && typeof t == "object" && !Array.isArray(t), n = Array.isArray(t);
-    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : St(e, t, w, {
+    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : wt(e, t, w, {
       useIconCopyButton: !0,
       showCount: !0,
       filterFn: s ? (a) => ae(a, s) : void 0
@@ -2890,7 +2890,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
         logs: []
       },
       extra: {}
-    }, this.expandedRequests.clear(), this.logsExpanded.clear(), this.jserrorsExpanded.clear(), wt(), Pe(Se(window.location.search)), this.commandRunStateGeneration += 1, this.eventCount = 0, this.lastEventAt = null, this.updateStatusMeta(), this.updateTabCounts();
+    }, this.expandedRequests.clear(), this.logsExpanded.clear(), this.jserrorsExpanded.clear(), St(), Pe(Se(window.location.search)), this.commandRunStateGeneration += 1, this.eventCount = 0, this.lastEventAt = null, this.updateStatusMeta(), this.updateTabCounts();
   }
   buildSessionStreamPath(e) {
     const t = this.debugPath.replace(/\/+$/, ""), s = encodeURIComponent(e);
@@ -2919,7 +2919,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       const t = $.get(e);
       if (t) {
         const s = V(t);
-        return _t({ [s]: this.getStateForKey(s) }, t);
+        return Ct({ [s]: this.getStateForKey(s) }, t);
       }
     }
     switch (e) {
@@ -3121,7 +3121,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     });
   }
   isSlowQuery(e) {
-    return xt(e?.duration, this.slowThresholdMs);
+    return Ot(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (!this.debugPath || this.activeSessionId) return;
@@ -3251,10 +3251,10 @@ export {
   ut as RegistryLiveListManager,
   Gs as RemoteDebugStream,
   tt as SqlLiveView,
-  Cr as appendListRow,
+  qr as appendListRow,
   hr as appendSqlRowDOM,
-  Tr as applyCustomEventPayload,
-  Ur as applyDebugEventToSnapshot,
+  Fr as applyCustomEventPayload,
+  Kr as applyDebugEventToSnapshot,
   mt as applyPanelActionNavigation,
   lr as applyPanelActionPayload,
   rt as attachCopyListeners,
@@ -3262,55 +3262,55 @@ export {
   at as attachRequestDetailListeners,
   me as attachRowExpansion,
   Z as buildEventToPanel,
-  wr as commandRunKey,
-  Sr as commandRunRevision,
+  Pr as commandRunKey,
+  wr as commandRunRevision,
   Pt as commandRunSelectionEvent,
-  Nr as commandRunTerminal,
+  Ur as commandRunTerminal,
   ve as commandRunsNavigationHref,
-  Fr as commandRunsSelection,
+  Br as commandRunsSelection,
   w as consoleStyles,
   Ws as copyToClipboard,
   U as countPayload,
-  zr as defaultGetCount,
+  Gr as defaultGetCount,
   qt as defaultHandleEvent,
   dr as doctorNavigation,
   p as escapeHTML,
-  kr as evictListOverflow,
+  $r as evictListOverflow,
   Qs as evictSqlOverflow,
-  qr as fetchDebugSnapshot,
-  Br as formatDuration,
+  Mr as fetchDebugSnapshot,
+  Nr as formatDuration,
   Tt as formatJSON,
   z as formatNumber,
-  Ct as formatTimestamp,
+  _t as formatTimestamp,
   mr as getDebugIconRef,
   It as getDefaultPanels,
-  Vr as getDefaultToolbarPanels,
+  Qr as getDefaultToolbarPanels,
   Jr as getLevelClass,
-  _t as getPanelCount,
-  Qr as getPanelData,
-  Ot as getPanelEventTypes,
+  Ct as getPanelCount,
+  Wr as getPanelData,
+  xt as getPanelEventTypes,
   Rt as getPanelIcon,
   Ae as getPanelLabel,
   V as getSnapshotKey,
-  Kr as getStatusClass,
+  Xr as getStatusClass,
   Ys as getStyleConfig,
-  jr as getToolbarCounts,
-  Ir as hashString,
+  Hr as getToolbarCounts,
+  Er as hashString,
   Us as initDebugPanel,
   Lt as isKnownPanel,
-  Xr as isSchemaListRenderer,
-  xt as isSlowDuration,
+  Yr as isSchemaListRenderer,
+  Ot as isSlowDuration,
   dt as jsErrorRowKey,
   Ee as logRowKey,
   bt as logSearchText,
-  vr as normalizeEventTypes,
+  Sr as normalizeEventTypes,
   $t as normalizeReplCommands,
-  Hr as panelDefinitionFromServer,
+  zr as panelDefinitionFromServer,
   $ as panelRegistry,
   Se as parseCommandRunsNavigation,
   we as reconcileCommandRunsRows,
-  Or as renderCommandRunRow,
-  Pr as renderCommandRunsPanel,
+  Rr as renderCommandRunRow,
+  Ar as renderCommandRunsPanel,
   ht as renderCustomPanel,
   gr as renderDebugIcon,
   vt as renderDebugIconRef,
@@ -3318,11 +3318,11 @@ export {
   or as renderDoctorPanelCompact,
   pt as renderErrorRow,
   ft as renderJSErrorsPanel,
-  St as renderJSONPanel,
-  _r as renderJSONViewer,
+  wt as renderJSONPanel,
+  Tr as renderJSONViewer,
   ct as renderLogRow,
   yt as renderLogsPanel,
-  Rr as renderPanelContent,
+  Lr as renderPanelContent,
   ur as renderPermissionsPanel,
   nr as renderPermissionsPanelCompact,
   gt as renderRequestRow,
@@ -3331,23 +3331,26 @@ export {
   ot as renderSQLPanel,
   Xs as renderSQLRow,
   er as renderSQLRowsHTML,
-  Er as renderSchemaListRow,
-  Lr as renderSchemaStatusList,
-  Ar as renderSchemaTable,
-  $r as renderSchemaTimeline,
+  vr as renderSchemaIdentity,
+  Ir as renderSchemaKeyValue,
+  _r as renderSchemaListRow,
+  Dr as renderSchemaMetrics,
+  kr as renderSchemaStatusList,
+  Cr as renderSchemaTable,
+  xr as renderSchemaTimeline,
   sr as renderSiteRenderCachePanel,
   cr as renderSiteRenderCachePanelCompact,
   At as replPanelIDs,
   st as requestRowKey,
-  wt as resetCommandRunsState,
+  St as resetCommandRunsState,
   ye as restoreRowExpansion,
-  Dr as schemaRowKey,
-  xr as selectCommandRun,
+  Vr as schemaRowKey,
+  Or as selectCommandRun,
   Zs as serializeLogEntry,
   Pe as setCommandRunsNavigationTarget,
   tr as sqlRowKey,
   ir as toolbarStyles,
-  Mr as truncate
+  jr as truncate
 };
 
 //# sourceMappingURL=index.js.map

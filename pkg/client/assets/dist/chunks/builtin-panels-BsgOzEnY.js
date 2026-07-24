@@ -1,7 +1,7 @@
 import { escapeAttribute as h, escapeHTML as a } from "../shared/html.js";
 import { normalizeDebugBasePath as pe } from "../debug/shared/path-helpers.js";
 import { r as m } from "./icons-B_VaFfsl.js";
-import { $ as ue, G as $, J as ge, Q as be, X as C, Y as fe, Z as D, a as he, at as y, it as b, lt as R, nt as F, ot as te, q as oe, rt as z, st as me, tt as U, w as f, y as L } from "./server-definitions-BSnHY5ej.js";
+import { $ as C, J as $, Q as ue, X as te, Z as ge, a as be, at as F, ct as y, et as D, ft as R, it as U, lt as oe, nt as fe, ot as z, st as b, tt as he, ut as me, w as f, y as L } from "./server-definitions-CLmCY9H_.js";
 var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = pe(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -262,7 +262,7 @@ function Le(e, t, o) {
   `;
 }
 function H(e, t, o) {
-  const r = F(e.duration, o.slowThresholdMs), s = r.isSlow, n = !!e.error, i = T(e), d = h(i), c = `sql-row-${i}`, l = h(c), p = e.query || "", u = be(p, !0), g = [t.expandableRow];
+  const r = F(e.duration, o.slowThresholdMs), s = r.isSlow, n = !!e.error, i = T(e), d = h(i), c = `sql-row-${i}`, l = h(c), p = e.query || "", u = he(p, !0), g = [t.expandableRow];
   s && g.push(t.slowQuery), n && g.push(t.errorQuery);
   const x = s ? t.durationSlow : "", v = Le(t, o.useIconCopyButton || !1, c);
   return `
@@ -321,7 +321,7 @@ function ko(e, t, o, r) {
   return ge(e, H(t, o, r), r.newestFirst !== !1), T(t);
 }
 function Co(e, t, o) {
-  return fe(e, "tr[data-sql-id]", "data-sql-id", t, o);
+  return ue(e, "tr[data-sql-id]", "data-sql-id", t, o);
 }
 var W = /* @__PURE__ */ new WeakSet();
 async function q(e, t, o = {}) {
@@ -513,7 +513,7 @@ var Pe = {
     const t = me(e);
     return t ? `badge badge-status ${t}` : "badge badge-status";
   },
-  badgeLevel: (e) => `badge badge-level ${te(e)}`,
+  badgeLevel: (e) => `badge badge-level ${oe(e)}`,
   badgeError: "badge badge-status error",
   badgeCustom: "badge",
   duration: "duration",
@@ -743,7 +743,7 @@ var Ao = class {
       if (!s) return;
       const n = s.dataset.sqlId;
       n && (this.expanded.has(n) ? (this.expanded.delete(n), s.classList.remove("expanded")) : (this.expanded.add(n), s.classList.add("expanded")));
-    }, this.opts = e, this.list = new oe({
+    }, this.opts = e, this.list = new te({
       styles: e.styles,
       containerSelector: "[data-sql-table] tbody",
       rowSelector: "tr[data-sql-id]",
@@ -914,7 +914,7 @@ function Ge(e) {
     stack: s
   };
 }
-function Ye(e, t, o, r) {
+function Xe(e, t, o, r) {
   const s = Ge(e), n = [
     ["logger", e.logger],
     ["caller", ne(e)],
@@ -949,8 +949,8 @@ function Ye(e, t, o, r) {
     </tr>
   `;
 }
-function Xe(e, t, o) {
-  const r = e.level || "INFO", s = String(r).toUpperCase(), n = te(String(r)), i = e.message || "", d = Qe(e), c = Ke(e), l = `log-details-${C(c)}`, p = o.expandable === !0, u = o.showSource ? 4 : 3, g = t.badgeLevel(n), x = [n === "error" ? t.rowError : ""];
+function Ye(e, t, o) {
+  const r = e.level || "INFO", s = String(r).toUpperCase(), n = oe(String(r)), i = e.message || "", d = Qe(e), c = Ke(e), l = `log-details-${C(c)}`, p = o.expandable === !0, u = o.showSource ? 4 : 3, g = t.badgeLevel(n), x = [n === "error" ? t.rowError : ""];
   p && x.push(t.expandableRow);
   const v = o.truncateMessage ? R(i, o.maxMessageLength || 100) : i, k = o.showSource ? `<td class="${t.timestamp}" title="${h(ne(e) || d)}">${a(d)}</td>` : "", S = p ? `<span class="${t.expandIcon}" aria-hidden="true">&#9654;</span>` : "", A = p ? ` tabindex="0" role="button" aria-expanded="false" aria-controls="${h(l)}" aria-label="Show details for ${h(i || "log entry")}"` : "";
   return `
@@ -960,7 +960,7 @@ function Xe(e, t, o) {
       <td class="${t.message}" title="${h(i)}">${a(v)}</td>
       ${k}
     </tr>
-    ${p ? Ye(e, t, l, u) : ""}
+    ${p ? Xe(e, t, l, u) : ""}
   `;
 }
 function N(e, t, o = {}) {
@@ -968,7 +968,7 @@ function N(e, t, o = {}) {
   if (!e.length) return l + `<div class="${t.emptyState}">No logs captured</div>`;
   let p = s ? e.slice(-s) : e;
   r && (p = [...p].reverse());
-  const u = p.map((g) => Xe(g, t, {
+  const u = p.map((g) => Ye(g, t, {
     ...o,
     showSource: i,
     truncateMessage: d,
@@ -1041,7 +1041,7 @@ var jo = class {
   viewFor(e) {
     const t = this.views.get(e.id);
     if (t) return t;
-    const o = e.liveList, r = o.keyOf || ((n) => `r-${C(et(n))}`), s = new oe({
+    const o = e.liveList, r = o.keyOf || ((n) => `r-${C(et(n))}`), s = new te({
       styles: this.host.styles,
       containerSelector: o.containerSelector,
       rowSelector: o.rowSelector,
@@ -1091,7 +1091,7 @@ function ot(e, t) {
   `;
 }
 function rt(e, t, o) {
-  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, n = z(e), i = D(e, !0), d = tt(t, r), c = s ? `<span class="${t.muted}">${b(ue(e))} keys</span>` : "";
+  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, n = z(e), i = D(e, !0), d = tt(t, r), c = s ? `<span class="${t.muted}">${b(fe(e))} keys</span>` : "";
   return `
     <div class="${t.jsonPanel}" data-copy-content="${a(n)}">
       <div class="${t.jsonHeader}">
@@ -2158,7 +2158,7 @@ function Ot(e) {
     </details>
   `;
 }
-function Y(e, t, o = {}) {
+function X(e, t, o = {}) {
   const { showRawJSON: r = !0, problemsOnly: s = !1 } = o;
   if (!e) return `<div class="${t.emptyState}">No doctor diagnostics available</div>`;
   let n = e.checks || [];
@@ -2412,7 +2412,7 @@ function jt() {
     </button>
   `;
 }
-function X(e) {
+function Y(e) {
   return `
     <div style="
       display: flex;
@@ -3117,7 +3117,7 @@ function ee(e, t, o = {}) {
   const { maxOperations: r = 20, maxKeys: s = 20, maxErrors: n = 10, showRawJSON: i = !1 } = o;
   return e ? e.configured ? `
     <div style="padding: 14px;">
-      ${X(e)}
+      ${Y(e)}
       ${Bt(e.startup_error)}
       ${Nt(e.counters)}
       ${Mt(e.last_command)}
@@ -3131,7 +3131,7 @@ function ee(e, t, o = {}) {
     </div>
   ` : `
       <div style="padding: 12px;">
-        ${X(e)}
+        ${Y(e)}
         <div style="
           text-align: center;
           padding: 32px 16px;
@@ -3263,11 +3263,11 @@ function Mo(e, t = {}) {
 function Bo(e) {
   return e.querySelector('[data-action-field-sensitive="true"]') !== null;
 }
-function Yt(e, t) {
+function Xt(e, t) {
   e.querySelectorAll("[data-action-field]").forEach((o) => {
     const r = (o.dataset.actionFieldPath || o.dataset.actionField || "").trim();
     if (!r) return;
-    const s = Xt(t, r);
+    const s = Yt(t, r);
     if (s !== void 0) {
       if (o instanceof HTMLInputElement && o.type === "checkbox") o.checked = !!s;
       else if (o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || o instanceof HTMLSelectElement) {
@@ -3286,9 +3286,9 @@ function Io(e, t, o) {
   if (!s || !Array.from(s.options).some((d) => d.value === r)) return !1;
   s.value = r, s.dispatchEvent(new Event("change", { bubbles: !0 }));
   const n = o.payload && typeof o.payload == "object" && !Array.isArray(o.payload) ? o.payload : {}, i = Array.from(e.querySelectorAll("[data-panel-action-form]")).find((d) => d.dataset.panelId === t && d.dataset.actionId === r);
-  return i && Yt(i, n), !0;
+  return i && Xt(i, n), !0;
 }
-function Xt(e, t) {
+function Yt(e, t) {
   let o = e;
   for (const r of t.split(".").map((s) => s.trim()).filter(Boolean)) {
     if (!o || typeof o != "object" || Array.isArray(o)) return;
@@ -3570,7 +3570,7 @@ var so = {
     const t = e || {};
     return (t.data ? Object.keys(t.data).length : 0) + (t.logs?.length || 0);
   },
-  handleEvent: (e, t) => he(e, t, 500),
+  handleEvent: (e, t) => be(e, t, 500),
   supportsToolbar: !0
 }, go = {
   id: "jserrors",
@@ -3626,8 +3626,8 @@ var so = {
   category: "system",
   order: 46,
   showFilters: !1,
-  render: (e, t, o) => Y(e, t, { showRawJSON: !0 }),
-  renderConsole: (e, t, o) => Y(e, t, { showRawJSON: !0 }),
+  render: (e, t, o) => X(e, t, { showRawJSON: !0 }),
+  renderConsole: (e, t, o) => X(e, t, { showRawJSON: !0 }),
   getCount: (e) => {
     const t = e;
     return !t || !t.summary ? 0 : (t.summary.error || 0) + (t.summary.warn || 0);
@@ -3684,8 +3684,8 @@ export {
   T as W,
   M as _,
   ee as a,
-  Xe as b,
-  Y as c,
+  Ye as b,
+  X as c,
   $t as d,
   nt as f,
   jo as g,
@@ -3695,7 +3695,7 @@ export {
   je as k,
   No as l,
   I as m,
-  Yt as n,
+  Xt as n,
   Gt as o,
   ut as p,
   Mo as r,
@@ -3709,4 +3709,4 @@ export {
   ko as z
 };
 
-//# sourceMappingURL=builtin-panels-D3aDCLAC.js.map
+//# sourceMappingURL=builtin-panels-BsgOzEnY.js.map

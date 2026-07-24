@@ -71,6 +71,16 @@ function dataArray(data: unknown): unknown[] {
   return [];
 }
 
+/**
+ * Only normalized six-digit hex colors ever reach CSS. Server payloads are
+ * validated before serialization; this is the second gate so an older or
+ * hand-crafted payload can never inject a CSS value.
+ */
+function safeColor(value: unknown): string | null {
+  const raw = text(value).trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(raw) ? raw : null;
+}
+
 function formatValue(value: unknown, format: unknown): string {
   const kind = typeof format === 'string' ? format.trim().toLowerCase() : '';
   if (kind === 'number') {
@@ -79,31 +89,91 @@ function formatValue(value: unknown, format: unknown): string {
   if (kind === 'timestamp' || kind === 'time' || kind === 'date') {
     return formatTimestamp(value);
   }
+  if (kind === 'datetime') {
+    return formatDateTime(value);
+  }
   if (kind === 'boolean') {
     return value ? 'Yes' : 'No';
   }
   return text(value);
 }
 
-function renderKeyValue(value: unknown, format: unknown, empty: string, styles: StyleConfig): string {
-  const raw = value === undefined || value === null || value === '' ? empty : formatValue(value, format);
-  const kind = typeof format === 'string' ? format.trim().toLowerCase() : '';
-  if (kind === 'copy' && raw && raw !== empty) {
-    return `
-      <div data-copy-content="${escapeAttribute(raw)}">
-        <code>${escapeHTML(raw)}</code>
-        <button type="button" class="${styles.copyBtnSm}" data-copy-trigger title="Copy to clipboard">Copy</button>
-      </div>
-    `;
+/**
+ * Absolute date and time. `timestamp` drops the date, which is right for a
+ * request or log row but loses meaning for a build or process-start instant.
+ */
+function formatDateTime(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '';
   }
-  if (kind === 'color' && /^#[0-9a-f]{6}$/i.test(raw)) {
-    return `<span class="${styles.badge}" style="--debug-identity-color:${escapeAttribute(raw)}"><span aria-hidden="true" style="display:inline-block;width:.65em;height:.65em;border-radius:50%;background:var(--debug-identity-color);margin-right:.4em"></span>${escapeHTML(raw)}</span>`;
-  }
-  return escapeHTML(raw);
+  const date = typeof value === 'number' ? new Date(value) : new Date(text(value));
+  return Number.isNaN(date.getTime()) ? text(value) : date.toLocaleString();
 }
 
+function isBlank(value: unknown): boolean {
+  return value === undefined || value === null || value === '';
+}
+
+/** Muted placeholder so absent optional metadata reads as unknown, not empty. */
+function renderUnavailable(empty: string): string {
+  const label = empty || 'Unavailable';
+  return `<span class="debug-kv__empty">${escapeHTML(label)}</span>`;
+}
+
+/**
+ * Render one declared value. `label` is only used to give copy controls an
+ * accessible name; it never carries markup.
+ */
+function renderKeyValue(
+  value: unknown,
+  format: unknown,
+  empty: string,
+  styles: StyleConfig,
+  label = ''
+): string {
+  const kind = typeof format === 'string' ? format.trim().toLowerCase() : '';
+  if (isBlank(value)) {
+    return renderUnavailable(empty);
+  }
+  const raw = formatValue(value, format);
+  if (raw === '') {
+    return renderUnavailable(empty);
+  }
+  switch (kind) {
+    case 'copy':
+      return renderCopyValue(raw, styles, label);
+    case 'color': {
+      const color = safeColor(raw);
+      if (!color) {
+        return renderUnavailable(empty);
+      }
+      return `<span class="debug-kv__swatch" style="--debug-swatch-color:${escapeAttribute(color)}"><span class="debug-kv__swatch-dot" aria-hidden="true"></span><code>${escapeHTML(color.toUpperCase())}</code></span>`;
+    }
+    case 'badge':
+      return `<span class="${styles.badge}">${escapeHTML(raw)}</span>`;
+    case 'mono':
+      return `<code class="debug-kv__mono">${escapeHTML(raw)}</code>`;
+    default:
+      return escapeHTML(raw);
+  }
+}
+
+/** Copy affordance. Keeps the shared `data-copy-*` contract intact. */
+function renderCopyValue(raw: string, styles: StyleConfig, label = ''): string {
+  const action = label ? `Copy ${label}` : 'Copy to clipboard';
+  return `<span class="debug-kv__copy" data-copy-content="${escapeAttribute(raw)}"><code class="debug-kv__mono">${escapeHTML(raw)}</code><button type="button" class="${styles.copyBtnSm} debug-kv__copy-btn" data-copy-trigger title="${escapeAttribute(action)}" aria-label="${escapeAttribute(action)}">Copy</button></span>`;
+}
+
+/**
+ * Section heading. Emitting the surface's existing header wrapper lets the
+ * console and toolbar stylesheets style declarative sections exactly like
+ * hand-written panels instead of leaving a bare `<h3>`.
+ */
 function renderTitle(title: string, styles: StyleConfig): string {
-  return title ? `<h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3>` : '';
+  if (!title) {
+    return '';
+  }
+  return `<div class="${styles.jsonHeader}"><h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3></div>`;
 }
 
 export function renderSchemaMetrics(
@@ -157,16 +227,67 @@ export function renderSchemaKeyValue(
   return `
     <section class="${styles.jsonPanel}">
       ${renderTitle(title, styles)}
-      <table class="${styles.detailKeyValueTable || styles.table}">
-        <tbody>
-          ${items.map((item) => {
-            const label = text(item.label || item.bind);
-            const raw = pathValue(data, item.bind);
-            const empty = text(item.empty || '');
-            return `<tr><th>${escapeHTML(label)}</th><td>${renderKeyValue(raw, item.format, empty, styles)}</td></tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+      <dl class="debug-kv">
+        ${items.map((item) => {
+          const label = text(item.label || item.bind);
+          const raw = pathValue(data, item.bind);
+          const empty = text(item.empty || '');
+          return `<dt>${escapeHTML(label)}</dt><dd>${renderKeyValue(raw, item.format, empty, styles, label)}</dd>`;
+        }).join('')}
+      </dl>
+    </section>
+  `;
+}
+
+/**
+ * Summary header for a panel: one accent color, an eyebrow chip, a primary
+ * title, an optional subtitle, and supporting chips. Generic on purpose — any
+ * panel can declare the value an operator should recognize first.
+ */
+export function renderSchemaIdentity(
+  title: string,
+  data: unknown,
+  view: ServerPanelUIView | undefined,
+  styles: StyleConfig
+): string {
+  const options = view?.options || {};
+  // An absent bind must resolve to nothing; `pathValue` returns the whole
+  // payload for an empty path, which would serialize the object into the slot.
+  const bound = (bind: unknown): unknown =>
+    (typeof bind === 'string' && bind.trim() !== '' ? pathValue(data, bind) : undefined);
+  const accent = safeColor(bound(options.color_bind));
+  const eyebrow = text(bound(options.eyebrow_bind)).trim();
+  const heading = text(bound(options.title_bind)).trim();
+  const subtitle = text(bound(options.subtitle_bind)).trim();
+  const chips = optionItems(view, 'chips').filter((chip) => !isBlank(bound(chip.bind)));
+  if (!eyebrow && !heading && chips.length === 0) {
+    return `<div class="${styles.emptyState}">No ${escapeHTML((title || 'identity').toLowerCase())} details available</div>`;
+  }
+  const titleFormat = text(options.title_format);
+  const headingValue = heading
+    ? (titleFormat === 'copy'
+        ? renderCopyValue(heading, styles, text(options.title_label) || title || 'value')
+        : `<span class="debug-identity__value">${escapeHTML(heading)}</span>`)
+    : renderUnavailable(text(options.empty));
+  return `
+    <section class="debug-identity"${accent ? ` style="--debug-identity-color:${escapeAttribute(accent)}"` : ''}${accent ? '' : ' data-accent="none"'}>
+      <div class="debug-identity__lead">
+        ${eyebrow
+          ? `<span class="debug-identity__env"><span class="debug-identity__dot" aria-hidden="true"></span>${escapeHTML(eyebrow.toUpperCase())}</span>`
+          : ''}
+        <div class="debug-identity__names">
+          ${title ? `<span class="debug-identity__label">${escapeHTML(title)}</span>` : ''}
+          <span class="debug-identity__title">${headingValue}</span>
+          ${subtitle ? `<span class="debug-identity__subtitle">${escapeHTML(subtitle)}</span>` : ''}
+        </div>
+      </div>
+      ${chips.length > 0
+        ? `<dl class="debug-identity__chips">${chips.map((chip) => {
+            const label = text(chip.label || chip.bind);
+            const value = renderKeyValue(bound(chip.bind), chip.format, text(chip.empty || ''), styles, label);
+            return `<div class="debug-identity__chip"><dt>${escapeHTML(label)}</dt><dd>${value}</dd></div>`;
+          }).join('')}</dl>`
+        : ''}
     </section>
   `;
 }
@@ -315,9 +436,15 @@ export function renderSchemaStack(
   if (sections.length === 0) {
     return renderJSONPanel(text(view?.title || serverDef.label || serverDef.id || 'Panel'), data, styles, { useIconCopyButton });
   }
-  return sections
+  const body = sections
     .map((section) => renderSchemaPanelView(serverDef, section, data, styles, useIconCopyButton, newestFirst))
     .join('');
+  // Opt-in column flow. Sections keep their natural height instead of
+  // stretching to the tallest peer, so grouped detail reads as one block.
+  if (text(view?.options?.layout).toLowerCase() === 'grid') {
+    return `<div class="debug-schema-grid">${body}</div>`;
+  }
+  return body;
 }
 
 export function renderSchemaPanelView(
@@ -335,6 +462,8 @@ export function renderSchemaPanelView(
       return renderSchemaMetrics(title, displayData, view, styles);
     case 'key_value':
       return renderSchemaKeyValue(title, displayData, view, styles);
+    case 'identity':
+      return renderSchemaIdentity(text(view?.title), displayData, view, styles);
     case 'table':
       return renderSchemaTable(title, displayData, view, styles, newestFirst);
     case 'status_list':

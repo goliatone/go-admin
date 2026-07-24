@@ -145,6 +145,7 @@ export type DebugSnapshot = {
 export type PanelUIRendererKind =
   | 'metrics'
   | 'key_value'
+  | 'identity'
   | 'table'
   | 'status_list'
   | 'timeline'

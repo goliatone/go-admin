@@ -1,11 +1,11 @@
-import { escapeHTML as p } from "../shared/html.js";
-import { httpRequest as M, readExpectedHTTPJSON as A, readHTTPError as I } from "../shared/transport/http-client.js";
-import { normalizeDebugBasePath as $ } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as k, I as j, M as F, N as V, P as N, R as G, T as B, V as _, _ as K, b as Q, f as U, g as Y, h as J, k as c, m as W, p as X, r as Z, v as tt, w as et, x as at } from "../chunks/builtin-panels-D3aDCLAC.js";
+import { escapeHTML as c } from "../shared/html.js";
+import { httpRequest as M, readExpectedHTTPJSON as _, readHTTPError as $ } from "../shared/transport/http-client.js";
+import { normalizeDebugBasePath as I } from "./shared/path-helpers.js";
+import { C as H, E as O, F as D, G as E, I as j, M as F, N as V, P as N, R as G, T as B, V as K, _ as Q, b as J, f as U, g as Y, h as W, k as h, m as X, p as Z, r as tt, v as et, w as at, x as ot } from "../chunks/builtin-panels-BsgOzEnY.js";
 import { t as st } from "../chunks/repl-panel-BKc41M7P.js";
-import { i as ot } from "../chunks/icons-B_VaFfsl.js";
-import { G as u, S as rt, T as nt, _ as it, a as qt, b as lt, c as E, d as y, f as dt, g as ct, h as Lt, l as zt, m as ht, n as C, o as P, p as pt, q as v, rt as bt, s as g, u as f, w as h, x as ut } from "../chunks/server-definitions-BSnHY5ej.js";
-import { t as gt } from "../chunks/deployment-identity-DpoEn5lR.js";
+import { i as rt } from "../chunks/icons-B_VaFfsl.js";
+import { J as g, S as nt, T as it, X as v, _ as lt, a as Pt, b as dt, c as C, d as y, f as ct, g as ht, h as Lt, l as zt, m as pt, n as q, o as P, ot as bt, p as ut, s as f, u as x, w as p, x as gt } from "../chunks/server-definitions-CLmCY9H_.js";
+import { t as k } from "../chunks/deployment-identity-bJVcvaOc.js";
 var ft = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -532,6 +532,285 @@ var ft = `
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--toolbar-text-muted);
+  }
+
+  /* -------------------------------------------------------------------------
+   * Declarative schema panels (server-declared identity / key_value views).
+   * Mirrors the console rules in src/styles/debug/console.css at toolbar scale.
+   * ---------------------------------------------------------------------- */
+  .debug-identity {
+    --debug-identity-color: #64748b;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 28px;
+    margin-top: 8px;
+    padding: 10px 12px 10px 15px;
+    background: var(--toolbar-bg-secondary);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 4px;
+  }
+
+  .debug-identity::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 3px;
+    border-radius: 4px 0 0 4px;
+    background: var(--debug-identity-color);
+  }
+
+  .debug-identity[data-accent="none"]::before {
+    background: var(--toolbar-border);
+  }
+
+  .debug-identity__lead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .debug-identity__env {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--toolbar-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--toolbar-text);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  /* Tint and dot follow the configured color; the label keeps full contrast. */
+  @supports (color: color-mix(in srgb, red 10%, transparent)) {
+    .debug-identity__env {
+      border-color: color-mix(in srgb, var(--debug-identity-color) 50%, transparent);
+      background: color-mix(in srgb, var(--debug-identity-color) 16%, transparent);
+    }
+  }
+
+  .debug-identity__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--debug-identity-color);
+  }
+
+  .debug-identity__names {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .debug-identity__label {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--toolbar-text-muted);
+  }
+
+  .debug-identity__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--toolbar-text);
+  }
+
+  .debug-identity__title .debug-kv__mono {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .debug-identity__subtitle {
+    font-size: 10px;
+    color: var(--toolbar-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .debug-identity__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .debug-identity__chip {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .debug-identity__chip dt {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--toolbar-text-muted);
+  }
+
+  .debug-identity__chip dd {
+    margin: 0;
+    font-size: 11px;
+    color: var(--toolbar-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .debug-schema-grid {
+    column-width: 260px;
+    column-gap: 8px;
+    margin-top: 8px;
+  }
+
+  .debug-schema-grid > * {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin: 0 0 8px;
+  }
+
+  .debug-schema-grid > .json-viewer {
+    margin-top: 0;
+  }
+
+  .debug-kv {
+    display: grid;
+    grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+    align-items: baseline;
+    margin: 0;
+    font-size: 11px;
+  }
+
+  .debug-kv > dt {
+    padding: 4px 8px 4px 0;
+    color: var(--toolbar-text-muted);
+    font-weight: 600;
+  }
+
+  .debug-kv > dd {
+    margin: 0;
+    padding: 4px 0;
+    min-width: 0;
+    color: var(--toolbar-text);
+    overflow-wrap: anywhere;
+  }
+
+  .debug-kv > dt,
+  .debug-kv > dd {
+    border-bottom: 1px solid rgba(49, 50, 68, 0.55);
+  }
+
+  .debug-kv > dt:last-of-type,
+  .debug-kv > dd:last-of-type {
+    border-bottom: 0;
+  }
+
+  .debug-kv__mono {
+    font-family: var(--toolbar-font);
+    color: var(--toolbar-text);
+  }
+
+  .debug-kv .badge,
+  .debug-identity__chip .badge {
+    min-width: 0;
+    background: rgba(205, 214, 244, 0.08);
+    color: var(--toolbar-text);
+  }
+
+  .debug-kv__empty {
+    color: var(--toolbar-text-muted);
+    font-style: italic;
+  }
+
+  .debug-kv__swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .debug-kv__swatch-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border-radius: 3px;
+    border: 1px solid rgba(205, 214, 244, 0.2);
+    background: var(--debug-swatch-color, #64748b);
+  }
+
+  .debug-kv__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .debug-kv__copy > code {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .debug-kv__copy-btn {
+    flex: 0 0 auto;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+
+  .debug-kv__copy:hover .debug-kv__copy-btn,
+  .debug-kv__copy-btn:hover,
+  .debug-kv__copy-btn:focus-visible {
+    opacity: 1;
+  }
+
+  .debug-kv__copy-btn:focus-visible {
+    outline: 2px solid var(--toolbar-accent);
+    outline-offset: 1px;
+  }
+
+  @media (max-width: 640px) {
+    .debug-identity {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .debug-kv {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .debug-kv > dt {
+      padding: 4px 0 0;
+      border-bottom: 0;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .debug-kv > dd {
+      padding: 0 0 4px;
+    }
+
+    .debug-kv > dt:last-of-type {
+      border-bottom: 0;
+    }
   }
 
   /* Copy button */
@@ -1089,11 +1368,11 @@ var ft = `
       max-width: 60%;
     }
   }
-`, d = c;
-function w(a, t, e = 50, s) {
-  const o = h.get(a);
-  if (o) return nt(o, ut(t, o), d, s || {}, "toolbar");
-  const r = s?.newestFirst ?? !0, i = s?.slowThresholdMs ?? e;
+`, d = h;
+function w(a, t, e = 50, o) {
+  const s = p.get(a);
+  if (s) return it(s, gt(t, s), d, o || {}, "toolbar");
+  const r = o?.newestFirst ?? !0, i = o?.slowThresholdMs ?? e;
   switch (a) {
     case "requests":
       return B(t.requests || [], d, {
@@ -1103,11 +1382,11 @@ function w(a, t, e = 50, s) {
         showSortToggle: !0,
         truncatePath: !0,
         maxPathLength: 50,
-        expandedRequestIds: s?.expandedRequestIds,
+        expandedRequestIds: o?.expandedRequestIds,
         maxDetailLength: 80
       });
     case "sql":
-      return _(t.sql || [], d, {
+      return K(t.sql || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1115,7 +1394,7 @@ function w(a, t, e = 50, s) {
         useIconCopyButton: !1
       });
     case "logs":
-      return at(t.logs || [], d, {
+      return ot(t.logs || [], d, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1124,48 +1403,48 @@ function w(a, t, e = 50, s) {
         maxMessageLength: 100
       });
     case "config":
-      return u("Config", t.config || {}, d, {
+      return g("Config", t.config || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
-      return K(t.routes || [], d, { showName: !1 });
+      return Q(t.routes || [], d, { showName: !1 });
     case "template":
-      return u("Template Context", t.template || {}, d, {
+      return g("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return u("Session", t.session || {}, d, {
+      return g("Session", t.session || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "jserrors":
-      return W(t.jserrors || [], d, {
+      return X(t.jserrors || [], d, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return J(t.custom || {}, d, {
+      return W(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default: {
       const n = t[a];
-      return n != null ? u(a.replace(/[_-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), n, d, {
+      return n != null ? g(a.replace(/[_-]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()), n, d, {
         useIconCopyButton: !1,
         showCount: !1
-      }) : `<div class="${d.emptyState}">Panel "${p(a)}" not available</div>`;
+      }) : `<div class="${d.emptyState}">Panel "${c(a)}" not available</div>`;
     }
   }
 }
-function x(a, t = 50) {
-  return ht(a, t);
+function u(a, t = 50) {
+  return pt(a, t);
 }
-var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
+var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
   static get observedAttributes() {
     return [
       "base-path",
@@ -1181,7 +1460,7 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
     }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new H({
-      styles: c,
+      styles: h,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
       getRenderOptions: () => ({
@@ -1193,9 +1472,9 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent()
     }), this.logsView = new v({
-      styles: c,
-      keyOf: tt,
-      renderRow: (t) => Q(t, c, {
+      styles: h,
+      keyOf: et,
+      renderRow: (t) => J(t, h, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1204,12 +1483,12 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
       getMaxEntries: () => 100,
       onNeedFullRender: () => this.updateContent()
     }), this.requestsView = new v({
-      styles: c,
+      styles: h,
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
       keyOf: O,
-      renderRow: (t) => et(t, c, {
+      renderRow: (t) => at(t, h, {
         slowThresholdMs: this.slowThresholdMs,
         truncatePath: !0,
         maxPathLength: 50,
@@ -1221,9 +1500,9 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
       onNeedFullRender: () => this.updateContent(),
       onAdopt: (t) => N(t, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new v({
-      styles: c,
+      styles: h,
       keyOf: U,
-      renderRow: (t) => X(t, c, { compact: !0 }),
+      renderRow: (t) => Z(t, h, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
@@ -1239,7 +1518,7 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
         expanded: this.jserrorsExpanded
       })
     }), this.registryLiveList = new Y({
-      styles: c,
+      styles: h,
       allowUpsert: !1,
       getRenderOptions: () => ({}),
       onNeedFullRender: () => this.updateContent()
@@ -1249,8 +1528,8 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(t) {
-    if (await C(this.debugPath), !this.isInitializationStale(t)) {
-      if (this.eventToPanel = g(), this.unsubscribeRegistry = h.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
+    if (await q(this.debugPath), !this.isInitializationStale(t)) {
+      if (this.eventToPanel = f(), this.unsubscribeRegistry = p.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
       }
@@ -1264,17 +1543,17 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     return t !== this.initializeGeneration || !this.isConnected;
   }
   handleRegistryChange(t) {
-    this.eventToPanel = g(), this.updateSubscriptions(), this.expanded && this.render();
+    this.eventToPanel = f(), this.updateSubscriptions(), this.expanded && this.render();
   }
   updateSubscriptions() {
     const t = this.getStream();
     if (!t) return;
     const e = /* @__PURE__ */ new Set();
-    for (const s of this.panels) for (const o of y(s)) e.add(o);
+    for (const o of this.panels) for (const s of y(o)) e.add(s);
     t.subscribe(Array.from(e));
   }
-  attributeChangedCallback(t, e, s) {
-    e !== s && (t === "expanded" ? (this.expanded = s === "true" || s === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(s || "50", 10) || 50 : t === "use-fab" ? this.useFab = s === "true" || s === "" : t === "live-transport" && !this.useFab && !this.liveTransportEnabled && this.stream?.close());
+  attributeChangedCallback(t, e, o) {
+    e !== o && (t === "expanded" ? (this.expanded = o === "true" || o === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(o || "50", 10) || 50 : t === "use-fab" ? this.useFab = o === "true" || o === "" : t === "live-transport" && !this.useFab && !this.liveTransportEnabled && this.stream?.close());
   }
   setExpanded(t) {
     this.expanded = t, this.saveState(), this.render();
@@ -1304,13 +1583,13 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
       t !== null && (this.expanded = t === "true");
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
-        const o = parseInt(e, 10);
-        !isNaN(o) && o >= b.MIN_HEIGHT && (this.customHeight = o);
+        const s = parseInt(e, 10);
+        !isNaN(s) && s >= b.MIN_HEIGHT && (this.customHeight = s);
       }
-      const s = localStorage.getItem("debug-toolbar-sort-order");
-      if (s) try {
-        const o = JSON.parse(s);
-        Object.entries(o).forEach(([r, i]) => {
+      const o = localStorage.getItem("debug-toolbar-sort-order");
+      if (o) try {
+        const s = JSON.parse(o);
+        Object.entries(s).forEach(([r, i]) => {
           this.panelSortOrder.set(r, i);
         });
       } catch {
@@ -1324,8 +1603,8 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     try {
       localStorage.setItem("debug-toolbar-expanded", String(this.expanded)), this.customHeight !== null && localStorage.setItem("debug-toolbar-height", String(this.customHeight));
       const t = {};
-      this.panelSortOrder.forEach((e, s) => {
-        t[s] = e;
+      this.panelSortOrder.forEach((e, o) => {
+        t[o] = e;
       }), localStorage.setItem("debug-toolbar-sort-order", JSON.stringify(t)), localStorage.setItem(S, this.activePanel);
     } catch {
     }
@@ -1357,10 +1636,10 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
   get panels() {
     const t = this.getAttribute("panels");
     if (t) {
-      const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : f();
+      const e = t.split(",").map((o) => o.trim().toLowerCase()).filter(Boolean);
+      return e.length ? e : x();
     }
-    return f();
+    return x();
   }
   get liveTransportEnabled() {
     const t = this.getAttribute("live-transport");
@@ -1373,17 +1652,17 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     return this.externalStream || this.stream;
   }
   initWebSocket() {
-    this.stream = new k({
+    this.stream = new E({
       basePath: this.debugPath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.handleStatusChange(e)
     }), this.stream.connect();
     const t = /* @__PURE__ */ new Set();
-    for (const e of this.panels) for (const s of y(e)) t.add(s);
+    for (const e of this.panels) for (const o of y(e)) t.add(o);
     this.stream.subscribe(Array.from(t));
   }
   async fetchInitialSnapshot(t = this.initializeGeneration) {
-    const e = await E(this.debugPath);
+    const e = await C(this.debugPath);
     this.isInitializationStale(t) || e && this.applySnapshot(e);
   }
   handleEvent(t) {
@@ -1397,34 +1676,34 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     else if (e === "logs") this.logsView.enqueue([t.payload]);
     else if (e === "requests") this.requestsView.enqueue([t.payload]);
     else if (e === "jserrors") this.jserrorsView.enqueue([t.payload]);
-    else if (this.registryLiveList.handles(h.get(e))) {
-      const s = h.get(e), o = this.snapshot[rt(s)], r = Array.isArray(o) ? o[o.length - 1] : void 0;
-      this.registryLiveList.enqueue(s, r);
+    else if (this.registryLiveList.handles(p.get(e))) {
+      const o = p.get(e), s = this.snapshot[nt(o)], r = Array.isArray(s) ? s[s.length - 1] : void 0;
+      this.registryLiveList.enqueue(o, r);
     } else this.updateContent();
   }
   handleStatusChange(t) {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = ct(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = ht(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
-    const t = x(this.snapshot, this.slowThresholdMs), e = this.panels.map((n) => {
-      const l = pt(n), z = this.getPanelCount(n), T = this.activePanel === n ? "active" : "", R = ot(dt(n), {
+    const t = u(this.snapshot, this.slowThresholdMs), e = this.panels.map((n) => {
+      const l = ut(n), T = this.getPanelCount(n), R = this.activePanel === n ? "active" : "", A = rt(ct(n), {
         size: "14px",
         extraClass: "tab-icon"
       });
       return `
-          <button class="tab ${T}" data-panel="${p(n)}">
-            ${R}
-            <span class="tab-label">${p(l)}</span>
-            <span class="tab-count">${z}</span>
+          <button class="tab ${R}" data-panel="${c(n)}">
+            ${A}
+            <span class="tab-label">${c(l)}</span>
+            <span class="tab-count">${T}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || b.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), o = this.expanded ? "expanded" : "collapsed", s = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || b.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
       <style>${ft}</style>
-      <div class="toolbar ${s} ${o}" style="${i}">
+      <div class="toolbar ${o} ${s}" style="${i}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
@@ -1494,29 +1773,29 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (it.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
-        const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
-        s && (s.textContent = String(this.getPanelCount(e)));
+      t && (lt.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
+        const o = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
+        o && (o.textContent = String(this.getPanelCount(e)));
       });
     }
     this.useFab || this.updateSummary();
   }
   updateSummary() {
-    const t = x(this.snapshot, this.slowThresholdMs), e = this.shadow.querySelector(".toolbar-summary");
-    e && e.querySelectorAll(".summary-item").forEach((s) => {
-      const o = s.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), r = s.querySelector(".count");
-      !r || !o || (o === "requests" ? (r.textContent = String(t.requests), s.classList.toggle("has-errors", t.errors > 0)) : o === "sql" ? (r.textContent = String(t.sql), s.classList.toggle("has-slow", t.slowQueries > 0)) : o === "logs" ? r.textContent = String(t.logs) : o === "errors" && (r.textContent = String(t.errors)));
+    const t = u(this.snapshot, this.slowThresholdMs), e = this.shadow.querySelector(".toolbar-summary");
+    e && e.querySelectorAll(".summary-item").forEach((o) => {
+      const s = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), r = o.querySelector(".count");
+      !r || !s || (s === "requests" ? (r.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : s === "sql" ? (r.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : s === "logs" ? r.textContent = String(t.logs) : s === "errors" && (r.textContent = String(t.errors)));
     });
   }
   updateConnectionStatus() {
     const t = this.shadow.querySelector(".connection-indicator .status-dot");
     t && (t.className = `status-dot ${this.connectionStatus}`);
-    const e = this.shadow.querySelector(".connection-status .status-dot"), s = this.shadow.querySelector(".connection-status span:last-child");
-    e && (e.className = `status-dot ${this.connectionStatus}`), s && (s.textContent = this.connectionStatus);
+    const e = this.shadow.querySelector(".connection-status .status-dot"), o = this.shadow.querySelector(".connection-status span:last-child");
+    e && (e.className = `status-dot ${this.connectionStatus}`), o && (o.textContent = this.connectionStatus);
   }
   getPanelCount(t) {
-    const e = h.get(t);
-    if (e) return lt(this.snapshot, e);
+    const e = p.get(t);
+    if (e) return dt(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1533,11 +1812,11 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
       case "config":
         return Object.keys(this.snapshot.config || {}).length;
       case "custom":
-        const s = this.snapshot.custom || {};
-        return Object.keys(s.data || {}).length + (s.logs?.length || 0);
+        const o = this.snapshot.custom || {};
+        return Object.keys(o.data || {}).length + (o.logs?.length || 0);
       default: {
-        const o = this.snapshot[t];
-        return Array.isArray(o) ? o.length : o != null && typeof o == "object" ? Object.keys(o).length : 0;
+        const s = this.snapshot[t];
+        return Array.isArray(s) ? s.length : s != null && typeof s == "object" ? Object.keys(s).length : 0;
       }
     }
   }
@@ -1551,17 +1830,17 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
   attachEventListeners() {
     if (this.shadow.querySelectorAll(".tab").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const s = e.currentTarget.dataset.panel;
-        if (s && s !== this.activePanel) {
-          this.activePanel = s, this.saveState(), this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
-          const o = this.shadow.getElementById("panel-content");
-          o && (o.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners());
+        const o = e.currentTarget.dataset.panel;
+        if (o && o !== this.activePanel) {
+          this.activePanel = o, this.saveState(), this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
+          const s = this.shadow.getElementById("panel-content");
+          s && (s.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners());
         }
       });
     }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const s = e.currentTarget.dataset.action, o = this.getStream();
-        switch (s) {
+        const o = e.currentTarget.dataset.action, s = this.getStream();
+        switch (o) {
           case "toggle":
             this.toggleExpanded();
             break;
@@ -1569,10 +1848,10 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
             this.collapse();
             break;
           case "refresh":
-            o?.requestSnapshot();
+            s?.requestSnapshot();
             break;
           case "clear":
-            o?.clear(), this.snapshot = {}, this.updateContent();
+            s?.clear(), this.snapshot = {}, this.updateContent();
             break;
         }
       });
@@ -1592,87 +1871,87 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     }), this.shadow.querySelectorAll("[data-panel-action-form]").forEach((t) => {
       t.addEventListener("submit", (e) => {
         e.preventDefault();
-        const s = t.querySelector('button[type="submit"]') || void 0;
-        s?.disabled || this.runPanelAction(t, s);
+        const o = t.querySelector('button[type="submit"]') || void 0;
+        o?.disabled || this.runPanelAction(t, o);
       });
     });
   }
   async runPanelAction(t, e) {
-    const s = t.dataset.panelId || "", o = t.dataset.actionId || "";
-    if (!s || !o) return;
+    const o = t.dataset.panelId || "", s = t.dataset.actionId || "";
+    if (!o || !s) return;
     const r = t.dataset.actionConfirm || "";
     if ((t.dataset.actionRequiresConfirm === "true" || r) && !window.confirm(r || "Run this debug panel action?")) return;
-    const i = Z(t);
+    const i = tt(t);
     e && (e.disabled = !0);
     try {
-      const n = await M(`${this.debugPath}/api/panels/${encodeURIComponent(s)}/actions/${encodeURIComponent(o)}`, {
+      const n = await M(`${this.debugPath}/api/panels/${encodeURIComponent(o)}/actions/${encodeURIComponent(s)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(i)
       });
-      if (!n.ok) throw new Error(await I(n, `Action failed (${n.status})`, { appendStatusToFallback: !1 }));
-      const l = await A(n);
-      this.showPanelActionResult(s, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), l.data), l.event && this.handleEvent(l.event), l.refresh && await this.fetchInitialSnapshot();
+      if (!n.ok) throw new Error(await $(n, `Action failed (${n.status})`, { appendStatusToFallback: !1 }));
+      const l = await _(n);
+      this.showPanelActionResult(o, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), l.data), l.event && this.handleEvent(l.event), l.refresh && await this.fetchInitialSnapshot();
     } catch (n) {
       const l = n instanceof Error ? n.message : "Action failed";
-      this.showPanelActionResult(s, "error", l);
+      this.showPanelActionResult(o, "error", l);
     } finally {
       e && (e.disabled = !1);
     }
   }
-  showPanelActionResult(t, e, s, o) {
+  showPanelActionResult(t, e, o, s) {
     this.panelActionResults.set(t, {
       status: e,
-      message: s,
-      data: o
+      message: o,
+      data: s
     }), this.renderStoredPanelActionResult(t);
   }
   renderStoredPanelActionResult(t) {
     const e = this.panelActionResults.get(t);
     if (!e) return;
-    const s = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
-    if (!s) return;
-    const o = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${p(bt(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
-    s.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${p(e.message)}</div>${o}`;
+    const o = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
+    if (!o) return;
+    const s = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${c(bt(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    o.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${c(e.message)}</div>${s}`;
   }
   renderReplPanel(t, e) {
-    let s = this.replPanels.get(e);
-    s || (s = new st({
+    let o = this.replPanels.get(e);
+    o || (o = new st({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
-    }), this.replPanels.set(e, s)), s.attach(t);
+    }), this.replPanels.set(e, o)), o.attach(t);
   }
   attachResizeListeners() {
     const t = this.shadow.querySelector("[data-resize-handle]");
     t && (t.addEventListener("mousedown", (e) => {
-      const s = e;
-      s.preventDefault(), this.startResize(s.clientY);
+      const o = e;
+      o.preventDefault(), this.startResize(o.clientY);
     }), t.addEventListener("touchstart", (e) => {
-      const s = e;
-      s.touches.length === 1 && (s.preventDefault(), this.startResize(s.touches[0].clientY));
+      const o = e;
+      o.touches.length === 1 && (o.preventDefault(), this.startResize(o.touches[0].clientY));
     }, { passive: !1 }));
   }
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
     this.resizeStartHeight = e?.offsetHeight || b.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
-    const s = (i) => {
+    const o = (i) => {
       this.handleResize(i.clientY);
-    }, o = (i) => {
+    }, s = (i) => {
       i.touches.length === 1 && this.handleResize(i.touches[0].clientY);
     }, r = () => {
-      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", o), document.removeEventListener("touchend", r), this.saveState();
+      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", o), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", s), document.removeEventListener("touchend", r), this.saveState();
     };
-    document.addEventListener("mousemove", s), document.addEventListener("mouseup", r), document.addEventListener("touchmove", o, { passive: !0 }), document.addEventListener("touchend", r);
+    document.addEventListener("mousemove", o), document.addEventListener("mouseup", r), document.addEventListener("touchmove", s, { passive: !0 }), document.addEventListener("touchend", r);
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, s = window.innerHeight * b.MAX_HEIGHT_RATIO, o = Math.min(s, Math.max(b.MIN_HEIGHT, this.resizeStartHeight + e));
-    this.customHeight = o;
+    const e = this.resizeStartY - t, o = window.innerHeight * b.MAX_HEIGHT_RATIO, s = Math.min(o, Math.max(b.MIN_HEIGHT, this.resizeStartHeight + e));
+    this.customHeight = s;
     const r = this.shadow.querySelector(".toolbar");
-    r && (r.style.height = `${o}px`);
+    r && (r.style.height = `${s}px`);
   }
   attachExpandableRowListeners() {
     V(this.shadow);
@@ -1689,7 +1968,7 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     this.mountSQLView(), this.mountLogsView(), this.mountRequestsView(), this.mountJSErrorsView(), this.mountRegistryLiveView();
   }
   mountRegistryLiveView() {
-    const t = h.get(this.activePanel);
+    const t = p.get(this.activePanel);
     t && this.registryLiveList.handles(t) && this.registryLiveList.adopt(t, this.shadow);
   }
   mountSQLView() {
@@ -1705,11 +1984,11 @@ var m, S = "debug-toolbar-active-panel", q = class b extends HTMLElement {
     this.activePanel === "jserrors" && this.jserrorsView.adopt(this.shadow);
   }
 };
-m = q;
+m = L;
 m.MIN_HEIGHT = 150;
 m.MAX_HEIGHT_RATIO = 0.8;
 m.DEFAULT_HEIGHT = 320;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", q);
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", L);
 var xt = `
   :host {
     --fab-bg: #1e1e2e;
@@ -1760,6 +2039,11 @@ var xt = `
     transform: translateY(-2px);
   }
 
+  .fab:focus-visible {
+    outline: 2px solid var(--fab-accent);
+    outline-offset: 3px;
+  }
+
   .fab.hidden {
     opacity: 0;
     pointer-events: none;
@@ -1779,25 +2063,64 @@ var xt = `
   .fab-collapsed.has-identity {
     width: auto;
     max-width: min(360px, calc(100vw - 32px));
-    padding: 0 14px 0 12px;
+    padding: 0 14px 0 10px;
+    gap: 10px;
+  }
+
+  /* Environment chip + instance name read as one identity unit. */
+  .fab-identity {
+    display: flex;
+    align-items: center;
     gap: 8px;
+    min-width: 0;
+  }
+
+  .fab-identity-env {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--fab-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fab-text);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* The dot and tint carry the environment color. The label stays on the
+     high-contrast text token because a host may configure any hex value. */
+  @supports (color: color-mix(in srgb, red 10%, transparent)) {
+    .fab-identity-env {
+      border-color: color-mix(in srgb, var(--fab-environment, #64748b) 50%, transparent);
+      background: color-mix(in srgb, var(--fab-environment, #64748b) 18%, transparent);
+    }
   }
 
   .fab-identity-dot {
-    width: 9px;
-    height: 9px;
+    width: 7px;
+    height: 7px;
     flex: 0 0 auto;
     border-radius: 50%;
     background: var(--fab-environment, #64748b);
     box-shadow: 0 0 6px color-mix(in srgb, var(--fab-environment, #64748b) 70%, transparent);
   }
 
-  .fab-identity-label {
-    max-width: 260px;
+  /* Only one of the two environment spellings is ever visible. */
+  .fab-identity-env-short {
+    display: none;
+  }
+
+  .fab-identity-name {
+    max-width: 200px;
     overflow: hidden;
     color: var(--fab-text);
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1830,6 +2153,13 @@ var xt = `
     background: var(--fab-text-muted);
     transition: background 0.2s, box-shadow 0.2s;
     z-index: 1;
+  }
+
+  /* With an identity chip the collapsed row starts earlier, so the connection
+     dot follows the icon instead of colliding with the environment chip. */
+  .fab.has-identity .fab-status-dot {
+    left: 26px;
+    bottom: 10px;
   }
 
   .fab[data-status="connected"] .fab-status-dot {
@@ -1869,7 +2199,8 @@ var xt = `
   }
 
   .fab:hover .fab-expanded,
-  .fab.is-hovered .fab-expanded {
+  .fab.is-hovered .fab-expanded,
+  .fab:focus-visible .fab-expanded {
     max-width: 300px;
     opacity: 1;
     padding-left: 4px;
@@ -1924,6 +2255,22 @@ var xt = `
     letter-spacing: 0.05em;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .fab,
+    .fab-expanded,
+    .fab-status-dot {
+      transition: none;
+    }
+
+    .fab:hover {
+      transform: none;
+    }
+
+    .fab[data-status="reconnecting"] .fab-status-dot {
+      animation: none;
+    }
+  }
+
   /* Responsive */
   @media (max-width: 480px) {
     :host {
@@ -1944,11 +2291,22 @@ var xt = `
     .fab-collapsed.has-identity {
       width: auto;
       max-width: calc(100vw - 24px);
-      padding-right: 12px;
+      padding: 0 12px 0 8px;
+      gap: 8px;
     }
 
-    .fab-identity-label {
-      max-width: 150px;
+    /* Trade the spelled-out environment for its short token before the
+       instance name starts losing characters. */
+    .fab-identity-env-full {
+      display: none;
+    }
+
+    .fab-identity-env-short {
+      display: inline;
+    }
+
+    .fab-identity-name {
+      max-width: 110px;
     }
 
     .fab-icon {
@@ -1963,6 +2321,11 @@ var xt = `
       left: 40px;
     }
 
+    .fab.has-identity .fab-status-dot {
+      left: 22px;
+      bottom: 10px;
+    }
+
     .fab-counter {
       min-width: 32px;
       padding: 3px 6px;
@@ -1974,6 +2337,17 @@ var xt = `
 
     .counter-label {
       font-size: 8px;
+    }
+  }
+
+  /* Very narrow viewports keep the environment signal and drop the name. */
+  @media (max-width: 380px) {
+    .fab-identity-name {
+      display: none;
+    }
+
+    .fab-collapsed.has-identity {
+      gap: 6px;
     }
   }
 `, mt = class extends HTMLElement {
@@ -1992,8 +2366,8 @@ var xt = `
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(a) {
-    if (await C(this.debugPath), !this.isInitializationStale(a)) {
-      if (this.eventToPanel = g(), this.unsubscribeRegistry = h.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(a)) {
+    if (await q(this.debugPath), !this.isInitializationStale(a)) {
+      if (this.eventToPanel = f(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(a)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
       }
@@ -2028,9 +2402,9 @@ var xt = `
     const a = this.getAttribute("panels");
     if (a) {
       const t = a.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-      return t.length ? t : f();
+      return t.length ? t : x();
     }
-    return f();
+    return x();
   }
   get liveTransportEnabled() {
     const a = this.getAttribute("live-transport");
@@ -2050,14 +2424,14 @@ var xt = `
     }
   }
   initWebSocket() {
-    this.stream = new k({
+    this.stream = new E({
       basePath: this.debugPath,
       onEvent: (a) => this.handleEvent(a),
       onStatusChange: (a) => this.handleStatusChange(a)
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot(a = this.initializeGeneration) {
-    const t = await E(this.debugPath);
+    const t = await C(this.debugPath);
     this.isInitializationStale(a) || t && this.applySnapshot(t);
   }
   handleEvent(a) {
@@ -2083,24 +2457,46 @@ var xt = `
       composed: !0
     }));
   }
+  accessibleLabel(a, t) {
+    const e = (s, r, i) => `${s} ${s === 1 ? r : i}`, o = ["Open debug toolbar"];
+    return a && o.push(a.title), o.push([
+      e(t.requests, "request", "requests"),
+      e(t.sql, "query", "queries"),
+      e(t.logs, "log", "logs")
+    ].join(", ")), t.errors > 0 && o.push(e(t.errors, "error", "errors")), o.push(`Debug stream ${this.connectionStatus}`), o.join(". ");
+  }
   render() {
-    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = gt(this.snapshot, this.panels), o = this.toolbarExpanded ? "hidden" : "";
+    const a = u(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, o = k(this.snapshot, this.panels), s = this.toolbarExpanded ? "hidden" : "", r = this.accessibleLabel(o, a);
     this.shadow.innerHTML = `
       <style>${xt}</style>
-      <div class="fab ${o}" data-status="${this.connectionStatus}">
+      <div
+        class="fab ${s} ${o ? "has-identity" : ""}"
+        data-status="${this.connectionStatus}"
+        role="button"
+        tabindex="${this.toolbarExpanded ? "-1" : "0"}"
+        aria-hidden="${this.toolbarExpanded ? "true" : "false"}"
+        aria-label="${c(r)}"
+        title="${c(o ? o.title : "Open debug toolbar")}"
+      >
         <span class="fab-status-dot"></span>
-        <div class="fab-collapsed ${s ? "has-identity" : ""}" ${s ? `style="--fab-environment:${s.color}"` : ""}>
-          <span class="fab-icon">
+        <div class="fab-collapsed ${o ? "has-identity" : ""}" ${o ? `style="--fab-environment:${c(o.color)}"` : ""}>
+          <span class="fab-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" stroke-width="1.5" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25C15.4148 2.25 18.157 4.93659 19.2445 8.53907L20.6646 7.82902C21.0351 7.64377 21.4856 7.79394 21.6709 8.16443C21.8561 8.53491 21.7059 8.98541 21.3355 9.17066L19.5919 10.0425C19.6958 10.6789 19.75 11.3341 19.75 12C19.75 12.4216 19.7283 12.839 19.6859 13.25H22C22.4142 13.25 22.75 13.5858 22.75 14C22.75 14.4142 22.4142 14.75 22 14.75H19.4347C19.2438 15.5659 18.9699 16.3431 18.6235 17.0629L20.5303 18.9697C20.8232 19.2626 20.8232 19.7374 20.5303 20.0303C20.2374 20.3232 19.7626 20.3232 19.4697 20.0303L17.8463 18.4069C16.4519 20.4331 14.3908 21.75 12 21.75C9.60921 21.75 7.54809 20.4331 6.15371 18.4069L4.53033 20.0303C4.23744 20.3232 3.76256 20.3232 3.46967 20.0303C3.17678 19.7374 3.17678 19.2626 3.46967 18.9697L5.37647 17.0629C5.03008 16.3431 4.7562 15.5659 4.56527 14.75H2C1.58579 14.75 1.25 14.4142 1.25 14C1.25 13.5858 1.58579 13.25 2 13.25H4.31407C4.27174 12.839 4.25 12.4216 4.25 12C4.25 11.3341 4.30423 10.6789 4.40814 10.0425L2.66455 9.17066C2.29406 8.98541 2.1439 8.53491 2.32914 8.16443C2.51438 7.79394 2.96488 7.64377 3.33537 7.82902L4.75547 8.53907C5.84297 4.93659 8.58522 2.25 12 2.25ZM11.25 19C11.25 19.4142 11.5858 19.75 12 19.75C12.4142 19.75 12.75 19.4142 12.75 19V9.73117C14.005 9.6696 15.2088 9.46632 16.1588 9.26042C16.5636 9.17268 16.8207 8.77339 16.7329 8.36857C16.6452 7.96376 16.2459 7.70672 15.8411 7.79445C14.7597 8.02883 13.3718 8.25 12 8.25C10.6281 8.25 9.24022 8.02883 8.15882 7.79445C7.75401 7.70672 7.35472 7.96376 7.26698 8.36857C7.17924 8.77339 7.43629 9.17268 7.8411 9.26042C8.79115 9.46632 9.99494 9.6696 11.25 9.73117V19Z" fill="currentColor"></path>
             </svg>
           </span>
-          ${s ? `
-            <span class="fab-identity-dot" aria-hidden="true"></span>
-            <span class="fab-identity-label" title="${p(s.label)}">${p(s.label)}</span>
+          ${o ? `
+            <span class="fab-identity">
+              <span class="fab-identity-env">
+                <span class="fab-identity-dot" aria-hidden="true"></span>
+                <span class="fab-identity-env-full">${c(o.environment)}</span>
+                <span class="fab-identity-env-short">${c(o.environmentShort)}</span>
+              </span>
+              <span class="fab-identity-name">${c(o.instance)}</span>
+            </span>
           ` : ""}
         </div>
-        <div class="fab-expanded">
+        <div class="fab-expanded" aria-hidden="true">
           <div class="fab-counter ${a.requests > 0 ? "has-items" : ""}">
             <span class="counter-value">${a.requests}</span>
             <span class="counter-label">Req</span>
@@ -2124,15 +2520,15 @@ var xt = `
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const a = x(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, s = this.shadow.querySelector(".fab-counter:nth-child(1)");
-    if (s) {
-      const n = s.querySelector(".counter-value");
-      n && (n.textContent = String(a.requests)), s.classList.toggle("has-items", a.requests > 0);
-    }
-    const o = this.shadow.querySelector(".fab-counter:nth-child(2)");
+    const a = u(this.snapshot), t = a.errors > 0, e = a.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
     if (o) {
       const n = o.querySelector(".counter-value");
-      n && (n.textContent = String(a.sql)), o.classList.toggle("has-items", a.sql > 0), o.classList.toggle("has-slow", e);
+      n && (n.textContent = String(a.requests)), o.classList.toggle("has-items", a.requests > 0);
+    }
+    const s = this.shadow.querySelector(".fab-counter:nth-child(2)");
+    if (s) {
+      const n = s.querySelector(".counter-value");
+      n && (n.textContent = String(a.sql)), s.classList.toggle("has-items", a.sql > 0), s.classList.toggle("has-slow", e);
     }
     const r = this.shadow.querySelector(".fab-counter:nth-child(3)");
     if (r) {
@@ -2144,13 +2540,18 @@ var xt = `
       const n = i.querySelector(".counter-value");
       n && (n.textContent = String(a.errors));
     }
+    this.updateAccessibleLabel(a);
   }
   updateConnectionStatus() {
     const a = this.shadow.querySelector(".fab");
-    a && a.setAttribute("data-status", this.connectionStatus);
+    a && a.setAttribute("data-status", this.connectionStatus), this.updateAccessibleLabel();
+  }
+  updateAccessibleLabel(a = u(this.snapshot)) {
+    const t = this.shadow.querySelector(".fab");
+    t && t.setAttribute("aria-label", this.accessibleLabel(k(this.snapshot, this.panels), a));
   }
   handleRegistryChange(a) {
-    this.eventToPanel = g(), this.updateSubscriptions();
+    this.eventToPanel = f(), this.updateSubscriptions();
   }
   updateSubscriptions() {
     if (!this.stream) return;
@@ -2158,14 +2559,18 @@ var xt = `
     for (const t of this.panels) for (const e of y(t)) a.add(e);
     this.stream.subscribe(Array.from(a));
   }
+  expand() {
+    this.toolbarExpanded = !0, this.saveState(), this.render(), this.dispatchEvent(new CustomEvent("debug-expand", {
+      detail: { expanded: !0 },
+      bubbles: !0,
+      composed: !0
+    }));
+  }
   attachEventListeners() {
     const a = this.shadow.querySelector(".fab");
-    a && (a.addEventListener("click", () => {
-      this.toolbarExpanded = !0, this.saveState(), this.render(), this.dispatchEvent(new CustomEvent("debug-expand", {
-        detail: { expanded: !0 },
-        bubbles: !0,
-        composed: !0
-      }));
+    a && (a.addEventListener("click", () => this.expand()), a.addEventListener("keydown", (t) => {
+      const e = t.key;
+      e !== "Enter" && e !== " " && e !== "Spacebar" || (t.preventDefault(), this.expand());
     }), a.addEventListener("mouseenter", () => {
       this.isHovered = !0, a.classList.add("is-hovered");
     }), a.addEventListener("mouseleave", () => {
@@ -2174,7 +2579,7 @@ var xt = `
   }
 };
 customElements.get("debug-fab") || customElements.define("debug-fab", mt);
-var L = class {
+var z = class {
   constructor(a = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       panels: [
@@ -2188,7 +2593,7 @@ var L = class {
       container: document.body,
       ...a
     };
-    const t = $(this.options.basePath);
+    const t = I(this.options.basePath);
     t && (this.options.basePath = t), !this.options.debugPath && t && (this.options.debugPath = `${t}/debug`);
   }
   init() {
@@ -2219,8 +2624,8 @@ var L = class {
         t && this.toolbar.setStream(t);
         const e = this.fab?.getSnapshot();
         e && this.toolbar.setSnapshot(e);
-        const s = this.fab?.getConnectionStatus();
-        s && this.toolbar.setConnectionStatus(s), this.toolbar.setExpanded(!0);
+        const o = this.fab?.getConnectionStatus();
+        o && this.toolbar.setConnectionStatus(o), this.toolbar.setExpanded(!0);
       }
     })), this.fab.addEventListener("debug-status-change", ((a) => {
       this.toolbar && a.detail?.status && this.toolbar.setConnectionStatus(a.detail.status);
@@ -2246,31 +2651,31 @@ function vt() {
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
   }), !e.debugPath && !e.basePath && !a && !t) return null;
-  const s = new L(e);
-  return s.init(), s;
+  const o = new z(e);
+  return o.init(), o;
 }
-window.DebugManager = L;
+window.DebugManager = z;
 window.initDebugManager = vt;
 export {
   mt as DebugFab,
-  L as DebugManager,
-  q as DebugToolbar,
-  qt as applyCustomEventPayload,
+  z as DebugManager,
+  L as DebugToolbar,
+  Pt as applyCustomEventPayload,
   P as applyDebugEventToSnapshot,
-  g as buildEventToPanel,
-  gt as deploymentIndicator,
-  E as fetchDebugSnapshot,
-  x as getCounts,
+  f as buildEventToPanel,
+  k as deploymentIndicator,
+  C as fetchDebugSnapshot,
+  u as getCounts,
   zt as getDefaultPanels,
-  f as getDefaultToolbarPanels,
+  x as getDefaultToolbarPanels,
   y as getPanelEventTypes,
-  dt as getPanelIcon,
-  pt as getPanelLabel,
+  ct as getPanelIcon,
+  ut as getPanelLabel,
   vt as initDebugManager,
   Lt as isKnownPanel,
-  ct as normalizeReplCommands,
+  ht as normalizeReplCommands,
   w as renderPanel,
-  it as replPanelIDs
+  lt as replPanelIDs
 };
 
 //# sourceMappingURL=toolbar.js.map

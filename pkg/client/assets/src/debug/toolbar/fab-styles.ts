@@ -51,6 +51,11 @@ export const fabStyles = `
     transform: translateY(-2px);
   }
 
+  .fab:focus-visible {
+    outline: 2px solid var(--fab-accent);
+    outline-offset: 3px;
+  }
+
   .fab.hidden {
     opacity: 0;
     pointer-events: none;
@@ -70,25 +75,64 @@ export const fabStyles = `
   .fab-collapsed.has-identity {
     width: auto;
     max-width: min(360px, calc(100vw - 32px));
-    padding: 0 14px 0 12px;
+    padding: 0 14px 0 10px;
+    gap: 10px;
+  }
+
+  /* Environment chip + instance name read as one identity unit. */
+  .fab-identity {
+    display: flex;
+    align-items: center;
     gap: 8px;
+    min-width: 0;
+  }
+
+  .fab-identity-env {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--fab-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fab-text);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* The dot and tint carry the environment color. The label stays on the
+     high-contrast text token because a host may configure any hex value. */
+  @supports (color: color-mix(in srgb, red 10%, transparent)) {
+    .fab-identity-env {
+      border-color: color-mix(in srgb, var(--fab-environment, #64748b) 50%, transparent);
+      background: color-mix(in srgb, var(--fab-environment, #64748b) 18%, transparent);
+    }
   }
 
   .fab-identity-dot {
-    width: 9px;
-    height: 9px;
+    width: 7px;
+    height: 7px;
     flex: 0 0 auto;
     border-radius: 50%;
     background: var(--fab-environment, #64748b);
     box-shadow: 0 0 6px color-mix(in srgb, var(--fab-environment, #64748b) 70%, transparent);
   }
 
-  .fab-identity-label {
-    max-width: 260px;
+  /* Only one of the two environment spellings is ever visible. */
+  .fab-identity-env-short {
+    display: none;
+  }
+
+  .fab-identity-name {
+    max-width: 200px;
     overflow: hidden;
     color: var(--fab-text);
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -121,6 +165,13 @@ export const fabStyles = `
     background: var(--fab-text-muted);
     transition: background 0.2s, box-shadow 0.2s;
     z-index: 1;
+  }
+
+  /* With an identity chip the collapsed row starts earlier, so the connection
+     dot follows the icon instead of colliding with the environment chip. */
+  .fab.has-identity .fab-status-dot {
+    left: 26px;
+    bottom: 10px;
   }
 
   .fab[data-status="connected"] .fab-status-dot {
@@ -160,7 +211,8 @@ export const fabStyles = `
   }
 
   .fab:hover .fab-expanded,
-  .fab.is-hovered .fab-expanded {
+  .fab.is-hovered .fab-expanded,
+  .fab:focus-visible .fab-expanded {
     max-width: 300px;
     opacity: 1;
     padding-left: 4px;
@@ -215,6 +267,22 @@ export const fabStyles = `
     letter-spacing: 0.05em;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .fab,
+    .fab-expanded,
+    .fab-status-dot {
+      transition: none;
+    }
+
+    .fab:hover {
+      transform: none;
+    }
+
+    .fab[data-status="reconnecting"] .fab-status-dot {
+      animation: none;
+    }
+  }
+
   /* Responsive */
   @media (max-width: 480px) {
     :host {
@@ -235,11 +303,22 @@ export const fabStyles = `
     .fab-collapsed.has-identity {
       width: auto;
       max-width: calc(100vw - 24px);
-      padding-right: 12px;
+      padding: 0 12px 0 8px;
+      gap: 8px;
     }
 
-    .fab-identity-label {
-      max-width: 150px;
+    /* Trade the spelled-out environment for its short token before the
+       instance name starts losing characters. */
+    .fab-identity-env-full {
+      display: none;
+    }
+
+    .fab-identity-env-short {
+      display: inline;
+    }
+
+    .fab-identity-name {
+      max-width: 110px;
     }
 
     .fab-icon {
@@ -254,6 +333,11 @@ export const fabStyles = `
       left: 40px;
     }
 
+    .fab.has-identity .fab-status-dot {
+      left: 22px;
+      bottom: 10px;
+    }
+
     .fab-counter {
       min-width: 32px;
       padding: 3px 6px;
@@ -265,6 +349,17 @@ export const fabStyles = `
 
     .counter-label {
       font-size: 8px;
+    }
+  }
+
+  /* Very narrow viewports keep the environment signal and drop the name. */
+  @media (max-width: 380px) {
+    .fab-identity-name {
+      display: none;
+    }
+
+    .fab-collapsed.has-identity {
+      gap: 6px;
     }
   }
 `;

@@ -529,6 +529,285 @@ export const toolbarStyles = `
     color: var(--toolbar-text-muted);
   }
 
+  /* -------------------------------------------------------------------------
+   * Declarative schema panels (server-declared identity / key_value views).
+   * Mirrors the console rules in src/styles/debug/console.css at toolbar scale.
+   * ---------------------------------------------------------------------- */
+  .debug-identity {
+    --debug-identity-color: #64748b;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 28px;
+    margin-top: 8px;
+    padding: 10px 12px 10px 15px;
+    background: var(--toolbar-bg-secondary);
+    border: 1px solid var(--toolbar-border);
+    border-radius: 4px;
+  }
+
+  .debug-identity::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 3px;
+    border-radius: 4px 0 0 4px;
+    background: var(--debug-identity-color);
+  }
+
+  .debug-identity[data-accent="none"]::before {
+    background: var(--toolbar-border);
+  }
+
+  .debug-identity__lead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .debug-identity__env {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--toolbar-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--toolbar-text);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+
+  /* Tint and dot follow the configured color; the label keeps full contrast. */
+  @supports (color: color-mix(in srgb, red 10%, transparent)) {
+    .debug-identity__env {
+      border-color: color-mix(in srgb, var(--debug-identity-color) 50%, transparent);
+      background: color-mix(in srgb, var(--debug-identity-color) 16%, transparent);
+    }
+  }
+
+  .debug-identity__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--debug-identity-color);
+  }
+
+  .debug-identity__names {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .debug-identity__label {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--toolbar-text-muted);
+  }
+
+  .debug-identity__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--toolbar-text);
+  }
+
+  .debug-identity__title .debug-kv__mono {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .debug-identity__subtitle {
+    font-size: 10px;
+    color: var(--toolbar-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .debug-identity__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .debug-identity__chip {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .debug-identity__chip dt {
+    font-size: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--toolbar-text-muted);
+  }
+
+  .debug-identity__chip dd {
+    margin: 0;
+    font-size: 11px;
+    color: var(--toolbar-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .debug-schema-grid {
+    column-width: 260px;
+    column-gap: 8px;
+    margin-top: 8px;
+  }
+
+  .debug-schema-grid > * {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin: 0 0 8px;
+  }
+
+  .debug-schema-grid > .json-viewer {
+    margin-top: 0;
+  }
+
+  .debug-kv {
+    display: grid;
+    grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+    align-items: baseline;
+    margin: 0;
+    font-size: 11px;
+  }
+
+  .debug-kv > dt {
+    padding: 4px 8px 4px 0;
+    color: var(--toolbar-text-muted);
+    font-weight: 600;
+  }
+
+  .debug-kv > dd {
+    margin: 0;
+    padding: 4px 0;
+    min-width: 0;
+    color: var(--toolbar-text);
+    overflow-wrap: anywhere;
+  }
+
+  .debug-kv > dt,
+  .debug-kv > dd {
+    border-bottom: 1px solid rgba(49, 50, 68, 0.55);
+  }
+
+  .debug-kv > dt:last-of-type,
+  .debug-kv > dd:last-of-type {
+    border-bottom: 0;
+  }
+
+  .debug-kv__mono {
+    font-family: var(--toolbar-font);
+    color: var(--toolbar-text);
+  }
+
+  .debug-kv .badge,
+  .debug-identity__chip .badge {
+    min-width: 0;
+    background: rgba(205, 214, 244, 0.08);
+    color: var(--toolbar-text);
+  }
+
+  .debug-kv__empty {
+    color: var(--toolbar-text-muted);
+    font-style: italic;
+  }
+
+  .debug-kv__swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .debug-kv__swatch-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border-radius: 3px;
+    border: 1px solid rgba(205, 214, 244, 0.2);
+    background: var(--debug-swatch-color, #64748b);
+  }
+
+  .debug-kv__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .debug-kv__copy > code {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .debug-kv__copy-btn {
+    flex: 0 0 auto;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, background 0.15s ease;
+  }
+
+  .debug-kv__copy:hover .debug-kv__copy-btn,
+  .debug-kv__copy-btn:hover,
+  .debug-kv__copy-btn:focus-visible {
+    opacity: 1;
+  }
+
+  .debug-kv__copy-btn:focus-visible {
+    outline: 2px solid var(--toolbar-accent);
+    outline-offset: 1px;
+  }
+
+  @media (max-width: 640px) {
+    .debug-identity {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .debug-kv {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .debug-kv > dt {
+      padding: 4px 0 0;
+      border-bottom: 0;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .debug-kv > dd {
+      padding: 0 0 4px;
+    }
+
+    .debug-kv > dt:last-of-type {
+      border-bottom: 0;
+    }
+  }
+
   /* Copy button */
   .copy-btn {
     display: inline-flex;

@@ -30,7 +30,7 @@ import {
   restoreCommandRunsInteractions,
 } from './panels/command-runs.js';
 
-const SUPPORTED_RENDERERS = new Set(['metrics', 'key_value', 'table', 'status_list', 'timeline', 'json', 'stack']);
+const SUPPORTED_RENDERERS = new Set(['metrics', 'key_value', 'identity', 'table', 'status_list', 'timeline', 'json', 'stack']);
 const SUPPORTED_SCHEMA_VERSION = '1';
 const PANEL_DEFINITION_FETCH_TIMEOUT_MS = 3000;
 const hydrationPromises = new Map<string, Promise<number>>();

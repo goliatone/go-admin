@@ -1114,6 +1114,265 @@ section.debug-json-panel {
   white-space: nowrap;
 }
 
+/* ---------------------------------------------------------------------------
+ * Declarative schema panels (server-declared `identity` / `key_value` views)
+ * Shared class names: the toolbar mirrors these rules in its shadow stylesheet.
+ * ------------------------------------------------------------------------- */
+
+/* Identity summary header: the one line an operator should read first. */
+.debug-identity {
+  --debug-identity-color: #64748b;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 32px;
+  margin-top: 12px;
+  padding: 14px 16px 14px 19px;
+  background: var(--debug-bg-secondary);
+  border: 1px solid var(--debug-border);
+  border-radius: 6px;
+}
+
+.debug-identity::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: -1px;
+  width: 3px;
+  border-radius: 6px 0 0 6px;
+  background: var(--debug-identity-color);
+}
+
+.debug-identity[data-accent="none"]::before {
+  background: var(--debug-border);
+}
+
+.debug-identity__lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.debug-identity__env {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--debug-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--debug-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* Only the tint and the dot follow the configured color. A host may configure
+   any hex value, so the chip label keeps full-contrast text. */
+@supports (color: color-mix(in srgb, red 10%, transparent)) {
+  .debug-identity__env {
+    border-color: color-mix(in srgb, var(--debug-identity-color) 50%, transparent);
+    background: color-mix(in srgb, var(--debug-identity-color) 16%, transparent);
+  }
+}
+
+.debug-identity__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--debug-identity-color);
+}
+
+.debug-identity__names {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.debug-identity__label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--debug-text-muted);
+}
+
+.debug-identity__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--debug-text);
+}
+
+.debug-identity__title .debug-kv__mono {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.debug-identity__subtitle {
+  font-size: 11px;
+  color: var(--debug-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-identity__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+  min-width: 0;
+}
+
+.debug-identity__chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.debug-identity__chip dt {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--debug-text-muted);
+}
+
+.debug-identity__chip dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--debug-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Grouped detail sections flow into balanced columns at their natural height. */
+.debug-schema-grid {
+  column-width: 320px;
+  column-gap: 12px;
+  margin-top: 12px;
+}
+
+.debug-schema-grid > * {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 12px;
+}
+
+.debug-schema-grid > section.debug-json-panel {
+  margin-top: 0;
+}
+
+/* Declared key/value pairs */
+.debug-kv {
+  display: grid;
+  grid-template-columns: minmax(84px, auto) minmax(0, 1fr);
+  align-items: baseline;
+  margin: 0;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.debug-kv > dt {
+  padding: 6px 10px 6px 12px;
+  color: var(--debug-text-muted);
+  font-weight: 600;
+}
+
+.debug-kv > dd {
+  margin: 0;
+  padding: 6px 12px 6px 0;
+  min-width: 0;
+  color: var(--debug-text);
+  overflow-wrap: anywhere;
+}
+
+.debug-kv > dt,
+.debug-kv > dd {
+  border-bottom: 1px solid rgba(49, 50, 68, 0.55);
+}
+
+.debug-kv > dt:last-of-type,
+.debug-kv > dd:last-of-type {
+  border-bottom: 0;
+}
+
+.debug-kv__mono {
+  font-family: var(--debug-font);
+  color: var(--debug-text);
+}
+
+/* A bare declared badge still needs a surface to read as a badge. */
+.debug-kv .badge,
+.debug-identity__chip .badge {
+  min-width: 0;
+  background: rgba(205, 214, 244, 0.08);
+  color: var(--debug-text);
+}
+
+/* Unknown optional metadata reads as unavailable, never as a real value. */
+.debug-kv__empty {
+  color: var(--debug-text-muted);
+  font-style: italic;
+}
+
+.debug-kv__swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.debug-kv__swatch-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  border: 1px solid rgba(205, 214, 244, 0.2);
+  background: var(--debug-swatch-color, #64748b);
+}
+
+.debug-kv__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.debug-kv__copy > code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.debug-kv__copy-btn {
+  flex: 0 0 auto;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.debug-kv__copy:hover .debug-kv__copy-btn,
+.debug-kv__copy-btn:hover,
+.debug-kv__copy-btn:focus-visible {
+  opacity: 1;
+}
+
+.debug-kv__copy-btn:focus-visible {
+  outline: 2px solid var(--debug-accent);
+  outline-offset: 1px;
+}
+
 /* Empty state */
 .debug-empty {
   color: var(--debug-text-muted);
@@ -1246,6 +1505,41 @@ section.debug-json-panel {
 
   .debug-json-grid {
     grid-template-columns: 1fr;
+  }
+
+  .debug-schema-grid {
+    column-width: auto;
+    columns: 1;
+  }
+
+  .debug-identity {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .debug-identity__chips {
+    gap: 8px 18px;
+  }
+
+  .debug-kv {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .debug-kv > dt {
+    padding: 6px 12px 0;
+    border-bottom: 0;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .debug-kv > dd {
+    padding: 0 12px 6px;
+  }
+
+  .debug-kv > dt:last-of-type {
+    border-bottom: 0;
   }
 
   .debug-table {

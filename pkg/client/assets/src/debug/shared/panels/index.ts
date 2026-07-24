@@ -33,6 +33,7 @@ export {
   renderSchemaPanelView,
   renderSchemaMetrics,
   renderSchemaKeyValue,
+  renderSchemaIdentity,
   renderSchemaTable,
   renderSchemaTableRow,
   renderSchemaStatusList,
