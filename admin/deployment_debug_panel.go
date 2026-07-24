@@ -78,28 +78,57 @@ func (p *DeploymentDebugPanel) UI() *debugregistry.PanelUI {
 			Options:  map[string]any{"fields": fields},
 		}
 	}
+	// Primary identity: what environment this is and which process answered.
+	// Everything else is secondary detail behind it.
+	identity := debugregistry.IdentityView("")
+	identity.Title = "Instance"
+	identity.Options = map[string]any{
+		"color_bind":    "environment.color",
+		"eyebrow_bind":  "environment.name",
+		"title_bind":    "runtime.instance_name",
+		"title_format":  "copy",
+		"title_label":   "instance name",
+		"subtitle_bind": "application.name",
+		"empty":         "Unnamed instance",
+		"chips": []map[string]any{
+			field("Version", "application.version"),
+			field("Commit", "build.commit_short", "mono"),
+			field("Uptime", "runtime.uptime"),
+			field("Host", "runtime.hostname"),
+		},
+	}
 	console := debugregistry.StackView(
-		section("Application", "application",
-			field("Application ID", "id"), field("Application name", "name"), field("Version", "version")),
-		section("Environment", "environment",
-			field("Environment", "name"), field("Color", "color", "color")),
-		section("Build", "build",
-			field("Commit", "commit_sha", "copy"), field("Short commit", "commit_short"), field("Source ref", "git_ref"),
-			field("Build time", "build_time"), field("Dirty build", "modified"), field("Metadata source", "source"),
-			field("Go version", "go_version")),
-		section("Runtime", "runtime",
-			field("Instance name", "instance_name", "copy"), field("Instance ID", "instance_id", "copy"), field("Hostname", "hostname"),
-			field("Started", "started_at"), field("Uptime", "uptime")),
+		*identity,
+		*debugregistry.GridStackView(
+			section("Application", "application",
+				field("Application ID", "id"), field("Application name", "name"), field("Version", "version")),
+			section("Environment", "environment",
+				field("Environment", "name", "badge"), field("Color", "color", "color")),
+			section("Build", "build",
+				field("Commit", "commit_sha", "copy"), field("Short commit", "commit_short", "mono"), field("Source ref", "git_ref"),
+				field("Build time", "build_time", "datetime"), field("Dirty build", "modified", "boolean"), field("Metadata source", "source"),
+				field("Go version", "go_version")),
+			section("Runtime", "runtime",
+				field("Instance name", "instance_name", "copy"), field("Instance ID", "instance_id", "copy"),
+				field("Identity source", "instance_source"), field("Hostname", "hostname"),
+				field("Started", "started_at", "datetime"), field("Uptime", "uptime")),
+		),
 	)
-	toolbar := debugregistry.KeyValueView("")
-	toolbar.Title = "Deployment"
-	toolbar.Options = map[string]any{"fields": []map[string]any{
-		field("Environment", "environment.name"),
-		field("Instance", "runtime.instance_name"),
-		field("Commit", "build.commit_short"),
-		field("Version", "application.version"),
-		field("Uptime", "runtime.uptime"),
-	}}
+	// The expanded toolbar shows the same identity with a narrower detail set so
+	// it stays readable inside the short toolbar viewport.
+	toolbar := debugregistry.StackView(
+		*identity,
+		*debugregistry.GridStackView(
+			section("Application", "application",
+				field("Application name", "name"), field("Version", "version")),
+			section("Build", "build",
+				field("Commit", "commit_sha", "copy"), field("Source ref", "git_ref"),
+				field("Build time", "build_time", "datetime"), field("Dirty build", "modified", "boolean")),
+			section("Runtime", "runtime",
+				field("Instance name", "instance_name", "copy"), field("Instance ID", "instance_id", "copy"),
+				field("Hostname", "hostname"), field("Uptime", "uptime")),
+		),
+	)
 	return debugregistry.NewPanelUI(console, toolbar)
 }
 

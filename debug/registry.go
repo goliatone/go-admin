@@ -34,11 +34,16 @@ const (
 
 	PanelRendererMetrics    = "metrics"
 	PanelRendererKeyValue   = "key_value"
+	PanelRendererIdentity   = "identity"
 	PanelRendererTable      = "table"
 	PanelRendererStatusList = "status_list"
 	PanelRendererTimeline   = "timeline"
 	PanelRendererJSON       = "json"
 	PanelRendererStack      = "stack"
+
+	// PanelStackLayoutGrid flows a stack view's sections into responsive
+	// columns instead of stacking each section at full width.
+	PanelStackLayoutGrid = "grid"
 
 	PanelCountArrayLength = "array_length"
 	PanelCountObjectKeys  = "object_keys"
@@ -232,6 +237,21 @@ func MetricsView(bind string) *PanelUIView {
 // KeyValueView creates a key/value renderer view.
 func KeyValueView(bind string) *PanelUIView {
 	return PanelView(PanelRendererKeyValue, bind)
+}
+
+// IdentityView creates a summary identity renderer view. It presents one
+// primary title with an optional accent color, eyebrow, subtitle, and
+// supporting chips so a panel can lead with the value operators scan first.
+func IdentityView(bind string) *PanelUIView {
+	return PanelView(PanelRendererIdentity, bind)
+}
+
+// GridStackView creates a stack view whose sections flow into responsive
+// columns instead of stacking at full width.
+func GridStackView(sections ...PanelUIView) *PanelUIView {
+	view := StackView(sections...)
+	view.Options = map[string]any{"layout": PanelStackLayoutGrid}
+	return view
 }
 
 // TableView creates a table renderer view.
@@ -1074,6 +1094,8 @@ func normalizeRenderer(value string) string {
 		return PanelRendererMetrics
 	case PanelRendererKeyValue:
 		return PanelRendererKeyValue
+	case PanelRendererIdentity:
+		return PanelRendererIdentity
 	case PanelRendererTable:
 		return PanelRendererTable
 	case PanelRendererStatusList:
@@ -1190,6 +1212,19 @@ func cloneJSONSafeValue(value any) (any, bool) {
 		out := make([]any, 0, len(typed))
 		for _, item := range typed {
 			if cloned, ok := cloneJSONSafeValue(item); ok {
+				out = append(out, cloned)
+			}
+		}
+		return out, true
+	case []map[string]any:
+		// Declarative option lists (table columns, key/value fields, metric
+		// tiles, identity chips) are naturally written as []map[string]any in
+		// Go. Without this case they fall through to the default and the whole
+		// option is dropped, silently degrading a panel to derived labels.
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			cloned := cloneJSONSafeMap(item)
+			if cloned != nil {
 				out = append(out, cloned)
 			}
 		}
