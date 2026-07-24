@@ -1,31 +1,29 @@
 # Changelog
 
+# [0.123.0](https://github.com/goliatone/go-admin/compare/v0.122.0...v0.123.0) - (2026-07-24)
+
+## <!-- 16 -->➕ Add
+
+- Debug console updates ([906467d](https://github.com/goliatone/go-admin/commit/906467d286029f1890e7889f1bf79cf639a50128))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([dddc6ee](https://github.com/goliatone/go-admin/commit/dddc6ee69a5b51e66a35a0d4ac1c5aedb9e02fe5))  - (goliatone)
+- Update testsg ([07ad921](https://github.com/goliatone/go-admin/commit/07ad921701544e6b8dde96dc045f308d4c13cc97))  - (goliatone)
+
 # [0.122.0](https://github.com/goliatone/go-admin/compare/v0.121.7...v0.122.0) - (2026-07-23)
 
 
-## Navigation
-
-- Standard quickstart sidebar utility items now carry the configured Settings,
-  Preferences, and Profile view permissions in both CMS-backed and fallback
-  navigation.
-- Added `quickstart.WithDefaultSidebarUtilityItemKeys(...)` for granular
-  selection of standard utility items.
-- Removed the unowned `admin.help` link from the quickstart default set. Hosts
-  that register a Help route should contribute it with
-  `WithSidebarUtilityMenuItems`.
-- Empty utility menus are now authoritative. Quickstart only uses the selected
-  menu-specific fallback when the CMS menu is missing or unavailable; it no
-  longer repopulates a menu after permission filtering removes all entries.
-- Settings UI route registration now applies the same effective default view
-  permission as the admin runtime when callers leave the config field blank.
-- Quickstart retires omitted, disabled, feature-gated, and legacy standard
-  utility rows by exact generated identity while preserving host-owned and
-  unrelated generated rows.
+New minor release: v0.122.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Test setup ([acbfffe](https://github.com/goliatone/go-admin/commit/acbfffe2b3e68ab24be250e1f7bb1eb5b90ec305))  - (goliatone)
 - Code quality ([dd18706](https://github.com/goliatone/go-admin/commit/dd1870699d51f2817191a484dc036ef63cdccb24))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.122.0 ([83a102b](https://github.com/goliatone/go-admin/commit/83a102b4a73e19c209bcb5965835c225de794839))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
