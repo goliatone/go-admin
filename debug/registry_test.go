@@ -475,6 +475,59 @@ func TestPanelUINormalizationDropsUnsupportedSchemaParts(t *testing.T) {
 	}
 }
 
+func TestPanelUINormalizationPreservesDeclaredOptionLists(t *testing.T) {
+	registry := NewPanelRegistry()
+	view := KeyValueView("application")
+	view.Options = map[string]any{"fields": []map[string]any{
+		{"label": "Version", "bind": "version", "format": "mono"},
+		{"label": "Markup", "bind": "name", "format": "<script>"},
+	}}
+	identity := IdentityView("")
+	identity.Options = map[string]any{
+		"title_bind": "runtime.instance_name",
+		"chips":      []map[string]any{{"label": "Uptime", "bind": "runtime.uptime"}},
+	}
+	if err := registry.Register("options", PanelConfig{
+		UI: &PanelUI{Views: PanelUIViews{Console: GridStackView(*identity, *view)}},
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	registration, ok := registry.Registration("options")
+	if !ok {
+		t.Fatalf("expected panel registration")
+	}
+	console := registration.Definition.UI.Views.Console
+	if console.Options["layout"] != PanelStackLayoutGrid {
+		t.Fatalf("expected grid layout option to survive, got %+v", console.Options)
+	}
+	if len(console.Sections) != 2 {
+		t.Fatalf("expected both sections, got %+v", console.Sections)
+	}
+	if console.Sections[0].Renderer != PanelRendererIdentity {
+		t.Fatalf("expected identity renderer to be supported, got %q", console.Sections[0].Renderer)
+	}
+	chips, ok := console.Sections[0].Options["chips"].([]any)
+	if !ok || len(chips) != 1 {
+		t.Fatalf("expected identity chips to survive normalization, got %+v", console.Sections[0].Options)
+	}
+	fields, ok := console.Sections[1].Options["fields"].([]any)
+	if !ok || len(fields) != 2 {
+		t.Fatalf("expected declared fields to survive normalization, got %+v", console.Sections[1].Options)
+	}
+	first, ok := fields[0].(map[string]any)
+	if !ok || first["label"] != "Version" || first["format"] != "mono" {
+		t.Fatalf("expected declared field values to survive, got %+v", fields[0])
+	}
+	second, ok := fields[1].(map[string]any)
+	if !ok || second["format"] != "" {
+		t.Fatalf("expected unsafe field text to be sanitized, got %+v", fields[1])
+	}
+	if _, err := json.Marshal(registration.Definition.UI); err != nil {
+		t.Fatalf("option lists should remain JSON serializable: %v", err)
+	}
+}
+
 func TestPanelUINormalizationDropsUnsupportedSchemaVersion(t *testing.T) {
 	registry := NewPanelRegistry()
 	err := registry.Register("future", PanelConfig{

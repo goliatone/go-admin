@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	debugregistry "github.com/goliatone/go-admin/debug"
 )
 
 func TestDeploymentDebugPanelDefaultsAndScopedSnapshots(t *testing.T) {
@@ -40,6 +42,91 @@ func TestDeploymentDebugPanelDefaultsAndScopedSnapshots(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("deployment panel definition not found")
+	}
+}
+
+func TestDeploymentDebugPanelUILeadsWithIdentityAndGroupsDetail(t *testing.T) {
+	adm := newDeploymentPanelTestAdmin("schema", time.Date(2026, 7, 23, 10, 0, 0, 0, time.UTC))
+	RegisterDeploymentDebugPanel(adm)
+
+	var definition debugregistry.PanelDefinition
+	for _, candidate := range adm.debugCollector.PanelDefinitions() {
+		if candidate.ID == DebugPanelDeployment {
+			definition = candidate
+		}
+	}
+	if definition.UI == nil {
+		t.Fatal("deployment panel definition is missing its UI schema")
+	}
+
+	for name, view := range map[string]*debugregistry.PanelUIView{
+		"console": definition.UI.Views.Console,
+		"toolbar": definition.UI.Views.Toolbar,
+	} {
+		if view == nil || view.Renderer != debugregistry.PanelRendererStack || len(view.Sections) != 2 {
+			t.Fatalf("%s view should stack an identity header over grouped detail, got %+v", name, view)
+		}
+		identity := view.Sections[0]
+		if identity.Renderer != debugregistry.PanelRendererIdentity {
+			t.Fatalf("%s view should lead with the identity renderer, got %q", name, identity.Renderer)
+		}
+		if identity.Options["color_bind"] != "environment.color" ||
+			identity.Options["eyebrow_bind"] != "environment.name" ||
+			identity.Options["title_bind"] != "runtime.instance_name" ||
+			identity.Options["title_format"] != "copy" {
+			t.Fatalf("%s identity header lost its declared bindings: %+v", name, identity.Options)
+		}
+		chips, ok := identity.Options["chips"].([]any)
+		if !ok || len(chips) == 0 {
+			t.Fatalf("%s identity header lost its supporting chips: %+v", name, identity.Options)
+		}
+		detail := view.Sections[1]
+		if detail.Renderer != debugregistry.PanelRendererStack || detail.Options["layout"] != debugregistry.PanelStackLayoutGrid {
+			t.Fatalf("%s detail group should use the grid stack layout, got %+v", name, detail)
+		}
+		if len(detail.Sections) < 3 {
+			t.Fatalf("%s detail group should retain grouped sections, got %+v", name, detail.Sections)
+		}
+		for _, section := range detail.Sections {
+			if section.Renderer != debugregistry.PanelRendererKeyValue {
+				t.Fatalf("%s detail section should render key/value pairs, got %q", name, section.Renderer)
+			}
+			fields, ok := section.Options["fields"].([]any)
+			if !ok || len(fields) == 0 {
+				t.Fatalf("%s %q section lost its declared fields: %+v", name, section.Title, section.Options)
+			}
+			for _, entry := range fields {
+				field, ok := entry.(map[string]any)
+				if !ok || field["label"] == "" || field["bind"] == "" || field["empty"] != "Unavailable" {
+					t.Fatalf("%s %q section declared an incomplete field: %+v", name, section.Title, entry)
+				}
+			}
+		}
+	}
+
+	console := definition.UI.Views.Console.Sections[1].Sections
+	formats := map[string]string{}
+	for _, section := range console {
+		fields, _ := section.Options["fields"].([]any)
+		for _, entry := range fields {
+			field, _ := entry.(map[string]any)
+			bind, _ := field["bind"].(string)
+			format, _ := field["format"].(string)
+			formats[section.Title+"."+bind] = format
+		}
+	}
+	for bind, want := range map[string]string{
+		"Build.commit_sha":      "copy",
+		"Build.build_time":      "datetime",
+		"Build.modified":        "boolean",
+		"Environment.color":     "color",
+		"Runtime.instance_name": "copy",
+		"Runtime.instance_id":   "copy",
+		"Runtime.started_at":    "datetime",
+	} {
+		if formats[bind] != want {
+			t.Fatalf("expected %s to declare format %q, got %q", bind, want, formats[bind])
+		}
 	}
 }
 
