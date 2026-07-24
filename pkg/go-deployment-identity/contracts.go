@@ -2,6 +2,8 @@
 // identities for deployed artifacts.
 package deploymentidentity
 
+import "errors"
+
 // Input is the normalized, stable input supplied to a Generator.
 type Input struct {
 	Seed        string
@@ -22,6 +24,9 @@ type GeneratorFunc func(Input) (Persona, error)
 
 // Generate implements Generator.
 func (f GeneratorFunc) Generate(input Input) (Persona, error) {
+	if f == nil {
+		return Persona{}, errors.New("deployment identity generator function is nil")
+	}
 	return f(input)
 }
 

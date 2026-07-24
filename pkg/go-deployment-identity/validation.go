@@ -103,6 +103,9 @@ func Validate(persona Persona) (Persona, error) {
 			config.Width > MaxImageDimension || config.Height > MaxImageDimension {
 			return Persona{}, errors.New("persona image dimensions exceed their limit")
 		}
+		if _, err := png.Decode(bytes.NewReader(persona.Visual.Data)); err != nil {
+			return Persona{}, errors.New("persona image payload is not a valid PNG")
+		}
 		persona.Visual.Text = ""
 		persona.Visual.Background = ""
 		persona.Visual.Foreground = ""
