@@ -32,7 +32,7 @@ func (p *DeploymentDebugPanel) Collect(context.Context) map[string]any {
 	}
 	identity := p.admin.DeploymentIdentity()
 	snapshot := identity.Snapshot(now)
-	return map[string]any{
+	payload := map[string]any{
 		"application": map[string]any{
 			"id":      identity.AppID,
 			"name":    identity.AppName,
@@ -60,6 +60,10 @@ func (p *DeploymentDebugPanel) Collect(context.Context) map[string]any {
 			"uptime":          snapshot.Uptime,
 		},
 	}
+	if identity.Persona != nil {
+		payload["persona"] = identity.Persona.Clone()
+	}
+	return payload
 }
 
 func (p *DeploymentDebugPanel) UI() *debugregistry.PanelUI {
@@ -81,16 +85,22 @@ func (p *DeploymentDebugPanel) UI() *debugregistry.PanelUI {
 	// Primary identity: what environment this is and which process answered.
 	// Everything else is secondary detail behind it.
 	identity := debugregistry.IdentityView("")
-	identity.Title = "Instance"
+	identity.Title = "Deployment persona"
 	identity.Options = map[string]any{
-		"color_bind":    "environment.color",
-		"eyebrow_bind":  "environment.name",
-		"title_bind":    "runtime.instance_name",
-		"title_format":  "copy",
-		"title_label":   "instance name",
-		"subtitle_bind": "application.name",
-		"empty":         "Unnamed instance",
+		"color_bind":           "environment.color",
+		"eyebrow_bind":         "environment.name",
+		"title_bind":           "persona.name",
+		"title_fallback_bind":  "runtime.instance_name",
+		"title_format":         "copy",
+		"title_label":          "deployment persona",
+		"title_fallback_label": "instance name",
+		"subtitle_bind":        "application.name",
+		"avatar_bind":          "persona.visual",
+		"avatar_name_bind":     "persona.name",
+		"empty":                "Unnamed deployment",
 		"chips": []map[string]any{
+			field("Algorithm", "persona.algorithm"),
+			field("Persona version", "persona.version"),
 			field("Version", "application.version"),
 			field("Commit", "build.commit_short", "mono"),
 			field("Uptime", "runtime.uptime"),

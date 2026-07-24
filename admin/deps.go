@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	deploymentidentity "github.com/goliatone/go-admin/pkg/go-deployment-identity"
 	translationservices "github.com/goliatone/go-admin/translations/services"
 	gocommand "github.com/goliatone/go-command"
 	cmdrpc "github.com/goliatone/go-command/rpc"
@@ -22,6 +23,8 @@ type Dependencies struct {
 	Logger Logger      `json:"logger"`
 
 	LoggerProvider LoggerProvider `json:"logger_provider"`
+
+	DeploymentPersonaGenerator deploymentidentity.Generator `json:"-"`
 
 	CMSContainer        CMSContainer        `json:"cms_container"`
 	CMSContainerBuilder CMSContainerBuilder `json:"cms_container_builder"`

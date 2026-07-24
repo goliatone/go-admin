@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	deploymentidentity "github.com/goliatone/go-admin/pkg/go-deployment-identity"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -51,6 +52,13 @@ func (p ErrorPresenter) WithDeploymentIdentity(identity DeploymentIdentity) Erro
 		"config", "environment", "provider_environment", "go_build_info")
 	identity.InstanceSource = normalizeDeploymentSource(identity.InstanceSource,
 		"configured", "generated", "mixed", "fallback")
+	if identity.Persona != nil {
+		if persona, err := deploymentidentity.Validate(identity.Persona.Clone()); err == nil {
+			identity.Persona = &persona
+		} else {
+			identity.Persona = nil
+		}
+	}
 	p.deployment = identity
 	return p
 }

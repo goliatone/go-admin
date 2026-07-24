@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	deploymentidentity "github.com/goliatone/go-admin/pkg/go-deployment-identity"
 )
 
 const (
@@ -33,39 +35,51 @@ var (
 // DeploymentIdentityConfig configures application, build, environment, and
 // process identity metadata. Empty fields are resolved independently.
 type DeploymentIdentityConfig struct {
-	AppID             string            `json:"app_id"`
-	AppName           string            `json:"app_name"`
-	AppVersion        string            `json:"app_version"`
-	Environment       string            `json:"environment"`
-	EnvironmentColors map[string]string `json:"environment_colors,omitempty"`
-	FallbackColor     string            `json:"fallback_color,omitempty"`
-	InstanceName      string            `json:"instance_name,omitempty"`
-	InstanceID        string            `json:"instance_id,omitempty"`
-	CommitSHA         string            `json:"commit_sha,omitempty"`
-	GitRef            string            `json:"git_ref,omitempty"`
-	BuildTime         string            `json:"build_time,omitempty"`
+	AppID             string                  `json:"app_id"`
+	AppName           string                  `json:"app_name"`
+	AppVersion        string                  `json:"app_version"`
+	Environment       string                  `json:"environment"`
+	EnvironmentColors map[string]string       `json:"environment_colors,omitempty"`
+	FallbackColor     string                  `json:"fallback_color,omitempty"`
+	InstanceName      string                  `json:"instance_name,omitempty"`
+	InstanceID        string                  `json:"instance_id,omitempty"`
+	CommitSHA         string                  `json:"commit_sha,omitempty"`
+	GitRef            string                  `json:"git_ref,omitempty"`
+	BuildTime         string                  `json:"build_time,omitempty"`
+	Persona           DeploymentPersonaConfig `json:"persona,omitempty"`
+}
+
+// DeploymentPersonaConfig opts into a deterministic artifact persona.
+// Namespace nil defaults to AppID; a non-nil empty value explicitly disables
+// namespacing.
+type DeploymentPersonaConfig struct {
+	Enabled   bool    `json:"enabled,omitempty"`
+	Seed      string  `json:"seed,omitempty"`
+	Namespace *string `json:"namespace,omitempty"`
+	Name      string  `json:"name,omitempty"`
 }
 
 // DeploymentIdentity is the immutable deployment identity resolved for one
 // Admin instance.
 type DeploymentIdentity struct {
-	AppID            string     `json:"app_id,omitempty"`
-	AppName          string     `json:"app_name,omitempty"`
-	AppVersion       string     `json:"app_version,omitempty"`
-	Environment      string     `json:"environment,omitempty"`
-	EnvironmentColor string     `json:"environment_color,omitempty"`
-	InstanceName     string     `json:"instance_name"`
-	InstanceID       string     `json:"instance_id"`
-	Hostname         string     `json:"hostname,omitempty"`
-	CommitSHA        string     `json:"commit_sha,omitempty"`
-	CommitShort      string     `json:"commit_short,omitempty"`
-	GitRef           string     `json:"git_ref,omitempty"`
-	BuildTime        *time.Time `json:"build_time,omitempty"`
-	BuildModified    bool       `json:"build_modified,omitempty"`
-	BuildSource      string     `json:"build_source,omitempty"`
-	InstanceSource   string     `json:"instance_source,omitempty"`
-	StartedAt        time.Time  `json:"started_at"`
-	GoVersion        string     `json:"go_version,omitempty"`
+	AppID            string                      `json:"app_id,omitempty"`
+	AppName          string                      `json:"app_name,omitempty"`
+	AppVersion       string                      `json:"app_version,omitempty"`
+	Environment      string                      `json:"environment,omitempty"`
+	EnvironmentColor string                      `json:"environment_color,omitempty"`
+	InstanceName     string                      `json:"instance_name"`
+	InstanceID       string                      `json:"instance_id"`
+	Hostname         string                      `json:"hostname,omitempty"`
+	CommitSHA        string                      `json:"commit_sha,omitempty"`
+	CommitShort      string                      `json:"commit_short,omitempty"`
+	GitRef           string                      `json:"git_ref,omitempty"`
+	BuildTime        *time.Time                  `json:"build_time,omitempty"`
+	BuildModified    bool                        `json:"build_modified,omitempty"`
+	BuildSource      string                      `json:"build_source,omitempty"`
+	InstanceSource   string                      `json:"instance_source,omitempty"`
+	StartedAt        time.Time                   `json:"started_at"`
+	GoVersion        string                      `json:"go_version,omitempty"`
+	Persona          *deploymentidentity.Persona `json:"persona,omitempty"`
 }
 
 // DeploymentIdentitySnapshot is the JSON-safe diagnostic view of an identity.
@@ -78,6 +92,10 @@ func (i DeploymentIdentity) clone() DeploymentIdentity {
 	if i.BuildTime != nil {
 		buildTime := *i.BuildTime
 		i.BuildTime = &buildTime
+	}
+	if i.Persona != nil {
+		persona := i.Persona.Clone()
+		i.Persona = &persona
 	}
 	return i
 }
@@ -101,11 +119,12 @@ type DeploymentBuildInfo struct {
 }
 
 type deploymentIdentityResolver struct {
-	lookupEnv func(string) (string, bool)
-	hostname  func() (string, error)
-	now       func() time.Time
-	random    io.Reader
-	buildInfo func() (DeploymentBuildInfo, bool)
+	lookupEnv        func(string) (string, bool)
+	hostname         func() (string, error)
+	now              func() time.Time
+	random           io.Reader
+	buildInfo        func() (DeploymentBuildInfo, bool)
+	personaGenerator deploymentidentity.Generator
 }
 
 // DeploymentIdentityResolverOption makes resolver dependencies deterministic
@@ -149,6 +168,13 @@ func WithDeploymentBuildInfo(lookup func() (DeploymentBuildInfo, bool)) Deployme
 		if lookup != nil {
 			r.buildInfo = lookup
 		}
+	}
+}
+
+// WithDeploymentPersonaGenerator supplies an application-defined generator.
+func WithDeploymentPersonaGenerator(generator deploymentidentity.Generator) DeploymentIdentityResolverOption {
+	return func(r *deploymentIdentityResolver) {
+		r.personaGenerator = generator
 	}
 }
 
@@ -271,7 +297,80 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 	default:
 		identity.InstanceSource = "mixed"
 	}
+	identity.Persona = r.resolvePersona(explicit.Persona, identity, env("APP_DEPLOYMENT_SEED"))
 	return identity
+}
+
+func (r deploymentIdentityResolver) resolvePersona(
+	cfg DeploymentPersonaConfig,
+	identity DeploymentIdentity,
+	environmentSeed string,
+) *deploymentidentity.Persona {
+	if !cfg.Enabled {
+		return nil
+	}
+	seed := deploymentidentity.NormalizeText(cfg.Seed, deploymentidentity.MaxSeedBytes)
+	if seed == "" {
+		seed = deploymentidentity.NormalizeText(environmentSeed, deploymentidentity.MaxSeedBytes)
+	}
+	if seed == "" {
+		seed = deploymentidentity.NormalizeText(identity.CommitSHA, deploymentidentity.MaxSeedBytes)
+	}
+	if seed == "" {
+		return nil
+	}
+	namespace := identity.AppID
+	if cfg.Namespace != nil {
+		namespace = *cfg.Namespace
+	}
+	input := deploymentidentity.Input{
+		Seed:        seed,
+		Namespace:   deploymentidentity.NormalizeText(namespace, deploymentidentity.MaxNamespaceBytes),
+		CommitSHA:   identity.CommitSHA,
+		AppID:       identity.AppID,
+		AppName:     identity.AppName,
+		Environment: identity.Environment,
+	}
+	generator := r.personaGenerator
+	source := "custom"
+	if generator == nil {
+		generator = deploymentidentity.NewDefaultGenerator()
+		source = "default"
+	}
+	persona, err := generator.Generate(input)
+	if err == nil {
+		persona.Source = source
+		applyPersonaNameOverride(&persona, cfg.Name)
+		if validated, validationErr := deploymentidentity.Validate(persona); validationErr == nil {
+			return personaPointer(validated)
+		}
+	}
+	if source == "custom" {
+		fallback, fallbackErr := deploymentidentity.NewDefaultGenerator().Generate(input)
+		if fallbackErr == nil {
+			fallback.Source = "fallback"
+			applyPersonaNameOverride(&fallback, cfg.Name)
+			if validated, validationErr := deploymentidentity.Validate(fallback); validationErr == nil {
+				return personaPointer(validated)
+			}
+		}
+	}
+	return nil
+}
+
+func applyPersonaNameOverride(persona *deploymentidentity.Persona, name string) {
+	if persona == nil {
+		return
+	}
+	if override := deploymentidentity.NormalizeText(name, deploymentidentity.MaxNameBytes); override != "" {
+		persona.Name = override
+		persona.Visual.Alt = override + " deployment persona"
+	}
+}
+
+func personaPointer(persona deploymentidentity.Persona) *deploymentidentity.Persona {
+	cloned := persona.Clone()
+	return &cloned
 }
 
 func readDeploymentBuildInfo() (DeploymentBuildInfo, bool) {

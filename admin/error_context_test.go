@@ -144,6 +144,23 @@ func TestWithDeploymentIdentityNormalizesProvenance(t *testing.T) {
 	}
 }
 
+func TestWithDeploymentIdentityRejectsMalformedAttachedPersona(t *testing.T) {
+	presenter := NewErrorPresenter(ErrorConfig{}).WithDeploymentIdentity(DeploymentIdentity{
+		InstanceName: "instance",
+		InstanceID:   "instance-id",
+		Persona: &DeploymentPersona{
+			Name: "unsafe", Algorithm: "custom", Version: "v1",
+			Visual: DeploymentPersonaVisual{
+				Kind: DeploymentPersonaVisualImage, Alt: "unsafe",
+				MediaType: DeploymentPersonaMediaTypePNG, Data: []byte("<script>"),
+			},
+		},
+	})
+	if got := presenter.DeploymentIdentity().Persona; got != nil {
+		t.Fatalf("malformed externally attached persona survived normalization: %+v", got)
+	}
+}
+
 func TestDefaultErrorPresenterCopiesMutableState(t *testing.T) {
 	previous := DefaultErrorPresenter()
 	t.Cleanup(func() { SetDefaultErrorPresenter(previous) })

@@ -9,6 +9,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	deploymentidentity "github.com/goliatone/go-admin/pkg/go-deployment-identity"
+	"github.com/goliatone/go-admin/pkg/go-deployment-identity/identicon"
 )
 
 func TestResolveDeploymentIdentityPrecedenceAndBuildFallback(t *testing.T) {
@@ -166,6 +169,113 @@ func TestResolveDeploymentIdentityConcurrentAndSnapshotStable(t *testing.T) {
 			t.Fatalf("duplicate instance id %q", id)
 		}
 		seen[id] = true
+	}
+}
+
+func TestResolveDeploymentPersonaSeedPrecedenceAndNamespace(t *testing.T) {
+	now := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+	commit := strings.Repeat("a", 40)
+	var captured deploymentidentity.Input
+	generator := deploymentidentity.GeneratorFunc(func(input deploymentidentity.Input) (deploymentidentity.Persona, error) {
+		captured = input
+		return validTestPersona("custom"), nil
+	})
+	namespace := "stable-space"
+	cfg := Config{Deployment: DeploymentIdentityConfig{
+		AppID: "app", CommitSHA: commit,
+		Persona: DeploymentPersonaConfig{Enabled: true, Seed: "typed", Namespace: &namespace, Name: "release-blue"},
+	}}
+	options := resolverTestOptions(now, map[string]string{"APP_DEPLOYMENT_SEED": "environment"}, DeploymentBuildInfo{}, nil)
+	options = append(options, WithDeploymentPersonaGenerator(generator))
+	identity := ResolveDeploymentIdentity(cfg, options...)
+	if captured.Seed != "typed" || captured.Namespace != namespace || identity.Persona == nil {
+		t.Fatalf("unexpected persona resolution: input=%+v identity=%+v", captured, identity)
+	}
+	if identity.Persona.Name != "release-blue" || identity.Persona.Source != "custom" {
+		t.Fatalf("unexpected custom persona: %+v", identity.Persona)
+	}
+
+	cfg.Deployment.Persona.Seed = ""
+	options = resolverTestOptions(now, map[string]string{"APP_DEPLOYMENT_SEED": "environment"}, DeploymentBuildInfo{}, nil)
+	options = append(options, WithDeploymentPersonaGenerator(generator))
+	ResolveDeploymentIdentity(cfg, options...)
+	if captured.Seed != "environment" {
+		t.Fatalf("environment seed precedence failed: %+v", captured)
+	}
+
+	options = resolverTestOptions(now, nil, DeploymentBuildInfo{}, nil)
+	options = append(options, WithDeploymentPersonaGenerator(generator))
+	ResolveDeploymentIdentity(cfg, options...)
+	if captured.Seed != commit {
+		t.Fatalf("commit seed fallback failed: %+v", captured)
+	}
+}
+
+func TestResolveDeploymentPersonaOptInFallbackAndCopies(t *testing.T) {
+	cfg := Config{Deployment: DeploymentIdentityConfig{
+		AppID: "app", Persona: DeploymentPersonaConfig{Enabled: true, Seed: "seed"},
+	}}
+	failing := deploymentidentity.GeneratorFunc(func(deploymentidentity.Input) (deploymentidentity.Persona, error) {
+		return deploymentidentity.Persona{}, errors.New("unavailable")
+	})
+	identity := ResolveDeploymentIdentity(cfg, WithDeploymentPersonaGenerator(failing))
+	if identity.Persona == nil || identity.Persona.Source != "fallback" {
+		t.Fatalf("expected safe default fallback: %+v", identity.Persona)
+	}
+	snapshot := identity.Snapshot(time.Now())
+	snapshot.Persona.Name = "mutated"
+	if identity.Persona.Name == "mutated" {
+		t.Fatal("snapshot aliases identity persona")
+	}
+	disabled := ResolveDeploymentIdentity(Config{Deployment: DeploymentIdentityConfig{CommitSHA: strings.Repeat("b", 40)}})
+	if disabled.Persona != nil {
+		t.Fatalf("zero-value configuration enabled persona: %+v", disabled.Persona)
+	}
+	missing := ResolveDeploymentIdentity(Config{Deployment: DeploymentIdentityConfig{
+		Persona: DeploymentPersonaConfig{Enabled: true},
+	}}, resolverTestOptions(time.Now(), nil, DeploymentBuildInfo{}, nil)...)
+	if missing.Persona != nil {
+		t.Fatalf("missing stable seed produced persona: %+v", missing.Persona)
+	}
+}
+
+func TestDeploymentPersonaImageIsImmutableAcrossResolutionAndAccess(t *testing.T) {
+	identiconGenerator, err := identicon.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := identiconGenerator.Generate(deploymentidentity.Input{Seed: "source", Namespace: "app"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	generator := deploymentidentity.GeneratorFunc(func(deploymentidentity.Input) (deploymentidentity.Persona, error) {
+		return source, nil
+	})
+	identity := ResolveDeploymentIdentity(Config{Deployment: DeploymentIdentityConfig{
+		Persona: DeploymentPersonaConfig{Enabled: true, Seed: "seed"},
+	}}, WithDeploymentPersonaGenerator(generator))
+	if identity.Persona == nil || len(identity.Persona.Visual.Data) == 0 {
+		t.Fatalf("missing resolved image persona: %+v", identity.Persona)
+	}
+	want := identity.Persona.Visual.Data[0]
+	source.Visual.Data[0] ^= 0xff
+	if identity.Persona.Visual.Data[0] != want {
+		t.Fatal("resolved persona aliases generator output")
+	}
+	snapshot := identity.Snapshot(time.Now())
+	snapshot.Persona.Visual.Data[0] ^= 0xff
+	if identity.Persona.Visual.Data[0] != want {
+		t.Fatal("snapshot aliases resolved persona image")
+	}
+}
+
+func validTestPersona(name string) deploymentidentity.Persona {
+	return deploymentidentity.Persona{
+		Name: name, Algorithm: "test", Version: "v1",
+		Visual: deploymentidentity.Visual{
+			Kind: deploymentidentity.VisualKindMonogram, Text: "T", Alt: name,
+			Background: "#000000", Foreground: "#ffffff",
+		},
 	}
 }
 

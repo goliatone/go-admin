@@ -80,7 +80,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstructorState, error) {
 	state := adminConstructorState{}
 	state.cfg = applyConfigDefaults(cfg)
-	state.deploymentIdentity = ResolveDeploymentIdentity(state.cfg)
+	state.deploymentIdentity = ResolveDeploymentIdentity(
+		state.cfg,
+		WithDeploymentPersonaGenerator(deps.DeploymentPersonaGenerator),
+	)
 	if err := deps.validate(state.cfg); err != nil {
 		return state, err
 	}

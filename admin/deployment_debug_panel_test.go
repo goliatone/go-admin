@@ -72,7 +72,9 @@ func TestDeploymentDebugPanelUILeadsWithIdentityAndGroupsDetail(t *testing.T) {
 		}
 		if identity.Options["color_bind"] != "environment.color" ||
 			identity.Options["eyebrow_bind"] != "environment.name" ||
-			identity.Options["title_bind"] != "runtime.instance_name" ||
+			identity.Options["title_bind"] != "persona.name" ||
+			identity.Options["title_fallback_bind"] != "runtime.instance_name" ||
+			identity.Options["avatar_bind"] != "persona.visual" ||
 			identity.Options["title_format"] != "copy" {
 			t.Fatalf("%s identity header lost its declared bindings: %+v", name, identity.Options)
 		}
@@ -149,6 +151,7 @@ func TestDeploymentIdentityMatchesDebugAndDevelopmentErrorSurfaces(t *testing.T)
 			InstanceName: "steady-raven",
 			InstanceID:   "instance-cross-surface",
 			CommitSHA:    "abcdef0123456789",
+			Persona:      DeploymentPersonaConfig{Enabled: true},
 		},
 		Errors: ErrorConfig{DevMode: true, ShowEnvironment: true},
 	}, Dependencies{})
@@ -163,6 +166,10 @@ func TestDeploymentIdentityMatchesDebugAndDevelopmentErrorSurfaces(t *testing.T)
 	panel := snapshot[DebugPanelDeployment].(map[string]any)
 	runtimeData := panel["runtime"].(map[string]any)
 	buildData := panel["build"].(map[string]any)
+	personaData, ok := panel["persona"].(DeploymentPersona)
+	if !ok {
+		t.Fatalf("missing debug persona projection: %+v", panel["persona"])
+	}
 	errorContext := adm.ErrorPresenter().BuildDevErrorContext(errors.New("boom"), nil)
 	if errorContext == nil || errorContext.EnvironmentInfo == nil || errorContext.EnvironmentInfo.Deployment == nil {
 		t.Fatalf("missing development error deployment context: %+v", errorContext)
@@ -174,7 +181,11 @@ func TestDeploymentIdentityMatchesDebugAndDevelopmentErrorSurfaces(t *testing.T)
 		buildData["commit_sha"] != resolved.CommitSHA ||
 		errorIdentity.InstanceName != resolved.InstanceName ||
 		errorIdentity.InstanceID != resolved.InstanceID ||
-		errorIdentity.CommitSHA != resolved.CommitSHA {
+		errorIdentity.CommitSHA != resolved.CommitSHA ||
+		resolved.Persona == nil ||
+		errorIdentity.Persona == nil ||
+		personaData.Name != resolved.Persona.Name ||
+		errorIdentity.Persona.Name != resolved.Persona.Name {
 		t.Fatalf("cross-surface identity mismatch: resolved=%+v debug=%+v error=%+v", resolved, panel, errorIdentity)
 	}
 }
