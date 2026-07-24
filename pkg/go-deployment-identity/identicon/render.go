@@ -3,11 +3,11 @@ package identicon
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
-	"strconv"
 )
 
 func gridFromDigest(digest [sha256.Size]byte) [5][5]bool {
@@ -66,8 +66,9 @@ func parseColor(value string) (color.NRGBA, error) {
 	if !safeColor(value) {
 		return color.NRGBA{}, fmt.Errorf("invalid color %q", value)
 	}
-	red, _ := strconv.ParseUint(value[1:3], 16, 8)
-	green, _ := strconv.ParseUint(value[3:5], 16, 8)
-	blue, _ := strconv.ParseUint(value[5:7], 16, 8)
-	return color.NRGBA{R: byte(red), G: byte(green), B: byte(blue), A: 255}, nil
+	decoded, err := hex.DecodeString(value[1:])
+	if err != nil {
+		return color.NRGBA{}, fmt.Errorf("parse color %q: %w", value, err)
+	}
+	return color.NRGBA{R: decoded[0], G: decoded[1], B: decoded[2], A: 255}, nil
 }

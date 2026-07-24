@@ -205,7 +205,27 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 		return boundedPrintable(value, 256)
 	}
 	explicit := cfg.Deployment
-	identity := DeploymentIdentity{
+	identity := newDeploymentIdentity(cfg, startedAt, env)
+	if hostname, err := r.hostname(); err == nil {
+		identity.Hostname = boundedPrintable(hostname, 255)
+	}
+	applyDeploymentBuildInfo(&identity, build, hasBuild)
+	applyDeploymentCommit(&identity, explicit.CommitSHA, env, build.VCSRevision)
+	applyDeploymentBuildTime(&identity, explicit.BuildTime, env("APP_BUILD_TIME"), build.VCSTime)
+	identity.EnvironmentColor = resolveEnvironmentColor(
+		identity.Environment,
+		explicit.EnvironmentColors,
+		firstText(16, env("APP_ENV_COLOR")),
+		explicit.FallbackColor,
+	)
+	resolveDeploymentInstance(&identity, r.random, startedAt)
+	identity.Persona = r.resolvePersona(explicit.Persona, identity, env("APP_DEPLOYMENT_SEED"))
+	return identity
+}
+
+func newDeploymentIdentity(cfg Config, startedAt time.Time, env func(string) string) DeploymentIdentity {
+	explicit := cfg.Deployment
+	return DeploymentIdentity{
 		AppID:        firstText(128, explicit.AppID, cfg.Debug.AppID, env("APP_ID")),
 		AppName:      firstText(128, explicit.AppName, cfg.Debug.AppName, env("APP_NAME")),
 		AppVersion:   firstText(128, explicit.AppVersion, cfg.Errors.AppVersion, env("APP_VERSION")),
@@ -215,26 +235,33 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 		GitRef:       firstText(256, explicit.GitRef, env("APP_GIT_REF")),
 		StartedAt:    startedAt,
 	}
-	if hostname, err := r.hostname(); err == nil {
-		identity.Hostname = boundedPrintable(hostname, 255)
+}
+
+func applyDeploymentBuildInfo(identity *DeploymentIdentity, build DeploymentBuildInfo, hasBuild bool) {
+	if !hasBuild {
+		identity.GoVersion = boundedPrintable(runtime.Version(), 64)
+		return
 	}
-	if hasBuild {
-		identity.GoVersion = boundedPrintable(build.GoVersion, 64)
-		if identity.GoVersion == "" {
-			identity.GoVersion = boundedPrintable(runtime.Version(), 64)
-		}
-		if identity.AppVersion == "" && build.MainVersion != "(devel)" {
-			identity.AppVersion = boundedPrintable(build.MainVersion, 128)
-		}
-		identity.BuildModified = build.VCSModified
-	} else {
+	identity.GoVersion = boundedPrintable(build.GoVersion, 64)
+	if identity.GoVersion == "" {
 		identity.GoVersion = boundedPrintable(runtime.Version(), 64)
 	}
+	if identity.AppVersion == "" && build.MainVersion != "(devel)" {
+		identity.AppVersion = boundedPrintable(build.MainVersion, 128)
+	}
+	identity.BuildModified = build.VCSModified
+}
 
-	configCommit := normalizeCommit(explicit.CommitSHA)
+func applyDeploymentCommit(
+	identity *DeploymentIdentity,
+	explicitCommit string,
+	env func(string) string,
+	buildCommitValue string,
+) {
+	configCommit := normalizeCommit(explicitCommit)
 	appCommit := normalizeCommit(env("APP_COMMIT_SHA"))
 	githubCommit := normalizeCommit(env("GITHUB_SHA"))
-	buildCommit := normalizeCommit(build.VCSRevision)
+	buildCommit := normalizeCommit(buildCommitValue)
 	switch {
 	case configCommit != "":
 		identity.CommitSHA, identity.BuildSource = configCommit, "config"
@@ -246,10 +273,12 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 		identity.CommitSHA, identity.BuildSource = buildCommit, "go_build_info"
 	}
 	identity.CommitShort = shortCommit(identity.CommitSHA)
+}
 
-	configBuildTime, configBuildTimeOK := parseBuildTime(explicit.BuildTime)
-	envBuildTime, envBuildTimeOK := parseBuildTime(env("APP_BUILD_TIME"))
-	buildTime, buildTimeOK := parseBuildTime(build.VCSTime)
+func applyDeploymentBuildTime(identity *DeploymentIdentity, configValue, envValue, buildValue string) {
+	configBuildTime, configBuildTimeOK := parseBuildTime(configValue)
+	envBuildTime, envBuildTimeOK := parseBuildTime(envValue)
+	buildTime, buildTimeOK := parseBuildTime(buildValue)
 	switch {
 	case configBuildTimeOK:
 		identity.BuildTime = &configBuildTime
@@ -258,35 +287,11 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 	case buildTimeOK:
 		identity.BuildTime = &buildTime
 	}
+}
 
-	identity.EnvironmentColor = resolveEnvironmentColor(
-		identity.Environment,
-		explicit.EnvironmentColors,
-		firstText(16, env("APP_ENV_COLOR")),
-		explicit.FallbackColor,
-	)
-	nameGenerated := false
-	nameFallback := false
-	if identity.InstanceName == "" {
-		if name, ok := randomDeploymentName(r.random); ok {
-			identity.InstanceName = name
-			nameGenerated = true
-		} else {
-			identity.InstanceName = fallbackDeploymentName(identity.Hostname, startedAt)
-			nameFallback = true
-		}
-	}
-	idGenerated := false
-	idFallback := false
-	if identity.InstanceID == "" {
-		if id, ok := randomUUID(r.random); ok {
-			identity.InstanceID = id
-			idGenerated = true
-		} else {
-			identity.InstanceID = fallbackInstanceID(identity.Hostname, startedAt)
-			idFallback = true
-		}
-	}
+func resolveDeploymentInstance(identity *DeploymentIdentity, source io.Reader, startedAt time.Time) {
+	nameGenerated, nameFallback := resolveDeploymentInstanceName(identity, source, startedAt)
+	idGenerated, idFallback := resolveDeploymentInstanceID(identity, source, startedAt)
 	switch {
 	case nameFallback || idFallback:
 		identity.InstanceSource = "fallback"
@@ -297,8 +302,30 @@ func (r deploymentIdentityResolver) resolve(cfg Config) DeploymentIdentity {
 	default:
 		identity.InstanceSource = "mixed"
 	}
-	identity.Persona = r.resolvePersona(explicit.Persona, identity, env("APP_DEPLOYMENT_SEED"))
-	return identity
+}
+
+func resolveDeploymentInstanceName(identity *DeploymentIdentity, source io.Reader, startedAt time.Time) (bool, bool) {
+	if identity.InstanceName != "" {
+		return false, false
+	}
+	if name, ok := randomDeploymentName(source); ok {
+		identity.InstanceName = name
+		return true, false
+	}
+	identity.InstanceName = fallbackDeploymentName(identity.Hostname, startedAt)
+	return false, true
+}
+
+func resolveDeploymentInstanceID(identity *DeploymentIdentity, source io.Reader, startedAt time.Time) (bool, bool) {
+	if identity.InstanceID != "" {
+		return false, false
+	}
+	if id, ok := randomUUID(source); ok {
+		identity.InstanceID = id
+		return true, false
+	}
+	identity.InstanceID = fallbackInstanceID(identity.Hostname, startedAt)
+	return false, true
 }
 
 func (r deploymentIdentityResolver) resolvePersona(
@@ -386,7 +413,9 @@ func readDeploymentBuildInfo() (DeploymentBuildInfo, bool) {
 		case "vcs.time":
 			out.VCSTime = setting.Value
 		case "vcs.modified":
-			out.VCSModified, _ = strconv.ParseBool(setting.Value)
+			if modified, err := strconv.ParseBool(setting.Value); err == nil {
+				out.VCSModified = modified
+			}
 		}
 	}
 	return out, true
@@ -424,7 +453,7 @@ func normalizeCommit(value string) string {
 		return ""
 	}
 	for _, char := range value {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
 			return ""
 		}
 	}

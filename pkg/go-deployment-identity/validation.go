@@ -54,6 +54,26 @@ func NormalizeText(value string, limit int) string {
 
 // Validate normalizes, validates, and defensively copies generator output.
 func Validate(persona Persona) (Persona, error) {
+	persona = normalizePersona(persona)
+	if err := validatePersonaMetadata(persona); err != nil {
+		return Persona{}, err
+	}
+	switch persona.Visual.Kind {
+	case VisualKindMonogram:
+		if err := validateMonogram(persona.Visual); err != nil {
+			return Persona{}, err
+		}
+	case VisualKindImage:
+		if err := validateImage(&persona.Visual); err != nil {
+			return Persona{}, err
+		}
+	default:
+		return Persona{}, fmt.Errorf("unsupported persona visual kind %q", persona.Visual.Kind)
+	}
+	return persona, nil
+}
+
+func normalizePersona(persona Persona) Persona {
 	persona.Name = NormalizeText(persona.Name, MaxNameBytes)
 	persona.Algorithm = NormalizeText(persona.Algorithm, MaxLabelBytes)
 	persona.Version = NormalizeText(persona.Version, MaxLabelBytes)
@@ -64,55 +84,60 @@ func Validate(persona Persona) (Persona, error) {
 	persona.Visual.Foreground = strings.ToLower(strings.TrimSpace(persona.Visual.Foreground))
 	persona.Visual.MediaType = strings.ToLower(strings.TrimSpace(persona.Visual.MediaType))
 	persona.Visual.Data = append([]byte(nil), persona.Visual.Data...)
+	return persona
+}
 
+func validatePersonaMetadata(persona Persona) error {
 	if persona.Name == "" {
-		return Persona{}, errors.New("persona name is required")
+		return errors.New("persona name is required")
 	}
 	if !validLabel(persona.Algorithm) || !validLabel(persona.Version) {
-		return Persona{}, errors.New("persona algorithm and version must be safe labels")
+		return errors.New("persona algorithm and version must be safe labels")
 	}
 	if persona.Source != "" && !validLabel(persona.Source) {
-		return Persona{}, errors.New("persona source must be a safe label")
+		return errors.New("persona source must be a safe label")
 	}
 	if persona.Visual.Alt == "" {
-		return Persona{}, errors.New("persona visual alternative text is required")
+		return errors.New("persona visual alternative text is required")
 	}
-	switch persona.Visual.Kind {
-	case VisualKindMonogram:
-		if persona.Visual.Text == "" {
-			return Persona{}, errors.New("monogram text is required")
-		}
-		if !validColor(persona.Visual.Background) || !validColor(persona.Visual.Foreground) {
-			return Persona{}, errors.New("monogram colors must use six-digit hex notation")
-		}
-		if persona.Visual.MediaType != "" || len(persona.Visual.Data) != 0 {
-			return Persona{}, errors.New("monogram visual cannot contain image data")
-		}
-	case VisualKindImage:
-		if persona.Visual.MediaType != MediaTypePNG {
-			return Persona{}, fmt.Errorf("unsupported persona image media type %q", persona.Visual.MediaType)
-		}
-		if len(persona.Visual.Data) == 0 || len(persona.Visual.Data) > MaxImageBytes {
-			return Persona{}, errors.New("persona image payload is empty or exceeds its limit")
-		}
-		config, err := png.DecodeConfig(bytes.NewReader(persona.Visual.Data))
-		if err != nil {
-			return Persona{}, errors.New("persona image payload is not a valid PNG")
-		}
-		if config.Width < 1 || config.Height < 1 ||
-			config.Width > MaxImageDimension || config.Height > MaxImageDimension {
-			return Persona{}, errors.New("persona image dimensions exceed their limit")
-		}
-		if _, err := png.Decode(bytes.NewReader(persona.Visual.Data)); err != nil {
-			return Persona{}, errors.New("persona image payload is not a valid PNG")
-		}
-		persona.Visual.Text = ""
-		persona.Visual.Background = ""
-		persona.Visual.Foreground = ""
-	default:
-		return Persona{}, fmt.Errorf("unsupported persona visual kind %q", persona.Visual.Kind)
+	return nil
+}
+
+func validateMonogram(visual Visual) error {
+	if visual.Text == "" {
+		return errors.New("monogram text is required")
 	}
-	return persona, nil
+	if !validColor(visual.Background) || !validColor(visual.Foreground) {
+		return errors.New("monogram colors must use six-digit hex notation")
+	}
+	if visual.MediaType != "" || len(visual.Data) != 0 {
+		return errors.New("monogram visual cannot contain image data")
+	}
+	return nil
+}
+
+func validateImage(visual *Visual) error {
+	if visual.MediaType != MediaTypePNG {
+		return fmt.Errorf("unsupported persona image media type %q", visual.MediaType)
+	}
+	if len(visual.Data) == 0 || len(visual.Data) > MaxImageBytes {
+		return errors.New("persona image payload is empty or exceeds its limit")
+	}
+	config, err := png.DecodeConfig(bytes.NewReader(visual.Data))
+	if err != nil {
+		return errors.New("persona image payload is not a valid PNG")
+	}
+	if config.Width < 1 || config.Height < 1 ||
+		config.Width > MaxImageDimension || config.Height > MaxImageDimension {
+		return errors.New("persona image dimensions exceed their limit")
+	}
+	if _, err := png.Decode(bytes.NewReader(visual.Data)); err != nil {
+		return errors.New("persona image payload is not a valid PNG")
+	}
+	visual.Text = ""
+	visual.Background = ""
+	visual.Foreground = ""
+	return nil
 }
 
 func validLabel(value string) bool {

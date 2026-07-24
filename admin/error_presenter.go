@@ -196,26 +196,31 @@ func (p ErrorPresenter) BuildDevErrorContext(err error, reqInfo *RequestInfo) *D
 
 	// Add environment info
 	if p.Config.ShowEnvironment {
-		environment := &EnvironmentInfo{
-			GoVersion:  runtime.Version(),
-			AppVersion: p.Config.AppVersion,
-			Debug:      p.Config.DevMode,
-		}
-		if p.deployment.InstanceID != "" || p.deployment.InstanceName != "" {
-			snapshot := p.deployment.Snapshot(time.Now())
-			environment.Deployment = &snapshot
-			environment.Environment = p.deployment.Environment
-			if p.deployment.AppVersion != "" {
-				environment.AppVersion = p.deployment.AppVersion
-			}
-			if p.deployment.GoVersion != "" {
-				environment.GoVersion = p.deployment.GoVersion
-			}
-		}
-		ctx.EnvironmentInfo = environment
+		ctx.EnvironmentInfo = p.buildEnvironmentInfo()
 	}
 
 	return ctx
+}
+
+func (p ErrorPresenter) buildEnvironmentInfo() *EnvironmentInfo {
+	environment := &EnvironmentInfo{
+		GoVersion:  runtime.Version(),
+		AppVersion: p.Config.AppVersion,
+		Debug:      p.Config.DevMode,
+	}
+	if p.deployment.InstanceID == "" && p.deployment.InstanceName == "" {
+		return environment
+	}
+	snapshot := p.deployment.Snapshot(time.Now())
+	environment.Deployment = &snapshot
+	environment.Environment = p.deployment.Environment
+	if p.deployment.AppVersion != "" {
+		environment.AppVersion = p.deployment.AppVersion
+	}
+	if p.deployment.GoVersion != "" {
+		environment.GoVersion = p.deployment.GoVersion
+	}
+	return environment
 }
 
 // buildStackFrames converts go-errors stack trace to enriched StackFrameInfo.
