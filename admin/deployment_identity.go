@@ -46,7 +46,7 @@ type DeploymentIdentityConfig struct {
 	CommitSHA         string                  `json:"commit_sha,omitempty"`
 	GitRef            string                  `json:"git_ref,omitempty"`
 	BuildTime         string                  `json:"build_time,omitempty"`
-	Persona           DeploymentPersonaConfig `json:"persona,omitempty"`
+	Persona           DeploymentPersonaConfig `json:"persona"`
 }
 
 // DeploymentPersonaConfig opts into a deterministic artifact persona.

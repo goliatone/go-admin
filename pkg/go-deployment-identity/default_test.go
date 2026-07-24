@@ -33,14 +33,12 @@ func TestDefaultGeneratorConcurrentDeterminism(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	for range 32 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			got, generateErr := NewDefaultGenerator().Generate(input)
 			if generateErr != nil || !reflect.DeepEqual(got, want) {
 				t.Errorf("Generate() = %+v, %v; want %+v", got, generateErr, want)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }

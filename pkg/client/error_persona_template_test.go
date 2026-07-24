@@ -1,6 +1,7 @@
 package client
 
 import (
+	"maps"
 	"strings"
 	"testing"
 
@@ -87,9 +88,7 @@ func TestProductionErrorTemplateContextCannotExposePersona(t *testing.T) {
 func cloneTemplateContext(base pongo2.Context) pongo2.Context {
 	deployment := base["env_info"].(map[string]any)["deployment"].(map[string]any)
 	deploymentCopy := make(map[string]any, len(deployment))
-	for key, value := range deployment {
-		deploymentCopy[key] = value
-	}
+	maps.Copy(deploymentCopy, deployment)
 	envCopy := map[string]any{"debug": true, "deployment": deploymentCopy}
 	return pongo2.Context{
 		"error_title": base["error_title"], "error_detail": base["error_detail"],

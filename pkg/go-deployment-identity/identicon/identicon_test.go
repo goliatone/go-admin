@@ -53,14 +53,12 @@ func TestGeneratorConcurrentDeterminism(t *testing.T) {
 	want, _ := generator.Generate(input)
 	var wg sync.WaitGroup
 	for range 24 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			got, err := generator.Generate(input)
 			if err != nil || got.Name != want.Name || !bytes.Equal(got.Visual.Data, want.Visual.Data) {
 				t.Errorf("non-deterministic result: %v", err)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 }
