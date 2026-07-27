@@ -1,11 +1,64 @@
 # Changelog
 
+# [0.124.0](https://github.com/goliatone/go-admin/compare/v0.123.1...v0.124.0) - (2026-07-27)
+
+
+## Migration Notes
+
+- Command Runs visibility now composes scope access with the Commands catalog.
+  Known descriptors that are hidden, duplicated, not admin-exposed, or denied
+  by descriptor permission/resource rules are omitted from snapshots, lookup,
+  clear, and live WebSocket delivery.
+- Records for command IDs missing from the catalog now fail closed. Hosts that
+  intentionally retain legacy or externally produced command IDs must configure
+  `CommandRunRecordAuthorizer` to allow those unknown records explicitly. Keep
+  this exception narrow and monitor Command Runs diagnostics during rollout.
+- Command Runs clear is now atomic across the selected scope. If any selected
+  row is hidden from the actor, HTTP and WebSocket clear return a generic
+  failure, delete nothing, and emit no successful snapshot invalidation.
+- Custom command-run stores must implement the additive
+  `CommandRunAtomicClearStore` capability to support record-aware clear;
+  stores without a versioned consistency boundary now fail closed instead of
+  using the unsafe legacy scope clear.
+- Command Runs links accept `run_id`, `dispatch_id`, and `correlation_id`.
+  Visible non-terminal rows reconcile from bounded authoritative snapshots, so
+  missed live updates converge without a browser reload while the store retains
+  the run.
+- Slow Debug WebSocket subscribers now recover in-band: unrelated queue
+  overflow produces one `snapshot_invalidated` signal and a fresh authorized
+  snapshot request instead of forcing a reconnect.
+- Authenticated operational clients can resolve one authorized retained record
+  through `GET {debug_path}/api/command-runs/lookup` without downloading the
+  full Command Runs snapshot.
+- Expanded rows expose lifecycle data and the new bounded scalar `outcome`
+  projection only; arbitrary command-run metadata is not rendered.
+- Commands catalog groups are accessible disclosures. Desktop catalog and
+  detail panes now scroll independently, while narrow layouts stack to avoid
+  nested touch scrolling.
+
+## <!-- 16 -->➕ Add
+
+- Command launcher and debug integration ([69907ad](https://github.com/goliatone/go-admin/commit/69907adfd6ee63700d00ab7c7e447784d57070c2))  - (goliatone)
+- Command launcher updates ([21be16f](https://github.com/goliatone/go-admin/commit/21be16f04a994018b9bfa82a32e0b81d260c9058))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([a34856f](https://github.com/goliatone/go-admin/commit/a34856f2fc69c19148d5c2effdb2880b14a4696c))  - (goliatone)
+- Update docs ([f849f10](https://github.com/goliatone/go-admin/commit/f849f10a9a866c2fae096cbfff24be4bd58f625d))  - (goliatone)
+
 # [0.123.1](https://github.com/goliatone/go-admin/compare/v0.123.0...v0.123.1) - (2026-07-24)
+
+
+New patch release: v0.123.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([37d793f](https://github.com/goliatone/go-admin/commit/37d793fd37e25c8d111581206a1cf8fad24783ec))  - (goliatone)
 - Png validation and error handling ([2f29694](https://github.com/goliatone/go-admin/commit/2f29694ee0e89810ebe87c3b5ad263b0fce6f1c2))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.123.1 ([7ea9211](https://github.com/goliatone/go-admin/commit/7ea9211fe8832b5726a78b37060d73638635e4b2))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
