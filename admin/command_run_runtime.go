@@ -81,10 +81,11 @@ type CommandRunRuntimeConfig struct {
 	CloseTimeout   time.Duration            `json:"close_timeout,omitempty"`
 	ContractLimits CommandRunContractLimits `json:"contract_limits"`
 
-	ScopeResolver   CommandRunScopeResolver   `json:"-"`
-	ScopeAuthorizer CommandRunScopeAuthorizer `json:"-"`
-	OnProjected     CommandRunRecordHandler   `json:"-"`
-	OnError         func(error)               `json:"-"`
+	ScopeResolver    CommandRunScopeResolver    `json:"-"`
+	ScopeAuthorizer  CommandRunScopeAuthorizer  `json:"-"`
+	RecordAuthorizer CommandRunRecordAuthorizer `json:"-"`
+	OnProjected      CommandRunRecordHandler    `json:"-"`
+	OnError          func(error)                `json:"-"`
 
 	RequireFanout     bool `json:"require_fanout,omitempty"`
 	RequireDurability bool `json:"require_durability,omitempty"`
@@ -556,6 +557,15 @@ func (r *CommandRunRuntime) recordBrowserDeliveryDrop() {
 		return
 	}
 	r.diagnostics.record(ErrCommandRunDeliveryDropped)
+}
+
+// recordBrowserRejectedEvent updates bounded diagnostics without invoking the
+// host OnError callback from a per-browser delivery path.
+func (r *CommandRunRuntime) recordBrowserRejectedEvent() {
+	if r == nil || r.diagnostics == nil {
+		return
+	}
+	r.diagnostics.record(ErrCommandRunEnvelopeRejected)
 }
 
 func (r *CommandRunRuntime) reportProjectionError(err error) {

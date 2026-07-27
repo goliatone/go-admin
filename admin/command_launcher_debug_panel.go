@@ -334,6 +334,51 @@ func visibleCommandLauncherDescriptors(ctx context.Context, adm *Admin, register
 	return visible, hidden
 }
 
+type commandLauncherDescriptorAccessIndex struct {
+	known    map[string]struct{}
+	eligible map[string]struct{}
+}
+
+// buildCommandLauncherDescriptorAccessIndex reuses the launcher's normalized,
+// collision-safe visibility contract for record authorization. It intentionally
+// excludes execution registration/RPC allowlist checks: Command Runs visibility
+// follows catalog discovery eligibility, not current dispatch availability.
+func buildCommandLauncherDescriptorAccessIndex(ctx context.Context, adm *Admin) commandLauncherDescriptorAccessIndex {
+	index := commandLauncherDescriptorAccessIndex{
+		known:    map[string]struct{}{},
+		eligible: map[string]struct{}{},
+	}
+	if adm == nil || adm.commandCatalog == nil {
+		return index
+	}
+	registered := adm.commandCatalog.CommandDescriptors()
+	for _, raw := range registered {
+		descriptor := normalizeCommandLauncherDescriptor(raw)
+		if descriptor.ID != "" {
+			index.known[descriptor.ID] = struct{}{}
+		}
+	}
+	unique, _ := uniqueCommandLauncherActionDescriptors(registered)
+	visible, _ := visibleCommandLauncherDescriptors(ctx, adm, unique)
+	for _, descriptor := range visible {
+		descriptor = normalizeCommandLauncherDescriptor(descriptor)
+		if descriptor.ID != "" {
+			index.eligible[descriptor.ID] = struct{}{}
+		}
+	}
+	return index
+}
+
+func (i commandLauncherDescriptorAccessIndex) classify(commandID string) (known bool, eligible bool) {
+	commandID = strings.TrimSpace(commandID)
+	if commandID == "" {
+		return false, false
+	}
+	_, known = i.known[commandID]
+	_, eligible = i.eligible[commandID]
+	return known, eligible
+}
+
 func commandLauncherDynamicOptionFieldCount(commands []gocommand.CommandDescriptor) int {
 	count := 0
 	for _, descriptor := range commands {

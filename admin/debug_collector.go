@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	debugcollector "github.com/goliatone/go-admin/admin/internal/debugcollector"
 	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -17,6 +18,8 @@ import (
 )
 
 const debugSubscriberBuffer = 64
+
+var errDebugClearMultipleExternalTransactions = errors.New("debug clear batch contains multiple external transactions")
 
 // DebugPanel defines a pluggable debug panel.
 type DebugPanel interface {
@@ -158,6 +161,8 @@ type DebugEvent struct {
 	Type      string    `json:"type"`
 	Payload   any       `json:"payload"`
 	Timestamp time.Time `json:"timestamp"`
+
+	authorizationPayload any
 }
 
 type debugSubscriberOffer uint8
@@ -806,9 +811,13 @@ func (c *DebugCollector) PublishEvent(eventType string, payload any) {
 	if eventType == "" || !c.eventTypeEnabled(eventType) {
 		return
 	}
+	var authorizationPayload any
+	if eventType == commandRunDebugEventType {
+		authorizationPayload = debugcollector.ClonePanelPayload(payload)
+	}
 	masked := debugMaskValue(c.config, payload)
 	stored := debugcollector.ClonePanelPayload(masked)
-	c.publish(eventType, stored)
+	c.publishWithAuthorizationPayload(eventType, stored, authorizationPayload)
 }
 
 // Set adds custom debug data.
@@ -1195,12 +1204,36 @@ func (c *DebugCollector) Clear() {
 // ClearWithContext removes stored debug data and preserves request scope for
 // registered panel clear hooks.
 func (c *DebugCollector) ClearWithContext(ctx context.Context) {
+	_ = c.ClearStrictWithContext(ctx) //nolint:errcheck // legacy API remains best effort.
+}
+
+// ClearStrictWithContext preflights every enabled registered panel before
+// mutating any collector state, then propagates clear failures to the caller.
+func (c *DebugCollector) ClearStrictWithContext(ctx context.Context) error {
 	if c == nil {
-		return
+		return nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	registrations := c.enabledPanelRegistrations()
+	if err := preflightDebugPanelClears(ctx, registrations); err != nil {
+		return err
+	}
+	clear, err := singleDebugPanelClear(registrations)
+	if err != nil {
+		return err
+	}
+	if clear != nil {
+		if err := clear(ctx); err != nil {
+			return err
+		}
+	}
+
+	// Registered clear hooks are the only fallible mutations. Run the one
+	// supported external transaction before committing the collector's
+	// in-memory reset so a failure cannot leave built-in panels partially
+	// cleared.
 	c.mu.Lock()
 	c.templateData = map[string]any{}
 	c.sessionData = map[string]any{}
@@ -1225,15 +1258,47 @@ func (c *DebugCollector) ClearWithContext(ctx context.Context) {
 	if c.customLog != nil {
 		c.customLog.Clear()
 	}
-	for _, registration := range debugregistry.PanelRegistrations() {
-		id := debugpanels.NormalizePanelID(registration.Definition.ID)
-		if id == "" || !c.panelEnabled(id) {
-			continue
-		}
-		if registration.Clear != nil {
-			_ = registration.Clear(ctx) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+	return nil
+}
+
+func preflightDebugPanelClears(ctx context.Context, registrations []debugregistry.PanelRegistration) error {
+	for _, registration := range registrations {
+		if registration.ClearCheck != nil {
+			if err := registration.ClearCheck(ctx); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
+}
+
+func singleDebugPanelClear(registrations []debugregistry.PanelRegistration) (func(context.Context) error, error) {
+	var clear func(context.Context) error
+	for _, registration := range registrations {
+		if registration.Clear == nil {
+			continue
+		}
+		if clear != nil {
+			return nil, errDebugClearMultipleExternalTransactions
+		}
+		clear = registration.Clear
+	}
+	return clear, nil
+}
+
+func (c *DebugCollector) enabledPanelRegistrations() []debugregistry.PanelRegistration {
+	if c == nil {
+		return nil
+	}
+	registrations := debugregistry.PanelRegistrations()
+	out := make([]debugregistry.PanelRegistration, 0, len(registrations))
+	for _, registration := range registrations {
+		id := debugpanels.NormalizePanelID(registration.Definition.ID)
+		if id != "" && c.panelEnabled(id) {
+			out = append(out, registration)
+		}
+	}
+	return out
 }
 
 // ClearPanel removes stored data for a single panel.
@@ -1244,20 +1309,95 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 // ClearPanelWithContext clears a panel while retaining authenticated scope for
 // registered clear hooks.
 func (c *DebugCollector) ClearPanelWithContext(ctx context.Context, panelID string) bool {
+	cleared, _ := c.ClearPanelStrictWithContext(ctx, panelID)
+	return cleared
+}
+
+// ClearPanelStrictWithContext clears one panel and returns any registered
+// authorization or mutation error to the initiating client.
+func (c *DebugCollector) ClearPanelStrictWithContext(ctx context.Context, panelID string) (bool, error) {
+	return c.ClearPanelsStrictWithContext(ctx, []string{panelID})
+}
+
+// ClearPanelsStrictWithContext clears an explicit panel batch as one collector
+// transaction. All targets and clear checks are resolved before mutation.
+// Batches with more than one external registered clear are rejected because
+// the collector cannot provide an atomic transaction across independent
+// stores.
+func (c *DebugCollector) ClearPanelsStrictWithContext(ctx context.Context, panelIDs []string) (bool, error) {
 	if c == nil {
-		return false
+		return false, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	panelID = debugpanels.NormalizePanelID(panelID)
-	if panelID == "" || !c.panelEnabled(panelID) {
-		return false
+	panelIDs = debugpanels.NormalizePanelIDs(panelIDs)
+	if len(panelIDs) == 0 {
+		return false, nil
 	}
-	if c.clearBuiltinPanel(panelID) {
+
+	registrations := make([]debugregistry.PanelRegistration, 0, len(panelIDs))
+	for _, panelID := range panelIDs {
+		if !c.panelEnabled(panelID) || !c.clearablePanel(panelID) {
+			return false, nil
+		}
+		if registration, ok := debugregistry.Panel(panelID); ok {
+			registrations = append(registrations, registration)
+		}
+	}
+	if err := preflightDebugPanelClears(ctx, registrations); err != nil {
+		return true, err
+	}
+	clear, err := singleDebugPanelClear(registrations)
+	if err != nil {
+		return true, err
+	}
+	if clear != nil {
+		if err := clear(ctx); err != nil {
+			return true, err
+		}
+	}
+
+	for _, panelID := range panelIDs {
+		if c.clearBuiltinPanel(panelID) {
+			continue
+		}
+		c.clearPanelData(panelID)
+	}
+	return true, nil
+}
+
+func (c *DebugCollector) clearablePanel(panelID string) bool {
+	if isBuiltinDebugPanel(panelID) {
 		return true
 	}
-	return c.clearRegisteredOrDynamicPanel(ctx, panelID)
+	if _, ok := debugregistry.Panel(panelID); ok {
+		return true
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if _, ok := c.panelIndex[panelID]; ok {
+		return true
+	}
+	_, ok := c.panelData[panelID]
+	return ok
+}
+
+func isBuiltinDebugPanel(panelID string) bool {
+	switch panelID {
+	case DebugPanelTemplate,
+		DebugPanelSession,
+		DebugPanelRequests,
+		DebugPanelSQL,
+		DebugPanelLogs,
+		DebugPanelJSErrors,
+		DebugPanelCustom,
+		DebugPanelConfig,
+		DebugPanelRoutes:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
@@ -1298,10 +1438,15 @@ func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
 }
 
 func (c *DebugCollector) clearRegisteredOrDynamicPanel(ctx context.Context, panelID string) bool {
-	reg, regOK := debugregistry.Panel(panelID)
-	if regOK && reg.Clear != nil {
-		_ = reg.Clear(ctx) //nolint:errcheck // legacy bool API keeps existing best-effort behavior.
-	}
+	cleared, _ := c.clearRegisteredOrDynamicPanelStrict(ctx, panelID)
+	return cleared
+}
+
+func (c *DebugCollector) clearRegisteredOrDynamicPanelStrict(ctx context.Context, panelID string) (bool, error) {
+	return c.ClearPanelsStrictWithContext(ctx, []string{panelID})
+}
+
+func (c *DebugCollector) clearPanelData(panelID string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	hadData := false
@@ -1312,7 +1457,8 @@ func (c *DebugCollector) clearRegisteredOrDynamicPanel(ctx context.Context, pane
 		}
 	}
 	_, legacy := c.panelIndex[panelID]
-	return regOK || legacy || hadData
+	_, registered := debugregistry.Panel(panelID)
+	return registered || legacy || hadData
 }
 
 func (c *DebugCollector) resetPanelData(reset func()) {
@@ -1352,6 +1498,10 @@ func (c *DebugCollector) eventTypeEnabled(eventType string) bool {
 }
 
 func (c *DebugCollector) publish(eventType string, payload any) {
+	c.publishWithAuthorizationPayload(eventType, payload, nil)
+}
+
+func (c *DebugCollector) publishWithAuthorizationPayload(eventType string, payload any, authorizationPayload any) {
 	if c == nil || strings.TrimSpace(eventType) == "" {
 		return
 	}
@@ -1361,9 +1511,10 @@ func (c *DebugCollector) publish(eventType string, payload any) {
 		return
 	}
 	event := DebugEvent{
-		Type:      eventType,
-		Payload:   payload,
-		Timestamp: time.Now(),
+		Type:                 eventType,
+		Payload:              payload,
+		Timestamp:            time.Now(),
+		authorizationPayload: authorizationPayload,
 	}
 	subscribers := make([]debugSubscriber, 0, len(c.subscribers))
 	for id, subscriber := range c.subscribers {

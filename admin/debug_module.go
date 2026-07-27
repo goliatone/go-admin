@@ -25,6 +25,7 @@ const (
 	debugREPLShellRouteKey        = "debug_tools.repl_shell"
 	debugPanelsRouteKey           = "debug_tools.api.panels"
 	debugSnapshotRouteKey         = "debug_tools.api.snapshot"
+	debugCommandRunLookupRouteKey = "debug_tools.api.command_run_lookup"
 	debugSessionsRouteKey         = "debug_tools.api.sessions"
 	debugClearRouteKey            = "debug_tools.api.clear"
 	debugClearPanelRouteKey       = "debug_tools.api.clear_panel"
@@ -279,6 +280,7 @@ func debugModuleRoutes() map[string]string {
 		debugREPLShellRouteKey:        "/repl/shell/ws",
 		debugPanelsRouteKey:           "/api/panels",
 		debugSnapshotRouteKey:         "/api/snapshot",
+		debugCommandRunLookupRouteKey: "/api/command-runs/lookup",
 		debugSessionsRouteKey:         "/api/sessions",
 		debugClearRouteKey:            "/api/clear",
 		debugClearPanelRouteKey:       "/api/clear/:panel",
@@ -307,20 +309,21 @@ func debugModuleContractRoutes() map[string]string {
 
 func debugModuleRouteDeclarations() map[string]routing.RouteDeclaration {
 	return map[string]routing.RouteDeclaration{
-		debugRouteKey:                {Method: router.GET, Path: "/"},
-		debugWSRouteKey:              {Method: router.GET, Path: "/ws"},
-		debugSessionWSRouteKey:       {Method: router.GET, Path: "/session/:sessionId/ws"},
-		debugREPLAppRouteKey:         {Method: router.GET, Path: "/repl/app/ws"},
-		debugREPLShellRouteKey:       {Method: router.GET, Path: "/repl/shell/ws"},
-		debugPanelsRouteKey:          {Method: router.GET, Path: "/api/panels"},
-		debugSnapshotRouteKey:        {Method: router.GET, Path: "/api/snapshot"},
-		debugSessionsRouteKey:        {Method: router.GET, Path: "/api/sessions"},
-		debugClearRouteKey:           {Method: router.POST, Path: "/api/clear"},
-		debugClearPanelRouteKey:      {Method: router.POST, Path: "/api/clear/:panel"},
-		debugPanelActionRouteKey:     {Method: router.POST, Path: "/api/panels/:panel/actions/:action"},
-		debugDoctorActionRouteKey:    {Method: router.POST, Path: "/api/doctor/:check/action"},
-		debugPanelOrderPrefsRouteKey: {Method: router.GET, Path: "/api/preferences/panel-order"},
-		debugErrorsRouteKey:          {Method: router.POST, Path: "/api/errors"},
+		debugRouteKey:                 {Method: router.GET, Path: "/"},
+		debugWSRouteKey:               {Method: router.GET, Path: "/ws"},
+		debugSessionWSRouteKey:        {Method: router.GET, Path: "/session/:sessionId/ws"},
+		debugREPLAppRouteKey:          {Method: router.GET, Path: "/repl/app/ws"},
+		debugREPLShellRouteKey:        {Method: router.GET, Path: "/repl/shell/ws"},
+		debugPanelsRouteKey:           {Method: router.GET, Path: "/api/panels"},
+		debugSnapshotRouteKey:         {Method: router.GET, Path: "/api/snapshot"},
+		debugCommandRunLookupRouteKey: {Method: router.GET, Path: "/api/command-runs/lookup"},
+		debugSessionsRouteKey:         {Method: router.GET, Path: "/api/sessions"},
+		debugClearRouteKey:            {Method: router.POST, Path: "/api/clear"},
+		debugClearPanelRouteKey:       {Method: router.POST, Path: "/api/clear/:panel"},
+		debugPanelActionRouteKey:      {Method: router.POST, Path: "/api/panels/:panel/actions/:action"},
+		debugDoctorActionRouteKey:     {Method: router.POST, Path: "/api/doctor/:check/action"},
+		debugPanelOrderPrefsRouteKey:  {Method: router.GET, Path: "/api/preferences/panel-order"},
+		debugErrorsRouteKey:           {Method: router.POST, Path: "/api/errors"},
 	}
 }
 

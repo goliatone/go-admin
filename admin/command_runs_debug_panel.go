@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"strings"
 
@@ -11,6 +12,12 @@ import (
 const (
 	DebugPanelCommandRuns    = "command_runs"
 	commandRunReadPermission = "admin.commands.read"
+	commandRunClearAttempts  = 3
+)
+
+var (
+	errCommandRunAtomicClearUnsupported = errors.New("command-run store does not support atomic authorized clear")
+	errCommandRunAtomicClearConflict    = errors.New("command-run atomic clear could not obtain a stable snapshot")
 )
 
 // CommandRunsSnapshot is the stable Command Runs panel snapshot payload.
@@ -75,9 +82,10 @@ func (p *CommandRunsDebugPanel) Snapshot(ctx context.Context) CommandRunsSnapsho
 		p.runtime.reportError(err)
 		return CommandRunsSnapshot{}
 	}
+	descriptorAccess := buildCommandLauncherDescriptorAccessIndex(ctx, p.admin)
 	out := make(CommandRunsSnapshot, 0, len(records))
 	for index := range records {
-		allowed, authorizeErr := p.authorize(ctx, selector, records[index].Scope)
+		allowed, authorizeErr := p.authorizeRecord(ctx, selector, descriptorAccess, records[index])
 		if authorizeErr != nil {
 			p.runtime.reportError(authorizeErr)
 			continue
@@ -89,34 +97,80 @@ func (p *CommandRunsDebugPanel) Snapshot(ctx context.Context) CommandRunsSnapsho
 	return out
 }
 
-// Clear removes only records visible to the authenticated request selector.
+// ClearCheck rejects scope-wide clear when any selected record is hidden.
+func (p *CommandRunsDebugPanel) ClearCheck(ctx context.Context) error {
+	if !p.available(ctx) {
+		return ErrForbidden
+	}
+	selector, err := p.selector(ctx)
+	if err != nil {
+		return ErrForbidden
+	}
+	records, listErr := p.runtime.Store().List(ctx, selector)
+	if listErr != nil {
+		p.runtime.reportError(listErr)
+		return ErrForbidden
+	}
+	descriptorAccess := buildCommandLauncherDescriptorAccessIndex(ctx, p.admin)
+	for _, record := range records {
+		allowed, authorizeErr := p.authorizeRecord(ctx, selector, descriptorAccess, record)
+		if authorizeErr != nil {
+			p.runtime.reportError(authorizeErr)
+			return ErrForbidden
+		}
+		if !allowed {
+			return ErrForbidden
+		}
+	}
+	return nil
+}
+
+// Clear removes records only after repeating the complete authorization
+// preflight immediately before the scope-wide store mutation.
 func (p *CommandRunsDebugPanel) Clear(ctx context.Context) error {
 	if !p.available(ctx) {
 		return ErrForbidden
 	}
 	selector, err := p.selector(ctx)
 	if err != nil {
-		return err
+		return ErrForbidden
 	}
-	if p.runtime.config.ScopeAuthorizer != nil {
-		records, listErr := p.runtime.Store().List(ctx, selector)
-		if listErr != nil {
-			return listErr
+	store, ok := p.runtime.Store().(CommandRunAtomicClearStore)
+	if !ok {
+		p.runtime.reportError(errCommandRunAtomicClearUnsupported)
+		return ErrForbidden
+	}
+	for attempt := 0; attempt < commandRunClearAttempts; attempt++ {
+		snapshot, snapshotErr := store.SnapshotForCommandRunClear(ctx, selector)
+		if snapshotErr != nil {
+			p.runtime.reportError(snapshotErr)
+			return ErrForbidden
 		}
-		for _, record := range records {
-			allowed, authorizeErr := p.authorize(ctx, selector, record.Scope)
+		descriptorAccess := buildCommandLauncherDescriptorAccessIndex(ctx, p.admin)
+		for _, record := range snapshot.Records {
+			allowed, authorizeErr := p.authorizeRecord(ctx, selector, descriptorAccess, record)
 			if authorizeErr != nil {
-				return authorizeErr
+				p.runtime.reportError(authorizeErr)
+				return ErrForbidden
 			}
 			if !allowed {
 				return ErrForbidden
 			}
 		}
+		cleared, clearErr := store.ClearCommandRunsIfUnchanged(ctx, selector, snapshot.Version)
+		if clearErr != nil {
+			p.runtime.reportError(clearErr)
+			return ErrForbidden
+		}
+		if cleared {
+			return nil
+		}
 	}
-	return p.runtime.Store().Clear(ctx, selector)
+	p.runtime.reportError(errCommandRunAtomicClearConflict)
+	return ErrForbidden
 }
 
-// Lookup resolves an authorized row by run ID, then correlation ID.
+// Lookup resolves an authorized row by run ID, dispatch ID, then correlation ID.
 func (p *CommandRunsDebugPanel) Lookup(ctx context.Context, id string) (CommandRunRecord, bool, error) {
 	id = strings.TrimSpace(id)
 	if id == "" || !p.available(ctx) {
@@ -130,35 +184,75 @@ func (p *CommandRunsDebugPanel) Lookup(ctx context.Context, id string) (CommandR
 	if err != nil {
 		return CommandRunRecord{}, false, err
 	}
+	descriptorAccess := buildCommandLauncherDescriptorAccessIndex(ctx, p.admin)
+	authorized := make([]CommandRunRecord, 0, len(records))
 	for _, record := range records {
-		allowed, authorizeErr := p.authorize(ctx, selector, record.Scope)
+		allowed, authorizeErr := p.authorizeRecord(ctx, selector, descriptorAccess, record)
 		if authorizeErr != nil {
-			return CommandRunRecord{}, false, authorizeErr
+			p.runtime.reportError(authorizeErr)
+			continue
 		}
-		if allowed && record.RunID == id {
+		if allowed {
+			authorized = append(authorized, record)
+		}
+	}
+	for _, record := range authorized {
+		if record.RunID == id {
 			return record.Clone(), true, nil
 		}
 	}
-	for _, record := range records {
-		allowed, authorizeErr := p.authorize(ctx, selector, record.Scope)
-		if authorizeErr != nil {
-			return CommandRunRecord{}, false, authorizeErr
+	for _, record := range authorized {
+		if record.DispatchID == id {
+			return record.Clone(), true, nil
 		}
-		if allowed && record.CorrelationID == id {
+	}
+	for _, record := range authorized {
+		if record.CorrelationID == id {
 			return record.Clone(), true, nil
 		}
 	}
 	return CommandRunRecord{}, false, nil
 }
 
-func (p *CommandRunsDebugPanel) authorize(ctx context.Context, selector CommandRunSelector, scope CommandRunScope) (bool, error) {
-	if !selector.Matches(scope) {
+func (p *CommandRunsDebugPanel) authorizeRecord(
+	ctx context.Context,
+	selector CommandRunSelector,
+	descriptorAccess commandLauncherDescriptorAccessIndex,
+	record CommandRunRecord,
+) (bool, error) {
+	if !selector.Matches(record.Scope) {
 		return false, nil
 	}
-	if p == nil || p.runtime == nil || p.runtime.config.ScopeAuthorizer == nil {
-		return true, nil
+	if p == nil || p.runtime == nil {
+		return false, nil
 	}
-	return p.runtime.config.ScopeAuthorizer.AuthorizeCommandRun(ctx, scope)
+	if authorizer := p.runtime.config.ScopeAuthorizer; authorizer != nil {
+		allowed, err := authorizer.AuthorizeCommandRun(ctx, record.Scope)
+		if err != nil || !allowed {
+			return false, err
+		}
+	}
+	record.RunID = strings.TrimSpace(record.RunID)
+	record.CommandID = strings.TrimSpace(record.CommandID)
+	if record.RunID == "" || record.CommandID == "" {
+		return false, nil
+	}
+
+	known, eligible := descriptorAccess.classify(record.CommandID)
+	if known && !eligible {
+		return false, nil
+	}
+	hostPolicy := p.runtime.config.RecordAuthorizer
+	if eligible {
+		if hostPolicy == nil {
+			return true, nil
+		}
+		return hostPolicy.AuthorizeCommandRunRecord(ctx, record.Clone())
+	}
+	if hostPolicy == nil {
+		return false, nil
+	}
+	return hostPolicy.AuthorizeCommandRunRecord(ctx, record.Clone())
 }
 
 // RegisterCommandRunsDebugPanel registers the stable panel only for a running
@@ -172,7 +266,7 @@ func RegisterCommandRunsDebugPanel(adm *Admin) {
 	debugregistry.UnregisterPanel(DebugPanelCommandRuns)
 	_ = debugregistry.RegisterPanel(DebugPanelCommandRuns, debugregistry.PanelConfig{
 		Label:       "Command Runs",
-		Icon:        "iconoir-play-list",
+		Icon:        "iconoir-list",
 		Span:        2,
 		SnapshotKey: DebugPanelCommandRuns,
 		Category:    "operations",
@@ -180,7 +274,8 @@ func RegisterCommandRunsDebugPanel(adm *Admin) {
 		Snapshot: func(ctx context.Context) any {
 			return panel.Snapshot(ctx)
 		},
-		Clear: panel.Clear,
+		ClearCheck: panel.ClearCheck,
+		Clear:      panel.Clear,
 		Definition: func(ctx context.Context, definition debugregistry.PanelDefinition) debugregistry.PanelDefinition {
 			definition.Metadata = cloneCommandRunPanelMetadata(definition.Metadata)
 			definition.Metadata["available"] = panel.available(ctx)
@@ -194,7 +289,8 @@ func RegisterCommandRunsDebugPanel(adm *Admin) {
 		Metadata: map[string]any{
 			"row_key":              "run_id",
 			"deep_link_key":        "run_id",
-			"deep_link_fallback":   "correlation_id",
+			"deep_link_fallback":   "dispatch_id",
+			"deep_link_keys":       []string{"run_id", "dispatch_id", "correlation_id"},
 			"snapshot_authorized":  true,
 			"complete_upsert_rows": true,
 		},
@@ -229,6 +325,7 @@ func commandRunsPanelUI(maxEntries int) *debugregistry.PanelUI {
 		}},
 		{ID: "mode", Label: "Mode", Kind: debugregistry.PanelFilterSelect, Bind: "mode", Options: []string{"inline", "queued"}},
 		{ID: "run_id", Label: "Run ID", Kind: debugregistry.PanelFilterSearch, Bind: "run_id"},
+		{ID: "dispatch_id", Label: "Dispatch ID", Kind: debugregistry.PanelFilterSearch, Bind: "dispatch_id"},
 		{ID: "correlation_id", Label: "Correlation ID", Kind: debugregistry.PanelFilterSearch, Bind: "correlation_id"},
 	}
 	ui.Events = &debugregistry.PanelUIEventPolicy{
@@ -236,7 +333,8 @@ func commandRunsPanelUI(maxEntries int) *debugregistry.PanelUI {
 	}
 	ui.Metadata = map[string]any{
 		"deep_link_key":      "run_id",
-		"deep_link_fallback": "correlation_id",
+		"deep_link_fallback": "dispatch_id",
+		"deep_link_keys":     []string{"run_id", "dispatch_id", "correlation_id"},
 	}
 	return ui
 }

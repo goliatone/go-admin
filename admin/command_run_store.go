@@ -10,6 +10,21 @@ type CommandRunStore interface {
 	Clear(context.Context, CommandRunSelector) error
 }
 
+// CommandRunClearSnapshot is an isolated candidate set plus the opaque store
+// version that produced it.
+type CommandRunClearSnapshot struct {
+	Records []CommandRunRecord
+	Version uint64
+}
+
+// CommandRunAtomicClearStore closes the authorization/mutation race for stores
+// whose base CommandRunStore clear operation is selector-wide. Implementations
+// must compare version and mutate under one consistency boundary.
+type CommandRunAtomicClearStore interface {
+	SnapshotForCommandRunClear(context.Context, CommandRunSelector) (CommandRunClearSnapshot, error)
+	ClearCommandRunsIfUnchanged(context.Context, CommandRunSelector, uint64) (bool, error)
+}
+
 // CommandRunProjection applies one update and returns a complete row when the
 // update changed current state.
 type CommandRunProjection interface {
@@ -67,4 +82,23 @@ func (f CommandRunScopeAuthorizerFuncs) AuthorizeCommandRun(ctx context.Context,
 		return false, nil
 	}
 	return f.Authorize(ctx, scope)
+}
+
+// CommandRunRecordAuthorizer provides an additive host policy for complete
+// command-run records. The Command Runs panel applies catalog eligibility
+// before this policy for known descriptors; hosts may only use it to further
+// restrict eligible records or explicitly authorize otherwise unknown records.
+type CommandRunRecordAuthorizer interface {
+	AuthorizeCommandRunRecord(context.Context, CommandRunRecord) (bool, error)
+}
+
+// CommandRunRecordAuthorizerFunc adapts a function into a record authorizer.
+// A nil adapter fails closed.
+type CommandRunRecordAuthorizerFunc func(context.Context, CommandRunRecord) (bool, error)
+
+func (f CommandRunRecordAuthorizerFunc) AuthorizeCommandRunRecord(ctx context.Context, record CommandRunRecord) (bool, error) {
+	if f == nil {
+		return false, nil
+	}
+	return f(ctx, record)
 }

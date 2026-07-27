@@ -18,6 +18,7 @@ var debugRouteResolverKeys = map[string]map[string]string{
 	"admin.debug.api": {
 		"panels":                    debugPanelsRouteKey,
 		"snapshot":                  debugSnapshotRouteKey,
+		"command_runs.lookup":       debugCommandRunLookupRouteKey,
 		"sessions":                  debugSessionsRouteKey,
 		"clear":                     debugClearRouteKey,
 		"clear.panel":               debugClearPanelRouteKey,

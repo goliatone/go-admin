@@ -159,6 +159,14 @@ type CommandRunFailure struct {
 	Code     string `json:"code,omitempty"`
 }
 
+// CommandRunOutcome is an explicitly approved operator-facing result
+// projection. Fields are limited to named scalar values during normalization;
+// generic Metadata is never promoted into this view.
+type CommandRunOutcome struct {
+	Summary string         `json:"summary,omitempty"`
+	Fields  map[string]any `json:"fields,omitempty"`
+}
+
 // CommandRunContractLimits bounds normalization at trust and transport boundaries.
 type CommandRunContractLimits struct {
 	MaxIDLength       int
@@ -225,6 +233,7 @@ type CommandRunUpdate struct {
 	Attempt       int                `json:"attempt,omitempty"`
 	MaxAttempts   int                `json:"max_attempts,omitempty"`
 	Failure       *CommandRunFailure `json:"failure,omitempty"`
+	Outcome       *CommandRunOutcome `json:"outcome,omitempty"`
 	Scope         CommandRunScope    `json:"scope"`
 	Metadata      map[string]any     `json:"metadata,omitempty"`
 }
@@ -238,6 +247,11 @@ func (u CommandRunUpdate) Clone() CommandRunUpdate {
 	if u.Failure != nil {
 		failure := *u.Failure
 		u.Failure = &failure
+	}
+	if u.Outcome != nil {
+		outcome := *u.Outcome
+		outcome.Fields = cloneCommandRunMetadata(u.Outcome.Fields)
+		u.Outcome = &outcome
 	}
 	u.Metadata = cloneCommandRunMetadata(u.Metadata)
 	return u
@@ -263,6 +277,11 @@ func NormalizeCommandRunUpdate(update CommandRunUpdate, limits CommandRunContrac
 			update.Failure = nil
 		}
 	}
+	outcome, err := normalizeCommandRunOutcome(update.Outcome, limits)
+	if err != nil {
+		return CommandRunUpdate{}, err
+	}
+	update.Outcome = outcome
 	update.Scope = update.Scope.Normalize()
 
 	if update.SchemaVersion != CommandRunSchemaVersion {
@@ -365,7 +384,83 @@ func validateCommandRunTextLengths(update CommandRunUpdate, limits CommandRunCon
 			return commandRunUpdateError(field, "exceeds %d characters", limits.MaxTextLength)
 		}
 	}
+	if update.Outcome != nil && utf8.RuneCountInString(update.Outcome.Summary) > limits.MaxTextLength {
+		return commandRunUpdateError("outcome.summary", "exceeds %d characters", limits.MaxTextLength)
+	}
 	return nil
+}
+
+func normalizeCommandRunOutcome(outcome *CommandRunOutcome, limits CommandRunContractLimits) (*CommandRunOutcome, error) {
+	if outcome == nil {
+		return nil, nil
+	}
+	normalized := &CommandRunOutcome{Summary: strings.TrimSpace(outcome.Summary)}
+	if len(outcome.Fields) > limits.MaxMetadataKeys {
+		return nil, commandRunUpdateError("outcome.fields", "exceeds %d keys", limits.MaxMetadataKeys)
+	}
+	if len(outcome.Fields) > 0 {
+		normalized.Fields = make(map[string]any, len(outcome.Fields))
+		for rawKey, value := range outcome.Fields {
+			key := strings.TrimSpace(rawKey)
+			if key == "" {
+				return nil, commandRunUpdateError("outcome.fields", "contains an empty key")
+			}
+			if utf8.RuneCountInString(key) > limits.MaxIDLength {
+				return nil, commandRunUpdateError("outcome.fields", "key exceeds %d characters", limits.MaxIDLength)
+			}
+			if _, duplicate := normalized.Fields[key]; duplicate {
+				return nil, commandRunUpdateError("outcome.fields", "contains duplicate normalized key %q", key)
+			}
+			scalar, err := normalizeCommandRunOutcomeScalar(value, limits.MaxMetadataString)
+			if err != nil {
+				return nil, commandRunUpdateError("outcome.fields."+key, "%v", err)
+			}
+			normalized.Fields[key] = scalar
+		}
+	}
+	if normalized.Summary == "" && len(normalized.Fields) == 0 {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(normalized)
+	if err != nil {
+		return nil, commandRunUpdateError("outcome", "is not JSON-safe: %v", err)
+	}
+	if len(encoded) > limits.MaxMetadataBytes {
+		return nil, commandRunUpdateError("outcome", "exceeds %d bytes", limits.MaxMetadataBytes)
+	}
+	return normalized, nil
+}
+
+func normalizeCommandRunOutcomeScalar(value any, maxString int) (any, error) {
+	switch typed := value.(type) {
+	case bool,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64:
+		return typed, nil
+	case string:
+		if utf8.RuneCountInString(typed) > maxString {
+			return nil, fmt.Errorf("string exceeds %d characters", maxString)
+		}
+		return typed, nil
+	case json.Number:
+		number, err := typed.Float64()
+		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) {
+			return nil, errors.New("contains an invalid number")
+		}
+		return typed, nil
+	case float32:
+		if math.IsNaN(float64(typed)) || math.IsInf(float64(typed), 0) {
+			return nil, errors.New("contains a non-finite number")
+		}
+		return typed, nil
+	case float64:
+		if math.IsNaN(typed) || math.IsInf(typed, 0) {
+			return nil, errors.New("contains a non-finite number")
+		}
+		return typed, nil
+	default:
+		return nil, errors.New("must be a string, boolean, or finite number")
+	}
 }
 
 func validateCommandRunScopeLengths(scope CommandRunScope, maxLength int, sentinel error) error {

@@ -15,6 +15,9 @@ type PanelSnapshotFunc func(ctx context.Context) any
 // PanelClearFunc clears panel state when requested by the client.
 type PanelClearFunc func(ctx context.Context) error
 
+// PanelClearCheckFunc performs an authorization-only clear preflight.
+type PanelClearCheckFunc func(ctx context.Context) error
+
 // PanelActionHandler executes a debug panel action. Dispatch still requires the
 // action to be present in the request-scoped panel definition.
 type PanelActionHandler func(ctx context.Context, req PanelActionRequest) (PanelActionResult, error)
@@ -311,6 +314,7 @@ type PanelConfig struct {
 	EventType       string                        `json:"event_type"`
 	EventTypes      []string                      `json:"event_types"`
 	Snapshot        PanelSnapshotFunc             `json:"snapshot"`
+	ClearCheck      PanelClearCheckFunc           `json:"-"`
 	Clear           PanelClearFunc                `json:"clear"`
 	SupportsToolbar *bool                         `json:"supports_toolbar"`
 	Category        string                        `json:"category"`
@@ -344,6 +348,7 @@ type PanelRegistration struct {
 	Definition     PanelDefinition               `json:"definition"`
 	Filter         PanelDefinitionFilter         `json:"-"`
 	Snapshot       PanelSnapshotFunc             `json:"snapshot"`
+	ClearCheck     PanelClearCheckFunc           `json:"-"`
 	Clear          PanelClearFunc                `json:"clear"`
 	Actions        map[string]PanelActionHandler `json:"-"`
 	ActionResolver PanelActionHandlerResolver    `json:"-"`
@@ -619,6 +624,7 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 		Definition:     def,
 		Filter:         config.Definition,
 		Snapshot:       config.Snapshot,
+		ClearCheck:     config.ClearCheck,
 		Clear:          config.Clear,
 		Actions:        normalizeActionHandlers(config.Actions),
 		ActionResolver: config.ActionResolver,

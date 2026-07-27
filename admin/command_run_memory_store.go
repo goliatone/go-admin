@@ -28,6 +28,7 @@ type MemoryCommandRunStore struct {
 	recordOrder    []commandRunRecordKey
 	seenEvents     map[string]struct{}
 	eventOrder     []string
+	version        uint64
 }
 
 type commandRunRecordKey struct {
@@ -98,6 +99,7 @@ func (s *MemoryCommandRunStore) Apply(ctx context.Context, update CommandRunUpda
 	s.records[key] = current.Clone()
 	s.touchRecordLocked(key)
 	s.enforceRetentionLocked()
+	s.version++
 	return current.Clone(), true, nil
 }
 
@@ -145,18 +147,103 @@ func (s *MemoryCommandRunStore) Clear(ctx context.Context, selector CommandRunSe
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	changed := false
 	if selector.Global {
-		clear(s.records)
-		s.recordOrder = nil
+		if len(s.records) > 0 {
+			clear(s.records)
+			s.recordOrder = nil
+			changed = true
+		}
+		if changed {
+			s.version++
+		}
 		return nil
 	}
 	for key, record := range s.records {
 		if selector.Matches(record.Scope) {
 			delete(s.records, key)
+			changed = true
 		}
 	}
-	s.compactRecordOrderLocked()
+	if changed {
+		s.compactRecordOrderLocked()
+		s.version++
+	}
 	return nil
+}
+
+// SnapshotForCommandRunClear returns a versioned, newest-first candidate set.
+func (s *MemoryCommandRunStore) SnapshotForCommandRunClear(ctx context.Context, selector CommandRunSelector) (CommandRunClearSnapshot, error) {
+	if s == nil {
+		return CommandRunClearSnapshot{}, errors.New("command-run memory store is nil")
+	}
+	if err := commandRunContextError(ctx); err != nil {
+		return CommandRunClearSnapshot{}, err
+	}
+	selector = selector.Normalize()
+	if err := selector.Validate(); err != nil {
+		return CommandRunClearSnapshot{}, err
+	}
+	s.mu.RLock()
+	snapshot := CommandRunClearSnapshot{
+		Records: make([]CommandRunRecord, 0, len(s.records)),
+		Version: s.version,
+	}
+	for _, record := range s.records {
+		if selector.Matches(record.Scope) {
+			snapshot.Records = append(snapshot.Records, record.Clone())
+		}
+	}
+	s.mu.RUnlock()
+	sort.Slice(snapshot.Records, func(i, j int) bool {
+		if snapshot.Records[i].UpdatedAt.Equal(snapshot.Records[j].UpdatedAt) {
+			return snapshot.Records[i].RunID < snapshot.Records[j].RunID
+		}
+		return snapshot.Records[i].UpdatedAt.After(snapshot.Records[j].UpdatedAt)
+	})
+	return snapshot, nil
+}
+
+// ClearCommandRunsIfUnchanged clears selector-matching rows only when no store
+// mutation occurred after the supplied snapshot was captured.
+func (s *MemoryCommandRunStore) ClearCommandRunsIfUnchanged(ctx context.Context, selector CommandRunSelector, version uint64) (bool, error) {
+	if s == nil {
+		return false, errors.New("command-run memory store is nil")
+	}
+	if err := commandRunContextError(ctx); err != nil {
+		return false, err
+	}
+	selector = selector.Normalize()
+	if err := selector.Validate(); err != nil {
+		return false, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.version != version {
+		return false, nil
+	}
+	changed := false
+	if selector.Global {
+		if len(s.records) > 0 {
+			clear(s.records)
+			s.recordOrder = nil
+			changed = true
+		}
+	} else {
+		for key, record := range s.records {
+			if selector.Matches(record.Scope) {
+				delete(s.records, key)
+				changed = true
+			}
+		}
+		if changed {
+			s.compactRecordOrderLocked()
+		}
+	}
+	if changed {
+		s.version++
+	}
+	return true, nil
 }
 
 // Count returns the current bounded projection size for diagnostics.
@@ -311,4 +398,5 @@ func (p *CommandRunProjector) ProjectCommandRun(ctx context.Context, update Comm
 }
 
 var _ CommandRunStore = (*MemoryCommandRunStore)(nil)
+var _ CommandRunAtomicClearStore = (*MemoryCommandRunStore)(nil)
 var _ CommandRunProjection = (*CommandRunProjector)(nil)

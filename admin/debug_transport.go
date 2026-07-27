@@ -21,6 +21,7 @@ import (
 const (
 	debugEventSnapshot            = "snapshot"
 	debugEventSnapshotInvalidated = "snapshot_invalidated"
+	debugEventCommandError        = "debug_command_error"
 )
 
 const debugPanelOrderPreferenceKey = "ui.debug.console.panel_order"
@@ -79,10 +80,10 @@ type debugSubscription struct {
 }
 
 type commandRunWebSocketAccess struct {
-	ctx        context.Context
-	selector   CommandRunSelector
-	authorizer CommandRunScopeAuthorizer
-	allowed    bool
+	ctx      context.Context
+	selector CommandRunSelector
+	panel    *CommandRunsDebugPanel
+	allowed  bool
 }
 
 type debugWebSocketRouter interface {
@@ -143,52 +144,85 @@ func (s *debugSubscription) allowsEvent(event DebugEvent) bool {
 }
 
 func (a *commandRunWebSocketAccess) allows(event DebugEvent) bool {
-	if a == nil || !a.allowed || event.Type != commandRunDebugEventType {
+	if a == nil || !a.allowed || a.panel == nil || event.Type != commandRunDebugEventType {
 		return false
 	}
-	scope, ok := commandRunScopeFromDebugEvent(event)
-	if !ok || !a.selector.Matches(scope) {
+	record, ok := commandRunRecordFromDebugEvent(event, a.panel.runtime.config.ContractLimits)
+	if !ok {
+		a.panel.runtime.recordBrowserRejectedEvent()
 		return false
 	}
-	if a.authorizer == nil {
-		return true
+	descriptorAccess := buildCommandLauncherDescriptorAccessIndex(a.ctx, a.panel.admin)
+	allowed, err := a.panel.authorizeRecord(a.ctx, a.selector, descriptorAccess, record)
+	if err != nil {
+		a.panel.runtime.recordBrowserRejectedEvent()
+		return false
 	}
-	allowed, err := a.authorizer.AuthorizeCommandRun(a.ctx, scope)
-	return err == nil && allowed
+	return allowed
 }
 
 func commandRunScopeFromDebugEvent(event DebugEvent) (CommandRunScope, bool) {
-	switch payload := event.Payload.(type) {
+	var scope CommandRunScope
+	switch payload := debugEventAuthorizationValue(event).(type) {
 	case CommandRunRecord:
-		return payload.Scope.Normalize(), true
+		scope = payload.Scope
 	case *CommandRunRecord:
-		if payload != nil {
-			return payload.Scope.Normalize(), true
-		}
-	case CommandRunUpdate:
-		return payload.Scope.Normalize(), true
-	case *CommandRunUpdate:
-		if payload != nil {
-			return payload.Scope.Normalize(), true
-		}
-	case map[string]any:
-		rawScope, exists := payload["scope"]
-		if !exists {
+		if payload == nil {
 			return CommandRunScope{}, false
 		}
-		switch scope := rawScope.(type) {
-		case CommandRunScope:
-			return scope.Normalize(), true
-		case map[string]any:
-			return CommandRunScope{
-				ApplicationID:  strings.TrimSpace(toString(scope["application_id"])),
-				EnvironmentID:  strings.TrimSpace(toString(scope["environment_id"])),
-				TenantID:       strings.TrimSpace(toString(scope["tenant_id"])),
-				OrganizationID: strings.TrimSpace(toString(scope["organization_id"])),
-			}, true
+		scope = payload.Scope
+	case CommandRunUpdate:
+		scope = payload.Scope
+	case *CommandRunUpdate:
+		if payload == nil {
+			return CommandRunScope{}, false
 		}
+		scope = payload.Scope
+	case map[string]any:
+		encoded, err := json.Marshal(payload["scope"])
+		if err != nil || json.Unmarshal(encoded, &scope) != nil {
+			return CommandRunScope{}, false
+		}
+	default:
+		return CommandRunScope{}, false
 	}
-	return CommandRunScope{}, false
+	return scope.Normalize(), true
+}
+
+func commandRunRecordFromDebugEvent(event DebugEvent, limits CommandRunContractLimits) (CommandRunRecord, bool) {
+	var record CommandRunRecord
+	switch payload := debugEventAuthorizationValue(event).(type) {
+	case CommandRunRecord:
+		record = payload.Clone()
+	case *CommandRunRecord:
+		if payload != nil {
+			record = payload.Clone()
+		} else {
+			return CommandRunRecord{}, false
+		}
+	case map[string]any:
+		encoded, err := json.Marshal(payload)
+		if err != nil || json.Unmarshal(encoded, &record) != nil {
+			return CommandRunRecord{}, false
+		}
+	default:
+		return CommandRunRecord{}, false
+	}
+	normalized, err := NormalizeCommandRunUpdate(record.CommandRunUpdate, limits)
+	if err != nil || record.FirstOccurredAt.IsZero() || record.UpdatedAt.IsZero() {
+		return CommandRunRecord{}, false
+	}
+	record.CommandRunUpdate = normalized
+	record.FirstOccurredAt = record.FirstOccurredAt.UTC()
+	record.UpdatedAt = record.UpdatedAt.UTC()
+	return record, true
+}
+
+func debugEventAuthorizationValue(event DebugEvent) any {
+	if event.authorizationPayload != nil {
+		return event.authorizationPayload
+	}
+	return event.Payload
 }
 
 func debugPanelEventTypes(panel string) []string {
@@ -288,6 +322,7 @@ func (m *DebugModule) registerDebugDashboardRoute(admin *Admin, basePath string,
 func (m *DebugModule) registerDebugCoreAPIRoutes(admin *Admin, access router.MiddlewareFunc, sessionAccess router.MiddlewareFunc) {
 	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels, access)
 	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot, access)
+	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "command_runs.lookup"), m.handleDebugCommandRunLookup, access)
 	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions, sessionAccess)
 	m.registerDebugPost(admin, debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear, access)
 	m.registerDebugPost(admin, debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel, access)
@@ -402,6 +437,42 @@ func (m *DebugModule) handleDebugSnapshot(c router.Context) error {
 		return writeJSON(c, map[string]any{})
 	}
 	return writeJSON(c, m.collector.SnapshotWithContext(c.Context()))
+}
+
+func (m *DebugModule) handleDebugCommandRunLookup(c router.Context) error {
+	if m == nil || m.admin == nil || c == nil {
+		return writeError(c, ErrNotFound)
+	}
+	id := debugCommandRunLookupID(c)
+	if id == "" || len(id) > 512 {
+		return writeError(c, ErrNotFound)
+	}
+	panel := NewCommandRunsDebugPanel(m.admin)
+	record, found, err := panel.Lookup(c.Context(), id)
+	if err != nil {
+		if panel.runtime != nil {
+			panel.runtime.reportError(err)
+		}
+		return writeError(c, ErrNotFound)
+	}
+	if !found {
+		return writeError(c, ErrNotFound)
+	}
+	return writeJSON(c, map[string]any{
+		"record": debugMaskValue(m.config, record.Clone()),
+	})
+}
+
+func debugCommandRunLookupID(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	for _, key := range []string{"run_id", "dispatch_id", "correlation_id", "id"} {
+		if id := strings.TrimSpace(c.Query(key)); id != "" {
+			return id
+		}
+	}
+	return ""
 }
 
 func (m *DebugModule) handleDebugSessions(c router.Context) error {
@@ -603,7 +674,9 @@ func (m *DebugModule) handleDebugClear(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, map[string]string{"status": "ok"})
 	}
-	m.collector.ClearWithContext(c.Context())
+	if err := m.collector.ClearStrictWithContext(c.Context()); err != nil {
+		return writeError(c, ErrForbidden)
+	}
 	m.publishSnapshotInvalidation()
 	return writeJSON(c, map[string]string{"status": "ok"})
 }
@@ -616,7 +689,11 @@ func (m *DebugModule) handleDebugClearPanel(c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, map[string]string{"status": "ok"})
 	}
-	if !m.collector.ClearPanelWithContext(c.Context(), panelID) {
+	cleared, err := m.collector.ClearPanelStrictWithContext(c.Context(), panelID)
+	if err != nil {
+		return writeError(c, ErrForbidden)
+	}
+	if !cleared {
 		return writeError(c, ErrNotFound)
 	}
 	m.publishSnapshotInvalidation()
@@ -1015,7 +1092,9 @@ func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subsc
 	case "snapshot":
 		return m.writeDebugSessionSnapshotForLifecycle(c, subscriptions.lifecycleContext, sessionID, includeGlobals, subscriptions.commandRunAccess)
 	case "clear":
-		m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels)
+		if err := m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels); err != nil {
+			return m.writeDebugCommandError(c, "clear", cmd.Panels)
+		}
 		return m.writeDebugSessionSnapshotForLifecycle(c, subscriptions.lifecycleContext, sessionID, includeGlobals, subscriptions.commandRunAccess)
 	}
 	return nil
@@ -1033,28 +1112,52 @@ func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscription
 	case "snapshot":
 		return m.writeDebugSnapshotForLifecycle(c, subscriptions.lifecycleContext, subscriptions.commandRunAccess)
 	case "clear":
-		m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels)
+		if err := m.clearDebugPanels(debugWebSocketAccessContext(c, subscriptions.commandRunAccess), cmd.Panels); err != nil {
+			return m.writeDebugCommandError(c, "clear", cmd.Panels)
+		}
 	}
 	return nil
 }
 
-func (m *DebugModule) clearDebugPanels(ctx context.Context, panels []string) {
+func (m *DebugModule) clearDebugPanels(ctx context.Context, panels []string) error {
 	if m == nil || m.collector == nil {
-		return
+		return nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	normalized := debugpanels.NormalizePanelIDs(panels)
 	if len(normalized) == 0 {
-		m.collector.ClearWithContext(ctx)
+		if err := m.collector.ClearStrictWithContext(ctx); err != nil {
+			return err
+		}
 		m.publishSnapshotInvalidation()
-		return
+		return nil
 	}
-	for _, panel := range normalized {
-		_ = m.collector.ClearPanelWithContext(ctx, panel)
+	cleared, err := m.collector.ClearPanelsStrictWithContext(ctx, normalized)
+	if err != nil {
+		return err
+	}
+	if !cleared {
+		return ErrNotFound
 	}
 	m.publishSnapshotInvalidation()
+	return nil
+}
+
+func (m *DebugModule) writeDebugCommandError(c router.WebSocketContext, operation string, panels []string) error {
+	if c == nil {
+		return nil
+	}
+	return c.WriteJSON(DebugEvent{
+		Type: debugEventCommandError,
+		Payload: map[string]any{
+			"operation": strings.TrimSpace(operation),
+			"panels":    debugpanels.NormalizePanelIDs(panels),
+			"message":   "debug command failed",
+		},
+		Timestamp: time.Now(),
+	})
 }
 
 // publishSnapshotInvalidation tells each connected client to request a fresh snapshot over
@@ -1107,7 +1210,7 @@ func (m *DebugModule) commandRunAccess(ctx context.Context) *commandRunWebSocket
 		return access
 	}
 	access.selector = selector
-	access.authorizer = panel.runtime.config.ScopeAuthorizer
+	access.panel = panel
 	access.allowed = true
 	return access
 }
