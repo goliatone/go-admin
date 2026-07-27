@@ -767,11 +767,12 @@ fallback. This recovers missed events without a page reload only while the
 configured server-side store still contains the run.
 
 The server coalesces pending progress for a scoped run and preserves terminal
-state. A client that exceeds the bounded queue on unrelated rows is
-disconnected so normal reconnect and snapshot recovery can re-establish a
-complete view. Session Debug clients receive the same scope-filtered Command
-Runs recovery snapshot when global panels are enabled; their request, SQL, and
-log rows remain limited to the selected session.
+state. When unrelated rows exhaust a client's bounded queue, the server
+compacts pending delivery into one in-band `snapshot_invalidated` signal while
+keeping the connection open. The client then requests a fresh authorized
+snapshot. Session Debug clients receive the same scope-filtered Command Runs
+recovery snapshot when global panels are enabled; their request, SQL, and log
+rows remain limited to the selected session.
 
 ## 10. Build and Asset Pipeline
 

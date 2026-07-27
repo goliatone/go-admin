@@ -431,9 +431,10 @@ credentials, or raw provider causes.
 
 Debug WebSocket delivery is bounded. Pending progress for the same scoped run
 is coalesced, and terminal state replaces pending progress. If a client falls
-behind on unrelated rows, the server closes that stale connection and records
-a dropped-event diagnostic; reconnect then restores the authorized projection
-from the configured store.
+behind on unrelated rows, the server compacts pending delivery into one in-band
+`snapshot_invalidated` signal and records a recovery diagnostic. The connection
+stays open, and the client requests a fresh authorized projection from the
+configured store.
 
 Session Debug WebSockets include the same authenticated Command Runs snapshot
 when `SessionIncludeGlobalPanels` is enabled (the default). Initial snapshots,
@@ -465,7 +466,10 @@ applies. Unauthorized and missing records both produce the same generic `404`.
 Scope-wide clear is intentionally atomic: when the selected scope contains any
 record hidden from the actor, HTTP and WebSocket clear return a generic failure,
 delete nothing, and publish no successful invalidation. This prevents a
-partially authorized operator from inferring or deleting hidden runs.
+partially authorized operator from inferring or deleting hidden runs. The
+built-in memory store provides the required consistency boundary. Custom stores
+must implement `CommandRunAtomicClearStore`; stores without that additive
+capability fail closed for Command Runs clear.
 
 The browser treats live events as the fast path and requests bounded
 authoritative snapshots while a visible Command Runs panel contains
