@@ -140,7 +140,7 @@ func (p *CommandRunsDebugPanel) Clear(ctx context.Context) error {
 		p.runtime.reportError(errCommandRunAtomicClearUnsupported)
 		return ErrForbidden
 	}
-	for attempt := 0; attempt < commandRunClearAttempts; attempt++ {
+	for range commandRunClearAttempts {
 		snapshot, snapshotErr := store.SnapshotForCommandRunClear(ctx, selector)
 		if snapshotErr != nil {
 			p.runtime.reportError(snapshotErr)
