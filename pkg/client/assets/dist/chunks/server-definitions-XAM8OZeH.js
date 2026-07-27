@@ -21249,7 +21249,7 @@ function YN(E, T) {
 function we(E, T) {
   T.querySelectorAll("[data-command-run-row]").forEach((e) => {
     const R = e.getAttribute("data-row-key") || "", A = TE.has(R), S = x === R;
-    e.setAttribute("aria-selected", S ? "true" : "false"), e.classList.toggle("command-run-row--selected", S);
+    e.setAttribute("aria-selected", S ? "true" : "false"), e.classList.toggle("command-run-row--selected", S), e.classList.toggle("expanded", A);
     const O = e.querySelector("[data-command-run-toggle]");
     if (O?.setAttribute("aria-expanded", A ? "true" : "false"), O) {
       const i = V(e.querySelector("strong")?.textContent) || "unknown command", C = V(e.querySelector(".command-run-phase")?.textContent) || "unknown";
@@ -21954,4 +21954,4 @@ export {
   mN as z
 };
 
-//# sourceMappingURL=server-definitions-Bg5imA4C.js.map
+//# sourceMappingURL=server-definitions-XAM8OZeH.js.map

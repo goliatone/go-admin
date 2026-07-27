@@ -1,7 +1,7 @@
 import { escapeAttribute as h, escapeHTML as a } from "../shared/html.js";
 import { normalizeDebugBasePath as pe } from "../debug/shared/path-helpers.js";
 import { r as m } from "./icons-B_VaFfsl.js";
-import { a as ue, at as C, ct as ge, dt as F, et as $, ft as z, gt as be, ht as te, it as fe, mt as y, nt as oe, ot as D, pt as b, rt as he, st as me, ut as U, vt as R, w as f, y as L } from "./server-definitions-Bg5imA4C.js";
+import { a as ue, at as C, ct as ge, dt as F, et as $, ft as z, gt as be, ht as te, it as fe, mt as y, nt as oe, ot as D, pt as b, rt as he, st as me, ut as U, vt as R, w as f, y as L } from "./server-definitions-XAM8OZeH.js";
 var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = pe(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -3709,4 +3709,4 @@ export {
   ko as z
 };
 
-//# sourceMappingURL=builtin-panels-CCATNT-3.js.map
+//# sourceMappingURL=builtin-panels-BFIA6nVc.js.map

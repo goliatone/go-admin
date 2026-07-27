@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 async function loadJSDOM() {
   try {
@@ -22,6 +23,9 @@ globalThis.Event = dom.window.Event;
 Object.defineProperty(globalThis, 'localStorage', { value: dom.window.localStorage, configurable: true, writable: true });
 Object.defineProperty(globalThis, 'sessionStorage', { value: dom.window.sessionStorage, configurable: true, writable: true });
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true, writable: true });
+const debugStyles = document.createElement('style');
+debugStyles.textContent = await readFile(new URL('../dist/styles/debug.css', import.meta.url), 'utf8');
+document.head.appendChild(debugStyles);
 
 const {
   RegistryLiveListManager,
@@ -120,9 +124,13 @@ test('Command Runs renders lifecycle detail accessibly, escapes outcome data, an
   assert.match(primary.textContent, /1\.25 s/);
   assert.match(primary.textContent, /Rendering pages/);
   const toggle = primary.querySelector('[data-command-run-toggle]');
+  const initialDetail = root.querySelector('[data-command-run-detail]');
+  const initialContent = initialDetail.querySelector('.expanded-content');
+  assert.equal(primary.classList.contains('expanded'), false);
   assert.equal(toggle.getAttribute('aria-expanded'), 'false');
   assert.match(toggle.getAttribute('aria-label'), /Show details for reports\.generate run run-1 \(progress\)/);
-  assert.equal(root.querySelector('[data-command-run-detail]').hidden, true);
+  assert.equal(initialDetail.hidden, true);
+  assert.equal(window.getComputedStyle(initialContent).display, 'none');
   assert.match(root.textContent, /dependency \/ provider_timeout/);
   assert.match(root.textContent, /Processed <safe> records/);
   assert.match(root.textContent, /processed/);
@@ -164,20 +172,30 @@ test('Command Runs keyed replacement preserves expansion, selection, focus, and 
   const container = root.querySelector('[data-live-list]');
   container.scrollTop = 37;
   assert.equal(commandRunsSelection(), 'run-1');
+  assert.equal(root.querySelector('[data-command-run-row]').classList.contains('expanded'), true);
   assert.equal(root.querySelector('[data-command-run-detail]').hidden, false);
+  assert.equal(window.getComputedStyle(root.querySelector('[data-command-run-detail] .expanded-content')).display, 'block');
 
   live.instance.enqueue(def, row({ revision: 2, current: 8, message: 'Almost done' }));
   live.tick();
   const replacement = root.querySelector('[data-command-run-row]');
   assert.equal(root.querySelectorAll('[data-command-run-row]').length, 1);
   assert.equal(replacement.getAttribute('aria-selected'), 'true');
+  assert.equal(replacement.classList.contains('expanded'), true);
   assert.equal(replacement.querySelector('[data-command-run-toggle]').getAttribute('aria-expanded'), 'true');
   assert.match(replacement.querySelector('[data-command-run-toggle]').getAttribute('aria-label'), /^Hide details/);
   assert.equal(root.querySelector('[data-command-run-detail]').hidden, false);
+  assert.equal(window.getComputedStyle(root.querySelector('[data-command-run-detail] .expanded-content')).display, 'block');
   assert.equal(document.activeElement, replacement.querySelector('[data-command-run-toggle]'));
   assert.equal(container.scrollTop, 37);
   assert.match(replacement.textContent, /8 \/ 10 \(80%\)/);
   assert.match(replacement.textContent, /Almost done/);
+
+  replacement.querySelector('[data-command-run-toggle]').click();
+  assert.equal(replacement.classList.contains('expanded'), false);
+  assert.equal(replacement.querySelector('[data-command-run-toggle]').getAttribute('aria-expanded'), 'false');
+  assert.equal(root.querySelector('[data-command-run-detail]').hidden, true);
+  assert.equal(window.getComputedStyle(root.querySelector('[data-command-run-detail] .expanded-content')).display, 'none');
 });
 
 test('Command Runs server definition inserts new runs and evicts retained state as logical rows', () => {

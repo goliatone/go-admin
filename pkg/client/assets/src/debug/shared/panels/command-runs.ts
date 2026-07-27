@@ -419,6 +419,7 @@ export function restoreCommandRunsInteractions(_root: ParentNode, container: HTM
     const selected = selectedRun === key;
     row.setAttribute('aria-selected', selected ? 'true' : 'false');
     row.classList.toggle('command-run-row--selected', selected);
+    row.classList.toggle('expanded', expanded);
     const toggle = row.querySelector<HTMLElement>('[data-command-run-toggle]');
     toggle?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     if (toggle) {
