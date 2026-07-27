@@ -48,11 +48,19 @@ import {
   logRowKey,
   logSearchText,
   commandRunSelectionEvent,
+  commandRunKey,
+  commandRunRevision,
+  commandRunTerminal,
+  commandRunRevisionGap,
+  captureCommandRunSnapshotBaseline,
+  mergeAuthoritativeCommandRuns,
+  commandRunsEvicted,
   commandRunsNavigationHref,
   parseCommandRunsNavigation,
   reconcileCommandRunsRows,
   resetCommandRunsState,
   setCommandRunsNavigationTarget,
+  type CommandRunSnapshotBaseline,
 } from './shared/panels/index.js';
 import {
   panelRegistry,
@@ -135,6 +143,10 @@ type PanelOrderPreferenceResponse = {
 
 const DEBUG_CONSOLE_ACTIVE_PANEL_KEY = 'debug-console-active-panel';
 const DEBUG_CONSOLE_PANEL_ORDER_KEY = 'debug-console-panel-order';
+const COMMAND_RUN_RECONCILE_FIRST_MS = 5000;
+const COMMAND_RUN_RECONCILE_SUCCESS_MS = 15000;
+const COMMAND_RUN_RECONCILE_TIMEOUT_MS = 10000;
+const COMMAND_RUN_RECONCILE_FAILURE_MS = [5000, 10000, 20000, 40000, 60000];
 
 const DEBUG_PANEL_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/;
 
@@ -252,6 +264,24 @@ export class DebugPanel {
   private panelActionResults: Map<string, PanelActionResultView> = new Map();
   private commandLauncherLastPayloads: Map<string, Record<string, unknown>> = new Map();
   private commandRunStateGeneration = 0;
+  private commandRunGenerations: Map<string, number> = new Map();
+  private commandRunSnapshotBaseline: CommandRunSnapshotBaseline | null = null;
+  private commandRunReconcileTimer: number | null = null;
+  private commandRunReconcileInFlight = false;
+  private commandRunReconcileFailures = 0;
+  private commandRunSnapshotAbort: AbortController | null = null;
+  private destroyed = false;
+  private readonly handleVisibilityChange = (): void => {
+    if (this.destroyed) return;
+    if (document.visibilityState === 'hidden') {
+      this.stopCommandRunReconciliation();
+    } else if (this.activePanel === 'command_runs') {
+      this.beginCommandRunSnapshotRequest('visibility');
+    }
+  };
+  private readonly handlePageHide = (): void => {
+    if (!this.destroyed) this.stopCommandRunReconciliation(true);
+  };
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -432,7 +462,11 @@ export class DebugPanel {
       basePath: this.streamBasePath,
       onEvent: (event) => this.handleEvent(event),
       onStatusChange: (status) => this.updateConnectionStatus(status),
+      onSnapshotInvalidated: () => this.beginCommandRunSnapshotRequest('invalidation', true),
     });
+
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    window.addEventListener('pagehide', this.handlePageHide);
 
     // Subscribe to registry changes for dynamic panel updates
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
@@ -442,8 +476,10 @@ export class DebugPanel {
 
   private async initializeServerDefinitions(): Promise<void> {
     const loadedServerPanelOrder = await this.loadServerPanelOrderPreference();
+    if (this.destroyed) return;
     this.applyPanelOrder();
     await hydrateServerPanelDefinitions(this.debugPath);
+    if (this.destroyed) return;
     this.eventToPanel = buildEventToPanel();
     this.applyPanelOrder();
     if (loadedServerPanelOrder) {
@@ -486,7 +522,7 @@ export class DebugPanel {
       const params = new URLSearchParams(window.location.search);
       urlPanel = this.normalizeStoredPanelID(params.get('panel'));
       const target = parseCommandRunsNavigation(params.toString());
-      if (!urlPanel && (target.runID || target.correlationID) && this.panels.includes('command_runs')) {
+      if (!urlPanel && (target.runID || target.dispatchID || target.correlationID) && this.panels.includes('command_runs')) {
         urlPanel = 'command_runs';
       }
       if (urlPanel === 'command_runs') setCommandRunsNavigationTarget(target);
@@ -505,15 +541,16 @@ export class DebugPanel {
     }
   }
 
-  private replacePanelURL(panel: string, runID = '', correlationID = ''): void {
+  private replacePanelURL(panel: string, runID = '', dispatchID = '', correlationID = ''): void {
     try {
       const current = window.location.href;
       const href = panel === 'command_runs'
-        ? commandRunsNavigationHref(current, { runID, correlationID })
+        ? commandRunsNavigationHref(current, { runID, dispatchID, correlationID })
         : (() => {
             const url = new URL(current);
             url.searchParams.set('panel', panel);
             url.searchParams.delete('run_id');
+            url.searchParams.delete('dispatch_id');
             url.searchParams.delete('correlation_id');
             return `${url.pathname}${url.search}${url.hash}`;
           })();
@@ -751,6 +788,11 @@ export class DebugPanel {
       this.persistActivePanel();
       this.replacePanelURL(panel);
       this.renderActivePanel();
+      if (panel === 'command_runs') {
+        this.beginCommandRunSnapshotRequest('activation');
+      } else {
+        this.stopCommandRunReconciliation();
+      }
     });
 
     this.container.addEventListener('click', (event) => {
@@ -765,13 +807,13 @@ export class DebugPanel {
           this.stream.requestSnapshot();
           break;
         case 'clear':
-          this.clearAll();
+          void this.clearAll();
           break;
         case 'pause':
           this.togglePause(button);
           break;
         case 'clear-panel':
-          this.clearActivePanel();
+          void this.clearActivePanel();
           break;
         default:
           break;
@@ -1344,9 +1386,14 @@ export class DebugPanel {
       }
       const canRetry = Boolean(result.actionID && this.commandLauncherLastPayloads.has(result.actionID));
       const liveStatus = getCommandLauncherLiveStatus(parsed.correlationId || parsed.runId || parsed.dispatchId);
-      const commandRunsHref = (parsed.runId || liveStatus?.runID || parsed.correlationId || liveStatus?.correlationID)
+      const commandRunsHref = (
+        parsed.runId || liveStatus?.runID ||
+        parsed.dispatchId || liveStatus?.dispatchID ||
+        parsed.correlationId || liveStatus?.correlationID
+      )
         ? commandRunsNavigationHref(window.location.href, {
             runID: parsed.runId || liveStatus?.runID,
+            dispatchID: parsed.dispatchId || liveStatus?.dispatchID,
             correlationID: parsed.correlationId || liveStatus?.correlationID,
           })
         : '';
@@ -1944,11 +1991,13 @@ export class DebugPanel {
   }
 
   private rebuildStream(mode: 'global' | 'session'): void {
+    this.stopCommandRunReconciliation();
     this.stream.close();
     this.stream = new DebugStream({
       basePath: this.streamBasePath,
       onEvent: (event) => this.handleEvent(event),
       onStatusChange: (status) => this.updateConnectionStatus(status),
+      onSnapshotInvalidated: () => this.beginCommandRunSnapshotRequest('invalidation', true),
     });
     this.stream.connect();
     this.subscribeToEvents();
@@ -1960,6 +2009,7 @@ export class DebugPanel {
   }
 
   private resetDebugState(): void {
+    this.stopCommandRunReconciliation();
     this.state = {
       template: {},
       session: {},
@@ -1977,6 +2027,7 @@ export class DebugPanel {
     resetCommandRunsState();
     setCommandRunsNavigationTarget(parseCommandRunsNavigation(window.location.search));
     this.commandRunStateGeneration += 1;
+    this.commandRunGenerations.clear();
     this.eventCount = 0;
     this.lastEventAt = null;
     this.updateStatusMeta();
@@ -2082,8 +2133,14 @@ export class DebugPanel {
   }
 
   private updateConnectionStatus(status: DebugStreamStatus): void {
+    if (this.destroyed) return;
     this.connectionEl.textContent = status;
     this.statusEl.setAttribute('data-status', status);
+    if (status === 'connected' && this.activePanel === 'command_runs') {
+      this.beginCommandRunSnapshotRequest('reconnect');
+      return;
+    }
+    this.refreshCommandRunReconciliation();
   }
 
   private updateStatusMeta(): void {
@@ -2094,11 +2151,27 @@ export class DebugPanel {
   }
 
   private handleEvent(event: DebugEvent): void {
-    if (!event || !event.type) {
+    if (this.destroyed || !event || !event.type) {
+      return;
+    }
+    if (event.type === 'debug_command_error') {
+      const payload = event.payload && typeof event.payload === 'object'
+        ? event.payload as Record<string, unknown>
+        : {};
+      const operation = typeof payload.operation === 'string'
+        ? payload.operation.trim().toLowerCase()
+        : '';
+      this.showDebugToast(
+        operation === 'clear' ? 'Unable to clear debug data.' : 'Debug command failed.',
+        'error',
+      );
       return;
     }
     if (event.type === 'snapshot') {
-      this.applySnapshot(event.payload as DebugSnapshot);
+      const baseline = this.commandRunSnapshotBaseline
+        || new Map();
+      this.applySnapshot(event.payload as DebugSnapshot, baseline);
+      if (this.commandRunReconcileInFlight) this.finishCommandRunSnapshotRequest(true);
       return;
     }
 
@@ -2136,12 +2209,28 @@ export class DebugPanel {
       // Use registry's handleEvent or default
       const snapshotKey = getSnapshotKey(def);
       const currentData = this.getStateForKey(snapshotKey);
+      const incomingKey = snapshotKey === 'command_runs' ? commandRunKey(event.payload) : '';
+      const currentCommandRun = incomingKey && Array.isArray(currentData)
+        ? currentData.find((row) => commandRunKey(row) === incomingKey)
+        : undefined;
+      const revisionGap = snapshotKey === 'command_runs' && currentCommandRun
+        ? commandRunRevisionGap(currentCommandRun, event.payload)
+        : false;
       const handler = def.handleEvent || ((current, payload) => defaultHandleEvent(current, payload, this.maxLogEntries));
       const newData = handler(currentData, event.payload);
       this.setStateForKey(snapshotKey, newData);
       if (snapshotKey === 'command_runs') {
-        this.commandRunStateGeneration += 1;
+        const updatedCommandRun = incomingKey && Array.isArray(newData)
+          ? newData.find((row) => commandRunKey(row) === incomingKey)
+          : undefined;
+        if (incomingKey && updatedCommandRun === event.payload) {
+          this.commandRunStateGeneration += 1;
+          this.commandRunGenerations.set(incomingKey, this.commandRunStateGeneration);
+        }
+        this.pruneCommandRunGenerations(newData);
         reconcileCommandRunsRows(newData);
+        if (revisionGap) this.beginCommandRunSnapshotRequest('revision-gap');
+        else this.refreshCommandRunReconciliation();
       }
     } else {
       // Legacy handling for built-in panels (backward compatibility)
@@ -2270,11 +2359,9 @@ export class DebugPanel {
     }
   }
 
-  private applySnapshot(snapshot: DebugSnapshot, expectedCommandRunGeneration?: number): void {
+  private applySnapshot(snapshot: DebugSnapshot, commandRunBaseline?: CommandRunSnapshotBaseline): void {
     const next = snapshot || {};
     const currentCommandRuns = this.state.extra.command_runs;
-    const preserveCurrentCommandRuns = expectedCommandRunGeneration !== undefined
-      && expectedCommandRunGeneration !== this.commandRunStateGeneration;
     this.state.template = next.template || {};
     this.state.session = next.session || {};
     this.state.requests = ensureArray<RequestEntry>(next.requests);
@@ -2301,16 +2388,146 @@ export class DebugPanel {
         extra[panel] = (next as any)[panel];
       }
     });
-    if (preserveCurrentCommandRuns) {
-      if (currentCommandRuns !== undefined) extra.command_runs = currentCommandRuns;
-      else delete extra.command_runs;
+    if (currentCommandRuns !== undefined || 'command_runs' in next) {
+      const baseline = commandRunBaseline
+        || new Map();
+      const maxEntries = panelRegistry.get('command_runs')?.liveList?.getMaxEntries?.() || this.maxLogEntries;
+      const merged = mergeAuthoritativeCommandRuns(
+        currentCommandRuns,
+        (next as any).command_runs,
+        baseline,
+        this.commandRunGenerations,
+        maxEntries,
+      );
+      const mergedKeys = new Set(merged.map(commandRunKey).filter(Boolean));
+      const removedKeys = Array.isArray(currentCommandRuns)
+        ? currentCommandRuns.map(commandRunKey).filter((key) => key && !mergedKeys.has(key))
+        : [];
+      if (removedKeys.length > 0) commandRunsEvicted(removedKeys);
+      extra.command_runs = merged;
+      this.commandRunStateGeneration += 1;
+      mergedKeys.forEach((key) => this.commandRunGenerations.set(key, this.commandRunStateGeneration));
+      this.pruneCommandRunGenerations(merged);
     }
     this.state.extra = extra;
-    this.commandRunStateGeneration += 1;
     reconcileCommandRunsRows(extra.command_runs, true);
 
     this.updateTabCounts();
     this.renderPanel();
+    this.refreshCommandRunReconciliation();
+  }
+
+  private pruneCommandRunGenerations(data: unknown): void {
+    const retained = new Set(
+      (Array.isArray(data) ? data : []).map(commandRunKey).filter(Boolean),
+    );
+    this.commandRunGenerations.forEach((_generation, key) => {
+      if (!retained.has(key)) this.commandRunGenerations.delete(key);
+    });
+  }
+
+  private commandRunsHaveNonterminalRows(): boolean {
+    const rows = this.state.extra.command_runs;
+    return Array.isArray(rows) && rows.some((row) => commandRunKey(row) && !commandRunTerminal(row));
+  }
+
+  private commandRunReconciliationVisible(): boolean {
+    return this.activePanel === 'command_runs'
+      && document.visibilityState !== 'hidden'
+      && this.commandRunsHaveNonterminalRows();
+  }
+
+  private clearCommandRunReconcileTimer(): void {
+    if (this.commandRunReconcileTimer !== null) {
+      window.clearTimeout(this.commandRunReconcileTimer);
+      this.commandRunReconcileTimer = null;
+    }
+  }
+
+  private refreshCommandRunReconciliation(delayMs = COMMAND_RUN_RECONCILE_FIRST_MS): void {
+    if (this.destroyed) {
+      this.clearCommandRunReconcileTimer();
+      return;
+    }
+    if (this.commandRunReconcileInFlight) return;
+    if (!this.commandRunReconciliationVisible()) {
+      this.clearCommandRunReconcileTimer();
+      return;
+    }
+    if (this.commandRunReconcileTimer !== null) return;
+    const delay = Math.max(0, delayMs);
+    this.commandRunReconcileTimer = window.setTimeout(() => {
+      this.commandRunReconcileTimer = null;
+      this.beginCommandRunSnapshotRequest('timer');
+    }, delay);
+  }
+
+  private beginCommandRunSnapshotRequest(_reason: string, requestAlreadySent = false): void {
+    if (this.destroyed) return;
+    const visible = this.activePanel === 'command_runs' && document.visibilityState !== 'hidden';
+    if (!visible || this.commandRunReconcileInFlight) return;
+    const connected = this.stream.getStatus() === 'connected';
+    const canUseHTTP = !this.activeSessionId && Boolean(this.debugPath);
+    if (!requestAlreadySent && !connected && !canUseHTTP) return;
+
+    this.clearCommandRunReconcileTimer();
+    this.commandRunSnapshotBaseline = captureCommandRunSnapshotBaseline(
+      this.state.extra.command_runs,
+      this.commandRunGenerations,
+    );
+    this.commandRunReconcileInFlight = true;
+
+    if (requestAlreadySent || connected) {
+      if (!requestAlreadySent) this.stream.requestSnapshot();
+      this.commandRunReconcileTimer = window.setTimeout(() => {
+        this.commandRunReconcileTimer = null;
+        this.finishCommandRunSnapshotRequest(false);
+      }, COMMAND_RUN_RECONCILE_TIMEOUT_MS);
+      return;
+    }
+
+    const abort = new AbortController();
+    this.commandRunSnapshotAbort = abort;
+    void httpRequest(`${this.debugPath}/api/snapshot`, {
+      credentials: 'same-origin',
+      signal: abort.signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error('snapshot request failed');
+      const payload = await readExpectedHTTPJSON<DebugSnapshot>(response);
+      if (abort.signal.aborted) return;
+      this.applySnapshot(payload, this.commandRunSnapshotBaseline || undefined);
+      this.finishCommandRunSnapshotRequest(true);
+    }).catch(() => {
+      if (!abort.signal.aborted) this.finishCommandRunSnapshotRequest(false);
+    });
+  }
+
+  private finishCommandRunSnapshotRequest(success: boolean): void {
+    if (this.destroyed) {
+      this.stopCommandRunReconciliation(true);
+      return;
+    }
+    this.clearCommandRunReconcileTimer();
+    this.commandRunSnapshotAbort = null;
+    this.commandRunSnapshotBaseline = null;
+    this.commandRunReconcileInFlight = false;
+    if (success) {
+      this.commandRunReconcileFailures = 0;
+      this.refreshCommandRunReconciliation(COMMAND_RUN_RECONCILE_SUCCESS_MS);
+      return;
+    }
+    const index = Math.min(this.commandRunReconcileFailures, COMMAND_RUN_RECONCILE_FAILURE_MS.length - 1);
+    this.commandRunReconcileFailures += 1;
+    this.refreshCommandRunReconciliation(COMMAND_RUN_RECONCILE_FAILURE_MS[index]);
+  }
+
+  private stopCommandRunReconciliation(teardown = false): void {
+    this.clearCommandRunReconcileTimer();
+    this.commandRunSnapshotAbort?.abort();
+    this.commandRunSnapshotAbort = null;
+    this.commandRunSnapshotBaseline = null;
+    this.commandRunReconcileInFlight = false;
+    if (teardown) this.commandRunGenerations.clear();
   }
 
   private trim<T>(list: T[], max: number): void {
@@ -2334,13 +2551,16 @@ export class DebugPanel {
   }
 
   private async fetchSnapshot(): Promise<void> {
-    if (!this.debugPath) {
+    if (this.destroyed || !this.debugPath) {
       return;
     }
     if (this.activeSessionId) {
       return;
     }
-    const commandRunGeneration = this.commandRunStateGeneration;
+    const commandRunBaseline = captureCommandRunSnapshotBaseline(
+      this.state.extra.command_runs,
+      this.commandRunGenerations,
+    );
     try {
       const response = await httpRequest(`${this.debugPath}/api/snapshot`, {
         credentials: 'same-origin',
@@ -2349,39 +2569,60 @@ export class DebugPanel {
         return;
       }
       const payload = await readExpectedHTTPJSON<DebugSnapshot>(response);
-      this.applySnapshot(payload, commandRunGeneration);
+      if (this.destroyed) return;
+      this.applySnapshot(payload, commandRunBaseline);
     } catch {
       // ignore fetch errors
     }
   }
 
-  private clearAll(): void {
+  private async clearAll(): Promise<void> {
     if (!this.debugPath) {
       return;
     }
-    this.logsExpanded.clear();
-    this.stream.clear();
     if (this.activeSessionId) {
+      this.logsExpanded.clear();
+      this.stream.clear();
       return;
     }
-    httpRequest(`${this.debugPath}/api/clear`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
-      // ignore
-    });
+    try {
+      const response = await httpRequest(`${this.debugPath}/api/clear`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        this.showDebugToast('Unable to clear debug data.', 'error');
+        return;
+      }
+      this.logsExpanded.clear();
+    } catch {
+      this.showDebugToast('Unable to clear debug data.', 'error');
+    }
   }
 
-  private clearActivePanel(): void {
+  private async clearActivePanel(): Promise<void> {
     if (!this.debugPath) {
       return;
     }
     const panel = this.activePanel;
-    if (panel === 'logs') this.logsExpanded.clear();
-    this.stream.clear([panel]);
     if (this.activeSessionId) {
+      if (panel === 'logs') this.logsExpanded.clear();
+      this.stream.clear([panel]);
       return;
     }
-    httpRequest(`${this.debugPath}/api/clear/${panel}`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
-      // ignore
-    });
+    try {
+      const response = await httpRequest(`${this.debugPath}/api/clear/${encodeURIComponent(panel)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        this.showDebugToast(`Unable to clear ${getPanelLabel(panel)}.`, 'error');
+        return;
+      }
+      if (panel === 'logs') this.logsExpanded.clear();
+    } catch {
+      this.showDebugToast(`Unable to clear ${getPanelLabel(panel)}.`, 'error');
+    }
   }
 
   private async parseJSONResponse(response: Response): Promise<Record<string, any> | null> {
@@ -2420,7 +2661,7 @@ export class DebugPanel {
     return '';
   }
 
-  private showDoctorActionToast(message: string, kind: 'success' | 'error'): void {
+  private showDebugToast(message: string, kind: 'success' | 'error'): void {
     const text = message.trim();
     if (!text) {
       return;
@@ -2509,15 +2750,15 @@ export class DebugPanel {
         const errorMessage =
           this.responseMessage(payload, ['error.message', 'message', 'result.message']) ||
           `Doctor action failed (${response.status})`;
-        this.showDoctorActionToast(errorMessage, 'error');
+        this.showDebugToast(errorMessage, 'error');
         return;
       }
 
       const successMessage =
         this.responseMessage(payload, ['message', 'result.message']) || 'Doctor action completed.';
-      this.showDoctorActionToast(successMessage, 'success');
+      this.showDebugToast(successMessage, 'success');
     } catch {
-      this.showDoctorActionToast('Doctor action failed: unable to reach debug API.', 'error');
+      this.showDebugToast('Doctor action failed: unable to reach debug API.', 'error');
     } finally {
       this.stream.requestSnapshot();
     }
@@ -2537,6 +2778,20 @@ export class DebugPanel {
     this.sqlView.discardPending();
     button.textContent = 'Pause';
     this.stream.requestSnapshot();
+  }
+
+  destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    window.removeEventListener('pagehide', this.handlePageHide);
+    this.stopCommandRunReconciliation(true);
+    this.stream.close();
+    this.unsubscribeRegistry?.();
+    this.unsubscribeRegistry = null;
+    this.tabsSortable?.destroy();
+    this.tabsSortable = null;
+    detachCommandLauncherControllers();
   }
 
   /** Reflect the count of SQL queries buffered while paused on the pause button. */

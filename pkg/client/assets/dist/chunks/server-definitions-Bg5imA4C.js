@@ -1,8 +1,8 @@
-import { n as ze, r as Oe, t as Ne } from "./chunk-BUbnbzFL.js";
-import { escapeAttribute as V, escapeHTML as o } from "../shared/html.js";
-import { httpRequest as te, readExpectedHTTPJSON as re } from "../shared/transport/http-client.js";
-import { formatByteSize as ER } from "../shared/size-formatters.js";
-var CT = (E) => {
+import { n as AR, r as ne, t as Ce } from "./chunk-BUbnbzFL.js";
+import { escapeAttribute as f, escapeHTML as D } from "../shared/html.js";
+import { httpRequest as _e, readExpectedHTTPJSON as ie } from "../shared/transport/http-client.js";
+import { formatByteSize as SR } from "../shared/size-formatters.js";
+var iT = (E) => {
   if (!E) return "";
   if (typeof E == "number") return new Date(E).toLocaleTimeString();
   if (typeof E == "string") {
@@ -10,13 +10,13 @@ var CT = (E) => {
     return Number.isNaN(T.getTime()) ? E : T.toLocaleTimeString();
   }
   return "";
-}, It = (E, T = 50) => {
+}, rt = (E, T = 50) => {
   if (E == null) return {
     text: "0ms",
     isSlow: !1
   };
   if (typeof E == "string") {
-    const S = ae(E);
+    const S = De(E);
     return {
       text: E,
       isSlow: S !== null && S >= T
@@ -38,10 +38,10 @@ var CT = (E) => {
     text: `${(R / 1e3).toFixed(2)}s`,
     isSlow: A
   };
-}, TR = (E, T = 50) => {
-  const e = eR(E);
+}, IR = (E, T = 50) => {
+  const e = NR(E);
   return e === null ? !1 : e >= T;
-}, se = (E, T) => {
+}, oe = (E, T) => {
   const { nullAsEmptyObject: e = !0, indent: R = 2 } = T || {};
   if (E == null) return e ? "{}" : "null";
   try {
@@ -49,7 +49,7 @@ var CT = (E) => {
   } catch {
     return String(E ?? "");
   }
-}, Ot = (E, T) => E ? E.length > T ? E.substring(0, T) + "..." : E : "", ae = (E) => {
+}, st = (E, T) => E ? E.length > T ? E.substring(0, T) + "..." : E : "", De = (E) => {
   const T = E.trim();
   if (!T) return null;
   const e = T.match(/^([0-9]*\.?[0-9]+)\s*(ns|µs|us|ms|s)?$/i);
@@ -69,20 +69,20 @@ var CT = (E) => {
     default:
       return null;
   }
-}, eR = (E) => {
+}, NR = (E) => {
   if (E == null) return null;
-  if (typeof E == "string") return ae(E);
+  if (typeof E == "string") return De(E);
   const T = Number(E);
   return Number.isNaN(T) ? null : T / 1e6;
-}, Le = (E) => {
+}, Pe = (E) => {
   if (E == null || E === "") return "0";
   const T = Number(E);
   return Number.isNaN(T) ? String(E) : T.toLocaleString();
-}, RR = (E) => E == null ? 0 : Array.isArray(E) ? E.length : typeof E == "object" ? Object.keys(E).length : 1, Nt = (E) => E ? E >= 500 ? "error" : E >= 400 ? "warn" : "" : "", tt = (E) => {
+}, tR = (E) => E == null ? 0 : Array.isArray(E) ? E.length : typeof E == "object" ? Object.keys(E).length : 1, at = (E) => E ? E >= 500 ? "error" : E >= 400 ? "warn" : "" : "", Lt = (E) => {
   if (!E) return "info";
   const T = E.toLowerCase();
   return T === "error" || T === "fatal" ? "error" : T === "warn" || T === "warning" ? "warn" : T === "debug" || T === "trace" ? "debug" : "info";
-}, rt = (E) => ER(E, {
+}, nt = (E) => SR(E, {
   emptyFallback: "0 B",
   zeroFallback: "0 B",
   invalidFallback: "0 B",
@@ -96,48 +96,48 @@ var CT = (E) => {
     1,
     1
   ]
-}) ?? "0 B", st = (E) => Array.isArray(E) ? E : [], AR = /* @__PURE__ */ Ne(((E, T) => {
+}) ?? "0 B", Ct = (E) => Array.isArray(E) ? E : [], rR = /* @__PURE__ */ Ce(((E, T) => {
   var e = (function(R) {
     var A = /(?:^|\s)lang(?:uage)?-([\w-]+)(?=\s|$)/i, S = 0, O = {}, I = {
       manual: R.Prism && R.Prism.manual,
       disableWorkerMessageHandler: R.Prism && R.Prism.disableWorkerMessageHandler,
       util: {
-        encode: function s(t) {
-          return t instanceof P ? new P(t.type, s(t.content), t.alias) : Array.isArray(t) ? t.map(s) : t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\u00a0/g, " ");
+        encode: function a(r) {
+          return r instanceof i ? new i(r.type, a(r.content), r.alias) : Array.isArray(r) ? r.map(a) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\u00a0/g, " ");
         },
-        type: function(s) {
-          return Object.prototype.toString.call(s).slice(8, -1);
+        type: function(a) {
+          return Object.prototype.toString.call(a).slice(8, -1);
         },
-        objId: function(s) {
-          return s.__id || Object.defineProperty(s, "__id", { value: ++S }), s.__id;
+        objId: function(a) {
+          return a.__id || Object.defineProperty(a, "__id", { value: ++S }), a.__id;
         },
-        clone: function s(t, D) {
-          D = D || {};
+        clone: function a(r, P) {
+          P = P || {};
           var M, U;
-          switch (I.util.type(t)) {
+          switch (I.util.type(r)) {
             case "Object":
-              if (U = I.util.objId(t), D[U]) return D[U];
-              M = {}, D[U] = M;
-              for (var d in t) t.hasOwnProperty(d) && (M[d] = s(t[d], D));
+              if (U = I.util.objId(r), P[U]) return P[U];
+              M = {}, P[U] = M;
+              for (var d in r) r.hasOwnProperty(d) && (M[d] = a(r[d], P));
               return M;
             case "Array":
-              return U = I.util.objId(t), D[U] ? D[U] : (M = [], D[U] = M, t.forEach(function(G, F) {
-                M[F] = s(G, D);
+              return U = I.util.objId(r), P[U] ? P[U] : (M = [], P[U] = M, r.forEach(function(G, F) {
+                M[F] = a(G, P);
               }), M);
             default:
-              return t;
+              return r;
           }
         },
-        getLanguage: function(s) {
-          for (; s; ) {
-            var t = A.exec(s.className);
-            if (t) return t[1].toLowerCase();
-            s = s.parentElement;
+        getLanguage: function(a) {
+          for (; a; ) {
+            var r = A.exec(a.className);
+            if (r) return r[1].toLowerCase();
+            a = a.parentElement;
           }
           return "none";
         },
-        setLanguage: function(s, t) {
-          s.className = s.className.replace(RegExp(A, "gi"), ""), s.classList.add("language-" + t);
+        setLanguage: function(a, r) {
+          a.className = a.className.replace(RegExp(A, "gi"), ""), a.classList.add("language-" + r);
         },
         currentScript: function() {
           if (typeof document > "u") return null;
@@ -145,22 +145,22 @@ var CT = (E) => {
           try {
             throw new Error();
           } catch (M) {
-            var s = (/at [^(\r\n]*\((.*):[^:]+:[^:]+\)$/i.exec(M.stack) || [])[1];
-            if (s) {
-              var t = document.getElementsByTagName("script");
-              for (var D in t) if (t[D].src == s) return t[D];
+            var a = (/at [^(\r\n]*\((.*):[^:]+:[^:]+\)$/i.exec(M.stack) || [])[1];
+            if (a) {
+              var r = document.getElementsByTagName("script");
+              for (var P in r) if (r[P].src == a) return r[P];
             }
             return null;
           }
         },
-        isActive: function(s, t, D) {
-          for (var M = "no-" + t; s; ) {
-            var U = s.classList;
-            if (U.contains(t)) return !0;
+        isActive: function(a, r, P) {
+          for (var M = "no-" + r; a; ) {
+            var U = a.classList;
+            if (U.contains(r)) return !0;
             if (U.contains(M)) return !1;
-            s = s.parentElement;
+            a = a.parentElement;
           }
-          return !!D;
+          return !!P;
         }
       },
       languages: {
@@ -168,232 +168,232 @@ var CT = (E) => {
         plaintext: O,
         text: O,
         txt: O,
-        extend: function(s, t) {
-          var D = I.util.clone(I.languages[s]);
-          for (var M in t) D[M] = t[M];
-          return D;
+        extend: function(a, r) {
+          var P = I.util.clone(I.languages[a]);
+          for (var M in r) P[M] = r[M];
+          return P;
         },
-        insertBefore: function(s, t, D, M) {
+        insertBefore: function(a, r, P, M) {
           M = M || I.languages;
-          var U = M[s], d = {};
+          var U = M[a], d = {};
           for (var G in U) if (U.hasOwnProperty(G)) {
-            if (G == t)
-              for (var F in D) D.hasOwnProperty(F) && (d[F] = D[F]);
-            D.hasOwnProperty(G) || (d[G] = U[G]);
+            if (G == r)
+              for (var F in P) P.hasOwnProperty(F) && (d[F] = P[F]);
+            P.hasOwnProperty(G) || (d[G] = U[G]);
           }
-          var f = M[s];
-          return M[s] = d, I.languages.DFS(I.languages, function(X, PE) {
-            PE === f && X != s && (this[X] = d);
+          var y = M[a];
+          return M[a] = d, I.languages.DFS(I.languages, function(K, uE) {
+            uE === y && K != a && (this[K] = d);
           }), d;
         },
-        DFS: function s(t, D, M, U) {
+        DFS: function a(r, P, M, U) {
           U = U || {};
           var d = I.util.objId;
-          for (var G in t) if (t.hasOwnProperty(G)) {
-            D.call(t, G, t[G], M || G);
-            var F = t[G], f = I.util.type(F);
-            f === "Object" && !U[d(F)] ? (U[d(F)] = !0, s(F, D, null, U)) : f === "Array" && !U[d(F)] && (U[d(F)] = !0, s(F, D, G, U));
+          for (var G in r) if (r.hasOwnProperty(G)) {
+            P.call(r, G, r[G], M || G);
+            var F = r[G], y = I.util.type(F);
+            y === "Object" && !U[d(F)] ? (U[d(F)] = !0, a(F, P, null, U)) : y === "Array" && !U[d(F)] && (U[d(F)] = !0, a(F, P, G, U));
           }
         }
       },
       plugins: {},
-      highlightAll: function(s, t) {
-        I.highlightAllUnder(document, s, t);
+      highlightAll: function(a, r) {
+        I.highlightAllUnder(document, a, r);
       },
-      highlightAllUnder: function(s, t, D) {
+      highlightAllUnder: function(a, r, P) {
         var M = {
-          callback: D,
-          container: s,
+          callback: P,
+          container: a,
           selector: 'code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code'
         };
         I.hooks.run("before-highlightall", M), M.elements = Array.prototype.slice.apply(M.container.querySelectorAll(M.selector)), I.hooks.run("before-all-elements-highlight", M);
-        for (var U = 0, d; d = M.elements[U++]; ) I.highlightElement(d, t === !0, M.callback);
+        for (var U = 0, d; d = M.elements[U++]; ) I.highlightElement(d, r === !0, M.callback);
       },
-      highlightElement: function(s, t, D) {
-        var M = I.util.getLanguage(s), U = I.languages[M];
-        I.util.setLanguage(s, M);
-        var d = s.parentElement;
+      highlightElement: function(a, r, P) {
+        var M = I.util.getLanguage(a), U = I.languages[M];
+        I.util.setLanguage(a, M);
+        var d = a.parentElement;
         d && d.nodeName.toLowerCase() === "pre" && I.util.setLanguage(d, M);
         var G = {
-          element: s,
+          element: a,
           language: M,
           grammar: U,
-          code: s.textContent
+          code: a.textContent
         };
-        function F(X) {
-          G.highlightedCode = X, I.hooks.run("before-insert", G), G.element.innerHTML = G.highlightedCode, I.hooks.run("after-highlight", G), I.hooks.run("complete", G), D && D.call(G.element);
+        function F(K) {
+          G.highlightedCode = K, I.hooks.run("before-insert", G), G.element.innerHTML = G.highlightedCode, I.hooks.run("after-highlight", G), I.hooks.run("complete", G), P && P.call(G.element);
         }
         if (I.hooks.run("before-sanity-check", G), d = G.element.parentElement, d && d.nodeName.toLowerCase() === "pre" && !d.hasAttribute("tabindex") && d.setAttribute("tabindex", "0"), !G.code) {
-          I.hooks.run("complete", G), D && D.call(G.element);
+          I.hooks.run("complete", G), P && P.call(G.element);
           return;
         }
         if (I.hooks.run("before-highlight", G), !G.grammar) {
           F(I.util.encode(G.code));
           return;
         }
-        if (t && R.Worker) {
-          var f = new Worker(I.filename);
-          f.onmessage = function(X) {
-            F(X.data);
-          }, f.postMessage(JSON.stringify({
+        if (r && R.Worker) {
+          var y = new Worker(I.filename);
+          y.onmessage = function(K) {
+            F(K.data);
+          }, y.postMessage(JSON.stringify({
             language: G.language,
             code: G.code,
             immediateClose: !0
           }));
         } else F(I.highlight(G.code, G.grammar, G.language));
       },
-      highlight: function(s, t, D) {
+      highlight: function(a, r, P) {
         var M = {
-          code: s,
-          grammar: t,
-          language: D
+          code: a,
+          grammar: r,
+          language: P
         };
         if (I.hooks.run("before-tokenize", M), !M.grammar) throw new Error('The language "' + M.language + '" has no grammar.');
-        return M.tokens = I.tokenize(M.code, M.grammar), I.hooks.run("after-tokenize", M), P.stringify(I.util.encode(M.tokens), M.language);
+        return M.tokens = I.tokenize(M.code, M.grammar), I.hooks.run("after-tokenize", M), i.stringify(I.util.encode(M.tokens), M.language);
       },
-      tokenize: function(s, t) {
-        var D = t.rest;
-        if (D) {
-          for (var M in D) t[M] = D[M];
-          delete t.rest;
+      tokenize: function(a, r) {
+        var P = r.rest;
+        if (P) {
+          for (var M in P) r[M] = P[M];
+          delete r.rest;
         }
-        var U = new a();
-        return _(U, U.head, s), r(s, U, t, U.head, 0), H(U);
+        var U = new s();
+        return _(U, U.head, a), N(a, U, r, U.head, 0), H(U);
       },
       hooks: {
         all: {},
-        add: function(s, t) {
-          var D = I.hooks.all;
-          D[s] = D[s] || [], D[s].push(t);
+        add: function(a, r) {
+          var P = I.hooks.all;
+          P[a] = P[a] || [], P[a].push(r);
         },
-        run: function(s, t) {
-          var D = I.hooks.all[s];
-          if (!(!D || !D.length))
-            for (var M = 0, U; U = D[M++]; ) U(t);
+        run: function(a, r) {
+          var P = I.hooks.all[a];
+          if (!(!P || !P.length))
+            for (var M = 0, U; U = P[M++]; ) U(r);
         }
       },
-      Token: P
+      Token: i
     };
     R.Prism = I;
-    function P(s, t, D, M) {
-      this.type = s, this.content = t, this.alias = D, this.length = (M || "").length | 0;
+    function i(a, r, P, M) {
+      this.type = a, this.content = r, this.alias = P, this.length = (M || "").length | 0;
     }
-    P.stringify = function s(t, D) {
-      if (typeof t == "string") return t;
-      if (Array.isArray(t)) {
+    i.stringify = function a(r, P) {
+      if (typeof r == "string") return r;
+      if (Array.isArray(r)) {
         var M = "";
-        return t.forEach(function(f) {
-          M += s(f, D);
+        return r.forEach(function(y) {
+          M += a(y, P);
         }), M;
       }
       var U = {
-        type: t.type,
-        content: s(t.content, D),
+        type: r.type,
+        content: a(r.content, P),
         tag: "span",
-        classes: ["token", t.type],
+        classes: ["token", r.type],
         attributes: {},
-        language: D
-      }, d = t.alias;
+        language: P
+      }, d = r.alias;
       d && (Array.isArray(d) ? Array.prototype.push.apply(U.classes, d) : U.classes.push(d)), I.hooks.run("wrap", U);
       var G = "";
       for (var F in U.attributes) G += " " + F + '="' + (U.attributes[F] || "").replace(/"/g, "&quot;") + '"';
       return "<" + U.tag + ' class="' + U.classes.join(" ") + '"' + G + ">" + U.content + "</" + U.tag + ">";
     };
-    function i(s, t, D, M) {
-      s.lastIndex = t;
-      var U = s.exec(D);
+    function C(a, r, P, M) {
+      a.lastIndex = r;
+      var U = a.exec(P);
       if (U && M && U[1]) {
         var d = U[1].length;
         U.index += d, U[0] = U[0].slice(d);
       }
       return U;
     }
-    function r(s, t, D, M, U, d) {
-      for (var G in D)
-        if (!(!D.hasOwnProperty(G) || !D[G])) {
-          var F = D[G];
+    function N(a, r, P, M, U, d) {
+      for (var G in P)
+        if (!(!P.hasOwnProperty(G) || !P[G])) {
+          var F = P[G];
           F = Array.isArray(F) ? F : [F];
-          for (var f = 0; f < F.length; ++f) {
-            if (d && d.cause == G + "," + f) return;
-            var X = F[f], PE = X.inside, DT = !!X.lookbehind, PT = !!X.greedy, ke = X.alias;
-            if (PT && !X.pattern.global) {
-              var Ze = X.pattern.toString().match(/[imsuy]*$/)[0];
-              X.pattern = RegExp(X.pattern.source, Ze + "g");
+          for (var y = 0; y < F.length; ++y) {
+            if (d && d.cause == G + "," + y) return;
+            var K = F[y], uE = K.inside, UT = !!K.lookbehind, lT = !!K.greedy, ER = K.alias;
+            if (lT && !K.pattern.global) {
+              var TR = K.pattern.toString().match(/[imsuy]*$/)[0];
+              K.pattern = RegExp(K.pattern.source, TR + "g");
             }
-            for (var MT = X.pattern || X, b = M.next, w = U; b !== t.tail && !(d && w >= d.reach); w += b.value.length, b = b.next) {
-              var rE = b.value;
-              if (t.length > s.length) return;
-              if (!(rE instanceof P)) {
-                var ME = 1, x;
-                if (PT) {
-                  if (x = i(MT, w, s, DT), !x || x.index >= s.length) break;
-                  var UE = x.index, qe = x.index + x[0].length, z = w;
-                  for (z += b.value.length; UE >= z; )
-                    b = b.next, z += b.value.length;
-                  if (z -= b.value.length, w = z, b.value instanceof P) continue;
-                  for (var nE = b; nE !== t.tail && (z < qe || typeof nE.value == "string"); nE = nE.next)
-                    ME++, z += nE.value.length;
-                  ME--, rE = s.slice(w, z), x.index -= w;
-                } else if (x = i(MT, 0, rE, DT), !x) continue;
-                var UE = x.index, lE = x[0], fE = rE.slice(0, UE), UT = rE.slice(UE + lE.length), VE = w + rE.length;
-                d && VE > d.reach && (d.reach = VE);
-                var uE = b.prev;
-                fE && (uE = _(t, uE, fE), w += fE.length), u(t, uE, ME);
-                var je = new P(G, PE ? I.tokenize(lE, PE) : lE, ke, lE);
-                if (b = _(t, uE, je), UT && _(t, b, UT), ME > 1) {
-                  var yE = {
-                    cause: G + "," + f,
-                    reach: VE
+            for (var uT = K.pattern || K, $ = M.next, k = U; $ !== r.tail && !(d && k >= d.reach); k += $.value.length, $ = $.next) {
+              var CE = $.value;
+              if (r.length > a.length) return;
+              if (!(CE instanceof i)) {
+                var cE = 1, J;
+                if (lT) {
+                  if (J = C(uT, k, a, UT), !J || J.index >= a.length) break;
+                  var GE = J.index, eR = J.index + J[0].length, AE = k;
+                  for (AE += $.value.length; GE >= AE; )
+                    $ = $.next, AE += $.value.length;
+                  if (AE -= $.value.length, k = AE, $.value instanceof i) continue;
+                  for (var DE = $; DE !== r.tail && (AE < eR || typeof DE.value == "string"); DE = DE.next)
+                    cE++, AE += DE.value.length;
+                  cE--, CE = a.slice(k, AE), J.index -= k;
+                } else if (J = C(uT, 0, CE, UT), !J) continue;
+                var GE = J.index, dE = J[0], gE = CE.slice(0, GE), cT = CE.slice(GE + dE.length), WE = k + CE.length;
+                d && WE > d.reach && (d.reach = WE);
+                var pE = $.prev;
+                gE && (pE = _(r, pE, gE), k += gE.length), u(r, pE, cE);
+                var RR = new i(G, uE ? I.tokenize(dE, uE) : dE, ER, dE);
+                if ($ = _(r, pE, RR), cT && _(r, $, cT), cE > 1) {
+                  var vE = {
+                    cause: G + "," + y,
+                    reach: WE
                   };
-                  r(s, t, D, b.prev, w, yE), d && yE.reach > d.reach && (d.reach = yE.reach);
+                  N(a, r, P, $.prev, k, vE), d && vE.reach > d.reach && (d.reach = vE.reach);
                 }
               }
             }
           }
         }
     }
-    function a() {
-      var s = {
+    function s() {
+      var a = {
         value: null,
         prev: null,
         next: null
-      }, t = {
+      }, r = {
         value: null,
-        prev: s,
+        prev: a,
         next: null
       };
-      s.next = t, this.head = s, this.tail = t, this.length = 0;
+      a.next = r, this.head = a, this.tail = r, this.length = 0;
     }
-    function _(s, t, D) {
-      var M = t.next, U = {
-        value: D,
-        prev: t,
+    function _(a, r, P) {
+      var M = r.next, U = {
+        value: P,
+        prev: r,
         next: M
       };
-      return t.next = U, M.prev = U, s.length++, U;
+      return r.next = U, M.prev = U, a.length++, U;
     }
-    function u(s, t, D) {
-      for (var M = t.next, U = 0; U < D && M !== s.tail; U++) M = M.next;
-      t.next = M, M.prev = t, s.length -= U;
+    function u(a, r, P) {
+      for (var M = r.next, U = 0; U < P && M !== a.tail; U++) M = M.next;
+      r.next = M, M.prev = r, a.length -= U;
     }
-    function H(s) {
-      for (var t = [], D = s.head.next; D !== s.tail; )
-        t.push(D.value), D = D.next;
-      return t;
+    function H(a) {
+      for (var r = [], P = a.head.next; P !== a.tail; )
+        r.push(P.value), P = P.next;
+      return r;
     }
     if (!R.document)
-      return R.addEventListener && (I.disableWorkerMessageHandler || R.addEventListener("message", function(s) {
-        var t = JSON.parse(s.data), D = t.language, M = t.code, U = t.immediateClose;
-        R.postMessage(I.highlight(M, I.languages[D], D)), U && R.close();
+      return R.addEventListener && (I.disableWorkerMessageHandler || R.addEventListener("message", function(a) {
+        var r = JSON.parse(a.data), P = r.language, M = r.code, U = r.immediateClose;
+        R.postMessage(I.highlight(M, I.languages[P], P)), U && R.close();
       }, !1)), I;
-    var n = I.util.currentScript();
-    n && (I.filename = n.src, n.hasAttribute("data-manual") && (I.manual = !0));
+    var o = I.util.currentScript();
+    o && (I.filename = o.src, o.hasAttribute("data-manual") && (I.manual = !0));
     function l() {
       I.manual || I.highlightAll();
     }
     if (!I.manual) {
       var B = document.readyState;
-      B === "loading" || B === "interactive" && n && n.defer ? document.addEventListener("DOMContentLoaded", l) : window.requestAnimationFrame ? window.requestAnimationFrame(l) : window.setTimeout(l, 16);
+      B === "loading" || B === "interactive" && o && o.defer ? document.addEventListener("DOMContentLoaded", l) : window.requestAnimationFrame ? window.requestAnimationFrame(l) : window.setTimeout(l, 16);
     }
     return I;
   })(typeof window < "u" ? window : typeof WorkerGlobalScope < "u" && self instanceof WorkerGlobalScope ? self : {});
@@ -479,15 +479,15 @@ var CT = (E) => {
       pattern: /[\s\S]+/,
       inside: e.languages[S]
     };
-    var P = {};
-    P[A] = {
+    var i = {};
+    i[A] = {
       pattern: RegExp(/(<__[^>]*>)(?:<!\[CDATA\[(?:[^\]]|\](?!\]>))*\]\]>|(?!<!\[CDATA\[)[\s\S])*?(?=<\/__>)/.source.replace(/__/g, function() {
         return A;
       }), "i"),
       lookbehind: !0,
       greedy: !0,
       inside: I
-    }, e.languages.insertBefore("markup", "cdata", P);
+    }, e.languages.insertBefore("markup", "cdata", i);
   } }), Object.defineProperty(e.languages.markup.tag, "addAttribute", { value: function(R, A) {
     e.languages.markup.tag.inside["special-attr"].push({
       pattern: RegExp(/(^|["'\s])/.source + "(?:" + R + ")" + /\s*=\s*(?:"[^"]*"|'[^']*'|[^\s'">=]+(?=[\s>]))/.source, "i"),
@@ -690,8 +690,8 @@ var CT = (E) => {
   } }), e.languages.markup && (e.languages.markup.tag.addInlined("script", "javascript"), e.languages.markup.tag.addAttribute(/on(?:abort|blur|change|click|composition(?:end|start|update)|dblclick|error|focus(?:in|out)?|key(?:down|up)|load|mouse(?:down|enter|leave|move|out|over|up)|reset|resize|scroll|select|slotchange|submit|unload|wheel)/.source, "javascript")), e.languages.js = e.languages.javascript, (function() {
     if (typeof e > "u" || typeof document > "u") return;
     Element.prototype.matches || (Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector);
-    var R = "Loading…", A = function(n, l) {
-      return "✖ Error " + n + " while fetching file: " + l;
+    var R = "Loading…", A = function(o, l) {
+      return "✖ Error " + o + " while fetching file: " + l;
     }, S = "✖ Error: File does not exist or is empty", O = {
       js: "javascript",
       py: "python",
@@ -702,63 +702,63 @@ var CT = (E) => {
       bat: "batch",
       h: "c",
       tex: "latex"
-    }, I = "data-src-status", P = "loading", i = "loaded", r = "failed", a = "pre[data-src]:not([" + I + '="' + i + '"]):not([' + I + '="' + P + '"])';
-    function _(n, l, B) {
-      var s = new XMLHttpRequest();
-      s.open("GET", n, !0), s.onreadystatechange = function() {
-        s.readyState == 4 && (s.status < 400 && s.responseText ? l(s.responseText) : s.status >= 400 ? B(A(s.status, s.statusText)) : B(S));
-      }, s.send(null);
+    }, I = "data-src-status", i = "loading", C = "loaded", N = "failed", s = "pre[data-src]:not([" + I + '="' + C + '"]):not([' + I + '="' + i + '"])';
+    function _(o, l, B) {
+      var a = new XMLHttpRequest();
+      a.open("GET", o, !0), a.onreadystatechange = function() {
+        a.readyState == 4 && (a.status < 400 && a.responseText ? l(a.responseText) : a.status >= 400 ? B(A(a.status, a.statusText)) : B(S));
+      }, a.send(null);
     }
-    function u(n) {
-      var l = /^\s*(\d+)\s*(?:(,)\s*(?:(\d+)\s*)?)?$/.exec(n || "");
+    function u(o) {
+      var l = /^\s*(\d+)\s*(?:(,)\s*(?:(\d+)\s*)?)?$/.exec(o || "");
       if (l) {
-        var B = Number(l[1]), s = l[2], t = l[3];
-        return s ? t ? [B, Number(t)] : [B, void 0] : [B, B];
+        var B = Number(l[1]), a = l[2], r = l[3];
+        return a ? r ? [B, Number(r)] : [B, void 0] : [B, B];
       }
     }
-    e.hooks.add("before-highlightall", function(n) {
-      n.selector += ", " + a;
-    }), e.hooks.add("before-sanity-check", function(n) {
-      var l = n.element;
-      if (l.matches(a)) {
-        n.code = "", l.setAttribute(I, P);
+    e.hooks.add("before-highlightall", function(o) {
+      o.selector += ", " + s;
+    }), e.hooks.add("before-sanity-check", function(o) {
+      var l = o.element;
+      if (l.matches(s)) {
+        o.code = "", l.setAttribute(I, i);
         var B = l.appendChild(document.createElement("CODE"));
         B.textContent = R;
-        var s = l.getAttribute("data-src"), t = n.language;
-        if (t === "none") {
-          var D = (/\.(\w+)$/.exec(s) || [, "none"])[1];
-          t = O[D] || D;
+        var a = l.getAttribute("data-src"), r = o.language;
+        if (r === "none") {
+          var P = (/\.(\w+)$/.exec(a) || [, "none"])[1];
+          r = O[P] || P;
         }
-        e.util.setLanguage(B, t), e.util.setLanguage(l, t);
+        e.util.setLanguage(B, r), e.util.setLanguage(l, r);
         var M = e.plugins.autoloader;
-        M && M.loadLanguages(t), _(s, function(U) {
-          l.setAttribute(I, i);
+        M && M.loadLanguages(r), _(a, function(U) {
+          l.setAttribute(I, C);
           var d = u(l.getAttribute("data-range"));
           if (d) {
-            var G = U.split(/\r\n?|\n/g), F = d[0], f = d[1] == null ? G.length : d[1];
-            F < 0 && (F += G.length), F = Math.max(0, Math.min(F - 1, G.length)), f < 0 && (f += G.length), f = Math.max(0, Math.min(f, G.length)), U = G.slice(F, f).join(`
+            var G = U.split(/\r\n?|\n/g), F = d[0], y = d[1] == null ? G.length : d[1];
+            F < 0 && (F += G.length), F = Math.max(0, Math.min(F - 1, G.length)), y < 0 && (y += G.length), y = Math.max(0, Math.min(y, G.length)), U = G.slice(F, y).join(`
 `), l.hasAttribute("data-start") || l.setAttribute("data-start", String(F + 1));
           }
           B.textContent = U, e.highlightElement(B);
         }, function(U) {
-          l.setAttribute(I, r), B.textContent = U;
+          l.setAttribute(I, N), B.textContent = U;
         });
       }
     }), e.plugins.fileHighlight = { highlight: function(l) {
-      for (var B = (l || document).querySelectorAll(a), s = 0, t; t = B[s++]; ) e.highlightElement(t);
+      for (var B = (l || document).querySelectorAll(s), a = 0, r; r = B[a++]; ) e.highlightElement(r);
     } };
     var H = !1;
     e.fileHighlight = function() {
       H || (console.warn("Prism.fileHighlight is deprecated. Use `Prism.plugins.fileHighlight.highlight` instead."), H = !0), e.plugins.fileHighlight.highlight.apply(this, arguments);
     };
   })();
-})), N = (E) => E.flatMap(SR), SR = (E) => cE(NR(E)).map(IR), IR = (E) => E.replace(/ +/g, " ").trim(), NR = (E) => ({
+})), t = (E) => E.flatMap(sR), sR = (E) => HE(LR(E)).map(aR), aR = (E) => E.replace(/ +/g, " ").trim(), LR = (E) => ({
   type: "mandatory_block",
-  items: nT(E, 0)[0]
-}), nT = (E, T, e) => {
+  items: oT(E, 0)[0]
+}), oT = (E, T, e) => {
   const R = [];
   for (; E[T]; ) {
-    const [A, S] = tR(E, T);
+    const [A, S] = nR(E, T);
     if (R.push(A), T = S, E[T] === "|") T++;
     else if (E[T] === "}" || E[T] === "]") {
       if (e !== E[T]) throw new Error(`Unbalanced parenthesis in: ${E}`);
@@ -769,10 +769,10 @@ var CT = (E) => {
     } else throw new Error(`Unexpected "${E[T]}"`);
   }
   return [R, T];
-}, tR = (E, T) => {
+}, nR = (E, T) => {
   const e = [];
   for (; ; ) {
-    const [R, A] = rR(E, T);
+    const [R, A] = CR(E, T);
     if (R)
       e.push(R), T = A;
     else break;
@@ -781,72 +781,72 @@ var CT = (E) => {
     type: "concatenation",
     items: e
   }, T];
-}, rR = (E, T) => {
-  if (E[T] === "{") return sR(E, T + 1);
-  if (E[T] === "[") return aR(E, T + 1);
+}, CR = (E, T) => {
+  if (E[T] === "{") return _R(E, T + 1);
+  if (E[T] === "[") return iR(E, T + 1);
   {
     let e = "";
     for (; E[T] && /[A-Za-z0-9_ ]/.test(E[T]); )
       e += E[T], T++;
     return [e, T];
   }
-}, sR = (E, T) => {
-  const [e, R] = nT(E, T, "}");
+}, _R = (E, T) => {
+  const [e, R] = oT(E, T, "}");
   return [{
     type: "mandatory_block",
     items: e
   }, R];
-}, aR = (E, T) => {
-  const [e, R] = nT(E, T, "]");
+}, iR = (E, T) => {
+  const [e, R] = oT(E, T, "]");
   return [{
     type: "optional_block",
     items: e
   }, R];
-}, cE = (E) => {
+}, HE = (E) => {
   if (typeof E == "string") return [E];
-  if (E.type === "concatenation") return E.items.map(cE).reduce(LR, [""]);
-  if (E.type === "mandatory_block") return E.items.flatMap(cE);
-  if (E.type === "optional_block") return ["", ...E.items.flatMap(cE)];
+  if (E.type === "concatenation") return E.items.map(HE).reduce(oR, [""]);
+  if (E.type === "mandatory_block") return E.items.flatMap(HE);
+  if (E.type === "optional_block") return ["", ...E.items.flatMap(HE)];
   throw new Error(`Unknown node type: ${E}`);
-}, LR = (E, T) => {
+}, oR = (E, T) => {
   const e = [];
   for (const R of E) for (const A of T) e.push(R + A);
   return e;
-}, C;
+}, n;
 (function(E) {
   E.QUOTED_IDENTIFIER = "QUOTED_IDENTIFIER", E.IDENTIFIER = "IDENTIFIER", E.STRING = "STRING", E.VARIABLE = "VARIABLE", E.RESERVED_DATA_TYPE = "RESERVED_DATA_TYPE", E.RESERVED_PARAMETERIZED_DATA_TYPE = "RESERVED_PARAMETERIZED_DATA_TYPE", E.RESERVED_KEYWORD = "RESERVED_KEYWORD", E.RESERVED_FUNCTION_NAME = "RESERVED_FUNCTION_NAME", E.RESERVED_KEYWORD_PHRASE = "RESERVED_KEYWORD_PHRASE", E.RESERVED_DATA_TYPE_PHRASE = "RESERVED_DATA_TYPE_PHRASE", E.RESERVED_SET_OPERATION = "RESERVED_SET_OPERATION", E.RESERVED_CLAUSE = "RESERVED_CLAUSE", E.RESERVED_SELECT = "RESERVED_SELECT", E.RESERVED_JOIN = "RESERVED_JOIN", E.ARRAY_IDENTIFIER = "ARRAY_IDENTIFIER", E.ARRAY_KEYWORD = "ARRAY_KEYWORD", E.CASE = "CASE", E.END = "END", E.WHEN = "WHEN", E.ELSE = "ELSE", E.THEN = "THEN", E.LIMIT = "LIMIT", E.BETWEEN = "BETWEEN", E.AND = "AND", E.OR = "OR", E.XOR = "XOR", E.OPERATOR = "OPERATOR", E.COMMA = "COMMA", E.ASTERISK = "ASTERISK", E.PROPERTY_ACCESS_OPERATOR = "PROPERTY_ACCESS_OPERATOR", E.OPEN_PAREN = "OPEN_PAREN", E.CLOSE_PAREN = "CLOSE_PAREN", E.LINE_COMMENT = "LINE_COMMENT", E.BLOCK_COMMENT = "BLOCK_COMMENT", E.DISABLE_COMMENT = "DISABLE_COMMENT", E.NUMBER = "NUMBER", E.NAMED_PARAMETER = "NAMED_PARAMETER", E.QUOTED_PARAMETER = "QUOTED_PARAMETER", E.NUMBERED_PARAMETER = "NUMBERED_PARAMETER", E.POSITIONAL_PARAMETER = "POSITIONAL_PARAMETER", E.CUSTOM_PARAMETER = "CUSTOM_PARAMETER", E.DELIMITER = "DELIMITER", E.EOF = "EOF";
-})(C = C || (C = {}));
-var Ce = (E) => ({
-  type: C.EOF,
+})(n = n || (n = {}));
+var Me = (E) => ({
+  type: n.EOF,
   raw: "«EOF»",
   text: "«EOF»",
   start: E
-}), TE = Ce(1 / 0), sE = (E) => (T) => T.type === E.type && T.text === E.text, eE = {
-  ARRAY: sE({
+}), OE = Me(1 / 0), _E = (E) => (T) => T.type === E.type && T.text === E.text, NE = {
+  ARRAY: _E({
     text: "ARRAY",
-    type: C.RESERVED_DATA_TYPE
+    type: n.RESERVED_DATA_TYPE
   }),
-  BY: sE({
+  BY: _E({
     text: "BY",
-    type: C.RESERVED_KEYWORD
+    type: n.RESERVED_KEYWORD
   }),
-  SET: sE({
+  SET: _E({
     text: "SET",
-    type: C.RESERVED_CLAUSE
+    type: n.RESERVED_CLAUSE
   }),
-  STRUCT: sE({
+  STRUCT: _E({
     text: "STRUCT",
-    type: C.RESERVED_DATA_TYPE
+    type: n.RESERVED_DATA_TYPE
   }),
-  WINDOW: sE({
+  WINDOW: _E({
     text: "WINDOW",
-    type: C.RESERVED_CLAUSE
+    type: n.RESERVED_CLAUSE
   }),
-  VALUES: sE({
+  VALUES: _E({
     text: "VALUES",
-    type: C.RESERVED_CLAUSE
+    type: n.RESERVED_CLAUSE
   })
-}, ne = (E) => E === C.RESERVED_DATA_TYPE || E === C.RESERVED_KEYWORD || E === C.RESERVED_FUNCTION_NAME || E === C.RESERVED_KEYWORD_PHRASE || E === C.RESERVED_DATA_TYPE_PHRASE || E === C.RESERVED_CLAUSE || E === C.RESERVED_SELECT || E === C.RESERVED_SET_OPERATION || E === C.RESERVED_JOIN || E === C.ARRAY_KEYWORD || E === C.CASE || E === C.END || E === C.WHEN || E === C.ELSE || E === C.THEN || E === C.LIMIT || E === C.BETWEEN || E === C.AND || E === C.OR || E === C.XOR, CR = (E) => E === C.AND || E === C.OR || E === C.XOR, nR = [
+}, Ue = (E) => E === n.RESERVED_DATA_TYPE || E === n.RESERVED_KEYWORD || E === n.RESERVED_FUNCTION_NAME || E === n.RESERVED_KEYWORD_PHRASE || E === n.RESERVED_DATA_TYPE_PHRASE || E === n.RESERVED_CLAUSE || E === n.RESERVED_SELECT || E === n.RESERVED_SET_OPERATION || E === n.RESERVED_JOIN || E === n.ARRAY_KEYWORD || E === n.CASE || E === n.END || E === n.WHEN || E === n.ELSE || E === n.THEN || E === n.LIMIT || E === n.BETWEEN || E === n.AND || E === n.OR || E === n.XOR, DR = (E) => E === n.AND || E === n.OR || E === n.XOR, PR = [
   "KEYS.NEW_KEYSET",
   "KEYS.ADD_KEY_FROM_RAW_BYTES",
   "AEAD.DECRYPT_BYTES",
@@ -1341,7 +1341,7 @@ var Ce = (E) => ({
   "OPTIONS",
   "PIVOT",
   "UNPIVOT"
-], _R = [
+], MR = [
   "ALL",
   "AND",
   "ANY",
@@ -1446,7 +1446,7 @@ var Ce = (E) => ({
   "CASCADE",
   "RESTRICT",
   "DETERMINISTIC"
-], iR = [
+], UR = [
   "ARRAY",
   "BOOL",
   "BYTES",
@@ -1470,7 +1470,7 @@ var Ce = (E) => ({
   "STRUCT",
   "TIME",
   "TIMEZONE"
-], oR = N(["SELECT [ALL | DISTINCT] [AS STRUCT | AS VALUE]"]), DR = N([
+], lR = t(["SELECT [ALL | DISTINCT] [AS STRUCT | AS VALUE]"]), uR = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -1494,7 +1494,7 @@ var Ce = (E) => ({
   "WITH CONNECTION",
   "WITH PARTITION COLUMNS",
   "REMOTE WITH CONNECTION"
-]), lT = N(["CREATE [OR REPLACE] [TEMP|TEMPORARY|SNAPSHOT|EXTERNAL] TABLE [IF NOT EXISTS]"]), gE = N([
+]), GT = t(["CREATE [OR REPLACE] [TEMP|TEMPORARY|SNAPSHOT|EXTERNAL] TABLE [IF NOT EXISTS]"]), bE = t([
   "CREATE [OR REPLACE] [MATERIALIZED] VIEW [IF NOT EXISTS]",
   "UPDATE",
   "DELETE [FROM]",
@@ -1560,37 +1560,37 @@ var Ce = (E) => ({
   "CALL",
   "ASSERT",
   "EXPORT DATA"
-]), PR = N([
+]), cR = t([
   "UNION {ALL | DISTINCT}",
   "EXCEPT DISTINCT",
   "INTERSECT DISTINCT"
-]), MR = N([
+]), GR = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN"
-]), UR = N([
+]), dR = t([
   "TABLESAMPLE SYSTEM",
   "ANY TYPE",
   "ALL COLUMNS",
   "NOT DETERMINISTIC",
   "{ROWS | RANGE} BETWEEN",
   "IS [NOT] DISTINCT FROM"
-]), lR = N([]), uR = {
+]), pR = t([]), HR = {
   name: "bigquery",
   tokenizerOptions: {
-    reservedSelect: oR,
+    reservedSelect: lR,
     reservedClauses: [
-      ...DR,
-      ...gE,
-      ...lT
+      ...uR,
+      ...bE,
+      ...GT
     ],
-    reservedSetOperations: PR,
-    reservedJoins: MR,
-    reservedKeywordPhrases: UR,
-    reservedDataTypePhrases: lR,
-    reservedKeywords: _R,
-    reservedDataTypes: iR,
-    reservedFunctionNames: nR,
+    reservedSetOperations: cR,
+    reservedJoins: GR,
+    reservedKeywordPhrases: dR,
+    reservedDataTypePhrases: pR,
+    reservedKeywords: MR,
+    reservedDataTypes: UR,
+    reservedFunctionNames: PR,
     extraParens: ["[]"],
     stringTypes: [
       {
@@ -1653,39 +1653,39 @@ var Ce = (E) => ({
       "||",
       "=>"
     ],
-    postProcess: cR
+    postProcess: BR
   },
   formatOptions: {
-    onelineClauses: [...lT, ...gE],
-    tabularOnelineClauses: gE
+    onelineClauses: [...GT, ...bE],
+    tabularOnelineClauses: bE
   }
 };
-function cR(E) {
-  return GR(dR(E));
+function BR(E) {
+  return FR(mR(E));
 }
-function GR(E) {
-  let T = TE;
-  return E.map((e) => e.text === "OFFSET" && T.text === "[" ? (T = e, Object.assign(Object.assign({}, e), { type: C.RESERVED_FUNCTION_NAME })) : (T = e, e));
+function FR(E) {
+  let T = OE;
+  return E.map((e) => e.text === "OFFSET" && T.text === "[" ? (T = e, Object.assign(Object.assign({}, e), { type: n.RESERVED_FUNCTION_NAME })) : (T = e, e));
 }
-function dR(E) {
+function mR(E) {
   var T;
   const e = [];
   for (let R = 0; R < E.length; R++) {
     const A = E[R];
-    if ((eE.ARRAY(A) || eE.STRUCT(A)) && ((T = E[R + 1]) === null || T === void 0 ? void 0 : T.text) === "<") {
-      const S = pR(E, R + 1), O = E.slice(R, S + 1);
+    if ((NE.ARRAY(A) || NE.STRUCT(A)) && ((T = E[R + 1]) === null || T === void 0 ? void 0 : T.text) === "<") {
+      const S = YR(E, R + 1), O = E.slice(R, S + 1);
       e.push({
-        type: C.IDENTIFIER,
-        raw: O.map(uT("raw")).join(""),
-        text: O.map(uT("text")).join(""),
+        type: n.IDENTIFIER,
+        raw: O.map(dT("raw")).join(""),
+        text: O.map(dT("text")).join(""),
         start: A.start
       }), R = S;
     } else e.push(A);
   }
   return e;
 }
-var uT = (E) => (T) => T.type === C.IDENTIFIER || T.type === C.COMMA ? T[E] + " " : T[E];
-function pR(E, T) {
+var dT = (E) => (T) => T.type === n.IDENTIFIER || T.type === n.COMMA ? T[E] + " " : T[E];
+function YR(E, T) {
   let e = 0;
   for (let R = T; R < E.length; R++) {
     const A = E[R];
@@ -1693,7 +1693,7 @@ function pR(E, T) {
   }
   return E.length - 1;
 }
-var HR = [
+var hR = [
   "BIT_AND",
   "BIT_OR",
   "BIT_XOR",
@@ -3423,7 +3423,7 @@ var HR = [
   "SQLite",
   "MaterializedPostgreSQL",
   "DataLakeCatalog"
-], BR = [
+], fR = [
   "ACCESS",
   "ACTION",
   "ADD",
@@ -3821,7 +3821,7 @@ var HR = [
   "YY",
   "YYYY",
   "ZKPATH"
-], FR = [
+], VR = [
   "AGGREGATEFUNCTION",
   "ARRAY",
   "BFLOAT16",
@@ -3961,7 +3961,7 @@ var HR = [
   "YEAR",
   "BOOL",
   "BOOLEAN"
-], mR = N(["SELECT [DISTINCT]", "MODIFY QUERY SELECT [DISTINCT]"]), YR = N([
+], yR = t(["SELECT [DISTINCT]", "MODIFY QUERY SELECT [DISTINCT]"]), gR = t([
   "SET",
   "WITH",
   "FROM",
@@ -3992,7 +3992,7 @@ var HR = [
   "ALTER USER [IF EXISTS]",
   "ALTER [ROW] POLICY [IF EXISTS]",
   "DROP {USER | ROLE | QUOTA | PROFILE | SETTINGS PROFILE | ROW POLICY | POLICY} [IF EXISTS]"
-]), cT = N(["CREATE [OR REPLACE] [TEMPORARY] TABLE [IF NOT EXISTS]"]), WE = N([
+]), pT = t(["CREATE [OR REPLACE] [TEMPORARY] TABLE [IF NOT EXISTS]"]), XE = t([
   "ALL EXCEPT",
   "ON CLUSTER",
   "UPDATE",
@@ -4103,21 +4103,21 @@ var HR = [
   "CHECK TABLE",
   "PARTITION ID",
   "{DESC | DESCRIBE} TABLE"
-]), hR = N(["UNION [ALL | DISTINCT]", "PARALLEL WITH"]), fR = N(["[GLOBAL] [INNER|LEFT|RIGHT|FULL|CROSS] [OUTER|SEMI|ANTI|ANY|ALL|ASOF] JOIN", "[LEFT] ARRAY JOIN"]), VR = N(["{ROWS | RANGE} BETWEEN", "ALTER MATERIALIZE STATISTICS"]), yR = {
+]), WR = t(["UNION [ALL | DISTINCT]", "PARALLEL WITH"]), vR = t(["[GLOBAL] [INNER|LEFT|RIGHT|FULL|CROSS] [OUTER|SEMI|ANTI|ANY|ALL|ASOF] JOIN", "[LEFT] ARRAY JOIN"]), bR = t(["{ROWS | RANGE} BETWEEN", "ALTER MATERIALIZE STATISTICS"]), XR = {
   name: "clickhouse",
   tokenizerOptions: {
-    reservedSelect: mR,
+    reservedSelect: yR,
     reservedClauses: [
-      ...YR,
-      ...cT,
-      ...WE
+      ...gR,
+      ...pT,
+      ...XE
     ],
-    reservedSetOperations: hR,
-    reservedJoins: fR,
-    reservedKeywordPhrases: VR,
-    reservedKeywords: BR,
-    reservedDataTypes: FR,
-    reservedFunctionNames: HR,
+    reservedSetOperations: WR,
+    reservedJoins: vR,
+    reservedKeywordPhrases: bR,
+    reservedKeywords: fR,
+    reservedDataTypes: VR,
+    reservedFunctionNames: hR,
     extraParens: ["[]", "{}"],
     lineCommentTypes: ["#", "--"],
     nestedBlockComments: !1,
@@ -4140,20 +4140,20 @@ var HR = [
       "<=>",
       "->"
     ],
-    postProcess: gR
+    postProcess: KR
   },
   formatOptions: {
-    onelineClauses: [...cT, ...WE],
-    tabularOnelineClauses: WE
+    onelineClauses: [...pT, ...XE],
+    tabularOnelineClauses: XE
   }
 };
-function gR(E) {
+function KR(E) {
   return E.map((T, e) => {
-    const R = E[e + 1] || TE, A = E[e - 1] || TE;
-    return T.type === C.RESERVED_SELECT && (R.type === C.COMMA || A.type === C.RESERVED_CLAUSE || A.type === C.COMMA) ? Object.assign(Object.assign({}, T), { type: C.RESERVED_KEYWORD }) : eE.SET(T) && R.type === C.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME }) : T;
+    const R = E[e + 1] || OE, A = E[e - 1] || OE;
+    return T.type === n.RESERVED_SELECT && (R.type === n.COMMA || A.type === n.RESERVED_CLAUSE || A.type === n.COMMA) ? Object.assign(Object.assign({}, T), { type: n.RESERVED_KEYWORD }) : NE.SET(T) && R.type === n.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: n.RESERVED_FUNCTION_NAME }) : T;
   });
 }
-var WR = [
+var $R = [
   "ARRAY_AGG",
   "AVG",
   "CORRELATION",
@@ -4467,7 +4467,7 @@ var WR = [
   "NTH_VALUE",
   "RATIO_TO_REPORT",
   "CAST"
-], vR = [
+], xR = [
   "ACTIVATE",
   "ADD",
   "AFTER",
@@ -4867,7 +4867,7 @@ var WR = [
   "XMLNAMESPACES",
   "YEAR",
   "YEARS"
-], XR = [
+], JR = [
   "ARRAY",
   "BIGINT",
   "BINARY",
@@ -4908,7 +4908,7 @@ var WR = [
   "VARBINARY",
   "VARCHAR",
   "VARGRAPHIC"
-], bR = N(["SELECT [ALL | DISTINCT]"]), KR = N([
+], wR = t(["SELECT [ALL | DISTINCT]"]), kR = t([
   "WITH",
   "FROM",
   "WHERE",
@@ -4932,7 +4932,7 @@ var WR = [
   "WHEN [NOT] MATCHED [THEN]",
   "UPDATE SET",
   "INSERT"
-]), GT = N(["CREATE [GLOBAL TEMPORARY | EXTERNAL] TABLE [IF NOT EXISTS]"]), vE = N([
+]), HT = t(["CREATE [GLOBAL TEMPORARY | EXTERNAL] TABLE [IF NOT EXISTS]"]), KE = t([
   "CREATE [OR REPLACE] VIEW",
   "UPDATE",
   "WHERE CURRENT OF",
@@ -5128,35 +5128,35 @@ var WR = [
   "TRANSFER OWNERSHIP OF",
   "WHENEVER {NOT FOUND | SQLERROR | SQLWARNING}",
   "WHILE"
-]), $R = N([
+]), QR = t([
   "UNION [ALL]",
   "EXCEPT [ALL]",
   "INTERSECT [ALL]"
-]), xR = N([
+]), ZR = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN"
-]), JR = N([
+]), qR = t([
   "ON DELETE",
   "ON UPDATE",
   "SET NULL",
   "{ROWS | RANGE} BETWEEN"
-]), wR = N([]), QR = {
+]), jR = t([]), zR = {
   name: "db2",
   tokenizerOptions: {
-    reservedSelect: bR,
+    reservedSelect: wR,
     reservedClauses: [
-      ...KR,
-      ...GT,
-      ...vE
+      ...kR,
+      ...HT,
+      ...KE
     ],
-    reservedSetOperations: $R,
-    reservedJoins: xR,
-    reservedKeywordPhrases: JR,
-    reservedDataTypePhrases: wR,
-    reservedKeywords: vR,
-    reservedDataTypes: XR,
-    reservedFunctionNames: WR,
+    reservedSetOperations: QR,
+    reservedJoins: ZR,
+    reservedKeywordPhrases: qR,
+    reservedDataTypePhrases: jR,
+    reservedKeywords: xR,
+    reservedDataTypes: JR,
+    reservedFunctionNames: $R,
     extraParens: ["[]"],
     stringTypes: [{
       quote: "''-qq",
@@ -5209,10 +5209,10 @@ var WR = [
     ]
   },
   formatOptions: {
-    onelineClauses: [...GT, ...vE],
-    tabularOnelineClauses: vE
+    onelineClauses: [...HT, ...KE],
+    tabularOnelineClauses: KE
   }
-}, kR = [
+}, EA = [
   "ARRAY_AGG",
   "AVG",
   "CORR",
@@ -5538,7 +5538,7 @@ var WR = [
   "RATIO_TO_REPORT",
   "ROW_NUMBER",
   "CAST"
-], ZR = [
+], TA = [
   "ABSENT",
   "ACCORDING",
   "ACCTNG",
@@ -6030,7 +6030,7 @@ var WR = [
   "YEARS",
   "YES",
   "ZONE"
-], qR = [
+], eA = [
   "ARRAY",
   "BIGINT",
   "BINARY",
@@ -6065,7 +6065,7 @@ var WR = [
   "VARCHAR",
   "VARGRAPHIC",
   "XML"
-], jR = N(["SELECT [ALL | DISTINCT]"]), zR = N([
+], RA = t(["SELECT [ALL | DISTINCT]"]), AA = t([
   "WITH [RECURSIVE]",
   "INTO",
   "FROM",
@@ -6089,7 +6089,7 @@ var WR = [
   "DELETE",
   "INSERT",
   "FOR SYSTEM NAME"
-]), dT = N(["CREATE [OR REPLACE] TABLE"]), XE = N([
+]), BT = t(["CREATE [OR REPLACE] TABLE"]), $E = t([
   "CREATE [OR REPLACE] [RECURSIVE] VIEW",
   "UPDATE",
   "WHERE CURRENT OF",
@@ -6176,36 +6176,36 @@ var WR = [
   "TAG",
   "TRANSFER OWNERSHIP OF",
   "WHENEVER {NOT FOUND | SQLERROR | SQLWARNING}"
-]), EA = N([
+]), SA = t([
   "UNION [ALL]",
   "EXCEPT [ALL]",
   "INTERSECT [ALL]"
-]), TA = N([
+]), IA = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "[LEFT | RIGHT] EXCEPTION JOIN",
   "{INNER | CROSS} JOIN"
-]), eA = N([
+]), OA = t([
   "ON DELETE",
   "ON UPDATE",
   "SET NULL",
   "{ROWS | RANGE} BETWEEN"
-]), RA = N([]), AA = {
+]), NA = t([]), tA = {
   name: "db2i",
   tokenizerOptions: {
-    reservedSelect: jR,
+    reservedSelect: RA,
     reservedClauses: [
-      ...zR,
-      ...dT,
-      ...XE
+      ...AA,
+      ...BT,
+      ...$E
     ],
-    reservedSetOperations: EA,
-    reservedJoins: TA,
-    reservedKeywordPhrases: eA,
-    reservedDataTypePhrases: RA,
-    reservedKeywords: ZR,
-    reservedDataTypes: qR,
-    reservedFunctionNames: kR,
+    reservedSetOperations: SA,
+    reservedJoins: IA,
+    reservedKeywordPhrases: OA,
+    reservedDataTypePhrases: NA,
+    reservedKeywords: TA,
+    reservedDataTypes: eA,
+    reservedFunctionNames: EA,
     nestedBlockComments: !0,
     extraParens: ["[]"],
     stringTypes: [{
@@ -6246,10 +6246,10 @@ var WR = [
     ]
   },
   formatOptions: {
-    onelineClauses: [...dT, ...XE],
-    tabularOnelineClauses: XE
+    onelineClauses: [...BT, ...$E],
+    tabularOnelineClauses: $E
   }
-}, SA = [
+}, rA = [
   "ABS",
   "ACOS",
   "ADD",
@@ -6904,7 +6904,7 @@ var WR = [
   "COALESCE",
   "RANK",
   "ROW_NUMBER"
-], IA = [
+], sA = [
   "ALL",
   "ANALYSE",
   "ANALYZE",
@@ -6981,7 +6981,7 @@ var WR = [
   "WHERE",
   "WINDOW",
   "WITH"
-], OA = [
+], aA = [
   "ARRAY",
   "BIGINT",
   "BINARY",
@@ -7056,7 +7056,7 @@ var WR = [
   "UUID",
   "VARBINARY",
   "VARCHAR"
-], NA = N(["SELECT [ALL | DISTINCT]"]), tA = N([
+], LA = t(["SELECT [ALL | DISTINCT]"]), nA = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -7074,7 +7074,7 @@ var WR = [
   "DEFAULT VALUES",
   "SET",
   "RETURNING"
-]), pT = N(["CREATE [OR REPLACE] [TEMPORARY | TEMP] TABLE [IF NOT EXISTS]"]), bE = N([
+]), FT = t(["CREATE [OR REPLACE] [TEMPORARY | TEMP] TABLE [IF NOT EXISTS]"]), xE = t([
   "UPDATE",
   "ON CONFLICT",
   "DELETE FROM",
@@ -7135,11 +7135,11 @@ var WR = [
   "PREPARE",
   "EXECUTE",
   "DEALLOCATE [PREPARE]"
-]), rA = N([
+]), CA = t([
   "UNION [ALL | BY NAME]",
   "EXCEPT [ALL]",
   "INTERSECT [ALL]"
-]), sA = N([
+]), _A = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
@@ -7148,27 +7148,27 @@ var WR = [
   "POSITIONAL JOIN",
   "ANTI JOIN",
   "SEMI JOIN"
-]), aA = N([
+]), iA = t([
   "{ROWS | RANGE | GROUPS} BETWEEN",
   "SIMILAR TO",
   "IS [NOT] DISTINCT FROM"
-]), LA = N(["TIMESTAMP WITH TIME ZONE"]), CA = {
+]), oA = t(["TIMESTAMP WITH TIME ZONE"]), DA = {
   name: "duckdb",
   tokenizerOptions: {
-    reservedSelect: NA,
+    reservedSelect: LA,
     reservedClauses: [
-      ...tA,
-      ...pT,
-      ...bE
+      ...nA,
+      ...FT,
+      ...xE
     ],
-    reservedSetOperations: rA,
-    reservedJoins: sA,
-    reservedKeywordPhrases: aA,
-    reservedDataTypePhrases: LA,
+    reservedSetOperations: CA,
+    reservedJoins: _A,
+    reservedKeywordPhrases: iA,
+    reservedDataTypePhrases: oA,
     supportsXor: !0,
-    reservedKeywords: IA,
-    reservedDataTypes: OA,
-    reservedFunctionNames: SA,
+    reservedKeywords: sA,
+    reservedDataTypes: aA,
+    reservedFunctionNames: rA,
     nestedBlockComments: !0,
     extraParens: ["[]", "{}"],
     underscoresInNumbers: !0,
@@ -7228,10 +7228,10 @@ var WR = [
   },
   formatOptions: {
     alwaysDenseOperators: ["::"],
-    onelineClauses: [...pT, ...bE],
-    tabularOnelineClauses: bE
+    onelineClauses: [...FT, ...xE],
+    tabularOnelineClauses: xE
   }
-}, nA = [
+}, PA = [
   "ABS",
   "ACOS",
   "ASIN",
@@ -7426,7 +7426,7 @@ var WR = [
   "CUME_DIST",
   "PERCENT_RANK",
   "NTILE"
-], _A = [
+], MA = [
   "ADD",
   "ADMIN",
   "AFTER",
@@ -7737,7 +7737,7 @@ var WR = [
   "JSONFILE",
   "INPUTFORMAT",
   "OUTPUTFORMAT"
-], iA = [
+], UA = [
   "ARRAY",
   "BIGINT",
   "BINARY",
@@ -7757,7 +7757,7 @@ var WR = [
   "STRUCT",
   "TIMESTAMP",
   "VARCHAR"
-], oA = N(["SELECT [ALL | DISTINCT]"]), DA = N([
+], lA = t(["SELECT [ALL | DISTINCT]"]), uA = t([
   "WITH",
   "FROM",
   "WHERE",
@@ -7780,7 +7780,7 @@ var WR = [
   "INSERT OVERWRITE [LOCAL] DIRECTORY",
   "LOAD DATA [LOCAL] INPATH",
   "[OVERWRITE] INTO TABLE"
-]), HT = N(["CREATE [TEMPORARY] [EXTERNAL] TABLE [IF NOT EXISTS]"]), KE = N([
+]), mT = t(["CREATE [TEMPORARY] [EXTERNAL] TABLE [IF NOT EXISTS]"]), JE = t([
   "CREATE [MATERIALIZED] VIEW [IF NOT EXISTS]",
   "UPDATE",
   "DELETE FROM",
@@ -7798,27 +7798,27 @@ var WR = [
   "STORED AS",
   "STORED BY",
   "ROW FORMAT"
-]), PA = N(["UNION [ALL | DISTINCT]"]), MA = N([
+]), cA = t(["UNION [ALL | DISTINCT]"]), GA = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "LEFT SEMI JOIN"
-]), UA = N(["{ROWS | RANGE} BETWEEN"]), lA = N([]), uA = {
+]), dA = t(["{ROWS | RANGE} BETWEEN"]), pA = t([]), HA = {
   name: "hive",
   tokenizerOptions: {
-    reservedSelect: oA,
+    reservedSelect: lA,
     reservedClauses: [
-      ...DA,
-      ...HT,
-      ...KE
+      ...uA,
+      ...mT,
+      ...JE
     ],
-    reservedSetOperations: PA,
-    reservedJoins: MA,
-    reservedKeywordPhrases: UA,
-    reservedDataTypePhrases: lA,
-    reservedKeywords: _A,
-    reservedDataTypes: iA,
-    reservedFunctionNames: nA,
+    reservedSetOperations: cA,
+    reservedJoins: GA,
+    reservedKeywordPhrases: dA,
+    reservedDataTypePhrases: pA,
+    reservedKeywords: MA,
+    reservedDataTypes: UA,
+    reservedFunctionNames: PA,
     extraParens: ["[]"],
     stringTypes: ['""-bs', "''-bs"],
     identTypes: ["``"],
@@ -7840,19 +7840,19 @@ var WR = [
     ]
   },
   formatOptions: {
-    onelineClauses: [...HT, ...KE],
-    tabularOnelineClauses: KE
+    onelineClauses: [...mT, ...JE],
+    tabularOnelineClauses: JE
   }
 };
-function YE(E) {
+function VE(E) {
   return E.map((T, e) => {
-    const R = E[e + 1] || TE;
-    if (eE.SET(T) && R.text === "(") return Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME });
-    const A = E[e - 1] || TE;
-    return eE.VALUES(T) && A.text === "=" ? Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME }) : T;
+    const R = E[e + 1] || OE;
+    if (NE.SET(T) && R.text === "(") return Object.assign(Object.assign({}, T), { type: n.RESERVED_FUNCTION_NAME });
+    const A = E[e - 1] || OE;
+    return NE.VALUES(T) && A.text === "=" ? Object.assign(Object.assign({}, T), { type: n.RESERVED_FUNCTION_NAME }) : T;
   });
 }
-var cA = [
+var BA = [
   "ACCESSIBLE",
   "ADD",
   "ALL",
@@ -8068,7 +8068,7 @@ var cA = [
   "XOR",
   "YEAR_MONTH",
   "ZEROFILL"
-], GA = [
+], FA = [
   "BIGINT",
   "BINARY",
   "BIT",
@@ -8116,7 +8116,7 @@ var cA = [
   "VARCHARACTER",
   "VARYING",
   "YEAR"
-], dA = [
+], mA = [
   "ADDDATE",
   "ADD_MONTHS",
   "BIT_AND",
@@ -8352,7 +8352,7 @@ var cA = [
   "YEARWEEK",
   "COALESCE",
   "NULLIF"
-], pA = N(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), HA = N([
+], YA = t(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), hA = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -8369,7 +8369,7 @@ var cA = [
   "ON DUPLICATE KEY UPDATE",
   "SET",
   "RETURNING"
-]), BT = N(["CREATE [OR REPLACE] [TEMPORARY] TABLE [IF NOT EXISTS]"]), $E = N([
+]), YT = t(["CREATE [OR REPLACE] [TEMPORARY] TABLE [IF NOT EXISTS]"]), wE = t([
   "CREATE [OR REPLACE] [SQL SECURITY DEFINER | SQL SECURITY INVOKER] VIEW [IF NOT EXISTS]",
   "UPDATE [LOW_PRIORITY] [IGNORE]",
   "DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM",
@@ -8569,40 +8569,40 @@ var cA = [
   "XA RECOVER",
   "XA ROLLBACK",
   "XA START"
-]), BA = N([
+]), fA = t([
   "UNION [ALL | DISTINCT]",
   "EXCEPT [ALL | DISTINCT]",
   "INTERSECT [ALL | DISTINCT]",
   "MINUS [ALL | DISTINCT]"
-]), FA = N([
+]), VA = t([
   "JOIN",
   "{LEFT | RIGHT} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL JOIN",
   "NATURAL {LEFT | RIGHT} [OUTER] JOIN",
   "STRAIGHT_JOIN"
-]), mA = N([
+]), yA = t([
   "ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]",
   "CHARACTER SET",
   "{ROWS | RANGE} BETWEEN",
   "IDENTIFIED BY"
-]), YA = N([]), hA = {
+]), gA = t([]), WA = {
   name: "mariadb",
   tokenizerOptions: {
-    reservedSelect: pA,
+    reservedSelect: YA,
     reservedClauses: [
-      ...HA,
-      ...BT,
-      ...$E
+      ...hA,
+      ...YT,
+      ...wE
     ],
-    reservedSetOperations: BA,
-    reservedJoins: FA,
-    reservedKeywordPhrases: mA,
-    reservedDataTypePhrases: YA,
+    reservedSetOperations: fA,
+    reservedJoins: VA,
+    reservedKeywordPhrases: yA,
+    reservedDataTypePhrases: gA,
     supportsXor: !0,
-    reservedKeywords: cA,
-    reservedDataTypes: GA,
-    reservedFunctionNames: dA,
+    reservedKeywords: BA,
+    reservedDataTypes: FA,
+    reservedFunctionNames: mA,
     stringTypes: [
       '""-qq-bs',
       "''-qq-bs",
@@ -8653,13 +8653,13 @@ var cA = [
       "!",
       "*.*"
     ],
-    postProcess: YE
+    postProcess: VE
   },
   formatOptions: {
-    onelineClauses: [...BT, ...$E],
-    tabularOnelineClauses: $E
+    onelineClauses: [...YT, ...wE],
+    tabularOnelineClauses: wE
   }
-}, fA = [
+}, vA = [
   "ACCESSIBLE",
   "ADD",
   "ALL",
@@ -8888,7 +8888,7 @@ var cA = [
   "XOR",
   "YEAR_MONTH",
   "ZEROFILL"
-], VA = [
+], bA = [
   "BIGINT",
   "BINARY",
   "BIT",
@@ -8938,7 +8938,7 @@ var cA = [
   "VARCHARACTER",
   "VARYING",
   "YEAR"
-], yA = [
+], XA = [
   "ABS",
   "ACOS",
   "ADDDATE",
@@ -9355,7 +9355,7 @@ var cA = [
   "WEIGHT_STRING",
   "YEAR",
   "YEARWEEK"
-], gA = N(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), WA = N([
+], KA = t(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), $A = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -9371,7 +9371,7 @@ var cA = [
   "VALUES",
   "ON DUPLICATE KEY UPDATE",
   "SET"
-]), FT = N(["CREATE [TEMPORARY] TABLE [IF NOT EXISTS]"]), xE = N([
+]), hT = t(["CREATE [TEMPORARY] TABLE [IF NOT EXISTS]"]), kE = t([
   "CREATE [OR REPLACE] [SQL SECURITY DEFINER | SQL SECURITY INVOKER] VIEW [IF NOT EXISTS]",
   "UPDATE [LOW_PRIORITY] [IGNORE]",
   "DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM",
@@ -9543,35 +9543,35 @@ var cA = [
   "REPEAT",
   "RETURN",
   "WHILE"
-]), vA = N(["UNION [ALL | DISTINCT]"]), XA = N([
+]), xA = t(["UNION [ALL | DISTINCT]"]), JA = t([
   "JOIN",
   "{LEFT | RIGHT} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT} [OUTER] JOIN",
   "STRAIGHT_JOIN"
-]), bA = N([
+]), wA = t([
   "ON {UPDATE | DELETE} [SET NULL]",
   "CHARACTER SET",
   "{ROWS | RANGE} BETWEEN",
   "IDENTIFIED BY"
-]), KA = N([]), $A = {
+]), kA = t([]), QA = {
   name: "mysql",
   tokenizerOptions: {
-    reservedSelect: gA,
+    reservedSelect: KA,
     reservedClauses: [
-      ...WA,
-      ...FT,
-      ...xE
+      ...$A,
+      ...hT,
+      ...kE
     ],
-    reservedSetOperations: vA,
-    reservedJoins: XA,
-    reservedKeywordPhrases: bA,
-    reservedDataTypePhrases: KA,
+    reservedSetOperations: xA,
+    reservedJoins: JA,
+    reservedKeywordPhrases: wA,
+    reservedDataTypePhrases: kA,
     supportsXor: !0,
-    reservedKeywords: fA,
-    reservedDataTypes: VA,
-    reservedFunctionNames: yA,
+    reservedKeywords: vA,
+    reservedDataTypes: bA,
+    reservedFunctionNames: XA,
     stringTypes: [
       '""-qq-bs',
       {
@@ -9627,13 +9627,13 @@ var cA = [
       "!",
       "*.*"
     ],
-    postProcess: YE
+    postProcess: VE
   },
   formatOptions: {
-    onelineClauses: [...FT, ...xE],
-    tabularOnelineClauses: xE
+    onelineClauses: [...hT, ...kE],
+    tabularOnelineClauses: kE
   }
-}, xA = [
+}, ZA = [
   "ADD",
   "ALL",
   "ALTER",
@@ -9823,7 +9823,7 @@ var cA = [
   "XOR",
   "YEAR_MONTH",
   "ZEROFILL"
-], JA = [
+], qA = [
   "BIGINT",
   "BINARY",
   "BIT",
@@ -9868,7 +9868,7 @@ var cA = [
   "VARCHARACTER",
   "VARYING",
   "YEAR"
-], wA = [
+], jA = [
   "ABS",
   "ACOS",
   "ADDDATE",
@@ -10185,7 +10185,7 @@ var cA = [
   "WEIGHT_STRING",
   "YEAR",
   "YEARWEEK"
-], QA = N(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), kA = N([
+], zA = t(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), ES = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -10201,7 +10201,7 @@ var cA = [
   "VALUES",
   "ON DUPLICATE KEY UPDATE",
   "SET"
-]), mT = N(["CREATE [TEMPORARY] TABLE [IF NOT EXISTS]"]), JE = N([
+]), fT = t(["CREATE [TEMPORARY] TABLE [IF NOT EXISTS]"]), QE = t([
   "CREATE [OR REPLACE] [SQL SECURITY DEFINER | SQL SECURITY INVOKER] VIEW [IF NOT EXISTS]",
   "UPDATE [LOW_PRIORITY] [IGNORE]",
   "DELETE [LOW_PRIORITY] [QUICK] [IGNORE] FROM",
@@ -10304,35 +10304,35 @@ var cA = [
   "UNLOCK INSTANCE",
   "UNLOCK TABLES",
   "USE"
-]), ZA = N(["UNION [ALL | DISTINCT]"]), qA = N([
+]), TS = t(["UNION [ALL | DISTINCT]"]), eS = t([
   "JOIN",
   "{LEFT | RIGHT} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT} [OUTER] JOIN",
   "STRAIGHT_JOIN"
-]), jA = N([
+]), RS = t([
   "ON {UPDATE | DELETE} [SET NULL]",
   "CHARACTER SET",
   "{ROWS | RANGE} BETWEEN",
   "IDENTIFIED BY"
-]), zA = N([]), ES = {
+]), AS = t([]), SS = {
   name: "tidb",
   tokenizerOptions: {
-    reservedSelect: QA,
+    reservedSelect: zA,
     reservedClauses: [
-      ...kA,
-      ...mT,
-      ...JE
+      ...ES,
+      ...fT,
+      ...QE
     ],
-    reservedSetOperations: ZA,
-    reservedJoins: qA,
-    reservedKeywordPhrases: jA,
-    reservedDataTypePhrases: zA,
+    reservedSetOperations: TS,
+    reservedJoins: eS,
+    reservedKeywordPhrases: RS,
+    reservedDataTypePhrases: AS,
     supportsXor: !0,
-    reservedKeywords: xA,
-    reservedDataTypes: JA,
-    reservedFunctionNames: wA,
+    reservedKeywords: ZA,
+    reservedDataTypes: qA,
+    reservedFunctionNames: jA,
     stringTypes: [
       '""-qq-bs',
       {
@@ -10388,13 +10388,13 @@ var cA = [
       "!",
       "*.*"
     ],
-    postProcess: YE
+    postProcess: VE
   },
   formatOptions: {
-    onelineClauses: [...mT, ...JE],
-    tabularOnelineClauses: JE
+    onelineClauses: [...fT, ...QE],
+    tabularOnelineClauses: QE
   }
-}, TS = [
+}, IS = [
   "ABORT",
   "ABS",
   "ACOS",
@@ -10618,7 +10618,7 @@ var cA = [
   "WEEKDAY_MILLIS",
   "WEEKDAY_STR",
   "CAST"
-], eS = [
+], OS = [
   "ADVISE",
   "ALL",
   "ALTER",
@@ -10823,7 +10823,7 @@ var cA = [
   "WITHIN",
   "WORK",
   "XOR"
-], RS = [], AS = N(["SELECT [ALL | DISTINCT]"]), SS = N([
+], NS = [], tS = t(["SELECT [ALL | DISTINCT]"]), rS = t([
   "WITH",
   "FROM",
   "WHERE",
@@ -10844,7 +10844,7 @@ var cA = [
   "NEST",
   "UNNEST",
   "RETURNING"
-]), YT = N([
+]), VT = t([
   "UPDATE",
   "DELETE FROM",
   "SET SCHEMA",
@@ -10879,27 +10879,27 @@ var cA = [
   "SET CURRENT SCHEMA",
   "SHOW",
   "USE [PRIMARY] KEYS"
-]), IS = N([
+]), sS = t([
   "UNION [ALL]",
   "EXCEPT [ALL]",
   "INTERSECT [ALL]"
-]), OS = N([
+]), aS = t([
   "JOIN",
   "{LEFT | RIGHT} [OUTER] JOIN",
   "INNER JOIN"
-]), NS = N(["{ROWS | RANGE | GROUPS} BETWEEN"]), tS = N([]), rS = {
+]), LS = t(["{ROWS | RANGE | GROUPS} BETWEEN"]), nS = t([]), CS = {
   name: "n1ql",
   tokenizerOptions: {
-    reservedSelect: AS,
-    reservedClauses: [...SS, ...YT],
-    reservedSetOperations: IS,
-    reservedJoins: OS,
-    reservedKeywordPhrases: NS,
-    reservedDataTypePhrases: tS,
+    reservedSelect: tS,
+    reservedClauses: [...rS, ...VT],
+    reservedSetOperations: sS,
+    reservedJoins: aS,
+    reservedKeywordPhrases: LS,
+    reservedDataTypePhrases: nS,
     supportsXor: !0,
-    reservedKeywords: eS,
-    reservedDataTypes: RS,
-    reservedFunctionNames: TS,
+    reservedKeywords: OS,
+    reservedDataTypes: NS,
+    reservedFunctionNames: IS,
     stringTypes: ['""-bs', "''-bs"],
     identTypes: ["``"],
     extraParens: ["[]", "{}"],
@@ -10916,8 +10916,8 @@ var cA = [
       "||"
     ]
   },
-  formatOptions: { onelineClauses: YT }
-}, sS = [
+  formatOptions: { onelineClauses: VT }
+}, _S = [
   "ADD",
   "AGENT",
   "AGGREGATE",
@@ -11219,7 +11219,7 @@ var cA = [
   "WRITE",
   "YEAR",
   "ZONE"
-], aS = [
+], iS = [
   "ARRAY",
   "BFILE_BASE",
   "BINARY",
@@ -11256,7 +11256,7 @@ var cA = [
   "UROWID",
   "VARCHAR",
   "VARCHAR2"
-], LS = [
+], oS = [
   "ABS",
   "ACOS",
   "ASIN",
@@ -11502,7 +11502,7 @@ var cA = [
   "PRESENTNNV",
   "PRESENTV",
   "PREVIOUS"
-], CS = N(["SELECT [ALL | DISTINCT | UNIQUE]"]), nS = N([
+], DS = t(["SELECT [ALL | DISTINCT | UNIQUE]"]), PS = t([
   "WITH",
   "FROM",
   "WHERE",
@@ -11520,7 +11520,7 @@ var cA = [
   "WHEN [NOT] MATCHED [THEN]",
   "UPDATE SET",
   "RETURNING"
-]), hT = N(["CREATE [GLOBAL TEMPORARY | PRIVATE TEMPORARY | SHARDED | DUPLICATED | IMMUTABLE BLOCKCHAIN | BLOCKCHAIN | IMMUTABLE] TABLE"]), wE = N([
+]), yT = t(["CREATE [GLOBAL TEMPORARY | PRIVATE TEMPORARY | SHARDED | DUPLICATED | IMMUTABLE BLOCKCHAIN | BLOCKCHAIN | IMMUTABLE] TABLE"]), ZE = t([
   "CREATE [OR REPLACE] [NO FORCE | FORCE] [EDITIONING | EDITIONABLE | EDITIONABLE EDITIONING | NONEDITIONABLE] VIEW",
   "CREATE MATERIALIZED VIEW",
   "UPDATE [ONLY]",
@@ -11541,38 +11541,38 @@ var cA = [
   "EXCEPTION",
   "LOOP",
   "START WITH"
-]), _S = N([
+]), MS = t([
   "UNION [ALL]",
   "MINUS",
   "INTERSECT"
-]), iS = N([
+]), US = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{CROSS | OUTER} APPLY"
-]), oS = N([
+]), lS = t([
   "ON {UPDATE | DELETE} [SET NULL]",
   "ON COMMIT",
   "{ROWS | RANGE} BETWEEN"
-]), DS = N([]), PS = {
+]), uS = t([]), cS = {
   name: "plsql",
   tokenizerOptions: {
-    reservedSelect: CS,
+    reservedSelect: DS,
     reservedClauses: [
-      ...nS,
-      ...hT,
-      ...wE
+      ...PS,
+      ...yT,
+      ...ZE
     ],
-    reservedSetOperations: _S,
-    reservedJoins: iS,
-    reservedKeywordPhrases: oS,
-    reservedDataTypePhrases: DS,
+    reservedSetOperations: MS,
+    reservedJoins: US,
+    reservedKeywordPhrases: lS,
+    reservedDataTypePhrases: uS,
     supportsXor: !0,
-    reservedKeywords: sS,
-    reservedDataTypes: aS,
-    reservedFunctionNames: LS,
+    reservedKeywords: _S,
+    reservedDataTypes: iS,
+    reservedFunctionNames: oS,
     stringTypes: [{
       quote: "''-qq",
       prefixes: ["N"]
@@ -11599,19 +11599,19 @@ var cA = [
       "@",
       "||"
     ],
-    postProcess: MS
+    postProcess: GS
   },
   formatOptions: {
     alwaysDenseOperators: ["@"],
-    onelineClauses: [...hT, ...wE],
-    tabularOnelineClauses: wE
+    onelineClauses: [...yT, ...ZE],
+    tabularOnelineClauses: ZE
   }
 };
-function MS(E) {
-  let T = TE;
-  return E.map((e) => eE.SET(e) && eE.BY(T) ? Object.assign(Object.assign({}, e), { type: C.RESERVED_KEYWORD }) : (ne(e.type) && (T = e), e));
+function GS(E) {
+  let T = OE;
+  return E.map((e) => NE.SET(e) && NE.BY(T) ? Object.assign(Object.assign({}, e), { type: n.RESERVED_KEYWORD }) : (Ue(e.type) && (T = e), e));
 }
-var US = [
+var dS = [
   "ABS",
   "ACOS",
   "ACOSD",
@@ -12265,7 +12265,7 @@ var US = [
   "PG_GET_OBJECT_ADDRESS",
   "PG_MCV_LIST_ITEMS",
   "CAST"
-], lS = [
+], pS = [
   "ALL",
   "ANALYSE",
   "ANALYZE",
@@ -12382,7 +12382,7 @@ var US = [
   "WITHIN",
   "WITHOUT",
   "YEAR"
-], uS = [
+], HS = [
   "ARRAY",
   "BIGINT",
   "BIT",
@@ -12415,7 +12415,7 @@ var US = [
   "VARCHAR",
   "XML",
   "ZONE"
-], cS = N(["SELECT [ALL | DISTINCT]"]), GS = N([
+], BS = t(["SELECT [ALL | DISTINCT]"]), FS = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -12433,7 +12433,7 @@ var US = [
   "DEFAULT VALUES",
   "SET",
   "RETURNING"
-]), fT = N(["CREATE [GLOBAL | LOCAL] [TEMPORARY | TEMP | UNLOGGED] TABLE [IF NOT EXISTS]"]), QE = N([
+]), gT = t(["CREATE [GLOBAL | LOCAL] [TEMPORARY | TEMP | UNLOGGED] TABLE [IF NOT EXISTS]"]), qE = t([
   "CREATE [OR REPLACE] [TEMP | TEMPORARY] [RECURSIVE] VIEW",
   "CREATE [MATERIALIZED] VIEW [IF NOT EXISTS]",
   "UPDATE [ONLY]",
@@ -12623,17 +12623,17 @@ var US = [
   "START TRANSACTION",
   "UNLISTEN",
   "VACUUM"
-]), dS = N([
+]), mS = t([
   "UNION [ALL | DISTINCT]",
   "EXCEPT [ALL | DISTINCT]",
   "INTERSECT [ALL | DISTINCT]"
-]), pS = N([
+]), YS = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN"
-]), HS = N([
+]), hS = t([
   "PRIMARY KEY",
   "GENERATED {ALWAYS | BY DEFAULT} AS IDENTITY",
   "ON {UPDATE | DELETE} [NO ACTION | RESTRICT | CASCADE | SET NULL | SET DEFAULT]",
@@ -12643,22 +12643,22 @@ var US = [
   "IS [NOT] DISTINCT FROM",
   "NULLS {FIRST | LAST}",
   "WITH ORDINALITY"
-]), BS = N(["[TIMESTAMP | TIME] {WITH | WITHOUT} TIME ZONE"]), FS = {
+]), fS = t(["[TIMESTAMP | TIME] {WITH | WITHOUT} TIME ZONE"]), VS = {
   name: "postgresql",
   tokenizerOptions: {
-    reservedSelect: cS,
+    reservedSelect: BS,
     reservedClauses: [
-      ...GS,
-      ...fT,
-      ...QE
+      ...FS,
+      ...gT,
+      ...qE
     ],
-    reservedSetOperations: dS,
-    reservedJoins: pS,
-    reservedKeywordPhrases: HS,
-    reservedDataTypePhrases: BS,
-    reservedKeywords: lS,
-    reservedDataTypes: uS,
-    reservedFunctionNames: US,
+    reservedSetOperations: mS,
+    reservedJoins: YS,
+    reservedKeywordPhrases: hS,
+    reservedDataTypePhrases: fS,
+    reservedKeywords: pS,
+    reservedDataTypes: HS,
+    reservedFunctionNames: dS,
     nestedBlockComments: !0,
     extraParens: ["[]"],
     underscoresInNumbers: !0,
@@ -12767,10 +12767,10 @@ var US = [
   },
   formatOptions: {
     alwaysDenseOperators: ["::", ":"],
-    onelineClauses: [...fT, ...QE],
-    tabularOnelineClauses: QE
+    onelineClauses: [...gT, ...qE],
+    tabularOnelineClauses: qE
   }
-}, mS = [
+}, yS = [
   "ANY_VALUE",
   "APPROXIMATE PERCENTILE_DISC",
   "AVG",
@@ -13098,7 +13098,7 @@ var US = [
   "SLICE_NUM",
   "USER",
   "VERSION"
-], YS = [
+], gS = [
   "AES128",
   "AES256",
   "ALL",
@@ -13268,7 +13268,7 @@ var US = [
   "KEY",
   "PREDICATE",
   "COMPRESSION"
-], hS = [
+], WS = [
   "ARRAY",
   "BIGINT",
   "BPCHAR",
@@ -13288,7 +13288,7 @@ var US = [
   "TEXT",
   "VARBYTE",
   "VARCHAR"
-], fS = N(["SELECT [ALL | DISTINCT]"]), VS = N([
+], vS = t(["SELECT [ALL | DISTINCT]"]), bS = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -13302,7 +13302,7 @@ var US = [
   "INSERT INTO",
   "VALUES",
   "SET"
-]), VT = N(["CREATE [TEMPORARY | TEMP | LOCAL TEMPORARY | LOCAL TEMP] TABLE [IF NOT EXISTS]"]), kE = N([
+]), WT = t(["CREATE [TEMPORARY | TEMP | LOCAL TEMPORARY | LOCAL TEMP] TABLE [IF NOT EXISTS]"]), jE = t([
   "CREATE [OR REPLACE | MATERIALIZED] VIEW",
   "UPDATE",
   "DELETE [FROM]",
@@ -13386,38 +13386,38 @@ var US = [
   "START TRANSACTION",
   "UNLOAD",
   "VACUUM"
-]), yS = N([
+]), XS = t([
   "UNION [ALL]",
   "EXCEPT",
   "INTERSECT",
   "MINUS"
-]), gS = N([
+]), KS = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN"
-]), WS = N([
+]), $S = t([
   "NULL AS",
   "DATA CATALOG",
   "HIVE METASTORE",
   "{ROWS | RANGE} BETWEEN"
-]), vS = N([]), XS = {
+]), xS = t([]), JS = {
   name: "redshift",
   tokenizerOptions: {
-    reservedSelect: fS,
+    reservedSelect: vS,
     reservedClauses: [
-      ...VS,
-      ...VT,
-      ...kE
+      ...bS,
+      ...WT,
+      ...jE
     ],
-    reservedSetOperations: yS,
-    reservedJoins: gS,
-    reservedKeywordPhrases: WS,
-    reservedDataTypePhrases: vS,
-    reservedKeywords: YS,
-    reservedDataTypes: hS,
-    reservedFunctionNames: mS,
+    reservedSetOperations: XS,
+    reservedJoins: KS,
+    reservedKeywordPhrases: $S,
+    reservedDataTypePhrases: xS,
+    reservedKeywords: gS,
+    reservedDataTypes: WS,
+    reservedFunctionNames: yS,
     extraParens: ["[]"],
     stringTypes: ["''-qq"],
     identTypes: ['""-qq'],
@@ -13440,10 +13440,10 @@ var US = [
   },
   formatOptions: {
     alwaysDenseOperators: ["::"],
-    onelineClauses: [...VT, ...kE],
-    tabularOnelineClauses: kE
+    onelineClauses: [...WT, ...jE],
+    tabularOnelineClauses: jE
   }
-}, bS = [
+}, wS = [
   "ADD",
   "AFTER",
   "ALL",
@@ -13708,7 +13708,7 @@ var US = [
   "UNSIGNED",
   "VARIABLES",
   "YEAR_MONTH"
-], KS = [
+], kS = [
   "ARRAY",
   "BIGINT",
   "BINARY",
@@ -13736,7 +13736,7 @@ var US = [
   "TIMESTAMP",
   "TINYINT",
   "VARCHAR"
-], $S = [
+], QS = [
   "APPROX_COUNT_DISTINCT",
   "APPROX_PERCENTILE",
   "AVG",
@@ -14043,7 +14043,7 @@ var US = [
   "CAST",
   "COALESCE",
   "NULLIF"
-], xS = N(["SELECT [ALL | DISTINCT]"]), JS = N([
+], ZS = t(["SELECT [ALL | DISTINCT]"]), qS = t([
   "WITH",
   "FROM",
   "WHERE",
@@ -14061,7 +14061,7 @@ var US = [
   "INSERT OVERWRITE [LOCAL] DIRECTORY",
   "LOAD DATA [LOCAL] INPATH",
   "[OVERWRITE] INTO TABLE"
-]), yT = N(["CREATE [EXTERNAL] TABLE [IF NOT EXISTS]"]), ZE = N([
+]), vT = t(["CREATE [EXTERNAL] TABLE [IF NOT EXISTS]"]), zE = t([
   "CREATE [OR REPLACE] [GLOBAL TEMPORARY | TEMPORARY] VIEW [IF NOT EXISTS]",
   "DROP TABLE [IF EXISTS]",
   "ALTER TABLE",
@@ -14110,11 +14110,11 @@ var US = [
   "SHOW TBLPROPERTIES",
   "SHOW VIEWS",
   "UNCACHE TABLE"
-]), wS = N([
+]), jS = t([
   "UNION [ALL | DISTINCT]",
   "EXCEPT [ALL | DISTINCT]",
   "INTERSECT [ALL | DISTINCT]"
-]), QS = N([
+]), zS = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
@@ -14122,28 +14122,28 @@ var US = [
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN",
   "[LEFT] {ANTI | SEMI} JOIN",
   "NATURAL [LEFT] {ANTI | SEMI} JOIN"
-]), kS = N([
+]), EI = t([
   "ON DELETE",
   "ON UPDATE",
   "CURRENT ROW",
   "{ROWS | RANGE} BETWEEN"
-]), ZS = N([]), qS = {
+]), TI = t([]), eI = {
   name: "spark",
   tokenizerOptions: {
-    reservedSelect: xS,
+    reservedSelect: ZS,
     reservedClauses: [
-      ...JS,
-      ...yT,
-      ...ZE
+      ...qS,
+      ...vT,
+      ...zE
     ],
-    reservedSetOperations: wS,
-    reservedJoins: QS,
-    reservedKeywordPhrases: kS,
-    reservedDataTypePhrases: ZS,
+    reservedSetOperations: jS,
+    reservedJoins: zS,
+    reservedKeywordPhrases: EI,
+    reservedDataTypePhrases: TI,
     supportsXor: !0,
-    reservedKeywords: bS,
-    reservedDataTypes: KS,
-    reservedFunctionNames: $S,
+    reservedKeywords: wS,
+    reservedDataTypes: kS,
+    reservedFunctionNames: QS,
     extraParens: ["[]"],
     stringTypes: [
       "''-bs",
@@ -14178,23 +14178,23 @@ var US = [
       "||",
       "->"
     ],
-    postProcess: jS
+    postProcess: RI
   },
   formatOptions: {
-    onelineClauses: [...yT, ...ZE],
-    tabularOnelineClauses: ZE
+    onelineClauses: [...vT, ...zE],
+    tabularOnelineClauses: zE
   }
 };
-function jS(E) {
+function RI(E) {
   return E.map((T, e) => {
-    const R = E[e - 1] || TE, A = E[e + 1] || TE;
-    return eE.WINDOW(T) && A.type === C.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: C.RESERVED_FUNCTION_NAME }) : T.text === "ITEMS" && T.type === C.RESERVED_KEYWORD && !(R.text === "COLLECTION" && A.text === "TERMINATED") ? Object.assign(Object.assign({}, T), {
-      type: C.IDENTIFIER,
+    const R = E[e - 1] || OE, A = E[e + 1] || OE;
+    return NE.WINDOW(T) && A.type === n.OPEN_PAREN ? Object.assign(Object.assign({}, T), { type: n.RESERVED_FUNCTION_NAME }) : T.text === "ITEMS" && T.type === n.RESERVED_KEYWORD && !(R.text === "COLLECTION" && A.text === "TERMINATED") ? Object.assign(Object.assign({}, T), {
+      type: n.IDENTIFIER,
       text: T.raw
     }) : T;
   });
 }
-var zS = [
+var AI = [
   "ABS",
   "CHANGES",
   "CHAR",
@@ -14311,7 +14311,7 @@ var zS = [
   "JSON_EACH",
   "JSON_TREE",
   "CAST"
-], EI = [
+], SI = [
   "ABORT",
   "ACTION",
   "ADD",
@@ -14461,7 +14461,7 @@ var zS = [
   "WINDOW",
   "WITH",
   "WITHOUT"
-], TI = [
+], II = [
   "ANY",
   "ARRAY",
   "BLOB",
@@ -14477,7 +14477,7 @@ var zS = [
   "TEXT",
   "VARCHAR",
   "VARYING CHARACTER"
-], eI = N(["SELECT [ALL | DISTINCT]"]), RI = N([
+], OI = t(["SELECT [ALL | DISTINCT]"]), NI = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -14493,7 +14493,7 @@ var zS = [
   "VALUES",
   "SET",
   "RETURNING"
-]), gT = N(["CREATE [TEMPORARY | TEMP] TABLE [IF NOT EXISTS]"]), qE = N([
+]), bT = t(["CREATE [TEMPORARY | TEMP] TABLE [IF NOT EXISTS]"]), ET = t([
   "CREATE [TEMPORARY | TEMP] VIEW [IF NOT EXISTS]",
   "UPDATE [OR ABORT | OR FAIL | OR IGNORE | OR REPLACE | OR ROLLBACK]",
   "ON CONFLICT",
@@ -14505,36 +14505,36 @@ var zS = [
   "RENAME [COLUMN]",
   "RENAME TO",
   "SET SCHEMA"
-]), AI = N([
+]), tI = t([
   "UNION [ALL]",
   "EXCEPT",
   "INTERSECT"
-]), SI = N([
+]), rI = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN"
-]), II = N([
+]), sI = t([
   "ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]",
   "{ROWS | RANGE | GROUPS} BETWEEN",
   "DO UPDATE"
-]), OI = N([]), NI = {
+]), aI = t([]), LI = {
   name: "sqlite",
   tokenizerOptions: {
-    reservedSelect: eI,
+    reservedSelect: OI,
     reservedClauses: [
-      ...RI,
-      ...gT,
-      ...qE
+      ...NI,
+      ...bT,
+      ...ET
     ],
-    reservedSetOperations: AI,
-    reservedJoins: SI,
-    reservedKeywordPhrases: II,
-    reservedDataTypePhrases: OI,
-    reservedKeywords: EI,
-    reservedDataTypes: TI,
-    reservedFunctionNames: zS,
+    reservedSetOperations: tI,
+    reservedJoins: rI,
+    reservedKeywordPhrases: sI,
+    reservedDataTypePhrases: aI,
+    reservedKeywords: SI,
+    reservedDataTypes: II,
+    reservedFunctionNames: AI,
     stringTypes: ["''-qq", {
       quote: "''-raw",
       prefixes: ["X"],
@@ -14568,10 +14568,10 @@ var zS = [
     ]
   },
   formatOptions: {
-    onelineClauses: [...gT, ...qE],
-    tabularOnelineClauses: qE
+    onelineClauses: [...bT, ...ET],
+    tabularOnelineClauses: ET
   }
-}, tI = [
+}, nI = [
   "GROUPING",
   "RANK",
   "DENSE_RANK",
@@ -14648,7 +14648,7 @@ var zS = [
   "ASIN",
   "ACOS",
   "ATAN"
-], rI = [
+], CI = [
   "ALL",
   "ALLOCATE",
   "ALTER",
@@ -14845,7 +14845,7 @@ var zS = [
   "WITHIN",
   "WITHOUT",
   "YEAR"
-], sI = [
+], _I = [
   "ARRAY",
   "BIGINT",
   "BINARY LARGE OBJECT",
@@ -14884,7 +14884,7 @@ var zS = [
   "TIMESTAMP",
   "VARBINARY",
   "VARCHAR"
-], aI = N(["SELECT [ALL | DISTINCT]"]), LI = N([
+], iI = t(["SELECT [ALL | DISTINCT]"]), oI = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -14899,7 +14899,7 @@ var zS = [
   "INSERT INTO",
   "VALUES",
   "SET"
-]), WT = N(["CREATE [GLOBAL TEMPORARY | LOCAL TEMPORARY] TABLE"]), jE = N([
+]), XT = t(["CREATE [GLOBAL TEMPORARY | LOCAL TEMPORARY] TABLE"]), TT = t([
   "CREATE [RECURSIVE] VIEW",
   "UPDATE",
   "WHERE CURRENT OF",
@@ -14917,32 +14917,32 @@ var zS = [
   "RESTART WITH",
   "TRUNCATE TABLE",
   "SET SCHEMA"
-]), CI = N([
+]), DI = t([
   "UNION [ALL | DISTINCT]",
   "EXCEPT [ALL | DISTINCT]",
   "INTERSECT [ALL | DISTINCT]"
-]), nI = N([
+]), PI = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN"
-]), _I = N(["ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]", "{ROWS | RANGE} BETWEEN"]), iI = N([]), oI = {
+]), MI = t(["ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]", "{ROWS | RANGE} BETWEEN"]), UI = t([]), lI = {
   name: "sql",
   tokenizerOptions: {
-    reservedSelect: aI,
+    reservedSelect: iI,
     reservedClauses: [
-      ...LI,
-      ...WT,
-      ...jE
+      ...oI,
+      ...XT,
+      ...TT
     ],
-    reservedSetOperations: CI,
-    reservedJoins: nI,
-    reservedKeywordPhrases: _I,
-    reservedDataTypePhrases: iI,
-    reservedKeywords: rI,
-    reservedDataTypes: sI,
-    reservedFunctionNames: tI,
+    reservedSetOperations: DI,
+    reservedJoins: PI,
+    reservedKeywordPhrases: MI,
+    reservedDataTypePhrases: UI,
+    reservedKeywords: CI,
+    reservedDataTypes: _I,
+    reservedFunctionNames: nI,
     stringTypes: [{
       quote: "''-qq-bs",
       prefixes: ["N", "U&"]
@@ -14956,10 +14956,10 @@ var zS = [
     operators: ["||"]
   },
   formatOptions: {
-    onelineClauses: [...WT, ...jE],
-    tabularOnelineClauses: jE
+    onelineClauses: [...XT, ...TT],
+    tabularOnelineClauses: TT
   }
-}, DI = [
+}, uI = [
   "ABS",
   "ACOS",
   "ALL_MATCH",
@@ -15386,7 +15386,7 @@ var zS = [
   "NEXT",
   "PERMUTE",
   "PREV"
-], PI = [
+], cI = [
   "ABSENT",
   "ADD",
   "ADMIN",
@@ -15622,7 +15622,7 @@ var zS = [
   "WRAPPER",
   "WRITE",
   "ZONE"
-], MI = [
+], GI = [
   "BIGINT",
   "INT",
   "INTEGER",
@@ -15659,7 +15659,7 @@ var zS = [
   "CODEPOINTS",
   "FUNCTION",
   "JSONPATH"
-], UI = N(["SELECT [ALL | DISTINCT]"]), lI = N([
+], dI = t(["SELECT [ALL | DISTINCT]"]), pI = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -15682,7 +15682,7 @@ var zS = [
   "PATTERN",
   "SUBSET",
   "DEFINE"
-]), vT = N(["CREATE TABLE [IF NOT EXISTS]"]), zE = N([
+]), KT = t(["CREATE TABLE [IF NOT EXISTS]"]), eT = t([
   "CREATE [OR REPLACE] [MATERIALIZED] VIEW",
   "UPDATE",
   "DELETE FROM",
@@ -15732,32 +15732,32 @@ var zS = [
   "SHOW ROLE GRANTS",
   "SHOW FUNCTIONS",
   "SHOW SESSION"
-]), uI = N([
+]), HI = t([
   "UNION [ALL | DISTINCT]",
   "EXCEPT [ALL | DISTINCT]",
   "INTERSECT [ALL | DISTINCT]"
-]), cI = N([
+]), BI = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL [INNER] JOIN",
   "NATURAL {LEFT | RIGHT | FULL} [OUTER] JOIN"
-]), GI = N(["{ROWS | RANGE | GROUPS} BETWEEN", "IS [NOT] DISTINCT FROM"]), dI = N([]), pI = {
+]), FI = t(["{ROWS | RANGE | GROUPS} BETWEEN", "IS [NOT] DISTINCT FROM"]), mI = t([]), YI = {
   name: "trino",
   tokenizerOptions: {
-    reservedSelect: UI,
+    reservedSelect: dI,
     reservedClauses: [
-      ...lI,
-      ...vT,
-      ...zE
+      ...pI,
+      ...KT,
+      ...eT
     ],
-    reservedSetOperations: uI,
-    reservedJoins: cI,
-    reservedKeywordPhrases: GI,
-    reservedDataTypePhrases: dI,
-    reservedKeywords: PI,
-    reservedDataTypes: MI,
-    reservedFunctionNames: DI,
+    reservedSetOperations: HI,
+    reservedJoins: BI,
+    reservedKeywordPhrases: FI,
+    reservedDataTypePhrases: mI,
+    reservedKeywords: cI,
+    reservedDataTypes: GI,
+    reservedFunctionNames: uI,
     extraParens: ["[]", "{}"],
     stringTypes: [{
       quote: "''-qq",
@@ -15781,10 +15781,10 @@ var zS = [
     ]
   },
   formatOptions: {
-    onelineClauses: [...vT, ...zE],
-    tabularOnelineClauses: zE
+    onelineClauses: [...KT, ...eT],
+    tabularOnelineClauses: eT
   }
-}, HI = [
+}, hI = [
   "APPROX_COUNT_DISTINCT",
   "AVG",
   "CHECKSUM_AGG",
@@ -16071,7 +16071,7 @@ var zS = [
   "UPDATE",
   "COALESCE",
   "NULLIF"
-], BI = [
+], fI = [
   "ADD",
   "ALL",
   "ALTER",
@@ -16249,7 +16249,7 @@ var zS = [
   "WITHIN GROUP",
   "WRITETEXT",
   "$ACTION"
-], FI = [
+], VI = [
   "BINARY",
   "BIT",
   "CHAR",
@@ -16275,7 +16275,7 @@ var zS = [
   "TIMESTAMP",
   "VARBINARY",
   "VARCHAR"
-], mI = N(["SELECT [ALL | DISTINCT]"]), YI = N([
+], yI = t(["SELECT [ALL | DISTINCT]"]), gI = t([
   "WITH",
   "INTO",
   "FROM",
@@ -16295,7 +16295,7 @@ var zS = [
   "MERGE [INTO]",
   "WHEN [NOT] MATCHED [BY TARGET | BY SOURCE] [THEN]",
   "UPDATE SET"
-]), XT = N(["CREATE TABLE"]), ET = N([
+]), $T = t(["CREATE TABLE"]), RT = t([
   "CREATE [OR ALTER] [MATERIALIZED] VIEW",
   "UPDATE",
   "WHERE CURRENT OF",
@@ -16464,31 +16464,31 @@ var zS = [
   "XACT_ABORT",
   "XML INDEX",
   "XML SCHEMA COLLECTION"
-]), hI = N([
+]), WI = t([
   "UNION [ALL]",
   "EXCEPT",
   "INTERSECT"
-]), fI = N([
+]), vI = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "{CROSS | OUTER} APPLY"
-]), VI = N(["ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]", "{ROWS | RANGE} BETWEEN"]), yI = N([]), gI = {
+]), bI = t(["ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]", "{ROWS | RANGE} BETWEEN"]), XI = t([]), KI = {
   name: "transactsql",
   tokenizerOptions: {
-    reservedSelect: mI,
+    reservedSelect: yI,
     reservedClauses: [
-      ...YI,
-      ...XT,
-      ...ET
+      ...gI,
+      ...$T,
+      ...RT
     ],
-    reservedSetOperations: hI,
-    reservedJoins: fI,
-    reservedKeywordPhrases: VI,
-    reservedDataTypePhrases: yI,
-    reservedKeywords: BI,
-    reservedDataTypes: FI,
-    reservedFunctionNames: HI,
+    reservedSetOperations: WI,
+    reservedJoins: vI,
+    reservedKeywordPhrases: bI,
+    reservedDataTypePhrases: XI,
+    reservedKeywords: fI,
+    reservedDataTypes: VI,
+    reservedFunctionNames: hI,
     nestedBlockComments: !0,
     stringTypes: [{
       quote: "''-qq",
@@ -16526,10 +16526,10 @@ var zS = [
   },
   formatOptions: {
     alwaysDenseOperators: ["::"],
-    onelineClauses: [...XT, ...ET],
-    tabularOnelineClauses: ET
+    onelineClauses: [...$T, ...RT],
+    tabularOnelineClauses: RT
   }
-}, WI = [
+}, $I = [
   "ADD",
   "ALL",
   "ALTER",
@@ -16737,7 +16737,7 @@ var zS = [
   "XOR",
   "YEAR_MONTH",
   "ZEROFILL"
-], vI = [
+], xI = [
   "BIGINT",
   "BINARY",
   "BIT",
@@ -16785,7 +16785,7 @@ var zS = [
   "VARCHAR",
   "VARCHARACTER",
   "YEAR"
-], XI = [
+], JI = [
   "ABS",
   "ACOS",
   "ADDDATE",
@@ -17049,7 +17049,7 @@ var zS = [
   "WEEKDAY",
   "WEEKOFYEAR",
   "YEAR"
-], bI = N(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), KI = N([
+], wI = t(["SELECT [ALL | DISTINCT | DISTINCTROW]"]), kI = t([
   "WITH",
   "FROM",
   "WHERE",
@@ -17066,7 +17066,7 @@ var zS = [
   "SET",
   "CREATE [OR REPLACE] [TEMPORARY] PROCEDURE [IF NOT EXISTS]",
   "CREATE [OR REPLACE] [EXTERNAL] FUNCTION"
-]), bT = N(["CREATE [ROWSTORE] [REFERENCE | TEMPORARY | GLOBAL TEMPORARY] TABLE [IF NOT EXISTS]"]), TT = N([
+]), xT = t(["CREATE [ROWSTORE] [REFERENCE | TEMPORARY | GLOBAL TEMPORARY] TABLE [IF NOT EXISTS]"]), AT = t([
   "CREATE VIEW",
   "UPDATE",
   "DELETE [FROM]",
@@ -17235,39 +17235,39 @@ var zS = [
   "REPEAT",
   "RETURN",
   "WHILE"
-]), $I = N([
+]), QI = t([
   "UNION [ALL | DISTINCT]",
   "EXCEPT",
   "INTERSECT",
   "MINUS"
-]), xI = N([
+]), ZI = t([
   "JOIN",
   "{LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{INNER | CROSS} JOIN",
   "NATURAL {LEFT | RIGHT} [OUTER] JOIN",
   "STRAIGHT_JOIN"
-]), JI = N([
+]), qI = t([
   "ON DELETE",
   "ON UPDATE",
   "CHARACTER SET",
   "{ROWS | RANGE} BETWEEN",
   "IDENTIFIED BY"
-]), wI = N([]), QI = {
+]), jI = t([]), zI = {
   name: "singlestoredb",
   tokenizerOptions: {
-    reservedSelect: bI,
+    reservedSelect: wI,
     reservedClauses: [
-      ...KI,
-      ...bT,
-      ...TT
+      ...kI,
+      ...xT,
+      ...AT
     ],
-    reservedSetOperations: $I,
-    reservedJoins: xI,
-    reservedKeywordPhrases: JI,
-    reservedDataTypePhrases: wI,
-    reservedKeywords: WI,
-    reservedDataTypes: vI,
-    reservedFunctionNames: XI,
+    reservedSetOperations: QI,
+    reservedJoins: ZI,
+    reservedKeywordPhrases: qI,
+    reservedDataTypePhrases: jI,
+    reservedKeywords: $I,
+    reservedDataTypes: xI,
+    reservedFunctionNames: JI,
     stringTypes: [
       '""-qq-bs',
       "''-qq-bs",
@@ -17307,7 +17307,7 @@ var zS = [
       "!:>",
       "*.*"
     ],
-    postProcess: YE
+    postProcess: VE
   },
   formatOptions: {
     alwaysDenseOperators: [
@@ -17315,10 +17315,10 @@ var zS = [
       "::$",
       "::%"
     ],
-    onelineClauses: [...bT, ...TT],
-    tabularOnelineClauses: TT
+    onelineClauses: [...xT, ...AT],
+    tabularOnelineClauses: AT
   }
-}, kI = [
+}, EO = [
   "ABS",
   "ACOS",
   "ACOSH",
@@ -17909,7 +17909,7 @@ var zS = [
   "QUARTER",
   "ZEROIFNULL",
   "ZIPF"
-], ZI = [
+], TO = [
   "ACCOUNT",
   "ALL",
   "ALTER",
@@ -18002,7 +18002,7 @@ var zS = [
   "WHERE",
   "WITH",
   "COMMENT"
-], qI = [
+], eO = [
   "NUMBER",
   "DECIMAL",
   "NUMERIC",
@@ -18039,7 +18039,7 @@ var zS = [
   "ARRAY",
   "GEOGRAPHY",
   "GEOMETRY"
-], jI = N(["SELECT [ALL | DISTINCT]"]), zI = N([
+], RO = t(["SELECT [ALL | DISTINCT]"]), AO = t([
   "WITH [RECURSIVE]",
   "FROM",
   "WHERE",
@@ -18063,7 +18063,7 @@ var zS = [
   "WHEN MATCHED [AND]",
   "THEN {UPDATE SET | DELETE}",
   "WHEN NOT MATCHED THEN INSERT"
-]), KT = N(["CREATE [OR REPLACE] [VOLATILE] TABLE [IF NOT EXISTS]", "CREATE [OR REPLACE] [LOCAL | GLOBAL] {TEMP|TEMPORARY} TABLE [IF NOT EXISTS]"]), eT = N([
+]), JT = t(["CREATE [OR REPLACE] [VOLATILE] TABLE [IF NOT EXISTS]", "CREATE [OR REPLACE] [LOCAL | GLOBAL] {TEMP|TEMPORARY} TABLE [IF NOT EXISTS]"]), ST = t([
   "CREATE [OR REPLACE] [SECURE] [RECURSIVE] VIEW [IF NOT EXISTS]",
   "UPDATE",
   "DELETE FROM",
@@ -18285,31 +18285,31 @@ var zS = [
   "USE SCHEMA",
   "USE SECONDARY ROLES",
   "USE WAREHOUSE"
-]), EO = N([
+]), SO = t([
   "UNION [ALL]",
   "MINUS",
   "EXCEPT",
   "INTERSECT"
-]), TO = N([
+]), IO = t([
   "[INNER] JOIN",
   "[NATURAL] {LEFT | RIGHT | FULL} [OUTER] JOIN",
   "{CROSS | NATURAL} JOIN"
-]), eO = N(["{ROWS | RANGE} BETWEEN", "ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]"]), RO = N([]), AO = {
+]), OO = t(["{ROWS | RANGE} BETWEEN", "ON {UPDATE | DELETE} [SET NULL | SET DEFAULT]"]), NO = t([]), tO = {
   name: "snowflake",
   tokenizerOptions: {
-    reservedSelect: jI,
+    reservedSelect: RO,
     reservedClauses: [
-      ...zI,
-      ...KT,
-      ...eT
+      ...AO,
+      ...JT,
+      ...ST
     ],
-    reservedSetOperations: EO,
-    reservedJoins: TO,
-    reservedKeywordPhrases: eO,
-    reservedDataTypePhrases: RO,
-    reservedKeywords: ZI,
-    reservedDataTypes: qI,
-    reservedFunctionNames: kI,
+    reservedSetOperations: SO,
+    reservedJoins: IO,
+    reservedKeywordPhrases: OO,
+    reservedDataTypePhrases: NO,
+    reservedKeywords: TO,
+    reservedDataTypes: eO,
+    reservedFunctionNames: EO,
     stringTypes: ["$$", "''-qq-bs"],
     identTypes: ['""-qq'],
     variableTypes: [{ regex: "[$][1-9]\\d*" }, { regex: "[$][_a-zA-Z][_a-zA-Z0-9$]*" }],
@@ -18328,51 +18328,51 @@ var zS = [
   },
   formatOptions: {
     alwaysDenseOperators: ["::"],
-    onelineClauses: [...KT, ...eT],
-    tabularOnelineClauses: eT
+    onelineClauses: [...JT, ...ST],
+    tabularOnelineClauses: ST
   }
-}, SO = /* @__PURE__ */ ze({
-  bigquery: () => uR,
-  clickhouse: () => yR,
-  db2: () => QR,
-  db2i: () => AA,
-  duckdb: () => CA,
-  hive: () => uA,
-  mariadb: () => hA,
-  mysql: () => $A,
-  n1ql: () => rS,
-  plsql: () => PS,
-  postgresql: () => FS,
-  redshift: () => XS,
-  singlestoredb: () => QI,
-  snowflake: () => AO,
-  spark: () => qS,
-  sql: () => oI,
-  sqlite: () => NI,
-  tidb: () => ES,
-  transactsql: () => gI,
-  trino: () => pI
-}), _E = (E) => E[E.length - 1], _e = (E) => E.sort((T, e) => e.length - T.length || T.localeCompare(e)), GE = (E) => E.replace(/\s+/gu, " "), RT = (E) => /\n/.test(E), J = (E) => E.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), $T = /\s+/uy, tE = (E) => new RegExp(`(?:${E})`, "uy"), IO = (E) => E.split("").map((T) => / /gu.test(T) ? "\\s+" : `[${T.toUpperCase()}${T.toLowerCase()}]`).join(""), OO = (E) => E + "(?:-" + E + ")*", NO = ({ prefixes: E, requirePrefix: T }) => `(?:${E.map(IO).join("|")}${T ? "" : "|"})`, tO = (E) => new RegExp(`(?:${E.map(J).join("|")}).*?(?=\r
+}, rO = /* @__PURE__ */ AR({
+  bigquery: () => HR,
+  clickhouse: () => XR,
+  db2: () => zR,
+  db2i: () => tA,
+  duckdb: () => DA,
+  hive: () => HA,
+  mariadb: () => WA,
+  mysql: () => QA,
+  n1ql: () => CS,
+  plsql: () => cS,
+  postgresql: () => VS,
+  redshift: () => JS,
+  singlestoredb: () => zI,
+  snowflake: () => tO,
+  spark: () => eI,
+  sql: () => lI,
+  sqlite: () => LI,
+  tidb: () => SS,
+  transactsql: () => KI,
+  trino: () => YI
+}), PE = (E) => E[E.length - 1], le = (E) => E.sort((T, e) => e.length - T.length || T.localeCompare(e)), BE = (E) => E.replace(/\s+/gu, " "), IT = (E) => /\n/.test(E), w = (E) => E.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), wT = /\s+/uy, nE = (E) => new RegExp(`(?:${E})`, "uy"), sO = (E) => E.split("").map((T) => / /gu.test(T) ? "\\s+" : `[${T.toUpperCase()}${T.toLowerCase()}]`).join(""), aO = (E) => E + "(?:-" + E + ")*", LO = ({ prefixes: E, requirePrefix: T }) => `(?:${E.map(sO).join("|")}${T ? "" : "|"})`, nO = (E) => new RegExp(`(?:${E.map(w).join("|")}).*?(?=\r
 |\r|
-|$)`, "uy"), xT = (E, T = []) => {
+|$)`, "uy"), kT = (E, T = []) => {
   const e = E === "open" ? 0 : 1;
-  return tE(["()", ...T].map((R) => R[e]).map(J).join("|"));
-}, JT = (E) => tE(`${_e(E).map(J).join("|")}`), rO = ({ rest: E, dashes: T }) => E || T ? `(?![${E || ""}${T ? "-" : ""}])` : "", Z = (E, T = {}) => {
+  return nE(["()", ...T].map((R) => R[e]).map(w).join("|"));
+}, QT = (E) => nE(`${le(E).map(w).join("|")}`), CO = ({ rest: E, dashes: T }) => E || T ? `(?![${E || ""}${T ? "-" : ""}])` : "", EE = (E, T = {}) => {
   if (E.length === 0) return /^\b$/u;
-  const e = rO(T), R = _e(E).map(J).join("|").replace(/ /gu, "\\s+");
+  const e = CO(T), R = le(E).map(w).join("|").replace(/ /gu, "\\s+");
   return new RegExp(`(?:${R})${e}\\b`, "iuy");
-}, AT = (E, T) => {
+}, OT = (E, T) => {
   if (E.length)
-    return tE(`(?:${E.map(J).join("|")})(?:${T})`);
-}, sO = () => {
+    return nE(`(?:${E.map(w).join("|")})(?:${T})`);
+}, _O = () => {
   const E = {
     "<": ">",
     "[": "]",
     "(": ")",
     "{": "}"
-  }, T = "{left}(?:(?!{right}').)*?{right}", e = Object.entries(E).map(([A, S]) => T.replace(/{left}/g, J(A)).replace(/{right}/g, J(S))), R = J(Object.keys(E).join(""));
+  }, T = "{left}(?:(?!{right}').)*?{right}", e = Object.entries(E).map(([A, S]) => T.replace(/{left}/g, w(A)).replace(/{right}/g, w(S))), R = w(Object.keys(E).join(""));
   return `[Qq]'(?:${String.raw`(?<tag>[^\s${R}])(?:(?!\k<tag>').)*?\k<tag>`}|${e.join("|")})'`;
-}, wT = {
+}, ZT = {
   "``": "(?:`[^`]*`)+",
   "[]": String.raw`(?:\[[^\]]*\])(?:\][^\]]*\])*`,
   '""-qq': String.raw`(?:"[^"]*")+`,
@@ -18387,19 +18387,19 @@ var zS = [
   "'''..'''": String.raw`'''[^\\]*?(?:\\.[^\\]*?)*?'''`,
   '""".."""': String.raw`"""[^\\]*?(?:\\.[^\\]*?)*?"""`,
   "{}": String.raw`(?:\{[^\}]*\})`,
-  "q''": sO()
-}, ie = (E) => typeof E == "string" ? wT[E] : "regex" in E ? E.regex : NO(E) + wT[E.quote], aO = (E) => tE(E.map((T) => "regex" in T ? T.regex : ie(T)).join("|")), oe = (E) => E.map(ie).join("|"), QT = (E) => tE(oe(E)), LO = (E = {}) => tE(De(E)), De = ({ first: E, rest: T, dashes: e, allowFirstCharNumber: R } = {}) => {
-  const A = "\\p{Alphabetic}\\p{Mark}_", S = "\\p{Decimal_Number}", O = J(E ?? ""), I = J(T ?? ""), P = R ? `[${A}${S}${O}][${A}${S}${I}]*` : `[${A}${O}][${A}${S}${I}]*`;
-  return e ? OO(P) : P;
+  "q''": _O()
+}, ue = (E) => typeof E == "string" ? ZT[E] : "regex" in E ? E.regex : LO(E) + ZT[E.quote], iO = (E) => nE(E.map((T) => "regex" in T ? T.regex : ue(T)).join("|")), ce = (E) => E.map(ue).join("|"), qT = (E) => nE(ce(E)), oO = (E = {}) => nE(Ge(E)), Ge = ({ first: E, rest: T, dashes: e, allowFirstCharNumber: R } = {}) => {
+  const A = "\\p{Alphabetic}\\p{Mark}_", S = "\\p{Decimal_Number}", O = w(E ?? ""), I = w(T ?? ""), i = R ? `[${A}${S}${O}][${A}${S}${I}]*` : `[${A}${O}][${A}${S}${I}]*`;
+  return e ? aO(i) : i;
 };
-function Pe(E, T) {
+function de(E, T) {
   const e = E.slice(0, T).split(/\n/);
   return {
     line: e.length,
     col: e[e.length - 1].length + 1
   };
 }
-var CO = class {
+var DO = class {
   constructor(E, T) {
     this.rules = E, this.dialectName = T, this.input = "", this.index = 0;
   }
@@ -18417,7 +18417,7 @@ var CO = class {
     return T;
   }
   createParseError() {
-    const E = this.input.slice(this.index, this.index + 10), { line: T, col: e } = Pe(this.input, this.index);
+    const E = this.input.slice(this.index, this.index + 10), { line: T, col: e } = de(this.input, this.index);
     return /* @__PURE__ */ new Error(`Parse error: Unexpected "${E}" at line ${T} column ${e}.
 ${this.dialectInfo()}`);
   }
@@ -18426,8 +18426,8 @@ ${this.dialectInfo()}`);
 If possible, please select a more specific dialect (like sqlite, postgresql, etc).` : `SQL dialect used: "${this.dialectName}".`;
   }
   getWhitespace() {
-    $T.lastIndex = this.index;
-    const E = $T.exec(this.input);
+    wT.lastIndex = this.index;
+    const E = wT.exec(this.input);
     if (E)
       return this.index += E[0].length, E[0];
   }
@@ -18450,20 +18450,20 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
       return E.key && (R.key = E.key(e)), this.index += e.length, R;
     }
   }
-}, kT = /\/\*/uy, nO = /[\s\S]/uy, _O = /\*\//uy, iO = class {
+}, jT = /\/\*/uy, PO = /[\s\S]/uy, MO = /\*\//uy, UO = class {
   constructor() {
     this.lastIndex = 0;
   }
   exec(E) {
     let T = "", e, R = 0;
-    if (e = this.matchSection(kT, E))
+    if (e = this.matchSection(jT, E))
       T += e, R++;
     else return null;
-    for (; R > 0; ) if (e = this.matchSection(kT, E))
+    for (; R > 0; ) if (e = this.matchSection(jT, E))
       T += e, R++;
-    else if (e = this.matchSection(_O, E))
+    else if (e = this.matchSection(MO, E))
       T += e, R--;
-    else if (e = this.matchSection(nO, E)) T += e;
+    else if (e = this.matchSection(PO, E)) T += e;
     else return null;
     return [T];
   }
@@ -18472,12 +18472,12 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     const e = E.exec(T);
     return e && (this.lastIndex += e[0].length), e ? e[0] : null;
   }
-}, oO = class {
+}, lO = class {
   constructor(E, T) {
     this.cfg = E, this.dialectName = T, this.rulesBeforeParams = this.buildRulesBeforeParams(E), this.rulesAfterParams = this.buildRulesAfterParams(E);
   }
   tokenize(E, T) {
-    const e = new CO([
+    const e = new DO([
       ...this.rulesBeforeParams,
       ...this.buildParamRules(this.cfg, T),
       ...this.rulesAfterParams
@@ -18488,123 +18488,123 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     var T, e, R;
     return this.validRules([
       {
-        type: C.DISABLE_COMMENT,
+        type: n.DISABLE_COMMENT,
         regex: /(\/\* *sql-formatter-disable *\*\/[\s\S]*?(?:\/\* *sql-formatter-enable *\*\/|$))/uy
       },
       {
-        type: C.BLOCK_COMMENT,
-        regex: E.nestedBlockComments ? new iO() : /(\/\*[^]*?\*\/)/uy
+        type: n.BLOCK_COMMENT,
+        regex: E.nestedBlockComments ? new UO() : /(\/\*[^]*?\*\/)/uy
       },
       {
-        type: C.LINE_COMMENT,
-        regex: tO((T = E.lineCommentTypes) !== null && T !== void 0 ? T : ["--"])
+        type: n.LINE_COMMENT,
+        regex: nO((T = E.lineCommentTypes) !== null && T !== void 0 ? T : ["--"])
       },
       {
-        type: C.QUOTED_IDENTIFIER,
-        regex: QT(E.identTypes)
+        type: n.QUOTED_IDENTIFIER,
+        regex: qT(E.identTypes)
       },
       {
-        type: C.NUMBER,
+        type: n.NUMBER,
         regex: E.underscoresInNumbers ? /(?:0x[0-9a-fA-F_]+|0b[01_]+|(?:-\s*)?(?:[0-9_]*\.[0-9_]+|[0-9_]+(?:\.[0-9_]*)?)(?:[eE][-+]?[0-9_]+(?:\.[0-9_]+)?)?)(?![\w\p{Alphabetic}])/uy : /(?:0x[0-9a-fA-F]+|0b[01]+|(?:-\s*)?(?:[0-9]*\.[0-9]+|[0-9]+(?:\.[0-9]*)?)(?:[eE][-+]?[0-9]+(?:\.[0-9]+)?)?)(?![\w\p{Alphabetic}])/uy
       },
       {
-        type: C.RESERVED_KEYWORD_PHRASE,
-        regex: Z((e = E.reservedKeywordPhrases) !== null && e !== void 0 ? e : [], E.identChars),
-        text: y
+        type: n.RESERVED_KEYWORD_PHRASE,
+        regex: EE((e = E.reservedKeywordPhrases) !== null && e !== void 0 ? e : [], E.identChars),
+        text: g
       },
       {
-        type: C.RESERVED_DATA_TYPE_PHRASE,
-        regex: Z((R = E.reservedDataTypePhrases) !== null && R !== void 0 ? R : [], E.identChars),
-        text: y
+        type: n.RESERVED_DATA_TYPE_PHRASE,
+        regex: EE((R = E.reservedDataTypePhrases) !== null && R !== void 0 ? R : [], E.identChars),
+        text: g
       },
       {
-        type: C.CASE,
+        type: n.CASE,
         regex: /CASE\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.END,
+        type: n.END,
         regex: /END\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.BETWEEN,
+        type: n.BETWEEN,
         regex: /BETWEEN\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.LIMIT,
+        type: n.LIMIT,
         regex: E.reservedClauses.includes("LIMIT") ? /LIMIT\b/iuy : void 0,
-        text: y
+        text: g
       },
       {
-        type: C.RESERVED_CLAUSE,
-        regex: Z(E.reservedClauses, E.identChars),
-        text: y
+        type: n.RESERVED_CLAUSE,
+        regex: EE(E.reservedClauses, E.identChars),
+        text: g
       },
       {
-        type: C.RESERVED_SELECT,
-        regex: Z(E.reservedSelect, E.identChars),
-        text: y
+        type: n.RESERVED_SELECT,
+        regex: EE(E.reservedSelect, E.identChars),
+        text: g
       },
       {
-        type: C.RESERVED_SET_OPERATION,
-        regex: Z(E.reservedSetOperations, E.identChars),
-        text: y
+        type: n.RESERVED_SET_OPERATION,
+        regex: EE(E.reservedSetOperations, E.identChars),
+        text: g
       },
       {
-        type: C.WHEN,
+        type: n.WHEN,
         regex: /WHEN\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.ELSE,
+        type: n.ELSE,
         regex: /ELSE\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.THEN,
+        type: n.THEN,
         regex: /THEN\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.RESERVED_JOIN,
-        regex: Z(E.reservedJoins, E.identChars),
-        text: y
+        type: n.RESERVED_JOIN,
+        regex: EE(E.reservedJoins, E.identChars),
+        text: g
       },
       {
-        type: C.AND,
+        type: n.AND,
         regex: /AND\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.OR,
+        type: n.OR,
         regex: /OR\b/iuy,
-        text: y
+        text: g
       },
       {
-        type: C.XOR,
+        type: n.XOR,
         regex: E.supportsXor ? /XOR\b/iuy : void 0,
-        text: y
+        text: g
       },
       ...E.operatorKeyword ? [{
-        type: C.OPERATOR,
+        type: n.OPERATOR,
         regex: /OPERATOR *\([^)]+\)/iuy
       }] : [],
       {
-        type: C.RESERVED_FUNCTION_NAME,
-        regex: Z(E.reservedFunctionNames, E.identChars),
-        text: y
+        type: n.RESERVED_FUNCTION_NAME,
+        regex: EE(E.reservedFunctionNames, E.identChars),
+        text: g
       },
       {
-        type: C.RESERVED_DATA_TYPE,
-        regex: Z(E.reservedDataTypes, E.identChars),
-        text: y
+        type: n.RESERVED_DATA_TYPE,
+        regex: EE(E.reservedDataTypes, E.identChars),
+        text: g
       },
       {
-        type: C.RESERVED_KEYWORD,
-        regex: Z(E.reservedKeywords, E.identChars),
-        text: y
+        type: n.RESERVED_KEYWORD,
+        regex: EE(E.reservedKeywords, E.identChars),
+        text: g
       }
     ]);
   }
@@ -18612,36 +18612,36 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     var T, e;
     return this.validRules([
       {
-        type: C.VARIABLE,
-        regex: E.variableTypes ? aO(E.variableTypes) : void 0
+        type: n.VARIABLE,
+        regex: E.variableTypes ? iO(E.variableTypes) : void 0
       },
       {
-        type: C.STRING,
-        regex: QT(E.stringTypes)
+        type: n.STRING,
+        regex: qT(E.stringTypes)
       },
       {
-        type: C.IDENTIFIER,
-        regex: LO(E.identChars)
+        type: n.IDENTIFIER,
+        regex: oO(E.identChars)
       },
       {
-        type: C.DELIMITER,
+        type: n.DELIMITER,
         regex: /[;]/uy
       },
       {
-        type: C.COMMA,
+        type: n.COMMA,
         regex: /[,]/y
       },
       {
-        type: C.OPEN_PAREN,
-        regex: xT("open", E.extraParens)
+        type: n.OPEN_PAREN,
+        regex: kT("open", E.extraParens)
       },
       {
-        type: C.CLOSE_PAREN,
-        regex: xT("close", E.extraParens)
+        type: n.CLOSE_PAREN,
+        regex: kT("close", E.extraParens)
       },
       {
-        type: C.OPERATOR,
-        regex: JT([
+        type: n.OPERATOR,
+        regex: QT([
           "+",
           "-",
           "/",
@@ -18656,12 +18656,12 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
         ])
       },
       {
-        type: C.ASTERISK,
+        type: n.ASTERISK,
         regex: /[*]/uy
       },
       {
-        type: C.PROPERTY_ACCESS_OPERATOR,
-        regex: JT([".", ...(e = E.propertyAccessOperators) !== null && e !== void 0 ? e : []])
+        type: n.PROPERTY_ACCESS_OPERATOR,
+        regex: QT([".", ...(e = E.propertyAccessOperators) !== null && e !== void 0 ? e : []])
       }
     ]);
   }
@@ -18676,33 +18676,33 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     };
     return this.validRules([
       {
-        type: C.NAMED_PARAMETER,
-        regex: AT(I.named, De(E.paramChars || E.identChars)),
-        key: (P) => P.slice(1)
+        type: n.NAMED_PARAMETER,
+        regex: OT(I.named, Ge(E.paramChars || E.identChars)),
+        key: (i) => i.slice(1)
       },
       {
-        type: C.QUOTED_PARAMETER,
-        regex: AT(I.quoted, oe(E.identTypes)),
-        key: (P) => (({ tokenKey: i, quoteChar: r }) => i.replace(new RegExp(J("\\" + r), "gu"), r))({
-          tokenKey: P.slice(2, -1),
-          quoteChar: P.slice(-1)
+        type: n.QUOTED_PARAMETER,
+        regex: OT(I.quoted, ce(E.identTypes)),
+        key: (i) => (({ tokenKey: C, quoteChar: N }) => C.replace(new RegExp(w("\\" + N), "gu"), N))({
+          tokenKey: i.slice(2, -1),
+          quoteChar: i.slice(-1)
         })
       },
       {
-        type: C.NUMBERED_PARAMETER,
-        regex: AT(I.numbered, "[0-9]+"),
-        key: (P) => P.slice(1)
+        type: n.NUMBERED_PARAMETER,
+        regex: OT(I.numbered, "[0-9]+"),
+        key: (i) => i.slice(1)
       },
       {
-        type: C.POSITIONAL_PARAMETER,
+        type: n.POSITIONAL_PARAMETER,
         regex: I.positional ? /[?]/y : void 0
       },
-      ...I.custom.map((P) => {
-        var i;
+      ...I.custom.map((i) => {
+        var C;
         return {
-          type: C.CUSTOM_PARAMETER,
-          regex: tE(P.regex),
-          key: (i = P.key) !== null && i !== void 0 ? i : ((r) => r)
+          type: n.CUSTOM_PARAMETER,
+          regex: nE(i.regex),
+          key: (C = i.key) !== null && C !== void 0 ? C : ((N) => N)
         };
       })
     ]);
@@ -18710,13 +18710,13 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
   validRules(E) {
     return E.filter((T) => !!T.regex);
   }
-}, y = (E) => GE(E.toUpperCase()), ZT = /* @__PURE__ */ new Map(), DO = (E) => {
-  let T = ZT.get(E);
-  return T || (T = PO(E), ZT.set(E, T)), T;
-}, PO = (E) => ({
-  tokenizer: new oO(E.tokenizerOptions, E.name),
-  formatOptions: MO(E.formatOptions)
-}), MO = (E) => {
+}, g = (E) => BE(E.toUpperCase()), zT = /* @__PURE__ */ new Map(), uO = (E) => {
+  let T = zT.get(E);
+  return T || (T = cO(E), zT.set(E, T)), T;
+}, cO = (E) => ({
+  tokenizer: new lO(E.tokenizerOptions, E.name),
+  formatOptions: GO(E.formatOptions)
+}), GO = (E) => {
   var T;
   return {
     alwaysDenseOperators: E.alwaysDenseOperators || [],
@@ -18724,13 +18724,13 @@ If possible, please select a more specific dialect (like sqlite, postgresql, etc
     tabularOnelineClauses: Object.fromEntries(((T = E.tabularOnelineClauses) !== null && T !== void 0 ? T : E.onelineClauses).map((e) => [e, !0]))
   };
 };
-function UO(E) {
+function dO(E) {
   return E.indentStyle === "tabularLeft" || E.indentStyle === "tabularRight" ? " ".repeat(10) : E.useTabs ? "	" : " ".repeat(E.tabWidth);
 }
-function aE(E) {
+function iE(E) {
   return E.indentStyle === "tabularLeft" || E.indentStyle === "tabularRight";
 }
-var lO = class {
+var pO = class {
   constructor(E) {
     this.params = E, this.index = 0;
   }
@@ -18743,148 +18743,148 @@ var lO = class {
   setPositionalParameterIndex(E) {
     this.index = E;
   }
-}, uO = /* @__PURE__ */ Ne(((E, T) => {
+}, HO = /* @__PURE__ */ Ce(((E, T) => {
   (function(e, R) {
     typeof T == "object" && T.exports ? T.exports = R() : e.nearley = R();
   })(E, function() {
-    function e(r, a, _) {
-      return this.id = ++e.highestId, this.name = r, this.symbols = a, this.postprocess = _, this;
+    function e(N, s, _) {
+      return this.id = ++e.highestId, this.name = N, this.symbols = s, this.postprocess = _, this;
     }
-    e.highestId = 0, e.prototype.toString = function(r) {
-      var a = typeof r > "u" ? this.symbols.map(i).join(" ") : this.symbols.slice(0, r).map(i).join(" ") + " ● " + this.symbols.slice(r).map(i).join(" ");
-      return this.name + " → " + a;
+    e.highestId = 0, e.prototype.toString = function(N) {
+      var s = typeof N > "u" ? this.symbols.map(C).join(" ") : this.symbols.slice(0, N).map(C).join(" ") + " ● " + this.symbols.slice(N).map(C).join(" ");
+      return this.name + " → " + s;
     };
-    function R(r, a, _, u) {
-      this.rule = r, this.dot = a, this.reference = _, this.data = [], this.wantedBy = u, this.isComplete = this.dot === r.symbols.length;
+    function R(N, s, _, u) {
+      this.rule = N, this.dot = s, this.reference = _, this.data = [], this.wantedBy = u, this.isComplete = this.dot === N.symbols.length;
     }
     R.prototype.toString = function() {
       return "{" + this.rule.toString(this.dot) + "}, from: " + (this.reference || 0);
-    }, R.prototype.nextState = function(r) {
-      var a = new R(this.rule, this.dot + 1, this.reference, this.wantedBy);
-      return a.left = this, a.right = r, a.isComplete && (a.data = a.build(), a.right = void 0), a;
+    }, R.prototype.nextState = function(N) {
+      var s = new R(this.rule, this.dot + 1, this.reference, this.wantedBy);
+      return s.left = this, s.right = N, s.isComplete && (s.data = s.build(), s.right = void 0), s;
     }, R.prototype.build = function() {
-      var r = [], a = this;
+      var N = [], s = this;
       do
-        r.push(a.right.data), a = a.left;
-      while (a.left);
-      return r.reverse(), r;
+        N.push(s.right.data), s = s.left;
+      while (s.left);
+      return N.reverse(), N;
     }, R.prototype.finish = function() {
       this.rule.postprocess && (this.data = this.rule.postprocess(this.data, this.reference, I.fail));
     };
-    function A(r, a) {
-      this.grammar = r, this.index = a, this.states = [], this.wants = {}, this.scannable = [], this.completed = {};
+    function A(N, s) {
+      this.grammar = N, this.index = s, this.states = [], this.wants = {}, this.scannable = [], this.completed = {};
     }
-    A.prototype.process = function(r) {
-      for (var a = this.states, _ = this.wants, u = this.completed, H = 0; H < a.length; H++) {
-        var n = a[H];
-        if (n.isComplete) {
-          if (n.finish(), n.data !== I.fail) {
-            for (var l = n.wantedBy, B = l.length; B--; ) {
-              var s = l[B];
-              this.complete(s, n);
+    A.prototype.process = function(N) {
+      for (var s = this.states, _ = this.wants, u = this.completed, H = 0; H < s.length; H++) {
+        var o = s[H];
+        if (o.isComplete) {
+          if (o.finish(), o.data !== I.fail) {
+            for (var l = o.wantedBy, B = l.length; B--; ) {
+              var a = l[B];
+              this.complete(a, o);
             }
-            if (n.reference === this.index) {
-              var t = n.rule.name;
-              (this.completed[t] = this.completed[t] || []).push(n);
+            if (o.reference === this.index) {
+              var r = o.rule.name;
+              (this.completed[r] = this.completed[r] || []).push(o);
             }
           }
         } else {
-          var t = n.rule.symbols[n.dot];
-          if (typeof t != "string") {
-            this.scannable.push(n);
+          var r = o.rule.symbols[o.dot];
+          if (typeof r != "string") {
+            this.scannable.push(o);
             continue;
           }
-          if (_[t]) {
-            if (_[t].push(n), u.hasOwnProperty(t))
-              for (var D = u[t], B = 0; B < D.length; B++) {
-                var M = D[B];
-                this.complete(n, M);
+          if (_[r]) {
+            if (_[r].push(o), u.hasOwnProperty(r))
+              for (var P = u[r], B = 0; B < P.length; B++) {
+                var M = P[B];
+                this.complete(o, M);
               }
           } else
-            _[t] = [n], this.predict(t);
+            _[r] = [o], this.predict(r);
         }
       }
-    }, A.prototype.predict = function(r) {
-      for (var a = this.grammar.byName[r] || [], _ = 0; _ < a.length; _++) {
-        var u = a[_], H = this.wants[r], n = new R(u, 0, this.index, H);
-        this.states.push(n);
+    }, A.prototype.predict = function(N) {
+      for (var s = this.grammar.byName[N] || [], _ = 0; _ < s.length; _++) {
+        var u = s[_], H = this.wants[N], o = new R(u, 0, this.index, H);
+        this.states.push(o);
       }
-    }, A.prototype.complete = function(r, a) {
-      var _ = r.nextState(a);
+    }, A.prototype.complete = function(N, s) {
+      var _ = N.nextState(s);
       this.states.push(_);
     };
-    function S(r, a) {
-      this.rules = r, this.start = a || this.rules[0].name;
+    function S(N, s) {
+      this.rules = N, this.start = s || this.rules[0].name;
       var _ = this.byName = {};
       this.rules.forEach(function(u) {
         _.hasOwnProperty(u.name) || (_[u.name] = []), _[u.name].push(u);
       });
     }
-    S.fromCompiled = function(u, a) {
+    S.fromCompiled = function(u, s) {
       var _ = u.Lexer;
-      u.ParserStart && (a = u.ParserStart, u = u.ParserRules);
-      var u = u.map(function(n) {
-        return new e(n.name, n.symbols, n.postprocess);
-      }), H = new S(u, a);
+      u.ParserStart && (s = u.ParserStart, u = u.ParserRules);
+      var u = u.map(function(o) {
+        return new e(o.name, o.symbols, o.postprocess);
+      }), H = new S(u, s);
       return H.lexer = _, H;
     };
     function O() {
       this.reset("");
     }
-    O.prototype.reset = function(r, a) {
-      this.buffer = r, this.index = 0, this.line = a ? a.line : 1, this.lastLineBreak = a ? -a.col : 0;
+    O.prototype.reset = function(N, s) {
+      this.buffer = N, this.index = 0, this.line = s ? s.line : 1, this.lastLineBreak = s ? -s.col : 0;
     }, O.prototype.next = function() {
       if (this.index < this.buffer.length) {
-        var r = this.buffer[this.index++];
-        return r === `
-` && (this.line += 1, this.lastLineBreak = this.index), { value: r };
+        var N = this.buffer[this.index++];
+        return N === `
+` && (this.line += 1, this.lastLineBreak = this.index), { value: N };
       }
     }, O.prototype.save = function() {
       return {
         line: this.line,
         col: this.index - this.lastLineBreak
       };
-    }, O.prototype.formatError = function(r, a) {
+    }, O.prototype.formatError = function(N, s) {
       var _ = this.buffer;
       if (typeof _ == "string") {
         var u = _.split(`
 `).slice(Math.max(0, this.line - 5), this.line), H = _.indexOf(`
 `, this.index);
         H === -1 && (H = _.length);
-        var n = this.index - this.lastLineBreak, l = String(this.line).length;
-        return a += " at line " + this.line + " col " + n + `:
+        var o = this.index - this.lastLineBreak, l = String(this.line).length;
+        return s += " at line " + this.line + " col " + o + `:
 
-`, a += u.map(function(s, t) {
-          return B(this.line - u.length + t + 1, l) + " " + s;
+`, s += u.map(function(a, r) {
+          return B(this.line - u.length + r + 1, l) + " " + a;
         }, this).join(`
-`), a += `
-` + B("", l + n) + `^
-`, a;
-      } else return a + " at index " + (this.index - 1);
-      function B(s, t) {
-        var D = String(s);
-        return Array(t - D.length + 1).join(" ") + D;
+`), s += `
+` + B("", l + o) + `^
+`, s;
+      } else return s + " at index " + (this.index - 1);
+      function B(a, r) {
+        var P = String(a);
+        return Array(r - P.length + 1).join(" ") + P;
       }
     };
-    function I(r, a, _) {
-      if (r instanceof S)
-        var u = r, _ = a;
-      else var u = S.fromCompiled(r, a);
+    function I(N, s, _) {
+      if (N instanceof S)
+        var u = N, _ = s;
+      else var u = S.fromCompiled(N, s);
       this.grammar = u, this.options = {
         keepHistory: !1,
         lexer: u.lexer || new O()
       };
       for (var H in _ || {}) this.options[H] = _[H];
       this.lexer = this.options.lexer, this.lexerState = void 0;
-      var n = new A(u, 0);
-      this.table = [n], n.wants[u.start] = [], n.predict(u.start), n.process(), this.current = 0;
+      var o = new A(u, 0);
+      this.table = [o], o.wants[u.start] = [], o.predict(u.start), o.process(), this.current = 0;
     }
-    I.fail = {}, I.prototype.feed = function(r) {
-      var a = this.lexer;
-      a.reset(r, this.lexerState);
+    I.fail = {}, I.prototype.feed = function(N) {
+      var s = this.lexer;
+      s.reset(N, this.lexerState);
       for (var _; ; ) {
         try {
-          if (_ = a.next(), !_) break;
+          if (_ = s.next(), !_) break;
         } catch (G) {
           var l = new A(this.grammar, this.current + 1);
           this.table.push(l);
@@ -18893,16 +18893,16 @@ var lO = class {
         }
         var H = this.table[this.current];
         this.options.keepHistory || delete this.table[this.current - 1];
-        var n = this.current + 1, l = new A(this.grammar, n);
+        var o = this.current + 1, l = new A(this.grammar, o);
         this.table.push(l);
-        for (var B = _.text !== void 0 ? _.text : _.value, s = a.constructor === O ? _.value : _, t = H.scannable, D = t.length; D--; ) {
-          var M = t[D], U = M.rule.symbols[M.dot];
-          if (U.test ? U.test(s) : U.type ? U.type === _.type : U.literal === B) {
+        for (var B = _.text !== void 0 ? _.text : _.value, a = s.constructor === O ? _.value : _, r = H.scannable, P = r.length; P--; ) {
+          var M = r[P], U = M.rule.symbols[M.dot];
+          if (U.test ? U.test(a) : U.type ? U.type === _.type : U.literal === B) {
             var d = M.nextState({
-              data: s,
+              data: a,
               token: _,
               isToken: !0,
-              reference: n - 1
+              reference: o - 1
             });
             l.states.push(d);
           }
@@ -18911,80 +18911,80 @@ var lO = class {
           var u = new Error(this.reportError(_));
           throw u.offset = this.current, u.token = _, u;
         }
-        this.options.keepHistory && (H.lexerState = a.save()), this.current++;
+        this.options.keepHistory && (H.lexerState = s.save()), this.current++;
       }
-      return H && (this.lexerState = a.save()), this.results = this.finish(), this;
-    }, I.prototype.reportLexerError = function(r) {
-      var a, _, u = r.token;
-      return u ? (a = "input " + JSON.stringify(u.text[0]) + " (lexer error)", _ = this.lexer.formatError(u, "Syntax error")) : (a = "input (lexer error)", _ = r.message), this.reportErrorCommon(_, a);
-    }, I.prototype.reportError = function(r) {
-      var a = (r.type ? r.type + " token: " : "") + JSON.stringify(r.value !== void 0 ? r.value : r), _ = this.lexer.formatError(r, "Syntax error");
-      return this.reportErrorCommon(_, a);
-    }, I.prototype.reportErrorCommon = function(r, a) {
+      return H && (this.lexerState = s.save()), this.results = this.finish(), this;
+    }, I.prototype.reportLexerError = function(N) {
+      var s, _, u = N.token;
+      return u ? (s = "input " + JSON.stringify(u.text[0]) + " (lexer error)", _ = this.lexer.formatError(u, "Syntax error")) : (s = "input (lexer error)", _ = N.message), this.reportErrorCommon(_, s);
+    }, I.prototype.reportError = function(N) {
+      var s = (N.type ? N.type + " token: " : "") + JSON.stringify(N.value !== void 0 ? N.value : N), _ = this.lexer.formatError(N, "Syntax error");
+      return this.reportErrorCommon(_, s);
+    }, I.prototype.reportErrorCommon = function(N, s) {
       var _ = [];
-      _.push(r);
-      var u = this.table.length - 2, H = this.table[u], n = H.states.filter(function(l) {
+      _.push(N);
+      var u = this.table.length - 2, H = this.table[u], o = H.states.filter(function(l) {
         var B = l.rule.symbols[l.dot];
         return B && typeof B != "string";
       });
-      return n.length === 0 ? (_.push("Unexpected " + a + `. I did not expect any more input. Here is the state of my parse table:
-`), this.displayStateStack(H.states, _)) : (_.push("Unexpected " + a + `. Instead, I was expecting to see one of the following:
-`), n.map(function(l) {
+      return o.length === 0 ? (_.push("Unexpected " + s + `. I did not expect any more input. Here is the state of my parse table:
+`), this.displayStateStack(H.states, _)) : (_.push("Unexpected " + s + `. Instead, I was expecting to see one of the following:
+`), o.map(function(l) {
         return this.buildFirstStateStack(l, []) || [l];
       }, this).forEach(function(l) {
-        var B = l[0], s = B.rule.symbols[B.dot], t = this.getSymbolDisplay(s);
-        _.push("A " + t + " based on:"), this.displayStateStack(l, _);
+        var B = l[0], a = B.rule.symbols[B.dot], r = this.getSymbolDisplay(a);
+        _.push("A " + r + " based on:"), this.displayStateStack(l, _);
       }, this)), _.push(""), _.join(`
 `);
-    }, I.prototype.displayStateStack = function(r, a) {
-      for (var _, u = 0, H = 0; H < r.length; H++) {
-        var n = r[H], l = n.rule.toString(n.dot);
-        l === _ ? u++ : (u > 0 && a.push("    ^ " + u + " more lines identical to this"), u = 0, a.push("    " + l)), _ = l;
+    }, I.prototype.displayStateStack = function(N, s) {
+      for (var _, u = 0, H = 0; H < N.length; H++) {
+        var o = N[H], l = o.rule.toString(o.dot);
+        l === _ ? u++ : (u > 0 && s.push("    ^ " + u + " more lines identical to this"), u = 0, s.push("    " + l)), _ = l;
       }
-    }, I.prototype.getSymbolDisplay = function(r) {
-      return P(r);
-    }, I.prototype.buildFirstStateStack = function(r, a) {
-      if (a.indexOf(r) !== -1) return null;
-      if (r.wantedBy.length === 0) return [r];
-      var _ = r.wantedBy[0], u = [r].concat(a), H = this.buildFirstStateStack(_, u);
-      return H === null ? null : [r].concat(H);
+    }, I.prototype.getSymbolDisplay = function(N) {
+      return i(N);
+    }, I.prototype.buildFirstStateStack = function(N, s) {
+      if (s.indexOf(N) !== -1) return null;
+      if (N.wantedBy.length === 0) return [N];
+      var _ = N.wantedBy[0], u = [N].concat(s), H = this.buildFirstStateStack(_, u);
+      return H === null ? null : [N].concat(H);
     }, I.prototype.save = function() {
-      var r = this.table[this.current];
-      return r.lexerState = this.lexerState, r;
-    }, I.prototype.restore = function(r) {
-      var a = r.index;
-      this.current = a, this.table[a] = r, this.table.splice(a + 1), this.lexerState = r.lexerState, this.results = this.finish();
-    }, I.prototype.rewind = function(r) {
+      var N = this.table[this.current];
+      return N.lexerState = this.lexerState, N;
+    }, I.prototype.restore = function(N) {
+      var s = N.index;
+      this.current = s, this.table[s] = N, this.table.splice(s + 1), this.lexerState = N.lexerState, this.results = this.finish();
+    }, I.prototype.rewind = function(N) {
       if (!this.options.keepHistory) throw new Error("set option `keepHistory` to enable rewinding");
-      this.restore(this.table[r]);
+      this.restore(this.table[N]);
     }, I.prototype.finish = function() {
-      var r = [], a = this.grammar.start;
+      var N = [], s = this.grammar.start;
       return this.table[this.table.length - 1].states.forEach(function(_) {
-        _.rule.name === a && _.dot === _.rule.symbols.length && _.reference === 0 && _.data !== I.fail && r.push(_);
-      }), r.map(function(_) {
+        _.rule.name === s && _.dot === _.rule.symbols.length && _.reference === 0 && _.data !== I.fail && N.push(_);
+      }), N.map(function(_) {
         return _.data;
       });
     };
-    function P(r) {
-      var a = typeof r;
-      if (a === "string") return r;
-      if (a === "object") {
-        if (r.literal) return JSON.stringify(r.literal);
-        if (r instanceof RegExp) return "character matching " + r;
-        if (r.type) return r.type + " token";
-        if (r.test) return "token matching " + String(r.test);
-        throw new Error("Unknown symbol type: " + r);
+    function i(N) {
+      var s = typeof N;
+      if (s === "string") return N;
+      if (s === "object") {
+        if (N.literal) return JSON.stringify(N.literal);
+        if (N instanceof RegExp) return "character matching " + N;
+        if (N.type) return N.type + " token";
+        if (N.test) return "token matching " + String(N.test);
+        throw new Error("Unknown symbol type: " + N);
       }
     }
-    function i(r) {
-      var a = typeof r;
-      if (a === "string") return r;
-      if (a === "object") {
-        if (r.literal) return JSON.stringify(r.literal);
-        if (r instanceof RegExp) return r.toString();
-        if (r.type) return "%" + r.type;
-        if (r.test) return "<" + String(r.test) + ">";
-        throw new Error("Unknown symbol type: " + r);
+    function C(N) {
+      var s = typeof N;
+      if (s === "string") return N;
+      if (s === "object") {
+        if (N.literal) return JSON.stringify(N.literal);
+        if (N instanceof RegExp) return N.toString();
+        if (N.type) return "%" + N.type;
+        if (N.test) return "<" + String(N.test) + ">";
+        throw new Error("Unknown symbol type: " + N);
       }
     }
     return {
@@ -18994,55 +18994,55 @@ var lO = class {
     };
   });
 }));
-function cO(E) {
-  return E.map(GO).map(dO).map(pO).map(HO).map(BO);
+function BO(E) {
+  return E.map(FO).map(mO).map(YO).map(hO).map(fO);
 }
-var GO = (E, T, e) => {
-  if (ne(E.type)) {
-    const R = FO(e, T);
-    if (R && R.type === C.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
-      type: C.IDENTIFIER,
+var FO = (E, T, e) => {
+  if (Ue(E.type)) {
+    const R = VO(e, T);
+    if (R && R.type === n.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
+      type: n.IDENTIFIER,
       text: E.raw
     });
-    const A = CE(e, T);
-    if (A && A.type === C.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
-      type: C.IDENTIFIER,
-      text: E.raw
-    });
-  }
-  return E;
-}, dO = (E, T, e) => {
-  if (E.type === C.RESERVED_FUNCTION_NAME) {
-    const R = CE(e, T);
-    if (!R || !Me(R)) return Object.assign(Object.assign({}, E), {
-      type: C.IDENTIFIER,
+    const A = oE(e, T);
+    if (A && A.type === n.PROPERTY_ACCESS_OPERATOR) return Object.assign(Object.assign({}, E), {
+      type: n.IDENTIFIER,
       text: E.raw
     });
   }
   return E;
-}, pO = (E, T, e) => {
-  if (E.type === C.RESERVED_DATA_TYPE) {
-    const R = CE(e, T);
-    if (R && Me(R)) return Object.assign(Object.assign({}, E), { type: C.RESERVED_PARAMETERIZED_DATA_TYPE });
+}, mO = (E, T, e) => {
+  if (E.type === n.RESERVED_FUNCTION_NAME) {
+    const R = oE(e, T);
+    if (!R || !pe(R)) return Object.assign(Object.assign({}, E), {
+      type: n.IDENTIFIER,
+      text: E.raw
+    });
   }
   return E;
-}, HO = (E, T, e) => {
-  if (E.type === C.IDENTIFIER) {
-    const R = CE(e, T);
-    if (R && Ue(R)) return Object.assign(Object.assign({}, E), { type: C.ARRAY_IDENTIFIER });
+}, YO = (E, T, e) => {
+  if (E.type === n.RESERVED_DATA_TYPE) {
+    const R = oE(e, T);
+    if (R && pe(R)) return Object.assign(Object.assign({}, E), { type: n.RESERVED_PARAMETERIZED_DATA_TYPE });
   }
   return E;
-}, BO = (E, T, e) => {
-  if (E.type === C.RESERVED_DATA_TYPE) {
-    const R = CE(e, T);
-    if (R && Ue(R)) return Object.assign(Object.assign({}, E), { type: C.ARRAY_KEYWORD });
+}, hO = (E, T, e) => {
+  if (E.type === n.IDENTIFIER) {
+    const R = oE(e, T);
+    if (R && He(R)) return Object.assign(Object.assign({}, E), { type: n.ARRAY_IDENTIFIER });
   }
   return E;
-}, FO = (E, T) => CE(E, T, -1), CE = (E, T, e = 1) => {
+}, fO = (E, T, e) => {
+  if (E.type === n.RESERVED_DATA_TYPE) {
+    const R = oE(e, T);
+    if (R && He(R)) return Object.assign(Object.assign({}, E), { type: n.ARRAY_KEYWORD });
+  }
+  return E;
+}, VO = (E, T) => oE(E, T, -1), oE = (E, T, e = 1) => {
   let R = 1;
-  for (; E[T + R * e] && mO(E[T + R * e]); ) R++;
+  for (; E[T + R * e] && yO(E[T + R * e]); ) R++;
   return E[T + R * e];
-}, Me = (E) => E.type === C.OPEN_PAREN && E.text === "(", Ue = (E) => E.type === C.OPEN_PAREN && E.text === "[", mO = (E) => E.type === C.BLOCK_COMMENT || E.type === C.LINE_COMMENT, le = class {
+}, pe = (E) => E.type === n.OPEN_PAREN && E.text === "(", He = (E) => E.type === n.OPEN_PAREN && E.text === "[", yO = (E) => E.type === n.BLOCK_COMMENT || E.type === n.LINE_COMMENT, Be = class {
   constructor(E) {
     this.tokenize = E, this.index = 0, this.tokens = [], this.input = "";
   }
@@ -19055,39 +19055,39 @@ var GO = (E, T, e) => {
   save() {
   }
   formatError(E) {
-    const { line: T, col: e } = Pe(this.input, E.start);
+    const { line: T, col: e } = de(this.input, E.start);
     return `Parse error at token: ${E.text} at line ${T} column ${e}`;
   }
   has(E) {
-    return E in C;
+    return E in n;
   }
 }, c;
 (function(E) {
   E.statement = "statement", E.clause = "clause", E.set_operation = "set_operation", E.function_call = "function_call", E.parameterized_data_type = "parameterized_data_type", E.array_subscript = "array_subscript", E.property_access = "property_access", E.parenthesis = "parenthesis", E.between_predicate = "between_predicate", E.case_expression = "case_expression", E.case_when = "case_when", E.case_else = "case_else", E.limit_clause = "limit_clause", E.all_columns_asterisk = "all_columns_asterisk", E.literal = "literal", E.identifier = "identifier", E.keyword = "keyword", E.data_type = "data_type", E.parameter = "parameter", E.operator = "operator", E.comma = "comma", E.line_comment = "line_comment", E.block_comment = "block_comment", E.disable_comment = "disable_comment";
 })(c = c || (c = {}));
-function ST(E) {
+function NT(E) {
   return E[0];
 }
-var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
+var p = new Be((E) => []), tE = ([[E]]) => E, b = (E) => ({
   type: c.keyword,
   tokenType: E.type,
   text: E.text,
   raw: E.raw
-}), qT = (E) => ({
+}), Ee = (E) => ({
   type: c.data_type,
   text: E.text,
   raw: E.raw
-}), v = (E, { leading: T, trailing: e }) => (T?.length && (E = Object.assign(Object.assign({}, E), { leadingComments: T })), e?.length && (E = Object.assign(Object.assign({}, E), { trailingComments: e })), E), YO = (E, { leading: T, trailing: e }) => {
+}), X = (E, { leading: T, trailing: e }) => (T?.length && (E = Object.assign(Object.assign({}, E), { leadingComments: T })), e?.length && (E = Object.assign(Object.assign({}, E), { trailingComments: e })), E), gO = (E, { leading: T, trailing: e }) => {
   if (T?.length) {
     const [R, ...A] = E;
-    E = [v(R, { leading: T }), ...A];
+    E = [X(R, { leading: T }), ...A];
   }
   if (e?.length) {
     const R = E.slice(0, -1), A = E[E.length - 1];
-    E = [...R, v(A, { trailing: e })];
+    E = [...R, X(A, { trailing: e })];
   }
   return E;
-}, hO = {
+}, WO = {
   Lexer: p,
   ParserRules: [
     {
@@ -19121,7 +19121,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       postprocess: ([E, [T]]) => ({
         type: c.statement,
         children: E,
-        hasSemicolon: T.type === C.DELIMITER
+        hasSemicolon: T.type === n.DELIMITER
       })
     },
     {
@@ -19166,7 +19166,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "clause",
       symbols: ["clause$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "limit_clause$ebnf$1$subexpression$1$ebnf$1",
@@ -19184,7 +19184,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "limit_clause$ebnf$1",
       symbols: ["limit_clause$ebnf$1$subexpression$1"],
-      postprocess: ST
+      postprocess: NT
     },
     {
       name: "limit_clause$ebnf$1",
@@ -19204,13 +19204,13 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
           const [A, S] = R;
           return {
             type: c.limit_clause,
-            limitKw: v(W(E), { trailing: T }),
+            limitKw: X(b(E), { trailing: T }),
             offset: e,
             count: S
           };
         } else return {
           type: c.limit_clause,
-          limitKw: v(W(E), { trailing: T }),
+          limitKw: X(b(E), { trailing: T }),
           count: e
         };
       }
@@ -19246,7 +19246,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       symbols: [p.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT, "select_clause$subexpression$1"],
       postprocess: ([E, [T, e]]) => ({
         type: c.clause,
-        nameKw: W(E),
+        nameKw: b(E),
         children: [T, ...e]
       })
     },
@@ -19255,7 +19255,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       symbols: [p.has("RESERVED_SELECT") ? { type: "RESERVED_SELECT" } : RESERVED_SELECT],
       postprocess: ([E]) => ({
         type: c.clause,
-        nameKw: W(E),
+        nameKw: b(E),
         children: []
       })
     },
@@ -19278,7 +19278,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       symbols: [p.has("RESERVED_CLAUSE") ? { type: "RESERVED_CLAUSE" } : RESERVED_CLAUSE, "other_clause$ebnf$1"],
       postprocess: ([E, T]) => ({
         type: c.clause,
-        nameKw: W(E),
+        nameKw: b(E),
         children: T
       })
     },
@@ -19296,7 +19296,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       symbols: [p.has("RESERVED_SET_OPERATION") ? { type: "RESERVED_SET_OPERATION" } : RESERVED_SET_OPERATION, "set_operation$ebnf$1"],
       postprocess: ([E, T]) => ({
         type: c.set_operation,
-        nameKw: W(E),
+        nameKw: b(E),
         children: T
       })
     },
@@ -19312,7 +19312,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "expression_chain_",
       symbols: ["expression_chain_$ebnf$1"],
-      postprocess: ST
+      postprocess: NT
     },
     {
       name: "expression_chain$ebnf$1",
@@ -19345,17 +19345,17 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "expression_with_comments_",
       symbols: ["expression", "_"],
-      postprocess: ([E, T]) => v(E, { trailing: T })
+      postprocess: ([E, T]) => X(E, { trailing: T })
     },
     {
       name: "_expression_with_comments",
       symbols: ["_", "expression"],
-      postprocess: ([E, T]) => v(T, { leading: E })
+      postprocess: ([E, T]) => X(T, { leading: E })
     },
     {
       name: "_andless_expression_with_comments",
       symbols: ["_", "andless_expression"],
-      postprocess: ([E, T]) => v(T, { leading: E })
+      postprocess: ([E, T]) => X(T, { leading: E })
     },
     {
       name: "free_form_sql$subexpression$1",
@@ -19368,7 +19368,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "free_form_sql",
       symbols: ["free_form_sql$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "asteriskless_free_form_sql$subexpression$1",
@@ -19393,7 +19393,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "asteriskless_free_form_sql",
       symbols: ["asteriskless_free_form_sql$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "expression$subexpression$1",
@@ -19406,7 +19406,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "expression",
       symbols: ["expression$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "andless_expression$subexpression$1",
@@ -19419,7 +19419,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "andless_expression",
       symbols: ["andless_expression$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "asteriskless_andless_expression$subexpression$1",
@@ -19436,7 +19436,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "asteriskless_andless_expression",
       symbols: ["asteriskless_andless_expression$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "atomic_expression$subexpression$1",
@@ -19489,7 +19489,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "atomic_expression",
       symbols: ["atomic_expression$subexpression$1"],
-      postprocess: RE
+      postprocess: tE
     },
     {
       name: "array_subscript",
@@ -19500,7 +19500,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e]) => ({
         type: c.array_subscript,
-        array: v({
+        array: X({
           type: c.identifier,
           quoted: !1,
           text: E.text
@@ -19517,7 +19517,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e]) => ({
         type: c.array_subscript,
-        array: v(W(E), { trailing: T }),
+        array: X(b(E), { trailing: T }),
         parenthesis: e
       })
     },
@@ -19530,7 +19530,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e]) => ({
         type: c.function_call,
-        nameKw: v(W(E), { trailing: T }),
+        nameKw: X(b(E), { trailing: T }),
         parenthesis: e
       })
     },
@@ -19621,9 +19621,9 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e, R, [A]]) => ({
         type: c.property_access,
-        object: v(E, { trailing: T }),
+        object: X(E, { trailing: T }),
         operator: e.text,
-        property: v(A, { leading: R })
+        property: X(A, { leading: R })
       })
     },
     {
@@ -19639,19 +19639,19 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e, R, A, S, O]) => ({
         type: c.between_predicate,
-        betweenKw: W(E),
-        expr1: YO(e, {
+        betweenKw: b(E),
+        expr1: gO(e, {
           leading: T,
           trailing: R
         }),
-        andKw: W(A),
-        expr2: [v(O, { leading: S })]
+        andKw: b(A),
+        expr2: [X(O, { leading: S })]
       })
     },
     {
       name: "case_expression$ebnf$1",
       symbols: ["expression_chain_"],
-      postprocess: ST
+      postprocess: NT
     },
     {
       name: "case_expression$ebnf$1",
@@ -19678,8 +19678,8 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e, R, A]) => ({
         type: c.case_expression,
-        caseKw: v(W(E), { trailing: T }),
-        endKw: W(A),
+        caseKw: X(b(E), { trailing: T }),
+        endKw: b(A),
         expr: e || [],
         clauses: R
       })
@@ -19696,8 +19696,8 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e, R, A, S]) => ({
         type: c.case_when,
-        whenKw: v(W(E), { trailing: T }),
-        thenKw: v(W(R), { trailing: A }),
+        whenKw: X(b(E), { trailing: T }),
+        thenKw: X(b(R), { trailing: A }),
         condition: e,
         result: S
       })
@@ -19711,7 +19711,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e]) => ({
         type: c.case_else,
-        elseKw: v(W(E), { trailing: T }),
+        elseKw: X(b(E), { trailing: T }),
         result: e
       })
     },
@@ -19829,7 +19829,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "keyword",
       symbols: ["keyword$subexpression$1"],
-      postprocess: ([[E]]) => W(E)
+      postprocess: ([[E]]) => b(E)
     },
     {
       name: "data_type$subexpression$1",
@@ -19842,7 +19842,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "data_type",
       symbols: ["data_type$subexpression$1"],
-      postprocess: ([[E]]) => qT(E)
+      postprocess: ([[E]]) => Ee(E)
     },
     {
       name: "data_type",
@@ -19853,7 +19853,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
       ],
       postprocess: ([E, T, e]) => ({
         type: c.parameterized_data_type,
-        dataType: v(qT(E), { trailing: T }),
+        dataType: X(Ee(E), { trailing: T }),
         parenthesis: e
       })
     },
@@ -19872,7 +19872,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "logic_operator",
       symbols: ["logic_operator$subexpression$1"],
-      postprocess: ([[E]]) => W(E)
+      postprocess: ([[E]]) => b(E)
     },
     {
       name: "other_keyword$subexpression$1",
@@ -19893,7 +19893,7 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     {
       name: "other_keyword",
       symbols: ["other_keyword$subexpression$1"],
-      postprocess: ([[E]]) => W(E)
+      postprocess: ([[E]]) => b(E)
     },
     {
       name: "_$ebnf$1",
@@ -19938,10 +19938,10 @@ var p = new le((E) => []), RE = ([[E]]) => E, W = (E) => ({
     }
   ],
   ParserStart: "main"
-}, fO = /* @__PURE__ */ Oe(uO(), 1), { Parser: VO, Grammar: yO } = fO.default;
-function gO(E) {
+}, vO = /* @__PURE__ */ ne(HO(), 1), { Parser: bO, Grammar: XO } = vO.default;
+function KO(E) {
   let T = {};
-  const e = new le((A) => [...cO(E.tokenize(A, T)), Ce(A.length)]), R = new VO(yO.fromCompiled(hO), { lexer: e });
+  const e = new Be((A) => [...BO(E.tokenize(A, T)), Me(A.length)]), R = new bO(XO.fromCompiled(WO), { lexer: e });
   return { parse: (A, S) => {
     T = S;
     const { results: O } = R.feed(A);
@@ -19954,7 +19954,7 @@ var L;
 (function(E) {
   E[E.SPACE = 0] = "SPACE", E[E.NO_SPACE = 1] = "NO_SPACE", E[E.NO_NEWLINE = 2] = "NO_NEWLINE", E[E.NEWLINE = 3] = "NEWLINE", E[E.MANDATORY_NEWLINE = 4] = "MANDATORY_NEWLINE", E[E.INDENT = 5] = "INDENT", E[E.SINGLE_INDENT = 6] = "SINGLE_INDENT";
 })(L = L || (L = {}));
-var ue = class {
+var Fe = class {
   constructor(E) {
     this.indentation = E, this.items = [];
   }
@@ -19986,13 +19986,13 @@ var ue = class {
     }
   }
   trimHorizontalWhitespace() {
-    for (; WO(_E(this.items)); ) this.items.pop();
+    for (; $O(PE(this.items)); ) this.items.pop();
   }
   trimWhitespace() {
-    for (; vO(_E(this.items)); ) this.items.pop();
+    for (; xO(PE(this.items)); ) this.items.pop();
   }
   addNewline(E) {
-    if (this.items.length > 0) switch (_E(this.items)) {
+    if (this.items.length > 0) switch (PE(this.items)) {
       case L.NEWLINE:
         this.items.pop(), this.items.push(E);
         break;
@@ -20026,16 +20026,16 @@ var ue = class {
         return E;
     }
   }
-}, WO = (E) => E === L.SPACE || E === L.SINGLE_INDENT, vO = (E) => E === L.SPACE || E === L.SINGLE_INDENT || E === L.NEWLINE;
-function jT(E, T) {
+}, $O = (E) => E === L.SPACE || E === L.SINGLE_INDENT, xO = (E) => E === L.SPACE || E === L.SINGLE_INDENT || E === L.NEWLINE;
+function Te(E, T) {
   if (T === "standard") return E;
   let e = [];
   return E.length >= 10 && E.includes(" ") && ([E, ...e] = E.split(" ")), T === "tabularLeft" ? E = E.padEnd(9, " ") : E = E.padStart(9, " "), E + ["", ...e].join(" ");
 }
-function zT(E) {
-  return CR(E) || E === C.RESERVED_CLAUSE || E === C.RESERVED_SELECT || E === C.RESERVED_SET_OPERATION || E === C.RESERVED_JOIN || E === C.LIMIT;
+function ee(E) {
+  return DR(E) || E === n.RESERVED_CLAUSE || E === n.RESERVED_SELECT || E === n.RESERVED_SET_OPERATION || E === n.RESERVED_JOIN || E === n.LIMIT;
 }
-var IT = "top-level", XO = "block-level", ce = class {
+var tT = "top-level", JO = "block-level", me = class {
   constructor(E) {
     this.indent = E, this.indentTypes = [];
   }
@@ -20046,35 +20046,35 @@ var IT = "top-level", XO = "block-level", ce = class {
     return this.indentTypes.length;
   }
   increaseTopLevel() {
-    this.indentTypes.push(IT);
+    this.indentTypes.push(tT);
   }
   increaseBlockLevel() {
-    this.indentTypes.push(XO);
+    this.indentTypes.push(JO);
   }
   decreaseTopLevel() {
-    this.indentTypes.length > 0 && _E(this.indentTypes) === IT && this.indentTypes.pop();
+    this.indentTypes.length > 0 && PE(this.indentTypes) === tT && this.indentTypes.pop();
   }
   decreaseBlockLevel() {
-    for (; this.indentTypes.length > 0 && this.indentTypes.pop() === IT; ) ;
+    for (; this.indentTypes.length > 0 && this.indentTypes.pop() === tT; ) ;
   }
-}, bO = class extends ue {
+}, wO = class extends Fe {
   constructor(E) {
-    super(new ce("")), this.expressionWidth = E, this.length = 0, this.trailingSpace = !1;
+    super(new me("")), this.expressionWidth = E, this.length = 0, this.trailingSpace = !1;
   }
   add(...E) {
-    if (E.forEach((T) => this.addToLength(T)), this.length > this.expressionWidth) throw new tT();
+    if (E.forEach((T) => this.addToLength(T)), this.length > this.expressionWidth) throw new aT();
     super.add(...E);
   }
   addToLength(E) {
     if (typeof E == "string")
       this.length += E.length, this.trailingSpace = !1;
     else {
-      if (E === L.MANDATORY_NEWLINE || E === L.NEWLINE) throw new tT();
+      if (E === L.MANDATORY_NEWLINE || E === L.NEWLINE) throw new aT();
       E === L.INDENT || E === L.SINGLE_INDENT || E === L.SPACE ? this.trailingSpace || (this.length++, this.trailingSpace = !0) : (E === L.NO_NEWLINE || E === L.NO_SPACE) && this.trailingSpace && (this.trailingSpace = !1, this.length--);
     }
   }
-}, tT = class extends Error {
-}, KO = class rT {
+}, aT = class extends Error {
+}, kO = class LT {
   constructor({ cfg: T, dialectCfg: e, params: R, layout: A, inline: S = !1 }) {
     this.inline = !1, this.nodes = [], this.index = -1, this.cfg = T, this.dialectCfg = e, this.inline = S, this.params = R, this.layout = A;
   }
@@ -20167,7 +20167,7 @@ var IT = "top-level", XO = "block-level", ce = class {
   }
   formatParenthesis(T) {
     const e = this.formatInlineExpression(T.children);
-    e ? (this.layout.add(T.openParen), this.layout.add(...e.getLayoutItems()), this.layout.add(L.NO_SPACE, T.closeParen, L.SPACE)) : (this.layout.add(T.openParen, L.NEWLINE), aE(this.cfg) ? (this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children)) : (this.layout.indentation.increaseBlockLevel(), this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseBlockLevel()), this.layout.add(L.NEWLINE, L.INDENT, T.closeParen, L.SPACE));
+    e ? (this.layout.add(T.openParen), this.layout.add(...e.getLayoutItems()), this.layout.add(L.NO_SPACE, T.closeParen, L.SPACE)) : (this.layout.add(T.openParen, L.NEWLINE), iE(this.cfg) ? (this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children)) : (this.layout.indentation.increaseBlockLevel(), this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseBlockLevel()), this.layout.add(L.NEWLINE, L.INDENT, T.closeParen, L.SPACE));
   }
   formatBetweenPredicate(T) {
     this.layout.add(this.showKw(T.betweenKw), L.SPACE), this.layout = this.formatSubExpression(T.expr1), this.layout.add(L.NO_SPACE, L.SPACE, this.showNonTabularKw(T.andKw), L.SPACE), this.layout = this.formatSubExpression(T.expr2), this.layout.add(L.SPACE);
@@ -20182,10 +20182,10 @@ var IT = "top-level", XO = "block-level", ce = class {
     this.layout.add(L.NEWLINE, L.INDENT), this.formatNode(T.elseKw), this.layout = this.formatSubExpression(T.result);
   }
   formatClause(T) {
-    this.isOnelineClause(T) ? this.formatClauseInOnelineStyle(T) : aE(this.cfg) ? this.formatClauseInTabularStyle(T) : this.formatClauseInIndentedStyle(T);
+    this.isOnelineClause(T) ? this.formatClauseInOnelineStyle(T) : iE(this.cfg) ? this.formatClauseInTabularStyle(T) : this.formatClauseInIndentedStyle(T);
   }
   isOnelineClause(T) {
-    return aE(this.cfg) ? this.dialectCfg.tabularOnelineClauses[T.nameKw.text] : this.dialectCfg.onelineClauses[T.nameKw.text];
+    return iE(this.cfg) ? this.dialectCfg.tabularOnelineClauses[T.nameKw.text] : this.dialectCfg.onelineClauses[T.nameKw.text];
   }
   formatClauseInIndentedStyle(T) {
     this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.nameKw), L.NEWLINE), this.layout.indentation.increaseTopLevel(), this.layout.add(L.INDENT), this.layout = this.formatSubExpression(T.children), this.layout.indentation.decreaseTopLevel();
@@ -20202,7 +20202,7 @@ var IT = "top-level", XO = "block-level", ce = class {
   formatLimitClause(T) {
     this.withComments(T.limitKw, () => {
       this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T.limitKw));
-    }), this.layout.indentation.increaseTopLevel(), aE(this.cfg) ? this.layout.add(L.SPACE) : this.layout.add(L.NEWLINE, L.INDENT), T.offset ? (this.layout = this.formatSubExpression(T.offset), this.layout.add(L.NO_SPACE, ",", L.SPACE), this.layout = this.formatSubExpression(T.count)) : this.layout = this.formatSubExpression(T.count), this.layout.indentation.decreaseTopLevel();
+    }), this.layout.indentation.increaseTopLevel(), iE(this.cfg) ? this.layout.add(L.SPACE) : this.layout.add(L.NEWLINE, L.INDENT), T.offset ? (this.layout = this.formatSubExpression(T.offset), this.layout.add(L.NO_SPACE, ",", L.SPACE), this.layout = this.formatSubExpression(T.count)) : this.layout = this.formatSubExpression(T.count), this.layout.indentation.decreaseTopLevel();
   }
   formatAllColumnsAsterisk(T) {
     this.layout.add("*", L.SPACE);
@@ -20231,7 +20231,7 @@ var IT = "top-level", XO = "block-level", ce = class {
     });
   }
   formatLineComment(T) {
-    RT(T.precedingWhitespace || "") ? this.layout.add(L.NEWLINE, L.INDENT, T.text, L.MANDATORY_NEWLINE, L.INDENT) : this.layout.getLayoutItems().length > 0 ? this.layout.add(L.NO_NEWLINE, L.SPACE, T.text, L.MANDATORY_NEWLINE, L.INDENT) : this.layout.add(T.text, L.MANDATORY_NEWLINE, L.INDENT);
+    IT(T.precedingWhitespace || "") ? this.layout.add(L.NEWLINE, L.INDENT, T.text, L.MANDATORY_NEWLINE, L.INDENT) : this.layout.getLayoutItems().length > 0 ? this.layout.add(L.NO_NEWLINE, L.SPACE, T.text, L.MANDATORY_NEWLINE, L.INDENT) : this.layout.add(T.text, L.MANDATORY_NEWLINE, L.INDENT);
   }
   formatBlockComment(T) {
     T.type === c.block_comment && this.isMultilineBlockComment(T) ? (this.splitBlockComment(T.text).forEach((e) => {
@@ -20239,17 +20239,17 @@ var IT = "top-level", XO = "block-level", ce = class {
     }), this.layout.add(L.NEWLINE, L.INDENT)) : this.layout.add(T.text, L.SPACE);
   }
   isMultilineBlockComment(T) {
-    return RT(T.text) || RT(T.precedingWhitespace || "");
+    return IT(T.text) || IT(T.precedingWhitespace || "");
   }
   isDocComment(T) {
     const e = T.split(/\n/);
-    return /^\/\*\*?$/.test(e[0]) && e.slice(1, e.length - 1).every((R) => /^\s*\*/.test(R)) && /^\s*\*\/$/.test(_E(e));
+    return /^\/\*\*?$/.test(e[0]) && e.slice(1, e.length - 1).every((R) => /^\s*\*/.test(R)) && /^\s*\*\/$/.test(PE(e));
   }
   splitBlockComment(T) {
     return this.isDocComment(T) ? T.split(/\n/).map((e) => /^\s*\*/.test(e) ? " " + e.replace(/^\s*/, "") : e) : T.split(/\n/).map((e) => e.replace(/^\s*/, ""));
   }
   formatSubExpression(T) {
-    return new rT({
+    return new LT({
       cfg: this.cfg,
       dialectCfg: this.dialectCfg,
       params: this.params,
@@ -20260,15 +20260,15 @@ var IT = "top-level", XO = "block-level", ce = class {
   formatInlineExpression(T) {
     const e = this.params.getPositionalParameterIndex();
     try {
-      return new rT({
+      return new LT({
         cfg: this.cfg,
         dialectCfg: this.dialectCfg,
         params: this.params,
-        layout: new bO(this.cfg.expressionWidth),
+        layout: new wO(this.cfg.expressionWidth),
         inline: !0
       }).format(T);
     } catch (R) {
-      if (R instanceof tT) {
+      if (R instanceof aT) {
         this.params.setPositionalParameterIndex(e);
         return;
       } else throw R;
@@ -20276,35 +20276,35 @@ var IT = "top-level", XO = "block-level", ce = class {
   }
   formatKeywordNode(T) {
     switch (T.tokenType) {
-      case C.RESERVED_JOIN:
+      case n.RESERVED_JOIN:
         return this.formatJoin(T);
-      case C.AND:
-      case C.OR:
-      case C.XOR:
+      case n.AND:
+      case n.OR:
+      case n.XOR:
         return this.formatLogicalOperator(T);
       default:
         return this.formatKeyword(T);
     }
   }
   formatJoin(T) {
-    aE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE);
+    iE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE);
   }
   formatKeyword(T) {
     this.layout.add(this.showKw(T), L.SPACE);
   }
   formatLogicalOperator(T) {
-    this.cfg.logicalOperatorNewline === "before" ? aE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE) : this.layout.add(this.showKw(T), L.NEWLINE, L.INDENT);
+    this.cfg.logicalOperatorNewline === "before" ? iE(this.cfg) ? (this.layout.indentation.decreaseTopLevel(), this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE), this.layout.indentation.increaseTopLevel()) : this.layout.add(L.NEWLINE, L.INDENT, this.showKw(T), L.SPACE) : this.layout.add(this.showKw(T), L.NEWLINE, L.INDENT);
   }
   formatDataType(T) {
     this.layout.add(this.showDataType(T), L.SPACE);
   }
   showKw(T) {
-    return zT(T.tokenType) ? jT(this.showNonTabularKw(T), this.cfg.indentStyle) : this.showNonTabularKw(T);
+    return ee(T.tokenType) ? Te(this.showNonTabularKw(T), this.cfg.indentStyle) : this.showNonTabularKw(T);
   }
   showNonTabularKw(T) {
     switch (this.cfg.keywordCase) {
       case "preserve":
-        return GE(T.raw);
+        return BE(T.raw);
       case "upper":
         return T.text;
       case "lower":
@@ -20312,12 +20312,12 @@ var IT = "top-level", XO = "block-level", ce = class {
     }
   }
   showFunctionKw(T) {
-    return zT(T.tokenType) ? jT(this.showNonTabularFunctionKw(T), this.cfg.indentStyle) : this.showNonTabularFunctionKw(T);
+    return ee(T.tokenType) ? Te(this.showNonTabularFunctionKw(T), this.cfg.indentStyle) : this.showNonTabularFunctionKw(T);
   }
   showNonTabularFunctionKw(T) {
     switch (this.cfg.functionCase) {
       case "preserve":
-        return GE(T.raw);
+        return BE(T.raw);
       case "upper":
         return T.text;
       case "lower":
@@ -20338,40 +20338,40 @@ var IT = "top-level", XO = "block-level", ce = class {
   showDataType(T) {
     switch (this.cfg.dataTypeCase) {
       case "preserve":
-        return GE(T.raw);
+        return BE(T.raw);
       case "upper":
         return T.text;
       case "lower":
         return T.text.toLowerCase();
     }
   }
-}, $O = class {
+}, QO = class {
   constructor(E, T) {
-    this.dialect = E, this.cfg = T, this.params = new lO(this.cfg.params);
+    this.dialect = E, this.cfg = T, this.params = new pO(this.cfg.params);
   }
   format(E) {
     const T = this.parse(E);
     return this.formatAst(T).trimEnd();
   }
   parse(E) {
-    return gO(this.dialect.tokenizer).parse(E, this.cfg.paramTypes || {});
+    return KO(this.dialect.tokenizer).parse(E, this.cfg.paramTypes || {});
   }
   formatAst(E) {
     return E.map((T) => this.formatStatement(T)).join(`
 `.repeat(this.cfg.linesBetweenQueries + 1));
   }
   formatStatement(E) {
-    const T = new KO({
+    const T = new kO({
       cfg: this.cfg,
       dialectCfg: this.dialect.formatOptions,
       params: this.params,
-      layout: new ue(new ce(UO(this.cfg)))
+      layout: new Fe(new me(dO(this.cfg)))
     }).format(E.children);
     return E.hasSemicolon && (this.cfg.newlineBeforeSemicolon ? T.add(L.NEWLINE, ";") : T.add(L.NO_NEWLINE, ";")), T.toString();
   }
-}, dE = class extends Error {
+}, FE = class extends Error {
 };
-function xO(E) {
+function ZO(E) {
   for (const T of [
     "multilineLists",
     "newlineBeforeOpenParen",
@@ -20379,24 +20379,24 @@ function xO(E) {
     "aliasAs",
     "commaPosition",
     "tabulateAlias"
-  ]) if (T in E) throw new dE(`${T} config is no more supported.`);
-  if (E.expressionWidth <= 0) throw new dE(`expressionWidth config must be positive number. Received ${E.expressionWidth} instead.`);
-  if (E.params && !JO(E.params) && console.warn('WARNING: All "params" option values should be strings.'), E.paramTypes && !wO(E.paramTypes)) throw new dE("Empty regex given in custom paramTypes. That would result in matching infinite amount of parameters.");
+  ]) if (T in E) throw new FE(`${T} config is no more supported.`);
+  if (E.expressionWidth <= 0) throw new FE(`expressionWidth config must be positive number. Received ${E.expressionWidth} instead.`);
+  if (E.params && !qO(E.params) && console.warn('WARNING: All "params" option values should be strings.'), E.paramTypes && !jO(E.paramTypes)) throw new FE("Empty regex given in custom paramTypes. That would result in matching infinite amount of parameters.");
   return E;
 }
-function JO(E) {
+function qO(E) {
   return (E instanceof Array ? E : Object.values(E)).every((T) => typeof T == "string");
 }
-function wO(E) {
+function jO(E) {
   return E.custom && Array.isArray(E.custom) ? E.custom.every((T) => T.regex !== "") : !0;
 }
-var QO = function(E, T) {
+var zO = function(E, T) {
   var e = {};
   for (var R in E) Object.prototype.hasOwnProperty.call(E, R) && T.indexOf(R) < 0 && (e[R] = E[R]);
   if (E != null && typeof Object.getOwnPropertySymbols == "function")
     for (var A = 0, R = Object.getOwnPropertySymbols(E); A < R.length; A++) T.indexOf(R[A]) < 0 && Object.prototype.propertyIsEnumerable.call(E, R[A]) && (e[R[A]] = E[R[A]]);
   return e;
-}, Ge = {
+}, Ye = {
   bigquery: "bigquery",
   clickhouse: "clickhouse",
   db2: "db2",
@@ -20418,7 +20418,7 @@ var QO = function(E, T) {
   tsql: "transactsql",
   singlestoredb: "singlestoredb",
   snowflake: "snowflake"
-}, kO = Object.keys(Ge), ZO = {
+}, EN = Object.keys(Ye), TN = {
   tabWidth: 2,
   useTabs: !1,
   keywordCase: "preserve",
@@ -20431,18 +20431,18 @@ var QO = function(E, T) {
   linesBetweenQueries: 1,
   denseOperators: !1,
   newlineBeforeSemicolon: !1
-}, qO = (E, T = {}) => {
-  if (typeof T.language == "string" && !kO.includes(T.language)) throw new dE(`Unsupported SQL dialect: ${T.language}`);
-  const e = Ge[T.language || "sql"];
-  return jO(E, Object.assign(Object.assign({}, T), { dialect: SO[e] }));
-}, jO = (E, T) => {
-  var { dialect: e } = T, R = QO(T, ["dialect"]);
+}, eN = (E, T = {}) => {
+  if (typeof T.language == "string" && !EN.includes(T.language)) throw new FE(`Unsupported SQL dialect: ${T.language}`);
+  const e = Ye[T.language || "sql"];
+  return RN(E, Object.assign(Object.assign({}, T), { dialect: rO[e] }));
+}, RN = (E, T) => {
+  var { dialect: e } = T, R = zO(T, ["dialect"]);
   if (typeof E != "string") throw new Error("Invalid query argument. Expected string, instead got " + typeof E);
-  const A = xO(Object.assign(Object.assign({}, ZO), R));
-  return new $O(DO(e), A).format(E);
-}, IE = /* @__PURE__ */ Oe(AR(), 1);
-function zO() {
-  sT("json") || (IE.default.languages.json = {
+  const A = ZO(Object.assign(Object.assign({}, TN), R));
+  return new QO(uO(e), A).format(E);
+}, sE = /* @__PURE__ */ ne(rR(), 1);
+function AN() {
+  nT("json") || (sE.default.languages.json = {
     property: {
       pattern: /(^|[^\\])"(?:\\.|[^\\"\r\n])*"(?=\s*:)/,
       lookbehind: !0,
@@ -20465,7 +20465,7 @@ function zO() {
       pattern: /\bnull\b/,
       alias: "keyword"
     }
-  }, IE.default.languages.webmanifest = IE.default.languages.json), sT("sql") || (IE.default.languages.sql = {
+  }, sE.default.languages.webmanifest = sE.default.languages.json), nT("sql") || (sE.default.languages.sql = {
     comment: {
       pattern: /(^|[^\\])(?:\/\*[\s\S]*?\*\/|(?:--|\/\/|#).*)/,
       lookbehind: !0
@@ -20493,19 +20493,19 @@ function zO() {
     punctuation: /[;[\]()`,.]/
   });
 }
-function sT(E) {
-  return Object.prototype.hasOwnProperty.call(IE.default.languages, E);
+function nT(E) {
+  return Object.prototype.hasOwnProperty.call(sE.default.languages, E);
 }
-function EN(E) {
+function SN(E) {
   return E.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function de(E, T) {
-  return zO(), sT(T) ? IE.default.highlight(E, IE.default.languages[T], T) : EN(E);
+function he(E, T) {
+  return AN(), nT(T) ? sE.default.highlight(E, sE.default.languages[T], T) : SN(E);
 }
-function TN(E) {
+function IN(E) {
   if (!E || typeof E != "string") return "";
   try {
-    return qO(E, {
+    return eN(E, {
       language: "postgresql",
       tabWidth: 2,
       keywordCase: "upper",
@@ -20515,10 +20515,10 @@ function TN(E) {
     return E;
   }
 }
-function at(E, T = !1) {
-  return !E || typeof E != "string" ? "" : de(T ? TN(E) : E, "sql");
+function _t(E, T = !1) {
+  return !E || typeof E != "string" ? "" : he(T ? IN(E) : E, "sql");
 }
-function pe(E, T = !0) {
+function fe(E, T = !0) {
   let e;
   if (typeof E == "string") try {
     const R = JSON.parse(E);
@@ -20531,42 +20531,42 @@ function pe(E, T = !0) {
   } catch {
     e = String(E ?? "");
   }
-  return de(e, "json");
+  return he(e, "json");
 }
-function eN(E) {
+function ON(E) {
   let T = 5381;
   for (let e = 0; e < E.length; e++) T = (T << 5) + T + E.charCodeAt(e) | 0;
   return (T >>> 0).toString(36);
 }
-var RN = (E) => {
+var NN = (E) => {
   typeof requestAnimationFrame == "function" ? requestAnimationFrame(() => E()) : setTimeout(E, 16);
 };
-function AN(E, T, e) {
+function tN(E, T, e) {
   E.insertAdjacentHTML(e ? "afterbegin" : "beforeend", T);
 }
-function aT(E, T) {
+function CT(E, T) {
   let e = E.nextElementSibling;
   for (E.remove(); e && !e.matches(T); ) {
     const R = e.nextElementSibling;
     e.remove(), e = R;
   }
 }
-function SN(E, T, e, R, A) {
+function rN(E, T, e, R, A) {
   if (!R || R <= 0) return [];
   const S = Array.from(E.querySelectorAll(T)), O = S.length - R;
   if (O <= 0) return [];
-  const I = A ? S.reverse() : S, P = [];
-  for (let i = 0; i < O; i++) {
-    const r = I[i];
-    if (!r) break;
-    const a = r.getAttribute(e);
-    a && P.push(a), aT(r, T);
+  const I = A ? S.reverse() : S, i = [];
+  for (let C = 0; C < O; C++) {
+    const N = I[C];
+    if (!N) break;
+    const s = N.getAttribute(e);
+    s && i.push(s), CT(N, T);
   }
-  return P;
+  return i;
 }
-var Lt = class {
+var it = class {
   constructor(E) {
-    this.root = null, this.container = null, this.pending = [], this.frameScheduled = !1, this.paused = !1, this.wired = /* @__PURE__ */ new WeakSet(), this.opts = E, this.scheduleFrame = E.scheduleFrame || RN, this.containerSelector = E.containerSelector || "[data-live-list]", this.rowSelector = E.rowSelector || "[data-row-key]", this.keyAttr = E.keyAttr || "data-row-key";
+    this.root = null, this.container = null, this.pending = [], this.frameScheduled = !1, this.paused = !1, this.wired = /* @__PURE__ */ new WeakSet(), this.opts = E, this.scheduleFrame = E.scheduleFrame || NN, this.containerSelector = E.containerSelector || "[data-live-list]", this.rowSelector = E.rowSelector || "[data-row-key]", this.keyAttr = E.keyAttr || "data-row-key";
   }
   adopt(E) {
     this.root = E, this.container = E.querySelector(this.containerSelector), this.container && (this.wired.has(this.container) || (this.wired.add(this.container), this.opts.onAdopt?.(E, this.container)), this.opts.onRestore?.(E, this.container));
@@ -20609,27 +20609,27 @@ var Lt = class {
     }
     const T = this.opts.getRenderOptions().newestFirst !== !1, e = this.opts.getMaxEntries();
     this.opts.updateMode === "upsert" && (E = this.collapseUpserts(E)), e && E.length > e && (E = E.slice(-e));
-    const R = this.opts.updateMode === "upsert", A = this.container.scrollTop, S = typeof document < "u" ? document.activeElement : null, O = (S && this.container.contains(S) ? S.closest(this.rowSelector) : null)?.getAttribute(this.keyAttr) || "", I = S?.hasAttribute("data-live-row-focus") === !0, P = [];
-    for (const i of E) {
-      const r = this.opts.keyOf(i), a = this.findRow(r);
-      if (this.opts.shouldDisplay && !this.opts.shouldDisplay(i)) {
-        a && this.opts.updateMode === "upsert" && aT(a, this.rowSelector);
+    const R = this.opts.updateMode === "upsert", A = this.container.scrollTop, S = typeof document < "u" ? document.activeElement : null, O = (S && this.container.contains(S) ? S.closest(this.rowSelector) : null)?.getAttribute(this.keyAttr) || "", I = S?.hasAttribute("data-live-row-focus") === !0, i = [];
+    for (const C of E) {
+      const N = this.opts.keyOf(C), s = this.findRow(N);
+      if (this.opts.shouldDisplay && !this.opts.shouldDisplay(C)) {
+        s && this.opts.updateMode === "upsert" && CT(s, this.rowSelector);
         continue;
       }
-      if (this.opts.updateMode === "upsert" && a) {
-        if (!this.shouldReplace(a, i)) continue;
-        a.insertAdjacentHTML("beforebegin", this.opts.renderRow(i)), aT(a, this.rowSelector), this.decorateRow(this.findRow(r), i), P.push(r);
+      if (this.opts.updateMode === "upsert" && s) {
+        if (!this.shouldReplace(s, C)) continue;
+        s.insertAdjacentHTML("beforebegin", this.opts.renderRow(C)), CT(s, this.rowSelector), this.decorateRow(this.findRow(N), C), i.push(N);
         continue;
       }
-      AN(this.container, this.opts.renderRow(i), T), this.decorateRow(this.findRow(r), i), P.push(r);
+      tN(this.container, this.opts.renderRow(C), T), this.decorateRow(this.findRow(N), C), i.push(N);
     }
-    if (P.length > 0) {
-      const i = SN(this.container, this.rowSelector, this.keyAttr, e, T);
-      i.length > 0 && this.opts.onEvict?.(i), this.opts.onAfterAppend?.(this.container, P);
+    if (i.length > 0) {
+      const C = rN(this.container, this.rowSelector, this.keyAttr, e, T);
+      C.length > 0 && this.opts.onEvict?.(C), this.opts.onAfterAppend?.(this.container, i);
     }
     if (R && (this.container.scrollTop = A), this.opts.onRestore?.(this.root || this.container, this.container), O && S && !S.isConnected) {
-      const i = this.findRow(O);
-      (I ? i?.querySelector("[data-live-row-focus]") : i)?.focus({ preventScroll: !0 });
+      const C = this.findRow(O);
+      (I ? C?.querySelector("[data-live-row-focus]") : C)?.focus({ preventScroll: !0 });
     }
   }
   collapseUpserts(E) {
@@ -20662,7 +20662,7 @@ var Lt = class {
     this.opts.onPendingChange?.(this.pending.length);
   }
 };
-function He(E, T, e) {
+function Ve(E, T, e) {
   return T ? `
       <button class="${E.copyBtn}" data-copy-trigger="${e}" title="Copy to clipboard">
         <i class="iconoir-copy"></i> Copy
@@ -20677,30 +20677,30 @@ function He(E, T, e) {
     </button>
   `;
 }
-function Be(E, T, e, R = {}) {
-  const { useIconCopyButton: A = !1, filterFn: S, showCount: O = !0 } = R, I = T && typeof T == "object" && !Array.isArray(T), P = Array.isArray(T);
-  let i = T ?? {};
-  if (I && S && (i = S(T)), I && Object.keys(i).length === 0 || P && i.length === 0 || !I && !P && !i) return `<div class="${e.emptyState}">No ${E.toLowerCase()} data available</div>`;
-  const r = se(i), a = pe(i, !0), _ = RR(i), u = P ? "items" : I ? "keys" : "entries", H = He(e, A, `copy-${E.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`), n = O ? `<span class="${e.muted}">${Le(_)} ${u}</span>` : "";
+function ye(E, T, e, R = {}) {
+  const { useIconCopyButton: A = !1, filterFn: S, showCount: O = !0 } = R, I = T && typeof T == "object" && !Array.isArray(T), i = Array.isArray(T);
+  let C = T ?? {};
+  if (I && S && (C = S(T)), I && Object.keys(C).length === 0 || i && C.length === 0 || !I && !i && !C) return `<div class="${e.emptyState}">No ${E.toLowerCase()} data available</div>`;
+  const N = oe(C), s = fe(C, !0), _ = tR(C), u = i ? "items" : I ? "keys" : "entries", H = Ve(e, A, `copy-${E.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}`), o = O ? `<span class="${e.muted}">${Pe(_)} ${u}</span>` : "";
   return `
-    <section class="${e.jsonPanel}" data-copy-content="${o(r)}">
+    <section class="${e.jsonPanel}" data-copy-content="${D(N)}">
       <div class="${e.jsonHeader}">
-        <span class="${e.jsonViewerTitle}">${o(E)}</span>
+        <span class="${e.jsonViewerTitle}">${D(E)}</span>
         <div class="${e.jsonActions}">
-          ${n}
+          ${o}
           ${H}
         </div>
       </div>
-      <pre>${a}</pre>
+      <pre>${s}</pre>
     </section>
   `;
 }
-function Ct(E, T, e = {}) {
+function ot(E, T, e = {}) {
   const { useIconCopyButton: R = !1 } = e;
   if (!E || typeof E == "object" && Object.keys(E).length === 0) return "";
-  const A = se(E), S = pe(E, !0), O = He(T, R, `viewer-${Date.now()}`);
+  const A = oe(E), S = fe(E, !0), O = Ve(T, R, `viewer-${Date.now()}`);
   return `
-    <div class="${T.jsonViewer}" data-copy-content="${o(A)}">
+    <div class="${T.jsonViewer}" data-copy-content="${D(A)}">
       <div class="${T.jsonViewerHeader}">
         ${O}
       </div>
@@ -20708,37 +20708,37 @@ function Ct(E, T, e = {}) {
     </div>
   `;
 }
-var IN = 128, ON = 256, NN = 16, tN = 88e3;
-function SE(E, T) {
+var sN = 128, aN = 256, LN = 16, nN = 88e3;
+function rE(E, T) {
   return typeof E == "string" ? E.trim().slice(0, T) : "";
 }
-function Ee(E) {
-  const T = SE(E, 16).toLowerCase();
+function Re(E) {
+  const T = rE(E, 16).toLowerCase();
   return /^#[0-9a-f]{6}$/.test(T) ? T : "";
 }
-function Fe(E) {
+function ge(E) {
   if (!E || typeof E != "object") return null;
-  const T = E, e = SE(T.name, IN), R = SE(T.algorithm, 64), A = SE(T.version, 64), S = SE(T.source, 64), O = T.visual, I = SE(O?.alt, ON) || e;
+  const T = E, e = rE(T.name, sN), R = rE(T.algorithm, 64), A = rE(T.version, 64), S = rE(T.source, 64), O = T.visual, I = rE(O?.alt, aN) || e;
   if (!e || !O || !I) return null;
   if (O.kind === "monogram") {
-    const P = SE(O.text, NN), i = Ee(O.background), r = Ee(O.foreground);
-    return !P || !i || !r ? null : {
+    const i = rE(O.text, LN), C = Re(O.background), N = Re(O.foreground);
+    return !i || !C || !N ? null : {
       name: e,
       algorithm: R,
       version: A,
       source: S,
       visual: {
         kind: "monogram",
-        text: P,
+        text: i,
         alt: I,
-        background: i,
-        foreground: r
+        background: C,
+        foreground: N
       }
     };
   }
   if (O.kind === "image") {
-    const P = typeof O.data == "string" ? O.data.trim() : "";
-    return O.media_type !== "image/png" || P.length === 0 || P.length > tN || !P.startsWith("iVBORw0KGgo") || !/^[A-Za-z0-9+/]+={0,2}$/.test(P) ? null : {
+    const i = typeof O.data == "string" ? O.data.trim() : "";
+    return O.media_type !== "image/png" || i.length === 0 || i.length > nN || !i.startsWith("iVBORw0KGgo") || !/^[A-Za-z0-9+/]+={0,2}$/.test(i) ? null : {
       name: e,
       algorithm: R,
       version: A,
@@ -20747,21 +20747,21 @@ function Fe(E) {
         kind: "image",
         alt: I,
         media_type: "image/png",
-        data: P
+        data: i
       }
     };
   }
   return null;
 }
-function rN(E, T = "deployment-persona-avatar") {
-  const e = Fe(E);
+function CN(E, T = "deployment-persona-avatar") {
+  const e = ge(E);
   if (!e?.visual) return "";
   const R = e.visual;
-  return R.kind === "image" ? `<span class="${V(T)}"><img src="data:image/png;base64,${V(R.data)}" alt="${V(R.alt)}"></span>` : `<span class="${V(T)}" role="img" aria-label="${V(R.alt)}" style="--persona-background:${V(R.background)};--persona-foreground:${V(R.foreground)}">${o(R.text)}</span>`;
+  return R.kind === "image" ? `<span class="${f(T)}"><img src="data:image/png;base64,${f(R.data)}" alt="${f(R.alt)}"></span>` : `<span class="${f(T)}" role="img" aria-label="${f(R.alt)}" style="--persona-background:${f(R.background)};--persona-foreground:${f(R.foreground)}">${D(R.text)}</span>`;
 }
-function hE(E, T) {
+function yE(E, T) {
   if (T) {
-    const R = m(g(E, T));
+    const R = m(v(E, T));
     if (R) return R;
   }
   let e;
@@ -20770,7 +20770,7 @@ function hE(E, T) {
   } catch {
     e = m(E);
   }
-  return `schema-${eN(e)}`;
+  return `schema-${ON(e)}`;
 }
 function m(E) {
   if (E == null) return "";
@@ -20782,84 +20782,84 @@ function m(E) {
     return String(E);
   }
 }
-function g(E, T) {
+function v(E, T) {
   const e = typeof T == "string" ? T.trim().replace(/^\$\./, "") : "";
   return e ? e.split(".").filter(Boolean).reduce((R, A) => {
     if (!(R == null || typeof R != "object"))
       return R[A];
   }, E) : E;
 }
-function oE(E, T) {
+function UE(E, T) {
   const e = E?.options?.[T];
   return Array.isArray(e) ? e.filter((R) => R && typeof R == "object") : [];
 }
-function _T(E) {
+function DT(E) {
   return Array.isArray(E) ? E : E && typeof E == "object" ? Object.entries(E).map(([T, e]) => ({
     key: T,
     value: e
   })) : [];
 }
-function me(E) {
+function We(E) {
   const T = m(E).trim().toLowerCase();
   return /^#[0-9a-f]{6}$/.test(T) ? T : null;
 }
-function iT(E, T) {
+function PT(E, T) {
   const e = typeof T == "string" ? T.trim().toLowerCase() : "";
-  return e === "number" ? Le(E) : e === "timestamp" || e === "time" || e === "date" ? CT(E) : e === "datetime" ? sN(E) : e === "boolean" ? E ? "Yes" : "No" : m(E);
+  return e === "number" ? Pe(E) : e === "timestamp" || e === "time" || e === "date" ? iT(E) : e === "datetime" ? _N(E) : e === "boolean" ? E ? "Yes" : "No" : m(E);
 }
-function sN(E) {
+function _N(E) {
   if (E == null || E === "") return "";
   const T = typeof E == "number" ? new Date(E) : new Date(m(E));
   return Number.isNaN(T.getTime()) ? m(E) : T.toLocaleString();
 }
-function Ye(E) {
+function ve(E) {
   return E == null || E === "";
 }
-function pE(E) {
-  return `<span class="debug-kv__empty">${o(E || "Unavailable")}</span>`;
+function mE(E) {
+  return `<span class="debug-kv__empty">${D(E || "Unavailable")}</span>`;
 }
-function he(E, T, e, R, A = "") {
+function be(E, T, e, R, A = "") {
   const S = typeof T == "string" ? T.trim().toLowerCase() : "";
-  if (Ye(E)) return pE(e);
-  const O = iT(E, T);
-  if (O === "") return pE(e);
+  if (ve(E)) return mE(e);
+  const O = PT(E, T);
+  if (O === "") return mE(e);
   switch (S) {
     case "copy":
-      return fe(O, R, A);
+      return Xe(O, R, A);
     case "color": {
-      const I = me(O);
-      return I ? `<span class="debug-kv__swatch" style="--debug-swatch-color:${V(I)}"><span class="debug-kv__swatch-dot" aria-hidden="true"></span><code>${o(I.toUpperCase())}</code></span>` : pE(e);
+      const I = We(O);
+      return I ? `<span class="debug-kv__swatch" style="--debug-swatch-color:${f(I)}"><span class="debug-kv__swatch-dot" aria-hidden="true"></span><code>${D(I.toUpperCase())}</code></span>` : mE(e);
     }
     case "badge":
-      return `<span class="${R.badge}">${o(O)}</span>`;
+      return `<span class="${R.badge}">${D(O)}</span>`;
     case "mono":
-      return `<code class="debug-kv__mono">${o(O)}</code>`;
+      return `<code class="debug-kv__mono">${D(O)}</code>`;
     default:
-      return o(O);
+      return D(O);
   }
 }
-function fe(E, T, e = "") {
+function Xe(E, T, e = "") {
   const R = e ? `Copy ${e}` : "Copy to clipboard";
-  return `<span class="debug-kv__copy" data-copy-content="${V(E)}"><code class="debug-kv__mono">${o(E)}</code><button type="button" class="${T.copyBtnSm} debug-kv__copy-btn" data-copy-trigger title="${V(R)}" aria-label="${V(R)}">Copy</button></span>`;
+  return `<span class="debug-kv__copy" data-copy-content="${f(E)}"><code class="debug-kv__mono">${D(E)}</code><button type="button" class="${T.copyBtnSm} debug-kv__copy-btn" data-copy-trigger title="${f(R)}" aria-label="${f(R)}">Copy</button></span>`;
 }
-function DE(E, T) {
-  return E ? `<div class="${T.jsonHeader}"><h3 class="${T.jsonViewerTitle}">${o(E)}</h3></div>` : "";
+function lE(E, T) {
+  return E ? `<div class="${T.jsonHeader}"><h3 class="${T.jsonViewerTitle}">${D(E)}</h3></div>` : "";
 }
-function aN(E, T, e, R) {
-  const A = oE(e, "metrics"), S = A.length > 0 ? A : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([O]) => ({
+function iN(E, T, e, R) {
+  const A = UE(e, "metrics"), S = A.length > 0 ? A : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([O]) => ({
     label: O,
     bind: O
   }));
-  return S.length === 0 ? `<div class="${R.emptyState}">No ${o(E.toLowerCase())} metrics available</div>` : `
+  return S.length === 0 ? `<div class="${R.emptyState}">No ${D(E.toLowerCase())} metrics available</div>` : `
     <section class="${R.jsonPanel}">
-      ${DE(E, R)}
+      ${lE(E, R)}
       <div class="${R.jsonGrid}">
         ${S.map((O) => {
-    const I = m(O.label || O.bind), P = iT(g(T, O.bind), O.format), i = m(g(T, O.severity) || O.status || "");
+    const I = m(O.label || O.bind), i = PT(v(T, O.bind), O.format), C = m(v(T, O.severity) || O.status || "");
     return `
-            <div class="${R.detailPane}" data-severity="${o(i)}">
-              <div class="${R.detailLabel}">${o(I)}</div>
-              <div class="${R.detailValue}">${o(P)}</div>
+            <div class="${R.detailPane}" data-severity="${D(C)}">
+              <div class="${R.detailLabel}">${D(I)}</div>
+              <div class="${R.detailValue}">${D(i)}</div>
             </div>
           `;
   }).join("")}
@@ -20867,248 +20867,306 @@ function aN(E, T, e, R) {
     </section>
   `;
 }
-function LN(E, T, e, R) {
-  const A = oE(e, "fields"), S = A.length > 0 ? A : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([O]) => ({
+function oN(E, T, e, R) {
+  const A = UE(e, "fields"), S = A.length > 0 ? A : Object.entries(T && typeof T == "object" && !Array.isArray(T) ? T : {}).map(([O]) => ({
     label: O,
     bind: O
   }));
-  return S.length === 0 ? `<div class="${R.emptyState}">No ${o(E.toLowerCase())} details available</div>` : `
+  return S.length === 0 ? `<div class="${R.emptyState}">No ${D(E.toLowerCase())} details available</div>` : `
     <section class="${R.jsonPanel}">
-      ${DE(E, R)}
+      ${lE(E, R)}
       <dl class="debug-kv">
         ${S.map((O) => {
-    const I = m(O.label || O.bind), P = g(T, O.bind), i = m(O.empty || "");
-    return `<dt>${o(I)}</dt><dd>${he(P, O.format, i, R, I)}</dd>`;
+    const I = m(O.label || O.bind), i = v(T, O.bind), C = m(O.empty || "");
+    return `<dt>${D(I)}</dt><dd>${be(i, O.format, C, R, I)}</dd>`;
   }).join("")}
       </dl>
     </section>
   `;
 }
-function CN(E, T, e, R) {
-  const A = e?.options || {}, S = (t) => typeof t == "string" && t.trim() !== "" ? g(T, t) : void 0, O = me(S(A.color_bind)), I = m(S(A.eyebrow_bind)).trim(), P = m(S(A.title_bind)).trim(), i = m(S(A.title_fallback_bind)).trim(), r = P || i, a = m(S(A.subtitle_bind)).trim(), _ = oE(e, "chips").filter((t) => !Ye(S(t.bind))), u = S(A.avatar_bind), H = m(S(A.avatar_name_bind)).trim(), n = rN(Fe(u && typeof u == "object" ? {
-    name: H || r,
+function DN(E, T, e, R) {
+  const A = e?.options || {}, S = (r) => typeof r == "string" && r.trim() !== "" ? v(T, r) : void 0, O = We(S(A.color_bind)), I = m(S(A.eyebrow_bind)).trim(), i = m(S(A.title_bind)).trim(), C = m(S(A.title_fallback_bind)).trim(), N = i || C, s = m(S(A.subtitle_bind)).trim(), _ = UE(e, "chips").filter((r) => !ve(S(r.bind))), u = S(A.avatar_bind), H = m(S(A.avatar_name_bind)).trim(), o = CN(ge(u && typeof u == "object" ? {
+    name: H || N,
     visual: u
   } : void 0), "debug-identity__avatar");
-  if (!I && !r && _.length === 0) return `<div class="${R.emptyState}">No ${o((E || "identity").toLowerCase())} details available</div>`;
-  const l = m(A.title_format), B = m(P ? A.title_label : A.title_fallback_label), s = r ? l === "copy" ? fe(r, R, B || E || "value") : `<span class="debug-identity__value">${o(r)}</span>` : pE(m(A.empty));
+  if (!I && !N && _.length === 0) return `<div class="${R.emptyState}">No ${D((E || "identity").toLowerCase())} details available</div>`;
+  const l = m(A.title_format), B = m(i ? A.title_label : A.title_fallback_label), a = N ? l === "copy" ? Xe(N, R, B || E || "value") : `<span class="debug-identity__value">${D(N)}</span>` : mE(m(A.empty));
   return `
-    <section class="debug-identity"${O ? ` style="--debug-identity-color:${V(O)}"` : ""}${O ? "" : ' data-accent="none"'}>
+    <section class="debug-identity"${O ? ` style="--debug-identity-color:${f(O)}"` : ""}${O ? "" : ' data-accent="none"'}>
       <div class="debug-identity__lead">
-        ${n}
-        ${I ? `<span class="debug-identity__env"><span class="debug-identity__dot" aria-hidden="true"></span>${o(I.toUpperCase())}</span>` : ""}
+        ${o}
+        ${I ? `<span class="debug-identity__env"><span class="debug-identity__dot" aria-hidden="true"></span>${D(I.toUpperCase())}</span>` : ""}
         <div class="debug-identity__names">
-          ${E ? `<span class="debug-identity__label">${o(E)}</span>` : ""}
-          <span class="debug-identity__title">${s}</span>
-          ${a ? `<span class="debug-identity__subtitle">${o(a)}</span>` : ""}
+          ${E ? `<span class="debug-identity__label">${D(E)}</span>` : ""}
+          <span class="debug-identity__title">${a}</span>
+          ${s ? `<span class="debug-identity__subtitle">${D(s)}</span>` : ""}
         </div>
       </div>
-      ${_.length > 0 ? `<dl class="debug-identity__chips">${_.map((t) => {
-    const D = m(t.label || t.bind), M = he(S(t.bind), t.format, m(t.empty || ""), R, D);
-    return `<div class="debug-identity__chip"><dt>${o(D)}</dt><dd>${M}</dd></div>`;
+      ${_.length > 0 ? `<dl class="debug-identity__chips">${_.map((r) => {
+    const P = m(r.label || r.bind), M = be(S(r.bind), r.format, m(r.empty || ""), R, P);
+    return `<div class="debug-identity__chip"><dt>${D(P)}</dt><dd>${M}</dd></div>`;
   }).join("")}</dl>` : ""}
     </section>
   `;
 }
-function Ve(E, T, e) {
+function Ke(E, T, e) {
   const R = T.length > 0 ? T : Object.keys(E && typeof E == "object" ? E : {}).map((A) => ({
     label: A,
     bind: A
   }));
   return `
-    <tr data-row-key="${V(hE(E, e))}">
-      ${R.map((A) => `<td>${o(iT(g(E, A.bind), A.format))}</td>`).join("")}
+    <tr data-row-key="${f(yE(E, e))}">
+      ${R.map((A) => `<td>${D(PT(v(E, A.bind), A.format))}</td>`).join("")}
     </tr>
   `;
 }
-function nN(E, T, e, R, A = !1) {
-  const S = _T(T), O = oE(e, "columns"), I = O.length > 0 ? O : Object.keys(S[0] && typeof S[0] == "object" ? S[0] : {}).map((r) => ({
-    label: r,
-    bind: r
+function PN(E, T, e, R, A = !1) {
+  const S = DT(T), O = UE(e, "columns"), I = O.length > 0 ? O : Object.keys(S[0] && typeof S[0] == "object" ? S[0] : {}).map((N) => ({
+    label: N,
+    bind: N
   }));
-  if (S.length === 0 || I.length === 0) return `<div class="${R.emptyState}">No ${o(E.toLowerCase())} rows available</div>`;
-  const P = e?.options?.key_bind, i = A ? [...S].reverse() : S;
+  if (S.length === 0 || I.length === 0) return `<div class="${R.emptyState}">No ${D(E.toLowerCase())} rows available</div>`;
+  const i = e?.options?.key_bind, C = A ? [...S].reverse() : S;
   return `
     <section class="${R.jsonPanel}">
-      ${DE(E, R)}
+      ${lE(E, R)}
       <table class="${R.table}">
         <thead>
-          <tr>${I.map((r) => `<th>${o(m(r.label || r.bind))}</th>`).join("")}</tr>
+          <tr>${I.map((N) => `<th>${D(m(N.label || N.bind))}</th>`).join("")}</tr>
         </thead>
         <tbody data-live-list>
-          ${i.map((r) => Ve(r, I, P)).join("")}
+          ${C.map((N) => Ke(N, I, i)).join("")}
         </tbody>
       </table>
     </section>
   `;
 }
-function ye(E, T, e) {
-  const R = m(g(E, T?.options?.label_bind || "label") || g(E, "name") || g(E, "key")), A = m(g(E, T?.options?.description_bind || "description") || g(E, "message")), S = m(g(E, T?.options?.status_bind || "status") || g(E, "severity"));
+function $e(E, T, e) {
+  const R = m(v(E, T?.options?.label_bind || "label") || v(E, "name") || v(E, "key")), A = m(v(E, T?.options?.description_bind || "description") || v(E, "message")), S = m(v(E, T?.options?.status_bind || "status") || v(E, "severity"));
   return `
-    <tr data-row-key="${V(hE(E, T?.options?.key_bind))}">
-      <td><span class="${e.badge}">${o(S || "status")}</span></td>
-      <td><strong>${o(R)}</strong>${A ? `<div class="${e.muted}">${o(A)}</div>` : ""}</td>
+    <tr data-row-key="${f(yE(E, T?.options?.key_bind))}">
+      <td><span class="${e.badge}">${D(S || "status")}</span></td>
+      <td><strong>${D(R)}</strong>${A ? `<div class="${e.muted}">${D(A)}</div>` : ""}</td>
     </tr>
   `;
 }
-function _N(E, T, e, R, A = !1) {
-  const S = _T(T);
-  if (S.length === 0) return `<div class="${R.emptyState}">No ${o(E.toLowerCase())} statuses available</div>`;
+function MN(E, T, e, R, A = !1) {
+  const S = DT(T);
+  if (S.length === 0) return `<div class="${R.emptyState}">No ${D(E.toLowerCase())} statuses available</div>`;
   const O = A ? [...S].reverse() : S;
   return `
     <section class="${R.jsonPanel}">
-      ${DE(E, R)}
+      ${lE(E, R)}
       <table class="${R.table}">
         <tbody data-live-list>
-          ${O.map((I) => ye(I, e, R)).join("")}
+          ${O.map((I) => $e(I, e, R)).join("")}
         </tbody>
       </table>
     </section>
   `;
 }
-function ge(E, T, e) {
-  const R = CT(g(E, T?.options?.timestamp_bind || "timestamp")), A = m(g(E, T?.options?.message_bind || "message") || g(E, "title")), S = m(g(E, T?.options?.level_bind || "level") || g(E, "severity"));
+function xe(E, T, e) {
+  const R = iT(v(E, T?.options?.timestamp_bind || "timestamp")), A = m(v(E, T?.options?.message_bind || "message") || v(E, "title")), S = m(v(E, T?.options?.level_bind || "level") || v(E, "severity"));
   return `
-    <tr data-row-key="${V(hE(E, T?.options?.key_bind))}">
-      <td class="${e.timestamp}">${o(R)}</td>
-      <td>${S ? `<span class="${e.badge}">${o(S)}</span> ` : ""}${o(A)}</td>
+    <tr data-row-key="${f(yE(E, T?.options?.key_bind))}">
+      <td class="${e.timestamp}">${D(R)}</td>
+      <td>${S ? `<span class="${e.badge}">${D(S)}</span> ` : ""}${D(A)}</td>
     </tr>
   `;
 }
-function iN(E, T, e, R, A = !1) {
-  const S = _T(T);
-  if (S.length === 0) return `<div class="${R.emptyState}">No ${o(E.toLowerCase())} events available</div>`;
+function UN(E, T, e, R, A = !1) {
+  const S = DT(T);
+  if (S.length === 0) return `<div class="${R.emptyState}">No ${D(E.toLowerCase())} events available</div>`;
   const O = A ? [...S].reverse() : S;
   return `
     <section class="${R.jsonPanel}">
-      ${DE(E, R)}
+      ${lE(E, R)}
       <table class="${R.table}">
         <tbody data-live-list>
-          ${O.map((I) => ge(I, e, R)).join("")}
+          ${O.map((I) => xe(I, e, R)).join("")}
         </tbody>
       </table>
     </section>
   `;
 }
-function oN(E, T, e, R, A, S = !1) {
+function lN(E, T, e, R, A, S = !1) {
   const O = Array.isArray(e?.sections) ? e.sections : [];
-  if (O.length === 0) return Be(m(e?.title || E.label || E.id || "Panel"), T, R, { useIconCopyButton: A });
-  const I = O.map((P) => LT(E, P, T, R, A, S)).join("");
+  if (O.length === 0) return ye(m(e?.title || E.label || E.id || "Panel"), T, R, { useIconCopyButton: A });
+  const I = O.map((i) => _T(E, i, T, R, A, S)).join("");
   return m(e?.options?.layout).toLowerCase() === "grid" ? `<div class="debug-schema-grid">${I}</div>` : I;
 }
-function LT(E, T, e, R, A = !1, S = !1) {
-  const O = m(T?.title || E.label || E.id || "Panel"), I = g(e, T?.bind);
+function _T(E, T, e, R, A = !1, S = !1) {
+  const O = m(T?.title || E.label || E.id || "Panel"), I = v(e, T?.bind);
   switch (m(T?.renderer).toLowerCase()) {
     case "metrics":
-      return aN(O, I, T, R);
+      return iN(O, I, T, R);
     case "key_value":
-      return LN(O, I, T, R);
+      return oN(O, I, T, R);
     case "identity":
-      return CN(m(T?.title), I, T, R);
+      return DN(m(T?.title), I, T, R);
     case "table":
-      return nN(O, I, T, R, S);
+      return PN(O, I, T, R, S);
     case "status_list":
-      return _N(O, I, T, R, S);
+      return MN(O, I, T, R, S);
     case "timeline":
-      return iN(O, I, T, R, S);
+      return UN(O, I, T, R, S);
     case "stack":
-      return oN(E, e, T, R, A, S);
+      return lN(E, e, T, R, A, S);
     default:
-      return Be(O, I ?? {}, R, { useIconCopyButton: A });
+      return ye(O, I ?? {}, R, { useIconCopyButton: A });
   }
 }
-function DN(E) {
+function uN(E) {
   const T = m(E).toLowerCase();
   return T === "table" || T === "status_list" || T === "timeline";
 }
-function PN(E, T, e, R) {
+function cN(E, T, e, R) {
   switch (m(E).toLowerCase()) {
     case "status_list":
-      return ye(T, e, R);
+      return $e(T, e, R);
     case "timeline":
-      return ge(T, e, R);
+      return xe(T, e, R);
     default:
-      return Ve(T, oE(e, "columns"), e?.options?.key_bind);
+      return Ke(T, UE(e, "columns"), e?.options?.key_bind);
   }
 }
-var MN = /* @__PURE__ */ new Set([
+var GN = /* @__PURE__ */ new Set([
   "succeeded",
   "failed",
   "canceled",
   "rejected"
-]), q = /* @__PURE__ */ new Set(), K = "", EE = "", OE = "", j = !1, UN = "debug:command-run-selection";
-function $(E) {
+]), TE = /* @__PURE__ */ new Set(), x = "", q = "", IE = "", aE = "", RE = !1, dN = "debug:command-run-selection";
+function V(E) {
   return E == null ? "" : String(E).trim();
 }
-function NE(E) {
+function LE(E) {
   const T = Number(E);
   return Number.isFinite(T) ? T : 0;
 }
-function LE(E) {
-  const T = $(E);
+function eE(E) {
+  const T = V(E);
   return T.length <= 512 ? T : "";
 }
-function nt(E) {
+function Dt(E) {
   const T = new URLSearchParams(E || "");
   return {
-    runID: LE(T.get("run_id")) || void 0,
-    correlationID: LE(T.get("correlation_id")) || void 0
+    runID: eE(T.get("run_id")) || void 0,
+    dispatchID: eE(T.get("dispatch_id")) || void 0,
+    correlationID: eE(T.get("correlation_id")) || void 0
   };
 }
-function _t(E, T) {
-  const e = typeof window < "u" ? window.location.href : "http://localhost/", R = new URL(E || e, e), A = LE(T.runID), S = LE(T.correlationID);
-  return R.searchParams.set("panel", "command_runs"), A ? R.searchParams.set("run_id", A) : R.searchParams.delete("run_id"), S && !A ? R.searchParams.set("correlation_id", S) : R.searchParams.delete("correlation_id"), `${R.pathname}${R.search}${R.hash}`;
+function Pt(E, T) {
+  const e = typeof window < "u" ? window.location.href : "http://localhost/", R = new URL(E || e, e), A = eE(T.runID), S = eE(T.dispatchID), O = eE(T.correlationID);
+  return R.searchParams.set("panel", "command_runs"), A ? R.searchParams.set("run_id", A) : R.searchParams.delete("run_id"), S && !A ? R.searchParams.set("dispatch_id", S) : R.searchParams.delete("dispatch_id"), O && !A && !S ? R.searchParams.set("correlation_id", O) : R.searchParams.delete("correlation_id"), `${R.pathname}${R.search}${R.hash}`;
 }
-function it(E) {
-  EE = LE(E.runID), OE = LE(E.correlationID), K = EE, j = !1, K && q.add(K);
+function Mt(E) {
+  q = eE(E.runID), IE = q ? "" : eE(E.dispatchID), aE = q || IE ? "" : eE(E.correlationID), x = q, RE = !1, x && TE.add(x);
 }
-function lN(E, T = !1) {
-  const e = Array.isArray(E) ? E.filter((A) => A && typeof A == "object") : [], R = EE ? e.find((A) => FE(A) === EE) : OE ? e.find((A) => $(A.correlation_id) === OE) : void 0;
-  return R ? (K = FE(R), q.add(K), j = !1) : T && (EE || OE) && (j = !0), K;
+function pN(E, T = !1) {
+  const e = Array.isArray(E) ? E.filter((A) => A && typeof A == "object") : [], R = q ? e.find((A) => Z(A) === q) : IE ? e.find((A) => V(A.dispatch_id) === IE) : aE ? e.find((A) => V(A.correlation_id) === aE) : void 0;
+  return R ? (x = Z(R), TE.add(x), RE = !1) : T && (q || IE || aE) && (RE = !0), x;
 }
-function FE(E) {
-  return E && typeof E == "object" ? $(E.run_id) : "";
+function Z(E) {
+  return E && typeof E == "object" ? V(E.run_id) : "";
 }
-function We(E) {
-  return E && typeof E == "object" ? NE(E.revision) : 0;
+function j(E) {
+  return E && typeof E == "object" ? LE(E.revision) : 0;
 }
-function ve(E) {
-  return !!E && typeof E == "object" && MN.has($(E.phase).toLowerCase());
+function SE(E) {
+  return !!E && typeof E == "object" && GN.has(V(E.phase).toLowerCase());
 }
-function uN(E) {
+function Ae(E) {
+  if (!E || typeof E != "object") return 0;
+  const T = E.updated_at || E.occurred_at || "", e = Date.parse(V(T));
+  return Number.isFinite(e) ? e : 0;
+}
+function HN(E, T) {
+  const e = j(E), R = j(T);
+  if (SE(E) && !SE(T) || e === R && SE(E) && SE(T) && V(E.phase).trim().toLowerCase() !== V(T.phase).trim().toLowerCase()) return !1;
+  if (R > 0 && e > 0) {
+    if (R < e) return !1;
+    if (R > e) return !0;
+  }
+  return SE(T) && !SE(E) ? !0 : R >= e;
+}
+function BN(E, T) {
+  return !E || !HN(E, T) ? E || T : j(E) === j(T) ? {
+    ...E,
+    ...T
+  } : T;
+}
+function Ut(E, T) {
+  const e = j(E), R = j(T);
+  return e > 0 && R > e + 1;
+}
+function lt(E, T) {
+  const e = /* @__PURE__ */ new Map();
+  return (Array.isArray(E) ? E : []).forEach((R) => {
+    const A = Z(R);
+    A && e.set(A, {
+      revision: j(R),
+      generation: T.get(A) || 0
+    });
+  }), e;
+}
+function ut(E, T, e, R, A = 500) {
+  const S = Array.isArray(E) ? E.filter((N) => N && typeof N == "object") : [], O = Array.isArray(T) ? T.filter((N) => N && typeof N == "object") : [], I = /* @__PURE__ */ new Map();
+  S.forEach((N) => {
+    const s = Z(N);
+    s && I.set(s, N);
+  });
+  const i = /* @__PURE__ */ new Set(), C = [];
+  return O.forEach((N) => {
+    const s = Z(N);
+    !s || i.has(s) || (i.add(s), C.push(BN(I.get(s), N)));
+  }), S.forEach((N) => {
+    const s = Z(N);
+    if (!s || i.has(s)) return;
+    const _ = e.get(s);
+    _ && _.revision === j(N) && _.generation === (R.get(s) || 0) || C.push(N);
+  }), C.sort((N, s) => Ae(s) - Ae(N) || Z(N).localeCompare(Z(s))), A > 0 ? C.slice(0, A) : C;
+}
+function Se(E) {
   const T = E.current, e = E.total;
   if (typeof T != "number" && typeof e != "number") return "—";
   if (typeof e == "number" && e > 0) {
-    const R = Math.max(0, Math.min(100, Math.round(NE(T) / e * 100)));
-    return `${NE(T)} / ${e} (${R}%)`;
+    const R = Math.max(0, Math.min(100, Math.round(LE(T) / e * 100)));
+    return `${LE(T)} / ${e} (${R}%)`;
   }
-  return String(NE(T));
+  return String(LE(T));
 }
-function cN(E) {
-  return !E.attempt && !E.max_attempts ? "—" : E.max_attempts ? `${NE(E.attempt)} / ${NE(E.max_attempts)}` : String(NE(E.attempt));
+function Ie(E) {
+  return !E.attempt && !E.max_attempts ? "—" : E.max_attempts ? `${LE(E.attempt)} / ${LE(E.max_attempts)}` : String(LE(E.attempt));
 }
-function GN(E) {
+function Oe(E) {
   return typeof E.duration_ms != "number" ? "—" : E.duration_ms < 1e3 ? `${E.duration_ms} ms` : `${(E.duration_ms / 1e3).toFixed(E.duration_ms < 1e4 ? 2 : 1)} s`;
 }
-function AE(E, T, e) {
-  const R = $(T) || "—";
-  return `<div><dt class="${e.detailLabel}">${o(E)}</dt><dd class="${e.detailValue}">${o(R)}</dd></div>`;
+function W(E, T, e) {
+  const R = V(T) || "—";
+  return `<div><dt class="${e.detailLabel}">${D(E)}</dt><dd class="${e.detailValue}">${D(R)}</dd></div>`;
 }
-function dN(E) {
-  if (!E.metadata || Object.keys(E.metadata).length === 0) return "";
-  try {
-    return JSON.stringify(E.metadata, null, 2);
-  } catch {
-    return "";
-  }
+function FN(E, T) {
+  const e = V(E.outcome?.summary), R = E.outcome?.fields && typeof E.outcome.fields == "object" ? Object.entries(E.outcome.fields).filter(([A, S]) => V(A) ? typeof S == "number" ? Number.isFinite(S) : typeof S == "string" || typeof S == "boolean" : !1).sort(([A], [S]) => A.localeCompare(S)) : [];
+  return !e && R.length === 0 ? `<p class="${T.muted}" data-command-run-outcome-empty>No additional result metadata was recorded.</p>` : `
+    <section class="command-run-outcome" data-command-run-outcome>
+      <h4>Outcome</h4>
+      ${e ? `<p>${D(e)}</p>` : ""}
+      ${R.length > 0 ? `
+        <dl class="command-run-details command-run-outcome__fields">
+          ${R.map(([A, S]) => W(A, S, T)).join("")}
+        </dl>
+      ` : ""}
+    </section>
+  `;
 }
-function Xe(E, T) {
-  const e = E && typeof E == "object" ? E : {}, R = FE(e);
+function Je(E, T) {
+  const e = E && typeof E == "object" ? E : {}, R = Z(e);
   if (!R) return "";
-  const A = $(e.phase).toLowerCase() || "unknown", S = We(e), O = ve(e), I = `command-run-detail-${R.replace(/[^a-zA-Z0-9_-]/g, "-")}`, P = dN(e), i = e.failure && (e.failure.category || e.failure.code) ? `${$(e.failure.category)}${e.failure.category && e.failure.code ? " / " : ""}${$(e.failure.code)}` : "—";
+  const A = V(e.phase).toLowerCase() || "unknown", S = j(e), O = SE(e), I = `command-run-detail-${R.replace(/[^a-zA-Z0-9_-]/g, "-")}`, i = e.failure && (e.failure.category || e.failure.code) ? `${V(e.failure.category)}${e.failure.category && e.failure.code ? " / " : ""}${V(e.failure.code)}` : "—";
   return `
     <tr
       class="command-run-row ${T.expandableRow}"
-      data-row-key="${V(R)}"
+      data-row-key="${f(R)}"
       data-row-revision="${S}"
       data-row-terminal="${O ? "true" : "false"}"
       data-command-run-row
@@ -21116,58 +21174,69 @@ function Xe(E, T) {
       tabindex="-1"
     >
       <td>
-        <button type="button" class="command-run-toggle" data-command-run-toggle data-live-row-focus aria-expanded="false" aria-controls="${V(I)}">
-          <span aria-hidden="true">›</span><span class="sr-only">Toggle details for ${o(R)}</span>
+        <button type="button" class="command-run-toggle" data-command-run-toggle data-live-row-focus aria-expanded="false" aria-controls="${f(I)}" aria-label="Show details for ${f(V(e.command_id) || "unknown command")} run ${f(R)} (${f(A)})">
+          <span aria-hidden="true">›</span>
         </button>
-        <span class="${T.badge} command-run-phase command-run-phase--${V(A)}">${o(A)}</span>
+        <span class="${T.badge} command-run-phase command-run-phase--${f(A)}">${D(A)}</span>
       </td>
-      <td><strong>${o($(e.command_id) || "Unknown command")}</strong><div class="${T.muted}">${o(R)}</div></td>
-      <td>${o(uN(e))}</td>
-      <td>${o($(e.mode) || "—")}</td>
-      <td>${o(cN(e))}</td>
-      <td><span class="${T.timestamp}">${o(CT(e.updated_at || e.occurred_at))}</span><div class="${T.muted}">${o(GN(e))}</div></td>
-      <td>${o($(e.message) || $(e.checkpoint) || "—")}</td>
+      <td><strong>${D(V(e.command_id) || "Unknown command")}</strong><div class="${T.muted}">${D(R)}</div></td>
+      <td>${D(Se(e))}</td>
+      <td>${D(V(e.mode) || "—")}</td>
+      <td>${D(Ie(e))}</td>
+      <td><span class="${T.timestamp}">${D(iT(e.updated_at || e.occurred_at))}</span><div class="${T.muted}">${D(Oe(e))}</div></td>
+      <td>${D(V(e.message) || V(e.checkpoint) || "—")}</td>
     </tr>
-    <tr id="${V(I)}" class="command-run-detail ${T.expansionRow}" data-command-run-detail data-parent-key="${V(R)}" hidden>
+    <tr id="${f(I)}" class="command-run-detail ${T.expansionRow}" data-command-run-detail data-parent-key="${f(R)}" hidden>
       <td colspan="7">
         <div class="${T.expandedContent}">
           <dl class="command-run-details">
-            ${AE("Run ID", e.run_id, T)}
-            ${AE("Correlation ID", e.correlation_id, T)}
-            ${AE("Dispatch ID", e.dispatch_id, T)}
-            ${AE("Event ID", e.event_id, T)}
-            ${AE("Revision", e.revision, T)}
-            ${AE("Started", e.started_at, T)}
-            ${AE("Failure", i, T)}
+            ${W("Run ID", e.run_id, T)}
+            ${W("Dispatch ID", e.dispatch_id, T)}
+            ${W("Correlation ID", e.correlation_id, T)}
+            ${W("Event ID", e.event_id, T)}
+            ${W("Command", e.command_id, T)}
+            ${W("Phase", A, T)}
+            ${W("Revision", e.revision, T)}
+            ${W("Mode", e.mode, T)}
+            ${W("Progress", Se(e), T)}
+            ${W("Attempt", Ie(e), T)}
+            ${W("First occurred", e.first_occurred_at, T)}
+            ${W("Occurred", e.occurred_at, T)}
+            ${W("Started", e.started_at, T)}
+            ${W("Updated", e.updated_at, T)}
+            ${W("Duration", Oe(e), T)}
+            ${W("Checkpoint", e.checkpoint, T)}
+            ${W("Message", e.message, T)}
+            ${W("Failure", i, T)}
           </dl>
-          ${P ? `<details><summary>Safe metadata</summary><pre>${o(P)}</pre></details>` : ""}
+          ${FN(e, T)}
         </div>
       </td>
     </tr>
   `;
 }
-function pN(E, T) {
+function mN(E, T) {
   const e = Array.isArray(E) ? E : [];
-  return lN(e), e.length === 0 ? `<div class="${T.emptyState}" data-command-runs-empty>No command runs available</div>
-      <div class="${T.emptyState}" data-command-run-unavailable ${j ? "" : "hidden"}>Selected command run is no longer retained.</div>` : `
+  return pN(e), e.length === 0 ? `<div class="${T.emptyState}" data-command-runs-empty>No command runs available</div>
+      <div class="${T.emptyState}" data-command-run-unavailable ${RE ? "" : "hidden"}>Selected command run is no longer retained.</div>` : `
     <section class="${T.jsonPanel}" data-command-runs-panel>
       <table class="${T.table} command-runs-table">
         <thead><tr><th>Status</th><th>Command / Run</th><th>Progress</th><th>Mode</th><th>Attempt</th><th>Timing</th><th>Message</th></tr></thead>
-        <tbody data-live-list>${e.map((R) => Xe(R, T)).join("")}</tbody>
+        <tbody data-live-list>${e.map((R) => Je(R, T)).join("")}</tbody>
       </table>
       <div class="${T.emptyState}" data-command-run-unavailable hidden>Selected command run is no longer retained.</div>
     </section>
   `;
 }
-function HN(E, T) {
+function YN(E, T) {
   T.dataset.commandRunsWired !== "true" && (T.dataset.commandRunsWired = "true", T.addEventListener("click", (e) => {
     const R = e.target, A = R?.closest("[data-command-run-row]");
     if (!A) return;
     const S = A.getAttribute("data-row-key") || "";
     if (!S) return;
-    K = S, EE = S, OE = "", j = !1, R?.closest("[data-command-run-toggle]") && (q.has(S) ? q.delete(S) : q.add(S)), be(E, T);
+    x = S, q = S, IE = "", aE = "", RE = !1, R?.closest("[data-command-run-toggle]") && (TE.has(S) ? TE.delete(S) : TE.add(S)), we(E, T);
     const O = T.ownerDocument.defaultView?.CustomEvent || CustomEvent;
-    T.dispatchEvent(new O(UN, {
+    T.dispatchEvent(new O(dN, {
       bubbles: !0,
       detail: { runID: S }
     }));
@@ -21177,40 +21246,45 @@ function HN(E, T) {
     R?.closest("[data-command-run-toggle]") && (e.preventDefault(), R.click());
   }));
 }
-function be(E, T) {
+function we(E, T) {
   T.querySelectorAll("[data-command-run-row]").forEach((e) => {
-    const R = e.getAttribute("data-row-key") || "", A = q.has(R), S = K === R;
-    e.setAttribute("aria-selected", S ? "true" : "false"), e.classList.toggle("command-run-row--selected", S), e.querySelector("[data-command-run-toggle]")?.setAttribute("aria-expanded", A ? "true" : "false");
-    const O = Array.from(T.querySelectorAll("[data-command-run-detail]")).find((I) => I.getAttribute("data-parent-key") === R);
-    O && (O.hidden = !A);
+    const R = e.getAttribute("data-row-key") || "", A = TE.has(R), S = x === R;
+    e.setAttribute("aria-selected", S ? "true" : "false"), e.classList.toggle("command-run-row--selected", S);
+    const O = e.querySelector("[data-command-run-toggle]");
+    if (O?.setAttribute("aria-expanded", A ? "true" : "false"), O) {
+      const i = V(e.querySelector("strong")?.textContent) || "unknown command", C = V(e.querySelector(".command-run-phase")?.textContent) || "unknown";
+      O.setAttribute("aria-label", `${A ? "Hide" : "Show"} details for ${i} run ${R} (${C})`);
+    }
+    const I = Array.from(T.querySelectorAll("[data-command-run-detail]")).find((i) => i.getAttribute("data-parent-key") === R);
+    I && (I.hidden = !A);
   }), E.querySelectorAll("[data-command-run-unavailable]").forEach((e) => {
-    e.hidden = !j;
+    e.hidden = !RE;
   });
 }
-function BN(E) {
+function hN(E) {
   E.forEach((T) => {
-    q.delete(T), T === K && (j = !0);
+    TE.delete(T), T === x && (RE = !0);
   });
 }
-function ot() {
-  return K;
+function ct() {
+  return x;
 }
-function Dt(E) {
-  K = $(E), EE = K, OE = "", j = !1, K && q.add(K);
+function Gt(E) {
+  x = V(E), q = x, IE = "", aE = "", RE = !1, x && TE.add(x);
 }
-function Pt() {
-  K = "", EE = "", OE = "", j = !1, q.clear();
+function dt() {
+  x = "", q = "", IE = "", aE = "", RE = !1, TE.clear();
 }
-function oT(E) {
+function MT(E) {
   return E.snapshotKey ?? E.id;
 }
-function mE(E) {
-  return E.eventTypes ? Array.isArray(E.eventTypes) ? E.eventTypes : [E.eventTypes] : [oT(E)];
+function fE(E) {
+  return E.eventTypes ? Array.isArray(E.eventTypes) ? E.eventTypes : [E.eventTypes] : [MT(E)];
 }
-function Ke(E) {
+function ke(E) {
   return Array.isArray(E) ? E.length : E && typeof E == "object" ? Object.keys(E).length : 0;
 }
-function $e(E, T, e = 500) {
+function Qe(E, T, e = 500) {
   if (Array.isArray(E)) {
     const R = [...E, T];
     return e > 0 ? R.slice(-e) : R;
@@ -21220,17 +21294,17 @@ function $e(E, T, e = 500) {
     ...T
   } : T;
 }
-function FN(E, T) {
-  return E[oT(T)];
+function fN(E, T) {
+  return E[MT(T)];
 }
-function Mt(E, T) {
-  const e = FN(E, T);
-  return T.getCount ? T.getCount(e) : Ke(e);
+function pt(E, T) {
+  const e = fN(E, T);
+  return T.getCount ? T.getCount(e) : ke(e);
 }
-function Ut(E, T, e, R, A) {
+function Ht(E, T, e, R, A) {
   return A === "console" && E.renderConsole ? E.renderConsole(T, e, R) : A === "toolbar" && E.renderToolbar ? E.renderToolbar(T, e, R) : A === "toolbar" && E.supportsToolbar === !1 ? `<div class="${e.emptyState}">Panel "${E.label}" not available in toolbar</div>` : E.render(T, e, R);
 }
-var mN = class {
+var VN = class {
   constructor() {
     this.panels = /* @__PURE__ */ new Map(), this.sources = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set();
   }
@@ -21283,11 +21357,11 @@ var mN = class {
   }
   getAllEventTypes() {
     const E = /* @__PURE__ */ new Set();
-    for (const T of this.panels.values()) for (const e of mE(T)) E.add(e);
+    for (const T of this.panels.values()) for (const e of fE(T)) E.add(e);
     return Array.from(E);
   }
   findByEventType(E) {
-    for (const T of this.panels.values()) if (mE(T).includes(E)) return T;
+    for (const T of this.panels.values()) if (fE(T).includes(E)) return T;
   }
   subscribe(E) {
     return this.listeners.add(E), () => this.listeners.delete(E);
@@ -21299,12 +21373,12 @@ var mN = class {
   notifyListeners(E) {
     this.listeners.forEach((T) => T(E));
   }
-}, OT = "__go_admin_panel_registry__";
-function YN() {
+}, rT = "__go_admin_panel_registry__";
+function yN() {
   const E = globalThis;
-  return E[OT] || (E[OT] = new mN()), E[OT];
+  return E[rT] || (E[rT] = new VN()), E[rT];
 }
-var k = YN(), hN = [
+var z = yN(), gN = [
   "template",
   "session",
   "requests",
@@ -21313,19 +21387,19 @@ var k = YN(), hN = [
   "config",
   "routes",
   "custom"
-], Te = [
+], Ne = [
   "requests",
   "sql",
   "logs",
   "routes",
   "config"
-], fN = /* @__PURE__ */ new Set(["console", "shell"]), ee = {
+], WN = /* @__PURE__ */ new Set(["console", "shell"]), te = {
   console: "Console",
   shell: "Shell"
-}, Re = {
+}, re = {
   console: "iconoir:code",
   shell: "iconoir:terminal"
-}, VN = (E) => E ? E.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/gi, "SQL").replace(/\b([a-z])/g, (T) => T.toUpperCase()) : "", xe = (E, T) => T <= 0 || E.length <= T ? E : E.slice(-T), HE = (E, T, e) => xe([...E || [], T], e), yN = (E, T, e) => {
+}, vN = (E) => E ? E.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/gi, "SQL").replace(/\b([a-z])/g, (T) => T.toUpperCase()) : "", Ze = (E, T) => T <= 0 || E.length <= T ? E : E.slice(-T), YE = (E, T, e) => Ze([...E || [], T], e), bN = (E, T, e) => {
   if (!E || !T) return;
   const R = T.split(".").map((S) => S.trim()).filter(Boolean);
   if (R.length === 0) return;
@@ -21336,65 +21410,65 @@ var k = YN(), hN = [
   }
   A[R[R.length - 1]] = e;
 };
-function lt() {
-  const E = k.getSortedIds();
-  return E.length > 0 ? E : hN;
+function Bt() {
+  const E = z.getSortedIds();
+  return E.length > 0 ? E : gN;
 }
-function ut() {
-  const E = k.getToolbarPanels();
+function Ft() {
+  const E = z.getToolbarPanels();
   if (E.length > 0) {
     const T = E.filter((e) => e.category === "core" || e.category === "system").map((e) => e.id);
-    return T.length > 0 ? T : Te;
+    return T.length > 0 ? T : Ne;
   }
-  return Te;
+  return Ne;
 }
-function ct(E) {
-  return E === "sessions" || k.has(E) || fN.has(E);
+function mt(E) {
+  return E === "sessions" || z.has(E) || WN.has(E);
 }
-function Gt(E) {
-  if (ee[E]) return ee[E];
-  const T = k.get(E);
-  return T ? T.label : VN(E);
+function Yt(E) {
+  if (te[E]) return te[E];
+  const T = z.get(E);
+  return T ? T.label : vN(E);
 }
-function dt(E) {
-  return Re[E] ? Re[E] : k.get(E)?.icon;
+function ht(E) {
+  return re[E] ? re[E] : z.get(E)?.icon;
 }
-function pt(E) {
+function ft(E) {
   if (E === "sessions") return [];
-  const T = k.get(E);
-  return T ? mE(T) : [E];
+  const T = z.get(E);
+  return T ? fE(T) : [E];
 }
-function Ht() {
+function Vt() {
   const E = {};
-  for (const T of k.list()) for (const e of mE(T)) E[e] = T.id;
+  for (const T of z.list()) for (const e of fE(T)) E[e] = T.id;
   return E;
 }
-function Bt(E) {
+function yt(E) {
   if (!Array.isArray(E)) return [];
   const T = [];
   return E.forEach((e) => {
     if (!e || typeof e != "object") return;
     const R = e, A = typeof R.command == "string" ? R.command.trim() : "";
     if (!A) return;
-    const S = typeof R.description == "string" ? R.description.trim() : "", O = Array.isArray(R.tags) ? R.tags.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], I = Array.isArray(R.aliases) ? R.aliases.filter((i) => typeof i == "string" && i.trim() !== "").map((i) => i.trim()) : [], P = typeof R.mutates == "boolean" ? R.mutates : typeof R.read_only == "boolean" ? !R.read_only : !1;
+    const S = typeof R.description == "string" ? R.description.trim() : "", O = Array.isArray(R.tags) ? R.tags.filter((C) => typeof C == "string" && C.trim() !== "").map((C) => C.trim()) : [], I = Array.isArray(R.aliases) ? R.aliases.filter((C) => typeof C == "string" && C.trim() !== "").map((C) => C.trim()) : [], i = typeof R.mutates == "boolean" ? R.mutates : typeof R.read_only == "boolean" ? !R.read_only : !1;
     T.push({
       command: A,
       description: S || void 0,
       tags: O.length > 0 ? O : void 0,
       aliases: I.length > 0 ? I : void 0,
-      mutates: P
+      mutates: i
     });
   }), T;
 }
-async function Ft(E) {
+async function gt(E) {
   try {
-    const T = await te(`${E}/api/snapshot`, { credentials: "same-origin" });
-    return T.ok ? await re(T) : null;
+    const T = await _e(`${E}/api/snapshot`, { credentials: "same-origin" });
+    return T.ok ? await ie(T) : null;
   } catch {
     return null;
   }
 }
-function gN(E, T, e = 500) {
+function XN(E, T, e = 500) {
   const R = {
     data: { ...E?.data || {} },
     logs: [...E?.logs || []]
@@ -21402,32 +21476,32 @@ function gN(E, T, e = 500) {
   if (!T || typeof T != "object") return R;
   const A = T;
   if ("key" in A && "value" in A)
-    return yN(R.data || (R.data = {}), String(A.key), A.value), R;
+    return bN(R.data || (R.data = {}), String(A.key), A.value), R;
   if ("data" in A || "logs" in A) {
     const S = A;
     return S.data && typeof S.data == "object" && (R.data = {
       ...R.data || {},
       ...S.data
-    }), Array.isArray(S.logs) && S.logs.length > 0 && (R.logs = xe([...R.logs || [], ...S.logs], e)), R;
+    }), Array.isArray(S.logs) && S.logs.length > 0 && (R.logs = Ze([...R.logs || [], ...S.logs], e)), R;
   }
-  return ("category" in A || "message" in A) && (R.logs = HE(R.logs, A, e)), R;
+  return ("category" in A || "message" in A) && (R.logs = YE(R.logs, A, e)), R;
 }
-function mt(E, T, e = {}) {
+function Wt(E, T, e = {}) {
   if (!T || !T.type || T.type === "snapshot") return null;
-  const R = e.eventToPanel?.[T.type] || k.findByEventType(T.type)?.id || T.type, A = k.get(R);
+  const R = e.eventToPanel?.[T.type] || z.findByEventType(T.type)?.id || T.type, A = z.get(R);
   if (A) {
-    const S = oT(A), O = E[S];
-    return E[S] = (A.handleEvent || ((I, P) => $e(I, P, 500)))(O, T.payload), R;
+    const S = MT(A), O = E[S];
+    return E[S] = (A.handleEvent || ((I, i) => Qe(I, i, 500)))(O, T.payload), R;
   }
   switch (T.type) {
     case "request":
-      E.requests = HE(E.requests, T.payload, 500);
+      E.requests = YE(E.requests, T.payload, 500);
       break;
     case "sql":
-      E.sql = HE(E.sql, T.payload, 200);
+      E.sql = YE(E.sql, T.payload, 200);
       break;
     case "log":
-      E.logs = HE(E.logs, T.payload, 500);
+      E.logs = YE(E.logs, T.payload, 500);
       break;
     case "template":
       E.template = T.payload || {};
@@ -21436,7 +21510,7 @@ function mt(E, T, e = {}) {
       E.session = T.payload || {};
       break;
     case "custom":
-      E.custom = gN(E.custom, T.payload, 500);
+      E.custom = XN(E.custom, T.payload, 500);
       break;
     default:
       e.storeUnknownEvents && (E[R] = T.payload);
@@ -21444,21 +21518,21 @@ function mt(E, T, e = {}) {
   }
   return R;
 }
-function Yt(E, T = 50) {
-  const e = E.requests?.length || 0, R = E.sql?.length || 0, A = E.logs?.length || 0, S = E.jserrors?.length || 0, O = (E.requests || []).filter((r) => (r.status || 0) >= 400).length, I = (E.sql || []).filter((r) => r.error).length, P = (E.logs || []).filter((r) => {
-    const a = (r.level || "").toLowerCase();
-    return a === "error" || a === "fatal";
-  }).length, i = (E.sql || []).filter((r) => TR(r.duration, T)).length;
+function vt(E, T = 50) {
+  const e = E.requests?.length || 0, R = E.sql?.length || 0, A = E.logs?.length || 0, S = E.jserrors?.length || 0, O = (E.requests || []).filter((N) => (N.status || 0) >= 400).length, I = (E.sql || []).filter((N) => N.error).length, i = (E.logs || []).filter((N) => {
+    const s = (N.level || "").toLowerCase();
+    return s === "error" || s === "fatal";
+  }).length, C = (E.sql || []).filter((N) => IR(N.duration, T)).length;
   return {
     requests: e,
     sql: R,
     logs: A,
     jserrors: S,
-    errors: O + I + P + S,
-    slowQueries: i
+    errors: O + I + i + S,
+    slowQueries: C
   };
 }
-var WN = /* @__PURE__ */ new Set([
+var KN = /* @__PURE__ */ new Set([
   "metrics",
   "key_value",
   "identity",
@@ -21467,8 +21541,8 @@ var WN = /* @__PURE__ */ new Set([
   "timeline",
   "json",
   "stack"
-]), vN = "1", XN = 3e3, Ae = /* @__PURE__ */ new Map();
-function Je(E) {
+]), $N = "1", xN = 3e3, se = /* @__PURE__ */ new Map();
+function qe(E) {
   return (E || "").trim().replace(/\/+$/g, "") || "/admin/debug";
 }
 function Y(E) {
@@ -21477,7 +21551,7 @@ function Y(E) {
 function h(E) {
   return typeof E == "string" ? E.trim() : "";
 }
-function bN(E, T) {
+function JN(E, T) {
   if (!Array.isArray(E)) return T ? [T] : [];
   const e = /* @__PURE__ */ new Set(), R = [];
   return E.forEach((A) => {
@@ -21485,17 +21559,17 @@ function bN(E, T) {
     S && !e.has(S) && (e.add(S), R.push(S));
   }), R.length > 0 ? R : T ? [T] : [];
 }
-function iE(E) {
+function ME(E) {
   const T = Y(E?.renderer);
-  return T !== "" && WN.has(T);
+  return T !== "" && KN.has(T);
 }
-function we(E) {
+function je(E) {
   if (!E || typeof E != "object") return null;
   const T = h(E.schema_version);
-  return T !== "" && T !== vN ? `Unsupported panel UI schema version "${T}". Rendering JSON fallback.` : !iE(E.views?.console) && !iE(E.views?.toolbar) ? "Panel UI schema does not declare a supported renderer. Rendering JSON fallback." : null;
+  return T !== "" && T !== $N ? `Unsupported panel UI schema version "${T}". Rendering JSON fallback.` : !ME(E.views?.console) && !ME(E.views?.toolbar) ? "Panel UI schema does not declare a supported renderer. Rendering JSON fallback." : null;
 }
-function KN(E) {
-  return !E || typeof E != "object" || we(E) !== null ? !1 : iE(E.views?.console) || iE(E.views?.toolbar);
+function wN(E) {
+  return !E || typeof E != "object" || je(E) !== null ? !1 : ME(E.views?.console) || ME(E.views?.toolbar);
 }
 function Q(E, T) {
   const e = h(T).replace(/^\$\./, "");
@@ -21504,10 +21578,10 @@ function Q(E, T) {
       return R[A];
   }, E) : E;
 }
-function $N(E, T) {
+function kN(E, T) {
   return T ? Q(E, T.bind) : E;
 }
-function xN(E, T) {
+function QN(E, T) {
   const e = T?.count, R = Q(E, e?.bind);
   switch (Y(e?.mode)) {
     case "object_keys":
@@ -21519,10 +21593,10 @@ function xN(E, T) {
     case "array_length":
       return Array.isArray(R) ? R.length : 0;
     default:
-      return Ke(R);
+      return ke(R);
   }
 }
-function JN(E, T, e) {
+function ZN(E, T, e) {
   const R = e?.events, A = Y(R?.mode), S = typeof R?.max_entries == "number" ? R.max_entries : 500, O = Q(T, R?.bind);
   if (A === "append") {
     const I = Array.isArray(E) ? [...E, O] : [O];
@@ -21535,45 +21609,45 @@ function JN(E, T, e) {
     } : O;
   if (A === "upsert") {
     const I = h(R?.key);
-    if (!I || !Array.isArray(E) || !O || typeof O != "object") return $e(E, O, S);
-    const P = Q(O, I), i = [...E], r = i.findIndex((a) => Q(a, I) === P);
-    if (r >= 0) {
-      const a = i[r], _ = Number(Q(O, "revision") || 0), u = Number(Q(a, "revision") || 0), H = Y(Q(a, "phase")), n = Y(Q(O, "phase")), l = /* @__PURE__ */ new Set([
+    if (!I || !O || typeof O != "object") return Qe(E, O, S);
+    const i = Q(O, I), C = Array.isArray(E) ? [...E] : [], N = C.findIndex((s) => Q(s, I) === i);
+    if (N >= 0) {
+      const s = C[N], _ = Number(Q(O, "revision") || 0), u = Number(Q(s, "revision") || 0), H = Y(Q(s, "phase")), o = Y(Q(O, "phase")), l = /* @__PURE__ */ new Set([
         "succeeded",
         "failed",
         "canceled",
         "rejected"
       ]);
-      if (_ > 0 && u > 0 && _ <= u || l.has(H) && !l.has(n)) return i;
-      i[r] = O;
-    } else i.push(O);
-    return S > 0 ? i.slice(-S) : i;
+      if (_ > 0 && u > 0 && _ <= u || l.has(H) && !l.has(o)) return C;
+      C[N] = O;
+    } else C.push(O);
+    return S > 0 ? C.slice(-S) : C;
   }
   return O;
 }
-function wN(E) {
+function qN(E) {
   const T = {};
   return (E?.filters || []).forEach((e) => {
     const R = Y(e.id);
     R && (T[R] = Y(e.kind) === "checkbox" ? !1 : "");
   }), T;
 }
-function QN(E, T) {
+function jN(E, T) {
   const e = T && typeof T == "object" ? T : {}, R = E?.filters || [];
   return R.length === 0 ? "" : R.map((A) => {
     const S = Y(A.id), O = Y(A.kind);
     if (!S) return "";
-    const I = h(A.label) || S, P = e[S];
+    const I = h(A.label) || S, i = e[S];
     if (O === "select") {
-      const i = Array.isArray(A.options) ? A.options : [];
+      const C = Array.isArray(A.options) ? A.options : [];
       return `
         <div class="debug-filter">
-          <label>${o(I)}</label>
-          <select data-filter="${o(S)}">
+          <label>${D(I)}</label>
+          <select data-filter="${D(S)}">
             <option value="">All</option>
-            ${i.map((r) => {
-        const a = h(r);
-        return `<option value="${o(a)}" ${P === a ? "selected" : ""}>${o(a)}</option>`;
+            ${C.map((N) => {
+        const s = h(N);
+        return `<option value="${D(s)}" ${i === s ? "selected" : ""}>${D(s)}</option>`;
       }).join("")}
           </select>
         </div>
@@ -21581,77 +21655,77 @@ function QN(E, T) {
     }
     return O === "checkbox" ? `
         <label class="debug-btn">
-          <input type="checkbox" data-filter="${o(S)}" ${P ? "checked" : ""} />
-          <span>${o(I)}</span>
+          <input type="checkbox" data-filter="${D(S)}" ${i ? "checked" : ""} />
+          <span>${D(I)}</span>
         </label>
       ` : `
       <div class="debug-filter debug-filter--grow">
-        <label>${o(I)}</label>
-        <input type="search" data-filter="${o(S)}" value="${o(BE(P))}" />
+        <label>${D(I)}</label>
+        <input type="search" data-filter="${D(S)}" value="${D(hE(i))}" />
       </div>
     `;
   }).join("");
 }
-function BE(E) {
+function hE(E) {
   return E == null ? "" : String(E);
 }
-function Se(E, T, e) {
+function ae(E, T, e) {
   const R = Y(T.kind), A = Q(E, T.bind);
   if (R === "checkbox") return e ? !!A : !0;
-  const S = BE(e).trim();
+  const S = hE(e).trim();
   if (!S) return !0;
-  const O = BE(A || E).toLowerCase();
-  return R === "select" ? BE(A).toLowerCase() === S.toLowerCase() : O.includes(S.toLowerCase());
+  const O = hE(A || E).toLowerCase();
+  return R === "select" ? hE(A).toLowerCase() === S.toLowerCase() : O.includes(S.toLowerCase());
 }
-function kN(E, T, e) {
+function zN(E, T, e) {
   const R = e?.filters || [];
   if (R.length === 0 || !T || typeof T != "object") return E;
   const A = T;
-  if (Array.isArray(E)) return E.filter((S) => R.every((O) => Se(S, O, A[Y(O.id)])));
+  if (Array.isArray(E)) return E.filter((S) => R.every((O) => ae(S, O, A[Y(O.id)])));
   if (E && typeof E == "object") {
     const S = Object.entries(E).filter(([O, I]) => {
-      const P = {
+      const i = {
         key: O,
         value: I
       };
-      return R.every((i) => Se(P, i, A[Y(i.id)]));
+      return R.every((C) => ae(i, C, A[Y(C.id)]));
     });
     return Object.fromEntries(S);
   }
   return E;
 }
-function NT(E, T, e, R, A, S, O = !1) {
+function sT(E, T, e, R, A, S, O = !1) {
   let I = "";
-  return T && iE(T) ? I = LT(E, T, e, R, A, O) : I = LT(E, {
+  return T && ME(T) ? I = _T(E, T, e, R, A, O) : I = _T(E, {
     renderer: "json",
     title: h(E.label) || Y(E.id) || "Panel"
-  }, $N(e, T), R, A), `${qN(E, R)}${ZN(E, R, S)}${I}<div data-panel-action-result="${o(Y(E.id))}"></div>`;
+  }, kN(e, T), R, A), `${Tt(E, R)}${Et(E, R, S)}${I}<div data-panel-action-result="${D(Y(E.id))}"></div>`;
 }
-function ZN(E, T, e) {
+function Et(E, T, e) {
   if (!e) return "";
   const R = Y(E.id);
-  return `<div class="${T.emptyState}" data-panel-degraded="${o(R)}"><strong>Panel UI degraded.</strong> ${o(e)}</div>`;
+  return `<div class="${T.emptyState}" data-panel-degraded="${D(R)}"><strong>Panel UI degraded.</strong> ${D(e)}</div>`;
 }
-function qN(E, T) {
+function Tt(E, T) {
   const e = Y(E.id), R = (E.ui?.actions || []).filter((A) => A.hidden !== !0);
   if (!e || R.length === 0) return "";
   if ((Y(E.ui?.action_layout?.mode) || "list") === "select") {
     const A = h(E.ui?.action_layout?.picker_label) || "Action", S = h(E.ui?.action_layout?.empty_text) || "Select an action to continue.";
     return `
-      <div class="${T.panelControls}" data-panel-action-launcher="${o(e)}" style="display:flex;flex-direction:column;gap:0.75rem;align-items:stretch">
+      <div class="${T.panelControls}" data-panel-action-launcher="${D(e)}" style="display:flex;flex-direction:column;gap:0.75rem;align-items:stretch">
         <div class="debug-filter debug-filter--grow">
-          <label>${o(A)}</label>
-          <select data-panel-action-picker="${o(e)}">
-            <option value="">${o(S)}</option>
+          <label>${D(A)}</label>
+          <select data-panel-action-picker="${D(e)}">
+            <option value="">${D(S)}</option>
             ${R.map((O) => {
-      const I = Y(O.id), P = h(O.label) || I;
-      return I ? `<option value="${o(I)}">${o(P)}</option>` : "";
+      const I = Y(O.id), i = h(O.label) || I;
+      return I ? `<option value="${D(I)}">${D(i)}</option>` : "";
     }).join("")}
           </select>
         </div>
         ${R.map((O) => {
       const I = Y(O.id);
-      return I ? `<div data-panel-action-choice="${o(I)}" hidden>${Ie(e, I, O, T)}</div>` : "";
+      return I ? `<div data-panel-action-choice="${D(I)}" hidden>${Le(e, I, O, T)}</div>` : "";
     }).join("")}
       </div>
     `;
@@ -21660,132 +21734,132 @@ function qN(E, T) {
     <div class="${T.panelControls}">
       ${R.map((A) => {
     const S = Y(A.id);
-    return S ? Ie(e, S, A, T) : "";
+    return S ? Le(e, S, A, T) : "";
   }).join("")}
     </div>
   `;
 }
-function Ie(E, T, e, R) {
-  const A = jN(e.payload), S = Array.isArray(e.fields) ? e.fields : [], O = h(e.submit_label) || h(e.label) || T;
+function Le(E, T, e, R) {
+  const A = et(e.payload), S = Array.isArray(e.fields) ? e.fields : [], O = h(e.submit_label) || h(e.label) || T;
   return S.length > 0 ? `
       <form
         data-panel-action-form
-        data-panel-id="${o(E)}"
-        data-action-id="${o(T)}"
-        data-action-confirm="${o(h(e.confirm_text))}"
+        data-panel-id="${D(E)}"
+        data-action-id="${D(T)}"
+        data-action-confirm="${D(h(e.confirm_text))}"
         data-action-requires-confirm="${e.requires_confirm ? "true" : "false"}"
         data-action-payload='${A}'
         style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:flex-end"
       >
-        ${S.map((I, P) => zN(E, T, I, P)).join("")}
-        <button type="submit" class="${R.sortToggle}">${o(O)}</button>
+        ${S.map((I, i) => Rt(E, T, I, i)).join("")}
+        <button type="submit" class="${R.sortToggle}">${D(O)}</button>
       </form>
     ` : `
     <button
       type="button"
       class="${R.sortToggle}"
       data-panel-action
-      data-panel-id="${o(E)}"
-      data-action-id="${o(T)}"
-      data-action-confirm="${o(h(e.confirm_text))}"
+      data-panel-id="${D(E)}"
+      data-action-id="${D(T)}"
+      data-action-confirm="${D(h(e.confirm_text))}"
       data-action-requires-confirm="${e.requires_confirm ? "true" : "false"}"
       data-action-payload='${A}'
-    >${o(O)}</button>
+    >${D(O)}</button>
   `;
 }
-function jN(E) {
-  return E ? o(JSON.stringify(E)).replace(/'/g, "&#39;") : "";
+function et(E) {
+  return E ? D(JSON.stringify(E)).replace(/'/g, "&#39;") : "";
 }
-function zN(E, T, e, R) {
+function Rt(E, T, e, R) {
   const A = Y(e.name);
   if (!A) return "";
-  const S = Y(e.kind) || "text", O = h(e.label) || A, I = `debug-action-${E}-${T}-${A}-${R}`, P = h(e.payload_path) || A, i = e.required ? " required" : "", r = h(e.placeholder), a = r ? ` placeholder="${o(r)}"` : "", _ = h(e.description), u = h(e.help), H = e.sensitive === !0, n = `id="${o(I)}" data-action-field="${o(A)}" data-action-field-kind="${o(S)}" data-action-field-path="${o(P)}"${H ? ' data-action-field-sensitive="true"' : ""}${i}`, l = Array.isArray(e.options) ? e.options.map((t) => h(t)).filter(Boolean) : [], B = Array.isArray(e.option_items) ? e.option_items.map((t) => ({
-    value: h(t?.value),
-    label: h(t?.label) || h(t?.value),
-    disabled: t?.disabled === !0
-  })).filter((t) => t.value) : [];
-  let s = "";
-  return H ? s = `<input type="password" ${n}${a} autocomplete="new-password" spellcheck="false">` : S === "boolean" || S === "checkbox" ? s = `<input type="checkbox" ${n}>` : S === "select" || B.length > 0 || l.length > 0 ? s = `<select ${n}><option value=""></option>${B.length > 0 ? B.map((t) => `<option value="${o(t.value)}"${t.disabled ? " disabled" : ""}>${o(t.label)}</option>`).join("") : l.map((t) => `<option value="${o(t)}">${o(t)}</option>`).join("")}</select>` : S === "number" || S === "integer" ? s = `<input type="number" ${n}${a}>` : S === "textarea" || S === "json" || S === "string_list" ? s = `<textarea ${n}${a} rows="2"></textarea>` : s = `<input type="text" ${n}${a}>`, `
-    <label for="${o(I)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
-      <span>${o(O)}</span>
-      ${s}
+  const S = Y(e.kind) || "text", O = h(e.label) || A, I = `debug-action-${E}-${T}-${A}-${R}`, i = h(e.payload_path) || A, C = e.required ? " required" : "", N = h(e.placeholder), s = N ? ` placeholder="${D(N)}"` : "", _ = h(e.description), u = h(e.help), H = e.sensitive === !0, o = `id="${D(I)}" data-action-field="${D(A)}" data-action-field-kind="${D(S)}" data-action-field-path="${D(i)}"${H ? ' data-action-field-sensitive="true"' : ""}${C}`, l = Array.isArray(e.options) ? e.options.map((r) => h(r)).filter(Boolean) : [], B = Array.isArray(e.option_items) ? e.option_items.map((r) => ({
+    value: h(r?.value),
+    label: h(r?.label) || h(r?.value),
+    disabled: r?.disabled === !0
+  })).filter((r) => r.value) : [];
+  let a = "";
+  return H ? a = `<input type="password" ${o}${s} autocomplete="new-password" spellcheck="false">` : S === "boolean" || S === "checkbox" ? a = `<input type="checkbox" ${o}>` : S === "select" || B.length > 0 || l.length > 0 ? a = `<select ${o}><option value=""></option>${B.length > 0 ? B.map((r) => `<option value="${D(r.value)}"${r.disabled ? " disabled" : ""}>${D(r.label)}</option>`).join("") : l.map((r) => `<option value="${D(r)}">${D(r)}</option>`).join("")}</select>` : S === "number" || S === "integer" ? a = `<input type="number" ${o}${s}>` : S === "textarea" || S === "json" || S === "string_list" ? a = `<textarea ${o}${s} rows="2"></textarea>` : a = `<input type="text" ${o}${s}>`, `
+    <label for="${D(I)}" style="display:flex;flex-direction:column;gap:0.25rem;font-size:0.8125rem">
+      <span>${D(O)}</span>
+      ${a}
       <small
-        data-action-field-error="${o(P)}"
-        data-action-field-name="${o(A)}"
-        data-action-id="${o(T)}"
+        data-action-field-error="${D(i)}"
+        data-action-field-name="${D(A)}"
+        data-action-id="${D(T)}"
         hidden
       ></small>
-      ${_ ? `<small>${o(_)}</small>` : ""}
-      ${u && u !== _ ? `<small>${o(u)}</small>` : ""}
+      ${_ ? `<small>${D(_)}</small>` : ""}
+      ${u && u !== _ ? `<small>${D(u)}</small>` : ""}
     </label>
   `;
 }
-var Qe = /* @__PURE__ */ new Map();
-function ht(E, T) {
+var ze = /* @__PURE__ */ new Map();
+function bt(E, T) {
   const e = Y(E);
-  e && typeof T == "function" && Qe.set(e, T);
+  e && typeof T == "function" && ze.set(e, T);
 }
-function Et(E) {
+function At(E) {
   const T = Y(E.id);
   if (!T) return null;
-  const e = h(E.label) || T, R = Y(E.snapshot_key) || T, A = we(E.ui), S = A === null && KN(E.ui) ? E.ui : void 0, O = S ? E : {
+  const e = h(E.label) || T, R = Y(E.snapshot_key) || T, A = je(E.ui), S = A === null && wN(E.ui) ? E.ui : void 0, O = S ? E : {
     ...E,
     ui: void 0
-  }, I = (T === "command_runs" && S ? ({ data: n, styles: l }) => pN(n, l) : void 0) || (S ? Qe.get(T) : void 0), P = I ? (n, l) => I({
+  }, I = (T === "command_runs" && S ? ({ data: o, styles: l }) => mN(o, l) : void 0) || (S ? ze.get(T) : void 0), i = I ? (o, l) => I({
     def: O,
-    data: n,
+    data: o,
     styles: l,
     useIconCopyButton: !0
-  }) : void 0, i = S?.views?.console || S?.views?.toolbar, r = Y(i?.renderer) !== "table" || Array.isArray(i?.options?.columns) && i.options.columns.length > 0, a = Y(S?.events?.order) === "newest_first", _ = Y(S?.events?.mode), u = S && i && _ === "append" && DN(i.renderer) && r ? {
-    renderRow: (n, l) => PN(i.renderer, n, i, l),
-    keyOf: (n) => hE(n, i.options?.key_bind),
+  }) : void 0, C = S?.views?.console || S?.views?.toolbar, N = Y(C?.renderer) !== "table" || Array.isArray(C?.options?.columns) && C.options.columns.length > 0, s = Y(S?.events?.order) === "newest_first", _ = Y(S?.events?.mode), u = S && C && _ === "append" && uN(C.renderer) && N ? {
+    renderRow: (o, l) => cN(C.renderer, o, C, l),
+    keyOf: (o) => yE(o, C.options?.key_bind),
     getMaxEntries: () => typeof S.events?.max_entries == "number" ? S.events.max_entries : 500,
-    newestFirst: a
+    newestFirst: s
   } : void 0, H = S && T === "command_runs" && _ === "upsert" ? {
     updateMode: "upsert",
-    renderRow: (n, l) => Xe(n, l),
-    keyOf: FE,
-    revisionOf: We,
-    terminalOf: ve,
+    renderRow: (o, l) => Je(o, l),
+    keyOf: Z,
+    revisionOf: j,
+    terminalOf: SE,
     getMaxEntries: () => typeof S.events?.max_entries == "number" ? S.events.max_entries : 500,
-    newestFirst: a,
-    onAdopt: HN,
-    onRestore: be,
-    onEvict: BN
+    newestFirst: s,
+    onAdopt: YN,
+    onRestore: we,
+    onEvict: hN
   } : void 0;
   return {
     id: T,
     label: e,
     icon: h(E.icon) || void 0,
     snapshotKey: R,
-    eventTypes: bN(E.event_types, R),
+    eventTypes: JN(E.event_types, R),
     supportsToolbar: E.supports_toolbar !== !1,
     category: h(E.category) || "custom",
     order: typeof E.order == "number" ? E.order : 100,
-    getCount: S?.count ? (n) => xN(n, S) : void 0,
-    handleEvent: S?.events ? (n, l) => JN(n, l, S) : void 0,
-    renderFilters: S?.filters?.length ? (n) => QN(S, n) : void 0,
-    defaultFilters: S?.filters?.length ? wN(S) : void 0,
-    applyFilters: S?.filters?.length ? (n, l) => kN(n, l, S) : void 0,
-    render: P || ((n, l) => NT(O, S?.views?.console || S?.views?.toolbar, n, l, !0, A, a)),
-    renderConsole: P || ((n, l) => NT(O, S?.views?.console || S?.views?.toolbar, n, l, !0, A, a)),
-    renderToolbar: (n, l) => NT(O, S?.views?.toolbar || S?.views?.console, n, l, !1, A, a),
+    getCount: S?.count ? (o) => QN(o, S) : void 0,
+    handleEvent: S?.events ? (o, l) => ZN(o, l, S) : void 0,
+    renderFilters: S?.filters?.length ? (o) => jN(S, o) : void 0,
+    defaultFilters: S?.filters?.length ? qN(S) : void 0,
+    applyFilters: S?.filters?.length ? (o, l) => zN(o, l, S) : void 0,
+    render: i || ((o, l) => sT(O, S?.views?.console || S?.views?.toolbar, o, l, !0, A, s)),
+    renderConsole: i || ((o, l) => sT(O, S?.views?.console || S?.views?.toolbar, o, l, !0, A, s)),
+    renderToolbar: (o, l) => sT(O, S?.views?.toolbar || S?.views?.console, o, l, !1, A, s),
     showFilters: I && T !== "command_runs" ? !1 : !!S?.filters?.length,
     liveList: H || u
   };
 }
-async function Tt(E, T = XN) {
+async function St(E, T = xN) {
   let e;
   const R = typeof AbortController < "u" ? new AbortController() : null;
   try {
-    const A = Je(E);
+    const A = qe(E);
     R && T > 0 && (e = setTimeout(() => R.abort(), T));
-    const S = await te(`${A}/api/panels`, {
+    const S = await _e(`${A}/api/panels`, {
       credentials: "same-origin",
       signal: R?.signal
     });
     if (!S.ok) return [];
-    const O = await re(S);
+    const O = await ie(S);
     return Array.isArray(O.panels) ? O.panels : [];
   } catch {
     return [];
@@ -21793,87 +21867,91 @@ async function Tt(E, T = XN) {
     e !== void 0 && clearTimeout(e);
   }
 }
-async function ft(E) {
-  const T = Je(E), e = Ae.get(T);
+async function Xt(E) {
+  const T = qe(E), e = se.get(T);
   if (e) return e;
-  const R = Tt(T).then((A) => {
+  const R = St(T).then((A) => {
     let S = 0;
     return A.forEach((O) => {
-      const I = Et(O);
-      I && k.registerServerDefinition(I) && (S += 1);
+      const I = At(O);
+      I && z.registerServerDefinition(I) && (S += 1);
     }), S;
   });
-  return Ae.set(T, R), R;
+  return se.set(T, R), R;
 }
 export {
-  AN as $,
-  _t as A,
-  CN as B,
-  mE as C,
-  We as D,
-  FE as E,
-  pN as F,
-  nN as G,
-  PN as H,
-  Pt as I,
-  Fe as J,
-  iN as K,
-  Dt as L,
-  nt as M,
-  lN as N,
-  UN as O,
-  Xe as P,
-  Lt as Q,
-  it as R,
-  oT as S,
-  Ut as T,
-  aN as U,
-  LN as V,
-  _N as W,
-  Be as X,
-  rN as Y,
-  Ct as Z,
-  fN as _,
-  gN as a,
-  st as at,
-  Mt as b,
-  Ft as c,
-  se as ct,
-  pt as d,
-  tt as dt,
-  SN as et,
-  dt as f,
-  Nt as ft,
-  Bt as g,
-  ct as h,
-  ht as i,
-  RR as it,
-  ot as j,
-  ve as k,
-  lt as l,
-  Le as lt,
-  Yt as m,
-  Ot as mt,
-  ft as n,
-  pe as nt,
-  mt as o,
-  rt as ot,
-  Gt as p,
-  TR as pt,
-  hE as q,
-  Et as r,
-  at as rt,
-  Ht as s,
-  It as st,
-  Tt as t,
-  eN as tt,
-  ut as u,
-  CT as ut,
-  Ke as v,
-  k as w,
-  FN as x,
-  $e as y,
-  DN as z
+  CN as $,
+  dN as A,
+  dt as B,
+  fE as C,
+  Z as D,
+  lt as E,
+  ut as F,
+  oN as G,
+  Mt as H,
+  Dt as I,
+  MN as J,
+  cN as K,
+  pN as L,
+  hN as M,
+  Pt as N,
+  j as O,
+  ct as P,
+  ge as Q,
+  Je as R,
+  MT as S,
+  Ht as T,
+  uN as U,
+  Gt as V,
+  DN as W,
+  UN as X,
+  PN as Y,
+  yE as Z,
+  WN as _,
+  IR as _t,
+  XN as a,
+  ON as at,
+  pt as b,
+  gt as c,
+  tR as ct,
+  ft as d,
+  rt as dt,
+  ye as et,
+  ht as f,
+  oe as ft,
+  yt as g,
+  at as gt,
+  mt as h,
+  Lt as ht,
+  bt as i,
+  rN as it,
+  SE as j,
+  Ut as k,
+  Bt as l,
+  Ct as lt,
+  vt as m,
+  iT as mt,
+  Xt as n,
+  it as nt,
+  Wt as o,
+  fe as ot,
+  Yt as p,
+  Pe as pt,
+  iN as q,
+  At as r,
+  tN as rt,
+  Vt as s,
+  _t as st,
+  St as t,
+  ot as tt,
+  Ft as u,
+  nt as ut,
+  ke as v,
+  st as vt,
+  z as w,
+  fN as x,
+  Qe as y,
+  mN as z
 };
 
-//# sourceMappingURL=server-definitions-4iGaxxbT.js.map
+//# sourceMappingURL=server-definitions-Bg5imA4C.js.map

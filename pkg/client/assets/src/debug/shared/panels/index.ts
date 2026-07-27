@@ -52,6 +52,9 @@ export {
   commandRunKey,
   commandRunRevision,
   commandRunTerminal,
+  commandRunRevisionGap,
+  captureCommandRunSnapshotBaseline,
+  mergeAuthoritativeCommandRuns,
   commandRunSelectionEvent,
   parseCommandRunsNavigation,
   commandRunsNavigationHref,
@@ -65,6 +68,7 @@ export {
   resetCommandRunsState,
   type CommandRunRow,
   type CommandRunNavigationTarget,
+  type CommandRunSnapshotBaseline,
 } from './command-runs.js';
 export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
 export { renderJSErrorsPanel, renderErrorRow, jsErrorRowKey, type JSErrorsPanelOptions } from './jserrors.js';

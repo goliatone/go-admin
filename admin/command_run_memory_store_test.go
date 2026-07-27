@@ -174,6 +174,40 @@ func TestMemoryCommandRunStoreScopedListAndClear(t *testing.T) {
 	}
 }
 
+func TestMemoryCommandRunStoreAtomicClearRejectsChangedSnapshot(t *testing.T) {
+	store := newTestCommandRunStore(t, 10, 20)
+	selector := CommandRunSelector{Global: true}
+	first := validCommandRunUpdate()
+	first.EventID, first.RunID = "event-first", "run-first"
+	if _, _, err := store.Apply(context.Background(), first); err != nil {
+		t.Fatalf("apply first: %v", err)
+	}
+	snapshot, err := store.SnapshotForCommandRunClear(context.Background(), selector)
+	if err != nil || len(snapshot.Records) != 1 {
+		t.Fatalf("clear snapshot = %+v, err %v", snapshot, err)
+	}
+	second := validCommandRunUpdate()
+	second.EventID, second.RunID = "event-second", "run-second"
+	if _, _, err := store.Apply(context.Background(), second); err != nil {
+		t.Fatalf("apply second: %v", err)
+	}
+	cleared, err := store.ClearCommandRunsIfUnchanged(context.Background(), selector, snapshot.Version)
+	if err != nil || cleared {
+		t.Fatalf("stale clear cleared=%v err=%v", cleared, err)
+	}
+	if store.Count() != 2 {
+		t.Fatalf("stale clear count=%d, want 2", store.Count())
+	}
+	current, err := store.SnapshotForCommandRunClear(context.Background(), selector)
+	if err != nil {
+		t.Fatalf("current snapshot: %v", err)
+	}
+	cleared, err = store.ClearCommandRunsIfUnchanged(context.Background(), selector, current.Version)
+	if err != nil || !cleared || store.Count() != 0 {
+		t.Fatalf("current clear cleared=%v count=%d err=%v", cleared, store.Count(), err)
+	}
+}
+
 func TestMemoryCommandRunStoreConcurrentApplyListClear(t *testing.T) {
 	store := newTestCommandRunStore(t, 100, 500)
 	ctx := context.Background()

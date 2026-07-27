@@ -1,11 +1,11 @@
 import { escapeHTML as p } from "../shared/html.js";
-import { httpRequest as R, readCSRFToken as Ye, readExpectedHTTPJSON as B, readHTTPErrorResult as Ze } from "../shared/transport/http-client.js";
-import { t as et } from "../chunks/sortable.esm-CcMbOE-M.js";
-import { A as zs, B as Qs, C as tt, D as w, E as st, F as me, G as ge, H as Xs, K as Gs, L as Ws, M as rt, N as nt, O as Ys, P as at, R as ye, S as Zs, T as it, U as er, V as ot, W as tr, _ as lt, a as sr, b as ct, c as rr, d as nr, f as dt, g as ut, h as ht, i as k, j as ar, k as ir, l as or, m as ft, n as lr, o as cr, p as pt, r as be, s as dr, t as mt, u as ur, v as Ee, w as gt, x as yt, y as bt, z as hr } from "../chunks/builtin-panels-PNUdAgjs.js";
-import { t as Et } from "../chunks/repl-panel-BKc41M7P.js";
-import { i as vt, n as mr, r as gr, t as yr } from "../chunks/icons-B_VaFfsl.js";
-import { $ as Er, A as ve, B as vr, C as Sr, D as wr, E as Pr, F as Ar, G as Cr, H as _r, I as St, K as xr, L as Or, M as Se, N as we, O as wt, P as Rr, Q as Y, R as Pe, S as V, T as $r, U as Lr, V as Dr, W as Ir, X as Pt, Z as kr, _ as At, a as Tr, at as U, b as Ct, c as qr, ct as _t, d as xt, dt as Fr, et as Nr, f as Ot, ft as Mr, g as Rt, h as $t, i as Lt, it as J, j as jr, k as Br, l as Dt, lt as z, m as Ur, mt as Jr, n as It, o as Hr, p as Ae, pt as kt, q as Kr, r as Vr, s as Z, st as zr, tt as Qr, u as Xr, ut as Tt, v as Gr, w as $, x as Wr, y as qt, z as Yr } from "../chunks/server-definitions-4iGaxxbT.js";
-var Ft = class {
+import { httpRequest as _, readCSRFToken as ot, readExpectedHTTPJSON as q, readHTTPErrorResult as lt } from "../shared/transport/http-client.js";
+import { t as ct } from "../chunks/sortable.esm-CcMbOE-M.js";
+import { A as dr, B as ur, C as dt, D as w, E as ut, F as ve, G as we, H as hr, K as mr, L as pr, M as ht, N as mt, O as fr, P as pt, R as Pe, S as gr, T as ft, U as yr, V as gt, W as br, _ as yt, a as Er, b as bt, c as Sr, d as vr, f as Et, g as St, h as vt, i as k, j as wr, k as Pr, l as Cr, m as wt, n as Rr, o as Ar, p as Pt, r as Ce, s as _r, t as Ct, u as xr, v as Re, w as Rt, x as At, y as _t, z as Or } from "../chunks/builtin-panels-CCATNT-3.js";
+import { t as xt } from "../chunks/repl-panel-BKc41M7P.js";
+import { i as Ot, n as Dr, r as Lr, t as Tr } from "../chunks/icons-B_VaFfsl.js";
+import { A as It, B as $t, C as qr, D, E as Ae, F as Dt, G as Fr, H as _e, I as xe, J as Mr, K as Nr, L as Oe, M as Lt, N as Ie, O as jr, P as Br, R as Ur, S as z, T as Jr, U as Hr, V as Kr, W as Vr, X as zr, Y as Gr, Z as Qr, _ as Tt, _t as kt, a as Xr, at as Wr, b as qt, c as Yr, ct as J, d as Ft, dt as Zr, et as Mt, f as Nt, ft as jt, g as Bt, gt as en, h as Ut, ht as tn, i as Jt, it as sn, j as Ht, k as Kt, l as Vt, lt as H, m as rn, mt as zt, n as Gt, nt as se, o as nn, p as G, pt as Q, q as an, r as on, rt as ln, s as re, tt as cn, u as dn, v as un, vt as hn, w as x, x as mn, y as Qt, z as pn } from "../chunks/server-definitions-Bg5imA4C.js";
+var Xt = class {
   add(e, t, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
     else (Array.isArray(e) ? e : [e]).forEach(function(r) {
@@ -17,7 +17,7 @@ var Ft = class {
       s.call(t && t.context ? t.context : t, t);
     });
   }
-}, Nt = class {
+}, Wt = class {
   constructor(e) {
     this.jsep = e, this.registered = {};
   }
@@ -28,7 +28,7 @@ var Ft = class {
       this.registered[r.name] || (r.init(this.jsep), this.registered[r.name] = r);
     });
   }
-}, _ = class c {
+}, A = class c {
   static get version() {
     return "1.4.0";
   }
@@ -353,10 +353,10 @@ var Ft = class {
       elements: this.gobbleArguments(c.CBRACK_CODE)
     };
   }
-}, Mt = new Ft();
-Object.assign(_, {
-  hooks: Mt,
-  plugins: new Nt(_),
+}, Yt = new Xt();
+Object.assign(A, {
+  hooks: Yt,
+  plugins: new Wt(A),
   COMPOUND: "Compound",
   SEQUENCE_EXP: "SequenceExpression",
   IDENTIFIER: "Identifier",
@@ -422,16 +422,16 @@ Object.assign(_, {
   },
   this_str: "this"
 });
-_.max_unop_len = _.getMaxKeyLen(_.unary_ops);
-_.max_binop_len = _.getMaxKeyLen(_.binary_ops);
-var x = (e) => new _(e).parse(), jt = Object.getOwnPropertyNames(class {
+A.max_unop_len = A.getMaxKeyLen(A.unary_ops);
+A.max_binop_len = A.getMaxKeyLen(A.binary_ops);
+var O = (e) => new A(e).parse(), Zt = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(_).filter((e) => !jt.includes(e) && x[e] === void 0).forEach((e) => {
-  x[e] = _[e];
+Object.getOwnPropertyNames(A).filter((e) => !Zt.includes(e) && O[e] === void 0).forEach((e) => {
+  O[e] = A[e];
 });
-x.Jsep = _;
-var Bt = "ConditionalExpression";
-x.plugins.register({
+O.Jsep = A;
+var es = "ConditionalExpression";
+O.plugins.register({
   name: "ternary",
   init(e) {
     e.hooks.add("after-expression", function(s) {
@@ -442,7 +442,7 @@ x.plugins.register({
           this.index++;
           const a = this.gobbleExpression();
           if (a || this.throwError("Expected expression"), s.node = {
-            type: Bt,
+            type: es,
             test: r,
             consequent: n,
             alternate: a
@@ -456,15 +456,15 @@ x.plugins.register({
     });
   }
 });
-var Ce = 47, Ut = 92, Jt = {
+var $e = 47, ts = 92, ss = {
   name: "regex",
   init(e) {
     e.hooks.add("gobble-token", function(s) {
-      if (this.code === Ce) {
+      if (this.code === $e) {
         const r = ++this.index;
         let n = !1;
         for (; this.index < this.expr.length; ) {
-          if (this.code === Ce && !n) {
+          if (this.code === $e && !n) {
             const a = this.expr.slice(r, this.index);
             let i = "";
             for (; ++this.index < this.expr.length; ) {
@@ -484,13 +484,13 @@ var Ce = 47, Ut = 92, Jt = {
               raw: this.expr.slice(r - 1, this.index)
             }, s.node = this.gobbleTokenProperty(s.node), s.node;
           }
-          this.code === e.OBRACK_CODE ? n = !0 : n && this.code === e.CBRACK_CODE && (n = !1), this.index += this.code === Ut ? 2 : 1;
+          this.code === e.OBRACK_CODE ? n = !0 : n && this.code === e.CBRACK_CODE && (n = !1), this.index += this.code === ts ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
     });
   }
-}, ee = 43, q = {
+}, ne = 43, M = {
   name: "assignment",
   assignmentOperators: /* @__PURE__ */ new Set([
     "=",
@@ -510,24 +510,24 @@ var Ce = 47, Ut = 92, Jt = {
     "&&=",
     "??="
   ]),
-  updateOperators: [ee, 45],
+  updateOperators: [ne, 45],
   assignmentPrecedence: 0.9,
   init(e) {
     const t = [e.IDENTIFIER, e.MEMBER_EXP];
-    q.assignmentOperators.forEach((r) => e.addBinaryOp(r, q.assignmentPrecedence, !0)), e.hooks.add("gobble-token", function(n) {
+    M.assignmentOperators.forEach((r) => e.addBinaryOp(r, M.assignmentPrecedence, !0)), e.hooks.add("gobble-token", function(n) {
       const a = this.code;
-      q.updateOperators.some((i) => i === a && i === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, n.node = {
+      M.updateOperators.some((i) => i === a && i === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, n.node = {
         type: "UpdateExpression",
-        operator: a === ee ? "++" : "--",
+        operator: a === ne ? "++" : "--",
         argument: this.gobbleTokenProperty(this.gobbleIdentifier()),
         prefix: !0
       }, (!n.node.argument || !t.includes(n.node.argument.type)) && this.throwError(`Unexpected ${n.node.operator}`));
     }), e.hooks.add("after-token", function(n) {
       if (n.node) {
         const a = this.code;
-        q.updateOperators.some((i) => i === a && i === this.expr.charCodeAt(this.index + 1)) && (t.includes(n.node.type) || this.throwError(`Unexpected ${n.node.operator}`), this.index += 2, n.node = {
+        M.updateOperators.some((i) => i === a && i === this.expr.charCodeAt(this.index + 1)) && (t.includes(n.node.type) || this.throwError(`Unexpected ${n.node.operator}`), this.index += 2, n.node = {
           type: "UpdateExpression",
-          operator: a === ee ? "++" : "--",
+          operator: a === ne ? "++" : "--",
           argument: n.node,
           prefix: !1
         });
@@ -536,45 +536,45 @@ var Ce = 47, Ut = 92, Jt = {
       n.node && s(n.node);
     });
     function s(r) {
-      q.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", s(r.left), s(r.right)) : r.operator || Object.values(r).forEach((n) => {
+      M.assignmentOperators.has(r.operator) ? (r.type = "AssignmentExpression", s(r.left), s(r.right)) : r.operator || Object.values(r).forEach((n) => {
         n && typeof n == "object" && s(n);
       });
     }
   }
 };
-x.plugins.register(Jt, q);
-x.addUnaryOp("typeof");
-x.addLiteral("null", null);
-x.addLiteral("undefined", void 0);
-var Ht = /* @__PURE__ */ new Set([
+O.plugins.register(ss, M);
+O.addUnaryOp("typeof");
+O.addLiteral("null", null);
+O.addLiteral("undefined", void 0);
+var rs = /* @__PURE__ */ new Set([
   "constructor",
   "__proto__",
   "__defineGetter__",
   "__defineSetter__"
-]), v = {
+]), S = {
   evalAst(e, t) {
     switch (e.type) {
       case "BinaryExpression":
       case "LogicalExpression":
-        return v.evalBinaryExpression(e, t);
+        return S.evalBinaryExpression(e, t);
       case "Compound":
-        return v.evalCompound(e, t);
+        return S.evalCompound(e, t);
       case "ConditionalExpression":
-        return v.evalConditionalExpression(e, t);
+        return S.evalConditionalExpression(e, t);
       case "Identifier":
-        return v.evalIdentifier(e, t);
+        return S.evalIdentifier(e, t);
       case "Literal":
-        return v.evalLiteral(e, t);
+        return S.evalLiteral(e, t);
       case "MemberExpression":
-        return v.evalMemberExpression(e, t);
+        return S.evalMemberExpression(e, t);
       case "UnaryExpression":
-        return v.evalUnaryExpression(e, t);
+        return S.evalUnaryExpression(e, t);
       case "ArrayExpression":
-        return v.evalArrayExpression(e, t);
+        return S.evalArrayExpression(e, t);
       case "CallExpression":
-        return v.evalCallExpression(e, t);
+        return S.evalCallExpression(e, t);
       case "AssignmentExpression":
-        return v.evalAssignmentExpression(e, t);
+        return S.evalAssignmentExpression(e, t);
       default:
         throw SyntaxError("Unexpected expression", e);
     }
@@ -602,7 +602,7 @@ var Ht = /* @__PURE__ */ new Set([
       "*": (s, r) => s * r(),
       "/": (s, r) => s / r(),
       "%": (s, r) => s % r()
-    }[e.operator](v.evalAst(e.left, t), () => v.evalAst(e.right, t));
+    }[e.operator](S.evalAst(e.left, t), () => S.evalAst(e.right, t));
   },
   evalCompound(e, t) {
     let s;
@@ -613,12 +613,12 @@ var Ht = /* @__PURE__ */ new Set([
         "const"
       ].includes(e.body[r].name) && e.body[r + 1] && e.body[r + 1].type === "AssignmentExpression" && (r += 1);
       const n = e.body[r];
-      s = v.evalAst(n, t);
+      s = S.evalAst(n, t);
     }
     return s;
   },
   evalConditionalExpression(e, t) {
-    return v.evalAst(e.test, t) ? v.evalAst(e.consequent, t) : v.evalAst(e.alternate, t);
+    return S.evalAst(e.test, t) ? S.evalAst(e.consequent, t) : S.evalAst(e.alternate, t);
   },
   evalIdentifier(e, t) {
     if (Object.hasOwn(t, e.name)) return t[e.name];
@@ -628,49 +628,49 @@ var Ht = /* @__PURE__ */ new Set([
     return e.value;
   },
   evalMemberExpression(e, t) {
-    const s = String(e.computed ? v.evalAst(e.property) : e.property.name), r = v.evalAst(e.object, t);
+    const s = String(e.computed ? S.evalAst(e.property) : e.property.name), r = S.evalAst(e.object, t);
     if (r == null) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
-    if (!Object.hasOwn(r, s) && Ht.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
+    if (!Object.hasOwn(r, s) && rs.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
     const n = r[s];
     return typeof n == "function" ? n.bind(r) : n;
   },
   evalUnaryExpression(e, t) {
     return {
-      "-": (s) => -v.evalAst(s, t),
-      "!": (s) => !v.evalAst(s, t),
-      "~": (s) => ~v.evalAst(s, t),
-      "+": (s) => +v.evalAst(s, t),
-      typeof: (s) => typeof v.evalAst(s, t)
+      "-": (s) => -S.evalAst(s, t),
+      "!": (s) => !S.evalAst(s, t),
+      "~": (s) => ~S.evalAst(s, t),
+      "+": (s) => +S.evalAst(s, t),
+      typeof: (s) => typeof S.evalAst(s, t)
     }[e.operator](e.argument);
   },
   evalArrayExpression(e, t) {
-    return e.elements.map((s) => v.evalAst(s, t));
+    return e.elements.map((s) => S.evalAst(s, t));
   },
   evalCallExpression(e, t) {
-    const s = e.arguments.map((r) => v.evalAst(r, t));
-    return v.evalAst(e.callee, t)(...s);
+    const s = e.arguments.map((r) => S.evalAst(r, t));
+    return S.evalAst(e.callee, t)(...s);
   },
   evalAssignmentExpression(e, t) {
     if (e.left.type !== "Identifier") throw SyntaxError("Invalid left-hand side in assignment");
     const s = e.left.name;
-    return t[s] = v.evalAst(e.right, t), t[s];
+    return t[s] = S.evalAst(e.right, t), t[s];
   }
-}, Kt = class {
+}, ns = class {
   constructor(e) {
-    this.code = e, this.ast = x(this.code);
+    this.code = e, this.ast = O(this.code);
   }
   runInNewContext(e) {
     const t = Object.assign(/* @__PURE__ */ Object.create(null), e);
-    return v.evalAst(this.ast, t);
+    return S.evalAst(this.ast, t);
   }
 };
-function L(e, t) {
+function $(e, t) {
   return e = e.slice(), e.push(t), e;
 }
-function oe(e, t) {
+function he(e, t) {
   return t = t.slice(), t.unshift(e), t;
 }
-var Vt = class extends Error {
+var as = class extends Error {
   constructor(e) {
     super('JSONPath should not be called with "new" (it prevents return of (unwrapped) scalar values)'), this.avoidNew = !0, this.value = e, this.name = "NewError";
   }
@@ -690,7 +690,7 @@ function b(e, t, s, r, n) {
     const i = { path: a ? e.path : t };
     a ? "json" in e && (i.json = e.json) : i.json = s;
     const o = this.evaluate(i);
-    if (!o || typeof o != "object") throw new Vt(o);
+    if (!o || typeof o != "object") throw new as(o);
     return o;
   }
 }
@@ -708,8 +708,8 @@ b.prototype.evaluate = function(e, t, s, r) {
     return u && !u.isParentSelector;
   });
   return d.length ? !o && d.length === 1 && !d[0].hasArrExpr ? this._getPreferredOutput(d[0]) : d.reduce((u, h) => {
-    const g = this._getPreferredOutput(h);
-    return i && Array.isArray(g) ? u = u.concat(g) : u.push(g), u;
+    const f = this._getPreferredOutput(h);
+    return i && Array.isArray(f) ? u = u.concat(f) : u.push(f), u;
   }, []) : o ? [] : void 0;
 };
 b.prototype._getPreferredOutput = function(e) {
@@ -748,18 +748,18 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
       hasArrExpr: i
     }, this._handleCallback(l, a, "value"), l;
   const d = e[0], u = e.slice(1), h = [];
-  function g(f) {
-    Array.isArray(f) ? f.forEach((y) => {
+  function f(m) {
+    Array.isArray(m) ? m.forEach((y) => {
       h.push(y);
-    }) : h.push(f);
+    }) : h.push(m);
   }
-  if ((typeof d != "string" || o) && t && Object.hasOwn(t, d)) g(this._trace(u, t[d], L(s, d), t, d, a, i));
-  else if (d === "*") this._walk(t, (f) => {
-    g(this._trace(u, t[f], L(s, f), t, f, a, !0, !0));
+  if ((typeof d != "string" || o) && t && Object.hasOwn(t, d)) f(this._trace(u, t[d], $(s, d), t, d, a, i));
+  else if (d === "*") this._walk(t, (m) => {
+    f(this._trace(u, t[m], $(s, m), t, m, a, !0, !0));
   });
   else if (d === "..")
-    g(this._trace(u, t, s, r, n, a, i)), this._walk(t, (f) => {
-      typeof t[f] == "object" && g(this._trace(e.slice(), t[f], L(s, f), t, f, a, !0));
+    f(this._trace(u, t, s, r, n, a, i)), this._walk(t, (m) => {
+      typeof t[m] == "object" && f(this._trace(e.slice(), t[m], $(s, m), t, m, a, !0));
     });
   else {
     if (d === "^")
@@ -770,63 +770,63 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
       };
     if (d === "~")
       return l = {
-        path: L(s, d),
+        path: $(s, d),
         value: n,
         parent: r,
         parentProperty: null
       }, this._handleCallback(l, a, "property"), l;
-    if (d === "$") g(this._trace(u, t, s, null, null, a, i));
-    else if (/^(-?\d*):(-?\d*):?(\d*)$/u.test(d)) g(this._slice(d, u, t, s, r, n, a));
+    if (d === "$") f(this._trace(u, t, s, null, null, a, i));
+    else if (/^(-?\d*):(-?\d*):?(\d*)$/u.test(d)) f(this._slice(d, u, t, s, r, n, a));
     else if (d.indexOf("?(") === 0) {
       if (this.currEval === !1) throw new Error("Eval [?(expr)] prevented in JSONPath expression.");
-      const f = d.replace(/^\?\((.*?)\)$/u, "$1"), y = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(f);
+      const m = d.replace(/^\?\((.*?)\)$/u, "$1"), y = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(m);
       y ? this._walk(t, (E) => {
-        const S = [y[2]], O = y[1] ? t[E][y[1]] : t[E];
-        this._trace(S, O, s, r, n, a, !0).length > 0 && g(this._trace(u, t[E], L(s, E), t, E, a, !0));
+        const v = [y[2]], I = y[1] ? t[E][y[1]] : t[E];
+        this._trace(v, I, s, r, n, a, !0).length > 0 && f(this._trace(u, t[E], $(s, E), t, E, a, !0));
       }) : this._walk(t, (E) => {
-        this._eval(f, t[E], E, s, r, n) && g(this._trace(u, t[E], L(s, E), t, E, a, !0));
+        this._eval(m, t[E], E, s, r, n) && f(this._trace(u, t[E], $(s, E), t, E, a, !0));
       });
     } else if (d[0] === "(") {
       if (this.currEval === !1) throw new Error("Eval [(expr)] prevented in JSONPath expression.");
-      g(this._trace(oe(this._eval(d, t, s.at(-1), s.slice(0, -1), r, n), u), t, s, r, n, a, i));
+      f(this._trace(he(this._eval(d, t, s.at(-1), s.slice(0, -1), r, n), u), t, s, r, n, a, i));
     } else if (d[0] === "@") {
-      let f = !1;
+      let m = !1;
       const y = d.slice(1, -2);
       switch (y) {
         case "scalar":
-          (!t || !["object", "function"].includes(typeof t)) && (f = !0);
+          (!t || !["object", "function"].includes(typeof t)) && (m = !0);
           break;
         case "boolean":
         case "string":
         case "undefined":
         case "function":
-          typeof t === y && (f = !0);
+          typeof t === y && (m = !0);
           break;
         case "integer":
-          Number.isFinite(t) && !(t % 1) && (f = !0);
+          Number.isFinite(t) && !(t % 1) && (m = !0);
           break;
         case "number":
-          Number.isFinite(t) && (f = !0);
+          Number.isFinite(t) && (m = !0);
           break;
         case "nonFinite":
-          typeof t == "number" && !Number.isFinite(t) && (f = !0);
+          typeof t == "number" && !Number.isFinite(t) && (m = !0);
           break;
         case "object":
-          t && typeof t === y && (f = !0);
+          t && typeof t === y && (m = !0);
           break;
         case "array":
-          Array.isArray(t) && (f = !0);
+          Array.isArray(t) && (m = !0);
           break;
         case "other":
-          f = this.currOtherTypeCallback(t, s, r, n);
+          m = this.currOtherTypeCallback(t, s, r, n);
           break;
         case "null":
-          t === null && (f = !0);
+          t === null && (m = !0);
           break;
         default:
           throw new TypeError("Unknown value type " + y);
       }
-      if (f)
+      if (m)
         return l = {
           path: s,
           value: t,
@@ -834,23 +834,23 @@ b.prototype._trace = function(e, t, s, r, n, a, i, o) {
           parentProperty: n
         }, this._handleCallback(l, a, "value"), l;
     } else if (d[0] === "`" && t && Object.hasOwn(t, d.slice(1))) {
-      const f = d.slice(1);
-      g(this._trace(u, t[f], L(s, f), t, f, a, i, !0));
+      const m = d.slice(1);
+      f(this._trace(u, t[m], $(s, m), t, m, a, i, !0));
     } else if (d.includes(",")) {
-      const f = d.split(",");
-      for (const y of f) g(this._trace(oe(y, u), t, s, r, n, a, !0));
-    } else !o && t && Object.hasOwn(t, d) && g(this._trace(u, t[d], L(s, d), t, d, a, i, !0));
+      const m = d.split(",");
+      for (const y of m) f(this._trace(he(y, u), t, s, r, n, a, !0));
+    } else !o && t && Object.hasOwn(t, d) && f(this._trace(u, t[d], $(s, d), t, d, a, i, !0));
   }
-  if (this._hasParentSelector) for (let f = 0; f < h.length; f++) {
-    const y = h[f];
+  if (this._hasParentSelector) for (let m = 0; m < h.length; m++) {
+    const y = h[m];
     if (y && y.isParentSelector) {
       const E = this._trace(y.expr, t, y.path, r, n, a, i);
       if (Array.isArray(E)) {
-        h[f] = E[0];
-        const S = E.length;
-        for (let O = 1; O < S; O++)
-          f++, h.splice(f, 0, E[O]);
-      } else h[f] = E;
+        h[m] = E[0];
+        const v = E.length;
+        for (let I = 1; I < v; I++)
+          m++, h.splice(m, 0, E[I]);
+      } else h[m] = E;
     }
   }
   return h;
@@ -868,11 +868,11 @@ b.prototype._slice = function(e, t, s, r, n, a, i) {
   const o = s.length, l = e.split(":"), d = l[2] && Number.parseInt(l[2]) || 1;
   let u = l[0] && Number.parseInt(l[0]) || 0, h = l[1] && Number.parseInt(l[1]) || o;
   u = u < 0 ? Math.max(0, u + o) : Math.min(o, u), h = h < 0 ? Math.max(0, h + o) : Math.min(o, h);
-  const g = [];
-  for (let f = u; f < h; f += d) this._trace(oe(f, t), s, r, n, a, i, !0).forEach((y) => {
-    g.push(y);
+  const f = [];
+  for (let m = u; m < h; m += d) this._trace(he(m, t), s, r, n, a, i, !0).forEach((y) => {
+    f.push(y);
   });
-  return g;
+  return f;
 };
 b.prototype._eval = function(e, t, s, r, n, a) {
   this.currSandbox._$_parentProperty = a, this.currSandbox._$_parent = n, this.currSandbox._$_property = s, this.currSandbox._$_root = this.json, this.currSandbox._$_v = t;
@@ -924,21 +924,21 @@ b.toPathArray = function(e) {
     return !n || !n[1] ? r : s[n[1]];
   }), t[e].concat();
 };
-b.prototype.safeVm = { Script: Kt };
-var zt = function(e, t, s) {
+b.prototype.safeVm = { Script: ns };
+var is = function(e, t, s) {
   const r = e.length;
   for (let n = 0; n < r; n++) {
     const a = e[n];
     s(a) && t.push(e.splice(n--, 1)[0]);
   }
-}, Qt = class {
+}, os = class {
   constructor(e) {
     this.code = e;
   }
   runInNewContext(e) {
     let t = this.code;
     const s = Object.keys(e), r = [];
-    zt(s, r, (o) => typeof e[o] == "function");
+    is(s, r, (o) => typeof e[o] == "function");
     const n = s.map((o) => e[o]);
     t = r.reduce((o, l) => {
       let d = e[l].toString();
@@ -948,18 +948,18 @@ var zt = function(e, t, s) {
     return new Function(...s, i)(...n);
   }
 };
-b.prototype.vm = { Script: Qt };
-function Xt(e) {
+b.prototype.vm = { Script: os };
+function ls(e) {
   return e ? !!(e.startsWith("$") || /\[\d+\]/.test(e) || /\[['"]/.test(e) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(e) || e.includes("..") || e.includes("*")) : !1;
 }
-function Gt(e) {
+function cs(e) {
   return e ? e.startsWith("$") ? e : `$.${e}` : "$";
 }
-function Wt(e, t) {
+function ds(e, t) {
   if (!e || !t) return [];
   try {
     return (b({
-      path: Gt(t),
+      path: cs(t),
       json: e,
       resultType: "all"
     }) || []).map((s) => ({
@@ -970,43 +970,43 @@ function Wt(e, t) {
     return [];
   }
 }
-function Yt(e, t) {
+function us(e, t) {
   if (!t || !e) return e || {};
-  const s = Xt(t);
+  const s = ls(t);
   if (console.log("[jsonpath-search] search:", t, "isJsonPath:", s), s) {
-    const n = es(e, t);
+    const n = ms(e, t);
     return console.log("[jsonpath-search] JSONPath result:", n), n;
   }
-  const r = Zt(e, t);
+  const r = hs(e, t);
   return console.log("[jsonpath-search] key match result:", r), r;
 }
-function Zt(e, t) {
+function hs(e, t) {
   const s = t.toLowerCase(), r = {};
   for (const [n, a] of Object.entries(e || {})) n.toLowerCase().includes(s) && (r[n] = a);
   return r;
 }
-function es(e, t) {
-  const s = Wt(e, t);
+function ms(e, t) {
+  const s = ds(e, t);
   if (s.length === 0) return {};
   if (s.length === 1) {
     const { path: n, value: a } = s[0];
-    return n === "$" && typeof a == "object" && a !== null || typeof a == "object" && a !== null && !Array.isArray(a) ? a : { [_e(n)]: a };
+    return n === "$" && typeof a == "object" && a !== null || typeof a == "object" && a !== null && !Array.isArray(a) ? a : { [De(n)]: a };
   }
   const r = {};
   for (const { path: n, value: a } of s) {
-    const i = _e(n) || `result_${Object.keys(r).length}`;
+    const i = De(n) || `result_${Object.keys(r).length}`;
     i in r ? r[`${i}_${Object.keys(r).length}`] = a : r[i] = a;
   }
   return r;
 }
-function _e(e) {
+function De(e) {
   if (!e) return "";
   const t = e.match(/\[['"]?([^'"[\]]+)['"]?\]$/);
   if (t) return t[1];
   const s = e.match(/\.([^.[\]]+)$/);
   return s ? s[1] : e.replace(/^\$\.?/, "");
 }
-var K = "commands", xe = "command-options://", H = "", Q = "", G = /* @__PURE__ */ new Map(), C = /* @__PURE__ */ new Map(), D = 0, Oe = 230, ue = 180, ts = 640, ss = 280, Re = 24, Ue = "cmdl:sidebar-width", le = /* @__PURE__ */ new Map(), $e = {
+var V = "commands", Le = "command-options://", K = "", ae = "", Z = /* @__PURE__ */ new Map(), W = /* @__PURE__ */ new Set(), Te = 0, ke = 0, R = /* @__PURE__ */ new Map(), L = 0, qe = 230, ye = 180, ps = 640, fs = 280, Fe = 24, Ye = "cmdl:sidebar-width", me = /* @__PURE__ */ new Map(), Me = {
   submitting: 0,
   accepted: 1,
   running: 2,
@@ -1016,79 +1016,79 @@ var K = "commands", xe = "command-options://", H = "", Q = "", G = /* @__PURE__ 
   cancelled: 3,
   rejected: 3
 };
-function rs(e) {
+function gs(e) {
   const t = e && typeof e == "object" ? e : {}, s = Array.from(new Set([
-    m(t.correlation_id) || m(t.CorrelationID),
-    m(t.run_id) || m(t.RunID),
-    m(t.dispatch_id) || m(t.DispatchID)
+    g(t.correlation_id) || g(t.CorrelationID),
+    g(t.run_id) || g(t.RunID),
+    g(t.dispatch_id) || g(t.DispatchID)
   ].filter(Boolean))), r = P(t.state) || P(t.State);
   if (s.length === 0 || !r) return;
-  const n = m(t.run_id) || m(t.RunID), a = m(t.correlation_id) || m(t.CorrelationID), i = m(t.dispatch_id) || m(t.DispatchID);
+  const n = g(t.run_id) || g(t.RunID), a = g(t.correlation_id) || g(t.CorrelationID), i = g(t.dispatch_id) || g(t.DispatchID);
   s.forEach((o) => {
-    const l = le.get(o);
-    l && ($e[l.state] ?? -1) > ($e[r] ?? -1) || le.set(o, {
+    const l = me.get(o);
+    l && (Me[l.state] ?? -1) > (Me[r] ?? -1) || me.set(o, {
       state: r,
-      message: m(t.message) || m(t.Message),
-      at: m(t.at) || m(t.At),
-      code: m(t.code) || m(t.Code),
+      message: g(t.message) || g(t.Message),
+      at: g(t.at) || g(t.At),
+      code: g(t.code) || g(t.Code),
       runID: n,
       correlationID: a,
       dispatchID: i
     });
   });
 }
-function ns(e) {
-  return e ? le.get(e) : void 0;
+function ys(e) {
+  return e ? me.get(e) : void 0;
 }
-function m(e) {
+function g(e) {
   return typeof e == "string" ? e.trim() : "";
 }
 function P(e) {
-  return m(e).toLowerCase();
+  return g(e).toLowerCase();
 }
-function as(e) {
+function bs(e) {
   return !e || typeof e != "object" ? "" : p(JSON.stringify(e)).replace(/'/g, "&#39;");
 }
-function Je(e) {
+function Ze(e) {
   return typeof e == "string" ? e.trim() : typeof e == "number" || typeof e == "boolean" ? String(e) : "";
 }
-function He(e) {
+function et(e) {
   const t = P(e);
   return t === "inline" || t === "sync" ? "inline" : t === "queued" || t === "async" || t === "background" ? "queued" : "other";
 }
-function is(e, t) {
+function Es(e, t) {
   const s = t && typeof t == "object" ? t : {}, r = Array.isArray(s.commands) ? s.commands : [], n = Array.isArray(s.diagnostics) ? s.diagnostics : [], a = Array.isArray(e.ui?.actions) ? e.ui.actions : [], i = /* @__PURE__ */ new Map();
   r.forEach((h) => {
-    const g = m(h?.id);
-    g && i.set(g, h);
+    const f = g(h?.id);
+    f && i.set(f, h);
   });
   const o = /* @__PURE__ */ new Map();
   a.forEach((h) => {
-    const g = P(h?.id), f = m(h.payload?.command_id);
-    g && f && !o.has(f) && o.set(f, h);
+    const f = P(h?.id), m = g(h.payload?.command_id);
+    f && m && !o.has(m) && o.set(m, h);
   });
   const l = [], d = /* @__PURE__ */ new Set(), u = (h) => {
     h && !d.has(h) && (d.add(h), l.push(h));
   };
-  return r.forEach((h) => u(m(h?.id))), a.forEach((h) => u(m(h.payload?.command_id))), {
+  return r.forEach((h) => u(g(h?.id))), a.forEach((h) => u(g(h.payload?.command_id))), {
     entries: l.map((h) => {
-      const g = i.get(h), f = o.get(h), y = f ? P(f.id) : "", E = !!(f && y && P(f.form?.renderer) === "formgen"), S = m(f?.label) || m(g?.label) || h, O = m(g?.group) || "Other", We = `${h} ${S} ${O} ${(Array.isArray(g?.tags) ? g.tags.map(m).filter(Boolean) : []).join(" ")}${E ? "" : " no-access locked"}`.toLowerCase();
+      const f = i.get(h), m = o.get(h), y = m ? P(m.id) : "", E = !!(m && y && P(m.form?.renderer) === "formgen"), v = g(m?.label) || g(f?.label) || h, I = g(f?.group) || "Other", it = `${h} ${v} ${I} ${(Array.isArray(f?.tags) ? f.tags.map(g).filter(Boolean) : []).join(" ")}${E ? "" : " no-access locked"}`.toLowerCase();
       return {
         key: E ? y : `cmd:${h}`,
         actionId: y,
         commandId: h,
-        label: S,
-        action: E ? f : void 0,
-        descriptor: g,
-        group: O,
-        search: We,
+        label: v,
+        action: E ? m : void 0,
+        descriptor: f,
+        group: I,
+        search: it,
         executable: E
       };
     }),
     diagnostics: n
   };
 }
-function os(e) {
+function Ss(e) {
   const t = /* @__PURE__ */ new Map();
   return e.forEach((s) => {
     t.has(s.group) || t.set(s.group, []), t.get(s.group).push(s);
@@ -1097,11 +1097,11 @@ function os(e) {
     items: r.sort((n, a) => (n.commandId || n.label).localeCompare(a.commandId || a.label))
   }));
 }
-function ls(e) {
-  const t = m(e.descriptor?.execution_mode), s = He(t), r = t ? `Execution: ${t}` : "Execution mode unknown", n = e.descriptor?.mutating === !0;
+function vs(e) {
+  const t = g(e.descriptor?.execution_mode), s = et(t), r = t ? `Execution: ${t}` : "Execution mode unknown", n = e.descriptor?.mutating === !0;
   let a;
   return e.executable ? n ? a = '<span class="cmdl-item__flag cmdl-item__flag--mutating" title="Mutating — writes data">writes</span>' : a = '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>' : a = '<span class="cmdl-item__flag cmdl-item__flag--locked" title="You can view this command but lack permission to run it">no access</span>', `
-    <button type="button" class="cmdl-item${e.executable ? "" : " cmdl-item--locked"}" role="option" aria-selected="false"
+    <button type="button" class="cmdl-item${e.executable ? "" : " cmdl-item--locked"}"
       data-cmdl-item="${p(e.key)}"
       data-cmdl-search="${p(e.search)}"
       title="${p(e.commandId || e.label)}">
@@ -1110,12 +1110,33 @@ function ls(e) {
       ${a}
     </button>`;
 }
-function cs(e, t) {
-  const s = e.map((r) => `
-      <div class="cmdl-group" data-cmdl-group role="group" aria-label="${p(r.group)}">
-        <div class="cmdl-group__label" aria-hidden="true">${p(r.group)}</div>
-        ${r.items.map(ls).join("")}
-      </div>`).join("");
+function ee(e) {
+  return e.trim();
+}
+function ws(e) {
+  const t = ee(e).replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "commands";
+  let s = 2166136261;
+  for (const r of e)
+    s ^= r.charCodeAt(0), s = Math.imul(s, 16777619);
+  return `cmdl-group-${t}-${(s >>> 0).toString(36)}`;
+}
+function Ps(e, t) {
+  const s = e.map((r) => {
+    const n = ee(r.group), a = ws(r.group), i = !W.has(n);
+    return `
+      <section class="cmdl-group" data-cmdl-group data-cmdl-group-key="${p(n)}">
+        <button type="button" class="cmdl-group__toggle" data-cmdl-group-toggle
+          aria-expanded="${i ? "true" : "false"}" aria-controls="${p(a)}">
+          <span>${p(r.group)}</span>
+          <span class="cmdl-group__count">${r.items.length}</span>
+          <span class="cmdl-group__chevron" aria-hidden="true">›</span>
+        </button>
+        <div id="${p(a)}" role="group" aria-label="${p(r.group)} commands"
+          data-cmdl-group-items${i ? "" : " hidden"}>
+          ${r.items.map(vs).join("")}
+        </div>
+      </section>`;
+  }).join("");
   return `
     <aside class="cmdl__list">
       <div class="cmdl__search">
@@ -1123,23 +1144,23 @@ function cs(e, t) {
           placeholder="Filter ${t} command${t === 1 ? "" : "s"}…"
           aria-label="Filter commands" autocomplete="off" spellcheck="false">
       </div>
-      <div class="cmdl__groups" role="listbox" aria-label="Commands" data-cmdl-groups>
+      <div class="cmdl__groups" aria-label="Commands" data-cmdl-groups>
         ${s}
         <div class="cmdl__noresults" data-cmdl-noresults hidden>No commands match your filter.</div>
       </div>
     </aside>`;
 }
-function ds(e) {
+function Cs(e) {
   return e.trim().replace(/^payload\./, "");
 }
-function us(e) {
+function Rs(e) {
   const t = e.action;
   if (!t) return "";
-  const s = t.form, r = typeof s.html == "string" ? s.html : "", n = r.trim() !== "", a = m(t.submit_label) || "Run command", i = m(t.confirm_text), o = t.requires_confirm === !0, l = e.descriptor?.mutating === !0, d = s.sensitive === !0, u = `${n && !d ? `<div class="cmdl-recall" data-cmdl-recall data-cmdl-command="${p(e.commandId)}">
+  const s = t.form, r = typeof s.html == "string" ? s.html : "", n = r.trim() !== "", a = g(t.submit_label) || "Run command", i = g(t.confirm_text), o = t.requires_confirm === !0, l = e.descriptor?.mutating === !0, d = s.sensitive === !0, u = `${n && !d ? `<div class="cmdl-recall" data-cmdl-recall data-cmdl-command="${p(e.commandId)}">
       <div class="cmdl-recall__list" data-cmdl-recall-list></div>
       <button type="button" class="cmdl-recall__save" data-cmdl-save-preset>Save preset</button>
     </div>` : ""}
-    <div class="cmdl-form__fields" data-cmdl-fields data-cmdl-formgen-root data-operation-id="${p(m(s.operation_id))}">
+    <div class="cmdl-form__fields" data-cmdl-fields data-cmdl-formgen-root data-operation-id="${p(g(s.operation_id))}">
       ${n ? r : '<p class="cmdl-form__noargs">This command takes no arguments. Run it as-is.</p>'}
     </div>
     <input type="hidden" data-action-field="__payload__" data-action-field-kind="json" data-action-field-path="payload"
@@ -1147,7 +1168,7 @@ function us(e) {
     ${n && !d ? `<div class="cmdl-form__json" data-cmdl-json hidden>
       <textarea class="cmdl-json-editor" data-cmdl-json-editor rows="10" spellcheck="false" aria-label="Raw JSON payload"></textarea>
       <div class="cmdl-json-error" data-cmdl-json-error hidden></div>
-    </div>` : ""}`, h = o || i !== "", g = l ? '<span class="cmdl-form__note">Confirms before running</span>' : "", f = n && !d ? '<button type="button" class="cmdl-btn cmdl-btn--ghost cmdl-btn--json" data-cmdl-json-toggle title="Edit the raw JSON payload">JSON</button>' : "", y = d ? '<span class="cmdl-form__note">Sensitive values are never saved and must be re-entered</span>' : "", E = h ? `
+    </div>` : ""}`, h = o || i !== "", f = l ? '<span class="cmdl-form__note">Confirms before running</span>' : "", m = n && !d ? '<button type="button" class="cmdl-btn cmdl-btn--ghost cmdl-btn--json" data-cmdl-json-toggle title="Edit the raw JSON payload">JSON</button>' : "", y = d ? '<span class="cmdl-form__note">Sensitive values are never saved and must be re-entered</span>' : "", E = h ? `
         <div class="cmdl-form__confirm" data-cmdl-confirm-row hidden>
           <span class="cmdl-form__confirm-msg">${p(i || "Run this command?")}</span>
           <button type="submit" class="cmdl-btn cmdl-btn--run cmdl-btn--confirm" data-cmdl-confirm-run>Confirm run</button>
@@ -1155,32 +1176,32 @@ function us(e) {
         </div>` : "";
   return `
     <form class="cmdl-form" data-panel-action-form data-cmdl-mode="form" data-cmdl-command="${p(e.commandId)}"
-      data-panel-id="${p(K)}"
+      data-panel-id="${p(V)}"
       data-action-id="${p(e.actionId)}"
       data-action-confirm="${p(i)}"
       data-action-requires-confirm="${o ? "true" : "false"}"
       data-cmdl-confirm="${h ? "true" : "false"}"
       ${h ? 'data-action-confirm-inline="true"' : ""}
-      data-action-payload='${as(t.payload)}'>
+      data-action-payload='${bs(t.payload)}'>
       ${u}
       <div class="cmdl-form__bar" data-cmdl-bar>
         <div class="cmdl-form__bar-main" data-cmdl-bar-main>
 		  <button type="submit" class="cmdl-btn cmdl-btn--run" disabled data-cmdl-formgen-submit>${p(a)}</button>
           <button type="reset" class="cmdl-btn cmdl-btn--ghost">Reset</button>
+          ${m}
           ${f}
-          ${g}
           ${y}
         </div>${E}
       </div>
     </form>`;
 }
-function hs(e) {
-  const t = m(e.descriptor?.execution_mode), s = e.descriptor?.mutating === !0, r = m(e.descriptor?.summary), n = [];
-  n.push(`<span class="cmdl-chip">${p(e.group)}</span>`), t && n.push(`<span class="cmdl-chip cmdl-chip--${He(t)}">${p(t)}</span>`), n.push(s ? '<span class="cmdl-chip cmdl-chip--mutating">mutating</span>' : '<span class="cmdl-chip cmdl-chip--read">read-only</span>'), e.executable || n.push('<span class="cmdl-chip cmdl-chip--locked">no dispatch permission</span>');
+function As(e) {
+  const t = g(e.descriptor?.execution_mode), s = e.descriptor?.mutating === !0, r = g(e.descriptor?.summary), n = [];
+  n.push(`<span class="cmdl-chip">${p(e.group)}</span>`), t && n.push(`<span class="cmdl-chip cmdl-chip--${et(t)}">${p(t)}</span>`), n.push(s ? '<span class="cmdl-chip cmdl-chip--mutating">mutating</span>' : '<span class="cmdl-chip cmdl-chip--read">read-only</span>'), e.executable || n.push('<span class="cmdl-chip cmdl-chip--locked">no dispatch permission</span>');
   let a;
   return e.executable ? a = `${s ? `<div class="cmdl-callout">
           <strong>This command writes data.</strong> Review the arguments before running — it confirms first, but the effect is not automatically reversible.
-        </div>` : ""}${us(e)}` : a = `<div class="cmdl-locked-note">You can view this command in the catalog, but you do not have permission to run it. Dispatch requires the command's own permission plus <code>admin.commands.dispatch</code>.</div>`, `
+        </div>` : ""}${Rs(e)}` : a = `<div class="cmdl-locked-note">You can view this command in the catalog, but you do not have permission to run it. Dispatch requires the command's own permission plus <code>admin.commands.dispatch</code>.</div>`, `
     <div class="cmdl-cmd" data-cmdl-detail="${p(e.key)}" hidden>
       <div class="cmdl-cmd__head">
         <div class="cmdl-cmd__title">${p(e.commandId || e.label)}</div>
@@ -1190,9 +1211,9 @@ function hs(e) {
       ${a}
     </div>`;
 }
-function Le(e) {
+function Ne(e) {
   return e.length ? `<ul class="cmdl-diagnostics">${e.map((t) => {
-    const s = P(t.severity) || "info", r = m(t.message), n = m(t.code);
+    const s = P(t.severity) || "info", r = g(t.message), n = g(t.code);
     return `
         <li class="cmdl-diag cmdl-diag--${p(s)}">
           <span class="cmdl-diag__sev">${p(s)}</span>
@@ -1200,19 +1221,19 @@ function Le(e) {
         </li>`;
   }).join("")}</ul>` : "";
 }
-function fs(e) {
-  const { def: t, data: s } = e, { entries: r, diagnostics: n } = is(t, s), a = m((t.ui?.metadata && typeof t.ui.metadata == "object" ? t.ui.metadata : {}).option_resolver_action), i = a ? ` data-cmdl-option-resolver="${p(a)}"` : "";
+function _s(e) {
+  const { def: t, data: s } = e, { entries: r, diagnostics: n } = Es(t, s), a = g((t.ui?.metadata && typeof t.ui.metadata == "object" ? t.ui.metadata : {}).option_resolver_action), i = a ? ` data-cmdl-option-resolver="${p(a)}"` : "";
   if (r.length === 0) return `
       <div class="cmdl" data-cmdl-root${i}>
         <div class="cmdl__empty-panel">No commands are available to run.</div>
-        ${Le(n)}
-        <div class="cmdl-result" data-panel-action-result="${p(K)}"></div>
+        ${Ne(n)}
+        <div class="cmdl-result" data-panel-action-result="${p(V)}"></div>
       </div>`;
-  const o = os(r), l = r.map(hs).join("");
+  const o = Ss(r), l = r.map(As).join("");
   return `
     <div class="cmdl" data-cmdl-root${i}>
       <div class="cmdl__body" data-cmdl-body>
-        ${cs(o, r.length)}
+        ${Ps(o, r.length)}
         <div class="cmdl__resizer" data-cmdl-resizer role="separator" aria-orientation="vertical"
           aria-label="Resize command list" tabindex="0"></div>
         <section class="cmdl__detail" data-cmdl-detailcol>
@@ -1221,20 +1242,20 @@ function fs(e) {
           <!-- Result lives in the detail column (beside the list, below the form it
                belongs to) so it appears next to where the command was run, not as a
                full-width strip under the whole console. Empty == hidden via CSS. -->
-          <div class="cmdl-result" data-panel-action-result="${p(K)}"></div>
+          <div class="cmdl-result" data-panel-action-result="${p(V)}"></div>
         </section>
       </div>
-      ${Le(n)}
+      ${Ne(n)}
     </div>`;
 }
-function T(e, t) {
+function F(e, t) {
   for (const s of t) {
     const r = e[s];
     if (typeof r == "string" && r.trim() !== "") return r.trim();
   }
   return "";
 }
-var ps = [
+var xs = [
   "category",
   "text_code",
   "source",
@@ -1243,118 +1264,118 @@ var ps = [
   "location",
   "metadata"
 ];
-function ms(e, t) {
+function Os(e, t) {
   const s = [];
   e && typeof e == "object" && !Array.isArray(e) && s.push(e.error, e), t && typeof t == "object" && !Array.isArray(t) && s.push(t.error, t);
   for (const r of s) if (r && typeof r == "object" && !Array.isArray(r)) {
     const n = r;
-    if (ps.some((a) => a in n)) return n;
+    if (xs.some((a) => a in n)) return n;
   }
   return null;
 }
-function De(e) {
+function je(e) {
   const t = e.lastIndexOf("/");
   return t >= 0 ? e.slice(t + 1) : e;
 }
-function Ie(e) {
+function Be(e) {
   const t = e.split("/").filter(Boolean);
   return t.length > 2 ? t.slice(-2).join("/") : e;
 }
-function ke(e) {
+function Ue(e) {
   if (typeof e == "number") return e;
   const t = Number(e);
   return Number.isFinite(t) ? t : 0;
 }
-function gs(e) {
-  const t = e.metadata && typeof e.metadata == "object" && !Array.isArray(e.metadata) ? e.metadata : {}, s = Object.entries(t).map(([h, g]) => ({
+function Is(e) {
+  const t = e.metadata && typeof e.metadata == "object" && !Array.isArray(e.metadata) ? e.metadata : {}, s = Object.entries(t).map(([h, f]) => ({
     key: h,
-    value: Je(g) || Ke(g)
+    value: Ze(f) || tt(f)
   })).filter((h) => h.value), r = (Array.isArray(e.stack_trace) ? e.stack_trace : []).map((h) => {
-    const g = m(h.function), f = m(h.file), y = ke(h.line);
+    const f = g(h.function), m = g(h.file), y = Ue(h.line);
     return {
-      func: De(g),
-      funcTitle: g,
-      loc: f ? `${Ie(f)}${y ? `:${y}` : ""}` : "",
-      locTitle: f ? `${f}${y ? `:${y}` : ""}` : "",
-      app: f !== "" && !f.includes("/pkg/mod/")
+      func: je(f),
+      funcTitle: f,
+      loc: m ? `${Be(m)}${y ? `:${y}` : ""}` : "",
+      locTitle: m ? `${m}${y ? `:${y}` : ""}` : "",
+      app: m !== "" && !m.includes("/pkg/mod/")
     };
-  }).filter((h) => h.func || h.loc), n = e.location && typeof e.location == "object" && !Array.isArray(e.location) ? e.location : {}, a = m(n.file), i = m(n.function), o = ke(n.line), l = a ? `${Ie(a)}${o ? `:${o}` : ""}` : "", d = [De(i), l ? `(${l})` : ""].filter(Boolean).join(" "), u = [i, a ? `${a}${o ? `:${o}` : ""}` : ""].filter(Boolean).join(" ");
+  }).filter((h) => h.func || h.loc), n = e.location && typeof e.location == "object" && !Array.isArray(e.location) ? e.location : {}, a = g(n.file), i = g(n.function), o = Ue(n.line), l = a ? `${Be(a)}${o ? `:${o}` : ""}` : "", d = [je(i), l ? `(${l})` : ""].filter(Boolean).join(" "), u = [i, a ? `${a}${o ? `:${o}` : ""}` : ""].filter(Boolean).join(" ");
   return {
-    category: m(e.category),
-    textCode: m(e.text_code),
-    source: m(e.source),
-    severity: m(e.severity),
-    timestamp: m(e.timestamp),
-    httpCode: typeof e.code == "number" ? String(e.code) : m(e.code),
+    category: g(e.category),
+    textCode: g(e.text_code),
+    source: g(e.source),
+    severity: g(e.severity),
+    timestamp: g(e.timestamp),
+    httpCode: typeof e.code == "number" ? String(e.code) : g(e.code),
     metadata: s,
     location: d,
     locationTitle: u,
     stackTrace: r
   };
 }
-function ys(e, t, s, r) {
+function $s(e, t, s, r) {
   const n = s && typeof s == "object" ? s : {}, a = n.receipt && typeof n.receipt == "object" ? n.receipt : {}, i = (Array.isArray(n.validation_errors) ? n.validation_errors : []).map((y) => ({
-    path: m(y.path),
-    message: m(y.message),
-    code: m(y.code)
+    path: g(y.path),
+    message: g(y.message),
+    code: g(y.code)
   })).filter((y) => y.message || y.path), o = a.Accepted ?? a.accepted, l = typeof o == "boolean" ? o : void 0;
   let d = "ok";
   e === "error" ? d = "error" : (i.length > 0 || l === !1) && (d = "invalid");
-  const u = d === "error" ? ms(s, r) : null, h = u ? gs(u) : null;
-  let g = "";
-  i.length > 0 ? g = "VALIDATION_ERROR" : d === "error" && (g = h && h.textCode || T(r || {}, ["code", "text_code"]) || (h ? h.httpCode : ""));
-  const f = s != null && (typeof s != "object" || Object.keys(n).length > 0);
+  const u = d === "error" ? Os(s, r) : null, h = u ? Is(u) : null;
+  let f = "";
+  i.length > 0 ? f = "VALIDATION_ERROR" : d === "error" && (f = h && h.textCode || F(r || {}, ["code", "text_code"]) || (h ? h.httpCode : ""));
+  const m = s != null && (typeof s != "object" || Object.keys(n).length > 0);
   return {
     kind: d,
-    message: m(t) || (d === "error" ? "Command failed" : "Command dispatched"),
-    code: g,
-    correlationId: T(a, ["CorrelationID", "correlation_id"]),
-    runId: T(a, ["RunID", "run_id"]) || T(n, ["run_id", "RunID"]),
-    mode: T(a, ["Mode", "mode"]),
-    dispatchId: T(a, ["DispatchID", "dispatch_id"]),
-    statusReference: m(n.status_reference) || m(n.statusReference),
+    message: g(t) || (d === "error" ? "Command failed" : "Command dispatched"),
+    code: f,
+    correlationId: F(a, ["CorrelationID", "correlation_id"]),
+    runId: F(a, ["RunID", "run_id"]) || F(n, ["run_id", "RunID"]),
+    mode: F(a, ["Mode", "mode"]),
+    dispatchId: F(a, ["DispatchID", "dispatch_id"]),
+    statusReference: g(n.status_reference) || g(n.statusReference),
     accepted: l,
     validationErrors: i,
     richError: h,
-    hasRaw: f,
-    rawJSON: f ? Ke(s) : ""
+    hasRaw: m,
+    rawJSON: m ? tt(s) : ""
   };
 }
-function Ke(e) {
+function tt(e) {
   try {
     return JSON.stringify(e, null, 2);
   } catch {
     return String(e);
   }
 }
-function bs(e) {
+function Ds(e) {
   return !Number.isFinite(e) || e < 0 ? "" : e < 1e3 ? `${Math.round(e)}ms` : `${(e / 1e3).toFixed(2)}s`;
 }
-function Es(e) {
+function Ls(e) {
   try {
     return new Date(e).toLocaleTimeString();
   } catch {
     return "";
   }
 }
-function A(e, t, s) {
+function C(e, t, s) {
   return s ? `<span class="cmdl-meta" title="${p(t)}"><span class="cmdl-meta__k">${p(e)}</span>${p(s)}</span>` : "";
 }
-function vs(e, t = {}) {
+function Ts(e, t = {}) {
   const s = e.kind === "error" ? "Dispatch failed" : e.kind === "invalid" ? e.validationErrors.length ? "Validation failed" : "Not accepted" : "Command dispatched", r = e.code ? `<span class="cmdl-result__code">${p(e.code)}</span>` : "", n = t.liveStatus, a = n ? `<span class="cmdl-result__live cmdl-result__live--${p(n.state)}" title="Live status${n.at ? ` · ${p(n.at)}` : ""}">${p(n.state)}</span>` : "", i = e.richError, o = [
-    A("id", "Correlation ID", e.correlationId),
-    A("mode", "Execution mode", e.mode),
-    A("dispatch", "Dispatch ID", e.dispatchId),
-    A("status", "Status reference", e.statusReference),
-    A("took", "Round-trip duration", typeof t.durationMs == "number" ? bs(t.durationMs) : ""),
-    A("at", "Dispatched at", typeof t.at == "number" && t.at > 0 ? Es(t.at) : ""),
-    i ? A("category", "Category", i.category) : "",
-    i ? A("severity", "Severity", i.severity) : "",
-    i ? A("http", "HTTP status", i.httpCode) : "",
-    ...i ? i.metadata.map((S) => A(S.key, S.key, S.value)) : [],
-    i ? A("when", "Timestamp", i.timestamp) : "",
-    i ? A("at", i.locationTitle || "Origin", i.location) : ""
-  ].filter(Boolean).join(""), l = o ? `<div class="cmdl-result__meta">${o}</div>` : "", d = i && i.source && i.source !== e.message ? `<div class="cmdl-result__cause"><span class="cmdl-result__cause-k">Cause</span><code class="cmdl-result__cause-v">${p(i.source)}</code></div>` : "", u = i && i.stackTrace.length ? `<details class="cmdl-result__trace"><summary>Stack trace · ${i.stackTrace.length} frame${i.stackTrace.length === 1 ? "" : "s"}</summary><ol class="cmdl-trace">${i.stackTrace.map((S) => `<li class="cmdl-trace__frame${S.app ? " cmdl-trace__frame--app" : ""}"><span class="cmdl-trace__fn" title="${p(S.funcTitle)}">${p(S.func)}</span>${S.loc ? `<span class="cmdl-trace__loc" title="${p(S.locTitle)}">${p(S.loc)}</span>` : ""}</li>`).join("")}</ol></details>` : "", h = e.validationErrors.length ? `<ul class="cmdl-result__validation">${e.validationErrors.map((S) => `<li><span class="cmdl-result__path">${p(S.path || "payload")}</span><span class="cmdl-result__vmsg">${p(S.message || S.code)}</span></li>`).join("")}</ul>` : "", g = e.hasRaw ? `<details class="cmdl-result__raw"><summary>Raw response</summary><pre>${p(e.rawJSON)}</pre></details>` : "", f = t.commandRunsHref ? `<a class="cmdl-btn cmdl-btn--ghost" data-cmdl-command-runs href="${p(t.commandRunsHref)}">View command run</a>` : "", y = t.canRetry ? '<button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-retry>Retry</button>' : "", E = f || y ? `<div class="cmdl-result__actions">${f}${y}</div>` : "";
+    C("id", "Correlation ID", e.correlationId),
+    C("mode", "Execution mode", e.mode),
+    C("dispatch", "Dispatch ID", e.dispatchId),
+    C("status", "Status reference", e.statusReference),
+    C("took", "Round-trip duration", typeof t.durationMs == "number" ? Ds(t.durationMs) : ""),
+    C("at", "Dispatched at", typeof t.at == "number" && t.at > 0 ? Ls(t.at) : ""),
+    i ? C("category", "Category", i.category) : "",
+    i ? C("severity", "Severity", i.severity) : "",
+    i ? C("http", "HTTP status", i.httpCode) : "",
+    ...i ? i.metadata.map((v) => C(v.key, v.key, v.value)) : [],
+    i ? C("when", "Timestamp", i.timestamp) : "",
+    i ? C("at", i.locationTitle || "Origin", i.location) : ""
+  ].filter(Boolean).join(""), l = o ? `<div class="cmdl-result__meta">${o}</div>` : "", d = i && i.source && i.source !== e.message ? `<div class="cmdl-result__cause"><span class="cmdl-result__cause-k">Cause</span><code class="cmdl-result__cause-v">${p(i.source)}</code></div>` : "", u = i && i.stackTrace.length ? `<details class="cmdl-result__trace"><summary>Stack trace · ${i.stackTrace.length} frame${i.stackTrace.length === 1 ? "" : "s"}</summary><ol class="cmdl-trace">${i.stackTrace.map((v) => `<li class="cmdl-trace__frame${v.app ? " cmdl-trace__frame--app" : ""}"><span class="cmdl-trace__fn" title="${p(v.funcTitle)}">${p(v.func)}</span>${v.loc ? `<span class="cmdl-trace__loc" title="${p(v.locTitle)}">${p(v.loc)}</span>` : ""}</li>`).join("")}</ol></details>` : "", h = e.validationErrors.length ? `<ul class="cmdl-result__validation">${e.validationErrors.map((v) => `<li><span class="cmdl-result__path">${p(v.path || "payload")}</span><span class="cmdl-result__vmsg">${p(v.message || v.code)}</span></li>`).join("")}</ul>` : "", f = e.hasRaw ? `<details class="cmdl-result__raw"><summary>Raw response</summary><pre>${p(e.rawJSON)}</pre></details>` : "", m = t.commandRunsHref ? `<a class="cmdl-btn cmdl-btn--ghost" data-cmdl-command-runs href="${p(t.commandRunsHref)}">View command run</a>` : "", y = t.canRetry ? '<button type="button" class="cmdl-btn cmdl-btn--ghost" data-cmdl-retry>Retry</button>' : "", E = m || y ? `<div class="cmdl-result__actions">${m}${y}</div>` : "";
   return `
     <div class="cmdl-result__card cmdl-result__card--${e.kind}">
       <div class="cmdl-result__head">
@@ -1368,12 +1389,12 @@ function vs(e, t = {}) {
       ${h}
       ${u}
       ${E}
-      ${g}
+      ${f}
     </div>`;
 }
-var te = /* @__PURE__ */ new WeakMap();
-function Ve() {
-  C.forEach((e) => {
+var ie = /* @__PURE__ */ new WeakMap();
+function st() {
+  R.forEach((e) => {
     try {
       e.unsubscribe();
     } catch {
@@ -1382,13 +1403,13 @@ function Ve() {
       e.controller.destroy();
     } catch {
     }
-  }), C.clear();
+  }), R.clear();
 }
-function Ss() {
-  Ve();
+function Je() {
+  st();
 }
-function ws(e) {
-  C.forEach((t, s) => {
+function ks(e) {
+  R.forEach((t, s) => {
     if (s !== e) {
       try {
         t.unsubscribe();
@@ -1398,31 +1419,31 @@ function ws(e) {
         t.controller.destroy();
       } catch {
       }
-      C.delete(s);
+      R.delete(s);
     }
   });
 }
-function Ps() {
+function qs() {
   const e = globalThis, t = e.FormgenRelationships && typeof e.FormgenRelationships == "object" ? e.FormgenRelationships : {}, s = e.Formgen && typeof e.Formgen == "object" ? e.Formgen : void 0;
   return {
     ...t,
     Formgen: t.Formgen || s
   };
 }
-function j(e) {
+function U(e) {
   const t = P(e.dataset.actionId || "");
-  return t ? C.get(t) : void 0;
+  return t ? R.get(t) : void 0;
 }
-function As(e, t) {
-  const s = C.get(P(e));
+function Fs(e, t) {
+  const s = R.get(P(e));
   if (!s) return !1;
   const r = {};
   if (Object.entries(t || {}).forEach(([a, i]) => {
-    const o = ds(a).replace(/^payload\./, "");
+    const o = Cs(a).replace(/^payload\./, "");
     if (o) {
       if (typeof i == "string") r[o] = i;
       else if (Array.isArray(i)) {
-        const l = i.map(Je).filter(Boolean);
+        const l = i.map(Ze).filter(Boolean);
         l.length > 0 && (r[o] = l);
       }
     }
@@ -1431,48 +1452,48 @@ function As(e, t) {
   const n = Object.keys(r)[0];
   return s.controller.focus(n), !0;
 }
-function Cs(e, t) {
-  const s = C.get(P(e));
+function Ms(e, t) {
+  const s = R.get(P(e));
   if (!s) return !1;
   const r = t.payload && typeof t.payload == "object" && !Array.isArray(t.payload) ? t.payload : t;
   s.controller.setValues(r);
   const n = s.controller.getValues();
-  return I(s.form, n), M(s.form, n), !0;
+  return T(s.form, n), B(s.form, n), !0;
 }
-function I(e, t) {
+function T(e, t) {
   const s = e.querySelector("[data-cmdl-controller-payload]");
   s && (s.value = JSON.stringify(t || {}));
 }
-function M(e, t) {
+function B(e, t) {
   const s = P(e.dataset.actionId || "");
-  !s || k(e) || G.set(s, ze(t));
+  !s || k(e) || Z.set(s, rt(t));
 }
-function ze(e) {
+function rt(e) {
   try {
     return JSON.parse(JSON.stringify(e));
   } catch {
     return { ...e };
   }
 }
-function se(e, t, s = "") {
+function oe(e, t, s = "") {
   e.dataset.cmdlFormgenReady = t ? "true" : "false", e.querySelectorAll("[data-cmdl-formgen-submit]").forEach((n) => {
     n.disabled = !t;
   });
   let r = e.querySelector("[data-cmdl-formgen-error]");
   s && !r && (r = document.createElement("div"), r.dataset.cmdlFormgenError = "", r.className = "cmdl-form__runtime-error", e.querySelector("[data-cmdl-fields]")?.insertAdjacentElement("afterend", r)), r && (r.textContent = s, r.hidden = s === "");
 }
-function _s(e) {
+function Ns(e) {
   return { beforeFetch(t) {
-    const s = xs(t.request.url);
+    const s = js(t.request.url);
     if (!s) return;
-    const r = e.closest("[data-cmdl-root]"), n = m(r?.dataset.cmdlDebugPath), a = m(r?.dataset.cmdlOptionResolver);
+    const r = e.closest("[data-cmdl-root]"), n = g(r?.dataset.cmdlDebugPath), a = g(r?.dataset.cmdlOptionResolver);
     if (!n || !a) throw new Error("Dynamic command options are unavailable because no protected resolver action is configured.");
-    const i = s.searchParams.get("command_id") || m(e.dataset.cmdlCommand), o = s.searchParams.get("field_path") || "", l = s.searchParams.get("source_id") || "";
+    const i = s.searchParams.get("command_id") || g(e.dataset.cmdlCommand), o = s.searchParams.get("field_path") || "", l = s.searchParams.get("source_id") || "";
     if (!i || !o || !l) throw new Error("Dynamic command option metadata is incomplete.");
-    const d = j(e)?.controller.getValues() || pe(e), u = new Headers(t.request.init.headers || {});
+    const d = U(e)?.controller.getValues() || Se(e), u = new Headers(t.request.init.headers || {});
     u.set("Accept", "application/json"), u.set("Content-Type", "application/json");
-    const h = Ye();
-    h && u.set("X-CSRF-Token", h), t.request.url = `${n}/api/panels/${K}/actions/${encodeURIComponent(a)}`, t.request.init.method = "POST", t.request.init.credentials = "same-origin", t.request.init.headers = u, t.request.init.body = JSON.stringify({
+    const h = ot();
+    h && u.set("X-CSRF-Token", h), t.request.url = `${n}/api/panels/${V}/actions/${encodeURIComponent(a)}`, t.request.init.method = "POST", t.request.init.credentials = "same-origin", t.request.init.headers = u, t.request.init.body = JSON.stringify({
       command_id: i,
       field_path: o,
       source_id: l,
@@ -1480,57 +1501,57 @@ function _s(e) {
     });
   } };
 }
-function xs(e) {
-  const t = e.startsWith(`/${xe}`) ? e.slice(1) : e;
-  if (!t.startsWith(xe)) return null;
+function js(e) {
+  const t = e.startsWith(`/${Le}`) ? e.slice(1) : e;
+  if (!t.startsWith(Le)) return null;
   try {
     return new URL(t);
   } catch {
     throw new Error("Dynamic command option metadata contains an invalid resolver URL.");
   }
 }
-function he(e) {
+function be(e) {
   if (!e.querySelector("[data-cmdl-formgen-root]")) return Promise.resolve();
-  const t = te.get(e);
+  const t = ie.get(e);
   if (t) return t;
-  if (j(e) && e.dataset.cmdlFormgenReady === "true") return Promise.resolve();
+  if (U(e) && e.dataset.cmdlFormgenReady === "true") return Promise.resolve();
   const s = (async () => {
-    const r = P(e.dataset.actionId || ""), n = e.querySelector("[data-cmdl-formgen-root]"), a = Ps();
+    const r = P(e.dataset.actionId || ""), n = e.querySelector("[data-cmdl-formgen-root]"), a = qs();
     if (!r || !n || !a?.initFormgenRoot || !a.Formgen?.attach) {
-      se(e, !1, "The form runtime is unavailable. Refresh after loading the formgen assets.");
+      oe(e, !1, "The form runtime is unavailable. Refresh after loading the formgen assets.");
       return;
     }
     const i = n.querySelector("[data-formgen-auto-init]") || n;
     try {
-      const o = a.Formgen.attach(i), l = G.get(r);
-      l && !k(e) && o.setValues(l), C.set(r, {
+      const o = a.Formgen.attach(i), l = Z.get(r);
+      l && !k(e) && o.setValues(l), R.set(r, {
         form: e,
         root: i,
         controller: o,
         unsubscribe: () => {
         }
-      }), I(e, o.getValues());
-      const d = await a.initFormgenRoot(i, _s(e));
-      if (!e.isConnected || H !== r) {
-        o.destroy(), d.destroy(i), C.delete(r);
+      }), T(e, o.getValues());
+      const d = await a.initFormgenRoot(i, Ns(e));
+      if (!e.isConnected || K !== r) {
+        o.destroy(), d.destroy(i), R.delete(r);
         return;
       }
       o.destroy();
       const u = a.Formgen.attach(i, { registry: d });
       l && !k(e) && u.setValues(l);
-      const h = u.onChange((f) => {
-        I(e, f), M(e, f);
+      const h = u.onChange((m) => {
+        T(e, m), B(e, m);
       });
-      C.set(r, {
+      R.set(r, {
         form: e,
         root: i,
         controller: u,
         unsubscribe: h
       });
-      const g = u.getValues();
-      I(e, g), M(e, g), se(e, !0);
+      const f = u.getValues();
+      T(e, f), B(e, f), oe(e, !0);
     } catch (o) {
-      const l = C.get(r);
+      const l = R.get(r);
       if (l?.form === e) {
         try {
           l.unsubscribe();
@@ -1540,60 +1561,73 @@ function he(e) {
           l.controller.destroy();
         } catch {
         }
-        C.delete(r);
+        R.delete(r);
       }
-      se(e, !1, o instanceof Error ? o.message : "Unable to initialize the generated form.");
+      oe(e, !1, o instanceof Error ? o.message : "Unable to initialize the generated form.");
     } finally {
-      te.delete(e);
+      ie.delete(e);
     }
   })();
-  return te.set(e, s), s;
+  return ie.set(e, s), s;
+}
+function Y(e, t, s) {
+  const r = ee(e.dataset.cmdlGroupKey || ""), n = e.querySelector("[data-cmdl-group-toggle]"), a = e.querySelector("[data-cmdl-group-items]");
+  n?.setAttribute("aria-expanded", t ? "true" : "false"), a && (a.hidden = !t), !(!s || !r) && (t ? W.delete(r) : W.add(r));
+}
+function Bs(e) {
+  const t = e?.closest("[data-cmdl-group]");
+  t && Y(t, !0, !0);
 }
 function X(e, t) {
-  H = t, ws(t);
+  K = t, ks(t);
   const s = e.querySelector("[data-cmdl-empty]");
   s && (s.hidden = !!t), e.querySelectorAll("[data-cmdl-detail]").forEach((n) => {
     n.hidden = n.dataset.cmdlDetail !== t;
   }), e.querySelectorAll("[data-cmdl-item]").forEach((n) => {
     const a = n.dataset.cmdlItem === t;
-    n.classList.toggle("cmdl-item--active", a), n.setAttribute("aria-selected", a ? "true" : "false");
-  });
-  const r = e.querySelector(`[data-cmdl-detail="${Ge(t)}"]`);
+    n.classList.toggle("cmdl-item--active", a), a ? n.setAttribute("aria-current", "true") : n.removeAttribute("aria-current");
+  }), Bs(e.querySelector(`[data-cmdl-item="${ge(t)}"]`));
+  const r = e.querySelector(`[data-cmdl-detail="${ge(t)}"]`);
   if (r) {
     const n = r.querySelector("[data-panel-action-form]");
-    n && he(n);
+    n && be(n);
   }
 }
-function Te(e, t) {
+function He(e, t) {
   const s = t.trim().toLowerCase();
   let r = !1;
   e.querySelectorAll("[data-cmdl-item]").forEach((a) => {
     const i = a.dataset.cmdlSearch || "", o = s === "" || i.includes(s);
     a.hidden = !o, o && (r = !0);
   }), e.querySelectorAll("[data-cmdl-group]").forEach((a) => {
-    a.hidden = !Array.from(a.querySelectorAll("[data-cmdl-item]")).some((i) => !i.hidden);
+    const i = Array.from(a.querySelectorAll("[data-cmdl-item]")).some((o) => !o.hidden);
+    a.hidden = !i, i && Y(a, s !== "" || !W.has(ee(a.dataset.cmdlGroupKey || "")), !1);
   });
   const n = e.querySelector("[data-cmdl-noresults]");
   n && (n.hidden = r);
 }
-function qe(e) {
-  return Array.from(e.querySelectorAll("[data-cmdl-item]")).filter((t) => !t.hidden);
+function Ke(e) {
+  return Array.from(e.querySelectorAll("[data-cmdl-item]")).filter((t) => {
+    if (t.hidden) return !1;
+    const s = t.closest("[data-cmdl-group]"), r = t.closest("[data-cmdl-group-items]");
+    return !s?.hidden && !r?.hidden;
+  });
 }
-function Os(e) {
+function Us(e) {
   if (!P(e.dataset.actionId || "")) return;
-  const t = j(e)?.controller?.getValues() || pe(e);
-  I(e, t), M(e, t);
+  const t = U(e)?.controller?.getValues() || Se(e);
+  T(e, t), B(e, t);
 }
-var Rs = 6;
-function W() {
+var Js = 6;
+function te() {
   try {
     return typeof localStorage < "u" ? localStorage : null;
   } catch {
     return null;
   }
 }
-function N(e) {
-  const t = W();
+function j(e) {
+  const t = te();
   if (!t) return [];
   try {
     const s = t.getItem(e), r = s ? JSON.parse(s) : [];
@@ -1602,33 +1636,33 @@ function N(e) {
     return [];
   }
 }
-function ce(e, t) {
-  const s = W();
+function pe(e, t) {
+  const s = te();
   if (s)
     try {
       s.setItem(e, JSON.stringify(t));
     } catch {
     }
 }
-function fe(e) {
+function Ee(e) {
   return `cmdl:recent:${e}`;
 }
-function F(e) {
+function N(e) {
   return `cmdl:preset:${e}`;
 }
-function $s(e) {
-  const t = e && typeof e == "object" ? e : {}, s = m(t.command_id), r = t.payload && typeof t.payload == "object" ? t.payload : {};
+function Hs(e) {
+  const t = e && typeof e == "object" ? e : {}, s = g(t.command_id), r = t.payload && typeof t.payload == "object" ? t.payload : {};
   if (!s || Object.keys(r).length === 0) return;
-  const n = fe(s), a = JSON.stringify(r), i = N(n).filter((o) => JSON.stringify(o.payload) !== a);
+  const n = Ee(s), a = JSON.stringify(r), i = j(n).filter((o) => JSON.stringify(o.payload) !== a);
   i.unshift({
     at: Date.now(),
     payload: r
-  }), ce(n, i.slice(0, Rs));
+  }), pe(n, i.slice(0, Js));
 }
-function Qe(e) {
-  return k(e) ? {} : j(e)?.controller.getValues() || pe(e);
+function nt(e) {
+  return k(e) ? {} : U(e)?.controller.getValues() || Se(e);
 }
-function pe(e) {
+function Se(e) {
   const t = e.querySelector("[data-cmdl-controller-payload]");
   if (!t?.value) return {};
   try {
@@ -1638,68 +1672,68 @@ function pe(e) {
     return {};
   }
 }
-function Xe(e, t) {
-  const s = j(e);
+function at(e, t) {
+  const s = U(e);
   if (s) {
-    s.controller.setValues(t), I(e, s.controller.getValues()), M(e, s.controller.getValues());
+    s.controller.setValues(t), T(e, s.controller.getValues()), B(e, s.controller.getValues());
     return;
   }
   const r = P(e.dataset.actionId || "");
-  r && !k(e) && G.set(r, ze(t)), he(e);
+  r && !k(e) && Z.set(r, rt(t)), be(e);
 }
-function de(e) {
-  const t = m(e.dataset.cmdlCommand), s = e.querySelector("[data-cmdl-recall-list]");
+function fe(e) {
+  const t = g(e.dataset.cmdlCommand), s = e.querySelector("[data-cmdl-recall-list]");
   if (!t || !s) return;
-  const r = N(fe(t)), n = N(F(t)), a = [];
+  const r = j(Ee(t)), n = j(N(t)), a = [];
   r.forEach((i, o) => {
     a.push(`<button type="button" class="cmdl-recall__chip" data-cmdl-load="recent:${o}" title="Reload recent invocation ${o + 1}">↻ recent ${o + 1}</button>`);
   }), n.forEach((i, o) => {
-    const l = m(i.name) || `preset ${o + 1}`;
+    const l = g(i.name) || `preset ${o + 1}`;
     a.push(`<span class="cmdl-recall__preset"><button type="button" class="cmdl-recall__chip cmdl-recall__chip--preset" data-cmdl-load="preset:${o}" title="Load saved preset">★ ${p(l)}</button><button type="button" class="cmdl-recall__del" data-cmdl-del-preset="${o}" aria-label="Delete preset ${p(l)}">×</button></span>`);
   }), s.innerHTML = a.length ? a.join("") : '<span class="cmdl-recall__empty">No recent runs yet.</span>';
 }
-function Ls(e, t) {
+function Ks(e, t) {
   const s = e.closest("[data-cmdl-load]");
   if (s) {
-    const a = s.closest("[data-panel-action-form]"), i = m(s.closest("[data-cmdl-recall]")?.dataset.cmdlCommand), [o, l] = (s.dataset.cmdlLoad || "").split(":"), d = Number(l);
+    const a = s.closest("[data-panel-action-form]"), i = g(s.closest("[data-cmdl-recall]")?.dataset.cmdlCommand), [o, l] = (s.dataset.cmdlLoad || "").split(":"), d = Number(l);
     if (a && i && Number.isInteger(d)) {
-      const u = N(o === "preset" ? F(i) : fe(i))[d]?.payload;
-      u && typeof u == "object" && Xe(a, u);
+      const u = j(o === "preset" ? N(i) : Ee(i))[d]?.payload;
+      u && typeof u == "object" && at(a, u);
     }
     return !0;
   }
   const r = e.closest("[data-cmdl-save-preset]");
   if (r) {
-    const a = r.closest("[data-panel-action-form]"), i = r.closest("[data-cmdl-recall]"), o = m(i?.dataset.cmdlCommand);
+    const a = r.closest("[data-panel-action-form]"), i = r.closest("[data-cmdl-recall]"), o = g(i?.dataset.cmdlCommand);
     if (a && i && o) {
       const l = (typeof window < "u" && typeof window.prompt == "function" ? window.prompt("Preset name") : "") || "";
       if (l.trim()) {
-        const d = N(F(o)).filter((u) => m(u.name) !== l.trim());
+        const d = j(N(o)).filter((u) => g(u.name) !== l.trim());
         d.unshift({
           name: l.trim(),
-          payload: Qe(a)
-        }), ce(F(o), d), de(i);
+          payload: nt(a)
+        }), pe(N(o), d), fe(i);
       }
     }
     return !0;
   }
   const n = e.closest("[data-cmdl-del-preset]");
   if (n) {
-    const a = n.closest("[data-cmdl-recall]"), i = m(a?.dataset.cmdlCommand), o = Number(n.dataset.cmdlDelPreset);
+    const a = n.closest("[data-cmdl-recall]"), i = g(a?.dataset.cmdlCommand), o = Number(n.dataset.cmdlDelPreset);
     if (a && i && Number.isInteger(o)) {
-      const l = N(F(i));
-      l.splice(o, 1), ce(F(i), l), de(a);
+      const l = j(N(i));
+      l.splice(o, 1), pe(N(i), l), fe(a);
     }
     return !0;
   }
   return !1;
 }
-function Ds(e, t) {
+function Vs(e, t) {
   if (k(e)) return;
   const s = e.querySelector("[data-cmdl-fields]"), r = e.querySelector("[data-cmdl-json]"), n = e.querySelector("[data-cmdl-json-editor]"), a = e.querySelector("[data-cmdl-json-toggle]"), i = e.querySelector("[data-cmdl-json-error]");
   if (!s || !r || !n) return;
   if (t) {
-    n.value = JSON.stringify(Qe(e), null, 2), i && (i.hidden = !0), s.hidden = !0, r.hidden = !1, e.dataset.cmdlMode = "json", a && (a.textContent = "Form");
+    n.value = JSON.stringify(nt(e), null, 2), i && (i.hidden = !0), s.hidden = !0, r.hidden = !1, e.dataset.cmdlMode = "json", a && (a.textContent = "Form");
     return;
   }
   let o;
@@ -1713,53 +1747,53 @@ function Ds(e, t) {
     i && (i.textContent = "Payload must be a JSON object.", i.hidden = !1);
     return;
   }
-  Xe(e, o), s.hidden = !1, r.hidden = !0, e.dataset.cmdlMode = "form", a && (a.textContent = "JSON");
+  at(e, o), s.hidden = !1, r.hidden = !0, e.dataset.cmdlMode = "form", a && (a.textContent = "JSON");
 }
-function Is() {
-  const e = W();
+function zs() {
+  const e = te();
   if (!e) return 0;
   try {
-    const t = Number(e.getItem(Ue));
-    return Number.isFinite(t) && t >= ue ? t : 0;
+    const t = Number(e.getItem(Ye));
+    return Number.isFinite(t) && t >= ye ? t : 0;
   } catch {
     return 0;
   }
 }
-function ks(e) {
+function Gs(e) {
   const t = e.clientWidth || 0;
-  return t > 0 ? Math.max(ue, t - ss) : ts;
+  return t > 0 ? Math.max(ye, t - fs) : ps;
 }
-function re(e, t) {
-  const s = Math.min(Math.max(Math.round(t), ue), ks(e));
-  D = s, e.style.setProperty("--cmdl-sidebar-w", `${s}px`);
-  const r = W();
+function le(e, t) {
+  const s = Math.min(Math.max(Math.round(t), ye), Gs(e));
+  L = s, e.style.setProperty("--cmdl-sidebar-w", `${s}px`);
+  const r = te();
   if (r) try {
-    r.setItem(Ue, String(s));
+    r.setItem(Ye, String(s));
   } catch {
   }
   return s;
 }
-function Ts(e) {
-  D || (D = Is()), D && e.style.setProperty("--cmdl-sidebar-w", `${D}px`);
+function Qs(e) {
+  L || (L = zs()), L && e.style.setProperty("--cmdl-sidebar-w", `${L}px`);
 }
-function qs(e) {
+function Xs(e) {
   const t = e.querySelector("[data-cmdl-resizer]"), s = e.querySelector("[data-cmdl-body]");
-  !t || !s || (Ts(s), t.addEventListener("pointerdown", (r) => {
+  !t || !s || (Qs(s), t.addEventListener("pointerdown", (r) => {
     r.preventDefault();
-    const n = r.clientX, a = D || Oe;
+    const n = r.clientX, a = L || qe;
     if (typeof t.setPointerCapture == "function") try {
       t.setPointerCapture(r.pointerId);
     } catch {
     }
-    const i = (l) => re(s, a + (l.clientX - n)), o = (l) => {
-      re(s, a + (l.clientX - n)), t.removeEventListener("pointermove", i), t.removeEventListener("pointerup", o), t.removeEventListener("pointercancel", o);
+    const i = (l) => le(s, a + (l.clientX - n)), o = (l) => {
+      le(s, a + (l.clientX - n)), t.removeEventListener("pointermove", i), t.removeEventListener("pointerup", o), t.removeEventListener("pointercancel", o);
     };
     t.addEventListener("pointermove", i), t.addEventListener("pointerup", o), t.addEventListener("pointercancel", o);
   }), t.addEventListener("keydown", (r) => {
-    r.key !== "ArrowLeft" && r.key !== "ArrowRight" || (r.preventDefault(), re(s, (D || Oe) + (r.key === "ArrowRight" ? Re : -Re)));
+    r.key !== "ArrowLeft" && r.key !== "ArrowRight" || (r.preventDefault(), le(s, (L || qe) + (r.key === "ArrowRight" ? Fe : -Fe)));
   }));
 }
-function ne(e, t) {
+function ce(e, t) {
   const s = e.querySelector("[data-cmdl-bar-main]"), r = e.querySelector("[data-cmdl-confirm-row]");
   if (!s || !r) return;
   s.hidden = t, r.hidden = !t;
@@ -1769,90 +1803,112 @@ function ne(e, t) {
   } catch {
   }
 }
-function Fs(e, t = {}) {
+function Ws(e, t = {}) {
   const s = e.querySelector("[data-cmdl-root]");
   if (!s) return;
-  Ve(), s.dataset.cmdlDebugPath = m(t.debugPath), qs(s), s.querySelectorAll("[data-cmdl-recall]").forEach((n) => de(n));
+  st(), s.dataset.cmdlDebugPath = g(t.debugPath), Xs(s), s.querySelectorAll("[data-cmdl-recall]").forEach((i) => fe(i));
   const r = s.querySelector("[data-cmdl-filter]");
-  r && Q && (r.value = Q, Te(s, Q)), H && s.querySelector(`[data-cmdl-item="${Ge(H)}"]`) && X(s, H), s.addEventListener("click", (n) => {
-    const a = n.target;
-    if (Ls(a, s)) return;
-    const i = a.closest("[data-cmdl-json-toggle]");
-    if (i) {
-      const u = i.closest("[data-panel-action-form]");
-      u && Ds(u, u.dataset.cmdlMode !== "json");
-      return;
-    }
-    const o = a.closest("[data-cmdl-confirm-run]");
-    if (o) {
-      const u = o.closest("[data-panel-action-form]");
-      u && (u.dataset.cmdlArmed = "true");
-      return;
-    }
-    const l = a.closest("[data-cmdl-cancel]");
+  r && (r.value = ae, He(s, ae)), K && s.querySelector(`[data-cmdl-item="${ge(K)}"]`) && X(s, K);
+  const n = s.querySelector("[data-cmdl-groups]"), a = s.querySelector("[data-cmdl-detailcol]");
+  n && (n.scrollTop = Te), a && (a.scrollTop = ke), s.addEventListener("scroll", (i) => {
+    n && i.target === n && (Te = n.scrollTop), a && i.target === a && (ke = a.scrollTop);
+  }, !0), s.addEventListener("click", (i) => {
+    const o = i.target, l = o.closest("[data-cmdl-group-toggle]");
     if (l) {
-      const u = l.closest("[data-panel-action-form]");
-      u && (delete u.dataset.cmdlArmed, ne(u, !1));
+      const m = l.closest("[data-cmdl-group]");
+      m && Y(m, l.getAttribute("aria-expanded") !== "true", !0);
       return;
     }
-    const d = a.closest("[data-cmdl-item]");
+    if (Ks(o, s)) return;
+    const d = o.closest("[data-cmdl-json-toggle]");
     if (d) {
-      X(s, d.dataset.cmdlItem || "");
+      const m = d.closest("[data-panel-action-form]");
+      m && Vs(m, m.dataset.cmdlMode !== "json");
+      return;
+    }
+    const u = o.closest("[data-cmdl-confirm-run]");
+    if (u) {
+      const m = u.closest("[data-panel-action-form]");
+      m && (m.dataset.cmdlArmed = "true");
+      return;
+    }
+    const h = o.closest("[data-cmdl-cancel]");
+    if (h) {
+      const m = h.closest("[data-panel-action-form]");
+      m && (delete m.dataset.cmdlArmed, ce(m, !1));
+      return;
+    }
+    const f = o.closest("[data-cmdl-item]");
+    if (f) {
+      X(s, f.dataset.cmdlItem || "");
       return;
     }
   }), r && (r.addEventListener("input", () => {
-    Q = r.value, Te(s, r.value);
-  }), r.addEventListener("keydown", (n) => {
-    if (n.key === "ArrowDown" || n.key === "Enter") {
-      const a = qe(s)[0];
-      a && (n.preventDefault(), n.key === "Enter" ? X(s, a.dataset.cmdlItem || "") : a.focus());
+    ae = r.value, He(s, r.value);
+  }), r.addEventListener("keydown", (i) => {
+    if (i.key === "ArrowDown" || i.key === "Enter") {
+      const o = Ke(s)[0];
+      o && (i.preventDefault(), i.key === "Enter" ? X(s, o.dataset.cmdlItem || "") : o.focus());
     }
-  })), s.addEventListener("submit", (n) => {
-    const a = n.target?.closest("[data-panel-action-form]");
-    if (a) {
-      if (a.dataset.cmdlFormgenReady !== "true") {
-        n.preventDefault(), n.stopImmediatePropagation(), he(a);
+  })), s.addEventListener("submit", (i) => {
+    const o = i.target?.closest("[data-panel-action-form]");
+    if (o) {
+      if (o.dataset.cmdlFormgenReady !== "true") {
+        i.preventDefault(), i.stopImmediatePropagation(), be(o);
         return;
       }
-      if (a.dataset.cmdlConfirm === "true" && a.dataset.cmdlArmed !== "true") {
-        n.preventDefault(), n.stopImmediatePropagation(), ne(a, !0);
+      if (o.dataset.cmdlConfirm === "true" && o.dataset.cmdlArmed !== "true") {
+        i.preventDefault(), i.stopImmediatePropagation(), ce(o, !0);
         return;
       }
-      Os(a), a.dataset.cmdlConfirm === "true" && (delete a.dataset.cmdlArmed, ne(a, !1));
+      Us(o), o.dataset.cmdlConfirm === "true" && (delete o.dataset.cmdlArmed, ce(o, !1));
     }
-  }, !0), s.addEventListener("keydown", (n) => {
-    const a = n.target.closest("[data-cmdl-item]");
-    if (a && (n.key === "ArrowDown" || n.key === "ArrowUp")) {
-      n.preventDefault();
-      const i = qe(s), o = i.indexOf(a), l = i[n.key === "ArrowDown" ? o + 1 : o - 1];
-      l ? l.focus() : n.key === "ArrowUp" && r && r.focus();
+  }, !0), s.addEventListener("keydown", (i) => {
+    const o = i.target, l = o.closest("[data-cmdl-group-toggle]");
+    if (l && (i.key === "Enter" || i.key === " ")) {
+      i.preventDefault();
+      const u = l.closest("[data-cmdl-group]");
+      u && Y(u, l.getAttribute("aria-expanded") !== "true", !0);
       return;
     }
-    a && n.key === "Enter" && (n.preventDefault(), X(s, a.dataset.cmdlItem || ""));
-  }), s.addEventListener("reset", (n) => {
-    const a = n.target, i = P(a.dataset.actionId || "");
-    i && G.delete(i), window.setTimeout(() => {
-      const o = j(a);
-      if (o) {
-        o.controller.reset();
-        const l = o.controller.getValues();
-        I(a, l), M(a, l);
+    const d = o.closest("[data-cmdl-item]");
+    if (d && (i.key === "ArrowDown" || i.key === "ArrowUp")) {
+      i.preventDefault();
+      const u = Ke(s), h = u.indexOf(d), f = u[i.key === "ArrowDown" ? h + 1 : h - 1];
+      f ? f.focus() : i.key === "ArrowUp" && r && r.focus();
+      return;
+    }
+    d && i.key === "Enter" && (i.preventDefault(), X(s, d.dataset.cmdlItem || ""));
+  }), s.addEventListener("reset", (i) => {
+    const o = i.target, l = P(o.dataset.actionId || "");
+    l && Z.delete(l), window.setTimeout(() => {
+      const d = U(o);
+      if (d) {
+        d.controller.reset();
+        const u = d.controller.getValues();
+        T(o, u), B(o, u);
       }
     }, 0);
   });
 }
-function Ge(e) {
+function ge(e) {
   return e.replace(/["\\]/g, "\\$&");
 }
-Lt(K, fs);
-var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, Me = (e) => {
+Jt(V, _s);
+var Ve = "debug-console-active-panel", ze = "debug-console-panel-order", Ys = 5e3, Zs = 15e3, er = 1e4, Ge = [
+  5e3,
+  1e4,
+  2e4,
+  4e4,
+  6e4
+], tr = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/, Qe = (e) => {
   if (!e) return null;
   try {
     return JSON.parse(e);
   } catch {
     return null;
   }
-}, Ms = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : Dt(), ae = (e, t) => Yt(e, t), js = (e, t, s) => {
+}, sr = (e) => Array.isArray(e) && e.length > 0 ? e.filter((t) => typeof t == "string" && t.trim()).map((t) => t.trim()) : Vt(), de = (e, t) => us(e, t), rr = (e, t, s) => {
   if (!e || !t) return;
   const r = t.split(".").map((a) => a.trim()).filter(Boolean);
   if (r.length === 0) return;
@@ -1862,21 +1918,25 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     (!n[i] || typeof n[i] != "object") && (n[i] = {}), n = n[i];
   }
   n[r[r.length - 1]] = s;
-}, ie = (e, t) => {
+}, ue = (e, t) => {
   if (!e) return t;
   const s = Number(e);
   return Number.isNaN(s) ? t : s;
-}, je = (e) => {
+}, Xe = (e) => {
   try {
     return JSON.parse(JSON.stringify(e));
   } catch {
     return { ...e };
   }
-}, Bs = class {
+}, nr = class {
   constructor(e) {
-    this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.logsExpanded = /* @__PURE__ */ new Set(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.pauseButton = null, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.commandLauncherLastPayloads = /* @__PURE__ */ new Map(), this.commandRunStateGeneration = 0, this.container = e;
-    const t = Ms(Me(e.dataset.panels));
-    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = ie(e.dataset.maxLogEntries, 500), this.maxSQLQueries = ie(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = ie(e.dataset.slowThresholdMs, 50), this.replCommands = Rt(Me(e.dataset.replCommands)), this.state = {
+    this.savedPanelOrder = null, this.customFilterState = {}, this.paused = !1, this.logsExpanded = /* @__PURE__ */ new Set(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.pauseButton = null, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.tabsSortable = null, this.panelActionResults = /* @__PURE__ */ new Map(), this.commandLauncherLastPayloads = /* @__PURE__ */ new Map(), this.commandRunStateGeneration = 0, this.commandRunGenerations = /* @__PURE__ */ new Map(), this.commandRunSnapshotBaseline = null, this.commandRunReconcileTimer = null, this.commandRunReconcileInFlight = !1, this.commandRunReconcileFailures = 0, this.commandRunSnapshotAbort = null, this.destroyed = !1, this.handleVisibilityChange = () => {
+      this.destroyed || (document.visibilityState === "hidden" ? this.stopCommandRunReconciliation() : this.activePanel === "command_runs" && this.beginCommandRunSnapshotRequest("visibility"));
+    }, this.handlePageHide = () => {
+      this.destroyed || this.stopCommandRunReconciliation(!0);
+    }, this.container = e;
+    const t = sr(Qe(e.dataset.panels));
+    t.includes("sessions") || t.push("sessions"), this.availablePanels = this.normalizeAvailablePanelIDs(t), this.savedPanelOrder = this.loadStoredPanelOrder(), this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.panelOrderPreferencesPath = e.dataset.panelOrderPreferencesPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = ue(e.dataset.maxLogEntries, 500), this.maxSQLQueries = ue(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = ue(e.dataset.slowThresholdMs, 50), this.replCommands = Bt(Qe(e.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -1917,12 +1977,12 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       sessions: { search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), At.forEach((s) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), Tt.forEach((s) => {
       this.panelRenderers.set(s, {
         render: () => this.renderReplPanel(s),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.eventToPanel = Z(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.sqlView = new tt({
+    }), this.eventToPanel = re(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.sqlView = new dt({
       styles: w,
       copyOptions: { useIconFeedback: !0 },
       getQueries: () => this.state.sql,
@@ -1936,10 +1996,10 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       shouldDisplay: (s) => this.sqlEntryMatchesFilters(s),
       onNeedFullRender: () => this.renderPanel(),
       onPendingChange: (s) => this.updatePauseIndicator(s)
-    }), this.logsView = new Y({
+    }), this.logsView = new se({
       styles: w,
-      keyOf: Ee,
-      renderRow: (s) => ct(s, w, {
+      keyOf: Re,
+      renderRow: (s) => bt(s, w, {
         showSource: !0,
         truncateMessage: !1,
         expandable: !0
@@ -1948,13 +2008,13 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       getMaxEntries: () => this.maxLogEntries,
       shouldDisplay: (s) => this.logEntryMatchesFilters(s),
       onNeedFullRender: () => this.renderPanel(),
-      onAdopt: (s) => me(s, {
+      onAdopt: (s) => ve(s, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.logsExpanded
       }),
-      onRestore: (s) => ye(s, {
+      onRestore: (s) => Pe(s, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.logsExpanded
@@ -1963,13 +2023,13 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       onAfterAppend: () => {
         this.attachCopyButtonListeners(), this.applyLogsAutoScroll();
       }
-    }), this.requestsView = new Y({
+    }), this.requestsView = new se({
       styles: w,
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
-      keyOf: st,
-      renderRow: (s) => gt(s, w, {
+      keyOf: ut,
+      renderRow: (s) => Rt(s, w, {
         expandedRequestIds: this.expandedRequests,
         truncatePath: !1,
         slowThresholdMs: this.slowThresholdMs
@@ -1978,26 +2038,26 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       getMaxEntries: () => this.maxLogEntries,
       shouldDisplay: (s) => this.requestEntryMatchesFilters(s),
       onNeedFullRender: () => this.renderPanel(),
-      onAdopt: (s) => at(s, this.expandedRequests, { useIconFeedback: !0 })
-    }), this.jserrorsView = new Y({
+      onAdopt: (s) => pt(s, this.expandedRequests, { useIconFeedback: !0 })
+    }), this.jserrorsView = new se({
       styles: w,
-      keyOf: dt,
-      renderRow: (s) => pt(s, w, { compact: !1 }),
+      keyOf: Et,
+      renderRow: (s) => Pt(s, w, { compact: !1 }),
       getRenderOptions: () => ({ newestFirst: this.filters.logs.newestFirst }),
       getMaxEntries: () => this.maxLogEntries,
       onNeedFullRender: () => this.renderPanel(),
-      onAdopt: (s) => me(s, {
+      onAdopt: (s) => ve(s, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (s) => ye(s, {
+      onRestore: (s) => Pe(s, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new ut({
+    }), this.registryLiveList = new St({
       styles: w,
       getRenderOptions: () => ({}),
       shouldDisplay: (s, r) => {
@@ -2006,19 +2066,20 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
         return Array.isArray(a) ? a.length > 0 : !0;
       },
       onNeedFullRender: () => this.renderPanel()
-    }), this.bindActions(), this.updateSessionBanner(), this.stream = new ge({
+    }), this.bindActions(), this.updateSessionBanner(), this.stream = new we({
       basePath: this.streamBasePath,
       onEvent: (s) => this.handleEvent(s),
-      onStatusChange: (s) => this.updateConnectionStatus(s)
-    }), this.unsubscribeRegistry = $.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
+      onStatusChange: (s) => this.updateConnectionStatus(s),
+      onSnapshotInvalidated: () => this.beginCommandRunSnapshotRequest("invalidation", !0)
+    }), document.addEventListener("visibilitychange", this.handleVisibilityChange), window.addEventListener("pagehide", this.handlePageHide), this.unsubscribeRegistry = x.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
   }
   async initializeServerDefinitions() {
     const e = await this.loadServerPanelOrderPreference();
-    this.applyPanelOrder(), await It(this.debugPath), this.eventToPanel = Z(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
+    this.destroyed || (this.applyPanelOrder(), await Gt(this.debugPath), !this.destroyed && (this.eventToPanel = re(), this.applyPanelOrder(), e && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents()));
   }
   subscribeToEvents() {
     const e = /* @__PURE__ */ new Set();
-    for (const t of this.panels) for (const s of xt(t)) e.add(s);
+    for (const t of this.panels) for (const s of Ft(t)) e.add(s);
     this.stream.subscribe(Array.from(e));
   }
   normalizeStoredPanelID(e) {
@@ -2028,11 +2089,11 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   restoreActivePanel() {
     let e = null, t = null;
     try {
-      e = this.normalizeStoredPanelID(sessionStorage.getItem(Fe));
+      e = this.normalizeStoredPanelID(sessionStorage.getItem(Ve));
       const s = new URLSearchParams(window.location.search);
       t = this.normalizeStoredPanelID(s.get("panel"));
-      const r = Se(s.toString());
-      !t && (r.runID || r.correlationID) && this.panels.includes("command_runs") && (t = "command_runs"), t === "command_runs" && Pe(r);
+      const r = xe(s.toString());
+      !t && (r.runID || r.dispatchID || r.correlationID) && this.panels.includes("command_runs") && (t = "command_runs"), t === "command_runs" && _e(r);
     } catch {
       e = null, t = null;
     }
@@ -2040,26 +2101,27 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   persistActivePanel() {
     try {
-      sessionStorage.setItem(Fe, this.activePanel);
+      sessionStorage.setItem(Ve, this.activePanel);
     } catch {
     }
   }
-  replacePanelURL(e, t = "", s = "") {
+  replacePanelURL(e, t = "", s = "", r = "") {
     try {
-      const r = window.location.href, n = e === "command_runs" ? ve(r, {
+      const n = window.location.href, a = e === "command_runs" ? Ie(n, {
         runID: t,
-        correlationID: s
+        dispatchID: s,
+        correlationID: r
       }) : (() => {
-        const a = new URL(r);
-        return a.searchParams.set("panel", e), a.searchParams.delete("run_id"), a.searchParams.delete("correlation_id"), `${a.pathname}${a.search}${a.hash}`;
+        const i = new URL(n);
+        return i.searchParams.set("panel", e), i.searchParams.delete("run_id"), i.searchParams.delete("dispatch_id"), i.searchParams.delete("correlation_id"), `${i.pathname}${i.search}${i.hash}`;
       })();
-      window.history.replaceState(window.history.state, "", n);
+      window.history.replaceState(window.history.state, "", a);
     } catch {
     }
   }
   persistPanelOrder() {
     try {
-      localStorage.setItem(Ne, JSON.stringify(this.panels));
+      localStorage.setItem(ze, JSON.stringify(this.panels));
     } catch {
     }
   }
@@ -2067,12 +2129,12 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     const e = this.panelOrderPreferencesPath.trim();
     if (!e) return !1;
     try {
-      const t = await R(e, {
+      const t = await _(e, {
         method: "GET",
         credentials: "same-origin"
       });
       if (!t.ok) return !1;
-      const s = await B(t);
+      const s = await q(t);
       return !s?.available || !s.found ? !1 : (this.savedPanelOrder = this.normalizeAvailablePanelIDs(s.panel_order), this.savedPanelOrder.length > 0);
     } catch {
       return !1;
@@ -2082,7 +2144,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     const t = this.panelOrderPreferencesPath.trim();
     if (t)
       try {
-        await R(t, {
+        await _(t, {
           method: "PUT",
           credentials: "same-origin",
           json: { panel_order: e }
@@ -2092,7 +2154,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   loadStoredPanelOrder() {
     try {
-      const e = localStorage.getItem(Ne);
+      const e = localStorage.getItem(ze);
       if (e) {
         const t = JSON.parse(e);
         return this.normalizeSavedPanelOrder(t);
@@ -2103,7 +2165,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   normalizePanelID(e) {
     const t = typeof e == "string" ? e.trim() : "";
-    return !t || !Ns.test(t) ? null : t;
+    return !t || !tr.test(t) ? null : t;
   }
   normalizeAvailablePanelIDs(e) {
     if (!Array.isArray(e)) return [];
@@ -2131,7 +2193,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     this.panels = e.length > 0 ? e : this.availablePanels, this.restoreActivePanel();
   }
   initTabDragDrop() {
-    this.tabsSortable && (this.tabsSortable.destroy(), this.tabsSortable = null), this.tabsSortable = et.create(this.tabsEl, {
+    this.tabsSortable && (this.tabsSortable.destroy(), this.tabsSortable = null), this.tabsSortable = ct.create(this.tabsEl, {
       animation: 150,
       draggable: ".debug-tab",
       fallbackTolerance: 5,
@@ -2152,7 +2214,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   handleRegistryChange(e) {
     const t = this.normalizePanelID(e.panelId), s = this.activePanel, r = e.type === "unregister" && t === s;
-    this.eventToPanel = Z(), e.type === "register" ? (t && !this.availablePanels.includes(t) && this.availablePanels.push(t), t && e.panel && e.panel.defaultFilters !== void 0 && !(t in this.customFilterState) && (this.customFilterState[t] = this.cloneFilterState(e.panel.defaultFilters))) : e.type === "unregister" && t && (this.availablePanels = this.availablePanels.filter((a) => a !== t), delete this.customFilterState[t]), this.applyPanelOrder();
+    this.eventToPanel = re(), e.type === "register" ? (t && !this.availablePanels.includes(t) && this.availablePanels.push(t), t && e.panel && e.panel.defaultFilters !== void 0 && !(t in this.customFilterState) && (this.customFilterState[t] = this.cloneFilterState(e.panel.defaultFilters))) : e.type === "unregister" && t && (this.availablePanels = this.availablePanels.filter((a) => a !== t), delete this.customFilterState[t]), this.applyPanelOrder();
     const n = s !== this.activePanel;
     this.subscribeToEvents(), this.renderTabs(), (r || n || t === this.activePanel) && this.renderActivePanel();
   }
@@ -2168,7 +2230,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       const s = t.closest("[data-panel]");
       if (!s) return;
       const r = s.dataset.panel || "";
-      !r || r === this.activePanel || (this.activePanel = r, this.persistActivePanel(), this.replacePanelURL(r), this.renderActivePanel());
+      !r || r === this.activePanel || (this.activePanel = r, this.persistActivePanel(), this.replacePanelURL(r), this.renderActivePanel(), r === "command_runs" ? this.beginCommandRunSnapshotRequest("activation") : this.stopCommandRunReconciliation());
     }), this.container.addEventListener("click", (e) => {
       const t = e.target?.closest("[data-debug-action]");
       if (!(!t || !this.container.contains(t)))
@@ -2200,7 +2262,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       if (!r || r.disabled) return;
       const n = r.dataset.doctorActionRun || "", a = r.dataset.doctorActionConfirm || "", i = r.dataset.doctorActionRequiresConfirmation === "true";
       this.runDoctorAction(n, a, i);
-    }), this.panelEl.addEventListener(wt, (e) => {
+    }), this.panelEl.addEventListener(It, (e) => {
       if (this.activePanel !== "command_runs") return;
       const t = e.detail, s = typeof t?.runID == "string" ? t.runID : "";
       s && this.replacePanelURL("command_runs", s);
@@ -2208,14 +2270,14 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderTabs() {
     const e = this.panels.map((t) => {
-      const s = t === this.activePanel ? "debug-tab--active" : "", r = vt(Ot(t), {
+      const s = t === this.activePanel ? "debug-tab--active" : "", r = Ot(Nt(t), {
         size: "14px",
         extraClass: "debug-tab__icon"
       });
       return `
           <button class="debug-tab ${s}" data-panel="${p(t)}">
             ${r}
-            <span class="debug-tab__label">${p(Ae(t))}</span>
+            <span class="debug-tab__label">${p(G(t))}</span>
             <span class="debug-tab__count" data-panel-count="${p(t)}">0</span>
           </button>
         `;
@@ -2231,7 +2293,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     const s = this.panelRenderers.get(e);
     if (s?.filters) t = s.filters();
     else {
-      const r = $.get(e);
+      const r = x.get(e);
       if (r?.showFilters === !1) {
         this.filtersEl.innerHTML = '<span class="timestamp">No filters</span>';
         return;
@@ -2387,7 +2449,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     });
   }
   updateFiltersFromInputs() {
-    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]"), s = $.get(e);
+    const e = this.activePanel, t = this.filtersEl.querySelectorAll("[data-filter]"), s = x.get(e);
     if (s?.renderFilters) {
       const r = this.getPanelFilterState(e, s), n = r && typeof r == "object" && !Array.isArray(r) ? { ...r } : {};
       t.forEach((a) => {
@@ -2438,7 +2500,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     this.renderPanel();
   }
   getPanelFilterState(e, t) {
-    const s = t || $.get(e);
+    const s = t || x.get(e);
     return s ? (e in this.customFilterState || (this.customFilterState[e] = s.defaultFilters !== void 0 ? this.cloneFilterState(s.defaultFilters) : {}), this.customFilterState[e]) : {};
   }
   cloneFilterState(e) {
@@ -2472,28 +2534,28 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     else if (e === "routes") s = this.renderRoutes();
     else if (e === "sessions") s = this.renderSessionsPanel();
     else if (e === "custom") s = this.renderCustom();
-    else if (e === "jserrors") s = ft(this.state.extra.jserrors || [], w, {
+    else if (e === "jserrors") s = wt(this.state.extra.jserrors || [], w, {
       newestFirst: this.filters.logs.newestFirst,
       showSortToggle: !0
     });
     else {
-      const n = $.get(e);
+      const n = x.get(e);
       if (n && (n.renderConsole || n.render)) {
-        const a = V(n);
+        const a = z(n);
         let i = this.getStateForKey(a);
         if (n.applyFilters) {
           const o = this.getPanelFilterState(e, n);
           i = n.applyFilters(i, o);
         } else if (!n.renderFilters && n.showFilters !== !1) {
           const o = this.filters.objects.search.trim();
-          o && i && typeof i == "object" && !Array.isArray(i) && (i = ae(i, o));
+          o && i && typeof i == "object" && !Array.isArray(i) && (i = de(i, o));
         }
         s = (n.renderConsole || n.render)(i, w, { newestFirst: this.filters.logs.newestFirst });
-      } else s = this.renderJSONPanel(Ae(e), this.state.extra[e], this.filters.objects.search);
+      } else s = this.renderJSONPanel(G(e), this.state.extra[e], this.filters.objects.search);
     }
-    Ss(), this.panelEl.innerHTML = s, e === "logs" && this.applyLogsAutoScroll(), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && this.requestsView.adopt(this.panelEl), e === "sql" && this.mountSQLView(), e === "logs" && this.logsView.adopt(this.panelEl), e === "jserrors" && this.jserrorsView.adopt(this.panelEl);
-    const r = $.get(e);
-    r && this.registryLiveList.handles(r) && this.registryLiveList.adopt(r, this.panelEl), e === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), e === "commands" && Fs(this.panelEl, { debugPath: this.debugPath }), this.renderStoredPanelActionResult(e);
+    Je(), this.panelEl.innerHTML = s, e === "logs" && this.applyLogsAutoScroll(), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && this.requestsView.adopt(this.panelEl), e === "sql" && this.mountSQLView(), e === "logs" && this.logsView.adopt(this.panelEl), e === "jserrors" && this.jserrorsView.adopt(this.panelEl);
+    const r = x.get(e);
+    r && this.registryLiveList.handles(r) && this.registryLiveList.adopt(r, this.panelEl), e === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners(), e === "commands" && Ws(this.panelEl, { debugPath: this.debugPath }), this.renderStoredPanelActionResult(e);
   }
   attachPanelActionListeners() {
     this.panelEl.querySelectorAll("[data-panel-action-picker]").forEach((e) => {
@@ -2516,30 +2578,30 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     if (!this.debugPath || !r || !n) return;
     const a = e.dataset.actionConfirm || "", i = e.dataset.actionRequiresConfirm === "true";
     if (e.dataset.actionConfirmInline !== "true" && (i || a) && !window.confirm(a || "Run this debug panel action?")) return;
-    const o = s || be(e);
+    const o = s || Ce(e);
     let l = o;
-    r === "commands" && e instanceof HTMLFormElement && (l = be(e, { excludeSensitive: !0 }), k(e) ? this.commandLauncherLastPayloads.delete(n) : this.commandLauncherLastPayloads.set(n, je(o))), t && (t.disabled = !0);
+    r === "commands" && e instanceof HTMLFormElement && (l = Ce(e, { excludeSensitive: !0 }), k(e) ? this.commandLauncherLastPayloads.delete(n) : this.commandLauncherLastPayloads.set(n, Xe(o))), t && (t.disabled = !0);
     const d = Date.now();
     try {
-      const u = await R(`${this.debugPath}/api/panels/${encodeURIComponent(r)}/actions/${encodeURIComponent(n)}`, {
+      const u = await _(`${this.debugPath}/api/panels/${encodeURIComponent(r)}/actions/${encodeURIComponent(n)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(o)
       });
       if (!u.ok) {
-        const g = await Ze(u, `Action failed (${u.status})`, { appendStatusToFallback: !1 });
-        this.showPanelActionResult(r, "error", g.message, n, g.payload, void 0, {
+        const f = await lt(u, `Action failed (${u.status})`, { appendStatusToFallback: !1 });
+        this.showPanelActionResult(r, "error", f.message, n, f.payload, void 0, {
           at: Date.now(),
           durationMs: Date.now() - d
         });
         return;
       }
-      const h = await B(u);
+      const h = await q(u);
       this.showPanelActionResult(r, h.ok === !1 ? "error" : "ok", h.message || (h.ok === !1 ? "Action failed" : "Action complete"), n, h.data, h.errors, {
         at: Date.now(),
         durationMs: Date.now() - d
-      }), r === "commands" && $s(l), h.event && this.handleEvent(h.event), h.refresh && await this.fetchSnapshot();
+      }), r === "commands" && Hs(l), h.event && this.handleEvent(h.event), h.refresh && await this.fetchSnapshot();
     } catch (u) {
       const h = u instanceof Error ? u.message : "Action failed";
       this.showPanelActionResult(r, "error", h, n, void 0, void 0, {
@@ -2571,15 +2633,16 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     const s = Array.from(this.panelEl.querySelectorAll("[data-panel-action-result]")).find((a) => a.dataset.panelActionResult === e);
     if (!s) return;
     if (e === "commands") {
-      const a = ys(t.status, t.message, t.data, t.errors), i = {};
+      const a = $s(t.status, t.message, t.data, t.errors), i = {};
       a.validationErrors.forEach((u) => {
         u.path && (i[u.path] = u.message || u.code);
-      }), t.errors && typeof t.errors == "object" && Object.assign(i, t.errors), (!t.actionID || !As(t.actionID, i)) && this.renderPanelActionErrors(i, t.actionID);
-      const o = !!(t.actionID && this.commandLauncherLastPayloads.has(t.actionID)), l = ns(a.correlationId || a.runId || a.dispatchId), d = a.runId || l?.runID || a.correlationId || l?.correlationID ? ve(window.location.href, {
+      }), t.errors && typeof t.errors == "object" && Object.assign(i, t.errors), (!t.actionID || !Fs(t.actionID, i)) && this.renderPanelActionErrors(i, t.actionID);
+      const o = !!(t.actionID && this.commandLauncherLastPayloads.has(t.actionID)), l = ys(a.correlationId || a.runId || a.dispatchId), d = a.runId || l?.runID || a.dispatchId || l?.dispatchID || a.correlationId || l?.correlationID ? Ie(window.location.href, {
         runID: a.runId || l?.runID,
+        dispatchID: a.dispatchId || l?.dispatchID,
         correlationID: a.correlationId || l?.correlationID
       }) : "";
-      s.innerHTML = vs(a, {
+      s.innerHTML = Ts(a, {
         canRetry: o,
         at: t.at,
         durationMs: t.durationMs,
@@ -2588,7 +2651,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       }), this.attachCommandLauncherResultActions(s, t.actionID);
       return;
     }
-    const r = this.renderPanelActionErrors(t.errors, t.actionID), n = t.data === void 0 ? "" : `<pre class="${w.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${p(_t(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    const r = this.renderPanelActionErrors(t.errors, t.actionID), n = t.data === void 0 ? "" : `<pre class="${w.jsonPanel}" style="margin-top:0.5rem;max-height:18rem;overflow:auto;white-space:pre-wrap">${p(jt(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
     s.innerHTML = `<div class="${t.status === "error" ? w.badgeError : w.badge}">${p(t.message)}</div>${r}${n}`;
   }
   attachCommandLauncherResultActions(e, t) {
@@ -2605,7 +2668,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     const s = this.commandLauncherLastPayloads.get(e);
     if (!s) return;
     const r = Array.from(this.panelEl.querySelectorAll("[data-panel-action-form]")).find((n) => n.dataset.panelId === "commands" && n.dataset.actionId === e);
-    r && (Cs(e, s), this.runPanelAction(r, t, je(s)));
+    r && (Ms(e, s), this.runPanelAction(r, t, Xe(s)));
   }
   updatePanelActionPicker(e) {
     const t = e.closest("[data-panel-action-launcher]");
@@ -2628,7 +2691,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     this.activePanel = t, this.persistActivePanel(), this.renderActivePanel(), this.applyDoctorNavigationState(t, s);
   }
   applyDoctorNavigationState(e, t) {
-    mt(this.panelEl, e, t);
+    Ct(this.panelEl, e, t);
   }
   clearPanelActionErrors() {
     this.panelEl.querySelectorAll("[data-action-field-error]").forEach((e) => {
@@ -2653,10 +2716,10 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     return typeof e == "string" ? e.trim() : Array.isArray(e) ? e.map((t) => this.stringifyActionError(t)).filter(Boolean).join("; ") : e && typeof e == "object" && typeof e.message == "string" ? (e.message || "").trim() : e == null ? "" : String(e);
   }
   attachExpandableRowListeners() {
-    nt(this.panelEl);
+    mt(this.panelEl);
   }
   attachCopyButtonListeners() {
-    rt(this.panelEl, { useIconFeedback: !0 });
+    ht(this.panelEl, { useIconFeedback: !0 });
   }
   mountSQLView() {
     this.sqlView.adopt(this.panelEl);
@@ -2664,7 +2727,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   renderReplPanel(e) {
     this.panelEl.classList.add("debug-content--repl");
     let t = this.replPanels.get(e);
-    t || (t = new Et({
+    t || (t = new xt({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -2684,7 +2747,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderRequests() {
     const { newestFirst: e } = this.filters.requests, t = this.state.requests.filter((s) => this.requestEntryMatchesFilters(s));
-    return t.length === 0 ? this.renderEmptyState("No requests captured yet.") : it(t, w, {
+    return t.length === 0 ? this.renderEmptyState("No requests captured yet.") : ft(t, w, {
       newestFirst: e,
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: !1,
@@ -2698,7 +2761,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderSQL() {
     const { newestFirst: e } = this.filters.sql, t = this.state.sql.filter((s) => this.sqlEntryMatchesFilters(s));
-    return t.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : ot(t, w, {
+    return t.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : gt(t, w, {
       newestFirst: e,
       slowThresholdMs: this.slowThresholdMs,
       maxEntries: this.maxSQLQueries,
@@ -2708,14 +2771,14 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   logEntryMatchesFilters(e) {
     const { level: t, search: s } = this.filters.logs;
-    return !(t !== "all" && (e.level || "").toLowerCase() !== t || s && !bt(e).includes(s.toLowerCase()));
+    return !(t !== "all" && (e.level || "").toLowerCase() !== t || s && !_t(e).includes(s.toLowerCase()));
   }
   applyLogsAutoScroll() {
     this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight);
   }
   renderLogs() {
     const { newestFirst: e } = this.filters.logs, t = this.state.logs.filter((s) => this.logEntryMatchesFilters(s));
-    return t.length === 0 ? this.renderEmptyState("No logs captured yet.") : yt(t, w, {
+    return t.length === 0 ? this.renderEmptyState("No logs captured yet.") : At(t, w, {
       newestFirst: e,
       maxEntries: this.maxLogEntries,
       showSortToggle: !1,
@@ -2730,7 +2793,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       const a = `${n.path || ""} ${n.handler || ""} ${n.summary || ""}`.toLowerCase();
       return !(s && !a.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : lt(r, w, { showName: !0 });
+    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : yt(r, w, { showName: !0 });
   }
   renderSessionsPanel() {
     if (!this.sessionsLoaded && !this.sessionsLoading && this.fetchSessions(), this.sessionsError) return this.renderEmptyState(this.sessionsError);
@@ -2749,7 +2812,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     if (s.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const r = s.map((a) => {
-      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", l = Tt(a.last_activity || a.started_at), d = z(a.request_count ?? 0), u = !!i && i === this.activeSessionId, h = u ? "detach" : "attach", g = u ? "Detach" : "Attach", f = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", S = a.ip || "-";
+      const i = a.session_id || "", o = a.username || a.user_id || "Unknown", l = zt(a.last_activity || a.started_at), d = Q(a.request_count ?? 0), u = !!i && i === this.activeSessionId, h = u ? "detach" : "attach", f = u ? "Detach" : "Attach", m = u ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", y = u ? "debug-session-row debug-session-row--active" : "debug-session-row", E = a.current_page || "-", v = a.ip || "-";
       return `
           <tr class="${y}">
             <td>
@@ -2758,15 +2821,15 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
                 <span class="debug-session-id">${p(i || "-")}</span>
               </div>
             </td>
-            <td>${p(S)}</td>
+            <td>${p(v)}</td>
             <td>
               <span class="debug-session-path">${p(E)}</span>
             </td>
             <td>${p(l || "-")}</td>
             <td>${p(d)}</td>
             <td>
-              <button class="${f}" data-session-action="${h}" data-session-id="${p(i)}">
-                ${g}
+              <button class="${m}" data-session-action="${h}" data-session-id="${p(i)}">
+                ${f}
               </button>
             </td>
           </tr>
@@ -2774,7 +2837,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     }).join(""), n = this.sessionsLoading ? "Refreshing..." : "Refresh";
     return `
       <div class="debug-session-toolbar">
-        <span class="debug-session-toolbar__label">${`${z(s.length)} active`}</span>
+        <span class="debug-session-toolbar__label">${`${Q(s.length)} active`}</span>
         <div class="debug-session-toolbar__actions">
           <button class="debug-btn" data-session-action="refresh">
             <i class="iconoir-refresh"></i> ${n}
@@ -2800,19 +2863,19 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   renderCustom() {
     const { search: e } = this.filters.custom, t = Object.keys(this.state.custom.data).length > 0, s = this.state.custom.logs.length > 0;
-    return !t && !s ? this.renderEmptyState("No custom data captured yet.") : ht(this.state.custom, w, {
+    return !t && !s ? this.renderEmptyState("No custom data captured yet.") : vt(this.state.custom, w, {
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       showCount: !0,
-      dataFilterFn: e ? (r) => ae(r, e) : void 0
+      dataFilterFn: e ? (r) => de(r, e) : void 0
     });
   }
   renderJSONPanel(e, t, s) {
     const r = t && typeof t == "object" && !Array.isArray(t), n = Array.isArray(t);
-    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : Pt(e, t, w, {
+    return r && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !r && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : Mt(e, t, w, {
       useIconCopyButton: !0,
       showCount: !0,
-      filterFn: s ? (a) => ae(a, s) : void 0
+      filterFn: s ? (a) => de(a, s) : void 0
     });
   }
   attachSessionActions() {
@@ -2839,12 +2902,12 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     if (this.debugPath && !this.sessionsLoading && !(!e && this.sessionsLoaded && this.sessionsUpdatedAt && Date.now() - this.sessionsUpdatedAt.getTime() < 3e3)) {
       this.sessionsLoading = !0, this.sessionsError = null;
       try {
-        const t = await R(`${this.debugPath}/api/sessions`, { credentials: "same-origin" });
+        const t = await _(`${this.debugPath}/api/sessions`, { credentials: "same-origin" });
         if (!t.ok) {
           this.sessionsError = "Failed to load active sessions.";
           return;
         }
-        const s = await B(t);
+        const s = await q(t);
         if (this.sessions = Array.isArray(s.sessions) ? s.sessions : [], this.sessionsLoaded = !0, this.sessionsUpdatedAt = /* @__PURE__ */ new Date(), this.activeSessionId) {
           const r = this.sessions.find((n) => n.session_id === this.activeSessionId);
           r && (this.activeSession = r, this.updateSessionBanner());
@@ -2870,14 +2933,15 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     this.activeSessionId && (this.activeSessionId = null, this.activeSession = null, this.streamBasePath = this.debugPath, this.resetDebugState(), this.updateSessionBanner(), this.rebuildStream("global"), this.renderPanel());
   }
   rebuildStream(e) {
-    this.stream.close(), this.stream = new ge({
+    this.stopCommandRunReconciliation(), this.stream.close(), this.stream = new we({
       basePath: this.streamBasePath,
       onEvent: (t) => this.handleEvent(t),
-      onStatusChange: (t) => this.updateConnectionStatus(t)
+      onStatusChange: (t) => this.updateConnectionStatus(t),
+      onSnapshotInvalidated: () => this.beginCommandRunSnapshotRequest("invalidation", !0)
     }), this.stream.connect(), this.subscribeToEvents(), e === "session" ? this.stream.requestSnapshot() : this.fetchSnapshot();
   }
   resetDebugState() {
-    this.state = {
+    this.stopCommandRunReconciliation(), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -2890,7 +2954,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
         logs: []
       },
       extra: {}
-    }, this.expandedRequests.clear(), this.logsExpanded.clear(), this.jserrorsExpanded.clear(), St(), Pe(Se(window.location.search)), this.commandRunStateGeneration += 1, this.eventCount = 0, this.lastEventAt = null, this.updateStatusMeta(), this.updateTabCounts();
+    }, this.expandedRequests.clear(), this.logsExpanded.clear(), this.jserrorsExpanded.clear(), $t(), _e(xe(window.location.search)), this.commandRunStateGeneration += 1, this.commandRunGenerations.clear(), this.eventCount = 0, this.lastEventAt = null, this.updateStatusMeta(), this.updateTabCounts();
   }
   buildSessionStreamPath(e) {
     const t = this.debugPath.replace(/\/+$/, ""), s = encodeURIComponent(e);
@@ -2916,10 +2980,10 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   }
   panelCount(e) {
     if (e !== "sessions") {
-      const t = $.get(e);
+      const t = x.get(e);
       if (t) {
-        const s = V(t);
-        return Ct({ [s]: this.getStateForKey(s) }, t);
+        const s = z(t);
+        return qt({ [s]: this.getStateForKey(s) }, t);
       }
     }
     switch (e) {
@@ -2961,19 +3025,31 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
   updateTabCounts() {
     this.panels.forEach((e) => {
       const t = this.panelCount(e), s = this.tabsEl.querySelector(`[data-panel-count="${e}"]`);
-      s && (s.textContent = z(t));
+      s && (s.textContent = Q(t));
     });
   }
   updateConnectionStatus(e) {
-    this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e);
+    if (!this.destroyed) {
+      if (this.connectionEl.textContent = e, this.statusEl.setAttribute("data-status", e), e === "connected" && this.activePanel === "command_runs") {
+        this.beginCommandRunSnapshotRequest("reconnect");
+        return;
+      }
+      this.refreshCommandRunReconciliation();
+    }
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${z(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${Q(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
   handleEvent(e) {
-    if (!e || !e.type) return;
+    if (this.destroyed || !e || !e.type) return;
+    if (e.type === "debug_command_error") {
+      const r = e.payload && typeof e.payload == "object" ? e.payload : {}, n = typeof r.operation == "string" ? r.operation.trim().toLowerCase() : "";
+      this.showDebugToast(n === "clear" ? "Unable to clear debug data." : "Debug command failed.", "error");
+      return;
+    }
     if (e.type === "snapshot") {
-      this.applySnapshot(e.payload);
+      const r = this.commandRunSnapshotBaseline || /* @__PURE__ */ new Map();
+      this.applySnapshot(e.payload, r), this.commandRunReconcileInFlight && this.finishCommandRunSnapshotRequest(!0);
       return;
     }
     if (this.eventCount += 1, this.lastEventAt = /* @__PURE__ */ new Date(), this.updateStatusMeta(), this.paused) {
@@ -2981,13 +3057,16 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       return;
     }
     if (e.type === "command_status") {
-      rs(e.payload), this.activePanel === "commands" && this.renderStoredPanelActionResult("commands");
+      gs(e.payload), this.activePanel === "commands" && this.renderStoredPanelActionResult("commands");
       return;
     }
-    const t = this.eventToPanel[e.type] || e.type, s = $.get(t);
+    const t = this.eventToPanel[e.type] || e.type, s = x.get(t);
     if (s) {
-      const r = V(s), n = this.getStateForKey(r), a = (s.handleEvent || ((i, o) => qt(i, o, this.maxLogEntries)))(n, e.payload);
-      this.setStateForKey(r, a), r === "command_runs" && (this.commandRunStateGeneration += 1, we(a));
+      const r = z(s), n = this.getStateForKey(r), a = r === "command_runs" ? D(e.payload) : "", i = a && Array.isArray(n) ? n.find((d) => D(d) === a) : void 0, o = r === "command_runs" && i ? Kt(i, e.payload) : !1, l = (s.handleEvent || ((d, u) => Qt(d, u, this.maxLogEntries)))(n, e.payload);
+      if (this.setStateForKey(r, l), r === "command_runs") {
+        const d = a && Array.isArray(l) ? l.find((u) => D(u) === a) : void 0;
+        a && d === e.payload && (this.commandRunStateGeneration += 1, this.commandRunGenerations.set(a, this.commandRunStateGeneration)), this.pruneCommandRunGenerations(l), Oe(l), o ? this.beginCommandRunSnapshotRequest("revision-gap") : this.refreshCommandRunReconciliation();
+      }
     } else switch (e.type) {
       case "request":
         this.state.requests.push(e.payload), this.trim(this.state.requests, this.maxLogEntries);
@@ -3008,7 +3087,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
         this.handleCustomEvent(e.payload);
         break;
       default:
-        $t(t) || (this.state.extra[t] = e.payload);
+        Ut(t) || (this.state.extra[t] = e.payload);
         break;
     }
     if (this.updateTabCounts(), t === this.activePanel) if (t === "sql") this.sqlView.enqueue([e.payload]);
@@ -3016,14 +3095,14 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     else if (t === "requests") this.requestsView.enqueue([e.payload]);
     else if (t === "jserrors") this.jserrorsView.enqueue([e.payload]);
     else if (this.registryLiveList.handles(s)) {
-      const r = this.getStateForKey(V(s)), n = s.liveList?.updateMode === "upsert" ? e.payload : Array.isArray(r) ? r[r.length - 1] : void 0;
+      const r = this.getStateForKey(z(s)), n = s.liveList?.updateMode === "upsert" ? e.payload : Array.isArray(r) ? r[r.length - 1] : void 0;
       this.registryLiveList.enqueue(s, n);
     } else this.renderPanel();
   }
   handleCustomEvent(e) {
     if (e) {
       if (typeof e == "object" && "key" in e && "value" in e) {
-        js(this.state.custom.data, String(e.key), e.value);
+        rr(this.state.custom.data, String(e.key), e.value);
         return;
       }
       if (typeof e == "object" && ("category" in e || "message" in e)) {
@@ -3089,14 +3168,14 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     }
   }
   applySnapshot(e, t) {
-    const s = e || {}, r = this.state.extra.command_runs, n = t !== void 0 && t !== this.commandRunStateGeneration;
-    this.state.template = s.template || {}, this.state.session = s.session || {}, this.state.requests = U(s.requests), this.state.sql = U(s.sql), this.state.logs = U(s.logs), this.reconcileLogExpansion(), this.state.config = s.config || {}, this.state.routes = U(s.routes);
-    const a = s.custom || {};
+    const s = e || {}, r = this.state.extra.command_runs;
+    this.state.template = s.template || {}, this.state.session = s.session || {}, this.state.requests = H(s.requests), this.state.sql = H(s.sql), this.state.logs = H(s.logs), this.reconcileLogExpansion(), this.state.config = s.config || {}, this.state.routes = H(s.routes);
+    const n = s.custom || {};
     this.state.custom = {
-      data: a.data || {},
-      logs: U(a.logs)
+      data: n.data || {},
+      logs: H(n.logs)
     };
-    const i = /* @__PURE__ */ new Set([
+    const a = /* @__PURE__ */ new Set([
       "template",
       "session",
       "requests",
@@ -3105,17 +3184,90 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       "config",
       "routes",
       "custom"
-    ]), o = {};
-    this.panels.forEach((l) => {
-      !i.has(l) && l in s && (o[l] = s[l]);
-    }), n && (r !== void 0 ? o.command_runs = r : delete o.command_runs), this.state.extra = o, this.commandRunStateGeneration += 1, we(o.command_runs, !0), this.updateTabCounts(), this.renderPanel();
+    ]), i = {};
+    if (this.panels.forEach((o) => {
+      !a.has(o) && o in s && (i[o] = s[o]);
+    }), r !== void 0 || "command_runs" in s) {
+      const o = t || /* @__PURE__ */ new Map(), l = x.get("command_runs")?.liveList?.getMaxEntries?.() || this.maxLogEntries, d = Dt(r, s.command_runs, o, this.commandRunGenerations, l), u = new Set(d.map(D).filter(Boolean)), h = Array.isArray(r) ? r.map(D).filter((f) => f && !u.has(f)) : [];
+      h.length > 0 && Lt(h), i.command_runs = d, this.commandRunStateGeneration += 1, u.forEach((f) => this.commandRunGenerations.set(f, this.commandRunStateGeneration)), this.pruneCommandRunGenerations(d);
+    }
+    this.state.extra = i, Oe(i.command_runs, !0), this.updateTabCounts(), this.renderPanel(), this.refreshCommandRunReconciliation();
+  }
+  pruneCommandRunGenerations(e) {
+    const t = new Set((Array.isArray(e) ? e : []).map(D).filter(Boolean));
+    this.commandRunGenerations.forEach((s, r) => {
+      t.has(r) || this.commandRunGenerations.delete(r);
+    });
+  }
+  commandRunsHaveNonterminalRows() {
+    const e = this.state.extra.command_runs;
+    return Array.isArray(e) && e.some((t) => D(t) && !Ht(t));
+  }
+  commandRunReconciliationVisible() {
+    return this.activePanel === "command_runs" && document.visibilityState !== "hidden" && this.commandRunsHaveNonterminalRows();
+  }
+  clearCommandRunReconcileTimer() {
+    this.commandRunReconcileTimer !== null && (window.clearTimeout(this.commandRunReconcileTimer), this.commandRunReconcileTimer = null);
+  }
+  refreshCommandRunReconciliation(e = Ys) {
+    if (this.destroyed) {
+      this.clearCommandRunReconcileTimer();
+      return;
+    }
+    if (this.commandRunReconcileInFlight) return;
+    if (!this.commandRunReconciliationVisible()) {
+      this.clearCommandRunReconcileTimer();
+      return;
+    }
+    if (this.commandRunReconcileTimer !== null) return;
+    const t = Math.max(0, e);
+    this.commandRunReconcileTimer = window.setTimeout(() => {
+      this.commandRunReconcileTimer = null, this.beginCommandRunSnapshotRequest("timer");
+    }, t);
+  }
+  beginCommandRunSnapshotRequest(e, t = !1) {
+    if (this.destroyed || !(this.activePanel === "command_runs" && document.visibilityState !== "hidden") || this.commandRunReconcileInFlight) return;
+    const s = this.stream.getStatus() === "connected", r = !this.activeSessionId && !!this.debugPath;
+    if (!t && !s && !r) return;
+    if (this.clearCommandRunReconcileTimer(), this.commandRunSnapshotBaseline = Ae(this.state.extra.command_runs, this.commandRunGenerations), this.commandRunReconcileInFlight = !0, t || s) {
+      t || this.stream.requestSnapshot(), this.commandRunReconcileTimer = window.setTimeout(() => {
+        this.commandRunReconcileTimer = null, this.finishCommandRunSnapshotRequest(!1);
+      }, er);
+      return;
+    }
+    const n = new AbortController();
+    this.commandRunSnapshotAbort = n, _(`${this.debugPath}/api/snapshot`, {
+      credentials: "same-origin",
+      signal: n.signal
+    }).then(async (a) => {
+      if (!a.ok) throw new Error("snapshot request failed");
+      const i = await q(a);
+      n.signal.aborted || (this.applySnapshot(i, this.commandRunSnapshotBaseline || void 0), this.finishCommandRunSnapshotRequest(!0));
+    }).catch(() => {
+      n.signal.aborted || this.finishCommandRunSnapshotRequest(!1);
+    });
+  }
+  finishCommandRunSnapshotRequest(e) {
+    if (this.destroyed) {
+      this.stopCommandRunReconciliation(!0);
+      return;
+    }
+    if (this.clearCommandRunReconcileTimer(), this.commandRunSnapshotAbort = null, this.commandRunSnapshotBaseline = null, this.commandRunReconcileInFlight = !1, e) {
+      this.commandRunReconcileFailures = 0, this.refreshCommandRunReconciliation(Zs);
+      return;
+    }
+    const t = Math.min(this.commandRunReconcileFailures, Ge.length - 1);
+    this.commandRunReconcileFailures += 1, this.refreshCommandRunReconciliation(Ge[t]);
+  }
+  stopCommandRunReconciliation(e = !1) {
+    this.clearCommandRunReconcileTimer(), this.commandRunSnapshotAbort?.abort(), this.commandRunSnapshotAbort = null, this.commandRunSnapshotBaseline = null, this.commandRunReconcileInFlight = !1, e && this.commandRunGenerations.clear();
   }
   trim(e, t) {
     if (!(!Array.isArray(e) || t <= 0))
       for (; e.length > t; ) e.shift();
   }
   reconcileLogExpansion() {
-    const e = new Set(this.state.logs.map(Ee));
+    const e = new Set(this.state.logs.map(Re));
     this.logsExpanded.forEach((t) => {
       e.has(t) || this.logsExpanded.delete(t);
     });
@@ -3124,34 +3276,59 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     return kt(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
-    if (!this.debugPath || this.activeSessionId) return;
-    const e = this.commandRunStateGeneration;
+    if (this.destroyed || !this.debugPath || this.activeSessionId) return;
+    const e = Ae(this.state.extra.command_runs, this.commandRunGenerations);
     try {
-      const t = await R(`${this.debugPath}/api/snapshot`, { credentials: "same-origin" });
+      const t = await _(`${this.debugPath}/api/snapshot`, { credentials: "same-origin" });
       if (!t.ok) return;
-      const s = await B(t);
+      const s = await q(t);
+      if (this.destroyed) return;
       this.applySnapshot(s, e);
     } catch {
     }
   }
-  clearAll() {
-    this.debugPath && (this.logsExpanded.clear(), this.stream.clear(), !this.activeSessionId && R(`${this.debugPath}/api/clear`, {
-      method: "POST",
-      credentials: "same-origin"
-    }).catch(() => {
-    }));
+  async clearAll() {
+    if (this.debugPath) {
+      if (this.activeSessionId) {
+        this.logsExpanded.clear(), this.stream.clear();
+        return;
+      }
+      try {
+        if (!(await _(`${this.debugPath}/api/clear`, {
+          method: "POST",
+          credentials: "same-origin"
+        })).ok) {
+          this.showDebugToast("Unable to clear debug data.", "error");
+          return;
+        }
+        this.logsExpanded.clear();
+      } catch {
+        this.showDebugToast("Unable to clear debug data.", "error");
+      }
+    }
   }
-  clearActivePanel() {
+  async clearActivePanel() {
     if (!this.debugPath) return;
     const e = this.activePanel;
-    e === "logs" && this.logsExpanded.clear(), this.stream.clear([e]), !this.activeSessionId && R(`${this.debugPath}/api/clear/${e}`, {
-      method: "POST",
-      credentials: "same-origin"
-    }).catch(() => {
-    });
+    if (this.activeSessionId) {
+      e === "logs" && this.logsExpanded.clear(), this.stream.clear([e]);
+      return;
+    }
+    try {
+      if (!(await _(`${this.debugPath}/api/clear/${encodeURIComponent(e)}`, {
+        method: "POST",
+        credentials: "same-origin"
+      })).ok) {
+        this.showDebugToast(`Unable to clear ${G(e)}.`, "error");
+        return;
+      }
+      e === "logs" && this.logsExpanded.clear();
+    } catch {
+      this.showDebugToast(`Unable to clear ${G(e)}.`, "error");
+    }
   }
   async parseJSONResponse(e) {
-    const t = await B(e);
+    const t = await q(e);
     return t && typeof t == "object" ? t : null;
   }
   readResponsePath(e, t) {
@@ -3172,7 +3349,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     }
     return "";
   }
-  showDoctorActionToast(e, t) {
+  showDebugToast(e, t) {
     const s = e.trim();
     if (!s) return;
     window.getComputedStyle(this.container).position === "static" && (this.container.style.position = "relative");
@@ -3201,7 +3378,7 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
       if (!window.confirm(a)) return;
     }
     try {
-      const a = await R(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
+      const a = await _(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -3213,13 +3390,13 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
           "message",
           "result.message"
         ]) || `Doctor action failed (${a.status})`;
-        this.showDoctorActionToast(l, "error");
+        this.showDebugToast(l, "error");
         return;
       }
       const o = this.responseMessage(i, ["message", "result.message"]) || "Doctor action completed.";
-      this.showDoctorActionToast(o, "success");
+      this.showDebugToast(o, "success");
     } catch {
-      this.showDoctorActionToast("Doctor action failed: unable to reach debug API.", "error");
+      this.showDebugToast("Doctor action failed: unable to reach debug API.", "error");
     } finally {
       this.stream.requestSnapshot();
     }
@@ -3231,126 +3408,132 @@ var Fe = "debug-console-active-panel", Ne = "debug-console-panel-order", Ns = /^
     }
     this.sqlView.discardPending(), e.textContent = "Pause", this.stream.requestSnapshot();
   }
+  destroy() {
+    this.destroyed || (this.destroyed = !0, document.removeEventListener("visibilitychange", this.handleVisibilityChange), window.removeEventListener("pagehide", this.handlePageHide), this.stopCommandRunReconciliation(!0), this.stream.close(), this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null, this.tabsSortable?.destroy(), this.tabsSortable = null, Je());
+  }
   updatePauseIndicator(e) {
     !this.paused || !this.pauseButton || (this.pauseButton.textContent = e > 0 ? `Resume (${e})` : "Resume");
   }
-}, Us = (e) => {
+}, ar = (e) => {
   const t = e || document.querySelector("[data-debug-console]");
-  return t ? new Bs(t) : null;
-}, Be = () => {
-  Us();
+  return t ? new nr(t) : null;
+}, We = () => {
+  ar();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", Be) : Be();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", We) : We();
 export {
-  zs as DATA_ATTRS,
-  yr as DEBUG_ICON_REFS,
-  Bs as DebugPanel,
-  ge as DebugStream,
-  ar as INTERACTION_CLASSES,
-  Y as LiveListView,
-  ut as RegistryLiveListManager,
-  Gs as RemoteDebugStream,
-  tt as SqlLiveView,
-  Er as appendListRow,
-  hr as appendSqlRowDOM,
-  Tr as applyCustomEventPayload,
-  Hr as applyDebugEventToSnapshot,
-  mt as applyPanelActionNavigation,
-  lr as applyPanelActionPayload,
-  rt as attachCopyListeners,
-  nt as attachExpandableRowListeners,
-  at as attachRequestDetailListeners,
-  me as attachRowExpansion,
-  Z as buildEventToPanel,
-  Pr as commandRunKey,
-  wr as commandRunRevision,
-  wt as commandRunSelectionEvent,
-  Br as commandRunTerminal,
-  ve as commandRunsNavigationHref,
-  jr as commandRunsSelection,
+  dr as DATA_ATTRS,
+  Tr as DEBUG_ICON_REFS,
+  nr as DebugPanel,
+  we as DebugStream,
+  wr as INTERACTION_CLASSES,
+  se as LiveListView,
+  St as RegistryLiveListManager,
+  mr as RemoteDebugStream,
+  dt as SqlLiveView,
+  ln as appendListRow,
+  Or as appendSqlRowDOM,
+  Xr as applyCustomEventPayload,
+  nn as applyDebugEventToSnapshot,
+  Ct as applyPanelActionNavigation,
+  Rr as applyPanelActionPayload,
+  ht as attachCopyListeners,
+  mt as attachExpandableRowListeners,
+  pt as attachRequestDetailListeners,
+  ve as attachRowExpansion,
+  re as buildEventToPanel,
+  Ae as captureCommandRunSnapshotBaseline,
+  D as commandRunKey,
+  jr as commandRunRevision,
+  Kt as commandRunRevisionGap,
+  It as commandRunSelectionEvent,
+  Ht as commandRunTerminal,
+  Ie as commandRunsNavigationHref,
+  Br as commandRunsSelection,
   w as consoleStyles,
-  Ws as copyToClipboard,
+  pr as copyToClipboard,
   J as countPayload,
-  Gr as defaultGetCount,
-  qt as defaultHandleEvent,
-  dr as doctorNavigation,
+  un as defaultGetCount,
+  Qt as defaultHandleEvent,
+  _r as doctorNavigation,
   p as escapeHTML,
-  Nr as evictListOverflow,
-  Qs as evictSqlOverflow,
-  qr as fetchDebugSnapshot,
-  zr as formatDuration,
-  _t as formatJSON,
-  z as formatNumber,
-  Tt as formatTimestamp,
-  mr as getDebugIconRef,
-  Dt as getDefaultPanels,
-  Xr as getDefaultToolbarPanels,
-  Fr as getLevelClass,
-  Ct as getPanelCount,
-  Wr as getPanelData,
-  xt as getPanelEventTypes,
-  Ot as getPanelIcon,
-  Ae as getPanelLabel,
-  V as getSnapshotKey,
-  Mr as getStatusClass,
-  Ys as getStyleConfig,
-  Ur as getToolbarCounts,
-  Qr as hashString,
-  Us as initDebugPanel,
-  $t as isKnownPanel,
-  Yr as isSchemaListRenderer,
+  sn as evictListOverflow,
+  ur as evictSqlOverflow,
+  Yr as fetchDebugSnapshot,
+  Zr as formatDuration,
+  jt as formatJSON,
+  Q as formatNumber,
+  zt as formatTimestamp,
+  Dr as getDebugIconRef,
+  Vt as getDefaultPanels,
+  dn as getDefaultToolbarPanels,
+  tn as getLevelClass,
+  qt as getPanelCount,
+  mn as getPanelData,
+  Ft as getPanelEventTypes,
+  Nt as getPanelIcon,
+  G as getPanelLabel,
+  z as getSnapshotKey,
+  en as getStatusClass,
+  fr as getStyleConfig,
+  rn as getToolbarCounts,
+  Wr as hashString,
+  ar as initDebugPanel,
+  Ut as isKnownPanel,
+  Hr as isSchemaListRenderer,
   kt as isSlowDuration,
-  dt as jsErrorRowKey,
-  Ee as logRowKey,
-  bt as logSearchText,
-  Sr as normalizeEventTypes,
-  Rt as normalizeReplCommands,
-  Vr as panelDefinitionFromServer,
-  $ as panelRegistry,
-  Se as parseCommandRunsNavigation,
-  we as reconcileCommandRunsRows,
-  Rr as renderCommandRunRow,
-  Ar as renderCommandRunsPanel,
-  ht as renderCustomPanel,
-  gr as renderDebugIcon,
-  vt as renderDebugIconRef,
-  rr as renderDoctorPanel,
-  or as renderDoctorPanelCompact,
-  pt as renderErrorRow,
-  ft as renderJSErrorsPanel,
-  Pt as renderJSONPanel,
-  kr as renderJSONViewer,
-  ct as renderLogRow,
-  yt as renderLogsPanel,
-  $r as renderPanelContent,
-  ur as renderPermissionsPanel,
-  nr as renderPermissionsPanelCompact,
-  gt as renderRequestRow,
-  it as renderRequestsPanel,
-  lt as renderRoutesPanel,
-  ot as renderSQLPanel,
-  Xs as renderSQLRow,
-  er as renderSQLRowsHTML,
-  vr as renderSchemaIdentity,
-  Dr as renderSchemaKeyValue,
-  _r as renderSchemaListRow,
-  Lr as renderSchemaMetrics,
-  Ir as renderSchemaStatusList,
-  Cr as renderSchemaTable,
-  xr as renderSchemaTimeline,
-  sr as renderSiteRenderCachePanel,
-  cr as renderSiteRenderCachePanelCompact,
-  At as replPanelIDs,
-  st as requestRowKey,
-  St as resetCommandRunsState,
-  ye as restoreRowExpansion,
-  Kr as schemaRowKey,
-  Or as selectCommandRun,
-  Zs as serializeLogEntry,
-  Pe as setCommandRunsNavigationTarget,
-  tr as sqlRowKey,
-  ir as toolbarStyles,
-  Jr as truncate
+  Et as jsErrorRowKey,
+  Re as logRowKey,
+  _t as logSearchText,
+  Dt as mergeAuthoritativeCommandRuns,
+  qr as normalizeEventTypes,
+  Bt as normalizeReplCommands,
+  on as panelDefinitionFromServer,
+  x as panelRegistry,
+  xe as parseCommandRunsNavigation,
+  Oe as reconcileCommandRunsRows,
+  Ur as renderCommandRunRow,
+  pn as renderCommandRunsPanel,
+  vt as renderCustomPanel,
+  Lr as renderDebugIcon,
+  Ot as renderDebugIconRef,
+  Sr as renderDoctorPanel,
+  Cr as renderDoctorPanelCompact,
+  Pt as renderErrorRow,
+  wt as renderJSErrorsPanel,
+  Mt as renderJSONPanel,
+  cn as renderJSONViewer,
+  bt as renderLogRow,
+  At as renderLogsPanel,
+  Jr as renderPanelContent,
+  xr as renderPermissionsPanel,
+  vr as renderPermissionsPanelCompact,
+  Rt as renderRequestRow,
+  ft as renderRequestsPanel,
+  yt as renderRoutesPanel,
+  gt as renderSQLPanel,
+  hr as renderSQLRow,
+  yr as renderSQLRowsHTML,
+  Vr as renderSchemaIdentity,
+  Fr as renderSchemaKeyValue,
+  Nr as renderSchemaListRow,
+  an as renderSchemaMetrics,
+  Mr as renderSchemaStatusList,
+  Gr as renderSchemaTable,
+  zr as renderSchemaTimeline,
+  Er as renderSiteRenderCachePanel,
+  Ar as renderSiteRenderCachePanelCompact,
+  Tt as replPanelIDs,
+  ut as requestRowKey,
+  $t as resetCommandRunsState,
+  Pe as restoreRowExpansion,
+  Qr as schemaRowKey,
+  Kr as selectCommandRun,
+  gr as serializeLogEntry,
+  _e as setCommandRunsNavigationTarget,
+  br as sqlRowKey,
+  Pr as toolbarStyles,
+  hn as truncate
 };
 
 //# sourceMappingURL=index.js.map

@@ -42,6 +42,7 @@ import (
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	authlib "github.com/goliatone/go-auth"
 	gocommand "github.com/goliatone/go-command"
+	commanddispatcher "github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
 	goerrors "github.com/goliatone/go-errors"
@@ -72,7 +73,11 @@ const (
 	exampleEchoCommandID          = "example.debug.echo"
 	exampleMaintenanceCommandID   = "example.debug.maintenance"
 	exampleHealthCommandID        = "example.debug.health"
+	exampleFailureCommandID       = "example.debug.failure"
+	exampleQueuedCommandID        = "example.debug.queued-progress"
 	exampleDebugCommandPermission = "admin.commands.dispatch"
+	exampleFailurePermission      = "admin.commands.failure"
+	exampleQueuedPermission       = "admin.commands.queue"
 )
 
 type exampleDebugCommandCatalog struct{}
@@ -209,6 +214,32 @@ func (exampleDebugCommandCatalog) CommandDescriptors() []gocommand.CommandDescri
 			Input:         gocommand.CommandInputSchema{Type: "object", NoInput: true},
 			Result:        gocommand.CommandResultDescriptor{Inline: true, ReceiptExpected: true},
 		},
+		{
+			ID:            exampleFailureCommandID,
+			Label:         "Simulate a command failure",
+			Summary:       "Return a deterministic execution error for Command Runs verification.",
+			Domain:        "example",
+			Group:         "Examples",
+			Tags:          []string{"example", "failure", "read-only"},
+			ExposeInAdmin: true,
+			Permissions:   []string{exampleFailurePermission},
+			ExecutionMode: gocommand.ExecutionModeInline,
+			Input:         gocommand.CommandInputSchema{Type: "object", NoInput: true},
+			Result:        gocommand.CommandResultDescriptor{ReceiptExpected: true},
+		},
+		{
+			ID:            exampleQueuedCommandID,
+			Label:         "Simulate queued progress",
+			Summary:       "Accept a queued command and publish bounded progress before success.",
+			Domain:        "example",
+			Group:         "Examples",
+			Tags:          []string{"example", "queued", "progress"},
+			ExposeInAdmin: true,
+			Permissions:   []string{exampleQueuedPermission},
+			ExecutionMode: gocommand.ExecutionModeQueued,
+			Input:         gocommand.CommandInputSchema{Type: "object", NoInput: true},
+			Result:        gocommand.CommandResultDescriptor{Queued: true, ReceiptExpected: true},
+		},
 	}
 }
 
@@ -253,6 +284,46 @@ type exampleHealthResult struct {
 	Status      string `json:"status"`
 	Application string `json:"application"`
 	CheckedAt   string `json:"checked_at"`
+}
+
+type exampleFailureMessage struct{}
+
+func (exampleFailureMessage) Type() string { return exampleFailureCommandID }
+
+type exampleQueuedMessage struct{}
+
+func (exampleQueuedMessage) Type() string { return exampleQueuedCommandID }
+
+type exampleQueuedExecutor struct{}
+
+func (exampleQueuedExecutor) Execute(ctx context.Context, _ any, commandID string, opts gocommand.DispatchOptions) (gocommand.DispatchReceipt, error) {
+	run, _ := gocommand.DispatchRunFromContext(ctx)
+	now := time.Now().UTC()
+	receipt := gocommand.DispatchReceipt{
+		Accepted:      true,
+		Mode:          gocommand.ExecutionModeQueued,
+		CommandID:     commandID,
+		DispatchID:    "example-dispatch-" + uuid.NewString(),
+		EnqueuedAt:    &now,
+		CorrelationID: strings.TrimSpace(opts.CorrelationID),
+	}
+	run.CommandID = commandID
+	run.DispatchID = receipt.DispatchID
+	run.CorrelationID = receipt.CorrelationID
+	run.ExecutionMode = gocommand.ExecutionModeQueued
+	run.Receipt = receipt
+	workerCtx := context.WithoutCancel(ctx)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		_ = commanddispatcher.RunObservedCommand(workerCtx, run, func(progressCtx context.Context) error {
+			gocommand.Checkpoint(progressCtx, "queued worker started")
+			gocommand.Progress(progressCtx, 1, 2, gocommand.WithProgressMessage("processing first step"))
+			time.Sleep(150 * time.Millisecond)
+			gocommand.Progress(progressCtx, 2, 2, gocommand.WithProgressMessage("processing complete"))
+			return nil
+		})
+	}()
+	return receipt, nil
 }
 
 func exampleEntryNavigationOptions() coreadmin.EntryNavigationOptions {
@@ -575,7 +646,12 @@ func main() {
 		quickstart.AddDebugPanels(&cfg, exportPipelinePanelID)
 	}
 	if debugEnabled {
-		quickstart.AddDebugPanels(&cfg, coreadmin.DebugPanelCommands)
+		cfg.Debug.CommandRuns = coreadmin.CommandRunRuntimeConfig{
+			Enabled:       true,
+			Role:          coreadmin.CommandRunRoleMonolith,
+			ScopeResolver: exampleCommandRunScopeResolver(scopeCfg.DefaultTenantID, scopeCfg.DefaultOrgID),
+		}
+		quickstart.AddDebugPanels(&cfg, coreadmin.DebugPanelCommands, coreadmin.DebugPanelCommandRuns)
 		configureExampleDebugCommandRPC(&cfg)
 	}
 	debugPanelCatalog := quickstart.DefaultDebugPanelCatalog()
@@ -4031,6 +4107,9 @@ func setupDebugConsoleCommands(adm *admin.Admin, logf func(string, ...any)) erro
 	if adm == nil || adm.Commands() == nil {
 		return fmt.Errorf("debug console command bus is unavailable")
 	}
+	if err := commanddispatcher.RegisterObservedExecutor(gocommand.ExecutionModeQueued, exampleQueuedExecutor{}); err != nil {
+		return fmt.Errorf("register queued debug command executor: %w", err)
+	}
 	return registerDebugConsoleCommands(adm.Commands(), logf)
 }
 
@@ -4045,15 +4124,43 @@ func configureExampleDebugCommandRPC(cfg *coreadmin.Config) {
 		exampleEchoCommandID,
 		exampleMaintenanceCommandID,
 		exampleHealthCommandID,
+		exampleFailureCommandID,
+		exampleQueuedCommandID,
 	} {
 		if _, exists := cfg.Commands.RPC.Commands[commandID]; exists {
 			continue
 		}
+		permission := exampleDebugCommandPermission
+		switch commandID {
+		case exampleFailureCommandID:
+			permission = exampleFailurePermission
+		case exampleQueuedCommandID:
+			permission = exampleQueuedPermission
+		}
 		cfg.Commands.RPC.Commands[commandID] = coreadmin.RPCCommandRule{
-			Permission: exampleDebugCommandPermission,
+			Permission: permission,
 			Resource:   "commands",
 		}
 	}
+}
+
+func exampleCommandRunScopeResolver(defaultTenantID string, defaultOrgID string) coreadmin.CommandRunScopeResolver {
+	defaultTenantID = strings.TrimSpace(defaultTenantID)
+	defaultOrgID = strings.TrimSpace(defaultOrgID)
+	return coreadmin.CommandRunScopeResolverFunc(func(ctx context.Context, update coreadmin.CommandRunUpdate) (coreadmin.CommandRunScope, error) {
+		scope := update.Scope
+		if actor, ok := authlib.ActorFromContext(ctx); ok && actor != nil {
+			scope.TenantID = strings.TrimSpace(actor.TenantID)
+			scope.OrganizationID = strings.TrimSpace(actor.OrganizationID)
+		}
+		if scope.TenantID == "" {
+			scope.TenantID = defaultTenantID
+		}
+		if scope.OrganizationID == "" {
+			scope.OrganizationID = defaultOrgID
+		}
+		return scope, nil
+	})
 }
 
 func registerDebugConsoleCommands(bus *coreadmin.CommandBus, logf func(string, ...any)) error {
@@ -4136,6 +4243,28 @@ func registerDebugConsoleCommands(bus *coreadmin.CommandBus, logf func(string, .
 	}
 	if err := coreadmin.RegisterMessageResultFactory[exampleHealthMessage, exampleHealthResult](bus, exampleHealthCommandID, buildExampleHealthMessage); err != nil {
 		return fmt.Errorf("register %s factory: %w", exampleHealthCommandID, err)
+	}
+
+	if _, err := admin.RegisterCommand(bus, gocommand.CommandFunc[exampleFailureMessage](func(context.Context, exampleFailureMessage) error {
+		return fmt.Errorf("simulated example command failure")
+	})); err != nil {
+		return fmt.Errorf("register %s handler: %w", exampleFailureCommandID, err)
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, exampleFailureCommandID, func(map[string]any, []string) (exampleFailureMessage, error) {
+		return exampleFailureMessage{}, nil
+	}); err != nil {
+		return fmt.Errorf("register %s factory: %w", exampleFailureCommandID, err)
+	}
+
+	if _, err := admin.RegisterCommand(bus, gocommand.CommandFunc[exampleQueuedMessage](func(context.Context, exampleQueuedMessage) error {
+		return nil
+	})); err != nil {
+		return fmt.Errorf("register %s handler: %w", exampleQueuedCommandID, err)
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, exampleQueuedCommandID, func(map[string]any, []string) (exampleQueuedMessage, error) {
+		return exampleQueuedMessage{}, nil
+	}); err != nil {
+		return fmt.Errorf("register %s factory: %w", exampleQueuedCommandID, err)
 	}
 
 	return nil

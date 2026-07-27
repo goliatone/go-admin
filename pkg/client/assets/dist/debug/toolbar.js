@@ -1,11 +1,11 @@
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as _, readHTTPError as $ } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as I } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as E, I as j, M as F, N as V, P as N, R as G, T as B, V as Q, _ as K, b as Y, f as U, g as J, h as W, k as h, m as X, p as Z, r as tt, v as et, w as at, x as ot } from "../chunks/builtin-panels-PNUdAgjs.js";
+import { C as H, E as O, F as D, G as E, I as j, M as F, N as V, P as N, R as G, T as B, V as K, _ as Q, b as U, f as Y, g as J, h as W, k as h, m as X, p as Z, r as tt, v as et, w as at, x as ot } from "../chunks/builtin-panels-CCATNT-3.js";
 import { t as st } from "../chunks/repl-panel-BKc41M7P.js";
 import { i as rt } from "../chunks/icons-B_VaFfsl.js";
-import { Q as v, S as nt, T as it, X as g, Y as lt, _ as dt, a as Lt, b as ct, c as C, ct as ht, d as y, f as pt, g as bt, h as zt, l as Tt, m as ut, n as q, o as P, p as gt, s as f, u as x, w as p, x as ft } from "../chunks/server-definitions-4iGaxxbT.js";
-import { t as k } from "../chunks/deployment-identity-OqtktVXM.js";
+import { $ as nt, S as it, T as lt, _ as dt, a as Lt, b as ct, c as C, d as y, et as g, f as ht, ft as pt, g as bt, h as zt, l as Tt, m as ut, n as q, nt as v, o as P, p as gt, s as f, u as x, w as p, x as ft } from "../chunks/server-definitions-Bg5imA4C.js";
+import { t as k } from "../chunks/deployment-identity-BNpfhBzZ.js";
 var xt = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1393,7 +1393,7 @@ var xt = `
 `, d = h;
 function w(o, t, e = 50, a) {
   const s = p.get(o);
-  if (s) return it(s, ft(t, s), d, a || {}, "toolbar");
+  if (s) return lt(s, ft(t, s), d, a || {}, "toolbar");
   const r = a?.newestFirst ?? !0, i = a?.slowThresholdMs ?? e;
   switch (o) {
     case "requests":
@@ -1408,7 +1408,7 @@ function w(o, t, e = 50, a) {
         maxDetailLength: 80
       });
     case "sql":
-      return Q(t.sql || [], d, {
+      return K(t.sql || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1430,7 +1430,7 @@ function w(o, t, e = 50, a) {
         showCount: !1
       });
     case "routes":
-      return K(t.routes || [], d, { showName: !1 });
+      return Q(t.routes || [], d, { showName: !1 });
     case "template":
       return g("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
@@ -1496,7 +1496,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     }), this.logsView = new v({
       styles: h,
       keyOf: et,
-      renderRow: (t) => Y(t, h, {
+      renderRow: (t) => U(t, h, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1523,7 +1523,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
       onAdopt: (t) => N(t, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new v({
       styles: h,
-      keyOf: U,
+      keyOf: Y,
       renderRow: (t) => Z(t, h, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
@@ -1699,7 +1699,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     else if (e === "requests") this.requestsView.enqueue([t.payload]);
     else if (e === "jserrors") this.jserrorsView.enqueue([t.payload]);
     else if (this.registryLiveList.handles(p.get(e))) {
-      const a = p.get(e), s = this.snapshot[nt(a)], r = Array.isArray(s) ? s[s.length - 1] : void 0;
+      const a = p.get(e), s = this.snapshot[it(a)], r = Array.isArray(s) ? s[s.length - 1] : void 0;
       this.registryLiveList.enqueue(a, r);
     } else this.updateContent();
   }
@@ -1711,7 +1711,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
   }
   render() {
     const t = u(this.snapshot, this.slowThresholdMs), e = this.panels.map((n) => {
-      const l = gt(n), T = this.getPanelCount(n), R = this.activePanel === n ? "active" : "", A = rt(pt(n), {
+      const l = gt(n), T = this.getPanelCount(n), R = this.activePanel === n ? "active" : "", A = rt(ht(n), {
         size: "14px",
         extraClass: "tab-icon"
       });
@@ -1934,7 +1934,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     if (!e) return;
     const a = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
     if (!a) return;
-    const s = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${c(ht(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    const s = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${c(pt(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
     a.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${c(e.message)}</div>${s}`;
   }
   renderReplPanel(t, e) {
@@ -2531,7 +2531,7 @@ var mt = `
           </span>
           ${a ? `
             <span class="fab-identity">
-              ${a.persona ? lt(a.persona, "fab-persona-avatar") : ""}
+              ${a.persona ? nt(a.persona, "fab-persona-avatar") : ""}
               <span class="fab-identity-env">
                 <span class="fab-identity-dot" aria-hidden="true"></span>
                 <span class="fab-identity-env-full">${c(a.environment)}</span>
@@ -2714,7 +2714,7 @@ export {
   Tt as getDefaultPanels,
   x as getDefaultToolbarPanels,
   y as getPanelEventTypes,
-  pt as getPanelIcon,
+  ht as getPanelIcon,
   gt as getPanelLabel,
   wt as initDebugManager,
   zt as isKnownPanel,

@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/admin/routing"
 	debugregistry "github.com/goliatone/go-admin/debug"
 	auth "github.com/goliatone/go-auth"
+	gocommand "github.com/goliatone/go-command"
 	router "github.com/goliatone/go-router"
 )
 
@@ -53,11 +54,209 @@ func TestDebugRoutesRequirePermission(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	for _, route := range []string{"snapshot", "command_runs.lookup"} {
+		req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, route), nil)
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 403 {
+			t.Fatalf("expected debug %s to enforce permissions, got %d", route, rr.Code)
+		}
+	}
+}
+
+func TestCommandRunHTTPClearDenialIsSanitizedAndDoesNotInvalidate(t *testing.T) {
+	debugCfg := DebugConfig{
+		Enabled: true,
+		Panels:  []string{DebugPanelCommandRuns},
+		CommandRuns: CommandRunRuntimeConfig{
+			Enabled:       true,
+			ApplicationID: "app",
+			EnvironmentID: "test",
+			RecordAuthorizer: CommandRunRecordAuthorizerFunc(func(_ context.Context, record CommandRunRecord) (bool, error) {
+				return record.CommandID != "jobs.hidden-by-host", nil
+			}),
+		},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromFlags(map[string]bool{"debug": true, "commands": true}),
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []gocommand.CommandDescriptor{
+			{ID: "jobs.allowed", ExposeInAdmin: true},
+			{ID: "jobs.hidden-by-host", ExposeInAdmin: true},
+		}},
+	})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	mod := NewDebugModule(debugCfg)
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+	runtime := adm.CommandRunRuntime()
+	if runtime == nil {
+		t.Fatal("command-run runtime was not started")
+	}
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-allowed", "jobs.allowed", "", 1)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-hidden", "jobs.hidden-by-host", "", 1)
+	events := mod.collector.Subscribe("http-clear-denial")
+	t.Cleanup(func() { mod.collector.Unsubscribe("http-clear-denial") })
+
+	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "clear.panel"), ":panel", DebugPanelCommandRuns, 1)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, path, nil)
+	req.Header.Set("X-Test-User", "operator")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 403 {
-		t.Fatalf("expected debug snapshot to enforce permissions, got %d", rr.Code)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("clear status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	for _, forbidden := range []string{"run-hidden", "jobs.hidden-by-host", "hidden_count"} {
+		if strings.Contains(rr.Body.String(), forbidden) {
+			t.Fatalf("clear response disclosed %q: %s", forbidden, rr.Body.String())
+		}
+	}
+	remaining, err := runtime.Store().List(context.Background(), CommandRunSelector{Global: true})
+	if err != nil || len(remaining) != 2 {
+		t.Fatalf("denied HTTP clear changed rows=%d err=%v", len(remaining), err)
+	}
+	select {
+	case event := <-events:
+		t.Fatalf("denied HTTP clear published false invalidation: %+v", event)
+	default:
+	}
+}
+
+func TestCommandRunHTTPLookupUsesAuthorizedPrecedenceAndMasksRecord(t *testing.T) {
+	debugCfg := DebugConfig{
+		Enabled:         true,
+		Panels:          []string{DebugPanelCommandRuns},
+		MaskFieldTypes:  map[string]string{"secret_note": "filled"},
+		MaskPlaceholder: "***",
+		CommandRuns: CommandRunRuntimeConfig{
+			Enabled:       true,
+			ApplicationID: "app",
+			EnvironmentID: "test",
+			RecordAuthorizer: CommandRunRecordAuthorizerFunc(func(_ context.Context, record CommandRunRecord) (bool, error) {
+				return record.CommandID != "jobs.hidden", nil
+			}),
+		},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromFlags(map[string]bool{"debug": true, "commands": true}),
+		CommandCatalog: commandLauncherTestCatalog{descriptors: []gocommand.CommandDescriptor{
+			{ID: "jobs.allowed", ExposeInAdmin: true},
+			{ID: "jobs.hidden", ExposeInAdmin: true},
+		}},
+	})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+	runtime := adm.CommandRunRuntime()
+	if runtime == nil {
+		t.Fatal("command-run runtime was not started")
+	}
+	applyLookupRecord := func(runID, dispatchID, correlationID, commandID, secret string) {
+		t.Helper()
+		update := validCommandRunUpdate()
+		update.EventID = "event-" + runID
+		update.RunID = runID
+		update.DispatchID = dispatchID
+		update.CorrelationID = correlationID
+		update.CommandID = commandID
+		update.Scope = CommandRunScope{ApplicationID: "app", EnvironmentID: "test"}
+		update.Metadata = map[string]any{"secret_note": secret}
+		update.Outcome = &CommandRunOutcome{
+			Summary: "Lookup completed",
+			Fields:  map[string]any{"secret_note": secret},
+		}
+		if _, _, err := runtime.Store().Apply(context.Background(), update); err != nil {
+			t.Fatalf("apply lookup record %s: %v", runID, err)
+		}
+	}
+	applyLookupRecord("route-run", "route-dispatch", "route-correlation", "jobs.allowed", "masked-value")
+	applyLookupRecord("other-run", "other-dispatch", "other-correlation", "jobs.allowed", "other-secret")
+	applyLookupRecord("hidden-run", "hidden-dispatch", "hidden-correlation", "jobs.hidden", "hidden-secret")
+
+	lookupPath := debugAPIPath(t, adm, debugCfg, "command_runs.lookup")
+	request := func(query string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, lookupPath+"?"+query, nil)
+		req.Header.Set("X-Test-User", "operator")
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		return rr
+	}
+
+	for _, testCase := range []struct {
+		query string
+		runID string
+	}{
+		{query: "run_id=route-run&dispatch_id=other-dispatch&correlation_id=other-correlation", runID: "route-run"},
+		{query: "dispatch_id=route-dispatch", runID: "route-run"},
+		{query: "correlation_id=route-correlation", runID: "route-run"},
+		{query: "id=route-dispatch", runID: "route-run"},
+	} {
+		rr := request(testCase.query)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("lookup %q status=%d body=%s", testCase.query, rr.Code, rr.Body.String())
+		}
+		var payload struct {
+			Record CommandRunRecord `json:"record"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode lookup %q: %v", testCase.query, err)
+		}
+		if payload.Record.RunID != testCase.runID {
+			t.Fatalf("lookup %q run=%q want=%q", testCase.query, payload.Record.RunID, testCase.runID)
+		}
+		maskedMetadata, _ := payload.Record.Metadata["secret_note"].(string)
+		if maskedMetadata == "" || strings.Trim(maskedMetadata, "*") != "" {
+			t.Fatalf("lookup metadata was not masked: %#v", payload.Record.Metadata)
+		}
+		maskedOutcome := ""
+		if payload.Record.Outcome != nil {
+			maskedOutcome, _ = payload.Record.Outcome.Fields["secret_note"].(string)
+		}
+		if maskedOutcome == "" || strings.Trim(maskedOutcome, "*") != "" {
+			t.Fatalf("lookup outcome was not masked: %#v", payload.Record.Outcome)
+		}
+	}
+
+	denied := request("run_id=hidden-run")
+	missing := request("run_id=missing-run")
+	if denied.Code != http.StatusNotFound || missing.Code != http.StatusNotFound {
+		t.Fatalf("denied/missing status=%d/%d", denied.Code, missing.Code)
+	}
+	comparableError := func(rr *httptest.ResponseRecorder) string {
+		t.Helper()
+		var payload map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode lookup error: %v", err)
+		}
+		if errorPayload, ok := payload["error"].(map[string]any); ok {
+			delete(errorPayload, "timestamp")
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("encode comparable lookup error: %v", err)
+		}
+		return string(encoded)
+	}
+	if comparableError(denied) != comparableError(missing) {
+		t.Fatalf("denied lookup differs from missing: denied=%s missing=%s", denied.Body.String(), missing.Body.String())
 	}
 }
 
@@ -1488,5 +1687,8 @@ func TestDebugRoutesRespectRoutingMountOverrides(t *testing.T) {
 	}
 	if got := debugAPIPath(t, adm, cfg.Debug, "snapshot"); got != "/control/workbench/debug/api/snapshot" {
 		t.Fatalf("expected planner-backed debug api path, got %q", got)
+	}
+	if got := debugAPIPath(t, adm, cfg.Debug, "command_runs.lookup"); got != "/control/workbench/debug/api/command-runs/lookup" {
+		t.Fatalf("expected planner-backed command-run lookup path, got %q", got)
 	}
 }

@@ -709,10 +709,13 @@ type (
 	CommandLauncherSnapshot                           = core.CommandLauncherSnapshot
 	CommandRegistrationState                          = core.CommandRegistrationState
 	CommandResultFailureReporter                      = core.CommandResultFailureReporter
+	CommandRunAtomicClearStore                        = core.CommandRunAtomicClearStore
+	CommandRunClearSnapshot                           = core.CommandRunClearSnapshot
 	CommandRunContractLimits                          = core.CommandRunContractLimits
 	CommandRunDiagnosticStatus                        = core.CommandRunDiagnosticStatus
 	CommandRunDiagnostics                             = core.CommandRunDiagnostics
 	CommandRunFailure                                 = core.CommandRunFailure
+	CommandRunOutcome                                 = core.CommandRunOutcome
 	CommandRunHandler                                 = core.CommandRunHandler
 	CommandRunMemoryStoreConfig                       = core.CommandRunMemoryStoreConfig
 	CommandRunObserverBridge                          = core.CommandRunObserverBridge
@@ -724,6 +727,8 @@ type (
 	CommandRunProjector                               = core.CommandRunProjector
 	CommandRunPublisher                               = core.CommandRunPublisher
 	CommandRunRecord                                  = core.CommandRunRecord
+	CommandRunRecordAuthorizer                        = core.CommandRunRecordAuthorizer
+	CommandRunRecordAuthorizerFunc                    = core.CommandRunRecordAuthorizerFunc
 	CommandRunRecordHandler                           = core.CommandRunRecordHandler
 	CommandRunRuntime                                 = core.CommandRunRuntime
 	CommandRunRuntimeConfig                           = core.CommandRunRuntimeConfig

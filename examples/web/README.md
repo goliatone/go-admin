@@ -49,6 +49,17 @@ go run .
 
 The server starts at `http://localhost:8080/admin`
 
+In development, the Debug Console enables both the Commands launcher and the
+local bounded Command Runs runtime. Dispatch the example commands from
+`/admin/debug?panel=commands`, then open
+`/admin/debug?panel=command_runs` to inspect their live lifecycle rows. This
+runtime is intentionally process-local and ephemeral; production split
+deployments should inject shared transport/store implementations as described
+in `docs/GUIDE_DEBUG_MODULE.md`. The catalog includes successful inline,
+deterministic failure, and observed queued-progress samples. The latter two
+also carry command-specific descriptor permissions, so non-superadmin roles
+can be used to verify partial catalog/run visibility.
+
 If you are iterating on the `quickstart` submodule locally, make sure the root
 module resolves it via either:
 - a `replace github.com/goliatone/go-admin/quickstart => ./quickstart` entry in

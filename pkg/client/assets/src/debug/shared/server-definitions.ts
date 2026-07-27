@@ -148,11 +148,11 @@ function applyEventPolicy(currentData: unknown, eventPayload: unknown, ui: Serve
   }
   if (mode === 'upsert') {
     const key = normalizeText(policy?.key);
-    if (!key || !Array.isArray(currentData) || !payload || typeof payload !== 'object') {
+    if (!key || !payload || typeof payload !== 'object') {
       return defaultHandleEvent(currentData, payload, maxEntries);
     }
     const payloadKey = getPathValue(payload, key);
-    const next = [...currentData];
+    const next = Array.isArray(currentData) ? [...currentData] : [];
     const index = next.findIndex((item) => getPathValue(item, key) === payloadKey);
     if (index >= 0) {
       const existing = next[index];

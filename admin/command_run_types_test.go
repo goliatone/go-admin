@@ -30,6 +30,10 @@ func TestCommandRunUpdateJSONRoundTripAndCloneIsolation(t *testing.T) {
 		Total:         &total,
 		Attempt:       1,
 		MaxAttempts:   3,
+		Outcome: &CommandRunOutcome{
+			Summary: " rebuilt projections ",
+			Fields:  map[string]any{"processed": 42, "dry_run": false},
+		},
 		Scope: CommandRunScope{
 			ApplicationID: " app ", EnvironmentID: " prod ", TenantID: " tenant-a ",
 		},
@@ -59,12 +63,16 @@ func TestCommandRunUpdateJSONRoundTripAndCloneIsolation(t *testing.T) {
 
 	clone := update.Clone()
 	clone.Metadata["safe"].(map[string]any)["labels"].([]any)[0] = "changed"
+	clone.Outcome.Fields["processed"] = 99
 	*clone.Current = 4
 	if got := update.Metadata["safe"].(map[string]any)["labels"].([]any)[0]; got != "one" {
 		t.Fatalf("source metadata mutated through clone: %v", got)
 	}
 	if *update.Current != 2 {
 		t.Fatalf("source progress mutated through clone: %d", *update.Current)
+	}
+	if update.Outcome.Summary != "rebuilt projections" || update.Outcome.Fields["processed"] != 42 {
+		t.Fatalf("source outcome mutated through clone: %+v", update.Outcome)
 	}
 }
 
@@ -108,6 +116,21 @@ func TestNormalizeCommandRunUpdateValidation(t *testing.T) {
 		},
 		"unsafe metadata": func(u *CommandRunUpdate) { u.Metadata = map[string]any{"error": errors.New("secret")} },
 		"non-finite":      func(u *CommandRunUpdate) { u.Metadata = map[string]any{"number": math.Inf(1)} },
+		"nested outcome": func(u *CommandRunUpdate) {
+			u.Outcome = &CommandRunOutcome{Fields: map[string]any{"nested": map[string]any{"value": true}}}
+		},
+		"outcome array": func(u *CommandRunUpdate) {
+			u.Outcome = &CommandRunOutcome{Fields: map[string]any{"items": []string{"one"}}}
+		},
+		"outcome nil": func(u *CommandRunUpdate) {
+			u.Outcome = &CommandRunOutcome{Fields: map[string]any{"value": nil}}
+		},
+		"outcome non-finite": func(u *CommandRunUpdate) {
+			u.Outcome = &CommandRunOutcome{Fields: map[string]any{"value": math.NaN()}}
+		},
+		"outcome summary": func(u *CommandRunUpdate) {
+			u.Outcome = &CommandRunOutcome{Summary: strings.Repeat("s", defaultCommandRunMaxTextLength+1)}
+		},
 	}
 	for name, mutate := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -117,6 +140,64 @@ func TestNormalizeCommandRunUpdateValidation(t *testing.T) {
 				t.Fatalf("error = %v, want ErrInvalidCommandRunUpdate", err)
 			}
 		})
+	}
+}
+
+func TestCommandRunOutcomeBoundsAndNormalizedKeys(t *testing.T) {
+	base := validCommandRunUpdate()
+	limits := DefaultCommandRunContractLimits()
+	limits.MaxMetadataKeys = 2
+	base.Outcome = &CommandRunOutcome{
+		Summary: " Completed ",
+		Fields:  map[string]any{" processed ": json.Number("42"), "dry_run": false},
+	}
+	normalized, err := NormalizeCommandRunUpdate(base, limits)
+	if err != nil {
+		t.Fatalf("normalize outcome: %v", err)
+	}
+	if normalized.Outcome == nil || normalized.Outcome.Summary != "Completed" ||
+		normalized.Outcome.Fields["processed"] != json.Number("42") {
+		t.Fatalf("normalized outcome = %+v", normalized.Outcome)
+	}
+
+	base.Outcome.Fields["extra"] = "value"
+	if _, err := NormalizeCommandRunUpdate(base, limits); !errors.Is(err, ErrInvalidCommandRunUpdate) {
+		t.Fatalf("outcome key limit error = %v", err)
+	}
+
+	base.Outcome = &CommandRunOutcome{
+		Fields: map[string]any{"key": strings.Repeat("x", defaultCommandRunMaxMetadataString+1)},
+	}
+	if _, err := NormalizeCommandRunUpdate(base, CommandRunContractLimits{}); !errors.Is(err, ErrInvalidCommandRunUpdate) {
+		t.Fatalf("outcome string limit error = %v", err)
+	}
+
+	base.Outcome = &CommandRunOutcome{Fields: map[string]any{" key ": true, "key": false}}
+	if _, err := NormalizeCommandRunUpdate(base, CommandRunContractLimits{}); !errors.Is(err, ErrInvalidCommandRunUpdate) {
+		t.Fatalf("duplicate normalized outcome key error = %v", err)
+	}
+}
+
+func TestCommandRunOutcomePassesThroughDebugMasking(t *testing.T) {
+	update := validCommandRunUpdate()
+	update.Outcome = &CommandRunOutcome{
+		Summary: "Completed safely",
+		Fields:  map[string]any{"api_key": "operator-secret", "processed": 4},
+	}
+	normalized, err := NormalizeCommandRunUpdate(update, CommandRunContractLimits{})
+	if err != nil {
+		t.Fatalf("normalize outcome: %v", err)
+	}
+	masked := debugMaskValue(DebugConfig{MaskPlaceholder: "***"}, normalized)
+	encoded, err := json.Marshal(masked)
+	if err != nil {
+		t.Fatalf("marshal masked outcome: %v", err)
+	}
+	if strings.Contains(string(encoded), "operator-secret") {
+		t.Fatalf("masked outcome leaked secret: %s", encoded)
+	}
+	if !strings.Contains(string(encoded), "Completed safely") || !strings.Contains(string(encoded), `"processed":4`) {
+		t.Fatalf("masked outcome lost safe fields: %s", encoded)
 	}
 }
 

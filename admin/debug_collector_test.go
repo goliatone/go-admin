@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -11,6 +12,116 @@ import (
 	router "github.com/goliatone/go-router"
 	"github.com/uptrace/bun"
 )
+
+func TestDebugCollectorStrictClearPreflightsBeforeMutation(t *testing.T) {
+	const (
+		allowedPanel = "strict_clear_allowed"
+		deniedPanel  = "strict_clear_denied"
+	)
+	debugregistry.UnregisterPanel(allowedPanel)
+	debugregistry.UnregisterPanel(deniedPanel)
+	t.Cleanup(func() {
+		debugregistry.UnregisterPanel(allowedPanel)
+		debugregistry.UnregisterPanel(deniedPanel)
+	})
+
+	sentinel := errors.New("clear denied")
+	clearCalls := 0
+	if err := debugregistry.RegisterPanel(allowedPanel, debugregistry.PanelConfig{
+		Clear: func(context.Context) error {
+			clearCalls++
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("register allowed panel: %v", err)
+	}
+	if err := debugregistry.RegisterPanel(deniedPanel, debugregistry.PanelConfig{
+		ClearCheck: func(context.Context) error { return sentinel },
+		Clear: func(context.Context) error {
+			clearCalls++
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("register denied panel: %v", err)
+	}
+	collector := NewDebugCollector(DebugConfig{Panels: []string{allowedPanel, deniedPanel}})
+	if err := collector.ClearStrictWithContext(context.Background()); !errors.Is(err, sentinel) {
+		t.Fatalf("strict clear error=%v, want sentinel", err)
+	}
+	if clearCalls != 0 {
+		t.Fatalf("clear hooks ran before all preflights passed: %d", clearCalls)
+	}
+	found, err := collector.ClearPanelStrictWithContext(context.Background(), deniedPanel)
+	if !found || !errors.Is(err, sentinel) {
+		t.Fatalf("strict panel clear found=%v err=%v", found, err)
+	}
+	if clearCalls != 0 {
+		t.Fatalf("denied panel clear mutated state: %d", clearCalls)
+	}
+}
+
+func TestDebugCollectorStrictClearPreservesBuiltinStateWhenExternalMutationFails(t *testing.T) {
+	const panelID = "strict_clear_failing_external"
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	sentinel := errors.New("store clear failed")
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Clear: func(context.Context) error { return sentinel },
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	collector := NewDebugCollector(DebugConfig{Panels: []string{DebugPanelTemplate, panelID}})
+	collector.CaptureTemplateData(router.ViewContext{"retained": "value"})
+
+	if err := collector.ClearStrictWithContext(context.Background()); !errors.Is(err, sentinel) {
+		t.Fatalf("strict clear error=%v, want sentinel", err)
+	}
+	snapshot := collector.Snapshot()
+	templateData, ok := snapshot[DebugPanelTemplate].(map[string]any)
+	if !ok {
+		t.Fatalf("template snapshot type=%T", snapshot[DebugPanelTemplate])
+	}
+	template, ok := templateData["retained"]
+	if !ok || template != "value" {
+		t.Fatalf("template state changed after failed external clear: %#v", templateData)
+	}
+}
+
+func TestDebugCollectorStrictClearRejectsMultipleExternalTransactionsBeforeMutation(t *testing.T) {
+	const (
+		firstPanel  = "strict_clear_external_first"
+		secondPanel = "strict_clear_external_second"
+	)
+	debugregistry.UnregisterPanel(firstPanel)
+	debugregistry.UnregisterPanel(secondPanel)
+	t.Cleanup(func() {
+		debugregistry.UnregisterPanel(firstPanel)
+		debugregistry.UnregisterPanel(secondPanel)
+	})
+
+	clearCalls := 0
+	for _, panelID := range []string{firstPanel, secondPanel} {
+		if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+			Clear: func(context.Context) error {
+				clearCalls++
+				return nil
+			},
+		}); err != nil {
+			t.Fatalf("register %s: %v", panelID, err)
+		}
+	}
+
+	collector := NewDebugCollector(DebugConfig{Panels: []string{firstPanel, secondPanel}})
+	found, err := collector.ClearPanelsStrictWithContext(context.Background(), []string{firstPanel, secondPanel})
+	if !found || !errors.Is(err, errDebugClearMultipleExternalTransactions) {
+		t.Fatalf("batch clear found=%v err=%v", found, err)
+	}
+	if clearCalls != 0 {
+		t.Fatalf("external clear ran before batch rejection: %d", clearCalls)
+	}
+}
 
 func TestDebugCollectorSnapshot(t *testing.T) {
 	cfg := DebugConfig{

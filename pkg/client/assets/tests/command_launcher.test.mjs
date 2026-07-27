@@ -19,6 +19,8 @@ async function loadJSDOM() {
 const { JSDOM } = await loadJSDOM();
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const sourcePath = path.resolve(testFileDir, '../src/debug/shared/panels/command-launcher.ts');
+const commandLauncherCSSPath = path.resolve(testFileDir, '../src/styles/debug/command-launcher.css');
+const debugConsoleCSSPath = path.resolve(testFileDir, '../src/styles/debug/console.css');
 const panelActionsPath = path.resolve(testFileDir, '../src/debug/shared/panel-actions.ts');
 const repoRoot = path.resolve(testFileDir, '../../../..');
 let pinnedFormgenRuntimeSource;
@@ -511,8 +513,9 @@ test('renders grouped catalog with execution + mutating badges', async () => {
   const { renderCommandLauncherConsole } = await importLauncher();
   const html = renderCommandLauncherConsole({ def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true });
 
-  assert.match(html, /cmdl-group__label[^>]*>Archive</);
-  assert.match(html, /cmdl-group__label[^>]*>Search</);
+  assert.match(html, /data-cmdl-group-toggle[\s\S]*?>[\s\S]*?<span>Archive<\/span>/);
+  assert.match(html, /data-cmdl-group-toggle[\s\S]*?>[\s\S]*?<span>Search<\/span>/);
+  assert.doesNotMatch(html, /role="listbox"|role="option"/);
   // archive command: queued dot + mutating flag
   assert.match(html, /data-cmdl-item="dispatch_archive_generate"[\s\S]*?cmdl-item__dot--queued/);
   assert.match(html, /cmdl-item__flag--mutating/);
@@ -522,6 +525,115 @@ test('renders grouped catalog with execution + mutating badges', async () => {
   // diagnostics + result container present
   assert.match(html, /cmdl-diag--warning/);
   assert.match(html, /data-panel-action-result="commands"/);
+});
+
+test('command groups use accessible disclosures and retain collapse state across rerenders', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const render = () => renderCommandLauncherConsole({
+    def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true,
+  });
+  let dom = mount(render());
+  let host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+
+  const archiveGroup = Array.from(host.querySelectorAll('[data-cmdl-group]'))
+    .find((group) => group.textContent.includes('Archive'));
+  const toggle = archiveGroup.querySelector('[data-cmdl-group-toggle]');
+  const region = archiveGroup.querySelector('[data-cmdl-group-items]');
+  assert.equal(toggle.tagName, 'BUTTON');
+  assert.equal(toggle.getAttribute('type'), 'button');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(toggle.getAttribute('aria-controls'), region.id);
+  assert.equal(region.getAttribute('role'), 'group');
+  assert.equal(region.getAttribute('aria-label'), 'Archive commands');
+  assert.equal(region.hidden, false);
+  assert.equal(archiveGroup.querySelector('[data-cmdl-item]').getAttribute('role'), null);
+
+  toggle.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(region.hidden, true);
+  toggle.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(region.hidden, false);
+  toggle.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(region.hidden, true);
+
+  dom = mount(render());
+  host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const restored = Array.from(host.querySelectorAll('[data-cmdl-group]'))
+    .find((group) => group.textContent.includes('Archive'));
+  assert.equal(restored.querySelector('[data-cmdl-group-toggle]').getAttribute('aria-expanded'), 'false');
+  assert.equal(restored.querySelector('[data-cmdl-group-items]').hidden, true);
+});
+
+test('filtering temporarily reveals collapsed matches and selection persistently expands its group', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const dom = mount(renderCommandLauncherConsole({
+    def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true,
+  }));
+  const host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const searchGroup = Array.from(host.querySelectorAll('[data-cmdl-group]'))
+    .find((group) => group.textContent.includes('Search'));
+  const toggle = searchGroup.querySelector('[data-cmdl-group-toggle]');
+  const region = searchGroup.querySelector('[data-cmdl-group-items]');
+  toggle.click();
+  assert.equal(region.hidden, true);
+
+  const filter = host.querySelector('[data-cmdl-filter]');
+  filter.value = 'search';
+  filter.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  assert.equal(searchGroup.hidden, false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(region.hidden, false);
+
+  filter.value = '';
+  filter.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(region.hidden, true);
+
+  filter.value = 'search';
+  filter.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  host.querySelector('[data-cmdl-item="dispatch_search_health"]').click();
+  filter.value = '';
+  filter.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(region.hidden, false);
+  assert.equal(host.querySelector('[data-cmdl-item="dispatch_search_health"]').getAttribute('aria-current'), 'true');
+});
+
+test('launcher panes scroll independently and restore both positions after rerender', async () => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+  const render = () => renderCommandLauncherConsole({
+    def: sampleDef(), data: sampleData(), styles: {}, useIconCopyButton: true,
+  });
+  let dom = mount(render());
+  let host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  const groups = host.querySelector('[data-cmdl-groups]');
+  const detail = host.querySelector('[data-cmdl-detailcol]');
+  groups.scrollTop = 47;
+  groups.dispatchEvent(new dom.window.Event('scroll'));
+  detail.scrollTop = 91;
+  detail.dispatchEvent(new dom.window.Event('scroll'));
+  host.querySelector('[data-cmdl-item="dispatch_search_health"]').click();
+  assert.equal(groups.scrollTop, 47);
+  assert.equal(detail.scrollTop, 91);
+
+  dom = mount(render());
+  host = dom.window.document.getElementById('host');
+  attachCommandLauncherListeners(host);
+  assert.equal(host.querySelector('[data-cmdl-groups]').scrollTop, 47);
+  assert.equal(host.querySelector('[data-cmdl-detailcol]').scrollTop, 91);
+
+  const launcherCSS = fs.readFileSync(commandLauncherCSSPath, 'utf8');
+  const consoleCSS = fs.readFileSync(debugConsoleCSSPath, 'utf8');
+  assert.match(launcherCSS, /\.cmdl__groups\s*\{[\s\S]*?overflow:\s*auto/);
+  assert.match(launcherCSS, /\.cmdl__detail\s*\{[\s\S]*?overflow:\s*auto/);
+  assert.match(launcherCSS, /@media \(max-width: 720px\)[\s\S]*?\.cmdl__detail\s*\{\s*overflow:\s*visible/);
+  assert.match(consoleCSS, /\.debug-content--launcher\s*\{[\s\S]*?overflow:\s*hidden/);
 });
 
 test('generated commands with empty HTML render a no-arguments form', async () => {

@@ -175,3 +175,68 @@ func TestDebugSessionSnapshotsIncludeOnlyAuthorizedCommandRuns(t *testing.T) {
 		t.Fatal("command runs leaked into a session-only snapshot")
 	}
 }
+
+func TestDebugSessionSnapshotUsesCommandDescriptorPermissions(t *testing.T) {
+	panel, runtime := newCommandRunsPermissionPanelFixture(t)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-allowed", "jobs.allowed", "tenant-a", 1)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-denied", "jobs.denied", "tenant-a", 1)
+	RegisterCommandRunsDebugPanel(panel.admin)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+
+	mod := NewDebugModule(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	mod.admin = panel.admin
+	mod.collector = NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	access := mod.commandRunAccess(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
+	ws := newStubWebSocketContext()
+	if err := mod.writeDebugSessionSnapshot(ws, "session-1", true, access); err != nil {
+		t.Fatalf("session snapshot: %v", err)
+	}
+	assertCommandRunSnapshotForTenant(t, ws.writes, "run-allowed")
+}
+
+func TestDebugSessionLiveEventsUseCommandDescriptorPermissions(t *testing.T) {
+	panel, runtime := newCommandRunsPermissionPanelFixture(t)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-allowed", "jobs.allowed", "tenant-a", 1)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-denied", "jobs.denied", "tenant-a", 1)
+
+	mod := NewDebugModule(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	mod.admin = panel.admin
+	access := mod.commandRunAccess(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
+	subscription := newDebugSubscription(access)
+	ws := newStubWebSocketContext()
+
+	allowed, found, err := panel.Lookup(access.ctx, "run-allowed")
+	if err != nil || !found {
+		t.Fatalf("allowed lookup found=%v err=%v", found, err)
+	}
+	if err := writeDebugSessionEvent(ws, subscription, DebugEvent{
+		Type: commandRunDebugEventType, Payload: allowed,
+	}, "session-1", true); err != nil || len(ws.writes) != 1 {
+		t.Fatalf("allowed session write count=%d err=%v", len(ws.writes), err)
+	}
+
+	records, err := runtime.Store().List(context.Background(), CommandRunSelector{Global: true})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	for _, record := range records {
+		if record.RunID != "run-denied" {
+			continue
+		}
+		if err := writeDebugSessionEvent(ws, subscription, DebugEvent{
+			Type: commandRunDebugEventType, Payload: record,
+		}, "session-1", true); err != nil || len(ws.writes) != 1 {
+			t.Fatalf("denied session event reached writer count=%d err=%v", len(ws.writes), err)
+		}
+	}
+	for _, payload := range []any{
+		map[string]any{"run_id": "run-malformed"},
+		commandRunWebSocketTestRecord("run-unknown", "tenant-a"),
+	} {
+		if err := writeDebugSessionEvent(ws, subscription, DebugEvent{
+			Type: commandRunDebugEventType, Payload: payload,
+		}, "session-1", true); err != nil || len(ws.writes) != 1 {
+			t.Fatalf("ineligible session event reached writer count=%d err=%v", len(ws.writes), err)
+		}
+	}
+}

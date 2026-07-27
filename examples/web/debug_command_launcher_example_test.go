@@ -6,14 +6,15 @@ import (
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	authlib "github.com/goliatone/go-auth"
 	gocommand "github.com/goliatone/go-command"
 	commandregistry "github.com/goliatone/go-command/registry"
 )
 
 func TestExampleDebugCommandCatalogCoversLauncherFlows(t *testing.T) {
 	descriptors := (exampleDebugCommandCatalog{}).CommandDescriptors()
-	if len(descriptors) != 3 {
-		t.Fatalf("descriptor count = %d, want 3", len(descriptors))
+	if len(descriptors) != 5 {
+		t.Fatalf("descriptor count = %d, want 5", len(descriptors))
 	}
 
 	byID := make(map[string]gocommand.CommandDescriptor, len(descriptors))
@@ -21,7 +22,8 @@ func TestExampleDebugCommandCatalogCoversLauncherFlows(t *testing.T) {
 		if descriptor.ID == "" || byID[descriptor.ID].ID != "" {
 			t.Fatalf("catalog contains an empty or duplicate id: %#v", descriptor)
 		}
-		if !descriptor.ExposeInAdmin || descriptor.ExecutionMode != gocommand.ExecutionModeInline {
+		if !descriptor.ExposeInAdmin ||
+			(descriptor.ExecutionMode != gocommand.ExecutionModeInline && descriptor.ExecutionMode != gocommand.ExecutionModeQueued) {
 			t.Fatalf("descriptor is not launcher-ready: %#v", descriptor)
 		}
 		byID[descriptor.ID] = descriptor
@@ -52,6 +54,19 @@ func TestExampleDebugCommandCatalogCoversLauncherFlows(t *testing.T) {
 	if !health.Input.NoInput || health.Mutating || !health.Result.Inline {
 		t.Fatalf("unexpected health descriptor: %#v", health)
 	}
+
+	failure := byID[exampleFailureCommandID]
+	if !failure.Input.NoInput || failure.ExecutionMode != gocommand.ExecutionModeInline ||
+		len(failure.Permissions) != 1 || failure.Permissions[0] != exampleFailurePermission {
+		t.Fatalf("unexpected failure descriptor: %#v", failure)
+	}
+
+	queued := byID[exampleQueuedCommandID]
+	if !queued.Input.NoInput || queued.ExecutionMode != gocommand.ExecutionModeQueued ||
+		!queued.Result.Queued || !queued.Result.ReceiptExpected ||
+		len(queued.Permissions) != 1 || queued.Permissions[0] != exampleQueuedPermission {
+		t.Fatalf("unexpected queued descriptor: %#v", queued)
+	}
 }
 
 func TestConfigureExampleDebugCommandRPCAddsSafeRulesWithoutOverwritingHostRules(t *testing.T) {
@@ -67,8 +82,8 @@ func TestConfigureExampleDebugCommandRPCAddsSafeRulesWithoutOverwritingHostRules
 
 	configureExampleDebugCommandRPC(&cfg)
 
-	if len(cfg.Commands.RPC.Commands) != 3 {
-		t.Fatalf("RPC command rule count = %d, want 3", len(cfg.Commands.RPC.Commands))
+	if len(cfg.Commands.RPC.Commands) != 5 {
+		t.Fatalf("RPC command rule count = %d, want 5", len(cfg.Commands.RPC.Commands))
 	}
 	if rule := cfg.Commands.RPC.Commands[exampleEchoCommandID]; rule.Permission != "example.custom.permission" || rule.Resource != "custom" {
 		t.Fatalf("existing host rule was overwritten: %#v", rule)
@@ -78,6 +93,41 @@ func TestConfigureExampleDebugCommandRPCAddsSafeRulesWithoutOverwritingHostRules
 		if !ok || rule.Permission != exampleDebugCommandPermission || rule.Resource != "commands" {
 			t.Fatalf("unexpected RPC rule for %s: %#v", commandID, rule)
 		}
+	}
+	for commandID, permission := range map[string]string{
+		exampleFailureCommandID: exampleFailurePermission,
+		exampleQueuedCommandID:  exampleQueuedPermission,
+	} {
+		rule, ok := cfg.Commands.RPC.Commands[commandID]
+		if !ok || rule.Permission != permission || rule.Resource != "commands" {
+			t.Fatalf("unexpected command-specific RPC rule for %s: %#v", commandID, rule)
+		}
+	}
+}
+
+func TestExampleCommandRunScopeResolverUsesActorAndConfiguredFallback(t *testing.T) {
+	resolver := exampleCommandRunScopeResolver("tenant-default", "org-default")
+	fallback, err := resolver.ResolveCommandRunScope(context.Background(), coreadmin.CommandRunUpdate{
+		Scope: coreadmin.CommandRunScope{ApplicationID: "app", EnvironmentID: "test"},
+	})
+	if err != nil {
+		t.Fatalf("fallback scope: %v", err)
+	}
+	if fallback.ApplicationID != "app" || fallback.EnvironmentID != "test" ||
+		fallback.TenantID != "tenant-default" || fallback.OrganizationID != "org-default" {
+		t.Fatalf("fallback scope = %+v", fallback)
+	}
+
+	actorCtx := authlib.WithActorContext(context.Background(), &authlib.ActorContext{
+		TenantID:       "tenant-actor",
+		OrganizationID: "org-actor",
+	})
+	resolved, err := resolver.ResolveCommandRunScope(actorCtx, coreadmin.CommandRunUpdate{})
+	if err != nil {
+		t.Fatalf("actor scope: %v", err)
+	}
+	if resolved.TenantID != "tenant-actor" || resolved.OrganizationID != "org-actor" {
+		t.Fatalf("actor scope = %+v", resolved)
 	}
 }
 

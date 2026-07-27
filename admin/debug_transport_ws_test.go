@@ -2,7 +2,9 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -158,10 +160,10 @@ func TestDebugWebSocketRetainsScopedCommandRunAccess(t *testing.T) {
 }
 
 func TestScopedCommandRunEventsAreRejectedBeforeWebSocketWrite(t *testing.T) {
-	accessA := &commandRunWebSocketAccess{
-		ctx: context.Background(), allowed: true,
-		selector: CommandRunSelector{Scope: CommandRunScope{ApplicationID: "app", EnvironmentID: "test", TenantID: "tenant-a"}},
-	}
+	panel, _, _ := newCommandRunsPanelTestFixture(t, allowAuthorizer{})
+	mod := NewDebugModule(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	mod.admin = panel.admin
+	accessA := mod.commandRunAccess(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
 	subscription := newDebugSubscription(accessA)
 	ws := newStubWebSocketContext()
 
@@ -180,6 +182,132 @@ func TestScopedCommandRunEventsAreRejectedBeforeWebSocketWrite(t *testing.T) {
 	ordinary := DebugEvent{Type: "log", Payload: map[string]any{"message": "visible"}}
 	if err := writeSubscribedDebugEvent(ws, subscription, ordinary); err != nil || len(ws.writes) != 2 {
 		t.Fatalf("ordinary debug event behavior changed count=%d err=%v", len(ws.writes), err)
+	}
+}
+
+func TestCommandRunWebSocketUsesDescriptorPermissionsForSameScope(t *testing.T) {
+	panel, runtime := newCommandRunsPermissionPanelFixture(t)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-allowed", "jobs.allowed", "tenant-a", 1)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-denied", "jobs.denied", "tenant-a", 1)
+	RegisterCommandRunsDebugPanel(panel.admin)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+
+	mod := NewDebugModule(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	mod.admin = panel.admin
+	mod.collector = NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	access := mod.commandRunAccess(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
+
+	snapshotWS := newStubWebSocketContext()
+	if err := mod.writeDebugSnapshot(snapshotWS, access); err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	assertCommandRunSnapshotForTenant(t, snapshotWS.writes, "run-allowed")
+
+	subscription := newDebugSubscription(access)
+	liveWS := newStubWebSocketContext()
+	allowedRecord, found, err := panel.Lookup(access.ctx, "run-allowed")
+	if err != nil || !found {
+		t.Fatalf("allowed lookup found=%v err=%v", found, err)
+	}
+	if err := writeSubscribedDebugEvent(liveWS, subscription, DebugEvent{
+		Type: commandRunDebugEventType, Payload: allowedRecord,
+	}); err != nil || len(liveWS.writes) != 1 {
+		t.Fatalf("allowed live write count=%d err=%v", len(liveWS.writes), err)
+	}
+	deniedRows, err := runtime.Store().List(context.Background(), CommandRunSelector{Global: true})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var deniedRecord CommandRunRecord
+	for _, row := range deniedRows {
+		if row.RunID == "run-denied" {
+			deniedRecord = row
+		}
+	}
+	if err := writeSubscribedDebugEvent(liveWS, subscription, DebugEvent{
+		Type: commandRunDebugEventType, Payload: deniedRecord,
+	}); err != nil || len(liveWS.writes) != 1 {
+		t.Fatalf("denied live event reached writer count=%d err=%v", len(liveWS.writes), err)
+	}
+	if err := writeSubscribedDebugEvent(liveWS, subscription, DebugEvent{
+		Type: commandRunDebugEventType, Payload: commandRunWebSocketTestRecord("run-unknown", "tenant-a"),
+	}); err != nil || len(liveWS.writes) != 1 {
+		t.Fatalf("unknown live event reached writer count=%d err=%v", len(liveWS.writes), err)
+	}
+}
+
+func TestCommandRunWebSocketClearFailureIsSanitizedAndDoesNotInvalidate(t *testing.T) {
+	panel, runtime := newCommandRunsPermissionPanelFixture(t)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-allowed", "jobs.allowed", "tenant-a", 1)
+	applyCommandRunPanelUpdateForCommand(t, runtime.Store(), "run-denied", "jobs.denied", "tenant-a", 1)
+	RegisterCommandRunsDebugPanel(panel.admin)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+
+	mod := NewDebugModule(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	mod.admin = panel.admin
+	mod.collector = NewDebugCollector(DebugConfig{Panels: []string{DebugPanelCommandRuns}})
+	access := mod.commandRunAccess(context.WithValue(context.Background(), tenantIDContextKey, "tenant-a"))
+	ws := newStubWebSocketContext()
+	if err := mod.handleDebugCommand(ws, newDebugSubscription(access), debugCommand{
+		Type: "clear", Panels: []string{DebugPanelCommandRuns},
+	}); err != nil {
+		t.Fatalf("clear command: %v", err)
+	}
+	if len(ws.writes) != 1 {
+		t.Fatalf("clear writes=%d, want one sanitized error", len(ws.writes))
+	}
+	event, ok := ws.writes[0].(DebugEvent)
+	if !ok || event.Type != debugEventCommandError {
+		t.Fatalf("clear response=%#v", ws.writes[0])
+	}
+	payload, ok := event.Payload.(map[string]any)
+	if !ok || payload["operation"] != "clear" || payload["message"] != "debug command failed" {
+		t.Fatalf("clear error payload=%#v", event.Payload)
+	}
+	for _, forbidden := range []string{"run_id", "command_id", "hidden_count", "jobs.denied"} {
+		if strings.Contains(toString(event.Payload), forbidden) {
+			t.Fatalf("clear error disclosed %q: %#v", forbidden, event.Payload)
+		}
+	}
+	remaining, err := runtime.Store().List(context.Background(), CommandRunSelector{Global: true})
+	if err != nil || len(remaining) != 2 {
+		t.Fatalf("denied clear changed store rows=%d err=%v", len(remaining), err)
+	}
+}
+
+func TestDebugWebSocketMultiPanelClearDoesNotPartiallyMutate(t *testing.T) {
+	const panelID = "websocket_clear_failing_external"
+	debugregistry.UnregisterPanel(panelID)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
+
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Clear: func(context.Context) error { return errors.New("external clear failed") },
+	}); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	cfg := DebugConfig{Panels: []string{DebugPanelTemplate, panelID}}
+	mod := NewDebugModule(cfg)
+	mod.collector = NewDebugCollector(cfg)
+	mod.collector.CaptureTemplateData(router.ViewContext{"retained": "value"})
+
+	ws := newStubWebSocketContext()
+	if err := mod.handleDebugCommand(ws, newDebugSubscription(nil), debugCommand{
+		Type: "clear", Panels: []string{DebugPanelTemplate, panelID},
+	}); err != nil {
+		t.Fatalf("clear command: %v", err)
+	}
+	if len(ws.writes) != 1 {
+		t.Fatalf("clear writes=%d, want one sanitized error", len(ws.writes))
+	}
+	event, ok := ws.writes[0].(DebugEvent)
+	if !ok || event.Type != debugEventCommandError {
+		t.Fatalf("clear response=%#v", ws.writes[0])
+	}
+	snapshot := mod.collector.Snapshot()
+	templateData, ok := snapshot[DebugPanelTemplate].(map[string]any)
+	if !ok || templateData["retained"] != "value" {
+		t.Fatalf("multi-panel failure partially cleared template state: %#v", snapshot[DebugPanelTemplate])
 	}
 }
 
@@ -505,20 +633,81 @@ func TestCollectorCommandRunPayloadRemainsAuthorizable(t *testing.T) {
 	}
 }
 
+func TestCollectorCommandRunAuthorizationUsesRawRecordBeforeMasking(t *testing.T) {
+	panel, runtime, store := newCommandRunsPanelTestFixture(t, allowAuthorizer{})
+	runtime.config.RecordAuthorizer = CommandRunRecordAuthorizerFunc(func(_ context.Context, record CommandRunRecord) (bool, error) {
+		return toString(record.Metadata["secret"]) != "blocked", nil
+	})
+	record := commandRunWebSocketTestRecord("run-sensitive", "")
+	record.Metadata = map[string]any{"secret": "blocked"}
+	if _, _, err := store.Apply(context.Background(), record.CommandRunUpdate); err != nil {
+		t.Fatalf("apply sensitive record: %v", err)
+	}
+	if rows := panel.Snapshot(context.Background()); len(rows) != 0 {
+		t.Fatalf("snapshot policy exposed sensitive record: %+v", rows)
+	}
+
+	RegisterCommandRunsDebugPanel(panel.admin)
+	t.Cleanup(func() { debugregistry.UnregisterPanel(DebugPanelCommandRuns) })
+	collector := NewDebugCollector(DebugConfig{
+		Panels:          []string{DebugPanelCommandRuns},
+		MaskPlaceholder: "***",
+	})
+	events := collector.Subscribe("raw-authorization")
+	defer collector.Unsubscribe("raw-authorization")
+	collector.PublishEvent(commandRunDebugEventType, record)
+	event := <-events
+	encoded, err := json.Marshal(event.Payload)
+	if err != nil {
+		t.Fatalf("marshal delivery payload: %v", err)
+	}
+	if strings.Contains(string(encoded), "blocked") {
+		t.Fatalf("delivery payload was not masked: %s", encoded)
+	}
+	access := (&DebugModule{admin: panel.admin}).commandRunAccess(context.Background())
+	if access.allows(event) {
+		t.Fatal("masked delivery payload bypassed raw record policy")
+	}
+}
+
+func TestCommandRunWebSocketAccessCountsMalformedAndPolicyErrors(t *testing.T) {
+	panel, runtime, _ := newCommandRunsPanelTestFixture(t, allowAuthorizer{})
+	access := (&DebugModule{admin: panel.admin}).commandRunAccess(context.Background())
+	if access.allows(DebugEvent{Type: commandRunDebugEventType, Payload: map[string]any{"run_id": "malformed"}}) {
+		t.Fatal("malformed event was authorized")
+	}
+	runtime.config.RecordAuthorizer = CommandRunRecordAuthorizerFunc(func(context.Context, CommandRunRecord) (bool, error) {
+		return false, errors.New("policy unavailable")
+	})
+	if access.allows(DebugEvent{Type: commandRunDebugEventType, Payload: commandRunWebSocketTestRecord("run-policy-error", "")}) {
+		t.Fatal("policy error event was authorized")
+	}
+	if got := runtime.Diagnostics().RejectedEvents; got != 2 {
+		t.Fatalf("rejected event diagnostics=%d, want 2", got)
+	}
+}
+
 func TestCommandRunWebSocketAccessRequiresExplicitGlobalAuthorization(t *testing.T) {
 	record := DebugEvent{Type: commandRunDebugEventType, Payload: commandRunWebSocketTestRecord("run-a", "tenant-a")}
-	missing := &commandRunWebSocketAccess{ctx: context.Background(), allowed: true, selector: CommandRunSelector{}}
+	panel, _, _ := newCommandRunsPanelTestFixture(t, allowAuthorizer{})
+	missing := &commandRunWebSocketAccess{
+		ctx: context.Background(), allowed: true, panel: panel, selector: CommandRunSelector{},
+	}
 	if missing.allows(record) {
 		t.Fatal("missing scope authorized tenant event")
 	}
 	global := &commandRunWebSocketAccess{
-		ctx: context.Background(), allowed: true, selector: CommandRunSelector{Global: true},
-		authorizer: CommandRunScopeAuthorizerFuncs{Authorize: func(context.Context, CommandRunScope) (bool, error) { return true, nil }},
+		ctx: context.Background(), allowed: true, panel: panel, selector: CommandRunSelector{Global: true},
+	}
+	panel.runtime.config.ScopeAuthorizer = CommandRunScopeAuthorizerFuncs{
+		Authorize: func(context.Context, CommandRunScope) (bool, error) { return true, nil },
 	}
 	if !global.allows(record) {
 		t.Fatal("explicit authorized global access rejected event")
 	}
-	global.authorizer = CommandRunScopeAuthorizerFuncs{Authorize: func(context.Context, CommandRunScope) (bool, error) { return false, nil }}
+	panel.runtime.config.ScopeAuthorizer = CommandRunScopeAuthorizerFuncs{
+		Authorize: func(context.Context, CommandRunScope) (bool, error) { return false, nil },
+	}
 	if global.allows(record) {
 		t.Fatal("global selector bypassed scope authorizer")
 	}

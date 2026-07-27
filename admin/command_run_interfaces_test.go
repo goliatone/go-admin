@@ -7,17 +7,22 @@ import (
 )
 
 var (
-	_ CommandRunPublisher       = commandRunTransportStub{}
-	_ CommandRunSubscriber      = commandRunTransportStub{}
-	_ CommandRunTransport       = commandRunTransportStub{}
-	_ CommandRunSubscription    = (*commandRunSubscriptionStub)(nil)
-	_ CommandRunStore           = commandRunStoreStub{}
-	_ CommandRunProjection      = CommandRunProjectionFunc(nil)
-	_ CommandRunScopeResolver   = CommandRunScopeResolverFunc(nil)
-	_ CommandRunScopeAuthorizer = CommandRunScopeAuthorizerFuncs{}
+	_ CommandRunPublisher        = commandRunTransportStub{}
+	_ CommandRunSubscriber       = commandRunTransportStub{}
+	_ CommandRunTransport        = commandRunTransportStub{}
+	_ CommandRunSubscription     = (*commandRunSubscriptionStub)(nil)
+	_ CommandRunStore            = commandRunStoreStub{}
+	_ CommandRunAtomicClearStore = (*MemoryCommandRunStore)(nil)
+	_ CommandRunProjection       = CommandRunProjectionFunc(nil)
+	_ CommandRunScopeResolver    = CommandRunScopeResolverFunc(nil)
+	_ CommandRunScopeAuthorizer  = CommandRunScopeAuthorizerFuncs{}
+	_ CommandRunRecordAuthorizer = CommandRunRecordAuthorizerFunc(nil)
 )
 
 func TestNormalizeCommandRunRuntimeConfigMatrix(t *testing.T) {
+	recordAuthorizer := CommandRunRecordAuthorizerFunc(func(context.Context, CommandRunRecord) (bool, error) {
+		return true, nil
+	})
 	local, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{Enabled: true})
 	if err != nil {
 		t.Fatalf("default local config: %v", err)
@@ -27,6 +32,12 @@ func TestNormalizeCommandRunRuntimeConfigMatrix(t *testing.T) {
 	}
 	if local.Transport != nil || local.Store != nil {
 		t.Fatal("normalization must not allocate runtime-owned local dependencies")
+	}
+	withRecordPolicy, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{
+		Enabled: true, RecordAuthorizer: recordAuthorizer,
+	})
+	if err != nil || withRecordPolicy.RecordAuthorizer == nil {
+		t.Fatalf("record authorizer normalization = %+v, %v", withRecordPolicy, err)
 	}
 	if _, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{Enabled: true, RequireFanout: true}); err != nil {
 		t.Fatalf("local transport should satisfy fanout: %v", err)
@@ -60,6 +71,28 @@ func TestNormalizeCommandRunRuntimeConfigMatrix(t *testing.T) {
 	})
 	if err != nil || separate.Publisher == nil || separate.Subscriber == nil {
 		t.Fatalf("separate publisher/subscriber config = %+v, %v", separate, err)
+	}
+}
+
+func TestCommandRunRecordAuthorizerFuncFailsClosedAndForwardsErrors(t *testing.T) {
+	var nilAuthorizer CommandRunRecordAuthorizerFunc
+	allowed, err := nilAuthorizer.AuthorizeCommandRunRecord(context.Background(), CommandRunRecord{})
+	if err != nil || allowed {
+		t.Fatalf("nil authorizer allowed=%v err=%v", allowed, err)
+	}
+
+	sentinel := errors.New("policy failed")
+	authorizer := CommandRunRecordAuthorizerFunc(func(_ context.Context, record CommandRunRecord) (bool, error) {
+		if record.RunID != "run-1" {
+			t.Fatalf("record = %+v", record)
+		}
+		return false, sentinel
+	})
+	allowed, err = authorizer.AuthorizeCommandRunRecord(context.Background(), CommandRunRecord{
+		CommandRunUpdate: CommandRunUpdate{RunID: "run-1"},
+	})
+	if allowed || !errors.Is(err, sentinel) {
+		t.Fatalf("authorizer allowed=%v err=%v", allowed, err)
 	}
 }
 

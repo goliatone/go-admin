@@ -1599,6 +1599,53 @@ test('debug toolbar persists active panel with existing toolbar preferences', as
   });
 });
 
+test('debug toolbar renders the hydrated Command Runs list icon', async () => {
+  setGlobals(bootstrapDOM.window);
+  globalThis.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.document.body.innerHTML = '';
+  bootstrapDOM.window.localStorage.clear();
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-expanded', 'true');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({
+        panels: [{
+          id: 'command_runs',
+          label: 'Command Runs',
+          icon: 'iconoir-list',
+          snapshot_key: 'command_runs',
+          event_types: ['command_run'],
+          ui: {
+            events: { mode: 'upsert', key: 'run_id', max_entries: 50 },
+            views: {
+              console: {
+                renderer: 'table',
+                options: { key_bind: 'run_id', columns: [{ label: 'Run', bind: 'run_id' }] },
+              },
+            },
+          },
+        }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({ command_runs: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  const toolbar = bootstrapDOM.window.document.createElement('debug-toolbar');
+  toolbar.setAttribute('debug-path', '/admin/toolbar-command-runs');
+  toolbar.setAttribute('panels', 'command_runs');
+  toolbar.setAttribute('live-transport', 'false');
+  bootstrapDOM.window.document.body.appendChild(toolbar);
+  await flushMicrotasks();
+
+  assert.ok(toolbar.shadowRoot?.querySelector('[data-panel="command_runs"] .debug-icon .iconoir-list'));
+});
+
 test('debug toolbar constrains tab strip as horizontal scroll container with visible scrollbar', async () => {
   setGlobals(bootstrapDOM.window);
   globalThis.WebSocket = OpenWebSocket;
@@ -1768,6 +1815,86 @@ test('debug panel delegates dynamic clear-panel actions after panel rerender', a
     requests.some((request) => request.method === 'POST' && request.url.endsWith('/api/clear/site-render-cache')),
     `expected clear-panel POST request, got ${JSON.stringify(requests)}`,
   );
+});
+
+test('debug panel surfaces sanitized HTTP clear failures', async () => {
+  const dom = createSiteRenderCacheDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+
+  globalThis.fetch = async (input, init = {}) => {
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({ 'site-render-cache': { configured: true, active: true } }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/sessions')) {
+      return new Response(JSON.stringify({ sessions: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if ((init.method || 'GET') === 'POST' && String(input).includes('/api/clear/')) {
+      return new Response(JSON.stringify({ error: { message: 'secret internal failure' } }), {
+        status: 403,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response('{}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(dom.window.document.querySelector('[data-debug-console]'));
+  await flushMicrotasks();
+  const button = dom.window.document.querySelector('[data-debug-panel] [data-debug-action="clear-panel"]');
+  assert.ok(button);
+  button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+  await waitForAssertion(() => {
+    const toast = dom.window.document.querySelector('[data-debug-toast-host]');
+    assert.match(toast?.textContent || '', /Unable to clear Site Cache\./);
+    assert.doesNotMatch(toast?.textContent || '', /secret internal failure/);
+  });
+});
+
+test('debug panel surfaces WebSocket command errors without storing an unknown panel', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({ template: {}, sql: [], config: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const panel = debugModule.initDebugPanel(dom.window.document.querySelector('[data-debug-console]'));
+  await flushMicrotasks();
+  panel.handleEvent({
+    type: 'debug_command_error',
+    payload: {
+      operation: 'clear',
+      message: 'secret internal failure',
+      panels: ['command_runs'],
+    },
+    timestamp: new Date().toISOString(),
+  });
+
+  const toast = dom.window.document.querySelector('[data-debug-toast-host]');
+  assert.match(toast?.textContent || '', /Unable to clear debug data\./);
+  assert.doesNotMatch(toast?.textContent || '', /secret internal failure/);
+  assert.equal(panel.state.extra.debug_command_error, undefined);
 });
 
 test('debug syntax highlighting renders bundled SQL and JSON safely', () => {

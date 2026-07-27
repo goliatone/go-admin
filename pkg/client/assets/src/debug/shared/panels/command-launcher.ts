@@ -77,6 +77,9 @@ type CatalogEntry = {
 let selectedActionId = '';
 let filterText = '';
 const formDrafts = new Map<string, Record<string, unknown>>();
+const collapsedCommandGroups = new Set<string>();
+let commandGroupsScrollTop = 0;
+let commandDetailScrollTop = 0;
 
 type FormgenController = {
   getValues(): Record<string, unknown>;
@@ -142,6 +145,9 @@ export function resetCommandLauncherState(): void {
   selectedActionId = '';
   filterText = '';
   sidebarWidth = 0;
+  commandGroupsScrollTop = 0;
+  commandDetailScrollTop = 0;
+  collapsedCommandGroups.clear();
   formDrafts.clear();
   commandStatusByCorrelation.clear();
 }
@@ -330,7 +336,7 @@ function renderListItem(entry: CatalogEntry): string {
     flag = '<span class="cmdl-item__flag cmdl-item__flag--read" title="Read-only">read</span>';
   }
   return `
-    <button type="button" class="cmdl-item${entry.executable ? '' : ' cmdl-item--locked'}" role="option" aria-selected="false"
+    <button type="button" class="cmdl-item${entry.executable ? '' : ' cmdl-item--locked'}"
       data-cmdl-item="${escapeHTML(entry.key)}"
       data-cmdl-search="${escapeHTML(entry.search)}"
       title="${escapeHTML(entry.commandId || entry.label)}">
@@ -340,15 +346,40 @@ function renderListItem(entry: CatalogEntry): string {
     </button>`;
 }
 
+function commandGroupKey(group: string): string {
+  return group.trim();
+}
+
+function commandGroupRegionID(group: string): string {
+  const slug = commandGroupKey(group).replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'commands';
+  let hash = 2166136261;
+  for (const char of group) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `cmdl-group-${slug}-${(hash >>> 0).toString(36)}`;
+}
+
 function renderList(grouped: Array<{ group: string; items: CatalogEntry[] }>, total: number): string {
   const groups = grouped
-    .map(
-      (group) => `
-      <div class="cmdl-group" data-cmdl-group role="group" aria-label="${escapeHTML(group.group)}">
-        <div class="cmdl-group__label" aria-hidden="true">${escapeHTML(group.group)}</div>
-        ${group.items.map(renderListItem).join('')}
-      </div>`
-    )
+    .map((group) => {
+      const key = commandGroupKey(group.group);
+      const regionID = commandGroupRegionID(group.group);
+      const expanded = !collapsedCommandGroups.has(key);
+      return `
+      <section class="cmdl-group" data-cmdl-group data-cmdl-group-key="${escapeHTML(key)}">
+        <button type="button" class="cmdl-group__toggle" data-cmdl-group-toggle
+          aria-expanded="${expanded ? 'true' : 'false'}" aria-controls="${escapeHTML(regionID)}">
+          <span>${escapeHTML(group.group)}</span>
+          <span class="cmdl-group__count">${group.items.length}</span>
+          <span class="cmdl-group__chevron" aria-hidden="true">›</span>
+        </button>
+        <div id="${escapeHTML(regionID)}" role="group" aria-label="${escapeHTML(group.group)} commands"
+          data-cmdl-group-items${expanded ? '' : ' hidden'}>
+          ${group.items.map(renderListItem).join('')}
+        </div>
+      </section>`;
+    })
     .join('');
   return `
     <aside class="cmdl__list">
@@ -357,7 +388,7 @@ function renderList(grouped: Array<{ group: string; items: CatalogEntry[] }>, to
           placeholder="Filter ${total} command${total === 1 ? '' : 's'}…"
           aria-label="Filter commands" autocomplete="off" spellcheck="false">
       </div>
-      <div class="cmdl__groups" role="listbox" aria-label="Commands" data-cmdl-groups>
+      <div class="cmdl__groups" aria-label="Commands" data-cmdl-groups>
         ${groups}
         <div class="cmdl__noresults" data-cmdl-noresults hidden>No commands match your filter.</div>
       </div>
@@ -1124,6 +1155,22 @@ function ensureFormgenController(form: HTMLElement): Promise<void> {
 	return task;
 }
 
+function setCommandGroupExpanded(group: HTMLElement, expanded: boolean, persist: boolean): void {
+  const key = commandGroupKey(group.dataset.cmdlGroupKey || '');
+  const toggle = group.querySelector<HTMLElement>('[data-cmdl-group-toggle]');
+  const items = group.querySelector<HTMLElement>('[data-cmdl-group-items]');
+  toggle?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  if (items) items.hidden = !expanded;
+  if (!persist || !key) return;
+  if (expanded) collapsedCommandGroups.delete(key);
+  else collapsedCommandGroups.add(key);
+}
+
+function expandCommandGroupForItem(item: HTMLElement | null): void {
+  const group = item?.closest<HTMLElement>('[data-cmdl-group]');
+  if (group) setCommandGroupExpanded(group, true, true);
+}
+
 function selectCommand(root: HTMLElement, actionId: string): void {
   selectedActionId = actionId;
 	destroyInactiveFormgenControllers(actionId);
@@ -1137,8 +1184,10 @@ function selectCommand(root: HTMLElement, actionId: string): void {
   root.querySelectorAll<HTMLElement>('[data-cmdl-item]').forEach((item) => {
     const active = item.dataset.cmdlItem === actionId;
     item.classList.toggle('cmdl-item--active', active);
-    item.setAttribute('aria-selected', active ? 'true' : 'false');
+    if (active) item.setAttribute('aria-current', 'true');
+    else item.removeAttribute('aria-current');
   });
+  expandCommandGroupForItem(root.querySelector<HTMLElement>(`[data-cmdl-item="${attrValueEscape(actionId)}"]`));
   const detail = root.querySelector<HTMLElement>(`[data-cmdl-detail="${attrValueEscape(actionId)}"]`);
   if (detail) {
 	const form = detail.querySelector<HTMLElement>('[data-panel-action-form]');
@@ -1160,6 +1209,9 @@ function applyFilter(root: HTMLElement, term: string): void {
   root.querySelectorAll<HTMLElement>('[data-cmdl-group]').forEach((group) => {
     const hasVisible = Array.from(group.querySelectorAll<HTMLElement>('[data-cmdl-item]')).some((item) => !item.hidden);
     group.hidden = !hasVisible;
+    if (hasVisible) {
+      setCommandGroupExpanded(group, needle !== '' || !collapsedCommandGroups.has(commandGroupKey(group.dataset.cmdlGroupKey || '')), false);
+    }
   });
   const noresults = root.querySelector<HTMLElement>('[data-cmdl-noresults]');
   if (noresults) {
@@ -1168,7 +1220,12 @@ function applyFilter(root: HTMLElement, term: string): void {
 }
 
 function visibleItems(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>('[data-cmdl-item]')).filter((item) => !item.hidden);
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-cmdl-item]')).filter((item) => {
+    if (item.hidden) return false;
+    const group = item.closest<HTMLElement>('[data-cmdl-group]');
+    const region = item.closest<HTMLElement>('[data-cmdl-group-items]');
+    return !group?.hidden && !region?.hidden;
+  });
 }
 
 function captureFormDraft(form: HTMLElement): void {
@@ -1526,16 +1583,33 @@ export function attachCommandLauncherListeners(container: HTMLElement, options: 
 
   // Restore filter text and the previously selected command across re-renders.
   const filter = root.querySelector<HTMLInputElement>('[data-cmdl-filter]');
-  if (filter && filterText) {
+  if (filter) {
     filter.value = filterText;
     applyFilter(root, filterText);
   }
   if (selectedActionId && root.querySelector(`[data-cmdl-item="${attrValueEscape(selectedActionId)}"]`)) {
     selectCommand(root, selectedActionId);
   }
+  const groupsPane = root.querySelector<HTMLElement>('[data-cmdl-groups]');
+  const detailPane = root.querySelector<HTMLElement>('[data-cmdl-detailcol]');
+  if (groupsPane) groupsPane.scrollTop = commandGroupsScrollTop;
+  if (detailPane) detailPane.scrollTop = commandDetailScrollTop;
+  root.addEventListener('scroll', (event) => {
+    if (groupsPane && event.target === groupsPane) commandGroupsScrollTop = groupsPane.scrollTop;
+    if (detailPane && event.target === detailPane) commandDetailScrollTop = detailPane.scrollTop;
+  }, true);
 
   root.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
+
+    const groupToggle = target.closest<HTMLElement>('[data-cmdl-group-toggle]');
+    if (groupToggle) {
+      const group = groupToggle.closest<HTMLElement>('[data-cmdl-group]');
+      if (group) {
+        setCommandGroupExpanded(group, groupToggle.getAttribute('aria-expanded') !== 'true', true);
+      }
+      return;
+    }
 
     // Recent/preset recall + JSON power-mode toggle (Phase 3 T12/T13).
     if (handleRecallAction(target, root)) {
@@ -1634,6 +1708,15 @@ export function attachCommandLauncherListeners(container: HTMLElement, options: 
 
   root.addEventListener('keydown', (event) => {
     const target = event.target as HTMLElement;
+    const groupToggle = target.closest<HTMLElement>('[data-cmdl-group-toggle]');
+    if (groupToggle && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      const group = groupToggle.closest<HTMLElement>('[data-cmdl-group]');
+      if (group) {
+        setCommandGroupExpanded(group, groupToggle.getAttribute('aria-expanded') !== 'true', true);
+      }
+      return;
+    }
 
     const item = target.closest<HTMLElement>('[data-cmdl-item]');
     if (item && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {

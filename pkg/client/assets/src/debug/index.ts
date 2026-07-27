@@ -149,6 +149,9 @@ export {
   commandRunKey,
   commandRunRevision,
   commandRunTerminal,
+  commandRunRevisionGap,
+  captureCommandRunSnapshotBaseline,
+  mergeAuthoritativeCommandRuns,
   commandRunSelectionEvent,
   parseCommandRunsNavigation,
   commandRunsNavigationHref,
@@ -159,6 +162,7 @@ export {
   resetCommandRunsState,
   type CommandRunRow,
   type CommandRunNavigationTarget,
+  type CommandRunSnapshotBaseline,
 } from './shared/panels/index.js';
 
 export { applyPanelActionNavigation, applyPanelActionPayload } from './shared/panel-actions.js';

@@ -25,6 +25,7 @@ export type DebugStreamOptions = {
   reconnectStabilityMs?: number;
   onEvent?: (event: DebugEvent) => void;
   onStatusChange?: (status: DebugStreamStatus) => void;
+  onSnapshotInvalidated?: () => void;
   onError?: (event: Event) => void;
 };
 
@@ -192,6 +193,7 @@ export class DebugStream {
             this.snapshotRecoveryPending = true;
             this.requestSnapshot();
           }
+          this.options.onSnapshotInvalidated?.();
           return;
         }
         if (parsed?.type === 'snapshot') {

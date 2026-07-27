@@ -1,7 +1,7 @@
 import { escapeAttribute as h, escapeHTML as a } from "../shared/html.js";
 import { normalizeDebugBasePath as pe } from "../debug/shared/path-helpers.js";
 import { r as m } from "./icons-B_VaFfsl.js";
-import { $ as ue, Q as te, X as $, a as ge, ct as z, dt as oe, et as be, ft as fe, it as he, lt as b, mt as R, nt as D, ot as U, rt as me, st as F, tt as C, ut as y, w as f, y as L } from "./server-definitions-4iGaxxbT.js";
+import { a as ue, at as C, ct as ge, dt as F, et as $, ft as z, gt as be, ht as te, it as fe, mt as y, nt as oe, ot as D, pt as b, rt as he, st as me, ut as U, vt as R, w as f, y as L } from "./server-definitions-Bg5imA4C.js";
 var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = pe(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -66,7 +66,7 @@ var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
         try {
           const r = JSON.parse(o.data);
           if (r?.type === "snapshot_invalidated") {
-            this.snapshotRecoveryPending || (this.snapshotRecoveryPending = !0, this.requestSnapshot());
+            this.snapshotRecoveryPending || (this.snapshotRecoveryPending = !0, this.requestSnapshot()), this.options.onSnapshotInvalidated?.();
             return;
           }
           r?.type === "snapshot" && (this.snapshotRecoveryPending = !1), this.options.onEvent?.(r);
@@ -318,10 +318,10 @@ function P(e, t, o = {}) {
   `;
 }
 function ko(e, t, o, r) {
-  return ue(e, H(t, o, r), r.newestFirst !== !1), T(t);
+  return he(e, H(t, o, r), r.newestFirst !== !1), T(t);
 }
 function Co(e, t, o) {
-  return be(e, "tr[data-sql-id]", "data-sql-id", t, o);
+  return fe(e, "tr[data-sql-id]", "data-sql-id", t, o);
 }
 var W = /* @__PURE__ */ new WeakSet();
 async function q(e, t, o = {}) {
@@ -510,10 +510,10 @@ var Pe = {
   badge: "badge",
   badgeMethod: (e) => `badge badge-method ${e.toLowerCase()}`,
   badgeStatus: (e) => {
-    const t = fe(e);
+    const t = be(e);
     return t ? `badge badge-status ${t}` : "badge badge-status";
   },
-  badgeLevel: (e) => `badge badge-level ${oe(e)}`,
+  badgeLevel: (e) => `badge badge-level ${te(e)}`,
   badgeError: "badge badge-status error",
   badgeCustom: "badge",
   duration: "duration",
@@ -573,7 +573,7 @@ function Ne(e) {
 function Me(e) {
   return e.id ? e.id : `req-${C(`${e.timestamp || ""}|${e.method || ""}|${e.path || ""}|${e.status ?? ""}`)}`;
 }
-function Be(e, t, o) {
+function Ie(e, t, o) {
   return `
     <div class="${o.panelControls}">
       <label class="${o.sortToggle}">
@@ -583,7 +583,7 @@ function Be(e, t, o) {
     </div>
   `;
 }
-function Ie(e, t, o = {}) {
+function Be(e, t, o = {}) {
   const { maskPlaceholder: r = "***", maxDetailLength: s } = o, n = [], i = [];
   if (e.id && i.push(`<span>ID: <code>${a(e.id)}</code></span>`), e.remote_ip && i.push(`<span>IP: <code>${a(e.remote_ip)}</code></span>`), e.content_type && i.push(`<span>Content-Type: <code>${a(e.content_type)}</code></span>`), i.length > 0 && n.push(`<div class="${t.detailMetadataLine}">${i.join("")}</div>`), e.headers && Object.keys(e.headers).length > 0) {
     const d = Object.entries(e.headers).map(([c, l]) => {
@@ -671,7 +671,7 @@ function De(e, t, o) {
     const V = (e.content_type || e.headers?.["Content-Type"] || e.headers?.["content-type"] || "").split(";")[0].trim();
     V && (k = ` <span class="${t.badgeContentType}">${a(V)}</span>`);
   }
-  const A = `<span class="${t.expandIcon}" data-expand-icon>${l ? "▼" : "▶"}</span>`, de = l ? "table-row" : "none", K = Ie(e, t, {
+  const A = `<span class="${t.expandIcon}" data-expand-icon>${l ? "▼" : "▶"}</span>`, de = l ? "table-row" : "none", K = Be(e, t, {
     maskPlaceholder: o.maskPlaceholder,
     maxDetailLength: o.maxDetailLength
   }), ce = l ? K : `<template data-request-detail-template>${K}</template>`;
@@ -689,7 +689,7 @@ function De(e, t, o) {
   `;
 }
 function j(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: n, showSortToggle: i = !1, truncatePath: d = !0, maxPathLength: c = 50 } = o, l = i ? Be("requests", r, t) : "";
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: n, showSortToggle: i = !1, truncatePath: d = !0, maxPathLength: c = 50 } = o, l = i ? Ie("requests", r, t) : "";
   if (!e.length) return l + `<div class="${t.emptyState}">No requests captured</div>`;
   let p = n ? e.slice(-n) : e;
   r && (p = [...p].reverse());
@@ -743,7 +743,7 @@ var Ao = class {
       if (!s) return;
       const n = s.dataset.sqlId;
       n && (this.expanded.has(n) ? (this.expanded.delete(n), s.classList.remove("expanded")) : (this.expanded.add(n), s.classList.add("expanded")));
-    }, this.opts = e, this.list = new te({
+    }, this.opts = e, this.list = new oe({
       styles: e.styles,
       containerSelector: "[data-sql-table] tbody",
       rowSelector: "tr[data-sql-id]",
@@ -914,7 +914,7 @@ function Ge(e) {
     stack: s
   };
 }
-function Xe(e, t, o, r) {
+function Ye(e, t, o, r) {
   const s = Ge(e), n = [
     ["logger", e.logger],
     ["caller", ne(e)],
@@ -949,8 +949,8 @@ function Xe(e, t, o, r) {
     </tr>
   `;
 }
-function Ye(e, t, o) {
-  const r = e.level || "INFO", s = String(r).toUpperCase(), n = oe(String(r)), i = e.message || "", d = Qe(e), c = Ke(e), l = `log-details-${C(c)}`, p = o.expandable === !0, u = o.showSource ? 4 : 3, g = t.badgeLevel(n), x = [n === "error" ? t.rowError : ""];
+function Xe(e, t, o) {
+  const r = e.level || "INFO", s = String(r).toUpperCase(), n = te(String(r)), i = e.message || "", d = Qe(e), c = Ke(e), l = `log-details-${C(c)}`, p = o.expandable === !0, u = o.showSource ? 4 : 3, g = t.badgeLevel(n), x = [n === "error" ? t.rowError : ""];
   p && x.push(t.expandableRow);
   const v = o.truncateMessage ? R(i, o.maxMessageLength || 100) : i, k = o.showSource ? `<td class="${t.timestamp}" title="${h(ne(e) || d)}">${a(d)}</td>` : "", S = p ? `<span class="${t.expandIcon}" aria-hidden="true">&#9654;</span>` : "", A = p ? ` tabindex="0" role="button" aria-expanded="false" aria-controls="${h(l)}" aria-label="Show details for ${h(i || "log entry")}"` : "";
   return `
@@ -960,7 +960,7 @@ function Ye(e, t, o) {
       <td class="${t.message}" title="${h(i)}">${a(v)}</td>
       ${k}
     </tr>
-    ${p ? Xe(e, t, l, u) : ""}
+    ${p ? Ye(e, t, l, u) : ""}
   `;
 }
 function N(e, t, o = {}) {
@@ -968,7 +968,7 @@ function N(e, t, o = {}) {
   if (!e.length) return l + `<div class="${t.emptyState}">No logs captured</div>`;
   let p = s ? e.slice(-s) : e;
   r && (p = [...p].reverse());
-  const u = p.map((g) => Ye(g, t, {
+  const u = p.map((g) => Xe(g, t, {
     ...o,
     showSource: i,
     truncateMessage: d,
@@ -1041,7 +1041,7 @@ var jo = class {
   viewFor(e) {
     const t = this.views.get(e.id);
     if (t) return t;
-    const o = e.liveList, r = o.keyOf || ((n) => `r-${C(et(n))}`), s = new te({
+    const o = e.liveList, r = o.keyOf || ((n) => `r-${C(et(n))}`), s = new oe({
       styles: this.host.styles,
       containerSelector: o.containerSelector,
       rowSelector: o.rowSelector,
@@ -1091,7 +1091,7 @@ function ot(e, t) {
   `;
 }
 function rt(e, t, o) {
-  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, n = z(e), i = D(e, !0), d = tt(t, r), c = s ? `<span class="${t.muted}">${b(he(e))} keys</span>` : "";
+  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, n = z(e), i = D(e, !0), d = tt(t, r), c = s ? `<span class="${t.muted}">${b(ge(e))} keys</span>` : "";
   return `
     <div class="${t.jsonPanel}" data-copy-content="${a(n)}">
       <div class="${t.jsonHeader}">
@@ -1124,7 +1124,7 @@ function st(e, t, o) {
     </table>
   `;
 }
-function B(e, t, o = {}) {
+function I(e, t, o = {}) {
   const { dataFilterFn: r } = o, s = e.data || {}, n = r ? r(s) : s, i = e.logs || [], d = Object.keys(n).length > 0, c = i.length > 0;
   if (!d && !c) return `<div class="${t.emptyState}">No custom data captured</div>`;
   let l = "";
@@ -1255,7 +1255,7 @@ function gt(e, t) {
     </div>
   `;
 }
-function I(e, t, o = {}) {
+function B(e, t, o = {}) {
   const { newestFirst: r = !0, maxEntries: s = 100, compact: n = !1, showSortToggle: i = !1 } = o, d = i ? gt(r, t) : "";
   if (!e.length) return d + `<div class="${t.emptyState}">No JS errors captured</div>`;
   let c = s ? e.slice(-s) : e;
@@ -2158,7 +2158,7 @@ function Ot(e) {
     </details>
   `;
 }
-function X(e, t, o = {}) {
+function Y(e, t, o = {}) {
   const { showRawJSON: r = !0, problemsOnly: s = !1 } = o;
   if (!e) return `<div class="${t.emptyState}">No doctor diagnostics available</div>`;
   let n = e.checks || [];
@@ -2412,7 +2412,7 @@ function jt() {
     </button>
   `;
 }
-function Y(e) {
+function X(e) {
   return `
     <div style="
       display: flex;
@@ -2564,7 +2564,7 @@ function Mt(e) {
     </div>
   `;
 }
-function Bt(e) {
+function It(e) {
   return e ? `
     <div style="
       margin-bottom: 12px;
@@ -2601,7 +2601,7 @@ function Bt(e) {
     </div>
   ` : "";
 }
-function It(e) {
+function Bt(e) {
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
       <td style="padding: 5px 8px; color: #64748b; font-size: 10px; white-space: nowrap;">${a(e.timestamp ? y(e.timestamp) : "")}</td>
@@ -2659,7 +2659,7 @@ function Dt(e, t = 10) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => It(s)).join("")}
+            ${r.map((s) => Bt(s)).join("")}
           </tbody>
         </table>
       </div>
@@ -3117,8 +3117,8 @@ function ee(e, t, o = {}) {
   const { maxOperations: r = 20, maxKeys: s = 20, maxErrors: n = 10, showRawJSON: i = !1 } = o;
   return e ? e.configured ? `
     <div style="padding: 14px;">
-      ${Y(e)}
-      ${Bt(e.startup_error)}
+      ${X(e)}
+      ${It(e.startup_error)}
       ${Nt(e.counters)}
       ${Mt(e.last_command)}
       ${Dt(e.recent_errors, n)}
@@ -3131,7 +3131,7 @@ function ee(e, t, o = {}) {
     </div>
   ` : `
       <div style="padding: 12px;">
-        ${Y(e)}
+        ${X(e)}
         <div style="
           text-align: center;
           padding: 32px 16px;
@@ -3260,14 +3260,14 @@ function Mo(e, t = {}) {
     i !== void 0 && oo(o, n, i);
   }), o;
 }
-function Bo(e) {
+function Io(e) {
   return e.querySelector('[data-action-field-sensitive="true"]') !== null;
 }
-function Xt(e, t) {
+function Yt(e, t) {
   e.querySelectorAll("[data-action-field]").forEach((o) => {
     const r = (o.dataset.actionFieldPath || o.dataset.actionField || "").trim();
     if (!r) return;
-    const s = Yt(t, r);
+    const s = Xt(t, r);
     if (s !== void 0) {
       if (o instanceof HTMLInputElement && o.type === "checkbox") o.checked = !!s;
       else if (o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || o instanceof HTMLSelectElement) {
@@ -3279,16 +3279,16 @@ function Xt(e, t) {
     }
   });
 }
-function Io(e, t, o) {
+function Bo(e, t, o) {
   const r = String(o.action_id || "").trim();
   if (!t || !r) return !1;
   const s = Array.from(e.querySelectorAll("[data-panel-action-picker]")).find((d) => d.dataset.panelActionPicker === t);
   if (!s || !Array.from(s.options).some((d) => d.value === r)) return !1;
   s.value = r, s.dispatchEvent(new Event("change", { bubbles: !0 }));
   const n = o.payload && typeof o.payload == "object" && !Array.isArray(o.payload) ? o.payload : {}, i = Array.from(e.querySelectorAll("[data-panel-action-form]")).find((d) => d.dataset.panelId === t && d.dataset.actionId === r);
-  return i && Xt(i, n), !0;
+  return i && Yt(i, n), !0;
 }
-function Yt(e, t) {
+function Xt(e, t) {
   let o = e;
   for (const r of t.split(".").map((s) => s.trim()).filter(Boolean)) {
     if (!o || typeof o != "object" || Array.isArray(o)) return;
@@ -3548,20 +3548,20 @@ var so = {
   eventTypes: "custom",
   category: "data",
   order: 30,
-  render: (e, t, o) => B(e || {}, t, {
+  render: (e, t, o) => I(e || {}, t, {
     useIconCopyButton: !0,
     showCount: !0
   }),
   renderConsole: (e, t, o) => {
     const r = e || {}, s = o?.dataFilterFn;
-    return B(r, t, {
+    return I(r, t, {
       maxLogEntries: 100,
       useIconCopyButton: !0,
       showCount: !0,
       dataFilterFn: s
     });
   },
-  renderToolbar: (e, t) => B(e || {}, t, {
+  renderToolbar: (e, t) => I(e || {}, t, {
     maxLogEntries: 50,
     useIconCopyButton: !1,
     showCount: !1
@@ -3570,7 +3570,7 @@ var so = {
     const t = e || {};
     return (t.data ? Object.keys(t.data).length : 0) + (t.logs?.length || 0);
   },
-  handleEvent: (e, t) => ge(e, t, 500),
+  handleEvent: (e, t) => ue(e, t, 500),
   supportsToolbar: !0
 }, go = {
   id: "jserrors",
@@ -3580,18 +3580,18 @@ var so = {
   eventTypes: "jserror",
   category: "core",
   order: 35,
-  render: (e, t, o) => I(e || [], t, {
+  render: (e, t, o) => B(e || [], t, {
     ...o,
     compact: !1,
     showSortToggle: !1
   }),
-  renderConsole: (e, t, o) => I(e || [], t, {
+  renderConsole: (e, t, o) => B(e || [], t, {
     ...o,
     maxEntries: 500,
     compact: !1,
     showSortToggle: !1
   }),
-  renderToolbar: (e, t, o) => I(e || [], t, {
+  renderToolbar: (e, t, o) => B(e || [], t, {
     ...o,
     maxEntries: 50,
     compact: !0,
@@ -3626,8 +3626,8 @@ var so = {
   category: "system",
   order: 46,
   showFilters: !1,
-  render: (e, t, o) => X(e, t, { showRawJSON: !0 }),
-  renderConsole: (e, t, o) => X(e, t, { showRawJSON: !0 }),
+  render: (e, t, o) => Y(e, t, { showRawJSON: !0 }),
+  renderConsole: (e, t, o) => Y(e, t, { showRawJSON: !0 }),
   getCount: (e) => {
     const t = e;
     return !t || !t.summary ? 0 : (t.summary.error || 0) + (t.summary.warn || 0);
@@ -3684,23 +3684,23 @@ export {
   T as W,
   M as _,
   ee as a,
-  Ye as b,
-  X as c,
+  Xe as b,
+  Y as c,
   $t as d,
   nt as f,
   jo as g,
-  B as h,
-  Bo as i,
+  I as h,
+  Io as i,
   zo as j,
   je as k,
   No as l,
-  I as m,
-  Xt as n,
+  B as m,
+  Yt as n,
   Gt as o,
   ut as p,
   Mo as r,
   _t as s,
-  Io as t,
+  Bo as t,
   G as u,
   Ke as v,
   De as w,
@@ -3709,4 +3709,4 @@ export {
   ko as z
 };
 
-//# sourceMappingURL=builtin-panels-PNUdAgjs.js.map
+//# sourceMappingURL=builtin-panels-CCATNT-3.js.map

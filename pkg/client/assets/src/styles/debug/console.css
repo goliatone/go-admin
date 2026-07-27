@@ -455,11 +455,19 @@ body {
 }
 
 /* Command launcher fills the content area as an app-shell (master list + detail).
-   The container stays scrollable so a tall form grows the console rather than
-   scrolling inside a fixed-height pane. */
+   Its master and detail panes own desktop scrolling independently. */
 .debug-content--launcher {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .debug-content--launcher {
+    display: block;
+    overflow: auto;
+  }
 }
 
 .debug-repl {
@@ -1425,6 +1433,11 @@ section.debug-json-panel {
   padding: 2px 4px;
 }
 
+.command-run-toggle:focus-visible {
+  outline: 2px solid var(--debug-accent);
+  outline-offset: 2px;
+}
+
 .command-run-toggle > span[aria-hidden="true"] {
   display: inline-block;
   transition: transform 120ms ease;
@@ -1463,6 +1476,19 @@ section.debug-json-panel {
 
 .command-run-details dt,
 .command-run-details dd { margin: 0; }
+
+.command-run-outcome {
+  border-top: 1px solid var(--debug-border);
+  padding-top: 12px;
+}
+
+.command-run-outcome h4 {
+  margin: 0 0 8px;
+}
+
+.command-run-outcome__fields {
+  margin-top: 10px;
+}
 
 .command-run-detail pre {
   max-height: 240px;
