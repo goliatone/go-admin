@@ -442,6 +442,39 @@ identity. Request, SQL, and log panels remain filtered to the selected session.
 Set `SessionIncludeGlobalPanels` to false to exclude all global panels,
 including Command Runs, from session views.
 
+Command Runs authorization composes the request selector and scope authorizer
+with the same catalog eligibility used by the Commands launcher:
+`ExposeInAdmin`, normalized/fallback command IDs, duplicate-ID rejection,
+descriptor permissions, and descriptor resources. A configured
+`CommandRunRecordAuthorizer` may further restrict eligible records. Records
+whose command is absent from the catalog fail closed unless that host policy
+explicitly allows them; a host policy cannot re-enable a known descriptor that
+the launcher considers ineligible. Use the explicit unknown-record allowance
+only during a deliberate legacy rollout, and monitor the bounded runtime error
+counters for catalog or policy failures.
+
+Snapshot, lookup, regular WebSocket, and session WebSocket delivery all apply
+that record policy. Lookup precedence is run ID, dispatch ID, then correlation
+ID; correlation matches use the store's deterministic newest-first order.
+Authenticated clients can call
+`GET {debug_path}/api/command-runs/lookup?run_id=<id>` (or use
+`dispatch_id`, `correlation_id`, or compatibility `id`) to retrieve one masked
+authorized record without downloading the full snapshot. If multiple named
+parameters are supplied, run, dispatch, then correlation parameter precedence
+applies. Unauthorized and missing records both produce the same generic `404`.
+Scope-wide clear is intentionally atomic: when the selected scope contains any
+record hidden from the actor, HTTP and WebSocket clear return a generic failure,
+delete nothing, and publish no successful invalidation. This prevents a
+partially authorized operator from inferring or deleting hidden runs.
+
+The browser treats live events as the fast path and requests bounded
+authoritative snapshots while a visible Command Runs panel contains
+non-terminal rows. It reconciles per `run_id`, retains newer live revisions,
+prevents terminal regression, and uses a 5-second initial delay, 15-second
+success interval, and capped 5/10/20/40/60-second failure backoff. A missing
+terminal event therefore converges without a page reload while the configured
+store still retains the run.
+
 For Valkey Pub/Sub worker/gateway assembly, channel isolation, and lifecycle
 examples, see the `go-messaging/adapters/go-admin` README.
 
@@ -1420,6 +1453,15 @@ renders a link to `panel=command_runs` and the Command Runs panel focuses the
 matching row. Retry re-submits the last submitted payload through the same
 debug panel action route and repeats mutating-command confirmation.
 
+Catalog groups render as native disclosure buttons controlling ordinary group
+regions. Pointer, Enter, and Space toggle a group; selecting a command expands
+its group, and filtering temporarily reveals matching collapsed groups without
+discarding their stored state. On desktop, search remains fixed above the
+independently scrolling command catalog while the form/result detail pane owns
+its own scroll position; both positions survive a full launcher render. The
+existing narrow breakpoint stacks the panes with a bounded catalog height and
+normal-flow detail content to avoid nested touch scroll traps.
+
 `Admin.PublishCommandStatus` remains source-compatible and feeds the canonical
 projection when enough identity is present; `command_status` remains a launcher
 compatibility event. The authoritative lifecycle path is the `go-command`
@@ -1848,6 +1890,7 @@ cfg.Debug = admin.DebugConfig{
 | GET | `{debug_path}` | Debug dashboard page |
 | GET | `{debug_path}/api/panels` | Panel metadata registry |
 | GET | `{debug_path}/api/snapshot` | Current state snapshot |
+| GET | `{debug_path}/api/command-runs/lookup` | Authorized lookup by run, dispatch, or correlation ID |
 | POST | `{debug_path}/api/clear` | Clear all panel data |
 | POST | `{debug_path}/api/clear/:panel` | Clear specific panel |
 | POST | `{debug_path}/api/errors` | Ingest JS error report (nonce auth) |

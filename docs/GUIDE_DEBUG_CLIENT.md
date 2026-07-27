@@ -712,6 +712,14 @@ run" link to the stable `command_runs` panel. The Retry button re-submits the
 last submitted payload through the same panel action path, including
 mutating-command confirmation.
 
+Command catalog groups use disclosure buttons with `aria-expanded` and stable
+controlled group regions. Pointer, Enter, and Space toggle them. Selection
+expands its group, while filtering temporarily reveals matching groups and
+restores the stored collapse state when cleared. Desktop search stays outside
+the master-list scroll container; the catalog and detail panes scroll
+independently and restore both positions after a full render. At the narrow
+breakpoint the panes stack with a bounded catalog and normal-flow details.
+
 ### Command Runs live list
 
 The `command_runs` panel receives authoritative snapshots and incremental
@@ -721,13 +729,42 @@ updates are coalesced per animation frame, while terminal updates flush
 immediately. Selection, expansion, active filters, focus, and scroll position
 survive keyed replacement.
 
-Deep links use `panel=command_runs&run_id=<id>` or
-`panel=command_runs&correlation_id=<id>`. If a selected run is no longer in the
-bounded snapshot, the panel shows an unavailable state instead of selecting a
-different row. On reconnect, the authenticated WebSocket snapshot is
-authoritative; a parallel HTTP fallback cannot overwrite newer WebSocket
-state. This recovers missed Pub/Sub/WebSocket events only when the configured
-server-side store still contains the run.
+Deep links use `panel=command_runs` with `run_id`, `dispatch_id`, or
+`correlation_id`. Resolution precedence is run, dispatch, then correlation. If
+a selected run is no longer in the bounded snapshot, the panel shows an
+unavailable state instead of selecting a different row.
+
+Operational clients can resolve one retained row without downloading the full
+snapshot:
+
+```http
+GET {debug_path}/api/command-runs/lookup?run_id=run-123
+```
+
+The endpoint also accepts `dispatch_id`, `correlation_id`, and compatibility
+`id`. When multiple named parameters are present, the first non-empty value in
+run, dispatch, correlation order wins; `id` uses the panel's run-then-dispatch-
+then-correlation lookup. The response is `{ "record": { ... } }` with Debug
+masking applied. Missing and unauthorized identifiers both return the same
+generic `404` response.
+
+Every expanded row renders the approved lifecycle projection: identifiers,
+phase/revision/mode, progress, attempts, timing, checkpoint/message, and bounded
+failure data. Trusted producers may add a bounded `outcome` summary and named
+string, boolean, or finite-number fields. Arbitrary `metadata` is never
+rendered; when no outcome is present the row says that no additional result
+metadata was recorded.
+
+On activation, reconnect, invalidation, revision gap, and while visible
+non-terminal rows remain, one reconciliation controller requests an
+authoritative snapshot. It merges per run against the request baseline, so a
+newer live update for run B cannot suppress recovery of stale run A, and an
+older snapshot cannot regress a terminal row. The controller uses a 5-second
+initial delay, a 15-second post-success interval, and 5/10/20/40/60-second
+failure backoff. It pauses while hidden, stops when all rows are terminal, and
+cancels on teardown. WebSocket is preferred; a global console may use HTTP
+fallback. This recovers missed events without a page reload only while the
+configured server-side store still contains the run.
 
 The server coalesces pending progress for a scoped run and preserves terminal
 state. A client that exceeds the bounded queue on unrelated rows is
