@@ -1,40 +1,19 @@
 # Changelog
 
+# [0.124.1](https://github.com/goliatone/go-admin/compare/v0.124.0...v0.124.1) - (2026-07-27)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Command runs panel show details ([60b319a](https://github.com/goliatone/go-admin/commit/60b319a5ab63a3c0adbde07152558eaa101a1ecf))  - (goliatone)
+
 # [0.124.0](https://github.com/goliatone/go-admin/compare/v0.123.1...v0.124.0) - (2026-07-27)
 
 
-## Migration Notes
+New minor release: v0.124.0
 
-- Command Runs visibility now composes scope access with the Commands catalog.
-  Known descriptors that are hidden, duplicated, not admin-exposed, or denied
-  by descriptor permission/resource rules are omitted from snapshots, lookup,
-  clear, and live WebSocket delivery.
-- Records for command IDs missing from the catalog now fail closed. Hosts that
-  intentionally retain legacy or externally produced command IDs must configure
-  `CommandRunRecordAuthorizer` to allow those unknown records explicitly. Keep
-  this exception narrow and monitor Command Runs diagnostics during rollout.
-- Command Runs clear is now atomic across the selected scope. If any selected
-  row is hidden from the actor, HTTP and WebSocket clear return a generic
-  failure, delete nothing, and emit no successful snapshot invalidation.
-- Custom command-run stores must implement the additive
-  `CommandRunAtomicClearStore` capability to support record-aware clear;
-  stores without a versioned consistency boundary now fail closed instead of
-  using the unsafe legacy scope clear.
-- Command Runs links accept `run_id`, `dispatch_id`, and `correlation_id`.
-  Visible non-terminal rows reconcile from bounded authoritative snapshots, so
-  missed live updates converge without a browser reload while the store retains
-  the run.
-- Slow Debug WebSocket subscribers now recover in-band: unrelated queue
-  overflow produces one `snapshot_invalidated` signal and a fresh authorized
-  snapshot request instead of forcing a reconnect.
-- Authenticated operational clients can resolve one authorized retained record
-  through `GET {debug_path}/api/command-runs/lookup` without downloading the
-  full Command Runs snapshot.
-- Expanded rows expose lifecycle data and the new bounded scalar `outcome`
-  projection only; arbitrary command-run metadata is not rendered.
-- Commands catalog groups are accessible disclosures. Desktop catalog and
-  detail panes now scroll independently, while narrow layouts stack to avoid
-  nested touch scrolling.
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.124.0 ([57249b1](https://github.com/goliatone/go-admin/commit/57249b1fb20a148402f1b036bac4efc2d8b8c618))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
