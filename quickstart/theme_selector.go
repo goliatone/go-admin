@@ -138,7 +138,7 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 	tokens := map[string]string{
 		"primary":                      "#2563eb",
 		"accent":                       "#f59e0b",
-		"surface":                      "#1C1C1E",
+		"admin.sidebar.background":     "#1C1C1E",
 		"sidebar-width":                "260px",
 		"sidebar-padding-x":            "12px",
 		"sidebar-padding-y":            "12px",
@@ -151,6 +151,15 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 		"sidebar-brand-max-width":      "100%",
 		"sidebar-brand-collapsed-size": "32px",
 		"sidebar-brand-align":          "flex-start",
+	}
+	_, hasLegacySurface := tokenOverrides["surface"]
+	_, hasPortableSurface := tokenOverrides["color.surface.default"]
+	_, hasSidebarBackground := tokenOverrides["admin.sidebar.background"]
+	if (hasLegacySurface || hasPortableSurface) && !hasSidebarBackground {
+		// Before semantic projection, quickstart used the global surface as its
+		// sidebar color. Let an explicit global override keep that compatibility
+		// fallback instead of shadowing it with the generated component default.
+		delete(tokens, "admin.sidebar.background")
 	}
 	maps.Copy(tokens, tokenOverrides)
 
@@ -171,9 +180,9 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 		variants = map[string]theme.Variant{
 			"dark": {
 				Tokens: map[string]string{
-					"primary": "#0ea5e9",
-					"accent":  "#fbbf24",
-					"surface": "#0b1221",
+					"primary":                  "#0ea5e9",
+					"accent":                   "#fbbf24",
+					"admin.sidebar.background": "#0b1221",
 				},
 				Assets: theme.Assets{
 					Prefix: assetsPrefix,

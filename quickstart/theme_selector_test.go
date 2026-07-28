@@ -6,6 +6,86 @@ import (
 	theme "github.com/goliatone/go-theme"
 )
 
+func TestNewThemeSelectorScopesDefaultDarkSurfaceToSidebar(t *testing.T) {
+	selector, manifest, err := NewThemeSelector("admin", "light", nil)
+	if err != nil {
+		t.Fatalf("new theme selector: %v", err)
+	}
+
+	if got := manifest.Tokens["admin.sidebar.background"]; got != "#1C1C1E" {
+		t.Fatalf("expected light theme sidebar background #1C1C1E, got %q", got)
+	}
+	if _, exists := manifest.Tokens["surface"]; exists {
+		t.Fatalf("default light theme must not publish the sidebar color as global surface: %+v", manifest.Tokens)
+	}
+	if got := manifest.Variants["dark"].Tokens["admin.sidebar.background"]; got != "#0b1221" {
+		t.Fatalf("expected dark variant sidebar background #0b1221, got %q", got)
+	}
+	if _, exists := manifest.Variants["dark"].Tokens["surface"]; exists {
+		t.Fatalf("default dark variant must not publish the sidebar color as global surface: %+v", manifest.Variants["dark"].Tokens)
+	}
+
+	selection, err := selector.Select("admin", "light")
+	if err != nil {
+		t.Fatalf("select light theme: %v", err)
+	}
+	tokens := selection.Tokens()
+	if got := tokens["admin.sidebar.background"]; got != "#1C1C1E" {
+		t.Fatalf("expected selected sidebar background #1C1C1E, got %q", got)
+	}
+	if _, exists := tokens["surface"]; exists {
+		t.Fatalf("selected light theme must leave the global surface unset: %+v", tokens)
+	}
+}
+
+func TestNewThemeSelectorPreservesExplicitGlobalSurfaceOverrides(t *testing.T) {
+	tests := []struct {
+		name            string
+		override        map[string]string
+		token           string
+		expectedSidebar string
+	}{
+		{
+			name:     "legacy alias",
+			override: map[string]string{"surface": "#ffffff"},
+			token:    "surface",
+		},
+		{
+			name:     "portable token",
+			override: map[string]string{"color.surface.default": "#ffffff"},
+			token:    "color.surface.default",
+		},
+		{
+			name: "explicit sidebar token",
+			override: map[string]string{
+				"surface":                  "#ffffff",
+				"admin.sidebar.background": "#111111",
+			},
+			token:           "surface",
+			expectedSidebar: "#111111",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, manifest, err := NewThemeSelector("admin", "light", tt.override)
+			if err != nil {
+				t.Fatalf("new theme selector: %v", err)
+			}
+			if got := manifest.Tokens[tt.token]; got != "#ffffff" {
+				t.Fatalf("expected explicit global surface override, got %q", got)
+			}
+			sidebar, exists := manifest.Tokens["admin.sidebar.background"]
+			if tt.expectedSidebar == "" && exists {
+				t.Fatalf("default sidebar token must not shadow an explicit global surface override: %+v", manifest.Tokens)
+			}
+			if tt.expectedSidebar != "" && sidebar != tt.expectedSidebar {
+				t.Fatalf("expected explicit sidebar override %q, got %q", tt.expectedSidebar, sidebar)
+			}
+		})
+	}
+}
+
 func TestNewThemeSelectorDefaultManifestIncludesIconAsset(t *testing.T) {
 	_, manifest, err := NewThemeSelector("admin", "dark", nil)
 	if err != nil {
