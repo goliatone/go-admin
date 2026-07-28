@@ -27,11 +27,11 @@
 }
 
 .actions-menu-trigger:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--datagrid-row-hover, var(--color-surface-subtle, rgba(0, 0, 0, 0.05)));
 }
 
 .actions-menu-trigger:focus {
-  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline: 2px solid var(--color-focus-ring, rgba(59, 130, 246, 0.5));
   outline-offset: 2px;
 }
 
@@ -43,11 +43,11 @@
   z-index: 9999;  /* Much higher z-index to appear above everything */
   min-width: 14rem;
   max-width: 18rem;
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
-              0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  background: var(--color-surface-raised, white);
+  border: 1px solid var(--datagrid-border, var(--color-border-default, rgba(0, 0, 0, 0.1)));
+  border-radius: var(--radius-surface, 0.5rem);
+  box-shadow: var(--shadow-overlay, 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+              0 4px 6px -2px rgba(0, 0, 0, 0.05));
   padding: 0.25rem 0;
   overflow: visible;  /* Changed from hidden to visible */
   max-height: 400px;  /* Prevent menu from being too tall */
@@ -69,7 +69,7 @@
   text-decoration: none;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--color-text-primary, #374151);
   background: transparent;
   border: none;
   cursor: pointer;
@@ -85,27 +85,27 @@
 }
 
 .action-item:hover {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: var(--datagrid-row-hover, var(--color-surface-subtle, rgba(0, 0, 0, 0.03)));
 }
 
 .action-item:focus {
   outline: none;
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--datagrid-row-hover, var(--color-surface-subtle, rgba(0, 0, 0, 0.05)));
 }
 
 /* Destructive action styling (Remove, Delete, Archive, etc.) */
 .action-item.text-red-600 {
-  color: #dc2626;
+  color: var(--color-status-danger, #dc2626);
 }
 
 .action-item.text-red-600:hover {
-  background-color: rgba(220, 38, 38, 0.05);
+  background-color: var(--color-surface-subtle, rgba(220, 38, 38, 0.05));
 }
 
 /* Disabled action items remain visible/focusable but must not show active hover feedback */
 .action-item[aria-disabled="true"] {
   cursor: not-allowed;
-  color: #9ca3af;
+  color: var(--color-text-secondary, #9ca3af);
 }
 
 .action-item[aria-disabled="true"]:hover,
@@ -116,7 +116,7 @@
 /* Action divider */
 .action-divider {
   margin: 0.25rem 0;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid var(--datagrid-border, var(--color-border-default, rgba(0, 0, 0, 0.08)));
 }
 
 /* Icon container (maintains consistent size) */
@@ -147,19 +147,19 @@
 /* Dark mode support (optional) */
 @media (prefers-color-scheme: dark) {
   .actions-menu {
-    background: #1f2937;
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--color-surface-raised, #1f2937);
+    border-color: var(--datagrid-border, var(--color-border-default, rgba(255, 255, 255, 0.1)));
   }
 
   .action-item {
-    color: #e5e7eb;
+    color: var(--color-text-primary, #e5e7eb);
   }
 
   .action-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--datagrid-row-hover, var(--color-surface-subtle, rgba(255, 255, 255, 0.05)));
   }
 
   .action-divider {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--datagrid-border, var(--color-border-default, rgba(255, 255, 255, 0.1)));
   }
 }

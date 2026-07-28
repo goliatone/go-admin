@@ -1,5 +1,5 @@
-<aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--sidebar-width, 260px);">
-  <div class="sidebar-header flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
+<aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--admin-sidebar-width, var(--sidebar-width, 260px));">
+  <div class="sidebar-header flex items-center gap-2" style="padding: var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))) var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
     <a href="{{ adminURL("") }}" class="sidebar-brand-link flex items-center no-underline flex-1 min-w-0 overflow-hidden">
       <span class="sidebar-brand sidebar-brand-expanded">
         {% if theme and theme.assets and theme.assets.logo %}
@@ -35,10 +35,10 @@
     </div>
   </div>
 
-  <nav class="flex-1 overflow-y-auto" style="padding: 0 var(--sidebar-padding-x, 12px);">
+  <nav class="flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
     {% for item in nav_items %}
       {% if item.type == "separator" %}
-        <div style="height: var(--sidebar-gap-sections, 24px);"></div>
+        <div style="height: var(--admin-sidebar-section-gap, var(--sidebar-gap-sections, var(--space-stack, 24px)));"></div>
       {% elif item.type == "group" %}
         <div class="menu-group mb-4" data-group-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
           <button class="flex items-center w-full gap-2 px-3 py-2 text-xs font-medium text-sidebar-text-muted hover:text-sidebar-text transition-colors rounded-lg hover:bg-sidebar-bg-hover">
@@ -50,7 +50,7 @@
             {% for child in item.children %}
               {% if child.has_children and child.collapsible %}
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
-                  <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
+                  <button class="nav-item w-full text-left" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                     {% if child.icon %}
                       {{ renderMenuIcon(child.icon)|safe }}
                     {% endif %}
@@ -62,7 +62,7 @@
                       {% if navItemDisabled(grandchild) %}
                         <button type="button"
                                 class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                                style="height: var(--sidebar-item-height, 36px);"
+                                style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
                                 aria-disabled="true"
                                 title="{{ grandchild.disabled_reason|default:'Unavailable' }}">
                           {% if grandchild.icon %}
@@ -74,7 +74,7 @@
                           {% endif %}
                         </button>
                       {% else %}
-                        <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                        <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                           {% if grandchild.icon %}
                             {{ renderMenuIcon(grandchild.icon)|safe }}
                           {% endif %}
@@ -88,7 +88,7 @@
                 {% if navItemDisabled(child) %}
                   <button type="button"
                           class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                          style="height: var(--sidebar-item-height, 36px);"
+                          style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
                           aria-disabled="true"
                           title="{{ child.disabled_reason|default:'Unavailable' }}">
                     {% if child.icon %}
@@ -100,7 +100,7 @@
                     {% endif %}
                   </button>
                 {% else %}
-                  <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                  <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                     {% if child.icon %}
                       {{ renderMenuIcon(child.icon)|safe }}
                     {% endif %}
@@ -113,7 +113,7 @@
         </div>
       {% elif item.children and item.collapsible %}
         <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
-          <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
+          <button class="nav-item w-full text-left" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
             {% if item.icon %}
               {{ renderMenuIcon(item.icon)|safe }}
             {% endif %}
@@ -125,7 +125,7 @@
               {% if navItemDisabled(child) %}
                 <button type="button"
                         class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                        style="height: var(--sidebar-item-height, 36px);"
+                        style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
                         aria-disabled="true"
                         title="{{ child.disabled_reason|default:'Unavailable' }}">
                   {% if child.icon %}
@@ -137,7 +137,7 @@
                   {% endif %}
                 </button>
               {% else %}
-                <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                   {% if child.icon %}
                     {{ renderMenuIcon(child.icon)|safe }}
                   {% endif %}
@@ -151,7 +151,7 @@
         {% if navItemDisabled(item) %}
           <button type="button"
                   class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                  style="height: var(--sidebar-item-height, 36px);"
+                  style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
                   aria-disabled="true"
                   title="{{ item.disabled_reason|default:'Unavailable' }}">
             {% if item.icon %}
@@ -163,7 +163,7 @@
             {% endif %}
           </button>
         {% else %}
-          <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+          <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
             {% if item.icon %}
               {{ renderMenuIcon(item.icon)|safe }}
             {% endif %}
@@ -188,7 +188,7 @@
             {% if navItemDisabled(child) %}
               <button type="button"
                       class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                      style="height: var(--sidebar-item-height, 36px);"
+                      style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
                       aria-disabled="true"
                       title="{{ child.disabled_reason|default:'Unavailable' }}">
                 {% if child.icon %}
@@ -200,7 +200,7 @@
                 {% endif %}
               </button>
             {% else %}
-              <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+              <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                 {% if child.icon %}
                   {{ renderMenuIcon(child.icon)|safe }}
                 {% endif %}
@@ -212,7 +212,7 @@
           {% if navItemDisabled(item) %}
             <button type="button"
                     class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                    style="height: var(--sidebar-item-height, 36px);"
+                    style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
                     aria-disabled="true"
                     title="{{ item.disabled_reason|default:'Unavailable' }}">
               {% if item.icon %}
@@ -224,7 +224,7 @@
               {% endif %}
             </button>
           {% else %}
-            <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+            <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
               {% if item.icon %}
                 {{ renderMenuIcon(item.icon)|safe }}
               {% endif %}
@@ -236,7 +236,7 @@
     </nav>
   {% endif %}
 
-  <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--sidebar-padding-x, 12px);">
+  <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
     <div class="pt-3 pb-3 relative">
       <button id="user-menu-toggle" class="flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
         <div class="relative flex-shrink-0">

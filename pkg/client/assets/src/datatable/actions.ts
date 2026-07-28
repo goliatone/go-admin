@@ -106,7 +106,7 @@ export class ActionRenderer {
     );
 
     if (visibleActions.length === 0) {
-      return '<div class="flex justify-end gap-2"></div>';
+      return '<div class="admin-datagrid__action-list flex justify-end gap-2"></div>';
     }
 
     const actionButtons = visibleActions.map(action => {
@@ -137,7 +137,7 @@ export class ActionRenderer {
       return `
         <button
           type="button"
-          class="btn btn-sm ${variantClass} ${customClass} ${disabledClass}"
+          class="admin-datagrid__action btn btn-sm ${variantClass} ${customClass} ${disabledClass}"
           data-action-id="${this.sanitize(action.label)}"
           data-action-key="${actionKey}"
           data-record-id="${record.id}"
@@ -154,7 +154,7 @@ export class ActionRenderer {
       `;
     }).join('');
 
-    return `<div class="flex justify-end gap-2">${actionButtons}</div>`;
+    return `<div class="admin-datagrid__action-list flex justify-end gap-2">${actionButtons}</div>`;
   }
 
   /**
@@ -166,7 +166,7 @@ export class ActionRenderer {
     );
 
     if (visibleActions.length === 0) {
-      return '<div class="text-sm text-gray-400">No actions</div>';
+      return '<div class="admin-datagrid__actions-empty text-sm text-gray-400">No actions</div>';
     }
 
     const menuId = `actions-menu-${record.id}`;

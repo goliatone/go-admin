@@ -25,10 +25,10 @@
   </div>
 </header>
 
-<div class="flex-1 p-8 overflow-y-auto">
+<div class="admin-page-content flex-1 p-8 overflow-y-auto">
   {% if items or render_datagrid_shell %}
   <!-- DataTable Toolbar -->
-  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
+  <div class="admin-surface-card admin-datagrid__toolbar bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <!-- Left: Search/Filter Area -->
         <div class="relative max-w-2xl w-full flex flex-col gap-2">
@@ -80,7 +80,7 @@
           </div>
 
           <!-- Filter Panel (dropdown) -->
-          <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+          <div id="filter-panel" class="filter-panel admin-datagrid__filter-panel hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
             <!-- Panel content will be rendered here -->
           </div>
         </div>
@@ -206,13 +206,13 @@
   {% endblock %}
 
   <!-- DataTable Table -->
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+  <div class="admin-datagrid bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm" data-datagrid-surface>
     <div class="overflow-x-auto">
-      <table id="{{ datatable_id|default:resource }}-datatable" class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+      <table id="{{ datatable_id|default:resource }}-datatable" class="admin-datagrid__table min-w-full divide-y divide-gray-200">
+        <thead class="admin-datagrid__header bg-gray-50">
           <tr>
             <!-- Selection Column (fixed, not reorderable) -->
-            <th scope="col" data-role="selection" data-fixed="left" class="px-6 py-3 text-start">
+            <th scope="col" data-role="selection" data-fixed="left" class="admin-datagrid__header-cell px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
                        id="table-checkbox-all"
@@ -224,7 +224,7 @@
             <th scope="col"
                 data-column="{{ col.field }}"
                 {% if col.sortable %}data-sortable="true"{% endif %}
-                class="px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
+                class="admin-datagrid__header-cell px-6 py-3 text-start text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div class="flex items-center gap-2">
                 {% if col.sortable %}
                 <button type="button"
@@ -244,32 +244,32 @@
             </th>
             {% endfor %}
             <!-- Actions Column (fixed, not reorderable) -->
-            <th scope="col" data-role="actions" data-fixed="right" class="px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col" data-role="actions" data-fixed="right" class="admin-datagrid__header-cell px-6 py-3 text-end text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
           <!-- Filter Row - Cells have data-column to match header/body for reorder/hide alignment -->
           {% block filter_row %}
-          <tr class="bg-gray-100" id="filter-row">
+          <tr class="admin-datagrid__filter-row bg-gray-100" id="filter-row">
             <!-- Selection filter cell (fixed, not reorderable) -->
-            <th data-role="selection" data-fixed="left"></th>
+            <th data-role="selection" data-fixed="left" class="admin-datagrid__header-cell"></th>
             {% for col in columns %}
-            <th data-column="{{ col.field }}" class="px-6 py-2">
+            <th data-column="{{ col.field }}" class="admin-datagrid__header-cell px-6 py-2">
               {% if not col.filterable %}
               {% else %}
               <input type="text"
                      data-filter-column="{{ col.field }}"
                      placeholder="{% if col.field == "created_at" %}YYYY-MM-DD{% else %}Filter...{% endif %}"
-                     class="py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
+                     class="admin-datagrid__filter-control py-1.5 px-2 block w-full border-gray-300 rounded text-xs focus:border-blue-500 focus:ring-blue-500">
               {% endif %}
             </th>
             {% endfor %}
             <!-- Actions filter cell (fixed, not reorderable) -->
-            <th data-role="actions" data-fixed="right"></th>
+            <th data-role="actions" data-fixed="right" class="admin-datagrid__header-cell"></th>
           </tr>
           {% endblock %}
         </thead>
-        <tbody id="datatable-body" class="divide-y divide-gray-200 bg-white">
+        <tbody id="datatable-body" class="admin-datagrid__body divide-y divide-gray-200 bg-white">
           <!-- Rows will be dynamically rendered by EnhancedDataTable -->
         </tbody>
       </table>
@@ -277,11 +277,11 @@
   </div>
 
   <!-- Pagination Footer -->
-  <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+  <div class="admin-surface-card admin-pagination admin-datagrid__pagination mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
     <div class="flex items-center justify-between gap-4">
       <!-- Left: Info text -->
       <div class="flex-shrink-0">
-        <p class="text-sm text-gray-600">
+        <p class="admin-datagrid__pagination-text text-sm text-gray-600">
           Showing <span class="font-medium" id="table-info-start">1</span> to
           <span class="font-medium" id="table-info-end">10</span> of
           <span class="font-medium" id="table-info-total">{{ total|default:"0" }}</span> results
@@ -290,7 +290,7 @@
 
       <!-- Center: Pagination buttons -->
       <div class="flex-1 flex justify-center">
-        <nav id="table-pagination" class="flex items-center gap-x-1">
+        <nav id="table-pagination" class="admin-datagrid__pagination-controls flex items-center gap-x-1">
           <!-- Pagination buttons will be inserted here -->
         </nav>
       </div>
@@ -312,7 +312,7 @@
 
   {% else %}
   {% block empty_state %}
-  <div class="text-center py-16">
+  <div class="admin-empty-state admin-datagrid__empty text-center py-16">
     <div class="text-6xl mb-4">📄</div>
     <h3 class="text-xl font-semibold text-gray-900 mb-2">No {{ resource_label|default:resource|lower }} yet</h3>
     <p class="text-gray-500 mb-6">Get started by creating your first {{ resource_label|default:resource|lower }}</p>

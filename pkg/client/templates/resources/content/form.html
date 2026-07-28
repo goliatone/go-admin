@@ -3,7 +3,7 @@
 {% block title %}{% if is_edit %}Edit{% else %}New{% endif %} {{ resource_label|default:"Content" }} - {{ title }}{% endblock %}
 
 {% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+<header class="admin-page-header px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
   <div>
     <p class="text-sm text-gray-500 mb-1">{{ resource_label|default:"Content" }}</p>
     <h1 class="text-3xl font-bold text-admin-dark">{% if is_edit %}Edit{% else %}Create{% endif %} {{ resource_label|default:"Content" }}</h1>
@@ -63,7 +63,7 @@
   {% endif %}
 {% endif %}
 
-<div class="flex-1 p-8 overflow-y-auto"
+<div class="admin-page-content flex-1 p-8 overflow-y-auto"
      {% if is_edit and resource_item %}
      data-record-id="{{ resource_item.id }}"
      data-panel-name="{{ panel_name }}"

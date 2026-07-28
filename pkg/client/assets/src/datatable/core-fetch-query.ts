@@ -15,6 +15,10 @@ export async function refresh(grid: any, requestSeq?: number): Promise<void> {
     }
 
     grid.abortController = new AbortController();
+    if (grid.tableEl) {
+      grid.tableEl.dataset.state = 'loading';
+      grid.tableEl.setAttribute('aria-busy', 'true');
+    }
 
     try {
       const url = grid.buildApiUrl();
@@ -67,6 +71,10 @@ export async function refresh(grid: any, requestSeq?: number): Promise<void> {
         return;
       }
       console.error('[DataGrid] Error fetching data:', error);
+      if (grid.tableEl) {
+        grid.tableEl.dataset.state = 'error';
+        grid.tableEl.setAttribute('aria-busy', 'false');
+      }
       grid.showError('Failed to load data');
     }
   }

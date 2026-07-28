@@ -111,16 +111,239 @@
 }
 
 @layer components {
+  /* Semantic admin consumers. Component tokens fall back to the portable
+     contract and finally to the current go-admin visual defaults. */
+  body.admin-theme-root {
+    background-color: var(--admin-shell-background, var(--color-surface-canvas, #f9fafb));
+    color: var(--color-text-primary, #111827);
+    font-family: var(--font-family-body, ui-sans-serif, system-ui, sans-serif);
+    font-size: var(--font-size-body, 1rem);
+    font-weight: var(--font-weight-body, 400);
+    line-height: var(--line-height-body, 1.5);
+    letter-spacing: var(--letter-spacing-body, normal);
+  }
+
+  .admin-main {
+    background-color: var(--admin-shell-background, var(--color-surface-canvas, #f9fafb));
+    color: var(--color-text-primary, #111827);
+  }
+
+  .admin-page-header.admin-page-header {
+    background-color: var(--admin-header-background, var(--color-surface-default, #ffffff));
+    border-color: var(--admin-header-border, var(--color-border-default, #e5e7eb));
+  }
+
+  .admin-page-header h1,
+  .admin-page-header h2 {
+    color: var(--color-text-primary, #111827);
+    font-family: var(--font-family-heading, var(--font-family-body, ui-sans-serif, system-ui, sans-serif));
+    font-weight: var(--font-weight-emphasis, 700);
+  }
+
+  .admin-page-header p {
+    color: var(--color-text-secondary, #6b7280);
+  }
+
+  .admin-page-content {
+    gap: var(--admin-page-gap, var(--space-stack, 0));
+  }
+
+  .admin-surface-card.admin-surface-card,
+  .metric-card.metric-card,
+  .filter-panel.filter-panel {
+    background-color: var(--color-surface-raised, #ffffff);
+    border-color: var(--color-border-default, #e5e7eb);
+    border-radius: var(--radius-surface, 0.75rem);
+    box-shadow: var(--shadow-surface, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+    color: var(--color-text-primary, #111827);
+  }
+
+  .admin-empty-state {
+    color: var(--color-text-secondary, #6b7280);
+  }
+
+  .admin-empty-state h3 {
+    color: var(--color-text-primary, #111827);
+  }
+
+  .admin-empty-state p {
+    color: var(--color-text-secondary, #6b7280);
+  }
+
+  .filter-panel .filter-panel__trigger {
+    color: var(--color-text-primary, #374151);
+  }
+
+  .filter-panel .filter-panel__trigger:hover {
+    background-color: var(--color-surface-subtle, #f3f4f6);
+  }
+
+  .filter-panel__form {
+    border-color: var(--color-border-default, #e5e7eb);
+  }
+
+  .admin-theme-root input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+  .admin-theme-root select,
+  .admin-theme-root textarea {
+    background-color: var(--form-control-background, var(--color-surface-default, #ffffff));
+    border-color: var(--form-control-border, var(--color-border-default, #d1d5db));
+    border-radius: var(--form-control-radius, var(--radius-control, 0.5rem));
+    color: var(--form-control-text, var(--color-text-primary, #111827));
+  }
+
+  .admin-theme-root input::placeholder,
+  .admin-theme-root textarea::placeholder {
+    color: var(--form-control-placeholder, var(--color-text-secondary, #9ca3af));
+  }
+
+  .admin-theme-root input:disabled,
+  .admin-theme-root select:disabled,
+  .admin-theme-root textarea:disabled,
+  .admin-theme-root input[readonly],
+  .admin-theme-root textarea[readonly] {
+    background-color: var(--form-control-disabled-background, var(--color-surface-subtle, #f3f4f6));
+    color: var(--form-control-disabled-text, var(--color-text-secondary, #6b7280));
+  }
+
+  .admin-theme-root :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-focus-ring, #3b82f6);
+    outline-offset: 2px;
+  }
+
+  /* Embedded DataGrid semantic presentation. These selectors are opt-in so
+     public-site tables and unrelated application modules remain isolated. */
+  .admin-datagrid.admin-datagrid {
+    background-color: var(--datagrid-row-background, var(--color-surface-default, #ffffff));
+    border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
+    border-radius: var(--radius-surface, 0.75rem);
+    box-shadow: var(--shadow-surface, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+    color: var(--color-text-primary, #111827);
+  }
+
+  .admin-datagrid .admin-datagrid__header,
+  .admin-datagrid .admin-datagrid__filter-row {
+    background-color: var(--datagrid-header-background, var(--color-surface-subtle, #f9fafb));
+  }
+
+  .admin-datagrid .admin-datagrid__header-cell,
+  .admin-datagrid .admin-datagrid__header-cell button {
+    color: var(--datagrid-header-text, var(--color-text-secondary, #6b7280));
+  }
+
+  .admin-datagrid .admin-datagrid__body,
+  .admin-datagrid .admin-datagrid__row {
+    background-color: var(--datagrid-row-background, var(--color-surface-default, #ffffff));
+  }
+
+  .admin-datagrid .admin-datagrid__row:hover {
+    background-color: var(--datagrid-row-hover, var(--color-surface-subtle, #f9fafb));
+  }
+
+  .admin-datagrid .admin-datagrid__row[data-selected="true"] {
+    background-color: var(--datagrid-row-selected, var(--color-action-primary, #2563eb));
+    color: var(--color-text-inverse, #ffffff);
+  }
+
+  .admin-datagrid .admin-datagrid__row[data-selected="true"] .admin-datagrid__cell {
+    color: inherit;
+  }
+
+  .admin-datagrid .admin-datagrid__cell {
+    border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
+    color: var(--color-text-primary, #1f2937);
+  }
+
+  .admin-datagrid .admin-datagrid__body > :not([hidden]) ~ :not([hidden]),
+  .admin-datagrid .admin-datagrid__header > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
+  }
+
+  .admin-datagrid__toolbar.admin-datagrid__toolbar,
+  .admin-datagrid__filter-panel.admin-datagrid__filter-panel,
+  .admin-datagrid__pagination.admin-datagrid__pagination {
+    border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
+  }
+
+  .admin-datagrid__pagination .admin-datagrid__pagination-text,
+  .admin-datagrid__pagination .admin-datagrid__page-button,
+  .admin-datagrid__actions-empty {
+    color: var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280));
+  }
+
+  .admin-datagrid__pagination .admin-datagrid__page-button:hover,
+  .admin-datagrid__pagination .admin-datagrid__page-button:focus-visible {
+    background-color: var(--datagrid-row-hover, var(--color-surface-subtle, #f3f4f6));
+  }
+
+  .admin-datagrid__pagination .admin-datagrid__page-button[aria-current="page"] {
+    background-color: var(--datagrid-row-selected, var(--color-action-primary, #e5e7eb));
+    color: var(--color-text-inverse, #1f2937);
+  }
+
+  .admin-datagrid .admin-datagrid__state--empty,
+  .admin-datagrid .admin-datagrid__state--loading {
+    color: var(--datagrid-empty-text, var(--color-text-secondary, #6b7280));
+  }
+
+  .admin-datagrid .admin-datagrid__state--error {
+    color: var(--color-status-danger, #dc2626);
+  }
+
+  .admin-datagrid__table[data-state="loading"] .admin-datagrid__body {
+    opacity: 0.6;
+  }
+
+  .admin-datagrid__table[data-state="error"] {
+    outline: 1px solid var(--color-status-danger, #dc2626);
+    outline-offset: -1px;
+  }
+
+  .admin-datagrid :is(button, input, select, [tabindex]):focus-visible,
+  .admin-datagrid__toolbar :is(button, input, select, [tabindex]):focus-visible,
+  .admin-datagrid__pagination :is(button, input, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-focus-ring, #3b82f6);
+    outline-offset: 2px;
+  }
+
+  .admin-datagrid :is(button, input, select):disabled,
+  .admin-datagrid [aria-disabled="true"],
+  .admin-datagrid__toolbar :is(button, input, select):disabled,
+  .admin-datagrid__toolbar [aria-disabled="true"],
+  .admin-datagrid__pagination :is(button, input, select):disabled {
+    color: var(--color-text-secondary, #9ca3af);
+    opacity: 0.5;
+  }
+
+  .status-chip--info {
+    color: var(--color-status-info, #0369a1);
+  }
+
+  .status-chip--success {
+    color: var(--color-status-success, #047857);
+  }
+
+  .status-chip--warning {
+    color: var(--color-status-warning, #b45309);
+  }
+
+  .status-chip--error {
+    color: var(--color-status-danger, #be123c);
+  }
+
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2 text-sidebar-text-muted no-underline rounded-lg text-sm transition-all duration-150;
   }
 
   .nav-item:hover {
     @apply bg-sidebar-bg-hover text-sidebar-text;
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, #3f3f46));
+    color: var(--admin-sidebar-text, var(--color-text-primary, #f4f4f5));
   }
 
   .nav-item.active {
     @apply bg-sidebar-bg-active text-sidebar-text;
+    background-color: var(--color-action-primary, #52525b);
+    color: var(--admin-sidebar-text-active, var(--color-text-inverse, #ffffff));
   }
 
   /* Active state with 8px padding on collapsed sidebar */
@@ -130,6 +353,7 @@
 
   .nav-item i {
     @apply text-base opacity-80;
+    font-size: var(--admin-sidebar-icon-size, var(--sidebar-icon-size, 20px));
   }
 
   .nav-item:hover i,
@@ -168,7 +392,7 @@
 
   .sidebar-brand-expanded {
     width: 100%;
-    justify-content: var(--sidebar-brand-align, flex-start);
+    justify-content: var(--admin-sidebar-brand-align, var(--sidebar-brand-align, flex-start));
   }
 
   .sidebar-brand-collapsed {
@@ -181,18 +405,24 @@
     display: block;
     width: auto;
     height: auto;
-    max-width: var(--sidebar-brand-max-width, 100%);
-    max-height: var(--sidebar-brand-max-height, 40px);
+    max-width: var(--admin-sidebar-brand-max-width, var(--sidebar-brand-max-width, 100%));
+    max-height: var(--admin-sidebar-brand-max-height, var(--sidebar-brand-max-height, 40px));
     object-fit: contain;
   }
 
   .sidebar-logo-compact {
-    max-width: var(--sidebar-brand-collapsed-size, 32px);
-    max-height: var(--sidebar-brand-collapsed-size, 32px);
+    max-width: var(--admin-sidebar-brand-collapsed-size, var(--sidebar-brand-collapsed-size, 32px));
+    max-height: var(--admin-sidebar-brand-collapsed-size, var(--sidebar-brand-collapsed-size, 32px));
   }
 
   .sidebar {
     @apply transition-all duration-300;
+    background-color: var(--admin-sidebar-background, var(--color-surface-default, #18181b));
+    color: var(--admin-sidebar-text, var(--color-text-primary, #f4f4f5));
+  }
+
+  .sidebar-bottom {
+    min-height: var(--admin-sidebar-footer-height, var(--sidebar-footer-height, auto));
   }
 
   .sidebar[data-collapsed="true"] {
@@ -300,7 +530,7 @@
       position: fixed;
       inset: 0 auto 0 0;
       z-index: 50;
-      width: min(var(--sidebar-width, 260px), calc(100vw - 64px)) !important;
+      width: min(var(--admin-sidebar-width, var(--sidebar-width, 260px)), calc(100vw - 64px)) !important;
       max-width: calc(100vw - 64px);
       box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
     }
@@ -399,6 +629,12 @@
 
   .btn-primary {
     @apply bg-admin-dark text-white hover:bg-admin-light;
+    background-color: var(--color-action-primary, #27272a);
+    color: var(--color-text-inverse, #ffffff);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-action-primary-hover, #3f3f46);
   }
 
   [data-busy-button],
@@ -442,6 +678,13 @@
 
   .btn-secondary {
     @apply bg-white text-admin-dark border border-gray-200 hover:bg-gray-50;
+    background-color: var(--color-surface-default, #ffffff);
+    border-color: var(--color-border-default, #e5e7eb);
+    color: var(--color-text-primary, #27272a);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-surface-subtle, #f9fafb);
   }
 
   .btn-danger {

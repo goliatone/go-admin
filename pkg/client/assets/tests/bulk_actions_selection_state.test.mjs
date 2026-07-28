@@ -147,10 +147,15 @@ test('Phase 7 fixture: datagrid debounces selection-sensitive bulk state and sho
 
     const checkboxes = dom.window.document.querySelectorAll('.table-checkbox');
     assert.equal(checkboxes.length, 2);
+    const table = dom.window.document.querySelector('#documents-datatable');
+    assert.equal(table?.dataset.state, 'ready');
+    assert.equal(table?.getAttribute('aria-busy'), 'false');
 
     checkboxes.forEach((checkbox) => {
       checkbox.checked = true;
       checkbox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+      assert.equal(checkbox.closest('tr')?.dataset.selected, 'true');
+      assert.equal(checkbox.closest('tr')?.getAttribute('aria-selected'), 'true');
     });
 
     await wait(320);

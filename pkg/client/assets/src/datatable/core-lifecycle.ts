@@ -416,6 +416,7 @@ export function bindSelection(grid: any): void {
         const checkboxes = document.querySelectorAll<HTMLInputElement>(grid.selectors.rowCheckboxes);
         checkboxes.forEach((cb) => {
           cb.checked = selectAll.checked;
+          syncRowSelectionState(cb);
           const id = cb.dataset.id;
           if (id) {
             if (selectAll.checked) {
@@ -446,6 +447,7 @@ export function updateSelectionBindings(grid: any): void {
       if (id) {
         cb.checked = grid.state.selectedRows.has(id);
       }
+      syncRowSelectionState(cb);
 
       // Remove old listeners to avoid duplicates (use once: true or track bound status in production)
       cb.addEventListener('change', () => {
@@ -456,10 +458,18 @@ export function updateSelectionBindings(grid: any): void {
             grid.state.selectedRows.delete(id);
           }
         }
+        syncRowSelectionState(cb);
         grid.updateBulkActionsBar();
       });
     });
   }
+
+function syncRowSelectionState(checkbox: HTMLInputElement): void {
+  const row = checkbox.closest('tr');
+  if (!row) return;
+  row.dataset.selected = String(checkbox.checked);
+  row.setAttribute('aria-selected', String(checkbox.checked));
+}
 
 function uniqueElements<T extends HTMLElement>(elements: Array<T | null | undefined>): T[] {
   return Array.from(new Set(elements.filter(Boolean) as T[]));
@@ -772,8 +782,7 @@ export function bindBulkActions(grid: any): void {
           if (bulkActionConfig) {
             try {
               await grid.actionRenderer.executeBulkAction(bulkActionConfig, ids);
-              grid.state.selectedRows.clear();
-              grid.updateBulkActionsBar();
+              grid.clearSelection();
               await grid.refresh();
             } catch (error) {
               console.error('Bulk action failed:', error);
@@ -805,8 +814,7 @@ export function bindBulkActions(grid: any): void {
           };
           try {
             await grid.actionRenderer.executeBulkAction(domConfig, ids);
-            grid.state.selectedRows.clear();
-            grid.updateBulkActionsBar();
+            grid.clearSelection();
             await grid.refresh();
           } catch (error) {
             console.error('Bulk action failed:', error);
@@ -825,8 +833,7 @@ export function bindBulkActions(grid: any): void {
         if (grid.config.behaviors?.bulkActions) {
           try {
             await grid.config.behaviors.bulkActions.execute(actionId, ids, grid);
-            grid.state.selectedRows.clear();
-            grid.updateBulkActionsBar();
+            grid.clearSelection();
           } catch (error) {
             console.error('Bulk action failed:', error);
             const structured = getStructuredActionError(error);

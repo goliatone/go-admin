@@ -4,23 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}{{ title|default:"Enterprise Admin" }}{% endblock %}</title>
+  {% if theme and theme.assets and theme.assets.favicon %}<link rel="icon" href="{{ theme.assets.favicon }}">{% endif %}
   {{ csrf_meta|safe }}
   <script src="{{ asset_base_path }}/assets/dist/runtime/go-admin-browser.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
-  {% if theme %}
+  {% if theme and theme.styles and theme.styles.root %}
   <style>
-    :root {
-      {% if theme.tokens.primary %}--color-primary: {{ theme.tokens.primary }};{% endif %}
-      {% if theme.tokens.accent %}--color-accent: {{ theme.tokens.accent }};{% endif %}
-      {% if theme.tokens.surface %}--color-surface: {{ theme.tokens.surface }};{% endif %}
-    }
+    :root { {{ theme.styles.root|safe }} }
   </style>
   {% endif %}
   {% include "partials/jserror-collector.html" %}
   {% block head_extra %}{% endblock %}
 </head>
-<body class="font-sans bg-gray-50 text-gray-900 leading-normal">
+<body class="admin-theme-root font-sans bg-gray-50 text-gray-900 leading-normal" data-theme="{{ theme.selection.variant|default:"default" }}">
   <!-- Toast notification container -->
   {% include "partials/toast-container.html" %}
 

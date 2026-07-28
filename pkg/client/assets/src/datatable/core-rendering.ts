@@ -90,6 +90,8 @@ export function renderData(grid: any, data: ApiResponse): void {
     tbody.innerHTML = '';
 
     const items = data.data || data.records || [];
+    grid.tableEl.dataset.state = items.length === 0 ? 'empty' : 'ready';
+    grid.tableEl.setAttribute('aria-busy', 'false');
     console.log(`[DataGrid] renderData() called with ${items.length} items`);
     console.log('[DataGrid] First 3 items:', items.slice(0, 3));
     const total = grid.getResponseTotal(data);
@@ -101,8 +103,8 @@ export function renderData(grid: any, data: ApiResponse): void {
         tbody.innerHTML = renderGroupedEmptyState(grid.config.columns.length);
       } else {
         tbody.innerHTML = `
-          <tr>
-            <td colspan="${grid.config.columns.length + 2}" class="px-6 py-8 text-center text-gray-500">
+          <tr class="admin-datagrid__state-row" data-datagrid-state="empty">
+            <td colspan="${grid.config.columns.length + 2}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-8 text-center text-gray-500">
               No results found
             </td>
           </tr>
@@ -173,7 +175,7 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
     const row = document.createElement('tr');
 
     // Apply custom row classes if provider is configured
-    let rowClasses = ['hover:bg-gray-50'];
+    let rowClasses = ['admin-datagrid__row', 'hover:bg-gray-50'];
     if (grid.config.rowClassProvider) {
       rowClasses = rowClasses.concat(grid.config.rowClassProvider(item));
     }
@@ -181,7 +183,7 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
 
     // Checkbox cell
     const checkboxCell = document.createElement('td');
-    checkboxCell.className = 'px-6 py-4 whitespace-nowrap';
+    checkboxCell.className = 'admin-datagrid__cell px-6 py-4 whitespace-nowrap';
     checkboxCell.dataset.role = 'selection';
     checkboxCell.dataset.fixed = 'left';
     checkboxCell.innerHTML = `
@@ -197,7 +199,7 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
     // Data cells
     grid.config.columns.forEach((col) => {
       const cell = document.createElement('td');
-      cell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
+      cell.className = 'admin-datagrid__cell px-6 py-4 whitespace-nowrap text-sm text-gray-800';
       cell.setAttribute('data-column', col.field);
 
       const value = item[col.field];
@@ -230,7 +232,7 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
     // Actions cell
     const actionBase = grid.config.actionBasePath || grid.config.apiEndpoint;
     const actionsCell = document.createElement('td');
-    actionsCell.className = 'px-6 py-4 whitespace-nowrap text-end text-sm font-medium';
+    actionsCell.className = 'admin-datagrid__cell admin-datagrid__actions px-6 py-4 whitespace-nowrap text-end text-sm font-medium';
     actionsCell.dataset.role = 'actions';
     actionsCell.dataset.fixed = 'right';
 
@@ -405,7 +407,7 @@ export function renderPaginationButtons(grid: any, total: number): void {
       <button type="button"
               data-page="${current - 1}"
               ${current === 1 ? 'disabled' : ''}
-              class="min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
+              class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
         <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m15 18-6-6 6-6"></path>
         </svg>
@@ -427,11 +429,12 @@ export function renderPaginationButtons(grid: any, total: number): void {
       buttons.push(`
         <button type="button"
                 data-page="${i}"
+                ${isActive ? 'aria-current="page"' : ''}
                 class="min-h-[38px] min-w-[38px] flex justify-center items-center ${
                   isActive
                     ? 'bg-gray-200 text-gray-800 focus:outline-none focus:bg-gray-300'
                     : 'text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100'
-                } py-2 px-3 text-sm rounded-lg">
+                } admin-datagrid__page-button py-2 px-3 text-sm rounded-lg">
           ${i}
         </button>
       `);
@@ -442,7 +445,7 @@ export function renderPaginationButtons(grid: any, total: number): void {
       <button type="button"
               data-page="${current + 1}"
               ${current === totalPages ? 'disabled' : ''}
-              class="min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
+              class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
         <span>Next</span>
         <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m9 18 6-6-6-6"></path>

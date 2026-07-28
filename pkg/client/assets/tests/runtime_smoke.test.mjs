@@ -146,6 +146,16 @@ test('datatable-actions.css contains aria-disabled styles for visible-disabled a
   assert.match(content, /cursor:\s*not-allowed/, 'Should have cursor: not-allowed for disabled');
 });
 
+test('datatable-actions.css consumes semantic DataGrid fallbacks', () => {
+  const path = resolve(DIST_DIR, 'styles/datatable-actions.css');
+  const content = readFileSync(path, 'utf-8');
+
+  assert.match(content, /--datagrid-row-hover/, 'Should consume semantic row hover');
+  assert.match(content, /--datagrid-border/, 'Should consume semantic border');
+  assert.match(content, /--color-focus-ring/, 'Should consume portable focus ring');
+  assert.match(content, /--color-status-danger/, 'Should consume portable danger status');
+});
+
 test('output.css has non-zero size (Tailwind output)', () => {
   const path = resolve(DIST_DIR, 'output.css');
   const content = readFileSync(path, 'utf-8');

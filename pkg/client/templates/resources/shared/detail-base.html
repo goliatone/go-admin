@@ -56,13 +56,13 @@
   {% endif %}
 {% endblock %}
 
-<div class="flex-1 p-8 overflow-y-auto"
+<div class="admin-page-content flex-1 p-8 overflow-y-auto"
      {% block content_data_attrs %}{% endblock %}>
   {% block detail_content %}
     {% block detail_content_pre %}{% endblock %}
     <div class="">
       {% block identity_card %}
-        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div class="admin-surface-card bg-white border border-gray-200 rounded-xl overflow-hidden">
           {% block identity_header %}
             <div class="p-6 bg-gray-50 border-b border-gray-200 flex items-center gap-4">
               {% block identity_avatar %}

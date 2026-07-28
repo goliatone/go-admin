@@ -3,7 +3,7 @@ import { a as W, n as K, o as j } from "./status-vocabulary-Bdx_bn1-.js";
 function v(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function p(e) {
+function m(e) {
   return (typeof e == "string" ? e.trim() : "") || void 0;
 }
 function y(e) {
@@ -11,16 +11,16 @@ function y(e) {
 }
 function Q(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
-  const t = e, r = p(t.label), n = p(t.href), s = p(t.kind);
-  return !r && !n && !s ? null : {
+  const t = e, r = m(t.label), s = m(t.href), n = m(t.kind);
+  return !r && !s && !n ? null : {
     ...r ? { label: r } : {},
-    ...n ? { href: n } : {},
-    ...s ? { kind: s } : {}
+    ...s ? { href: s } : {},
+    ...n ? { kind: n } : {}
   };
 }
 function Z(e) {
   if (!Array.isArray(e)) return;
-  const t = e.map((r) => p(r)).filter((r) => !!r);
+  const t = e.map((r) => m(r)).filter((r) => !!r);
   return t.length > 0 ? t : void 0;
 }
 function ee(e) {
@@ -54,14 +54,14 @@ function re(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = e;
   if (!ee(t)) return null;
-  const r = z({ reason_code: t.reason_code }), n = { enabled: typeof t.enabled == "boolean" ? t.enabled : !1 }, s = p(t.reason), a = p(t.severity), o = p(t.kind), i = p(t.permission), u = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, c = Q(t.remediation), d = Z(t.available_transitions);
-  return s && (n.reason = s), r && (n.reason_code = r), a && (n.severity = a), o && (n.kind = o), i && (n.permission = i), u && (n.metadata = u), c && (n.remediation = c), d && (n.available_transitions = d), n;
+  const r = z({ reason_code: t.reason_code }), s = { enabled: typeof t.enabled == "boolean" ? t.enabled : !1 }, n = m(t.reason), a = m(t.severity), o = m(t.kind), i = m(t.permission), d = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, c = Q(t.remediation), u = Z(t.available_transitions);
+  return n && (s.reason = n), r && (s.reason_code = r), a && (s.severity = a), o && (s.kind = o), i && (s.permission = i), d && (s.metadata = d), c && (s.remediation = c), u && (s.available_transitions = u), s;
 }
 function L(e) {
   if (!y(e)) return {};
   const t = e, r = {};
-  for (const [n, s] of Object.entries(t)) {
-    const a = p(n), o = re(s);
+  for (const [s, n] of Object.entries(t)) {
+    const a = m(s), o = re(n);
     !a || !o || (r[a] = o);
   }
   return r;
@@ -69,12 +69,12 @@ function L(e) {
 function B(e) {
   return L(e);
 }
-function ne(e) {
+function se(e) {
   if (!y(e)) return null;
-  const t = e.selection_sensitive === !0, r = p(e.selection_state_endpoint), n = te(e.debounce_ms);
-  if (!t && !r && n === void 0) return null;
-  const s = {};
-  return t && (s.selection_sensitive = !0), r && (s.selection_state_endpoint = r), n !== void 0 && (s.debounce_ms = n), s;
+  const t = e.selection_sensitive === !0, r = m(e.selection_state_endpoint), s = te(e.debounce_ms);
+  if (!t && !r && s === void 0) return null;
+  const n = {};
+  return t && (n.selection_sensitive = !0), r && (n.selection_state_endpoint = r), s !== void 0 && (n.debounce_ms = s), n;
 }
 function O(e) {
   if (!y(e)) return null;
@@ -84,7 +84,7 @@ function O(e) {
     _action_state: t
   };
 }
-function se(e) {
+function ne(e) {
   if (!y(e)) return null;
   const t = B(e.bulk_action_state);
   return Object.keys(t).length === 0 ? { ...e } : {
@@ -101,15 +101,15 @@ function we(e) {
 }
 function ke(e) {
   if (!y(e)) return null;
-  const t = Array.isArray(e.data) ? e.data : Array.isArray(e.records) ? e.records : null, r = t && t.map((a) => O(a) ?? a), n = se(e.$meta), s = { ...e };
-  if (r && (Array.isArray(e.data) && (s.data = r), Array.isArray(e.records) && (s.records = r)), n && (s.$meta = n), y(e.schema)) {
-    const a = ne(e.schema.bulk_action_state_config);
-    a && (s.schema = {
+  const t = Array.isArray(e.data) ? e.data : Array.isArray(e.records) ? e.records : null, r = t && t.map((a) => O(a) ?? a), s = ne(e.$meta), n = { ...e };
+  if (r && (Array.isArray(e.data) && (n.data = r), Array.isArray(e.records) && (n.records = r)), s && (n.$meta = s), y(e.schema)) {
+    const a = se(e.schema.bulk_action_state_config);
+    a && (n.schema = {
       ...e.schema,
       bulk_action_state_config: a
     });
   }
-  return s;
+  return n;
 }
 function Ee(e) {
   return y(e) ? y(e.data) ? {
@@ -118,7 +118,7 @@ function Ee(e) {
   } : { ...e } : null;
 }
 function Ie(e, t) {
-  const r = p(t);
+  const r = m(t);
   return r && L(e._action_state)[r] || null;
 }
 var g = {
@@ -153,17 +153,17 @@ var g = {
   error: "border-rose-200"
 };
 function l(e, t = {}) {
-  const r = K(e), n = r?.tone ?? "neutral";
+  const r = K(e), s = r?.tone ?? "neutral";
   return {
     label: r?.label ?? j(e),
     shortLabel: t.shortLabel,
-    colorClass: W(n, "badge"),
-    bgClass: ae[n],
-    textClass: ie[n],
-    borderClass: oe[n],
+    colorClass: W(s, "badge"),
+    bgClass: ae[s],
+    textClass: ie[s],
+    borderClass: oe[s],
     icon: r?.icon ?? "help-circle",
     iconType: "iconoir",
-    severity: n,
+    severity: s,
     description: t.description
   };
 }
@@ -213,7 +213,7 @@ var S = {
   running: l("running", { description: "Job in progress" }),
   completed: l("completed", { description: "Job completed successfully" }),
   failed: l("failed", { description: "Job failed" })
-}, x = {
+}, _ = {
   TRANSLATION_MISSING: {
     message: "Required translation is missing",
     shortMessage: "Translation missing",
@@ -317,7 +317,7 @@ var S = {
     actionable: !1
   }
 };
-function _(e, t) {
+function x(e, t) {
   const r = e.toLowerCase();
   if ((!t || t === "core") && r in S)
     return S[r];
@@ -334,14 +334,14 @@ function _(e, t) {
 }
 function $(e) {
   const t = z(e);
-  return t && t in x ? x[t] : null;
+  return t && t in _ ? _[t] : null;
 }
 function Me(e) {
   const t = z(e);
-  return t && t in x ? x[t] : null;
+  return t && t in _ ? _[t] : null;
 }
 function ze(e, t) {
-  return _(e, t) !== null;
+  return x(e, t) !== null;
 }
 function Le(e) {
   return $(e) !== null;
@@ -363,28 +363,28 @@ function $e(e) {
   }
 }
 function Re() {
-  return Object.keys(x);
+  return Object.keys(_);
 }
 function Te(e, t) {
-  return _(e, t) ? `status-${e.toLowerCase()}` : "";
+  return x(e, t) ? `status-${e.toLowerCase()}` : "";
 }
 function je(e, t) {
-  const r = _(e, t);
+  const r = x(e, t);
   return r ? `severity-${r.severity}` : "";
 }
 function le(e, t = {}) {
-  const r = _(e, t.domain);
+  const r = x(e, t.domain);
   if (!r) return `<span class="status-chip status-chip--neutral">${f(j(e) || e)}</span>`;
-  const { size: n = "default", showIcon: s = !0, showLabel: a = !0, extraClass: o = "" } = t, i = {
+  const { size: s = "default", showIcon: n = !0, showLabel: a = !0, extraClass: o = "" } = t, i = {
     xs: "px-1.5 py-0.5 text-[10px]",
     sm: "px-2 py-0.5",
     default: ""
-  }, u = s ? ce(r, n) : "", c = a ? `<span>${f(r.label)}</span>` : "";
-  return `<span class="status-chip status-chip--${r.severity} ${i[n]} ${o}"
+  }, d = n ? ce(r, s) : "", c = a ? `<span>${f(r.label)}</span>` : "";
+  return `<span class="status-chip status-chip--${r.severity} ${i[s]} ${o}"
                 title="${f(r.description || r.label)}"
                 aria-label="${f(r.label)}"
                 data-status="${f(e)}">
-    ${u}${c}
+    ${d}${c}
   </span>`;
 }
 function ce(e, t = "default") {
@@ -394,36 +394,36 @@ function ce(e, t = "default") {
     default: "w-4 h-4"
   };
   if (e.iconType === "iconoir") {
-    const n = t === "default" ? "text-xs" : "text-[10px]";
-    return `<i class="iconoir-${e.icon} ${n}" aria-hidden="true"></i>`;
+    const s = t === "default" ? "text-xs" : "text-[10px]";
+    return `<i class="iconoir-${e.icon} ${s}" aria-hidden="true"></i>`;
   }
   return e.iconType === "char" ? `<span class="${r[t]} inline-flex items-center justify-center" aria-hidden="true">${e.icon}</span>` : `<svg class="${r[t]}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
     <path fill-rule="evenodd" d="${e.icon}" clip-rule="evenodd"/>
   </svg>`;
 }
-function ue(e, t = {}) {
+function de(e, t = {}) {
   const r = $(e);
   if (!r) return `<span class="text-gray-500 text-xs">${f(e)}</span>`;
-  const { size: n = "default", showIcon: s = !0, showFullMessage: a = !1, extraClass: o = "" } = t, i = {
+  const { size: s = "default", showIcon: n = !0, showFullMessage: a = !1, extraClass: o = "" } = t, i = {
     sm: "px-2 py-0.5 text-xs",
     default: "px-2.5 py-1 text-sm"
-  }, u = s ? `<svg class="${n === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+  }, d = n ? `<svg class="${s === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
         <path fill-rule="evenodd" d="${r.icon}" clip-rule="evenodd"/>
       </svg>` : "", c = a ? r.message : r.shortMessage;
-  return `<span class="inline-flex items-center gap-1.5 rounded ${i[n]} ${r.colorClass} ${o}"
+  return `<span class="inline-flex items-center gap-1.5 rounded ${i[s]} ${r.colorClass} ${o}"
                 role="status"
                 aria-label="${f(r.message)}"
                 data-reason-code="${f(e)}">
-    ${u}
+    ${d}
     <span>${f(c)}</span>
   </span>`;
 }
 function Ne(e, t) {
   const r = $(e);
   if (!r) return "";
-  const n = t || r.message;
+  const s = t || r.message;
   return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full ${r.bgClass} ${r.textClass}"
-                title="${f(n)}"
+                title="${f(s)}"
                 aria-label="${f(r.shortMessage)}"
                 data-reason-code="${f(e)}">
     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -435,7 +435,7 @@ function Be(e = {}) {
   return (t) => typeof t != "string" || !t ? '<span class="text-gray-400">-</span>' : le(t, e);
 }
 function Oe(e = {}) {
-  return (t) => typeof t != "string" || !t ? "" : ue(t, e);
+  return (t) => typeof t != "string" || !t ? "" : de(t, e);
 }
 function De(e) {
   e.schema_version !== 1 && console.warn("[TranslationStatusVocabulary] Unknown schema version:", e.schema_version);
@@ -468,33 +468,33 @@ function Ge() {
   `;
 }
 function Pe(e, t = {}) {
-  const { groupByField: r = "family_id", defaultExpanded: n = !0, expandMode: s = "explicit", expandedGroups: a = /* @__PURE__ */ new Set() } = t, o = /* @__PURE__ */ new Map(), i = [];
+  const { groupByField: r = "family_id", defaultExpanded: s = !0, expandMode: n = "explicit", expandedGroups: a = /* @__PURE__ */ new Set() } = t, o = /* @__PURE__ */ new Map(), i = [];
   for (const c of e) {
-    const d = be(c, r);
-    if (d) {
-      const m = o.get(d);
-      m ? m.push(c) : o.set(d, [c]);
+    const u = be(c, r);
+    if (u) {
+      const p = o.get(u);
+      p ? p.push(c) : o.set(u, [c]);
     } else i.push(c);
   }
-  const u = [];
-  for (const [c, d] of o) {
-    const m = U(d), b = D(c, s, a, n);
-    u.push({
+  const d = [];
+  for (const [c, u] of o) {
+    const p = U(u), b = D(c, n, a, s);
+    d.push({
       groupId: c,
-      records: d,
-      summary: m,
+      records: u,
+      summary: p,
       expanded: b,
       summaryFromBackend: !1
     });
   }
-  return u.sort((c, d) => e.indexOf(c.records[0]) - e.indexOf(d.records[0])), {
-    groups: u,
+  return d.sort((c, u) => e.indexOf(c.records[0]) - e.indexOf(u.records[0])), {
+    groups: d,
     ungrouped: i,
-    totalGroups: u.length,
+    totalGroups: d.length,
     totalRecords: e.length
   };
 }
-function de(e) {
+function ue(e) {
   if (e.length === 0) return !1;
   let t = !1;
   for (const r of e) {
@@ -511,26 +511,26 @@ function de(e) {
   return t;
 }
 function Ve(e, t = {}) {
-  const { defaultExpanded: r = !0, expandMode: n = "explicit", expandedGroups: s = /* @__PURE__ */ new Set() } = t;
-  if (!de(e)) return null;
+  const { defaultExpanded: r = !0, expandMode: s = "explicit", expandedGroups: n = /* @__PURE__ */ new Set() } = t;
+  if (!ue(e)) return null;
   const a = [], o = [];
   let i = 0;
-  for (const u of e) {
-    if (G(u)) {
-      o.push({ ...u }), i += 1;
+  for (const d of e) {
+    if (G(d)) {
+      o.push({ ...d }), i += 1;
       continue;
     }
-    const c = pe(u);
+    const c = me(d);
     if (!c) return null;
-    const d = V(u), m = ge(u, d), b = D(c, n, s, r);
+    const u = V(d), p = ge(d, u), b = D(c, s, n, r);
     a.push({
       groupId: c,
-      displayLabel: ye(u, d),
-      records: d,
-      summary: m,
+      displayLabel: ye(d, u),
+      records: u,
+      summary: p,
       expanded: b,
-      summaryFromBackend: me(u)
-    }), i += d.length;
+      summaryFromBackend: pe(d)
+    }), i += u.length;
   }
   return {
     groups: a,
@@ -539,14 +539,14 @@ function Ve(e, t = {}) {
     totalRecords: i
   };
 }
-function D(e, t, r, n) {
-  return t === "all" ? !r.has(e) : t === "none" ? r.has(e) : r.size === 0 ? n : r.has(e);
+function D(e, t, r, s) {
+  return t === "all" ? !r.has(e) : t === "none" ? r.has(e) : r.size === 0 ? s : r.has(e);
 }
 function fe(e) {
-  const t = e, r = typeof t.group_by == "string" ? t.group_by.trim().toLowerCase() : "", n = P(e);
-  if (!(r === "family_id" || n === "group")) return !1;
-  const s = V(e);
-  return Array.isArray(s);
+  const t = e, r = typeof t.group_by == "string" ? t.group_by.trim().toLowerCase() : "", s = P(e);
+  if (!(r === "family_id" || s === "group")) return !1;
+  const n = V(e);
+  return Array.isArray(n);
 }
 function G(e) {
   return P(e) === "ungrouped";
@@ -557,50 +557,50 @@ function P(e) {
   const r = t.row_type;
   return typeof r == "string" ? r.trim().toLowerCase() : "";
 }
-function pe(e) {
+function me(e) {
   const t = e.family_id;
   if (typeof t == "string" && t.trim()) return t.trim();
   const r = e._group;
   if (!r || typeof r != "object" || Array.isArray(r)) return null;
-  const n = r.id;
-  return typeof n == "string" && n.trim() ? n.trim() : null;
+  const s = r.id;
+  return typeof s == "string" && s.trim() ? s.trim() : null;
 }
 function V(e) {
   const t = e, r = Array.isArray(t.records) ? t.records : t.children;
   if (Array.isArray(r)) {
-    const s = r.filter((a) => !!a && typeof a == "object" && !Array.isArray(a)).map((a) => ({ ...a }));
-    if (s.length > 0) return s;
+    const n = r.filter((a) => !!a && typeof a == "object" && !Array.isArray(a)).map((a) => ({ ...a }));
+    if (n.length > 0) return n;
   }
-  const n = t.parent;
-  return n && typeof n == "object" && !Array.isArray(n) ? [{ ...n }] : [];
+  const s = t.parent;
+  return s && typeof s == "object" && !Array.isArray(s) ? [{ ...s }] : [];
 }
-function me(e) {
+function pe(e) {
   const t = e.family_summary;
   return !!t && typeof t == "object" && !Array.isArray(t);
 }
 function ge(e, t) {
   const r = e.family_summary;
   if (!r || typeof r != "object" || Array.isArray(r)) return U(t);
-  const n = r, s = Array.isArray(n.available_locales) ? n.available_locales.filter(h) : [], a = Array.isArray(n.missing_locales) ? n.missing_locales.filter(h) : [], o = H(n.readiness_state) ? n.readiness_state : null, i = Math.max(t.length, typeof n.child_count == "number" ? Math.max(n.child_count, 0) : 0);
+  const s = r, n = Array.isArray(s.available_locales) ? s.available_locales.filter(h) : [], a = Array.isArray(s.missing_locales) ? s.missing_locales.filter(h) : [], o = H(s.readiness_state) ? s.readiness_state : null, i = Math.max(t.length, typeof s.child_count == "number" ? Math.max(s.child_count, 0) : 0);
   return {
-    totalItems: typeof n.total_items == "number" ? Math.max(n.total_items, 0) : i,
-    availableLocales: s,
+    totalItems: typeof s.total_items == "number" ? Math.max(s.total_items, 0) : i,
+    availableLocales: n,
     missingLocales: a,
     readinessState: o,
-    readyForPublish: typeof n.ready_for_publish == "boolean" ? n.ready_for_publish : null
+    readyForPublish: typeof s.ready_for_publish == "boolean" ? s.ready_for_publish : null
   };
 }
 function ye(e, t) {
   const r = e.family_label;
   if (typeof r == "string" && r.trim()) return r.trim();
-  const n = e.family_summary;
-  if (n && typeof n == "object" && !Array.isArray(n)) {
-    const i = n.group_label;
+  const s = e.family_summary;
+  if (s && typeof s == "object" && !Array.isArray(s)) {
+    const i = s.group_label;
     if (typeof i == "string" && i.trim()) return i.trim();
   }
-  const s = e._group;
-  if (s && typeof s == "object" && !Array.isArray(s)) {
-    const i = s.label;
+  const n = e._group;
+  if (n && typeof n == "object" && !Array.isArray(n)) {
+    const i = n.label;
     if (typeof i == "string" && i.trim()) return i.trim();
   }
   const a = [], o = e.parent;
@@ -617,20 +617,20 @@ function be(e, t) {
 }
 function U(e) {
   const t = /* @__PURE__ */ new Set(), r = /* @__PURE__ */ new Set();
-  let n = !1, s = 0;
+  let s = !1, n = 0;
   for (const o of e) {
     const i = o.translation_readiness;
     if (i) {
-      const c = i.available_locales, d = i.missing_required_locales, m = i.readiness_state;
-      Array.isArray(c) && c.filter(h).forEach((b) => t.add(b)), Array.isArray(d) && d.filter(h).forEach((b) => r.add(b)), (m === "missing_fields" || m === "missing_locales_and_fields") && (n = !0), m === "ready" && s++;
+      const c = i.available_locales, u = i.missing_required_locales, p = i.readiness_state;
+      Array.isArray(c) && c.filter(h).forEach((b) => t.add(b)), Array.isArray(u) && u.filter(h).forEach((b) => r.add(b)), (p === "missing_fields" || p === "missing_locales_and_fields") && (s = !0), p === "ready" && n++;
     }
-    const u = o.available_locales;
-    Array.isArray(u) && u.filter(h).forEach((c) => t.add(c));
+    const d = o.available_locales;
+    Array.isArray(d) && d.filter(h).forEach((c) => t.add(c));
   }
   let a = null;
   if (e.length > 0) {
-    const o = s === e.length, i = r.size > 0;
-    o ? a = "ready" : i && n ? a = "missing_locales_and_fields" : i ? a = "missing_locales" : n && (a = "missing_fields");
+    const o = n === e.length, i = r.size > 0;
+    o ? a = "ready" : i && s ? a = "missing_locales_and_fields" : i ? a = "missing_locales" : s && (a = "missing_fields");
   }
   return {
     totalItems: e.length,
@@ -644,16 +644,16 @@ function h(e) {
   return typeof e == "string";
 }
 function Ue(e, t) {
-  const r = e.groups.map((n) => {
-    const s = t.get(n.groupId);
-    return s ? {
-      ...n,
+  const r = e.groups.map((s) => {
+    const n = t.get(s.groupId);
+    return n ? {
+      ...s,
       summary: {
-        ...n.summary,
-        ...s
+        ...s.summary,
+        ...n
       },
       summaryFromBackend: !0
-    } : n;
+    } : s;
   });
   return {
     ...e,
@@ -663,9 +663,9 @@ function Ue(e, t) {
 function He(e) {
   const t = /* @__PURE__ */ new Map(), r = e.group_summaries;
   if (!r || typeof r != "object" || Array.isArray(r)) return t;
-  for (const [n, s] of Object.entries(r)) if (s && typeof s == "object") {
-    const a = s;
-    t.set(n, {
+  for (const [s, n] of Object.entries(r)) if (n && typeof n == "object") {
+    const a = n;
+    t.set(s, {
       totalItems: typeof a.total_items == "number" ? a.total_items : void 0,
       availableLocales: Array.isArray(a.available_locales) ? a.available_locales.filter(h) : void 0,
       missingLocales: Array.isArray(a.missing_locales) ? a.missing_locales.filter(h) : void 0,
@@ -683,10 +683,10 @@ function M(e) {
   if (!Array.isArray(e)) return [];
   const t = [];
   for (const r of e) {
-    const n = T(r);
-    if (n && !t.includes(n)) {
+    const s = T(r);
+    if (s && !t.includes(s)) {
       if (t.length >= R) break;
-      t.push(n);
+      t.push(s);
     }
   }
   return t;
@@ -734,20 +734,20 @@ function Xe(e) {
 }
 function Ye(e, t, r = "explicit") {
   try {
-    const n = A + e, s = M(Array.from(t)), a = {
+    const s = A + e, n = M(Array.from(t)), a = {
       version: 2,
       mode: X(r, "explicit"),
-      ids: s
+      ids: n
     };
-    localStorage.setItem(n, JSON.stringify(a));
+    localStorage.setItem(s, JSON.stringify(a));
   } catch {
   }
 }
 function Je(e, t) {
-  const r = e.groups.map((n) => n.groupId === t ? {
-    ...n,
-    expanded: !n.expanded
-  } : n);
+  const r = e.groups.map((s) => s.groupId === t ? {
+    ...s,
+    expanded: !s.expanded
+  } : s);
   return {
     ...e,
     groups: r
@@ -808,20 +808,20 @@ function rt(e) {
   const t = Array.from(new Set(Array.from(e).map((r) => T(r)).filter((r) => r !== null))).slice(0, R).sort();
   return t.length === 0 ? "" : t.map((r) => encodeURIComponent(r)).join(",");
 }
-function nt(e) {
+function st(e) {
   const t = /* @__PURE__ */ new Set();
   if (!e) return t;
   const r = e.split(",");
-  for (const n of r) {
+  for (const s of r) {
     if (t.size >= R) break;
-    if (!n) continue;
-    let s = "";
+    if (!s) continue;
+    let n = "";
     try {
-      s = decodeURIComponent(n);
+      n = decodeURIComponent(s);
     } catch {
       continue;
     }
-    const a = T(s);
+    const a = T(n);
     a && t.add(a);
   }
   return t;
@@ -837,28 +837,28 @@ function T(e) {
   }
   return t.length > he ? null : t;
 }
-function xe(e, t = {}) {
-  const { summary: r } = e, { size: n = "sm" } = t, s = n === "sm" ? "text-xs" : "text-sm", a = r.availableLocales.length, o = a + r.missingLocales.length;
+function _e(e, t = {}) {
+  const { summary: r } = e, { size: s = "sm" } = t, n = s === "sm" ? "text-xs" : "text-sm", a = r.availableLocales.length, o = a + r.missingLocales.length;
   let i = "";
   if (r.readinessState) {
-    const d = _e(r.readinessState);
+    const u = xe(r.readinessState);
     i = `
-      <span class="${s} px-1.5 py-0.5 rounded ${d.bgClass} ${d.textClass}"
-            title="${d.description}">
-        ${d.icon} ${d.label}
+      <span class="${n} px-1.5 py-0.5 rounded ${u.bgClass} ${u.textClass}"
+            title="${u.description}">
+        ${u.icon} ${u.label}
       </span>
     `;
   }
-  const u = o > 0 ? `<span class="${s} text-gray-500">${a}/${o} locales</span>` : "", c = `<span class="${s} text-gray-500">${r.totalItems} item${r.totalItems !== 1 ? "s" : ""}</span>`;
+  const d = o > 0 ? `<span class="${n} text-gray-500">${a}/${o} locales</span>` : "", c = `<span class="${n} text-gray-500">${r.totalItems} item${r.totalItems !== 1 ? "s" : ""}</span>`;
   return `
     <div class="inline-flex items-center gap-2">
       ${i}
-      ${u}
+      ${d}
       ${c}
     </div>
   `;
 }
-function _e(e) {
+function xe(e) {
   switch (e) {
     case "ready":
       return {
@@ -913,17 +913,17 @@ function Ae(e) {
       "label",
       "subject"
     ]) {
-      const n = t[r];
-      if (typeof n == "string" && n.trim()) {
-        const s = n.trim();
-        return s.length > 60 ? s.slice(0, 57) + "..." : s;
+      const s = t[r];
+      if (typeof s == "string" && s.trim()) {
+        const n = s.trim();
+        return n.length > 60 ? n.slice(0, 57) + "..." : n;
       }
     }
   }
   return `Translation Group (${e.groupId.length > 8 ? e.groupId.slice(0, 8) + "..." : e.groupId})`;
 }
-function st(e, t, r = {}) {
-  const { showExpandIcon: n = !0 } = r, s = n ? `<span class="expand-icon mr-2" aria-hidden="true">${e.expanded ? "▼" : "▶"}</span>` : "", a = xe(e), o = f(Ae(e)), i = e.records.length, u = i > 1 ? `<span class="ml-2 text-xs text-gray-500">(${i} locales)</span>` : "";
+function nt(e, t, r = {}) {
+  const { showExpandIcon: s = !0 } = r, n = s ? `<span class="expand-icon mr-2" aria-hidden="true">${e.expanded ? "▼" : "▶"}</span>` : "", a = _e(e), o = f(Ae(e)), i = e.records.length, d = i > 1 ? `<span class="ml-2 text-xs text-gray-500">(${i} locales)</span>` : "";
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
         data-group-id="${J(e.groupId)}"
@@ -934,9 +934,9 @@ function st(e, t, r = {}) {
       <td colspan="${t + 2}" class="px-4 py-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center">
-            ${s}
+            ${n}
             <span class="font-medium text-gray-700">${o}</span>
-            ${u}
+            ${d}
           </div>
           ${a}
         </div>
@@ -946,8 +946,8 @@ function st(e, t, r = {}) {
 }
 function at(e) {
   return `
-    <tr>
-      <td colspan="${e + 2}" class="px-6 py-12 text-center">
+    <tr class="admin-datagrid__state-row" data-datagrid-state="empty">
+      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-12 text-center">
         <div class="text-gray-500">
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -962,8 +962,8 @@ function at(e) {
 }
 function it(e) {
   return `
-    <tr>
-      <td colspan="${e + 2}" class="px-6 py-12 text-center">
+    <tr class="admin-datagrid__state-row" data-datagrid-state="loading">
+      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center">
         <div class="flex items-center justify-center">
           <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -976,10 +976,10 @@ function it(e) {
   `;
 }
 function ot(e, t, r) {
-  const n = r ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
+  const s = r ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
   return `
-    <tr>
-      <td colspan="${e + 2}" class="px-6 py-12 text-center">
+    <tr class="admin-datagrid__state-row" data-datagrid-state="error">
+      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center">
         <div class="text-red-500">
           <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -987,7 +987,7 @@ function ot(e, t, r) {
           </svg>
           <h3 class="mt-2 text-sm font-medium text-gray-900">Error loading groups</h3>
           <p class="mt-1 text-sm text-gray-500">${f(t)}</p>
-          ${n}
+          ${s}
         </div>
       </td>
     </tr>
@@ -1015,14 +1015,14 @@ export {
   Re as L,
   k as M,
   C as N,
-  x as O,
+  _ as O,
   Oe as P,
   re as Q,
   $ as R,
   at as S,
   Je as T,
   $e as U,
-  _ as V,
+  x as V,
   De as W,
   ce as X,
   le as Y,
@@ -1030,10 +1030,10 @@ export {
   tt as _,
   He as a,
   Ee as at,
-  st as b,
+  nt as b,
   Fe as c,
-  de as d,
-  se as et,
+  ue as d,
+  ne as et,
   Xe as f,
   X as g,
   Ve as h,
@@ -1043,12 +1043,12 @@ export {
   I as k,
   Ze as l,
   Ue as m,
-  nt as n,
-  ne as nt,
+  st as n,
+  se as nt,
   Qe as o,
   ke as ot,
   ve as p,
-  ue as q,
+  de as q,
   rt as r,
   B as rt,
   qe as s,
@@ -1058,9 +1058,9 @@ export {
   lt as u,
   Ye as v,
   it as w,
-  xe as x,
+  _e as x,
   et as y,
   je as z
 };
 
-//# sourceMappingURL=grouped-mode-BKMTJtyG.js.map
+//# sourceMappingURL=grouped-mode-DL_mTGwd.js.map
