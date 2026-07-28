@@ -96,7 +96,7 @@ container examples.
 - `WithGoUsersPreferencesRepository(repo types.PreferenceRepository) AdminOption` - Inputs: go-users preferences repo; outputs: option that wires a PreferencesStore via the adapter when one is not already set.
 - `WithGoUsersPreferencesRepositoryFactory(factory func() (types.PreferenceRepository, error)) AdminOption` - Inputs: repo builder; outputs: option to lazily construct a preferences repo (used when dependencies do not already supply a PreferencesStore).
 - `WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption` - Inputs: go-users auth/inventory/role repositories (plus optional profile repo and scope resolver); outputs: option that wires user/role/profile dependencies.
-- `WithLegacyUserRoleBulkRoutes() AdminOption` - Inputs: none; outputs: option that enables deprecated static user bulk role routes (`/users/bulk/assign-role`, `/users/bulk/unassign-role`) for compatibility.
+- `RegisterUserRoleBulkRoutes(r admin.AdminRouter, cfg admin.Config, adm *admin.Admin) error` - Inputs: admin router, config, and admin instance; outputs: error. This is an explicit migration bridge for deprecated static role routes; new hosts should use panel bulk actions.
 - `NewUsersModule(opts ...admin.UserManagementModuleOption) *admin.UserManagementModule` - Inputs: user module options; outputs: configured built-in users module.
 - `NewExportBundle(opts ...ExportBundleOption) *ExportBundle` - Inputs: go-export options (store/guard/actor/base path overrides). Outputs: runner/service plus go-admin registry/registrar/metadata adapters.
 - `PreferencesPermissions() []PermissionDefinition` - Outputs: default preferences permission definitions.
@@ -304,7 +304,7 @@ if err := protectedapp.RegisterHistoryFallback(
 Notes:
 
 - Existing hosts that do not enable protected-app routing keep their current `/app` behavior unchanged.
-- `WithProtectedSurfaceRoots(...)` inherits canonical roots for the side you do not override, so partial overrides keep browser/API split semantics intact.
+- `admin.WithProtectedSurfaceRoots(...)` inherits canonical roots for the side you do not override, so partial overrides keep browser/API split semantics intact.
 - `protectedapp.RegisterHistoryFallback(...)` is intended for Fiber-backed quickstart hosts. On `httprouter`-backed hosts, use explicit app routes instead of the SPA history-fallback helper.
 - `quickstart.BuildSessionUser(...)` reads the authenticated actor/claims from the same protected-app request context, so app handlers can project session metadata without a second auth adapter.
 
@@ -437,10 +437,12 @@ Quickstart can wire go-users repositories and expose the built-in users module. 
 
 Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`. When `ScopeResolver` is omitted, quickstart uses `ScopeBuilder(cfg)` so single-tenant defaults apply to the standard go-users user, role, and profile adapters. Explicit resolvers still win.
 
-Bulk role operations should use panel bulk routes (`/panels/:panel/bulk/:action`, e.g. `/admin/api/panels/users/bulk/assign-role`). Legacy static routes are disabled by default; enable them only for compatibility:
+Bulk role operations should use panel bulk routes (`/panels/:panel/bulk/:action`, e.g. `/admin/api/panels/users/bulk/assign-role`). Legacy static routes are not part of bootstrap. If a migration window still requires them, register the compatibility routes explicitly before the router seals:
 
 ```go
-quickstart.WithLegacyUserRoleBulkRoutes()
+if err := quickstart.RegisterUserRoleBulkRoutes(host.Admin(), cfg, adm); err != nil {
+	return err
+}
 ```
 
 Quickstart Fiber defaults use `prefer_static` path conflict resolution, so absolute static routes (for example `/users/bulk/assign-role`) can coexist with wildcard siblings (for example `/users/bulk/:action`) deterministically. Override path conflict behavior with `WithFiberAdapterConfig(...)`.
@@ -1568,9 +1570,10 @@ diskAssetsDir := quickstart.ResolveDiskAssetsDir(
 	"path/to/pkg/client/assets",
 	"assets",
 )
-quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
+host := quickstart.NewHostRouter(r, cfg)
+quickstart.NewStaticAssets(host.Static(), cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
 quickstart.RegisterContentTypeBuilderUIRoutes(
-	r,
+	host.AdminUI(),
 	cfg,
 	adm,
 	authn,
@@ -1605,8 +1608,12 @@ if err != nil {
 }
 
 srv, r := quickstart.NewFiberServer(views, cfg, adm, true)
-quickstart.NewStaticAssets(r, cfg, os.DirFS("./web"))
+host := quickstart.NewHostRouter(r, cfg)
+quickstart.NewStaticAssets(host.Static(), cfg, os.DirFS("./web"))
 _ = quickstart.NewModuleRegistrar(adm, cfg, []admin.Module{}, true)
+if err := adm.Initialize(host.Admin()); err != nil {
+	return err
+}
 
 _ = adapters
 _ = srv

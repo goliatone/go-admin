@@ -29,14 +29,15 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
 adm, _, err := quickstart.NewAdmin(
 	cfg,
 	quickstart.AdapterHooks{},
-	quickstart.WithFeatureDefaults(quickstart.DefaultMinimalFeatures()),
+	quickstart.WithMinimalFeatures(),
 )
 if err != nil {
 	panic(err)
 }
 
 server := router.NewHTTPServer()
-if err := adm.Initialize(server.Router()); err != nil {
+host := quickstart.NewHostRouter(server.Router(), cfg)
+if err := adm.Initialize(host.Admin()); err != nil {
 	panic(err)
 }
 ```
@@ -83,7 +84,9 @@ if err := adm.Initialize(server.Router()); err != nil {
 
 ## Key extension points
 
-- Features: provide/override feature defaults with your gate implementation (core) or `quickstart.WithFeatureDefaults(...)`.
+- Features: provide your gate implementation with core. With quickstart, use
+  `WithMinimalFeatures()` or `WithFeatureSet(...)` to replace the base set and
+  `WithFeatureOverrides(...)` to merge selected values.
 - Modules: register host modules with `RegisterModule`; mounted modules must expose `RouteContractProvider` so routing ownership stays explicit.
 - URLs: use `Config.URLs` + URLKit route names instead of hardcoding paths.
 - Scope policy: use `Admin.EffectiveScope(...)` or `Admin.EffectiveScopeFromRequest(...)` before scoped reads, writes, background syncs, and materialized read-model updates. In single-tenant mode, missing tenant/org values are filled from configured defaults; in multi-tenant mode they remain missing unless trusted actor, claims, record, or service input provides them. Authenticated admin APIs do not trust browser query `tenant_id` or `org_id` as actor scope.
