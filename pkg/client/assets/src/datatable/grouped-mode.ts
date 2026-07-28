@@ -1140,7 +1140,7 @@ export function renderGroupedEmptyState(colSpan: number): string {
 export function renderGroupedLoadingState(colSpan: number): string {
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="loading">
-      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center">
+      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center" role="status" aria-live="polite">
         <div class="flex items-center justify-center">
           <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1171,7 +1171,7 @@ export function renderGroupedErrorState(
 
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="error">
-      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center">
+      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center" role="alert" aria-live="assertive">
         <div class="text-red-500">
           <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

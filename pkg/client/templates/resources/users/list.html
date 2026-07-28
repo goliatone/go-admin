@@ -18,10 +18,10 @@
   </div>
 </header>
 
-<div class="flex-1 p-8 overflow-y-auto">
+<div class="admin-page-content flex-1 p-8 overflow-y-auto">
   {% if items %}
   <!-- DataTable Toolbar -->
-  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
+  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm" data-datagrid-toolbar>
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <!-- Left: Search/Filter Area -->
         <div class="relative max-w-2xl w-full flex flex-col gap-2">
@@ -72,7 +72,7 @@
           </div>
 
           <!-- Filter Panel (dropdown) -->
-          <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+          <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" data-datagrid-filter-panel style="width: 800px;">
             <!-- Panel content will be rendered here -->
           </div>
         </div>
@@ -169,7 +169,7 @@
   </div>
 
   <!-- DataTable Table -->
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm" data-datagrid-surface>
     <div class="overflow-x-auto">
       <table id="users-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -254,7 +254,7 @@
   </div>
 
   <!-- Pagination Footer -->
-  <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+  <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4" data-datagrid-pagination>
     <div class="flex items-center justify-between gap-4">
       <!-- Left: Info text -->
       <div class="flex-shrink-0">

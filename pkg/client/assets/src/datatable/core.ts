@@ -63,6 +63,7 @@ export class DataGrid {
   private searchTimeout: number | null = null;
   private abortController: AbortController | null = null;
   private dropdownAbortController: AbortController | null = null;
+  private selectionAbortController: AbortController | null = null;
   private didRestoreColumnOrder: boolean = false;
   private shouldReorderDOMOnRestore: boolean = false;
   private actionRenderer: ActionRenderer;
@@ -213,6 +214,7 @@ export class DataGrid {
       return;
     }
     console.log('[DataGrid] Table element found:', this.tableEl);
+    lifecycleOps.adoptSemanticPresentation(this);
 
     this.restoreStateFromURL();
 
@@ -361,6 +363,14 @@ export class DataGrid {
 
   private renderData(data: ApiResponse): void {
     renderOps.renderData(this, data);
+  }
+
+  private renderLoadingState(): void {
+    renderOps.renderLoadingState(this);
+  }
+
+  private renderErrorState(message: string): void {
+    renderOps.renderErrorState(this, message);
   }
 
   private renderFlatData(items: any[], tbody: HTMLElement): void {
@@ -600,6 +610,11 @@ export class DataGrid {
     if (this.dropdownAbortController) {
       this.dropdownAbortController.abort();
       this.dropdownAbortController = null;
+    }
+
+    if (this.selectionAbortController) {
+      this.selectionAbortController.abort();
+      this.selectionAbortController = null;
     }
 
     if (this.abortController) {

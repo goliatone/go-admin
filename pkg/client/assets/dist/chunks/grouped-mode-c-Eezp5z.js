@@ -963,7 +963,7 @@ function at(e) {
 function it(e) {
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="loading">
-      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center">
+      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center" role="status" aria-live="polite">
         <div class="flex items-center justify-center">
           <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -979,7 +979,7 @@ function ot(e, t, r) {
   const s = r ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="error">
-      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center">
+      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center" role="alert" aria-live="assertive">
         <div class="text-red-500">
           <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1063,4 +1063,4 @@ export {
   je as z
 };
 
-//# sourceMappingURL=grouped-mode-DL_mTGwd.js.map
+//# sourceMappingURL=grouped-mode-c-Eezp5z.js.map

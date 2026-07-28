@@ -19,6 +19,7 @@ export async function refresh(grid: any, requestSeq?: number): Promise<void> {
       grid.tableEl.dataset.state = 'loading';
       grid.tableEl.setAttribute('aria-busy', 'true');
     }
+    grid.renderLoadingState();
 
     try {
       const url = grid.buildApiUrl();
@@ -75,7 +76,9 @@ export async function refresh(grid: any, requestSeq?: number): Promise<void> {
         grid.tableEl.dataset.state = 'error';
         grid.tableEl.setAttribute('aria-busy', 'false');
       }
-      grid.showError('Failed to load data');
+      const message = 'Failed to load data';
+      grid.renderErrorState(message);
+      grid.showError(message);
     }
   }
 

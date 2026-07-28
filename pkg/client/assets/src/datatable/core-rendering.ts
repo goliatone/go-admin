@@ -2,7 +2,11 @@
 import { executeStructuredDelete } from './action-execution.js';
 import type { ApiResponse, ColumnDefinition } from './core-types.js';
 import type { CellRendererContext } from './renderers.js';
-import { renderGroupedEmptyState } from './grouped-mode.js';
+import {
+  renderGroupedEmptyState,
+  renderGroupedErrorState,
+  renderGroupedLoadingState,
+} from './grouped-mode.js';
 import { parseDateLike } from '../shared/date-utils.js';
 import {
   formatStructuredErrorForDisplay,
@@ -76,6 +80,59 @@ export function syncColumnVisibilityCheckboxes(grid: any): void {
       }
     });
   }
+
+function removeDataGridStateRows(tbody: HTMLElement): void {
+  tbody.querySelectorAll('[data-datagrid-state]').forEach((row) => row.remove());
+}
+
+function createDataGridStateRow(
+  grid: any,
+  state: 'loading' | 'error',
+  message: string,
+): HTMLTableRowElement {
+  const row = document.createElement('tr');
+  row.className = 'admin-datagrid__state-row';
+  row.dataset.datagridState = state;
+
+  const cell = document.createElement('td');
+  cell.colSpan = Math.max(1, (grid.config.columns?.length || 0) + 2);
+  cell.className = `admin-datagrid__state admin-datagrid__state--${state} px-6 py-8 text-center`;
+  cell.setAttribute('role', state === 'error' ? 'alert' : 'status');
+  cell.setAttribute('aria-live', state === 'error' ? 'assertive' : 'polite');
+  cell.textContent = message;
+  row.appendChild(cell);
+  return row;
+}
+
+export function renderLoadingState(grid: any): void {
+  const tbody = grid.tableEl?.querySelector('tbody');
+  if (!tbody) return;
+
+  removeDataGridStateRows(tbody);
+  if (tbody.children.length > 0) {
+    return;
+  }
+  if (grid.isGroupedViewActive()) {
+    tbody.insertAdjacentHTML('beforeend', renderGroupedLoadingState(grid.config.columns.length));
+    return;
+  }
+  tbody.appendChild(createDataGridStateRow(grid, 'loading', 'Loading…'));
+}
+
+export function renderErrorState(grid: any, message: string): void {
+  const tbody = grid.tableEl?.querySelector('tbody');
+  if (!tbody) return;
+
+  removeDataGridStateRows(tbody);
+  if (grid.isGroupedViewActive()) {
+    tbody.insertAdjacentHTML(
+      'afterbegin',
+      renderGroupedErrorState(grid.config.columns.length, message),
+    );
+    return;
+  }
+  tbody.prepend(createDataGridStateRow(grid, 'error', message));
+}
 
   /**
    * Render data into table

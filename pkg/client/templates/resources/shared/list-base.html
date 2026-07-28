@@ -28,7 +28,8 @@
 <div class="admin-page-content flex-1 p-8 overflow-y-auto">
   {% if items or render_datagrid_shell %}
   <!-- DataTable Toolbar -->
-  <div class="admin-surface-card admin-datagrid__toolbar bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
+  <div class="admin-surface-card admin-datagrid__toolbar bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm"
+       data-datagrid-toolbar>
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
         <!-- Left: Search/Filter Area -->
         <div class="relative max-w-2xl w-full flex flex-col gap-2">
@@ -80,7 +81,10 @@
           </div>
 
           <!-- Filter Panel (dropdown) -->
-          <div id="filter-panel" class="filter-panel admin-datagrid__filter-panel hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+          <div id="filter-panel"
+               class="filter-panel admin-datagrid__filter-panel hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto"
+               data-datagrid-filter-panel
+               style="width: 800px;">
             <!-- Panel content will be rendered here -->
           </div>
         </div>
@@ -277,7 +281,8 @@
   </div>
 
   <!-- Pagination Footer -->
-  <div class="admin-surface-card admin-pagination admin-datagrid__pagination mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+  <div class="admin-surface-card admin-pagination admin-datagrid__pagination mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4"
+       data-datagrid-pagination>
     <div class="flex items-center justify-between gap-4">
       <!-- Left: Info text -->
       <div class="flex-shrink-0">

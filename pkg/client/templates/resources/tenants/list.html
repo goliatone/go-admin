@@ -10,9 +10,9 @@
   </div>
 </header>
 
-<div class="flex-1 p-8 overflow-y-auto">
+<div class="admin-page-content flex-1 p-8 overflow-y-auto">
   {# DataGrid Toolbar #}
-  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4">
+  <div class="bg-white border border-gray-200 rounded-xl mb-4 p-4" data-datagrid-toolbar>
     <div class="flex flex-wrap gap-4 items-center">
       {# Search #}
       <div class="flex-1 min-w-[200px]">
@@ -106,13 +106,13 @@
     </div>
 
     {# Filter Panel (rendered by FilterBuilder) #}
-    <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" style="width: 800px;">
+    <div id="filter-panel" class="hidden fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl p-4 max-h-[80vh] overflow-y-auto" data-datagrid-filter-panel style="width: 800px;">
       {# Panel content is rendered by FilterBuilder #}
     </div>
   </div>
 
   {# DataGrid Table #}
-  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden" data-datagrid-surface>
     <div class="overflow-x-auto">
       <table id="tenants-datatable" class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -166,7 +166,7 @@
   </div>
 
   {# Pagination #}
-  <div class="mt-4 flex justify-between items-center bg-white border border-gray-200 rounded-xl p-4">
+  <div class="mt-4 flex justify-between items-center bg-white border border-gray-200 rounded-xl p-4" data-datagrid-pagination>
     <div class="text-sm text-gray-600">
       Showing <span id="table-info-start">0</span> to <span id="table-info-end">0</span> of <span id="table-info-total">0</span> results
     </div>

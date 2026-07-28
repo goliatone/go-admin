@@ -15,6 +15,62 @@ import { addDelegatedEventListener } from '../shared/events/delegation.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import { initActionMenus } from '../shared/action-menu.js';
 
+export function adoptSemanticPresentation(grid: any): void {
+  const table = grid.tableEl as HTMLTableElement | null;
+  if (!table || !table.classList || typeof table.closest !== 'function') return;
+
+  table.classList.add('admin-datagrid__table');
+  const surface = table.closest<HTMLElement>('[data-datagrid-surface]') || table;
+  surface.classList.add('admin-datagrid');
+
+  const header = table.querySelector('thead');
+  header?.classList.add('admin-datagrid__header');
+  header?.querySelectorAll('th').forEach((cell) => {
+    cell.classList.add('admin-datagrid__header-cell');
+  });
+
+  const body = table.querySelector('tbody');
+  body?.classList.add('admin-datagrid__body');
+
+  table.querySelectorAll<HTMLInputElement | HTMLSelectElement>(grid.selectors.filterRow).forEach((control) => {
+    control.classList.add('admin-datagrid__filter-control');
+    const row = control.closest('tr');
+    row?.classList.add('admin-datagrid__filter-row');
+    row?.querySelectorAll('th').forEach((cell) => {
+      cell.classList.add('admin-datagrid__header-cell');
+    });
+  });
+
+  const searchInput = document.querySelector<HTMLElement>(grid.selectors.searchInput);
+  searchInput?.closest<HTMLElement>('[data-datagrid-toolbar]')?.classList.add(
+    'admin-surface-card',
+    'admin-datagrid__toolbar',
+  );
+
+  document.querySelector<HTMLElement>('[data-datagrid-filter-panel]')?.classList.add(
+    'admin-surface-card',
+    'admin-datagrid__filter-panel',
+  );
+
+  const paginationControls = document.querySelector<HTMLElement>(grid.selectors.paginationContainer);
+  const pagination = paginationControls?.closest<HTMLElement>('[data-datagrid-pagination]') || paginationControls;
+  pagination?.classList.add('admin-surface-card', 'admin-datagrid__pagination');
+  paginationControls?.classList.add('admin-datagrid__pagination-controls');
+
+  for (const selector of [
+    grid.selectors.tableInfoStart,
+    grid.selectors.tableInfoEnd,
+    grid.selectors.tableInfoTotal,
+  ]) {
+    const value = document.querySelector<HTMLElement>(selector);
+    value?.classList.add('admin-datagrid__pagination-text');
+    value?.parentElement?.classList.add('admin-datagrid__pagination-text');
+  }
+  document.querySelector<HTMLElement>(grid.selectors.perPageSelect)
+    ?.parentElement
+    ?.classList.add('admin-datagrid__pagination-text');
+}
+
 export function bindSearchInput(grid: any): void {
     const input = document.querySelector<HTMLInputElement>(grid.selectors.searchInput);
     if (!input) {
@@ -409,11 +465,17 @@ export function updateSortIndicators(grid: any): void {
    * Bind selection checkboxes
    */
 export function bindSelection(grid: any): void {
-    const selectAll = document.querySelector<HTMLInputElement>(grid.selectors.selectAllCheckbox);
+    if (!grid.tableEl) return;
+    if (grid.selectionAbortController) {
+      grid.selectionAbortController.abort();
+    }
+    grid.selectionAbortController = new AbortController();
+    const { signal } = grid.selectionAbortController;
+    const selectAll = grid.tableEl.querySelector<HTMLInputElement>(grid.selectors.selectAllCheckbox);
 
     if (selectAll) {
       selectAll.addEventListener('change', () => {
-        const checkboxes = document.querySelectorAll<HTMLInputElement>(grid.selectors.rowCheckboxes);
+        const checkboxes = grid.tableEl.querySelectorAll<HTMLInputElement>(grid.selectors.rowCheckboxes);
         checkboxes.forEach((cb) => {
           cb.checked = selectAll.checked;
           syncRowSelectionState(cb);
@@ -427,8 +489,30 @@ export function bindSelection(grid: any): void {
           }
         });
         grid.updateBulkActionsBar();
-      });
+      }, { signal });
     }
+
+    grid.tableEl.addEventListener('change', (event: Event) => {
+      const cb = event.target as HTMLInputElement | null;
+      if (
+        !cb ||
+        cb === selectAll ||
+        typeof cb.matches !== 'function' ||
+        !cb.matches(grid.selectors.rowCheckboxes)
+      ) {
+        return;
+      }
+      const id = cb.dataset.id;
+      if (id) {
+        if (cb.checked) {
+          grid.state.selectedRows.add(id);
+        } else {
+          grid.state.selectedRows.delete(id);
+        }
+      }
+      syncRowSelectionState(cb);
+      grid.updateBulkActionsBar();
+    }, { signal });
 
     grid.updateSelectionBindings();
   }
@@ -438,7 +522,7 @@ export function bindSelection(grid: any): void {
    * This syncs checkbox states with the selectedRows Set
    */
 export function updateSelectionBindings(grid: any): void {
-    const checkboxes = document.querySelectorAll<HTMLInputElement>(grid.selectors.rowCheckboxes);
+    const checkboxes = grid.tableEl?.querySelectorAll<HTMLInputElement>(grid.selectors.rowCheckboxes) || [];
 
     checkboxes.forEach((cb) => {
       const id = cb.dataset.id;
@@ -448,19 +532,6 @@ export function updateSelectionBindings(grid: any): void {
         cb.checked = grid.state.selectedRows.has(id);
       }
       syncRowSelectionState(cb);
-
-      // Remove old listeners to avoid duplicates (use once: true or track bound status in production)
-      cb.addEventListener('change', () => {
-        if (id) {
-          if (cb.checked) {
-            grid.state.selectedRows.add(id);
-          } else {
-            grid.state.selectedRows.delete(id);
-          }
-        }
-        syncRowSelectionState(cb);
-        grid.updateBulkActionsBar();
-      });
     });
   }
 
@@ -922,7 +993,7 @@ export function clearSelection(grid: any): void {
     grid.state.selectedRows.clear();
 
     // Uncheck the "select all" checkbox in the table header
-    const selectAllCheckbox = document.querySelector<HTMLInputElement>(grid.selectors.selectAllCheckbox);
+    const selectAllCheckbox = grid.tableEl?.querySelector<HTMLInputElement>(grid.selectors.selectAllCheckbox);
     if (selectAllCheckbox) {
       selectAllCheckbox.checked = false;
     }

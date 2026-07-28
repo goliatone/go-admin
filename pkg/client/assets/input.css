@@ -145,7 +145,10 @@
   }
 
   .admin-page-content {
+    display: flex;
+    flex-direction: column;
     gap: var(--admin-page-gap, var(--space-stack, 0));
+    min-width: 0;
   }
 
   .admin-surface-card.admin-surface-card,
@@ -264,7 +267,7 @@
     border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
   }
 
-  .admin-datagrid__pagination .admin-datagrid__pagination-text,
+  .admin-datagrid__pagination-text,
   .admin-datagrid__pagination .admin-datagrid__page-button,
   .admin-datagrid__actions-empty {
     color: var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280));

@@ -13,6 +13,7 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 	}
 	css := string(content)
 	required := []string{
+		".admin-page-content {\n    display: flex;\n    flex-direction: column;",
 		`var(--admin-shell-background, var(--color-surface-canvas, #f9fafb))`,
 		`var(--admin-header-background, var(--color-surface-default, #ffffff))`,
 		`var(--admin-sidebar-item-hover, var(--color-surface-subtle, #3f3f46))`,
@@ -69,6 +70,27 @@ func TestSharedAdminTemplatesOptIntoSemanticPrimitiveClasses(t *testing.T) {
 		"resources/content/form.html": {
 			`class="admin-page-header`,
 			`class="admin-page-content`,
+		},
+		"resources/users/list.html": {
+			`class="admin-page-content`,
+			`data-datagrid-toolbar`,
+			`data-datagrid-filter-panel`,
+			`data-datagrid-surface`,
+			`data-datagrid-pagination`,
+		},
+		"resources/user-profiles/list.html": {
+			`class="admin-page-content`,
+			`data-datagrid-toolbar`,
+			`data-datagrid-filter-panel`,
+			`data-datagrid-surface`,
+			`data-datagrid-pagination`,
+		},
+		"resources/tenants/list.html": {
+			`class="admin-page-content`,
+			`data-datagrid-toolbar`,
+			`data-datagrid-filter-panel`,
+			`data-datagrid-surface`,
+			`data-datagrid-pagination`,
 		},
 	}
 	for name, fragments := range checks {
