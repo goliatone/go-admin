@@ -1,10 +1,56 @@
 # Changelog
 
+# [0.125.0](https://github.com/goliatone/go-admin/compare/v0.124.1...v0.125.0) - (2026-07-28)
+
+
+## Theme Integration
+
+- Add an optional validated semantic theme contract for the admin shell, shared
+  surfaces, CMS forms, dashboards/charts, and the embedded DataGrid. Component
+  tokens fall back to portable tokens and existing defaults, with deterministic
+  safe root projection and resolved, invalid, unsupported, consumed, and unused
+  diagnostics.
+- Render resolved theme favicons in admin and auth layouts while preserving
+  existing logo, icon, legacy payload, template override, and public-site theme
+  isolation behavior.
+- Require go-theme v0.5.1, go-formgen v0.32.1, and go-dashboard v0.15.2 for the
+  coordinated semantic contracts. Existing hosts require no new theme
+  configuration.
+- Scope quickstart's built-in dark navigation color to the sidebar instead of
+  projecting it as the global default surface, restoring white light-theme
+  page headers, form controls, and DataGrid rows while preserving explicit
+  `surface` overrides.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Theme css selector ([4877a42](https://github.com/goliatone/go-admin/commit/4877a42543938e997a0db2f5ded950a344011374))  - (goliatone)
+- Css tokens ([8aca3e3](https://github.com/goliatone/go-admin/commit/8aca3e33922c231a3a07435c6853d6a02a8d9cfa))  - (goliatone)
+- Datagrid expose stable toolbar, filter, surface ([9a29dbd](https://github.com/goliatone/go-admin/commit/9a29dbd084660f24f58f9db976271a58d0bf2e79))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Better theme support ([10640cf](https://github.com/goliatone/go-admin/commit/10640cf38c77fc1dd0da81f6803f836539b64882))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([835417a](https://github.com/goliatone/go-admin/commit/835417a25a3fdf7f63f33cfaee1735e87626951c))  - (goliatone)
+- Update examples ([21299a3](https://github.com/goliatone/go-admin/commit/21299a3d8074e5877aa905af2f0097dbc2c0cb14))  - (goliatone)
+- Update deps ([3298cbe](https://github.com/goliatone/go-admin/commit/3298cbe3d90fb5a8bd33d8331a7cfb7b6f8e2817))  - (goliatone)
+- Code quality ([2443568](https://github.com/goliatone/go-admin/commit/24435689067bcc0b4d96ab527b45bf174d4cb5ef))  - (goliatone)
+- Update tests ([72cfc97](https://github.com/goliatone/go-admin/commit/72cfc97c9c5383bd9afd6c1330cd645db285f0e3))  - (goliatone)
+
 # [0.124.1](https://github.com/goliatone/go-admin/compare/v0.124.0...v0.124.1) - (2026-07-27)
+
+
+New patch release: v0.124.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Command runs panel show details ([60b319a](https://github.com/goliatone/go-admin/commit/60b319a5ab63a3c0adbde07152558eaa101a1ecf))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.124.1 ([6f196c5](https://github.com/goliatone/go-admin/commit/6f196c5494b4a2d8100aed004515a8bd9d8184d0))  - (goliatone)
 
 # [0.124.0](https://github.com/goliatone/go-admin/compare/v0.123.1...v0.124.0) - (2026-07-27)
 
