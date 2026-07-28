@@ -201,8 +201,8 @@ github.com/goliatone/go-export/adapters/template/go-template v0.9.0 h1:iwQlU51+u
 github.com/goliatone/go-export/adapters/template/go-template v0.9.0/go.mod h1:JztM9CA+SbWGMyMF7pgW9ySiPxuuzF1hRg/qtsN0Fa4=
 github.com/goliatone/go-featuregate v0.6.1 h1:3fxOcSWTxpC3YxKJMDhM12j8vL/D+CUD7meS/L8b5CM=
 github.com/goliatone/go-featuregate v0.6.1/go.mod h1:7cTSfGckWEdVPRD3NMPrvjQxkEd4/Z0SolKa9aSrBvM=
-github.com/goliatone/go-formgen v0.32.0 h1:sX97ZbtCzSL2DJ+CKrYkQag8Kfns88qdavKR+Nch2yo=
-github.com/goliatone/go-formgen v0.32.0/go.mod h1:UcXGz30odlNFPGVoHlez+0zBFNxTu57EKnOdEn09XYQ=
+github.com/goliatone/go-formgen v0.32.1 h1:pEUpXEc3aUetshO9ttxc8qi58O/Auqu+a+W0lcLPqYw=
+github.com/goliatone/go-formgen v0.32.1/go.mod h1:VYKAu3VCivRERdDZpiOvh6/oHjyXXmb2hnHKSU1KzZ0=
 github.com/goliatone/go-i18n v0.5.0 h1:xc2mYv0XWoMHpfyDj6JEJS53cUUDCvAtSjieG2OYdBc=
 github.com/goliatone/go-i18n v0.5.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
 github.com/goliatone/go-job v0.19.0 h1:xdjp9aWTst9vwiiCLGQUuwSnfXt8ehbVhRfYjw6mUoY=
