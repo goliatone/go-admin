@@ -26,7 +26,7 @@ require (
 	github.com/goliatone/go-router v0.61.2
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-services v0.7.2
-	github.com/goliatone/go-theme v0.5.0
+	github.com/goliatone/go-theme v0.5.1
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.7.0
 	github.com/goliatone/go-users v0.24.1
