@@ -320,9 +320,9 @@ an action or why a stale action execution failed.
 Recommended focused checks:
 
 ```bash
-/opt/homebrew/bin/go test ./admin -run 'TestActionPhase8'
-/opt/homebrew/bin/go test ./examples/web -run 'TestActionPhase8'
-/opt/homebrew/bin/go test ./examples/esign/modules -run 'TestActionPhase8'
+go test ./admin -run 'TestActionPhase8'
+go test ./examples/web -run 'TestActionPhase8'
+go test ./examples/esign/modules -run 'TestActionPhase8'
 ```
 
 Coverage expectations:

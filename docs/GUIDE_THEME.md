@@ -198,6 +198,15 @@ Legacy keys such as `primary`, `sidebar-width`, and
 both forms are present. `admin.sidebar.title-height` is transport-only and is
 reported unused because the shared sidebar has no reusable title slot.
 
+The legacy `surface` key is a global compatibility alias for
+`color.surface.default`; it is not a sidebar color. Use
+`admin.sidebar.background` for a dark sidebar in an otherwise light admin.
+Quickstart's generated theme follows that rule and leaves the global default
+surface unset so page headers, controls, cards, and DataGrid rows retain their
+light defaults. When a caller explicitly supplies `surface` or
+`color.surface.default`, quickstart does not add a component-level sidebar
+background that would shadow that override.
+
 Use `ThemeSelection.Diagnostics` to audit support and actual go-admin client
 consumption. Diagnostics follow the same ordered fallback chains as the CSS:
 the first resolved component or portable token is consumed, and a resolved

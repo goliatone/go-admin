@@ -38,7 +38,7 @@ owner: backend
 breaking_change_rationale: replace positional recipient/field draft contracts with stable ID-based participant/definition/instance contracts to remove index-coupled mutation behavior.
 measurable_gain: deterministic draft mutation correctness for arbitrary signer/stage modeling, removal of recipient index coupling in active payload handling, and enforced required-definition placement invariants before send.
 impacted_endpoints: admin panel agreement draft create/update payloads, agreement send-readiness validation contract, store/service draft mutation interfaces.
-backend_tests: "/Users/goliatone/.g/go/bin/go" test ./examples/esign/services ./examples/esign/stores ./examples/esign/modules
+backend_tests: go test ./examples/esign/services ./examples/esign/stores ./examples/esign/modules
 frontend_tests: N/A (backend phase entry; FE lockstep planned in Phase 21.FE tasks)
 contract_hash: 980208005f1e4bcf1f72719cb8d8037bd5e26889812be67e1f6062af3adc144b
 related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
@@ -50,7 +50,7 @@ owner: backend
 breaking_change_rationale: introduce provider-agnostic CRM/HRIS integration foundation contracts and persistence primitives so sync/mapping/conflict behavior is first-class in v2 runtime without provider-specific schema coupling.
 measurable_gain: deterministic mapping compile hash coverage, resumable checkpointed sync runs, explicit conflict lifecycle tracking, and normalized outbound change-event emission with idempotent mutation keys.
 impacted_endpoints: /admin/api/v1/esign/integrations/mappings, /admin/api/v1/esign/integrations/sync-runs, /admin/api/v1/esign/integrations/conflicts, /admin/api/v1/esign/integrations/diagnostics, /admin/api/v1/esign/integrations/inbound, /admin/api/v1/esign/integrations/outbound.
-backend_tests: "/Users/goliatone/.g/go/bin/go" test ./examples/esign/stores -run 'TestMigrationsExposeIntegrationFoundationTablesAndColumns|TestInMemoryIntegrationCredentialScopedCRUD' && "/Users/goliatone/.g/go/bin/go" test ./examples/esign/services -run 'TestIntegrationFoundation' && "/Users/goliatone/.g/go/bin/go" test ./examples/esign/handlers -run 'TestRegisterIntegration|TestBuildRouteSet'
+backend_tests: go test ./examples/esign/stores -run 'TestMigrationsExposeIntegrationFoundationTablesAndColumns|TestInMemoryIntegrationCredentialScopedCRUD' && go test ./examples/esign/services -run 'TestIntegrationFoundation' && go test ./examples/esign/handlers -run 'TestRegisterIntegration|TestBuildRouteSet'
 frontend_tests: N/A (backend-only Phase 26 execution)
 contract_hash: 5e38deadc319ecddacece3be802e84cb28024526df90f14f64b8c9f765ed20ae
 related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md

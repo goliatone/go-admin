@@ -33,6 +33,8 @@ decides how to build defaults (env, config files, etc).
 Core admin features are defined in `admin.FeatureKey`:
 
 - `dashboard`
+- `activity`
+- `preview`
 - `search`
 - `export`
 - `cms`
@@ -47,6 +49,10 @@ Core admin features are defined in `admin.FeatureKey`:
 - `users`
 - `tenants`
 - `organizations`
+- `translations.exchange`
+- `translations.queue`
+- `translations.qa.style`
+- `translations.qa.terminology`
 
 Common feature keys used by modules or optional flows:
 
@@ -78,6 +84,8 @@ On initialization, go-admin validates feature dependencies:
 - `jobs` requires `commands`
 - `bulk` requires `commands` and `jobs`
 - `media`, `export`, and `bulk` require `cms`
+- `translations.exchange` requires `commands` and `cms`
+- `translations.queue` requires `commands` and `cms`
 
 Invalid combinations return `InvalidFeatureConfigError` with issue details.
 
@@ -122,8 +130,9 @@ means most optional features are disabled.
 
 ## Quickstart Setup
 
-`quickstart.NewAdmin` builds a feature gate automatically. You can override its
-defaults with `WithFeatureDefaults`:
+`quickstart.NewAdmin` builds the scoped, mutable feature gate automatically.
+Use `WithFeatureOverrides` to merge selected values into the complete
+`DefaultAdminFeatures()` base:
 
 ```go
 import (
@@ -135,7 +144,7 @@ cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
 adm, _, err := quickstart.NewAdmin(
     cfg,
     hooks,
-    quickstart.WithFeatureDefaults(map[string]bool{
+    quickstart.WithFeatureOverrides(map[string]bool{
         string(admin.FeatureSearch): false,
         string(admin.FeatureBulk):   false,
     }),
@@ -148,9 +157,14 @@ Use the minimal feature set when you want a slim surface:
 adm, _, err := quickstart.NewAdmin(
     cfg,
     hooks,
-    quickstart.WithFeatureDefaults(quickstart.DefaultMinimalFeatures()),
+    quickstart.WithMinimalFeatures(),
 )
 ```
+
+Use `WithFeatureSet(map[string]bool{...})` when the host needs to replace the
+entire base set. `WithFeatureDefaults` remains a compatibility alias with merge
+semantics; passing `DefaultMinimalFeatures()` to it does not disable features
+that are enabled by the complete base set.
 
 To supply your own gate, pass it through `WithAdminDependencies`:
 

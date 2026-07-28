@@ -10,6 +10,7 @@ the closest existing guide when conventions change.
 | Development workflow, testing, logging, and docs hygiene | `GUIDE_DEVELOPMENT.md` |
 | CI/CD, linting, release, and quality commands | `GUIDE_DEVELOPMENT_CICD.md` |
 | Quickstart API and defaults | `../quickstart/README.md` |
+| Runnable project starter and production replacement seams | `../examples/admin-shell/README.md` |
 | Package overview and high-level extension points | `../README.md` |
 
 ## Frontend, UI, And Actions

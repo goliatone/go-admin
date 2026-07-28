@@ -46,7 +46,8 @@ if err != nil {
 	return err
 }
 
-quickstart.NewStaticAssets(r, cfg, client.Assets())
+host := quickstart.NewHostRouter(r, cfg)
+quickstart.NewStaticAssets(host.Static(), cfg, client.Assets())
 ```
 
 If you override template funcs, pass the URLKit resolver (or the base path fallback) into the defaults so `adminURL` stays correct:
@@ -788,7 +789,8 @@ viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
 Use the embedded assets or serve your own:
 
 ```go
-quickstart.NewStaticAssets(r, cfg, client.Assets())
+host := quickstart.NewHostRouter(r, cfg)
+quickstart.NewStaticAssets(host.Static(), cfg, client.Assets())
 ```
 
 To override assets, mount your FS first or use `quickstart.NewStaticAssets(...)` with your own FS.
@@ -801,7 +803,12 @@ diskAssetsDir := quickstart.ResolveDiskAssetsDir(
 	"path/to/pkg/client/assets",
 	"assets",
 )
-quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(diskAssetsDir))
+quickstart.NewStaticAssets(
+	host.Static(),
+	cfg,
+	client.Assets(),
+	quickstart.WithDiskAssetsDir(diskAssetsDir),
+)
 ```
 
 ## Export templates

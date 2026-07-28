@@ -683,7 +683,7 @@ domain validation or ownership checks.
 Focused tests:
 
 ```bash
-/opt/homebrew/bin/go test ./admin -run 'TestAdminRPC'
-/opt/homebrew/bin/go test ./quickstart -run 'TestWithRPCTransport'
+go test ./admin -run 'TestAdminRPC'
+go test ./quickstart -run 'TestWithRPCTransport'
 (cd pkg/client/assets && node --test tests/command_runtime.test.mjs)
 ```
