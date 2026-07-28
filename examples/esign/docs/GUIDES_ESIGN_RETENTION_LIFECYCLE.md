@@ -19,7 +19,7 @@ PII minimization rules:
 Run:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/stores -run 'TestRetentionPolicyLifecycleControls|TestMinimizeAuditMetadata|TestRetentionLifecyclePeriodicCheck'
+go test ./examples/esign/stores -run 'TestRetentionPolicyLifecycleControls|TestMinimizeAuditMetadata|TestRetentionLifecyclePeriodicCheck'
 ```
 
 Validated outcomes:

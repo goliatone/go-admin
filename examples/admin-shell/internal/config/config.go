@@ -29,29 +29,34 @@ func Defaults() AppConfig {
 		Name: "go-admin shell",
 		Env:  "development",
 		Server: Server{
-			Address:     ":8383",
-			PrintRoutes: true,
+			Address:                ":8383",
+			PrintRoutes:            true,
+			ShutdownTimeoutSeconds: 10,
 		},
 		Admin: Admin{
 			BasePath:      "/admin",
 			Title:         "Admin Shell",
 			DefaultLocale: "en",
 		},
+		Deployment: Deployment{
+			AppID:          "admin-shell",
+			AppName:        "Go Admin Shell",
+			AppVersion:     "development",
+			PersonaEnabled: true,
+		},
 		Auth: Auth{
-			SigningKey:   "admin-shell-dev-signing-key",
-			DemoUsername: "admin",
-			DemoEmail:    "admin@example.com",
-			DemoPassword: "admin.pwd",
+			SigningKey:          "admin-shell-dev-signing-key",
+			DemoEnabled:         true,
+			ShowDemoCredentials: true,
+			DemoUsername:        "admin",
+			DemoEmail:           "admin@example.com",
+			DemoPassword:        "admin.pwd",
 		},
 		Features: Features{
-			Dashboard: true,
-			CMS:       true,
-			Search:    true,
-			Commands:  false,
-			Settings:  false,
-			Jobs:      false,
-			Media:     false,
-			Users:     false,
+			Profile: "minimal",
+			Overrides: map[string]bool{
+				"search": true,
+			},
 		},
 	}
 }
@@ -135,12 +140,19 @@ func configNormalizers() []goconfig.Normalizer[*AppConfig] {
 			c.Admin.BasePath = strings.TrimSpace(c.Admin.BasePath)
 			c.Admin.Title = strings.TrimSpace(c.Admin.Title)
 			c.Admin.DefaultLocale = strings.TrimSpace(c.Admin.DefaultLocale)
+			c.Deployment.AppID = strings.TrimSpace(c.Deployment.AppID)
+			c.Deployment.AppName = strings.TrimSpace(c.Deployment.AppName)
+			c.Deployment.AppVersion = strings.TrimSpace(c.Deployment.AppVersion)
 			c.Auth.SigningKey = strings.TrimSpace(c.Auth.SigningKey)
 			c.Auth.DemoUsername = strings.TrimSpace(c.Auth.DemoUsername)
 			c.Auth.DemoEmail = strings.TrimSpace(c.Auth.DemoEmail)
 			c.Auth.DemoPassword = strings.TrimSpace(c.Auth.DemoPassword)
+			c.Features.Profile = strings.ToLower(strings.TrimSpace(c.Features.Profile))
 			if c.Env == "" {
 				c.Env = "development"
+			}
+			if c.Features.Profile == "" {
+				c.Features.Profile = "minimal"
 			}
 			return nil
 		},
@@ -172,17 +184,47 @@ func validateRequiredFields(c *AppConfig) error {
 	if strings.TrimSpace(c.Admin.DefaultLocale) == "" {
 		return fmt.Errorf("admin.default_locale is required")
 	}
+	if c.Server.ShutdownTimeoutSeconds <= 0 {
+		return fmt.Errorf("server.shutdown_timeout_seconds must be greater than zero")
+	}
+	if strings.TrimSpace(c.Deployment.AppID) == "" {
+		return fmt.Errorf("deployment.app_id is required")
+	}
+	if strings.TrimSpace(c.Deployment.AppName) == "" {
+		return fmt.Errorf("deployment.app_name is required")
+	}
 	if strings.TrimSpace(c.Auth.SigningKey) == "" {
 		return fmt.Errorf("auth.signing_key is required")
 	}
-	if strings.TrimSpace(c.Auth.DemoUsername) == "" {
-		return fmt.Errorf("auth.demo_username is required")
+	switch c.Features.Profile {
+	case "minimal", "default", "full":
+	default:
+		return fmt.Errorf("features.profile must be one of minimal, default, or full")
 	}
-	if strings.TrimSpace(c.Auth.DemoEmail) == "" {
-		return fmt.Errorf("auth.demo_email is required")
+	if c.Auth.DemoEnabled {
+		if !isDevelopmentEnv(c.Env) {
+			return fmt.Errorf("auth.demo_enabled is only allowed in development environments")
+		}
+		if strings.TrimSpace(c.Auth.DemoUsername) == "" {
+			return fmt.Errorf("auth.demo_username is required when demo auth is enabled")
+		}
+		if strings.TrimSpace(c.Auth.DemoEmail) == "" {
+			return fmt.Errorf("auth.demo_email is required when demo auth is enabled")
+		}
+		if strings.TrimSpace(c.Auth.DemoPassword) == "" {
+			return fmt.Errorf("auth.demo_password is required when demo auth is enabled")
+		}
 	}
-	if strings.TrimSpace(c.Auth.DemoPassword) == "" {
-		return fmt.Errorf("auth.demo_password is required")
+	if !isDevelopmentEnv(c.Env) {
+		if c.Auth.ShowDemoCredentials {
+			return fmt.Errorf("auth.show_demo_credentials is only allowed in development environments")
+		}
+		if strings.TrimSpace(c.Auth.SigningKey) == "admin-shell-dev-signing-key" {
+			return fmt.Errorf("auth.signing_key must be replaced outside development")
+		}
+		if len(c.Auth.SigningKey) < 32 {
+			return fmt.Errorf("auth.signing_key must contain at least 32 characters outside development")
+		}
 	}
 	return nil
 }
@@ -209,17 +251,26 @@ func (c AppConfig) Validate() error {
 	return nil
 }
 
-// FeatureDefaults returns typed feature flags as string-key map.
-func (c AppConfig) FeatureDefaults() map[string]bool {
-	return map[string]bool{
-		"dashboard": c.Features.Dashboard,
-		"cms":       c.Features.CMS,
-		"search":    c.Features.Search,
-		"commands":  c.Features.Commands,
-		"settings":  c.Features.Settings,
-		"jobs":      c.Features.Jobs,
-		"media":     c.Features.Media,
-		"users":     c.Features.Users,
+// FeatureOverrides returns a defensive copy of configured quickstart overrides.
+func (c AppConfig) FeatureOverrides() map[string]bool {
+	if len(c.Features.Overrides) == 0 {
+		return nil
+	}
+	out := make(map[string]bool, len(c.Features.Overrides))
+	for key, value := range c.Features.Overrides {
+		if key = strings.TrimSpace(key); key != "" {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func isDevelopmentEnv(env string) bool {
+	switch strings.ToLower(strings.TrimSpace(env)) {
+	case "development", "dev", "local", "test":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -227,7 +278,7 @@ func (c AppConfig) FeatureDefaults() map[string]bool {
 func SetActive(cfg AppConfig) {
 	activeConfig.mu.Lock()
 	defer activeConfig.mu.Unlock()
-	clone := cfg
+	clone := cloneConfig(cfg)
 	activeConfig.cfg = &clone
 }
 
@@ -245,8 +296,12 @@ func Active() AppConfig {
 	if activeConfig.cfg == nil {
 		return Defaults()
 	}
-	clone := *activeConfig.cfg
-	return clone
+	return cloneConfig(*activeConfig.cfg)
+}
+
+func cloneConfig(cfg AppConfig) AppConfig {
+	cfg.Features.Overrides = cfg.FeatureOverrides()
+	return cfg
 }
 
 // GetEnvString returns an env var value or fallback if the var is empty.

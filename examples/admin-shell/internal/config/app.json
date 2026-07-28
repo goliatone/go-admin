@@ -3,27 +3,32 @@
   "env": "development",
   "server": {
     "address": ":8383",
-    "print_routes": true
+    "print_routes": true,
+    "shutdown_timeout_seconds": 10
   },
   "admin": {
     "base_path": "/admin",
     "title": "Admin Shell",
     "default_locale": "en"
   },
+  "deployment": {
+    "app_id": "admin-shell",
+    "app_name": "Go Admin Shell",
+    "app_version": "development",
+    "persona_enabled": true
+  },
   "auth": {
     "signing_key": "admin-shell-dev-signing-key",
+    "demo_enabled": true,
+    "show_demo_credentials": true,
     "demo_username": "admin",
     "demo_email": "admin@example.com",
     "demo_password": "admin.pwd"
   },
   "features": {
-    "dashboard": true,
-    "cms": true,
-    "search": true,
-    "commands": false,
-    "settings": false,
-    "jobs": false,
-    "media": false,
-    "users": false
+    "profile": "minimal",
+    "overrides": {
+      "search": true
+    }
   }
 }

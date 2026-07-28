@@ -9,7 +9,7 @@ This checklist is required before enabling Track C schema changes in production.
 3. Migration tests pass:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/stores -run 'TestMigrationsApplySeedAndRollbackSQLite|TestV2MigrationBackfillPreservesAuditTerminalOutcomesAndArtifactPointers'
+go test ./examples/esign/stores -run 'TestMigrationsApplySeedAndRollbackSQLite|TestV2MigrationBackfillPreservesAuditTerminalOutcomesAndArtifactPointers'
 ```
 
 ## Rollback Rehearsal Steps
@@ -22,7 +22,7 @@ This checklist is required before enabling Track C schema changes in production.
 3. Execute contract regression tests:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/services ./examples/esign/stores ./examples/esign/modules
+go test ./examples/esign/services ./examples/esign/stores ./examples/esign/modules
 ```
 
 4. Execute rollback (`RollbackAll` in migration client or operator rollback procedure).

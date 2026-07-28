@@ -3,13 +3,14 @@
 package config
 
 type AppConfig struct {
-	Admin      Admin    `json:"admin" koanf:"admin"`
-	Auth       Auth     `json:"auth" koanf:"auth"`
-	ConfigPath string   `json:"-" koanf:"-"`
-	Env        string   `json:"env" koanf:"env"`
-	Features   Features `json:"features" koanf:"features"`
-	Name       string   `json:"name" koanf:"name"`
-	Server     Server   `json:"server" koanf:"server"`
+	Admin      Admin      `json:"admin" koanf:"admin"`
+	Auth       Auth       `json:"auth" koanf:"auth"`
+	ConfigPath string     `json:"-" koanf:"-"`
+	Deployment Deployment `json:"deployment" koanf:"deployment"`
+	Env        string     `json:"env" koanf:"env"`
+	Features   Features   `json:"features" koanf:"features"`
+	Name       string     `json:"name" koanf:"name"`
+	Server     Server     `json:"server" koanf:"server"`
 }
 
 type Admin struct {
@@ -19,24 +20,28 @@ type Admin struct {
 }
 
 type Auth struct {
-	DemoEmail    string `json:"demo_email" koanf:"demo_email"`
-	DemoPassword string `json:"demo_password" koanf:"demo_password"`
-	DemoUsername string `json:"demo_username" koanf:"demo_username"`
-	SigningKey   string `json:"signing_key" koanf:"signing_key"`
+	DemoEmail           string `json:"demo_email" koanf:"demo_email"`
+	DemoEnabled         bool   `json:"demo_enabled" koanf:"demo_enabled"`
+	DemoPassword        string `json:"demo_password" koanf:"demo_password"`
+	DemoUsername        string `json:"demo_username" koanf:"demo_username"`
+	ShowDemoCredentials bool   `json:"show_demo_credentials" koanf:"show_demo_credentials"`
+	SigningKey          string `json:"signing_key" koanf:"signing_key"`
+}
+
+type Deployment struct {
+	AppID          string `json:"app_id" koanf:"app_id"`
+	AppName        string `json:"app_name" koanf:"app_name"`
+	AppVersion     string `json:"app_version" koanf:"app_version"`
+	PersonaEnabled bool   `json:"persona_enabled" koanf:"persona_enabled"`
 }
 
 type Features struct {
-	CMS       bool `json:"cms" koanf:"cms"`
-	Commands  bool `json:"commands" koanf:"commands"`
-	Dashboard bool `json:"dashboard" koanf:"dashboard"`
-	Jobs      bool `json:"jobs" koanf:"jobs"`
-	Media     bool `json:"media" koanf:"media"`
-	Search    bool `json:"search" koanf:"search"`
-	Settings  bool `json:"settings" koanf:"settings"`
-	Users     bool `json:"users" koanf:"users"`
+	Overrides map[string]bool `json:"overrides" koanf:"overrides"`
+	Profile   string          `json:"profile" koanf:"profile"`
 }
 
 type Server struct {
-	Address     string `json:"address" koanf:"address"`
-	PrintRoutes bool   `json:"print_routes" koanf:"print_routes"`
+	Address                string `json:"address" koanf:"address"`
+	PrintRoutes            bool   `json:"print_routes" koanf:"print_routes"`
+	ShutdownTimeoutSeconds int    `json:"shutdown_timeout_seconds" koanf:"shutdown_timeout_seconds"`
 }

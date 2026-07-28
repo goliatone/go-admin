@@ -230,7 +230,7 @@ Relevant checks:
 Focused verification:
 
 ```bash
-/opt/homebrew/bin/go test ./examples/esign/modules -run 'TestActionPhase8|TestESignActionContractsPhase6|TestESignBulkActionsPhase7'
+go test ./examples/esign/modules -run 'TestActionPhase8|TestESignActionContractsPhase6|TestESignBulkActionsPhase7'
 ```
 
 When debug mode is enabled, the Debug dashboard includes an `Actions` panel with

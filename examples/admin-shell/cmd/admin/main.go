@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/goliatone/go-admin/examples/admin-shell/internal/config"
 	"github.com/goliatone/go-admin/examples/admin-shell/internal/core"
@@ -11,18 +15,24 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("admin shell stopped", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	cfg, err := config.Load()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	appCore, err := core.New(context.TODO(), &cfg)
+	appCore, err := core.New(ctx, &cfg, core.WithRouteRegistrar(apphttp.Register))
 	if err != nil {
-		panic(err)
-	}
-
-	if err := apphttp.Register(appCore); err != nil {
-		panic(err)
+		return fmt.Errorf("initialize application: %w", err)
 	}
 
 	appCore.Logger.Info("admin shell ready",
@@ -31,22 +41,18 @@ func main() {
 		"admin", joinURL(normalizeAddress(cfg.Server.Address), cfg.Admin.BasePath),
 		"config", cfg.ConfigPath,
 	)
-	for _, credential := range appCore.DemoCredentials {
-		appCore.Logger.Info("demo auth credential",
-			"username", credential.Username,
-			"email", credential.Email,
-			"password", credential.Password,
-			"role", credential.Role,
-		)
-	}
-	if token := strings.TrimSpace(appCore.DemoToken); token != "" {
-		appCore.Logger.Info("demo bearer token", "token", token)
+	if appCore.DemoCredentialsVisible() {
+		for _, credential := range appCore.DemoCredentials {
+			appCore.Logger.Info("development demo auth credential",
+				"username", credential.Username,
+				"email", credential.Email,
+				"password", credential.Password,
+				"role", credential.Role,
+			)
+		}
 	}
 
-	if err := appCore.Serve(); err != nil {
-		appCore.Logger.Error("server stopped", "error", err)
-		os.Exit(1)
-	}
+	return appCore.Run(ctx)
 }
 
 func normalizeAddress(address string) string {

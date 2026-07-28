@@ -7,7 +7,7 @@ This guide captures validated procedures for metadata backup/restore and migrati
 Run the backend validation tests:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/stores -run 'TestMigrationsApplySeedAndRollbackSQLite|TestMigrationsBackupAndRestoreSQLite'
+go test ./examples/esign/stores -run 'TestMigrationsApplySeedAndRollbackSQLite|TestMigrationsBackupAndRestoreSQLite'
 ```
 
 Coverage from these tests:

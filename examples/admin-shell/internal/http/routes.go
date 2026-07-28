@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/examples/admin-shell/internal/core"
+	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-router"
 )
 
@@ -67,6 +69,7 @@ li{margin:4px 0}
     </ul>
   </section>
 
+  {{if .DemoEnabled}}
   <section class="card">
     <strong>Demo auth (go-auth)</strong>
     <ul>
@@ -74,8 +77,8 @@ li{margin:4px 0}
       <li><code>{{.Username}}</code> / <code>{{.Password}}</code></li>
       {{end}}
     </ul>
-    <pre>{{.DemoToken}}</pre>
   </section>
+  {{end}}
 
   <section class="card">
     <strong>Feature flags</strong>
@@ -102,22 +105,31 @@ type homeView struct {
 	AdminBasePath string                `json:"admin_base_path"`
 	ConfigPath    string                `json:"config_path"`
 	StartedAt     string                `json:"started_at"`
-	DemoToken     string                `json:"demo_token"`
+	DemoEnabled   bool                  `json:"demo_enabled"`
 	Features      []core.FeatureStatus  `json:"features"`
 	Links         []link                `json:"links"`
 	Credentials   []core.DemoCredential `json:"credentials"`
 }
 
 // Register wires shell utility routes on top of go-admin routes.
-func Register(appCore *core.Core) error {
-	if appCore == nil || appCore.Router == nil {
-		return fmt.Errorf("core router is not initialized")
+func Register(appCore *core.Core, host quickstart.HostRouter[*fiber.App]) error {
+	if appCore == nil || host == nil {
+		return fmt.Errorf("core host router is not initialized")
 	}
 
-	appCore.Router.Get("/", homeHandler(appCore)).SetName("shell.home")
-	appCore.Router.Get("/healthz", healthHandler(appCore)).SetName("shell.healthz")
-	appCore.Router.Get("/readyz", readyHandler(appCore)).SetName("shell.readyz")
-	return nil
+	host.PublicSite().Get("/", homeHandler(appCore)).SetName("shell.home")
+	_, err := quickstart.RegisterInternalOpsRoutes(
+		host.InternalOps(),
+		quickstart.InternalOpsConfig{
+			EnableHealthz: true,
+			EnableStatus:  true,
+			HealthzPath:   "/healthz",
+			StatusPath:    "/readyz",
+		},
+		quickstart.WithInternalOpsHealthzHandler(healthHandler(appCore)),
+		quickstart.WithInternalOpsStatusHandler(readyHandler(appCore)),
+	)
+	return err
 }
 
 func homeHandler(appCore *core.Core) router.HandlerFunc {
@@ -134,9 +146,8 @@ func homeHandler(appCore *core.Core) router.HandlerFunc {
 			AdminBasePath: cfg.Admin.BasePath,
 			ConfigPath:    cfg.ConfigPath,
 			StartedAt:     appCore.StartedAt.Format(time.RFC3339),
-			DemoToken:     strings.TrimSpace(appCore.DemoToken),
+			DemoEnabled:   appCore.DemoCredentialsVisible(),
 			Features:      appCore.Features(),
-			Credentials:   appCore.DemoCredentials,
 			Links: []link{
 				{Label: "Home", Href: "/"},
 				{Label: "Admin root", Href: cfg.Admin.BasePath},
@@ -147,8 +158,8 @@ func homeHandler(appCore *core.Core) router.HandlerFunc {
 				{Label: "Ready", Href: "/readyz"},
 			},
 		}
-		if view.DemoToken == "" {
-			view.DemoToken = "(token mint failed)"
+		if view.DemoEnabled {
+			view.Credentials = appCore.DemoCredentials
 		}
 
 		var out bytes.Buffer
@@ -182,7 +193,6 @@ func readyHandler(appCore *core.Core) router.HandlerFunc {
 			"ready":             ready,
 			"admin_initialized": appCore != nil && appCore.Admin != nil,
 			"auth_initialized":  appCore != nil && appCore.Auther != nil,
-			"token_available":   appCore != nil && strings.TrimSpace(appCore.DemoToken) != "",
 			"timestamp":         time.Now().UTC().Format(time.RFC3339),
 		})
 	}

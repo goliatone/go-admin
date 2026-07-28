@@ -3,8 +3,8 @@
 ## Fresh-Environment Bootstrap
 
 1. Start from an empty database and run the normal e-sign persistence bootstrap so the lineage tables and parity columns are created by migrations.
-2. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/modules -run 'TestValidateLineageRuntimeWiring|TestValidateGoogleRuntimeWiring' -count=1` to confirm startup validation still rejects missing lineage wiring.
-3. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run TestRunLineageValidationProfileCoversSlice4Contracts -count=1` to validate clean migrations, Google import lineage linkage, unchanged re-import reuse, changed-source revision creation, agreement provenance propagation, fingerprint generation, candidate review actions, and detail contract stability.
+2. Run `go test ./examples/esign/modules -run 'TestValidateLineageRuntimeWiring|TestValidateGoogleRuntimeWiring' -count=1` to confirm startup validation still rejects missing lineage wiring.
+3. Run `go test ./examples/esign/release -run TestRunLineageValidationProfileCoversSlice4Contracts -count=1` to validate clean migrations, Google import lineage linkage, unchanged re-import reuse, changed-source revision creation, agreement provenance propagation, fingerprint generation, candidate review actions, and detail contract stability.
 
 ## Retry Failed Fingerprint Jobs
 

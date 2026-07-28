@@ -2,14 +2,14 @@
 
 ## Baseline Validation
 
-1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run TestRunSourceManagementValidationProfileCoversPhase18ExitProfile -count=1`.
+1. Run `go test ./examples/esign/release -run TestRunSourceManagementValidationProfileCoversPhase18ExitProfile -count=1`.
 2. Treat that profile as the release gate for the fresh-environment QA path: it seeds the canonical source scenario, verifies go-search readiness, checks legacy-handle/normalized-text/agreement-title/comment search, reads the reconciliation queue, and applies one queue review action.
 3. In long-lived environments, run the same profile first. If it fails only because existing data drifts from the seeded scenario, continue with the targeted procedures below instead of updating fixtures or guards.
 
 ## Source-Browser Routing Issues
 
 1. Confirm the runtime routes still publish `/admin/esign/sources`, `/admin/esign/source-search`, and `/admin/esign/reconciliation-queue`.
-2. Re-run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign -run 'TestRuntimeSourceManagementPagesBootWithSeededContracts|TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable' -count=1`.
+2. Re-run `go test ./examples/esign -run 'TestRuntimeSourceManagementPagesBootWithSeededContracts|TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable' -count=1`.
 3. If list/detail routes fail after bootstrap, verify the active `tenant_id` and `org_id` match the canonical source seeded by `examples/esign/fixtures/lineage_runtime.go`.
 
 ## Go-Search Provider Drift
@@ -47,6 +47,6 @@
 
 ## Contract Drift
 
-1. Run `"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run 'TestV2SourceManagementContractManifest|TestValidateV2ContractFreezeGuard' -count=1`.
+1. Run `go test ./examples/esign/release -run 'TestV2SourceManagementContractManifest|TestValidateV2ContractFreezeGuard' -count=1`.
 2. If provider-specific keys reappear, treat it as a backend contract regression. Do not patch the frontend around it.
 3. Update the freeze guard and `examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md` only after the backend contract review is complete.

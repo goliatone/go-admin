@@ -248,5 +248,5 @@ Now all activity events flow to go-users persistent storage while still being av
 ## References
 
 - [EXAMPLE_TDD.md](../../docs/prds/EXAMPLE_TDD.md) - Full enhancement plan
-- [ADMIN_TDD.md](../../docs/prds/ADMIN_TDD.md#activity-integration) - Architecture reference
+- [Archived ADMIN_TDD.md](../../docs/archive/prds/current/ADMIN_TDD.md#activity-integration) - Historical architecture reference
 - [pkg/activity/doc.go](pkg/activity/doc.go) - Package documentation

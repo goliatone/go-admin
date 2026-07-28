@@ -20,10 +20,11 @@ func TestLoadPrecedenceDefaultsThenConfigThenOverridesThenEnv(t *testing.T) {
 admin:
   title: "From Overlay"
 features:
-  search: true
+  overrides:
+    search: true
 `)
 	t.Setenv("APP_ADMIN__TITLE", "From Env")
-	t.Setenv("APP_FEATURES__SEARCH", "false")
+	t.Setenv("APP_FEATURES__OVERRIDES__SEARCH", "false")
 
 	cfg, err := Load(basePath, overlayPath)
 	if err != nil {
@@ -32,7 +33,7 @@ features:
 	if cfg.Admin.Title != "From Env" {
 		t.Fatalf("expected env precedence for admin.title, got %q", cfg.Admin.Title)
 	}
-	if cfg.Features.Search {
+	if cfg.FeatureOverrides()["search"] {
 		t.Fatalf("expected env precedence for features.search=false")
 	}
 	if cfg.Server.Address != ":9001" {
@@ -154,6 +155,90 @@ func TestValidateRejectsMissingSigningKey(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "auth.signing_key is required") {
 		t.Fatalf("expected signing key validation error, got %v", err)
+	}
+}
+
+func TestValidateRejectsUnsafeProductionAuth(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*AppConfig)
+		want   string
+	}{
+		{
+			name: "demo auth",
+			mutate: func(cfg *AppConfig) {
+				cfg.Auth.DemoEnabled = true
+				cfg.Auth.ShowDemoCredentials = false
+				cfg.Auth.SigningKey = strings.Repeat("p", 32)
+			},
+			want: "auth.demo_enabled is only allowed",
+		},
+		{
+			name: "demo credential display",
+			mutate: func(cfg *AppConfig) {
+				cfg.Auth.DemoEnabled = false
+				cfg.Auth.ShowDemoCredentials = true
+				cfg.Auth.SigningKey = strings.Repeat("p", 32)
+			},
+			want: "auth.show_demo_credentials is only allowed",
+		},
+		{
+			name: "development signing key",
+			mutate: func(cfg *AppConfig) {
+				cfg.Auth.DemoEnabled = false
+				cfg.Auth.ShowDemoCredentials = false
+			},
+			want: "auth.signing_key must be replaced",
+		},
+		{
+			name: "short signing key",
+			mutate: func(cfg *AppConfig) {
+				cfg.Auth.DemoEnabled = false
+				cfg.Auth.ShowDemoCredentials = false
+				cfg.Auth.SigningKey = "production-key"
+			},
+			want: "at least 32 characters",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := Defaults()
+			cfg.Env = "production"
+			tc.mutate(&cfg)
+			err := cfg.Validate()
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q validation error, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestValidateRejectsUnknownFeatureProfile(t *testing.T) {
+	cfg := Defaults()
+	cfg.Features.Profile = "bespoke"
+
+	err := cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "features.profile") {
+		t.Fatalf("expected profile validation error, got %v", err)
+	}
+}
+
+func TestFeatureOverridesAndActiveConfigAreDefensiveCopies(t *testing.T) {
+	t.Cleanup(ResetActive)
+	cfg := Defaults()
+	overrides := cfg.FeatureOverrides()
+	overrides["search"] = false
+	if !cfg.Features.Overrides["search"] {
+		t.Fatalf("FeatureOverrides mutated source config")
+	}
+
+	SetActive(cfg)
+	first := Active()
+	first.Features.Overrides["search"] = false
+	second := Active()
+	if !second.Features.Overrides["search"] {
+		t.Fatalf("Active returned shared feature override map")
 	}
 }
 

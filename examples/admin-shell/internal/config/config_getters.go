@@ -16,6 +16,10 @@ func (a AppConfig) GetConfigPath() string {
 	return a.ConfigPath
 }
 
+func (a AppConfig) GetDeployment() Deployment {
+	return a.Deployment
+}
+
 func (a AppConfig) GetEnv() string {
 	return a.Env
 }
@@ -52,6 +56,10 @@ func (a Auth) GetDemoEmail() string {
 	return a.DemoEmail
 }
 
+func (a Auth) GetDemoEnabled() bool {
+	return a.DemoEnabled
+}
+
 func (a Auth) GetDemoPassword() string {
 	return a.DemoPassword
 }
@@ -60,42 +68,40 @@ func (a Auth) GetDemoUsername() string {
 	return a.DemoUsername
 }
 
+func (a Auth) GetShowDemoCredentials() bool {
+	return a.ShowDemoCredentials
+}
+
 func (a Auth) GetSigningKey() string {
 	return a.SigningKey
 }
 
+// Deployment Getters
+
+func (d Deployment) GetAppID() string {
+	return d.AppID
+}
+
+func (d Deployment) GetAppName() string {
+	return d.AppName
+}
+
+func (d Deployment) GetAppVersion() string {
+	return d.AppVersion
+}
+
+func (d Deployment) GetPersonaEnabled() bool {
+	return d.PersonaEnabled
+}
+
 // Features Getters
 
-func (f Features) GetCMS() bool {
-	return f.CMS
+func (f Features) GetOverrides() map[string]bool {
+	return f.Overrides
 }
 
-func (f Features) GetCommands() bool {
-	return f.Commands
-}
-
-func (f Features) GetDashboard() bool {
-	return f.Dashboard
-}
-
-func (f Features) GetJobs() bool {
-	return f.Jobs
-}
-
-func (f Features) GetMedia() bool {
-	return f.Media
-}
-
-func (f Features) GetSearch() bool {
-	return f.Search
-}
-
-func (f Features) GetSettings() bool {
-	return f.Settings
-}
-
-func (f Features) GetUsers() bool {
-	return f.Users
+func (f Features) GetProfile() string {
+	return f.Profile
 }
 
 // Server Getters
@@ -106,4 +112,8 @@ func (s Server) GetAddress() string {
 
 func (s Server) GetPrintRoutes() bool {
 	return s.PrintRoutes
+}
+
+func (s Server) GetShutdownTimeoutSeconds() int {
+	return s.ShutdownTimeoutSeconds
 }

@@ -14,11 +14,7 @@ PROJECT_ROOT="$(cd "${EXAMPLE_DIR}/../.." && pwd)"
 DEFAULT_CONFIG_PATH="${EXAMPLE_DIR}/internal/config/app.json"
 DEFAULT_OVERRIDES_PATH="${EXAMPLE_DIR}/internal/config/overrides.yml"
 
-GO_BIN_DEFAULT="/Users/goliatone/.g/go/bin/go"
-GO_BIN="${GO_BIN:-${GO_BIN_DEFAULT}}"
-if [ ! -x "${GO_BIN}" ]; then
-    GO_BIN="$(command -v go 2>/dev/null || true)"
-fi
+GO_BIN="${GO_BIN:-$(command -v go 2>/dev/null || true)}"
 
 if [ -f .taskenv ]; then
     # shellcheck disable=SC1091
@@ -84,6 +80,12 @@ function dev:serve:quiet {
 function dev:serve:prod {
     export APP_ENV=production
     export APP_SERVER__PRINT_ROUTES=false
+    export APP_AUTH__DEMO_ENABLED=false
+    export APP_AUTH__SHOW_DEMO_CREDENTIALS=false
+    if [ -z "${APP_AUTH__SIGNING_KEY:-}" ]; then
+        echo "APP_AUTH__SIGNING_KEY is required and must contain at least 32 characters."
+        return 1
+    fi
     dev:serve
 }
 
@@ -160,7 +162,10 @@ APP_CONFIG_PATH=${APP_CONFIG_PATH:-${APP_CONFIG:-${DEFAULT_CONFIG_PATH}}}
 APP_ENV=${APP_ENV:-development}
 APP_SERVER__ADDRESS=${APP_SERVER__ADDRESS:-:8383}
 APP_SERVER__PRINT_ROUTES=${APP_SERVER__PRINT_ROUTES:-true}
+APP_SERVER__SHUTDOWN_TIMEOUT_SECONDS=${APP_SERVER__SHUTDOWN_TIMEOUT_SECONDS:-10}
 APP_ADMIN__BASE_PATH=${APP_ADMIN__BASE_PATH:-/admin}
+APP_AUTH__DEMO_ENABLED=${APP_AUTH__DEMO_ENABLED:-true}
+APP_AUTH__SHOW_DEMO_CREDENTIALS=${APP_AUTH__SHOW_DEMO_CREDENTIALS:-true}
 APP_AUTH__DEMO_USERNAME=${APP_AUTH__DEMO_USERNAME:-admin}
 APP_AUTH__DEMO_EMAIL=${APP_AUTH__DEMO_EMAIL:-admin@example.com}
 EOF

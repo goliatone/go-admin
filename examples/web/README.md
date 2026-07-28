@@ -256,7 +256,7 @@ Relevant checks:
 Focused verification:
 
 ```bash
-/opt/homebrew/bin/go test ./examples/web -run 'TestActionPhase8|TestContentActionContractsPhase5|TestContentBulkActionsPhase7'
+go test ./examples/web -run 'TestActionPhase8|TestContentActionContractsPhase5|TestContentBulkActionsPhase7'
 ```
 
 When the debug module is enabled, the Debug dashboard includes an `Actions`
@@ -351,7 +351,8 @@ Migration notes:
 ## Stage 1 quickstart helpers
 
 If you want a minimal Stage 1 admin (login + dashboard only), the quickstart helpers provide a smaller wiring surface:
-- `WithFeatureDefaults(DefaultMinimalFeatures())` to keep a minimal gate default set.
+- `WithMinimalFeatures()` to replace the complete default catalog with the
+  minimal dashboard-and-CMS feature set.
 - `WithAdapterFlags(...)` to drive adapter wiring explicitly from config.
 - `NewModuleRegistrar` uses `adm.FeatureGate()` by default (pass `WithModuleFeatureGates(customGate)` to override).
 - `WithGoAuth(...)` to wire auth + authorizer in one call.
@@ -1178,7 +1179,7 @@ pkg/client/assets/     # Admin client assets (source + dist)
 ## References
 
 - [go-admin Core Documentation](../../README.md)
-- [ADMIN_TDD.md](../../docs/prds/ADMIN_TDD.md) - Architecture decisions
+- [Archived ADMIN_TDD.md](../../docs/archive/prds/current/ADMIN_TDD.md) - Historical architecture decisions
 - [ADMIN_TSK.md](../../docs/prds/ADMIN_TSK.md) - Implementation tasks
 - [DASH_TDD.md](../../DASH_TDD.md) - Dashboard SSR technical design
 - [DASH_TSK.md](../../DASH_TSK.md) - Dashboard SSR implementation plan

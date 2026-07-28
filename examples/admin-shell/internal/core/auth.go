@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"path"
 	"strings"
@@ -103,22 +102,35 @@ func (c authRuntimeConfig) GetRejectedRouteKey() string     { return "admin_shel
 func (c authRuntimeConfig) GetRejectedRouteDefault() string { return c.rejectedRouteDefault }
 func (c authRuntimeConfig) AdminConfig() admin.Config       { return c.adminCfg }
 
-func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*auth.Auther, *auth.RouteAuthenticator, *admin.GoAuthAuthenticator, []DemoCredential, DemoIdentity, string, string, error) {
+func setupAuth(
+	adm *admin.Admin,
+	cfg *config.AppConfig,
+	identityProvider auth.IdentityProvider,
+) (*auth.Auther, *auth.RouteAuthenticator, *admin.GoAuthAuthenticator, []DemoCredential, DemoIdentity, string, error) {
 	if adm == nil {
-		return nil, nil, nil, nil, DemoIdentity{}, "", "", fmt.Errorf("admin instance is required")
+		return nil, nil, nil, nil, DemoIdentity{}, "", fmt.Errorf("admin instance is required")
 	}
 	if cfg == nil {
-		return nil, nil, nil, nil, DemoIdentity{}, "", "", fmt.Errorf("config is required")
+		return nil, nil, nil, nil, DemoIdentity{}, "", fmt.Errorf("config is required")
 	}
 
-	credentials := seedDemoCredentials(cfg)
-	if len(credentials) == 0 {
-		return nil, nil, nil, nil, DemoIdentity{}, "", "", fmt.Errorf("no demo credentials configured")
+	var (
+		credentials  []DemoCredential
+		demoIdentity DemoIdentity
+	)
+	if cfg.Auth.DemoEnabled {
+		credentials = seedDemoCredentials(cfg)
+		if len(credentials) == 0 {
+			return nil, nil, nil, nil, DemoIdentity{}, "", fmt.Errorf("no demo credentials configured")
+		}
+		primaryCredential := resolvePrimaryCredential(credentials)
+		demoIdentity = identityFromCredential(primaryCredential)
+		identityProvider = &demoIdentityProvider{credentials: credentials}
 	}
-	primaryCredential := resolvePrimaryCredential(credentials)
-	demoIdentity := identityFromCredential(primaryCredential)
-	provider := &demoIdentityProvider{
-		credentials: credentials,
+	if identityProvider == nil {
+		return nil, nil, nil, nil, DemoIdentity{}, "", fmt.Errorf(
+			"an identity provider is required when auth.demo_enabled is false",
+		)
 	}
 
 	authCfg := authRuntimeConfig{
@@ -133,7 +145,7 @@ func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*a
 		authCfg.issuer = "go-admin-shell"
 	}
 
-	auther := auth.NewAuthenticator(provider, authCfg)
+	auther := auth.NewAuthenticator(identityProvider, authCfg)
 	routeAuth, err := auth.NewHTTPAuthenticator(
 		auther,
 		authCfg,
@@ -141,7 +153,7 @@ func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*a
 		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
 	)
 	if err != nil {
-		return nil, nil, nil, nil, DemoIdentity{}, "", "", err
+		return nil, nil, nil, nil, DemoIdentity{}, "", err
 	}
 
 	loginPath := path.Join(cfg.Admin.BasePath, "login")
@@ -158,19 +170,7 @@ func setupAuth(adm *admin.Admin, cfg *config.AppConfig, logger *slog.Logger) (*a
 		admin.WithAuthErrorHandler(makeAuthErrorHandler(loginPath)),
 	)
 
-	demoToken := ""
-	if tokenService := auther.TokenService(); tokenService != nil {
-		token, tokenErr := tokenService.Generate(demoIdentity, nil)
-		if tokenErr != nil {
-			if logger != nil {
-				logger.Warn("failed to mint demo token", "error", tokenErr)
-			}
-		} else {
-			demoToken = token
-		}
-	}
-
-	return auther, routeAuth, goAuth, credentials, demoIdentity, demoToken, authCfg.GetContextKey(), nil
+	return auther, routeAuth, goAuth, credentials, demoIdentity, authCfg.GetContextKey(), nil
 }
 
 func makeAuthErrorHandler(loginPath string) func(router.Context, error) error {

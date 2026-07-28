@@ -16,7 +16,7 @@ Validation code and tests:
 Run:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals'
+go test ./examples/esign/release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals'
 ```
 
 Expected outcome:
@@ -37,7 +37,7 @@ Validation profile runner:
 Run:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run TestRunValidationProfilePassesSLOGates -v
+go test ./examples/esign/release -run TestRunValidationProfilePassesSLOGates -v
 ```
 
 The profile executes send/sign/finalize lifecycle flows at production-like sample size (`AgreementCount=120` in test).
@@ -61,7 +61,7 @@ Benchmark:
 Run:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/release -run '^$' -bench BenchmarkValidationProfileSendSignFinalize -benchtime=15x -count=1
+go test ./examples/esign/release -run '^$' -bench BenchmarkValidationProfileSendSignFinalize -benchtime=15x -count=1
 ```
 
 Use benchmark output as performance evidence for release gating.
@@ -75,7 +75,7 @@ Latest local benchmark run (2026-02-10):
 Security regression commands:
 
 ```sh
-"/Users/goliatone/.g/go/bin/go" test ./examples/esign/handlers ./examples/esign/stores ./examples/esign/modules ./examples/esign/release
+go test ./examples/esign/handlers ./examples/esign/stores ./examples/esign/modules ./examples/esign/release
 ```
 
 High-severity release policy:
