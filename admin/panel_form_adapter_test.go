@@ -26,6 +26,12 @@ func TestPanelFormAdapterBuildsSchemaWithTheme(t *testing.T) {
 	if req.Locale != "en" {
 		t.Fatalf("expected locale propagated")
 	}
+	if req.RenderTheme == nil {
+		t.Fatal("expected typed go-formgen theme config")
+	}
+	if got := req.RenderTheme.SemanticTokens["color.action.primary"]; got != "#000" {
+		t.Fatalf("expected portable semantic alias in form config, got %q", got)
+	}
 	if req.Metadata["use_blocks"] == nil || req.Metadata["use_seo"] == nil || req.Metadata["tree_view"] == nil {
 		t.Fatalf("expected metadata flags populated")
 	}
