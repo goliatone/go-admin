@@ -520,10 +520,20 @@ Tailwind colors:
 | `admin-empty-state` | Shared empty-state text |
 | `admin-datagrid` / `admin-datagrid__*` | Embedded DataGrid presentation and states |
 
-Keep these classes when copying a shared template if it should continue to
-consume theme tokens. The fallback order is component token, portable token,
-then the current literal. Product-specific Tailwind utilities remain
-unchanged, and these classes must not be added to public-site templates.
+DataGrid applies its structural semantic classes at initialization. Custom
+list templates should expose the stable `data-datagrid-surface`,
+`data-datagrid-toolbar`, `data-datagrid-filter-panel`, and
+`data-datagrid-pagination` hooks around the controls selected by their
+`DataGrid` configuration; they should not duplicate the internal
+`admin-datagrid__*` class contract. The runtime also renders accessible
+loading and error rows, keeps stale rows visible after a refresh error, and
+uses a teardown-safe delegated selection listener.
+
+For non-DataGrid primitives, keep the explicit semantic classes when copying a
+shared template if it should continue to consume theme tokens. The fallback
+order is component token, portable token, then the current literal.
+Product-specific Tailwind utilities remain unchanged, and these classes must
+not be added to public-site templates.
 
 The canonical sources are `pkg/client/assets/input.css` and
 `pkg/client/assets/src/datatable/actions.css`. Files under

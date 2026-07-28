@@ -199,8 +199,12 @@ both forms are present. `admin.sidebar.title-height` is transport-only and is
 reported unused because the shared sidebar has no reusable title slot.
 
 Use `ThemeSelection.Diagnostics` to audit support and actual go-admin client
-consumption. Form and dashboard renderers append their own consumer
-diagnostics at their package boundary.
+consumption. Diagnostics follow the same ordered fallback chains as the CSS:
+the first resolved component or portable token is consumed, and a resolved
+portable fallback is unused when a component token shadows it everywhere in
+the go-admin client inventory. Transport-only tokens remain unused. Form and
+dashboard renderers append their own consumer diagnostics at their package
+boundary.
 
 ## Template Injection
 
