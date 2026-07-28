@@ -788,7 +788,7 @@ func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
 	if result.ChartTheme == "" && result.Variant != "" {
 		result.ChartTheme = result.Variant
 	}
-	return result
+	return normalizeThemeProjection(result)
 }
 
 func (a *Admin) Theme(ctx context.Context) *ThemeSelection {
