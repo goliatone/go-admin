@@ -53,6 +53,24 @@ func TestNormalizeThemeProjectionPreservesLegacyPayloadAndSafeApprovedRoot(t *te
 	}
 }
 
+func TestNormalizeThemeProjectionKeepsSidebarBackgroundScoped(t *testing.T) {
+	selection := normalizeThemeProjection(&ThemeSelection{
+		Tokens: map[string]string{
+			"admin.sidebar.background": "#1C1C1E",
+		},
+	})
+
+	if got := selection.SemanticTokens["admin.sidebar.background"]; got != "#1C1C1E" {
+		t.Fatalf("expected semantic sidebar background, got %q", got)
+	}
+	if !strings.Contains(selection.RootCSSVarsInline, "--admin-sidebar-background:#1C1C1E;") {
+		t.Fatalf("expected scoped sidebar declaration, got %q", selection.RootCSSVarsInline)
+	}
+	if strings.Contains(selection.RootCSSVarsInline, "--color-surface-default:") {
+		t.Fatalf("sidebar-only token must not define the global surface: %q", selection.RootCSSVarsInline)
+	}
+}
+
 func TestNormalizeThemeProjectionIsDeterministicAndCanonicalWins(t *testing.T) {
 	tokens := map[string]string{
 		"primary":              "#111111",
