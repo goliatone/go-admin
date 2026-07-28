@@ -164,6 +164,28 @@ Legacy keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are
 still injected for compatibility, but treat them as fallback-only for custom
 templates.
 
+### Preserving semantic DataGrid hooks
+
+The embedded list template opts into theme-aware presentation with
+`admin-datagrid` and `admin-datagrid__*` classes. Dynamic rows and states use
+the same namespace, plus `data-state`, `data-datagrid-state`, and
+`data-selected`. These are presentation hooks; existing DataGrid IDs and
+behavioral data attributes remain the runtime contract.
+
+When replacing `resources/shared/list-base.html`, preserve or reproduce the
+semantic hooks if the custom view should consume `datagrid.*` tokens. Custom
+markup that omits them keeps its own current styling. Do not apply these
+classes to public-site tables: admin theme variables are intentionally scoped
+to the admin layout.
+
+Rebuild generated assets after changing DataGrid TypeScript or CSS:
+
+```sh
+cd pkg/client/assets
+npm run build
+npm test
+```
+
 For full CRUD, DataGrid, and workflow/action wiring, see
 `docs/GUIDE_CRUD.md`.
 

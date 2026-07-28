@@ -8,7 +8,7 @@ Use it when wiring a host theme, adding branded assets, debugging theme payloads
 
 - Admin theme provider and `go-theme` selector wiring.
 - Theme selection resolution order.
-- Template/API payload shape.
+- Safe semantic projection, diagnostics, and template/API payload shape.
 - Quickstart selector, manifest, token, and asset conventions.
 - Sidebar brand token and asset rules.
 - Preferences and request override behavior.
@@ -55,14 +55,17 @@ type ThemeSelector struct {
 }
 
 type ThemeSelection struct {
-    Name        string            `json:"name"`
-    Variant     string            `json:"variant"`
-    Tokens      map[string]string `json:"tokens"`
-    CSSVars     map[string]string `json:"css_vars"`
-    Assets      map[string]string `json:"assets"`
-    Partials    map[string]string `json:"partials"`
-    ChartTheme  string            `json:"chart_theme"`
-    AssetPrefix string            `json:"asset_prefix"`
+    Name              string                 `json:"name"`
+    Variant           string                 `json:"variant"`
+    Tokens            map[string]string      `json:"tokens"`
+    CSSVars           map[string]string      `json:"css_vars"`
+    SemanticTokens    map[string]string      `json:"semantic_tokens,omitempty"`
+    RootCSSVarsInline string                 `json:"root_css_vars_inline,omitempty"`
+    Diagnostics       []ThemeTokenDiagnostic `json:"diagnostics,omitempty"`
+    Assets            map[string]string      `json:"assets"`
+    Partials          map[string]string      `json:"partials"`
+    ChartTheme        string                 `json:"chart_theme"`
+    AssetPrefix       string                 `json:"asset_prefix"`
 }
 
 type ThemeProvider func(ctx context.Context, selector ThemeSelector) (*ThemeSelection, error)
@@ -78,7 +81,9 @@ The adapter maps the selected `go-theme` snapshot into:
 
 - `ThemeSelection.Name` and `Variant`
 - merged design tokens
-- CSS variables from `selection.CSSVariables("")`
+- legacy CSS variables from `selection.CSSVariables("")`
+- validated semantic tokens, a deterministic safe root declaration, and
+  resolved/invalid/unsupported/consumed/unused diagnostics
 - resolved assets and asset prefix
 - template partial paths
 - chart theme, currently derived from the selected variant
@@ -161,11 +166,41 @@ Template and JSON payloads use `map[string]map[string]string`:
 | `selection` | `map[string]string` | Active `name` and `variant`. |
 | `tokens` | `map[string]string` | Theme tokens, including config and provider tokens. |
 | `css_vars` | `map[string]string` | CSS variable names and values, for example `--primary`. |
+| `semantic_tokens` | `map[string]string` | Valid canonical tokens from the go-admin semantic profile. |
+| `styles` | `map[string]string` | Safe deterministic declarations under `root`, ready for the shared layout. |
 | `assets` | `map[string]string` | Resolved assets such as `logo`, `icon`, `favicon`, plus optional `prefix`. |
 | `partials` | `map[string]string` | Provider-supplied template partial references. |
 | `chart` | `map[string]string` | Chart renderer metadata, currently `theme`. |
 
-The admin layout currently reads selected tokens directly, while dashboard and form-related integrations can consume the full payload.
+The shared admin and auth layouts emit only `theme.styles.root`; arbitrary
+manifest tokens and unsafe values never become root declarations. The legacy
+`tokens` and `css_vars` sections remain available for compatible custom
+templates and APIs.
+
+### Semantic token behavior
+
+`admin.AdminSemanticProfile()` extends the portable `go-theme` profile with
+admin shell/sidebar, embedded DataGrid, form, and dashboard package tokens.
+Values are validated by their declared type before projection. Component
+variables fall back to portable variables and then to the existing literal, so
+hosts without semantic tokens retain the current appearance.
+
+Examples:
+
+```text
+admin.shell.background -> color.surface.canvas -> current shell background
+datagrid.row.hover -> color.surface.subtle -> current row hover
+form.control.border -> color.border.default -> current control border
+```
+
+Legacy keys such as `primary`, `sidebar-width`, and
+`sidebar-brand-max-height` remain supported aliases. Canonical keys win when
+both forms are present. `admin.sidebar.title-height` is transport-only and is
+reported unused because the shared sidebar has no reusable title slot.
+
+Use `ThemeSelection.Diagnostics` to audit support and actual go-admin client
+consumption. Form and dashboard renderers append their own consumer
+diagnostics at their package boundary.
 
 ## Template Injection
 
@@ -192,7 +227,9 @@ Admin branding uses reserved theme asset keys:
 - `icon`: compact/sidebar and auth icon asset.
 - `favicon`: browser/app icon asset.
 
-The sidebar prefers `logo` for expanded mode and `icon` for compact mode, with fallbacks to the bundled admin logo.
+The sidebar prefers `logo` for expanded mode and `icon` for compact mode, with
+fallbacks to the bundled admin logo. Admin and auth layouts render the resolved
+`favicon` as a browser icon when present.
 
 The default quickstart manifest includes sidebar sizing/alignment tokens:
 
@@ -223,7 +260,9 @@ Preference and request overrides affect admin theme selection only. They do not 
 The admin theme payload is propagated to the main admin surfaces:
 
 - Dashboard APIs and SSR wrappers carry `theme`, including chart metadata and assets.
-- Panel schemas and form adapters include `schema.theme` / `form.theme` so renderers can use tokens consistently.
+- Panel schemas and form adapters include `schema.theme` / `form.theme` and a
+  typed in-process go-formgen theme configuration so renderers can consume the
+  validated semantic contract consistently.
 - Settings and Preferences forms resolve theme with the current request context.
 - CMS/content-entry quickstart pages receive theme through the shared admin view context helpers.
 
@@ -270,13 +309,18 @@ There is no compatibility bridge for `WithGoTheme(...)`.
 - [ ] Preferences can override `theme` and `theme_variant` when the Preferences feature is enabled.
 - [ ] `ThemeAssets` / `WithThemeAssetURLs(...)` override provider assets with final URLs.
 - [ ] Legacy `LogoURL` and `FaviconURL` still win for `logo` and `favicon` when configured.
+- [ ] Admin and auth layouts render the resolved `favicon`.
+- [ ] Invalid or unsupported tokens do not appear in `theme.styles.root`.
+- [ ] Shell, form, dashboard, and DataGrid component tokens fall back to
+      portable tokens and then to existing defaults.
 - [ ] Public-site routes render `site_theme`, not admin `theme`.
 - [ ] `/admin/*` routes do not consume public-site theme bundles or partials.
 
 Focused tests:
 
 ``` sh
-go test ./admin -run 'TestTheme|TestDashboardRouteReturnsTheme|TestConfigTheme'
+go test ./admin -run 'TestTheme|TestNormalizeThemeProjection|TestDashboardRouteReturnsTheme|TestConfigTheme'
+go test ./pkg/client -run 'TestSemantic|TestDataGrid|TestTheme'
 go test ./quickstart -run 'TestNewThemeSelector|TestWithTheme|TestNavHelpers'
 go test ./quickstart/site -run 'TestQuickstartSiteTheme|TestSiteTheme'
 ```

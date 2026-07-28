@@ -507,6 +507,29 @@ The primitive styles live under `pkg/client/assets/src/styles/components/`:
 | `quick-filters.css` | Quick filter badge styling |
 | `filter-panel.css` | Filter panel form styling and filter-summary companion styles |
 
+### Semantic admin classes
+
+Shared admin templates use explicit classes instead of globally remapping
+Tailwind colors:
+
+| Class | Purpose |
+|------|---------|
+| `admin-theme-root` | Admin-only semantic variable scope and focus behavior |
+| `admin-page-header` / `admin-page-content` | Shared page chrome |
+| `admin-surface-card` | Reusable raised surface |
+| `admin-empty-state` | Shared empty-state text |
+| `admin-datagrid` / `admin-datagrid__*` | Embedded DataGrid presentation and states |
+
+Keep these classes when copying a shared template if it should continue to
+consume theme tokens. The fallback order is component token, portable token,
+then the current literal. Product-specific Tailwind utilities remain
+unchanged, and these classes must not be added to public-site templates.
+
+The canonical sources are `pkg/client/assets/input.css` and
+`pkg/client/assets/src/datatable/actions.css`. Files under
+`pkg/client/assets/dist/` and `output.css` are generated; rebuild them with
+`npm run build` rather than editing them directly.
+
 Tone classes are mostly Tailwind utility classes in templates, with the same broad palette:
 
 | Tone | Background | Text |
