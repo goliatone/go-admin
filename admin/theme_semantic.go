@@ -110,62 +110,68 @@ var adminLegacyRootVariables = map[string]string{
 	"sidebar-brand-align":          "--sidebar-brand-align",
 }
 
-var adminConsumedSemanticTokens = map[string]struct{}{
-	"admin.shell.background":             {},
-	"admin.header.background":            {},
-	"admin.header.border":                {},
-	"admin.page.gap":                     {},
-	"admin.sidebar.background":           {},
-	"admin.sidebar.text":                 {},
-	"admin.sidebar.text-active":          {},
-	"admin.sidebar.item-hover":           {},
-	"admin.sidebar.width":                {},
-	"admin.sidebar.padding-inline":       {},
-	"admin.sidebar.padding-block":        {},
-	"admin.sidebar.item-height":          {},
-	"admin.sidebar.section-gap":          {},
-	"admin.sidebar.icon-size":            {},
-	"admin.sidebar.footer-height":        {},
-	"admin.sidebar.brand-max-height":     {},
-	"admin.sidebar.brand-max-width":      {},
-	"admin.sidebar.brand-collapsed-size": {},
-	"admin.sidebar.brand-align":          {},
-	"datagrid.header.background":         {},
-	"datagrid.header.text":               {},
-	"datagrid.row.background":            {},
-	"datagrid.row.hover":                 {},
-	"datagrid.row.selected":              {},
-	"datagrid.border":                    {},
-	"datagrid.empty.text":                {},
-	"datagrid.pagination.text":           {},
-	"color.surface.canvas":               {},
-	"color.surface.default":              {},
-	"color.surface.subtle":               {},
-	"color.surface.raised":               {},
-	"color.text.primary":                 {},
-	"color.text.secondary":               {},
-	"color.text.inverse":                 {},
-	"color.border.default":               {},
-	"color.focus.ring":                   {},
-	"color.action.primary":               {},
-	"color.action.primary-hover":         {},
-	"color.status.success":               {},
-	"color.status.warning":               {},
-	"color.status.danger":                {},
-	"color.status.info":                  {},
-	"font.family.body":                   {},
-	"font.family.heading":                {},
-	"font.size.body":                     {},
-	"font.weight.body":                   {},
-	"font.weight.emphasis":               {},
-	"line.height.body":                   {},
-	"letter.spacing.body":                {},
-	"space.surface":                      {},
-	"space.stack":                        {},
-	"size.control.height":                {},
-	"radius.control":                     {},
-	"radius.surface":                     {},
-	"shadow.surface":                     {},
+// adminSemanticConsumerChains mirror the concrete CSS/template fallback order.
+// The first resolved token in each chain is the value that the client actually
+// uses. Single-token chains represent direct consumers that are not shadowed by
+// a package-specific token.
+var adminSemanticConsumerChains = [][]string{
+	{"admin.shell.background", "color.surface.canvas"},
+	{"admin.header.background", "color.surface.default"},
+	{"admin.header.border", "color.border.default"},
+	{"admin.page.gap", "space.stack"},
+	{"admin.sidebar.background", "color.surface.default"},
+	{"admin.sidebar.text", "color.text.primary"},
+	{"admin.sidebar.text-active", "color.text.inverse"},
+	{"admin.sidebar.item-hover", "color.surface.subtle"},
+	{"admin.sidebar.width"},
+	{"admin.sidebar.padding-inline", "space.surface"},
+	{"admin.sidebar.padding-block", "space.surface"},
+	{"admin.sidebar.item-height", "size.control.height"},
+	{"admin.sidebar.section-gap", "space.stack"},
+	{"admin.sidebar.icon-size"},
+	{"admin.sidebar.footer-height"},
+	{"admin.sidebar.brand-max-height"},
+	{"admin.sidebar.brand-max-width"},
+	{"admin.sidebar.brand-collapsed-size"},
+	{"admin.sidebar.brand-align"},
+	{"datagrid.header.background", "color.surface.subtle"},
+	{"datagrid.header.text", "color.text.secondary"},
+	{"datagrid.row.background", "color.surface.default"},
+	{"datagrid.row.hover", "color.surface.subtle"},
+	{"datagrid.row.selected", "color.action.primary"},
+	{"datagrid.border", "color.border.default"},
+	{"datagrid.empty.text", "color.text.secondary"},
+	{"datagrid.pagination.text", "color.text.secondary"},
+	{"form.control.background", "color.surface.default"},
+	{"form.control.text", "color.text.primary"},
+	{"form.control.border", "color.border.default"},
+	{"form.control.placeholder", "color.text.secondary"},
+	{"form.control.disabled-background", "color.surface.subtle"},
+	{"form.control.disabled-text", "color.text.secondary"},
+	{"form.control.radius", "radius.control"},
+	{"color.surface.default"},
+	{"color.surface.subtle"},
+	{"color.surface.raised"},
+	{"color.text.primary"},
+	{"color.text.secondary"},
+	{"color.text.inverse"},
+	{"color.border.default"},
+	{"color.focus.ring"},
+	{"color.action.primary"},
+	{"color.action.primary-hover"},
+	{"color.status.success"},
+	{"color.status.warning"},
+	{"color.status.danger"},
+	{"color.status.info"},
+	{"font.family.body"},
+	{"font.family.heading", "font.family.body"},
+	{"font.size.body"},
+	{"font.weight.body"},
+	{"font.weight.emphasis"},
+	{"line.height.body"},
+	{"letter.spacing.body"},
+	{"radius.surface"},
+	{"shadow.surface"},
 }
 
 // AdminSemanticProfile returns the portable semantic profile extended with
@@ -240,6 +246,7 @@ func appendAdminConsumerDiagnostics(diagnostics []ThemeTokenDiagnostic, semantic
 	if len(semantic) == 0 {
 		return diagnostics
 	}
+	consumedTokens := consumedAdminSemanticTokens(semantic)
 	keys := make([]string, 0, len(semantic))
 	for token := range semantic {
 		keys = append(keys, token)
@@ -247,7 +254,7 @@ func appendAdminConsumerDiagnostics(diagnostics []ThemeTokenDiagnostic, semantic
 	sort.Strings(keys)
 	for _, token := range keys {
 		status := gotheme.TokenUnused
-		if _, consumed := adminConsumedSemanticTokens[token]; consumed {
+		if _, consumed := consumedTokens[token]; consumed {
 			status = gotheme.TokenConsumed
 		}
 		diagnostics = append(diagnostics, ThemeTokenDiagnostic{
@@ -259,6 +266,20 @@ func appendAdminConsumerDiagnostics(diagnostics []ThemeTokenDiagnostic, semantic
 		})
 	}
 	return diagnostics
+}
+
+func consumedAdminSemanticTokens(semantic map[string]string) map[string]struct{} {
+	consumed := map[string]struct{}{}
+	for _, chain := range adminSemanticConsumerChains {
+		for _, token := range chain {
+			if _, resolved := semantic[token]; !resolved {
+				continue
+			}
+			consumed[token] = struct{}{}
+			break
+		}
+	}
+	return consumed
 }
 
 func semanticCSSVariable(token string) string {

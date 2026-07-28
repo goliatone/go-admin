@@ -142,3 +142,84 @@ func TestNormalizeThemeProjectionReportsAdminConsumptionAndUnusedTransport(t *te
 		}
 	}
 }
+
+func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *testing.T) {
+	selection := normalizeThemeProjection(&ThemeSelection{
+		Tokens: map[string]string{
+			"admin.shell.background":       "#f8fafc",
+			"color.surface.canvas":         "#ffffff",
+			"admin.page.gap":               "12px",
+			"admin.sidebar.section-gap":    "18px",
+			"space.stack":                  "24px",
+			"admin.sidebar.padding-inline": "10px",
+			"admin.sidebar.padding-block":  "8px",
+			"space.surface":                "16px",
+			"admin.sidebar.item-height":    "40px",
+			"size.control.height":          "36px",
+			"form.control.radius":          "6px",
+			"radius.control":               "4px",
+			"admin.sidebar.title-height":   "42px",
+			"dashboard.card.background":    "#ffffff",
+		},
+	})
+
+	statuses := map[string]ThemeTokenDiagnostic{}
+	for _, diagnostic := range selection.Diagnostics {
+		if diagnostic.Consumer == "go-admin/client" {
+			statuses[diagnostic.Canonical] = diagnostic
+		}
+	}
+	for _, token := range []string{
+		"admin.shell.background",
+		"admin.page.gap",
+		"admin.sidebar.section-gap",
+		"admin.sidebar.padding-inline",
+		"admin.sidebar.padding-block",
+		"admin.sidebar.item-height",
+		"form.control.radius",
+	} {
+		if got := statuses[token]; got.Status != "consumed" {
+			t.Fatalf("expected selected component token %s to be consumed, got %+v", token, got)
+		}
+	}
+	for _, token := range []string{
+		"color.surface.canvas",
+		"space.stack",
+		"space.surface",
+		"size.control.height",
+		"radius.control",
+		"admin.sidebar.title-height",
+		"dashboard.card.background",
+	} {
+		if got := statuses[token]; got.Status != "unused" {
+			t.Fatalf("expected shadowed or transport-only token %s to be unused, got %+v", token, got)
+		}
+	}
+
+	fallbackOnly := normalizeThemeProjection(&ThemeSelection{
+		Tokens: map[string]string{
+			"color.surface.canvas": "#f8fafc",
+			"space.stack":          "24px",
+			"space.surface":        "16px",
+			"size.control.height":  "36px",
+			"radius.control":       "4px",
+		},
+	})
+	fallbackStatuses := map[string]ThemeTokenDiagnostic{}
+	for _, diagnostic := range fallbackOnly.Diagnostics {
+		if diagnostic.Consumer == "go-admin/client" {
+			fallbackStatuses[diagnostic.Canonical] = diagnostic
+		}
+	}
+	for _, token := range []string{
+		"color.surface.canvas",
+		"space.stack",
+		"space.surface",
+		"size.control.height",
+		"radius.control",
+	} {
+		if got := fallbackStatuses[token]; got.Status != "consumed" {
+			t.Fatalf("expected portable fallback %s to be consumed, got %+v", token, got)
+		}
+	}
+}
