@@ -15,10 +15,10 @@ require (
 	github.com/goliatone/go-command v0.24.1
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
-	github.com/goliatone/go-dashboard v0.14.1
+	github.com/goliatone/go-dashboard v0.15.1
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-featuregate v0.6.1
-	github.com/goliatone/go-formgen v0.31.0
+	github.com/goliatone/go-formgen v0.32.0
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.9.0
@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-router v0.61.2
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
-	github.com/goliatone/go-theme v0.3.0
+	github.com/goliatone/go-theme v0.5.0
 	github.com/goliatone/go-urlkit v0.7.0
 	github.com/goliatone/go-users v0.24.1
 	github.com/google/uuid v1.6.0
