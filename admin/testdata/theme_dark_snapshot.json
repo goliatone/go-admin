@@ -20,6 +20,14 @@
     "name": "brand",
     "variant": "dark"
   },
+  "semantic_tokens": {
+    "color.action.accent": "#ffaa00",
+    "color.action.primary": "#0f172a",
+    "color.surface.default": "#0b1221"
+  },
+  "styles": {
+    "root": "--color-accent:#ffaa00;--color-action-accent:#ffaa00;--color-action-primary:#0f172a;--color-primary:#0f172a;--color-surface:#0b1221;--color-surface-default:#0b1221;"
+  },
   "tokens": {
     "accent": "#ffaa00",
     "base_path": "/admin",

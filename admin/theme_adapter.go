@@ -21,7 +21,7 @@ func ThemeProviderFromGoThemeSelector(selector gotheme.ThemeSelector) ThemeProvi
 			return nil, nil
 		}
 		snapshot := selection.Snapshot()
-		return &ThemeSelection{
+		return normalizeThemeProjection(&ThemeSelection{
 			Name:        snapshot.Theme,
 			Variant:     snapshot.Variant,
 			Tokens:      primitives.CloneStringMapNilOnEmpty(snapshot.Tokens),
@@ -30,7 +30,7 @@ func ThemeProviderFromGoThemeSelector(selector gotheme.ThemeSelector) ThemeProvi
 			Partials:    primitives.CloneStringMapNilOnEmpty(snapshot.Templates),
 			ChartTheme:  snapshot.Variant,
 			AssetPrefix: snapshot.AssetPrefix,
-		}, nil
+		}), nil
 	}
 }
 

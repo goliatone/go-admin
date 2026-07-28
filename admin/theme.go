@@ -2,9 +2,11 @@ package admin
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
+	gotheme "github.com/goliatone/go-theme"
 )
 
 type themeSelectorKey string
@@ -22,14 +24,17 @@ type ThemeSelector struct {
 
 // ThemeSelection captures resolved theme assets/tokens.
 type ThemeSelection struct {
-	Name        string            `json:"name"`
-	Variant     string            `json:"variant"`
-	Tokens      map[string]string `json:"tokens"`
-	CSSVars     map[string]string `json:"css_vars"`
-	Assets      map[string]string `json:"assets"`
-	Partials    map[string]string `json:"partials"`
-	ChartTheme  string            `json:"chart_theme"`
-	AssetPrefix string            `json:"asset_prefix"`
+	Name              string                 `json:"name"`
+	Variant           string                 `json:"variant"`
+	Tokens            map[string]string      `json:"tokens"`
+	CSSVars           map[string]string      `json:"css_vars"`
+	SemanticTokens    map[string]string      `json:"semantic_tokens,omitempty"`
+	RootCSSVarsInline string                 `json:"root_css_vars_inline,omitempty"`
+	Diagnostics       []ThemeTokenDiagnostic `json:"diagnostics,omitempty"`
+	Assets            map[string]string      `json:"assets"`
+	Partials          map[string]string      `json:"partials"`
+	ChartTheme        string                 `json:"chart_theme"`
+	AssetPrefix       string                 `json:"asset_prefix"`
 }
 
 // ThemeProvider resolves the theme selection, typically backed by go-theme.
@@ -69,14 +74,17 @@ func cloneThemeSelection(sel *ThemeSelection) *ThemeSelection {
 		return &ThemeSelection{}
 	}
 	return &ThemeSelection{
-		Name:        sel.Name,
-		Variant:     sel.Variant,
-		Tokens:      primitives.CloneStringMapNilOnEmpty(sel.Tokens),
-		CSSVars:     primitives.CloneStringMapNilOnEmpty(sel.CSSVars),
-		Assets:      primitives.CloneStringMapNilOnEmpty(sel.Assets),
-		Partials:    primitives.CloneStringMapNilOnEmpty(sel.Partials),
-		ChartTheme:  sel.ChartTheme,
-		AssetPrefix: sel.AssetPrefix,
+		Name:              sel.Name,
+		Variant:           sel.Variant,
+		Tokens:            primitives.CloneStringMapNilOnEmpty(sel.Tokens),
+		CSSVars:           primitives.CloneStringMapNilOnEmpty(sel.CSSVars),
+		SemanticTokens:    primitives.CloneStringMapNilOnEmpty(sel.SemanticTokens),
+		RootCSSVarsInline: sel.RootCSSVarsInline,
+		Diagnostics:       cloneThemeDiagnostics(sel.Diagnostics),
+		Assets:            primitives.CloneStringMapNilOnEmpty(sel.Assets),
+		Partials:          primitives.CloneStringMapNilOnEmpty(sel.Partials),
+		ChartTheme:        sel.ChartTheme,
+		AssetPrefix:       sel.AssetPrefix,
 	}
 }
 
@@ -164,21 +172,7 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 }
 
 func cssVarsFromTokens(tokens map[string]string) map[string]string {
-	if len(tokens) == 0 {
-		return nil
-	}
-	vars := make(map[string]string, len(tokens))
-	for key, value := range tokens {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-		vars["--"+key] = value
-	}
-	if len(vars) == 0 {
-		return nil
-	}
-	return vars
+	return nilIfEmpty(gotheme.ProjectCSSVariables(tokens, gotheme.ProjectionOptions{}).Variables)
 }
 
 func overlayThemeSelections(result, overlay *ThemeSelection) *ThemeSelection {
@@ -254,6 +248,12 @@ func (t *ThemeSelection) payload() map[string]map[string]string {
 	}
 	if len(t.CSSVars) > 0 {
 		out["css_vars"] = primitives.CloneStringMapNilOnEmpty(t.CSSVars)
+	}
+	if len(t.SemanticTokens) > 0 {
+		out["semantic_tokens"] = primitives.CloneStringMapNilOnEmpty(t.SemanticTokens)
+	}
+	if t.RootCSSVarsInline != "" {
+		out["styles"] = map[string]string{"root": t.RootCSSVarsInline}
 	}
 	assets := primitives.CloneStringMapNilOnEmpty(t.Assets)
 	if t.AssetPrefix != "" {
