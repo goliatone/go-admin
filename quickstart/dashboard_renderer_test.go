@@ -156,6 +156,98 @@ func TestWithDefaultDashboardRendererWiresRenderer(t *testing.T) {
 	}
 }
 
+func TestWithDefaultDashboardRendererUsesSharedViewEngine(t *testing.T) {
+	cfg := admin.Config{DefaultLocale: "en"}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+	views := &dashboardStubViews{output: "host-dashboard-shell"}
+
+	if err := WithDefaultDashboardRenderer(
+		adm,
+		views,
+		cfg,
+		WithDashboardEmbeddedTemplates(false),
+	); err != nil {
+		t.Fatalf("WithDefaultDashboardRenderer error: %v", err)
+	}
+
+	renderer := getDashboardRenderer(adm)
+	html, err := renderer.RenderPage("dashboard_ssr.html", admin.AdminDashboardPage{
+		Chrome: admin.AdminChromeState{
+			Title:    "Operations",
+			BasePath: "/admin",
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderPage error: %v", err)
+	}
+	if html != "host-dashboard-shell" {
+		t.Fatalf("expected shared view output, got %q", html)
+	}
+	if views.name != "dashboard_ssr" {
+		t.Fatalf("expected dashboard template name, got %q", views.name)
+	}
+	data, ok := views.data.(map[string]any)
+	if !ok || data["title"] != "Operations" || data["base_path"] != "/admin" {
+		t.Fatalf("expected normalized shared view context, got %#v", views.data)
+	}
+}
+
+func TestDefaultDashboardRendererHonorsHostShellOverlayAndRequestContext(t *testing.T) {
+	hostTemplates := fstest.MapFS{
+		"layout.html": {
+			Data: []byte(`<!doctype html><html data-host-shell><head>{{ csrf_meta|safe }}<script src="{{ external_assets.echarts_js }}"></script></head><body data-collapse="{{ sidebar_collapse_placement }}">{% block content %}{% endblock %}</body></html>`),
+		},
+	}
+	views, err := NewViewEngine(
+		client.FS(),
+		WithViewTemplatesFS(hostTemplates),
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+		WithViewReload(false),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+	if err := views.Load(); err != nil {
+		t.Fatalf("load view engine: %v", err)
+	}
+	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New error: %v", err)
+	}
+	if err := WithDefaultDashboardRenderer(adm, views, cfg); err != nil {
+		t.Fatalf("WithDefaultDashboardRenderer error: %v", err)
+	}
+
+	html, err := getDashboardRenderer(adm).RenderPage("dashboard_ssr.html", admin.AdminDashboardPage{
+		Chrome: admin.AdminChromeState{
+			Title:                    "Operations",
+			BasePath:                 "/admin",
+			AssetBasePath:            "/admin",
+			ExternalAssets:           map[string]string{"echarts_js": "/host/echarts.js"},
+			CSRFTemplateHelpers:      map[string]string{"csrf_meta": `<meta name="csrf-token" content="request-token">`},
+			SidebarCollapsePlacement: admin.SidebarCollapsePlacementFooter,
+		},
+	})
+	if err != nil {
+		t.Fatalf("RenderPage error: %v", err)
+	}
+	for _, expected := range []string{
+		`data-host-shell`,
+		`<meta name="csrf-token" content="request-token">`,
+		`src="/host/echarts.js"`,
+		`data-collapse="footer"`,
+		`data-widget-grid`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected shared dashboard shell to contain %q, got %q", expected, html)
+		}
+	}
+}
+
 func TestNormalizeDashboardTemplateData_RejectsUnsupportedPayload(t *testing.T) {
 	_, err := normalizeDashboardTemplateData("invalid payload")
 	if err == nil {
@@ -184,8 +276,16 @@ func TestNormalizeDashboardTemplateData_AcceptsTypedAdminDashboardPage(t *testin
 			},
 		},
 		Chrome: admin.AdminChromeState{
-			Title:    "Operations",
-			BasePath: "/admin",
+			Title:                        "Operations",
+			BasePath:                     "/admin",
+			Active:                       "/admin/dashboard",
+			ExternalAssets:               map[string]string{"echarts_js": "/admin/assets/echarts.js"},
+			CSRFTemplateHelpers:          map[string]string{"csrf_meta": `<meta name="csrf-token" content="request-token">`},
+			SidebarHideSearch:            true,
+			SidebarCollapsePlacement:     admin.SidebarCollapsePlacementFooter,
+			SidebarCompactFooter:         true,
+			SidebarHidePresence:          true,
+			SidebarHideUserMenuIndicator: true,
 		},
 	})
 	if err != nil {
@@ -196,6 +296,23 @@ func TestNormalizeDashboardTemplateData_AcceptsTypedAdminDashboardPage(t *testin
 	}
 	if ctx["base_path"] != "/admin" {
 		t.Fatalf("expected base path to round-trip, got %#v", ctx["base_path"])
+	}
+	for key, expected := range map[string]any{
+		"active":                           "/admin/dashboard",
+		"sidebar_hide_search":              true,
+		"sidebar_collapse_placement":       "footer",
+		"sidebar_compact_footer":           true,
+		"sidebar_hide_presence":            true,
+		"sidebar_hide_user_menu_indicator": true,
+		"csrf_meta":                        `<meta name="csrf-token" content="request-token">`,
+	} {
+		if ctx[key] != expected {
+			t.Fatalf("expected %s=%#v, got %#v", key, expected, ctx[key])
+		}
+	}
+	externalAssets, ok := ctx["external_assets"].(map[string]any)
+	if !ok || externalAssets["echarts_js"] != "/admin/assets/echarts.js" {
+		t.Fatalf("expected external assets to round-trip, got %#v", ctx["external_assets"])
 	}
 	layoutJSON, ok := ctx["layout_json"].(string)
 	if !ok || !strings.Contains(layoutJSON, `"basePath":"/admin"`) {
@@ -450,6 +567,23 @@ func (dashboardStubRenderer) RenderPage(name string, page admin.AdminDashboardPa
 		}
 	}
 	return "stub", nil
+}
+
+type dashboardStubViews struct {
+	name   string
+	data   any
+	output string
+}
+
+func (v *dashboardStubViews) Load() error {
+	return nil
+}
+
+func (v *dashboardStubViews) Render(out io.Writer, name string, data any, _ ...string) error {
+	v.name = name
+	v.data = data
+	_, err := io.WriteString(out, v.output)
+	return err
 }
 
 func getDashboardRenderer(adm *admin.Admin) admin.DashboardRenderer {

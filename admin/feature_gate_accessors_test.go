@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	router "github.com/goliatone/go-router"
 	userscommand "github.com/goliatone/go-users/command"
 	usertypes "github.com/goliatone/go-users/pkg/types"
 )
@@ -52,7 +53,13 @@ func TestActivityReadEnabledRequiresFeatureGateAndFeed(t *testing.T) {
 	}
 }
 
-func TestPreferencesAPIAvailableRequiresFeatureServiceAndModulePolicy(t *testing.T) {
+type featureGateAccessorAuthorizer map[string]bool
+
+func (a featureGateAccessorAuthorizer) Can(_ context.Context, action, _ string) bool {
+	return a[action]
+}
+
+func TestPreferencesAPIAvailableRequiresMountedPanelRoute(t *testing.T) {
 	t.Run("feature disabled", func(t *testing.T) {
 		adm := mustNewAdmin(t, Config{}, Dependencies{})
 		if adm.PreferencesAPIAvailable() {
@@ -60,12 +67,25 @@ func TestPreferencesAPIAvailableRequiresFeatureServiceAndModulePolicy(t *testing
 		}
 	})
 
-	t.Run("default module available before loading", func(t *testing.T) {
+	t.Run("default module not available before boot", func(t *testing.T) {
 		adm := mustNewAdmin(t, Config{}, Dependencies{
 			FeatureGate: featureGateFromKeys(FeaturePreferences),
 		})
+		if adm.PreferencesAPIAvailable() {
+			t.Fatal("expected preferences API unavailable before panel routes are mounted")
+		}
+	})
+
+	t.Run("default module available after boot", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{}, Dependencies{
+			FeatureGate: featureGateFromKeys(FeaturePreferences),
+		})
+		adm.WithAuthorizer(allowAuthorizer{})
+		if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
 		if !adm.PreferencesAPIAvailable() {
-			t.Fatal("expected enabled default preferences module to advertise API")
+			t.Fatal("expected mounted preferences panel to advertise API")
 		}
 	})
 
@@ -75,24 +95,88 @@ func TestPreferencesAPIAvailableRequiresFeatureServiceAndModulePolicy(t *testing
 		}, Dependencies{
 			FeatureGate: featureGateFromKeys(FeaturePreferences),
 		})
+		adm.WithAuthorizer(allowAuthorizer{})
+		if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
 		if adm.PreferencesAPIAvailable() {
 			t.Fatal("expected disabled default preferences module to suppress API capability")
 		}
 	})
 
-	t.Run("registered replacement", func(t *testing.T) {
+	t.Run("canonical module ID without panel route", func(t *testing.T) {
 		adm := mustNewAdmin(t, Config{
 			DisabledDefaultModules: []DefaultModuleID{DefaultModulePreferences},
 		}, Dependencies{
 			FeatureGate: featureGateFromKeys(FeaturePreferences),
 		})
-		if err := adm.RegisterModule(NewPreferencesModule()); err != nil {
-			t.Fatalf("register replacement preferences module: %v", err)
+		if err := adm.RegisterModule(&stubModule{id: preferencesModuleID}); err != nil {
+			t.Fatalf("register custom preferences module: %v", err)
 		}
-		if !adm.PreferencesAPIAvailable() {
-			t.Fatal("expected registered preferences replacement to advertise API")
+		adm.WithAuthorizer(allowAuthorizer{})
+		if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
+		if adm.PreferencesAPIAvailable() {
+			t.Fatal("expected module ID without a mounted preferences panel to remain unavailable")
 		}
 	})
+}
+
+func TestPreferencesAPICapabilitiesUseRequestPermissions(t *testing.T) {
+	tests := []struct {
+		name         string
+		allowed      featureGateAccessorAuthorizer
+		wantReadable bool
+		wantWritable bool
+	}{
+		{
+			name:    "read denied",
+			allowed: featureGateAccessorAuthorizer{},
+		},
+		{
+			name: "read only",
+			allowed: featureGateAccessorAuthorizer{
+				PermAdminPreferencesView: true,
+			},
+			wantReadable: true,
+		},
+		{
+			name: "read and write",
+			allowed: featureGateAccessorAuthorizer{
+				PermAdminPreferencesView: true,
+				PermAdminPreferencesEdit: true,
+			},
+			wantReadable: true,
+			wantWritable: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adm := mustNewAdmin(t, Config{}, Dependencies{
+				FeatureGate: featureGateFromKeys(FeaturePreferences),
+			})
+			adm.WithAuthorizer(tt.allowed)
+			if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+				t.Fatalf("initialize: %v", err)
+			}
+
+			got := adm.PreferencesAPICapabilities(context.Background())
+			if !got.Available {
+				t.Fatal("expected mounted Preferences route to be available")
+			}
+			if got.Readable != tt.wantReadable || got.Writable != tt.wantWritable {
+				t.Fatalf(
+					"unexpected capabilities: got readable=%t writable=%t; want readable=%t writable=%t",
+					got.Readable,
+					got.Writable,
+					tt.wantReadable,
+					tt.wantWritable,
+				)
+			}
+		})
+	}
 }
 
 func TestUserImportAllowedFailsClosedWithoutAuthorizer(t *testing.T) {

@@ -1,11 +1,18 @@
 package quickstart
 
 import (
+	"context"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
 	urlkit "github.com/goliatone/go-urlkit"
 )
+
+type preferencesAPIHelperAuthorizer map[string]bool
+
+func (a preferencesAPIHelperAuthorizer) Can(_ context.Context, action, _ string) bool {
+	return a[action]
+}
 
 func TestResolveAdminPanelAPICollectionPathUsesURLKitPanelRoute(t *testing.T) {
 	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
@@ -138,5 +145,73 @@ func TestResolveRoutePathDoesNotDoublePrefixBackfilledAdminAPIPaths(t *testing.T
 
 	if got := resolveRoutePath(manager, "admin.api", "translations.my_work"); got != "/admin/api/translations/my-work" {
 		t.Fatalf("expected rooted backfill path without double prefix, got %q", got)
+	}
+}
+
+func TestResolveAuthorizedAdminPreferencesAPICollectionPath(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+	tests := []struct {
+		name         string
+		allowed      preferencesAPIHelperAuthorizer
+		wantEndpoint string
+		wantWritable bool
+	}{
+		{
+			name:    "read denied",
+			allowed: preferencesAPIHelperAuthorizer{},
+		},
+		{
+			name: "read only",
+			allowed: preferencesAPIHelperAuthorizer{
+				admin.PermAdminPreferencesView: true,
+			},
+			wantEndpoint: "/admin/api/panels/preferences",
+		},
+		{
+			name: "read and write",
+			allowed: preferencesAPIHelperAuthorizer{
+				admin.PermAdminPreferencesView: true,
+				admin.PermAdminPreferencesEdit: true,
+			},
+			wantEndpoint: "/admin/api/panels/preferences",
+			wantWritable: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adm, err := admin.New(cfg, admin.Dependencies{
+				FeatureGate: buildFeatureGate(cfg, map[string]bool{
+					string(admin.FeaturePreferences): true,
+				}, nil),
+			})
+			if err != nil {
+				t.Fatalf("new admin: %v", err)
+			}
+			adm.WithAuthorizer(tt.allowed)
+			routeRecorder, ok := any(adm).(interface {
+				RecordMountedPanelRoutes([]string)
+			})
+			if !ok {
+				t.Skip("root module predates request-scoped Preferences route capabilities")
+			}
+			routeRecorder.RecordMountedPanelRoutes([]string{"preferences"})
+
+			endpoint, writable := resolveAuthorizedAdminPreferencesAPICollectionPath(
+				adm,
+				cfg,
+				cfg.BasePath,
+				context.Background(),
+			)
+			if endpoint != tt.wantEndpoint || writable != tt.wantWritable {
+				t.Fatalf(
+					"got endpoint=%q writable=%t; want endpoint=%q writable=%t",
+					endpoint,
+					writable,
+					tt.wantEndpoint,
+					tt.wantWritable,
+				)
+			}
+		})
 	}
 }

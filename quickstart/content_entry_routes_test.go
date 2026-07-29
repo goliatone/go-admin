@@ -1169,6 +1169,14 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
+	routeRecorder, ok := any(adm).(interface {
+		RecordMountedPanelRoutes([]string)
+	})
+	if !ok {
+		t.Skip("root module predates request-scoped Preferences route capabilities")
+	}
+	routeRecorder.RecordMountedPanelRoutes([]string{"preferences"})
 	if _, err := adm.RegisterPanel("pages", newInMemoryPanelBuilder().
 		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
 		t.Fatalf("register panel: %v", err)
@@ -1230,6 +1238,8 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 			strings.TrimSpace(anyToString(stateStore["resource"])) == "pages" &&
 			strings.TrimSpace(anyToString(dataGridCfg["preferences_endpoint"])) == "/admin/api/panels/preferences" &&
 			strings.TrimSpace(anyToString(viewCtx["preferences_api_path"])) == "/admin/api/panels/preferences" &&
+			toBool(dataGridCfg["preferences_writable"]) &&
+			toBool(viewCtx["preferences_api_writable"]) &&
 			toInt(stateStore["sync_debounce_ms"]) == 1200 &&
 			toInt(stateStore["hydrate_timeout_ms"]) == 1500 &&
 			toInt(stateStore["max_share_entries"]) == 30 &&

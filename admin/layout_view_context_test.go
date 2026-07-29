@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	router "github.com/goliatone/go-router"
 )
 
@@ -106,6 +107,28 @@ func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 		externalAssets["datatables_css"] != "https://assets.example/datatables.css" ||
 		externalAssets["echarts_js"] != "https://assets.example/echarts.js" {
 		t.Fatalf("unexpected external assets: %+v", externalAssets)
+	}
+}
+
+func TestBuildAdminLayoutViewContextIncludesRequestTemplateHelpers(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.LocalsMock[csrfmw.DefaultTemplateHelpersKey] = map[string]any{
+		"csrf_token": "request-token",
+		"csrf_field": `<input type="hidden" name="_csrf" value="request-token">`,
+		"csrf_meta":  `<meta name="csrf-token" content="request-token">`,
+	}
+
+	view := buildAdminLayoutViewContext(nil, ctx, nil, "")
+
+	helpers, ok := view[csrfmw.DefaultTemplateHelpersKey].(map[string]any)
+	if !ok || helpers["csrf_token"] != "request-token" {
+		t.Fatalf("expected request template helpers, got %#v", view[csrfmw.DefaultTemplateHelpersKey])
+	}
+	for _, key := range []string{"csrf_token", "csrf_field", "csrf_meta"} {
+		if view[key] != helpers[key] {
+			t.Fatalf("expected %s helper to be projected, got %#v", key, view[key])
+		}
 	}
 }
 

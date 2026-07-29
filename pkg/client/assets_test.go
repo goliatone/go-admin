@@ -1,27 +1,23 @@
 package client
 
 import (
-	archivezip "archive/zip"
-	"bytes"
 	"io/fs"
-	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
-	"golang.org/x/mod/module"
-	modzip "golang.org/x/mod/zip"
+	"github.com/goliatone/go-admin/internal/releasecheck"
 )
 
-var pinnedDocumentDependencyPaths = []string{
-	"dist/third-party/iconoir/iconoir.css",
-	"dist/third-party/iconoir/LICENSE",
-	"dist/third-party/simple-datatables/style.css",
-	"dist/third-party/simple-datatables/LICENSE",
-	"dist/third-party/echarts/echarts.min.js",
-	"dist/third-party/echarts/LICENSE",
-	"dist/third-party/echarts/NOTICE",
-}
+var pinnedDocumentDependencyPaths = func() []string {
+	const assetsPrefix = "pkg/client/assets/"
+	out := make([]string, 0, len(releasecheck.RequiredClientArchivePaths))
+	for _, archivePath := range releasecheck.RequiredClientArchivePaths {
+		out = append(out, strings.TrimPrefix(archivePath, assetsPrefix))
+	}
+	return out
+}()
 
 func TestAssetsEmbedIncludesOutputCSS(t *testing.T) {
 	if _, err := fs.Stat(Assets(), "output.css"); err != nil {
@@ -53,56 +49,17 @@ func TestAssetsEmbedIncludesPinnedDocumentDependencies(t *testing.T) {
 	}
 }
 
-func TestPinnedDocumentDependenciesSurviveModuleZipConstruction(t *testing.T) {
-	const (
-		modulePath    = "github.com/goliatone/go-admin"
-		moduleVersion = "v0.0.0"
-		archivePrefix = modulePath + "@" + moduleVersion + "/pkg/client/assets/"
-	)
-
-	fixtureRoot := t.TempDir()
-	if err := os.WriteFile(
-		filepath.Join(fixtureRoot, "go.mod"),
-		[]byte("module "+modulePath+"\n\ngo 1.26.5\n"),
-		0o644,
+func TestPinnedDocumentDependenciesAreEligibleInActualModuleSource(t *testing.T) {
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve current test source path")
+	}
+	moduleRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", ".."))
+	if err := releasecheck.CheckRequiredModuleSource(
+		moduleRoot,
+		releasecheck.RequiredClientArchivePaths,
 	); err != nil {
-		t.Fatalf("write fixture go.mod: %v", err)
-	}
-	for _, assetPath := range pinnedDocumentDependencyPaths {
-		content, err := fs.ReadFile(Assets(), assetPath)
-		if err != nil {
-			t.Fatalf("read embedded dependency %q: %v", assetPath, err)
-		}
-		target := filepath.Join(fixtureRoot, "pkg", "client", "assets", filepath.FromSlash(assetPath))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			t.Fatalf("create fixture directory for %q: %v", assetPath, err)
-		}
-		if err := os.WriteFile(target, content, 0o644); err != nil {
-			t.Fatalf("write fixture dependency %q: %v", assetPath, err)
-		}
-	}
-
-	var moduleArchive bytes.Buffer
-	if err := modzip.CreateFromDir(
-		&moduleArchive,
-		module.Version{Path: modulePath, Version: moduleVersion},
-		fixtureRoot,
-	); err != nil {
-		t.Fatalf("create module zip: %v", err)
-	}
-	archive, err := archivezip.NewReader(bytes.NewReader(moduleArchive.Bytes()), int64(moduleArchive.Len()))
-	if err != nil {
-		t.Fatalf("open module zip: %v", err)
-	}
-	archived := make(map[string]bool, len(archive.File))
-	for _, file := range archive.File {
-		archived[file.Name] = true
-	}
-	for _, assetPath := range pinnedDocumentDependencyPaths {
-		archivePath := archivePrefix + assetPath
-		if !archived[archivePath] {
-			t.Errorf("module zip omitted packaged dependency %q", archivePath)
-		}
+		t.Fatal(err)
 	}
 }
 

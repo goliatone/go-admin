@@ -65,6 +65,7 @@ type stubCtx struct {
 	defaultLoc string
 	navCode    string
 	widgetErr  error
+	mounted    []string
 }
 
 func (s *stubCtx) LifecycleContext() context.Context { return s.lifecycle }
@@ -100,7 +101,10 @@ func (s *stubCtx) ParseBody(c router.Context) (map[string]any, error) {
 	}
 	return map[string]any{}, nil
 }
-func (s *stubCtx) Panels() []PanelBinding            { return s.panels }
+func (s *stubCtx) Panels() []PanelBinding { return s.panels }
+func (s *stubCtx) RecordMountedPanelRoutes(names []string) {
+	s.mounted = append(s.mounted, names...)
+}
 func (s *stubCtx) BootDashboard() DashboardBinding   { return s.dashboard }
 func (s *stubCtx) BootNavigation() NavigationBinding { return s.navigation }
 func (s *stubCtx) BootSearch() SearchBinding         { return nil }
@@ -590,6 +594,7 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	err := PanelStep(ctx)
 	require.NoError(t, err)
 	require.Len(t, rr.calls, 10)
+	require.Equal(t, []string{"users"}, ctx.mounted)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true

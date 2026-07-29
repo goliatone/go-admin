@@ -34,6 +34,7 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 			APIEndpoint:         "/admin/api/panels/pages",
 			ActionBase:          "/admin/content/pages",
 			PreferencesEndpoint: "/admin/api/panels/preferences",
+			PreferencesWritable: true,
 		},
 	})
 	exportCfg, ok := viewCtx["export_config"].(map[string]any)
@@ -65,6 +66,9 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 	}
 	if endpoint := dataGridCfg["preferences_endpoint"]; endpoint != "/admin/api/panels/preferences" {
 		t.Fatalf("expected preferences endpoint /admin/api/panels/preferences, got %v", endpoint)
+	}
+	if writable := dataGridCfg["preferences_writable"]; writable != true {
+		t.Fatalf("expected writable Preferences capability, got %v", writable)
 	}
 	if key := dataGridCfg["column_storage_key"]; key != "content_pages_datatable_columns" {
 		t.Fatalf("expected derived column storage key content_pages_datatable_columns, got %v", key)
@@ -143,6 +147,7 @@ func TestBuildPanelDataGridConfigIncludesStateAndURLConfig(t *testing.T) {
 			MaxShareEntries:  25,
 		},
 		PreferencesEndpoint: "/admin/api/panels/preferences",
+		PreferencesWritable: true,
 		URLState: PanelDataGridURLStateOptions{
 			MaxURLLength:     1700,
 			MaxFiltersLength: 550,

@@ -81,3 +81,45 @@ func TestDashboardBootDefaultsDoNotOverrideExistingProviders(t *testing.T) {
 
 	t.Fatalf("expected resolved layout to include %s", WidgetUserStats)
 }
+
+func TestDashboardBootKeepsLegacyChartAvailableWithoutSeedingIt(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureDashboard),
+	})
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	found := false
+	for _, provider := range adm.Dashboard().Providers() {
+		if provider.Code != WidgetChartSample {
+			continue
+		}
+		found = true
+		if provider.DefaultArea != "" {
+			t.Fatalf("legacy chart must not seed a default instance, got area %q", provider.DefaultArea)
+		}
+	}
+	if !found {
+		t.Fatalf("expected legacy chart provider to remain available for explicit compatibility")
+	}
+
+	widgets, err := adm.Dashboard().Resolve(AdminContext{
+		Context: context.Background(),
+		Locale:  "en",
+	})
+	if err != nil {
+		t.Fatalf("resolve dashboard: %v", err)
+	}
+	for _, widget := range widgets {
+		if widget["definition"] == WidgetChartSample {
+			t.Fatalf("legacy chart must not appear in a fresh default dashboard: %+v", widget)
+		}
+	}
+}

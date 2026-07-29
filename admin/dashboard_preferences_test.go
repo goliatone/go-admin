@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
@@ -249,12 +250,28 @@ func TestDashboardAPIRouteUsesTypedPageSource(t *testing.T) {
 
 func TestAdminChromeStateFromViewContextPreservesNavigationSlices(t *testing.T) {
 	state := adminChromeStateFromViewContext(router.ViewContext{
+		"active": "/admin/dashboard",
 		"nav_items": []map[string]any{
 			{"label": "Dashboard", "href": "/admin/dashboard"},
 		},
 		"nav_utility_items": []map[string]any{
 			{"label": "Profile", "href": "/admin/profile"},
 		},
+		"external_assets": map[string]string{
+			"iconoir_css":    "/admin/assets/iconoir.css",
+			"datatables_css": "/admin/assets/datatables.css",
+			"echarts_js":     "/admin/assets/echarts.js",
+		},
+		"template_helpers": map[string]any{
+			"csrf_meta":  `<meta name="csrf-token" content="request-token">`,
+			"csrf_field": `<input type="hidden" name="_csrf" value="request-token">`,
+			"unrelated":  "must-not-cross-dashboard-boundary",
+		},
+		"sidebar_hide_search":              true,
+		"sidebar_collapse_placement":       "footer",
+		"sidebar_compact_footer":           true,
+		"sidebar_hide_presence":            true,
+		"sidebar_hide_user_menu_indicator": true,
 	})
 
 	if len(state.NavItems) != 1 {
@@ -269,6 +286,22 @@ func TestAdminChromeStateFromViewContextPreservesNavigationSlices(t *testing.T) 
 	}
 	if item["label"] != "Dashboard" {
 		t.Fatalf("expected nav item label to round-trip, got %+v", item)
+	}
+	if state.Active != "/admin/dashboard" ||
+		state.ExternalAssets["echarts_js"] != "/admin/assets/echarts.js" ||
+		!state.SidebarHideSearch ||
+		state.SidebarCollapsePlacement != SidebarCollapsePlacementFooter ||
+		!state.SidebarCompactFooter ||
+		!state.SidebarHidePresence ||
+		!state.SidebarHideUserMenuIndicator {
+		t.Fatalf("expected shell composition to round-trip, got %+v", state)
+	}
+	if !strings.Contains(state.CSRFTemplateHelpers["csrf_meta"], "request-token") ||
+		!strings.Contains(state.CSRFTemplateHelpers["csrf_field"], "request-token") {
+		t.Fatalf("expected CSRF helpers to round-trip, got %+v", state.CSRFTemplateHelpers)
+	}
+	if _, exists := state.CSRFTemplateHelpers["unrelated"]; exists {
+		t.Fatalf("unexpected non-CSRF template helper crossed dashboard boundary: %+v", state.CSRFTemplateHelpers)
 	}
 }
 
