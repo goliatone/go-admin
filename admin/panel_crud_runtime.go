@@ -1,11 +1,21 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"strings"
 
 	router "github.com/goliatone/go-router"
 )
+
+func (p *Panel) apiRequestCapabilities(ctx context.Context) (readable, writable bool) {
+	if p == nil {
+		return false, false
+	}
+	readable = permissionAllowed(p.authorizer, ctx, p.permissions.View, p.name)
+	writable = readable && permissionAllowed(p.authorizer, ctx, p.permissions.Create, p.name)
+	return readable, writable
+}
 
 func clonePanelSubresources(subresources []PanelSubresource) []PanelSubresource {
 	if len(subresources) == 0 {

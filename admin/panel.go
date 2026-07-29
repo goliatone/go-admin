@@ -29,6 +29,7 @@ type PanelBuilder struct {
 	useSEO                         bool
 	treeView                       bool
 	authorizer                     Authorizer
+	authorizerInherited            bool
 	commandBus                     *CommandBus
 	activity                       ActivitySink
 	workflow                       WorkflowEngine
@@ -64,6 +65,7 @@ type Panel struct {
 	useSEO                         bool
 	treeView                       bool
 	authorizer                     Authorizer
+	authorizerInherited            bool
 	commandBus                     *CommandBus
 	activity                       ActivitySink
 	workflow                       WorkflowEngine
@@ -419,6 +421,7 @@ func (b *PanelBuilder) TreeView(enabled bool) *PanelBuilder {
 // WithAuthorizer sets an authorizer for permission checks.
 func (b *PanelBuilder) WithAuthorizer(a Authorizer) *PanelBuilder {
 	b.authorizer = a
+	b.authorizerInherited = false
 	return b
 }
 
@@ -530,6 +533,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		useSEO:                         b.useSEO,
 		treeView:                       b.treeView,
 		authorizer:                     b.authorizer,
+		authorizerInherited:            b.authorizerInherited,
 		commandBus:                     b.commandBus,
 		activity:                       b.activity,
 		workflow:                       b.workflow,
