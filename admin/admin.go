@@ -776,11 +776,19 @@ func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
 		base.Variant = selector.Variant
 	}
 	result := base
+	providerResolved := false
 	if a.themeProvider != nil {
 		if selection, err := a.themeProvider(ctx, selector); err == nil && selection != nil {
 			result = mergeThemeSelections(base, selection)
+			providerResolved = true
 		}
 	}
+	result = reconcileThemeSelectionWithManifest(
+		result,
+		a.themeManifest,
+		a.config.Theme,
+		providerResolved,
+	)
 	result = overlayThemeSelections(result, configuredThemeOverrides(a.config))
 	if selector.Variant != "" && selector.Variant != a.config.ThemeVariant && result.ChartTheme == a.config.ThemeVariant {
 		result.ChartTheme = selector.Variant
