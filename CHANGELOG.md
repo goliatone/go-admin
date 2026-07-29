@@ -1,6 +1,29 @@
 # Changelog
 
+# [0.126.6](https://github.com/goliatone/go-admin/compare/v0.126.5...v0.126.6) - (2026-07-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Preferences rendering ([cbf599f](https://github.com/goliatone/go-admin/commit/cbf599fe124f71c2e663166c0b98002d528b1d4c))  - (goliatone)
+- Update assets ([1e5aacd](https://github.com/goliatone/go-admin/commit/1e5aacd0d2f68c1d5e7a3e5625ee53ee682ed8cc))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Dashboard rendering path ([2b4a597](https://github.com/goliatone/go-admin/commit/2b4a597207aad89358368a0382c4115a2be8b586))  - (goliatone)
+- Release check ([bf57ab0](https://github.com/goliatone/go-admin/commit/bf57ab0ec355a4928c9192d86dc468fc48e957d4))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([4b184d9](https://github.com/goliatone/go-admin/commit/4b184d99be87ca5efe7ca217be15ec93fa7b780d))  - (goliatone)
+
 # [0.126.5](https://github.com/goliatone/go-admin/compare/v0.126.4...v0.126.5) - (2026-07-29)
+
+
+New patch release: v0.126.5
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.5 ([0eb8a3a](https://github.com/goliatone/go-admin/commit/0eb8a3a77c48136f59bca613913081e920fffe3d))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
