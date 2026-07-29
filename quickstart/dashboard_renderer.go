@@ -68,10 +68,12 @@ func WithDashboardTemplateFuncOptions(options ...TemplateFuncOption) DashboardRe
 	}
 }
 
-// WithDefaultDashboardRenderer registers a basic dashboard SSR renderer when none is set.
-func WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg admin.Config, opts ...DashboardRendererOption) error {
-	_ = viewEngine
-	_ = cfg
+// WithDefaultDashboardRenderer registers dashboard SSR against the shared host
+// view engine when one is supplied. The standalone renderer remains the
+// compatibility fallback for hosts without a shared view engine. The config
+// argument is retained for source compatibility; request-scoped shell state is
+// composed by Admin and carried by AdminDashboardPage.
+func WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, _ admin.Config, opts ...DashboardRendererOption) error {
 	if adm == nil {
 		return fmt.Errorf("admin is required")
 	}
@@ -82,12 +84,48 @@ func WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg 
 	if dashboard.HasRenderer() {
 		return nil
 	}
-	renderer, err := NewDashboardTemplateRenderer(opts...)
-	if err != nil {
-		return err
+	var renderer admin.DashboardRenderer
+	if viewEngine != nil {
+		renderer = &dashboardViewRenderer{views: viewEngine}
+	} else {
+		var err error
+		renderer, err = NewDashboardTemplateRenderer(opts...)
+		if err != nil {
+			return err
+		}
 	}
 	dashboard.WithRenderer(renderer)
 	return nil
+}
+
+type dashboardViewRenderer struct {
+	views fiber.Views
+}
+
+func (r *dashboardViewRenderer) RenderPage(name string, page admin.AdminDashboardPage, out ...io.Writer) (string, error) {
+	if r == nil || r.views == nil {
+		return "", fmt.Errorf("dashboard view renderer not initialized")
+	}
+	templateName := strings.TrimSpace(name)
+	if templateName == "" {
+		templateName = "dashboard_ssr.html"
+	}
+	templateName = strings.TrimSuffix(templateName, ".html")
+	normalized, err := normalizeDashboardTemplateData(page)
+	if err != nil {
+		return "", err
+	}
+	var rendered bytes.Buffer
+	if err := r.views.Render(&rendered, templateName, normalized); err != nil {
+		return "", err
+	}
+	html := rendered.String()
+	if len(out) > 0 && out[0] != nil {
+		if _, err := io.Copy(out[0], strings.NewReader(html)); err != nil {
+			return "", err
+		}
+	}
+	return html, nil
 }
 
 type dashboardTemplateRenderer struct {
@@ -253,28 +291,44 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 
 	view := baseTemplateContext(page.Chrome.BasePath, page.Title())
 	overlayOptionalContext(view, map[string]any{
-		"asset_base_path":          page.Chrome.AssetBasePath,
-		"api_base_path":            page.Chrome.APIBasePath,
-		"body_classes":             page.Chrome.BodyClasses,
-		"nav_items":                page.Chrome.NavItems,
-		"nav_utility_items":        page.Chrome.NavUtilityItems,
-		"nav_debug":                page.Chrome.NavDebug,
-		"nav_items_json":           page.Chrome.NavItemsJSON,
-		"session_user":             page.Chrome.SessionUser,
-		"theme":                    page.Chrome.Theme,
-		"translation_capabilities": page.Chrome.TranslationCapabilities,
-		"users_import_available":   page.Chrome.UsersImportAvailable,
-		"users_import_enabled":     page.Chrome.UsersImportEnabled,
-		"locale":                   page.Dashboard.Locale,
+		"asset_base_path":                  page.Chrome.AssetBasePath,
+		"api_base_path":                    page.Chrome.APIBasePath,
+		"body_classes":                     page.Chrome.BodyClasses,
+		"active":                           page.Chrome.Active,
+		"nav_items":                        page.Chrome.NavItems,
+		"nav_utility_items":                page.Chrome.NavUtilityItems,
+		"nav_debug":                        page.Chrome.NavDebug,
+		"nav_items_json":                   page.Chrome.NavItemsJSON,
+		"session_user":                     page.Chrome.SessionUser,
+		"theme":                            page.Chrome.Theme,
+		"external_assets":                  page.Chrome.ExternalAssets,
+		"template_helpers":                 page.Chrome.CSRFTemplateHelpers,
+		"sidebar_hide_search":              page.Chrome.SidebarHideSearch,
+		"sidebar_collapse_placement":       page.Chrome.SidebarCollapsePlacement,
+		"sidebar_compact_footer":           page.Chrome.SidebarCompactFooter,
+		"sidebar_hide_presence":            page.Chrome.SidebarHidePresence,
+		"sidebar_hide_user_menu_indicator": page.Chrome.SidebarHideUserMenuIndicator,
+		"translation_capabilities":         page.Chrome.TranslationCapabilities,
+		"users_import_available":           page.Chrome.UsersImportAvailable,
+		"users_import_enabled":             page.Chrome.UsersImportEnabled,
+		"locale":                           page.Dashboard.Locale,
 	}, "asset_base_path",
 		"api_base_path",
 		"body_classes",
+		"active",
 		"nav_items",
 		"nav_utility_items",
 		"nav_debug",
 		"nav_items_json",
 		"session_user",
 		"theme",
+		"external_assets",
+		"template_helpers",
+		"sidebar_hide_search",
+		"sidebar_collapse_placement",
+		"sidebar_compact_footer",
+		"sidebar_hide_presence",
+		"sidebar_hide_user_menu_indicator",
 		"translation_capabilities",
 		"users_import_available",
 		"users_import_enabled",
@@ -282,6 +336,11 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 	)
 	view["areas"] = areas
 	view["base_path"] = page.Chrome.BasePath
+	for key, value := range page.Chrome.CSRFTemplateHelpers {
+		if _, exists := view[key]; !exists {
+			view[key] = value
+		}
+	}
 	view["layout_json"] = page.LayoutJSON()
 	return view
 }
