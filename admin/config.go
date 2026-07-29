@@ -261,9 +261,9 @@ type ExternalAssetConfig struct {
 // Default third-party asset paths are relative to the configured admin asset
 // base and are rendered through asset_base_path in the shared templates.
 const (
-	DefaultIconoirCSSAssetPath    = "assets/dist/vendor/iconoir/iconoir.css"
-	DefaultDataTablesCSSAssetPath = "assets/dist/vendor/simple-datatables/style.css"
-	DefaultEChartsJSAssetPath     = "assets/dist/vendor/echarts/echarts.min.js"
+	DefaultIconoirCSSAssetPath    = "assets/dist/third-party/iconoir/iconoir.css"
+	DefaultDataTablesCSSAssetPath = "assets/dist/third-party/simple-datatables/style.css"
+	DefaultEChartsJSAssetPath     = "assets/dist/third-party/echarts/echarts.min.js"
 )
 
 // Resolve returns normalized explicit overrides. Empty fields intentionally

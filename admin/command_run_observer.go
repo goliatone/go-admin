@@ -257,10 +257,6 @@ func (b *CommandRunObserverBridge) resolveScope(ctx context.Context, update Comm
 	return resolved, nil
 }
 
-func (b *CommandRunObserverBridge) nextRevision(runID string) uint64 {
-	return b.nextRevisionAfter(runID, 0)
-}
-
 func (b *CommandRunObserverBridge) nextRevisionAfter(runID string, minimum uint64) uint64 {
 	b.mu.Lock()
 	defer b.mu.Unlock()
