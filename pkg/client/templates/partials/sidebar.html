@@ -1,4 +1,19 @@
-<aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--admin-sidebar-width, var(--sidebar-width, 260px));">
+<link rel="stylesheet" href="{{ asset_base_path }}/assets/sidebar.css">
+<button id="sidebar-mobile-toggle"
+        type="button"
+        class="sidebar-mobile-toggle"
+        aria-label="Open navigation"
+        aria-controls="sidebar"
+        aria-expanded="false">
+  <i class="iconoir-menu" aria-hidden="true"></i>
+</button>
+<div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true" hidden></div>
+<aside id="sidebar"
+       class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden"
+       data-collapsed="false"
+       data-mobile-open="false"
+       aria-label="Admin navigation"
+       style="width: var(--admin-sidebar-width, var(--sidebar-width, 260px));">
   <div class="sidebar-header flex items-center gap-2" style="padding: var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))) var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
     <a href="{{ adminURL("") }}" class="sidebar-brand-link flex items-center no-underline flex-1 min-w-0 overflow-hidden">
       <span class="sidebar-brand sidebar-brand-expanded">
@@ -20,8 +35,13 @@
         {% endif %}
       </span>
     </a>
-    <button id="sidebar-toggle" class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0" aria-label="Toggle sidebar">
-      <i class="iconoir-menu text-lg text-sidebar-text-muted"></i>
+    <button id="sidebar-toggle"
+            type="button"
+            class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0"
+            aria-label="Collapse sidebar"
+            aria-controls="sidebar-navigation"
+            aria-expanded="true">
+      {{ renderThemeMenuIcon("collapse", theme.assets)|safe }}
     </button>
   </div>
 
@@ -35,7 +55,7 @@
     </div>
   </div>
 
-  <nav class="flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
+  <nav id="sidebar-navigation" class="flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
     {% for item in nav_items %}
       {% if item.type == "separator" %}
         <div style="height: var(--admin-sidebar-section-gap, var(--sidebar-gap-sections, var(--space-stack, 24px)));"></div>
@@ -52,7 +72,7 @@
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
                   <button class="nav-item w-full text-left" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                     {% if child.icon %}
-                      {{ renderMenuIcon(child.icon)|safe }}
+                      {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                     {% endif %}
                     <span class="nav-text flex-1 text-left">{{ child.label }}</span>
                     <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not child.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
@@ -66,7 +86,7 @@
                                 aria-disabled="true"
                                 title="{{ grandchild.disabled_reason|default:'Unavailable' }}">
                           {% if grandchild.icon %}
-                            {{ renderMenuIcon(grandchild.icon)|safe }}
+                            {{ renderThemeMenuIcon(grandchild.icon, theme.assets)|safe }}
                           {% endif %}
                           <span class="nav-text flex-1">{{ grandchild.label }}</span>
                           {% if grandchild.disabled_reason_code %}
@@ -76,7 +96,7 @@
                       {% else %}
                         <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                           {% if grandchild.icon %}
-                            {{ renderMenuIcon(grandchild.icon)|safe }}
+                            {{ renderThemeMenuIcon(grandchild.icon, theme.assets)|safe }}
                           {% endif %}
                           <span class="nav-text flex-1">{{ grandchild.label }}</span>
                         </a>
@@ -92,7 +112,7 @@
                           aria-disabled="true"
                           title="{{ child.disabled_reason|default:'Unavailable' }}">
                     {% if child.icon %}
-                      {{ renderMenuIcon(child.icon)|safe }}
+                      {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                     {% endif %}
                     <span class="nav-text flex-1">{{ child.label }}</span>
                     {% if child.disabled_reason_code %}
@@ -102,7 +122,7 @@
                 {% else %}
                   <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                     {% if child.icon %}
-                      {{ renderMenuIcon(child.icon)|safe }}
+                      {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                     {% endif %}
                     <span class="nav-text flex-1">{{ child.label }}</span>
                   </a>
@@ -115,7 +135,7 @@
         <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
           <button class="nav-item w-full text-left" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
             {% if item.icon %}
-              {{ renderMenuIcon(item.icon)|safe }}
+              {{ renderThemeMenuIcon(item.icon, theme.assets)|safe }}
             {% endif %}
             <span class="nav-text flex-1 text-left">{{ item.label }}</span>
             <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not item.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
@@ -129,7 +149,7 @@
                         aria-disabled="true"
                         title="{{ child.disabled_reason|default:'Unavailable' }}">
                   {% if child.icon %}
-                    {{ renderMenuIcon(child.icon)|safe }}
+                    {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                   {% endif %}
                   <span class="nav-text flex-1">{{ child.label }}</span>
                   {% if child.disabled_reason_code %}
@@ -139,7 +159,7 @@
               {% else %}
                 <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                   {% if child.icon %}
-                    {{ renderMenuIcon(child.icon)|safe }}
+                    {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                   {% endif %}
                   <span class="nav-text flex-1">{{ child.label }}</span>
                 </a>
@@ -155,7 +175,7 @@
                   aria-disabled="true"
                   title="{{ item.disabled_reason|default:'Unavailable' }}">
             {% if item.icon %}
-              {{ renderMenuIcon(item.icon)|safe }}
+              {{ renderThemeMenuIcon(item.icon, theme.assets)|safe }}
             {% endif %}
             <span class="nav-text flex-1">{{ item.label }}</span>
             {% if item.disabled_reason_code %}
@@ -165,7 +185,7 @@
         {% else %}
           <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
             {% if item.icon %}
-              {{ renderMenuIcon(item.icon)|safe }}
+              {{ renderThemeMenuIcon(item.icon, theme.assets)|safe }}
             {% endif %}
             <span class="nav-text flex-1">{{ item.label }}</span>
           </a>
@@ -192,7 +212,7 @@
                       aria-disabled="true"
                       title="{{ child.disabled_reason|default:'Unavailable' }}">
                 {% if child.icon %}
-                  {{ renderMenuIcon(child.icon)|safe }}
+                  {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                 {% endif %}
                 <span class="nav-text flex-1">{{ child.label }}</span>
                 {% if child.disabled_reason_code %}
@@ -202,7 +222,7 @@
             {% else %}
               <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                 {% if child.icon %}
-                  {{ renderMenuIcon(child.icon)|safe }}
+                  {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                 {% endif %}
                 <span class="nav-text flex-1">{{ child.label }}</span>
               </a>
@@ -216,7 +236,7 @@
                     aria-disabled="true"
                     title="{{ item.disabled_reason|default:'Unavailable' }}">
               {% if item.icon %}
-                {{ renderMenuIcon(item.icon)|safe }}
+                {{ renderThemeMenuIcon(item.icon, theme.assets)|safe }}
               {% endif %}
               <span class="nav-text flex-1">{{ item.label }}</span>
               {% if item.disabled_reason_code %}
@@ -226,7 +246,7 @@
           {% else %}
             <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
               {% if item.icon %}
-                {{ renderMenuIcon(item.icon)|safe }}
+                {{ renderThemeMenuIcon(item.icon, theme.assets)|safe }}
               {% endif %}
               <span class="nav-text flex-1">{{ item.label }}</span>
             </a>

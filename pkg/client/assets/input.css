@@ -185,25 +185,22 @@
     border-color: var(--color-border-default, #e5e7eb);
   }
 
-  .admin-theme-root input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
-  .admin-theme-root select,
-  .admin-theme-root textarea {
+  .admin-theme-root :where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]),
+    select,
+    textarea
+  ) {
     background-color: var(--form-control-background, var(--color-surface-default, #ffffff));
     border-color: var(--form-control-border, var(--color-border-default, #d1d5db));
     border-radius: var(--form-control-radius, var(--radius-control, 0.5rem));
     color: var(--form-control-text, var(--color-text-primary, #111827));
   }
 
-  .admin-theme-root input::placeholder,
-  .admin-theme-root textarea::placeholder {
+  .admin-theme-root :where(input, textarea)::placeholder {
     color: var(--form-control-placeholder, var(--color-text-secondary, #9ca3af));
   }
 
-  .admin-theme-root input:disabled,
-  .admin-theme-root select:disabled,
-  .admin-theme-root textarea:disabled,
-  .admin-theme-root input[readonly],
-  .admin-theme-root textarea[readonly] {
+  .admin-theme-root :where(input:disabled, select:disabled, textarea:disabled, input[readonly], textarea[readonly]) {
     background-color: var(--form-control-disabled-background, var(--color-surface-subtle, #f3f4f6));
     color: var(--form-control-disabled-text, var(--color-text-secondary, #6b7280));
   }
@@ -267,7 +264,7 @@
     border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
   }
 
-  .admin-datagrid__pagination-text,
+  .admin-datagrid__pagination .admin-datagrid__pagination-text,
   .admin-datagrid__pagination .admin-datagrid__page-button,
   .admin-datagrid__actions-empty {
     color: var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280));

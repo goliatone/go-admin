@@ -16,12 +16,33 @@
 .widget {
   grid-column: span 12;
   grid-column: span var(--span, 12);
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
+  background: var(--dashboard-card-background, var(--color-surface-raised, white));
+  border: 1px solid var(--dashboard-card-border, var(--color-border-default, #e5e7eb));
+  border-radius: var(--dashboard-card-radius, var(--radius-surface, 0.75rem));
+  box-shadow: var(--dashboard-card-shadow, var(--shadow-surface, none));
+  color: var(--dashboard-metric-value, var(--color-text-primary, inherit));
   padding: 1.5rem;
-  transition: box-shadow 200ms ease, opacity 200ms ease, transform 200ms ease, border-color 200ms ease, background-color 200ms ease;
+  transition:
+    box-shadow var(--motion-duration-normal, 200ms) var(--motion-easing-standard, ease),
+    opacity var(--motion-duration-normal, 200ms) var(--motion-easing-standard, ease),
+    transform var(--motion-duration-normal, 200ms) var(--motion-easing-standard, ease),
+    border-color var(--motion-duration-normal, 200ms) var(--motion-easing-standard, ease),
+    background-color var(--motion-duration-normal, 200ms) var(--motion-easing-standard, ease);
   position: relative;
+}
+
+.widget[data-dashboard-state="empty"] {
+  color: var(--dashboard-metric-label, var(--color-text-secondary, inherit));
+}
+
+.widget[data-dashboard-state="error"] {
+  border-color: var(--dashboard-metric-trend-negative, var(--color-status-danger, currentColor));
+  color: var(--dashboard-metric-trend-negative, var(--color-status-danger, inherit));
+}
+
+.widget:focus-within {
+  outline: 2px solid var(--color-focus-ring, currentColor);
+  outline-offset: 2px;
 }
 
 /* Widget Header with Drag Handle */
