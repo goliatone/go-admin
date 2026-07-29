@@ -351,16 +351,20 @@ func mergeDebugClaimsMetadata(metadata map[string]any, claims auth.AuthClaims) {
 }
 
 func debugApplySessionIdentity(session map[string]any, metadata map[string]any, c router.Context) {
+	email := strings.TrimSpace(toString(metadata["email"]))
 	displayName := primitives.FirstNonEmptyRaw(
 		debugSessionUsernameFromRequest(c),
 		strings.TrimSpace(toString(metadata["display_name"])),
 		strings.TrimSpace(toString(metadata["name"])),
 		strings.TrimSpace(toString(metadata["username"])),
-		strings.TrimSpace(toString(metadata["email"])),
+		email,
 		strings.TrimSpace(toString(session["id"])),
 		"Guest",
 	)
 	session["display_name"] = displayName
+	if email != "" {
+		session["email"] = email
+	}
 	if initial := debugDisplayInitial(displayName); initial != "" && !strings.EqualFold(displayName, "Guest") {
 		session["initial"] = initial
 	}

@@ -44,10 +44,9 @@ type Config struct {
 	// when the approved navigation design has no search affordance.
 	SidebarHideSearch bool `json:"sidebar_hide_search,omitempty"`
 
-	// ExternalAssets overrides the third-party stylesheets and scripts the
-	// admin document loads. Empty fields keep the published CDN default, so
-	// existing deployments are unaffected. Point these at self-hosted copies
-	// to remove the runtime dependency on a public CDN.
+	// ExternalAssets overrides the packaged third-party stylesheets and scripts
+	// the admin document loads. Empty fields use the pinned copies embedded in
+	// go-admin, so the default shell has no public-CDN dependency.
 	ExternalAssets ExternalAssetConfig `json:"external_assets,omitempty"`
 
 	SettingsPermission            string            `json:"settings_permission"`
@@ -196,8 +195,7 @@ type AuthConfig struct {
 }
 
 // ExternalAssetConfig points the admin document at specific copies of the
-// third-party assets it renders with. Every field defaults to the published
-// CDN URL when left empty.
+// third-party assets it renders with. Empty fields select the packaged default.
 type ExternalAssetConfig struct {
 	// IconoirCSS supplies the Iconoir icon stylesheet used by menu and control
 	// glyphs that no theme asset role covers.
@@ -208,29 +206,21 @@ type ExternalAssetConfig struct {
 	EChartsJS string `json:"echarts_js,omitempty"`
 }
 
-// Default third-party asset URLs. These are the historical hardcoded values
-// and remain the behavior when a deployment does not override them.
+// Default third-party asset paths are relative to the configured admin asset
+// base and are rendered through asset_base_path in the shared templates.
 const (
-	DefaultIconoirCSSURL    = "https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css"
-	DefaultDataTablesCSSURL = "https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.min.css"
-	DefaultEChartsJSURL     = "https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"
+	DefaultIconoirCSSAssetPath    = "assets/dist/vendor/iconoir/iconoir.css"
+	DefaultDataTablesCSSAssetPath = "assets/dist/vendor/simple-datatables/style.css"
+	DefaultEChartsJSAssetPath     = "assets/dist/vendor/echarts/echarts.min.js"
 )
 
-// Resolve returns the configured URLs with published defaults filled in.
+// Resolve returns normalized explicit overrides. Empty fields intentionally
+// remain empty so templates can resolve the packaged defaults against the
+// request's base-path-aware asset_base_path.
 func (c ExternalAssetConfig) Resolve() ExternalAssetConfig {
-	resolved := ExternalAssetConfig{
+	return ExternalAssetConfig{
 		IconoirCSS:    strings.TrimSpace(c.IconoirCSS),
 		DataTablesCSS: strings.TrimSpace(c.DataTablesCSS),
 		EChartsJS:     strings.TrimSpace(c.EChartsJS),
 	}
-	if resolved.IconoirCSS == "" {
-		resolved.IconoirCSS = DefaultIconoirCSSURL
-	}
-	if resolved.DataTablesCSS == "" {
-		resolved.DataTablesCSS = DefaultDataTablesCSSURL
-	}
-	if resolved.EChartsJS == "" {
-		resolved.EChartsJS = DefaultEChartsJSURL
-	}
-	return resolved
 }

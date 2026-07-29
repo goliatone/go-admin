@@ -276,8 +276,8 @@
           <div class="text-sm font-medium text-sidebar-text truncate">
             {{ session_user.display_name|default:"Guest" }}
           </div>
-          <div class="text-xs text-sidebar-text-muted truncate">
-            Online
+          <div class="sidebar-user-detail text-xs text-sidebar-text-muted truncate">
+            {% if session_user.email %}{{ session_user.email }}{% else %}Online{% endif %}
           </div>
         </div>
         <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
@@ -299,8 +299,8 @@
             <div class="text-base font-semibold text-sidebar-text truncate">
               {{ session_user.display_name|default:"Guest" }}
             </div>
-            <div class="text-sm text-sidebar-text-muted truncate">
-              Online
+            <div class="sidebar-user-detail text-sm text-sidebar-text-muted truncate">
+              {% if session_user.email %}{{ session_user.email }}{% else %}Online{% endif %}
             </div>
           </div>
         </div>
