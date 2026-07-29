@@ -9,6 +9,7 @@ Use it when adding create/edit forms, dynamic CMS content forms, custom go-formg
 - Responsibility boundaries between `go-crud`, `go-admin`, and `go-formgen`.
 - Panel form schema rules for `FormFields(...)` and `FormSchema(...)`.
 - Quickstart renderer wiring and form HTML generation flow.
+- Request-scoped go-admin theme projection and go-formgen semantic rendering.
 - UI schema overlay and custom component registration guidance.
 - Template customization rules for resource forms and formgen components.
 - Submission parsing, validation, and security expectations.
@@ -20,6 +21,7 @@ Use it when adding create/edit forms, dynamic CMS content forms, custom go-formg
 - [Core Model](#core-model)
 - [Panel Form Schema](#panel-form-schema)
 - [go-formgen Rendering Pipeline](#go-formgen-rendering-pipeline)
+- [Theme Integration And Semantic States](#theme-integration-and-semantic-states)
 - [UI Schema Overlays](#ui-schema-overlays)
 - [Component Registration](#component-registration)
 - [Template Customization](#template-customization)
@@ -121,6 +123,140 @@ formgen, err := quickstart.NewFormGenerator(
 ```
 
 `NewFormGenerator(...)` wires the go-formgen loader, parser, model builder, vanilla renderer, template fallback filesystem, and optional `uischema` subdirectory.
+
+## Theme Integration And Semantic States
+
+There are two supported integration paths.
+
+Inside go-admin, resolve the current request once and pass its typed projection:
+
+``` go
+renderOptions := render.RenderOptions{
+    Theme: adm.FormTheme(ctx),
+}
+```
+
+`Admin.FormTheme` returns a defensive `*render.ThemeConfig`; callers may
+customize it for one render without mutating admin state. Quickstart
+content-entry routes already assign this value to `RenderOptions.Theme`.
+`PanelFormAdapter.Build` exposes it as `PanelFormRequest.RenderTheme` for
+in-process renderers, while the serializable map remains in
+`PanelFormRequest.Theme` and `schema.theme`.
+
+For a standalone go-formgen renderer, opt in through the renderer-facing
+defaults package:
+
+``` go
+forms := defaults.New(
+    defaults.WithTheme(selector, map[string]string{
+        "forms.form":  "templates/form.tmpl",
+        "forms.input": "templates/components/input.tmpl",
+    }),
+)
+```
+
+The available helpers are:
+
+| API | Use |
+|---|---|
+| `defaults.WithThemeSelector(selector)` | Resolve request theme and variant with an existing go-theme selector. |
+| `defaults.WithThemeProvider(provider, defaultTheme, defaultVariant)` | Build a selector from a structural go-theme provider and defaults. |
+| `defaults.WithThemeFallbacks(partials)` | Resolve manifest partial keys against caller fallbacks. |
+| `defaults.WithTheme(selector, partials)` | Configure selector and fallbacks together. |
+| `defaults.DefaultThemeFallbacks()` | Copy the built-in vanilla form/component partial map. |
+| `defaults.FormSemanticProfile()` | Copy the portable profile extended with form tokens. |
+
+The lower-level `pkg/orchestrator` remains headless and renderer-neutral. Use
+`pkg/orchestrator/defaults` only when renderer and go-theme dependencies are
+intended. An explicit `RenderOptions.Theme` wins over a defaults resolver, so
+request code can override the configured selector safely.
+
+### Typed theme configuration
+
+`render.ThemeConfig` carries:
+
+| Field | Meaning |
+|---|---|
+| `Theme`, `Variant` | Resolved selection identity. |
+| `Partials` | Variant/base/fallback-resolved form template paths. |
+| `Tokens` | Raw merged token map for compatible custom templates. |
+| `CSSVars` | Safe projected variables, or legacy variables for a manually constructed config. |
+| `SafeCSSVarsInline` | Validated deterministic declarations; preferred by `ThemeCSSVariablesStyle`. |
+| `SemanticTokens` | Valid canonical tokens supported by the active semantic profile. |
+| `Diagnostics` | Projection, support, and consumer lifecycle records. |
+| `AssetURL` | Named asset resolver; this function is intentionally not serializable. |
+
+`render.ThemeCSSVariablesStyle(cfg)` prefers `SafeCSSVarsInline`. It only uses
+the sorted legacy `CSSVars` map when no safe inline projection is supplied.
+Do not generate an inline style directly from `Tokens`.
+
+### Form token fallback contract
+
+`render.FormSemanticTokenSpecs()` returns a defensive registry. Each form
+component token falls back to a portable token:
+
+| Form token | Portable fallback |
+|---|---|
+| `form.control.background` | `color.surface.default` |
+| `form.control.text` | `color.text.primary` |
+| `form.control.border` | `color.border.default` |
+| `form.control.border-focus` | `color.focus.ring` |
+| `form.control.placeholder` | `color.text.secondary` |
+| `form.control.disabled-background` | `color.surface.subtle` |
+| `form.control.disabled-text` | `color.text.secondary` |
+| `form.control.invalid-border` | `color.status.danger` |
+| `form.control.height` | `size.control.height` |
+| `form.control.radius` | `radius.control` |
+| `form.label.text` | `color.text.primary` |
+| `form.help.text` | `color.text.secondary` |
+| `form.error.text` | `color.status.danger` |
+
+Renderer-independent typography, spacing, motion, action, surface, and focus
+values use the portable `font.*`, `space.*`, `motion.*`, `color.*`,
+`radius.*`, and `size.*` namespaces directly.
+
+Custom renderers can consume the same contract:
+
+``` go
+value, resolution, ok := cfg.SemanticCSSValue("form.control.border")
+if ok {
+    // value is a safe var(...) expression.
+    // resolution.Token records the component or portable token that won.
+}
+
+diagnostics := render.ThemeDiagnosticsForConsumer(
+    cfg,
+    "myapp/custom-form",
+    []string{resolution.Token},
+)
+```
+
+`ThemeConfig.ResolveSemanticToken` returns the validated winning value;
+`SemanticCSSValue` returns the corresponding custom-property expression.
+`ThemeDiagnosticsForConsumer` preserves incoming diagnostics and appends
+deterministic `consumed`/`unused` records.
+
+### Renderer behavior
+
+Vanilla and Preact semantic styling is additive. It activates only when
+`SemanticTokens` is non-empty and marks the renderer root with
+`data-formgen-semantic="true"`.
+
+The built-in rules cover:
+
+- form surface, control, label, help, error, action, and typography;
+- focus border/ring, placeholder, invalid, disabled, readonly, and loading;
+- control spacing, height, radius, motion, and narrow-screen grid gaps.
+
+Stable state hooks include `aria-invalid`, `:disabled`, `[readonly]` or
+`[aria-readonly="true"]`, `aria-busy`, `data-formgen-loading`, and
+`data-state="loading"`. Preserve these hooks in custom templates and
+components. Missing semantic tokens leave the current renderer classes and
+stylesheet behavior untouched; no default literal is injected by
+`SemanticCSSValue`.
+
+For selection, manifest, profile validation, token diagnostics, asset, and
+admin/public-site precedence, see `GUIDE_THEME.md`.
 
 ## UI Schema Overlays
 
@@ -439,12 +575,16 @@ Before considering a form integration done:
 8.  Media fields receive endpoint hints when media is enabled.
 9.  Template overrides preserve `form_html`, CSRF fields, and expected route context.
 10. Nested-array preservation is either content-type-specific or covered by an explicit opt-in update-intent contract.
+11. The request-scoped `RenderOptions.Theme` matches the page theme selection.
+12. Semantic form output preserves focus, invalid, disabled, readonly, loading,
+    label/help/error, and no-theme fallback states.
 
 Useful focused tests:
 
 ``` bash
 go test ./admin -run 'TestPanelSchemaIncludesFormSchema|TestFormgenSchemaValidator|TestRolesPanelFormSchemaUsesPermissionMatrix'
-go test ./quickstart -run 'TestRenderForm|TestContentTypeSchema|TestParseForm'
+go test ./admin -run 'TestFormTheme|TestPanelFormAdapter'
+go test ./quickstart -run 'TestRenderForm|TestContentTypeSchema|TestParseForm|TestContentEntryFormTheme'
 go test ./examples/web -run 'Test.*Form|Test.*Content.*Panel'
 ```
 
@@ -452,6 +592,7 @@ go test ./examples/web -run 'Test.*Form|Test.*Content.*Panel'
 
 - `docs/GUIDE_CRUD.md`: panel CRUD, DataGrid, and action contracts.
 - `docs/GUIDE_VIEW_CUSTOMIZATION.md`: template layering and page-level view customization.
+- `docs/GUIDE_THEME.md`: theme selection, semantic projection, diagnostics, and cross-package ownership.
 - `docs/GUIDE_CMS.md`: dynamic content types, content entry UI routes, and list/detail rendering.
 - `docs/GUIDE_MODULE_MEDIA.md`: media module and media field integration.
 - `docs/GUIDES_PERMISSION_MATRIX.md`: permission matrix component details.

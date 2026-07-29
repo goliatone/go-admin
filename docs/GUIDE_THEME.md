@@ -9,10 +9,12 @@ Use it when wiring a host theme, adding branded assets, debugging theme payloads
 - Admin theme provider and `go-theme` selector wiring.
 - Theme selection resolution order.
 - Safe semantic projection, diagnostics, and template/API payload shape.
+- Coordinated ownership across `go-theme`, `go-formgen`, `go-dashboard`, and
+  `go-admin`.
 - Quickstart selector, manifest, token, and asset conventions.
-- Sidebar brand token and asset rules.
+- Sidebar brand, menu-icon, shell, and external-asset rules.
 - Preferences and request override behavior.
-- Dashboard, CMS, form, and custom view integration points.
+- Typed dashboard, chart, form, CMS, and custom-view integration points.
 - Public-site theme isolation and `site_theme` handoff.
 - Migration and validation checklist.
 
@@ -20,16 +22,21 @@ Use it when wiring a host theme, adding branded assets, debugging theme payloads
 
 - [What It Provides](#what-it-provides)
 - [Core Model](#core-model)
+- [Coordinated Package Contract](#coordinated-package-contract)
 - [Admin Theme Contract](#admin-theme-contract)
 - [go-theme Adapter](#go-theme-adapter)
+- [Semantic Projection And Diagnostics](#semantic-projection-and-diagnostics)
 - [Quickstart Wiring](#quickstart-wiring)
 - [Manual Admin Wiring](#manual-admin-wiring)
 - [Resolution Order](#resolution-order)
 - [Theme Payload](#theme-payload)
 - [Template Injection](#template-injection)
-- [Brand Assets And Sidebar Tokens](#brand-assets-and-sidebar-tokens)
+- [Template And Asset Ownership](#template-and-asset-ownership)
+- [Brand Assets, Menu Icons, And Shell Configuration](#brand-assets-menu-icons-and-shell-configuration)
 - [Preferences And Request Overrides](#preferences-and-request-overrides)
-- [Dashboard, Forms, And CMS](#dashboard-forms-and-cms)
+- [go-formgen Integration](#go-formgen-integration)
+- [go-dashboard And Chart Integration](#go-dashboard-and-chart-integration)
+- [CMS And Custom Views](#cms-and-custom-views)
 - [Public-site Theme Isolation](#public-site-theme-isolation)
 - [Migration Notes](#migration-notes)
 - [Validation Checklist](#validation-checklist)
@@ -43,6 +50,22 @@ Theme resolution has three layers:
 3.  Runtime overrides: preferences, request/context selectors, and final config-level token or asset overrides.
 
 Admin templates consume a normalized `theme` payload. Public-site templates consume a separate `site_theme` payload. Do not assume one provider controls both surfaces.
+
+## Coordinated Package Contract
+
+The theme stack is additive and package-owned:
+
+| Package | Owns | Main APIs |
+|---|---|---|
+| `go-theme` | Manifest loading, registry/selection, variant merging, safe CSS projection, the portable semantic profile, and renderer-neutral diagnostics. | `Selection.Snapshot`, `Selection.RendererTheme`, `PortableSemanticProfile`, `ProjectCSSVariables`, `ValidateTokenProfile` |
+| `go-admin` | Request-scoped selection, preferences/request/config precedence, the admin semantic profile, shell/DataGrid consumers, view payloads, and adapters to renderer packages. | `WithAdminTheme`, `WithThemeManifest`, `Admin.Theme`, `Admin.ThemePayload`, `Admin.FormTheme`, `AdminSemanticProfile` |
+| `go-formgen` | Form-specific tokens, typed renderer configuration, semantic form markup/styles, field state consumption, and form consumer diagnostics. | `render.ThemeConfig`, `defaults.FormSemanticProfile`, `render.FormSemanticTokenSpecs`, `ThemeDiagnosticsForConsumer` |
+| `go-dashboard` | A structural theme provider boundary, dashboard-specific tokens, render-aware dashboard styles, widget states, and typed ECharts presentation. | `ThemeSelection.SemanticProjection`, `SemanticDashboardPlan`, `SemanticChartPalette` |
+| Host | Brand values/assets, the manifest, supported variants, final URL overrides, optional template filesystems, and public-site theme policy. | quickstart/config options described below |
+
+One resolved admin selection is adapted at package boundaries. Do not make
+forms or dashboards resolve a second independent selector when they are
+rendered inside go-admin. Do not hide a reusable package gap in broad host CSS.
 
 ## Admin Theme Contract
 
@@ -93,6 +116,52 @@ The adapter maps the selected `go-theme` snapshot into:
 
 The adapter is admin-scoped. Public site theme packages must be wired through `quickstart/site`, not through `adm.WithAdminTheme(...)`.
 
+## Semantic Projection And Diagnostics
+
+`go-theme` v0.5 adds an opt-in safe projection boundary:
+
+``` go
+profile := theme.PortableSemanticProfile()
+projection := theme.ProjectCSSVariables(tokens, theme.ProjectionOptions{
+    Profile: &profile,
+})
+```
+
+`CSSProjection` contains:
+
+- `Variables`: safe normalized custom properties such as
+  `--color-surface-default`.
+- `Inline`: deterministic declarations ordered by input token name.
+- `Diagnostics`: `resolved`/`invalid` plus
+  `supported`/`unsupported` outcomes.
+
+`ProjectCSSVariables` validates token names, output names, prefixes, collisions,
+and typed values. Constraints cover CSS values, colors, lengths, numbers,
+durations, easing, font families/weights, shadows, identifiers, and alignment.
+Unknown but safe tokens remain available for legacy consumers and are reported
+as unsupported when a profile is supplied. Invalid values are omitted.
+Canonical keys win over aliases; projection never chooses a collision winner
+from map iteration order.
+
+`admin.AdminSemanticProfile()` defensively extends the portable profile with
+admin shell/sidebar, DataGrid, form, and dashboard namespaces. The normalized
+`ThemeSelection` exposes:
+
+- `SemanticTokens`: supported, valid canonical values.
+- `RootCSSVarsInline`: the safe admin root declarations.
+- `Diagnostics`: projection/support results plus `consumed`/`unused` results
+  for `go-admin/client`.
+
+Package consumers append their own diagnostics at the boundary. A token can be
+valid and supported but still unused because the current page has no matching
+surface or a more specific component token won the fallback chain.
+
+Use `ValidateTokenProfile(tokens, profile)` when only support classification is
+needed. Keep `Manifest.CSSVariables` and `Selection.CSSVariables` for legacy
+map transport; do not place those arbitrary values directly in an inline
+style. The shared admin layouts emit only the validated
+`theme.styles.root`.
+
 ## Quickstart Wiring
 
 Most hosts should use the quickstart selector helper:
@@ -129,6 +198,26 @@ if err != nil {
   variants and the Preferences UI can list only supported variants.
 
 Use `quickstart.WithThemeAssets(...)` for manifest-relative asset filenames. Use `quickstart.WithThemeAssetURLs(...)` or `admin.Config.ThemeAssets` for final resolved host URLs.
+
+The two quickstart option families have different owners:
+
+| API | Layer | Behavior |
+|---|---|---|
+| `WithTheme(name, variant)` | `AdminConfigOption` | Sets default selector values. |
+| `WithThemeTokens(tokens)` | `AdminConfigOption` | Merges config tokens and final token overrides. |
+| `WithThemeAssetURLs(assets)` | `AdminConfigOption` | Adds final resolved URL/path overrides after provider resolution. |
+| `WithThemeAssetPrefix(prefix)` | `AdminConfigOption` | Adds the final config-level asset prefix. |
+| `WithThemeRegistry(registry)` | `ThemeOption` | Reuses a registry for `NewThemeSelector`. |
+| `WithThemeManifest(manifest)` | `ThemeOption` | Replaces the generated manifest. |
+| `WithThemeAssets(prefix, files)` | `ThemeOption` | Supplies manifest-relative asset files and prefix. |
+| `WithThemeVariants(variants)` | `ThemeOption` | Supplies named manifest variants when the manifest does not already define them. |
+| `WithThemeSelector(selector, manifest)` | `AdminOption` | Attaches runtime selection and manifest authority to `NewAdmin`. |
+
+An existing registered or explicitly supplied manifest is preserved.
+`WithThemeAssets` and `WithThemeVariants` only fill missing manifest fields;
+they do not overwrite populated fields. The generated compatibility manifest
+contains a `light` label and `dark` variant. For a base-only theme, provide a
+manifest with no variants and resolve `Variant == ""`.
 
 ## Manual Admin Wiring
 
@@ -242,7 +331,40 @@ viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
 
 For custom module views that do not need query overrides, use `admin.EnrichLayoutViewContext(...)`.
 
-## Brand Assets And Sidebar Tokens
+## Template And Asset Ownership
+
+Manifest templates are logical renderer metadata. Resolution is:
+
+``` text
+selected variant template -> base template -> caller fallback
+```
+
+They affect only consumers that read the key. For example, go-formgen reads
+`render.ThemeConfig.Partials`, and go-dashboard receives
+`ThemeSelection.Templates`. A manifest entry does not add a file to go-admin's
+view engine and cannot override `partials/sidebar.html` by itself.
+
+Admin page/template overrides use the first-wins view filesystem stack:
+
+``` text
+explicit/host templates -> packaged client templates -> quickstart fallbacks
+```
+
+Static files use a separate first-wins filesystem stack under the admin asset
+route. `quickstart.NewStaticAssets` also mounts go-formgen runtime and renderer
+assets plus go-dashboard ECharts and shell assets at their package-owned
+prefixes. A manifest filename is usable only if its prefix points at a route
+that actually serves the file.
+
+Keep these mechanisms separate:
+
+- Use manifest `templates` for renderer partial selection.
+- Use `WithViewTemplatesFS` for concrete go-admin page/partial overrides.
+- Use `WithThemeAssets` for manifest-relative files.
+- Use `ThemeAssets` / `WithThemeAssetURLs` for already resolved host URLs.
+- Use `NewStaticAssets` and its prefix options to mount package assets.
+
+## Brand Assets, Menu Icons, And Shell Configuration
 
 Admin branding uses reserved theme asset keys:
 
@@ -254,14 +376,44 @@ The sidebar prefers `logo` for expanded mode and `icon` for compact mode, with
 fallbacks to the bundled admin logo. Admin and auth layouts render the resolved
 `favicon` as a browser icon when present.
 
-The default quickstart manifest includes sidebar sizing/alignment tokens:
+Theme-owned navigation icons are opt-in. A menu icon reference can use
+`asset:<role>` or `theme:<role>`, which resolves `icon-<role>`, or retain its
+normal Iconoir/library name and resolve the conventional
+`icon-<normalized-name>` asset. The template helper
+`renderThemeMenuIcon(icon, theme.assets)` accepts only relative paths and
+`http`/`https` URLs, emits decorative image semantics, and falls back to
+`renderMenuIcon`. Preserve that helper when overriding the shared sidebar.
 
-- `sidebar-brand-max-height`
-- `sidebar-brand-max-width`
-- `sidebar-brand-collapsed-size`
-- `sidebar-brand-align`
+The default quickstart manifest includes legacy aliases for these canonical
+sidebar tokens:
+
+| Canonical token | Legacy alias |
+|---|---|
+| `admin.sidebar.width` | `sidebar-width` |
+| `admin.sidebar.padding-inline` | `sidebar-padding-x` |
+| `admin.sidebar.padding-block` | `sidebar-padding-y` |
+| `admin.sidebar.item-height` | `sidebar-item-height` |
+| `admin.sidebar.section-gap` | `sidebar-gap-sections` |
+| `admin.sidebar.icon-size` | `sidebar-icon-size` |
+| `admin.sidebar.footer-height` | `sidebar-footer-height` |
+| `admin.sidebar.brand-max-height` | `sidebar-brand-max-height` |
+| `admin.sidebar.brand-max-width` | `sidebar-brand-max-width` |
+| `admin.sidebar.brand-collapsed-size` | `sidebar-brand-collapsed-size` |
+| `admin.sidebar.brand-align` | `sidebar-brand-align` |
 
 Configure branding through theme assets and these tokens instead of host CSS that forces the sidebar logo dimensions.
+
+Shell-specific configuration is not a token:
+
+- `Config.SidebarHideSearch` removes the sidebar search slot.
+- `Config.ExternalAssets` overrides the Iconoir, simple-datatables, and ECharts
+  document URLs. Empty fields retain the current published defaults.
+
+The shared narrow sidebar is an off-canvas disclosure. Its mobile open state is
+ephemeral and separate from the persisted desktop collapsed state; it maintains
+`aria-expanded`, closes on Escape, restores focus, responds to breakpoint
+changes, and suppresses transitions under reduced motion. Preserve the
+packaged state attributes and controls in sidebar overrides.
 
 ## Preferences And Request Overrides
 
@@ -283,16 +435,103 @@ variants always resolves the base variant and Preferences displays only
 “System Default.” Stale stored or request variants cannot reintroduce a name
 that the manifest does not declare.
 
-## Dashboard, Forms, And CMS
+## go-formgen Integration
 
-The admin theme payload is propagated to the main admin surfaces:
+Use `adm.FormTheme(ctx)` when rendering a form inside go-admin:
 
-- Dashboard APIs and SSR wrappers carry `theme`, including chart metadata and assets.
-- Panel schemas and form adapters include `schema.theme` / `form.theme` and a
-  typed in-process go-formgen theme configuration so renderers can consume the
-  validated semantic contract consistently.
-- Settings and Preferences forms resolve theme with the current request context.
-- CMS/content-entry quickstart pages receive theme through the shared admin view context helpers.
+``` go
+opts := render.RenderOptions{
+    Theme: adm.FormTheme(ctx),
+}
+```
+
+`Admin.FormTheme` returns a defensive `*render.ThemeConfig` containing theme,
+variant, partials, raw tokens, safe CSS variables/inline declarations,
+semantic tokens, diagnostics, and an asset resolver. `PanelFormRequest`
+exposes the same typed value as `RenderTheme` for in-process rendering while
+keeping it out of JSON because `AssetURL` is a function. The wire payload
+remains under `Theme`.
+
+Quickstart content-entry routes pass this typed projection to go-formgen
+automatically. For a standalone formgen orchestrator, opt in through
+`pkg/orchestrator/defaults`:
+
+``` go
+forms := defaults.New(
+    defaults.WithTheme(selector, defaults.DefaultThemeFallbacks()),
+)
+```
+
+Available options are `WithThemeSelector`, `WithThemeProvider`,
+`WithThemeFallbacks`, and `WithTheme`. The lower-level headless orchestrator
+does not import go-theme.
+
+`defaults.FormSemanticProfile()` extends the portable profile with
+`form.*` tokens. `render.FormSemanticTokenSpecs()` returns the defensive
+registry. Custom renderers can use:
+
+- `ThemeConfig.ResolveSemanticToken` for
+  `form component -> portable fallback`.
+- `ThemeConfig.SemanticCSSValue` for a safe CSS variable expression.
+- `render.ThemeCSSVariablesStyle` for safe deterministic root declarations.
+- `render.ThemeDiagnosticsForConsumer` to append render-specific
+  consumed/unused outcomes.
+
+The vanilla and Preact renderers opt into semantic styling only when semantic
+tokens exist, mark the root with `data-formgen-semantic="true"`, and cover
+default, focus, invalid, disabled, readonly, loading, action, label/help/error,
+typography, spacing, and narrow layout states. Missing themes keep existing
+renderer classes and styles unchanged. See `GUIDE_FORMGEN.md` for the complete
+form token table and custom-renderer example.
+
+## go-dashboard And Chart Integration
+
+go-dashboard deliberately keeps a structural `ThemeProvider` interface and
+does not require go-theme. go-admin adapts the request-scoped selection into
+`dashboard.ThemeSelection`, copying tokens, templates, chart theme, assets, and
+prefix. The selection is attached to the typed `dashboard.Page`, each
+`WidgetContext`, and the canonical template payload.
+
+Dashboard consumers resolve:
+
+``` text
+dashboard component token -> portable token -> existing dashboard default
+```
+
+Use:
+
+- `ThemeSelection.SemanticProjection()` for safe variables and projection
+  diagnostics.
+- `ThemeSelection.SemanticDashboardPlan(usage)` for page-aware styles and
+  consumed/unused diagnostics.
+- `DashboardConsumerDiagnostics()` only when there is no concrete page
+  inventory; it conservatively avoids claiming consumption.
+- `ThemeSelection.SemanticChartPalette()` for the typed eight-series ECharts
+  palette plus axis, grid, tooltip, and diagnostics.
+
+The stock page adapter derives `DashboardSemanticUsage` from the typed page,
+including shell, header, areas, widgets, empty state, and error state. Semantic
+chrome activates only when a valid relevant token is present; chart-only,
+unrelated, and legacy token maps do not restyle dashboard chrome.
+
+Named/custom `ChartTheme` remains active. Per-widget chart configuration and
+explicit chart theme resolvers win. Semantic series colors and presentation
+are layered onto typed chart options; Cartesian charts consume axis/grid
+tokens, while pie/gauge charts report them unused. Cache identity includes the
+resolved named theme and applied semantic palette.
+
+See `GUIDE_DASHBOARD_WIDGETS.md` for dashboard token names, widget state hooks,
+payload fields, custom renderer APIs, and asset mounting.
+
+## CMS And Custom Views
+
+- Panel schemas and form adapters include `schema.theme` / `form.theme` plus
+  the typed in-process form configuration.
+- Settings and Preferences forms resolve the current request-scoped theme.
+- CMS/content-entry pages receive the same selection through the shared admin
+  view context and typed form projection.
+- Dashboard APIs and SSR pages carry the same resolved theme, including chart
+  metadata, templates, assets, and asset prefix.
 
 When writing custom renderers, consume the existing `theme` payload instead of calling the provider again from templates or client code.
 
@@ -328,6 +567,17 @@ Older shared theme wiring should be migrated directly:
 3.  Keep site theme bundle mounting under the public-site/static surface.
 4.  Re-run admin/site isolation QA after migration.
 
+For token migration:
+
+1. Move renderer-independent values to canonical portable dotted keys.
+2. Use `admin.*`, `form.*`, `datagrid.*`, or `dashboard.*` only for a
+   package-specific override.
+3. Keep aliases only for a compatibility window; canonical keys win.
+4. Replace arbitrary inline emission with semantic projection and
+   `theme.styles.root`.
+5. Check consumed/unused diagnostics before deleting an alias or host CSS
+   fallback.
+
 There is no compatibility bridge for `WithGoTheme(...)`.
 
 Custom `ThemeProvider` implementations that intentionally resolve the empty
@@ -348,6 +598,14 @@ override the current selection.
 - [ ] Invalid or unsupported tokens do not appear in `theme.styles.root`.
 - [ ] Shell, form, dashboard, and DataGrid component tokens fall back to
       portable tokens and then to existing defaults.
+- [ ] Form renderers receive `adm.FormTheme(ctx)` or an explicit formgen
+      defaults theme option and emit semantic state hooks only when themed.
+- [ ] Dashboard pages use the typed page/selection boundary; chart cache keys
+      include the resolved named theme and applied semantic palette.
+- [ ] Manifest partial metadata is not mistaken for a go-admin view filesystem
+      override, and manifest asset paths are backed by a mounted static route.
+- [ ] Sidebar overrides preserve theme menu-icon fallback, mobile disclosure,
+      focus, ARIA, breakpoint, desktop persistence, and reduced-motion hooks.
 - [ ] Public-site routes render `site_theme`, not admin `theme`.
 - [ ] `/admin/*` routes do not consume public-site theme bundles or partials.
 
