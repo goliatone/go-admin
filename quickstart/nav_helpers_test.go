@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	uiplacement "github.com/goliatone/go-admin/ui/placement"
+	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/command"
 )
@@ -79,7 +80,13 @@ func TestBuildNavItemsOrdering(t *testing.T) {
 }
 
 func TestWithNavInjectsThemeAndSession(t *testing.T) {
-	cfg := admin.Config{DefaultLocale: "en"}
+	cfg := admin.Config{
+		DefaultLocale:     "en",
+		SidebarHideSearch: true,
+		ExternalAssets: admin.ExternalAssetConfig{
+			IconoirCSS: "https://assets.example/iconoir.css",
+		},
+	}
 	adm, err := admin.New(cfg, admin.Dependencies{})
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)
@@ -102,6 +109,13 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	if view["asset_base_path"] == nil {
 		t.Fatalf("expected asset_base_path in view context")
 	}
+	if hide, ok := view["sidebar_hide_search"].(bool); !ok || !hide {
+		t.Fatalf("expected sidebar_hide_search=true, got %#v", view["sidebar_hide_search"])
+	}
+	externalAssets, ok := view["external_assets"].(map[string]string)
+	if !ok || externalAssets["iconoir_css"] != "https://assets.example/iconoir.css" {
+		t.Fatalf("expected normalized external assets in view context, got %#v", view["external_assets"])
+	}
 	if view["translation_capabilities"] == nil {
 		t.Fatalf("expected translation_capabilities in view context")
 	}
@@ -116,6 +130,31 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	}
 	if enabled, ok := view["users_import_enabled"].(bool); !ok || enabled {
 		t.Fatalf("expected users_import_enabled=false by default, got %v", view["users_import_enabled"])
+	}
+}
+
+func TestWithNavPreservesExplicitShellOverrides(t *testing.T) {
+	cfg := admin.Config{
+		SidebarHideSearch: true,
+		ExternalAssets: admin.ExternalAssetConfig{
+			IconoirCSS: "https://configured.example/iconoir.css",
+		},
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	explicitAssets := map[string]string{"iconoir_css": "/host/iconoir.css"}
+	view := WithNav(router.ViewContext{
+		"sidebar_hide_search": false,
+		"external_assets":     explicitAssets,
+	}, adm, cfg, "", context.Background())
+
+	if hide, ok := view["sidebar_hide_search"].(bool); !ok || hide {
+		t.Fatalf("expected explicit sidebar_hide_search=false to be preserved, got %#v", view["sidebar_hide_search"])
+	}
+	if assets, ok := view["external_assets"].(map[string]string); !ok || assets["iconoir_css"] != "/host/iconoir.css" {
+		t.Fatalf("expected explicit external_assets to be preserved, got %#v", view["external_assets"])
 	}
 }
 

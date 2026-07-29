@@ -127,21 +127,29 @@ func TestSidebarTemplateCopiesExposeBrandVariants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read quickstart sidebar template: %v", err)
 	}
-	for _, template := range [][]byte{shared, embedded} {
+	for name, template := range map[string][]byte{
+		"shared":     shared,
+		"quickstart": embedded,
+	} {
 		if !containsAll(
 			string(template),
 			`sidebar-brand-expanded`,
 			`sidebar-brand-collapsed`,
 			`sidebar-logo-compact`,
-			`assets/sidebar.css`,
 			`id="sidebar-mobile-toggle"`,
 			`id="sidebar-backdrop"`,
 			`data-mobile-open="false"`,
 			`renderThemeMenuIcon("collapse", theme.assets)`,
 			`renderThemeMenuIcon(item.icon, theme.assets)`,
 		) {
-			t.Fatalf("expected sidebar template to expose expanded and compact brand variants, got %q", string(template))
+			t.Fatalf("expected %s sidebar template to expose expanded and compact brand variants, got %q", name, string(template))
 		}
+	}
+	if strings.Contains(string(shared), `assets/sidebar.css`) {
+		t.Fatalf("shared sidebar template must use the compiled client stylesheet, got %q", string(shared))
+	}
+	if !strings.Contains(string(embedded), `assets/sidebar.css`) {
+		t.Fatalf("quickstart fallback sidebar template must load its standalone stylesheet, got %q", string(embedded))
 	}
 }
 
