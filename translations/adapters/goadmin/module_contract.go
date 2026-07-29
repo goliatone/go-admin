@@ -183,13 +183,3 @@ func prefixRoutes(prefix string, routes map[string]string) map[string]string {
 	}
 	return out
 }
-
-func cloneRoutes(routes map[string]string) map[string]string {
-	if len(routes) == 0 {
-		return nil
-	}
-
-	out := make(map[string]string, len(routes))
-	maps.Copy(out, routes)
-	return out
-}
