@@ -584,7 +584,7 @@ Useful focused tests:
 ``` bash
 go test ./admin -run 'TestPanelSchemaIncludesFormSchema|TestFormgenSchemaValidator|TestRolesPanelFormSchemaUsesPermissionMatrix'
 go test ./admin -run 'TestFormTheme|TestPanelFormAdapter'
-go test ./quickstart -run 'TestRenderForm|TestContentTypeSchema|TestParseForm|TestContentEntryFormTheme'
+go test ./quickstart -run 'TestRenderForm|TestContentTypeSchema|TestParseForm'
 go test ./examples/web -run 'Test.*Form|Test.*Content.*Panel'
 ```
 
