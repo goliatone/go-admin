@@ -1,11 +1,30 @@
 # Changelog
 
+# [0.126.7](https://github.com/goliatone/go-admin/compare/v0.126.6...v0.126.7) - (2026-07-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Admin panel auth ([940e1d8](https://github.com/goliatone/go-admin/commit/940e1d8fc03854a8a5657aeb150ad26ea3cc6ef4))  - (goliatone)
+- Feature gate accessors ([b9d8e6e](https://github.com/goliatone/go-admin/commit/b9d8e6eb61fa4ac8556097b2f9b9dcc227d3d296))  - (goliatone)
+- Dashboard provider registration ([cdc2b71](https://github.com/goliatone/go-admin/commit/cdc2b7142838fe044c940fa6364373ffb0ac6d5c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([7bd7fc0](https://github.com/goliatone/go-admin/commit/7bd7fc0d5487f1fb3dca2e722129a07143c0d516))  - (goliatone)
+
 # [0.126.6](https://github.com/goliatone/go-admin/compare/v0.126.5...v0.126.6) - (2026-07-29)
+
+
+New patch release: v0.126.6
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Preferences rendering ([cbf599f](https://github.com/goliatone/go-admin/commit/cbf599fe124f71c2e663166c0b98002d528b1d4c))  - (goliatone)
 - Update assets ([1e5aacd](https://github.com/goliatone/go-admin/commit/1e5aacd0d2f68c1d5e7a3e5625ee53ee682ed8cc))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.6 ([f7973d1](https://github.com/goliatone/go-admin/commit/f7973d10d81aa965a568584f88f2a40cdb199799))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
