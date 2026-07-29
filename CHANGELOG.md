@@ -1,27 +1,29 @@
 # Changelog
 
+# [0.126.0](https://github.com/goliatone/go-admin/compare/v0.125.2...v0.126.0) - (2026-07-29)
+
+## <!-- 16 -->➕ Add
+
+- Form theme suport ([5264f47](https://github.com/goliatone/go-admin/commit/5264f471b3570751b4e0ac45e60400c7dbbcbb63))  - (goliatone)
+- Theme support for dashboard options ([c11bbb9](https://github.com/goliatone/go-admin/commit/c11bbb975eb6eb541f94adcbe4074bb7bfa4df65))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([95f0662](https://github.com/goliatone/go-admin/commit/95f0662c203c97459dc4043ca23b65707aa2e1fb))  - (goliatone)
+- Update tests ([be662e2](https://github.com/goliatone/go-admin/commit/be662e28a1e7e7fa7db87a50865e6bc8f1f6c973))  - (goliatone)
+
 # [0.125.2](https://github.com/goliatone/go-admin/compare/v0.125.1...v0.125.2) - (2026-07-29)
 
 
-## Theme Resolution
-
-- Allow theme providers to resolve an intentionally empty base variant without
-  retaining configuration, preference, or request sentinels.
-- Treat an attached manifest as the variant authority for the matching theme,
-  including dashboard fallback and base-only Preferences options.
-- Preserve the legacy `default` variant for applications without an attached
-  manifest, and explicitly declare quickstart's generated `light` variant.
-
-## Migration Notes
-
-Custom `ThemeProvider` implementations that intentionally return the empty
-base variant should set `ThemeSelection.VariantResolved` to `true`. Existing
-providers that omit the field retain non-empty-only variant merging. Use keyed
-`ThemeSelection` literals when adopting the new field.
+New patch release: v0.125.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Reconcile theme selection ([37bc15e](https://github.com/goliatone/go-admin/commit/37bc15ee9474a86a73369351b3e16bf0b177408e))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.125.2 ([35a0d36](https://github.com/goliatone/go-admin/commit/35a0d363259cc6933d8c0e16003d6550551ff737))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
