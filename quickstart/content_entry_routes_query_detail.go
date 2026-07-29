@@ -57,7 +57,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		urls = h.admin.URLs()
 	}
 	basePath := resolveAdminBasePath(urls, h.cfg.BasePath)
-	preferencesAPI := resolveAdminPreferencesAPICollectionPath(urls, h.cfg, basePath)
+	preferencesAPI := resolveAvailableAdminPreferencesAPICollectionPath(h.admin, h.cfg, basePath)
 	slug := contentTypeSlug(contentType, panelName)
 	actionBase := path.Join(basePath, "content", slug)
 	routes := newContentEntryRoutes(basePath, slug, adminCtx.Channel)
@@ -70,7 +70,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	listAPI := resolveAdminPanelAPICollectionURL(urls, h.cfg, basePath, panelName)
 	bulkCtx := buildContentEntryBulkActionContext(h.admin, panel, panelName, c, urls, h.cfg, basePath)
 	translationUXEnabled := h.translationUX && contentEntryPanelSupportsTranslationUX(panel)
-	stateStoreCfg := h.listStateStoreConfig(panelName)
+	stateStoreCfg := h.listStateStoreConfig(panelName, preferencesAPI != "")
 
 	viewCtx := h.contentEntryListViewContext(contentEntryListViewParams{
 		Panel: panel, PanelName: panelName, ContentType: contentType, AdminCtx: adminCtx,
@@ -207,8 +207,11 @@ func (h *contentEntryHandlers) withContentEntryBlockIcons(columns []map[string]a
 	return contentEntryAttachBlocksIconMap(columns, iconMap)
 }
 
-func (h *contentEntryHandlers) listStateStoreConfig(panelName string) PanelDataGridStateStoreOptions {
+func (h *contentEntryHandlers) listStateStoreConfig(panelName string, preferencesAvailable bool) PanelDataGridStateStoreOptions {
 	stateStoreCfg := h.dataGridStateStore
+	if strings.EqualFold(strings.TrimSpace(stateStoreCfg.Mode), "preferences") && !preferencesAvailable {
+		stateStoreCfg.Mode = "local"
+	}
 	stateStoreConfigured := strings.TrimSpace(stateStoreCfg.Mode) != "" ||
 		strings.TrimSpace(stateStoreCfg.Resource) != "" ||
 		stateStoreCfg.SyncDebounceMS > 0 ||

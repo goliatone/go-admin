@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"errors"
 	"io/fs"
 	"net/http"
 	"os"
@@ -220,6 +221,7 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 	}
 	staticFS := fallbackFSList(assetStack)
 	if staticFS != nil && options.assetsPrefix != "" {
+		staticFS = legacyDocumentAssetAliasesFS{FS: staticFS}
 		r.Static(options.assetsPrefix, ".", router.Static{
 			FS:   staticFS,
 			Root: ".",
@@ -261,6 +263,25 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 			Root: ".",
 		})
 	}
+}
+
+// legacyDocumentAssetAliasesFS keeps quickstart compatible with go-admin
+// releases that advertised the former dist/vendor paths while packaging the
+// dependencies under dist/third-party. Real files always win over aliases.
+type legacyDocumentAssetAliasesFS struct {
+	fs.FS
+}
+
+func (f legacyDocumentAssetAliasesFS) Open(name string) (fs.File, error) {
+	file, err := f.FS.Open(name)
+	if err == nil || !errors.Is(err, fs.ErrNotExist) {
+		return file, err
+	}
+	const legacyPrefix = "dist/vendor/"
+	if !strings.HasPrefix(name, legacyPrefix) {
+		return nil, err
+	}
+	return f.FS.Open("dist/third-party/" + strings.TrimPrefix(name, legacyPrefix))
 }
 
 func resolveAssetsFS(base fs.FS) fs.FS {

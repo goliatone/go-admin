@@ -863,6 +863,9 @@ func (s *RenderCacheDebugObserver) Snapshot(runtime *RenderCacheRuntime) RenderC
 	if runtime == nil {
 		runtime = &RenderCacheRuntime{}
 	}
+	if s == nil {
+		s = &RenderCacheDebugObserver{}
+	}
 	cfg := runtime.Config
 	s.mu.Lock()
 	counters := s.counters
@@ -892,7 +895,7 @@ func (s *RenderCacheDebugObserver) Snapshot(runtime *RenderCacheRuntime) RenderC
 	}
 	return RenderCacheDebugSnapshot{
 		Configured:       cfg.Enabled,
-		Active:           s != nil && s.store != nil,
+		Active:           s.store != nil,
 		Backend:          firstNonEmpty(backend, "unknown"),
 		Status:           status,
 		Scope:            "process_local",

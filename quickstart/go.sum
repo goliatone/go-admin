@@ -171,6 +171,8 @@ github.com/gofiber/utils v1.2.0/go.mod h1:poZpsnhBykfnY1Mc0KeEa6mSHrS3dV0+oBWyeQ
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/golang/mock v1.6.0/go.mod h1:p6yTPP+5HYm5mzsMV8JkE6ZKdX+/wYM6Hr+LicevLPs=
+github.com/goliatone/go-admin v0.126.3 h1:LXMROMyvHlOWPD9CwWvZyGjxliYTXiHH2nX7d+IWKmw=
+github.com/goliatone/go-admin v0.126.3/go.mod h1:BaqNA67xsAvxHJ8o2+dBSdN+gTjXKxGTgsofXkdyjqg=
 github.com/goliatone/go-auth v0.44.2 h1:Djghd4WwBXTyQRVYaP2QzjqHIAZlEay6T94puB4AOUw=
 github.com/goliatone/go-auth v0.44.2/go.mod h1:toMoRh1gBaMAcJZSrMUAc952Kr3oojQQxiQATE6ctEE=
 github.com/goliatone/go-auth/adapters/featuregate v0.44.2 h1:IXTksJDZl4f3ecB/OXWEqdjfQ35U2KSBcbR2Lm561Ok=

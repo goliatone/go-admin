@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"net/url"
 	"path"
 	"strings"
@@ -128,4 +129,41 @@ func resolveAdminPanelAPIBulkBasePath(urls urlkit.Resolver, cfg admin.Config, fa
 
 func resolveAdminPreferencesAPICollectionPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase string) string {
 	return resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, "preferences")
+}
+
+func resolveAvailableAdminPreferencesAPICollectionPath(adm *admin.Admin, cfg admin.Config, fallbackBase string) string {
+	if !adminPreferencesAPIAvailable(adm, cfg) {
+		return ""
+	}
+	return resolveAdminPreferencesAPICollectionPath(adm.URLs(), cfg, fallbackBase)
+}
+
+type preferencesAPIAvailability interface {
+	PreferencesAPIAvailable() bool
+}
+
+func adminPreferencesAPIAvailable(adm *admin.Admin, cfg admin.Config) bool {
+	if adm == nil {
+		return false
+	}
+	if availability, ok := any(adm).(preferencesAPIAvailability); ok {
+		return availability.PreferencesAPIAvailable()
+	}
+	if adm.PreferencesService() == nil {
+		return false
+	}
+	gate := adm.FeatureGate()
+	if gate == nil {
+		return false
+	}
+	enabled, err := gate.Enabled(context.Background(), string(admin.FeaturePreferences))
+	if err != nil || !enabled {
+		return false
+	}
+	for _, disabled := range cfg.DisabledDefaultModules {
+		if strings.EqualFold(strings.TrimSpace(string(disabled)), string(admin.DefaultModulePreferences)) {
+			return false
+		}
+	}
+	return true
 }

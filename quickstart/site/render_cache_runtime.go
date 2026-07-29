@@ -181,10 +181,6 @@ type renderCacheRevalidationGroup struct {
 	inFlight map[string]struct{}
 }
 
-func newRenderCacheRevalidationGroup() *renderCacheRevalidationGroup {
-	return &renderCacheRevalidationGroup{inFlight: map[string]struct{}{}}
-}
-
 func (g *renderCacheRevalidationGroup) begin(key string) bool {
 	key = strings.TrimSpace(key)
 	if g == nil || key == "" {
