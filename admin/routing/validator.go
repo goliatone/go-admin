@@ -487,19 +487,6 @@ func validateFallbackShadowing(entries []ManifestEntry, fallback FallbackEntry) 
 	return conflicts
 }
 
-func groupPathForSurface(resolved ResolvedModule, surface string) string {
-	switch surface {
-	case SurfaceUI:
-		return resolved.UIGroupPath
-	case SurfaceAPI:
-		return resolved.APIGroupPath
-	case SurfacePublicAPI:
-		return resolved.PublicAPIGroupPath
-	default:
-		return ""
-	}
-}
-
 func buildOwnedRouteNamePrefix(groupPath, routeNamePrefix, slug string) string {
 	groupPath = strings.TrimSpace(groupPath)
 	prefix := NormalizeRouteNamePrefix(routeNamePrefix, slug)

@@ -45,15 +45,15 @@ func ExtractWidgetData(meta map[string]any) map[string]any {
 			if err != nil {
 				return nil
 			}
-			return normalizeWidgetData(serialized)
+			return SanitizeWidgetData(normalizeWidgetData(serialized))
 		}
-		return normalizeWidgetData(rawView)
+		return SanitizeWidgetData(normalizeWidgetData(rawView))
 	}
 	switch data := meta["data"].(type) {
 	case map[string]any:
-		return data
+		return SanitizeWidgetData(data)
 	case dashcmp.WidgetData:
-		return map[string]any(data)
+		return SanitizeWidgetData(map[string]any(data))
 	}
 	return nil
 }
