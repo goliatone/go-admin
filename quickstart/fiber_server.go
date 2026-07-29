@@ -169,11 +169,30 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 func defaultFiberAdapterConfig(cfg admin.Config, isDev bool) router.FiberAdapterConfig {
 	conflictPolicy := resolveFiberRouteConflictPolicy(cfg, isDev)
 	return router.FiberAdapterConfig{
+		MergeStrategy:            safeRenderMergeStrategy,
 		OrderRoutesBySpecificity: true,
 		ConflictPolicy:           &conflictPolicy,
 		PathConflictMode:         resolveFiberPathConflictMode(),
 		StrictRoutes:             resolveFiberStrictRoutes(cfg, isDev),
 	}
+}
+
+// safeRenderMergeStrategy preserves the documented view-data precedence
+// without writing request-scoped values such as CSRF tokens to logs.
+func safeRenderMergeStrategy(
+	key string,
+	viewVal any,
+	_ any,
+	logger router.Logger,
+) (any, bool) {
+	if logger != nil {
+		logger.Warn(
+			"render locals overwritten by view context",
+			"key", key,
+			"values_redacted", true,
+		)
+	}
+	return viewVal, true
 }
 
 func resolveFiberRouteConflictPolicy(cfg admin.Config, isDev bool) router.HTTPRouterConflictPolicy {
