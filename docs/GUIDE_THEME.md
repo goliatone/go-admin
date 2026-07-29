@@ -156,6 +156,22 @@ Package consumers append their own diagnostics at the boundary. A token can be
 valid and supported but still unused because the current page has no matching
 surface or a more specific component token won the fallback chain.
 
+The portable registry is grouped as follows:
+
+| Group | Canonical tokens |
+|---|---|
+| Color | `color.action.{accent,primary,primary-hover}`, `color.border.{default,strong}`, `color.focus.ring`, `color.status.{success,warning,danger,info}`, `color.surface.{canvas,default,raised,subtle}`, `color.text.{primary,secondary,inverse}` |
+| Typography | `font.family.{body,heading}`, `font.size.{body,heading,label}`, `font.weight.{body,emphasis,heading}`, `line.height.{body,heading}`, `letter.spacing.{body,heading}` |
+| Layout | `space.control.{block,inline}`, `space.{stack,surface}`, `size.control.height`, `radius.{control,surface}`, `shadow.surface` |
+| Motion | `motion.duration.{fast,normal}`, `motion.easing.standard` |
+| Charts | `chart.{axis,grid,tooltip-surface,tooltip-text}` and `chart.series.1` through `chart.series.8` |
+
+The go-admin extension adds `admin.shell.*`, `admin.header.*`,
+`admin.page.gap`, `admin.sidebar.*`, `datagrid.*`, `form.*`, and
+`dashboard.*`. Use the component namespace only to override a portable value
+for that package. The form and dashboard extension registries and fallback
+tables are listed in their dedicated guides.
+
 Use `ValidateTokenProfile(tokens, profile)` when only support classification is
 needed. Keep `Manifest.CSSVariables` and `Selection.CSSVariables` for legacy
 map transport; do not place those arbitrary values directly in an inline
@@ -234,6 +250,21 @@ adm.WithThemeManifest(manifest)
 ```
 
 Use `adm.WithThemeProvider(provider)` only when the host already has a provider that returns `*admin.ThemeSelection`. Prefer `adm.WithAdminTheme(...)` for normal `go-theme` selectors.
+
+Admin API quick reference:
+
+| API | Purpose |
+|---|---|
+| `ThemeProviderFromGoThemeSelector(selector)` | Adapt a go-theme selector without mutating an admin. |
+| `adm.WithAdminTheme(selector)` | Install that adapter as the admin provider. |
+| `adm.WithThemeProvider(provider)` | Install a native `admin.ThemeProvider`. |
+| `adm.WithThemeManifest(manifest)` | Attach variant and Preferences authority. |
+| `admin.WithThemeSelection(ctx, selector)` | Add request-scoped name/variant overrides. |
+| `admin.ThemeSelectorFromContext(ctx)` | Read those explicit overrides. |
+| `adm.Theme(ctx)` | Return a defensive typed `ThemeSelection`. |
+| `selection.Payload()` / `adm.ThemePayload(ctx)` | Return the cloned wire/view map. |
+| `adm.FormTheme(ctx)` | Return the defensive typed go-formgen projection. |
+| `admin.AdminSemanticProfile()` | Return a defensive portable-plus-admin token profile. |
 
 ## Resolution Order
 
@@ -479,10 +510,12 @@ registry. Custom renderers can use:
 
 The vanilla and Preact renderers opt into semantic styling only when semantic
 tokens exist, mark the root with `data-formgen-semantic="true"`, and cover
-default, focus, invalid, disabled, readonly, loading, action, label/help/error,
-typography, spacing, and narrow layout states. Missing themes keep existing
-renderer classes and styles unchanged. See `GUIDE_FORMGEN.md` for the complete
-form token table and custom-renderer example.
+default, focus, invalid, disabled, readonly, loading, label/help/error,
+typography, spacing, and narrow layout states. Vanilla also consumes primary
+action/hover tokens; Preact currently reports those action tokens unused.
+Missing themes keep existing renderer classes and styles unchanged. See
+`GUIDE_FORMGEN.md` for the complete form token table and custom-renderer
+example.
 
 ## go-dashboard And Chart Integration
 

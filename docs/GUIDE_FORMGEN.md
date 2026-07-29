@@ -242,11 +242,15 @@ Vanilla and Preact semantic styling is additive. It activates only when
 `SemanticTokens` is non-empty and marks the renderer root with
 `data-formgen-semantic="true"`.
 
-The built-in rules cover:
+Both built-in renderers cover:
 
-- form surface, control, label, help, error, action, and typography;
+- form surface, control, label, help, error, and typography;
 - focus border/ring, placeholder, invalid, disabled, readonly, and loading;
 - control spacing, height, radius, motion, and narrow-screen grid gaps.
+
+The vanilla renderer additionally consumes primary action and hover tokens
+through `data-formgen-action="primary"`. The Preact renderer does not currently
+render those action semantics and reports the action tokens unused.
 
 Stable state hooks include `aria-invalid`, `:disabled`, `[readonly]` or
 `[aria-readonly="true"]`, `aria-busy`, `data-formgen-loading`, and

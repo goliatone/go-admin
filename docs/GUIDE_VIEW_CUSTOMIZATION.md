@@ -549,7 +549,7 @@ Each item in `nav_items` contains:
 | `label_key` | `string` | i18n key for label |
 | `group_title` | `string` | Group heading title |
 | `group_title_key` | `string` | i18n key for group title |
-| `icon` | `string` | Icon reference (emoji, SVG key, or Iconoir) |
+| `icon` | `string` | Icon reference (emoji, library/Iconoir name, or `asset:<role>` / `theme:<role>` theme asset) |
 | `href` | `string` | Link URL |
 | `key` | `string` | Unique key for active matching |
 | `badge` | `any` | Badge content |
@@ -597,14 +597,23 @@ Use the shared template helpers instead of duplicating inline checks:
 |-----|------|-------------|
 | `tokens` | `map[string]string` | Theme CSS tokens |
 | `selection` | `map[string]string` | Active theme selection (`name`, `variant`) |
-| `assets` | `map[string]string` | Theme assets (`logo`, `favicon`, etc.) |
+| `assets` | `map[string]string` | Resolved theme assets (`logo`, `icon`, `favicon`, `icon-*`) plus optional `prefix` |
 | `css_vars` | `map[string]string` | CSS variable names and values, for example `--primary` |
+| `semantic_tokens` | `map[string]string` | Valid canonical values supported by the go-admin semantic profile |
+| `styles` | `map[string]string` | Safe declarations under `root`; this is the only theme style emitted by shared layouts |
 | `partials` | `map[string]string` | Provider-supplied template partial references |
 | `chart` | `map[string]string` | Chart renderer metadata, currently `theme` |
 
 Additional top-level keys when using `WithThemeContext`:
 - `theme_name` - Active theme name
 - `theme_variant` - Active theme variant
+
+Shared admin layout enrichment also supplies:
+
+| Variable | Type | Description |
+|---|---|---|
+| `sidebar_hide_search` | `bool` | Whether the shared sidebar omits its search slot |
+| `external_assets` | `map[string]string` | Resolved Iconoir, simple-datatables, and ECharts document URLs |
 
 ### Feature context variables
 
@@ -775,14 +784,35 @@ for templates (for example integer spans stay `6`, not `6.000000`).
 ## Theming
 
 Use `docs/GUIDE_THEME.md` for the canonical `go-theme` wiring contract,
-resolution order, payload shape, sidebar branding assets, preferences overrides,
-and public-site theme isolation.
+semantic profiles and diagnostics, resolution order, typed form/dashboard
+adapters, sidebar assets, preferences overrides, and public-site theme
+isolation.
 
 When rendering custom views, use the helper to inject theme payloads (supports query overrides):
 
 ```go
 viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
 ```
+
+Manifest partials and view templates are different layers.
+`theme.partials["forms.input"]`, for example, is metadata for a renderer that
+reads that key; it does not make a template file available to the admin view
+engine. Override a concrete admin template through the first-wins filesystem
+stack described above.
+
+When overriding `partials/sidebar.html`:
+
+- call `renderThemeMenuIcon(item.icon, theme.assets)` so `asset:<role>` and
+  `icon-<normalized-name>` assets fall back safely to normal icon rendering;
+- keep `logo`, `icon`, and favicon roles distinct;
+- preserve the mobile disclosure state attributes, `aria-expanded`, Escape and
+  focus behavior, breakpoint hooks, and the desktop collapsed-state key;
+- preserve the `sidebar_hide_search` conditional when hosts may remove search.
+
+Theme icon assets accept safe relative paths or `http`/`https` URLs. They render
+as decorative images with the canonical
+`--admin-sidebar-icon-size` variable, falling back to the legacy
+`--sidebar-icon-size`.
 
 ## Static assets
 
@@ -794,6 +824,21 @@ quickstart.NewStaticAssets(host.Static(), cfg, client.Assets())
 ```
 
 To override assets, mount your FS first or use `quickstart.NewStaticAssets(...)` with your own FS.
+
+The helper mounts separate package-owned surfaces:
+
+| Surface | Default prefix | Option |
+|---|---|---|
+| Admin/host/sidebar assets | `<basePath>/assets` | `WithAssetsPrefix` |
+| go-formgen runtime | `<basePath>/runtime` plus required root alias | `WithRuntimePrefix` |
+| go-formgen renderer assets | `<basePath>/formgen` | `WithFormgenPrefix` |
+| go-dashboard ECharts | `/dashboard/assets/echarts` | `WithEChartsPrefix` |
+| go-dashboard shell | `/dashboard/assets/shell` | `WithDashboardShellPrefix` |
+
+The admin asset filesystem is first-wins: disk development override, supplied
+host assets, extra fallbacks, then packaged sidebar assets. Theme manifest
+filenames do not mount files; their resolved prefix must point at one of these
+or another host-owned static route.
 
 For local dev fallback, opt in and probe for a disk build:
 

@@ -22,10 +22,10 @@ the closest existing guide when conventions change.
 | Panel CRUD, DataGrid wiring, list APIs, row actions, and bulk actions | `GUIDE_CRUD.md` |
 | Action availability, enhanced SSR actions, fragments, and mutation feedback | `GUIDE_ACTIONS.md` |
 | View engine layering, template overrides, and asset pipeline | `GUIDE_VIEW_CUSTOMIZATION.md` |
-| Form generation, go-formgen integration, and UI schema overlays | `GUIDE_FORMGEN.md` |
+| Form generation, go-formgen semantic themes/states, and UI schema overlays | `GUIDE_FORMGEN.md` |
 | Block editor setup and content-type-builder UI | `GUIDE_BLOCK_EDITOR.md` |
 | Tab widgets and tabbed detail surfaces | `GUIDE_TAB_WIDGETS.md` |
-| Theme and go-theme integration | `GUIDE_THEME.md` |
+| Cross-package theme selection, semantic tokens, diagnostics, assets, forms, and dashboards | `GUIDE_THEME.md` |
 
 ## Server Transports, Commands, And Workflow
 
@@ -43,7 +43,7 @@ the closest existing guide when conventions change.
 | Need | Read |
 |---|---|
 | Module creation, registration, routes, menus, and module conventions | `GUIDE_MODULES.md` |
-| Dashboard widgets and widget providers/renderers | `GUIDE_DASHBOARD_WIDGETS.md` |
+| Dashboard widgets, typed theme consumers, chart palettes, and provider/renderers | `GUIDE_DASHBOARD_WIDGETS.md` |
 | Feature gates and capability dependencies | `GUIDE_FEATURE_GATES.md` |
 | Routing policy, route ownership, and manifest review | `GUIDE_ROUTING.md` |
 | Search and go-search adapters | `GUIDE_SEARCH.md` |
