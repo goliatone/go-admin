@@ -230,7 +230,8 @@ func (m *PreferencesModule) variantOptions(admin *Admin) []Option {
 	if admin == nil {
 		return options
 	}
-	if manifestOptions := manifestVariantOptions(admin.themeManifest); len(manifestOptions) > 0 {
+	if admin.themeManifest != nil {
+		manifestOptions := manifestVariantOptions(admin.themeManifest)
 		options = append(options, manifestOptions...)
 		sort.Slice(options, func(i, j int) bool {
 			return strings.ToLower(options[i].Label) < strings.ToLower(options[j].Label)
