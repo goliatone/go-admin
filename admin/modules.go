@@ -824,9 +824,35 @@ func (a *Admin) addFallbackMenuItems(items, fallbackItems []MenuItem) {
 		return
 	}
 	deduped := dedupeMenuItems(fallbackItems)
-	converted := navinternal.ConvertMenuItems(deduped, a.translator, a.config.DefaultLocale)
-	if len(converted) > 0 {
-		a.nav.AddFallback(converted...)
+
+	// Fallback items carry the menu they were declared for. Routing every item
+	// into the shared default fallback puts a utility-menu item into the main
+	// navigation, and leaves the menu it named with no fallback of its own.
+	defaultCode := NormalizeMenuSlug(strings.TrimSpace(a.navMenuCode))
+	grouped := map[string][]MenuItem{}
+	order := make([]string, 0, 2)
+	for _, item := range deduped {
+		code := NormalizeMenuSlug(strings.TrimSpace(item.Menu))
+		if code == defaultCode {
+			code = ""
+		}
+		if _, seen := grouped[code]; !seen {
+			order = append(order, code)
+		}
+		grouped[code] = append(grouped[code], item)
+	}
+
+	for _, code := range order {
+		converted := navinternal.ConvertMenuItems(grouped[code], a.translator, a.config.DefaultLocale)
+		if len(converted) == 0 {
+			continue
+		}
+		if code == "" {
+			a.nav.AddFallback(converted...)
+			continue
+		}
+		existing, _ := a.nav.MenuFallback(code)
+		a.nav.SetMenuFallback(code, append(existing, converted...)...)
 	}
 }
 
