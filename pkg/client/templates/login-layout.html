@@ -7,7 +7,11 @@
   {% if theme and theme.assets and theme.assets.favicon %}<link rel="icon" href="{{ theme.assets.favicon }}">{% endif %}
   {{ csrf_meta|safe }}
   <script src="{{ asset_base_path }}/assets/dist/runtime/go-admin-browser.js"></script>
-  <link rel="stylesheet" href="{{ external_assets.iconoir_css|default:"https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css" }}">
+  {% if external_assets and external_assets.iconoir_css %}
+  <link rel="stylesheet" href="{{ external_assets.iconoir_css }}">
+  {% else %}
+  <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/vendor/iconoir/iconoir.css">
+  {% endif %}
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
   {% if theme and theme.styles and theme.styles.root %}
   <style>

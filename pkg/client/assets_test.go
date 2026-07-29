@@ -24,6 +24,26 @@ func TestAssetsEmbedIncludesSiteRuntimeAssets(t *testing.T) {
 	}
 }
 
+func TestAssetsEmbedIncludesPinnedDocumentDependencies(t *testing.T) {
+	for _, assetPath := range []string{
+		"dist/vendor/iconoir/iconoir.css",
+		"dist/vendor/iconoir/LICENSE",
+		"dist/vendor/simple-datatables/style.css",
+		"dist/vendor/simple-datatables/LICENSE",
+		"dist/vendor/echarts/echarts.min.js",
+		"dist/vendor/echarts/LICENSE",
+		"dist/vendor/echarts/NOTICE",
+	} {
+		info, err := fs.Stat(Assets(), assetPath)
+		if err != nil {
+			t.Fatalf("expected embedded document dependency %q: %v", assetPath, err)
+		}
+		if info.Size() == 0 {
+			t.Fatalf("embedded document dependency %q is empty", assetPath)
+		}
+	}
+}
+
 func TestAssetsEmbedExcludesFrontendTestFiles(t *testing.T) {
 	if _, err := fs.Stat(Assets(), "tests/error_helpers.test.mjs"); err == nil {
 		t.Fatalf("did not expect frontend test files to be embedded")

@@ -102,6 +102,17 @@ function stageRuntimeAssets() {
   copyFile(resolve(root, 'src/styles/site-runtime.css'), resolve(distStagingDir, 'styles/site-runtime.css'));
   copyFile(resolve(root, 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs'), resolve(distStagingDir, 'pdf.worker.min.mjs'));
 
+  // Package the browser dependencies used directly by the shared document.
+  // Keeping these in the normal build makes offline/default rendering
+  // deterministic and avoids hidden runtime dependence on public CDNs.
+  copyFile(resolve(root, 'node_modules/iconoir/css/iconoir.css'), resolve(distStagingDir, 'vendor/iconoir/iconoir.css'));
+  copyFile(resolve(root, 'node_modules/iconoir/LICENSE'), resolve(distStagingDir, 'vendor/iconoir/LICENSE'));
+  copyFile(resolve(root, 'node_modules/simple-datatables/dist/style.css'), resolve(distStagingDir, 'vendor/simple-datatables/style.css'));
+  copyFile(resolve(root, 'node_modules/simple-datatables/LICENSE'), resolve(distStagingDir, 'vendor/simple-datatables/LICENSE'));
+  copyFile(resolve(root, 'node_modules/echarts/dist/echarts.min.js'), resolve(distStagingDir, 'vendor/echarts/echarts.min.js'));
+  copyFile(resolve(root, 'node_modules/echarts/LICENSE'), resolve(distStagingDir, 'vendor/echarts/LICENSE'));
+  copyFile(resolve(root, 'node_modules/echarts/NOTICE'), resolve(distStagingDir, 'vendor/echarts/NOTICE'));
+
   copyFile(resolve(root, 'src/runtime/cms-relationship-actions.js'), resolve(distStagingDir, 'runtime/cms-relationship-actions.js'));
   copyFile(resolve(root, 'src/site/site-runtime.js'), resolve(distStagingDir, 'runtime/site-runtime.js'));
 }
