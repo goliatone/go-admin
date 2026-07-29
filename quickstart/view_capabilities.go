@@ -25,6 +25,7 @@ type PanelDataGridConfigOptions struct {
 	APIEndpoint         string                         `json:"api_endpoint"`
 	ActionBase          string                         `json:"action_base"`
 	PreferencesEndpoint string                         `json:"preferences_endpoint"`
+	PreferencesWritable bool                           `json:"preferences_writable"`
 	ColumnStorageKey    string                         `json:"column_storage_key"`
 	EnableGroupedMode   bool                           `json:"enable_grouped_mode"`
 	DefaultViewMode     string                         `json:"default_view_mode"`
@@ -124,6 +125,7 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	}
 	if preferencesEndpoint != "" {
 		dataGridConfig["preferences_endpoint"] = preferencesEndpoint
+		dataGridConfig["preferences_writable"] = opts.PreferencesWritable
 	}
 	if columnStorageKey != "" {
 		dataGridConfig["column_storage_key"] = columnStorageKey

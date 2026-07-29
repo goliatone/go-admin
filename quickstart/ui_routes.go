@@ -1050,16 +1050,14 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 			}
 			ctx["api_base_path"] = resolveAdminAPIBasePath(urls, cfg, cfg.BasePath)
 		}
-		if preferencesAPI := resolveAvailableAdminPreferencesAPICollectionPath(adm, cfg, cfg.BasePath); preferencesAPI != "" {
-			if _, ok := ctx["preferences_api_path"]; !ok {
-				ctx["preferences_api_path"] = preferencesAPI
-			}
-		} else {
-			// Path helpers describe URL conventions, while this builder knows
-			// runtime capabilities. Never advertise an endpoint whose module
-			// was not registered.
-			ctx["preferences_api_path"] = ""
-		}
+		preferencesAPI, preferencesWritable := resolveAuthorizedAdminPreferencesAPICollectionPath(
+			adm,
+			cfg,
+			cfg.BasePath,
+			reqCtx,
+		)
+		ctx["preferences_api_path"] = preferencesAPI
+		ctx["preferences_api_writable"] = preferencesAPI != "" && preferencesWritable
 		labels := cfg.ActivityActionLabels
 		if labels == nil {
 			labels = map[string]string{}
