@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/internal/templateview"
+	client "github.com/goliatone/go-admin/pkg/client"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	router "github.com/goliatone/go-router"
 	gotemplate "github.com/goliatone/go-template"
@@ -110,6 +111,12 @@ func newDashboardTemplateRenderer(opts ...DashboardRendererOption) (*dashboardTe
 
 	templateStack := append([]fs.FS{}, options.templateFS...)
 	if options.useEmbedded {
+		// The full admin shell owns the canonical dashboard template set. Keep
+		// quickstart's compact template as a last-resort fallback for custom
+		// distributions that intentionally omit a client template.
+		if canonical := client.Templates(); canonical != nil {
+			templateStack = append(templateStack, canonical)
+		}
 		if embedded := DashboardTemplatesFS(); embedded != nil {
 			templateStack = append(templateStack, embedded)
 		}

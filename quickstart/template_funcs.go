@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"maps"
+	"net/url"
 	"strings"
 	"unicode"
 
@@ -90,9 +91,10 @@ func buildDefaultTemplateFuncMap(
 		"panelPreviewURL": func(panel string, id string) string {
 			return resolveAdminPanelPreviewURL(options.urls, basePath, panel, id)
 		},
-		"renderMenuIcon":    renderMenuIcon,
-		"renderIcon":        renderIconFn,
-		"renderIconVariant": renderIconVariantFn,
+		"renderMenuIcon":      renderMenuIcon,
+		"renderThemeMenuIcon": renderThemeMenuIcon,
+		"renderIcon":          renderIconFn,
+		"renderIconVariant":   renderIconVariantFn,
 		"oauthNeedsReauthorization": func(isExpired, isExpiringSoon, canAutoRefresh bool) bool {
 			return OAuthNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh)
 		},
@@ -417,7 +419,7 @@ func renderMenuIcon(icon string) string {
 		return ""
 	}
 
-	style := `font-size: var(--sidebar-icon-size, 20px);`
+	style := `font-size: var(--admin-sidebar-icon-size, var(--sidebar-icon-size, 20px));`
 
 	// 1. Emoji detection
 	if isEmoji(icon) {
@@ -431,6 +433,70 @@ func renderMenuIcon(icon string) string {
 	}
 
 	return `<i class="` + html.EscapeString(library) + `-` + html.EscapeString(name) + ` flex-shrink-0" style="` + style + `"></i>`
+}
+
+// renderThemeMenuIcon resolves a menu icon from the active theme assets and
+// falls back to the legacy icon renderer. Themes may opt in explicitly with
+// asset:<role> or publish icon-<menu-ref> for convention-based replacement.
+func renderThemeMenuIcon(icon string, rawAssets any) string {
+	icon = strings.TrimSpace(icon)
+	if icon == "" {
+		return ""
+	}
+	assets := themeAssetMap(rawAssets)
+	role := ""
+	fallbackIcon := icon
+	if prefix, value, ok := strings.Cut(icon, ":"); ok &&
+		(prefix == "asset" || prefix == "theme") {
+		role = strings.TrimSpace(value)
+		if role != "" && !strings.HasPrefix(role, "icon-") {
+			role = "icon-" + role
+		}
+		fallbackIcon = strings.TrimPrefix(role, "icon-")
+	} else if _, name := normalizeMenuIconClass(icon); name != "" {
+		role = "icon-" + strings.ToLower(strings.TrimSpace(name))
+	}
+	if asset := strings.TrimSpace(assets[role]); role != "" && safeThemeIconAssetURL(asset) {
+		size := `var(--admin-sidebar-icon-size, var(--sidebar-icon-size, 20px))`
+		return `<img src="` + html.EscapeString(asset) +
+			`" alt="" aria-hidden="true" class="theme-menu-icon flex-shrink-0" data-theme-icon-role="` +
+			html.EscapeString(role) + `" style="width: ` + size + `; height: ` + size +
+			`; object-fit: contain;">`
+	}
+	return renderMenuIcon(fallbackIcon)
+}
+
+func themeAssetMap(value any) map[string]string {
+	switch assets := value.(type) {
+	case map[string]string:
+		return assets
+	case map[string]any:
+		out := make(map[string]string, len(assets))
+		for key, asset := range assets {
+			if text, ok := asset.(string); ok {
+				out[key] = text
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func safeThemeIconAssetURL(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.ContainsAny(value, "\x00\r\n\t<>\"'\\") ||
+		strings.HasPrefix(value, "//") {
+		return false
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+	if parsed.IsAbs() {
+		return parsed.Scheme == "http" || parsed.Scheme == "https"
+	}
+	return parsed.Host == ""
 }
 
 func normalizeMenuIconClass(icon string) (string, string) {

@@ -65,6 +65,9 @@ func (h *contentEntryHandlers) renderForm(
 		UISchema: uiSchema,
 	}
 	renderOpts := formgenrender.RenderOptions{Values: values}
+	if h.admin != nil {
+		renderOpts.Theme = h.admin.FormTheme(c.Context())
+	}
 	html, err := h.formRenderer.RenderForm(c.Context(), schema, opts, renderOpts)
 	if err != nil {
 		return err
