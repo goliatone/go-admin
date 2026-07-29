@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -149,7 +150,10 @@ func TestResolveRoutePathDoesNotDoublePrefixBackfilledAdminAPIPaths(t *testing.T
 }
 
 func TestResolveAuthorizedAdminPreferencesAPICollectionPath(t *testing.T) {
-	cfg := admin.Config{BasePath: "/admin"}
+	cfg := admin.Config{
+		BasePath:   "/admin",
+		AuthConfig: &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
 	tests := []struct {
 		name         string
 		allowed      preferencesAPIHelperAuthorizer
@@ -180,6 +184,8 @@ func TestResolveAuthorizedAdminPreferencesAPICollectionPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			resetCommandRegistryForTest(t)
+			t.Cleanup(func() { resetCommandRegistryForTest(t) })
 			adm, err := admin.New(cfg, admin.Dependencies{
 				FeatureGate: buildFeatureGate(cfg, map[string]bool{
 					string(admin.FeaturePreferences): true,
@@ -189,13 +195,13 @@ func TestResolveAuthorizedAdminPreferencesAPICollectionPath(t *testing.T) {
 				t.Fatalf("new admin: %v", err)
 			}
 			adm.WithAuthorizer(tt.allowed)
-			routeRecorder, ok := any(adm).(interface {
-				RecordMountedPanelRoutes([]string)
-			})
+			_, ok := any(adm).(preferencesAPIRequestCapabilities)
 			if !ok {
 				t.Skip("root module predates request-scoped Preferences route capabilities")
 			}
-			routeRecorder.RecordMountedPanelRoutes([]string{"preferences"})
+			if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+				t.Fatalf("initialize admin routes: %v", err)
+			}
 
 			endpoint, writable := resolveAuthorizedAdminPreferencesAPICollectionPath(
 				adm,

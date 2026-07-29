@@ -131,39 +131,28 @@ func resolveAdminPreferencesAPICollectionPath(urls urlkit.Resolver, cfg admin.Co
 	return resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, "preferences")
 }
 
-func resolveAvailableAdminPreferencesAPICollectionPath(adm *admin.Admin, cfg admin.Config, fallbackBase string) string {
-	if !adminPreferencesAPIAvailable(adm, cfg) {
-		return ""
-	}
-	return resolveAdminPreferencesAPICollectionPath(adm.URLs(), cfg, fallbackBase)
+type preferencesAPIRequestCapabilities interface {
+	PreferencesAPIRequestCapabilities(context.Context) (readable, writable bool)
 }
 
-type preferencesAPIAvailability interface {
-	PreferencesAPIAvailable() bool
-}
-
-func adminPreferencesAPIAvailable(adm *admin.Admin, cfg admin.Config) bool {
+func resolveAuthorizedAdminPreferencesAPICollectionPath(
+	adm *admin.Admin,
+	cfg admin.Config,
+	fallbackBase string,
+	ctx context.Context,
+) (endpoint string, writable bool) {
 	if adm == nil {
-		return false
+		return "", false
 	}
-	if availability, ok := any(adm).(preferencesAPIAvailability); ok {
-		return availability.PreferencesAPIAvailable()
+	capabilities, ok := any(adm).(preferencesAPIRequestCapabilities)
+	if !ok {
+		// Older root modules cannot prove request-scoped authorization or a
+		// successful route mount. Fail closed during rolling module upgrades.
+		return "", false
 	}
-	if adm.PreferencesService() == nil {
-		return false
+	readable, writable := capabilities.PreferencesAPIRequestCapabilities(ctx)
+	if !readable {
+		return "", false
 	}
-	gate := adm.FeatureGate()
-	if gate == nil {
-		return false
-	}
-	enabled, err := gate.Enabled(context.Background(), string(admin.FeaturePreferences))
-	if err != nil || !enabled {
-		return false
-	}
-	for _, disabled := range cfg.DisabledDefaultModules {
-		if strings.EqualFold(strings.TrimSpace(string(disabled)), string(admin.DefaultModulePreferences)) {
-			return false
-		}
-	}
-	return true
+	return resolveAdminPreferencesAPICollectionPath(adm.URLs(), cfg, fallbackBase), writable
 }
