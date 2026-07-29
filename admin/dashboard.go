@@ -295,7 +295,9 @@ func (d *Dashboard) HasRenderer() bool {
 // ignored. Hosts that need registration failures surfaced during startup
 // should use RegisterProviderChecked.
 func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
-	_ = d.RegisterProviderChecked(spec)
+	if err := d.RegisterProviderChecked(spec); err != nil {
+		return
+	}
 }
 
 // RegisterProviderChecked registers a widget provider and reports invalid
