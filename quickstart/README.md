@@ -64,7 +64,10 @@ container examples.
 - `WithDebugOptions(opt DebugOption) AdminConfigOption` - Inputs: explicit debug option overrides; outputs: option that applies targeted debug fields.
 - `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
 - `WithErrorOptions(opt ErrorOption) AdminConfigOption` - Inputs: explicit error option overrides; outputs: option that applies targeted error fields.
+- `WithTheme(name, variant string) AdminConfigOption` - Inputs: default admin selector values; outputs: option that sets the configured theme and named variant.
+- `WithThemeTokens(tokens map[string]string) AdminConfigOption` - Inputs: portable/package semantic or compatible legacy tokens; outputs: option that merges config tokens and final token overrides.
 - `WithThemeAssetURLs(assets map[string]string) AdminConfigOption` - Inputs: resolved asset URLs/paths keyed by theme asset name; outputs: option that overlays final admin theme assets such as `logo`, `icon`, and `favicon`.
+- `WithThemeAssetPrefix(prefix string) AdminConfigOption` - Inputs: final config-level asset prefix; outputs: option applied after provider selection.
 - `WithRoutingConfig(cfg routing.Config) AdminConfigOption` - Inputs: routing roots/module mount overrides; outputs: option that applies explicit routing policy overrides during quickstart config assembly.
 - `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.
 - `WithScopeMode(mode ScopeMode) AdminConfigOption` - Inputs: scope mode (`single` or `multi`); outputs: option that sets the mode.
@@ -127,6 +130,10 @@ container examples.
 - `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: admin go-theme selector + manifest; outputs: option that wires admin theme selection + manifest into `NewAdmin` (including Preferences variant options).
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
 - `NewThemeSelector(name, variant string, tokenOverrides map[string]string, opts ...ThemeOption) (theme.Selector, *theme.Manifest, error)` - Inputs: theme name/variant, token overrides, theme options. Outputs: selector, manifest, error.
+- `WithThemeRegistry(registry theme.Registry) ThemeOption` - Inputs: reusable theme registry; outputs: selector option that reuses or registers against it.
+- `WithThemeManifest(manifest *theme.Manifest) ThemeOption` - Inputs: complete manifest; outputs: selector option that replaces the generated compatibility manifest.
+- `WithThemeAssets(prefix string, files map[string]string) ThemeOption` - Inputs: manifest-relative asset files and optional prefix; outputs: selector option that fills missing manifest asset metadata.
+- `WithThemeVariants(variants map[string]theme.Variant) ThemeOption` - Inputs: named variant definitions; outputs: selector option that fills missing manifest variants.
 - `NewStaticAssets(r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
 - `ResolveDashboardShellAssetsPrefix(cfg admin.Config, opts ...StaticAssetsOption) string` - Inputs: admin config and the same static asset options passed to `NewStaticAssets`. Outputs: resolved go-dashboard shell asset prefix for content-builder UI route registration.
 - `WithContentTypeBuilderUIStaticAssetOptions(cfg admin.Config, opts ...StaticAssetsOption) ContentTypeBuilderUIOption` - Inputs: admin config and the same static asset options passed to `NewStaticAssets`. Outputs: content-builder UI option that keeps rendered shell asset URLs aligned with the mounted shell prefix.
@@ -1353,6 +1360,66 @@ The default quickstart manifest also exposes these sidebar brand tokens:
 Use `WithThemeAssets(...)` for manifest-relative theme assets and `WithThemeAssetURLs(...)` / `admin.Config.ThemeAssets` for final resolved URL overrides supplied by host config.
 
 If you have local CSS that forces the sidebar logo to `width: 100%`, remove that override and configure branding through `logo`, `icon`, and the sidebar brand tokens instead.
+
+`WithThemeManifest(...)`, `WithThemeAssets(...)`, and
+`WithThemeVariants(...)` above are `ThemeOption` values passed to
+`NewThemeSelector`; `WithThemeSelector(...)` is the separate `AdminOption`
+passed to `NewAdmin`. Existing registered or explicit manifests win.
+Asset/variant options fill missing manifest fields and do not overwrite
+populated ones.
+
+For explicit variants:
+
+```go
+selector, manifest, err := quickstart.NewThemeSelector(
+	cfg.Theme,
+	cfg.ThemeVariant,
+	cfg.ThemeTokens,
+	quickstart.WithThemeVariants(map[string]theme.Variant{
+		"light": {},
+		"dark": {
+			Tokens: map[string]string{
+				"color.surface.canvas":     "#09090b",
+				"color.surface.default":    "#18181b",
+				"color.text.primary":       "#fafafa",
+				"color.border.default":     "#3f3f46",
+				"color.action.primary":     "#38bdf8",
+				"admin.sidebar.background": "#09090b",
+			},
+		},
+	}),
+)
+```
+
+A base-only theme should provide a manifest with no named variants and a
+selector/provider that resolves an empty variant. The attached manifest is the
+Preferences option authority, so stale stored or preview variants are cleared
+to the base.
+
+Quickstart propagates the same request-scoped selection to admin views,
+DataGrid, dashboard pages/charts, panel and settings forms, and CMS content
+forms. Content-entry rendering passes `adm.FormTheme(ctx)` to go-formgen, so
+portable and `form.*` semantic tokens cover focus, invalid, disabled,
+readonly, loading, label/help/error, and responsive states. No semantic tokens
+preserve the existing renderer output.
+
+Navigation may reference `asset:<role>` or `theme:<role>` and resolves the
+theme asset `icon-<role>`. Normal icon names also try
+`icon-<normalized-name>` before falling back to Iconoir/library/emoji
+rendering. Host sidebar overrides should preserve
+`renderThemeMenuIcon(item.icon, theme.assets)`.
+
+Shell-specific presentation options live on `admin.Config`:
+
+- `SidebarHideSearch` removes the shared sidebar search slot.
+- `ExternalAssets` overrides the Iconoir, simple-datatables, and ECharts
+  document URLs while empty fields retain their published defaults.
+
+`NewStaticAssets` separately mounts admin assets, go-formgen runtime/renderer
+assets, and go-dashboard ECharts/shell assets. Manifest paths are metadata; a
+prefix still needs a mounted route. See `docs/GUIDE_THEME.md`,
+`docs/GUIDE_FORMGEN.md`, and `docs/GUIDE_DASHBOARD_WIDGETS.md` for the complete
+semantic API and diagnostics contract.
 
 ## Public-site theme precedence
 

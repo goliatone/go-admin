@@ -440,6 +440,13 @@ Shell-specific configuration is not a token:
 - `Config.ExternalAssets` overrides the Iconoir, simple-datatables, and ECharts
   document URLs. Empty fields retain the current published defaults.
 
+`ExternalAssetConfig` fields are `IconoirCSS`, `DataTablesCSS`, and
+`EChartsJS`. Call `Resolve()` when building a custom layout context to fill
+empty values with `DefaultIconoirCSSURL`, `DefaultDataTablesCSSURL`, and
+`DefaultEChartsJSURL`. Shared layout enrichment already exposes the resolved
+values under `external_assets.iconoir_css`, `datatables_css`, and
+`echarts_js`.
+
 The shared narrow sidebar is an off-canvas disclosure. Its mobile open state is
 ephemeral and separate from the persisted desktop collapsed state; it maintains
 `aria-expanded`, closes on Escape, restores focus, responds to breakpoint
