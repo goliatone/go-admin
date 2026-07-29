@@ -452,7 +452,10 @@ func (r *Runner) finishShutdown(ctx context.Context) error {
 		r.mu.Unlock()
 		select {
 		case <-done:
-			return r.completedShutdownError()
+			if err, complete := r.completedShutdownResult(); complete {
+				return err
+			}
+			return r.finishShutdown(ctx)
 		case <-ctx.Done():
 			if err, complete := r.completedShutdownResult(); complete {
 				return err
@@ -477,6 +480,15 @@ func (r *Runner) finishShutdown(ctx context.Context) error {
 
 	shutdownErr := r.executeShutdownTasks(ctx)
 	finalErr := errors.Join(r.backgroundFatalError(), shutdownErr)
+	if incomplete := shutdownTaskIncomplete(ctx, shutdownErr); incomplete != nil {
+		finalErr = errors.Join(finalErr, incomplete)
+		r.mu.Lock()
+		r.shutdownStarted = false
+		r.shutdownDone = nil
+		close(done)
+		r.mu.Unlock()
+		return finalErr
+	}
 
 	r.mu.Lock()
 	r.shutdownErr = finalErr
@@ -489,6 +501,9 @@ func (r *Runner) finishShutdown(ctx context.Context) error {
 func (r *Runner) executeShutdownTasks(ctx context.Context) error {
 	var errs []error
 	for _, rt := range r.phaseTasks(PhaseShutdown) {
+		if r.taskSucceeded(rt.task.Name) {
+			continue
+		}
 		result := r.runTask(ctx, rt.task)
 		if result.terminalFailure == nil || rt.task.Policy == ErrorPolicyIgnored {
 			continue
@@ -498,9 +513,28 @@ func (r *Runner) executeShutdownTasks(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-func (r *Runner) completedShutdownError() error {
-	err, _ := r.completedShutdownResult()
-	return err
+func (r *Runner) taskSucceeded(name string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	status := r.status[name]
+	return status != nil && status.state == StateSucceeded
+}
+
+func shutdownTaskIncomplete(
+	ctx context.Context,
+	shutdownErr error,
+) *ShutdownIncompleteError {
+	var incomplete *ShutdownIncompleteError
+	if errors.As(shutdownErr, &incomplete) {
+		return incomplete
+	}
+	if shutdownErr == nil || ctx == nil || ctx.Err() == nil {
+		return nil
+	}
+	return &ShutdownIncompleteError{
+		Cause: ctx.Err(),
+		Stage: ShutdownStageTasks,
+	}
 }
 
 func (r *Runner) completedShutdownResult() (error, bool) {

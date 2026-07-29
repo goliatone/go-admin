@@ -484,6 +484,57 @@ func TestCanceledContextBeforeShutdownTasksIsRetryable(t *testing.T) {
 	}
 }
 
+func TestShutdownTaskReturningContextErrorIsRetryableWithoutRerunningSuccesses(t *testing.T) {
+	var successfulRuns atomic.Int32
+	var interruptedRuns atomic.Int32
+	registry := NewRegistry()
+	mustRegister(t, registry, Task{
+		Name:     "successful",
+		Phase:    PhaseShutdown,
+		Priority: 20,
+		Run: func(context.Context) error {
+			successfulRuns.Add(1)
+			return nil
+		},
+	})
+	mustRegister(t, registry, Task{
+		Name:     "interrupted",
+		Phase:    PhaseShutdown,
+		Priority: 10,
+		Run: func(ctx context.Context) error {
+			if interruptedRuns.Add(1) == 1 {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		},
+	})
+	runner := MustNewRunner(registry)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	err := runner.Shutdown(ctx)
+	cancel()
+	var incomplete *ShutdownIncompleteError
+	if !errors.As(err, &incomplete) || incomplete.Stage != ShutdownStageTasks {
+		t.Fatalf("Shutdown() error = %v, want retryable incomplete shutdown", err)
+	}
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("retry Shutdown() error = %v", err)
+	}
+	if got := successfulRuns.Load(); got != 1 {
+		t.Fatalf("successful shutdown task runs = %d, want 1", got)
+	}
+	if got := interruptedRuns.Load(); got != 2 {
+		t.Fatalf("interrupted shutdown task runs = %d, want 2", got)
+	}
+	if err := runner.Shutdown(context.Background()); err != nil {
+		t.Fatalf("cached Shutdown() error = %v", err)
+	}
+	if got := interruptedRuns.Load(); got != 2 {
+		t.Fatalf("completed shutdown task reran: %d", got)
+	}
+}
+
 func TestShutdownReturnsNonIgnoredFailuresAndContinuesAllHooks(t *testing.T) {
 	degradedCause := errors.New("degraded teardown")
 	retryableCause := errors.New("retryable teardown")
