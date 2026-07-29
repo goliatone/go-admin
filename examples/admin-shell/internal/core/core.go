@@ -166,7 +166,11 @@ func WithLoggerProvider(provider glog.LoggerProvider) Option {
 }
 
 // New builds application dependencies and wires go-admin.
-func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core, error) {
+func New(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	optionFns ...Option,
+) (result *Core, resultErr error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
@@ -235,6 +239,7 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 	}
 	initialized := false
 	var adminLifecycle *golifecycle.Runner
+	var appCore *Core
 	defer func() {
 		if !initialized {
 			shutdownCtx, cancel := context.WithTimeout(
@@ -246,7 +251,7 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 			if adminLifecycle != nil {
 				lifecycleShutdown = adminLifecycle.Shutdown
 			}
-			_ = coordinateShutdown(
+			cleanupErr := coordinateShutdown(
 				shutdownCtx,
 				nil,
 				lifecycleShutdown,
@@ -254,6 +259,17 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 					return stopAdminRuntime(cleanupCtx, adm)
 				},
 			)
+			if cleanupErr != nil {
+				resultErr = errors.Join(
+					resultErr,
+					fmt.Errorf("rollback application startup: %w", cleanupErr),
+				)
+				// A partially composed Core is returned only when rollback did
+				// not finish, allowing the caller to retry bounded shutdown.
+				if appCore != nil {
+					result = appCore
+				}
+			}
 		}
 	}()
 	featureGate := adm.FeatureGate()
@@ -291,7 +307,7 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 	))
 
 	host := quickstart.NewHostRouter(r, adminCfg)
-	appCore := &Core{
+	appCore = &Core{
 		Config:             cfg,
 		LoggerProvider:     loggerProvider,
 		Logger:             logger,

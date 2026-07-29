@@ -127,7 +127,9 @@ listener failure, or startup rollback, `Core.Run` bounds server, lifecycle,
 and admin command-runtime cleanup with `server.shutdown_timeout_seconds`.
 Incomplete lifecycle shutdown keeps shared admin resources open so a later
 `Core.Shutdown` call can finish safely. `Core.Shutdown` also applies that
-timeout when its caller supplies no deadline.
+timeout when its caller supplies no deadline. If startup fails and rollback is
+incomplete, `core.New` joins the rollback error and returns the partially
+composed `Core` so the caller can retry `Shutdown`.
 
 ## Configuration
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -41,6 +42,9 @@ func run(logger *core.RootLogger) error {
 		core.WithRouteRegistrar(apphttp.Register),
 	)
 	if err != nil {
+		if appCore != nil {
+			err = errors.Join(err, appCore.Shutdown(context.Background()))
+		}
 		return fmt.Errorf("initialize application: %w", err)
 	}
 
