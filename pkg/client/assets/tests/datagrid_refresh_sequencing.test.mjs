@@ -313,6 +313,9 @@ test('preferences state hydration times out instead of blocking the grid', async
 test('server column visibility hydration times out instead of blocking grid construction', async () => {
   const { cleanup } = installTestGlobals();
   let aborted = false;
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
 
   globalThis.fetch = async (_url, options = {}) => new Promise((_resolve, reject) => {
     options.signal?.addEventListener('abort', () => {
@@ -334,6 +337,56 @@ test('server column visibility hydration times out instead of blocking grid cons
 
     assert.equal(result, null);
     assert.equal(aborted, true);
+    assert.deepEqual(warnings, []);
+  } finally {
+    console.warn = originalWarn;
+    cleanup();
+  }
+});
+
+test('read-only preferences hydrate without server mutations', async () => {
+  const { cleanup } = installTestGlobals();
+  const requests = [];
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), method: options.method || 'GET' });
+    return {
+      ok: true,
+      json: async () => ({ records: [] }),
+    };
+  };
+
+  try {
+    const store = createDataGridStateStore({
+      key: 'pages',
+      mode: 'preferences',
+      resource: 'pages',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      preferencesWritable: false,
+      syncDebounceMs: 1,
+    });
+    await store.hydrate();
+    store.savePersistedState({ version: 1, hiddenColumns: ['title'] });
+    store.clearPersistedState();
+
+    const behavior = new ServerColumnVisibilityBehavior(['title'], {
+      resource: 'pages',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      canWrite: false,
+      syncDebounce: 1,
+    });
+    await behavior.loadFromServer();
+    const grid = {
+      config: { columns: [{ field: 'title' }] },
+      state: { hiddenColumns: new Set(), columnOrder: ['title'] },
+      updateColumnVisibility: () => {},
+    };
+    behavior.toggleColumn('title', grid);
+    behavior.clearSavedPrefs();
+
+    await new Promise((resolve) => setTimeout(resolve, 130));
+
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests.map((request) => request.method), ['GET', 'GET']);
   } finally {
     cleanup();
   }

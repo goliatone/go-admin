@@ -157,8 +157,19 @@ const (
 	DebugREPLKindShell                             = core.DebugREPLKindShell
 	DebugREPLOverrideKeyMetadata                   = core.DebugREPLOverrideKeyMetadata
 	DebugREPLOverrideTokenMetadata                 = core.DebugREPLOverrideTokenMetadata
+	DefaultDataTablesCSSAssetPath                  = core.DefaultDataTablesCSSAssetPath
+	DefaultEChartsJSAssetPath                      = core.DefaultEChartsJSAssetPath
 	DefaultEntryNavigationActivityAction           = core.DefaultEntryNavigationActivityAction
 	DefaultIconLibrary                             = core.DefaultIconLibrary
+	DefaultIconoirCSSAssetPath                     = core.DefaultIconoirCSSAssetPath
+	DefaultModuleActivity                          = core.DefaultModuleActivity
+	DefaultModuleFeatureFlags                      = core.DefaultModuleFeatureFlags
+	DefaultModuleMedia                             = core.DefaultModuleMedia
+	DefaultModuleOrganizations                     = core.DefaultModuleOrganizations
+	DefaultModulePreferences                       = core.DefaultModulePreferences
+	DefaultModuleProfile                           = core.DefaultModuleProfile
+	DefaultModuleTenants                           = core.DefaultModuleTenants
+	DefaultModuleUsers                             = core.DefaultModuleUsers
 	DefaultPreviewHTMLMaxSizeBytes                 = core.DefaultPreviewHTMLMaxSizeBytes
 	DefaultSchemaMaxDepth                          = core.DefaultSchemaMaxDepth
 	DefaultSchemaMaxFields                         = core.DefaultSchemaMaxFields
@@ -280,16 +291,6 @@ const (
 	NavigationOwnerUser                            = core.NavigationOwnerUser
 	NavigationPermissionDeniedModeDisable          = core.NavigationPermissionDeniedModeDisable
 	NavigationPermissionDeniedModeHide             = core.NavigationPermissionDeniedModeHide
-	SidebarCollapsePlacementFooter                 = core.SidebarCollapsePlacementFooter
-	SidebarCollapsePlacementHeader                 = core.SidebarCollapsePlacementHeader
-	DefaultModuleActivity                          = core.DefaultModuleActivity
-	DefaultModuleFeatureFlags                      = core.DefaultModuleFeatureFlags
-	DefaultModuleMedia                             = core.DefaultModuleMedia
-	DefaultModuleOrganizations                     = core.DefaultModuleOrganizations
-	DefaultModulePreferences                       = core.DefaultModulePreferences
-	DefaultModuleProfile                           = core.DefaultModuleProfile
-	DefaultModuleTenants                           = core.DefaultModuleTenants
-	DefaultModuleUsers                             = core.DefaultModuleUsers
 	NavigationRouteMissingPolicyAuto               = core.NavigationRouteMissingPolicyAuto
 	NavigationRouteMissingPolicyReport             = core.NavigationRouteMissingPolicyReport
 	NavigationRouteMissingPolicyStrict             = core.NavigationRouteMissingPolicyStrict
@@ -443,6 +444,8 @@ const (
 	SettingsScopeSite                              = core.SettingsScopeSite
 	SettingsScopeSystem                            = core.SettingsScopeSystem
 	SettingsScopeUser                              = core.SettingsScopeUser
+	SidebarCollapsePlacementFooter                 = core.SidebarCollapsePlacementFooter
+	SidebarCollapsePlacementHeader                 = core.SidebarCollapsePlacementHeader
 	SiteRouteContentDetail                         = core.SiteRouteContentDetail
 	SiteRouteContentList                           = core.SiteRouteContentList
 	SiteRouteMenuByCode                            = core.SiteRouteMenuByCode
@@ -725,11 +728,11 @@ type (
 	CommandRunDiagnosticStatus                        = core.CommandRunDiagnosticStatus
 	CommandRunDiagnostics                             = core.CommandRunDiagnostics
 	CommandRunFailure                                 = core.CommandRunFailure
-	CommandRunOutcome                                 = core.CommandRunOutcome
 	CommandRunHandler                                 = core.CommandRunHandler
 	CommandRunMemoryStoreConfig                       = core.CommandRunMemoryStoreConfig
 	CommandRunObserverBridge                          = core.CommandRunObserverBridge
 	CommandRunObserverConfig                          = core.CommandRunObserverConfig
+	CommandRunOutcome                                 = core.CommandRunOutcome
 	CommandRunPhase                                   = core.CommandRunPhase
 	CommandRunProcessRole                             = core.CommandRunProcessRole
 	CommandRunProjection                              = core.CommandRunProjection
@@ -817,6 +820,7 @@ type (
 	DebugViewContextBuilder                           = core.DebugViewContextBuilder
 	DefaultIconRenderer                               = core.DefaultIconRenderer
 	DefaultMediaDeliveryReferenceProjector            = core.DefaultMediaDeliveryReferenceProjector
+	DefaultModuleID                                   = core.DefaultModuleID
 	DefaultPageMapper                                 = core.DefaultPageMapper
 	DefaultTranslationQueueAutoCreateHook             = core.DefaultTranslationQueueAutoCreateHook
 	DefaultTranslationQueueService                    = core.DefaultTranslationQueueService
@@ -890,6 +894,7 @@ type (
 	ExportRegistry                                    = core.ExportRegistry
 	ExportRouteOptions                                = core.ExportRouteOptions
 	ExportRouteWrapper                                = core.ExportRouteWrapper
+	ExternalAssetConfig                               = core.ExternalAssetConfig
 	FSMLifecycleActivitySinkAdapter                   = core.FSMLifecycleActivitySinkAdapter
 	FSMWorkflowEngine                                 = core.FSMWorkflowEngine
 	FSMWorkflowEngineOption                           = core.FSMWorkflowEngineOption
@@ -1095,8 +1100,6 @@ type (
 	NavigationOwner                                   = core.NavigationOwner
 	NavigationPermissionDeclaration                   = core.NavigationPermissionDeclaration
 	NavigationPermissionDeniedMode                    = core.NavigationPermissionDeniedMode
-	SidebarCollapsePlacement                          = core.SidebarCollapsePlacement
-	DefaultModuleID                                   = core.DefaultModuleID
 	NavigationPermissionRegistry                      = core.NavigationPermissionRegistry
 	NavigationPersistenceReport                       = core.NavigationPersistenceReport
 	NavigationRawInventoryOptions                     = core.NavigationRawInventoryOptions
@@ -1160,6 +1163,7 @@ type (
 	PreferenceSnapshot                                = core.PreferenceSnapshot
 	PreferenceTrace                                   = core.PreferenceTrace
 	PreferenceTraceLayer                              = core.PreferenceTraceLayer
+	PreferencesAPICapabilities                        = core.PreferencesAPICapabilities
 	PreferencesDeleteInput                            = core.PreferencesDeleteInput
 	PreferencesModule                                 = core.PreferencesModule
 	PreferencesOption                                 = core.PreferencesOption
@@ -1264,6 +1268,7 @@ type (
 	SettingsUpdateCommand                             = core.SettingsUpdateCommand
 	SettingsUpdateMsg                                 = core.SettingsUpdateMsg
 	SettingsValidationErrors                          = core.SettingsValidationErrors
+	SidebarCollapsePlacement                          = core.SidebarCollapsePlacement
 	SignedTokenStrategy                               = core.SignedTokenStrategy
 	SiteAPIClient                                     = core.SiteAPIClient
 	SiteAPIError                                      = core.SiteAPIError
@@ -1295,6 +1300,7 @@ type (
 	ThemeProvider                                     = core.ThemeProvider
 	ThemeSelection                                    = core.ThemeSelection
 	ThemeSelector                                     = core.ThemeSelector
+	ThemeTokenDiagnostic                              = core.ThemeTokenDiagnostic
 	TranslationActorOption                            = core.TranslationActorOption
 	TranslationActorOptionProvider                    = core.TranslationActorOptionProvider
 	TranslationActorOptionPurpose                     = core.TranslationActorOptionPurpose
@@ -1521,6 +1527,10 @@ func ActionDisabledReasonCodes() []string {
 
 func ActionResponseCollectorFromContext(ctx context.Context) *ActionResponseCollector {
 	return core.ActionResponseCollectorFromContext(ctx)
+}
+
+func AdminSemanticProfile() theme.TokenProfile {
+	return core.AdminSemanticProfile()
 }
 
 func ApplyEntryNavigationReadContract(record map[string]any, policy EntryNavigationPolicy) map[string]any {
@@ -2631,8 +2641,8 @@ func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode
 	return core.NormalizeNavigationPermissionDeniedMode(mode)
 }
 
-func NormalizeSidebarCollapsePlacement(placement SidebarCollapsePlacement) SidebarCollapsePlacement {
-	return core.NormalizeSidebarCollapsePlacement(placement)
+func NormalizeSidebarCollapsePlacement(value SidebarCollapsePlacement) SidebarCollapsePlacement {
+	return core.NormalizeSidebarCollapsePlacement(value)
 }
 
 func ParseContentTypeCapabilityContracts(capabilities map[string]any) ContentTypeCapabilityContracts {

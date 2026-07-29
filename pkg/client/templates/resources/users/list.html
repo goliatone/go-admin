@@ -542,6 +542,7 @@ import { ImportModal } from '{{ adminURL("assets/dist/components/import-modal.js
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const preferencesAPIPath = '{{ preferences_api_path|default:"" }}';
+const preferencesAPIWritable = {{ toJSON(preferences_api_writable)|safe|default:"false" }} === true;
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const exportConfig = {{ toJSON(export_config)|safe }};
@@ -624,7 +625,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
       resource: 'users',
       localStorageKey: columnStorageKey,
-      preferencesEndpoint: preferencesEndpoint
+      preferencesEndpoint: preferencesEndpoint,
+      canWrite: preferencesAPIWritable
     });
     await columnVisibility.loadFromServer();
   }

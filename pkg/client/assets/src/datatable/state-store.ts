@@ -38,6 +38,7 @@ export interface DataGridStateStoreConfig {
   key: string;
   mode?: DataGridStateStoreMode;
   preferencesEndpoint?: string;
+  preferencesWritable?: boolean;
   resource?: string;
   syncDebounceMs?: number;
   hydrateTimeoutMs?: number;
@@ -266,6 +267,7 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   private readonly resource: string;
   private readonly syncDebounceMs: number;
   private readonly hydrateTimeoutMs: number;
+  private readonly preferencesWritable: boolean;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: DataGridStateStoreConfig) {
@@ -277,6 +279,7 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
     this.resource = normalizeResource(config.resource) || this.key;
     this.syncDebounceMs = Math.max(100, config.syncDebounceMs || 1000);
     this.hydrateTimeoutMs = Math.max(100, config.hydrateTimeoutMs || DEFAULT_PREFERENCES_HYDRATE_TIMEOUT_MS);
+    this.preferencesWritable = config.preferencesWritable !== false;
   }
 
   private get serverStateKey(): string {
@@ -333,6 +336,9 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   }
 
   private scheduleServerSync(state: DataGridPersistedState): void {
+    if (!this.preferencesWritable) {
+      return;
+    }
     if (this.syncTimeout) {
       clearTimeout(this.syncTimeout);
     }
@@ -342,6 +348,9 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   }
 
   private scheduleServerClear(): void {
+    if (!this.preferencesWritable) {
+      return;
+    }
     if (this.syncTimeout) {
       clearTimeout(this.syncTimeout);
     }

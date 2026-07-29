@@ -108,6 +108,10 @@ const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
 const preferencesAPIPath = String(dataGridConfig.preferences_endpoint || '{{ preferences_api_path|default:"" }}').trim();
+const preferencesAPIWritable = normalizeBoolean(
+  dataGridConfig.preferences_writable ?? {{ toJSON(preferences_api_writable)|safe|default:"false" }},
+  false
+);
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
 const channelQueryKey = String(dataGridConfig.channel_query_key || '{{ channel_query_key|default:"$channel" }}').trim() || '$channel';
@@ -529,6 +533,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   };
   if (stateStoreMode === 'preferences') {
     stateStoreConfig.preferencesEndpoint = preferencesEndpoint;
+    stateStoreConfig.preferencesWritable = preferencesAPIWritable;
   }
   const urlStateConfig = {
     maxURLLength: normalizePositiveInt(
@@ -551,7 +556,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       resource: '{{ panel_name }}',
       localStorageKey: columnStorageKey,
       preferencesEndpoint: preferencesEndpoint,
-      loadTimeoutMs: stateStoreConfig.hydrateTimeoutMs
+      loadTimeoutMs: stateStoreConfig.hydrateTimeoutMs,
+      canWrite: preferencesAPIWritable
     });
     await columnVisibility.loadFromServer();
   }

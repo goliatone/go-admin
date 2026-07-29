@@ -3,10 +3,10 @@ import { t as Ft } from "../chunks/icon-renderer-tQhqqQbt.js";
 import { n as qt, r as _e } from "../chunks/modal-Dzqx5T1M.js";
 import { t as F } from "../chunks/toast-manager-DWSFynqs.js";
 import { httpRequest as x, readHTTPError as be, readHTTPJSON as Ve, readHTTPJSONObject as Ot, readHTTPJSONValue as Ke } from "../shared/transport/http-client.js";
-import { createStructuredActionError as Q, executeActionRequest as ye, executeStructuredRequest as Je, extractErrorMessage as jt, extractExchangeError as gi, extractTranslationBlocker as zt, formatStructuredErrorForDisplay as B, generateExchangeReport as bi, getStructuredActionError as I, groupRowResultsByStatus as yi, isExchangeError as vi, isHandledActionError as _, isTranslationBlocker as Nt, parseImportResult as wi } from "../toast/error-helpers.js";
+import { createStructuredActionError as Q, executeActionRequest as ye, executeStructuredRequest as Je, extractErrorMessage as jt, extractExchangeError as bi, extractTranslationBlocker as zt, formatStructuredErrorForDisplay as B, generateExchangeReport as yi, getStructuredActionError as I, groupRowResultsByStatus as vi, isExchangeError as wi, isHandledActionError as _, isTranslationBlocker as Nt, parseImportResult as xi } from "../toast/error-helpers.js";
 import { n as Gt, t as Y } from "../chunks/badge-DT04uHwZ.js";
 import { t as W } from "../chunks/date-utils-Xhx5dXNC.js";
-import { $ as $i, A as Ei, B as Qe, C as Ut, D as ki, E as Ht, F as Ai, G as Li, H as _i, I as Ye, J as Ri, K as Di, L as Ti, M as Pi, N as Mi, O as Ii, P as Bi, Q as Fi, R as qi, S as Vt, T as Oi, U as ji, V as ve, W as zi, X as Kt, Y as q, Z as Ni, _ as We, a as Jt, at as Xe, b as Qt, c as Yt, d as Wt, et as Gi, f as Xt, g as we, h as Zt, i as Ui, it as er, j as Hi, k as Vi, l as tr, m as rr, n as nr, nt as Ze, o as Ki, ot as sr, p as Ji, q as ar, r as Qi, rt as et, s as ir, st as tt, t as Yi, tt as Wi, u as xe, v as Xi, w as or, x as Zi, y as eo, z as to } from "../chunks/grouped-mode-c-Eezp5z.js";
+import { $ as Ei, A as ki, B as Qe, C as Ut, D as Ai, E as Ht, F as Li, G as _i, H as Ri, I as Ye, J as Di, K as Ti, L as Pi, M as Mi, N as Ii, O as Bi, P as Fi, Q as qi, R as Oi, S as Vt, T as ji, U as zi, V as ve, W as Ni, X as Kt, Y as q, Z as Gi, _ as We, a as Jt, at as Xe, b as Qt, c as Yt, d as Wt, et as Ui, f as Xt, g as we, h as Zt, i as Hi, it as er, j as Vi, k as Ki, l as tr, m as rr, n as nr, nt as Ze, o as Ji, ot as sr, p as Qi, q as ar, r as Yi, rt as et, s as ir, st as tt, t as Wi, tt as Xi, u as xe, v as Zi, w as or, x as eo, y as to, z as ro } from "../chunks/grouped-mode-c-Eezp5z.js";
 import "../chunks/status-vocabulary-Bdx_bn1-.js";
 import { buildURL as Re, deleteSearchParams as De } from "../shared/query-state/url-state.js";
 import { t as lr } from "../chunks/sortable.esm-CcMbOE-M.js";
@@ -431,11 +431,11 @@ function L(e) {
     "_type"
   ]), t.recordId = T(e, ["id"]), !t.fallbackUsed && t.requestedLocale && t.resolvedLocale && (t.fallbackUsed = t.requestedLocale !== t.resolvedLocale), !t.missingRequestedLocale && t.fallbackUsed && (t.missingRequestedLocale = !0)), t;
 }
-function lo(e) {
+function co(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function co(e) {
+function uo(e) {
   const t = L(e);
   return t.familyId !== null || t.resolvedLocale !== null || t.availableLocales.length > 0;
 }
@@ -476,7 +476,7 @@ function at(e) {
   const n = L(e);
   return n.availableLocales.length > 0 ? n.availableLocales.length : n.resolvedLocale ? 1 : null;
 }
-function uo(e, t = {}) {
+function ho(e, t = {}) {
   const r = typeof e.translation_family_url == "string" ? e.translation_family_url.trim() : "";
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = at(e), s = n && n > 0 ? A(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
@@ -487,11 +487,11 @@ function uo(e, t = {}) {
     </div>
   `.trim();
 }
-function ho(e, t = {}) {
+function fo(e, t = {}) {
   const r = at(e);
   return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : A(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
 }
-function fo(e, t = {}) {
+function po(e, t = {}) {
   const r = st(e, "translation_assignment_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = M(r, ["status"]), s = M(r, ["label"]), a = M(r, ["assignee_id"]), i = M(r, ["priority"]), o = de(r, ["active_count", "open_count"]), l = [];
@@ -501,7 +501,7 @@ function fo(e, t = {}) {
     showIcon: !1
   })) : s && l.push(A(s, t, "info")), o !== null && o >= 0 && l.push(A(`${o} active`, t, "neutral")), a && l.push(A(`@${a}`, t, "neutral")), i && l.push(A(i, t, i === "urgent" || i === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
 }
-function po(e, t = {}) {
+function mo(e, t = {}) {
   const r = st(e, "translation_exchange_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = M(r, ["status", "last_job_status"]), s = M(r, ["label", "last_job_label"]), a = de(r, ["pending_count"]), i = de(r, ["error_count"]), o = [];
@@ -539,10 +539,10 @@ function C(e) {
   }
   return t;
 }
-function mo(e) {
+function go(e) {
   return C(e).hasReadinessMetadata;
 }
-function go(e, t) {
+function bo(e, t) {
   return C(e).readyForTransition[t] === !0;
 }
 function fr(e) {
@@ -590,12 +590,12 @@ function mr(e, t = {}) {
     size: s
   })), a.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${a.join("")}</div>`;
 }
-function bo(e, t = "default") {
+function yo(e, t = "default") {
   if (!e) return "";
   const r = e.trim();
   return ve(r) !== null ? q(r, { size: t === "sm" ? "sm" : "default" }) : Y(e, "status", r.toLowerCase(), { size: t === "sm" ? "sm" : void 0 });
 }
-function yo(e, t = {}) {
+function vo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata) return "";
   const { size: n = "default", showDetailedTooltip: s = !0, extraClass: a = "" } = t, i = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, o = r.readinessState || "ready", { icon: l, label: c, bgClass: u, textClass: h, tooltip: f } = gr(o, r, s);
@@ -607,7 +607,7 @@ function yo(e, t = {}) {
     <span>${c}</span>
   </span>`;
 }
-function vo(e, t = {}) {
+function wo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata) return "";
   const n = r.readyForTransition.publish === !0, { size: s = "default", extraClass: a = "" } = t, i = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
@@ -629,7 +629,7 @@ function vo(e, t = {}) {
     ${o > 0 ? `${o} missing` : "Not ready"}
   </span>`;
 }
-function wo(e, t = {}) {
+function xo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata || r.requiredLocales.length === 0) return "";
   const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs" : "text-sm", i = r.requiredLocales.length, o = r.availableLocales.filter((l) => r.requiredLocales.includes(l)).length;
@@ -639,7 +639,7 @@ function wo(e, t = {}) {
     ${o}/${i}
   </span>`;
 }
-function xo(e, t = {}) {
+function So(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata || r.readinessState === "ready") return "";
   const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", i = r.missingRequiredLocales.length, o = i > 0, l = Object.keys(r.missingRequiredFieldsByLocale).length > 0;
@@ -655,11 +655,11 @@ function xo(e, t = {}) {
     <span>${u}</span>
   </span>`;
 }
-function So(e) {
+function Co(e) {
   const t = C(e);
   return t.hasReadinessMetadata ? t.readinessState !== "ready" : !1;
 }
-function Co(e) {
+function $o(e) {
   return C(e).missingRequiredLocales.length;
 }
 function gr(e, t, r) {
@@ -742,10 +742,10 @@ function yr(e) {
     for (const [r, n] of Object.entries(e)) Array.isArray(n) && n.length > 0 && t.add(r);
   return t;
 }
-function $o(e = {}) {
+function Eo(e = {}) {
   return (t, r, n) => br(r, e);
 }
-function Eo(e, t = {}) {
+function ko(e, t = {}) {
   if (!e.fallbackUsed && !e.missingRequestedLocale) return "";
   const { showCreateButton: r = !0, createTranslationUrl: n, panelName: s } = t, a = e.requestedLocale || "requested locale", i = e.resolvedLocale || "default", o = r ? `
     <button type="button"
@@ -1030,7 +1030,7 @@ var Dr = class {
       return e ? `<img src="${e}" alt="${r}" class="h-8 w-8 rounded-full object-cover" />` : `<div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">${n}</div>`;
     });
   }
-}, ko = {
+}, Ao = {
   statusBadge: (e) => (t) => {
     const r = String(t).toLowerCase();
     return Y(String(t), "status", r);
@@ -1185,7 +1185,7 @@ var ct = class {
 }, jr = class extends ct {
   constructor(e) {
     if (super(e), this.syncTimeout = null, this.preferencesEndpoint = lt(e.preferencesEndpoint), !this.preferencesEndpoint) throw new Error("PreferencesDataGridStateStore requires an advertised preferences endpoint");
-    this.resource = Br(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3), this.hydrateTimeoutMs = Math.max(100, e.hydrateTimeoutMs || Mr);
+    this.resource = Br(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3), this.hydrateTimeoutMs = Math.max(100, e.hydrateTimeoutMs || Mr), this.preferencesWritable = e.preferencesWritable !== !1;
   }
   get serverStateKey() {
     return `ui.datagrid.${this.resource}.state`;
@@ -1220,14 +1220,14 @@ var ct = class {
     super.clearPersistedState(), this.scheduleServerClear();
   }
   scheduleServerSync(e) {
-    this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
+    this.preferencesWritable && (this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
       this.syncToServer(e);
-    }, this.syncDebounceMs);
+    }, this.syncDebounceMs));
   }
   scheduleServerClear() {
-    this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
+    this.preferencesWritable && (this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
       this.clearServerState();
-    }, this.syncDebounceMs);
+    }, this.syncDebounceMs));
   }
   async syncToServer(e) {
     try {
@@ -3081,7 +3081,7 @@ var Fe = {
       value: "between"
     }
   ]
-}, Ao = class {
+}, Lo = class {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new F();
   }
@@ -3423,7 +3423,7 @@ var Fe = {
     label: "is not",
     value: "ne"
   }]
-}, Lo = class {
+}, _o = class {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new F(), this.structure = {
       groups: [],
@@ -3786,7 +3786,7 @@ var Fe = {
   setStructure(e) {
     this.structure = e, this.render();
   }
-}, _o = class {
+}, Ro = class {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0) throw new Error("At least one searchable field is required");
   }
@@ -3800,7 +3800,7 @@ var Fe = {
   async onSearch(e, t) {
     t.resetPagination(), await t.refresh();
   }
-}, Ro = class {
+}, Do = class {
   buildFilters(e) {
     const t = {}, r = /* @__PURE__ */ new Map();
     return e.forEach((n) => {
@@ -3820,7 +3820,7 @@ var Fe = {
   async onFilterChange(e, t, r) {
     r.resetPagination(), await r.refresh();
   }
-}, Do = class {
+}, To = class {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -3830,14 +3830,14 @@ var Fe = {
   async onPageChange(e, t) {
     await t.refresh();
   }
-}, To = class {
+}, Po = class {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((t) => `${t.field} ${t.direction}`).join(",") };
   }
   async onSort(e, t, r) {
     await r.refresh();
   }
-}, Po = class {
+}, Mo = class {
   constructor(e) {
     if (!e || !e.endpoint) throw new Error("export endpoint is required");
     if (!e.definition && !e.resource) throw new Error("export definition or resource is required");
@@ -4055,7 +4055,7 @@ function R(e, t, r) {
   }
   t === "error" && alert(r);
 }
-var Mo = class {
+var Io = class {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -4078,10 +4078,13 @@ var Mo = class {
     await r.refresh();
   }
 }, Vs = 1500;
+function Ks(e) {
+  return typeof e == "object" && e !== null && "name" in e && e.name === "AbortError";
+}
 function vt(e) {
   return typeof e == "object" && e !== null && "version" in e && e.version === 2;
 }
-var Ks = class {
+var Js = class {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -4161,11 +4164,11 @@ var Ks = class {
       console.warn("Failed to clear column preferences:", e);
     }
   }
-}, Io = class extends Ks {
+}, Bo = class extends Js {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
     if (super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource, this.preferencesEndpoint = String(t.preferencesEndpoint || "").trim().replace(/\/+$/, ""), !this.preferencesEndpoint) throw new Error("ServerColumnVisibilityBehavior requires an advertised preferences endpoint");
-    this.syncDebounce = t.syncDebounce ?? 1e3, this.loadTimeoutMs = Math.max(100, t.loadTimeoutMs || Vs);
+    this.syncDebounce = t.syncDebounce ?? 1e3, this.loadTimeoutMs = Math.max(100, t.loadTimeoutMs || Vs), this.canWrite = t.canWrite !== !1;
   }
   get serverPrefsKey() {
     return `ui.datagrid.${this.resource}.columns`;
@@ -4198,7 +4201,7 @@ var Ks = class {
       const a = s[this.serverPrefsKey];
       return vt(a) ? (this.serverPrefs = a, this.savePrefs(a), console.log("[ServerColumnVisibility] Loaded prefs from server:", a), a) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", a), null);
     } catch (r) {
-      return console.warn("[ServerColumnVisibility] Error loading server prefs:", r), null;
+      return Ks(r) || console.warn("[ServerColumnVisibility] Error loading server prefs:", r), null;
     } finally {
       clearTimeout(t);
     }
@@ -4222,9 +4225,9 @@ var Ks = class {
     };
   }
   scheduleServerSync(e) {
-    this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
+    this.canWrite && (this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
       this.syncToServer(e);
-    }, this.syncDebounce);
+    }, this.syncDebounce));
   }
   async syncToServer(e) {
     const t = {};
@@ -4256,7 +4259,7 @@ var Ks = class {
     }
   }
   clearSavedPrefs() {
-    super.clearSavedPrefs(), this.serverPrefs = null, this.clearServerPrefs();
+    super.clearSavedPrefs(), this.serverPrefs = null, this.canWrite && this.clearServerPrefs();
   }
   async clearServerPrefs() {
     try {
@@ -4279,7 +4282,7 @@ var Ks = class {
     }
   }
 };
-function Js(e) {
+function Qs(e) {
   const t = e.trim(), r = t.indexOf("?");
   return r === -1 ? {
     path: t,
@@ -4290,7 +4293,7 @@ function Js(e) {
   };
 }
 function D(e, t, r = "", n = "") {
-  const { path: s, query: a } = Js(e), i = s.replace(/\/+$/, ""), o = r.replace(/^\/+/, "");
+  const { path: s, query: a } = Qs(e), i = s.replace(/\/+$/, ""), o = r.replace(/^\/+/, "");
   let l = `${i}/${encodeURIComponent(t)}`;
   o && (l += `/${o}`);
   const c = [];
@@ -4310,7 +4313,7 @@ var ze = {
   archive: 1e3,
   restore: 1100,
   delete: 9e3
-}, Qs = 5e3, wt = class {
+}, Ys = 5e3, wt = class {
   constructor(e) {
     this.seenActions = /* @__PURE__ */ new Set(), this.config = {
       useDefaultFallback: !0,
@@ -4350,7 +4353,7 @@ var ze = {
   resolveActionOrder(e, t) {
     if (typeof t == "number" && Number.isFinite(t)) return t;
     const r = e.toLowerCase();
-    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : ze[r] !== void 0 ? ze[r] : Qs;
+    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : ze[r] !== void 0 ? ze[r] : Ys;
   }
   buildActionFromSchema(e, t, r, n) {
     const s = t.name, a = t.label || t.label_key || s, i = t.variant || "secondary", o = t.icon, l = this.isNavigationAction(t), c = s === "delete";
@@ -4959,23 +4962,23 @@ var ze = {
     }[e.toLowerCase()];
   }
 };
-function Bo(e, t, r) {
+function Fo(e, t, r) {
   return new wt(r).buildRowActions(e, t);
 }
-function Fo(e) {
+function qo(e) {
   return e.schema?.actions;
 }
-function Ys() {
+function Ws() {
   const e = globalThis.window;
   return e?.toastManager ? e.toastManager : new F();
 }
-async function Ws(e) {
+async function Xs(e) {
   return Ke(e, null);
 }
 function ge(e, t) {
   return (typeof e.id == "string" && e.id.trim() ? e.id.trim() : `${e.label}-${t + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `action-${t + 1}`;
 }
-function Xs(e, t) {
+function Zs(e, t) {
   const r = "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2";
   if (t) return `${r} cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 focus:ring-gray-300`;
   switch ((e.variant || "secondary").toLowerCase()) {
@@ -4991,7 +4994,7 @@ function Xs(e, t) {
       return `${r} border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500`;
   }
 }
-function Zs(e, t) {
+function ea(e, t) {
   const r = "flex w-full items-center gap-2 px-4 py-2.5 text-sm text-left transition-colors";
   if (t) return `${r} cursor-not-allowed text-gray-400`;
   switch ((e.variant || "secondary").toLowerCase()) {
@@ -5021,7 +5024,7 @@ function Ne(e) {
     create_translation: "iconoir-translate"
   }[String(e.id || "").toLowerCase().replace(/[^a-z_]/g, "_")] || "";
 }
-function ea(e) {
+function ta(e) {
   const t = e.findIndex((n) => String(n.id || "").toLowerCase() === "edit");
   if (t >= 0) return {
     primary: e[t],
@@ -5039,9 +5042,9 @@ function ea(e) {
     rest: e
   };
 }
-function ta(e) {
+function ra(e) {
   if (e.length === 0) return "";
-  const { primary: t, rest: r } = ea(e);
+  const { primary: t, rest: r } = ta(e);
   let n = "";
   if (t) {
     const a = t.disabled === !0, i = ge(t, 0), o = Ne(t), l = a ? (t.disabledReason || "Action unavailable").trim() : "", c = l ? `detail-action-reason-${i}` : "", u = c ? `aria-describedby="${c}"` : "", h = l ? `${t.label} unavailable: ${l}` : t.label, f = a && t.remediation?.href && t.remediation?.label ? `
@@ -5062,7 +5065,7 @@ function ta(e) {
       <div data-detail-action-card="${d(i)}" class="flex items-center gap-2">
         <button
           type="button"
-          class="${Xs(t, a)}"
+          class="${Zs(t, a)}"
           data-detail-action-button="${d(i)}"
           data-detail-action-name="${d(t.id || t.label)}"
           data-disabled="${a}"
@@ -5118,7 +5121,7 @@ function ta(e) {
         <div data-detail-action-card="${d(l)}" class="space-y-1">
           <button
             type="button"
-            class="${Zs(a, o)}"
+            class="${ea(a, o)}"
             data-detail-action-button="${d(l)}"
             data-detail-action-name="${d(a.id || a.label)}"
             data-disabled="${o}"
@@ -5145,9 +5148,9 @@ function ta(e) {
     </div>
   `;
 }
-var ra = class {
+var na = class {
   constructor(e) {
-    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || Ys(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
+    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || Ws(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
   }
   async init() {
     this.mount && (this.mount.setAttribute("aria-busy", "true"), await this.refresh());
@@ -5190,7 +5193,7 @@ var ra = class {
         await this.refresh();
       }
     });
-    this.record = t, this.actions = l.buildRowActions(t, r), this.mount.innerHTML = ta(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(s), this.attachDropdownListeners();
+    this.record = t, this.actions = l.buildRowActions(t, r), this.mount.innerHTML = ra(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(s), this.attachDropdownListeners();
   }
   async fetchDetailPayload() {
     const e = this.detailEndpoint();
@@ -5198,7 +5201,7 @@ var ra = class {
     const t = await this.fetchImpl(e, { headers: { Accept: "application/json" } });
     if (!t.ok)
       return this.notifier.error(`Actions unavailable (${t.status})`), null;
-    const r = await Ws(t);
+    const r = await Xs(t);
     return !r || typeof r != "object" ? null : Xe(r);
   }
   attachListeners(e) {
@@ -5274,15 +5277,15 @@ var ra = class {
     return String(this.mount.dataset.recordId || "").trim();
   }
 };
-async function qo(e = document) {
+async function Oo(e = document) {
   const t = Array.from(e.querySelectorAll("[data-panel-detail-actions]")), r = [];
   for (const n of t) {
-    const s = new ra({ mount: n });
+    const s = new na({ mount: n });
     r.push(s), await s.init();
   }
   return r;
 }
-var na = class xt extends qt {
+var sa = class xt extends qt {
   constructor(t) {
     super({
       size: "lg",
@@ -5554,16 +5557,16 @@ var na = class xt extends qt {
     return this.resolved || (this.resolved = !0, this.config.onDismiss?.()), !0;
   }
 };
-async function Oo(e) {
+async function jo(e) {
   try {
-    await na.showBlocker(e);
+    await sa.showBlocker(e);
   } catch (t) {
     console.error("[TranslationBlockerModal] Render failed, using fallback:", t);
     const r = `Cannot ${e.transition || "complete action"}: Missing translations for ${e.missingLocales.join(", ")}`;
     typeof window < "u" && "toastManager" in window ? window.toastManager.error(r) : alert(r);
   }
 }
-var sa = [
+var aa = [
   {
     key: "ready",
     label: "Ready",
@@ -5602,7 +5605,7 @@ var sa = [
       title: e.title || "",
       orientation: e.orientation || "horizontal",
       size: e.size || "default",
-      items: e.items || sa
+      items: e.items || aa
     }, this.container = t;
   }
   render() {
@@ -5641,15 +5644,15 @@ var sa = [
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function aa(e) {
+function ia(e) {
   const t = new St(e);
   return t.render(), t;
 }
-function jo() {
+function zo() {
   const e = document.querySelectorAll("[data-status-legend]"), t = [];
   return e.forEach((r) => {
     if (r.hasAttribute("data-status-legend-init")) return;
-    const n = aa({
+    const n = ia({
       container: r,
       orientation: r.dataset.orientation || "horizontal",
       size: r.dataset.size || "default",
@@ -5658,7 +5661,7 @@ function jo() {
     r.setAttribute("data-status-legend-init", "true"), t.push(n);
   }), t;
 }
-function zo(e = {}) {
+function No(e = {}) {
   return new St({
     container: document.createElement("div"),
     ...e
@@ -5710,7 +5713,7 @@ var Ct = [
     styleClass: "bg-orange-100 text-orange-700 hover:bg-orange-200",
     description: "Records currently viewed in fallback mode"
   }
-], ia = class {
+], oa = class {
   constructor(e) {
     if (this.container = null, this.config = e, this.container = typeof e.container == "string" ? document.querySelector(e.container) : e.container, this.state = {
       activeKey: null,
@@ -5800,23 +5803,23 @@ var Ct = [
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function oa(e, t, r = {}) {
-  return new ia({
+function la(e, t, r = {}) {
+  return new oa({
     container: e,
     filters: Ct,
     onFilterSelect: t,
     ...r
   });
 }
-function No(e) {
+function Go(e) {
   const t = document.querySelectorAll("[data-quick-filters]"), r = [];
   return t.forEach((n) => {
     if (n.hasAttribute("data-quick-filters-init")) return;
-    const s = oa(n, (a) => e(a, n), { size: n.dataset.size || "default" });
+    const s = la(n, (a) => e(a, n), { size: n.dataset.size || "default" });
     n.setAttribute("data-quick-filters-init", "true"), r.push(s);
   }), r;
 }
-function Go(e = {}) {
+function Uo(e = {}) {
   const { filters: t = Ct, activeKey: r = null, capabilities: n = [], size: s = "default", containerClass: a = "" } = e, i = s === "sm" ? "text-xs" : "text-sm", o = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
   for (const c of n) l.set(c.key, c);
   return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${a}">${t.map((c) => {
@@ -5827,7 +5830,7 @@ function Go(e = {}) {
     return `<span class="${y} ${g}" ${w}>${m}<span>${d(c.label)}</span></span>`;
   }).join("")}</div>`;
 }
-var ie = "go-admin:translation-panel-expanded", la = class {
+var ie = "go-admin:translation-panel-expanded", ca = class {
   constructor(e) {
     this.toggleButton = null, this.panelElement = null, this.expandAllButton = null, this.collapseAllButton = null, this.groupControls = null, this.viewModeButtons = [], this.expanded = !1, this.boundToggleHandler = null, this.config = {
       ...e,
@@ -5894,10 +5897,10 @@ var ie = "go-admin:translation-panel-expanded", la = class {
     } }));
   }
 };
-function Uo(e) {
-  return new la(e);
+function Ho(e) {
+  return new ca(e);
 }
-async function ca(e, t, r = {}) {
+async function da(e, t, r = {}) {
   const { apiEndpoint: n, notifier: s = new F(), maxFailuresToShow: a = 5 } = e, i = `${n}/bulk/create-missing-translations`;
   try {
     const o = await x(i, {
@@ -5912,14 +5915,14 @@ async function ca(e, t, r = {}) {
       })
     });
     if (!o.ok) throw new Error(await be(o, `Request failed: ${o.status}`, { appendStatusToFallback: !1 }));
-    const l = da(await o.json(), a);
-    return ua(l, s), e.onSuccess && e.onSuccess(l), l;
+    const l = ua(await o.json(), a);
+    return ha(l, s), e.onSuccess && e.onSuccess(l), l;
   } catch (o) {
     const l = o instanceof Error ? o : new Error(String(o));
     throw s.error(`Failed to create translations: ${l.message}`), e.onError && e.onError(l), l;
   }
 }
-function da(e, t) {
+function ua(e, t) {
   const r = e.data || [], n = e.created_count ?? r.filter((i) => i.success).length, s = e.failed_count ?? r.filter((i) => !i.success).length, a = e.skipped_count ?? 0;
   return {
     total: e.total ?? r.length,
@@ -5933,7 +5936,7 @@ function da(e, t) {
     }))
   };
 }
-function ua(e, t) {
+function ha(e, t) {
   const { created: r, failed: n, skipped: s, total: a } = e;
   if (a === 0) {
     t.info("No translations to create");
@@ -5941,7 +5944,7 @@ function ua(e, t) {
   }
   n === 0 ? r > 0 ? t.success(`Created ${r} translation${r !== 1 ? "s" : ""}${s > 0 ? ` (${s} skipped)` : ""}`) : s > 0 && t.info(`All ${s} translation${s !== 1 ? "s" : ""} already exist`) : r === 0 ? t.error(`Failed to create ${n} translation${n !== 1 ? "s" : ""}`) : t.warning(`Created ${r}, failed ${n}${s > 0 ? `, skipped ${s}` : ""}`);
 }
-function Ho(e) {
+function Vo(e) {
   const { created: t, failed: r, skipped: n, total: s, failures: a } = e, i = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
@@ -5994,18 +5997,18 @@ function Ho(e) {
     </div>
   `;
 }
-function Vo(e) {
+function Ko(e) {
   const { created: t, failed: r, skipped: n } = e, s = [];
   return t > 0 && s.push(`<span class="text-green-600">+${t}</span>`), r > 0 && s.push(`<span class="text-red-600">${r} failed</span>`), n > 0 && s.push(`<span class="text-yellow-600">${n} skipped</span>`), s.join(" · ");
 }
-function Ko(e, t, r) {
-  return async (n) => ca({
+function Jo(e, t, r) {
+  return async (n) => da({
     apiEndpoint: e,
     notifier: t,
     onSuccess: r
   }, n);
 }
-var ha = {
+var fa = {
   en: "English",
   es: "Spanish",
   fr: "French",
@@ -6025,7 +6028,7 @@ var ha = {
   fi: "Finnish"
 };
 function E(e) {
-  return ha[e.toLowerCase()] || e.toUpperCase();
+  return fa[e.toLowerCase()] || e.toUpperCase();
 }
 var te = class {
   constructor(e) {
@@ -6194,7 +6197,7 @@ var te = class {
 function $t(e) {
   return new te(e).render();
 }
-function Jo(e, t) {
+function Qo(e, t) {
   return e.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
       ${e.map((r) => $t({
@@ -6204,7 +6207,7 @@ function Jo(e, t) {
     </div>
   `;
 }
-function Qo(e, t) {
+function Yo(e, t) {
   const r = /* @__PURE__ */ new Map();
   return e.querySelectorAll("[data-locale-action]").forEach((n) => {
     const s = n.getAttribute("data-locale-action");
@@ -6369,9 +6372,9 @@ var ke = class {
     }).handleCreate();
   }
 };
-function fa(e, t) {
+function pa(e, t) {
   if (!t.locked) {
-    pa(e);
+    ma(e);
     return;
   }
   if (e.classList.add("form-locked", "pointer-events-none", "opacity-75"), e.setAttribute("data-form-locked", "true"), e.setAttribute("data-lock-reason", t.reason || ""), e.querySelectorAll('input, textarea, select, button[type="submit"]').forEach((r) => {
@@ -6381,39 +6384,39 @@ function fa(e, t) {
     r.setAttribute("data-form-lock-overlay", "true"), r.className = "absolute inset-0 bg-amber-50/30 cursor-not-allowed z-10", r.setAttribute("title", t.reason || "Form is locked"), window.getComputedStyle(e).position === "static" && (e.style.position = "relative"), e.appendChild(r);
   }
 }
-function pa(e) {
+function ma(e) {
   e.classList.remove("form-locked", "pointer-events-none", "opacity-75"), e.removeAttribute("data-form-locked"), e.removeAttribute("data-lock-reason"), e.querySelectorAll('[data-was-enabled="true"]').forEach((t) => {
     t.removeAttribute("disabled"), t.removeAttribute("data-was-enabled"), t.removeAttribute("aria-disabled");
   }), e.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function Yo(e) {
+function Wo(e) {
   return e.getAttribute("data-form-locked") === "true";
 }
-function Wo(e) {
+function Xo(e) {
   return e.getAttribute("data-lock-reason");
 }
-function Xo(e, t) {
+function Zo(e, t) {
   const r = L(e);
   return new ke({
     ...t,
     context: r
   }).render();
 }
-function Zo(e) {
+function el(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function el(e, t) {
+function tl(e, t) {
   const r = new ke(t);
   return r.mount(e), r;
 }
-function tl(e, t) {
+function rl(e, t) {
   const r = new ke({
     context: L(t),
     apiEndpoint: "",
     navigationBasePath: ""
   }).getFormLockState();
-  return fa(e, r), r;
+  return pa(e, r), r;
 }
 var Et = class {
   constructor(e, t) {
@@ -6532,34 +6535,34 @@ var Et = class {
     return this.chips.get(e);
   }
 };
-function ma(e, t) {
+function ga(e, t) {
   const r = String(e.id || "");
   return r ? new Et(e, {
     ...t,
     recordId: r
   }).render() : "";
 }
-function rl(e) {
+function nl(e) {
   const t = C(e);
   return t.hasReadinessMetadata && t.missingRequiredLocales.length > 0;
 }
-function nl(e, t, r) {
+function sl(e, t, r) {
   const n = String(t.id || ""), s = new Et(t, {
     ...r,
     recordId: n
   });
   return s.mount(e), s;
 }
-function sl(e) {
-  return (t, r, n) => ma(r, e);
+function al(e) {
+  return (t, r, n) => ga(r, e);
 }
 function re() {
   return typeof navigator > "u" ? !1 : /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
 }
-function ga() {
+function ba() {
   return re() ? "⌘" : "Ctrl";
 }
-function ba(e) {
+function ya(e) {
   if (re()) switch (e) {
     case "ctrl":
       return "⌃";
@@ -6582,10 +6585,10 @@ function ba(e) {
   }
 }
 function kt(e) {
-  const t = e.modifiers.map(ba), r = ya(e.key);
+  const t = e.modifiers.map(ya), r = va(e.key);
   return re() ? [...t, r].join("") : [...t, r].join("+");
 }
-function ya(e) {
+function va(e) {
   return {
     Enter: "↵",
     Escape: "Esc",
@@ -6694,7 +6697,7 @@ var At = class {
     this.unbind(), this.shortcuts.clear();
   }
 };
-function va(e) {
+function wa(e) {
   const t = [];
   return e.onSave && t.push({
     id: "save",
@@ -6742,7 +6745,7 @@ function va(e) {
     handler: e.onCreateTranslation
   }), t;
 }
-function al(e) {
+function il(e) {
   const t = /* @__PURE__ */ new Map();
   for (const a of e) {
     if (a.enabled === !1) continue;
@@ -6805,7 +6808,7 @@ var Lt = "admin_keyboard_shortcuts_settings", _t = "admin_keyboard_shortcuts_hin
 function ne() {
   return typeof localStorage > "u" || !localStorage || typeof localStorage.getItem != "function" || typeof localStorage.setItem != "function" ? null : localStorage;
 }
-function wa() {
+function xa() {
   const e = ne();
   if (!e) return { ...J };
   try {
@@ -6821,7 +6824,7 @@ function wa() {
     return { ...J };
   }
 }
-function il(e) {
+function ol(e) {
   const t = ne();
   if (t)
     try {
@@ -6833,11 +6836,11 @@ function il(e) {
     } catch {
     }
 }
-function xa() {
+function Sa() {
   const e = ne();
   return e ? e.getItem(_t) === "true" : !1;
 }
-function Sa() {
+function Ca() {
   const e = ne();
   if (e)
     try {
@@ -6845,8 +6848,8 @@ function Sa() {
     } catch {
     }
 }
-function Ca(e) {
-  if (xa()) return null;
+function $a(e) {
+  if (Sa()) return null;
   const { container: t, position: r = "bottom", onDismiss: n, onShowHelp: s, autoDismissMs: a = 1e4 } = e, i = document.createElement("div");
   i.className = `shortcuts-discovery-hint fixed ${r === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, i.setAttribute("role", "alert"), i.setAttribute("aria-live", "polite"), i.innerHTML = `
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
@@ -6862,7 +6865,7 @@ function Ca(e) {
           </p>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Press <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">?</kbd>
-            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${ga()}+S</kbd> to save.
+            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${ba()}+S</kbd> to save.
           </p>
           <div class="mt-3 flex items-center gap-2">
             <button type="button" data-hint-action="show-help"
@@ -6886,7 +6889,7 @@ function Ca(e) {
     </div>
   `;
   const o = (l) => {
-    l && Sa(), i.remove(), n?.();
+    l && Ca(), i.remove(), n?.();
   };
   return i.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
     o(!0), s?.();
@@ -6898,7 +6901,7 @@ function Ca(e) {
     i.parentElement && o(!1);
   }, a), t.appendChild(i), i;
 }
-function ol(e) {
+function ll(e) {
   const { container: t, shortcuts: r, settings: n, onSettingsChange: s } = e, a = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -7014,7 +7017,7 @@ function ol(e) {
     s({ ...J });
   });
 }
-function $a(e, t) {
+function Ea(e, t) {
   const r = e;
   r.config && (r.config.enabled = t.enabled);
   for (const n of e.getShortcuts()) {
@@ -7023,33 +7026,33 @@ function $a(e, t) {
   }
 }
 var oe = null;
-function ll() {
+function cl() {
   return oe || (oe = new At()), oe;
 }
-function Ea(e, t) {
-  const r = wa(), n = new At({
+function ka(e, t) {
+  const r = xa(), n = new At({
     ...t,
     enabled: r.enabled
-  }), s = va(e);
+  }), s = wa(e);
   for (const a of s) n.register(a);
-  return $a(n, r), n.bind(), n;
+  return Ea(n, r), n.bind(), n;
 }
-function cl(e, t) {
-  const r = Ea(e, t);
-  return t.hintContainer && Ca({
+function dl(e, t) {
+  const r = ka(e, t);
+  return t.hintContainer && $a({
     container: t.hintContainer,
     onShowHelp: t.onShowHelp,
     onDismiss: () => {
     }
   }), r;
 }
-var ka = 1500, Aa = 2e3, Ae = "autosave", z = {
+var Aa = 1500, La = 2e3, Ae = "autosave", z = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
   error: "Save failed",
   conflict: "Conflict detected"
-}, La = {
+}, _a = {
   title: "Save Conflict",
   message: "This content was modified by someone else. Choose how to proceed:",
   useServer: "Use server version",
@@ -7061,8 +7064,8 @@ var ka = 1500, Aa = 2e3, Ae = "autosave", z = {
     this.state = "idle", this.conflictInfo = null, this.pendingData = null, this.lastError = null, this.debounceTimer = null, this.savedTimer = null, this.listeners = [], this.isDirty = !1, this.config = {
       container: e.container,
       onSave: e.onSave,
-      debounceMs: e.debounceMs ?? ka,
-      savedDurationMs: e.savedDurationMs ?? Aa,
+      debounceMs: e.debounceMs ?? Aa,
+      savedDurationMs: e.savedDurationMs ?? La,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
       classPrefix: e.classPrefix ?? Ae,
@@ -7075,7 +7078,7 @@ var ka = 1500, Aa = 2e3, Ae = "autosave", z = {
       fetchServerState: e.fetchServerState,
       allowForceSave: e.allowForceSave ?? !0,
       conflictLabels: {
-        ...La,
+        ..._a,
         ...e.conflictLabels
       }
     };
@@ -7310,7 +7313,7 @@ var ka = 1500, Aa = 2e3, Ae = "autosave", z = {
     e && e.addEventListener("click", () => this.retry());
   }
 };
-function dl(e) {
+function ul(e) {
   return new Rt({
     debounceMs: 1500,
     savedDurationMs: 2e3,
@@ -7327,7 +7330,7 @@ function dl(e) {
     ...e
   });
 }
-function ul(e, t = {}) {
+function hl(e, t = {}) {
   const r = t.classPrefix ?? Ae, n = {
     ...z,
     ...t.labels
@@ -7352,7 +7355,7 @@ function ul(e, t = {}) {
     <span class="${r}__label">${n}</span>
   </div>`;
 }
-function hl(e = Ae) {
+function fl(e = Ae) {
   return `
     .${e} {
       display: inline-flex;
@@ -7492,7 +7495,7 @@ function hl(e = Ae) {
     }
   `;
 }
-function fl(e, t) {
+function pl(e, t) {
   const { watchFields: r, indicatorSelector: n, ...s } = t;
   let a = s.container;
   !a && n && (a = e.querySelector(n) ?? void 0);
@@ -7530,7 +7533,7 @@ function fl(e, t) {
     e.removeEventListener("input", l), e.removeEventListener("change", l), window.removeEventListener("beforeunload", c), document.removeEventListener("visibilitychange", u), h();
   }, i;
 }
-var Dt = "char-counter", _a = "interpolation-preview", Tt = "dir-toggle", Pt = [
+var Dt = "char-counter", Ra = "interpolation-preview", Tt = "dir-toggle", Pt = [
   {
     pattern: /\{\{(\w+(?:\.\w+)*)\}\}/g,
     name: "Mustache",
@@ -7556,7 +7559,7 @@ var Dt = "char-counter", _a = "interpolation-preview", Tt = "dir-toggle", Pt = [
     name: "Template Literal",
     example: "${name}"
   }
-], Ra = {
+], Da = {
   name: "John",
   count: "5",
   email: "user@example.com",
@@ -7565,7 +7568,7 @@ var Dt = "char-counter", _a = "interpolation-preview", Tt = "dir-toggle", Pt = [
   user: "Jane",
   item: "Product",
   total: "100"
-}, Da = class {
+}, Ta = class {
   constructor(e) {
     this.counterEl = null, this.config = {
       input: e.input,
@@ -7619,15 +7622,15 @@ var Dt = "char-counter", _a = "interpolation-preview", Tt = "dir-toggle", Pt = [
   defaultFormatDisplay(e, t) {
     return t ? `${e} / ${t}` : `${e}`;
   }
-}, Ta = class {
+}, Pa = class {
   constructor(e) {
     this.previewEl = null, this.config = {
       input: e.input,
       container: e.container,
-      sampleValues: e.sampleValues ?? Ra,
+      sampleValues: e.sampleValues ?? Da,
       patterns: [...Pt, ...e.customPatterns ?? []],
       highlightVariables: e.highlightVariables ?? !0,
-      classPrefix: e.classPrefix ?? _a
+      classPrefix: e.classPrefix ?? Ra
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
   getMatches() {
@@ -7693,7 +7696,7 @@ var Dt = "char-counter", _a = "interpolation-preview", Tt = "dir-toggle", Pt = [
     for (const [r, n] of Object.entries(this.config.sampleValues)) if (r.toLowerCase() === t) return n;
     return null;
   }
-}, Pa = class {
+}, Ma = class {
   constructor(e) {
     this.toggleEl = null, this.config = {
       input: e.input,
@@ -7759,25 +7762,25 @@ var Dt = "char-counter", _a = "interpolation-preview", Tt = "dir-toggle", Pt = [
     </svg>`;
   }
 };
-function pl(e, t = {}) {
+function ml(e, t = {}) {
   const r = [], n = [], s = [];
   for (const a of t.charCounterFields ?? []) {
     const i = e.querySelector(`[name="${a}"]`);
-    i && r.push(new Da({
+    i && r.push(new Ta({
       input: i,
       ...t.charCounterConfig
     }));
   }
   for (const a of t.interpolationFields ?? []) {
     const i = e.querySelector(`[name="${a}"]`);
-    i && n.push(new Ta({
+    i && n.push(new Pa({
       input: i,
       ...t.interpolationConfig
     }));
   }
   for (const a of t.directionToggleFields ?? []) {
     const i = e.querySelector(`[name="${a}"]`);
-    i && s.push(new Pa({
+    i && s.push(new Ma({
       input: i,
       persistenceKey: `dir-${a}`,
       ...t.directionToggleConfig
@@ -7792,20 +7795,20 @@ function pl(e, t = {}) {
     }
   };
 }
-function ml(e, t, r, n = Dt) {
+function gl(e, t, r, n = Dt) {
   const s = [n];
   r && s.push(`${n}--${r}`);
   const a = t ? `${e} / ${t}` : `${e}`;
   return `<span class="${s.join(" ")}" aria-live="polite">${a}</span>`;
 }
-function gl(e, t = Tt) {
+function bl(e, t = Tt) {
   const r = e === "rtl", n = r ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${t}" aria-pressed="${r}" title="Toggle text direction (${e.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${n}</svg>
     <span class="${t}__label">${e.toUpperCase()}</span>
   </button>`;
 }
-function bl() {
+function yl() {
   return `
     /* Character Counter */
     .char-counter {
@@ -7885,7 +7888,7 @@ function bl() {
     }
   `;
 }
-function yl(e, t = Pt) {
+function vl(e, t = Pt) {
   const r = [];
   for (const n of t) {
     n.pattern.lastIndex = 0;
@@ -7899,10 +7902,10 @@ function yl(e, t = Pt) {
   }
   return r;
 }
-function vl(e, t, r) {
+function wl(e, t, r) {
   return r && e >= r ? "error" : t && e >= t ? "warning" : null;
 }
-function wl(e) {
+function xl(e) {
   return typeof e == "string" && [
     "none",
     "core",
@@ -7911,16 +7914,16 @@ function wl(e) {
     "full"
   ].includes(e) ? e : "none";
 }
-function Ma(e) {
+function Ia(e) {
   return e === "core+exchange" || e === "full";
 }
-function Ia(e) {
+function Ba(e) {
   return e === "core+queue" || e === "full";
 }
-function xl(e) {
+function Sl(e) {
   return e !== "none";
 }
-function Ba(e) {
+function Fa(e) {
   return !e || typeof e != "object" ? null : dr(e);
 }
 var Mt = class {
@@ -7935,7 +7938,7 @@ var Mt = class {
   }
   isModuleEnabledByMode(e) {
     const t = this.capabilities.profile;
-    return e === "exchange" ? Ma(t) : Ia(t);
+    return e === "exchange" ? Ia(t) : Ba(t);
   }
   getModuleState(e) {
     return this.capabilities.modules[e] || null;
@@ -8015,16 +8018,16 @@ var Mt = class {
   }
 };
 function Ue(e) {
-  const t = Ba(e);
+  const t = Fa(e);
   return t ? new Mt(t) : null;
 }
-function Sl() {
+function Cl() {
   return new Mt({ ...ur });
 }
-function Cl(e) {
+function $l(e) {
   return e.visible ? e.enabled ? "" : `aria-disabled="true"${e.reason ? ` title="${b(e.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
-function Fa(e) {
+function qa(e) {
   if (e.enabled || !e.reason) return "";
   const t = (e.reasonCode || "").trim();
   return t ? ar(t, {
@@ -8041,7 +8044,7 @@ function Fa(e) {
     </span>
   `.trim();
 }
-function $l() {
+function El() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -8078,7 +8081,7 @@ function $l() {
     }
   `;
 }
-function qa(e, t) {
+function Oa(e, t) {
   if (!t.visible) {
     e.style.display = "none", e.setAttribute("aria-hidden", "true");
     return;
@@ -8088,22 +8091,22 @@ function qa(e, t) {
 function He(e) {
   e.currentTarget.getAttribute("aria-disabled") === "true" && (e.preventDefault(), e.stopPropagation());
 }
-function El(e, t) {
+function kl(e, t) {
   e.querySelectorAll("[data-capability-gate]").forEach((r) => {
     const n = r.dataset.capabilityGate;
     if (n)
       try {
         const s = JSON.parse(n);
-        qa(r, t.gateNavItem(s));
+        Oa(r, t.gateNavItem(s));
       } catch {
         console.warn("Invalid capability gate config:", n);
       }
   });
 }
-async function Oa(e) {
+async function ja(e) {
   return Ve(e);
 }
-var ja = {
+var za = {
   title: "My Translation Work",
   myAssignments: "My Assignments",
   dueSoon: "Due Soon",
@@ -8125,7 +8128,7 @@ var ja = {
   status: "Status",
   targetLocale: "Target",
   sourceTitle: "Content"
-}, za = [
+}, Na = [
   {
     id: "all",
     label: "All",
@@ -8146,19 +8149,19 @@ var ja = {
     label: "Needs Review",
     filters: { status: "review" }
   }
-], Na = class extends rt {
+], Ga = class extends rt {
   constructor(e) {
     super("loading"), this.container = null, this.gateResult = null, this.data = null, this.error = null, this.activePreset = "all", this.refreshTimer = null, this.config = {
       myWorkEndpoint: e.myWorkEndpoint,
       queueEndpoint: e.queueEndpoint || "",
       panelBaseUrl: e.panelBaseUrl || "",
       capabilityGate: e.capabilityGate,
-      filterPresets: e.filterPresets || za,
+      filterPresets: e.filterPresets || Na,
       refreshInterval: e.refreshInterval || 0,
       onAssignmentClick: e.onAssignmentClick,
       onActionClick: e.onActionClick,
       labels: {
-        ...ja,
+        ...za,
         ...e.labels || {}
       }
     };
@@ -8201,7 +8204,7 @@ var ja = {
     try {
       const e = this.config.filterPresets.find((s) => s.id === this.activePreset), t = new URLSearchParams(e?.filters || {}), r = `${this.config.myWorkEndpoint}${t.toString() ? "?" + t.toString() : ""}`, n = await fetch(r, { headers: { Accept: "application/json" } });
       if (!n.ok) throw new Error(`Failed to load: ${n.status}`);
-      this.data = await Oa(n), this.state = this.data.assignments.length === 0 ? "empty" : "loaded", this.error = null;
+      this.data = await ja(n), this.state = this.data.assignments.length === 0 ? "empty" : "loaded", this.error = null;
     } catch (e) {
       this.error = e instanceof Error ? e : new Error(String(e)), this.state = "error";
     }
@@ -8334,7 +8337,7 @@ var ja = {
     `;
   }
   renderDisabled() {
-    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? Fa(this.gateResult) : "";
+    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? qa(this.gateResult) : "";
     return `
       <div class="dashboard-disabled" role="alert" aria-live="polite">
         <div class="disabled-icon">
@@ -8377,10 +8380,10 @@ var ja = {
   }
   renderAssignmentRow(e) {
     this.config.labels;
-    const t = Ga(e.due_state), r = Ua(e.priority), n = q(e.queue_state, {
+    const t = Ua(e.due_state), r = Ha(e.priority), n = q(e.queue_state, {
       domain: "queue",
       size: "sm"
-    }), s = e.due_date ? Va(new Date(e.due_date)) : "-";
+    }), s = e.due_date ? Ka(new Date(e.due_date)) : "-";
     return `
       <tr class="assignment-row" data-assignment-id="${b(e.id)}">
         <td class="title-cell">
@@ -8401,7 +8404,7 @@ var ja = {
           ${s}
         </td>
         <td class="priority-cell">
-          <span class="priority-indicator ${r}">${d(Ha(e.priority))}</span>
+          <span class="priority-indicator ${r}">${d(Va(e.priority))}</span>
         </td>
         <td class="actions-cell">
           ${this.renderAssignmentActions(e)}
@@ -8481,7 +8484,7 @@ var ja = {
     return !r || !n ? "" : `${t}/${encodeURIComponent(r)}/${encodeURIComponent(n)}/edit`;
   }
 };
-function Ga(e) {
+function Ua(e) {
   switch (e) {
     case "overdue":
       return "due-overdue";
@@ -8493,7 +8496,7 @@ function Ga(e) {
       return "";
   }
 }
-function Ua(e) {
+function Ha(e) {
   switch (e) {
     case "urgent":
       return "priority-urgent";
@@ -8507,17 +8510,17 @@ function Ua(e) {
       return "priority-normal";
   }
 }
-function Ha(e) {
+function Va(e) {
   return e.charAt(0).toUpperCase() + e.slice(1);
 }
-function Va(e) {
+function Ka(e) {
   const t = /* @__PURE__ */ new Date(), r = e.getTime() - t.getTime(), n = Math.ceil(r / (1e3 * 60 * 60 * 24));
   return n < 0 ? `${Math.abs(n)}d overdue` : n === 0 ? "Today" : n === 1 ? "Tomorrow" : n <= 7 ? `${n}d` : e.toLocaleDateString(void 0, {
     month: "short",
     day: "numeric"
   });
 }
-function kl() {
+function Al() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -8908,19 +8911,19 @@ function kl() {
     }
   `;
 }
-function Ka(e, t) {
-  const r = new Na(t);
+function Ja(e, t) {
+  const r = new Ga(t);
   return r.mount(e), r;
 }
-function Al(e) {
-  return Ja(e);
+function Ll(e) {
+  return Qa(e);
 }
-function Ja(e, t = {}) {
+function Qa(e, t = {}) {
   const r = e.dataset.myWorkEndpoint;
   if (!r)
     return console.warn("TranslatorDashboard: Missing data-my-work-endpoint attribute"), null;
-  const n = Qa(t);
-  return Ka(e, {
+  const n = Ya(t);
+  return Ja(e, {
     myWorkEndpoint: r,
     panelBaseUrl: e.dataset.panelBaseUrl,
     queueEndpoint: e.dataset.queueEndpoint,
@@ -8928,13 +8931,13 @@ function Ja(e, t = {}) {
     capabilityGate: n || void 0
   });
 }
-function Qa(e) {
+function Ya(e) {
   if (e.capabilityGate) return e.capabilityGate;
   if (e.capabilitiesPayload !== void 0) return Ue(e.capabilitiesPayload);
-  const t = Ya();
+  const t = Wa();
   return t === null ? null : Ue(t);
 }
-function Ya() {
+function Wa() {
   if (typeof window < "u") {
     const e = window.__TRANSLATION_CAPABILITIES__;
     if (e && typeof e == "object") return e;
@@ -8952,7 +8955,7 @@ function Ya() {
 async function le(e) {
   return Ve(e);
 }
-var Wa = {
+var Xa = {
   title: "Import Translations",
   selectFile: "Select file or paste data",
   validateButton: "Validate",
@@ -8984,7 +8987,7 @@ var Wa = {
   allowCreateMissing: "Create missing translations",
   continueOnError: "Continue on error",
   dryRun: "Dry run (preview only)"
-}, Xa = class extends rt {
+}, Za = class extends rt {
   constructor(e) {
     super("idle"), this.container = null, this.validationResult = null, this.previewRows = [], this.selection = {
       selected: /* @__PURE__ */ new Set(),
@@ -8997,7 +9000,7 @@ var Wa = {
       async: !1
     }, this.error = null, this.file = null, this.rawData = "";
     const t = {
-      ...Wa,
+      ...Xa,
       ...e.labels || {}
     };
     this.config = {
@@ -9271,7 +9274,7 @@ var Wa = {
         <td class="field-cell">${d(e.fieldPath)}</td>
         <td class="status-cell">
           ${n}
-          ${e.error ? `<span class="error-message" title="${b(e.error)}">${d(Za(e.error, 30))}</span>` : ""}
+          ${e.error ? `<span class="error-message" title="${b(e.error)}">${d(ei(e.error, 30))}</span>` : ""}
         </td>
         <td class="translation-cell">
           <span class="translation-text" title="${b(e.targetLocale)}">${d(e.targetLocale)}</span>
@@ -9370,10 +9373,10 @@ var Wa = {
     }));
   }
 };
-function Za(e, t) {
+function ei(e, t) {
   return e.length <= t ? e : e.slice(0, t - 3) + "...";
 }
-function Ll() {
+function _l() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -9712,18 +9715,18 @@ function Ll() {
     }
   `;
 }
-function ei(e, t) {
-  const r = new Xa(t);
+function ti(e, t) {
+  const r = new Za(t);
   return r.mount(e), r;
 }
-function _l(e) {
+function Rl(e) {
   const t = e.dataset.validateEndpoint, r = e.dataset.applyEndpoint;
-  return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : ei(e, {
+  return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : ti(e, {
     validateEndpoint: t,
     applyEndpoint: r
   });
 }
-var ti = {
+var ri = {
   title: "Job Progress",
   running: "In Progress",
   completed: "Completed",
@@ -9742,17 +9745,17 @@ var ti = {
   startedAt: "Started",
   elapsed: "Elapsed",
   conflicts: "Conflicts"
-}, ri = 2e3, ni = 300, si = "async_job_", It = class {
+}, ni = 2e3, si = 300, ai = "async_job_", It = class {
   constructor(e = {}) {
     this.container = null, this.job = null, this.pollingState = "idle", this.pollTimer = null, this.pollAttempts = 0, this.startTime = null, this.error = null;
     const t = {
-      ...ti,
+      ...ri,
       ...e.labels || {}
     };
     this.config = {
-      storageKeyPrefix: e.storageKeyPrefix || si,
-      pollInterval: e.pollInterval || ri,
-      maxPollAttempts: e.maxPollAttempts || ni,
+      storageKeyPrefix: e.storageKeyPrefix || ai,
+      pollInterval: e.pollInterval || ni,
+      maxPollAttempts: e.maxPollAttempts || si,
       onComplete: e.onComplete,
       onFailed: e.onFailed,
       onError: e.onError,
@@ -10050,7 +10053,7 @@ var ti = {
     this.container && (this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset()));
   }
 };
-function Rl() {
+function Dl() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -10284,17 +10287,17 @@ function Rl() {
     }
   `;
 }
-function ai(e, t) {
+function ii(e, t) {
   const r = new It(t);
   return r.mount(e), r;
 }
-function Dl(e) {
-  return ai(e, {
+function Tl(e) {
+  return ii(e, {
     pollInterval: e.dataset.pollInterval ? parseInt(e.dataset.pollInterval, 10) : void 0,
     autoStart: e.dataset.autoStart !== "false"
   });
 }
-function Tl(e, t) {
+function Pl(e, t) {
   const r = new It(t);
   return r.hasPersistedJob(e) ? r : null;
 }
@@ -10308,7 +10311,7 @@ var ce = {
   copySourceButton: "Copy from source",
   fieldChangedIndicator: "Source changed"
 };
-function ii(e) {
+function oi(e) {
   const t = {
     sourceHash: null,
     sourceVersion: null,
@@ -10327,13 +10330,13 @@ function ii(e) {
   }
   return t;
 }
-function oi(e, t) {
+function li(e, t) {
   return !e || !e.hasDrift ? !1 : e.changedFieldsSummary.fields.some((r) => r.toLowerCase() === t.toLowerCase());
 }
-function Pl(e) {
+function Ml(e) {
   return !e || !e.hasDrift ? [] : [...e.changedFieldsSummary.fields];
 }
-var li = class {
+var ci = class {
   constructor(e) {
     this.container = null, this.driftAcknowledged = !1;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -10552,19 +10555,19 @@ var li = class {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function ci(e) {
-  const t = new li(e);
+function di(e) {
+  const t = new ci(e);
   return t.render(), t;
 }
-function Ml(e, t, r, n, s) {
-  const a = ii(t);
-  return ci({
+function Il(e, t, r, n, s) {
+  const a = oi(t);
+  return di({
     container: e,
     fields: n.map((i) => ({
       key: i,
       label: i.replace(/_/g, " ").replace(/\b\w/g, (o) => o.toUpperCase()),
       type: "text",
-      hasSourceChanged: oi(a, i),
+      hasSourceChanged: li(a, i),
       sourceValue: String(r[i] || ""),
       targetValue: String(t[i] || ""),
       sourceLocale: s.sourceLocale || "en",
@@ -10578,7 +10581,7 @@ function Ml(e, t, r, n, s) {
     ...s
   });
 }
-function Il() {
+function Bl() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -10950,225 +10953,225 @@ function Il() {
 }
 export {
   hr as ActionRenderer,
-  Ao as AdvancedSearch,
+  Lo as AdvancedSearch,
   It as AsyncProgress,
   Rt as AutosaveIndicator,
-  ki as CORE_READINESS_DISPLAY,
+  Ai as CORE_READINESS_DISPLAY,
   Mt as CapabilityGate,
   Dr as CellRendererRegistry,
-  Da as CharacterCounter,
+  Ta as CharacterCounter,
   Gn as ColumnManager,
-  ko as CommonRenderers,
-  za as DEFAULT_FILTER_PRESETS,
+  Ao as CommonRenderers,
+  Na as DEFAULT_FILTER_PRESETS,
   Pt as DEFAULT_INTERPOLATION_PATTERNS,
-  Ra as DEFAULT_SAMPLE_VALUES,
+  Da as DEFAULT_SAMPLE_VALUES,
   ce as DEFAULT_SIDE_BY_SIDE_LABELS,
-  sa as DEFAULT_STATUS_LEGEND_ITEMS,
+  aa as DEFAULT_STATUS_LEGEND_ITEMS,
   Ct as DEFAULT_TRANSLATION_QUICK_FILTERS,
-  Ii as DISABLED_REASON_DISPLAY,
+  Bi as DISABLED_REASON_DISPLAY,
   bt as DataGrid,
-  Ks as DefaultColumnVisibilityBehavior,
-  ra as DetailActionsController,
-  Pa as DirectionToggle,
-  Vi as EXCHANGE_JOB_STATUS_DISPLAY,
-  Ei as EXCHANGE_ROW_STATUS_DISPLAY,
-  Xa as ExchangeImport,
+  Js as DefaultColumnVisibilityBehavior,
+  na as DetailActionsController,
+  Ma as DirectionToggle,
+  Ki as EXCHANGE_JOB_STATUS_DISPLAY,
+  ki as EXCHANGE_ROW_STATUS_DISPLAY,
+  Za as ExchangeImport,
   ke as FallbackBanner,
-  Lo as FilterBuilder,
-  Mo as GoCrudBulkActionBehavior,
-  Po as GoCrudExportBehavior,
-  Ro as GoCrudFilterBehavior,
-  Do as GoCrudPaginationBehavior,
-  _o as GoCrudSearchBehavior,
-  To as GoCrudSortBehavior,
+  _o as FilterBuilder,
+  Io as GoCrudBulkActionBehavior,
+  Mo as GoCrudExportBehavior,
+  Do as GoCrudFilterBehavior,
+  To as GoCrudPaginationBehavior,
+  Ro as GoCrudSearchBehavior,
+  Po as GoCrudSortBehavior,
   Et as InlineLocaleChips,
-  Ta as InterpolationPreview,
+  Pa as InterpolationPreview,
   At as KeyboardShortcutRegistry,
   ct as LocalDataGridStateStore,
   te as LocaleActionChip,
   nt as PayloadInputModal,
   jr as PreferencesDataGridStateStore,
-  Hi as QUEUE_CONTENT_STATE_DISPLAY,
-  Pi as QUEUE_DUE_STATE_DISPLAY,
-  Mi as QUEUE_STATE_DISPLAY,
-  ia as QuickFilters,
+  Vi as QUEUE_CONTENT_STATE_DISPLAY,
+  Mi as QUEUE_DUE_STATE_DISPLAY,
+  Ii as QUEUE_STATE_DISPLAY,
+  oa as QuickFilters,
   wt as SchemaActionBuilder,
-  Io as ServerColumnVisibilityBehavior,
-  li as SideBySideEditor,
+  Bo as ServerColumnVisibilityBehavior,
+  ci as SideBySideEditor,
   St as StatusLegend,
-  na as TranslationBlockerModal,
-  la as TranslationPanel,
-  Na as TranslatorDashboard,
-  fa as applyFormLock,
-  qa as applyGateToElement,
-  $a as applyShortcutSettings,
+  sa as TranslationBlockerModal,
+  ca as TranslationPanel,
+  Ga as TranslatorDashboard,
+  pa as applyFormLock,
+  Oa as applyGateToElement,
+  Ea as applyShortcutSettings,
   Ge as buildLocaleEditUrl,
-  Bo as buildSchemaRowActions,
-  Tl as checkForPersistedJob,
-  Yi as collapseAllGroups,
-  ai as createAsyncProgress,
-  Ko as createBulkCreateMissingHandler,
+  Fo as buildSchemaRowActions,
+  Pl as checkForPersistedJob,
+  Wi as collapseAllGroups,
+  ii as createAsyncProgress,
+  Jo as createBulkCreateMissingHandler,
   Ue as createCapabilityGate,
   zr as createDataGridStateStore,
-  Sl as createEmptyCapabilityGate,
-  ei as createExchangeImport,
-  sl as createInlineLocaleChipsRenderer,
+  Cl as createEmptyCapabilityGate,
+  ti as createExchangeImport,
+  al as createInlineLocaleChipsRenderer,
   vr as createLocaleBadgeRenderer,
-  Bi as createReasonCodeCellRenderer,
-  ci as createSideBySideEditor,
-  Ai as createStatusCellRenderer,
-  aa as createStatusLegend,
-  dl as createTranslationAutosave,
-  $o as createTranslationMatrixRenderer,
-  Uo as createTranslationPanel,
-  oa as createTranslationQuickFilters,
-  va as createTranslationShortcuts,
+  Fi as createReasonCodeCellRenderer,
+  di as createSideBySideEditor,
+  Li as createStatusCellRenderer,
+  ia as createStatusLegend,
+  ul as createTranslationAutosave,
+  Eo as createTranslationMatrixRenderer,
+  Ho as createTranslationPanel,
+  la as createTranslationQuickFilters,
+  wa as createTranslationShortcuts,
   Te as createTranslationStatusRenderer,
-  Ka as createTranslatorDashboard,
+  Ja as createTranslatorDashboard,
   nr as decodeExpandedGroupsToken,
-  yl as detectInterpolations,
-  Sa as dismissShortcutHint,
-  Qi as encodeExpandedGroupsToken,
-  ca as executeBulkCreateMissing,
-  Ui as expandAllGroups,
+  vl as detectInterpolations,
+  Ca as dismissShortcutHint,
+  Yi as encodeExpandedGroupsToken,
+  da as executeBulkCreateMissing,
+  Hi as expandAllGroups,
   Jt as extractBackendSummaries,
-  Ba as extractCapabilities,
-  gi as extractExchangeError,
-  Fo as extractSchemaActions,
-  ii as extractSourceTargetDrift,
+  Fa as extractCapabilities,
+  bi as extractExchangeError,
+  qo as extractSchemaActions,
+  oi as extractSourceTargetDrift,
   L as extractTranslationContext,
   C as extractTranslationReadiness,
   kt as formatShortcutDisplay,
-  bi as generateExchangeReport,
+  yi as generateExchangeReport,
   Ye as getActionBlockDisplay,
-  Ti as getAllReasonCodes,
-  Rl as getAsyncProgressStyles,
-  hl as getAutosaveIndicatorStyles,
-  $l as getCapabilityGateStyles,
-  Pl as getChangedFields,
-  vl as getCharCountSeverity,
-  ll as getDefaultShortcutRegistry,
-  qi as getDisabledReasonDisplay,
-  Ll as getExchangeImportStyles,
-  Ki as getExpandedGroupIds,
-  bl as getFieldHelperStyles,
-  Wo as getFormLockReason,
+  Pi as getAllReasonCodes,
+  Dl as getAsyncProgressStyles,
+  fl as getAutosaveIndicatorStyles,
+  El as getCapabilityGateStyles,
+  Ml as getChangedFields,
+  wl as getCharCountSeverity,
+  cl as getDefaultShortcutRegistry,
+  Oi as getDisabledReasonDisplay,
+  _l as getExchangeImportStyles,
+  Ji as getExpandedGroupIds,
+  yl as getFieldHelperStyles,
+  Xo as getFormLockReason,
   E as getLocaleLabel,
-  Co as getMissingTranslationsCount,
-  ba as getModifierSymbol,
+  $o as getMissingTranslationsCount,
+  ya as getModifierSymbol,
   Yt as getPersistedExpandState,
   tr as getPersistedViewMode,
-  ga as getPrimaryModifierLabel,
-  to as getSeverityCssClass,
-  Il as getSideBySideEditorStyles,
+  ba as getPrimaryModifierLabel,
+  ro as getSeverityCssClass,
+  Bl as getSideBySideEditorStyles,
   Qe as getStatusCssClass,
   ve as getStatusDisplay,
-  _i as getStatusVocabularyStyles,
-  ji as getStatusesForDomain,
-  kl as getTranslatorDashboardStyles,
+  Ri as getStatusVocabularyStyles,
+  zi as getStatusesForDomain,
+  Al as getTranslatorDashboardStyles,
   xe as getViewModeForViewport,
-  yi as groupRowResultsByStatus,
+  vi as groupRowResultsByStatus,
   jn as handleDelete,
   Wt as hasBackendGroupedRows,
-  oi as hasFieldDrift,
-  So as hasMissingTranslations,
-  co as hasTranslationContext,
-  mo as hasTranslationReadiness,
-  Dl as initAsyncProgress,
-  El as initCapabilityGating,
-  _l as initExchangeImport,
-  el as initFallbackBanner,
-  pl as initFieldHelpers,
-  fl as initFormAutosave,
-  tl as initFormLock,
-  nl as initInlineLocaleChips,
-  Ea as initKeyboardShortcuts,
-  cl as initKeyboardShortcutsWithDiscovery,
-  Qo as initLocaleActionChips,
-  qo as initPanelDetailActions,
-  No as initQuickFilters,
-  Ml as initSideBySideEditorFromRecord,
-  jo as initStatusLegends,
-  Al as initTranslatorDashboard,
-  Ja as initTranslatorDashboardWithOptions,
-  zi as initializeVocabularyFromPayload,
-  xl as isCoreEnabled,
-  Ma as isExchangeEnabled,
-  vi as isExchangeError,
-  Yo as isFormLocked,
-  lo as isInFallbackMode,
+  li as hasFieldDrift,
+  Co as hasMissingTranslations,
+  uo as hasTranslationContext,
+  go as hasTranslationReadiness,
+  Tl as initAsyncProgress,
+  kl as initCapabilityGating,
+  Rl as initExchangeImport,
+  tl as initFallbackBanner,
+  ml as initFieldHelpers,
+  pl as initFormAutosave,
+  rl as initFormLock,
+  sl as initInlineLocaleChips,
+  ka as initKeyboardShortcuts,
+  dl as initKeyboardShortcutsWithDiscovery,
+  Yo as initLocaleActionChips,
+  Oo as initPanelDetailActions,
+  Go as initQuickFilters,
+  Il as initSideBySideEditorFromRecord,
+  zo as initStatusLegends,
+  Ll as initTranslatorDashboard,
+  Qa as initTranslatorDashboardWithOptions,
+  Ni as initializeVocabularyFromPayload,
+  Sl as isCoreEnabled,
+  Ia as isExchangeEnabled,
+  wi as isExchangeError,
+  Wo as isFormLocked,
+  co as isInFallbackMode,
   re as isMacPlatform,
-  Ji as isNarrowViewport,
-  Ia as isQueueEnabled,
-  go as isReadyForTransition,
-  xa as isShortcutHintDismissed,
-  Li as isValidReasonCode,
-  Di as isValidStatus,
-  wa as loadShortcutSettings,
+  Qi as isNarrowViewport,
+  Ba as isQueueEnabled,
+  bo as isReadyForTransition,
+  Sa as isShortcutHintDismissed,
+  _i as isValidReasonCode,
+  Ti as isValidStatus,
+  xa as loadShortcutSettings,
   rr as mergeBackendSummaries,
-  Ni as normalizeActionBlockCode,
-  Fi as normalizeActionState,
-  $i as normalizeActionStateMap,
-  Gi as normalizeActionStateMeta,
-  Wi as normalizeActionStateRecord,
+  Gi as normalizeActionBlockCode,
+  qi as normalizeActionState,
+  Ei as normalizeActionStateMap,
+  Ui as normalizeActionStateMeta,
+  Xi as normalizeActionStateRecord,
   Zt as normalizeBackendGroupedRows,
   Ze as normalizeBulkActionStateConfig,
   et as normalizeBulkActionStateMap,
   er as normalizeBulkActionStateResponse,
   Xe as normalizeDetailActionStatePayload,
   sr as normalizeListActionStatePayload,
-  wl as parseCapabilityMode,
-  wi as parseImportResult,
+  xl as parseCapabilityMode,
+  xi as parseImportResult,
   We as parseViewMode,
-  Xi as persistExpandState,
-  eo as persistViewMode,
-  pa as removeFormLock,
-  ul as renderAutosaveIndicator,
+  Zi as persistExpandState,
+  to as persistViewMode,
+  ma as removeFormLock,
+  hl as renderAutosaveIndicator,
   pr as renderAvailableLocalesIndicator,
-  Vo as renderBulkResultInline,
-  Ho as renderBulkResultSummary,
-  ml as renderCharacterCounter,
-  ta as renderDetailActions,
-  gl as renderDirectionToggle,
-  Fa as renderDisabledReasonBadge,
-  Ca as renderDiscoveryHint,
-  Xo as renderFallbackBannerFromRecord,
-  Eo as renderFallbackWarning,
-  Cl as renderGateAriaAttributes,
+  Ko as renderBulkResultInline,
+  Vo as renderBulkResultSummary,
+  gl as renderCharacterCounter,
+  ra as renderDetailActions,
+  bl as renderDirectionToggle,
+  qa as renderDisabledReasonBadge,
+  $a as renderDiscoveryHint,
+  Zo as renderFallbackBannerFromRecord,
+  ko as renderFallbackWarning,
+  $l as renderGateAriaAttributes,
   Qt as renderGroupHeaderRow,
-  Zi as renderGroupHeaderSummary,
+  eo as renderGroupHeaderSummary,
   Vt as renderGroupedEmptyState,
   Ut as renderGroupedErrorState,
   or as renderGroupedLoadingState,
-  ma as renderInlineLocaleChips,
+  ga as renderInlineLocaleChips,
   $t as renderLocaleActionChip,
-  Jo as renderLocaleActionList,
+  Qo as renderLocaleActionList,
   it as renderLocaleBadge,
-  wo as renderLocaleCompleteness,
-  xo as renderMissingTranslationsBadge,
-  vo as renderPublishReadinessBadge,
-  Go as renderQuickFiltersHTML,
-  yo as renderReadinessIndicator,
+  xo as renderLocaleCompleteness,
+  So as renderMissingTranslationsBadge,
+  wo as renderPublishReadinessBadge,
+  Uo as renderQuickFiltersHTML,
+  vo as renderReadinessIndicator,
   ar as renderReasonCodeBadge,
-  Ri as renderReasonCodeIndicator,
-  ol as renderShortcutSettingsUI,
-  al as renderShortcutsHelpContent,
-  bo as renderStatusBadge,
-  zo as renderStatusLegendHTML,
-  fo as renderTranslationAssignmentSummary,
-  po as renderTranslationExchangeSummary,
-  uo as renderTranslationFamilyLink,
-  ho as renderTranslationFamilyMemberCount,
+  Di as renderReasonCodeIndicator,
+  ll as renderShortcutSettingsUI,
+  il as renderShortcutsHelpContent,
+  yo as renderStatusBadge,
+  No as renderStatusLegendHTML,
+  po as renderTranslationAssignmentSummary,
+  mo as renderTranslationExchangeSummary,
+  ho as renderTranslationFamilyLink,
+  fo as renderTranslationFamilyMemberCount,
   br as renderTranslationMatrixCell,
   mr as renderTranslationStatusCell,
   q as renderVocabularyStatusBadge,
   Kt as renderVocabularyStatusIcon,
   tt as resolveActionState,
-  il as saveShortcutSettings,
-  Zo as shouldShowFallbackBanner,
-  rl as shouldShowInlineLocaleChips,
-  Oo as showTranslationBlocker,
-  Oi as toggleGroupExpand,
+  ol as saveShortcutSettings,
+  el as shouldShowFallbackBanner,
+  nl as shouldShowInlineLocaleChips,
+  jo as showTranslationBlocker,
+  ji as toggleGroupExpand,
   Ht as transformToGroups
 };
 

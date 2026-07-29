@@ -18,6 +18,15 @@ interface ColumnPrefsV2 {
 
 const DEFAULT_COLUMN_PREFS_LOAD_TIMEOUT_MS = 1500;
 
+function isAbortError(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'name' in value &&
+    (value as { name?: unknown }).name === 'AbortError'
+  );
+}
+
 /**
  * Type guard to check if prefs are V2 format
  */
@@ -255,6 +264,8 @@ export interface ServerColumnVisibilityConfig {
   syncDebounce?: number;
   /** Timeout for initial server hydration, in milliseconds (default: 1500) */
   loadTimeoutMs?: number;
+  /** Whether mutations may sync to the server (default: true) */
+  canWrite?: boolean;
 }
 
 /**
@@ -272,6 +283,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
   private preferencesEndpoint: string;
   private syncDebounce: number;
   private loadTimeoutMs: number;
+  private canWrite: boolean;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
   private serverPrefs: ColumnPrefsV2 | null = null;
 
@@ -286,6 +298,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
     }
     this.syncDebounce = config.syncDebounce ?? 1000;
     this.loadTimeoutMs = Math.max(100, config.loadTimeoutMs || DEFAULT_COLUMN_PREFS_LOAD_TIMEOUT_MS);
+    this.canWrite = config.canWrite !== false;
   }
 
   /**
@@ -376,7 +389,9 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       console.log('[ServerColumnVisibility] Loaded prefs from server:', serverPrefs);
       return serverPrefs;
     } catch (e) {
-      console.warn('[ServerColumnVisibility] Error loading server prefs:', e);
+      if (!isAbortError(e)) {
+        console.warn('[ServerColumnVisibility] Error loading server prefs:', e);
+      }
       return null;
     } finally {
       clearTimeout(timeout);
@@ -421,6 +436,9 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
    * Schedule a debounced sync to server
    */
   private scheduleServerSync(grid: DataGrid): void {
+    if (!this.canWrite) {
+      return;
+    }
     // Clear existing timeout
     if (this.syncTimeout) {
       clearTimeout(this.syncTimeout);
@@ -487,6 +505,10 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
 
     // Clear server prefs
     this.serverPrefs = null;
+
+    if (!this.canWrite) {
+      return;
+    }
 
     // Clear server prefs by sending empty/null value
     this.clearServerPrefs();

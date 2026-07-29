@@ -56,6 +56,7 @@ import {
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const preferencesAPIPath = '{{ preferences_api_path|default:"" }}';
+const preferencesAPIWritable = {{ toJSON(preferences_api_writable)|safe|default:"false" }} === true;
 const apiEndpoint = '{{ list_api }}';
 const actionBasePath = '{{ action_base }}';
 const columns = {{ toJSON(columns)|safe }};
@@ -119,7 +120,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
       resource: panelName,
       localStorageKey: columnStorageKey,
-      preferencesEndpoint: preferencesEndpoint
+      preferencesEndpoint: preferencesEndpoint,
+      canWrite: preferencesAPIWritable
     });
     await columnVisibility.loadFromServer();
   }
