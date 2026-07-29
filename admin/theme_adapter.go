@@ -22,14 +22,15 @@ func ThemeProviderFromGoThemeSelector(selector gotheme.ThemeSelector) ThemeProvi
 		}
 		snapshot := selection.Snapshot()
 		return normalizeThemeProjection(&ThemeSelection{
-			Name:        snapshot.Theme,
-			Variant:     snapshot.Variant,
-			Tokens:      primitives.CloneStringMapNilOnEmpty(snapshot.Tokens),
-			CSSVars:     primitives.CloneStringMapNilOnEmpty(selection.CSSVariables("")),
-			Assets:      primitives.CloneStringMapNilOnEmpty(snapshot.Assets),
-			Partials:    primitives.CloneStringMapNilOnEmpty(snapshot.Templates),
-			ChartTheme:  snapshot.Variant,
-			AssetPrefix: snapshot.AssetPrefix,
+			Name:            snapshot.Theme,
+			Variant:         snapshot.Variant,
+			VariantResolved: true,
+			Tokens:          primitives.CloneStringMapNilOnEmpty(snapshot.Tokens),
+			CSSVars:         primitives.CloneStringMapNilOnEmpty(selection.CSSVariables("")),
+			Assets:          primitives.CloneStringMapNilOnEmpty(snapshot.Assets),
+			Partials:        primitives.CloneStringMapNilOnEmpty(snapshot.Templates),
+			ChartTheme:      snapshot.Variant,
+			AssetPrefix:     snapshot.AssetPrefix,
 		}), nil
 	}
 }

@@ -24,8 +24,10 @@ type ThemeSelector struct {
 
 // ThemeSelection captures resolved theme assets/tokens.
 type ThemeSelection struct {
-	Name              string                 `json:"name"`
-	Variant           string                 `json:"variant"`
+	Name    string `json:"name"`
+	Variant string `json:"variant"`
+	// VariantResolved marks Variant and ChartTheme as authoritative even when empty.
+	VariantResolved   bool                   `json:"-"`
 	Tokens            map[string]string      `json:"tokens"`
 	CSSVars           map[string]string      `json:"css_vars"`
 	SemanticTokens    map[string]string      `json:"semantic_tokens,omitempty"`
@@ -76,6 +78,7 @@ func cloneThemeSelection(sel *ThemeSelection) *ThemeSelection {
 	return &ThemeSelection{
 		Name:              sel.Name,
 		Variant:           sel.Variant,
+		VariantResolved:   sel.VariantResolved,
 		Tokens:            primitives.CloneStringMapNilOnEmpty(sel.Tokens),
 		CSSVars:           primitives.CloneStringMapNilOnEmpty(sel.CSSVars),
 		SemanticTokens:    primitives.CloneStringMapNilOnEmpty(sel.SemanticTokens),
@@ -135,7 +138,11 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 	if override.Name != "" {
 		result.Name = override.Name
 	}
-	if override.Variant != "" {
+	if override.VariantResolved {
+		result.Variant = override.Variant
+		result.ChartTheme = override.ChartTheme
+		result.VariantResolved = true
+	} else if override.Variant != "" {
 		result.Variant = override.Variant
 	}
 	if len(override.Tokens) > 0 {
@@ -162,7 +169,7 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 		}
 		maps.Copy(result.Partials, override.Partials)
 	}
-	if override.ChartTheme != "" {
+	if !override.VariantResolved && override.ChartTheme != "" {
 		result.ChartTheme = override.ChartTheme
 	}
 	if override.AssetPrefix != "" {
