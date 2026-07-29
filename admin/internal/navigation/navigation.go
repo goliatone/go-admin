@@ -140,6 +140,14 @@ func (n *Navigation) fallbackForMenu(menuCode string) []NavigationItem {
 	if items, ok := n.MenuFallback(menuCode); ok {
 		return items
 	}
+	// The shared fallback belongs to the default menu. Handing it to any other
+	// named menu renders one menu's contents in a different menu's slot, which
+	// is how an unregistered sidebar utility menu ends up duplicating the main
+	// navigation. A named menu with no registered fallback resolves to nothing.
+	if code := strings.TrimSpace(menuCode); code != "" &&
+		canonicalMenuCode(code) != canonicalMenuCode(n.defaultMenuCode) {
+		return nil
+	}
 	return append([]NavigationItem{}, n.fallback...)
 }
 
