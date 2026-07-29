@@ -28,6 +28,10 @@ func (a AppConfig) GetFeatures() Features {
 	return a.Features
 }
 
+func (a AppConfig) GetLogging() Logging {
+	return a.Logging
+}
+
 func (a AppConfig) GetName() string {
 	return a.Name
 }
@@ -102,6 +106,16 @@ func (f Features) GetOverrides() map[string]bool {
 
 func (f Features) GetProfile() string {
 	return f.Profile
+}
+
+// Logging Getters
+
+func (l Logging) GetFormat() string {
+	return l.Format
+}
+
+func (l Logging) GetLevel() string {
+	return l.Level
 }
 
 // Server Getters

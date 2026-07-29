@@ -5,20 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log/slog"
-	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/goliatone/go-admin/examples/admin-shell/internal/config"
+	"github.com/goliatone/go-admin/examples/admin-shell/config"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
+	golifecycle "github.com/goliatone/go-admin/pkg/go-lifecycle"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
-	commandregistry "github.com/goliatone/go-command/registry"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-logger/glog"
 	"github.com/goliatone/go-router"
 )
 
@@ -28,11 +28,20 @@ type FeatureStatus struct {
 	Enabled bool   `json:"enabled"`
 }
 
+// AdminLifecycleDiagnostics is a task-only view of admin contribution state.
+// Application readiness and serving state belong to the host runtime.
+type AdminLifecycleDiagnostics struct {
+	StartedAt time.Time                  `json:"started_at"`
+	UpdatedAt time.Time                  `json:"updated_at"`
+	Tasks     []golifecycle.TaskSnapshot `json:"tasks"`
+}
+
 // Core is a lightweight dependency container for the admin shell.
 type Core struct {
-	Config    *config.AppConfig `json:"config"`
-	Logger    *slog.Logger      `json:"logger"`
-	StartedAt time.Time         `json:"started_at"`
+	Config         *config.AppConfig   `json:"config"`
+	LoggerProvider glog.LoggerProvider `json:"logger_provider"`
+	Logger         glog.Logger         `json:"logger"`
+	StartedAt      time.Time           `json:"started_at"`
 
 	Server router.Server[*fiber.App]         `json:"server"`
 	Host   quickstart.HostRouter[*fiber.App] `json:"host"`
@@ -45,14 +54,32 @@ type Core struct {
 	RouteAuthenticator *auth.RouteAuthenticator   `json:"route_authenticator"`
 	DemoCredentials    []DemoCredential           `json:"demo_credentials"`
 	DemoIdentity       DemoIdentity               `json:"demo_identity"`
+
+	adminShutdownMu       sync.Mutex
+	adminShutdownComplete bool
+	adminLifecycle        *golifecycle.Runner
 }
 
 // RouteRegistrar declares host-owned routes before the server is sealed.
 type RouteRegistrar func(*Core, quickstart.HostRouter[*fiber.App]) error
 
+// AdminContribution registers host-owned modules, panels, navigation, or
+// dashboard providers before Admin.Initialize.
+type AdminContribution struct {
+	Name     string
+	Priority int
+	Register func(*Core) error
+}
+
+// AdminModuleFactory constructs an admin module with the command-owned logger
+// provider and its stable modules.<name> child logger.
+type AdminModuleFactory func(glog.LoggerProvider, glog.Logger) (admin.Module, error)
+
 type options struct {
-	identityProvider auth.IdentityProvider
-	routeRegistrars  []RouteRegistrar
+	identityProvider   auth.IdentityProvider
+	routeRegistrars    []RouteRegistrar
+	adminContributions []AdminContribution
+	loggerProvider     glog.LoggerProvider
 }
 
 // Option customizes starter composition without bypassing its lifecycle rules.
@@ -77,6 +104,54 @@ func WithRouteRegistrar(registrar RouteRegistrar) Option {
 	}
 }
 
+// WithAdminContribution adds a named pre-initialization contribution.
+func WithAdminContribution(name string, register func(*Core) error) Option {
+	return WithAdminContributionPriority(name, 0, register)
+}
+
+// WithAdminContributionPriority adds a contribution with explicit lifecycle
+// priority. Higher priorities run first; ties retain option insertion order.
+func WithAdminContributionPriority(name string, priority int, register func(*Core) error) Option {
+	return func(opts *options) {
+		if opts == nil {
+			return
+		}
+		opts.adminContributions = append(opts.adminContributions, AdminContribution{
+			Name:     strings.TrimSpace(name),
+			Priority: priority,
+			Register: register,
+		})
+	}
+}
+
+// WithAdminModule registers a logger-aware module factory.
+func WithAdminModule(name string, factory AdminModuleFactory) Option {
+	return WithAdminModulePriority(name, 0, factory)
+}
+
+// WithAdminModulePriority registers a logger-aware module factory with an
+// explicit pre-bind priority.
+func WithAdminModulePriority(name string, priority int, factory AdminModuleFactory) Option {
+	return func(opts *options) {
+		if opts == nil {
+			return
+		}
+		opts.adminContributions = append(
+			opts.adminContributions,
+			newAdminModuleContribution(name, priority, factory),
+		)
+	}
+}
+
+// WithLoggerProvider supplies the command-owned logger root.
+func WithLoggerProvider(provider glog.LoggerProvider) Option {
+	return func(opts *options) {
+		if opts != nil {
+			opts.loggerProvider = provider
+		}
+	}
+}
+
 // New builds application dependencies and wires go-admin.
 func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core, error) {
 	if cfg == nil {
@@ -95,7 +170,12 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 		}
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	loggerProvider := opts.loggerProvider
+	if loggerProvider == nil {
+		loggerProvider = glog.ProviderFromLogger(glog.Nop())
+	}
+	logger := glog.Ensure(loggerProvider.GetLogger("core"))
+	LogStartupConfig(logger, cfg, "configured")
 
 	adminCfg := quickstart.NewAdminConfig(
 		cfg.Admin.BasePath,
@@ -112,7 +192,13 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 		},
 	}
 
-	adminOptions := []quickstart.AdminOption{quickstart.WithAdminContext(ctx)}
+	adminOptions := []quickstart.AdminOption{
+		quickstart.WithAdminContext(ctx),
+		quickstart.WithAdminDependencies(admin.Dependencies{
+			LoggerProvider: loggerProvider,
+			Logger:         glog.Ensure(loggerProvider.GetLogger("admin")),
+		}),
+	}
 	profile := strings.ToLower(strings.TrimSpace(cfg.Features.Profile))
 	if profile == "" {
 		profile = "minimal"
@@ -135,20 +221,42 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 		return nil, fmt.Errorf("build admin: %w", err)
 	}
 	initialized := false
+	var adminLifecycle *golifecycle.Runner
 	defer func() {
 		if !initialized {
-			_ = stopAdminRuntime(context.Background(), adm)
+			shutdownCtx, cancel := context.WithTimeout(
+				context.Background(),
+				configuredShutdownTimeout(cfg),
+			)
+			defer cancel()
+			var lifecycleShutdown shutdownOperation
+			if adminLifecycle != nil {
+				lifecycleShutdown = adminLifecycle.Shutdown
+			}
+			_ = coordinateShutdown(
+				shutdownCtx,
+				nil,
+				lifecycleShutdown,
+				func(cleanupCtx context.Context) error {
+					return stopAdminRuntime(cleanupCtx, adm)
+				},
+			)
 		}
 	}()
 	featureGate := adm.FeatureGate()
 
-	auther, routeAuth, authn, demoCredentials, demoIdentity, authCookieName, err := setupAuth(adm, cfg, opts.identityProvider)
+	auther, routeAuth, authn, demoCredentials, demoIdentity, authCookieName, err := setupAuth(
+		adm,
+		cfg,
+		opts.identityProvider,
+		loggerProvider,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("setup auth: %w", err)
 	}
 
 	isDev := isDevelopmentEnv(cfg.Env)
-	viewEngine, err := newAdminShellViewEngine(adminCfg, adm, isDev)
+	viewEngine, err := newAdminShellViewEngine(adminCfg, adm)
 	if err != nil {
 		return nil, fmt.Errorf("initialize view engine: %w", err)
 	}
@@ -158,12 +266,21 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 		adminCfg,
 		adm,
 		isDev,
-		printRoutesFiberConfig(cfg.Server.PrintRoutes),
+		adminShellFiberConfig(),
+		quickstart.WithFiberLogger(false),
+		quickstart.WithFiberMiddleware(
+			newFiberAccessLogger(loggerProvider.GetLogger("http.access")),
+		),
 	)
+	r = r.WithLogger(newRouterLogger(
+		loggerProvider.GetLogger("router"),
+		cfg.Server.PrintRoutes,
+	))
 
 	host := quickstart.NewHostRouter(r, adminCfg)
 	appCore := &Core{
 		Config:             cfg,
+		LoggerProvider:     loggerProvider,
 		Logger:             logger,
 		StartedAt:          time.Now().UTC(),
 		Server:             server,
@@ -176,6 +293,15 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 		RouteAuthenticator: routeAuth,
 		DemoCredentials:    demoCredentials,
 		DemoIdentity:       demoIdentity,
+	}
+
+	adminLifecycle, err = newAdminLifecycleRunner(appCore, opts.adminContributions)
+	if err != nil {
+		return nil, err
+	}
+	appCore.adminLifecycle = adminLifecycle
+	if err := adminLifecycle.RunPreBind(ctx); err != nil {
+		return nil, fmt.Errorf("register admin contributions: %w", err)
 	}
 
 	// Static and host-owned routes must be declared before admin initialization;
@@ -201,6 +327,88 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 	return appCore, nil
 }
 
+// GetLogger resolves a stable named child from the command-owned provider.
+func (c *Core) GetLogger(name string) glog.Logger {
+	if c == nil || c.LoggerProvider == nil {
+		return glog.Nop()
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "core"
+	}
+	return glog.Ensure(c.LoggerProvider.GetLogger(name))
+}
+
+func newAdminLifecycleRunner(
+	appCore *Core,
+	contributions []AdminContribution,
+) (*golifecycle.Runner, error) {
+	if appCore == nil || appCore.Admin == nil {
+		return nil, fmt.Errorf("configure admin lifecycle: admin runtime is required")
+	}
+	registry := golifecycle.NewRegistry()
+	for _, contribution := range contributions {
+		name := strings.TrimSpace(contribution.Name)
+		if name == "" {
+			return nil, fmt.Errorf("configure admin lifecycle: contribution name is required")
+		}
+		if contribution.Register == nil {
+			return nil, fmt.Errorf("configure admin lifecycle %q: callback is required", name)
+		}
+		current := contribution
+		if err := registry.Register(golifecycle.Task{
+			Name:     "admin.contribution." + name,
+			Phase:    golifecycle.PhasePreBind,
+			Priority: current.Priority,
+			Policy:   golifecycle.ErrorPolicyFatal,
+			Run: func(context.Context) error {
+				if err := current.Register(appCore); err != nil {
+					return fmt.Errorf("register admin contribution %q: %w", name, err)
+				}
+				return nil
+			},
+		}); err != nil {
+			return nil, fmt.Errorf("configure admin lifecycle: %w", err)
+		}
+	}
+	runner, err := golifecycle.NewRunner(registry)
+	if err != nil {
+		return nil, fmt.Errorf("configure admin lifecycle runner: %w", err)
+	}
+	return runner, nil
+}
+
+func newAdminModuleContribution(
+	name string,
+	priority int,
+	factory AdminModuleFactory,
+) AdminContribution {
+	name = strings.TrimSpace(name)
+	return AdminContribution{
+		Name:     name,
+		Priority: priority,
+		Register: func(appCore *Core) error {
+			if appCore == nil || appCore.Admin == nil {
+				return fmt.Errorf("admin runtime is required")
+			}
+			if factory == nil {
+				return fmt.Errorf("module factory is required")
+			}
+			module, err := factory(
+				appCore.LoggerProvider,
+				appCore.GetLogger("modules."+name),
+			)
+			if err != nil {
+				return fmt.Errorf("build module: %w", err)
+			}
+			if module == nil {
+				return fmt.Errorf("module factory returned nil")
+			}
+			return appCore.Admin.RegisterModule(module)
+		},
+	}
+}
+
 func isDevelopmentEnv(env string) bool {
 	switch strings.ToLower(strings.TrimSpace(env)) {
 	case "development", "dev", "local":
@@ -210,7 +418,7 @@ func isDevelopmentEnv(env string) bool {
 	}
 }
 
-func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin, isDev bool) (fiber.Views, error) {
+func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin) (fiber.Views, error) {
 	return quickstart.NewViewEngine(
 		client.FS(),
 		quickstart.WithViewTemplatesFS(adminShellTemplatesFS()),
@@ -219,14 +427,16 @@ func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin, isDev bool
 			quickstart.WithTemplateBasePath(adminCfg.BasePath),
 			quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
 		)),
-		quickstart.WithViewDebug(isDev),
 	)
 }
 
-func printRoutesFiberConfig(enabled bool) quickstart.FiberServerOption {
+func adminShellFiberConfig() quickstart.FiberServerOption {
 	return quickstart.WithFiberConfig(func(fcfg *fiber.Config) {
 		if fcfg != nil {
-			fcfg.EnablePrintRoutes = enabled
+			// Route registration is emitted structurally by routerLogger when
+			// server.print_routes is enabled.
+			fcfg.EnablePrintRoutes = false
+			fcfg.DisableStartupMessage = true
 		}
 	})
 }
@@ -279,11 +489,20 @@ func (c *Core) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	var shutdownErr error
+	var serverShutdown shutdownOperation
 	if c.Server != nil {
-		shutdownErr = c.Server.Shutdown(ctx)
+		serverShutdown = c.Server.Shutdown
 	}
-	return errors.Join(shutdownErr, stopAdminRuntime(ctx, c.Admin))
+	var lifecycleShutdown shutdownOperation
+	if c.adminLifecycle != nil {
+		lifecycleShutdown = c.adminLifecycle.Shutdown
+	}
+	return coordinateShutdown(
+		ctx,
+		serverShutdown,
+		lifecycleShutdown,
+		c.shutdownAdminRuntime,
+	)
 }
 
 // Run serves until the process context is canceled, then performs bounded
@@ -303,10 +522,20 @@ func (c *Core) Run(ctx context.Context) error {
 
 	select {
 	case err := <-serveErr:
-		return errors.Join(normalizeServeError(err), stopAdminRuntime(context.Background(), c.Admin))
+		shutdownCtx, cancel := context.WithTimeout(
+			context.Background(),
+			configuredShutdownTimeout(c.Config),
+		)
+		defer cancel()
+		return errors.Join(
+			normalizeServeError(err),
+			c.Shutdown(shutdownCtx),
+		)
 	case <-ctx.Done():
-		timeout := time.Duration(c.Config.Server.ShutdownTimeoutSeconds) * time.Second
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		shutdownCtx, cancel := context.WithTimeout(
+			context.Background(),
+			configuredShutdownTimeout(c.Config),
+		)
 		defer cancel()
 		if err := c.Shutdown(shutdownCtx); err != nil {
 			return fmt.Errorf("shutdown server: %w", err)
@@ -317,6 +546,19 @@ func (c *Core) Run(ctx context.Context) error {
 		case <-shutdownCtx.Done():
 			return fmt.Errorf("wait for server shutdown: %w", shutdownCtx.Err())
 		}
+	}
+}
+
+// AdminLifecycleSnapshot returns a defensive task-only diagnostic snapshot.
+func (c *Core) AdminLifecycleSnapshot() AdminLifecycleDiagnostics {
+	if c == nil || c.adminLifecycle == nil {
+		return AdminLifecycleDiagnostics{}
+	}
+	snapshot := c.adminLifecycle.Snapshot()
+	return AdminLifecycleDiagnostics{
+		StartedAt: snapshot.StartedAt,
+		UpdatedAt: snapshot.UpdatedAt,
+		Tasks:     append([]golifecycle.TaskSnapshot(nil), snapshot.Tasks...),
 	}
 }
 
@@ -355,16 +597,6 @@ func normalizeServeError(err error) error {
 		return nil
 	}
 	return err
-}
-
-func stopAdminRuntime(ctx context.Context, adm *admin.Admin) error {
-	if adm != nil && adm.Commands() != nil {
-		adm.Commands().Reset()
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return commandregistry.Stop(ctx)
 }
 
 func adminShellTemplatesFS() fs.FS {

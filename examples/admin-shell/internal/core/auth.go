@@ -7,10 +7,11 @@ import (
 	"path"
 	"strings"
 
-	"github.com/goliatone/go-admin/examples/admin-shell/internal/config"
+	"github.com/goliatone/go-admin/examples/admin-shell/config"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
+	"github.com/goliatone/go-logger/glog"
 	"github.com/goliatone/go-router"
 )
 
@@ -106,12 +107,16 @@ func setupAuth(
 	adm *admin.Admin,
 	cfg *config.AppConfig,
 	identityProvider auth.IdentityProvider,
+	loggerProvider glog.LoggerProvider,
 ) (*auth.Auther, *auth.RouteAuthenticator, *admin.GoAuthAuthenticator, []DemoCredential, DemoIdentity, string, error) {
 	if adm == nil {
 		return nil, nil, nil, nil, DemoIdentity{}, "", fmt.Errorf("admin instance is required")
 	}
 	if cfg == nil {
 		return nil, nil, nil, nil, DemoIdentity{}, "", fmt.Errorf("config is required")
+	}
+	if loggerProvider == nil {
+		loggerProvider = glog.ProviderFromLogger(glog.Nop())
 	}
 
 	var (
@@ -145,7 +150,8 @@ func setupAuth(
 		authCfg.issuer = "go-admin-shell"
 	}
 
-	auther := auth.NewAuthenticator(identityProvider, authCfg)
+	auther := auth.NewAuthenticator(identityProvider, authCfg).
+		WithLoggerProvider(loggerProvider)
 	routeAuth, err := auth.NewHTTPAuthenticator(
 		auther,
 		authCfg,
@@ -155,13 +161,17 @@ func setupAuth(
 	if err != nil {
 		return nil, nil, nil, nil, DemoIdentity{}, "", err
 	}
+	routeAuth.WithLoggerProvider(loggerProvider)
 
 	loginPath := path.Join(cfg.Admin.BasePath, "login")
 	goAuth, _ := quickstart.WithGoAuth(
 		adm,
 		routeAuth,
 		authCfg,
-		admin.GoAuthAuthorizerConfig{DefaultResource: "admin"},
+		admin.GoAuthAuthorizerConfig{
+			DefaultResource: "admin",
+			Logger:          loggerProvider.GetLogger("auth.authorization"),
+		},
 		&admin.AuthConfig{
 			LoginPath:    loginPath,
 			LogoutPath:   path.Join(cfg.Admin.BasePath, "logout"),

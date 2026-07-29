@@ -7,6 +7,42 @@ import (
 	"testing"
 )
 
+type configLoggerSpy struct {
+	debug []string
+}
+
+func (l *configLoggerSpy) Debug(message string, _ ...any) {
+	l.debug = append(l.debug, message)
+}
+
+func (*configLoggerSpy) Info(string, ...any)  {}
+func (*configLoggerSpy) Error(string, ...any) {}
+
+func TestLoadWithLoggerUsesInjectedLogger(t *testing.T) {
+	basePath := writeTempFile(t, "app.json", `{}`)
+	logger := &configLoggerSpy{}
+
+	if _, err := LoadWithLogger(logger, basePath); err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if len(logger.debug) == 0 {
+		t.Fatal("expected config loader to use the injected logger")
+	}
+}
+
+func TestValidateAcceptsCentralLoggerSettings(t *testing.T) {
+	for _, level := range []string{"trace", "debug", "info", "warn", "error"} {
+		for _, format := range []string{"json", "text", "console", "pretty"} {
+			cfg := Defaults()
+			cfg.Logging.Level = level
+			cfg.Logging.Format = format
+			if err := cfg.Validate(); err != nil {
+				t.Errorf("level=%q format=%q: %v", level, format, err)
+			}
+		}
+	}
+}
+
 func TestLoadPrecedenceDefaultsThenConfigThenOverridesThenEnv(t *testing.T) {
 	basePath := writeTempFile(t, "app.json", `{
   "name": "From Base",
@@ -83,6 +119,21 @@ admin:
 	}
 	if cfg.Admin.Title != "From APP_CONFIG_OVERRIDES" {
 		t.Fatalf("expected APP_CONFIG_OVERRIDES to override APP_CONFIG, got %q", cfg.Admin.Title)
+	}
+}
+
+func TestLoadUsesTopLevelConfigByDefault(t *testing.T) {
+	t.Setenv("APP_CONFIG", "")
+	t.Setenv("APP_CONFIG_PATH", "")
+	t.Setenv("APP_CONFIG_OVERRIDES", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+	configPath := filepath.ToSlash(cfg.ConfigPath)
+	if !strings.HasSuffix(configPath, "examples/admin-shell/config/app.json") {
+		t.Fatalf("expected top-level starter config path, got %q", cfg.ConfigPath)
 	}
 }
 

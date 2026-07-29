@@ -9,6 +9,7 @@ type AppConfig struct {
 	Deployment Deployment `json:"deployment" koanf:"deployment"`
 	Env        string     `json:"env" koanf:"env"`
 	Features   Features   `json:"features" koanf:"features"`
+	Logging    Logging    `json:"logging" koanf:"logging"`
 	Name       string     `json:"name" koanf:"name"`
 	Server     Server     `json:"server" koanf:"server"`
 }
@@ -38,6 +39,11 @@ type Deployment struct {
 type Features struct {
 	Overrides map[string]bool `json:"overrides" koanf:"overrides"`
 	Profile   string          `json:"profile" koanf:"profile"`
+}
+
+type Logging struct {
+	Format string `json:"format" koanf:"format"`
+	Level  string `json:"level" koanf:"level"`
 }
 
 type Server struct {

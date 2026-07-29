@@ -2,18 +2,70 @@ package core_test
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
-	"github.com/goliatone/go-admin/examples/admin-shell/internal/config"
+	"github.com/gofiber/fiber/v2"
+	adminrouting "github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/examples/admin-shell/config"
 	"github.com/goliatone/go-admin/examples/admin-shell/internal/core"
 	apphttp "github.com/goliatone/go-admin/examples/admin-shell/internal/http"
+	"github.com/goliatone/go-admin/pkg/admin"
+	golifecycle "github.com/goliatone/go-admin/pkg/go-lifecycle"
+	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-logger/glog"
 )
+
+type recordingLoggerProvider struct {
+	mu    sync.Mutex
+	names []string
+}
+
+func (p *recordingLoggerProvider) GetLogger(name string) glog.Logger {
+	p.mu.Lock()
+	p.names = append(p.names, name)
+	p.mu.Unlock()
+	return glog.Nop()
+}
+
+func (p *recordingLoggerProvider) requested(name string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Contains(p.names, name)
+}
+
+type loggerProbeModule struct {
+	registered *atomic.Bool
+}
+
+func (m loggerProbeModule) Manifest() admin.ModuleManifest {
+	return admin.ModuleManifest{ID: "logger-probe"}
+}
+
+func (m loggerProbeModule) Register(admin.ModuleContext) error {
+	m.registered.Store(true)
+	return nil
+}
+
+func (m loggerProbeModule) RouteContract() adminrouting.ModuleContract {
+	return adminrouting.ModuleContract{
+		Slug: "logger_probe",
+		UIRoutes: map[string]string{
+			"logger_probe.index": "/logger-probe",
+		},
+	}
+}
 
 func TestStarterBuildsAndServesCompleteRouteGraph(t *testing.T) {
 	cfg := config.Defaults()
@@ -99,6 +151,203 @@ func TestStarterUsesCompleteQuickstartFeatureCatalog(t *testing.T) {
 	}
 	if features["activity"] {
 		t.Fatalf("expected activity disabled by the minimal profile")
+	}
+}
+
+func TestAdminContributionsUseLifecycleOrderingAndTaskOnlyDiagnostics(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Server.PrintRoutes = false
+	order := make([]string, 0, 4)
+
+	appCore, err := core.New(
+		context.Background(),
+		&cfg,
+		core.WithAdminContributionPriority("low", -10, func(*core.Core) error {
+			order = append(order, "low")
+			return nil
+		}),
+		core.WithAdminContributionPriority("high", 20, func(*core.Core) error {
+			order = append(order, "high")
+			return nil
+		}),
+		core.WithAdminContributionPriority("tie.first", 10, func(*core.Core) error {
+			order = append(order, "tie.first")
+			return nil
+		}),
+		core.WithAdminContributionPriority("tie.second", 10, func(*core.Core) error {
+			order = append(order, "tie.second")
+			return nil
+		}),
+		core.WithRouteRegistrar(func(*core.Core, quickstart.HostRouter[*fiber.App]) error {
+			want := []string{"high", "tie.first", "tie.second", "low"}
+			if !slices.Equal(order, want) {
+				return fmt.Errorf("route registration preceded ordered contributions: %v", order)
+			}
+			return nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("build starter: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := appCore.Shutdown(context.Background()); err != nil {
+			t.Errorf("shutdown starter: %v", err)
+		}
+	})
+
+	snapshot := appCore.AdminLifecycleSnapshot()
+	if snapshot.StartedAt.IsZero() || snapshot.UpdatedAt.IsZero() {
+		t.Fatalf("lifecycle diagnostics omitted timestamps: %+v", snapshot)
+	}
+	taskStates := make(map[string]golifecycle.State, len(snapshot.Tasks))
+	for _, task := range snapshot.Tasks {
+		taskStates[task.Name] = task.State
+		if task.Phase != golifecycle.PhasePreBind ||
+			task.Policy != golifecycle.ErrorPolicyFatal {
+			t.Fatalf("unexpected lifecycle task contract: %+v", task)
+		}
+	}
+	for _, name := range []string{
+		"admin.contribution.high",
+		"admin.contribution.tie.first",
+		"admin.contribution.tie.second",
+		"admin.contribution.low",
+	} {
+		if taskStates[name] != golifecycle.StateSucceeded {
+			t.Fatalf("lifecycle task %q state = %q", name, taskStates[name])
+		}
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal lifecycle diagnostics: %v", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatalf("decode lifecycle diagnostics: %v", err)
+	}
+	for _, misleading := range []string{"ready", "serving"} {
+		if _, exists := fields[misleading]; exists {
+			t.Fatalf("task-only diagnostics exposed %q: %s", misleading, encoded)
+		}
+	}
+}
+
+func TestAdminContributionOptionsRejectInvalidRegistrations(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Server.PrintRoutes = false
+
+	tests := []struct {
+		name       string
+		options    []core.Option
+		wantDetail string
+	}{
+		{
+			name:       "nil contribution callback",
+			options:    []core.Option{core.WithAdminContribution("missing-callback", nil)},
+			wantDetail: `configure admin lifecycle "missing-callback": callback is required`,
+		},
+		{
+			name:       "nil module factory",
+			options:    []core.Option{core.WithAdminModule("missing-factory", nil)},
+			wantDetail: `register admin contribution "missing-factory": module factory is required`,
+		},
+		{
+			name: "duplicate contribution",
+			options: []core.Option{
+				core.WithAdminContribution("duplicate", func(*core.Core) error { return nil }),
+				core.WithAdminContribution("duplicate", func(*core.Core) error { return nil }),
+			},
+			wantDetail: `task "admin.contribution.duplicate" already registered`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := core.New(context.Background(), &cfg, tc.options...)
+			if err == nil || !strings.Contains(err.Error(), tc.wantDetail) {
+				t.Fatalf("New() error = %v, want detail %q", err, tc.wantDetail)
+			}
+		})
+	}
+}
+
+func TestAdminContributionFailureStopsPreBindComposition(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Server.PrintRoutes = false
+	contributionErr := errors.New("contribution failed")
+	var laterContributionRan atomic.Bool
+
+	_, err := core.New(
+		context.Background(),
+		&cfg,
+		core.WithAdminContributionPriority("failing", 20, func(*core.Core) error {
+			return contributionErr
+		}),
+		core.WithAdminContributionPriority("later", 10, func(*core.Core) error {
+			laterContributionRan.Store(true)
+			return nil
+		}),
+	)
+	if !errors.Is(err, contributionErr) {
+		t.Fatalf("New() error = %v, want contribution failure", err)
+	}
+	if laterContributionRan.Load() {
+		t.Fatal("fatal pre-bind failure did not stop later contributions")
+	}
+}
+
+func TestRootLoggerProviderPropagatesToFrameworkAndModuleFactory(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Server.PrintRoutes = false
+	provider := &recordingLoggerProvider{}
+	var moduleRegistered atomic.Bool
+	factoryRan := false
+
+	appCore, err := core.New(
+		context.Background(),
+		&cfg,
+		core.WithLoggerProvider(provider),
+		core.WithAdminModule("logger-probe", func(
+			gotProvider glog.LoggerProvider,
+			logger glog.Logger,
+		) (admin.Module, error) {
+			factoryRan = true
+			if gotProvider != provider {
+				return nil, errors.New("module received a different logger provider")
+			}
+			if logger == nil {
+				return nil, errors.New("module logger is nil")
+			}
+			return loggerProbeModule{registered: &moduleRegistered}, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("build starter: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := appCore.Shutdown(context.Background()); err != nil {
+			t.Errorf("shutdown starter: %v", err)
+		}
+	})
+
+	if !factoryRan || !moduleRegistered.Load() {
+		t.Fatalf("module lifecycle incomplete: factory=%v registered=%v", factoryRan, moduleRegistered.Load())
+	}
+	if appCore.LoggerProvider != provider || appCore.Admin.LoggerProvider() == nil {
+		t.Fatal("root logger provider was not retained by core and go-admin")
+	}
+	for _, name := range []string{
+		"core",
+		"admin",
+		"auth",
+		"auth.http",
+		"auth.authorization",
+		"router",
+		"modules.logger-probe",
+	} {
+		if !provider.requested(name) {
+			t.Errorf("logger provider did not receive child request %q", name)
+		}
 	}
 }
 

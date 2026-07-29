@@ -23,6 +23,13 @@ var activeConfig struct {
 	cfg *AppConfig
 }
 
+// Logger is the minimal structured logger contract used while loading config.
+type Logger interface {
+	Debug(string, ...any)
+	Info(string, ...any)
+	Error(string, ...any)
+}
+
 // Defaults returns baseline admin-shell configuration values.
 func Defaults() AppConfig {
 	return AppConfig{
@@ -58,18 +65,31 @@ func Defaults() AppConfig {
 				"search": true,
 			},
 		},
+		Logging: Logging{
+			Level:  "info",
+			Format: "json",
+		},
 	}
 }
 
 // Load resolves configuration from defaults, optional files, and env overrides.
 func Load(paths ...string) (AppConfig, error) {
+	return load(nil, paths...)
+}
+
+// LoadWithLogger resolves configuration using the supplied application logger.
+func LoadWithLogger(logger Logger, paths ...string) (AppConfig, error) {
+	return load(logger, paths...)
+}
+
+func load(logger Logger, paths ...string) (AppConfig, error) {
 	resolvedPaths, err := resolveConfigPaths(paths...)
 	if err != nil {
 		return AppConfig{}, err
 	}
 
 	preview := Defaults()
-	previewContainer := newContainer(&preview, resolvedPaths, goconfig.ValidationNone, false)
+	previewContainer := newContainer(&preview, resolvedPaths, goconfig.ValidationNone, false, logger)
 	if err := previewContainer.Load(context.Background()); err != nil {
 		return AppConfig{}, err
 	}
@@ -81,7 +101,7 @@ func Load(paths ...string) (AppConfig, error) {
 	failFast := shouldFailFast(previewLoaded.Env)
 
 	cfg := Defaults()
-	container := newContainer(&cfg, resolvedPaths, goconfig.ValidationSemantic, failFast)
+	container := newContainer(&cfg, resolvedPaths, goconfig.ValidationSemantic, failFast, logger)
 	if err := container.Load(context.Background()); err != nil {
 		return AppConfig{}, err
 	}
@@ -102,8 +122,13 @@ func newContainer(
 	files []string,
 	mode goconfig.ValidationMode,
 	failFast bool,
+	logger Logger,
 ) *goconfig.Container[*AppConfig] {
+	if logger == nil {
+		logger = discardConfigLogger{}
+	}
 	container := goconfig.New(cfg).
+		WithLogger(logger).
 		WithValidationMode(mode).
 		WithBaseValidate(false).
 		WithFailFast(failFast).
@@ -127,6 +152,12 @@ func newContainer(
 	return container
 }
 
+type discardConfigLogger struct{}
+
+func (discardConfigLogger) Debug(string, ...any) {}
+func (discardConfigLogger) Info(string, ...any)  {}
+func (discardConfigLogger) Error(string, ...any) {}
+
 func shouldFailFast(_ string) bool {
 	return true
 }
@@ -148,11 +179,19 @@ func configNormalizers() []goconfig.Normalizer[*AppConfig] {
 			c.Auth.DemoEmail = strings.TrimSpace(c.Auth.DemoEmail)
 			c.Auth.DemoPassword = strings.TrimSpace(c.Auth.DemoPassword)
 			c.Features.Profile = strings.ToLower(strings.TrimSpace(c.Features.Profile))
+			c.Logging.Level = strings.ToLower(strings.TrimSpace(c.Logging.Level))
+			c.Logging.Format = strings.ToLower(strings.TrimSpace(c.Logging.Format))
 			if c.Env == "" {
 				c.Env = "development"
 			}
 			if c.Features.Profile == "" {
 				c.Features.Profile = "minimal"
+			}
+			if c.Logging.Level == "" {
+				c.Logging.Level = "info"
+			}
+			if c.Logging.Format == "" {
+				c.Logging.Format = "json"
 			}
 			return nil
 		},
@@ -200,6 +239,16 @@ func validateRequiredFields(c *AppConfig) error {
 	case "minimal", "default", "full":
 	default:
 		return fmt.Errorf("features.profile must be one of minimal, default, or full")
+	}
+	switch c.Logging.Level {
+	case "trace", "debug", "info", "warn", "warning", "error":
+	default:
+		return fmt.Errorf("logging.level must be one of trace, debug, info, warn, or error")
+	}
+	switch c.Logging.Format {
+	case "json", "console", "text", "pretty":
+	default:
+		return fmt.Errorf("logging.format must be one of json, console, text, or pretty")
 	}
 	if c.Auth.DemoEnabled {
 		if !isDevelopmentEnv(c.Env) {
@@ -368,7 +417,7 @@ func uniquePaths(paths []string) []string {
 func resolveDefaultConfigPath() string {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return "examples/admin-shell/internal/config/app.json"
+		return "examples/admin-shell/config/app.json"
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "app.json"))
 }
@@ -376,7 +425,7 @@ func resolveDefaultConfigPath() string {
 func resolveDefaultOverridesPath() string {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return "examples/admin-shell/internal/config/overrides.yml"
+		return "examples/admin-shell/config/overrides.yml"
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "overrides.yml"))
 }

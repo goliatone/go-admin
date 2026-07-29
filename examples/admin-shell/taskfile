@@ -11,8 +11,8 @@ export LGR_NO_TIMESTAMP=true
 
 EXAMPLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${EXAMPLE_DIR}/../.." && pwd)"
-DEFAULT_CONFIG_PATH="${EXAMPLE_DIR}/internal/config/app.json"
-DEFAULT_OVERRIDES_PATH="${EXAMPLE_DIR}/internal/config/overrides.yml"
+DEFAULT_CONFIG_PATH="${EXAMPLE_DIR}/config/app.json"
+DEFAULT_OVERRIDES_PATH="${EXAMPLE_DIR}/config/overrides.yml"
 
 GO_BIN="${GO_BIN:-$(command -v go 2>/dev/null || true)}"
 
@@ -101,7 +101,7 @@ function dev:config:generate {
     _ensure:go || return 1
     (
         cd "${PROJECT_ROOT}" || exit 1
-        "${GO_BIN}" generate ./examples/admin-shell/internal/config
+        "${GO_BIN}" generate ./examples/admin-shell/config
     )
 }
 
@@ -117,8 +117,8 @@ function dev:cover {
 function dev:fmt {
     _ensure:go || return 1
     (
-        cd "${PROJECT_ROOT}" || exit 1
-        "${GO_BIN}" fmt ./examples/admin-shell/...
+        cd "${PROJECT_ROOT}/examples" || exit 1
+        "${GO_BIN}" fmt ./admin-shell/...
     )
 }
 
@@ -164,6 +164,8 @@ APP_SERVER__ADDRESS=${APP_SERVER__ADDRESS:-:8383}
 APP_SERVER__PRINT_ROUTES=${APP_SERVER__PRINT_ROUTES:-true}
 APP_SERVER__SHUTDOWN_TIMEOUT_SECONDS=${APP_SERVER__SHUTDOWN_TIMEOUT_SECONDS:-10}
 APP_ADMIN__BASE_PATH=${APP_ADMIN__BASE_PATH:-/admin}
+APP_LOGGING__LEVEL=${APP_LOGGING__LEVEL:-info}
+APP_LOGGING__FORMAT=${APP_LOGGING__FORMAT:-json}
 APP_AUTH__DEMO_ENABLED=${APP_AUTH__DEMO_ENABLED:-true}
 APP_AUTH__SHOW_DEMO_CREDENTIALS=${APP_AUTH__SHOW_DEMO_CREDENTIALS:-true}
 APP_AUTH__DEMO_USERNAME=${APP_AUTH__DEMO_USERNAME:-admin}
