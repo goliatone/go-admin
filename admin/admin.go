@@ -251,7 +251,7 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	}
 	if a.registry != nil {
 		for _, panel := range a.registry.Panels() {
-			if panel == nil || panel.authorizer != nil {
+			if panel == nil || !panel.authorizerInherited {
 				continue
 			}
 			panel.authorizer = authz
@@ -1162,8 +1162,9 @@ func (a *Admin) buildPanel(name string, builder *PanelBuilder) (*Panel, error) {
 	if builder.activity == nil {
 		builder.activity = a.activity
 	}
-	if builder.authorizer == nil {
+	if builder.authorizer == nil || builder.authorizerInherited {
 		builder.authorizer = a.authorizer
+		builder.authorizerInherited = true
 	}
 	if builder.workflow == nil && !builder.workflowSet {
 		builder.workflow = a.workflow

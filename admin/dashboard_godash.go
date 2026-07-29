@@ -501,3 +501,49 @@ func adminDashboardChromeFromContext(ctx context.Context) AdminChromeState {
 func decorateDashboardControllerPage(ctx context.Context, _ dashcmp.ViewerContext, page dashcmp.Page) (dashcmp.Page, error) {
 	return withAdminChromeState(page, adminDashboardChromeFromContext(ctx))
 }
+
+func dashboardProviderPresentationDecorator(specs map[string]DashboardProviderSpec) dashcmp.PageDecorator {
+	return func(_ context.Context, _ dashcmp.ViewerContext, page dashcmp.Page) (dashcmp.Page, error) {
+		if len(page.Areas) == 0 {
+			return page, nil
+		}
+		areas := append([]dashcmp.PageArea(nil), page.Areas...)
+		for areaIndex := range areas {
+			widgets := append([]dashcmp.WidgetFrame(nil), areas[areaIndex].Widgets...)
+			for widgetIndex := range widgets {
+				widget := &widgets[widgetIndex]
+				// go-dashboard may infer a conventional template path from the
+				// definition code. Only a path validated and registered by the
+				// host is trusted as a dynamic include in go-admin's view stack.
+				widget.Template = ""
+				spec, ok := specs[widget.Definition]
+				if !ok {
+					continue
+				}
+				if name := strings.TrimSpace(spec.Name); name != "" {
+					widget.Name = name
+				}
+				widget.Template = spec.Template
+			}
+			areas[areaIndex].Widgets = widgets
+		}
+		page.Areas = areas
+		return page, nil
+	}
+}
+
+func composeDashboardPageDecorators(decorators ...dashcmp.PageDecorator) dashcmp.PageDecorator {
+	return func(ctx context.Context, viewer dashcmp.ViewerContext, page dashcmp.Page) (dashcmp.Page, error) {
+		var err error
+		for _, decorate := range decorators {
+			if decorate == nil {
+				continue
+			}
+			page, err = decorate(ctx, viewer, page)
+			if err != nil {
+				return page, err
+			}
+		}
+		return page, nil
+	}
+}
