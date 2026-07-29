@@ -43,6 +43,19 @@ func TestValidateAcceptsCentralLoggerSettings(t *testing.T) {
 	}
 }
 
+func TestIsDevelopmentEnvDefinesSharedRuntimePolicy(t *testing.T) {
+	for _, env := range []string{"development", "dev", "local", "test", " TEST "} {
+		if !IsDevelopmentEnv(env) {
+			t.Errorf("IsDevelopmentEnv(%q) = false", env)
+		}
+	}
+	for _, env := range []string{"production", "staging", ""} {
+		if IsDevelopmentEnv(env) {
+			t.Errorf("IsDevelopmentEnv(%q) = true", env)
+		}
+	}
+}
+
 func TestLoadPrecedenceDefaultsThenConfigThenOverridesThenEnv(t *testing.T) {
 	basePath := writeTempFile(t, "app.json", `{
   "name": "From Base",

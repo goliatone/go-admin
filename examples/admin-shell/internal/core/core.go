@@ -68,12 +68,21 @@ type RouteRegistrar func(*Core, quickstart.HostRouter[*fiber.App]) error
 type AdminContribution struct {
 	Name     string
 	Priority int
-	Register func(*Core) error
+	Register func(context.Context, *Core) error
+
+	moduleRegistration bool
+	moduleFactory      AdminModuleFactory
 }
 
 // AdminModuleFactory constructs an admin module with the command-owned logger
 // provider and its stable modules.<name> child logger.
-type AdminModuleFactory func(glog.LoggerProvider, glog.Logger) (admin.Module, error)
+type AdminModuleFactory func(context.Context, glog.LoggerProvider, glog.Logger) (admin.Module, error)
+
+// AdminModuleShutdown is an optional module contract executed by the
+// application lifecycle before shared admin resources are released.
+type AdminModuleShutdown interface {
+	Shutdown(context.Context) error
+}
 
 type options struct {
 	identityProvider   auth.IdentityProvider
@@ -105,13 +114,17 @@ func WithRouteRegistrar(registrar RouteRegistrar) Option {
 }
 
 // WithAdminContribution adds a named pre-initialization contribution.
-func WithAdminContribution(name string, register func(*Core) error) Option {
+func WithAdminContribution(name string, register func(context.Context, *Core) error) Option {
 	return WithAdminContributionPriority(name, 0, register)
 }
 
 // WithAdminContributionPriority adds a contribution with explicit lifecycle
 // priority. Higher priorities run first; ties retain option insertion order.
-func WithAdminContributionPriority(name string, priority int, register func(*Core) error) Option {
+func WithAdminContributionPriority(
+	name string,
+	priority int,
+	register func(context.Context, *Core) error,
+) Option {
 	return func(opts *options) {
 		if opts == nil {
 			return
@@ -255,7 +268,7 @@ func New(ctx context.Context, cfg *config.AppConfig, optionFns ...Option) (*Core
 		return nil, fmt.Errorf("setup auth: %w", err)
 	}
 
-	isDev := isDevelopmentEnv(cfg.Env)
+	isDev := config.IsDevelopmentEnv(cfg.Env)
 	viewEngine, err := newAdminShellViewEngine(adminCfg, adm)
 	if err != nil {
 		return nil, fmt.Errorf("initialize view engine: %w", err)
@@ -352,6 +365,21 @@ func newAdminLifecycleRunner(
 		if name == "" {
 			return nil, fmt.Errorf("configure admin lifecycle: contribution name is required")
 		}
+		if contribution.moduleRegistration {
+			if contribution.moduleFactory == nil {
+				return nil, fmt.Errorf("configure admin lifecycle %q: module factory is required", name)
+			}
+			moduleLifecycle := &adminModuleLifecycle{
+				name:     name,
+				priority: contribution.Priority,
+				factory:  contribution.moduleFactory,
+				appCore:  appCore,
+			}
+			if err := golifecycle.RegisterModule(registry, moduleLifecycle); err != nil {
+				return nil, fmt.Errorf("configure admin lifecycle: %w", err)
+			}
+			continue
+		}
 		if contribution.Register == nil {
 			return nil, fmt.Errorf("configure admin lifecycle %q: callback is required", name)
 		}
@@ -361,8 +389,11 @@ func newAdminLifecycleRunner(
 			Phase:    golifecycle.PhasePreBind,
 			Priority: current.Priority,
 			Policy:   golifecycle.ErrorPolicyFatal,
-			Run: func(context.Context) error {
-				if err := current.Register(appCore); err != nil {
+			Run: func(taskCtx context.Context) error {
+				if err := taskCtx.Err(); err != nil {
+					return err
+				}
+				if err := current.Register(taskCtx, appCore); err != nil {
 					return fmt.Errorf("register admin contribution %q: %w", name, err)
 				}
 				return nil
@@ -385,37 +416,86 @@ func newAdminModuleContribution(
 ) AdminContribution {
 	name = strings.TrimSpace(name)
 	return AdminContribution{
-		Name:     name,
-		Priority: priority,
-		Register: func(appCore *Core) error {
-			if appCore == nil || appCore.Admin == nil {
-				return fmt.Errorf("admin runtime is required")
-			}
-			if factory == nil {
-				return fmt.Errorf("module factory is required")
-			}
-			module, err := factory(
-				appCore.LoggerProvider,
-				appCore.GetLogger("modules."+name),
-			)
-			if err != nil {
-				return fmt.Errorf("build module: %w", err)
-			}
-			if module == nil {
-				return fmt.Errorf("module factory returned nil")
-			}
-			return appCore.Admin.RegisterModule(module)
-		},
+		Name:               name,
+		Priority:           priority,
+		moduleRegistration: true,
+		moduleFactory:      factory,
 	}
 }
 
-func isDevelopmentEnv(env string) bool {
-	switch strings.ToLower(strings.TrimSpace(env)) {
-	case "development", "dev", "local":
-		return true
-	default:
-		return false
+type adminModuleLifecycle struct {
+	mu       sync.Mutex
+	name     string
+	priority int
+	factory  AdminModuleFactory
+	appCore  *Core
+	module   admin.Module
+}
+
+func (m *adminModuleLifecycle) Name() string {
+	if m == nil {
+		return "admin.module"
 	}
+	return "admin.module." + strings.TrimSpace(m.name)
+}
+
+func (m *adminModuleLifecycle) Priority() int {
+	if m == nil {
+		return 0
+	}
+	return m.priority
+}
+
+func (m *adminModuleLifecycle) Start(ctx context.Context) error {
+	if m == nil || m.appCore == nil || m.appCore.Admin == nil {
+		return fmt.Errorf("admin runtime is required")
+	}
+	if m.factory == nil {
+		return fmt.Errorf("module factory is required")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	module, err := m.factory(
+		ctx,
+		m.appCore.LoggerProvider,
+		m.appCore.GetLogger("modules."+strings.TrimSpace(m.name)),
+	)
+	if err != nil {
+		return fmt.Errorf("build module: %w", err)
+	}
+	if module == nil {
+		return fmt.Errorf("module factory returned nil")
+	}
+	// Retain the constructed module before registration so startup rollback can
+	// invoke its shutdown hook if Admin.RegisterModule fails.
+	m.mu.Lock()
+	m.module = module
+	m.mu.Unlock()
+	if err := m.appCore.Admin.RegisterModule(module); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *adminModuleLifecycle) Stop(ctx context.Context) error {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	module := m.module
+	m.mu.Unlock()
+	shutdown, ok := module.(AdminModuleShutdown)
+	if !ok || shutdown == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return shutdown.Shutdown(ctx)
 }
 
 func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin) (fiber.Views, error) {
@@ -486,9 +566,8 @@ func (c *Core) Shutdown(ctx context.Context) error {
 	if c == nil {
 		return nil
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx, cancel := boundedShutdownContext(ctx, c.Config)
+	defer cancel()
 	var serverShutdown shutdownOperation
 	if c.Server != nil {
 		serverShutdown = c.Server.Shutdown
@@ -589,7 +668,7 @@ func (c *Core) Features() []FeatureStatus {
 // be rendered or logged.
 func (c *Core) DemoCredentialsVisible() bool {
 	return c != nil && c.Config != nil && c.Config.Auth.DemoEnabled &&
-		c.Config.Auth.ShowDemoCredentials && isDevelopmentEnv(c.Config.Env)
+		c.Config.Auth.ShowDemoCredentials && config.IsDevelopmentEnv(c.Config.Env)
 }
 
 func normalizeServeError(err error) error {

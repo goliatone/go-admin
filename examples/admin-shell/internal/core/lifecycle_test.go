@@ -178,3 +178,19 @@ func TestRunBoundsCleanupAfterEarlyServerError(t *testing.T) {
 		t.Fatal("early server failure cleanup did not receive a bounded context")
 	}
 }
+
+func TestCoreShutdownAddsConfiguredDeadlineWhenCallerOmitsOne(t *testing.T) {
+	server := &failingServer{}
+	cfg := config.Defaults()
+	appCore := &Core{
+		Config: &cfg,
+		Server: server,
+	}
+
+	if err := appCore.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown() error = %v", err)
+	}
+	if !server.shutdownHasDeadline.Load() {
+		t.Fatal("direct shutdown did not apply the configured deadline")
+	}
+}

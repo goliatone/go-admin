@@ -108,10 +108,14 @@ asset, i18n, or OpenAPI trees.
 8. return an unsealed server.
 
 Admin contribution tasks use deterministic priority and insertion ordering.
-Module factories receive the root provider and a stable `modules.<name>`
-logger before their module is registered. Route registrars remain direct
-composition callbacks; `Admin.Initialize` and listener binding are not modeled
-as module lifecycle tasks.
+Contribution callbacks and module factories receive the active startup
+`context.Context`. Module factories also receive the root provider and a stable
+`modules.<name>` logger before their module is registered. A module that
+implements `Shutdown(context.Context) error` is adapted into a real lifecycle
+shutdown task; interrupted teardown remains retryable without rerunning tasks
+that already succeeded. Route registrars remain direct composition callbacks;
+`Admin.Initialize` and listener binding are not modeled as module lifecycle
+tasks.
 
 `Serve`, `Run`, or `Server.WrappedRouter()` is the sealing boundary. Add public
 pages through `host.PublicSite()`, internal probes through
@@ -122,7 +126,8 @@ through their Admin UI/API surfaces.
 listener failure, or startup rollback, `Core.Run` bounds server, lifecycle,
 and admin command-runtime cleanup with `server.shutdown_timeout_seconds`.
 Incomplete lifecycle shutdown keeps shared admin resources open so a later
-`Core.Shutdown` call can finish safely.
+`Core.Shutdown` call can finish safely. `Core.Shutdown` also applies that
+timeout when its caller supplies no deadline.
 
 ## Configuration
 
@@ -142,7 +147,10 @@ Logging is configured with:
 The entrypoint creates one root logger before configuration loading, sends the
 `config` child into the loader, and then applies the validated level, format,
 and deployment identity to that same root. go-admin, go-auth, routing, and
-module loggers all resolve from the shared provider.
+module loggers all resolve from the shared provider. Fiber access records use
+the `http.access` child rather than Fiber's independent text logger. Render
+merge diagnostics redact values such as CSRF tokens, and
+`server.print_routes=false` suppresses structured route-registration records.
 
 Load precedence is defaults, base file, optional overlay, then `APP_*`
 environment values using `__` for nesting. Select files with `APP_CONFIG` and

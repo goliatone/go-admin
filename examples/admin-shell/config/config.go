@@ -251,7 +251,7 @@ func validateRequiredFields(c *AppConfig) error {
 		return fmt.Errorf("logging.format must be one of json, console, text, or pretty")
 	}
 	if c.Auth.DemoEnabled {
-		if !isDevelopmentEnv(c.Env) {
+		if !IsDevelopmentEnv(c.Env) {
 			return fmt.Errorf("auth.demo_enabled is only allowed in development environments")
 		}
 		if strings.TrimSpace(c.Auth.DemoUsername) == "" {
@@ -264,7 +264,7 @@ func validateRequiredFields(c *AppConfig) error {
 			return fmt.Errorf("auth.demo_password is required when demo auth is enabled")
 		}
 	}
-	if !isDevelopmentEnv(c.Env) {
+	if !IsDevelopmentEnv(c.Env) {
 		if c.Auth.ShowDemoCredentials {
 			return fmt.Errorf("auth.show_demo_credentials is only allowed in development environments")
 		}
@@ -314,7 +314,9 @@ func (c AppConfig) FeatureOverrides() map[string]bool {
 	return out
 }
 
-func isDevelopmentEnv(env string) bool {
+// IsDevelopmentEnv is the canonical environment policy used by validation
+// and runtime composition.
+func IsDevelopmentEnv(env string) bool {
 	switch strings.ToLower(strings.TrimSpace(env)) {
 	case "development", "dev", "local", "test":
 		return true

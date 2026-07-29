@@ -94,7 +94,7 @@ func TestRouterLoggerSupportsFormattedAndStructuredCalls(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Logging.Format = "json"
 	root.Configure(&cfg)
-	adapter := newRouterLogger(root.GetLogger("router"))
+	adapter := newRouterLogger(root.GetLogger("router"), true)
 
 	adapter.Warn("route conflict: %v", "duplicate")
 	adapter.Info("registering route", "method", "GET", "path", "/healthz")
@@ -108,5 +108,64 @@ func TestRouterLoggerSupportsFormattedAndStructuredCalls(t *testing.T) {
 		if !strings.Contains(logged, expected) {
 			t.Fatalf("router log missing %s: %s", expected, logged)
 		}
+	}
+}
+
+func TestRouterLoggerPreservesLiteralPercentAndFlattensStructuredFields(t *testing.T) {
+	var out bytes.Buffer
+	root := NewRootLogger(&out)
+	root.Configure(nil)
+	adapter := newRouterLogger(root.GetLogger("router"), true)
+
+	adapter.Info("import is 100% complete", []any{"records", 42})
+	logged := out.String()
+	for _, expected := range []string{
+		`"msg":"import is 100% complete"`,
+		`"records":42`,
+	} {
+		if !strings.Contains(logged, expected) {
+			t.Fatalf("router log missing %s: %s", expected, logged)
+		}
+	}
+	if strings.Contains(logged, "%!") {
+		t.Fatalf("router log was corrupted by printf formatting: %s", logged)
+	}
+}
+
+func TestRouterLoggerPreservesRichErrorsFromPrintfCalls(t *testing.T) {
+	var out bytes.Buffer
+	root := NewRootLogger(&out)
+	root.Configure(nil)
+	adapter := newRouterLogger(root.GetLogger("router"), true)
+	err := goerrors.New("route conflict", goerrors.CategoryConflict).
+		WithTextCode("ROUTE_CONFLICT")
+
+	adapter.Error("route registration failed: %v", err)
+	logged := out.String()
+	for _, expected := range []string{
+		`"msg":"route registration failed: [conflict:ROUTE_CONFLICT] The request conflicts with the current state."`,
+		`"category":"conflict"`,
+		`"text_code":"ROUTE_CONFLICT"`,
+	} {
+		if !strings.Contains(logged, expected) {
+			t.Fatalf("router error log missing %s: %s", expected, logged)
+		}
+	}
+}
+
+func TestRouterLoggerQuietModeSuppressesOnlyRouteRegistration(t *testing.T) {
+	var out bytes.Buffer
+	root := NewRootLogger(&out)
+	root.Configure(nil)
+	adapter := newRouterLogger(root.GetLogger("router"), false)
+
+	adapter.Info("registering route", "method", "GET", "path", "/quiet")
+	adapter.Info("router initialized", "routes", 1)
+	logged := out.String()
+	if strings.Contains(logged, "/quiet") {
+		t.Fatalf("quiet router logger emitted route registration: %s", logged)
+	}
+	if !strings.Contains(logged, `"msg":"router initialized"`) {
+		t.Fatalf("quiet router logger suppressed non-route record: %s", logged)
 	}
 }

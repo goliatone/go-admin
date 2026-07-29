@@ -23,6 +23,19 @@ func configuredShutdownTimeout(cfg *config.AppConfig) time.Duration {
 	return time.Duration(cfg.Server.ShutdownTimeoutSeconds) * time.Second
 }
 
+func boundedShutdownContext(
+	ctx context.Context,
+	cfg *config.AppConfig,
+) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, configuredShutdownTimeout(cfg))
+}
+
 // coordinateShutdown preserves lifecycle's incomplete-shutdown contract:
 // shared admin resources close only after lifecycle completion is known.
 func coordinateShutdown(

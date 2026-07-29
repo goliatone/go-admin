@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,11 +9,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	adminrouting "github.com/goliatone/go-admin/admin/routing"
@@ -51,6 +54,37 @@ type loggerProbeModule struct {
 
 func (m loggerProbeModule) Manifest() admin.ModuleManifest {
 	return admin.ModuleManifest{ID: "logger-probe"}
+}
+
+type lifecycleProbeModule struct {
+	shutdownStarted chan struct{}
+	shutdownRuns    atomic.Int32
+}
+
+func (*lifecycleProbeModule) Manifest() admin.ModuleManifest {
+	return admin.ModuleManifest{ID: "lifecycle-probe"}
+}
+
+func (*lifecycleProbeModule) Register(admin.ModuleContext) error {
+	return nil
+}
+
+func (*lifecycleProbeModule) RouteContract() adminrouting.ModuleContract {
+	return adminrouting.ModuleContract{
+		Slug: "lifecycle_probe",
+		UIRoutes: map[string]string{
+			"lifecycle_probe.index": "/lifecycle-probe",
+		},
+	}
+}
+
+func (m *lifecycleProbeModule) Shutdown(ctx context.Context) error {
+	if m.shutdownRuns.Add(1) == 1 {
+		close(m.shutdownStarted)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	return nil
 }
 
 func (m loggerProbeModule) Register(admin.ModuleContext) error {
@@ -119,6 +153,15 @@ func TestStarterBuildsAndServesCompleteRouteGraph(t *testing.T) {
 	}
 }
 
+func TestDemoCredentialVisibilityUsesCanonicalEnvironmentPolicy(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Env = "test"
+	appCore := &core.Core{Config: &cfg}
+	if !appCore.DemoCredentialsVisible() {
+		t.Fatal("test environment passed validation but runtime hid demo credentials")
+	}
+}
+
 func TestStarterUsesCompleteQuickstartFeatureCatalog(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Server.PrintRoutes = false
@@ -162,19 +205,19 @@ func TestAdminContributionsUseLifecycleOrderingAndTaskOnlyDiagnostics(t *testing
 	appCore, err := core.New(
 		context.Background(),
 		&cfg,
-		core.WithAdminContributionPriority("low", -10, func(*core.Core) error {
+		core.WithAdminContributionPriority("low", -10, func(context.Context, *core.Core) error {
 			order = append(order, "low")
 			return nil
 		}),
-		core.WithAdminContributionPriority("high", 20, func(*core.Core) error {
+		core.WithAdminContributionPriority("high", 20, func(context.Context, *core.Core) error {
 			order = append(order, "high")
 			return nil
 		}),
-		core.WithAdminContributionPriority("tie.first", 10, func(*core.Core) error {
+		core.WithAdminContributionPriority("tie.first", 10, func(context.Context, *core.Core) error {
 			order = append(order, "tie.first")
 			return nil
 		}),
-		core.WithAdminContributionPriority("tie.second", 10, func(*core.Core) error {
+		core.WithAdminContributionPriority("tie.second", 10, func(context.Context, *core.Core) error {
 			order = append(order, "tie.second")
 			return nil
 		}),
@@ -249,13 +292,13 @@ func TestAdminContributionOptionsRejectInvalidRegistrations(t *testing.T) {
 		{
 			name:       "nil module factory",
 			options:    []core.Option{core.WithAdminModule("missing-factory", nil)},
-			wantDetail: `register admin contribution "missing-factory": module factory is required`,
+			wantDetail: `configure admin lifecycle "missing-factory": module factory is required`,
 		},
 		{
 			name: "duplicate contribution",
 			options: []core.Option{
-				core.WithAdminContribution("duplicate", func(*core.Core) error { return nil }),
-				core.WithAdminContribution("duplicate", func(*core.Core) error { return nil }),
+				core.WithAdminContribution("duplicate", func(context.Context, *core.Core) error { return nil }),
+				core.WithAdminContribution("duplicate", func(context.Context, *core.Core) error { return nil }),
 			},
 			wantDetail: `task "admin.contribution.duplicate" already registered`,
 		},
@@ -280,10 +323,10 @@ func TestAdminContributionFailureStopsPreBindComposition(t *testing.T) {
 	_, err := core.New(
 		context.Background(),
 		&cfg,
-		core.WithAdminContributionPriority("failing", 20, func(*core.Core) error {
+		core.WithAdminContributionPriority("failing", 20, func(context.Context, *core.Core) error {
 			return contributionErr
 		}),
-		core.WithAdminContributionPriority("later", 10, func(*core.Core) error {
+		core.WithAdminContributionPriority("later", 10, func(context.Context, *core.Core) error {
 			laterContributionRan.Store(true)
 			return nil
 		}),
@@ -293,6 +336,125 @@ func TestAdminContributionFailureStopsPreBindComposition(t *testing.T) {
 	}
 	if laterContributionRan.Load() {
 		t.Fatal("fatal pre-bind failure did not stop later contributions")
+	}
+}
+
+func TestAdminLifecycleCallbacksReceiveStartupCancellation(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Server.PrintRoutes = false
+
+	tests := []struct {
+		name   string
+		option func(started chan<- struct{}) core.Option
+	}{
+		{
+			name: "contribution",
+			option: func(started chan<- struct{}) core.Option {
+				return core.WithAdminContribution("cancellable", func(ctx context.Context, _ *core.Core) error {
+					close(started)
+					<-ctx.Done()
+					return ctx.Err()
+				})
+			},
+		},
+		{
+			name: "module factory",
+			option: func(started chan<- struct{}) core.Option {
+				return core.WithAdminModule("cancellable", func(
+					ctx context.Context,
+					_ glog.LoggerProvider,
+					_ glog.Logger,
+				) (admin.Module, error) {
+					close(started)
+					<-ctx.Done()
+					return nil, ctx.Err()
+				})
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			startupCtx, cancel := context.WithCancel(context.Background())
+			started := make(chan struct{})
+			result := make(chan error, 1)
+			go func() {
+				_, err := core.New(startupCtx, &cfg, tc.option(started))
+				result <- err
+			}()
+
+			select {
+			case <-started:
+			case <-time.After(time.Second):
+				t.Fatal("lifecycle callback did not start")
+			}
+			cancel()
+			select {
+			case err := <-result:
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("New() error = %v, want context cancellation", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("lifecycle callback ignored startup cancellation")
+			}
+		})
+	}
+}
+
+func TestLifecycleManagedAdminModuleShutdownIsBoundedAndRetryable(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Server.PrintRoutes = false
+	module := &lifecycleProbeModule{
+		shutdownStarted: make(chan struct{}),
+	}
+
+	appCore, err := core.New(
+		context.Background(),
+		&cfg,
+		core.WithAdminModule("lifecycle-probe", func(
+			context.Context,
+			glog.LoggerProvider,
+			glog.Logger,
+		) (admin.Module, error) {
+			return module, nil
+		}),
+	)
+	if err != nil {
+		t.Fatalf("build starter: %v", err)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err = appCore.Shutdown(shutdownCtx)
+	var incomplete *golifecycle.ShutdownIncompleteError
+	if !errors.As(err, &incomplete) {
+		t.Fatalf("shutdown error = %v, want ShutdownIncompleteError", err)
+	}
+	select {
+	case <-module.shutdownStarted:
+	case <-time.After(time.Second):
+		t.Fatal("module shutdown did not start")
+	}
+
+	retryCtx, retryCancel := context.WithTimeout(context.Background(), time.Second)
+	defer retryCancel()
+	if err := appCore.Shutdown(retryCtx); err != nil {
+		t.Fatalf("retry shutdown: %v", err)
+	}
+	if runs := module.shutdownRuns.Load(); runs != 2 {
+		t.Fatalf("module shutdown runs = %d, want 2", runs)
+	}
+	taskStates := map[string]golifecycle.State{}
+	for _, task := range appCore.AdminLifecycleSnapshot().Tasks {
+		taskStates[task.Name] = task.State
+	}
+	for _, taskName := range []string{
+		"admin.module.lifecycle-probe.start",
+		"admin.module.lifecycle-probe.stop",
+	} {
+		if taskStates[taskName] != golifecycle.StateSucceeded {
+			t.Fatalf("lifecycle task %q state = %q", taskName, taskStates[taskName])
+		}
 	}
 }
 
@@ -308,6 +470,7 @@ func TestRootLoggerProviderPropagatesToFrameworkAndModuleFactory(t *testing.T) {
 		&cfg,
 		core.WithLoggerProvider(provider),
 		core.WithAdminModule("logger-probe", func(
+			_ context.Context,
 			gotProvider glog.LoggerProvider,
 			logger glog.Logger,
 		) (admin.Module, error) {
@@ -343,10 +506,75 @@ func TestRootLoggerProviderPropagatesToFrameworkAndModuleFactory(t *testing.T) {
 		"auth.http",
 		"auth.authorization",
 		"router",
+		"http.access",
 		"modules.logger-probe",
 	} {
 		if !provider.requested(name) {
 			t.Errorf("logger provider did not receive child request %q", name)
+		}
+	}
+}
+
+func TestProductionLoginLoggingRedactsCSRFAndUsesRootAccessLogger(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Env = "production"
+	cfg.Server.PrintRoutes = false
+	cfg.Auth.DemoEnabled = false
+	cfg.Auth.ShowDemoCredentials = false
+	cfg.Auth.SigningKey = strings.Repeat("p", 32)
+	cfg.Logging.Format = "json"
+
+	var output bytes.Buffer
+	root := core.NewRootLogger(&output)
+	root.Configure(&cfg)
+	appCore, err := core.New(
+		context.Background(),
+		&cfg,
+		core.WithLoggerProvider(root),
+		core.WithIdentityProvider(unconfiguredIdentityProvider{}),
+	)
+	if err != nil {
+		t.Fatalf("build production starter: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := appCore.Shutdown(context.Background()); err != nil {
+			t.Errorf("shutdown starter: %v", err)
+		}
+	})
+
+	response, err := appCore.Server.WrappedRouter().Test(
+		httptest.NewRequest(http.MethodGet, "/admin/login", nil),
+		-1,
+	)
+	if err != nil {
+		t.Fatalf("request login: %v", err)
+	}
+	body, err := io.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatalf("read login: %v", err)
+	}
+	match := regexp.MustCompile(`name="_token" value="([^"]+)"`).FindSubmatch(body)
+	if len(match) != 2 {
+		t.Fatalf("login response omitted CSRF token")
+	}
+	logged := output.String()
+	if bytes.Contains([]byte(logged), match[1]) {
+		t.Fatalf("application logs exposed rendered CSRF token")
+	}
+	for _, forbidden := range []string{`"local_value"`, `"view_value"`} {
+		if strings.Contains(logged, forbidden) {
+			t.Fatalf("application logs exposed render values via %s", forbidden)
+		}
+	}
+	for _, expected := range []string{
+		`"logger":"http.access"`,
+		`"msg":"http request"`,
+		`"path":"/admin/login"`,
+		`"values_redacted":true`,
+	} {
+		if !strings.Contains(logged, expected) {
+			t.Fatalf("application log missing %s", expected)
 		}
 	}
 }
