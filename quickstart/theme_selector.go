@@ -178,6 +178,7 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 	variants := options.variants
 	if len(variants) == 0 {
 		variants = map[string]theme.Variant{
+			"light": {},
 			"dark": {
 				Tokens: map[string]string{
 					"primary":                  "#0ea5e9",

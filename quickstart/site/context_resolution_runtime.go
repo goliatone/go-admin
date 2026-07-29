@@ -352,7 +352,9 @@ func resolveSiteThemeProviderSelection(
 	if name := strings.TrimSpace(selection.Name); name != "" {
 		resolved.Name = name
 	}
-	if variant := strings.TrimSpace(selection.Variant); variant != "" {
+	if selection.VariantResolved {
+		resolved.Variant = strings.TrimSpace(selection.Variant)
+	} else if variant := strings.TrimSpace(selection.Variant); variant != "" {
 		resolved.Variant = variant
 	}
 	payload := cloneThemePayload(selection.Payload())
