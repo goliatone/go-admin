@@ -96,6 +96,33 @@ func TestNavigationUsesMenuSpecificFallbacks(t *testing.T) {
 	}
 }
 
+func TestNavigationDoesNotLeakDefaultFallbackIntoOtherMenus(t *testing.T) {
+	nav := NewNavigation(nil, allowAllAuthorizer{})
+	nav.AddFallback(NavigationItem{ID: "primary", Label: "Primary"})
+
+	// A named menu with no registered fallback must resolve to nothing. Serving
+	// the default menu's items here renders the main navigation a second time in
+	// the sidebar utility slot.
+	utility := nav.ResolveMenuWithOptions(context.Background(), "admin.utility", "en", ResolveOptions{})
+	if len(utility) != 0 {
+		t.Fatalf("expected unregistered named menu to resolve empty, got %+v", utility)
+	}
+
+	// The default menu still uses the shared fallback, by code and by default.
+	byCode := nav.ResolveMenuWithOptions(context.Background(), "admin.main", "en", ResolveOptions{})
+	if len(byCode) != 1 || byCode[0].ID != "primary" {
+		t.Fatalf("expected default menu to keep the shared fallback, got %+v", byCode)
+	}
+	byDefault := nav.Resolve(context.Background(), "en")
+	if len(byDefault) != 1 || byDefault[0].ID != "primary" {
+		t.Fatalf("expected Resolve to keep the shared fallback, got %+v", byDefault)
+	}
+	byEmptyCode := nav.ResolveMenuWithOptions(context.Background(), "", "en", ResolveOptions{})
+	if len(byEmptyCode) != 1 || byEmptyCode[0].ID != "primary" {
+		t.Fatalf("expected empty menu code to use the shared fallback, got %+v", byEmptyCode)
+	}
+}
+
 func TestNavigationUsesMenuFallbackOnlyWhenCMSMenuIsUnavailable(t *testing.T) {
 	fallback := NavigationItem{ID: "settings", Label: "Settings"}
 

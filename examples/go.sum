@@ -234,8 +234,8 @@ github.com/goliatone/go-slug v0.1.0 h1:0APBcu2X9MWF2t6X3LN55XfQ47zf4FUzDmXYJ1Yra
 github.com/goliatone/go-slug v0.1.0/go.mod h1:8lXx322OHfQQzdrwikY2uqhQVmH3IVNGiVxn9kPmX1w=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=
 github.com/goliatone/go-template v0.3.1/go.mod h1:2mFRGMnfvAn3r4ClMmlu4wBVkSKXgtXhVdmmmhhgSr4=
-github.com/goliatone/go-theme v0.5.1 h1:yMn87H4pIVewYsXCNTaQMBbzXOKMoRPEpRMSfKcn5cE=
-github.com/goliatone/go-theme v0.5.1/go.mod h1:ZmjyB8jDSzO1ABpVfw/UrnO4wgYllpdogvo7al4csOQ=
+github.com/goliatone/go-theme v0.5.2 h1:FNDFAVaDbcDGpEPlJ7NSn7nSv0KZVcnzyCdJ+rKbpqM=
+github.com/goliatone/go-theme v0.5.2/go.mod h1:ZmjyB8jDSzO1ABpVfw/UrnO4wgYllpdogvo7al4csOQ=
 github.com/goliatone/go-uploader v0.4.0 h1:fo4K1J8juZ2LoG31hlwS3OjmFYqt2I+qUhiOZvzbE3s=
 github.com/goliatone/go-uploader v0.4.0/go.mod h1:D4PFxAypbnZ3EAuRbk0sjPAwEmMxf+7b1eZ4U6TAync=
 github.com/goliatone/go-urlkit v0.7.0 h1:wc2JR4xLnft7Vne4LbNw/oLQdFHQkuIgoEU0Hi7NczI=
