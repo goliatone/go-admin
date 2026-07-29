@@ -13,10 +13,14 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-function assertSidebarRuntimeCollapsesOnNarrow(relativePath) {
+function assertSidebarRuntimeUsesDrawerOnNarrow(relativePath) {
   const dom = new JSDOM(`
     <!doctype html>
-    <aside id="sidebar" data-collapsed="false"></aside>
+    <button id="sidebar-mobile-toggle" aria-expanded="false"></button>
+    <div id="sidebar-backdrop" hidden></div>
+    <aside id="sidebar" data-collapsed="false" data-mobile-open="false">
+      <a href="/admin">Dashboard</a>
+    </aside>
     <button id="sidebar-toggle"></button>
   `, {
     runScripts: 'outside-only',
@@ -34,9 +38,22 @@ function assertSidebarRuntimeCollapsesOnNarrow(relativePath) {
 
   assert.equal(
     window.document.getElementById('sidebar').getAttribute('data-collapsed'),
-    'true',
-    `${relativePath} collapses the sidebar on narrow viewports`,
+    'false',
+    `${relativePath} keeps the drawer content expanded on narrow viewports`,
   );
+  assert.equal(window.document.getElementById('sidebar').getAttribute('data-mobile-open'), 'false');
+  assert.equal(window.document.getElementById('sidebar').getAttribute('aria-hidden'), 'true');
+  assert.equal(window.document.getElementById('sidebar-mobile-toggle').getAttribute('aria-expanded'), 'false');
+
+  window.document.getElementById('sidebar-mobile-toggle').click();
+  assert.equal(window.document.getElementById('sidebar').getAttribute('data-mobile-open'), 'true');
+  assert.equal(window.document.getElementById('sidebar').getAttribute('aria-hidden'), 'false');
+  assert.equal(window.document.getElementById('sidebar-backdrop').hidden, false);
+  assert.equal(window.document.documentElement.classList.contains('sidebar-mobile-open'), true);
+
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(window.document.getElementById('sidebar').getAttribute('data-mobile-open'), 'false');
+  assert.equal(window.document.activeElement, window.document.getElementById('sidebar-mobile-toggle'));
 }
 
 function assertBuiltShellResponsiveCss(relativePath) {
@@ -54,7 +71,7 @@ function assertBuiltShellResponsiveCss(relativePath) {
   );
 }
 
-test('admin layout reserves only the compact sidebar rail on narrow viewports', () => {
+test('admin layout uses an off-canvas sidebar drawer on narrow viewports', () => {
   const layout = read('pkg/client/templates/layout.html');
   const css = read('pkg/client/assets/input.css');
   const sidebarRuntime = read('pkg/client/assets/sidebar.js');
@@ -62,17 +79,19 @@ test('admin layout reserves only the compact sidebar rail on narrow viewports', 
   assert.match(layout, /class="admin-layout\b[^"]*"/, 'layout wrapper exposes admin-layout hook');
   assert.match(layout, /class="admin-main\b[^"]*min-w-0[^"]*"/, 'main content can shrink without overflow');
 
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.admin-layout[\s\S]*padding-left:\s*64px/);
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.admin-main[\s\S]*width:\s*calc\(100vw - 64px\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.admin-layout[\s\S]*padding-left:\s*0/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.admin-main[\s\S]*width:\s*100vw/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar[\s\S]*position:\s*fixed/);
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar\[data-collapsed="true"\][\s\S]*width:\s*64px !important/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar[\s\S]*transform:\s*translateX\(-100%\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar\[data-mobile-open="true"\][\s\S]*transform:\s*translateX\(0\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar-mobile-toggle[\s\S]*display:\s*inline-flex/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\[data-dashboard-shell\][\s\S]*flex-direction:\s*column !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__region:not\(\[data-collapsed="true"\]\)[\s\S]*width:\s*100% !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__region\[data-collapsed="true"\][\s\S]*width:\s*var\(--dashboard-shell-rail-collapsed, 0px\) !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__splitter[\s\S]*display:\s*none !important/);
 
   assert.match(sidebarRuntime, /matchMedia\('\(max-width: 1023px\)'\)/);
-  assert.match(sidebarRuntime, /narrowSidebarQuery\.matches[\s\S]*data-collapsed', 'true'/);
+  assert.match(sidebarRuntime, /narrowSidebarQuery\.matches[\s\S]*setMobileOpen\(false\)/);
 });
 
 test('built app CSS preserves collapsed mobile shell regions', () => {
@@ -80,9 +99,9 @@ test('built app CSS preserves collapsed mobile shell regions', () => {
   assertBuiltShellResponsiveCss('pkg/client/assets/dist/output.css');
 });
 
-test('sidebar runtimes collapse to the rail on narrow viewports', () => {
-  assertSidebarRuntimeCollapsesOnNarrow('pkg/client/assets/sidebar.js');
-  assertSidebarRuntimeCollapsesOnNarrow('quickstart/assets/sidebar.js');
+test('sidebar runtimes use an accessible drawer on narrow viewports', () => {
+  assertSidebarRuntimeUsesDrawerOnNarrow('pkg/client/assets/sidebar.js');
+  assertSidebarRuntimeUsesDrawerOnNarrow('quickstart/assets/sidebar.js');
 });
 
 test('quickstart fallback sidebar assets mirror narrow layout behavior', () => {
@@ -91,12 +110,14 @@ test('quickstart fallback sidebar assets mirror narrow layout behavior', () => {
 
   assert.match(css, /#sidebar\[data-collapsed="true"\]\s*\{[\s\S]*width:\s*64px !important/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar[\s\S]*position:\s*fixed/);
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar\[data-collapsed="true"\][\s\S]*max-width:\s*64px/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar[\s\S]*transform:\s*translateX\(-100%\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar\[data-mobile-open="true"\][\s\S]*transform:\s*translateX\(0\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar-mobile-toggle[\s\S]*display:\s*inline-flex/);
   assert.match(css, /#sidebar\[data-collapsed="true"\]\s+\.nav-text,[\s\S]*display:\s*none !important/);
   assert.match(css, /#sidebar\[data-collapsed="true"\]\s+\.sidebar-search-container\s*\{[\s\S]*display:\s*none !important/);
   assert.match(css, /\.menu-group-ellipsis\s*\{[\s\S]*display:\s*none/);
   assert.match(css, /#sidebar\[data-collapsed="true"\]\s+\.menu-group-ellipsis\s*\{[\s\S]*display:\s*block !important/);
   assert.match(css, /#sidebar\[data-collapsed="true"\]\s+nav\s*\{[\s\S]*padding-left:\s*0 !important/);
   assert.match(sidebarRuntime, /matchMedia\('\(max-width: 1023px\)'\)/);
-  assert.match(sidebarRuntime, /narrowSidebarQuery\.matches[\s\S]*data-collapsed', 'true'/);
+  assert.match(sidebarRuntime, /narrowSidebarQuery\.matches[\s\S]*setMobileOpen\(false\)/);
 });

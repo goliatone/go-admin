@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
@@ -223,4 +225,53 @@ func (c ExternalAssetConfig) Resolve() ExternalAssetConfig {
 		DataTablesCSS: strings.TrimSpace(c.DataTablesCSS),
 		EChartsJS:     strings.TrimSpace(c.EChartsJS),
 	}
+}
+
+// Validate rejects asset overrides that browsers could interpret as executable
+// or scheme-relative URLs. Deployments may use an http(s) URL or a path
+// relative to the current origin.
+func (c ExternalAssetConfig) Validate() error {
+	resolved := c.Resolve()
+	for field, value := range map[string]string{
+		"iconoir_css":    resolved.IconoirCSS,
+		"datatables_css": resolved.DataTablesCSS,
+		"echarts_js":     resolved.EChartsJS,
+	} {
+		if value == "" {
+			continue
+		}
+		if err := validateExternalAssetURL(value); err != nil {
+			return fmt.Errorf("%s: %w", field, err)
+		}
+	}
+	return nil
+}
+
+func validateExternalAssetURL(value string) error {
+	if strings.ContainsAny(value, "\\\r\n\t") {
+		return fmt.Errorf("asset URL contains disallowed characters")
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return fmt.Errorf("invalid asset URL: %w", err)
+	}
+	if parsed.Scheme == "" {
+		if parsed.Host != "" || strings.HasPrefix(value, "//") {
+			return fmt.Errorf("scheme-relative asset URLs are not allowed")
+		}
+		if parsed.Path == "" {
+			return fmt.Errorf("relative asset URL must include a path")
+		}
+		return nil
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("asset URL scheme %q is not allowed", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("absolute asset URL must include a host")
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("asset URL credentials are not allowed")
+	}
+	return nil
 }
