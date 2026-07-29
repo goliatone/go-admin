@@ -141,13 +141,14 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	scopeData := featureScopeFromSession(rawSession)
 	session := FilterSessionUser(rawSession, adm.FeatureGate())
 	sessionView := session.ToViewContext()
-	if sessionView["avatar_url"] == "" {
+	if sessionView["avatar_url"] == "" && !cfg.SidebarUseInitialsAvatar {
 		sessionView["avatar_url"] = path.Join(basePath, "assets", "avatar-default.svg")
 	}
 	ctx["session_user"] = sessionView
 	if _, exists := ctx["sidebar_hide_search"]; !exists {
 		ctx["sidebar_hide_search"] = cfg.SidebarHideSearch
 	}
+	applySidebarCompositionViewContext(ctx, cfg)
 	ctx = withExternalAssetViewContext(ctx, cfg)
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
 	navItems := BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
@@ -168,6 +169,24 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 		}
 	}
 	return ctx
+}
+
+func applySidebarCompositionViewContext(ctx router.ViewContext, cfg admin.Config) {
+	if ctx == nil {
+		return
+	}
+	if _, exists := ctx["sidebar_collapse_placement"]; !exists {
+		ctx["sidebar_collapse_placement"] = string(admin.NormalizeSidebarCollapsePlacement(cfg.SidebarCollapsePlacement))
+	}
+	if _, exists := ctx["sidebar_compact_footer"]; !exists {
+		ctx["sidebar_compact_footer"] = cfg.SidebarCompactFooter
+	}
+	if _, exists := ctx["sidebar_hide_presence"]; !exists {
+		ctx["sidebar_hide_presence"] = cfg.SidebarHidePresence
+	}
+	if _, exists := ctx["sidebar_hide_user_menu_indicator"]; !exists {
+		ctx["sidebar_hide_user_menu_indicator"] = cfg.SidebarHideUserMenuIndicator
+	}
 }
 
 // BuildNavItems builds navigation menu items from the admin menu service.

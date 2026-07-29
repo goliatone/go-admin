@@ -235,11 +235,11 @@
 .nav-item {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sidebar-item-content-gap, 10px);
   padding: 0 12px;
   height: var(--sidebar-item-height);
   width: 100%;
-  border-radius: 10px;
+  border-radius: var(--sidebar-item-radius, 10px);
   color: var(--sidebar-text);
   text-decoration: none;
   transition: background 0.15s ease, color 0.15s ease;
@@ -253,6 +253,90 @@
 .submenu {
   overflow: hidden;
   transition: height 0.2s ease;
+}
+
+.sidebar-navigation,
+.sidebar-submenu,
+.sidebar-utility {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-navigation {
+  gap: var(--sidebar-item-stack-gap, 0);
+}
+
+#sidebar .sidebar-submenu {
+  gap: var(--sidebar-item-stack-gap, 2px);
+  padding-left: var(--sidebar-nested-indent, 32px);
+}
+
+#sidebar .sidebar-submenu > :not([hidden]) ~ :not([hidden]) {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+.sidebar-nested-item {
+  position: relative;
+}
+
+.sidebar-nested-item.nav-item {
+  height: calc(var(--sidebar-item-height, 36px) - (2 * var(--admin-sidebar-nested-item-block-inset, 0px)));
+  margin-block: var(--admin-sidebar-nested-item-block-inset, 0);
+  margin-inline: var(--admin-sidebar-nested-item-inset, 0);
+  padding-inline-start: var(--admin-sidebar-nested-item-padding-inline-start, var(--sidebar-padding-x, 12px));
+  width: calc(100% - (2 * var(--admin-sidebar-nested-item-inset, 0px)));
+}
+
+.sidebar-nested-item::before {
+  background: var(--sidebar-border);
+  content: "";
+  height: 100%;
+  left: calc(0px - var(--admin-sidebar-nested-branch-offset, calc(var(--sidebar-nested-indent, 32px) / 2)));
+  position: absolute;
+  top: 0;
+  width: 1px;
+}
+
+.sidebar-bottom {
+  padding: var(--sidebar-padding-x, 12px);
+}
+
+#sidebar .sidebar-user-avatar {
+  height: var(--sidebar-user-avatar-size, 36px);
+  width: var(--sidebar-user-avatar-size, 36px);
+}
+
+#sidebar[data-compact-footer="true"] .sidebar-utility {
+  gap: var(--sidebar-item-stack-gap, 4px);
+  margin-inline: var(--sidebar-padding-x, 12px);
+  padding: var(--admin-sidebar-utility-padding-block-start, var(--sidebar-padding-x, 12px)) 0 var(--admin-sidebar-utility-padding-block-end, 0);
+}
+
+#sidebar[data-compact-footer="true"] .sidebar-utility > :not([hidden]) ~ :not([hidden]) {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+#sidebar[data-compact-footer="true"] .sidebar-user-footer {
+  margin-inline: var(--sidebar-padding-x, 12px);
+  padding: var(--admin-sidebar-user-footer-padding-block-start, var(--sidebar-padding-y, 12px)) 0 var(--admin-sidebar-user-footer-padding-block-end, var(--sidebar-padding-y, 12px));
+}
+
+#sidebar[data-compact-footer="true"] .sidebar-user-footer-inner {
+  padding: 0;
+}
+
+#sidebar[data-compact-footer="true"] .sidebar-user-toggle {
+  border-radius: var(--sidebar-item-radius, 6px);
+  gap: var(--admin-sidebar-user-content-gap, var(--sidebar-item-content-gap, 8px));
+  padding: 4px 8px;
+}
+
+#sidebar[data-compact-footer="true"] .sidebar-user-name {
+  color: var(--color-text-primary, var(--sidebar-text));
+  font-size: var(--admin-sidebar-user-name-font-size, 12px);
+  line-height: var(--admin-sidebar-user-name-line-height, 16px);
 }
 
 .submenu.collapsed {

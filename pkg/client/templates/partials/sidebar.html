@@ -11,9 +11,11 @@
        class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden"
        data-collapsed="false"
        data-mobile-open="false"
+       data-collapse-placement="{{ sidebar_collapse_placement|default:'header' }}"
+       data-compact-footer="{% if sidebar_compact_footer %}true{% else %}false{% endif %}"
        aria-label="Admin navigation"
        style="width: var(--admin-sidebar-width, var(--sidebar-width, 260px));">
-  <div class="sidebar-header flex items-center gap-2" style="padding: var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))) var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
+  <div class="sidebar-header flex items-center gap-2" style="padding: var(--admin-sidebar-header-padding-block-start, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px)))) var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px))) var(--admin-sidebar-header-padding-block-end, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))));">
     <a href="{{ adminURL("") }}" class="sidebar-brand-link flex items-center no-underline flex-1 min-w-0 overflow-hidden">
       <span class="sidebar-brand sidebar-brand-expanded">
         {% if theme and theme.assets and theme.assets.logo %}
@@ -34,6 +36,7 @@
         {% endif %}
       </span>
     </a>
+    {% if sidebar_collapse_placement != "footer" %}
     <button id="sidebar-toggle"
             type="button"
             class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0"
@@ -42,6 +45,7 @@
             aria-expanded="true">
       {{ renderThemeMenuIcon("collapse", theme.assets)|safe }}
     </button>
+    {% endif %}
   </div>
 
   {# Opt-out so existing consumers keep search; themes without a search slot set sidebar_hide_search. #}
@@ -57,7 +61,7 @@
   </div>
   {% endif %}
 
-  <nav id="sidebar-navigation" class="flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
+  <nav id="sidebar-navigation" class="sidebar-navigation flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
     {% for item in nav_items %}
       {% if item.type == "separator" %}
         <div style="height: var(--admin-sidebar-section-gap, var(--sidebar-gap-sections, var(--space-stack, 24px)));"></div>
@@ -72,19 +76,19 @@
             {% for child in item.children %}
               {% if child.has_children and child.collapsible %}
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
-                  <button class="nav-item w-full text-left" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
+                  <button class="nav-item w-full text-left{% if child.active or child.child_active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
                     {% if child.icon %}
                       {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                     {% endif %}
                     <span class="nav-text flex-1 text-left">{{ child.label }}</span>
                     <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not child.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
                   </button>
-                  <div class="submenu space-y-0.5 mt-1 pl-8 {% if child.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ child.id }}">
+                  <div class="sidebar-submenu submenu space-y-0.5 mt-1 pl-8 {% if child.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ child.id }}">
                     {% for grandchild in child.children %}
                       {% if navItemDisabled(grandchild) %}
                         <button type="button"
-                                class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                                style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
+                                class="sidebar-nested-item nav-item w-full text-left opacity-70 cursor-not-allowed"
+                                style="height: calc(var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px))) - (2 * var(--admin-sidebar-nested-item-block-inset, 0px))); margin-block: var(--admin-sidebar-nested-item-block-inset, 0);"
                                 aria-disabled="true"
                                 title="{{ grandchild.disabled_reason|default:'Unavailable' }}">
                           {% if grandchild.icon %}
@@ -96,7 +100,7 @@
                           {% endif %}
                         </button>
                       {% else %}
-                        <a href="{{ grandchild.href|default:'#' }}" class="nav-item{% if grandchild.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
+                        <a href="{{ grandchild.href|default:'#' }}" class="sidebar-nested-item nav-item{% if grandchild.active %} active{% endif %}" style="height: calc(var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px))) - (2 * var(--admin-sidebar-nested-item-block-inset, 0px))); margin-block: var(--admin-sidebar-nested-item-block-inset, 0);">
                           {% if grandchild.icon %}
                             {{ renderThemeMenuIcon(grandchild.icon, theme.assets)|safe }}
                           {% endif %}
@@ -135,19 +139,19 @@
         </div>
       {% elif item.children and item.collapsible %}
         <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
-          <button class="nav-item w-full text-left" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
+          <button class="nav-item w-full text-left{% if item.active or item.child_active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
             {% if item.icon %}
               {{ renderThemeMenuIcon(item.icon, theme.assets)|safe }}
             {% endif %}
             <span class="nav-text flex-1 text-left">{{ item.label }}</span>
             <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not item.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
           </button>
-          <div class="submenu space-y-0.5 mt-1 pl-8 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ item.id }}">
+          <div class="sidebar-submenu submenu space-y-0.5 mt-1 pl-8 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ item.id }}">
             {% for child in item.children %}
               {% if navItemDisabled(child) %}
                 <button type="button"
-                        class="nav-item w-full text-left opacity-70 cursor-not-allowed"
-                        style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));"
+                        class="sidebar-nested-item nav-item w-full text-left opacity-70 cursor-not-allowed"
+                        style="height: calc(var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px))) - (2 * var(--admin-sidebar-nested-item-block-inset, 0px))); margin-block: var(--admin-sidebar-nested-item-block-inset, 0);"
                         aria-disabled="true"
                         title="{{ child.disabled_reason|default:'Unavailable' }}">
                   {% if child.icon %}
@@ -159,7 +163,7 @@
                   {% endif %}
                 </button>
               {% else %}
-                <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px)));">
+                <a href="{{ child.href|default:'#' }}" class="sidebar-nested-item nav-item{% if child.active %} active{% endif %}" style="height: calc(var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px))) - (2 * var(--admin-sidebar-nested-item-block-inset, 0px))); margin-block: var(--admin-sidebar-nested-item-block-inset, 0);">
                   {% if child.icon %}
                     {{ renderThemeMenuIcon(child.icon, theme.assets)|safe }}
                   {% endif %}
@@ -199,8 +203,19 @@
     {% endif %}
   </nav>
 
-  {% if nav_utility_items and nav_utility_items|length > 0 %}
+  {% if sidebar_collapse_placement == "footer" or nav_utility_items and nav_utility_items|length > 0 %}
     <nav class="sidebar-utility border-t border-sidebar-border px-3 py-3 space-y-0.5">
+      {% if sidebar_collapse_placement == "footer" %}
+        <button id="sidebar-toggle"
+                type="button"
+                class="sidebar-toggle-btn sidebar-collapse-action nav-item w-full text-left"
+                aria-label="Collapse sidebar"
+                aria-controls="sidebar-navigation"
+                aria-expanded="true">
+          {{ renderThemeMenuIcon("collapse", theme.assets)|safe }}
+          <span class="nav-text flex-1" aria-hidden="true">&#8203;</span>
+        </button>
+      {% endif %}
       {% for item in nav_utility_items %}
         {% if item.type == "group" %}
           {% if item.group_title %}
@@ -258,28 +273,32 @@
     </nav>
   {% endif %}
 
-  <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
-    <div class="pt-3 pb-3 relative">
-      <button id="user-menu-toggle" class="flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
+  <div class="sidebar-bottom sidebar-user-footer border-t border-sidebar-border">
+    <div class="sidebar-user-footer-inner pt-3 pb-3 relative">
+      <button id="user-menu-toggle" class="sidebar-user-toggle flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
         <div class="relative flex-shrink-0">
           {% if session_user.avatar_url %}
-            <img src="{{ session_user.avatar_url }}" alt="{{ session_user.display_name|default:"User" }}" class="w-9 h-9 rounded-full object-cover" loading="lazy">
+            <img src="{{ session_user.avatar_url }}" alt="{{ session_user.display_name|default:"User" }}" class="sidebar-user-avatar w-9 h-9 rounded-full object-cover" loading="lazy">
           {% else %}
-            <div class="w-9 h-9 sidebar-avatar rounded-full flex items-center justify-center font-semibold text-sm">
+            <div class="sidebar-user-avatar w-9 h-9 sidebar-avatar rounded-full flex items-center justify-center font-semibold text-sm">
               {{ session_user.initial|default:"?" }}
             </div>
           {% endif %}
+          {% if not sidebar_hide_presence %}
           <span class="absolute bottom-0 right-0 w-2.5 h-2.5 sidebar-presence-dot border-2 rounded-full"></span>
+          {% endif %}
         </div>
         <div class="flex-1 min-w-0 sidebar-user-info">
-          <div class="text-sm font-medium text-sidebar-text truncate">
+          <div class="sidebar-user-name text-sm font-medium text-sidebar-text truncate">
             {{ session_user.display_name|default:"Guest" }}
           </div>
           <div class="sidebar-user-detail text-xs text-sidebar-text-muted truncate">
             {% if session_user.email %}{{ session_user.email }}{% else %}Online{% endif %}
           </div>
         </div>
-        <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
+        {% if not sidebar_hide_user_menu_indicator %}
+          <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
+        {% endif %}
       </button>
 
       <div id="user-menu" class="hidden absolute bottom-full left-0 right-0 mb-2 bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl overflow-hidden" style="margin-left: 12px; margin-right: 12px;">
@@ -292,7 +311,9 @@
                 {{ session_user.initial|default:"?" }}
               </div>
             {% endif %}
-            <span class="absolute bottom-0 right-0 w-3 h-3 sidebar-presence-dot border-2 rounded-full"></span>
+            {% if not sidebar_hide_presence %}
+              <span class="absolute bottom-0 right-0 w-3 h-3 sidebar-presence-dot border-2 rounded-full"></span>
+            {% endif %}
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-base font-semibold text-sidebar-text truncate">

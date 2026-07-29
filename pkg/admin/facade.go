@@ -280,6 +280,16 @@ const (
 	NavigationOwnerUser                            = core.NavigationOwnerUser
 	NavigationPermissionDeniedModeDisable          = core.NavigationPermissionDeniedModeDisable
 	NavigationPermissionDeniedModeHide             = core.NavigationPermissionDeniedModeHide
+	SidebarCollapsePlacementFooter                 = core.SidebarCollapsePlacementFooter
+	SidebarCollapsePlacementHeader                 = core.SidebarCollapsePlacementHeader
+	DefaultModuleActivity                          = core.DefaultModuleActivity
+	DefaultModuleFeatureFlags                      = core.DefaultModuleFeatureFlags
+	DefaultModuleMedia                             = core.DefaultModuleMedia
+	DefaultModuleOrganizations                     = core.DefaultModuleOrganizations
+	DefaultModulePreferences                       = core.DefaultModulePreferences
+	DefaultModuleProfile                           = core.DefaultModuleProfile
+	DefaultModuleTenants                           = core.DefaultModuleTenants
+	DefaultModuleUsers                             = core.DefaultModuleUsers
 	NavigationRouteMissingPolicyAuto               = core.NavigationRouteMissingPolicyAuto
 	NavigationRouteMissingPolicyReport             = core.NavigationRouteMissingPolicyReport
 	NavigationRouteMissingPolicyStrict             = core.NavigationRouteMissingPolicyStrict
@@ -1085,6 +1095,8 @@ type (
 	NavigationOwner                                   = core.NavigationOwner
 	NavigationPermissionDeclaration                   = core.NavigationPermissionDeclaration
 	NavigationPermissionDeniedMode                    = core.NavigationPermissionDeniedMode
+	SidebarCollapsePlacement                          = core.SidebarCollapsePlacement
+	DefaultModuleID                                   = core.DefaultModuleID
 	NavigationPermissionRegistry                      = core.NavigationPermissionRegistry
 	NavigationPersistenceReport                       = core.NavigationPersistenceReport
 	NavigationRawInventoryOptions                     = core.NavigationRawInventoryOptions
@@ -2617,6 +2629,10 @@ func NormalizeNavigationOverrideMode(raw string) string {
 
 func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode) NavigationPermissionDeniedMode {
 	return core.NormalizeNavigationPermissionDeniedMode(mode)
+}
+
+func NormalizeSidebarCollapsePlacement(placement SidebarCollapsePlacement) SidebarCollapsePlacement {
+	return core.NormalizeSidebarCollapsePlacement(placement)
 }
 
 func ParseContentTypeCapabilityContracts(capabilities map[string]any) ContentTypeCapabilityContracts {

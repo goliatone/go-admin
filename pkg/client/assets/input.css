@@ -347,6 +347,8 @@
 
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2 text-sidebar-text-muted no-underline rounded-lg text-sm transition-all duration-150;
+    gap: var(--admin-sidebar-item-content-gap, var(--sidebar-item-content-gap, 0.75rem));
+    border-radius: var(--admin-sidebar-item-radius, var(--sidebar-item-radius, 0.5rem));
   }
 
   .nav-item:hover {
@@ -500,6 +502,87 @@
 
   .sidebar-bottom {
     min-height: var(--admin-sidebar-footer-height, var(--sidebar-footer-height, auto));
+    padding: var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));
+  }
+
+  .sidebar-navigation,
+  .sidebar-submenu,
+  .sidebar-utility {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-navigation {
+    gap: var(--admin-sidebar-item-stack-gap, var(--sidebar-item-stack-gap, 0));
+  }
+
+  .sidebar .sidebar-submenu {
+    gap: var(--admin-sidebar-item-stack-gap, var(--sidebar-item-stack-gap, 0.125rem));
+    padding-left: var(--admin-sidebar-nested-indent, var(--sidebar-nested-indent, 2rem));
+  }
+
+  .sidebar .sidebar-submenu > :not([hidden]) ~ :not([hidden]) {
+    margin-bottom: 0;
+    margin-top: 0;
+  }
+
+  .sidebar-nested-item {
+    position: relative;
+  }
+
+  .sidebar-nested-item.nav-item {
+    height: calc(var(--admin-sidebar-item-height, var(--sidebar-item-height, var(--size-control-height, 36px))) - (2 * var(--admin-sidebar-nested-item-block-inset, 0px)));
+    margin-block: var(--admin-sidebar-nested-item-block-inset, 0);
+    margin-inline: var(--admin-sidebar-nested-item-inset, 0);
+    padding-inline-start: var(--admin-sidebar-nested-item-padding-inline-start, var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px))));
+    width: calc(100% - (2 * var(--admin-sidebar-nested-item-inset, 0px)));
+  }
+
+  .sidebar-nested-item::before {
+    background: var(--admin-sidebar-border, var(--color-border-default, #38383a));
+    content: "";
+    height: 100%;
+    left: calc(0px - var(--admin-sidebar-nested-branch-offset, calc(var(--admin-sidebar-nested-indent, var(--sidebar-nested-indent, 2rem)) / 2)));
+    position: absolute;
+    top: 0;
+    width: 1px;
+  }
+
+  .sidebar .sidebar-user-avatar {
+    height: var(--admin-sidebar-user-avatar-size, var(--sidebar-user-avatar-size, 36px));
+    width: var(--admin-sidebar-user-avatar-size, var(--sidebar-user-avatar-size, 36px));
+  }
+
+  .sidebar[data-compact-footer="true"] .sidebar-utility {
+    gap: var(--admin-sidebar-item-stack-gap, var(--sidebar-item-stack-gap, 0.25rem));
+    margin-inline: var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));
+    padding: var(--admin-sidebar-utility-padding-block-start, var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)))) 0 var(--admin-sidebar-utility-padding-block-end, 0);
+  }
+
+  .sidebar[data-compact-footer="true"] .sidebar-utility > :not([hidden]) ~ :not([hidden]) {
+    margin-bottom: 0;
+    margin-top: 0;
+  }
+
+  .sidebar[data-compact-footer="true"] .sidebar-user-footer {
+    margin-inline: var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));
+    padding: var(--admin-sidebar-user-footer-padding-block-start, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px)))) 0 var(--admin-sidebar-user-footer-padding-block-end, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))));
+  }
+
+  .sidebar[data-compact-footer="true"] .sidebar-user-footer-inner {
+    padding: 0;
+  }
+
+  .sidebar[data-compact-footer="true"] .sidebar-user-toggle {
+    border-radius: var(--admin-sidebar-item-radius, var(--sidebar-item-radius, 0.375rem));
+    gap: var(--admin-sidebar-user-content-gap, var(--admin-sidebar-item-content-gap, var(--sidebar-item-content-gap, 0.5rem)));
+    padding: 4px 8px;
+  }
+
+  .sidebar[data-compact-footer="true"] .sidebar-user-name {
+    color: var(--color-text-primary, var(--admin-sidebar-text, #f4f4f5));
+    font-size: var(--admin-sidebar-user-name-font-size, 0.75rem);
+    line-height: var(--admin-sidebar-user-name-line-height, 1rem);
   }
 
   .sidebar[data-collapsed="true"] {
