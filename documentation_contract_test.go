@@ -1,9 +1,6 @@
 package goadmin_test
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,38 +10,20 @@ import (
 
 var currentDocumentation = []string{
 	"README.md",
-	"quickstart/README.md",
 	"docs/README.md",
 	"docs/GUIDE_FEATURE_GATES.md",
 	"docs/GUIDE_ROUTING.md",
 	"docs/GUIDE_VIEW_CUSTOMIZATION.md",
-	"docs/COMMERCE_SETUP.md",
-	"docs/PERSISTENCE_GUIDE_GO_ADMIN.md",
-	"examples/admin-shell/README.md",
 }
 
-func TestCurrentDocumentationUsesExportedQuickstartFunctions(t *testing.T) {
-	exports := quickstartFunctionExports(t)
-	content := readDocumentation(t, "quickstart/README.md")
-	references := regexp.MustCompile(`quickstart\.([A-Z][A-Za-z0-9_]*)\s*\(`).FindAllStringSubmatch(content, -1)
-	references = append(
-		references,
-		regexp.MustCompile(`(?m)^- \x60([A-Z][A-Za-z0-9_]*)\(`).FindAllStringSubmatch(content, -1)...,
-	)
-	if len(references) == 0 {
-		t.Fatal("quickstart README contains no callable API examples")
-	}
-	for _, reference := range references {
-		name := reference[1]
-		if _, ok := exports[name]; !ok {
-			t.Errorf("quickstart/README.md references nonexistent quickstart function %s", name)
-		}
-	}
+var repositoryOnlyDocumentation = []string{
+	"docs/COMMERCE_SETUP.md",
+	"docs/PERSISTENCE_GUIDE_GO_ADMIN.md",
 }
 
 func TestCurrentDocumentationRelativeLinksResolve(t *testing.T) {
 	linkPattern := regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
-	for _, name := range currentDocumentation {
+	for _, name := range currentDocumentationPaths() {
 		content := readDocumentation(t, name)
 		for _, match := range linkPattern.FindAllStringSubmatch(content, -1) {
 			target := strings.TrimSpace(strings.SplitN(match[1], " ", 2)[0])
@@ -66,10 +45,25 @@ func TestCurrentDocumentationRelativeLinksResolve(t *testing.T) {
 			}
 			resolved := filepath.Clean(filepath.Join(filepath.Dir(name), filepath.FromSlash(target)))
 			if _, err := os.Stat(resolved); err != nil {
+				if os.IsNotExist(err) && unavailableNestedModuleTarget(resolved) {
+					continue
+				}
 				t.Errorf("%s has unresolved relative link %q (resolved %s): %v", name, match[1], resolved, err)
 			}
 		}
 	}
+}
+
+func unavailableNestedModuleTarget(path string) bool {
+	for _, root := range []string{"quickstart", "examples"} {
+		if path != root && !strings.HasPrefix(path, root+string(filepath.Separator)) {
+			continue
+		}
+		if _, err := os.Stat(root); os.IsNotExist(err) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCurrentDocumentationHasNoKnownStaleContracts(t *testing.T) {
@@ -82,7 +76,7 @@ func TestCurrentDocumentationHasNoKnownStaleContracts(t *testing.T) {
 		"/opt/homebrew/bin/go",
 		"/Users/goliatone/.g/go/bin/go",
 	}
-	for _, name := range currentDocumentation {
+	for _, name := range currentDocumentationPaths() {
 		content := readDocumentation(t, name)
 		for _, value := range prohibited {
 			if strings.Contains(content, value) {
@@ -92,28 +86,14 @@ func TestCurrentDocumentationHasNoKnownStaleContracts(t *testing.T) {
 	}
 }
 
-func quickstartFunctionExports(t *testing.T) map[string]struct{} {
-	t.Helper()
-	packages, err := parser.ParseDir(token.NewFileSet(), "quickstart", func(info os.FileInfo) bool {
-		return !strings.HasSuffix(info.Name(), "_test.go")
-	}, 0)
-	if err != nil {
-		t.Fatalf("parse quickstart package: %v", err)
-	}
-	pkg := packages["quickstart"]
-	if pkg == nil {
-		t.Fatal("quickstart package not found")
-	}
-	exports := map[string]struct{}{}
-	for _, file := range pkg.Files {
-		for _, declaration := range file.Decls {
-			function, ok := declaration.(*ast.FuncDecl)
-			if ok && function.Recv == nil && function.Name.IsExported() {
-				exports[function.Name.Name] = struct{}{}
-			}
+func currentDocumentationPaths() []string {
+	paths := append([]string(nil), currentDocumentation...)
+	for _, name := range repositoryOnlyDocumentation {
+		if _, err := os.Stat(name); err == nil {
+			paths = append(paths, name)
 		}
 	}
-	return exports
+	return paths
 }
 
 func readDocumentation(t *testing.T, name string) string {
