@@ -232,6 +232,13 @@ func (a *Admin) initializeCommandRegistry(ctx context.Context) error {
 }
 
 func (a *Admin) validateConfig() error {
+	if err := a.config.ExternalAssets.Validate(); err != nil {
+		return validationDomainError("external asset configuration is invalid", map[string]any{
+			"component": "external_assets",
+			"reason":    err.Error(),
+		})
+	}
+
 	issues := []FeatureDependencyError{}
 	require := func(feature FeatureKey, deps ...FeatureKey) {
 		if !featureEnabled(a.featureGate, feature) {
