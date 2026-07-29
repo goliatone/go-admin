@@ -23,6 +23,26 @@ func (a *Admin) ActivityFeatureEnabled() bool {
 	return featureEnabled(a.featureGate, FeatureActivity)
 }
 
+// PreferencesAPIAvailable reports whether the preferences service and module
+// route are available to browser clients.
+//
+// Before module loading, the typed default-module policy is authoritative.
+// After loading starts, registry membership also supports a host-provided
+// replacement module with the canonical preferences ID.
+func (a *Admin) PreferencesAPIAvailable() bool {
+	if a == nil ||
+		a.preferences == nil ||
+		!featureEnabled(a.featureGate, FeaturePreferences) {
+		return false
+	}
+	if a.registry != nil {
+		if _, registered := a.registry.Module(preferencesModuleID); registered {
+			return true
+		}
+	}
+	return !a.modulesLoaded && a.defaultModuleEnabled(preferencesModuleID)
+}
+
 // ActivityReadEnabled reports whether the activity read API is both enabled and wired.
 func (a *Admin) ActivityReadEnabled() bool {
 	if a == nil {

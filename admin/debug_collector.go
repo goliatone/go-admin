@@ -1437,15 +1437,6 @@ func (c *DebugCollector) clearBuiltinPanel(panelID string) bool {
 	return true
 }
 
-func (c *DebugCollector) clearRegisteredOrDynamicPanel(ctx context.Context, panelID string) bool {
-	cleared, _ := c.clearRegisteredOrDynamicPanelStrict(ctx, panelID)
-	return cleared
-}
-
-func (c *DebugCollector) clearRegisteredOrDynamicPanelStrict(ctx context.Context, panelID string) (bool, error) {
-	return c.ClearPanelsStrictWithContext(ctx, []string{panelID})
-}
-
 func (c *DebugCollector) clearPanelData(panelID string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()

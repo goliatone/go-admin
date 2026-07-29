@@ -397,11 +397,3 @@ func (a *Admin) resolveContentNavigationType(ctx context.Context, typeKey string
 	}
 	return nil, false
 }
-
-//nolint:unused // Kept for compatibility with downstream navigation policy customization.
-func (a *Admin) resolveContentNavigationPolicy(ctx context.Context, typeKey string) (contentEntryNavigationPolicy, bool) {
-	if a == nil {
-		return contentEntryNavigationPolicy{}, false
-	}
-	return ResolveEntryNavigationPolicyWithOptions(ctx, a.contentTypeSvc, typeKey, a.config.EntryNavigation)
-}
