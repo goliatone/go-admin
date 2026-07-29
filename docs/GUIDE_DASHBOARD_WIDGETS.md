@@ -18,7 +18,8 @@ When adding a widget definition:
 
 1. Register provider with `DashboardProviderSpec`.
 2. Build typed payload and return `admin.WidgetPayloadOf(payload)`.
-3. Add template/client rendering branch for the widget definition.
+3. For an application-owned provider, register a focused host template; add a
+   canonical rendering branch only for a framework-owned definition.
 4. Add contract tests for required keys and payload shape.
 5. Add regression tests for SSR rendering and hydration behavior.
 
@@ -114,6 +115,36 @@ Stock templates emit `data-dashboard-state`; loading also emits
 metadata with an invalid type or unknown value is rejected rather than treated
 as ready.
 
+### Application-owned widget templates
+
+Register custom presentation through the provider rather than replacing
+`dashboard_widget_content.html`:
+
+``` go
+err := adm.Dashboard().RegisterProviderChecked(admin.DashboardProviderSpec{
+    Code:     "orders.widget.recent",
+    Name:     "Recent Orders",
+    Template: "dashboard/widgets/orders/recent.html",
+    Handler:  recentOrdersProvider,
+})
+```
+
+Place the template in the host's normal first-wins view filesystem. The
+template receives the canonical `widget` object, including `widget.data`.
+Template identifiers must be normalized relative `.html` paths below
+`dashboard/widgets/`; absolute paths, traversal, backslashes,
+query/fragments, and control characters are rejected.
+
+`RegisterProviderChecked` should be used during host startup so invalid
+metadata fails initialization. The older `RegisterProvider` remains a
+best-effort compatibility API.
+
+go-admin clears conventionally inferred widget templates before rendering and
+projects only the value validated in provider registration. Persisted widget
+configuration and payload data therefore cannot select a dynamic include.
+Providers without a custom template retain canonical built-in rendering, and
+unknown definitions retain the escaped JSON diagnostic fallback.
+
 ## Chart Widgets
 
 Use canonical chart fields only:
@@ -208,7 +239,7 @@ Dashboard template renderers accept `DashboardLayout` only; map payload bridge p
 Focused go-admin checks:
 
 ``` sh
-go test ./admin -run 'TestDashboard.*Theme|TestDashboardTheme|TestDashboardRouteReturnsTheme'
+go test ./admin -run 'TestDashboard.*Theme|TestDashboardTheme|TestDashboardRouteReturnsTheme|TestDashboardProviderPresentation|TestDashboardRegisterProviderChecked'
 go test ./pkg/client -run 'TestDashboardWidgetStylesUseSemanticThemeContract'
 go test ./quickstart -run 'TestDefaultDashboardRenderer|TestDashboardRenderer'
 ```

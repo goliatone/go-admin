@@ -10,11 +10,16 @@ import (
 
 // PanelStep registers CRUD/action routes for panels.
 func PanelStep(ctx BootCtx) error {
-	if ctx == nil || ctx.Router() == nil {
+	if ctx == nil {
+		return nil
+	}
+	if ctx.Router() == nil {
+		ctx.SetMountedPanelRoutes(nil)
 		return nil
 	}
 	responder := ctx.Responder()
 	if responder == nil {
+		ctx.SetMountedPanelRoutes(nil)
 		return nil
 	}
 	panelNames := panelNames(ctx.Panels())
@@ -23,15 +28,46 @@ func PanelStep(ctx BootCtx) error {
 		return nil
 	}
 	panelLookup := newPanelBindingLookup(ctx)
-	routes := make([]RouteSpec, 0, len(panelNames)*9)
+	mountedPanelNames := make([]string, 0, len(panelNames))
 	for _, panelName := range panelNames {
-		routes = append(routes, panelRoutes(ctx, responder, panelLookup, panelName)...)
+		routes := panelRoutes(ctx, responder, panelLookup, panelName)
+		applied, err := applyRoutesWithReport(ctx, routes)
+		if panelCollectionRoutesApplied(routes, applied) {
+			mountedPanelNames = append(mountedPanelNames, panelName)
+		}
+		if err != nil {
+			ctx.SetMountedPanelRoutes(mountedPanelNames)
+			return err
+		}
 	}
-	if err := applyRoutes(ctx, routes); err != nil {
-		return err
-	}
-	ctx.SetMountedPanelRoutes(panelNames)
+	ctx.SetMountedPanelRoutes(mountedPanelNames)
 	return nil
+}
+
+func panelCollectionRoutesApplied(routes []RouteSpec, applied []appliedRoute) bool {
+	required := map[router.HTTPMethod]string{}
+	for _, route := range routes {
+		method := router.HTTPMethod(strings.ToUpper(strings.TrimSpace(route.Method)))
+		if method != router.GET && method != router.POST {
+			continue
+		}
+		if _, exists := required[method]; !exists {
+			required[method] = strings.TrimSpace(route.Path)
+		}
+	}
+	if required[router.GET] == "" || required[router.POST] == "" {
+		return false
+	}
+	appliedSet := make(map[appliedRoute]struct{}, len(applied))
+	for _, route := range applied {
+		appliedSet[route] = struct{}{}
+	}
+	for method, routePath := range required {
+		if _, exists := appliedSet[appliedRoute{Method: method, Path: routePath}]; !exists {
+			return false
+		}
+	}
+	return true
 }
 
 type panelBindingLookup func(string) (PanelBinding, error)

@@ -85,14 +85,25 @@ func writeJSONOrError(responder Responder, c router.Context, payload any, err er
 }
 
 func applyRoutes(ctx BootCtx, routes []RouteSpec) error {
+	_, err := applyRoutesWithReport(ctx, routes)
+	return err
+}
+
+type appliedRoute struct {
+	Method router.HTTPMethod
+	Path   string
+}
+
+func applyRoutesWithReport(ctx BootCtx, routes []RouteSpec) ([]appliedRoute, error) {
 	if ctx == nil {
-		return nil
+		return nil, nil
 	}
 	r := ctx.Router()
 	if r == nil || len(routes) == 0 {
-		return nil
+		return nil, nil
 	}
 	wrap := safeWrapper(ctx.AuthWrapper())
+	applied := make([]appliedRoute, 0, len(routes))
 	for _, route := range routes {
 		if route.Handler == nil || route.Path == "" {
 			continue
@@ -105,11 +116,12 @@ func applyRoutes(ctx BootCtx, routes []RouteSpec) error {
 		switch method {
 		case router.GET, router.POST, router.PUT, router.DELETE, router.PATCH, router.HEAD:
 			r.Handle(method, route.Path, handler)
+			applied = append(applied, appliedRoute{Method: method, Path: route.Path})
 		default:
-			return nil
+			return applied, bootValidationError("method", "unsupported route method")
 		}
 	}
-	return nil
+	return applied, nil
 }
 
 type routePathResolver interface {
