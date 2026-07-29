@@ -1,31 +1,35 @@
 # Changelog
 
+# [0.125.1](https://github.com/goliatone/go-admin/compare/v0.125.0...v0.125.1) - (2026-07-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Lifecycle handle incomplete tasks ([59911cf](https://github.com/goliatone/go-admin/commit/59911cf66e2f577baba47ccbfd95f564c19a938d))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Update admin-shell example ([87b995d](https://github.com/goliatone/go-admin/commit/87b995df68c73a11f935272b906e748e6bab5da2))  - (goliatone)
+- Safe render merge strategy ([f60bdb6](https://github.com/goliatone/go-admin/commit/f60bdb6c9b9fd5753415819d0e7845936ea9a111))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([e77ae63](https://github.com/goliatone/go-admin/commit/e77ae631962d04501c970128c466ab337f90b6f4))  - (goliatone)
+- Update tests ([967ada8](https://github.com/goliatone/go-admin/commit/967ada84e26ef5a5e04aba12aa846e0cb4b9f4b8))  - (goliatone)
+
 # [0.125.0](https://github.com/goliatone/go-admin/compare/v0.124.1...v0.125.0) - (2026-07-28)
 
 
-## Theme Integration
-
-- Add an optional validated semantic theme contract for the admin shell, shared
-  surfaces, CMS forms, dashboards/charts, and the embedded DataGrid. Component
-  tokens fall back to portable tokens and existing defaults, with deterministic
-  safe root projection and resolved, invalid, unsupported, consumed, and unused
-  diagnostics.
-- Render resolved theme favicons in admin and auth layouts while preserving
-  existing logo, icon, legacy payload, template override, and public-site theme
-  isolation behavior.
-- Require go-theme v0.5.1, go-formgen v0.32.1, and go-dashboard v0.15.2 for the
-  coordinated semantic contracts. Existing hosts require no new theme
-  configuration.
-- Scope quickstart's built-in dark navigation color to the sidebar instead of
-  projecting it as the global default surface, restoring white light-theme
-  page headers, form controls, and DataGrid rows while preserving explicit
-  `surface` overrides.
+New minor release: v0.125.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Theme css selector ([4877a42](https://github.com/goliatone/go-admin/commit/4877a42543938e997a0db2f5ded950a344011374))  - (goliatone)
 - Css tokens ([8aca3e3](https://github.com/goliatone/go-admin/commit/8aca3e33922c231a3a07435c6853d6a02a8d9cfa))  - (goliatone)
 - Datagrid expose stable toolbar, filter, surface ([9a29dbd](https://github.com/goliatone/go-admin/commit/9a29dbd084660f24f58f9db976271a58d0bf2e79))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.125.0 ([06a2612](https://github.com/goliatone/go-admin/commit/06a26123badb7977e13d63e3bd11cf99225efef3))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
