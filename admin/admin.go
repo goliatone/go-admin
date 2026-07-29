@@ -78,6 +78,8 @@ type Admin struct {
 	organizations                   *OrganizationService
 	bulkUserImport                  *command.BulkUserImportCommand
 	panelForm                       *PanelFormAdapter
+	panelRoutesMu                   sync.RWMutex
+	mountedPanelRoutes              map[string]struct{}
 	themeProvider                   ThemeProvider
 	themeManifest                   *theme.Manifest
 	defaultTheme                    *ThemeSelection

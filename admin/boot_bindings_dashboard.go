@@ -137,6 +137,9 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	if bodyClasses := strings.TrimSpace(toString(view["body_classes"])); bodyClasses != "" {
 		state.BodyClasses = bodyClasses
 	}
+	if active := strings.TrimSpace(toString(view["active"])); active != "" {
+		state.Active = active
+	}
 	state.NavItems = anySliceFromValue(view["nav_items"])
 	state.NavUtilityItems = anySliceFromValue(view["nav_utility_items"])
 	if sessionUser := extractMap(view["session_user"]); len(sessionUser) > 0 {
@@ -144,6 +147,23 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	}
 	if theme, ok := view["theme"].(map[string]map[string]string); ok && len(theme) > 0 {
 		state.Theme = cloneNestedStringMap(theme)
+	}
+	state.ExternalAssets = stringMapFromValue(view["external_assets"])
+	state.CSRFTemplateHelpers = csrfTemplateHelpersFromValue(view["template_helpers"])
+	if hideSearch, ok := view["sidebar_hide_search"].(bool); ok {
+		state.SidebarHideSearch = hideSearch
+	}
+	if placement := strings.TrimSpace(toString(view["sidebar_collapse_placement"])); placement != "" {
+		state.SidebarCollapsePlacement = NormalizeSidebarCollapsePlacement(SidebarCollapsePlacement(placement))
+	}
+	if compactFooter, ok := view["sidebar_compact_footer"].(bool); ok {
+		state.SidebarCompactFooter = compactFooter
+	}
+	if hidePresence, ok := view["sidebar_hide_presence"].(bool); ok {
+		state.SidebarHidePresence = hidePresence
+	}
+	if hideIndicator, ok := view["sidebar_hide_user_menu_indicator"].(bool); ok {
+		state.SidebarHideUserMenuIndicator = hideIndicator
 	}
 	if capabilities := extractMap(view["translation_capabilities"]); len(capabilities) > 0 {
 		state.TranslationCapabilities = cloneAny(capabilities)
@@ -161,6 +181,41 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 		state.NavItemsJSON = navItemsJSON
 	}
 	return state
+}
+
+func stringMapFromValue(value any) map[string]string {
+	out := map[string]string{}
+	switch typed := value.(type) {
+	case map[string]string:
+		maps.Copy(out, typed)
+	case map[string]any:
+		for key, item := range typed {
+			if text, ok := item.(string); ok {
+				out[key] = text
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func csrfTemplateHelpersFromValue(value any) map[string]string {
+	helpers := stringMapFromValue(value)
+	if len(helpers) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for _, key := range []string{"csrf_token", "csrf_field", "csrf_meta", "csrf_header_name"} {
+		if helper, ok := helpers[key]; ok {
+			out[key] = helper
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func anySliceFromValue(value any) []any {

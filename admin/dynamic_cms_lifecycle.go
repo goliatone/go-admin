@@ -21,6 +21,12 @@ func (ctx lifecycleBootCtx) ReconcileDynamicCMS(lifecycle context.Context) error
 	return ctx.reconcileDynamicCMS(lifecycle)
 }
 
+func (ctx lifecycleBootCtx) SetMountedPanelRoutes(panelNames []string) {
+	if ctx.Admin != nil {
+		ctx.Admin.recordMountedPanelRoutes(panelNames)
+	}
+}
+
 // AddCMSBootstrapHook registers a hook that can create or repair CMS content
 // types before dynamic CMS reconciliation runs during admin initialization.
 func (a *Admin) AddCMSBootstrapHook(hook CMSBootstrapHook) {

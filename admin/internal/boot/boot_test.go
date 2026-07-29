@@ -102,8 +102,8 @@ func (s *stubCtx) ParseBody(c router.Context) (map[string]any, error) {
 	return map[string]any{}, nil
 }
 func (s *stubCtx) Panels() []PanelBinding { return s.panels }
-func (s *stubCtx) RecordMountedPanelRoutes(names []string) {
-	s.mounted = append(s.mounted, names...)
+func (s *stubCtx) SetMountedPanelRoutes(names []string) {
+	s.mounted = append([]string{}, names...)
 }
 func (s *stubCtx) BootDashboard() DashboardBinding   { return s.dashboard }
 func (s *stubCtx) BootNavigation() NavigationBinding { return s.navigation }
@@ -625,6 +625,17 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	require.Equal(t, 1, binding.bulkStateCalled)
 	require.Equal(t, 1, binding.bulkCalled)
 	require.Equal(t, "en", binding.lastLocale)
+}
+
+func TestPanelStepClearsMountedPanelSnapshotWhenNoPanelsRemain(t *testing.T) {
+	ctx := &stubCtx{
+		router:    &recordRouter{},
+		responder: &stubResponder{},
+		mounted:   []string{"stale"},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Empty(t, ctx.mounted)
 }
 
 func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {

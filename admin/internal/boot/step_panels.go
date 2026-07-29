@@ -19,6 +19,7 @@ func PanelStep(ctx BootCtx) error {
 	}
 	panelNames := panelNames(ctx.Panels())
 	if len(panelNames) == 0 {
+		ctx.SetMountedPanelRoutes(nil)
 		return nil
 	}
 	panelLookup := newPanelBindingLookup(ctx)
@@ -26,7 +27,11 @@ func PanelStep(ctx BootCtx) error {
 	for _, panelName := range panelNames {
 		routes = append(routes, panelRoutes(ctx, responder, panelLookup, panelName)...)
 	}
-	return applyRoutes(ctx, routes)
+	if err := applyRoutes(ctx, routes); err != nil {
+		return err
+	}
+	ctx.SetMountedPanelRoutes(panelNames)
+	return nil
 }
 
 type panelBindingLookup func(string) (PanelBinding, error)

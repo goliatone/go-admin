@@ -25,6 +25,7 @@ type contentEntryListViewParams struct {
 	URLs                 urlkit.Resolver
 	BasePath             string
 	PreferencesAPI       string
+	PreferencesWritable  bool
 	Slug                 string
 	ActionBase           string
 	Routes               contentEntryRoutes
@@ -57,7 +58,12 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		urls = h.admin.URLs()
 	}
 	basePath := resolveAdminBasePath(urls, h.cfg.BasePath)
-	preferencesAPI := resolveAvailableAdminPreferencesAPICollectionPath(h.admin, h.cfg, basePath)
+	preferencesAPI, preferencesWritable := resolveAuthorizedAdminPreferencesAPICollectionPath(
+		h.admin,
+		h.cfg,
+		basePath,
+		c.Context(),
+	)
 	slug := contentTypeSlug(contentType, panelName)
 	actionBase := path.Join(basePath, "content", slug)
 	routes := newContentEntryRoutes(basePath, slug, adminCtx.Channel)
@@ -75,7 +81,8 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	viewCtx := h.contentEntryListViewContext(contentEntryListViewParams{
 		Panel: panel, PanelName: panelName, ContentType: contentType, AdminCtx: adminCtx,
 		Items: nil, Total: 0, Filters: filters, Columns: columns, URLs: urls,
-		BasePath: basePath, PreferencesAPI: preferencesAPI, Slug: slug, ActionBase: actionBase,
+		BasePath: basePath, PreferencesAPI: preferencesAPI, PreferencesWritable: preferencesWritable,
+		Slug: slug, ActionBase: actionBase,
 		Routes: routes, RoutesMap: routesMap, DataTableID: dataTableID, ListAPI: listAPI,
 		BulkCtx: bulkCtx, TranslationUXEnabled: translationUXEnabled, StateStoreCfg: stateStoreCfg,
 		Request: c,
@@ -96,24 +103,25 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 
 func (h *contentEntryHandlers) contentEntryListViewContext(params contentEntryListViewParams) router.ViewContext {
 	viewCtx := router.ViewContext{
-		"title":                 h.cfg.Title,
-		"base_path":             params.BasePath,
-		"resource":              "content",
-		"resource_label":        contentTypeLabel(params.ContentType, params.PanelName),
-		"routes":                params.RoutesMap,
-		"action_base":           params.ActionBase,
-		"items":                 params.Items,
-		"columns":               params.Columns,
-		"filters":               params.Filters,
-		"total":                 params.Total,
-		"render_datagrid_shell": strings.TrimSpace(params.ListAPI) != "",
-		"datatable_id":          params.DataTableID,
-		"list_api":              params.ListAPI,
-		"channel":               params.AdminCtx.Channel,
-		"channel_query_key":     admin.ContentChannelScopeQueryParam,
-		"panel_name":            params.PanelName,
-		"preferences_api_path":  params.PreferencesAPI,
-		"content_type":          contentEntryListContentTypePayload(params.ContentType, params.PanelName, params.Slug),
+		"title":                    h.cfg.Title,
+		"base_path":                params.BasePath,
+		"resource":                 "content",
+		"resource_label":           contentTypeLabel(params.ContentType, params.PanelName),
+		"routes":                   params.RoutesMap,
+		"action_base":              params.ActionBase,
+		"items":                    params.Items,
+		"columns":                  params.Columns,
+		"filters":                  params.Filters,
+		"total":                    params.Total,
+		"render_datagrid_shell":    strings.TrimSpace(params.ListAPI) != "",
+		"datatable_id":             params.DataTableID,
+		"list_api":                 params.ListAPI,
+		"channel":                  params.AdminCtx.Channel,
+		"channel_query_key":        admin.ContentChannelScopeQueryParam,
+		"panel_name":               params.PanelName,
+		"preferences_api_path":     params.PreferencesAPI,
+		"preferences_api_writable": params.PreferencesAPI != "" && params.PreferencesWritable,
+		"content_type":             contentEntryListContentTypePayload(params.ContentType, params.PanelName, params.Slug),
 	}
 	viewCtx = ApplyPanelBreadcrumbs(viewCtx, params.Panel, params.BasePath, contentTypeLabel(params.ContentType, params.PanelName), params.Routes.index(), BreadcrumbRouteList, nil)
 	applyContentEntryBulkViewContext(viewCtx, params.BulkCtx)
@@ -153,6 +161,7 @@ func (h *contentEntryHandlers) contentEntryListCapabilities(params contentEntryL
 			APIEndpoint:         params.ListAPI,
 			ActionBase:          params.ActionBase,
 			PreferencesEndpoint: params.PreferencesAPI,
+			PreferencesWritable: params.PreferencesWritable,
 			TranslationUX:       params.TranslationUXEnabled,
 			EnableGroupedMode:   params.TranslationUXEnabled,
 			DefaultViewMode:     contentEntryTranslationDefaultViewMode(params.TranslationUXEnabled),

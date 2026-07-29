@@ -23,24 +23,71 @@ func (a *Admin) ActivityFeatureEnabled() bool {
 	return featureEnabled(a.featureGate, FeatureActivity)
 }
 
-// PreferencesAPIAvailable reports whether the preferences service and module
-// route are available to browser clients.
-//
-// Before module loading, the typed default-module policy is authoritative.
-// After loading starts, registry membership also supports a host-provided
-// replacement module with the canonical preferences ID.
+// PanelAPIAvailable reports whether the boot pipeline successfully registered
+// API routes for the named panel.
+func (a *Admin) PanelAPIAvailable(panelName string) bool {
+	if a == nil {
+		return false
+	}
+	panelName = strings.ToLower(strings.TrimSpace(panelName))
+	if panelName == "" {
+		return false
+	}
+	a.panelRoutesMu.RLock()
+	defer a.panelRoutesMu.RUnlock()
+	_, available := a.mountedPanelRoutes[panelName]
+	return available
+}
+
+// PreferencesAPIAvailable reports whether the Preferences service is enabled
+// and its panel routes were successfully mounted.
 func (a *Admin) PreferencesAPIAvailable() bool {
 	if a == nil ||
 		a.preferences == nil ||
 		!featureEnabled(a.featureGate, FeaturePreferences) {
 		return false
 	}
-	if a.registry != nil {
-		if _, registered := a.registry.Module(preferencesModuleID); registered {
-			return true
-		}
+	return a.PanelAPIAvailable(preferencesModuleID)
+}
+
+// PreferencesAPICapabilities describes route and request authorization for the
+// shared Preferences panel.
+type PreferencesAPICapabilities struct {
+	Available bool `json:"available"`
+	Readable  bool `json:"readable"`
+	Writable  bool `json:"writable"`
+}
+
+// PreferencesAPICapabilities returns request-scoped Preferences API
+// capabilities using the same configured permissions as the Preferences panel.
+func (a *Admin) PreferencesAPICapabilities(ctx context.Context) PreferencesAPICapabilities {
+	capabilities := PreferencesAPICapabilities{
+		Available: a.PreferencesAPIAvailable(),
 	}
-	return !a.modulesLoaded && a.defaultModuleEnabled(preferencesModuleID)
+	if !capabilities.Available {
+		return capabilities
+	}
+	capabilities.Readable = permissionAllowed(
+		a.authorizer,
+		ctx,
+		a.config.PreferencesPermission,
+		preferencesModuleID,
+	)
+	capabilities.Writable = capabilities.Readable && permissionAllowed(
+		a.authorizer,
+		ctx,
+		a.config.PreferencesUpdatePermission,
+		preferencesModuleID,
+	)
+	return capabilities
+}
+
+// PreferencesAPIRequestCapabilities is a compatibility-friendly projection
+// for consumers that need request-scoped read/write booleans without sharing
+// the capability struct type.
+func (a *Admin) PreferencesAPIRequestCapabilities(ctx context.Context) (readable, writable bool) {
+	capabilities := a.PreferencesAPICapabilities(ctx)
+	return capabilities.Readable, capabilities.Writable
 }
 
 // ActivityReadEnabled reports whether the activity read API is both enabled and wired.

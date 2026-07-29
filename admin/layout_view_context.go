@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	router "github.com/goliatone/go-router"
 )
 
@@ -21,6 +22,7 @@ func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewC
 	applyAdminLayoutThemeDefault(adm, c, view)
 	applyAdminLayoutTranslationDefaults(adm, c, view)
 	applyAdminLayoutUserImportDefaults(adm, c, view)
+	applyAdminLayoutRequestTemplateDefaults(c, view)
 	return view
 }
 
@@ -114,6 +116,24 @@ func applyAdminLayoutUserImportDefaults(adm *Admin, c router.Context, view route
 	}
 	if _, ok := view["users_import_enabled"]; !ok {
 		view["users_import_enabled"] = adm != nil && adm.UserImportAllowed(adminLayoutRequestContext(c))
+	}
+}
+
+func applyAdminLayoutRequestTemplateDefaults(c router.Context, view router.ViewContext) {
+	if c == nil || view == nil {
+		return
+	}
+	helpers, ok := c.Locals(csrfmw.DefaultTemplateHelpersKey).(map[string]any)
+	if !ok || helpers == nil {
+		return
+	}
+	if _, exists := view[csrfmw.DefaultTemplateHelpersKey]; !exists {
+		view[csrfmw.DefaultTemplateHelpersKey] = helpers
+	}
+	for key, value := range helpers {
+		if _, exists := view[key]; !exists {
+			view[key] = value
+		}
 	}
 }
 

@@ -76,20 +76,28 @@ func (page AdminDashboardPage) LayoutJSON() string {
 
 // AdminChromeState captures host chrome metadata needed by go-admin templates.
 type AdminChromeState struct {
-	Title                   string                       `json:"title,omitempty"`
-	BasePath                string                       `json:"base_path,omitempty"`
-	AssetBasePath           string                       `json:"asset_base_path,omitempty"`
-	APIBasePath             string                       `json:"api_base_path,omitempty"`
-	BodyClasses             string                       `json:"body_classes,omitempty"`
-	NavItems                []any                        `json:"nav_items,omitempty"`
-	NavUtilityItems         []any                        `json:"nav_utility_items,omitempty"`
-	SessionUser             map[string]any               `json:"session_user,omitempty"`
-	Theme                   map[string]map[string]string `json:"theme,omitempty"`
-	TranslationCapabilities map[string]any               `json:"translation_capabilities,omitempty"`
-	UsersImportAvailable    bool                         `json:"users_import_available,omitempty"`
-	UsersImportEnabled      bool                         `json:"users_import_enabled,omitempty"`
-	NavDebug                bool                         `json:"nav_debug,omitempty"`
-	NavItemsJSON            string                       `json:"nav_items_json,omitempty"`
+	Title                        string                       `json:"title,omitempty"`
+	BasePath                     string                       `json:"base_path,omitempty"`
+	AssetBasePath                string                       `json:"asset_base_path,omitempty"`
+	APIBasePath                  string                       `json:"api_base_path,omitempty"`
+	BodyClasses                  string                       `json:"body_classes,omitempty"`
+	Active                       string                       `json:"active,omitempty"`
+	NavItems                     []any                        `json:"nav_items,omitempty"`
+	NavUtilityItems              []any                        `json:"nav_utility_items,omitempty"`
+	SessionUser                  map[string]any               `json:"session_user,omitempty"`
+	Theme                        map[string]map[string]string `json:"theme,omitempty"`
+	ExternalAssets               map[string]string            `json:"external_assets,omitempty"`
+	CSRFTemplateHelpers          map[string]string            `json:"csrf_template_helpers,omitempty"`
+	SidebarHideSearch            bool                         `json:"sidebar_hide_search,omitempty"`
+	SidebarCollapsePlacement     SidebarCollapsePlacement     `json:"sidebar_collapse_placement,omitempty"`
+	SidebarCompactFooter         bool                         `json:"sidebar_compact_footer,omitempty"`
+	SidebarHidePresence          bool                         `json:"sidebar_hide_presence,omitempty"`
+	SidebarHideUserMenuIndicator bool                         `json:"sidebar_hide_user_menu_indicator,omitempty"`
+	TranslationCapabilities      map[string]any               `json:"translation_capabilities,omitempty"`
+	UsersImportAvailable         bool                         `json:"users_import_available,omitempty"`
+	UsersImportEnabled           bool                         `json:"users_import_enabled,omitempty"`
+	NavDebug                     bool                         `json:"nav_debug,omitempty"`
+	NavItemsJSON                 string                       `json:"nav_items_json,omitempty"`
 }
 
 func (state AdminChromeState) Empty() bool {
@@ -98,10 +106,18 @@ func (state AdminChromeState) Empty() bool {
 		strings.TrimSpace(state.AssetBasePath) == "" &&
 		strings.TrimSpace(state.APIBasePath) == "" &&
 		strings.TrimSpace(state.BodyClasses) == "" &&
+		strings.TrimSpace(state.Active) == "" &&
 		len(state.NavItems) == 0 &&
 		len(state.NavUtilityItems) == 0 &&
 		len(state.SessionUser) == 0 &&
 		len(state.Theme) == 0 &&
+		len(state.ExternalAssets) == 0 &&
+		len(state.CSRFTemplateHelpers) == 0 &&
+		!state.SidebarHideSearch &&
+		state.SidebarCollapsePlacement == "" &&
+		!state.SidebarCompactFooter &&
+		!state.SidebarHidePresence &&
+		!state.SidebarHideUserMenuIndicator &&
 		len(state.TranslationCapabilities) == 0 &&
 		!state.UsersImportAvailable &&
 		!state.UsersImportEnabled &&
@@ -155,6 +171,8 @@ func cloneAdminChromeState(state AdminChromeState) AdminChromeState {
 	}
 	state.SessionUser = cloneAny(state.SessionUser)
 	state.Theme = cloneNestedStringMap(state.Theme)
+	state.ExternalAssets = cloneStringMap(state.ExternalAssets)
+	state.CSRFTemplateHelpers = cloneStringMap(state.CSRFTemplateHelpers)
 	state.TranslationCapabilities = cloneAny(state.TranslationCapabilities)
 	return state
 }

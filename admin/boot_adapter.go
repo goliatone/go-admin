@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-admin/admin/routing"
@@ -251,6 +252,21 @@ func (a *Admin) ParseBody(c router.Context) (map[string]any, error) {
 // Panels exposes panel bindings.
 func (a *Admin) Panels() []boot.PanelBinding {
 	return newPanelBindings(a)
+}
+
+func (a *Admin) recordMountedPanelRoutes(panelNames []string) {
+	if a == nil {
+		return
+	}
+	a.panelRoutesMu.Lock()
+	defer a.panelRoutesMu.Unlock()
+	a.mountedPanelRoutes = make(map[string]struct{}, len(panelNames))
+	for _, panelName := range panelNames {
+		panelName = strings.ToLower(strings.TrimSpace(panelName))
+		if panelName != "" {
+			a.mountedPanelRoutes[panelName] = struct{}{}
+		}
+	}
 }
 
 // BootDashboard exposes the dashboard binding.

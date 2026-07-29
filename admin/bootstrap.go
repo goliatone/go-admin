@@ -67,6 +67,7 @@ func (a *Admin) initializeWithContext(ctx context.Context, r AdminRouter) error 
 		return requiredFieldDomainError("router", map[string]any{"component": "bootstrap"})
 	}
 	a.router = r
+	a.recordMountedPanelRoutes(nil)
 	if err := a.runInitHooks(); err != nil {
 		return err
 	}

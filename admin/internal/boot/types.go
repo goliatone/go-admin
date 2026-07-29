@@ -311,6 +311,7 @@ type BootCtx interface {
 	ParseBody(router.Context) (map[string]any, error)
 
 	Panels() []PanelBinding
+	SetMountedPanelRoutes([]string)
 	BootDashboard() DashboardBinding
 	BootNavigation() NavigationBinding
 	BootSearch() SearchBinding

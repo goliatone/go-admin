@@ -99,7 +99,7 @@ type Config struct {
 	// ExternalAssets overrides the packaged third-party stylesheets and scripts
 	// the admin document loads. Empty fields use the pinned copies embedded in
 	// go-admin, so the default shell has no public-CDN dependency.
-	ExternalAssets ExternalAssetConfig `json:"external_assets,omitempty"`
+	ExternalAssets ExternalAssetConfig `json:"external_assets"`
 
 	SettingsPermission            string            `json:"settings_permission"`
 	SettingsUpdatePermission      string            `json:"settings_update_permission"`

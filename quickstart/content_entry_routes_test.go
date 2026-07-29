@@ -1160,7 +1160,13 @@ func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 }
 
 func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.T) {
-	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en"}
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
 	adm, err := admin.New(cfg, admin.Dependencies{
 		FeatureGate: buildFeatureGate(cfg, map[string]bool{
 			string(admin.FeaturePreferences): true,
@@ -1170,16 +1176,16 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 		t.Fatalf("new admin: %v", err)
 	}
 	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
-	routeRecorder, ok := any(adm).(interface {
-		RecordMountedPanelRoutes([]string)
-	})
+	_, ok := any(adm).(preferencesAPIRequestCapabilities)
 	if !ok {
 		t.Skip("root module predates request-scoped Preferences route capabilities")
 	}
-	routeRecorder.RecordMountedPanelRoutes([]string{"preferences"})
 	if _, err := adm.RegisterPanel("pages", newInMemoryPanelBuilder().
 		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
 		t.Fatalf("register panel: %v", err)
+	}
+	if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+		t.Fatalf("initialize admin routes: %v", err)
 	}
 
 	enableStateToken := true

@@ -200,7 +200,6 @@ func (a *Admin) chartSampleDashboardProvider() DashboardProviderSpec {
 	return DashboardProviderSpec{
 		Code:          WidgetChartSample,
 		Name:          "Sample Chart",
-		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
 		DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
 		Handler:       chartSampleDashboardHandler(),
 	}
