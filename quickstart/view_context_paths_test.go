@@ -120,4 +120,34 @@ func TestWithAuthUIViewContextIncludesAssetBasePath(t *testing.T) {
 	if got := ctx["asset_base_path"]; got != "/admin" {
 		t.Fatalf("expected asset_base_path /admin, got %v", got)
 	}
+	externalAssets, ok := ctx["external_assets"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected external_assets map, got %T", ctx["external_assets"])
+	}
+	if externalAssets["iconoir_css"] != "" ||
+		externalAssets["datatables_css"] != "" ||
+		externalAssets["echarts_js"] != "" {
+		t.Fatalf("expected packaged defaults without external overrides, got %+v", externalAssets)
+	}
+}
+
+func TestWithAuthUIViewContextIncludesExplicitExternalAssetOverrides(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		ExternalAssets: admin.ExternalAssetConfig{
+			IconoirCSS:    " https://assets.example/iconoir.css ",
+			DataTablesCSS: " https://assets.example/datatables.css ",
+			EChartsJS:     " https://assets.example/echarts.js ",
+		},
+	}
+	ctx := WithAuthUIViewContext(nil, cfg, AuthUIState{}, AuthUIPaths{BasePath: "/admin"})
+	externalAssets, ok := ctx["external_assets"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected external_assets map, got %T", ctx["external_assets"])
+	}
+	if externalAssets["iconoir_css"] != "https://assets.example/iconoir.css" ||
+		externalAssets["datatables_css"] != "https://assets.example/datatables.css" ||
+		externalAssets["echarts_js"] != "https://assets.example/echarts.js" {
+		t.Fatalf("unexpected external asset overrides: %+v", externalAssets)
+	}
 }

@@ -44,6 +44,7 @@ func TestBuildDebugViewContextAdminLayoutDerivesNavAndSession(t *testing.T) {
 		Subject: "admin-1",
 		Metadata: map[string]any{
 			"display_name": "Admin User",
+			"email":        "admin@example.com",
 			"avatar_url":   "https://cdn.example/avatar.png",
 		},
 	}
@@ -77,6 +78,9 @@ func TestBuildDebugViewContextAdminLayoutDerivesNavAndSession(t *testing.T) {
 	}
 	if got := sessionUser["avatar_url"]; got != "https://cdn.example/avatar.png" {
 		t.Fatalf("expected avatar_url propagated, got %v", got)
+	}
+	if got := sessionUser["email"]; got != "admin@example.com" {
+		t.Fatalf("expected email propagated, got %v", got)
 	}
 	if got := mustAs[bool](sessionUser["is_authenticated"]); !got {
 		t.Fatalf("expected is_authenticated true")

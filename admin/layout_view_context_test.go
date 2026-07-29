@@ -58,3 +58,32 @@ func TestBuildAdminLayoutViewContextIncludesUtilityNavItems(t *testing.T) {
 		t.Fatalf("expected utility nav label Settings, got %+v", utilityItems)
 	}
 }
+
+func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
+	cfg := Config{
+		BasePath:         "/admin",
+		DefaultLocale:    "en",
+		NavMenuCode:      "admin.main",
+		SidebarHideSearch: true,
+		ExternalAssets: ExternalAssetConfig{
+			IconoirCSS:    " https://assets.example/iconoir.css ",
+			DataTablesCSS: " https://assets.example/datatables.css ",
+			EChartsJS:     " https://assets.example/echarts.js ",
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	view := buildAdminLayoutViewContext(adm, nil, nil, "")
+
+	if hide, ok := view["sidebar_hide_search"].(bool); !ok || !hide {
+		t.Fatalf("expected sidebar_hide_search=true, got %#v", view["sidebar_hide_search"])
+	}
+	externalAssets, ok := view["external_assets"].(map[string]string)
+	if !ok {
+		t.Fatalf("expected external_assets map, got %T", view["external_assets"])
+	}
+	if externalAssets["iconoir_css"] != "https://assets.example/iconoir.css" ||
+		externalAssets["datatables_css"] != "https://assets.example/datatables.css" ||
+		externalAssets["echarts_js"] != "https://assets.example/echarts.js" {
+		t.Fatalf("unexpected external assets: %+v", externalAssets)
+	}
+}
