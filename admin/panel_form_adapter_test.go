@@ -37,6 +37,44 @@ func TestPanelFormAdapterBuildsSchemaWithTheme(t *testing.T) {
 	}
 }
 
+func TestAdminFormThemeReturnsRequestScopedDefensiveProjection(t *testing.T) {
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithThemeProvider(func(_ context.Context, selector ThemeSelector) (*ThemeSelection, error) {
+		return &ThemeSelection{
+			Name: selector.Name,
+			Tokens: map[string]string{
+				"color.action.primary": "#171717",
+			},
+			Assets: map[string]string{"logo": "logo.svg"},
+		}, nil
+	})
+
+	ctx := WithThemeSelection(context.Background(), ThemeSelector{Name: "preview"})
+	first := adm.FormTheme(ctx)
+	if first == nil {
+		t.Fatal("expected typed form theme")
+	}
+	if first.Theme != "preview" {
+		t.Fatalf("theme = %q, want preview", first.Theme)
+	}
+	if got := first.SemanticTokens["color.action.primary"]; got != "#171717" {
+		t.Fatalf("semantic primary = %q", got)
+	}
+	first.SemanticTokens["color.action.primary"] = "#ffffff"
+
+	second := adm.FormTheme(ctx)
+	if got := second.SemanticTokens["color.action.primary"]; got != "#171717" {
+		t.Fatalf("form theme maps were not cloned, got %q", got)
+	}
+}
+
+func TestNilAdminFormThemeIsNil(t *testing.T) {
+	var adm *Admin
+	if got := adm.FormTheme(context.Background()); got != nil {
+		t.Fatalf("nil admin form theme = %+v, want nil", got)
+	}
+}
+
 func TestPanelSchemaMergesHiddenFormFieldsIntoExplicitFormSchema(t *testing.T) {
 	pb := &PanelBuilder{}
 	pb.WithRepository(NewMemoryRepository())

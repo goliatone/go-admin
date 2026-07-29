@@ -123,3 +123,31 @@ func TestDataGridActionStylesUseSemanticFallbacks(t *testing.T) {
 		}
 	}
 }
+
+func TestDashboardWidgetStylesUseSemanticThemeContract(t *testing.T) {
+	source, err := os.ReadFile("assets/src/styles/widgets.css")
+	if err != nil {
+		t.Fatalf("read dashboard widget style source: %v", err)
+	}
+	dist, err := os.ReadFile("assets/dist/styles/widgets.css")
+	if err != nil {
+		t.Fatalf("read generated dashboard widget styles: %v", err)
+	}
+	if string(source) != string(dist) {
+		t.Fatal("generated dashboard widget styles are stale; run npm run build:css:widgets")
+	}
+	for _, fragment := range []string{
+		`var(--dashboard-card-background, var(--color-surface-raised, white))`,
+		`var(--dashboard-card-border, var(--color-border-default, #e5e7eb))`,
+		`var(--dashboard-card-radius, var(--radius-surface, 0.75rem))`,
+		`var(--dashboard-card-shadow, var(--shadow-surface, none))`,
+		`var(--dashboard-metric-value, var(--color-text-primary, inherit))`,
+		`var(--dashboard-metric-trend-negative, var(--color-status-danger, currentColor))`,
+		`var(--color-focus-ring, currentColor)`,
+		`var(--motion-duration-normal, 200ms)`,
+	} {
+		if !strings.Contains(string(source), fragment) {
+			t.Fatalf("dashboard widget semantic fallback missing %q", fragment)
+		}
+	}
+}

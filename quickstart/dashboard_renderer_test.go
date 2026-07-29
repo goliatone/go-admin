@@ -39,6 +39,10 @@ func TestDashboardRendererUsesEmbeddedTemplates(t *testing.T) {
 	if !strings.Contains(html, "Main") {
 		t.Fatalf("expected area title, got %q", html)
 	}
+	if !strings.Contains(html, `data-widget-grid`) ||
+		!strings.Contains(html, `assets/dist/styles/widgets.css`) {
+		t.Fatalf("default renderer did not use the canonical admin dashboard shell: %q", html)
+	}
 }
 
 func TestDashboardRendererUsesDebugAreaSlotAndAdminAssetBasePath(t *testing.T) {

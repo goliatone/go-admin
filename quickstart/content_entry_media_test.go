@@ -97,6 +97,144 @@ func TestRenderFormEnrichesContentEntryMediaSchemaHints(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRenderFormPassesResolvedSemanticThemeToFormgen(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Theme:         "niceguys",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{
+			Name: selector.Name,
+			Tokens: map[string]string{
+				"form.control.background": "#ffffff",
+				"form.control.text":       "#0a0a0a",
+				"color.action.primary":    "#171717",
+			},
+		}, nil
+	})
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		html := anyToString(viewCtx["form_html"])
+		return strings.Contains(html, `data-formgen-theme="niceguys"`) &&
+			strings.Contains(html, `data-formgen-semantic="true"`) &&
+			strings.Contains(html, `data-formgen-semantic-style`)
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+	contentType := &admin.CMSContentType{
+		Name: "Page",
+		Slug: "page",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title": map[string]any{"type": "string"},
+			},
+		},
+	}
+
+	if err := handler.renderForm(
+		ctx,
+		"pages",
+		nil,
+		contentType,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{},
+		nil,
+		false,
+		"",
+	); err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestRenderFormWithoutThemePreservesCompatibilityMarkup(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		html := anyToString(viewCtx["form_html"])
+		return !strings.Contains(html, `data-formgen-semantic="true"`) &&
+			!strings.Contains(html, `data-formgen-semantic-style`)
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+	contentType := &admin.CMSContentType{
+		Name: "Page",
+		Slug: "page",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title": map[string]any{"type": "string"},
+			},
+		},
+	}
+
+	if err := handler.renderForm(
+		ctx,
+		"pages",
+		nil,
+		contentType,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{},
+		nil,
+		false,
+		"",
+	); err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestRenderFormMediaHintsDoNotMutateStoredContentTypeSchema(t *testing.T) {
 	cfg := admin.Config{
 		BasePath:      "/admin",

@@ -128,7 +128,18 @@ func TestSidebarTemplateCopiesExposeBrandVariants(t *testing.T) {
 		t.Fatalf("read quickstart sidebar template: %v", err)
 	}
 	for _, template := range [][]byte{shared, embedded} {
-		if !containsAll(string(template), `sidebar-brand-expanded`, `sidebar-brand-collapsed`, `sidebar-logo-compact`) {
+		if !containsAll(
+			string(template),
+			`sidebar-brand-expanded`,
+			`sidebar-brand-collapsed`,
+			`sidebar-logo-compact`,
+			`assets/sidebar.css`,
+			`id="sidebar-mobile-toggle"`,
+			`id="sidebar-backdrop"`,
+			`data-mobile-open="false"`,
+			`renderThemeMenuIcon("collapse", theme.assets)`,
+			`renderThemeMenuIcon(item.icon, theme.assets)`,
+		) {
 			t.Fatalf("expected sidebar template to expose expanded and compact brand variants, got %q", string(template))
 		}
 	}
@@ -270,6 +281,60 @@ func TestSidebarTemplateUsesCompactIconWhenAvailable(t *testing.T) {
 	html := body.String()
 	if !containsAll(html, `/brand/logo.svg`, `/brand/icon.svg`, `sidebar-logo-compact`) {
 		t.Fatalf("expected rendered sidebar to include expanded logo and compact icon, got %q", html)
+	}
+}
+
+func TestSidebarTemplateConsumesThemeMenuIconAsset(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/home.html": {
+			Data: []byte(`{% include "partials/sidebar.html" %}`),
+		},
+	}
+	views, err := NewViewEngine(
+		hostFS,
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("home", fiber.Map{
+			"title":           "Admin",
+			"base_path":       "/admin",
+			"asset_base_path": "/admin",
+			"theme": map[string]map[string]string{"assets": {
+				"icon-dashboard": "/brand/dashboard.svg",
+			}},
+			"nav_items": []map[string]any{{
+				"id":     "dashboard",
+				"label":  "Dashboard",
+				"href":   "/admin",
+				"icon":   "dashboard",
+				"active": true,
+			}},
+			"nav_utility_items": []map[string]any{},
+			"session_user":      map[string]any{},
+			"csrf_field":        "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer closeResponseBody(t, resp)
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	html := body.String()
+	if !containsAll(html, `/brand/dashboard.svg`, `data-theme-icon-role="icon-dashboard"`, `aria-hidden="true"`) {
+		t.Fatalf("expected rendered sidebar to consume theme icon asset, got %q", html)
+	}
+	if strings.Contains(html, "iconoir-dashboard") {
+		t.Fatalf("expected theme asset to replace legacy dashboard icon, got %q", html)
 	}
 }
 

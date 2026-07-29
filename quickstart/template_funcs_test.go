@@ -169,7 +169,43 @@ func TestRenderMenuIcon_SidebarStyle(t *testing.T) {
 	// All non-empty results should include the sidebar icon size CSS variable
 	for _, icon := range []string{"cube", "📄", "rich-text"} {
 		result := renderMenuIcon(icon)
-		assert.Contains(t, result, "--sidebar-icon-size", "icon %q should reference sidebar icon size", icon)
+		assert.Contains(t, result, "--admin-sidebar-icon-size", "icon %q should reference canonical sidebar icon size", icon)
+		assert.Contains(t, result, "--sidebar-icon-size", "icon %q should preserve the legacy sidebar icon fallback", icon)
+	}
+}
+
+func TestRenderThemeMenuIconUsesConventionAsset(t *testing.T) {
+	result := renderThemeMenuIcon("dashboard", map[string]string{
+		"icon-dashboard": "/admin/assets/icons/dashboard.svg?v=2",
+	})
+	assert.Contains(t, result, `<img `)
+	assert.Contains(t, result, `src="/admin/assets/icons/dashboard.svg?v=2"`)
+	assert.Contains(t, result, `data-theme-icon-role="icon-dashboard"`)
+	assert.Contains(t, result, `aria-hidden="true"`)
+	assert.Contains(t, result, "--admin-sidebar-icon-size")
+	assert.NotContains(t, result, "iconoir-dashboard")
+}
+
+func TestRenderThemeMenuIconSupportsExplicitRoleAndAnyMap(t *testing.T) {
+	result := renderThemeMenuIcon("asset:icon-analytics", map[string]any{
+		"icon-analytics": "https://cdn.example.com/analytics.svg",
+	})
+	assert.Contains(t, result, `src="https://cdn.example.com/analytics.svg"`)
+	assert.Contains(t, result, `data-theme-icon-role="icon-analytics"`)
+}
+
+func TestRenderThemeMenuIconFallsBackForMissingOrUnsafeAsset(t *testing.T) {
+	for name, assets := range map[string]map[string]string{
+		"missing": {"icon-dashboard": ""},
+		"unsafe":  {"icon-dashboard": `javascript:alert(1)`},
+		"markup":  {"icon-dashboard": `"><script>alert(1)</script>`},
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := renderThemeMenuIcon("dashboard", assets)
+			assert.Contains(t, result, "iconoir-dashboard")
+			assert.NotContains(t, result, "<script>")
+			assert.NotContains(t, result, "<img ")
+		})
 	}
 }
 
@@ -184,6 +220,12 @@ func TestDefaultTemplateFuncs_ContainsRenderMenuIcon(t *testing.T) {
 	require.True(t, ok, "renderMenuIcon should be func(string) string")
 	result := callable("cube")
 	assert.Contains(t, result, "iconoir-cube")
+
+	themed, ok := funcs["renderThemeMenuIcon"].(func(string, any) string)
+	require.True(t, ok, "renderThemeMenuIcon should be func(string, any) string")
+	assert.Contains(t, themed("dashboard", map[string]string{
+		"icon-dashboard": "/theme/dashboard.svg",
+	}), "/theme/dashboard.svg")
 }
 
 func TestAdminURLUsesURLKitResolver(t *testing.T) {
