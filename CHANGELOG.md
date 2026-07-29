@@ -1,6 +1,29 @@
 # Changelog
 
+# [0.126.1](https://github.com/goliatone/go-admin/compare/v0.126.0...v0.126.1) - (2026-07-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Include font heading in projection ([693e1d0](https://github.com/goliatone/go-admin/commit/693e1d054c48d13a0c61f6491b0a70907a30aed9))  - (goliatone)
+- Menu build process ([4d97d45](https://github.com/goliatone/go-admin/commit/4d97d452c554f8b58886c28955d8bb922b129bdb))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Hide search and external asset source ([0980276](https://github.com/goliatone/go-admin/commit/0980276d67f4842ce8e9b1b52da5cef27d82c3fb))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([3177492](https://github.com/goliatone/go-admin/commit/317749290e44ed8d707f04e7ad1b9a344442a672))  - (goliatone)
+- Update tests ([fcea5ad](https://github.com/goliatone/go-admin/commit/fcea5ada6d32bea7d8d403e76ae4519ca501973b))  - (goliatone)
+
 # [0.126.0](https://github.com/goliatone/go-admin/compare/v0.125.2...v0.126.0) - (2026-07-29)
+
+
+New minor release: v0.126.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.0 ([9b7fdce](https://github.com/goliatone/go-admin/commit/9b7fdce53148a49b111435185e0a0f4c04497284))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
