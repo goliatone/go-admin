@@ -61,6 +61,17 @@ func applyAdminLayoutNavigationDefaults(adm *Admin, c router.Context, view route
 	if _, ok := view["session_user"]; !ok {
 		view["session_user"] = debugViewSessionUser(c, basePath)
 	}
+	if _, ok := view["sidebar_hide_search"]; !ok && adm != nil {
+		view["sidebar_hide_search"] = adm.config.SidebarHideSearch
+	}
+	if _, ok := view["external_assets"]; !ok && adm != nil {
+		resolved := adm.config.ExternalAssets.Resolve()
+		view["external_assets"] = map[string]string{
+			"iconoir_css":    resolved.IconoirCSS,
+			"datatables_css": resolved.DataTablesCSS,
+			"echarts_js":     resolved.EChartsJS,
+		}
+	}
 }
 
 func applyAdminLayoutThemeDefault(adm *Admin, c router.Context, view router.ViewContext) {
