@@ -1350,12 +1350,15 @@ If you build the admin manually, call `adm.WithAdminTheme(selector)` and
 selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or
 `SiteConfig.ThemeProvider`.
 
-The default quickstart manifest also exposes these sidebar brand tokens:
+The default quickstart manifest also exposes these sidebar brand aliases:
 
-- `sidebar-brand-max-height`
-- `sidebar-brand-max-width`
-- `sidebar-brand-collapsed-size`
-- `sidebar-brand-align`
+- `sidebar-brand-max-height` → `admin.sidebar.brand-max-height`
+- `sidebar-brand-max-width` → `admin.sidebar.brand-max-width`
+- `sidebar-brand-collapsed-size` → `admin.sidebar.brand-collapsed-size`
+- `sidebar-brand-align` → `admin.sidebar.brand-align`
+
+New manifests should prefer the canonical dotted keys. The aliases remain for
+compatibility and lose when the matching canonical key is present.
 
 Use `WithThemeAssets(...)` for manifest-relative theme assets and `WithThemeAssetURLs(...)` / `admin.Config.ThemeAssets` for final resolved URL overrides supplied by host config.
 

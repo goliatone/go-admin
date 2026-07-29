@@ -232,16 +232,19 @@ func (c ExternalAssetConfig) Resolve() ExternalAssetConfig {
 // relative to the current origin.
 func (c ExternalAssetConfig) Validate() error {
 	resolved := c.Resolve()
-	for field, value := range map[string]string{
-		"iconoir_css":    resolved.IconoirCSS,
-		"datatables_css": resolved.DataTablesCSS,
-		"echarts_js":     resolved.EChartsJS,
+	for _, asset := range []struct {
+		field string
+		value string
+	}{
+		{field: "iconoir_css", value: resolved.IconoirCSS},
+		{field: "datatables_css", value: resolved.DataTablesCSS},
+		{field: "echarts_js", value: resolved.EChartsJS},
 	} {
-		if value == "" {
+		if asset.value == "" {
 			continue
 		}
-		if err := validateExternalAssetURL(value); err != nil {
-			return fmt.Errorf("%s: %w", field, err)
+		if err := validateExternalAssetURL(asset.value); err != nil {
+			return fmt.Errorf("%s: %w", asset.field, err)
 		}
 	}
 	return nil

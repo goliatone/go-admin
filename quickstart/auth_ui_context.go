@@ -95,6 +95,16 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 	ctx["password_reset_path"] = paths.PasswordResetPath
 	ctx["password_reset_confirm_path"] = paths.PasswordResetConfirmPath
 	ctx["register_path"] = paths.RegisterPath
+	return withExternalAssetViewContext(ctx, cfg)
+}
+
+func withExternalAssetViewContext(ctx router.ViewContext, cfg admin.Config) router.ViewContext {
+	if ctx == nil {
+		ctx = router.ViewContext{}
+	}
+	if _, exists := ctx["external_assets"]; exists {
+		return ctx
+	}
 	externalAssets := cfg.ExternalAssets.Resolve()
 	ctx["external_assets"] = map[string]string{
 		"iconoir_css":    externalAssets.IconoirCSS,

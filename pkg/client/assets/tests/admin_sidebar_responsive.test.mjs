@@ -85,6 +85,8 @@ test('admin layout uses an off-canvas sidebar drawer on narrow viewports', () =>
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar[\s\S]*transform:\s*translateX\(-100%\)/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar\[data-mobile-open="true"\][\s\S]*transform:\s*translateX\(0\)/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar-mobile-toggle[\s\S]*display:\s*inline-flex/);
+  assert.match(css, /\.admin-theme-root\s+\.sidebar[\s\S]*background-color:\s*var\(--admin-sidebar-background/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.sidebar[\s\S]*transition-duration:\s*0\.001ms !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\[data-dashboard-shell\][\s\S]*flex-direction:\s*column !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__region:not\(\[data-collapsed="true"\]\)[\s\S]*width:\s*100% !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__region\[data-collapsed="true"\][\s\S]*width:\s*var\(--dashboard-shell-rail-collapsed, 0px\) !important/);

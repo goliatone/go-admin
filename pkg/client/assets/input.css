@@ -492,7 +492,7 @@
     max-height: var(--admin-sidebar-brand-collapsed-size, var(--sidebar-brand-collapsed-size, 32px));
   }
 
-  .sidebar {
+  .admin-theme-root .sidebar {
     @apply transition-all duration-300;
     background-color: var(--admin-sidebar-background, var(--color-surface-default, #18181b));
     color: var(--admin-sidebar-text, var(--color-text-primary, #f4f4f5));
@@ -685,6 +685,17 @@
 
     [data-dashboard-shell] .dashboard-shell__splitter {
       display: none !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    .nav-item,
+    .submenu,
+    .submenu-indicator,
+    .sidebar-mobile-toggle {
+      scroll-behavior: auto;
+      transition-duration: 0.001ms !important;
     }
   }
 

@@ -145,6 +145,10 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 		sessionView["avatar_url"] = path.Join(basePath, "assets", "avatar-default.svg")
 	}
 	ctx["session_user"] = sessionView
+	if _, exists := ctx["sidebar_hide_search"]; !exists {
+		ctx["sidebar_hide_search"] = cfg.SidebarHideSearch
+	}
+	ctx = withExternalAssetViewContext(ctx, cfg)
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
 	navItems := BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
 	ctx["nav_items"] = navItems
