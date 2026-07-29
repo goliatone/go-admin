@@ -81,6 +81,32 @@ func TestDebugFiberSlogMiddlewareGuardedByConfig(t *testing.T) {
 	}
 }
 
+func TestSafeRenderMergeStrategyNeverLogsRenderValues(t *testing.T) {
+	logger := &captureQuickstartLogger{}
+	csrfToken := "sensitive-csrf-token"
+	resolved, set := safeRenderMergeStrategy(
+		"csrf_token",
+		csrfToken,
+		"other-sensitive-token",
+		logger,
+	)
+	if !set || resolved != csrfToken {
+		t.Fatalf("merge result = (%v, %v), want view value", resolved, set)
+	}
+	entry, ok := logger.first("warn", "render locals overwritten by view context")
+	if !ok {
+		t.Fatal("expected redacted merge diagnostic")
+	}
+	if got, ok := quickstartLogArg(entry, "values_redacted"); !ok || got != true {
+		t.Fatalf("values_redacted = %v, %v", got, ok)
+	}
+	for _, arg := range entry.args {
+		if arg == csrfToken || arg == "other-sensitive-token" {
+			t.Fatalf("merge diagnostic exposed sensitive value: %#v", entry.args)
+		}
+	}
+}
+
 func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 	capture := &captureSlogHandler{}
 	previous := slog.Default()
