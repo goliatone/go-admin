@@ -9,6 +9,7 @@ import (
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
+	theme "github.com/goliatone/go-theme"
 )
 
 type dashboardComponents struct {
@@ -241,8 +242,10 @@ func (a *Admin) dashboardThemeProvider() dashcmp.ThemeProvider {
 		return nil
 	}
 	return dashboardThemeProviderAdapter{
-		provider: a.themeProvider,
-		fallback: a.defaultTheme,
+		provider:        a.themeProvider,
+		fallback:        a.defaultTheme,
+		manifest:        a.themeManifest,
+		configuredTheme: a.config.Theme,
 	}
 }
 
@@ -410,11 +413,15 @@ func (a dashboardAuthorizerAdapter) CanViewWidget(ctx context.Context, _ dashcmp
 }
 
 type dashboardThemeProviderAdapter struct {
-	provider ThemeProvider
-	fallback *ThemeSelection
+	provider        ThemeProvider
+	fallback        *ThemeSelection
+	manifest        *theme.Manifest
+	configuredTheme string
 }
 
 func (a dashboardThemeProviderAdapter) SelectTheme(ctx context.Context, selector dashcmp.ThemeSelector) (*dashcmp.ThemeSelection, error) {
+	var result *ThemeSelection
+	providerResolved := false
 	if a.provider != nil {
 		if selector.Name != "" || selector.Variant != "" {
 			ctx = WithThemeSelection(ctx, ThemeSelector{Name: selector.Name, Variant: selector.Variant})
@@ -424,16 +431,28 @@ func (a dashboardThemeProviderAdapter) SelectTheme(ctx context.Context, selector
 			Variant: selector.Variant,
 		})
 		if err == nil && adminTheme != nil {
-			return adaptTheme(adminTheme), nil
+			result = adminTheme
+			providerResolved = true
 		}
 		if err != nil && a.fallback == nil {
 			return nil, err
 		}
 	}
-	if a.fallback != nil {
-		return adaptTheme(a.fallback), nil
+	if result == nil {
+		result = a.fallback
 	}
-	return nil, nil
+	if result == nil &&
+		(a.manifest == nil ||
+			strings.TrimSpace(a.manifest.Name) != strings.TrimSpace(a.configuredTheme)) {
+		return nil, nil
+	}
+	result = reconcileThemeSelectionWithManifest(
+		result,
+		a.manifest,
+		a.configuredTheme,
+		providerResolved,
+	)
+	return adaptTheme(result), nil
 }
 
 func adaptTheme(t *ThemeSelection) *dashcmp.ThemeSelection {
