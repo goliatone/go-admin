@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -37,6 +38,17 @@ type Config struct {
 	FaviconURL string `json:"favicon_url"`
 	CustomCSS  string `json:"custom_css"`
 	CustomJS   string `json:"custom_js"`
+
+	// SidebarHideSearch removes the sidebar search slot from the admin shell.
+	// It defaults to false so existing consumers keep the search field; set it
+	// when the approved navigation design has no search affordance.
+	SidebarHideSearch bool `json:"sidebar_hide_search,omitempty"`
+
+	// ExternalAssets overrides the third-party stylesheets and scripts the
+	// admin document loads. Empty fields keep the published CDN default, so
+	// existing deployments are unaffected. Point these at self-hosted copies
+	// to remove the runtime dependency on a public CDN.
+	ExternalAssets ExternalAssetConfig `json:"external_assets,omitempty"`
 
 	SettingsPermission            string            `json:"settings_permission"`
 	SettingsUpdatePermission      string            `json:"settings_update_permission"`
@@ -181,4 +193,44 @@ type AuthConfig struct {
 	// route-auth requirement. Leave false to require an authenticator before
 	// Initialize mounts the protected admin surface.
 	AllowUnauthenticatedRoutes bool `json:"allow_unauthenticated_routes,omitempty"`
+}
+
+// ExternalAssetConfig points the admin document at specific copies of the
+// third-party assets it renders with. Every field defaults to the published
+// CDN URL when left empty.
+type ExternalAssetConfig struct {
+	// IconoirCSS supplies the Iconoir icon stylesheet used by menu and control
+	// glyphs that no theme asset role covers.
+	IconoirCSS string `json:"iconoir_css,omitempty"`
+	// DataTablesCSS supplies the simple-datatables stylesheet.
+	DataTablesCSS string `json:"datatables_css,omitempty"`
+	// EChartsJS supplies the ECharts runtime used by dashboard charts.
+	EChartsJS string `json:"echarts_js,omitempty"`
+}
+
+// Default third-party asset URLs. These are the historical hardcoded values
+// and remain the behavior when a deployment does not override them.
+const (
+	DefaultIconoirCSSURL    = "https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css"
+	DefaultDataTablesCSSURL = "https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.min.css"
+	DefaultEChartsJSURL     = "https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"
+)
+
+// Resolve returns the configured URLs with published defaults filled in.
+func (c ExternalAssetConfig) Resolve() ExternalAssetConfig {
+	resolved := ExternalAssetConfig{
+		IconoirCSS:    strings.TrimSpace(c.IconoirCSS),
+		DataTablesCSS: strings.TrimSpace(c.DataTablesCSS),
+		EChartsJS:     strings.TrimSpace(c.EChartsJS),
+	}
+	if resolved.IconoirCSS == "" {
+		resolved.IconoirCSS = DefaultIconoirCSSURL
+	}
+	if resolved.DataTablesCSS == "" {
+		resolved.DataTablesCSS = DefaultDataTablesCSSURL
+	}
+	if resolved.EChartsJS == "" {
+		resolved.EChartsJS = DefaultEChartsJSURL
+	}
+	return resolved
 }
