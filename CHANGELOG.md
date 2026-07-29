@@ -1,10 +1,45 @@
 # Changelog
 
+# [0.125.2](https://github.com/goliatone/go-admin/compare/v0.125.1...v0.125.2) - (2026-07-29)
+
+
+## Theme Resolution
+
+- Allow theme providers to resolve an intentionally empty base variant without
+  retaining configuration, preference, or request sentinels.
+- Treat an attached manifest as the variant authority for the matching theme,
+  including dashboard fallback and base-only Preferences options.
+- Preserve the legacy `default` variant for applications without an attached
+  manifest, and explicitly declare quickstart's generated `light` variant.
+
+## Migration Notes
+
+Custom `ThemeProvider` implementations that intentionally return the empty
+base variant should set `ThemeSelection.VariantResolved` to `true`. Existing
+providers that omit the field retain non-empty-only variant merging. Use keyed
+`ThemeSelection` literals when adopting the new field.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Reconcile theme selection ([37bc15e](https://github.com/goliatone/go-admin/commit/37bc15ee9474a86a73369351b3e16bf0b177408e))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([d12a7ea](https://github.com/goliatone/go-admin/commit/d12a7ea0ec6a7278a850d95c858b8488fca3a7c4))  - (goliatone)
+- Update tests ([af93346](https://github.com/goliatone/go-admin/commit/af93346bc06b3dc0dc429f80f3f0b97bab134a11))  - (goliatone)
+
 # [0.125.1](https://github.com/goliatone/go-admin/compare/v0.125.0...v0.125.1) - (2026-07-29)
+
+
+New patch release: v0.125.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Lifecycle handle incomplete tasks ([59911cf](https://github.com/goliatone/go-admin/commit/59911cf66e2f577baba47ccbfd95f564c19a938d))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.125.1 ([0057994](https://github.com/goliatone/go-admin/commit/0057994a3dcea7a4896b82dc3a3206887b16c5cc))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
