@@ -53,3 +53,16 @@ func TestPreferencesVariantOptionsFallbacksWithoutManifest(t *testing.T) {
 		t.Fatalf("expected config and chart variants included, got %v", values)
 	}
 }
+
+func TestPreferencesVariantOptionsTreatBaseOnlyManifestAsAuthoritative(t *testing.T) {
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithThemeManifest(&theme.Manifest{
+		Name:    "brand",
+		Version: "1.0.0",
+	})
+
+	options := NewPreferencesModule().variantOptions(adm)
+	if len(options) != 1 || toString(options[0].Value) != "" {
+		t.Fatalf("base-only manifest options = %#v, want only system default", options)
+	}
+}

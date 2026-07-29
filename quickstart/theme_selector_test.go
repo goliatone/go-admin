@@ -1,8 +1,10 @@
 package quickstart
 
 import (
+	"context"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin"
 	theme "github.com/goliatone/go-theme"
 )
 
@@ -21,6 +23,9 @@ func TestNewThemeSelectorScopesDefaultDarkSurfaceToSidebar(t *testing.T) {
 	if got := manifest.Variants["dark"].Tokens["admin.sidebar.background"]; got != "#0b1221" {
 		t.Fatalf("expected dark variant sidebar background #0b1221, got %q", got)
 	}
+	if _, ok := manifest.Variants["light"]; !ok {
+		t.Fatal("expected generated base light presentation to be declared as a supported variant")
+	}
 	if _, exists := manifest.Variants["dark"].Tokens["surface"]; exists {
 		t.Fatalf("default dark variant must not publish the sidebar color as global surface: %+v", manifest.Variants["dark"].Tokens)
 	}
@@ -35,6 +40,31 @@ func TestNewThemeSelectorScopesDefaultDarkSurfaceToSidebar(t *testing.T) {
 	}
 	if _, exists := tokens["surface"]; exists {
 		t.Fatalf("selected light theme must leave the global surface unset: %+v", tokens)
+	}
+}
+
+func TestGeneratedLightVariantRemainsValidWhenManifestIsAttached(t *testing.T) {
+	selector, manifest, err := NewThemeSelector("admin", "light", nil)
+	if err != nil {
+		t.Fatalf("new theme selector: %v", err)
+	}
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.Theme = "admin"
+	cfg.ThemeVariant = "light"
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithMinimalFeatures(),
+		WithThemeSelector(selector, manifest),
+		WithAdminDependencies(admin.Dependencies{}),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	selected := adm.Theme(context.Background())
+	if selected.Name != "admin" || selected.Variant != "light" || selected.ChartTheme != "light" {
+		t.Fatalf("generated light selection = %q/%q chart=%q", selected.Name, selected.Variant, selected.ChartTheme)
 	}
 }
 

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	router "github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
 )
@@ -366,6 +368,282 @@ func TestConfigThemeAssetsOverrideProviderBeforeLegacyURLs(t *testing.T) {
 	}
 	if got := payload["assets"]["favicon"]; got != "/legacy/favicon.svg" {
 		t.Fatalf("expected legacy FaviconURL to win for favicon, got %q", got)
+	}
+}
+
+func TestMergeThemeSelectionsSupportsAuthoritativeEmptyVariant(t *testing.T) {
+	base := &ThemeSelection{
+		Name:       "brand",
+		Variant:    "default",
+		ChartTheme: "default",
+	}
+
+	legacy := mergeThemeSelections(base, &ThemeSelection{})
+	if legacy.Variant != "default" || legacy.ChartTheme != "default" {
+		t.Fatalf("legacy empty override changed selection: %+v", legacy)
+	}
+
+	resolved := mergeThemeSelections(base, &ThemeSelection{VariantResolved: true})
+	if resolved.Variant != "" || resolved.ChartTheme != "" {
+		t.Fatalf("authoritative empty variant did not clear selection: %+v", resolved)
+	}
+	if !cloneThemeSelection(resolved).VariantResolved {
+		t.Fatal("clone lost authoritative variant metadata")
+	}
+}
+
+func TestThemeWithoutManifestPreservesLegacyDefaultVariant(t *testing.T) {
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+
+	selected := adm.Theme(context.Background())
+	if selected.Variant != "default" || selected.ChartTheme != "default" {
+		t.Fatalf("legacy selection = %q/%q, want default/default", selected.Variant, selected.ChartTheme)
+	}
+}
+
+func TestThemeProviderCanAuthoritativelyClearVariantWithoutManifest(t *testing.T) {
+	adm := mustNewAdmin(t, Config{Theme: "brand", ThemeVariant: "stale"}, Dependencies{})
+	adm.WithThemeProvider(func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+		return &ThemeSelection{
+			Name:            "brand",
+			VariantResolved: true,
+		}, nil
+	})
+
+	selected := adm.Theme(context.Background())
+	if selected.Variant != "" || selected.ChartTheme != "" {
+		t.Fatalf("provider-resolved base = %q chart=%q", selected.Variant, selected.ChartTheme)
+	}
+}
+
+func TestBaseOnlyManifestClearsConfigAndContextVariants(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithAdminTheme(baseOnlyTestSelector{manifest: manifest})
+	adm.WithThemeManifest(manifest)
+
+	for _, test := range []struct {
+		name string
+		ctx  context.Context
+	}{
+		{name: "config default", ctx: context.Background()},
+		{
+			name: "stale context",
+			ctx: WithThemeSelection(context.Background(), ThemeSelector{
+				Name:    "missing",
+				Variant: "stale",
+			}),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			selected := adm.Theme(test.ctx)
+			assertBaseOnlyTestSelection(t, selected, manifest)
+		})
+	}
+}
+
+func TestBaseOnlyManifestClearsStoredPreferenceVariant(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeaturePreferences),
+	})
+	adm.WithAdminTheme(baseOnlyTestSelector{manifest: manifest})
+	adm.WithThemeManifest(manifest)
+	if _, err := adm.preferences.Save(context.Background(), "user-1", UserPreferences{
+		Theme:        "brand",
+		ThemeVariant: "stale",
+	}); err != nil {
+		t.Fatalf("seed preferences: %v", err)
+	}
+
+	ctx := context.WithValue(context.Background(), userIDContextKey, "user-1")
+	assertBaseOnlyTestSelection(t, adm.Theme(ctx), manifest)
+}
+
+func TestBaseOnlyManifestClearsRequestPreviewVariant(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithAdminTheme(baseOnlyTestSelector{manifest: manifest})
+	adm.WithThemeManifest(manifest)
+
+	mockCtx := router.NewMockContext()
+	mockCtx.QueriesM["theme"] = "missing"
+	mockCtx.QueriesM["variant"] = "stale"
+	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
+
+	adminCtx := adm.adminContextFromRequest(mockCtx, "en")
+	assertBaseOnlyTestSelection(t, adminCtx.Theme, manifest)
+	mockCtx.AssertExpectations(t)
+}
+
+func TestBaseOnlyManifestFallsBackOnProviderFailure(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	tests := []struct {
+		name     string
+		provider ThemeProvider
+	}{
+		{
+			name:     "no provider",
+			provider: nil,
+		},
+		{
+			name: "error",
+			provider: func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+				return nil, errors.New("provider unavailable")
+			},
+		},
+		{
+			name: "nil selection",
+			provider: func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+				return nil, nil
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+			adm.WithThemeProvider(test.provider)
+			adm.WithThemeManifest(manifest)
+
+			assertBaseOnlyTestSelection(t, adm.Theme(context.Background()), manifest)
+		})
+	}
+}
+
+func TestManifestReconciliationRetainsSupportedVariant(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	manifest.Variants = map[string]theme.Variant{
+		"dark": {Tokens: map[string]string{"primary": "#000000"}},
+	}
+	adm := mustNewAdmin(t, Config{Theme: "brand", ThemeVariant: "dark"}, Dependencies{})
+	adm.WithAdminTheme(baseOnlyTestSelector{
+		manifest:        manifest,
+		resolvedVariant: "dark",
+	})
+	adm.WithThemeManifest(manifest)
+
+	selected := adm.Theme(context.Background())
+	if selected.Name != "brand" || selected.Variant != "dark" || selected.ChartTheme != "dark" {
+		t.Fatalf("supported selection = %q/%q chart=%q", selected.Name, selected.Variant, selected.ChartTheme)
+	}
+	if selected.Tokens["primary"] != "#000000" {
+		t.Fatalf("supported variant tokens = %#v", selected.Tokens)
+	}
+}
+
+func TestManifestReconciliationClearsUnsupportedProviderVariant(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithThemeManifest(manifest)
+	adm.WithThemeProvider(func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+		return &ThemeSelection{
+			Name:       "brand",
+			Variant:    "stale",
+			ChartTheme: "stale",
+		}, nil
+	})
+
+	selected := adm.Theme(context.Background())
+	if selected.Name != "brand" || selected.Variant != "" || selected.ChartTheme != "" {
+		t.Fatalf("unsupported provider selection was retained: %+v", selected)
+	}
+}
+
+func TestManifestReconciliationDoesNotRejectDifferentResolvedTheme(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithThemeManifest(manifest)
+	adm.WithThemeProvider(func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+		return &ThemeSelection{
+			Name:            "alternate",
+			Variant:         "blue",
+			VariantResolved: true,
+			ChartTheme:      "blue",
+		}, nil
+	})
+
+	selected := adm.Theme(context.Background())
+	if selected.Name != "alternate" || selected.Variant != "blue" || selected.ChartTheme != "blue" {
+		t.Fatalf("different theme selection was reconciled against attached manifest: %+v", selected)
+	}
+}
+
+func TestDashboardThemeProviderUsesBaseOnlyManifestFallback(t *testing.T) {
+	manifest := baseOnlyTestManifest("brand")
+	adm := mustNewAdmin(t, Config{Theme: "brand"}, Dependencies{})
+	adm.WithThemeManifest(manifest)
+	adm.WithThemeProvider(func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+		return nil, errors.New("provider unavailable")
+	})
+
+	selected, err := adm.dashboardThemeProvider().SelectTheme(
+		context.Background(),
+		dashcmp.ThemeSelector{Name: "brand", Variant: "stale"},
+	)
+	if err != nil {
+		t.Fatalf("dashboard theme fallback: %v", err)
+	}
+	if selected == nil {
+		t.Fatal("dashboard theme fallback returned nil")
+	}
+	if selected.Name != "brand" || selected.Variant != "" || selected.ChartTheme != "" {
+		t.Fatalf("dashboard fallback = %q/%q chart=%q", selected.Name, selected.Variant, selected.ChartTheme)
+	}
+	if selected.Tokens["primary"] != manifest.Tokens["primary"] {
+		t.Fatalf("dashboard fallback tokens = %#v", selected.Tokens)
+	}
+}
+
+type baseOnlyTestSelector struct {
+	manifest        *theme.Manifest
+	resolvedVariant string
+}
+
+func (s baseOnlyTestSelector) Select(
+	_ string,
+	_ string,
+	_ ...theme.QueryOption,
+) (*theme.Selection, error) {
+	return &theme.Selection{
+		Theme:    s.manifest.Name,
+		Variant:  s.resolvedVariant,
+		Manifest: s.manifest,
+	}, nil
+}
+
+func baseOnlyTestManifest(name string) *theme.Manifest {
+	return &theme.Manifest{
+		Name:    name,
+		Version: "1.0.0",
+		Tokens: map[string]string{
+			"primary": "#123456",
+		},
+		Assets: theme.Assets{
+			Prefix: "/themes/" + name,
+			Files:  map[string]string{"logo": "logo.svg"},
+		},
+	}
+}
+
+func assertBaseOnlyTestSelection(t *testing.T, selected *ThemeSelection, manifest *theme.Manifest) {
+	t.Helper()
+	if selected.Name != manifest.Name || selected.Variant != "" || selected.ChartTheme != "" {
+		t.Fatalf(
+			"base selection = %q/%q chart=%q, want %q/base",
+			selected.Name,
+			selected.Variant,
+			selected.ChartTheme,
+			manifest.Name,
+		)
+	}
+	if selected.Tokens["theme"] != manifest.Name ||
+		selected.Tokens["primary"] != manifest.Tokens["primary"] {
+		t.Fatalf("base selection tokens = %#v", selected.Tokens)
+	}
+	if selected.Assets["logo"] != "/themes/"+manifest.Name+"/logo.svg" {
+		t.Fatalf("base selection assets = %#v", selected.Assets)
 	}
 }
 

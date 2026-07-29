@@ -29,6 +29,32 @@ func TestResolveRequestEnvironmentPrefersRequestAndFallsBack(t *testing.T) {
 	}
 }
 
+func TestResolveSiteThemeProviderSelectionHonorsAuthoritativeEmptyVariant(t *testing.T) {
+	request := SiteThemeRequest{
+		Configured: SiteThemeSelector{Name: "site", Variant: "default"},
+		Selector:   SiteThemeSelector{Name: "site", Variant: "stale"},
+	}
+	provider := SiteThemeProvider(func(context.Context, SiteThemeRequest) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{
+			Name:            "site",
+			Variant:         "",
+			VariantResolved: true,
+			Tokens:          map[string]string{"primary": "#123456"},
+		}, nil
+	})
+
+	payload, resolved := resolveSiteThemeProviderSelection(context.Background(), provider, request)
+	if resolved.Name != "site" || resolved.Variant != "" {
+		t.Fatalf("resolved site theme = %q/%q, want site/base", resolved.Name, resolved.Variant)
+	}
+	if payload["selection"]["variant"] != "" {
+		t.Fatalf("site payload retained stale variant: %#v", payload)
+	}
+	if payload["tokens"]["primary"] != "#123456" {
+		t.Fatalf("site payload lost provider tokens: %#v", payload)
+	}
+}
+
 func TestResolveRequestContentChannelPrefersRequestSourcesAndFallback(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.QueriesM[admin.ContentChannelScopeQueryParam] = " preview "
