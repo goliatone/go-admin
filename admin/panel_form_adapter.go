@@ -96,6 +96,16 @@ func (t *ThemeSelection) formThemeConfig() *formrender.ThemeConfig {
 	}
 }
 
+// FormTheme resolves the request-scoped admin theme and projects it into the
+// typed go-formgen contract. Callers receive defensive map copies and may
+// safely customize the returned config for one render.
+func (a *Admin) FormTheme(ctx context.Context) *formrender.ThemeConfig {
+	if a == nil {
+		return nil
+	}
+	return a.resolveTheme(ctx).formThemeConfig()
+}
+
 func cloneThemeStringMap(values map[string]string) map[string]string {
 	if len(values) == 0 {
 		return nil
