@@ -10,6 +10,40 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
+// SidebarCollapsePlacement controls where the desktop collapse action renders.
+// The empty value normalizes to the legacy header placement.
+type SidebarCollapsePlacement string
+
+const (
+	SidebarCollapsePlacementHeader SidebarCollapsePlacement = "header"
+	SidebarCollapsePlacementFooter SidebarCollapsePlacement = "footer"
+)
+
+// DefaultModuleID identifies a module registered automatically by Admin.
+type DefaultModuleID string
+
+const (
+	DefaultModuleActivity      DefaultModuleID = "activity"
+	DefaultModuleFeatureFlags  DefaultModuleID = "feature_flags"
+	DefaultModuleMedia         DefaultModuleID = "media"
+	DefaultModuleOrganizations DefaultModuleID = "organizations"
+	DefaultModulePreferences   DefaultModuleID = "preferences"
+	DefaultModuleProfile       DefaultModuleID = "profile"
+	DefaultModuleTenants       DefaultModuleID = "tenants"
+	DefaultModuleUsers         DefaultModuleID = "users"
+)
+
+// NormalizeSidebarCollapsePlacement returns a supported sidebar collapse
+// placement while preserving the legacy header behavior for empty/unknown input.
+func NormalizeSidebarCollapsePlacement(value SidebarCollapsePlacement) SidebarCollapsePlacement {
+	switch SidebarCollapsePlacement(strings.ToLower(strings.TrimSpace(string(value)))) {
+	case SidebarCollapsePlacementFooter:
+		return SidebarCollapsePlacementFooter
+	default:
+		return SidebarCollapsePlacementHeader
+	}
+}
+
 // Config holds core admin settings and feature flags.
 type Config struct {
 	Title               string            `json:"title"`
@@ -45,6 +79,22 @@ type Config struct {
 	// It defaults to false so existing consumers keep the search field; set it
 	// when the approved navigation design has no search affordance.
 	SidebarHideSearch bool `json:"sidebar_hide_search,omitempty"`
+	// SidebarCollapsePlacement moves the existing desktop collapse action
+	// without changing its interaction contract. Empty defaults to "header".
+	SidebarCollapsePlacement SidebarCollapsePlacement `json:"sidebar_collapse_placement,omitempty"`
+	// SidebarUseInitialsAvatar keeps an empty avatar URL so the shared template
+	// renders the identity initials fallback instead of the packaged image.
+	SidebarUseInitialsAvatar bool `json:"sidebar_use_initials_avatar,omitempty"`
+	// SidebarHidePresence suppresses the optional online/presence indicator.
+	SidebarHidePresence bool `json:"sidebar_hide_presence,omitempty"`
+	// SidebarHideUserMenuIndicator suppresses the optional disclosure arrow.
+	SidebarHideUserMenuIndicator bool `json:"sidebar_hide_user_menu_indicator,omitempty"`
+	// SidebarCompactFooter enables the compact shared utility/identity layout.
+	SidebarCompactFooter bool `json:"sidebar_compact_footer,omitempty"`
+	// DisabledDefaultModules lets hosts omit built-in product surfaces that are
+	// outside their approved application composition. Empty preserves all
+	// legacy default-module behavior.
+	DisabledDefaultModules []DefaultModuleID `json:"disabled_default_modules,omitempty"`
 
 	// ExternalAssets overrides the packaged third-party stylesheets and scripts
 	// the admin document loads. Empty fields use the pinned copies embedded in

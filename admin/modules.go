@@ -47,17 +47,30 @@ type defaultModuleRegistration struct {
 
 func (a *Admin) defaultModules() []defaultModuleRegistration {
 	return []defaultModuleRegistration{
-		{id: usersModuleID, enabled: featureEnabled(a.featureGate, FeatureUsers), build: func() Module { return NewUserManagementModule() }},
-		{id: preferencesModuleID, enabled: featureEnabled(a.featureGate, FeaturePreferences), build: func() Module { return NewPreferencesModule() }},
-		{id: featureFlagsModuleID, enabled: true, build: func() Module { return NewFeatureFlagsModule() }},
-		{id: profileModuleID, enabled: featureEnabled(a.featureGate, FeatureProfile), build: func() Module { return NewProfileModule() }},
-		{id: tenantsModuleID, enabled: featureEnabled(a.featureGate, FeatureTenants), build: func() Module { return NewTenantsModule() }},
-		{id: organizationsModuleID, enabled: featureEnabled(a.featureGate, FeatureOrganizations), build: func() Module { return NewOrganizationsModule() }},
-		{id: mediaModuleID, enabled: featureEnabled(a.featureGate, FeatureMedia), build: func() Module {
+		{id: usersModuleID, enabled: a.defaultModuleEnabled(usersModuleID) && featureEnabled(a.featureGate, FeatureUsers), build: func() Module { return NewUserManagementModule() }},
+		{id: preferencesModuleID, enabled: a.defaultModuleEnabled(preferencesModuleID) && featureEnabled(a.featureGate, FeaturePreferences), build: func() Module { return NewPreferencesModule() }},
+		{id: featureFlagsModuleID, enabled: a.defaultModuleEnabled(featureFlagsModuleID), build: func() Module { return NewFeatureFlagsModule() }},
+		{id: profileModuleID, enabled: a.defaultModuleEnabled(profileModuleID) && featureEnabled(a.featureGate, FeatureProfile), build: func() Module { return NewProfileModule() }},
+		{id: tenantsModuleID, enabled: a.defaultModuleEnabled(tenantsModuleID) && featureEnabled(a.featureGate, FeatureTenants), build: func() Module { return NewTenantsModule() }},
+		{id: organizationsModuleID, enabled: a.defaultModuleEnabled(organizationsModuleID) && featureEnabled(a.featureGate, FeatureOrganizations), build: func() Module { return NewOrganizationsModule() }},
+		{id: mediaModuleID, enabled: a.defaultModuleEnabled(mediaModuleID) && featureEnabled(a.featureGate, FeatureMedia), build: func() Module {
 			return NewMediaModule().WithDeliveryConfig(a.config.MediaDelivery)
 		}},
-		{id: activityModuleID, enabled: true, build: func() Module { return NewActivityModule() }},
+		{id: activityModuleID, enabled: a.defaultModuleEnabled(activityModuleID), build: func() Module { return NewActivityModule() }},
 	}
+}
+
+func (a *Admin) defaultModuleEnabled(id string) bool {
+	if a == nil {
+		return false
+	}
+	id = strings.ToLower(strings.TrimSpace(id))
+	for _, disabled := range a.config.DisabledDefaultModules {
+		if strings.ToLower(strings.TrimSpace(string(disabled))) == id {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *Admin) registerDefaultModule(id string, build func() Module) error {

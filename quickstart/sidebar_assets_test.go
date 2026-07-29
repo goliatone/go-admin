@@ -68,8 +68,14 @@ func TestSidebarTemplateDeclaresDisclosureARIA(t *testing.T) {
 		`aria-controls="sidebar"`,
 		`aria-expanded="false"`,
 		`data-mobile-open="false"`,
+		`data-collapse-placement=`,
+		`data-compact-footer=`,
 		`aria-label="Admin navigation"`,
 		`id="sidebar-navigation"`,
+		`sidebar-collapse-action`,
+		`sidebar-user-avatar`,
+		`sidebar_hide_presence`,
+		`sidebar_hide_user_menu_indicator`,
 	} {
 		if !strings.Contains(template, required) {
 			t.Fatalf("sidebar template missing %q", required)

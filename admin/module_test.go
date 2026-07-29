@@ -24,6 +24,26 @@ func TestRegisterModuleRejectsDuplicates(t *testing.T) {
 	}
 }
 
+func TestDisabledDefaultModulesAreNotRegistered(t *testing.T) {
+	adm, err := New(Config{
+		DisabledDefaultModules: []DefaultModuleID{
+			DefaultModuleActivity,
+			DefaultModuleFeatureFlags,
+		},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := adm.registerDefaultModules(); err != nil {
+		t.Fatalf("registerDefaultModules: %v", err)
+	}
+	for _, id := range []string{activityModuleID, featureFlagsModuleID} {
+		if _, exists := adm.registry.Module(id); exists {
+			t.Errorf("disabled default module %q was registered", id)
+		}
+	}
+}
+
 func TestLoadModulesRunsInOrderOnce(t *testing.T) {
 	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	seq := []string{}

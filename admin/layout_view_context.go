@@ -59,10 +59,17 @@ func applyAdminLayoutNavigationDefaults(adm *Admin, c router.Context, view route
 		view["nav_utility_items"] = debugViewUtilityNavItems(adm, c, basePath)
 	}
 	if _, ok := view["session_user"]; !ok {
-		view["session_user"] = debugViewSessionUser(c, basePath)
+		sessionUser := debugViewSessionUser(c, basePath)
+		if adm != nil && adm.config.SidebarUseInitialsAvatar {
+			sessionUser["avatar_url"] = ""
+		}
+		view["session_user"] = sessionUser
 	}
 	if _, ok := view["sidebar_hide_search"]; !ok && adm != nil {
 		view["sidebar_hide_search"] = adm.config.SidebarHideSearch
+	}
+	if adm != nil {
+		applyAdminSidebarCompositionDefaults(view, adm.config)
 	}
 	if _, ok := view["external_assets"]; !ok && adm != nil {
 		resolved := adm.config.ExternalAssets.Resolve()
@@ -71,6 +78,21 @@ func applyAdminLayoutNavigationDefaults(adm *Admin, c router.Context, view route
 			"datatables_css": resolved.DataTablesCSS,
 			"echarts_js":     resolved.EChartsJS,
 		}
+	}
+}
+
+func applyAdminSidebarCompositionDefaults(view router.ViewContext, cfg Config) {
+	if _, ok := view["sidebar_collapse_placement"]; !ok {
+		view["sidebar_collapse_placement"] = string(NormalizeSidebarCollapsePlacement(cfg.SidebarCollapsePlacement))
+	}
+	if _, ok := view["sidebar_compact_footer"]; !ok {
+		view["sidebar_compact_footer"] = cfg.SidebarCompactFooter
+	}
+	if _, ok := view["sidebar_hide_presence"]; !ok {
+		view["sidebar_hide_presence"] = cfg.SidebarHidePresence
+	}
+	if _, ok := view["sidebar_hide_user_menu_indicator"]; !ok {
+		view["sidebar_hide_user_menu_indicator"] = cfg.SidebarHideUserMenuIndicator
 	}
 }
 

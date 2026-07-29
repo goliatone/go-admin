@@ -81,8 +81,13 @@ func TestBuildNavItemsOrdering(t *testing.T) {
 
 func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	cfg := admin.Config{
-		DefaultLocale:     "en",
-		SidebarHideSearch: true,
+		DefaultLocale:                "en",
+		SidebarHideSearch:            true,
+		SidebarCollapsePlacement:     admin.SidebarCollapsePlacementFooter,
+		SidebarUseInitialsAvatar:     true,
+		SidebarHidePresence:          true,
+		SidebarHideUserMenuIndicator: true,
+		SidebarCompactFooter:         true,
 		ExternalAssets: admin.ExternalAssetConfig{
 			IconoirCSS: "https://assets.example/iconoir.css",
 		},
@@ -111,6 +116,22 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	}
 	if hide, ok := view["sidebar_hide_search"].(bool); !ok || !hide {
 		t.Fatalf("expected sidebar_hide_search=true, got %#v", view["sidebar_hide_search"])
+	}
+	if got := view["sidebar_collapse_placement"]; got != "footer" {
+		t.Fatalf("expected footer collapse placement, got %#v", got)
+	}
+	for _, key := range []string{
+		"sidebar_compact_footer",
+		"sidebar_hide_presence",
+		"sidebar_hide_user_menu_indicator",
+	} {
+		if enabled, ok := view[key].(bool); !ok || !enabled {
+			t.Fatalf("expected %s=true, got %#v", key, view[key])
+		}
+	}
+	sessionUser, ok := view["session_user"].(map[string]any)
+	if !ok || sessionUser["avatar_url"] != "" {
+		t.Fatalf("expected initials avatar session projection, got %#v", view["session_user"])
 	}
 	externalAssets, ok := view["external_assets"].(map[string]string)
 	if !ok || externalAssets["iconoir_css"] != "https://assets.example/iconoir.css" {
@@ -146,8 +167,12 @@ func TestWithNavPreservesExplicitShellOverrides(t *testing.T) {
 	}
 	explicitAssets := map[string]string{"iconoir_css": "/host/iconoir.css"}
 	view := WithNav(router.ViewContext{
-		"sidebar_hide_search": false,
-		"external_assets":     explicitAssets,
+		"sidebar_hide_search":              false,
+		"sidebar_collapse_placement":       "header",
+		"sidebar_compact_footer":           false,
+		"sidebar_hide_presence":            false,
+		"sidebar_hide_user_menu_indicator": false,
+		"external_assets":                  explicitAssets,
 	}, adm, cfg, "", context.Background())
 
 	if hide, ok := view["sidebar_hide_search"].(bool); !ok || hide {
@@ -155,6 +180,9 @@ func TestWithNavPreservesExplicitShellOverrides(t *testing.T) {
 	}
 	if assets, ok := view["external_assets"].(map[string]string); !ok || assets["iconoir_css"] != "/host/iconoir.css" {
 		t.Fatalf("expected explicit external_assets to be preserved, got %#v", view["external_assets"])
+	}
+	if placement := view["sidebar_collapse_placement"]; placement != "header" {
+		t.Fatalf("expected explicit sidebar collapse placement to be preserved, got %#v", placement)
 	}
 }
 

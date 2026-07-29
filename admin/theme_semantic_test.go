@@ -173,6 +173,7 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 			"admin.sidebar.padding-block":  "8px",
 			"space.surface":                "16px",
 			"admin.sidebar.item-height":    "40px",
+			"admin.sidebar.item-radius":    "5px",
 			"size.control.height":          "36px",
 			"form.control.radius":          "6px",
 			"radius.control":               "4px",
@@ -194,6 +195,7 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 		"admin.sidebar.padding-inline",
 		"admin.sidebar.padding-block",
 		"admin.sidebar.item-height",
+		"admin.sidebar.item-radius",
 		"form.control.radius",
 	} {
 		if got := statuses[token]; got.Status != "consumed" {

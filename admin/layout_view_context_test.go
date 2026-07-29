@@ -61,10 +61,15 @@ func TestBuildAdminLayoutViewContextIncludesUtilityNavItems(t *testing.T) {
 
 func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 	cfg := Config{
-		BasePath:          "/admin",
-		DefaultLocale:     "en",
-		NavMenuCode:       "admin.main",
-		SidebarHideSearch: true,
+		BasePath:                     "/admin",
+		DefaultLocale:                "en",
+		NavMenuCode:                  "admin.main",
+		SidebarHideSearch:            true,
+		SidebarCollapsePlacement:     SidebarCollapsePlacementFooter,
+		SidebarUseInitialsAvatar:     true,
+		SidebarHidePresence:          true,
+		SidebarHideUserMenuIndicator: true,
+		SidebarCompactFooter:         true,
 		ExternalAssets: ExternalAssetConfig{
 			IconoirCSS:    " https://assets.example/iconoir.css ",
 			DataTablesCSS: " https://assets.example/datatables.css ",
@@ -77,6 +82,22 @@ func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 	if hide, ok := view["sidebar_hide_search"].(bool); !ok || !hide {
 		t.Fatalf("expected sidebar_hide_search=true, got %#v", view["sidebar_hide_search"])
 	}
+	if got := view["sidebar_collapse_placement"]; got != "footer" {
+		t.Fatalf("expected footer collapse placement, got %#v", got)
+	}
+	for _, key := range []string{
+		"sidebar_compact_footer",
+		"sidebar_hide_presence",
+		"sidebar_hide_user_menu_indicator",
+	} {
+		if enabled, ok := view[key].(bool); !ok || !enabled {
+			t.Fatalf("expected %s=true, got %#v", key, view[key])
+		}
+	}
+	sessionUser, ok := view["session_user"].(map[string]any)
+	if !ok || sessionUser["avatar_url"] != "" {
+		t.Fatalf("expected initials avatar session projection, got %#v", view["session_user"])
+	}
 	externalAssets, ok := view["external_assets"].(map[string]string)
 	if !ok {
 		t.Fatalf("expected external_assets map, got %T", view["external_assets"])
@@ -85,5 +106,16 @@ func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 		externalAssets["datatables_css"] != "https://assets.example/datatables.css" ||
 		externalAssets["echarts_js"] != "https://assets.example/echarts.js" {
 		t.Fatalf("unexpected external assets: %+v", externalAssets)
+	}
+}
+
+func TestNormalizeSidebarCollapsePlacementPreservesLegacyHeaderDefault(t *testing.T) {
+	for _, input := range []SidebarCollapsePlacement{"", "unknown", " HEADER "} {
+		if got := NormalizeSidebarCollapsePlacement(input); got != SidebarCollapsePlacementHeader {
+			t.Fatalf("NormalizeSidebarCollapsePlacement(%q) = %q", input, got)
+		}
+	}
+	if got := NormalizeSidebarCollapsePlacement(" FOOTER "); got != SidebarCollapsePlacementFooter {
+		t.Fatalf("footer placement = %q", got)
 	}
 }
