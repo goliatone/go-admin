@@ -44,10 +44,15 @@ func (a *Admin) PanelAPIAvailable(panelName string) bool {
 func (a *Admin) PreferencesAPIAvailable() bool {
 	if a == nil ||
 		a.preferences == nil ||
+		a.registry == nil ||
 		!featureEnabled(a.featureGate, FeaturePreferences) {
 		return false
 	}
-	return a.PanelAPIAvailable(preferencesModuleID)
+	if !a.PanelAPIAvailable(preferencesModuleID) {
+		return false
+	}
+	panel, available := a.registry.Panel(preferencesModuleID)
+	return available && panel != nil
 }
 
 // PreferencesAPICapabilities describes route and request authorization for the
@@ -67,18 +72,12 @@ func (a *Admin) PreferencesAPICapabilities(ctx context.Context) PreferencesAPICa
 	if !capabilities.Available {
 		return capabilities
 	}
-	capabilities.Readable = permissionAllowed(
-		a.authorizer,
-		ctx,
-		a.config.PreferencesPermission,
-		preferencesModuleID,
-	)
-	capabilities.Writable = capabilities.Readable && permissionAllowed(
-		a.authorizer,
-		ctx,
-		a.config.PreferencesUpdatePermission,
-		preferencesModuleID,
-	)
+	panel, available := a.registry.Panel(preferencesModuleID)
+	if !available || panel == nil {
+		capabilities.Available = false
+		return capabilities
+	}
+	capabilities.Readable, capabilities.Writable = panel.apiRequestCapabilities(ctx)
 	return capabilities
 }
 
