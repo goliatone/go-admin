@@ -7,14 +7,14 @@
   {% if theme and theme.assets and theme.assets.favicon %}<link rel="icon" href="{{ theme.assets.favicon }}">{% endif %}
   {{ csrf_meta|safe }}
   <script src="{{ asset_base_path }}/assets/dist/runtime/go-admin-browser.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <link rel="stylesheet" href="{{ external_assets.iconoir_css|default:"https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css" }}">
   <link rel="stylesheet" href="{{ adminURL("formgen/formgen-vanilla.css") }}">
   {% block before_app_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/output.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.min.css">
+  <link rel="stylesheet" href="{{ external_assets.datatables_css|default:"https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.min.css" }}">
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/styles/datatable-actions.css">
   <!-- Pre-load ECharts for dashboard charts -->
-  <script src="https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"></script>
+  <script src="{{ external_assets.echarts_js|default:"https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js" }}"></script>
   {% if theme and theme.styles and theme.styles.root %}
   <style>
     :root { {{ theme.styles.root|safe }} }

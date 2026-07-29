@@ -133,11 +133,26 @@
     border-color: var(--admin-header-border, var(--color-border-default, #e5e7eb));
   }
 
+  /* Only applies when a theme supplies the token; the intrinsic height of the
+     header content remains the floor otherwise. */
+  .admin-page-header.admin-page-header {
+    min-height: var(--admin-header-height, auto);
+  }
+
   .admin-page-header h1,
   .admin-page-header h2 {
     color: var(--color-text-primary, #111827);
     font-family: var(--font-family-heading, var(--font-family-body, ui-sans-serif, system-ui, sans-serif));
-    font-weight: var(--font-weight-emphasis, 700);
+    font-weight: var(--font-weight-heading, var(--font-weight-emphasis, 700));
+  }
+
+  /* The page title is the one heading whose full metric group is themeable.
+     Fallbacks restate the current `text-2xl` default so an unthemed admin
+     renders unchanged. Sibling h2 headings keep their utility sizing. */
+  .admin-page-header h1 {
+    font-size: var(--font-size-heading, 1.5rem);
+    line-height: var(--line-height-heading, 2rem);
+    letter-spacing: var(--letter-spacing-heading, normal);
   }
 
   .admin-page-header p {
@@ -373,6 +388,68 @@
   /* Keyboard shortcut styles */
   kbd {
     @apply text-[11px] px-1.5 py-0.5 rounded bg-sidebar-bg-hover text-sidebar-text-dimmed font-mono border border-sidebar-border;
+  }
+
+  /* Sidebar chrome semantic consumers.
+     The compiled utility palette above is the dark default. Each rule below
+     restates that default as the var() fallback, so an absent theme renders
+     exactly as before while any theme drives the whole sidebar surface from
+     the semantic contract instead of selector-by-selector host overrides. */
+  .sidebar {
+    border-right: 1px solid
+      var(--admin-sidebar-border, var(--color-border-default, transparent));
+  }
+
+  .sidebar-search-container input[type="text"] {
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, #2c2c2e));
+    border-color: var(--admin-sidebar-border, var(--color-border-default, #38383a));
+    color: var(--admin-sidebar-text, var(--color-text-primary, #f4f4f5));
+  }
+
+  .sidebar-search-container input[type="text"]::placeholder {
+    color: var(--color-text-secondary, #98989d);
+  }
+
+  .sidebar-search-container input[type="text"]:focus {
+    border-color: var(--color-focus-ring, var(--color-text-secondary, #98989d));
+  }
+
+  .sidebar kbd {
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, #2c2c2e));
+    border-color: var(--admin-sidebar-border, var(--color-border-default, #38383a));
+    color: var(--color-text-secondary, #636366);
+  }
+
+  .sidebar .badge-count {
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, #2c2c2e));
+    color: var(--color-text-secondary, #636366);
+  }
+
+  .sidebar-toggle-btn:hover,
+  .sidebar #user-menu-toggle:hover,
+  .sidebar .sidebar-menu-action:hover {
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, #2c2c2e));
+  }
+
+  .sidebar #user-menu {
+    background-color: var(--admin-sidebar-background, var(--color-surface-default, #1c1c1e));
+    border-color: var(--admin-sidebar-border, var(--color-border-default, #38383a));
+  }
+
+  .sidebar #user-menu :is(a, button):hover {
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, #2c2c2e));
+  }
+
+  /* Brand-neutral identity chip. Colors come from the theme rather than a
+     hardcoded blue so a themed sidebar does not ship an unrelated accent. */
+  .sidebar-avatar {
+    background-color: var(--admin-sidebar-item-hover, var(--color-surface-subtle, rgb(59 130 246 / 0.2)));
+    color: var(--admin-sidebar-text, var(--color-text-primary, #60a5fa));
+  }
+
+  .sidebar-presence-dot {
+    background-color: var(--color-status-success, #22c55e);
+    border-color: var(--admin-sidebar-background, var(--color-surface-default, #1c1c1e));
   }
 
   /* Sidebar brand contract */
