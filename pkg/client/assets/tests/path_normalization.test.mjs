@@ -51,15 +51,14 @@ test('shared path normalization preserves translation-family and translation-mat
   assert.equal(deriveBasePathFromAPIEndpoint(''), '');
 });
 
-test('datatable and content-type-builder callers now route through shared/path-normalization', () => {
+test('datatable preferences require an advertised endpoint while content-type-builder normalizes paths', () => {
   const columnVisibilitySource = read(columnVisibilitySourcePath);
   const apiPathsSource = read(apiPathsSourcePath);
 
-  assert.match(columnVisibilitySource, /from '\.\.\/\.\.\/shared\/path-normalization\.js'/);
-  assert.match(columnVisibilitySource, /normalizeBasePath/);
-  assert.match(columnVisibilitySource, /normalizeAPIBasePath/);
-  assert.doesNotMatch(columnVisibilitySource, /function normalizeBasePath\(/);
-  assert.doesNotMatch(columnVisibilitySource, /function normalizeApiBasePath\(/);
+  assert.match(columnVisibilitySource, /preferencesEndpoint: string/);
+  assert.match(columnVisibilitySource, /requires an advertised preferences endpoint/);
+  assert.doesNotMatch(columnVisibilitySource, /shared\/path-normalization/);
+  assert.doesNotMatch(columnVisibilitySource, /api\/panels\/preferences/);
 
   assert.match(apiPathsSource, /from '\.\.\/\.\.\/shared\/path-normalization\.js'/);
   assert.match(apiPathsSource, /normalizeSharedAPIBasePath/);

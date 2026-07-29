@@ -329,7 +329,7 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior } from '{{ adminURL("assets/dist/datatable/index.js") }}';
 
 // Template variables
 const basePath = '{{ base_path }}';
@@ -352,14 +352,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     return;
   }
 
-  // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
-  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
-  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
-    resource: 'user-profiles',
-    localStorageKey: 'user_profiles_datatable_columns',
-    preferencesEndpoint: preferencesEndpoint
-  });
-  await columnVisibility.loadFromServer();
+  const preferencesEndpoint = preferencesAPIPath;
+  const columnStorageKey = 'user_profiles_datatable_columns';
+  let columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, columnStorageKey);
+  if (preferencesEndpoint) {
+    columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+      resource: 'user-profiles',
+      localStorageKey: columnStorageKey,
+      preferencesEndpoint: preferencesEndpoint
+    });
+    await columnVisibility.loadFromServer();
+  }
 
   // Initialize the DataGrid component
   const grid = new DataGrid({

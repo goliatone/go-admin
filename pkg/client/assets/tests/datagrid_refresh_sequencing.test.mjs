@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { DataGrid, ServerColumnVisibilityBehavior, createDataGridStateStore } = await import('../dist/datatable/index.js');
+const {
+  DataGrid,
+  LocalDataGridStateStore,
+  ServerColumnVisibilityBehavior,
+  createDataGridStateStore,
+} = await import('../dist/datatable/index.js');
 
 function createLocalStorage(initial = {}) {
   const store = new Map(Object.entries(initial));
@@ -329,6 +334,38 @@ test('server column visibility hydration times out instead of blocking grid cons
 
     assert.equal(result, null);
     assert.equal(aborted, true);
+  } finally {
+    cleanup();
+  }
+});
+
+test('preferences persistence stays local and performs no request without an advertised endpoint', async () => {
+  const { cleanup } = installTestGlobals();
+  let requestCount = 0;
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    throw new Error('unexpected preferences request');
+  };
+
+  try {
+    const stateStore = createDataGridStateStore({
+      key: 'pages',
+      mode: 'preferences',
+      resource: 'pages',
+    });
+
+    assert.ok(stateStore instanceof LocalDataGridStateStore);
+    assert.equal(typeof stateStore.hydrate, 'undefined');
+    assert.equal(requestCount, 0);
+
+    assert.throws(
+      () => new ServerColumnVisibilityBehavior(['title'], {
+        resource: 'pages',
+        preferencesEndpoint: '',
+      }),
+      /requires an advertised preferences endpoint/,
+    );
+    assert.equal(requestCount, 0);
   } finally {
     cleanup();
   }

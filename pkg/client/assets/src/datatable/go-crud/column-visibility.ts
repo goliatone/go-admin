@@ -1,6 +1,5 @@
 import type { ColumnVisibilityBehavior } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
-import { normalizeAPIBasePath, normalizeBasePath } from '../../shared/path-normalization.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
 
 /**
@@ -248,12 +247,8 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
 export interface ServerColumnVisibilityConfig {
   /** Resource name for the preference key (e.g., 'users' -> 'ui.datagrid.users.columns') */
   resource: string;
-  /** Base path for the preferences API (used when preferencesEndpoint is omitted) */
-  basePath?: string;
-  /** Full API base path (preferred when using versioned admin APIs) */
-  apiBasePath?: string;
-  /** Full preferences collection endpoint (defaults to '/api/panels/preferences') */
-  preferencesEndpoint?: string;
+  /** Full preferences collection endpoint advertised by the server */
+  preferencesEndpoint: string;
   /** localStorage key for local cache (default: '<resource>_datatable_columns') */
   localStorageKey?: string;
   /** Debounce delay in ms for server sync (default: 1000) */
@@ -285,16 +280,9 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
     super(initialColumns, localStorageKey);
 
     this.resource = config.resource;
-    const basePath = normalizeBasePath(config.basePath);
-    const apiBasePath = normalizeAPIBasePath(config.apiBasePath);
-    if (config.preferencesEndpoint) {
-      this.preferencesEndpoint = config.preferencesEndpoint;
-    } else if (apiBasePath) {
-      this.preferencesEndpoint = `${apiBasePath}/panels/preferences`;
-    } else if (basePath) {
-      this.preferencesEndpoint = `${basePath}/api/panels/preferences`;
-    } else {
-      this.preferencesEndpoint = '/api/panels/preferences';
+    this.preferencesEndpoint = String(config.preferencesEndpoint || '').trim().replace(/\/+$/, '');
+    if (!this.preferencesEndpoint) {
+      throw new Error('ServerColumnVisibilityBehavior requires an advertised preferences endpoint');
     }
     this.syncDebounce = config.syncDebounce ?? 1000;
     this.loadTimeoutMs = Math.max(100, config.loadTimeoutMs || DEFAULT_COLUMN_PREFS_LOAD_TIMEOUT_MS);

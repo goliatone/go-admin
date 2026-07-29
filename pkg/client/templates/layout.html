@@ -10,7 +10,7 @@
   {% if external_assets and external_assets.iconoir_css %}
   <link rel="stylesheet" href="{{ external_assets.iconoir_css }}">
   {% else %}
-  <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/vendor/iconoir/iconoir.css">
+  <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/third-party/iconoir/iconoir.css">
   {% endif %}
   <link rel="stylesheet" href="{{ adminURL("formgen/formgen-vanilla.css") }}">
   {% block before_app_styles %}{% endblock %}
@@ -18,14 +18,14 @@
   {% if external_assets and external_assets.datatables_css %}
   <link rel="stylesheet" href="{{ external_assets.datatables_css }}">
   {% else %}
-  <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/vendor/simple-datatables/style.css">
+  <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/third-party/simple-datatables/style.css">
   {% endif %}
   <link rel="stylesheet" href="{{ asset_base_path }}/assets/dist/styles/datatable-actions.css">
   <!-- Pre-load ECharts for dashboard charts -->
   {% if external_assets and external_assets.echarts_js %}
   <script src="{{ external_assets.echarts_js }}"></script>
   {% else %}
-  <script src="{{ asset_base_path }}/assets/dist/vendor/echarts/echarts.min.js"></script>
+  <script src="{{ asset_base_path }}/assets/dist/third-party/echarts/echarts.min.js"></script>
   {% endif %}
   {% if theme and theme.styles and theme.styles.root %}
   <style>

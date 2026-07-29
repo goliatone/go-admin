@@ -535,7 +535,7 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { DataGrid, AdvancedSearch, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior, CommonRenderers } from '{{ adminURL("assets/dist/datatable/index.js") }}';
 import { ImportModal } from '{{ adminURL("assets/dist/components/import-modal.js") }}';
 
 // Template variables
@@ -616,15 +616,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   }
 
-  // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
   const apiRoot = apiBasePath || `${basePath}/api`;
-  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
-  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
-    resource: 'users',
-    localStorageKey: 'users_datatable_columns',
-    preferencesEndpoint: preferencesEndpoint
-  });
-  await columnVisibility.loadFromServer();
+  const preferencesEndpoint = preferencesAPIPath;
+  const columnStorageKey = 'users_datatable_columns';
+  let columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, columnStorageKey);
+  if (preferencesEndpoint) {
+    columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+      resource: 'users',
+      localStorageKey: columnStorageKey,
+      preferencesEndpoint: preferencesEndpoint
+    });
+    await columnVisibility.loadFromServer();
+  }
   const closeBulkOverflowPanel = () => {
     const panel = document.getElementById('bulk-overflow-panel');
     const bar = document.getElementById('bulk-actions-bar');

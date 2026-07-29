@@ -105,13 +105,17 @@ function stageRuntimeAssets() {
   // Package the browser dependencies used directly by the shared document.
   // Keeping these in the normal build makes offline/default rendering
   // deterministic and avoids hidden runtime dependence on public CDNs.
-  copyFile(resolve(root, 'node_modules/iconoir/css/iconoir.css'), resolve(distStagingDir, 'vendor/iconoir/iconoir.css'));
-  copyFile(resolve(root, 'node_modules/iconoir/LICENSE'), resolve(distStagingDir, 'vendor/iconoir/LICENSE'));
-  copyFile(resolve(root, 'node_modules/simple-datatables/dist/style.css'), resolve(distStagingDir, 'vendor/simple-datatables/style.css'));
-  copyFile(resolve(root, 'node_modules/simple-datatables/LICENSE'), resolve(distStagingDir, 'vendor/simple-datatables/LICENSE'));
-  copyFile(resolve(root, 'node_modules/echarts/dist/echarts.min.js'), resolve(distStagingDir, 'vendor/echarts/echarts.min.js'));
-  copyFile(resolve(root, 'node_modules/echarts/LICENSE'), resolve(distStagingDir, 'vendor/echarts/LICENSE'));
-  copyFile(resolve(root, 'node_modules/echarts/NOTICE'), resolve(distStagingDir, 'vendor/echarts/NOTICE'));
+  // "vendor" is reserved by the Go module archive format. Files below a
+  // nested vendor/<package>/ path are removed when a release is downloaded,
+  // even though they are present in the tagged source checkout.
+  const thirdPartyDir = resolve(distStagingDir, 'third-party');
+  copyFile(resolve(root, 'node_modules/iconoir/css/iconoir.css'), resolve(thirdPartyDir, 'iconoir/iconoir.css'));
+  copyFile(resolve(root, 'node_modules/iconoir/LICENSE'), resolve(thirdPartyDir, 'iconoir/LICENSE'));
+  copyFile(resolve(root, 'node_modules/simple-datatables/dist/style.css'), resolve(thirdPartyDir, 'simple-datatables/style.css'));
+  copyFile(resolve(root, 'node_modules/simple-datatables/LICENSE'), resolve(thirdPartyDir, 'simple-datatables/LICENSE'));
+  copyFile(resolve(root, 'node_modules/echarts/dist/echarts.min.js'), resolve(thirdPartyDir, 'echarts/echarts.min.js'));
+  copyFile(resolve(root, 'node_modules/echarts/LICENSE'), resolve(thirdPartyDir, 'echarts/LICENSE'));
+  copyFile(resolve(root, 'node_modules/echarts/NOTICE'), resolve(thirdPartyDir, 'echarts/NOTICE'));
 
   copyFile(resolve(root, 'src/runtime/cms-relationship-actions.js'), resolve(distStagingDir, 'runtime/cms-relationship-actions.js'));
   copyFile(resolve(root, 'src/site/site-runtime.js'), resolve(distStagingDir, 'runtime/site-runtime.js'));

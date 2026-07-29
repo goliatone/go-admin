@@ -126,7 +126,7 @@ function normalizeShareState(value: unknown): DataGridShareState | null {
 
 function normalizePreferencesEndpoint(value?: string): string {
   const trimmed = String(value || '').trim();
-  if (!trimmed) return '/api/panels/preferences';
+  if (!trimmed) return '';
   return trimmed.replace(/\/+$/, '');
 }
 
@@ -271,6 +271,9 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   constructor(config: DataGridStateStoreConfig) {
     super(config);
     this.preferencesEndpoint = normalizePreferencesEndpoint(config.preferencesEndpoint);
+    if (!this.preferencesEndpoint) {
+      throw new Error('PreferencesDataGridStateStore requires an advertised preferences endpoint');
+    }
     this.resource = normalizeResource(config.resource) || this.key;
     this.syncDebounceMs = Math.max(100, config.syncDebounceMs || 1000);
     this.hydrateTimeoutMs = Math.max(100, config.hydrateTimeoutMs || DEFAULT_PREFERENCES_HYDRATE_TIMEOUT_MS);
@@ -410,7 +413,7 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
 
 export function createDataGridStateStore(config: DataGridStateStoreConfig): DataGridStateStore {
   const mode = config.mode || 'local';
-  if (mode === 'preferences') {
+  if (mode === 'preferences' && normalizePreferencesEndpoint(config.preferencesEndpoint)) {
     return new PreferencesDataGridStateStore(config);
   }
   return new LocalDataGridStateStore(config);

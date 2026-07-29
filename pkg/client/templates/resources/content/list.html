@@ -75,6 +75,7 @@ import {
   FilterBuilder,
   GoCrudFilterBehavior,
   GoCrudSortBehavior,
+  DefaultColumnVisibilityBehavior,
   ServerColumnVisibilityBehavior,
   SchemaActionBuilder,
   extractSchemaActions,
@@ -496,13 +497,16 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   tableEl.dataset.datagridInitialized = 'true';
 
-  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
+  const preferencesEndpoint = preferencesAPIPath;
   const stateStoreOptions = resolveObject(dataGridConfig.state_store);
   const urlStateOptions = resolveObject(dataGridConfig.url_state);
-  const stateStoreMode = normalizeStateStoreMode(
+  const requestedStateStoreMode = normalizeStateStoreMode(
     stateStoreOptions.mode || dataGridConfig.state_store_mode,
     'local'
   );
+  const stateStoreMode = requestedStateStoreMode === 'preferences' && !preferencesEndpoint
+    ? 'local'
+    : requestedStateStoreMode;
   const stateStoreConfig = {
     mode: stateStoreMode,
     resource: String(
@@ -541,13 +545,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     )
   };
 
-  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
-    resource: '{{ panel_name }}',
-    localStorageKey: columnStorageKey,
-    preferencesEndpoint: preferencesEndpoint,
-    loadTimeoutMs: stateStoreConfig.hydrateTimeoutMs
-  });
-  await columnVisibility.loadFromServer();
+  let columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, columnStorageKey);
+  if (preferencesEndpoint) {
+    columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+      resource: '{{ panel_name }}',
+      localStorageKey: columnStorageKey,
+      preferencesEndpoint: preferencesEndpoint,
+      loadTimeoutMs: stateStoreConfig.hydrateTimeoutMs
+    });
+    await columnVisibility.loadFromServer();
+  }
 
   // Initialize schema action builder
   schemaActionBuilder = new SchemaActionBuilder({

@@ -39,6 +39,7 @@ import {
   DataGrid,
   FilterBuilder,
   GoCrudFilterBehavior,
+  DefaultColumnVisibilityBehavior,
   ServerColumnVisibilityBehavior,
   SchemaActionBuilder,
   extractSchemaActions
@@ -159,13 +160,17 @@ document.addEventListener('DOMContentLoaded', async function() {
   const tableEl = document.getElementById(datatableId);
   if (!tableEl) return;
 
-  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
-  const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
-    resource: panelName,
-    localStorageKey: `esign_agreements_datatable_columns`,
-    preferencesEndpoint: preferencesEndpoint
-  });
-  await columnVisibility.loadFromServer();
+  const preferencesEndpoint = preferencesAPIPath;
+  const columnStorageKey = `esign_agreements_datatable_columns`;
+  let columnVisibility = new DefaultColumnVisibilityBehavior(columnFields, columnStorageKey);
+  if (preferencesEndpoint) {
+    columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
+      resource: panelName,
+      localStorageKey: columnStorageKey,
+      preferencesEndpoint: preferencesEndpoint
+    });
+    await columnVisibility.loadFromServer();
+  }
 
   schemaActionBuilder = new SchemaActionBuilder({
     apiEndpoint: apiEndpoint,
