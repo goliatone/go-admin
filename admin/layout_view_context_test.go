@@ -61,9 +61,9 @@ func TestBuildAdminLayoutViewContextIncludesUtilityNavItems(t *testing.T) {
 
 func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 	cfg := Config{
-		BasePath:         "/admin",
-		DefaultLocale:    "en",
-		NavMenuCode:      "admin.main",
+		BasePath:          "/admin",
+		DefaultLocale:     "en",
+		NavMenuCode:       "admin.main",
 		SidebarHideSearch: true,
 		ExternalAssets: ExternalAssetConfig{
 			IconoirCSS:    " https://assets.example/iconoir.css ",
