@@ -286,6 +286,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
   private canWrite: boolean;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
   private serverPrefs: ColumnPrefsV2 | null = null;
+  private mutationQueue: Promise<void> = Promise.resolve();
 
   constructor(initialColumns: string[], config: ServerColumnVisibilityConfig) {
     const localStorageKey = config.localStorageKey || `${config.resource}_datatable_columns`;
@@ -446,8 +447,21 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
 
     // Schedule new sync
     this.syncTimeout = setTimeout(() => {
-      this.syncToServer(grid);
+      this.syncTimeout = null;
+      this.enqueueServerMutation(() => this.syncToServer(grid));
     }, this.syncDebounce);
+  }
+
+  private cancelScheduledServerSync(): void {
+    if (!this.syncTimeout) {
+      return;
+    }
+    clearTimeout(this.syncTimeout);
+    this.syncTimeout = null;
+  }
+
+  private enqueueServerMutation(mutation: () => Promise<void>): void {
+    this.mutationQueue = this.mutationQueue.then(mutation, mutation);
   }
 
   /**
@@ -500,6 +514,8 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
    * Called when user clicks "Reset to Default"
    */
   override clearSavedPrefs(): void {
+    this.cancelScheduledServerSync();
+
     // Clear localStorage
     super.clearSavedPrefs();
 
@@ -510,8 +526,8 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       return;
     }
 
-    // Clear server prefs by sending empty/null value
-    this.clearServerPrefs();
+    // Serialize reset behind an in-flight sync so stale state cannot win.
+    this.enqueueServerMutation(() => this.clearServerPrefs());
   }
 
   /**
@@ -527,9 +543,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
           'Accept': 'application/json',
         },
         json: {
-          raw: {
-            [this.serverPrefsKey]: null,
-          },
+          clear_raw_keys: [this.serverPrefsKey],
         },
       });
 
@@ -541,6 +555,10 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       console.log('[ServerColumnVisibility] Server prefs cleared');
     } catch (e) {
       console.warn('[ServerColumnVisibility] Error clearing server prefs:', e);
+    } finally {
+      // An older in-flight sync may have populated the cache before this
+      // serialized clear ran. Keep the local reset authoritative either way.
+      this.serverPrefs = null;
     }
   }
 }

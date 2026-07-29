@@ -179,6 +179,75 @@ func TestPreferencesAPICapabilitiesUseRequestPermissions(t *testing.T) {
 	}
 }
 
+func TestPreferencesAPICapabilitiesUseMountedPanelGuard(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeaturePreferences),
+	})
+	adm.WithAuthorizer(featureGateAccessorAuthorizer{
+		PermAdminPreferencesView: true,
+		PermAdminPreferencesEdit: true,
+	})
+	if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	panel, err := adm.replacePanel(
+		preferencesModuleID,
+		adm.Panel(preferencesModuleID).
+			WithRepository(NewMemoryRepository()).
+			Permissions(PanelPermissions{
+				View:   "custom.preferences.read",
+				Create: "custom.preferences.write",
+			}).
+			WithAuthorizer(featureGateAccessorAuthorizer{
+				"custom.preferences.read": true,
+			}).
+			WithUIRouteMode(PanelUIRouteModeCustom),
+		true,
+	)
+	if err != nil || panel == nil {
+		t.Fatalf("replace preferences panel: %v", err)
+	}
+
+	got := adm.PreferencesAPICapabilities(context.Background())
+	if !got.Available || !got.Readable || got.Writable {
+		t.Fatalf("expected custom panel guard to yield read-only capability, got %+v", got)
+	}
+
+	adm.WithAuthorizer(featureGateAccessorAuthorizer{
+		PermAdminPreferencesView: true,
+		PermAdminPreferencesEdit: true,
+	})
+	got = adm.PreferencesAPICapabilities(context.Background())
+	if !got.Available || !got.Readable || got.Writable {
+		t.Fatalf("expected explicit panel authorizer to remain authoritative, got %+v", got)
+	}
+}
+
+func TestWithAuthorizerUpdatesInheritedPanelAuthorization(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeaturePreferences),
+	})
+	adm.WithAuthorizer(featureGateAccessorAuthorizer{
+		PermAdminPreferencesView: true,
+		PermAdminPreferencesEdit: true,
+	})
+	if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	initial := adm.PreferencesAPICapabilities(context.Background())
+	if !initial.Readable || !initial.Writable {
+		t.Fatalf("expected initial inherited authorization, got %+v", initial)
+	}
+
+	adm.WithAuthorizer(featureGateAccessorAuthorizer{})
+	updated := adm.PreferencesAPICapabilities(context.Background())
+	if updated.Readable || updated.Writable {
+		t.Fatalf("expected replacement authorizer to update inherited panel guard, got %+v", updated)
+	}
+}
+
 func TestUserImportAllowedFailsClosedWithoutAuthorizer(t *testing.T) {
 	adm := mustNewAdminWithoutAuthorizer(t, Config{}, Dependencies{
 		BulkUserImport: &userscommand.BulkUserImportCommand{},

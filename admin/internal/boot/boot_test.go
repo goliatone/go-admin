@@ -281,6 +281,17 @@ type urlKitPlannerAdapter struct {
 	manager *urlkit.RouteManager
 }
 
+type missingPanelCollectionResolver struct {
+	*urlkit.RouteManager
+}
+
+func (r missingPanelCollectionResolver) RoutePath(groupPath, route string) (string, error) {
+	if route == "panel" {
+		return "", errors.New("panel collection route unavailable")
+	}
+	return r.RouteManager.RoutePath(groupPath, route)
+}
+
 func (a urlKitPlannerAdapter) EnsureGroup(path string) error {
 	if a.manager == nil {
 		return nil
@@ -636,6 +647,27 @@ func TestPanelStepClearsMountedPanelSnapshotWhenNoPanelsRemain(t *testing.T) {
 
 	require.NoError(t, PanelStep(ctx))
 	require.Empty(t, ctx.mounted)
+}
+
+func TestPanelStepDoesNotMountPanelWhenCollectionRoutesAreSkipped(t *testing.T) {
+	rr := &recordRouter{}
+	ctx := &stubCtx{
+		router:    rr,
+		responder: &stubResponder{},
+		basePath:  "/admin",
+		panels:    []PanelBinding{&stubPanelBinding{name: "preferences"}},
+		urls: missingPanelCollectionResolver{
+			RouteManager: newTestURLManager("/admin"),
+		},
+		mounted: []string{"stale"},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Empty(t, ctx.mounted)
+	require.NotEmpty(t, rr.calls, "non-collection routes should still exercise partial registration")
+	for _, call := range rr.calls {
+		require.NotEqual(t, "/admin/api/panels/preferences", call.path)
+	}
 }
 
 func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {

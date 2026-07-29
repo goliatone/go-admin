@@ -2,12 +2,15 @@ package admin
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
+	"fmt"
+	"path"
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
+	"github.com/goliatone/go-admin/internal/primitives"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 )
 
@@ -22,6 +25,7 @@ type DashboardWidgetInstance = dashinternal.DashboardWidgetInstance
 type DashboardProviderSpec struct {
 	Code           string         `json:"code"`
 	Name           string         `json:"name"`
+	Template       string         `json:"template,omitempty"`
 	Schema         map[string]any `json:"schema,omitempty"`
 	DefaultArea    string         `json:"default_area,omitempty"`
 	DefaultConfig  map[string]any `json:"default_config,omitempty"`
@@ -33,6 +37,8 @@ type DashboardProviderSpec struct {
 	VisibilityRole []string       `json:"visibility_role,omitempty"`
 	Handler        WidgetProvider `json:"-"`
 }
+
+const dashboardProviderTemplateRoot = "dashboard/widgets/"
 
 // DashboardPreferences stores per-user layouts.
 type DashboardPreferences = dashinternal.DashboardPreferences
@@ -284,10 +290,31 @@ func (d *Dashboard) HasRenderer() bool {
 }
 
 // RegisterProvider registers a widget provider and optional default instance.
+//
+// Invalid specifications retain the historical best-effort behavior and are
+// ignored. Hosts that need registration failures surfaced during startup
+// should use RegisterProviderChecked.
 func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
-	if d == nil || spec.Code == "" || spec.Handler == nil {
-		return
+	_ = d.RegisterProviderChecked(spec)
+}
+
+// RegisterProviderChecked registers a widget provider and reports invalid
+// provider metadata to the host.
+func (d *Dashboard) RegisterProviderChecked(spec DashboardProviderSpec) error {
+	if d == nil {
+		return fmt.Errorf("admin: dashboard is nil")
 	}
+	if strings.TrimSpace(spec.Code) == "" {
+		return fmt.Errorf("admin: dashboard provider code is required")
+	}
+	if spec.Handler == nil {
+		return fmt.Errorf("admin: dashboard provider %q handler is required", spec.Code)
+	}
+	template, err := normalizeDashboardProviderTemplate(spec.Template)
+	if err != nil {
+		return fmt.Errorf("admin: dashboard provider %q: %w", spec.Code, err)
+	}
+	spec.Template = template
 	spec = cloneDashboardProviderSpec(spec)
 	spec.CommandName = strings.TrimSpace(spec.CommandName)
 	d.mu.Lock()
@@ -317,9 +344,30 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	}
 	registerDashboardWidgetDefinition(widgetSvc, logger, spec)
 	if !d.registerProviderCommandUnlocked(spec, logger) {
-		return
+		return nil
 	}
 	d.seedDefaultProviderInstanceUnlocked(widgetSvc, logger, spec, hasPersistedInstance, enforceAreas, hasArea)
+	return nil
+}
+
+func normalizeDashboardProviderTemplate(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if strings.HasPrefix(value, "/") ||
+		strings.Contains(value, `\`) ||
+		strings.ContainsAny(value, "?#\x00") ||
+		strings.IndexFunc(value, unicode.IsControl) >= 0 ||
+		path.Clean(value) != value ||
+		!strings.HasPrefix(value, dashboardProviderTemplateRoot) ||
+		!strings.HasSuffix(value, ".html") {
+		return "", fmt.Errorf(
+			"dashboard provider template must be a normalized .html identifier below %q",
+			dashboardProviderTemplateRoot,
+		)
+	}
+	return value, nil
 }
 
 func (d *Dashboard) releaseProviderCommand(spec DashboardProviderSpec) {
@@ -671,7 +719,10 @@ func (d *Dashboard) buildComponentsLocked(host dashboardRuntimeHostOptions) (*da
 			areas:         d.areaCodesForServiceLocked(),
 			themeProvider: host.themeProvider,
 			themeSelector: host.themeSelector,
-			pageDecorator: host.pageDecorator,
+			pageDecorator: composeDashboardPageDecorators(
+				dashboardProviderPresentationDecorator(specs),
+				host.pageDecorator,
+			),
 		})),
 		specs:          specs,
 		hostConfigured: host.configured(),

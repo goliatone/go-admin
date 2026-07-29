@@ -269,6 +269,7 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   private readonly hydrateTimeoutMs: number;
   private readonly preferencesWritable: boolean;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
+  private mutationQueue: Promise<void> = Promise.resolve();
 
   constructor(config: DataGridStateStoreConfig) {
     super(config);
@@ -343,7 +344,8 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
       clearTimeout(this.syncTimeout);
     }
     this.syncTimeout = setTimeout(() => {
-      void this.syncToServer(state);
+      this.syncTimeout = null;
+      this.enqueueServerMutation(() => this.syncToServer(state));
     }, this.syncDebounceMs);
   }
 
@@ -355,8 +357,13 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
       clearTimeout(this.syncTimeout);
     }
     this.syncTimeout = setTimeout(() => {
-      void this.clearServerState();
+      this.syncTimeout = null;
+      this.enqueueServerMutation(() => this.clearServerState());
     }, this.syncDebounceMs);
+  }
+
+  private enqueueServerMutation(mutation: () => Promise<void>): void {
+    this.mutationQueue = this.mutationQueue.then(mutation, mutation);
   }
 
   private async syncToServer(state: DataGridPersistedState): Promise<void> {

@@ -20,9 +20,13 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
       </svg>
     </button>
-    <h3 class="text-lg font-semibold text-gray-900">{{ getWidgetTitle(widget.definition) }}</h3>
+    <h3 class="text-lg font-semibold text-gray-900">{% if widget.name %}{{ widget.name }}{% else %}{{ getWidgetTitle(widget.definition) }}{% endif %}</h3>
   </div>
   <div class="widget__content">
-    {% include "dashboard_widget_content.html" %}
+    {% if widget.template %}
+      {% include widget.template %}
+    {% else %}
+      {% include "dashboard_widget_content.html" %}
+    {% endif %}
   </div>
 </article>

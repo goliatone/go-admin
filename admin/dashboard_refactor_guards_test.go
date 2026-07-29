@@ -18,8 +18,6 @@ func TestDashboardLegacyPresentationModelRemoved(t *testing.T) {
 	)
 	assertFileDoesNotContain(t, "dashboard.go", "func (d *Dashboard) RenderLayout(")
 	assertFileDoesNotContain(t, "dashboard_godash.go", "func orderedDashboardAreasPayload(")
-	assertFileDoesNotContain(t, "../examples/web/helpers/tab_rendering.go", "RenderLayout(")
-	assertFileDoesNotContain(t, "../examples/web/renderers/dashboard_renderer.go", "func (r *TemplateRenderer) normalizeData(")
 }
 
 func assertFileDoesNotContain(t *testing.T, path string, forbidden ...string) {

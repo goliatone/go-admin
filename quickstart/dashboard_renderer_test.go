@@ -118,6 +118,105 @@ func TestDashboardRendererOverrideTemplates(t *testing.T) {
 	}
 }
 
+func TestDashboardRendererUsesRegisteredCustomWidgetTemplate(t *testing.T) {
+	customFS := fstest.MapFS{
+		"dashboard/widgets/showcase/record_metric.html": {
+			Data: []byte(`<div data-custom-metric>{{ formatNumber(widget.data.value) }}</div>`),
+		},
+	}
+	renderer, err := newDashboardTemplateRenderer(
+		WithDashboardTemplatesFS(customFS),
+	)
+	if err != nil {
+		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
+	}
+	page := admin.AdminDashboardPage{Dashboard: dashcmp.Page{
+		Areas: []dashcmp.PageArea{{
+			Slot: "main",
+			Code: "admin.dashboard.main",
+			Widgets: []dashcmp.WidgetFrame{{
+				ID:         "metric",
+				Definition: "showcase.widget.record_metric",
+				Name:       "Record Metrics",
+				Template:   "dashboard/widgets/showcase/record_metric.html",
+				Area:       "admin.dashboard.main",
+				Span:       12,
+				Data:       map[string]any{"value": 7},
+			}},
+		}},
+	}}
+
+	html, err := renderer.RenderPage("dashboard_ssr.html", page)
+	if err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	for _, expected := range []string{"Record Metrics", `data-custom-metric`, ">7<"} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("expected custom widget output %q, got %q", expected, html)
+		}
+	}
+	if strings.Contains(html, `<pre class="text-xs text-gray-600 overflow-auto">`) {
+		t.Fatalf("custom widget fell through to raw JSON: %q", html)
+	}
+}
+
+func TestDashboardRendererUnknownWidgetRetainsEscapedJSONFallback(t *testing.T) {
+	renderer, err := newDashboardTemplateRenderer()
+	if err != nil {
+		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
+	}
+	page := admin.AdminDashboardPage{Dashboard: dashcmp.Page{
+		Areas: []dashcmp.PageArea{{
+			Slot: "main",
+			Code: "admin.dashboard.main",
+			Widgets: []dashcmp.WidgetFrame{{
+				ID:         "unknown",
+				Definition: "unknown.widget",
+				Area:       "admin.dashboard.main",
+				Span:       12,
+				Data:       map[string]any{"unsafe": "<script>alert(1)</script>"},
+			}},
+		}},
+	}}
+
+	html, err := renderer.RenderPage("dashboard_ssr.html", page)
+	if err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	if !strings.Contains(html, `<pre class="text-xs text-gray-600 overflow-auto">`) ||
+		!strings.Contains(html, `&quot;unsafe&quot;`) ||
+		!strings.Contains(html, `\u003cscript\u003ealert(1)\u003c/script\u003e`) {
+		t.Fatalf("expected escaped JSON fallback, got %q", html)
+	}
+	if strings.Contains(html, "<script>alert(1)</script>") {
+		t.Fatalf("unknown widget fallback emitted executable markup: %q", html)
+	}
+}
+
+func TestDashboardRendererReportsMissingRegisteredWidgetTemplate(t *testing.T) {
+	renderer, err := newDashboardTemplateRenderer()
+	if err != nil {
+		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
+	}
+	page := admin.AdminDashboardPage{Dashboard: dashcmp.Page{
+		Areas: []dashcmp.PageArea{{
+			Slot: "main",
+			Code: "admin.dashboard.main",
+			Widgets: []dashcmp.WidgetFrame{{
+				ID:         "missing",
+				Definition: "showcase.widget.missing",
+				Template:   "dashboard/widgets/showcase/missing.html",
+				Area:       "admin.dashboard.main",
+				Span:       12,
+			}},
+		}},
+	}}
+
+	if _, err := renderer.RenderPage("dashboard_ssr.html", page); err == nil {
+		t.Fatal("expected a missing registered widget template to fail rendering")
+	}
+}
+
 func TestDashboardRendererDisableEmbeddedRequiresTemplates(t *testing.T) {
 	_, err := newDashboardTemplateRenderer(WithDashboardEmbeddedTemplates(false))
 	if err == nil {

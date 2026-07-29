@@ -1184,7 +1184,7 @@ var ct = class {
   }
 }, jr = class extends ct {
   constructor(e) {
-    if (super(e), this.syncTimeout = null, this.preferencesEndpoint = lt(e.preferencesEndpoint), !this.preferencesEndpoint) throw new Error("PreferencesDataGridStateStore requires an advertised preferences endpoint");
+    if (super(e), this.syncTimeout = null, this.mutationQueue = Promise.resolve(), this.preferencesEndpoint = lt(e.preferencesEndpoint), !this.preferencesEndpoint) throw new Error("PreferencesDataGridStateStore requires an advertised preferences endpoint");
     this.resource = Br(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3), this.hydrateTimeoutMs = Math.max(100, e.hydrateTimeoutMs || Mr), this.preferencesWritable = e.preferencesWritable !== !1;
   }
   get serverStateKey() {
@@ -1221,13 +1221,16 @@ var ct = class {
   }
   scheduleServerSync(e) {
     this.preferencesWritable && (this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
-      this.syncToServer(e);
+      this.syncTimeout = null, this.enqueueServerMutation(() => this.syncToServer(e));
     }, this.syncDebounceMs));
   }
   scheduleServerClear() {
     this.preferencesWritable && (this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
-      this.clearServerState();
+      this.syncTimeout = null, this.enqueueServerMutation(() => this.clearServerState());
     }, this.syncDebounceMs));
+  }
+  enqueueServerMutation(e) {
+    this.mutationQueue = this.mutationQueue.then(e, e);
   }
   async syncToServer(e) {
     try {
@@ -4167,7 +4170,7 @@ var Js = class {
 }, Bo = class extends Js {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
-    if (super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource, this.preferencesEndpoint = String(t.preferencesEndpoint || "").trim().replace(/\/+$/, ""), !this.preferencesEndpoint) throw new Error("ServerColumnVisibilityBehavior requires an advertised preferences endpoint");
+    if (super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.mutationQueue = Promise.resolve(), this.resource = t.resource, this.preferencesEndpoint = String(t.preferencesEndpoint || "").trim().replace(/\/+$/, ""), !this.preferencesEndpoint) throw new Error("ServerColumnVisibilityBehavior requires an advertised preferences endpoint");
     this.syncDebounce = t.syncDebounce ?? 1e3, this.loadTimeoutMs = Math.max(100, t.loadTimeoutMs || Vs), this.canWrite = t.canWrite !== !1;
   }
   get serverPrefsKey() {
@@ -4226,8 +4229,14 @@ var Js = class {
   }
   scheduleServerSync(e) {
     this.canWrite && (this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => {
-      this.syncToServer(e);
+      this.syncTimeout = null, this.enqueueServerMutation(() => this.syncToServer(e));
     }, this.syncDebounce));
+  }
+  cancelScheduledServerSync() {
+    this.syncTimeout && (clearTimeout(this.syncTimeout), this.syncTimeout = null);
+  }
+  enqueueServerMutation(e) {
+    this.mutationQueue = this.mutationQueue.then(e, e);
   }
   async syncToServer(e) {
     const t = {};
@@ -4259,7 +4268,7 @@ var Js = class {
     }
   }
   clearSavedPrefs() {
-    super.clearSavedPrefs(), this.serverPrefs = null, this.canWrite && this.clearServerPrefs();
+    this.cancelScheduledServerSync(), super.clearSavedPrefs(), this.serverPrefs = null, this.canWrite && this.enqueueServerMutation(() => this.clearServerPrefs());
   }
   async clearServerPrefs() {
     try {
@@ -4270,7 +4279,7 @@ var Js = class {
           "Content-Type": "application/json",
           Accept: "application/json"
         },
-        json: { raw: { [this.serverPrefsKey]: null } }
+        json: { clear_raw_keys: [this.serverPrefsKey] }
       });
       if (!e.ok) {
         console.warn("[ServerColumnVisibility] Failed to clear server prefs:", e.status);
@@ -4279,6 +4288,8 @@ var Js = class {
       console.log("[ServerColumnVisibility] Server prefs cleared");
     } catch (e) {
       console.warn("[ServerColumnVisibility] Error clearing server prefs:", e);
+    } finally {
+      this.serverPrefs = null;
     }
   }
 };

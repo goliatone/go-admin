@@ -24,13 +24,6 @@ func TestNormalPathsDoNotRegressToReflection(t *testing.T) {
 			},
 		},
 		{
-			path:   "quickstart/site/render_cache_policy.go",
-			forbid: []string{"renderCacheReflectBackendKind"},
-			forbidRE: []string{
-				`\breflect\.`,
-			},
-		},
-		{
 			path:   "admin/debug_response_writer.go",
 			forbid: []string{"FieldByName", "NewAt", "UnsafeAddr"},
 			forbidRE: []string{

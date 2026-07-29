@@ -392,6 +392,124 @@ test('read-only preferences hydrate without server mutations', async () => {
   }
 });
 
+test('reset cancels a pending server column visibility sync', async () => {
+  const { cleanup } = installTestGlobals();
+  const requests = [];
+  globalThis.fetch = async (_url, options = {}) => {
+    requests.push(JSON.parse(String(options.body || '{}')));
+    return { ok: true, status: 200 };
+  };
+
+  try {
+    const behavior = new ServerColumnVisibilityBehavior(['title'], {
+      resource: 'pages',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      syncDebounce: 20,
+    });
+    const grid = {
+      config: { columns: [{ field: 'title' }] },
+      state: { hiddenColumns: new Set(), columnOrder: ['title'] },
+      updateColumnVisibility: () => {},
+    };
+
+    behavior.toggleColumn('title', grid);
+    behavior.clearSavedPrefs();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].clear_raw_keys, ['ui.datagrid.pages.columns']);
+    assert.equal(requests[0].raw, undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test('reset runs after an in-flight server column visibility sync', async () => {
+  const { cleanup } = installTestGlobals();
+  const requests = [];
+  let releaseFirstRequest;
+  globalThis.fetch = async (_url, options = {}) => {
+    const payload = JSON.parse(String(options.body || '{}'));
+    requests.push(payload);
+    if (requests.length === 1) {
+      await new Promise((resolve) => {
+        releaseFirstRequest = resolve;
+      });
+    }
+    return { ok: true, status: 200 };
+  };
+
+  try {
+    const behavior = new ServerColumnVisibilityBehavior(['title'], {
+      resource: 'pages',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      syncDebounce: 10,
+    });
+    const grid = {
+      config: { columns: [{ field: 'title' }] },
+      state: { hiddenColumns: new Set(), columnOrder: ['title'] },
+      updateColumnVisibility: () => {},
+    };
+
+    behavior.toggleColumn('title', grid);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(requests.length, 1);
+    assert.ok(requests[0].raw?.['ui.datagrid.pages.columns']);
+
+    behavior.clearSavedPrefs();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(requests.length, 1, 'clear must wait for the active sync');
+
+    releaseFirstRequest();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests[1].clear_raw_keys, ['ui.datagrid.pages.columns']);
+  } finally {
+    cleanup();
+  }
+});
+
+test('DataGrid state reset is ordered after an in-flight preferences sync', async () => {
+  const { cleanup } = installTestGlobals();
+  const requests = [];
+  let releaseFirstRequest;
+  globalThis.fetch = async (_url, options = {}) => {
+    const payload = JSON.parse(String(options.body || '{}'));
+    requests.push(payload);
+    if (requests.length === 1) {
+      await new Promise((resolve) => {
+        releaseFirstRequest = resolve;
+      });
+    }
+    return { ok: true, status: 200 };
+  };
+
+  try {
+    const store = createDataGridStateStore({
+      key: 'pages',
+      mode: 'preferences',
+      resource: 'pages',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      syncDebounceMs: 1,
+    });
+
+    store.savePersistedState({ version: 1, hiddenColumns: ['title'] });
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    assert.equal(requests.length, 1);
+
+    store.clearPersistedState();
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    assert.equal(requests.length, 1, 'clear must wait for the active state sync');
+
+    releaseFirstRequest();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests[1].clear_raw_keys, ['ui.datagrid.pages.state']);
+  } finally {
+    cleanup();
+  }
+});
+
 test('preferences persistence stays local and performs no request without an advertised endpoint', async () => {
   const { cleanup } = installTestGlobals();
   let requestCount = 0;
