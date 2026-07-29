@@ -1,6 +1,25 @@
 # Changelog
 
+# [0.126.4](https://github.com/goliatone/go-admin/compare/v0.126.3...v0.126.4) - (2026-07-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Prefernces api inclusing ([bc41247](https://github.com/goliatone/go-admin/commit/bc412472feb81bf35f35b3e96efcd8dc6a7b2937))  - (goliatone)
+- Asset resolver and inclusing ([91cdf85](https://github.com/goliatone/go-admin/commit/91cdf85020a030d28d4b645b30b4b0be7084fb57))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([c2c8c45](https://github.com/goliatone/go-admin/commit/c2c8c45a88edfee77da135bbaae3284576dac54f))  - (goliatone)
+- Update tests ([f0d9382](https://github.com/goliatone/go-admin/commit/f0d9382cc73fbf90e242e7c8234425aa09b2a333))  - (goliatone)
+
 # [0.126.3](https://github.com/goliatone/go-admin/compare/v0.126.2...v0.126.3) - (2026-07-29)
+
+
+New patch release: v0.126.3
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.3 ([2c64173](https://github.com/goliatone/go-admin/commit/2c64173ca0665f8114e054656de02f7105150975))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
