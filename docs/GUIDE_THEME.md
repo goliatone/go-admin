@@ -57,6 +57,7 @@ type ThemeSelector struct {
 type ThemeSelection struct {
     Name              string                 `json:"name"`
     Variant           string                 `json:"variant"`
+    VariantResolved   bool                   `json:"-"`
     Tokens            map[string]string      `json:"tokens"`
     CSSVars           map[string]string      `json:"css_vars"`
     SemanticTokens    map[string]string      `json:"semantic_tokens,omitempty"`
@@ -80,6 +81,8 @@ Use `adm.Theme(ctx)` when code needs the typed selection. Use `adm.ThemePayload(
 The adapter maps the selected `go-theme` snapshot into:
 
 - `ThemeSelection.Name` and `Variant`
+- the non-serialized `VariantResolved` marker, including authoritative empty
+  base variants
 - merged design tokens
 - legacy CSS variables from `selection.CSSVariables("")`
 - validated semantic tokens, a deterministic safe root declaration, and
@@ -122,7 +125,8 @@ if err != nil {
 `quickstart.WithThemeSelector(...)` wires both:
 
 - `adm.WithAdminTheme(selector)` for runtime selection.
-- `adm.WithThemeManifest(manifest)` so the Preferences UI can list variants.
+- `adm.WithThemeManifest(manifest)` so runtime selection can reject unlisted
+  variants and the Preferences UI can list only supported variants.
 
 Use `quickstart.WithThemeAssets(...)` for manifest-relative asset filenames. Use `quickstart.WithThemeAssetURLs(...)` or `admin.Config.ThemeAssets` for final resolved host URLs.
 
@@ -151,11 +155,17 @@ Use `adm.WithThemeProvider(provider)` only when the host already has a provider 
 3.  Merge explicit context selectors from `admin.WithThemeSelection(...)`.
 4.  Ask the theme provider for the selected theme/variant.
 5.  Merge provider output over the config default selection.
-6.  Overlay `Config.ThemeTokenOverrides`, `Config.ThemeAssets`, and `Config.ThemeAssetPrefix`.
-7.  Overlay legacy `LogoURL` and `FaviconURL` as final `logo` and `favicon` asset values.
-8.  Ensure a chart theme is present, falling back to the selected variant.
+6.  Reconcile a matching attached manifest: retain a declared variant or fall
+    back to its empty base variant. A provider error or nil selection uses the
+    configured manifest base when the manifest represents the configured
+    theme.
+7.  Overlay `Config.ThemeTokenOverrides`, `Config.ThemeAssets`, and `Config.ThemeAssetPrefix`.
+8.  Overlay legacy `LogoURL` and `FaviconURL` as final `logo` and `favicon` asset values.
+9.  Ensure a chart theme is present, falling back to the selected variant.
 
-Provider errors fall back to the config default selection. Production exposure rules are not changed by theme resolution.
+Without an attached manifest, provider errors and the legacy
+`ThemeVariant == "default"` behavior continue to use the config default
+selection. Production exposure rules are not changed by theme resolution.
 
 ## Theme Payload
 
@@ -268,6 +278,11 @@ Request and context overrides use the same selector shape:
 
 Preference and request overrides affect admin theme selection only. They do not select public-site theme packages.
 
+An attached manifest is authoritative for its theme. A manifest with no named
+variants always resolves the base variant and Preferences displays only
+“System Default.” Stale stored or request variants cannot reintroduce a name
+that the manifest does not declare.
+
 ## Dashboard, Forms, And CMS
 
 The admin theme payload is propagated to the main admin surfaces:
@@ -315,11 +330,18 @@ Older shared theme wiring should be migrated directly:
 
 There is no compatibility bridge for `WithGoTheme(...)`.
 
+Custom `ThemeProvider` implementations that intentionally resolve the empty
+base variant should return `ThemeSelection{VariantResolved: true}`. Providers
+that omit the marker retain the legacy rule where only non-empty variants
+override the current selection.
+
 ## Validation Checklist
 
 - [ ] Admin dashboard, navigation, panel schema, settings form, and custom views all expose the same `theme.selection`, token, and asset payload for the same request.
 - [ ] `?theme=` / `?variant=` preview requests affect only routes that opt into request override handling.
 - [ ] Preferences can override `theme` and `theme_variant` when the Preferences feature is enabled.
+- [ ] Base-only manifests clear config, stored, and preview variant sentinels,
+      including the derived chart theme.
 - [ ] `ThemeAssets` / `WithThemeAssetURLs(...)` override provider assets with final URLs.
 - [ ] Legacy `LogoURL` and `FaviconURL` still win for `logo` and `favicon` when configured.
 - [ ] Admin and auth layouts render the resolved `favicon`.
