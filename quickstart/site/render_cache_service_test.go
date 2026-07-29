@@ -54,6 +54,19 @@ func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	}
 }
 
+func TestNilRenderCacheDebugObserverSnapshotIsInactive(t *testing.T) {
+	var observer *RenderCacheDebugObserver
+	snapshot := observer.Snapshot(&RenderCacheRuntime{
+		Config: RenderCacheConfig{Enabled: true},
+	})
+	if !snapshot.Configured || snapshot.Active {
+		t.Fatalf("unexpected nil-observer snapshot: %+v", snapshot)
+	}
+	if snapshot.Backend != "unknown" || snapshot.Status != "healthy" {
+		t.Fatalf("unexpected nil-observer diagnostics: %+v", snapshot)
+	}
+}
+
 func TestNewRenderCacheRuntimeDisabledBuildsInactiveRuntime(t *testing.T) {
 	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
 		Enabled: false,

@@ -1,10 +1,27 @@
 package client
 
 import (
+	archivezip "archive/zip"
+	"bytes"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/mod/module"
+	modzip "golang.org/x/mod/zip"
 )
+
+var pinnedDocumentDependencyPaths = []string{
+	"dist/third-party/iconoir/iconoir.css",
+	"dist/third-party/iconoir/LICENSE",
+	"dist/third-party/simple-datatables/style.css",
+	"dist/third-party/simple-datatables/LICENSE",
+	"dist/third-party/echarts/echarts.min.js",
+	"dist/third-party/echarts/LICENSE",
+	"dist/third-party/echarts/NOTICE",
+}
 
 func TestAssetsEmbedIncludesOutputCSS(t *testing.T) {
 	if _, err := fs.Stat(Assets(), "output.css"); err != nil {
@@ -25,21 +42,66 @@ func TestAssetsEmbedIncludesSiteRuntimeAssets(t *testing.T) {
 }
 
 func TestAssetsEmbedIncludesPinnedDocumentDependencies(t *testing.T) {
-	for _, assetPath := range []string{
-		"dist/vendor/iconoir/iconoir.css",
-		"dist/vendor/iconoir/LICENSE",
-		"dist/vendor/simple-datatables/style.css",
-		"dist/vendor/simple-datatables/LICENSE",
-		"dist/vendor/echarts/echarts.min.js",
-		"dist/vendor/echarts/LICENSE",
-		"dist/vendor/echarts/NOTICE",
-	} {
+	for _, assetPath := range pinnedDocumentDependencyPaths {
 		info, err := fs.Stat(Assets(), assetPath)
 		if err != nil {
 			t.Fatalf("expected embedded document dependency %q: %v", assetPath, err)
 		}
 		if info.Size() == 0 {
 			t.Fatalf("embedded document dependency %q is empty", assetPath)
+		}
+	}
+}
+
+func TestPinnedDocumentDependenciesSurviveModuleZipConstruction(t *testing.T) {
+	const (
+		modulePath    = "github.com/goliatone/go-admin"
+		moduleVersion = "v0.0.0"
+		archivePrefix = modulePath + "@" + moduleVersion + "/pkg/client/assets/"
+	)
+
+	fixtureRoot := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(fixtureRoot, "go.mod"),
+		[]byte("module "+modulePath+"\n\ngo 1.26.5\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write fixture go.mod: %v", err)
+	}
+	for _, assetPath := range pinnedDocumentDependencyPaths {
+		content, err := fs.ReadFile(Assets(), assetPath)
+		if err != nil {
+			t.Fatalf("read embedded dependency %q: %v", assetPath, err)
+		}
+		target := filepath.Join(fixtureRoot, "pkg", "client", "assets", filepath.FromSlash(assetPath))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("create fixture directory for %q: %v", assetPath, err)
+		}
+		if err := os.WriteFile(target, content, 0o644); err != nil {
+			t.Fatalf("write fixture dependency %q: %v", assetPath, err)
+		}
+	}
+
+	var moduleArchive bytes.Buffer
+	if err := modzip.CreateFromDir(
+		&moduleArchive,
+		module.Version{Path: modulePath, Version: moduleVersion},
+		fixtureRoot,
+	); err != nil {
+		t.Fatalf("create module zip: %v", err)
+	}
+	archive, err := archivezip.NewReader(bytes.NewReader(moduleArchive.Bytes()), int64(moduleArchive.Len()))
+	if err != nil {
+		t.Fatalf("open module zip: %v", err)
+	}
+	archived := make(map[string]bool, len(archive.File))
+	for _, file := range archive.File {
+		archived[file.Name] = true
+	}
+	for _, assetPath := range pinnedDocumentDependencyPaths {
+		archivePath := archivePrefix + assetPath
+		if !archived[archivePath] {
+			t.Errorf("module zip omitted packaged dependency %q", archivePath)
 		}
 	}
 }

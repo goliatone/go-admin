@@ -65,3 +65,20 @@ func TestLayoutMetadataHelpers(t *testing.T) {
 		t.Fatalf("expected blank string to return -1, got %d", got)
 	}
 }
+
+func TestExtractWidgetDataSanitizesCanonicalViewModel(t *testing.T) {
+	meta := map[string]any{
+		widgetViewModelMetadataKey: dashcmp.JSONViewModel[map[string]any]{Value: map[string]any{
+			"chart_html":    "<script>unsafe()</script>",
+			"chart_options": map[string]any{"series": []any{}},
+		}},
+	}
+
+	data := ExtractWidgetData(meta)
+	if _, exists := data["chart_html"]; exists {
+		t.Fatalf("blocked chart HTML survived canonical extraction: %#v", data)
+	}
+	if _, ok := data["chart_options"].(map[string]any); !ok {
+		t.Fatalf("safe structured chart options were not preserved: %#v", data)
+	}
+}

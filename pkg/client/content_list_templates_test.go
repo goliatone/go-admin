@@ -65,3 +65,47 @@ func TestContentListTemplateIncludesTranslationDatagridSummaryRenderers(t *testi
 		t.Fatalf("expected translation datagrid renderer fragment not found: %q", fragment)
 	}
 }
+
+func TestContentListTemplateDoesNotManufacturePreferencesEndpoint(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/list.html")
+
+	for _, fragment := range []string{
+		`DefaultColumnVisibilityBehavior`,
+		`const preferencesEndpoint = preferencesAPIPath;`,
+		`if (preferencesEndpoint) {`,
+		`requestedStateStoreMode === 'preferences' && !preferencesEndpoint`,
+	} {
+		if !strings.Contains(template, fragment) {
+			t.Fatalf("expected capability-aware persistence fragment not found: %q", fragment)
+		}
+	}
+	for _, fragment := range []string{
+		"`${apiBasePath}/panels/preferences`",
+		"`${basePath}/api/panels/preferences`",
+	} {
+		if strings.Contains(template, fragment) {
+			t.Fatalf("template manufactured an unavailable preferences endpoint: %q", fragment)
+		}
+	}
+}
+
+func TestResourceListTemplatesUseLocalColumnVisibilityWithoutPreferencesCapability(t *testing.T) {
+	for _, name := range []string{
+		"resources/users/list.html",
+		"resources/user-profiles/list.html",
+		"resources/esign-documents/list.html",
+		"resources/esign-agreements/list.html",
+	} {
+		t.Run(name, func(t *testing.T) {
+			template := mustReadClientTemplate(t, name)
+			if !strings.Contains(template, "DefaultColumnVisibilityBehavior") ||
+				!strings.Contains(template, "if (preferencesEndpoint) {") {
+				t.Fatalf("%s does not provide a capability-aware local fallback", name)
+			}
+			if strings.Contains(template, "`${apiBasePath}/panels/preferences`") ||
+				strings.Contains(template, "`${basePath}/api/panels/preferences`") {
+				t.Fatalf("%s manufactures a preferences endpoint", name)
+			}
+		})
+	}
+}

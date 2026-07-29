@@ -25,16 +25,16 @@ func TestAdminAndAuthLayoutsRenderSafeThemeProjectionAndFavicon(t *testing.T) {
 func TestAdminAndAuthLayoutsDefaultToPackagedDocumentDependencies(t *testing.T) {
 	adminLayout := mustReadClientTemplate(t, "layout.html")
 	for _, assetPath := range []string{
-		"assets/dist/vendor/iconoir/iconoir.css",
-		"assets/dist/vendor/simple-datatables/style.css",
-		"assets/dist/vendor/echarts/echarts.min.js",
+		"assets/dist/third-party/iconoir/iconoir.css",
+		"assets/dist/third-party/simple-datatables/style.css",
+		"assets/dist/third-party/echarts/echarts.min.js",
 	} {
 		if !strings.Contains(adminLayout, `{{ asset_base_path }}/`+assetPath) {
 			t.Fatalf("layout.html missing packaged dependency %q", assetPath)
 		}
 	}
 	loginLayout := mustReadClientTemplate(t, "login-layout.html")
-	if !strings.Contains(loginLayout, `{{ asset_base_path }}/assets/dist/vendor/iconoir/iconoir.css`) {
+	if !strings.Contains(loginLayout, `{{ asset_base_path }}/assets/dist/third-party/iconoir/iconoir.css`) {
 		t.Fatal("login-layout.html missing packaged Iconoir dependency")
 	}
 	for name, template := range map[string]string{

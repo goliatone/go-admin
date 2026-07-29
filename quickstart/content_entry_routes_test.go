@@ -1160,9 +1160,15 @@ func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 }
 
 func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.T) {
-	fixture := newContentEntryAdminFixture(t)
-	cfg := fixture.Config
-	adm := fixture.Admin
+	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm, err := admin.New(cfg, admin.Dependencies{
+		FeatureGate: buildFeatureGate(cfg, map[string]bool{
+			string(admin.FeaturePreferences): true,
+		}, nil),
+	})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
 	if _, err := adm.RegisterPanel("pages", newInMemoryPanelBuilder().
 		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
 		t.Fatalf("register panel: %v", err)
@@ -1245,13 +1251,88 @@ func TestContentEntryListStateStoreConfigDefaultsResourceForHydrateTimeoutOnly(t
 		},
 	}
 
-	cfg := handler.listStateStoreConfig("pages")
+	cfg := handler.listStateStoreConfig("pages", false)
 
 	if cfg.Resource != "pages" {
 		t.Fatalf("expected resource pages, got %q", cfg.Resource)
 	}
 	if cfg.HydrateTimeoutMS != 1500 {
 		t.Fatalf("expected hydrate timeout 1500, got %d", cfg.HydrateTimeoutMS)
+	}
+}
+
+func TestListForPanelFallsBackToLocalPersistenceWhenPreferencesDisabled(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  admin.Config
+		deps admin.Dependencies
+	}{
+		{
+			name: "feature disabled",
+			cfg:  admin.Config{BasePath: "/admin", DefaultLocale: "en"},
+		},
+		{
+			name: "default module disabled",
+			cfg: admin.Config{
+				BasePath:               "/admin",
+				DefaultLocale:          "en",
+				DisabledDefaultModules: []admin.DefaultModuleID{admin.DefaultModulePreferences},
+			},
+			deps: admin.Dependencies{
+				FeatureGate: buildFeatureGate(
+					admin.Config{BasePath: "/admin"},
+					map[string]bool{string(admin.FeaturePreferences): true},
+					nil,
+				),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adm, err := admin.New(tt.cfg, tt.deps)
+			if err != nil {
+				t.Fatalf("new admin: %v", err)
+			}
+			if _, err := adm.RegisterPanel("pages", newInMemoryPanelBuilder().
+				ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+				t.Fatalf("register panel: %v", err)
+			}
+
+			handler := newContentEntryHandlers(adm, tt.cfg, nil, contentEntryUIOptions{
+				listTemplate:   "resources/content/list",
+				templateExists: func(name string) bool { return name == "resources/content/list" },
+				dataGridStateStore: PanelDataGridStateStoreOptions{
+					Mode: "preferences",
+				},
+			})
+
+			ctx := router.NewMockContext()
+			ctx.On("Context").Return(context.Background())
+			ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+				viewCtx, ok := arg.(router.ViewContext)
+				if !ok {
+					return false
+				}
+				dataGridCfg, ok := viewCtx["datagrid_config"].(map[string]any)
+				if !ok {
+					return false
+				}
+				stateStore, ok := dataGridCfg["state_store"].(map[string]any)
+				if !ok {
+					return false
+				}
+				_, endpointAdvertised := dataGridCfg["preferences_endpoint"]
+				return !endpointAdvertised &&
+					strings.TrimSpace(anyToString(viewCtx["preferences_api_path"])) == "" &&
+					strings.TrimSpace(anyToString(stateStore["mode"])) == "local"
+			})).Return(nil).Once()
+
+			if err := handler.listForPanel(ctx, "pages"); err != nil {
+				t.Fatalf("listForPanel(pages): %v", err)
+			}
+			ctx.AssertExpectations(t)
+		})
 	}
 }
 

@@ -2,11 +2,16 @@ package quickstart
 
 import (
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
+	"path"
+	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/client"
 	router "github.com/goliatone/go-router"
 )
 
@@ -217,6 +222,87 @@ func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 		if !found {
 			t.Fatalf("expected static mount for %s", prefix)
 		}
+	}
+}
+
+func TestLegacyDocumentAssetAliasesPreferRealFilesAndMapMissingVendorPaths(t *testing.T) {
+	assets := legacyDocumentAssetAliasesFS{FS: fstest.MapFS{
+		"dist/vendor/custom.css":             {Data: []byte("legacy override")},
+		"dist/third-party/custom.css":        {Data: []byte("packaged custom")},
+		"dist/third-party/iconoir/icons.css": {Data: []byte("packaged icons")},
+	}}
+
+	override, err := fs.ReadFile(assets, "dist/vendor/custom.css")
+	if err != nil {
+		t.Fatalf("read real legacy override: %v", err)
+	}
+	if got := string(override); got != "legacy override" {
+		t.Fatalf("expected real legacy file to win, got %q", got)
+	}
+
+	aliased, err := fs.ReadFile(assets, "dist/vendor/iconoir/icons.css")
+	if err != nil {
+		t.Fatalf("read aliased packaged asset: %v", err)
+	}
+	if got := string(aliased); got != "packaged icons" {
+		t.Fatalf("expected packaged alias, got %q", got)
+	}
+}
+
+func TestNewStaticAssetsIncludesPackagedDocumentDependencies(t *testing.T) {
+	r := &stubRouter{}
+	cfg := admin.Config{BasePath: "/admin"}
+
+	NewStaticAssets(r, cfg, client.Assets())
+
+	call, ok := findStaticCall(r.staticCalls, "/admin/assets")
+	if !ok {
+		t.Fatal("expected admin assets mount")
+	}
+	for _, advertisedPath := range []string{
+		admin.DefaultIconoirCSSAssetPath,
+		admin.DefaultDataTablesCSSAssetPath,
+		admin.DefaultEChartsJSAssetPath,
+	} {
+		assetPath := strings.TrimPrefix(advertisedPath, "assets/")
+		info, err := fs.Stat(call.config.FS, assetPath)
+		if err != nil {
+			t.Errorf("advertised dependency %q is not served by the admin asset FS: %v", advertisedPath, err)
+			continue
+		}
+		if info.Size() == 0 {
+			t.Errorf("advertised dependency %q is empty", advertisedPath)
+		}
+	}
+}
+
+func TestPackagedDocumentDependencyRoutesReturnSuccess(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+		PathConflictMode: router.PathConflictModePreferStatic,
+		StrictRoutes:     true,
+	})
+	NewStaticAssets(server.Router(), cfg, client.Assets())
+	server.Init()
+
+	for _, advertisedPath := range []string{
+		admin.DefaultIconoirCSSAssetPath,
+		admin.DefaultDataTablesCSSAssetPath,
+		admin.DefaultEChartsJSAssetPath,
+	} {
+		target := "/" + path.Join(strings.TrimPrefix(cfg.BasePath, "/"), advertisedPath)
+		resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, target, nil))
+		if err != nil {
+			t.Errorf("request advertised dependency %q: %v", target, err)
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("expected advertised dependency %q to return 200, got %d", target, resp.StatusCode)
+		}
+		if resp.ContentLength == 0 {
+			t.Errorf("expected advertised dependency %q to have a response body", target)
+		}
+		_ = resp.Body.Close()
 	}
 }
 

@@ -52,6 +52,49 @@ func TestActivityReadEnabledRequiresFeatureGateAndFeed(t *testing.T) {
 	}
 }
 
+func TestPreferencesAPIAvailableRequiresFeatureServiceAndModulePolicy(t *testing.T) {
+	t.Run("feature disabled", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{}, Dependencies{})
+		if adm.PreferencesAPIAvailable() {
+			t.Fatal("expected preferences API unavailable without feature gate")
+		}
+	})
+
+	t.Run("default module available before loading", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{}, Dependencies{
+			FeatureGate: featureGateFromKeys(FeaturePreferences),
+		})
+		if !adm.PreferencesAPIAvailable() {
+			t.Fatal("expected enabled default preferences module to advertise API")
+		}
+	})
+
+	t.Run("default module disabled", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{
+			DisabledDefaultModules: []DefaultModuleID{DefaultModulePreferences},
+		}, Dependencies{
+			FeatureGate: featureGateFromKeys(FeaturePreferences),
+		})
+		if adm.PreferencesAPIAvailable() {
+			t.Fatal("expected disabled default preferences module to suppress API capability")
+		}
+	})
+
+	t.Run("registered replacement", func(t *testing.T) {
+		adm := mustNewAdmin(t, Config{
+			DisabledDefaultModules: []DefaultModuleID{DefaultModulePreferences},
+		}, Dependencies{
+			FeatureGate: featureGateFromKeys(FeaturePreferences),
+		})
+		if err := adm.RegisterModule(NewPreferencesModule()); err != nil {
+			t.Fatalf("register replacement preferences module: %v", err)
+		}
+		if !adm.PreferencesAPIAvailable() {
+			t.Fatal("expected registered preferences replacement to advertise API")
+		}
+	})
+}
+
 func TestUserImportAllowedFailsClosedWithoutAuthorizer(t *testing.T) {
 	adm := mustNewAdminWithoutAuthorizer(t, Config{}, Dependencies{
 		BulkUserImport: &userscommand.BulkUserImportCommand{},
