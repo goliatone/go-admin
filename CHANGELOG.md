@@ -1,11 +1,24 @@
 # Changelog
 
+# [0.126.3](https://github.com/goliatone/go-admin/compare/v0.126.2...v0.126.3) - (2026-07-29)
+
+## <!-- 16 -->➕ Add
+
+- Sidebar composition ([be3673d](https://github.com/goliatone/go-admin/commit/be3673d0c7c5f7d5d5010c13a5d3af113709c636))  - (goliatone)
+
 # [0.126.2](https://github.com/goliatone/go-admin/compare/v0.126.1...v0.126.2) - (2026-07-29)
+
+
+New patch release: v0.126.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Theme sidebar and style ([ce63fbd](https://github.com/goliatone/go-admin/commit/ce63fbde9dc3a331093436c9d31d6871d558542f))  - (goliatone)
 - Asset management ([9cbbebb](https://github.com/goliatone/go-admin/commit/9cbbebb38523e28d7e0c7186b6d58bd0c85dc051))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.2 ([96a2e38](https://github.com/goliatone/go-admin/commit/96a2e38c78dd59c21d0605d48f69f1d81bb4b6a0))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
