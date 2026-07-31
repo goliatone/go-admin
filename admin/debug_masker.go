@@ -27,19 +27,21 @@ var (
 )
 
 var debugMaskFields = map[string]string{
-	"apikey":        "preserveEnds(2,2)",
-	"api_key":       "preserveEnds(2,2)",
-	"authorization": debugMaskTypeToken,
-	"bearer":        debugMaskTypeToken,
-	"client_secret": debugMaskTypeSecret,
-	"cookie":        debugMaskTypeSecret,
-	"csrf":          debugMaskTypeToken,
-	"jwt":           debugMaskTypeToken,
-	"password":      debugMaskTypeSecret,
-	"secret":        debugMaskTypeSecret,
-	"session":       debugMaskTypeToken,
-	"set-cookie":    debugMaskTypeSecret,
-	"token":         debugMaskTypeToken,
+	"apikey":          "preserveEnds(2,2)",
+	"api_key":         "preserveEnds(2,2)",
+	"authorization":   debugMaskTypeToken,
+	"bearer":          debugMaskTypeToken,
+	"client_secret":   debugMaskTypeSecret,
+	"cookie":          debugMaskTypeSecret,
+	"csrf":            debugMaskTypeToken,
+	"idempotency":     debugMaskTypeSecret,
+	"idempotency_key": debugMaskTypeSecret,
+	"jwt":             debugMaskTypeToken,
+	"password":        debugMaskTypeSecret,
+	"secret":          debugMaskTypeSecret,
+	"session":         debugMaskTypeToken,
+	"set-cookie":      debugMaskTypeSecret,
+	"token":           debugMaskTypeToken,
 }
 
 func debugMasker(cfg DebugConfig) *masker.Masker {

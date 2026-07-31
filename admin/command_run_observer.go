@@ -6,6 +6,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -147,15 +148,15 @@ func (b *CommandRunObserverBridge) mapEvent(ctx context.Context, event command.C
 		Phase:         phase,
 		OccurredAt:    event.OccurredAt,
 		Mode:          truncateCommandRunText(string(event.ExecutionMode), b.config.ContractLimits.MaxTextLength),
-		Checkpoint:    truncateCommandRunText(event.Checkpoint, b.config.ContractLimits.MaxTextLength),
-		Message:       truncateCommandRunText(event.Message, b.config.ContractLimits.MaxTextLength),
+		Checkpoint:    safeCommandRunText(event.Checkpoint, b.config.ContractLimits.MaxTextLength),
+		Message:       safeCommandRunText(event.Message, b.config.ContractLimits.MaxTextLength),
 		Attempt:       event.Attempt,
 		MaxAttempts:   event.MaxAttempts,
 		Scope: CommandRunScope{
 			ApplicationID: b.config.ApplicationID,
 			EnvironmentID: b.config.EnvironmentID,
 		},
-		Metadata: command.CloneCommandRunMetadata(event.Metadata),
+		Metadata: safeCommandRunMetadata(event.Metadata),
 	}
 	if !event.StartedAt.IsZero() {
 		started := event.StartedAt
@@ -194,6 +195,66 @@ func (b *CommandRunObserverBridge) mapEvent(ctx context.Context, event command.C
 		return CommandRunUpdate{}, metadataErr, err
 	}
 	return normalized, metadataErr, nil
+}
+
+// safeCommandRunMetadata applies the same sensitive-field vocabulary used by
+// debug output before metadata crosses the publisher boundary. Sensitive
+// values are fully redacted rather than partially masked because command-run
+// updates may be persisted or delivered to operator-facing transports.
+func safeCommandRunMetadata(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(metadata))
+	for key, value := range metadata {
+		if debugIsSensitiveField(DebugConfig{}, key) {
+			out[key] = "[REDACTED]"
+			continue
+		}
+		out[key] = safeCommandRunMetadataValue(value)
+	}
+	return out
+}
+
+func safeCommandRunMetadataValue(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return fullyRedactCommandRunInlineSecrets(debugMaskInlineString(DebugConfig{}, typed))
+	case map[string]any:
+		return safeCommandRunMetadata(typed)
+	case map[string]string:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			if debugIsSensitiveField(DebugConfig{}, key) {
+				out[key] = "[REDACTED]"
+				continue
+			}
+			out[key] = fullyRedactCommandRunInlineSecrets(debugMaskInlineString(DebugConfig{}, item))
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for index, item := range typed {
+			out[index] = safeCommandRunMetadataValue(item)
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+var commandRunInlineSecretPattern = regexp.MustCompile(
+	`(?i)\b([A-Za-z0-9_.-]*(?:apikey|api_key|authorization|bearer|client_secret|cookie|csrf|idempotency|jwt|password|secret|session|set-cookie|token)[A-Za-z0-9_.-]*)(\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s"',;&<>]+)`,
+)
+
+func fullyRedactCommandRunInlineSecrets(value string) string {
+	return commandRunInlineSecretPattern.ReplaceAllString(value, `${1}${2}[REDACTED]`)
+}
+
+func safeCommandRunText(value string, limit int) string {
+	value = debugMaskInlineString(DebugConfig{}, value)
+	value = fullyRedactCommandRunInlineSecrets(value)
+	return truncateCommandRunText(value, limit)
 }
 
 // commandRunUpstreamRevision keeps go-admin source-compatible with the current

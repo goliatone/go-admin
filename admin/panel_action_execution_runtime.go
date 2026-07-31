@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -32,7 +33,7 @@ func (p *Panel) runCommandActionResponse(ctx AdminContext, name string, action A
 	}
 	collector := &ActionResponseCollector{}
 	actionCtx := ContextWithActionResponseCollector(ctx.Context, collector)
-	err := p.commandBus.DispatchByName(actionCtx, action.CommandName, payload, ids)
+	_, err := p.commandBus.DispatchByNameWithOptions(actionCtx, action.CommandName, payload, ids, actionCommandDispatchOptions(actionCtx, payload))
 	if err == nil {
 		p.recordActivity(ctx, "panel.action", map[string]any{
 			"panel":  p.name,
@@ -90,7 +91,7 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		return p.bulkActionFailure(ctx, name, ActionScopeBulk, "permission", selection, permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name))
 	}
 	if action.CommandName != "" && p.commandBus != nil {
-		err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, selection)
+		_, err := p.commandBus.DispatchByNameWithOptions(ctx.Context, action.CommandName, payload, selection, actionCommandDispatchOptions(ctx.Context, payload))
 		if err != nil {
 			return p.bulkActionFailure(ctx, name, ActionScopeBulk, "dispatch", selection, err)
 		}
@@ -108,6 +109,20 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		"panel":  p.name,
 		"action": name,
 	}))
+}
+
+func actionCommandDispatchOptions(ctx context.Context, payload map[string]any) command.DispatchOptions {
+	opts, _ := command.DispatchOptionsFromContext(ctx)
+	if strings.TrimSpace(opts.CorrelationID) == "" {
+		opts.CorrelationID = strings.TrimSpace(toString(firstNonEmptyAny(payload, "correlation_id", "correlationId")))
+	}
+	if strings.TrimSpace(opts.IdempotencyKey) == "" {
+		opts.IdempotencyKey = workflowIdempotencyKey(payload)
+	}
+	if command.NormalizeExecutionMode(opts.Mode) == "" {
+		opts.Mode = command.ExecutionModeInline
+	}
+	return opts
 }
 
 func (p *Panel) bulkActionFailure(ctx AdminContext, name string, scope ActionScope, stage string, ids []string, err error) error {

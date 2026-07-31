@@ -110,6 +110,9 @@ func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstruct
 	if err != nil {
 		return state, err
 	}
+	if state.commandCatalog != nil {
+		state.commandCatalog = commandCatalogProviders(state.commandCatalog, state.commandBus)
+	}
 	state.settingsSvc, state.settingsForm, state.settingsCmd, err = resolveSettingsInfrastructure(state.cfg, deps, state.registry, state.featureGate, state.commandBus)
 	if err != nil {
 		return state, err
