@@ -213,27 +213,100 @@ func (r *memoryTemplateRepository) ListByCode(ctx context.Context, code string, 
 
 type memoryEventRepository struct {
 	notificationMemoryRepository[domain.NotificationEvent]
+	identity map[notificationEventIdentity]uuid.UUID
+}
+
+type notificationEventIdentity struct {
+	scope          string
+	definitionCode string
+	key            string
 }
 
 func newMemoryEventRepository() *memoryEventRepository {
 	return &memoryEventRepository{
 		notificationMemoryRepository: newNotificationMemoryRepository(func(evt *domain.NotificationEvent) *domain.RecordMeta { return &evt.RecordMeta }),
+		identity:                     make(map[notificationEventIdentity]uuid.UUID),
 	}
 }
 
+func (r *memoryEventRepository) Create(ctx context.Context, event *domain.NotificationEvent) error {
+	if event.Status == "" {
+		event.Status = domain.EventStatusPending
+	}
+	_, _, err := r.CreateIdempotent(ctx, event)
+	return err
+}
+
+func (r *memoryEventRepository) CreateIdempotent(_ context.Context, event *domain.NotificationEvent) (*domain.NotificationEvent, bool, error) {
+	r.base.mu.Lock()
+	defer r.base.mu.Unlock()
+
+	if event.Status == "" {
+		event.Status = domain.EventStatusPending
+	}
+	identity := eventIdentity(event.IdempotencyScope, event.DefinitionCode, event.IdempotencyKey)
+	if event.IdempotencyKey != "" {
+		if id, ok := r.identity[identity]; ok {
+			stored := r.base.records[id]
+			return &stored, false, nil
+		}
+	}
+
+	event.EnsureID()
+	now := time.Now().UTC()
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = now
+	}
+	event.UpdatedAt = now
+	r.base.records[event.ID] = *event
+	if event.IdempotencyKey != "" {
+		r.identity[identity] = event.ID
+	}
+	stored := *event
+	return &stored, true, nil
+}
+
+func (r *memoryEventRepository) GetByIdempotency(_ context.Context, scope, definitionCode, key string) (*domain.NotificationEvent, error) {
+	r.base.mu.RLock()
+	defer r.base.mu.RUnlock()
+
+	id, ok := r.identity[eventIdentity(scope, definitionCode, key)]
+	if !ok {
+		return nil, store.ErrNotFound
+	}
+	event := r.base.records[id]
+	return &event, nil
+}
+
 func (r *memoryEventRepository) ListPending(ctx context.Context, limit int) ([]domain.NotificationEvent, error) {
-	opts := store.ListOptions{Limit: limit}
-	result, err := r.List(ctx, opts)
+	result, err := r.List(ctx, store.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 	pending := make([]domain.NotificationEvent, 0, len(result.Items))
 	for _, evt := range result.Items {
-		if evt.Status == domain.EventStatusPending {
+		if evt.Status == domain.EventStatusPending || evt.Status == domain.EventStatusScheduled {
 			pending = append(pending, evt)
 		}
 	}
+	if limit > 0 && len(pending) > limit {
+		pending = pending[:limit]
+	}
 	return pending, nil
+}
+
+func (r *memoryEventRepository) ListByPublication(ctx context.Context, publicationID uuid.UUID) ([]domain.NotificationEvent, error) {
+	result, err := r.List(ctx, store.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]domain.NotificationEvent, 0)
+	for _, event := range result.Items {
+		if event.PublicationID == publicationID {
+			items = append(items, event)
+		}
+	}
+	return items, nil
 }
 
 func (r *memoryEventRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
@@ -243,6 +316,38 @@ func (r *memoryEventRepository) UpdateStatus(ctx context.Context, id uuid.UUID, 
 	}
 	record.Status = status
 	return r.Update(ctx, record)
+}
+
+func (r *memoryEventRepository) ClaimRetry(_ context.Context, id uuid.UUID, until time.Time) (bool, error) {
+	r.base.mu.Lock()
+	defer r.base.mu.Unlock()
+
+	event, ok := r.base.records[id]
+	if !ok {
+		return false, store.ErrNotFound
+	}
+	now := time.Now().UTC()
+	if event.Status == domain.EventStatusRetrying && event.RetryClaimUntil.After(now) {
+		return false, nil
+	}
+	if event.Status != domain.EventStatusFailed &&
+		event.Status != domain.EventStatusPartial &&
+		event.Status != domain.EventStatusRetrying {
+		return false, nil
+	}
+	event.Status = domain.EventStatusRetrying
+	event.RetryClaimUntil = until
+	event.UpdatedAt = now
+	r.base.records[id] = event
+	return true, nil
+}
+
+func eventIdentity(scope, definitionCode, key string) notificationEventIdentity {
+	return notificationEventIdentity{
+		scope:          scope,
+		definitionCode: definitionCode,
+		key:            key,
+	}
 }
 
 type memoryMessageRepository struct {
