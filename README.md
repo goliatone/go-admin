@@ -214,7 +214,13 @@ See `docs/GUIDE_CMS.md` for include flags, locale resolution, blocks payload rul
 
 ## Commands (go-command)
 
-Commands are message-driven: define a message type with a stable `Type()` string, implement a `command.Commander[Msg]`, and register a message factory for name-based dispatch from HTTP/panels.
+Commands are message-driven: define a message type with a stable `Type()` string,
+implement a `command.Commander[Msg]`, and register a message factory for
+name-based dispatch from HTTP, RPC, or panels.
+
+New modules should register an owner-scoped set. A set validates every handler
+and factory, builds an isolated runtime, then publishes the whole owner
+atomically:
 
 ```go
 type PublishPageMsg struct {
@@ -231,11 +237,59 @@ func (c *PublishPageCommand) Execute(ctx context.Context, msg PublishPageMsg) er
 	return c.store.Publish(ctx, msg.IDs)
 }
 
-adm.Commands().Register(&PublishPageCommand{store: store})
-admin.RegisterMessageFactory(adm.Commands(), "pages.publish", func(payload map[string]any, ids []string) (PublishPageMsg, error) {
-	return PublishPageMsg{IDs: ids}, nil
+set, err := adm.Commands().NewRegistrationSet("pages")
+if err != nil {
+	return err
+}
+if err := admin.RegisterSetCommand(set, &PublishPageCommand{store: store}); err != nil {
+	return err
+}
+if err := admin.RegisterSetContextMessageFactory(set, "pages.publish",
+	func(ctx context.Context, payload map[string]any, ids []string) (PublishPageMsg, error) {
+		opts, _ := command.DispatchOptionsFromContext(ctx)
+		// opts is the same effective snapshot used by the handler and receipt.
+		_ = opts.CorrelationID
+		return PublishPageMsg{IDs: ids}, nil
+	},
+); err != nil {
+	return err
+}
+registration, err := set.Commit()
+if err != nil {
+	return err
+}
+// Retain registration and call registration.Close() during module shutdown.
+```
+
+`RegisterCommand` and `RegisterMessageFactory` remain available for legacy
+process-global registration. Owned sets are preferable for modules and tests:
+each committed owner has a private go-command runtime/registry generation,
+can be committed after global registry startup, and can be closed without
+disturbing other owners. `CommandBus.Reset` detaches both owned generations and
+registrations made through that bus.
+
+Context-aware factories receive the caller's values, deadline, and
+cancellation plus the normalized effective `command.DispatchOptions`.
+Precedence is explicit trusted options, then transport-normalized
+correlation/idempotency inputs, then permitted server defaults. Payload
+`actor`, tenant, or organization fields are never promoted to trusted context;
+derive authorization and scope from authenticated context.
+
+Configure non-inline capabilities inherited by future owned generations before
+commit:
+
+```go
+err := adm.Commands().SetOwnedRuntimeConfig(admin.OwnedCommandRuntimeConfig{
+	Executors: map[command.ExecutionMode]dispatcher.CommandExecutor{
+		command.ExecutionModeQueued: queueExecutor,
+	},
 })
 ```
+
+Runner options passed to `RegisterSetCommand` are handler-local and opt in to
+in-process retries. Queue delivery retries are a separate policy. Commands that
+implement go-command descriptor interfaces appear in the command catalog only
+while their owner is committed; exposure remains opt-in.
 
 CLI/cron metadata is optional via `command.CLICommand` (`CLIOptions`) and `command.CronCommand` (`CronOptions`).
 
