@@ -12,17 +12,94 @@ import (
 )
 
 var (
-	_ func(Config, Dependencies) (*Admin, error)                                                        = New
-	_ func(context.Context, string) context.Context                                                     = WithContentChannel
-	_ func(context.Context, string) context.Context                                                     = WithEnvironment
-	_ func(context.Context) string                                                                      = ContentChannelFromContext
-	_ func(context.Context, string) context.Context                                                     = WithLocale
-	_ func(context.Context) context.Context                                                             = WithResolvedPermissionsCache
-	_ func(Authorizer, context.Context, string, ...string) bool                                         = CanAny
-	_ func(Authorizer, context.Context, string, ...string) bool                                         = CanAll
-	_ func() *MemoryRepository                                                                          = NewMemoryRepository
-	_ func(*CommandBus, command.Commander[struct{}], ...runner.Option) (dispatcher.Subscription, error) = RegisterCommand[struct{}]
+	_ func(Config, Dependencies) (*Admin, error)                                                                                       = New
+	_ func(context.Context, string) context.Context                                                                                    = WithContentChannel
+	_ func(context.Context, string) context.Context                                                                                    = WithEnvironment
+	_ func(context.Context) string                                                                                                     = ContentChannelFromContext
+	_ func(context.Context, string) context.Context                                                                                    = WithLocale
+	_ func(context.Context) context.Context                                                                                            = WithResolvedPermissionsCache
+	_ func(Authorizer, context.Context, string, ...string) bool                                                                        = CanAny
+	_ func(Authorizer, context.Context, string, ...string) bool                                                                        = CanAll
+	_ func() *MemoryRepository                                                                                                         = NewMemoryRepository
+	_ func(*CommandBus, command.Commander[struct{}], ...runner.Option) (dispatcher.Subscription, error)                                = RegisterCommand[struct{}]
+	_ func(*CommandBus, string, func(context.Context, map[string]any, []string) (facadeResultFactoryMessage, error)) error             = RegisterContextMessageFactory[facadeResultFactoryMessage]
+	_ func(*CommandBus, string, func(context.Context, map[string]any, []string) (facadeResultFactoryMessage, error)) error             = RegisterContextMessageResultFactory[facadeResultFactoryMessage, struct{}]
+	_ func(*CommandRegistrationSet, command.Commander[facadeResultFactoryMessage], ...runner.Option) error                             = RegisterSetCommand[facadeResultFactoryMessage]
+	_ func(*CommandRegistrationSet, string, func(map[string]any, []string) (facadeResultFactoryMessage, error)) error                  = RegisterSetMessageFactory[facadeResultFactoryMessage]
+	_ func(*CommandRegistrationSet, string, func(map[string]any, []string) (facadeResultFactoryMessage, error)) error                  = RegisterSetMessageResultFactory[facadeResultFactoryMessage, struct{}]
+	_ func(*CommandRegistrationSet, string, func(context.Context, map[string]any, []string) (facadeResultFactoryMessage, error)) error = RegisterSetContextMessageFactory[facadeResultFactoryMessage]
+	_ func(*CommandRegistrationSet, string, func(context.Context, map[string]any, []string) (facadeResultFactoryMessage, error)) error = RegisterSetContextMessageResultFactory[facadeResultFactoryMessage, struct{}]
+	_ command.CatalogProvider                                                                                                          = (*CommandBus)(nil)
 )
+
+type facadeResultFactoryMessage struct{}
+
+func (facadeResultFactoryMessage) Type() string {
+	return "facade.result_factory"
+}
+
+type facadeOwnedCommand struct {
+	calls int
+}
+
+func (c *facadeOwnedCommand) Execute(context.Context, facadeResultFactoryMessage) error {
+	c.calls++
+	return nil
+}
+
+func TestFacadeRegisterMessageResultFactoryAvailable(t *testing.T) {
+	bus := NewCommandBus(true)
+	t.Cleanup(bus.Reset)
+
+	err := RegisterMessageResultFactory[facadeResultFactoryMessage, struct{}](
+		bus,
+		"facade.result_factory",
+		func(map[string]any, []string) (facadeResultFactoryMessage, error) {
+			return facadeResultFactoryMessage{}, nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("RegisterMessageResultFactory: %v", err)
+	}
+	if !bus.HasFactory("facade.result_factory") {
+		t.Fatal("RegisterMessageResultFactory did not register the facade factory")
+	}
+}
+
+func TestFacadeContextFactoriesAndOwnedRegistrationSetAvailable(t *testing.T) {
+	bus := NewCommandBus(true)
+	if err := bus.SetOwnedRuntimeConfig(OwnedCommandRuntimeConfig{}); err != nil {
+		t.Fatalf("SetOwnedRuntimeConfig: %v", err)
+	}
+	set, err := bus.NewRegistrationSet("facade.owner")
+	if err != nil {
+		t.Fatalf("NewRegistrationSet: %v", err)
+	}
+	handler := &facadeOwnedCommand{}
+	if err := RegisterSetCommand(set, handler); err != nil {
+		t.Fatalf("RegisterSetCommand: %v", err)
+	}
+	if err := RegisterSetContextMessageFactory(set, "facade.owned", func(ctx context.Context, _ map[string]any, _ []string) (facadeResultFactoryMessage, error) {
+		if _, ok := command.DispatchOptionsFromContext(ctx); !ok {
+			t.Fatal("expected effective options in facade context factory")
+		}
+		return facadeResultFactoryMessage{}, nil
+	}); err != nil {
+		t.Fatalf("RegisterSetContextMessageFactory: %v", err)
+	}
+	var handle CommandRegistrationHandle
+	handle, err = set.Commit()
+	if err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+	defer handle.Close()
+	if err := bus.DispatchByName(context.Background(), "facade.owned", nil, nil); err != nil {
+		t.Fatalf("DispatchByName: %v", err)
+	}
+	if handler.calls != 1 {
+		t.Fatalf("facade owned handler calls = %d", handler.calls)
+	}
+}
 
 func TestFacadeContextHelpersForward(t *testing.T) {
 	ctx := context.Background()

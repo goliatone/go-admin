@@ -78,6 +78,130 @@ func (r resultDispatchTestResult) CommandResultFailure() error {
 	return r.Failure
 }
 
+type contextDispatchTestKey struct{}
+
+type contextDispatchTestCommand struct {
+	run command.DispatchRunContext
+}
+
+func (c *contextDispatchTestCommand) Execute(ctx context.Context, _ queuedDispatchTestMessage) error {
+	c.run, _ = command.DispatchRunFromContext(ctx)
+	return nil
+}
+
+func TestCommandBusContextFactoryReceivesEffectiveDispatchContext(t *testing.T) {
+	commandregistry.WithTestRegistry(func() {
+		bus := NewCommandBus(true)
+		handler := &contextDispatchTestCommand{}
+		if _, err := RegisterCommand(bus, handler); err != nil {
+			t.Fatalf("RegisterCommand: %v", err)
+		}
+
+		payload := map[string]any{"value": "context"}
+		ids := []string{"first"}
+		var factoryOptions command.DispatchOptions
+		var factoryValue any
+		var factoryDeadline time.Time
+		var factoryCanceled error
+		if err := RegisterContextMessageFactory(bus, queuedDispatchTestCommandName, func(ctx context.Context, gotPayload map[string]any, gotIDs []string) (queuedDispatchTestMessage, error) {
+			factoryOptions, _ = command.DispatchOptionsFromContext(ctx)
+			factoryValue = ctx.Value(contextDispatchTestKey{})
+			factoryDeadline, _ = ctx.Deadline()
+			factoryCanceled = ctx.Err()
+			gotPayload["factory_mutation"] = true
+			gotIDs[0] = "factory-mutated"
+			return queuedDispatchTestMessage{Value: toString(gotPayload["value"])}, nil
+		}); err != nil {
+			t.Fatalf("RegisterContextMessageFactory: %v", err)
+		}
+
+		deadline := time.Now().Add(time.Minute).Round(time.Millisecond)
+		ctx, cancel := context.WithDeadline(context.WithValue(context.Background(), contextDispatchTestKey{}, "trusted"), deadline)
+		defer cancel()
+		ctx = command.ContextWithDispatchOptions(ctx, command.DispatchOptions{
+			CorrelationID:  "context-correlation",
+			IdempotencyKey: "context-idempotency",
+			Metadata:       map[string]any{"base": "context", "override": "context"},
+		})
+		receipt, err := bus.DispatchByNameWithOptions(ctx, queuedDispatchTestCommandName, payload, ids, command.DispatchOptions{
+			Mode:           command.ExecutionModeInline,
+			CorrelationID:  " explicit-correlation ",
+			IdempotencyKey: " explicit-idempotency ",
+			Metadata:       map[string]any{"override": "explicit", "extra": "value"},
+		})
+		if err != nil {
+			t.Fatalf("DispatchByNameWithOptions: %v", err)
+		}
+		if factoryValue != "trusted" || factoryCanceled != nil {
+			t.Fatalf("factory context value/cancellation = %v/%v", factoryValue, factoryCanceled)
+		}
+		if !factoryDeadline.Equal(deadline) {
+			t.Fatalf("factory deadline = %v, want %v", factoryDeadline, deadline)
+		}
+		if payload["factory_mutation"] != true || ids[0] != "factory-mutated" {
+			t.Fatalf("factory did not receive original payload/ids: payload=%v ids=%v", payload, ids)
+		}
+		if factoryOptions.Mode != command.ExecutionModeInline ||
+			factoryOptions.CorrelationID != "explicit-correlation" ||
+			factoryOptions.IdempotencyKey != "explicit-idempotency" {
+			t.Fatalf("unexpected factory options: %+v", factoryOptions)
+		}
+		if factoryOptions.Metadata["base"] != "context" ||
+			factoryOptions.Metadata["override"] != "explicit" ||
+			factoryOptions.Metadata["extra"] != "value" {
+			t.Fatalf("unexpected factory metadata: %+v", factoryOptions.Metadata)
+		}
+		if handler.run.ExecutionMode != factoryOptions.Mode ||
+			handler.run.CorrelationID != factoryOptions.CorrelationID ||
+			handler.run.IdempotencyKey != factoryOptions.IdempotencyKey {
+			t.Fatalf("factory/handler option mismatch: factory=%+v run=%+v", factoryOptions, handler.run)
+		}
+		if receipt.CorrelationID != factoryOptions.CorrelationID {
+			t.Fatalf("receipt/factory correlation mismatch: receipt=%+v factory=%+v", receipt, factoryOptions)
+		}
+	})
+}
+
+func TestRegisterContextMessageResultFactoryReceivesEffectiveContext(t *testing.T) {
+	commandregistry.WithTestRegistry(func() {
+		bus := NewCommandBus(true)
+		if _, err := RegisterCommand(bus, command.CommandFunc[resultDispatchTestMessage](func(ctx context.Context, msg resultDispatchTestMessage) error {
+			command.ResultFromContext[resultDispatchTestResult](ctx).Store(resultDispatchTestResult{Value: msg.Value})
+			return nil
+		})); err != nil {
+			t.Fatalf("RegisterCommand: %v", err)
+		}
+		var gotCorrelation string
+		if err := RegisterContextMessageResultFactory[resultDispatchTestMessage, resultDispatchTestResult](bus, "result.dispatch", func(ctx context.Context, payload map[string]any, _ []string) (resultDispatchTestMessage, error) {
+			opts, _ := command.DispatchOptionsFromContext(ctx)
+			gotCorrelation = opts.CorrelationID
+			return resultDispatchTestMessage{Value: toString(payload["value"])}, nil
+		}); err != nil {
+			t.Fatalf("RegisterContextMessageResultFactory: %v", err)
+		}
+		outcome, err := bus.DispatchByNameWithOutcome(context.Background(), "result.dispatch", map[string]any{"value": "ok"}, nil, command.DispatchOptions{
+			Mode:          command.ExecutionModeInline,
+			CorrelationID: "result-correlation",
+		})
+		if err != nil {
+			t.Fatalf("DispatchByNameWithOutcome: %v", err)
+		}
+		if gotCorrelation != "result-correlation" {
+			t.Fatalf("factory correlation = %q", gotCorrelation)
+		}
+		if result, ok := outcome.Result.(resultDispatchTestResult); !ok || result.Value != "ok" {
+			t.Fatalf("unexpected result: %#v", outcome.Result)
+		}
+	})
+}
+
+func TestRegisterMessageFactoryStillRejectsNilBuilder(t *testing.T) {
+	var build messageBuilder[queuedDispatchTestMessage]
+	if err := RegisterMessageFactory(NewCommandBus(true), queuedDispatchTestCommandName, build); err == nil {
+		t.Fatal("expected nil legacy builder validation error")
+	}
+}
+
 func TestCommandBusDispatchByNameStaysInlineWhenPolicyQueued(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
 		bus := NewCommandBus(true)

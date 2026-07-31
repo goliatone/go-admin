@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -186,6 +187,48 @@ func TestCommandRunObserverScopeAndUnsafeMetadata(t *testing.T) {
 	}
 	if len(reported) != 1 || !strings.Contains(reported[0].Error(), "dropped unsafe metadata") {
 		t.Fatalf("reported errors = %v", reported)
+	}
+}
+
+func TestCommandRunObserverRedactsIdempotencyAndNestedSecretsBeforePublish(t *testing.T) {
+	publisher := &commandRunPublisherRecorder{}
+	bridge := newTestCommandRunObserver(t, CommandRunObserverConfig{Publisher: publisher})
+	event := testUpstreamCommandRunEvent("run-redacted", command.CommandRunPhaseProgress)
+	event.IdempotencyKey = "raw-idempotency-key"
+	event.Message = "worker failed: password=raw-message-password"
+	event.Checkpoint = "token=raw-checkpoint-token"
+	event.Metadata = map[string]any{
+		"idempotency_key": "raw-idempotency-key",
+		"api_key":         "raw-api-key",
+		"nested": map[string]any{
+			"access_token": "raw-access-token",
+			"safe":         "visible",
+		},
+		"message": "request failed: password=raw-password",
+	}
+	if err := bridge.OnCommandRunEvent(context.Background(), event); err != nil {
+		t.Fatalf("observe: %v", err)
+	}
+	update := publisher.last(t)
+	encoded, err := json.Marshal(update)
+	if err != nil {
+		t.Fatalf("marshal update: %v", err)
+	}
+	for _, secret := range []string{
+		"raw-idempotency-key",
+		"raw-api-key",
+		"raw-access-token",
+		"raw-password",
+		"raw-message-password",
+		"raw-checkpoint-token",
+	} {
+		if strings.Contains(string(encoded), secret) {
+			t.Fatalf("published update contains raw secret %q: %s", secret, encoded)
+		}
+	}
+	nested, ok := update.Metadata["nested"].(map[string]any)
+	if !ok || nested["safe"] != "visible" {
+		t.Fatalf("safe nested metadata was not preserved: %+v", update.Metadata)
 	}
 }
 
