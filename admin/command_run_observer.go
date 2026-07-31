@@ -219,7 +219,7 @@ func safeCommandRunMetadata(metadata map[string]any) map[string]any {
 func safeCommandRunMetadataValue(value any) any {
 	switch typed := value.(type) {
 	case string:
-		return fullyRedactCommandRunInlineSecrets(debugMaskInlineString(DebugConfig{}, typed))
+		return safeCommandRunInlineString(typed)
 	case map[string]any:
 		return safeCommandRunMetadata(typed)
 	case map[string]string:
@@ -229,7 +229,7 @@ func safeCommandRunMetadataValue(value any) any {
 				out[key] = "[REDACTED]"
 				continue
 			}
-			out[key] = fullyRedactCommandRunInlineSecrets(debugMaskInlineString(DebugConfig{}, item))
+			out[key] = safeCommandRunInlineString(item)
 		}
 		return out
 	case []any:
@@ -244,17 +244,32 @@ func safeCommandRunMetadataValue(value any) any {
 }
 
 var commandRunInlineSecretPattern = regexp.MustCompile(
-	`(?i)\b([A-Za-z0-9_.-]*(?:apikey|api_key|authorization|bearer|client_secret|cookie|csrf|idempotency|jwt|password|secret|session|set-cookie|token)[A-Za-z0-9_.-]*)(\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s"',;&<>]+)`,
+	`(?i)\b([A-Za-z0-9_.-]*(?:apikey|api_key|authorization|bearer|client_secret|cookie|csrf|idempotency|jwt|password|secret|session|set-cookie|token)[A-Za-z0-9_.-]*)(\s*[:=]\s*)("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|(?:bearer\s+)?[^\s"',;&<>]+)`,
 )
 
+var commandRunAuthorizationSecretPattern = regexp.MustCompile(
+	`(?i)\b([A-Za-z0-9_.-]*authorization[A-Za-z0-9_.-]*)(\s*[:=]\s*)("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|(?:[A-Za-z][A-Za-z0-9+.-]*\s+)?[^\s"',;&<>]+)`,
+)
+
+var commandRunBearerSecretPattern = regexp.MustCompile(`(?i)\b(bearer\s+)([^\s"',;&<>]+)`)
+
+var commandRunJWTSecretPattern = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}[A-Za-z0-9_=-]*\b`)
+
 func fullyRedactCommandRunInlineSecrets(value string) string {
-	return commandRunInlineSecretPattern.ReplaceAllString(value, `${1}${2}[REDACTED]`)
+	value = commandRunAuthorizationSecretPattern.ReplaceAllString(value, `${1}${2}[REDACTED]`)
+	value = commandRunInlineSecretPattern.ReplaceAllString(value, `${1}${2}[REDACTED]`)
+	value = commandRunBearerSecretPattern.ReplaceAllString(value, `${1}[REDACTED]`)
+	return commandRunJWTSecretPattern.ReplaceAllString(value, `[REDACTED]`)
+}
+
+func safeCommandRunInlineString(value string) string {
+	value = fullyRedactCommandRunInlineSecrets(value)
+	value = debugMaskInlineString(DebugConfig{}, value)
+	return fullyRedactCommandRunInlineSecrets(value)
 }
 
 func safeCommandRunText(value string, limit int) string {
-	value = debugMaskInlineString(DebugConfig{}, value)
-	value = fullyRedactCommandRunInlineSecrets(value)
-	return truncateCommandRunText(value, limit)
+	return truncateCommandRunText(safeCommandRunInlineString(value), limit)
 }
 
 // commandRunUpstreamRevision keeps go-admin source-compatible with the current

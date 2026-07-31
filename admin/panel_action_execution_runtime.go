@@ -33,7 +33,7 @@ func (p *Panel) runCommandActionResponse(ctx AdminContext, name string, action A
 	}
 	collector := &ActionResponseCollector{}
 	actionCtx := ContextWithActionResponseCollector(ctx.Context, collector)
-	_, err := p.commandBus.DispatchByNameWithOptions(actionCtx, action.CommandName, payload, ids, actionCommandDispatchOptions(actionCtx, payload))
+	_, err := p.commandBus.DispatchByNameWithOptions(actionCtx, action.CommandName, payload, ids, actionCommandDispatchOptions(actionCtx, action, payload))
 	if err == nil {
 		p.recordActivity(ctx, "panel.action", map[string]any{
 			"panel":  p.name,
@@ -91,7 +91,7 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 		return p.bulkActionFailure(ctx, name, ActionScopeBulk, "permission", selection, permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name))
 	}
 	if action.CommandName != "" && p.commandBus != nil {
-		_, err := p.commandBus.DispatchByNameWithOptions(ctx.Context, action.CommandName, payload, selection, actionCommandDispatchOptions(ctx.Context, payload))
+		_, err := p.commandBus.DispatchByNameWithOptions(ctx.Context, action.CommandName, payload, selection, actionCommandDispatchOptions(ctx.Context, action, payload))
 		if err != nil {
 			return p.bulkActionFailure(ctx, name, ActionScopeBulk, "dispatch", selection, err)
 		}
@@ -111,18 +111,28 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 	}))
 }
 
-func actionCommandDispatchOptions(ctx context.Context, payload map[string]any) command.DispatchOptions {
+func actionCommandDispatchOptions(ctx context.Context, action Action, payload map[string]any) command.DispatchOptions {
 	opts, _ := command.DispatchOptionsFromContext(ctx)
 	if strings.TrimSpace(opts.CorrelationID) == "" {
 		opts.CorrelationID = strings.TrimSpace(toString(firstNonEmptyAny(payload, "correlation_id", "correlationId")))
 	}
 	if strings.TrimSpace(opts.IdempotencyKey) == "" {
-		opts.IdempotencyKey = workflowIdempotencyKey(payload)
+		opts.IdempotencyKey = actionPayloadIdempotencyKey(action, payload)
 	}
 	if command.NormalizeExecutionMode(opts.Mode) == "" {
 		opts.Mode = command.ExecutionModeInline
 	}
 	return opts
+}
+
+func actionPayloadIdempotencyKey(action Action, payload map[string]any) string {
+	field := actionIdempotencyField(action)
+	if field != "" {
+		if value := strings.TrimSpace(toString(payload[field])); value != "" {
+			return value
+		}
+	}
+	return workflowIdempotencyKey(payload)
 }
 
 func (p *Panel) bulkActionFailure(ctx AdminContext, name string, scope ActionScope, stage string, ids []string, err error) error {

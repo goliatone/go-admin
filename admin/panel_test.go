@@ -293,53 +293,109 @@ func TestPanelBulkActionDispatchesCommand(t *testing.T) {
 
 func TestPanelActionsPromoteCorrelationAndIdempotencyOptions(t *testing.T) {
 	registry.WithTestRegistry(func() {
-		for _, bulk := range []bool{false, true} {
-			t.Run(map[bool]string{false: "row", true: "bulk"}[bulk], func(t *testing.T) {
-				reg := NewCommandBus(true)
-				defer reg.Reset()
-				handler := &contextDispatchTestCommand{}
-				if _, err := RegisterCommand(reg, handler); err != nil {
-					t.Fatalf("register command: %v", err)
-				}
-				var factoryOptions command.DispatchOptions
-				if err := RegisterContextMessageFactory(reg, queuedDispatchTestCommandName, func(ctx context.Context, _ map[string]any, _ []string) (queuedDispatchTestMessage, error) {
-					factoryOptions, _ = command.DispatchOptionsFromContext(ctx)
-					return queuedDispatchTestMessage{}, nil
-				}); err != nil {
-					t.Fatalf("register factory: %v", err)
-				}
+		idempotencyCases := []struct {
+			name               string
+			action             Action
+			payload            func(Action) map[string]any
+			trustedIdempotency string
+		}{
+			{
+				name:   "standard alias",
+				action: Action{Name: "run", CommandName: queuedDispatchTestCommandName},
+				payload: func(Action) map[string]any {
+					return map[string]any{"idempotencyKey": "action-idempotency"}
+				},
+			},
+			{
+				name: "custom accepted",
+				action: Action{
+					Name: "run", CommandName: queuedDispatchTestCommandName,
+					Idempotent: true, IdempotencyField: "request_id",
+				},
+				payload: func(Action) map[string]any {
+					return map[string]any{"request_id": "custom-idempotency"}
+				},
+			},
+			{
+				name: "custom generated",
+				action: Action{
+					Name: "run", CommandName: queuedDispatchTestCommandName,
+					Idempotent: true, IdempotencyField: "request_id",
+				},
+				payload: func(action Action) map[string]any {
+					return applyActionPayloadDefaults(action, map[string]any{"id": "record-1"}, []string{"one"})
+				},
+			},
+			{
+				name: "trusted option wins custom payload",
+				action: Action{
+					Name: "run", CommandName: queuedDispatchTestCommandName,
+					Idempotent: true, IdempotencyField: "request_id",
+				},
+				payload: func(Action) map[string]any {
+					return map[string]any{"request_id": "untrusted-idempotency"}
+				},
+				trustedIdempotency: "trusted-idempotency",
+			},
+		}
+		for _, tc := range idempotencyCases {
+			for _, bulk := range []bool{false, true} {
+				t.Run(tc.name+"/"+map[bool]string{false: "row", true: "bulk"}[bulk], func(t *testing.T) {
+					reg := NewCommandBus(true)
+					defer reg.Reset()
+					handler := &contextDispatchTestCommand{}
+					if _, err := RegisterCommand(reg, handler); err != nil {
+						t.Fatalf("register command: %v", err)
+					}
+					var factoryOptions command.DispatchOptions
+					if err := RegisterContextMessageFactory(reg, queuedDispatchTestCommandName, func(ctx context.Context, _ map[string]any, _ []string) (queuedDispatchTestMessage, error) {
+						factoryOptions, _ = command.DispatchOptionsFromContext(ctx)
+						return queuedDispatchTestMessage{}, nil
+					}); err != nil {
+						t.Fatalf("register factory: %v", err)
+					}
 
-				action := Action{Name: "run", CommandName: queuedDispatchTestCommandName}
-				panel := &Panel{name: "actions", commandBus: reg}
-				payload := map[string]any{
-					"correlation_id": "action-correlation",
-					"idempotencyKey": "action-idempotency",
-					"actor_id":       "untrusted-payload-actor",
-				}
-				ctx := AdminContext{Context: context.Background()}
-				if bulk {
-					panel.bulkActions = []Action{action}
-					if err := panel.RunBulkAction(ctx, "run", payload, []string{"one"}); err != nil {
-						t.Fatalf("bulk dispatch: %v", err)
+					action := tc.action
+					panel := &Panel{name: "actions", commandBus: reg}
+					payload := tc.payload(action)
+					payload["correlation_id"] = "action-correlation"
+					payload["actor_id"] = "untrusted-payload-actor"
+					wantIdempotency := actionPayloadIdempotencyKey(action, payload)
+					baseCtx := context.Background()
+					if tc.trustedIdempotency != "" {
+						wantIdempotency = tc.trustedIdempotency
+						baseCtx = command.ContextWithDispatchOptions(baseCtx, command.DispatchOptions{
+							IdempotencyKey: tc.trustedIdempotency,
+						})
 					}
-				} else {
-					panel.actions = []Action{action}
-					if _, err := panel.RunAction(ctx, "run", payload, []string{"one"}); err != nil {
-						t.Fatalf("row dispatch: %v", err)
+					if wantIdempotency == "" {
+						t.Fatal("test payload did not provide an idempotency key")
 					}
-				}
-				if factoryOptions.CorrelationID != "action-correlation" ||
-					factoryOptions.IdempotencyKey != "action-idempotency" {
-					t.Fatalf("factory options = %+v", factoryOptions)
-				}
-				if _, exists := factoryOptions.Metadata["actor_id"]; exists {
-					t.Fatalf("payload actor must not be promoted to trusted metadata: %+v", factoryOptions.Metadata)
-				}
-				if handler.run.CorrelationID != factoryOptions.CorrelationID ||
-					handler.run.IdempotencyKey != factoryOptions.IdempotencyKey {
-					t.Fatalf("handler/factory option mismatch: run=%+v factory=%+v", handler.run, factoryOptions)
-				}
-			})
+					ctx := AdminContext{Context: baseCtx}
+					if bulk {
+						panel.bulkActions = []Action{action}
+						if err := panel.RunBulkAction(ctx, "run", payload, []string{"one"}); err != nil {
+							t.Fatalf("bulk dispatch: %v", err)
+						}
+					} else {
+						panel.actions = []Action{action}
+						if _, err := panel.RunAction(ctx, "run", payload, []string{"one"}); err != nil {
+							t.Fatalf("row dispatch: %v", err)
+						}
+					}
+					if factoryOptions.CorrelationID != "action-correlation" ||
+						factoryOptions.IdempotencyKey != wantIdempotency {
+						t.Fatalf("factory options = %+v", factoryOptions)
+					}
+					if _, exists := factoryOptions.Metadata["actor_id"]; exists {
+						t.Fatalf("payload actor must not be promoted to trusted metadata: %+v", factoryOptions.Metadata)
+					}
+					if handler.run.CorrelationID != factoryOptions.CorrelationID ||
+						handler.run.IdempotencyKey != factoryOptions.IdempotencyKey {
+						t.Fatalf("handler/factory option mismatch: run=%+v factory=%+v", handler.run, factoryOptions)
+					}
+				})
+			}
 		}
 	})
 }

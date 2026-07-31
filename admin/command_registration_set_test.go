@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -367,13 +368,19 @@ func (r ownedPlacementResolver) ResolvePlacement(context.Context, command.Messag
 }
 
 type ownedRemoteDispatcher struct {
-	calls int
-	run   command.DispatchRunContext
+	calls         int
+	run           command.DispatchRunContext
+	result        any
+	resultPresent bool
+	resultType    reflect.Type
 }
 
 func (d *ownedRemoteDispatcher) DispatchRemote(ctx context.Context, route command.DispatchRoute, registration command.MessageRegistration, _ any, opts command.DispatchOptions) (command.DispatchOutcome, error) {
 	d.calls++
 	d.run, _ = command.DispatchRunFromContext(ctx)
+	if sink, ok := command.DynamicResultSinkFromContext(ctx); ok {
+		d.resultType = sink.ResultType()
+	}
 	return command.DispatchOutcome{
 		Receipt: command.DispatchReceipt{
 			Accepted:      true,
@@ -381,8 +388,10 @@ func (d *ownedRemoteDispatcher) DispatchRemote(ctx context.Context, route comman
 			CommandID:     registration.ID(),
 			CorrelationID: opts.CorrelationID,
 		},
-		Target: command.DispatchTargetRemote,
-		Route:  route.Name,
+		Target:        command.DispatchTargetRemote,
+		Route:         route.Name,
+		Result:        d.result,
+		ResultPresent: d.resultPresent,
 	}, nil
 }
 
@@ -422,6 +431,145 @@ func TestOwnedRegistrationSetInheritsPlacementAndRemoteDispatch(t *testing.T) {
 	}
 	if receipt.CorrelationID != "remote-correlation" {
 		t.Fatalf("remote receipt = %+v", receipt)
+	}
+}
+
+func TestOwnedRegistrationSetPreservesRemoteTypedResults(t *testing.T) {
+	tests := []struct {
+		name          string
+		remoteResult  any
+		resultPresent bool
+		register      func(*CommandRegistrationSet) error
+		assert        func(*testing.T, DispatchOutcome, error)
+	}{
+		{
+			name:          "concrete",
+			remoteResult:  ownedResult{Value: "remote-result"},
+			resultPresent: true,
+			register: func(set *CommandRegistrationSet) error {
+				return RegisterSetMessageResultFactory[ownedAlphaMessage, ownedResult](set, "owned.remote.result", func(map[string]any, []string) (ownedAlphaMessage, error) {
+					return ownedAlphaMessage{}, nil
+				})
+			},
+			assert: func(t *testing.T, outcome DispatchOutcome, err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatalf("dispatch: %v", err)
+				}
+				if result, ok := outcome.Result.(ownedResult); !ok || result.Value != "remote-result" {
+					t.Fatalf("result = %#v", outcome.Result)
+				}
+			},
+		},
+		{
+			name:          "zero value",
+			remoteResult:  ownedResult{},
+			resultPresent: true,
+			register: func(set *CommandRegistrationSet) error {
+				return RegisterSetMessageResultFactory[ownedAlphaMessage, ownedResult](set, "owned.remote.result", func(map[string]any, []string) (ownedAlphaMessage, error) {
+					return ownedAlphaMessage{}, nil
+				})
+			},
+			assert: func(t *testing.T, outcome DispatchOutcome, err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatalf("dispatch: %v", err)
+				}
+				if result, ok := outcome.Result.(ownedResult); !ok || result != (ownedResult{}) {
+					t.Fatalf("result = %#v", outcome.Result)
+				}
+			},
+		},
+		{
+			name:          "nil pointer",
+			remoteResult:  nil,
+			resultPresent: true,
+			register: func(set *CommandRegistrationSet) error {
+				return RegisterSetMessageResultFactory[ownedAlphaMessage, *ownedResult](set, "owned.remote.result", func(map[string]any, []string) (ownedAlphaMessage, error) {
+					return ownedAlphaMessage{}, nil
+				})
+			},
+			assert: func(t *testing.T, outcome DispatchOutcome, err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatalf("dispatch: %v", err)
+				}
+				result, ok := outcome.Result.(*ownedResult)
+				if !ok || result != nil {
+					t.Fatalf("result = %#v", outcome.Result)
+				}
+			},
+		},
+		{
+			name:          "incompatible",
+			remoteResult:  "wrong",
+			resultPresent: true,
+			register: func(set *CommandRegistrationSet) error {
+				return RegisterSetMessageResultFactory[ownedAlphaMessage, ownedResult](set, "owned.remote.result", func(map[string]any, []string) (ownedAlphaMessage, error) {
+					return ownedAlphaMessage{}, nil
+				})
+			},
+			assert: func(t *testing.T, outcome DispatchOutcome, err error) {
+				t.Helper()
+				if err == nil {
+					t.Fatal("expected incompatible remote result error")
+				}
+				if !outcome.Receipt.Accepted {
+					t.Fatalf("validated remote receipt was not preserved: %+v", outcome.Receipt)
+				}
+			},
+		},
+		{
+			name: "absent",
+			register: func(set *CommandRegistrationSet) error {
+				return RegisterSetMessageResultFactory[ownedAlphaMessage, ownedResult](set, "owned.remote.result", func(map[string]any, []string) (ownedAlphaMessage, error) {
+					return ownedAlphaMessage{}, nil
+				})
+			},
+			assert: func(t *testing.T, outcome DispatchOutcome, err error) {
+				t.Helper()
+				if err == nil {
+					t.Fatal("expected absent remote result error")
+				}
+				if !outcome.Receipt.Accepted {
+					t.Fatalf("validated remote receipt was not preserved: %+v", outcome.Receipt)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bus := NewCommandBus(true)
+			remote := &ownedRemoteDispatcher{result: tc.remoteResult, resultPresent: tc.resultPresent}
+			if err := bus.SetOwnedRuntimeConfig(OwnedCommandRuntimeConfig{
+				Placement: ownedPlacementResolver{route: command.DispatchRoute{Target: command.DispatchTargetRemote, Name: "worker-results"}},
+				Remote:    remote,
+			}); err != nil {
+				t.Fatalf("SetOwnedRuntimeConfig: %v", err)
+			}
+			set, err := bus.NewRegistrationSet("remote-results")
+			if err != nil {
+				t.Fatalf("NewRegistrationSet: %v", err)
+			}
+			if err := RegisterSetCommand(set, &ownedResultCommand{}); err != nil {
+				t.Fatalf("RegisterSetCommand: %v", err)
+			}
+			if err := tc.register(set); err != nil {
+				t.Fatalf("register result factory: %v", err)
+			}
+			handle, err := set.Commit()
+			if err != nil {
+				t.Fatalf("Commit: %v", err)
+			}
+			defer handle.Close()
+
+			outcome, dispatchErr := bus.DispatchByNameWithOutcome(context.Background(), "owned.remote.result", nil, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
+			tc.assert(t, outcome, dispatchErr)
+			if remote.resultType == nil {
+				t.Fatal("remote dispatcher did not receive the dynamic result contract")
+			}
+		})
 	}
 }
 

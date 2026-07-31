@@ -194,9 +194,12 @@ func TestCommandRunObserverRedactsIdempotencyAndNestedSecretsBeforePublish(t *te
 	publisher := &commandRunPublisherRecorder{}
 	bridge := newTestCommandRunObserver(t, CommandRunObserverConfig{Publisher: publisher})
 	event := testUpstreamCommandRunEvent("run-redacted", command.CommandRunPhaseProgress)
+	bearerToken := "abcd-sensitive-bearer-credential-wxyz"
+	basicToken := "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
+	jwtToken := "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjb21tYW5kLXJ1biJ9.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
 	event.IdempotencyKey = "raw-idempotency-key"
-	event.Message = "worker failed: password=raw-message-password"
-	event.Checkpoint = "token=raw-checkpoint-token"
+	event.Message = "worker failed authorization: Basic " + basicToken + "; retry Bearer " + bearerToken
+	event.Checkpoint = "standalone jwt " + jwtToken
 	event.Metadata = map[string]any{
 		"idempotency_key": "raw-idempotency-key",
 		"api_key":         "raw-api-key",
@@ -204,7 +207,7 @@ func TestCommandRunObserverRedactsIdempotencyAndNestedSecretsBeforePublish(t *te
 			"access_token": "raw-access-token",
 			"safe":         "visible",
 		},
-		"message": "request failed: password=raw-password",
+		"message": "request failed: password=raw-password; Bearer " + bearerToken,
 	}
 	if err := bridge.OnCommandRunEvent(context.Background(), event); err != nil {
 		t.Fatalf("observe: %v", err)
@@ -219,12 +222,22 @@ func TestCommandRunObserverRedactsIdempotencyAndNestedSecretsBeforePublish(t *te
 		"raw-api-key",
 		"raw-access-token",
 		"raw-password",
-		"raw-message-password",
-		"raw-checkpoint-token",
+		bearerToken,
+		basicToken,
+		jwtToken,
+		"abcd",
+		"wxyz",
+		"QWxhZGRp",
+		"SFTZQ==",
+		"eyJhbGci",
+		"FUP0THsR8U",
 	} {
 		if strings.Contains(string(encoded), secret) {
 			t.Fatalf("published update contains raw secret %q: %s", secret, encoded)
 		}
+	}
+	if !strings.Contains(string(encoded), "[REDACTED]") {
+		t.Fatalf("published update did not retain an explicit redaction marker: %s", encoded)
 	}
 	nested, ok := update.Metadata["nested"].(map[string]any)
 	if !ok || nested["safe"] != "visible" {

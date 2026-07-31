@@ -222,12 +222,17 @@ func RegisterSetContextMessageResultFactory[T any, R any](set *CommandRegistrati
 			if dispatchErr != nil {
 				return DispatchOutcome{Receipt: outcome.Receipt}, dispatchErr
 			}
+			if outcome.ResultPresent {
+				if err := result.StoreDynamic(outcome.Result); err != nil {
+					return DispatchOutcome{Receipt: outcome.Receipt}, err
+				}
+			}
 			value, stored := result.Load()
 			if !stored {
-				return DispatchOutcome{}, serviceUnavailableDomainError("command result was not stored", map[string]any{"command_name": name})
+				return DispatchOutcome{Receipt: outcome.Receipt}, serviceUnavailableDomainError("command result was not stored", map[string]any{"command_name": name})
 			}
 			if resultErr := result.Error(); resultErr != nil {
-				return DispatchOutcome{}, resultErr
+				return DispatchOutcome{Receipt: outcome.Receipt}, resultErr
 			}
 			return DispatchOutcome{Receipt: outcome.Receipt, Result: value}, nil
 		},
