@@ -720,6 +720,8 @@ type (
 	CommandExecutionPolicy                            = core.CommandExecutionPolicy
 	CommandLauncherDiagnostic                         = core.CommandLauncherDiagnostic
 	CommandLauncherSnapshot                           = core.CommandLauncherSnapshot
+	CommandRegistrationHandle                         = core.CommandRegistrationHandle
+	CommandRegistrationSet                            = core.CommandRegistrationSet
 	CommandRegistrationState                          = core.CommandRegistrationState
 	CommandResultFailureReporter                      = core.CommandResultFailureReporter
 	CommandRunAtomicClearStore                        = core.CommandRunAtomicClearStore
@@ -771,6 +773,7 @@ type (
 	ContentTypeDeleteMsg                              = core.ContentTypeDeleteMsg
 	ContentTypePublishMsg                             = core.ContentTypePublishMsg
 	ContentTypeUpdateMsg                              = core.ContentTypeUpdateMsg
+	ContextMessageFactory                             = core.ContextMessageFactory
 	ConvertedFields                                   = core.ConvertedFields
 	CountTranslator                                   = core.CountTranslator
 	CustomLogEntry                                    = core.CustomLogEntry
@@ -1121,6 +1124,7 @@ type (
 	OrganizationRepository                            = core.OrganizationRepository
 	OrganizationService                               = core.OrganizationService
 	OrganizationsModule                               = core.OrganizationsModule
+	OwnedCommandRuntimeConfig                         = core.OwnedCommandRuntimeConfig
 	PageApplicationService                            = core.PageApplicationService
 	PageGetOptions                                    = core.PageGetOptions
 	PageIncludeDefaults                               = core.PageIncludeDefaults
@@ -2749,6 +2753,10 @@ func RegisterQuery[T any, R any](bus *CommandBus, qry command.Querier[T, R], run
 	return core.RegisterQuery[T, R](bus, qry, runnerOpts...)
 }
 
+func RegisterSetCommand[T any](set *CommandRegistrationSet, handler command.Commander[T], opts ...runner.Option) error {
+	return core.RegisterSetCommand[T](set, handler, opts...)
+}
+
 func RegisterTranslationExchangeCommandFactories(bus *CommandBus) error {
 	return core.RegisterTranslationExchangeCommandFactories(bus)
 }
@@ -3305,6 +3313,34 @@ func IntPtr(v int) *int {
 
 func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {
 	return core.RegisterMessageFactory[T](bus, name, build)
+}
+
+func RegisterMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {
+	return core.RegisterMessageResultFactory[T, R](bus, name, build)
+}
+
+func RegisterContextMessageFactory[T any](bus *CommandBus, name string, build func(context.Context, map[string]any, []string) (T, error)) error {
+	return core.RegisterContextMessageFactory[T](bus, name, build)
+}
+
+func RegisterContextMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(context.Context, map[string]any, []string) (T, error)) error {
+	return core.RegisterContextMessageResultFactory[T, R](bus, name, build)
+}
+
+func RegisterSetMessageFactory[T any](set *CommandRegistrationSet, name string, build func(map[string]any, []string) (T, error)) error {
+	return core.RegisterSetMessageFactory[T](set, name, build)
+}
+
+func RegisterSetMessageResultFactory[T any, R any](set *CommandRegistrationSet, name string, build func(map[string]any, []string) (T, error)) error {
+	return core.RegisterSetMessageResultFactory[T, R](set, name, build)
+}
+
+func RegisterSetContextMessageFactory[T any](set *CommandRegistrationSet, name string, build func(context.Context, map[string]any, []string) (T, error)) error {
+	return core.RegisterSetContextMessageFactory[T](set, name, build)
+}
+
+func RegisterSetContextMessageResultFactory[T any, R any](set *CommandRegistrationSet, name string, build func(context.Context, map[string]any, []string) (T, error)) error {
+	return core.RegisterSetContextMessageResultFactory[T, R](set, name, build)
 }
 
 // ---- END MANUAL COMPATIBILITY SECTION ----
