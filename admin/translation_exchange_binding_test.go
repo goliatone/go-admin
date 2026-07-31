@@ -654,7 +654,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 }
 
 func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *testing.T) {
-	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	cfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -704,7 +704,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *te
 }
 
 func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *testing.T) {
-	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	cfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -755,7 +755,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *
 }
 
 func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *testing.T) {
-	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	cfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -855,7 +855,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProt
 }
 
 func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t *testing.T) {
-	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
+	cfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",

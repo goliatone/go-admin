@@ -467,6 +467,24 @@ func TestAuthUIRoutesAllowExplicitCSRFSecureKeyWhenEntropyUnavailable(t *testing
 	}
 }
 
+func TestAuthUIRoutesRejectShortExplicitCSRFSecureKey(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	err = RegisterAuthUIRoutes(r, cfg, routeAuth, WithAuthUICSRFSecureKey([]byte("too-short")))
+	if err == nil {
+		t.Fatal("expected short explicit csrf key to be rejected")
+	}
+	if got := err.Error(); got != "auth ui csrf secure key must be at least 32 bytes" {
+		t.Fatalf("unexpected short csrf key error: %s", got)
+	}
+}
+
 func TestAuthUIRoutesAllowPreviewSecretWhenEntropyUnavailable(t *testing.T) {
 	resetAuthUICSRFKeyForTest(t)
 	originalRandRead := authUIRandRead

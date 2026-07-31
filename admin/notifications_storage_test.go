@@ -81,16 +81,51 @@ func TestNotificationMemoryRepositoriesSpecializedOperations(t *testing.T) {
 		t.Parallel()
 
 		repo := newMemoryEventRepository()
-		pending := domain.NotificationEvent{Status: domain.EventStatusPending}
-		complete := domain.NotificationEvent{Status: "sent"}
+		publicationID := uuid.New()
+		pending := domain.NotificationEvent{
+			DefinitionCode:   "welcome",
+			IdempotencyScope: "user:42",
+			IdempotencyKey:   "request-1",
+			PublicationID:    publicationID,
+		}
+		scheduled := domain.NotificationEvent{
+			Status:        domain.EventStatusScheduled,
+			PublicationID: publicationID,
+		}
+		complete := domain.NotificationEvent{Status: domain.EventStatusProcessed}
 
 		require.NoError(t, repo.Create(ctx, &pending))
+		require.Equal(t, domain.EventStatusPending, pending.Status)
+		require.NoError(t, repo.Create(ctx, &scheduled))
 		require.NoError(t, repo.Create(ctx, &complete))
 
-		items, err := repo.ListPending(ctx, 10)
+		items, err := repo.ListPending(ctx, 1)
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 		require.Equal(t, pending.ID, items[0].ID)
+
+		byPublication, err := repo.ListByPublication(ctx, publicationID)
+		require.NoError(t, err)
+		require.Len(t, byPublication, 2)
+
+		replay := domain.NotificationEvent{
+			DefinitionCode:   pending.DefinitionCode,
+			IdempotencyScope: pending.IdempotencyScope,
+			IdempotencyKey:   pending.IdempotencyKey,
+		}
+		stored, created, err := repo.CreateIdempotent(ctx, &replay)
+		require.NoError(t, err)
+		require.False(t, created)
+		require.Equal(t, pending.ID, stored.ID)
+
+		byIdempotency, err := repo.GetByIdempotency(
+			ctx,
+			pending.IdempotencyScope,
+			pending.DefinitionCode,
+			pending.IdempotencyKey,
+		)
+		require.NoError(t, err)
+		require.Equal(t, pending.ID, byIdempotency.ID)
 
 		require.NoError(t, repo.UpdateStatus(ctx, pending.ID, "processed"))
 		updated, err := repo.GetByID(ctx, pending.ID)
@@ -180,3 +215,55 @@ func TestNotificationMemoryRepositoriesSpecializedOperations(t *testing.T) {
 		require.Zero(t, count)
 	})
 }
+
+func TestMemoryEventRepositoryClaimRetry(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := newMemoryEventRepository()
+	failed := domain.NotificationEvent{Status: domain.EventStatusFailed}
+	partial := domain.NotificationEvent{Status: domain.EventStatusPartial}
+	pending := domain.NotificationEvent{Status: domain.EventStatusPending}
+
+	require.NoError(t, repo.Create(ctx, &failed))
+	require.NoError(t, repo.Create(ctx, &partial))
+	require.NoError(t, repo.Create(ctx, &pending))
+
+	claimUntil := time.Now().UTC().Add(time.Minute)
+	claimed, err := repo.ClaimRetry(ctx, failed.ID, claimUntil)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	stored, err := repo.GetByID(ctx, failed.ID)
+	require.NoError(t, err)
+	require.Equal(t, domain.EventStatusRetrying, stored.Status)
+	require.Equal(t, claimUntil, stored.RetryClaimUntil)
+
+	claimed, err = repo.ClaimRetry(ctx, failed.ID, claimUntil.Add(time.Minute))
+	require.NoError(t, err)
+	require.False(t, claimed)
+
+	require.NoError(t, repo.UpdateStatus(ctx, failed.ID, domain.EventStatusRetrying))
+	stored, err = repo.GetByID(ctx, failed.ID)
+	require.NoError(t, err)
+	stored.RetryClaimUntil = time.Now().UTC().Add(-time.Second)
+	require.NoError(t, repo.Update(ctx, stored))
+
+	claimed, err = repo.ClaimRetry(ctx, failed.ID, claimUntil)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	claimed, err = repo.ClaimRetry(ctx, partial.ID, claimUntil)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	claimed, err = repo.ClaimRetry(ctx, pending.ID, claimUntil)
+	require.NoError(t, err)
+	require.False(t, claimed)
+
+	claimed, err = repo.ClaimRetry(ctx, uuid.New(), claimUntil)
+	require.ErrorIs(t, err, store.ErrNotFound)
+	require.False(t, claimed)
+}
+
+var _ store.NotificationEventRepository = (*memoryEventRepository)(nil)

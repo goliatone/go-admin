@@ -733,7 +733,7 @@ func TestDebugAPIAuthFailuresReturnJSONWithoutBrowserRedirect(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 
-	authCfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: cfg}
+	authCfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: cfg}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",

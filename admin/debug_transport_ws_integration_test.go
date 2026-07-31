@@ -85,7 +85,7 @@ func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *test
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 
-	authCfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: cfg}
+	authCfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: cfg}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -146,7 +146,7 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
 
-	authCfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: cfg}
+	authCfg := cookieTestAuthConfig{signingKey: testAuthSigningKey, adminCfg: cfg}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",

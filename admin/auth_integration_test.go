@@ -15,7 +15,7 @@ import (
 )
 
 func TestGoAuthAuthenticatorWrapHandlerInjectsActor(t *testing.T) {
-	cfg := testAuthConfig{signingKey: "test-secret"}
+	cfg := testAuthConfig{signingKey: testAuthSigningKey}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -444,7 +444,7 @@ func TestGoAuthAuthorizerResolverMetrics(t *testing.T) {
 }
 
 func TestGoAuthAuthenticatorWrapHandlerSeedsResolvedPermissionsCache(t *testing.T) {
-	cfg := testAuthConfig{signingKey: "test-secret"}
+	cfg := testAuthConfig{signingKey: testAuthSigningKey}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -507,7 +507,7 @@ func TestGoAuthAuthenticatorWrapHandlerSeedsResolvedPermissionsCache(t *testing.
 }
 
 func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
-	cfg := cookieTestAuthConfig{signingKey: "test-secret"}
+	cfg := cookieTestAuthConfig{signingKey: testAuthSigningKey}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -613,7 +613,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 
 func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 	cfg := cookieTestAuthConfig{
-		signingKey: "test-secret",
+		signingKey: testAuthSigningKey,
 		adminCfg: Config{
 			BasePath: "/admin",
 			Routing: routing.Config{
@@ -680,7 +680,7 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 
 func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 	cfg := cookieTestAuthConfig{
-		signingKey: "test-secret",
+		signingKey: testAuthSigningKey,
 		adminCfg: Config{
 			BasePath: "/admin",
 			Routing: routing.Config{
@@ -769,7 +769,7 @@ func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
 
 func TestProtectedSurfaceAuthenticatorDoesNotInferProtectedAppRootsWhenDisabled(t *testing.T) {
 	cfg := cookieTestAuthConfig{
-		signingKey: "test-secret",
+		signingKey: testAuthSigningKey,
 		adminCfg: Config{
 			BasePath: "/admin",
 			Routing: routing.Config{
@@ -802,7 +802,7 @@ func TestProtectedSurfaceAuthenticatorDoesNotInferProtectedAppRootsWhenDisabled(
 
 func TestGoAuthAuthenticatorMergesPartialProtectedSurfaceRootOverrides(t *testing.T) {
 	cfg := cookieTestAuthConfig{
-		signingKey: "test-secret",
+		signingKey: testAuthSigningKey,
 		adminCfg: Config{
 			BasePath: "/admin",
 			Routing: routing.Config{
@@ -834,7 +834,7 @@ func TestGoAuthAuthenticatorMergesPartialProtectedSurfaceRootOverrides(t *testin
 }
 
 func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
-	cfg := cookieTestAuthConfig{signingKey: "test-secret"}
+	cfg := cookieTestAuthConfig{signingKey: testAuthSigningKey}
 	provider := &stubIdentityProvider{identity: testIdentity{
 		id:       "user-123",
 		username: "user@example.com",
@@ -940,6 +940,8 @@ func TestJobsAndNotificationsRoutesRequirePermission(t *testing.T) {
 		t.Fatalf("expected notifications mark route to enforce permissions, got %d", notifRes.Code)
 	}
 }
+
+const testAuthSigningKey = "go-admin-test-signing-key-0123456789"
 
 type testAuthConfig struct {
 	signingKey string

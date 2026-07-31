@@ -17,7 +17,7 @@ import (
 
 type stubAuthConfig struct{}
 
-func (stubAuthConfig) GetSigningKey() string         { return "secret" }
+func (stubAuthConfig) GetSigningKey() string         { return "quickstart-test-signing-key-0123456789" }
 func (stubAuthConfig) GetSigningMethod() string      { return "HS256" }
 func (stubAuthConfig) GetContextKey() string         { return "user" }
 func (stubAuthConfig) GetTokenExpiration() int       { return 24 }
