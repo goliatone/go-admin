@@ -1010,7 +1010,7 @@ func (*ownedNoopCommand) Execute(context.Context, ownedAlphaMessage) error { ret
 
 func TestOwnedRegistrationSetConcurrentLifecycleStress(t *testing.T) {
 	const iterations = 20
-	for iteration := 0; iteration < iterations; iteration++ {
+	for iteration := range iterations {
 		bus := NewCommandBus(true)
 		set, _ := bus.NewRegistrationSet("stress-owner")
 		if err := RegisterSetCommand(set, &ownedNoopCommand{}); err != nil {
@@ -1028,31 +1028,23 @@ func TestOwnedRegistrationSetConcurrentLifecycleStress(t *testing.T) {
 
 		start := make(chan struct{})
 		var wg sync.WaitGroup
-		for dispatch := 0; dispatch < 12; dispatch++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 12 {
+			wg.Go(func() {
 				<-start
 				_ = bus.DispatchByName(context.Background(), "stress.run", nil, nil)
-			}()
+			})
 		}
-		for closeCall := 0; closeCall < 4; closeCall++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range 4 {
+			wg.Go(func() {
 				<-start
 				_ = handle.Close()
-			}()
+			})
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			<-start
 			bus.Reset()
-		}()
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		})
+		wg.Go(func() {
 			<-start
 			replacement, err := bus.NewRegistrationSet("stress-owner")
 			if err != nil {
@@ -1070,7 +1062,7 @@ func TestOwnedRegistrationSetConcurrentLifecycleStress(t *testing.T) {
 			if err == nil {
 				_ = replacementHandle.Close()
 			}
-		}()
+		})
 		close(start)
 		wg.Wait()
 		_ = handle.Close()

@@ -178,7 +178,7 @@ func RegisterSetContextMessageFactory[T any](set *CommandRegistrationSet, name s
 	factory := messageFactory(name, build)
 	return set.addFactory(ownedFactoryDeclaration{
 		name:        name,
-		requestType: reflect.TypeOf((*T)(nil)).Elem(),
+		requestType: reflect.TypeFor[T](),
 		factory:     factory,
 		dispatch: func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions, runtime *dispatcher.Runtime) (DispatchOutcome, error) {
 			message, err := build(ctx, payload, ids)
@@ -204,7 +204,7 @@ func RegisterSetContextMessageResultFactory[T any, R any](set *CommandRegistrati
 	factory := messageFactory(name, build)
 	return set.addFactory(ownedFactoryDeclaration{
 		name:        name,
-		requestType: reflect.TypeOf((*T)(nil)).Elem(),
+		requestType: reflect.TypeFor[T](),
 		factory:     factory,
 		result:      true,
 		dispatch: func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions, runtime *dispatcher.Runtime) (DispatchOutcome, error) {

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
@@ -581,12 +582,8 @@ func mergeCommandDispatchMetadata(base map[string]any, override map[string]any) 
 		return nil
 	}
 	out := make(map[string]any, len(base)+len(override))
-	for key, value := range base {
-		out[key] = value
-	}
-	for key, value := range override {
-		out[key] = value
-	}
+	maps.Copy(out, base)
+	maps.Copy(out, override)
 	return out
 }
 

@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"maps"
+
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/runner"
@@ -82,9 +84,7 @@ func cloneOwnedRuntimeConfig(config OwnedCommandRuntimeConfig) OwnedCommandRunti
 	}
 	if len(config.Executors) > 0 {
 		out.Executors = make(map[command.ExecutionMode]dispatcher.CommandExecutor, len(config.Executors))
-		for mode, executor := range config.Executors {
-			out.Executors[mode] = executor
-		}
+		maps.Copy(out.Executors, config.Executors)
 	}
 	return out
 }
