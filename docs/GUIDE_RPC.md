@@ -215,6 +215,26 @@ Dispatch data:
 - `ids`: selected or target IDs passed to the message factory.
 - `options`: `command.DispatchOptions`, including correlation and metadata.
 
+The transport sanitizes accepted options before calling the command bus.
+Name-based dispatch then resolves one effective option snapshot before message
+construction and installs it in the factory context. Precedence is:
+
+1. explicit trusted dispatch options;
+2. transport-normalized correlation and idempotency inputs;
+3. server-generated defaults allowed by the transport.
+
+The same snapshot reaches the factory, handler `DispatchRunContext`, receipt,
+observer, and queued executor. Context-aware factories can read it with
+`command.DispatchOptionsFromContext(ctx)`. The caller's context values,
+deadline, and cancellation are preserved for construction and inline
+execution.
+
+Do not derive trusted actor, tenant, organization, or authorization state from
+`payload` or option metadata supplied by a client. RPC permissions and policy
+hooks authorize the transport request; command handlers must derive application
+identity/scope from authenticated context and enforce domain authorization
+again.
+
 Successful responses include command receipt metadata:
 
 ```json
@@ -232,7 +252,7 @@ Successful responses include command receipt metadata:
 ```
 
 Message factories and command handlers are the same ones used by panel action
-routes:
+routes. The following legacy registration remains supported:
 
 ```go
 if err := admin.RegisterMessageFactory(adm.Commands(), "articles.publish",
@@ -251,6 +271,12 @@ if _, err := admin.RegisterCommand(adm.Commands(), NewArticlePublishCommand(repo
     return err
 }
 ```
+
+For new modules, stage the handler and factory in an owner-scoped
+`CommandRegistrationSet` and retain the handle until module shutdown. Commit
+validates the complete declaration and publishes an isolated runtime
+atomically; closing it removes only that owner's dispatch names and catalog
+entries. See the owned-set migration example in the root `README.md`.
 
 ## Command Rules And Permissions
 

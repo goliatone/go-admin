@@ -1053,7 +1053,17 @@ admin.Action{
 present, is compiled as JSON Schema and validates the normalized payload.
 Idempotent actions can set `Idempotent: true` and optionally
 `IdempotencyField`; the route fills a missing idempotency field from the action
-name and target ID.
+name and target ID. Row and bulk action adapters promote the accepted or
+generated correlation/idempotency values into trusted `DispatchOptions` before
+message construction. A context-aware factory, the handler run context,
+receipt, and lifecycle observer therefore see the same values.
+
+The generated action key identifies one accepted action execution. It is not a
+durable replay ledger and does not provide exactly-once domain behavior.
+Applications that need retransmission deduplication must accept a stable client
+key and enforce it in durable application storage. Never promote payload actor,
+tenant, or organization fields into trusted scope; handlers derive those from
+authenticated context.
 
 Message factories should validate domain-specific payload rules and return
 typed validation/domain errors when selection or required fields are invalid:
