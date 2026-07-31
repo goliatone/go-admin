@@ -9,8 +9,8 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-auth v0.44.2
-	github.com/goliatone/go-auth/adapters/featuregate v0.44.2
+	github.com/goliatone/go-auth v0.45.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
 	github.com/goliatone/go-cms v0.60.4
 	github.com/goliatone/go-command v0.24.1
 	github.com/goliatone/go-crud v0.25.0
@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-masker v0.2.0
-	github.com/goliatone/go-notifications v0.14.0
+	github.com/goliatone/go-notifications v0.15.0
 	github.com/goliatone/go-options v0.7.2
 	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.16.1
