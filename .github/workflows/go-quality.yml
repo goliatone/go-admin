@@ -1,0 +1,131 @@
+name: Go Quality
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - ".golangci.yml"
+      - ".golangci-lint-version"
+      - "taskfile"
+      - "tools/**"
+      - "pkg/client/**"
+      - ".github/workflows/go-quality.yml"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - ".golangci.yml"
+      - ".golangci-lint-version"
+      - "taskfile"
+      - "tools/**"
+      - "pkg/client/**"
+      - ".github/workflows/go-quality.yml"
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  test:
+    name: Test All Go Modules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+
+      - name: Test root, quickstart, and examples
+        run: ./taskfile go:test
+
+  lint-pr:
+    name: Lint New Issues
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run golangci-lint on new issues
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version-file: .golangci-lint-version
+          only-new-issues: true
+          args: --whole-files ./... ./quickstart/... ./examples/...
+
+  lint-advisory:
+    name: Lint Full Repository (Advisory)
+    if: github.event_name == 'pull_request'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run full golangci-lint backlog report
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version-file: .golangci-lint-version
+          args: --issues-exit-code=0 ./... ./quickstart/... ./examples/...
+
+  lint-main:
+    name: Lint Full Repository
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run golangci-lint on full repository
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version-file: .golangci-lint-version
+          args: ./... ./quickstart/... ./examples/...
+
+  release-workflow:
+    name: Release Workflow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Validate committed root module archive
+        run: GOWORK=off go run ./cmd/go-admin-release-check
+
+      - name: Validate release preparation and rollback
+        run: bash ./tools/test_release_workflow.sh

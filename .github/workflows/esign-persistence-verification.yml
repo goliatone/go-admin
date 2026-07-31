@@ -1,0 +1,96 @@
+name: eSign Persistence Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/esign/**"
+      - "docs/ESIGN_PERSISTENCE_MIGRATION_CHECKLIST.md"
+      - "docs/PERSISTENCE_GUIDE_GO_ADMIN.md"
+      - "docs/ESIGN_PERSISTENCE_RUNBOOK.md"
+      - "ops/esign/**"
+      - ".github/workflows/esign-persistence-verification.yml"
+      - "taskfile"
+  push:
+    branches: [main]
+    paths:
+      - "examples/esign/**"
+      - "docs/ESIGN_PERSISTENCE_MIGRATION_CHECKLIST.md"
+      - "docs/PERSISTENCE_GUIDE_GO_ADMIN.md"
+      - "docs/ESIGN_PERSISTENCE_RUNBOOK.md"
+      - "ops/esign/**"
+      - ".github/workflows/esign-persistence-verification.yml"
+      - "taskfile"
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.24"
+
+jobs:
+  sqlite-gates:
+    name: SQLite Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Restart and guardrail regressions
+        run: |
+          go test ./examples/esign/internal/persistence -run 'TestPhase8(Migration|Guardrail|RepositoryStoreParity|RestartPersistenceSQLiteSurvivesRestart)'
+
+      - name: SQLite persistence checks
+        run: |
+          ./ops/esign/persistence_ci.sh sqlite
+
+  postgres-gates:
+    name: Postgres Verification
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: esign
+          POSTGRES_PASSWORD: esign
+          POSTGRES_DB: esign_persistence_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U esign -d esign_persistence_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ESIGN_CI_POSTGRES_DSN: postgres://esign:esign@localhost:5432/esign_persistence_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Postgres persistence checks
+        run: |
+          ./ops/esign/persistence_ci.sh postgres
+
+  persistence-gate:
+    name: Persistence Verification Gate
+    runs-on: ubuntu-latest
+    needs: [sqlite-gates, postgres-gates]
+    if: always()
+    steps:
+      - name: Enforce green jobs
+        run: |
+          if [[ "${{ needs.sqlite-gates.result }}" != "success" ]]; then
+            echo "sqlite-gates failed"
+            exit 1
+          fi
+          if [[ "${{ needs.postgres-gates.result }}" != "success" ]]; then
+            echo "postgres-gates failed"
+            exit 1
+          fi
+          echo "eSign persistence verification passed"

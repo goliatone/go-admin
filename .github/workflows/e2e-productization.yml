@@ -1,0 +1,296 @@
+name: E2E Productization Suite
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.gitignore'
+      - 'go.mod'
+      - 'go.sum'
+      - 'go.work'
+      - 'taskfile'
+      - 'pkg/client/**'
+      - 'admin/**'
+      - 'quickstart/**'
+      - 'examples/web/**'
+      - '.github/workflows/e2e-productization.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.gitignore'
+      - 'go.mod'
+      - 'go.sum'
+      - 'go.work'
+      - 'taskfile'
+      - 'pkg/client/**'
+      - 'admin/**'
+      - 'quickstart/**'
+      - 'examples/web/**'
+      - '.github/workflows/e2e-productization.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+
+      - name: Verify generated facade output
+        run: go run ./tools/facadegen -verify -out pkg/admin/facade.go
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: pkg/client/assets/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: pkg/client/assets
+        run: npm ci
+
+      - name: Run frontend unit tests
+        working-directory: pkg/client/assets
+        run: npm test
+
+      - name: Run Go tests
+        run: go test ./admin/... ./quickstart/...
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: pkg/client/assets/package-lock.json
+
+      - name: Install dependencies
+        working-directory: pkg/client/assets
+        run: npm ci
+
+      - name: Build frontend assets
+        working-directory: pkg/client/assets
+        run: npm run build
+
+      - name: Verify dist outputs
+        working-directory: pkg/client/assets
+        run: |
+          echo "Checking required dist files..."
+          test -f dist/datatable/index.js || { echo "Missing: dist/datatable/index.js"; exit 1; }
+          test -f dist/output.css || { echo "Missing: dist/output.css"; exit 1; }
+          test -f dist/styles/datatable-actions.css || { echo "Missing: dist/styles/datatable-actions.css"; exit 1; }
+          echo "All required dist files present."
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: pkg/client/assets/dist
+          retention-days: 1
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, frontend-build]
+    timeout-minutes: 30
+    services:
+      # Add database service if needed
+      # postgres:
+      #   image: postgres:15
+      #   env:
+      #     POSTGRES_USER: test
+      #     POSTGRES_PASSWORD: test
+      #     POSTGRES_DB: test
+      #   ports:
+      #     - 5432:5432
+      #   options: >-
+      #     --health-cmd pg_isready
+      #     --health-interval 10s
+      #     --health-timeout 5s
+      #     --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: pkg/client/assets/package-lock.json
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: pkg/client/assets/dist
+
+      - name: Install frontend dependencies
+        working-directory: pkg/client/assets
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: pkg/client/assets
+        run: npx playwright install chromium --with-deps
+
+      - name: Build example app
+        working-directory: examples/web
+        run: go build -o example-server .
+
+      - name: Start example server
+        working-directory: examples/web
+        run: |
+          export APP_APP__ENV=development
+          export APP_NAVIGATION__DEBUG=false
+          export APP_FEATURES__PERSISTENT_CMS=true
+          export APP_NAVIGATION__RESET_MENU=true
+          export APP_ADMIN__DEBUG__ENABLED=true
+          export APP_SEEDS__ENABLED=true
+          export APP_TRANSLATION__PROFILE=full
+          export APP_ADMIN__ASSETS_DIR="${GITHUB_WORKSPACE}/pkg/client/assets"
+          ./example-server &
+          echo $! > /tmp/server.pid
+          # Wait for server to be ready
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/admin/login > /dev/null; then
+              echo "Server is ready"
+              break
+            fi
+            echo "Waiting for server... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run E2E tests
+        working-directory: pkg/client/assets
+        run: npm run e2e
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          CI: true
+
+      - name: Stop example server
+        if: always()
+        run: |
+          if [ -f /tmp/server.pid ]; then
+            kill $(cat /tmp/server.pid) || true
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: pkg/client/assets/playwright-report
+          retention-days: 7
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-screenshots
+          path: pkg/client/assets/test-results
+          retention-days: 7
+
+  smoke-test:
+    name: Runtime Smoke Test
+    runs-on: ubuntu-latest
+    needs: frontend-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: pkg/client/assets/package-lock.json
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: pkg/client/assets/dist
+
+      - name: Install dependencies
+        working-directory: pkg/client/assets
+        run: npm ci
+
+      - name: Run runtime smoke tests
+        working-directory: pkg/client/assets
+        run: node --test tests/runtime_smoke.test.mjs
+
+  translation-contracts:
+    name: Translation Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.work
+
+      - name: Run Phase 1-5 contract tests
+        run: |
+          go test ./admin/... -run 'TestTranslationPhase.*Contract' -v
+
+      - name: Run translation capability tests
+        run: |
+          go test ./admin/... -run 'TestTranslationCapabilities' -v
+
+      - name: Run translation Phase 2 foundation gates
+        run: |
+          go test ./translations/... -run 'Test(TranslationOpenAPISnapshotMatchesCommittedArtifact|DeterministicFamilyIDIncludesScopeKeys|BackfillRunner.*|EvaluateBackfillQualityGates.*|Phase2BackfillFixtureCoversTenantAndNonTenantPagesPostsNews)' -v
+          go test ./admin/... -run 'Test(GetTranslationFlow.*|RecordTranslationAPIOperation.*|Translation.*EchoesTraceHeaders)' -v
+          go test ./examples/web/setup -run 'TestPersistentCMSAppliesMigrations' -v
+
+      - name: Run quickstart translation tests
+        run: |
+          go test ./quickstart/... -run 'TestTranslation' -v
+
+  status-check:
+    name: Productization Gate
+    runs-on: ubuntu-latest
+    needs: [unit-tests, frontend-build, e2e-tests, smoke-test, translation-contracts]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
+            echo "Unit tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.frontend-build.result }}" != "success" ]]; then
+            echo "Frontend build failed"
+            exit 1
+          fi
+          if [[ "${{ needs.e2e-tests.result }}" != "success" ]]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.smoke-test.result }}" != "success" ]]; then
+            echo "Smoke tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.translation-contracts.result }}" != "success" ]]; then
+            echo "Translation contract tests failed"
+            exit 1
+          fi
+          echo "All productization checks passed!"
