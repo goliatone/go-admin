@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"net/url"
 	"path"
@@ -76,6 +77,8 @@ var (
 	defaultAuthUICSRFKey   []byte
 	authUIRandRead         = rand.Read
 )
+
+const authUICSRFMinSecureKeyBytes = 32
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
 func WithAuthUIBasePath(basePath string) AuthUIOption {
@@ -700,17 +703,24 @@ func stripRouteParams(route string) string {
 
 func resolveAuthUICSRFSecureKey(options authUIOptions, cfg admin.Config) ([]byte, error) {
 	if len(options.csrfSecureKey) > 0 {
+		if len(options.csrfSecureKey) < authUICSRFMinSecureKeyBytes {
+			return nil, fmt.Errorf(
+				"auth ui csrf secure key must be at least %d bytes",
+				authUICSRFMinSecureKeyBytes,
+			)
+		}
 		return append([]byte(nil), options.csrfSecureKey...), nil
 	}
 	if secret := strings.TrimSpace(cfg.PreviewSecret); secret != "" {
-		return []byte(secret), nil
+		key := sha256.Sum256([]byte("go-admin:auth-ui-csrf:" + secret))
+		return key[:], nil
 	}
 	defaultAuthUICSRFKeyMu.Lock()
 	defer defaultAuthUICSRFKeyMu.Unlock()
 	if len(defaultAuthUICSRFKey) > 0 {
 		return append([]byte(nil), defaultAuthUICSRFKey...), nil
 	}
-	key := make([]byte, 32)
+	key := make([]byte, authUICSRFMinSecureKeyBytes)
 	if _, err := authUIRandRead(key); err != nil {
 		return nil, fmt.Errorf("generate auth ui csrf secure key: %w", err)
 	}
