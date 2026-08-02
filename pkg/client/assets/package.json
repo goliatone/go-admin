@@ -37,7 +37,7 @@
   "scripts": {
     "build": "node ./scripts/build-assets.mjs && node ./scripts/build-public.mjs",
     "build:public": "node ./scripts/build-public.mjs",
-    "test:public": "node ./scripts/test-public-package.mjs",
+    "test:public": "npm run build:public && node ./scripts/test-public-package.mjs",
     "build:css:prod": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\" \"npm:build:css:datatable\" \"npm:build:css:site\"",
@@ -58,6 +58,7 @@
     "clean": "rm -rf dist dist-types .dist-staging .dist-prev",
     "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "test:clean": "npm run clean && npm test",
+    "pack:public": "node ./scripts/pack-public-package.mjs",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",

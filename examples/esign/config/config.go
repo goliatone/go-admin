@@ -219,7 +219,7 @@ func defaultAuthConfig() AuthConfig {
 		AdminPassword: "",
 		SigningKey:    "",
 		ContextKey:    "",
-		SeedFile:      resolveDefaultAuthSeedPath(),
+		SeedFile:      "",
 	}
 }
 
@@ -777,14 +777,6 @@ func resolveDefaultOverridesPath() string {
 		return "examples/esign/config/overrides.yml"
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "overrides.yml"))
-}
-
-func resolveDefaultAuthSeedPath() string {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		return "examples/esign/config/dev_seed.json"
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), "dev_seed.json"))
 }
 
 // SetActive stores runtime config for cross-package access during app bootstrap.

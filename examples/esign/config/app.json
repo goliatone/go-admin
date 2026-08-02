@@ -24,7 +24,7 @@
     "admin_password": "",
     "signing_key": "",
     "context_key": "",
-    "seed_file": "dev_seed.json"
+    "seed_file": ""
   },
   "features": {
     "esign": true,
