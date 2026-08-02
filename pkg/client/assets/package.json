@@ -1,10 +1,43 @@
 {
-  "name": "go-client-assets",
-  "version": "1.0.0",
-  "description": "Admin client assets for go-admin",
+  "name": "@goliatone/go-admin-client",
+  "version": "0.1.0",
+  "description": "Supported browser client contracts for go-admin applications",
   "type": "module",
+  "main": "./dist-public/index.js",
+  "module": "./dist-public/index.js",
+  "types": "./dist-public/types/public.d.ts",
+  "files": [
+    "dist-public/",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": { "types": "./dist-public/types/public.d.ts", "import": "./dist-public/index.js", "default": "./dist-public/index.js" },
+    "./shared/html": { "types": "./dist-public/types/shared/html.d.ts", "import": "./dist-public/shared/html.js", "default": "./dist-public/shared/html.js" },
+    "./shared/coercion": { "types": "./dist-public/types/shared/coercion.d.ts", "import": "./dist-public/shared/coercion.js", "default": "./dist-public/shared/coercion.js" },
+    "./shared/json-parse": { "types": "./dist-public/types/shared/json-parse.d.ts", "import": "./dist-public/shared/json-parse.js", "default": "./dist-public/shared/json-parse.js" },
+    "./shared/date-utils": { "types": "./dist-public/types/shared/date-utils.d.ts", "import": "./dist-public/shared/date-utils.js", "default": "./dist-public/shared/date-utils.js" },
+    "./shared/dom-ready": { "types": "./dist-public/types/shared/dom-ready.d.ts", "import": "./dist-public/shared/dom-ready.js", "default": "./dist-public/shared/dom-ready.js" },
+    "./shared/size-formatters": { "types": "./dist-public/types/shared/size-formatters.d.ts", "import": "./dist-public/shared/size-formatters.js", "default": "./dist-public/shared/size-formatters.js" },
+    "./shared/stateful-controller": { "types": "./dist-public/types/shared/stateful-controller.d.ts", "import": "./dist-public/shared/stateful-controller.js", "default": "./dist-public/shared/stateful-controller.js" },
+    "./shared/time-formatters": { "types": "./dist-public/types/shared/time-formatters.d.ts", "import": "./dist-public/shared/time-formatters.js", "default": "./dist-public/shared/time-formatters.js" },
+    "./shared/transport/http-client": { "types": "./dist-public/types/shared/transport/http-client.d.ts", "import": "./dist-public/shared/transport/http-client.js", "default": "./dist-public/shared/transport/http-client.js" },
+    "./services": { "types": "./dist-public/types/services/index.d.ts", "import": "./dist-public/services.js", "default": "./dist-public/services.js" },
+    "./services/command-runtime": { "types": "./dist-public/types/services/command-runtime.d.ts", "import": "./dist-public/services/command-runtime.js", "default": "./dist-public/services/command-runtime.js" },
+    "./services/ui-states": { "types": "./dist-public/types/services/ui-states.d.ts", "import": "./dist-public/services/ui-states.js", "default": "./dist-public/services/ui-states.js" },
+    "./services/sse-client": { "types": "./dist-public/types/services/sse-client.d.ts", "import": "./dist-public/services/sse-client.js", "default": "./dist-public/services/sse-client.js" },
+    "./toast/error-helpers": { "types": "./dist-public/types/toast/error-helpers.d.ts", "import": "./dist-public/toast/error-helpers.js", "default": "./dist-public/toast/error-helpers.js" },
+    "./datatable": { "types": "./dist-public/types/datatable/index.d.ts", "import": "./dist-public/datatable.js", "default": "./dist-public/datatable.js" }
+  },
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": "11.17.0"
+  },
+  "packageManager": "npm@11.17.0",
   "scripts": {
-    "build": "node ./scripts/build-assets.mjs",
+    "build": "node ./scripts/build-assets.mjs && node ./scripts/build-public.mjs",
+    "build:public": "node ./scripts/build-public.mjs",
+    "test:public": "node ./scripts/test-public-package.mjs",
     "build:css:prod": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\" \"npm:build:css:datatable\" \"npm:build:css:site\"",
@@ -28,14 +61,29 @@
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
-    "e2e:install": "playwright install chromium"
+    "e2e:install": "playwright install chromium",
+    "prepack": "npm run build:public"
   },
   "keywords": [
     "admin",
     "tailwind"
   ],
-  "author": "",
+  "author": "Goliatone",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/goliatone/go-admin.git",
+    "directory": "pkg/client/assets"
+  },
+  "homepage": "https://github.com/goliatone/go-admin/tree/main/pkg/client/assets",
+  "bugs": {
+    "url": "https://github.com/goliatone/go-admin/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "provenance": true
+  },
   "devDependencies": {
     "@playwright/test": "^1.42.0",
     "@tailwindcss/forms": "^0.5.7",
@@ -43,21 +91,19 @@
     "@types/sortablejs": "^1.15.9",
     "autoprefixer": "^10.4.20",
     "concurrently": "^8.2.2",
-    "esbuild": "^0.27.4",
-    "jsdom": "^29.1.1",
-    "tailwindcss": "^3.4.0",
-    "typescript": "^5.3.3",
-    "vite": "^8.0.1"
-  },
-  "dependencies": {
     "echarts": "6.1.0",
+    "esbuild": "^0.27.4",
     "iconoir": "7.11.1",
+    "jsdom": "^29.1.1",
     "jsonpath-plus": "^10.3.0",
     "pdfjs-dist": "^4.10.38",
     "prismjs": "^1.30.0",
     "simple-datatables": "10.2.0",
     "sortablejs": "^1.15.6",
     "sql-formatter": "^15.4.10",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3",
+    "vite": "^8.0.1",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0"
   }
