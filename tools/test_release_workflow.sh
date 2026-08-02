@@ -261,7 +261,7 @@ function test_transaction_rollback {
     local git_log="${fixture_root}/git.log"
     local status
 
-    mkdir -p "${transaction_fixture}/quickstart" "${transaction_fixture}/examples"
+    mkdir -p "${transaction_fixture}/quickstart" "${transaction_fixture}/examples" "${transaction_fixture}/pkg/client/assets"
     printf '%s\n' '0.121.2' > "${transaction_fixture}/.version"
     printf '%s\n' 'old changelog' > "${transaction_fixture}/CHANGELOG.md"
     printf '%s\n' 'old root mod' > "${transaction_fixture}/go.mod"
@@ -270,6 +270,8 @@ function test_transaction_rollback {
     printf '%s\n' 'old quickstart sum' > "${transaction_fixture}/quickstart/go.sum"
     printf '%s\n' 'old examples mod' > "${transaction_fixture}/examples/go.mod"
     printf '%s\n' 'old examples sum' > "${transaction_fixture}/examples/go.sum"
+    printf '%s\n' 'old client package' > "${transaction_fixture}/pkg/client/assets/package.json"
+    printf '%s\n' 'old client lock' > "${transaction_fixture}/pkg/client/assets/package-lock.json"
     printf '%s\n' 'manual notes' > "${transaction_fixture}/.release-notes.md"
 
     (
@@ -300,6 +302,8 @@ function test_transaction_rollback {
         printf '%s\n' 'new quickstart sum' > quickstart/go.sum
         printf '%s\n' 'new examples mod' > examples/go.mod
         printf '%s\n' 'new examples sum' > examples/go.sum
+        printf '%s\n' 'new client package' > pkg/client/assets/package.json
+        printf '%s\n' 'new client lock' > pkg/client/assets/package-lock.json
         rm -f .release-notes.md
         exit 23
     ) && status=0 || status=$?
@@ -317,6 +321,8 @@ function test_transaction_rollback {
     assert_file_content "${transaction_fixture}/quickstart/go.sum" 'old quickstart sum'
     assert_file_content "${transaction_fixture}/examples/go.mod" 'old examples mod'
     assert_file_content "${transaction_fixture}/examples/go.sum" 'old examples sum'
+    assert_file_content "${transaction_fixture}/pkg/client/assets/package.json" 'old client package'
+    assert_file_content "${transaction_fixture}/pkg/client/assets/package-lock.json" 'old client lock'
     assert_file_content "${transaction_fixture}/.release-notes.md" 'manual notes'
 
     grep -q '^tag -d quickstart/v9.9.9$' "${git_log}"
@@ -327,6 +333,129 @@ function test_transaction_rollback {
         echo "release transaction state directory was not cleaned" >&2
         return 1
     fi
+}
+
+function test_release_client_prepare_uses_tagged_source {
+    local tagged_source="${fixture_root}/tagged-client-source"
+    local current_source="${fixture_root}/current-client-source"
+    local destination="${fixture_root}/tagged-client-assets"
+    local prepare_log="${fixture_root}/tagged-client-prepare.log"
+    local commit=0123456789abcdef0123456789abcdef01234567
+
+    mkdir -p "${tagged_source}/pkg/client/assets/scripts" "${current_source}" "${destination}"
+    printf '%s\n' 'tagged' > "${tagged_source}/source-marker"
+    printf '%s\n' '{}' > "${tagged_source}/pkg/client/assets/package-lock.json"
+    printf '%s\n' 'export {}' > "${tagged_source}/pkg/client/assets/scripts/prepare-release-assets.mjs"
+    printf '%s\n' 'current' > "${current_source}/source-marker"
+
+    (
+        cd "${current_source}" || exit 1
+        function git {
+            local arg
+            local output
+            case "${1:-}" in
+                rev-list)
+                    printf '%s\n' "${commit}"
+                    return 0
+                ;;
+                archive)
+                    for arg in "$@"; do
+                        case "${arg}" in
+                            --output=*) output=${arg#--output=} ;;
+                        esac
+                    done
+                    [ -n "${output:-}" ] || return 1
+                    tar -cf "${output}" -C "${tagged_source}" .
+                    return $?
+                ;;
+            esac
+            return 1
+        }
+        function npm {
+            [ "${PWD}" != "${current_source}/pkg/client/assets" ]
+            [ -f "${PWD}/../../../source-marker" ]
+            [ "$(cat "${PWD}/../../../source-marker")" = tagged ]
+            [ "$*" = 'ci --ignore-scripts' ]
+        }
+        function release:client:prepare {
+            [ "$(cat source-marker)" = tagged ]
+            [ "${1}" = 1.2.3 ]
+            [ "${2}" = "${destination}" ]
+            [ "${3}" = "${commit}" ]
+            printf '%s\n' "$*" > "${prepare_log}"
+            : > "${destination}/client.tgz"
+        }
+
+        release:client:prepare_tag v1.2.3 "${destination}"
+    )
+
+    assert_file_content "${prepare_log}" "1.2.3 ${destination} ${commit}"
+    [ -f "${destination}/client.tgz" ]
+}
+
+function test_release_client_prepare_rejects_tag_skew {
+    local destination="${fixture_root}/skewed-client-assets"
+    local npm_log="${fixture_root}/skewed-client-npm.log"
+    local status
+
+    mkdir -p "${destination}"
+    (
+        function git {
+            case "${4:-}" in
+                quickstart/*) printf '%s\n' fedcba9876543210fedcba9876543210fedcba98 ;;
+                *) printf '%s\n' 0123456789abcdef0123456789abcdef01234567 ;;
+            esac
+        }
+        function npm {
+            : > "${npm_log}"
+        }
+        release:client:prepare_tag v1.2.3 "${destination}"
+    ) >/dev/null 2>&1 && status=0 || status=$?
+
+    if [ "${status}" -eq 0 ]; then
+        echo "browser release accepted skewed root and quickstart tags" >&2
+        return 1
+    fi
+    if [ -e "${npm_log}" ]; then
+        echo "browser release installed dependencies after detecting tag skew" >&2
+        return 1
+    fi
+}
+
+function test_postpush_asset_failure_preserves_release {
+    local state_dir="${fixture_root}/postpush-state"
+    local operation_log="${fixture_root}/postpush-operations.log"
+    local error_log="${fixture_root}/postpush-error.log"
+    local status
+
+    mkdir -p "${state_dir}"
+    (
+        release_state_dir="${state_dir}"
+        release_original_head=release-head
+        release_notes_file=.release-notes.md
+        release_remote_published=1
+        release_root_tag_created=1
+        release_quickstart_tag_created=1
+        release_tag=v1.2.3
+        quickstart_tag=quickstart/v1.2.3
+        function git { printf 'git %s\n' "$*" >> "${operation_log}"; }
+        function release:transaction:restore { printf '%s\n' restore >> "${operation_log}"; }
+        release:transaction:finish 37
+    ) 2> "${error_log}" && status=0 || status=$?
+
+    if [ "${status}" -ne 37 ]; then
+        echo "post-push asset failure changed the original status: ${status}" >&2
+        return 1
+    fi
+    if [ -e "${operation_log}" ]; then
+        echo "post-push asset failure attempted to roll back a published release" >&2
+        return 1
+    fi
+    if [ -d "${state_dir}" ]; then
+        echo "post-push asset failure did not clean its local snapshot" >&2
+        return 1
+    fi
+    grep -q './taskfile release:client:publish v1.2.3' "${error_log}"
 }
 
 function test_failed_restore_preserves_snapshot {
@@ -711,8 +840,10 @@ function test_release_commit_failure_restores_index {
 function test_release_success_end_to_end {
     local release_fixture="${fixture_root}/release-success"
     local git_log="${fixture_root}/release-success-git.log"
+    local client_log="${fixture_root}/release-success-client.log"
+    local publish_log="${fixture_root}/release-success-publish.log"
 
-    mkdir -p "${release_fixture}/quickstart" "${release_fixture}/examples"
+    mkdir -p "${release_fixture}/quickstart" "${release_fixture}/examples" "${release_fixture}/pkg/client/assets/scripts"
     printf '%s\n' '0.121.2' > "${release_fixture}/.version"
     printf '%s\n' 'old changelog' > "${release_fixture}/CHANGELOG.md"
     printf '%s\n' 'manual notes' > "${release_fixture}/.release-notes.md"
@@ -758,10 +889,26 @@ function test_release_success_end_to_end {
         ')' \
         '' \
         'const Name = root.Name + quickstart.RootName' > "${release_fixture}/examples/example.go"
+    printf '%s\n' '{"name":"@goliatone/go-admin-client","version":"0.121.2"}' > "${release_fixture}/pkg/client/assets/package.json"
+    printf '%s\n' '{"name":"@goliatone/go-admin-client","version":"0.121.2","lockfileVersion":3}' > "${release_fixture}/pkg/client/assets/package-lock.json"
+    printf '%s\n' 'export {}' > "${release_fixture}/pkg/client/assets/scripts/prepare-release-assets.mjs"
 
     (
         cd "${release_fixture}" || exit 1
         VERSION_FILE=.version
+
+        function release:client:preflight {
+            printf '%s\n' preflight >> "${client_log}"
+        }
+        function release:client:version:set {
+            printf '%s\n' "package=${1}" > pkg/client/assets/package.json
+            printf '%s\n' "lock=${1}" > pkg/client/assets/package-lock.json
+            printf 'version %s\n' "${1}" >> "${client_log}"
+        }
+        function release:client:publish {
+            printf 'publish %s\n' "${1}" >> "${client_log}"
+            printf '%s\n' publish >> "${publish_log}"
+        }
 
         function git {
             local previous=""
@@ -769,7 +916,11 @@ function test_release_success_end_to_end {
 
             printf '%s\n' "$*" >> "${git_log}"
             case "${1:-}" in
-                status|fetch|pull|add|commit|push|reset)
+                status|fetch|pull|add|commit|reset)
+                    return 0
+                ;;
+                push)
+                    printf '%s\n' push >> "${publish_log}"
                     return 0
                 ;;
                 rev-parse)
@@ -835,6 +986,13 @@ function test_release_success_end_to_end {
     fi
     grep -q 'github.com/goliatone/go-admin v0.121.3' "${release_fixture}/examples/go.mod"
     grep -q 'github.com/goliatone/go-admin/quickstart v0.121.3' "${release_fixture}/examples/go.mod"
+    assert_file_content "${release_fixture}/pkg/client/assets/package.json" 'package=0.121.3'
+    assert_file_content "${release_fixture}/pkg/client/assets/package-lock.json" 'lock=0.121.3'
+    grep -q '^preflight$' "${client_log}"
+    grep -q '^version 0.121.3$' "${client_log}"
+    grep -q '^publish v0.121.3$' "${client_log}"
+    assert_file_content "${publish_log}" $'push\npublish'
+    grep -q '^add pkg/client/assets/package.json pkg/client/assets/package-lock.json$' "${git_log}"
     grep -q '^push --atomic origin HEAD:main refs/tags/v0.121.3 refs/tags/quickstart/v0.121.3$' "${git_log}"
     if grep -q '^reset --mixed' "${git_log}"; then
         echo "successful release unexpectedly rolled back" >&2
@@ -850,6 +1008,9 @@ test_examples_sync_tracks_coordinated_version
 test_quickstart_sync_runs_tests
 test_quickstart_sync_check_restores_after_interruption
 test_transaction_rollback
+test_release_client_prepare_uses_tagged_source
+test_release_client_prepare_rejects_tag_skew
+test_postpush_asset_failure_preserves_release
 test_failed_restore_preserves_snapshot
 test_release_ignores_untracked_input
 test_release_rejects_tracked_input

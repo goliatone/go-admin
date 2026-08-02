@@ -11,6 +11,7 @@ import type {
   FieldDefinition,
 } from './types';
 import { escapeHTML, formatNumber, isEmptyValue } from './formatters';
+import { resolveApplicationWidgetRenderer, resolveApplicationWidgetTitle } from '../renderers/application-widgets';
 
 const WIDGET_TITLES: Record<string, string> = {
   'admin.widget.user_stats': 'User Statistics',
@@ -99,6 +100,9 @@ function renderProfileSections(sections: ProfileSection[]): string {
 function renderWidgetContent(widget: Widget): string {
   const def = widget.definition || '';
   const data = widget.data || {};
+
+  const applicationRenderer = resolveApplicationWidgetRenderer<Widget>(def);
+  if (applicationRenderer) return applicationRenderer.render(widget);
 
   if (def === 'admin.widget.user_stats') {
     const values = data.values || { Total: data.total, Active: data.active, 'New Today': data.new_today };
@@ -369,7 +373,7 @@ function renderWidgetContent(widget: Widget): string {
 
 export function renderWidget(widget: Widget): string {
   const span = widget.metadata?.layout?.width || widget.span || 12;
-  const title = widget.data?.title || widget.config?.title || widget.title || getWidgetTitle(widget.definition);
+  const title = widget.data?.title || widget.config?.title || widget.title || resolveApplicationWidgetTitle(widget.definition, widget) || getWidgetTitle(widget.definition);
 
   return `
     <article class="widget" data-widget="${escapeHTML(widget.id || widget.definition || '')}" data-span="${escapeHTML(span)}" style="--span: ${escapeHTML(span)}">

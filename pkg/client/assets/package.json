@@ -1,6 +1,6 @@
 {
   "name": "@goliatone/go-admin-client",
-  "version": "0.1.0",
+  "version": "0.126.12",
   "description": "Supported browser client contracts for go-admin applications",
   "type": "module",
   "main": "./dist-public/index.js",
@@ -27,10 +27,11 @@
     "./services/ui-states": { "types": "./dist-public/types/services/ui-states.d.ts", "import": "./dist-public/services/ui-states.js", "default": "./dist-public/services/ui-states.js" },
     "./services/sse-client": { "types": "./dist-public/types/services/sse-client.d.ts", "import": "./dist-public/services/sse-client.js", "default": "./dist-public/services/sse-client.js" },
     "./toast/error-helpers": { "types": "./dist-public/types/toast/error-helpers.d.ts", "import": "./dist-public/toast/error-helpers.js", "default": "./dist-public/toast/error-helpers.js" },
-    "./datatable": { "types": "./dist-public/types/datatable/index.d.ts", "import": "./dist-public/datatable.js", "default": "./dist-public/datatable.js" }
+    "./datatable": { "types": "./dist-public/types/datatable/index.d.ts", "import": "./dist-public/datatable.js", "default": "./dist-public/datatable.js" },
+    "./renderers/application-widgets": { "types": "./dist-public/types/renderers/application-widgets.d.ts", "import": "./dist-public/renderers/application-widgets.js", "default": "./dist-public/renderers/application-widgets.js" }
   },
   "engines": {
-    "node": ">=22.12.0",
+    "node": "22.12.0",
     "npm": "11.17.0"
   },
   "packageManager": "npm@11.17.0",

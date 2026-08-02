@@ -1,4 +1,4 @@
-import { n as r, r as t, t as m } from "../chunks/document-form-Dd01RZPf.js";
+import { n as r, r as t, t as m } from "../chunks/document-form-Dw9XRgYQ.js";
 export {
   m as DocumentFormController,
   r as bootstrapDocumentForm,

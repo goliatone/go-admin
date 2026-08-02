@@ -14,7 +14,7 @@ import { initActionMenus as cr } from "../shared/action-menu.js";
 import { r as dr, t as ur } from "../chunks/translation-contracts-CCsjVv14.js";
 import { StatefulController as rt } from "../shared/stateful-controller.js";
 var nt = { async prompt(e) {
-  const { PayloadInputModal: t } = await import("../chunks/payload-modal-BaCGoyRn.js");
+  const { PayloadInputModal: t } = await import("../chunks/payload-modal-CGjwjMw4.js");
   return t.prompt(e);
 } }, hr = class {
   constructor(e = {}) {

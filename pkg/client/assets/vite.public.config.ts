@@ -18,6 +18,7 @@ const entry = {
   'services/sse-client': resolve(__dirname, 'src/services/sse-client.ts'),
   'toast/error-helpers': resolve(__dirname, 'src/toast/error-helpers.ts'),
   datatable: resolve(__dirname, 'src/datatable/index.ts'),
+  'renderers/application-widgets': resolve(__dirname, 'src/renderers/application-widgets.ts'),
 };
 
 export default defineConfig({

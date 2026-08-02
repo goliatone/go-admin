@@ -56,6 +56,7 @@ import { createSSEClient, type ClientOptions } from '@goliatone/go-admin-client/
 import { escapeHTML } from '@goliatone/go-admin-client/shared/html';
 import { asRecord } from '@goliatone/go-admin-client/shared/coercion';
 import * as datatable from '@goliatone/go-admin-client/datatable';
+import { registerApplicationWidgetRenderer, resolveApplicationWidgetRenderer } from '@goliatone/go-admin-client/renderers/application-widgets';
 
 const options: ClientOptions = { url: '/events' };
 void httpRequest;
@@ -64,6 +65,9 @@ void createSSEClient(options);
 void escapeHTML('<test>');
 void asRecord({ test: true });
 void datatable;
+const unregister = registerApplicationWidgetRenderer('sample.widget.summary', { render: () => '<p>summary</p>', title: 'Summary' });
+void resolveApplicationWidgetRenderer('sample.widget.summary');
+unregister();
 `);
 
   run('npm', ['install', '--ignore-scripts', join(temporary, packed.filename), 'typescript@5.3.3']);

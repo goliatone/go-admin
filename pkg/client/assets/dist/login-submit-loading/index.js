@@ -1,5 +1,5 @@
 import { onReady as r } from "../shared/dom-ready.js";
-import { d as o, n as u, p as s } from "../chunks/behaviors-3r2n03MZ.js";
+import { d as o, n as u, p as s } from "../chunks/behaviors-CGfrcEr1.js";
 var a = "form[data-submit-loading-form]", L = "true";
 function g(t, i = null) {
   s(t, {

@@ -928,6 +928,53 @@ func TestContentEntryCreateRedirectTargetFallsBackToIndexWhenMissingID(t *testin
 	}
 }
 
+func TestContentEntryCreateRedirectTargetUsesApplicationPolicy(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "sample_records", "staging")
+	policy := func(ctx ContentEntryPostCreateContext) ContentEntryPostCreateDecision {
+		if ctx.PanelName != "sample_records" || ctx.CreatedID != "item-7" || ctx.Channel != "staging" {
+			t.Fatalf("unexpected policy context: %#v", ctx)
+		}
+		return ContentEntryPostCreateDecision{
+			Destination: ContentEntryPostCreateDetail,
+			Query:       map[string]string{"welcome": "yes", "created": "1"},
+		}
+	}
+	got := contentEntryCreateRedirectTarget("sample_records", "item-7", routes, policy)
+	if got != "/admin/content/sample_records/item-7?channel=staging&created=1&welcome=yes" {
+		t.Fatalf("expected application redirect policy, got %q", got)
+	}
+}
+
+func TestContentEntryCreateRedirectTargetPreservesCanonicalChannel(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "sample_records", "staging")
+	policy := func(ContentEntryPostCreateContext) ContentEntryPostCreateDecision {
+		return ContentEntryPostCreateDecision{
+			Destination: ContentEntryPostCreateDetail,
+			Query: map[string]string{
+				"created":   "1",
+				"channel":   "production",
+				" CHANNEL ": "preview",
+				"":          "ignored",
+			},
+		}
+	}
+	got := contentEntryCreateRedirectTarget("sample_records", "item-7", routes, policy)
+	if got != "/admin/content/sample_records/item-7?channel=staging&created=1" {
+		t.Fatalf("expected canonical channel to survive application policy, got %q", got)
+	}
+}
+
+func TestContentEntryCreateRedirectTargetNormalizesUnknownPolicyDestinationToEdit(t *testing.T) {
+	routes := newContentEntryRoutes("/admin", "sample_records", "")
+	policy := func(ContentEntryPostCreateContext) ContentEntryPostCreateDecision {
+		return ContentEntryPostCreateDecision{Destination: "unsupported"}
+	}
+	got := contentEntryCreateRedirectTarget("sample_records", "item-7", routes, policy)
+	if got != "/admin/content/sample_records/item-7/edit" {
+		t.Fatalf("expected edit redirect, got %q", got)
+	}
+}
+
 func TestMediaContentEntryViewContextUsesSharedMediaEndpoints(t *testing.T) {
 	ctx := mediaContentEntryViewContext("/admin", "grid")
 

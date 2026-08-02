@@ -741,6 +741,30 @@ func TestRolesPanelFormSchemaUsesPermissionMatrix(t *testing.T) {
 	}
 }
 
+func TestRolesPanelFormSchemaAcceptsApplicationPermissionResources(t *testing.T) {
+	schema := defaultRolesPanelFormSchema([]string{"sample.reports", "sample.records", "sample.reports"})
+	props := mustMapAny(t, schema["properties"], "roles form schema properties")
+	permissions := mustMapAny(t, props["permissions"], "permissions property")
+	formgen := mustMapAny(t, permissions["x-formgen"], "permissions x-formgen")
+	config := mustMapAny(t, formgen["component.config"], "permissions component config")
+	resources := toStringSlice(config["resources"])
+	if !slices.Equal(resources, []string{"sample.reports", "sample.records"}) {
+		t.Fatalf("expected application resources, got %v", resources)
+	}
+}
+
+func TestRolesPanelFormSchemaAppendsApplicationPermissionResources(t *testing.T) {
+	schema := defaultRolesPanelFormSchemaWithAdditional(nil, []string{"sample.reports", "sample.records"})
+	props := mustMapAny(t, schema["properties"], "roles form schema properties")
+	permissions := mustMapAny(t, props["permissions"], "permissions property")
+	formgen := mustMapAny(t, permissions["x-formgen"], "permissions x-formgen")
+	config := mustMapAny(t, formgen["component.config"], "permissions component config")
+	resources := toStringSlice(config["resources"])
+	if !containsString(resources, "admin.dashboard") || !containsString(resources, "sample.reports") {
+		t.Fatalf("expected framework and application resources, got %v", resources)
+	}
+}
+
 func TestRecordToRoleMergesPermissionsDebugField(t *testing.T) {
 	role := recordToRole(map[string]any{
 		"name":                    "Admins",

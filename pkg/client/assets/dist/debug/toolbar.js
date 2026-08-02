@@ -1,11 +1,11 @@
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as M, readExpectedHTTPJSON as _, readHTTPError as $ } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as I } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as E, I as j, M as F, N as V, P as N, R as G, T as B, V as K, _ as Q, b as U, f as Y, g as J, h as W, k as h, m as X, p as Z, r as tt, v as et, w as at, x as ot } from "../chunks/builtin-panels-BFIA6nVc.js";
-import { t as st } from "../chunks/repl-panel-BKc41M7P.js";
-import { i as rt } from "../chunks/icons-B_VaFfsl.js";
-import { $ as nt, S as it, T as lt, _ as dt, a as Lt, b as ct, c as C, d as y, et as g, f as ht, ft as pt, g as bt, h as zt, l as Tt, m as ut, n as q, nt as v, o as P, p as gt, s as f, u as x, w as p, x as ft } from "../chunks/server-definitions-XAM8OZeH.js";
-import { t as k } from "../chunks/deployment-identity-as0EeGqF.js";
+import { C as H, E as O, F as D, G as E, I as j, M as F, N as V, P as N, R as G, T as B, V as K, _ as Q, b as U, f as Y, g as J, h as W, k as h, m as X, p as Z, r as tt, v as et, w as at, x as ot } from "../chunks/builtin-panels-C-fhqYmT.js";
+import { t as st } from "../chunks/repl-panel-Dr0eVTJv.js";
+import { i as rt } from "../chunks/icons-Dr5y9RE3.js";
+import { $ as nt, S as it, T as lt, _ as dt, a as Lt, b as ct, c as C, d as y, et as g, f as ht, ft as pt, g as bt, h as zt, l as Tt, m as ut, n as q, nt as v, o as P, p as gt, s as f, u as x, w as p, x as ft } from "../chunks/server-definitions-kiaE4kAt.js";
+import { t as k } from "../chunks/deployment-identity-BG2j6A3N.js";
 var xt = `
   :host {
     --toolbar-bg: #1e1e2e;

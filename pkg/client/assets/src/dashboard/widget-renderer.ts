@@ -4,6 +4,7 @@
 
 import type { Widget, AdminDashboardConfig, WidgetTitleMap } from './types.js';
 import { renderStatusChip } from '../shared/status-vocabulary.js';
+import { resolveApplicationWidgetRenderer, resolveApplicationWidgetTitle } from '../renderers/application-widgets.js';
 
 /** Default widget titles by definition */
 const WIDGET_TITLES: WidgetTitleMap = {
@@ -52,7 +53,7 @@ export class WidgetRenderer {
     const areaResizable = areaCode === 'admin.dashboard.main' || areaCode === 'admin.dashboard.footer';
     const span = this.normalizeSpan(widget.metadata?.layout?.width ?? widget.span);
     const hidden = widget.hidden || false;
-    const title = widget.data?.title || widget.config?.title || this.getTitle(widget.definition);
+    const title = widget.data?.title || widget.config?.title || resolveApplicationWidgetTitle(widget.definition, widget) || this.getTitle(widget.definition);
     const widgetId = widget.id || widget.definition || `widget-${Math.random().toString(36).substr(2, 9)}`;
     const widgetContent = this.renderContent(widget);
 
@@ -104,6 +105,9 @@ export class WidgetRenderer {
     const def = widget.definition || '';
     const data = widget.data || {};
     const config = widget.config || {};
+
+    const applicationRenderer = resolveApplicationWidgetRenderer<Widget>(def);
+    if (applicationRenderer) return applicationRenderer.render(widget);
 
     // User stats widget
     if (def === 'admin.widget.user_stats') {

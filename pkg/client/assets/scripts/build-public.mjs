@@ -34,6 +34,7 @@ function copyDeclarations(source, destination) {
       'toast',
       'datatable',
       'translation-contracts',
+      'renderers',
     ]);
     if (!allowedTopLevels.has(topLevel)) {
       continue;
