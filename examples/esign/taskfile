@@ -48,21 +48,20 @@ function _install:mailpit {
     local BIN_URL="https://github.com/axllent/mailpit/releases/download/v${version}/mailpit-${os}-${arch}.tar.gz"
     local TMP_ZIP="${TMPDIR:-/tmp}/mailpit.tar.gz"
 
-    curl --silent --show-error --location --fail "$BIN_URL" --output "${TMP_ZIP}" &&
-    tar -xvf "${TMP_ZIP}" -C "${BIN_DIR}" mailpit &&
-    chmod +x "${BIN_DIR}/mailpit" &&
+    if ! curl --silent --show-error --location --fail "$BIN_URL" --output "${TMP_ZIP}" ||
+        ! tar -xvf "${TMP_ZIP}" -C "${BIN_DIR}" mailpit ||
+        ! chmod +x "${BIN_DIR}/mailpit"; then
+        lgr ERR "Mailpit installation failed"
+        return 1
+    fi
     lgr OK "mailpit installed to ${BIN_DIR}/mailpit"
 
-    if [[ -x "${BIN_DIR}/mailpit/development.txt" ]]; then
-        return 0
-    fi
-
-    dev:smtp:init
+    dev:smtp:init || return 1
 }
 
 function dev:install {
-    _install:mailpit
-    lgr ok "dependencies intalled..."
+    _install:mailpit || return 1
+    lgr OK "dependencies installed..."
 }
 
 function dev:test {
@@ -238,6 +237,14 @@ function dev:serve:rebuild {
 }
 
 function dev:smtp {
+    if [ ! -f "$SCRIPT_DIR/ops/mailpit/pub_cert.pem" ] || [ ! -f "$SCRIPT_DIR/ops/mailpit/priv_key.pem" ]; then
+        lgr I "generating local Mailpit TLS certificate..."
+        if ! dev:smtp:init; then
+            lgr ERR "Mailpit TLS initialization failed; SMTP was not started"
+            return 1
+        fi
+    fi
+
     lgr I "starting SMTP server..."
     lgr W "more info at https://github.com/axllent/mailpit"
     lgr OK "http://0.0.0.0:8025"
@@ -250,13 +257,14 @@ function dev:smtp {
 }
 
 function dev:smtp:init {
-    mkdir -p "$SCRIPT_DIR/ops/mailpit"
-    openssl req -x509 -newkey rsa:4096 -nodes \
-        -keyout "$SCRIPT_DIR/ops/mailpit/priv_key.pem" \
-        -out "$SCRIPT_DIR/ops/mailpit/pub_cert.pem" \
-        -sha256 -days 3650
+    local mailpit_dir="$SCRIPT_DIR/ops/mailpit"
 
-    echo 'User1:$2y$05$lvT6Z111jzakwt2mmmmeZOi64AqK3vpzilT5mRYTzXHxLZgSfe4Pm' > "$SCRIPT_DIR/ops/mailpit/development.txt"
+    if ! "$mailpit_dir/init.sh" "$mailpit_dir"; then
+        lgr ERR "unable to generate or install Mailpit TLS material"
+        return 1
+    fi
+
+    lgr OK "Mailpit TLS material generated locally"
 }
 
 function _require:docker {
