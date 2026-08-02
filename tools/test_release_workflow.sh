@@ -256,6 +256,38 @@ function test_quickstart_sync_check_restores_after_interruption {
     assert_file_content "${sync_fixture}/quickstart/go.sum" 'quickstart sum'
 }
 
+function test_release_client_preflight_accepts_supported_node_versions {
+    local candidate
+    local status
+
+    for candidate in 22.12.0 26.5.0 99.0.0; do
+        (
+            function command { return 0; }
+            function node { printf 'v%s\n' "${candidate}"; }
+            function npm { printf '%s\n' 11.17.0; }
+            function gh { return 0; }
+            release:client:preflight
+        ) || {
+            echo "browser release rejected supported Node v${candidate}" >&2
+            return 1
+        }
+    done
+
+    for candidate in 22.11.99 21.99.99 invalid; do
+        (
+            function command { return 0; }
+            function node { printf 'v%s\n' "${candidate}"; }
+            function npm { printf '%s\n' 11.17.0; }
+            function gh { return 0; }
+            release:client:preflight
+        ) >/dev/null 2>&1 && status=0 || status=$?
+        if [ "${status}" -eq 0 ]; then
+            echo "browser release accepted unsupported Node v${candidate}" >&2
+            return 1
+        fi
+    done
+}
+
 function test_transaction_rollback {
     local transaction_fixture="${fixture_root}/transaction"
     local git_log="${fixture_root}/git.log"
@@ -1007,6 +1039,7 @@ test_quickstart_sync_without_published_tag
 test_examples_sync_tracks_coordinated_version
 test_quickstart_sync_runs_tests
 test_quickstart_sync_check_restores_after_interruption
+test_release_client_preflight_accepts_supported_node_versions
 test_transaction_rollback
 test_release_client_prepare_uses_tagged_source
 test_release_client_prepare_rejects_tag_skew

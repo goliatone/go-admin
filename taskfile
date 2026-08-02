@@ -1897,6 +1897,17 @@ function version:is_greater {
     return 1
 }
 
+function version:is_at_least {
+    local actual=${1}
+    local minimum=${2}
+
+    if ! [[ "${actual}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! [[ "${minimum}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "Invalid semver string" >&2
+        return 2
+    fi
+    [ "${actual}" = "${minimum}" ] || version:is_greater "${actual}" "${minimum}"
+}
+
 function version:latest_release_tag {
     local tags
 
@@ -2127,12 +2138,17 @@ function release:client:enabled {
 
 function release:client:preflight {
     local actual
+    local minimum_node=22.12.0
     command -v node >/dev/null 2>&1 || { echo "node is required to release the browser client" >&2; return 1; }
     command -v npm >/dev/null 2>&1 || { echo "npm is required to release the browser client" >&2; return 1; }
     command -v tar >/dev/null 2>&1 || { echo "tar is required to release the browser client" >&2; return 1; }
     command -v gh >/dev/null 2>&1 || { echo "gh is required to publish GitHub Release assets" >&2; return 1; }
     actual=$(node --version) || return 1
-    [ "${actual}" = "v22.12.0" ] || { echo "browser release requires Node v22.12.0; found ${actual}" >&2; return 1; }
+    actual=${actual#v}
+    version:is_at_least "${actual}" "${minimum_node}" || {
+        echo "browser release requires Node >=${minimum_node}; found v${actual}" >&2
+        return 1
+    }
     actual=$(npm --version) || return 1
     [ "${actual}" = "11.17.0" ] || { echo "browser release requires npm 11.17.0; found ${actual}" >&2; return 1; }
     gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated" >&2; return 1; }
