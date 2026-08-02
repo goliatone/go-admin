@@ -228,10 +228,42 @@ func (r contentEntryRoutes) routesMap() map[string]string {
 	}
 }
 
-func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntryRoutes) string {
+func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntryRoutes, policies ...ContentEntryPostCreatePolicy) string {
 	id := strings.TrimSpace(createdID)
 	if id == "" {
 		return routes.index()
+	}
+	if len(policies) > 0 && policies[0] != nil {
+		decision := policies[0](ContentEntryPostCreateContext{
+			PanelName: strings.TrimSpace(slug),
+			CreatedID: id,
+			Channel:   routes.channel,
+		})
+		var target string
+		switch decision.Destination {
+		case ContentEntryPostCreateDetail:
+			target = routes.show(id)
+		case ContentEntryPostCreateIndex:
+			target = routes.index()
+		default:
+			target = routes.edit(id)
+		}
+		keys := make([]string, 0, len(decision.Query))
+		for key := range decision.Query {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			normalizedKey := strings.ToLower(strings.TrimSpace(key))
+			// The channel is canonical routing context derived from the request.
+			// Application policies may add query state, but must not switch the
+			// user to a different content channel after a successful create.
+			if normalizedKey == "" || normalizedKey == "channel" {
+				continue
+			}
+			target = appendQueryParam(target, key, decision.Query[key])
+		}
+		return target
 	}
 	if shouldRedirectToDetailAfterCreate(slug) {
 		return appendQueryParam(routes.show(id), "created", "1")

@@ -67,7 +67,7 @@ func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string
 	}
 	baseSlug := contentTypeSlug(contentType, panelName)
 	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
-	return c.Redirect(contentEntryCreateRedirectTarget(baseSlug, anyToString(created["id"]), routes))
+	return c.Redirect(contentEntryCreateRedirectTarget(baseSlug, anyToString(created["id"]), routes, h.postCreate))
 }
 
 func (h *contentEntryHandlers) Edit(c router.Context) error {

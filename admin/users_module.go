@@ -75,12 +75,14 @@ type UserManagementModule struct {
 	urls          urlkit.Resolver
 	userTabs      []PanelTab
 
-	usersPanelConfigurer        func(*PanelBuilder) *PanelBuilder
-	rolesPanelConfigurer        func(*PanelBuilder) *PanelBuilder
-	userProfilesPanelConfigurer func(*PanelBuilder) *PanelBuilder
-	enableUserProfilesPanel     bool
-	usersMenuPosition           *int
-	rolesMenuPosition           *int
+	usersPanelConfigurer                    func(*PanelBuilder) *PanelBuilder
+	rolesPanelConfigurer                    func(*PanelBuilder) *PanelBuilder
+	userProfilesPanelConfigurer             func(*PanelBuilder) *PanelBuilder
+	enableUserProfilesPanel                 bool
+	usersMenuPosition                       *int
+	rolesMenuPosition                       *int
+	rolePermissionMatrixResources           []string
+	additionalRolePermissionMatrixResources []string
 }
 
 // UserManagementModuleOption configures a UserManagementModule.
@@ -144,6 +146,27 @@ func WithMenuPositions(usersPos, rolesPos *int) UserManagementModuleOption {
 	return func(m *UserManagementModule) {
 		m.usersMenuPosition = usersPos
 		m.rolesMenuPosition = rolesPos
+	}
+}
+
+// WithRolePermissionMatrixResources replaces the resources shown by the main
+// role permission matrix. Applications can expose their own permission
+// namespace without changing framework defaults.
+func WithRolePermissionMatrixResources(resources ...string) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		if m != nil {
+			m.rolePermissionMatrixResources = dedupeStrings(resources)
+		}
+	}
+}
+
+// WithAdditionalRolePermissionMatrixResources appends application resources
+// to the framework's main role permission matrix defaults.
+func WithAdditionalRolePermissionMatrixResources(resources ...string) UserManagementModuleOption {
+	return func(m *UserManagementModule) {
+		if m != nil {
+			m.additionalRolePermissionMatrixResources = dedupeStrings(resources)
+		}
 	}
 }
 
@@ -266,7 +289,10 @@ func (m *UserManagementModule) buildRolesPanel(ctx ModuleContext) *PanelBuilder 
 			Field{Name: "metadata", Label: "Metadata", Type: "textarea"},
 			Field{Name: "is_system", Label: "System Role", Type: "boolean"},
 		).
-		FormSchema(defaultRolesPanelFormSchema()).
+		FormSchema(defaultRolesPanelFormSchemaWithAdditional(
+			m.rolePermissionMatrixResources,
+			m.additionalRolePermissionMatrixResources,
+		)).
 		DetailFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "role_key", Label: "Role Key", Type: "text"},
@@ -843,9 +869,13 @@ func recordToUser(record map[string]any, id string) UserRecord {
 	}
 }
 
-func defaultRolesPanelFormSchema() map[string]any {
+func defaultRolesPanelFormSchema(configuredResources ...[]string) map[string]any {
+	resources := append([]string{}, defaultRolePermissionMatrixResources...)
+	if len(configuredResources) > 0 && configuredResources[0] != nil {
+		resources = dedupeStrings(configuredResources[0])
+	}
 	mainConfig := map[string]any{
-		"resources": append([]string{}, defaultRolePermissionMatrixResources...),
+		"resources": resources,
 		"actions":   append([]string{}, defaultRolePermissionMatrixActions...),
 		"extraIgnorePrefixes": []string{
 			roleDebugPermissionPrefix,
@@ -933,6 +963,15 @@ func defaultRolesPanelFormSchema() map[string]any {
 			},
 		},
 	}
+}
+
+func defaultRolesPanelFormSchemaWithAdditional(configured, additional []string) map[string]any {
+	resources := configured
+	if resources == nil {
+		resources = defaultRolePermissionMatrixResources
+	}
+	resources = dedupeStrings(append(append([]string{}, resources...), additional...))
+	return defaultRolesPanelFormSchema(resources)
 }
 
 func roleToRecord(role RoleRecord) map[string]any {

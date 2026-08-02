@@ -16,6 +16,27 @@ type ContentEntryUIOption func(*contentEntryUIOptions)
 type templateExistsFunc func(string) bool
 type ContentEntryEditGuard func(c router.Context, panelName string, record map[string]any) (bool, error)
 
+type ContentEntryPostCreateDestination string
+
+const (
+	ContentEntryPostCreateEdit   ContentEntryPostCreateDestination = "edit"
+	ContentEntryPostCreateDetail ContentEntryPostCreateDestination = "detail"
+	ContentEntryPostCreateIndex  ContentEntryPostCreateDestination = "index"
+)
+
+type ContentEntryPostCreateContext struct {
+	PanelName string
+	CreatedID string
+	Channel   string
+}
+
+type ContentEntryPostCreateDecision struct {
+	Destination ContentEntryPostCreateDestination
+	Query       map[string]string
+}
+
+type ContentEntryPostCreatePolicy func(ContentEntryPostCreateContext) ContentEntryPostCreateDecision
+
 type contentEntryUIOptions struct {
 	basePath           string
 	listTemplate       string
@@ -32,6 +53,7 @@ type contentEntryUIOptions struct {
 	dataGridURLState   PanelDataGridURLStateOptions
 	editGuard          ContentEntryEditGuard
 	updateIntent       ContentEntryUpdateIntentPolicy
+	postCreate         ContentEntryPostCreatePolicy
 }
 
 const textCodeTranslationFallbackEditBlocked = "TRANSLATION_FALLBACK_EDIT_BLOCKED"
@@ -180,6 +202,16 @@ func WithContentEntryUpdateIntentPolicy(policy ContentEntryUpdateIntentPolicy) C
 	}
 }
 
+// WithContentEntryPostCreatePolicy controls the destination and query values
+// used after a content entry is created. The default destination is the edit page.
+func WithContentEntryPostCreatePolicy(policy ContentEntryPostCreatePolicy) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts != nil {
+			opts.postCreate = policy
+		}
+	}
+}
+
 // WithContentEntryTranslationUX enables translation list UX enhancements
 // (grouped/matrix view mode wiring and grouped URL sync) for translation-enabled panels.
 func WithContentEntryTranslationUX(enabled bool) ContentEntryUIOption {
@@ -290,6 +322,7 @@ type contentEntryHandlers struct {
 	dataGridURLState   PanelDataGridURLStateOptions
 	editGuard          ContentEntryEditGuard
 	updateIntent       ContentEntryUpdateIntentPolicy
+	postCreate         ContentEntryPostCreatePolicy
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -315,6 +348,7 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		dataGridURLState:   opts.dataGridURLState,
 		editGuard:          opts.editGuard,
 		updateIntent:       normalizeContentEntryUpdateIntentPolicy(opts.updateIntent),
+		postCreate:         opts.postCreate,
 	}
 }
 
