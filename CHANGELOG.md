@@ -1,6 +1,20 @@
 # Changelog
 
+# [0.126.10](https://github.com/goliatone/go-admin/compare/v0.126.9...v0.126.10) - (2026-08-02)
+
+## <!-- 16 -->➕ Add
+
+- Template renderer helper ([d30f766](https://github.com/goliatone/go-admin/commit/d30f76603262ee7463cd7e9703972fbca5d1c240))  - (goliatone)
+- Public client update ([012d22a](https://github.com/goliatone/go-admin/commit/012d22a8f7c6f2ecb710f8f95692e5751dfac73e))  - (goliatone)
+
 # [0.126.9](https://github.com/goliatone/go-admin/compare/v0.126.8...v0.126.9) - (2026-08-02)
+
+
+New patch release: v0.126.9
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.9 ([1276882](https://github.com/goliatone/go-admin/commit/1276882fa3ccc9ba71a36fa82aedefc416460c80))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
