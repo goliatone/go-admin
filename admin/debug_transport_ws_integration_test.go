@@ -14,6 +14,26 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+func closeWebSocketDialResponse(t *testing.T, resp *http.Response) {
+	t.Helper()
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Errorf("close websocket dial response: %v", err)
+	}
+}
+
+func closeWebSocketConnection(t *testing.T, conn *websocket.Conn) {
+	t.Helper()
+	if conn == nil {
+		return
+	}
+	if err := conn.Close(); err != nil {
+		t.Errorf("close websocket connection: %v", err)
+	}
+}
+
 func TestDebugWebSocketReaderLifecycleSurvivesFiberHijackTeardown(t *testing.T) {
 	server := router.NewFiberAdapter().(*router.FiberAdapter) //nolint:errcheck // test requires the concrete Fiber adapter.
 	config := router.DefaultWebSocketConfig()
@@ -43,33 +63,32 @@ func TestDebugWebSocketReaderLifecycleSurvivesFiberHijackTeardown(t *testing.T) 
 	for attempt := range 4 {
 		conn, resp, err := websocket.DefaultDialer.Dial("ws://"+address+"/debug-reader-lifecycle", nil)
 		if err != nil {
-			if resp != nil {
-				_ = resp.Body.Close()
-			}
+			closeWebSocketDialResponse(t, resp)
 			t.Fatalf("attempt %d: websocket dial failed: %v", attempt+1, err)
 		}
-		if resp != nil {
-			_ = resp.Body.Close()
-		}
+		closeWebSocketDialResponse(t, resp)
 
 		if err := conn.WriteJSON(map[string]string{"type": "subscribe"}); err != nil {
-			_ = conn.Close()
+			closeWebSocketConnection(t, conn)
 			t.Fatalf("attempt %d: write command: %v", attempt+1, err)
 		}
 
 		select {
 		case <-handlerDone:
 		case <-time.After(time.Second):
-			_ = conn.Close()
+			closeWebSocketConnection(t, conn)
 			t.Fatalf("attempt %d: handler did not quiesce reader and return", attempt+1)
 		}
 
-		_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+		if err := conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			closeWebSocketConnection(t, conn)
+			t.Fatalf("attempt %d: set read deadline: %v", attempt+1, err)
+		}
 		if _, _, err := conn.ReadMessage(); err == nil {
-			_ = conn.Close()
+			closeWebSocketConnection(t, conn)
 			t.Fatalf("attempt %d: expected server to close websocket", attempt+1)
 		}
-		_ = conn.Close()
+		closeWebSocketConnection(t, conn)
 	}
 }
 

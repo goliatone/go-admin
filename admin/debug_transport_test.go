@@ -222,15 +222,16 @@ func TestCommandRunHTTPLookupUsesAuthorizedPrecedenceAndMasksRecord(t *testing.T
 		if payload.Record.RunID != testCase.runID {
 			t.Fatalf("lookup %q run=%q want=%q", testCase.query, payload.Record.RunID, testCase.runID)
 		}
-		maskedMetadata, _ := payload.Record.Metadata["secret_note"].(string)
-		if maskedMetadata == "" || strings.Trim(maskedMetadata, "*") != "" {
+		maskedMetadata, metadataOK := payload.Record.Metadata["secret_note"].(string)
+		if !metadataOK || maskedMetadata == "" || strings.Trim(maskedMetadata, "*") != "" {
 			t.Fatalf("lookup metadata was not masked: %#v", payload.Record.Metadata)
 		}
 		maskedOutcome := ""
+		outcomeOK := false
 		if payload.Record.Outcome != nil {
-			maskedOutcome, _ = payload.Record.Outcome.Fields["secret_note"].(string)
+			maskedOutcome, outcomeOK = payload.Record.Outcome.Fields["secret_note"].(string)
 		}
-		if maskedOutcome == "" || strings.Trim(maskedOutcome, "*") != "" {
+		if !outcomeOK || maskedOutcome == "" || strings.Trim(maskedOutcome, "*") != "" {
 			t.Fatalf("lookup outcome was not masked: %#v", payload.Record.Outcome)
 		}
 	}
@@ -308,12 +309,16 @@ func TestDebugDashboardRegistersDeclaredRoutesOnFiber(t *testing.T) {
 		"/dashboard/assets/shell/shell.css":        http.StatusOK,
 		"/admin/dashboard/assets/shell/shell.css":  http.StatusNotFound,
 	} {
-		resp, err := app.Test(httptest.NewRequest(http.MethodGet, target, nil))
+		resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil))
 		if err != nil {
 			t.Fatalf("request %s: %v", target, err)
 		}
-		if resp.StatusCode != wantStatus {
-			t.Fatalf("expected %s to return %d, got %d", target, wantStatus, resp.StatusCode)
+		statusCode := resp.StatusCode
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body for %s: %v", target, closeErr)
+		}
+		if statusCode != wantStatus {
+			t.Fatalf("expected %s to return %d, got %d", target, wantStatus, statusCode)
 		}
 	}
 }
@@ -521,13 +526,13 @@ func TestDebugPanelsEndpointExposesEnabledRichUIDefinitions(t *testing.T) {
 	}
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
-	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
-		t.Fatalf("register debug module: %v", err)
+	if registerErr := adm.RegisterModule(NewDebugModule(debugCfg)); registerErr != nil {
+		t.Fatalf("register debug module: %v", registerErr)
 	}
 
 	server := router.NewHTTPServer()
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("initialize: %v", err)
+	if initializeErr := adm.Initialize(server.Router()); initializeErr != nil {
+		t.Fatalf("initialize: %v", initializeErr)
 	}
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, debugCfg, "panels"), nil)
@@ -741,9 +746,9 @@ func TestDebugAPIAuthFailuresReturnJSONWithoutBrowserRedirect(t *testing.T) {
 		role:     string(auth.RoleAdmin),
 	}}
 	auther := auth.NewAuthenticator(provider, authCfg)
-	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
-	if err != nil {
-		t.Fatalf("http authenticator: %v", err)
+	routeAuth, authErr := auth.NewHTTPAuthenticator(auther, authCfg)
+	if authErr != nil {
+		t.Fatalf("http authenticator: %v", authErr)
 	}
 	redirectCalls := 0
 	goAuth := NewGoAuthAuthenticator(routeAuth, authCfg, WithAuthErrorHandler(func(c router.Context, _ error) error {
@@ -756,13 +761,13 @@ func TestDebugAPIAuthFailuresReturnJSONWithoutBrowserRedirect(t *testing.T) {
 	}))
 	adm.WithAuth(goAuth, &AuthConfig{LoginPath: "/login", RedirectPath: "/admin"})
 	adm.WithAuthorizer(allowAuthorizer{})
-	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
-		t.Fatalf("register debug module: %v", err)
+	if registerErr := adm.RegisterModule(NewDebugModule(debugCfg)); registerErr != nil {
+		t.Fatalf("register debug module: %v", registerErr)
 	}
 
 	server := router.NewHTTPServer()
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("initialize: %v", err)
+	if initializeErr := adm.Initialize(server.Router()); initializeErr != nil {
+		t.Fatalf("initialize: %v", initializeErr)
 	}
 
 	actionPath := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
@@ -789,8 +794,8 @@ func TestDebugAPIAuthFailuresReturnJSONWithoutBrowserRedirect(t *testing.T) {
 		t.Fatal("expected rejected debug API request not to invoke the panel action")
 	}
 	var authError map[string]any
-	if err := json.Unmarshal(unauthenticatedRes.Body.Bytes(), &authError); err != nil {
-		t.Fatalf("decode debug API auth error: %v", err)
+	if decodeErr := json.Unmarshal(unauthenticatedRes.Body.Bytes(), &authError); decodeErr != nil {
+		t.Fatalf("decode debug API auth error: %v", decodeErr)
 	}
 	if _, ok := authError["error"].(map[string]any); !ok {
 		t.Fatalf("expected structured debug API auth error, got %#v", authError)

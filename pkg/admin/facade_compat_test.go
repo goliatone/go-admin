@@ -71,9 +71,9 @@ func TestFacadeContextFactoriesAndOwnedRegistrationSetAvailable(t *testing.T) {
 	if err := bus.SetOwnedRuntimeConfig(OwnedCommandRuntimeConfig{}); err != nil {
 		t.Fatalf("SetOwnedRuntimeConfig: %v", err)
 	}
-	set, err := bus.NewRegistrationSet("facade.owner")
-	if err != nil {
-		t.Fatalf("NewRegistrationSet: %v", err)
+	set, setErr := bus.NewRegistrationSet("facade.owner")
+	if setErr != nil {
+		t.Fatalf("NewRegistrationSet: %v", setErr)
 	}
 	handler := &facadeOwnedCommand{}
 	if err := RegisterSetCommand(set, handler); err != nil {
@@ -87,12 +87,15 @@ func TestFacadeContextFactoriesAndOwnedRegistrationSetAvailable(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("RegisterSetContextMessageFactory: %v", err)
 	}
-	var handle CommandRegistrationHandle
-	handle, err = set.Commit()
-	if err != nil {
-		t.Fatalf("Commit: %v", err)
+	handle, commitErr := set.Commit()
+	if commitErr != nil {
+		t.Fatalf("Commit: %v", commitErr)
 	}
-	defer handle.Close()
+	defer func() {
+		if closeErr := handle.Close(); closeErr != nil {
+			t.Errorf("close registration handle: %v", closeErr)
+		}
+	}()
 	if err := bus.DispatchByName(context.Background(), "facade.owned", nil, nil); err != nil {
 		t.Fatalf("DispatchByName: %v", err)
 	}

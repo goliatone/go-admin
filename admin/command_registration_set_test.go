@@ -125,6 +125,24 @@ func (*ownedResultCommand) Execute(ctx context.Context, message ownedAlphaMessag
 	return nil
 }
 
+func mustRegistrationSet(t *testing.T, bus *CommandBus, owner string) *CommandRegistrationSet {
+	t.Helper()
+	set, err := bus.NewRegistrationSet(owner)
+	if err != nil {
+		t.Fatalf("NewRegistrationSet(%q): %v", owner, err)
+	}
+	return set
+}
+
+func closeRegistrationHandle(t *testing.T, handle CommandRegistrationHandle) {
+	t.Helper()
+	if err := handle.Close(); err != nil {
+		t.Errorf("close registration handle: %v", err)
+	}
+}
+
+func discardExpectedLifecycleError(_ error) {}
+
 func TestOwnedRegistrationSetsCommitDispatchAndCloseIndependently(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
 		if err := commandregistry.Start(context.Background()); err != nil {
@@ -133,10 +151,7 @@ func TestOwnedRegistrationSetsCommitDispatchAndCloseIndependently(t *testing.T) 
 
 		bus := NewCommandBus(true)
 		alpha := &ownedAlphaCommand{}
-		alphaSet, err := bus.NewRegistrationSet(" alpha.owner ")
-		if err != nil {
-			t.Fatalf("NewRegistrationSet alpha: %v", err)
-		}
+		alphaSet := mustRegistrationSet(t, bus, " alpha.owner ")
 		if err := RegisterSetCommand(alphaSet, alpha); err != nil {
 			t.Fatalf("RegisterSetCommand alpha: %v", err)
 		}
@@ -151,16 +166,16 @@ func TestOwnedRegistrationSetsCommitDispatchAndCloseIndependently(t *testing.T) 
 				t.Fatalf("RegisterSetContextMessageFactory %s: %v", name, err)
 			}
 		}
-		alphaHandle, err := alphaSet.Commit()
-		if err != nil {
-			t.Fatalf("Commit alpha: %v", err)
+		alphaHandle, alphaCommitErr := alphaSet.Commit()
+		if alphaCommitErr != nil {
+			t.Fatalf("Commit alpha: %v", alphaCommitErr)
 		}
 		if alphaHandle.Owner() != "alpha.owner" {
 			t.Fatalf("normalized owner = %q", alphaHandle.Owner())
 		}
 
 		beta := &ownedBetaCommand{}
-		betaSet, _ := bus.NewRegistrationSet("beta.owner")
+		betaSet := mustRegistrationSet(t, bus, "beta.owner")
 		if err := RegisterSetCommand(betaSet, beta); err != nil {
 			t.Fatalf("RegisterSetCommand beta: %v", err)
 		}
@@ -169,9 +184,9 @@ func TestOwnedRegistrationSetsCommitDispatchAndCloseIndependently(t *testing.T) 
 		}); err != nil {
 			t.Fatalf("RegisterSetMessageFactory beta: %v", err)
 		}
-		betaHandle, err := betaSet.Commit()
-		if err != nil {
-			t.Fatalf("Commit beta: %v", err)
+		betaHandle, betaCommitErr := betaSet.Commit()
+		if betaCommitErr != nil {
+			t.Fatalf("Commit beta: %v", betaCommitErr)
 		}
 
 		if _, err := bus.DispatchByNameWithOptions(context.Background(), "alpha.alias", map[string]any{"value": "one"}, nil, command.DispatchOptions{
@@ -210,7 +225,7 @@ func TestOwnedRegistrationSetsCommitDispatchAndCloseIndependently(t *testing.T) 
 
 func TestOwnedRegistrationSetResultFactory(t *testing.T) {
 	bus := NewCommandBus(true)
-	set, _ := bus.NewRegistrationSet("results")
+	set := mustRegistrationSet(t, bus, "results")
 	if err := RegisterSetCommand(set, &ownedResultCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -223,7 +238,7 @@ func TestOwnedRegistrationSetResultFactory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	outcome, err := bus.DispatchByNameWithOutcome(context.Background(), "owned.result", map[string]any{"value": "ok"}, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
 	if err != nil {
 		t.Fatalf("DispatchByNameWithOutcome: %v", err)
@@ -235,7 +250,7 @@ func TestOwnedRegistrationSetResultFactory(t *testing.T) {
 
 func TestOwnedRegistrationSetLifecycleAndConflictValidation(t *testing.T) {
 	bus := NewCommandBus(true)
-	set, _ := bus.NewRegistrationSet("owner")
+	set := mustRegistrationSet(t, bus, "owner")
 	handler := &ownedAlphaCommand{}
 	if err := RegisterSetCommand(set, handler); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
@@ -249,7 +264,7 @@ func TestOwnedRegistrationSetLifecycleAndConflictValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	if _, err := set.Commit(); err == nil {
 		t.Fatal("expected commit-twice lifecycle error")
 	}
@@ -257,7 +272,7 @@ func TestOwnedRegistrationSetLifecycleAndConflictValidation(t *testing.T) {
 		t.Fatal("expected add-after-commit lifecycle error")
 	}
 
-	conflict, _ := bus.NewRegistrationSet("other")
+	conflict := mustRegistrationSet(t, bus, "other")
 	if err := RegisterSetCommand(conflict, &ownedAlphaCommand{}); err != nil {
 		t.Fatalf("stage conflicting handler: %v", err)
 	}
@@ -273,7 +288,7 @@ func TestOwnedRegistrationSetLifecycleAndConflictValidation(t *testing.T) {
 		t.Fatal("failed owner factory must not be published")
 	}
 
-	mismatch, _ := bus.NewRegistrationSet("mismatch")
+	mismatch := mustRegistrationSet(t, bus, "mismatch")
 	if err := RegisterSetCommand(mismatch, &ownedBetaCommand{}); err != nil {
 		t.Fatalf("stage mismatch handler: %v", err)
 	}
@@ -292,7 +307,7 @@ func TestOwnedRegistrationSetLifecycleAndConflictValidation(t *testing.T) {
 
 func TestOwnedRegistrationSetDisabledCommitIsInert(t *testing.T) {
 	bus := NewCommandBus(false)
-	set, _ := bus.NewRegistrationSet("disabled")
+	set := mustRegistrationSet(t, bus, "disabled")
 	if err := RegisterSetCommand(set, &ownedAlphaCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -329,7 +344,7 @@ func TestOwnedRegistrationSetInheritsQueuedExecutorSnapshot(t *testing.T) {
 	delete(executors, command.ExecutionModeQueued)
 
 	handler := &ownedAlphaCommand{}
-	set, _ := bus.NewRegistrationSet("queued")
+	set := mustRegistrationSet(t, bus, "queued")
 	if err := RegisterSetCommand(set, handler); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -342,7 +357,7 @@ func TestOwnedRegistrationSetInheritsQueuedExecutorSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	receipt, err := bus.DispatchByNameWithOptions(context.Background(), "owned.queued", map[string]any{"value": "queued"}, nil, command.DispatchOptions{
 		Mode:          command.ExecutionModeQueued,
 		CorrelationID: "queued-correlation",
@@ -405,7 +420,7 @@ func TestOwnedRegistrationSetInheritsPlacementAndRemoteDispatch(t *testing.T) {
 		t.Fatalf("SetOwnedRuntimeConfig: %v", err)
 	}
 	handler := &ownedAlphaCommand{}
-	set, _ := bus.NewRegistrationSet("remote")
+	set := mustRegistrationSet(t, bus, "remote")
 	if err := RegisterSetCommand(set, handler); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -418,7 +433,7 @@ func TestOwnedRegistrationSetInheritsPlacementAndRemoteDispatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	receipt, err := bus.DispatchByNameWithOptions(context.Background(), "owned.remote", nil, nil, command.DispatchOptions{
 		Mode:          command.ExecutionModeInline,
 		CorrelationID: "remote-correlation",
@@ -548,10 +563,7 @@ func TestOwnedRegistrationSetPreservesRemoteTypedResults(t *testing.T) {
 			}); err != nil {
 				t.Fatalf("SetOwnedRuntimeConfig: %v", err)
 			}
-			set, err := bus.NewRegistrationSet("remote-results")
-			if err != nil {
-				t.Fatalf("NewRegistrationSet: %v", err)
-			}
+			set := mustRegistrationSet(t, bus, "remote-results")
 			if err := RegisterSetCommand(set, &ownedResultCommand{}); err != nil {
 				t.Fatalf("RegisterSetCommand: %v", err)
 			}
@@ -562,7 +574,7 @@ func TestOwnedRegistrationSetPreservesRemoteTypedResults(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Commit: %v", err)
 			}
-			defer handle.Close()
+			defer closeRegistrationHandle(t, handle)
 
 			outcome, dispatchErr := bus.DispatchByNameWithOutcome(context.Background(), "owned.remote.result", nil, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
 			tc.assert(t, outcome, dispatchErr)
@@ -590,7 +602,7 @@ func TestOwnedRegistrationSetCombinesDefaultAndHandlerRunnerOptions(t *testing.T
 	}
 	defaultOptions[0] = runner.WithMiddleware()
 
-	set, _ := bus.NewRegistrationSet("runner-options")
+	set := mustRegistrationSet(t, bus, "runner-options")
 	if err := RegisterSetCommand(set, &ownedAlphaCommand{}, runner.WithMiddleware(func(next func(context.Context) error) func(context.Context) error {
 		return func(ctx context.Context) error {
 			alphaCalls++
@@ -616,7 +628,7 @@ func TestOwnedRegistrationSetCombinesDefaultAndHandlerRunnerOptions(t *testing.T
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	if err := bus.DispatchByName(context.Background(), "runner.alpha", nil, nil); err != nil {
 		t.Fatalf("dispatch alpha: %v", err)
 	}
@@ -645,24 +657,24 @@ func TestOwnedRuntimeConfigRejectsInvalidExecutors(t *testing.T) {
 
 func TestOwnedRegistrationSetCatalogLifetimeAndMetadata(t *testing.T) {
 	bus := NewCommandBus(true)
-	alphaSet, _ := bus.NewRegistrationSet("alpha-owner")
+	alphaSet := mustRegistrationSet(t, bus, "alpha-owner")
 	if err := RegisterSetCommand(alphaSet, &ownedCatalogAlphaCommand{descriptorID: "z-command"}); err != nil {
 		t.Fatalf("RegisterSetCommand alpha: %v", err)
 	}
-	alphaHandle, err := alphaSet.Commit()
-	if err != nil {
-		t.Fatalf("Commit alpha: %v", err)
+	alphaHandle, alphaCommitErr := alphaSet.Commit()
+	if alphaCommitErr != nil {
+		t.Fatalf("Commit alpha: %v", alphaCommitErr)
 	}
 
-	betaSet, _ := bus.NewRegistrationSet("beta-owner")
+	betaSet := mustRegistrationSet(t, bus, "beta-owner")
 	if err := RegisterSetCommand(betaSet, &ownedCatalogBetaCommand{descriptorID: "a-command"}); err != nil {
 		t.Fatalf("RegisterSetCommand beta: %v", err)
 	}
-	betaHandle, err := betaSet.Commit()
-	if err != nil {
-		t.Fatalf("Commit beta: %v", err)
+	betaHandle, betaCommitErr := betaSet.Commit()
+	if betaCommitErr != nil {
+		t.Fatalf("Commit beta: %v", betaCommitErr)
 	}
-	defer betaHandle.Close()
+	defer closeRegistrationHandle(t, betaHandle)
 
 	descriptors := bus.CommandDescriptors()
 	if len(descriptors) != 2 || descriptors[0].ID != "z-command" || descriptors[1].ID != "a-command" {
@@ -694,7 +706,7 @@ func TestOwnedRegistrationSetCatalogLifetimeAndMetadata(t *testing.T) {
 
 func TestOwnedRegistrationSetRejectsLiveDescriptorIDConflict(t *testing.T) {
 	bus := NewCommandBus(true)
-	first, _ := bus.NewRegistrationSet("first")
+	first := mustRegistrationSet(t, bus, "first")
 	if err := RegisterSetCommand(first, &ownedCatalogAlphaCommand{descriptorID: "shared-command"}); err != nil {
 		t.Fatalf("RegisterSetCommand first: %v", err)
 	}
@@ -702,9 +714,9 @@ func TestOwnedRegistrationSetRejectsLiveDescriptorIDConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit first: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 
-	second, _ := bus.NewRegistrationSet("second")
+	second := mustRegistrationSet(t, bus, "second")
 	if err := RegisterSetCommand(second, &ownedCatalogBetaCommand{descriptorID: "shared-command"}); err != nil {
 		t.Fatalf("RegisterSetCommand second: %v", err)
 	}
@@ -724,7 +736,7 @@ func (c ownedStaticCatalog) CommandDescriptors() []command.CommandDescriptor {
 
 func TestCommandCatalogProvidersPreserveExternalDescriptorsAndAppendOwners(t *testing.T) {
 	bus := NewCommandBus(true)
-	set, _ := bus.NewRegistrationSet("owner")
+	set := mustRegistrationSet(t, bus, "owner")
 	if err := RegisterSetCommand(set, &ownedCatalogAlphaCommand{descriptorID: "owned"}); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -732,7 +744,7 @@ func TestCommandCatalogProvidersPreserveExternalDescriptorsAndAppendOwners(t *te
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	external := ownedStaticCatalog{
 		{ID: "duplicate", ExposeInAdmin: true},
 		{ID: "duplicate", ExposeInAdmin: true},
@@ -752,7 +764,7 @@ func TestOwnedRegistrationSetRejectsMissingPolicyExecutorBeforePublication(t *te
 	if err := bus.SetExecutionPolicy(CommandExecutionPolicy{DefaultMode: command.ExecutionModeQueued}); err != nil {
 		t.Fatalf("SetExecutionPolicy: %v", err)
 	}
-	set, _ := bus.NewRegistrationSet("missing-executor")
+	set := mustRegistrationSet(t, bus, "missing-executor")
 	if err := RegisterSetCommand(set, &ownedAlphaCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -774,7 +786,7 @@ func TestOwnedRegistrationSetRejectsInvalidOwnerAndDuplicateDeclarations(t *test
 	if _, err := bus.NewRegistrationSet("   "); err == nil {
 		t.Fatal("expected blank owner validation error")
 	}
-	set, _ := bus.NewRegistrationSet("duplicates")
+	set := mustRegistrationSet(t, bus, "duplicates")
 	handler := &ownedAlphaCommand{}
 	if err := RegisterSetCommand(set, handler); err != nil {
 		t.Fatalf("first handler: %v", err)
@@ -804,7 +816,7 @@ func TestOwnedAndLegacyRegistrationConflictsAreRejectedInBothOrders(t *testing.T
 			if _, err := RegisterCommand(bus, &ownedAlphaCommand{}); err != nil {
 				t.Fatalf("RegisterCommand: %v", err)
 			}
-			set, _ := bus.NewRegistrationSet("owned")
+			set := mustRegistrationSet(t, bus, "owned")
 			if err := RegisterSetCommand(set, &ownedAlphaCommand{}); err != nil {
 				t.Fatalf("RegisterSetCommand: %v", err)
 			}
@@ -823,7 +835,7 @@ func TestOwnedAndLegacyRegistrationConflictsAreRejectedInBothOrders(t *testing.T
 	commandregistry.WithTestRegistry(func() {
 		t.Run("owned then legacy", func(t *testing.T) {
 			bus := NewCommandBus(true)
-			set, _ := bus.NewRegistrationSet("owned")
+			set := mustRegistrationSet(t, bus, "owned")
 			if err := RegisterSetCommand(set, &ownedAlphaCommand{}); err != nil {
 				t.Fatalf("RegisterSetCommand: %v", err)
 			}
@@ -852,7 +864,7 @@ func TestOwnedAndLegacyRegistrationConflictsAreRejectedInBothOrders(t *testing.T
 
 func TestOwnedRegistrationSetLateHandleCannotCloseNewGeneration(t *testing.T) {
 	bus := NewCommandBus(true)
-	firstSet, _ := bus.NewRegistrationSet("replaceable")
+	firstSet := mustRegistrationSet(t, bus, "replaceable")
 	if err := RegisterSetCommand(firstSet, &ownedAlphaCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand first: %v", err)
 	}
@@ -861,14 +873,14 @@ func TestOwnedRegistrationSetLateHandleCannotCloseNewGeneration(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("RegisterSetMessageFactory first: %v", err)
 	}
-	firstHandle, err := firstSet.Commit()
-	if err != nil {
-		t.Fatalf("Commit first: %v", err)
+	firstHandle, firstCommitErr := firstSet.Commit()
+	if firstCommitErr != nil {
+		t.Fatalf("Commit first: %v", firstCommitErr)
 	}
 	bus.Reset()
 
 	secondHandler := &ownedAlphaCommand{}
-	secondSet, _ := bus.NewRegistrationSet("replaceable")
+	secondSet := mustRegistrationSet(t, bus, "replaceable")
 	if err := RegisterSetCommand(secondSet, secondHandler); err != nil {
 		t.Fatalf("RegisterSetCommand second: %v", err)
 	}
@@ -877,11 +889,11 @@ func TestOwnedRegistrationSetLateHandleCannotCloseNewGeneration(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("RegisterSetMessageFactory second: %v", err)
 	}
-	secondHandle, err := secondSet.Commit()
-	if err != nil {
-		t.Fatalf("Commit second: %v", err)
+	secondHandle, secondCommitErr := secondSet.Commit()
+	if secondCommitErr != nil {
+		t.Fatalf("Commit second: %v", secondCommitErr)
 	}
-	defer secondHandle.Close()
+	defer closeRegistrationHandle(t, secondHandle)
 	if err := firstHandle.Close(); err != nil {
 		t.Fatalf("late first close: %v", err)
 	}
@@ -929,7 +941,7 @@ func TestOwnedRegistrationSetResetDuringStagingPreventsPublication(t *testing.T)
 		started: make(chan struct{}),
 		release: make(chan struct{}),
 	}
-	set, _ := bus.NewRegistrationSet("blocking")
+	set := mustRegistrationSet(t, bus, "blocking")
 	if err := RegisterSetCommand(set, handler); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -959,10 +971,7 @@ func TestOwnedRegistrationSetResetDuringStagingPreventsPublication(t *testing.T)
 
 func TestNilAndDisabledOwnedSetsStillValidateDeclarations(t *testing.T) {
 	var nilBus *CommandBus
-	nilSet, err := nilBus.NewRegistrationSet("nil-bus")
-	if err != nil {
-		t.Fatalf("NewRegistrationSet nil bus: %v", err)
-	}
+	nilSet := mustRegistrationSet(t, nilBus, "nil-bus")
 	if err := RegisterSetCommand(nilSet, &ownedAlphaCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand nil bus: %v", err)
 	}
@@ -980,7 +989,7 @@ func TestNilAndDisabledOwnedSetsStillValidateDeclarations(t *testing.T) {
 	}
 
 	disabled := NewCommandBus(false)
-	invalid, _ := disabled.NewRegistrationSet("invalid-disabled")
+	invalid := mustRegistrationSet(t, disabled, "invalid-disabled")
 	if err := RegisterSetCommand(invalid, &ownedBetaCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand invalid disabled: %v", err)
 	}
@@ -1005,10 +1014,7 @@ func TestDisabledLegacyRegistrationRetainsNoOpBehavior(t *testing.T) {
 
 func TestOwnedRegistrationSupportsZeroValueEnabledBus(t *testing.T) {
 	bus := &CommandBus{enabled: true}
-	set, err := bus.NewRegistrationSet("zero-value")
-	if err != nil {
-		t.Fatalf("NewRegistrationSet: %v", err)
-	}
+	set := mustRegistrationSet(t, bus, "zero-value")
 	if err := RegisterSetCommand(set, &ownedAlphaCommand{}); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -1021,7 +1027,7 @@ func TestOwnedRegistrationSupportsZeroValueEnabledBus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 	if err := bus.DispatchByName(context.Background(), "zero-value.run", nil, nil); err != nil {
 		t.Fatalf("DispatchByName: %v", err)
 	}
@@ -1044,7 +1050,7 @@ func (c *blockingOwnedCommand) Execute(context.Context, ownedAlphaMessage) error
 func TestOwnedRegistrationSetCloseRacingDispatchCannotReachNewGeneration(t *testing.T) {
 	bus := NewCommandBus(true)
 	oldHandler := &blockingOwnedCommand{entered: make(chan struct{}), release: make(chan struct{})}
-	oldSet, _ := bus.NewRegistrationSet("racing-owner")
+	oldSet := mustRegistrationSet(t, bus, "racing-owner")
 	if err := RegisterSetCommand(oldSet, oldHandler); err != nil {
 		t.Fatalf("RegisterSetCommand old: %v", err)
 	}
@@ -1053,9 +1059,9 @@ func TestOwnedRegistrationSetCloseRacingDispatchCannotReachNewGeneration(t *test
 	}); err != nil {
 		t.Fatalf("RegisterSetMessageFactory old: %v", err)
 	}
-	oldHandle, err := oldSet.Commit()
-	if err != nil {
-		t.Fatalf("Commit old: %v", err)
+	oldHandle, oldCommitErr := oldSet.Commit()
+	if oldCommitErr != nil {
+		t.Fatalf("Commit old: %v", oldCommitErr)
 	}
 
 	dispatchResult := make(chan error, 1)
@@ -1069,13 +1075,13 @@ func TestOwnedRegistrationSetCloseRacingDispatchCannotReachNewGeneration(t *test
 		go func() { closeResults <- oldHandle.Close() }()
 	}
 	for i := 0; i < cap(closeResults); i++ {
-		if err := <-closeResults; err != nil {
-			t.Fatalf("concurrent close: %v", err)
+		if closeErr := <-closeResults; closeErr != nil {
+			t.Fatalf("concurrent close: %v", closeErr)
 		}
 	}
 
 	newHandler := &ownedAlphaCommand{}
-	newSet, _ := bus.NewRegistrationSet("racing-owner")
+	newSet := mustRegistrationSet(t, bus, "racing-owner")
 	if err := RegisterSetCommand(newSet, newHandler); err != nil {
 		t.Fatalf("RegisterSetCommand new: %v", err)
 	}
@@ -1084,11 +1090,11 @@ func TestOwnedRegistrationSetCloseRacingDispatchCannotReachNewGeneration(t *test
 	}); err != nil {
 		t.Fatalf("RegisterSetMessageFactory new: %v", err)
 	}
-	newHandle, err := newSet.Commit()
-	if err != nil {
-		t.Fatalf("Commit new: %v", err)
+	newHandle, newCommitErr := newSet.Commit()
+	if newCommitErr != nil {
+		t.Fatalf("Commit new: %v", newCommitErr)
 	}
-	defer newHandle.Close()
+	defer closeRegistrationHandle(t, newHandle)
 
 	close(oldHandler.release)
 	if err := <-dispatchResult; err != nil && !errors.Is(err, ErrNotFound) {
@@ -1121,7 +1127,7 @@ func (c *ownedDomainFailureCommand) Execute(context.Context, ownedAlphaMessage) 
 func TestOwnedRegistrationSetPreservesDomainErrorThroughRunnerWrappers(t *testing.T) {
 	bus := NewCommandBus(true)
 	handler := &ownedDomainFailureCommand{}
-	set, _ := bus.NewRegistrationSet("domain-errors")
+	set := mustRegistrationSet(t, bus, "domain-errors")
 	if err := RegisterSetCommand(set, handler, runner.WithMaxRetries(1)); err != nil {
 		t.Fatalf("RegisterSetCommand: %v", err)
 	}
@@ -1134,7 +1140,7 @@ func TestOwnedRegistrationSetPreservesDomainErrorThroughRunnerWrappers(t *testin
 	if err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
-	defer handle.Close()
+	defer closeRegistrationHandle(t, handle)
 
 	err = bus.DispatchByName(context.Background(), "domain-errors.run", nil, nil)
 	if err == nil {
@@ -1160,7 +1166,7 @@ func TestOwnedRegistrationSetConcurrentLifecycleStress(t *testing.T) {
 	const iterations = 20
 	for iteration := range iterations {
 		bus := NewCommandBus(true)
-		set, _ := bus.NewRegistrationSet("stress-owner")
+		set := mustRegistrationSet(t, bus, "stress-owner")
 		if err := RegisterSetCommand(set, &ownedNoopCommand{}); err != nil {
 			t.Fatalf("iteration %d RegisterSetCommand: %v", iteration, err)
 		}
@@ -1179,13 +1185,13 @@ func TestOwnedRegistrationSetConcurrentLifecycleStress(t *testing.T) {
 		for range 12 {
 			wg.Go(func() {
 				<-start
-				_ = bus.DispatchByName(context.Background(), "stress.run", nil, nil)
+				discardExpectedLifecycleError(bus.DispatchByName(context.Background(), "stress.run", nil, nil))
 			})
 		}
 		for range 4 {
 			wg.Go(func() {
 				<-start
-				_ = handle.Close()
+				discardExpectedLifecycleError(handle.Close())
 			})
 		}
 		wg.Go(func() {
@@ -1208,11 +1214,11 @@ func TestOwnedRegistrationSetConcurrentLifecycleStress(t *testing.T) {
 			}
 			replacementHandle, err := replacement.Commit()
 			if err == nil {
-				_ = replacementHandle.Close()
+				discardExpectedLifecycleError(replacementHandle.Close())
 			}
 		})
 		close(start)
 		wg.Wait()
-		_ = handle.Close()
+		discardExpectedLifecycleError(handle.Close())
 	}
 }
