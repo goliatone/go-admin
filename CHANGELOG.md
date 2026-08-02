@@ -1,6 +1,28 @@
 # Changelog
 
+# [0.126.12](https://github.com/goliatone/go-admin/compare/v0.126.11...v0.126.12) - (2026-08-02)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Check min node version ([4e7f517](https://github.com/goliatone/go-admin/commit/4e7f517e7dd8c384f8dd91dc8581f02b958e0a3b))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Expose content entry helper and users module ([cdc9ce5](https://github.com/goliatone/go-admin/commit/cdc9ce510da79589ea062af8e2b294fe0616e0cd))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tasks ([8dd2a29](https://github.com/goliatone/go-admin/commit/8dd2a297b1713645a59d7bf67af71e1c76978332))  - (goliatone)
+- Update tests ([ce532f7](https://github.com/goliatone/go-admin/commit/ce532f7f7e4c318ab04234572110a1489e4e0351))  - (goliatone)
+
 # [0.126.11](https://github.com/goliatone/go-admin/compare/v0.126.10...v0.126.11) - (2026-08-02)
+
+
+New patch release: v0.126.11
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.11 ([ae98beb](https://github.com/goliatone/go-admin/commit/ae98beb73ddb32c7a36272c81cb7a31347573c6f))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
