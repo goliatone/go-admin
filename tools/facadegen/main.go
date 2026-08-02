@@ -273,30 +273,7 @@ func (b *facadeBuilder) collectFunc(name string, fn *types.Func) error {
 	if name == "IntPtr" {
 		b.hasIntPtr = true
 	}
-	if name == "RegisterMessageFactory" {
-		b.hasRegisterMessageFactory = true
-	}
-	if name == "RegisterMessageResultFactory" {
-		b.hasRegisterMessageResultFactory = true
-	}
-	if name == "RegisterContextMessageFactory" {
-		b.hasRegisterContextMessageFactory = true
-	}
-	if name == "RegisterContextMessageResultFactory" {
-		b.hasRegisterContextMessageResultFactory = true
-	}
-	if name == "RegisterSetMessageFactory" {
-		b.hasRegisterSetMessageFactory = true
-	}
-	if name == "RegisterSetMessageResultFactory" {
-		b.hasRegisterSetMessageResultFactory = true
-	}
-	if name == "RegisterSetContextMessageFactory" {
-		b.hasRegisterSetContextMessageFactory = true
-	}
-	if name == "RegisterSetContextMessageResultFactory" {
-		b.hasRegisterSetContextMessageResultFactory = true
-	}
+	b.markFactoryFunctionPresent(name)
 	sig, ok := fn.Type().(*types.Signature)
 	if !ok {
 		return fmt.Errorf("expected function signature for %s", name)
@@ -309,31 +286,50 @@ func (b *facadeBuilder) collectFunc(name string, fn *types.Func) error {
 		return err
 	}
 	b.funcDecls = append(b.funcDecls, decl)
-	if name == "RegisterMessageFactory" {
+	b.markFactoryFunctionGenerated(name)
+	return nil
+}
+
+func (b *facadeBuilder) markFactoryFunctionPresent(name string) {
+	switch name {
+	case "RegisterMessageFactory":
+		b.hasRegisterMessageFactory = true
+	case "RegisterMessageResultFactory":
+		b.hasRegisterMessageResultFactory = true
+	case "RegisterContextMessageFactory":
+		b.hasRegisterContextMessageFactory = true
+	case "RegisterContextMessageResultFactory":
+		b.hasRegisterContextMessageResultFactory = true
+	case "RegisterSetMessageFactory":
+		b.hasRegisterSetMessageFactory = true
+	case "RegisterSetMessageResultFactory":
+		b.hasRegisterSetMessageResultFactory = true
+	case "RegisterSetContextMessageFactory":
+		b.hasRegisterSetContextMessageFactory = true
+	case "RegisterSetContextMessageResultFactory":
+		b.hasRegisterSetContextMessageResultFactory = true
+	}
+}
+
+func (b *facadeBuilder) markFactoryFunctionGenerated(name string) {
+	switch name {
+	case "RegisterMessageFactory":
 		b.generatedRegisterMessageFactory = true
-	}
-	if name == "RegisterMessageResultFactory" {
+	case "RegisterMessageResultFactory":
 		b.generatedRegisterMessageResultFactory = true
-	}
-	if name == "RegisterContextMessageFactory" {
+	case "RegisterContextMessageFactory":
 		b.generatedRegisterContextMessageFactory = true
-	}
-	if name == "RegisterContextMessageResultFactory" {
+	case "RegisterContextMessageResultFactory":
 		b.generatedRegisterContextMessageResultFactory = true
-	}
-	if name == "RegisterSetMessageFactory" {
+	case "RegisterSetMessageFactory":
 		b.generatedRegisterSetMessageFactory = true
-	}
-	if name == "RegisterSetMessageResultFactory" {
+	case "RegisterSetMessageResultFactory":
 		b.generatedRegisterSetMessageResultFactory = true
-	}
-	if name == "RegisterSetContextMessageFactory" {
+	case "RegisterSetContextMessageFactory":
 		b.generatedRegisterSetContextMessageFactory = true
-	}
-	if name == "RegisterSetContextMessageResultFactory" {
+	case "RegisterSetContextMessageResultFactory":
 		b.generatedRegisterSetContextMessageResultFactory = true
 	}
-	return nil
 }
 
 func (b *facadeBuilder) sort() {
@@ -348,29 +344,24 @@ func (b *facadeBuilder) manualDecls() []string {
 	if !b.hasIntPtr {
 		manualDecls = append(manualDecls, "func IntPtr(v int) *int {\n\treturn &v\n}")
 	}
-	if b.hasRegisterMessageFactory && !b.generatedRegisterMessageFactory {
-		manualDecls = append(manualDecls, "func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterMessageFactory[T](bus, name, build)\n}")
+	candidates := []struct {
+		present   bool
+		generated bool
+		decl      string
+	}{
+		{b.hasRegisterMessageFactory, b.generatedRegisterMessageFactory, "func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterMessageFactory[T](bus, name, build)\n}"},
+		{b.hasRegisterMessageResultFactory, b.generatedRegisterMessageResultFactory, "func RegisterMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterMessageResultFactory[T, R](bus, name, build)\n}"},
+		{b.hasRegisterContextMessageFactory, b.generatedRegisterContextMessageFactory, "func RegisterContextMessageFactory[T any](bus *CommandBus, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterContextMessageFactory[T](bus, name, build)\n}"},
+		{b.hasRegisterContextMessageResultFactory, b.generatedRegisterContextMessageResultFactory, "func RegisterContextMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterContextMessageResultFactory[T, R](bus, name, build)\n}"},
+		{b.hasRegisterSetMessageFactory, b.generatedRegisterSetMessageFactory, "func RegisterSetMessageFactory[T any](set *CommandRegistrationSet, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetMessageFactory[T](set, name, build)\n}"},
+		{b.hasRegisterSetMessageResultFactory, b.generatedRegisterSetMessageResultFactory, "func RegisterSetMessageResultFactory[T any, R any](set *CommandRegistrationSet, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetMessageResultFactory[T, R](set, name, build)\n}"},
+		{b.hasRegisterSetContextMessageFactory, b.generatedRegisterSetContextMessageFactory, "func RegisterSetContextMessageFactory[T any](set *CommandRegistrationSet, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetContextMessageFactory[T](set, name, build)\n}"},
+		{b.hasRegisterSetContextMessageResultFactory, b.generatedRegisterSetContextMessageResultFactory, "func RegisterSetContextMessageResultFactory[T any, R any](set *CommandRegistrationSet, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetContextMessageResultFactory[T, R](set, name, build)\n}"},
 	}
-	if b.hasRegisterMessageResultFactory && !b.generatedRegisterMessageResultFactory {
-		manualDecls = append(manualDecls, "func RegisterMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterMessageResultFactory[T, R](bus, name, build)\n}")
-	}
-	if b.hasRegisterContextMessageFactory && !b.generatedRegisterContextMessageFactory {
-		manualDecls = append(manualDecls, "func RegisterContextMessageFactory[T any](bus *CommandBus, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterContextMessageFactory[T](bus, name, build)\n}")
-	}
-	if b.hasRegisterContextMessageResultFactory && !b.generatedRegisterContextMessageResultFactory {
-		manualDecls = append(manualDecls, "func RegisterContextMessageResultFactory[T any, R any](bus *CommandBus, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterContextMessageResultFactory[T, R](bus, name, build)\n}")
-	}
-	if b.hasRegisterSetMessageFactory && !b.generatedRegisterSetMessageFactory {
-		manualDecls = append(manualDecls, "func RegisterSetMessageFactory[T any](set *CommandRegistrationSet, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetMessageFactory[T](set, name, build)\n}")
-	}
-	if b.hasRegisterSetMessageResultFactory && !b.generatedRegisterSetMessageResultFactory {
-		manualDecls = append(manualDecls, "func RegisterSetMessageResultFactory[T any, R any](set *CommandRegistrationSet, name string, build func(map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetMessageResultFactory[T, R](set, name, build)\n}")
-	}
-	if b.hasRegisterSetContextMessageFactory && !b.generatedRegisterSetContextMessageFactory {
-		manualDecls = append(manualDecls, "func RegisterSetContextMessageFactory[T any](set *CommandRegistrationSet, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetContextMessageFactory[T](set, name, build)\n}")
-	}
-	if b.hasRegisterSetContextMessageResultFactory && !b.generatedRegisterSetContextMessageResultFactory {
-		manualDecls = append(manualDecls, "func RegisterSetContextMessageResultFactory[T any, R any](set *CommandRegistrationSet, name string, build func(context.Context, map[string]any, []string) (T, error)) error {\n\treturn core.RegisterSetContextMessageResultFactory[T, R](set, name, build)\n}")
+	for _, candidate := range candidates {
+		if candidate.present && !candidate.generated {
+			manualDecls = append(manualDecls, candidate.decl)
+		}
 	}
 	return manualDecls
 }

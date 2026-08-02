@@ -374,64 +374,12 @@ func validateOwnedDeclarations(owner string, commands []ownedCommandDeclaration,
 }
 
 func stageOwnedGeneration(owner string, commands []ownedCommandDeclaration, factories []ownedFactoryDeclaration, registrations []command.MessageRegistration, config OwnedCommandRuntimeConfig, executionPolicy CommandExecutionPolicy) (*ownedCommandGeneration, error) {
-	runtime := dispatcher.NewRuntime()
-	localRegistry := command.NewRegistry()
-	localRegistry.SetCronRegister(command.NilCronRegister)
-	localRegistry.SetRPCRegister(func(command.RPCConfig, any, command.CommandMeta) error { return nil })
-	generation := &ownedCommandGeneration{
-		owner:         owner,
-		runtime:       runtime,
-		registry:      localRegistry,
-		factories:     make(map[string]ownedFactoryDeclaration, len(factories)),
-		registrations: append([]command.MessageRegistration(nil), registrations...),
-	}
-	for _, declaration := range commands {
-		subscription, err := declaration.subscribe(runtime, config.RunnerDefaults)
-		if err != nil {
-			generation.cleanup()
-			return nil, err
-		}
-		if subscription != nil {
-			generation.subscriptions = append(generation.subscriptions, subscription)
-		}
-		if err := localRegistry.RegisterCommand(declaration.handler); err != nil {
-			generation.cleanup()
-			return nil, err
-		}
-	}
-	if err := localRegistry.Initialize(); err != nil {
+	generation := newOwnedCommandGeneration(owner, factories, registrations)
+	if err := registerOwnedCommands(generation, commands, config.RunnerDefaults); err != nil {
 		generation.cleanup()
 		return nil, err
 	}
-	descriptors := localRegistry.CatalogDescriptors()
-	if err := validateOwnedExecutionCapabilities(owner, factories, descriptors, config, executionPolicy); err != nil {
-		generation.cleanup()
-		return nil, err
-	}
-	if err := runtime.AttachRegistrationProvider(localRegistry); err != nil {
-		generation.cleanup()
-		return nil, err
-	}
-	generation.descriptors = descriptors
-	for mode, executor := range config.Executors {
-		if err := runtime.RegisterExecutor(mode, dispatcher.ObserveExecutor(executor)); err != nil {
-			generation.cleanup()
-			return nil, err
-		}
-	}
-	if config.Placement != nil {
-		if err := runtime.ConfigurePlacementResolver(config.Placement); err != nil {
-			generation.cleanup()
-			return nil, err
-		}
-	}
-	if config.Remote != nil {
-		if err := runtime.ConfigureRemoteDispatcher(config.Remote); err != nil {
-			generation.cleanup()
-			return nil, err
-		}
-	}
-	if err := runtime.RoutedReady(); err != nil {
+	if err := initializeOwnedGeneration(generation, factories, config, executionPolicy); err != nil {
 		generation.cleanup()
 		return nil, err
 	}
@@ -439,6 +387,78 @@ func stageOwnedGeneration(owner string, commands []ownedCommandDeclaration, fact
 		generation.factories[factory.name] = factory
 	}
 	return generation, nil
+}
+
+func newOwnedCommandGeneration(owner string, factories []ownedFactoryDeclaration, registrations []command.MessageRegistration) *ownedCommandGeneration {
+	localRegistry := command.NewRegistry()
+	localRegistry.SetCronRegister(command.NilCronRegister)
+	localRegistry.SetRPCRegister(func(command.RPCConfig, any, command.CommandMeta) error { return nil })
+	return &ownedCommandGeneration{
+		owner:         owner,
+		runtime:       dispatcher.NewRuntime(),
+		registry:      localRegistry,
+		factories:     make(map[string]ownedFactoryDeclaration, len(factories)),
+		registrations: append([]command.MessageRegistration(nil), registrations...),
+	}
+}
+
+func registerOwnedCommands(generation *ownedCommandGeneration, commands []ownedCommandDeclaration, defaults []runner.Option) error {
+	runtime := generation.runtime
+	localRegistry := generation.registry
+	for _, declaration := range commands {
+		subscription, err := declaration.subscribe(runtime, defaults)
+		if err != nil {
+			return err
+		}
+		if subscription != nil {
+			generation.subscriptions = append(generation.subscriptions, subscription)
+		}
+		if err := localRegistry.RegisterCommand(declaration.handler); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func initializeOwnedGeneration(
+	generation *ownedCommandGeneration,
+	factories []ownedFactoryDeclaration,
+	config OwnedCommandRuntimeConfig,
+	executionPolicy CommandExecutionPolicy,
+) error {
+	runtime := generation.runtime
+	localRegistry := generation.registry
+	if err := localRegistry.Initialize(); err != nil {
+		return err
+	}
+	descriptors := localRegistry.CatalogDescriptors()
+	if err := validateOwnedExecutionCapabilities(generation.owner, factories, descriptors, config, executionPolicy); err != nil {
+		return err
+	}
+	if err := runtime.AttachRegistrationProvider(localRegistry); err != nil {
+		return err
+	}
+	generation.descriptors = descriptors
+	return configureOwnedRuntime(runtime, config)
+}
+
+func configureOwnedRuntime(runtime *dispatcher.Runtime, config OwnedCommandRuntimeConfig) error {
+	for mode, executor := range config.Executors {
+		if err := runtime.RegisterExecutor(mode, dispatcher.ObserveExecutor(executor)); err != nil {
+			return err
+		}
+	}
+	if config.Placement != nil {
+		if err := runtime.ConfigurePlacementResolver(config.Placement); err != nil {
+			return err
+		}
+	}
+	if config.Remote != nil {
+		if err := runtime.ConfigureRemoteDispatcher(config.Remote); err != nil {
+			return err
+		}
+	}
+	return runtime.RoutedReady()
 }
 
 func validateOwnedExecutionCapabilities(owner string, factories []ownedFactoryDeclaration, descriptors []command.CommandDescriptor, config OwnedCommandRuntimeConfig, policy CommandExecutionPolicy) error {

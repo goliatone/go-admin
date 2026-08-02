@@ -45,7 +45,7 @@ const (
 	defaultESignDemoAdminEmail    = "admin@example.com"
 	defaultESignDemoAdminPassword = "admin.pwd"
 	defaultESignDemoAdminRole     = "admin"
-	defaultESignAuthSigningKey    = "esign-demo-secret"
+	defaultESignAuthSigningKey    = "esign-demo-signing-key-0123456789"
 	defaultESignAuthContextKey    = "esign_admin_user"
 	esignUploadFormField          = "file"
 	signerFlowModeUnified         = "unified"

@@ -12,7 +12,7 @@ import (
 )
 
 func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]string {
-	cfg := commerceAuthConfig{signingKey: "commerce-demo-secret"}
+	cfg := commerceAuthConfig{signingKey: "commerce-demo-signing-key-0123456789"}
 	if adm != nil {
 		cfg.adminCfg = admin.Config{BasePath: adm.BasePath()}
 	}

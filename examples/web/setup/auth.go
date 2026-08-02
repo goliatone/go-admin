@@ -26,7 +26,7 @@ import (
 // It returns the admin authenticator adapter, the underlying RouteAuthenticator,
 // the Auther, and the context key used for the auth cookie.
 func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.UserDependencies, opts ...AuthOption) (*admin.GoAuthAuthenticator, *auth.RouteAuthenticator, *auth.Auther, string) {
-	cfg := demoAuthConfig{signingKey: "web-demo-secret"}
+	cfg := demoAuthConfig{signingKey: "go-admin-web-demo-signing-key-0123456789"}
 	if adm != nil {
 		cfg.adminCfg = admin.Config{BasePath: adm.BasePath()}
 	}
@@ -236,6 +236,18 @@ func (t authUserTracker) TrackSucccessfulLogin(ctx context.Context, user *auth.U
 		return nil
 	}
 	return t.users.TrackSucccessfulLogin(ctx, user)
+}
+
+func (t authUserTracker) ReserveLoginAttempt(
+	ctx context.Context,
+	userID uuid.UUID,
+	policy auth.LoginAttemptPolicy,
+) (auth.LoginAttemptReservation, error) {
+	tracker, ok := t.users.(auth.AtomicLoginAttemptTracker)
+	if !ok {
+		return auth.LoginAttemptReservation{}, fmt.Errorf("user repository does not support atomic login attempt reservations")
+	}
+	return tracker.ReserveLoginAttempt(ctx, userID, policy)
 }
 
 func (p *demoIdentityProvider) lookup(ctx context.Context, identifier string) (auth.Identity, error) {

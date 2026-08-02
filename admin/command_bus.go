@@ -145,8 +145,8 @@ func RegisterCommand[T any](bus *CommandBus, cmd command.Commander[T], runnerOpt
 	if err != nil {
 		return nil, err
 	}
-	if err := bus.validateLegacyCommandRegistrationLocked(registrations); err != nil {
-		return nil, err
+	if validationErr := bus.validateLegacyCommandRegistrationLocked(registrations); validationErr != nil {
+		return nil, validationErr
 	}
 	sub, err := registry.RegisterCommand(cmd, runnerOpts...)
 	if err != nil {
@@ -226,14 +226,6 @@ func (b *CommandBus) validateLegacyCommandRegistrationLocked(registrations []com
 		}
 	}
 	return nil
-}
-
-func commandMessageType[T any]() string {
-	var zero T
-	if msg, ok := any(zero).(command.Message); ok {
-		return strings.TrimSpace(msg.Type())
-	}
-	return ""
 }
 
 // MarkCommandHandlerRegistered records that a typed command handler exists for
@@ -707,15 +699,6 @@ func (b *CommandBus) Close() {
 	b.Reset()
 }
 
-func (b *CommandBus) track(sub dispatcher.Subscription) {
-	if b == nil || sub == nil {
-		return
-	}
-	b.mu.Lock()
-	b.subs = append(b.subs, sub)
-	b.mu.Unlock()
-}
-
 // HasFactory reports whether a named message factory is registered.
 func (b *CommandBus) HasFactory(name string) bool {
 	if b == nil {
@@ -786,15 +769,6 @@ func (b *CommandBus) Names() []string {
 	return out
 }
 
-func (b *CommandBus) isEnabled() bool {
-	if b == nil {
-		return false
-	}
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	return b.enabled
-}
-
 func (b *CommandBus) lifecycleSnapshot() (uint64, bool, OwnedCommandRuntimeConfig, CommandExecutionPolicy) {
 	if b == nil {
 		return 0, false, OwnedCommandRuntimeConfig{}, CommandExecutionPolicy{}
@@ -815,6 +789,15 @@ func (b *CommandBus) publishOwnedGeneration(epoch uint64, generation *ownedComma
 			"owner": generation.owner,
 		})
 	}
+	b.ensureOwnedRegistrationMapsLocked()
+	if err := b.validateOwnedGenerationLocked(generation); err != nil {
+		return err
+	}
+	b.storeOwnedGenerationLocked(generation)
+	return nil
+}
+
+func (b *CommandBus) ensureOwnedRegistrationMapsLocked() {
 	if b.owned == nil {
 		b.owned = map[string]*ownedCommandGeneration{}
 	}
@@ -830,63 +813,20 @@ func (b *CommandBus) publishOwnedGeneration(epoch uint64, generation *ownedComma
 	if b.ownedDescriptorIDs == nil {
 		b.ownedDescriptorIDs = map[string]string{}
 	}
+}
+
+func (b *CommandBus) validateOwnedGenerationLocked(generation *ownedCommandGeneration) error {
 	if _, exists := b.owned[generation.owner]; exists {
 		return conflictDomainError("command registration owner already committed", map[string]any{"owner": generation.owner})
 	}
 	for name := range generation.factories {
-		if b.factories[name] != nil || b.dispatchers[name] != nil || b.resultDispatchers[name] != nil {
-			return conflictDomainError("command factory name conflicts with legacy registration", map[string]any{
-				"owner":        generation.owner,
-				"command_name": name,
-			})
-		}
-		if existing, exists := b.ownedFactories[name]; exists {
-			return conflictDomainError("command factory name already owned", map[string]any{
-				"owner":          generation.owner,
-				"command_name":   name,
-				"existing_owner": existing.generation.owner,
-			})
-		}
-		if b.handlerCommands[name] {
-			return conflictDomainError("owned command factory name conflicts with legacy handler", map[string]any{
-				"owner": generation.owner, "command_name": name,
-			})
+		if err := b.validateOwnedFactoryLocked(generation.owner, name); err != nil {
+			return err
 		}
 	}
 	for _, registration := range generation.registrations {
-		idKey := ownedRegistrationKey(registration.Kind(), registration.ID())
-		typeKey := ownedRegistrationKey(registration.Kind(), registration.MessageType())
-		if existingOwner, exists := b.ownedHandlerIDs[idKey]; exists {
-			return conflictDomainError("command handler stable id already owned", map[string]any{
-				"owner": generation.owner, "registration_id": registration.ID(), "existing_owner": existingOwner,
-			})
-		}
-		if existingOwner, exists := b.ownedMessageTypes[typeKey]; exists {
-			return conflictDomainError("command handler message type already owned", map[string]any{
-				"owner": generation.owner, "message_type": registration.MessageType(), "existing_owner": existingOwner,
-			})
-		}
-		if b.handlerCommands[registration.MessageType()] {
-			return conflictDomainError("owned command conflicts with legacy handler", map[string]any{
-				"owner": generation.owner, "message_type": registration.MessageType(),
-			})
-		}
-		if b.legacyHandlerIDs[idKey] {
-			return conflictDomainError("owned command stable id conflicts with legacy handler", map[string]any{
-				"owner": generation.owner, "registration_id": registration.ID(),
-			})
-		}
-		if b.legacyMessageTypes[typeKey] {
-			return conflictDomainError("owned command message type conflicts with legacy handler", map[string]any{
-				"owner": generation.owner, "message_type": registration.MessageType(),
-			})
-		}
-		if b.factories[registration.MessageType()] != nil ||
-			b.dispatchers[registration.MessageType()] != nil ||
-			b.resultDispatchers[registration.MessageType()] != nil {
-			return conflictDomainError("owned command message type conflicts with legacy factory", map[string]any{
-				"owner": generation.owner, "message_type": registration.MessageType(),
-			})
+		if err := b.validateOwnedRegistrationLocked(generation.owner, registration); err != nil {
+			return err
 		}
 	}
 	for _, descriptor := range generation.descriptors {
@@ -896,7 +836,67 @@ func (b *CommandBus) publishOwnedGeneration(epoch uint64, generation *ownedComma
 			})
 		}
 	}
+	return nil
+}
 
+func (b *CommandBus) validateOwnedFactoryLocked(owner, name string) error {
+	if b.factories[name] != nil || b.dispatchers[name] != nil || b.resultDispatchers[name] != nil {
+		return conflictDomainError("command factory name conflicts with legacy registration", map[string]any{
+			"owner": owner, "command_name": name,
+		})
+	}
+	if existing, exists := b.ownedFactories[name]; exists {
+		return conflictDomainError("command factory name already owned", map[string]any{
+			"owner": owner, "command_name": name, "existing_owner": existing.generation.owner,
+		})
+	}
+	if b.handlerCommands[name] {
+		return conflictDomainError("owned command factory name conflicts with legacy handler", map[string]any{
+			"owner": owner, "command_name": name,
+		})
+	}
+	return nil
+}
+
+func (b *CommandBus) validateOwnedRegistrationLocked(owner string, registration command.MessageRegistration) error {
+	idKey := ownedRegistrationKey(registration.Kind(), registration.ID())
+	typeKey := ownedRegistrationKey(registration.Kind(), registration.MessageType())
+	if existingOwner, exists := b.ownedHandlerIDs[idKey]; exists {
+		return conflictDomainError("command handler stable id already owned", map[string]any{
+			"owner": owner, "registration_id": registration.ID(), "existing_owner": existingOwner,
+		})
+	}
+	if existingOwner, exists := b.ownedMessageTypes[typeKey]; exists {
+		return conflictDomainError("command handler message type already owned", map[string]any{
+			"owner": owner, "message_type": registration.MessageType(), "existing_owner": existingOwner,
+		})
+	}
+	if b.handlerCommands[registration.MessageType()] {
+		return conflictDomainError("owned command conflicts with legacy handler", map[string]any{
+			"owner": owner, "message_type": registration.MessageType(),
+		})
+	}
+	if b.legacyHandlerIDs[idKey] {
+		return conflictDomainError("owned command stable id conflicts with legacy handler", map[string]any{
+			"owner": owner, "registration_id": registration.ID(),
+		})
+	}
+	if b.legacyMessageTypes[typeKey] {
+		return conflictDomainError("owned command message type conflicts with legacy handler", map[string]any{
+			"owner": owner, "message_type": registration.MessageType(),
+		})
+	}
+	if b.factories[registration.MessageType()] != nil ||
+		b.dispatchers[registration.MessageType()] != nil ||
+		b.resultDispatchers[registration.MessageType()] != nil {
+		return conflictDomainError("owned command message type conflicts with legacy factory", map[string]any{
+			"owner": owner, "message_type": registration.MessageType(),
+		})
+	}
+	return nil
+}
+
+func (b *CommandBus) storeOwnedGenerationLocked(generation *ownedCommandGeneration) {
 	b.nextOwnedToken++
 	generation.token = b.nextOwnedToken
 	b.owned[generation.owner] = generation
@@ -910,7 +910,6 @@ func (b *CommandBus) publishOwnedGeneration(epoch uint64, generation *ownedComma
 	for _, descriptor := range generation.descriptors {
 		b.ownedDescriptorIDs[descriptor.ID] = generation.owner
 	}
-	return nil
 }
 
 func (b *CommandBus) closeOwnedGeneration(generation *ownedCommandGeneration) error {

@@ -4,7 +4,7 @@
     "admin_email": "admin@example.com",
     "admin_role": "admin",
     "admin_password": "admin.pwd",
-    "signing_key": "esign-demo-secret",
+    "signing_key": "esign-demo-signing-key-0123456789",
     "context_key": "esign_admin_user"
   }
 }
