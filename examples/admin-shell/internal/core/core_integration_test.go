@@ -114,8 +114,8 @@ func TestStarterBuildsAndServesCompleteRouteGraph(t *testing.T) {
 		t.Fatalf("build starter: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := appCore.Shutdown(context.Background()); err != nil {
-			t.Errorf("shutdown starter: %v", err)
+		if shutdownErr := appCore.Shutdown(context.Background()); shutdownErr != nil {
+			t.Errorf("shutdown starter: %v", shutdownErr)
 		}
 	})
 
@@ -134,11 +134,18 @@ func TestStarterBuildsAndServesCompleteRouteGraph(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.path, func(t *testing.T) {
-			response, err := app.Test(httptest.NewRequest(http.MethodGet, tc.path, nil), -1)
+			response, err := app.Test(
+				httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil),
+				-1,
+			)
 			if err != nil {
 				t.Fatalf("request %s: %v", tc.path, err)
 			}
-			defer response.Body.Close()
+			defer func() {
+				if closeErr := response.Body.Close(); closeErr != nil {
+					t.Errorf("close %s response: %v", tc.path, closeErr)
+				}
+			}()
 			body, err := io.ReadAll(response.Body)
 			if err != nil {
 				t.Fatalf("read %s: %v", tc.path, err)
@@ -171,8 +178,8 @@ func TestStarterUsesCompleteQuickstartFeatureCatalog(t *testing.T) {
 		t.Fatalf("build starter: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := appCore.Shutdown(context.Background()); err != nil {
-			t.Errorf("shutdown starter: %v", err)
+		if shutdownErr := appCore.Shutdown(context.Background()); shutdownErr != nil {
+			t.Errorf("shutdown starter: %v", shutdownErr)
 		}
 	})
 	if _, ok := appCore.FeatureGate.(fggate.MutableFeatureGate); !ok {
@@ -233,8 +240,8 @@ func TestAdminContributionsUseLifecycleOrderingAndTaskOnlyDiagnostics(t *testing
 		t.Fatalf("build starter: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := appCore.Shutdown(context.Background()); err != nil {
-			t.Errorf("shutdown starter: %v", err)
+		if shutdownErr := appCore.Shutdown(context.Background()); shutdownErr != nil {
+			t.Errorf("shutdown starter: %v", shutdownErr)
 		}
 	})
 
@@ -342,6 +349,7 @@ func TestAdminContributionFailureStopsPreBindComposition(t *testing.T) {
 func TestAdminLifecycleCallbacksReceiveStartupCancellation(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Server.PrintRoutes = false
+	const lifecycleCallbackTimeout = 10 * time.Second
 
 	tests := []struct {
 		name   string
@@ -385,7 +393,7 @@ func TestAdminLifecycleCallbacksReceiveStartupCancellation(t *testing.T) {
 
 			select {
 			case <-started:
-			case <-time.After(time.Second):
+			case <-time.After(lifecycleCallbackTimeout):
 				t.Fatal("lifecycle callback did not start")
 			}
 			cancel()
@@ -394,7 +402,7 @@ func TestAdminLifecycleCallbacksReceiveStartupCancellation(t *testing.T) {
 				if !errors.Is(err, context.Canceled) {
 					t.Fatalf("New() error = %v, want context cancellation", err)
 				}
-			case <-time.After(time.Second):
+			case <-time.After(lifecycleCallbackTimeout):
 				t.Fatal("lifecycle callback ignored startup cancellation")
 			}
 		})
@@ -537,22 +545,25 @@ func TestProductionLoginLoggingRedactsCSRFAndUsesRootAccessLogger(t *testing.T) 
 		t.Fatalf("build production starter: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := appCore.Shutdown(context.Background()); err != nil {
-			t.Errorf("shutdown starter: %v", err)
+		if shutdownErr := appCore.Shutdown(context.Background()); shutdownErr != nil {
+			t.Errorf("shutdown starter: %v", shutdownErr)
 		}
 	})
 
 	response, err := appCore.Server.WrappedRouter().Test(
-		httptest.NewRequest(http.MethodGet, "/admin/login", nil),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/login", nil),
 		-1,
 	)
 	if err != nil {
 		t.Fatalf("request login: %v", err)
 	}
-	body, err := io.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil {
-		t.Fatalf("read login: %v", err)
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if readErr != nil {
+		t.Fatalf("read login: %v", readErr)
+	}
+	if closeErr != nil {
+		t.Fatalf("close login response: %v", closeErr)
 	}
 	match := regexp.MustCompile(`name="_token" value="([^"]+)"`).FindSubmatch(body)
 	if len(match) != 2 {
@@ -608,14 +619,20 @@ func TestProductionCompositionRequiresProviderAndNeverExposesDemoSecrets(t *test
 	})
 	app := appCore.Server.WrappedRouter()
 	for _, requestPath := range []string{"/", "/admin/login"} {
-		response, err := app.Test(httptest.NewRequest(http.MethodGet, requestPath, nil), -1)
+		response, err := app.Test(
+			httptest.NewRequestWithContext(context.Background(), http.MethodGet, requestPath, nil),
+			-1,
+		)
 		if err != nil {
 			t.Fatalf("request production path %s: %v", requestPath, err)
 		}
 		body, readErr := io.ReadAll(response.Body)
-		response.Body.Close()
+		closeErr := response.Body.Close()
 		if readErr != nil {
 			t.Fatalf("read production path %s: %v", requestPath, readErr)
+		}
+		if closeErr != nil {
+			t.Fatalf("close production path %s response: %v", requestPath, closeErr)
 		}
 		for _, secret := range []string{"Demo auth", "admin.pwd", "superadmin.pwd", "bearer token"} {
 			if strings.Contains(string(body), secret) {

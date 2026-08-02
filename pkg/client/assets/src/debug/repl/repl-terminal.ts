@@ -1,6 +1,6 @@
-import { Terminal } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
-import xtermCss from 'xterm/css/xterm.css?inline';
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+import xtermCss from '@xterm/xterm/css/xterm.css?inline';
 import { normalizeDebugBasePath } from '../shared/path-helpers.js';
 
 export type DebugReplKind = 'shell' | 'console';
