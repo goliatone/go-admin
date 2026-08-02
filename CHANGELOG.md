@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.126.11](https://github.com/goliatone/go-admin/compare/v0.126.10...v0.126.11) - (2026-08-02)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([b517fe7](https://github.com/goliatone/go-admin/commit/b517fe78b9ff4ea55ce6225cf56de54340879dee))  - (goliatone)
+
 # [0.126.10](https://github.com/goliatone/go-admin/compare/v0.126.9...v0.126.10) - (2026-08-02)
+
+
+New patch release: v0.126.10
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.10 ([a0f885f](https://github.com/goliatone/go-admin/commit/a0f885f6d4e399a38be1c148182155bb1605d346))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
