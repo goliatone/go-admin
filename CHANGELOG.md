@@ -1,52 +1,15 @@
 # Changelog
 
+# [0.126.9](https://github.com/goliatone/go-admin/compare/v0.126.8...v0.126.9) - (2026-08-02)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([56cd98a](https://github.com/goliatone/go-admin/commit/56cd98ae26d3f9faf26cd6f6937839cb353cfbdc))  - (goliatone)
+
 # [0.126.8](https://github.com/goliatone/go-admin/compare/v0.126.7...v0.126.8) - (2026-08-02)
 
 
-## Command Registration Migration
-
-Command message factories can now receive the effective dispatch context via
-`RegisterContextMessageFactory` and
-`RegisterContextMessageResultFactory`. The legacy context-free helpers remain
-source compatible.
-
-New modules should migrate related handlers and named factories into one
-owner-scoped registration:
-
-```go
-set, err := adm.Commands().NewRegistrationSet("articles")
-if err != nil {
-    return err
-}
-if err := admin.RegisterSetCommand(set, articleCommand); err != nil {
-    return err
-}
-if err := admin.RegisterSetContextMessageFactory(set, "articles.publish", buildArticlePublish); err != nil {
-    return err
-}
-registration, err := set.Commit()
-if err != nil {
-    return err
-}
-// Retain registration and call registration.Close() during module shutdown.
-```
-
-Each committed owner publishes a validated, isolated go-command runtime,
-factories, and descriptors atomically. Closing the returned handle removes only
-that owner. `RegisterCommand` and `RegisterMessageFactory` still use the legacy
-process-global path.
-
-Configure queued executors, placement, remote dispatch, and runner defaults
-with `SetOwnedRuntimeConfig` before committing owned sets. Queue adapters must
-persist only safe `DispatchRunContext` fields and workers must execute through
-`dispatcher.RunObservedCommand`. Handler runner retries remain opt-in and are
-separate from queue retries.
-
-Effective dispatch-option precedence is explicit trusted options, then
-transport-normalized correlation/idempotency inputs, then allowed server
-defaults. Payload actor and scope fields remain untrusted. The command-run
-observer now fully redacts idempotency and nested secret metadata before
-publication.
+New patch release: v0.126.8
 
 ## <!-- 0 -->🚀 Features
 
@@ -56,6 +19,10 @@ publication.
 
 - Use proper auth key length ([8a1461a](https://github.com/goliatone/go-admin/commit/8a1461a25516275d0b4d75b681f02a1a0aa84b3e))  - (goliatone)
 - **admin:** Harden command dispatch contracts ([5a271c3](https://github.com/goliatone/go-admin/commit/5a271c386a2db82be5e78bf0283b2ef4a51fa655))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.8 ([dfd53e2](https://github.com/goliatone/go-admin/commit/dfd53e2d07311d33c1e52e618cda2c6ca17369c7))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
