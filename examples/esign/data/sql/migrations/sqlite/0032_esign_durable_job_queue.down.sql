@@ -1,1 +1,0 @@
--- SQLite runtime parity repair handles additive columns; no down migration.

@@ -266,7 +266,7 @@ Use declarative command attributes for custom page controls:
   type="button"
   data-command-name="notify_reviewers"
   data-command-transport="rpc"
-  data-command-dispatch="esign.agreements.notify_reviewers"
+  data-command-dispatch="reviews.notify_reviewers"
   data-command-payload-participant-id="participant_123"
   data-command-refresh="#agreement-review-status-panel,#review-participants-panel"
   data-busy-button

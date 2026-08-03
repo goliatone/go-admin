@@ -19,8 +19,8 @@ async function loadFixture() {
 
 function createBuilder() {
   return new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/panels/esign_documents',
-    actionBasePath: '/admin/content/esign_documents',
+    apiEndpoint: '/admin/api/panels/document_records',
+    actionBasePath: '/admin/content/document_records',
     actionContext: 'row',
   });
 }

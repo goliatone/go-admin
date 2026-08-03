@@ -71,13 +71,6 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   const exchangeImportSource = readSource('../src/datatable/exchange-import.ts');
   const debugPanelSource = readSource('../src/debug/debug-panel.ts');
   const debugToolbarSource = readSource('../src/debug/toolbar/debug-toolbar.ts');
-  const integrationMappingsSource = readSource('../src/esign/pages/integration-mappings.ts');
-  const integrationSyncRunsSource = readSource('../src/esign/pages/integration-sync-runs.ts');
-  const integrationConflictsSource = readSource('../src/esign/pages/integration-conflicts.ts');
-  const googleDrivePickerSource = readSource('../src/esign/pages/google-drive-picker.ts');
-  const googleIntegrationSource = readSource('../src/esign/pages/google-integration.ts');
-  const placementEditorSource = readSource('../src/esign/pages/agreement-form/placement-editor.ts');
-  const documentSelectionSource = readSource('../src/esign/pages/agreement-form/document-selection.ts');
   const registerTemplateSource = readSource('../../templates/register.html');
   const layoutTemplateSource = readSource('../../templates/layout.html');
   const loginLayoutTemplateSource = readSource('../../templates/login-layout.html');
@@ -114,27 +107,6 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   assert.match(debugToolbarSource, /readExpectedHTTPJSON<\{ ok\?: boolean; message\?: string;/);
   assert.doesNotMatch(debugPanelSource, /const result = await response\.json\(\)/);
   assert.doesNotMatch(debugToolbarSource, /const result = await response\.json\(\)/);
-
-  assert.match(integrationMappingsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.ok((integrationMappingsSource.match(/await httpRequest\(/g) || []).length >= 4);
-
-  assert.match(integrationSyncRunsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.ok((integrationSyncRunsSource.match(/await httpRequest\(/g) || []).length >= 2);
-
-  assert.match(integrationConflictsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(integrationConflictsSource, /await httpRequest\(`\$\{this\.conflictsEndpoint\}\/\$\{this\.currentConflictId\}\/resolve`/);
-
-  assert.match(googleDrivePickerSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(googleDrivePickerSource, /await httpRequest\(this\.buildScopedAPIURL\('\/esign\/google-drive\/imports'\), \{/);
-
-  assert.match(googleIntegrationSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.ok((googleIntegrationSource.match(/await httpRequest\(/g) || []).length >= 2);
-
-  assert.match(placementEditorSource, /from '\.\.\/\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(placementEditorSource, /await httpRequest\(`\$\{apiVersionBase\}\/esign\/agreements\/\$\{agreementId\}\/auto-place`/);
-
-  assert.match(documentSelectionSource, /from '\.\.\/\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(documentSelectionSource, /const triggerResponse = await httpRequest\(triggerURL, \{/);
 
   assert.equal((registerTemplateSource.match(/\{\{\s*csrf_field\|safe\s*\}\}/g) || []).length, 2);
   assert.match(browserGlobalsSource, /from '\.\/http-client\.js'/);

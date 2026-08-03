@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 
 const httpClient = await import('../dist/shared/transport/http-client.js');
 const datatable = await import('../dist/datatable/index.js');
-const esign = await import('../dist/esign/index.js');
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const httpClientSourcePath = path.resolve(testFileDir, '../src/shared/transport/http-client.ts');
@@ -14,18 +13,6 @@ const fileUploaderSourcePath = path.resolve(testFileDir, '../src/formgen/file_up
 const featureFlagsSourcePath = path.resolve(testFileDir, '../src/feature-flags/feature-flags-manager.ts');
 const exportSourcePath = path.resolve(testFileDir, '../src/datatable/go-crud/export.ts');
 const translationBulkActionsSourcePath = path.resolve(testFileDir, '../src/datatable/translation-bulk-actions.ts');
-const sourceManagementPagesSourcePath = path.resolve(testFileDir, '../src/esign/source-management-pages.ts');
-const esignApiClientSourcePath = path.resolve(testFileDir, '../src/esign/api-client.ts');
-const googleIntegrationSourcePath = path.resolve(testFileDir, '../src/esign/pages/google-integration.ts');
-const integrationMappingsSourcePath = path.resolve(testFileDir, '../src/esign/pages/integration-mappings.ts');
-const integrationConflictsSourcePath = path.resolve(testFileDir, '../src/esign/pages/integration-conflicts.ts');
-const integrationSyncRunsSourcePath = path.resolve(testFileDir, '../src/esign/pages/integration-sync-runs.ts');
-const documentFormSourcePath = path.resolve(testFileDir, '../src/esign/pages/document-form.ts');
-const googleDrivePickerSourcePath = path.resolve(testFileDir, '../src/esign/pages/google-drive-picker.ts');
-const signerCompleteSourcePath = path.resolve(testFileDir, '../src/esign/pages/signer-complete.ts');
-const signerReviewSourcePath = path.resolve(testFileDir, '../src/esign/pages/signer-review.ts');
-const draftSyncServiceSourcePath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/draft-sync-service.ts');
-const agreementFeedbackSourcePath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/feedback.ts');
 const translationEditorSourcePath = path.resolve(testFileDir, '../src/translation-editor/index.ts');
 const translationExchangeSourcePath = path.resolve(testFileDir, '../src/translation-exchange/translation-exchange-manager.ts');
 const datatableActionsSourcePath = path.resolve(testFileDir, '../src/datatable/actions.ts');
@@ -171,18 +158,6 @@ test('http error reader callers now route through shared transport helper', () =
   const featureFlagsSource = readFileSync(featureFlagsSourcePath, 'utf8');
   const exportSource = readFileSync(exportSourcePath, 'utf8');
   const translationBulkActionsSource = readFileSync(translationBulkActionsSourcePath, 'utf8');
-  const sourceManagementPagesSource = readFileSync(sourceManagementPagesSourcePath, 'utf8');
-  const esignApiClientSource = readFileSync(esignApiClientSourcePath, 'utf8');
-  const googleIntegrationSource = readFileSync(googleIntegrationSourcePath, 'utf8');
-  const integrationMappingsSource = readFileSync(integrationMappingsSourcePath, 'utf8');
-  const integrationConflictsSource = readFileSync(integrationConflictsSourcePath, 'utf8');
-  const integrationSyncRunsSource = readFileSync(integrationSyncRunsSourcePath, 'utf8');
-  const documentFormSource = readFileSync(documentFormSourcePath, 'utf8');
-  const googleDrivePickerSource = readFileSync(googleDrivePickerSourcePath, 'utf8');
-  const signerCompleteSource = readFileSync(signerCompleteSourcePath, 'utf8');
-  const signerReviewSource = readFileSync(signerReviewSourcePath, 'utf8');
-  const draftSyncServiceSource = readFileSync(draftSyncServiceSourcePath, 'utf8');
-  const agreementFeedbackSource = readFileSync(agreementFeedbackSourcePath, 'utf8');
   const translationEditorSource = readFileSync(translationEditorSourcePath, 'utf8');
   const translationExchangeSource = readFileSync(translationExchangeSourcePath, 'utf8');
   const datatableActionsSource = readFileSync(datatableActionsSourcePath, 'utf8');
@@ -209,88 +184,11 @@ test('http error reader callers now route through shared transport helper', () =
   assert.match(translationBulkActionsSource, /readHTTPError\(response, `Request failed:/);
   assert.ok(!translationBulkActionsSource.includes('const errorBody = await response.text();'));
 
-  assert.match(sourceManagementPagesSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(sourceManagementPagesSource, /readHTTPError\(response, `HTTP \$\{response\.status\}`/);
-  assert.match(sourceManagementPagesSource, /readHTTPJSON<T>\(response\)/);
-  assert.ok(!sourceManagementPagesSource.includes('const errorText = await response.text();'));
-  assert.equal((sourceManagementPagesSource.match(/response\.json\(\) as Promise</g) || []).length, 0);
-
   assert.match(httpClientSource, /export async function readHTTPJSON<T>\(/);
   assert.match(httpClientSource, /export async function readExpectedHTTPJSON<T>\(/);
   assert.match(httpClientSource, /return await response\.json\(\) as T;/);
   assert.match(httpClientSource, /throw new HTTPAuthenticationRequiredError\(responseURL\)/);
   assert.match(httpClientSource, /if \(!isJSONContentType\(contentType\)\)/);
-
-  assert.match(esignApiClientSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(esignApiClientSource, /readHTTPErrorResult\(response, fallback/);
-  assert.match(esignApiClientSource, /readHTTPJSON<T>\(response\)/);
-  assert.ok(!esignApiClientSource.includes('const errorData = await response.json();'));
-  assert.equal((esignApiClientSource.match(/response\.json\(\) as Promise</g) || []).length, 0);
-
-  assert.match(googleIntegrationSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(googleIntegrationSource, /readHTTPError\(response, `Failed to check status:/);
-  assert.match(googleIntegrationSource, /readHTTPError\(response, 'Failed to connect'/);
-  assert.match(googleIntegrationSource, /readHTTPError\(response, 'Failed to disconnect'/);
-  assert.ok(!googleIntegrationSource.includes('const errorData = await response.json();'));
-
-  assert.match(integrationMappingsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(integrationMappingsSource, /readHTTPError\(response, `HTTP \$\{response\.status\}`/);
-  assert.ok(!integrationMappingsSource.includes('result.error?.message || `HTTP ${response.status}`'));
-
-  assert.match(integrationConflictsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(integrationConflictsSource, /readHTTPError\(response, `HTTP \$\{response\.status\}`/);
-  assert.ok(!integrationConflictsSource.includes('result.error?.message || `HTTP ${response.status}`'));
-
-  assert.match(integrationSyncRunsSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(integrationSyncRunsSource, /readHTTPError\(response, `HTTP \$\{response\.status\}`/);
-  assert.ok(!integrationSyncRunsSource.includes('result.error?.message || `HTTP ${response.status}`'));
-
-  assert.match(documentFormSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(documentFormSource, /async function readUploadResponseBody\(response: Response\): Promise<Record<string, unknown>>/);
-  assert.match(documentFormSource, /return readHTTPJSONObject\(response\);/);
-  assert.match(documentFormSource, /const body = await readUploadResponseBody\(response\);/);
-  assert.match(documentFormSource, /readHTTPError\(response, 'Upload failed\. Please try again\.'/);
-  assert.match(documentFormSource, /readHTTPErrorResult\(response, 'Failed to start import'/);
-  assert.match(documentFormSource, /readHTTPError\(response, 'Failed to load files'/);
-  assert.match(documentFormSource, /readHTTPError\(response, 'Failed to check import status'/);
-  assert.equal((documentFormSource.match(/response\.json\(\)\.catch\(\(\) => \(\{\}\)\)/g) || []).length, 0);
-  assert.ok(!documentFormSource.includes("body?.error?.message || body?.message || 'Upload failed. Please try again.'"));
-  assert.ok(!documentFormSource.includes("data.error?.message || 'Failed to load files'"));
-  assert.ok(!documentFormSource.includes("payload.error?.message || 'Failed to check import status'"));
-
-  assert.match(googleDrivePickerSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(googleDrivePickerSource, /readHTTPError\(response, `Failed to load files: \$\{response\.status\}`/);
-  assert.match(googleDrivePickerSource, /readHTTPError\(response, 'Import failed'/);
-  assert.ok(!googleDrivePickerSource.includes('const errorData = await response.json();'));
-  assert.ok(!googleDrivePickerSource.includes("throw new Error(`Failed to load files: ${response.status}`)"));
-
-  assert.match(signerCompleteSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(signerCompleteSource, /readHTTPError\(response, 'Failed to load artifacts'/);
-  assert.ok(!signerCompleteSource.includes("throw new Error('Failed to load artifacts')"));
-
-  assert.match(signerReviewSource, /from '\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(signerReviewSource, /readHTTPError\(response, 'Failed to load saved signatures'/);
-  assert.match(signerReviewSource, /readHTTPErrorResult\(response, 'Failed to save signature'/);
-  assert.match(signerReviewSource, /readHTTPError\(response, 'Failed to delete signature'/);
-  assert.match(signerReviewSource, /async function readReviewAPIResponseBody\(response: Response\): Promise<Record<string, unknown>>/);
-  assert.match(signerReviewSource, /return readHTTPJSONObject\(response\);/);
-  assert.match(signerReviewSource, /return readReviewAPIResponseBody\(response\);/);
-  assert.equal((signerReviewSource.match(/response\.json\(\)\.catch\(\(\) => \(\{\}\)\)/g) || []).length, 0);
-  assert.ok(!signerReviewSource.includes("payload?.error?.message || 'Failed to load saved signatures'"));
-  assert.ok(!signerReviewSource.includes("payload?.error?.message || 'Failed to save signature'"));
-  assert.ok(!signerReviewSource.includes("payload?.error?.message || 'Failed to delete signature'"));
-
-  assert.match(draftSyncServiceSource, /from '\.\.\/\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(draftSyncServiceSource, /readHTTPError\(response, `HTTP \$\{response\.status\}`/);
-  assert.match(draftSyncServiceSource, /readHTTPJSONObject\(response\)/);
-  assert.equal((draftSyncServiceSource.match(/response\.json\(\)\.catch\(\(\) => \(\{\} as any\)\)/g) || []).length, 0);
-  assert.ok(!draftSyncServiceSource.includes("String(payload?.error?.message || `HTTP ${response.status}`)"));
-
-  assert.match(agreementFeedbackSource, /from '\.\.\/\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(agreementFeedbackSource, /readHTTPStructuredErrorResult\(/);
-  assert.ok(!agreementFeedbackSource.includes('payload?.error?.code'));
-  assert.ok(!agreementFeedbackSource.includes('payload?.error?.message'));
-  assert.ok(!agreementFeedbackSource.includes('payload.error.details'));
 
   assert.match(translationEditorSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(translationEditorSource, /TRANSLATION_DRAFT_SYNC_RESOURCE_KIND = 'translation_variant_draft'/);
@@ -361,37 +259,3 @@ test('translation bulk actions use the shared http error reader for notifier cop
   }
 });
 
-test('esign api client preserves typed errors while using shared http error parsing', async () => {
-  const originalFetch = globalThis.fetch;
-  const client = new esign.ESignAPIClient({
-    basePath: '/admin',
-    apiBasePath: '/admin/api',
-  });
-
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    error: {
-      code: 'GOOGLE_REAUTH_REQUIRED',
-      message: 'Reconnect required',
-      details: { provider: 'google' },
-    },
-  }), {
-    status: 401,
-    statusText: 'Unauthorized',
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  try {
-    await assert.rejects(
-      client.getGoogleIntegrationStatus(),
-      (error) => {
-        assert.ok(error instanceof esign.ESignAPIError);
-        assert.equal(error.code, 'GOOGLE_REAUTH_REQUIRED');
-        assert.equal(error.message, 'Reconnect required');
-        assert.deepEqual(error.details, { provider: 'google' });
-        return true;
-      }
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});

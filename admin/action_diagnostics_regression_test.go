@@ -112,7 +112,7 @@ func TestActionPhase8DiagnosticsPanelSummarizesDisablementsResolverErrorsAndExec
 	})
 	store.Capture(ActionDiagnosticEntry{
 		Kind:       actionDiagnosticKindExecutionErr,
-		Panel:      "esign_documents",
+		Panel:      "document_records",
 		Action:     "delete",
 		Scope:      string(ActionScopeDetail),
 		Stage:      "repository_delete",
@@ -215,9 +215,9 @@ func TestActionPhase8DiagnosticsCaptureDisablementsResolverErrorsAndStructuredFa
 
 	deleteBinding := &panelBinding{
 		admin: admin,
-		name:  "esign_documents",
+		name:  "document_records",
 		panel: &Panel{
-			name: "esign_documents",
+			name: "document_records",
 			repo: &phase3ActionRepoStub{
 				deleteErr: resourceInUseDomainError("document cannot be deleted while attached to agreements", map[string]any{
 					"agreement_count": 2,
@@ -246,7 +246,7 @@ func TestActionPhase8DiagnosticsCaptureDisablementsResolverErrorsAndStructuredFa
 				sawResolverErr = true
 			}
 		case actionDiagnosticKindExecutionErr:
-			if entry.Panel == "esign_documents" && entry.Action == "delete" && entry.ReasonCode == TextCodeResourceInUse {
+			if entry.Panel == "document_records" && entry.Action == "delete" && entry.ReasonCode == TextCodeResourceInUse {
 				sawExecutionErr = true
 			}
 		}

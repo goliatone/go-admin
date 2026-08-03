@@ -88,7 +88,7 @@ test("repo app code does not deep-import sync-core internals", () => {
   }
 });
 
-test("package-local release automation stays independent from host e-sign sources", () => {
+test("package-local release automation stays independent from host application sources", () => {
   for (const path of [
     resolve(packageRoot, "taskfile"),
     resolve(workspaceRoot, "scripts", "sync-version.mjs"),
@@ -96,7 +96,7 @@ test("package-local release automation stays independent from host e-sign source
     resolve(workspaceRoot, "scripts", "verify-package.mjs"),
   ]) {
     const payload = readFileSync(path, "utf8");
-    for (const marker of ["examples/esign", "agreement-form", "pkg/client/assets"]) {
+    for (const marker of ["agreement-form", "pkg/client/assets"]) {
       assert.equal(payload.includes(marker), false, `${path} contains host-specific marker ${marker}`);
     }
   }

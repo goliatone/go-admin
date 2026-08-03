@@ -119,8 +119,8 @@ func TestRegisterAdminPageRoutesRegistersGetAndHead(t *testing.T) {
 		nil,
 		nil,
 		AdminPageSpec{
-			Path:     "/admin/esign/sources",
-			Template: "resources/esign-source-management/runtime",
+			Path:     "/admin/catalog/sources",
+			Template: "resources/source-management/runtime",
 			Title:    "Source Browser",
 		},
 	)
@@ -128,10 +128,10 @@ func TestRegisterAdminPageRoutesRegistersGetAndHead(t *testing.T) {
 		t.Fatalf("register admin page routes: %v", err)
 	}
 
-	if !recorder.has("GET", "/admin/esign/sources") {
-		t.Fatalf("expected GET route for /admin/esign/sources")
+	if !recorder.has("GET", "/admin/catalog/sources") {
+		t.Fatal("expected GET route for registered admin page")
 	}
-	if !recorder.has("HEAD", "/admin/esign/sources") {
-		t.Fatalf("expected HEAD route for /admin/esign/sources")
+	if !recorder.has("HEAD", "/admin/catalog/sources") {
+		t.Fatal("expected HEAD route for registered admin page")
 	}
 }

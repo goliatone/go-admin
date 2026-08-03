@@ -93,8 +93,6 @@ func TestResourceListTemplatesUseLocalColumnVisibilityWithoutPreferencesCapabili
 	for _, name := range []string{
 		"resources/users/list.html",
 		"resources/user-profiles/list.html",
-		"resources/esign-documents/list.html",
-		"resources/esign-agreements/list.html",
 	} {
 		t.Run(name, func(t *testing.T) {
 			template := mustReadClientTemplate(t, name)

@@ -1,8 +1,8 @@
 import { escapeHTML as o } from "../shared/html.js";
 import { httpRequest as G, readHTTPResponsePayload as K } from "../shared/transport/http-client.js";
-import "../chunks/status-vocabulary-Bdx_bn1-.js";
-import { a as I, i as Y, o as m, s as k } from "../chunks/translation-contracts-CCsjVv14.js";
-import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-DRQOQvHt.js";
+import "../chunks/status-vocabulary-ak1N6rXX.js";
+import { a as I, i as Y, o as m, s as k } from "../chunks/translation-contracts-DIMN10n7.js";
+import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-BkWg4uhq.js";
 import { formatTranslationShortDateTime as D } from "../translation-shared/formatters.js";
 var Q = { root: "#translation-exchange-app" }, Z = [{
   value: "pages",

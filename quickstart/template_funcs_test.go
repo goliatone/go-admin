@@ -282,10 +282,10 @@ func TestPanelURLHelpersResolveRoutes(t *testing.T) {
 	assert.Equal(t, "/control/users", panelURL("users"))
 	assert.Equal(t, "/control/users/1", panelDetailURL("users", "1"))
 	assert.Equal(t, "/control/content/translations", panelURL("translations"))
-	assert.Equal(t, "/control/content/esign_documents", panelURL("esign_documents"))
-	assert.Equal(t, "/control/content/esign_documents/doc-1", panelDetailURL("esign_documents", "doc-1"))
-	assert.Equal(t, "/control/content/esign_documents/doc-1/edit", panelEditURL("esign_documents", "doc-1"))
-	assert.Equal(t, "/control/content/esign_documents/doc-1/preview", panelPreviewURL("esign_documents", "doc-1"))
+	assert.Equal(t, "/control/content/document_records", panelURL("document_records"))
+	assert.Equal(t, "/control/content/document_records/doc-1", panelDetailURL("document_records", "doc-1"))
+	assert.Equal(t, "/control/content/document_records/doc-1/edit", panelEditURL("document_records", "doc-1"))
+	assert.Equal(t, "/control/content/document_records/doc-1/preview", panelPreviewURL("document_records", "doc-1"))
 }
 
 func TestDefaultTemplateFuncs_TranslationProgressTitle(t *testing.T) {

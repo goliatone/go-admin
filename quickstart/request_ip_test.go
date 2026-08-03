@@ -108,7 +108,7 @@ func TestResolveRequestOriginTrustsForwardedProtoAndHostFromTrustedProxy(t *test
 		ip: "127.0.0.1",
 		headers: map[string]string{
 			"X-Forwarded-Proto": "https",
-			"X-Forwarded-Host":  "esign.getctx.com",
+			"X-Forwarded-Host":  "tenant.getctx.com",
 			"Host":              "localhost:8082",
 		},
 	}
@@ -116,8 +116,8 @@ func TestResolveRequestOriginTrustsForwardedProtoAndHostFromTrustedProxy(t *test
 		TrustForwardedHeaders: true,
 		TrustedProxyCIDRs:     DefaultLoopbackTrustedProxyCIDRs(),
 	})
-	if got != "https://esign.getctx.com" {
-		t.Fatalf("expected trusted forwarded origin https://esign.getctx.com, got %q", got)
+	if got != "https://tenant.getctx.com" {
+		t.Fatalf("expected trusted forwarded origin https://tenant.getctx.com, got %q", got)
 	}
 }
 
@@ -126,7 +126,7 @@ func TestResolveRequestOriginIgnoresForwardedProtoAndHostWhenProxyUntrusted(t *t
 		ip: "203.0.113.11",
 		headers: map[string]string{
 			"X-Forwarded-Proto": "https",
-			"X-Forwarded-Host":  "esign.getctx.com",
+			"X-Forwarded-Host":  "tenant.getctx.com",
 			"Host":              "localhost:8082",
 		},
 	}

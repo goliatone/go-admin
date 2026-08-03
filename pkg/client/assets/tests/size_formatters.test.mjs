@@ -9,10 +9,6 @@ const sizeFormatters = await import('../dist/shared/size-formatters.js');
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const importModalSourcePath = path.resolve(testFileDir, '../src/components/import-modal.ts');
 const fileUploaderSourcePath = path.resolve(testFileDir, '../src/formgen/file_uploader.ts');
-const googleDriveUtilsSourcePath = path.resolve(testFileDir, '../src/esign/utils/google-drive-utils.ts');
-const esignFormattersSourcePath = path.resolve(testFileDir, '../src/esign/utils/formatters.ts');
-const lineagePresentationSourcePath = path.resolve(testFileDir, '../src/esign/lineage-presentation.ts');
-const sourceDetailWorkspaceSourcePath = path.resolve(testFileDir, '../src/esign/source-detail-workspace.ts');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -41,7 +37,7 @@ test('shared size formatter preserves import modal file-size wording', () => {
   );
 });
 
-test('shared size formatter preserves uploader and eSign file-size contracts', () => {
+test('shared size formatter preserves uploader and configurable file-size contracts', () => {
   assert.equal(
     sizeFormatters.formatByteSize(1536, {
       emptyFallback: '0 B',
@@ -95,15 +91,7 @@ test('shared size formatter preserves lineage and source-detail empty behavior',
 test('shared size formatter source contract is used by each migrated frontend helper', () => {
   const importModalSource = read(importModalSourcePath);
   const fileUploaderSource = read(fileUploaderSourcePath);
-  const googleDriveUtilsSource = read(googleDriveUtilsSourcePath);
-  const esignFormattersSource = read(esignFormattersSourcePath);
-  const lineagePresentationSource = read(lineagePresentationSourcePath);
-  const sourceDetailWorkspaceSource = read(sourceDetailWorkspaceSourcePath);
 
   assert.match(importModalSource, /formatByteSize/);
   assert.match(fileUploaderSource, /formatByteSize/);
-  assert.match(googleDriveUtilsSource, /formatByteSize/);
-  assert.match(esignFormattersSource, /formatByteSize/);
-  assert.match(lineagePresentationSource, /formatByteSize/);
-  assert.match(sourceDetailWorkspaceSource, /formatSharedByteSize/);
 });

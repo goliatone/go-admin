@@ -1,6 +1,6 @@
 # sync-core
 
-`sync-core` is the frontend half of the vendored sync package. It provides a framework-agnostic runtime for revisioned resources with a small public API and no direct dependency on the e-sign page.
+`sync-core` is the frontend half of the vendored sync package. It provides a framework-agnostic runtime for revisioned resources with a small public API and no direct dependency on host application pages.
 
 ## Public API
 

@@ -58,7 +58,7 @@ func TestActionContractsPhase7SelectionEndpointPublishesSelectionSensitiveStates
 	if got := toInt(meta["invalid_count"]); got != 1 {
 		t.Fatalf("expected invalid_count=1, got %#v", meta)
 	}
-	if got := strings.TrimSpace(toString(meta["remediation_href"])); got != "/admin/content/esign_agreements?document_id=doc_1" {
+	if got := strings.TrimSpace(toString(meta["remediation_href"])); got != "/admin/content/approval_requests?document_id=doc_1" {
 		t.Fatalf("expected remediation href in mixed selection metadata, got %#v", meta)
 	}
 }
@@ -123,7 +123,7 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 						},
 						Remediation: &ActionRemediation{
 							Label: "View agreements",
-							Href:  "/admin/content/esign_agreements?document_id=doc_1",
+							Href:  "/admin/content/approval_requests?document_id=doc_1",
 							Kind:  "link",
 						},
 					},

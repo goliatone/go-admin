@@ -260,7 +260,7 @@ test('executePostAction redirects to revision edit route when action response re
   try {
     const result = await builder.executePostAction({
       actionName: 'request_correction',
-      endpoint: '/admin/api/v1/panels/esign_agreements/actions/request_correction',
+      endpoint: '/admin/api/v1/panels/approval_requests/actions/request_correction',
       payload: { id: 'agreement-1' },
       recordId: 'agreement-1',
     });

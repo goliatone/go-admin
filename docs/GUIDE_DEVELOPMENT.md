@@ -68,7 +68,7 @@ Command examples:
 rg -n "symbol|type|function" admin quickstart examples
 gofmt -w path/to/file.go
 go test ./path/to/package -run TestName
-go test ./examples/esign/...
+go test ./examples/web/...
 ```
 
 ## 5. Build and Deployment Identity

@@ -56,7 +56,7 @@ test('renderDetailActions restores compact header layout with primary action and
       disabledReason: 'Document is used by 2 active agreements.',
       remediation: {
         label: 'View agreements',
-        href: '/admin/esign_agreements?document_id=doc_123',
+        href: '/admin/approval_requests?document_id=doc_123',
         kind: 'link',
       },
       action: () => {},
@@ -106,7 +106,7 @@ test('renderDetailActions renders remediation link for disabled dropdown actions
       disabledReason: 'Document is used by 2 active agreements.',
       remediation: {
         label: 'View agreements',
-        href: '/admin/esign_agreements?document_id=doc_123',
+        href: '/admin/approval_requests?document_id=doc_123',
         kind: 'link',
       },
       action: () => {},
@@ -114,7 +114,7 @@ test('renderDetailActions renders remediation link for disabled dropdown actions
   ]);
 
   assert.match(html, /data-detail-action-remediation="delete"/);
-  assert.match(html, /href="\/admin\/esign_agreements\?document_id=doc_123"/);
+  assert.match(html, /href="\/admin\/approval_requests\?document_id=doc_123"/);
   assert.match(html, />\s*View agreements\s*</);
 });
 
@@ -280,7 +280,7 @@ test('initPanelDetailActions renders remediation links for dropdown disabled act
 
     const remediation = dom.window.document.querySelector('[data-detail-action-remediation="delete"]');
     assert.ok(remediation, 'dropdown disabled action with remediation should render remediation link');
-    assert.equal(remediation?.getAttribute('href'), '/admin/esign_agreements?document_id=doc_123');
+    assert.equal(remediation?.getAttribute('href'), '/admin/approval_requests?document_id=doc_123');
     assert.match(remediation?.textContent, /View agreements/);
   } finally {
     globalThis.fetch = originalFetch;

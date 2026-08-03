@@ -295,7 +295,7 @@ CLI/cron metadata is optional via `command.CLICommand` (`CLIOptions`) and `comma
 
 ### Command Routing Observability
 
-For queued command flows (for example `esign.pdf.remediate`), dispatch logs include routing fields:
+For queued command flows (for example `documents.pdf.remediate`), dispatch logs include routing fields:
 - `command_id`
 - `execution_mode`
 - `dispatch_id`
@@ -364,4 +364,4 @@ Mapping behavior:
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
 - Background command routing observability: `docs/GUIDE_BKG_CMD_OBSERVABILITY.md`
 - Persisted workflow runtime: `docs/GUIDE_WORKFLOW.md#persisted-workflow-runtime`
-- End-to-end examples: `examples/web/main.go`, `examples/esign/main.go`
+- End-to-end examples: `examples/web/main.go`, `examples/admin-shell/cmd/admin/main.go`

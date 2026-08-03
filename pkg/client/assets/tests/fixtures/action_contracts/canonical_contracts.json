@@ -11,7 +11,7 @@
           "reason": "Document is used by 2 agreements",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/content/esign_agreements?document_id=doc_123",
+            "href": "/admin/content/approval_requests?document_id=doc_123",
             "kind": "link",
             "label": "View agreements"
           },
@@ -49,7 +49,7 @@
       "metadata": {
         "agreement_count": 2,
         "remediation": {
-          "href": "/admin/content/esign_agreements?document_id=doc_123",
+          "href": "/admin/content/approval_requests?document_id=doc_123",
           "kind": "link",
           "label": "View agreements"
         }
@@ -98,7 +98,7 @@
           "reason": "Document is used by 2 agreements",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/content/esign_agreements?document_id=doc_123",
+            "href": "/admin/content/approval_requests?document_id=doc_123",
             "kind": "link",
             "label": "View agreements"
           },

@@ -720,9 +720,9 @@ func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("register duplicate tab: %v", err)
 	}
-	adm.NamedLogger("module.esign.service").Info(
+	adm.NamedLogger("module.catalog.service").Info(
 		"module service log",
-		"module", "esign",
+		"module", "catalog",
 		"service", "agreement",
 	)
 

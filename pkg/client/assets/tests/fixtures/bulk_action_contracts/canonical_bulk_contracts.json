@@ -14,7 +14,7 @@
         "reason_codes": [
           "RESOURCE_IN_USE"
         ],
-        "remediation_href": "/admin/content/esign_agreements?document_id=doc_1",
+        "remediation_href": "/admin/content/approval_requests?document_id=doc_1",
         "remediation_kind": "link",
         "remediation_label": "View agreements",
         "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
@@ -70,7 +70,7 @@
             "reason_codes": [
               "RESOURCE_IN_USE"
             ],
-            "remediation_href": "/admin/content/esign_agreements?document_id=doc_1",
+            "remediation_href": "/admin/content/approval_requests?document_id=doc_1",
             "remediation_kind": "link",
             "remediation_label": "View agreements",
             "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
@@ -103,7 +103,7 @@
             "reason_codes": [
               "RESOURCE_IN_USE"
             ],
-            "remediation_href": "/admin/content/esign_agreements?document_id=doc_1",
+            "remediation_href": "/admin/content/approval_requests?document_id=doc_1",
             "remediation_kind": "link",
             "remediation_label": "View agreements",
             "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
@@ -113,7 +113,7 @@
           "reason": "This document cannot be deleted because it is attached to 2 agreements.",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/content/esign_agreements?document_id=doc_1",
+            "href": "/admin/content/approval_requests?document_id=doc_1",
             "kind": "link",
             "label": "View agreements"
           },

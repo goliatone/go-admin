@@ -55,7 +55,7 @@ test('ActionRenderer dropdown renders disabled reasons without remediation links
         disabledReason: 'Document is used by 2 active agreements.',
         remediation: {
           label: 'View agreements',
-          href: '/admin/esign_agreements?document_id=doc_123',
+          href: '/admin/approval_requests?document_id=doc_123',
           kind: 'link',
         },
         action: () => {},

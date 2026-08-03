@@ -243,7 +243,7 @@ func TestActivityRouteRejectsNonUUIDActorID(t *testing.T) {
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
-		ActorID:        "esign-admin",
+		ActorID:        "system-admin",
 		Role:           "admin",
 		TenantID:       tenantID.String(),
 		OrganizationID: orgID.String(),
@@ -266,8 +266,8 @@ func TestActivityRouteRejectsNonUUIDActorID(t *testing.T) {
 	if meta == nil {
 		t.Fatalf("expected metadata in error payload")
 	}
-	if got := mustAs[string](meta["actor_id"]); got != "esign-admin" {
-		t.Fatalf("expected actor_id metadata esign-admin, got %q", got)
+	if got := mustAs[string](meta["actor_id"]); got != "system-admin" {
+		t.Fatalf("expected actor_id metadata system-admin, got %q", got)
 	}
 	if got := mustAs[string](meta["field"]); got != "actor_id" {
 		t.Fatalf("expected field metadata actor_id, got %q", got)
@@ -298,7 +298,7 @@ func TestActivityRouteRejectsNonUUIDActorIDWithDefaultPolicy(t *testing.T) {
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
 	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
-		ActorID:        "esign-admin",
+		ActorID:        "system-admin",
 		Role:           "admin",
 		TenantID:       tenantID.String(),
 		OrganizationID: orgID.String(),

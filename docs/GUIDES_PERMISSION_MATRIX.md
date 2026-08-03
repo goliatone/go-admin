@@ -81,7 +81,7 @@ Important: a matrix with `showExtra: false` only round-trips permissions represe
 
 If a caller uses `permission-matrix` without passing `resources` or `actions`, the renderer falls back to broader package defaults in `admin/permission_matrix.go`:
 
-- Resources: `admin.dashboard`, `admin.settings`, `admin.users`, `admin.roles`, `admin.activity`, `admin.jobs`, `admin.search`, `admin.preferences`, `admin.profile`, `admin.debug`, `admin.translations`, `admin.esign`
+- Resources: `admin.dashboard`, `admin.settings`, `admin.users`, `admin.roles`, `admin.activity`, `admin.jobs`, `admin.search`, `admin.preferences`, `admin.profile`, `admin.debug`, `admin.translations`
 - Actions: `view`, `create`, `import`, `edit`, `delete`, `send`, `void`, `download`, `settings`, `claim`, `assign`, `approve`, `manage`, `export`, `import.validate`, `import.apply`, `import.view`
 
 The Roles UI does not rely on those fallback defaults; it passes the narrower split configuration above.

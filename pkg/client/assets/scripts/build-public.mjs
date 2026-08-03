@@ -50,24 +50,12 @@ function copyDeclarations(source, destination) {
   }
 }
 
-function assertNoESignArtifacts(directory) {
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
-    const relativePath = relative(output, path).replaceAll('\\', '/');
-    if (/(^|[\/_-])e-?sign([\/_-]|$)/i.test(relativePath)) {
-      throw new Error(`public package contains e-sign artifact: ${relativePath}`);
-    }
-    if (entry.isDirectory()) assertNoESignArtifacts(path);
-  }
-}
-
 rmSync(output, { recursive: true, force: true });
 rmSync(declarationStaging, { recursive: true, force: true });
 run('vite', ['build', '--config', 'vite.public.config.ts']);
 run('tsc', ['--emitDeclarationOnly', '--outDir', declarationStaging, '--declarationDir', declarationStaging]);
 copyDeclarations(declarationStaging, resolve(output, 'types'));
 rmSync(declarationStaging, { recursive: true, force: true });
-assertNoESignArtifacts(output);
 
 const packageJSON = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 for (const [subpath, target] of Object.entries(packageJSON.exports ?? {})) {

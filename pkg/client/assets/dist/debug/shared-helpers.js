@@ -1,30 +1,30 @@
-import { i as a, n, r as s, t as o } from "../chunks/icons-Dr5y9RE3.js";
-import { $ as t, Q as l, _ as i, a as p, c as m, d as g, f as D, g as P, h as f, i as d, l as u, m as b, n as v, o as y, p as c, r as I, s as S, t as h, u as E, w as R } from "../chunks/server-definitions-kiaE4kAt.js";
-import { t as T } from "../chunks/deployment-identity-BG2j6A3N.js";
+import { $ as a, Q as n, _ as s, a as o, c as r, d as t, f as l, g as i, h as p, i as m, l as g, m as D, n as P, o as f, p as d, r as u, s as b, t as v, u as y, w as c } from "../chunks/server-definitions--sWhzZz-.js";
+import { i as S, n as h, r as E, t as R } from "../chunks/icons-B_VaFfsl.js";
+import { t as T } from "../chunks/deployment-identity-Bu0mbL9F.js";
 export {
-  o as DEBUG_ICON_REFS,
-  p as applyCustomEventPayload,
-  y as applyDebugEventToSnapshot,
-  S as buildEventToPanel,
+  R as DEBUG_ICON_REFS,
+  o as applyCustomEventPayload,
+  f as applyDebugEventToSnapshot,
+  b as buildEventToPanel,
   T as deploymentIndicator,
-  m as fetchDebugSnapshot,
-  h as fetchServerPanelDefinitions,
-  n as getDebugIconRef,
-  u as getDefaultPanels,
-  E as getDefaultToolbarPanels,
-  g as getPanelEventTypes,
-  D as getPanelIcon,
-  c as getPanelLabel,
-  b as getToolbarCounts,
-  v as hydrateServerPanelDefinitions,
-  f as isKnownPanel,
-  l as normalizeDeploymentPersona,
-  P as normalizeReplCommands,
-  I as panelDefinitionFromServer,
-  R as panelRegistry,
-  d as registerServerPanelConsoleRenderer,
-  s as renderDebugIcon,
-  a as renderDebugIconRef,
-  t as renderDeploymentPersonaAvatar,
-  i as replPanelIDs
+  r as fetchDebugSnapshot,
+  v as fetchServerPanelDefinitions,
+  h as getDebugIconRef,
+  g as getDefaultPanels,
+  y as getDefaultToolbarPanels,
+  t as getPanelEventTypes,
+  l as getPanelIcon,
+  d as getPanelLabel,
+  D as getToolbarCounts,
+  P as hydrateServerPanelDefinitions,
+  p as isKnownPanel,
+  n as normalizeDeploymentPersona,
+  i as normalizeReplCommands,
+  u as panelDefinitionFromServer,
+  c as panelRegistry,
+  m as registerServerPanelConsoleRenderer,
+  E as renderDebugIcon,
+  S as renderDebugIconRef,
+  a as renderDeploymentPersonaAvatar,
+  s as replPanelIDs
 };

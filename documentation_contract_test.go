@@ -72,7 +72,6 @@ func TestCurrentDocumentationHasNoKnownStaleContracts(t *testing.T) {
 		"WithFeatureDefaults(DefaultMinimalFeatures())",
 		"WithLegacyUserRoleBulkRoutes",
 		"`docs/prds/ADMIN_TDD.md",
-		"`docs/ESIGN_PERSISTENCE_MIGRATION_CHECKLIST.md",
 		"/opt/homebrew/bin/go",
 		"/Users/goliatone/.g/go/bin/go",
 	}

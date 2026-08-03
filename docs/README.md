@@ -69,8 +69,6 @@ the closest existing guide when conventions change.
 | CMS module development and content CRUD alignment | `GUIDE_CMS.md` |
 | CMS integration overview | `CMS_INTEGRATION.md` |
 | Translation workflow and UI behavior | `GUIDE_TRANSLATION.md` |
-| E-sign persistence operations | `ESIGN_PERSISTENCE_RUNBOOK.md` |
-| E-sign contract ledger | `GUIDES_ESIGN_TRACK_C_CONTRACT_LEDGER.md` |
 
 ## Debugging And Operations
 

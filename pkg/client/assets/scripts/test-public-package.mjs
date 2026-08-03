@@ -32,9 +32,6 @@ try {
     if (!path.startsWith('dist-public/') && path !== 'package.json' && path !== 'README.md' && path !== 'LICENSE') {
       throw new Error(`unexpected packed file: ${path}`);
     }
-    if (/(^|[\/_-])e-?sign([\/_-]|$)/i.test(path)) {
-      throw new Error(`e-sign artifact leaked into package: ${path}`);
-    }
   }
 
   writeFileSync(join(temporary, 'package.json'), JSON.stringify({ private: true, type: 'module' }, null, 2));

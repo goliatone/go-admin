@@ -70,7 +70,7 @@ function setGlobals(win) {
 
 function setupDom(markup) {
   const dom = new JSDOM(markup, {
-    url: 'http://localhost:8082/admin/content/esign_agreements/agreement-1?channel=default&tenant_id=tenant-1&org_id=org-1',
+    url: 'http://localhost:8082/admin/content/approval_requests/agreement-1?channel=default&tenant_id=tenant-1&org_id=org-1',
   });
   setGlobals(dom.window);
   return dom;
@@ -119,7 +119,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
             type="button"
             data-command-name="notify_reviewers"
             data-command-transport="rpc"
-            data-command-dispatch="esign.agreements.notify_reviewers"
+            data-command-dispatch="reviews.notify_reviewers"
             data-command-success="Reviewers notified"
             data-command-refresh="#status-panel"
             data-command-payload-participant-id="participant-1"
@@ -143,7 +143,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
           receipt: {
             Accepted: true,
             Mode: 'inline',
-            CommandID: 'esign.agreements.notify_reviewers',
+            CommandID: 'reviews.notify_reviewers',
             DispatchID: 'dispatch-1',
             CorrelationID: 'corr-1',
           },
@@ -171,7 +171,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'esign_agreements',
+    panelName: 'approval_requests',
     recordId: 'agreement-1',
     rpcEndpoint: '/admin/api/v1/rpc',
     tenantId: 'tenant-1',
@@ -197,7 +197,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
 
   const rpcRequest = JSON.parse(String(requests[0].init.body));
   assert.equal(rpcRequest.method, 'admin.commands.dispatch');
-  assert.equal(rpcRequest.params.data.name, 'esign.agreements.notify_reviewers');
+  assert.equal(rpcRequest.params.data.name, 'reviews.notify_reviewers');
   assert.deepEqual(rpcRequest.params.data.ids, ['agreement-1']);
   assert.equal(rpcRequest.params.data.payload.participant_id, 'participant-1');
   assert.equal(rpcRequest.params.data.payload.recipient_id, '');
@@ -205,7 +205,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   assert.equal(rpcRequest.params.data.payload.org_id, 'org-1');
   assert.equal(dispatches[0].receipt.accepted, true);
   assert.equal(dispatches[0].receipt.mode, 'inline');
-  assert.equal(dispatches[0].receipt.commandId, 'esign.agreements.notify_reviewers');
+  assert.equal(dispatches[0].receipt.commandId, 'reviews.notify_reviewers');
   assert.equal(dispatches[0].receipt.dispatchId, 'dispatch-1');
   assert.equal(dispatches[0].receipt.correlationId, 'corr-1');
   assert.equal(refreshed.length, 1);
@@ -261,7 +261,7 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'esign_agreements',
+    panelName: 'approval_requests',
     recordId: 'agreement-1',
     notifier,
     fetchImpl,
@@ -281,7 +281,7 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   assert.deepEqual(notifier.successes, ['Comment added']);
   assert.equal(document.getElementById('comment-panel')?.textContent, 'after');
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url, '/admin/api/v1/panels/esign_agreements/actions/create_comment_thread');
+  assert.equal(requests[0].url, '/admin/api/v1/panels/approval_requests/actions/create_comment_thread');
 
   const actionPayload = JSON.parse(String(requests[0].init.body));
   assert.equal(actionPayload.id, 'agreement-1');
@@ -325,7 +325,7 @@ test('CommandRuntimeController uses shared busy behavior for button triggers and
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'esign_agreements',
+    panelName: 'approval_requests',
     recordId: 'agreement-1',
     notifier,
     fetchImpl,
@@ -383,7 +383,7 @@ test('CommandRuntimeController suppresses duplicate clicks while shared busy sta
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'esign_agreements',
+    panelName: 'approval_requests',
     recordId: 'agreement-1',
     notifier: createNotifier(),
     fetchImpl,
@@ -425,7 +425,7 @@ test('CommandRuntimeController manual dispatch uses shared busy target state', a
   const controller = initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'esign_agreements',
+    panelName: 'approval_requests',
     recordId: 'agreement-1',
     notifier: createNotifier(),
     fetchImpl,

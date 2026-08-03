@@ -265,36 +265,7 @@ func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntr
 		}
 		return target
 	}
-	if shouldRedirectToDetailAfterCreate(slug) {
-		return appendQueryParam(routes.show(id), "created", "1")
-	}
-	target := routes.edit(id)
-	if shouldAppendCreateMarkerAfterCreate(slug) {
-		target = appendQueryParam(target, "created", "1")
-	}
-	return target
-}
-
-func shouldRedirectToDetailAfterCreate(slug string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(slug))
-	normalized = strings.ReplaceAll(normalized, "-", "_")
-	switch normalized {
-	case "esign_documents":
-		return true
-	default:
-		return false
-	}
-}
-
-func shouldAppendCreateMarkerAfterCreate(slug string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(slug))
-	normalized = strings.ReplaceAll(normalized, "-", "_")
-	switch normalized {
-	case "esign_agreements":
-		return true
-	default:
-		return false
-	}
+	return routes.edit(id)
 }
 
 func appendQueryParam(rawPath, key, value string) string {

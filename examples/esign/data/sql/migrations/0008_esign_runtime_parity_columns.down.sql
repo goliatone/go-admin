@@ -1,2 +1,0 @@
--- SQLite/Postgres column rollback intentionally omitted.
--- Runtime parity columns are additive and safe to keep after rollback.

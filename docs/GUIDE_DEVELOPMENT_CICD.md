@@ -358,7 +358,6 @@ This guide only covers the Go quality pipeline. Other workflows in the
 repository still exist for:
 
 - example E2E productization checks
-- e-sign persistence verification
 - feature-specific or domain-specific validation
 
 Keep those workflows separate unless there is a clear operational benefit to

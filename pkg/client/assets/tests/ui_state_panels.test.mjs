@@ -7,8 +7,6 @@ import { fileURLToPath } from 'node:url';
 const services = await import('../dist/services/index.js');
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
-const sourceManagementRuntimeSourcePath = path.resolve(testFileDir, '../src/esign/source-management-runtime.ts');
-const timelineRendererSourcePath = path.resolve(testFileDir, '../src/esign/timeline/timeline-renderer.ts');
 const translationDashboardSourcePath = path.resolve(testFileDir, '../src/translation-dashboard/index.ts');
 const translationEditorSourcePath = path.resolve(testFileDir, '../src/translation-editor/index.ts');
 const translationMatrixSourcePath = path.resolve(testFileDir, '../src/translation-matrix/index.ts');
@@ -65,16 +63,10 @@ test('shared panel state preserves title, heading, metadata, escaping, and actio
 });
 
 test('shared panel helpers are the canonical source for the remaining state renderers', () => {
-  const sourceManagementRuntimeSource = read(sourceManagementRuntimeSourcePath);
-  const timelineRendererSource = read(timelineRendererSourcePath);
   const translationDashboardSource = read(translationDashboardSourcePath);
   const translationEditorSource = read(translationEditorSourcePath);
   const translationMatrixSource = read(translationMatrixSourcePath);
 
-  assert.match(sourceManagementRuntimeSource, /renderPanelLoadingState/);
-  assert.match(sourceManagementRuntimeSource, /renderPanelState/);
-  assert.match(timelineRendererSource, /renderPanelLoadingState/);
-  assert.match(timelineRendererSource, /renderPanelState/);
   assert.match(translationDashboardSource, /renderPanelLoadingState/);
   assert.match(translationDashboardSource, /renderPanelState/);
   assert.match(translationEditorSource, /renderPanelLoadingState/);

@@ -358,7 +358,7 @@ adm, _, err := quickstart.NewAdmin(
 	quickstart.AdapterHooks{},
 	quickstart.WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
 		PerCommand: map[string]command.ExecutionMode{
-			"esign.pdf.remediate": command.ExecutionModeQueued,
+			"documents.pdf.remediate": command.ExecutionModeQueued,
 		},
 	}),
 	quickstart.WithCommandQueueRouting(quickstart.CommandQueueRoutingConfig{
@@ -393,7 +393,7 @@ adm, _, err := quickstart.NewAdmin(
 	quickstart.AdapterHooks{},
 	quickstart.WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
 		PerCommand: map[string]command.ExecutionMode{
-			"esign.pdf.remediate": command.ExecutionModeQueued,
+			"documents.pdf.remediate": command.ExecutionModeQueued,
 		},
 	}),
 	quickstart.WithCommandQueueRouting(quickstart.CommandQueueRoutingConfig{
@@ -418,26 +418,14 @@ Translation quickstart modules keep their existing async options and can now reu
 
 ### Command routing observability
 
-When using queued routing (for example `esign.pdf.remediate`), quickstart + e-sign emit structured dispatch logs with canonical routing fields:
+When using queued routing (for example `documents.pdf.remediate`), quickstart emits structured dispatch logs with canonical routing fields:
 - `command_id`
 - `execution_mode`
 - `dispatch_id`
 - `correlation_id`
 - `accepted`
 
-Runtime counters are exposed through `examples/esign/observability.Snapshot()` including:
-- `CommandDispatchAcceptedTotal`, `CommandDispatchRejectedTotal`, `CommandDispatchAcceptedByMode`
-- `DedupStoreMissTotal`, `DedupStoreMissByCommandID`
-- `RemediationCandidateTotal`, `RemediationSucceededTotal`, `RemediationFailedTotal`
-- `RemediationRetryingTotal`, `RemediationDeadLetterTotal`
-- `RemediationLockContentionTotal`, `RemediationLockTimeoutTotal`
-
-Alert evaluation (`observability.EvaluateAlerts`) now includes:
-- `command.dedup_store_miss_detected`
-- `pdf.remediation_retrying_high`
-- `pdf.remediation_dead_letter_high`
-- `pdf.remediation_lock_contention_high`
-- `pdf.remediation_lock_timeout_high`
+Host applications should expose command and domain counters from their own observability package and keep raw secrets and idempotency material out of metric labels.
 
 ## User management
 Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.

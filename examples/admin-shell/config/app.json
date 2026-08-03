@@ -18,12 +18,12 @@
     "persona_enabled": true
   },
   "auth": {
-    "signing_key": "admin-shell-dev-signing-key",
+    "signing_key": "${APP_AUTH__SIGNING_KEY}",
     "demo_enabled": true,
     "show_demo_credentials": true,
     "demo_username": "admin",
     "demo_email": "admin@example.com",
-    "demo_password": "admin.pwd"
+    "demo_password": "${APP_AUTH__DEMO_PASSWORD}"
   },
   "features": {
     "profile": "minimal",

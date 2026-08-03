@@ -105,9 +105,9 @@ func TestContentTypeSchemaAddsDefaultSchemaDialect(t *testing.T) {
 }
 
 func TestContentEntryPanelTemplateNormalizesPanelSlug(t *testing.T) {
-	got := contentEntryPanelTemplate("esign_documents", "resources/content/form")
-	if got != "resources/esign-documents/form" {
-		t.Fatalf("expected panel template resources/esign-documents/form, got %q", got)
+	got := contentEntryPanelTemplate("document_records", "resources/content/form")
+	if got != "resources/document-records/form" {
+		t.Fatalf("expected normalized panel template, got %q", got)
 	}
 
 	got = contentEntryPanelTemplate("pages@staging", "resources/content/list")

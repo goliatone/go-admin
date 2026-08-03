@@ -110,7 +110,7 @@ func iconoirSidebarIcons() []IconDefinition {
 		{Name: "clipboard-check", Label: "Clipboard Check", Keywords: []string{"agreement", "approved", "signed", "complete"}, Category: "content"},
 		{Name: "edit-pencil", Label: "Edit", Keywords: []string{"write", "pencil", "compose"}, Category: "content"},
 		{Name: "post", Label: "Post", Keywords: []string{"article", "blog", "entry"}, Category: "content"},
-		{Name: "design-nib", Label: "Design Nib", Keywords: []string{"pen", "signature", "sign", "write", "esign"}, Category: "content"},
+		{Name: "design-nib", Label: "Design Nib", Keywords: []string{"pen", "signature", "sign", "write"}, Category: "content"},
 
 		// Objects & Layout
 		{Name: "cube", Label: "Cube", Keywords: []string{"box", "3d", "model", "block"}, Category: "objects"},

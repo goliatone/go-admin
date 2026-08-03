@@ -54,9 +54,6 @@ cd examples/web && GO111MODULE=on go run .
 # Commerce example (lightweight) — bearer token printed on startup
 cd examples/commerce && go run .
 
-# E-sign workflow example — document signing workflows
-cd examples/esign && go run .
-
 # Admin shell example — CLI admin interface
 cd examples/admin-shell && go run ./cmd/admin
 ```

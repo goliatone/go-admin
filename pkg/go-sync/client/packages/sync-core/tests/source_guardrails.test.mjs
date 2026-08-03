@@ -26,10 +26,8 @@ function sourceFiles(root) {
 
 test("sync-core source does not import app-specific modules", () => {
   const forbidden = [
-    "/esign/",
     "agreement-form",
     "pkg/client/assets",
-    "examples/esign",
   ];
 
   for (const file of sourceFiles(sourceRoot)) {
@@ -83,7 +81,6 @@ test("sync-core package metadata does not declare framework or app-specific runt
     "vue",
     "svelte",
     "@tanstack/react-query",
-    "examples/esign",
     "pkg/client/assets",
   ]) {
     assert.equal(

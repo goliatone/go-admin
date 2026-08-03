@@ -27,7 +27,6 @@ func TestGoSyncReleaseAutomationStaysPackageLocal(t *testing.T) {
 
 		text := string(content)
 		for _, forbidden := range []string{
-			"examples/esign",
 			"agreement-form",
 			"pkg/client/assets",
 		} {

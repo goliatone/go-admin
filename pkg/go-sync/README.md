@@ -67,8 +67,8 @@ Commands:
 
 ## Extraction Boundaries
 
-- Do not import `examples/esign`, `go-admin/admin`, or other host app packages from `go-sync`.
-- Do not make the package-local taskfile or client scripts depend on `pkg/client/assets` or unpublished e-sign page source.
+- Do not import host application packages or `go-admin/admin` from `go-sync`.
+- Do not make the package-local taskfile or client scripts depend on `pkg/client/assets` or unpublished host page source.
 - Keep browser artifacts checked in under `data/client` so Go builds do not require Node.
 - Preserve the package-local workspace, taskfile, and embed pipeline when the package moves to its own repository.
 

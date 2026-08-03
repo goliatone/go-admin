@@ -2,14 +2,14 @@ import { escapeAttribute as u, escapeHTML as d } from "../shared/html.js";
 import { t as Le } from "../chunks/icon-renderer-tQhqqQbt.js";
 import { httpRequest as S, readCSRFToken as De, readHTTPError as Fe } from "../shared/transport/http-client.js";
 import { extractStructuredError as Y, formatStructuredErrorForDisplay as ue } from "../toast/error-helpers.js";
-import { r as ae, s as Oe } from "../chunks/status-vocabulary-Bdx_bn1-.js";
+import { r as ae, s as Oe } from "../chunks/status-vocabulary-ak1N6rXX.js";
 import { readLocationSearchParams as Ie } from "../shared/query-state/url-state.js";
-import { n as fe } from "../chunks/translation-contracts-CCsjVv14.js";
+import { n as fe } from "../chunks/translation-contracts-DIMN10n7.js";
 import { asBoolean as _, asNumber as p, asRecord as l, asString as r, asStringArray as me } from "../shared/coercion.js";
-import { A as Pe, C as I, D as Me, E as Be, F as Ne, M as ze, O as Ue, P as Ke, R as Ve, S as re, T as He, a as Ye, at as Ge, c as ge, ct as Qe, et as We, ft as Xe, g as Je, j as Ze, k as et, lt as tt, mt as st, ot as it, pt as at, s as rt, st as x, tt as nt, v as ot, x as F, y as T } from "../chunks/translation-shared-DRQOQvHt.js";
+import { A as Pe, C as I, D as Me, E as Be, F as Ne, M as ze, O as Ue, P as Ke, R as Ve, S as re, T as He, a as Ye, at as Ge, c as ge, ct as Qe, et as We, ft as Xe, g as Je, j as Ze, k as et, lt as tt, mt as st, ot as it, pt as at, s as rt, st as x, tt as nt, v as ot, x as F, y as T } from "../chunks/translation-shared-BkWg4uhq.js";
 import { formatTranslationTimestampUTC as pe, sentenceCaseToken as P } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as K } from "../shared/record-normalization.js";
-import { c as he, s as ct } from "../chunks/ui-states-C6t-OWOz.js";
+import { c as he, s as ct } from "../chunks/ui-states-BOBY2bIW.js";
 var lt = "translation_variant_draft", dt = "autosave", N = /* @__PURE__ */ new Map();
 async function ut(e) {
   const t = E(e);

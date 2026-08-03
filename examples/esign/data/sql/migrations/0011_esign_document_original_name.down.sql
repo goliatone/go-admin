@@ -1,2 +1,0 @@
--- SQLite/Postgres column rollback intentionally omitted.
--- Original source filename is additive and safe to keep after rollback.

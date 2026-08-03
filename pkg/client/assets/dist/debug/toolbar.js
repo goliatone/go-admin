@@ -1,11 +1,11 @@
+import { $ as M, S as _, T as $, _ as I, a as kt, b as H, c as E, d as y, et as g, f as O, ft as D, g as j, h as St, l as Et, m as F, n as C, nt as v, o as q, p as V, s as f, u as x, w as p, x as N } from "../chunks/server-definitions--sWhzZz-.js";
 import { escapeHTML as c } from "../shared/html.js";
-import { httpRequest as M, readExpectedHTTPJSON as _, readHTTPError as $ } from "../shared/transport/http-client.js";
-import { normalizeDebugBasePath as I } from "./shared/path-helpers.js";
-import { C as H, E as O, F as D, G as E, I as j, M as F, N as V, P as N, R as G, T as B, V as K, _ as Q, b as U, f as Y, g as J, h as W, k as h, m as X, p as Z, r as tt, v as et, w as at, x as ot } from "../chunks/builtin-panels-C-fhqYmT.js";
-import { t as st } from "../chunks/repl-panel-kCaQyUyH.js";
-import { i as rt } from "../chunks/icons-Dr5y9RE3.js";
-import { $ as nt, S as it, T as lt, _ as dt, a as Lt, b as ct, c as C, d as y, et as g, f as ht, ft as pt, g as bt, h as zt, l as Tt, m as ut, n as q, nt as v, o as P, p as gt, s as f, u as x, w as p, x as ft } from "../chunks/server-definitions-kiaE4kAt.js";
-import { t as k } from "../chunks/deployment-identity-BG2j6A3N.js";
+import { httpRequest as G, readExpectedHTTPJSON as B, readHTTPError as K } from "../shared/transport/http-client.js";
+import { normalizeDebugBasePath as Q } from "./shared/path-helpers.js";
+import { C as U, E as Y, F as J, G as P, I as W, M as X, N as Z, P as tt, R as et, T as at, V as ot, _ as st, b as rt, f as nt, g as it, h as lt, k as h, m as dt, p as ct, r as ht, v as pt, w as bt, x as ut } from "../chunks/builtin-panels-Demc4J93.js";
+import { t as gt } from "../chunks/repl-panel-7pKfUoF2.js";
+import { i as ft } from "../chunks/icons-B_VaFfsl.js";
+import { t as k } from "../chunks/deployment-identity-Bu0mbL9F.js";
 var xt = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1393,11 +1393,11 @@ var xt = `
 `, d = h;
 function w(o, t, e = 50, a) {
   const s = p.get(o);
-  if (s) return lt(s, ft(t, s), d, a || {}, "toolbar");
+  if (s) return $(s, N(t, s), d, a || {}, "toolbar");
   const r = a?.newestFirst ?? !0, i = a?.slowThresholdMs ?? e;
   switch (o) {
     case "requests":
-      return B(t.requests || [], d, {
+      return at(t.requests || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1408,7 +1408,7 @@ function w(o, t, e = 50, a) {
         maxDetailLength: 80
       });
     case "sql":
-      return K(t.sql || [], d, {
+      return ot(t.sql || [], d, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1416,7 +1416,7 @@ function w(o, t, e = 50, a) {
         useIconCopyButton: !1
       });
     case "logs":
-      return ot(t.logs || [], d, {
+      return ut(t.logs || [], d, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1430,7 +1430,7 @@ function w(o, t, e = 50, a) {
         showCount: !1
       });
     case "routes":
-      return Q(t.routes || [], d, { showName: !1 });
+      return st(t.routes || [], d, { showName: !1 });
     case "template":
       return g("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
@@ -1442,14 +1442,14 @@ function w(o, t, e = 50, a) {
         showCount: !1
       });
     case "jserrors":
-      return X(t.jserrors || [], d, {
+      return dt(t.jserrors || [], d, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return W(t.custom || {}, d, {
+      return lt(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1464,7 +1464,7 @@ function w(o, t, e = 50, a) {
   }
 }
 function u(o, t = 50) {
-  return ut(o, t);
+  return F(o, t);
 }
 var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
   static get observedAttributes() {
@@ -1481,7 +1481,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
   constructor() {
     super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (t) => {
       (t.ctrlKey || t.metaKey) && t.shiftKey && t.key.toLowerCase() === "d" && (t.preventDefault(), this.toggleExpanded()), t.key === "Escape" && this.expanded && this.collapse();
-    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new H({
+    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new U({
       styles: h,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
@@ -1495,8 +1495,8 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
       onNeedFullRender: () => this.updateContent()
     }), this.logsView = new v({
       styles: h,
-      keyOf: et,
-      renderRow: (t) => U(t, h, {
+      keyOf: pt,
+      renderRow: (t) => rt(t, h, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1509,8 +1509,8 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
-      keyOf: O,
-      renderRow: (t) => at(t, h, {
+      keyOf: Y,
+      renderRow: (t) => bt(t, h, {
         slowThresholdMs: this.slowThresholdMs,
         truncatePath: !0,
         maxPathLength: 50,
@@ -1520,26 +1520,26 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("requests") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (t) => N(t, this.expandedRequests, { useIconFeedback: !1 })
+      onAdopt: (t) => tt(t, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new v({
       styles: h,
-      keyOf: Y,
-      renderRow: (t) => Z(t, h, { compact: !0 }),
+      keyOf: nt,
+      renderRow: (t) => ct(t, h, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (t) => D(t, {
+      onAdopt: (t) => J(t, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (t) => G(t, {
+      onRestore: (t) => et(t, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new J({
+    }), this.registryLiveList = new it({
       styles: h,
       allowUpsert: !1,
       getRenderOptions: () => ({}),
@@ -1550,7 +1550,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(t) {
-    if (await q(this.debugPath), !this.isInitializationStale(t)) {
+    if (await C(this.debugPath), !this.isInitializationStale(t)) {
       if (this.eventToPanel = f(), this.unsubscribeRegistry = p.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
@@ -1674,7 +1674,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     return this.externalStream || this.stream;
   }
   initWebSocket() {
-    this.stream = new E({
+    this.stream = new P({
       basePath: this.debugPath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.handleStatusChange(e)
@@ -1684,7 +1684,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     this.stream.subscribe(Array.from(t));
   }
   async fetchInitialSnapshot(t = this.initializeGeneration) {
-    const e = await C(this.debugPath);
+    const e = await E(this.debugPath);
     this.isInitializationStale(t) || e && this.applySnapshot(e);
   }
   handleEvent(t) {
@@ -1693,13 +1693,13 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = P(this.snapshot, t, { eventToPanel: this.eventToPanel }) || t.type;
+    const e = q(this.snapshot, t, { eventToPanel: this.eventToPanel }) || t.type;
     if (e === this.activePanel && this.expanded) if (e === "sql") this.sqlView.enqueue([t.payload]);
     else if (e === "logs") this.logsView.enqueue([t.payload]);
     else if (e === "requests") this.requestsView.enqueue([t.payload]);
     else if (e === "jserrors") this.jserrorsView.enqueue([t.payload]);
     else if (this.registryLiveList.handles(p.get(e))) {
-      const a = p.get(e), s = this.snapshot[it(a)], r = Array.isArray(s) ? s[s.length - 1] : void 0;
+      const a = p.get(e), s = this.snapshot[_(a)], r = Array.isArray(s) ? s[s.length - 1] : void 0;
       this.registryLiveList.enqueue(a, r);
     } else this.updateContent();
   }
@@ -1707,11 +1707,11 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = bt(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = j(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
     const t = u(this.snapshot, this.slowThresholdMs), e = this.panels.map((n) => {
-      const l = gt(n), T = this.getPanelCount(n), R = this.activePanel === n ? "active" : "", A = rt(ht(n), {
+      const l = V(n), T = this.getPanelCount(n), R = this.activePanel === n ? "active" : "", A = ft(O(n), {
         size: "14px",
         extraClass: "tab-icon"
       });
@@ -1795,7 +1795,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (dt.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
+      t && (I.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = w(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((e) => {
         const a = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
         a && (a.textContent = String(this.getPanelCount(e)));
       });
@@ -1817,7 +1817,7 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
   }
   getPanelCount(t) {
     const e = p.get(t);
-    if (e) return ct(this.snapshot, e);
+    if (e) return H(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1903,17 +1903,17 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     if (!a || !s) return;
     const r = t.dataset.actionConfirm || "";
     if ((t.dataset.actionRequiresConfirm === "true" || r) && !window.confirm(r || "Run this debug panel action?")) return;
-    const i = tt(t);
+    const i = ht(t);
     e && (e.disabled = !0);
     try {
-      const n = await M(`${this.debugPath}/api/panels/${encodeURIComponent(a)}/actions/${encodeURIComponent(s)}`, {
+      const n = await G(`${this.debugPath}/api/panels/${encodeURIComponent(a)}/actions/${encodeURIComponent(s)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(i)
       });
-      if (!n.ok) throw new Error(await $(n, `Action failed (${n.status})`, { appendStatusToFallback: !1 }));
-      const l = await _(n);
+      if (!n.ok) throw new Error(await K(n, `Action failed (${n.status})`, { appendStatusToFallback: !1 }));
+      const l = await B(n);
       this.showPanelActionResult(a, l.ok === !1 ? "error" : "ok", l.message || (l.ok === !1 ? "Action failed" : "Action complete"), l.data), l.event && this.handleEvent(l.event), l.refresh && await this.fetchInitialSnapshot();
     } catch (n) {
       const l = n instanceof Error ? n.message : "Action failed";
@@ -1934,12 +1934,12 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     if (!e) return;
     const a = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
     if (!a) return;
-    const s = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${c(pt(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    const s = e.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${c(D(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
     a.innerHTML = `<div class="${e.status === "error" ? "badge error" : "badge"}">${c(e.message)}</div>${s}`;
   }
   renderReplPanel(t, e) {
     let a = this.replPanels.get(e);
-    a || (a = new st({
+    a || (a = new gt({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1976,13 +1976,13 @@ var m, S = "debug-toolbar-active-panel", L = class b extends HTMLElement {
     r && (r.style.height = `${s}px`);
   }
   attachExpandableRowListeners() {
-    V(this.shadow);
+    Z(this.shadow);
   }
   attachCopyListeners() {
-    F(this.shadow, { useIconFeedback: !1 });
+    X(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    j(this.shadow, (t, e) => {
+    W(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
@@ -2410,7 +2410,7 @@ var mt = `
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(o) {
-    if (await q(this.debugPath), !this.isInitializationStale(o)) {
+    if (await C(this.debugPath), !this.isInitializationStale(o)) {
       if (this.eventToPanel = f(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(o)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
@@ -2468,14 +2468,14 @@ var mt = `
     }
   }
   initWebSocket() {
-    this.stream = new E({
+    this.stream = new P({
       basePath: this.debugPath,
       onEvent: (o) => this.handleEvent(o),
       onStatusChange: (o) => this.handleStatusChange(o)
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot(o = this.initializeGeneration) {
-    const t = await C(this.debugPath);
+    const t = await E(this.debugPath);
     this.isInitializationStale(o) || t && this.applySnapshot(t);
   }
   handleEvent(o) {
@@ -2484,7 +2484,7 @@ var mt = `
         this.applySnapshot(o.payload);
         return;
       }
-      P(this.snapshot, o, { eventToPanel: this.eventToPanel }), this.updateCounters();
+      q(this.snapshot, o, { eventToPanel: this.eventToPanel }), this.updateCounters();
     }
   }
   handleStatusChange(o) {
@@ -2531,7 +2531,7 @@ var mt = `
           </span>
           ${a ? `
             <span class="fab-identity">
-              ${a.persona ? nt(a.persona, "fab-persona-avatar") : ""}
+              ${a.persona ? M(a.persona, "fab-persona-avatar") : ""}
               <span class="fab-identity-env">
                 <span class="fab-identity-dot" aria-hidden="true"></span>
                 <span class="fab-identity-env-full">${c(a.environment)}</span>
@@ -2638,7 +2638,7 @@ var z = class {
       container: document.body,
       ...o
     };
-    const t = I(this.options.basePath);
+    const t = Q(this.options.basePath);
     t && (this.options.basePath = t), !this.options.debugPath && t && (this.options.debugPath = `${t}/debug`);
   }
   init() {
@@ -2705,22 +2705,22 @@ export {
   vt as DebugFab,
   z as DebugManager,
   L as DebugToolbar,
-  Lt as applyCustomEventPayload,
-  P as applyDebugEventToSnapshot,
+  kt as applyCustomEventPayload,
+  q as applyDebugEventToSnapshot,
   f as buildEventToPanel,
   k as deploymentIndicator,
-  C as fetchDebugSnapshot,
+  E as fetchDebugSnapshot,
   u as getCounts,
-  Tt as getDefaultPanels,
+  Et as getDefaultPanels,
   x as getDefaultToolbarPanels,
   y as getPanelEventTypes,
-  ht as getPanelIcon,
-  gt as getPanelLabel,
+  O as getPanelIcon,
+  V as getPanelLabel,
   wt as initDebugManager,
-  zt as isKnownPanel,
-  bt as normalizeReplCommands,
+  St as isKnownPanel,
+  j as normalizeReplCommands,
   w as renderPanel,
-  dt as replPanelIDs
+  I as replPanelIDs
 };
 
 //# sourceMappingURL=toolbar.js.map

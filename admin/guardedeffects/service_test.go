@@ -115,7 +115,7 @@ func TestServiceAbortPersistsTerminalAbort(t *testing.T) {
 		GroupID:     "agreement-1",
 		SubjectID:   "recipient-1",
 		SubjectType: "agreement_recipient_notification",
-		Kind:        "esign.agreements.send_invitation",
+		Kind:        "reviews.send_invitation",
 	})
 	handler := &stubHandler{}
 	svc := NewService(store, func() time.Time { return now.Add(10 * time.Minute) })

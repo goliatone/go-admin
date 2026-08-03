@@ -110,7 +110,7 @@ func TestActionContractsPhase1RuntimeWriteErrorEnvelope(t *testing.T) {
 			"agreement_count": 2,
 			"remediation": map[string]any{
 				"label": "View agreements",
-				"href":  "/admin/content/esign_agreements?document_id=doc_123",
+				"href":  "/admin/content/approval_requests?document_id=doc_123",
 				"kind":  "link",
 			},
 		}))
@@ -219,7 +219,7 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 						},
 						"remediation": map[string]any{
 							"label": "View agreements",
-							"href":  "/admin/content/esign_agreements?document_id=doc_123",
+							"href":  "/admin/content/approval_requests?document_id=doc_123",
 							"kind":  "link",
 						},
 					},
@@ -251,7 +251,7 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 						},
 						"remediation": map[string]any{
 							"label": "View agreements",
-							"href":  "/admin/content/esign_agreements?document_id=doc_123",
+							"href":  "/admin/content/approval_requests?document_id=doc_123",
 							"kind":  "link",
 						},
 					},
@@ -295,7 +295,7 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 					"agreement_count": 2,
 					"remediation": map[string]any{
 						"label": "View agreements",
-						"href":  "/admin/content/esign_agreements?document_id=doc_123",
+						"href":  "/admin/content/approval_requests?document_id=doc_123",
 						"kind":  "link",
 					},
 				},

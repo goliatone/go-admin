@@ -2,18 +2,11 @@
 
 ## Purpose
 
-This guide defines the promoted, reusable transaction/outbox primitives at go-admin level and how e-sign consumes them.
+This guide defines the reusable transaction/outbox primitives at go-admin level.
 
 Core package:
 
 - `admin/txoutbox`
-
-E-sign compatibility wrappers:
-
-- `examples/esign/stores/tx_hooks.go`
-- `examples/esign/stores/outbox_dispatch.go`
-- `examples/esign/stores/contracts.go`
-- `examples/esign/stores/models.go`
 
 ## What was promoted
 
@@ -100,19 +93,7 @@ type Publisher interface {
 3. Keep publishers idempotent.
 4. Monitor outbox lag (`pending`/`retrying` count and age).
 
-## Current e-sign usage
-
-E-sign uses transaction hooks in:
-
-1. `AgreementService.Send` (`examples/esign/services/agreement_service.go`)
-2. `AgreementService.Resend` (`examples/esign/services/agreement_service.go`)
-3. `SigningService.Submit` (`examples/esign/services/signing_service.go`)
-
 ## Test coverage
 
 1. `admin/txoutbox/tx_hooks_test.go`
 2. `admin/txoutbox/outbox_test.go`
-3. `examples/esign/stores/tx_hooks_test.go`
-4. `examples/esign/stores/outbox_store_test.go`
-5. `examples/esign/stores/outbox_dispatch_test.go`
-6. `examples/esign/services/transaction_boundaries_test.go`

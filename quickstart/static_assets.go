@@ -173,7 +173,7 @@ func ResolveDashboardShellAssetsPrefix(cfg admin.Config, opts ...StaticAssetsOpt
 }
 
 // ResolveSyncClientAssetsPrefix returns the admin-scoped sync-core runtime
-// asset prefix used by translation and e-sign editor runtime config.
+// asset prefix used by translation and other editor runtime configuration.
 func ResolveSyncClientAssetsPrefix(cfg admin.Config) string {
 	return prefixBasePath(cfg.BasePath, path.Join("sync-client", "sync-core"))
 }

@@ -322,7 +322,6 @@ Recommended focused checks:
 ```bash
 go test ./admin -run 'TestActionPhase8'
 go test ./examples/web -run 'TestActionPhase8'
-go test ./examples/esign/modules -run 'TestActionPhase8'
 ```
 
 Coverage expectations:
@@ -331,4 +330,4 @@ Coverage expectations:
 - translation-driven disablement still works on row and detail surfaces
 - domain-rule disablement works proactively and reactively
 - stale action execution returns structured failures
-- `examples/web` and `examples/esign` both demonstrate row/detail parity
+- `examples/web` demonstrates row/detail parity

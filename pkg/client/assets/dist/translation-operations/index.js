@@ -1,9 +1,9 @@
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { extractStructuredError as q } from "../toast/error-helpers.js";
-import "../chunks/status-vocabulary-Bdx_bn1-.js";
-import { r as h, t as N } from "../chunks/translation-contracts-CCsjVv14.js";
-import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-DRQOQvHt.js";
+import "../chunks/status-vocabulary-ak1N6rXX.js";
+import { r as h, t as N } from "../chunks/translation-contracts-DIMN10n7.js";
+import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-BkWg4uhq.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",

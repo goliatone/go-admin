@@ -131,7 +131,7 @@
   },
   "securelink": {
     "base_url": "http://localhost:8080",
-    "signing_key": "admin-demo-securelink-signing-key-change-me",
+    "signing_key": "${APP_SECURELINK__SIGNING_KEY}",
     "query_key": "token",
     "as_query": true,
     "expiration": "72h"

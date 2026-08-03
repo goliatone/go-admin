@@ -1,2 +1,0 @@
-ALTER TABLE source_relationships DROP COLUMN successor_source_document_id;
-ALTER TABLE source_relationships DROP COLUMN predecessor_source_document_id;

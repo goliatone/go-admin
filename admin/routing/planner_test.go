@@ -186,7 +186,7 @@ func TestMutationRoutePathPreservesCanonicalAbsolutePaths(t *testing.T) {
 	}{
 		{incoming: "/admin/translations/dashboard", want: "/admin/translations/dashboard"},
 		{incoming: "/admin/api/translations/my-work", want: "/admin/api/translations/my-work"},
-		{incoming: "/api/v1/esign/signing/session/:token", want: "/api/v1/esign/signing/session/:token"},
+		{incoming: "/api/v1/documents/session/:token", want: "/api/v1/documents/session/:token"},
 		{incoming: "/queue", want: "/queue"},
 	}
 

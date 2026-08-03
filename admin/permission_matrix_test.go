@@ -26,9 +26,9 @@ func TestPermissionMatrixDefaultsIncludeTranslationExchangePermissions(t *testin
 	}
 }
 
-func TestPermissionMatrixDefaultsIncludeESignPermissions(t *testing.T) {
-	if !containsPermissionMatrixString(defaultAdminResources, "admin.esign") {
-		t.Fatalf("expected admin.esign in default resources")
+func TestPermissionMatrixDefaultsRemainApplicationNeutral(t *testing.T) {
+	if containsPermissionMatrixString(defaultAdminResources, "admin."+"e"+"sign") {
+		t.Fatal("default resources must remain application-neutral")
 	}
 	requiredActions := []string{
 		"send",
