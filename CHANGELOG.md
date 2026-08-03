@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.126.13](https://github.com/goliatone/go-admin/compare/v0.126.12...v0.126.13) - (2026-08-03)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Migrate deps ([d6f79ae](https://github.com/goliatone/go-admin/commit/d6f79ae40076dc0ba40ba4cae0388acd46403a68))  - (goliatone)
+
 # [0.126.12](https://github.com/goliatone/go-admin/compare/v0.126.11...v0.126.12) - (2026-08-02)
+
+
+New patch release: v0.126.12
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Check min node version ([4e7f517](https://github.com/goliatone/go-admin/commit/4e7f517e7dd8c384f8dd91dc8581f02b958e0a3b))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.126.12 ([0ef3f76](https://github.com/goliatone/go-admin/commit/0ef3f7629c70a2e8647903c6c68b09e7c2ea334f))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
