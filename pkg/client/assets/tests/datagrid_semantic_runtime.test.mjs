@@ -101,7 +101,7 @@ function createGrid(
 ) {
   return new DataGrid({
     tableId: 'documents-datatable',
-    apiEndpoint: '/admin/api/panels/documents',
+    apiEndpoint: '/admin/api/panels/articles',
     columns: [{ field: 'title', label: 'Title' }],
     notifier,
     ...overrides,
@@ -128,7 +128,7 @@ test('DataGrid adopts semantic structure, renders loading, and delegates selecti
   });
   globalThis.fetch = async () => {
     await fetchReleased;
-    return response([{ id: 'doc_1', title: 'Contract' }]);
+    return response([{ id: 'article_1', title: 'Contract' }]);
   };
 
   try {
@@ -189,7 +189,7 @@ test('DataGrid renders an accessible error row without discarding stale records'
   globalThis.fetch = async () => {
     requestCount += 1;
     if (requestCount === 1) {
-      return response([{ id: 'doc_1', title: 'Existing contract' }]);
+      return response([{ id: 'article_1', title: 'Existing contract' }]);
     }
     return new Response('unavailable', { status: 503 });
   };

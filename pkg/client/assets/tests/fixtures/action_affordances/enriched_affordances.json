@@ -17,18 +17,18 @@
           "enabled": false,
           "kind": "business_rule",
           "metadata": {
-            "agreement_count": 2,
-            "agreement_statuses": [
+            "schedule_count": 2,
+            "schedule_statuses": [
               "sent",
               "completed"
             ]
           },
-          "reason": "Document is used by 2 active agreements.",
+          "reason": "Article is used by 2 active publishing schedules.",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/approval_requests?document_id=doc_123",
+            "href": "/admin/publishing_schedules?article_id=article_123",
             "kind": "link",
-            "label": "View agreements"
+            "label": "View schedules"
           },
           "severity": "warning"
         },
@@ -39,7 +39,7 @@
             "current_status": "draft",
             "required_status": "approved"
           },
-          "reason": "Only approved documents can be published.",
+          "reason": "Only approved articles can be published.",
           "reason_code": "INVALID_STATUS",
           "severity": "info"
         },
@@ -60,15 +60,15 @@
           "reason": "Add the missing French translation fields before submitting.",
           "reason_code": "TRANSLATION_MISSING",
           "remediation": {
-            "href": "/admin/translations/families/tg_doc_123?locale=fr",
+            "href": "/admin/translations/families/tg_article_123?locale=fr",
             "kind": "link",
             "label": "Open translation family"
           },
           "severity": "warning"
         }
       },
-      "id": "doc_123",
-      "title": "Master Services Agreement"
+      "id": "article_123",
+      "title": "Launch Announcement"
     },
     "schema": {
       "actions": [
@@ -114,18 +114,18 @@
           "enabled": false,
           "kind": "business_rule",
           "metadata": {
-            "agreement_count": 2,
-            "agreement_statuses": [
+            "schedule_count": 2,
+            "schedule_statuses": [
               "sent",
               "completed"
             ]
           },
-          "reason": "Document is used by 2 active agreements.",
+          "reason": "Article is used by 2 active publishing schedules.",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/approval_requests?document_id=doc_123",
+            "href": "/admin/publishing_schedules?article_id=article_123",
             "kind": "link",
-            "label": "View agreements"
+            "label": "View schedules"
           },
           "severity": "warning"
         },
@@ -136,7 +136,7 @@
             "current_status": "draft",
             "required_status": "approved"
           },
-          "reason": "Only approved documents can be published.",
+          "reason": "Only approved articles can be published.",
           "reason_code": "INVALID_STATUS",
           "severity": "info"
         },
@@ -157,15 +157,15 @@
           "reason": "Add the missing French translation fields before submitting.",
           "reason_code": "TRANSLATION_MISSING",
           "remediation": {
-            "href": "/admin/translations/families/tg_doc_123?locale=fr",
+            "href": "/admin/translations/families/tg_article_123?locale=fr",
             "kind": "link",
             "label": "Open translation family"
           },
           "severity": "warning"
         }
       },
-      "id": "doc_123",
-      "title": "Master Services Agreement"
+      "id": "article_123",
+      "title": "Launch Announcement"
     },
     "schema": {
       "actions": [

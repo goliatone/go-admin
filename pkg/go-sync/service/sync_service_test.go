@@ -18,7 +18,7 @@ import (
 func TestScopeIdempotencyKeyUsesStableUserIntentScope(t *testing.T) {
 	key, err := service.ScopeIdempotencyKey(core.MutationInput{
 		ResourceRef: core.ResourceRef{
-			Kind: "agreement_draft",
+			Kind: "article_draft",
 			ID:   "draft_123",
 			Scope: map[string]string{
 				"tenant": "tenant_1",
@@ -33,7 +33,7 @@ func TestScopeIdempotencyKeyUsesStableUserIntentScope(t *testing.T) {
 		t.Fatalf("build scoped idempotency key: %v", err)
 	}
 
-	expected := "v1|agreement_draft|draft_123|send|actor=user_42|scope=org=org_9,tenant=tenant_1|key=send-1"
+	expected := "v1|article_draft|draft_123|send|actor=user_42|scope=org=org_9,tenant=tenant_1|key=send-1"
 	if key != expected {
 		t.Fatalf("expected scoped idempotency key %q, got %q", expected, key)
 	}
@@ -346,8 +346,8 @@ func TestSyncServiceMapsUnknownStoreErrorsToTemporaryFailure(t *testing.T) {
 
 func seededRef() core.ResourceRef {
 	return core.ResourceRef{
-		Kind: "agreement_draft",
-		ID:   "agreement_draft_123",
+		Kind: "article_draft",
+		ID:   "article_draft_123",
 		Scope: map[string]string{
 			"tenant": "tenant_1",
 		},
@@ -357,11 +357,11 @@ func seededRef() core.ResourceRef {
 func seedSnapshot(now time.Time, revision int64) core.Snapshot {
 	return core.Snapshot{
 		ResourceRef: seededRef(),
-		Data:        []byte(`{"id":"agreement_draft_123","status":"draft"}`),
+		Data:        []byte(`{"id":"article_draft_123","status":"draft"}`),
 		Revision:    revision,
 		UpdatedAt:   now,
 		Metadata: map[string]any{
-			"kind": "agreement_draft",
+			"kind": "article_draft",
 		},
 	}
 }
@@ -370,7 +370,7 @@ func seededMutation() core.MutationInput {
 	return core.MutationInput{
 		ResourceRef:      seededRef(),
 		Operation:        "send",
-		Payload:          []byte(`{"id":"agreement_draft_123","status":"sent"}`),
+		Payload:          []byte(`{"id":"article_draft_123","status":"sent"}`),
 		ExpectedRevision: 12,
 		IdempotencyKey:   "send-1",
 		ActorID:          "user_42",

@@ -1,6 +1,6 @@
 {
   "data": {
-    "id": "agreement_draft_123",
+    "id": "article_draft_123",
     "title": "Mutual NDA",
     "status": "draft",
     "participants": [
@@ -11,7 +11,7 @@
       },
       {
         "id": "participant_2",
-        "role": "signer",
+        "role": "editor",
         "name": "Grace Hopper"
       }
     ]

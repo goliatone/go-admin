@@ -1,17 +1,18 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { t as u } from "../chunks/icon-renderer-tQhqqQbt.js";
-import { t as At } from "../chunks/modal-Dzqx5T1M.js";
-import { t as jt } from "../chunks/toast-manager-DWSFynqs.js";
+import { t as u } from "../chunks/icon-renderer-DauoBn1n.js";
+import { t as At } from "../chunks/modal-D1hUYSoJ.js";
+import { t as jt } from "../chunks/toast-manager-BwGNIQYR.js";
 import { httpRequest as Dt, readHTTPJSONValue as Ut } from "../shared/transport/http-client.js";
 import { extractStructuredError as ht, formatStructuredErrorForDisplay as pt, parseActionResponse as Ot } from "../toast/error-helpers.js";
-import { p as rt, u as gt } from "../chunks/behaviors-3r2n03MZ.js";
-import { a as ot, c as Ge, d as V, f as M, i as q, l as Je, n as Ht, o as Bt, r as ct, s as Qe, t as Ke, u as W } from "../chunks/ui-states-BOBY2bIW.js";
+import { p as rt, u as gt } from "../chunks/behaviors-DAT-GAWx.js";
+import { a as ot, c as Ge, d as V, f as M, i as q, l as Je, n as Ht, o as Bt, r as ct, s as Qe, t as Ke, u as W } from "../chunks/ui-states-DDJEdXAd.js";
 var lt = class qt extends Error {
   constructor(e, i, s, r) {
     super(e), this.name = "ServicesAPIError", this.code = i, this.statusCode = s, this.details = r;
   }
   static fromResponse(e, i) {
-    return new qt(i.message || i.error || "Unknown error", i.text_code || "UNKNOWN_ERROR", e, i.details);
+    const s = i.message || i.error || "Unknown error", r = i.text_code || "UNKNOWN_ERROR";
+    return new qt(s, r, e, i.details);
   }
   get isForbidden() {
     return this.statusCode === 403 || this.code === "FORBIDDEN";
@@ -1480,7 +1481,6 @@ function ue(t) {
           break;
         case "Escape":
           p.preventDefault(), n?.();
-          break;
       }
     }
   }
@@ -2663,22 +2663,23 @@ var _t = {
     return this.providers.find((e) => e.id === t);
   }
   async loadProviders() {
-    if (this.container) {
-      this.loading = !0, this.error = null, this.renderLoading(), this.providers = await Ft(P(), {
-        notifier: this.config.notifier,
-        onError: (t) => {
-          this.error = t;
-        }
-      });
-      try {
-        if (this.error) {
-          this.renderError();
-          return;
-        }
-        this.renderProviders();
-      } finally {
-        this.loading = !1;
+    if (!this.container) return;
+    this.loading = !0, this.error = null, this.renderLoading();
+    const t = P();
+    this.providers = await Ft(t, {
+      notifier: this.config.notifier,
+      onError: (e) => {
+        this.error = e;
       }
+    });
+    try {
+      if (this.error) {
+        this.renderError();
+        return;
+      }
+      this.renderProviders();
+    } finally {
+      this.loading = !1;
     }
   }
   renderLoading() {
@@ -3186,7 +3187,6 @@ var Ct = {
               break;
             case "revoke":
               await this.handleRevoke(e, i);
-              break;
           }
         });
       }));
@@ -3228,11 +3228,11 @@ var Ct = {
     });
   }
   async handleRevoke(t, e) {
-    const i = this.getConnection(t);
+    const i = this.getConnection(t), s = i ? S(i.provider_id, this.config.getProviderName) : void 0;
     await Q({
       action: "revoke",
       resourceType: "connection",
-      resourceName: i ? S(i.provider_id, this.config.getProviderName) : void 0
+      resourceName: s
     }) && (this.actionQueue.isInFlight(`revoke-${t}`) || await this.actionQueue.execute(`revoke-${t}`, async () => {
       await x({
         mutation: () => this.client.revokeConnection(t),
@@ -3610,18 +3610,17 @@ var Lt = {
               break;
             case "reinstall":
               await this.handleReinstall(e);
-              break;
           }
         });
       }));
     });
   }
   async handleUninstall(t, e) {
-    const i = this.getInstallation(t);
+    const i = this.getInstallation(t), s = i ? S(i.provider_id, this.config.getProviderName) : void 0;
     await Q({
       action: "uninstall",
       resourceType: "installation",
-      resourceName: i ? S(i.provider_id, this.config.getProviderName) : void 0
+      resourceName: s
     }) && (this.actionQueue.isInFlight(`uninstall-${t}`) || await this.actionQueue.execute(`uninstall-${t}`, async () => {
       await x({
         mutation: () => this.client.uninstallInstallation(t),
@@ -4215,14 +4214,14 @@ var U = {
     if (!this.config.useDeepLinks) return "#";
     const i = It(t);
     if (!i) return "#";
-    const s = this.queryState.getState();
-    return oe(i, e, {
+    const s = this.queryState.getState(), r = {
       fromPage: window.location.pathname,
-      filters: Object.fromEntries(Object.entries(s.filters).filter(([, r]) => r)),
+      filters: Object.fromEntries(Object.entries(s.filters).filter(([, n]) => n)),
       search: s.search || void 0,
       page: s.page > 1 ? s.page : void 0,
       viewMode: this.state.viewMode
-    });
+    };
+    return oe(i, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -4703,7 +4702,6 @@ var it = {
               break;
             case "cancel":
               await this.handleCancel(e, i);
-              break;
           }
         });
       }));
@@ -5313,7 +5311,7 @@ var Et = {
     else if (t.last_error)
       e = "error", i = "Credential Error", s = "bg-red-100 text-red-700 border-red-200", r = "iconoir:warning-circle";
     else if (t.expires_at) {
-      const n = new Date(t.expires_at), c = /* @__PURE__ */ new Date(), a = (n.getTime() - c.getTime()) / (1e3 * 60 * 60);
+      const n = new Date(t.expires_at), c = /* @__PURE__ */ new Date(), a = (n.getTime() - c.getTime()) / 36e5;
       a < 0 ? (e = "error", i = "Expired", s = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : a < 24 && (e = "warning", i = "Expiring Soon", s = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
     }
     return `
@@ -5509,20 +5507,22 @@ var Et = {
     });
   }
   async handleRevoke() {
-    if (!this.state.connection || !await Q({
+    if (!this.state.connection) return;
+    const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : B(this.state.connection.provider_id);
+    if (!await Q({
       action: "revoke",
       resourceType: "connection",
-      resourceName: this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : B(this.state.connection.provider_id)
+      resourceName: t
     })) return;
-    const t = this.container?.querySelector(".revoke-btn");
+    const e = this.container?.querySelector(".revoke-btn");
     this.actionQueue.isInFlight("revoke") || await this.actionQueue.execute("revoke", async () => {
       await x({
         mutation: () => this.client.revokeConnection(this.config.connectionId),
         notifier: this.config.notifier,
         successMessage: "Connection revoked",
         errorMessagePrefix: "Failed to revoke",
-        buttonConfig: t ? {
-          button: t,
+        buttonConfig: e ? {
+          button: e,
           loadingText: "Revoking...",
           successText: "Revoked",
           errorText: "Failed"

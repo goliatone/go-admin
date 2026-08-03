@@ -53,13 +53,13 @@ function ge(t, e, n) {
   if (r.length === 0) return;
   let o = t;
   r.forEach((l, b) => {
-    const v = b === r.length - 1, A = r[b + 1], C = A !== void 0 && /^\d+$/.test(A);
+    const v = b === r.length - 1, E = r[b + 1], A = E !== void 0 && /^\d+$/.test(E);
     if (v) {
       if (l === "") return;
       o[l] = n;
       return;
     }
-    (o[l] == null || typeof o[l] != "object") && (o[l] = C ? [] : {}), o = o[l];
+    (o[l] == null || typeof o[l] != "object") && (o[l] = A ? [] : {}), o = o[l];
   });
 }
 function he(t) {
@@ -128,13 +128,13 @@ function ve(t, e) {
   return t.querySelectorAll("template[data-block-template]").forEach((r) => {
     const o = r.dataset.blockType?.trim();
     if (!o) return;
-    const l = r.dataset.blockLabel?.trim() || o, b = r.dataset.blockIcon?.trim(), v = ne(r.dataset.blockCollapsed), A = r.dataset.blockSchemaVersion?.trim() || le(o, e.schemaVersionPattern), C = r.dataset.blockRequiredFields?.trim(), L = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[o] || [];
+    const l = r.dataset.blockLabel?.trim() || o, b = r.dataset.blockIcon?.trim(), v = ne(r.dataset.blockCollapsed), E = r.dataset.blockSchemaVersion?.trim() || le(o, e.schemaVersionPattern), A = r.dataset.blockRequiredFields?.trim(), L = A ? A.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[o] || [];
     n.set(o, {
       type: o,
       label: l,
       icon: b || void 0,
       collapsed: v,
-      schemaVersion: A,
+      schemaVersion: E,
       requiredFields: L,
       template: r
     });
@@ -160,7 +160,7 @@ function Ae(t, e) {
     if (l instanceof HTMLInputElement) if (l.type === "checkbox") b = !l.checked;
     else if (l.type === "radio") {
       const v = t.querySelectorAll(`[name="${l.name}"]`);
-      b = !Array.from(v).some((A) => A.checked);
+      b = !Array.from(v).some((E) => E.checked);
     } else b = !l.value.trim();
     else l instanceof HTMLSelectElement ? b = !l.value || l.value === "" : b = !l.value.trim();
     b && n.push({
@@ -218,14 +218,14 @@ function G(t, e) {
   t.length, e.length;
   const r = Math.max(t.length, e.length);
   for (let o = 0; o < r; o++) {
-    const l = t[o] || {}, b = e[o] || {}, v = l._type || b._type || `block_${o}`, A = /* @__PURE__ */ new Set([...Object.keys(l), ...Object.keys(b)]);
-    for (const C of A) {
-      if (C.startsWith("_")) continue;
-      const L = l[C], c = b[C];
+    const l = t[o] || {}, b = e[o] || {}, v = l._type || b._type || `block_${o}`, E = /* @__PURE__ */ new Set([...Object.keys(l), ...Object.keys(b)]);
+    for (const A of E) {
+      if (A.startsWith("_")) continue;
+      const L = l[A], c = b[A];
       V(L, c) || n.push({
         blockIndex: o,
         blockType: v,
-        field: C,
+        field: A,
         embeddedValue: L,
         legacyValue: c
       });
@@ -261,21 +261,21 @@ function Be(t) {
   o.className = "font-medium text-amber-800 dark:text-amber-200", o.textContent = "Block Conflicts Detected", n.appendChild(r), n.appendChild(o), e.appendChild(n);
   const l = document.createElement("p");
   if (l.className = "text-sm text-amber-700 dark:text-amber-300 mb-3", l.textContent = `Embedded blocks (${t.embeddedCount}) differ from legacy blocks (${t.legacyCount}). Embedded blocks are authoritative.`, e.appendChild(l), t.conflicts.length > 0) {
-    const A = document.createElement("details");
-    A.className = "text-sm";
-    const C = document.createElement("summary");
-    C.className = "cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium", C.textContent = `View ${t.conflicts.length} field conflict${t.conflicts.length > 1 ? "s" : ""}`, A.appendChild(C);
+    const E = document.createElement("details");
+    E.className = "text-sm";
+    const A = document.createElement("summary");
+    A.className = "cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium", A.textContent = `View ${t.conflicts.length} field conflict${t.conflicts.length > 1 ? "s" : ""}`, E.appendChild(A);
     const L = document.createElement("ul");
     L.className = "mt-2 space-y-1 pl-4";
     for (const c of t.conflicts.slice(0, 10)) {
-      const T = document.createElement("li");
-      T.className = "text-amber-700 dark:text-amber-300", T.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, L.appendChild(T);
+      const w = document.createElement("li");
+      w.className = "text-amber-700 dark:text-amber-300", w.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, L.appendChild(w);
     }
     if (t.conflicts.length > 10) {
       const c = document.createElement("li");
       c.className = "text-amber-600 dark:text-amber-400 italic", c.textContent = `...and ${t.conflicts.length - 10} more`, L.appendChild(c);
     }
-    A.appendChild(L), e.appendChild(A);
+    E.appendChild(L), e.appendChild(E);
   }
   const b = document.createElement("div");
   b.className = "mt-3 flex gap-2";
@@ -292,11 +292,11 @@ function qe() {
   return t.className = "block-drop-indicator", t.setAttribute("data-block-drop-indicator", "true"), t.setAttribute("aria-hidden", "true"), t;
 }
 function X(t, e, n) {
-  I(t);
+  T(t);
   const r = qe();
   return e ? n === "before" ? e.parentElement?.insertBefore(r, e) : e.parentElement?.insertBefore(r, e.nextSibling) : t.appendChild(r), r;
 }
-function I(t) {
+function T(t) {
   t.querySelectorAll("[data-block-drop-indicator]").forEach((e) => e.remove());
 }
 function D(t, e, n) {
@@ -354,7 +354,7 @@ function B(t) {
     e.textContent = t;
   });
 }
-function w(t, e) {
+function N(t, e) {
   const n = Array.from(t.querySelectorAll("[data-block-item]")), r = n.indexOf(e) + 1, o = n.length;
   return {
     label: e.querySelector("[data-block-header] span")?.textContent || e.dataset.blockType || "Block",
@@ -436,9 +436,9 @@ function $e(t, e) {
 function De(t) {
   const e = me(t);
   if (!e) return;
-  const n = te(t), r = ae(t, n), o = t.dataset.blockField || e.output.name, l = ne(t.dataset.blockSortable), b = n.sortable ?? l ?? !1, v = n.allowDrag ?? b, A = n.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = n.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", L = n.validateOnInput ?? !0;
-  e.addButton && (e.addButton.textContent = A), e.emptyState && (e.emptyState.textContent = C);
-  const c = e.list, T = e.output, R = () => {
+  const n = te(t), r = ae(t, n), o = t.dataset.blockField || e.output.name, l = ne(t.dataset.blockSortable), b = n.sortable ?? l ?? !1, v = n.allowDrag ?? b, E = n.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", A = n.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", L = n.validateOnInput ?? !0;
+  e.addButton && (e.addButton.textContent = E), e.emptyState && (e.emptyState.textContent = A);
+  const c = e.list, w = e.output, R = () => {
     const a = Array.from(c.querySelectorAll("[data-block-item]"));
     let u = !1;
     const d = a.map((p) => {
@@ -468,7 +468,7 @@ function De(t) {
       }
       return s;
     });
-    T.value = JSON.stringify(d), t.dataset.blockEditorValid = u ? "false" : "true";
+    w.value = JSON.stringify(d), t.dataset.blockEditorValid = u ? "false" : "true";
   }, ce = () => {
     Array.from(c.querySelectorAll("[data-block-item]")).forEach((a, u) => {
       a.querySelectorAll("input, select, textarea").forEach((d) => {
@@ -513,8 +513,8 @@ function De(t) {
     if (y.className = "flex items-center gap-2", b) {
       const q = document.createElement("button");
       q.type = "button", q.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", q.textContent = "Up", q.setAttribute("data-block-move-up", "true");
-      const N = document.createElement("button");
-      N.type = "button", N.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", N.textContent = "Down", N.setAttribute("data-block-move-down", "true"), y.appendChild(q), y.appendChild(N);
+      const $ = document.createElement("button");
+      $.type = "button", $.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", $.textContent = "Down", $.setAttribute("data-block-move-down", "true"), y.appendChild(q), y.appendChild($);
     }
     const h = document.createElement("button");
     h.type = "button", h.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", h.textContent = "Collapse", h.setAttribute("data-block-collapse", "true");
@@ -524,12 +524,12 @@ function De(t) {
       q.className = "text-xs text-gray-400 cursor-move", q.textContent = "Drag", q.setAttribute("data-block-drag-handle", "true"), y.appendChild(q);
     }
     s.appendChild(g), s.appendChild(y);
-    const E = document.createElement("div");
-    E.className = "p-4 space-y-4", E.setAttribute("data-block-body", "true");
-    const $ = a.template.content.cloneNode(!0);
-    E.appendChild($), p.appendChild(s), p.appendChild(E), Ne(p, a.type), $e(p, d), p.dataset.blockSchema = d, u && ie(p, u);
+    const C = document.createElement("div");
+    C.className = "p-4 space-y-4", C.setAttribute("data-block-body", "true");
+    const I = a.template.content.cloneNode(!0);
+    C.appendChild(I), p.appendChild(s), p.appendChild(C), Ne(p, a.type), $e(p, d), p.dataset.blockSchema = d, u && ie(p, u);
     const J = a.requiredFields || [];
-    return J.length > 0 && Le(E, J), (a.collapsed ?? !1) && (E.classList.add("hidden"), p.dataset.blockCollapsed = "true", h.textContent = "Expand"), p;
+    return J.length > 0 && Le(C, J), (a.collapsed ?? !1) && (C.classList.add("hidden"), p.dataset.blockCollapsed = "true", h.textContent = "Expand"), p;
   }, j = (a, u) => {
     const d = r.get(a);
     if (!d) return;
@@ -601,46 +601,46 @@ function De(t) {
         const h = m.cloneNode(!0);
         h.style.cssText = "position: absolute; top: -9999px; left: -9999px; opacity: 0.8; transform: rotate(2deg);", document.body.appendChild(h), i.dataTransfer.setDragImage(h, 20, 20), requestAnimationFrame(() => h.remove());
       }
-      const y = w(c, m);
+      const y = N(c, m);
       B(`Dragging ${y.label} from position ${y.position} of ${y.total}. Use arrow keys to move.`);
     }), c.addEventListener("dragover", (i) => {
       i.preventDefault(), i.dataTransfer && (i.dataTransfer.dropEffect = "move");
       const f = i.clientY, m = D(c, f, s.dragging || void 0);
-      m ? X(c, m.item, m.position) : I(c);
+      m ? X(c, m.item, m.position) : T(c);
     }), c.addEventListener("dragenter", (i) => {
       i.preventDefault();
     }), c.addEventListener("dragleave", (i) => {
       const f = i.relatedTarget;
-      (!f || !c.contains(f)) && I(c);
+      (!f || !c.contains(f)) && T(c);
     }), c.addEventListener("drop", (i) => {
-      i.preventDefault(), I(c);
+      i.preventDefault(), T(c);
       const f = i.clientY, m = D(c, f, s.dragging || void 0);
       if (!s.dragging && p && i.dataTransfer) {
         const y = i.dataTransfer.getData("application/x-block");
         if (y) try {
           const h = JSON.parse(y), k = h._type;
           if (k && r.has(k)) {
-            const E = _(r.get(k), h);
-            m ? m.position === "before" ? c.insertBefore(E, m.item) : c.insertBefore(E, m.item.nextSibling) : c.appendChild(E), S(), B(`Block ${k} added from another editor`);
+            const C = r.get(k), I = _(C, h);
+            m ? m.position === "before" ? c.insertBefore(I, m.item) : c.insertBefore(I, m.item.nextSibling) : c.appendChild(I), S(), B(`Block ${k} added from another editor`);
           }
         } catch {
         }
         return;
       }
       if (s.dragging && (m && (m.position === "before" ? c.insertBefore(s.dragging, m.item) : c.insertBefore(s.dragging, m.item.nextSibling)), d && Z(c, s.dragging), x(s.dragging) !== s.originalIndex)) {
-        const y = w(c, s.dragging);
+        const y = N(c, s.dragging);
         B(`${y.label} moved to position ${y.position} of ${y.total}`);
       }
     }), c.addEventListener("dragend", () => {
-      I(c), s.dragging && (s.dragging.classList.remove("block-item--dragging"), s.dragging = null), s.originalIndex = -1, S();
+      T(c), s.dragging && (s.dragging.classList.remove("block-item--dragging"), s.dragging = null), s.originalIndex = -1, S();
     }), u) {
       let i = null, f = null, m = !1;
       const y = 10;
       c.addEventListener("touchstart", (h) => {
-        const k = h.touches[0], E = k.target;
-        if (!g(E)) return;
-        const $ = E.closest("[data-block-item]");
-        $ && (s.touchStartY = k.clientY, s.touchCurrentY = k.clientY, i = $, m = !1);
+        const k = h.touches[0], C = k.target;
+        if (!g(C)) return;
+        const I = C.closest("[data-block-item]");
+        I && (s.touchStartY = k.clientY, s.touchCurrentY = k.clientY, i = I, m = !1);
       }, { passive: !0 }), c.addEventListener("touchmove", (h) => {
         if (!i) return;
         const k = h.touches[0];
@@ -656,24 +656,24 @@ function De(t) {
             opacity: 0.9;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             transform: scale(1.02);
-          `, document.body.appendChild(f), i.classList.add("block-item--placeholder"), s.dragging = i, s.originalIndex = x(i), B(`Dragging ${w(c, i).label}. Move finger to reposition.`);
+          `, document.body.appendChild(f), i.classList.add("block-item--placeholder"), s.dragging = i, s.originalIndex = x(i), B(`Dragging ${N(c, i).label}. Move finger to reposition.`);
         }
         h.preventDefault(), f && (f.style.top = `${k.clientY - f.offsetHeight / 2}px`);
-        const E = D(c, k.clientY, i || void 0);
-        E ? X(c, E.item, E.position) : I(c), we(c, s);
+        const C = D(c, k.clientY, i || void 0);
+        C ? X(c, C.item, C.position) : T(c), we(c, s);
       }, { passive: !1 }), c.addEventListener("touchend", () => {
-        if (s.scrollInterval && (clearInterval(s.scrollInterval), s.scrollInterval = null), I(c), f && (f.remove(), f = null), i && m) {
+        if (s.scrollInterval && (clearInterval(s.scrollInterval), s.scrollInterval = null), T(c), f && (f.remove(), f = null), i && m) {
           i.classList.remove("block-item--placeholder");
           const h = D(c, s.touchCurrentY, i);
           if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), d && Z(c, i), x(i) !== s.originalIndex) {
-            const k = w(c, i);
+            const k = N(c, i);
             B(`${k.label} moved to position ${k.position} of ${k.total}`);
           }
           S();
         }
         i = null, m = !1, s.dragging = null, s.originalIndex = -1;
       }), c.addEventListener("touchcancel", () => {
-        s.scrollInterval && (clearInterval(s.scrollInterval), s.scrollInterval = null), I(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, s.dragging = null, s.originalIndex = -1;
+        s.scrollInterval && (clearInterval(s.scrollInterval), s.scrollInterval = null), T(c), f && (f.remove(), f = null), i && i.classList.remove("block-item--placeholder"), i = null, m = !1, s.dragging = null, s.originalIndex = -1;
       });
     }
   }
@@ -702,7 +702,7 @@ function De(t) {
             const g = d.previousElementSibling;
             if (g) {
               c.insertBefore(d, g), S(), d.querySelector("[data-block-header]")?.focus();
-              const x = w(c, d);
+              const x = N(c, d);
               B(`${x.label} moved to position ${x.position} of ${x.total}`);
             } else B("Already at the top");
           } else if (!a.altKey) {
@@ -717,7 +717,7 @@ function De(t) {
             const g = d.nextElementSibling;
             if (g) {
               c.insertBefore(g, d), S(), d.querySelector("[data-block-header]")?.focus();
-              const x = w(c, d);
+              const x = N(c, d);
               B(`${x.label} moved to position ${x.position} of ${x.total}`);
             } else B("Already at the bottom");
           } else if (!a.altKey) {
@@ -737,7 +737,6 @@ function De(t) {
             const g = d.querySelector("[data-block-collapse]");
             g && (g.textContent = "Expand");
           }
-          break;
       }
   });
   const de = () => {
@@ -751,7 +750,7 @@ function De(t) {
     childList: !0,
     subtree: !0
   });
-  const F = K(T.value, []);
+  const F = K(w.value, []);
   F.forEach((a) => {
     const u = typeof a == "object" && a ? a._type : "";
     u && r.has(u) && j(u, a);

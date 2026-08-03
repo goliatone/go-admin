@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,17 +10,16 @@ const packageRoot = resolve(workspaceRoot, "..");
 const repoRoot = resolve(packageRoot, "..", "..");
 
 function sourceFiles(root, files = []) {
-  for (const entry of readdirSync(root)) {
-    const fullPath = join(root, entry);
-    const info = statSync(fullPath);
-    if (info.isDirectory()) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const fullPath = join(root, entry.name);
+    if (entry.isDirectory()) {
       if ([
         ".git",
         "node_modules",
         "dist",
         "dist-types",
         "test-results",
-      ].includes(entry)) {
+      ].includes(entry.name)) {
         continue;
       }
       sourceFiles(fullPath, files);
@@ -96,7 +95,7 @@ test("package-local release automation stays independent from host application s
     resolve(workspaceRoot, "scripts", "verify-package.mjs"),
   ]) {
     const payload = readFileSync(path, "utf8");
-    for (const marker of ["agreement-form", "pkg/client/assets"]) {
+    for (const marker of ["article-editor", "pkg/client/assets"]) {
       assert.equal(payload.includes(marker), false, `${path} contains host-specific marker ${marker}`);
     }
   }

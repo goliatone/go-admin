@@ -1,9 +1,8 @@
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { extractStructuredError as q } from "../toast/error-helpers.js";
-import "../chunks/status-vocabulary-ak1N6rXX.js";
-import { r as h, t as N } from "../chunks/translation-contracts-DIMN10n7.js";
-import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-BkWg4uhq.js";
+import { r as h, t as N } from "../chunks/translation-contracts-C_O37O2-.js";
+import { h as I, it as v, m as w, nt as A, p as P, rt as b } from "../chunks/translation-shared-D6PJvjua.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",
@@ -15,8 +14,8 @@ function p() {
   if (typeof window < "u" && window.__TRANSLATION_CAPABILITIES__) return h(window.__TRANSLATION_CAPABILITIES__);
   const e = document.querySelector("script[data-translation-capabilities]");
   if (e) try {
-    const n = e.textContent || "";
-    return h(JSON.parse(n));
+    const n = e.textContent || "", s = JSON.parse(n);
+    return h(s);
   } catch {
   }
   const t = document.body;
@@ -55,7 +54,7 @@ function $(e) {
 function S(e) {
   return (e ?? p()).modules.queue.enabled;
 }
-function W(e) {
+function K(e) {
   return $(e) || S(e);
 }
 function E(e, t, n) {
@@ -284,7 +283,7 @@ function T(e, t, n = {}) {
       e.innerHTML = F();
   }
 }
-async function Z(e) {
+async function W(e) {
   const t = typeof e == "string" ? document.querySelector(e) : e;
   if (!t) return null;
   T(t, { status: "loading" });
@@ -334,7 +333,7 @@ var Q = class {
     }));
   }
 };
-function ee(e) {
+function Z(e) {
   if (!document.querySelector("[data-translation-operations]")) return null;
   const t = new Q({ basePath: e ?? "" });
   return t.init(), t;
@@ -345,9 +344,9 @@ export {
   p as extractTranslationCapabilities,
   H as fetchTranslationShellData,
   E as getTranslationRoute,
-  W as hasTranslationOperations,
-  ee as initTranslationOperations,
-  Z as initTranslationSurfaceShell,
+  K as hasTranslationOperations,
+  Z as initTranslationOperations,
+  W as initTranslationSurfaceShell,
   $ as isExchangeEnabled,
   S as isQueueEnabled,
   O as renderEntrypointLink,

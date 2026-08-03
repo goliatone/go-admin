@@ -16,7 +16,7 @@ func TestMemoryResourceStoreGetReturnsClonedSnapshot(t *testing.T) {
 
 	seed := core.Snapshot{
 		ResourceRef: core.ResourceRef{
-			Kind: "agreement_draft",
+			Kind: "article_draft",
 			ID:   "draft_123",
 			Scope: map[string]string{
 				"tenant": "tenant_1",
@@ -62,7 +62,7 @@ func TestMemoryResourceStoreMutateRequiresMatchingRevision(t *testing.T) {
 	now := time.Date(2026, 3, 12, 13, 0, 0, 0, time.UTC)
 	resourceStore := store.NewMemoryResourceStore(core.Snapshot{
 		ResourceRef: core.ResourceRef{
-			Kind: "agreement_draft",
+			Kind: "article_draft",
 			ID:   "draft_123",
 			Scope: map[string]string{
 				"tenant": "tenant_1",
@@ -76,7 +76,7 @@ func TestMemoryResourceStoreMutateRequiresMatchingRevision(t *testing.T) {
 
 	updated, err := resourceStore.Mutate(context.Background(), core.MutationInput{
 		ResourceRef: core.ResourceRef{
-			Kind: "agreement_draft",
+			Kind: "article_draft",
 			ID:   "draft_123",
 			Scope: map[string]string{
 				"tenant": "tenant_1",
@@ -150,7 +150,7 @@ func TestMemoryIdempotencyStoreReserveCommitReplayAndRelease(t *testing.T) {
 
 	result := core.MutationResult{
 		Snapshot: core.Snapshot{
-			ResourceRef: core.ResourceRef{Kind: "agreement_draft", ID: "draft_123"},
+			ResourceRef: core.ResourceRef{Kind: "article_draft", ID: "draft_123"},
 			Data:        []byte(`{"status":"sent"}`),
 			Revision:    9,
 			UpdatedAt:   now,
@@ -234,7 +234,7 @@ func TestMemoryIdempotencyStoreRecoverCommitStoresReplayResult(t *testing.T) {
 
 	result := core.MutationResult{
 		Snapshot: core.Snapshot{
-			ResourceRef: core.ResourceRef{Kind: "agreement_draft", ID: "draft_recover"},
+			ResourceRef: core.ResourceRef{Kind: "article_draft", ID: "draft_recover"},
 			Data:        []byte(`{"status":"sent"}`),
 			Revision:    4,
 			UpdatedAt:   now,
@@ -258,14 +258,14 @@ func TestMemoryResourceStorePreservesJSONPayload(t *testing.T) {
 	t.Parallel()
 
 	resourceStore := store.NewMemoryResourceStore(core.Snapshot{
-		ResourceRef: core.ResourceRef{Kind: "agreement_draft", ID: "draft_123"},
+		ResourceRef: core.ResourceRef{Kind: "article_draft", ID: "draft_123"},
 		Data:        []byte(`{"title":"Before","participants":[1]}`),
 		Revision:    1,
 		UpdatedAt:   time.Date(2026, 3, 12, 15, 0, 0, 0, time.UTC),
 	})
 
 	snapshot, err := resourceStore.Mutate(context.Background(), core.MutationInput{
-		ResourceRef:      core.ResourceRef{Kind: "agreement_draft", ID: "draft_123"},
+		ResourceRef:      core.ResourceRef{Kind: "article_draft", ID: "draft_123"},
 		Operation:        "autosave",
 		Payload:          []byte(`{"title":"After","participants":[1,2]}`),
 		ExpectedRevision: 1,

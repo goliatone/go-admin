@@ -723,7 +723,7 @@ func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	adm.NamedLogger("module.catalog.service").Info(
 		"module service log",
 		"module", "catalog",
-		"service", "agreement",
+		"service", "publication",
 	)
 
 	collector := adm.Debug()

@@ -1,6 +1,6 @@
 import { escapeHTML as r } from "../shared/html.js";
 import { formatAbsoluteDateTime as m, formatRelativeTimeNatural as p, parseTimeValue as f } from "../shared/time-formatters.js";
-import { n as b, t as v } from "../chunks/application-widgets-BOFz8cp4.js";
+import { n as b, t as v } from "../chunks/application-widgets-ghhHXoXr.js";
 function g(t) {
   return typeof t == "number" ? t.toLocaleString() : t == null ? "" : String(t);
 }
@@ -153,11 +153,11 @@ function k(t) {
   return `<div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden"><div class="p-6">${e.length ? `<div class="widgets-grid" data-area-code="${r(t.area_code || "")}">${e.map(A).join("")}</div>` : `<p class="text-sm text-gray-500">${r(a)}</p>`}</div></div>`;
 }
 function S(t) {
-  const e = t.record || {}, a = Array.isArray(t.fields) ? t.fields : [], s = e.username || e.display_name || e.id || "", i = e.email || "";
+  const e = t.record || {}, a = Array.isArray(t.fields) ? t.fields : [], s = e.username || e.display_name || e.id || "", i = e.email || "", n = String(e.username || e.display_name || e.email || e.id || "?").slice(0, 1).toUpperCase();
   return `
     <div class="max-w-4xl bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div class="p-6 bg-gray-50 border-b border-gray-200 flex items-center gap-4">
-        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">${r(String(e.username || e.display_name || e.email || e.id || "?").slice(0, 1).toUpperCase())}</div>
+        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-xl font-semibold text-blue-700">${r(n)}</div>
         <div>
           <h2 class="text-xl font-semibold text-gray-900">${r(s)}</h2>
           <p class="text-sm text-gray-500">${r(i)}</p>
@@ -166,7 +166,7 @@ function S(t) {
       <div class="p-6">
         <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Details</div>
         <div class="grid grid-cols-2 gap-6">
-          ${a.map((n) => `<div class="flex flex-col"><div class="text-sm text-gray-500 mb-1">${r(n.label)}</div><div class="text-base font-medium text-gray-900">${r(n.value ?? "-")}</div></div>`).join("")}
+          ${a.map((d) => `<div class="flex flex-col"><div class="text-sm text-gray-500 mb-1">${r(d.label)}</div><div class="text-base font-medium text-gray-900">${r(d.value ?? "-")}</div></div>`).join("")}
         </div>
       </div>
     </div>

@@ -20,7 +20,7 @@ func TestHandleReadReturnsCanonicalEnvelopeAndServerDerivedScope(t *testing.T) {
 			}
 			return core.Snapshot{
 				ResourceRef: ref,
-				Data:        []byte(`{"id":"agreement_draft_123","status":"draft"}`),
+				Data:        []byte(`{"id":"article_draft_123","status":"draft"}`),
 				Revision:    12,
 				UpdatedAt:   time.Date(2026, time.March, 12, 18, 0, 0, 0, time.UTC),
 			}, nil
@@ -34,9 +34,9 @@ func TestHandleReadReturnsCanonicalEnvelopeAndServerDerivedScope(t *testing.T) {
 		}, nil
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/sync/resources/agreement_draft/agreement_draft_123", nil)
-	req.SetPathValue("kind", "agreement_draft")
-	req.SetPathValue("id", "agreement_draft_123")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/sync/resources/article_draft/article_draft_123", nil)
+	req.SetPathValue("kind", "article_draft")
+	req.SetPathValue("id", "article_draft_123")
 
 	res := httptest.NewRecorder()
 	handler.HandleRead(res, req)
@@ -79,7 +79,7 @@ func TestHandleMutateDerivesTrustedIdentityAndReturnsMutationEnvelope(t *testing
 			return core.MutationResult{
 				Snapshot: core.Snapshot{
 					ResourceRef: input.ResourceRef,
-					Data:        []byte(`{"id":"agreement_draft_123","status":"draft"}`),
+					Data:        []byte(`{"id":"article_draft_123","status":"draft"}`),
 					Revision:    13,
 					UpdatedAt:   time.Date(2026, time.March, 12, 18, 0, 2, 0, time.UTC),
 					Metadata: map[string]any{
@@ -101,15 +101,15 @@ func TestHandleMutateDerivesTrustedIdentityAndReturnsMutationEnvelope(t *testing
 		}, nil
 	}))
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/article_draft/article_draft_123", bytes.NewBufferString(`{
 		"operation":"autosave",
 		"payload":{"title":"Mutual NDA"},
 		"expected_revision":12,
 		"idempotency_key":"idem_autosave_12",
 		"metadata":{"source":"contract_test"}
 	}`))
-	req.SetPathValue("kind", "agreement_draft")
-	req.SetPathValue("id", "agreement_draft_123")
+	req.SetPathValue("kind", "article_draft")
+	req.SetPathValue("id", "article_draft_123")
 
 	res := httptest.NewRecorder()
 	handler.HandleMutate(res, req)
@@ -139,7 +139,7 @@ func TestHandleActionUsesPathOperationAndReturnsReplayEnvelope(t *testing.T) {
 			return core.MutationResult{
 				Snapshot: core.Snapshot{
 					ResourceRef: input.ResourceRef,
-					Data:        []byte(`{"id":"agreement_draft_123","status":"sent"}`),
+					Data:        []byte(`{"id":"article_draft_123","status":"sent"}`),
 					Revision:    14,
 					UpdatedAt:   time.Date(2026, time.March, 12, 18, 0, 5, 0, time.UTC),
 				},
@@ -149,14 +149,14 @@ func TestHandleActionUsesPathOperationAndReturnsReplayEnvelope(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/sync/resources/agreement_draft/agreement_draft_123/actions/send", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/sync/resources/article_draft/article_draft_123/actions/send", bytes.NewBufferString(`{
 		"operation":"ignored-body-operation",
 		"payload":{"confirm":true},
 		"expected_revision":13,
 		"idempotency_key":"idem_send_13"
 	}`))
-	req.SetPathValue("kind", "agreement_draft")
-	req.SetPathValue("id", "agreement_draft_123")
+	req.SetPathValue("kind", "article_draft")
+	req.SetPathValue("id", "article_draft_123")
 	req.SetPathValue("operation", "send")
 
 	res := httptest.NewRecorder()
@@ -178,13 +178,13 @@ func TestHandleActionUsesPathOperationAndReturnsReplayEnvelope(t *testing.T) {
 func TestHandleMutateReturnsConflictEnvelope(t *testing.T) {
 	latest := core.Snapshot{
 		ResourceRef: core.ResourceRef{
-			Kind: "agreement_draft",
-			ID:   "agreement_draft_123",
+			Kind: "article_draft",
+			ID:   "article_draft_123",
 			Scope: map[string]string{
 				"tenant": "tenant_1",
 			},
 		},
-		Data:      []byte(`{"id":"agreement_draft_123","status":"draft"}`),
+		Data:      []byte(`{"id":"article_draft_123","status":"draft"}`),
 		Revision:  13,
 		UpdatedAt: time.Date(2026, time.March, 12, 18, 0, 2, 0, time.UTC),
 	}
@@ -194,13 +194,13 @@ func TestHandleMutateReturnsConflictEnvelope(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/article_draft/article_draft_123", bytes.NewBufferString(`{
 		"operation":"autosave",
 		"payload":{"title":"Changed"},
 		"expected_revision":12
 	}`))
-	req.SetPathValue("kind", "agreement_draft")
-	req.SetPathValue("id", "agreement_draft_123")
+	req.SetPathValue("kind", "article_draft")
+	req.SetPathValue("id", "article_draft_123")
 
 	res := httptest.NewRecorder()
 	handler.HandleMutate(res, req)
@@ -221,12 +221,12 @@ func TestHandleMutateReturnsConflictEnvelope(t *testing.T) {
 func TestHandleMutateRejectsInvalidRequestEnvelope(t *testing.T) {
 	handler := mustNewHandler(t, syncServiceStub{})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/agreement_draft/agreement_draft_123", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPatch, "/sync/resources/article_draft/article_draft_123", bytes.NewBufferString(`{
 		"operation":"autosave",
 		"payload":{"title":"Changed"}
 	}`))
-	req.SetPathValue("kind", "agreement_draft")
-	req.SetPathValue("id", "agreement_draft_123")
+	req.SetPathValue("kind", "article_draft")
+	req.SetPathValue("id", "article_draft_123")
 
 	res := httptest.NewRecorder()
 	handler.HandleMutate(res, req)
@@ -251,13 +251,13 @@ func TestHandleActionMapsTemporaryFailureEnvelope(t *testing.T) {
 		},
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/sync/resources/agreement_draft/agreement_draft_123/actions/send", bytes.NewBufferString(`{
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/sync/resources/article_draft/article_draft_123/actions/send", bytes.NewBufferString(`{
 		"payload":{"confirm":true},
 		"expected_revision":13,
 		"idempotency_key":"idem_send_13"
 	}`))
-	req.SetPathValue("kind", "agreement_draft")
-	req.SetPathValue("id", "agreement_draft_123")
+	req.SetPathValue("kind", "article_draft")
+	req.SetPathValue("id", "article_draft_123")
 	req.SetPathValue("operation", "send")
 
 	res := httptest.NewRecorder()

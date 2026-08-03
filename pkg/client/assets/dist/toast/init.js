@@ -1,15 +1,14 @@
-import "../chunks/modal-Dzqx5T1M.js";
-import { n as a } from "../chunks/toast-manager-DWSFynqs.js";
+import { n as a } from "../chunks/toast-manager-BwGNIQYR.js";
 import { extractErrorMessage as i, getErrorMessage as s } from "./error-helpers.js";
 function n(t) {
-  const e = new a({ position: t || "top-right" });
-  return window.toastManager = e, window.notify = {
-    success: (r, o) => e.success(r, o),
-    error: (r, o) => e.error(r, o),
-    warning: (r, o) => e.warning(r, o),
-    info: (r, o) => e.info(r, o),
-    confirm: (r, o) => e.confirm(r, o)
-  }, window.extractErrorMessage = i, window.getErrorMessage = s, e;
+  const o = new a({ position: t || "top-right" });
+  return window.toastManager = o, window.notify = {
+    success: (r, e) => o.success(r, e),
+    error: (r, e) => o.error(r, e),
+    warning: (r, e) => o.warning(r, e),
+    info: (r, e) => o.info(r, e),
+    confirm: (r, e) => o.confirm(r, e)
+  }, window.extractErrorMessage = i, window.getErrorMessage = s, o;
 }
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => n()) : n();
 export {

@@ -21,7 +21,12 @@ function z(e) {
 }
 var M = class {
   constructor(e = {}) {
-    this.modalId = e.modalId || "import-modal", e.endpoint ? this.endpoint = e.endpoint : e.apiBasePath ? this.endpoint = `${e.apiBasePath.trim().replace(/\/+$/, "")}/import` : this.endpoint = "/api/import", this.onSuccess = e.onSuccess || (() => {
+    if (this.modalId = e.modalId || "import-modal", e.endpoint) this.endpoint = e.endpoint;
+    else if (e.apiBasePath) {
+      const s = e.apiBasePath.trim().replace(/\/+$/, "");
+      this.endpoint = `${s}/import`;
+    } else this.endpoint = "/api/import";
+    this.onSuccess = e.onSuccess || (() => {
     }), this.notifier = e.notifier || {
       success: console.log,
       error: console.error

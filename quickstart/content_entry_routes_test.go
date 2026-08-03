@@ -699,14 +699,14 @@ func TestCanonicalPanelRouteBindingsResolvesCorePanels(t *testing.T) {
 func TestCanonicalPanelRouteBindingsSkipsPanelsWithoutNamedAdminRoute(t *testing.T) {
 	fixture := newContentEntryAdminFixture(t)
 	adm := fixture.Admin
-	if _, err := adm.RegisterPanel("document_records", newInMemoryPanelBuilder()); err != nil {
+	if _, err := adm.RegisterPanel("article_records", newInMemoryPanelBuilder()); err != nil {
 		t.Fatalf("register panel: %v", err)
 	}
 
 	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
 	for _, binding := range bindings {
-		if binding.Panel == "document_records" {
-			t.Fatalf("expected document_records to be excluded from canonical bindings, got %+v", binding)
+		if binding.Panel == "article_records" {
+			t.Fatalf("expected article_records to be excluded from canonical bindings, got %+v", binding)
 		}
 	}
 }
@@ -837,11 +837,11 @@ func TestHydrateDetailRelationLinksBuildsPanelLinks(t *testing.T) {
 	cfg := fixture.Config
 	adm := fixture.Admin
 	builder := newInMemoryPanelBuilder()
-	if _, err := adm.RegisterPanel("document_records", builder); err != nil {
-		t.Fatalf("register documents panel: %v", err)
+	if _, err := adm.RegisterPanel("authors", builder); err != nil {
+		t.Fatalf("register authors panel: %v", err)
 	}
-	if _, err := adm.RegisterPanel("approval_requests", builder); err != nil {
-		t.Fatalf("register agreements panel: %v", err)
+	if _, err := adm.RegisterPanel("book_reviews", builder); err != nil {
+		t.Fatalf("register reviews panel: %v", err)
 	}
 	handlers := &contentEntryHandlers{
 		admin: adm,
@@ -849,23 +849,23 @@ func TestHydrateDetailRelationLinksBuildsPanelLinks(t *testing.T) {
 	}
 
 	record := map[string]any{
-		"id":          "agreement-1",
-		"document_id": "doc-1",
+		"id":        "review-1",
+		"author_id": "author-1",
 	}
-	hydrated := handlers.hydrateDetailRelationLinks("approval_requests", record, "")
+	hydrated := handlers.hydrateDetailRelationLinks("book_reviews", record, "")
 
-	if got := strings.TrimSpace(anyToString(hydrated["document_url"])); got != "/admin/content/document_records/doc-1" {
-		t.Fatalf("expected hydrated document_url, got %q", got)
+	if got := strings.TrimSpace(anyToString(hydrated["author_url"])); got != "/admin/content/authors/author-1" {
+		t.Fatalf("expected hydrated author_url, got %q", got)
 	}
 	links, ok := hydrated["links"].(map[string]string)
 	if !ok {
 		t.Fatalf("expected links map[string]string, got %T", hydrated["links"])
 	}
-	if links["document"] != "/admin/content/document_records/doc-1" {
-		t.Fatalf("expected relation link for document, got %q", links["document"])
+	if links["author"] != "/admin/content/authors/author-1" {
+		t.Fatalf("expected relation link for author, got %q", links["author"])
 	}
-	if links["document_id"] != "/admin/content/document_records/doc-1" {
-		t.Fatalf("expected relation link for document_id, got %q", links["document_id"])
+	if links["author_id"] != "/admin/content/authors/author-1" {
+		t.Fatalf("expected relation link for author_id, got %q", links["author_id"])
 	}
 }
 
@@ -874,11 +874,11 @@ func TestHydrateDetailRelationLinksAddsChannelQuery(t *testing.T) {
 	cfg := fixture.Config
 	adm := fixture.Admin
 	builder := newInMemoryPanelBuilder()
-	if _, err := adm.RegisterPanel("document_records@staging", builder); err != nil {
-		t.Fatalf("register staging documents panel: %v", err)
+	if _, err := adm.RegisterPanel("authors@staging", builder); err != nil {
+		t.Fatalf("register staging authors panel: %v", err)
 	}
-	if _, err := adm.RegisterPanel("approval_requests@staging", builder); err != nil {
-		t.Fatalf("register staging agreements panel: %v", err)
+	if _, err := adm.RegisterPanel("book_reviews@staging", builder); err != nil {
+		t.Fatalf("register staging reviews panel: %v", err)
 	}
 	handlers := &contentEntryHandlers{
 		admin: adm,
@@ -886,13 +886,13 @@ func TestHydrateDetailRelationLinksAddsChannelQuery(t *testing.T) {
 	}
 
 	record := map[string]any{
-		"id":          "agreement-1",
-		"document_id": "doc-1",
+		"id":        "review-1",
+		"author_id": "author-1",
 	}
-	hydrated := handlers.hydrateDetailRelationLinks("approval_requests@staging", record, "staging")
-	got := strings.TrimSpace(anyToString(hydrated["document_url"]))
-	if got != "/admin/content/document_records/doc-1?channel=staging" {
-		t.Fatalf("expected channel-aware document_url, got %q", got)
+	hydrated := handlers.hydrateDetailRelationLinks("book_reviews@staging", record, "staging")
+	got := strings.TrimSpace(anyToString(hydrated["author_url"]))
+	if got != "/admin/content/authors/author-1?channel=staging" {
+		t.Fatalf("expected channel-aware author_url, got %q", got)
 	}
 }
 
@@ -905,25 +905,25 @@ func TestContentEntryCreateRedirectTargetDefaultsToEdit(t *testing.T) {
 }
 
 func TestContentEntryCreateRedirectTargetDoesNotInferDetailBehaviorFromPanelName(t *testing.T) {
-	routes := newContentEntryRoutes("/admin", "document_records", "staging")
-	got := contentEntryCreateRedirectTarget("document_records", "abc-123", routes)
-	if got != "/admin/content/document_records/abc-123/edit?channel=staging" {
+	routes := newContentEntryRoutes("/admin", "article_records", "staging")
+	got := contentEntryCreateRedirectTarget("article_records", "abc-123", routes)
+	if got != "/admin/content/article_records/abc-123/edit?channel=staging" {
 		t.Fatalf("expected application-neutral edit redirect, got %q", got)
 	}
 }
 
 func TestContentEntryCreateRedirectTargetDoesNotInferQueryStateFromPanelName(t *testing.T) {
-	routes := newContentEntryRoutes("/admin", "approval_requests", "staging")
-	got := contentEntryCreateRedirectTarget("approval_requests", "abc-123", routes)
-	if got != "/admin/content/approval_requests/abc-123/edit?channel=staging" {
+	routes := newContentEntryRoutes("/admin", "editorial_reviews", "staging")
+	got := contentEntryCreateRedirectTarget("editorial_reviews", "abc-123", routes)
+	if got != "/admin/content/editorial_reviews/abc-123/edit?channel=staging" {
 		t.Fatalf("expected application-neutral edit redirect, got %q", got)
 	}
 }
 
 func TestContentEntryCreateRedirectTargetFallsBackToIndexWhenMissingID(t *testing.T) {
-	routes := newContentEntryRoutes("/admin", "document_records", "")
-	got := contentEntryCreateRedirectTarget("document_records", "", routes)
-	if got != "/admin/content/document_records" {
+	routes := newContentEntryRoutes("/admin", "article_records", "")
+	got := contentEntryCreateRedirectTarget("article_records", "", routes)
+	if got != "/admin/content/article_records" {
 		t.Fatalf("expected index redirect when id missing, got %q", got)
 	}
 }

@@ -250,7 +250,7 @@ test('executePostAction redirects to revision edit route when action response re
     data: {
       mode: 'redirect',
       redirect_to_edit: true,
-      redirect_record_id: 'agreement-revision-1',
+      redirect_record_id: 'article-revision-1',
     },
   }), {
     status: 200,
@@ -260,13 +260,13 @@ test('executePostAction redirects to revision edit route when action response re
   try {
     const result = await builder.executePostAction({
       actionName: 'request_correction',
-      endpoint: '/admin/api/v1/panels/approval_requests/actions/request_correction',
-      payload: { id: 'agreement-1' },
-      recordId: 'agreement-1',
+      endpoint: '/admin/api/v1/panels/publishing_schedules/actions/request_correction',
+      payload: { id: 'schedule-1' },
+      recordId: 'schedule-1',
     });
 
     assert.equal(result.success, true);
-    assert.equal(globalThis.window.location.href, '/admin/content/pages/agreement-revision-1/edit');
+    assert.equal(globalThis.window.location.href, '/admin/content/pages/article-revision-1/edit');
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;
@@ -1114,17 +1114,17 @@ test('schema-backed delete uses structured errors and success callbacks', async 
       return new Response(JSON.stringify({
         error: {
           text_code: 'RESOURCE_IN_USE',
-          message: 'Document cannot be deleted while attached to agreements',
+          message: 'Article cannot be deleted while assigned to publishing schedules',
           metadata: { id: 'deletable_record_456' },
         },
       }), { status: 409, headers: { 'Content-Type': 'application/json' } });
     };
 
-    await assert.rejects(() => actions[0].action(record), /RESOURCE_IN_USE: Document cannot be deleted while attached to agreements/);
+    await assert.rejects(() => actions[0].action(record), /RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules/);
     assert.equal(requestedURL, '/admin/api/panels/pages/deletable_record_456');
     assert.equal(actionSuccess, 0);
     assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
-    assert.equal(actionError?.message, 'RESOURCE_IN_USE: Document cannot be deleted while attached to agreements');
+    assert.equal(actionError?.message, 'RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules');
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;
@@ -1149,7 +1149,7 @@ test('fallback delete uses the shared structured delete executor', async () => {
       return new Response(JSON.stringify({
         error: {
           text_code: 'RESOURCE_IN_USE',
-          message: 'Document cannot be deleted while attached to agreements',
+          message: 'Article cannot be deleted while assigned to publishing schedules',
           metadata: { id: 'fallback_delete_123' },
         },
       }), { status: 409, headers: { 'Content-Type': 'application/json' } });
@@ -1168,10 +1168,10 @@ test('fallback delete uses the shared structured delete executor', async () => {
     const record = createMockRecord({ id: 'fallback_delete_123' });
     const actions = builder.buildRowActions(record, undefined);
 
-    await assert.rejects(() => actions[2].action(record), /RESOURCE_IN_USE: Document cannot be deleted while attached to agreements/);
+    await assert.rejects(() => actions[2].action(record), /RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules/);
     assert.equal(requestedURL, '/admin/api/panels/pages/fallback_delete_123');
     assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
-    assert.equal(actionError?.message, 'RESOURCE_IN_USE: Document cannot be deleted while attached to agreements');
+    assert.equal(actionError?.message, 'RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules');
     assert.equal(reconcileCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;

@@ -22,7 +22,7 @@ func (s *phase3ActionRepoStub) List(context.Context, ListOptions) ([]map[string]
 }
 
 func (s *phase3ActionRepoStub) Get(context.Context, string) (map[string]any, error) {
-	return map[string]any{"id": "doc_123"}, nil
+	return map[string]any{"id": "article_123"}, nil
 }
 
 func (s *phase3ActionRepoStub) Create(context.Context, map[string]any) (map[string]any, error) {
@@ -40,36 +40,36 @@ func (s *phase3ActionRepoStub) Delete(context.Context, string) error {
 func TestActionExecutionPhase3DeleteFailureEnvelope(t *testing.T) {
 	server := router.NewHTTPServer()
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: &phase3ActionRepoStub{
-			deleteErr: resourceInUseDomainError("document cannot be deleted while attached to agreements", map[string]any{
-				"entity": "documents",
+			deleteErr: resourceInUseDomainError("article cannot be deleted while assigned to publishing schedules", map[string]any{
+				"entity": "articles",
 				"field":  "id",
-				"id":     "doc_123",
-				"reason": "in use by agreements",
+				"id":     "article_123",
+				"reason": "in use by publishing schedules",
 			}),
 		},
 	}
 	ctx := AdminContext{Context: context.Background()}
-	server.Router().Delete("/panels/documents/:id", func(c router.Context) error {
+	server.Router().Delete("/panels/articles/:id", func(c router.Context) error {
 		if err := panel.Delete(ctx, c.Param("id")); err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/panels/documents/doc_123", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/panels/articles/article_123", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 
 	if rr.Code != 409 {
 		t.Fatalf("expected 409, got %d body=%s", rr.Code, rr.Body.String())
 	}
-	assertPhase3ErrorEnvelope(t, rr.Body.Bytes(), TextCodeResourceInUse, "document cannot be deleted while attached to agreements", map[string]any{
-		"entity": "documents",
+	assertPhase3ErrorEnvelope(t, rr.Body.Bytes(), TextCodeResourceInUse, "article cannot be deleted while assigned to publishing schedules", map[string]any{
+		"entity": "articles",
 		"field":  "id",
-		"id":     "doc_123",
-		"reason": "in use by agreements",
+		"id":     "article_123",
+		"reason": "in use by publishing schedules",
 	})
 }
 
@@ -84,7 +84,7 @@ func TestActionExecutionPhase3PanelActionFailureEnvelope(t *testing.T) {
 	}
 
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: &phase3ActionRepoStub{},
 		actions: []Action{
 			{Name: "publish", CommandName: "phase3.publish"},
@@ -93,14 +93,14 @@ func TestActionExecutionPhase3PanelActionFailureEnvelope(t *testing.T) {
 	}
 	ctx := AdminContext{Context: context.Background()}
 	server := router.NewHTTPServer()
-	server.Router().Post("/panels/documents/actions/:action", func(c router.Context) error {
-		if _, err := panel.RunActionResponse(ctx, c.Param("action"), map[string]any{"id": "doc_123"}, []string{"doc_123"}); err != nil {
+	server.Router().Post("/panels/articles/actions/:action", func(c router.Context) error {
+		if _, err := panel.RunActionResponse(ctx, c.Param("action"), map[string]any{"id": "article_123"}, []string{"article_123"}); err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/documents/actions/publish", strings.NewReader(`{"id":"doc_123"}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/articles/actions/publish", strings.NewReader(`{"id":"article_123"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -116,21 +116,21 @@ func TestActionExecutionPhase3PanelActionFailureEnvelope(t *testing.T) {
 func TestActionExecutionPhase3BulkFailureEnvelope(t *testing.T) {
 	server := router.NewHTTPServer()
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: &phase3ActionRepoStub{},
 		bulkActions: []Action{
 			{Name: "bulk_publish", CommandName: "phase3.publish"},
 		},
 	}
 	ctx := AdminContext{Context: context.Background()}
-	server.Router().Post("/panels/documents/bulk/:action", func(c router.Context) error {
+	server.Router().Post("/panels/articles/bulk/:action", func(c router.Context) error {
 		if err := panel.RunBulkAction(ctx, c.Param("action"), map[string]any{}, nil); err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/documents/bulk/bulk_publish", strings.NewReader(`{}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/articles/bulk/bulk_publish", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -139,7 +139,7 @@ func TestActionExecutionPhase3BulkFailureEnvelope(t *testing.T) {
 		t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 	assertPhase3ErrorEnvelope(t, rr.Body.Bytes(), TextCodeInvalidSelection, "bulk action requires at least one selected record", map[string]any{
-		"panel":  "documents",
+		"panel":  "articles",
 		"action": "bulk_publish",
 		"field":  "ids",
 	})

@@ -166,13 +166,13 @@ test('executeStructuredRequest parses structured error envelopes for non-POST fl
   globalThis.fetch = async () => mockResponse({
     error: {
       text_code: 'RESOURCE_IN_USE',
-      message: 'Document cannot be deleted while attached to agreements',
-      metadata: { id: 'doc_123' },
+      message: 'Article cannot be deleted while assigned to publishing schedules',
+      metadata: { id: 'article_123' },
     },
   }, { status: 409 });
 
   try {
-    const result = await executeStructuredRequest('/admin/api/panels/documents/doc_123', {
+    const result = await executeStructuredRequest('/admin/api/panels/articles/article_123', {
       method: 'DELETE',
       headers: { Accept: 'application/json' },
     });
@@ -180,7 +180,7 @@ test('executeStructuredRequest parses structured error envelopes for non-POST fl
     assert.equal(result.success, false);
     assert.equal(result.status, 409);
     assert.equal(result.error.textCode, 'RESOURCE_IN_USE');
-    assert.equal(result.error.message, 'Document cannot be deleted while attached to agreements');
+    assert.equal(result.error.message, 'Article cannot be deleted while assigned to publishing schedules');
   } finally {
     globalThis.fetch = originalFetch;
   }

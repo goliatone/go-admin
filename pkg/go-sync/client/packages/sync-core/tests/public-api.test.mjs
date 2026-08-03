@@ -59,7 +59,7 @@ test("sync-core public entrypoint composes the documented runtime factories", as
       };
     },
   };
-  const ref = { kind: "agreement_draft", id: "draft_123", scope: { tenant: "tenant_1" } };
+  const ref = { kind: "article_draft", id: "draft_123", scope: { tenant: "tenant_1" } };
   const resource = syncCore.createSyncResource({ ref, transport, wait: async () => {} });
 
   const snapshot = await resource.load();
@@ -68,7 +68,7 @@ test("sync-core public entrypoint composes the documented runtime factories", as
     payload: { title: "Hello" },
   });
 
-  assert.equal(syncCore.createResourceKey(ref), "agreement_draft::draft_123::tenant=tenant_1");
+  assert.equal(syncCore.createResourceKey(ref), "article_draft::draft_123::tenant=tenant_1");
   assert.equal(snapshot.revision, 3);
   assert.equal(mutation.snapshot.revision, 4);
   assert.equal(resource.getState().status, "ready");

@@ -35,22 +35,22 @@ func TestPanelBuilderWithActionStateResolversBuildsPanelWiring(t *testing.T) {
 func TestPanelBindingActionStateOrderingAndStickyDisablement(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
-			"doc_123": {
-				"id":     "doc_123",
+			"article_123": {
+				"id":     "article_123",
 				"title":  "Terms",
 				"status": "draft",
 			},
 		},
 		list: []map[string]any{
 			{
-				"id":     "doc_123",
+				"id":     "article_123",
 				"title":  "Terms",
 				"status": "draft",
 			},
 		},
 	}
 	panel := &Panel{
-		name:       "documents",
+		name:       "articles",
 		repo:       repo,
 		authorizer: denyAll{},
 		actions: []Action{
@@ -80,7 +80,7 @@ func TestPanelBindingActionStateOrderingAndStickyDisablement(t *testing.T) {
 				t.Fatalf("expected row scope, got %q", scope)
 			}
 			return map[string]map[string]ActionState{
-				"doc_123": {
+				"article_123": {
 					"publish": {
 						Enabled: true,
 						Metadata: map[string]any{
@@ -91,7 +91,7 @@ func TestPanelBindingActionStateOrderingAndStickyDisablement(t *testing.T) {
 						Enabled: true,
 						Remediation: &ActionRemediation{
 							Label: "Open review checklist",
-							Href:  "/admin/content/documents/doc_123/review",
+							Href:  "/admin/content/articles/article_123/review",
 							Kind:  "link",
 						},
 					},
@@ -101,7 +101,7 @@ func TestPanelBindingActionStateOrderingAndStickyDisablement(t *testing.T) {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
@@ -138,7 +138,7 @@ func TestPanelBindingActionStateOrderingAndStickyDisablement(t *testing.T) {
 		t.Fatalf("expected guard disablement to win, got %#v", archiveState)
 	}
 	remediation := extractMap(archiveState["remediation"])
-	if got := remediation["href"]; got != "/admin/content/documents/doc_123/review" {
+	if got := remediation["href"]; got != "/admin/content/articles/article_123/review" {
 		t.Fatalf("expected resolver remediation enrichment, got %#v", archiveState)
 	}
 }
@@ -146,22 +146,22 @@ func TestPanelBindingActionStateOrderingAndStickyDisablement(t *testing.T) {
 func TestPanelBindingDetailPublishesDetailScopedActionState(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
-			"doc_123": {
-				"id":     "doc_123",
+			"article_123": {
+				"id":     "article_123",
 				"title":  "Terms",
 				"status": "draft",
 			},
 		},
 		list: []map[string]any{
 			{
-				"id":     "doc_123",
+				"id":     "article_123",
 				"title":  "Terms",
 				"status": "draft",
 			},
 		},
 	}
 	panel := &Panel{
-		name:               "documents",
+		name:               "articles",
 		repo:               repo,
 		actionDefaultsMode: PanelActionDefaultsModeNone,
 		actions: []Action{
@@ -182,7 +182,7 @@ func TestPanelBindingDetailPublishesDetailScopedActionState(t *testing.T) {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
@@ -199,7 +199,7 @@ func TestPanelBindingDetailPublishesDetailScopedActionState(t *testing.T) {
 	}
 	rowState := extractActionStateMap(records[0]["_action_state"])
 
-	detail, err := binding.Detail(newPanelBindingMockContext(), "en", "doc_123")
+	detail, err := binding.Detail(newPanelBindingMockContext(), "en", "article_123")
 	if err != nil {
 		t.Fatalf("detail: %v", err)
 	}
@@ -227,15 +227,15 @@ func TestPanelBindingDetailPublishesDetailScopedActionState(t *testing.T) {
 func TestPanelBindingListPublishesStaticBulkActionState(t *testing.T) {
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
-			{"id": "doc_123", "title": "Terms"},
+			{"id": "article_123", "title": "Terms"},
 		},
 	}
 	panel := &Panel{
-		name:       "documents",
+		name:       "articles",
 		repo:       repo,
 		authorizer: allowAll{},
 		bulkActions: []Action{
-			{Name: "delete", Scope: ActionScopeBulk, Permission: "documents.delete"},
+			{Name: "delete", Scope: ActionScopeBulk, Permission: "articles.delete"},
 			{Name: "archive", Scope: ActionScopeBulk},
 		},
 		bulkActionStateResolver: func(_ AdminContext, actions []Action, opts ListOptions) (map[string]ActionState, error) {
@@ -256,7 +256,7 @@ func TestPanelBindingListPublishesStaticBulkActionState(t *testing.T) {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
@@ -283,18 +283,18 @@ func TestPanelBindingListPublishesStaticBulkActionState(t *testing.T) {
 func TestPanelBindingResolverErrorsFailListAndDetail(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
-			"doc_123": {
-				"id":    "doc_123",
+			"article_123": {
+				"id":    "article_123",
 				"title": "Terms",
 			},
 		},
 		list: []map[string]any{
-			{"id": "doc_123", "title": "Terms"},
+			{"id": "article_123", "title": "Terms"},
 		},
 	}
 	expected := errors.New("resolver failed")
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: repo,
 		actions: []Action{
 			{Name: "archive", Scope: ActionScopeAny},
@@ -305,14 +305,14 @@ func TestPanelBindingResolverErrorsFailListAndDetail(t *testing.T) {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
 	if _, _, _, _, _, err := binding.List(newPanelBindingMockContext(), "en", boot.ListOptions{Page: 1, PerPage: 10}); !errors.Is(err, expected) {
 		t.Fatalf("expected list to fail on resolver error, got %v", err)
 	}
-	if _, err := binding.Detail(newPanelBindingMockContext(), "en", "doc_123"); !errors.Is(err, expected) {
+	if _, err := binding.Detail(newPanelBindingMockContext(), "en", "article_123"); !errors.Is(err, expected) {
 		t.Fatalf("expected detail to fail on resolver error, got %v", err)
 	}
 }
@@ -320,12 +320,12 @@ func TestPanelBindingResolverErrorsFailListAndDetail(t *testing.T) {
 func TestPanelBindingBulkResolverErrorFailsList(t *testing.T) {
 	repo := &translationActionRepoStub{
 		list: []map[string]any{
-			{"id": "doc_123", "title": "Terms"},
+			{"id": "article_123", "title": "Terms"},
 		},
 	}
 	expected := errors.New("bulk resolver failed")
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: repo,
 		bulkActions: []Action{
 			{Name: "delete", Scope: ActionScopeBulk},
@@ -336,7 +336,7 @@ func TestPanelBindingBulkResolverErrorFailsList(t *testing.T) {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
@@ -348,12 +348,12 @@ func TestPanelBindingBulkResolverErrorFailsList(t *testing.T) {
 func TestActionStateResolverReceivesDetailScope(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
-			"doc_123": {"id": "doc_123", "title": "Terms"},
+			"article_123": {"id": "article_123", "title": "Terms"},
 		},
 	}
 	scopes := []ActionScope{}
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: repo,
 		actions: []Action{
 			{Name: "archive", Scope: ActionScopeAny},
@@ -361,7 +361,7 @@ func TestActionStateResolverReceivesDetailScope(t *testing.T) {
 		actionStateResolver: func(_ AdminContext, _ []map[string]any, _ []Action, scope ActionScope) (map[string]map[string]ActionState, error) {
 			scopes = append(scopes, scope)
 			return map[string]map[string]ActionState{
-				"doc_123": {
+				"article_123": {
 					"archive": {
 						Enabled: false,
 						Reason:  "resolver ran",
@@ -372,11 +372,11 @@ func TestActionStateResolverReceivesDetailScope(t *testing.T) {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
-	if _, err := binding.Detail(newPanelBindingMockContext(), "en", "doc_123"); err != nil {
+	if _, err := binding.Detail(newPanelBindingMockContext(), "en", "article_123"); err != nil {
 		t.Fatalf("detail: %v", err)
 	}
 	if len(scopes) != 1 || scopes[0] != ActionScopeDetail {

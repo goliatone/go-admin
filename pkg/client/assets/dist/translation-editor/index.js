@@ -1,15 +1,15 @@
 import { escapeAttribute as u, escapeHTML as d } from "../shared/html.js";
-import { t as Le } from "../chunks/icon-renderer-tQhqqQbt.js";
+import { t as Le } from "../chunks/icon-renderer-DauoBn1n.js";
 import { httpRequest as S, readCSRFToken as De, readHTTPError as Fe } from "../shared/transport/http-client.js";
 import { extractStructuredError as Y, formatStructuredErrorForDisplay as ue } from "../toast/error-helpers.js";
-import { r as ae, s as Oe } from "../chunks/status-vocabulary-ak1N6rXX.js";
+import { r as ae, s as Oe } from "../chunks/status-vocabulary-DrEqqUD1.js";
 import { readLocationSearchParams as Ie } from "../shared/query-state/url-state.js";
-import { n as fe } from "../chunks/translation-contracts-DIMN10n7.js";
+import { n as fe } from "../chunks/translation-contracts-C_O37O2-.js";
 import { asBoolean as _, asNumber as p, asRecord as l, asString as r, asStringArray as me } from "../shared/coercion.js";
-import { A as Pe, C as I, D as Me, E as Be, F as Ne, M as ze, O as Ue, P as Ke, R as Ve, S as re, T as He, a as Ye, at as Ge, c as ge, ct as Qe, et as We, ft as Xe, g as Je, j as Ze, k as et, lt as tt, mt as st, ot as it, pt as at, s as rt, st as x, tt as nt, v as ot, x as F, y as T } from "../chunks/translation-shared-BkWg4uhq.js";
+import { A as Pe, C as I, D as Me, E as Be, F as Ne, M as ze, O as Ue, P as Ke, R as Ve, S as re, T as He, a as Ye, at as Ge, c as ge, ct as Qe, et as We, ft as Xe, g as Je, j as Ze, k as et, lt as tt, mt as st, ot as it, pt as at, s as rt, st as x, tt as nt, v as ot, x as F, y as T } from "../chunks/translation-shared-D6PJvjua.js";
 import { formatTranslationTimestampUTC as pe, sentenceCaseToken as P } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as K } from "../shared/record-normalization.js";
-import { c as he, s as ct } from "../chunks/ui-states-BOBY2bIW.js";
+import { c as he, s as ct } from "../chunks/ui-states-DDJEdXAd.js";
 var lt = "translation_variant_draft", dt = "autosave", N = /* @__PURE__ */ new Map();
 async function ut(e) {
   const t = E(e);
@@ -645,13 +645,13 @@ function xe(e) {
   } : s.code === "STALE_REVISION" ? xe(s) : t;
 }
 function Mt(e) {
-  const t = l(e), s = l(t.details), i = l(t.conflict), a = l(t.resource || s.resource || i.latestSnapshot), n = l(a.data), o = p(a.revision || t.currentRevision || s.current_revision), c = r(a.updatedAt || a.updated_at) || (/* @__PURE__ */ new Date()).toISOString();
-  return !Object.keys(n).length || o <= 0 ? null : {
-    ref: l(a.ref),
-    data: n,
-    revision: o,
-    updatedAt: c,
-    metadata: l(a.metadata)
+  const t = l(e), s = l(t.details), i = l(t.conflict), a = t.resource || s.resource || i.latestSnapshot, n = l(a), o = l(n.data), c = p(n.revision || t.currentRevision || s.current_revision), f = r(n.updatedAt || n.updated_at) || (/* @__PURE__ */ new Date()).toISOString();
+  return !Object.keys(o).length || c <= 0 ? null : {
+    ref: l(n.ref),
+    data: o,
+    revision: c,
+    updatedAt: f,
+    metadata: l(n.metadata)
   };
 }
 function Bt(e) {
@@ -753,7 +753,7 @@ async function Ht(e) {
   };
 }
 function Yt(e) {
-  return !e || e <= 0 ? "0 B" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(1)} MB`;
+  return !e || e <= 0 ? "0 B" : e < 1024 ? `${e} B` : e < 1048576 ? `${(e / 1024).toFixed(1)} KB` : `${(e / 1048576).toFixed(1)} MB`;
 }
 function C(e) {
   return r(e.status || e.translation_assignment.status || e.translation_assignment.queue_state);
@@ -1825,10 +1825,12 @@ var Ns = class {
     this.autosaveTimer && clearTimeout(this.autosaveTimer), this.keyboardHandler && (document.removeEventListener("keydown", this.keyboardHandler), this.keyboardHandler = null), this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.container && (this.container.innerHTML = ""), this.container = null, this.syncResource = null, this.syncResourceKey = "", this.syncLoadedResourceKey = "", this.syncLoadedRevision = null, this.syncConflictSnapshot = null, this.suggestingFields.clear();
   }
   async load(e) {
-    this.loadState = { status: "loading" }, this.render(), this.loadState = await Ht(e ? U(this.config.endpoint, {
+    this.loadState = { status: "loading" }, this.render();
+    const t = e ? U(this.config.endpoint, {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
-    }) : this.config.endpoint), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = oe(this.loadState.detail), H(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
+    }) : this.config.endpoint;
+    this.loadState = await Ht(t), this.loadState.status === "ready" && this.loadState.detail ? (this.editorState = oe(this.loadState.detail), H(this.loadState.detail) || await this.hydrateDraftSyncFromRead(this.loadState.detail)) : this.editorState = null, this.render();
   }
   render() {
     if (!this.container) return;

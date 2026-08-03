@@ -29,8 +29,8 @@ GO_GOVULNCHECK_VERSION="${GO_GOVULNCHECK_VERSION:-v1.1.4}"
 GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.25.0}"
 GO_QUALITY_BASELINE_DIR="${GO_QUALITY_BASELINE_DIR:-ops/quality/baselines}"
 GO_QUALITY_BASELINE_SCRIPT="${GO_QUALITY_BASELINE_SCRIPT:-./tools/quality/baseline.sh}"
-GO_QUALITY_GOCACHE="${GO_QUALITY_GOCACHE:-$(pwd)/.tmp/go-cache}"
-GO_QUALITY_GOTMPDIR="${GO_QUALITY_GOTMPDIR:-$(pwd)/.tmp/go-tmp}"
+GO_QUALITY_GOCACHE="${GO_QUALITY_GOCACHE:-${GOCACHE:-}}"
+GO_QUALITY_GOTMPDIR="${GO_QUALITY_GOTMPDIR:-${GOTMPDIR:-}}"
 GO_LINT_NEW_FROM_REV="${GO_LINT_NEW_FROM_REV:-origin/main}"
 
 
@@ -91,6 +91,18 @@ function _go:bin {
 }
 
 function _go:quality:prepare_env {
+    local cache_parent
+    local go_bin
+
+    go_bin=$(_go:bin) || return 1
+    if [ -z "${GO_QUALITY_GOCACHE}" ]; then
+        GO_QUALITY_GOCACHE="$("${go_bin}" env GOCACHE)" || return 1
+    fi
+    if [ -z "${GO_QUALITY_GOTMPDIR}" ]; then
+        cache_parent="$(dirname "${GO_QUALITY_GOCACHE}")"
+        GO_QUALITY_GOTMPDIR="${cache_parent}/go-admin-go-tmp"
+    fi
+
     export GOCACHE="${GOCACHE:-${GO_QUALITY_GOCACHE}}"
     export GOTMPDIR="${GOTMPDIR:-${GO_QUALITY_GOTMPDIR}}"
     mkdir -p "${GOCACHE}" "${GOTMPDIR}"

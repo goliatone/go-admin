@@ -37,14 +37,14 @@ func TestServeBinaryObjectSuccess(t *testing.T) {
 		Store:       store,
 		ObjectKey:   "tenant/t-1/source.pdf",
 		ContentType: "application/pdf",
-		Filename:    "agreement-source.pdf",
+		Filename:    "quarterly-report.pdf",
 		Disposition: "attachment",
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, "tenant/t-1/source.pdf", store.lastKey)
 	assertHeaderCalledWith(t, ctx, "Content-Type", "application/pdf")
-	assertHeaderCalledWith(t, ctx, "Content-Disposition", "attachment; filename=agreement-source.pdf")
+	assertHeaderCalledWith(t, ctx, "Content-Disposition", "attachment; filename=quarterly-report.pdf")
 	assertHeaderCalledWith(t, ctx, "Cache-Control", "no-store, no-cache, max-age=0, must-revalidate, private")
 	assertHeaderCalledWith(t, ctx, "Pragma", "no-cache")
 	ctx.AssertExpectations(t)

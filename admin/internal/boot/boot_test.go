@@ -852,7 +852,7 @@ func TestPanelStepRegistersPanelSubresourceRoutes(t *testing.T) {
 	rr := &recordRouter{}
 	resp := &stubResponder{}
 	binding := &stubPanelBinding{
-		name: "agreements",
+		name: "reports",
 		subresources: []PanelSubresourceSpec{
 			{Name: "artifact", Method: "GET"},
 		},
@@ -869,7 +869,7 @@ func TestPanelStepRegistersPanelSubresourceRoutes(t *testing.T) {
 	require.Len(t, rr.calls, 11)
 
 	expectedPath := mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
-		"panel":       "agreements",
+		"panel":       "reports",
 		"subresource": "artifact",
 	})
 	var subresourceHandler router.HandlerFunc
@@ -882,7 +882,7 @@ func TestPanelStepRegistersPanelSubresourceRoutes(t *testing.T) {
 	require.NotNil(t, subresourceHandler)
 
 	mockCtx := router.NewMockContext()
-	mockCtx.ParamsM["panel"] = "agreements"
+	mockCtx.ParamsM["panel"] = "reports"
 	mockCtx.ParamsM["id"] = "ag-1"
 	mockCtx.ParamsM["value"] = "executed"
 

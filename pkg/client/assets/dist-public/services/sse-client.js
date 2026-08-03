@@ -234,8 +234,6 @@ function S(t) {
         o = Number.isNaN(l) ? null : l;
         break;
       }
-      default:
-        break;
     }
   }
   return i.length === 0 && n === null && o === null && a === "message" ? null : {

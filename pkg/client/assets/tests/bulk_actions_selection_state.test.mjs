@@ -46,7 +46,7 @@ function setupDOM() {
         </thead>
         <tbody></tbody>
       </table>
-      <div id="bulk-actions-overlay" class="hidden" data-bulk-base="/admin/api/panels/documents/bulk">
+      <div id="bulk-actions-overlay" class="hidden" data-bulk-base="/admin/api/panels/articles/bulk">
         <button id="bulk-clear-selection" type="button">Clear</button>
         <span id="selected-count">0</span>
         <button data-bulk-action="delete" type="button">Delete</button>
@@ -90,8 +90,8 @@ function setupPrimitiveBulkOverlayDOM() {
 function buildListPayload(fixture) {
   return {
     records: [
-      { id: 'doc_1', title: 'Protected Document', status: 'in_use' },
-      { id: 'doc_2', title: 'Reusable Document', status: 'ready' },
+      { id: 'article_1', title: 'Protected Article', status: 'in_use' },
+      { id: 'article_2', title: 'Reusable Article', status: 'ready' },
     ],
     schema: fixture.list_contract.schema,
     $meta: fixture.list_contract.$meta,
@@ -101,7 +101,7 @@ function buildListPayload(fixture) {
 function createGrid(notifier) {
   return new DataGrid({
     tableId: 'documents-datatable',
-    apiEndpoint: '/admin/api/panels/documents',
+    apiEndpoint: '/admin/api/panels/articles',
     columns: [
       { field: 'title', label: 'Title' },
       { field: 'status', label: 'Status' },
@@ -162,7 +162,7 @@ test('Phase 7 fixture: datagrid debounces selection-sensitive bulk state and sho
 
     const stateRequest = requests.find((entry) => entry.method === 'POST' && entry.url.includes('/bulk-actions/state'));
     assert.ok(stateRequest, 'expected selection-sensitive bulk state request');
-    assert.deepEqual(stateRequest.body.ids.sort(), ['doc_1', 'doc_2']);
+    assert.deepEqual(stateRequest.body.ids.sort(), ['article_1', 'article_2']);
 
     const deleteButton = dom.window.document.querySelector('[data-bulk-action="delete"]');
     const reasonContainer = dom.window.document.querySelector('[data-bulk-action-state-reasons]');
@@ -254,7 +254,7 @@ test('Phase 7 fixture: bulk failures surface structured invalid-selection copy a
             bulk_action_state: {
               delete: {
                 enabled: true,
-                permission: 'documents.delete',
+                permission: 'articles.delete',
               },
             },
             selection: { count: 2 },

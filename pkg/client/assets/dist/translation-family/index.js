@@ -1,13 +1,12 @@
 import { escapeAttribute as y, escapeHTML as m } from "../shared/html.js";
 import { appendCSRFHeader as W, httpRequest as J, readHTTPJSON as ue } from "../shared/transport/http-client.js";
 import { extractStructuredError as O } from "../toast/error-helpers.js";
-import "../chunks/status-vocabulary-ak1N6rXX.js";
 import { buildURL as F, getNumberSearchParam as Le, getStringSearchParam as E, readLocationSearchParams as De, setNumberSearchParam as $e, setSearchParam as q } from "../shared/query-state/url-state.js";
 import { initActionMenus as _a } from "../shared/action-menu.js";
 import { parseJSONValue as Ae } from "../shared/json-parse.js";
 import { trimTrailingSlash as A } from "../shared/path-normalization.js";
 import { asLooseBoolean as w, asNumberish as L, asRecord as p, asString as n, asStringArray as _ } from "../shared/coercion.js";
-import { A as Be, C as B, D as wa, E as La, F as $a, O as Ne, P as Aa, R as Ca, T as Sa, et as ka, k as Me, mt as Ta, tt as Ia, ut as X, v as qa, x as R, y as j } from "../chunks/translation-shared-BkWg4uhq.js";
+import { A as Be, C as B, D as wa, E as La, F as $a, O as Ne, P as Aa, R as Ca, T as Sa, et as ka, k as Me, mt as Ta, tt as Ia, ut as X, v as qa, x as R, y as j } from "../chunks/translation-shared-D6PJvjua.js";
 import { formatTranslationTimestampUTC as me, sentenceCaseToken as T } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Ra } from "../shared/record-normalization.js";
 import { initEnhancedActions as Pa } from "../shared/enhanced-action.js";
@@ -59,7 +58,9 @@ function Ua(e) {
 }
 function Da(e, a) {
   const t = p(e);
-  return Object.keys(t).length === 0 || !w(t.accepted ?? t.Accepted) || n(t.command_id ?? t.commandId ?? t.CommandID ?? t.command_name ?? t.commandName) !== a ? null : t;
+  if (Object.keys(t).length === 0) return null;
+  const s = t.accepted ?? t.Accepted;
+  return !w(s) || n(t.command_id ?? t.commandId ?? t.CommandID ?? t.command_name ?? t.commandName) !== a ? null : t;
 }
 async function Ba(e, a = {}) {
   const t = a.fetch ?? globalThis.fetch?.bind(globalThis);
@@ -526,7 +527,7 @@ function Xe(e, a) {
     disabledReasonCode: i ? "" : e.quickCreate.disabledReasonCode
   };
 }
-function qs(e, a) {
+function Is(e, a) {
   if (!e || !a || !a.familyId || e.familyId !== a.familyId) return e;
   const t = n(a.locale).toLowerCase(), s = e.localeVariants.some((c) => c.locale === t) ? e.localeVariants.map((c) => c.locale === t ? {
     ...c,
@@ -606,7 +607,7 @@ function qs(e, a) {
     quickCreate: { ...a.family.quickCreate }
   };
 }
-function Rs(e, a) {
+function qs(e, a) {
   const t = { ...e }, s = { ...p(t.translation_readiness) }, i = n(a.locale).toLowerCase(), r = n(t.requested_locale).toLowerCase(), o = n(t.translation_family_id || t.family_id || s.family_id || s.family_id);
   if (o && o !== a.familyId) return t;
   const d = M(_(t.available_locales), _(s.available_locales), a.family.availableLocales, [i]), c = We(M(_(t.missing_required_locales), _(s.missing_required_locales), a.family.missingLocales), i);
@@ -816,7 +817,7 @@ function ta(e) {
   const t = new Date(a);
   if (Number.isNaN(t.getTime())) return "none";
   const s = t.getTime() - Date.now();
-  return s < 0 ? "overdue" : s <= 2880 * 60 * 1e3 ? "due_soon" : "on_track";
+  return s < 0 ? "overdue" : s <= 1728e5 ? "due_soon" : "on_track";
 }
 function sa(e, a = "") {
   return `${n(e).toLowerCase()}:${n(a) || "__all__"}`;
@@ -1147,19 +1148,14 @@ function qt(e, a) {
 }
 function Rt(e) {
   if (!e.activeAssignments.length) {
-    const a = wt(e), t = a[0]?.[1] || null, s = a.some(([, r]) => r.actions.assignToMe.enabled), i = a.some(([, r]) => r.actions.assignToUser.enabled);
-    return `
-      <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
-        <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
-        <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
-        ${a.length ? `
+    const a = wt(e), t = a[0]?.[1] || null, s = a.some(([, o]) => o.actions.assignToMe.enabled), i = a.some(([, o]) => o.actions.assignToUser.enabled), r = a.length ? `
         <div class="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4" data-family-empty-assignment-controls="true">
           <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-[minmax(10rem,0.8fr)_minmax(16rem,1fr)_auto_auto] 2xl:items-end">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Locale</span>
               <select class="${ra}" data-family-assignment-locale-select="true">
-                ${a.map(([r, o]) => `
-                  <option value="${y(r)}" ${Lt(o)}>${m(o.locale.toUpperCase())} · ${m(o.workScope || "__all__")}</option>
+                ${a.map(([o, d]) => `
+                  <option value="${y(o)}" ${Lt(d)}>${m(d.locale.toUpperCase())} · ${m(d.workScope || "__all__")}</option>
                 `).join("")}
               </select>
             </label>
@@ -1186,7 +1182,15 @@ function Rt(e) {
             ` : "<div></div>"}
           </div>
         </div>
-      ` : `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${m(ia(Object.values(e.localeAssignments).find((r) => r.state !== "source_locale") || null) || "No assignable locale is available for this family.")}</p>`}
+      ` : (() => {
+      const o = ia(Object.values(e.localeAssignments).find((d) => d.state !== "source_locale") || null) || "No assignable locale is available for this family.";
+      return `<p class="mt-4 text-sm text-gray-500" data-family-assignment-action-reason="empty">${m(o)}</p>`;
+    })();
+    return `
+      <section class="${B} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+        <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
+        <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
+        ${r}
       </section>
     `;
   }
@@ -1447,7 +1451,8 @@ function ca(e) {
   const a = De(), t = a ? E(a, "channel") : "";
   if (t) return t;
   try {
-    return E(new URL(n(e), "http://localhost").searchParams, "channel") || "";
+    const s = new URL(n(e), "http://localhost");
+    return E(s.searchParams, "channel") || "";
   } catch {
     return "";
   }
@@ -1819,7 +1824,7 @@ function ma(e) {
     i && globalThis.navigator?.clipboard?.writeText && globalThis.navigator.clipboard.writeText(i);
   }));
 }
-async function Ps(e, a = {}) {
+async function Rs(e, a = {}) {
   if (!e) return null;
   ma(e);
   const t = e.dataset || {}, s = {
@@ -2036,7 +2041,7 @@ function ss(e) {
     localeURLs: Ae(e.dataset.localeUrls, {})
   };
 }
-function Es(e = document) {
+function Ps(e = document) {
   typeof document > "u" || e.querySelectorAll('[data-translation-summary-card="true"]').forEach((a) => {
     if (a.dataset.translationCreateBound === "true") return;
     a.dataset.translationCreateBound = "true";
@@ -2068,7 +2073,12 @@ function Es(e = document) {
 }
 function ga(e, a) {
   const t = n(a.dataset.localeAssignmentKey).toLowerCase();
-  return t || (n(a.dataset.localeAssignmentSource) === "empty-panel" ? n(e.querySelector('[data-family-assignment-locale-select="true"]')?.value).toLowerCase() : "");
+  if (t) return t;
+  if (n(a.dataset.localeAssignmentSource) === "empty-panel") {
+    const s = e.querySelector('[data-family-assignment-locale-select="true"]');
+    return n(s?.value).toLowerCase();
+  }
+  return "";
 }
 function ns(e, a) {
   switch (a) {
@@ -2164,8 +2174,8 @@ function ls(e) {
   if (ya(e)) return !0;
   const a = e.previousElementSibling;
   if (!(a instanceof HTMLElement)) return !1;
-  const t = n(a.querySelector("input")?.value);
-  return t && t !== n(e.dataset.initialAssigneeId || e.value) ? !0 : !!a.querySelector("[data-fg-typeahead-option]");
+  const t = a.querySelector("input"), s = n(t?.value);
+  return s && s !== n(e.dataset.initialAssigneeId || e.value) ? !0 : !!a.querySelector("[data-fg-typeahead-option]");
 }
 function cs(e) {
   return e.dataset.familyAssigneeFormgenReady === "true";
@@ -2585,8 +2595,8 @@ function we(e = {}) {
   };
 }
 export {
-  qs as applyCreateLocaleToFamilyDetail,
-  Rs as applyCreateLocaleToSummaryState,
+  Is as applyCreateLocaleToFamilyDetail,
+  qs as applyCreateLocaleToSummaryState,
   ma as bindCopyIdAffordance,
   Ma as buildCreateLocaleURL,
   Ct as buildFamilyActivityPreview,
@@ -2609,8 +2619,8 @@ export {
   Qt as fetchTranslationFamilyListState,
   it as getReadinessChip,
   K as initTranslationFamilyDetailPage,
-  Ps as initTranslationFamilyListPage,
-  Es as initTranslationSummaryCards,
+  Rs as initTranslationFamilyListPage,
+  Ps as initTranslationSummaryCards,
   Ga as normalizeCreateLocaleResult,
   Ye as normalizeFamilyDetail,
   Ge as normalizeFamilyListResponse,

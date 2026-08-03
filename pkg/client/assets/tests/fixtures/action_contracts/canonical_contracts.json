@@ -6,20 +6,20 @@
           "enabled": false,
           "kind": "business_rule",
           "metadata": {
-            "agreement_count": 2
+            "schedule_count": 2
           },
-          "reason": "Document is used by 2 agreements",
+          "reason": "Article is used by 2 publishing schedules",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/content/approval_requests?document_id=doc_123",
+            "href": "/admin/content/publishing_schedules?article_id=article_123",
             "kind": "link",
-            "label": "View agreements"
+            "label": "View schedules"
           },
           "severity": "warning"
         }
       },
-      "id": "doc_123",
-      "title": "Master Services Agreement"
+      "id": "article_123",
+      "title": "Launch Announcement"
     },
     "schema": {
       "actions": [
@@ -45,14 +45,14 @@
   ],
   "execution_failure": {
     "error": {
-      "message": "Document cannot be deleted while attached to agreements",
+      "message": "Article cannot be deleted while assigned to publishing schedules",
       "metadata": {
-        "agreement_count": 2,
         "remediation": {
-          "href": "/admin/content/approval_requests?document_id=doc_123",
+          "href": "/admin/content/publishing_schedules?article_id=article_123",
           "kind": "link",
-          "label": "View agreements"
-        }
+          "label": "View schedules"
+        },
+        "schedule_count": 2
       },
       "text_code": "RESOURCE_IN_USE"
     }
@@ -72,8 +72,8 @@
     },
     "data": [
       {
-        "id": "doc_123",
-        "title": "Master Services Agreement"
+        "id": "article_123",
+        "title": "Launch Announcement"
       }
     ],
     "schema": {
@@ -93,20 +93,20 @@
           "enabled": false,
           "kind": "business_rule",
           "metadata": {
-            "agreement_count": 2
+            "schedule_count": 2
           },
-          "reason": "Document is used by 2 agreements",
+          "reason": "Article is used by 2 publishing schedules",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/content/approval_requests?document_id=doc_123",
+            "href": "/admin/content/publishing_schedules?article_id=article_123",
             "kind": "link",
-            "label": "View agreements"
+            "label": "View schedules"
           },
           "severity": "warning"
         }
       },
-      "id": "doc_123",
-      "title": "Master Services Agreement"
+      "id": "article_123",
+      "title": "Launch Announcement"
     },
     "schema": {
       "actions": [

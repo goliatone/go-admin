@@ -42,5 +42,5 @@ test('row action-state records normalize consistently outside list/detail wrappe
 
   assert.ok(normalized);
   assert.equal(normalized._action_state.delete.reason_code, 'RESOURCE_IN_USE');
-  assert.equal(normalized._action_state.delete.metadata.agreement_count, 2);
+  assert.equal(normalized._action_state.delete.metadata.schedule_count, 2);
 });

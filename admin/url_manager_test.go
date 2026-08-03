@@ -97,15 +97,15 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	}
 
 	panelSubresource, err := manager.Resolve("admin.api", "panel.subresource", urlkit.Params{
-		"panel":       "agreements",
-		"id":          "agreement-1",
+		"panel":       "orders",
+		"id":          "order-1",
 		"subresource": "artifact",
 		"value":       "executed",
 	}, nil)
 	if err != nil {
 		t.Fatalf("resolve admin.api panel.subresource: %v", err)
 	}
-	if panelSubresource != "/admin/api/panels/agreements/agreement-1/artifact/executed" {
+	if panelSubresource != "/admin/api/panels/orders/order-1/artifact/executed" {
 		t.Fatalf("expected panel subresource path, got %q", panelSubresource)
 	}
 

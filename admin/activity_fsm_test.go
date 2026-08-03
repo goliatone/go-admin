@@ -39,9 +39,9 @@ func TestFSMLifecycleActivitySinkAdapterMapsEnvelopeToActivityEntry(t *testing.T
 	adapter := NewFSMLifecycleActivitySinkAdapter(sink)
 	now := time.Date(2026, 2, 25, 12, 0, 0, 0, time.UTC)
 	metadata := map[string]any{
-		"machine_id":      "agreement.lifecycle",
+		"machine_id":      "order.lifecycle",
 		"machine_version": "v2",
-		"entity_id":       "agreement-1",
+		"entity_id":       "order-1",
 		"execution_id":    "exec-1",
 		"event":           "approve",
 		"transition_id":   "approve_transition",
@@ -52,7 +52,7 @@ func TestFSMLifecycleActivitySinkAdapterMapsEnvelopeToActivityEntry(t *testing.T
 		Channel:    flow.LifecycleActivityChannelFSM,
 		Verb:       flow.LifecycleActivityVerbPrefix + "committed",
 		ObjectType: flow.LifecycleActivityObjectTypeMachine,
-		ObjectID:   "agreement-1",
+		ObjectID:   "order-1",
 		ActorID:    "admin-1",
 		TenantID:   "tenant-1",
 		OccurredAt: now,
@@ -73,8 +73,8 @@ func TestFSMLifecycleActivitySinkAdapterMapsEnvelopeToActivityEntry(t *testing.T
 	if entry.Action != flow.LifecycleActivityVerbPrefix+"committed" {
 		t.Fatalf("action=%q want %q", entry.Action, flow.LifecycleActivityVerbPrefix+"committed")
 	}
-	if entry.Object != "fsm.machine:agreement-1" {
-		t.Fatalf("object=%q want %q", entry.Object, "fsm.machine:agreement-1")
+	if entry.Object != "fsm.machine:order-1" {
+		t.Fatalf("object=%q want %q", entry.Object, "fsm.machine:order-1")
 	}
 	if entry.Actor != "admin-1" {
 		t.Fatalf("actor=%q want %q", entry.Actor, "admin-1")
@@ -94,7 +94,7 @@ func TestFSMLifecycleActivitySinkAdapterMapsEnvelopeToActivityEntry(t *testing.T
 	// Verify copy-on-write behavior for metadata.
 	metadata["machine_id"] = "modified"
 	metadata["new_key"] = "new-value"
-	if got := entry.Metadata["machine_id"]; got != "agreement.lifecycle" {
+	if got := entry.Metadata["machine_id"]; got != "order.lifecycle" {
 		t.Fatalf("expected copied machine_id to remain unchanged, got %v", got)
 	}
 	if _, ok := entry.Metadata["new_key"]; ok {

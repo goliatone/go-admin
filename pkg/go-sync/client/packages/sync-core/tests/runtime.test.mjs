@@ -9,7 +9,7 @@ const syncCore = await import(distEntry);
 
 function createRef(id, scope = { tenant: "tenant_1" }) {
   return {
-    kind: "agreement_draft",
+    kind: "article_draft",
     id,
     scope,
   };

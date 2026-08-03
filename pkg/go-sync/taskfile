@@ -54,13 +54,11 @@ function client:release {
 
 function client:build {
     _client:npm run build
-    _client:node "${CLIENT_ROOT}/scripts/build-sync.mjs"
-    _client:node "${CLIENT_ROOT}/scripts/verify-package.mjs"
+    _client:npm run verify
 }
 
 function client:test {
     _client:npm test
-    _client:node "${CLIENT_ROOT}/scripts/verify-package.mjs"
 }
 
 function client:build:all {

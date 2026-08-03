@@ -58,7 +58,7 @@ func TestActionContractsPhase7SelectionEndpointPublishesSelectionSensitiveStates
 	if got := toInt(meta["invalid_count"]); got != 1 {
 		t.Fatalf("expected invalid_count=1, got %#v", meta)
 	}
-	if got := strings.TrimSpace(toString(meta["remediation_href"])); got != "/admin/content/approval_requests?document_id=doc_1" {
+	if got := strings.TrimSpace(toString(meta["remediation_href"])); got != "/admin/content/publishing_schedules?article_id=article_1" {
 		t.Fatalf("expected remediation href in mixed selection metadata, got %#v", meta)
 	}
 }
@@ -74,7 +74,7 @@ func TestActionContractsPhase7BulkFailureEnvelopeIncludesInvalidSelectionAndReme
 		t.Fatalf("expected invalid selection text code, got %#v", errPayload)
 	}
 	meta := extractMap(errPayload["metadata"])
-	if got := strings.TrimSpace(toString(meta["remediation_label"])); got != "View agreements" {
+	if got := strings.TrimSpace(toString(meta["remediation_label"])); got != "View schedules" {
 		t.Fatalf("expected remediation metadata, got %#v", meta)
 	}
 }
@@ -84,19 +84,19 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 
 	repo := &phase7BulkRepoAdapter{
 		records: map[string]map[string]any{
-			"doc_1": {"id": "doc_1", "title": "Protected Document", "status": "in_use"},
-			"doc_2": {"id": "doc_2", "title": "Reusable Document", "status": "ready"},
+			"article_1": {"id": "article_1", "title": "Protected Article", "status": "in_use"},
+			"article_2": {"id": "article_2", "title": "Reusable Article", "status": "ready"},
 		},
 		list: []map[string]any{
-			{"id": "doc_1", "title": "Protected Document", "status": "in_use"},
-			{"id": "doc_2", "title": "Reusable Document", "status": "ready"},
+			{"id": "article_1", "title": "Protected Article", "status": "in_use"},
+			{"id": "article_2", "title": "Reusable Article", "status": "ready"},
 		},
 	}
 	panel := &Panel{
-		name: "documents",
+		name: "articles",
 		repo: repo,
 		bulkActions: []Action{
-			{Name: "delete", Label: "Delete", Scope: ActionScopeBulk, Permission: "documents.delete"},
+			{Name: "delete", Label: "Delete", Scope: ActionScopeBulk, Permission: "articles.delete"},
 		},
 		authorizer: allowAll{},
 		actionStateResolver: func(_ AdminContext, records []map[string]any, actions []Action, _ ActionScope) (map[string]map[string]ActionState, error) {
@@ -106,24 +106,24 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 			resolved := map[string]map[string]ActionState{}
 			for _, record := range records {
 				recordID := strings.TrimSpace(toString(record["id"]))
-				if recordID != "doc_1" {
+				if recordID != "article_1" {
 					continue
 				}
 				resolved[recordID] = map[string]ActionState{
 					"delete": {
 						Enabled:    false,
 						ReasonCode: TextCodeResourceInUse,
-						Reason:     "This document cannot be deleted because it is attached to 2 agreements.",
+						Reason:     "This article cannot be deleted because it is assigned to 2 publishing schedules.",
 						Severity:   "warning",
 						Kind:       "business_rule",
 						Metadata: map[string]any{
-							"agreement_count": 2,
-							"document_id":     "doc_1",
-							"blocked_action":  "delete",
+							"schedule_count": 2,
+							"article_id":     "article_1",
+							"blocked_action": "delete",
 						},
 						Remediation: &ActionRemediation{
-							Label: "View agreements",
-							Href:  "/admin/content/approval_requests?document_id=doc_1",
+							Label: "View schedules",
+							Href:  "/admin/content/publishing_schedules?article_id=article_1",
 							Kind:  "link",
 						},
 					},
@@ -134,7 +134,7 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
-		name:  "documents",
+		name:  "articles",
 		panel: panel,
 	}
 
@@ -145,20 +145,20 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 	schema := mustAs[Schema](schemaAny)
 
 	singleSelection, err := binding.BulkActionState(newPanelBindingMockContext(), "en", map[string]any{
-		"ids": []string{"doc_1"},
+		"ids": []string{"article_1"},
 	})
 	if err != nil {
 		t.Fatalf("bulk action state single: %v", err)
 	}
 	mixedSelection, err := binding.BulkActionState(newPanelBindingMockContext(), "en", map[string]any{
-		"ids": []string{"doc_1", "doc_2"},
+		"ids": []string{"article_1", "article_2"},
 	})
 	if err != nil {
 		t.Fatalf("bulk action state mixed: %v", err)
 	}
 
 	server := router.NewHTTPServer()
-	server.Router().Post("/panels/documents/bulk/delete", func(c router.Context) error {
+	server.Router().Post("/panels/articles/bulk/delete", func(c router.Context) error {
 		body, err := parseJSONBody(c)
 		if err != nil {
 			return writeError(c, err)
@@ -168,7 +168,7 @@ func canonicalBulkActionContractsPhase7Fixture(t *testing.T) map[string]any {
 		}
 		return writeJSON(c, map[string]any{"status": "ok"})
 	})
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/documents/bulk/delete", strings.NewReader(`{"ids":["doc_1","doc_2"]}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/panels/articles/bulk/delete", strings.NewReader(`{"ids":["article_1","article_2"]}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

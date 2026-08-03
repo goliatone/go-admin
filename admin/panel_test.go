@@ -962,9 +962,9 @@ func TestPanelRunBulkActionBuiltInDelete(t *testing.T) {
 
 func TestPanelSchemaIncludesSubresources(t *testing.T) {
 	panel := &Panel{
-		name: "agreements",
+		name: "reports",
 		subresources: []PanelSubresource{
-			{Name: "artifact", Method: "get", Permission: "agreements.download"},
+			{Name: "artifact", Method: "get", Permission: "reports.download"},
 			{Name: "artifact", Method: "post"},
 			{Name: "  "},
 		},
@@ -980,7 +980,7 @@ func TestPanelSchemaIncludesSubresources(t *testing.T) {
 	if schema.Subresources[0].Method != http.MethodGet {
 		t.Fatalf("expected method GET, got %q", schema.Subresources[0].Method)
 	}
-	if schema.Subresources[0].Permission != "agreements.download" {
+	if schema.Subresources[0].Permission != "reports.download" {
 		t.Fatalf("expected permission preserved, got %q", schema.Subresources[0].Permission)
 	}
 }
@@ -988,21 +988,21 @@ func TestPanelSchemaIncludesSubresources(t *testing.T) {
 func TestPanelServeSubresourceUsesResponder(t *testing.T) {
 	repo := &panelSubresourceResponderRepo{Repository: NewMemoryRepository()}
 	panel := &Panel{
-		name: "agreements",
+		name: "reports",
 		repo: repo,
 		subresources: []PanelSubresource{
 			{Name: "artifact", Method: "GET"},
 		},
 	}
 
-	err := panel.ServeSubresource(AdminContext{Context: context.Background()}, router.NewMockContext(), "agreement-1", "artifact", "executed")
+	err := panel.ServeSubresource(AdminContext{Context: context.Background()}, router.NewMockContext(), "record-1", "artifact", "executed")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if repo.calls != 1 {
 		t.Fatalf("expected responder call count 1, got %d", repo.calls)
 	}
-	if repo.last.id != "agreement-1" || repo.last.subresource != "artifact" || repo.last.value != "executed" {
+	if repo.last.id != "record-1" || repo.last.subresource != "artifact" || repo.last.value != "executed" {
 		t.Fatalf("unexpected subresource payload: %+v", repo.last)
 	}
 }

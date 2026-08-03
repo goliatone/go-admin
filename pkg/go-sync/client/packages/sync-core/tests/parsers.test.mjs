@@ -14,8 +14,8 @@ function readJSON(name) {
 }
 
 const ref = {
-  kind: "agreement_draft",
-  id: "agreement_draft_123",
+  kind: "article_draft",
+  id: "article_draft_123",
   scope: {
     tenant: "tenant_1",
   },
@@ -25,7 +25,7 @@ test("parseReadEnvelope normalizes backend read fixtures", () => {
   const payload = readJSON("01_read_success.json");
   const snapshot = syncCore.parseReadEnvelope(ref, payload);
 
-  assert.equal(snapshot.ref.kind, "agreement_draft");
+  assert.equal(snapshot.ref.kind, "article_draft");
   assert.equal(snapshot.revision, 12);
   assert.equal(snapshot.updatedAt, "2026-03-12T18:00:00Z");
   assert.equal(snapshot.data.title, "Mutual NDA");
@@ -69,7 +69,7 @@ test("phase 3 example fixtures parse into stable sync-core contracts", () => {
   assert.equal(load.metadata.source, "phase3_resource_load");
   assert.equal(autosave.snapshot.metadata.source, "phase3_autosave_mutation");
   assert.equal(replay.replay, true);
-  assert.equal(replay.snapshot.metadata.idempotency_key, "idem_send_agreement_draft_123_v14");
+  assert.equal(replay.snapshot.metadata.idempotency_key, "idem_send_article_draft_123_v14");
   assert.equal(recovery.currentRevision, 13);
   assert.equal(recovery.resource.metadata.source, "phase3_stale_revision_recovery");
 });

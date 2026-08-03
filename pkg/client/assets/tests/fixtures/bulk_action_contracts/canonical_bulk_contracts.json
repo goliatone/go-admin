@@ -8,16 +8,16 @@
         "field": "ids",
         "invalid_count": 1,
         "invalid_ids": [
-          "doc_1"
+          "article_1"
         ],
-        "panel": "documents",
+        "panel": "articles",
         "reason_codes": [
           "RESOURCE_IN_USE"
         ],
-        "remediation_href": "/admin/content/approval_requests?document_id=doc_1",
+        "remediation_href": "/admin/content/publishing_schedules?article_id=article_1",
         "remediation_kind": "link",
-        "remediation_label": "View agreements",
-        "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
+        "remediation_label": "View schedules",
+        "sample_reason": "This article cannot be deleted because it is assigned to 2 publishing schedules.",
         "selected_count": 2
       },
       "text_code": "INVALID_SELECTION"
@@ -29,25 +29,25 @@
       "bulk_action_state": {
         "delete": {
           "enabled": true,
-          "permission": "documents.delete"
+          "permission": "articles.delete"
         }
       }
     },
     "record_ids": [
-      "doc_1",
-      "doc_2"
+      "article_1",
+      "article_2"
     ],
     "schema": {
       "bulk_action_state_config": {
         "debounce_ms": 150,
         "selection_sensitive": true,
-        "selection_state_endpoint": "/admin/api/panels/documents/bulk-actions/state"
+        "selection_state_endpoint": "/admin/api/panels/articles/bulk-actions/state"
       },
       "bulk_actions": [
         {
           "label": "Delete",
           "name": "delete",
-          "permission": "documents.delete",
+          "permission": "articles.delete",
           "scope": "bulk"
         }
       ]
@@ -65,18 +65,18 @@
             "field": "ids",
             "invalid_count": 1,
             "invalid_ids": [
-              "doc_1"
+              "article_1"
             ],
             "reason_codes": [
               "RESOURCE_IN_USE"
             ],
-            "remediation_href": "/admin/content/approval_requests?document_id=doc_1",
+            "remediation_href": "/admin/content/publishing_schedules?article_id=article_1",
             "remediation_kind": "link",
-            "remediation_label": "View agreements",
-            "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
+            "remediation_label": "View schedules",
+            "sample_reason": "This article cannot be deleted because it is assigned to 2 publishing schedules.",
             "selected_count": 2
           },
-          "permission": "documents.delete",
+          "permission": "articles.delete",
           "reason": "Some selected records cannot be deleted.",
           "reason_code": "INVALID_SELECTION",
           "severity": "warning"
@@ -92,30 +92,30 @@
           "enabled": false,
           "kind": "business_rule",
           "metadata": {
-            "agreement_count": 2,
+            "article_id": "article_1",
             "blocked_action": "delete",
-            "document_id": "doc_1",
             "field": "ids",
             "invalid_count": 1,
             "invalid_ids": [
-              "doc_1"
+              "article_1"
             ],
             "reason_codes": [
               "RESOURCE_IN_USE"
             ],
-            "remediation_href": "/admin/content/approval_requests?document_id=doc_1",
+            "remediation_href": "/admin/content/publishing_schedules?article_id=article_1",
             "remediation_kind": "link",
-            "remediation_label": "View agreements",
-            "sample_reason": "This document cannot be deleted because it is attached to 2 agreements.",
+            "remediation_label": "View schedules",
+            "sample_reason": "This article cannot be deleted because it is assigned to 2 publishing schedules.",
+            "schedule_count": 2,
             "selected_count": 1
           },
-          "permission": "documents.delete",
-          "reason": "This document cannot be deleted because it is attached to 2 agreements.",
+          "permission": "articles.delete",
+          "reason": "This article cannot be deleted because it is assigned to 2 publishing schedules.",
           "reason_code": "RESOURCE_IN_USE",
           "remediation": {
-            "href": "/admin/content/approval_requests?document_id=doc_1",
+            "href": "/admin/content/publishing_schedules?article_id=article_1",
             "kind": "link",
-            "label": "View agreements"
+            "label": "View schedules"
           },
           "severity": "warning"
         }

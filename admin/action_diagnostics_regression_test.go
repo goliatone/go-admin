@@ -103,7 +103,7 @@ func TestActionPhase8DiagnosticsPanelSummarizesDisablementsResolverErrorsAndExec
 	})
 	store.Capture(ActionDiagnosticEntry{
 		Kind:        actionDiagnosticKindAvailabilityErr,
-		Panel:       "documents",
+		Panel:       "articles",
 		ActionNames: []string{"delete"},
 		Scope:       string(ActionScopeRow),
 		Stage:       "resolver",
@@ -112,12 +112,12 @@ func TestActionPhase8DiagnosticsPanelSummarizesDisablementsResolverErrorsAndExec
 	})
 	store.Capture(ActionDiagnosticEntry{
 		Kind:       actionDiagnosticKindExecutionErr,
-		Panel:      "document_records",
+		Panel:      "article_records",
 		Action:     "delete",
 		Scope:      string(ActionScopeDetail),
 		Stage:      "repository_delete",
 		ReasonCode: TextCodeResourceInUse,
-		Reason:     "document cannot be deleted while attached to agreements",
+		Reason:     "article cannot be deleted while assigned to publishing schedules",
 	})
 
 	snapshot := panel.Collect(context.Background())
@@ -192,15 +192,15 @@ func TestActionPhase8DiagnosticsCaptureDisablementsResolverErrorsAndStructuredFa
 	expectedResolverErr := errors.New("resolver unavailable")
 	resolverBinding := &panelBinding{
 		admin: admin,
-		name:  "documents",
+		name:  "articles",
 		panel: &Panel{
-			name: "documents",
+			name: "articles",
 			repo: &translationActionRepoStub{
 				records: map[string]map[string]any{
-					"doc_123": {"id": "doc_123", "title": "Terms"},
+					"article_123": {"id": "article_123", "title": "Terms"},
 				},
 				list: []map[string]any{
-					{"id": "doc_123", "title": "Terms"},
+					{"id": "article_123", "title": "Terms"},
 				},
 			},
 			actions: []Action{{Name: "archive", Scope: ActionScopeAny}},
@@ -215,17 +215,17 @@ func TestActionPhase8DiagnosticsCaptureDisablementsResolverErrorsAndStructuredFa
 
 	deleteBinding := &panelBinding{
 		admin: admin,
-		name:  "document_records",
+		name:  "article_records",
 		panel: &Panel{
-			name: "document_records",
+			name: "article_records",
 			repo: &phase3ActionRepoStub{
-				deleteErr: resourceInUseDomainError("document cannot be deleted while attached to agreements", map[string]any{
-					"agreement_count": 2,
+				deleteErr: resourceInUseDomainError("article cannot be deleted while assigned to publishing schedules", map[string]any{
+					"schedule_count": 2,
 				}),
 			},
 		},
 	}
-	if err := deleteBinding.Delete(newPanelBindingMockContext(), "en", "doc_123"); err == nil {
+	if err := deleteBinding.Delete(newPanelBindingMockContext(), "en", "article_123"); err == nil {
 		t.Fatalf("expected delete failure")
 	}
 
@@ -242,11 +242,11 @@ func TestActionPhase8DiagnosticsCaptureDisablementsResolverErrorsAndStructuredFa
 				sawDisablement = true
 			}
 		case actionDiagnosticKindAvailabilityErr:
-			if entry.Panel == "documents" && entry.Stage == "resolver" {
+			if entry.Panel == "articles" && entry.Stage == "resolver" {
 				sawResolverErr = true
 			}
 		case actionDiagnosticKindExecutionErr:
-			if entry.Panel == "document_records" && entry.Action == "delete" && entry.ReasonCode == TextCodeResourceInUse {
+			if entry.Panel == "article_records" && entry.Action == "delete" && entry.ReasonCode == TextCodeResourceInUse {
 				sawExecutionErr = true
 			}
 		}

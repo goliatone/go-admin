@@ -1,5 +1,5 @@
-import { a as r, i as a, n as s, r as t, t as o } from "../chunks/entity-renderer-CFkRabFN.js";
-import { n as R, r as n, t as c } from "../chunks/searchbox-C75-stnC.js";
+import { a as r, i as a, n as s, r as t, t as o } from "../chunks/entity-renderer-DjI18qqO.js";
+import { n as R, r as n, t as c } from "../chunks/searchbox-Czy0ZQBB.js";
 export {
   t as ApiResolver,
   o as EntityRenderer,

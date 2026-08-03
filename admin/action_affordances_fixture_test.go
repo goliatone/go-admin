@@ -111,32 +111,32 @@ func enrichedActionAffordancesPhase4Fixture() map[string]any {
 
 func phase4AffordanceRecord() map[string]any {
 	return map[string]any{
-		"id":    "doc_123",
-		"title": "Master Services Agreement",
+		"id":    "article_123",
+		"title": "Launch Announcement",
 		"_action_state": map[string]any{
 			"delete": map[string]any{
 				"enabled":     false,
 				"reason_code": ActionDisabledReasonCodeResourceInUse,
-				"reason":      "Document is used by 2 active agreements.",
+				"reason":      "Article is used by 2 active publishing schedules.",
 				"severity":    "warning",
 				"kind":        "business_rule",
 				"metadata": map[string]any{
-					"agreement_count": 2,
-					"agreement_statuses": []string{
+					"schedule_count": 2,
+					"schedule_statuses": []string{
 						"sent",
 						"completed",
 					},
 				},
 				"remediation": map[string]any{
-					"label": "View agreements",
-					"href":  "/admin/approval_requests?document_id=doc_123",
+					"label": "View schedules",
+					"href":  "/admin/publishing_schedules?article_id=article_123",
 					"kind":  "link",
 				},
 			},
 			"publish": map[string]any{
 				"enabled":     false,
 				"reason_code": ActionDisabledReasonCodeInvalidStatus,
-				"reason":      "Only approved documents can be published.",
+				"reason":      "Only approved articles can be published.",
 				"severity":    "info",
 				"kind":        "workflow",
 				"metadata": map[string]any{
@@ -169,7 +169,7 @@ func phase4AffordanceRecord() map[string]any {
 				},
 				"remediation": map[string]any{
 					"label": "Open translation family",
-					"href":  "/admin/translations/families/tg_doc_123?locale=fr",
+					"href":  "/admin/translations/families/tg_article_123?locale=fr",
 					"kind":  "link",
 				},
 			},

@@ -6,7 +6,7 @@
       "current_revision": 13,
       "resource": {
         "data": {
-          "id": "agreement_draft_123",
+          "id": "article_draft_123",
           "title": "Mutual NDA",
           "status": "draft",
           "participants": [
@@ -17,7 +17,7 @@
             },
             {
               "id": "participant_2",
-              "role": "signer",
+              "role": "editor",
               "name": "Grace Hopper"
             }
           ]
@@ -25,7 +25,7 @@
         "revision": 13,
         "updated_at": "2026-03-12T18:00:02Z",
         "metadata": {
-          "kind": "agreement_draft",
+          "kind": "article_draft",
           "scope": {
             "tenant": "tenant_1"
           },

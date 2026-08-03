@@ -1,13 +1,13 @@
-import { httpRequest as y, readHTTPError as w } from "../shared/transport/http-client.js";
-import { onReady as h } from "../shared/dom-ready.js";
-import { formatByteSize as v } from "../shared/size-formatters.js";
-import { parseJSONValue as g } from "../shared/json-parse.js";
-function E(t) {
-  const e = g(t, null);
+import { httpRequest as w, readHTTPError as h } from "../shared/transport/http-client.js";
+import { onReady as v } from "../shared/dom-ready.js";
+import { formatByteSize as g } from "../shared/size-formatters.js";
+import { parseJSONValue as E } from "../shared/json-parse.js";
+function b(t) {
+  const e = E(t, null);
   return e && typeof e == "object" ? e : {};
 }
 function u(t) {
-  return v(t, {
+  return g(t, {
     emptyFallback: "0 B",
     zeroFallback: "0 B",
     invalidFallback: "0 B",
@@ -22,7 +22,7 @@ function u(t) {
 function s(t, e) {
   t.errorEl.textContent = e, t.errorEl.classList.remove("hidden"), t.statusEl.textContent = "", t.statusEl.classList.add("hidden");
 }
-function b(t) {
+function x(t) {
   t.errorEl.textContent = "", t.errorEl.classList.add("hidden");
 }
 function p(t, e) {
@@ -40,7 +40,7 @@ function f(t, e, r) {
   const a = document.createElement("p");
   return a.className = r, t.appendChild(a), a;
 }
-function x(t) {
+function I(t) {
   const e = t.querySelector("input[data-file-uploader-url]"), r = t.querySelector("input[data-file-uploader-file]");
   if (!e || !r) return null;
   const i = f(t, "[data-file-uploader-error]", "text-sm text-red-600 hidden");
@@ -58,33 +58,33 @@ function x(t) {
     statusEl: a
   };
 }
-async function I(t, e, r) {
+async function S(t, e, r) {
   const i = new FormData();
   i.append("file", r, r.name);
-  const a = await y(e, {
+  const a = await w(e, {
     method: "POST",
     body: i,
     credentials: "same-origin",
     headers: { Accept: "application/json" }
   });
   if (!a.ok) {
-    const l = await w(a, `Upload failed (${a.status})`, { appendStatusToFallback: !1 });
+    const l = await h(a, `Upload failed (${a.status})`, { appendStatusToFallback: !1 });
     throw new Error(l);
   }
   const n = await a.json();
   if (!n || typeof n.url != "string" || !n.url) throw new Error("Upload succeeded but response did not include a url");
   return n.url;
 }
-function S(t) {
-  const e = x(t);
+function L(t) {
+  const e = I(t);
   if (!e) return;
-  const r = E(t.getAttribute("data-component-config"));
+  const r = b(t.getAttribute("data-component-config"));
   if (Array.isArray(r.allowedTypes) && r.allowedTypes.length > 0 && e.fileInput.setAttribute("accept", r.allowedTypes.join(",")), r.preview !== !1) {
     const i = e.urlInput.value?.trim();
     i && d(e, i);
   }
   e.fileInput.addEventListener("change", async () => {
-    b(e), c(e);
+    x(e), c(e);
     const i = e.fileInput.files?.[0];
     if (!i) return;
     if (Array.isArray(r.allowedTypes) && r.allowedTypes.length > 0 && !r.allowedTypes.includes(i.type)) {
@@ -105,24 +105,25 @@ function S(t) {
     let l = null;
     try {
       r.preview !== !1 && (l = URL.createObjectURL(i), d(e, l)), p(e, "Uploading…");
-      const o = await I(e, a, i);
+      const o = await S(e, a, i);
       e.urlInput.value = o, r.preview !== !1 && d(e, o), p(e, "Uploaded"), window.setTimeout(() => c(e), 1500);
     } catch (o) {
-      if (s(e, o instanceof Error ? o.message : "Upload failed"), r.preview !== !1) {
-        const m = e.urlInput.value?.trim();
-        d(e, m || null);
+      const m = o instanceof Error ? o.message : "Upload failed";
+      if (s(e, m), r.preview !== !1) {
+        const y = e.urlInput.value?.trim();
+        d(e, y || null);
       }
     } finally {
       l && URL.revokeObjectURL(l), e.fileInput.disabled = n;
     }
   });
 }
-function L(t = document) {
-  Array.from(t.querySelectorAll('[data-component="file_uploader"], [data-file-uploader]')).forEach((e) => S(e));
+function U(t = document) {
+  Array.from(t.querySelectorAll('[data-component="file_uploader"], [data-file-uploader]')).forEach((e) => L(e));
 }
-h(() => L());
+v(() => U());
 export {
-  L as initFileUploaders
+  U as initFileUploaders
 };
 
 //# sourceMappingURL=file_uploader.js.map

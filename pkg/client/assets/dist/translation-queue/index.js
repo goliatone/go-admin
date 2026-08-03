@@ -1,15 +1,14 @@
 import { escapeAttribute as c, escapeHTML as p } from "../shared/html.js";
 import { httpRequest as j, readHTTPError as Ee } from "../shared/transport/http-client.js";
 import { extractStructuredError as Ie } from "../toast/error-helpers.js";
-import { T as Ce, Y as Q, c as Le, h as Pe, i as Fe, l as Te, o as U, t as Me, v as A, x as De, y as ne } from "../chunks/grouped-mode-DVJOCW8_.js";
-import "../chunks/status-vocabulary-ak1N6rXX.js";
+import { T as Ce, Y as Q, c as Le, h as Pe, i as Fe, l as Te, o as U, t as Me, v as A, x as De, y as ne } from "../chunks/grouped-mode-B--tWGTf.js";
 import { buildEndpointURL as _e, getNumberSearchParam as oe, getStringSearchParam as we, readLocationSearchParams as qe, setNumberSearchParam as le, setSearchParam as b } from "../shared/query-state/url-state.js";
-import { t as Be } from "../chunks/stateful-controller-BdOfMJns.js";
-import { a as je, n as ze, r as Ne, t as Ge } from "../chunks/entity-renderer-CFkRabFN.js";
-import { t as Oe } from "../chunks/searchbox-C75-stnC.js";
-import { n as Qe } from "../chunks/behaviors-3r2n03MZ.js";
+import { t as Be } from "../chunks/stateful-controller-BhTsWevz.js";
+import { a as je, n as ze, r as Ne, t as Ge } from "../chunks/entity-renderer-DjI18qqO.js";
+import { t as Oe } from "../chunks/searchbox-Czy0ZQBB.js";
+import { n as Qe } from "../chunks/behaviors-DAT-GAWx.js";
 import { asNumber as g, asRecord as h, asString as o, asStringArray as de } from "../shared/coercion.js";
-import { $ as I, A as Ue, D as He, E as Ke, G as Ve, J as Ye, K as We, O as Xe, Q as Je, R as Ze, S as w, T as et, X as C, Y as L, Z as tt, _ as it, b as at, k as st, q as rt, v as ce } from "../chunks/translation-shared-BkWg4uhq.js";
+import { $ as I, A as Ue, D as He, E as Ke, G as Ve, J as Ye, K as We, O as Xe, Q as Je, R as Ze, S as w, T as et, X as C, Y as L, Z as tt, _ as it, b as at, k as st, q as rt, v as ce } from "../chunks/translation-shared-D6PJvjua.js";
 import { formatTranslationShortDateTime as H } from "../translation-shared/formatters.js";
 import { normalizeNumberRecord as D } from "../shared/record-normalization.js";
 import { buildAssignmentActionURL as nt, initAssignmentSSRRowActions as ot } from "../translation-actions/assignment-row-actions.js";
@@ -446,7 +445,7 @@ function wt(i) {
 function qt(i) {
   const e = h(i);
   if (!e) return;
-  const t = h(h(e.capabilities).server_family), a = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((s) => o(s)).filter((s) => !!s) : void 0;
+  const t = h(e.capabilities), a = h(t.server_family), s = Array.isArray(e.supported_sort_keys) ? e.supported_sort_keys.map((n) => o(n)).filter((n) => !!n) : void 0;
   return {
     enabled: e.enabled === !0,
     mode: o(e.mode) || "family_id",
@@ -457,12 +456,12 @@ function qt(i) {
     assignment_count: g(e.assignment_count),
     family_total: g(e.family_total) || void 0,
     assignment_total: g(e.assignment_total) || void 0,
-    supported_modes: Array.isArray(e.supported_modes) ? e.supported_modes.map((s) => o(s)).filter(Boolean) : ["family_id"],
-    supported_sort_keys: a,
+    supported_modes: Array.isArray(e.supported_modes) ? e.supported_modes.map((n) => o(n)).filter(Boolean) : ["family_id"],
+    supported_sort_keys: s,
     strategy: o(e.strategy) || "page_local",
     capabilities: { server_family: {
-      supported: t.supported === !0,
-      reason_code: o(t.reason_code) || void 0
+      supported: a.supported === !0,
+      reason_code: o(a.reason_code) || void 0
     } }
   };
 }
@@ -1136,15 +1135,15 @@ var Ae = class q extends Be {
         }
       });
       if (!e.ok) throw await z(e, "Filter snapshot failed");
-      const t = St(h(h(await e.json()).data));
-      if (!t.snapshotId) throw new G({
+      const t = h(await e.json()), a = St(h(t.data));
+      if (!a.snapshotId) throw new G({
         message: "Filter snapshot response did not include a snapshot id.",
         status: 500,
         code: "INVALID_SNAPSHOT_RESPONSE"
       });
-      this.selectedRows.clear(), this.filterSnapshot = t, this.feedback = {
+      this.selectedRows.clear(), this.filterSnapshot = a, this.feedback = {
         kind: "success",
-        message: `${t.requested} matching assignment${t.requested !== 1 ? "s" : ""} selected.`
+        message: `${a.requested} matching assignment${a.requested !== 1 ? "s" : ""} selected.`
       };
     } catch (e) {
       this.feedback = M(e, "Filter snapshot failed.");
@@ -1231,12 +1230,12 @@ ${n.join(`
   }
   promptFilterSnapshotActionOptions(e) {
     if (e === "assign") {
-      const t = this.queryState.assigneeId && this.queryState.assigneeId !== "__me__" ? this.queryState.assigneeId : "", a = o(typeof window > "u" || typeof window.prompt != "function" ? t : window.prompt("Assign matching assignments to", t));
-      return a ? { assigneeId: a } : null;
+      const t = this.queryState.assigneeId && this.queryState.assigneeId !== "__me__" ? this.queryState.assigneeId : "", a = typeof window > "u" || typeof window.prompt != "function" ? t : window.prompt("Assign matching assignments to", t), s = o(a);
+      return s ? { assigneeId: s } : null;
     }
     if (e === "priority") {
-      const t = he(this.queryState.priority || "normal"), a = he(o(typeof window > "u" || typeof window.prompt != "function" ? t : window.prompt("Set matching assignments priority", t)));
-      return a ? { priority: a } : (this.feedback = {
+      const t = he(this.queryState.priority || "normal"), a = typeof window > "u" || typeof window.prompt != "function" ? t : window.prompt("Set matching assignments priority", t), s = he(o(a));
+      return s ? { priority: s } : (this.feedback = {
         kind: "error",
         message: "Priority must be low, normal, high, or urgent."
       }, this.render(), null);
@@ -1570,7 +1569,6 @@ ${n.join(`
         break;
       case "order":
         this.updateFilter({ order: a || void 0 });
-        break;
     }
   }
   get savedFilterPresets() {
@@ -1627,7 +1625,6 @@ ${n.join(`
         break;
       case "order":
         t.order = void 0;
-        break;
     }
     this.updateFilter(t);
   }
@@ -2467,7 +2464,10 @@ ${n.join(`
     return Object.entries(e).filter(([, t]) => t > 0).slice(0, 2).map(([t, a]) => `<span class="family-summary-pill priority-${c(t)}">${p(y(t))} ${a}</span>`).join("");
   }
   renderServerFamilyBlocker(e) {
-    if (!e.family_blocker_count_available) return `<span class="family-summary-pill is-degraded" title="${c(e.family_blocker_count_reason || "persisted_blockers_unavailable")}">Blockers unavailable</span>`;
+    if (!e.family_blocker_count_available) {
+      const a = e.family_blocker_count_reason || "persisted_blockers_unavailable";
+      return `<span class="family-summary-pill is-degraded" title="${c(a)}">Blockers unavailable</span>`;
+    }
     const t = e.family_blocker_count ?? 0;
     return `<span class="family-summary-pill ${t > 0 ? "is-blocked" : ""}">${t} persisted ${t === 1 ? "blocker" : "blockers"}</span>`;
   }
@@ -2995,7 +2995,6 @@ ${n.join(`
             r.hidden = !0;
             const f = r.closest(".queue-action-overflow-container")?.querySelector("[data-overflow-menu]");
             f && f.setAttribute("aria-expanded", "false");
-            break;
         }
       });
     });
@@ -4160,7 +4159,7 @@ function Vt() {
   const i = (qe(window.location) ?? new URLSearchParams()).get("translation_client_render");
   return i === "1" || i === "true";
 }
-function ci(i) {
+function di(i) {
   const e = i.dataset.endpoint || i.dataset.assignmentListEndpoint || "";
   if (!e) return null;
   if (i.dataset.ssrEnhanced === "true" && !Vt())
@@ -4211,7 +4210,7 @@ export {
   Qt as getAssignmentQueueStyles,
   xt as hasAssignmentListQueryState,
   ke as initAssignmentQueueFilterTypeaheads,
-  ci as initAssignmentQueueScreen,
+  di as initAssignmentQueueScreen,
   ot as initAssignmentSSRRowActions,
   Ft as normalizeAssignmentActionResponse,
   wt as normalizeAssignmentListMeta,

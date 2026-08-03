@@ -111,10 +111,10 @@ func TestServiceAbortPersistsTerminalAbort(t *testing.T) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		ErrorJSON:   "temporary failure",
-		GroupType:   "agreement",
-		GroupID:     "agreement-1",
+		GroupType:   "publication",
+		GroupID:     "batch-1",
 		SubjectID:   "recipient-1",
-		SubjectType: "agreement_recipient_notification",
+		SubjectType: "publication_subscriber_notification",
 		Kind:        "reviews.send_invitation",
 	})
 	handler := &stubHandler{}

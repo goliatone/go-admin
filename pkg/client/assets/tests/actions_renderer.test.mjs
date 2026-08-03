@@ -52,10 +52,10 @@ test('ActionRenderer dropdown renders disabled reasons without remediation links
         id: 'delete',
         label: 'Delete',
         disabled: true,
-        disabledReason: 'Document is used by 2 active agreements.',
+        disabledReason: 'Article is used by 2 active publishing schedules.',
         remediation: {
-          label: 'View agreements',
-          href: '/admin/approval_requests?document_id=doc_123',
+          label: 'View schedules',
+          href: '/admin/publishing_schedules?article_id=article_123',
           kind: 'link',
         },
         action: () => {},
@@ -63,9 +63,9 @@ test('ActionRenderer dropdown renders disabled reasons without remediation links
     ]
   );
 
-  assert.match(html, /Document is used by 2 active agreements\./);
+  assert.match(html, /Article is used by 2 active publishing schedules\./);
   assert.match(html, /aria-describedby="id-delete-disabled-reason"/);
-  assert.doesNotMatch(html, /View agreements/);
+  assert.doesNotMatch(html, /View schedules/);
 });
 
 test('ActionRenderer click guard prevents disabled row actions from executing', async () => {

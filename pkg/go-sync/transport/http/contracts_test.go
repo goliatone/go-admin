@@ -87,8 +87,8 @@ func TestReplayFixtureMatchesCanonicalReplayEnvelope(t *testing.T) {
 func TestErrorEnvelopeFromErrorIncludesCanonicalStaleRevisionPayload(t *testing.T) {
 	now := time.Date(2026, time.March, 12, 18, 0, 2, 0, time.UTC)
 	latest := core.Snapshot{
-		ResourceRef: core.ResourceRef{Kind: "agreement_draft", ID: "agreement_draft_123"},
-		Data:        []byte(`{"id":"agreement_draft_123","status":"draft"}`),
+		ResourceRef: core.ResourceRef{Kind: "article_draft", ID: "article_draft_123"},
+		Data:        []byte(`{"id":"article_draft_123","status":"draft"}`),
 		Revision:    13,
 		UpdatedAt:   now,
 	}
@@ -137,18 +137,18 @@ func TestErrorEnvelopeFromErrorOmitsLatestSnapshotWhenUnavailable(t *testing.T) 
 func TestReadResponseFromSnapshotDerivesCanonicalMetadataFromResourceRef(t *testing.T) {
 	envelope := ReadResponseFromSnapshot(core.Snapshot{
 		ResourceRef: core.ResourceRef{
-			Kind: "agreement_draft",
-			ID:   "agreement_draft_123",
+			Kind: "article_draft",
+			ID:   "article_draft_123",
 			Scope: map[string]string{
 				"tenant": "tenant_1",
 			},
 		},
-		Data:      []byte(`{"id":"agreement_draft_123"}`),
+		Data:      []byte(`{"id":"article_draft_123"}`),
 		Revision:  12,
 		UpdatedAt: time.Date(2026, time.March, 12, 18, 0, 0, 0, time.UTC),
 	})
 
-	if envelope.Metadata["kind"] != "agreement_draft" {
+	if envelope.Metadata["kind"] != "article_draft" {
 		t.Fatalf("expected metadata.kind to be derived from resource ref, got %+v", envelope.Metadata)
 	}
 	scope, ok := envelope.Metadata["scope"].(map[string]string)
@@ -164,13 +164,13 @@ func TestMutationResponseFromResultDerivesCanonicalMetadataFromResourceRef(t *te
 	envelope := MutationResponseFromResult(core.MutationResult{
 		Snapshot: core.Snapshot{
 			ResourceRef: core.ResourceRef{
-				Kind: "agreement_draft",
-				ID:   "agreement_draft_123",
+				Kind: "article_draft",
+				ID:   "article_draft_123",
 				Scope: map[string]string{
 					"tenant": "tenant_1",
 				},
 			},
-			Data:      []byte(`{"id":"agreement_draft_123","status":"sent"}`),
+			Data:      []byte(`{"id":"article_draft_123","status":"sent"}`),
 			Revision:  14,
 			UpdatedAt: time.Date(2026, time.March, 12, 18, 0, 5, 0, time.UTC),
 		},
@@ -178,7 +178,7 @@ func TestMutationResponseFromResultDerivesCanonicalMetadataFromResourceRef(t *te
 		Replay:  true,
 	})
 
-	if envelope.Metadata["kind"] != "agreement_draft" {
+	if envelope.Metadata["kind"] != "article_draft" {
 		t.Fatalf("expected metadata.kind to be derived from resource ref, got %+v", envelope.Metadata)
 	}
 }

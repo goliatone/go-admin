@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,10 +10,9 @@ const sourceRoot = resolve(packageRoot, "src");
 
 function sourceFiles(root) {
   const files = [];
-  for (const entry of readdirSync(root)) {
-    const fullPath = join(root, entry);
-    const info = statSync(fullPath);
-    if (info.isDirectory()) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const fullPath = join(root, entry.name);
+    if (entry.isDirectory()) {
       files.push(...sourceFiles(fullPath));
       continue;
     }
@@ -26,7 +25,7 @@ function sourceFiles(root) {
 
 test("sync-core source does not import app-specific modules", () => {
   const forbidden = [
-    "agreement-form",
+    "article-editor",
     "pkg/client/assets",
   ];
 

@@ -1,4 +1,4 @@
-import { t as a } from "../../chunks/badge-DT04uHwZ.js";
+import { t as a } from "../../chunks/badge-D5ShfcsT.js";
 var i = {
   draft: "Draft",
   active: "Active",

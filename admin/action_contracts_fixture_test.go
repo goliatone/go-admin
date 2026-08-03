@@ -106,11 +106,11 @@ func TestActionContractsPhase1RuntimeListAndDetailEnvelopes(t *testing.T) {
 func TestActionContractsPhase1RuntimeWriteErrorEnvelope(t *testing.T) {
 	server := router.NewHTTPServer()
 	server.Router().Get("/err", func(c router.Context) error {
-		return writeError(c, NewDomainError(TextCodeResourceInUse, "Document cannot be deleted while attached to agreements", map[string]any{
-			"agreement_count": 2,
+		return writeError(c, NewDomainError(TextCodeResourceInUse, "Article cannot be deleted while assigned to publishing schedules", map[string]any{
+			"schedule_count": 2,
 			"remediation": map[string]any{
-				"label": "View agreements",
-				"href":  "/admin/content/approval_requests?document_id=doc_123",
+				"label": "View schedules",
+				"href":  "/admin/content/publishing_schedules?article_id=article_123",
 				"kind":  "link",
 			},
 		}))
@@ -205,21 +205,21 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 				},
 			},
 			"record": map[string]any{
-				"id":    "doc_123",
-				"title": "Master Services Agreement",
+				"id":    "article_123",
+				"title": "Launch Announcement",
 				"_action_state": map[string]any{
 					"delete": map[string]any{
 						"enabled":     false,
 						"reason_code": ActionDisabledReasonCodeResourceInUse,
-						"reason":      "Document is used by 2 agreements",
+						"reason":      "Article is used by 2 publishing schedules",
 						"severity":    "warning",
 						"kind":        "business_rule",
 						"metadata": map[string]any{
-							"agreement_count": 2,
+							"schedule_count": 2,
 						},
 						"remediation": map[string]any{
-							"label": "View agreements",
-							"href":  "/admin/content/approval_requests?document_id=doc_123",
+							"label": "View schedules",
+							"href":  "/admin/content/publishing_schedules?article_id=article_123",
 							"kind":  "link",
 						},
 					},
@@ -237,21 +237,21 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 				},
 			},
 			"data": map[string]any{
-				"id":    "doc_123",
-				"title": "Master Services Agreement",
+				"id":    "article_123",
+				"title": "Launch Announcement",
 				"_action_state": map[string]any{
 					"delete": map[string]any{
 						"enabled":     false,
 						"reason_code": ActionDisabledReasonCodeResourceInUse,
-						"reason":      "Document is used by 2 agreements",
+						"reason":      "Article is used by 2 publishing schedules",
 						"severity":    "warning",
 						"kind":        "business_rule",
 						"metadata": map[string]any{
-							"agreement_count": 2,
+							"schedule_count": 2,
 						},
 						"remediation": map[string]any{
-							"label": "View agreements",
-							"href":  "/admin/content/approval_requests?document_id=doc_123",
+							"label": "View schedules",
+							"href":  "/admin/content/publishing_schedules?article_id=article_123",
 							"kind":  "link",
 						},
 					},
@@ -261,8 +261,8 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 		"list_contract": map[string]any{
 			"data": []map[string]any{
 				{
-					"id":    "doc_123",
-					"title": "Master Services Agreement",
+					"id":    "article_123",
+					"title": "Launch Announcement",
 				},
 			},
 			"$meta": map[string]any{
@@ -290,12 +290,12 @@ func canonicalActionContractsPhase1Fixture() map[string]any {
 		"execution_failure": map[string]any{
 			"error": map[string]any{
 				"text_code": TextCodeResourceInUse,
-				"message":   "Document cannot be deleted while attached to agreements",
+				"message":   "Article cannot be deleted while assigned to publishing schedules",
 				"metadata": map[string]any{
-					"agreement_count": 2,
+					"schedule_count": 2,
 					"remediation": map[string]any{
-						"label": "View agreements",
-						"href":  "/admin/content/approval_requests?document_id=doc_123",
+						"label": "View schedules",
+						"href":  "/admin/content/publishing_schedules?article_id=article_123",
 						"kind":  "link",
 					},
 				},

@@ -29,6 +29,29 @@ function assert_file_content {
     fi
 }
 
+function test_go_quality_cache_stays_outside_repository {
+    (
+        unset GOCACHE GOTMPDIR
+        GO_QUALITY_GOCACHE=""
+        GO_QUALITY_GOTMPDIR=""
+
+        _go:quality:prepare_env
+
+        case "${GOCACHE}" in
+            "${repo_root}"|"${repo_root}"/*)
+                echo "default Go build cache must be outside the repository: ${GOCACHE}" >&2
+                return 1
+                ;;
+        esac
+        case "${GOTMPDIR}" in
+            "${repo_root}"|"${repo_root}"/*)
+                echo "default Go build temp directory must be outside the repository: ${GOTMPDIR}" >&2
+                return 1
+                ;;
+        esac
+    )
+}
+
 function test_module_discovery {
     local module_fixture="${fixture_root}/module-discovery"
     local modules
@@ -371,10 +394,12 @@ function test_release_client_prepare_uses_tagged_source {
     local tagged_source="${fixture_root}/tagged-client-source"
     local current_source="${fixture_root}/current-client-source"
     local destination="${fixture_root}/tagged-client-assets"
+    local resolved_destination
     local prepare_log="${fixture_root}/tagged-client-prepare.log"
     local commit=0123456789abcdef0123456789abcdef01234567
 
     mkdir -p "${tagged_source}/pkg/client/assets/scripts" "${current_source}" "${destination}"
+    resolved_destination=$(cd "${destination}" && pwd -P)
     printf '%s\n' 'tagged' > "${tagged_source}/source-marker"
     printf '%s\n' '{}' > "${tagged_source}/pkg/client/assets/package-lock.json"
     printf '%s\n' 'export {}' > "${tagged_source}/pkg/client/assets/scripts/prepare-release-assets.mjs"
@@ -421,7 +446,7 @@ function test_release_client_prepare_uses_tagged_source {
         release:client:prepare_tag v1.2.3 "${destination}"
     )
 
-    assert_file_content "${prepare_log}" "1.2.3 ${destination} ${commit}"
+    assert_file_content "${prepare_log}" "1.2.3 ${resolved_destination} ${commit}"
     [ -f "${destination}/client.tgz" ]
 }
 
@@ -1032,6 +1057,7 @@ function test_release_success_end_to_end {
     fi
 }
 
+test_go_quality_cache_stays_outside_repository
 test_module_discovery
 test_repository_module_boundaries
 test_real_quickstart_sync

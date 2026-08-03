@@ -50,8 +50,8 @@ Use outbox when:
 ```go
 _, err := tx.EnqueueOutboxMessage(ctx, scope, txoutbox.Message{
   Topic:         "email.send",
-  MessageKey:    "agreement.sent.signer-1",
-  PayloadJSON:   `{"agreement_id":"...","recipient_id":"..."}`,
+  MessageKey:    "publication.ready.subscriber-1",
+	PayloadJSON:   `{"publication_id":"...","subscriber_id":"..."}`,
   CorrelationID: corrID,
   MaxAttempts:   5,
 })

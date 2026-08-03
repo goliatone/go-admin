@@ -25,7 +25,7 @@ test('legacy handleDelete refreshes and renders structured backend errors', asyn
     globalThis.fetch = async () => new Response(JSON.stringify({
       error: {
         text_code: 'RESOURCE_IN_USE',
-        message: 'Document cannot be deleted while attached to agreements',
+        message: 'Article cannot be deleted while assigned to publishing schedules',
         metadata: { id: 'page_123' },
       },
     }), { status: 409, headers: { 'Content-Type': 'application/json' } });
@@ -33,7 +33,7 @@ test('legacy handleDelete refreshes and renders structured backend errors', asyn
     await handleDelete(grid, 'page_123');
 
     assert.equal(grid.refreshCalls, 1);
-    assert.equal(grid.lastError, 'RESOURCE_IN_USE: Document cannot be deleted while attached to agreements');
+    assert.equal(grid.lastError, 'RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules');
   } finally {
     globalThis.fetch = originalFetch;
   }

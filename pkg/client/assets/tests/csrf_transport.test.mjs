@@ -187,7 +187,7 @@ test('executeStructuredRequest appends csrf headers for same-origin unsafe reque
   };
 
   try {
-    const result = await executeStructuredRequest('/admin/api/panels/documents/doc_123', {
+    const result = await executeStructuredRequest('/admin/api/panels/articles/article_123', {
       method: 'DELETE',
       headers: { Accept: 'application/json' },
     });

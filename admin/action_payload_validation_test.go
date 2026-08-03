@@ -8,12 +8,12 @@ func TestApplyActionPayloadDefaultsGeneratesIdempotencyKey(t *testing.T) {
 		Idempotent: true,
 	}
 
-	payload := applyActionPayloadDefaults(action, map[string]any{"id": "agreement-1"}, nil)
+	payload := applyActionPayloadDefaults(action, map[string]any{"id": "article-1"}, nil)
 	value := toString(payload["idempotency_key"])
 	if value == "" {
 		t.Fatalf("expected idempotency_key to be generated")
 	}
-	if value == "agreement-1" {
+	if value == "article-1" {
 		t.Fatalf("expected idempotency key, got raw id")
 	}
 }
@@ -25,7 +25,7 @@ func TestApplyActionPayloadDefaultsDoesNotOverrideProvidedIdempotencyKey(t *test
 	}
 
 	payload := applyActionPayloadDefaults(action, map[string]any{
-		"id":              "agreement-1",
+		"id":              "article-1",
 		"idempotency_key": "provided-key",
 	}, nil)
 	if got := toString(payload["idempotency_key"]); got != "provided-key" {
@@ -40,7 +40,7 @@ func TestApplyActionPayloadDefaultsNormalizesAliasIdempotencyKey(t *testing.T) {
 	}
 
 	payload := applyActionPayloadDefaults(action, map[string]any{
-		"id":             "agreement-1",
+		"id":             "article-1",
 		"idempotencyKey": "provided-key",
 	}, nil)
 	if got := toString(payload["idempotency_key"]); got != "provided-key" {
@@ -58,7 +58,7 @@ func TestApplyActionPayloadDefaultsUsesCustomField(t *testing.T) {
 		IdempotencyField: "request_id",
 	}
 
-	payload := applyActionPayloadDefaults(action, map[string]any{"id": "agreement-1"}, nil)
+	payload := applyActionPayloadDefaults(action, map[string]any{"id": "article-1"}, nil)
 	if got := toString(payload["request_id"]); got == "" {
 		t.Fatalf("expected request_id to be generated")
 	}

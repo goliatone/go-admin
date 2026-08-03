@@ -1,14 +1,14 @@
 import { escapeHTML as n } from "../shared/html.js";
-import { t as at } from "../chunks/icon-renderer-tQhqqQbt.js";
-import { n as P, r as X, t as ee } from "../chunks/modal-Dzqx5T1M.js";
+import { t as at } from "../chunks/icon-renderer-DauoBn1n.js";
+import { n as P, r as X, t as ee } from "../chunks/modal-D1hUYSoJ.js";
 import { httpRequest as _t } from "../shared/transport/http-client.js";
 import { extractErrorMessage as It } from "../toast/error-helpers.js";
-import { t as U } from "../chunks/badge-DT04uHwZ.js";
+import { t as U } from "../chunks/badge-D5ShfcsT.js";
 import { onReady as rt } from "../shared/dom-ready.js";
 import { parseJSONValue as R } from "../shared/json-parse.js";
 import { capitalizeLabel as D, nameToSlug as je, titleCaseIdentifier as he, titleCaseWords as A } from "./shared/text.js";
 import { deepCloneJSON as ve } from "../shared/deep-clone.js";
-import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as sr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-C7eCXzRS.js";
+import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as sr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-_usywWel.js";
 import { normalizeAPIBasePath as Q, trimTrailingSlash as Qe } from "../shared/path-normalization.js";
 import { formatContentTypeDate as it } from "./shared/date-formatters.js";
 import { renderBlockStatusBadge as st } from "./shared/status-badges.js";
@@ -520,8 +520,8 @@ function Wt(t) {
         valueMode: d
       }, h = Fe(s?.accept ?? o.accept);
       h ? c.accept = h : delete c.accept, typeof s?.maxSize == "number" && Number.isFinite(s.maxSize) && (c.maxSize = s.maxSize, l.maxSize = s.maxSize);
-      const f = Ae(s?.acceptedKinds ?? o.acceptedKinds);
-      f ? (c.acceptedKinds = f, l.acceptedKinds = f) : delete c.acceptedKinds, e.items = {
+      const y = Ae(s?.acceptedKinds ?? o.acceptedKinds);
+      y ? (c.acceptedKinds = y, l.acceptedKinds = y) : delete c.acceptedKinds, e.items = {
         type: "string",
         format: d === "id" ? "uuid" : de
       }, r.componentOptions = c, e["x-formgen"] = r, l.valueMode = d, e["x-admin"] = ue(e["x-admin"] ?? {}, { media: l });
@@ -541,22 +541,22 @@ function Wt(t) {
         valueMode: d
       }, h = Fe(s?.accept ?? o.accept);
       h ? c.accept = h : delete c.accept, typeof s?.maxSize == "number" && Number.isFinite(s.maxSize) && (c.maxSize = s.maxSize, l.maxSize = s.maxSize);
-      const f = Ae(s?.acceptedKinds ?? o.acceptedKinds);
-      f ? (c.acceptedKinds = f, l.acceptedKinds = f) : delete c.acceptedKinds, t.type === "file-upload" && (delete c.itemEndpoint, delete c.resolveEndpoint), e.format = d === "id" ? "uuid" : t.type === "file-upload" ? "uri" : de, r.componentOptions = c, e["x-formgen"] = r, l.valueMode = d, e["x-admin"] = ue(e["x-admin"] ?? {}, { media: l });
+      const y = Ae(s?.acceptedKinds ?? o.acceptedKinds);
+      y ? (c.acceptedKinds = y, l.acceptedKinds = y) : delete c.acceptedKinds, t.type === "file-upload" && (delete c.itemEndpoint, delete c.resolveEndpoint), e.format = d === "id" ? "uuid" : t.type === "file-upload" ? "uri" : de, r.componentOptions = c, e["x-formgen"] = r, l.valueMode = d, e["x-admin"] = ue(e["x-admin"] ?? {}, { media: l });
       break;
     }
     case "repeater":
       t.config && "fields" in t.config && t.config.fields ? e.items = W(t.config.fields) : e.items = { type: "string" };
       break;
     case "blocks": {
-      const s = t.config, o = L(s?.allowedBlocks), l = L(s?.deniedBlocks), d = L(s?.__sourceAllowedBlocks), c = L(s?.__sourceDeniedBlocks), h = ge(s?.__sourceWidget) || "block", f = ge(s?.__sourceComponentName), m = Xt(s?.__sourceComponentConfig), y = o.length > 0, g = l.length > 0, u = !Ze(o, d), v = !Ze(l, c), x = s?.__sourceItemsSchema, S = s?.__sourceRepresentation ?? "inline";
-      x && !u ? e.items = G(x) : S === "refs" && y ? e.items = Kt(o, s?.__sourceRefPrefix) : e.items = Ut(y ? o : void 0), s?.minBlocks !== void 0 && (e.minItems = s.minBlocks), s?.maxBlocks !== void 0 && (e.maxItems = s.maxBlocks);
+      const s = t.config, o = L(s?.allowedBlocks), l = L(s?.deniedBlocks), d = L(s?.__sourceAllowedBlocks), c = L(s?.__sourceDeniedBlocks), h = ge(s?.__sourceWidget) || "block", y = ge(s?.__sourceComponentName), m = Xt(s?.__sourceComponentConfig), f = o.length > 0, g = l.length > 0, u = !Ze(o, d), v = !Ze(l, c), x = s?.__sourceItemsSchema, S = s?.__sourceRepresentation ?? "inline";
+      x && !u ? e.items = G(x) : S === "refs" && f ? e.items = Kt(o, s?.__sourceRefPrefix) : e.items = Ut(f ? o : void 0), s?.minBlocks !== void 0 && (e.minItems = s.minBlocks), s?.maxBlocks !== void 0 && (e.maxItems = s.maxBlocks);
       const q = {
         ...r,
         widget: h,
         sortable: s?.__sourceSortable ?? !0
-      }, oe = f || (_e(h) ? h : "");
-      oe && (q["component.name"] = oe), _e(h) && (y ? m.allowedBlocks = Array.from(o) : (s?.__sourceHadAllowedBlocks || Array.isArray(m.allowedBlocks)) && delete m.allowedBlocks, g ? m.deniedBlocks = Array.from(l) : (s?.__sourceHadDeniedBlocks || Array.isArray(m.deniedBlocks)) && delete m.deniedBlocks), Object.keys(m).length > 0 && (q["component.config"] = m), y && (s?.__sourceHadAllowedBlocks || S !== "refs" || u) && (q.allowedBlocks = o), (g || s?.__sourceHadDeniedBlocks && v) && (q.deniedBlocks = l), e["x-formgen"] = q;
+      }, oe = y || (_e(h) ? h : "");
+      oe && (q["component.name"] = oe), _e(h) && (f ? m.allowedBlocks = Array.from(o) : (s?.__sourceHadAllowedBlocks || Array.isArray(m.allowedBlocks)) && delete m.allowedBlocks, g ? m.deniedBlocks = Array.from(l) : (s?.__sourceHadDeniedBlocks || Array.isArray(m.deniedBlocks)) && delete m.deniedBlocks), Object.keys(m).length > 0 && (q["component.config"] = m), f && (s?.__sourceHadAllowedBlocks || S !== "refs" || u) && (q.allowedBlocks = o), (g || s?.__sourceHadDeniedBlocks && v) && (q.deniedBlocks = l), e["x-formgen"] = q;
       break;
     }
   }
@@ -608,19 +608,19 @@ function Qt(t, e, a) {
     value: String(d),
     label: he(String(d))
   })) }), o.type === "media-picker" || o.type === "media-gallery" || o.type === "file-upload") {
-    const d = {}, c = Te(r?.componentOptions), h = Pe(i?.media), f = Ot(e, o.type, c), m = Fe(c?.accept), y = Ae(c?.acceptedKinds ?? h?.acceptedKinds);
-    m && (d.accept = m), typeof c?.maxSize == "number" ? d.maxSize = c.maxSize : typeof h?.maxSize == "number" && (d.maxSize = h.maxSize), o.type === "media-gallery" && (d.multiple = !0), d.valueMode = f, y && (d.acceptedKinds = y), c && Object.keys(c).length > 0 && (d.__sourceComponentOptions = c), h && Object.keys(h).length > 0 && (d.__sourceAdminMedia = h), Object.keys(d).length > 0 && (o.config = d);
+    const d = {}, c = Te(r?.componentOptions), h = Pe(i?.media), y = Ot(e, o.type, c), m = Fe(c?.accept), f = Ae(c?.acceptedKinds ?? h?.acceptedKinds);
+    m && (d.accept = m), typeof c?.maxSize == "number" ? d.maxSize = c.maxSize : typeof h?.maxSize == "number" && (d.maxSize = h.maxSize), o.type === "media-gallery" && (d.multiple = !0), d.valueMode = y, f && (d.acceptedKinds = f), c && Object.keys(c).length > 0 && (d.__sourceComponentOptions = c), h && Object.keys(h).length > 0 && (d.__sourceAdminMedia = h), Object.keys(d).length > 0 && (o.config = d);
   }
   if (o.type === "blocks" && e.type === "array") {
-    const d = {}, c = e.items ? G(e.items) : void 0, h = nt(r?.["component.config"]), f = L(Array.isArray(h?.allowedBlocks) ? h.allowedBlocks : void 0), m = L(Array.isArray(h?.deniedBlocks) ? h.deniedBlocks : void 0);
-    c && (d.__sourceItemsSchema = c), typeof r?.widget == "string" && r.widget.trim() && (d.__sourceWidget = r.widget.trim()), typeof r?.["component.name"] == "string" && r["component.name"].trim() && (d.__sourceComponentName = r["component.name"].trim()), h && Object.keys(h).length > 0 && (d.__sourceComponentConfig = h), typeof r?.sortable == "boolean" && (d.__sourceSortable = r.sortable), d.__sourceHadAllowedBlocks = Array.isArray(r?.allowedBlocks) || f.length > 0, d.__sourceHadDeniedBlocks = Array.isArray(r?.deniedBlocks) || m.length > 0, e.minItems !== void 0 && (d.minBlocks = e.minItems), e.maxItems !== void 0 && (d.maxBlocks = e.maxItems);
-    const y = c?.oneOf ? Vt(c.oneOf) : null;
-    y && (d.__sourceRepresentation = y.mode, y.refPrefix && (d.__sourceRefPrefix = y.refPrefix));
+    const d = {}, c = e.items ? G(e.items) : void 0, h = nt(r?.["component.config"]), y = L(Array.isArray(h?.allowedBlocks) ? h.allowedBlocks : void 0), m = L(Array.isArray(h?.deniedBlocks) ? h.deniedBlocks : void 0);
+    c && (d.__sourceItemsSchema = c), typeof r?.widget == "string" && r.widget.trim() && (d.__sourceWidget = r.widget.trim()), typeof r?.["component.name"] == "string" && r["component.name"].trim() && (d.__sourceComponentName = r["component.name"].trim()), h && Object.keys(h).length > 0 && (d.__sourceComponentConfig = h), typeof r?.sortable == "boolean" && (d.__sourceSortable = r.sortable), d.__sourceHadAllowedBlocks = Array.isArray(r?.allowedBlocks) || y.length > 0, d.__sourceHadDeniedBlocks = Array.isArray(r?.deniedBlocks) || m.length > 0, e.minItems !== void 0 && (d.minBlocks = e.minItems), e.maxItems !== void 0 && (d.maxBlocks = e.maxItems);
+    const f = c?.oneOf ? Vt(c.oneOf) : null;
+    f && (d.__sourceRepresentation = f.mode, f.refPrefix && (d.__sourceRefPrefix = f.refPrefix));
     let g;
     if (r?.allowedBlocks && Array.isArray(r.allowedBlocks)) {
       const u = L(r.allowedBlocks);
-      g = y?.allowed.length ? y.allowed : u, u.length > 0 && (d.allowedBlocks = u);
-    } else f.length > 0 ? (g = y?.allowed.length ? y.allowed : f, d.allowedBlocks = g) : y?.allowed.length && (g = y.allowed, d.allowedBlocks = y.allowed);
+      g = f?.allowed.length ? f.allowed : u, u.length > 0 && (d.allowedBlocks = u);
+    } else y.length > 0 ? (g = f?.allowed.length ? f.allowed : y, d.allowedBlocks = g) : f?.allowed.length && (g = f.allowed, d.allowedBlocks = f.allowed);
     if (d.__sourceRepresentation || (d.__sourceRepresentation = "inline"), g && g.length > 0 && (d.__sourceAllowedBlocks = g), r?.deniedBlocks && Array.isArray(r.deniedBlocks)) {
       const u = L(r.deniedBlocks);
       u.length > 0 && (d.deniedBlocks = u), d.__sourceDeniedBlocks = u;
@@ -643,8 +643,6 @@ function Yt(t) {
         if (r.format === "uuid" || Ye(r.format)) return "references";
       }
       return "repeater";
-    default:
-      break;
   }
   if (e?.widget) {
     const r = {
@@ -2989,8 +2987,8 @@ function re(t) {
     const u = g.category || "uncategorized";
     d.has(u) || d.set(u, []), d.get(u).push(g);
   }
-  const c = a.size, h = c === 0 && o ? o : `${c} selected`, f = i === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", m = i === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
-  let y = `
+  const c = a.size, h = c === 0 && o ? o : `${c} selected`, y = i === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", m = i === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
+  let f = `
     <div class="space-y-2" data-block-picker-inline>
       <div class="flex items-center justify-between">
         <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">${n(s)}</span>
@@ -3000,17 +2998,17 @@ function re(t) {
         <input type="text" data-block-picker-search
                placeholder="Search blocks..."
                value="${n(r ?? "")}"
-               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${f}" />
+               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${y}" />
       </div>
       <div class="max-h-[200px] overflow-y-auto space-y-1" data-block-picker-list>`;
-  if (l.length === 0) y += `
+  if (l.length === 0) f += `
         <div class="text-center py-3 text-xs text-gray-400 dark:text-gray-500">No matching blocks</div>`;
   else for (const [g, u] of d) {
-    d.size > 1 && (y += `
+    d.size > 1 && (f += `
         <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${n(A(g))}</div>`);
     for (const v of u) {
       const x = fe(v), S = a.has(x) || a.has(v.type);
-      y += `
+      f += `
         <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${S ? m : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}">
           <input type="checkbox" value="${n(x)}" data-block-type="${n(v.type)}"
                  ${S ? "checked" : ""}
@@ -3025,9 +3023,9 @@ function re(t) {
         </label>`;
     }
   }
-  return y += `
+  return f += `
       </div>
-    </div>`, y;
+    </div>`, f;
 }
 function ut(t, e) {
   const a = t.querySelector("[data-block-picker-inline]");
@@ -4002,13 +4000,13 @@ var me = class extends P {
     }));
   }
   async showBlockPicker(t) {
-    const e = this.container?.querySelector(`input[name="${t}Blocks"]`), a = this.parseBlockListValue(e?.value);
+    const e = this.container?.querySelector(`input[name="${t}Blocks"]`), a = this.parseBlockListValue(e?.value), r = Se(this.config.apiBasePath);
     new ua({
-      apiBasePath: Se(this.config.apiBasePath),
+      apiBasePath: r,
       selectedBlocks: a,
       title: t === "allowed" ? "Select Allowed Blocks" : "Select Denied Blocks",
-      onSelect: (r) => {
-        this.updateBlockList(t, r);
+      onSelect: (i) => {
+        this.updateBlockList(t, i);
       }
     }).show();
   }
@@ -4081,8 +4079,8 @@ var me = class extends P {
     c !== null && c !== "" && (o.min = parseFloat(c));
     const h = e.get("max");
     h !== null && h !== "" && (o.max = parseFloat(h));
-    const f = e.get("pattern");
-    f && f.trim() && (o.pattern = f.trim()), Object.keys(o).length > 0 && (s.validation = o);
+    const y = e.get("pattern");
+    y && y.trim() && (o.pattern = y.trim()), Object.keys(o).length > 0 && (s.validation = o);
     const m = this.buildTypeSpecificConfig(e);
     m && Object.keys(m).length > 0 && (s.config = m), this.config.onSave(s), this.hide();
   }
@@ -4716,7 +4714,8 @@ var ua = class extends P {
   advanced: "cat-advanced"
 };
 function fa(t) {
-  return ga[(t ?? "").trim().toLowerCase()] ?? "advanced";
+  const e = (t ?? "").trim().toLowerCase();
+  return ga[e] ?? "advanced";
 }
 function ma(t, e) {
   const a = (t ?? "").trim();
@@ -4725,7 +4724,8 @@ function ma(t, e) {
   return r ? A(r) : "Advanced";
 }
 function ba(t) {
-  return J(ya[(t ?? "").trim().toLowerCase()] ?? "cat-advanced");
+  const e = (t ?? "").trim().toLowerCase(), a = ya[e] ?? "cat-advanced";
+  return J(a);
 }
 function va(t) {
   const e = t.defaults;
@@ -5182,8 +5182,9 @@ var Ca = /* @__PURE__ */ new Set(["advanced"]), be = "application/x-field-palett
       </div>`;
   }
   renderPaletteItem(t) {
+    const e = this.fieldTypeKeyByRef.get(t) ?? t.type;
     return `
-      <div data-palette-item="${n(this.fieldTypeKeyByRef.get(t) ?? t.type)}"
+      <div data-palette-item="${n(e)}"
            draggable="true"
            class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-grab hover:bg-blue-50 dark:hover:bg-blue-900/20 active:cursor-grabbing transition-colors group select-none"
            title="${n(t.description)}">
@@ -5264,17 +5265,17 @@ function ft(t, e) {
   }
 }
 function mt(t) {
-  const { name: e, subtitle: a, subtitleMono: r = !1, status: i, version: s, saveState: o = "idle", saveMessage: l, actions: d, compact: c = !1 } = t, h = c ? "px-5" : "px-6", f = c ? "h2" : "h1", m = c ? "text-lg" : "text-xl", y = c ? "gap-2.5" : "gap-3", g = ft(o, l), u = i ? U(c ? i : i.charAt(0).toUpperCase() + i.slice(1), "status", i, c ? {
+  const { name: e, subtitle: a, subtitleMono: r = !1, status: i, version: s, saveState: o = "idle", saveMessage: l, actions: d, compact: c = !1 } = t, h = c ? "px-5" : "px-6", y = c ? "h2" : "h1", m = c ? "text-lg" : "text-xl", f = c ? "gap-2.5" : "gap-3", g = ft(o, l), u = i ? U(c ? i : i.charAt(0).toUpperCase() + i.slice(1), "status", i, c ? {
     uppercase: !0,
     attrs: { "data-entity-status-badge": "" }
   } : { attrs: { "data-entity-status-badge": "" } }) : "", v = s ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${n(s)}</span>` : "", x = a ? `<p class="${r ? "text-[11px] font-mono text-gray-400 dark:text-gray-500" : "text-sm text-gray-500 dark:text-gray-400"} mt-0.5 truncate">${n(a)}</p>` : "";
   return c ? `
       <div class="${h} py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
         <div class="min-w-0 flex-1">
-          <${f} class="${m} font-semibold text-gray-900 dark:text-white truncate leading-snug" data-entity-name>${n(e)}</${f}>
+          <${y} class="${m} font-semibold text-gray-900 dark:text-white truncate leading-snug" data-entity-name>${n(e)}</${y}>
           ${x}
         </div>
-        <div class="flex items-center ${y} shrink-0">
+        <div class="flex items-center ${f} shrink-0">
           <span data-entity-save-indicator>${g}</span>
           ${u}
           ${d || ""}
@@ -5283,13 +5284,13 @@ function mt(t) {
     <div class="${h} py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
       <div>
         <div class="flex items-center gap-3">
-          <${f} class="${m} font-semibold text-gray-900 dark:text-white" data-entity-name>${n(e)}</${f}>
+          <${y} class="${m} font-semibold text-gray-900 dark:text-white" data-entity-name>${n(e)}</${y}>
           ${u}
           ${v}
         </div>
         ${x}
       </div>
-      <div class="flex items-center ${y}">
+      <div class="flex items-center ${f}">
         <span data-entity-save-indicator>${g}</span>
         ${d || ""}
       </div>
@@ -5297,7 +5298,7 @@ function mt(t) {
 }
 var $a = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>', Ba = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>', La = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>', Ea = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>', ja = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
 function bt(t) {
-  const { field: e, isExpanded: a = !1, isSelected: r = !1, isDropTarget: i = !1, hasErrors: s = !1, errorMessages: o = [], showReorderButtons: l = !1, isFirst: d = !1, isLast: c = !1, compact: h = !1, renderExpandedContent: f, actionsHtml: m = "", constraintBadges: y = [], sectionName: g, index: u } = t, v = te(e.type), x = typeof f == "function";
+  const { field: e, isExpanded: a = !1, isSelected: r = !1, isDropTarget: i = !1, hasErrors: s = !1, errorMessages: o = [], showReorderButtons: l = !1, isFirst: d = !1, isLast: c = !1, compact: h = !1, renderExpandedContent: y, actionsHtml: m = "", constraintBadges: f = [], sectionName: g, index: u } = t, v = te(e.type), x = typeof y == "function";
   let S;
   s ? S = "border-red-400 bg-red-50 dark:bg-red-900/10" : a ? S = "border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/20" : r ? S = "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : S = "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600";
   const q = i ? "border-t-2 border-t-blue-400" : "", oe = h ? "gap-1.5 px-2 py-2" : "gap-3 p-3", Bt = h ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-lg", Lt = h ? "text-[13px]" : "text-sm", Et = h ? "text-[10px]" : "text-xs", jt = h ? "xs" : "sm", Mt = s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400", Tt = s ? ja : v?.icon ?? "?", ne = [];
@@ -5329,9 +5330,9 @@ function bt(t) {
     e.section && V.push(`<span>&middot; ${n(e.section)}</span>`), e.gridSpan && V.push(`<span>&middot; ${e.gridSpan} cols</span>`), Be = V.join(" ");
   }
   let Ve = "";
-  y.length > 0 && (Ve = `
+  f.length > 0 && (Ve = `
             <div class="flex items-center gap-1 mt-1">
-              ${y.map((_) => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${n(_)}</span>`).join("")}
+              ${f.map((_) => `<span class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 dark:text-gray-400">${n(_)}</span>`).join("")}
             </div>`);
   let Ue = "";
   s && o.length > 0 && (Ue = `
@@ -5383,7 +5384,7 @@ function bt(t) {
           ${Pt}
           <div class="flex items-center gap-0.5 flex-shrink-0">${Ke}${m}${Ge}</div>
         </div>
-        ${a && x ? f() : ""}
+        ${a && x ? y() : ""}
       </div>`;
 }
 var Ma = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>';
@@ -5643,36 +5644,37 @@ var C = "main", Ia = class {
   addField(t) {
     const e = te(t);
     if (t === "blocks") {
-      const a = new Set(this.state.fields.map((l) => l.name));
-      let r = "content_blocks", i = "Content Blocks", s = 1;
-      for (; a.has(r); )
-        r = `content_blocks_${s}`, i = `Content Blocks ${s}`, s++;
-      const o = {
+      const r = new Set(this.state.fields.map((d) => d.name));
+      let i = "content_blocks", s = "Content Blocks", o = 1;
+      for (; r.has(i); )
+        i = `content_blocks_${o}`, s = `Content Blocks ${o}`, o++;
+      const l = {
         id: O(),
-        name: r,
+        name: i,
         type: t,
-        label: i,
+        label: s,
         required: !1,
         order: this.state.fields.length,
         ...e?.defaultConfig ?? {}
       };
-      this.state.fields.push(o), this.state.selectedFieldId = o.id, this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview(), this.loadBlocksForField(o);
+      this.state.fields.push(l), this.state.selectedFieldId = l.id, this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview(), this.loadBlocksForField(l);
       return;
     }
+    const a = {
+      id: O(),
+      name: `new_${t}_${this.state.fields.length + 1}`,
+      type: t,
+      label: e?.label ?? t,
+      required: !1,
+      order: this.state.fields.length,
+      ...e?.defaultConfig ?? {}
+    };
     new me({
-      field: {
-        id: O(),
-        name: `new_${t}_${this.state.fields.length + 1}`,
-        type: t,
-        label: e?.label ?? t,
-        required: !1,
-        order: this.state.fields.length,
-        ...e?.defaultConfig ?? {}
-      },
-      existingFieldNames: this.state.fields.map((a) => a.name),
+      field: a,
+      existingFieldNames: this.state.fields.map((r) => r.name),
       apiBasePath: this.config.apiBasePath,
-      onSave: (a) => {
-        this.state.fields.push(a), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
+      onSave: (r) => {
+        this.state.fields.push(r), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
       },
       onCancel: () => {
       }
@@ -5725,22 +5727,22 @@ var C = "main", Ia = class {
     }) && (this.state.fields.splice(e, 1), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview());
   }
   moveField(t, e, a) {
-    const r = this.state.fields.findIndex((y) => y.id === t);
+    const r = this.state.fields.findIndex((f) => f.id === t);
     if (r === -1) return;
     const i = this.state.fields[r], s = i.section || C, o = e || C, l = this.groupFieldsBySection(), d = l.get(s);
     if (!d) return;
-    const c = d.findIndex((y) => y.id === t);
+    const c = d.findIndex((f) => f.id === t);
     if (c === -1) return;
     d.splice(c, 1), d.length === 0 && l.delete(s), l.has(o) || l.set(o, []);
     const h = l.get(o);
-    let f = Math.max(0, Math.min(a, h.length));
-    s === o && c < f && (f -= 1), h.splice(f, 0, i), i.section = o === C ? void 0 : o;
+    let y = Math.max(0, Math.min(a, h.length));
+    s === o && c < y && (y -= 1), h.splice(y, 0, i), i.section = o === C ? void 0 : o;
     const m = /* @__PURE__ */ new Map();
     l.has(C) && m.set(C, l.get(C));
-    for (const [y, g] of l)
-      y !== C && m.set(y, g);
-    this.state.fields = Array.from(m.values()).flat(), this.state.fields.forEach((y, g) => {
-      y.order = g;
+    for (const [f, g] of l)
+      f !== C && m.set(f, g);
+    this.state.fields = Array.from(m.values()).flat(), this.state.fields.forEach((f, g) => {
+      f.order = g;
     }), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
   }
   moveFieldByDirection(t, e) {
@@ -5990,7 +5992,7 @@ var C = "main", Ia = class {
   renderFieldCard(t, e, a) {
     const r = j(t.type) === "blocks", i = r && this.state.selectedFieldId === t.id, s = this.state.validationErrors.filter((m) => m.path.includes(`/${t.name}`) || m.path.includes(`properties.${t.name}`)), o = s.length > 0, l = [];
     t.validation?.minLength !== void 0 && l.push(`min: ${t.validation.minLength}`), t.validation?.maxLength !== void 0 && l.push(`max: ${t.validation.maxLength}`), t.validation?.min !== void 0 && l.push(`>= ${t.validation.min}`), t.validation?.max !== void 0 && l.push(`<= ${t.validation.max}`), t.validation?.pattern && l.push("pattern");
-    const d = a ?? this.state.fields, c = d.indexOf(t), h = this.fieldActionsMenuId === t.id, f = `
+    const d = a ?? this.state.fields, c = d.indexOf(t), h = this.fieldActionsMenuId === t.id, y = `
           <div class="relative flex-shrink-0">
             ${Ta(t.id)}
             ${h ? this.renderFieldActionsMenu(t) : ""}
@@ -6004,7 +6006,7 @@ var C = "main", Ia = class {
       errorMessages: s.map((m) => m.message),
       constraintBadges: l,
       index: e,
-      actionsHtml: f,
+      actionsHtml: y,
       showReorderButtons: !0,
       isFirst: c === 0,
       isLast: c === d.length - 1,
@@ -6034,10 +6036,10 @@ var C = "main", Ia = class {
     const e = t.config ?? {}, a = this.getBlocksPickerMode(t.id) === "allowed", r = new Set(a ? e.allowedBlocks ?? [] : e.deniedBlocks ?? []), i = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", s = a ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", o = a ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", l = a ? "Allowed Blocks" : "Denied Blocks", d = a ? "blue" : "red", c = a ? "All blocks allowed (no restrictions)" : "No blocks denied";
     let h;
     if (this.cachedBlocks) {
-      const f = ae(r, this.cachedBlocks);
+      const y = ae(r, this.cachedBlocks);
       h = re({
         availableBlocks: this.cachedBlocks,
-        selectedBlocks: f,
+        selectedBlocks: y,
         onSelectionChange: () => {
         },
         label: l,
@@ -6519,10 +6521,10 @@ var C = "main", Ia = class {
         u && (this.cachedBlocks = null, this.loadBlocksForField(u));
         return;
       }
-      const f = e.closest("[data-field-expand-toggle]");
-      if (f) {
+      const y = e.closest("[data-field-expand-toggle]");
+      if (y) {
         t.stopPropagation();
-        const g = f.dataset.fieldExpandToggle;
+        const g = y.dataset.fieldExpandToggle;
         this.toggleFieldExpansion(g);
         return;
       }
@@ -6532,9 +6534,9 @@ var C = "main", Ia = class {
         this.toggleFieldExpansion(g);
         return;
       }
-      const y = e.closest("[data-field-card]");
-      if (y && !e.closest("button") && !e.closest("[data-field-props]")) {
-        const g = y.getAttribute("data-field-card");
+      const f = e.closest("[data-field-card]");
+      if (f && !e.closest("button") && !e.closest("[data-field-props]")) {
+        const g = f.getAttribute("data-field-card");
         g && (this.state.selectedFieldId = this.state.selectedFieldId === g ? null : g, this.renderFieldList());
       }
       this.fieldActionsMenuId && !e.closest("[data-field-actions]") && !e.closest("[data-ct-field-actions-menu]") && (this.fieldActionsMenuId = null, this.renderFieldList());
@@ -6596,10 +6598,10 @@ var C = "main", Ia = class {
         if (this.dragOverRAF = null, !this.dragState) return;
         const s = i.closest("[data-field-card]");
         if (!s || s.getAttribute("data-field-card") === this.dragState.fieldId) return;
-        const o = s.getBoundingClientRect(), l = r < o.top + o.height / 2, d = this.getOrCreateDropIndicator(), c = l ? s : s.nextSibling;
-        (d.nextSibling !== c || d.parentNode !== s.parentElement) && s.parentElement?.insertBefore(d, c);
-        const h = parseInt(s.getAttribute("data-field-index") ?? "0", 10), f = s.getAttribute("data-field-section") ?? C;
-        this.dragState.currentSection = f, this.dragState.currentIndex = l ? h : h + 1;
+        const o = s.getBoundingClientRect(), l = o.top + o.height / 2, d = r < l, c = this.getOrCreateDropIndicator(), h = d ? s : s.nextSibling;
+        (c.nextSibling !== h || c.parentNode !== s.parentElement) && s.parentElement?.insertBefore(c, h);
+        const y = parseInt(s.getAttribute("data-field-index") ?? "0", 10), m = s.getAttribute("data-field-section") ?? C;
+        this.dragState.currentSection = m, this.dragState.currentIndex = d ? y : y + 1;
       }));
     }), t.addEventListener("dragleave", (e) => {
       const a = e.relatedTarget;
@@ -6722,13 +6724,13 @@ var C = "main", Ia = class {
       const h = c.getAttribute("data-ct-cap");
       h && (e[h] = c.checked);
     });
-    const a = (c) => c.split(",").map((h) => h.trim()).filter(Boolean).filter((h, f, m) => m.indexOf(h) === f).sort(), r = this.container.querySelector("[data-ct-navigation-enabled]"), i = this.container.querySelector("[data-ct-navigation-eligible]"), s = this.container.querySelector("[data-ct-navigation-defaults]"), o = this.container.querySelector("[data-ct-navigation-allow-override]"), l = this.container.querySelector("[data-ct-navigation-default-visible]"), d = this.container.querySelector("[data-ct-navigation-merge-mode]");
+    const a = (c) => c.split(",").map((h) => h.trim()).filter(Boolean).filter((h, y, m) => m.indexOf(h) === y).sort(), r = this.container.querySelector("[data-ct-navigation-enabled]"), i = this.container.querySelector("[data-ct-navigation-eligible]"), s = this.container.querySelector("[data-ct-navigation-defaults]"), o = this.container.querySelector("[data-ct-navigation-allow-override]"), l = this.container.querySelector("[data-ct-navigation-default-visible]"), d = this.container.querySelector("[data-ct-navigation-merge-mode]");
     if (r) {
-      const c = a(i?.value ?? ""), h = a(s?.value ?? ""), f = new Set(c), m = h.filter((y) => !f.has(y));
+      const c = a(i?.value ?? ""), h = a(s?.value ?? ""), y = new Set(c), m = h.filter((f) => !y.has(f));
       m.length > 0 && this.showToast(`Navigation defaults must be a subset of eligible locations. Invalid: ${m.join(", ")}`, "error"), e.navigation = {
         enabled: r.checked,
         eligible_locations: c,
-        default_locations: h.filter((y) => f.has(y)),
+        default_locations: h.filter((f) => y.has(f)),
         allow_instance_override: o ? o.checked : !0,
         default_visible: l ? l.checked : !0,
         merge_mode: d?.value || "append"
@@ -7013,16 +7015,19 @@ var C = "main", Ia = class {
               </ul>
             </div>
           ` : ""}
-          ${Array.from(e.entries()).map(([r, i]) => `
+          ${Array.from(e.entries()).map(([r, i]) => {
+      const s = this.state.fields.find((o) => o.name === r);
+      return `
               <div class="mb-3 last:mb-0">
                 <div class="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
-                  ${n(this.state.fields.find((s) => s.name === r)?.label ?? r)} <span class="font-mono">(${n(r)})</span>
+                  ${n(s?.label ?? r)} <span class="font-mono">(${n(r)})</span>
                 </div>
                 <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                  ${i.map((s) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${n(s.message)}</li>`).join("")}
+                  ${i.map((o) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${n(o.message)}</li>`).join("")}
                 </ul>
               </div>
-            `).join("")}
+            `;
+    }).join("")}
         </div>
       </div>
     `, t.querySelector("[data-close-validation-errors]")?.addEventListener("click", () => {
@@ -7316,7 +7321,8 @@ var C = "main", Ia = class {
   }
   async loadVersions() {
     try {
-      this.versions = (await this.api.getVersionHistory(this.config.contentType.id)).versions, this.renderVersionsList();
+      const t = await this.api.getVersionHistory(this.config.contentType.id);
+      this.versions = t.versions, this.renderVersionsList();
     } catch {
       this.renderVersionsList();
     }
@@ -7818,20 +7824,21 @@ var C = "main", Ia = class {
       }
   }
   cloneBlock(t) {
+    const e = (t.slug || t.type || "block").trim();
     new X({
       title: "Clone Block",
       label: "Enter a unique slug for the cloned block",
       placeholder: "e.g. hero_copy",
-      initialValue: `${(t.slug || t.type || "block").trim()}_copy`,
+      initialValue: `${e}_copy`,
       confirmLabel: "Clone",
       inputClass: p(),
-      onConfirm: async (e) => {
-        const a = e.trim();
-        if (a)
+      onConfirm: async (a) => {
+        const r = a.trim();
+        if (r)
           try {
-            await this.api.cloneBlockDefinition(t.id, a, a), await this.loadBlocks();
-          } catch (r) {
-            this.showError(r instanceof Error ? r.message : "Failed to clone block");
+            await this.api.cloneBlockDefinition(t.id, r, r), await this.loadBlocks();
+          } catch (i) {
+            this.showError(i instanceof Error ? i.message : "Failed to clone block");
           }
       }
     }).show();
@@ -8159,7 +8166,8 @@ var C = "main", Ia = class {
   }
   async loadVersions() {
     try {
-      this.versions = (await this.api.getBlockDefinitionVersions(this.config.block.id)).versions, this.renderVersionsList();
+      const t = await this.api.getBlockDefinitionVersions(this.config.block.id);
+      this.versions = t.versions, this.renderVersionsList();
     } catch {
       this.renderVersionsList();
     }
@@ -8572,18 +8580,18 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
       </div>`;
   }
   renderBlocksFieldProperties(t, e) {
-    const a = t.config ?? {}, r = t.section || B, i = this.getBlocksPickerMode(t.id) === "allowed", s = new Set(i ? a.allowedBlocks ?? [] : a.deniedBlocks ?? []), o = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", l = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", d = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", c = i ? "Allowed Blocks" : "Denied Blocks", h = i ? "blue" : "red", f = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
+    const a = t.config ?? {}, r = t.section || B, i = this.getBlocksPickerMode(t.id) === "allowed", s = new Set(i ? a.allowedBlocks ?? [] : a.deniedBlocks ?? []), o = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", l = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", d = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", c = i ? "Allowed Blocks" : "Denied Blocks", h = i ? "blue" : "red", y = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
     let m;
     if (this.cachedBlocks) {
-      const y = ae(s, this.cachedBlocks);
+      const f = ae(s, this.cachedBlocks);
       m = re({
         availableBlocks: this.cachedBlocks,
-        selectedBlocks: y,
+        selectedBlocks: f,
         onSelectionChange: () => {
         },
         label: c,
         accent: h,
-        emptySelectionText: f
+        emptySelectionText: y
       });
     } else m = `
         <div class="flex items-center justify-center py-6" data-blocks-loading="${n(t.id)}">
@@ -8691,7 +8699,7 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
                 <select data-field-section-select="${n(t.id)}"
                         class="${M("xs")}">
-                  ${e.map((y) => `<option value="${n(y)}" ${y === r ? "selected" : ""}>${n(A(y))}</option>`).join("")}
+                  ${e.map((f) => `<option value="${n(f)}" ${f === r ? "selected" : ""}>${n(A(f))}</option>`).join("")}
                   <option value="__new__">+ New section...</option>
                 </select>
               </div>
@@ -8911,10 +8919,10 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
       }
       return;
     }
-    const f = a.closest("[data-blocks-mode-toggle]");
-    if (f) {
+    const y = a.closest("[data-blocks-mode-toggle]");
+    if (y) {
       t.stopPropagation();
-      const u = f.dataset.blocksModeToggle, v = f.dataset.blocksMode ?? "allowed";
+      const u = y.dataset.blocksModeToggle, v = y.dataset.blocksMode ?? "allowed";
       this.blockPickerModes.set(u, v), this.render();
       return;
     }
@@ -8931,10 +8939,10 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
       v && this.openFieldConfigModal(v);
       return;
     }
-    const y = a.closest("[data-field-expand-toggle]");
-    if (y) {
+    const f = a.closest("[data-field-expand-toggle]");
+    if (f) {
       t.stopPropagation();
-      const u = y.dataset.fieldExpandToggle;
+      const u = f.dataset.fieldExpandToggle;
       this.toggleFieldExpansion(u);
       return;
     }
@@ -8993,7 +9001,6 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
         break;
       case "status":
         a.status = e, r.status = e;
-        break;
     }
     this.config.onMetadataChange(this.block.id, a);
   }
@@ -9608,8 +9615,8 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
     }
   }
   loadUserCategories() {
-    const e = R(sessionStorage.getItem("block-library-user-categories"), []);
-    return Array.isArray(e) ? e.map((a) => this.normalizeCategory(a)).filter((a) => a.length > 0) : [];
+    const e = sessionStorage.getItem("block-library-user-categories"), a = R(e, []);
+    return Array.isArray(a) ? a.map((r) => this.normalizeCategory(r)).filter((r) => r.length > 0) : [];
   }
   persistUserCategories() {
     const e = this.state.categories.filter((a) => !Ee.includes(a));
@@ -9822,10 +9829,10 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
     d + l > window.innerWidth - 8 && (d = window.innerWidth - l - 8), d < 8 && (d = 8), i.style.left = `${d}px`, document.body.appendChild(i);
     const c = i.getBoundingClientRect();
     c.bottom > window.innerHeight - 8 && (i.style.top = `${o.top - c.height - 4}px`), i.addEventListener("click", (h) => {
-      const f = h.target.closest("[data-menu-action]");
-      if (!f) return;
-      const m = f.dataset.menuAction, y = f.dataset.menuBlockId;
-      this.closeContextMenu(), this.handleAction(m, y);
+      const y = h.target.closest("[data-menu-action]");
+      if (!y) return;
+      const m = y.dataset.menuAction, f = y.dataset.menuBlockId;
+      this.closeContextMenu(), this.handleAction(m, f);
     }), this.activeMenu = () => {
       i.remove(), this.activeMenu = null;
     };
@@ -9910,13 +9917,13 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
     this.state.blocks[r] = s, this.markDirty(e), (a.name !== void 0 || a.status !== void 0 || a.slug !== void 0 || a.type !== void 0) && this.updateBlockItemDOM(e, s), this.scheduleSave(e);
   }
   handleEditorSchemaChange(e, a) {
-    const r = this.state.blocks.findIndex((o) => o.id === e);
+    const r = this.state.blocks.findIndex((l) => l.id === e);
     if (r < 0) return;
-    const i = this.state.blocks[r].schema;
-    let s = ot(a, this.state.blocks[r].slug || this.state.blocks[r].type);
-    s = this.mergeSchemaExtras(i, s), this.state.blocks[r] = {
+    const i = this.state.blocks[r].schema, s = this.state.blocks[r].slug || this.state.blocks[r].type;
+    let o = ot(a, s);
+    o = this.mergeSchemaExtras(i, o), this.state.blocks[r] = {
       ...this.state.blocks[r],
-      schema: s
+      schema: o
     }, this.markDirty(e), this.scheduleSave(e);
   }
   handleAddFieldClick() {
@@ -10004,7 +10011,6 @@ var B = "main", tt = "application/x-field-reorder", Va = class {
         break;
       case "delete":
         this.deleteBlock(a);
-        break;
     }
   }
   showCreateForm() {

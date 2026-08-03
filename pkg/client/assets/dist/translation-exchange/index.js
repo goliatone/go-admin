@@ -1,8 +1,7 @@
 import { escapeHTML as o } from "../shared/html.js";
 import { httpRequest as G, readHTTPResponsePayload as K } from "../shared/transport/http-client.js";
-import "../chunks/status-vocabulary-ak1N6rXX.js";
-import { a as I, i as Y, o as m, s as k } from "../chunks/translation-contracts-DIMN10n7.js";
-import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-BkWg4uhq.js";
+import { a as I, i as Y, o as m, s as k } from "../chunks/translation-contracts-C_O37O2-.js";
+import { C as V, I as v, L as E, dt as X, h as w, nt as _, p as R, w as T, x as f, y as j } from "../chunks/translation-shared-D6PJvjua.js";
 import { formatTranslationShortDateTime as D } from "../translation-shared/formatters.js";
 var Q = { root: "#translation-exchange-app" }, Z = [{
   value: "pages",
@@ -39,50 +38,50 @@ function z(t) {
 function st(t) {
   return !t || typeof t != "object" ? !1 : t.configured === !0 || !!String(t.source_locale ?? "").trim() || Array.isArray(t.source_locales) && t.source_locales.length > 0 || Array.isArray(t.target_locales) && t.target_locales.length > 0 || Array.isArray(t.resources) && t.resources.length > 0 || Array.isArray(t.default_resources) && t.default_resources.length > 0 || Array.isArray(t.default_target_locales) && t.default_target_locales.length > 0 || typeof t.include_source_hash == "boolean" || typeof t.include_examples == "boolean" || !!(t.template && Object.keys(t.template).length > 0) || !!(t.apply && Object.keys(t.apply).length > 0);
 }
-function at(t, e, r) {
-  const a = String(r[t] ?? "").trim();
-  if (a) return a;
+function at(t, e, a) {
+  const r = String(a[t] ?? "").trim();
+  if (r) return r;
   const s = String(e ?? "").trim();
   return s && b(s) !== t ? s : t.toUpperCase();
 }
 function O(t, e) {
-  const r = /* @__PURE__ */ new Set(), a = [];
+  const a = /* @__PURE__ */ new Set(), r = [];
   for (const s of Array.isArray(t) ? t : []) {
     const n = b(s?.code);
-    !z(n) || r.has(n) || (r.add(n), a.push({
+    !z(n) || a.has(n) || (a.add(n), r.push({
       code: n,
       label: at(n, s?.label, e)
     }));
   }
-  return a;
-}
-function rt(t) {
-  const e = /* @__PURE__ */ new Set(), r = [];
-  for (const a of Array.isArray(t) ? t : []) {
-    const s = B(a?.value ?? a?.id);
-    !s || e.has(s) || (e.add(s), r.push({
-      value: s,
-      id: s,
-      label: String(a?.label ?? s).trim() || s
-    }));
-  }
   return r;
 }
-function q(t, e, r = "") {
-  const a = /* @__PURE__ */ new Set(), s = [];
+function rt(t) {
+  const e = /* @__PURE__ */ new Set(), a = [];
+  for (const r of Array.isArray(t) ? t : []) {
+    const s = B(r?.value ?? r?.id);
+    !s || e.has(s) || (e.add(s), a.push({
+      value: s,
+      id: s,
+      label: String(r?.label ?? s).trim() || s
+    }));
+  }
+  return a;
+}
+function q(t, e, a = "") {
+  const r = /* @__PURE__ */ new Set(), s = [];
   for (const n of Array.isArray(t) ? t : []) {
     const i = b(n);
-    !i || i === r || !e.has(i) || a.has(i) || (a.add(i), s.push(i));
+    !i || i === a || !e.has(i) || r.has(i) || (r.add(i), s.push(i));
   }
   return s;
 }
 function W(t, e) {
-  const r = /* @__PURE__ */ new Set(), a = [];
+  const a = /* @__PURE__ */ new Set(), r = [];
   for (const s of Array.isArray(t) ? t : []) {
     const n = B(s);
-    !n || !e.has(n) || r.has(n) || (r.add(n), a.push(n));
+    !n || !e.has(n) || a.has(n) || (a.add(n), r.push(n));
   }
-  return a;
+  return r;
 }
 function it(t) {
   if (!st(t)) return {
@@ -102,14 +101,14 @@ function it(t) {
       dryRun: !1
     }
   };
-  const e = t?.locale_labels ?? {}, r = rt(t?.resources), a = O(t?.source_locales, e), s = b(t?.source_locale), n = z(s) ? s : a[0]?.code || "", i = O(t?.target_locales, e).filter((h) => h.code && h.code !== n), l = new Set(r.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = W(t?.default_resources, l), c = q(t?.default_target_locales, d, n), p = [];
-  return r.length === 0 && p.push("No exchange resources are configured."), (a.length === 0 || !n) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
+  const e = t?.locale_labels ?? {}, a = rt(t?.resources), r = O(t?.source_locales, e), s = b(t?.source_locale), n = z(s) ? s : r[0]?.code || "", i = O(t?.target_locales, e).filter((h) => h.code && h.code !== n), l = new Set(a.map((h) => h.value ?? "")), d = new Set(i.map((h) => h.code)), u = W(t?.default_resources, l), c = q(t?.default_target_locales, d, n), p = [];
+  return a.length === 0 && p.push("No exchange resources are configured."), (r.length === 0 || !n) && p.push("No source locale is configured."), i.length === 0 && p.push("No target locales are configured."), {
     configured: !0,
     blockedReason: p.join(" "),
-    resources: r,
-    sourceLocales: a,
+    resources: a,
+    sourceLocales: r,
     targetLocales: i,
-    defaultResources: u.length > 0 ? u : r.map((h) => h.value ?? ""),
+    defaultResources: u.length > 0 ? u : a.map((h) => h.value ?? ""),
     defaultTargetLocales: c.length > 0 ? c : i.map((h) => h.code),
     defaultSourceLocale: n,
     includeSourceHash: t?.include_source_hash !== !1,
@@ -151,8 +150,8 @@ function y(t) {
 }
 var g = `${V} p-5`, ot = `${V} p-4`, H = `${_} border ${w} ${R} p-5`, A = `${_} border ${w} ${R} p-4`, L = `${_} border ${w} ${R} px-4 py-3`, M = `${_} border ${w} ${R} px-6 py-10 text-center text-sm text-gray-600`, x = "text-xs uppercase tracking-wider text-gray-500";
 function nt(t, e) {
-  const r = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
-  return r ? `data:${t};base64,${r(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (a, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
+  const a = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
+  return a ? `data:${t};base64,${a(encodeURIComponent(e).replace(/%([0-9A-F]{2})/g, (r, s) => String.fromCharCode(parseInt(s, 16))))}` : `data:${t},${encodeURIComponent(e)}`;
 }
 function lt(t) {
   return new Promise((e) => setTimeout(e, Math.max(0, t)));
@@ -173,19 +172,19 @@ function N(t) {
 function pt(t) {
   const e = {};
   if (!t) return e;
-  for (const r of t.results) e[r.index] = r.status === "success" ? "accepted" : "rejected";
+  for (const a of t.results) e[a.index] = a.status === "success" ? "accepted" : "rejected";
   return e;
 }
 function P(t, e) {
-  const r = {};
-  for (const [a, s] of t.entries()) r[typeof s.index == "number" ? s.index : a] = "apply";
-  if (!e) return r;
-  for (const a of e.results) r[a.index] = a.status === "success" ? "apply" : "skip";
-  return r;
+  const a = {};
+  for (const [r, s] of t.entries()) a[typeof s.index == "number" ? s.index : r] = "apply";
+  if (!e) return a;
+  for (const r of e.results) a[r.index] = r.status === "success" ? "apply" : "skip";
+  return a;
 }
 function F(t) {
   const e = /* @__PURE__ */ new Map();
-  for (const r of t?.results ?? []) e.set(r.index, r);
+  for (const a of t?.results ?? []) e.set(a.index, a);
   return e;
 }
 function C(t) {
@@ -200,14 +199,14 @@ function C(t) {
 function ut(t) {
   const e = String(t ?? "").match(/^data:([^,]*?),(.*)$/i);
   if (!e) return "";
-  const [, r, a] = e;
-  if (r.includes(";base64")) {
+  const [, a, r] = e;
+  if (a.includes(";base64")) {
     const s = typeof window < "u" && typeof window.atob == "function" ? window.atob.bind(window) : typeof globalThis.atob == "function" ? globalThis.atob.bind(globalThis) : null;
     if (!s) return "";
-    const n = s(a);
+    const n = s(r);
     return decodeURIComponent(Array.from(n).map((i) => `%${i.charCodeAt(0).toString(16).padStart(2, "0")}`).join(""));
   }
-  return decodeURIComponent(a);
+  return decodeURIComponent(r);
 }
 function $(t, e) {
   return {
@@ -215,8 +214,8 @@ function $(t, e) {
     index: typeof t.index == "number" ? t.index : e
   };
 }
-var bt = class {
-  constructor(t, e = {}, r) {
+var xt = class {
+  constructor(t, e = {}, a) {
     this.root = null, this.hasServerRenderedContent = !1, this.step = "export", this.exportState = {
       draft: {
         resources: ["pages"],
@@ -257,8 +256,8 @@ var bt = class {
       jobStatus: "all",
       selectedJobId: "",
       message: ""
-    }, this.handleClick = (a) => {
-      const s = a.target;
+    }, this.handleClick = (r) => {
+      const s = r.target;
       if (!s) return;
       const n = s.closest("[data-exchange-step]");
       if (n) {
@@ -293,8 +292,8 @@ var bt = class {
         const p = u.dataset.historyLoadApply === "conflicts";
         this.loadHistoryJobIntoApply(c, p);
       }
-    }, this.handleChange = (a) => {
-      const s = a.target;
+    }, this.handleChange = (r) => {
+      const s = r.target;
       if (s) {
         if (s.matches('[data-export-form="true"] input, [data-export-form="true"] select')) {
           const n = s.closest("form");
@@ -335,18 +334,18 @@ var bt = class {
           this.render();
         }
       }
-    }, this.handleSubmit = (a) => {
-      const s = a.target;
+    }, this.handleSubmit = (r) => {
+      const s = r.target;
       if (s) {
         if (s.matches('[data-export-form="true"]')) {
-          a.preventDefault(), this.submitExport(s);
+          r.preventDefault(), this.submitExport(s);
           return;
         }
         if (s.matches('[data-validate-form="true"]')) {
-          a.preventDefault(), this.submitValidate();
+          r.preventDefault(), this.submitValidate();
           return;
         }
-        s.matches('[data-apply-form="true"]') && (a.preventDefault(), this.submitApply());
+        s.matches('[data-apply-form="true"]') && (r.preventDefault(), this.submitApply());
       }
     }, this.config = t, this.exchangeUI = it(t.exchangeUIConfig), this.exportState.draft = {
       resources: this.exchangeUI.defaultResources,
@@ -356,7 +355,7 @@ var bt = class {
     }, this.applyState.allowCreateMissing = this.exchangeUI.apply.allowCreateMissing, this.applyState.allowSourceHashOverride = this.exchangeUI.apply.allowSourceHashOverride, this.applyState.continueOnError = this.exchangeUI.apply.continueOnError, this.applyState.dryRun = this.exchangeUI.apply.dryRun, this.selectors = {
       ...Q,
       ...e
-    }, this.toast = r ?? window.toastManager ?? null;
+    }, this.toast = a ?? window.toastManager ?? null;
   }
   init() {
     this.root = document.querySelector(this.selectors.root), this.root && (this.hasServerRenderedContent = this.root.dataset.translationExchangeSsr === "true" && this.root.innerHTML.trim().length > 0, this.root.addEventListener("click", this.handleClick), this.root.addEventListener("change", this.handleChange), this.root.addEventListener("submit", this.handleSubmit), this.hasServerRenderedContent || this.render(), this.loadHistory());
@@ -400,31 +399,31 @@ var bt = class {
     const e = await this.postJSON(`${this.config.apiPath}/import/apply`, {
       ...t,
       async: t.async !== !1
-    }), r = k(e);
-    return r.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
-      processed: r.summary.processed,
-      succeeded: r.summary.succeeded,
-      failed: r.summary.failed,
-      conflicts: r.summary.conflicts ?? 0,
-      status: r.job?.status ?? "completed"
+    }), a = k(e);
+    return a.job && this.loadHistory(!0), this.emitAnalytics("exchange_apply_completion", {
+      processed: a.summary.processed,
+      succeeded: a.summary.succeeded,
+      failed: a.summary.failed,
+      conflicts: a.summary.conflicts ?? 0,
+      status: a.job?.status ?? "completed"
     }), {
-      ...r,
-      job: r.job,
+      ...a,
+      job: a.job,
       meta: e.meta && typeof e.meta == "object" ? e.meta : void 0
     };
   }
   async pollJobUntilTerminal(t, e = {}) {
-    const r = typeof t == "string" ? t : t.poll_endpoint;
-    if (!r) throw new Error("Poll endpoint is required.");
-    const a = e.intervalMs ?? 250, s = e.timeoutMs ?? 15e3, n = Date.now();
+    const a = typeof t == "string" ? t : t.poll_endpoint;
+    if (!a) throw new Error("Poll endpoint is required.");
+    const r = e.intervalMs ?? 250, s = e.timeoutMs ?? 15e3, n = Date.now();
     let i = 0;
     for (; ; ) {
       if (e.signal?.aborted) throw new Error("Polling aborted.");
       i > 0 && this.emitAnalytics("exchange_apply_retry", {
-        poll_endpoint: r,
+        poll_endpoint: a,
         attempt: i
       });
-      const l = await this.fetchJSON(r), d = I(l.job && typeof l.job == "object" ? l.job : l);
+      const l = await this.fetchJSON(a), d = I(l.job && typeof l.job == "object" ? l.job : l);
       if (!d) throw new Error("Job payload missing.");
       if (e.onTick?.(d, i), d.status !== "running")
         return this.emitAnalytics("exchange_apply_completion", {
@@ -434,15 +433,15 @@ var bt = class {
           failed: d.progress.failed
         }), d;
       if (Date.now() - n >= s) throw new Error("Polling timed out.");
-      i += 1, await lt(a);
+      i += 1, await lt(r);
     }
   }
   readExportDraft(t) {
-    const e = new FormData(t), r = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), a = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), n = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
+    const e = new FormData(t), a = new Set(this.exchangeUI.resources.map((i) => i.value ?? "")), r = new Set(this.exchangeUI.targetLocales.map((i) => i.code)), s = b(e.get("source_locale")), n = this.exchangeUI.sourceLocales.some((i) => i.code === s) ? s : this.exchangeUI.defaultSourceLocale;
     return {
-      resources: W(e.getAll("resources"), r),
+      resources: W(e.getAll("resources"), a),
       sourceLocale: n,
-      targetLocales: q(e.getAll("target_locales"), a, n),
+      targetLocales: q(e.getAll("target_locales"), r, n),
       includeSourceHash: e.has("include_source_hash")
     };
   }
@@ -453,14 +452,14 @@ var bt = class {
     }
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const r = N(e);
-    if (e.resources.length === 0 || e.targetLocales.length === 0 || r.some((a) => a.includes("cannot include"))) {
-      this.exportState.status = "error", this.exportState.message = r[0] ?? "Complete the export filters before continuing.", this.render();
+    const a = N(e);
+    if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((r) => r.includes("cannot include"))) {
+      this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
       return;
     }
     this.exportState.status = "submitting", this.exportState.message = "Preparing export package...", this.render();
     try {
-      const a = await this.postJSON(`${this.config.apiPath}/export`, {
+      const r = await this.postJSON(`${this.config.apiPath}/export`, {
         filter: {
           resources: e.resources,
           source_locale: e.sourceLocale,
@@ -468,7 +467,7 @@ var bt = class {
           include_source_hash: e.includeSourceHash
         },
         async: !0
-      }), s = a.job && typeof a.job == "object" ? a.job : a.data && typeof a.data == "object" ? a.data.job : void 0, n = Array.isArray(a.rows) ? a.rows : a.data && typeof a.data == "object" && Array.isArray(a.data.rows) ? a.data.rows ?? [] : [], i = I(s);
+      }), s = r.job && typeof r.job == "object" ? r.job : r.data && typeof r.data == "object" ? r.data.job : void 0, n = Array.isArray(r.rows) ? r.rows : r.data && typeof r.data == "object" && Array.isArray(r.data.rows) ? r.data.rows ?? [] : [], i = I(s);
       if (this.exportState.job = i, i?.status === "running") {
         this.exportState.status = "polling", this.exportState.message = "Export job running. Polling for artifact...", this.render();
         const l = await this.pollJobUntilTerminal(i, {
@@ -480,9 +479,9 @@ var bt = class {
         });
         this.exportState.job = l;
       }
-      this.exportState.downloadHref = dt(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = ct(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? a.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
-    } catch (a) {
-      const s = a instanceof Error ? a.message : "Export failed.";
+      this.exportState.downloadHref = dt(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = ct(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? r.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
+    } catch (r) {
+      const s = r instanceof Error ? r.message : "Export failed.";
       this.exportState.status = "error", this.exportState.message = s, this.toast?.error(s);
     }
     this.render();
@@ -514,13 +513,13 @@ var bt = class {
           message: "Ready to validate."
         }), this.validateState.status = "idle", this.validateState.message = `${e.length} rows loaded and ready to validate.`, this.applyState.message = "";
       } catch (e) {
-        const r = e instanceof Error ? e.message : "Unable to read import file.";
+        const a = e instanceof Error ? e.message : "Unable to read import file.";
         this.validateState.upload = m({
           state: "error",
           filename: t.name,
           format: t.name.endsWith(".csv") ? "csv" : "json",
-          message: r
-        }), this.validateState.status = "error", this.validateState.message = r, this.toast?.error(r);
+          message: a
+        }), this.validateState.status = "error", this.validateState.message = a, this.toast?.error(a);
       }
       this.render();
     }
@@ -534,18 +533,18 @@ var bt = class {
     try {
       const t = new FormData();
       t.set("file", this.validateState.file);
-      const e = k(await this.postForm(`${this.config.apiPath}/import/validate`, t));
-      this.validateState.result = e, this.validateState.decisions = pt(e), this.validateState.upload = m({
+      const e = await this.postForm(`${this.config.apiPath}/import/validate`, t), a = k(e);
+      this.validateState.result = a, this.validateState.decisions = pt(a), this.validateState.upload = m({
         state: "validated",
         filename: this.validateState.file.name,
         format: this.validateState.file.name.endsWith(".csv") ? "csv" : "json",
-        row_count: e.summary.processed
+        row_count: a.summary.processed
       }), this.validateState.status = "validated", this.validateState.message = "Validation completed. Review conflicts, then continue to apply.", this.applyState = {
         ...this.applyState,
         rows: this.validateState.parsedRows.map($),
         sourceLabel: this.validateState.file.name,
         retryJobId: "",
-        resolutions: P(this.validateState.parsedRows, e),
+        resolutions: P(this.validateState.parsedRows, a),
         status: "ready",
         message: "Validation finished. Configure apply decisions and submit.",
         result: null,
@@ -575,45 +574,45 @@ var bt = class {
       const e = await this.applyImport(t);
       if (this.applyState.result = e, this.applyState.job = e.job ?? null, e.job?.status === "running") {
         this.applyState.status = "polling", this.applyState.message = "Apply job running. Polling for terminal state...", this.render();
-        const r = await this.pollJobUntilTerminal(e.job, {
+        const a = await this.pollJobUntilTerminal(e.job, {
           intervalMs: 250,
           timeoutMs: 15e3,
-          onTick: (a) => {
-            this.applyState.job = a, this.applyState.message = `Apply job running: ${a.progress.processed} / ${a.progress.total ?? 0} processed.`, this.render();
+          onTick: (r) => {
+            this.applyState.job = r, this.applyState.message = `Apply job running: ${r.progress.processed} / ${r.progress.total ?? 0} processed.`, this.render();
           }
         });
-        this.applyState.job = r, this.applyState.result = C(r);
+        this.applyState.job = a, this.applyState.result = C(a);
       }
       this.applyState.status = "completed", this.applyState.message = this.applyState.dryRun ? "Dry-run apply completed." : "Apply completed.", this.toast?.success(this.applyState.message), this.loadHistory(!0);
     } catch (e) {
-      const r = e instanceof Error ? e.message : "Apply failed.";
-      this.applyState.status = "error", this.applyState.message = r, this.toast?.error(r);
+      const a = e instanceof Error ? e.message : "Apply failed.";
+      this.applyState.status = "error", this.applyState.message = a, this.toast?.error(a);
     }
     this.render();
   }
   buildApplyResolutions() {
-    const t = [], e = new Set(this.applyState.rows.map((r, a) => typeof r.index == "number" ? r.index : a));
-    for (const [r, a] of Object.entries(this.applyState.resolutions)) {
-      const s = Number(r);
-      !e.has(s) || !a || a === "apply" || t.push({
+    const t = [], e = new Set(this.applyState.rows.map((a, r) => typeof a.index == "number" ? a.index : r));
+    for (const [a, r] of Object.entries(this.applyState.resolutions)) {
+      const s = Number(a);
+      !e.has(s) || !r || r === "apply" || t.push({
         row: s,
-        decision: a
+        decision: r
       });
     }
     return t.length > 0 ? t : void 0;
   }
   async loadHistory(t = !1) {
     if (!t && this.historyState.status === "loading") return;
-    const e = this.historyState.response, r = this.hasServerRenderedContent && e == null;
-    this.historyState.status = "loading", this.historyState.message = "Loading history...", r || this.render();
+    const e = this.historyState.response, a = this.hasServerRenderedContent && e == null;
+    this.historyState.status = "loading", this.historyState.message = "Loading history...", a || this.render();
     try {
-      const a = new URL(this.historyEndpoint, window.location.origin);
-      this.includeExamples && a.searchParams.set("include_examples", "true");
-      const s = await this.fetchJSON(a.pathname + a.search);
+      const r = new URL(this.historyEndpoint, window.location.origin);
+      this.includeExamples && r.searchParams.set("include_examples", "true");
+      const s = await this.fetchJSON(r.pathname + r.search);
       this.historyState.response = Y(s), this.hasServerRenderedContent = !1, this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some((n) => n.id === this.historyState.selectedJobId) && (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? "");
-    } catch (a) {
-      if (this.historyState.status = "error", this.historyState.message = a instanceof Error ? a.message : "Unable to load history.", e && (this.historyState.response = e), r) {
-        this.renderServerRenderedHistoryError(a);
+    } catch (r) {
+      if (this.historyState.status = "error", this.historyState.message = r instanceof Error ? r.message : "Unable to load history.", e && (this.historyState.response = e), a) {
+        this.renderServerRenderedHistoryError(r);
         return;
       }
     }
@@ -646,14 +645,14 @@ var bt = class {
     return t.length === 0 ? null : t.find((e) => e.id === this.historyState.selectedJobId) ?? t[0] ?? null;
   }
   async loadHistoryJobIntoApply(t, e) {
-    const r = t.downloads?.input?.href ?? t.downloads?.artifact?.href ?? "";
-    if (!r) {
+    const a = t.downloads?.input?.href ?? t.downloads?.artifact?.href ?? "";
+    if (!a) {
       this.toast?.error("Selected history job does not retain an input artifact.");
       return;
     }
     try {
-      const a = ut(r);
-      let s = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(a) : this.parseJSONRows(a);
+      const r = ut(a);
+      let s = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(r) : this.parseJSONRows(r);
       s = s.map($);
       const n = C(t);
       if (e && n) {
@@ -675,8 +674,8 @@ var bt = class {
         result: null,
         job: null
       }, this.validateState.result = n, this.step = "apply", this.toast?.info(this.applyState.message);
-    } catch (a) {
-      const s = a instanceof Error ? a.message : "Unable to load the selected history artifact.";
+    } catch (r) {
+      const s = r instanceof Error ? r.message : "Unable to load the selected history artifact.";
       this.toast?.error(s);
     }
     this.render();
@@ -692,33 +691,33 @@ var bt = class {
     const e = t;
     if (typeof e.text == "function") return e.text();
     if (typeof e.arrayBuffer == "function" && typeof TextDecoder < "u") {
-      const a = await e.arrayBuffer();
-      return new TextDecoder().decode(a);
+      const r = await e.arrayBuffer();
+      return new TextDecoder().decode(r);
     }
-    const r = typeof window < "u" ? window.FileReader : void 0;
-    if (r) return new Promise((a, s) => {
-      const n = new r();
-      n.onerror = () => s(/* @__PURE__ */ new Error("Unable to read import file.")), n.onload = () => a(String(n.result ?? "")), n.readAsText(t);
+    const a = typeof window < "u" ? window.FileReader : void 0;
+    if (a) return new Promise((r, s) => {
+      const n = new a();
+      n.onerror = () => s(/* @__PURE__ */ new Error("Unable to read import file.")), n.onload = () => r(String(n.result ?? "")), n.readAsText(t);
     });
     if (typeof Response < "u") return new Response(t).text();
     throw new Error("File text reader is not available in this environment.");
   }
   parseJSONRows(t) {
     const e = JSON.parse(t);
-    if (Array.isArray(e)) return e.filter((r) => r !== null && typeof r == "object");
-    if (e && typeof e == "object" && Array.isArray(e.rows)) return e.rows.filter((r) => r !== null && typeof r == "object");
+    if (Array.isArray(e)) return e.filter((a) => a !== null && typeof a == "object");
+    if (e && typeof e == "object" && Array.isArray(e.rows)) return e.rows.filter((a) => a !== null && typeof a == "object");
     throw new Error("JSON import payload must be an array of rows.");
   }
   parseCSVText(t) {
     const e = t.trim().split(/\r?\n/);
     if (e.length < 2) return [];
-    const r = this.parseCSVRecord(e[0]).map((s) => s.trim()), a = [];
+    const a = this.parseCSVRecord(e[0]).map((s) => s.trim()), r = [];
     for (const s of e.slice(1)) {
       if (!s.trim()) continue;
       const n = this.parseCSVRecord(s), i = {};
-      r.forEach((l, d) => {
+      a.forEach((l, d) => {
         i[l] = n[d] ?? "";
-      }), a.push({
+      }), r.push({
         resource: i.resource ?? "",
         entity_id: i.entity_id ?? "",
         family_id: i.family_id ?? "",
@@ -734,28 +733,28 @@ var bt = class {
         notes: i.notes ?? ""
       });
     }
-    return a;
+    return r;
   }
   parseCSVRecord(t) {
     const e = [];
-    let r = "", a = !1;
+    let a = "", r = !1;
     for (let s = 0; s < t.length; s += 1) {
       const n = t[s], i = t[s + 1];
       if (n === '"') {
-        if (a && i === '"') {
-          r += '"', s += 1;
+        if (r && i === '"') {
+          a += '"', s += 1;
           continue;
         }
-        a = !a;
+        r = !r;
         continue;
       }
-      if (n === "," && !a) {
-        e.push(r), r = "";
+      if (n === "," && !r) {
+        e.push(a), a = "";
         continue;
       }
-      r += n;
+      a += n;
     }
-    return e.push(r), e;
+    return e.push(a), e;
   }
   applyDecisionForRow(t) {
     return this.applyState.resolutions[t] ?? "apply";
@@ -764,8 +763,8 @@ var bt = class {
     return F(this.validateState.result).get(t) ?? null;
   }
   rowActions(t, e) {
-    const r = ["apply", "skip"], a = e?.metadata ?? {};
-    return (e?.conflict?.type === "stale_source_hash" || a.current_source_hash || a.provided_source_hash) && r.push("override_source_hash"), (a.create_translation_hint === !0 || a.create_translation_required === !0) && r.push("create_missing"), r;
+    const a = ["apply", "skip"], r = e?.metadata ?? {};
+    return (e?.conflict?.type === "stale_source_hash" || r.current_source_hash || r.provided_source_hash) && a.push("override_source_hash"), (r.create_translation_hint === !0 || r.create_translation_required === !0) && a.push("create_missing"), a;
   }
   async postJSON(t, e) {
     return this.request(t, {
@@ -784,27 +783,27 @@ var bt = class {
     return this.request(t, { method: "GET" });
   }
   async request(t, e) {
-    const r = await G(t, e), { payload: a } = await K(r);
-    if (!r.ok) {
-      if (a && typeof a == "object") {
-        const s = a.error?.message ?? a.message;
+    const a = await G(t, e), { payload: r } = await K(a);
+    if (!a.ok) {
+      if (r && typeof r == "object") {
+        const s = r.error?.message ?? r.message;
         throw new Error(s || "Exchange request failed.");
       }
-      throw new Error(typeof a == "string" ? a : "Exchange request failed.");
+      throw new Error(typeof r == "string" ? r : "Exchange request failed.");
     }
-    return a ?? {};
+    return r ?? {};
   }
   emitAnalytics(t, e = {}) {
     if (this.config.telemetryEnabled === !1) return;
-    const r = {
+    const a = {
       name: t,
       fields: e
-    }, a = this.config.analyticsTarget ?? (typeof window < "u" ? window : void 0);
-    a && typeof a.dispatchEvent == "function" && a.dispatchEvent(new CustomEvent("translation:exchange-analytics", { detail: r }));
+    }, r = this.config.analyticsTarget ?? (typeof window < "u" ? window : void 0);
+    r && typeof r.dispatchEvent == "function" && r.dispatchEvent(new CustomEvent("translation:exchange-analytics", { detail: a }));
   }
   render() {
     if (!this.root) return;
-    const t = N(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((n) => n === "accepted").length, r = Object.values(this.validateState.decisions).filter((n) => n === "rejected").length, a = this.historyExamples(), s = this.filteredHistoryItems();
+    const t = N(this.exportState.draft), e = Object.values(this.validateState.decisions).filter((n) => n === "accepted").length, a = Object.values(this.validateState.decisions).filter((n) => n === "rejected").length, r = this.historyExamples(), s = this.filteredHistoryItems();
     this.root.innerHTML = `
       <section class="${T} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
@@ -816,15 +815,15 @@ var bt = class {
           </nav>
         </header>
         <div class="p-6 space-y-6">
-          ${this.step === "export" ? this.renderExportStep(t, a) : ""}
-          ${this.step === "validate" ? this.renderValidateStep(e, r, a) : ""}
+          ${this.step === "export" ? this.renderExportStep(t, r) : ""}
+          ${this.step === "validate" ? this.renderValidateStep(e, a, r) : ""}
           ${this.step === "apply" ? this.renderApplyStep() : ""}
           ${this.step === "history" ? this.renderHistoryStep(s) : ""}
         </div>
       </section>
     `;
   }
-  renderStepButton(t, e, r) {
+  renderStepButton(t, e, a) {
     return `
       <button
         type="button"
@@ -832,7 +831,7 @@ var bt = class {
         class="rounded-xl border px-4 py-4 text-left transition ${this.step === t ? "border-blue-400 bg-blue-50 shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"}"
       >
         <div class="text-sm font-semibold text-gray-900">${o(e)}</div>
-        <p class="mt-1 text-sm text-gray-600">${o(r)}</p>
+        <p class="mt-1 text-sm text-gray-600">${o(a)}</p>
       </button>
     `;
   }
@@ -844,9 +843,9 @@ var bt = class {
           <p class="mt-1 text-sm text-gray-600">Use the stable demo artifacts to exercise the wizard and end-to-end coverage.</p>
         </div>
         <div class="grid gap-3 md:grid-cols-2">${t.map((e) => {
-      const r = Object.values(e.downloads ?? {}).map((a) => `
-              <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(a.href)}" download="${o(a.filename)}">
-                ${o(a.label)}
+      const a = Object.values(e.downloads ?? {}).map((r) => `
+              <a class="text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(r.href)}" download="${o(r.filename)}">
+                ${o(r.label)}
               </a>`).join("");
       return `
           <article class="${A}">
@@ -857,7 +856,7 @@ var bt = class {
               </div>
               <span class="rounded-full bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700">Fixture</span>
             </div>
-            <div class="mt-3 flex flex-wrap gap-3">${r}</div>
+            <div class="mt-3 flex flex-wrap gap-3">${a}</div>
           </article>
         `;
     }).join("")}</div>
@@ -865,12 +864,12 @@ var bt = class {
     `;
   }
   renderExportStep(t, e) {
-    const r = this.exportState.job, a = this.exchangeUI.blockedReason;
+    const a = this.exportState.job, r = this.exchangeUI.blockedReason;
     return `
       ${this.renderExampleLinks(e.filter((s) => s.kind === "export"))}
-      ${a ? `
+      ${r ? `
         <div class="${L} text-sm text-amber-800">
-          ${o(a)}
+          ${o(r)}
         </div>
       ` : ""}
       <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -909,7 +908,7 @@ var bt = class {
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
           </label>
           <div class="flex flex-wrap items-center gap-3">
-            <button class="${j}" type="submit" ${a ? "disabled" : ""}>Create export package</button>
+            <button class="${j}" type="submit" ${r ? "disabled" : ""}>Create export package</button>
             <span class="text-sm text-gray-600">${o(this.exportState.message)}</span>
           </div>
         </form>
@@ -935,29 +934,29 @@ var bt = class {
                 <li class="rounded-xl bg-white px-3 py-2">${o(s)}</li>`).join("")}
             </ul>
           </div>
-          ${r ? `
+          ${a ? `
               <div class="${ot}">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
-                    <p class="text-xs text-gray-500">${o(r.id)}</p>
+                    <p class="text-xs text-gray-500">${o(a.id)}</p>
                   </div>
-                  <span class="${y(U(r.status))}">${o(r.status)}</span>
+                  <span class="${y(U(a.status))}">${o(a.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
-                  <div class="h-full bg-blue-500" style="width: ${J(r)}%"></div>
+                  <div class="h-full bg-blue-500" style="width: ${J(a)}%"></div>
                 </div>
-                <div class="mt-3 text-sm text-gray-600">${o(r.progress.processed)} / ${o(r.progress.total ?? 0)} rows prepared</div>
+                <div class="mt-3 text-sm text-gray-600">${o(a.progress.processed)} / ${o(a.progress.total ?? 0)} rows prepared</div>
                 ${this.exportState.downloadHref ? `<a class="mt-4 inline-flex text-sm font-medium text-blue-700 hover:text-blue-900" href="${o(this.exportState.downloadHref)}" download>${o(this.exportState.downloadLabel)}</a>` : ""}
               </div>` : ""}
         </aside>
       </section>
     `;
   }
-  renderValidateStep(t, e, r) {
-    const a = this.validateState.result, s = a?.results ?? [];
+  renderValidateStep(t, e, a) {
+    const r = this.validateState.result, s = r?.results ?? [];
     return `
-      ${this.renderExampleLinks(r.filter((n) => n.kind === "import_validate"))}
+      ${this.renderExampleLinks(a.filter((n) => n.kind === "import_validate"))}
       <section class="space-y-5 ${g}">
         <form data-validate-form="true" class="space-y-4">
           <div class="${H}">
@@ -971,14 +970,14 @@ var bt = class {
             <span class="text-sm text-gray-600">${o(this.validateState.message)}</span>
           </div>
         </form>
-        ${a ? `
+        ${r ? `
             <section class="space-y-4">
               <div class="grid gap-3 md:grid-cols-4">
                 ${[
-      ["Processed", a.summary.processed],
-      ["Succeeded", a.summary.succeeded],
-      ["Conflicts", a.summary.conflicts ?? 0],
-      ["Failed", a.summary.failed]
+      ["Processed", r.summary.processed],
+      ["Succeeded", r.summary.succeeded],
+      ["Conflicts", r.summary.conflicts ?? 0],
+      ["Failed", r.summary.failed]
     ].map(([n, i]) => `
                   <div class="rounded-xl bg-gray-50 px-4 py-3">
                     <div class="${x}">${o(n)}</div>
@@ -1022,20 +1021,20 @@ var bt = class {
       </section>
     `;
   }
-  renderDecisionButton(t, e, r) {
+  renderDecisionButton(t, e, a) {
     return `
       <button
         type="button"
         data-stage-row="${t}"
         data-stage-decision="${e}"
-        class="rounded-lg border px-3 py-1 text-xs font-medium ${r ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o(e)}
       </button>
     `;
   }
   renderApplyStep() {
-    const t = this.applyState.rows, e = F(this.validateState.result), r = this.applyState.result, a = r?.results ?? [], s = this.applyState.job, n = {
+    const t = this.applyState.rows, e = F(this.validateState.result), a = this.applyState.result, r = a?.results ?? [], s = this.applyState.job, n = {
       apply: 0,
       skip: 0,
       override: 0,
@@ -1132,7 +1131,7 @@ var bt = class {
                   </table>
                 </div>
               </section>` : ""}
-        ${r ? `
+        ${a ? `
               <section class="${g} space-y-4">
                 <div>
                   <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Terminal Summary</h3>
@@ -1140,10 +1139,10 @@ var bt = class {
                 </div>
                 <div class="grid gap-3 md:grid-cols-4">
                   ${[
-      ["Processed", r.summary.processed],
-      ["Succeeded", r.summary.succeeded],
-      ["Conflicts", r.summary.conflicts ?? 0],
-      ["Failed", r.summary.failed]
+      ["Processed", a.summary.processed],
+      ["Succeeded", a.summary.succeeded],
+      ["Conflicts", a.summary.conflicts ?? 0],
+      ["Failed", a.summary.failed]
     ].map(([i, l]) => `
                     <div class="rounded-xl bg-gray-50 px-4 py-3">
                       <div class="${x}">${o(i)}</div>
@@ -1151,7 +1150,7 @@ var bt = class {
                     </div>`).join("")}
                 </div>
                 <div class="flex flex-wrap gap-3 text-sm text-blue-700">
-                  ${Object.values(r.job?.downloads ?? {}).map((i) => `
+                  ${Object.values(a.job?.downloads ?? {}).map((i) => `
                     <a href="${o(i.href)}" download="${o(i.filename)}" class="font-medium hover:text-blue-900">${o(i.label)}</a>
                   `).join("")}
                 </div>
@@ -1167,7 +1166,7 @@ var bt = class {
                       </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 bg-white">
-                      ${a.map((i) => `
+                      ${r.map((i) => `
                         <tr>
                           <td class="px-4 py-3 font-medium text-gray-900">${o(i.index)}</td>
                           <td class="px-4 py-3 text-gray-700">${o(`${i.resource}.${i.field_path}`)}</td>
@@ -1183,21 +1182,21 @@ var bt = class {
       </section>
     `;
   }
-  renderApplyToggle(t, e, r) {
+  renderApplyToggle(t, e, a) {
     return `
       <label class="flex items-center gap-3 ${L} text-sm text-gray-700">
-        <input type="checkbox" class="${v}" data-apply-option="${t}" ${r ? "checked" : ""}>
+        <input type="checkbox" class="${v}" data-apply-option="${t}" ${a ? "checked" : ""}>
         <span>${o(e)}</span>
       </label>
     `;
   }
-  renderApplyDecisionButton(t, e, r) {
+  renderApplyDecisionButton(t, e, a) {
     return `
       <button
         type="button"
         data-apply-row="${t}"
         data-apply-decision="${e}"
-        class="rounded-lg border px-3 py-1 text-xs font-medium ${r ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
+        class="rounded-lg border px-3 py-1 text-xs font-medium ${a ? "border-blue-500 bg-blue-100 text-blue-900" : "border-gray-200 bg-white text-gray-600"}"
       >
         ${o({
       apply: "apply",
@@ -1209,11 +1208,11 @@ var bt = class {
     `;
   }
   renderHistoryStep(t) {
-    const e = this.historyState.response?.meta, r = e?.job_kinds ?? [
+    const e = this.historyState.response?.meta, a = e?.job_kinds ?? [
       "export",
       "import_validate",
       "import_apply"
-    ], a = e?.job_statuses ?? [
+    ], r = e?.job_statuses ?? [
       "running",
       "completed",
       "failed"
@@ -1225,7 +1224,7 @@ var bt = class {
             Kind
             <select data-history-kind class="mt-2 ${E}">
               <option value="all">All</option>
-              ${r.map((i) => `
+              ${a.map((i) => `
                 <option value="${o(i)}" ${this.historyState.kind === i ? "selected" : ""}>${o(i)}</option>`).join("")}
             </select>
           </label>
@@ -1233,7 +1232,7 @@ var bt = class {
             Status
             <select data-history-status class="mt-2 ${E}">
               <option value="all">All</option>
-              ${a.map((i) => `
+              ${r.map((i) => `
                 <option value="${o(i)}" ${this.historyState.jobStatus === i ? "selected" : ""}>${o(i)}</option>`).join("")}
             </select>
           </label>
@@ -1327,7 +1326,7 @@ var bt = class {
   }
 };
 export {
-  bt as TranslationExchangeManager,
+  xt as TranslationExchangeManager,
   Y as normalizeTranslationExchangeHistoryResponse,
   I as normalizeTranslationExchangeJob,
   m as normalizeTranslationExchangeUploadDescriptor,

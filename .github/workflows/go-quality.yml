@@ -3,32 +3,8 @@ name: Go Quality
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "**/*.go"
-      - "**/go.mod"
-      - "**/go.sum"
-      - "go.work"
-      - "go.work.sum"
-      - ".golangci.yml"
-      - ".golangci-lint-version"
-      - "taskfile"
-      - "tools/**"
-      - "pkg/client/**"
-      - ".github/workflows/go-quality.yml"
   push:
     branches: [main]
-    paths:
-      - "**/*.go"
-      - "**/go.mod"
-      - "**/go.sum"
-      - "go.work"
-      - "go.work.sum"
-      - ".golangci.yml"
-      - ".golangci-lint-version"
-      - "taskfile"
-      - "tools/**"
-      - "pkg/client/**"
-      - ".github/workflows/go-quality.yml"
   merge_group:
   workflow_dispatch:
 
@@ -50,6 +26,9 @@ jobs:
 
       - name: Test root, quickstart, and examples
         run: ./taskfile go:test
+
+      - name: Enforce application ownership boundary
+        run: go test . -run 'TestRepositoryApplicationBoundary|TestApplicationBoundaryTokenCanonicalization' -count=1
 
   lint-pr:
     name: Lint New Issues

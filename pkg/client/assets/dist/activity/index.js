@@ -1,5 +1,5 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { t as E } from "../chunks/icon-renderer-tQhqqQbt.js";
+import { t as E } from "../chunks/icon-renderer-DauoBn1n.js";
 import { formatRelativeTimeCompactPast as ae, formatRelativeTimeNatural as re } from "../shared/time-formatters.js";
 var oe = {
   created: "created",
@@ -117,7 +117,7 @@ function J(e, t) {
   };
   const i = G(e, t);
   if (e.includes(".")) {
-    const s = e.split("."), a = s[0].toLowerCase(), r = s.slice(1).join("."), l = be[a] || "activity", d = s[s.length - 1], f = V(d);
+    const s = e.split("."), a = s[0].toLowerCase(), r = s.slice(1).join("."), l = be[a] || "activity", c = s[s.length - 1], f = V(c);
     return {
       namespace: a,
       action: i !== e ? i : r,
@@ -134,7 +134,9 @@ function J(e, t) {
   };
 }
 function V(e) {
-  return e && oe[e.toLowerCase().trim().replace(/-/g, "_")] || "system";
+  if (!e) return "system";
+  const t = e.toLowerCase().trim().replace(/-/g, "_");
+  return oe[t] || "system";
 }
 function ye(e) {
   if (!e) return {
@@ -220,28 +222,28 @@ function Z(e, t, i) {
   const { showActorTypeBadge: n = !1 } = i || {}, s = W(e) || "Unknown", a = e.action || "performed action on", r = G(a, t);
   let l = "";
   if (n) {
-    const c = B(e);
-    c !== "user" && c !== "unknown" && (l = N(c, {
+    const d = B(e);
+    d !== "user" && d !== "unknown" && (l = N(d, {
       badge: !0,
       size: "sm"
     }) + " ");
   }
-  const d = X(s) ? `${l}${A(s, 8)}` : `${l}<strong>${o(s)}</strong>`, f = xe(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
+  const c = X(s) ? `${l}${A(s, 8)}` : `${l}<strong>${o(s)}</strong>`, f = xe(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
   let p = "";
   const h = we(e);
   if (h) p = o(h) + f;
   else {
-    const { type: c, id: m } = ye(e.object);
-    if (c && m) {
+    const { type: d, id: m } = ye(e.object);
+    if (d && m) {
       const u = A(m, 8);
-      p = `${o(R(c))} #${u}${f}`;
-    } else c ? p = o(R(c)) + f : m && (p = `#${A(m, 8)}${f}`);
+      p = `${o(R(d))} #${u}${f}`;
+    } else d ? p = o(R(d)) + f : m && (p = `#${A(m, 8)}${f}`);
   }
   if (V(a) === "auth") {
-    const c = e.metadata?.ip || e.metadata?.IP;
-    return c ? `${d} ${o(r)} from ${o(String(c))}` : `${d} ${o(r)}`;
+    const d = e.metadata?.ip || e.metadata?.IP;
+    return d ? `${c} ${o(r)} from ${o(String(d))}` : `${c} ${o(r)}`;
   }
-  return p ? `${d} ${o(r)} <strong>${p}</strong>` : `${d} ${o(r)}`;
+  return p ? `${c} ${o(r)} <strong>${p}</strong>` : `${c} ${o(r)}`;
 }
 function $e(e) {
   if (!e) return "-";
@@ -309,8 +311,8 @@ function ne(e) {
       r = !0, a = `<span class="activity-masked-value" title="This value is masked">${o(String(n))}</span>`;
     else if (i.endsWith("_old") || i.endsWith("_new")) a = o(O(n));
     else if (typeof n == "object" && n !== null) {
-      const l = JSON.stringify(n);
-      a = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${o(l.length > 100 ? l.substring(0, 100) + "..." : l)}</code>`;
+      const l = JSON.stringify(n), c = l.length > 100 ? l.substring(0, 100) + "..." : l;
+      a = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${o(c)}</code>`;
     } else a = o(O(n));
     return `
       <div class="activity-metadata-item${r ? " activity-metadata-item--masked" : ""}" style="display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: white; border-radius: 6px; border: 1px solid #e5e7eb;">
@@ -569,8 +571,8 @@ function Ve(e, t) {
       entries: [],
       collapsed: !1
     });
-    const d = i.get(r);
-    d.entries.some((f) => f.id === s.id) || d.entries.push(s);
+    const c = i.get(r);
+    c.entries.some((f) => f.id === s.id) || c.entries.push(s);
   });
   const n = Array.from(i.values()).sort((s, a) => a.date.getTime() - s.date.getTime());
   return n.forEach((s) => {
@@ -585,7 +587,7 @@ function Be(e) {
   return i.length >= 2 ? (i[0][0] + i[1][0]).toUpperCase() : e.substring(0, 2).toUpperCase();
 }
 function L(e, t, i) {
-  const { showDebugInfo: n = !1 } = i || {}, s = J(e.action, t), a = Z(e, t), r = Ae(e.created_at), l = ie(e.metadata), d = ne(e.metadata), f = n ? se(e) : "", p = q[s.category] || q.system, h = Be(e.actor), c = B(e), m = c !== "user" && c !== "unknown" ? N(c, {
+  const { showDebugInfo: n = !1 } = i || {}, s = J(e.action, t), a = Z(e, t), r = Ae(e.created_at), l = ie(e.metadata), c = ne(e.metadata), f = n ? se(e) : "", p = q[s.category] || q.system, h = Be(e.actor), d = B(e), m = d !== "user" && d !== "unknown" ? N(d, {
     badge: !0,
     size: "sm"
   }) : "", u = document.createElement("div");
@@ -605,7 +607,7 @@ function L(e, t, i) {
         </button>
         <div class="timeline-metadata-content" data-timeline-metadata-content="${e.id}">
           <div class="timeline-metadata-grid">
-            ${d}
+            ${c}
           </div>
           ${f}
         </div>
@@ -623,7 +625,7 @@ function L(e, t, i) {
         </button>
         <div class="timeline-metadata-content" data-timeline-metadata-content="${e.id}">
           <div class="timeline-metadata-grid">
-            ${d}
+            ${c}
           </div>
           ${f}
         </div>
@@ -687,8 +689,8 @@ function Ne(e, t, i) {
   `;
   const l = s.querySelector(".timeline-session-toggle");
   return l && i && l.addEventListener("click", () => {
-    const d = !e.collapsed;
-    e.collapsed = d, l.setAttribute("aria-expanded", (!d).toString()), i(n, d);
+    const c = !e.collapsed;
+    e.collapsed = c, l.setAttribute("aria-expanded", (!c).toString()), i(n, c);
   }), s;
 }
 function Re(e, t) {
@@ -709,17 +711,17 @@ function Re(e, t) {
   }), n;
 }
 function Oe(e, t, i, n) {
-  const { groupBySession: s = !0, showDebugInfo: a = !1, onSessionToggle: r, collapsedSessions: l = /* @__PURE__ */ new Set() } = n || {}, d = $(e.date), f = document.createElement("div");
-  f.className = "timeline-group", f.dataset.dateGroup = d;
+  const { groupBySession: s = !0, showDebugInfo: a = !1, onSessionToggle: r, collapsedSessions: l = /* @__PURE__ */ new Set() } = n || {}, c = $(e.date), f = document.createElement("div");
+  f.className = "timeline-group", f.dataset.dateGroup = c;
   const p = Re(e, i);
   f.appendChild(p);
   const h = document.createElement("div");
   if (h.className = "timeline-entries", e.collapsed && h.classList.add("collapsed"), s) {
-    const c = Me(e.entries), m = c.length > 1 || c.length === 1 && c[0].sessionId;
-    c.forEach((u) => {
-      const g = `${d}__${u.sessionId || "no-session"}`;
+    const d = Me(e.entries), m = d.length > 1 || d.length === 1 && d[0].sessionId;
+    d.forEach((u) => {
+      const g = `${c}__${u.sessionId || "no-session"}`;
       if (u.collapsed = l.has(g), m) {
-        const y = Ne(u, d, r);
+        const y = Ne(u, c, r);
         h.appendChild(y);
         const b = document.createElement("div");
         b.className = "timeline-session-entries", b.dataset.sessionEntries = g, u.collapsed && b.classList.add("collapsed"), u.entries.forEach((T) => {
@@ -731,8 +733,8 @@ function Oe(e, t, i, n) {
         h.appendChild(b);
       });
     });
-  } else e.entries.forEach((c) => {
-    const m = L(c, t, { showDebugInfo: a });
+  } else e.entries.forEach((d) => {
+    const m = L(d, t, { showDebugInfo: a });
     h.appendChild(m);
   });
   return f.appendChild(h), f;
@@ -1055,7 +1057,7 @@ var Ze = class {
     }), this.wireMetadataToggles();
   }
   createRowPair(e) {
-    const t = this.config.actionLabels || {}, i = J(e.action, t), n = Z(e, t, { showActorTypeBadge: !0 }), s = $e(e.created_at), a = Te(e.created_at), r = ie(e.metadata), l = ne(e.metadata), d = se(e), f = _e(e.channel), p = !!r, h = !!d, c = p || h, m = {
+    const t = this.config.actionLabels || {}, i = J(e.action, t), n = Z(e, t, { showActorTypeBadge: !0 }), s = $e(e.created_at), a = Te(e.created_at), r = ie(e.metadata), l = ne(e.metadata), c = se(e), f = _e(e.channel), p = !!r, h = !!c, d = p || h, m = {
       created: {
         bg: "#ecfdf5",
         color: "#10b981",
@@ -1111,7 +1113,7 @@ var Ze = class {
         </span>
       ` : b = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     let T = "";
-    if (c) {
+    if (d) {
       let w = r || "", _ = "activity-metadata-toggle", C = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;", k = "";
       r === "hidden" ? (w = "Hidden", _ += " activity-metadata-toggle--hidden", C = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", k = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>') : !p && h && (w = "Debug", _ += " activity-metadata-toggle--debug", C = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", k = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>'), T = `
         <button type="button"
@@ -1140,14 +1142,14 @@ var Ze = class {
       <td style="padding: 12px 16px; vertical-align: middle;">${T}</td>
     `;
     let v = null;
-    if (c) {
+    if (d) {
       v = document.createElement("tr"), v.className = "activity-details-row", v.style.display = "none", v.dataset.metadataContent = e.id;
       let w = "";
       p && (w += `
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px;">
             ${l}
           </div>
-        `), h && (w += d), v.innerHTML = `
+        `), h && (w += c), v.innerHTML = `
         <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${u.color};">
           <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
             ${w}

@@ -37,7 +37,7 @@ function setGlobals(win) {
 }
 
 function setupDOM(html) {
-  const dom = new JSDOM(html, { url: 'http://localhost/admin/content/documents/doc_123?locale=fr' });
+  const dom = new JSDOM(html, { url: 'http://localhost/admin/content/articles/article_123?locale=fr' });
   setGlobals(dom.window);
   return dom;
 }
@@ -53,10 +53,10 @@ test('renderDetailActions restores compact header layout with primary action and
       id: 'delete',
       label: 'Delete',
       disabled: true,
-      disabledReason: 'Document is used by 2 active agreements.',
+      disabledReason: 'Article is used by 2 active publishing schedules.',
       remediation: {
-        label: 'View agreements',
-        href: '/admin/approval_requests?document_id=doc_123',
+        label: 'View schedules',
+        href: '/admin/publishing_schedules?article_id=article_123',
         kind: 'link',
       },
       action: () => {},
@@ -67,7 +67,7 @@ test('renderDetailActions restores compact header layout with primary action and
   assert.match(html, /data-detail-actions-dropdown-trigger/);
   assert.match(html, /data-detail-action-button="delete"/);
   assert.match(html, /data-detail-action-reason="delete"/);
-  assert.match(html, /title="Document is used by 2 active agreements\."/);
+  assert.match(html, /title="Article is used by 2 active publishing schedules\."/);
 });
 
 test('renderDetailActions renders aria-describedby for disabled dropdown actions', () => {
@@ -103,10 +103,10 @@ test('renderDetailActions renders remediation link for disabled dropdown actions
       id: 'delete',
       label: 'Delete',
       disabled: true,
-      disabledReason: 'Document is used by 2 active agreements.',
+      disabledReason: 'Article is used by 2 active publishing schedules.',
       remediation: {
-        label: 'View agreements',
-        href: '/admin/approval_requests?document_id=doc_123',
+        label: 'View schedules',
+        href: '/admin/publishing_schedules?article_id=article_123',
         kind: 'link',
       },
       action: () => {},
@@ -114,8 +114,8 @@ test('renderDetailActions renders remediation link for disabled dropdown actions
   ]);
 
   assert.match(html, /data-detail-action-remediation="delete"/);
-  assert.match(html, /href="\/admin\/approval_requests\?document_id=doc_123"/);
-  assert.match(html, />\s*View agreements\s*</);
+  assert.match(html, /href="\/admin\/publishing_schedules\?article_id=article_123"/);
+  assert.match(html, />\s*View schedules\s*</);
 });
 
 test('renderDetailActions renders aria-describedby for disabled primary action', () => {
@@ -172,7 +172,7 @@ test('initPanelDetailActions renders canonical detail actions and keeps disabled
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"
@@ -202,15 +202,15 @@ test('initPanelDetailActions renders canonical detail actions and keeps disabled
     const deleteButton = dom.window.document.querySelector('[data-detail-action-button="delete"]');
     const deleteReason = dom.window.document.querySelector('[data-detail-action-reason="delete"]');
     assert.equal(deleteButton.getAttribute('aria-disabled'), 'true');
-    assert.equal(deleteButton.getAttribute('title'), 'Document is used by 2 active agreements.');
+    assert.equal(deleteButton.getAttribute('title'), 'Article is used by 2 active publishing schedules.');
     assert.equal(deleteButton.getAttribute('aria-describedby'), deleteReason?.id || null);
-    assert.equal(deleteReason?.textContent?.trim(), 'Document is used by 2 active agreements.');
+    assert.equal(deleteReason?.textContent?.trim(), 'Article is used by 2 active publishing schedules.');
 
     deleteButton.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     assert.equal(requests.length, 1);
-    assert.match(requests[0].url, /\/admin\/api\/panels\/content\/doc_123\?locale=fr/);
+    assert.match(requests[0].url, /\/admin\/api\/panels\/content\/article_123\?locale=fr/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -222,7 +222,7 @@ test('initPanelDetailActions renders aria-describedby for both primary and dropd
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"
@@ -259,7 +259,7 @@ test('initPanelDetailActions renders remediation links for dropdown disabled act
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"
@@ -280,8 +280,8 @@ test('initPanelDetailActions renders remediation links for dropdown disabled act
 
     const remediation = dom.window.document.querySelector('[data-detail-action-remediation="delete"]');
     assert.ok(remediation, 'dropdown disabled action with remediation should render remediation link');
-    assert.equal(remediation?.getAttribute('href'), '/admin/approval_requests?document_id=doc_123');
-    assert.match(remediation?.textContent, /View agreements/);
+    assert.equal(remediation?.getAttribute('href'), '/admin/publishing_schedules?article_id=article_123');
+    assert.match(remediation?.textContent, /View schedules/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -293,7 +293,7 @@ test('disabled dropdown actions do not close the overflow menu when clicked', as
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"
@@ -336,7 +336,7 @@ test('repeated refresh() does not accumulate document event listeners', async ()
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"
@@ -396,7 +396,7 @@ test('refresh() removes stale document click listeners when detail actions becom
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"
@@ -462,7 +462,7 @@ test('refresh() removes stale document keydown listeners when detail actions bec
     <div
       data-panel-detail-actions
       data-panel="content"
-      data-record-id="doc_123"
+      data-record-id="article_123"
       data-base-path="/admin"
       data-panel-base-path="/admin/content"
       data-api-base-path="/admin/api"

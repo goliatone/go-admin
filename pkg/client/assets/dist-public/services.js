@@ -1,16 +1,16 @@
 import { escapeHTML as a } from "./shared/html.js";
 import { httpRequest as Lt } from "./shared/transport/http-client.js";
-import { t as mt } from "./chunks/modal-BqeSB3vt.js";
-import "./chunks/toast-manager-Bb3XT7VI.js";
-import { n as ye, r as kt, t as me } from "./chunks/command-runtime-C_A1iWIS.js";
-import { t as u } from "./chunks/icon-renderer-DeU9viK3.js";
-import { UIStateManager as Se, renderEmptyState as Tt, renderErrorState as st, renderForbiddenState as q, renderLoadingState as rt, renderNoResultsState as Et, renderPanelLoadingState as we, renderPanelState as $e, renderTableEmptyState as _e, renderTableErrorState as z, renderTableLoadingState as B, renderTableNoResultsState as F } from "./services/ui-states.js";
+import { n as mt } from "./chunks/toast-manager-CZnLPlYg.js";
+import { n as fe, r as kt, t as ye } from "./chunks/command-runtime-CCwUo6yg.js";
+import { t as u } from "./chunks/icon-renderer-DauoBn1n.js";
+import { UIStateManager as xe, renderEmptyState as Tt, renderErrorState as st, renderForbiddenState as q, renderLoadingState as rt, renderNoResultsState as Et, renderPanelLoadingState as Se, renderPanelState as we, renderTableEmptyState as $e, renderTableErrorState as z, renderTableLoadingState as B, renderTableNoResultsState as F } from "./services/ui-states.js";
 var nt = class vt extends Error {
   constructor(e, i, s, r) {
     super(e), this.name = "ServicesAPIError", this.code = i, this.statusCode = s, this.details = r;
   }
   static fromResponse(e, i) {
-    return new vt(i.message || i.error || "Unknown error", i.text_code || "UNKNOWN_ERROR", e, i.details);
+    const s = i.message || i.error || "Unknown error", r = i.text_code || "UNKNOWN_ERROR";
+    return new vt(s, r, e, i.details);
   }
   get isForbidden() {
     return this.statusCode === 403 || this.code === "FORBIDDEN";
@@ -297,10 +297,10 @@ var xt = class {
 function P() {
   return D || (D = new xt()), D;
 }
-function Ce(t) {
+function _e(t) {
   D = t;
 }
-function Le(t = {}) {
+function Ce(t = {}) {
   return new xt(t);
 }
 var At = {
@@ -477,7 +477,7 @@ var V = class {
     return new Date(e.getTime() - i).toISOString().slice(0, 16);
   }
 };
-function ke(t, e) {
+function Le(t, e) {
   let i = null;
   return Object.assign(((...n) => {
     i && clearTimeout(i), i = setTimeout(() => {
@@ -487,7 +487,7 @@ function ke(t, e) {
     i && (clearTimeout(i), i = null);
   } });
 }
-function Te(t, e) {
+function ke(t, e) {
   if (!("filters" in t)) {
     const c = t, o = new URLSearchParams();
     for (const [d, l] of Object.entries(c)) l != null && l !== "" && o.set(d, String(l));
@@ -498,7 +498,7 @@ function Te(t, e) {
   for (const [c, o] of Object.entries(i.filters)) o != null && o !== "" && s.set(c, o);
   return s;
 }
-function Ee(t, e, i) {
+function Te(t, e, i) {
   if (!i) {
     const d = {};
     for (const l of e) {
@@ -631,7 +631,7 @@ var W = class {
 function L() {
   return Z || (Z = new W()), Z;
 }
-function qe(t) {
+function Ee(t) {
   L().init(t);
 }
 function A(t, e) {
@@ -640,19 +640,19 @@ function A(t, e) {
     return () => s.hasAll(r);
   };
 }
-function Pe(t, e) {
+function qe(t, e) {
   return (i) => {
     const s = i instanceof W ? i : e || L();
     return () => s.hasAll(t);
   };
 }
-function Ae(t, e) {
+function Pe(t, e) {
   return (i) => {
     const s = i instanceof W ? i : e || L();
     return () => s.hasAny(t);
   };
 }
-function Re(...t) {
+function Ae(...t) {
   const e = t.flatMap((i) => Array.isArray(i) ? i : [i]);
   return (i) => () => e.every((s) => s(i)());
 }
@@ -680,10 +680,10 @@ function Ft(t) {
   const e = t;
   return e.isForbidden === !0 || e.statusCode === 403 || e.code === "FORBIDDEN";
 }
-function Fe(t, e) {
+function Re(t, e) {
   return Ft(t) ? (e(t), !0) : !1;
 }
-function Ie(t, e, i, s) {
+function Fe(t, e, i, s) {
   const r = s || L();
   return async () => {
     if (!r.has(t)) {
@@ -698,7 +698,7 @@ function X(t, e, i) {
   let d = !0, l = [];
   r.length > 0 ? (l = s.getMissing(r), d = l.length === 0) : n.length > 0 && (d = s.hasAny(n), d || (l = n)), d || (o ? ((t instanceof HTMLButtonElement || t instanceof HTMLInputElement) && (t.disabled = !0), t.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), t.setAttribute("title", `Permission required: ${l.join(", ")}`)) : (t.style.display = "none", t.classList.add("permission-hidden")), e.deniedContent && (typeof e.deniedContent == "string" ? t.outerHTML = e.deniedContent : t.replaceWith(e.deniedContent)), c?.(l));
 }
-function Me(t = document.body, e) {
+function Ie(t = document.body, e) {
   t.querySelectorAll("[data-permission-requires]").forEach((i) => {
     const s = i.dataset.permissionRequires?.split(",").map((r) => r.trim());
     s && s.length > 0 && X(i, { requires: s }, e);
@@ -725,7 +725,7 @@ function It() {
   }
   return [];
 }
-function je() {
+function Me() {
   const t = It(), e = L();
   return e.init(t), e;
 }
@@ -809,7 +809,7 @@ async function v(t) {
     };
   }
 }
-async function Ne(t) {
+async function je(t) {
   const { confirmMessage: e, confirmOptions: i, ...s } = t;
   return await mt.confirm(e, {
     title: i?.title ?? "Confirm Action",
@@ -1184,31 +1184,31 @@ var J = class {
     this.backendLabels = {}, this.fallbackFormatter = lt, this.initialized = !1;
   }
 }, w = new Dt();
-function De(t = {}) {
+function Ne(t = {}) {
   w.init(t);
 }
 function Ut(t) {
   return w.getLabel(t);
 }
-function Ue(t) {
+function De(t) {
   return w.getEntry(t);
 }
-function Oe() {
+function Ue() {
   return w.getAllLabels();
 }
 function Ot() {
   return w.getActionsByCategory();
 }
-function He(t) {
+function Oe(t) {
   w.setLabels(t);
 }
-function ze() {
+function He() {
   return w.isInitialized();
 }
-function Be() {
+function ze() {
   w.reset();
 }
-function Ve(t = {}) {
+function Be(t = {}) {
   return (e) => t[e] ? t[e] : w.getLabel(e);
 }
 function lt(t) {
@@ -1397,25 +1397,25 @@ var Wt = class {
     }
   }
 }, $ = new Wt();
-function We(t) {
+function Ve(t) {
   $.configure(t);
 }
 function Gt(t, e, i) {
   return $.generateLink(t, e, i);
 }
-function Ge(t, e) {
+function We(t, e) {
   return $.generateListLink(t, e);
 }
 function Jt(t, e, i, s) {
   $.navigateTo(t, e, i, s);
 }
-function Je() {
+function Ge() {
   return $.navigateBack();
 }
-function Qe() {
+function Je() {
   return $.parseCurrentUrl();
 }
-function Ke(t) {
+function Qe(t) {
   return $.parseUrl(t);
 }
 function wt(t) {
@@ -1479,7 +1479,6 @@ function Yt(t) {
           break;
         case "Escape":
           p.preventDefault(), n?.();
-          break;
       }
     }
   }
@@ -1490,7 +1489,7 @@ function Yt(t) {
     e.removeEventListener("keydown", b);
   };
 }
-function Ye(t, e) {
+function Ke(t, e) {
   return Yt({
     container: t,
     selector: e,
@@ -1551,40 +1550,40 @@ function Q(t, e = {}) {
     r.textContent = t;
   }, 100);
 }
-function Ze(t) {
+function Ye(t) {
   Q(`Loading ${t}...`, { priority: "polite" });
 }
-function Xe(t) {
+function Ze(t) {
   Q(t, { priority: "polite" });
 }
-function ti(t) {
+function Xe(t) {
   Q(`Error: ${t}`, { priority: "assertive" });
 }
-function ei(t) {
+function ti(t) {
   Q(`Navigating to ${t}`, { priority: "polite" });
 }
-function ii(t, e, i) {
+function ei(t, e, i) {
   t.setAttribute("aria-expanded", String(i));
   const s = typeof e == "string" ? e : e.id;
   s && t.setAttribute("aria-controls", s);
 }
-function si(t, e) {
+function ii(t, e) {
   t.setAttribute("aria-busy", String(e)), e ? t.setAttribute("aria-describedby", "loading-indicator") : t.removeAttribute("aria-describedby");
 }
-function ri(t, e, i) {
+function si(t, e, i) {
   t.setAttribute("role", "status"), t.setAttribute("aria-label", `Status: ${i}`);
 }
-function ni(t, e) {
+function ri(t, e) {
   t.setAttribute("aria-sort", e), t.setAttribute("role", "columnheader");
 }
-function ai(t, e, i = 100, s) {
+function ni(t, e, i = 100, s) {
   t.setAttribute("role", "progressbar"), t.setAttribute("aria-valuenow", String(e)), t.setAttribute("aria-valuemin", "0"), t.setAttribute("aria-valuemax", String(i)), s && t.setAttribute("aria-label", s);
 }
-function oi(t, e = "Skip to main content") {
+function ai(t, e = "Skip to main content") {
   const i = document.createElement("a");
   return i.href = `#${t}`, i.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", i.textContent = e, i;
 }
-function ci(t, e = {}) {
+function oi(t, e = {}) {
   const { title: i, describedBy: s, onClose: r } = e;
   if (t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), i) {
     const c = `dialog-title-${Date.now()}`, o = t.querySelector('h1, h2, h3, [role="heading"]');
@@ -1602,7 +1601,7 @@ function ci(t, e = {}) {
 function ee() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function li(t) {
+function ci(t) {
   return ee() ? 0 : t;
 }
 var ut = {
@@ -1649,7 +1648,7 @@ var ut = {
     text: "text-red-700",
     icon: "iconoir:warning-circle"
   }
-}, di = class {
+}, li = class {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -1992,11 +1991,11 @@ function U(t) {
     </span>
   `;
 }
-function ui(t, e) {
+function di(t, e) {
   const i = document.createElement("span");
   i.innerHTML = U(e), t.appendChild(i.firstElementChild);
 }
-function hi() {
+function ui() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
@@ -2133,22 +2132,23 @@ var ht = {
     return this.providers.find((e) => e.id === t);
   }
   async loadProviders() {
-    if (this.container) {
-      this.loading = !0, this.error = null, this.renderLoading(), this.providers = await $t(P(), {
-        notifier: this.config.notifier,
-        onError: (t) => {
-          this.error = t;
-        }
-      });
-      try {
-        if (this.error) {
-          this.renderError();
-          return;
-        }
-        this.renderProviders();
-      } finally {
-        this.loading = !1;
+    if (!this.container) return;
+    this.loading = !0, this.error = null, this.renderLoading();
+    const t = P();
+    this.providers = await $t(t, {
+      notifier: this.config.notifier,
+      onError: (e) => {
+        this.error = e;
       }
+    });
+    try {
+      if (this.error) {
+        this.renderError();
+        return;
+      }
+      this.renderProviders();
+    } finally {
+      this.loading = !1;
     }
   }
   renderLoading() {
@@ -2298,7 +2298,7 @@ var ht = {
     }));
   }
 };
-async function pi(t) {
+async function hi(t) {
   const e = new ne(t);
   return await e.init(), e;
 }
@@ -2656,7 +2656,6 @@ var pt = {
               break;
             case "revoke":
               await this.handleRevoke(e, i);
-              break;
           }
         });
       }));
@@ -2698,11 +2697,11 @@ var pt = {
     });
   }
   async handleRevoke(t, e) {
-    const i = this.getConnection(t);
+    const i = this.getConnection(t), s = i ? x(i.provider_id, this.config.getProviderName) : void 0;
     await G({
       action: "revoke",
       resourceType: "connection",
-      resourceName: i ? x(i.provider_id, this.config.getProviderName) : void 0
+      resourceName: s
     }) && (this.actionQueue.isInFlight(`revoke-${t}`) || await this.actionQueue.execute(`revoke-${t}`, async () => {
       await v({
         mutation: () => this.client.revokeConnection(t),
@@ -2739,7 +2738,7 @@ var pt = {
     o && (o.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No connections"), d && (d.disabled = !c), l && (l.disabled = !n);
   }
 };
-async function gi(t) {
+async function pi(t) {
   const e = new ae(t);
   return await e.init(), e;
 }
@@ -3080,18 +3079,17 @@ var gt = {
               break;
             case "reinstall":
               await this.handleReinstall(e);
-              break;
           }
         });
       }));
     });
   }
   async handleUninstall(t, e) {
-    const i = this.getInstallation(t);
+    const i = this.getInstallation(t), s = i ? x(i.provider_id, this.config.getProviderName) : void 0;
     await G({
       action: "uninstall",
       resourceType: "installation",
-      resourceName: i ? x(i.provider_id, this.config.getProviderName) : void 0
+      resourceName: s
     }) && (this.actionQueue.isInFlight(`uninstall-${t}`) || await this.actionQueue.execute(`uninstall-${t}`, async () => {
       await v({
         mutation: () => this.client.uninstallInstallation(t),
@@ -3132,7 +3130,7 @@ var gt = {
     o && (o.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No installations"), d && (d.disabled = !c), l && (l.disabled = !n);
   }
 };
-async function bi(t) {
+async function gi(t) {
   const e = new oe(t);
   return await e.init(), e;
 }
@@ -3685,14 +3683,14 @@ var N = {
     if (!this.config.useDeepLinks) return "#";
     const i = wt(t);
     if (!i) return "#";
-    const s = this.queryState.getState();
-    return Gt(i, e, {
+    const s = this.queryState.getState(), r = {
       fromPage: window.location.pathname,
-      filters: Object.fromEntries(Object.entries(s.filters).filter(([, r]) => r)),
+      filters: Object.fromEntries(Object.entries(s.filters).filter(([, n]) => n)),
       search: s.search || void 0,
       page: s.page > 1 ? s.page : void 0,
       viewMode: this.state.viewMode
-    });
+    };
+    return Gt(i, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -3754,7 +3752,7 @@ var N = {
     return Object.entries(t).slice(0, 3).map(([e, i]) => `${e}: ${JSON.stringify(i)}`).join(", ");
   }
 };
-async function fi(t) {
+async function bi(t) {
   const e = new ce(t);
   return await e.init(), e;
 }
@@ -4173,7 +4171,6 @@ var tt = {
               break;
             case "cancel":
               await this.handleCancel(e, i);
-              break;
           }
         });
       }));
@@ -4423,7 +4420,7 @@ var tt = {
     return s > 0 && s < 864e5;
   }
 };
-async function yi(t) {
+async function fi(t) {
   const e = new le(t);
   return await e.init(), e;
 }
@@ -4783,7 +4780,7 @@ var yt = {
     else if (t.last_error)
       e = "error", i = "Credential Error", s = "bg-red-100 text-red-700 border-red-200", r = "iconoir:warning-circle";
     else if (t.expires_at) {
-      const n = new Date(t.expires_at), c = /* @__PURE__ */ new Date(), o = (n.getTime() - c.getTime()) / (1e3 * 60 * 60);
+      const n = new Date(t.expires_at), c = /* @__PURE__ */ new Date(), o = (n.getTime() - c.getTime()) / 36e5;
       o < 0 ? (e = "error", i = "Expired", s = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : o < 24 && (e = "warning", i = "Expiring Soon", s = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
     }
     return `
@@ -4979,20 +4976,22 @@ var yt = {
     });
   }
   async handleRevoke() {
-    if (!this.state.connection || !await G({
+    if (!this.state.connection) return;
+    const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : O(this.state.connection.provider_id);
+    if (!await G({
       action: "revoke",
       resourceType: "connection",
-      resourceName: this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : O(this.state.connection.provider_id)
+      resourceName: t
     })) return;
-    const t = this.container?.querySelector(".revoke-btn");
+    const e = this.container?.querySelector(".revoke-btn");
     this.actionQueue.isInFlight("revoke") || await this.actionQueue.execute("revoke", async () => {
       await v({
         mutation: () => this.client.revokeConnection(this.config.connectionId),
         notifier: this.config.notifier,
         successMessage: "Connection revoked",
         errorMessagePrefix: "Failed to revoke",
-        buttonConfig: t ? {
-          button: t,
+        buttonConfig: e ? {
+          button: e,
           loadingText: "Revoking...",
           successText: "Revoked",
           errorText: "Failed"
@@ -5067,18 +5066,18 @@ var yt = {
     return o.sort((l, h) => d[l.status] - d[h.status]), o;
   }
 };
-async function mi(t) {
+async function yi(t) {
   const e = new ue(t);
   return await e.init(), e;
 }
 export {
   J as ActionQueue,
   ce as ActivityPageManager,
-  me as CommandRuntimeController,
+  ye as CommandRuntimeController,
   ue as ConnectionDetailManager,
   ae as ConnectionsListManager,
   j as DEFAULT_ACTION_LABELS,
-  di as ExtensionDiagnosticsPanel,
+  li as ExtensionDiagnosticsPanel,
   Zt as FOCUSABLE_SELECTOR,
   oe as InstallationsListManager,
   Mt as MutationButtonManager,
@@ -5089,15 +5088,15 @@ export {
   W as ServicesPermissionManager,
   C as ServicesPermissions,
   le as SubscriptionsSyncPageManager,
-  Se as UIStateManager,
-  ui as addStateSourceIndicator,
-  ti as announceError,
-  Ze as announceLoading,
-  ei as announceNavigation,
-  Xe as announceSuccess,
+  xe as UIStateManager,
+  di as addStateSourceIndicator,
+  Xe as announceError,
+  Ye as announceLoading,
+  ti as announceNavigation,
+  Ze as announceSuccess,
   Q as announceToScreenReader,
   E as bindNoResultsResetAction,
-  Te as buildSearchParams,
+  ke as buildSearchParams,
   T as canConnect,
   R as canEdit,
   St as canReconsent,
@@ -5105,23 +5104,23 @@ export {
   Rt as canViewActivity,
   M as canViewServices,
   it as clearRetryUI,
-  Re as combineGuards,
-  We as configureDeepLinks,
+  Ae as combineGuards,
+  Ve as configureDeepLinks,
   G as confirmServiceAction,
-  Ve as createActionLabelResolver,
+  Be as createActionLabelResolver,
   Kt as createActivityNavigateHandler,
-  fi as createActivityPage,
-  mi as createConnectionDetail,
-  gi as createConnectionsList,
+  bi as createActivityPage,
+  yi as createConnectionDetail,
+  pi as createConnectionsList,
   Xt as createFocusTrap,
-  bi as createInstallationsList,
+  gi as createInstallationsList,
   Qt as createNavigationContext,
   A as createPermissionGuard,
-  pi as createProvidersCatalog,
-  Le as createServicesClient,
-  oi as createSkipLink,
-  yi as createSubscriptionsSyncPage,
-  ke as debounce,
+  hi as createProvidersCatalog,
+  Ce as createServicesClient,
+  ai as createSkipLink,
+  fi as createSubscriptionsSyncPage,
+  Le as debounce,
   $ as deepLinkManager,
   K as destroyAbortableQueryPage,
   I as formatDateTime,
@@ -5130,32 +5129,32 @@ export {
   H as formatServiceLabel,
   X as gateElement,
   Gt as generateDeepLink,
-  Ge as generateListLink,
-  Ue as getActionEntry,
+  We as generateListLink,
+  De as getActionEntry,
   Ut as getActionLabel,
   Ot as getActionsByCategory,
-  Oe as getAllActionLabels,
-  li as getAnimationDuration,
+  Ue as getAllActionLabels,
+  ci as getAnimationDuration,
   L as getPermissionManager,
   Nt as getServiceConfirmConfig,
   P as getServicesClient,
-  Fe as handleForbidden,
-  De as initActivityLabels,
-  ye as initCommandRuntime,
-  Me as initPermissionGates,
-  qe as initPermissions,
-  je as initPermissionsFromContext,
-  ze as isActivityLabelsInitialized,
+  Re as handleForbidden,
+  Ne as initActivityLabels,
+  fe as initCommandRuntime,
+  Ie as initPermissionGates,
+  Ee as initPermissions,
+  Me as initPermissionsFromContext,
+  He as isActivityLabelsInitialized,
   Ft as isForbiddenError,
   ot as loadAndPopulateProviders,
   It as loadPermissionsFromContext,
   $t as loadProviders,
   wt as mapObjectTypeToEntity,
-  Je as navigateBack,
+  Ge as navigateBack,
   Jt as navigateToEntity,
-  Qe as parseCurrentDeepLink,
-  Ke as parseDeepLink,
-  Ee as parseSearchParams,
+  Je as parseCurrentDeepLink,
+  Qe as parseDeepLink,
+  Te as parseSearchParams,
   se as populateProviderFilterOptions,
   ee as prefersReducedMotion,
   Tt as renderEmptyState,
@@ -5163,33 +5162,33 @@ export {
   q as renderForbiddenState,
   rt as renderLoadingState,
   Et as renderNoResultsState,
-  we as renderPanelLoadingState,
-  $e as renderPanelState,
+  Se as renderPanelLoadingState,
+  we as renderPanelState,
   jt as renderRetryUI,
   U as renderStateSourceIndicator,
-  hi as renderStateSourceLegend,
-  _e as renderTableEmptyState,
+  ui as renderStateSourceLegend,
+  $e as renderTableEmptyState,
   z as renderTableErrorState,
   B as renderTableLoadingState,
   F as renderTableNoResultsState,
-  Pe as requireAll,
-  Ae as requireAny,
-  Be as resetActivityLabels,
+  qe as requireAll,
+  Pe as requireAny,
+  ze as resetActivityLabels,
   x as resolveProviderDisplayName,
-  He as setActionLabels,
-  ii as setExpandedState,
-  si as setLoadingState,
-  ai as setProgress,
-  Ce as setServicesClient,
-  ni as setSortableHeader,
-  ri as setStatusLabel,
-  ci as setupDialogFocus,
+  Oe as setActionLabels,
+  ei as setExpandedState,
+  ii as setLoadingState,
+  ni as setProgress,
+  _e as setServicesClient,
+  ri as setSortableHeader,
+  si as setStatusLabel,
+  oi as setupDialogFocus,
   Yt as setupKeyboardNavigation,
-  Ye as setupRovingTabindex,
+  Ke as setupRovingTabindex,
   m as truncateId,
-  Ne as withConfirmation,
+  je as withConfirmation,
   v as withMutationFeedback,
-  Ie as withPermission
+  Fe as withPermission
 };
 
 //# sourceMappingURL=services.js.map

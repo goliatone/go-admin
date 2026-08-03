@@ -70,7 +70,7 @@ function setGlobals(win) {
 
 function setupDom(markup) {
   const dom = new JSDOM(markup, {
-    url: 'http://localhost:8082/admin/content/approval_requests/agreement-1?channel=default&tenant_id=tenant-1&org_id=org-1',
+    url: 'http://localhost:8082/admin/content/publishing_schedules/schedule-1?channel=default&tenant_id=tenant-1&org_id=org-1',
   });
   setGlobals(dom.window);
   return dom;
@@ -111,7 +111,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   setupDom(`<!doctype html>
     <html>
       <body>
-        <script id="agreement-review-bootstrap" type="application/json">{"status":"in_review","participants":[]}</script>
+        <script id="publication-review-bootstrap" type="application/json">{"status":"in_review","participants":[]}</script>
         <div id="mount">
           <div id="status-panel">before</div>
           <button
@@ -156,7 +156,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
     return new Response(`<!doctype html>
       <html>
         <body>
-          <script id="agreement-review-bootstrap" type="application/json">{"status":"approved","participants":[{"id":"participant-1"}]}</script>
+          <script id="publication-review-bootstrap" type="application/json">{"status":"approved","participants":[{"id":"participant-1"}]}</script>
           <div id="mount">
             <div id="status-panel">after</div>
           </div>
@@ -171,15 +171,15 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'approval_requests',
-    recordId: 'agreement-1',
+    panelName: 'publishing_schedules',
+    recordId: 'schedule-1',
     rpcEndpoint: '/admin/api/v1/rpc',
     tenantId: 'tenant-1',
     orgId: 'org-1',
     notifier,
     fetchImpl,
     onAfterRefresh(detail) {
-      refreshed.push(detail.sourceDocument.getElementById('agreement-review-bootstrap')?.textContent || '');
+      refreshed.push(detail.sourceDocument.getElementById('publication-review-bootstrap')?.textContent || '');
     },
     onAfterDispatch(detail) {
       dispatches.push(detail);
@@ -198,7 +198,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   const rpcRequest = JSON.parse(String(requests[0].init.body));
   assert.equal(rpcRequest.method, 'admin.commands.dispatch');
   assert.equal(rpcRequest.params.data.name, 'reviews.notify_reviewers');
-  assert.deepEqual(rpcRequest.params.data.ids, ['agreement-1']);
+  assert.deepEqual(rpcRequest.params.data.ids, ['schedule-1']);
   assert.equal(rpcRequest.params.data.payload.participant_id, 'participant-1');
   assert.equal(rpcRequest.params.data.payload.recipient_id, '');
   assert.equal(rpcRequest.params.data.payload.tenant_id, 'tenant-1');
@@ -261,8 +261,8 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'approval_requests',
-    recordId: 'agreement-1',
+    panelName: 'publishing_schedules',
+    recordId: 'schedule-1',
     notifier,
     fetchImpl,
   });
@@ -281,10 +281,10 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   assert.deepEqual(notifier.successes, ['Comment added']);
   assert.equal(document.getElementById('comment-panel')?.textContent, 'after');
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url, '/admin/api/v1/panels/approval_requests/actions/create_comment_thread');
+  assert.equal(requests[0].url, '/admin/api/v1/panels/publishing_schedules/actions/create_comment_thread');
 
   const actionPayload = JSON.parse(String(requests[0].init.body));
-  assert.equal(actionPayload.id, 'agreement-1');
+  assert.equal(actionPayload.id, 'schedule-1');
   assert.equal(actionPayload.review_id, 'review-1');
   assert.equal(actionPayload.body, 'hello world');
 });
@@ -325,8 +325,8 @@ test('CommandRuntimeController uses shared busy behavior for button triggers and
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'approval_requests',
-    recordId: 'agreement-1',
+    panelName: 'publishing_schedules',
+    recordId: 'schedule-1',
     notifier,
     fetchImpl,
   });
@@ -383,8 +383,8 @@ test('CommandRuntimeController suppresses duplicate clicks while shared busy sta
   initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'approval_requests',
-    recordId: 'agreement-1',
+    panelName: 'publishing_schedules',
+    recordId: 'schedule-1',
     notifier: createNotifier(),
     fetchImpl,
   });
@@ -425,8 +425,8 @@ test('CommandRuntimeController manual dispatch uses shared busy target state', a
   const controller = initCommandRuntime({
     mount: document.getElementById('mount'),
     apiBasePath: '/admin/api/v1',
-    panelName: 'approval_requests',
-    recordId: 'agreement-1',
+    panelName: 'publishing_schedules',
+    recordId: 'schedule-1',
     notifier: createNotifier(),
     fetchImpl,
   });

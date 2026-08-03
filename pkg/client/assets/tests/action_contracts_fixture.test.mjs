@@ -19,8 +19,8 @@ async function loadFixture() {
 
 function createBuilder() {
   return new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/panels/document_records',
-    actionBasePath: '/admin/content/document_records',
+    apiEndpoint: '/admin/api/panels/article_records',
+    actionBasePath: '/admin/content/article_records',
     actionContext: 'row',
   });
 }
@@ -58,7 +58,7 @@ test('Phase 1 action contracts fixture exposes the canonical enriched action-sta
   assert.equal(rowDeleteState.reason_code, 'RESOURCE_IN_USE');
   assert.equal(rowDeleteState.severity, 'warning');
   assert.equal(rowDeleteState.kind, 'business_rule');
-  assert.equal(rowDeleteState.metadata.agreement_count, 2);
+  assert.equal(rowDeleteState.metadata.schedule_count, 2);
   assert.equal(rowDeleteState.remediation.kind, 'link');
 
   const detailDeleteState = fixture.detail_contract.data._action_state.delete;
@@ -79,7 +79,7 @@ test('SchemaActionBuilder consumes enriched ActionState payloads from Phase 1 fi
 
   assert.equal(actions.length, 1);
   assert.equal(actions[0].disabled, true);
-  assert.equal(actions[0].disabledReason, 'Document is used by 2 agreements');
+  assert.equal(actions[0].disabledReason, 'Article is used by 2 publishing schedules');
 });
 
 test('normalizeActionBlockCode normalizes reason_code and text_code through one path', async () => {
@@ -118,7 +118,7 @@ test('structured execution failure fixture preserves canonical text_code for sha
   const error = await extractStructuredError(response);
 
   assert.equal(error.textCode, 'RESOURCE_IN_USE');
-  assert.equal(error.message, 'Document cannot be deleted while attached to agreements');
+  assert.equal(error.message, 'Article cannot be deleted while assigned to publishing schedules');
 
   const display = getActionBlockDisplay({ textCode: error.textCode });
   assert.ok(display);

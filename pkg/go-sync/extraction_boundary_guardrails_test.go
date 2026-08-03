@@ -27,7 +27,7 @@ func TestGoSyncReleaseAutomationStaysPackageLocal(t *testing.T) {
 
 		text := string(content)
 		for _, forbidden := range []string{
-			"agreement-form",
+			"article-editor",
 			"pkg/client/assets",
 		} {
 			if strings.Contains(text, forbidden) {
