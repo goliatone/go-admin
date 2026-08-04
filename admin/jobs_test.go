@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -293,6 +294,19 @@ func TestJobRegistryErrorObserverDistinguishesRetryAndTerminal(t *testing.T) {
 	}
 	if events[1].Stage != JobErrorStageTerminal || events[1].Attempt != 3 || events[1].MaxAttempts != 3 {
 		t.Fatalf("terminal event = %+v", events[1])
+	}
+}
+
+func TestJobMetadataIntRejectsOutOfRangeValues(t *testing.T) {
+	metadata := map[string]any{
+		"max":      uint64(math.MaxInt),
+		"overflow": uint64(math.MaxInt) + 1,
+	}
+	if got := jobMetadataInt(metadata, "max"); got != math.MaxInt {
+		t.Fatalf("max metadata = %d, want %d", got, math.MaxInt)
+	}
+	if got := jobMetadataInt(metadata, "overflow"); got != 0 {
+		t.Fatalf("overflow metadata = %d, want 0", got)
 	}
 }
 

@@ -4416,7 +4416,7 @@ New minor release: v0.27.0
 - UP to context ([530b82b](https://github.com/goliatone/go-admin/commit/530b82befcd74c1e3576450d7c9aa823c1f72b38))  - (goliatone)
 - Udpate migration service ([fe6ae6f](https://github.com/goliatone/go-admin/commit/fe6ae6ff43a4796d29e582e6a75dd8f45de42089))  - (goliatone)
 - Udpated quickstart content entry bulk actions ([029f3b3](https://github.com/goliatone/go-admin/commit/029f3b3ee8c27dd9659dc425be3db8866b0a7e1e))  - (goliatone)
-- Esign ip service and data migration ([97d7f9c](https://github.com/goliatone/go-admin/commit/97d7f9c853cb95b876fafb5ec42c08405ff7743b))  - (goliatone)
+- Electronic signature IP service and data migration ([97d7f9c](https://github.com/goliatone/go-admin/commit/97d7f9c853cb95b876fafb5ec42c08405ff7743b))  - (goliatone)
 - Client assset test ([7ec349d](https://github.com/goliatone/go-admin/commit/7ec349dcc37dd44a7a1b654fdc1e1093e73b50e6))  - (goliatone)
 - Quickstart migration and sql pipeline ([0501878](https://github.com/goliatone/go-admin/commit/0501878693ffa66af00bcebdb6283fd8061e414f))  - (goliatone)
 - Refactored agreement form ([1d5a19a](https://github.com/goliatone/go-admin/commit/1d5a19a39ffc3b255df57cf5adf0bd855deb4ea9))  - (goliatone)
@@ -6256,5 +6256,4 @@ New minor release: v0.1.0
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 

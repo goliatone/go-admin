@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -496,25 +497,30 @@ func (j *JobRegistry) observeJobError(ctx context.Context, err error) {
 
 // scheduledJobIdentity finds the schedule metadata below retry/final wrappers.
 // The scheduler deliberately adds its own structured error at each attempt, so
-// errors.As alone only exposes the outer retry metadata.
+// each matched structured error must be unwrapped before searching again.
 func scheduledJobIdentity(err error) (string, string) {
 	const maxDepth = 32
 	current := err
 	for depth := 0; current != nil && depth < maxDepth; depth++ {
-		if rich, ok := current.(*goerrors.Error); ok && rich != nil {
-			job := jobMetadataString(rich.Metadata, "job")
-			schedule := jobMetadataString(rich.Metadata, "schedule")
-			if job != "" || schedule != "" {
-				return job, schedule
-			}
+		var rich *goerrors.Error
+		if !errors.As(current, &rich) || rich == nil {
+			break
 		}
-		current = errors.Unwrap(current)
+		job := jobMetadataString(rich.Metadata, "job")
+		schedule := jobMetadataString(rich.Metadata, "schedule")
+		if job != "" || schedule != "" {
+			return job, schedule
+		}
+		current = errors.Unwrap(rich)
 	}
 	return "", ""
 }
 
 func jobMetadataString(metadata map[string]any, key string) string {
-	value, _ := metadata[key].(string)
+	value, ok := metadata[key].(string)
+	if !ok {
+		return ""
+	}
 	return strings.TrimSpace(value)
 }
 
@@ -529,20 +535,34 @@ func jobMetadataInt(metadata map[string]any, key string) int {
 	case int32:
 		return int(value)
 	case int64:
-		return int(value)
+		return boundedJobMetadataInt(value)
 	case uint:
-		return int(value)
+		return boundedJobMetadataUint(uint64(value))
 	case uint8:
 		return int(value)
 	case uint16:
 		return int(value)
 	case uint32:
-		return int(value)
+		return boundedJobMetadataUint(uint64(value))
 	case uint64:
-		return int(value)
+		return boundedJobMetadataUint(value)
 	default:
 		return 0
 	}
+}
+
+func boundedJobMetadataInt(value int64) int {
+	if value < int64(math.MinInt) || value > int64(math.MaxInt) {
+		return 0
+	}
+	return int(value)
+}
+
+func boundedJobMetadataUint(value uint64) int {
+	if value > uint64(math.MaxInt) {
+		return 0
+	}
+	return int(value)
 }
 
 func ensureJobStateForTasks(states map[string]*jobState, commanders map[string]*gojob.TaskCommander) {
