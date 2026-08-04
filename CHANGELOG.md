@@ -1,6 +1,37 @@
 # Changelog
 
+# [0.127.3](https://github.com/goliatone/go-admin/compare/v0.127.2...v0.127.3) - (2026-08-04)
+
+
+## Added
+
+- Public HTML render-cache diagnostics now report bounded request eligibility and terminal outcomes separately from backend store operations, including auth and locale-cookie bypasses that occur before lookup.
+- The Debug Console now labels the subsystem as Public HTML Cache and distinguishes no traffic, all-bypassed traffic, warming, engaged, and degraded states.
+
+## Migration Notes
+
+Hosts that construct a `quickstart/site.RenderCacheRuntime` should pass it to site delivery with `WithRenderCacheRuntime` so request observers survive host store decorators. `WithRenderCache(store, policy)` remains compatible for callers that do not need request-level observation; observers can also be appended with `WithRenderCacheRequestObservers`.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Cache site activation and debug stats ([9d1b2d7](https://github.com/goliatone/go-admin/commit/9d1b2d795572f6fb08a51df4c3a4375821775173))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Add ([1dae858](https://github.com/goliatone/go-admin/commit/1dae85887dce8950a19af07373775abd7f4235ed))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([ec4b02d](https://github.com/goliatone/go-admin/commit/ec4b02dcbcf48a05ddc1700c636322d2079befff))  - (goliatone)
+
 # [0.127.2](https://github.com/goliatone/go-admin/compare/v0.127.1...v0.127.2) - (2026-08-04)
+
+
+New patch release: v0.127.2
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.127.2 ([1557fd1](https://github.com/goliatone/go-admin/commit/1557fd1b1e2480b853891f4e8323c557af12d77a))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
