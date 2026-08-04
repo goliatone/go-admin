@@ -26,12 +26,36 @@ type Job struct {
 	LastError string    `json:"last_error,omitempty"`
 }
 
+// JobErrorStage distinguishes bounded retry observations from the single
+// terminal scheduler failure.
+type JobErrorStage string
+
+const (
+	JobErrorStageRetry    JobErrorStage = "retry"
+	JobErrorStageTerminal JobErrorStage = "terminal"
+)
+
+// JobErrorEvent carries the original typed scheduler error with stable job
+// identity. Durable Job state remains a separate safe string projection.
+type JobErrorEvent struct {
+	Job         string
+	Schedule    string
+	Stage       JobErrorStage
+	Attempt     int
+	MaxAttempts int
+	Error       error
+}
+
+// JobErrorObserver receives typed retry and terminal scheduler failures.
+type JobErrorObserver func(context.Context, JobErrorEvent)
+
 // JobRegistry keeps track of jobs registered via commands with cron metadata.
 type JobRegistry struct {
 	enabled  bool
 	states   map[string]*jobState
 	mu       sync.Mutex
 	activity ActivitySink
+	observer JobErrorObserver
 
 	registry          gojob.Registry
 	scheduler         goJobScheduler
@@ -83,15 +107,26 @@ func NewJobRegistry() *JobRegistry {
 		enabled:      true,
 		states:       map[string]*jobState{},
 		registry:     gojob.NewMemoryRegistry(),
-		scheduler:    gocron.NewScheduler(gocron.WithParser(gocron.StandardParser)),
 		cronSubs:     map[string]gocron.Subscription{},
 		tasks:        map[string]gojob.Task{},
 		commanders:   map[string]*gojob.TaskCommander{},
 		cronCommands: map[string]*jobRegistration{},
 	}
+	jobReg.scheduler = gocron.NewScheduler(gocron.WithParser(gocron.StandardParser))
 	registry.SetCronRegister(command.NilCronRegister)
 	jobReg.attachResolver()
 	return jobReg
+}
+
+// WithErrorObserver installs a typed scheduler error observer. Passing nil
+// disables only the external callback; safe job state remains active.
+func (j *JobRegistry) WithErrorObserver(observer JobErrorObserver) {
+	if j == nil {
+		return
+	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.observer = observer
 }
 
 const jobResolverKey = "admin.jobs"
@@ -247,7 +282,20 @@ func (j *JobRegistry) syncRuntime(snapshot jobSyncSnapshot) (gojob.Registry, goJ
 	if scheduler == nil {
 		scheduler = gocron.NewScheduler(gocron.WithParser(gocron.StandardParser))
 	}
+	j.configureSchedulerErrorObserver(scheduler)
 	return registryInst, scheduler
+}
+
+type schedulerErrorHandlerSetter interface {
+	SetErrorHandler(func(error))
+}
+
+func (j *JobRegistry) configureSchedulerErrorObserver(scheduler goJobScheduler) {
+	if setter, ok := scheduler.(schedulerErrorHandlerSetter); ok {
+		setter.SetErrorHandler(func(err error) {
+			j.observeJobError(context.Background(), err)
+		})
+	}
 }
 
 func (j *JobRegistry) unsubscribeSyncSnapshot(subs []gocron.Subscription) {
@@ -379,12 +427,21 @@ func (j *JobRegistry) registerSchedule(name string, opts command.HandlerConfig, 
 		return nil, nil
 	}
 
+	_, schedulerOwnsErrors := scheduler.(schedulerErrorHandlerSetter)
 	handler := func() error {
+		ctx := context.Background()
 		err := commander.Execute(context.Background(), &gojob.ExecutionMessage{
 			JobID:      name,
 			ScriptPath: commander.Task.GetPath(),
 		})
-		j.recordJobRun(AdminContext{Context: context.Background(), UserID: ActivityActorTypeSystem}, name, err)
+		if err == nil {
+			j.recordJobRun(AdminContext{Context: ctx, UserID: ActivityActorTypeSystem}, name, nil)
+			return nil
+		}
+		err = enrichScheduledJobError(err, name, opts.Expression)
+		if !schedulerOwnsErrors {
+			j.observeJobError(ctx, err)
+		}
 		return err
 	}
 
@@ -393,6 +450,99 @@ func (j *JobRegistry) registerSchedule(name string, opts command.HandlerConfig, 
 		return nil, err
 	}
 	return sub, nil
+}
+
+func enrichScheduledJobError(err error, name, schedule string) error {
+	if err == nil {
+		return nil
+	}
+	return goerrors.Wrap(err, goerrors.CategoryOperation, "scheduled job execution failed").
+		WithMetadata(map[string]any{
+			"job":      strings.TrimSpace(name),
+			"schedule": strings.TrimSpace(schedule),
+		})
+}
+
+func (j *JobRegistry) observeJobError(ctx context.Context, err error) {
+	if j == nil || err == nil {
+		return
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	event := JobErrorEvent{Stage: JobErrorStageTerminal, Error: err}
+	var rich *goerrors.Error
+	if errors.As(err, &rich) && rich != nil {
+		if rich.TextCode == "HANDLER_RETRY_ATTEMPT" {
+			event.Stage = JobErrorStageRetry
+			event.Attempt = jobMetadataInt(rich.Metadata, "attempt")
+			event.MaxAttempts = jobMetadataInt(rich.Metadata, "max_attempts")
+		} else {
+			event.Attempt = jobMetadataInt(rich.Metadata, "total_attempts")
+			event.MaxAttempts = event.Attempt
+		}
+	}
+	event.Job, event.Schedule = scheduledJobIdentity(err)
+	if event.Stage == JobErrorStageTerminal {
+		j.recordJobRun(AdminContext{Context: ctx, UserID: ActivityActorTypeSystem}, event.Job, err)
+	}
+	j.mu.Lock()
+	observer := j.observer
+	j.mu.Unlock()
+	if observer != nil {
+		observer(ctx, event)
+	}
+}
+
+// scheduledJobIdentity finds the schedule metadata below retry/final wrappers.
+// The scheduler deliberately adds its own structured error at each attempt, so
+// errors.As alone only exposes the outer retry metadata.
+func scheduledJobIdentity(err error) (string, string) {
+	const maxDepth = 32
+	current := err
+	for depth := 0; current != nil && depth < maxDepth; depth++ {
+		if rich, ok := current.(*goerrors.Error); ok && rich != nil {
+			job := jobMetadataString(rich.Metadata, "job")
+			schedule := jobMetadataString(rich.Metadata, "schedule")
+			if job != "" || schedule != "" {
+				return job, schedule
+			}
+		}
+		current = errors.Unwrap(current)
+	}
+	return "", ""
+}
+
+func jobMetadataString(metadata map[string]any, key string) string {
+	value, _ := metadata[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func jobMetadataInt(metadata map[string]any, key string) int {
+	switch value := metadata[key].(type) {
+	case int:
+		return value
+	case int8:
+		return int(value)
+	case int16:
+		return int(value)
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case uint:
+		return int(value)
+	case uint8:
+		return int(value)
+	case uint16:
+		return int(value)
+	case uint32:
+		return int(value)
+	case uint64:
+		return int(value)
+	default:
+		return 0
+	}
 }
 
 func ensureJobStateForTasks(states map[string]*jobState, commanders map[string]*gojob.TaskCommander) {
