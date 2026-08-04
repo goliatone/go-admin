@@ -12,7 +12,7 @@ require (
 	github.com/goliatone/go-auth v0.45.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
 	github.com/goliatone/go-cms v0.60.4
-	github.com/goliatone/go-command v0.24.1
+	github.com/goliatone/go-command v0.24.2
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
 	github.com/goliatone/go-dashboard v0.15.4
