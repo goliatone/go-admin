@@ -1,6 +1,32 @@
 # Changelog
 
+# [0.127.5](https://github.com/goliatone/go-admin/compare/v0.127.4...v0.127.5) - (2026-08-04)
+
+
+## Shared UI Contracts
+
+- Added the missing `.btn-success` and `.btn-warning` styles advertised by the public
+  DataGrid `ActionVariant` contract, including semantic theme fallbacks and interaction
+  states.
+- Shared `.btn` labels now remain on one line by default; use `.btn-multiline` only for
+  intentionally multiline button content and make action-row containers responsible
+  for responsive wrapping.
+- Documented and tested the supported product stylesheet workflow using
+  `WithExtraAssetsFS` and the layout `head_extra` block. Consumer CSS remains outside
+  go-admin's Tailwind scan and should use deterministic namespaced asset paths.
+
+## <!-- 16 -->➕ Add
+
+- **css:** Ui improvements ([7ed601e](https://github.com/goliatone/go-admin/commit/7ed601e2d76de228d9e0ef0e04b5ab46b8b370f1))  - (goliatone)
+
 # [0.127.4](https://github.com/goliatone/go-admin/compare/v0.127.3...v0.127.4) - (2026-08-04)
+
+
+New patch release: v0.127.4
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.127.4 ([93f0e99](https://github.com/goliatone/go-admin/commit/93f0e99dca835d033254f1936e84ebb9094b127e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
