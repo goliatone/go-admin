@@ -51,6 +51,20 @@ Do not rename shared action-menu or enhanced-action hooks to translation-specifi
 
 ## Busy Buttons And Submit Feedback
 
+Shared buttons use `.btn` plus one semantic variant: `.btn-primary`,
+`.btn-secondary`, `.btn-danger`, `.btn-success`, or `.btn-warning`. Ordinary labels
+stay on one line so translated action text does not break inside a button. Responsive
+action rows should use wrapping or stacking on the container so whole buttons move
+together; do not make every button inflexible. Use `.btn-multiline` only for content
+that is intentionally allowed to wrap.
+
+```html
+<div class="flex flex-wrap items-center gap-2">
+  <button class="btn btn-success" type="submit">Approve and continue</button>
+  <button class="btn btn-secondary" type="button">Return for revisions</button>
+</div>
+```
+
 Use the shared behavior layer for submit/loading feedback instead of page-local
 spinner code. New markup should prefer canonical `data-busy-*` attributes:
 

@@ -82,6 +82,48 @@ shared hooks such as `data-action`, `data-action-menu`, `data-bulk-action`,
 `data-view-mode`, or `data-enhance-action` for page-local convenience. Add
 page-specific metadata beside the shared selector when a page needs more data.
 
+## Product Stylesheets And Embedded Assets
+
+Applications own CSS for product-specific routes and components. Go-admin's Tailwind
+build scans go-admin sources only; a utility used exclusively by a consuming module is
+not a supported dependency on the shared stylesheet.
+
+Build product CSS to a deterministic, namespaced path in the product's embedded
+filesystem, then mount that filesystem as an ordered fallback:
+
+```go
+quickstart.NewStaticAssets(
+    router,
+    adminConfig,
+    client.Assets(),
+    quickstart.WithExtraAssetsFS(productclient.Assets()),
+)
+```
+
+The admin asset filesystem wins on path conflicts. Extra filesystems are checked in
+the order supplied, before quickstart sidebar assets. Keep product paths unique, for
+example `dist/esign/esign.css`, rather than overriding `output.css`.
+
+Link product CSS from a template derived from the admin layout. `head_extra` is emitted
+after the shared application stylesheet, so namespaced product rules and semantic
+theme-variable fallbacks compose predictably:
+
+```html
+{% extends "layout.html" %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ adminURL("assets/dist/esign/esign.css") }}">
+{% endblock %}
+```
+
+Use `adminURL` or the configured asset base instead of hard-coding `/admin`. A custom
+`WithAssetsPrefix` changes the mounted URL and must be reflected by the host's URL
+helper/configuration. Version or fingerprint product assets according to the host cache
+policy, rebuild embedded output through the product's owning build, and test the real
+HTTP response, media type, template link order, and stale-output gate.
+
+Do not add consumer repository paths to go-admin's Tailwind content list, copy
+go-admin's generated CSS, or hand-edit generated product bundles.
+
 ## DataGrid
 
 Use DataGrid for tabular admin lists unless there is a specific product reason

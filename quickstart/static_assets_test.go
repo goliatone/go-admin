@@ -164,6 +164,84 @@ func TestNewStaticAssetsPrefersDiskAssetsWhenDiskFSIsAlreadyAssetRoot(t *testing
 	}
 }
 
+func TestNewStaticAssetsTreatsExtraAssetsAsOrderedFallbacks(t *testing.T) {
+	r := &stubRouter{}
+	cfg := admin.Config{BasePath: "/admin"}
+	adminAssets := fstest.MapFS{
+		"assets/output.css": {Data: []byte("admin")},
+	}
+	productAssets := fstest.MapFS{
+		"dist/product/product.css": {Data: []byte("product")},
+		"output.css":               {Data: []byte("must-not-shadow-admin")},
+	}
+
+	NewStaticAssets(r, cfg, adminAssets, WithExtraAssetsFS(productAssets))
+
+	call, ok := findStaticCall(r.staticCalls, "/admin/assets")
+	if !ok {
+		t.Fatal("expected assets mount")
+	}
+	adminCSS, err := fs.ReadFile(call.config.FS, "output.css")
+	if err != nil {
+		t.Fatalf("read admin stylesheet: %v", err)
+	}
+	if got := string(adminCSS); got != "admin" {
+		t.Fatalf("expected primary admin asset to win, got %q", got)
+	}
+	productCSS, err := fs.ReadFile(call.config.FS, "dist/product/product.css")
+	if err != nil {
+		t.Fatalf("read product stylesheet: %v", err)
+	}
+	if got := string(productCSS); got != "product" {
+		t.Fatalf("expected product fallback asset, got %q", got)
+	}
+}
+
+func TestNewStaticAssetsServesExtraProductStylesheetAtCustomPrefix(t *testing.T) {
+	cfg := admin.Config{BasePath: "/console"}
+	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+		PathConflictMode: router.PathConflictModePreferStatic,
+		StrictRoutes:     true,
+	})
+	productAssets := fstest.MapFS{
+		"dist/product/product.css": {Data: []byte(".product-card{display:block}")},
+	}
+	NewStaticAssets(
+		server.Router(),
+		cfg,
+		client.Assets(),
+		WithAssetsPrefix("/console/static"),
+		WithExtraAssetsFS(productAssets),
+	)
+	server.Init()
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/console/static/dist/product/product.css", nil))
+	if err != nil {
+		t.Fatalf("request product stylesheet: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected product stylesheet 200, got %d", resp.StatusCode)
+	}
+	if contentType := resp.Header.Get("Content-Type"); !strings.Contains(contentType, "text/css") {
+		t.Fatalf("expected CSS media type, got %q", contentType)
+	}
+
+	for _, target := range []string{
+		"/console/static/dist/product/missing.css",
+		"/console/static/%2e%2e/go.mod",
+	} {
+		missing, requestErr := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, target, nil))
+		if requestErr != nil {
+			t.Fatalf("request %q: %v", target, requestErr)
+		}
+		_ = missing.Body.Close()
+		if missing.StatusCode == http.StatusOK {
+			t.Fatalf("expected %q not to resolve", target)
+		}
+	}
+}
+
 func TestResolveAssetsFSUsesAssetsSubdirForBundleRoot(t *testing.T) {
 	base := fstest.MapFS{
 		"assets/app.js": {Data: []byte("bundle")},

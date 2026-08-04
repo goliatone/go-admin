@@ -60,3 +60,15 @@ func TestAdminHeaderTemplatesExposeThemeCompositionHook(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminLayoutHeadExtraFollowsSharedStylesheets(t *testing.T) {
+	template := mustReadClientTemplate(t, "layout.html")
+	shellStyles := strings.Index(template, `assets/output.css`)
+	headExtra := strings.Index(template, `{% block head_extra %}`)
+	if shellStyles < 0 || headExtra < 0 {
+		t.Fatal("layout must expose the shared stylesheet and head_extra contract")
+	}
+	if headExtra <= shellStyles {
+		t.Fatal("head_extra must follow the shared stylesheet so product CSS can compose predictably")
+	}
+}

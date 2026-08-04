@@ -823,7 +823,13 @@
   }
 
   .btn {
-    @apply inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium border-none cursor-pointer transition-all duration-200 no-underline;
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-medium border-none cursor-pointer transition-all duration-200 no-underline whitespace-nowrap;
+  }
+
+  /* Opt out only for intentionally multiline button content. Action-row
+     responsiveness belongs to the container, which may wrap whole buttons. */
+  .btn-multiline {
+    @apply whitespace-normal;
   }
 
   /* Disabled buttons must be visually distinct from enabled ones; keep
@@ -902,6 +908,26 @@
 
   .btn-danger {
     @apply bg-red-500 text-white hover:bg-red-600;
+  }
+
+  .btn-success {
+    @apply text-white;
+    background-color: var(--color-status-success, #047857);
+    color: var(--color-text-inverse, #ffffff);
+  }
+
+  .btn-success:hover {
+    filter: brightness(0.92);
+  }
+
+  .btn-warning {
+    @apply text-white;
+    background-color: var(--color-status-warning, #b45309);
+    color: var(--color-text-inverse, #ffffff);
+  }
+
+  .btn-warning:hover {
+    filter: brightness(0.92);
   }
 
   .btn-sm {
