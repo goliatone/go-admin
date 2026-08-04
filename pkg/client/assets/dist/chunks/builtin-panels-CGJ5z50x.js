@@ -1,7 +1,7 @@
-import { a as pe, at as C, ct as ue, dt as F, et as $, ft as z, gt as ge, ht as te, it as be, mt as y, nt as oe, ot as D, pt as b, rt as fe, st as he, ut as U, vt as R, w as f, y as L } from "./server-definitions-D0craC-Z.js";
-import { escapeAttribute as h, escapeHTML as i } from "../shared/html.js";
+import { a as pe, at as C, ct as ue, dt as F, et as $, ft as z, gt as ge, ht as te, it as be, mt as y, nt as oe, ot as D, pt as b, rt as fe, st as he, ut as U, vt as q, w as h, y as L } from "./server-definitions-D0craC-Z.js";
+import { escapeAttribute as m, escapeHTML as i } from "../shared/html.js";
 import { normalizeDebugBasePath as me } from "../debug/shared/path-helpers.js";
-import { r as m } from "./icons-Cghe1ioa.js";
+import { r as x } from "./icons-Cghe1ioa.js";
 var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = me(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -43,7 +43,7 @@ var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
     }
   }
   return _e(e);
-}, Re = class {
+}, qe = class {
   constructor(e) {
     this.ws = null, this.reconnectTimer = null, this.reconnectStabilityTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.pendingCommands = [], this.status = "disconnected", this.hasConnected = !1, this.snapshotRecoveryPending = !1, this.options = e;
   }
@@ -150,7 +150,7 @@ var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
       this.reconnectTimer = null, this.connect();
     }, s + n);
   }
-}, wo = class extends Re {
+}, Co = class extends qe {
   constructor(e) {
     const { url: t, authToken: o, tokenProvider: r, tokenRefreshBufferMs: s, tokenParam: n, appId: a, onEvent: d, ...c } = e, l = (p) => {
       if (a && p && !p.app_id) {
@@ -211,7 +211,7 @@ var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
 function T(e) {
   return e.id ? e.id : `sql-${C(`${e.timestamp || ""}|${e.duration ?? ""}|${e.query || ""}`)}`;
 }
-function qe(e, t, o) {
+function Re(e, t, o) {
   return `
     <div class="${o.panelControls}">
       <label class="${o.sortToggle}">
@@ -262,13 +262,13 @@ function Le(e, t, o) {
   `;
 }
 function H(e, t, o) {
-  const r = F(e.duration, o.slowThresholdMs), s = r.isSlow, n = !!e.error, a = T(e), d = h(a), c = `sql-row-${a}`, l = h(c), p = e.query || "", u = he(p, !0), g = [t.expandableRow];
+  const r = F(e.duration, o.slowThresholdMs), s = r.isSlow, n = !!e.error, a = T(e), d = m(a), c = `sql-row-${a}`, l = m(c), p = e.query || "", u = he(p, !0), g = [t.expandableRow];
   s && g.push(t.slowQuery), n && g.push(t.errorQuery);
-  const x = s ? t.durationSlow : "", v = Le(t, o.useIconCopyButton || !1, c);
+  const f = s ? t.durationSlow : "", v = Le(t, o.useIconCopyButton || !1, c);
   return `
     <tr class="${g.join(" ")}" data-row-id="${l}" data-sql-id="${d}">
       <td class="${t.selectCell}"><input type="checkbox" class="sql-select-row" data-sql-id="${d}"></td>
-      <td class="${t.duration} ${x}">${r.text}</td>
+      <td class="${t.duration} ${f}">${r.text}</td>
       <td>${i(b(e.row_count ?? "-"))}</td>
       <td class="${t.timestamp}">${i(y(e.timestamp))}</td>
       <td>${n ? `<span class="${t.badgeError}">Error</span>` : ""}</td>
@@ -290,7 +290,7 @@ function je(e, t, o) {
   return e.map((r) => H(r, t, o)).join("");
 }
 function A(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: n = 50, showSortToggle: a = !1, useIconCopyButton: d = !1 } = o, c = a ? qe("sql", r, t) : "", l = ze(t);
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: n = 50, showSortToggle: a = !1, useIconCopyButton: d = !1 } = o, c = a ? Re("sql", r, t) : "", l = ze(t);
   if (!e.length) return c + `<div class="${t.emptyState}">No SQL queries captured</div>`;
   let p = n ? e.slice(-n) : e;
   r && (p = [...p].reverse());
@@ -317,14 +317,14 @@ function A(e, t, o = {}) {
     </table>
   `;
 }
-function ko(e, t, o, r) {
+function So(e, t, o, r) {
   return fe(e, H(t, o, r), r.newestFirst !== !1), T(t);
 }
-function Co(e, t, o) {
+function To(e, t, o) {
   return be(e, "tr[data-sql-id]", "data-sql-id", t, o);
 }
 var W = /* @__PURE__ */ new WeakSet();
-async function q(e, t, o = {}) {
+async function R(e, t, o = {}) {
   const { feedbackDuration: r = 1500, useIconFeedback: s = !1, successClass: n = s ? "debug-copy--success" : "copied", errorClass: a = "debug-copy--error" } = o;
   try {
     await navigator.clipboard.writeText(e);
@@ -343,23 +343,23 @@ async function q(e, t, o = {}) {
     }, r), !1;
   }
 }
-function So(e, t = {}) {
+function _o(e, t = {}) {
   W.has(e) || (W.add(e), e.addEventListener("click", (o) => {
     const r = o.target?.closest("[data-copy-trigger]");
     if (!r || !e.contains(r) || r.closest("[data-sql-table]") || r.closest("[data-request-table]")) return;
     o.preventDefault(), o.stopPropagation();
     const s = r.closest("[data-copy-content]");
-    s && q(s.getAttribute("data-copy-content") || "", r, t);
+    s && R(s.getAttribute("data-copy-content") || "", r, t);
   }));
 }
-function To(e) {
+function Eo(e) {
   e.querySelectorAll(".expandable-row").forEach((t) => {
     t.closest("[data-sql-table], [data-live-list]") || t.addEventListener("click", (o) => {
       o.target.closest("a, button, input") || o.currentTarget.classList.toggle("expanded");
     });
   });
 }
-function _o(e, t) {
+function qo(e, t) {
   const { tableSelector: o, rowSelector: r, keyAttr: s, expanded: n } = t;
   e.querySelectorAll(o).forEach((a) => {
     const d = (c) => {
@@ -381,14 +381,14 @@ function re(e, t) {
   const o = e.nextElementSibling;
   o?.classList.contains("expansion-row") && o.setAttribute("aria-hidden", String(!t));
 }
-function Eo(e, t) {
+function Ro(e, t) {
   const { rowSelector: o, keyAttr: r, expanded: s } = t;
   e.querySelectorAll(o).forEach((n) => {
     const a = n.getAttribute(r);
     re(n, !!a && s.has(a));
   });
 }
-function Ro(e, t) {
+function zo(e, t) {
   e.querySelectorAll("[data-sort-toggle]").forEach((o) => {
     o.addEventListener("change", (r) => {
       const s = r.target, n = s.dataset.sortToggle;
@@ -396,13 +396,13 @@ function Ro(e, t) {
     });
   });
 }
-var qo = {
+var Lo = {
   COPY_TRIGGER: "data-copy-trigger",
   COPY_CONTENT: "data-copy-content",
   ROW_ID: "data-row-id",
   EXPANSION_FOR: "data-expansion-for",
   SORT_TOGGLE: "data-sort-toggle"
-}, zo = {
+}, jo = {
   EXPANDABLE_ROW: "expandable-row",
   EXPANDED: "expanded",
   EXPANSION_ROW: "expansion-row",
@@ -427,12 +427,12 @@ function Oe(e, t, o = "text/sql") {
   const r = new Blob([e], { type: o }), s = URL.createObjectURL(r), n = document.createElement("a");
   n.href = s, n.download = t, n.click(), URL.revokeObjectURL(s);
 }
-function Lo(e, t, o = {}) {
+function Oo(e, t, o = {}) {
   e.querySelectorAll("[data-request-table]").forEach((r) => {
     r.addEventListener("click", (s) => {
       const n = s.target, a = n.closest("[data-copy-trigger]");
       if (a && r.contains(a)) {
-        s.preventDefault(), s.stopPropagation(), q(a.closest("[data-copy-content]")?.getAttribute("data-copy-content") || "", a, o);
+        s.preventDefault(), s.stopPropagation(), R(a.closest("[data-copy-content]")?.getAttribute("data-copy-content") || "", a, o);
         return;
       }
       if (n.closest("button, a, input, [data-detail-for]")) return;
@@ -560,20 +560,20 @@ var Ae = {
   detailMetadataLine: "request-detail-metadata",
   badgeContentType: "badge badge-content-type"
 };
-function jo(e) {
+function Ao(e) {
   return e === "console" ? Ae : Pe;
 }
-function Ne(e) {
+function Me(e) {
   const t = String(e ?? "GET").trim().toUpperCase();
   return {
     display: t || "GET",
     classToken: t.replace(/[^A-Z]/g, "") || "GET"
   };
 }
-function Me(e) {
+function Ne(e) {
   return e.id ? e.id : `req-${C(`${e.timestamp || ""}|${e.method || ""}|${e.path || ""}|${e.status ?? ""}`)}`;
 }
-function Ie(e, t, o) {
+function Be(e, t, o) {
   return `
     <div class="${o.panelControls}">
       <label class="${o.sortToggle}">
@@ -583,11 +583,11 @@ function Ie(e, t, o) {
     </div>
   `;
 }
-function Be(e, t, o = {}) {
+function Ie(e, t, o = {}) {
   const { maskPlaceholder: r = "***", maxDetailLength: s } = o, n = [], a = [];
   if (e.id && a.push(`<span>ID: <code>${i(e.id)}</code></span>`), e.remote_ip && a.push(`<span>IP: <code>${i(e.remote_ip)}</code></span>`), e.content_type && a.push(`<span>Content-Type: <code>${i(e.content_type)}</code></span>`), a.length > 0 && n.push(`<div class="${t.detailMetadataLine}">${a.join("")}</div>`), e.headers && Object.keys(e.headers).length > 0) {
     const d = Object.entries(e.headers).map(([c, l]) => {
-      const p = s && l.length > s ? R(l, s) : l, u = l === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
+      const p = s && l.length > s ? q(l, s) : l, u = l === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
       return `<dt>${i(c)}</dt><dd>${i(p)}${u}</dd>`;
     }).join("");
     n.push(`
@@ -630,7 +630,7 @@ function Be(e, t, o = {}) {
   }
   if (e.response_headers && Object.keys(e.response_headers).length > 0) {
     const d = Object.entries(e.response_headers).map(([c, l]) => {
-      const p = s && l.length > s ? R(l, s) : l;
+      const p = s && l.length > s ? q(l, s) : l;
       return `<dt>${i(c)}</dt><dd>${i(p)}</dd>`;
     }).join("");
     n.push(`
@@ -666,19 +666,19 @@ function Be(e, t, o = {}) {
     `), n.length === 0 ? `<div class="${t.detailPane}"><span class="${t.muted}">No additional details available</span></div>` : `<div class="${t.detailPane}">${n.join("")}</div>`;
 }
 function De(e, t, o) {
-  const { display: r, classToken: s } = Ne(e.method), n = e.path || "", a = e.status || 0, d = F(e.duration, o.slowThresholdMs), c = Me(e), l = o.expandedRequestIds?.has(c) || !1, p = t.badgeMethod(s), u = t.badgeStatus(a), g = d.isSlow ? t.durationSlow : "", x = a >= 400 ? t.rowError : "", v = o.truncatePath ? R(n, o.maxPathLength || 50) : n;
+  const { display: r, classToken: s } = Me(e.method), n = e.path || "", a = e.status || 0, d = F(e.duration, o.slowThresholdMs), c = Ne(e), l = o.expandedRequestIds?.has(c) || !1, p = t.badgeMethod(s), u = t.badgeStatus(a), g = d.isSlow ? t.durationSlow : "", f = a >= 400 ? t.rowError : "", v = o.truncatePath ? q(n, o.maxPathLength || 50) : n;
   let k = "";
   const S = r;
   if (S === "POST" || S === "PUT" || S === "PATCH") {
     const V = (e.content_type || e.headers?.["Content-Type"] || e.headers?.["content-type"] || "").split(";")[0].trim();
     V && (k = ` <span class="${t.badgeContentType}">${i(V)}</span>`);
   }
-  const O = `<span class="${t.expandIcon}" data-expand-icon>${l ? "▼" : "▶"}</span>`, de = l ? "table-row" : "none", K = Be(e, t, {
+  const O = `<span class="${t.expandIcon}" data-expand-icon>${l ? "▼" : "▶"}</span>`, de = l ? "table-row" : "none", K = Ie(e, t, {
     maskPlaceholder: o.maskPlaceholder,
     maxDetailLength: o.maxDetailLength
   }), ce = l ? K : `<template data-request-detail-template>${K}</template>`;
   return `
-    <tr class="${x}" data-request-id="${i(c)}" style="cursor:pointer">
+    <tr class="${f}" data-request-id="${i(c)}" style="cursor:pointer">
       <td>${O}<span class="${p}">${i(r)}</span>${k}</td>
       <td class="${t.path}" title="${i(n)}">${i(v)}</td>
       <td><span class="${u}">${i(a || "-")}</span></td>
@@ -691,7 +691,7 @@ function De(e, t, o) {
   `;
 }
 function P(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: n, showSortToggle: a = !1, truncatePath: d = !0, maxPathLength: c = 50 } = o, l = a ? Ie("requests", r, t) : "";
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: n, showSortToggle: a = !1, truncatePath: d = !0, maxPathLength: c = 50 } = o, l = a ? Be("requests", r, t) : "";
   if (!e.length) return l + `<div class="${t.emptyState}">No requests captured</div>`;
   let p = n ? e.slice(-n) : e;
   r && (p = [...p].reverse());
@@ -717,7 +717,7 @@ function P(e, t, o = {}) {
     </table>
   `;
 }
-var Oo = class {
+var Po = class {
   constructor(e) {
     this.selected = /* @__PURE__ */ new Set(), this.expanded = /* @__PURE__ */ new Set(), this.table = null, this.toolbarEl = null, this.countEl = null, this.selectAllEl = null, this.wired = /* @__PURE__ */ new WeakSet(), this.onTableChange = (t) => {
       const o = t.target;
@@ -739,7 +739,7 @@ var Oo = class {
       if (r) {
         t.preventDefault(), t.stopPropagation();
         const a = r.closest("[data-copy-content]")?.getAttribute("data-copy-content") || "";
-        q(a, r, this.opts.copyOptions);
+        R(a, r, this.opts.copyOptions);
         return;
       }
       if (o.closest("a, button, input")) return;
@@ -786,7 +786,7 @@ var Oo = class {
     e.querySelector('[data-sql-export="clipboard"]')?.addEventListener("click", async (t) => {
       if (t.preventDefault(), this.selected.size === 0) return;
       const o = Q(this.opts.getQueries(), this.selected);
-      await q(o, t.currentTarget, this.opts.copyOptions);
+      await R(o, t.currentTarget, this.opts.copyOptions);
     }), e.querySelector('[data-sql-export="download"]')?.addEventListener("click", (t) => {
       if (t.preventDefault(), this.selected.size === 0) return;
       const o = Q(this.opts.getQueries(), this.selected), r = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -847,7 +847,7 @@ var Oo = class {
 function Ke(e) {
   return e.id ? e.id : `log-${C(`${e.timestamp || ""}|${e.level || ""}|${e.source || ""}|${e.message || ""}`)}`;
 }
-function Ao(e) {
+function Mo(e) {
   return se(e).toLowerCase();
 }
 function se(e) {
@@ -931,14 +931,14 @@ function Ye(e, t, o, r) {
     ["span_id", e.span_id],
     ["session_id", e.session_id],
     ["user_id", e.user_id]
-  ].filter(([, c]) => c != null && c !== ""), a = se(e), d = s.stack ? `<div data-copy-content="${h(s.stack)}"><button type="button" class="${t.copyBtnSm}" data-copy-trigger title="Copy stack trace">Copy stack</button></div>` : "";
+  ].filter(([, c]) => c != null && c !== ""), a = se(e), d = s.stack ? `<div data-copy-content="${m(s.stack)}"><button type="button" class="${t.copyBtnSm}" data-copy-trigger title="Copy stack trace">Copy stack</button></div>` : "";
   return `
     <tr class="${t.expansionRow}" aria-hidden="true">
       <td colspan="${r}">
-        <div id="${h(o)}" class="${t.expandedContent} debug-log-details">
+        <div id="${m(o)}" class="${t.expandedContent} debug-log-details">
           <div class="${t.expandedContentHeader} debug-log-detail-actions">
             ${d}
-            <div data-copy-content="${h(a)}">
+            <div data-copy-content="${m(a)}">
               <button type="button" class="${t.copyBtnSm}" data-copy-trigger title="Copy normalized log event as JSON">Copy JSON</button>
             </div>
           </div>
@@ -958,20 +958,20 @@ function Ye(e, t, o, r) {
   `;
 }
 function Xe(e, t, o) {
-  const r = e.level || "INFO", s = String(r).toUpperCase(), n = te(String(r)), a = e.message || "", d = Qe(e), c = Ke(e), l = `log-details-${C(c)}`, p = o.expandable === !0, u = o.showSource ? 4 : 3, g = t.badgeLevel(n), x = [n === "error" ? t.rowError : ""];
-  p && x.push(t.expandableRow);
-  const v = o.truncateMessage ? R(a, o.maxMessageLength || 100) : a, k = o.showSource ? `<td class="${t.timestamp}" title="${h(ne(e) || d)}">${i(d)}</td>` : "", S = p ? `<span class="${t.expandIcon}" aria-hidden="true">&#9654;</span>` : "", O = p ? ` tabindex="0" role="button" aria-expanded="false" aria-controls="${h(l)}" aria-label="Show details for ${h(a || "log entry")}"` : "";
+  const r = e.level || "INFO", s = String(r).toUpperCase(), n = te(String(r)), a = e.message || "", d = Qe(e), c = Ke(e), l = `log-details-${C(c)}`, p = o.expandable === !0, u = o.showSource ? 4 : 3, g = t.badgeLevel(n), f = [n === "error" ? t.rowError : ""];
+  p && f.push(t.expandableRow);
+  const v = o.truncateMessage ? q(a, o.maxMessageLength || 100) : a, k = o.showSource ? `<td class="${t.timestamp}" title="${m(ne(e) || d)}">${i(d)}</td>` : "", S = p ? `<span class="${t.expandIcon}" aria-hidden="true">&#9654;</span>` : "", O = p ? ` tabindex="0" role="button" aria-expanded="false" aria-controls="${m(l)}" aria-label="Show details for ${m(a || "log entry")}"` : "";
   return `
-    <tr class="${x.filter(Boolean).join(" ")}" data-row-key="${h(c)}"${O}>
+    <tr class="${f.filter(Boolean).join(" ")}" data-row-key="${m(c)}"${O}>
       <td>${S}<span class="${g}">${i(s)}</span></td>
       <td class="${t.timestamp}">${i(y(e.timestamp))}</td>
-      <td class="${t.message}" title="${h(a)}">${i(v)}</td>
+      <td class="${t.message}" title="${m(a)}">${i(v)}</td>
       ${k}
     </tr>
     ${p ? Ye(e, t, l, u) : ""}
   `;
 }
-function N(e, t, o = {}) {
+function M(e, t, o = {}) {
   const { newestFirst: r = !0, maxEntries: s = 100, showSortToggle: n = !1, showSource: a = !1, truncateMessage: d = !0, maxMessageLength: c = 100 } = o, l = n ? Ve("logs", r, t) : "";
   if (!e.length) return l + `<div class="${t.emptyState}">No logs captured</div>`;
   let p = s ? e.slice(-s) : e;
@@ -1008,7 +1008,7 @@ function Ze(e, t, o) {
     </tr>
   `;
 }
-function M(e, t, o = {}) {
+function N(e, t, o = {}) {
   const { showName: r = !1 } = o;
   if (!e.length) return `<div class="${t.emptyState}">No routes available</div>`;
   const s = e.map((a) => Ze(a, t, { showName: r })).join(""), n = r ? "<th>Name</th>" : "";
@@ -1033,7 +1033,7 @@ function et(e) {
     return String(e);
   }
 }
-var Po = class {
+var No = class {
   constructor(e) {
     this.views = /* @__PURE__ */ new Map(), this.host = e;
   }
@@ -1132,7 +1132,7 @@ function st(e, t, o) {
     </table>
   `;
 }
-function I(e, t, o = {}) {
+function B(e, t, o = {}) {
   const { dataFilterFn: r } = o, s = e.data || {}, n = r ? r(s) : s, a = e.logs || [], d = Object.keys(n).length > 0, c = a.length > 0;
   if (!d && !c) return `<div class="${t.emptyState}">No custom data captured</div>`;
   let l = "";
@@ -1234,7 +1234,7 @@ function pt(e, t) {
   return `<div class="${t.expandedContent}">${o.join("")}</div>`;
 }
 function ut(e, t, o) {
-  const r = it(e.type), s = at(e.type), n = t.badgeLevel(s), a = e.message || "", d = e.source || "", c = !!e.stack || lt(e), l = (e.type === "network_error" || e.type === "network_abort") && e.extra?.request_url ? String(e.extra.request_url) : d && e.line ? `${d}:${e.line}${e.column ? ":" + e.column : ""}` : d || "", p = c ? `<span class="${t.expandIcon}">&#9654;</span>` : "", u = c ? t.expandableRow : "", g = o.compact ? i(a.length > 100 ? a.slice(0, 100) + "..." : a) : i(a), x = !o.compact && l ? `<td class="${t.timestamp}" title="${i(l)}">${i(l.length > 60 ? "..." + l.slice(-57) : l)}</td>` : "", v = !o.compact && e.url ? `<td class="${t.timestamp}" title="${i(e.url)}">${i(e.url.length > 40 ? "..." + e.url.slice(-37) : e.url)}</td>` : "";
+  const r = it(e.type), s = at(e.type), n = t.badgeLevel(s), a = e.message || "", d = e.source || "", c = !!e.stack || lt(e), l = (e.type === "network_error" || e.type === "network_abort") && e.extra?.request_url ? String(e.extra.request_url) : d && e.line ? `${d}:${e.line}${e.column ? ":" + e.column : ""}` : d || "", p = c ? `<span class="${t.expandIcon}">&#9654;</span>` : "", u = c ? t.expandableRow : "", g = o.compact ? i(a.length > 100 ? a.slice(0, 100) + "..." : a) : i(a), f = !o.compact && l ? `<td class="${t.timestamp}" title="${i(l)}">${i(l.length > 60 ? "..." + l.slice(-57) : l)}</td>` : "", v = !o.compact && e.url ? `<td class="${t.timestamp}" title="${i(e.url)}">${i(e.url.length > 40 ? "..." + e.url.slice(-37) : e.url)}</td>` : "";
   let k = "";
   return c && (k = `
       <tr class="${t.expansionRow}">
@@ -1243,11 +1243,11 @@ function ut(e, t, o) {
         </td>
       </tr>
     `), `
-    <tr class="${t.rowError} ${u}" data-row-key="${h(nt(e))}">
+    <tr class="${t.rowError} ${u}" data-row-key="${m(nt(e))}">
       <td>${p}<span class="${n}">${i(r)}</span></td>
       <td class="${t.timestamp}">${i(y(e.timestamp))}</td>
       <td class="${t.message}" title="${i(a)}">${g}</td>
-      ${x}
+      ${f}
       ${v}
     </tr>
     ${k}
@@ -1263,7 +1263,7 @@ function gt(e, t) {
     </div>
   `;
 }
-function B(e, t, o = {}) {
+function I(e, t, o = {}) {
   const { newestFirst: r = !0, maxEntries: s = 100, compact: n = !1, showSortToggle: a = !1 } = o, d = a ? gt(r, t) : "";
   if (!e.length) return d + `<div class="${t.emptyState}">No JS errors captured</div>`;
   let c = s ? e.slice(-s) : e;
@@ -1380,7 +1380,7 @@ function ft(e) {
         <span style="
           font-size: 24px;
           color: ${t.color};
-        ">${m(t.icon, { size: "24px" })}</span>
+        ">${x(t.icon, { size: "24px" })}</span>
         <div>
           <div style="
             font-size: 18px;
@@ -1447,7 +1447,7 @@ function ht(e) {
   `;
 }
 function mt(e, t) {
-  const o = bt(e.status), r = (s) => s ? `<span style="color: #22c55e;">${m("success", { size: "14px" })}</span>` : `<span style="color: #ef4444;">${m("error", { size: "14px" })}</span>`;
+  const o = bt(e.status), r = (s) => s ? `<span style="color: #22c55e;">${x("success", { size: "14px" })}</span>` : `<span style="color: #ef4444;">${x("error", { size: "14px" })}</span>`;
   return `
     <tr style="border-bottom: 1px solid #334155;">
       <td style="padding: 10px 12px; font-family: monospace; font-size: 12px; color: #e2e8f0;">
@@ -1612,7 +1612,7 @@ function $t(e, t) {
         <span style="
           font-size: 18px;
           color: ${o.color};
-        ">${m(o.icon, { size: "18px" })}</span>
+        ">${x(o.icon, { size: "18px" })}</span>
         <span style="
           font-size: 14px;
           font-weight: 600;
@@ -1696,7 +1696,7 @@ function wt(e) {
         font-size: 24px;
         color: ${t.color};
         line-height: 1;
-      ">${m(t.icon, { size: "24px" })}</span>
+      ">${x(t.icon, { size: "24px" })}</span>
       <div>
         <div style="
           font-size: 16px;
@@ -1818,7 +1818,7 @@ function St(e) {
         font-size: 14px;
         color: ${t.color};
         line-height: 1.4;
-      ">${m(t.icon, { size: "14px" })}</span>
+      ">${x(t.icon, { size: "14px" })}</span>
       <div style="flex: 1; min-width: 0;">
         <div style="
           font-size: 13px;
@@ -1835,7 +1835,7 @@ function St(e) {
             align-items: flex-start;
             gap: 6px;
           ">
-            <span style="color: #64748b;">${m("hint", { size: "13px" })}</span>
+            <span style="color: #64748b;">${x("hint", { size: "13px" })}</span>
             <span>${i(r)}</span>
           </div>
         ` : ""}
@@ -1881,7 +1881,7 @@ function Et(e, t) {
   const o = String(t.description || "").trim(), r = String(t.cta || t.label || "").trim(), s = !!t.runnable, n = !!t.applicable, a = !!t.requires_confirmation, d = String(t.confirm_text || "").trim(), c = t.kind || "manual", l = c === "navigate" ? _t(t) : null;
   let p = "enabled", u = "";
   n ? s || (p = "manual", u = c === "manual" ? "Manual action required" : "Action not available") : (p = "not-applicable", u = "Not applicable for current status");
-  const g = p !== "enabled" || c === "navigate" && !l, x = l ? `data-doctor-action-navigate="${i(l.panelID)}" data-doctor-action-state="${i(encodeURIComponent(JSON.stringify(l.state)))}"` : c === "navigate" ? "" : `data-doctor-action-run="${i(e)}"`, v = g ? "background: #374151; color: #6b7280; cursor: not-allowed;" : "background: #3b82f6; color: #fff; cursor: pointer;";
+  const g = p !== "enabled" || c === "navigate" && !l, f = l ? `data-doctor-action-navigate="${i(l.panelID)}" data-doctor-action-state="${i(encodeURIComponent(JSON.stringify(l.state)))}"` : c === "navigate" ? "" : `data-doctor-action-run="${i(e)}"`, v = g ? "background: #374151; color: #6b7280; cursor: not-allowed;" : "background: #3b82f6; color: #fff; cursor: pointer;";
   return `
     <div style="
       margin-top: 12px;
@@ -1911,7 +1911,7 @@ function Et(e, t) {
           <button
             type="button"
             class="debug-btn"
-            ${x}
+            ${f}
             ${d ? `data-doctor-action-confirm="${i(d)}"` : ""}
             ${a ? 'data-doctor-action-requires-confirmation="true"' : ""}
             ${g ? "disabled" : ""}
@@ -1936,10 +1936,10 @@ function Et(e, t) {
     </div>
   `;
 }
-function Rt(e) {
+function qt(e) {
   return e == null ? '<span style="color: #64748b; font-style: italic;">null</span>' : typeof e == "boolean" ? `<span style="color: ${e ? "#22c55e" : "#ef4444"}; font-weight: 500;">${e}</span>` : typeof e == "number" ? `<span style="color: #818cf8;">${e}</span>` : typeof e == "string" ? `<span style="color: #fbbf24;">"${i(e)}"</span>` : typeof e == "object" ? `<span style="color: #94a3b8;">${i(JSON.stringify(e))}</span>` : i(String(e));
 }
-function qt(e) {
+function Rt(e) {
   if (!e || Object.keys(e).length === 0) return "";
   const t = Object.entries(e).map(([o, r]) => `
       <tr>
@@ -1955,7 +1955,7 @@ function qt(e) {
           font-family: monospace;
           font-size: 11px;
           word-break: break-all;
-        ">${Rt(r)}</td>
+        ">${qt(r)}</td>
       </tr>
     `).join("");
   return `
@@ -2018,7 +2018,7 @@ function zt(e) {
             border-radius: 50%;
             font-size: 12px;
             font-weight: 600;
-          ">${m(t.icon, { size: "12px" })}</span>
+          ">${x(t.icon, { size: "12px" })}</span>
           <div>
             <div style="
               font-size: 14px;
@@ -2094,7 +2094,7 @@ function zt(e) {
         ${Et(e.id, e.action)}
 
         <!-- Metadata -->
-        ${qt(e.metadata)}
+        ${Rt(e.metadata)}
       </div>
     </div>
   `;
@@ -2117,7 +2117,7 @@ function Lt(e) {
         align-items: center;
         gap: 8px;
       ">
-        <span style="color: #f59e0b;">${m("nextAction", { size: "14px" })}</span>
+        <span style="color: #f59e0b;">${x("nextAction", { size: "14px" })}</span>
         Recommended Next Actions
       </div>
       <ol style="
@@ -2191,7 +2191,7 @@ function Y(e, t, o = {}) {
           padding: 40px 20px;
           color: #22c55e;
         ">
-          <div style="font-size: 48px; margin-bottom: 12px;">${m("success", { size: "48px" })}</div>
+          <div style="font-size: 48px; margin-bottom: 12px;">${x("success", { size: "48px" })}</div>
           <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">All Systems Healthy</div>
           <div style="font-size: 14px; color: #94a3b8;">${e.summary?.checks || 0} checks passed</div>
         </div>
@@ -2204,7 +2204,7 @@ function Y(e, t, o = {}) {
     </div>
   `;
 }
-function No(e, t) {
+function Bo(e, t) {
   if (!e) return `<div class="${t.emptyState}">No doctor diagnostics</div>`;
   const o = j(e.verdict), r = ae(e.verdict), s = e.summary || {
     checks: 0,
@@ -2224,7 +2224,7 @@ function No(e, t) {
         <span style="
           font-size: 20px;
           color: ${o.color};
-        ">${m(o.icon, { size: "20px" })}</span>
+        ">${x(o.icon, { size: "20px" })}</span>
         <span style="
           font-size: 14px;
           font-weight: 600;
@@ -2268,13 +2268,13 @@ function w(e, t = {}) {
 function ie(e) {
   const t = (e || "").toLowerCase();
   return t === "healthy" || t === "active" ? {
-    label: "Healthy",
+    label: "Backend Healthy",
     color: "#22c55e",
     bgColor: "rgba(34, 197, 94, 0.1)",
     borderColor: "rgba(34, 197, 94, 0.4)",
     icon: "success"
   } : t === "degraded" || t === "warn" ? {
-    label: "Degraded",
+    label: "Backend Degraded",
     color: "#f59e0b",
     bgColor: "rgba(245, 158, 11, 0.1)",
     borderColor: "rgba(245, 158, 11, 0.4)",
@@ -2444,10 +2444,11 @@ function X(e) {
     </div>
   `;
 }
-function Nt(e) {
+function Mt(e) {
   const t = e || {}, o = t.lookups || 0, r = t.hits || 0, s = t.misses || 0, n = t.writes || 0, a = t.errors || 0, d = t.clears || 0;
   let c = "N/A";
   return o > 0 && (c = `${((t.hit_ratio !== null && t.hit_ratio !== void 0 ? t.hit_ratio : r / o) * 100).toFixed(1)}%`), `
+    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">Backend Operations</div>
     <div style="
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
@@ -2486,7 +2487,7 @@ function Nt(e) {
       color: "#8b5cf6"
     },
     {
-      label: "Hit Rate",
+      label: "Lookup Hit Rate",
       value: c,
       color: o > 0 ? "#22c55e" : "#64748b"
     }
@@ -2516,7 +2517,108 @@ function Nt(e) {
     </div>
   `;
 }
-function Mt(e) {
+function Nt(e) {
+  const t = e || {}, o = t.failed || 0, r = [
+    {
+      label: "Evaluated",
+      value: t.evaluated || 0,
+      color: "#64748b"
+    },
+    {
+      label: "Completed",
+      value: t.terminal || 0,
+      color: "#64748b"
+    },
+    {
+      label: "Eligible",
+      value: t.eligible || 0,
+      color: "#3b82f6"
+    },
+    {
+      label: "Bypassed",
+      value: t.bypassed || 0,
+      color: "#f59e0b"
+    },
+    {
+      label: "Served Hits",
+      value: t.served_hits || 0,
+      color: "#22c55e"
+    },
+    {
+      label: "Served Stale",
+      value: t.served_stale || 0,
+      color: "#8b5cf6"
+    },
+    {
+      label: "Stored",
+      value: t.stored_responses || 0,
+      color: "#06b6d4"
+    },
+    {
+      label: "Uncached",
+      value: t.rendered_uncached || 0,
+      color: "#f97316"
+    },
+    {
+      label: "Failed",
+      value: o,
+      color: o > 0 ? "#ef4444" : "#64748b"
+    }
+  ], s = Object.entries(t.bypass_reasons || {}).filter(([, n]) => Number(n) > 0).sort((n, a) => a[1] - n[1] || n[0].localeCompare(a[0]));
+  return `
+    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">Request Decisions</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(75px, 1fr)); gap: 6px; margin-bottom: 8px;">
+      ${r.map((n) => `
+        <div style="background: ${n.color}15; border: 1px solid ${n.color}30; border-radius: 5px; padding: 8px 10px; text-align: center;">
+          <div style="font-size: 16px; font-weight: 600; color: ${n.color}; line-height: 1.2;">${b(n.value)}</div>
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px;">${n.label}</div>
+        </div>
+      `).join("")}
+    </div>
+    ${s.length > 0 ? `
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;" aria-label="Bypass reasons">
+        ${s.map(([n, a]) => `<span style="padding: 3px 7px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); color: #fbbf24; font-size: 10px;"><code>${i(n)}</code>: ${b(a)}</span>`).join("")}
+      </div>
+    ` : '<div style="margin-bottom: 14px;"></div>'}
+  `;
+}
+function Bt(e) {
+  const t = (e.engagement || "no_traffic").toLowerCase(), o = {
+    no_traffic: {
+      label: "No request traffic observed",
+      message: "This instance has not evaluated a public HTML delivery request since startup.",
+      color: "#94a3b8"
+    },
+    all_bypassed: {
+      label: "All observed requests bypassed",
+      message: "Check bypass reasons. Admin and Debug Console session cookies intentionally bypass public HTML caching.",
+      color: "#f59e0b"
+    },
+    warming: {
+      label: "Cache warming",
+      message: "Eligible traffic is reaching the cache, but this instance has not observed a served hit yet.",
+      color: "#3b82f6"
+    },
+    engaged: {
+      label: "Cache engaged",
+      message: "This instance has served at least one public HTML response from cache.",
+      color: "#22c55e"
+    },
+    degraded: {
+      label: "Request delivery degraded",
+      message: "At least one evaluated cache request ended in failure. Review request reasons and backend errors.",
+      color: "#ef4444"
+    }
+  }, r = o[t] || o.no_traffic;
+  return `
+    <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 5px; background: ${r.color}12; border: 1px solid ${r.color}35;">
+      <div style="font-size: 12px; font-weight: 600; color: ${r.color}; margin-bottom: 3px;">${i(r.label)}</div>
+      <div style="font-size: 11px; line-height: 1.45; color: #94a3b8;">${i(r.message)}</div>
+      <div style="font-size: 10px; line-height: 1.45; color: #64748b; margin-top: 5px;">Request counters are process-local to the current application instance. Valkey entries may be shared across instances. CMS repository caching is a separate process-local subsystem.</div>
+    </div>
+  `;
+}
+function It(e) {
   if (!e) return "";
   const t = le(e.outcome), o = e.timestamp ? y(e.timestamp) : "";
   return `
@@ -2574,7 +2676,7 @@ function Mt(e) {
     </div>
   `;
 }
-function It(e) {
+function Dt(e) {
   return e ? `
     <div style="
       margin-bottom: 12px;
@@ -2611,7 +2713,7 @@ function It(e) {
     </div>
   ` : "";
 }
-function Bt(e) {
+function Ft(e) {
   const t = e.timestamp ? y(e.timestamp) : "";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -2632,7 +2734,7 @@ function Bt(e) {
     </tr>
   `;
 }
-function Dt(e, t = 10) {
+function Ht(e, t = 10) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -2670,7 +2772,7 @@ function Dt(e, t = 10) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => Bt(s)).join("")}
+            ${r.map((s) => Ft(s)).join("")}
           </tbody>
         </table>
       </div>
@@ -2680,7 +2782,7 @@ function Dt(e, t = 10) {
 function Z(e) {
   return e == null ? '<span style="color: #64748b; font-style: italic;">null</span>' : typeof e == "boolean" ? `<span style="color: ${e ? "#22c55e" : "#64748b"}; font-weight: 500;">${e}</span>` : typeof e == "number" ? `<span style="color: #818cf8;">${e}</span>` : typeof e == "string" ? e === "" ? '<span style="color: #64748b; font-style: italic;">empty</span>' : `<span style="color: #fbbf24;">${i(e)}</span>` : i(String(e));
 }
-function Ft(e) {
+function Jt(e) {
   if (!e) return "";
   const t = [
     {
@@ -2805,7 +2907,7 @@ function Ft(e) {
     </details>
   `;
 }
-function Ht(e) {
+function Kt(e) {
   return e ? `
     <details style="margin-bottom: 8px;">
       <summary style="
@@ -2883,7 +2985,7 @@ function Ht(e) {
     </details>
   ` : "";
 }
-function Jt(e) {
+function Vt(e) {
   if (!e) return "";
   const t = e.timestamp ? y(e.timestamp) : "", o = e.key?.route_hint || e.key?.key_hash?.slice(0, 16) || "unknown";
   return `
@@ -2952,7 +3054,7 @@ function Jt(e) {
     </details>
   `;
 }
-function Kt(e) {
+function Ut(e) {
   const t = e.observed_at ? y(e.observed_at) : "", o = e.raw_key || e.route_hint || e.key_hash?.slice(0, 16) || "unknown";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -2967,7 +3069,7 @@ function Kt(e) {
     </tr>
   `;
 }
-function Vt(e, t = 20) {
+function Wt(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -3004,14 +3106,14 @@ function Vt(e, t = 20) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => Kt(s)).join("")}
+            ${r.map((s) => Ut(s)).join("")}
           </tbody>
         </table>
       </div>
     </details>
   `;
 }
-function Ut(e) {
+function Qt(e) {
   const t = e.timestamp ? y(e.timestamp) : "", o = le(e.outcome), r = e.key?.route_hint || e.key?.key_hash?.slice(0, 12) || "";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -3043,7 +3145,7 @@ function Ut(e) {
     </tr>
   `;
 }
-function Wt(e, t = 20) {
+function Gt(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -3082,14 +3184,14 @@ function Wt(e, t = 20) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => Ut(s)).join("")}
+            ${r.map((s) => Qt(s)).join("")}
           </tbody>
         </table>
       </div>
     </details>
   `;
 }
-function Qt(e) {
+function Yt(e) {
   const t = z(e);
   return `
     <details style="margin-top: 12px;">
@@ -3130,16 +3232,18 @@ function ee(e, t, o = {}) {
   return e ? e.configured ? `
     <div style="padding: 14px;">
       ${X(e)}
-      ${It(e.startup_error)}
-      ${Nt(e.counters)}
-      ${Mt(e.last_command)}
-      ${Dt(e.recent_errors, n)}
-      ${Jt(e.latest_cached)}
-      ${Ft(e.config)}
-      ${Ht(e.capabilities)}
-      ${Vt(e.observed_keys, s)}
-      ${Wt(e.recent_operations, r)}
-      ${a ? Qt(e) : ""}
+      ${Dt(e.startup_error)}
+      ${Bt(e)}
+      ${Nt(e.request_counters)}
+      ${Mt(e.counters)}
+      ${It(e.last_command)}
+      ${Ht(e.recent_errors, n)}
+      ${Vt(e.latest_cached)}
+      ${Jt(e.config)}
+      ${Kt(e.capabilities)}
+      ${Wt(e.observed_keys, s)}
+      ${Gt(e.recent_operations, r)}
+      ${a ? Yt(e) : ""}
     </div>
   ` : `
       <div style="padding: 12px;">
@@ -3159,7 +3263,7 @@ function ee(e, t, o = {}) {
       </div>
     ` : `<div class="${t.emptyState}">No site render cache data available</div>`;
 }
-function Gt(e, t) {
+function Xt(e, t) {
   if (!e) return `<div class="${t.emptyState}">No cache data</div>`;
   let o = e.status;
   e.configured && e.active || (o = "inactive");
@@ -3167,7 +3271,7 @@ function Gt(e, t) {
   let c = "N/A";
   const l = s.lookups || 0;
   l > 0 && (c = `${((s.hit_ratio !== null && s.hit_ratio !== void 0 ? s.hit_ratio : n / l) * 100).toFixed(1)}%`);
-  const p = (e.recent_errors || []).length, u = (e.scope || "unknown") === "process_local";
+  const p = (e.recent_errors || []).length, u = (e.scope || "unknown") === "process_local", g = e.request_counters || {}, f = (e.engagement || "no_traffic").replace(/_/g, " ");
   return `
     <div style="padding: 8px;">
       <div style="
@@ -3223,7 +3327,10 @@ function Gt(e, t) {
         color: #94a3b8;
         flex-wrap: wrap;
       ">
-        <span>Hit Rate: <strong style="color: ${l > 0 ? "#22c55e" : "#64748b"};">${c}</strong></span>
+        <span>Engagement: <strong style="color: #e2e8f0; text-transform: capitalize;">${i(f)}</strong></span>
+        <span>Evaluated: <strong style="color: #e2e8f0;">${b(g.evaluated || 0)}</strong></span>
+        <span>Bypassed: <strong style="color: #f59e0b;">${b(g.bypassed || 0)}</strong></span>
+        <span>Lookup Hit Rate: <strong style="color: ${l > 0 ? "#22c55e" : "#64748b"};">${c}</strong></span>
         <span>Hits: <strong style="color: #22c55e;">${b(n)}</strong></span>
         <span>Misses: <strong style="color: #f59e0b;">${b(a)}</strong></span>
         ${d > 0 || p > 0 ? `
@@ -3257,29 +3364,29 @@ function Gt(e, t) {
     </div>
   `;
 }
-function Mo(e, t = {}) {
-  const o = Zt(e.dataset.actionPayload);
+function Io(e, t = {}) {
+  const o = to(e.dataset.actionPayload);
   return e instanceof HTMLFormElement && e.querySelectorAll("[data-action-field]").forEach((r) => {
     const s = r.closest("[hidden]");
     if (s && e.contains(s) || (r instanceof HTMLInputElement || r instanceof HTMLSelectElement || r instanceof HTMLTextAreaElement) && r.disabled) return;
     const n = (r.dataset.actionFieldPath || r.dataset.actionField || "").trim();
     if (!n) return;
     if (t.excludeSensitive && r.dataset.actionFieldSensitive === "true") {
-      ro(o, n);
+      no(o, n);
       return;
     }
-    const a = eo(r);
-    a !== void 0 && oo(o, n, a);
+    const a = oo(r);
+    a !== void 0 && so(o, n, a);
   }), o;
 }
-function Io(e) {
+function Do(e) {
   return e.querySelector('[data-action-field-sensitive="true"]') !== null;
 }
-function Yt(e, t) {
+function Zt(e, t) {
   e.querySelectorAll("[data-action-field]").forEach((o) => {
     const r = (o.dataset.actionFieldPath || o.dataset.actionField || "").trim();
     if (!r) return;
-    const s = Xt(t, r);
+    const s = eo(t, r);
     if (s !== void 0) {
       if (o instanceof HTMLInputElement && o.type === "checkbox") o.checked = !!s;
       else if (o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || o instanceof HTMLSelectElement) {
@@ -3291,16 +3398,16 @@ function Yt(e, t) {
     }
   });
 }
-function Bo(e, t, o) {
+function Fo(e, t, o) {
   const r = String(o.action_id || "").trim();
   if (!t || !r) return !1;
   const s = Array.from(e.querySelectorAll("[data-panel-action-picker]")).find((d) => d.dataset.panelActionPicker === t);
   if (!s || !Array.from(s.options).some((d) => d.value === r)) return !1;
   s.value = r, s.dispatchEvent(new Event("change", { bubbles: !0 }));
   const n = o.payload && typeof o.payload == "object" && !Array.isArray(o.payload) ? o.payload : {}, a = Array.from(e.querySelectorAll("[data-panel-action-form]")).find((d) => d.dataset.panelId === t && d.dataset.actionId === r);
-  return a && Yt(a, n), !0;
+  return a && Zt(a, n), !0;
 }
-function Xt(e, t) {
+function eo(e, t) {
   let o = e;
   for (const r of t.split(".").map((s) => s.trim()).filter(Boolean)) {
     if (!o || typeof o != "object" || Array.isArray(o)) return;
@@ -3308,7 +3415,7 @@ function Xt(e, t) {
   }
   return o;
 }
-function Zt(e) {
+function to(e) {
   if (!e) return {};
   try {
     const t = JSON.parse(e);
@@ -3317,10 +3424,10 @@ function Zt(e) {
     return {};
   }
 }
-function eo(e) {
+function oo(e) {
   const t = (e.dataset.actionFieldKind || "").trim().toLowerCase();
   if (e instanceof HTMLInputElement && e.type === "checkbox") return e.checked;
-  const o = to(e).trim();
+  const o = ro(e).trim();
   if (o !== "") {
     if (t === "number") {
       const r = Number(o);
@@ -3339,10 +3446,10 @@ function eo(e) {
     return o;
   }
 }
-function to(e) {
+function ro(e) {
   return (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement) && e.value || "";
 }
-function oo(e, t, o) {
+function so(e, t, o) {
   const r = t.split(".").map((n) => n.trim()).filter(Boolean);
   if (r.length === 0) return;
   let s = e;
@@ -3351,7 +3458,7 @@ function oo(e, t, o) {
     (!a || typeof a != "object" || Array.isArray(a)) && (s[n] = {}), s = s[n];
   }), s[r[r.length - 1]] = o;
 }
-function ro(e, t) {
+function no(e, t) {
   const o = t.split(".").map((n) => n.trim()).filter(Boolean);
   if (o.length === 0) return;
   const r = [];
@@ -3371,7 +3478,7 @@ function ro(e, t) {
     else break;
   }
 }
-var so = {
+var ao = {
   id: "requests",
   label: "Requests",
   icon: "iconoir-network",
@@ -3399,7 +3506,7 @@ var so = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 500),
   supportsToolbar: !0
-}, no = {
+}, io = {
   id: "sql",
   label: "SQL",
   icon: "iconoir-database",
@@ -3427,7 +3534,7 @@ var so = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 500),
   supportsToolbar: !0
-}, ao = {
+}, lo = {
   id: "logs",
   label: "Logs",
   icon: "iconoir-page",
@@ -3435,20 +3542,20 @@ var so = {
   eventTypes: "log",
   category: "core",
   order: 30,
-  render: (e, t, o) => N(e || [], t, {
+  render: (e, t, o) => M(e || [], t, {
     ...o,
     showSortToggle: !1,
     showSource: !0,
     truncateMessage: !1
   }),
-  renderConsole: (e, t, o) => N(e || [], t, {
+  renderConsole: (e, t, o) => M(e || [], t, {
     ...o,
     maxEntries: 500,
     showSortToggle: !1,
     showSource: !0,
     truncateMessage: !1
   }),
-  renderToolbar: (e, t, o) => N(e || [], t, {
+  renderToolbar: (e, t, o) => M(e || [], t, {
     newestFirst: !0,
     maxEntries: 100,
     showSortToggle: !1,
@@ -3459,7 +3566,7 @@ var so = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 1e3),
   supportsToolbar: !0
-}, io = {
+}, co = {
   id: "routes",
   label: "Routes",
   icon: "iconoir-path-arrow",
@@ -3467,12 +3574,12 @@ var so = {
   eventTypes: [],
   category: "system",
   order: 40,
-  render: (e, t) => M(e || [], t, { showName: !0 }),
-  renderConsole: (e, t) => M(e || [], t, { showName: !0 }),
-  renderToolbar: (e, t) => M(e || [], t, { showName: !1 }),
+  render: (e, t) => N(e || [], t, { showName: !0 }),
+  renderConsole: (e, t) => N(e || [], t, { showName: !0 }),
+  renderToolbar: (e, t) => N(e || [], t, { showName: !1 }),
   getCount: (e) => (e || []).length,
   supportsToolbar: !0
-}, lo = {
+}, po = {
   id: "config",
   label: "Config",
   icon: "iconoir-settings",
@@ -3498,7 +3605,7 @@ var so = {
   }),
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   supportsToolbar: !0
-}, co = {
+}, uo = {
   id: "template",
   label: "Template",
   icon: "iconoir-code",
@@ -3525,7 +3632,7 @@ var so = {
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   handleEvent: (e, t) => t,
   supportsToolbar: !0
-}, po = {
+}, go = {
   id: "session",
   label: "Session",
   icon: "iconoir-user",
@@ -3552,7 +3659,7 @@ var so = {
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   handleEvent: (e, t) => t,
   supportsToolbar: !0
-}, uo = {
+}, bo = {
   id: "custom",
   label: "Custom",
   icon: "iconoir-puzzle",
@@ -3560,20 +3667,20 @@ var so = {
   eventTypes: "custom",
   category: "data",
   order: 30,
-  render: (e, t, o) => I(e || {}, t, {
+  render: (e, t, o) => B(e || {}, t, {
     useIconCopyButton: !0,
     showCount: !0
   }),
   renderConsole: (e, t, o) => {
     const r = e || {}, s = o?.dataFilterFn;
-    return I(r, t, {
+    return B(r, t, {
       maxLogEntries: 100,
       useIconCopyButton: !0,
       showCount: !0,
       dataFilterFn: s
     });
   },
-  renderToolbar: (e, t) => I(e || {}, t, {
+  renderToolbar: (e, t) => B(e || {}, t, {
     maxLogEntries: 50,
     useIconCopyButton: !1,
     showCount: !1
@@ -3584,7 +3691,7 @@ var so = {
   },
   handleEvent: (e, t) => pe(e, t, 500),
   supportsToolbar: !0
-}, go = {
+}, fo = {
   id: "jserrors",
   label: "JS Errors",
   icon: "iconoir-warning-triangle",
@@ -3592,18 +3699,18 @@ var so = {
   eventTypes: "jserror",
   category: "core",
   order: 35,
-  render: (e, t, o) => B(e || [], t, {
+  render: (e, t, o) => I(e || [], t, {
     ...o,
     compact: !1,
     showSortToggle: !1
   }),
-  renderConsole: (e, t, o) => B(e || [], t, {
+  renderConsole: (e, t, o) => I(e || [], t, {
     ...o,
     maxEntries: 500,
     compact: !1,
     showSortToggle: !1
   }),
-  renderToolbar: (e, t, o) => B(e || [], t, {
+  renderToolbar: (e, t, o) => I(e || [], t, {
     ...o,
     maxEntries: 50,
     compact: !0,
@@ -3612,7 +3719,7 @@ var so = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 500),
   supportsToolbar: !0
-}, bo = {
+}, ho = {
   id: "permissions",
   label: "Permissions",
   icon: "iconoir-shield-check",
@@ -3629,7 +3736,7 @@ var so = {
     return !t || !t.summary ? 0 : t.summary.missing_keys;
   },
   supportsToolbar: !0
-}, fo = {
+}, mo = {
   id: "doctor",
   label: "Doctor",
   icon: "iconoir-heart",
@@ -3645,9 +3752,9 @@ var so = {
     return !t || !t.summary ? 0 : (t.summary.error || 0) + (t.summary.warn || 0);
   },
   supportsToolbar: !1
-}, ho = {
+}, xo = {
   id: "site-render-cache",
-  label: "Site Cache",
+  label: "Public HTML Cache",
   icon: "iconoir-database",
   snapshotKey: "site-render-cache",
   eventTypes: [],
@@ -3661,64 +3768,64 @@ var so = {
     maxKeys: 50,
     maxErrors: 20
   }),
-  renderToolbar: (e, t) => Gt(e, t),
+  renderToolbar: (e, t) => Xt(e, t),
   getCount: (e) => {
     const t = e;
     return !t || !t.counters ? 0 : t.counters.errors || 0;
   },
   supportsToolbar: !0
 };
-function mo() {
-  f.register(so), f.register(no), f.register(ao), f.register(go), f.register(io), f.register(bo), f.register(fo), f.register(ho), f.register(lo), f.register(co), f.register(po), f.register(uo);
+function yo() {
+  h.register(ao), h.register(io), h.register(lo), h.register(fo), h.register(co), h.register(ho), h.register(mo), h.register(xo), h.register(po), h.register(uo), h.register(go), h.register(bo);
 }
-mo();
+yo();
 export {
-  qo as A,
-  Co as B,
-  Oo as C,
+  Lo as A,
+  To as B,
+  Po as C,
   Ae as D,
-  Me as E,
-  _o as F,
-  Re as G,
+  Ne as E,
+  qo as F,
+  qe as G,
   H,
-  Ro as I,
-  wo as K,
-  q as L,
-  So as M,
-  To as N,
-  jo as O,
-  Lo as P,
-  Eo as R,
+  zo as I,
+  Co as K,
+  R as L,
+  _o as M,
+  Eo as N,
+  Ao as O,
+  Oo as P,
+  Ro as R,
   se as S,
   P as T,
   je as U,
   A as V,
   T as W,
-  M as _,
+  N as _,
   ee as a,
   Xe as b,
   Y as c,
   $t as d,
   nt as f,
-  Po as g,
-  I as h,
-  Io as i,
-  zo as j,
+  No as g,
+  B as h,
+  Do as i,
+  jo as j,
   Pe as k,
-  No as l,
-  B as m,
-  Yt as n,
-  Gt as o,
+  Bo as l,
+  I as m,
+  Zt as n,
+  Xt as o,
   ut as p,
-  Mo as r,
+  Io as r,
   _t as s,
-  Bo as t,
+  Fo as t,
   G as u,
   Ke as v,
   De as w,
-  N as x,
-  Ao as y,
-  ko as z
+  M as x,
+  Mo as y,
+  So as z
 };
 
-//# sourceMappingURL=builtin-panels-CSRSO1u4.js.map
+//# sourceMappingURL=builtin-panels-CGJ5z50x.js.map

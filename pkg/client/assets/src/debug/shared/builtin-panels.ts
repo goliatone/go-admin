@@ -586,7 +586,7 @@ const doctorPanel: PanelDefinition = {
  */
 const siteRenderCachePanel: PanelDefinition = {
   id: 'site-render-cache',
-  label: 'Site Cache',
+  label: 'Public HTML Cache',
   icon: 'iconoir-database',
   snapshotKey: 'site-render-cache',
   eventTypes: [], // Snapshot only, no incremental events

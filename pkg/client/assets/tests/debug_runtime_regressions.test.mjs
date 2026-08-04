@@ -1464,7 +1464,7 @@ test('commands panel reports followed login HTML as authentication required', as
   });
 });
 
-test('debug panel restores built-in Site Cache when it remains enabled', async () => {
+test('debug panel restores built-in Public HTML Cache when it remains enabled', async () => {
   const dom = new JSDOM(`
     <!doctype html>
     <html>
@@ -1587,7 +1587,7 @@ test('debug toolbar persists active panel with existing toolbar preferences', as
   assert.equal(toolbar.shadowRoot?.querySelector('.tab.active')?.dataset.panel, 'sql');
 
   const siteCacheTab = toolbar.shadowRoot?.querySelector('[data-panel="site-render-cache"]');
-  assert.ok(siteCacheTab, 'expected Site Cache toolbar tab to render');
+  assert.ok(siteCacheTab, 'expected Public HTML Cache toolbar tab to render');
   siteCacheTab.dispatchEvent(new bootstrapDOM.window.MouseEvent('click', { bubbles: true }));
 
   assert.equal(bootstrapDOM.window.localStorage.getItem('debug-toolbar-active-panel'), 'site-render-cache');
@@ -1856,7 +1856,7 @@ test('debug panel surfaces sanitized HTTP clear failures', async () => {
 
   await waitForAssertion(() => {
     const toast = dom.window.document.querySelector('[data-debug-toast-host]');
-    assert.match(toast?.textContent || '', /Unable to clear Site Cache\./);
+    assert.match(toast?.textContent || '', /Unable to clear Public HTML Cache\./);
     assert.doesNotMatch(toast?.textContent || '', /secret internal failure/);
   });
 });

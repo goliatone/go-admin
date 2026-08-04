@@ -117,6 +117,20 @@ export type SiteRenderCacheCounters = {
   hit_ratio?: number | null;
 };
 
+export type SiteRenderCacheRequestCounters = {
+  evaluated?: number;
+  eligible?: number;
+  bypassed?: number;
+  terminal?: number;
+  served_hits?: number;
+  served_stale?: number;
+  stored_responses?: number;
+  rendered_uncached?: number;
+  failed?: number;
+  bypass_reasons?: Record<string, number>;
+  reason_counts?: Record<string, number>;
+};
+
 export type SiteRenderCacheSnapshot = {
   configured?: boolean;
   active?: boolean;
@@ -124,10 +138,12 @@ export type SiteRenderCacheSnapshot = {
   status?: string;
   scope?: string;
   observed_by?: string;
+  engagement?: string;
   startup_error?: SiteRenderCacheStartupError;
   config?: SiteRenderCacheConfig;
   capabilities?: SiteRenderCacheCapabilities;
   counters?: SiteRenderCacheCounters;
+  request_counters?: SiteRenderCacheRequestCounters;
   latest_cached?: SiteRenderCacheCachedResponse;
   observed_keys?: SiteRenderCacheKey[];
   recent_operations?: SiteRenderCacheOperation[];
@@ -196,7 +212,7 @@ function getStatusConfig(status?: string): StatusConfig {
   const s = (status || '').toLowerCase();
   if (s === 'healthy' || s === 'active') {
     return {
-      label: 'Healthy',
+      label: 'Backend Healthy',
       color: '#22c55e',
       bgColor: 'rgba(34, 197, 94, 0.1)',
       borderColor: 'rgba(34, 197, 94, 0.4)',
@@ -205,7 +221,7 @@ function getStatusConfig(status?: string): StatusConfig {
   }
   if (s === 'degraded' || s === 'warn') {
     return {
-      label: 'Degraded',
+      label: 'Backend Degraded',
       color: '#f59e0b',
       bgColor: 'rgba(245, 158, 11, 0.1)',
       borderColor: 'rgba(245, 158, 11, 0.4)',
@@ -443,10 +459,11 @@ function renderCounterChips(counters?: SiteRenderCacheCounters): string {
     { label: 'Writes', value: formatNumber(writes), color: '#3b82f6' },
     { label: 'Errors', value: formatNumber(errors), color: errors > 0 ? '#ef4444' : '#64748b' },
     { label: 'Clears', value: formatNumber(clears), color: '#8b5cf6' },
-    { label: 'Hit Rate', value: hitRatioDisplay, color: lookups > 0 ? '#22c55e' : '#64748b' },
+    { label: 'Lookup Hit Rate', value: hitRatioDisplay, color: lookups > 0 ? '#22c55e' : '#64748b' },
   ];
 
   return `
+    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">Backend Operations</div>
     <div style="
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
@@ -480,6 +497,82 @@ function renderCounterChips(counters?: SiteRenderCacheCounters): string {
       `
         )
         .join('')}
+    </div>
+  `;
+}
+
+function renderRequestDecisionCounters(counters?: SiteRenderCacheRequestCounters): string {
+  const c = counters || {};
+  const failed = c.failed || 0;
+  const chips = [
+    { label: 'Evaluated', value: c.evaluated || 0, color: '#64748b' },
+    { label: 'Completed', value: c.terminal || 0, color: '#64748b' },
+    { label: 'Eligible', value: c.eligible || 0, color: '#3b82f6' },
+    { label: 'Bypassed', value: c.bypassed || 0, color: '#f59e0b' },
+    { label: 'Served Hits', value: c.served_hits || 0, color: '#22c55e' },
+    { label: 'Served Stale', value: c.served_stale || 0, color: '#8b5cf6' },
+    { label: 'Stored', value: c.stored_responses || 0, color: '#06b6d4' },
+    { label: 'Uncached', value: c.rendered_uncached || 0, color: '#f97316' },
+    { label: 'Failed', value: failed, color: failed > 0 ? '#ef4444' : '#64748b' },
+  ];
+  const reasons = Object.entries(c.bypass_reasons || {})
+    .filter(([, count]) => Number(count) > 0)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+
+  return `
+    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">Request Decisions</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(75px, 1fr)); gap: 6px; margin-bottom: 8px;">
+      ${chips.map((chip) => `
+        <div style="background: ${chip.color}15; border: 1px solid ${chip.color}30; border-radius: 5px; padding: 8px 10px; text-align: center;">
+          <div style="font-size: 16px; font-weight: 600; color: ${chip.color}; line-height: 1.2;">${formatNumber(chip.value)}</div>
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px;">${chip.label}</div>
+        </div>
+      `).join('')}
+    </div>
+    ${reasons.length > 0 ? `
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;" aria-label="Bypass reasons">
+        ${reasons.map(([reason, count]) => `<span style="padding: 3px 7px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); color: #fbbf24; font-size: 10px;"><code>${escapeHTML(reason)}</code>: ${formatNumber(count)}</span>`).join('')}
+      </div>
+    ` : '<div style="margin-bottom: 14px;"></div>'}
+  `;
+}
+
+function renderEngagementSummary(snapshot: SiteRenderCacheSnapshot): string {
+  const engagement = (snapshot.engagement || 'no_traffic').toLowerCase();
+  const summaries: Record<string, { label: string; message: string; color: string }> = {
+    no_traffic: {
+      label: 'No request traffic observed',
+      message: 'This instance has not evaluated a public HTML delivery request since startup.',
+      color: '#94a3b8',
+    },
+    all_bypassed: {
+      label: 'All observed requests bypassed',
+      message: 'Check bypass reasons. Admin and Debug Console session cookies intentionally bypass public HTML caching.',
+      color: '#f59e0b',
+    },
+    warming: {
+      label: 'Cache warming',
+      message: 'Eligible traffic is reaching the cache, but this instance has not observed a served hit yet.',
+      color: '#3b82f6',
+    },
+    engaged: {
+      label: 'Cache engaged',
+      message: 'This instance has served at least one public HTML response from cache.',
+      color: '#22c55e',
+    },
+    degraded: {
+      label: 'Request delivery degraded',
+      message: 'At least one evaluated cache request ended in failure. Review request reasons and backend errors.',
+      color: '#ef4444',
+    },
+  };
+  const summary = summaries[engagement] || summaries.no_traffic;
+
+  return `
+    <div style="margin-bottom: 14px; padding: 10px 12px; border-radius: 5px; background: ${summary.color}12; border: 1px solid ${summary.color}35;">
+      <div style="font-size: 12px; font-weight: 600; color: ${summary.color}; margin-bottom: 3px;">${escapeHTML(summary.label)}</div>
+      <div style="font-size: 11px; line-height: 1.45; color: #94a3b8;">${escapeHTML(summary.message)}</div>
+      <div style="font-size: 10px; line-height: 1.45; color: #64748b; margin-top: 5px;">Request counters are process-local to the current application instance. Valkey entries may be shared across instances. CMS repository caching is a separate process-local subsystem.</div>
     </div>
   `;
 }
@@ -1172,6 +1265,8 @@ export function renderSiteRenderCachePanel(
     <div style="padding: 14px;">
       ${renderHeaderBar(snapshot)}
       ${renderStartupError(snapshot.startup_error)}
+      ${renderEngagementSummary(snapshot)}
+      ${renderRequestDecisionCounters(snapshot.request_counters)}
       ${renderCounterChips(snapshot.counters)}
       ${renderLastCommand(snapshot.last_command)}
       ${renderRecentErrors(snapshot.recent_errors, maxErrors)}
@@ -1221,6 +1316,8 @@ export function renderSiteRenderCachePanelCompact(
   const recentErrorCount = (snapshot.recent_errors || []).length;
   const scope = snapshot.scope || 'unknown';
   const isProcessLocal = scope === 'process_local';
+  const requestCounters = snapshot.request_counters || {};
+  const engagement = (snapshot.engagement || 'no_traffic').replace(/_/g, ' ');
 
   return `
     <div style="padding: 8px;">
@@ -1271,7 +1368,10 @@ export function renderSiteRenderCachePanelCompact(
         color: #94a3b8;
         flex-wrap: wrap;
       ">
-        <span>Hit Rate: <strong style="color: ${lookups > 0 ? '#22c55e' : '#64748b'};">${hitRatioDisplay}</strong></span>
+        <span>Engagement: <strong style="color: #e2e8f0; text-transform: capitalize;">${escapeHTML(engagement)}</strong></span>
+        <span>Evaluated: <strong style="color: #e2e8f0;">${formatNumber(requestCounters.evaluated || 0)}</strong></span>
+        <span>Bypassed: <strong style="color: #f59e0b;">${formatNumber(requestCounters.bypassed || 0)}</strong></span>
+        <span>Lookup Hit Rate: <strong style="color: ${lookups > 0 ? '#22c55e' : '#64748b'};">${hitRatioDisplay}</strong></span>
         <span>Hits: <strong style="color: #22c55e;">${formatNumber(hits)}</strong></span>
         <span>Misses: <strong style="color: #f59e0b;">${formatNumber(misses)}</strong></span>
         ${errors > 0 || recentErrorCount > 0 ? `

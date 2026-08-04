@@ -46,6 +46,7 @@ const fixtures = {
     status: 'healthy',
     scope: 'process_local',
     observed_by: 'debug-observer',
+    engagement: 'engaged',
     config: {
       enabled: true,
       backend: 'valkey',
@@ -84,6 +85,19 @@ const fixtures = {
       errors: 2,
       clears: 1,
       hit_ratio: 0.8,
+    },
+    request_counters: {
+      evaluated: 1800,
+      eligible: 1500,
+      bypassed: 300,
+      terminal: 1800,
+      served_hits: 1200,
+      served_stale: 0,
+      stored_responses: 300,
+      rendered_uncached: 0,
+      failed: 0,
+      bypass_reasons: { auth: 250, locale_cookie_mutation: 50 },
+      reason_counts: { auth: 250, locale_cookie_mutation: 50 },
     },
     latest_cached: {
       timestamp: '2026-05-14T10:30:00Z',
@@ -127,6 +141,7 @@ const fixtures = {
     backend: 'valkey',
     status: 'healthy',
     scope: 'process_local',
+    engagement: 'no_traffic',
     counters: {
       lookups: 0,
       hits: 0,
@@ -134,6 +149,38 @@ const fixtures = {
       writes: 0,
       errors: 0,
       clears: 0,
+    },
+    request_counters: {
+      evaluated: 0,
+      eligible: 0,
+      bypassed: 0,
+      terminal: 0,
+    },
+    observed_keys: [],
+    recent_operations: [],
+    recent_errors: [],
+  },
+
+  allBypassed: {
+    configured: true,
+    active: true,
+    backend: 'valkey',
+    status: 'healthy',
+    scope: 'process_local',
+    observed_by: 'current_instance',
+    engagement: 'all_bypassed',
+    counters: { lookups: 0, hits: 0, misses: 0, writes: 0, errors: 0, clears: 0 },
+    request_counters: {
+      evaluated: 3,
+      eligible: 0,
+      bypassed: 3,
+      terminal: 3,
+      served_hits: 0,
+      served_stale: 0,
+      stored_responses: 0,
+      rendered_uncached: 0,
+      failed: 0,
+      bypass_reasons: { auth: 2, locale_cookie_mutation: 1 },
     },
     observed_keys: [],
     recent_operations: [],
@@ -373,6 +420,22 @@ test('site render cache panel renders healthy state correctly', () => {
   assert.match(html, /Clear Cache/i, 'should show clear button when active');
   assert.match(html, /1,200/, 'should show hits count');
   assert.match(html, /80\.0%/, 'should show calculated hit ratio');
+  assert.match(html, /Request Decisions/i, 'should separate request decisions');
+  assert.match(html, /Backend Operations/i, 'should separate backend operations');
+  assert.match(html, /Lookup Hit Rate/i, 'should identify the ratio as backend lookup rate');
+  assert.match(html, /Cache engaged/i, 'should show request engagement');
+  assert.match(html, /locale_cookie_mutation/i, 'should show bounded bypass reasons');
+  assert.match(html, /CMS repository caching is a separate/i, 'should explain subsystem scope');
+});
+
+test('site render cache panel distinguishes all-bypassed traffic from no traffic', () => {
+  const bypassedHTML = renderSiteRenderCachePanel(fixtures.allBypassed, consoleStyles);
+  const noTrafficHTML = renderSiteRenderCachePanel(fixtures.zeroLookups, consoleStyles);
+
+  assert.match(bypassedHTML, /All observed requests bypassed/i);
+  assert.match(bypassedHTML, /Admin and Debug Console session cookies intentionally bypass/i);
+  assert.match(bypassedHTML, /auth/i);
+  assert.match(noTrafficHTML, /No request traffic observed/i);
 });
 
 test('site render cache panel shows N/A for hit ratio when lookups is zero', () => {

@@ -2,7 +2,7 @@ import { $ as M, S as _, T as $, _ as I, a as kt, b as H, c as C, d as k, et as 
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as G, readExpectedHTTPJSON as B, readHTTPError as K } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as Q } from "./shared/path-helpers.js";
-import { C as U, E as Y, F as J, G as L, I as W, M as X, N as Z, P as tt, R as et, T as at, V as ot, _ as st, b as rt, f as nt, g as it, h as lt, k as h, m as dt, p as ct, r as ht, v as pt, w as bt, x as ut } from "../chunks/builtin-panels-CSRSO1u4.js";
+import { C as U, E as Y, F as J, G as L, I as W, M as X, N as Z, P as tt, R as et, T as at, V as ot, _ as st, b as rt, f as nt, g as it, h as lt, k as h, m as dt, p as ct, r as ht, v as pt, w as bt, x as ut } from "../chunks/builtin-panels-CGJ5z50x.js";
 import { t as gt } from "../chunks/repl-panel-BIrcm_ge.js";
 import { i as ft } from "../chunks/icons-Cghe1ioa.js";
 import { t as S } from "../chunks/deployment-identity-BEQ9jwJN.js";
