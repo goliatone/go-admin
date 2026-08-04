@@ -1,10 +1,20 @@
 package site
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/url"
 	"sort"
 	"strings"
 )
+
+// HashRenderCacheCanonicalData returns a deterministic fixed-width token for
+// host-owned canonical key material. Raw paths, queries, tokens, and filters do
+// not need to be exposed in backend keys.
+func HashRenderCacheCanonicalData(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
 
 type renderCacheKeyInput struct {
 	Policy      RenderCachePolicy

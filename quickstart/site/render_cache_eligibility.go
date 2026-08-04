@@ -44,6 +44,13 @@ const (
 	renderCacheReasonTagIndexMemoryStore  = "tag_index_memory_backend"
 	renderCacheReasonTagIndexBackendKind  = "tag_index_backend_kind"
 	renderCacheReasonTagIndexWriteError   = "tag_index_write_error"
+	renderCacheReasonHandlerDecisionError = "handler_decision_error"
+	renderCacheReasonHandlerDecision      = "handler_decision"
+	renderCacheReasonHeadMiss             = "head_miss"
+	renderCacheReasonFenceUnavailable     = "fence_unavailable"
+	renderCacheReasonFenceReadError       = "fence_read_error"
+	renderCacheReasonFenceChanged         = "fence_changed"
+	renderCacheReasonTagResolutionError   = "tag_resolution_error"
 )
 
 type renderCacheDecision struct {
@@ -287,6 +294,14 @@ func renderCacheBuiltInObservationReason(reason string) bool {
 		renderCacheReasonTagIndexMemoryStore,
 		renderCacheReasonTagIndexBackendKind,
 		renderCacheReasonTagIndexWriteError:
+		return true
+	case renderCacheReasonHandlerDecisionError,
+		renderCacheReasonHandlerDecision,
+		renderCacheReasonHeadMiss,
+		renderCacheReasonFenceUnavailable,
+		renderCacheReasonFenceReadError,
+		renderCacheReasonFenceChanged,
+		renderCacheReasonTagResolutionError:
 		return true
 	default:
 		return false

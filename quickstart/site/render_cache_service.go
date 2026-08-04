@@ -75,6 +75,7 @@ type RenderCacheValkeyConfig struct {
 type RenderCacheRuntime struct {
 	Config           RenderCacheConfig
 	Store            RenderCacheStore
+	Generations      RenderCacheGenerationStore
 	Policy           RenderCachePolicy
 	Diagnostic       RenderCacheStartupDiagnostic
 	Observer         *RenderCacheDebugObserver
@@ -117,6 +118,7 @@ type renderCacheBackendStore struct {
 
 type renderCacheBackendStoreWithClose struct {
 	*renderCacheBackendStore
+	closeFn func()
 }
 
 func (s *renderCacheBackendStore) RenderCacheBackendKind() string {
@@ -154,11 +156,14 @@ func (s *renderCacheBackendStoreWithClose) Close() error {
 	if s == nil || s.RenderCacheStore == nil {
 		return nil
 	}
-	closer, ok := s.RenderCacheStore.(interface{ Close() error })
-	if !ok || closer == nil {
-		return nil
+	var err error
+	if closer, ok := s.RenderCacheStore.(interface{ Close() error }); ok && closer != nil {
+		err = closer.Close()
 	}
-	return closer.Close()
+	if s.closeFn != nil {
+		s.closeFn()
+	}
+	return err
 }
 
 func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy RenderCachePolicy) (*RenderCacheRuntime, error) {
@@ -180,7 +185,7 @@ func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy Re
 	if !cfg.Enabled {
 		return runtime, nil
 	}
-	store, err := buildRenderCacheStore(cfg)
+	store, generations, err := buildRenderCacheStore(cfg)
 	if err != nil {
 		diagnostic.Error = sanitizeRenderCacheStartupError(cfg, err)
 		diagnostic.ErrorKind = "store_initialization_failed"
@@ -196,6 +201,7 @@ func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy Re
 		return runtime, err
 	}
 	runtime.Observer = NewRenderCacheDebugObserver(store, cfg)
+	runtime.Generations = generations
 	if runtime.Observer != nil {
 		runtime.RequestObservers = composeRenderCacheRequestObservers([]RenderCacheRequestObserver{runtime.Observer})
 		runtime.Store = NewRenderCacheDebugObservedStore(runtime.Observer)
@@ -250,32 +256,42 @@ func applyRenderCacheRuntimeConfigToPolicy(cfg RenderCacheConfig, policy RenderC
 	return normalizeRenderCachePolicy(policy)
 }
 
-func buildRenderCacheStore(cfg RenderCacheConfig) (RenderCacheStore, error) {
+func buildRenderCacheStore(cfg RenderCacheConfig) (RenderCacheStore, RenderCacheGenerationStore, error) {
 	if !cfg.Enabled {
-		return nil, nil
+		return nil, nil, nil
 	}
 	switch cfg.Backend {
 	case RenderCacheBackendMemory:
 		store, err := memory.NewStore[string, RenderedSiteResponse]()
 		if err != nil {
-			return nil, fmt.Errorf("site render cache memory store: %w", err)
+			return nil, nil, fmt.Errorf("site render cache memory store: %w", err)
 		}
-		return &renderCacheBackendStore{RenderCacheStore: store, kind: RenderCacheBackendMemory}, nil
+		return &renderCacheBackendStore{RenderCacheStore: store, kind: RenderCacheBackendMemory}, newMemoryRenderCacheGenerationStore(), nil
 	case RenderCacheBackendValkey:
 		clientOption, err := buildRenderCacheValkeyClientOption(cfg.Valkey)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		client, err := vk.NewClient(clientOption)
+		if err != nil {
+			return nil, nil, fmt.Errorf("site render cache valkey client: %w", err)
 		}
 		store, err := valkey.NewStore[string, RenderedSiteResponse](
 			valkey.WithNamespace[string, RenderedSiteResponse](cfg.Valkey.Namespace),
-			valkey.WithClientOption[string, RenderedSiteResponse](clientOption),
+			valkey.WithClient[string, RenderedSiteResponse](client),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("site render cache valkey store: %w", err)
+			client.Close()
+			return nil, nil, fmt.Errorf("site render cache valkey store: %w", err)
 		}
-		return &renderCacheBackendStoreWithClose{renderCacheBackendStore: &renderCacheBackendStore{RenderCacheStore: store, kind: RenderCacheBackendValkey}}, nil
+		backend := &renderCacheBackendStoreWithClose{
+			renderCacheBackendStore: &renderCacheBackendStore{RenderCacheStore: store, kind: RenderCacheBackendValkey},
+			closeFn:                 client.Close,
+		}
+		generations := &valkeyRenderCacheGenerationStore{client: client, namespace: cfg.Valkey.Namespace}
+		return backend, generations, nil
 	default:
-		return nil, errRenderCacheUnsupportedBackend
+		return nil, nil, errRenderCacheUnsupportedBackend
 	}
 }
 
