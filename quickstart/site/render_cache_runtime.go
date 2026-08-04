@@ -23,57 +23,55 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, decision.Reason, "")
 		return false, decision, nil
 	}
-	response, hit, err := r.renderCache.store.Get(RequestContext(c), decision.Key)
-	if err != nil {
-		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheReadError, decision.Key)
-		setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheReadError)
-		if r.renderCache.policy.FailClosed {
-			err = c.SendStatus(http.StatusServiceUnavailable)
-			finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheReadError, err)
-			return true, decision, err
-		}
-		decision.Cacheable = false
-		decision.Reason = renderCacheReasonCacheReadError
-		return false, decision, nil
+	response, hit, lookupErr := r.renderCache.store.Get(RequestContext(c), decision.Key)
+	if lookupErr != nil {
+		return r.handleRenderCacheLookupFailure(c, decision, renderCacheReasonCacheReadError)
 	}
 	if !hit {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
 		return false, decision, nil
 	}
-	freshness := renderCacheResponseFreshness(response, time.Now())
-	if freshness == renderCacheFreshnessExpired {
-		if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
-			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
-			setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheWriteError)
-			if r.renderCache.policy.FailClosed {
-				err = c.SendStatus(http.StatusServiceUnavailable)
-				finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, err)
-				return true, decision, err
-			}
-			decision.Cacheable = false
-			decision.Reason = renderCacheReasonCacheWriteError
-			return false, decision, nil
+
+	switch renderCacheResponseFreshness(response, time.Now()) {
+	case renderCacheFreshnessExpired:
+		deleteErr := r.renderCache.store.Delete(RequestContext(c), decision.Key)
+		if deleteErr != nil {
+			return r.handleRenderCacheLookupFailure(c, decision, renderCacheReasonCacheWriteError)
 		}
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
 		return false, decision, nil
-	}
-	if freshness == renderCacheFreshnessStale {
+	case renderCacheFreshnessStale:
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusStale, "", decision.Key)
 		r.triggerRenderCacheStaleRevalidation(c, state, decision, response)
-		provenance := cloneDeliveryProvenance(response.Provenance)
-		provenance.CacheStatus = renderCacheStatusStale
-		writeDeliveryProvenanceHeaders(c, provenance)
-		err := replayRenderedSiteResponse(c, response)
-		finishRenderCacheRequest(c, RenderCacheRequestOutcomeStale, "", err)
-		return true, decision, err
+		replayErr := replayRenderCacheResponse(c, response, renderCacheStatusStale, RenderCacheRequestOutcomeStale)
+		return true, decision, replayErr
+	default:
+		r.writeRenderCacheDebugHeaders(c, renderCacheStatusHit, "", decision.Key)
+		replayErr := replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
+		return true, decision, replayErr
 	}
-	r.writeRenderCacheDebugHeaders(c, renderCacheStatusHit, "", decision.Key)
+}
+
+func (r *deliveryRuntime) handleRenderCacheLookupFailure(c router.Context, decision renderCacheDecision, reason string) (bool, renderCacheDecision, error) {
+	r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, reason, decision.Key)
+	setRenderCacheRequestFallbackReason(c, reason)
+	if r.renderCache.policy.FailClosed {
+		sendErr := c.SendStatus(http.StatusServiceUnavailable)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, reason, sendErr)
+		return true, decision, sendErr
+	}
+	decision.Cacheable = false
+	decision.Reason = reason
+	return false, decision, nil
+}
+
+func replayRenderCacheResponse(c router.Context, response RenderedSiteResponse, status string, outcome RenderCacheRequestOutcome) error {
 	provenance := cloneDeliveryProvenance(response.Provenance)
-	provenance.CacheStatus = renderCacheStatusHit
+	provenance.CacheStatus = status
 	writeDeliveryProvenanceHeaders(c, provenance)
-	err = replayRenderedSiteResponse(c, response)
-	finishRenderCacheRequest(c, RenderCacheRequestOutcomeHit, "", err)
-	return true, decision, err
+	replayErr := replayRenderedSiteResponse(c, response)
+	finishRenderCacheRequest(c, outcome, "", replayErr)
+	return replayErr
 }
 
 func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, state RequestState, decision renderCacheDecision, result renderedSiteTemplateResult, resolution *deliveryResolution) error {
@@ -93,45 +91,46 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 		setRenderCacheRequestFallbackReason(c, reason)
 		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
-	if err := r.renderCache.store.Set(RequestContext(c), decision.Key, response, renderCacheStoreTTL(policy)); err != nil {
+	setErr := r.renderCache.store.Set(RequestContext(c), decision.Key, response, renderCacheStoreTTL(policy))
+	if setErr != nil {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
 		setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheWriteError)
 		writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 		if policy.FailClosed {
-			err = c.SendStatus(http.StatusServiceUnavailable)
-			finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, err)
-			return err
+			sendErr := c.SendStatus(http.StatusServiceUnavailable)
+			finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, sendErr)
+			return sendErr
 		}
 		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
-	if err := r.attachRenderedResponseTags(c, decision.Key, response.Tags); err != nil {
-		if policy.RequireTagIndex {
-			if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
-				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
-				setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheWriteError)
-				writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
-				if policy.FailClosed {
-					err = c.SendStatus(http.StatusServiceUnavailable)
-					finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, err)
-					return err
-				}
-				return writeRenderedTemplate(c, result.Status, result.Rendered)
-			}
-			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonTagIndexWriteError, decision.Key)
-			setRenderCacheRequestFallbackReason(c, renderCacheReasonTagIndexWriteError)
-			writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
-			if policy.FailClosed {
-				err = c.SendStatus(http.StatusServiceUnavailable)
-				finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonTagIndexWriteError, err)
-				return err
-			}
-			return writeRenderedTemplate(c, result.Status, result.Rendered)
-		}
+	tagErr := r.attachRenderedResponseTags(c, decision.Key, response.Tags)
+	if tagErr != nil && policy.RequireTagIndex {
+		return r.handleRequiredRenderCacheTagFailure(c, decision.Key, result, policy)
 	}
 	r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
-	err := writeRenderedTemplateWithProvenance(c, result, renderCacheStatusMiss)
-	finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", err)
-	return err
+	writeErr := writeRenderedTemplateWithProvenance(c, result, renderCacheStatusMiss)
+	finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", writeErr)
+	return writeErr
+}
+
+func (r *deliveryRuntime) handleRequiredRenderCacheTagFailure(c router.Context, key string, result renderedSiteTemplateResult, policy RenderCachePolicy) error {
+	deleteErr := r.renderCache.store.Delete(RequestContext(c), key)
+	if deleteErr != nil {
+		return r.handleRenderCacheStorageFailure(c, key, result, policy, renderCacheReasonCacheWriteError)
+	}
+	return r.handleRenderCacheStorageFailure(c, key, result, policy, renderCacheReasonTagIndexWriteError)
+}
+
+func (r *deliveryRuntime) handleRenderCacheStorageFailure(c router.Context, key string, result renderedSiteTemplateResult, policy RenderCachePolicy, reason string) error {
+	r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, reason, key)
+	setRenderCacheRequestFallbackReason(c, reason)
+	writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
+	if policy.FailClosed {
+		sendErr := c.SendStatus(http.StatusServiceUnavailable)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, reason, sendErr)
+		return sendErr
+	}
+	return writeRenderedTemplate(c, result.Status, result.Rendered)
 }
 
 func deliveryProvenanceWithCacheStatus(provenance DeliveryProvenance, cacheStatus string) DeliveryProvenance {
@@ -201,7 +200,7 @@ func (r *deliveryRuntime) triggerRenderCacheStaleRevalidation(c router.Context, 
 	go func() {
 		defer group.done(key)
 		defer func() {
-			_ = recover()
+			_ = recover() //nolint:errcheck // Revalidator panics must not escape this goroutine.
 		}()
 		revalidator(ctx, request)
 	}()

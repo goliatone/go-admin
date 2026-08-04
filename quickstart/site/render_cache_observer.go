@@ -89,7 +89,10 @@ func renderCacheRequestTrackerFromContext(c router.Context) *renderCacheRequestT
 	if c == nil {
 		return nil
 	}
-	tracker, _ := c.Locals(renderCacheRequestTrackerLocalsKey).(*renderCacheRequestTracker)
+	tracker, ok := c.Locals(renderCacheRequestTrackerLocalsKey).(*renderCacheRequestTracker)
+	if !ok {
+		return nil
+	}
 	return tracker
 }
 

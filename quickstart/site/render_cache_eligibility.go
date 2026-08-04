@@ -238,10 +238,8 @@ func boundedRenderCacheObservationReason(reason string, policy RenderCachePolicy
 	if renderCacheBuiltInObservationReason(reason) {
 		return reason
 	}
-	for _, allowed := range policy.HostBypassReasonAllowlist {
-		if reason == allowed {
-			return reason
-		}
+	if slices.Contains(policy.HostBypassReasonAllowlist, reason) {
+		return reason
 	}
 	return renderCacheReasonHostBypass
 }

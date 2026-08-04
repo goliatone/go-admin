@@ -351,14 +351,14 @@ func TestRegisterRenderCacheDebugPanelProvidesSnapshotAndClear(t *testing.T) {
 	if err := RegisterRenderCacheDebugPanel(runtime); err != nil {
 		t.Fatalf("RegisterRenderCacheDebugPanel: %v", err)
 	}
-	registration, ok := debugregistry.Panel(RenderCacheDebugPanelID)
-	if !ok {
+	registration, panelOK := debugregistry.Panel(RenderCacheDebugPanelID)
+	if !panelOK {
 		t.Fatal("expected debug panel registration")
 	}
 	if registration.Definition.SnapshotKey != RenderCacheDebugPanelSnapshot || registration.Definition.Category != "site" {
 		t.Fatalf("unexpected panel definition: %+v", registration.Definition)
 	}
-	if snapshot, ok := registration.Snapshot(context.Background()).(RenderCacheDebugSnapshot); !ok || !snapshot.Configured {
+	if snapshot, snapshotOK := registration.Snapshot(context.Background()).(RenderCacheDebugSnapshot); !snapshotOK || !snapshot.Configured {
 		t.Fatalf("unexpected panel snapshot: %#v", snapshot)
 	}
 	if err := registration.Clear(context.Background()); err != nil {
@@ -383,7 +383,9 @@ func TestRenderCacheDebugObserverBoundsLogs(t *testing.T) {
 	}
 	store.err = errors.New("cache unavailable")
 	for i := range renderCacheDebugErrorsCap + 10 {
-		_, _, _ = wrapped.Get(context.Background(), RenderCacheKeyPrefix+"path=%2Ferror-"+time.Duration(i).String())
+		if _, _, err := wrapped.Get(context.Background(), RenderCacheKeyPrefix+"path=%2Ferror-"+time.Duration(i).String()); err == nil {
+			t.Fatalf("Get[%d]: expected cache error", i)
+		}
 	}
 	snapshot := observer.Snapshot(&RenderCacheRuntime{Config: RenderCacheConfig{Enabled: true}, Store: wrapped})
 	if len(snapshot.RecentOperations) != renderCacheDebugOperationsCap {

@@ -229,7 +229,7 @@ func assertRenderCacheObservationPair(t *testing.T, observations []RenderCacheRe
 
 func TestRenderCacheDebugObserverBoundsReasonCardinality(t *testing.T) {
 	observer := NewRenderCacheDebugObserver(newTestRenderCacheStore(), RenderCacheConfig{Enabled: true})
-	for index := 0; index < renderCacheDebugReasonsCap*3; index++ {
+	for index := range renderCacheDebugReasonsCap * 3 {
 		reason := fmt.Sprintf("host_reason_%d", index)
 		observer.ObserveRenderCacheRequest(t.Context(), RenderCacheRequestObservation{
 			Phase:   RenderCacheRequestPhaseTerminal,

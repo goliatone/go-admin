@@ -805,52 +805,101 @@ type renderCacheDebugWrapperTPBC struct {
 	renderCacheDebugCloseMethods
 }
 
+type renderCacheDebugWrapperParts struct {
+	observer    *RenderCacheDebugObserver
+	tag         renderCacheDebugTagMethods
+	prefix      renderCacheDebugPrefixMethods
+	backend     renderCacheDebugBackendMethods
+	closeMethod renderCacheDebugCloseMethods
+}
+
+type renderCacheDebugWrapperFactory func(renderCacheDebugWrapperParts) RenderCacheStore
+
+var renderCacheDebugWrapperFactories = [...]renderCacheDebugWrapperFactory{
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore { return parts.observer },
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperT{parts.observer, parts.tag}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperP{parts.observer, parts.prefix}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTP{parts.observer, parts.tag, parts.prefix}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperB{parts.observer, parts.backend}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTB{parts.observer, parts.tag, parts.backend}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPB{parts.observer, parts.prefix, parts.backend}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPB{parts.observer, parts.tag, parts.prefix, parts.backend}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperC{parts.observer, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTC{parts.observer, parts.tag, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPC{parts.observer, parts.prefix, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPC{parts.observer, parts.tag, parts.prefix, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperBC{parts.observer, parts.backend, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTBC{parts.observer, parts.tag, parts.backend, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPBC{parts.observer, parts.prefix, parts.backend, parts.closeMethod}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPBC{parts.observer, parts.tag, parts.prefix, parts.backend, parts.closeMethod}
+	},
+}
+
+const (
+	renderCacheDebugCapabilityTag = 1 << iota
+	renderCacheDebugCapabilityPrefix
+	renderCacheDebugCapabilityBackend
+	renderCacheDebugCapabilityClose
+)
+
 func NewRenderCacheDebugObservedStore(observer *RenderCacheDebugObserver) RenderCacheStore {
 	if observer == nil {
 		return nil
 	}
-	tag := renderCacheDebugTagMethods{observer: observer}
-	prefix := renderCacheDebugPrefixMethods{observer: observer}
-	backend := renderCacheDebugBackendMethods{observer: observer}
-	closeMethod := renderCacheDebugCloseMethods{observer: observer}
-	hasTag := RenderCacheStoreSupportsTagInvalidation(observer.store)
-	hasPrefix := RenderCacheStoreSupportsPrefixInvalidation(observer.store)
-	hasBackend := RenderCacheStoreSupportsBackendDescriptor(observer.store)
-	hasClose := RenderCacheStoreSupportsClose(observer.store)
-	switch {
-	case hasTag && hasPrefix && hasBackend && hasClose:
-		return &renderCacheDebugWrapperTPBC{observer, tag, prefix, backend, closeMethod}
-	case hasTag && hasPrefix && hasBackend:
-		return &renderCacheDebugWrapperTPB{observer, tag, prefix, backend}
-	case hasTag && hasPrefix && hasClose:
-		return &renderCacheDebugWrapperTPC{observer, tag, prefix, closeMethod}
-	case hasTag && hasBackend && hasClose:
-		return &renderCacheDebugWrapperTBC{observer, tag, backend, closeMethod}
-	case hasPrefix && hasBackend && hasClose:
-		return &renderCacheDebugWrapperPBC{observer, prefix, backend, closeMethod}
-	case hasTag && hasPrefix:
-		return &renderCacheDebugWrapperTP{observer, tag, prefix}
-	case hasTag && hasBackend:
-		return &renderCacheDebugWrapperTB{observer, tag, backend}
-	case hasTag && hasClose:
-		return &renderCacheDebugWrapperTC{observer, tag, closeMethod}
-	case hasPrefix && hasBackend:
-		return &renderCacheDebugWrapperPB{observer, prefix, backend}
-	case hasPrefix && hasClose:
-		return &renderCacheDebugWrapperPC{observer, prefix, closeMethod}
-	case hasBackend && hasClose:
-		return &renderCacheDebugWrapperBC{observer, backend, closeMethod}
-	case hasTag:
-		return &renderCacheDebugWrapperT{observer, tag}
-	case hasPrefix:
-		return &renderCacheDebugWrapperP{observer, prefix}
-	case hasBackend:
-		return &renderCacheDebugWrapperB{observer, backend}
-	case hasClose:
-		return &renderCacheDebugWrapperC{observer, closeMethod}
-	default:
-		return observer
+	parts := renderCacheDebugWrapperParts{
+		observer:    observer,
+		tag:         renderCacheDebugTagMethods{observer: observer},
+		prefix:      renderCacheDebugPrefixMethods{observer: observer},
+		backend:     renderCacheDebugBackendMethods{observer: observer},
+		closeMethod: renderCacheDebugCloseMethods{observer: observer},
 	}
+	return renderCacheDebugWrapperFactories[renderCacheDebugCapabilityMask(observer.store)](parts)
+}
+
+func renderCacheDebugCapabilityMask(store RenderCacheStore) int {
+	mask := 0
+	if RenderCacheStoreSupportsTagInvalidation(store) {
+		mask |= renderCacheDebugCapabilityTag
+	}
+	if RenderCacheStoreSupportsPrefixInvalidation(store) {
+		mask |= renderCacheDebugCapabilityPrefix
+	}
+	if RenderCacheStoreSupportsBackendDescriptor(store) {
+		mask |= renderCacheDebugCapabilityBackend
+	}
+	if RenderCacheStoreSupportsClose(store) {
+		mask |= renderCacheDebugCapabilityClose
+	}
+	return mask
 }
 
 func (s *RenderCacheDebugObserver) Get(ctx context.Context, key string) (RenderedSiteResponse, bool, error) {
