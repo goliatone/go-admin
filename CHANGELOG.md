@@ -1,20 +1,28 @@
 # Changelog
 
+# [0.127.4](https://github.com/goliatone/go-admin/compare/v0.127.3...v0.127.4) - (2026-08-04)
+
+## <!-- 16 -->➕ Add
+
+- Cache expose handler ([bac2c71](https://github.com/goliatone/go-admin/commit/bac2c71d8bc8a6f91cd1daff4a8030b67b6c7497))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([9f5ead8](https://github.com/goliatone/go-admin/commit/9f5ead8904628964c2dbd7ef77eb3e6e5a071f45))  - (goliatone)
+- Update release tools ([22df821](https://github.com/goliatone/go-admin/commit/22df821679a773ba7784da5321b8e1400c4adf52))  - (goliatone)
+
 # [0.127.3](https://github.com/goliatone/go-admin/compare/v0.127.2...v0.127.3) - (2026-08-04)
 
 
-## Added
-
-- Public HTML render-cache diagnostics now report bounded request eligibility and terminal outcomes separately from backend store operations, including auth and locale-cookie bypasses that occur before lookup.
-- The Debug Console now labels the subsystem as Public HTML Cache and distinguishes no traffic, all-bypassed traffic, warming, engaged, and degraded states.
-
-## Migration Notes
-
-Hosts that construct a `quickstart/site.RenderCacheRuntime` should pass it to site delivery with `WithRenderCacheRuntime` so request observers survive host store decorators. `WithRenderCache(store, policy)` remains compatible for callers that do not need request-level observation; observers can also be appended with `WithRenderCacheRequestObservers`.
+New patch release: v0.127.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Cache site activation and debug stats ([9d1b2d7](https://github.com/goliatone/go-admin/commit/9d1b2d795572f6fb08a51df4c3a4375821775173))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.127.3 ([00248aa](https://github.com/goliatone/go-admin/commit/00248aa8abf7c2e423c6e64e9a81c49978542c8e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
