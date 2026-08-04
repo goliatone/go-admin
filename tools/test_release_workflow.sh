@@ -311,6 +311,38 @@ function test_release_client_preflight_accepts_supported_node_versions {
     done
 }
 
+function test_release_client_preflight_accepts_supported_npm_versions {
+    local candidate
+    local status
+
+    for candidate in 11.17.0 11.18.0 12.0.0; do
+        (
+            function command { return 0; }
+            function node { printf '%s\n' v22.12.0; }
+            function npm { printf '%s\n' "${candidate}"; }
+            function gh { return 0; }
+            release:client:preflight
+        ) || {
+            echo "browser release rejected supported npm ${candidate}" >&2
+            return 1
+        }
+    done
+
+    for candidate in 11.16.99 10.99.99 invalid; do
+        (
+            function command { return 0; }
+            function node { printf '%s\n' v22.12.0; }
+            function npm { printf '%s\n' "${candidate}"; }
+            function gh { return 0; }
+            release:client:preflight
+        ) >/dev/null 2>&1 && status=0 || status=$?
+        if [ "${status}" -eq 0 ]; then
+            echo "browser release accepted unsupported npm ${candidate}" >&2
+            return 1
+        fi
+    done
+}
+
 function test_transaction_rollback {
     local transaction_fixture="${fixture_root}/transaction"
     local git_log="${fixture_root}/git.log"
@@ -1066,6 +1098,7 @@ test_examples_sync_tracks_coordinated_version
 test_quickstart_sync_runs_tests
 test_quickstart_sync_check_restores_after_interruption
 test_release_client_preflight_accepts_supported_node_versions
+test_release_client_preflight_accepts_supported_npm_versions
 test_transaction_rollback
 test_release_client_prepare_uses_tagged_source
 test_release_client_prepare_rejects_tag_skew

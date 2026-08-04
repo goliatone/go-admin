@@ -1946,6 +1946,7 @@ function release:client:enabled {
 function release:client:preflight {
     local actual
     local minimum_node=22.12.0
+    local minimum_npm=11.17.0
     command -v node >/dev/null 2>&1 || { echo "node is required to release the browser client" >&2; return 1; }
     command -v npm >/dev/null 2>&1 || { echo "npm is required to release the browser client" >&2; return 1; }
     command -v tar >/dev/null 2>&1 || { echo "tar is required to release the browser client" >&2; return 1; }
@@ -1957,7 +1958,10 @@ function release:client:preflight {
         return 1
     }
     actual=$(npm --version) || return 1
-    [ "${actual}" = "11.17.0" ] || { echo "browser release requires npm 11.17.0; found ${actual}" >&2; return 1; }
+    version:is_at_least "${actual}" "${minimum_npm}" || {
+        echo "browser release requires npm >=${minimum_npm}; found ${actual}" >&2
+        return 1
+    }
     gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated" >&2; return 1; }
 }
 
