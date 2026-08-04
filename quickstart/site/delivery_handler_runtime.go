@@ -14,7 +14,10 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 	}
 }
 
-func (r *deliveryRuntime) respondDelivery(c router.Context) error {
+func (r *deliveryRuntime) respondDelivery(c router.Context) (err error) {
+	tracker := installRenderCacheRequestTracker(c, r.renderCache.observers)
+	defer func() { tracker.complete(err) }()
+
 	state := fallbackRequestState(c, r.siteCfg, "/")
 	if state.ContentChannel == "" {
 		state.ContentChannel = r.siteCfg.ContentChannel
@@ -25,12 +28,14 @@ func (r *deliveryRuntime) respondDelivery(c router.Context) error {
 	}
 	flow := r.prepareDeliveryFlowWithState(c, state)
 	if hasSiteRuntimeError(flow.err) {
+		setRenderCacheRequestFallbackReason(c, renderCacheReasonRenderError)
 		return renderSiteRuntimeError(c, flow.state, r.siteCfg, flow.err)
 	}
 	if flow.resolution == nil {
 		if handled, err := r.respondHistoricalContentURLRedirect(c, flow.state, flow.requestPath, decision); handled || err != nil {
 			return err
 		}
+		setRenderCacheRequestFallbackReason(c, renderCacheReasonStatus)
 		return renderSiteRuntimeError(c, flow.state, r.siteCfg, SiteRuntimeError{
 			Status:          404,
 			RequestedLocale: flow.state.Locale,

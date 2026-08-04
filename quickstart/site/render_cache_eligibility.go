@@ -11,6 +11,8 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+const renderCacheHostReasonAllowlistCap = 32
+
 const (
 	renderCacheStatusBypass = DeliveryCacheStatusBypass
 	renderCacheStatusMiss   = DeliveryCacheStatusMiss
@@ -209,6 +211,88 @@ func renderCacheAuthCookieNames(policy RenderCachePolicy) []string {
 		"go_admin_session",
 	}
 	return append(defaults, policy.AuthCookieNames...)
+}
+
+func normalizeRenderCacheReasonAllowlist(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		if len(out) >= renderCacheHostReasonAllowlistCap {
+			break
+		}
+		value = normalizeRenderCacheReasonToken(value)
+		if value == "" || seen[value] || renderCacheBuiltInObservationReason(value) {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
+}
+
+func boundedRenderCacheObservationReason(reason string, policy RenderCachePolicy) string {
+	reason = normalizeRenderCacheReasonToken(reason)
+	if reason == "" {
+		return renderCacheReasonHostBypass
+	}
+	if renderCacheBuiltInObservationReason(reason) {
+		return reason
+	}
+	for _, allowed := range policy.HostBypassReasonAllowlist {
+		if reason == allowed {
+			return reason
+		}
+	}
+	return renderCacheReasonHostBypass
+}
+
+func normalizeRenderCacheReasonToken(reason string) string {
+	reason = strings.ToLower(strings.TrimSpace(reason))
+	if reason == "" || len(reason) > 64 {
+		return ""
+	}
+	for index := 0; index < len(reason); index++ {
+		char := reason[index]
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '_' || char == '-' || char == '.' {
+			continue
+		}
+		return ""
+	}
+	return reason
+}
+
+func renderCacheBuiltInObservationReason(reason string) bool {
+	switch reason {
+	case renderCacheReasonDisabled,
+		renderCacheReasonMissingStore,
+		renderCacheReasonUnsupportedRenderer,
+		renderCacheReasonMethod,
+		renderCacheReasonJSON,
+		renderCacheReasonPreview,
+		renderCacheReasonAuth,
+		renderCacheReasonHostBypass,
+		renderCacheReasonLocaleCookieMutation,
+		renderCacheReasonUnknownQuery,
+		renderCacheReasonReservedRoute,
+		renderCacheReasonSearchRoute,
+		renderCacheReasonCacheReadError,
+		renderCacheReasonCacheWriteError,
+		renderCacheReasonCanonicalRedirect,
+		renderCacheReasonHistoricalRedirect,
+		renderCacheReasonRenderError,
+		renderCacheReasonStatus,
+		renderCacheReasonOversizedCapture,
+		renderCacheReasonStreamCapture,
+		renderCacheReasonNonHTML,
+		renderCacheReasonUnsafeHeader,
+		renderCacheReasonTagIndexRequired,
+		renderCacheReasonTagIndexMemoryStore,
+		renderCacheReasonTagIndexBackendKind,
+		renderCacheReasonTagIndexWriteError:
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *deliveryRuntime) renderCacheReservedRoute(c router.Context) bool {

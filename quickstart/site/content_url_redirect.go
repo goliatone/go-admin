@@ -72,6 +72,7 @@ func (r *deliveryRuntime) respondHistoricalContentURLRedirect(
 	}
 	if cacheDecision.Cacheable {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonHistoricalRedirect, cacheDecision.Key)
+		setRenderCacheRequestFallbackReason(c, renderCacheReasonHistoricalRedirect)
 	}
 	return true, c.Redirect(target, status)
 }

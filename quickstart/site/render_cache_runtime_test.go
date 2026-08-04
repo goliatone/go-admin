@@ -85,6 +85,7 @@ func TestRenderCacheRegisteredDeliveryMissThenHitShortCircuits(t *testing.T) {
 
 func TestRenderCacheStaleHitReplaysAndTriggersRevalidator(t *testing.T) {
 	store := newTestRenderCacheStore()
+	observer := NewRenderCacheDebugObserver(store, RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory})
 	renderer := &testRenderCacheRenderer{}
 	services := newRenderCacheDeliveryServices(t)
 	revalidated := make(chan RenderCacheRevalidationRequest, 1)
@@ -95,15 +96,21 @@ func TestRenderCacheStaleHitReplaysAndTriggersRevalidator(t *testing.T) {
 		admin.Config{DefaultLocale: "en"},
 		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
 		WithDeliveryServices(services, services),
-		WithRenderCache(store, RenderCachePolicy{
-			Enabled:          true,
-			FreshTTL:         2 * time.Minute,
-			StaleTTL:         3 * time.Minute,
-			DebugHeaders:     true,
-			TemplateRenderer: renderer,
-			StaleRevalidator: func(_ context.Context, request RenderCacheRevalidationRequest) {
-				revalidated <- request
+		WithRenderCacheRuntime(&RenderCacheRuntime{
+			Config: RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory},
+			Store:  NewRenderCacheDebugObservedStore(observer),
+			Policy: RenderCachePolicy{
+				Enabled:          true,
+				FreshTTL:         2 * time.Minute,
+				StaleTTL:         3 * time.Minute,
+				DebugHeaders:     true,
+				TemplateRenderer: renderer,
+				StaleRevalidator: func(_ context.Context, request RenderCacheRevalidationRequest) {
+					revalidated <- request
+				},
 			},
+			Observer:         observer,
+			RequestObservers: []RenderCacheRequestObserver{observer},
 		}),
 	); err != nil {
 		t.Fatalf("register site routes: %v", err)
@@ -150,6 +157,10 @@ func TestRenderCacheStaleHitReplaysAndTriggersRevalidator(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("expected stale revalidator to be called")
+	}
+	snapshot := observer.Snapshot(&RenderCacheRuntime{Config: RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory}})
+	if snapshot.RequestCounters.Evaluated != 2 || snapshot.RequestCounters.Terminal != 2 || snapshot.RequestCounters.StoredResponses != 1 || snapshot.RequestCounters.ServedStale != 1 {
+		t.Fatalf("unexpected stale request accounting: %+v", snapshot.RequestCounters)
 	}
 }
 

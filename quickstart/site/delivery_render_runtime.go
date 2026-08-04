@@ -24,6 +24,7 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 	if target := r.canonicalRedirectTarget(c, resolution); target != "" {
 		if cacheDecision.Cacheable {
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCanonicalRedirect, cacheDecision.Key)
+			setRenderCacheRequestFallbackReason(c, renderCacheReasonCanonicalRedirect)
 		}
 		return c.Redirect(target, http.StatusPermanentRedirect)
 	}
@@ -57,10 +58,12 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 			var captureErr renderCacheCaptureError
 			if errors.As(err, &captureErr) && captureErr.Reason != renderCacheReasonRenderError {
 				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, captureErr.Reason, cacheDecision.Key)
+				setRenderCacheRequestFallbackReason(c, captureErr.Reason)
 				response.Provenance.CacheStatus = renderCacheStatusBypass
 				return renderSiteTemplateResponse(c, state, r.siteCfg, response)
 			}
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
+			setRenderCacheRequestFallbackReason(c, renderCacheReasonRenderError)
 			provenance := cloneDeliveryProvenance(response.Provenance)
 			provenance.CacheStatus = renderCacheStatusBypass
 			finalizeDeliveryProvenance(&provenance, "", DeliveryTextCodeRenderFailed)
@@ -69,6 +72,7 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 		}
 		if result.Status <= 0 || strings.TrimSpace(result.TemplateName) == "" {
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
+			setRenderCacheRequestFallbackReason(c, renderCacheReasonRenderError)
 			provenance := cloneDeliveryProvenance(result.Provenance)
 			provenance.CacheStatus = renderCacheStatusBypass
 			writeDeliveryProvenanceHeaders(c, provenance)

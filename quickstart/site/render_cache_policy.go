@@ -92,12 +92,17 @@ type RenderCachePolicy struct {
 
 	TemplateRenderer RenderCacheTemplateRenderer  `json:"-"`
 	BypassPredicates []RenderCacheBypassPredicate `json:"-"`
-	StaleRevalidator RenderCacheStaleRevalidator  `json:"-"`
+	// HostBypassReasonAllowlist contains static host-owned reason tokens that may
+	// be exposed to request diagnostics. Unlisted predicate reasons collapse to
+	// host_bypass so request-derived values cannot create unbounded telemetry.
+	HostBypassReasonAllowlist []string                    `json:"-"`
+	StaleRevalidator          RenderCacheStaleRevalidator `json:"-"`
 }
 
 type renderCacheConfig struct {
-	store  RenderCacheStore
-	policy RenderCachePolicy
+	store     RenderCacheStore
+	policy    RenderCachePolicy
+	observers []RenderCacheRequestObserver
 }
 
 // WithRenderCache configures public-site rendered response caching. The policy
@@ -111,6 +116,38 @@ func WithRenderCache(store RenderCacheStore, policy RenderCachePolicy) SiteOptio
 			store:  store,
 			policy: normalizeRenderCachePolicy(policy),
 		}
+	}
+}
+
+// WithRenderCacheRuntime configures public-site rendered response caching from
+// the complete runtime, preserving request observers independently of store
+// wrappers. The runtime is read during route registration and is not retained.
+func WithRenderCacheRuntime(runtime *RenderCacheRuntime) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil || runtime == nil {
+			return
+		}
+		observers := composeRenderCacheRequestObservers(runtime.RequestObservers)
+		if runtime.Observer != nil {
+			observers = composeRenderCacheRequestObservers(observers, []RenderCacheRequestObserver{runtime.Observer})
+		}
+		opts.renderCache = renderCacheConfig{
+			store:     runtime.Store,
+			policy:    normalizeRenderCachePolicy(runtime.Policy),
+			observers: observers,
+		}
+	}
+}
+
+// WithRenderCacheRequestObservers appends request-lifecycle observers to the
+// currently configured render cache. It is useful for hosts that keep using the
+// legacy store/policy option while adopting production metrics.
+func WithRenderCacheRequestObservers(observers ...RenderCacheRequestObserver) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.renderCache.observers = composeRenderCacheRequestObservers(opts.renderCache.observers, observers)
 	}
 }
 
@@ -147,6 +184,7 @@ func normalizeRenderCachePolicy(policy RenderCachePolicy) RenderCachePolicy {
 	}
 	policy.QueryAllowlist = primitives.NormalizeUniqueStringSliceEmpty(policy.QueryAllowlist)
 	policy.AuthCookieNames = primitives.NormalizeUniqueStringSliceEmpty(policy.AuthCookieNames)
+	policy.HostBypassReasonAllowlist = normalizeRenderCacheReasonAllowlist(policy.HostBypassReasonAllowlist)
 	if len(policy.HeaderAllowlist) == 0 {
 		policy.HeaderAllowlist = []string{"Content-Type", "Cache-Control", "ETag", "Last-Modified"}
 	} else {

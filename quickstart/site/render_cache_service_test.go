@@ -31,6 +31,9 @@ func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	if runtime == nil || runtime.Store == nil || runtime.Observer == nil {
 		t.Fatalf("expected active runtime with observed store, got %#v", runtime)
 	}
+	if len(runtime.RequestObservers) != 1 || runtime.RequestObservers[0] != runtime.Observer {
+		t.Fatalf("expected debug observer to receive request lifecycle events, got %#v", runtime.RequestObservers)
+	}
 	if !runtime.Diagnostic.Configured || !runtime.Diagnostic.Active || runtime.Diagnostic.Backend != RenderCacheBackendMemory {
 		t.Fatalf("unexpected diagnostic: %+v", runtime.Diagnostic)
 	}

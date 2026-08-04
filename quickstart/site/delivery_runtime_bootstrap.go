@@ -35,6 +35,7 @@ func newDeliveryRuntime(
 	if len(renderCache) > 0 {
 		cacheConfig = renderCache[0]
 		cacheConfig.policy = normalizeRenderCachePolicy(cacheConfig.policy)
+		cacheConfig.observers = composeRenderCacheRequestObservers(cacheConfig.observers)
 	}
 	return &deliveryRuntime{
 		siteCfg:        siteCfg,

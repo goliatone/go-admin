@@ -12,6 +12,13 @@ import (
 
 func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState) (bool, renderCacheDecision, error) {
 	decision := r.renderCacheLookupDecision(c, state)
+	observationReason := ""
+	if !decision.Cacheable {
+		observationReason = boundedRenderCacheObservationReason(decision.Reason, r.renderCache.policy)
+	}
+	if tracker := renderCacheRequestTrackerFromContext(c); tracker != nil {
+		tracker.evaluate(decision.Cacheable, observationReason)
+	}
 	if !decision.Cacheable {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, decision.Reason, "")
 		return false, decision, nil
@@ -19,8 +26,11 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	response, hit, err := r.renderCache.store.Get(RequestContext(c), decision.Key)
 	if err != nil {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheReadError, decision.Key)
+		setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheReadError)
 		if r.renderCache.policy.FailClosed {
-			return true, decision, c.SendStatus(http.StatusServiceUnavailable)
+			err = c.SendStatus(http.StatusServiceUnavailable)
+			finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheReadError, err)
+			return true, decision, err
 		}
 		decision.Cacheable = false
 		decision.Reason = renderCacheReasonCacheReadError
@@ -34,8 +44,11 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	if freshness == renderCacheFreshnessExpired {
 		if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+			setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheWriteError)
 			if r.renderCache.policy.FailClosed {
-				return true, decision, c.SendStatus(http.StatusServiceUnavailable)
+				err = c.SendStatus(http.StatusServiceUnavailable)
+				finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, err)
+				return true, decision, err
 			}
 			decision.Cacheable = false
 			decision.Reason = renderCacheReasonCacheWriteError
@@ -50,34 +63,44 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 		provenance := cloneDeliveryProvenance(response.Provenance)
 		provenance.CacheStatus = renderCacheStatusStale
 		writeDeliveryProvenanceHeaders(c, provenance)
-		return true, decision, replayRenderedSiteResponse(c, response)
+		err := replayRenderedSiteResponse(c, response)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeStale, "", err)
+		return true, decision, err
 	}
 	r.writeRenderCacheDebugHeaders(c, renderCacheStatusHit, "", decision.Key)
 	provenance := cloneDeliveryProvenance(response.Provenance)
 	provenance.CacheStatus = renderCacheStatusHit
 	writeDeliveryProvenanceHeaders(c, provenance)
-	return true, decision, replayRenderedSiteResponse(c, response)
+	err = replayRenderedSiteResponse(c, response)
+	finishRenderCacheRequest(c, RenderCacheRequestOutcomeHit, "", err)
+	return true, decision, err
 }
 
 func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, state RequestState, decision renderCacheDecision, result renderedSiteTemplateResult, resolution *deliveryResolution) error {
 	if r == nil || !decision.Cacheable || strings.TrimSpace(decision.Key) == "" {
+		setRenderCacheRequestFallbackReason(c, firstNonEmpty(decision.Reason, renderCacheReasonDisabled))
 		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
 	policy := normalizeRenderCachePolicy(r.renderCache.policy)
 	if !renderCacheStatusAllowed(result.Status, policy.CacheableStatuses) {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonStatus, decision.Key)
+		setRenderCacheRequestFallbackReason(c, renderCacheReasonStatus)
 		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
 	response, reason, ok := newRenderedSiteResponse(result, policy, renderCacheTagsForResolution(r.siteCfg, state, decision, resolution), time.Now())
 	if !ok {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, reason, decision.Key)
+		setRenderCacheRequestFallbackReason(c, reason)
 		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
 	if err := r.renderCache.store.Set(RequestContext(c), decision.Key, response, renderCacheStoreTTL(policy)); err != nil {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+		setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheWriteError)
 		writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 		if policy.FailClosed {
-			return c.SendStatus(http.StatusServiceUnavailable)
+			err = c.SendStatus(http.StatusServiceUnavailable)
+			finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, err)
+			return err
 		}
 		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
@@ -85,22 +108,30 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 		if policy.RequireTagIndex {
 			if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
 				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+				setRenderCacheRequestFallbackReason(c, renderCacheReasonCacheWriteError)
 				writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 				if policy.FailClosed {
-					return c.SendStatus(http.StatusServiceUnavailable)
+					err = c.SendStatus(http.StatusServiceUnavailable)
+					finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonCacheWriteError, err)
+					return err
 				}
 				return writeRenderedTemplate(c, result.Status, result.Rendered)
 			}
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonTagIndexWriteError, decision.Key)
+			setRenderCacheRequestFallbackReason(c, renderCacheReasonTagIndexWriteError)
 			writeDeliveryProvenanceHeaders(c, deliveryProvenanceWithCacheStatus(result.Provenance, renderCacheStatusBypass))
 			if policy.FailClosed {
-				return c.SendStatus(http.StatusServiceUnavailable)
+				err = c.SendStatus(http.StatusServiceUnavailable)
+				finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, renderCacheReasonTagIndexWriteError, err)
+				return err
 			}
 			return writeRenderedTemplate(c, result.Status, result.Rendered)
 		}
 	}
 	r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
-	return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusMiss)
+	err := writeRenderedTemplateWithProvenance(c, result, renderCacheStatusMiss)
+	finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", err)
+	return err
 }
 
 func deliveryProvenanceWithCacheStatus(provenance DeliveryProvenance, cacheStatus string) DeliveryProvenance {

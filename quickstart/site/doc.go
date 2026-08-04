@@ -48,6 +48,13 @@
 // Render cache:
 //   - WithRenderCache wires anonymous public HTML response caching for
 //     capability-driven site delivery.
+//   - WithRenderCacheRuntime carries the store, policy, and request observers as
+//     one runtime dependency. RenderCacheRequestObserver receives one bounded
+//     eligibility event and one terminal outcome per public delivery request;
+//     observer panics are isolated from visitor responses.
+//   - Request-level observations are independent of backend Store operations.
+//     In particular, auth, preview, and cookie-mutation bypasses are observable
+//     even though they intentionally perform no cache lookup.
 //   - Hosts provide the cache backend through RenderCacheStore. The interface is
 //     compatible with go-cache-style typed stores, but this package does not
 //     import go-cache.

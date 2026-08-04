@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	neturl "net/url"
 	"regexp"
 	"strings"
@@ -32,6 +33,7 @@ const (
 	renderCacheDebugOperationsCap = 100
 	renderCacheDebugKeysCap       = 100
 	renderCacheDebugErrorsCap     = 50
+	renderCacheDebugReasonsCap    = 32
 )
 
 var (
@@ -71,11 +73,12 @@ type RenderCacheValkeyConfig struct {
 }
 
 type RenderCacheRuntime struct {
-	Config     RenderCacheConfig
-	Store      RenderCacheStore
-	Policy     RenderCachePolicy
-	Diagnostic RenderCacheStartupDiagnostic
-	Observer   *RenderCacheDebugObserver
+	Config           RenderCacheConfig
+	Store            RenderCacheStore
+	Policy           RenderCachePolicy
+	Diagnostic       RenderCacheStartupDiagnostic
+	Observer         *RenderCacheDebugObserver
+	RequestObservers []RenderCacheRequestObserver
 }
 
 type RenderCacheStartupDiagnostic struct {
@@ -194,6 +197,7 @@ func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy Re
 	}
 	runtime.Observer = NewRenderCacheDebugObserver(store, cfg)
 	if runtime.Observer != nil {
+		runtime.RequestObservers = composeRenderCacheRequestObservers([]RenderCacheRequestObserver{runtime.Observer})
 		runtime.Store = NewRenderCacheDebugObservedStore(runtime.Observer)
 	} else {
 		runtime.Store = store
@@ -386,10 +390,11 @@ func scrubRenderCacheCredentialText(message string) string {
 }
 
 type RenderCacheDebugObserver struct {
-	store    RenderCacheStore
-	cfg      RenderCacheConfig
-	mu       sync.Mutex
-	counters RenderCacheDebugCounters
+	store           RenderCacheStore
+	cfg             RenderCacheConfig
+	mu              sync.Mutex
+	counters        RenderCacheDebugCounters
+	requestCounters RenderCacheDebugRequestCounters
 
 	recentOperations []RenderCacheDebugOperation
 	observedKeys     []RenderCacheDebugKey
@@ -409,6 +414,23 @@ type RenderCacheDebugCounters struct {
 	Errors        int64    `json:"errors"`
 	Clears        int64    `json:"clears"`
 	HitRatio      *float64 `json:"hit_ratio,omitempty"`
+}
+
+// RenderCacheDebugRequestCounters describes request-level public HTML cache
+// decisions. It is separate from RenderCacheDebugCounters because bypassed
+// requests intentionally perform no backend operation.
+type RenderCacheDebugRequestCounters struct {
+	Evaluated        int64            `json:"evaluated"`
+	Eligible         int64            `json:"eligible"`
+	Bypassed         int64            `json:"bypassed"`
+	Terminal         int64            `json:"terminal"`
+	ServedHits       int64            `json:"served_hits"`
+	ServedStale      int64            `json:"served_stale"`
+	StoredResponses  int64            `json:"stored_responses"`
+	RenderedUncached int64            `json:"rendered_uncached"`
+	Failed           int64            `json:"failed"`
+	BypassReasons    map[string]int64 `json:"bypass_reasons"`
+	ReasonCounts     map[string]int64 `json:"reason_counts"`
 }
 
 type RenderCacheDebugKey struct {
@@ -471,10 +493,12 @@ type RenderCacheDebugSnapshot struct {
 	Status           string                          `json:"status"`
 	Scope            string                          `json:"scope"`
 	ObservedBy       string                          `json:"observed_by"`
+	Engagement       string                          `json:"engagement"`
 	StartupError     *RenderCacheStartupError        `json:"startup_error,omitempty"`
 	Config           RenderCacheDebugConfig          `json:"config"`
 	Capabilities     RenderCacheDebugCapabilities    `json:"capabilities"`
 	Counters         RenderCacheDebugCounters        `json:"counters"`
+	RequestCounters  RenderCacheDebugRequestCounters `json:"request_counters"`
 	LatestCached     *RenderCacheDebugCachedResponse `json:"latest_cached,omitempty"`
 	ObservedKeys     []RenderCacheDebugKey           `json:"observed_keys"`
 	RecentOperations []RenderCacheDebugOperation     `json:"recent_operations"`
@@ -543,14 +567,114 @@ func NewRenderCacheDebugObserver(store RenderCacheStore, cfg RenderCacheConfig) 
 		return nil
 	}
 	return &RenderCacheDebugObserver{
-		store:            store,
-		cfg:              cfg,
+		store: store,
+		cfg:   cfg,
+		requestCounters: RenderCacheDebugRequestCounters{
+			BypassReasons: map[string]int64{renderCacheReasonHostBypass: 0},
+			ReasonCounts:  map[string]int64{renderCacheReasonHostBypass: 0},
+		},
 		observedKeyIndex: map[string]int{},
 	}
 }
 
 func (s *RenderCacheDebugObserver) RenderCacheDebugObserver() *RenderCacheDebugObserver {
 	return s
+}
+
+// ObserveRenderCacheRequest records bounded request-level cache decisions while
+// store operations continue to be recorded by the decorated RenderCacheStore.
+func (s *RenderCacheDebugObserver) ObserveRenderCacheRequest(_ context.Context, observation RenderCacheRequestObservation) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.requestCounters.BypassReasons == nil {
+		s.requestCounters.BypassReasons = map[string]int64{}
+	}
+	if s.requestCounters.ReasonCounts == nil {
+		s.requestCounters.ReasonCounts = map[string]int64{}
+	}
+	reason := normalizeRenderCacheReasonToken(observation.Reason)
+	switch observation.Phase {
+	case RenderCacheRequestPhaseEvaluated:
+		s.requestCounters.Evaluated++
+		switch observation.Outcome {
+		case RenderCacheRequestOutcomeEligible:
+			s.requestCounters.Eligible++
+		case RenderCacheRequestOutcomeBypassed:
+			s.requestCounters.Bypassed++
+			incrementBoundedRenderCacheReason(s.requestCounters.BypassReasons, reason)
+		}
+	case RenderCacheRequestPhaseTerminal:
+		s.requestCounters.Terminal++
+		switch observation.Outcome {
+		case RenderCacheRequestOutcomeHit:
+			s.requestCounters.ServedHits++
+		case RenderCacheRequestOutcomeStale:
+			s.requestCounters.ServedStale++
+		case RenderCacheRequestOutcomeStored:
+			s.requestCounters.StoredResponses++
+		case RenderCacheRequestOutcomeRenderedUncached:
+			s.requestCounters.RenderedUncached++
+		case RenderCacheRequestOutcomeFailed:
+			s.requestCounters.Failed++
+		}
+		incrementBoundedRenderCacheReason(s.requestCounters.ReasonCounts, reason)
+	}
+}
+
+func incrementBoundedRenderCacheReason(counts map[string]int64, reason string) {
+	if counts == nil || reason == "" {
+		return
+	}
+	if _, ok := counts[reason]; ok {
+		counts[reason]++
+		return
+	}
+	if len(counts) < renderCacheDebugReasonsCap {
+		counts[reason] = 1
+		return
+	}
+	if renderCacheBuiltInObservationReason(reason) {
+		for existing, count := range counts {
+			if renderCacheBuiltInObservationReason(existing) {
+				continue
+			}
+			delete(counts, existing)
+			counts[renderCacheReasonHostBypass] += count
+			counts[reason] = 1
+			return
+		}
+	}
+	counts[renderCacheReasonHostBypass]++
+}
+
+func cloneRenderCacheDebugRequestCounters(in RenderCacheDebugRequestCounters) RenderCacheDebugRequestCounters {
+	in.BypassReasons = maps.Clone(in.BypassReasons)
+	in.ReasonCounts = maps.Clone(in.ReasonCounts)
+	if in.BypassReasons == nil {
+		in.BypassReasons = map[string]int64{}
+	}
+	if in.ReasonCounts == nil {
+		in.ReasonCounts = map[string]int64{}
+	}
+	return in
+}
+
+func renderCacheDebugEngagement(counters RenderCacheDebugRequestCounters) string {
+	switch {
+	case counters.Failed > 0:
+		return "degraded"
+	case counters.Evaluated == 0:
+		return "no_traffic"
+	case counters.Eligible == 0 && counters.Bypassed > 0:
+		return "all_bypassed"
+	case counters.ServedHits > 0 || counters.ServedStale > 0:
+		return "engaged"
+	default:
+		return "warming"
+	}
 }
 
 type renderCacheDebugTagMethods struct {
@@ -869,6 +993,7 @@ func (s *RenderCacheDebugObserver) Snapshot(runtime *RenderCacheRuntime) RenderC
 	cfg := runtime.Config
 	s.mu.Lock()
 	counters := s.counters
+	requestCounters := cloneRenderCacheDebugRequestCounters(s.requestCounters)
 	if counters.Lookups > 0 {
 		ratio := float64(counters.Hits) / float64(counters.Lookups)
 		counters.HitRatio = &ratio
@@ -890,7 +1015,7 @@ func (s *RenderCacheDebugObserver) Snapshot(runtime *RenderCacheRuntime) RenderC
 
 	backend := RenderCacheBackendKind(s.store)
 	status := "healthy"
-	if counters.Errors > 0 {
+	if counters.Errors > 0 || requestCounters.Failed > 0 {
 		status = "degraded"
 	}
 	return RenderCacheDebugSnapshot{
@@ -900,10 +1025,12 @@ func (s *RenderCacheDebugObserver) Snapshot(runtime *RenderCacheRuntime) RenderC
 		Status:           status,
 		Scope:            "process_local",
 		ObservedBy:       "current_instance",
+		Engagement:       renderCacheDebugEngagement(requestCounters),
 		StartupError:     renderCacheStartupErrorFromDiagnostic(runtime.Diagnostic),
 		Config:           renderCacheDebugConfigFromConfig(cfg),
 		Capabilities:     RenderCacheDebugCapabilitiesForStore(s.store),
 		Counters:         counters,
+		RequestCounters:  requestCounters,
 		LatestCached:     latestCached,
 		ObservedKeys:     observedKeys,
 		RecentOperations: recentOperations,
@@ -1194,16 +1321,21 @@ func (p *renderCacheDebugPanel) inactiveSnapshot() RenderCacheDebugSnapshot {
 		}
 	}
 	return RenderCacheDebugSnapshot{
-		Configured:       cfg.Enabled,
-		Active:           false,
-		Backend:          backend,
-		Status:           status,
-		Scope:            "process_local",
-		ObservedBy:       "current_instance",
-		StartupError:     renderCacheStartupErrorFromDiagnostic(diagnostic),
-		Config:           renderCacheDebugConfigFromConfig(cfg),
-		Capabilities:     RenderCacheDebugCapabilities{},
-		Counters:         RenderCacheDebugCounters{},
+		Configured:   cfg.Enabled,
+		Active:       false,
+		Backend:      backend,
+		Status:       status,
+		Scope:        "process_local",
+		ObservedBy:   "current_instance",
+		Engagement:   "no_traffic",
+		StartupError: renderCacheStartupErrorFromDiagnostic(diagnostic),
+		Config:       renderCacheDebugConfigFromConfig(cfg),
+		Capabilities: RenderCacheDebugCapabilities{},
+		Counters:     RenderCacheDebugCounters{},
+		RequestCounters: RenderCacheDebugRequestCounters{
+			BypassReasons: map[string]int64{renderCacheReasonHostBypass: 0},
+			ReasonCounts:  map[string]int64{renderCacheReasonHostBypass: 0},
+		},
 		ObservedKeys:     []RenderCacheDebugKey{},
 		RecentOperations: []RenderCacheDebugOperation{},
 		RecentErrors:     recentErrors,
