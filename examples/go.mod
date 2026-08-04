@@ -7,7 +7,7 @@ require (
 	github.com/goliatone/go-admin v0.127.1
 	github.com/goliatone/go-admin/quickstart v0.127.1
 	github.com/goliatone/go-auth v0.45.0
-	github.com/goliatone/go-cms v0.60.5
+	github.com/goliatone/go-cms v0.60.6
 	github.com/goliatone/go-command v0.24.2
 	github.com/goliatone/go-config v0.14.0
 	github.com/goliatone/go-crud v0.25.0
@@ -114,7 +114,7 @@ require (
 	github.com/goliatone/go-notifications v0.15.0 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-cache v0.7.1 // indirect
+	github.com/goliatone/go-repository-cache v0.7.2 // indirect
 	github.com/goliatone/go-search v0.14.5 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect

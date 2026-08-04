@@ -145,8 +145,8 @@ github.com/goliatone/go-auth v0.45.0 h1:FzjdI0j8nsQpScUmP2hkYwPV2qQxXPaVM98wWbW9
 github.com/goliatone/go-auth v0.45.0/go.mod h1:bwD+0rIKjBz6zv/t2KDPd9mPmRcgK54EjvF3wrcuk5g=
 github.com/goliatone/go-auth/adapters/featuregate v0.45.0 h1:OHdSd0JLTiYDxfjjE4PQb5hzhepx4ZWvtGiegVY816U=
 github.com/goliatone/go-auth/adapters/featuregate v0.45.0/go.mod h1:sQqr82updcvD7IbqjCDYyQ9g5wJLhGObzc/cP14aaIM=
-github.com/goliatone/go-cms v0.60.5 h1:aPw5BRfa7Uft8dK5OcpaY68TE1TGC2apswPU1yoKI9w=
-github.com/goliatone/go-cms v0.60.5/go.mod h1:7n8o7vmhTkQpP4gVnUzkBVE7w7GvfQXNWAMSZUH6lzc=
+github.com/goliatone/go-cms v0.60.6 h1:WqUj32OWK28Le1cyxCBp0C0f6rVg/fCgDyqo+FTjoNk=
+github.com/goliatone/go-cms v0.60.6/go.mod h1:OmVQ45L6Z8/zsCbrjC1+M71tVXtFtRBuu5ebqLBoRuA=
 github.com/goliatone/go-command v0.24.2 h1:GXJ7yVvQ2fU7GYTpQVep1NtDyfhkhwin8OifnSZ2Vpo=
 github.com/goliatone/go-command v0.24.2/go.mod h1:oIfD1b4npSamA9ME2ph5f4IZKI1/S4QvqtjcfwtKqXU=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
@@ -183,8 +183,8 @@ github.com/goliatone/go-print v0.4.1 h1:rRcmZOWd27gq25Ays0nRu09tAH6wgTdfshE4rPpN
 github.com/goliatone/go-print v0.4.1/go.mod h1:hx13/Im2TeOYwwBwj/ImfjneDQ0MyN0ybfrgHripAus=
 github.com/goliatone/go-repository-bun v0.16.1 h1:nTYn+MwwvhX4o2MuBYiM8aDYpO++2XM3b+9afu/EFNI=
 github.com/goliatone/go-repository-bun v0.16.1/go.mod h1:bOFyQOGKyPJX+tkd7A7DhASqcPMvwdhDq41AmWujFqs=
-github.com/goliatone/go-repository-cache v0.7.1 h1:/JHBAWnBDiz9Gz1ko3XZMmq5ZuOOHRdedMZfoBCVWk8=
-github.com/goliatone/go-repository-cache v0.7.1/go.mod h1:vv+5iv/FjDBoasIzy8Tb0t/lpswK1W6+l3piar4+w1o=
+github.com/goliatone/go-repository-cache v0.7.2 h1:0ELiUAEUlvtY1SGd4/AO5DDFxPmuGLt82z9o10qCFGg=
+github.com/goliatone/go-repository-cache v0.7.2/go.mod h1:Reoa1cuC15Ad8ff1QnRFuJ1Vqm7hbv+aoopk2J2nuMw=
 github.com/goliatone/go-router v0.61.3 h1:9OnBVkg2BN1gf24yDEK3BU9S67RZjL+8P2zPGXdKDak=
 github.com/goliatone/go-router v0.61.3/go.mod h1:bcAifjTvKciFA6M6RtHcMAJ+mfuT//yxs/aLE3NHwDk=
 github.com/goliatone/go-search v0.14.5 h1:rTI9QcaEpAFiG+u20Mwc+CoeU3S9KcKUg5sxlDpNXcg=

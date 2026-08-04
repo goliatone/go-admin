@@ -11,7 +11,7 @@ require (
 	github.com/goliatone/go-auth v0.45.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
 	github.com/goliatone/go-cache v0.1.0
-	github.com/goliatone/go-cms v0.60.5
+	github.com/goliatone/go-cms v0.60.6
 	github.com/goliatone/go-command v0.24.2
 	github.com/goliatone/go-dashboard v0.15.4
 	github.com/goliatone/go-errors v0.12.0
@@ -118,7 +118,7 @@ require (
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.16.1 // indirect
-	github.com/goliatone/go-repository-cache v0.7.1 // indirect
+	github.com/goliatone/go-repository-cache v0.7.2 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.2 // indirect
