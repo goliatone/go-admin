@@ -11,7 +11,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-auth v0.45.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
-	github.com/goliatone/go-cms v0.60.4
+	github.com/goliatone/go-cms v0.60.5
 	github.com/goliatone/go-command v0.24.2
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-crud/gql v0.25.0
