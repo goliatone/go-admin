@@ -297,7 +297,7 @@ func testRenderCacheHandlerOptions(surface, canonical string) RenderCacheHandler
 func performRenderCacheHandlerRequest(t *testing.T, handler router.HandlerFunc, method, target string) *httptest.ResponseRecorder {
 	t.Helper()
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(method, target, nil)
+	request := httptest.NewRequestWithContext(context.Background(), method, target, nil)
 	context := router.NewHTTPRouterContext(recorder, request, nil, nil)
 	if err := handler(context); err != nil {
 		t.Fatalf("%s %s: %v", method, target, err)

@@ -47,24 +47,39 @@ type RenderCacheHandlerOptions struct {
 	ResolveTags func(router.Context) ([]string, error)
 }
 
+type renderCacheHandlerExecutor struct {
+	runtime      *RenderCacheRuntime
+	handler      router.HandlerFunc
+	options      RenderCacheHandlerOptions
+	revalidation renderCacheRevalidationGroup
+}
+
 // SetRenderCacheHandlerTags publishes bounded response dependencies from a
 // wrapped miss handler. Repeated calls merge and deduplicate tags.
 func SetRenderCacheHandlerTags(c router.Context, tags ...string) {
 	if c == nil {
 		return
 	}
-	existing, _ := c.Locals(renderCacheHandlerTagsLocalsKey).([]string)
+	existing := renderCacheHandlerLocalTags(c)
 	merged := primitives.NormalizeUniqueStringSliceEmpty(append(existing, tags...))
 	c.Locals(renderCacheHandlerTagsLocalsKey, merged)
 }
 
 // RenderCacheHandlerTags returns a copy of tags published by a wrapped handler.
 func RenderCacheHandlerTags(c router.Context) []string {
+	tags := renderCacheHandlerLocalTags(c)
+	return append([]string(nil), tags...)
+}
+
+func renderCacheHandlerLocalTags(c router.Context) []string {
 	if c == nil {
 		return nil
 	}
-	tags, _ := c.Locals(renderCacheHandlerTagsLocalsKey).([]string)
-	return append([]string(nil), tags...)
+	tags, ok := c.Locals(renderCacheHandlerTagsLocalsKey).([]string)
+	if !ok {
+		return nil
+	}
+	return tags
 }
 
 // WrapRenderCacheHandler applies the shared public HTML render-cache lifecycle
@@ -74,162 +89,226 @@ func WrapRenderCacheHandler(runtime *RenderCacheRuntime, handler router.HandlerF
 	if handler == nil {
 		return nil
 	}
-	var revalidation renderCacheRevalidationGroup
-	return func(c router.Context) (returnErr error) {
-		policy := RenderCachePolicy{}
-		var store RenderCacheStore
-		var observers []RenderCacheRequestObserver
-		if runtime != nil {
-			policy = normalizeRenderCachePolicy(runtime.Policy)
-			store = runtime.Store
-			observers = composeRenderCacheRequestObservers(runtime.RequestObservers)
-			if runtime.Observer != nil {
-				observers = composeRenderCacheRequestObservers(observers, []RenderCacheRequestObserver{runtime.Observer})
-			}
-		}
-		tracker := installRenderCacheRequestTracker(c, observers)
-		defer func() {
-			if tracker != nil {
-				tracker.complete(returnErr)
-			}
-		}()
-
-		if decision := renderCacheConfigDecision(renderCacheConfig{store: store, policy: policy}, policy); !decision.Cacheable {
-			return renderCacheHandlerBypass(c, handler, tracker, policy, decision.Reason)
-		}
-		if decision := renderCacheRequestDecision(c, policy); !decision.Cacheable {
-			return renderCacheHandlerBypass(c, handler, tracker, policy, decision.Reason)
-		}
-		if renderCacheHandlerPreviewTokenPresent(c) {
-			return renderCacheHandlerBypass(c, handler, tracker, policy, renderCacheReasonPreview)
-		}
-		if options.Decide == nil {
-			return renderCacheHandlerBypass(c, handler, tracker, policy, renderCacheReasonHandlerDecision)
-		}
-
-		decision, err := options.Decide(c)
-		if err != nil {
-			return renderCacheHandlerPreExecutionFailure(c, handler, tracker, policy, renderCacheReasonHandlerDecisionError, err)
-		}
-		if !decision.Cacheable {
-			reason := boundedRenderCacheObservationReason(decision.Reason, policy)
-			if reason == "" || reason == renderCacheReasonHostBypass {
-				reason = renderCacheReasonHandlerDecision
-			}
-			return renderCacheHandlerBypass(c, handler, tracker, policy, reason)
-		}
-		if stateDecision := renderCacheStateDecision(c, decision.State, policy); !stateDecision.Cacheable {
-			return renderCacheHandlerBypass(c, handler, tracker, policy, stateDecision.Reason)
-		}
-		if err := validateRenderCacheHandlerDecision(decision); err != nil {
-			return renderCacheHandlerPreExecutionFailure(c, handler, tracker, policy, renderCacheReasonHandlerDecisionError, err)
-		}
-
-		generation := uint64(0)
-		if decision.RequireFence {
-			if runtime == nil || runtime.Generations == nil || (!runtime.Generations.Shared() && !decision.AllowProcessLocalFence) {
-				return renderCacheHandlerPreExecutionFailure(c, handler, tracker, policy, renderCacheReasonFenceUnavailable, ErrRenderCacheGenerationUnavailable)
-			}
-			generation, err = ReadRenderCacheGeneration(RequestContext(c), runtime, decision.FenceScope)
-			if err != nil {
-				return renderCacheHandlerPreExecutionFailure(c, handler, tracker, policy, renderCacheReasonFenceReadError, err)
-			}
-		}
-
-		key := buildRenderCacheHandlerKey(policy, decision, generation)
-		tracker.evaluate(true, "")
-		response, hit, err := store.Get(RequestContext(c), key)
-		if err != nil {
-			return renderCacheHandlerPreExecutionFailure(c, handler, tracker, policy, renderCacheReasonCacheReadError, err)
-		}
-		if hit {
-			switch renderCacheResponseFreshness(response, time.Now()) {
-			case renderCacheFreshnessFresh:
-				writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusHit, "", key)
-				return replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
-			case renderCacheFreshnessStale:
-				if !decision.DisableStale {
-					writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusStale, "", key)
-					triggerRenderCacheHandlerStaleRevalidation(c, policy, &revalidation, key, decision, response)
-					return replayRenderCacheResponse(c, response, renderCacheStatusStale, RenderCacheRequestOutcomeStale)
-				}
-			}
-			if err := store.Delete(RequestContext(c), key); err != nil {
-				return renderCacheHandlerPreExecutionFailure(c, handler, tracker, policy, renderCacheReasonCacheWriteError, err)
-			}
-		}
-		writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusMiss, "", key)
-
-		if renderCacheMethodIsHead(c) {
-			setRenderCacheRequestFallbackReason(c, renderCacheReasonHeadMiss)
-			captured, captureErr := router.CaptureResponse(c, policy.MaxCaptureBodySize, handler)
-			if captureErr != nil {
-				return captureErr
-			}
-			if captured == nil {
-				return fmt.Errorf("render cache HEAD handler returned no captured response")
-			}
-			captured.Body = nil
-			returnErr = router.ReplayCapturedResponse(c, captured)
-			finishRenderCacheRequest(c, RenderCacheRequestOutcomeRenderedUncached, renderCacheReasonHeadMiss, returnErr)
-			return returnErr
-		}
-
-		captured, err := router.CaptureResponse(c, policy.MaxCaptureBodySize, handler)
-		if err != nil {
-			setRenderCacheRequestFallbackReason(c, renderCacheCaptureFailureReason(err))
-			return err
-		}
-		if captured == nil {
-			return fmt.Errorf("render cache handler returned no captured response")
-		}
-		result := renderedSiteTemplateResult{
-			Status:   captured.StatusCode,
-			Rendered: renderedTemplateFromCapturedResponse(captured),
-		}
-		if !renderCacheStatusAllowed(result.Status, policy.CacheableStatuses) {
-			return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, renderCacheReasonStatus)
-		}
-		if decision.FreshTTLOverride > 0 {
-			policy.FreshTTL = decision.FreshTTLOverride
-		}
-		if decision.DisableStale {
-			policy.StaleTTL = 0
-		}
-		tags := RenderCacheHandlerTags(c)
-		if options.ResolveTags != nil {
-			tags, err = options.ResolveTags(c)
-			if err != nil {
-				return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonTagResolutionError, err)
-			}
-		}
-		tags = primitives.NormalizeUniqueStringSliceEmpty(append([]string{RenderCacheAllSiteTag}, tags...))
-		cached, reason, ok := newRenderedSiteResponse(result, policy, tags, time.Now())
-		if !ok {
-			return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, reason)
-		}
-
-		if decision.RequireFence {
-			current, readErr := ReadRenderCacheGeneration(RequestContext(c), runtime, decision.FenceScope)
-			if readErr != nil {
-				return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonFenceReadError, readErr)
-			}
-			if current != generation {
-				return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, renderCacheReasonFenceChanged)
-			}
-		}
-		if err := store.Set(RequestContext(c), key, cached, renderCacheStoreTTL(policy)); err != nil {
-			return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonCacheWriteError, err)
-		}
-		if err := attachRenderCacheHandlerTags(c, store, key, cached.Tags); err != nil && policy.RequireTagIndex {
-			cleanupErr := quarantineRenderCacheHandlerEntry(c, store, key, cached, err)
-			return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonTagIndexWriteError, cleanupErr)
-		}
-		writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusMiss, "", key)
-		returnErr = router.ReplayCapturedResponse(c, captured)
-		finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", returnErr)
-		return returnErr
+	executor := &renderCacheHandlerExecutor{
+		runtime: runtime,
+		handler: handler,
+		options: options,
 	}
+	return executor.handle
+}
+
+func (e *renderCacheHandlerExecutor) handle(c router.Context) (returnErr error) {
+	policy, store, observers := renderCacheHandlerRuntimeConfig(e.runtime)
+	tracker := installRenderCacheRequestTracker(c, observers)
+	defer func() {
+		if tracker != nil {
+			tracker.complete(returnErr)
+		}
+	}()
+
+	returnErr = e.execute(c, tracker, policy, store)
+	return returnErr
+}
+
+func renderCacheHandlerRuntimeConfig(runtime *RenderCacheRuntime) (RenderCachePolicy, RenderCacheStore, []RenderCacheRequestObserver) {
+	if runtime == nil {
+		return RenderCachePolicy{}, nil, nil
+	}
+	observers := composeRenderCacheRequestObservers(runtime.RequestObservers)
+	if runtime.Observer != nil {
+		observers = composeRenderCacheRequestObservers(observers, []RenderCacheRequestObserver{runtime.Observer})
+	}
+	return normalizeRenderCachePolicy(runtime.Policy), runtime.Store, observers
+}
+
+func (e *renderCacheHandlerExecutor) execute(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore) error {
+	decision, generation, key, handled, prepareErr := e.prepare(c, tracker, policy, store)
+	if handled {
+		return prepareErr
+	}
+	return e.lookup(c, tracker, policy, store, decision, generation, key)
+}
+
+func (e *renderCacheHandlerExecutor) prepare(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore) (RenderCacheHandlerDecision, uint64, string, bool, error) {
+	if configDecision := renderCacheConfigDecision(renderCacheConfig{store: store, policy: policy}, policy); !configDecision.Cacheable {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, configDecision.Reason)
+	}
+	if requestDecision := renderCacheRequestDecision(c, policy); !requestDecision.Cacheable {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, requestDecision.Reason)
+	}
+	if renderCacheHandlerPreviewTokenPresent(c) {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, renderCacheReasonPreview)
+	}
+	if e.options.Decide == nil {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, renderCacheReasonHandlerDecision)
+	}
+
+	decision, decisionErr := e.options.Decide(c)
+	if decisionErr != nil {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonHandlerDecisionError, decisionErr)
+	}
+	if !decision.Cacheable {
+		reason := renderCacheHandlerDecisionReason(decision, policy)
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, reason)
+	}
+	if stateDecision := renderCacheStateDecision(c, decision.State, policy); !stateDecision.Cacheable {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, stateDecision.Reason)
+	}
+	if validationErr := validateRenderCacheHandlerDecision(decision); validationErr != nil {
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonHandlerDecisionError, validationErr)
+	}
+
+	generation, fenceErr := e.readRequiredGeneration(c, decision)
+	if fenceErr != nil {
+		reason := renderCacheReasonFenceReadError
+		if errors.Is(fenceErr, ErrRenderCacheGenerationUnavailable) {
+			reason = renderCacheReasonFenceUnavailable
+		}
+		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, reason, fenceErr)
+	}
+	return decision, generation, buildRenderCacheHandlerKey(policy, decision, generation), false, nil
+}
+
+func renderCacheHandlerDecisionReason(decision RenderCacheHandlerDecision, policy RenderCachePolicy) string {
+	reason := boundedRenderCacheObservationReason(decision.Reason, policy)
+	if reason == "" || reason == renderCacheReasonHostBypass {
+		return renderCacheReasonHandlerDecision
+	}
+	return reason
+}
+
+func (e *renderCacheHandlerExecutor) readRequiredGeneration(c router.Context, decision RenderCacheHandlerDecision) (uint64, error) {
+	if !decision.RequireFence {
+		return 0, nil
+	}
+	if e.runtime == nil || e.runtime.Generations == nil || (!e.runtime.Generations.Shared() && !decision.AllowProcessLocalFence) {
+		return 0, ErrRenderCacheGenerationUnavailable
+	}
+	return ReadRenderCacheGeneration(RequestContext(c), e.runtime, decision.FenceScope)
+}
+
+func (e *renderCacheHandlerExecutor) lookup(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generation uint64, key string) error {
+	tracker.evaluate(true, "")
+	response, hit, getErr := store.Get(RequestContext(c), key)
+	if getErr != nil {
+		return renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonCacheReadError, getErr)
+	}
+	if hit {
+		handled, hitErr := e.handleHit(c, tracker, policy, store, decision, key, response)
+		if handled {
+			return hitErr
+		}
+	}
+	return e.executeMiss(c, tracker, policy, store, decision, generation, key)
+}
+
+func (e *renderCacheHandlerExecutor) handleHit(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, key string, response RenderedSiteResponse) (bool, error) {
+	switch renderCacheResponseFreshness(response, time.Now()) {
+	case renderCacheFreshnessFresh:
+		writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusHit, "", key)
+		return true, replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
+	case renderCacheFreshnessStale:
+		if !decision.DisableStale {
+			writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusStale, "", key)
+			triggerRenderCacheHandlerStaleRevalidation(c, policy, &e.revalidation, key, decision, response)
+			return true, replayRenderCacheResponse(c, response, renderCacheStatusStale, RenderCacheRequestOutcomeStale)
+		}
+	}
+	deleteErr := store.Delete(RequestContext(c), key)
+	if deleteErr != nil {
+		return true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonCacheWriteError, deleteErr)
+	}
+	return false, nil
+}
+
+func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generation uint64, key string) error {
+	writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusMiss, "", key)
+	if renderCacheMethodIsHead(c) {
+		return renderCacheHandlerHeadMiss(c, e.handler, policy)
+	}
+
+	captured, captureErr := router.CaptureResponse(c, policy.MaxCaptureBodySize, e.handler)
+	if captureErr != nil {
+		setRenderCacheRequestFallbackReason(c, renderCacheCaptureFailureReason(captureErr))
+		return captureErr
+	}
+	if captured == nil {
+		return fmt.Errorf("render cache handler returned no captured response")
+	}
+	result := renderedSiteTemplateResult{
+		Status:   captured.StatusCode,
+		Rendered: renderedTemplateFromCapturedResponse(captured),
+	}
+	if !renderCacheStatusAllowed(result.Status, policy.CacheableStatuses) {
+		return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, renderCacheReasonStatus)
+	}
+	policy = renderCacheHandlerPolicy(policy, decision)
+	tags, tagErr := e.resolveTags(c)
+	if tagErr != nil {
+		return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonTagResolutionError, tagErr)
+	}
+	cached, reason, cacheable := newRenderedSiteResponse(result, policy, tags, time.Now())
+	if !cacheable {
+		return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, reason)
+	}
+
+	currentGeneration, fenceErr := e.readRequiredGeneration(c, decision)
+	if fenceErr != nil {
+		return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonFenceReadError, fenceErr)
+	}
+	if currentGeneration != generation {
+		return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, renderCacheReasonFenceChanged)
+	}
+	if setErr := store.Set(RequestContext(c), key, cached, renderCacheStoreTTL(policy)); setErr != nil {
+		return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonCacheWriteError, setErr)
+	}
+	attachErr := attachRenderCacheHandlerTags(c, store, key, cached.Tags)
+	if attachErr != nil && policy.RequireTagIndex {
+		cleanupErr := quarantineRenderCacheHandlerEntry(c, store, key, cached, attachErr)
+		return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonTagIndexWriteError, cleanupErr)
+	}
+	writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusMiss, "", key)
+	replayErr := router.ReplayCapturedResponse(c, captured)
+	finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", replayErr)
+	return replayErr
+}
+
+func renderCacheHandlerHeadMiss(c router.Context, handler router.HandlerFunc, policy RenderCachePolicy) error {
+	setRenderCacheRequestFallbackReason(c, renderCacheReasonHeadMiss)
+	captured, captureErr := router.CaptureResponse(c, policy.MaxCaptureBodySize, handler)
+	if captureErr != nil {
+		return captureErr
+	}
+	if captured == nil {
+		return fmt.Errorf("render cache HEAD handler returned no captured response")
+	}
+	captured.Body = nil
+	replayErr := router.ReplayCapturedResponse(c, captured)
+	finishRenderCacheRequest(c, RenderCacheRequestOutcomeRenderedUncached, renderCacheReasonHeadMiss, replayErr)
+	return replayErr
+}
+
+func renderCacheHandlerPolicy(policy RenderCachePolicy, decision RenderCacheHandlerDecision) RenderCachePolicy {
+	if decision.FreshTTLOverride > 0 {
+		policy.FreshTTL = decision.FreshTTLOverride
+	}
+	if decision.DisableStale {
+		policy.StaleTTL = 0
+	}
+	return policy
+}
+
+func (e *renderCacheHandlerExecutor) resolveTags(c router.Context) ([]string, error) {
+	tags := RenderCacheHandlerTags(c)
+	if e.options.ResolveTags != nil {
+		resolved, resolveErr := e.options.ResolveTags(c)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		tags = resolved
+	}
+	tags = append([]string{RenderCacheAllSiteTag}, tags...)
+	return primitives.NormalizeUniqueStringSliceEmpty(tags), nil
 }
 
 func triggerRenderCacheHandlerStaleRevalidation(c router.Context, policy RenderCachePolicy, group *renderCacheRevalidationGroup, key string, decision RenderCacheHandlerDecision, response RenderedSiteResponse) {
