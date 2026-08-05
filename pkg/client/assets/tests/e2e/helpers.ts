@@ -114,6 +114,22 @@ async function openRowActionsMenu(page: Page, rowIndex: number): Promise<Locator
     await trigger.click();
     await expect(menu).toBeVisible();
   }
+  await expect.poll(async () => {
+    const [menuBox, viewport] = await Promise.all([
+      menu.boundingBox(),
+      page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight })),
+    ]);
+    if (!menuBox) {
+      return false;
+    }
+    const tolerance = 1;
+    return menuBox.x >= -tolerance
+      && menuBox.y >= -tolerance
+      && menuBox.x + menuBox.width <= viewport.width + tolerance
+      && menuBox.y + menuBox.height <= viewport.height + tolerance;
+  }, {
+    message: 'row actions menu should be fully inside the viewport',
+  }).toBe(true);
   return row;
 }
 

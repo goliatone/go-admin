@@ -68,6 +68,24 @@ test('ActionRenderer dropdown renders disabled reasons without remediation links
   assert.doesNotMatch(html, /View schedules/);
 });
 
+test('ActionRenderer dropdown leaves overlay geometry to the shared menu contract', () => {
+  const renderer = new ActionRenderer({ mode: 'dropdown' });
+  const html = renderer.renderRowActions(
+    { id: 'row_1' },
+    [{ id: 'view', label: 'View', action: () => {} }]
+  );
+  const menuClass = html.match(/class="([^"]*\bactions-menu\b[^"]*)"/)?.[1] || '';
+
+  assert.ok(menuClass, 'expected an actions-menu class list');
+  for (const conflictingClass of ['absolute', 'right-0', 'mt-2', 'z-10']) {
+    assert.equal(
+      menuClass.split(/\s+/).includes(conflictingClass),
+      false,
+      `menu must not emit ${conflictingClass}`
+    );
+  }
+});
+
 test('ActionRenderer click guard prevents disabled row actions from executing', async () => {
   const renderer = new ActionRenderer({ mode: 'inline' });
   let calls = 0;

@@ -135,6 +135,9 @@ test('datatable-actions.css contains action dropdown styles', () => {
   assert.match(content, /\.actions-menu-trigger/, 'Should have .actions-menu-trigger class');
   assert.match(content, /\.actions-menu/, 'Should have .actions-menu class');
   assert.match(content, /\.action-item/, 'Should have .action-item class');
+  assert.match(content, /position:\s*fixed/, 'Action menus should use viewport coordinates');
+  assert.match(content, /--action-menu-z-index/, 'Action menu stacking should be theme-configurable');
+  assert.match(content, /100vh\s*-\s*20px/, 'Action menu height should stay inside the viewport');
 });
 
 test('datatable-actions.css contains aria-disabled styles for visible-disabled actions', () => {

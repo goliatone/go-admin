@@ -184,7 +184,7 @@ export class ActionRenderer {
         </button>
 
         <div id="${menuId}"
-             class="actions-menu hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-10 py-1"
+             class="actions-menu hidden w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
              role="menu"
              aria-orientation="vertical">
           ${actionItems}

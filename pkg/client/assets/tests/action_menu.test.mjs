@@ -54,6 +54,16 @@ function createDom() {
   `, { url: 'http://localhost/admin/translations/families' });
 }
 
+function setViewport(win, width, height) {
+  Object.defineProperty(win, 'innerWidth', { configurable: true, value: width });
+  Object.defineProperty(win, 'innerHeight', { configurable: true, value: height });
+}
+
+function setElementSize(element, width, height) {
+  Object.defineProperty(element, 'offsetWidth', { configurable: true, value: width });
+  Object.defineProperty(element, 'offsetHeight', { configurable: true, value: height });
+}
+
 test('shared action menu initializes static markup and toggles one menu at a time', async () => {
   const { initActionMenus } = await importActionMenuModule();
   const dom = createDom();
@@ -121,6 +131,66 @@ test('shared action menu prevents disabled item activation', async () => {
 
   assert.equal(dispatched, false);
   assert.equal(event.defaultPrevented, true);
+});
+
+test('default action menu positioner applies fixed viewport geometry below the trigger', async () => {
+  const { defaultActionMenuPositioner } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  setViewport(dom.window, 1200, 800);
+
+  const trigger = dom.window.document.querySelector('[data-action-menu-trigger]');
+  const menu = dom.window.document.querySelector('[data-action-menu-content]');
+  trigger.getBoundingClientRect = () => ({
+    top: 100,
+    right: 900,
+    bottom: 132,
+    left: 868,
+    width: 32,
+    height: 32,
+    x: 868,
+    y: 100,
+    toJSON() {},
+  });
+  setElementSize(menu, 224, 180);
+
+  defaultActionMenuPositioner({ trigger, menu });
+
+  assert.equal(menu.style.position, 'fixed');
+  assert.equal(menu.style.right, 'auto');
+  assert.equal(menu.style.left, '676px');
+  assert.equal(menu.style.top, '140px');
+  assert.equal(menu.style.bottom, 'auto');
+  assert.equal(menu.style.margin, '0px');
+});
+
+test('default action menu positioner opens upward and clamps both axes to the viewport', async () => {
+  const { defaultActionMenuPositioner } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  setViewport(dom.window, 320, 360);
+
+  const trigger = dom.window.document.querySelector('[data-action-menu-trigger]');
+  const menu = dom.window.document.querySelector('[data-action-menu-content]');
+  trigger.getBoundingClientRect = () => ({
+    top: 310,
+    right: 318,
+    bottom: 342,
+    left: 286,
+    width: 32,
+    height: 32,
+    x: 286,
+    y: 310,
+    toJSON() {},
+  });
+  setElementSize(menu, 224, 300);
+
+  defaultActionMenuPositioner({ trigger, menu });
+
+  assert.equal(menu.style.left, '86px');
+  assert.equal(menu.style.top, '10px');
+  assert.equal(Number.parseFloat(menu.style.left) + 224 <= 310, true);
+  assert.equal(Number.parseFloat(menu.style.top) + 300 <= 350, true);
 });
 
 test('shared action menu supports existing DataGrid dropdown markup', async () => {

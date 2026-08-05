@@ -13,7 +13,7 @@ import {
 } from '../toast/error-helpers.js';
 import { addDelegatedEventListener } from '../shared/events/delegation.js';
 import { httpRequest } from '../shared/transport/http-client.js';
-import { initActionMenus } from '../shared/action-menu.js';
+import { defaultActionMenuPositioner, initActionMenus } from '../shared/action-menu.js';
 
 export function adoptSemanticPresentation(grid: any): void {
   const table = grid.tableEl as HTMLTableElement | null;
@@ -1006,29 +1006,7 @@ export function clearSelection(grid: any): void {
    * Position dropdown menu intelligently based on available space
    */
 export function positionDropdownMenu(grid: any, trigger: HTMLElement, menu: HTMLElement): void {
-    const triggerRect = trigger.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight || 300; // Estimate if not rendered
-    const viewportHeight = window.innerHeight;
-    const spaceBelow = viewportHeight - triggerRect.bottom;
-    const spaceAbove = triggerRect.top;
-
-    // Determine if menu should open upward or downward
-    const shouldOpenUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
-
-    // Position horizontally (align right edge of menu with trigger)
-    const left = triggerRect.right - (menu.offsetWidth || 224); // 224px = 14rem default width
-    menu.style.left = `${Math.max(10, left)}px`; // At least 10px from left edge
-
-    // Position vertically
-    if (shouldOpenUpward) {
-      // Open upward
-      menu.style.top = `${triggerRect.top - menuHeight - 8}px`;
-      menu.style.bottom = 'auto';
-    } else {
-      // Open downward (default)
-      menu.style.top = `${triggerRect.bottom + 8}px`;
-      menu.style.bottom = 'auto';
-    }
+    defaultActionMenuPositioner({ trigger, menu });
   }
 
   /**

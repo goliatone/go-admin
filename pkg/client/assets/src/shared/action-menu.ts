@@ -81,19 +81,42 @@ export function isActionMenuItemDisabled(item: HTMLElement): boolean {
   return item.getAttribute('aria-disabled') === 'true' || item.dataset.disabled === 'true';
 }
 
-export function defaultActionMenuPositioner({ trigger, menu }: ActionMenuPositionContext): void {
+export type ActionMenuPositionElements = Pick<ActionMenuPositionContext, 'trigger' | 'menu'>;
+
+/**
+ * Position an action menu as a viewport overlay.
+ *
+ * Dynamic geometry is applied inline so host utility stylesheets cannot change
+ * the coordinate system after the position has been calculated. Component CSS
+ * remains responsible for visual presentation and the default overlay layer.
+ */
+export function defaultActionMenuPositioner({ trigger, menu }: ActionMenuPositionElements): void {
   const triggerRect = trigger.getBoundingClientRect();
-  const menuHeight = menu.offsetHeight || 300;
+  const viewportWidth = window.innerWidth;
   const menuWidth = menu.offsetWidth || 224;
   const viewportHeight = window.innerHeight;
+  const viewportInset = 10;
+  const triggerGap = 8;
+  const availableHeight = Math.max(0, viewportHeight - (viewportInset * 2));
+  const menuHeight = menu.offsetHeight || Math.min(300, availableHeight);
   const spaceBelow = viewportHeight - triggerRect.bottom;
   const spaceAbove = triggerRect.top;
   const shouldOpenUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
-  const left = triggerRect.right - menuWidth;
+  const desiredLeft = triggerRect.right - menuWidth;
+  const maxLeft = Math.max(viewportInset, viewportWidth - menuWidth - viewportInset);
+  const left = Math.min(Math.max(viewportInset, desiredLeft), maxLeft);
+  const desiredTop = shouldOpenUpward
+    ? triggerRect.top - menuHeight - triggerGap
+    : triggerRect.bottom + triggerGap;
+  const maxTop = Math.max(viewportInset, viewportHeight - menuHeight - viewportInset);
+  const top = Math.min(Math.max(viewportInset, desiredTop), maxTop);
 
-  menu.style.left = `${Math.max(10, left)}px`;
-  menu.style.top = `${shouldOpenUpward ? triggerRect.top - menuHeight - 8 : triggerRect.bottom + 8}px`;
+  menu.style.position = 'fixed';
+  menu.style.right = 'auto';
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
   menu.style.bottom = 'auto';
+  menu.style.margin = '0';
 }
 
 export function initActionMenus(
