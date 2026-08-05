@@ -1,15 +1,25 @@
 # Changelog
 
+# [0.128.1](https://github.com/goliatone/go-admin/compare/v0.128.0...v0.128.1) - (2026-08-05)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([47784ac](https://github.com/goliatone/go-admin/commit/47784ac93b13c4cc33976180fc3228d4a7478019))  - (goliatone)
+- Registration time validation ([8c4a653](https://github.com/goliatone/go-admin/commit/8c4a65359351714836f38964f71ceeda1597538d))  - (goliatone)
+- Accept npm version ([75cc8a2](https://github.com/goliatone/go-admin/commit/75cc8a26469cb777966fb4cf2669691f57ebbb1e))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([4ff256c](https://github.com/goliatone/go-admin/commit/4ff256cb5afc4ba54e9f06ab92997f5cd80a8ad2))  - (goliatone)
+
 # [0.128.0](https://github.com/goliatone/go-admin/compare/v0.127.5...v0.128.0) - (2026-08-05)
 
 
-## Migration Notes
+New minor release: v0.128.0
 
-Public-site render caching now supports explicit fixed and sliding expiration through `site.RenderCachePolicy.ExpirationMode` and `site.RenderCacheConfig.ExpirationMode`. The zero value remains fixed and requires no host changes.
+## <!-- 13 -->📦 Bumps
 
-Sliding mode renews fresh GET and HEAD hits, adds one backend write per fresh hit, and may keep frequently accessed entries fresh indefinitely. Enable production sliding mode only when mutation-driven tag, prefix, render-version, or handler-generation invalidation is active. Stale hits never renew and continue through stale-while-revalidate.
-
-Built-in memory and Valkey runtimes support sliding expiration. Custom render-cache stores must implement `site.RenderCacheSetIfPresentStore`; unsupported stores follow the configured fail-open or fail-closed policy.
+- Bump version: v0.128.0 ([c915402](https://github.com/goliatone/go-admin/commit/c9154025226cfa3b7f5753bca92efdff349d9d27))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
