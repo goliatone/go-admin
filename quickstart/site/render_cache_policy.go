@@ -16,12 +16,27 @@ const (
 	defaultRenderCacheRenderVersion = "1"
 )
 
+// RenderCacheExpirationMode controls whether fresh cache hits retain their
+// original deadline or renew it.
+type RenderCacheExpirationMode string
+
+const (
+	RenderCacheExpirationFixed   RenderCacheExpirationMode = "fixed"
+	RenderCacheExpirationSliding RenderCacheExpirationMode = "sliding"
+)
+
 // RenderCacheStore is the local public-site render cache contract. It matches
 // go-cache-style typed stores without coupling quickstart/site to a backend.
 type RenderCacheStore interface {
 	Get(ctx context.Context, key string) (RenderedSiteResponse, bool, error)
 	Set(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) error
 	Delete(ctx context.Context, key string) error
+}
+
+// RenderCacheSetIfPresentStore conditionally replaces a live entry. It is
+// structurally compatible with go-cache's optional SetIfPresentCache contract.
+type RenderCacheSetIfPresentStore interface {
+	SetIfPresent(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) (bool, error)
 }
 
 // RenderCacheTagInvalidator is implemented by stores that can associate and
@@ -65,13 +80,14 @@ type RenderCacheStaleRevalidator func(ctx context.Context, request RenderCacheRe
 type RenderCachePolicy struct {
 	Enabled bool `json:"enabled"`
 
-	SchemaVersion        string        `json:"schema_version"`
-	ApplicationNamespace string        `json:"application_namespace"`
-	EnvironmentNamespace string        `json:"environment_namespace"`
-	SiteNamespace        string        `json:"site_namespace"`
-	RenderVersion        string        `json:"render_version"`
-	FreshTTL             time.Duration `json:"fresh_ttl"`
-	StaleTTL             time.Duration `json:"stale_ttl"`
+	SchemaVersion        string                    `json:"schema_version"`
+	ApplicationNamespace string                    `json:"application_namespace"`
+	EnvironmentNamespace string                    `json:"environment_namespace"`
+	SiteNamespace        string                    `json:"site_namespace"`
+	RenderVersion        string                    `json:"render_version"`
+	FreshTTL             time.Duration             `json:"fresh_ttl"`
+	StaleTTL             time.Duration             `json:"stale_ttl"`
+	ExpirationMode       RenderCacheExpirationMode `json:"expiration_mode"`
 
 	CacheableMethods  []string `json:"cacheable_methods"`
 	CacheableStatuses []int    `json:"cacheable_statuses"`
@@ -152,6 +168,7 @@ func WithRenderCacheRequestObservers(observers ...RenderCacheRequestObserver) Si
 }
 
 func normalizeRenderCachePolicy(policy RenderCachePolicy) RenderCachePolicy {
+	policy.ExpirationMode = normalizeRenderCacheExpirationMode(policy.ExpirationMode)
 	policy.SchemaVersion = firstNonEmpty(
 		strings.TrimSpace(policy.SchemaVersion),
 		defaultRenderCacheSchemaVersion,
@@ -192,6 +209,23 @@ func normalizeRenderCachePolicy(policy RenderCachePolicy) RenderCachePolicy {
 	}
 	policy.BypassPredicates = append([]RenderCacheBypassPredicate{}, policy.BypassPredicates...)
 	return policy
+}
+
+func normalizeRenderCacheExpirationMode(mode RenderCacheExpirationMode) RenderCacheExpirationMode {
+	mode = RenderCacheExpirationMode(strings.ToLower(strings.TrimSpace(string(mode))))
+	if mode == "" {
+		return RenderCacheExpirationFixed
+	}
+	return mode
+}
+
+func validRenderCacheExpirationMode(mode RenderCacheExpirationMode) bool {
+	switch normalizeRenderCacheExpirationMode(mode) {
+	case RenderCacheExpirationFixed, RenderCacheExpirationSliding:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeMethodList(values []string) []string {

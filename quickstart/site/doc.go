@@ -68,12 +68,19 @@
 //   - Cache hits replay stored RenderedSiteResponse values through site-owned
 //     safe-header filtering, HEAD handling, debug headers, and freshness
 //     metadata; raw router.CapturedResponse values are not stored or replayed.
+//   - RenderCachePolicy.ExpirationMode defaults to fixed. Sliding mode renews
+//     only fresh GET/HEAD hits, preserves CreatedAt, and resets logical and
+//     backend deadlines through RenderCacheSetIfPresentStore. Stale hits never
+//     renew. Custom sliding stores must implement that optional capability.
 //   - StaleTTL enables stale-while-revalidate behavior: stores retain entries
 //     for FreshTTL plus StaleTTL, stale hits replay with cache status "stale",
 //     expired entries are deleted and refreshed as misses, and hosts can wire
 //     RenderCachePolicy.StaleRevalidator for safe background regeneration.
 //     Revalidation is keyed so duplicate stale hits do not stampede one process,
 //     and host callback panics are recovered.
+//   - Sliding expiration adds one backend write per fresh hit and can keep hot
+//     entries fresh indefinitely. Production hosts must retain mutation-driven
+//     tag, prefix, render-version, or handler-generation invalidation.
 //   - The default policy is conservative: GET/HEAD, status 200, no arbitrary
 //     query variation, auth/session/preview/JSON/search/API/cookie-mutating
 //     requests bypass, and only safe response headers are replayed.

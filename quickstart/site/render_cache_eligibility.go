@@ -51,6 +51,9 @@ const (
 	renderCacheReasonFenceReadError       = "fence_read_error"
 	renderCacheReasonFenceChanged         = "fence_changed"
 	renderCacheReasonTagResolutionError   = "tag_resolution_error"
+	renderCacheReasonExpirationMode       = "expiration_mode_invalid"
+	renderCacheReasonRenewalUnsupported   = "cache_renewal_unsupported"
+	renderCacheReasonRenewalError         = "cache_renewal_error"
 )
 
 type renderCacheDecision struct {
@@ -114,6 +117,10 @@ func renderCacheConfigDecision(cfg renderCacheConfig, policy RenderCachePolicy) 
 		return renderCacheDecision{Reason: renderCacheReasonDisabled}
 	case cfg.store == nil:
 		return renderCacheDecision{Reason: renderCacheReasonMissingStore}
+	case !validRenderCacheExpirationMode(policy.ExpirationMode):
+		return renderCacheDecision{Reason: renderCacheReasonExpirationMode}
+	case policy.ExpirationMode == RenderCacheExpirationSliding && !RenderCacheStoreSupportsSetIfPresent(cfg.store):
+		return renderCacheDecision{Reason: renderCacheReasonRenewalUnsupported}
 	case policy.RequireTagIndex && renderCacheStoreIsMemoryBackend(cfg.store):
 		return renderCacheDecision{Reason: renderCacheReasonTagIndexMemoryStore}
 	case policy.RequireTagIndex && !renderCacheStoreHasDeclaredBackendKind(cfg.store):
@@ -301,7 +308,10 @@ func renderCacheBuiltInObservationReason(reason string) bool {
 		renderCacheReasonFenceUnavailable,
 		renderCacheReasonFenceReadError,
 		renderCacheReasonFenceChanged,
-		renderCacheReasonTagResolutionError:
+		renderCacheReasonTagResolutionError,
+		renderCacheReasonExpirationMode,
+		renderCacheReasonRenewalUnsupported,
+		renderCacheReasonRenewalError:
 		return true
 	default:
 		return false

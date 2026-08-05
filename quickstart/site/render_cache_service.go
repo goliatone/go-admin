@@ -51,6 +51,7 @@ type RenderCacheConfig struct {
 	Backend            string
 	FreshTTL           time.Duration
 	StaleTTL           time.Duration
+	ExpirationMode     RenderCacheExpirationMode
 	RenderVersion      string
 	Namespace          string
 	DebugHeaders       bool
@@ -121,6 +122,16 @@ type renderCacheBackendStoreWithClose struct {
 	closeFn func()
 }
 
+type renderCacheBackendStoreWithRenewal struct {
+	*renderCacheBackendStore
+	updater RenderCacheSetIfPresentStore
+}
+
+type renderCacheBackendStoreWithCloseAndRenewal struct {
+	*renderCacheBackendStoreWithClose
+	updater RenderCacheSetIfPresentStore
+}
+
 func (s *renderCacheBackendStore) RenderCacheBackendKind() string {
 	if s == nil {
 		return ""
@@ -152,6 +163,14 @@ func (s *renderCacheBackendStore) DeleteByKeyPrefix(ctx context.Context, prefix 
 	return invalidator.DeleteByKeyPrefix(ctx, prefix)
 }
 
+func (s *renderCacheBackendStoreWithRenewal) SetIfPresent(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) (bool, error) {
+	return s.updater.SetIfPresent(ctx, key, value, ttl)
+}
+
+func (s *renderCacheBackendStoreWithCloseAndRenewal) SetIfPresent(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) (bool, error) {
+	return s.updater.SetIfPresent(ctx, key, value, ttl)
+}
+
 func (s *renderCacheBackendStoreWithClose) Close() error {
 	if s == nil || s.RenderCacheStore == nil {
 		return nil
@@ -170,6 +189,18 @@ func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy Re
 	_ = ctx
 	policy = normalizeRenderCachePolicy(policy)
 	cfg = normalizeRenderCacheRuntimeConfig(cfg, policy)
+	if !validRenderCacheExpirationMode(cfg.ExpirationMode) {
+		err := &renderCacheInvalidConfigError{field: "site.render_cache.expiration_mode", err: errRenderCacheInvalidConfiguration}
+		diagnostic := RenderCacheStartupDiagnostic{
+			Configured: cfg.Enabled,
+			Backend:    cfg.Backend,
+			FailClosed: cfg.FailClosed,
+			Error:      sanitizeRenderCacheStartupError(cfg, err),
+			ErrorKind:  "invalid_configuration",
+			RecordedAt: time.Now().UTC(),
+		}
+		return &RenderCacheRuntime{Config: cfg, Policy: policy, Diagnostic: diagnostic}, err
+	}
 	policy = applyRenderCacheRuntimeConfigToPolicy(cfg, policy)
 	diagnostic := RenderCacheStartupDiagnostic{
 		Configured: cfg.Enabled,
@@ -224,6 +255,10 @@ func normalizeRenderCacheRuntimeConfig(cfg RenderCacheConfig, policy RenderCache
 	if cfg.StaleTTL < 0 {
 		cfg.StaleTTL = 0
 	}
+	if strings.TrimSpace(string(cfg.ExpirationMode)) == "" {
+		cfg.ExpirationMode = policy.ExpirationMode
+	}
+	cfg.ExpirationMode = normalizeRenderCacheExpirationMode(cfg.ExpirationMode)
 	if cfg.RenderVersion == "" {
 		cfg.RenderVersion = strings.TrimSpace(policy.RenderVersion)
 	}
@@ -246,6 +281,7 @@ func applyRenderCacheRuntimeConfigToPolicy(cfg RenderCacheConfig, policy RenderC
 	policy.Enabled = cfg.Enabled
 	policy.FreshTTL = cfg.FreshTTL
 	policy.StaleTTL = cfg.StaleTTL
+	policy.ExpirationMode = cfg.ExpirationMode
 	policy.RenderVersion = strings.TrimSpace(firstNonEmpty(cfg.RenderVersion, policy.RenderVersion))
 	policy.SiteNamespace = strings.TrimSpace(firstNonEmpty(cfg.Namespace, policy.SiteNamespace))
 	policy.DebugHeaders = cfg.DebugHeaders
@@ -266,7 +302,11 @@ func buildRenderCacheStore(cfg RenderCacheConfig) (RenderCacheStore, RenderCache
 		if err != nil {
 			return nil, nil, fmt.Errorf("site render cache memory store: %w", err)
 		}
-		return &renderCacheBackendStore{RenderCacheStore: store, kind: RenderCacheBackendMemory}, newMemoryRenderCacheGenerationStore(), nil
+		backend := &renderCacheBackendStore{RenderCacheStore: store, kind: RenderCacheBackendMemory}
+		if updater, ok := any(store).(RenderCacheSetIfPresentStore); ok && updater != nil {
+			return &renderCacheBackendStoreWithRenewal{renderCacheBackendStore: backend, updater: updater}, newMemoryRenderCacheGenerationStore(), nil
+		}
+		return backend, newMemoryRenderCacheGenerationStore(), nil
 	case RenderCacheBackendValkey:
 		clientOption, err := buildRenderCacheValkeyClientOption(cfg.Valkey)
 		if err != nil {
@@ -289,6 +329,9 @@ func buildRenderCacheStore(cfg RenderCacheConfig) (RenderCacheStore, RenderCache
 			closeFn:                 client.Close,
 		}
 		generations := &valkeyRenderCacheGenerationStore{client: client, namespace: cfg.Valkey.Namespace}
+		if updater, ok := any(store).(RenderCacheSetIfPresentStore); ok && updater != nil {
+			return &renderCacheBackendStoreWithCloseAndRenewal{renderCacheBackendStoreWithClose: backend, updater: updater}, generations, nil
+		}
 		return backend, generations, nil
 	default:
 		return nil, nil, errRenderCacheUnsupportedBackend
@@ -535,6 +578,7 @@ type RenderCacheDebugConfig struct {
 	Backend            string                    `json:"backend"`
 	FreshTTL           string                    `json:"fresh_ttl"`
 	StaleTTL           string                    `json:"stale_ttl"`
+	ExpirationMode     RenderCacheExpirationMode `json:"expiration_mode"`
 	RenderVersion      string                    `json:"render_version"`
 	Namespace          string                    `json:"namespace"`
 	DebugHeaders       bool                      `json:"debug_headers"`
@@ -557,6 +601,7 @@ type RenderCacheValkeyDebugCfg struct {
 }
 
 type RenderCacheDebugCapabilities struct {
+	ConditionalUpdate         bool `json:"conditional_update"`
 	TagInvalidation           bool `json:"tag_invalidation"`
 	PrefixInvalidation        bool `json:"prefix_invalidation"`
 	Close                     bool `json:"close"`
@@ -732,6 +777,14 @@ type renderCacheDebugCloseMethods struct {
 	observer *RenderCacheDebugObserver
 }
 
+type renderCacheDebugRenewalMethods struct {
+	observer *RenderCacheDebugObserver
+}
+
+func (m renderCacheDebugRenewalMethods) SetIfPresent(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) (bool, error) {
+	return m.observer.setIfPresent(ctx, key, value, ttl)
+}
+
 func (m renderCacheDebugCloseMethods) Close() error {
 	if m.observer == nil || m.observer.store == nil {
 		return nil
@@ -820,6 +873,102 @@ type renderCacheDebugWrapperTPBC struct {
 	renderCacheDebugBackendMethods
 	renderCacheDebugCloseMethods
 }
+type renderCacheDebugWrapperR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperPR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugPrefixMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTPR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugPrefixMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperBR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugBackendMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTBR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugBackendMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperPBR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugPrefixMethods
+	renderCacheDebugBackendMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTPBR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugPrefixMethods
+	renderCacheDebugBackendMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperPCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugPrefixMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTPCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugPrefixMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperBCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugBackendMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTBCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugBackendMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperPBCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugPrefixMethods
+	renderCacheDebugBackendMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
+type renderCacheDebugWrapperTPBCR struct {
+	*RenderCacheDebugObserver
+	renderCacheDebugTagMethods
+	renderCacheDebugPrefixMethods
+	renderCacheDebugBackendMethods
+	renderCacheDebugCloseMethods
+	renderCacheDebugRenewalMethods
+}
 
 type renderCacheDebugWrapperParts struct {
 	observer    *RenderCacheDebugObserver
@@ -827,6 +976,7 @@ type renderCacheDebugWrapperParts struct {
 	prefix      renderCacheDebugPrefixMethods
 	backend     renderCacheDebugBackendMethods
 	closeMethod renderCacheDebugCloseMethods
+	renewal     renderCacheDebugRenewalMethods
 }
 
 type renderCacheDebugWrapperFactory func(renderCacheDebugWrapperParts) RenderCacheStore
@@ -878,6 +1028,54 @@ var renderCacheDebugWrapperFactories = [...]renderCacheDebugWrapperFactory{
 	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
 		return &renderCacheDebugWrapperTPBC{parts.observer, parts.tag, parts.prefix, parts.backend, parts.closeMethod}
 	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperR{parts.observer, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTR{parts.observer, parts.tag, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPR{parts.observer, parts.prefix, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPR{parts.observer, parts.tag, parts.prefix, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperBR{parts.observer, parts.backend, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTBR{parts.observer, parts.tag, parts.backend, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPBR{parts.observer, parts.prefix, parts.backend, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPBR{parts.observer, parts.tag, parts.prefix, parts.backend, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperCR{parts.observer, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTCR{parts.observer, parts.tag, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPCR{parts.observer, parts.prefix, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPCR{parts.observer, parts.tag, parts.prefix, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperBCR{parts.observer, parts.backend, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTBCR{parts.observer, parts.tag, parts.backend, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperPBCR{parts.observer, parts.prefix, parts.backend, parts.closeMethod, parts.renewal}
+	},
+	func(parts renderCacheDebugWrapperParts) RenderCacheStore {
+		return &renderCacheDebugWrapperTPBCR{parts.observer, parts.tag, parts.prefix, parts.backend, parts.closeMethod, parts.renewal}
+	},
 }
 
 const (
@@ -885,6 +1083,7 @@ const (
 	renderCacheDebugCapabilityPrefix
 	renderCacheDebugCapabilityBackend
 	renderCacheDebugCapabilityClose
+	renderCacheDebugCapabilityRenewal
 )
 
 func NewRenderCacheDebugObservedStore(observer *RenderCacheDebugObserver) RenderCacheStore {
@@ -897,6 +1096,7 @@ func NewRenderCacheDebugObservedStore(observer *RenderCacheDebugObserver) Render
 		prefix:      renderCacheDebugPrefixMethods{observer: observer},
 		backend:     renderCacheDebugBackendMethods{observer: observer},
 		closeMethod: renderCacheDebugCloseMethods{observer: observer},
+		renewal:     renderCacheDebugRenewalMethods{observer: observer},
 	}
 	return renderCacheDebugWrapperFactories[renderCacheDebugCapabilityMask(observer.store)](parts)
 }
@@ -914,6 +1114,9 @@ func renderCacheDebugCapabilityMask(store RenderCacheStore) int {
 	}
 	if RenderCacheStoreSupportsClose(store) {
 		mask |= renderCacheDebugCapabilityClose
+	}
+	if RenderCacheStoreSupportsSetIfPresent(store) {
+		mask |= renderCacheDebugCapabilityRenewal
 	}
 	return mask
 }
@@ -939,6 +1142,25 @@ func (s *RenderCacheDebugObserver) Set(ctx context.Context, key string, value Re
 	}
 	s.recordWrite("cache_write", key, outcome, ttl, value, err)
 	return err
+}
+
+func (s *RenderCacheDebugObserver) setIfPresent(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) (bool, error) {
+	updater, ok := s.store.(RenderCacheSetIfPresentStore)
+	if !ok || updater == nil {
+		err := errors.New(renderCacheReasonRenewalUnsupported)
+		s.recordWrite("cache_renewal", key, "unsupported", ttl, value, err)
+		return false, err
+	}
+	updated, err := updater.SetIfPresent(ctx, key, value, ttl)
+	outcome := "ok"
+	if !updated {
+		outcome = "missing"
+	}
+	if err != nil {
+		outcome = "error"
+	}
+	s.recordWrite("cache_renewal", key, outcome, ttl, value, err)
+	return updated, err
 }
 
 func (s *RenderCacheDebugObserver) Delete(ctx context.Context, key string) error {
@@ -1414,6 +1636,7 @@ func renderCacheDebugConfigFromConfig(cfg RenderCacheConfig) RenderCacheDebugCon
 		Backend:            firstNonEmpty(strings.TrimSpace(cfg.Backend), RenderCacheBackendMemory),
 		FreshTTL:           cfg.FreshTTL.String(),
 		StaleTTL:           cfg.StaleTTL.String(),
+		ExpirationMode:     normalizeRenderCacheExpirationMode(cfg.ExpirationMode),
 		RenderVersion:      cfg.RenderVersion,
 		Namespace:          cfg.Namespace,
 		DebugHeaders:       cfg.DebugHeaders,
@@ -1442,7 +1665,9 @@ func RenderCacheDebugCapabilitiesForStore(store RenderCacheStore) RenderCacheDeb
 	prefix := RenderCacheStoreSupportsPrefixInvalidation(store)
 	closer := RenderCacheStoreSupportsClose(store)
 	backend := RenderCacheStoreSupportsBackendDescriptor(store)
+	renewal := RenderCacheStoreSupportsSetIfPresent(store)
 	return RenderCacheDebugCapabilities{
+		ConditionalUpdate:         renewal,
 		TagInvalidation:           tag,
 		PrefixInvalidation:        prefix,
 		Close:                     closer,
@@ -1461,6 +1686,11 @@ func RenderCacheStoreSupportsTagInvalidation(store RenderCacheStore) bool {
 func RenderCacheStoreSupportsPrefixInvalidation(store RenderCacheStore) bool {
 	invalidator, ok := store.(RenderCachePrefixInvalidator)
 	return ok && invalidator != nil
+}
+
+func RenderCacheStoreSupportsSetIfPresent(store RenderCacheStore) bool {
+	updater, ok := store.(RenderCacheSetIfPresentStore)
+	return ok && updater != nil
 }
 
 func RenderCacheStoreSupportsBackendDescriptor(store RenderCacheStore) bool {

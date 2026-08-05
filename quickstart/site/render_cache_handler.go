@@ -131,6 +131,9 @@ func (e *renderCacheHandlerExecutor) execute(c router.Context, tracker *renderCa
 
 func (e *renderCacheHandlerExecutor) prepare(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore) (RenderCacheHandlerDecision, uint64, string, bool, error) {
 	if configDecision := renderCacheConfigDecision(renderCacheConfig{store: store, policy: policy}, policy); !configDecision.Cacheable {
+		if policy.FailClosed && renderCacheFatalConfigReason(configDecision.Reason) {
+			return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, configDecision.Reason, errors.New(configDecision.Reason))
+		}
 		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, configDecision.Reason)
 	}
 	if requestDecision := renderCacheRequestDecision(c, policy); !requestDecision.Cacheable {
@@ -205,6 +208,13 @@ func (e *renderCacheHandlerExecutor) lookup(c router.Context, tracker *renderCac
 func (e *renderCacheHandlerExecutor) handleHit(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, key string, response RenderedSiteResponse) (bool, error) {
 	switch renderCacheResponseFreshness(response, time.Now()) {
 	case renderCacheFreshnessFresh:
+		effectivePolicy := renderCacheHandlerPolicy(policy, decision)
+		if effectivePolicy.ExpirationMode == RenderCacheExpirationSliding {
+			_, renewalErr := renewRenderedSiteResponse(RequestContext(c), store, key, response, effectivePolicy, time.Now())
+			if renewalErr != nil {
+				return true, renderCacheHandlerRenewalFailure(c, tracker, effectivePolicy, key, response, renewalErr)
+			}
+		}
 		writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusHit, "", key)
 		return true, replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
 	case renderCacheFreshnessStale:
@@ -219,6 +229,25 @@ func (e *renderCacheHandlerExecutor) handleHit(c router.Context, tracker *render
 		return true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonCacheWriteError, deleteErr)
 	}
 	return false, nil
+}
+
+func renderCacheHandlerRenewalFailure(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, key string, response RenderedSiteResponse, cause error) error {
+	reason := renderCacheReasonRenewalError
+	if errors.Is(cause, errRenderCacheRenewalUnsupported) {
+		reason = renderCacheReasonRenewalUnsupported
+	}
+	writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusHit, reason, key)
+	setRenderCacheRequestFallbackReason(c, reason)
+	if policy.FailClosed {
+		if c == nil {
+			finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, reason, cause)
+			return cause
+		}
+		sendErr := c.SendStatus(http.StatusServiceUnavailable)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, reason, firstNonNilError(cause, sendErr))
+		return sendErr
+	}
+	return replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
 }
 
 func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generation uint64, key string) error {

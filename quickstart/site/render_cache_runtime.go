@@ -2,6 +2,7 @@ package site
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -10,14 +11,23 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+var errRenderCacheRenewalUnsupported = errors.New("site render cache store does not support conditional renewal")
+
 func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState) (bool, renderCacheDecision, error) {
 	decision := r.renderCacheLookupDecision(c, state)
+	fatalConfig := !decision.Cacheable && r.renderCache.policy.FailClosed && renderCacheFatalConfigReason(decision.Reason)
 	observationReason := ""
 	if !decision.Cacheable {
 		observationReason = boundedRenderCacheObservationReason(decision.Reason, r.renderCache.policy)
 	}
 	if tracker := renderCacheRequestTrackerFromContext(c); tracker != nil {
-		tracker.evaluate(decision.Cacheable, observationReason)
+		tracker.evaluate(decision.Cacheable || fatalConfig, observationReason)
+	}
+	if fatalConfig {
+		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, decision.Reason, "")
+		sendErr := c.SendStatus(http.StatusServiceUnavailable)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, decision.Reason, sendErr)
+		return true, decision, sendErr
 	}
 	if !decision.Cacheable {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, decision.Reason, "")
@@ -46,10 +56,41 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 		replayErr := replayRenderCacheResponse(c, response, renderCacheStatusStale, RenderCacheRequestOutcomeStale)
 		return true, decision, replayErr
 	default:
+		if r.renderCache.policy.ExpirationMode == RenderCacheExpirationSliding {
+			_, renewalErr := renewRenderedSiteResponse(RequestContext(c), r.renderCache.store, decision.Key, response, r.renderCache.policy, time.Now())
+			if renewalErr != nil {
+				return r.handleRenderCacheRenewalFailure(c, decision, response, renewalErr)
+			}
+		}
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusHit, "", decision.Key)
 		replayErr := replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
 		return true, decision, replayErr
 	}
+}
+
+func renderCacheFatalConfigReason(reason string) bool {
+	switch strings.TrimSpace(reason) {
+	case renderCacheReasonExpirationMode, renderCacheReasonRenewalUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *deliveryRuntime) handleRenderCacheRenewalFailure(c router.Context, decision renderCacheDecision, response RenderedSiteResponse, cause error) (bool, renderCacheDecision, error) {
+	reason := renderCacheReasonRenewalError
+	if errors.Is(cause, errRenderCacheRenewalUnsupported) {
+		reason = renderCacheReasonRenewalUnsupported
+	}
+	r.writeRenderCacheDebugHeaders(c, renderCacheStatusHit, reason, decision.Key)
+	setRenderCacheRequestFallbackReason(c, reason)
+	if r.renderCache.policy.FailClosed {
+		sendErr := c.SendStatus(http.StatusServiceUnavailable)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, reason, firstNonNilError(cause, sendErr))
+		return true, decision, sendErr
+	}
+	replayErr := replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
+	return true, decision, replayErr
 }
 
 func (r *deliveryRuntime) handleRenderCacheLookupFailure(c router.Context, decision renderCacheDecision, reason string) (bool, renderCacheDecision, error) {
@@ -159,6 +200,27 @@ func renderCacheStoreTTL(policy RenderCachePolicy) time.Duration {
 		ttl += policy.StaleTTL
 	}
 	return ttl
+}
+
+func renewRenderedSiteResponse(ctx context.Context, store RenderCacheStore, key string, response RenderedSiteResponse, policy RenderCachePolicy, now time.Time) (bool, error) {
+	policy = normalizeRenderCachePolicy(policy)
+	if policy.ExpirationMode != RenderCacheExpirationSliding {
+		return false, nil
+	}
+	updater, ok := store.(RenderCacheSetIfPresentStore)
+	if !ok || updater == nil {
+		return false, errRenderCacheRenewalUnsupported
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	renewed := cloneRenderedSiteResponse(response)
+	renewed.FreshUntil = now.Add(policy.FreshTTL)
+	renewed.StaleUntil = renewed.FreshUntil
+	if policy.StaleTTL > 0 {
+		renewed.StaleUntil = renewed.FreshUntil.Add(policy.StaleTTL)
+	}
+	return updater.SetIfPresent(ctx, key, renewed, renderCacheStoreTTL(policy))
 }
 
 func renderCacheResponseFreshness(response RenderedSiteResponse, now time.Time) renderCacheFreshness {
