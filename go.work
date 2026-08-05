@@ -5,3 +5,8 @@ use (
 	./examples
 	./quickstart
 )
+
+// cockroachdb/errors still requires the pre-split genproto module through
+// Pebble. Select the first post-split monolith so workspace builds use the
+// dedicated googleapis/api module without an overlapping package provider.
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20230526161137-0005af68ea54

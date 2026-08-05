@@ -114,7 +114,10 @@ func TestRenderCacheDebugObserverRecordsConditionalUpdate(t *testing.T) {
 	if err := wrapped.Set(context.Background(), "key", response, time.Minute); err != nil {
 		t.Fatalf("set: %v", err)
 	}
-	updater := wrapped.(RenderCacheSetIfPresentStore)
+	updater, ok := wrapped.(RenderCacheSetIfPresentStore)
+	if !ok {
+		t.Fatal("debug wrapper lost conditional-update capability")
+	}
 	updated, err := updater.SetIfPresent(context.Background(), "key", response, 2*time.Minute)
 	if err != nil || !updated {
 		t.Fatalf("conditional update: updated=%v err=%v", updated, err)

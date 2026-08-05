@@ -105,7 +105,7 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.0 // indirect
-	github.com/goliatone/go-cache v0.2.0 // indirect
+	github.com/goliatone/go-cache v0.2.1 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-crud/gql v0.25.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.9.0 // indirect
