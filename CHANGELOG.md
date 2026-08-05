@@ -1,12 +1,25 @@
 # Changelog
 
+# [0.128.2](https://github.com/goliatone/go-admin/compare/v0.128.1...v0.128.2) - (2026-08-05)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Datagrid menu positioning ([0d5754c](https://github.com/goliatone/go-admin/commit/0d5754c13cd74cada5eae8976adc001dbaa4b9c6))  - (goliatone)
+
 # [0.128.1](https://github.com/goliatone/go-admin/compare/v0.128.0...v0.128.1) - (2026-08-05)
+
+
+New patch release: v0.128.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([47784ac](https://github.com/goliatone/go-admin/commit/47784ac93b13c4cc33976180fc3228d4a7478019))  - (goliatone)
 - Registration time validation ([8c4a653](https://github.com/goliatone/go-admin/commit/8c4a65359351714836f38964f71ceeda1597538d))  - (goliatone)
 - Accept npm version ([75cc8a2](https://github.com/goliatone/go-admin/commit/75cc8a26469cb777966fb4cf2669691f57ebbb1e))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.128.1 ([108e2f0](https://github.com/goliatone/go-admin/commit/108e2f0b43a55ac114833cd8119fbedbc055c251))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
