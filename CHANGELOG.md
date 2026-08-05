@@ -1,19 +1,28 @@
 # Changelog
 
+# [0.128.0](https://github.com/goliatone/go-admin/compare/v0.127.5...v0.128.0) - (2026-08-05)
+
+
+## Migration Notes
+
+Public-site render caching now supports explicit fixed and sliding expiration through `site.RenderCachePolicy.ExpirationMode` and `site.RenderCacheConfig.ExpirationMode`. The zero value remains fixed and requires no host changes.
+
+Sliding mode renews fresh GET and HEAD hits, adds one backend write per fresh hit, and may keep frequently accessed entries fresh indefinitely. Enable production sliding mode only when mutation-driven tag, prefix, render-version, or handler-generation invalidation is active. Stale hits never renew and continue through stale-while-revalidate.
+
+Built-in memory and Valkey runtimes support sliding expiration. Custom render-cache stores must implement `site.RenderCacheSetIfPresentStore`; unsupported stores follow the configured fail-open or fail-closed policy.
+
+## <!-- 16 -->➕ Add
+
+- Cache policy expiration mode ([0136142](https://github.com/goliatone/go-admin/commit/0136142d208971623469f8a139d30e8591962011))  - (goliatone)
+
 # [0.127.5](https://github.com/goliatone/go-admin/compare/v0.127.4...v0.127.5) - (2026-08-04)
 
 
-## Shared UI Contracts
+New patch release: v0.127.5
 
-- Added the missing `.btn-success` and `.btn-warning` styles advertised by the public
-  DataGrid `ActionVariant` contract, including semantic theme fallbacks and interaction
-  states.
-- Shared `.btn` labels now remain on one line by default; use `.btn-multiline` only for
-  intentionally multiline button content and make action-row containers responsible
-  for responsive wrapping.
-- Documented and tested the supported product stylesheet workflow using
-  `WithExtraAssetsFS` and the layout `head_extra` block. Consumer CSS remains outside
-  go-admin's Tailwind scan and should use deterministic namespaced asset paths.
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.127.5 ([ae64502](https://github.com/goliatone/go-admin/commit/ae645028b25529c5ecc117c9b11154b85c57011d))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
