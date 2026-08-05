@@ -1,6 +1,7 @@
 package site
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -15,6 +16,27 @@ func TestRegisterSiteRoutesEntrypointRejectsNilRouter(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "site router is required") {
 		t.Fatalf("expected nil-router error, got %v", err)
+	}
+}
+
+func TestRegisterSiteRoutesEntrypointRejectsInvalidDirectRenderCacheMode(t *testing.T) {
+	for _, failClosed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fail-open", true: "fail-closed"}[failClosed], func(t *testing.T) {
+			err := registerSiteRoutes[*fiber.App](
+				&recordingRouter{},
+				nil,
+				admin.Config{DefaultLocale: "en"},
+				SiteConfig{},
+				[]SiteOption{WithRenderCache(newTestRenderCacheStore(), RenderCachePolicy{
+					Enabled:        true,
+					ExpirationMode: "sometimes",
+					FailClosed:     failClosed,
+				})},
+			)
+			if !errors.Is(err, ErrRenderCacheInvalidExpirationMode) {
+				t.Fatalf("expected registration-time invalid expiration mode error, got %v", err)
+			}
+		})
 	}
 }
 

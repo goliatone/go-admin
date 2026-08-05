@@ -84,6 +84,9 @@ func TestRenderCacheExpirationModeNormalizationAndValidation(t *testing.T) {
 	if err == nil || invalid == nil || invalid.Diagnostic.ErrorKind != "invalid_configuration" {
 		t.Fatalf("expected invalid mode diagnostic, runtime=%#v err=%v", invalid, err)
 	}
+	if !errors.Is(err, ErrRenderCacheInvalidExpirationMode) {
+		t.Fatalf("expected invalid expiration mode error, got %v", err)
+	}
 }
 
 func TestRenderCacheDebugWrapperPreservesConditionalUpdateCapability(t *testing.T) {
