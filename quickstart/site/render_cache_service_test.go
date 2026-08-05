@@ -43,6 +43,9 @@ func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	if !RenderCacheStoreSupportsTagInvalidation(runtime.Store) || !RenderCacheStoreSupportsPrefixInvalidation(runtime.Store) {
 		t.Fatalf("expected memory store to preserve tag and prefix invalidation capabilities")
 	}
+	if !RenderCacheStoreSupportsSetIfPresent(runtime.Store) {
+		t.Fatal("expected memory runtime to preserve conditional-update capability")
+	}
 	if RenderCacheStoreSupportsClose(runtime.Store) {
 		t.Fatalf("memory runtime should not advertise close support")
 	}
@@ -54,6 +57,77 @@ func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	}
 	if runtime.Policy.SiteNamespace != "test-site" || runtime.Policy.RenderVersion != "test-build" || runtime.Policy.MaxCaptureBodySize != 1024 {
 		t.Fatalf("expected runtime config identity/capture fields to be reflected in policy, got %+v", runtime.Policy)
+	}
+}
+
+func TestRenderCacheExpirationModeNormalizationAndValidation(t *testing.T) {
+	policy := normalizeRenderCachePolicy(RenderCachePolicy{})
+	if policy.ExpirationMode != RenderCacheExpirationFixed {
+		t.Fatalf("zero-value expiration mode=%q, want fixed", policy.ExpirationMode)
+	}
+	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
+		Enabled:        true,
+		Backend:        RenderCacheBackendMemory,
+		ExpirationMode: RenderCacheExpirationSliding,
+	}, RenderCachePolicy{})
+	if err != nil {
+		t.Fatalf("sliding runtime: %v", err)
+	}
+	if runtime.Policy.ExpirationMode != RenderCacheExpirationSliding || runtime.Config.ExpirationMode != RenderCacheExpirationSliding {
+		t.Fatalf("sliding mode not mapped: config=%q policy=%q", runtime.Config.ExpirationMode, runtime.Policy.ExpirationMode)
+	}
+	invalid, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
+		Enabled:        true,
+		Backend:        RenderCacheBackendMemory,
+		ExpirationMode: "sometimes",
+	}, RenderCachePolicy{})
+	if err == nil || invalid == nil || invalid.Diagnostic.ErrorKind != "invalid_configuration" {
+		t.Fatalf("expected invalid mode diagnostic, runtime=%#v err=%v", invalid, err)
+	}
+}
+
+func TestRenderCacheDebugWrapperPreservesConditionalUpdateCapability(t *testing.T) {
+	capable := newTestRenderCacheStore()
+	wrapped := NewRenderCacheDebugObservedStore(NewRenderCacheDebugObserver(capable, RenderCacheConfig{Enabled: true, ExpirationMode: RenderCacheExpirationSliding}))
+	if !RenderCacheStoreSupportsSetIfPresent(wrapped) {
+		t.Fatal("conditional-update capability was lost through debug wrapper")
+	}
+	capabilities := RenderCacheDebugCapabilitiesForStore(wrapped)
+	if !capabilities.ConditionalUpdate {
+		t.Fatalf("debug capabilities missing conditional update: %+v", capabilities)
+	}
+	uncapable := &testRenderCacheStoreNoTags{items: map[string]RenderedSiteResponse{}}
+	wrapped = NewRenderCacheDebugObservedStore(NewRenderCacheDebugObserver(uncapable, RenderCacheConfig{Enabled: true}))
+	if RenderCacheStoreSupportsSetIfPresent(wrapped) {
+		t.Fatal("debug wrapper invented conditional-update capability")
+	}
+}
+
+func TestRenderCacheDebugObserverRecordsConditionalUpdate(t *testing.T) {
+	store := newTestRenderCacheStore()
+	observer := NewRenderCacheDebugObserver(store, RenderCacheConfig{Enabled: true, ExpirationMode: RenderCacheExpirationSliding})
+	wrapped := NewRenderCacheDebugObservedStore(observer)
+	response := RenderedSiteResponse{CreatedAt: time.Now(), FreshUntil: time.Now().Add(time.Minute), StaleUntil: time.Now().Add(time.Minute)}
+	if err := wrapped.Set(context.Background(), "key", response, time.Minute); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	updater := wrapped.(RenderCacheSetIfPresentStore)
+	updated, err := updater.SetIfPresent(context.Background(), "key", response, 2*time.Minute)
+	if err != nil || !updated {
+		t.Fatalf("conditional update: updated=%v err=%v", updated, err)
+	}
+	snapshot := observer.Snapshot(&RenderCacheRuntime{Config: RenderCacheConfig{Enabled: true, ExpirationMode: RenderCacheExpirationSliding}})
+	if snapshot.Counters.Writes != 2 {
+		t.Fatalf("expected store and renewal writes, counters=%+v", snapshot.Counters)
+	}
+	found := false
+	for _, operation := range snapshot.RecentOperations {
+		if operation.Operation == "cache_renewal" && operation.Outcome == "ok" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing bounded cache_renewal operation: %+v", snapshot.RecentOperations)
 	}
 }
 

@@ -64,6 +64,125 @@ func TestRenderCacheHandlerGETHitAndHEADShareRepresentation(t *testing.T) {
 	observer.assertPairs(t, 3)
 }
 
+func TestRenderCacheHandlerSlidingRenewalUsesEffectiveOverrides(t *testing.T) {
+	store := newTestRenderCacheStore()
+	observer := &testRenderCacheHandlerObserver{}
+	runtime := testRenderCacheHandlerRuntime(store, observer)
+	runtime.Policy.ExpirationMode = RenderCacheExpirationSliding
+	options := testRenderCacheHandlerOptions("archive", "/events/event-1")
+	baseDecide := options.Decide
+	options.Decide = func(c router.Context) (RenderCacheHandlerDecision, error) {
+		decision, err := baseDecide(c)
+		decision.FreshTTLOverride = 2 * time.Minute
+		decision.DisableStale = true
+		return decision, err
+	}
+	calls := 0
+	wrapped := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+		calls++
+		c.SetHeader("Content-Type", "text/html; charset=utf-8")
+		return c.SendString("<html>archive</html>")
+	}, options)
+	performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	key, original := onlyRenderCacheItem(t, store)
+	time.Sleep(time.Millisecond)
+	performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	performRenderCacheHandlerRequest(t, wrapped, http.MethodHead, "/events/event-1")
+	renewed := store.items[key]
+	if calls != 1 || store.setIfPresentCalls != 2 || store.lastTTL != 2*time.Minute {
+		t.Fatalf("handler renewal calls=%d updates=%d ttl=%s", calls, store.setIfPresentCalls, store.lastTTL)
+	}
+	if !renewed.CreatedAt.Equal(original.CreatedAt) || !renewed.FreshUntil.After(original.FreshUntil) || !renewed.StaleUntil.Equal(renewed.FreshUntil) {
+		t.Fatalf("effective override renewal mismatch: original=%+v renewed=%+v", original, renewed)
+	}
+	observer.assertPairs(t, 3)
+}
+
+func TestRenderCacheHandlerSlidingUnsupportedStoreFailurePolicy(t *testing.T) {
+	for _, failClosed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fail-open", true: "fail-closed"}[failClosed], func(t *testing.T) {
+			store := &testRenderCacheStoreNoTags{items: map[string]RenderedSiteResponse{}}
+			runtime := testRenderCacheHandlerRuntime(store)
+			runtime.Policy.ExpirationMode = RenderCacheExpirationSliding
+			runtime.Policy.FailClosed = failClosed
+			calls := 0
+			wrapped := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+				calls++
+				c.SetHeader("Content-Type", "text/html")
+				return c.SendString("uncached")
+			}, testRenderCacheHandlerOptions("archive", "/events/event-1"))
+			response := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+			wantStatus, wantCalls := http.StatusOK, 1
+			if failClosed {
+				wantStatus, wantCalls = http.StatusServiceUnavailable, 0
+			}
+			if response.Code != wantStatus || calls != wantCalls || response.Header().Get("X-Site-Render-Cache-Reason") != renderCacheReasonRenewalUnsupported {
+				t.Fatalf("response=%d calls=%d reason=%q", response.Code, calls, response.Header().Get("X-Site-Render-Cache-Reason"))
+			}
+		})
+	}
+}
+
+func TestRenderCacheHandlerSlidingRenewalErrorFailurePolicy(t *testing.T) {
+	for _, failClosed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fail-open", true: "fail-closed"}[failClosed], func(t *testing.T) {
+			store := newTestRenderCacheStore()
+			runtime := testRenderCacheHandlerRuntime(store)
+			runtime.Policy.ExpirationMode = RenderCacheExpirationSliding
+			runtime.Policy.FailClosed = failClosed
+			wrapped := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+				c.SetHeader("Content-Type", "text/html")
+				return c.SendString("cached")
+			}, testRenderCacheHandlerOptions("archive", "/events/event-1"))
+			performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+			store.setIfPresentErr = errors.New("renewal failed")
+			response := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+			wantStatus := http.StatusOK
+			if failClosed {
+				wantStatus = http.StatusServiceUnavailable
+			}
+			if response.Code != wantStatus || response.Header().Get("X-Site-Render-Cache-Reason") != renderCacheReasonRenewalError {
+				t.Fatalf("response=%d reason=%q", response.Code, response.Header().Get("X-Site-Render-Cache-Reason"))
+			}
+		})
+	}
+}
+
+func TestRenderCacheHandlerGenerationAdvanceWinsBlockedSlidingRenewal(t *testing.T) {
+	store := newTestRenderCacheStore()
+	runtime := testRenderCacheHandlerRuntime(store)
+	runtime.Policy.ExpirationMode = RenderCacheExpirationSliding
+	calls := 0
+	wrapped := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+		calls++
+		c.SetHeader("Content-Type", "text/html")
+		return c.SendString("generation")
+	}, testRenderCacheHandlerOptions("archive", "/events/event-1"))
+	performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+
+	started := make(chan struct{})
+	resume := make(chan struct{})
+	store.beforeSetIfPresent = func() {
+		close(started)
+		<-resume
+	}
+	responseCh := make(chan *httptest.ResponseRecorder, 1)
+	go func() { responseCh <- performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1") }()
+	<-started
+	if _, err := AdvanceRenderCacheGeneration(context.Background(), runtime, "site:archive"); err != nil {
+		t.Fatalf("advance generation: %v", err)
+	}
+	close(resume)
+	if response := <-responseCh; response.Code != http.StatusOK {
+		t.Fatalf("in-flight response=%d", response.Code)
+	}
+	store.beforeSetIfPresent = nil
+	postAdvance := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	if postAdvance.Header().Get("X-Site-Render-Cache") != renderCacheStatusMiss || calls != 2 {
+		t.Fatalf("post-generation status=%q handler calls=%d", postAdvance.Header().Get("X-Site-Render-Cache"), calls)
+	}
+}
+
 func TestRenderCacheHandlerHEADFirstDoesNotPopulateGET(t *testing.T) {
 	store := newTestRenderCacheStore()
 	runtime := testRenderCacheHandlerRuntime(store)

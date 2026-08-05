@@ -1483,6 +1483,10 @@ Legacy configuration remains valid. Use `ErrorPolicy` when candidate ordering ne
 - `RenderCachePolicy.MaxCaptureBodySize` defaults to `router.DefaultMaxCapturedBodySize`; oversized captures bypass storage and then use the normal template response path without committing a partial response.
 - Cache hits replay stored `site.RenderedSiteResponse` values through the site-owned replay path. `quickstart/site` does not store or replay raw `router.CapturedResponse` values, so safe-header filtering, `HEAD` handling, debug headers, and freshness metadata stay under site-cache policy.
 - `RenderCachePolicy.StaleTTL` enables stale-while-revalidate. Entries are stored for `FreshTTL + StaleTTL`; hits before `FreshUntil` report `hit`, hits through `StaleUntil` report `stale` and replay the stale response, and entries past `StaleUntil` are deleted and refreshed as misses. Use `RenderCachePolicy.StaleRevalidator` to schedule host-owned background regeneration without reusing a live router context. Stale revalidation is keyed per process so duplicate stale hits do not stampede one runtime, and callback panics are recovered.
+- `RenderCachePolicy.ExpirationMode` and `RenderCacheConfig.ExpirationMode` accept `site.RenderCacheExpirationFixed` or `site.RenderCacheExpirationSliding`. Empty mode is fixed, preserving existing hit-time behavior with no renewal writes. Invalid runtime values fail startup validation.
+- Sliding mode renews only fresh hits. It preserves the original `CreatedAt`, moves `FreshUntil` and `StaleUntil` using the effective policy, and resets the backend TTL to `FreshTTL + StaleTTL`. GET and HEAD hits renew the shared representation; stale hits keep their original deadlines and continue through stale-while-revalidate without renewal.
+- Sliding renewal adds one backend write per fresh hit and can keep frequently accessed entries fresh indefinitely. Use it only with active mutation invalidation through tags, prefixes, render versions, or handler generation fences; fixed mode remains preferable when write amplification or natural expiry matters more.
+- Built-in memory and Valkey runtimes support sliding renewal. A direct custom store must implement `site.RenderCacheSetIfPresentStore`; fail-open policy bypasses an unsupported store, while fail-closed policy returns the configured service-unavailable response. Renewal failures are reported separately from ordinary cache writes.
 - Use `RenderCachePolicy.AuthCookieNames` for host-specific auth cookies and `RenderCachePolicy.BypassPredicates` for application-specific auth, session, tenant, cart, A/B, or personalization signals. Built-in checks already cover Authorization, admin authenticated request context, go-auth claims/actor context, and common session/JWT cookie names such as `session_id` and `jwt`.
 - `quickstart/render_cache_gocache_compat_test.go` compiles and exercises a real `github.com/goliatone/go-cache/stores/memory` store as a `site.RenderCacheStore`, including local tag API compatibility. The higher-level runtime API imports `go-cache` so hosts do not need to duplicate memory/Valkey construction.
 - Use `RenderCachePolicy.RequireTagIndex: true` only with a shared non-memory backend for production tag invalidation. With this guard enabled, memory backends bypass caching, stores must implement `site.RenderCacheBackendDescriber` with a non-memory backend kind, stores without `site.RenderCacheTagInvalidator` bypass caching, and tag attachment failures remove the just-written entry before it can be served.
@@ -1506,6 +1510,7 @@ policy := quicksite.RenderCachePolicy{
 runtime, err := quicksite.NewRenderCacheRuntime(ctx, quicksite.RenderCacheConfig{
 	Enabled:         true,
 	Backend:         quicksite.RenderCacheBackendValkey,
+	ExpirationMode:  quicksite.RenderCacheExpirationSliding,
 	DebugHeaders:    true,
 	RequireTagIndex: true,
 	Valkey: quicksite.RenderCacheValkeyConfig{
@@ -1520,6 +1525,34 @@ if err := quicksite.RegisterRenderCacheDebugPanel(runtime); err != nil {
 	return err
 }
 quicksite.RegisterSiteRoutes(router, siteCfg, quicksite.WithRenderCache(runtime.Store, runtime.Policy))
+```
+
+For a process-local built-in runtime, select memory and keep fixed mode or opt into sliding explicitly:
+
+```go
+runtime, err := quicksite.NewRenderCacheRuntime(ctx, quicksite.RenderCacheConfig{
+	Enabled:        true,
+	Backend:        quicksite.RenderCacheBackendMemory,
+	FreshTTL:       5 * time.Minute,
+	StaleTTL:       time.Minute,
+	ExpirationMode: quicksite.RenderCacheExpirationFixed,
+}, quicksite.RenderCachePolicy{})
+```
+
+A custom store used directly with sliding mode must satisfy both local contracts:
+
+```go
+var store interface {
+	quicksite.RenderCacheStore
+	quicksite.RenderCacheSetIfPresentStore
+} = customStore
+
+option := quicksite.WithRenderCache(store, quicksite.RenderCachePolicy{
+	Enabled:        true,
+	FreshTTL:       5 * time.Minute,
+	StaleTTL:       time.Minute,
+	ExpirationMode: quicksite.RenderCacheExpirationSliding,
+})
 ```
 
 ## Routing migration notes

@@ -17,6 +17,8 @@ func TestGoCacheMemoryStoreSatisfiesSiteRenderCacheStore(t *testing.T) {
 	var _ site.RenderCacheStore = (*memory.Store[string, site.RenderedSiteResponse])(nil)
 	var _ site.RenderCacheTagInvalidator = (*memory.Store[string, site.RenderedSiteResponse])(nil)
 	var _ site.RenderCachePrefixInvalidator = (*memory.Store[string, site.RenderedSiteResponse])(nil)
+	var _ gocache.SetIfPresentCache[string, site.RenderedSiteResponse] = (*memory.Store[string, site.RenderedSiteResponse])(nil)
+	var _ site.RenderCacheSetIfPresentStore = (*memory.Store[string, site.RenderedSiteResponse])(nil)
 
 	store, err := memory.NewStore[string, site.RenderedSiteResponse]()
 	if err != nil {
@@ -53,6 +55,12 @@ func TestGoCacheMemoryStoreSatisfiesSiteRenderCacheStore(t *testing.T) {
 	}
 	if got.Status != value.Status || got.ContentType != value.ContentType || string(got.Body) != string(value.Body) {
 		t.Fatalf("unexpected rendered response: %+v", got)
+	}
+	renewed := got
+	renewed.FreshUntil = now.Add(2 * time.Minute)
+	updated, err := store.SetIfPresent(ctx, "site-render:test", renewed, 2*time.Minute)
+	if err != nil || !updated {
+		t.Fatalf("conditionally update rendered response: updated=%v err=%v", updated, err)
 	}
 
 	err = store.InvalidateTags(ctx, []string{"site:content:about"})

@@ -75,11 +75,178 @@ func TestRenderCacheRegisteredDeliveryMissThenHitShortCircuits(t *testing.T) {
 	if len(store.tagsByKey) != 1 {
 		t.Fatalf("expected stored tags for one key, got %+v", store.tagsByKey)
 	}
+	if store.setIfPresentCalls != 0 {
+		t.Fatalf("fixed mode performed %d hit-time updates", store.setIfPresentCalls)
+	}
 	for _, tags := range store.tagsByKey {
 		assertStringContains(t, tags, "site:render")
 		assertStringContains(t, tags, "site:content:about")
 		assertStringContains(t, tags, "site:content-type:page")
 		assertStringContains(t, tags, "site:locale:en")
+	}
+}
+
+func TestRenderCacheSlidingDeliveryRenewsFreshGETAndHEADHits(t *testing.T) {
+	store := newTestRenderCacheStore()
+	renderer := &testRenderCacheRenderer{}
+	services := newRenderCacheDeliveryServices(t)
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(
+		server.Router(), nil, admin.Config{DefaultLocale: "en"},
+		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+		WithDeliveryServices(services, services),
+		WithRenderCache(store, RenderCachePolicy{
+			Enabled: true, FreshTTL: time.Minute, StaleTTL: 30 * time.Second,
+			ExpirationMode: RenderCacheExpirationSliding, DebugHeaders: true, TemplateRenderer: renderer,
+		}),
+	); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	performSiteRequestRaw(t, server, "/about", "text/html")
+	key, original := onlyRenderCacheItem(t, store)
+	time.Sleep(time.Millisecond)
+	get := performSiteRequestRaw(t, server, "/about", "text/html")
+	if get.Code != http.StatusOK || get.Header().Get("X-Site-Render-Cache") != renderCacheStatusHit {
+		t.Fatalf("sliding GET hit status=%d headers=%v", get.Code, get.Header())
+	}
+	renewed := store.items[key]
+	if store.setIfPresentCalls != 1 || store.lastTTL != 90*time.Second {
+		t.Fatalf("sliding GET renewal calls=%d ttl=%s", store.setIfPresentCalls, store.lastTTL)
+	}
+	if !renewed.CreatedAt.Equal(original.CreatedAt) || !renewed.FreshUntil.After(original.FreshUntil) || renewed.StaleUntil.Sub(renewed.FreshUntil) != 30*time.Second {
+		t.Fatalf("unexpected renewed deadlines: original=%+v renewed=%+v", original, renewed)
+	}
+	if len(store.tagsByKey[key]) == 0 {
+		t.Fatal("sliding renewal lost tag associations")
+	}
+
+	headRequest := httptestRequest(http.MethodHead, "/about")
+	headRequest.Header.Set("Accept", "text/html")
+	head := performRawRequest(t, server, headRequest)
+	if head.Code != http.StatusOK || head.Body.Len() != 0 || store.setIfPresentCalls != 2 {
+		t.Fatalf("sliding HEAD hit status=%d body=%q calls=%d", head.Code, head.Body.String(), store.setIfPresentCalls)
+	}
+}
+
+func TestRenderCacheSlidingDeliveryRenewalFailurePolicy(t *testing.T) {
+	for _, failClosed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fail-open", true: "fail-closed"}[failClosed], func(t *testing.T) {
+			store := newTestRenderCacheStore()
+			services := newRenderCacheDeliveryServices(t)
+			server := router.NewHTTPServer()
+			if err := RegisterSiteRoutes(
+				server.Router(), nil, admin.Config{DefaultLocale: "en"},
+				SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+				WithDeliveryServices(services, services),
+				WithRenderCache(store, RenderCachePolicy{
+					Enabled: true, FreshTTL: time.Minute, ExpirationMode: RenderCacheExpirationSliding,
+					DebugHeaders: true, FailClosed: failClosed, TemplateRenderer: &testRenderCacheRenderer{},
+				}),
+			); err != nil {
+				t.Fatalf("register site routes: %v", err)
+			}
+			performSiteRequestRaw(t, server, "/about", "text/html")
+			store.setIfPresentErr = errors.New("renewal unavailable")
+			response := performSiteRequestRaw(t, server, "/about", "text/html")
+			wantStatus := http.StatusOK
+			if failClosed {
+				wantStatus = http.StatusServiceUnavailable
+			}
+			if response.Code != wantStatus || response.Header().Get("X-Site-Render-Cache-Reason") != renderCacheReasonRenewalError {
+				t.Fatalf("response status=%d reason=%q", response.Code, response.Header().Get("X-Site-Render-Cache-Reason"))
+			}
+		})
+	}
+}
+
+func TestRenderCacheSlidingDeliveryUnsupportedStoreFailurePolicy(t *testing.T) {
+	for _, failClosed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "fail-open", true: "fail-closed"}[failClosed], func(t *testing.T) {
+			store := &testRenderCacheStoreNoTags{items: map[string]RenderedSiteResponse{}}
+			renderer := &testRenderCacheRenderer{}
+			services := newRenderCacheDeliveryServices(t)
+			server := router.NewHTTPServer()
+			if err := RegisterSiteRoutes(
+				server.Router(), nil, admin.Config{DefaultLocale: "en"},
+				SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+				WithDeliveryServices(services, services),
+				WithRenderCache(store, RenderCachePolicy{
+					Enabled: true, FreshTTL: time.Minute, ExpirationMode: RenderCacheExpirationSliding,
+					DebugHeaders: true, FailClosed: failClosed, TemplateRenderer: renderer,
+				}),
+			); err != nil {
+				t.Fatalf("register site routes: %v", err)
+			}
+			response := performSiteRequestRaw(t, server, "/about", "text/html")
+			wantStatus, wantRenders := http.StatusInternalServerError, 0
+			if failClosed {
+				wantStatus, wantRenders = http.StatusServiceUnavailable, 0
+			}
+			if response.Code != wantStatus || renderer.calls != wantRenders || response.Header().Get("X-Site-Render-Cache-Reason") != renderCacheReasonRenewalUnsupported {
+				t.Fatalf("response=%d renders=%d reason=%q", response.Code, renderer.calls, response.Header().Get("X-Site-Render-Cache-Reason"))
+			}
+			if len(store.items) != 0 {
+				t.Fatalf("unsupported sliding store received %d entries", len(store.items))
+			}
+		})
+	}
+}
+
+func TestRenewRenderedSiteResponseDoesNotResurrectMissingEntry(t *testing.T) {
+	store := newTestRenderCacheStore()
+	now := time.Now()
+	response := RenderedSiteResponse{CreatedAt: now.Add(-time.Hour), FreshUntil: now.Add(time.Minute), StaleUntil: now.Add(2 * time.Minute)}
+	updated, err := renewRenderedSiteResponse(context.Background(), store, "gone", response, RenderCachePolicy{
+		Enabled: true, FreshTTL: time.Minute, StaleTTL: time.Minute, ExpirationMode: RenderCacheExpirationSliding,
+	}, now)
+	if err != nil || updated || len(store.items) != 0 {
+		t.Fatalf("missing entry resurrected: updated=%v items=%d err=%v", updated, len(store.items), err)
+	}
+}
+
+func TestRenderCacheSlidingDeliveryTagInvalidationWinsBlockedRenewal(t *testing.T) {
+	store := newTestRenderCacheStore()
+	store.backendKind = RenderCacheBackendValkey
+	renderer := &testRenderCacheRenderer{}
+	services := newRenderCacheDeliveryServices(t)
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(
+		server.Router(), nil, admin.Config{DefaultLocale: "en"},
+		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+		WithDeliveryServices(services, services),
+		WithRenderCache(store, RenderCachePolicy{
+			Enabled: true, FreshTTL: time.Minute, StaleTTL: time.Minute,
+			ExpirationMode: RenderCacheExpirationSliding, DebugHeaders: true, TemplateRenderer: renderer,
+		}),
+	); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+	performSiteRequestRaw(t, server, "/about", "text/html")
+	if len(store.tagsByKey) != 1 {
+		t.Fatalf("expected tagged entry, tags=%+v", store.tagsByKey)
+	}
+	started := make(chan struct{})
+	resume := make(chan struct{})
+	store.beforeSetIfPresent = func() {
+		close(started)
+		<-resume
+	}
+	responseCh := make(chan *httptest.ResponseRecorder, 1)
+	go func() { responseCh <- performSiteRequestRaw(t, server, "/about", "text/html") }()
+	<-started
+	if err := store.InvalidateTags(context.Background(), []string{RenderCacheAllSiteTag}); err != nil {
+		t.Fatalf("invalidate tags: %v", err)
+	}
+	close(resume)
+	hitResponse := <-responseCh
+	store.beforeSetIfPresent = nil
+	if hitResponse.Code != http.StatusOK || len(store.items) != 0 {
+		t.Fatalf("in-flight response=%d entries=%d", hitResponse.Code, len(store.items))
+	}
+	missResponse := performSiteRequestRaw(t, server, "/about", "text/html")
+	if missResponse.Header().Get("X-Site-Render-Cache") != renderCacheStatusMiss || renderer.calls != 2 {
+		t.Fatalf("post-invalidation status=%q renders=%d", missResponse.Header().Get("X-Site-Render-Cache"), renderer.calls)
 	}
 }
 
@@ -103,6 +270,7 @@ func TestRenderCacheStaleHitReplaysAndTriggersRevalidator(t *testing.T) {
 				Enabled:          true,
 				FreshTTL:         2 * time.Minute,
 				StaleTTL:         3 * time.Minute,
+				ExpirationMode:   RenderCacheExpirationSliding,
 				DebugHeaders:     true,
 				TemplateRenderer: renderer,
 				StaleRevalidator: func(_ context.Context, request RenderCacheRevalidationRequest) {
@@ -161,6 +329,9 @@ func TestRenderCacheStaleHitReplaysAndTriggersRevalidator(t *testing.T) {
 	snapshot := observer.Snapshot(&RenderCacheRuntime{Config: RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory}})
 	if snapshot.RequestCounters.Evaluated != 2 || snapshot.RequestCounters.Terminal != 2 || snapshot.RequestCounters.StoredResponses != 1 || snapshot.RequestCounters.ServedStale != 1 {
 		t.Fatalf("unexpected stale request accounting: %+v", snapshot.RequestCounters)
+	}
+	if store.setIfPresentCalls != 0 {
+		t.Fatalf("stale hit performed %d renewals", store.setIfPresentCalls)
 	}
 }
 
@@ -1402,13 +1573,16 @@ func TestRenderCacheKeyVariesByStateDimensions(t *testing.T) {
 }
 
 type testRenderCacheStore struct {
-	items       map[string]RenderedSiteResponse
-	tagsByKey   map[string][]string
-	lastTTL     time.Duration
-	err         error
-	setErr      error
-	tagErr      error
-	backendKind string
+	items              map[string]RenderedSiteResponse
+	tagsByKey          map[string][]string
+	lastTTL            time.Duration
+	err                error
+	setErr             error
+	setIfPresentErr    error
+	setIfPresentCalls  int
+	beforeSetIfPresent func()
+	tagErr             error
+	backendKind        string
 }
 
 func newTestRenderCacheStore() *testRenderCacheStore {
@@ -1451,6 +1625,22 @@ func (s *testRenderCacheStore) Set(_ context.Context, key string, value Rendered
 	s.lastTTL = ttl
 	s.items[key] = value
 	return nil
+}
+
+func (s *testRenderCacheStore) SetIfPresent(_ context.Context, key string, value RenderedSiteResponse, ttl time.Duration) (bool, error) {
+	s.setIfPresentCalls++
+	if s.beforeSetIfPresent != nil {
+		s.beforeSetIfPresent()
+	}
+	if s.setIfPresentErr != nil {
+		return false, s.setIfPresentErr
+	}
+	if _, ok := s.items[key]; !ok {
+		return false, nil
+	}
+	s.lastTTL = ttl
+	s.items[key] = value
+	return true, nil
 }
 
 func (s *testRenderCacheStore) Delete(_ context.Context, key string) error {
