@@ -40,6 +40,30 @@ func TestRegisterSiteRoutesEntrypointRejectsInvalidDirectRenderCacheMode(t *test
 	}
 }
 
+func TestRegisterSiteRoutesEntrypointAcceptsValidDirectRenderCacheModes(t *testing.T) {
+	for _, mode := range []RenderCacheExpirationMode{"", RenderCacheExpirationFixed, RenderCacheExpirationSliding} {
+		name := string(mode)
+		if name == "" {
+			name = "empty-default"
+		}
+		t.Run(name, func(t *testing.T) {
+			err := registerSiteRoutes[*fiber.App](
+				&recordingRouter{},
+				nil,
+				admin.Config{DefaultLocale: "en"},
+				SiteConfig{},
+				[]SiteOption{WithRenderCache(newTestRenderCacheStore(), RenderCachePolicy{
+					Enabled:        true,
+					ExpirationMode: mode,
+				})},
+			)
+			if err != nil {
+				t.Fatalf("expected mode %q to register: %v", mode, err)
+			}
+		})
+	}
+}
+
 func TestRegisterSiteRoutesEntrypointDelegatesToResolvedFlow(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
 	siteCfg := SiteConfig{

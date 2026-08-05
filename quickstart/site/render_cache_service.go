@@ -189,8 +189,8 @@ func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy Re
 	_ = ctx
 	policy = normalizeRenderCachePolicy(policy)
 	cfg = normalizeRenderCacheRuntimeConfig(cfg, policy)
-	if !validRenderCacheExpirationMode(cfg.ExpirationMode) {
-		err := &renderCacheInvalidConfigError{field: "site.render_cache.expiration_mode", err: errRenderCacheInvalidConfiguration}
+	if modeErr := ValidateRenderCachePolicy(RenderCachePolicy{ExpirationMode: cfg.ExpirationMode}); modeErr != nil {
+		err := &renderCacheInvalidConfigError{field: "site.render_cache.expiration_mode", err: modeErr}
 		diagnostic := RenderCacheStartupDiagnostic{
 			Configured: cfg.Enabled,
 			Backend:    cfg.Backend,

@@ -22,6 +22,9 @@ func registerSiteRoutes[T any](
 	}
 
 	flow := resolveSiteRegisterFlow[T](adm, cfg, siteCfg, opts)
+	if err := ValidateRenderCachePolicy(flow.options.renderCache.policy); err != nil {
+		return fmt.Errorf("invalid site render cache policy: %w", err)
+	}
 	if err := ValidateSiteFallbackPolicy(flow.options.fallbackPolicy); err != nil {
 		return fmt.Errorf("invalid site fallback policy: %w", err)
 	}

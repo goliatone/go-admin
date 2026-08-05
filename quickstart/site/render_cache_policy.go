@@ -2,6 +2,8 @@ package site
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +17,10 @@ const (
 	defaultRenderCacheNamespace     = "site"
 	defaultRenderCacheRenderVersion = "1"
 )
+
+// ErrRenderCacheInvalidExpirationMode identifies unsupported fixed/sliding
+// policy values rejected during runtime construction or route registration.
+var ErrRenderCacheInvalidExpirationMode = errors.New("site render cache expiration mode is invalid")
 
 // RenderCacheExpirationMode controls whether fresh cache hits retain their
 // original deadline or renew it.
@@ -226,6 +232,15 @@ func validRenderCacheExpirationMode(mode RenderCacheExpirationMode) bool {
 	default:
 		return false
 	}
+}
+
+// ValidateRenderCachePolicy validates public policy values that must be
+// rejected during startup rather than converted into request-time bypasses.
+func ValidateRenderCachePolicy(policy RenderCachePolicy) error {
+	if validRenderCacheExpirationMode(policy.ExpirationMode) {
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrRenderCacheInvalidExpirationMode, strings.TrimSpace(string(policy.ExpirationMode)))
 }
 
 func normalizeMethodList(values []string) []string {
