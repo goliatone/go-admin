@@ -18,6 +18,8 @@ export interface ActionMenuOptions {
     hiddenClass?: string;
     outsideIgnoreSelector?: string;
     positionMenu?: (context: ActionMenuPositionContext) => void;
+    /** Move open menus to document.body so host stacking/containing blocks cannot clip them. */
+    portal?: boolean;
     signal?: AbortSignal;
 }
 export declare function findActionMenuElements(trigger: HTMLElement, options?: ActionMenuOptions): ActionMenuElements | null;

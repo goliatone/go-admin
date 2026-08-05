@@ -133,6 +133,96 @@ test('shared action menu prevents disabled item activation', async () => {
   assert.equal(event.defaultPrevented, true);
 });
 
+test('shared action menu closes after an enabled item is activated', async () => {
+  const { initActionMenus } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelectorAll('[data-action-menu-trigger]')[1];
+  const menu = root.querySelectorAll('[data-action-menu-content]')[1];
+  const item = menu.querySelector('[role="menuitem"]');
+  initActionMenus(root);
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  item.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+  assert.equal(menu.classList.contains('hidden'), true);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+});
+
+test('shared action menu portals open overlays and restores them on close', async () => {
+  const { initActionMenus } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+  const originalParent = menu.parentNode;
+  const controller = initActionMenus(root, { portal: true, positionMenu: () => {} });
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.parentNode, dom.window.document.body);
+  assert.equal(menu.classList.contains('hidden'), false);
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.parentNode, originalParent);
+  assert.equal(menu.classList.contains('hidden'), true);
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  controller.destroy();
+  assert.equal(menu.parentNode, originalParent);
+  assert.equal(menu.classList.contains('hidden'), true);
+});
+
+test('scoped action menu controllers do not double-toggle menus in sibling grids', async () => {
+  const { initActionMenus } = await importActionMenuModule();
+  const dom = new JSDOM(`
+    <!doctype html><body>
+      <table id="grid-a"><tbody><tr><td><div data-dropdown><button data-dropdown-trigger>More A</button><div class="actions-menu hidden"><button role="menuitem">A</button></div></div></td></tr></tbody></table>
+      <table id="grid-b"><tbody><tr><td><div data-dropdown><button data-dropdown-trigger>More B</button><div class="actions-menu hidden"><button role="menuitem">B</button></div></div></td></tr></tbody></table>
+    </body>
+  `);
+  setGlobals(dom.window);
+  const options = {
+    containerSelector: '[data-dropdown]',
+    triggerSelector: '[data-dropdown-trigger]',
+    menuSelector: '.actions-menu',
+  };
+  const gridA = dom.window.document.getElementById('grid-a');
+  const gridB = dom.window.document.getElementById('grid-b');
+  const controllerA = initActionMenus(gridA, options);
+  const controllerB = initActionMenus(gridB, options);
+  const triggerA = gridA.querySelector('[data-dropdown-trigger]');
+  const menuA = gridA.querySelector('.actions-menu');
+
+  triggerA.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+  assert.equal(menuA.classList.contains('hidden'), false);
+  assert.equal(triggerA.getAttribute('aria-expanded'), 'true');
+  controllerA.destroy();
+  controllerB.destroy();
+});
+
+test('portaled action menus close on page and viewport lifecycle changes', async () => {
+  const { initActionMenus } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+  const controller = initActionMenus(root, { portal: true, positionMenu: () => {} });
+
+  for (const eventName of ['resize', 'pagehide', 'pageshow']) {
+    trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+    assert.equal(menu.classList.contains('hidden'), false);
+    dom.window.dispatchEvent(new dom.window.Event(eventName));
+    assert.equal(menu.classList.contains('hidden'), true, `expected ${eventName} to close menu`);
+  }
+  controller.destroy();
+});
+
 test('default action menu positioner applies fixed viewport geometry below the trigger', async () => {
   const { defaultActionMenuPositioner } = await importActionMenuModule();
   const dom = createDom();
@@ -162,6 +252,41 @@ test('default action menu positioner applies fixed viewport geometry below the t
   assert.equal(menu.style.top, '140px');
   assert.equal(menu.style.bottom, 'auto');
   assert.equal(menu.style.margin, '0px');
+  assert.equal(menu.style.minWidth, '192px');
+  assert.equal(menu.style.maxWidth, '1180px');
+  assert.equal(menu.style.maxHeight, '780px');
+});
+
+test('default action menu positioner preserves stricter component size limits', async () => {
+  const { defaultActionMenuPositioner } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  setViewport(dom.window, 1200, 800);
+
+  const trigger = dom.window.document.querySelector('[data-action-menu-trigger]');
+  const menu = dom.window.document.querySelector('[data-action-menu-content]');
+  trigger.getBoundingClientRect = () => ({
+    top: 100,
+    right: 900,
+    bottom: 132,
+    left: 868,
+    width: 32,
+    height: 32,
+    x: 868,
+    y: 100,
+    toJSON() {},
+  });
+  setElementSize(menu, 224, 400);
+  const getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  dom.window.getComputedStyle = (element) => element === menu
+    ? { minWidth: '192px', maxWidth: '288px', maxHeight: '400px' }
+    : getComputedStyle(element);
+
+  defaultActionMenuPositioner({ trigger, menu });
+
+  assert.equal(menu.style.minWidth, '192px');
+  assert.equal(menu.style.maxWidth, '288px');
+  assert.equal(menu.style.maxHeight, '400px');
 });
 
 test('default action menu positioner opens upward and clamps both axes to the viewport', async () => {
@@ -191,6 +316,33 @@ test('default action menu positioner opens upward and clamps both axes to the vi
   assert.equal(menu.style.top, '10px');
   assert.equal(Number.parseFloat(menu.style.left) + 224 <= 310, true);
   assert.equal(Number.parseFloat(menu.style.top) + 300 <= 350, true);
+});
+
+test('default action menu positioner constrains oversized menus to the visual viewport', async () => {
+  const { defaultActionMenuPositioner } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  setViewport(dom.window, 800, 600);
+  Object.defineProperty(dom.window, 'visualViewport', {
+    configurable: true,
+    value: { width: 200, height: 300, offsetLeft: 40, offsetTop: 50 },
+  });
+
+  const trigger = dom.window.document.querySelector('[data-action-menu-trigger]');
+  const menu = dom.window.document.querySelector('[data-action-menu-content]');
+  trigger.getBoundingClientRect = () => ({
+    top: 260, right: 225, bottom: 292, left: 193, width: 32, height: 32,
+    x: 193, y: 260, toJSON() {},
+  });
+  setElementSize(menu, 400, 500);
+
+  defaultActionMenuPositioner({ trigger, menu });
+
+  assert.equal(menu.style.minWidth, '180px');
+  assert.equal(menu.style.maxWidth, '180px');
+  assert.equal(menu.style.maxHeight, '280px');
+  assert.equal(menu.style.left, '50px');
+  assert.equal(menu.style.top, '60px');
 });
 
 test('shared action menu supports existing DataGrid dropdown markup', async () => {

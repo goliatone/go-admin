@@ -13,6 +13,7 @@ import {
   isHandledActionError,
 } from '../toast/error-helpers.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { closeActionMenu } from '../shared/action-menu.js';
 import { readHTTPJSONValue } from '../shared/transport/http-client.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
 import type { PayloadModalFieldOption } from './payload-modal.js';
@@ -173,18 +174,19 @@ export class ActionRenderer {
     const actionItems = this.buildDropdownItems(record, visibleActions);
 
     return `
-      <div class="relative actions-dropdown" data-dropdown>
+      <div class="actions-dropdown" data-dropdown>
         <button type="button"
-                class="actions-menu-trigger p-2 hover:bg-gray-100 rounded-md transition-colors"
+                class="actions-menu-trigger"
                 data-dropdown-trigger
                 aria-label="Actions menu"
                 aria-haspopup="true"
-                aria-expanded="false">
+                aria-expanded="false"
+                aria-controls="${menuId}">
           ${this.renderDotsIcon()}
         </button>
 
         <div id="${menuId}"
-             class="actions-menu hidden w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+             class="actions-menu hidden"
              role="menu"
              aria-orientation="vertical">
           ${actionItems}
@@ -210,15 +212,13 @@ export class ActionRenderer {
         ? `${actionKey}-disabled-reason`
         : '';
 
-      const divider = needsDivider
-        ? '<div class="action-divider border-t border-gray-200 my-1"></div>'
-        : '';
+      const divider = needsDivider ? '<div class="action-divider"></div>' : '';
 
       const itemClass = disabled
-        ? 'action-item text-gray-400 cursor-not-allowed'
+        ? 'action-item action-item--disabled'
         : isDestructive
-        ? 'action-item text-red-600 hover:bg-red-50'
-        : 'action-item text-gray-700 hover:bg-gray-50';
+        ? 'action-item action-item--danger'
+        : 'action-item';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
       const describedByAttr = reasonID ? `aria-describedby="${reasonID}"` : '';
@@ -229,13 +229,13 @@ export class ActionRenderer {
         ? `title="${escapeHtml(action.disabledReason)}"`
         : '';
       const reasonMarkup = disabledReason
-        ? `<span id="${reasonID}" class="action-item-reason text-xs leading-5 text-gray-500">${escapeHtml(disabledReason)}</span>`
+        ? `<span id="${reasonID}" class="action-item-reason">${escapeHtml(disabledReason)}</span>`
         : '';
 
       return `
         ${divider}
         <button type="button"
-                class="${itemClass} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
+                class="${itemClass}"
                 data-action-id="${this.sanitize(action.label)}"
                 data-action-key="${actionKey}"
                 data-record-id="${record.id}"
@@ -245,9 +245,9 @@ export class ActionRenderer {
                 aria-label="${escapeHtml(ariaLabel)}"
                 ${describedByAttr}
                 ${titleAttr}>
-          <span class="flex-shrink-0 w-5 h-5">${icon}</span>
-          <span class="flex min-w-0 flex-1 flex-col items-start">
-            <span class="text-sm font-medium">${escapeHtml(action.label)}</span>
+          <span class="action-item__icon">${icon}</span>
+          <span class="action-item__content">
+            <span class="action-item__label">${escapeHtml(action.label)}</span>
             ${reasonMarkup}
           </span>
         </button>
@@ -318,6 +318,12 @@ export class ActionRenderer {
             // Click guard: prevent action execution when aria-disabled
             if (btn.getAttribute('aria-disabled') === 'true' || btn.dataset.disabled === 'true') {
               return;
+            }
+            if (typeof btn.closest === 'function') {
+              const menu = btn.closest<HTMLElement>('.actions-menu');
+              if (menu) {
+                closeActionMenu(menu);
+              }
             }
             try {
               await action.action(record);

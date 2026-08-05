@@ -1,6 +1,6 @@
 import { httpRequest as f, readHTTPError as h } from "../shared/transport/http-client.js";
-import { getStringSearchParam as S, readLocationSearchParams as g } from "../shared/query-state/url-state.js";
-import { initActionMenus as w } from "../shared/action-menu.js";
+import { initActionMenus as S } from "../shared/action-menu.js";
+import { getStringSearchParam as g, readLocationSearchParams as w } from "../shared/query-state/url-state.js";
 import { asString as r } from "../shared/coercion.js";
 function A(t, i, o) {
   const e = t.trim();
@@ -28,10 +28,10 @@ function E(t, i) {
   return i.endpoint || t.dataset.actionEndpoint || t.dataset.assignmentActionEndpoint || "";
 }
 function $(t) {
-  return r(t.dataset.channel) || typeof window < "u" && S(g(window.location) ?? new URLSearchParams(), "channel") || "";
+  return r(t.dataset.channel) || typeof window < "u" && g(w(window.location) ?? new URLSearchParams(), "channel") || "";
 }
 function U(t, i) {
-  i.initializeMenus === !1 || t.dataset.assignmentActionMenusEnhanced === "true" || (t.dataset.assignmentActionMenusEnhanced = "true", w(t, {
+  i.initializeMenus === !1 || t.dataset.assignmentActionMenusEnhanced === "true" || (t.dataset.assignmentActionMenusEnhanced = "true", S(t, {
     containerSelector: "[data-action-menu]",
     triggerSelector: "[data-action-menu-trigger]",
     menuSelector: "[data-action-menu-content]",

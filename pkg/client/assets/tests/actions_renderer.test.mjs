@@ -74,16 +74,41 @@ test('ActionRenderer dropdown leaves overlay geometry to the shared menu contrac
     { id: 'row_1' },
     [{ id: 'view', label: 'View', action: () => {} }]
   );
-  const menuClass = html.match(/class="([^"]*\bactions-menu\b[^"]*)"/)?.[1] || '';
+  const menuClass = html.match(/<div[^>]*class="([^"]*)"[^>]*role="menu"/)?.[1] || '';
 
   assert.ok(menuClass, 'expected an actions-menu class list');
-  for (const conflictingClass of ['absolute', 'right-0', 'mt-2', 'z-10']) {
+  assert.deepEqual(menuClass.split(/\s+/), ['actions-menu', 'hidden']);
+  for (const conflictingClass of ['absolute', 'right-0', 'mt-2', 'z-10', 'w-56', 'bg-white']) {
     assert.equal(
       menuClass.split(/\s+/).includes(conflictingClass),
       false,
       `menu must not emit ${conflictingClass}`
     );
   }
+  assert.match(html, /aria-controls="actions-menu-row_1"/);
+});
+
+test('ActionRenderer closes a dropdown before invoking its enabled action', async () => {
+  const renderer = new ActionRenderer({ mode: 'dropdown' });
+  const calls = [];
+  const action = { id: 'view', label: 'View', action: () => calls.push('action') };
+  renderer.renderRowActions({ id: 'row_1' }, [action]);
+  const menu = {
+    classList: { add() { calls.push('close'); } },
+    closest() { return null; },
+  };
+  const button = {
+    dataset: { recordId: 'row_1', disabled: 'false' },
+    getAttribute() { return null; },
+    closest(selector) { return selector === '.actions-menu' ? menu : null; },
+    addEventListener(_event, handler) { this.handler = handler; },
+  };
+  const container = { querySelectorAll() { return [button]; } };
+
+  renderer.attachRowActionListeners(container, [action], { row_1: { id: 'row_1' } });
+  await button.handler({ preventDefault() {} });
+
+  assert.deepEqual(calls, ['close', 'action']);
 });
 
 test('ActionRenderer click guard prevents disabled row actions from executing', async () => {

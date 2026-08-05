@@ -96,17 +96,26 @@ function actionRowLocator(page: Page): Locator {
   );
 }
 
-async function openRowActionsMenu(page: Page, rowIndex: number): Promise<Locator> {
+interface OpenRowActionsMenuResult {
+  row: Locator;
+  trigger: Locator | null;
+  menu: Locator | null;
+}
+
+async function openRowActionsMenu(page: Page, rowIndex: number): Promise<OpenRowActionsMenuResult> {
   const row = actionRowLocator(page).nth(rowIndex);
   const trigger = row.locator('[data-dropdown-trigger], button[aria-label="Actions menu"]').first();
   if (await trigger.count() === 0) {
-    return row;
+    return { row, trigger: null, menu: null };
   }
 
-  const menu = row.locator('.actions-menu').first();
+  const menuId = await trigger.getAttribute('aria-controls');
+  const menu = menuId
+    ? page.locator(`[id=${JSON.stringify(menuId)}]`).first()
+    : row.locator('.actions-menu').first();
   if (await menu.count() === 0) {
     await trigger.click();
-    return row;
+    return { row, trigger, menu: null };
   }
 
   const hidden = await menu.evaluate((element) => element.classList.contains('hidden'));
@@ -115,22 +124,47 @@ async function openRowActionsMenu(page: Page, rowIndex: number): Promise<Locator
     await expect(menu).toBeVisible();
   }
   await expect.poll(async () => {
-    const [menuBox, viewport] = await Promise.all([
+    const [menuBox, triggerBox, viewport, position, parentTag] = await Promise.all([
       menu.boundingBox(),
-      page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight })),
+      trigger.boundingBox(),
+      page.evaluate(() => ({
+        left: window.visualViewport?.offsetLeft ?? 0,
+        top: window.visualViewport?.offsetTop ?? 0,
+        width: window.visualViewport?.width ?? window.innerWidth,
+        height: window.visualViewport?.height ?? window.innerHeight,
+      })),
+      menu.evaluate((element) => getComputedStyle(element).position),
+      menu.evaluate((element) => element.parentElement?.tagName || ''),
     ]);
-    if (!menuBox) {
+    if (!menuBox || !triggerBox) {
       return false;
     }
-    const tolerance = 1;
-    return menuBox.x >= -tolerance
-      && menuBox.y >= -tolerance
-      && menuBox.x + menuBox.width <= viewport.width + tolerance
-      && menuBox.y + menuBox.height <= viewport.height + tolerance;
+    const tolerance = 2;
+    const inset = 10;
+    const viewportRight = viewport.left + viewport.width;
+    const viewportBottom = viewport.top + viewport.height;
+    const desiredLeft = triggerBox.x + triggerBox.width - menuBox.width;
+    const expectedLeft = Math.min(
+      Math.max(viewport.left + inset, desiredLeft),
+      Math.max(viewport.left + inset, viewportRight - menuBox.width - inset)
+    );
+    return position === 'fixed'
+      && parentTag === 'BODY'
+      && menuBox.x >= viewport.left - tolerance
+      && menuBox.y >= viewport.top - tolerance
+      && menuBox.x + menuBox.width <= viewportRight + tolerance
+      && menuBox.y + menuBox.height <= viewportBottom + tolerance
+      && Math.abs(menuBox.x - expectedLeft) <= tolerance;
   }, {
-    message: 'row actions menu should be fully inside the viewport',
+    message: 'row actions menu should be a body-level fixed overlay aligned inside the viewport',
   }).toBe(true);
-  return row;
+  const enabledItem = menu.locator(
+    '[role="menuitem"]:not([aria-disabled="true"]):not([data-disabled="true"])'
+  ).first();
+  if (await enabledItem.count() > 0) {
+    await enabledItem.click({ trial: true });
+  }
+  return { row, trigger, menu };
 }
 
 /**
@@ -204,8 +238,8 @@ export async function setViewMode(
  * Get all visible row actions for a specific row
  */
 export async function getRowActions(page: Page, rowIndex: number): Promise<string[]> {
-  const row = await openRowActionsMenu(page, rowIndex);
-  const actionButtons = row.locator('[data-action]:visible, .action-item:visible, button[data-action-name]:visible, [data-action-id]:visible');
+  const { row, menu } = await openRowActionsMenu(page, rowIndex);
+  const actionButtons = (menu ?? row).locator('[data-action]:visible, .action-item:visible, button[data-action-name]:visible, [data-action-id]:visible');
   const actions: string[] = [];
   const count = await actionButtons.count();
   for (let i = 0; i < count; i++) {
@@ -227,8 +261,8 @@ export async function isActionDisabled(
   rowIndex: number,
   actionName: string
 ): Promise<{ disabled: boolean; reason?: string }> {
-  const row = await openRowActionsMenu(page, rowIndex);
-  const action = row.locator(`[data-action="${actionName}"]:visible, [data-action-id="${actionName}"]:visible, button:has-text("${actionName}"):visible`).first();
+  const { row, menu } = await openRowActionsMenu(page, rowIndex);
+  const action = (menu ?? row).locator(`[data-action="${actionName}"]:visible, [data-action-id="${actionName}"]:visible, button:has-text("${actionName}"):visible`).first();
 
   if (await action.count() === 0) {
     return { disabled: false };
@@ -321,8 +355,8 @@ export async function openCreateTranslationModal(
   page: Page,
   rowIndex: number
 ): Promise<boolean> {
-  const row = await openRowActionsMenu(page, rowIndex);
-  const createBtn = row.locator('[data-action="create_translation"]:visible, button:has-text("Add Translation"):visible, button:has-text("Create Translation"):visible');
+  const { row, menu } = await openRowActionsMenu(page, rowIndex);
+  const createBtn = (menu ?? row).locator('[data-action="create_translation"]:visible, button:has-text("Add Translation"):visible, button:has-text("Create Translation"):visible');
   if (await createBtn.count() === 0) {
     return false;
   }

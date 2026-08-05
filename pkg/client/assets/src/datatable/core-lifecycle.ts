@@ -1068,7 +1068,8 @@ export function bindDropdownToggles(grid: any): void {
       }
     }, { signal });
 
-    initActionMenus(document, {
+    const actionMenuRoot = grid.tableEl ?? document;
+    initActionMenus(actionMenuRoot, {
       containerSelector: '[data-dropdown], .actions-dropdown',
       triggerSelector: '[data-dropdown-trigger], .actions-menu-trigger',
       menuSelector: '.actions-menu',
@@ -1077,6 +1078,7 @@ export function bindDropdownToggles(grid: any): void {
       positionMenu: ({ trigger, menu }) => {
         grid.positionDropdownMenu(trigger, menu);
       },
+      portal: true,
       signal,
     });
 
