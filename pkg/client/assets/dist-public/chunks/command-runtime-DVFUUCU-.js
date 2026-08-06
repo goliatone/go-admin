@@ -1,13 +1,13 @@
-import { readHTTPJSONValue as v } from "../shared/transport/http-client.js";
-import { extractStructuredError as I, formatStructuredErrorForDisplay as A, parseActionResponse as F } from "../toast/error-helpers.js";
-import { t as k } from "./toast-manager-CZnLPlYg.js";
+import { httpRequestWith as g, readHTTPJSONValue as F } from "../shared/transport/http-client.js";
+import { extractStructuredError as A, formatStructuredErrorForDisplay as T, parseActionResponse as k } from "../toast/error-helpers.js";
+import { t as B } from "./toast-manager-CZnLPlYg.js";
 var d = "true", p = /* @__PURE__ */ new WeakMap();
-function T(t) {
+function L(t) {
   return t ? p.has(t) || t.dataset.busy === "true" || t.dataset.submitLoadingActive === "true" || t.getAttribute("aria-busy") === "true" : !1;
 }
-function L(t, e = {}) {
+function M(t, e = {}) {
   const n = p.get(t);
-  if (n) return M(n);
+  if (n) return E(n);
   const a = {
     root: t,
     ariaBusy: t.getAttribute("aria-busy"),
@@ -22,20 +22,20 @@ function L(t, e = {}) {
     generatedSpinners: [],
     overrides: null
   };
-  t.setAttribute("aria-busy", d), t.dataset.busy = d, (e.compatibilitySubmitLoading || t.hasAttribute("data-submit-loading-form")) && (t.dataset.loading = d, t.dataset.submitLoadingActive = d), b(t) && W(t, x(e.submitter), a);
-  const i = _(t, e);
+  t.setAttribute("aria-busy", d), t.dataset.busy = d, (e.compatibilitySubmitLoading || t.hasAttribute("data-submit-loading-form")) && (t.dataset.loading = d, t.dataset.submitLoadingActive = d), b(t) && G(t, R(e.submitter), a);
+  const i = j(t, e);
   for (const r of i)
-    j(r, a), V(r, e, a);
-  return p.set(t, a), M(a);
+    V(r, a), q(r, e, a);
+  return p.set(t, a), E(a);
 }
-function B(t) {
+function x(t) {
   if (!t) return;
   const e = p.get(t);
   if (!e) {
     t.dataset.busy === "true" && (delete t.dataset.busy, t.removeAttribute("aria-busy")), (t.dataset.submitLoadingActive === "true" || t.dataset.loading === "true") && (delete t.dataset.loading, delete t.dataset.submitLoadingActive);
     return;
   }
-  m(t, "aria-busy", e.ariaBusy), y(t, "busy", e.dataBusy), y(t, "loading", e.dataLoading), y(t, "submitLoadingActive", e.dataSubmitLoadingActive);
+  m(t, "aria-busy", e.ariaBusy), S(t, "busy", e.dataBusy), S(t, "loading", e.dataLoading), S(t, "submitLoadingActive", e.dataSubmitLoadingActive);
   for (const n of e.controls)
     n.control.disabled = n.disabled, m(n.control, "aria-label", n.ariaLabel);
   for (const n of e.labels) n.innerHTML !== void 0 ? n.element.innerHTML = n.innerHTML : n.element.textContent = n.textContent;
@@ -43,13 +43,13 @@ function B(t) {
   for (const n of e.spinners) n.element.hidden = n.hidden;
   for (const n of e.generatedInputs) n.remove();
   for (const n of e.generatedSpinners) n.remove();
-  e.overrides && b(t) && G(t, e.overrides), p.delete(t);
+  e.overrides && b(t) && J(t, e.overrides), p.delete(t);
 }
-function M(t) {
+function E(t) {
   return {
     root: t.root,
     reset() {
-      B(t.root);
+      x(t.root);
     }
   };
 }
@@ -61,19 +61,19 @@ function h(t) {
   const e = t?.ownerDocument?.defaultView;
   return !!t && (e?.HTMLButtonElement && t instanceof e.HTMLButtonElement || e?.HTMLInputElement && t instanceof e.HTMLInputElement || e?.HTMLTextAreaElement && t instanceof e.HTMLTextAreaElement || e?.HTMLSelectElement && t instanceof e.HTMLSelectElement || typeof HTMLButtonElement < "u" && t instanceof HTMLButtonElement || typeof HTMLInputElement < "u" && t instanceof HTMLInputElement || typeof HTMLTextAreaElement < "u" && t instanceof HTMLTextAreaElement || typeof HTMLSelectElement < "u" && t instanceof HTMLSelectElement);
 }
-function x(t) {
+function R(t) {
   if (!t) return null;
   const e = t.ownerDocument?.defaultView;
   return e?.HTMLButtonElement && t instanceof e.HTMLButtonElement || e?.HTMLInputElement && t instanceof e.HTMLInputElement || typeof HTMLButtonElement < "u" && t instanceof HTMLButtonElement || typeof HTMLInputElement < "u" && t instanceof HTMLInputElement ? t : null;
 }
-function R(t) {
+function P(t) {
   const e = t.tagName.toLowerCase();
   if (e === "button") return !0;
   if (e !== "input") return !1;
   const n = (t.getAttribute("type") || "text").trim().toLowerCase();
   return n === "submit" || n === "button" || n === "image";
 }
-function P(t) {
+function _(t) {
   if (!t) return !1;
   const e = t.tagName.toLowerCase();
   if (e === "button") return (t.getAttribute("type") || "submit").trim().toLowerCase() === "submit";
@@ -81,29 +81,29 @@ function P(t) {
   const n = (t.getAttribute("type") || "text").trim().toLowerCase();
   return n === "submit" || n === "image";
 }
-function _(t, e) {
+function j(t, e) {
   const n = [];
   for (const a of e.controls ?? []) h(a) && !n.includes(a) && n.push(a);
   if (h(e.submitter) && !n.includes(e.submitter) && n.push(e.submitter), h(t) && !n.includes(t) && n.push(t), e.includeDescendantControls !== !1) {
     const a = b(t) ? 'button, input[type="submit"], input[type="button"], input[type="image"]' : 'button, input[type="submit"], input[type="button"], input[type="image"], select, textarea';
     t.querySelectorAll(a).forEach((i) => {
-      (b(t) ? R(i) : h(i)) && !n.includes(i) && n.push(i);
+      (b(t) ? P(i) : h(i)) && !n.includes(i) && n.push(i);
     });
   }
   return n;
 }
-function j(t, e) {
+function V(t, e) {
   e.controls.push({
     control: t,
     disabled: t.disabled,
     ariaLabel: t.getAttribute("aria-label")
   });
 }
-function V(t, e, n) {
+function q(t, e, n) {
   const a = $(t, e);
   if (a) {
     t.setAttribute("aria-label", a);
-    const r = q(t);
+    const r = U(t);
     r ? (n.labels.push({
       element: r,
       textContent: r.textContent
@@ -116,7 +116,7 @@ function V(t, e, n) {
       value: t.value
     }), t.value = a);
   }
-  const i = U(t) || O(t, e, n);
+  const i = O(t) || W(t, e, n);
   i && (n.spinners.push({
     element: i,
     hidden: i.hidden
@@ -125,23 +125,23 @@ function V(t, e, n) {
 function $(t, e) {
   return String(e.label || t.getAttribute("data-busy-label") || t.getAttribute("data-submit-loading-busy-label") || "").trim();
 }
-function q(t) {
+function U(t) {
   return t instanceof HTMLInputElement && t.tagName.toLowerCase() === "input" ? null : t.querySelector("[data-busy-label-target], [data-submit-loading-label]");
 }
-function U(t) {
+function O(t) {
   return t instanceof HTMLInputElement && t.tagName.toLowerCase() === "input" ? null : t.querySelector("[data-busy-spinner], .submit-loading-spinner");
 }
-function O(t, e, n) {
+function W(t, e, n) {
   if (!e.generateSpinner && !t.hasAttribute("data-busy-button") || t instanceof HTMLInputElement && t.tagName.toLowerCase() === "input") return null;
   const a = t.ownerDocument.createElement("span");
   return a.setAttribute("data-busy-spinner", ""), a.setAttribute("data-busy-generated-spinner", "true"), a.setAttribute("aria-hidden", "true"), a.className = "busy-spinner", t.insertBefore(a, t.firstChild), n.generatedSpinners.push(a), a;
 }
-function g(t, e, n, a, i = null) {
+function y(t, e, n, a, i = null) {
   const r = e.ownerDocument.createElement("input");
   return r.type = "hidden", r.name = n, r.value = a, r.dataset.busyGenerated = d, r.dataset.submitLoadingGenerated = d, i && i.parentNode === e ? i.after(r) : e.appendChild(r), t.generatedInputs.push(r), r;
 }
-function W(t, e, n) {
-  if (!e || !P(e) || e.disabled) return;
+function G(t, e, n) {
+  if (!e || !_(e) || e.disabled) return;
   const a = {
     action: t.getAttribute("action"),
     method: t.getAttribute("method"),
@@ -160,49 +160,49 @@ function W(t, e, n) {
   const r = e.getAttribute("name")?.trim();
   if (r) {
     if ((e.tagName.toLowerCase() === "input" ? (e.getAttribute("type") || "text").trim().toLowerCase() : "submit") === "image") {
-      const u = g(n, t, `${r}.x`, "0", e);
-      g(n, t, `${r}.y`, "0", u);
+      const u = y(n, t, `${r}.x`, "0", e);
+      y(n, t, `${r}.y`, "0", u);
       return;
     }
-    g(n, t, r, e.getAttribute("value") ?? "", e);
+    y(n, t, r, e.getAttribute("value") ?? "", e);
   }
 }
-function G(t, e) {
+function J(t, e) {
   m(t, "action", e.action), m(t, "method", e.method), m(t, "enctype", e.enctype), m(t, "target", e.target), t.noValidate = e.noValidate;
 }
 function m(t, e, n) {
   n === null ? t.removeAttribute(e) : t.setAttribute(e, n);
 }
-function y(t, e, n) {
+function S(t, e, n) {
   n === void 0 ? delete t.dataset[e] : t.dataset[e] = n;
 }
-function J() {
+function z() {
   const t = globalThis.window;
-  return t?.toastManager ? t.toastManager : new k();
+  return t?.toastManager ? t.toastManager : new B();
 }
 function l(t) {
   return String(t || "").trim();
 }
-function z(t) {
+function K(t) {
   return t.replace(/[A-Z]/g, (e) => `-${e.toLowerCase()}`).replace(/^-+/, "");
 }
-function K(t) {
-  return z(t).replace(/-/g, "_");
+function Q(t) {
+  return K(t).replace(/-/g, "_");
 }
-function E(t) {
+function C(t) {
   return String(t || "").split(",").map((e) => e.trim()).filter(Boolean);
 }
-function S(t) {
+function I(t) {
   return String(t || "").trim().toLowerCase() || void 0;
 }
-function Q() {
+function X() {
   const t = globalThis.crypto;
   return t?.randomUUID ? t.randomUUID() : `cmd_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
 }
-function X(t) {
+function Y(t) {
   const e = String(t.correlation_id || "").trim();
   if (e) return e;
-  const n = Q();
+  const n = X();
   return t.correlation_id = n, n;
 }
 function f(t, e) {
@@ -224,12 +224,12 @@ function f(t, e) {
     validationErrors: null
   };
 }
-function C(t, e) {
+function w(t, e) {
   if (!t || typeof t != "object") return {
     success: !1,
     error: f(null, e)
   };
-  const n = F(t);
+  const n = k(t);
   return n.success ? {
     success: !0,
     data: n.data
@@ -238,19 +238,19 @@ function C(t, e) {
     error: n.error || f(null, e)
   };
 }
-async function w(t) {
-  return v(t, null);
+async function H(t) {
+  return F(t, null);
 }
-function H(t) {
+function N(t) {
   const e = {};
   for (const n of Array.from(t.attributes)) {
     if (!n.name.startsWith("data-command-payload-")) continue;
-    const a = K(n.name.slice(21));
+    const a = Q(n.name.slice(21));
     e[a] = n.value;
   }
   return e;
 }
-function Y(t, e, n) {
+function Z(t, e, n) {
   if (e) {
     if (typeof n == "string") {
       const a = n.trim();
@@ -269,42 +269,42 @@ function Y(t, e, n) {
     t[e] = n;
   }
 }
-function Z(t) {
+function tt(t) {
   if (!t) return {};
   const e = {};
   return new FormData(t).forEach((n, a) => {
-    Y(e, a, n);
+    Z(e, a, n);
   }), e;
 }
-function N(t) {
+function D(t) {
   const e = l(t.dataset.commandBusyTarget);
   if (e) return document.querySelector(e);
   const n = l(t.dataset.commandBusyClosest);
   return n ? t.closest(n) : null;
 }
-function tt(t) {
-  const e = [];
-  return t.submitter && e.push(L(t.submitter)), t.busyTarget && t.busyTarget !== t.submitter && e.push(L(t.busyTarget)), e;
-}
 function et(t) {
-  for (const e of [...t].reverse()) e.reset();
+  const e = [];
+  return t.submitter && e.push(M(t.submitter)), t.busyTarget && t.busyTarget !== t.submitter && e.push(M(t.busyTarget)), e;
 }
 function nt(t) {
+  for (const e of [...t].reverse()) e.reset();
+}
+function at(t) {
   const e = /* @__PURE__ */ new Map();
   return t.querySelectorAll(".collapsible-trigger[aria-controls]").forEach((n) => {
     const a = l(n.getAttribute("aria-controls") || void 0);
     a && e.set(a, n.getAttribute("aria-expanded") === "true");
   }), e;
 }
-function at(t, e) {
+function it(t, e) {
   e.forEach((n, a) => {
     const i = t.querySelector(`.collapsible-trigger[aria-controls="${a}"]`), r = document.getElementById(a);
     !i || !r || (i.setAttribute("aria-expanded", n ? "true" : "false"), r.classList.toggle("expanded", n));
   });
 }
-function it(t) {
+function rt(t) {
   if (!t || typeof t != "object") return;
-  const e = t, n = e.accepted ?? e.Accepted, a = typeof n == "boolean" ? n : void 0, i = S(e.mode ?? e.Mode), r = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, u = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, s = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, o = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, c = o == null ? void 0 : String(o).trim() || void 0;
+  const e = t, n = e.accepted ?? e.Accepted, a = typeof n == "boolean" ? n : void 0, i = I(e.mode ?? e.Mode), r = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, u = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, s = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, o = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, c = o == null ? void 0 : String(o).trim() || void 0;
   if (!(a === void 0 && !i && !r && !u && !s && !c))
     return {
       accepted: a,
@@ -315,9 +315,9 @@ function it(t) {
       enqueuedAt: c
     };
 }
-var rt = class {
+var st = class {
   constructor(t) {
-    this.submitHandler = null, this.clickHandler = null, this.feedbackUnsubscribe = null, this.pendingFeedback = /* @__PURE__ */ new Map(), this.inlineStatus = /* @__PURE__ */ new Map(), this.inlineStatusListeners = /* @__PURE__ */ new Set(), this.mount = t.mount, this.apiBasePath = String(t.apiBasePath || "").trim().replace(/\/$/, ""), this.panelName = String(t.panelName || "").trim(), this.recordId = String(t.recordId || "").trim(), this.rpcEndpoint = String(t.rpcEndpoint || "").trim() || `${this.apiBasePath}/rpc`, this.tenantId = String(t.tenantId || "").trim(), this.orgId = String(t.orgId || "").trim(), this.notifier = t.notifier || J(), this.fetchImpl = t.fetchImpl || fetch.bind(globalThis), this.defaultRefreshSelectors = Array.isArray(t.defaultRefreshSelectors) ? t.defaultRefreshSelectors.filter(Boolean) : [], this.feedback = t.feedback, this.onBeforeDispatch = t.onBeforeDispatch, this.onAfterDispatch = t.onAfterDispatch, this.onAfterRefresh = t.onAfterRefresh;
+    this.submitHandler = null, this.clickHandler = null, this.feedbackUnsubscribe = null, this.pendingFeedback = /* @__PURE__ */ new Map(), this.inlineStatus = /* @__PURE__ */ new Map(), this.inlineStatusListeners = /* @__PURE__ */ new Set(), this.mount = t.mount, this.apiBasePath = String(t.apiBasePath || "").trim().replace(/\/$/, ""), this.panelName = String(t.panelName || "").trim(), this.recordId = String(t.recordId || "").trim(), this.rpcEndpoint = String(t.rpcEndpoint || "").trim() || `${this.apiBasePath}/rpc`, this.tenantId = String(t.tenantId || "").trim(), this.orgId = String(t.orgId || "").trim(), this.notifier = t.notifier || z(), this.fetchImpl = t.fetchImpl || fetch.bind(globalThis), this.defaultRefreshSelectors = Array.isArray(t.defaultRefreshSelectors) ? t.defaultRefreshSelectors.filter(Boolean) : [], this.feedback = t.feedback, this.onBeforeDispatch = t.onBeforeDispatch, this.onAfterDispatch = t.onAfterDispatch, this.onAfterRefresh = t.onAfterRefresh;
   }
   init() {
     this.mount && (this.submitHandler = (t) => {
@@ -405,12 +405,12 @@ var rt = class {
     return this.tenantId && (t.tenant_id = this.tenantId), this.orgId && (t.org_id = this.orgId), t;
   }
   buildSpec(t, e, n) {
-    const a = l(t.dataset.commandName || e?.dataset.commandName), i = l(t.dataset.commandTransport || e?.dataset.commandTransport) || "action", r = l(t.dataset.commandDispatch || e?.dataset.commandDispatch) || a, u = Z(e), s = H(t), o = e ? H(e) : {}, c = {
+    const a = l(t.dataset.commandName || e?.dataset.commandName), i = l(t.dataset.commandTransport || e?.dataset.commandTransport) || "action", r = l(t.dataset.commandDispatch || e?.dataset.commandDispatch) || a, u = tt(e), s = N(t), o = e ? N(e) : {}, c = {
       ...this.scopePayload(),
       ...u,
       ...o,
       ...s
-    }, D = E(t.dataset.commandRefresh || e?.dataset.commandRefresh || "").length > 0 ? E(t.dataset.commandRefresh || e?.dataset.commandRefresh || "") : this.defaultRefreshSelectors;
+    }, v = C(t.dataset.commandRefresh || e?.dataset.commandRefresh || "").length > 0 ? C(t.dataset.commandRefresh || e?.dataset.commandRefresh || "") : this.defaultRefreshSelectors;
     return {
       trigger: t,
       form: e,
@@ -420,12 +420,12 @@ var rt = class {
       payload: c,
       successMessage: l(t.dataset.commandSuccess || e?.dataset.commandSuccess) || `${a} completed successfully`,
       fallbackMessage: l(t.dataset.commandFailure || e?.dataset.commandFailure) || `${a} failed`,
-      refreshSelectors: D,
+      refreshSelectors: v,
       confirmMessage: l(t.dataset.commandConfirm || e?.dataset.commandConfirm),
       confirmTitle: l(t.dataset.commandConfirmTitle || e?.dataset.commandConfirmTitle),
       reasonTitle: l(t.dataset.commandReasonTitle || e?.dataset.commandReasonTitle),
       reasonSubject: l(t.dataset.commandReasonSubject || e?.dataset.commandReasonSubject),
-      busyTarget: N(t) || (e ? N(e) : null),
+      busyTarget: D(t) || (e ? D(e) : null),
       submitter: n
     };
   }
@@ -469,7 +469,7 @@ var rt = class {
       correlationId: String(t.payload.correlation_id || "").trim(),
       success: !1
     });
-    if (t.submitter && T(t.submitter) || t.busyTarget && T(t.busyTarget) || t.confirmMessage && !await this.notifier.confirm(t.confirmMessage, { title: t.confirmTitle || void 0 }))
+    if (t.submitter && L(t.submitter) || t.busyTarget && L(t.busyTarget) || t.confirmMessage && !await this.notifier.confirm(t.confirmMessage, { title: t.confirmTitle || void 0 }))
       return e();
     if (t.reasonTitle) {
       const s = t.reasonSubject ? `${t.reasonTitle}
@@ -485,7 +485,7 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
         return this.notifier.error("A reason is required."), e();
       t.payload.reason = c;
     }
-    const n = X(t.payload), a = this.resolveSection(t.trigger), i = this.resolveParticipantId(t.trigger, t.payload), r = {
+    const n = Y(t.payload), a = this.resolveSection(t.trigger), i = this.resolveParticipantId(t.trigger, t.payload), r = {
       trigger: t.trigger,
       form: t.form,
       commandName: t.commandName,
@@ -495,7 +495,7 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
       success: !1
     };
     this.onBeforeDispatch?.(r);
-    const u = tt(t);
+    const u = et(t);
     this.updateInlineStatusFromDispatch(n, t.commandName, "submitting", {
       message: "Sending...",
       section: a,
@@ -512,7 +512,7 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
         responseMode: s.responseMode
       };
       if (!s.success || s.error) {
-        const c = A(s.error || f(null, t.fallbackMessage), t.fallbackMessage);
+        const c = T(s.error || f(null, t.fallbackMessage), t.fallbackMessage);
         return this.notifier.error(c), this.updateInlineStatusFromDispatch(n, t.commandName, "failed", {
           message: c || "Failed",
           section: a,
@@ -544,17 +544,17 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
         success: !1,
         error: o
       };
-      return this.notifier.error(A(o, t.fallbackMessage)), this.updateInlineStatusFromDispatch(n, t.commandName, "failed", {
+      return this.notifier.error(T(o, t.fallbackMessage)), this.updateInlineStatusFromDispatch(n, t.commandName, "failed", {
         message: o.message || "Failed",
         section: a,
         participantId: i
       }), this.onAfterDispatch?.(c), c;
     } finally {
-      et(u);
+      nt(u);
     }
   }
   shouldWaitForFeedback(t) {
-    return this.feedback?.adapter ? S(t.responseMode || t.receipt?.mode) === "queued" : !1;
+    return this.feedback?.adapter ? I(t.responseMode || t.receipt?.mode) === "queued" : !1;
   }
   async handleFeedbackEvent(t) {
     const e = String(t.correlationId || "").trim(), n = e && this.pendingFeedback.get(e) || null;
@@ -598,7 +598,7 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
     const e = `${this.apiBasePath}/panels/${encodeURIComponent(this.panelName)}/actions/${encodeURIComponent(t.commandName)}`, n = {
       id: this.recordId,
       ...t.payload
-    }, a = await this.fetchImpl(e, {
+    }, a = await g(this.fetchImpl, e, {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -608,11 +608,11 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
       body: JSON.stringify(n)
     });
     return a.ok ? {
-      ...C(await w(a), t.fallbackMessage),
+      ...w(await H(a), t.fallbackMessage),
       correlationId: String(t.payload.correlation_id || "").trim() || void 0
     } : {
       success: !1,
-      error: await I(a)
+      error: await A(a)
     };
   }
   async dispatchRPC(t) {
@@ -627,7 +627,7 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
           metadata: { correlation_id: e }
         }
       } }
-    }, a = await this.fetchImpl(this.rpcEndpoint, {
+    }, a = await g(this.fetchImpl, this.rpcEndpoint, {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -638,22 +638,22 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
     });
     if (!a.ok) return {
       success: !1,
-      error: await I(a),
+      error: await A(a),
       correlationId: e
     };
-    const i = await w(a);
+    const i = await H(a);
     if (i && typeof i == "object" && "error" in i) return {
-      ...C(i, t.fallbackMessage),
+      ...w(i, t.fallbackMessage),
       correlationId: e
     };
     if (i && typeof i == "object" && "data" in i && typeof i.data == "object") {
-      const r = i.data, u = it(r.receipt);
+      const r = i.data, u = rt(r.receipt);
       return {
         success: !0,
         data: r,
         correlationId: u?.correlationId || e,
         receipt: u,
-        responseMode: S(r.response_mode || u?.mode)
+        responseMode: I(r.response_mode || u?.mode)
       };
     }
     return {
@@ -672,7 +672,7 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
     }), n;
   }
   async refreshFragments(t) {
-    const e = await this.fetchImpl(globalThis.window?.location?.href || "", {
+    const e = await g(this.fetchImpl, globalThis.window?.location?.href || "", {
       method: "GET",
       credentials: "same-origin",
       headers: {
@@ -696,19 +696,19 @@ Enter a reason:`, o = globalThis.window?.prompt(s, "") ?? null;
       return;
     }
     if (!n || !a) return;
-    const i = nt(n), r = document.importNode(a, !0);
-    n.replaceWith(r), r instanceof Element && at(r, i);
+    const i = at(n), r = document.importNode(a, !0);
+    n.replaceWith(r), r instanceof Element && it(r, i);
   }
 };
-function ct(t) {
+function lt(t) {
   if (!t.mount) return null;
-  const e = new rt(t);
+  const e = new st(t);
   return e.init(), e;
 }
 export {
-  ct as n,
-  L as r,
-  rt as t
+  lt as n,
+  M as r,
+  st as t
 };
 
-//# sourceMappingURL=command-runtime-CCwUo6yg.js.map
+//# sourceMappingURL=command-runtime-DVFUUCU-.js.map

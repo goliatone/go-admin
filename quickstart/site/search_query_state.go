@@ -44,23 +44,7 @@ func searchFilterChips(filters map[string][]string, baseRoute string, currentQue
 func searchClearURL(baseRoute string, currentQuery map[string][]string, activeFilters map[string][]string, ranges []admin.SearchRange) string {
 	next := cloneSearchFilters(currentQuery)
 	for key := range next {
-		switch {
-		case key == "page":
-			delete(next, key)
-		case strings.HasPrefix(key, "facet_"):
-			delete(next, key)
-		case strings.HasPrefix(key, "filter_"):
-			delete(next, key)
-		case strings.HasPrefix(key, "filter."):
-			delete(next, key)
-		case strings.HasPrefix(key, "filters."):
-			delete(next, key)
-		case strings.HasSuffix(key, "_gte"):
-			delete(next, key)
-		case strings.HasSuffix(key, "_lte"):
-			delete(next, key)
-		}
-		if key == "content_type" || key == "tag" || key == "category" || key == "date_from" || key == "date_to" {
+		if searchClearQueryKey(key) {
 			delete(next, key)
 		}
 	}
@@ -76,6 +60,18 @@ func searchClearURL(baseRoute string, currentQuery map[string][]string, activeFi
 		delete(next, field+"_lte")
 	}
 	return searchURLWithQuery(baseRoute, next)
+}
+
+func searchClearQueryKey(key string) bool {
+	if key == "page" || key == "content_type" || key == "tag" || key == "category" || key == "date_from" || key == "date_to" {
+		return true
+	}
+	for _, prefix := range []string{"facet_", "filter_", "filter.", "filters."} {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return strings.HasSuffix(key, "_gte") || strings.HasSuffix(key, "_lte")
 }
 
 func cloneSearchFilters(input map[string][]string) map[string][]string {

@@ -1,4 +1,4 @@
-import { appendCSRFHeader } from '../shared/transport/http-client';
+import { httpRequest } from '../shared/transport/http-client';
 
 type RecordValue = Record<string, unknown>;
 
@@ -452,9 +452,7 @@ async function fetchJSON(url: string, init?: RequestInit): Promise<unknown> {
   if (!headers.has('Accept')) {
     headers.set('Accept', 'application/json');
   }
-  appendCSRFHeader(url, options, headers);
-
-  const response = await fetch(url, {
+  const response = await httpRequest(url, {
     ...options,
     credentials: 'same-origin',
     headers,

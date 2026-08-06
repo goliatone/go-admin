@@ -120,7 +120,11 @@ func encodeRequestQuery(c router.Context) string {
 	for _, key := range keys {
 		added := false
 		func() {
-			defer func() { _ = recover() }()
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					return
+				}
+			}()
 			for _, value := range c.QueryValues(key) {
 				values.Add(key, value)
 				added = true

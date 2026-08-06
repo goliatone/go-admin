@@ -6,7 +6,7 @@ import {
 } from '../toast/error-helpers.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import type { ToastNotifier } from '../toast/types.js';
-import { readHTTPJSONValue } from '../shared/transport/http-client.js';
+import { httpRequestWith, readHTTPJSONValue } from '../shared/transport/http-client.js';
 import {
   isBusy,
   setBusy,
@@ -936,7 +936,7 @@ export class CommandRuntimeController {
       id: this.recordId,
       ...spec.payload,
     };
-    const response = await this.fetchImpl(endpoint, {
+    const response = await httpRequestWith(this.fetchImpl, endpoint, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -978,7 +978,7 @@ export class CommandRuntimeController {
         },
       },
     };
-    const response = await this.fetchImpl(this.rpcEndpoint, {
+    const response = await httpRequestWith(this.fetchImpl, this.rpcEndpoint, {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -1035,7 +1035,7 @@ export class CommandRuntimeController {
   }
 
   private async refreshFragments(selectors: string[]): Promise<Document | null> {
-    const response = await this.fetchImpl(globalThis.window?.location?.href || '', {
+    const response = await httpRequestWith(this.fetchImpl, globalThis.window?.location?.href || '', {
       method: 'GET',
       credentials: 'same-origin',
       headers: {

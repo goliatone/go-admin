@@ -18,7 +18,11 @@ func TestLocalCommandRunTransportReportsHandlerFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("subscribe: %v", err)
 	}
-	defer subscription.Close(context.Background())
+	defer func() {
+		if closeErr := subscription.Close(context.Background()); closeErr != nil {
+			t.Errorf("close subscription: %v", closeErr)
+		}
+	}()
 	if err := transport.PublishCommandRun(context.Background(), localTransportTestUpdate("run-error", 1)); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
@@ -38,7 +42,7 @@ func TestLocalCommandRunTransportBackpressureIsBounded(t *testing.T) {
 	})
 	started := make(chan struct{})
 	release := make(chan struct{})
-	subscription, err := transport.SubscribeCommandRuns(context.Background(), CommandRunSelector{Global: true}, func(ctx context.Context, _ CommandRunUpdate) error {
+	subscription, subscribeErr := transport.SubscribeCommandRuns(context.Background(), CommandRunSelector{Global: true}, func(ctx context.Context, _ CommandRunUpdate) error {
 		select {
 		case <-started:
 		default:
@@ -50,12 +54,14 @@ func TestLocalCommandRunTransportBackpressureIsBounded(t *testing.T) {
 		}
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("subscribe: %v", err)
+	if subscribeErr != nil {
+		t.Fatalf("subscribe: %v", subscribeErr)
 	}
 	defer func() {
 		close(release)
-		_ = subscription.Close(context.Background())
+		if closeErr := subscription.Close(context.Background()); closeErr != nil {
+			t.Errorf("close subscription: %v", closeErr)
+		}
 	}()
 
 	if err := transport.PublishCommandRun(context.Background(), localTransportTestUpdate("run-1", 1)); err != nil {
@@ -70,9 +76,9 @@ func TestLocalCommandRunTransportBackpressureIsBounded(t *testing.T) {
 		t.Fatalf("buffered publish: %v", err)
 	}
 	startedAt := time.Now()
-	err = transport.PublishCommandRun(context.Background(), localTransportTestUpdate("run-3", 1))
-	if !errors.Is(err, ErrCommandRunTransportBackpressure) {
-		t.Fatalf("error = %v, want backpressure", err)
+	publishErr := transport.PublishCommandRun(context.Background(), localTransportTestUpdate("run-3", 1))
+	if !errors.Is(publishErr, ErrCommandRunTransportBackpressure) {
+		t.Fatalf("error = %v, want backpressure", publishErr)
 	}
 	if elapsed := time.Since(startedAt); elapsed > 250*time.Millisecond {
 		t.Fatalf("publish blocked too long: %s", elapsed)
@@ -139,7 +145,11 @@ func TestLocalCommandRunTransportConcurrentPublishAndClose(t *testing.T) {
 		wg.Go(func() {
 			for revision := 1; revision <= 50; revision++ {
 				update := localTransportTestUpdate(fmt.Sprintf("run-%d", publisher), uint64(revision))
-				_ = transport.PublishCommandRun(context.Background(), update)
+				if publishErr := transport.PublishCommandRun(context.Background(), update); publishErr != nil &&
+					!errors.Is(publishErr, ErrCommandRunRuntimeClosed) && !errors.Is(publishErr, ErrCommandRunTransportClosed) {
+					t.Errorf("publish: %v", publishErr)
+					return
+				}
 			}
 		})
 	}

@@ -467,13 +467,13 @@ func TestSelectedUtilityFallbackAppliesPermissionDeniedMode(t *testing.T) {
 	}
 
 	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeHide
-	hidden := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	hidden := requireTestValue[[]map[string]any](t, WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"], "hidden utility items")
 	if len(hidden) != 0 {
 		t.Fatalf("expected denied Settings fallback hidden, got %+v", hidden)
 	}
 
 	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
-	disabled := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	disabled := requireTestValue[[]map[string]any](t, WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"], "disabled utility items")
 	if len(disabled) != 1 {
 		t.Fatalf("expected denied Settings fallback retained in disable mode, got %+v", disabled)
 	}
@@ -502,13 +502,13 @@ func TestSeededUtilityMenuAppliesPermissionDeniedMode(t *testing.T) {
 	}
 
 	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeHide
-	hidden := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	hidden := requireTestValue[[]map[string]any](t, WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"], "hidden utility items")
 	if len(hidden) != 0 {
 		t.Fatalf("expected denied seeded Settings item hidden, got %+v", hidden)
 	}
 
 	cfg.NavPermissionDeniedMode = admin.NavigationPermissionDeniedModeDisable
-	disabled := WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"].([]map[string]any)
+	disabled := requireTestValue[[]map[string]any](t, WithNav(nil, adm, cfg, "", context.Background())["nav_utility_items"], "disabled utility items")
 	if len(disabled) != 1 {
 		t.Fatalf("expected denied seeded Settings retained in disable mode, got %+v", disabled)
 	}

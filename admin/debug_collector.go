@@ -6,6 +6,8 @@ import (
 	debugcollector "github.com/goliatone/go-admin/admin/internal/debugcollector"
 	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"math"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -272,18 +274,19 @@ func (s *debugEventSubscriber) Offer(event DebugEvent) (debugSubscriberOffer, De
 			Timestamp: time.Now(),
 		})
 		s.recoveryPending = true
-		select {
-		case s.wake <- struct{}{}:
-		default:
-		}
+		s.wakeLocked()
 		return debugSubscriberRecoveryRequired, diagnostic
 	}
 	s.pending = append(s.pending, event)
+	s.wakeLocked()
+	return debugSubscriberAccepted, DebugEvent{}
+}
+
+func (s *debugEventSubscriber) wakeLocked() {
 	select {
 	case s.wake <- struct{}{}:
 	default:
 	}
-	return debugSubscriberAccepted, DebugEvent{}
 }
 
 func (s *debugEventSubscriber) commandRunAtRisk(fallback DebugEvent) (DebugEvent, bool) {
@@ -410,32 +413,21 @@ func commandRunQueuedStateAdvances(existing, incoming commandRunQueuedState) boo
 }
 
 func debugEventUint64(value any) uint64 {
-	switch typed := value.(type) {
-	case uint64:
-		return typed
-	case uint:
-		return uint64(typed)
-	case uint32:
-		return uint64(typed)
-	case int:
-		if typed >= 0 {
-			return uint64(typed)
+	if value == nil {
+		return 0
+	}
+	reflected := reflect.ValueOf(value)
+	switch reflected.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return reflected.Uint()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if number := reflected.Int(); number >= 0 {
+			return uint64(number)
 		}
-	case int64:
-		if typed >= 0 {
-			return uint64(typed)
-		}
-	case int32:
-		if typed >= 0 {
-			return uint64(typed)
-		}
-	case float64:
-		if typed >= 0 && typed < 18446744073709551616 && typed == float64(uint64(typed)) {
-			return uint64(typed)
-		}
-	case float32:
-		if typed >= 0 && typed == float32(uint64(typed)) {
-			return uint64(typed)
+	case reflect.Float32, reflect.Float64:
+		number := reflected.Float()
+		if number >= 0 && number < 18446744073709551616 && math.Trunc(number) == number {
+			return uint64(number)
 		}
 	}
 	return 0
@@ -1309,8 +1301,8 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 // ClearPanelWithContext clears a panel while retaining authenticated scope for
 // registered clear hooks.
 func (c *DebugCollector) ClearPanelWithContext(ctx context.Context, panelID string) bool {
-	cleared, _ := c.ClearPanelStrictWithContext(ctx, panelID)
-	return cleared
+	cleared, err := c.ClearPanelStrictWithContext(ctx, panelID)
+	return err == nil && cleared
 }
 
 // ClearPanelStrictWithContext clears one panel and returns any registered

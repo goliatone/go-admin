@@ -264,7 +264,7 @@ func RegisterCommandRunsDebugPanel(adm *Admin) {
 		return
 	}
 	debugregistry.UnregisterPanel(DebugPanelCommandRuns)
-	_ = debugregistry.RegisterPanel(DebugPanelCommandRuns, debugregistry.PanelConfig{
+	if err := debugregistry.RegisterPanel(DebugPanelCommandRuns, debugregistry.PanelConfig{
 		Label:       "Command Runs",
 		Icon:        "iconoir-list",
 		Span:        2,
@@ -295,7 +295,9 @@ func RegisterCommandRunsDebugPanel(adm *Admin) {
 			"complete_upsert_rows": true,
 		},
 		UI: commandRunsPanelUI(panel.runtime.config.Retention),
-	})
+	}); err != nil {
+		panel.runtime.reportError(err)
+	}
 }
 
 func commandRunsPanelUI(maxEntries int) *debugregistry.PanelUI {

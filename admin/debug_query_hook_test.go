@@ -72,7 +72,10 @@ func TestDebugQueryHookSuppressesSnapshotWork(t *testing.T) {
 
 	event.Query = "SELECT application_request"
 	hook.AfterQuery(context.Background(), event)
-	entries = collector.Snapshot()[DebugPanelSQL].([]SQLEntry)
+	entries, ok = collector.Snapshot()[DebugPanelSQL].([]SQLEntry)
+	if !ok {
+		t.Fatalf("expected SQL snapshot slice, got %T", collector.Snapshot()[DebugPanelSQL])
+	}
 	if len(entries) != 1 || entries[0].Query != "SELECT application_request" {
 		t.Fatalf("ordinary query capture changed: %+v", entries)
 	}

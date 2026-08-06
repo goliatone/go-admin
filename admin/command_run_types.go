@@ -125,31 +125,17 @@ func (s CommandRunSelector) Matches(scope CommandRunScope) bool {
 	if s.Global {
 		return s.Scope.Empty()
 	}
-	if scope.ApplicationID != "" && s.Scope.ApplicationID == "" {
-		return false
+	return commandRunScopeDimensionMatches(s.Scope.ApplicationID, scope.ApplicationID) &&
+		commandRunScopeDimensionMatches(s.Scope.EnvironmentID, scope.EnvironmentID) &&
+		commandRunScopeDimensionMatches(s.Scope.TenantID, scope.TenantID) &&
+		commandRunScopeDimensionMatches(s.Scope.OrganizationID, scope.OrganizationID)
+}
+
+func commandRunScopeDimensionMatches(selectorValue, scopeValue string) bool {
+	if scopeValue == "" {
+		return selectorValue == ""
 	}
-	if scope.EnvironmentID != "" && s.Scope.EnvironmentID == "" {
-		return false
-	}
-	if s.Scope.ApplicationID != "" && s.Scope.ApplicationID != scope.ApplicationID {
-		return false
-	}
-	if s.Scope.EnvironmentID != "" && s.Scope.EnvironmentID != scope.EnvironmentID {
-		return false
-	}
-	if scope.TenantID != "" && s.Scope.TenantID == "" {
-		return false
-	}
-	if scope.OrganizationID != "" && s.Scope.OrganizationID == "" {
-		return false
-	}
-	if s.Scope.TenantID != "" && s.Scope.TenantID != scope.TenantID {
-		return false
-	}
-	if s.Scope.OrganizationID != "" && s.Scope.OrganizationID != scope.OrganizationID {
-		return false
-	}
-	return true
+	return selectorValue != "" && selectorValue == scopeValue
 }
 
 // CommandRunFailure is a bounded, operator-safe failure classification. It must
@@ -260,6 +246,28 @@ func (u CommandRunUpdate) Clone() CommandRunUpdate {
 // NormalizeCommandRunUpdate validates and normalizes a command-run update.
 func NormalizeCommandRunUpdate(update CommandRunUpdate, limits CommandRunContractLimits) (CommandRunUpdate, error) {
 	limits = limits.normalized()
+	update, normalizeErr := normalizeCommandRunUpdateFields(update, limits)
+	if normalizeErr != nil {
+		return CommandRunUpdate{}, normalizeErr
+	}
+	if err := validateCommandRunUpdateCore(&update); err != nil {
+		return CommandRunUpdate{}, err
+	}
+	if err := validateCommandRunTextLengths(update, limits); err != nil {
+		return CommandRunUpdate{}, err
+	}
+	if err := validateCommandRunScopeLengths(update.Scope, limits.MaxIDLength, ErrInvalidCommandRunUpdate); err != nil {
+		return CommandRunUpdate{}, err
+	}
+	metadata, metadataErr := normalizeCommandRunMetadata(update.Metadata, limits)
+	if metadataErr != nil {
+		return CommandRunUpdate{}, metadataErr
+	}
+	update.Metadata = metadata
+	return update, nil
+}
+
+func normalizeCommandRunUpdateFields(update CommandRunUpdate, limits CommandRunContractLimits) (CommandRunUpdate, error) {
 	update = update.Clone()
 	update.EventID = strings.TrimSpace(update.EventID)
 	update.RunID = strings.TrimSpace(update.RunID)
@@ -277,15 +285,18 @@ func NormalizeCommandRunUpdate(update CommandRunUpdate, limits CommandRunContrac
 			update.Failure = nil
 		}
 	}
-	outcome, err := normalizeCommandRunOutcome(update.Outcome, limits)
-	if err != nil {
-		return CommandRunUpdate{}, err
+	outcome, outcomeErr := normalizeCommandRunOutcome(update.Outcome, limits)
+	if outcomeErr != nil {
+		return CommandRunUpdate{}, outcomeErr
 	}
 	update.Outcome = outcome
 	update.Scope = update.Scope.Normalize()
+	return update, nil
+}
 
+func validateCommandRunUpdateCore(update *CommandRunUpdate) error {
 	if update.SchemaVersion != CommandRunSchemaVersion {
-		return CommandRunUpdate{}, commandRunUpdateError("schema_version", "must be %d", CommandRunSchemaVersion)
+		return commandRunUpdateError("schema_version", "must be %d", CommandRunSchemaVersion)
 	}
 	for field, value := range map[string]string{
 		"event_id":   update.EventID,
@@ -293,54 +304,46 @@ func NormalizeCommandRunUpdate(update CommandRunUpdate, limits CommandRunContrac
 		"command_id": update.CommandID,
 	} {
 		if value == "" {
-			return CommandRunUpdate{}, commandRunUpdateError(field, "is required")
+			return commandRunUpdateError(field, "is required")
 		}
 	}
 	if update.Revision == 0 {
-		return CommandRunUpdate{}, commandRunUpdateError("revision", "must be greater than zero")
+		return commandRunUpdateError("revision", "must be greater than zero")
 	}
 	if !update.Phase.Valid() {
-		return CommandRunUpdate{}, commandRunUpdateError("phase", "is unsupported")
+		return commandRunUpdateError("phase", "is unsupported")
 	}
 	if update.OccurredAt.IsZero() {
-		return CommandRunUpdate{}, commandRunUpdateError("occurred_at", "is required")
+		return commandRunUpdateError("occurred_at", "is required")
 	}
 	update.OccurredAt = update.OccurredAt.UTC()
 	if update.StartedAt != nil {
 		started := update.StartedAt.UTC()
 		update.StartedAt = &started
 	}
+	return validateCommandRunProgress(update)
+}
+
+func validateCommandRunProgress(update *CommandRunUpdate) error {
 	if update.DurationMS != nil && *update.DurationMS < 0 {
-		return CommandRunUpdate{}, commandRunUpdateError("duration_ms", "must not be negative")
+		return commandRunUpdateError("duration_ms", "must not be negative")
 	}
 	if update.Current != nil && *update.Current < 0 {
-		return CommandRunUpdate{}, commandRunUpdateError("current", "must not be negative")
+		return commandRunUpdateError("current", "must not be negative")
 	}
 	if update.Total != nil && *update.Total < 0 {
-		return CommandRunUpdate{}, commandRunUpdateError("total", "must not be negative")
+		return commandRunUpdateError("total", "must not be negative")
 	}
 	if update.Current != nil && update.Total != nil && *update.Total > 0 && *update.Current > *update.Total {
-		return CommandRunUpdate{}, commandRunUpdateError("current", "must not exceed total")
+		return commandRunUpdateError("current", "must not exceed total")
 	}
 	if update.Attempt < 0 || update.MaxAttempts < 0 {
-		return CommandRunUpdate{}, commandRunUpdateError("attempt", "values must not be negative")
+		return commandRunUpdateError("attempt", "values must not be negative")
 	}
 	if update.MaxAttempts > 0 && update.Attempt > update.MaxAttempts {
-		return CommandRunUpdate{}, commandRunUpdateError("attempt", "must not exceed max_attempts")
+		return commandRunUpdateError("attempt", "must not exceed max_attempts")
 	}
-	if err := validateCommandRunTextLengths(update, limits); err != nil {
-		return CommandRunUpdate{}, err
-	}
-	if err := validateCommandRunScopeLengths(update.Scope, limits.MaxIDLength, ErrInvalidCommandRunUpdate); err != nil {
-		return CommandRunUpdate{}, err
-	}
-
-	metadata, err := normalizeCommandRunMetadata(update.Metadata, limits)
-	if err != nil {
-		return CommandRunUpdate{}, err
-	}
-	update.Metadata = metadata
-	return update, nil
+	return nil
 }
 
 // ValidateCommandRunUpdate validates an update without exposing a normalized copy.
@@ -482,14 +485,17 @@ func normalizeCommandRunMetadata(metadata map[string]any, limits CommandRunContr
 		return nil, nil
 	}
 	keyCount := 0
-	value, err := normalizeCommandRunMetadataValue(metadata, 1, &keyCount, limits)
-	if err != nil {
-		return nil, fmt.Errorf("%w: metadata: %v", ErrInvalidCommandRunUpdate, err)
+	value, normalizeErr := normalizeCommandRunMetadataValue(metadata, 1, &keyCount, limits)
+	if normalizeErr != nil {
+		return nil, fmt.Errorf("%w: metadata: %w", ErrInvalidCommandRunUpdate, normalizeErr)
 	}
-	normalized := value.(map[string]any)
+	normalized, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%w: metadata normalization returned %T", ErrInvalidCommandRunUpdate, value)
+	}
 	encoded, err := json.Marshal(normalized)
 	if err != nil {
-		return nil, fmt.Errorf("%w: metadata is not JSON-safe: %v", ErrInvalidCommandRunUpdate, err)
+		return nil, fmt.Errorf("%w: metadata is not JSON-safe: %w", ErrInvalidCommandRunUpdate, err)
 	}
 	if len(encoded) > limits.MaxMetadataBytes {
 		return nil, commandRunUpdateError("metadata", "exceeds %d bytes", limits.MaxMetadataBytes)
@@ -520,39 +526,47 @@ func normalizeCommandRunMetadataValue(value any, depth int, keyCount *int, limit
 		}
 		return typed, nil
 	case map[string]any:
-		out := make(map[string]any, len(typed))
-		for key, item := range typed {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				return nil, errors.New("contains an empty key")
-			}
-			if _, duplicate := out[key]; duplicate {
-				return nil, fmt.Errorf("contains duplicate normalized key %q", key)
-			}
-			*keyCount++
-			if *keyCount > limits.MaxMetadataKeys {
-				return nil, fmt.Errorf("exceeds %d keys", limits.MaxMetadataKeys)
-			}
-			normalized, err := normalizeCommandRunMetadataValue(item, depth+1, keyCount, limits)
-			if err != nil {
-				return nil, fmt.Errorf("key %q: %w", key, err)
-			}
-			out[key] = normalized
-		}
-		return out, nil
+		return normalizeCommandRunMetadataMap(typed, depth, keyCount, limits)
 	case []any:
-		out := make([]any, len(typed))
-		for i, item := range typed {
-			normalized, err := normalizeCommandRunMetadataValue(item, depth+1, keyCount, limits)
-			if err != nil {
-				return nil, fmt.Errorf("index %d: %w", i, err)
-			}
-			out[i] = normalized
-		}
-		return out, nil
+		return normalizeCommandRunMetadataSlice(typed, depth, keyCount, limits)
 	default:
 		return nil, fmt.Errorf("contains unsupported value type %T", value)
 	}
+}
+
+func normalizeCommandRunMetadataMap(typed map[string]any, depth int, keyCount *int, limits CommandRunContractLimits) (map[string]any, error) {
+	out := make(map[string]any, len(typed))
+	for key, item := range typed {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			return nil, errors.New("contains an empty key")
+		}
+		if _, duplicate := out[key]; duplicate {
+			return nil, fmt.Errorf("contains duplicate normalized key %q", key)
+		}
+		*keyCount++
+		if *keyCount > limits.MaxMetadataKeys {
+			return nil, fmt.Errorf("exceeds %d keys", limits.MaxMetadataKeys)
+		}
+		normalized, err := normalizeCommandRunMetadataValue(item, depth+1, keyCount, limits)
+		if err != nil {
+			return nil, fmt.Errorf("key %q: %w", key, err)
+		}
+		out[key] = normalized
+	}
+	return out, nil
+}
+
+func normalizeCommandRunMetadataSlice(typed []any, depth int, keyCount *int, limits CommandRunContractLimits) ([]any, error) {
+	out := make([]any, len(typed))
+	for i, item := range typed {
+		normalized, err := normalizeCommandRunMetadataValue(item, depth+1, keyCount, limits)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		out[i] = normalized
+	}
+	return out, nil
 }
 
 func cloneCommandRunMetadata(metadata map[string]any) map[string]any {

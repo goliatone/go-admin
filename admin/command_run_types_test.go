@@ -62,10 +62,26 @@ func TestCommandRunUpdateJSONRoundTripAndCloneIsolation(t *testing.T) {
 	}
 
 	clone := update.Clone()
-	clone.Metadata["safe"].(map[string]any)["labels"].([]any)[0] = "changed"
+	cloneSafe, ok := clone.Metadata["safe"].(map[string]any)
+	if !ok {
+		t.Fatalf("clone safe metadata type = %T", clone.Metadata["safe"])
+	}
+	cloneLabels, ok := cloneSafe["labels"].([]any)
+	if !ok {
+		t.Fatalf("clone labels metadata type = %T", cloneSafe["labels"])
+	}
+	cloneLabels[0] = "changed"
 	clone.Outcome.Fields["processed"] = 99
 	*clone.Current = 4
-	if got := update.Metadata["safe"].(map[string]any)["labels"].([]any)[0]; got != "one" {
+	sourceSafe, ok := update.Metadata["safe"].(map[string]any)
+	if !ok {
+		t.Fatalf("source safe metadata type = %T", update.Metadata["safe"])
+	}
+	sourceLabels, ok := sourceSafe["labels"].([]any)
+	if !ok {
+		t.Fatalf("source labels metadata type = %T", sourceSafe["labels"])
+	}
+	if got := sourceLabels[0]; got != "one" {
 		t.Fatalf("source metadata mutated through clone: %v", got)
 	}
 	if *update.Current != 2 {

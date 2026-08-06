@@ -205,9 +205,9 @@ func TestDebugSessionLiveEventsUseCommandDescriptorPermissions(t *testing.T) {
 	subscription := newDebugSubscription(access)
 	ws := newStubWebSocketContext()
 
-	allowed, found, err := panel.Lookup(access.ctx, "run-allowed")
-	if err != nil || !found {
-		t.Fatalf("allowed lookup found=%v err=%v", found, err)
+	allowed, found, lookupErr := panel.Lookup(access.ctx, "run-allowed")
+	if lookupErr != nil || !found {
+		t.Fatalf("allowed lookup found=%v err=%v", found, lookupErr)
 	}
 	if err := writeDebugSessionEvent(ws, subscription, DebugEvent{
 		Type: commandRunDebugEventType, Payload: allowed,

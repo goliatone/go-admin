@@ -264,55 +264,10 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 		}
 	}
 
-	areas := make([]map[string]any, 0, len(page.Dashboard.Areas))
-	for _, area := range page.Dashboard.Areas {
-		widgets := make([]map[string]any, 0, len(area.Widgets))
-		for _, widget := range area.Widgets {
-			widgets = append(widgets, map[string]any{
-				"id":         widget.ID,
-				"definition": widget.Definition,
-				"name":       widget.Name,
-				"template":   widget.Template,
-				"area":       widget.Area,
-				"data":       widget.Data,
-				"config":     widget.Config,
-				"meta":       widget.Meta,
-				"hidden":     widget.Hidden,
-				"span":       normalizeSpan(widget.Span),
-			})
-		}
-		areas = append(areas, map[string]any{
-			"slot":    area.Slot,
-			"code":    area.Code,
-			"title":   area.Title,
-			"widgets": widgets,
-		})
-	}
-
+	areas := dashboardTemplateAreas(page)
 	view := baseTemplateContext(page.Chrome.BasePath, page.Title())
-	overlayOptionalContext(view, map[string]any{
-		"asset_base_path":                  page.Chrome.AssetBasePath,
-		"api_base_path":                    page.Chrome.APIBasePath,
-		"body_classes":                     page.Chrome.BodyClasses,
-		"active":                           page.Chrome.Active,
-		"nav_items":                        page.Chrome.NavItems,
-		"nav_utility_items":                page.Chrome.NavUtilityItems,
-		"nav_debug":                        page.Chrome.NavDebug,
-		"nav_items_json":                   page.Chrome.NavItemsJSON,
-		"session_user":                     page.Chrome.SessionUser,
-		"theme":                            page.Chrome.Theme,
-		"external_assets":                  page.Chrome.ExternalAssets,
-		"template_helpers":                 page.Chrome.CSRFTemplateHelpers,
-		"sidebar_hide_search":              page.Chrome.SidebarHideSearch,
-		"sidebar_collapse_placement":       page.Chrome.SidebarCollapsePlacement,
-		"sidebar_compact_footer":           page.Chrome.SidebarCompactFooter,
-		"sidebar_hide_presence":            page.Chrome.SidebarHidePresence,
-		"sidebar_hide_user_menu_indicator": page.Chrome.SidebarHideUserMenuIndicator,
-		"translation_capabilities":         page.Chrome.TranslationCapabilities,
-		"users_import_available":           page.Chrome.UsersImportAvailable,
-		"users_import_enabled":             page.Chrome.UsersImportEnabled,
-		"locale":                           page.Dashboard.Locale,
-	}, "asset_base_path",
+	overlayOptionalContext(view, dashboardTemplateChromeContext(page),
+		"asset_base_path",
 		"api_base_path",
 		"body_classes",
 		"active",
@@ -343,6 +298,51 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 	}
 	view["layout_json"] = page.LayoutJSON()
 	return view
+}
+
+func dashboardTemplateAreas(page admin.AdminDashboardPage) []map[string]any {
+	areas := make([]map[string]any, 0, len(page.Dashboard.Areas))
+	for _, area := range page.Dashboard.Areas {
+		widgets := make([]map[string]any, 0, len(area.Widgets))
+		for _, widget := range area.Widgets {
+			widgets = append(widgets, map[string]any{
+				"id": widget.ID, "definition": widget.Definition, "name": widget.Name,
+				"template": widget.Template, "area": widget.Area, "data": widget.Data,
+				"config": widget.Config, "meta": widget.Meta, "hidden": widget.Hidden,
+				"span": normalizeSpan(widget.Span),
+			})
+		}
+		areas = append(areas, map[string]any{
+			"slot": area.Slot, "code": area.Code, "title": area.Title, "widgets": widgets,
+		})
+	}
+	return areas
+}
+
+func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]any {
+	return map[string]any{
+		"asset_base_path":                  page.Chrome.AssetBasePath,
+		"api_base_path":                    page.Chrome.APIBasePath,
+		"body_classes":                     page.Chrome.BodyClasses,
+		"active":                           page.Chrome.Active,
+		"nav_items":                        page.Chrome.NavItems,
+		"nav_utility_items":                page.Chrome.NavUtilityItems,
+		"nav_debug":                        page.Chrome.NavDebug,
+		"nav_items_json":                   page.Chrome.NavItemsJSON,
+		"session_user":                     page.Chrome.SessionUser,
+		"theme":                            page.Chrome.Theme,
+		"external_assets":                  page.Chrome.ExternalAssets,
+		"template_helpers":                 page.Chrome.CSRFTemplateHelpers,
+		"sidebar_hide_search":              page.Chrome.SidebarHideSearch,
+		"sidebar_collapse_placement":       page.Chrome.SidebarCollapsePlacement,
+		"sidebar_compact_footer":           page.Chrome.SidebarCompactFooter,
+		"sidebar_hide_presence":            page.Chrome.SidebarHidePresence,
+		"sidebar_hide_user_menu_indicator": page.Chrome.SidebarHideUserMenuIndicator,
+		"translation_capabilities":         page.Chrome.TranslationCapabilities,
+		"users_import_available":           page.Chrome.UsersImportAvailable,
+		"users_import_enabled":             page.Chrome.UsersImportEnabled,
+		"locale":                           page.Dashboard.Locale,
+	}
 }
 
 func normalizeSpan(span int) int {

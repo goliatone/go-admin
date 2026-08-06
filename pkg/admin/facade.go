@@ -223,6 +223,8 @@ const (
 	IconTypeSVG                                    = core.IconTypeSVG
 	IconTypeURL                                    = core.IconTypeURL
 	IconTypeUnknown                                = core.IconTypeUnknown
+	JobErrorStageRetry                             = core.JobErrorStageRetry
+	JobErrorStageTerminal                          = core.JobErrorStageTerminal
 	LocalePathRecordAmbiguousLocaleLike            = core.LocalePathRecordAmbiguousLocaleLike
 	LocalePathRecordCanonicalUnprefixed            = core.LocalePathRecordCanonicalUnprefixed
 	LocalePathRecordLegacyPrefixed                 = core.LocalePathRecordLegacyPrefixed
@@ -977,6 +979,9 @@ type (
 	InvalidFeatureConfigError                         = core.InvalidFeatureConfigError
 	JSErrorEntry                                      = core.JSErrorEntry
 	Job                                               = core.Job
+	JobErrorEvent                                     = core.JobErrorEvent
+	JobErrorObserver                                  = core.JobErrorObserver
+	JobErrorStage                                     = core.JobErrorStage
 	JobRegistry                                       = core.JobRegistry
 	LegacyChartSampleWidgetPayload                    = core.LegacyChartSampleWidgetPayload
 	ListOptions                                       = core.ListOptions
@@ -2985,6 +2990,10 @@ func WithActivityRetention(limit int) func(*ActivityFeed) {
 	return core.WithActivityRetention(limit)
 }
 
+func WithAdditionalRolePermissionMatrixResources(resources ...string) UserManagementModuleOption {
+	return core.WithAdditionalRolePermissionMatrixResources(resources...)
+}
+
 func WithAuthErrorHandler(handler func(router.Context, error) error) GoAuthAuthenticatorOption {
 	return core.WithAuthErrorHandler(handler)
 }
@@ -3247,6 +3256,10 @@ func WithRequestIP(ctx context.Context, requestIP string) context.Context {
 
 func WithResolvedPermissionsCache(ctx context.Context) context.Context {
 	return core.WithResolvedPermissionsCache(ctx)
+}
+
+func WithRolePermissionMatrixResources(resources ...string) UserManagementModuleOption {
+	return core.WithRolePermissionMatrixResources(resources...)
 }
 
 func WithRolesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {

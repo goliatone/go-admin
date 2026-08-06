@@ -54,8 +54,8 @@ func TestConfigureCreateTranslationActionLocaleSchemaUsesConfiguredLabels(t *tes
 	labels := map[string]string{"pt-br": "Portuguese (Brazil)"}
 
 	updated := configureCreateTranslationActionLocaleSchema(action, locales, labels)
-	properties, _ := updated.PayloadSchema["properties"].(map[string]any)
-	localeSchema, _ := properties["locale"].(map[string]any)
+	properties := requireTestValue[map[string]any](t, updated.PayloadSchema["properties"], "payload properties")
+	localeSchema := requireTestValue[map[string]any](t, properties["locale"], "locale schema")
 	options := optionLabelsByValue(localeSchema["x-options"])
 
 	if options["en"] != "English" {
@@ -73,8 +73,11 @@ func optionLabelsByValue(value any) map[string]string {
 		return out
 	}
 	for _, option := range rawOptions {
-		optionValue, _ := option["value"].(string)
-		optionLabel, _ := option["label"].(string)
+		optionValue, valueOK := option["value"].(string)
+		optionLabel, labelOK := option["label"].(string)
+		if !valueOK || !labelOK {
+			continue
+		}
 		if optionValue == "" {
 			continue
 		}

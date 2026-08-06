@@ -210,39 +210,46 @@ func (n *debugLogNormalizer) normalize(value any, depth int, stack bool) any {
 		return nil
 	}
 
+	if normalized, ok := n.normalizeKnownValue(value, stack); ok {
+		return normalized
+	}
+	return n.normalizeReflect(reflected, depth, stack)
+}
+
+func (n *debugLogNormalizer) normalizeKnownValue(value any, stack bool) (any, bool) {
 	switch typed := value.(type) {
 	case string:
 		limit := n.limits.MaxStringBytes
 		if stack {
 			limit = n.limits.MaxStackBytes
 		}
-		return n.normalizeString(typed, limit)
+		return n.normalizeString(typed, limit), true
 	case []byte:
-		return n.normalizeString(string(typed), n.limits.MaxStringBytes)
+		return n.normalizeString(string(typed), n.limits.MaxStringBytes), true
 	case error:
-		return n.normalizeString(debugSafeError(typed), n.limits.MaxStringBytes)
+		return n.normalizeString(debugSafeError(typed), n.limits.MaxStringBytes), true
 	case time.Time:
-		return n.normalizeString(typed.Format(time.RFC3339Nano), n.limits.MaxStringBytes)
+		return n.normalizeString(typed.Format(time.RFC3339Nano), n.limits.MaxStringBytes), true
 	case time.Duration:
-		return n.normalizeString(typed.String(), n.limits.MaxStringBytes)
+		return n.normalizeString(typed.String(), n.limits.MaxStringBytes), true
 	case json.Number:
-		return n.normalizeString(typed.String(), n.limits.MaxStringBytes)
+		return n.normalizeString(typed.String(), n.limits.MaxStringBytes), true
 	case fmt.Stringer:
-		return n.normalizeString(debugSafeStringer(typed), n.limits.MaxStringBytes)
+		return n.normalizeString(debugSafeStringer(typed), n.limits.MaxStringBytes), true
 	case bool:
 		n.consume(5)
-		return typed
+		return typed, true
 	case int, int8, int16, int32, int64,
 		uint, uint8, uint16, uint32, uint64, uintptr:
 		n.consume(24)
-		return typed
+		return typed, true
 	case float32:
-		return n.normalizeFloat(float64(typed), 32)
+		return n.normalizeFloat(float64(typed), 32), true
 	case float64:
-		return n.normalizeFloat(typed, 64)
+		return n.normalizeFloat(typed, 64), true
+	default:
+		return nil, false
 	}
-
-	return n.normalizeReflect(reflected, depth, stack)
 }
 
 func (n *debugLogNormalizer) normalizeReflect(value reflect.Value, depth int, stack bool) any {
@@ -263,53 +270,9 @@ func (n *debugLogNormalizer) normalizeReflect(value reflect.Value, depth int, st
 
 	switch value.Kind() {
 	case reflect.Map:
-		if !n.enter(value) {
-			n.consume(len(debugLogCycle))
-			return debugLogCycle
-		}
-		defer n.leave(value)
-		keys := value.MapKeys()
-		sort.Slice(keys, func(i, j int) bool { return debugReflectKey(keys[i]) < debugReflectKey(keys[j]) })
-		out := map[string]any{}
-		limit := min(len(keys), n.limits.MaxCollectionItems)
-		for _, keyValue := range keys[:limit] {
-			key := debugReflectKey(keyValue)
-			if key == "" || !n.consume(len(key)) {
-				break
-			}
-			mapValue := value.MapIndex(keyValue)
-			if !mapValue.IsValid() || !mapValue.CanInterface() {
-				out[key] = "[unsupported value]"
-				continue
-			}
-			out[key] = n.normalize(mapValue.Interface(), depth+1, debugLogStackKey(key))
-		}
-		if len(keys) > limit || n.remaining <= 0 {
-			out["_debug_truncated"] = true
-		}
-		return out
+		return n.normalizeReflectMap(value, depth)
 	case reflect.Slice, reflect.Array:
-		if value.Kind() == reflect.Slice {
-			if !n.enter(value) {
-				n.consume(len(debugLogCycle))
-				return debugLogCycle
-			}
-			defer n.leave(value)
-		}
-		limit := min(value.Len(), n.limits.MaxCollectionItems)
-		out := make([]any, 0, limit+1)
-		for i := 0; i < limit && n.remaining > 0; i++ {
-			item := value.Index(i)
-			if !item.IsValid() || !item.CanInterface() {
-				out = append(out, "[unsupported value]")
-				continue
-			}
-			out = append(out, n.normalize(item.Interface(), depth+1, false))
-		}
-		if value.Len() > limit || n.remaining <= 0 {
-			out = append(out, debugLogTruncated)
-		}
-		return out
+		return n.normalizeReflectSlice(value, depth)
 	case reflect.String:
 		return n.normalizeString(value.String(), n.limits.MaxStringBytes)
 	case reflect.Bool:
@@ -327,6 +290,58 @@ func (n *debugLogNormalizer) normalizeReflect(value reflect.Value, depth int, st
 		marker := fmt.Sprintf("[unsupported %s]", value.Type())
 		return n.normalizeString(marker, n.limits.MaxStringBytes)
 	}
+}
+
+func (n *debugLogNormalizer) normalizeReflectMap(value reflect.Value, depth int) any {
+	if !n.enter(value) {
+		n.consume(len(debugLogCycle))
+		return debugLogCycle
+	}
+	defer n.leave(value)
+	keys := value.MapKeys()
+	sort.Slice(keys, func(i, j int) bool { return debugReflectKey(keys[i]) < debugReflectKey(keys[j]) })
+	out := map[string]any{}
+	limit := min(len(keys), n.limits.MaxCollectionItems)
+	for _, keyValue := range keys[:limit] {
+		key := debugReflectKey(keyValue)
+		if key == "" || !n.consume(len(key)) {
+			break
+		}
+		mapValue := value.MapIndex(keyValue)
+		if !mapValue.IsValid() || !mapValue.CanInterface() {
+			out[key] = "[unsupported value]"
+			continue
+		}
+		out[key] = n.normalize(mapValue.Interface(), depth+1, debugLogStackKey(key))
+	}
+	if len(keys) > limit || n.remaining <= 0 {
+		out["_debug_truncated"] = true
+	}
+	return out
+}
+
+func (n *debugLogNormalizer) normalizeReflectSlice(value reflect.Value, depth int) any {
+	if value.Kind() == reflect.Slice {
+		if !n.enter(value) {
+			n.consume(len(debugLogCycle))
+			return debugLogCycle
+		}
+		defer n.leave(value)
+	}
+	limit := min(value.Len(), n.limits.MaxCollectionItems)
+	out := make([]any, 0, limit+1)
+	for i := 0; i < limit && n.remaining > 0; i++ {
+		item := value.Index(i)
+		if !item.IsValid() || !item.CanInterface() {
+			out = append(out, "[unsupported value]")
+			continue
+		}
+		out = append(out, n.normalize(item.Interface(), depth+1, false))
+	}
+	if value.Len() > limit || n.remaining <= 0 {
+		out = append(out, debugLogTruncated)
+	}
+	return out
 }
 
 func (n *debugLogNormalizer) normalizeFloat(value float64, bits int) any {

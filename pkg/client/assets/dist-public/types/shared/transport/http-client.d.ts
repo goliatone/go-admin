@@ -28,8 +28,9 @@ export declare class HTTPResponseProtocolError extends Error {
     constructor(message: string, response: Response, contentType: string);
 }
 export declare function readCSRFToken(): string;
-export declare function appendCSRFHeader(input: string, options: RequestInit, headers: Headers): void;
-export declare function httpRequest(input: string, options?: HTTPRequestOptions): Promise<Response>;
+export declare function appendCSRFHeader(input: RequestInfo | URL, options: RequestInit, headers: Headers): void;
+export declare function httpRequestWith(fetchImpl: typeof fetch, input: RequestInfo | URL, options?: HTTPRequestOptions): Promise<Response>;
+export declare function httpRequest(input: RequestInfo | URL, options?: HTTPRequestOptions): Promise<Response>;
 export declare function readHTTPResponsePayload(response: Response): Promise<HTTPResponsePayloadReadResult>;
 export declare function readHTTPJSONValue<T>(response: Response, fallback: T): Promise<T>;
 export declare function readHTTPJSON<T>(response: Response): Promise<T>;
@@ -44,5 +45,5 @@ export declare function readHTTPError(response: Response, fallback?: string, opt
 export declare function readHTTPStructuredErrorResult(response: Response, fallback?: string, options?: {
     appendStatusToFallback?: boolean;
 }): Promise<HTTPStructuredErrorReadResult>;
-export declare function httpJSON<T = unknown>(input: string, options?: HTTPRequestOptions): Promise<T>;
+export declare function httpJSON<T = unknown>(input: RequestInfo | URL, options?: HTTPRequestOptions): Promise<T>;
 //# sourceMappingURL=http-client.d.ts.map

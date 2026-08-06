@@ -720,8 +720,8 @@ type optionAwareGoCMSContentService struct {
 }
 
 func (s *optionAwareGoCMSContentService) SupportsContentListOption(option cmscontent.ContentListOption) bool {
-	return strings.HasPrefix(string(option), "content:list:families:") &&
-		!strings.HasSuffix(string(option), "families:")
+	return strings.HasPrefix(option, "content:list:families:") &&
+		!strings.HasSuffix(option, "families:")
 }
 
 func TestGoCMSContentAdapterNegotiatesDownstreamListOptionSupport(t *testing.T) {

@@ -18,97 +18,117 @@ type TransportFactory func(testing.TB) admin.CommandRunTransport
 // readiness, cancellation, and subscription ownership semantics.
 func RunTransportContract(t *testing.T, factory TransportFactory) {
 	t.Helper()
-	t.Run("capabilities", func(t *testing.T) {
-		transport := requireTransport(t, factory)
-		if err := transport.Capabilities().Validate(); err != nil {
-			t.Fatalf("capabilities: %v", err)
-		}
-	})
-	t.Run("publish and clone", func(t *testing.T) {
-		transport := requireTransport(t, factory)
-		received := make(chan admin.CommandRunUpdate, 1)
-		sub := subscribe(t, transport, admin.CommandRunSelector{Global: true}, func(_ context.Context, update admin.CommandRunUpdate) error {
-			update.Metadata["nested"].(map[string]any)["value"] = "handler"
-			received <- update
-			return nil
-		})
-		defer closeSubscription(t, sub)
+	t.Run("capabilities", func(t *testing.T) { runCapabilitiesContract(t, factory) })
+	t.Run("publish and clone", func(t *testing.T) { runCloneContract(t, factory) })
+	t.Run("fanout", func(t *testing.T) { runFanoutContract(t, factory) })
+	t.Run("scope", func(t *testing.T) { runScopeContract(t, factory) })
+	t.Run("close", func(t *testing.T) { runCloseContract(t, factory) })
+	t.Run("canceled publish", func(t *testing.T) { runCanceledPublishContract(t, factory) })
+}
 
-		update := ValidUpdate("run-clone", 1)
-		update.Metadata = map[string]any{"nested": map[string]any{"value": "source"}}
-		if err := transport.PublishCommandRun(context.Background(), update); err != nil {
-			t.Fatalf("publish: %v", err)
-		}
-		awaitUpdate(t, received)
-		if update.Metadata["nested"].(map[string]any)["value"] != "source" {
-			t.Fatal("handler mutated publisher-owned update")
-		}
-	})
-	t.Run("fanout", func(t *testing.T) {
-		transport := requireTransport(t, factory)
-		first, second := make(chan admin.CommandRunUpdate, 1), make(chan admin.CommandRunUpdate, 1)
-		sub1 := subscribe(t, transport, admin.CommandRunSelector{Global: true}, channelHandler(first))
-		defer closeSubscription(t, sub1)
-		sub2 := subscribe(t, transport, admin.CommandRunSelector{Global: true}, channelHandler(second))
-		defer closeSubscription(t, sub2)
-		if err := transport.PublishCommandRun(context.Background(), ValidUpdate("run-fanout", 1)); err != nil {
-			t.Fatalf("publish: %v", err)
-		}
-		awaitUpdate(t, first)
-		awaitUpdate(t, second)
-	})
-	t.Run("scope", func(t *testing.T) {
-		transport := requireTransport(t, factory)
-		received := make(chan admin.CommandRunUpdate, 2)
-		sub := subscribe(t, transport, admin.CommandRunSelector{Scope: admin.CommandRunScope{
-			ApplicationID: "app", EnvironmentID: "test", TenantID: "tenant-a",
-		}}, channelHandler(received))
-		defer closeSubscription(t, sub)
+func runCapabilitiesContract(t *testing.T, factory TransportFactory) {
+	transport := requireTransport(t, factory)
+	if err := transport.Capabilities().Validate(); err != nil {
+		t.Fatalf("capabilities: %v", err)
+	}
+}
 
-		allowed := ValidUpdate("run-allowed", 1)
-		allowed.Scope.TenantID = "tenant-a"
-		denied := ValidUpdate("run-denied", 1)
-		denied.Scope.TenantID = "tenant-b"
-		if err := transport.PublishCommandRun(context.Background(), allowed); err != nil {
-			t.Fatalf("publish allowed: %v", err)
+func runCloneContract(t *testing.T, factory TransportFactory) {
+	transport := requireTransport(t, factory)
+	received := make(chan admin.CommandRunUpdate, 1)
+	sub := subscribe(t, transport, admin.CommandRunSelector{Global: true}, func(_ context.Context, update admin.CommandRunUpdate) error {
+		nested, ok := update.Metadata["nested"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("nested metadata type is %T", update.Metadata["nested"])
 		}
-		if err := transport.PublishCommandRun(context.Background(), denied); err != nil {
-			t.Fatalf("publish denied: %v", err)
-		}
-		if got := awaitUpdate(t, received); got.RunID != allowed.RunID {
-			t.Fatalf("received run %q, want %q", got.RunID, allowed.RunID)
-		}
-		select {
-		case got := <-received:
-			t.Fatalf("received unauthorized run %q", got.RunID)
-		case <-time.After(50 * time.Millisecond):
-		}
+		nested["value"] = "handler"
+		received <- update
+		return nil
 	})
-	t.Run("close", func(t *testing.T) {
-		transport := requireTransport(t, factory)
-		received := make(chan admin.CommandRunUpdate, 1)
-		sub := subscribe(t, transport, admin.CommandRunSelector{Global: true}, channelHandler(received))
-		closeSubscription(t, sub)
-		if err := sub.Close(context.Background()); err != nil {
-			t.Fatalf("second close: %v", err)
-		}
-		if err := transport.PublishCommandRun(context.Background(), ValidUpdate("run-closed", 1)); err != nil {
-			t.Fatalf("publish after subscription close: %v", err)
-		}
-		select {
-		case got := <-received:
-			t.Fatalf("closed subscription received %q", got.RunID)
-		case <-time.After(50 * time.Millisecond):
-		}
-	})
-	t.Run("canceled publish", func(t *testing.T) {
-		transport := requireTransport(t, factory)
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-		if err := transport.PublishCommandRun(ctx, ValidUpdate("run-canceled", 1)); err == nil {
-			t.Fatal("canceled publish should fail")
-		}
-	})
+	defer closeSubscription(t, sub)
+
+	update := ValidUpdate("run-clone", 1)
+	update.Metadata = map[string]any{"nested": map[string]any{"value": "source"}}
+	if err := transport.PublishCommandRun(context.Background(), update); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	awaitUpdate(t, received)
+	nested, ok := update.Metadata["nested"].(map[string]any)
+	if !ok {
+		t.Fatalf("nested metadata type = %T", update.Metadata["nested"])
+	}
+	if nested["value"] != "source" {
+		t.Fatal("handler mutated publisher-owned update")
+	}
+}
+
+func runFanoutContract(t *testing.T, factory TransportFactory) {
+	transport := requireTransport(t, factory)
+	first, second := make(chan admin.CommandRunUpdate, 1), make(chan admin.CommandRunUpdate, 1)
+	sub1 := subscribe(t, transport, admin.CommandRunSelector{Global: true}, channelHandler(first))
+	defer closeSubscription(t, sub1)
+	sub2 := subscribe(t, transport, admin.CommandRunSelector{Global: true}, channelHandler(second))
+	defer closeSubscription(t, sub2)
+	if err := transport.PublishCommandRun(context.Background(), ValidUpdate("run-fanout", 1)); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	awaitUpdate(t, first)
+	awaitUpdate(t, second)
+}
+
+func runScopeContract(t *testing.T, factory TransportFactory) {
+	transport := requireTransport(t, factory)
+	received := make(chan admin.CommandRunUpdate, 2)
+	sub := subscribe(t, transport, admin.CommandRunSelector{Scope: admin.CommandRunScope{
+		ApplicationID: "app", EnvironmentID: "test", TenantID: "tenant-a",
+	}}, channelHandler(received))
+	defer closeSubscription(t, sub)
+
+	allowed := ValidUpdate("run-allowed", 1)
+	allowed.Scope.TenantID = "tenant-a"
+	denied := ValidUpdate("run-denied", 1)
+	denied.Scope.TenantID = "tenant-b"
+	if err := transport.PublishCommandRun(context.Background(), allowed); err != nil {
+		t.Fatalf("publish allowed: %v", err)
+	}
+	if err := transport.PublishCommandRun(context.Background(), denied); err != nil {
+		t.Fatalf("publish denied: %v", err)
+	}
+	if got := awaitUpdate(t, received); got.RunID != allowed.RunID {
+		t.Fatalf("received run %q, want %q", got.RunID, allowed.RunID)
+	}
+	select {
+	case got := <-received:
+		t.Fatalf("received unauthorized run %q", got.RunID)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func runCloseContract(t *testing.T, factory TransportFactory) {
+	transport := requireTransport(t, factory)
+	received := make(chan admin.CommandRunUpdate, 1)
+	sub := subscribe(t, transport, admin.CommandRunSelector{Global: true}, channelHandler(received))
+	closeSubscription(t, sub)
+	if err := sub.Close(context.Background()); err != nil {
+		t.Fatalf("second close: %v", err)
+	}
+	if err := transport.PublishCommandRun(context.Background(), ValidUpdate("run-closed", 1)); err != nil {
+		t.Fatalf("publish after subscription close: %v", err)
+	}
+	select {
+	case got := <-received:
+		t.Fatalf("closed subscription received %q", got.RunID)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func runCanceledPublishContract(t *testing.T, factory TransportFactory) {
+	transport := requireTransport(t, factory)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := transport.PublishCommandRun(ctx, ValidUpdate("run-canceled", 1)); err == nil {
+		t.Fatal("canceled publish should fail")
+	}
 }
 
 // ValidUpdate returns one valid isolated fixture for adapter tests.

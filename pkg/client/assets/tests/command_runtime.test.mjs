@@ -110,6 +110,7 @@ function createNotifier() {
 test('CommandRuntimeController dispatches rpc commands and refreshes fragments', async () => {
   setupDom(`<!doctype html>
     <html>
+      <head><meta name="csrf-token" content="command-runtime-csrf" /></head>
       <body>
         <script id="publication-review-bootstrap" type="application/json">{"status":"in_review","participants":[]}</script>
         <div id="mount">
@@ -196,6 +197,8 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   assert.equal(requests.length, 2);
 
   const rpcRequest = JSON.parse(String(requests[0].init.body));
+  const rpcHeaders = new Headers(requests[0].init.headers || {});
+  assert.equal(rpcHeaders.get('X-CSRF-Token'), 'command-runtime-csrf');
   assert.equal(rpcRequest.method, 'admin.commands.dispatch');
   assert.equal(rpcRequest.params.data.name, 'reviews.notify_reviewers');
   assert.deepEqual(rpcRequest.params.data.ids, ['schedule-1']);
@@ -215,6 +218,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
 test('CommandRuntimeController serializes forms for panel actions', async () => {
   setupDom(`<!doctype html>
     <html>
+      <head><meta name="csrf-token" content="command-action-csrf" /></head>
       <body>
         <div id="mount">
           <div id="comment-panel">before</div>
@@ -284,6 +288,8 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   assert.equal(requests[0].url, '/admin/api/v1/panels/publishing_schedules/actions/create_comment_thread');
 
   const actionPayload = JSON.parse(String(requests[0].init.body));
+  const actionHeaders = new Headers(requests[0].init.headers || {});
+  assert.equal(actionHeaders.get('X-CSRF-Token'), 'command-action-csrf');
   assert.equal(actionPayload.id, 'schedule-1');
   assert.equal(actionPayload.review_id, 'review-1');
   assert.equal(actionPayload.body, 'hello world');

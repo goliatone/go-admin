@@ -101,28 +101,30 @@ type AdminChromeState struct {
 }
 
 func (state AdminChromeState) Empty() bool {
-	return strings.TrimSpace(state.Title) == "" &&
-		strings.TrimSpace(state.BasePath) == "" &&
-		strings.TrimSpace(state.AssetBasePath) == "" &&
-		strings.TrimSpace(state.APIBasePath) == "" &&
-		strings.TrimSpace(state.BodyClasses) == "" &&
-		strings.TrimSpace(state.Active) == "" &&
-		len(state.NavItems) == 0 &&
-		len(state.NavUtilityItems) == 0 &&
-		len(state.SessionUser) == 0 &&
-		len(state.Theme) == 0 &&
-		len(state.ExternalAssets) == 0 &&
-		len(state.CSRFTemplateHelpers) == 0 &&
-		!state.SidebarHideSearch &&
-		state.SidebarCollapsePlacement == "" &&
-		!state.SidebarCompactFooter &&
-		!state.SidebarHidePresence &&
-		!state.SidebarHideUserMenuIndicator &&
-		len(state.TranslationCapabilities) == 0 &&
-		!state.UsersImportAvailable &&
-		!state.UsersImportEnabled &&
-		!state.NavDebug &&
-		strings.TrimSpace(state.NavItemsJSON) == ""
+	return !adminChromeHasText(state) && !adminChromeHasCollections(state) && !adminChromeHasFlags(state)
+}
+
+func adminChromeHasText(state AdminChromeState) bool {
+	for _, value := range []string{
+		state.Title, state.BasePath, state.AssetBasePath, state.APIBasePath,
+		state.BodyClasses, state.Active, string(state.SidebarCollapsePlacement), state.NavItemsJSON,
+	} {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func adminChromeHasCollections(state AdminChromeState) bool {
+	return len(state.NavItems) > 0 || len(state.NavUtilityItems) > 0 || len(state.SessionUser) > 0 ||
+		len(state.Theme) > 0 || len(state.ExternalAssets) > 0 || len(state.CSRFTemplateHelpers) > 0 ||
+		len(state.TranslationCapabilities) > 0
+}
+
+func adminChromeHasFlags(state AdminChromeState) bool {
+	return state.SidebarHideSearch || state.SidebarCompactFooter || state.SidebarHidePresence ||
+		state.SidebarHideUserMenuIndicator || state.UsersImportAvailable || state.UsersImportEnabled || state.NavDebug
 }
 
 func withAdminChromeState(page dashcmp.Page, state AdminChromeState) (dashcmp.Page, error) {

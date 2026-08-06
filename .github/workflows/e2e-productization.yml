@@ -111,6 +111,7 @@ jobs:
         run: |
           echo "Checking required dist files..."
           test -f dist/datatable/index.js || { echo "Missing: dist/datatable/index.js"; exit 1; }
+          test -f dist-types/datatable/index.d.ts || { echo "Missing: dist-types/datatable/index.d.ts"; exit 1; }
           test -f dist/output.css || { echo "Missing: dist/output.css"; exit 1; }
           test -f dist/styles/datatable-actions.css || { echo "Missing: dist/styles/datatable-actions.css"; exit 1; }
           echo "All required dist files present."
@@ -119,7 +120,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: pkg/client/assets/dist
+          path: |
+            pkg/client/assets/dist
+            pkg/client/assets/dist-types
           retention-days: 1
 
   e2e-tests:
@@ -146,7 +149,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: pkg/client/assets/dist
+          path: pkg/client/assets
 
       - name: Install frontend dependencies
         working-directory: pkg/client/assets
@@ -240,7 +243,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: pkg/client/assets/dist
+          path: pkg/client/assets
 
       - name: Install dependencies
         working-directory: pkg/client/assets

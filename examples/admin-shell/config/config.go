@@ -205,36 +205,45 @@ func configValidators() []goconfig.Validator[*AppConfig] {
 }
 
 func validateRequiredFields(c *AppConfig) error {
-	if strings.TrimSpace(c.Name) == "" {
-		return fmt.Errorf("name is required")
+	if err := validateRequiredStrings(c); err != nil {
+		return err
 	}
-	if strings.TrimSpace(c.Env) == "" {
-		return fmt.Errorf("env is required")
+	if err := validateConfiguredValues(c); err != nil {
+		return err
 	}
-	if strings.TrimSpace(c.Server.Address) == "" {
-		return fmt.Errorf("server.address is required")
+	if err := validateDemoAuth(c); err != nil {
+		return err
 	}
-	if strings.TrimSpace(c.Admin.BasePath) == "" {
-		return fmt.Errorf("admin.base_path is required")
+	return validateProductionAuth(c)
+}
+
+func validateRequiredStrings(c *AppConfig) error {
+	required := []struct {
+		name  string
+		value string
+	}{
+		{name: "name", value: c.Name},
+		{name: "env", value: c.Env},
+		{name: "server.address", value: c.Server.Address},
+		{name: "admin.base_path", value: c.Admin.BasePath},
+		{name: "admin.title", value: c.Admin.Title},
+		{name: "admin.default_locale", value: c.Admin.DefaultLocale},
+		{name: "deployment.app_id", value: c.Deployment.AppID},
+		{name: "deployment.app_name", value: c.Deployment.AppName},
+		{name: "auth.signing_key", value: c.Auth.SigningKey},
 	}
-	if strings.TrimSpace(c.Admin.Title) == "" {
-		return fmt.Errorf("admin.title is required")
-	}
-	if strings.TrimSpace(c.Admin.DefaultLocale) == "" {
-		return fmt.Errorf("admin.default_locale is required")
+	for _, field := range required {
+		if strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("%s is required", field.name)
+		}
 	}
 	if c.Server.ShutdownTimeoutSeconds <= 0 {
 		return fmt.Errorf("server.shutdown_timeout_seconds must be greater than zero")
 	}
-	if strings.TrimSpace(c.Deployment.AppID) == "" {
-		return fmt.Errorf("deployment.app_id is required")
-	}
-	if strings.TrimSpace(c.Deployment.AppName) == "" {
-		return fmt.Errorf("deployment.app_name is required")
-	}
-	if strings.TrimSpace(c.Auth.SigningKey) == "" {
-		return fmt.Errorf("auth.signing_key is required")
-	}
+	return nil
+}
+
+func validateConfiguredValues(c *AppConfig) error {
 	switch c.Features.Profile {
 	case "minimal", "default", "full":
 	default:
@@ -250,30 +259,44 @@ func validateRequiredFields(c *AppConfig) error {
 	default:
 		return fmt.Errorf("logging.format must be one of json, console, text, or pretty")
 	}
-	if c.Auth.DemoEnabled {
-		if !IsDevelopmentEnv(c.Env) {
-			return fmt.Errorf("auth.demo_enabled is only allowed in development environments")
-		}
-		if strings.TrimSpace(c.Auth.DemoUsername) == "" {
-			return fmt.Errorf("auth.demo_username is required when demo auth is enabled")
-		}
-		if strings.TrimSpace(c.Auth.DemoEmail) == "" {
-			return fmt.Errorf("auth.demo_email is required when demo auth is enabled")
-		}
-		if strings.TrimSpace(c.Auth.DemoPassword) == "" {
-			return fmt.Errorf("auth.demo_password is required when demo auth is enabled")
-		}
+	return nil
+}
+
+func validateDemoAuth(c *AppConfig) error {
+	if !c.Auth.DemoEnabled {
+		return nil
 	}
 	if !IsDevelopmentEnv(c.Env) {
-		if c.Auth.ShowDemoCredentials {
-			return fmt.Errorf("auth.show_demo_credentials is only allowed in development environments")
+		return fmt.Errorf("auth.demo_enabled is only allowed in development environments")
+	}
+	required := []struct {
+		name  string
+		value string
+	}{
+		{name: "auth.demo_username", value: c.Auth.DemoUsername},
+		{name: "auth.demo_email", value: c.Auth.DemoEmail},
+		{name: "auth.demo_password", value: c.Auth.DemoPassword},
+	}
+	for _, field := range required {
+		if strings.TrimSpace(field.value) == "" {
+			return fmt.Errorf("%s is required when demo auth is enabled", field.name)
 		}
-		if strings.TrimSpace(c.Auth.SigningKey) == "admin-shell-dev-signing-key" {
-			return fmt.Errorf("auth.signing_key must be replaced outside development")
-		}
-		if len(c.Auth.SigningKey) < 32 {
-			return fmt.Errorf("auth.signing_key must contain at least 32 characters outside development")
-		}
+	}
+	return nil
+}
+
+func validateProductionAuth(c *AppConfig) error {
+	if IsDevelopmentEnv(c.Env) {
+		return nil
+	}
+	if c.Auth.ShowDemoCredentials {
+		return fmt.Errorf("auth.show_demo_credentials is only allowed in development environments")
+	}
+	if strings.TrimSpace(c.Auth.SigningKey) == "admin-shell-dev-signing-key" {
+		return fmt.Errorf("auth.signing_key must be replaced outside development")
+	}
+	if len(c.Auth.SigningKey) < 32 {
+		return fmt.Errorf("auth.signing_key must contain at least 32 characters outside development")
 	}
 	return nil
 }

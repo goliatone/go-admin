@@ -71,7 +71,10 @@ func TestNavigationEmptyResolvedMenuNormalizesContract(t *testing.T) {
 	if got := stringsTrimSpace(anyString(menu["active_path"])); got != "/es/about" {
 		t.Fatalf("expected normalized active path, got %q", got)
 	}
-	items := menu["items"].([]map[string]any)
+	items, ok := menu["items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected typed menu items, got %T", menu["items"])
+	}
 	if len(items) != 0 {
 		t.Fatalf("expected empty items slice, got %+v", items)
 	}

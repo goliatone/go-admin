@@ -287,7 +287,11 @@ func searchQueryValues(c router.Context, key string) []string {
 	}
 	values := []string{}
 	func() {
-		defer func() { _ = recover() }()
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				return
+			}
+		}()
 		values = append(values, c.QueryValues(key)...)
 	}()
 	if len(values) == 0 {

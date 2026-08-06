@@ -14,15 +14,15 @@ import (
 
 func TestCommandRunRuntimeLocalMonolithProjectsAfterStartupContextEnds(t *testing.T) {
 	projected := make(chan CommandRunRecord, 1)
-	runtime, err := NewCommandRunRuntime(CommandRunRuntimeConfig{
+	runtime, runtimeErr := NewCommandRunRuntime(CommandRunRuntimeConfig{
 		Enabled: true,
 		OnProjected: func(_ context.Context, record CommandRunRecord) error {
 			projected <- record
 			return nil
 		},
 	})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
+	if runtimeErr != nil {
+		t.Fatalf("new runtime: %v", runtimeErr)
 	}
 	startupCtx, cancelStartup := context.WithCancel(context.Background())
 	if err := runtime.Start(startupCtx); err != nil {

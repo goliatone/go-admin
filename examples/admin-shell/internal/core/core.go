@@ -177,58 +177,14 @@ func New(
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("validate config: %w", err)
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	opts := options{}
-	for _, option := range optionFns {
-		if option != nil {
-			option(&opts)
-		}
-	}
-
-	loggerProvider := opts.loggerProvider
-	if loggerProvider == nil {
-		loggerProvider = glog.ProviderFromLogger(glog.Nop())
-	}
+	ctx = ensureContext(ctx)
+	opts := resolveOptions(optionFns)
+	loggerProvider := resolveLoggerProvider(opts.loggerProvider)
 	logger := glog.Ensure(loggerProvider.GetLogger("core"))
 	LogStartupConfig(logger, cfg, "configured")
 
-	adminCfg := quickstart.NewAdminConfig(
-		cfg.Admin.BasePath,
-		cfg.Admin.Title,
-		cfg.Admin.DefaultLocale,
-	)
-	adminCfg.Deployment = admin.DeploymentIdentityConfig{
-		AppID:       cfg.Deployment.AppID,
-		AppName:     cfg.Deployment.AppName,
-		AppVersion:  cfg.Deployment.AppVersion,
-		Environment: cfg.Env,
-		Persona: admin.DeploymentPersonaConfig{
-			Enabled: cfg.Deployment.PersonaEnabled,
-		},
-	}
-
-	adminOptions := []quickstart.AdminOption{
-		quickstart.WithAdminContext(ctx),
-		quickstart.WithAdminDependencies(admin.Dependencies{
-			LoggerProvider: loggerProvider,
-			Logger:         glog.Ensure(loggerProvider.GetLogger("admin")),
-		}),
-	}
-	profile := strings.ToLower(strings.TrimSpace(cfg.Features.Profile))
-	if profile == "" {
-		profile = "minimal"
-	}
-	switch profile {
-	case "minimal":
-		adminOptions = append(adminOptions, quickstart.WithMinimalFeatures())
-	case "default", "full":
-		// The complete quickstart feature catalog is the default base set.
-	}
-	if overrides := cfg.FeatureOverrides(); len(overrides) > 0 {
-		adminOptions = append(adminOptions, quickstart.WithFeatureOverrides(overrides))
-	}
+	adminCfg := newAdminConfig(cfg)
+	adminOptions := newAdminOptions(ctx, cfg, loggerProvider)
 	adm, _, err := quickstart.NewAdmin(
 		adminCfg,
 		quickstart.AdapterHooks{},
@@ -272,8 +228,96 @@ func New(
 			}
 		}
 	}()
-	featureGate := adm.FeatureGate()
+	appCore, adminLifecycle, err = buildCoreRuntime(
+		ctx,
+		cfg,
+		opts,
+		loggerProvider,
+		logger,
+		adminCfg,
+		adm,
+	)
+	if err != nil {
+		return nil, err
+	}
 
+	initialized = true
+	return appCore, nil
+}
+
+func ensureContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
+func resolveOptions(optionFns []Option) options {
+	opts := options{}
+	for _, option := range optionFns {
+		if option != nil {
+			option(&opts)
+		}
+	}
+	return opts
+}
+
+func resolveLoggerProvider(provider glog.LoggerProvider) glog.LoggerProvider {
+	if provider == nil {
+		return glog.ProviderFromLogger(glog.Nop())
+	}
+	return provider
+}
+
+func newAdminConfig(cfg *config.AppConfig) admin.Config {
+	adminCfg := quickstart.NewAdminConfig(
+		cfg.Admin.BasePath,
+		cfg.Admin.Title,
+		cfg.Admin.DefaultLocale,
+	)
+	adminCfg.Deployment = admin.DeploymentIdentityConfig{
+		AppID:       cfg.Deployment.AppID,
+		AppName:     cfg.Deployment.AppName,
+		AppVersion:  cfg.Deployment.AppVersion,
+		Environment: cfg.Env,
+		Persona: admin.DeploymentPersonaConfig{
+			Enabled: cfg.Deployment.PersonaEnabled,
+		},
+	}
+	return adminCfg
+}
+
+func newAdminOptions(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	loggerProvider glog.LoggerProvider,
+) []quickstart.AdminOption {
+	adminOptions := []quickstart.AdminOption{
+		quickstart.WithAdminContext(ctx),
+		quickstart.WithAdminDependencies(admin.Dependencies{
+			LoggerProvider: loggerProvider,
+			Logger:         glog.Ensure(loggerProvider.GetLogger("admin")),
+		}),
+	}
+	profile := strings.ToLower(strings.TrimSpace(cfg.Features.Profile))
+	if profile == "" || profile == "minimal" {
+		adminOptions = append(adminOptions, quickstart.WithMinimalFeatures())
+	}
+	if overrides := cfg.FeatureOverrides(); len(overrides) > 0 {
+		adminOptions = append(adminOptions, quickstart.WithFeatureOverrides(overrides))
+	}
+	return adminOptions
+}
+
+func buildCoreRuntime(
+	ctx context.Context,
+	cfg *config.AppConfig,
+	opts options,
+	loggerProvider glog.LoggerProvider,
+	logger glog.Logger,
+	adminCfg admin.Config,
+	adm *admin.Admin,
+) (*Core, *golifecycle.Runner, error) {
 	auther, routeAuth, authn, demoCredentials, demoIdentity, authCookieName, err := setupAuth(
 		adm,
 		cfg,
@@ -281,33 +325,15 @@ func New(
 		loggerProvider,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("setup auth: %w", err)
+		return nil, nil, fmt.Errorf("setup auth: %w", err)
 	}
 
-	isDev := config.IsDevelopmentEnv(cfg.Env)
 	viewEngine, err := newAdminShellViewEngine(adminCfg, adm)
 	if err != nil {
-		return nil, fmt.Errorf("initialize view engine: %w", err)
+		return nil, nil, fmt.Errorf("initialize view engine: %w", err)
 	}
-
-	server, r := quickstart.NewFiberServer(
-		viewEngine,
-		adminCfg,
-		adm,
-		isDev,
-		adminShellFiberConfig(),
-		quickstart.WithFiberLogger(false),
-		quickstart.WithFiberMiddleware(
-			newFiberAccessLogger(loggerProvider.GetLogger("http.access")),
-		),
-	)
-	r = r.WithLogger(newRouterLogger(
-		loggerProvider.GetLogger("router"),
-		cfg.Server.PrintRoutes,
-	))
-
-	host := quickstart.NewHostRouter(r, adminCfg)
-	appCore = &Core{
+	server, host := newAdminServer(cfg, adminCfg, adm, viewEngine, loggerProvider)
+	appCore := &Core{
 		Config:             cfg,
 		LoggerProvider:     loggerProvider,
 		Logger:             logger,
@@ -317,43 +343,83 @@ func New(
 		Admin:              adm,
 		Authenticator:      authn,
 		AuthCookieName:     authCookieName,
-		FeatureGate:        featureGate,
+		FeatureGate:        adm.FeatureGate(),
 		Auther:             auther,
 		RouteAuthenticator: routeAuth,
 		DemoCredentials:    demoCredentials,
 		DemoIdentity:       demoIdentity,
 	}
 
-	adminLifecycle, err = newAdminLifecycleRunner(appCore, opts.adminContributions)
+	adminLifecycle, err := newAdminLifecycleRunner(appCore, opts.adminContributions)
 	if err != nil {
-		return nil, err
+		return appCore, nil, err
 	}
 	appCore.adminLifecycle = adminLifecycle
+	if err := initializeCoreRoutes(ctx, appCore, adminLifecycle, opts.routeRegistrars, adminCfg); err != nil {
+		return appCore, adminLifecycle, err
+	}
+	return appCore, adminLifecycle, nil
+}
+
+func newAdminServer(
+	cfg *config.AppConfig,
+	adminCfg admin.Config,
+	adm *admin.Admin,
+	viewEngine fiber.Views,
+	loggerProvider glog.LoggerProvider,
+) (router.Server[*fiber.App], quickstart.HostRouter[*fiber.App]) {
+	server, adminRouter := quickstart.NewFiberServer(
+		viewEngine,
+		adminCfg,
+		adm,
+		config.IsDevelopmentEnv(cfg.Env),
+		adminShellFiberConfig(),
+		quickstart.WithFiberLogger(false),
+		quickstart.WithFiberMiddleware(
+			newFiberAccessLogger(loggerProvider.GetLogger("http.access")),
+		),
+	)
+	adminRouter = adminRouter.WithLogger(newRouterLogger(
+		loggerProvider.GetLogger("router"),
+		cfg.Server.PrintRoutes,
+	))
+	return server, quickstart.NewHostRouter(adminRouter, adminCfg)
+}
+
+func initializeCoreRoutes(
+	ctx context.Context,
+	appCore *Core,
+	adminLifecycle *golifecycle.Runner,
+	registrars []RouteRegistrar,
+	adminCfg admin.Config,
+) error {
 	if err := adminLifecycle.RunPreBind(ctx); err != nil {
-		return nil, fmt.Errorf("register admin contributions: %w", err)
+		return fmt.Errorf("register admin contributions: %w", err)
 	}
 
 	// Static and host-owned routes must be declared before admin initialization;
 	// WrappedRouter and Serve are the only sealing boundaries.
-	quickstart.NewStaticAssets(host.Static(), adminCfg, client.Assets())
-	for _, registrar := range opts.routeRegistrars {
-		if err := registrar(appCore, host); err != nil {
-			return nil, fmt.Errorf("register host routes: %w", err)
+	quickstart.NewStaticAssets(appCore.Host.Static(), adminCfg, client.Assets())
+	for _, registrar := range registrars {
+		if err := registrar(appCore, appCore.Host); err != nil {
+			return fmt.Errorf("register host routes: %w", err)
 		}
 	}
-	if err := adm.Initialize(host.Admin()); err != nil {
-		return nil, fmt.Errorf("initialize admin routes: %w", err)
+	if err := appCore.Admin.Initialize(appCore.Host.Admin()); err != nil {
+		return fmt.Errorf("initialize admin routes: %w", err)
 	}
-	visibleDemoCredentials := demoCredentials
+	visibleDemoCredentials := appCore.DemoCredentials
 	if !appCore.DemoCredentialsVisible() {
 		visibleDemoCredentials = nil
 	}
-	if err := registerAdminShellUIRoutes(host.AdminUI(), adminCfg, adm, routeAuth, authn, visibleDemoCredentials); err != nil {
-		return nil, err
-	}
-
-	initialized = true
-	return appCore, nil
+	return registerAdminShellUIRoutes(
+		appCore.Host.AdminUI(),
+		adminCfg,
+		appCore.Admin,
+		appCore.RouteAuthenticator,
+		appCore.Authenticator,
+		visibleDemoCredentials,
+	)
 }
 
 // GetLogger resolves a stable named child from the command-owned provider.

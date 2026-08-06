@@ -23,7 +23,7 @@ func (ctx lifecycleBootCtx) ReconcileDynamicCMS(lifecycle context.Context) error
 
 func (ctx lifecycleBootCtx) SetMountedPanelRoutes(panelNames []string) {
 	if ctx.Admin != nil {
-		ctx.Admin.recordMountedPanelRoutes(panelNames)
+		ctx.recordMountedPanelRoutes(panelNames)
 	}
 }
 

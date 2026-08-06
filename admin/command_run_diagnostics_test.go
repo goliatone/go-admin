@@ -10,9 +10,9 @@ import (
 )
 
 func TestCommandRunDiagnosticsTrackLifecycleProjectionAndSafeFailures(t *testing.T) {
-	runtime, err := NewCommandRunRuntime(CommandRunRuntimeConfig{Enabled: true})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
+	runtime, runtimeErr := NewCommandRunRuntime(CommandRunRuntimeConfig{Enabled: true})
+	if runtimeErr != nil {
+		t.Fatalf("new runtime: %v", runtimeErr)
 	}
 	if diagnostics := runtime.Diagnostics(); diagnostics.Status != CommandRunDiagnosticNotStarted || !diagnostics.Local || diagnostics.Transport != "local" {
 		t.Fatalf("initial diagnostics = %+v", diagnostics)
@@ -64,7 +64,11 @@ func TestCommandRunDoctorDistinguishesLocalRemoteAndFailureStates(t *testing.T) 
 	if err := local.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	defer local.Close(context.Background())
+	defer func() {
+		if closeErr := local.Close(context.Background()); closeErr != nil {
+			t.Errorf("close local runtime: %v", closeErr)
+		}
+	}()
 	localResult := runCommandRunDoctorCheck(t, local)
 	if localResult.Status != DoctorSeverityInfo || !hasDoctorFindingCode(localResult, "command_runs.local_ephemeral") {
 		t.Fatalf("local doctor result = %+v", localResult)
@@ -77,12 +81,19 @@ func TestCommandRunDoctorDistinguishesLocalRemoteAndFailureStates(t *testing.T) 
 	}
 
 	remote := newDiagnosticRemoteRuntime(t, true)
-	defer remote.Close(context.Background())
+	defer func() {
+		if closeErr := remote.Close(context.Background()); closeErr != nil {
+			t.Errorf("close remote runtime: %v", closeErr)
+		}
+	}()
 	remoteResult := runCommandRunDoctorCheck(t, remote)
 	if remoteResult.Status != DoctorSeverityOK || remoteResult.Metadata["transport"] != "remote" {
 		t.Fatalf("healthy remote doctor result = %+v", remoteResult)
 	}
-	remoteTransport := remote.subscriber.(*diagnosticRemoteTransport)
+	remoteTransport, ok := remote.subscriber.(*diagnosticRemoteTransport)
+	if !ok {
+		t.Fatalf("remote subscriber type = %T", remote.subscriber)
+	}
 	remoteTransport.subscription.errors <- ErrCommandRunScopeRejected
 	waitForCommandRunDiagnostics(t, remote, func(diagnostics CommandRunDiagnostics) bool {
 		return diagnostics.RejectedEvents == 1
@@ -107,7 +118,11 @@ func TestCommandRunDoctorReportsUnconfiguredRuntimeAsIntentional(t *testing.T) {
 
 func TestCommandRunDiagnosticsClearReadinessWhenSubscriptionEnds(t *testing.T) {
 	runtime := newDiagnosticRemoteRuntime(t, true)
-	subscription := runtime.subscriber.(*diagnosticRemoteTransport).subscription
+	remoteTransport, ok := runtime.subscriber.(*diagnosticRemoteTransport)
+	if !ok {
+		t.Fatalf("remote subscriber type = %T", runtime.subscriber)
+	}
+	subscription := remoteTransport.subscription
 	if err := subscription.Close(context.Background()); err != nil {
 		t.Fatalf("end subscription: %v", err)
 	}

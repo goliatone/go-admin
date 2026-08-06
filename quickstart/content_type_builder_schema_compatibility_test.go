@@ -34,8 +34,8 @@ func TestMergeContentTypeSchemaPreservesBaseDefsAndMetadataWithoutOverwritingInc
 	}
 
 	merged := mergeContentTypeSchema(base, incoming)
-	defs, _ := merged["$defs"].(map[string]any)
-	meta, _ := merged["metadata"].(map[string]any)
+	defs := requireTestValue[map[string]any](t, merged["$defs"], "merged $defs")
+	meta := requireTestValue[map[string]any](t, merged["metadata"], "merged metadata")
 
 	if _, ok := defs["shared"]; !ok {
 		t.Fatalf("expected base $defs entry to be merged")
@@ -50,7 +50,7 @@ func TestMergeContentTypeSchemaPreservesBaseDefsAndMetadataWithoutOverwritingInc
 		t.Fatalf("expected missing base metadata to be merged, got %v", got)
 	}
 
-	baseDefs := base["$defs"].(map[string]any)
+	baseDefs := requireTestValue[map[string]any](t, base["$defs"], "base $defs")
 	delete(defs, "shared")
 	if _, ok := baseDefs["shared"]; !ok {
 		t.Fatalf("expected merged schema to clone base defs")
@@ -73,10 +73,12 @@ func TestNormalizeCompatibilitySchemaConvertsLegacyFieldContracts(t *testing.T) 
 	if got := normalized["type"]; got != "object" {
 		t.Fatalf("expected object schema, got %v", got)
 	}
-	if got := props["title"].(map[string]any)["type"]; got != "string" {
+	titleSchema := requireTestValue[map[string]any](t, props["title"], "title schema")
+	if got := titleSchema["type"]; got != "string" {
 		t.Fatalf("expected title field to normalize string type, got %v", got)
 	}
-	if got := props["count"].(map[string]any)["type"]; got != "integer" {
+	countSchema := requireTestValue[map[string]any](t, props["count"], "count schema")
+	if got := countSchema["type"]; got != "integer" {
 		t.Fatalf("expected count field schema to be preserved, got %v", got)
 	}
 	if !required["title"] {
@@ -224,16 +226,16 @@ func TestContentTypeCompatibilityUsesExtractedSchemaCompatibilityRuntime(t *test
 	if payload == nil {
 		t.Fatalf("expected compatibility payload")
 	}
-	if got, _ := payload["compatible"].(bool); !got {
+	if got := requireTestValue[bool](t, payload["compatible"], "compatible"); !got {
 		t.Fatalf("expected compatible response, got %+v", payload)
 	}
-	if got, _ := payload["migration_required"].(bool); got {
+	if got := requireTestValue[bool](t, payload["migration_required"], "migration_required"); got {
 		t.Fatalf("expected no migration_required flag, got %+v", payload)
 	}
-	if breaking, _ := payload["breaking_changes"].([]schemaChange); len(breaking) != 0 {
+	if breaking := requireTestValue[[]schemaChange](t, payload["breaking_changes"], "breaking_changes"); len(breaking) != 0 {
 		t.Fatalf("expected no breaking changes, got %+v", breaking)
 	}
-	if warnings, _ := payload["warnings"].([]schemaChange); len(warnings) == 0 {
+	if warnings := requireTestValue[[]schemaChange](t, payload["warnings"], "warnings"); len(warnings) == 0 {
 		t.Fatalf("expected warning entries for compatible schema expansion, got %+v", payload["warnings"])
 	}
 }

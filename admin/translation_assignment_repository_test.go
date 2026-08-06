@@ -1212,6 +1212,9 @@ func TestBunTranslationAssignmentRepositoryAssignedAtRoundTrip(t *testing.T) {
 	if created.AssignedAt == nil {
 		t.Fatalf("expected assigned_at on create")
 	}
+	if created.AssignedAt.Nanosecond()%int(time.Microsecond) != 0 {
+		t.Fatalf("expected storage-aligned assigned_at precision, got %v", created.AssignedAt)
+	}
 	loaded, err := repo.Get(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("get assignment: %v", err)

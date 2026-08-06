@@ -1,22 +1,22 @@
 import { escapeAttribute as h, escapeHTML as m } from "../shared/html.js";
-import { readHTTPError as R } from "../shared/transport/http-client.js";
+import { httpRequestWith as E, readHTTPError as q } from "../shared/transport/http-client.js";
 import { extractStructuredError as L } from "../toast/error-helpers.js";
-import { r as Z, s as q } from "../chunks/status-vocabulary-DrEqqUD1.js";
-import { buildEndpointURL as ee, getNumberSearchParam as S, getStringSearchParam as k, readLocationSearchParams as te, setJoinedSearchParam as ae, setNumberSearchParam as C, setSearchParam as w } from "../shared/query-state/url-state.js";
+import { r as ee, s as I } from "../chunks/status-vocabulary-DrEqqUD1.js";
+import { buildEndpointURL as te, getNumberSearchParam as S, getStringSearchParam as k, readLocationSearchParams as ae, setJoinedSearchParam as re, setNumberSearchParam as C, setSearchParam as w } from "../shared/query-state/url-state.js";
 import { n as M } from "../chunks/translation-contracts-C_O37O2-.js";
-import { t as re } from "../chunks/stateful-controller-BhTsWevz.js";
-import { deriveBasePathFromAPIEndpoint as se, trimTrailingSlash as ie } from "../shared/path-normalization.js";
+import { t as se } from "../chunks/stateful-controller-BhTsWevz.js";
+import { deriveBasePathFromAPIEndpoint as ie, trimTrailingSlash as ne } from "../shared/path-normalization.js";
 import { asBoolean as x, asNumberish as f, asRecord as c, asString as i, asUniqueStringArray as g } from "../shared/coercion.js";
-import { A as P, B as ne, D as j, E as B, H as oe, O as z, R as le, S as A, T as D, U as ce, V as de, W as ue, g as F, k as N, x as me, y as H, z as fe } from "../chunks/translation-shared-D6PJvjua.js";
-import { c as Q, s as pe } from "../chunks/ui-states-DDJEdXAd.js";
+import { A as j, B as oe, D as B, E as z, H as le, O as D, R as ce, S as A, T as F, U as de, V as ue, W as me, g as N, k as H, x as fe, y as Q, z as pe } from "../chunks/translation-shared-D6PJvjua.js";
+import { c as U, s as he } from "../chunks/ui-states-DDJEdXAd.js";
 function v(t) {
   return Array.isArray(t) ? t.map((e) => c(e)).filter((e) => Object.keys(e).length > 0) : [];
 }
-function he(t, e) {
-  const a = ie(i(t));
-  return a || se(i(e)) || "/admin";
+function ge(t, e) {
+  const a = ne(i(t));
+  return a || ie(i(e)) || "/admin";
 }
-function ge(t) {
+function _e(t) {
   const e = c(t), a = i(e.href), r = i(e.label);
   return !a && !r ? null : {
     href: a,
@@ -28,7 +28,7 @@ function ge(t) {
     relation: i(e.relation)
   };
 }
-function U(t) {
+function X(t) {
   const e = c(t);
   return {
     enabled: x(e.enabled),
@@ -45,12 +45,12 @@ function U(t) {
     payload: c(e.payload)
   };
 }
-function _e(t) {
+function be(t) {
   const e = {};
-  for (const [a, r] of Object.entries(c(t))) e[a] = U(r);
+  for (const [a, r] of Object.entries(c(t))) e[a] = X(r);
   return e;
 }
-function X(t) {
+function Y(t) {
   const e = c(t);
   return {
     endpoint: i(e.endpoint),
@@ -61,7 +61,7 @@ function X(t) {
     type: i(e.type)
   };
 }
-function Y(t) {
+function W(t) {
   const e = i(t).toLowerCase();
   switch (e) {
     case "ready":
@@ -75,7 +75,7 @@ function Y(t) {
       return "missing";
   }
 }
-function be(t) {
+function xe(t) {
   const e = c(t);
   return {
     locale: i(e.locale),
@@ -86,7 +86,7 @@ function be(t) {
     sticky: x(e.sticky)
   };
 }
-function xe(t) {
+function ye(t) {
   const e = c(t), a = i(e.id), r = i(e.locale);
   return !a && !r ? null : {
     id: a,
@@ -96,7 +96,7 @@ function xe(t) {
     source_record_id: i(e.source_record_id)
   };
 }
-function ye(t) {
+function ke(t) {
   const e = c(t), a = i(e.id);
   return a ? {
     id: a,
@@ -106,8 +106,8 @@ function ye(t) {
     work_scope: i(e.work_scope)
   } : null;
 }
-function ke(t) {
-  const e = c(t), a = Y(e.state);
+function ve(t) {
+  const e = c(t), a = W(e.state);
   return {
     locale: i(e.locale),
     state: a,
@@ -115,14 +115,14 @@ function ke(t) {
     not_required: x(e.not_required) || a === "not_required",
     fallback: x(e.fallback) || a === "fallback",
     blocker_codes: g(e.blocker_codes),
-    variant: xe(e.variant),
-    assignment: ye(e.assignment),
-    quick_actions: _e(e.quick_actions)
+    variant: ye(e.variant),
+    assignment: ke(e.assignment),
+    quick_actions: be(e.quick_actions)
   };
 }
-function ve(t) {
+function we(t) {
   const e = c(t), a = c(e.cells), r = {};
-  for (const [s, o] of Object.entries(a)) r[s] = ke({
+  for (const [s, o] of Object.entries(a)) r[s] = ve({
     locale: s,
     ...c(o)
   });
@@ -134,7 +134,7 @@ function ve(t) {
     source_title: i(e.source_title),
     readiness_state: i(e.readiness_state),
     blocker_codes: g(e.blocker_codes),
-    links: Object.fromEntries(Object.entries(c(e.links)).map(([s, o]) => [s, ge(o)]).filter(([, s]) => s)),
+    links: Object.fromEntries(Object.entries(c(e.links)).map(([s, o]) => [s, _e(o)]).filter(([, s]) => s)),
     cells: r
   };
 }
@@ -179,13 +179,13 @@ function V(t) {
   }
   return {
     schema_version: f(e.schema_version),
-    cell_states: g(e.cell_states).map((s) => Y(s)),
+    cell_states: g(e.cell_states).map((s) => W(s)),
     latency_target_ms: f(e.latency_target_ms),
     query_model: K(e.query_model),
     bulk_actions: r
   };
 }
-function we(t) {
+function $e(t) {
   const e = c(t), a = c(e.bulk_actions), r = {};
   for (const [s, o] of Object.entries(a)) {
     const n = M(o);
@@ -193,14 +193,14 @@ function we(t) {
   }
   return { bulk_actions: r };
 }
-function $e(t) {
-  const e = c(t), a = c(e.data), r = c(e.meta), s = v(a.columns).map(be), o = v(a.rows).map(ve), n = {};
-  for (const [l, d] of Object.entries(c(r.quick_action_targets))) n[l] = X(d);
+function Te(t) {
+  const e = c(t), a = c(e.data), r = c(e.meta), s = v(a.columns).map(xe), o = v(a.rows).map(we), n = {};
+  for (const [l, d] of Object.entries(c(r.quick_action_targets))) n[l] = Y(d);
   return {
     data: {
       columns: s,
       rows: o,
-      selection: we(a.selection)
+      selection: $e(a.selection)
     },
     meta: {
       channel: i(r.channel),
@@ -231,7 +231,7 @@ function $e(t) {
     }
   };
 }
-function Te(t) {
+function Se(t) {
   const e = c(t), a = i(e.status);
   return {
     family_id: i(e.family_id),
@@ -246,14 +246,14 @@ function Te(t) {
     estimated_rows: f(e.estimated_rows)
   };
 }
-function Se(t) {
+function Ce(t) {
   const e = c(t), a = c(e.data), r = c(a.summary), s = {};
   for (const [o, n] of Object.entries(r)) s[o] = f(n);
   return {
     data: {
       action: i(a.action) || "create_missing",
       summary: s,
-      results: v(a.results).map(Te),
+      results: v(a.results).map(Se),
       export_request: Object.keys(c(a.export_request)).length > 0 ? c(a.export_request) : void 0,
       preview_rows: v(a.preview_rows)
     },
@@ -263,9 +263,9 @@ function Se(t) {
     }
   };
 }
-function Ce(t, e = {}) {
+function Ae(t, e = {}) {
   const a = new URLSearchParams();
-  return w(a, "channel", e.channel), w(a, "tenant_id", e.tenantId), w(a, "org_id", e.orgId), w(a, "family_id", e.familyId), w(a, "content_type", e.contentType), w(a, "readiness_state", e.readinessState), w(a, "blocker_code", e.blockerCode), ae(a, "locales", e.locales), C(a, "page", e.page), C(a, "per_page", e.perPage), C(a, "locale_offset", e.localeOffset, { min: 0 }), C(a, "locale_limit", e.localeLimit, { min: 0 }), ee(t, a);
+  return w(a, "channel", e.channel), w(a, "tenant_id", e.tenantId), w(a, "org_id", e.orgId), w(a, "family_id", e.familyId), w(a, "content_type", e.contentType), w(a, "readiness_state", e.readinessState), w(a, "blocker_code", e.blockerCode), re(a, "locales", e.locales), C(a, "page", e.page), C(a, "per_page", e.perPage), C(a, "locale_offset", e.localeOffset, { min: 0 }), C(a, "locale_limit", e.localeLimit, { min: 0 }), te(t, a);
 }
 function T(t = {}) {
   const e = g(t.family_ids), a = g(t.locales), r = {};
@@ -279,7 +279,7 @@ function T(t = {}) {
     bulk_actions: r
   };
 }
-function Ae(t, e) {
+function Me(t, e) {
   const a = i(e);
   if (!a) return T(t);
   const r = new Set(t.family_ids);
@@ -288,7 +288,7 @@ function Ae(t, e) {
     family_ids: Array.from(r).sort()
   };
 }
-function Me(t, e) {
+function Re(t, e) {
   return {
     ...T(t),
     locales: g(e)
@@ -301,13 +301,13 @@ function Ee(t, e = {}) {
     ...e
   };
 }
-function Re(t) {
+function qe(t) {
   return !!(t && t.state === "not_required");
 }
 function Le(t) {
   return t.meta.locale_policy.length > 0 ? t.meta.locale_policy : t.data.columns.map((e) => {
     const a = [];
-    for (const r of t.data.rows) Re(r.cells[e.locale]) && a.push(r.family_id);
+    for (const r of t.data.rows) qe(r.cells[e.locale]) && a.push(r.family_id);
     return {
       locale: e.locale,
       label: e.label,
@@ -319,17 +319,17 @@ function Le(t) {
     };
   });
 }
-var E = class extends Error {
+var R = class extends Error {
   constructor(t) {
     super(t.message), this.name = "TranslationMatrixRequestError", this.status = t.status, this.code = t.code ?? null, this.requestId = t.requestId, this.traceId = t.traceId, this.metadata = t.metadata ?? null;
   }
 };
-function W(t) {
+function G(t) {
   return i(t);
 }
-function G(t, e) {
+function J(t, e) {
   return {
-    endpoint: `${W(t).replace(/\/$/, "")}/actions/${e === "create_missing" ? "create-missing" : "export-selected"}`,
+    endpoint: `${G(t).replace(/\/$/, "")}/actions/${e === "create_missing" ? "create-missing" : "export-selected"}`,
     method: "POST",
     route: `translations.matrix.actions.${e}`,
     resolver_key: `admin.api.translations.matrix.actions.${e}`,
@@ -337,16 +337,16 @@ function G(t, e) {
     type: ""
   };
 }
-function qe(t) {
-  const e = W(t.endpoint), a = t.fetch ?? globalThis.fetch?.bind(globalThis);
+function Ie(t) {
+  const e = G(t.endpoint), a = t.fetch ?? globalThis.fetch?.bind(globalThis);
   if (!a) throw new Error("Fetch is not available for the translation matrix client.");
   return {
     async fetchMatrix(r = {}) {
-      const s = Ce(e, r), o = await a(s, { headers: { Accept: "application/json" } });
+      const s = Ae(e, r), o = await E(a, s, { headers: { Accept: "application/json" } });
       if (!o.ok) {
         const n = await L(o);
-        throw new E({
-          message: n.message || await R(o, "Failed to load translation matrix"),
+        throw new R({
+          message: n.message || await q(o, "Failed to load translation matrix"),
           status: o.status,
           code: n.textCode,
           requestId: o.headers.get("x-request-id") ?? void 0,
@@ -354,12 +354,12 @@ function qe(t) {
           metadata: n.metadata
         });
       }
-      return $e(await o.json());
+      return Te(await o.json());
     },
     async runBulkAction(r, s) {
-      const o = r ?? G(e, "create_missing"), n = i(o.endpoint);
+      const o = r ?? J(e, "create_missing"), n = i(o.endpoint);
       if (!n) throw new Error("Matrix bulk action endpoint is not configured.");
-      const l = await a(n, {
+      const l = await E(a, n, {
         method: i(o.method) || "POST",
         headers: {
           Accept: "application/json",
@@ -369,8 +369,8 @@ function qe(t) {
       });
       if (!l.ok) {
         const d = await L(l);
-        throw new E({
-          message: d.message || await R(l, "Matrix action failed"),
+        throw new R({
+          message: d.message || await q(l, "Matrix action failed"),
           status: l.status,
           code: d.textCode,
           requestId: l.headers.get("x-request-id") ?? void 0,
@@ -378,17 +378,17 @@ function qe(t) {
           metadata: d.metadata
         });
       }
-      return Se(await l.json());
+      return Ce(await l.json());
     }
   };
 }
-function Ie(t) {
+function Oe(t) {
   return t.split(",").map((e) => e.trim().toLowerCase()).filter((e, a, r) => e && r.indexOf(e) === a);
 }
-function Oe() {
-  const t = te(globalThis.location);
+function Pe() {
+  const t = ae(globalThis.location);
   if (!t) return {};
-  const e = Ie(k(t, "locales") ?? k(t, "locale") ?? "");
+  const e = Oe(k(t, "locales") ?? k(t, "locale") ?? "");
   return {
     channel: k(t, "channel") ?? "",
     tenantId: k(t, "tenant_id") ?? "",
@@ -403,41 +403,41 @@ function Oe() {
     localeOffset: S(t, "locale_offset")
   };
 }
-function Pe(t) {
+function je(t) {
   return [
     t.channel ? `Channel ${t.channel}` : "",
     t.tenantId ? `Tenant ${t.tenantId}` : "",
     t.orgId ? `Org ${t.orgId}` : ""
   ].filter(Boolean).join(" • ");
 }
-function I(t) {
+function O(t) {
   const e = i(t).trim();
   return e.length <= 12 ? e : `${e.slice(0, 8)}…${e.slice(-4)}`;
 }
-function je(t, e, a = "Action") {
+function Be(t, e, a = "Action") {
   const r = t.label || a, s = Object.entries(e).map(([n, l]) => `${h(n)}="${h(l)}"`).join(" "), o = t.reason || "Action unavailable";
   return `<button type="button" class="btn btn-secondary btn-sm ${t.enabled ? "" : "cursor-not-allowed opacity-50"}" ${s} ${t.enabled ? "" : "disabled"} title="${h(t.enabled ? t.description || r : o)}">${m(r)}</button>`;
 }
-function Be(t) {
+function ze(t) {
   const e = i(t.assignment?.status || t.variant?.status).toLowerCase(), a = !!e && e !== t.state;
   return `
     <div class="flex flex-wrap items-center gap-1.5">
-      ${q(t.state)}
-      ${a ? q(e, { showIcon: !1 }) : ""}
+      ${I(t.state)}
+      ${a ? I(e, { showIcon: !1 }) : ""}
     </div>
   `;
 }
-function J(t) {
-  return t.quick_actions.open?.enabled ? t.quick_actions.open : t.quick_actions.create ?? t.quick_actions.open ?? U({});
+function Z(t) {
+  return t.quick_actions.open?.enabled ? t.quick_actions.open : t.quick_actions.create ?? t.quick_actions.open ?? X({});
 }
-function ze(t, e) {
+function De(t, e) {
   const a = t.data.columns, r = t.data.rows;
   return `
-    <div class="${de}" data-matrix-grid="true">
-      <table class="${ue}">
-        <thead class="${oe}">
+    <div class="${ue}" data-matrix-grid="true">
+      <table class="${me}">
+        <thead class="${le}">
           <tr>
-            <th scope="col" class="${ne} border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-500">
+            <th scope="col" class="${oe} border-b border-gray-200 px-4 py-3 text-left text-xs font-semibold text-gray-500">
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" data-matrix-toggle-all-families="true" ${e.family_ids.length === r.length && r.length > 0 ? "checked" : ""}>
                 <span>Families</span>
@@ -460,16 +460,16 @@ function ze(t, e) {
         <tbody>
           ${r.map((s, o) => `
             <tr data-matrix-row="${h(s.family_id)}">
-              <th scope="row" class="${ce} border-b border-gray-200 px-4 py-4 text-left align-top">
+              <th scope="row" class="${de} border-b border-gray-200 px-4 py-4 text-left align-top">
                 <div class="flex items-start gap-3">
                   <input type="checkbox" data-matrix-family-toggle="${h(s.family_id)}" ${e.family_ids.includes(s.family_id) ? "checked" : ""} class="mt-1">
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                      <a class="text-sm font-semibold text-gray-900 hover:text-sky-700 hover:underline" href="${h(s.links.family?.href || "#")}">${m(s.source_title || I(s.family_id))}</a>
+                      <a class="text-sm font-semibold text-gray-900 hover:text-sky-700 hover:underline" href="${h(s.links.family?.href || "#")}">${m(s.source_title || O(s.family_id))}</a>
                       <span class="status-chip status-chip--neutral">${m(s.content_type)}</span>
                     </div>
                     <p class="mt-1 text-xs text-gray-500" title="${h(s.family_id)}">
-                      <span>${m(I(s.family_id))}</span>
+                      <span>${m(O(s.family_id))}</span>
                       <button type="button" class="ml-1 align-middle text-gray-400 transition-colors hover:text-gray-700" data-matrix-copy-id="${h(s.family_id)}" title="Copy family ID" aria-label="Copy family ID">
                         <i class="iconoir-copy" aria-hidden="true"></i>
                       </button>
@@ -482,13 +482,13 @@ function ze(t, e) {
                 </div>
               </th>
               ${a.map((n, l) => {
-    const d = s.cells[n.locale], _ = J(d);
+    const d = s.cells[n.locale], _ = Z(d);
     return `
-                  <td class="${fe}">
+                  <td class="${pe}">
                     <div class="min-w-[10rem] rounded-xl border border-gray-200 bg-gray-50 p-3">
-                      ${Be(d)}
+                      ${ze(d)}
                       <div class="mt-3">
-                        ${je(_, {
+                        ${Be(_, {
       "data-matrix-cell-action": "true",
       "data-family-id": s.family_id,
       "data-locale": n.locale,
@@ -509,7 +509,7 @@ function ze(t, e) {
     </div>
   `;
 }
-function De(t, e, a, r = !1) {
+function Fe(t, e, a, r = !1) {
   const s = e.bulk_actions.create_missing ?? M(null), o = e.bulk_actions.export_selected ?? M(null), n = e.family_ids.length === 0, l = s?.enabled ? n ? "Select at least one family row." : "" : s?.reason || "Create missing is unavailable.", d = o?.enabled ? n ? "Select at least one family row." : "" : o?.reason || "Export selected is unavailable.", _ = !s?.enabled || n || r, y = !o?.enabled || n || r;
   return `
     <section class="rounded-xl border border-gray-200 bg-white px-5 py-4 text-sm shadow-sm" data-matrix-bulk-toolbar="true">
@@ -520,14 +520,14 @@ function De(t, e, a, r = !1) {
           ${a ? `<p class="mt-2 text-xs font-medium text-emerald-700" data-matrix-feedback="true">${m(a)}</p>` : ""}
         </div>
         <div class="flex flex-wrap gap-3">
-          <button type="button" data-matrix-bulk-action="create_missing" class="${H} ${_ ? "cursor-not-allowed opacity-50" : ""}" ${_ ? "disabled" : ""} title="${h(l || "Create missing locale work")}">${m(r ? "Working…" : "Create missing")}</button>
-          <button type="button" data-matrix-bulk-action="export_selected" class="${me} ${y ? "cursor-not-allowed opacity-50" : ""}" ${y ? "disabled" : ""} title="${h(d || "Export selected locale work")}">${m(r ? "Working…" : "Export selected")}</button>
+          <button type="button" data-matrix-bulk-action="create_missing" class="${Q} ${_ ? "cursor-not-allowed opacity-50" : ""}" ${_ ? "disabled" : ""} title="${h(l || "Create missing locale work")}">${m(r ? "Working…" : "Create missing")}</button>
+          <button type="button" data-matrix-bulk-action="export_selected" class="${fe} ${y ? "cursor-not-allowed opacity-50" : ""}" ${y ? "disabled" : ""} title="${h(d || "Export selected locale work")}">${m(r ? "Working…" : "Export selected")}</button>
         </div>
       </div>
     </section>
   `;
 }
-function Fe(t) {
+function Ne(t) {
   const e = t.meta.page <= 1, a = t.meta.page * t.meta.per_page >= t.meta.total, r = t.meta.locale_offset <= 0, s = !t.meta.has_more_locales;
   return `
     <section class="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm" data-matrix-viewport="true">
@@ -546,7 +546,7 @@ function Fe(t) {
     </section>
   `;
 }
-var Ne = [
+var He = [
   {
     value: "",
     label: "All",
@@ -562,14 +562,14 @@ var Ne = [
     label: "Blocked",
     tone: "error"
   }
-], He = [
+], Qe = [
   "missing_locale",
   "missing_field",
   "pending_review",
   "outdated_source",
   "qa_blocked"
 ];
-function O(t, e) {
+function P(t, e) {
   const a = "quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors", r = {
     neutral: {
       active: "bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1",
@@ -586,17 +586,17 @@ function O(t, e) {
   };
   return `${a} ${e ? r[t].active : r[t].idle}`;
 }
-function Qe(t, e, a = !1) {
-  const r = i(t.readinessState), s = Ne.map((u) => `
+function Ue(t, e, a = !1) {
+  const r = i(t.readinessState), s = He.map((u) => `
     <button type="button"
-            class="${O(u.tone, r === u.value)}"
+            class="${P(u.tone, r === u.value)}"
             data-matrix-quick-filter="${h(u.value)}"
             ${r === u.value ? 'aria-current="true"' : ""}
             ${a ? "disabled" : ""}>
       ${m(u.label)}
     </button>
-  `).join(""), o = He.map((u) => `
-    <option value="${h(u)}" ${t.blockerCode === u ? "selected" : ""}>${m(Z(u))}</option>
+  `).join(""), o = Qe.map((u) => `
+    <option value="${h(u)}" ${t.blockerCode === u ? "selected" : ""}>${m(ee(u))}</option>
   `).join(""), n = e ? Le(e) : [], l = t.locales || [], d = new Set(n.map((u) => u.locale)), _ = l.filter((u) => !d.has(u)), y = [...n.map((u) => ({
     locale: u.locale,
     label: u.label || u.locale.toUpperCase()
@@ -607,7 +607,7 @@ function Qe(t, e, a = !1) {
     const b = l.includes(u);
     return `
       <button type="button"
-              class="${O("neutral", b)}"
+              class="${P("neutral", b)}"
               data-matrix-filter-locale="${h(u)}"
               aria-pressed="${b ? "true" : "false"}"
               ${a ? "disabled" : ""}>
@@ -646,7 +646,7 @@ function Qe(t, e, a = !1) {
               </select>
             </label>
             <div class="filter-panel__actions flex items-end gap-2">
-              <button type="submit" class="${H} h-10 px-4 py-2 flex-1" ${a ? "disabled" : ""}>${m(a ? "Loading…" : "Apply")}</button>
+              <button type="submit" class="${Q} h-10 px-4 py-2 flex-1" ${a ? "disabled" : ""}>${m(a ? "Loading…" : "Apply")}</button>
             </div>
           </div>
           ${y ? `
@@ -662,65 +662,65 @@ function Qe(t, e, a = !1) {
     </section>
   `;
 }
-function Ue() {
-  return pe({
+function Xe() {
+  return he({
     tag: "section",
     text: "Loading translation matrix…",
     showSpinner: !1,
-    containerClass: `${le} p-8 shadow-sm`,
+    containerClass: `${ce} p-8 shadow-sm`,
     attributes: { "data-matrix-loading": "true" },
     ariaLive: "polite"
   });
 }
-function Xe() {
-  return Q({
+function Ye() {
+  return U({
     tag: "section",
-    containerClass: `${D} p-8 shadow-sm`,
+    containerClass: `${F} p-8 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: "No rows",
-    titleClass: j,
+    titleClass: B,
     heading: "No families match this matrix scope.",
     headingTag: "h2",
     headingClass: "mt-2 text-xl font-semibold text-gray-900",
     message: "Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.",
-    messageClass: `${B} mt-3 max-w-2xl leading-6`,
+    messageClass: `${z} mt-3 max-w-2xl leading-6`,
     attributes: { "data-matrix-empty": "true" },
     ariaLive: "polite"
   });
 }
-function Ye(t) {
-  const e = t instanceof E ? t.requestId : "", a = t instanceof E ? t.traceId : "";
-  return Q({
+function We(t) {
+  const e = t instanceof R ? t.requestId : "", a = t instanceof R ? t.traceId : "";
+  return U({
     tag: "section",
-    containerClass: `${z} p-6 shadow-sm`,
+    containerClass: `${D} p-6 shadow-sm`,
     bodyClass: "",
     contentClass: "",
     title: "Matrix unavailable",
-    titleClass: P,
+    titleClass: j,
     heading: "The matrix payload could not be loaded.",
     headingTag: "h2",
     headingClass: "mt-2 text-xl font-semibold text-rose-900",
     message: t instanceof Error ? t.message : "Failed to load the translation matrix",
-    messageClass: `${N} mt-3 leading-6`,
+    messageClass: `${H} mt-3 leading-6`,
     metadata: e || a ? [e ? `Request ${e}` : "", a ? `Trace ${a}` : ""].filter(Boolean).join(" • ") : "",
     metadataClass: "mt-3 text-xs font-medium text-rose-700",
-    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${F}">Retry matrix</button></div>`,
+    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${N}">Retry matrix</button></div>`,
     role: "alert",
     attributes: { "data-matrix-error": "true" }
   });
 }
 function Ke(t, e, a, r, s, o, n = !1) {
-  const l = Pe(t), d = e == null ? a === "loading" ? Ue() : Ye(o) : e.data.rows.length === 0 ? Xe() : `${De(e, r, s, n)}<div class="grid gap-5">${Fe(e)}${ze(e, r)}</div>`;
+  const l = je(t), d = e == null ? a === "loading" ? Xe() : We(o) : e.data.rows.length === 0 ? Ye() : `${Fe(e, r, s, n)}<div class="grid gap-5">${Ne(e)}${De(e, r)}</div>`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
       ${l ? `<p class="text-xs font-medium text-gray-500" data-matrix-scope="true">${m(l)}</p>` : ""}
-      ${Qe(t, e, a === "loading" || n)}
+      ${Ue(t, e, a === "loading" || n)}
       ${d}
     </div>
   `;
 }
-var Ve = class extends re {
+var Ve = class extends se {
   constructor(t) {
     super("loading"), this.root = null, this.payload = null, this.error = null, this.selection = T(), this.feedback = "", this.working = !1, this.hasServerRenderedContent = !1, this.handleSubmit = (a) => {
       const r = a.target;
@@ -768,7 +768,7 @@ var Ve = class extends re {
       const l = r.closest("[data-matrix-family-toggle]");
       if (l) {
         if (!this.payload && this.hasServerRenderedContent) return;
-        this.selection = Ae(this.selection, l.dataset.matrixFamilyToggle || ""), this.render();
+        this.selection = Me(this.selection, l.dataset.matrixFamilyToggle || ""), this.render();
         return;
       }
       if (r.closest('[data-matrix-toggle-all-families="true"]') && this.payload) {
@@ -782,7 +782,7 @@ var Ve = class extends re {
       const d = r.closest("[data-matrix-locale-toggle]");
       if (d) {
         const p = d.dataset.matrixLocaleToggle || "", b = new Set(this.selection.locales);
-        b.has(p) ? b.delete(p) : b.add(p), this.selection = Me(this.selection, Array.from(b)), this.render();
+        b.has(p) ? b.delete(p) : b.add(p), this.selection = Re(this.selection, Array.from(b)), this.render();
         return;
       }
       const _ = r.closest("[data-matrix-page]");
@@ -832,12 +832,12 @@ var Ve = class extends re {
       const d = this.root.querySelector(`[data-matrix-cell-action="true"][data-row-index="${n}"][data-col-index="${l}"]`);
       d && (a.preventDefault(), d.focus());
     };
-    const e = he(t.basePath || "", t.endpoint);
+    const e = ge(t.basePath || "", t.endpoint);
     this.config = {
       ...t,
       basePath: e,
       title: t.title || "Translation Matrix"
-    }, this.client = qe(this.config), this.query = Oe();
+    }, this.client = Ie(this.config), this.query = Pe();
   }
   mount(t) {
     this.root = t, this.hasServerRenderedContent = t.dataset.translationMatrixSsr === "true" && t.innerHTML.trim().length > 0, this.hasServerRenderedContent || this.render(), this.load(), t.addEventListener("click", this.handleClick), t.addEventListener("submit", this.handleSubmit), t.addEventListener("keydown", this.handleKeydown);
@@ -875,13 +875,13 @@ var Ve = class extends re {
     this.root.querySelector("[data-matrix-ssr-error-banner]")?.remove();
     const e = t instanceof Error ? t.message : "Failed to load the translation matrix.";
     this.root.insertAdjacentHTML("afterbegin", `
-      <section class="${z} mb-4 p-4 shadow-sm" data-matrix-ssr-error-banner="true" role="alert">
+      <section class="${D} mb-4 p-4 shadow-sm" data-matrix-ssr-error-banner="true" role="alert">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h2 class="${P}">Matrix refresh failed</h2>
-            <p class="${N} mt-1">${m(e)}</p>
+            <h2 class="${j}">Matrix refresh failed</h2>
+            <p class="${H} mt-1">${m(e)}</p>
           </div>
-          <button type="button" data-matrix-retry="true" class="${F}">Retry</button>
+          <button type="button" data-matrix-retry="true" class="${N}">Retry</button>
         </div>
       </section>
     `);
@@ -897,7 +897,7 @@ var Ve = class extends re {
   }
   async runBulkAction(t) {
     if (!this.payload) return;
-    const e = this.payload.meta.quick_action_targets, a = G(this.config.endpoint, t), r = e[t] ?? a;
+    const e = this.payload.meta.quick_action_targets, a = J(this.config.endpoint, t), r = e[t] ?? a;
     this.working = !0, this.feedback = "", this.render();
     try {
       const s = (await this.client.runBulkAction(r, Ee(this.selection, { channel: this.query.channel }))).data.summary[t === "create_missing" ? "created" : "export_ready"] ?? 0;
@@ -910,7 +910,7 @@ var Ve = class extends re {
   }
   async runCellAction(t, e) {
     if (!this.payload) return;
-    const a = this.payload.data.rows.find((s) => s.family_id === t)?.cells[e], r = a ? J(a) : null;
+    const a = this.payload.data.rows.find((s) => s.family_id === t)?.cells[e], r = a ? Z(a) : null;
     if (r) {
       if (r.enabled && r.href) {
         globalThis.location && typeof globalThis.location.assign == "function" && globalThis.location.assign(r.href);
@@ -922,7 +922,7 @@ var Ve = class extends re {
       }
       this.working = !0, this.feedback = "", this.render();
       try {
-        const s = X({
+        const s = Y({
           endpoint: r.endpoint,
           method: r.method,
           route: r.route,
@@ -937,10 +937,10 @@ var Ve = class extends re {
     }
   }
 };
-function ot(t, e = {}) {
+function lt(t, e = {}) {
   const a = i(e.endpoint) || i(t.dataset.endpoint);
   if (!a)
-    return t.innerHTML = `<section class="${D} p-6" data-matrix-empty="true"><p class="${j}">Configuration required</p><p class="${B} mt-2">Configure a matrix endpoint before initializing the translation matrix page.</p></section>`, null;
+    return t.innerHTML = `<section class="${F} p-6" data-matrix-empty="true"><p class="${B}">Configuration required</p><p class="${z} mt-2">Configure a matrix endpoint before initializing the translation matrix page.</p></section>`, null;
   const r = new Ve({
     endpoint: a,
     fetch: e.fetch,
@@ -951,22 +951,22 @@ function ot(t, e = {}) {
 }
 export {
   Ve as TranslationMatrixPage,
-  E as TranslationMatrixRequestError,
+  R as TranslationMatrixRequestError,
   Ee as buildTranslationMatrixBulkActionPayload,
   Le as buildTranslationMatrixLocalePolicyMetadata,
-  Ce as buildTranslationMatrixURL,
-  qe as createTranslationMatrixClient,
+  Ae as buildTranslationMatrixURL,
+  Ie as createTranslationMatrixClient,
   T as createTranslationMatrixSelectionState,
-  ot as initTranslationMatrixPage,
-  Re as isTranslationMatrixNotRequiredCell,
-  Se as normalizeTranslationMatrixBulkActionResponse,
-  ke as normalizeTranslationMatrixCell,
-  Y as normalizeTranslationMatrixCellState,
-  be as normalizeTranslationMatrixColumn,
-  $e as normalizeTranslationMatrixResponse,
-  ve as normalizeTranslationMatrixRow,
-  Me as setTranslationMatrixSelectedLocales,
-  Ae as toggleTranslationMatrixFamilySelection
+  lt as initTranslationMatrixPage,
+  qe as isTranslationMatrixNotRequiredCell,
+  Ce as normalizeTranslationMatrixBulkActionResponse,
+  ve as normalizeTranslationMatrixCell,
+  W as normalizeTranslationMatrixCellState,
+  xe as normalizeTranslationMatrixColumn,
+  Te as normalizeTranslationMatrixResponse,
+  we as normalizeTranslationMatrixRow,
+  Re as setTranslationMatrixSelectedLocales,
+  Me as toggleTranslationMatrixFamilySelection
 };
 
 //# sourceMappingURL=index.js.map

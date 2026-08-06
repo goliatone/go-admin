@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -30,9 +31,9 @@ func TestDashboardEnabledHostKeepsAdminDebugConsoleRoute(t *testing.T) {
 	)
 	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 
-	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithMinimalFeatures())
-	if err != nil {
-		t.Fatalf("new admin: %v", err)
+	adm, _, adminErr := NewAdmin(cfg, AdapterHooks{}, WithMinimalFeatures())
+	if adminErr != nil {
+		t.Fatalf("new admin: %v", adminErr)
 	}
 	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
 	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
@@ -113,11 +114,12 @@ func TestHostAdminRouterKeepsDebugDashboardAssetsOnStaticSurface(t *testing.T) {
 
 func assertDashboardAssetResponse(t *testing.T, server router.Server[*fiber.App], target string) {
 	t.Helper()
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, target, nil))
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+	resp, err := server.WrappedRouter().Test(request)
 	if err != nil {
 		t.Fatalf("request %s: %v", target, err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected %s to return 200, got %d", target, resp.StatusCode)
 	}
@@ -125,11 +127,12 @@ func assertDashboardAssetResponse(t *testing.T, server router.Server[*fiber.App]
 
 func readDebugConsoleResponse(t *testing.T, server router.Server[*fiber.App], target string) string {
 	t.Helper()
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, target, nil), 10_000)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+	resp, err := server.WrappedRouter().Test(request, 10_000)
 	if err != nil {
 		t.Fatalf("request %s: %v", target, err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read %s: %v", target, err)

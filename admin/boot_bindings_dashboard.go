@@ -122,24 +122,12 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 
 func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	state := AdminChromeState{}
-	if title := strings.TrimSpace(toString(view["title"])); title != "" {
-		state.Title = title
-	}
-	if basePath := strings.TrimSpace(toString(view["base_path"])); basePath != "" {
-		state.BasePath = basePath
-	}
-	if assetBasePath := strings.TrimSpace(toString(view["asset_base_path"])); assetBasePath != "" {
-		state.AssetBasePath = assetBasePath
-	}
-	if apiBasePath := strings.TrimSpace(toString(view["api_base_path"])); apiBasePath != "" {
-		state.APIBasePath = apiBasePath
-	}
-	if bodyClasses := strings.TrimSpace(toString(view["body_classes"])); bodyClasses != "" {
-		state.BodyClasses = bodyClasses
-	}
-	if active := strings.TrimSpace(toString(view["active"])); active != "" {
-		state.Active = active
-	}
+	assignAdminChromeString(&state.Title, view["title"])
+	assignAdminChromeString(&state.BasePath, view["base_path"])
+	assignAdminChromeString(&state.AssetBasePath, view["asset_base_path"])
+	assignAdminChromeString(&state.APIBasePath, view["api_base_path"])
+	assignAdminChromeString(&state.BodyClasses, view["body_classes"])
+	assignAdminChromeString(&state.Active, view["active"])
 	state.NavItems = anySliceFromValue(view["nav_items"])
 	state.NavUtilityItems = anySliceFromValue(view["nav_utility_items"])
 	if sessionUser := extractMap(view["session_user"]); len(sessionUser) > 0 {
@@ -150,37 +138,33 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	}
 	state.ExternalAssets = stringMapFromValue(view["external_assets"])
 	state.CSRFTemplateHelpers = csrfTemplateHelpersFromValue(view["template_helpers"])
-	if hideSearch, ok := view["sidebar_hide_search"].(bool); ok {
-		state.SidebarHideSearch = hideSearch
-	}
+	assignAdminChromeBool(&state.SidebarHideSearch, view["sidebar_hide_search"])
 	if placement := strings.TrimSpace(toString(view["sidebar_collapse_placement"])); placement != "" {
 		state.SidebarCollapsePlacement = NormalizeSidebarCollapsePlacement(SidebarCollapsePlacement(placement))
 	}
-	if compactFooter, ok := view["sidebar_compact_footer"].(bool); ok {
-		state.SidebarCompactFooter = compactFooter
-	}
-	if hidePresence, ok := view["sidebar_hide_presence"].(bool); ok {
-		state.SidebarHidePresence = hidePresence
-	}
-	if hideIndicator, ok := view["sidebar_hide_user_menu_indicator"].(bool); ok {
-		state.SidebarHideUserMenuIndicator = hideIndicator
-	}
+	assignAdminChromeBool(&state.SidebarCompactFooter, view["sidebar_compact_footer"])
+	assignAdminChromeBool(&state.SidebarHidePresence, view["sidebar_hide_presence"])
+	assignAdminChromeBool(&state.SidebarHideUserMenuIndicator, view["sidebar_hide_user_menu_indicator"])
 	if capabilities := extractMap(view["translation_capabilities"]); len(capabilities) > 0 {
 		state.TranslationCapabilities = cloneAny(capabilities)
 	}
-	if available, ok := view["users_import_available"].(bool); ok {
-		state.UsersImportAvailable = available
-	}
-	if enabled, ok := view["users_import_enabled"].(bool); ok {
-		state.UsersImportEnabled = enabled
-	}
-	if navDebug, ok := view["nav_debug"].(bool); ok {
-		state.NavDebug = navDebug
-	}
-	if navItemsJSON := strings.TrimSpace(toString(view["nav_items_json"])); navItemsJSON != "" {
-		state.NavItemsJSON = navItemsJSON
-	}
+	assignAdminChromeBool(&state.UsersImportAvailable, view["users_import_available"])
+	assignAdminChromeBool(&state.UsersImportEnabled, view["users_import_enabled"])
+	assignAdminChromeBool(&state.NavDebug, view["nav_debug"])
+	assignAdminChromeString(&state.NavItemsJSON, view["nav_items_json"])
 	return state
+}
+
+func assignAdminChromeString(target *string, value any) {
+	if normalized := strings.TrimSpace(toString(value)); normalized != "" {
+		*target = normalized
+	}
+}
+
+func assignAdminChromeBool(target *bool, value any) {
+	if parsed, ok := value.(bool); ok {
+		*target = parsed
+	}
 }
 
 func stringMapFromValue(value any) map[string]string {

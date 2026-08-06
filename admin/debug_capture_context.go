@@ -22,6 +22,6 @@ func debugCaptureSuppressed(ctx context.Context) bool {
 	if ctx == nil {
 		return false
 	}
-	suppressed, _ := ctx.Value(debugCaptureSuppressionContextKey{}).(bool)
-	return suppressed
+	suppressed, ok := ctx.Value(debugCaptureSuppressionContextKey{}).(bool)
+	return ok && suppressed
 }

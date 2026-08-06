@@ -175,11 +175,11 @@ func TestCommandLauncherDiscoveryAndDispatchThroughQuickstartFiber(t *testing.T)
 		t.Fatalf("initialize admin: %v", err)
 	}
 	server.Init()
-	registration, ok := debugregistry.Panel(admin.DebugPanelCommands)
-	if !ok {
+	registration, panelOK := debugregistry.Panel(admin.DebugPanelCommands)
+	if !panelOK {
 		t.Fatal("expected command launcher panel registration")
 	}
-	if _, ok := registration.Actions["resolve_options"]; !ok {
+	if _, actionOK := registration.Actions["resolve_options"]; !actionOK {
 		t.Fatalf("expected protected option resolver handler, got %+v", registration.Actions)
 	}
 	catalog.descriptors = []gocommand.CommandDescriptor{quickstartLauncherEchoDescriptor()}

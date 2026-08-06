@@ -96,7 +96,9 @@ func TestReleasedLoggerCallerSkipAndWrapperComposition(t *testing.T) {
 	var stack string
 	records[0].Attrs(func(attr slog.Attr) bool {
 		if attr.Key == "stack" {
-			stack, _ = attr.Value.Any().(string)
+			if value, ok := attr.Value.Any().(string); ok {
+				stack = value
+			}
 		}
 		return true
 	})

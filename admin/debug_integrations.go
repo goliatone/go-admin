@@ -750,7 +750,9 @@ func (h *DebugLogHandler) resolveCollector() (collector *DebugCollector) {
 
 func (h *DebugLogHandler) capture(ctx context.Context, record slog.Record, collector *DebugCollector) {
 	defer func() {
-		_ = recover()
+		if recovered := recover(); recovered != nil {
+			return
+		}
 	}()
 	if debugCaptureSuppressed(ctx) {
 		return

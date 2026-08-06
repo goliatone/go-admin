@@ -22,9 +22,9 @@ func TestQuickstartLocalizationRegressionSnapshot(t *testing.T) {
 		WithTemplateDefaultLocale("en"),
 	)
 
-	translate := funcs["translate"].(func(...any) string)
-	translateCount := funcs["translate_count"].(func(...any) string)
-	currentLocale := funcs["current_locale"].(func(...any) string)
+	translate := requireTestValue[func(...any) string](t, funcs["translate"], "translate function")
+	translateCount := requireTestValue[func(...any) string](t, funcs["translate_count"], "translate_count function")
+	currentLocale := requireTestValue[func(...any) string](t, funcs["current_locale"], "current_locale function")
 
 	snapshot := map[string]any{
 		"current_locale_default":  currentLocale(),

@@ -1,12 +1,12 @@
 import { escapeAttribute as y, escapeHTML as m } from "../shared/html.js";
-import { appendCSRFHeader as W, httpRequest as J, readHTTPJSON as ue } from "../shared/transport/http-client.js";
+import { httpRequest as J, httpRequestWith as W, readHTTPJSON as ue } from "../shared/transport/http-client.js";
 import { extractStructuredError as O } from "../toast/error-helpers.js";
 import { initActionMenus as _a } from "../shared/action-menu.js";
-import { buildURL as F, getNumberSearchParam as Le, getStringSearchParam as E, readLocationSearchParams as De, setNumberSearchParam as $e, setSearchParam as q } from "../shared/query-state/url-state.js";
+import { buildURL as F, getNumberSearchParam as Le, getStringSearchParam as E, readLocationSearchParams as De, setNumberSearchParam as $e, setSearchParam as I } from "../shared/query-state/url-state.js";
 import { parseJSONValue as Ae } from "../shared/json-parse.js";
 import { trimTrailingSlash as A } from "../shared/path-normalization.js";
 import { asLooseBoolean as w, asNumberish as L, asRecord as p, asString as n, asStringArray as _ } from "../shared/coercion.js";
-import { A as Be, C as B, D as wa, E as La, F as $a, O as Ne, P as Aa, R as Ca, T as Sa, et as ka, k as Me, mt as Ta, tt as Ia, ut as X, v as qa, x as R, y as j } from "../chunks/translation-shared-D6PJvjua.js";
+import { A as Be, C as B, D as wa, E as La, F as $a, O as Ne, P as Aa, R as Ca, T as Sa, et as ka, k as Me, mt as Ta, tt as qa, ut as X, v as Ia, x as R, y as j } from "../chunks/translation-shared-D6PJvjua.js";
 import { formatTranslationTimestampUTC as me, sentenceCaseToken as T } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as Ra } from "../shared/record-normalization.js";
 import { initEnhancedActions as Pa } from "../shared/enhanced-action.js";
@@ -66,28 +66,26 @@ async function Ba(e, a = {}) {
   const t = a.fetch ?? globalThis.fetch?.bind(globalThis);
   if (!t) throw new Error("translation family sync requires fetch");
   if (!e.canSync) throw new Error("translation family sync is not available for this request");
-  const s = new Headers({
-    Accept: "application/json",
-    "Content-Type": "application/json"
-  }), i = {
+  const s = {
     method: "POST",
     credentials: "same-origin",
-    headers: s,
+    headers: new Headers({
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    }),
     body: JSON.stringify(Fa(e, a.correlationId))
-  };
-  W(e.rpcInvokePath, i, s);
-  const r = await t(e.rpcInvokePath, i);
-  if (!r.ok) {
-    const u = await O(r);
-    throw new Error(u.message || "Failed to sync translation families.");
+  }, i = await W(t, e.rpcInvokePath, s);
+  if (!i.ok) {
+    const l = await O(i);
+    throw new Error(l.message || "Failed to sync translation families.");
   }
-  const o = p(await r.json().catch(() => ({}))), d = p(o.error);
-  if (Object.keys(d).length > 0) throw new Error(n(d.message) || "Failed to sync translation families.");
-  const c = p(o.data), l = Da(c.receipt, e.commandName);
-  if (!l) throw new Error("Translation family sync did not return a valid dispatch receipt.");
+  const r = p(await i.json().catch(() => ({}))), o = p(r.error);
+  if (Object.keys(o).length > 0) throw new Error(n(o.message) || "Failed to sync translation families.");
+  const d = p(r.data), c = Da(d.receipt, e.commandName);
+  if (!c) throw new Error("Translation family sync did not return a valid dispatch receipt.");
   return {
-    ...c,
-    receipt: l
+    ...d,
+    receipt: c
   };
 }
 function Z(e) {
@@ -123,7 +121,7 @@ function ee(e = {}) {
 }
 function je(e = {}) {
   const a = ee(e), t = new URLSearchParams();
-  return q(t, "content_type", a.contentType), q(t, "readiness_state", a.readinessState), q(t, "blocker_code", a.blockerCode), q(t, "missing_locale", a.missingLocale), q(t, "channel", a.channel), $e(t, "page", a.page, { min: 1 }), $e(t, "per_page", a.perPage, { min: 1 }), t;
+  return I(t, "content_type", a.contentType), I(t, "readiness_state", a.readinessState), I(t, "blocker_code", a.blockerCode), I(t, "missing_locale", a.missingLocale), I(t, "channel", a.channel), $e(t, "page", a.page, { min: 1 }), $e(t, "per_page", a.perPage, { min: 1 }), t;
 }
 function ae(e, a = "", t = "") {
   const s = A(e);
@@ -134,7 +132,7 @@ function ze(e, a = {}) {
 }
 function Na(e, a, t = "") {
   const s = new URLSearchParams();
-  return q(s, "channel", t), F(ae(e, a), s);
+  return I(s, "channel", t), F(ae(e, a), s);
 }
 function Ve(e = {}) {
   const a = n(e.channel);
@@ -150,7 +148,7 @@ function Ve(e = {}) {
 }
 function Ma(e, a, t = "") {
   const s = new URLSearchParams();
-  return q(s, "channel", t), F(ae(e, a, "/variants"), s);
+  return I(s, "channel", t), F(ae(e, a, "/variants"), s);
 }
 function Oa(e = {}) {
   const a = Ve(e), t = { locale: a.locale };
@@ -170,7 +168,7 @@ function He(e = {}) {
 }
 function ja(e, a, t = "") {
   const s = new URLSearchParams();
-  return q(s, "channel", t), F(ae(e, a, "/assignments"), s);
+  return I(s, "channel", t), F(ae(e, a, "/assignments"), s);
 }
 function za(e = {}) {
   const a = He(e), t = { target_locale: a.targetLocale };
@@ -527,7 +525,7 @@ function Xe(e, a) {
     disabledReasonCode: i ? "" : e.quickCreate.disabledReasonCode
   };
 }
-function Is(e, a) {
+function qs(e, a) {
   if (!e || !a || !a.familyId || e.familyId !== a.familyId) return e;
   const t = n(a.locale).toLowerCase(), s = e.localeVariants.some((c) => c.locale === t) ? e.localeVariants.map((c) => c.locale === t ? {
     ...c,
@@ -607,7 +605,7 @@ function Is(e, a) {
     quickCreate: { ...a.family.quickCreate }
   };
 }
-function qs(e, a) {
+function Is(e, a) {
   const t = { ...e }, s = { ...p(t.translation_readiness) }, i = n(a.locale).toLowerCase(), r = n(t.requested_locale).toLowerCase(), o = n(t.translation_family_id || t.family_id || s.family_id || s.family_id);
   if (o && o !== a.familyId) return t;
   const d = M(_(t.available_locales), _(s.available_locales), a.family.availableLocales, [i]), c = We(M(_(t.missing_required_locales), _(s.missing_required_locales), a.family.missingLocales), i);
@@ -665,19 +663,17 @@ async function re(e, a = {}, t = {}) {
     ...a
   };
   e.expectedVersion > 0 && i.expected_version == null && i.expectedVersion == null && (i.expected_version = e.expectedVersion);
-  const r = new Headers({
-    Accept: "application/json",
-    "Content-Type": "application/json"
-  }), o = {
+  const r = {
     method: "POST",
     credentials: "same-origin",
-    headers: r,
+    headers: new Headers({
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    }),
     body: JSON.stringify(i)
-  };
-  W(s, o, r);
-  const d = await (t.fetch ? t.fetch(s, o) : J(s, o));
-  if (!d.ok) throw await ye(d);
-  return ue(d);
+  }, o = await (t.fetch ? W(t.fetch, s, r) : J(s, r));
+  if (!o.ok) throw await ye(o);
+  return ue(o);
 }
 function ot(e) {
   const a = p(e), t = n(a.value || a.id || a.user_id);
@@ -878,7 +874,7 @@ function Te(e) {
     </div>
   `;
 }
-function Ie(e) {
+function qe(e) {
   if (!e || e.state === "source_locale") return "";
   const a = sa(e.locale, e.workScope), t = e.actions, s = [];
   if (t.assignToMe.enabled ? s.push(`
@@ -1003,12 +999,12 @@ function St(e) {
 }
 function kt(e) {
   if (e.activitySentence) return e.activitySentence;
-  const a = e.displayAssigner || qe(e.assignerId, "System"), t = (e.targetLocale || "").toUpperCase(), s = e.displayAssignee || e.assigneeLabel || qe(e.assigneeId, "Unassigned");
+  const a = e.displayAssigner || Ie(e.assignerId, "System"), t = (e.targetLocale || "").toUpperCase(), s = e.displayAssignee || e.assigneeLabel || Ie(e.assigneeId, "Unassigned");
   if (!a || !t || !s) return "";
   const i = e.displayAssignedAt || Tt(e.assignedAt);
   return i ? e.assignedAtLegacyFallback ? `${a} assigned ${t} to ${s}; created ${i}` : `${a} assigned ${t} to ${s} on ${i}` : `${a} assigned ${t} to ${s}`;
 }
-function qe(e, a) {
+function Ie(e, a) {
   const t = n(e);
   return !t || t === "__me__" || t === "__missing_actor__" ? a : t.length > 12 ? `${t.slice(0, 8)}...` : t;
 }
@@ -1023,7 +1019,7 @@ function Tt(e) {
     timeZone: "UTC"
   }).format(t);
 }
-function It(e) {
+function qt(e) {
   return [
     {
       label: "Required locales",
@@ -1052,7 +1048,7 @@ function It(e) {
         </div>
       `).join("");
 }
-function qt(e, a) {
+function It(e, a) {
   const t = A(a.contentBasePath || `${A(a.basePath || "/admin")}/content`), s = e.readinessSummary.missingLocales, i = e.quickCreate.disabledReason || "Locale creation is unavailable for this family.", r = /* @__PURE__ */ new Set(), o = /* @__PURE__ */ new Set(), d = (u) => {
     const f = !Je(e, u);
     return `
@@ -1082,7 +1078,7 @@ function qt(e, a) {
           ${Te(u)}
         </div>
         <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
-          ${Ie(u)}
+          ${qe(u)}
         </div>
       </li>
     `;
@@ -1105,7 +1101,7 @@ function qt(e, a) {
           ${Te($)}
         </div>
         <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
-          ${Ie($)}
+          ${qe($)}
           ${S}
         </div>
       </li>
@@ -1389,13 +1385,13 @@ function Ut(e, a = {}) {
           </div>
         </div>
         <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          ${It(t)}
+          ${qt(t)}
         </div>
         ${Y(e)}
       </section>
       <div class="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
         <div class="space-y-6">
-          ${qt(t, a)}
+          ${It(t, a)}
           ${Rt(t)}
         </div>
         <div class="space-y-6">
@@ -1498,13 +1494,13 @@ function he(e = "/admin") {
 }
 function Mt(e, a, t = "") {
   const s = A(e || he("/admin")), i = new URLSearchParams();
-  return q(i, "channel", t), F(`${s}/${encodeURIComponent(n(a))}`, i);
+  return I(i, "channel", t), F(`${s}/${encodeURIComponent(n(a))}`, i);
 }
 function ve(e, a) {
   const t = n(e);
   if (!t) return "";
   const s = new URLSearchParams();
-  for (const [i, r] of Object.entries(a)) q(s, i, r);
+  for (const [i, r] of Object.entries(a)) I(s, i, r);
   return F(t, s);
 }
 function Ot(e, a, t = {}) {
@@ -1526,7 +1522,7 @@ function jt(e, a, t = {}) {
 function ua(e) {
   return e.sourceTitle || e.sourceRecordId || e.familyId || "Translation family";
 }
-function I(e, a, t) {
+function q(e, a, t) {
   return `<option value="${y(e)}" ${e === t ? "selected" : ""}>${m(a)}</option>`;
 }
 function zt(e) {
@@ -1541,20 +1537,20 @@ function zt(e) {
         <label class="block text-sm font-medium text-gray-700">
           <span>Readiness</span>
           <select name="readiness_state" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
-            ${I("", "Any", e.readinessState)}
-            ${I("blocked", "Blocked", e.readinessState)}
-            ${I("ready", "Ready", e.readinessState)}
+            ${q("", "Any", e.readinessState)}
+            ${q("blocked", "Blocked", e.readinessState)}
+            ${q("ready", "Ready", e.readinessState)}
           </select>
         </label>
         <label class="block text-sm font-medium text-gray-700">
           <span>Blocker</span>
           <select name="blocker_code" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-sky-500 focus:ring-sky-500">
-            ${I("", "Any", e.blockerCode)}
-            ${I("missing_locale", "Missing locale", e.blockerCode)}
-            ${I("missing_field", "Missing field", e.blockerCode)}
-            ${I("pending_review", "Pending review", e.blockerCode)}
-            ${I("outdated_source", "Outdated source", e.blockerCode)}
-            ${I("policy_denied", "Policy issue", e.blockerCode)}
+            ${q("", "Any", e.blockerCode)}
+            ${q("missing_locale", "Missing locale", e.blockerCode)}
+            ${q("missing_field", "Missing field", e.blockerCode)}
+            ${q("pending_review", "Pending review", e.blockerCode)}
+            ${q("outdated_source", "Outdated source", e.blockerCode)}
+            ${q("policy_denied", "Policy issue", e.blockerCode)}
           </select>
         </label>
         <label class="block text-sm font-medium text-gray-700">
@@ -1573,7 +1569,7 @@ function zt(e) {
     "25",
     "50",
     "100"
-  ].map((t) => I(t, t, a)).join("")}
+  ].map((t) => q(t, t, a)).join("")}
           </select>
         </label>
         <div class="flex items-end gap-2">
@@ -1930,7 +1926,7 @@ function xe(e) {
     return;
   }
   const s = n(e.initialLocale || t.recommendedLocale || t.missingLocales[0]).toLowerCase(), i = t.missingLocales.includes(s) ? s : t.missingLocales[0], r = a.createElement("div");
-  r.className = Ia, r.setAttribute("data-translation-create-locale-modal", "true"), r.setAttribute("data-formgen-auto-init", "true"), r.innerHTML = `
+  r.className = qa, r.setAttribute("data-translation-create-locale-modal", "true"), r.setAttribute("data-formgen-auto-init", "true"), r.innerHTML = `
     <div class="${ka}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
@@ -1939,7 +1935,7 @@ function xe(e) {
             <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${m(e.heading)}</h2>
             <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${m(e.familyId)}.</p>
           </div>
-          <button type="button" data-close-modal="true" class="${qa}">Close</button>
+          <button type="button" data-close-modal="true" class="${Ia}">Close</button>
         </div>
         <div class="mt-6 grid gap-4">
           <label class="grid gap-2">
@@ -2564,16 +2560,14 @@ function we(e = {}) {
         ...r,
         familyId: i,
         basePath: t
-      }), d = new Headers(o.headers), c = {
+      }), d = {
         method: "POST",
         credentials: "same-origin",
-        headers: d,
+        headers: new Headers(o.headers),
         body: JSON.stringify(Oa(o.request))
-      };
-      W(o.endpoint, c, d);
-      const l = await a(o.endpoint, c);
-      if (!l.ok) throw await rt(l);
-      return Ga(await s(l));
+      }, c = await W(a, o.endpoint, d);
+      if (!c.ok) throw await rt(c);
+      return Ga(await s(c));
     },
     async createAssignment(i, r = {}) {
       const o = He(r), d = ja(t, i, o.channel), c = new Headers({
@@ -2586,17 +2580,15 @@ function we(e = {}) {
         credentials: "same-origin",
         headers: c,
         body: JSON.stringify(za(o))
-      };
-      W(d, l, c);
-      const u = await a(d, l);
+      }, u = await W(a, d, l);
       if (!u.ok) throw await ye(u);
       return s(u);
     }
   };
 }
 export {
-  Is as applyCreateLocaleToFamilyDetail,
-  qs as applyCreateLocaleToSummaryState,
+  qs as applyCreateLocaleToFamilyDetail,
+  Is as applyCreateLocaleToSummaryState,
   ma as bindCopyIdAffordance,
   Ma as buildCreateLocaleURL,
   Ct as buildFamilyActivityPreview,

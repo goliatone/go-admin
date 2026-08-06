@@ -145,30 +145,10 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 	} else if override.Variant != "" {
 		result.Variant = override.Variant
 	}
-	if len(override.Tokens) > 0 {
-		if result.Tokens == nil {
-			result.Tokens = map[string]string{}
-		}
-		maps.Copy(result.Tokens, override.Tokens)
-	}
-	if len(override.CSSVars) > 0 {
-		if result.CSSVars == nil {
-			result.CSSVars = map[string]string{}
-		}
-		maps.Copy(result.CSSVars, override.CSSVars)
-	}
-	if len(override.Assets) > 0 {
-		if result.Assets == nil {
-			result.Assets = map[string]string{}
-		}
-		maps.Copy(result.Assets, override.Assets)
-	}
-	if len(override.Partials) > 0 {
-		if result.Partials == nil {
-			result.Partials = map[string]string{}
-		}
-		maps.Copy(result.Partials, override.Partials)
-	}
+	mergeThemeStringMap(&result.Tokens, override.Tokens)
+	mergeThemeStringMap(&result.CSSVars, override.CSSVars)
+	mergeThemeStringMap(&result.Assets, override.Assets)
+	mergeThemeStringMap(&result.Partials, override.Partials)
 	if !override.VariantResolved && override.ChartTheme != "" {
 		result.ChartTheme = override.ChartTheme
 	}
@@ -176,6 +156,16 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 		result.AssetPrefix = override.AssetPrefix
 	}
 	return result
+}
+
+func mergeThemeStringMap(target *map[string]string, override map[string]string) {
+	if len(override) == 0 {
+		return
+	}
+	if *target == nil {
+		*target = map[string]string{}
+	}
+	maps.Copy(*target, override)
 }
 
 func cssVarsFromTokens(tokens map[string]string) map[string]string {

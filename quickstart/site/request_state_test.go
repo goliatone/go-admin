@@ -205,7 +205,11 @@ func TestResolveRequestStateModuleViewContextMergeOrder(t *testing.T) {
 		moduleStub{
 			id: "second",
 			viewContextFn: func(_ context.Context, in router.ViewContext) router.ViewContext {
-				in["trace"] = in["trace"].(string) + "2"
+				trace, ok := in["trace"].(string)
+				if !ok {
+					t.Fatalf("expected trace string, got %T", in["trace"])
+				}
+				in["trace"] = trace + "2"
 				in["shared"] = "module-2"
 				return in
 			},

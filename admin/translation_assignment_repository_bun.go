@@ -1365,7 +1365,10 @@ func (r *BunTranslationAssignmentRepository) create(ctx context.Context, assignm
 	if normalized.ID == "" {
 		normalized.ID = newTranslationAssignmentID()
 	}
-	now := time.Now().UTC()
+	// Bun persists assignment timestamps with microsecond precision. Normalize
+	// generated values before returning them so Create and Get expose the same
+	// timestamp on platforms whose clocks provide nanosecond precision.
+	now := time.Now().UTC().Truncate(time.Microsecond)
 	if normalized.CreatedAt.IsZero() {
 		normalized.CreatedAt = now
 	}

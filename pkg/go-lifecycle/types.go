@@ -79,7 +79,10 @@ func (e *PanicError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
-	err, _ := e.recovered.(error)
+	err, ok := e.recovered.(error)
+	if !ok {
+		return nil
+	}
 	return err
 }
 

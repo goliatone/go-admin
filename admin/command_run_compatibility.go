@@ -98,16 +98,7 @@ func (a *Admin) commandRunLifecycleAuthoritative() bool {
 }
 
 func (r *CommandRunRuntime) publishCompatibilityStatus(ctx context.Context, event CommandStatusEvent) bool {
-	if r == nil {
-		return false
-	}
-	r.mu.Lock()
-	started := r.started && !r.closed && r.config.Role.Has(CommandRunRolePublisher)
-	publisher := r.publisher
-	observer := r.observer
-	store := r.store
-	config := r.config
-	r.mu.Unlock()
+	started, publisher, observer, store, config := r.compatibilityDependencies()
 	if !started || publisher == nil || observer == nil {
 		return false
 	}
@@ -120,35 +111,7 @@ func (r *CommandRunRuntime) publishCompatibilityStatus(ctx context.Context, even
 	}
 	ctx = context.WithoutCancel(ctx)
 
-	runID := strings.TrimSpace(event.RunID)
-	commandID := strings.TrimSpace(event.CommandID)
-	scope := CommandRunScope{ApplicationID: config.ApplicationID, EnvironmentID: config.EnvironmentID}
-	minimumRevision := event.Revision
-	if store != nil {
-		if rows, err := store.List(ctx, CommandRunSelector{Global: true}); err == nil {
-			for _, record := range rows {
-				identityMatches := runID != "" && record.RunID == runID
-				if !identityMatches && event.DispatchID != "" {
-					identityMatches = record.DispatchID == strings.TrimSpace(event.DispatchID)
-				}
-				if !identityMatches && event.CorrelationID != "" {
-					identityMatches = record.CorrelationID == strings.TrimSpace(event.CorrelationID)
-				}
-				if !identityMatches {
-					continue
-				}
-				runID = record.RunID
-				if commandID == "" {
-					commandID = record.CommandID
-				}
-				scope = record.Scope
-				if record.Revision > minimumRevision {
-					minimumRevision = record.Revision
-				}
-				break
-			}
-		}
-	}
+	runID, commandID, scope, minimumRevision := resolveCompatibilityStatusIdentity(ctx, store, config, event)
 	if runID == "" {
 		runID = strings.TrimSpace(event.DispatchID)
 	}
@@ -158,28 +121,9 @@ func (r *CommandRunRuntime) publishCompatibilityStatus(ctx context.Context, even
 	if runID == "" || commandID == "" {
 		return false
 	}
-	occurredAt := time.Now().UTC()
-	if parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(event.At)); err == nil {
-		occurredAt = parsed.UTC()
-	}
+	occurredAt := compatibilityStatusOccurredAt(event.At)
 	revision := observer.nextRevisionAfter(runID, minimumRevision)
-	update := CommandRunUpdate{
-		SchemaVersion: CommandRunSchemaVersion,
-		EventID:       commandRunEventID(runID, revision, phase, occurredAt),
-		RunID:         runID,
-		Revision:      revision,
-		CommandID:     commandID,
-		DispatchID:    strings.TrimSpace(event.DispatchID),
-		CorrelationID: strings.TrimSpace(event.CorrelationID),
-		Phase:         phase,
-		OccurredAt:    occurredAt,
-		Mode:          strings.TrimSpace(event.Mode),
-		Message:       strings.TrimSpace(event.Message),
-		Scope:         scope,
-	}
-	if phase == CommandRunPhaseFailed || phase == CommandRunPhaseRejected {
-		update.Failure = &CommandRunFailure{Category: "command", Code: strings.TrimSpace(event.Code)}
-	}
+	update := compatibilityStatusUpdate(event, runID, commandID, phase, occurredAt, revision, scope)
 	resolved, err := observer.resolveScope(ctx, update)
 	if err != nil {
 		observer.reportError(err)
@@ -198,4 +142,99 @@ func (r *CommandRunRuntime) publishCompatibilityStatus(ctx context.Context, even
 		return false
 	}
 	return true
+}
+
+func (r *CommandRunRuntime) compatibilityDependencies() (
+	bool,
+	CommandRunPublisher,
+	*CommandRunObserverBridge,
+	CommandRunStore,
+	CommandRunRuntimeConfig,
+) {
+	if r == nil {
+		return false, nil, nil, nil, CommandRunRuntimeConfig{}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	started := r.started && !r.closed && r.config.Role.Has(CommandRunRolePublisher)
+	return started, r.publisher, r.observer, r.store, r.config
+}
+
+func resolveCompatibilityStatusIdentity(
+	ctx context.Context,
+	store CommandRunStore,
+	config CommandRunRuntimeConfig,
+	event CommandStatusEvent,
+) (string, string, CommandRunScope, uint64) {
+	runID := strings.TrimSpace(event.RunID)
+	commandID := strings.TrimSpace(event.CommandID)
+	scope := CommandRunScope{ApplicationID: config.ApplicationID, EnvironmentID: config.EnvironmentID}
+	minimumRevision := event.Revision
+	if store == nil {
+		return runID, commandID, scope, minimumRevision
+	}
+	rows, err := store.List(ctx, CommandRunSelector{Global: true})
+	if err != nil {
+		return runID, commandID, scope, minimumRevision
+	}
+	for _, record := range rows {
+		if !commandRunRecordMatchesStatus(record, event, runID) {
+			continue
+		}
+		runID = record.RunID
+		if commandID == "" {
+			commandID = record.CommandID
+		}
+		scope = record.Scope
+		minimumRevision = max(minimumRevision, record.Revision)
+		break
+	}
+	return runID, commandID, scope, minimumRevision
+}
+
+func commandRunRecordMatchesStatus(record CommandRunRecord, event CommandStatusEvent, runID string) bool {
+	if runID != "" && record.RunID == runID {
+		return true
+	}
+	if dispatchID := strings.TrimSpace(event.DispatchID); dispatchID != "" && record.DispatchID == dispatchID {
+		return true
+	}
+	correlationID := strings.TrimSpace(event.CorrelationID)
+	return correlationID != "" && record.CorrelationID == correlationID
+}
+
+func compatibilityStatusOccurredAt(value string) time.Time {
+	if parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value)); err == nil {
+		return parsed.UTC()
+	}
+	return time.Now().UTC()
+}
+
+func compatibilityStatusUpdate(
+	event CommandStatusEvent,
+	runID string,
+	commandID string,
+	phase CommandRunPhase,
+	occurredAt time.Time,
+	revision uint64,
+	scope CommandRunScope,
+) CommandRunUpdate {
+	update := CommandRunUpdate{
+		SchemaVersion: CommandRunSchemaVersion,
+		EventID:       commandRunEventID(runID, revision, phase, occurredAt),
+		RunID:         runID,
+		Revision:      revision,
+		CommandID:     commandID,
+		DispatchID:    strings.TrimSpace(event.DispatchID),
+		CorrelationID: strings.TrimSpace(event.CorrelationID),
+		Phase:         phase,
+		OccurredAt:    occurredAt,
+		Mode:          strings.TrimSpace(event.Mode),
+		Message:       strings.TrimSpace(event.Message),
+		Scope:         scope,
+	}
+	if phase == CommandRunPhaseFailed || phase == CommandRunPhaseRejected {
+		update.Failure = &CommandRunFailure{Category: "command", Code: strings.TrimSpace(event.Code)}
+	}
+	return update
 }

@@ -892,6 +892,10 @@ func defaultRolesPanelFormSchema(configuredResources ...[]string) map[string]any
 		"resources": []string{"admin.translations"},
 		"actions":   append([]string{}, defaultRoleTranslationPermissionMatrixActions...),
 	}
+	return rolesPanelFormSchema(mainConfig, debugConfig, translationConfig)
+}
+
+func rolesPanelFormSchema(mainConfig, debugConfig, translationConfig map[string]any) map[string]any {
 	return map[string]any{
 		"type":     "object",
 		"required": []string{"name"},

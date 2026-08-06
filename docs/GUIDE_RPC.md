@@ -541,9 +541,12 @@ must include the admin shell token as `X-CSRF-Token` when
 
 The shared client transport does this automatically. Prefer `httpRequest(...)`
 or the `data-command-transport="rpc"` runtime for browser-originated admin RPC.
-If a screen has to use custom `fetch`, create mutable `Headers`, keep
-`credentials: 'same-origin'`, and call `appendCSRFHeader(endpoint, init,
-headers)` before sending the request.
+Supplying `fetchImpl` to the command runtime changes request execution only;
+the runtime still prepares headers through the shared CSRF transport. Other
+clients that need an injected fetch should call `httpRequestWith(fetchImpl,
+endpoint, init)`. If a low-level screen must use native `fetch` directly,
+create mutable `Headers`, keep `credentials: 'same-origin'`, and call
+`appendCSRFHeader(endpoint, init, headers)` before sending the request.
 
 This is incomplete for a cookie-backed browser RPC call:
 

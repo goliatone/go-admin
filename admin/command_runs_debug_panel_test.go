@@ -115,17 +115,17 @@ func TestCommandRunsPanelSnapshotClearAndLookupAreScoped(t *testing.T) {
 	if len(snapshot) != 1 || snapshot[0].RunID != "run-a" {
 		t.Fatalf("tenant snapshot = %+v", snapshot)
 	}
-	byRun, found, err := panel.Lookup(ctx, "run-a")
-	if err != nil || !found || byRun.CorrelationID != "corr-a" {
-		t.Fatalf("run lookup = %+v found=%v err=%v", byRun, found, err)
+	byRun, found, lookupErr := panel.Lookup(ctx, "run-a")
+	if lookupErr != nil || !found || byRun.CorrelationID != "corr-a" {
+		t.Fatalf("run lookup = %+v found=%v err=%v", byRun, found, lookupErr)
 	}
-	byDispatch, found, err := panel.Lookup(ctx, "dispatch-run-a")
-	if err != nil || !found || byDispatch.RunID != "run-a" {
-		t.Fatalf("dispatch lookup = %+v found=%v err=%v", byDispatch, found, err)
+	byDispatch, found, lookupErr := panel.Lookup(ctx, "dispatch-run-a")
+	if lookupErr != nil || !found || byDispatch.RunID != "run-a" {
+		t.Fatalf("dispatch lookup = %+v found=%v err=%v", byDispatch, found, lookupErr)
 	}
-	byCorrelation, found, err := panel.Lookup(ctx, "corr-a")
-	if err != nil || !found || byCorrelation.RunID != "run-a" {
-		t.Fatalf("correlation lookup = %+v found=%v err=%v", byCorrelation, found, err)
+	byCorrelation, found, lookupErr := panel.Lookup(ctx, "corr-a")
+	if lookupErr != nil || !found || byCorrelation.RunID != "run-a" {
+		t.Fatalf("correlation lookup = %+v found=%v err=%v", byCorrelation, found, lookupErr)
 	}
 	if _, found, err := panel.Lookup(ctx, "run-b"); err != nil || found {
 		t.Fatalf("cross-scope lookup found=%v err=%v", found, err)
@@ -189,11 +189,11 @@ func TestCommandRunsPanelAppliesScopeAuthorizerToSnapshotAndClear(t *testing.T) 
 			return scope.TenantID == "tenant-a", nil
 		},
 	}
-	runtime, err := NewCommandRunRuntime(CommandRunRuntimeConfig{
+	runtime, runtimeErr := NewCommandRunRuntime(CommandRunRuntimeConfig{
 		Enabled: true, ApplicationID: "app", EnvironmentID: "test", ScopeAuthorizer: scopeAuthorizer,
 	})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
+	if runtimeErr != nil {
+		t.Fatalf("new runtime: %v", runtimeErr)
 	}
 	adm := &Admin{
 		authorizer:        allowAuthorizer{},
@@ -232,11 +232,11 @@ func TestCommandRunsRecordAuthorizationTruthTable(t *testing.T) {
 			return true, nil
 		}
 	})
-	runtime, err := NewCommandRunRuntime(CommandRunRuntimeConfig{
+	runtime, runtimeErr := NewCommandRunRuntime(CommandRunRuntimeConfig{
 		Enabled: true, ApplicationID: "app", EnvironmentID: "test", RecordAuthorizer: recordPolicy,
 	})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
+	if runtimeErr != nil {
+		t.Fatalf("new runtime: %v", runtimeErr)
 	}
 	authorizer := commandRunsPermissionAuthorizer{allowed: map[string]bool{
 		commandRunReadPermission + "|" + defaultRPCCommandResource: true,
@@ -303,11 +303,11 @@ func TestCommandRunsRecordAuthorizationTruthTable(t *testing.T) {
 }
 
 func TestCommandRunsUnknownRecordsRequireExplicitHostPolicy(t *testing.T) {
-	runtime, err := NewCommandRunRuntime(CommandRunRuntimeConfig{
+	runtime, runtimeErr := NewCommandRunRuntime(CommandRunRuntimeConfig{
 		Enabled: true, ApplicationID: "app", EnvironmentID: "test",
 	})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
+	if runtimeErr != nil {
+		t.Fatalf("new runtime: %v", runtimeErr)
 	}
 	adm := &Admin{authorizer: allowAuthorizer{}, commandRunRuntime: runtime}
 	panel := NewCommandRunsDebugPanel(adm)
@@ -326,11 +326,11 @@ func TestCommandRunsUnknownRecordsRequireExplicitHostPolicy(t *testing.T) {
 func TestCommandRunsClearRejectsRecordInsertedAfterAuthorizationSnapshot(t *testing.T) {
 	memory := newTestCommandRunStore(t, 10, 20)
 	racing := &commandRunClearRaceStore{store: memory}
-	runtime, err := NewCommandRunRuntime(CommandRunRuntimeConfig{
+	runtime, runtimeErr := NewCommandRunRuntime(CommandRunRuntimeConfig{
 		Enabled: true, ApplicationID: "app", EnvironmentID: "test", Store: racing,
 	})
-	if err != nil {
-		t.Fatalf("new runtime: %v", err)
+	if runtimeErr != nil {
+		t.Fatalf("new runtime: %v", runtimeErr)
 	}
 	adm := &Admin{
 		authorizer:        allowAuthorizer{},

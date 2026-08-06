@@ -1,6 +1,9 @@
 package admin
 
-import "context"
+import (
+	"context"
+	"errors"
+)
 
 const commandRunDebugEventType = "command_run"
 
@@ -19,9 +22,9 @@ func (a *Admin) StartCommandRunRuntime(ctx context.Context, config CommandRunRun
 	if err != nil {
 		return err
 	}
-	if err := runtime.Start(ctx); err != nil {
-		_ = runtime.Close(context.Background())
-		return err
+	if startErr := runtime.Start(ctx); startErr != nil {
+		closeErr := runtime.Close(context.Background())
+		return errors.Join(startErr, closeErr)
 	}
 	a.commandRunRuntime = runtime
 	return nil

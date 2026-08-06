@@ -103,7 +103,8 @@ func TestWithFeatureBodyClassesPreservesExistingBodyClasses(t *testing.T) {
 	assertBodyClass(t, viewCtx, "feature-activity-disabled")
 	assertBodyClass(t, viewCtx, "feature-disabled")
 
-	classes := strings.Fields(strings.TrimSpace(viewCtx["body_classes"].(string)))
+	bodyClasses := requireTestValue[string](t, viewCtx["body_classes"], "body_classes")
+	classes := strings.Fields(strings.TrimSpace(bodyClasses))
 	count := 0
 	for _, className := range classes {
 		if className == "feature-activity" {
@@ -126,10 +127,12 @@ func TestWithUIFeatureContextIncludesTranslationCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected translation_capabilities map in view context")
 	}
-	if profile, _ := caps["profile"].(string); profile == "" {
+	profile, profileOK := caps["profile"].(string)
+	if !profileOK || profile == "" {
 		t.Fatalf("expected translation capability profile")
 	}
-	if schemaVersion, _ := caps["schema_version"].(int); schemaVersion != TranslationProductSchemaVersionCurrent {
+	schemaVersion, schemaVersionOK := caps["schema_version"].(int)
+	if !schemaVersionOK || schemaVersion != TranslationProductSchemaVersionCurrent {
 		t.Fatalf("expected schema_version %d, got %v", TranslationProductSchemaVersionCurrent, caps["schema_version"])
 	}
 }
@@ -142,6 +145,9 @@ func assertBodyClass(t *testing.T, viewCtx map[string]any, className string) {
 }
 
 func hasBodyClass(viewCtx map[string]any, className string) bool {
-	raw, _ := viewCtx["body_classes"].(string)
+	raw, ok := viewCtx["body_classes"].(string)
+	if !ok {
+		return false
+	}
 	return slices.Contains(strings.Fields(strings.TrimSpace(raw)), className)
 }

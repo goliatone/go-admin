@@ -1,13 +1,128 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 
 function readSource(relativePath) {
   return readFileSync(path.resolve(testFileDir, relativePath), 'utf8');
+}
+
+function listTypeScriptFiles(root) {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const target = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      return listTypeScriptFiles(target);
+    }
+    return entry.isFile() && entry.name.endsWith('.ts') ? [target] : [];
+  });
+}
+
+function enclosingFunctionName(node) {
+  let current = node.parent;
+  while (current) {
+    if (
+      (ts.isFunctionDeclaration(current) || ts.isMethodDeclaration(current))
+      && current.name
+    ) {
+      return current.name.getText();
+    }
+    current = current.parent;
+  }
+  return '<module>';
+}
+
+function rawFetchName(expression) {
+  if (ts.isIdentifier(expression) && (expression.text === 'fetch' || expression.text === 'fetchImpl')) {
+    return expression.text;
+  }
+  if (
+    ts.isPropertyAccessExpression(expression)
+    && (expression.name.text === 'fetch' || expression.name.text === 'fetchImpl')
+    && expression.expression.kind !== ts.SyntaxKind.ThisKeyword
+  ) {
+    return expression.getText();
+  }
+  if (
+    ts.isElementAccessExpression(expression)
+    && ts.isStringLiteral(expression.argumentExpression)
+    && expression.argumentExpression.text === 'fetch'
+  ) {
+    return expression.getText();
+  }
+  return '';
+}
+
+function requestMayBeUnsafe(init) {
+  if (!init) {
+    return false;
+  }
+  if (!ts.isObjectLiteralExpression(init)) {
+    return true;
+  }
+  const methodIndex = init.properties.findLastIndex((property) => (
+    (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property))
+    && property.name.getText().replaceAll(/["']/g, '') === 'method'
+  ));
+  const method = methodIndex >= 0 ? init.properties[methodIndex] : undefined;
+  if (method && ts.isShorthandPropertyAssignment(method)) {
+    return true;
+  }
+  if (method && ts.isPropertyAssignment(method)) {
+    if (ts.isStringLiteral(method.initializer)) {
+      const normalized = method.initializer.text.trim().toUpperCase();
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(normalized)) {
+        return true;
+      }
+      return init.properties.slice(methodIndex + 1).some((property) => ts.isSpreadAssignment(property));
+    }
+    return true;
+  }
+  return init.properties.some((property) => ts.isSpreadAssignment(property));
+}
+
+function parseRequestInit(source) {
+  const sourceFile = ts.createSourceFile(
+    'request-init.ts',
+    `fetch('/endpoint', ${source});`,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const statement = sourceFile.statements[0];
+  assert.ok(ts.isExpressionStatement(statement));
+  assert.ok(ts.isCallExpression(statement.expression));
+  return statement.expression.arguments[1];
+}
+
+function rawUnsafeFetchCalls(sourceRoot) {
+  return listTypeScriptFiles(sourceRoot).flatMap((file) => {
+    const source = readFileSync(file, 'utf8');
+    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const calls = [];
+    const visit = (node) => {
+      if (ts.isCallExpression(node)) {
+        const callee = rawFetchName(node.expression);
+        if (callee && requestMayBeUnsafe(node.arguments[1])) {
+          const position = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+          calls.push({
+            file: path.relative(sourceRoot, file),
+            functionName: enclosingFunctionName(node),
+            callee,
+            target: node.arguments[0]?.getText(sourceFile) ?? '',
+            init: node.arguments[1]?.getText(sourceFile) ?? '',
+            line: position.line + 1,
+          });
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    return calls;
+  });
 }
 
 function withDocument(token = 'csrf-token') {
@@ -76,6 +191,8 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   const loginLayoutTemplateSource = readSource('../../templates/login-layout.html');
   const debugStandaloneTemplateSource = readSource('../../templates/resources/debug/index.html');
   const browserGlobalsSource = readSource('../src/shared/transport/browser-globals.ts');
+  const commandRuntimeSource = readSource('../src/services/command-runtime.ts');
+  const translationMatrixSource = readSource('../src/translation-matrix/index.ts');
 
   assert.match(contentTypeAPIClientSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(contentTypeAPIClientSource, /const response = await httpRequest\(url, \{/);
@@ -110,12 +227,103 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
 
   assert.equal((registerTemplateSource.match(/\{\{\s*csrf_field\|safe\s*\}\}/g) || []).length, 2);
   assert.match(browserGlobalsSource, /from '\.\/http-client\.js'/);
-  assert.match(browserGlobalsSource, /appendCSRFHeader\(resolveRequestURL\(input\), \{ method: resolveRequestMethod\(input, options\) \}, headers\);/);
+  assert.match(browserGlobalsSource, /return httpRequestWith\(fetch\.bind\(globalThis\), input, init\);/);
   assert.match(layoutTemplateSource, /assets\/dist\/runtime\/go-admin-browser\.js/);
   assert.match(loginLayoutTemplateSource, /assets\/dist\/runtime\/go-admin-browser\.js/);
   assert.match(debugStandaloneTemplateSource, /\{\{\s*csrf_meta\|safe\s*\}\}/);
   assert.doesNotMatch(layoutTemplateSource, /window\.goAdminFetch = function/);
   assert.doesNotMatch(loginLayoutTemplateSource, /window\.goAdminFetch = function/);
+  assert.match(commandRuntimeSource, /httpRequestWith\(this\.fetchImpl, endpoint, \{/);
+  assert.match(commandRuntimeSource, /httpRequestWith\(this\.fetchImpl, this\.rpcEndpoint, \{/);
+  assert.doesNotMatch(commandRuntimeSource, /this\.fetchImpl\((?:endpoint|this\.rpcEndpoint), \{\s*method: 'POST'/);
+  assert.match(translationMatrixSource, /httpRequestWith\(fetchImpl, actionEndpoint, \{/);
+  assert.doesNotMatch(translationMatrixSource, /fetchImpl\(actionEndpoint, \{/);
+});
+
+test('admin client source routes unsafe methods through an approved csrf-aware boundary', () => {
+  const sourceRoot = path.resolve(testFileDir, '../src');
+  const calls = rawUnsafeFetchCalls(sourceRoot);
+  const approved = calls.filter((call) => (
+    call.file === 'shared/transport/http-client.ts'
+      && call.functionName === 'httpRequestWith'
+      && call.callee === 'fetchImpl'
+      && call.target === 'input'
+  ) || (
+    call.file === 'media/index.ts'
+      && call.functionName === 'performPresignedUpload'
+      && call.callee === 'fetch'
+      && call.target === 'uploadURL'
+      && call.init.includes('presign.method')
+  ));
+  const offenders = calls.filter((call) => !approved.includes(call));
+
+  assert.deepEqual(offenders, []);
+  assert.equal(approved.filter((call) => call.file === 'shared/transport/http-client.ts').length, 1);
+  assert.equal(approved.filter((call) => call.file === 'media/index.ts').length, 2);
+});
+
+test('raw-fetch audit treats dynamic and overriding request methods as unsafe', () => {
+  assert.equal(requestMayBeUnsafe(parseRequestInit("{ method: 'POST' }")), true);
+  assert.equal(requestMayBeUnsafe(parseRequestInit('{ method }')), true);
+  assert.equal(requestMayBeUnsafe(parseRequestInit("{ method: 'GET', ...options }")), true);
+  assert.equal(requestMayBeUnsafe(parseRequestInit("{ ...options, method: 'GET' }")), false);
+  assert.equal(requestMayBeUnsafe(parseRequestInit("{ method: 'GET' }")), false);
+});
+
+test('httpRequestWith prepares csrf headers before invoking an injected fetch', async () => {
+  const restoreDocument = withDocument('injected-fetch-csrf');
+  const originalLocation = globalThis.location;
+  globalThis.location = new URL('https://example.com/admin/translations/matrix');
+  const requests = [];
+  const fetchImpl = async (input, init = {}) => {
+    requests.push({ input, url: String(input), init });
+    return new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  try {
+    const { httpRequestWith } = await importFresh('../dist/shared/transport/http-client.js');
+    await httpRequestWith(fetchImpl, '/admin/api/rpc', { method: 'POST' });
+    await httpRequestWith(fetchImpl, '/admin/api/rpc', {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': 'caller-token' },
+    });
+    await httpRequestWith(fetchImpl, 'https://external.example.com/rpc', { method: 'POST' });
+    await httpRequestWith(fetchImpl, '//external.example.com/rpc', { method: 'POST' });
+    await httpRequestWith(fetchImpl, '\\\\external.example.com/rpc', { method: 'POST' });
+    await httpRequestWith(fetchImpl, '//example.com/rpc', { method: 'POST' });
+    await httpRequestWith(fetchImpl, '/admin/api/rpc', { method: 'GET' });
+
+    const request = new Request('https://example.com/admin/api/rpc', {
+      method: 'POST',
+      headers: { 'X-Request-Source': 'request-object' },
+      body: 'request-body',
+    });
+    await httpRequestWith(fetchImpl, request);
+
+    assert.equal(new Headers(requests[0].init.headers).get('X-CSRF-Token'), 'injected-fetch-csrf');
+    assert.equal(new Headers(requests[1].init.headers).get('X-CSRF-Token'), 'caller-token');
+    assert.equal(new Headers(requests[2].init.headers).get('X-CSRF-Token'), null);
+    assert.equal(new Headers(requests[3].init.headers).get('X-CSRF-Token'), null);
+    assert.equal(new Headers(requests[4].init.headers).get('X-CSRF-Token'), null);
+    assert.equal(new Headers(requests[5].init.headers).get('X-CSRF-Token'), 'injected-fetch-csrf');
+    assert.equal(new Headers(requests[6].init.headers).get('X-CSRF-Token'), null);
+    assert.equal(requests[7].input, request);
+    assert.equal(requests[7].init.method, undefined);
+    assert.equal(Object.hasOwn(requests[7].init, 'body'), false);
+    assert.equal(new Headers(requests[7].init.headers).get('X-Request-Source'), 'request-object');
+    assert.equal(new Headers(requests[7].init.headers).get('X-CSRF-Token'), 'injected-fetch-csrf');
+    assert.equal(await request.text(), 'request-body');
+  } finally {
+    if (originalLocation === undefined) {
+      delete globalThis.location;
+    } else {
+      globalThis.location = originalLocation;
+    }
+    restoreDocument();
+  }
 });
 
 test('browser globals install window.goAdminFetch with the shared csrf rules', async () => {

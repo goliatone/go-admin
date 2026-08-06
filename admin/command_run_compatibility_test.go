@@ -45,7 +45,11 @@ func TestPublishCommandStatusForwardsWithoutDebugCollector(t *testing.T) {
 	if err := runtime.Start(context.Background()); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
-	t.Cleanup(func() { _ = runtime.Close(context.Background()) })
+	t.Cleanup(func() {
+		if closeErr := runtime.Close(context.Background()); closeErr != nil {
+			t.Errorf("close runtime: %v", closeErr)
+		}
+	})
 	adm := &Admin{commandRunRuntime: runtime}
 	adm.PublishCommandStatus(CommandStatusEvent{
 		RunID: "run-external", CorrelationID: "corr-external", CommandID: "external.command", State: "completed",
@@ -70,7 +74,11 @@ func TestDirectRuntimeKeepsLegacyStatusFallback(t *testing.T) {
 	if err := runtime.Start(context.Background()); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
-	t.Cleanup(func() { _ = runtime.Close(context.Background()) })
+	t.Cleanup(func() {
+		if closeErr := runtime.Close(context.Background()); closeErr != nil {
+			t.Errorf("close runtime: %v", closeErr)
+		}
+	})
 	adm := &Admin{commandRunRuntime: runtime, debugCollector: collector}
 	events := collector.Subscribe("direct-runtime-status")
 	defer collector.Unsubscribe("direct-runtime-status")
@@ -117,7 +125,11 @@ func TestCanonicalCompatibilityPublishesOneLauncherEventAndRejectsLateRegression
 	if err := mod.startCommandRunRuntime(adm, DebugConfig{CommandRuns: CommandRunRuntimeConfig{Enabled: true}}); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
-	t.Cleanup(func() { _ = adm.CloseCommandRunRuntime(context.Background()) })
+	t.Cleanup(func() {
+		if closeErr := adm.CloseCommandRunRuntime(context.Background()); closeErr != nil {
+			t.Errorf("close runtime: %v", closeErr)
+		}
+	})
 	RegisterCommandRunsDebugPanel(adm)
 
 	events := collector.Subscribe("compatibility-client")
@@ -159,7 +171,11 @@ func TestCommandRunBrowserDeliveryOverflowDegradesRuntimeDiagnostics(t *testing.
 	if err := mod.startCommandRunRuntime(adm, DebugConfig{CommandRuns: CommandRunRuntimeConfig{Enabled: true}}); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
-	t.Cleanup(func() { _ = adm.CloseCommandRunRuntime(context.Background()) })
+	t.Cleanup(func() {
+		if closeErr := adm.CloseCommandRunRuntime(context.Background()); closeErr != nil {
+			t.Errorf("close runtime: %v", closeErr)
+		}
+	})
 
 	events := collector.Subscribe("stalled-command-run-client")
 	for index := range debugSubscriberBuffer + 3 {
@@ -194,7 +210,11 @@ func TestObservedDispatchConvergesLauncherAndCommandRuns(t *testing.T) {
 	if err := mod.startCommandRunRuntime(adm, DebugConfig{CommandRuns: CommandRunRuntimeConfig{Enabled: true}}); err != nil {
 		t.Fatalf("start runtime: %v", err)
 	}
-	t.Cleanup(func() { _ = adm.CloseCommandRunRuntime(context.Background()) })
+	t.Cleanup(func() {
+		if closeErr := adm.CloseCommandRunRuntime(context.Background()); closeErr != nil {
+			t.Errorf("close runtime: %v", closeErr)
+		}
+	})
 	RegisterCommandRunsDebugPanel(adm)
 
 	handler := dispatcher.SubscribeCommand(command.CommandFunc[commandRunObserverTestMessage](func(context.Context, commandRunObserverTestMessage) error {

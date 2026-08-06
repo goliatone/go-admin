@@ -1,4 +1,4 @@
-import { appendCSRFHeader } from './transport/http-client.js';
+import { httpRequestWith } from './transport/http-client.js';
 import {
   initBehaviors,
   isBusy,
@@ -122,11 +122,9 @@ export async function submitEnhancedForm(
   const headers = new HeadersCtor();
   headers.set(enhancedRequestHeader(options), enhancedRequestHeaderValue(options));
   headers.set('Accept', enhancedActionAccept(options));
-  appendCSRFHeader(requestURL, { method }, headers);
-
   const busy = setBusy(form, { submitter });
   try {
-    const response = await fetchImpl(requestURL, {
+    const response = await httpRequestWith(fetchImpl, requestURL, {
       method,
       headers,
       body: method === 'GET' || method === 'HEAD' ? undefined : formData,

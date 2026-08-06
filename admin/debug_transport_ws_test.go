@@ -205,9 +205,9 @@ func TestCommandRunWebSocketUsesDescriptorPermissionsForSameScope(t *testing.T) 
 
 	subscription := newDebugSubscription(access)
 	liveWS := newStubWebSocketContext()
-	allowedRecord, found, err := panel.Lookup(access.ctx, "run-allowed")
-	if err != nil || !found {
-		t.Fatalf("allowed lookup found=%v err=%v", found, err)
+	allowedRecord, found, lookupErr := panel.Lookup(access.ctx, "run-allowed")
+	if lookupErr != nil || !found {
+		t.Fatalf("allowed lookup found=%v err=%v", found, lookupErr)
 	}
 	if err := writeSubscribedDebugEvent(liveWS, subscription, DebugEvent{
 		Type: commandRunDebugEventType, Payload: allowedRecord,

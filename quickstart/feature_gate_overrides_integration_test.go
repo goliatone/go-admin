@@ -25,8 +25,8 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 		"settings": true,
 	}
 	gate := buildFeatureGate(cfg, defaults, store)
-	mutable, ok := gate.(fggate.MutableFeatureGate)
-	if !ok {
+	mutable, mutableOK := gate.(fggate.MutableFeatureGate)
+	if !mutableOK {
 		t.Fatalf("expected mutable feature gate")
 	}
 	scope := fggate.ScopeRef{Kind: fggate.ScopeSystem}
@@ -50,7 +50,7 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 		t.Fatalf("initialize error: %v", err)
 	}
 
-	if _, ok := adm.Registry().Module("users"); ok {
+	if _, moduleOK := adm.Registry().Module("users"); moduleOK {
 		t.Fatalf("expected users module to be disabled by override")
 	}
 

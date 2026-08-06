@@ -483,7 +483,7 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 			AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 		}
 
-		adm, _, err := NewAdmin(
+		adm, _, adminErr := NewAdmin(
 			cfg,
 			AdapterHooks{},
 			WithGoUsersPreferencesRepository(repo),
@@ -493,8 +493,8 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 			}),
 			func(opts *adminOptions) { opts.registerUserRoleBulkRoutes = false },
 		)
-		if err != nil {
-			t.Fatalf("new admin: %v", err)
+		if adminErr != nil {
+			t.Fatalf("new admin: %v", adminErr)
 		}
 
 		server := router.NewHTTPServer()

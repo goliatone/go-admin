@@ -54,19 +54,19 @@ func TestMemoryCommandRunStoreProjectsCompleteRows(t *testing.T) {
 func TestMemoryCommandRunStoreDedupesAndOrdersRevisions(t *testing.T) {
 	store := newTestCommandRunStore(t, 10, 20)
 	first := validCommandRunUpdate()
-	record, changed, err := store.Apply(context.Background(), first)
-	if err != nil || !changed {
-		t.Fatalf("first apply = %+v, %v, %v", record, changed, err)
+	record, changed, applyErr := store.Apply(context.Background(), first)
+	if applyErr != nil || !changed {
+		t.Fatalf("first apply = %+v, %v, %v", record, changed, applyErr)
 	}
-	if _, changed, err = store.Apply(context.Background(), first.Clone()); err != nil || changed {
-		t.Fatalf("duplicate apply = changed %v, err %v", changed, err)
+	if _, changed, applyErr = store.Apply(context.Background(), first.Clone()); applyErr != nil || changed {
+		t.Fatalf("duplicate apply = changed %v, err %v", changed, applyErr)
 	}
 
 	equal := first.Clone()
 	equal.EventID = "event-equal"
 	equal.Message = "must not replace"
-	if record, changed, err = store.Apply(context.Background(), equal); err != nil || changed || record.Message != "" {
-		t.Fatalf("equal revision apply = %+v, changed %v, err %v", record, changed, err)
+	if record, changed, applyErr = store.Apply(context.Background(), equal); applyErr != nil || changed || record.Message != "" {
+		t.Fatalf("equal revision apply = %+v, changed %v, err %v", record, changed, applyErr)
 	}
 
 	older := first.Clone()
@@ -77,13 +77,13 @@ func TestMemoryCommandRunStoreDedupesAndOrdersRevisions(t *testing.T) {
 
 	newer := first.Clone()
 	newer.EventID, newer.Revision, newer.Message = "event-newer", 2, "new"
-	if record, changed, err = store.Apply(context.Background(), newer); err != nil || !changed || record.Message != "new" {
-		t.Fatalf("newer apply = %+v, changed %v, err %v", record, changed, err)
+	if record, changed, applyErr = store.Apply(context.Background(), newer); applyErr != nil || !changed || record.Message != "new" {
+		t.Fatalf("newer apply = %+v, changed %v, err %v", record, changed, applyErr)
 	}
 	stale := first.Clone()
 	stale.EventID, stale.Message = "event-stale", "old"
-	if record, changed, err = store.Apply(context.Background(), stale); err != nil || changed || record.Message != "new" {
-		t.Fatalf("stale apply = %+v, changed %v, err %v", record, changed, err)
+	if record, changed, applyErr = store.Apply(context.Background(), stale); applyErr != nil || changed || record.Message != "new" {
+		t.Fatalf("stale apply = %+v, changed %v, err %v", record, changed, applyErr)
 	}
 }
 
@@ -158,14 +158,17 @@ func TestMemoryCommandRunStoreScopedListAndClear(t *testing.T) {
 		}
 	}
 	selector := CommandRunSelector{Scope: CommandRunScope{ApplicationID: "app", EnvironmentID: "test", TenantID: "tenant-a"}}
-	rows, err := store.List(context.Background(), selector)
-	if err != nil || len(rows) != 1 || rows[0].Scope.TenantID != "tenant-a" {
-		t.Fatalf("tenant list = %+v, err %v", rows, err)
+	rows, listErr := store.List(context.Background(), selector)
+	if listErr != nil || len(rows) != 1 || rows[0].Scope.TenantID != "tenant-a" {
+		t.Fatalf("tenant list = %+v, err %v", rows, listErr)
 	}
 	if err := store.Clear(context.Background(), selector); err != nil {
 		t.Fatalf("clear tenant: %v", err)
 	}
-	rows, _ = store.List(context.Background(), CommandRunSelector{Global: true})
+	rows, listErr = store.List(context.Background(), CommandRunSelector{Global: true})
+	if listErr != nil {
+		t.Fatalf("list after scoped clear: %v", listErr)
+	}
 	if len(rows) != 1 || rows[0].Scope.TenantID != "tenant-b" {
 		t.Fatalf("rows after scoped clear = %+v", rows)
 	}
@@ -182,9 +185,9 @@ func TestMemoryCommandRunStoreAtomicClearRejectsChangedSnapshot(t *testing.T) {
 	if _, _, err := store.Apply(context.Background(), first); err != nil {
 		t.Fatalf("apply first: %v", err)
 	}
-	snapshot, err := store.SnapshotForCommandRunClear(context.Background(), selector)
-	if err != nil || len(snapshot.Records) != 1 {
-		t.Fatalf("clear snapshot = %+v, err %v", snapshot, err)
+	snapshot, snapshotErr := store.SnapshotForCommandRunClear(context.Background(), selector)
+	if snapshotErr != nil || len(snapshot.Records) != 1 {
+		t.Fatalf("clear snapshot = %+v, err %v", snapshot, snapshotErr)
 	}
 	second := validCommandRunUpdate()
 	second.EventID, second.RunID = "event-second", "run-second"
@@ -219,8 +222,14 @@ func TestMemoryCommandRunStoreConcurrentApplyListClear(t *testing.T) {
 				update.RunID = fmt.Sprintf("run-%d", worker)
 				update.EventID = fmt.Sprintf("event-%d-%d", worker, revision)
 				update.Revision = uint64(revision)
-				_, _, _ = store.Apply(ctx, update)
-				_, _ = store.List(ctx, CommandRunSelector{Global: true})
+				if _, _, applyErr := store.Apply(ctx, update); applyErr != nil {
+					t.Errorf("apply concurrent update: %v", applyErr)
+					return
+				}
+				if _, listErr := store.List(ctx, CommandRunSelector{Global: true}); listErr != nil {
+					t.Errorf("list concurrent updates: %v", listErr)
+					return
+				}
 			}
 		})
 	}

@@ -33,9 +33,9 @@ func TestFiberErrorHandlerPreservesAPI404ForUnmatchedRoutes(t *testing.T) {
 	defer closeResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusNotFound {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatalf("read response body: %v", err)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			t.Fatalf("read response body: %v", readErr)
 		}
 		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
 	}

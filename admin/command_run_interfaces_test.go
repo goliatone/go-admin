@@ -23,9 +23,9 @@ func TestNormalizeCommandRunRuntimeConfigMatrix(t *testing.T) {
 	recordAuthorizer := CommandRunRecordAuthorizerFunc(func(context.Context, CommandRunRecord) (bool, error) {
 		return true, nil
 	})
-	local, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{Enabled: true})
-	if err != nil {
-		t.Fatalf("default local config: %v", err)
+	local, configErr := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{Enabled: true})
+	if configErr != nil {
+		t.Fatalf("default local config: %v", configErr)
 	}
 	if local.Role != CommandRunRoleMonolith || local.Retention <= 0 || local.DedupeLimit < local.Retention {
 		t.Fatalf("unexpected local defaults: %+v", local)
@@ -33,21 +33,21 @@ func TestNormalizeCommandRunRuntimeConfigMatrix(t *testing.T) {
 	if local.Transport != nil || local.Store != nil {
 		t.Fatal("normalization must not allocate runtime-owned local dependencies")
 	}
-	withRecordPolicy, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{
+	withRecordPolicy, configErr := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{
 		Enabled: true, RecordAuthorizer: recordAuthorizer,
 	})
-	if err != nil || withRecordPolicy.RecordAuthorizer == nil {
-		t.Fatalf("record authorizer normalization = %+v, %v", withRecordPolicy, err)
+	if configErr != nil || withRecordPolicy.RecordAuthorizer == nil {
+		t.Fatalf("record authorizer normalization = %+v, %v", withRecordPolicy, configErr)
 	}
 	if _, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{Enabled: true, RequireFanout: true}); err != nil {
 		t.Fatalf("local transport should satisfy fanout: %v", err)
 	}
 
-	disabled, err := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{
+	disabled, configErr := NormalizeCommandRunRuntimeConfig(CommandRunRuntimeConfig{
 		Enabled: false, Role: CommandRunProcessRole(255), Retention: -1,
 	})
-	if err != nil || disabled.Enabled {
-		t.Fatalf("disabled config = %+v, %v", disabled, err)
+	if configErr != nil || disabled.Enabled {
+		t.Fatalf("disabled config = %+v, %v", disabled, configErr)
 	}
 
 	transport := commandRunTransportStub{capabilities: CommandRunTransportCapabilities{

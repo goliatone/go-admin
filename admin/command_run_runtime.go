@@ -151,6 +151,16 @@ func ValidateCommandRunRuntimeConfig(config CommandRunRuntimeConfig) error {
 	if !config.Enabled {
 		return nil
 	}
+	if err := validateCommandRunRuntimeDependencies(config); err != nil {
+		return err
+	}
+	if err := validateCommandRunRuntimeLimits(config); err != nil {
+		return err
+	}
+	return validateCommandRunRuntimeCapabilities(config)
+}
+
+func validateCommandRunRuntimeDependencies(config CommandRunRuntimeConfig) error {
 	if !config.Role.Valid() {
 		return commandRunRuntimeConfigError("role %d is invalid", config.Role)
 	}
@@ -163,17 +173,24 @@ func ValidateCommandRunRuntimeConfig(config CommandRunRuntimeConfig) error {
 	if config.Role.Has(CommandRunRoleGateway) && config.Projection != nil && config.Store == nil {
 		return commandRunRuntimeConfigError("custom gateway projection requires an explicit snapshot store")
 	}
+	return nil
+}
+
+func validateCommandRunRuntimeLimits(config CommandRunRuntimeConfig) error {
 	if config.Retention <= 0 || config.DedupeLimit < config.Retention {
 		return commandRunRuntimeConfigError("dedupe limit must be at least the positive retention limit")
 	}
 	if config.BufferSize <= 0 || config.PublishTimeout <= 0 || config.CloseTimeout <= 0 {
 		return commandRunRuntimeConfigError("buffer size and timeouts must be positive")
 	}
+	return nil
+}
 
+func validateCommandRunRuntimeCapabilities(config CommandRunRuntimeConfig) error {
 	capabilities, unknownCapabilities := commandRunConfiguredCapabilities(config)
 	for _, capabilities := range capabilities {
 		if err := capabilities.Validate(); err != nil {
-			return fmt.Errorf("%w: %v", ErrInvalidCommandRunRuntimeConfig, err)
+			return fmt.Errorf("%w: %w", ErrInvalidCommandRunRuntimeConfig, err)
 		}
 		if config.RequireFanout && !capabilities.Fanout {
 			return commandRunRuntimeConfigError("transport %q does not provide required fanout", capabilities.Name)
@@ -289,21 +306,8 @@ func (r *CommandRunRuntime) resolveDependencies() error {
 	r.store = config.Store
 	r.projection = config.Projection
 	if config.Role.Has(CommandRunRoleGateway) {
-		if r.store == nil && r.projection == nil {
-			store, err := NewMemoryCommandRunStore(CommandRunMemoryStoreConfig{
-				Retention: config.Retention, DedupeLimit: config.DedupeLimit, ContractLimits: config.ContractLimits,
-			})
-			if err != nil {
-				return err
-			}
-			r.store = store
-		}
-		if r.projection == nil {
-			projector, err := NewCommandRunProjector(r.store, config.ContractLimits)
-			if err != nil {
-				return err
-			}
-			r.projection = projector
+		if err := r.resolveGatewayDependencies(config); err != nil {
+			return err
 		}
 	}
 	if config.Role.Has(CommandRunRolePublisher) {
@@ -318,6 +322,27 @@ func (r *CommandRunRuntime) resolveDependencies() error {
 		}
 		r.observer = observer
 	}
+	return nil
+}
+
+func (r *CommandRunRuntime) resolveGatewayDependencies(config CommandRunRuntimeConfig) error {
+	if r.store == nil && r.projection == nil {
+		store, err := NewMemoryCommandRunStore(CommandRunMemoryStoreConfig{
+			Retention: config.Retention, DedupeLimit: config.DedupeLimit, ContractLimits: config.ContractLimits,
+		})
+		if err != nil {
+			return err
+		}
+		r.store = store
+	}
+	if r.projection != nil {
+		return nil
+	}
+	projector, err := NewCommandRunProjector(r.store, config.ContractLimits)
+	if err != nil {
+		return err
+	}
+	r.projection = projector
 	return nil
 }
 
@@ -361,10 +386,10 @@ func (r *CommandRunRuntime) Start(ctx context.Context) error {
 		if err := waitCommandRunSubscriptionReady(ctx, subscription); err != nil {
 			r.diagnostics.record(ErrCommandRunSubscriptionFailed)
 			closeCtx, closeCancel := context.WithTimeout(context.WithoutCancel(ctx), r.config.CloseTimeout)
-			_ = subscription.Close(closeCtx)
+			closeErr := subscription.Close(closeCtx)
 			closeCancel()
 			runtimeCancel()
-			return err
+			return errors.Join(err, closeErr)
 		}
 		r.subscription = subscription
 		r.monitorCancel = runtimeCancel
@@ -372,18 +397,21 @@ func (r *CommandRunRuntime) Start(ctx context.Context) error {
 	if r.observer != nil {
 		if err := r.observer.Start(r.config.Role); err != nil {
 			r.diagnostics.record(err)
-			r.rollbackStartLocked(ctx)
-			return err
+			return errors.Join(err, r.rollbackStartLocked(ctx))
 		}
 	}
 	if subscription != nil {
 		r.monitorDone = make(chan struct{})
 		go r.monitorSubscription(monitorCtx, subscription, r.monitorDone)
 	}
+	r.markStartedLocked()
+	return nil
+}
+
+func (r *CommandRunRuntime) markStartedLocked() {
 	r.started = true
 	r.readyOnce.Do(func() { close(r.ready) })
 	r.diagnostics.lifecycle(true, true, false)
-	return nil
 }
 
 // Close stops observation before subscriptions, waits within the configured
@@ -521,7 +549,7 @@ func (r *CommandRunRuntime) monitorSubscription(ctx context.Context, subscriptio
 	}
 }
 
-func (r *CommandRunRuntime) rollbackStartLocked(ctx context.Context) {
+func (r *CommandRunRuntime) rollbackStartLocked(ctx context.Context) error {
 	if r.observer != nil {
 		r.observer.Close()
 	}
@@ -531,10 +559,12 @@ func (r *CommandRunRuntime) rollbackStartLocked(ctx context.Context) {
 	}
 	if r.subscription != nil {
 		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), r.config.CloseTimeout)
-		_ = r.subscription.Close(closeCtx)
+		closeErr := r.subscription.Close(closeCtx)
 		cancel()
 		r.subscription = nil
+		return closeErr
 	}
+	return nil
 }
 
 func (r *CommandRunRuntime) reportError(err error) {

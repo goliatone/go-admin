@@ -1,4 +1,4 @@
-import { appendCSRFHeader as b } from "./transport/http-client.js";
+import { httpRequestWith as b } from "./transport/http-client.js";
 import { d as D, n as H, p as C, u as L } from "../chunks/behaviors-DAT-GAWx.js";
 var Y = "X-Enhanced-Action", ee = "application/vnd.admin.enhanced+json", te = "1";
 function ne(e = document, t = {}) {
@@ -27,18 +27,18 @@ async function R(e, t, n = {}) {
   const r = j(e, t), i = A(e.ownerDocument), c = w(e.ownerDocument), u = new i(e);
   P(u, t);
   const l = I(o, r, u);
-  z(e);
+  W(e);
   const m = new c();
-  m.set(U(n), _(n)), m.set("Accept", B(n)), b(l, { method: r }, m);
+  m.set(U(n), _(n)), m.set("Accept", B(n));
   const S = C(e, { submitter: t });
   try {
-    const f = await a(l, {
+    const f = await b(a, l, {
       method: r,
       headers: m,
       body: r === "GET" || r === "HEAD" ? void 0 : u,
       credentials: "same-origin"
-    }), d = await q(f, n), s = d.envelope;
-    return d.navigationURL && f.ok ? (V(d.navigationURL, n, e.ownerDocument), s) : !f.ok || s.ok === !1 ? (g(e, s), p(s, n.toast), T(s, n.document ?? e.ownerDocument), s) : (await F(s, n), s);
+    }), d = await F(f, n), s = d.envelope;
+    return d.navigationURL && f.ok ? (V(d.navigationURL, n, e.ownerDocument), s) : !f.ok || s.ok === !1 ? (g(e, s), p(s, n.toast), T(s, n.document ?? e.ownerDocument), s) : (await q(s, n), s);
   } catch (f) {
     const d = f instanceof Error ? f.message : "Request failed", s = {
       ok: !1,
@@ -53,7 +53,7 @@ async function R(e, t, n = {}) {
     S.reset();
   }
 }
-async function F(e, t = {}) {
+async function q(e, t = {}) {
   const n = t.document ?? globalThis.document, a = [], o = [];
   for (const r of e.fragments ?? []) {
     const i = E(n, r);
@@ -77,7 +77,7 @@ function E(e, t) {
 function y(e, t) {
   return typeof e == "function" && !!A(t) && !!w(t);
 }
-async function q(e, t = {}) {
+async function F(e, t = {}) {
   const n = e.headers?.get("Content-Type") ?? "", a = M(n, t), o = k(n);
   if (!a && !o) {
     const r = x(e);
@@ -212,7 +212,7 @@ function T(e, t) {
   const n = String(e.focus ?? "").trim();
   n && t.querySelector(n)?.focus?.();
 }
-function z(e) {
+function W(e) {
   for (const a of Array.from(e.querySelectorAll("[data-enhance-generated-error]"))) a.remove();
   for (const a of Array.from(e.querySelectorAll('[aria-invalid="true"]'))) a.removeAttribute("aria-invalid");
   const t = e.getAttribute("data-enhance-error-target")?.trim(), n = t ? e.ownerDocument.querySelector(t) : null;
@@ -221,7 +221,7 @@ function z(e) {
 function g(e, t) {
   const n = t.error?.fields ?? {};
   for (const [i, c] of Object.entries(n)) {
-    const u = e.querySelector(`[name="${W(i)}"]`);
+    const u = e.querySelector(`[name="${z(i)}"]`);
     if (!u) continue;
     u.setAttribute("aria-invalid", "true");
     const l = e.ownerDocument.createElement("div");
@@ -232,7 +232,7 @@ function g(e, t) {
   const o = e.getAttribute("data-enhance-error-target")?.trim(), r = o ? e.ownerDocument.querySelector(o) : null;
   r && (r.textContent = a, r.removeAttribute("hidden"));
 }
-function W(e) {
+function z(e) {
   const t = globalThis.CSS;
   return typeof t?.escape == "function" ? t.escape(e) : e.replace(/["\\]/g, "\\$&");
 }
@@ -262,7 +262,7 @@ export {
   ee as ENHANCED_ACTION_ACCEPT,
   Y as ENHANCED_ACTION_HEADER,
   te as ENHANCED_ACTION_HEADER_VALUE,
-  F as applyEnhancedEnvelope,
+  q as applyEnhancedEnvelope,
   re as applyEnhancedFragment,
   ne as initEnhancedActions,
   R as submitEnhancedForm

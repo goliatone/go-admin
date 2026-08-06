@@ -139,7 +139,7 @@ func (a *GoCMSContentAdapter) SupportsContentListOption(option CMSContentListOpt
 	support, ok := a.content.(interface {
 		SupportsContentListOption(cmscontent.ContentListOption) bool
 	})
-	return ok && support.SupportsContentListOption(cmscontent.ContentListOption(option))
+	return ok && support.SupportsContentListOption(option)
 }
 
 func (a *GoCMSContentAdapter) contentReader() goCMSContentReadBoundary {

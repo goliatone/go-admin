@@ -46,7 +46,9 @@ func TestRegisterUserMigrationsSQLite(t *testing.T) {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 	defer func() {
-		_ = sqlDB.Close()
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Errorf("close sqlite: %v", closeErr)
+		}
 	}()
 
 	cfg := testPersistenceConfig{driver: sqliteshim.ShimName, server: dsn}

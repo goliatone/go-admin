@@ -72,22 +72,69 @@ function isUnsafeMethod(method?: string): boolean {
   return unsafeMethods.has(normalized);
 }
 
-function isSameOriginRequest(input: string): boolean {
-  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(input)) {
-    return true;
+function resolveRequestURL(input: RequestInfo | URL): string {
+  if (typeof input === 'string') {
+    return input;
   }
-  if (typeof location === 'undefined' || !location?.origin) {
+  if (input instanceof URL) {
+    return input.toString();
+  }
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    return input.url;
+  }
+  return '';
+}
+
+function resolveRequestMethod(input: RequestInfo | URL, options: RequestInit): string {
+  if (typeof options.method === 'string' && options.method.trim()) {
+    return options.method;
+  }
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    return input.method;
+  }
+  return 'GET';
+}
+
+function resolveRequestHeaders(input: RequestInfo | URL, headers?: HeadersInit): Headers {
+  if (headers !== undefined) {
+    return new Headers(headers);
+  }
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    return new Headers(input.headers);
+  }
+  return new Headers();
+}
+
+function isSameOriginRequest(input: RequestInfo | URL): boolean {
+  const target = resolveRequestURL(input).trim();
+  if (!target) {
     return false;
   }
+  if (typeof location === 'undefined' || !location?.origin) {
+    // Relative paths are useful in non-browser render/test environments, but
+    // network-path and backslash variants must never be assumed same-origin.
+    return !/^(?:[a-zA-Z][a-zA-Z\d+\-.]*:|[/\\]{2})/.test(target);
+  }
   try {
-    return new URL(input, location.origin).origin === location.origin;
+    const base = typeof location.href === 'string' && location.href
+      ? location.href
+      : `${location.origin}/`;
+    return new URL(target, base).origin === location.origin;
   } catch {
     return false;
   }
 }
 
-export function appendCSRFHeader(input: string, options: RequestInit, headers: Headers): void {
-  if (!isUnsafeMethod(options.method) || headers.has('X-CSRF-Token') || !isSameOriginRequest(input)) {
+export function appendCSRFHeader(
+  input: RequestInfo | URL,
+  options: RequestInit,
+  headers: Headers,
+): void {
+  if (
+    !isUnsafeMethod(resolveRequestMethod(input, options))
+    || headers.has('X-CSRF-Token')
+    || !isSameOriginRequest(input)
+  ) {
     return;
   }
   const token = readCSRFToken();
@@ -96,7 +143,11 @@ export function appendCSRFHeader(input: string, options: RequestInit, headers: H
   }
 }
 
-export async function httpRequest(input: string, options: HTTPRequestOptions = {}): Promise<Response> {
+export async function httpRequestWith(
+  fetchImpl: typeof fetch,
+  input: RequestInfo | URL,
+  options: HTTPRequestOptions = {},
+): Promise<Response> {
   const {
     json,
     idempotencyKey,
@@ -105,7 +156,7 @@ export async function httpRequest(input: string, options: HTTPRequestOptions = {
     ...rest
   } = options;
 
-  const mergedHeaders = new Headers(headers || {});
+  const mergedHeaders = resolveRequestHeaders(input, headers);
   if (accept) {
     mergedHeaders.set('Accept', accept);
   } else if (!mergedHeaders.has('Accept')) {
@@ -116,20 +167,25 @@ export async function httpRequest(input: string, options: HTTPRequestOptions = {
     mergedHeaders.set('X-Idempotency-Key', idempotencyKey.trim());
   }
 
-  let body = rest.body;
   if (json !== undefined) {
     if (!mergedHeaders.has('Content-Type')) {
       mergedHeaders.set('Content-Type', 'application/json');
     }
-    body = JSON.stringify(json);
+    rest.body = JSON.stringify(json);
   }
   appendCSRFHeader(input, rest, mergedHeaders);
 
-  return fetch(input, {
+  return fetchImpl(input, {
     ...rest,
     headers: mergedHeaders,
-    body,
   });
+}
+
+export async function httpRequest(
+  input: RequestInfo | URL,
+  options: HTTPRequestOptions = {},
+): Promise<Response> {
+  return httpRequestWith(fetch.bind(globalThis), input, options);
 }
 
 function extractHTTPErrorMessage(payload: HTTPErrorPayload | null | undefined): string {
@@ -359,7 +415,10 @@ export async function readHTTPStructuredErrorResult(
   };
 }
 
-export async function httpJSON<T = unknown>(input: string, options: HTTPRequestOptions = {}): Promise<T> {
+export async function httpJSON<T = unknown>(
+  input: RequestInfo | URL,
+  options: HTTPRequestOptions = {},
+): Promise<T> {
   const response = await httpRequest(input, options);
   if (!response.ok) {
     throw new Error(await readHTTPError(response));

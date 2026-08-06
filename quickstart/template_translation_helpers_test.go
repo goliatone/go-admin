@@ -76,8 +76,8 @@ func TestDefaultTemplateFuncsExposeTranslationHelpers(t *testing.T) {
 func TestDefaultTemplateFuncsTranslationHelpersDegradeSafelyWithoutTranslator(t *testing.T) {
 	funcs := DefaultTemplateFuncs(WithTemplateDefaultLocale("en"))
 
-	translate := funcs["translate"].(func(...any) string)
-	currentLocale := funcs["current_locale"].(func(...any) string)
+	translate := requireTestValue[func(...any) string](t, funcs["translate"], "translate")
+	currentLocale := requireTestValue[func(...any) string](t, funcs["current_locale"], "current_locale")
 
 	if got := translate("menu.home"); got != "menu.home" {
 		t.Fatalf("expected raw key fallback without translator, got %q", got)
@@ -100,8 +100,8 @@ func TestDefaultTemplateFuncsTreatBareShortStringsAsKeys(t *testing.T) {
 		WithTemplateDefaultLocale("en"),
 	)
 
-	translate := funcs["translate"].(func(...any) string)
-	translateCount := funcs["translate_count"].(func(...any) string)
+	translate := requireTestValue[func(...any) string](t, funcs["translate"], "translate")
+	translateCount := requireTestValue[func(...any) string](t, funcs["translate_count"], "translate_count")
 
 	if got := translate("seo"); got != "SEO" {
 		t.Fatalf("expected bare short key to resolve as translation key, got %q", got)

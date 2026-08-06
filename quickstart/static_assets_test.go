@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -215,11 +216,12 @@ func TestNewStaticAssetsServesExtraProductStylesheetAtCustomPrefix(t *testing.T)
 	)
 	server.Init()
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/console/static/dist/product/product.css", nil))
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/console/static/dist/product/product.css", nil)
+	resp, err := server.WrappedRouter().Test(request)
 	if err != nil {
 		t.Fatalf("request product stylesheet: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected product stylesheet 200, got %d", resp.StatusCode)
 	}
@@ -231,11 +233,12 @@ func TestNewStaticAssetsServesExtraProductStylesheetAtCustomPrefix(t *testing.T)
 		"/console/static/dist/product/missing.css",
 		"/console/static/%2e%2e/go.mod",
 	} {
-		missing, requestErr := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, target, nil))
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+		missing, requestErr := server.WrappedRouter().Test(request)
 		if requestErr != nil {
 			t.Fatalf("request %q: %v", target, requestErr)
 		}
-		_ = missing.Body.Close()
+		closeResponseBody(t, missing)
 		if missing.StatusCode == http.StatusOK {
 			t.Fatalf("expected %q not to resolve", target)
 		}
@@ -369,7 +372,8 @@ func TestPackagedDocumentDependencyRoutesReturnSuccess(t *testing.T) {
 		admin.DefaultEChartsJSAssetPath,
 	} {
 		target := "/" + path.Join(strings.TrimPrefix(cfg.BasePath, "/"), advertisedPath)
-		resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, target, nil))
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
+		resp, err := server.WrappedRouter().Test(request)
 		if err != nil {
 			t.Errorf("request advertised dependency %q: %v", target, err)
 			continue
@@ -380,7 +384,7 @@ func TestPackagedDocumentDependencyRoutesReturnSuccess(t *testing.T) {
 		if resp.ContentLength == 0 {
 			t.Errorf("expected advertised dependency %q to have a response body", target)
 		}
-		_ = resp.Body.Close()
+		closeResponseBody(t, resp)
 	}
 }
 

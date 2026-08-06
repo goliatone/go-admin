@@ -572,12 +572,12 @@ func TestNewModuleRegistrarSelectsSidebarUtilityDefaults(t *testing.T) {
 func TestNewModuleRegistrarRetiresOnlyOmittedStandardUtilityRows(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
-	adm, _, err := NewAdmin(cfg, AdapterHooks{})
-	if err != nil {
-		t.Fatalf("NewAdmin error: %v", err)
+	adm, _, adminErr := NewAdmin(cfg, AdapterHooks{})
+	if adminErr != nil {
+		t.Fatalf("NewAdmin error: %v", adminErr)
 	}
-	if err = NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(true)); err != nil {
-		t.Fatalf("seed all defaults: %v", err)
+	if registerErr := NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(true)); registerErr != nil {
+		t.Fatalf("seed all defaults: %v", registerErr)
 	}
 
 	menuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
@@ -604,18 +604,18 @@ func TestNewModuleRegistrarRetiresOnlyOmittedStandardUtilityRows(t *testing.T) {
 		t.Fatalf("seed host-owned utility row: %v", err)
 	}
 
-	if err = NewModuleRegistrar(
+	if registerErr := NewModuleRegistrar(
 		adm,
 		cfg,
 		nil,
 		false,
 		WithDefaultSidebarUtilityItemKeys(SidebarUtilityItemSettings),
-	); err != nil {
-		t.Fatalf("transition to settings-only defaults: %v", err)
+	); registerErr != nil {
+		t.Fatalf("transition to settings-only defaults: %v", registerErr)
 	}
-	menu, err := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
-	if err != nil {
-		t.Fatalf("resolve settings-only utility menu: %v", err)
+	menu, menuErr := adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if menuErr != nil {
+		t.Fatalf("resolve settings-only utility menu: %v", menuErr)
 	}
 	if findMenuItemByRouteName(menu.Items, "admin.settings") == nil {
 		t.Fatalf("expected settings to remain, got %+v", menu.Items)
@@ -629,12 +629,12 @@ func TestNewModuleRegistrarRetiresOnlyOmittedStandardUtilityRows(t *testing.T) {
 		t.Fatalf("expected host-owned row preserved, got %+v", menu.Items)
 	}
 
-	if err = NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(false)); err != nil {
-		t.Fatalf("disable defaults: %v", err)
+	if registerErr := NewModuleRegistrar(adm, cfg, nil, false, WithDefaultSidebarUtilityItems(false)); registerErr != nil {
+		t.Fatalf("disable defaults: %v", registerErr)
 	}
-	menu, err = adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
-	if err != nil {
-		t.Fatalf("resolve disabled utility menu: %v", err)
+	menu, menuErr = adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
+	if menuErr != nil {
+		t.Fatalf("resolve disabled utility menu: %v", menuErr)
 	}
 	if item := findMenuItemByRouteName(menu.Items, "admin.settings"); item != nil {
 		t.Fatalf("expected settings row retired when defaults disabled, got %+v", item)
@@ -648,9 +648,9 @@ func TestNewModuleRegistrarRetiresStandardUtilityRowWhenFeatureTurnsOff(t *testi
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	gate := stubFeatureGate{flags: map[string]bool{string(admin.FeatureSettings): true}}
-	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithAdminDependencies(admin.Dependencies{FeatureGate: gate}))
-	if err != nil {
-		t.Fatalf("NewAdmin error: %v", err)
+	adm, _, adminErr := NewAdmin(cfg, AdapterHooks{}, WithAdminDependencies(admin.Dependencies{FeatureGate: gate}))
+	if adminErr != nil {
+		t.Fatalf("NewAdmin error: %v", adminErr)
 	}
 	register := func() error {
 		return NewModuleRegistrar(
@@ -671,8 +671,8 @@ func TestNewModuleRegistrarRetiresStandardUtilityRowWhenFeatureTurnsOff(t *testi
 	}
 
 	gate.flags[string(admin.FeatureSettings)] = false
-	if err := register(); err != nil {
-		t.Fatalf("reconcile disabled settings feature: %v", err)
+	if registerErr := register(); registerErr != nil {
+		t.Fatalf("reconcile disabled settings feature: %v", registerErr)
 	}
 	menu, err = adm.MenuService().Menu(context.Background(), menuCode, cfg.DefaultLocale)
 	if err != nil {

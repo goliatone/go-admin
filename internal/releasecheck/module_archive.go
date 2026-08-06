@@ -28,7 +28,10 @@ var RequiredClientArchivePaths = []string{
 // moduleRoot and verifies that every required path is eligible for a module
 // archive.
 func CheckRequiredModuleSource(moduleRoot string, requiredPaths []string) error {
-	checked, _ := modzip.CheckDir(moduleRoot)
+	checked, err := modzip.CheckDir(moduleRoot)
+	if err != nil {
+		return fmt.Errorf("check module source %q: %w", moduleRoot, err)
+	}
 	valid := make(map[string]struct{}, len(checked.Valid))
 	for _, file := range checked.Valid {
 		relative, err := filepath.Rel(moduleRoot, file)

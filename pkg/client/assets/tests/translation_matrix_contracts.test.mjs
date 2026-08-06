@@ -137,7 +137,7 @@ function setGlobals(win) {
 }
 
 function setupDom(url = 'http://localhost/admin/translations/matrix?channel=production&tenant_id=tenant-1&org_id=org-1') {
-  const dom = new JSDOM('<!doctype html><html><body><div id="root" data-endpoint="/admin/api/translations/matrix" data-title="Translation Matrix"></div></body></html>', { url });
+  const dom = new JSDOM('<!doctype html><html><head><meta name="csrf-token" content="translation-matrix-csrf"></head><body><div id="root" data-endpoint="/admin/api/translations/matrix" data-title="Translation Matrix"></div></body></html>', { url });
   setGlobals(dom.window);
   return {
     dom,
@@ -360,7 +360,12 @@ test('translation matrix runtime: quick create action posts to create-missing en
   let call = 0;
   const page = initTranslationMatrixPage(root, {
     fetch: async (url, options = {}) => {
-      requests.push({ url: String(url), method: options.method ?? 'GET', body: options.body ? JSON.parse(String(options.body)) : null });
+      requests.push({
+        url: String(url),
+        method: options.method ?? 'GET',
+        headers: new Headers(options.headers || {}),
+        body: options.body ? JSON.parse(String(options.body)) : null,
+      });
       call += 1;
       if (String(options.method || 'GET').toUpperCase() === 'POST') {
         return createJsonResponse(fixtures.actions.create_missing, 200, {
@@ -384,6 +389,7 @@ test('translation matrix runtime: quick create action posts to create-missing en
   const postRequest = requests.find((entry) => entry.method === 'POST');
   assert.ok(postRequest);
   assert.equal(postRequest.url, '/admin/api/translations/matrix/actions/create-missing');
+  assert.equal(postRequest.headers.get('X-CSRF-Token'), 'translation-matrix-csrf');
   assert.deepEqual(postRequest.body.family_ids, ['tg-page-matrix-1']);
   assert.deepEqual(postRequest.body.locales, ['fr']);
 

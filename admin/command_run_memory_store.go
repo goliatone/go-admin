@@ -310,6 +310,13 @@ func mergeCommandRunRecord(record CommandRunRecord, update CommandRunUpdate) Com
 	if update.CorrelationID != "" {
 		record.CorrelationID = update.CorrelationID
 	}
+	mergeCommandRunProgress(&record, update)
+	mergeCommandRunResult(&record, update)
+	mergeCommandRunMetadata(&record, update.Metadata)
+	return record.Clone()
+}
+
+func mergeCommandRunProgress(record *CommandRunRecord, update CommandRunUpdate) {
 	if update.StartedAt != nil {
 		record.StartedAt = cloneCommandRunTime(update.StartedAt)
 	}
@@ -337,21 +344,27 @@ func mergeCommandRunRecord(record CommandRunRecord, update CommandRunUpdate) Com
 	if update.MaxAttempts > 0 {
 		record.MaxAttempts = update.MaxAttempts
 	}
+}
+
+func mergeCommandRunResult(record *CommandRunRecord, update CommandRunUpdate) {
 	if update.Failure != nil {
 		failure := *update.Failure
 		record.Failure = &failure
 	} else if update.Phase == CommandRunPhaseSucceeded {
 		record.Failure = nil
 	}
-	if len(update.Metadata) > 0 {
-		if record.Metadata == nil {
-			record.Metadata = make(map[string]any, len(update.Metadata))
-		}
-		for key, value := range update.Metadata {
-			record.Metadata[key] = cloneCommandRunMetadataValue(value)
-		}
+}
+
+func mergeCommandRunMetadata(record *CommandRunRecord, metadata map[string]any) {
+	if len(metadata) == 0 {
+		return
 	}
-	return record.Clone()
+	if record.Metadata == nil {
+		record.Metadata = make(map[string]any, len(metadata))
+	}
+	for key, value := range metadata {
+		record.Metadata[key] = cloneCommandRunMetadataValue(value)
+	}
 }
 
 func cloneCommandRunRecord(record CommandRunRecord) CommandRunRecord {

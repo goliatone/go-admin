@@ -226,9 +226,9 @@ func TestDashboardRendererDisableEmbeddedRequiresTemplates(t *testing.T) {
 
 func TestWithDefaultDashboardRendererSkipsWhenAlreadySet(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
-	adm, err := admin.New(cfg, admin.Dependencies{})
-	if err != nil {
-		t.Fatalf("admin.New error: %v", err)
+	adm, adminErr := admin.New(cfg, admin.Dependencies{})
+	if adminErr != nil {
+		t.Fatalf("admin.New error: %v", adminErr)
 	}
 	original := &dashboardStubRenderer{}
 	adm.Dashboard().WithRenderer(original)
@@ -243,9 +243,9 @@ func TestWithDefaultDashboardRendererSkipsWhenAlreadySet(t *testing.T) {
 
 func TestWithDefaultDashboardRendererWiresRenderer(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
-	adm, err := admin.New(cfg, admin.Dependencies{})
-	if err != nil {
-		t.Fatalf("admin.New error: %v", err)
+	adm, adminErr := admin.New(cfg, admin.Dependencies{})
+	if adminErr != nil {
+		t.Fatalf("admin.New error: %v", adminErr)
 	}
 	if err := WithDefaultDashboardRenderer(adm, nil, cfg); err != nil {
 		t.Fatalf("WithDefaultDashboardRenderer error: %v", err)
@@ -257,9 +257,9 @@ func TestWithDefaultDashboardRendererWiresRenderer(t *testing.T) {
 
 func TestWithDefaultDashboardRendererUsesSharedViewEngine(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
-	adm, err := admin.New(cfg, admin.Dependencies{})
-	if err != nil {
-		t.Fatalf("admin.New error: %v", err)
+	adm, adminErr := admin.New(cfg, admin.Dependencies{})
+	if adminErr != nil {
+		t.Fatalf("admin.New error: %v", adminErr)
 	}
 	views := &dashboardStubViews{output: "host-dashboard-shell"}
 
@@ -300,22 +300,22 @@ func TestDefaultDashboardRendererHonorsHostShellOverlayAndRequestContext(t *test
 			Data: []byte(`<!doctype html><html data-host-shell><head>{{ csrf_meta|safe }}<script src="{{ external_assets.echarts_js }}"></script></head><body data-collapse="{{ sidebar_collapse_placement }}">{% block content %}{% endblock %}</body></html>`),
 		},
 	}
-	views, err := NewViewEngine(
+	views, viewErr := NewViewEngine(
 		client.FS(),
 		WithViewTemplatesFS(hostTemplates),
 		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
 		WithViewReload(false),
 	)
-	if err != nil {
-		t.Fatalf("NewViewEngine error: %v", err)
+	if viewErr != nil {
+		t.Fatalf("NewViewEngine error: %v", viewErr)
 	}
 	if err := views.Load(); err != nil {
 		t.Fatalf("load view engine: %v", err)
 	}
 	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en"}
-	adm, err := admin.New(cfg, admin.Dependencies{})
-	if err != nil {
-		t.Fatalf("admin.New error: %v", err)
+	adm, adminErr := admin.New(cfg, admin.Dependencies{})
+	if adminErr != nil {
+		t.Fatalf("admin.New error: %v", adminErr)
 	}
 	if err := WithDefaultDashboardRenderer(adm, views, cfg); err != nil {
 		t.Fatalf("WithDefaultDashboardRenderer error: %v", err)

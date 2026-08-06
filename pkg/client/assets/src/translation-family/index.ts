@@ -6,7 +6,7 @@ import {
   asString,
   asStringArray,
 } from '../shared/coercion.js';
-import { appendCSRFHeader, httpRequest, readHTTPJSON } from '../shared/transport/http-client.js';
+import { httpRequest, httpRequestWith, readHTTPJSON } from '../shared/transport/http-client.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { trimTrailingSlash } from '../shared/path-normalization.js';
 import {
@@ -431,8 +431,7 @@ export async function dispatchTranslationFamilySync(
     headers,
     body: JSON.stringify(buildTranslationFamilySyncRPCRequest(recovery, options.correlationId)),
   };
-  appendCSRFHeader(recovery.rpcInvokePath, init, headers);
-  const response = await fetchImpl(recovery.rpcInvokePath, init);
+  const response = await httpRequestWith(fetchImpl, recovery.rpcInvokePath, init);
   if (!response.ok) {
     const structured = await extractStructuredError(response);
     throw new Error(structured.message || 'Failed to sync translation families.');
@@ -1405,8 +1404,9 @@ async function postTranslationFamilyAssignmentAction(
     headers,
     body: JSON.stringify(body),
   };
-  appendCSRFHeader(endpoint, init, headers);
-  const response = await (options.fetch ? options.fetch(endpoint, init) : httpRequest(endpoint, init));
+  const response = await (options.fetch
+    ? httpRequestWith(options.fetch, endpoint, init)
+    : httpRequest(endpoint, init));
   if (!response.ok) {
     throw await assignmentActionErrorFromResponse(response);
   }
@@ -4227,8 +4227,7 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
         headers,
         body: JSON.stringify(serializeCreateLocaleRequest(action.request)),
       };
-      appendCSRFHeader(action.endpoint, init, headers);
-      const response = await fetchImpl(action.endpoint, init);
+      const response = await httpRequestWith(fetchImpl, action.endpoint, init);
       if (!response.ok) {
         throw await createLocaleErrorFromResponse(response);
       }
@@ -4252,8 +4251,7 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
         headers,
         body: JSON.stringify(serializeFamilyAssignmentRequest(request)),
       };
-      appendCSRFHeader(endpoint, init, headers);
-      const response = await fetchImpl(endpoint, init);
+      const response = await httpRequestWith(fetchImpl, endpoint, init);
       if (!response.ok) {
         throw await assignmentActionErrorFromResponse(response);
       }

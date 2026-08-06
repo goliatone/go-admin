@@ -224,7 +224,7 @@ func TestContentTypeVersionsSeedsStoreFromRecord(t *testing.T) {
 
 	var payload map[string]any
 	ctx.On("JSON", http.StatusOK, mock.Anything).Run(func(args mock.Arguments) {
-		payload = args.Get(1).(map[string]any)
+		payload = requireTestValue[map[string]any](t, args.Get(1), "versions payload")
 	}).Return(nil)
 
 	if err := handlers.ContentTypeVersions(ctx); err != nil {
@@ -310,7 +310,7 @@ func TestBlockDefinitionVersionsFallsBackToRecordWhenServiceReturnsEmpty(t *test
 
 	var payload map[string]any
 	ctx.On("JSON", http.StatusOK, mock.Anything).Run(func(args mock.Arguments) {
-		payload = args.Get(1).(map[string]any)
+		payload = requireTestValue[map[string]any](t, args.Get(1), "block versions payload")
 	}).Return(nil)
 
 	if err := handlers.BlockDefinitionVersions(ctx); err != nil {

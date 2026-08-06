@@ -25,7 +25,7 @@ import {
 import { StatefulController } from '../shared/stateful-controller.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { getStatusLabel, renderStatusChip } from '../shared/status-vocabulary.js';
-import { readHTTPError } from '../shared/transport/http-client.js';
+import { httpRequestWith, readHTTPError } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
@@ -765,7 +765,7 @@ export function createTranslationMatrixClient(options: TranslationMatrixPageConf
   return {
     async fetchMatrix(query: TranslationMatrixQuery = {}): Promise<TranslationMatrixResponse> {
       const target = buildTranslationMatrixURL(endpoint, query);
-      const response = await fetchImpl(target, {
+      const response = await httpRequestWith(fetchImpl, target, {
         headers: {
           Accept: 'application/json',
         },
@@ -792,7 +792,7 @@ export function createTranslationMatrixClient(options: TranslationMatrixPageConf
       if (!actionEndpoint) {
         throw new Error('Matrix bulk action endpoint is not configured.');
       }
-      const response = await fetchImpl(actionEndpoint, {
+      const response = await httpRequestWith(fetchImpl, actionEndpoint, {
         method: asString(resolvedTarget.method) || 'POST',
         headers: {
           Accept: 'application/json',
