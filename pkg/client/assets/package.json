@@ -1,6 +1,6 @@
 {
   "name": "@goliatone/go-admin-client",
-  "version": "0.128.3",
+  "version": "0.128.4",
   "description": "Supported browser client contracts for go-admin applications",
   "type": "module",
   "main": "./dist-public/index.js",

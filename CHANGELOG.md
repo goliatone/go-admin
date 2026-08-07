@@ -1,10 +1,35 @@
 # Changelog
 
+# [0.128.4](https://github.com/goliatone/go-admin/compare/v0.128.3...v0.128.4) - (2026-08-07)
+
+
+## Security Fix
+
+Browser mutations now pass through one CSRF-aware transport even when callers inject a custom fetch implementation. This fixes missing `X-CSRF-Token` headers in command RPC/action and Translation Matrix requests.
+
+The transport now resolves all request targets against the active browser origin before attaching credentials, preventing token disclosure to protocol-relative cross-origin URLs. It also preserves native `Request` method, headers, and body semantics.
+
+## Migration Notes
+
+Applications using cookie-authenticated admin mutations should adopt the coordinated root, quickstart, and `@goliatone/go-admin-client` patch release together. Remove consumer-specific CSRF adapters after adopting the fixed client runtime.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Client code ([00b558b](https://github.com/goliatone/go-admin/commit/00b558b1f987dd29a88917e47f4006304fb4ee87))  - (goliatone)
+- Csrf rpc token and code quality ([f9f63b6](https://github.com/goliatone/go-admin/commit/f9f63b6978772fdf6c071bff42e1f2515d42cfd9))  - (goliatone)
+
 # [0.128.3](https://github.com/goliatone/go-admin/compare/v0.128.2...v0.128.3) - (2026-08-05)
+
+
+New patch release: v0.128.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Data grid ([9884b59](https://github.com/goliatone/go-admin/commit/9884b5935818599d3d2ca17734abfbc6b96fce73))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.128.3 ([326c1b6](https://github.com/goliatone/go-admin/commit/326c1b6a1a669e3b9a04546f893e2e7385d071f0))  - (goliatone)
 
 # [0.128.2](https://github.com/goliatone/go-admin/compare/v0.128.1...v0.128.2) - (2026-08-05)
 
