@@ -1,6 +1,24 @@
 # Changelog
 
+# [0.129.0](https://github.com/goliatone/go-admin/compare/v0.128.5...v0.129.0) - (2026-08-07)
+
+## <!-- 16 -->➕ Add
+
+- Notifications update and cache rendering updates ([22cf1f2](https://github.com/goliatone/go-admin/commit/22cf1f285319ca36cceebd2d794530fcbc4af4f8))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([5262c7c](https://github.com/goliatone/go-admin/commit/5262c7c2d50b3fd866ba9551e3f1f4b83ca6061f))  - (goliatone)
+- Update deps ([baa962e](https://github.com/goliatone/go-admin/commit/baa962eb9a97b56ab6bd0d2f5bf9595e5aae86fe))  - (goliatone)
+
 # [0.128.5](https://github.com/goliatone/go-admin/compare/v0.128.4...v0.128.5) - (2026-08-07)
+
+
+New patch release: v0.128.5
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.128.5 ([68b709d](https://github.com/goliatone/go-admin/commit/68b709dc68f94256c11da273b513fca8ee817ed2))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
