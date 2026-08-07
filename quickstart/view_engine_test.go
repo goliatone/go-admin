@@ -557,6 +557,41 @@ func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
 	}
 }
 
+func TestLoginTemplatePlacesLogoOutsideCardByDefault(t *testing.T) {
+	html := renderLoginTemplate(t, fiber.Map{
+		"theme": map[string]map[string]string{"assets": {"logo": "/brand/logo.svg"}},
+	})
+	assertLoginLogoPlacement(t, html, false)
+}
+
+func TestLoginTemplatePlacesLogoInsideCard(t *testing.T) {
+	html := renderLoginTemplate(t, fiber.Map{
+		"login_logo_placement": "inside-card",
+		"theme":                map[string]map[string]string{"assets": {"logo": "/brand/logo.svg"}},
+	})
+	assertLoginLogoPlacement(t, html, true)
+}
+
+func assertLoginLogoPlacement(t *testing.T, html string, inside bool) {
+	t.Helper()
+	const card = `<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-6">`
+	if count := strings.Count(html, `data-login-logo`); count != 1 {
+		t.Fatalf("expected one login logo, got %d in %q", count, html)
+	}
+	logoIndex := strings.Index(html, `data-login-logo`)
+	cardIndex := strings.Index(html, card)
+	headerIndex := strings.Index(html, `Welcome back!`)
+	if logoIndex < 0 || cardIndex < 0 || headerIndex < 0 {
+		t.Fatalf("expected logo, card, and header markers in %q", html)
+	}
+	if inside && !(cardIndex < logoIndex && logoIndex < headerIndex) {
+		t.Fatalf("expected logo inside card before header, got %q", html)
+	}
+	if !inside && !(logoIndex < cardIndex) {
+		t.Fatalf("expected logo outside card, got %q", html)
+	}
+}
+
 func TestLoginTemplateOmitsSSOSectionWithoutProviders(t *testing.T) {
 	for name, providers := range map[string]any{
 		"absent": nil,

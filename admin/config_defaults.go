@@ -10,6 +10,7 @@ import (
 // applyConfigDefaults fills deterministic defaults.
 func applyConfigDefaults(cfg Config) Config {
 	cfg = applyCMSAndSiteConfigDefaults(cfg)
+	cfg.LoginLogoPlacement = NormalizeLoginLogoPlacement(cfg.LoginLogoPlacement)
 	cfg = applyRoutingAndDebugConfigDefaults(cfg)
 	cfg = applyPermissionConfigDefaults(cfg)
 	cfg.MediaDelivery = normalizeMediaDeliveryConfig(cfg.MediaDelivery)

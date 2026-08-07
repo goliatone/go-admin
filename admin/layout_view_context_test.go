@@ -142,3 +142,14 @@ func TestNormalizeSidebarCollapsePlacementPreservesLegacyHeaderDefault(t *testin
 		t.Fatalf("footer placement = %q", got)
 	}
 }
+
+func TestNormalizeLoginLogoPlacementPreservesOutsideCardDefault(t *testing.T) {
+	for _, input := range []LoginLogoPlacement{"", "unknown", " OUTSIDE-CARD "} {
+		if got := NormalizeLoginLogoPlacement(input); got != LoginLogoPlacementOutsideCard {
+			t.Fatalf("NormalizeLoginLogoPlacement(%q) = %q", input, got)
+		}
+	}
+	if got := NormalizeLoginLogoPlacement(" INSIDE-CARD "); got != LoginLogoPlacementInsideCard {
+		t.Fatalf("inside-card placement = %q", got)
+	}
+}

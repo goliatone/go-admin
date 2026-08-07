@@ -156,6 +156,18 @@ func WithThemeAssetURLs(assets map[string]string) AdminConfigOption {
 	}
 }
 
+// WithLoginLogoPlacement controls whether the login identity mark renders
+// above the card or inside it. Unknown values preserve the outside-card
+// default.
+func WithLoginLogoPlacement(placement admin.LoginLogoPlacement) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.LoginLogoPlacement = admin.NormalizeLoginLogoPlacement(placement)
+	}
+}
+
 // WithNavMenuCode overrides the default navigation menu code.
 func WithNavMenuCode(code string) AdminConfigOption {
 	return func(cfg *admin.Config) {

@@ -47,6 +47,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.ThemeAssets == nil {
 		t.Fatalf("expected theme assets map to be initialized")
 	}
+	if adm.config.LoginLogoPlacement != LoginLogoPlacementOutsideCard {
+		t.Fatalf("expected outside-card login logo default, got %q", adm.config.LoginLogoPlacement)
+	}
 	if adm.config.SettingsPermission != "admin.settings.view" {
 		t.Fatalf("expected settings permission default, got %q", adm.config.SettingsPermission)
 	}

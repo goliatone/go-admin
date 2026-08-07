@@ -309,6 +309,25 @@ For full component behavior, options, and roles split configuration, see
 
 ## Auth UI slots (login extra)
 
+### Login logo placement
+
+The packaged login template supports two logo positions through
+`admin.Config.LoginLogoPlacement`:
+
+- `admin.LoginLogoPlacementOutsideCard` is the backward-compatible default.
+- `admin.LoginLogoPlacementInsideCard` renders the same theme-resolved mark at
+  the top of the login card, before the heading and form.
+
+Use `quickstart.WithLoginLogoPlacement(...)` when assembling quickstart config.
+Empty and unknown values normalize to `outside-card`. The logo never moves
+inside the HTML `<form>` element; this option controls the surrounding login
+card composition and keeps the identity mark outside form submission semantics.
+
+The shared markup lives in `partials/login-logo.html`, so theme icon/logo and
+fallback behavior remain identical in both positions.
+
+### Additional login content
+
 The login template now exposes a slot block you can extend without modifying the base template:
 
 ```ejs

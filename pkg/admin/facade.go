@@ -446,6 +446,8 @@ const (
 	SettingsScopeSite                              = core.SettingsScopeSite
 	SettingsScopeSystem                            = core.SettingsScopeSystem
 	SettingsScopeUser                              = core.SettingsScopeUser
+	LoginLogoPlacementInsideCard                   = core.LoginLogoPlacementInsideCard
+	LoginLogoPlacementOutsideCard                  = core.LoginLogoPlacementOutsideCard
 	SidebarCollapsePlacementFooter                 = core.SidebarCollapsePlacementFooter
 	SidebarCollapsePlacementHeader                 = core.SidebarCollapsePlacementHeader
 	SiteRouteContentDetail                         = core.SiteRouteContentDetail
@@ -1277,6 +1279,7 @@ type (
 	SettingsUpdateCommand                             = core.SettingsUpdateCommand
 	SettingsUpdateMsg                                 = core.SettingsUpdateMsg
 	SettingsValidationErrors                          = core.SettingsValidationErrors
+	LoginLogoPlacement                                = core.LoginLogoPlacement
 	SidebarCollapsePlacement                          = core.SidebarCollapsePlacement
 	SignedTokenStrategy                               = core.SignedTokenStrategy
 	SiteAPIClient                                     = core.SiteAPIClient
@@ -2648,6 +2651,10 @@ func NormalizeNavigationOverrideMode(raw string) string {
 
 func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode) NavigationPermissionDeniedMode {
 	return core.NormalizeNavigationPermissionDeniedMode(mode)
+}
+
+func NormalizeLoginLogoPlacement(value LoginLogoPlacement) LoginLogoPlacement {
+	return core.NormalizeLoginLogoPlacement(value)
 }
 
 func NormalizeSidebarCollapsePlacement(value SidebarCollapsePlacement) SidebarCollapsePlacement {

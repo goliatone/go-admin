@@ -67,6 +67,7 @@ container examples.
 - `WithTheme(name, variant string) AdminConfigOption` - Inputs: default admin selector values; outputs: option that sets the configured theme and named variant.
 - `WithThemeTokens(tokens map[string]string) AdminConfigOption` - Inputs: portable/package semantic or compatible legacy tokens; outputs: option that merges config tokens and final token overrides.
 - `WithThemeAssetURLs(assets map[string]string) AdminConfigOption` - Inputs: resolved asset URLs/paths keyed by theme asset name; outputs: option that overlays final admin theme assets such as `logo`, `icon`, and `favicon`.
+- `WithLoginLogoPlacement(placement admin.LoginLogoPlacement) AdminConfigOption` - Inputs: `outside-card` or `inside-card`; outputs: normalized login identity-mark placement while preserving theme asset selection.
 - `WithThemeAssetPrefix(prefix string) AdminConfigOption` - Inputs: final config-level asset prefix; outputs: option applied after provider selection.
 - `WithRoutingConfig(cfg routing.Config) AdminConfigOption` - Inputs: routing roots/module mount overrides; outputs: option that applies explicit routing policy overrides during quickstart config assembly.
 - `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.

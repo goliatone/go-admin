@@ -95,6 +95,7 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 	ctx["password_reset_path"] = paths.PasswordResetPath
 	ctx["password_reset_confirm_path"] = paths.PasswordResetConfirmPath
 	ctx["register_path"] = paths.RegisterPath
+	ctx["login_logo_placement"] = string(admin.NormalizeLoginLogoPlacement(cfg.LoginLogoPlacement))
 	return withExternalAssetViewContext(ctx, cfg)
 }
 

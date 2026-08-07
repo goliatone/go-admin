@@ -222,6 +222,7 @@ The two quickstart option families have different owners:
 | `WithTheme(name, variant)` | `AdminConfigOption` | Sets default selector values. |
 | `WithThemeTokens(tokens)` | `AdminConfigOption` | Merges config tokens and final token overrides. |
 | `WithThemeAssetURLs(assets)` | `AdminConfigOption` | Adds final resolved URL/path overrides after provider resolution. |
+| `WithLoginLogoPlacement(placement)` | `AdminConfigOption` | Changes login composition while leaving theme asset selection unchanged. |
 | `WithThemeAssetPrefix(prefix)` | `AdminConfigOption` | Adds the final config-level asset prefix. |
 | `WithThemeRegistry(registry)` | `ThemeOption` | Reuses a registry for `NewThemeSelector`. |
 | `WithThemeManifest(manifest)` | `ThemeOption` | Replaces the generated manifest. |
@@ -361,6 +362,26 @@ viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
 ```
 
 For custom module views that do not need query overrides, use `admin.EnrichLayoutViewContext(...)`.
+
+Login composition is a typed presentation setting rather than a theme token.
+Set `admin.Config.LoginLogoPlacement` to
+`admin.LoginLogoPlacementInsideCard` to render the resolved theme logo/icon at
+the top of the login card. The default,
+`admin.LoginLogoPlacementOutsideCard`, preserves the existing composition.
+Quickstart callers can use:
+
+```go
+cfg := quickstart.NewAdminConfig(
+	"/admin",
+	"Admin",
+	"en",
+	quickstart.WithLoginLogoPlacement(admin.LoginLogoPlacementInsideCard),
+)
+```
+
+This setting changes placement only. Asset selection still follows the theme
+`icon` -> `logo` -> bundled fallback chain, so hosts do not need to override
+the login template to move the mark.
 
 ## Template And Asset Ownership
 

@@ -44,6 +44,7 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 		WithTheme("custom", "dark"),
 		WithThemeTokens(map[string]string{"primary": "#000000"}),
 		WithThemeAssetURLs(map[string]string{"logo": "/brand/logo.svg", "icon": "/brand/icon.svg"}),
+		WithLoginLogoPlacement(admin.LoginLogoPlacementInsideCard),
 		WithNavMenuCode("custom_menu"),
 		WithNavPermissionDeniedMode(admin.NavigationPermissionDeniedModeDisable),
 	)
@@ -68,6 +69,16 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 	}
 	if cfg.ThemeAssets["logo"] != "/brand/logo.svg" || cfg.ThemeAssets["icon"] != "/brand/icon.svg" {
 		t.Fatalf("expected theme asset URL overrides, got %+v", cfg.ThemeAssets)
+	}
+	if cfg.LoginLogoPlacement != admin.LoginLogoPlacementInsideCard {
+		t.Fatalf("expected inside-card login logo placement, got %q", cfg.LoginLogoPlacement)
+	}
+}
+
+func TestWithLoginLogoPlacementNormalizesUnknownValues(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en", WithLoginLogoPlacement("unknown"))
+	if cfg.LoginLogoPlacement != admin.LoginLogoPlacementOutsideCard {
+		t.Fatalf("expected unknown placement to normalize to outside-card, got %q", cfg.LoginLogoPlacement)
 	}
 }
 

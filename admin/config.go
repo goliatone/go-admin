@@ -19,6 +19,16 @@ const (
 	SidebarCollapsePlacementFooter SidebarCollapsePlacement = "footer"
 )
 
+// LoginLogoPlacement controls whether the login identity mark renders above
+// the card or inside it. The empty value preserves the legacy outside-card
+// composition.
+type LoginLogoPlacement string
+
+const (
+	LoginLogoPlacementOutsideCard LoginLogoPlacement = "outside-card"
+	LoginLogoPlacementInsideCard  LoginLogoPlacement = "inside-card"
+)
+
 // DefaultModuleID identifies a module registered automatically by Admin.
 type DefaultModuleID string
 
@@ -41,6 +51,17 @@ func NormalizeSidebarCollapsePlacement(value SidebarCollapsePlacement) SidebarCo
 		return SidebarCollapsePlacementFooter
 	default:
 		return SidebarCollapsePlacementHeader
+	}
+}
+
+// NormalizeLoginLogoPlacement returns a supported login logo placement while
+// preserving the legacy outside-card composition for empty/unknown input.
+func NormalizeLoginLogoPlacement(value LoginLogoPlacement) LoginLogoPlacement {
+	switch LoginLogoPlacement(strings.ToLower(strings.TrimSpace(string(value)))) {
+	case LoginLogoPlacementInsideCard:
+		return LoginLogoPlacementInsideCard
+	default:
+		return LoginLogoPlacementOutsideCard
 	}
 }
 
@@ -74,6 +95,11 @@ type Config struct {
 	FaviconURL string `json:"favicon_url"`
 	CustomCSS  string `json:"custom_css"`
 	CustomJS   string `json:"custom_js"`
+
+	// LoginLogoPlacement changes only the login page composition. The selected
+	// theme continues to own the logo/icon assets. Empty defaults to
+	// "outside-card" for backward compatibility.
+	LoginLogoPlacement LoginLogoPlacement `json:"login_logo_placement,omitempty"`
 
 	// SidebarHideSearch removes the sidebar search slot from the admin shell.
 	// It defaults to false so existing consumers keep the search field; set it

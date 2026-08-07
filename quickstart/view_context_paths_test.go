@@ -29,6 +29,26 @@ func TestPathViewContextDefaults(t *testing.T) {
 	}
 }
 
+func TestWithAuthUIViewContextIncludesNormalizedLoginLogoPlacement(t *testing.T) {
+	for name, tc := range map[string]struct {
+		placement admin.LoginLogoPlacement
+		want      string
+	}{
+		"inside":  {placement: admin.LoginLogoPlacementInsideCard, want: "inside-card"},
+		"invalid": {placement: "unknown", want: "outside-card"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := WithAuthUIViewContext(nil, admin.Config{
+				BasePath:           "/admin",
+				LoginLogoPlacement: tc.placement,
+			}, AuthUIState{}, AuthUIPaths{})
+			if got := ctx["login_logo_placement"]; got != tc.want {
+				t.Fatalf("login_logo_placement = %v, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestPathViewContextUsesURLResolver(t *testing.T) {
 	cfg := admin.Config{BasePath: "/admin"}
 	cfg.URLs.Admin.APIPrefix = "api"
@@ -119,6 +139,9 @@ func TestWithAuthUIViewContextIncludesAssetBasePath(t *testing.T) {
 	})
 	if got := ctx["asset_base_path"]; got != "/admin" {
 		t.Fatalf("expected asset_base_path /admin, got %v", got)
+	}
+	if got := ctx["login_logo_placement"]; got != "outside-card" {
+		t.Fatalf("expected outside-card login logo placement, got %v", got)
 	}
 	externalAssets, ok := ctx["external_assets"].(map[string]string)
 	if !ok {
