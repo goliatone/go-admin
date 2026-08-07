@@ -175,18 +175,26 @@ func TestRenderCacheRegisteredDeliveryGenerationPreflightFailurePolicy(t *testin
 			}
 			server.Init()
 
-			request := httptest.NewRequest(http.MethodGet, "/about", nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/about", nil)
 			request.Header.Set("Accept", "text/html")
 			response, err := server.WrappedRouter().Test(request, -1)
 			if err != nil {
 				t.Fatalf("request: %v", err)
 			}
-			defer response.Body.Close()
+			defer func() {
+				if closeErr := response.Body.Close(); closeErr != nil {
+					t.Errorf("close response body: %v", closeErr)
+				}
+			}()
+			body, readErr := io.ReadAll(response.Body)
+			if readErr != nil {
+				t.Fatalf("read response body: %v", readErr)
+			}
 			if response.StatusCode != test.wantStatus || response.Header.Get("X-Site-Render-Cache-Reason") != test.wantReason {
 				t.Fatalf("response status=%d reason=%q headers=%v", response.StatusCode, response.Header.Get("X-Site-Render-Cache-Reason"), response.Header)
 			}
 			if views.calls != test.wantRenders || renderer.calls != 0 || len(store.items) != 0 {
-				t.Fatalf("handler renders=%d want=%d cache renderer calls=%d cache entries=%d", views.calls, test.wantRenders, renderer.calls, len(store.items))
+				t.Fatalf("handler renders=%d want=%d cache renderer calls=%d cache entries=%d body=%q", views.calls, test.wantRenders, renderer.calls, len(store.items), body)
 			}
 		})
 	}
@@ -924,7 +932,7 @@ func TestRenderCacheRouterCaptureFiberWithoutOverride(t *testing.T) {
 		}, RenderCachePolicy{Enabled: true})
 		return fc.SendStatus(http.StatusNoContent)
 	})
-	resp, err := app.Test(httptestRequest(http.MethodGet, "/about"))
+	resp, err := app.Test(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/about", nil))
 	if err != nil {
 		t.Fatalf("fiber request failed: %v", err)
 	}

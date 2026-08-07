@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -17,6 +17,7 @@ import (
 const (
 	maxRenderCacheHandlerSurfaceBytes   = 64
 	maxRenderCacheHandlerCanonicalBytes = 16 * 1024
+	maxRenderCacheConcurrentFillKeys    = 1024
 )
 
 const renderCacheHandlerTagsLocalsKey contextKey = "quickstart.site.render_cache_handler_tags"
@@ -31,8 +32,12 @@ type RenderCacheHandlerDecision struct {
 	CanonicalQuery   string
 	FreshTTLOverride time.Duration
 	DisableStale     bool
-	FenceScope       string
-	RequireFence     bool
+	// FenceScopes participates in the representation identity and is re-read
+	// before a captured miss is stored. FenceScope remains the compatible
+	// single-scope alias and is merged into this bounded set.
+	FenceScopes  []string
+	FenceScope   string
+	RequireFence bool
 	// AllowProcessLocalFence is intended only for explicit single-process
 	// development and tests. Production hosts should leave it false.
 	AllowProcessLocalFence bool
@@ -43,8 +48,9 @@ type RenderCacheHandlerDecision struct {
 // Decide must be cheap and deterministic. ResolveTags runs only after a safe
 // GET miss has executed and may inspect request locals populated by the handler.
 type RenderCacheHandlerOptions struct {
-	Decide      func(router.Context) (RenderCacheHandlerDecision, error)
-	ResolveTags func(router.Context) ([]string, error)
+	Decide             func(router.Context) (RenderCacheHandlerDecision, error)
+	ResolveTags        func(router.Context) ([]string, error)
+	ObservationSurface func(router.Context) string
 }
 
 type renderCacheHandlerExecutor struct {
@@ -52,6 +58,7 @@ type renderCacheHandlerExecutor struct {
 	handler      router.HandlerFunc
 	options      RenderCacheHandlerOptions
 	revalidation renderCacheRevalidationGroup
+	fills        renderCacheFillGroup
 }
 
 // SetRenderCacheHandlerTags publishes bounded response dependencies from a
@@ -100,6 +107,9 @@ func WrapRenderCacheHandler(runtime *RenderCacheRuntime, handler router.HandlerF
 func (e *renderCacheHandlerExecutor) handle(c router.Context) (returnErr error) {
 	policy, store, observers := renderCacheHandlerRuntimeConfig(e.runtime)
 	tracker := installRenderCacheRequestTracker(c, observers)
+	if tracker != nil && e.options.ObservationSurface != nil {
+		tracker.setSurface(e.options.ObservationSurface(c))
+	}
 	defer func() {
 		if tracker != nil {
 			tracker.complete(returnErr)
@@ -122,54 +132,57 @@ func renderCacheHandlerRuntimeConfig(runtime *RenderCacheRuntime) (RenderCachePo
 }
 
 func (e *renderCacheHandlerExecutor) execute(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore) error {
-	decision, generation, key, handled, prepareErr := e.prepare(c, tracker, policy, store)
+	decision, generations, key, handled, prepareErr := e.prepare(c, tracker, policy, store)
 	if handled {
 		return prepareErr
 	}
-	return e.lookup(c, tracker, policy, store, decision, generation, key)
+	return e.lookup(c, tracker, policy, store, decision, generations, key)
 }
 
-func (e *renderCacheHandlerExecutor) prepare(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore) (RenderCacheHandlerDecision, uint64, string, bool, error) {
+func (e *renderCacheHandlerExecutor) prepare(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore) (RenderCacheHandlerDecision, renderCacheGenerationSnapshot, string, bool, error) {
 	if configDecision := renderCacheConfigDecision(renderCacheConfig{store: store, policy: policy}, policy); !configDecision.Cacheable {
-		if policy.FailClosed && renderCacheFatalConfigReason(configDecision.Reason) {
-			return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, configDecision.Reason, errors.New(configDecision.Reason))
+		if policy.FailClosed && renderCacheFailClosedPreflightReason(configDecision.Reason) {
+			return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, configDecision.Reason, errors.New(configDecision.Reason))
 		}
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, configDecision.Reason)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, configDecision.Reason)
 	}
 	if requestDecision := renderCacheRequestDecision(c, policy); !requestDecision.Cacheable {
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, requestDecision.Reason)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, requestDecision.Reason)
 	}
 	if renderCacheHandlerPreviewTokenPresent(c) {
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, renderCacheReasonPreview)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, renderCacheReasonPreview)
 	}
 	if e.options.Decide == nil {
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, renderCacheReasonHandlerDecision)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, renderCacheReasonHandlerDecision)
 	}
 
 	decision, decisionErr := e.options.Decide(c)
 	if decisionErr != nil {
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonHandlerDecisionError, decisionErr)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonHandlerDecisionError, decisionErr)
+	}
+	if tracker != nil && strings.TrimSpace(decision.Surface) != "" {
+		tracker.setSurface(decision.Surface)
 	}
 	if !decision.Cacheable {
 		reason := renderCacheHandlerDecisionReason(decision, policy)
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, reason)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, reason)
 	}
 	if stateDecision := renderCacheStateDecision(c, decision.State, policy); !stateDecision.Cacheable {
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, stateDecision.Reason)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerBypass(c, e.handler, tracker, policy, stateDecision.Reason)
 	}
 	if validationErr := validateRenderCacheHandlerDecision(decision); validationErr != nil {
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonHandlerDecisionError, validationErr)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonHandlerDecisionError, validationErr)
 	}
 
-	generation, fenceErr := e.readRequiredGeneration(c, decision)
+	generations, fenceErr := e.readRequiredGenerations(c, decision)
 	if fenceErr != nil {
 		reason := renderCacheReasonFenceReadError
 		if errors.Is(fenceErr, ErrRenderCacheGenerationUnavailable) {
 			reason = renderCacheReasonFenceUnavailable
 		}
-		return RenderCacheHandlerDecision{}, 0, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, reason, fenceErr)
+		return RenderCacheHandlerDecision{}, nil, "", true, renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, reason, fenceErr)
 	}
-	return decision, generation, buildRenderCacheHandlerKey(policy, decision, generation), false, nil
+	return decision, generations, buildRenderCacheHandlerKey(policy, decision, generations), false, nil
 }
 
 func renderCacheHandlerDecisionReason(decision RenderCacheHandlerDecision, policy RenderCachePolicy) string {
@@ -180,17 +193,24 @@ func renderCacheHandlerDecisionReason(decision RenderCacheHandlerDecision, polic
 	return reason
 }
 
-func (e *renderCacheHandlerExecutor) readRequiredGeneration(c router.Context, decision RenderCacheHandlerDecision) (uint64, error) {
+func (e *renderCacheHandlerExecutor) readRequiredGenerations(c router.Context, decision RenderCacheHandlerDecision) (renderCacheGenerationSnapshot, error) {
 	if !decision.RequireFence {
-		return 0, nil
+		return nil, nil
 	}
-	if e.runtime == nil || e.runtime.Generations == nil || (!e.runtime.Generations.Shared() && !decision.AllowProcessLocalFence) {
-		return 0, ErrRenderCacheGenerationUnavailable
+	if e.runtime == nil || e.runtime.Generations == nil {
+		return nil, ErrRenderCacheGenerationUnavailable
 	}
-	return ReadRenderCacheGeneration(RequestContext(c), e.runtime, decision.FenceScope)
+	if !e.runtime.Generations.Shared() {
+		runtimeAllowsProcessLocal := e.runtime.Config.AllowProcessLocalFence &&
+			strings.EqualFold(strings.TrimSpace(e.runtime.Config.Backend), RenderCacheBackendMemory)
+		if !decision.AllowProcessLocalFence || !runtimeAllowsProcessLocal {
+			return nil, ErrRenderCacheGenerationUnavailable
+		}
+	}
+	return readRenderCacheGenerationSnapshot(RequestContext(c), e.runtime, renderCacheHandlerFenceScopes(decision))
 }
 
-func (e *renderCacheHandlerExecutor) lookup(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generation uint64, key string) error {
+func (e *renderCacheHandlerExecutor) lookup(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generations renderCacheGenerationSnapshot, key string) error {
 	tracker.evaluate(true, "")
 	response, hit, getErr := store.Get(RequestContext(c), key)
 	if getErr != nil {
@@ -202,7 +222,7 @@ func (e *renderCacheHandlerExecutor) lookup(c router.Context, tracker *renderCac
 			return hitErr
 		}
 	}
-	return e.executeMiss(c, tracker, policy, store, decision, generation, key)
+	return e.executeMiss(c, tracker, policy, store, decision, generations, key)
 }
 
 func (e *renderCacheHandlerExecutor) handleHit(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, key string, response RenderedSiteResponse) (bool, error) {
@@ -250,11 +270,27 @@ func renderCacheHandlerRenewalFailure(c router.Context, tracker *renderCacheRequ
 	return replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
 }
 
-func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generation uint64, key string) error {
+func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generations renderCacheGenerationSnapshot, key string) error {
 	writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusMiss, "", key)
 	if renderCacheMethodIsHead(c) {
 		return renderCacheHandlerHeadMiss(c, e.handler, policy)
 	}
+	leader, fillDone := e.fills.begin(key)
+	if !leader {
+		select {
+		case <-fillDone:
+			// Re-run the decision and lookup so a fence change while waiting
+			// derives the new representation key before another fill begins.
+			return e.execute(c, tracker, policy, store)
+		case <-RequestContext(c).Done():
+			return RequestContext(c).Err()
+		}
+	}
+	defer e.fills.done(key, fillDone)
+	return e.executeMissLeader(c, tracker, policy, store, decision, generations, key)
+}
+
+func (e *renderCacheHandlerExecutor) executeMissLeader(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generations renderCacheGenerationSnapshot, key string) error {
 
 	captured, captureErr := router.CaptureResponse(c, policy.MaxCaptureBodySize, e.handler)
 	if captureErr != nil {
@@ -281,11 +317,11 @@ func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *rend
 		return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, reason)
 	}
 
-	currentGeneration, fenceErr := e.readRequiredGeneration(c, decision)
+	currentGenerations, fenceErr := e.readRequiredGenerations(c, decision)
 	if fenceErr != nil {
 		return renderCacheHandlerPostExecutionFailure(c, captured, tracker, policy, key, renderCacheReasonFenceReadError, fenceErr)
 	}
-	if currentGeneration != generation {
+	if !renderCacheGenerationSnapshotsEqual(currentGenerations, generations) {
 		return replayUncachedRenderCacheHandlerResponse(c, captured, policy, key, renderCacheReasonFenceChanged)
 	}
 	if setErr := store.Set(RequestContext(c), key, cached, renderCacheStoreTTL(policy)); setErr != nil {
@@ -300,6 +336,46 @@ func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *rend
 	replayErr := router.ReplayCapturedResponse(c, captured)
 	finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", replayErr)
 	return replayErr
+}
+
+type renderCacheFillGroup struct {
+	mu       sync.Mutex
+	inFlight map[string]chan struct{}
+}
+
+func (g *renderCacheFillGroup) begin(key string) (bool, <-chan struct{}) {
+	key = strings.TrimSpace(key)
+	if g == nil || key == "" {
+		return true, nil
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.inFlight == nil {
+		g.inFlight = map[string]chan struct{}{}
+	}
+	if done, ok := g.inFlight[key]; ok {
+		return false, done
+	}
+	if len(g.inFlight) >= maxRenderCacheConcurrentFillKeys {
+		return true, nil
+	}
+	done := make(chan struct{})
+	g.inFlight[key] = done
+	return true, done
+}
+
+func (g *renderCacheFillGroup) done(key string, owned <-chan struct{}) {
+	key = strings.TrimSpace(key)
+	if g == nil || key == "" || owned == nil {
+		return
+	}
+	g.mu.Lock()
+	done, ok := g.inFlight[key]
+	if ok && done == owned {
+		delete(g.inFlight, key)
+		close(done)
+	}
+	g.mu.Unlock()
 }
 
 func renderCacheHandlerHeadMiss(c router.Context, handler router.HandlerFunc, policy RenderCachePolicy) error {
@@ -398,14 +474,22 @@ func validateRenderCacheHandlerDecision(decision RenderCacheHandlerDecision) err
 		return fmt.Errorf("render cache handler fresh ttl override must not be negative")
 	}
 	if decision.RequireFence {
-		if _, err := normalizeRenderCacheGenerationScope(decision.FenceScope); err != nil {
+		if _, err := normalizeRenderCacheGenerationScopes(renderCacheHandlerFenceScopes(decision)...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func buildRenderCacheHandlerKey(policy RenderCachePolicy, decision RenderCacheHandlerDecision, generation uint64) string {
+func renderCacheHandlerFenceScopes(decision RenderCacheHandlerDecision) []string {
+	scopes := append([]string(nil), decision.FenceScopes...)
+	if strings.TrimSpace(decision.FenceScope) != "" {
+		scopes = append(scopes, decision.FenceScope)
+	}
+	return scopes
+}
+
+func buildRenderCacheHandlerKey(policy RenderCachePolicy, decision RenderCacheHandlerDecision, generations renderCacheGenerationSnapshot) string {
 	policy = normalizeRenderCachePolicy(policy)
 	payload := strings.Join([]string{
 		"surface=" + strings.TrimSpace(decision.Surface),
@@ -420,7 +504,7 @@ func buildRenderCacheHandlerKey(policy RenderCachePolicy, decision RenderCacheHa
 		"version=" + policy.RenderVersion,
 		"surface=" + strings.TrimSpace(decision.Surface),
 		"canonical=" + HashRenderCacheCanonicalData([]byte(payload)),
-		"generation=" + strconv.FormatUint(generation, 10),
+		"generations=" + hashRenderCacheGenerationSnapshot(generations),
 	}
 	for index, part := range parts {
 		key, value, _ := strings.Cut(part, "=")

@@ -536,6 +536,26 @@ func TestRenderCacheHandlerRequiresExplicitProcessLocalFence(t *testing.T) {
 	}
 }
 
+func TestRenderCacheHandlerRequiresRuntimeProcessLocalFenceAuthorization(t *testing.T) {
+	store := newTestRenderCacheStore()
+	runtime := testRenderCacheHandlerRuntime(store)
+	runtime.Config.AllowProcessLocalFence = false
+	calls := 0
+	wrapped := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+		calls++
+		c.SetHeader("Content-Type", "text/html; charset=utf-8")
+		return c.SendString("<html>archive</html>")
+	}, testRenderCacheHandlerOptions("archive", "/events/event-1"))
+
+	response := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	if response.Code != http.StatusOK || calls != 1 || len(store.items) != 0 {
+		t.Fatalf("unauthorized runtime fence response=%d calls=%d items=%d", response.Code, calls, len(store.items))
+	}
+	if reason := response.Header().Get("X-Site-Render-Cache-Reason"); reason != renderCacheReasonFenceUnavailable {
+		t.Fatalf("runtime fence-unavailable reason=%q", reason)
+	}
+}
+
 func TestRenderCacheHandlerRequiredTagFailureQuarantinesEntryWhenDeleteFails(t *testing.T) {
 	tagErr := errors.New("tag index unavailable")
 	deleteErr := errors.New("delete unavailable")
@@ -602,6 +622,11 @@ func TestMemoryRenderCacheGenerationStore(t *testing.T) {
 
 func testRenderCacheHandlerRuntime(store RenderCacheStore, observers ...RenderCacheRequestObserver) *RenderCacheRuntime {
 	return &RenderCacheRuntime{
+		Config: RenderCacheConfig{
+			Enabled:                true,
+			Backend:                RenderCacheBackendMemory,
+			AllowProcessLocalFence: true,
+		},
 		Store:       store,
 		Generations: newMemoryRenderCacheGenerationStore(),
 		Policy: normalizeRenderCachePolicy(RenderCachePolicy{

@@ -36,6 +36,7 @@ const (
 // diagnostics. It deliberately excludes paths, queries, keys, cookies, headers,
 // bodies, and content identifiers.
 type RenderCacheRequestObservation struct {
+	Surface string                    `json:"surface"`
 	Phase   RenderCacheRequestPhase   `json:"phase"`
 	Outcome RenderCacheRequestOutcome `json:"outcome"`
 	Reason  string                    `json:"reason,omitempty"`
@@ -60,6 +61,7 @@ type renderCacheRequestTracker struct {
 	terminal         bool
 	evaluationReason string
 	fallbackReason   string
+	surface          string
 }
 
 func newRenderCacheRequestTracker(ctx context.Context, observers []RenderCacheRequestObserver) *renderCacheRequestTracker {
@@ -138,6 +140,7 @@ func (t *renderCacheRequestTracker) evaluate(cacheable bool, reason string) {
 	t.mu.Unlock()
 
 	observeRenderCacheRequest(t.ctx, t.observers, RenderCacheRequestObservation{
+		Surface: t.observationSurface(),
 		Phase:   RenderCacheRequestPhaseEvaluated,
 		Outcome: outcome,
 		Reason:  reason,
@@ -145,6 +148,27 @@ func (t *renderCacheRequestTracker) evaluate(cacheable bool, reason string) {
 	if !cacheable {
 		t.finish(RenderCacheRequestOutcomeBypassed, reason)
 	}
+}
+
+func (t *renderCacheRequestTracker) setSurface(surface string) {
+	if t == nil {
+		return
+	}
+	surface = normalizeRenderCacheObservationSurface(surface)
+	t.mu.Lock()
+	if !t.evaluated {
+		t.surface = surface
+	}
+	t.mu.Unlock()
+}
+
+func (t *renderCacheRequestTracker) observationSurface() string {
+	if t == nil {
+		return renderCacheObservationSurfaceUnknown
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return normalizeRenderCacheObservationSurface(t.surface)
 }
 
 func (t *renderCacheRequestTracker) setFallbackReason(reason string) {
@@ -179,10 +203,30 @@ func (t *renderCacheRequestTracker) finish(outcome RenderCacheRequestOutcome, re
 	t.mu.Unlock()
 
 	observeRenderCacheRequest(t.ctx, t.observers, RenderCacheRequestObservation{
+		Surface: t.observationSurface(),
 		Phase:   RenderCacheRequestPhaseTerminal,
 		Outcome: outcome,
 		Reason:  reason,
 	})
+}
+
+const (
+	RenderCacheObservationSurfaceGeneric  = "generic"
+	renderCacheObservationSurfaceUnknown  = "unknown"
+	renderCacheObservationSurfaceMaxBytes = 64
+)
+
+func normalizeRenderCacheObservationSurface(surface string) string {
+	surface = strings.ToLower(strings.TrimSpace(surface))
+	if surface == "" || len(surface) > renderCacheObservationSurfaceMaxBytes {
+		return renderCacheObservationSurfaceUnknown
+	}
+	for _, char := range surface {
+		if (char < 'a' || char > 'z') && (char < '0' || char > '9') && char != '_' {
+			return renderCacheObservationSurfaceUnknown
+		}
+	}
+	return surface
 }
 
 func (t *renderCacheRequestTracker) complete(err error) {

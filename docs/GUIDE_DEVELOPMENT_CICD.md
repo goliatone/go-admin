@@ -252,6 +252,62 @@ Writes or refreshes `ops/quality/baselines/gosec.txt`.
 Use baselines deliberately. Refresh them only after intentional cleanup or
 when you are formally accepting the current backlog.
 
+### 6.4 Release commands and prerequisites
+
+The coordinated release publishes the root module, quickstart module, and
+browser client at one version. Because `./taskfile release` creates a release
+commit, creates both module tags, pushes them atomically, and publishes browser
+assets, run it only when you intend to publish.
+
+Browser-client release preflight requires:
+
+- Node `>=22.12.0`
+- npm `>=11.17.0`
+- `tar`
+- an authenticated GitHub CLI (`gh auth status` must succeed)
+
+Before releasing, run the release regression suite and the normal quality gate:
+
+```bash
+./taskfile release:test
+./taskfile go:quality:all
+```
+
+For release-specific migration or operator guidance, write the final text to
+the ignored `.release-notes.md` file. The release task includes non-empty
+content verbatim in `CHANGELOG.md` and removes the scratch file after git-cliff
+writes the changelog. Another untracked path can be selected with
+`RELEASE_NOTES_FILE=path` or `--notes path`.
+
+Publish with one of:
+
+```bash
+./taskfile release patch
+./taskfile release minor
+./taskfile release major
+```
+
+Preflight rejects tracked working-tree changes, ignores untracked files, pulls
+with fast-forward-only semantics, and requires the latest `vX.Y.Z` and
+`quickstart/vX.Y.Z` tags to identify the same version and commit. Release
+preparation tests the publishable root and quickstart graph with workspace mode
+disabled, advances examples development metadata, and assigns the same version
+to `@goliatone/go-admin-client`.
+
+Failures before a successful atomic push restore version, changelog, module
+metadata, the index, temporary notes, release commit, and local tags. If
+automatic restoration is incomplete, the command prints and preserves the
+recovery snapshot path. If tags were pushed but GitHub asset publication failed,
+the release remains published; retry only asset publication with:
+
+```bash
+./taskfile release:client:publish vX.Y.Z
+```
+
+The recovery publisher exports the requested tag and refuses publication when
+the root and quickstart tags are not aligned. See
+`browser-client-compatibility.md` for the consumer version contract.
+
 ## 7. How to Interpret Lint Findings
 
 The current lint config is intentionally pragmatic. It targets maintainability

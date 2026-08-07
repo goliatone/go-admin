@@ -21,6 +21,7 @@ type renderCacheKeyInput struct {
 	State       RequestState
 	RequestPath string
 	Query       url.Values
+	Generations renderCacheGenerationSnapshot
 }
 
 func buildRenderCacheKey(input renderCacheKeyInput) string {
@@ -44,6 +45,7 @@ func buildRenderCacheKey(input renderCacheKeyInput) string {
 		"query=" + query,
 		"channel=" + strings.TrimSpace(state.ContentChannel),
 		"version=" + policy.RenderVersion,
+		"generations=" + hashRenderCacheGenerationSnapshot(input.Generations),
 	}
 	for i, part := range parts {
 		kv := strings.SplitN(part, "=", 2)

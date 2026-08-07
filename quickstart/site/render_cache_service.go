@@ -34,6 +34,7 @@ const (
 	renderCacheDebugKeysCap       = 100
 	renderCacheDebugErrorsCap     = 50
 	renderCacheDebugReasonsCap    = 32
+	renderCacheDebugSurfacesCap   = 16
 )
 
 var (
@@ -46,20 +47,29 @@ var (
 	defaultRenderCacheValkeyDialKeepAlive = 30 * time.Second
 )
 
+// ErrRenderCacheProcessLocalFenceRequired identifies an enabled memory-backed
+// public HTML cache that was not explicitly authorized for single-process
+// development or test use.
+var ErrRenderCacheProcessLocalFenceRequired = errors.New("site render cache memory backend requires explicit process-local fence authorization")
+
 type RenderCacheConfig struct {
-	Enabled            bool
-	Backend            string
-	FreshTTL           time.Duration
-	StaleTTL           time.Duration
-	ExpirationMode     RenderCacheExpirationMode
-	RenderVersion      string
-	Namespace          string
-	DebugHeaders       bool
-	DebugKeys          bool
-	FailClosed         bool
-	RequireTagIndex    bool
-	MaxCaptureBodySize int64
-	Valkey             RenderCacheValkeyConfig
+	Enabled bool
+	Backend string
+	// AllowProcessLocalFence explicitly authorizes a process-local generation
+	// store for single-process development and tests. Hosts must leave this false
+	// whenever more than one serving instance can handle public requests.
+	AllowProcessLocalFence bool
+	FreshTTL               time.Duration
+	StaleTTL               time.Duration
+	ExpirationMode         RenderCacheExpirationMode
+	RenderVersion          string
+	Namespace              string
+	DebugHeaders           bool
+	DebugKeys              bool
+	FailClosed             bool
+	RequireTagIndex        bool
+	MaxCaptureBodySize     int64
+	Valkey                 RenderCacheValkeyConfig
 }
 
 type RenderCacheValkeyConfig struct {
@@ -215,6 +225,16 @@ func NewRenderCacheRuntime(ctx context.Context, cfg RenderCacheConfig, policy Re
 	}
 	if !cfg.Enabled {
 		return runtime, nil
+	}
+	if cfg.Backend == RenderCacheBackendMemory && !cfg.AllowProcessLocalFence {
+		err := &renderCacheInvalidConfigError{
+			field: "site.render_cache.allow_process_local_fence",
+			err:   ErrRenderCacheProcessLocalFenceRequired,
+		}
+		diagnostic.Error = sanitizeRenderCacheStartupError(cfg, err)
+		diagnostic.ErrorKind = "invalid_configuration"
+		runtime.Diagnostic = diagnostic
+		return runtime, err
 	}
 	store, generations, err := buildRenderCacheStore(cfg)
 	if err != nil {
@@ -479,6 +499,24 @@ type RenderCacheDebugCounters struct {
 // decisions. It is separate from RenderCacheDebugCounters because bypassed
 // requests intentionally perform no backend operation.
 type RenderCacheDebugRequestCounters struct {
+	Evaluated        int64                                      `json:"evaluated"`
+	Eligible         int64                                      `json:"eligible"`
+	Bypassed         int64                                      `json:"bypassed"`
+	Terminal         int64                                      `json:"terminal"`
+	ServedHits       int64                                      `json:"served_hits"`
+	ServedStale      int64                                      `json:"served_stale"`
+	StoredResponses  int64                                      `json:"stored_responses"`
+	RenderedUncached int64                                      `json:"rendered_uncached"`
+	Failed           int64                                      `json:"failed"`
+	BypassReasons    map[string]int64                           `json:"bypass_reasons"`
+	ReasonCounts     map[string]int64                           `json:"reason_counts"`
+	Surfaces         map[string]RenderCacheDebugSurfaceCounters `json:"surfaces"`
+}
+
+// RenderCacheDebugSurfaceCounters contains the same request lifecycle totals
+// for one bounded static surface. Backend operation totals intentionally remain
+// in RenderCacheDebugCounters rather than being inferred from these values.
+type RenderCacheDebugSurfaceCounters struct {
 	Evaluated        int64            `json:"evaluated"`
 	Eligible         int64            `json:"eligible"`
 	Bypassed         int64            `json:"bypassed"`
@@ -633,6 +671,7 @@ func NewRenderCacheDebugObserver(store RenderCacheStore, cfg RenderCacheConfig) 
 		requestCounters: RenderCacheDebugRequestCounters{
 			BypassReasons: map[string]int64{renderCacheReasonHostBypass: 0},
 			ReasonCounts:  map[string]int64{renderCacheReasonHostBypass: 0},
+			Surfaces:      map[string]RenderCacheDebugSurfaceCounters{renderCacheObservationSurfaceUnknown: {}},
 		},
 		observedKeyIndex: map[string]int{},
 	}
@@ -650,38 +689,117 @@ func (s *RenderCacheDebugObserver) ObserveRenderCacheRequest(_ context.Context, 
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.requestCounters.BypassReasons == nil {
-		s.requestCounters.BypassReasons = map[string]int64{}
-	}
-	if s.requestCounters.ReasonCounts == nil {
-		s.requestCounters.ReasonCounts = map[string]int64{}
-	}
+	ensureRenderCacheDebugRequestCounterMaps(&s.requestCounters)
 	reason := normalizeRenderCacheReasonToken(observation.Reason)
+	surface := normalizeRenderCacheObservationSurface(observation.Surface)
+	surfaceCounters := ensureRenderCacheDebugSurfaceCounterMaps(s.requestCounters.Surfaces[surface])
 	switch observation.Phase {
 	case RenderCacheRequestPhaseEvaluated:
-		s.requestCounters.Evaluated++
-		switch observation.Outcome {
-		case RenderCacheRequestOutcomeEligible:
-			s.requestCounters.Eligible++
-		case RenderCacheRequestOutcomeBypassed:
-			s.requestCounters.Bypassed++
-			incrementBoundedRenderCacheReason(s.requestCounters.BypassReasons, reason)
-		}
+		observeRenderCacheDebugEvaluation(&s.requestCounters, &surfaceCounters, observation.Outcome, reason)
 	case RenderCacheRequestPhaseTerminal:
-		s.requestCounters.Terminal++
-		switch observation.Outcome {
-		case RenderCacheRequestOutcomeHit:
-			s.requestCounters.ServedHits++
-		case RenderCacheRequestOutcomeStale:
-			s.requestCounters.ServedStale++
-		case RenderCacheRequestOutcomeStored:
-			s.requestCounters.StoredResponses++
-		case RenderCacheRequestOutcomeRenderedUncached:
-			s.requestCounters.RenderedUncached++
-		case RenderCacheRequestOutcomeFailed:
-			s.requestCounters.Failed++
-		}
-		incrementBoundedRenderCacheReason(s.requestCounters.ReasonCounts, reason)
+		observeRenderCacheDebugTerminal(&s.requestCounters, &surfaceCounters, observation.Outcome, reason)
+	}
+	s.recordRenderCacheDebugSurface(surface, surfaceCounters)
+}
+
+func ensureRenderCacheDebugRequestCounterMaps(counters *RenderCacheDebugRequestCounters) {
+	if counters.BypassReasons == nil {
+		counters.BypassReasons = map[string]int64{}
+	}
+	if counters.ReasonCounts == nil {
+		counters.ReasonCounts = map[string]int64{}
+	}
+	if counters.Surfaces == nil {
+		counters.Surfaces = map[string]RenderCacheDebugSurfaceCounters{}
+	}
+	if _, ok := counters.Surfaces[renderCacheObservationSurfaceUnknown]; !ok {
+		counters.Surfaces[renderCacheObservationSurfaceUnknown] = RenderCacheDebugSurfaceCounters{}
+	}
+}
+
+func ensureRenderCacheDebugSurfaceCounterMaps(counters RenderCacheDebugSurfaceCounters) RenderCacheDebugSurfaceCounters {
+	if counters.BypassReasons == nil {
+		counters.BypassReasons = map[string]int64{}
+	}
+	if counters.ReasonCounts == nil {
+		counters.ReasonCounts = map[string]int64{}
+	}
+	return counters
+}
+
+func observeRenderCacheDebugEvaluation(counters *RenderCacheDebugRequestCounters, surface *RenderCacheDebugSurfaceCounters, outcome RenderCacheRequestOutcome, reason string) {
+	counters.Evaluated++
+	surface.Evaluated++
+	switch outcome {
+	case RenderCacheRequestOutcomeEligible:
+		counters.Eligible++
+		surface.Eligible++
+	case RenderCacheRequestOutcomeBypassed:
+		counters.Bypassed++
+		surface.Bypassed++
+		incrementBoundedRenderCacheReason(counters.BypassReasons, reason)
+		incrementBoundedRenderCacheReason(surface.BypassReasons, reason)
+	}
+}
+
+func observeRenderCacheDebugTerminal(counters *RenderCacheDebugRequestCounters, surface *RenderCacheDebugSurfaceCounters, outcome RenderCacheRequestOutcome, reason string) {
+	counters.Terminal++
+	surface.Terminal++
+	switch outcome {
+	case RenderCacheRequestOutcomeHit:
+		counters.ServedHits++
+		surface.ServedHits++
+	case RenderCacheRequestOutcomeStale:
+		counters.ServedStale++
+		surface.ServedStale++
+	case RenderCacheRequestOutcomeStored:
+		counters.StoredResponses++
+		surface.StoredResponses++
+	case RenderCacheRequestOutcomeRenderedUncached:
+		counters.RenderedUncached++
+		surface.RenderedUncached++
+	case RenderCacheRequestOutcomeFailed:
+		counters.Failed++
+		surface.Failed++
+	}
+	incrementBoundedRenderCacheReason(counters.ReasonCounts, reason)
+	incrementBoundedRenderCacheReason(surface.ReasonCounts, reason)
+}
+
+func (s *RenderCacheDebugObserver) recordRenderCacheDebugSurface(surface string, counters RenderCacheDebugSurfaceCounters) {
+	if _, present := s.requestCounters.Surfaces[surface]; present || len(s.requestCounters.Surfaces) < renderCacheDebugSurfacesCap {
+		s.requestCounters.Surfaces[surface] = counters
+	} else {
+		unknown := s.requestCounters.Surfaces[renderCacheObservationSurfaceUnknown]
+		mergeRenderCacheDebugSurfaceCounters(&unknown, counters)
+		s.requestCounters.Surfaces[renderCacheObservationSurfaceUnknown] = unknown
+	}
+}
+
+func mergeRenderCacheDebugSurfaceCounters(target *RenderCacheDebugSurfaceCounters, source RenderCacheDebugSurfaceCounters) {
+	if target == nil {
+		return
+	}
+	target.Evaluated += source.Evaluated
+	target.Eligible += source.Eligible
+	target.Bypassed += source.Bypassed
+	target.Terminal += source.Terminal
+	target.ServedHits += source.ServedHits
+	target.ServedStale += source.ServedStale
+	target.StoredResponses += source.StoredResponses
+	target.RenderedUncached += source.RenderedUncached
+	target.Failed += source.Failed
+	if target.BypassReasons == nil {
+		target.BypassReasons = map[string]int64{}
+	}
+	if target.ReasonCounts == nil {
+		target.ReasonCounts = map[string]int64{}
+	}
+	for reason, count := range source.BypassReasons {
+		target.BypassReasons[reason] += count
+	}
+	for reason, count := range source.ReasonCounts {
+		target.ReasonCounts[reason] += count
 	}
 }
 
@@ -720,6 +838,13 @@ func cloneRenderCacheDebugRequestCounters(in RenderCacheDebugRequestCounters) Re
 	if in.ReasonCounts == nil {
 		in.ReasonCounts = map[string]int64{}
 	}
+	clonedSurfaces := make(map[string]RenderCacheDebugSurfaceCounters, len(in.Surfaces))
+	for surface, counters := range in.Surfaces {
+		counters.BypassReasons = maps.Clone(counters.BypassReasons)
+		counters.ReasonCounts = maps.Clone(counters.ReasonCounts)
+		clonedSurfaces[surface] = counters
+	}
+	in.Surfaces = clonedSurfaces
 	return in
 }
 

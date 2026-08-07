@@ -62,6 +62,8 @@ type renderCacheDecision struct {
 	RequestPath string
 	Query       url.Values
 	Reason      string
+	Cause       error
+	Generations renderCacheGenerationSnapshot
 }
 
 func (r *deliveryRuntime) renderCacheLookupDecision(c router.Context, state RequestState) renderCacheDecision {
@@ -74,11 +76,26 @@ func (r *deliveryRuntime) renderCacheLookupDecision(c router.Context, state Requ
 	}
 	requestPath := r.requestPathForResolution(c)
 	decision.RequestPath = requestPath
+	if r.renderCache.requireGenerationFence && r.renderCache.generations == nil {
+		return renderCacheDecision{Reason: renderCacheReasonFenceUnavailable, Cause: ErrRenderCacheGenerationUnavailable}
+	}
+	if r.renderCache.generations != nil {
+		if !r.renderCache.generations.Shared() && !r.renderCache.allowProcessLocalFence {
+			return renderCacheDecision{Reason: renderCacheReasonFenceUnavailable, Cause: ErrRenderCacheGenerationUnavailable}
+		}
+		runtime := &RenderCacheRuntime{Generations: r.renderCache.generations}
+		generations, err := readRenderCacheGenerationSnapshot(RequestContext(c), runtime, []string{RenderCacheSharedFenceScope})
+		if err != nil {
+			return renderCacheDecision{Reason: renderCacheReasonFenceReadError, Cause: err}
+		}
+		decision.Generations = generations
+	}
 	decision.Key = buildRenderCacheKey(renderCacheKeyInput{
 		Policy:      r.renderCache.policy,
 		State:       state,
 		RequestPath: requestPath,
 		Query:       decision.Query,
+		Generations: decision.Generations,
 	})
 	return decision
 }

@@ -115,6 +115,7 @@ container examples.
 - `NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiber.ErrorHandler` - Inputs: admin, config, dev flag + options. Outputs: Fiber error handler.
 - `WithFiberErrorMappers(mappers ...goerrors.ErrorMapper) FiberErrorHandlerOption` - Inputs: extra mappers; outputs: error handler option (appended to defaults).
 - `NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error)` - Inputs: base FS and view options. Outputs: Fiber views engine and error.
+- `RenderTemplateView(c router.Context, template string, viewCtx router.ViewContext) error` - Inputs: active router context, template name, and view context. Outputs: rendered response or error after propagating request CSRF helpers and normalizing whole-number JSON values.
 - `DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any` - Outputs: default template helpers (JSON, dict, singularize/pluralize, adminURL, widget titles, etc.).
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
@@ -1470,9 +1471,9 @@ Legacy configuration remains valid. Use `ErrorPolicy` when candidate ordering ne
 
 ## Public-site render cache
 
-`quickstart/site.WithRenderCache(store, policy)` enables anonymous rendered HTML caching for public CMS delivery routes. `quickstart/site` owns policy, keying, eligibility, response replay, and unsafe-header filtering; host apps own rollout, host-specific policy mapping, and application-specific invalidation wiring.
+`quickstart/site.NewRenderCacheRuntime(...)` plus `WithRenderCacheRuntime(...)` is the canonical setup for anonymous rendered HTML caching on public CMS delivery routes. `quickstart/site` owns backend construction for the built-in memory and Valkey modes, policy, keying, eligibility, generation fencing, response replay, and unsafe-header filtering; host apps own rollout, host-specific policy inputs, and application-specific invalidation wiring.
 
-- Use `site.NewRenderCacheRuntime(ctx, cfg, policy)` when the host wants quickstart-owned memory or Valkey store construction, startup diagnostics, diagnostic observation, and debug-panel state. Hosts that already own a custom backend can still pass it directly through `WithRenderCache`.
+- Use `site.NewRenderCacheRuntime(ctx, cfg, policy)` and carry the returned runtime through `WithRenderCacheRuntime`. This keeps the store, generation fence, policy, diagnostics, and request observers together. `WithRenderCache(store, policy)` remains available for compatible legacy integrations, but it cannot provide the complete generation-fence contract.
 - `site.RenderCacheConfig` controls backend setup (`memory` or `valkey`), debug flags, fail-open/fail-closed startup behavior, tag-index requirements, capture limits, render version, and sanitized diagnostic config. `site.RenderCachePolicy` remains the public-site eligibility and keying policy.
 - When runtime config and policy overlap, the runtime config is authoritative in the returned `RenderCacheRuntime.Policy`; use the incoming policy for host-specific eligibility inputs such as namespaces not represented in config, allowlists, auth cookie names, bypass predicates, template renderers, and stale revalidators.
 - Valkey setup supports URL parsing, address fallback, username/password, DB selection, TLS, TLS skip verify, single-client mode, and disabled client-side cache. Startup diagnostics redact URL userinfo and credential-bearing query values.
@@ -1484,14 +1485,18 @@ Legacy configuration remains valid. Use `ErrorPolicy` when candidate ordering ne
 - `RenderCachePolicy.MaxCaptureBodySize` defaults to `router.DefaultMaxCapturedBodySize`; oversized captures bypass storage and then use the normal template response path without committing a partial response.
 - Cache hits replay stored `site.RenderedSiteResponse` values through the site-owned replay path. `quickstart/site` does not store or replay raw `router.CapturedResponse` values, so safe-header filtering, `HEAD` handling, debug headers, and freshness metadata stay under site-cache policy.
 - `RenderCachePolicy.StaleTTL` enables stale-while-revalidate. Entries are stored for `FreshTTL + StaleTTL`; hits before `FreshUntil` report `hit`, hits through `StaleUntil` report `stale` and replay the stale response, and entries past `StaleUntil` are deleted and refreshed as misses. Use `RenderCachePolicy.StaleRevalidator` to schedule host-owned background regeneration without reusing a live router context. Stale revalidation is keyed per process so duplicate stale hits do not stampede one runtime, and callback panics are recovered.
-- `RenderCachePolicy.ExpirationMode` and `RenderCacheConfig.ExpirationMode` accept `site.RenderCacheExpirationFixed` or `site.RenderCacheExpirationSliding`. Empty mode is fixed, preserving existing hit-time behavior with no renewal writes. Invalid runtime values fail startup validation.
+- `RenderCachePolicy.ExpirationMode` and `RenderCacheConfig.ExpirationMode` accept `site.RenderCacheExpirationFixed` or `site.RenderCacheExpirationSliding`. Empty mode is fixed, preserving existing hit-time behavior with no renewal writes. Invalid values fail `NewRenderCacheRuntime` validation and are also rejected when a direct policy is passed to `RegisterSiteRoutes`.
 - Sliding mode renews only fresh hits. It preserves the original `CreatedAt`, moves `FreshUntil` and `StaleUntil` using the effective policy, and resets the backend TTL to `FreshTTL + StaleTTL`. GET and HEAD hits renew the shared representation; stale hits keep their original deadlines and continue through stale-while-revalidate without renewal.
 - Sliding renewal adds one backend write per fresh hit and can keep frequently accessed entries fresh indefinitely. Use it only with active mutation invalidation through tags, prefixes, render versions, or handler generation fences; fixed mode remains preferable when write amplification or natural expiry matters more.
 - Built-in memory and Valkey runtimes support sliding renewal. A direct custom store must implement `site.RenderCacheSetIfPresentStore`; fail-open policy bypasses an unsupported store, while fail-closed policy returns the configured service-unavailable response. Renewal failures are reported separately from ordinary cache writes.
 - Use `RenderCachePolicy.AuthCookieNames` for host-specific auth cookies and `RenderCachePolicy.BypassPredicates` for application-specific auth, session, tenant, cart, A/B, or personalization signals. Built-in checks already cover Authorization, admin authenticated request context, go-auth claims/actor context, and common session/JWT cookie names such as `session_id` and `jwt`.
 - `quickstart/render_cache_gocache_compat_test.go` compiles and exercises a real `github.com/goliatone/go-cache/stores/memory` store as a `site.RenderCacheStore`, including local tag API compatibility. The higher-level runtime API imports `go-cache` so hosts do not need to duplicate memory/Valkey construction.
 - Use `RenderCachePolicy.RequireTagIndex: true` only with a shared non-memory backend for production tag invalidation. With this guard enabled, memory backends bypass caching, stores must implement `site.RenderCacheBackendDescriber` with a non-memory backend kind, stores without `site.RenderCacheTagInvalidator` bypass caching, and tag attachment failures remove the just-written entry before it can be served.
-- Staging defaults: memory backend, `FreshTTL` around 30s-60s, `DebugHeaders: true`, and `DebugKeys` only in safe local/staging environments.
+- Every runtime includes a generation store. Generic public delivery automatically keys against `site.RenderCacheSharedFenceScope`, which covers shared navigation, theme, widget, and locale dependencies. Arbitrary handlers can combine that shared scope with bounded surface-specific `RenderCacheHandlerDecision.FenceScopes`. The generations are read before lookup and immediately before storage, preventing an in-flight pre-mutation render from becoming a current entry.
+- An enabled memory runtime is rejected unless `RenderCacheConfig.AllowProcessLocalFence` is explicitly true. Use that escape hatch only for a single serving process in development or tests; the decision-level `AllowProcessLocalFence` cannot override runtime authorization. Multi-instance staging and production must use a shared backend such as Valkey.
+- Concurrent cold GET misses for the same representation are coalesced within one process. Followers re-run cache eligibility, generation reads, and key construction after the leader completes. The coordinator is bounded and is not a distributed lock; cross-instance correctness comes from the shared generation fence.
+- Request snapshots aggregate bounded counters by host surface. Surface labels are normalized and bounded; request paths, queries, entity IDs, bodies, and raw keys are not added to observations.
+- Single-process development defaults: memory backend, explicit `AllowProcessLocalFence: true`, `FreshTTL` around 30s-60s, `DebugHeaders: true`, and `DebugKeys` only where key exposure is safe.
 - Production defaults: shared backend or shared render-version source, `FreshTTL` around 5m-10m, active invalidation through render-version bumps or tag/prefix-capable stores before broad rollout.
 - Static asset caching is separate from rendered HTML caching and should stay on the asset/CDN path.
 
@@ -1525,20 +1530,80 @@ if err != nil {
 if err := quicksite.RegisterRenderCacheDebugPanel(runtime); err != nil {
 	return err
 }
-quicksite.RegisterSiteRoutes(router, siteCfg, quicksite.WithRenderCache(runtime.Store, runtime.Policy))
+quicksite.RegisterSiteRoutes(router, siteCfg, quicksite.WithRenderCacheRuntime(runtime))
 ```
 
 For a process-local built-in runtime, select memory and keep fixed mode or opt into sliding explicitly:
 
 ```go
 runtime, err := quicksite.NewRenderCacheRuntime(ctx, quicksite.RenderCacheConfig{
-	Enabled:        true,
-	Backend:        quicksite.RenderCacheBackendMemory,
-	FreshTTL:       5 * time.Minute,
-	StaleTTL:       time.Minute,
-	ExpirationMode: quicksite.RenderCacheExpirationFixed,
+	Enabled:                  true,
+	Backend:                  quicksite.RenderCacheBackendMemory,
+	AllowProcessLocalFence:   true, // single-process development/tests only
+	FreshTTL:                 5 * time.Minute,
+	StaleTTL:                 time.Minute,
+	ExpirationMode:           quicksite.RenderCacheExpirationFixed,
 }, quicksite.RenderCachePolicy{})
 ```
+
+Host-owned deterministic HTML handlers use the same runtime and may combine
+the shared fence with a domain fence. Search remains bypassed by generic site
+delivery; only an explicit wrapper with normalized query material opts it in.
+
+```go
+eventHandler := quicksite.WrapRenderCacheHandler(runtime, func(c router.Context) error {
+	event, err := loadPublishedEvent(quicksite.RequestContext(c), c.Params("slug"))
+	if err != nil {
+		return err
+	}
+	quicksite.SetRenderCacheHandlerTags(c, "site:archive", "site:event:"+event.ID)
+	return c.Render("event", event)
+}, quicksite.RenderCacheHandlerOptions{
+	ObservationSurface: func(router.Context) string { return "archive_event" },
+	Decide: func(c router.Context) (quicksite.RenderCacheHandlerDecision, error) {
+		return quicksite.RenderCacheHandlerDecision{
+			Cacheable:     true,
+			Surface:       "archive_event",
+			CanonicalPath: canonicalEventPath(c.Params("slug")),
+			FenceScopes: []string{
+				quicksite.RenderCacheSharedFenceScope,
+				"site:archive",
+			},
+			RequireFence: true,
+		}, nil
+	},
+})
+router.Get("/events/:slug", eventHandler)
+```
+
+`CanonicalPath` and `CanonicalQuery` are hashed before entering the backend
+key, but hosts must still normalize them deterministically and reject unknown
+or unsafe query state. A GET miss is captured once; a hit skips the handler.
+GET and HEAD share a representation, while a HEAD-first miss is never stored.
+After an authoritative mutation commits, advance each affected generation
+before returning success, then invalidate tags to reclaim old entries:
+
+```go
+if _, err := quicksite.AdvanceRenderCacheGeneration(ctx, runtime, "site:archive"); err != nil {
+	return err
+}
+invalidator, ok := runtime.Store.(quicksite.RenderCacheTagInvalidator)
+if !ok {
+	return errors.New("site render cache does not support tag invalidation")
+}
+if err := invalidator.InvalidateTags(ctx, []string{
+	"site:archive",
+	"site:event:" + eventID,
+}); err != nil {
+	return err
+}
+```
+
+Runtime store wrappers preserve supported invalidation capabilities, so the
+type assertion above works for the built-in Valkey runtime. Advance every
+affected generation before invalidating tags. The generation change prevents
+a concurrent pre-mutation render from becoming current; tag invalidation then
+reclaims entries from older generations.
 
 A custom store used directly with sliding mode must satisfy both local contracts:
 

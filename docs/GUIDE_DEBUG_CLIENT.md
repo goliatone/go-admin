@@ -114,7 +114,8 @@ pkg/client/assets/src/debug/
         ├── routes.ts            # Routes panel
         ├── json.ts              # JSON viewer (config, session, template)
         ├── custom.ts            # Custom data panel
-        └── jserrors.ts          # JavaScript errors panel
+        ├── jserrors.ts          # JavaScript errors panel
+        └── site-render-cache.ts # Public HTML cache diagnostics
 ```
 
 ---
@@ -161,7 +162,7 @@ import { renderJSONPanel } from '{base_path}/assets/dist/debug/shared/panels/ind
 
 ## 4. Panel Registry
 
-The panel registry is a singleton that manages all debug panel definitions. Built-in panels (requests, sql, logs, jserrors, routes, config, template, session, custom) are auto-registered on module load via `builtin-panels.ts`.
+The panel registry is a singleton that manages all debug panel definitions. Built-in panels (requests, sql, logs, jserrors, routes, config, template, session, custom, commands, command runs, permissions, and `site-render-cache`) are auto-registered on module load via `builtin-panels.ts`.
 
 ### Registering a custom panel
 
@@ -305,6 +306,8 @@ import {
   renderJSONViewer,      // Standalone JSON viewer widget
   renderCustomPanel,     // Custom data + logs display
   renderJSErrorsPanel,   // JS error table with expandable stacks
+  renderSiteRenderCachePanel,        // Full public HTML cache diagnostics
+  renderSiteRenderCachePanelCompact, // Toolbar cache summary
 } from 'go-admin/debug';
 ```
 
@@ -317,6 +320,25 @@ function renderPanel(
   options?: PanelSpecificOptions
 ): string
 ```
+
+### Public HTML cache renderer
+
+The built-in `site-render-cache` definition uses snapshot key
+`site-render-cache`, has no incremental event types, and supports both console
+and toolbar contexts. The console renderer exposes the sanitized runtime
+configuration, capabilities, request-decision counters, bounded per-surface
+breakdowns, backend counters, recent operations/errors, and observed-key
+metadata. The toolbar uses the compact renderer and reports backend errors as
+the panel badge count.
+
+The renderer's Clear button emits the shared `clear-panel` interaction; the
+server decides whether the backend can clear through the app-wide tag or key
+prefix. The next snapshot is authoritative for the command outcome. Frontend
+code must not infer success from the click or try to scan backend keys itself.
+
+Keep this renderer snapshot-only. Cache request paths, queries, entity IDs, and
+bodies are deliberately absent, and raw key display is controlled by the
+server's `DebugKeys` policy.
 
 ### Declarative schema renderers
 
@@ -815,6 +837,7 @@ will pick up new panels automatically.
 | `shared/utils.ts` | `escapeHTML`, `formatTimestamp`, `formatDuration`, `formatJSON`, etc. |
 | `shared/interactions.ts` | `attachCopyListeners`, `attachExpandableRowListeners`, `copyToClipboard` |
 | `shared/panels/*.ts` | Individual panel renderers (`renderRequestsPanel`, `renderSQLPanel`, etc.) |
+| `shared/panels/site-render-cache.ts` | Console and toolbar renderers for the `site-render-cache` snapshot |
 | `toolbar/debug-manager.ts` | `DebugManager` class — connects WS, manages state, renders toolbar |
 | `toolbar/panel-renderers.ts` | `renderPanel()` dispatch and `getCounts()` for toolbar FAB |
 | `debug-panel.ts` | `<debug-panel>` custom element for full console |

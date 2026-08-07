@@ -15,7 +15,7 @@ var errRenderCacheRenewalUnsupported = errors.New("site render cache store does 
 
 func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState) (bool, renderCacheDecision, error) {
 	decision := r.renderCacheLookupDecision(c, state)
-	fatalConfig := !decision.Cacheable && r.renderCache.policy.FailClosed && renderCacheFatalConfigReason(decision.Reason)
+	fatalConfig := !decision.Cacheable && r.renderCache.policy.FailClosed && renderCacheFailClosedPreflightReason(decision.Reason)
 	observationReason := ""
 	if !decision.Cacheable {
 		observationReason = boundedRenderCacheObservationReason(decision.Reason, r.renderCache.policy)
@@ -26,7 +26,7 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	if fatalConfig {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, decision.Reason, "")
 		sendErr := c.SendStatus(http.StatusServiceUnavailable)
-		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, decision.Reason, sendErr)
+		finishRenderCacheRequest(c, RenderCacheRequestOutcomeFailed, decision.Reason, firstNonNilError(decision.Cause, sendErr))
 		return true, decision, sendErr
 	}
 	if !decision.Cacheable {
@@ -68,9 +68,12 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	}
 }
 
-func renderCacheFatalConfigReason(reason string) bool {
+func renderCacheFailClosedPreflightReason(reason string) bool {
 	switch strings.TrimSpace(reason) {
-	case renderCacheReasonExpirationMode, renderCacheReasonRenewalUnsupported:
+	case renderCacheReasonExpirationMode,
+		renderCacheReasonRenewalUnsupported,
+		renderCacheReasonFenceUnavailable,
+		renderCacheReasonFenceReadError:
 		return true
 	default:
 		return false
@@ -132,6 +135,19 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 		setRenderCacheRequestFallbackReason(c, reason)
 		return writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
 	}
+	if len(decision.Generations) > 0 {
+		current, fenceErr := r.readSharedRenderCacheGenerations(c)
+		if fenceErr != nil {
+			return r.handleRenderCacheStorageFailure(c, decision.Key, result, policy, renderCacheReasonFenceReadError)
+		}
+		if !renderCacheGenerationSnapshotsEqual(current, decision.Generations) {
+			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonFenceChanged, decision.Key)
+			setRenderCacheRequestFallbackReason(c, renderCacheReasonFenceChanged)
+			writeErr := writeRenderedTemplateWithProvenance(c, result, renderCacheStatusBypass)
+			finishRenderCacheRequest(c, RenderCacheRequestOutcomeRenderedUncached, renderCacheReasonFenceChanged, writeErr)
+			return writeErr
+		}
+	}
 	setErr := r.renderCache.store.Set(RequestContext(c), decision.Key, response, renderCacheStoreTTL(policy))
 	if setErr != nil {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
@@ -152,6 +168,13 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 	writeErr := writeRenderedTemplateWithProvenance(c, result, renderCacheStatusMiss)
 	finishRenderCacheRequest(c, RenderCacheRequestOutcomeStored, "", writeErr)
 	return writeErr
+}
+
+func (r *deliveryRuntime) readSharedRenderCacheGenerations(c router.Context) (renderCacheGenerationSnapshot, error) {
+	if r == nil || r.renderCache.generations == nil {
+		return nil, ErrRenderCacheGenerationUnavailable
+	}
+	return readRenderCacheGenerationSnapshot(RequestContext(c), &RenderCacheRuntime{Generations: r.renderCache.generations}, []string{RenderCacheSharedFenceScope})
 }
 
 func (r *deliveryRuntime) handleRequiredRenderCacheTagFailure(c router.Context, key string, result renderedSiteTemplateResult, policy RenderCachePolicy) error {

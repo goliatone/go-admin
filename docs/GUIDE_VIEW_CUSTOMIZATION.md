@@ -429,6 +429,28 @@ When overriding auth or admin templates, preserve the CSRF helpers:
 - Keep `{{ csrf_field|safe }}` inside custom HTML forms that post back to protected browser routes.
 - For custom same-origin JavaScript writes, send `X-CSRF-Token` using the value from `meta[name="csrf-token"]`.
 
+## Rendering from custom handlers
+
+Use `quickstart.RenderTemplateView(...)` when a custom quickstart handler
+should preserve the same template boundary as packaged routes:
+
+```go
+viewCtx := quickstart.WithNav(
+    router.ViewContext{"record": record},
+    adm,
+    cfg,
+    "records",
+    c.Context(),
+)
+return quickstart.RenderTemplateView(c, "records/detail", viewCtx)
+```
+
+The helper uses the active router view engine, propagates request CSRF helpers,
+and normalizes whole-number JSON values before rendering. It returns an error
+for a nil router context. Prefer it over a direct `c.Render(...)` call when a
+custom handler must match quickstart form/CSRF behavior or when view data came
+through generic JSON decoding.
+
 ## Template helpers (functions)
 
 Quickstart exposes default helpers via `quickstart.DefaultTemplateFuncs(...)`.

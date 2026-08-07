@@ -12,17 +12,17 @@ import (
 
 func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
-		Enabled:            true,
-		Backend:            RenderCacheBackendMemory,
+		Enabled:                true,
+		Backend:                RenderCacheBackendMemory,
 		AllowProcessLocalFence: true,
-		FreshTTL:           45 * time.Second,
-		StaleTTL:           15 * time.Second,
-		DebugHeaders:       true,
-		DebugKeys:          true,
-		RenderVersion:      "test-build",
-		Namespace:          "test-site",
-		RequireTagIndex:    true,
-		MaxCaptureBodySize: 1024,
+		FreshTTL:               45 * time.Second,
+		StaleTTL:               15 * time.Second,
+		DebugHeaders:           true,
+		DebugKeys:              true,
+		RenderVersion:          "test-build",
+		Namespace:              "test-site",
+		RequireTagIndex:        true,
+		MaxCaptureBodySize:     1024,
 	}, RenderCachePolicy{
 		Enabled: true,
 	})
@@ -83,10 +83,10 @@ func TestRenderCacheExpirationModeNormalizationAndValidation(t *testing.T) {
 		t.Fatalf("zero-value expiration mode=%q, want fixed", policy.ExpirationMode)
 	}
 	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
-		Enabled:        true,
-		Backend:        RenderCacheBackendMemory,
+		Enabled:                true,
+		Backend:                RenderCacheBackendMemory,
 		AllowProcessLocalFence: true,
-		ExpirationMode: RenderCacheExpirationSliding,
+		ExpirationMode:         RenderCacheExpirationSliding,
 	}, RenderCachePolicy{})
 	if err != nil {
 		t.Fatalf("sliding runtime: %v", err)
@@ -195,8 +195,8 @@ func TestRenderCacheRuntimeConfigOverridesPolicyOverlap(t *testing.T) {
 		Enabled:                true,
 		Backend:                RenderCacheBackendMemory,
 		AllowProcessLocalFence: true,
-		FreshTTL: 10 * time.Second,
-		StaleTTL: 0,
+		FreshTTL:               10 * time.Second,
+		StaleTTL:               0,
 	}, RenderCachePolicy{
 		Enabled:         true,
 		FreshTTL:        time.Minute,

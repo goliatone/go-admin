@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -14,6 +16,75 @@ import (
 // generation fence. Callers may use errors.Is to distinguish this from a
 // backend operation failure.
 var ErrRenderCacheGenerationUnavailable = errors.New("site render cache generation fence is unavailable")
+
+// RenderCacheSharedFenceScope is the generation shared by every public HTML
+// surface that renders common site chrome such as navigation, theme, widgets,
+// or locale catalogs.
+const RenderCacheSharedFenceScope = "site:shared"
+
+const maxRenderCacheGenerationScopes = 8
+
+type renderCacheGenerationEntry struct {
+	Scope      string
+	Generation uint64
+}
+
+type renderCacheGenerationSnapshot []renderCacheGenerationEntry
+
+func normalizeRenderCacheGenerationScopes(scopes ...string) ([]string, error) {
+	out := make([]string, 0, len(scopes))
+	seen := map[string]struct{}{}
+	for _, scope := range scopes {
+		normalized, err := normalizeRenderCacheGenerationScope(scope)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%w: invalid scope", ErrRenderCacheGenerationUnavailable)
+	}
+	if len(out) > maxRenderCacheGenerationScopes {
+		return nil, fmt.Errorf("%w: too many scopes", ErrRenderCacheGenerationUnavailable)
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
+func readRenderCacheGenerationSnapshot(ctx context.Context, runtime *RenderCacheRuntime, scopes []string) (renderCacheGenerationSnapshot, error) {
+	if runtime == nil || runtime.Generations == nil {
+		return nil, ErrRenderCacheGenerationUnavailable
+	}
+	normalized, err := normalizeRenderCacheGenerationScopes(scopes...)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := make(renderCacheGenerationSnapshot, 0, len(normalized))
+	for _, scope := range normalized {
+		generation, readErr := runtime.Generations.ReadGeneration(normalizeRenderCacheContext(ctx), scope)
+		if readErr != nil {
+			return nil, readErr
+		}
+		snapshot = append(snapshot, renderCacheGenerationEntry{Scope: scope, Generation: generation})
+	}
+	return snapshot, nil
+}
+
+func renderCacheGenerationSnapshotsEqual(left, right renderCacheGenerationSnapshot) bool {
+	return slices.Equal(left, right)
+}
+
+func hashRenderCacheGenerationSnapshot(snapshot renderCacheGenerationSnapshot) string {
+	parts := make([]string, 0, len(snapshot))
+	for _, entry := range snapshot {
+		parts = append(parts, entry.Scope+"="+strconv.FormatUint(entry.Generation, 10))
+	}
+	return HashRenderCacheCanonicalData([]byte(strings.Join(parts, "\n")))
+}
 
 // RenderCacheGenerationStore provides the mutation generation used to keep an
 // in-flight pre-mutation fill from becoming visible after a mutation completes.

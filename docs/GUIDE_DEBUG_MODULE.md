@@ -17,6 +17,7 @@ doctor checks, and permissions panels, see `GUIDE_AUTH_PERMISSIONS.md`.
 - Session data inspection
 - Frontend JavaScript error capture (uncaught exceptions, unhandled rejections, console.error)
 - Custom debug data injection
+- Public HTML render-cache health, request outcomes, backend operations, and clear actions
 - Live command-run projection with keyed progress/terminal updates
 - Shell + app REPL panels (disabled by default)
 - WebSocket-based live updates
@@ -865,6 +866,7 @@ if collector != nil {
 | JS Errors | `jserrors` | Frontend JS errors | Inline collector script |
 | Permissions | `permissions` | Permission diagnostics | Auto-captured on request |
 | Commands | `commands` | Catalog-backed command launcher | `Dependencies.CommandCatalog` + command RPC rules |
+| Public HTML Cache | `site-render-cache` | Public render-cache runtime and request diagnostics | `quickstart/site.RegisterRenderCacheDebugPanel()` |
 | Shell | `shell` | Shell REPL (xterm.js) | `DebugConfig.Repl` |
 | App Console | `console` | App REPL (yaegi) | `DebugConfig.Repl` |
 | Custom | `custom` | Custom debug data | `Set()`, `Log()` |
@@ -872,6 +874,47 @@ if collector != nil {
 Note: The `shell` and `console` panels use dedicated WebSocket endpoints and are
 disabled until you enable `DebugConfig.Repl` and include the panel IDs in
 `DebugConfig.Panels`.
+
+### Site render cache panel
+
+Register the cache panel after constructing the complete render-cache runtime:
+
+```go
+runtime, err := quicksite.NewRenderCacheRuntime(ctx, cacheCfg, cachePolicy)
+if err != nil {
+    return err
+}
+if err := quicksite.RegisterRenderCacheDebugPanel(runtime); err != nil {
+    return err
+}
+```
+
+The `site-render-cache` snapshot reports configured and active state, backend,
+startup status, sanitized configuration, backend capabilities, cache-operation
+counters, request outcomes, bounded per-surface counters, the latest cached
+response metadata, recent operations/errors, and the last clear command.
+`scope: process_local` and `observed_by: current_instance` are intentional:
+even when Valkey is shared, request counters and recent observations describe
+only the current serving process.
+
+Request observations are separate from backend operations. Auth, preview,
+unknown-query, cookie-mutation, and other early bypasses therefore appear in
+`request_counters` even though they perform no cache lookup. Surface names and
+reason cardinality are bounded. Request paths, query strings, entity IDs,
+bodies, credentials, and raw keys are not collected as request dimensions.
+Raw cache-key display additionally requires the explicit `DebugKeys` option and
+should remain disabled outside safe local environments.
+
+The panel's Clear action uses the standard `POST {debug_path}/api/clear/:panel`
+transport. For a shared non-memory backend it prefers invalidating
+`quicksite.RenderCacheAllSiteTag`; otherwise it uses
+`quicksite.RenderCacheKeyPrefix` when prefix invalidation is supported. Clear
+results are recorded in the next snapshot. An inactive or incapable backend
+returns an `unsupported` command result rather than implying that entries were
+removed.
+
+For cache setup, expiration, generation fences, and mutation invalidation, see
+the [quickstart render-cache section](../quickstart/README.md#public-site-render-cache).
 
 ### Commands Panel Readiness
 

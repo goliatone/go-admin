@@ -286,6 +286,48 @@ by default and owns the `activity.index` UI route.
 
 See `docs/GUIDE_ACTIVITY.md` for detailed behavior.
 
+### Notification service and storage
+
+Notifications are an admin service rather than an `admin.Module`. The current
+public contract is `admin.NotificationService`, with list, add, and
+mark-read/unread operations. `FeatureNotifications` controls the default
+service selection. Quickstart UI route exposure is configured separately: the
+notifications page is registered by default and can be disabled with
+`quickstart.WithUINotificationsRoute(false)`.
+
+Resolution follows this order:
+
+1. `admin.Dependencies.NotificationService`, when supplied by the host.
+2. The built-in `go-notifications` adapter using process-local in-memory
+   definition, template, event, message, attempt, preference, and inbox
+   repositories.
+3. The simpler `admin.InMemoryNotificationService` fallback if the built-in
+   adapter cannot initialize.
+4. `admin.DisabledNotificationService` when the feature is disabled.
+
+Both default enabled paths are process-local and ephemeral. Notifications,
+read state, preferences, delivery attempts, and inbox contents are lost on
+restart and are not shared across serving instances. Production hosts that
+need durability or cross-instance consistency must inject a host-owned
+`NotificationService` backed by their persistent notification graph:
+
+```go
+deps := admin.Dependencies{
+    NotificationService: durableNotifications,
+}
+adm, _, err := quickstart.NewAdmin(
+    cfg,
+    quickstart.AdapterHooks{},
+    quickstart.WithAdminDependencies(deps),
+)
+```
+
+The injected service owns persistence, migration, retention, and delivery
+semantics. go-admin continues to own feature gating, UI/API bindings,
+`notifications.mark` command registration, configured read/update permissions,
+and activity integration. Do not treat successful default-memory startup as a
+production durability check.
+
 ### Other Module Implementations
 
 `ContentTypeBuilderModule` is a useful reference for a manually registered

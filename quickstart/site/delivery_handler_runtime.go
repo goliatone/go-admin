@@ -16,6 +16,7 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 
 func (r *deliveryRuntime) respondDelivery(c router.Context) (err error) {
 	tracker := installRenderCacheRequestTracker(c, r.renderCache.observers)
+	tracker.setSurface(RenderCacheObservationSurfaceGeneric)
 	defer func() { tracker.complete(err) }()
 
 	state := fallbackRequestState(c, r.siteCfg, "/")

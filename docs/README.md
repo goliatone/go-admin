@@ -20,6 +20,7 @@ the closest existing guide when conventions change.
 | Frontend reuse map, DataGrid/toast conventions, and server-command boundaries | `GUIDE_FRONTEND.md` |
 | Reusable template partials and selector contracts | `GUIDE_UI_PRIMITIVES.md` |
 | Panel CRUD, DataGrid wiring, list APIs, row actions, and bulk actions | `GUIDE_CRUD.md` |
+| Browser-client version compatibility and coordinated release artifacts | `browser-client-compatibility.md` |
 | Action availability, enhanced SSR actions, fragments, and mutation feedback | `GUIDE_ACTIONS.md` |
 | View engine layering, template overrides, and asset pipeline | `GUIDE_VIEW_CUSTOMIZATION.md` |
 | Form generation, go-formgen semantic themes/states, and UI schema overlays | `GUIDE_FORMGEN.md` |
@@ -51,6 +52,7 @@ the closest existing guide when conventions change.
 | Media module configuration and delivery | `GUIDE_MODULE_MEDIA.md` |
 | Preferences module behavior | `GUIDE_MOD_PREFERENCES.md` |
 | Onboarding workflow | `GUIDE_ONBOARDING.md` |
+| Notification service defaults, storage lifetime, and production injection | `GUIDE_MODULES.md#notification-service-and-storage` |
 
 ## Auth, Roles, And Permissions
 
@@ -69,6 +71,8 @@ the closest existing guide when conventions change.
 | CMS module development and content CRUD alignment | `GUIDE_CMS.md` |
 | CMS integration overview | `CMS_INTEGRATION.md` |
 | Translation workflow and UI behavior | `GUIDE_TRANSLATION.md` |
+| Public-site render-cache setup, expiration, handler wrapping, and rollout | `../quickstart/README.md#public-site-render-cache` |
+| CMS mutation invalidation and generation-fence responsibilities | `GUIDE_CMS.md#public-render-cache-invalidation` |
 
 ## Debugging And Operations
 
@@ -76,6 +80,7 @@ the closest existing guide when conventions change.
 |---|---|
 | Debug module backend configuration, capture, APIs, and troubleshooting | `GUIDE_DEBUG_MODULE.md` |
 | Debug frontend architecture and panel renderers | `GUIDE_DEBUG_CLIENT.md` |
+| Public HTML cache diagnostics and clear behavior | `GUIDE_DEBUG_MODULE.md#site-render-cache-panel` |
 | Commerce example setup | `COMMERCE_SETUP.md` |
 
 ## Reference And Archive

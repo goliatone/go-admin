@@ -747,6 +747,56 @@ inputs:
 - Runtime env: app/runtime behavior (`dev`, `staging`, `prod`).
 - Content channel: CMS partition key for reads (`default`, `dev`, `staging`, `prod`, custom).
 
+### Public render-cache invalidation
+
+When public HTML caching is enabled, CMS mutations own invalidation after the
+authoritative transaction commits. Use the complete runtime created by
+`quicksite.NewRenderCacheRuntime(...)`; multi-instance deployments must use a
+shared generation store such as the built-in Valkey runtime.
+
+Use `quicksite.RenderCacheSharedFenceScope` when a mutation changes shared
+navigation, theme, widget, or locale dependencies. Add stable domain scopes for
+content that is also cached through `WrapRenderCacheHandler`. Advance every
+affected generation before reporting success, then invalidate tags to reclaim
+old-generation entries:
+
+```go
+if _, err := quicksite.AdvanceRenderCacheGeneration(
+    ctx,
+    runtime,
+    quicksite.RenderCacheSharedFenceScope,
+); err != nil {
+    return err
+}
+if _, err := quicksite.AdvanceRenderCacheGeneration(ctx, runtime, "site:articles"); err != nil {
+    return err
+}
+
+invalidator, ok := runtime.Store.(quicksite.RenderCacheTagInvalidator)
+if !ok {
+    return errors.New("site render cache does not support tag invalidation")
+}
+if err := invalidator.InvalidateTags(ctx, []string{
+    quicksite.RenderCacheAllSiteTag,
+    "site:articles",
+    "site:content:" + contentID,
+}); err != nil {
+    return err
+}
+```
+
+Generation advancement is the correctness fence: a render that started before
+the commit cannot publish a current entry afterward. Tag or prefix invalidation
+is reclamation and immediate eviction. Sliding expiration does not replace
+this mutation path because frequently read entries can otherwise remain fresh
+indefinitely.
+
+For process-local development, the memory runtime requires
+`RenderCacheConfig.AllowProcessLocalFence: true`. Do not use that escape hatch
+when more than one serving process can handle public requests. See the
+[quickstart render-cache section](../quickstart/README.md#public-site-render-cache)
+for setup, fixed/sliding expiration, handler wrapping, and failure policies.
+
 ### Admin content channel query contract
 
 For admin list/read routes (content grids, content-type builder reads, panel API calls),

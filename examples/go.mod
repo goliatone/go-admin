@@ -111,7 +111,7 @@ require (
 	github.com/goliatone/go-export/adapters/template/go-template v0.9.0 // indirect
 	github.com/goliatone/go-job v0.19.0 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
-	github.com/goliatone/go-notifications v0.15.0 // indirect
+	github.com/goliatone/go-notifications v0.16.1 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect

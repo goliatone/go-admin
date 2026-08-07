@@ -52,6 +52,22 @@
 //     one runtime dependency. RenderCacheRequestObserver receives one bounded
 //     eligibility event and one terminal outcome per public delivery request;
 //     observer panics are isolated from visitor responses.
+//   - WrapRenderCacheHandler applies the same lifecycle to deterministic host
+//     HTML handlers. Hosts own canonical path/query decisions and dependency
+//     tags; the wrapper owns bounded capture, safe replay, freshness, failures,
+//     request observation, and generation-fence rechecks.
+//   - RenderCacheSharedFenceScope protects common public-site dependencies.
+//     Generic delivery reads it automatically; arbitrary handlers can combine
+//     it with bounded surface-specific RenderCacheHandlerDecision.FenceScopes.
+//     Mutations advance affected generations after commit and before reporting
+//     success, then invalidate tags to reclaim old-generation entries.
+//   - Enabled memory runtimes require RenderCacheConfig.AllowProcessLocalFence.
+//     That flag is only for explicitly single-process development and tests;
+//     multi-instance environments must use a shared generation store such as
+//     the built-in Valkey runtime.
+//   - Concurrent cold GET misses for one process and representation are
+//     coalesced. Followers re-evaluate the key and generations after the leader
+//     completes, so a concurrent mutation cannot publish a stale fill.
 //   - Request-level observations are independent of backend Store operations.
 //     In particular, auth, preview, and cookie-mutation bypasses are observable
 //     even though they intentionally perform no cache lookup.

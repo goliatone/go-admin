@@ -122,9 +122,12 @@ type RenderCachePolicy struct {
 }
 
 type renderCacheConfig struct {
-	store     RenderCacheStore
-	policy    RenderCachePolicy
-	observers []RenderCacheRequestObserver
+	store                  RenderCacheStore
+	policy                 RenderCachePolicy
+	observers              []RenderCacheRequestObserver
+	generations            RenderCacheGenerationStore
+	requireGenerationFence bool
+	allowProcessLocalFence bool
 }
 
 // WithRenderCache configures public-site rendered response caching. The policy
@@ -154,9 +157,12 @@ func WithRenderCacheRuntime(runtime *RenderCacheRuntime) SiteOption {
 			observers = composeRenderCacheRequestObservers(observers, []RenderCacheRequestObserver{runtime.Observer})
 		}
 		opts.renderCache = renderCacheConfig{
-			store:     runtime.Store,
-			policy:    normalizeRenderCachePolicy(runtime.Policy),
-			observers: observers,
+			store:                  runtime.Store,
+			policy:                 normalizeRenderCachePolicy(runtime.Policy),
+			observers:              observers,
+			generations:            runtime.Generations,
+			requireGenerationFence: true,
+			allowProcessLocalFence: runtime.Config.AllowProcessLocalFence && strings.EqualFold(strings.TrimSpace(runtime.Config.Backend), RenderCacheBackendMemory),
 		}
 	}
 }
