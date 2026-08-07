@@ -129,7 +129,10 @@ export type SiteRenderCacheRequestCounters = {
   failed?: number;
   bypass_reasons?: Record<string, number>;
   reason_counts?: Record<string, number>;
+  surfaces?: Record<string, SiteRenderCacheSurfaceCounters>;
 };
+
+export type SiteRenderCacheSurfaceCounters = Omit<SiteRenderCacheRequestCounters, 'surfaces'>;
 
 export type SiteRenderCacheSnapshot = {
   configured?: boolean;
@@ -534,6 +537,43 @@ function renderRequestDecisionCounters(counters?: SiteRenderCacheRequestCounters
         ${reasons.map(([reason, count]) => `<span style="padding: 3px 7px; border-radius: 4px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.25); color: #fbbf24; font-size: 10px;"><code>${escapeHTML(reason)}</code>: ${formatNumber(count)}</span>`).join('')}
       </div>
     ` : '<div style="margin-bottom: 14px;"></div>'}
+  `;
+}
+
+function renderRequestSurfaceCounters(counters?: SiteRenderCacheRequestCounters): string {
+  const surfaces = Object.entries(counters?.surfaces || {})
+    .filter(([surface, counts]) => surface !== 'unknown' || Object.values(counts || {}).some((value) => typeof value === 'number' && value > 0))
+    .sort(([left], [right]) => left.localeCompare(right));
+  if (surfaces.length === 0) return '';
+
+  return `
+    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">Request Surfaces</div>
+    <div style="overflow-x: auto; margin-bottom: 14px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="color: #94a3b8; text-align: right;">
+            <th style="padding: 5px 8px; text-align: left;">Surface</th>
+            <th style="padding: 5px 8px;">Evaluated</th>
+            <th style="padding: 5px 8px;">Bypassed</th>
+            <th style="padding: 5px 8px;">Hits</th>
+            <th style="padding: 5px 8px;">Stored</th>
+            <th style="padding: 5px 8px;">Failed</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${surfaces.map(([surface, counts]) => `
+            <tr style="border-top: 1px solid #1e293b; text-align: right;">
+              <td style="padding: 6px 8px; text-align: left;"><code>${escapeHTML(surface)}</code></td>
+              <td style="padding: 6px 8px;">${formatNumber(counts.evaluated || 0)}</td>
+              <td style="padding: 6px 8px;">${formatNumber(counts.bypassed || 0)}</td>
+              <td style="padding: 6px 8px;">${formatNumber(counts.served_hits || 0)}</td>
+              <td style="padding: 6px 8px;">${formatNumber(counts.stored_responses || 0)}</td>
+              <td style="padding: 6px 8px;">${formatNumber(counts.failed || 0)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -1267,6 +1307,7 @@ export function renderSiteRenderCachePanel(
       ${renderStartupError(snapshot.startup_error)}
       ${renderEngagementSummary(snapshot)}
       ${renderRequestDecisionCounters(snapshot.request_counters)}
+      ${renderRequestSurfaceCounters(snapshot.request_counters)}
       ${renderCounterChips(snapshot.counters)}
       ${renderLastCommand(snapshot.last_command)}
       ${renderRecentErrors(snapshot.recent_errors, maxErrors)}

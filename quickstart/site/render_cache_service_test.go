@@ -14,6 +14,7 @@ func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
 		Enabled:            true,
 		Backend:            RenderCacheBackendMemory,
+		AllowProcessLocalFence: true,
 		FreshTTL:           45 * time.Second,
 		StaleTTL:           15 * time.Second,
 		DebugHeaders:       true,
@@ -60,6 +61,22 @@ func TestNewRenderCacheRuntimeBuildsMemoryRuntimeWithObserver(t *testing.T) {
 	}
 }
 
+func TestNewRenderCacheRuntimeRejectsUnauthorizedProcessLocalFence(t *testing.T) {
+	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
+		Enabled: true,
+		Backend: RenderCacheBackendMemory,
+	}, RenderCachePolicy{Enabled: true})
+	if !errors.Is(err, ErrRenderCacheProcessLocalFenceRequired) {
+		t.Fatalf("expected process-local fence authorization error, got %v", err)
+	}
+	if runtime == nil || runtime.Store != nil || runtime.Generations != nil {
+		t.Fatalf("unauthorized memory runtime must stay inactive: %#v", runtime)
+	}
+	if runtime.Diagnostic.Active || runtime.Diagnostic.ErrorKind != "invalid_configuration" {
+		t.Fatalf("expected invalid-configuration diagnostic, got %+v", runtime.Diagnostic)
+	}
+}
+
 func TestRenderCacheExpirationModeNormalizationAndValidation(t *testing.T) {
 	policy := normalizeRenderCachePolicy(RenderCachePolicy{})
 	if policy.ExpirationMode != RenderCacheExpirationFixed {
@@ -68,6 +85,7 @@ func TestRenderCacheExpirationModeNormalizationAndValidation(t *testing.T) {
 	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
 		Enabled:        true,
 		Backend:        RenderCacheBackendMemory,
+		AllowProcessLocalFence: true,
 		ExpirationMode: RenderCacheExpirationSliding,
 	}, RenderCachePolicy{})
 	if err != nil {
@@ -174,8 +192,9 @@ func TestNewRenderCacheRuntimeDisabledBuildsInactiveRuntime(t *testing.T) {
 
 func TestRenderCacheRuntimeConfigOverridesPolicyOverlap(t *testing.T) {
 	runtime, err := NewRenderCacheRuntime(context.Background(), RenderCacheConfig{
-		Enabled:  true,
-		Backend:  RenderCacheBackendMemory,
+		Enabled:                true,
+		Backend:                RenderCacheBackendMemory,
+		AllowProcessLocalFence: true,
 		FreshTTL: 10 * time.Second,
 		StaleTTL: 0,
 	}, RenderCachePolicy{

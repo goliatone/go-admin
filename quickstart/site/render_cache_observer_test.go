@@ -43,8 +43,9 @@ func TestRenderCacheRuntimeObserverTracksBypassStoreAndHitExactlyOnce(t *testing
 	recordingObserver := &testRenderCacheRequestObserver{}
 	panicObserver := &testRenderCacheRequestObserver{panic: true}
 	runtime := &RenderCacheRuntime{
-		Config: RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendValkey},
-		Store:  NewRenderCacheDebugObservedStore(debugObserver),
+		Config:      RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendValkey},
+		Store:       NewRenderCacheDebugObservedStore(debugObserver),
+		Generations: &testRenderCacheGenerationStore{shared: true},
 		Policy: RenderCachePolicy{
 			Enabled:          true,
 			FreshTTL:         time.Minute,
@@ -98,6 +99,10 @@ func TestRenderCacheRuntimeObserverTracksBypassStoreAndHitExactlyOnce(t *testing
 	if snapshot.Counters.Lookups != 2 || snapshot.Counters.Misses != 1 || snapshot.Counters.Hits != 1 || snapshot.Counters.Writes != 1 {
 		t.Fatalf("backend operations should exclude auth bypass: %+v", snapshot.Counters)
 	}
+	generic := requests.Surfaces[RenderCacheObservationSurfaceGeneric]
+	if generic.Evaluated != 3 || generic.Terminal != 3 || generic.StoredResponses != 1 || generic.ServedHits != 1 || generic.Bypassed != 1 {
+		t.Fatalf("generic surface counters do not match headers/lifecycle: %+v", generic)
+	}
 
 	observations := recordingObserver.snapshot()
 	if len(observations) != 6 {
@@ -105,12 +110,39 @@ func TestRenderCacheRuntimeObserverTracksBypassStoreAndHitExactlyOnce(t *testing
 	}
 	terminal := 0
 	for _, observation := range observations {
+		if observation.Surface != RenderCacheObservationSurfaceGeneric {
+			t.Fatalf("generic delivery emitted unexpected surface: %+v", observation)
+		}
 		if observation.Phase == RenderCacheRequestPhaseTerminal {
 			terminal++
 		}
 	}
 	if terminal != 3 {
 		t.Fatalf("expected exactly three terminal events, got %d: %+v", terminal, observations)
+	}
+}
+
+func TestRenderCacheDebugObserverBoundsSurfaceCardinalityAndClonesMaps(t *testing.T) {
+	observer := NewRenderCacheDebugObserver(newTestRenderCacheStore(), RenderCacheConfig{Enabled: true})
+	for index := range renderCacheDebugSurfacesCap * 3 {
+		observer.ObserveRenderCacheRequest(t.Context(), RenderCacheRequestObservation{
+			Surface: fmt.Sprintf("host_surface_%d", index),
+			Phase:   RenderCacheRequestPhaseTerminal,
+			Outcome: RenderCacheRequestOutcomeRenderedUncached,
+			Reason:  renderCacheReasonStatus,
+		})
+	}
+	snapshot := observer.Snapshot(&RenderCacheRuntime{})
+	if got := len(snapshot.RequestCounters.Surfaces); got > renderCacheDebugSurfacesCap {
+		t.Fatalf("surface cardinality exceeded cap: got %d counters=%+v", got, snapshot.RequestCounters.Surfaces)
+	}
+	unknown := snapshot.RequestCounters.Surfaces[renderCacheObservationSurfaceUnknown]
+	if unknown.Terminal == 0 || unknown.ReasonCounts[renderCacheReasonStatus] == 0 {
+		t.Fatalf("overflow surfaces were not collapsed safely: %+v", snapshot.RequestCounters.Surfaces)
+	}
+	unknown.ReasonCounts[renderCacheReasonStatus] = 999
+	if got := observer.Snapshot(&RenderCacheRuntime{}).RequestCounters.Surfaces[renderCacheObservationSurfaceUnknown].ReasonCounts[renderCacheReasonStatus]; got == 999 {
+		t.Fatal("snapshot shares mutable per-surface reason maps with observer")
 	}
 }
 
@@ -367,8 +399,9 @@ func TestRenderCacheRuntimeObserverClassifiesLocaleAndBackendFailures(t *testing
 			}
 			observer := NewRenderCacheDebugObserver(store, RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendValkey})
 			runtime := &RenderCacheRuntime{
-				Config: RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendValkey},
-				Store:  NewRenderCacheDebugObservedStore(observer),
+				Config:      RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendValkey},
+				Store:       NewRenderCacheDebugObservedStore(observer),
+				Generations: &testRenderCacheGenerationStore{shared: true},
 				Policy: RenderCachePolicy{
 					Enabled:          true,
 					FreshTTL:         time.Minute,

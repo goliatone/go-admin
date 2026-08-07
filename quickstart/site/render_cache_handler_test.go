@@ -3,6 +3,7 @@ package site
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -62,6 +63,186 @@ func TestRenderCacheHandlerGETHitAndHEADShareRepresentation(t *testing.T) {
 		assertStringContains(t, tags, "site:event:event-1")
 	}
 	observer.assertPairs(t, 3)
+}
+
+func TestRenderCacheHandlerCoalescesConcurrentColdGETFills(t *testing.T) {
+	const requestCount = 12
+	store := newBlockingRenderCacheHandlerStore(requestCount)
+	observer := &testRenderCacheHandlerObserver{}
+	runtime := testRenderCacheHandlerRuntime(store, observer)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var startedOnce sync.Once
+	var callsMu sync.Mutex
+	calls := 0
+	wrapper := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+		callsMu.Lock()
+		calls++
+		callsMu.Unlock()
+		startedOnce.Do(func() { close(started) })
+		<-release
+		c.SetHeader("Content-Type", "text/html; charset=utf-8")
+		return c.SendString("<html>coalesced</html>")
+	}, testRenderCacheHandlerOptions("archive_event", "/events/coalesced"))
+
+	responses := make([]*httptest.ResponseRecorder, requestCount)
+	errorsByRequest := make([]error, requestCount)
+	var requests sync.WaitGroup
+	requests.Add(requestCount)
+	for index := range requestCount {
+		go func(index int) {
+			defer requests.Done()
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/events/coalesced", nil)
+			ctx := router.NewHTTPRouterContext(recorder, request, nil, nil)
+			errorsByRequest[index] = wrapper(ctx)
+			responses[index] = recorder
+		}(index)
+	}
+	<-started
+	<-store.initialLookupsDone
+	close(release)
+	requests.Wait()
+
+	callsMu.Lock()
+	handlerCalls := calls
+	callsMu.Unlock()
+	if handlerCalls != 1 {
+		t.Fatalf("concurrent cold requests executed handler %d times", handlerCalls)
+	}
+	misses := 0
+	hits := 0
+	for index, response := range responses {
+		if errorsByRequest[index] != nil || response.Code != http.StatusOK || response.Body.String() != "<html>coalesced</html>" {
+			t.Fatalf("request %d err=%v response=%d body=%q", index, errorsByRequest[index], response.Code, response.Body.String())
+		}
+		switch response.Header().Get("X-Site-Render-Cache") {
+		case renderCacheStatusMiss:
+			misses++
+		case renderCacheStatusHit:
+			hits++
+		default:
+			t.Fatalf("request %d cache status=%q", index, response.Header().Get("X-Site-Render-Cache"))
+		}
+	}
+	if misses != 1 || hits != requestCount-1 {
+		t.Fatalf("coalesced statuses misses=%d hits=%d", misses, hits)
+	}
+	observer.mu.Lock()
+	observations := append([]RenderCacheRequestObservation(nil), observer.observations...)
+	observer.mu.Unlock()
+	evaluated := 0
+	terminal := 0
+	for _, observation := range observations {
+		if observation.Surface != "archive_event" {
+			t.Fatalf("coalesced observation lost surface: %+v", observation)
+		}
+		switch observation.Phase {
+		case RenderCacheRequestPhaseEvaluated:
+			evaluated++
+		case RenderCacheRequestPhaseTerminal:
+			terminal++
+		}
+	}
+	if evaluated != requestCount || terminal != requestCount {
+		t.Fatalf("coalesced observations evaluated=%d terminal=%d want=%d", evaluated, terminal, requestCount)
+	}
+}
+
+func TestRenderCacheHandlerCoalescedFillRekeysAfterFenceMutation(t *testing.T) {
+	store := newBlockingRenderCacheHandlerStore(2)
+	runtime := testRenderCacheHandlerRuntime(store)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var startedOnce sync.Once
+	var callsMu sync.Mutex
+	calls := 0
+	wrapper := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+		callsMu.Lock()
+		calls++
+		callsMu.Unlock()
+		startedOnce.Do(func() { close(started) })
+		<-release
+		c.SetHeader("Content-Type", "text/html; charset=utf-8")
+		return c.SendString("<html>current generation</html>")
+	}, testRenderCacheHandlerOptions("archive_event", "/events/coalesced-fence"))
+
+	responses := make([]*httptest.ResponseRecorder, 2)
+	requestErrors := make([]error, 2)
+	var requests sync.WaitGroup
+	requests.Add(2)
+	for index := range 2 {
+		go func(index int) {
+			defer requests.Done()
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/events/coalesced-fence", nil)
+			requestErrors[index] = wrapper(router.NewHTTPRouterContext(recorder, request, nil, nil))
+			responses[index] = recorder
+		}(index)
+	}
+	<-started
+	<-store.initialLookupsDone
+	if _, err := AdvanceRenderCacheGeneration(context.Background(), runtime, "site:archive_event"); err != nil {
+		t.Fatalf("advance generation during coalesced fill: %v", err)
+	}
+	close(release)
+	requests.Wait()
+
+	statuses := map[string]int{}
+	for index, response := range responses {
+		if requestErrors[index] != nil || response.Code != http.StatusOK || response.Body.String() != "<html>current generation</html>" {
+			t.Fatalf("request %d err=%v response=%d body=%q", index, requestErrors[index], response.Code, response.Body.String())
+		}
+		statuses[response.Header().Get("X-Site-Render-Cache")]++
+	}
+	if statuses[renderCacheStatusBypass] != 1 || statuses[renderCacheStatusMiss] != 1 {
+		t.Fatalf("mutation during fill statuses=%+v want one bypass and one miss", statuses)
+	}
+	callsMu.Lock()
+	handlerCalls := calls
+	callsMu.Unlock()
+	if handlerCalls != 2 {
+		t.Fatalf("post-mutation follower did not rekey exactly once: calls=%d", handlerCalls)
+	}
+
+	hit := performRenderCacheHandlerRequest(t, wrapper, http.MethodGet, "/events/coalesced-fence")
+	if hit.Header().Get("X-Site-Render-Cache") != renderCacheStatusHit {
+		t.Fatalf("post-mutation generation was not stored: headers=%v", hit.Header())
+	}
+	callsMu.Lock()
+	defer callsMu.Unlock()
+	if calls != 2 {
+		t.Fatalf("post-mutation hit executed handler: calls=%d", calls)
+	}
+}
+
+func TestRenderCacheFillGroupOverflowLeaderCannotReleaseLaterOwner(t *testing.T) {
+	group := &renderCacheFillGroup{}
+	owned := make([]<-chan struct{}, 0, maxRenderCacheConcurrentFillKeys)
+	for index := range maxRenderCacheConcurrentFillKeys {
+		leader, done := group.begin(fmt.Sprintf("key-%d", index))
+		if !leader || done == nil {
+			t.Fatalf("tracked fill %d leader=%t done=%v", index, leader, done)
+		}
+		owned = append(owned, done)
+	}
+	overflowLeader, overflowDone := group.begin("overflow")
+	if !overflowLeader || overflowDone != nil {
+		t.Fatalf("overflow fill leader=%t done=%v", overflowLeader, overflowDone)
+	}
+	group.done("key-0", owned[0])
+	trackedLeader, trackedDoneReadOnly := group.begin("overflow")
+	trackedDone := trackedDoneReadOnly
+	if !trackedLeader || trackedDone == nil {
+		t.Fatalf("later tracked fill leader=%t done=%v", trackedLeader, trackedDone)
+	}
+
+	group.done("overflow", nil)
+	follower, followerDone := group.begin("overflow")
+	if follower || followerDone != trackedDone {
+		t.Fatalf("overflow completion released later owner: leader=%t done=%v want=%v", follower, followerDone, trackedDone)
+	}
+	group.done("overflow", trackedDone)
 }
 
 func TestRenderCacheHandlerSlidingRenewalUsesEffectiveOverrides(t *testing.T) {
@@ -248,6 +429,39 @@ func TestRenderCacheHandlerGenerationChangeDiscardsInFlightFill(t *testing.T) {
 	}
 }
 
+func TestRenderCacheHandlerSharedGenerationChangeDiscardsInFlightFill(t *testing.T) {
+	store := newTestRenderCacheStore()
+	runtime := testRenderCacheHandlerRuntime(store)
+	options := testRenderCacheHandlerOptions("archive", "/events/event-1")
+	baseDecide := options.Decide
+	options.Decide = func(c router.Context) (RenderCacheHandlerDecision, error) {
+		decision, err := baseDecide(c)
+		decision.FenceScopes = []string{RenderCacheSharedFenceScope, "site:archive"}
+		return decision, err
+	}
+	calls := 0
+	wrapped := WrapRenderCacheHandler(runtime, func(c router.Context) error {
+		calls++
+		if calls == 1 {
+			if _, err := AdvanceRenderCacheGeneration(RequestContext(c), runtime, RenderCacheSharedFenceScope); err != nil {
+				t.Fatalf("advance shared generation: %v", err)
+			}
+		}
+		c.SetHeader("Content-Type", "text/html; charset=utf-8")
+		return c.SendString("<html>archive</html>")
+	}, options)
+
+	first := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	if first.Code != http.StatusOK || len(store.items) != 0 || first.Header().Get("X-Site-Render-Cache-Reason") != renderCacheReasonFenceChanged {
+		t.Fatalf("shared-fence response=%d items=%d headers=%v", first.Code, len(store.items), first.Header())
+	}
+	second := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	third := performRenderCacheHandlerRequest(t, wrapped, http.MethodGet, "/events/event-1")
+	if second.Header().Get("X-Site-Render-Cache") != renderCacheStatusMiss || third.Header().Get("X-Site-Render-Cache") != renderCacheStatusHit || calls != 2 {
+		t.Fatalf("post-shared-generation statuses=%q/%q calls=%d", second.Header().Get("X-Site-Render-Cache"), third.Header().Get("X-Site-Render-Cache"), calls)
+	}
+}
+
 func TestRenderCacheHandlerServesStaleUnlessSurfaceDisablesIt(t *testing.T) {
 	store := newTestRenderCacheStore()
 	runtime := testRenderCacheHandlerRuntime(store)
@@ -401,16 +615,18 @@ func testRenderCacheHandlerRuntime(store RenderCacheStore, observers ...RenderCa
 }
 
 func testRenderCacheHandlerOptions(surface, canonical string) RenderCacheHandlerOptions {
-	return RenderCacheHandlerOptions{Decide: func(router.Context) (RenderCacheHandlerDecision, error) {
-		return RenderCacheHandlerDecision{
-			Cacheable:              true,
-			Surface:                surface,
-			CanonicalPath:          canonical,
-			FenceScope:             "site:" + surface,
-			RequireFence:           true,
-			AllowProcessLocalFence: true,
-		}, nil
-	}}
+	return RenderCacheHandlerOptions{
+		ObservationSurface: func(router.Context) string { return surface },
+		Decide: func(router.Context) (RenderCacheHandlerDecision, error) {
+			return RenderCacheHandlerDecision{
+				Cacheable:              true,
+				Surface:                surface,
+				CanonicalPath:          canonical,
+				FenceScope:             "site:" + surface,
+				RequireFence:           true,
+				AllowProcessLocalFence: true,
+			}, nil
+		}}
 }
 
 func performRenderCacheHandlerRequest(t *testing.T, handler router.HandlerFunc, method, target string) *httptest.ResponseRecorder {
@@ -434,6 +650,63 @@ type testRenderCacheHandlerTagCleanupStore struct {
 	deleteErr error
 }
 
+type blockingRenderCacheHandlerStore struct {
+	mu                 sync.Mutex
+	base               *testRenderCacheStore
+	initialLookups     int
+	wantInitialLookups int
+	initialLookupsDone chan struct{}
+	initialDoneOnce    sync.Once
+}
+
+func newBlockingRenderCacheHandlerStore(wantInitialLookups int) *blockingRenderCacheHandlerStore {
+	return &blockingRenderCacheHandlerStore{
+		base:               newTestRenderCacheStore(),
+		wantInitialLookups: wantInitialLookups,
+		initialLookupsDone: make(chan struct{}),
+	}
+}
+
+func (s *blockingRenderCacheHandlerStore) Get(ctx context.Context, key string) (RenderedSiteResponse, bool, error) {
+	s.mu.Lock()
+	value, ok, err := s.base.Get(ctx, key)
+	s.initialLookups++
+	ready := s.initialLookups >= s.wantInitialLookups
+	s.mu.Unlock()
+	if ready {
+		s.initialDoneOnce.Do(func() { close(s.initialLookupsDone) })
+	}
+	return value, ok, err
+}
+
+func (s *blockingRenderCacheHandlerStore) Set(ctx context.Context, key string, value RenderedSiteResponse, ttl time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.base.Set(ctx, key, value, ttl)
+}
+
+func (s *blockingRenderCacheHandlerStore) Delete(ctx context.Context, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.base.Delete(ctx, key)
+}
+
+func (s *blockingRenderCacheHandlerStore) AddTagsForKey(ctx context.Context, key string, tags []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.base.AddTagsForKey(ctx, key, tags)
+}
+
+func (s *blockingRenderCacheHandlerStore) InvalidateTags(ctx context.Context, tags []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.base.InvalidateTags(ctx, tags)
+}
+
+func (*blockingRenderCacheHandlerStore) RenderCacheBackendKind() string {
+	return RenderCacheBackendMemory
+}
+
 func (s *testRenderCacheHandlerTagCleanupStore) Delete(context.Context, string) error {
 	return s.deleteErr
 }
@@ -454,6 +727,9 @@ func (o *testRenderCacheHandlerObserver) assertPairs(t *testing.T, requests int)
 	for index := 0; index < len(o.observations); index += 2 {
 		if o.observations[index].Phase != RenderCacheRequestPhaseEvaluated || o.observations[index+1].Phase != RenderCacheRequestPhaseTerminal {
 			t.Fatalf("request observation pair %d is not evaluated/terminal: %+v", index/2, o.observations[index:index+2])
+		}
+		if o.observations[index].Surface == "" || o.observations[index].Surface != o.observations[index+1].Surface {
+			t.Fatalf("request observation pair %d lost its bounded surface: %+v", index/2, o.observations[index:index+2])
 		}
 	}
 }

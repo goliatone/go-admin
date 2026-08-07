@@ -86,6 +86,132 @@ func TestRenderCacheRegisteredDeliveryMissThenHitShortCircuits(t *testing.T) {
 	}
 }
 
+func TestRenderCacheRegisteredDeliverySharedGenerationChangeDiscardsInFlightFill(t *testing.T) {
+	store := newTestRenderCacheStore()
+	generations := newMemoryRenderCacheGenerationStore()
+	runtime := &RenderCacheRuntime{
+		Config:      RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory, AllowProcessLocalFence: true},
+		Store:       store,
+		Generations: generations,
+		Policy: RenderCachePolicy{
+			Enabled:      true,
+			FreshTTL:     time.Minute,
+			DebugHeaders: true,
+		},
+	}
+	renderer := &testRenderCacheRenderer{}
+	runtime.Policy.TemplateRenderer = renderer
+	renderer.beforeRender = func() {
+		if renderer.calls == 1 {
+			if _, err := AdvanceRenderCacheGeneration(context.Background(), runtime, RenderCacheSharedFenceScope); err != nil {
+				t.Fatalf("advance shared generation: %v", err)
+			}
+		}
+	}
+	services := newRenderCacheDeliveryServices(t)
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(
+		server.Router(), nil, admin.Config{DefaultLocale: "en"},
+		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+		WithDeliveryServices(services, services),
+		WithRenderCacheRuntime(runtime),
+	); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	first := performSiteRequestRaw(t, server, "/about", "text/html")
+	if first.Code != http.StatusOK || len(store.items) != 0 || first.Header().Get("X-Site-Render-Cache-Reason") != renderCacheReasonFenceChanged {
+		t.Fatalf("shared-fence response=%d items=%d headers=%v", first.Code, len(store.items), first.Header())
+	}
+	second := performSiteRequestRaw(t, server, "/about", "text/html")
+	third := performSiteRequestRaw(t, server, "/about", "text/html")
+	if second.Header().Get("X-Site-Render-Cache") != renderCacheStatusMiss || third.Header().Get("X-Site-Render-Cache") != renderCacheStatusHit || renderer.calls != 2 {
+		t.Fatalf("post-shared-generation statuses=%q/%q render_calls=%d", second.Header().Get("X-Site-Render-Cache"), third.Header().Get("X-Site-Render-Cache"), renderer.calls)
+	}
+}
+
+func TestRenderCacheRegisteredDeliveryGenerationPreflightFailurePolicy(t *testing.T) {
+	readErr := errors.New("generation read failed")
+	tests := []struct {
+		name        string
+		failClosed  bool
+		generations RenderCacheGenerationStore
+		wantStatus  int
+		wantReason  string
+		wantRenders int
+	}{
+		{name: "missing fence fail open", wantStatus: http.StatusOK, wantReason: renderCacheReasonFenceUnavailable, wantRenders: 1},
+		{name: "missing fence fail closed", failClosed: true, wantStatus: http.StatusServiceUnavailable, wantReason: renderCacheReasonFenceUnavailable},
+		{name: "unshared fence fail open", generations: &testRenderCacheGenerationStore{}, wantStatus: http.StatusOK, wantReason: renderCacheReasonFenceUnavailable, wantRenders: 1},
+		{name: "unshared fence fail closed", failClosed: true, generations: &testRenderCacheGenerationStore{}, wantStatus: http.StatusServiceUnavailable, wantReason: renderCacheReasonFenceUnavailable},
+		{name: "read failure fail open", generations: &testRenderCacheGenerationStore{shared: true, err: readErr}, wantStatus: http.StatusOK, wantReason: renderCacheReasonFenceReadError, wantRenders: 1},
+		{name: "read failure fail closed", failClosed: true, generations: &testRenderCacheGenerationStore{shared: true, err: readErr}, wantStatus: http.StatusServiceUnavailable, wantReason: renderCacheReasonFenceReadError},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := newTestRenderCacheStore()
+			renderer := &testRenderCacheRenderer{}
+			runtime := &RenderCacheRuntime{
+				Config:      RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory},
+				Store:       store,
+				Generations: test.generations,
+				Policy: RenderCachePolicy{
+					Enabled: true, FreshTTL: time.Minute, DebugHeaders: true,
+					FailClosed: test.failClosed, TemplateRenderer: renderer,
+				},
+			}
+			services := newRenderCacheDeliveryServices(t)
+			views := &testRenderCacheViews{}
+			server := router.NewFiberAdapter(func(*fiber.App) *fiber.App {
+				return fiber.New(fiber.Config{Views: views})
+			})
+			if err := RegisterSiteRoutes(
+				server.Router(), nil, admin.Config{DefaultLocale: "en"},
+				SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+				WithDeliveryServices(services, services), WithRenderCacheRuntime(runtime),
+			); err != nil {
+				t.Fatalf("register site routes: %v", err)
+			}
+			server.Init()
+
+			request := httptest.NewRequest(http.MethodGet, "/about", nil)
+			request.Header.Set("Accept", "text/html")
+			response, err := server.WrappedRouter().Test(request, -1)
+			if err != nil {
+				t.Fatalf("request: %v", err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != test.wantStatus || response.Header.Get("X-Site-Render-Cache-Reason") != test.wantReason {
+				t.Fatalf("response status=%d reason=%q headers=%v", response.StatusCode, response.Header.Get("X-Site-Render-Cache-Reason"), response.Header)
+			}
+			if views.calls != test.wantRenders || renderer.calls != 0 || len(store.items) != 0 {
+				t.Fatalf("handler renders=%d want=%d cache renderer calls=%d cache entries=%d", views.calls, test.wantRenders, renderer.calls, len(store.items))
+			}
+		})
+	}
+}
+
+type testRenderCacheGenerationStore struct {
+	shared bool
+	err    error
+	value  uint64
+}
+
+func (s *testRenderCacheGenerationStore) ReadGeneration(context.Context, string) (uint64, error) {
+	return s.value, s.err
+}
+
+func (s *testRenderCacheGenerationStore) AdvanceGeneration(context.Context, string) (uint64, error) {
+	if s.err != nil {
+		return 0, s.err
+	}
+	s.value++
+	return s.value, nil
+}
+
+func (s *testRenderCacheGenerationStore) Shared() bool { return s.shared }
+
 func TestRenderCacheSlidingDeliveryRenewsFreshGETAndHEADHits(t *testing.T) {
 	store := newTestRenderCacheStore()
 	renderer := &testRenderCacheRenderer{}
@@ -264,8 +390,13 @@ func TestRenderCacheStaleHitReplaysAndTriggersRevalidator(t *testing.T) {
 		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
 		WithDeliveryServices(services, services),
 		WithRenderCacheRuntime(&RenderCacheRuntime{
-			Config: RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendMemory},
-			Store:  NewRenderCacheDebugObservedStore(observer),
+			Config: RenderCacheConfig{
+				Enabled:                true,
+				Backend:                RenderCacheBackendMemory,
+				AllowProcessLocalFence: true,
+			},
+			Store:       NewRenderCacheDebugObservedStore(observer),
+			Generations: newMemoryRenderCacheGenerationStore(),
 			Policy: RenderCachePolicy{
 				Enabled:          true,
 				FreshTTL:         2 * time.Minute,
@@ -1721,13 +1852,17 @@ func (s *testMemoryNamedRenderCacheStore) Delete(_ context.Context, key string) 
 }
 
 type testRenderCacheRenderer struct {
-	calls   int
-	headers map[string][]string
-	err     error
+	calls        int
+	headers      map[string][]string
+	err          error
+	beforeRender func()
 }
 
 func (r *testRenderCacheRenderer) RenderSiteTemplate(_ context.Context, templateName string, viewCtx router.ViewContext) (RenderedTemplate, error) {
 	r.calls++
+	if r.beforeRender != nil {
+		r.beforeRender()
+	}
 	if r.err != nil {
 		return RenderedTemplate{}, r.err
 	}

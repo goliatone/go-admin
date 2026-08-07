@@ -98,6 +98,11 @@ const fixtures = {
       failed: 0,
       bypass_reasons: { auth: 250, locale_cookie_mutation: 50 },
       reason_counts: { auth: 250, locale_cookie_mutation: 50 },
+      surfaces: {
+        generic: { evaluated: 900, bypassed: 100, served_hits: 650, stored_responses: 150, failed: 0 },
+        archive_event: { evaluated: 300, bypassed: 50, served_hits: 200, stored_responses: 50, failed: 0 },
+        search: { evaluated: 600, bypassed: 150, served_hits: 350, stored_responses: 100, failed: 0 },
+      },
     },
     latest_cached: {
       timestamp: '2026-05-14T10:30:00Z',
@@ -421,6 +426,8 @@ test('site render cache panel renders healthy state correctly', () => {
   assert.match(html, /1,200/, 'should show hits count');
   assert.match(html, /80\.0%/, 'should show calculated hit ratio');
   assert.match(html, /Request Decisions/i, 'should separate request decisions');
+  assert.match(html, /Request Surfaces/i, 'should expose bounded per-surface request counters');
+  assert.match(html, /archive_event/i, 'should name static route surfaces');
   assert.match(html, /Backend Operations/i, 'should separate backend operations');
   assert.match(html, /Lookup Hit Rate/i, 'should identify the ratio as backend lookup rate');
   assert.match(html, /Cache engaged/i, 'should show request engagement');

@@ -150,7 +150,7 @@ var xe = 1e3, ye = 12e3, ve = 8, $e = 1, we = 1e4, ke = 3e4, Ce = (e) => {
       this.reconnectTimer = null, this.connect();
     }, s + n);
   }
-}, Co = class extends qe {
+}, So = class extends qe {
   constructor(e) {
     const { url: t, authToken: o, tokenProvider: r, tokenRefreshBufferMs: s, tokenParam: n, appId: a, onEvent: d, ...c } = e, l = (p) => {
       if (a && p && !p.app_id) {
@@ -317,10 +317,10 @@ function A(e, t, o = {}) {
     </table>
   `;
 }
-function So(e, t, o, r) {
+function To(e, t, o, r) {
   return fe(e, H(t, o, r), r.newestFirst !== !1), T(t);
 }
-function To(e, t, o) {
+function _o(e, t, o) {
   return be(e, "tr[data-sql-id]", "data-sql-id", t, o);
 }
 var W = /* @__PURE__ */ new WeakSet();
@@ -343,7 +343,7 @@ async function R(e, t, o = {}) {
     }, r), !1;
   }
 }
-function _o(e, t = {}) {
+function Eo(e, t = {}) {
   W.has(e) || (W.add(e), e.addEventListener("click", (o) => {
     const r = o.target?.closest("[data-copy-trigger]");
     if (!r || !e.contains(r) || r.closest("[data-sql-table]") || r.closest("[data-request-table]")) return;
@@ -352,14 +352,14 @@ function _o(e, t = {}) {
     s && R(s.getAttribute("data-copy-content") || "", r, t);
   }));
 }
-function Eo(e) {
+function qo(e) {
   e.querySelectorAll(".expandable-row").forEach((t) => {
     t.closest("[data-sql-table], [data-live-list]") || t.addEventListener("click", (o) => {
       o.target.closest("a, button, input") || o.currentTarget.classList.toggle("expanded");
     });
   });
 }
-function qo(e, t) {
+function Ro(e, t) {
   const { tableSelector: o, rowSelector: r, keyAttr: s, expanded: n } = t;
   e.querySelectorAll(o).forEach((a) => {
     const d = (c) => {
@@ -381,14 +381,14 @@ function re(e, t) {
   const o = e.nextElementSibling;
   o?.classList.contains("expansion-row") && o.setAttribute("aria-hidden", String(!t));
 }
-function Ro(e, t) {
+function zo(e, t) {
   const { rowSelector: o, keyAttr: r, expanded: s } = t;
   e.querySelectorAll(o).forEach((n) => {
     const a = n.getAttribute(r);
     re(n, !!a && s.has(a));
   });
 }
-function zo(e, t) {
+function Lo(e, t) {
   e.querySelectorAll("[data-sort-toggle]").forEach((o) => {
     o.addEventListener("change", (r) => {
       const s = r.target, n = s.dataset.sortToggle;
@@ -396,13 +396,13 @@ function zo(e, t) {
     });
   });
 }
-var Lo = {
+var jo = {
   COPY_TRIGGER: "data-copy-trigger",
   COPY_CONTENT: "data-copy-content",
   ROW_ID: "data-row-id",
   EXPANSION_FOR: "data-expansion-for",
   SORT_TOGGLE: "data-sort-toggle"
-}, jo = {
+}, Oo = {
   EXPANDABLE_ROW: "expandable-row",
   EXPANDED: "expanded",
   EXPANSION_ROW: "expansion-row",
@@ -427,7 +427,7 @@ function Oe(e, t, o = "text/sql") {
   const r = new Blob([e], { type: o }), s = URL.createObjectURL(r), n = document.createElement("a");
   n.href = s, n.download = t, n.click(), URL.revokeObjectURL(s);
 }
-function Oo(e, t, o = {}) {
+function Ao(e, t, o = {}) {
   e.querySelectorAll("[data-request-table]").forEach((r) => {
     r.addEventListener("click", (s) => {
       const n = s.target, a = n.closest("[data-copy-trigger]");
@@ -560,7 +560,7 @@ var Ae = {
   detailMetadataLine: "request-detail-metadata",
   badgeContentType: "badge badge-content-type"
 };
-function Ao(e) {
+function Po(e) {
   return e === "console" ? Ae : Pe;
 }
 function Me(e) {
@@ -717,7 +717,7 @@ function P(e, t, o = {}) {
     </table>
   `;
 }
-var Po = class {
+var Mo = class {
   constructor(e) {
     this.selected = /* @__PURE__ */ new Set(), this.expanded = /* @__PURE__ */ new Set(), this.table = null, this.toolbarEl = null, this.countEl = null, this.selectAllEl = null, this.wired = /* @__PURE__ */ new WeakSet(), this.onTableChange = (t) => {
       const o = t.target;
@@ -847,7 +847,7 @@ var Po = class {
 function Ke(e) {
   return e.id ? e.id : `log-${C(`${e.timestamp || ""}|${e.level || ""}|${e.source || ""}|${e.message || ""}`)}`;
 }
-function Mo(e) {
+function No(e) {
   return se(e).toLowerCase();
 }
 function se(e) {
@@ -1033,7 +1033,7 @@ function et(e) {
     return String(e);
   }
 }
-var No = class {
+var Bo = class {
   constructor(e) {
     this.views = /* @__PURE__ */ new Map(), this.host = e;
   }
@@ -2204,7 +2204,7 @@ function Y(e, t, o = {}) {
     </div>
   `;
 }
-function Bo(e, t) {
+function Io(e, t) {
   if (!e) return `<div class="${t.emptyState}">No doctor diagnostics</div>`;
   const o = j(e.verdict), r = ae(e.verdict), s = e.summary || {
     checks: 0,
@@ -2583,6 +2583,38 @@ function Nt(e) {
   `;
 }
 function Bt(e) {
+  const t = Object.entries(e?.surfaces || {}).filter(([o, r]) => o !== "unknown" || Object.values(r || {}).some((s) => typeof s == "number" && s > 0)).sort(([o], [r]) => o.localeCompare(r));
+  return t.length === 0 ? "" : `
+    <div style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;">Request Surfaces</div>
+    <div style="overflow-x: auto; margin-bottom: 14px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="color: #94a3b8; text-align: right;">
+            <th style="padding: 5px 8px; text-align: left;">Surface</th>
+            <th style="padding: 5px 8px;">Evaluated</th>
+            <th style="padding: 5px 8px;">Bypassed</th>
+            <th style="padding: 5px 8px;">Hits</th>
+            <th style="padding: 5px 8px;">Stored</th>
+            <th style="padding: 5px 8px;">Failed</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${t.map(([o, r]) => `
+            <tr style="border-top: 1px solid #1e293b; text-align: right;">
+              <td style="padding: 6px 8px; text-align: left;"><code>${i(o)}</code></td>
+              <td style="padding: 6px 8px;">${b(r.evaluated || 0)}</td>
+              <td style="padding: 6px 8px;">${b(r.bypassed || 0)}</td>
+              <td style="padding: 6px 8px;">${b(r.served_hits || 0)}</td>
+              <td style="padding: 6px 8px;">${b(r.stored_responses || 0)}</td>
+              <td style="padding: 6px 8px;">${b(r.failed || 0)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function It(e) {
   const t = (e.engagement || "no_traffic").toLowerCase(), o = {
     no_traffic: {
       label: "No request traffic observed",
@@ -2618,7 +2650,7 @@ function Bt(e) {
     </div>
   `;
 }
-function It(e) {
+function Dt(e) {
   if (!e) return "";
   const t = le(e.outcome), o = e.timestamp ? y(e.timestamp) : "";
   return `
@@ -2676,7 +2708,7 @@ function It(e) {
     </div>
   `;
 }
-function Dt(e) {
+function Ft(e) {
   return e ? `
     <div style="
       margin-bottom: 12px;
@@ -2713,7 +2745,7 @@ function Dt(e) {
     </div>
   ` : "";
 }
-function Ft(e) {
+function Ht(e) {
   const t = e.timestamp ? y(e.timestamp) : "";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -2734,7 +2766,7 @@ function Ft(e) {
     </tr>
   `;
 }
-function Ht(e, t = 10) {
+function Jt(e, t = 10) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -2772,7 +2804,7 @@ function Ht(e, t = 10) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => Ft(s)).join("")}
+            ${r.map((s) => Ht(s)).join("")}
           </tbody>
         </table>
       </div>
@@ -2782,7 +2814,7 @@ function Ht(e, t = 10) {
 function Z(e) {
   return e == null ? '<span style="color: #64748b; font-style: italic;">null</span>' : typeof e == "boolean" ? `<span style="color: ${e ? "#22c55e" : "#64748b"}; font-weight: 500;">${e}</span>` : typeof e == "number" ? `<span style="color: #818cf8;">${e}</span>` : typeof e == "string" ? e === "" ? '<span style="color: #64748b; font-style: italic;">empty</span>' : `<span style="color: #fbbf24;">${i(e)}</span>` : i(String(e));
 }
-function Jt(e) {
+function Kt(e) {
   if (!e) return "";
   const t = [
     {
@@ -2907,7 +2939,7 @@ function Jt(e) {
     </details>
   `;
 }
-function Kt(e) {
+function Vt(e) {
   return e ? `
     <details style="margin-bottom: 8px;">
       <summary style="
@@ -2985,7 +3017,7 @@ function Kt(e) {
     </details>
   ` : "";
 }
-function Vt(e) {
+function Ut(e) {
   if (!e) return "";
   const t = e.timestamp ? y(e.timestamp) : "", o = e.key?.route_hint || e.key?.key_hash?.slice(0, 16) || "unknown";
   return `
@@ -3054,7 +3086,7 @@ function Vt(e) {
     </details>
   `;
 }
-function Ut(e) {
+function Wt(e) {
   const t = e.observed_at ? y(e.observed_at) : "", o = e.raw_key || e.route_hint || e.key_hash?.slice(0, 16) || "unknown";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -3069,7 +3101,7 @@ function Ut(e) {
     </tr>
   `;
 }
-function Wt(e, t = 20) {
+function Qt(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -3106,14 +3138,14 @@ function Wt(e, t = 20) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => Ut(s)).join("")}
+            ${r.map((s) => Wt(s)).join("")}
           </tbody>
         </table>
       </div>
     </details>
   `;
 }
-function Qt(e) {
+function Gt(e) {
   const t = e.timestamp ? y(e.timestamp) : "", o = le(e.outcome), r = e.key?.route_hint || e.key?.key_hash?.slice(0, 12) || "";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -3145,7 +3177,7 @@ function Qt(e) {
     </tr>
   `;
 }
-function Gt(e, t = 20) {
+function Yt(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -3184,14 +3216,14 @@ function Gt(e, t = 20) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => Qt(s)).join("")}
+            ${r.map((s) => Gt(s)).join("")}
           </tbody>
         </table>
       </div>
     </details>
   `;
 }
-function Yt(e) {
+function Xt(e) {
   const t = z(e);
   return `
     <details style="margin-top: 12px;">
@@ -3232,18 +3264,19 @@ function ee(e, t, o = {}) {
   return e ? e.configured ? `
     <div style="padding: 14px;">
       ${X(e)}
-      ${Dt(e.startup_error)}
-      ${Bt(e)}
+      ${Ft(e.startup_error)}
+      ${It(e)}
       ${Nt(e.request_counters)}
+      ${Bt(e.request_counters)}
       ${Mt(e.counters)}
-      ${It(e.last_command)}
-      ${Ht(e.recent_errors, n)}
-      ${Vt(e.latest_cached)}
-      ${Jt(e.config)}
-      ${Kt(e.capabilities)}
-      ${Wt(e.observed_keys, s)}
-      ${Gt(e.recent_operations, r)}
-      ${a ? Yt(e) : ""}
+      ${Dt(e.last_command)}
+      ${Jt(e.recent_errors, n)}
+      ${Ut(e.latest_cached)}
+      ${Kt(e.config)}
+      ${Vt(e.capabilities)}
+      ${Qt(e.observed_keys, s)}
+      ${Yt(e.recent_operations, r)}
+      ${a ? Xt(e) : ""}
     </div>
   ` : `
       <div style="padding: 12px;">
@@ -3263,7 +3296,7 @@ function ee(e, t, o = {}) {
       </div>
     ` : `<div class="${t.emptyState}">No site render cache data available</div>`;
 }
-function Xt(e, t) {
+function Zt(e, t) {
   if (!e) return `<div class="${t.emptyState}">No cache data</div>`;
   let o = e.status;
   e.configured && e.active || (o = "inactive");
@@ -3364,29 +3397,29 @@ function Xt(e, t) {
     </div>
   `;
 }
-function Io(e, t = {}) {
-  const o = to(e.dataset.actionPayload);
+function Do(e, t = {}) {
+  const o = oo(e.dataset.actionPayload);
   return e instanceof HTMLFormElement && e.querySelectorAll("[data-action-field]").forEach((r) => {
     const s = r.closest("[hidden]");
     if (s && e.contains(s) || (r instanceof HTMLInputElement || r instanceof HTMLSelectElement || r instanceof HTMLTextAreaElement) && r.disabled) return;
     const n = (r.dataset.actionFieldPath || r.dataset.actionField || "").trim();
     if (!n) return;
     if (t.excludeSensitive && r.dataset.actionFieldSensitive === "true") {
-      no(o, n);
+      ao(o, n);
       return;
     }
-    const a = oo(r);
-    a !== void 0 && so(o, n, a);
+    const a = ro(r);
+    a !== void 0 && no(o, n, a);
   }), o;
 }
-function Do(e) {
+function Fo(e) {
   return e.querySelector('[data-action-field-sensitive="true"]') !== null;
 }
-function Zt(e, t) {
+function eo(e, t) {
   e.querySelectorAll("[data-action-field]").forEach((o) => {
     const r = (o.dataset.actionFieldPath || o.dataset.actionField || "").trim();
     if (!r) return;
-    const s = eo(t, r);
+    const s = to(t, r);
     if (s !== void 0) {
       if (o instanceof HTMLInputElement && o.type === "checkbox") o.checked = !!s;
       else if (o instanceof HTMLInputElement || o instanceof HTMLTextAreaElement || o instanceof HTMLSelectElement) {
@@ -3398,16 +3431,16 @@ function Zt(e, t) {
     }
   });
 }
-function Fo(e, t, o) {
+function Ho(e, t, o) {
   const r = String(o.action_id || "").trim();
   if (!t || !r) return !1;
   const s = Array.from(e.querySelectorAll("[data-panel-action-picker]")).find((d) => d.dataset.panelActionPicker === t);
   if (!s || !Array.from(s.options).some((d) => d.value === r)) return !1;
   s.value = r, s.dispatchEvent(new Event("change", { bubbles: !0 }));
   const n = o.payload && typeof o.payload == "object" && !Array.isArray(o.payload) ? o.payload : {}, a = Array.from(e.querySelectorAll("[data-panel-action-form]")).find((d) => d.dataset.panelId === t && d.dataset.actionId === r);
-  return a && Zt(a, n), !0;
+  return a && eo(a, n), !0;
 }
-function eo(e, t) {
+function to(e, t) {
   let o = e;
   for (const r of t.split(".").map((s) => s.trim()).filter(Boolean)) {
     if (!o || typeof o != "object" || Array.isArray(o)) return;
@@ -3415,7 +3448,7 @@ function eo(e, t) {
   }
   return o;
 }
-function to(e) {
+function oo(e) {
   if (!e) return {};
   try {
     const t = JSON.parse(e);
@@ -3424,10 +3457,10 @@ function to(e) {
     return {};
   }
 }
-function oo(e) {
+function ro(e) {
   const t = (e.dataset.actionFieldKind || "").trim().toLowerCase();
   if (e instanceof HTMLInputElement && e.type === "checkbox") return e.checked;
-  const o = ro(e).trim();
+  const o = so(e).trim();
   if (o !== "") {
     if (t === "number") {
       const r = Number(o);
@@ -3446,10 +3479,10 @@ function oo(e) {
     return o;
   }
 }
-function ro(e) {
+function so(e) {
   return (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement || e instanceof HTMLSelectElement) && e.value || "";
 }
-function so(e, t, o) {
+function no(e, t, o) {
   const r = t.split(".").map((n) => n.trim()).filter(Boolean);
   if (r.length === 0) return;
   let s = e;
@@ -3458,7 +3491,7 @@ function so(e, t, o) {
     (!a || typeof a != "object" || Array.isArray(a)) && (s[n] = {}), s = s[n];
   }), s[r[r.length - 1]] = o;
 }
-function no(e, t) {
+function ao(e, t) {
   const o = t.split(".").map((n) => n.trim()).filter(Boolean);
   if (o.length === 0) return;
   const r = [];
@@ -3478,7 +3511,7 @@ function no(e, t) {
     else break;
   }
 }
-var ao = {
+var io = {
   id: "requests",
   label: "Requests",
   icon: "iconoir-network",
@@ -3506,7 +3539,7 @@ var ao = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 500),
   supportsToolbar: !0
-}, io = {
+}, lo = {
   id: "sql",
   label: "SQL",
   icon: "iconoir-database",
@@ -3534,7 +3567,7 @@ var ao = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 500),
   supportsToolbar: !0
-}, lo = {
+}, co = {
   id: "logs",
   label: "Logs",
   icon: "iconoir-page",
@@ -3566,7 +3599,7 @@ var ao = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 1e3),
   supportsToolbar: !0
-}, co = {
+}, po = {
   id: "routes",
   label: "Routes",
   icon: "iconoir-path-arrow",
@@ -3579,7 +3612,7 @@ var ao = {
   renderToolbar: (e, t) => N(e || [], t, { showName: !1 }),
   getCount: (e) => (e || []).length,
   supportsToolbar: !0
-}, po = {
+}, uo = {
   id: "config",
   label: "Config",
   icon: "iconoir-settings",
@@ -3605,7 +3638,7 @@ var ao = {
   }),
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   supportsToolbar: !0
-}, uo = {
+}, go = {
   id: "template",
   label: "Template",
   icon: "iconoir-code",
@@ -3632,7 +3665,7 @@ var ao = {
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   handleEvent: (e, t) => t,
   supportsToolbar: !0
-}, go = {
+}, bo = {
   id: "session",
   label: "Session",
   icon: "iconoir-user",
@@ -3659,7 +3692,7 @@ var ao = {
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   handleEvent: (e, t) => t,
   supportsToolbar: !0
-}, bo = {
+}, fo = {
   id: "custom",
   label: "Custom",
   icon: "iconoir-puzzle",
@@ -3691,7 +3724,7 @@ var ao = {
   },
   handleEvent: (e, t) => pe(e, t, 500),
   supportsToolbar: !0
-}, fo = {
+}, ho = {
   id: "jserrors",
   label: "JS Errors",
   icon: "iconoir-warning-triangle",
@@ -3719,7 +3752,7 @@ var ao = {
   getCount: (e) => (e || []).length,
   handleEvent: (e, t) => L(e || [], t, 500),
   supportsToolbar: !0
-}, ho = {
+}, mo = {
   id: "permissions",
   label: "Permissions",
   icon: "iconoir-shield-check",
@@ -3736,7 +3769,7 @@ var ao = {
     return !t || !t.summary ? 0 : t.summary.missing_keys;
   },
   supportsToolbar: !0
-}, mo = {
+}, xo = {
   id: "doctor",
   label: "Doctor",
   icon: "iconoir-heart",
@@ -3752,7 +3785,7 @@ var ao = {
     return !t || !t.summary ? 0 : (t.summary.error || 0) + (t.summary.warn || 0);
   },
   supportsToolbar: !1
-}, xo = {
+}, yo = {
   id: "site-render-cache",
   label: "Public HTML Cache",
   icon: "iconoir-database",
@@ -3768,34 +3801,34 @@ var ao = {
     maxKeys: 50,
     maxErrors: 20
   }),
-  renderToolbar: (e, t) => Xt(e, t),
+  renderToolbar: (e, t) => Zt(e, t),
   getCount: (e) => {
     const t = e;
     return !t || !t.counters ? 0 : t.counters.errors || 0;
   },
   supportsToolbar: !0
 };
-function yo() {
-  h.register(ao), h.register(io), h.register(lo), h.register(fo), h.register(co), h.register(ho), h.register(mo), h.register(xo), h.register(po), h.register(uo), h.register(go), h.register(bo);
+function vo() {
+  h.register(io), h.register(lo), h.register(co), h.register(ho), h.register(po), h.register(mo), h.register(xo), h.register(yo), h.register(uo), h.register(go), h.register(bo), h.register(fo);
 }
-yo();
+vo();
 export {
-  Lo as A,
-  To as B,
-  Po as C,
+  jo as A,
+  _o as B,
+  Mo as C,
   Ae as D,
   Ne as E,
-  qo as F,
+  Ro as F,
   qe as G,
   H,
-  zo as I,
-  Co as K,
+  Lo as I,
+  So as K,
   R as L,
-  _o as M,
-  Eo as N,
-  Ao as O,
-  Oo as P,
-  Ro as R,
+  Eo as M,
+  qo as N,
+  Po as O,
+  Ao as P,
+  zo as R,
   se as S,
   P as T,
   je as U,
@@ -3807,25 +3840,25 @@ export {
   Y as c,
   $t as d,
   nt as f,
-  No as g,
+  Bo as g,
   B as h,
-  Do as i,
-  jo as j,
+  Fo as i,
+  Oo as j,
   Pe as k,
-  Bo as l,
+  Io as l,
   I as m,
-  Zt as n,
-  Xt as o,
+  eo as n,
+  Zt as o,
   ut as p,
-  Io as r,
+  Do as r,
   _t as s,
-  Fo as t,
+  Ho as t,
   G as u,
   Ke as v,
   De as w,
   M as x,
-  Mo as y,
-  So as z
+  No as y,
+  To as z
 };
 
-//# sourceMappingURL=builtin-panels-CGJ5z50x.js.map
+//# sourceMappingURL=builtin-panels-Csd134JF.js.map
