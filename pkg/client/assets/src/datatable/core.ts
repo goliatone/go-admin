@@ -39,6 +39,7 @@ import * as groupedOps from './core-grouped.js';
 import * as renderOps from './core-rendering.js';
 import * as lifecycleOps from './core-lifecycle.js';
 import * as columnOps from './core-columns.js';
+import type { ActionMenuController } from '../shared/action-menu.js';
 
 export type { DataGridConfig } from './core-types.js';
 
@@ -63,6 +64,7 @@ export class DataGrid {
   private searchTimeout: number | null = null;
   private abortController: AbortController | null = null;
   private dropdownAbortController: AbortController | null = null;
+  private actionMenuController: ActionMenuController | null = null;
   private selectionAbortController: AbortController | null = null;
   private didRestoreColumnOrder: boolean = false;
   private shouldReorderDOMOnRestore: boolean = false;
@@ -194,6 +196,7 @@ export class DataGrid {
       mode: this.config.actionRenderMode || 'dropdown',
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
       notifier: this.notifier,
+      domIdPrefix: this.config.tableId,
     });
     this.cellRendererRegistry = new CellRendererRegistry();
 
@@ -610,6 +613,10 @@ export class DataGrid {
     if (this.dropdownAbortController) {
       this.dropdownAbortController.abort();
       this.dropdownAbortController = null;
+    }
+    if (this.actionMenuController) {
+      this.actionMenuController.destroy();
+      this.actionMenuController = null;
     }
 
     if (this.selectionAbortController) {

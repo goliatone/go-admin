@@ -39,13 +39,17 @@ export interface ActionRendererConfig {
     mode?: ActionRenderMode;
     actionBasePath?: string;
     notifier?: ToastNotifier;
+    domIdPrefix?: string;
+}
+export interface RowActionListenerOptions {
+    onError?: (error: unknown, action: ActionButton, record: any) => void | Promise<void>;
 }
 export declare class ActionRenderer {
     private actionBasePath;
     private mode;
     private notifier;
-    private actionKeys;
-    private actionKeySeq;
+    private domNamespace;
+    private rowRenderSeq;
     constructor(config?: ActionRendererConfig);
     /**
      * Render row actions as HTML
@@ -76,7 +80,7 @@ export declare class ActionRenderer {
     /**
      * Attach event listeners for row actions
      */
-    attachRowActionListeners(container: HTMLElement, actions: ActionButton[], records: Record<string, any>): void;
+    attachRowActionListeners(container: HTMLElement, actions: ActionButton[], record: any, options?: RowActionListenerOptions): void;
     /**
      * Render bulk actions toolbar
      */
@@ -97,6 +101,7 @@ export declare class ActionRenderer {
     private getVariantClass;
     private renderIcon;
     private getActionKey;
+    private getVisibleActions;
     private sanitize;
 }
 //# sourceMappingURL=actions.d.ts.map

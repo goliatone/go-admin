@@ -8,6 +8,7 @@ import {
   renderGroupedLoadingState,
 } from './grouped-mode.js';
 import { parseDateLike } from '../shared/date-utils.js';
+import { escapeAttribute as escapeAttr } from '../shared/html.js';
 import {
   formatStructuredErrorForDisplay,
   getStructuredActionError,
@@ -144,6 +145,7 @@ export function renderData(grid: any, data: ApiResponse): void {
       return;
     }
 
+    grid.actionMenuController?.closeAll();
     tbody.innerHTML = '';
 
     const items = data.data || data.records || [];
@@ -171,7 +173,7 @@ export function renderData(grid: any, data: ApiResponse): void {
     }
 
     // Clear records by ID cache
-    grid.recordsById = {};
+    grid.recordsById = Object.create(null);
 
     // Phase 2: Check if grouped mode is enabled and active
     if (grid.isGroupedViewActive()) {
@@ -247,7 +249,7 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
       <label class="flex">
         <input type="checkbox"
                class="table-checkbox shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
-               data-id="${item.id}">
+               data-id="${escapeAttr(item.id)}">
         <span class="sr-only">Select</span>
       </label>
     `;
@@ -293,40 +295,26 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
     actionsCell.dataset.role = 'actions';
     actionsCell.dataset.fixed = 'right';
 
+    const bindRenderedActions = (actions: any[]) => {
+      actionsCell.innerHTML = grid.actionRenderer.renderRowActions(item, actions);
+      grid.actionRenderer.attachRowActionListeners(actionsCell, actions, item, {
+        onError: async (error: unknown, action: any) => {
+          const structured = getStructuredActionError(error);
+          if (structured?.textCode) {
+            await grid.refresh();
+          }
+          if (!isHandledActionError(error)) {
+            const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+            grid.notify(errorMsg, 'error');
+          }
+        },
+      });
+    };
+
     // Use custom row actions if provided, otherwise use default actions
     if (grid.config.rowActions) {
       const actions = grid.config.rowActions(item);
-      actionsCell.innerHTML = grid.actionRenderer.renderRowActions(item, actions);
-
-      // Attach event listeners for each action button
-      actions.forEach(action => {
-        const actionId = grid.sanitizeActionId(action.label);
-        const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
-        if (action.disabled) {
-          return;
-        }
-        if (button) {
-          button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            if ((button as HTMLButtonElement).disabled) {
-              return;
-            }
-            try {
-              await action.action(item);
-            } catch (error) {
-              console.error(`Action "${action.label}" failed:`, error);
-              const structured = getStructuredActionError(error);
-              if (structured?.textCode) {
-                await grid.refresh();
-              }
-              if (!isHandledActionError(error)) {
-                const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-                grid.notify(errorMsg, 'error');
-              }
-            }
-          });
-        }
-      });
+      bindRenderedActions(actions);
     } else if (grid.config.useDefaultActions !== false) {
       // Default actions (view, edit, delete)
       const defaultActions = [
@@ -350,35 +338,7 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
         }
       ];
 
-      actionsCell.innerHTML = grid.actionRenderer.renderRowActions(item, defaultActions);
-
-      // Attach event listeners for each default action
-      defaultActions.forEach(action => {
-        const actionId = grid.sanitizeActionId(action.label);
-        const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
-        if (button) {
-          button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if ((button as HTMLButtonElement).disabled) {
-              return;
-            }
-            try {
-              await action.action();
-            } catch (error) {
-              console.error(`Action "${action.label}" failed:`, error);
-              const structured = getStructuredActionError(error);
-              if (structured?.textCode) {
-                await grid.refresh();
-              }
-              if (!isHandledActionError(error)) {
-                const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-                grid.notify(errorMsg, 'error');
-              }
-            }
-          });
-        }
-      });
+      bindRenderedActions(defaultActions);
     }
 
     row.appendChild(actionsCell);

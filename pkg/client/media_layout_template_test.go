@@ -148,9 +148,9 @@ func TestMediaPageScriptBindsPageLevelControls(t *testing.T) {
 	script := string(source)
 
 	mediaRequireFragments(t, script,
-		"import { appendCSRFHeader } from '../shared/transport/http-client';",
+		"import { httpRequest } from '../shared/transport/http-client';",
 		"function byMediaPage",
-		"appendCSRFHeader(url, options, headers);",
+		"const response = await httpRequest(url, {",
 		"uploadInput: byMediaPage<HTMLInputElement>(root, '[data-media-upload-input]')",
 		"uploadTrigger: byMediaPage<HTMLButtonElement>(root, '[data-media-upload-trigger]')",
 		"selectionBar: byMediaPage(root, '[data-media-selection-bar]')",

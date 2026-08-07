@@ -14,8 +14,8 @@ test('ActionRenderer renders unique data-action-key attributes for duplicate lab
     ]
   );
 
-  assert.match(html, /data-action-key="id-publish-draft"/);
-  assert.match(html, /data-action-key="id-publish-live"/);
+  assert.match(html, /data-action-key="action-1-publish-draft"/);
+  assert.match(html, /data-action-key="action-2-publish-live"/);
 });
 
 test('ActionRenderer attaches listeners by data-action-key instead of label selector', () => {
@@ -29,17 +29,17 @@ test('ActionRenderer attaches listeners by data-action-key instead of label sele
 
   const selectors = [];
   const fakeContainer = {
-    querySelectorAll(selector) {
+    querySelector(selector) {
       selectors.push(selector);
-      return [];
+      return null;
     },
   };
 
-  renderer.attachRowActionListeners(fakeContainer, actions, { row_1: { id: 'row_1' } });
+  renderer.attachRowActionListeners(fakeContainer, actions, { id: 'row_1' });
 
   assert.deepEqual(selectors, [
-    '[data-action-key="id-publish-draft"]',
-    '[data-action-key="id-publish-live"]',
+    '[data-action-key="action-1-publish-draft"]',
+    '[data-action-key="action-2-publish-live"]',
   ]);
 });
 
@@ -64,7 +64,7 @@ test('ActionRenderer dropdown renders disabled reasons without remediation links
   );
 
   assert.match(html, /Article is used by 2 active publishing schedules\./);
-  assert.match(html, /aria-describedby="id-delete-disabled-reason"/);
+  assert.match(html, /aria-describedby="[^\"]*action-1-delete-disabled-reason"/);
   assert.doesNotMatch(html, /View schedules/);
 });
 
@@ -85,7 +85,7 @@ test('ActionRenderer dropdown leaves overlay geometry to the shared menu contrac
       `menu must not emit ${conflictingClass}`
     );
   }
-  assert.match(html, /aria-controls="actions-menu-row_1"/);
+  assert.match(html, /aria-controls="[^\"]*-row-1-menu"/);
 });
 
 test('ActionRenderer closes a dropdown before invoking its enabled action', async () => {
@@ -103,9 +103,9 @@ test('ActionRenderer closes a dropdown before invoking its enabled action', asyn
     closest(selector) { return selector === '.actions-menu' ? menu : null; },
     addEventListener(_event, handler) { this.handler = handler; },
   };
-  const container = { querySelectorAll() { return [button]; } };
+  const container = { querySelector() { return button; } };
 
-  renderer.attachRowActionListeners(container, [action], { row_1: { id: 'row_1' } });
+  renderer.attachRowActionListeners(container, [action], { id: 'row_1' });
   await button.handler({ preventDefault() {} });
 
   assert.deepEqual(calls, ['close', 'action']);
@@ -136,12 +136,12 @@ test('ActionRenderer click guard prevents disabled row actions from executing', 
     },
   };
   const fakeContainer = {
-    querySelectorAll() {
-      return [button];
+    querySelector() {
+      return button;
     },
   };
 
-  renderer.attachRowActionListeners(fakeContainer, [action], { row_1: { id: 'row_1' } });
+  renderer.attachRowActionListeners(fakeContainer, [action], { id: 'row_1' });
   await button.handler({ preventDefault() {} });
 
   assert.equal(calls, 0);

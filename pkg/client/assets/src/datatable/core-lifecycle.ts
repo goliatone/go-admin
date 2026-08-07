@@ -1014,6 +1014,10 @@ export function positionDropdownMenu(grid: any, trigger: HTMLElement, menu: HTML
    */
 export function bindDropdownToggles(grid: any): void {
     // Ensure we don't stack global listeners across in-page navigations.
+    if (grid.actionMenuController) {
+      grid.actionMenuController.destroy();
+      grid.actionMenuController = null;
+    }
     if (grid.dropdownAbortController) {
       grid.dropdownAbortController.abort();
     }
@@ -1069,7 +1073,7 @@ export function bindDropdownToggles(grid: any): void {
     }, { signal });
 
     const actionMenuRoot = grid.tableEl ?? document;
-    initActionMenus(actionMenuRoot, {
+    grid.actionMenuController = initActionMenus(actionMenuRoot, {
       containerSelector: '[data-dropdown], .actions-dropdown',
       triggerSelector: '[data-dropdown-trigger], .actions-menu-trigger',
       menuSelector: '.actions-menu',

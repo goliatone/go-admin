@@ -38,11 +38,79 @@ interface PortaledActionMenu {
   root: ParentNode;
   parent: Node;
   nextSibling: Node | null;
+  inlineStyle: string | null;
 }
+
+interface InlineStyleProperty {
+  value: string;
+  priority: string;
+}
+
+type InlineStyleSnapshot = Map<string, InlineStyleProperty>;
 
 const portaledMenus = new Set<HTMLElement>();
 const portalStateByMenu = new WeakMap<HTMLElement, PortaledActionMenu>();
 const portaledMenuByTrigger = new WeakMap<HTMLElement, HTMLElement>();
+const positionStyleByMenu = new WeakMap<HTMLElement, InlineStyleSnapshot>();
+
+const POSITION_STYLE_PROPERTIES = [
+  'position',
+  'right',
+  'bottom',
+  'margin',
+  'min-width',
+  'max-width',
+  'max-height',
+  'left',
+  'top',
+];
+
+const PORTAL_THEME_CUSTOM_PROPERTIES = [
+  '--action-menu-z-index',
+  '--action-menu-width',
+  '--action-menu-min-width',
+  '--action-menu-max-width',
+  '--action-menu-max-height',
+  '--action-menu-mobile-width',
+  '--color-surface-raised',
+  '--color-surface-subtle',
+  '--color-border-default',
+  '--color-text-primary',
+  '--color-text-secondary',
+  '--color-status-danger',
+  '--color-focus-ring',
+  '--datagrid-border',
+  '--datagrid-row-hover',
+  '--radius-surface',
+  '--shadow-overlay',
+];
+
+const PORTAL_THEME_PRESENTATION_PROPERTIES = [
+  'background-color',
+  'border-top-color',
+  'border-right-color',
+  'border-bottom-color',
+  'border-left-color',
+  'border-top-style',
+  'border-right-style',
+  'border-bottom-style',
+  'border-left-style',
+  'border-top-width',
+  'border-right-width',
+  'border-bottom-width',
+  'border-left-width',
+  'border-top-left-radius',
+  'border-top-right-radius',
+  'border-bottom-right-radius',
+  'border-bottom-left-radius',
+  'box-shadow',
+  'color',
+  'color-scheme',
+  'font-family',
+  'font-size',
+  'font-weight',
+  'line-height',
+];
 
 function eventTargetElement(event: Event): HTMLElement | null {
   const target = event.target;
@@ -57,6 +125,77 @@ function rootContains(root: ParentNode, element: Element): boolean {
     return root.contains(element);
   }
   return false;
+}
+
+function captureInlineStyleProperties(
+  element: HTMLElement,
+  properties: string[]
+): InlineStyleSnapshot {
+  const snapshot: InlineStyleSnapshot = new Map();
+  properties.forEach((property) => {
+    snapshot.set(property, {
+      value: element.style.getPropertyValue(property),
+      priority: element.style.getPropertyPriority(property),
+    });
+  });
+  return snapshot;
+}
+
+function restoreInlineStyleProperties(
+  element: HTMLElement,
+  snapshot: InlineStyleSnapshot
+): void {
+  snapshot.forEach(({ value, priority }, property) => {
+    if (value) {
+      element.style.setProperty(property, value, priority);
+      return;
+    }
+    element.style.removeProperty(property);
+  });
+}
+
+function restoreActionMenuPositionStyles(menu: HTMLElement): void {
+  const snapshot = positionStyleByMenu.get(menu);
+  if (!snapshot) {
+    return;
+  }
+  positionStyleByMenu.delete(menu);
+  restoreInlineStyleProperties(menu, snapshot);
+}
+
+function capturePortalTheme(menu: HTMLElement): Map<string, string> {
+  const snapshot = new Map<string, string>();
+  const view = menu.ownerDocument.defaultView;
+  if (!view) {
+    return snapshot;
+  }
+  const computed = view.getComputedStyle(menu);
+  const customProperties = new Set(PORTAL_THEME_CUSTOM_PROPERTIES);
+  for (let index = 0; index < computed.length; index += 1) {
+    const property = computed.item(index);
+    if (property.startsWith('--')) {
+      customProperties.add(property);
+    }
+  }
+  customProperties.forEach((property) => {
+    const value = computed.getPropertyValue(property).trim();
+    if (value) {
+      snapshot.set(property, value);
+    }
+  });
+  PORTAL_THEME_PRESENTATION_PROPERTIES.forEach((property) => {
+    const value = computed.getPropertyValue(property).trim();
+    if (value) {
+      snapshot.set(property, value);
+    }
+  });
+  return snapshot;
+}
+
+function applyPortalTheme(menu: HTMLElement, snapshot: Map<string, string>): void {
+  snapshot.forEach((value, property) => {
+    menu.style.setProperty(property, value);
+  });
 }
 
 export function findActionMenuElements(
@@ -86,16 +225,20 @@ function portalActionMenu(elements: ActionMenuElements, root: ParentNode): void 
     return;
   }
 
+  const theme = capturePortalTheme(menu);
+
   portalStateByMenu.set(menu, {
     container,
     trigger,
     root,
     parent,
     nextSibling: menu.nextSibling,
+    inlineStyle: menu.getAttribute('style'),
   });
   portaledMenus.add(menu);
   portaledMenuByTrigger.set(trigger, menu);
   doc.body.appendChild(menu);
+  applyPortalTheme(menu, theme);
 }
 
 function restoreActionMenu(menu: HTMLElement): void {
@@ -107,6 +250,11 @@ function restoreActionMenu(menu: HTMLElement): void {
   portaledMenus.delete(menu);
   portalStateByMenu.delete(menu);
   portaledMenuByTrigger.delete(state.trigger);
+  if (state.inlineStyle === null) {
+    menu.removeAttribute('style');
+  } else {
+    menu.setAttribute('style', state.inlineStyle);
+  }
   if (!state.parent.isConnected) {
     menu.remove();
     return;
@@ -130,6 +278,7 @@ export function closeActionMenu(
   const trigger = portalState?.trigger
     ?? container?.querySelector<HTMLElement>(options.triggerSelector || DEFAULT_TRIGGER_SELECTOR);
   trigger?.setAttribute('aria-expanded', 'false');
+  restoreActionMenuPositionStyles(menu);
   restoreActionMenu(menu);
 }
 
@@ -151,6 +300,40 @@ export function isActionMenuItemDisabled(item: HTMLElement): boolean {
   return item.getAttribute('aria-disabled') === 'true' || item.dataset.disabled === 'true';
 }
 
+function actionMenuItems(menu: HTMLElement, itemSelector: string): HTMLElement[] {
+  return Array.from(menu.querySelectorAll<HTMLElement>(itemSelector)).filter((item) => (
+    !item.hasAttribute('disabled')
+    && !item.hidden
+    && item.getAttribute('aria-hidden') !== 'true'
+  ));
+}
+
+function focusActionMenuItem(item: HTMLElement | undefined): void {
+  if (!item) {
+    return;
+  }
+  try {
+    item.focus({ preventScroll: true });
+  } catch (_error) {
+    item.focus();
+  }
+}
+
+function openActionMenuForRoot(
+  root: ParentNode,
+  menuSelector: string,
+  hiddenClass: string
+): HTMLElement | null {
+  const menus = new Set<HTMLElement>(Array.from(root.querySelectorAll<HTMLElement>(menuSelector)));
+  portaledMenus.forEach((menu) => {
+    const state = portalStateByMenu.get(menu);
+    if (state && (state.root === root || rootContains(root, state.trigger))) {
+      menus.add(menu);
+    }
+  });
+  return Array.from(menus).find((menu) => !menu.classList.contains(hiddenClass)) ?? null;
+}
+
 export type ActionMenuPositionElements = Pick<ActionMenuPositionContext, 'trigger' | 'menu'>;
 
 /**
@@ -161,6 +344,9 @@ export type ActionMenuPositionElements = Pick<ActionMenuPositionContext, 'trigge
  * remains responsible for visual presentation and the default overlay layer.
  */
 export function defaultActionMenuPositioner({ trigger, menu }: ActionMenuPositionElements): void {
+  restoreActionMenuPositionStyles(menu);
+  positionStyleByMenu.set(menu, captureInlineStyleProperties(menu, POSITION_STYLE_PROPERTIES));
+
   const triggerRect = trigger.getBoundingClientRect();
   const view = trigger.ownerDocument.defaultView ?? window;
   const visualViewport = view.visualViewport;
@@ -173,10 +359,6 @@ export function defaultActionMenuPositioner({ trigger, menu }: ActionMenuPositio
   const availableWidth = Math.max(0, viewportWidth - (viewportInset * 2));
   const availableHeight = Math.max(0, viewportHeight - (viewportInset * 2));
 
-  // Reset prior viewport constraints before reading the component/theme limits.
-  menu.style.minWidth = '';
-  menu.style.maxWidth = '';
-  menu.style.maxHeight = '';
   const computedStyle = view.getComputedStyle(menu);
   const pixelLimit = (value: string, fallback: number): number => {
     const parsed = Number.parseFloat(value);
@@ -187,21 +369,38 @@ export function defaultActionMenuPositioner({ trigger, menu }: ActionMenuPositio
   const configuredMaxHeight = pixelLimit(computedStyle.maxHeight, availableHeight);
   const constrainedMaxWidth = Math.min(configuredMaxWidth, availableWidth);
 
+  const viewportRight = viewportLeft + viewportWidth;
+  const viewportBottom = viewportTop + viewportHeight;
+  const spaceBelow = Math.max(
+    0,
+    viewportBottom - viewportInset - triggerRect.bottom - triggerGap
+  );
+  const spaceAbove = Math.max(
+    0,
+    triggerRect.top - viewportTop - viewportInset - triggerGap
+  );
+  const naturalMenuHeight = Math.min(
+    menu.scrollHeight || menu.offsetHeight || Math.min(300, availableHeight),
+    configuredMaxHeight,
+    availableHeight
+  );
+  const shouldOpenUpward = naturalMenuHeight > spaceBelow && spaceAbove > spaceBelow;
+  const availableOnChosenSide = shouldOpenUpward ? spaceAbove : spaceBelow;
+  const constrainedMaxHeight = Math.min(configuredMaxHeight, availableHeight, availableOnChosenSide);
+
   menu.style.position = 'fixed';
   menu.style.right = 'auto';
   menu.style.bottom = 'auto';
   menu.style.margin = '0';
   menu.style.minWidth = `${Math.min(configuredMinWidth, constrainedMaxWidth)}px`;
   menu.style.maxWidth = `${constrainedMaxWidth}px`;
-  menu.style.maxHeight = `${Math.min(configuredMaxHeight, availableHeight)}px`;
+  menu.style.maxHeight = `${constrainedMaxHeight}px`;
 
   const menuWidth = Math.min(menu.offsetWidth || 224, availableWidth);
-  const menuHeight = Math.min(menu.offsetHeight || Math.min(300, availableHeight), availableHeight);
-  const viewportRight = viewportLeft + viewportWidth;
-  const viewportBottom = viewportTop + viewportHeight;
-  const spaceBelow = viewportBottom - triggerRect.bottom;
-  const spaceAbove = triggerRect.top - viewportTop;
-  const shouldOpenUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+  const menuHeight = Math.min(
+    menu.offsetHeight || naturalMenuHeight,
+    constrainedMaxHeight
+  );
   const desiredLeft = triggerRect.right - menuWidth;
   const minLeft = viewportLeft + viewportInset;
   const maxLeft = Math.max(minLeft, viewportRight - menuWidth - viewportInset);
@@ -275,6 +474,7 @@ export function initActionMenus(
       if (positionMenu) {
         positionMenu({ ...elements, opening: true });
       }
+      focusActionMenuItem(actionMenuItems(elements.menu, itemSelector)[0]);
       return;
     }
 
@@ -308,8 +508,42 @@ export function initActionMenus(
   };
 
   const handleKeydown = (event: KeyboardEvent) => {
+    const menu = openActionMenuForRoot(root, menuSelector, hiddenClass);
+    if (!menu) {
+      return;
+    }
+    const items = actionMenuItems(menu, itemSelector);
+    const activeElement = doc.activeElement as HTMLElement | null;
+    const activeIndex = activeElement ? items.indexOf(activeElement) : -1;
+
     if (event.key === 'Escape') {
-      controller.closeAll();
+      const trigger = portalStateByMenu.get(menu)?.trigger
+        ?? menu.closest<HTMLElement>(options.containerSelector || DEFAULT_CONTAINER_SELECTOR)
+          ?.querySelector<HTMLElement>(triggerSelector)
+        ?? null;
+      event.preventDefault();
+      event.stopPropagation();
+      closeActionMenu(menu, options);
+      if (trigger?.isConnected) {
+        focusActionMenuItem(trigger);
+      }
+      return;
+    }
+
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowDown') {
+      nextIndex = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
+    } else if (event.key === 'ArrowUp') {
+      nextIndex = activeIndex < 0 ? items.length - 1 : (activeIndex - 1 + items.length) % items.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = items.length - 1;
+    }
+    if (nextIndex !== null && items.length > 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      focusActionMenuItem(items[nextIndex]);
     }
   };
 

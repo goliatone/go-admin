@@ -12,7 +12,7 @@ import {
   formatStructuredErrorForDisplay,
   isHandledActionError,
 } from '../toast/error-helpers.js';
-import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute as escapeAttr, escapeHTML as escapeHtml } from '../shared/html.js';
 import { closeActionMenu } from '../shared/action-menu.js';
 import { readHTTPJSONValue } from '../shared/transport/http-client.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
@@ -76,80 +76,92 @@ export interface ActionRendererConfig {
   mode?: ActionRenderMode;
   actionBasePath?: string;
   notifier?: ToastNotifier;
+  domIdPrefix?: string;
 }
+
+export interface RowActionListenerOptions {
+  onError?: (error: unknown, action: ActionButton, record: any) => void | Promise<void>;
+}
+
+interface VisibleAction {
+  action: ActionButton;
+  sourceIndex: number;
+}
+
+let actionRendererInstanceSeq = 0;
 
 export class ActionRenderer {
   private actionBasePath: string;
   private mode: ActionRenderMode;
   private notifier: ToastNotifier;
-  private actionKeys: WeakMap<ActionButton, string>;
-  private actionKeySeq: number;
+  private domNamespace: string;
+  private rowRenderSeq: number;
 
   constructor(config: ActionRendererConfig = {}) {
     this.actionBasePath = config.actionBasePath || '';
     this.mode = config.mode || 'dropdown';  // Default to dropdown
     this.notifier = config.notifier || new FallbackNotifier();
-    this.actionKeys = new WeakMap<ActionButton, string>();
-    this.actionKeySeq = 0;
+    const namespaceHint = this.sanitize(config.domIdPrefix || 'grid') || 'grid';
+    this.domNamespace = `${namespaceHint}-${++actionRendererInstanceSeq}`;
+    this.rowRenderSeq = 0;
   }
 
   /**
    * Render row actions as HTML
    */
   renderRowActions(record: any, actions: ActionButton[]): string {
+    const rowScope = `${this.domNamespace}-row-${++this.rowRenderSeq}`;
     if (this.mode === 'dropdown') {
-      return this.renderRowActionsDropdown(record, actions);
+      return this.renderRowActionsDropdown(record, actions, rowScope);
     }
 
     // Inline mode (existing behavior)
-    const visibleActions = actions.filter(action =>
-      !action.condition || action.condition(record)
-    );
+    const visibleActions = this.getVisibleActions(record, actions);
 
     if (visibleActions.length === 0) {
       return '<div class="admin-datagrid__action-list flex justify-end gap-2"></div>';
     }
 
-    const actionButtons = visibleActions.map(action => {
+    const actionButtons = visibleActions.map(({ action, sourceIndex }) => {
       const variantClass = this.getVariantClass(action.variant || 'secondary');
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const customClass = action.className || '';
       const disabled = action.disabled === true;
-      const actionKey = this.getActionKey(action);
+      const actionKey = this.getActionKey(action, sourceIndex);
       const disabledClass = disabled ? 'opacity-50 cursor-not-allowed' : '';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
       const disabledReasonId = disabled && action.disabledReason
-        ? `${actionKey}-disabled-reason`
+        ? `${rowScope}-${actionKey}-disabled-reason`
         : '';
       const describedByAttr = disabledReasonId
-        ? `aria-describedby="${disabledReasonId}"`
+        ? `aria-describedby="${escapeAttr(disabledReasonId)}"`
         : '';
       const ariaLabel = disabled && action.disabledReason
         ? `${action.label} unavailable: ${action.disabledReason}`
         : action.label;
       const reasonAssistiveText = disabledReasonId
-        ? `<span id="${disabledReasonId}" class="sr-only">${escapeHtml(action.disabledReason || 'Action unavailable')}</span>`
+        ? `<span id="${escapeAttr(disabledReasonId)}" class="sr-only">${escapeHtml(action.disabledReason || 'Action unavailable')}</span>`
         : '';
       const titleAttr = action.disabledReason
-        ? `title="${escapeHtml(action.disabledReason)}"`
+        ? `title="${escapeAttr(action.disabledReason)}"`
         : '';
 
       return `
         <button
           type="button"
-          class="admin-datagrid__action btn btn-sm ${variantClass} ${customClass} ${disabledClass}"
-          data-action-id="${this.sanitize(action.label)}"
-          data-action-key="${actionKey}"
-          data-record-id="${record.id}"
+          class="admin-datagrid__action btn btn-sm ${escapeAttr(variantClass)} ${escapeAttr(customClass)} ${disabledClass}"
+          data-action-id="${escapeAttr(this.sanitize(action.label))}"
+          data-action-key="${escapeAttr(actionKey)}"
+          data-record-id="${escapeAttr(record.id)}"
           data-disabled="${disabled}"
           ${ariaDisabledAttr}
-          aria-label="${escapeHtml(ariaLabel)}"
+          aria-label="${escapeAttr(ariaLabel)}"
           ${describedByAttr}
           ${titleAttr}
         >
           ${icon}
-          ${this.sanitize(action.label)}
+          ${escapeHtml(action.label)}
         </button>
         ${reasonAssistiveText}
       `;
@@ -161,17 +173,15 @@ export class ActionRenderer {
   /**
    * Render row actions as dropdown menu
    */
-  private renderRowActionsDropdown(record: any, actions: ActionButton[]): string {
-    const visibleActions = actions.filter(action =>
-      !action.condition || action.condition(record)
-    );
+  private renderRowActionsDropdown(record: any, actions: ActionButton[], rowScope: string): string {
+    const visibleActions = this.getVisibleActions(record, actions);
 
     if (visibleActions.length === 0) {
       return '<div class="admin-datagrid__actions-empty text-sm text-gray-400">No actions</div>';
     }
 
-    const menuId = `actions-menu-${record.id}`;
-    const actionItems = this.buildDropdownItems(record, visibleActions);
+    const menuId = `${rowScope}-menu`;
+    const actionItems = this.buildDropdownItems(record, visibleActions, rowScope);
 
     return `
       <div class="actions-dropdown" data-dropdown>
@@ -181,11 +191,11 @@ export class ActionRenderer {
                 aria-label="Actions menu"
                 aria-haspopup="true"
                 aria-expanded="false"
-                aria-controls="${menuId}">
+                aria-controls="${escapeAttr(menuId)}">
           ${this.renderDotsIcon()}
         </button>
 
-        <div id="${menuId}"
+        <div id="${escapeAttr(menuId)}"
              class="actions-menu hidden"
              role="menu"
              aria-orientation="vertical">
@@ -198,18 +208,18 @@ export class ActionRenderer {
   /**
    * Build dropdown menu items HTML
    */
-  private buildDropdownItems(record: any, actions: ActionButton[]): string {
-    return actions.map((action, index) => {
+  private buildDropdownItems(record: any, actions: VisibleAction[], rowScope: string): string {
+    return actions.map(({ action, sourceIndex }, index) => {
       const isDestructive = action.variant === 'danger';
       const disabled = action.disabled === true;
-      const actionKey = this.getActionKey(action);
+      const actionKey = this.getActionKey(action, sourceIndex);
       const icon = action.icon ? this.renderIcon(action.icon) : '';
-      const needsDivider = this.shouldShowDivider(action, index, actions);
+      const needsDivider = this.shouldShowDivider(action, index);
       const disabledReason = disabled
         ? (action.disabledReason || 'Action unavailable').trim()
         : '';
       const reasonID = disabledReason
-        ? `${actionKey}-disabled-reason`
+        ? `${rowScope}-${actionKey}-disabled-reason`
         : '';
 
       const divider = needsDivider ? '<div class="action-divider"></div>' : '';
@@ -221,28 +231,28 @@ export class ActionRenderer {
         : 'action-item';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
-      const describedByAttr = reasonID ? `aria-describedby="${reasonID}"` : '';
+      const describedByAttr = reasonID ? `aria-describedby="${escapeAttr(reasonID)}"` : '';
       const ariaLabel = disabledReason
         ? `${action.label} unavailable: ${disabledReason}`
         : action.label;
       const titleAttr = action.disabledReason
-        ? `title="${escapeHtml(action.disabledReason)}"`
+        ? `title="${escapeAttr(action.disabledReason)}"`
         : '';
       const reasonMarkup = disabledReason
-        ? `<span id="${reasonID}" class="action-item-reason">${escapeHtml(disabledReason)}</span>`
+        ? `<span id="${escapeAttr(reasonID)}" class="action-item-reason">${escapeHtml(disabledReason)}</span>`
         : '';
 
       return `
         ${divider}
         <button type="button"
-                class="${itemClass}"
-                data-action-id="${this.sanitize(action.label)}"
-                data-action-key="${actionKey}"
-                data-record-id="${record.id}"
+                class="${escapeAttr(itemClass)}"
+                data-action-id="${escapeAttr(this.sanitize(action.label))}"
+                data-action-key="${escapeAttr(actionKey)}"
+                data-record-id="${escapeAttr(record.id)}"
                 data-disabled="${disabled}"
                 role="menuitem"
                 ${ariaDisabledAttr}
-                aria-label="${escapeHtml(ariaLabel)}"
+                aria-label="${escapeAttr(ariaLabel)}"
                 ${describedByAttr}
                 ${titleAttr}>
           <span class="action-item__icon">${icon}</span>
@@ -258,7 +268,7 @@ export class ActionRenderer {
   /**
    * Determine if divider should be shown before action
    */
-  private shouldShowDivider(action: ActionButton, index: number, actions: ActionButton[]): boolean {
+  private shouldShowDivider(action: ActionButton, index: number): boolean {
     if (index === 0) return false;
 
     // Show divider before destructive actions
@@ -299,40 +309,40 @@ export class ActionRenderer {
   attachRowActionListeners(
     container: HTMLElement,
     actions: ActionButton[],
-    records: Record<string, any>
+    record: any,
+    options: RowActionListenerOptions = {}
   ): void {
-    actions.forEach(action => {
-      const actionKey = this.getActionKey(action);
-      const buttons = container.querySelectorAll(
+    // Bind from the source list rather than re-evaluating visibility conditions.
+    // A hidden action simply has no matching rendered button; this keeps render and
+    // binding deterministic even when a condition reads mutable application state.
+    actions.forEach((action, sourceIndex) => {
+      const actionKey = this.getActionKey(action, sourceIndex);
+      const button = container.querySelector<HTMLElement>(
         `[data-action-key="${actionKey}"]`
       );
+      if (!button) {
+        return;
+      }
 
-      buttons.forEach((button) => {
-        const btn = button as HTMLElement;
-        const recordId = btn.dataset.recordId;
-        const record = records[recordId!];
-
-        if (record) {
-          btn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            // Click guard: prevent action execution when aria-disabled
-            if (btn.getAttribute('aria-disabled') === 'true' || btn.dataset.disabled === 'true') {
-              return;
-            }
-            if (typeof btn.closest === 'function') {
-              const menu = btn.closest<HTMLElement>('.actions-menu');
-              if (menu) {
-                closeActionMenu(menu);
-              }
-            }
-            try {
-              await action.action(record);
-            } catch (error) {
-              console.error(`Action "${action.label}" failed:`, error);
-              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-              this.notifier.error(errorMsg);
-            }
-          });
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        if (button.getAttribute('aria-disabled') === 'true' || button.dataset.disabled === 'true') {
+          return;
+        }
+        const menu = button.closest<HTMLElement>('.actions-menu');
+        if (menu) {
+          closeActionMenu(menu);
+        }
+        try {
+          await action.action(record);
+        } catch (error) {
+          console.error(`Action "${action.label}" failed:`, error);
+          if (options.onError) {
+            await options.onError(error, action, record);
+            return;
+          }
+          const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
+          this.notifier.error(errorMsg);
         }
       });
     });
@@ -774,16 +784,16 @@ export class ActionRenderer {
     return icons[icon] || '';
   }
 
-  private getActionKey(action: ActionButton): string {
-    const existing = this.actionKeys.get(action);
-    if (existing) {
-      return existing;
-    }
-
+  private getActionKey(action: ActionButton, sourceIndex: number): string {
     const configuredID = typeof action.id === 'string' ? action.id.trim() : '';
-    const key = configuredID ? `id-${this.sanitize(configuredID)}` : `auto-${++this.actionKeySeq}`;
-    this.actionKeys.set(action, key);
-    return key;
+    const hint = this.sanitize(configuredID || action.label) || 'action';
+    return `action-${sourceIndex + 1}-${hint}`;
+  }
+
+  private getVisibleActions(record: any, actions: ActionButton[]): VisibleAction[] {
+    return actions
+      .map((action, sourceIndex) => ({ action, sourceIndex }))
+      .filter(({ action }) => !action.condition || action.condition(record));
   }
 
   private sanitize(str: string): string {

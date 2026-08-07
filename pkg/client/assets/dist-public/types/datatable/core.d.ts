@@ -20,6 +20,7 @@ export declare class DataGrid {
     private searchTimeout;
     private abortController;
     private dropdownAbortController;
+    private actionMenuController;
     private selectionAbortController;
     private didRestoreColumnOrder;
     private shouldReorderDOMOnRestore;

@@ -176,6 +176,86 @@ test('shared action menu portals open overlays and restores them on close', asyn
   assert.equal(menu.classList.contains('hidden'), true);
 });
 
+test('shared action menu moves focus into a portaled menu and supports menu keyboard navigation', async () => {
+  const { initActionMenus } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+  const items = menu.querySelectorAll('[role="menuitem"]');
+  const controller = initActionMenus(root, { portal: true, positionMenu: () => {} });
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(dom.window.document.activeElement, items[0]);
+
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  assert.equal(dom.window.document.activeElement, items[1]);
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  assert.equal(dom.window.document.activeElement, items[0]);
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  assert.equal(dom.window.document.activeElement, items[1]);
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  assert.equal(dom.window.document.activeElement, items[0]);
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  assert.equal(dom.window.document.activeElement, items[1]);
+  dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+  assert.equal(menu.classList.contains('hidden'), true);
+  assert.equal(menu.parentElement.closest('#root'), root);
+  assert.equal(dom.window.document.activeElement, trigger);
+  controller.destroy();
+});
+
+test('portaled menus preserve scoped theme values and restore author inline styles', async () => {
+  const { defaultActionMenuPositioner, initActionMenus } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  setViewport(dom.window, 1200, 800);
+
+  const scopedStyles = dom.window.document.createElement('style');
+  scopedStyles.textContent = `
+    #root .actions-menu {
+      background-color: rgb(21, 31, 41);
+      border: 2px solid rgb(51, 61, 71);
+      color: rgb(81, 91, 101);
+    }
+  `;
+  dom.window.document.head.appendChild(scopedStyles);
+  const root = dom.window.document.getElementById('root');
+  root.style.setProperty('--color-text-primary', 'rgb(12, 34, 56)');
+  root.style.setProperty('--action-menu-max-width', '17rem');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+  menu.setAttribute('style', 'width: 17rem; min-width: 13rem; max-height: 19rem;');
+  const originalInlineStyle = menu.getAttribute('style');
+  trigger.getBoundingClientRect = () => ({
+    top: 100, right: 900, bottom: 132, left: 868, width: 32, height: 32,
+    x: 868, y: 100, toJSON() {},
+  });
+  setElementSize(menu, 272, 180);
+  const controller = initActionMenus(root, {
+    portal: true,
+    positionMenu: ({ trigger: activeTrigger, menu: activeMenu }) => {
+      defaultActionMenuPositioner({ trigger: activeTrigger, menu: activeMenu });
+    },
+  });
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.parentElement, dom.window.document.body);
+  assert.equal(menu.style.getPropertyValue('--color-text-primary'), 'rgb(12, 34, 56)');
+  assert.equal(menu.style.getPropertyValue('--action-menu-max-width'), '17rem');
+  assert.equal(menu.style.backgroundColor, 'rgb(21, 31, 41)');
+  assert.equal(menu.style.borderTopColor, 'rgb(51, 61, 71)');
+  assert.equal(menu.style.color, 'rgb(81, 91, 101)');
+  assert.notEqual(menu.getAttribute('style'), originalInlineStyle);
+
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  assert.equal(menu.getAttribute('style'), originalInlineStyle);
+  controller.destroy();
+});
+
 test('scoped action menu controllers do not double-toggle menus in sibling grids', async () => {
   const { initActionMenus } = await importActionMenuModule();
   const dom = new JSDOM(`
@@ -254,7 +334,7 @@ test('default action menu positioner applies fixed viewport geometry below the t
   assert.equal(menu.style.margin, '0px');
   assert.equal(menu.style.minWidth, '192px');
   assert.equal(menu.style.maxWidth, '1180px');
-  assert.equal(menu.style.maxHeight, '780px');
+  assert.equal(menu.style.maxHeight, '650px');
 });
 
 test('default action menu positioner preserves stricter component size limits', async () => {
@@ -314,6 +394,7 @@ test('default action menu positioner opens upward and clamps both axes to the vi
 
   assert.equal(menu.style.left, '86px');
   assert.equal(menu.style.top, '10px');
+  assert.equal(menu.style.maxHeight, '292px');
   assert.equal(Number.parseFloat(menu.style.left) + 224 <= 310, true);
   assert.equal(Number.parseFloat(menu.style.top) + 300 <= 350, true);
 });
@@ -340,9 +421,30 @@ test('default action menu positioner constrains oversized menus to the visual vi
 
   assert.equal(menu.style.minWidth, '180px');
   assert.equal(menu.style.maxWidth, '180px');
-  assert.equal(menu.style.maxHeight, '280px');
+  assert.equal(menu.style.maxHeight, '192px');
   assert.equal(menu.style.left, '50px');
   assert.equal(menu.style.top, '60px');
+});
+
+test('default action menu positioner accounts for the trigger gap before choosing a direction', async () => {
+  const { defaultActionMenuPositioner } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  setViewport(dom.window, 800, 400);
+
+  const trigger = dom.window.document.querySelector('[data-action-menu-trigger]');
+  const menu = dom.window.document.querySelector('[data-action-menu-content]');
+  trigger.getBoundingClientRect = () => ({
+    top: 223, right: 700, bottom: 255, left: 668, width: 32, height: 32,
+    x: 668, y: 223, toJSON() {},
+  });
+  setElementSize(menu, 224, 140);
+
+  defaultActionMenuPositioner({ trigger, menu });
+
+  const menuTop = Number.parseFloat(menu.style.top);
+  const menuHeight = menu.offsetHeight;
+  assert.equal(menuTop + menuHeight <= 223 - 8, true);
 });
 
 test('shared action menu supports existing DataGrid dropdown markup', async () => {

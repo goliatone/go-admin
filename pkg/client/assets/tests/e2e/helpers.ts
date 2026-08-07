@@ -110,13 +110,11 @@ async function openRowActionsMenu(page: Page, rowIndex: number): Promise<OpenRow
   }
 
   const menuId = await trigger.getAttribute('aria-controls');
-  const menu = menuId
-    ? page.locator(`[id=${JSON.stringify(menuId)}]`).first()
-    : row.locator('.actions-menu').first();
-  if (await menu.count() === 0) {
-    await trigger.click();
-    return { row, trigger, menu: null };
+  if (!menuId) {
+    throw new Error(`row ${rowIndex} action-menu trigger is missing aria-controls`);
   }
+  const menu = page.locator(`[id=${JSON.stringify(menuId)}]`);
+  await expect(menu, `row ${rowIndex} must control exactly one action menu`).toHaveCount(1);
 
   const hidden = await menu.evaluate((element) => element.classList.contains('hidden'));
   if (hidden) {
