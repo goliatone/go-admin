@@ -63,4 +63,8 @@ func TestRegisterUserMigrationsSQLite(t *testing.T) {
 	if err := client.Migrate(context.Background()); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
+	var tableCount int
+	if err := client.DB().NewRaw("SELECT COUNT(*) FROM notification_definitions").Scan(context.Background(), &tableCount); err != nil {
+		t.Fatalf("notification migrations were not applied: %v", err)
+	}
 }

@@ -24,7 +24,7 @@ func TestRegisterUserMigrations_ProfileOrderAndLabels(t *testing.T) {
 		{
 			name:     "auth-only",
 			profile:  UserMigrationsProfileAuthOnly,
-			expected: []string{UserMigrationsSourceLabelAuth},
+			expected: []string{UserMigrationsSourceLabelAuth, UserMigrationsSourceLabelNotifications},
 		},
 		{
 			name:    "users-standalone",
@@ -33,12 +33,13 @@ func TestRegisterUserMigrations_ProfileOrderAndLabels(t *testing.T) {
 				UserMigrationsSourceLabelUsersAuthBootstrap,
 				UserMigrationsSourceLabelUsersAuthExtras,
 				UserMigrationsSourceLabelUsersCore,
+				UserMigrationsSourceLabelNotifications,
 			},
 		},
 		{
 			name:     "combined",
 			profile:  UserMigrationsProfileCombined,
-			expected: []string{UserMigrationsSourceLabelAuth, UserMigrationsSourceLabelUsersCore},
+			expected: []string{UserMigrationsSourceLabelAuth, UserMigrationsSourceLabelUsersCore, UserMigrationsSourceLabelNotifications},
 		},
 	}
 
@@ -78,6 +79,7 @@ func TestRegisterUserMigrations_SourceStablePlanMetadata(t *testing.T) {
 			profile: UserMigrationsProfileAuthOnly,
 			expected: []userSourcePlanExpectation{
 				{sourceKey: "go_auth", order: 10},
+				{sourceKey: "go_notifications", order: 50, dependsOn: []string{"go_auth"}},
 			},
 		},
 		{
@@ -86,6 +88,7 @@ func TestRegisterUserMigrations_SourceStablePlanMetadata(t *testing.T) {
 			expected: []userSourcePlanExpectation{
 				{sourceKey: "go_auth", order: 10},
 				{sourceKey: "go_users", order: 40, dependsOn: []string{"go_auth"}},
+				{sourceKey: "go_notifications", order: 50, dependsOn: []string{"go_users"}},
 			},
 		},
 		{
@@ -95,6 +98,7 @@ func TestRegisterUserMigrations_SourceStablePlanMetadata(t *testing.T) {
 				{sourceKey: "go_users_auth", order: 20},
 				{sourceKey: "go_users_auth_extras", order: 30, dependsOn: []string{"go_users_auth"}},
 				{sourceKey: "go_users", order: 40, dependsOn: []string{"go_users_auth_extras"}},
+				{sourceKey: "go_notifications", order: 50, dependsOn: []string{"go_users"}},
 			},
 		},
 	}
@@ -116,6 +120,38 @@ func TestRegisterUserMigrations_SourceStablePlanMetadata(t *testing.T) {
 	}
 }
 
+func TestRegisterUserMigrations_NotificationPlacementAndOptOut(t *testing.T) {
+	suffix := newUserMigrationsPersistenceClient(t)
+	if err := RegisterUserMigrations(suffix, WithUserMigrationsNotificationPlacement(60, "go-users")); err != nil {
+		t.Fatalf("register suffix placement: %v", err)
+	}
+	plan, err := suffix.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("plan suffix placement: %v", err)
+	}
+	assertUserSourceStablePlanEntry(t, plan, "go_notifications", 60, []string{"go_users"})
+
+	disabled := newUserMigrationsPersistenceClient(t)
+	if err := RegisterUserMigrations(disabled, WithUserMigrationsNotificationsEnabled(false)); err != nil {
+		t.Fatalf("register without notifications: %v", err)
+	}
+	disabledPlan, err := disabled.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("plan without notifications: %v", err)
+	}
+	assertUserSourceAbsent(t, disabledPlan, "go_notifications")
+
+	for _, option := range []UserMigrationsOption{
+		WithUserMigrationsNotificationPlacement(50, "go-users"),
+		WithUserMigrationsNotificationPlacement(60),
+	} {
+		invalid := newUserMigrationsPersistenceClient(t)
+		if err := RegisterUserMigrations(invalid, option); err == nil {
+			t.Fatal("expected invalid explicit notification placement to fail")
+		}
+	}
+}
+
 func TestRegisterUserMigrations_PrunesAbsentSourceDependencies(t *testing.T) {
 	client := newUserMigrationsPersistenceClient(t)
 	if err := RegisterUserMigrations(
@@ -131,6 +167,7 @@ func TestRegisterUserMigrations_PrunesAbsentSourceDependencies(t *testing.T) {
 	}
 	assertUserSourceStablePlanEntry(t, plan, "go_users_auth", 20, nil)
 	assertUserSourceStablePlanEntry(t, plan, "go_users", 40, []string{"go_users_auth"})
+	assertUserSourceStablePlanEntry(t, plan, "go_notifications", 50, []string{"go_users"})
 	assertUserSourceAbsent(t, plan, "go_users_auth_extras")
 }
 

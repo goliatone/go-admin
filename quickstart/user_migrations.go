@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	auth "github.com/goliatone/go-auth"
+	notifications "github.com/goliatone/go-notifications"
 	persistence "github.com/goliatone/go-persistence-bun"
 	users "github.com/goliatone/go-users"
 )
@@ -16,6 +17,7 @@ const (
 	UserMigrationsSourceLabelUsersCore          = "go-users"
 	UserMigrationsSourceLabelUsersAuthBootstrap = "go-users-auth"
 	UserMigrationsSourceLabelUsersAuthExtras    = "go-users-auth-extras"
+	UserMigrationsSourceLabelNotifications      = notifications.MigrationSourceName
 )
 
 const (
@@ -35,10 +37,13 @@ type UserMigrationsProfile string
 
 const (
 	// UserMigrationsProfileCombined registers go-auth plus go-users core migrations.
+	// Notifications are appended unless explicitly disabled.
 	UserMigrationsProfileCombined UserMigrationsProfile = "combined"
-	// UserMigrationsProfileAuthOnly registers only go-auth migrations.
+	// UserMigrationsProfileAuthOnly registers go-auth followed by notifications
+	// unless notifications are explicitly disabled.
 	UserMigrationsProfileAuthOnly UserMigrationsProfile = "auth-only"
-	// UserMigrationsProfileUsersStandalone registers go-users standalone tracks.
+	// UserMigrationsProfileUsersStandalone registers go-users standalone tracks
+	// followed by notifications unless explicitly disabled.
 	UserMigrationsProfileUsersStandalone UserMigrationsProfile = "users-standalone"
 )
 
@@ -60,6 +65,10 @@ type userMigrationsOptions struct {
 	enableUsersCore          *bool
 	enableUsersAuthBootstrap *bool
 	enableUsersAuthExtras    *bool
+	enableNotifications      *bool
+	notificationOrder        int
+	notificationDependencies []string
+	notificationPlacementSet bool
 
 	authFS               fs.FS
 	usersCoreFS          fs.FS
@@ -75,8 +84,9 @@ type userMigrationsOptions struct {
 	observer          UserMigrationObserver
 }
 
-// RegisterUserMigrations registers go-auth and go-users migrations with sensible defaults.
-// By default it registers go-auth migrations plus go-users core migrations.
+// RegisterUserMigrations registers go-auth, go-users, and notification
+// migrations with sensible defaults. The default graph is auth -> users ->
+// notifications.
 func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error {
 	if client == nil {
 		return nil
@@ -101,7 +111,7 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		return err
 	}
 
-	orderedSources := make([]persistence.OrderedMigrationSource, 0, 4)
+	orderedSources := make([]persistence.OrderedMigrationSource, 0, 5)
 	sourceNameCounts := map[string]int{}
 	for _, source := range userMigrationSourceSpecs(options, enabled) {
 		if !source.enabled {
@@ -112,6 +122,26 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 			return err
 		}
 		appendStableOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, source.label, source.sourceKey, source.order, source.dependsOn, options.validationTargets, options.observer)
+	}
+	if enabled.notifications {
+		order := notifications.MigrationSourceOrder
+		dependencies := append([]string{}, options.notificationDependencies...)
+		if options.notificationPlacementSet {
+			order = options.notificationOrder
+			if order <= notifications.MigrationSourceOrder || len(dependencies) == 0 {
+				return fmt.Errorf("quickstart: explicit notification migration placement must use order > %d and depend on the persisted predecessor", notifications.MigrationSourceOrder)
+			}
+		} else if predecessor := nearestUserMigrationPredecessor(enabled); predecessor != "" {
+			dependencies = append(dependencies, predecessor)
+		}
+		source, sourceErr := notifications.OrderedMigrationSourceWithOptions(notifications.MigrationSourceOptions{Order: order, Dependencies: dependencies})
+		if sourceErr != nil {
+			return sourceErr
+		}
+		if options.observer != nil {
+			options.observer(UserMigrationRegistration{Label: UserMigrationsSourceLabelNotifications})
+		}
+		orderedSources = append(orderedSources, source)
 	}
 
 	if len(orderedSources) == 0 {
@@ -125,6 +155,7 @@ type userMigrationEnabledSources struct {
 	usersCore          bool
 	usersAuthBootstrap bool
 	usersAuthExtras    bool
+	notifications      bool
 }
 
 type userMigrationSourceSpec struct {
@@ -148,6 +179,7 @@ func resolveUserMigrationEnabledSources(options userMigrationsOptions) (userMigr
 		usersCore:          enableUsersCore,
 		usersAuthBootstrap: enableUsersAuthBootstrap,
 		usersAuthExtras:    enableUsersAuthExtras,
+		notifications:      true,
 	}
 	if options.enableAuth != nil {
 		enabled.auth = *options.enableAuth
@@ -161,7 +193,26 @@ func resolveUserMigrationEnabledSources(options userMigrationsOptions) (userMigr
 	if options.enableUsersAuthExtras != nil {
 		enabled.usersAuthExtras = *options.enableUsersAuthExtras
 	}
+	if options.enableNotifications != nil {
+		enabled.notifications = *options.enableNotifications
+	}
 	return enabled, nil
+}
+
+func nearestUserMigrationPredecessor(enabled userMigrationEnabledSources) string {
+	if enabled.usersCore {
+		return userMigrationsSourceKeyUsersCore
+	}
+	if enabled.usersAuthExtras {
+		return userMigrationsSourceKeyUsersAuthExtras
+	}
+	if enabled.usersAuthBootstrap {
+		return userMigrationsSourceKeyUsersAuthBootstrap
+	}
+	if enabled.auth {
+		return userMigrationsSourceKeyAuth
+	}
+	return ""
 }
 
 func userMigrationSourceSpecs(options userMigrationsOptions, enabled userMigrationEnabledSources) []userMigrationSourceSpec {
@@ -265,6 +316,29 @@ func WithUserMigrationsAuthExtrasEnabled(enabled bool) UserMigrationsOption {
 		if opts != nil {
 			value := enabled
 			opts.enableUsersAuthExtras = &value
+		}
+	}
+}
+
+// WithUserMigrationsNotificationsEnabled toggles the stable go-notifications
+// migration source. It is enabled by default at order 50.
+func WithUserMigrationsNotificationsEnabled(enabled bool) UserMigrationsOption {
+	return func(opts *userMigrationsOptions) {
+		if opts != nil {
+			value := enabled
+			opts.enableNotifications = &value
+		}
+	}
+}
+
+// WithUserMigrationsNotificationPlacement configures a permanent suffix-only
+// placement for adopting notifications into an already persisted graph.
+func WithUserMigrationsNotificationPlacement(order int, dependsOn ...string) UserMigrationsOption {
+	return func(opts *userMigrationsOptions) {
+		if opts != nil {
+			opts.notificationOrder = order
+			opts.notificationDependencies = append([]string{}, dependsOn...)
+			opts.notificationPlacementSet = true
 		}
 	}
 }
