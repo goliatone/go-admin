@@ -250,7 +250,7 @@ func validateNotificationDeliveryRouteParameters(cfg Config, manager *urlkit.Rou
 
 func routeTemplateParameters(template string) []string {
 	params := make([]string, 0, 1)
-	for _, segment := range strings.Split(strings.TrimSpace(template), "/") {
+	for segment := range strings.SplitSeq(strings.TrimSpace(template), "/") {
 		if strings.HasPrefix(segment, ":") && len(segment) > 1 {
 			params = append(params, strings.TrimPrefix(segment, ":"))
 		}

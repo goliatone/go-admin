@@ -251,7 +251,6 @@ func TestGoNotificationsAddReturnsItsExactInboxItemUnderConcurrency(t *testing.T
 	errorsCh := make(chan error, count)
 	var wait sync.WaitGroup
 	for index := range count {
-		index := index
 		wait.Go(func() {
 			title := "title-" + string(rune('a'+index))
 			body := "body-" + string(rune('a'+index))
