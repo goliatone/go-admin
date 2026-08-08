@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin/routing"
@@ -235,6 +236,94 @@ func TestNewURLManagerBackfillsMediaRoutesWhenFeatureEnabled(t *testing.T) {
 	}
 	if got != "/admin/api/media/delivery/asset-1/stream" {
 		t.Fatalf("expected /admin/api/media/delivery/asset-1/stream, got %q", got)
+	}
+}
+
+func TestNotificationRoutesDefaultResolveAndBackfillWithoutReplacingOverrides(t *testing.T) {
+	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
+	custom := defaultURLKitConfig(cfg)
+	apiRoutes := custom.Groups[0].Groups[0].Routes
+	apiRoutes[NotificationRouteDeliveries] = "/ops/notification-deliveries"
+	delete(apiRoutes, NotificationRouteReceiptLookup)
+	cfg.URLs.URLKit = custom
+
+	manager, err := newURLManager(cfg, false, true)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+	tests := map[string]struct {
+		params urlkit.Params
+		want   string
+	}{
+		NotificationRouteDeliveries:      {want: "/ops/notification-deliveries"},
+		NotificationRouteDeliveryEvent:   {params: urlkit.Params{"event_id": "event-1"}, want: "/admin/api/notifications/deliveries/events/event-1"},
+		NotificationRouteDeliveryMessage: {params: urlkit.Params{"message_id": "message-1"}, want: "/admin/api/notifications/deliveries/messages/message-1"},
+		NotificationRouteReceiptLookup:   {want: "/admin/api/notifications/receipts/lookup"},
+		NotificationRouteRetentionPurge:  {want: "/admin/api/notifications/retention/purge"},
+	}
+	for key, test := range tests {
+		got, resolveErr := manager.Resolve(adminAPIGroupName(cfg), key, test.params, nil)
+		if resolveErr != nil {
+			t.Fatalf("resolve %s: %v", key, resolveErr)
+		}
+		if got != test.want {
+			t.Fatalf("resolve %s: want %q, got %q", key, test.want, got)
+		}
+	}
+}
+
+func TestNotificationRoutesHonorCustomRoutingRoots(t *testing.T) {
+	cfg := applyConfigDefaults(Config{Routing: routing.Config{Roots: routing.RootsConfig{AdminRoot: "/control", APIRoot: "/control/v3"}}})
+	manager, err := newURLManager(cfg, false, true)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+	got, err := manager.Resolve(adminAPIGroupName(cfg), NotificationRouteDeliveryEvent, urlkit.Params{"event_id": "evt"}, nil)
+	if err != nil || got != "/control/v3/notifications/deliveries/events/evt" {
+		t.Fatalf("custom root notification route: %q %v", got, err)
+	}
+}
+
+func TestNotificationDeliveryRouteOverridesRequireStableSemanticParameters(t *testing.T) {
+	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
+	custom := defaultURLKitConfig(cfg)
+	apiRoutes := custom.Groups[0].Groups[0].Routes
+	apiRoutes[NotificationRouteDeliveryEvent] = "/ops/events/:id"
+	apiRoutes[NotificationRouteDeliveryMessage] = "/ops/messages/:message_id"
+	cfg.URLs.URLKit = custom
+	if _, err := newURLManager(cfg, false, true); err == nil {
+		t.Fatal("expected startup validation to reject the unstable event parameter")
+	}
+
+	apiRoutes[NotificationRouteDeliveryEvent] = "/ops/events/:event_id"
+	apiRoutes[NotificationRouteDeliveryMessage] = "/ops/messages/:message_id/:extra"
+	if _, err := newURLManager(cfg, false, true); err == nil {
+		t.Fatal("expected startup validation to reject additional unsupported parameters")
+	}
+
+	apiRoutes[NotificationRouteDeliveryMessage] = "/ops/messages/:message_id"
+	if _, err := newURLManager(cfg, false, true); err != nil {
+		t.Fatalf("expected semantic notification route parameters to validate: %v", err)
+	}
+}
+
+func TestNotificationRoutesAreConditionallyRequired(t *testing.T) {
+	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
+	disabled := requiredURLKitRoutes(cfg, false)
+	enabled := requiredURLKitRoutes(cfg, false, true)
+	for _, key := range []string{
+		NotificationRouteDeliveries,
+		NotificationRouteDeliveryEvent,
+		NotificationRouteDeliveryMessage,
+		NotificationRouteReceiptLookup,
+		NotificationRouteRetentionPurge,
+	} {
+		if slices.Contains(disabled[adminAPIGroupName(cfg)], key) {
+			t.Fatalf("disabled notifications unexpectedly require %s", key)
+		}
+		if !slices.Contains(enabled[adminAPIGroupName(cfg)], key) {
+			t.Fatalf("enabled notifications do not require %s", key)
+		}
 	}
 }
 

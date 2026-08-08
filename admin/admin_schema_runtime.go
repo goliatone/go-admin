@@ -1,18 +1,20 @@
 package admin
 
-import urlkit "github.com/goliatone/go-urlkit"
+import (
+	"context"
+
+	urlkit "github.com/goliatone/go-urlkit"
+)
 
 func (a *Admin) decorateSchema(schema *Schema, panelName string) {
+	a.decorateSchemaWithContext(context.Background(), schema, panelName, "")
+}
+
+func (a *Admin) decorateSchemaWithContext(ctx context.Context, schema *Schema, panelName, variant string) {
 	if schema == nil {
 		return
 	}
-	if featureEnabled(a.featureGate, FeatureExport) {
-		exportURL := resolveURLWith(a.urlManager, "admin", "exports", nil, nil)
-		schema.Export = &ExportConfig{
-			Definition: panelName,
-			Endpoint:   exportURL,
-		}
-	}
+	schema.Export = a.ResolvePanelExportConfig(ctx, panelName, variant)
 	if featureEnabled(a.featureGate, FeatureBulk) && a.bulkSvc != nil {
 		bulkURL := resolveURLWith(a.urlManager, adminAPIGroupName(a.config), "bulk", nil, nil)
 		schema.Bulk = &BulkConfig{
@@ -65,7 +67,7 @@ func (a *Admin) decorateSchemaFor(ctx AdminContext, schema *Schema, panelName st
 	if schema == nil {
 		return nil
 	}
-	a.decorateSchema(schema, panelName)
+	a.decorateSchemaWithContext(ctx.Context, schema, panelName, ctx.Channel)
 	tabs, err := a.resolvePanelTabs(ctx, panelName)
 	if err != nil {
 		return err

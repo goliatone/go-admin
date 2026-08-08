@@ -151,11 +151,25 @@ func applyContentEntryBulkViewContext(viewCtx router.ViewContext, bulkCtx conten
 }
 
 func (h *contentEntryHandlers) contentEntryListCapabilities(params contentEntryListViewParams) router.ViewContext {
+	requestContext := context.Background()
+	if params.Request != nil {
+		requestContext = params.Request.Context()
+	}
+	definition := canonicalPanelName(params.PanelName)
+	var exportConfig *admin.ExportConfig
+	if h.admin != nil {
+		exportConfig = h.admin.ResolvePanelExportConfig(requestContext, definition, params.AdminCtx.Channel)
+	}
+	bulkEnabled := params.BulkCtx.BaseURL != "" &&
+		(len(params.BulkCtx.Primary) > 0 || len(params.BulkCtx.Overflow) > 0)
+	capabilities := admin.ResolvePanelListCapabilities(bulkEnabled, exportConfig != nil)
 	return BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
-		BasePath:    params.BasePath,
-		URLResolver: params.URLs,
-		Definition:  canonicalPanelName(params.PanelName),
-		Variant:     params.AdminCtx.Channel,
+		BasePath:       params.BasePath,
+		URLResolver:    params.URLs,
+		Definition:     definition,
+		Variant:        params.AdminCtx.Channel,
+		ResolvedExport: exportConfig,
+		Capabilities:   &capabilities,
 		DataGrid: PanelDataGridConfigOptions{
 			TableID:             params.DataTableID,
 			APIEndpoint:         params.ListAPI,

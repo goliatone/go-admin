@@ -127,14 +127,17 @@ type Config struct {
 	// go-admin, so the default shell has no public-CDN dependency.
 	ExternalAssets ExternalAssetConfig `json:"external_assets"`
 
-	SettingsPermission            string            `json:"settings_permission"`
-	SettingsUpdatePermission      string            `json:"settings_update_permission"`
-	FeatureFlagsViewPermission    string            `json:"feature_flags_view_permission"`
-	FeatureFlagsUpdatePermission  string            `json:"feature_flags_update_permission"`
-	SettingsThemeTokens           map[string]string `json:"settings_theme_tokens"`
-	NotificationsPermission       string            `json:"notifications_permission"`
-	NotificationsUpdatePermission string            `json:"notifications_update_permission"`
-	ActivityPermission            string            `json:"activity_permission"`
+	SettingsPermission                    string            `json:"settings_permission"`
+	SettingsUpdatePermission              string            `json:"settings_update_permission"`
+	FeatureFlagsViewPermission            string            `json:"feature_flags_view_permission"`
+	FeatureFlagsUpdatePermission          string            `json:"feature_flags_update_permission"`
+	SettingsThemeTokens                   map[string]string `json:"settings_theme_tokens"`
+	NotificationsPermission               string            `json:"notifications_permission"`
+	NotificationsUpdatePermission         string            `json:"notifications_update_permission"`
+	NotificationsInspectPermission        string            `json:"notifications_inspect_permission"`
+	NotificationsReceiptPermission        string            `json:"notifications_receipt_permission"`
+	NotificationsRetentionPurgePermission string            `json:"notifications_retention_purge_permission"`
+	ActivityPermission                    string            `json:"activity_permission"`
 	// ActivityTabPermissionFailureMode controls how users detail activity tab handles
 	// activity permission failures. Supported values:
 	// - "strict": return a 403 error

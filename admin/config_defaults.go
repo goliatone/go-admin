@@ -85,6 +85,15 @@ func applySettingsPermissionDefaults(cfg Config) Config {
 	if cfg.NotificationsUpdatePermission == "" {
 		cfg.NotificationsUpdatePermission = PermAdminNotificationsUpdate
 	}
+	if cfg.NotificationsInspectPermission == "" {
+		cfg.NotificationsInspectPermission = PermAdminNotificationsInspect
+	}
+	if cfg.NotificationsReceiptPermission == "" {
+		cfg.NotificationsReceiptPermission = PermAdminNotificationsReceiptsView
+	}
+	if cfg.NotificationsRetentionPurgePermission == "" {
+		cfg.NotificationsRetentionPurgePermission = PermAdminNotificationsRetentionPurge
+	}
 	if cfg.ActivityPermission == "" {
 		cfg.ActivityPermission = PermAdminActivityView
 	}

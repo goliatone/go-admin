@@ -40,15 +40,11 @@ func buildContentEntryBulkActionContext(
 	if c != nil {
 		reqCtx = c.Context()
 	}
-	var authorizer admin.Authorizer
+	actions := schema.BulkActions
 	if adm != nil {
-		authorizer = adm.Authorizer()
+		actions = adm.AuthorizedPanelBulkActions(reqCtx, strings.TrimSpace(panelName), actions)
 	}
-	resource := strings.TrimSpace(panelName)
-	for _, action := range schema.BulkActions {
-		if action.Permission != "" && authorizer != nil && !authorizer.Can(reqCtx, action.Permission, resource) {
-			continue
-		}
+	for _, action := range actions {
 		if action.Label == "" {
 			action.Label = humanizeActionName(action.Name)
 		}

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"reflect"
 	"strings"
@@ -9,9 +10,11 @@ import (
 	"testing/fstest"
 
 	auth "github.com/goliatone/go-auth"
+	notifications "github.com/goliatone/go-notifications"
 	persistence "github.com/goliatone/go-persistence-bun"
 	goservices "github.com/goliatone/go-services"
 	users "github.com/goliatone/go-users"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 func TestRegisterServiceMigrations_OrderAndLabels(t *testing.T) {
@@ -40,6 +43,7 @@ func TestRegisterServiceMigrations_OrderAndLabels(t *testing.T) {
 		ServiceMigrationsSourceLabelAuth,
 		ServiceMigrationsSourceLabelUsers,
 		ServiceMigrationsSourceLabelServices,
+		ServiceMigrationsSourceLabelNotifications,
 		ServiceMigrationsSourceLabelAppLocal,
 	}
 	if !reflect.DeepEqual(labels, expected) {
@@ -66,7 +70,7 @@ func TestRegisterServiceMigrations_Toggles(t *testing.T) {
 		t.Fatalf("register service migrations: %v", err)
 	}
 
-	expected := []string{ServiceMigrationsSourceLabelServices}
+	expected := []string{ServiceMigrationsSourceLabelServices, ServiceMigrationsSourceLabelNotifications}
 	if !reflect.DeepEqual(labels, expected) {
 		t.Fatalf("migration toggle mismatch: got=%v want=%v", labels, expected)
 	}
@@ -81,7 +85,7 @@ func TestRegisterServiceMigrations_ProfileOrderAndLabels(t *testing.T) {
 		{
 			name:     "auth-only",
 			profile:  ServiceMigrationsProfileAuthOnly,
-			expected: []string{ServiceMigrationsSourceLabelAuth},
+			expected: []string{ServiceMigrationsSourceLabelAuth, ServiceMigrationsSourceLabelNotifications},
 		},
 		{
 			name:    "combined",
@@ -89,6 +93,7 @@ func TestRegisterServiceMigrations_ProfileOrderAndLabels(t *testing.T) {
 			expected: []string{
 				ServiceMigrationsSourceLabelAuth,
 				ServiceMigrationsSourceLabelUsers,
+				ServiceMigrationsSourceLabelNotifications,
 			},
 		},
 		{
@@ -98,6 +103,7 @@ func TestRegisterServiceMigrations_ProfileOrderAndLabels(t *testing.T) {
 				ServiceMigrationsSourceLabelAuth,
 				ServiceMigrationsSourceLabelUsers,
 				ServiceMigrationsSourceLabelServices,
+				ServiceMigrationsSourceLabelNotifications,
 			},
 		},
 	}
@@ -148,7 +154,98 @@ func TestRegisterServiceMigrations_SourceStablePlanMetadata(t *testing.T) {
 	assertSourceStablePlanEntry(t, plan, "go_auth", 10, nil)
 	assertSourceStablePlanEntry(t, plan, "go_users", 20, []string{"go_auth"})
 	assertSourceStablePlanEntry(t, plan, "go_services", 30, []string{"go_users"})
+	assertSourceStablePlanEntry(t, plan, "go_notifications", 50, []string{"go_services"})
+	assertSourceStablePlanEntry(t, plan, "app_local", 100, []string{"go_notifications"})
+}
+
+func TestRegisterServiceMigrations_NotificationSuffixPlacementAfterAppSource(t *testing.T) {
+	client := newTestPersistenceClient(t)
+	if err := RegisterServiceMigrations(
+		client,
+		WithServiceMigrationsAppSource("app-local", appMigrationTestFS("app_suffix")),
+		WithServiceMigrationsNotificationPlacement(110, "app-local"),
+	); err != nil {
+		t.Fatalf("register suffix graph: %v", err)
+	}
+	plan, err := client.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("plan suffix graph: %v", err)
+	}
 	assertSourceStablePlanEntry(t, plan, "app_local", 100, []string{"go_services"})
+	assertSourceStablePlanEntry(t, plan, "go_notifications", 110, []string{"app_local"})
+
+	for _, option := range []ServiceMigrationsOption{
+		WithServiceMigrationsNotificationPlacement(50, "app-local"),
+		WithServiceMigrationsNotificationPlacement(110),
+	} {
+		invalid := newTestPersistenceClient(t)
+		if err := RegisterServiceMigrations(invalid, option); err == nil {
+			t.Fatal("expected invalid explicit notification placement to fail")
+		}
+	}
+}
+
+func TestRegisterServiceMigrations_NotificationAdoptionRequiresSuffix(t *testing.T) {
+	ctx := context.Background()
+	appFS := appMigrationTestFS("app_adoption")
+	baseline := newTestPersistenceClient(t)
+	if err := RegisterServiceMigrations(baseline,
+		WithServiceMigrationsNotificationsEnabled(false),
+		WithServiceMigrationsAppSource("app-local", appFS),
+	); err != nil {
+		t.Fatalf("register baseline graph: %v", err)
+	}
+	if err := baseline.Migrate(ctx); err != nil {
+		t.Fatalf("migrate baseline graph: %v", err)
+	}
+
+	unsafe, err := persistence.New(testPersistenceConfig{driver: "sqlite", server: "shared"}, baseline.DB().DB, sqlitedialect.New())
+	if err != nil {
+		t.Fatalf("new unsafe client: %v", err)
+	}
+	if err := RegisterServiceMigrations(unsafe, WithServiceMigrationsAppSource("app-local", appFS)); err != nil {
+		t.Fatalf("register unsafe inserted graph: %v", err)
+	}
+	if err := notifications.AdoptAdditiveOrderedMigrationGraph(ctx, baseline.DB(), unsafe.GetMigrations()); !errors.Is(err, notifications.ErrUnsafeMigrationGraphAdoption) {
+		t.Fatalf("expected non-suffix adoption rejection, got %v", err)
+	}
+
+	suffix, err := persistence.New(testPersistenceConfig{driver: "sqlite", server: "shared"}, baseline.DB().DB, sqlitedialect.New())
+	if err != nil {
+		t.Fatalf("new suffix client: %v", err)
+	}
+	if err := RegisterServiceMigrations(suffix,
+		WithServiceMigrationsAppSource("app-local", appFS),
+		WithServiceMigrationsNotificationPlacement(110, "app-local"),
+	); err != nil {
+		t.Fatalf("register suffix graph: %v", err)
+	}
+	if err := notifications.AdoptAdditiveOrderedMigrationGraph(ctx, baseline.DB(), suffix.GetMigrations()); err != nil {
+		t.Fatalf("adopt suffix graph: %v", err)
+	}
+	if err := suffix.Migrate(ctx); err != nil {
+		t.Fatalf("migrate adopted suffix graph: %v", err)
+	}
+	var definitions int
+	if err := baseline.DB().NewRaw("SELECT COUNT(*) FROM notification_definitions").Scan(ctx, &definitions); err != nil {
+		t.Fatalf("notification schema missing after suffix adoption: %v", err)
+	}
+}
+
+func TestRegisterServiceMigrations_CanDisableNotifications(t *testing.T) {
+	client := newTestPersistenceClient(t)
+	if err := RegisterServiceMigrations(client, WithServiceMigrationsNotificationsEnabled(false)); err != nil {
+		t.Fatalf("register without notifications: %v", err)
+	}
+	plan, err := client.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("plan without notifications: %v", err)
+	}
+	for _, entry := range plan.Entries {
+		if entry.SourceKey == "go_notifications" {
+			t.Fatal("notification source unexpectedly registered")
+		}
+	}
 }
 
 func TestRegisterServiceMigrations_PrunesAbsentSourceDependencies(t *testing.T) {
@@ -179,7 +276,7 @@ func TestRegisterServiceMigrations_PrunesAbsentSourceDependencies(t *testing.T) 
 			sourceKey:   "go_auth",
 			order:       10,
 			expectAppFS: true,
-			appDepends:  []string{"go_auth"},
+			appDepends:  []string{"go_notifications"},
 		},
 		{
 			name: "local-only-app",
@@ -190,6 +287,7 @@ func TestRegisterServiceMigrations_PrunesAbsentSourceDependencies(t *testing.T) 
 				WithServiceMigrationsAppSource("app-local", appMigrationTestFS("local_only")),
 			},
 			expectAppFS: true,
+			appDepends:  []string{"go_notifications"},
 		},
 	}
 
@@ -245,8 +343,8 @@ func TestRegisterServiceMigrations_AppLocalStableIdentity(t *testing.T) {
 	if !reflect.DeepEqual(firstSynthetic, secondSynthetic) {
 		t.Fatalf("app-a synthetic names changed after inserting app-b: got=%v want=%v", secondSynthetic, firstSynthetic)
 	}
-	assertSourceStablePlanEntry(t, secondPlan, "app_b", 110, []string{"go_services"})
-	assertSourceStablePlanEntry(t, secondPlan, "app_a", 120, []string{"go_services"})
+	assertSourceStablePlanEntry(t, secondPlan, "app_b", 110, []string{"go_notifications"})
+	assertSourceStablePlanEntry(t, secondPlan, "app_a", 120, []string{"go_notifications"})
 }
 
 func TestRegisterServiceMigrations_AppLocalRejectsSourceKeyCollisions(t *testing.T) {

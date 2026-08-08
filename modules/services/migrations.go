@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	auth "github.com/goliatone/go-auth"
+	notifications "github.com/goliatone/go-notifications"
 	persistence "github.com/goliatone/go-persistence-bun"
 	goservices "github.com/goliatone/go-services"
 	users "github.com/goliatone/go-users"
@@ -13,10 +14,11 @@ import (
 
 // Service migration source labels for dialect-aware registration.
 const (
-	ServiceMigrationsSourceLabelAuth     = "go-auth"
-	ServiceMigrationsSourceLabelUsers    = "go-users"
-	ServiceMigrationsSourceLabelServices = "go-services"
-	ServiceMigrationsSourceLabelAppLocal = "app-local"
+	ServiceMigrationsSourceLabelAuth          = "go-auth"
+	ServiceMigrationsSourceLabelUsers         = "go-users"
+	ServiceMigrationsSourceLabelServices      = "go-services"
+	ServiceMigrationsSourceLabelNotifications = notifications.MigrationSourceName
+	ServiceMigrationsSourceLabelAppLocal      = "app-local"
 )
 
 const (
@@ -36,11 +38,14 @@ const (
 type ServiceMigrationsProfile string
 
 const (
-	// ServiceMigrationsProfileServicesStack registers go-auth + go-users + go-services.
+	// ServiceMigrationsProfileServicesStack registers go-auth + go-users +
+	// go-services, followed by notifications unless explicitly disabled.
 	ServiceMigrationsProfileServicesStack ServiceMigrationsProfile = "services-stack"
-	// ServiceMigrationsProfileCombined registers go-auth + go-users only.
+	// ServiceMigrationsProfileCombined registers go-auth + go-users, followed by
+	// notifications unless explicitly disabled.
 	ServiceMigrationsProfileCombined ServiceMigrationsProfile = "combined"
-	// ServiceMigrationsProfileAuthOnly registers only go-auth migrations.
+	// ServiceMigrationsProfileAuthOnly registers go-auth followed by notifications
+	// unless notifications are explicitly disabled.
 	ServiceMigrationsProfileAuthOnly ServiceMigrationsProfile = "auth-only"
 )
 
@@ -58,9 +63,13 @@ type ServiceMigrationsOption func(*serviceMigrationsOptions)
 type serviceMigrationsOptions struct {
 	profile ServiceMigrationsProfile
 
-	enableAuth     *bool
-	enableUsers    *bool
-	enableServices *bool
+	enableAuth               *bool
+	enableUsers              *bool
+	enableServices           *bool
+	enableNotifications      *bool
+	notificationOrder        int
+	notificationDependencies []string
+	notificationPlacementSet bool
 
 	authFS     fs.FS
 	usersFS    fs.FS
@@ -75,8 +84,8 @@ type serviceMigrationsOptions struct {
 	observer          MigrationObserver
 }
 
-// RegisterServiceMigrations registers go-auth, go-users, and go-services migrations
-// in dependency order. App-local sources are registered last.
+// RegisterServiceMigrations registers go-auth, go-users, go-services, and
+// notifications in dependency order. App-local sources are registered last.
 func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrationsOption) error {
 	if client == nil {
 		return nil
@@ -87,12 +96,33 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 	if err != nil {
 		return err
 	}
-	orderedSources := make([]persistence.OrderedMigrationSource, 0, 3+len(options.appSources))
+	orderedSources := make([]persistence.OrderedMigrationSource, 0, 4+len(options.appSources))
 	sourceNameCounts := map[string]int{}
 	if err := appendBuiltInServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices); err != nil {
 		return err
 	}
-	if err := appendAppServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices); err != nil {
+	enableNotifications := options.enableNotifications == nil || *options.enableNotifications
+	if enableNotifications {
+		order := notifications.MigrationSourceOrder
+		dependencies := append([]string{}, options.notificationDependencies...)
+		if options.notificationPlacementSet {
+			order = options.notificationOrder
+			if order <= notifications.MigrationSourceOrder || len(dependencies) == 0 {
+				return fmt.Errorf("modules/services: explicit notification migration placement must use order > %d and depend on the persisted predecessor", notifications.MigrationSourceOrder)
+			}
+		} else if predecessor := nearestServiceMigrationPredecessor(enableAuth, enableUsers, enableServices); predecessor != "" {
+			dependencies = append(dependencies, predecessor)
+		}
+		source, sourceErr := notifications.OrderedMigrationSourceWithOptions(notifications.MigrationSourceOptions{Order: order, Dependencies: dependencies})
+		if sourceErr != nil {
+			return sourceErr
+		}
+		if options.observer != nil {
+			options.observer(MigrationRegistration{Label: ServiceMigrationsSourceLabelNotifications})
+		}
+		orderedSources = append(orderedSources, source)
+	}
+	if err := appendAppServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices, enableNotifications); err != nil {
 		return err
 	}
 	if len(orderedSources) == 0 {
@@ -172,14 +202,18 @@ func appendServiceMigrationSource(orderedSources *[]persistence.OrderedMigration
 	return nil
 }
 
-func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions, enableAuth, enableUsers, enableServices bool) error {
+func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions, enableAuth, enableUsers, enableServices, enableNotifications bool) error {
 	usedSourceKeys := map[string]string{
 		normalizeServiceMigrationSourceKey(serviceMigrationsSourceKeyAuth):     ServiceMigrationsSourceLabelAuth,
 		normalizeServiceMigrationSourceKey(serviceMigrationsSourceKeyUsers):    ServiceMigrationsSourceLabelUsers,
 		normalizeServiceMigrationSourceKey(serviceMigrationsSourceKeyServices): ServiceMigrationsSourceLabelServices,
+		normalizeServiceMigrationSourceKey(notifications.MigrationSourceKey):   ServiceMigrationsSourceLabelNotifications,
 	}
 	usedOrders := map[int]string{}
 	appDependency := nearestServiceMigrationPredecessor(enableAuth, enableUsers, enableServices)
+	if enableNotifications && !options.notificationPlacementSet {
+		appDependency = notifications.MigrationSourceKey
+	}
 	for idx, source := range options.appSources {
 		if source.Filesystem == nil {
 			continue
@@ -273,6 +307,29 @@ func WithServiceMigrationsServicesEnabled(enabled bool) ServiceMigrationsOption 
 		if opts != nil {
 			value := enabled
 			opts.enableServices = &value
+		}
+	}
+}
+
+// WithServiceMigrationsNotificationsEnabled toggles the stable
+// go-notifications source. It is enabled by default at order 50.
+func WithServiceMigrationsNotificationsEnabled(enabled bool) ServiceMigrationsOption {
+	return func(opts *serviceMigrationsOptions) {
+		if opts != nil {
+			value := enabled
+			opts.enableNotifications = &value
+		}
+	}
+}
+
+// WithServiceMigrationsNotificationPlacement configures a permanent
+// suffix-only placement for adopting notifications after persisted app sources.
+func WithServiceMigrationsNotificationPlacement(order int, dependsOn ...string) ServiceMigrationsOption {
+	return func(opts *serviceMigrationsOptions) {
+		if opts != nil {
+			opts.notificationOrder = order
+			opts.notificationDependencies = append([]string{}, dependsOn...)
+			opts.notificationPlacementSet = true
 		}
 	}
 }

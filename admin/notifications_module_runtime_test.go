@@ -283,6 +283,37 @@ func TestNotificationInboxMessageIDRejectsMissingExactOutcome(t *testing.T) {
 	}
 }
 
+func TestNotificationInboxLookupIgnoresNewerSystemItemsAndFailsWhenExactItemIsMissing(t *testing.T) {
+	service, err := newGoNotificationsService("en", nil, nil)
+	if err != nil {
+		t.Fatalf("construct notification runtime: %v", err)
+	}
+	targetReceipt, err := service.DispatchWithReceipt(context.Background(), notifier.Event{
+		DefinitionCode: defaultNotificationDefinition, Recipients: []string{"recipient"},
+		Context: map[string]any{"title": "Target", "body": "Exact"}, Channels: []string{"inbox"},
+	})
+	if err != nil {
+		t.Fatalf("dispatch target: %v", err)
+	}
+	targetMessageID, err := notificationInboxMessageID(targetReceipt, "recipient", "inbox")
+	if err != nil {
+		t.Fatalf("resolve target message: %v", err)
+	}
+	if _, err := service.DispatchWithReceipt(context.Background(), notifier.Event{
+		DefinitionCode: defaultNotificationDefinition, Recipients: []string{"system"},
+		Context: map[string]any{"title": "Newer system item", "body": "Other"}, Channels: []string{"inbox"},
+	}); err != nil {
+		t.Fatalf("dispatch newer system item: %v", err)
+	}
+	got, err := service.notificationForInboxMessage(context.Background(), "recipient", targetMessageID)
+	if err != nil || got.Title != "Target" || got.Message != "Exact" {
+		t.Fatalf("exact inbox lookup: got=%+v err=%v", got, err)
+	}
+	if _, err := service.notificationForInboxMessage(context.Background(), "recipient", uuid.New()); err == nil {
+		t.Fatal("expected deterministic error when the exact created item is unavailable")
+	}
+}
+
 func TestGoNotificationsModuleRuntimeSeedsIdempotentlyAndPropagatesSeedErrors(t *testing.T) {
 	providers := storage.NewMemoryProviders()
 	if _, err := newGoNotificationsServiceWithProviders("en", nil, nil, providers); err != nil {

@@ -1,18 +1,32 @@
 package admin
 
 import (
+	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	translationgoadmin "github.com/goliatone/go-admin/translations/adapters/goadmin"
-	"strings"
 
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const defaultAPIPrefix = "api"
 const defaultPublicAPIVersion = "v1"
+
+const (
+	NotificationRouteDeliveries      = "notifications.deliveries"
+	NotificationRouteDeliveryEvent   = "notifications.deliveries.event"
+	NotificationRouteDeliveryMessage = "notifications.deliveries.message"
+	NotificationRouteReceiptLookup   = "notifications.receipts.lookup"
+	NotificationRouteRetentionPurge  = "notifications.retention.purge"
+)
+
+const (
+	NotificationDeliveryEventParameter   = "event_id"
+	NotificationDeliveryMessageParameter = "message_id"
+)
 
 func normalizeURLConfig(cfg URLConfig, basePath string) URLConfig {
 	cfg.Admin = normalizeURLNamespace(cfg.Admin, URLNamespaceConfig{
@@ -60,8 +74,9 @@ func normalizeAPIVersion(version string) string {
 	return strings.Trim(trimmed, "/")
 }
 
-func newURLManager(cfg Config, requireMediaRoutes ...bool) (*urlkit.RouteManager, error) {
-	includeMediaRoutes := len(requireMediaRoutes) > 0 && requireMediaRoutes[0]
+func newURLManager(cfg Config, requiredFeatureRoutes ...bool) (*urlkit.RouteManager, error) {
+	includeMediaRoutes := len(requiredFeatureRoutes) > 0 && requiredFeatureRoutes[0]
+	includeNotificationRoutes := len(requiredFeatureRoutes) > 1 && requiredFeatureRoutes[1]
 	if cfg.URLs.URLKit != nil {
 		manager, err := urlkit.NewRouteManagerFromConfig(cfg.URLs.URLKit)
 		if err != nil {
@@ -76,7 +91,7 @@ func newURLManager(cfg Config, requireMediaRoutes ...bool) (*urlkit.RouteManager
 				"error":     err.Error(),
 			})
 		}
-		if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes); err != nil {
+		if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes, includeNotificationRoutes); err != nil {
 			return nil, validationDomainError("url manager validation error", map[string]any{
 				"component": "url_manager",
 				"error":     err.Error(),
@@ -92,7 +107,7 @@ func newURLManager(cfg Config, requireMediaRoutes ...bool) (*urlkit.RouteManager
 			"error":     err.Error(),
 		})
 	}
-	if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes); err != nil {
+	if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes, includeNotificationRoutes); err != nil {
 		return nil, validationDomainError("url manager validation error", map[string]any{
 			"component": "url_manager",
 			"error":     err.Error(),
@@ -152,7 +167,7 @@ func publicAPIGroupName(cfg Config) string {
 	return routing.PublicAPIGroupPath(effectiveRoutingRoots(cfg))
 }
 
-func requiredURLKitRoutes(cfg Config, includeMediaRoutes bool) map[string][]string {
+func requiredURLKitRoutes(cfg Config, includeMediaRoutes bool, includeNotificationRoutes ...bool) map[string][]string {
 	adminAPIGroup := adminAPIGroupName(cfg)
 	publicAPIGroup := publicAPIGroupName(cfg)
 
@@ -187,16 +202,60 @@ func requiredURLKitRoutes(cfg Config, includeMediaRoutes bool) map[string][]stri
 			"media.delivery.download",
 		)
 	}
+	if len(includeNotificationRoutes) > 0 && includeNotificationRoutes[0] {
+		required[adminAPIGroup] = append(required[adminAPIGroup],
+			NotificationRouteDeliveries,
+			NotificationRouteDeliveryEvent,
+			NotificationRouteDeliveryMessage,
+			NotificationRouteReceiptLookup,
+			NotificationRouteRetentionPurge,
+		)
+	}
 	return required
 }
 
-func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager, includeMediaRoutes bool) error {
+func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager, includeMediaRoutes bool, includeNotificationRoutes ...bool) error {
 	if manager == nil {
 		return serviceNotConfiguredDomainError("url manager", map[string]any{
 			"component": "url_manager",
 		})
 	}
-	return manager.Validate(requiredURLKitRoutes(cfg, includeMediaRoutes))
+	if err := manager.Validate(requiredURLKitRoutes(cfg, includeMediaRoutes, includeNotificationRoutes...)); err != nil {
+		return err
+	}
+	if len(includeNotificationRoutes) > 0 && includeNotificationRoutes[0] {
+		return validateNotificationDeliveryRouteParameters(cfg, manager)
+	}
+	return nil
+}
+
+func validateNotificationDeliveryRouteParameters(cfg Config, manager *urlkit.RouteManager) error {
+	group := adminAPIGroupName(cfg)
+	contracts := map[string]string{
+		NotificationRouteDeliveryEvent:   NotificationDeliveryEventParameter,
+		NotificationRouteDeliveryMessage: NotificationDeliveryMessageParameter,
+	}
+	for route, expected := range contracts {
+		template, err := manager.RouteTemplate(group, route)
+		if err != nil {
+			return err
+		}
+		params := routeTemplateParameters(template)
+		if len(params) != 1 || params[0] != expected {
+			return fmt.Errorf("route %q must declare exactly one :%s path parameter", route, expected)
+		}
+	}
+	return nil
+}
+
+func routeTemplateParameters(template string) []string {
+	params := make([]string, 0, 1)
+	for _, segment := range strings.Split(strings.TrimSpace(template), "/") {
+		if strings.HasPrefix(segment, ":") && len(segment) > 1 {
+			params = append(params, strings.TrimPrefix(segment, ":"))
+		}
+	}
+	return params
 }
 
 func mergeDefaultURLKitRoutes(manager *urlkit.RouteManager, cfg Config) error {
@@ -450,6 +509,11 @@ func defaultAdminAPIRoutes() map[string]string {
 		"navigation":                          "/navigation",
 		"notifications":                       "/notifications",
 		"notifications.read":                  "/notifications/read",
+		NotificationRouteDeliveries:           "/notifications/deliveries",
+		NotificationRouteDeliveryEvent:        "/notifications/deliveries/events/:event_id",
+		NotificationRouteDeliveryMessage:      "/notifications/deliveries/messages/:message_id",
+		NotificationRouteReceiptLookup:        "/notifications/receipts/lookup",
+		NotificationRouteRetentionPurge:       "/notifications/retention/purge",
 		"schemas":                             "/schemas",
 		"schemas.resource":                    "/schemas/:resource",
 		"search":                              "/search",

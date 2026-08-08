@@ -1490,24 +1490,8 @@ func TestPanelSchemaIncludesFeatureMetadata(t *testing.T) {
 	if !ok {
 		t.Fatalf("schema missing from response")
 	}
-	exportConf := mustAs[map[string]any](schema["export"])
-	if exportConf == nil || exportConf["definition"] != "items" {
-		t.Fatalf("expected export metadata for items, got %v", exportConf)
-	}
-	if endpoint := mustAs[string](exportConf["endpoint"]); endpoint == "" {
-		t.Fatalf("expected export endpoint")
-	}
-	if variant, ok := exportConf["variant"].(string); ok && variant != "" {
-		t.Fatalf("expected empty export variant, got %v", variant)
-	}
-	if _, ok := exportConf["resource"]; ok {
-		t.Fatalf("expected legacy export resource to be omitted, got %v", exportConf["resource"])
-	}
-	if _, ok := exportConf["formats"]; ok {
-		t.Fatalf("expected legacy export formats to be omitted, got %v", exportConf["formats"])
-	}
-	if _, ok := exportConf["format"]; ok {
-		t.Fatalf("expected legacy export format to be omitted, got %v", exportConf["format"])
+	if _, ok := schema["export"]; ok {
+		t.Fatalf("expected export metadata to be omitted without export route registration, got %v", schema["export"])
 	}
 	bulkConf := mustAs[map[string]any](schema["bulk"])
 	if bulkConf == nil {

@@ -41,31 +41,32 @@ func (s *stubResponder) WriteError(_ router.Context, err error) error {
 }
 
 type stubCtx struct {
-	lifecycle  context.Context
-	router     Router
-	wrapper    HandlerWrapper
-	basePath   string
-	adminUI    string
-	adminAPI   string
-	planner    routing.Planner
-	urls       urlkit.Resolver
-	responder  Responder
-	parseBody  func(router.Context) (map[string]any, error)
-	panels     []PanelBinding
-	dashboard  DashboardBinding
-	navigation NavigationBinding
-	settings   SettingsBinding
-	workflows  WorkflowManagementBinding
-	families   TranslationFamiliesBinding
-	exchange   TranslationExchangeBinding
-	queue      TranslationQueueBinding
-	registry   SchemaRegistryBinding
-	overrides  FeatureOverridesBinding
-	gates      FeatureGates
-	defaultLoc string
-	navCode    string
-	widgetErr  error
-	mounted    []string
+	lifecycle     context.Context
+	router        Router
+	wrapper       HandlerWrapper
+	basePath      string
+	adminUI       string
+	adminAPI      string
+	planner       routing.Planner
+	urls          urlkit.Resolver
+	responder     Responder
+	parseBody     func(router.Context) (map[string]any, error)
+	panels        []PanelBinding
+	dashboard     DashboardBinding
+	navigation    NavigationBinding
+	settings      SettingsBinding
+	workflows     WorkflowManagementBinding
+	families      TranslationFamiliesBinding
+	exchange      TranslationExchangeBinding
+	queue         TranslationQueueBinding
+	registry      SchemaRegistryBinding
+	overrides     FeatureOverridesBinding
+	notifications NotificationsBinding
+	gates         FeatureGates
+	defaultLoc    string
+	navCode       string
+	widgetErr     error
+	mounted       []string
 }
 
 func (s *stubCtx) LifecycleContext() context.Context { return s.lifecycle }
@@ -122,7 +123,7 @@ func (s *stubCtx) BootTranslationQueue() TranslationQueueBinding {
 	return s.queue
 }
 func (s *stubCtx) BootNotifications() NotificationsBinding {
-	return nil
+	return s.notifications
 }
 func (s *stubCtx) BootActivity() ActivityBinding { return nil }
 func (s *stubCtx) BootJobs() JobsBinding         { return nil }

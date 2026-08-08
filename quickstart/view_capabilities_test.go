@@ -82,6 +82,101 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 	}
 }
 
+func TestBuildPanelViewCapabilitiesProjectsNormalizedCapabilityMatrix(t *testing.T) {
+	tests := []struct {
+		name       string
+		bulk       bool
+		export     bool
+		wantExport bool
+	}{
+		{name: "none"},
+		{name: "bulk-only", bulk: true},
+		{name: "export-only", export: true, wantExport: true},
+		{name: "both", bulk: true, export: true, wantExport: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			capabilities := admin.ResolvePanelListCapabilities(tc.bulk, tc.export)
+			viewCtx := BuildPanelViewCapabilities(admin.Config{BasePath: "/admin"}, PanelViewCapabilityOptions{
+				Capabilities: &capabilities,
+				ResolvedExport: &admin.ExportConfig{
+					Definition: "items",
+					Endpoint:   "/admin/exports",
+				},
+				DataGrid: PanelDataGridConfigOptions{
+					TableID:     "content-items",
+					APIEndpoint: "/admin/api/panels/items",
+					ActionBase:  "/admin/content/items",
+				},
+			})
+
+			listCapabilities := viewCtx["list_capabilities"].(map[string]any)
+			if listCapabilities["bulk"] != tc.bulk || listCapabilities["export"] != tc.export || listCapabilities["selection"] != (tc.bulk || tc.export) {
+				t.Fatalf("unexpected list capabilities: %+v", listCapabilities)
+			}
+			dataGrid := viewCtx["datagrid_config"].(map[string]any)
+			dataGridCapabilities := dataGrid["capabilities"].(map[string]any)
+			if dataGridCapabilities["selection"] != listCapabilities["selection"] || dataGridCapabilities["bulk"] != listCapabilities["bulk"] || dataGridCapabilities["export"] != listCapabilities["export"] {
+				t.Fatalf("DataGrid capabilities drifted from list capabilities: list=%+v grid=%+v", listCapabilities, dataGridCapabilities)
+			}
+			_, viewHasExport := viewCtx["export_config"]
+			_, gridHasExport := dataGrid["export_config"]
+			if viewHasExport != tc.wantExport || gridHasExport != tc.wantExport {
+				t.Fatalf("unexpected export config presence: view=%t grid=%t", viewHasExport, gridHasExport)
+			}
+		})
+	}
+}
+
+func TestBuildPanelViewCapabilitiesFailsClosedForIncompleteResolvedExport(t *testing.T) {
+	tests := []struct {
+		name     string
+		resolved *admin.ExportConfig
+	}{
+		{name: "missing"},
+		{name: "missing definition", resolved: &admin.ExportConfig{Endpoint: "/admin/exports"}},
+		{name: "missing endpoint", resolved: &admin.ExportConfig{Definition: "items"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			capabilities := admin.ResolvePanelListCapabilities(false, true)
+			viewCtx := BuildPanelViewCapabilities(admin.Config{BasePath: "/admin"}, PanelViewCapabilityOptions{
+				Capabilities:   &capabilities,
+				ResolvedExport: tc.resolved,
+			})
+
+			listCapabilities := viewCtx["list_capabilities"].(map[string]any)
+			if listCapabilities["selection"] != false || listCapabilities["bulk"] != false || listCapabilities["export"] != false {
+				t.Fatalf("incomplete export configuration must disable export and selection, got %+v", listCapabilities)
+			}
+			if _, ok := viewCtx["export_config"]; ok {
+				t.Fatalf("incomplete export configuration must not be emitted: %+v", viewCtx)
+			}
+			dataGrid := viewCtx["datagrid_config"].(map[string]any)
+			dataGridCapabilities := dataGrid["capabilities"].(map[string]any)
+			if dataGridCapabilities["selection"] != false || dataGridCapabilities["export"] != false {
+				t.Fatalf("DataGrid must receive effective capabilities, got %+v", dataGridCapabilities)
+			}
+		})
+	}
+}
+
+func TestBuildPanelViewCapabilitiesPreservesBulkWhenResolvedExportIsIncomplete(t *testing.T) {
+	capabilities := admin.ResolvePanelListCapabilities(true, true)
+	viewCtx := BuildPanelViewCapabilities(admin.Config{BasePath: "/admin"}, PanelViewCapabilityOptions{
+		Capabilities: &capabilities,
+		ResolvedExport: &admin.ExportConfig{
+			Definition: "items",
+		},
+	})
+
+	listCapabilities := viewCtx["list_capabilities"].(map[string]any)
+	if listCapabilities["selection"] != true || listCapabilities["bulk"] != true || listCapabilities["export"] != false {
+		t.Fatalf("bulk-only behavior must remain available, got %+v", listCapabilities)
+	}
+}
+
 func TestBuildPanelExportConfigReturnsNilWithoutDefinition(t *testing.T) {
 	cfg := admin.Config{BasePath: "/admin"}
 	if got := BuildPanelExportConfig(cfg, PanelViewCapabilityOptions{}); got != nil {

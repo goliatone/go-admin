@@ -33,6 +33,7 @@ const defaultNotificationDefinition = "admin.notification"
 var notificationModuleInitMu sync.Mutex
 
 type goNotificationsService struct {
+	dispatchMu        sync.Mutex
 	module            *notifier.Module
 	manager           *notifier.Manager
 	inbox             *notifinbox.Service
@@ -154,7 +155,7 @@ func (s *goNotificationsService) Add(ctx context.Context, n Notification) (Notif
 	if len(n.Metadata) > 0 {
 		payload["metadata"] = cloneNotificationMap(n.Metadata)
 	}
-	receipt, err := s.manager.SendWithReceipt(ctx, notifier.Event{
+	receipt, err := s.sendWithReceipt(ctx, notifier.Event{
 		DefinitionCode: definition,
 		Recipients:     []string{userID},
 		Context:        payload,
@@ -170,6 +171,10 @@ func (s *goNotificationsService) Add(ctx context.Context, n Notification) (Notif
 	if err != nil {
 		return Notification{}, err
 	}
+	return s.notificationForInboxMessage(ctx, userID, messageID)
+}
+
+func (s *goNotificationsService) notificationForInboxMessage(ctx context.Context, userID string, messageID uuid.UUID) (Notification, error) {
 	result, err := s.inbox.List(ctx, userID, notifstore.ListOptions{}, notifinbox.ListFilters{})
 	if err != nil {
 		return Notification{}, err
@@ -183,6 +188,16 @@ func (s *goNotificationsService) Add(ctx context.Context, n Notification) (Notif
 		"notification inbox item unavailable",
 		map[string]any{"component": "notifications", "capability": "inbox"},
 	)
+}
+
+func (s *goNotificationsService) sendWithReceipt(ctx context.Context, event notifier.Event) (events.DispatchReceipt, error) {
+	// go-notifications v0.16.1 registers a loaded template in the same
+	// in-memory registry it renders from. Keep render-capable module operations
+	// serialized until the dependency provides an internally synchronized
+	// registry.
+	s.dispatchMu.Lock()
+	defer s.dispatchMu.Unlock()
+	return s.manager.SendWithReceipt(ctx, event)
 }
 
 func notificationInboxMessageID(receipt events.DispatchReceipt, userID, channel string) (uuid.UUID, error) {
@@ -206,13 +221,15 @@ func (s *goNotificationsService) DispatchWithReceipt(ctx context.Context, event 
 	if s == nil || s.manager == nil {
 		return events.DispatchReceipt{}, NotificationCapabilityUnavailableError{Capability: "events"}
 	}
-	return s.manager.SendWithReceipt(ctx, event)
+	return s.sendWithReceipt(ctx, event)
 }
 
 func (s *goNotificationsService) RetryWithReceipt(ctx context.Context, request events.RetryRequest) (events.DispatchReceipt, error) {
 	if s == nil || s.module == nil {
 		return events.DispatchReceipt{}, NotificationCapabilityUnavailableError{Capability: "events"}
 	}
+	s.dispatchMu.Lock()
+	defer s.dispatchMu.Unlock()
 	return s.module.RetryWithReceipt(ctx, request)
 }
 
@@ -220,6 +237,8 @@ func (s *goNotificationsService) RecoverPending(ctx context.Context, limit int) 
 	if s == nil || s.module == nil {
 		return NotificationCapabilityUnavailableError{Capability: "events"}
 	}
+	s.dispatchMu.Lock()
+	defer s.dispatchMu.Unlock()
 	return s.module.RecoverPending(ctx, limit)
 }
 

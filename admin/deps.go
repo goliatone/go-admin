@@ -10,6 +10,8 @@ import (
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	notifstore "github.com/goliatone/go-notifications/pkg/interfaces/store"
+	notifstorage "github.com/goliatone/go-notifications/pkg/storage"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/command"
@@ -59,6 +61,7 @@ type Dependencies struct {
 	DebugUserSessionStore          DebugUserSessionStore           `json:"debug_user_session_store"`
 
 	NotificationService             NotificationService             `json:"notification_service"`
+	NotificationRuntime             *NotificationRuntimeOptions     `json:"notification_runtime"`
 	ExportRegistry                  ExportRegistry                  `json:"export_registry"`
 	ExportRegistrar                 ExportHTTPRegistrar             `json:"export_registrar"`
 	ExportMetadata                  ExportMetadataProvider          `json:"export_metadata"`
@@ -85,6 +88,15 @@ type Dependencies struct {
 	FeatureGate            fggate.FeatureGate      `json:"feature_gate"`
 	FeatureCatalog         catalog.Catalog         `json:"feature_catalog"`
 	FeatureCatalogResolver catalog.MessageResolver `json:"feature_catalog_resolver"`
+}
+
+// NotificationRuntimeOptions configures one coherent go-notifications
+// repository graph. Storage is required when the options are supplied;
+// focused repositories may override the matching entries before validation.
+type NotificationRuntimeOptions struct {
+	Storage         notifstorage.Providers             `json:"storage"`
+	Retention       notifstore.RetentionRepository     `json:"retention"`
+	DeliveryQueries notifstore.DeliveryQueryRepository `json:"delivery_queries"`
 }
 
 type dependencyIssue struct {

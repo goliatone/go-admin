@@ -257,8 +257,8 @@ func TestRegisterSetupMigrationsPreservesConfigAppMigrationIdentity(t *testing.T
 	if err != nil {
 		t.Fatalf("plan migrations: %v", err)
 	}
-	assertSourceStablePlanEntry(t, plan, "app_b", 110, []string{"go_services"})
-	assertSourceStablePlanEntry(t, plan, "app_a", 120, []string{"go_services"})
+	assertSourceStablePlanEntry(t, plan, "app_b", 110, []string{"go_notifications"})
+	assertSourceStablePlanEntry(t, plan, "app_a", 120, []string{"go_notifications"})
 }
 
 func TestSetup_RespectsWithXOverrides(t *testing.T) {

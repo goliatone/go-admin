@@ -176,6 +176,7 @@ func (p *panelBinding) listSchema(ctx AdminContext, groupedByTranslationGroup bo
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
 	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
+	schema.BulkActions = p.admin.AuthorizedPanelBulkActions(ctx.Context, p.name, schema.BulkActions)
 	schema.BulkActionStateConfig = p.bulkActionStateConfig(schema.BulkActions)
 	logCMSContentListTiming(ctx.Context, "panel_schema", schemaStarted,
 		"panel", p.name,

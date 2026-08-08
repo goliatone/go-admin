@@ -230,9 +230,21 @@ type TranslationQueueBinding interface {
 }
 
 // NotificationsBinding exposes notifications operations.
+type NotificationCapabilities struct {
+	Deliveries bool `json:"deliveries"`
+	Receipts   bool `json:"receipts"`
+	Retention  bool `json:"retention"`
+}
+
 type NotificationsBinding interface {
+	Capabilities() NotificationCapabilities
 	List(router.Context) (map[string]any, error)
 	Mark(router.Context, map[string]any) error
+	ListDeliveries(router.Context) (any, error)
+	GetDeliveryEvent(router.Context, string) (any, error)
+	GetDeliveryMessage(router.Context, string) (any, error)
+	LookupReceipt(router.Context, map[string]any) (any, error)
+	PurgeRetention(router.Context, map[string]any) (any, error)
 }
 
 // ActivityBinding exposes activity operations.

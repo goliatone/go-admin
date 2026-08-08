@@ -184,10 +184,14 @@ func (h *roleHandlers) list(c router.Context) error {
 		"list_api":     listAPI,
 		"action_base":  actionBase,
 	})
+	exportConfig := h.admin.ResolvePanelExportConfig(c.Context(), "roles", "")
+	capabilities := admin.ResolvePanelListCapabilities(false, exportConfig != nil)
 	viewCtx = mergeViewContext(viewCtx, BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
-		BasePath:    h.basePath,
-		URLResolver: h.urls,
-		Definition:  "roles",
+		BasePath:       h.basePath,
+		URLResolver:    h.urls,
+		Definition:     "roles",
+		ResolvedExport: exportConfig,
+		Capabilities:   &capabilities,
 		DataGrid: PanelDataGridConfigOptions{
 			TableID:     dataTableID,
 			APIEndpoint: listAPI,

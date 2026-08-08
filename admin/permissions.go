@@ -39,8 +39,11 @@ const (
 	PermAdminFeatureFlagsView   = "admin.feature_flags.view"
 	PermAdminFeatureFlagsUpdate = "admin.feature_flags.update"
 
-	PermAdminNotificationsView   = "admin.notifications.view"
-	PermAdminNotificationsUpdate = "admin.notifications.update"
+	PermAdminNotificationsView           = "admin.notifications.view"
+	PermAdminNotificationsUpdate         = "admin.notifications.update"
+	PermAdminNotificationsInspect        = "admin.notifications.inspect"
+	PermAdminNotificationsReceiptsView   = "admin.notifications.receipts.view"
+	PermAdminNotificationsRetentionPurge = "admin.notifications.retention.purge"
 
 	PermAdminJobsView    = "admin.jobs.view"
 	PermAdminJobsEdit    = "admin.jobs.edit"

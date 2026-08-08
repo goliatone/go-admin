@@ -57,11 +57,7 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 			return false
 		}
 
-		exportCfg, ok := viewCtx["export_config"].(map[string]any)
-		if !ok {
-			return false
-		}
-		if strings.TrimSpace(anyToString(exportCfg["endpoint"])) != "/admin/exports" || strings.TrimSpace(anyToString(exportCfg["definition"])) != "roles" {
+		if _, ok := viewCtx["export_config"]; ok {
 			return false
 		}
 
@@ -82,12 +78,11 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 			return false
 		}
 
-		embeddedExport, ok := dataGridCfg["export_config"].(map[string]any)
-		if !ok {
+		if _, ok := dataGridCfg["export_config"]; ok {
 			return false
 		}
-		return strings.TrimSpace(anyToString(embeddedExport["endpoint"])) == "/admin/exports" &&
-			strings.TrimSpace(anyToString(embeddedExport["definition"])) == "roles"
+		capabilities, ok := dataGridCfg["capabilities"].(map[string]any)
+		return ok && capabilities["selection"] == false && capabilities["bulk"] == false && capabilities["export"] == false
 	})).Return(nil).Once()
 
 	if err := handler.list(ctx); err != nil {

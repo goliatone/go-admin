@@ -288,32 +288,46 @@ See `docs/GUIDE_ACTIVITY.md` for detailed behavior.
 
 ### Notification service and storage
 
-Notifications are an admin service rather than an `admin.Module`. The current
-public contract is `admin.NotificationService`, with list, add, and
-mark-read/unread operations. `FeatureNotifications` controls the default
-service selection. Quickstart UI route exposure is configured separately: the
-notifications page is registered by default and can be disabled with
+Notifications are an admin service rather than an `admin.Module`.
+`admin.NotificationService` remains the source-compatible inbox contract;
+advanced callers use `NotificationEvents()`, `NotificationReceipts()`,
+`NotificationDeliveries()`, and `NotificationRetention()`.
+`FeatureNotifications` controls runtime and route availability. Quickstart UI
+route exposure remains independently configurable with
 `quickstart.WithUINotificationsRoute(false)`.
 
 Resolution follows this order:
 
-1. `admin.Dependencies.NotificationService`, when supplied by the host.
-2. The built-in `go-notifications` adapter using process-local in-memory
-   definition, template, event, message, attempt, preference, and inbox
-   repositories.
-3. The simpler `admin.InMemoryNotificationService` fallback if the built-in
-   adapter cannot initialize.
-4. `admin.DisabledNotificationService` when the feature is disabled.
+1. Disabled feature: disabled inbox and capability services; no capability
+   routes or notification commands.
+2. Legacy `Dependencies.NotificationService`: inbox compatibility plus any
+   optional capability interfaces implemented by that same object.
+3. Explicit `Dependencies.NotificationRuntime`: one validated provider graph.
+4. No explicit integration: one `notifier.Module` backed by
+   `storage.NewMemoryProviders()`.
 
-Both default enabled paths are process-local and ephemeral. Notifications,
-read state, preferences, delivery attempts, and inbox contents are lost on
-restart and are not shared across serving instances. Production hosts that
-need durability or cross-instance consistency must inject a host-owned
-`NotificationService` backed by their persistent notification graph:
+Supplying both legacy `NotificationService` and `NotificationRuntime` is an
+error. Explicit providers must include every repository and the transaction
+manager; ordinary nil and typed nil values fail startup before module
+construction. There is no fallback to memory after an explicit configuration
+or bootstrap error.
+
+The memory default is complete but ephemeral. For Bun persistence, register and
+run the notification migration source before constructing providers:
 
 ```go
+if err := quickstart.RegisterUserMigrations(client); err != nil {
+    return err
+}
+if err := client.Migrate(ctx); err != nil {
+    return err
+}
+notificationRuntime, err := admin.NewBunNotificationRuntime(ctx, client.DB())
+if err != nil {
+    return err
+}
 deps := admin.Dependencies{
-    NotificationService: durableNotifications,
+    NotificationRuntime: notificationRuntime,
 }
 adm, _, err := quickstart.NewAdmin(
     cfg,
@@ -322,11 +336,43 @@ adm, _, err := quickstart.NewAdmin(
 )
 ```
 
-The injected service owns persistence, migration, retention, and delivery
-semantics. go-admin continues to own feature gating, UI/API bindings,
-`notifications.mark` command registration, configured read/update permissions,
-and activity integration. Do not treat successful default-memory startup as a
-production durability check.
+The module seeds the required `admin.notification` definition and template
+concurrently and idempotently; a uniqueness loser verifies the exact record
+before continuing, while genuine seed failures still fail startup. Legacy
+`Add` derives tenant scope only from trusted context, returns the exact item
+identified by its dispatch receipt, and treats `Notification.UserID` only as a
+recipient.
+
+Delivery inspection is metadata-only and receipt recovery is read-only. HTTP
+reads derive `system` or `tenant:<id>` from authenticated context and use
+separate configurable permissions:
+
+- `NotificationsInspectPermission`
+- `NotificationsReceiptPermission`
+- `NotificationsRetentionPurgePermission`
+
+The named admin API routes are `notifications.deliveries`,
+`notifications.deliveries.event`, `notifications.deliveries.message`,
+`notifications.receipts.lookup`, and `notifications.retention.purge`. Override
+them through the shared URLManager; bindings never register literal fallback
+paths. Event and message overrides must retain exactly one `:event_id` and
+`:message_id` parameter respectively or startup validation fails. Both POST
+routes use the common cookie-session CSRF contract.
+
+Retention is global in `go-notifications v0.16.1`, so purge requires both its
+permission and affirmative trusted system authority. Trusted host middleware
+may call `admin.WithNotificationSystemAuthority(ctx)`, or authentication may
+set the boolean actor metadata key
+`admin.NotificationSystemAuthorityMetadataKey`. Do not populate that marker
+from request data. It permits a system operator to bypass a single-tenant
+default tenant; an ordinary tenant actor and an unmarked actor remain denied.
+The stable
+`notifications.retention.purge` command requires confirmation and all cutoffs,
+runs exactly one bounded inline pass, returns aggregate counts and `HasMore`,
+maps invalid ranges/batches to HTTP 400, and records only aggregate safe
+telemetry. Activity-sink replacement reaches future purges, and observer
+failure cannot change the result. Go-admin does not install a default retention
+scheduler; hosts may invoke the command from their own job or cron adapter.
 
 ### Other Module Implementations
 

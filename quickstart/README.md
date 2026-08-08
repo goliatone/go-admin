@@ -124,9 +124,9 @@ container examples.
 - `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `ResolveDashboardArea(placements PlacementConfig, placement placement.DashboardPlacementKey, fallback string) string` - Inputs: placement config, shared dashboard placement key, fallback area code. Outputs: resolved dashboard area code for quickstart-owned widget wiring.
-- `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional `variant`).
-- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, optional `preferences_endpoint`, `column_storage_key`, optional translation/grouped-mode keys, `state_store`, and `url_state`).
-- `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
+- `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional validated `variant`); explicit capabilities fail closed when export is false or no resolved export is supplied.
+- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, optional `capabilities`, optional `preferences_endpoint`, `column_storage_key`, optional translation/grouped-mode keys, `state_store`, and `url_state`).
+- `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `list_capabilities`, capability-gated `export_config`, and `datagrid_config`. Omit `Capabilities` only for legacy caller behavior; quickstart-owned panel lists pass an explicit normalized projection.
 - `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`.
 - `WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: existing context + path resolver hints. Outputs: merged context with canonical path keys.
 - `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: admin go-theme selector + manifest; outputs: option that wires admin theme selection + manifest into `NewAdmin` (including Preferences variant options).
@@ -190,7 +190,7 @@ container examples.
 - `ApplySecureLinkManager(cfg *userssvc.Config, manager types.SecureLinkManager, opts ...SecureLinkUsersOption)` - Inputs: go-users config + manager; outputs: config mutated with securelink routes/manager.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[T], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
-- `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth/go-users migrations using canonical profiles + source labels).
+- `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth/go-users/go-notifications migrations using canonical profiles + source labels).
 
 ## Routing policy overrides
 Quickstart exposes the `admin/routing` policy directly. Host roots and per-module mount overrides remain explicit, and startup logs plus doctor output now include effective roots, resolved module mounts, and conflicts.
@@ -1673,7 +1673,8 @@ override hook examples.
 
 ## User migrations
 
-Quickstart registers the `combined` profile by default (`go-auth -> go-users`):
+Quickstart registers the `combined` profile by default
+(`go-auth -> go-users -> go-notifications`):
 
 ```go
 if err := quickstart.RegisterUserMigrations(client); err != nil {
@@ -1683,9 +1684,9 @@ if err := quickstart.RegisterUserMigrations(client); err != nil {
 
 Canonical profiles:
 
-- `quickstart.UserMigrationsProfileAuthOnly` -> `go-auth`
-- `quickstart.UserMigrationsProfileCombined` -> `go-auth -> go-users`
-- `quickstart.UserMigrationsProfileUsersStandalone` -> `go-users-auth -> go-users-auth-extras -> go-users`
+- `quickstart.UserMigrationsProfileAuthOnly` -> `go-auth -> go-notifications`
+- `quickstart.UserMigrationsProfileCombined` -> `go-auth -> go-users -> go-notifications`
+- `quickstart.UserMigrationsProfileUsersStandalone` -> `go-users-auth -> go-users-auth-extras -> go-users -> go-notifications`
 
 Canonical source labels:
 
@@ -1693,6 +1694,7 @@ Canonical source labels:
 - `quickstart.UserMigrationsSourceLabelUsersCore`
 - `quickstart.UserMigrationsSourceLabelUsersAuthBootstrap`
 - `quickstart.UserMigrationsSourceLabelUsersAuthExtras`
+- `quickstart.UserMigrationsSourceLabelNotifications`
 
 The wrapper uses source-stable ordered migration identity. Source keys and order
 values are durable migration ABI:
@@ -1701,11 +1703,53 @@ values are durable migration ABI:
 - `go-users-auth`: key `go-users-auth`, order `20`
 - `go-users-auth-extras`: key `go-users-auth-extras`, order `30`, depends on `go-users-auth` when present
 - `go-users`: key `go-users`, order `40`, depends on `go-auth` in combined mode or `go-users-auth-extras` in standalone mode
+- `go-notifications`: key `go-notifications`, order `50`, depends on the nearest enabled built-in source
 
 When optional sources are disabled, dependency edges are pruned to the selected
 source graph. Existing databases with positional `ord_*` markers must run the
 `go-persistence-bun` stable-marker backfill before deploying wrapper behavior
 that generates `ordsrc_*` names.
+
+Disable notifications explicitly only when that runtime is not used:
+
+```go
+quickstart.WithUserMigrationsNotificationsEnabled(false)
+```
+
+For a fresh persistent runtime, migrate before constructing or bootstrapping
+the admin:
+
+```go
+if err := quickstart.RegisterUserMigrations(client); err != nil {
+	return err
+}
+if err := client.Migrate(ctx); err != nil {
+	return err
+}
+notificationRuntime, err := admin.NewBunNotificationRuntime(ctx, client.DB())
+if err != nil {
+	return err
+}
+deps.NotificationRuntime = notificationRuntime
+```
+
+The manual retention endpoint is global and requires affirmative trusted
+system authority in addition to its permission. In trusted host middleware,
+wrap the authenticated request context with
+`admin.WithNotificationSystemAuthority(ctx)`, or set the boolean
+`admin.NotificationSystemAuthorityMetadataKey` in authenticated actor metadata.
+Never derive this marker from request payload or query data. It intentionally
+overrides quickstart's injected single-tenant default only for the trusted
+system operator; ordinary tenant actors remain denied.
+
+For an existing persisted graph that already ends at order 50 or later, do not
+insert notifications at its default order. Take a database backup, choose a
+permanent order after the last persisted source, depend on that source with
+`WithUserMigrationsNotificationPlacement` or
+`WithServiceMigrationsNotificationPlacement`, then run
+`notifications.AdoptAdditiveOrderedMigrationGraph` before migrating. Adoption
+is suffix-only and is not a drift-repair tool. Rollback for applied forward-only
+or destructive migrations is restore from the pre-adoption backup.
 
 Example: register users standalone mode (no go-auth migrations):
 
@@ -1718,7 +1762,10 @@ if err := quickstart.RegisterUserMigrations(
 }
 ```
 
-Services module migration registration uses `services-stack` (`go-auth -> go-users -> go-services -> app-local`) by default via `modules/services.RegisterServiceMigrations`.
+Services module migration registration uses `services-stack`
+(`go-auth -> go-users -> go-services -> go-notifications -> app-local`) by
+default via `modules/services.RegisterServiceMigrations`; app-local sources
+remain at order 100+ and depend on notifications in fresh graphs.
 
 ## Static assets (opt-in disk fallback)
 ```go
@@ -1758,6 +1805,9 @@ if err != nil {
 // Register definitions and row sources on exportBundle.Runner.
 // exportBundle.Runner.Definitions.Register(...)
 // exportBundle.Runner.RowSources.Register(...)
+
+// List export is advertised only after Initialize successfully registers the
+// export routes and the requested panel definition exists in this registry.
 
 views, err := quickstart.NewViewEngine(os.DirFS("./web"))
 if err != nil {

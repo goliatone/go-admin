@@ -8,13 +8,19 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	auth "github.com/goliatone/go-auth"
+	gocommand "github.com/goliatone/go-command"
 	goerrors "github.com/goliatone/go-errors"
+	"github.com/goliatone/go-notifications/pkg/deliveries"
+	"github.com/goliatone/go-notifications/pkg/events"
+	"github.com/goliatone/go-notifications/pkg/retention"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-users/pkg/authctx"
 	usertypes "github.com/goliatone/go-users/pkg/types"
+	"github.com/google/uuid"
 )
 
 type mediaBinding struct {
@@ -776,6 +782,21 @@ func newNotificationsBinding(a *Admin) boot.NotificationsBinding {
 	return &notificationsBinding{admin: a}
 }
 
+func (n *notificationsBinding) Capabilities() boot.NotificationCapabilities {
+	if n == nil || n.admin == nil || !featureEnabled(n.admin.featureGate, FeatureNotifications) {
+		return boot.NotificationCapabilities{}
+	}
+	retentionAvailable := notificationCapabilityAvailable(n.admin.notificationRetention)
+	if n.admin.commandBus == nil || !n.admin.commandBus.CommandRegistration(NotificationRetentionPurgeCommandName).SupportsInlineResult() {
+		retentionAvailable = false
+	}
+	return boot.NotificationCapabilities{
+		Deliveries: notificationCapabilityAvailable(n.admin.notificationDeliveries),
+		Receipts:   notificationCapabilityAvailable(n.admin.notificationReceipts),
+		Retention:  retentionAvailable,
+	}
+}
+
 func (n *notificationsBinding) List(c router.Context) (map[string]any, error) {
 	ctx := n.admin.adminContextFromRequest(c, n.admin.config.DefaultLocale)
 	if err := n.admin.requirePermission(ctx, n.admin.config.NotificationsPermission, "notifications"); err != nil {
@@ -822,6 +843,152 @@ func (n *notificationsBinding) Mark(c router.Context, body map[string]any) error
 		return n.admin.notifications.Mark(adminCtx.Context, ids, read)
 	}
 	return FeatureDisabledError{Feature: string(FeatureNotifications)}
+}
+
+func (n *notificationsBinding) ListDeliveries(c router.Context) (any, error) {
+	adminCtx, scope, err := n.authorizedReadContext(c, n.admin.config.NotificationsInspectPermission)
+	if err != nil {
+		return nil, err
+	}
+	if err := rejectNotificationAuthorityQuery(c); err != nil {
+		return nil, err
+	}
+	query := deliveries.ListQuery{
+		Scope: scope, DefinitionCode: strings.TrimSpace(c.Query("definition_code")),
+		Channel: strings.TrimSpace(c.Query("channel")), Status: strings.TrimSpace(c.Query("status")),
+		ErrorCode: strings.TrimSpace(c.Query("error_code")), Cursor: strings.TrimSpace(c.Query("cursor")),
+	}
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		query.Limit, err = strconv.Atoi(raw)
+		if err != nil {
+			return nil, validationDomainError("notification delivery limit must be an integer", map[string]any{"field": "limit"})
+		}
+	}
+	if query.CreatedAfter, err = notificationTimeQuery(c, "created_after"); err != nil {
+		return nil, err
+	}
+	if query.CreatedBefore, err = notificationTimeQuery(c, "created_before"); err != nil {
+		return nil, err
+	}
+	return n.admin.notificationDeliveries.ListDeliveries(adminCtx.Context, query)
+}
+
+func (n *notificationsBinding) GetDeliveryEvent(c router.Context, id string) (any, error) {
+	return n.getDelivery(c, id, true)
+}
+
+func (n *notificationsBinding) GetDeliveryMessage(c router.Context, id string) (any, error) {
+	return n.getDelivery(c, id, false)
+}
+
+func (n *notificationsBinding) getDelivery(c router.Context, rawID string, event bool) (any, error) {
+	adminCtx, scope, err := n.authorizedReadContext(c, n.admin.config.NotificationsInspectPermission)
+	if err != nil {
+		return nil, err
+	}
+	if err := rejectNotificationAuthorityQuery(c); err != nil {
+		return nil, err
+	}
+	id, err := uuid.Parse(strings.TrimSpace(rawID))
+	if err != nil || id == uuid.Nil {
+		return nil, validationDomainError("notification delivery ID is invalid", map[string]any{"field": "id"})
+	}
+	query := deliveries.GetQuery{Scope: scope}
+	if event {
+		query.EventID = id
+	} else {
+		query.MessageID = id
+	}
+	return n.admin.notificationDeliveries.GetDelivery(adminCtx.Context, query)
+}
+
+func (n *notificationsBinding) LookupReceipt(c router.Context, body map[string]any) (any, error) {
+	if err := enforceAdminAuthenticatorBrowserCSRF(c, n.admin); err != nil {
+		return nil, err
+	}
+	if err := rejectNotificationAuthorityFields(body); err != nil {
+		return nil, err
+	}
+	adminCtx, scope, err := n.authorizedReadContext(c, n.admin.config.NotificationsReceiptPermission)
+	if err != nil {
+		return nil, err
+	}
+	lookup := events.ReceiptLookup{
+		DefinitionCode:   strings.TrimSpace(toString(body["definition_code"])),
+		IdempotencyKey:   strings.TrimSpace(toString(body["idempotency_key"])),
+		IdempotencyScope: scope,
+	}
+	if lookup.DefinitionCode == "" || lookup.IdempotencyKey == "" {
+		return nil, validationDomainError("notification receipt identity is required", map[string]any{"component": "notifications"})
+	}
+	return n.admin.notificationReceipts.LookupReceipt(adminCtx.Context, lookup)
+}
+
+func (n *notificationsBinding) PurgeRetention(c router.Context, body map[string]any) (any, error) {
+	if err := enforceAdminAuthenticatorBrowserCSRF(c, n.admin); err != nil {
+		return nil, err
+	}
+	if err := rejectNotificationAuthorityFields(body); err != nil {
+		return nil, err
+	}
+	adminCtx := n.admin.adminContextFromRequest(c, n.admin.config.DefaultLocale)
+	if err := n.admin.requirePermission(adminCtx, n.admin.config.NotificationsRetentionPurgePermission, "notifications"); err != nil {
+		return nil, err
+	}
+	if _, err := notificationRetentionScope(adminCtx); err != nil {
+		return nil, err
+	}
+	if n.admin.commandBus == nil {
+		return nil, FeatureDisabledError{Feature: string(FeatureCommands)}
+	}
+	outcome, err := n.admin.commandBus.DispatchByNameWithOutcome(adminCtx.Context, NotificationRetentionPurgeCommandName, body, nil, gocommand.DispatchOptions{Mode: gocommand.ExecutionModeInline})
+	if err != nil {
+		return nil, err
+	}
+	result, ok := outcome.Result.(retention.Result)
+	if !ok {
+		return nil, serviceUnavailableDomainError("notification retention result unavailable", map[string]any{"component": "notifications"})
+	}
+	return result, nil
+}
+
+func (n *notificationsBinding) authorizedReadContext(c router.Context, permission string) (AdminContext, string, error) {
+	adminCtx := n.admin.adminContextFromRequest(c, n.admin.config.DefaultLocale)
+	if err := n.admin.requirePermission(adminCtx, permission, "notifications"); err != nil {
+		return AdminContext{}, "", err
+	}
+	scope, err := notificationReadScope(adminCtx)
+	return adminCtx, scope, err
+}
+
+func notificationTimeQuery(c router.Context, key string) (time.Time, error) {
+	raw := strings.TrimSpace(c.Query(key))
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	value, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return time.Time{}, validationDomainError("notification delivery time is invalid", map[string]any{"field": key})
+	}
+	return value.UTC(), nil
+}
+
+func rejectNotificationAuthorityFields(body map[string]any) error {
+	for _, field := range []string{"scope", "tenant_id", "org_id", "actor_id", "user_id", "idempotency_scope"} {
+		if _, exists := body[field]; exists {
+			return validationDomainError("notification authority fields are server-derived", map[string]any{"field": field})
+		}
+	}
+	return nil
+}
+
+func rejectNotificationAuthorityQuery(c router.Context) error {
+	for _, field := range []string{"scope", "tenant_id", "org_id", "actor_id", "user_id", "idempotency_scope"} {
+		if strings.TrimSpace(c.Query(field)) != "" {
+			return validationDomainError("notification authority fields are server-derived", map[string]any{"field": field})
+		}
+	}
+	return nil
 }
 
 type activityBinding struct {

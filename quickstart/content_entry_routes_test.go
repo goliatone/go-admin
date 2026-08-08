@@ -1040,12 +1040,6 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 				if !ok {
 					return false
 				}
-				exportCfg, ok := viewCtx["export_config"].(map[string]any)
-				if !ok {
-					return false
-				}
-				endpoint := strings.TrimSpace(anyToString(exportCfg["endpoint"]))
-				definition := strings.TrimSpace(anyToString(exportCfg["definition"]))
 				dataGridCfg, ok := viewCtx["datagrid_config"].(map[string]any)
 				if !ok {
 					return false
@@ -1055,8 +1049,13 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 				actionBase := strings.TrimSpace(anyToString(dataGridCfg["action_base"]))
 				columnStorage := strings.TrimSpace(anyToString(dataGridCfg["column_storage_key"]))
 
-				return endpoint == "/admin/exports" &&
-					definition == tc.panel &&
+				capabilities, ok := dataGridCfg["capabilities"].(map[string]any)
+				if !ok || capabilities["export"] != false || capabilities["selection"] != false {
+					return false
+				}
+
+				_, hasExportConfig := viewCtx["export_config"]
+				return !hasExportConfig &&
 					tableID == "content-"+tc.panel &&
 					apiEndpoint == "/admin/api/panels/"+tc.panel &&
 					actionBase == "/admin/content/"+tc.panel &&

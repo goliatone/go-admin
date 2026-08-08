@@ -17,51 +17,53 @@ import (
 )
 
 type adminConstructorState struct {
-	cfg                    Config
-	deploymentIdentity     DeploymentIdentity
-	registry               *Registry
-	container              CMSContainer
-	translator             Translator
-	loggerProvider         LoggerProvider
-	logger                 Logger
-	featureGate            fggate.FeatureGate
-	featureCatalog         catalog.Catalog
-	featureCatalogResolver catalog.MessageResolver
-	activitySink           ActivitySink
-	activityPolicy         activity.ActivityAccessPolicy
-	activityFeed           ActivityFeedQuerier
-	replSessionStore       DebugREPLSessionStore
-	replSessionManager     *DebugREPLSessionManager
-	replCommandCatalog     *DebugREPLCommandCatalog
-	debugSessionStore      DebugUserSessionStore
-	actionDiagnostics      *ActionDiagnosticsStore
-	commandBus             *CommandBus
-	commandCatalog         gocommand.CatalogProvider
-	commandOptionProvider  gocommand.CommandOptionProvider
-	rpcServer              *cmdrpc.Server
-	settingsSvc            *SettingsService
-	settingsForm           *SettingsFormAdapter
-	settingsCmd            *SettingsUpdateCommand
-	notifSvc               NotificationService
-	exportRegistry         ExportRegistry
-	exportRegistrar        ExportHTTPRegistrar
-	exportMetadata         ExportMetadataProvider
-	bulkSvc                BulkService
-	urlManager             *urlkit.RouteManager
-	routingPlanner         routing.Planner
-	routingReport          routing.StartupReport
-	mediaLib               MediaLibrary
-	mediaActivityHook      MediaActivityHook
-	preferencesSvc         *PreferencesService
-	profileSvc             *ProfileService
-	userSvc                *UserManagementService
-	tenantSvc              *TenantService
-	orgSvc                 *OrganizationService
-	jobReg                 *JobRegistry
-	defaultTheme           *ThemeSelection
-	navMenuCode            string
-	dashboard              *Dashboard
-	iconService            *IconService
+	cfg                          Config
+	deploymentIdentity           DeploymentIdentity
+	registry                     *Registry
+	container                    CMSContainer
+	translator                   Translator
+	loggerProvider               LoggerProvider
+	logger                       Logger
+	featureGate                  fggate.FeatureGate
+	featureCatalog               catalog.Catalog
+	featureCatalogResolver       catalog.MessageResolver
+	activitySink                 ActivitySink
+	activityPolicy               activity.ActivityAccessPolicy
+	activityFeed                 ActivityFeedQuerier
+	replSessionStore             DebugREPLSessionStore
+	replSessionManager           *DebugREPLSessionManager
+	replCommandCatalog           *DebugREPLCommandCatalog
+	debugSessionStore            DebugUserSessionStore
+	actionDiagnostics            *ActionDiagnosticsStore
+	commandBus                   *CommandBus
+	commandCatalog               gocommand.CatalogProvider
+	commandOptionProvider        gocommand.CommandOptionProvider
+	rpcServer                    *cmdrpc.Server
+	settingsSvc                  *SettingsService
+	settingsForm                 *SettingsFormAdapter
+	settingsCmd                  *SettingsUpdateCommand
+	notifSvc                     NotificationService
+	notifRuntime                 notificationRuntime
+	notificationRetentionCommand *NotificationRetentionPurgeCommand
+	exportRegistry               ExportRegistry
+	exportRegistrar              ExportHTTPRegistrar
+	exportMetadata               ExportMetadataProvider
+	bulkSvc                      BulkService
+	urlManager                   *urlkit.RouteManager
+	routingPlanner               routing.Planner
+	routingReport                routing.StartupReport
+	mediaLib                     MediaLibrary
+	mediaActivityHook            MediaActivityHook
+	preferencesSvc               *PreferencesService
+	profileSvc                   *ProfileService
+	userSvc                      *UserManagementService
+	tenantSvc                    *TenantService
+	orgSvc                       *OrganizationService
+	jobReg                       *JobRegistry
+	defaultTheme                 *ThemeSelection
+	navMenuCode                  string
+	dashboard                    *Dashboard
+	iconService                  *IconService
 }
 
 // New constructs an Admin orchestrator with explicit dependencies.
@@ -122,7 +124,11 @@ func resolveAdminConstructorState(cfg Config, deps Dependencies) (adminConstruct
 
 func resolveAdminRuntimeState(state adminConstructorState, deps Dependencies) (adminConstructorState, error) {
 	var err error
-	state.notifSvc = resolveNotificationService(state.cfg, deps, state.featureGate, state.translator, state.activitySink)
+	state.notifRuntime, err = resolveNotificationRuntime(state.cfg, deps, state.featureGate, state.translator, state.activitySink)
+	if err != nil {
+		return state, err
+	}
+	state.notifSvc = state.notifRuntime.inbox
 	state.exportRegistry = deps.ExportRegistry
 	state.exportRegistrar = deps.ExportRegistrar
 	state.exportMetadata = deps.ExportMetadata
@@ -139,7 +145,8 @@ func resolveAdminRuntimeState(state adminConstructorState, deps Dependencies) (a
 	state.mediaActivityHook = deps.MediaActivityHook
 	state.preferencesSvc, state.profileSvc, state.userSvc, state.tenantSvc, state.orgSvc = resolveDomainServices(state.cfg, deps, state.activitySink)
 	state.jobReg = resolveJobRegistry(deps.JobRegistry, state.featureGate, state.activitySink)
-	if err = registerFeatureCommands(state.featureGate, state.commandBus, state.notifSvc, state.bulkSvc); err != nil {
+	state.notificationRetentionCommand, err = registerFeatureCommands(state.featureGate, state.commandBus, state.notifRuntime, state.bulkSvc, state.activitySink, state.logger)
+	if err != nil {
 		return state, err
 	}
 	state.defaultTheme = resolveDefaultThemeSelection(state.cfg)
@@ -194,53 +201,58 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		validatePanelCommandWiring: deps.CommandBus != nil ||
 			featureEnabled(state.featureGate, FeatureCommands) ||
 			(state.commandBus != nil && state.commandBus.enabled),
-		rpcServer:                state.rpcServer,
-		rpcCommandPolicyHook:     deps.RPCCommandPolicyHook,
-		dashboard:                state.dashboard,
-		actionDiagnostics:        state.actionDiagnostics,
-		replSessionStore:         state.replSessionStore,
-		replSessionManager:       state.replSessionManager,
-		replCommandCatalog:       state.replCommandCatalog,
-		debugSessionStore:        state.debugSessionStore,
-		nav:                      NewNavigation(state.container.MenuService(), deps.Authorizer),
-		search:                   NewSearchEngine(deps.Authorizer),
-		authorizer:               deps.Authorizer,
-		notifications:            state.notifSvc,
-		activity:                 state.activitySink,
-		activityFeed:             state.activityFeed,
-		activityPolicy:           state.activityPolicy,
-		jobs:                     state.jobReg,
-		settings:                 state.settingsSvc,
-		settingsForm:             state.settingsForm,
-		settingsCommand:          state.settingsCmd,
-		preferences:              state.preferencesSvc,
-		profile:                  state.profileSvc,
-		users:                    state.userSvc,
-		tenants:                  state.tenantSvc,
-		organizations:            state.orgSvc,
-		bulkUserImport:           deps.BulkUserImport,
-		panelForm:                &PanelFormAdapter{},
-		defaultTheme:             state.defaultTheme,
-		exportRegistry:           state.exportRegistry,
-		exportRegistrar:          state.exportRegistrar,
-		exportMetadata:           state.exportMetadata,
-		bulkSvc:                  state.bulkSvc,
-		mediaLibrary:             state.mediaLib,
-		mediaActivityHook:        state.mediaActivityHook,
-		mediaDeliveryRegistry:    resolveMediaDeliveryRegistry(deps.MediaDeliveryRegistry),
-		mediaDeliveryProjector:   resolveMediaDeliveryProjector(deps.MediaDeliveryReferenceProjector),
-		mediaDeliveryCredentials: deps.MediaDeliveryCredentialResolver,
-		moduleStartupPolicy:      ModuleStartupPolicyEnforce,
-		navMenuCode:              state.navMenuCode,
-		translator:               state.translator,
-		workflow:                 deps.Workflow,
-		workflowRuntime:          deps.WorkflowRuntime,
-		translationPolicy:        deps.TranslationPolicy,
-		translationFamilyStore:   deps.TranslationFamilyStore,
-		preview:                  NewPreviewService(state.cfg.PreviewSecret),
-		iconService:              state.iconService,
-		menuBuilder:              NewMenuBuilderService(),
-		doctorChecks:             map[string]DoctorCheck{},
+		rpcServer:                    state.rpcServer,
+		rpcCommandPolicyHook:         deps.RPCCommandPolicyHook,
+		dashboard:                    state.dashboard,
+		actionDiagnostics:            state.actionDiagnostics,
+		replSessionStore:             state.replSessionStore,
+		replSessionManager:           state.replSessionManager,
+		replCommandCatalog:           state.replCommandCatalog,
+		debugSessionStore:            state.debugSessionStore,
+		nav:                          NewNavigation(state.container.MenuService(), deps.Authorizer),
+		search:                       NewSearchEngine(deps.Authorizer),
+		authorizer:                   deps.Authorizer,
+		notifications:                state.notifSvc,
+		notificationEvents:           state.notifRuntime.events,
+		notificationReceipts:         state.notifRuntime.receipts,
+		notificationDeliveries:       state.notifRuntime.deliveries,
+		notificationRetention:        state.notifRuntime.retention,
+		notificationRetentionCommand: state.notificationRetentionCommand,
+		activity:                     state.activitySink,
+		activityFeed:                 state.activityFeed,
+		activityPolicy:               state.activityPolicy,
+		jobs:                         state.jobReg,
+		settings:                     state.settingsSvc,
+		settingsForm:                 state.settingsForm,
+		settingsCommand:              state.settingsCmd,
+		preferences:                  state.preferencesSvc,
+		profile:                      state.profileSvc,
+		users:                        state.userSvc,
+		tenants:                      state.tenantSvc,
+		organizations:                state.orgSvc,
+		bulkUserImport:               deps.BulkUserImport,
+		panelForm:                    &PanelFormAdapter{},
+		defaultTheme:                 state.defaultTheme,
+		exportRegistry:               state.exportRegistry,
+		exportRegistrar:              state.exportRegistrar,
+		exportMetadata:               state.exportMetadata,
+		bulkSvc:                      state.bulkSvc,
+		mediaLibrary:                 state.mediaLib,
+		mediaActivityHook:            state.mediaActivityHook,
+		mediaDeliveryRegistry:        resolveMediaDeliveryRegistry(deps.MediaDeliveryRegistry),
+		mediaDeliveryProjector:       resolveMediaDeliveryProjector(deps.MediaDeliveryReferenceProjector),
+		mediaDeliveryCredentials:     deps.MediaDeliveryCredentialResolver,
+		moduleStartupPolicy:          ModuleStartupPolicyEnforce,
+		navMenuCode:                  state.navMenuCode,
+		translator:                   state.translator,
+		workflow:                     deps.Workflow,
+		workflowRuntime:              deps.WorkflowRuntime,
+		translationPolicy:            deps.TranslationPolicy,
+		translationFamilyStore:       deps.TranslationFamilyStore,
+		preview:                      NewPreviewService(state.cfg.PreviewSecret),
+		iconService:                  state.iconService,
+		menuBuilder:                  NewMenuBuilderService(),
+		doctorChecks:                 map[string]DoctorCheck{},
 		navigationRouteMissingPolicy: normalizeNavigationRouteMissingPolicy(
 			state.cfg.NavRouteMissingPolicy,
 		),
@@ -425,21 +437,33 @@ func resolveSettingsInfrastructure(cfg Config, deps Dependencies, registry *Regi
 	return settingsSvc, settingsForm, settingsCmd, nil
 }
 
-func resolveNotificationService(cfg Config, deps Dependencies, featureGate fggate.FeatureGate, translator Translator, activitySink ActivitySink) NotificationService {
-	notifSvc := deps.NotificationService
-	if notifSvc != nil {
-		return notifSvc
+func resolveNotificationRuntime(cfg Config, deps Dependencies, featureGate fggate.FeatureGate, translator Translator, activitySink ActivitySink) (notificationRuntime, error) {
+	enabled := featureEnabled(featureGate, FeatureNotifications)
+	if !enabled {
+		return disabledNotificationRuntime(), nil
 	}
-	notifSvc = DisabledNotificationService{}
-	if !featureEnabled(featureGate, FeatureNotifications) {
-		return notifSvc
+	if err := validateNotificationRuntimeSelection(true, deps); err != nil {
+		return notificationRuntime{}, err
 	}
-	if svc, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink); err == nil {
-		return svc
+	if !isNilNotificationDependency(deps.NotificationService) {
+		return legacyNotificationRuntime(deps.NotificationService), nil
 	}
-	mem := NewInMemoryNotificationService()
-	mem.WithActivitySink(activitySink)
-	return mem
+	if deps.NotificationRuntime != nil {
+		providers := applyNotificationProviderOverrides(*deps.NotificationRuntime)
+		if err := validateNotificationProviders(providers); err != nil {
+			return notificationRuntime{}, err
+		}
+		service, err := newGoNotificationsServiceWithProviders(cfg.DefaultLocale, translator, activitySink, providers)
+		if err != nil {
+			return notificationRuntime{}, err
+		}
+		return legacyNotificationRuntime(service), nil
+	}
+	service, err := newGoNotificationsService(cfg.DefaultLocale, translator, activitySink)
+	if err != nil {
+		return notificationRuntime{}, err
+	}
+	return legacyNotificationRuntime(service), nil
 }
 
 func resolveBulkService(bulkSvc BulkService, featureGate fggate.FeatureGate) BulkService {
@@ -454,6 +478,7 @@ func resolveBulkService(bulkSvc BulkService, featureGate fggate.FeatureGate) Bul
 
 func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager, featureGate fggate.FeatureGate) (*urlkit.RouteManager, error) {
 	requireMediaRoutes := featureEnabled(featureGate, FeatureMedia)
+	requireNotificationRoutes := featureEnabled(featureGate, FeatureNotifications)
 	if urlManager != nil {
 		if err := mergeDefaultURLKitRoutes(urlManager, cfg); err != nil {
 			return nil, validationDomainError("url manager merge error", map[string]any{
@@ -461,7 +486,7 @@ func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager, feature
 				"error":     err.Error(),
 			})
 		}
-		if err := validateURLKitRoutes(cfg, urlManager, requireMediaRoutes); err != nil {
+		if err := validateURLKitRoutes(cfg, urlManager, requireMediaRoutes, requireNotificationRoutes); err != nil {
 			return nil, validationDomainError("url manager validation error", map[string]any{
 				"component": "url_manager",
 				"error":     err.Error(),
@@ -469,7 +494,7 @@ func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager, feature
 		}
 		return urlManager, nil
 	}
-	return newURLManager(cfg, requireMediaRoutes)
+	return newURLManager(cfg, requireMediaRoutes, requireNotificationRoutes)
 }
 
 func resolveRoutingPlanner(cfg Config, urlManager *urlkit.RouteManager, featureGate fggate.FeatureGate) (routing.Planner, routing.StartupReport, error) {
@@ -534,18 +559,26 @@ func resolveJobRegistry(jobReg *JobRegistry, featureGate fggate.FeatureGate, act
 	return jobReg
 }
 
-func registerFeatureCommands(featureGate fggate.FeatureGate, commandBus *CommandBus, notifSvc NotificationService, bulkSvc BulkService) error {
-	if featureEnabled(featureGate, FeatureNotifications) {
-		if _, err := RegisterCommand(commandBus, &NotificationMarkCommand{Service: notifSvc}); err != nil {
-			return err
+func registerFeatureCommands(featureGate fggate.FeatureGate, commandBus *CommandBus, runtime notificationRuntime, bulkSvc BulkService, activity ActivitySink, logger Logger) (*NotificationRetentionPurgeCommand, error) {
+	var retentionCommand *NotificationRetentionPurgeCommand
+	if featureEnabled(featureGate, FeatureNotifications) && featureEnabled(featureGate, FeatureCommands) {
+		if _, err := RegisterCommand(commandBus, &NotificationMarkCommand{Service: runtime.inbox}); err != nil {
+			return nil, err
+		}
+		if notificationCapabilityAvailable(runtime.retention) {
+			var err error
+			retentionCommand, err = registerNotificationRetentionCommand(commandBus, runtime.retention, activity, logger, runtime.metrics)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if featureEnabled(featureGate, FeatureBulk) {
 		if _, err := RegisterCommand(commandBus, &BulkCommand{Service: bulkSvc}); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return retentionCommand, nil
 }
 
 func resolveDefaultThemeSelection(cfg Config) *ThemeSelection {

@@ -64,6 +64,11 @@ type Admin struct {
 	search                          *SearchEngine
 	authorizer                      Authorizer
 	notifications                   NotificationService
+	notificationEvents              NotificationEventService
+	notificationReceipts            NotificationReceiptService
+	notificationDeliveries          NotificationDeliveryInspector
+	notificationRetention           NotificationRetentionService
+	notificationRetentionCommand    *NotificationRetentionPurgeCommand
 	activity                        ActivitySink
 	activityFeed                    ActivityFeedQuerier
 	activityPolicy                  activity.ActivityAccessPolicy
@@ -86,6 +91,8 @@ type Admin struct {
 	exportRegistry                  ExportRegistry
 	exportRegistrar                 ExportHTTPRegistrar
 	exportMetadata                  ExportMetadataProvider
+	exportRoutesMu                  sync.RWMutex
+	exportRoutesEndpoint            string
 	bulkSvc                         BulkService
 	mediaLibrary                    MediaLibrary
 	mediaActivityHook               MediaActivityHook
@@ -711,6 +718,9 @@ func (a *Admin) applyCoreActivitySink(sink ActivitySink) {
 
 func (a *Admin) applyAwareActivitySink(sink ActivitySink) {
 	propagateActivityAwareSink(a.notifications, sink)
+	if a.notificationRetentionCommand != nil {
+		a.notificationRetentionCommand.WithActivitySink(sink)
+	}
 	propagateActivityAwareSink(a.widgetSvc, sink)
 	propagateActivityAwareSink(a.menuSvc, sink)
 	propagateActivityAwareSink(a.contentSvc, sink)
@@ -1045,6 +1055,38 @@ func (a *Admin) SettingsService() *SettingsService {
 // NotificationService returns the inbox service.
 func (a *Admin) NotificationService() NotificationService {
 	return a.notifications
+}
+
+// NotificationEvents exposes typed notification dispatch and recovery.
+func (a *Admin) NotificationEvents() NotificationEventService {
+	if a == nil {
+		return disabledNotificationEvents{}
+	}
+	return a.notificationEvents
+}
+
+// NotificationReceipts exposes side-effect-free idempotent receipt lookup.
+func (a *Admin) NotificationReceipts() NotificationReceiptService {
+	if a == nil {
+		return disabledNotificationReceipts{}
+	}
+	return a.notificationReceipts
+}
+
+// NotificationDeliveries exposes privacy-safe delivery inspection.
+func (a *Admin) NotificationDeliveries() NotificationDeliveryInspector {
+	if a == nil {
+		return disabledNotificationDeliveries{}
+	}
+	return a.notificationDeliveries
+}
+
+// NotificationRetention exposes one bounded retention purge pass.
+func (a *Admin) NotificationRetention() NotificationRetentionService {
+	if a == nil {
+		return disabledNotificationRetention{}
+	}
+	return a.notificationRetention
 }
 
 // ActivityFeed returns the activity sink.

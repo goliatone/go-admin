@@ -101,3 +101,40 @@ func TestExportBundleWiresRegistryAndRoutes(t *testing.T) {
 		t.Fatalf("expected export delete route")
 	}
 }
+
+func TestExportBundleRegistersConfiguredCollectionPath(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []ExportBundleOption
+		want string
+	}{
+		{
+			name: "absolute base path",
+			opts: []ExportBundleOption{WithExportBasePath("/operations/downloads")},
+			want: "/operations/downloads",
+		},
+		{
+			name: "relative base path",
+			opts: []ExportBundleOption{WithExportBasePath("downloads")},
+			want: "/admin/downloads",
+		},
+		{
+			name: "custom suffix",
+			opts: []ExportBundleOption{WithExportPathSuffix("downloads")},
+			want: "/admin/downloads",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bundle := NewExportBundle(tc.opts...)
+			recorder := &recordingRouter{}
+			if err := bundle.Registrar.RegisterExportRoutes(recorder, admin.ExportRouteOptions{BasePath: "/admin"}); err != nil {
+				t.Fatalf("register routes: %v", err)
+			}
+			if !recorder.has("POST", tc.want) {
+				t.Fatalf("expected export POST route for %s, got %+v", tc.want, recorder.routes)
+			}
+		})
+	}
+}

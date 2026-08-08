@@ -803,11 +803,16 @@ func featureWiringDoctorCheck() DoctorCheck {
 			checkFeature(FeatureSettings, adm.settings != nil, "settings")
 			checkFeature(FeatureUsers, adm.users != nil, "users")
 			checkFeature(FeatureSearch, adm.search != nil, "search")
-			checkFeature(FeatureNotifications, adm.notifications != nil, "notifications")
+			checkFeature(FeatureNotifications, adm.notifications != nil && !isNilNotificationDependency(adm.notifications), "notifications")
 			checkFeature(FeatureJobs, adm.jobs != nil, "jobs")
 			checkFeature(FeaturePreferences, adm.preferences != nil, "preferences")
 			checkFeature(FeatureProfile, adm.profile != nil, "profile")
-			return DoctorCheckOutput{Findings: findings}
+			return DoctorCheckOutput{Findings: findings, Metadata: map[string]any{
+				"notification_events":     notificationCapabilityAvailable(adm.notificationEvents),
+				"notification_receipts":   notificationCapabilityAvailable(adm.notificationReceipts),
+				"notification_deliveries": notificationCapabilityAvailable(adm.notificationDeliveries),
+				"notification_retention":  notificationCapabilityAvailable(adm.notificationRetention),
+			}}
 		},
 	}
 }

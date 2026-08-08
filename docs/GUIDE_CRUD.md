@@ -136,6 +136,19 @@ if _, err := adm.RegisterPanel("articles", builder); err != nil {
 only, or `PanelActionDefaultsModeNone` when the panel must emit only explicit
 actions.
 
+List controls are resolved independently from action-default mode. The shared
+list contract is `admin.PanelListCapabilities{Selection, Bulk, Export}` and is
+serialized under `list_capabilities` and `datagrid_config.capabilities`.
+Selection is always normalized to `Bulk || Export`: bulk-only and export-only
+panels both retain row selection, while a panel with neither operation emits no
+selection cells. Export additionally requires `FeatureExport`, a successfully
+registered export HTTP surface, and an exact registry definition match. An
+unsupported channel/variant falls back to the definition's base export; registry
+lookup failures fail closed and omit export metadata.
+
+`PanelActionDefaultsModeNone` therefore removes implicit actions but does not
+disable export. Register or omit the panel's export definition explicitly.
+
 If `Permissions.Create` is set and the panel uses canonical UI routes, the
 builder must provide `FormFields(...)` or `FormSchema(...)`. Otherwise mark the
 panel as custom-owned with `WithUIRouteMode(admin.PanelUIRouteModeCustom)` and

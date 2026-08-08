@@ -30,8 +30,8 @@ func TestAdminDecorateSchemaAppliesFeatureMetadataAndMediaHints(t *testing.T) {
 
 	adm.decorateSchema(schema, "items")
 
-	if schema.Export == nil || schema.Export.Definition != "items" || schema.Export.Endpoint == "" {
-		t.Fatalf("expected export metadata, got %+v", schema.Export)
+	if schema.Export != nil {
+		t.Fatalf("expected export metadata to fail closed without registered routes, got %+v", schema.Export)
 	}
 	if schema.Bulk == nil || schema.Bulk.Endpoint == "" {
 		t.Fatalf("expected bulk metadata, got %+v", schema.Bulk)

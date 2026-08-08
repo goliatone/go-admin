@@ -11,12 +11,14 @@ import (
 
 // PanelViewCapabilityOptions configures capability context derived for panel templates.
 type PanelViewCapabilityOptions struct {
-	BasePath       string                     `json:"base_path"`
-	URLResolver    urlkit.Resolver            `json:"url_resolver"`
-	Definition     string                     `json:"definition"`
-	Variant        string                     `json:"variant"`
-	ExportEndpoint string                     `json:"export_endpoint"`
-	DataGrid       PanelDataGridConfigOptions `json:"data_grid"`
+	BasePath       string                       `json:"base_path"`
+	URLResolver    urlkit.Resolver              `json:"url_resolver"`
+	Definition     string                       `json:"definition"`
+	Variant        string                       `json:"variant"`
+	ExportEndpoint string                       `json:"export_endpoint"`
+	ResolvedExport *admin.ExportConfig          `json:"resolved_export"`
+	Capabilities   *admin.PanelListCapabilities `json:"capabilities"`
+	DataGrid       PanelDataGridConfigOptions   `json:"data_grid"`
 }
 
 // PanelDataGridConfigOptions configures datagrid wiring for panel templates.
@@ -33,6 +35,7 @@ type PanelDataGridConfigOptions struct {
 	TranslationUX       bool                           `json:"translation_ux"`
 	StateStore          PanelDataGridStateStoreOptions `json:"state_store"`
 	URLState            PanelDataGridURLStateOptions   `json:"url_state"`
+	Capabilities        *admin.PanelListCapabilities   `json:"capabilities"`
 }
 
 // PanelDataGridStateStoreOptions configures datagrid state store wiring for templates.
@@ -54,11 +57,21 @@ type PanelDataGridURLStateOptions struct {
 // BuildPanelViewCapabilities returns standard capability keys for panel templates.
 //
 // Current keys:
+// - list_capabilities
 // - export_config
 // - datagrid_config
 func BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext {
 	viewCtx := router.ViewContext{}
 	exportCfg := BuildPanelExportConfig(cfg, opts)
+	if opts.Capabilities != nil {
+		requested := opts.Capabilities.Normalized()
+		capabilities := admin.ResolvePanelListCapabilities(
+			requested.Bulk,
+			requested.Export && len(exportCfg) > 0,
+		)
+		viewCtx["list_capabilities"] = panelListCapabilitiesMap(capabilities)
+		opts.DataGrid.Capabilities = &capabilities
+	}
 	if len(exportCfg) > 0 {
 		viewCtx["export_config"] = exportCfg
 	}
@@ -73,6 +86,14 @@ func BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOption
 
 // BuildPanelExportConfig resolves export_config for datatable templates.
 func BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any {
+	if opts.Capabilities != nil {
+		capabilities := opts.Capabilities.Normalized()
+		if !capabilities.Export || opts.ResolvedExport == nil {
+			return nil
+		}
+		return exportConfigMap(*opts.ResolvedExport)
+	}
+
 	definition := strings.TrimSpace(opts.Definition)
 	if definition == "" {
 		return nil
@@ -114,6 +135,9 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	}
 
 	dataGridConfig := map[string]any{}
+	if opts.Capabilities != nil {
+		dataGridConfig["capabilities"] = panelListCapabilitiesMap(opts.Capabilities.Normalized())
+	}
 	if tableID != "" {
 		dataGridConfig["table_id"] = tableID
 	}
@@ -152,6 +176,31 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 		return nil
 	}
 	return dataGridConfig
+}
+
+func panelListCapabilitiesMap(capabilities admin.PanelListCapabilities) map[string]any {
+	capabilities = capabilities.Normalized()
+	return map[string]any{
+		"selection": capabilities.Selection,
+		"bulk":      capabilities.Bulk,
+		"export":    capabilities.Export,
+	}
+}
+
+func exportConfigMap(config admin.ExportConfig) map[string]any {
+	definition := strings.TrimSpace(config.Definition)
+	endpoint := strings.TrimSpace(config.Endpoint)
+	if definition == "" || endpoint == "" {
+		return nil
+	}
+	out := map[string]any{
+		"definition": definition,
+		"endpoint":   endpoint,
+	}
+	if variant := strings.TrimSpace(config.Variant); variant != "" {
+		out["variant"] = variant
+	}
+	return out
 }
 
 func buildPanelDataGridStateStoreConfig(opts PanelDataGridStateStoreOptions) map[string]any {
