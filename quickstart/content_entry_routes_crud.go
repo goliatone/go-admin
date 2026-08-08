@@ -73,14 +73,20 @@ func (h *contentEntryHandlers) createForPanelWithCanonicalTarget(c router.Contex
 	if err != nil {
 		return contentEntryRouteError(panelName, "create record", "", err)
 	}
-	if target := canonicalPanelMutationRedirectTarget(entryMode, canonicalPath, adminCtx.Channel, map[string]string{
-		"saved": "1",
-	}); target != "" {
-		return c.Redirect(target)
-	}
 	baseSlug := contentTypeSlug(contentType, panelName)
 	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
-	return c.Redirect(contentEntryCreateRedirectTarget(baseSlug, anyToString(created["id"]), routes, h.postCreate))
+	createdID := anyToString(created["id"])
+	decision, hasDecision := resolveContentEntryPostCreateDecision(baseSlug, createdID, routes, h.postCreate)
+	requestedLocale := contentEntryRequestedLocale(c, "")
+	if target := canonicalPanelMutationRedirectTarget(
+		entryMode,
+		canonicalPath,
+		adminCtx.Channel,
+		canonicalContentEntryPostCreateQuery(decision, hasDecision, requestedLocale),
+	); target != "" {
+		return c.Redirect(target)
+	}
+	return c.Redirect(contentEntryCreateRedirectTargetFromDecision(createdID, routes, decision, hasDecision))
 }
 
 func (h *contentEntryHandlers) Edit(c router.Context) error {
@@ -176,22 +182,8 @@ func (h *contentEntryHandlers) updateForPanelWithCanonicalTarget(c router.Contex
 		return contentEntryRouteError(panelName, "load existing record", id, err)
 	}
 	existingTranslationState := contentEntryTranslationStateFromRecord(existingRecord)
-	if existingTranslationState.InFallbackMode {
-		requestedLocale := strings.TrimSpace(existingTranslationState.RequestedLocale)
-		if requestedLocale == "" {
-			requestedLocale = contentEntryRequestedLocale(c, "")
-		}
-		return goerrors.New("cannot save fallback content; create the requested translation first", goerrors.CategoryValidation).
-			WithCode(http.StatusConflict).
-			WithTextCode(textCodeTranslationFallbackEditBlocked).
-			WithMetadata(map[string]any{
-				"panel":                    strings.TrimSpace(panelName),
-				"id":                       strings.TrimSpace(id),
-				"requested_locale":         requestedLocale,
-				"resolved_locale":          strings.TrimSpace(existingTranslationState.ResolvedLocale),
-				"missing_requested_locale": existingTranslationState.MissingRequestedLocale,
-				"fallback_used":            existingTranslationState.FallbackUsed,
-			})
+	if fallbackErr := contentEntryFallbackUpdateError(c, panelName, id, existingTranslationState); fallbackErr != nil {
+		return fallbackErr
 	}
 	schema := contentTypeSchema(contentType, panel)
 	record, err := h.parseFormPayload(c, schema)
@@ -235,6 +227,27 @@ func (h *contentEntryHandlers) updateForPanelWithCanonicalTarget(c router.Contex
 		return c.Redirect(target)
 	}
 	return c.Redirect(routes.index())
+}
+
+func contentEntryFallbackUpdateError(c router.Context, panelName, id string, state contentEntryTranslationState) error {
+	if !state.InFallbackMode {
+		return nil
+	}
+	requestedLocale := strings.TrimSpace(state.RequestedLocale)
+	if requestedLocale == "" {
+		requestedLocale = contentEntryRequestedLocale(c, "")
+	}
+	return goerrors.New("cannot save fallback content; create the requested translation first", goerrors.CategoryValidation).
+		WithCode(http.StatusConflict).
+		WithTextCode(textCodeTranslationFallbackEditBlocked).
+		WithMetadata(map[string]any{
+			"panel":                    strings.TrimSpace(panelName),
+			"id":                       strings.TrimSpace(id),
+			"requested_locale":         requestedLocale,
+			"resolved_locale":          strings.TrimSpace(state.ResolvedLocale),
+			"missing_requested_locale": state.MissingRequestedLocale,
+			"fallback_used":            state.FallbackUsed,
+		})
 }
 
 func (h *contentEntryHandlers) Delete(c router.Context) error {

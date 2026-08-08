@@ -1013,15 +1013,39 @@ func TestCreateForCanonicalCurrentUserPanelRedirectsToCanonicalSurface(t *testin
 	ctx := router.NewMockContext()
 	ctx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
 	ctx.QueriesM[admin.ContentChannelScopeQueryParam] = "staging"
+	ctx.QueriesM["requested_locale"] = "fr"
 	ctx.On("Context").Return(context.Background())
 	ctx.On("Body").Return([]byte(url.Values{
 		"display_name": []string{"Jane Doe"},
 	}.Encode()))
-	ctx.On("Redirect", "/admin/profile?channel=staging&saved=1").Return(nil).Once()
+	ctx.On("Redirect", "/admin/profile?channel=staging&locale=fr&saved=1&source=profile").Return(nil).Once()
 
-	h := &contentEntryHandlers{admin: fixture.Admin, cfg: fixture.Config}
+	policyCalls := 0
+	h := &contentEntryHandlers{
+		admin: fixture.Admin,
+		cfg:   fixture.Config,
+		postCreate: func(policyCtx ContentEntryPostCreateContext) ContentEntryPostCreateDecision {
+			policyCalls++
+			if policyCtx.PanelName != "profile" || policyCtx.CreatedID == "" || policyCtx.Channel != "staging" {
+				t.Fatalf("unexpected post-create policy context: %#v", policyCtx)
+			}
+			return ContentEntryPostCreateDecision{
+				Destination: ContentEntryPostCreateIndex,
+				Query: map[string]string{
+					"source":           "profile",
+					"channel":          "production",
+					"saved":            "0",
+					"locale":           "de",
+					"requested_locale": "de",
+				},
+			}
+		},
+	}
 	if err := h.createForCanonicalPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser, "/admin/profile"); err != nil {
 		t.Fatalf("create canonical profile: %v", err)
+	}
+	if policyCalls != 1 {
+		t.Fatalf("post-create policy calls=%d, want 1", policyCalls)
 	}
 	ctx.AssertExpectations(t)
 }

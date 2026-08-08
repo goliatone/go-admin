@@ -233,12 +233,28 @@ func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntr
 	if id == "" {
 		return routes.index()
 	}
-	if len(policies) > 0 && policies[0] != nil {
-		decision := policies[0](ContentEntryPostCreateContext{
-			PanelName: strings.TrimSpace(slug),
-			CreatedID: id,
-			Channel:   routes.channel,
-		})
+	decision, hasDecision := resolveContentEntryPostCreateDecision(slug, id, routes, policies...)
+	return contentEntryCreateRedirectTargetFromDecision(id, routes, decision, hasDecision)
+}
+
+func resolveContentEntryPostCreateDecision(slug, createdID string, routes contentEntryRoutes, policies ...ContentEntryPostCreatePolicy) (ContentEntryPostCreateDecision, bool) {
+	id := strings.TrimSpace(createdID)
+	if id == "" || len(policies) == 0 || policies[0] == nil {
+		return ContentEntryPostCreateDecision{}, false
+	}
+	return policies[0](ContentEntryPostCreateContext{
+		PanelName: strings.TrimSpace(slug),
+		CreatedID: id,
+		Channel:   routes.channel,
+	}), true
+}
+
+func contentEntryCreateRedirectTargetFromDecision(id string, routes contentEntryRoutes, decision ContentEntryPostCreateDecision, hasDecision bool) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return routes.index()
+	}
+	if hasDecision {
 		var target string
 		switch decision.Destination {
 		case ContentEntryPostCreateDetail:
@@ -266,6 +282,37 @@ func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntr
 		return target
 	}
 	return routes.edit(id)
+}
+
+func canonicalContentEntryPostCreateQuery(decision ContentEntryPostCreateDecision, hasDecision bool, requestedLocale string) map[string]string {
+	queryValues := map[string]string{"saved": "1"}
+	requestedLocale = strings.TrimSpace(requestedLocale)
+	if hasDecision {
+		keys := make([]string, 0, len(decision.Query))
+		for key := range decision.Query {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			value := decision.Query[key]
+			normalizedKey := strings.ToLower(strings.TrimSpace(key))
+			switch normalizedKey {
+			case "", "channel", admin.ContentChannelScopeQueryParam, "saved":
+				continue
+			case "locale", "requested_locale":
+				if requestedLocale != "" {
+					continue
+				}
+			}
+			if normalizedValue := strings.TrimSpace(value); normalizedValue != "" {
+				queryValues[normalizedKey] = normalizedValue
+			}
+		}
+	}
+	if requestedLocale != "" {
+		queryValues["locale"] = requestedLocale
+	}
+	return queryValues
 }
 
 func canonicalPanelMutationRedirectTarget(entryMode admin.PanelEntryMode, canonicalPath, channel string, queryValues map[string]string) string {

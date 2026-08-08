@@ -203,7 +203,9 @@ func WithContentEntryUpdateIntentPolicy(policy ContentEntryUpdateIntentPolicy) C
 }
 
 // WithContentEntryPostCreatePolicy controls the destination and query values
-// used after a content entry is created. The default destination is the edit page.
+// used after a content entry is created. The default destination is the edit
+// page. For canonical current-user detail panels, the canonical destination is
+// authoritative while non-reserved policy query values are preserved.
 func WithContentEntryPostCreatePolicy(policy ContentEntryPostCreatePolicy) ContentEntryUIOption {
 	return func(opts *contentEntryUIOptions) {
 		if opts != nil {
