@@ -14,6 +14,7 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 	css := string(content)
 	required := []string{
 		".admin-page-content {\n    display: flex;\n    flex-direction: column;",
+		".admin-page-content > .formgen-form {\n    width: 100%;",
 		`var(--admin-shell-background, var(--color-surface-canvas, #f9fafb))`,
 		`var(--admin-header-background, var(--color-surface-default, #ffffff))`,
 		`var(--admin-sidebar-item-hover, var(--color-surface-subtle, #3f3f46))`,

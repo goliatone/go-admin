@@ -166,6 +166,13 @@
     min-width: 0;
   }
 
+  /* Formgen centers standalone forms with auto inline margins and constrains
+     them with max-width. As a direct child of this flex container, auto width
+     otherwise shrink-wraps to the controls' intrinsic width. */
+  .admin-page-content > .formgen-form {
+    width: 100%;
+  }
+
   .admin-surface-card.admin-surface-card,
   .metric-card.metric-card,
   .filter-panel.filter-panel {
