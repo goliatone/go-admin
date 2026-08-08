@@ -4,7 +4,7 @@
  */
 
 export { DataGrid } from './core.js';
-export type { DataGridConfig } from './core.js';
+export type { DataGridCapabilities, DataGridConfig } from './core.js';
 export { handleDelete } from './core-rendering.js';
 export {
   createDataGridStateStore,

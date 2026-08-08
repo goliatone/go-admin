@@ -229,6 +229,7 @@ export function bindColumnVisibility(grid: any): void {
    * Bind export buttons
    */
 export function bindExportButtons(grid: any): void {
+    if (!grid.isCapabilityEnabled('export')) return;
     const menu = document.querySelector(grid.selectors.exportMenu);
     if (!menu) return;
 
@@ -465,6 +466,12 @@ export function updateSortIndicators(grid: any): void {
    * Bind selection checkboxes
    */
 export function bindSelection(grid: any): void {
+    if (!grid.isCapabilityEnabled('selection')) {
+      grid.selectionAbortController?.abort();
+      grid.selectionAbortController = null;
+      grid.state.selectedRows.clear();
+      return;
+    }
     if (!grid.tableEl) return;
     if (grid.selectionAbortController) {
       grid.selectionAbortController.abort();
@@ -522,6 +529,7 @@ export function bindSelection(grid: any): void {
    * This syncs checkbox states with the selectedRows Set
    */
 export function updateSelectionBindings(grid: any): void {
+    if (!grid.isCapabilityEnabled('selection')) return;
     const checkboxes = grid.tableEl?.querySelectorAll<HTMLInputElement>(grid.selectors.rowCheckboxes) || [];
 
     checkboxes.forEach((cb) => {
@@ -800,6 +808,7 @@ async function fetchSelectionSensitiveBulkActionState(grid: any): Promise<void> 
 }
 
 export function syncBulkActionState(grid: any): void {
+  if (!grid.isCapabilityEnabled('bulk')) return;
   if (grid.bulkActionStateDebounce) {
     clearTimeout(grid.bulkActionStateDebounce);
     grid.bulkActionStateDebounce = null;
@@ -828,6 +837,7 @@ export function syncBulkActionState(grid: any): void {
    * Bind bulk action buttons
    */
 export function bindBulkActions(grid: any): void {
+    if (!grid.isCapabilityEnabled('bulk')) return;
     const overlay = bulkActionRoot(grid);
     const bulkBase = overlay?.dataset?.bulkBase || '';
     const actionButtons = bulkActionButtons(grid);
@@ -960,6 +970,7 @@ export function bindOverflowMenu(grid: any): void {
    * Update bulk actions bar visibility with animation
    */
 export function updateBulkActionsBar(grid: any): void {
+    if (!grid.isCapabilityEnabled('bulk')) return;
     const overlay = bulkActionRoot(grid);
     const countEl = bulkSelectionCountElement(grid);
     const selectedCount = grid.state.selectedRows.size;
@@ -982,6 +993,7 @@ export function updateBulkActionsBar(grid: any): void {
    * Bind clear selection button
    */
 export function bindBulkClearButton(grid: any): void {
+    if (!grid.isCapabilityEnabled('bulk')) return;
     bindBulkClearButtons(grid);
   }
 
@@ -989,6 +1001,7 @@ export function bindBulkClearButton(grid: any): void {
    * Clear all selections
    */
 export function clearSelection(grid: any): void {
+    if (!grid.isCapabilityEnabled('selection')) return;
     console.log('[DataGrid] Clearing selection...');
     grid.state.selectedRows.clear();
 
@@ -1045,9 +1058,15 @@ export function bindDropdownToggles(grid: any): void {
     };
 
     addDelegatedEventListener(document, 'click', '[data-dropdown-toggle]', (event, toggle) => {
-      event.stopPropagation();
       const targetId = toggle.dataset.dropdownToggle;
       const target = document.getElementById(targetId || '');
+      const isDisabledExportDropdown = !grid.isCapabilityEnabled('export') && (
+        toggle.matches(grid.selectors.exportBtn) ||
+        target?.matches(grid.selectors.exportMenu)
+      );
+      if (isDisabledExportDropdown) return;
+
+      event.stopPropagation();
 
       if (target) {
         document.querySelectorAll('[data-dropdown-toggle]').forEach((otherToggle) => {

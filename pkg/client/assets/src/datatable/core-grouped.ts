@@ -49,7 +49,9 @@ export function renderGroupedData(grid: any, data: ApiResponse, items: any[], tb
     // Render grouped rows
     for (const group of groupedData.groups) {
       // Render group header row
-      const headerHtml = renderGroupHeaderRow(group, colSpan);
+      const headerHtml = renderGroupHeaderRow(group, colSpan, {
+        fixedColumnCount: 1 + (grid.isCapabilityEnabled('selection') ? 1 : 0),
+      });
       tbody.insertAdjacentHTML('beforeend', headerHtml);
 
       // Get the header row and bind click handler

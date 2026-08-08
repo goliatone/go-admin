@@ -89,6 +89,22 @@ func TestContentListTemplateDoesNotManufacturePreferencesEndpoint(t *testing.T) 
 	}
 }
 
+func TestContentListTemplateConstructsExportBehaviorOnlyFromResolvedCapability(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/list.html")
+	for _, fragment := range []string{
+		"GoCrudExportBehavior",
+		"const listCapabilities = dataGridConfig.capabilities",
+		"const exportConfig = dataGridConfig.export_config",
+		"(!listCapabilities || listCapabilities.export === true) && exportConfig",
+		"? new GoCrudExportBehavior(exportConfig)",
+		"export: exportBehavior || undefined",
+	} {
+		if !strings.Contains(template, fragment) {
+			t.Fatalf("expected capability-gated content export fragment not found: %q", fragment)
+		}
+	}
+}
+
 func TestResourceListTemplatesUseLocalColumnVisibilityWithoutPreferencesCapability(t *testing.T) {
 	for _, name := range []string{
 		"resources/users/list.html",

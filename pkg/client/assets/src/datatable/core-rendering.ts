@@ -86,6 +86,14 @@ function removeDataGridStateRows(tbody: HTMLElement): void {
   tbody.querySelectorAll('[data-datagrid-state]').forEach((row) => row.remove());
 }
 
+function fixedColumnCount(grid: any): number {
+  return 1 + (grid.isCapabilityEnabled('selection') ? 1 : 0);
+}
+
+function structuralColumnCount(grid: any): number {
+  return Math.max(1, (grid.config.columns?.length || 0) + fixedColumnCount(grid));
+}
+
 function createDataGridStateRow(
   grid: any,
   state: 'loading' | 'error',
@@ -96,7 +104,7 @@ function createDataGridStateRow(
   row.dataset.datagridState = state;
 
   const cell = document.createElement('td');
-  cell.colSpan = Math.max(1, (grid.config.columns?.length || 0) + 2);
+  cell.colSpan = structuralColumnCount(grid);
   cell.className = `admin-datagrid__state admin-datagrid__state--${state} px-6 py-8 text-center`;
   cell.setAttribute('role', state === 'error' ? 'alert' : 'status');
   cell.setAttribute('aria-live', state === 'error' ? 'assertive' : 'polite');
@@ -114,7 +122,10 @@ export function renderLoadingState(grid: any): void {
     return;
   }
   if (grid.isGroupedViewActive()) {
-    tbody.insertAdjacentHTML('beforeend', renderGroupedLoadingState(grid.config.columns.length));
+    tbody.insertAdjacentHTML(
+      'beforeend',
+      renderGroupedLoadingState(grid.config.columns.length, fixedColumnCount(grid)),
+    );
     return;
   }
   tbody.appendChild(createDataGridStateRow(grid, 'loading', 'Loading…'));
@@ -128,7 +139,7 @@ export function renderErrorState(grid: any, message: string): void {
   if (grid.isGroupedViewActive()) {
     tbody.insertAdjacentHTML(
       'afterbegin',
-      renderGroupedErrorState(grid.config.columns.length, message),
+      renderGroupedErrorState(grid.config.columns.length, message, undefined, fixedColumnCount(grid)),
     );
     return;
   }
@@ -159,11 +170,14 @@ export function renderData(grid: any, data: ApiResponse): void {
     if (items.length === 0) {
       // Use grouped empty state if in grouped mode
       if (grid.isGroupedViewActive()) {
-        tbody.innerHTML = renderGroupedEmptyState(grid.config.columns.length);
+        tbody.innerHTML = renderGroupedEmptyState(
+          grid.config.columns.length,
+          fixedColumnCount(grid),
+        );
       } else {
         tbody.innerHTML = `
           <tr class="admin-datagrid__state-row" data-datagrid-state="empty">
-            <td colspan="${grid.config.columns.length + 2}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-8 text-center text-gray-500">
+            <td colspan="${structuralColumnCount(grid)}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-8 text-center text-gray-500">
               No results found
             </td>
           </tr>
@@ -196,7 +210,9 @@ export function renderData(grid: any, data: ApiResponse): void {
     }
 
     // Rebind selection after rendering
-    grid.updateSelectionBindings();
+    if (grid.isCapabilityEnabled('selection')) {
+      grid.updateSelectionBindings();
+    }
   }
 
   /**
@@ -240,20 +256,21 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
     }
     row.className = rowClasses.join(' ');
 
-    // Checkbox cell
-    const checkboxCell = document.createElement('td');
-    checkboxCell.className = 'admin-datagrid__cell px-6 py-4 whitespace-nowrap';
-    checkboxCell.dataset.role = 'selection';
-    checkboxCell.dataset.fixed = 'left';
-    checkboxCell.innerHTML = `
-      <label class="flex">
-        <input type="checkbox"
-               class="table-checkbox shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
-               data-id="${escapeAttr(item.id)}">
-        <span class="sr-only">Select</span>
-      </label>
-    `;
-    row.appendChild(checkboxCell);
+    if (grid.isCapabilityEnabled('selection')) {
+      const checkboxCell = document.createElement('td');
+      checkboxCell.className = 'admin-datagrid__cell px-6 py-4 whitespace-nowrap';
+      checkboxCell.dataset.role = 'selection';
+      checkboxCell.dataset.fixed = 'left';
+      checkboxCell.innerHTML = `
+        <label class="flex">
+          <input type="checkbox"
+                 class="table-checkbox shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+                 data-id="${escapeAttr(item.id)}">
+          <span class="sr-only">Select</span>
+        </label>
+      `;
+      row.appendChild(checkboxCell);
+    }
 
     // Data cells
     grid.config.columns.forEach((col) => {

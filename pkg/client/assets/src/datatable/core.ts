@@ -7,6 +7,7 @@ import type {
   DetailResponse,
   ColumnDefinition,
   DataGridStateStore,
+  DataGridCapabilities,
 } from './core-types.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
@@ -41,7 +42,22 @@ import * as lifecycleOps from './core-lifecycle.js';
 import * as columnOps from './core-columns.js';
 import type { ActionMenuController } from '../shared/action-menu.js';
 
-export type { DataGridConfig } from './core-types.js';
+export type { DataGridCapabilities, DataGridConfig } from './core-types.js';
+
+function normalizeCapabilities(
+  capabilities?: DataGridCapabilities,
+): DataGridCapabilities {
+  if (!capabilities) {
+    return { selection: true, bulk: true, export: true };
+  }
+  const bulk = capabilities.bulk !== false;
+  const exportEnabled = capabilities.export !== false;
+  return {
+    selection: bulk || exportEnabled,
+    bulk,
+    export: exportEnabled,
+  };
+}
 
 export class DataGrid {
   private static readonly URL_KEY_SEARCH = DATAGRID_URL_KEY_SEARCH;
@@ -97,6 +113,7 @@ export class DataGrid {
       searchDelay: 300,
       behaviors: {},
       ...config,
+      capabilities: normalizeCapabilities(config.capabilities),
     };
 
     this.notifier = config.notifier || new FallbackNotifier();
@@ -233,6 +250,10 @@ export class DataGrid {
     this.bindDropdownToggles();
 
     void this.refreshAfterStateHydration();
+  }
+
+  isCapabilityEnabled(capability: keyof DataGridCapabilities): boolean {
+    return this.config.capabilities?.[capability] !== false;
   }
 
   private async refreshAfterStateHydration(): Promise<void> {

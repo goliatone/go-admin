@@ -210,19 +210,20 @@ export declare function renderGroupHeaderSummary(group: RecordGroup, options?: {
  */
 export declare function renderGroupHeaderRow(group: RecordGroup, colSpan: number, options?: {
     showExpandIcon?: boolean;
+    fixedColumnCount?: number;
 }): string;
 /**
  * Render grouped mode empty state.
  */
-export declare function renderGroupedEmptyState(colSpan: number): string;
+export declare function renderGroupedEmptyState(colSpan: number, fixedColumnCount?: number): string;
 /**
  * Render grouped mode loading state.
  */
-export declare function renderGroupedLoadingState(colSpan: number): string;
+export declare function renderGroupedLoadingState(colSpan: number, fixedColumnCount?: number): string;
 /**
  * Render grouped mode error state.
  */
-export declare function renderGroupedErrorState(colSpan: number, error: string, onRetry?: () => void): string;
+export declare function renderGroupedErrorState(colSpan: number, error: string, onRetry?: () => void, fixedColumnCount?: number): string;
 /**
  * Check if we're in narrow viewport mode.
  */

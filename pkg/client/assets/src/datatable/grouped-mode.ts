@@ -1075,9 +1075,9 @@ function deriveGroupLabel(group: RecordGroup): string {
 export function renderGroupHeaderRow(
   group: RecordGroup,
   colSpan: number,
-  options: { showExpandIcon?: boolean } = {}
+  options: { showExpandIcon?: boolean; fixedColumnCount?: number } = {}
 ): string {
-  const { showExpandIcon = true } = options;
+  const { showExpandIcon = true, fixedColumnCount = 2 } = options;
   const expandIcon = showExpandIcon
     ? `<span class="expand-icon mr-2" aria-hidden="true">${group.expanded ? '▼' : '▶'}</span>`
     : '';
@@ -1096,7 +1096,7 @@ export function renderGroupHeaderRow(
         role="row"
         aria-expanded="${group.expanded}"
         tabindex="0">
-      <td colspan="${colSpan + 2}" class="px-4 py-2">
+      <td colspan="${colSpan + fixedColumnCount}" class="px-4 py-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             ${expandIcon}
@@ -1117,10 +1117,10 @@ export function renderGroupHeaderRow(
 /**
  * Render grouped mode empty state.
  */
-export function renderGroupedEmptyState(colSpan: number): string {
+export function renderGroupedEmptyState(colSpan: number, fixedColumnCount: number = 2): string {
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="empty">
-      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-12 text-center">
+      <td colspan="${colSpan + fixedColumnCount}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-12 text-center">
         <div class="text-gray-500">
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1137,10 +1137,10 @@ export function renderGroupedEmptyState(colSpan: number): string {
 /**
  * Render grouped mode loading state.
  */
-export function renderGroupedLoadingState(colSpan: number): string {
+export function renderGroupedLoadingState(colSpan: number, fixedColumnCount: number = 2): string {
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="loading">
-      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center" role="status" aria-live="polite">
+      <td colspan="${colSpan + fixedColumnCount}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center" role="status" aria-live="polite">
         <div class="flex items-center justify-center">
           <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1163,7 +1163,8 @@ export function renderGroupedLoadingState(colSpan: number): string {
 export function renderGroupedErrorState(
   colSpan: number,
   error: string,
-  onRetry?: () => void
+  onRetry?: () => void,
+  fixedColumnCount: number = 2,
 ): string {
   const retryButton = onRetry
     ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>`
@@ -1171,7 +1172,7 @@ export function renderGroupedErrorState(
 
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="error">
-      <td colspan="${colSpan + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center" role="alert" aria-live="assertive">
+      <td colspan="${colSpan + fixedColumnCount}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center" role="alert" aria-live="assertive">
         <div class="text-red-500">
           <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

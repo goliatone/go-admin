@@ -1,39 +1,39 @@
 import { escapeAttribute as p, escapeHTML as d } from "../shared/html.js";
-import { t as qt } from "../chunks/icon-renderer-DauoBn1n.js";
-import { n as Ot, r as Re } from "../chunks/modal-D1hUYSoJ.js";
+import { t as jt } from "../chunks/icon-renderer-DauoBn1n.js";
+import { n as zt, r as De } from "../chunks/modal-D1hUYSoJ.js";
 import { t as B } from "../chunks/toast-manager-BwGNIQYR.js";
-import { httpRequest as x, readHTTPError as ye, readHTTPJSON as Ke, readHTTPJSONObject as jt, readHTTPJSONValue as Je } from "../shared/transport/http-client.js";
-import { createStructuredActionError as Y, executeActionRequest as ve, executeStructuredRequest as Qe, extractErrorMessage as zt, extractExchangeError as Ci, extractTranslationBlocker as Nt, formatStructuredErrorForDisplay as I, generateExchangeReport as $i, getStructuredActionError as z, groupRowResultsByStatus as Ei, isExchangeError as Ai, isHandledActionError as T, isTranslationBlocker as Gt, parseImportResult as ki } from "../toast/error-helpers.js";
-import { closeActionMenu as Ut, defaultActionMenuPositioner as Ht, initActionMenus as Vt } from "../shared/action-menu.js";
-import { n as Kt, t as W } from "../chunks/badge-D5ShfcsT.js";
-import { $ as Di, A as Ti, B as Ye, C as Jt, D as Pi, E as Qt, F as Mi, G as Ii, H as Bi, I as We, J as Fi, K as qi, L as Oi, M as ji, N as zi, O as Ni, P as Gi, Q as Ui, R as Hi, S as Yt, T as Vi, U as Ki, V as we, W as Ji, X as Wt, Y as F, Z as Qi, _ as Xe, a as Xt, at as Ze, b as Zt, c as er, d as tr, et as Yi, f as rr, g as xe, h as nr, i as Wi, it as sr, j as Xi, k as Zi, l as ar, m as ir, n as or, nt as et, o as eo, ot as lr, p as to, q as cr, r as ro, rt as tt, s as dr, st as rt, t as no, tt as so, u as Se, v as ao, w as ur, x as io, y as oo, z as lo } from "../chunks/grouped-mode-B--tWGTf.js";
-import { buildURL as De, deleteSearchParams as Te } from "../shared/query-state/url-state.js";
-import { t as hr } from "../chunks/sortable.esm-ChQrsKAN.js";
-import { r as fr, t as pr } from "../chunks/translation-contracts-C_O37O2-.js";
-import { t as nt } from "../chunks/stateful-controller-BhTsWevz.js";
-var st = { async prompt(e) {
+import { httpRequest as x, readHTTPError as ve, readHTTPJSON as Je, readHTTPJSONObject as Nt, readHTTPJSONValue as Qe } from "../shared/transport/http-client.js";
+import { createStructuredActionError as Y, executeActionRequest as we, executeStructuredRequest as Ye, extractErrorMessage as Gt, extractExchangeError as ki, extractTranslationBlocker as Ut, formatStructuredErrorForDisplay as I, generateExchangeReport as Ai, getStructuredActionError as z, groupRowResultsByStatus as Li, isExchangeError as _i, isHandledActionError as T, isTranslationBlocker as Ht, parseImportResult as Ri } from "../toast/error-helpers.js";
+import { closeActionMenu as Vt, defaultActionMenuPositioner as Kt, initActionMenus as Jt } from "../shared/action-menu.js";
+import { n as Qt, t as W } from "../chunks/badge-D5ShfcsT.js";
+import { $ as Mi, A as Ii, B as We, C as Yt, D as Bi, E as Wt, F as Fi, G as qi, H as Oi, I as Xe, J as ji, K as zi, L as Ni, M as Gi, N as Ui, O as Hi, P as Vi, Q as Ki, R as Ji, S as Xt, T as Qi, U as Yi, V as xe, W as Wi, X as Zt, Y as F, Z as Xi, _ as Ze, a as er, at as et, b as tr, c as rr, d as nr, et as Zi, f as sr, g as Se, h as ar, i as eo, it as ir, j as to, k as ro, l as or, m as lr, n as cr, nt as tt, o as no, ot as dr, p as so, q as ur, r as ao, rt, s as hr, st as nt, t as io, tt as oo, u as Ce, v as lo, w as fr, x as co, y as uo, z as ho } from "../chunks/grouped-mode-BeogW5_G.js";
+import { buildURL as Te, deleteSearchParams as Pe } from "../shared/query-state/url-state.js";
+import { t as pr } from "../chunks/sortable.esm-ChQrsKAN.js";
+import { r as mr, t as gr } from "../chunks/translation-contracts-C_O37O2-.js";
+import { t as st } from "../chunks/stateful-controller-BhTsWevz.js";
+var at = { async prompt(e) {
   const { PayloadInputModal: t } = await import("../chunks/payload-modal-C6X6DRVi.js");
   return t.prompt(e);
-} }, mr = 0, gr = class {
+} }, br = 0, yr = class {
   constructor(e = {}) {
     this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new B();
     const t = this.sanitize(e.domIdPrefix || "grid") || "grid";
-    this.domNamespace = `${t}-${++mr}`, this.rowRenderSeq = 0;
+    this.domNamespace = `${t}-${++br}`, this.rowRenderSeq = 0;
   }
   renderRowActions(e, t) {
     const r = `${this.domNamespace}-row-${++this.rowRenderSeq}`;
     if (this.mode === "dropdown") return this.renderRowActionsDropdown(e, t, r);
     const n = this.getVisibleActions(e, t);
     return n.length === 0 ? '<div class="admin-datagrid__action-list flex justify-end gap-2"></div>' : `<div class="admin-datagrid__action-list flex justify-end gap-2">${n.map(({ action: s, sourceIndex: a }) => {
-      const i = this.getVariantClass(s.variant || "secondary"), o = s.icon ? this.renderIcon(s.icon) : "", c = s.className || "", l = s.disabled === !0, u = this.getActionKey(s, a), h = l ? "opacity-50 cursor-not-allowed" : "", f = l ? 'aria-disabled="true"' : "", m = l && s.disabledReason ? `${r}-${u}-disabled-reason` : "", y = m ? `aria-describedby="${p(m)}"` : "", b = l && s.disabledReason ? `${s.label} unavailable: ${s.disabledReason}` : s.label, g = m ? `<span id="${p(m)}" class="sr-only">${d(s.disabledReason || "Action unavailable")}</span>` : "", w = s.disabledReason ? `title="${p(s.disabledReason)}"` : "";
+      const i = this.getVariantClass(s.variant || "secondary"), o = s.icon ? this.renderIcon(s.icon) : "", l = s.className || "", c = s.disabled === !0, u = this.getActionKey(s, a), h = c ? "opacity-50 cursor-not-allowed" : "", f = c ? 'aria-disabled="true"' : "", m = c && s.disabledReason ? `${r}-${u}-disabled-reason` : "", y = m ? `aria-describedby="${p(m)}"` : "", b = c && s.disabledReason ? `${s.label} unavailable: ${s.disabledReason}` : s.label, g = m ? `<span id="${p(m)}" class="sr-only">${d(s.disabledReason || "Action unavailable")}</span>` : "", w = s.disabledReason ? `title="${p(s.disabledReason)}"` : "";
       return `
         <button
           type="button"
-          class="admin-datagrid__action btn btn-sm ${p(i)} ${p(c)} ${h}"
+          class="admin-datagrid__action btn btn-sm ${p(i)} ${p(l)} ${h}"
           data-action-id="${p(this.sanitize(s.label))}"
           data-action-key="${p(u)}"
           data-record-id="${p(e.id)}"
-          data-disabled="${l}"
+          data-disabled="${c}"
           ${f}
           aria-label="${p(b)}"
           ${y}
@@ -73,13 +73,13 @@ var st = { async prompt(e) {
   }
   buildDropdownItems(e, t, r) {
     return t.map(({ action: n, sourceIndex: s }, a) => {
-      const i = n.variant === "danger", o = n.disabled === !0, c = this.getActionKey(n, s), l = n.icon ? this.renderIcon(n.icon) : "", u = this.shouldShowDivider(n, a), h = o ? (n.disabledReason || "Action unavailable").trim() : "", f = h ? `${r}-${c}-disabled-reason` : "", m = u ? '<div class="action-divider"></div>' : "", y = o ? "action-item action-item--disabled" : i ? "action-item action-item--danger" : "action-item", b = o ? 'aria-disabled="true"' : "", g = f ? `aria-describedby="${p(f)}"` : "", w = h ? `${n.label} unavailable: ${h}` : n.label, C = n.disabledReason ? `title="${p(n.disabledReason)}"` : "", v = h ? `<span id="${p(f)}" class="action-item-reason">${d(h)}</span>` : "";
+      const i = n.variant === "danger", o = n.disabled === !0, l = this.getActionKey(n, s), c = n.icon ? this.renderIcon(n.icon) : "", u = this.shouldShowDivider(n, a), h = o ? (n.disabledReason || "Action unavailable").trim() : "", f = h ? `${r}-${l}-disabled-reason` : "", m = u ? '<div class="action-divider"></div>' : "", y = o ? "action-item action-item--disabled" : i ? "action-item action-item--danger" : "action-item", b = o ? 'aria-disabled="true"' : "", g = f ? `aria-describedby="${p(f)}"` : "", w = h ? `${n.label} unavailable: ${h}` : n.label, C = n.disabledReason ? `title="${p(n.disabledReason)}"` : "", v = h ? `<span id="${p(f)}" class="action-item-reason">${d(h)}</span>` : "";
       return `
         ${m}
         <button type="button"
                 class="${p(y)}"
                 data-action-id="${p(this.sanitize(n.label))}"
-                data-action-key="${p(c)}"
+                data-action-key="${p(l)}"
                 data-record-id="${p(e.id)}"
                 data-disabled="${o}"
                 role="menuitem"
@@ -87,7 +87,7 @@ var st = { async prompt(e) {
                 aria-label="${p(w)}"
                 ${g}
                 ${C}>
-          <span class="action-item__icon">${l}</span>
+          <span class="action-item__icon">${c}</span>
           <span class="action-item__content">
             <span class="action-item__label">${d(n.label)}</span>
             ${v}
@@ -117,10 +117,10 @@ var st = { async prompt(e) {
   attachRowActionListeners(e, t, r, n = {}) {
     t.forEach((s, a) => {
       const i = this.getActionKey(s, a), o = e.querySelector(`[data-action-key="${i}"]`);
-      o && o.addEventListener("click", async (c) => {
-        if (c.preventDefault(), o.getAttribute("aria-disabled") === "true" || o.dataset.disabled === "true") return;
-        const l = o.closest(".actions-menu");
-        l && Ut(l);
+      o && o.addEventListener("click", async (l) => {
+        if (l.preventDefault(), o.getAttribute("aria-disabled") === "true" || o.dataset.disabled === "true") return;
+        const c = o.closest(".actions-menu");
+        c && Vt(c);
         try {
           await s.action(r);
         } catch (u) {
@@ -159,7 +159,7 @@ var st = { async prompt(e) {
     const r = await this.resolveBulkActionPayload(e, t);
     if (r !== null)
       try {
-        const n = await Qe(e.endpoint, {
+        const n = await Ye(e.endpoint, {
           method: e.method || "POST",
           headers: {
             "Content-Type": "application/json",
@@ -167,7 +167,7 @@ var st = { async prompt(e) {
           },
           body: JSON.stringify(r)
         }, async (a) => {
-          const i = await Je(a, void 0);
+          const i = await Qe(a, void 0);
           return {
             success: !0,
             data: i === void 0 ? void 0 : i
@@ -206,10 +206,10 @@ var st = { async prompt(e) {
     const a = await this.requestRequiredFields(e, s, n, r);
     if (a === null) return null;
     for (const i of s) {
-      const o = n?.properties?.[i], c = a[i] ?? "", l = this.coercePromptValue(c, i, o);
-      if (l.error)
-        return this.notifier.error(l.error), null;
-      r[i] = l.value;
+      const o = n?.properties?.[i], l = a[i] ?? "", c = this.coercePromptValue(l, i, o);
+      if (c.error)
+        return this.notifier.error(c.error), null;
+      r[i] = c.value;
     }
     return r;
   }
@@ -244,7 +244,7 @@ var st = { async prompt(e) {
         options: this.buildSchemaOptions(i)
       };
     });
-    return st.prompt({
+    return at.prompt({
       title: `Complete ${e.label || e.id}`,
       fields: s
     });
@@ -420,12 +420,12 @@ var st = { async prompt(e) {
   sanitize(e) {
     return e.toLowerCase().replace(/[^a-z0-9]/g, "-");
   }
-}, br = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d+)(Z|[+-]\d{2}:\d{2})$/;
+}, vr = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d+)(Z|[+-]\d{2}:\d{2})$/;
 function K(e) {
   return !Number.isNaN(e.getTime());
 }
-function yr(e) {
-  const t = e.trim(), r = t.match(br);
+function wr(e) {
+  const t = e.trim(), r = t.match(vr);
   if (!r) return t;
   const [, n, s, a] = r;
   return s.length <= 3 ? t : `${n}.${s.slice(0, 3)}${a}`;
@@ -441,7 +441,7 @@ function X(e) {
   if (!t) return null;
   const r = new Date(t);
   if (K(r)) return r;
-  const n = yr(t);
+  const n = wr(t);
   if (n === t) return null;
   const s = new Date(n);
   return K(s) ? s : null;
@@ -458,27 +458,27 @@ function L(e) {
     entityType: null,
     recordId: null
   };
-  return !e || typeof e != "object" || (t.requestedLocale = D(e, ["requested_locale"]), t.resolvedLocale = D(e, ["resolved_locale", "locale"]), t.availableLocales = Ar(e, ["available_locales"]), t.missingRequestedLocale = Me(e, ["missing_requested_locale"]), t.fallbackUsed = Me(e, ["fallback_used"]), t.familyId = D(e, ["family_id"]), t.status = D(e, ["status"]), t.entityType = D(e, [
+  return !e || typeof e != "object" || (t.requestedLocale = D(e, ["requested_locale"]), t.resolvedLocale = D(e, ["resolved_locale", "locale"]), t.availableLocales = Lr(e, ["available_locales"]), t.missingRequestedLocale = Ie(e, ["missing_requested_locale"]), t.fallbackUsed = Ie(e, ["fallback_used"]), t.familyId = D(e, ["family_id"]), t.status = D(e, ["status"]), t.entityType = D(e, [
     "entity_type",
     "type",
     "_type"
   ]), t.recordId = D(e, ["id"]), !t.fallbackUsed && t.requestedLocale && t.resolvedLocale && (t.fallbackUsed = t.requestedLocale !== t.resolvedLocale), !t.missingRequestedLocale && t.fallbackUsed && (t.missingRequestedLocale = !0)), t;
 }
-function po(e) {
+function bo(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function mo(e) {
+function yo(e) {
   const t = L(e);
   return t.familyId !== null || t.resolvedLocale !== null || t.availableLocales.length > 0;
 }
-function k(e, t = {}, r = "neutral") {
+function A(e, t = {}, r = "neutral") {
   const n = e.trim();
   if (!n) return "";
   const { size: s = "sm", extraClass: a = "" } = t;
   return `<span class="inline-flex items-center rounded-full border font-medium ${s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1"} ${r === "info" ? "bg-blue-50 text-blue-700 border-blue-200" : r === "warning" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-100 text-slate-700 border-slate-200"} ${a}">${d(n)}</span>`;
 }
-function at(e, t) {
+function it(e, t) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const r = e, n = r[t];
   return n && typeof n == "object" && !Array.isArray(n) ? n : r;
@@ -490,7 +490,7 @@ function M(e, t) {
   }
   return "";
 }
-function ue(e, t) {
+function he(e, t) {
   for (const r of t) {
     const n = e[r];
     if (typeof n == "number" && Number.isFinite(n)) return Math.trunc(n);
@@ -501,7 +501,7 @@ function ue(e, t) {
   }
   return null;
 }
-function it(e) {
+function ot(e) {
   const t = typeof e.family_member_count == "number" ? Math.trunc(e.family_member_count) : Number(e.family_member_count);
   if (Number.isFinite(t) && t > 0) return Math.trunc(t);
   const r = $(e);
@@ -509,10 +509,10 @@ function it(e) {
   const n = L(e);
   return n.availableLocales.length > 0 ? n.availableLocales.length : n.resolvedLocale ? 1 : null;
 }
-function go(e, t = {}) {
+function vo(e, t = {}) {
   const r = typeof e.translation_family_url == "string" ? e.translation_family_url.trim() : "";
   if (!r) return '<span class="text-gray-400">-</span>';
-  const n = it(e), s = n && n > 0 ? k(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
+  const n = ot(e), s = n && n > 0 ? A(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
   return `
     <div class="inline-flex items-center gap-2">
       <a href="${p(r)}" class="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline">View family</a>
@@ -520,29 +520,29 @@ function go(e, t = {}) {
     </div>
   `.trim();
 }
-function bo(e, t = {}) {
-  const r = it(e);
-  return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : k(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
+function wo(e, t = {}) {
+  const r = ot(e);
+  return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : A(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
 }
-function yo(e, t = {}) {
-  const r = at(e, "translation_assignment_summary");
+function xo(e, t = {}) {
+  const r = it(e, "translation_assignment_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
-  const n = M(r, ["status"]), s = M(r, ["label"]), a = M(r, ["assignee_id"]), i = M(r, ["priority"]), o = ue(r, ["active_count", "open_count"]), c = [];
-  return n ? c.push(F(n, {
+  const n = M(r, ["status"]), s = M(r, ["label"]), a = M(r, ["assignee_id"]), i = M(r, ["priority"]), o = he(r, ["active_count", "open_count"]), l = [];
+  return n ? l.push(F(n, {
     domain: "queue",
     size: "sm",
     showIcon: !1
-  })) : s && c.push(k(s, t, "info")), o !== null && o >= 0 && c.push(k(`${o} active`, t, "neutral")), a && c.push(k(`@${a}`, t, "neutral")), i && c.push(k(i, t, i === "urgent" || i === "high" ? "warning" : "neutral")), c.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${c.join("")}</div>`;
+  })) : s && l.push(A(s, t, "info")), o !== null && o >= 0 && l.push(A(`${o} active`, t, "neutral")), a && l.push(A(`@${a}`, t, "neutral")), i && l.push(A(i, t, i === "urgent" || i === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
 }
-function vo(e, t = {}) {
-  const r = at(e, "translation_exchange_summary");
+function So(e, t = {}) {
+  const r = it(e, "translation_exchange_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
-  const n = M(r, ["status", "last_job_status"]), s = M(r, ["label", "last_job_label"]), a = ue(r, ["pending_count"]), i = ue(r, ["error_count"]), o = [];
+  const n = M(r, ["status", "last_job_status"]), s = M(r, ["label", "last_job_label"]), a = he(r, ["pending_count"]), i = he(r, ["error_count"]), o = [];
   return n ? o.push(F(n, {
     domain: "exchange",
     size: "sm",
     showIcon: !1
-  })) : s && o.push(k(s, t, "info")), a !== null && a >= 0 && o.push(k(`${a} pending`, t, "neutral")), i !== null && i > 0 && o.push(k(`${i} errors`, t, "warning")), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${o.join("")}</div>`;
+  })) : s && o.push(A(s, t, "info")), a !== null && a >= 0 && o.push(A(`${a} pending`, t, "neutral")), i !== null && i > 0 && o.push(A(`${i} errors`, t, "warning")), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${o.join("")}</div>`;
 }
 function $(e) {
   const t = {
@@ -562,9 +562,9 @@ function $(e) {
     t.hasReadinessMetadata = !0, t.familyId = D(e, ["translation_readiness.family_id", "family_id"]), t.requiredLocales = Array.isArray(r.required_locales) ? r.required_locales.filter((i) => typeof i == "string") : [], t.availableLocales = Array.isArray(r.available_locales) ? r.available_locales.filter((i) => typeof i == "string") : [], t.missingRequiredLocales = Array.isArray(r.missing_required_locales) ? r.missing_required_locales.filter((i) => typeof i == "string") : [];
     const n = r.missing_required_fields_by_locale;
     if (n && typeof n == "object" && !Array.isArray(n))
-      for (const [i, o] of Object.entries(n)) Array.isArray(o) && (t.missingRequiredFieldsByLocale[i] = o.filter((c) => typeof c == "string"));
+      for (const [i, o] of Object.entries(n)) Array.isArray(o) && (t.missingRequiredFieldsByLocale[i] = o.filter((l) => typeof l == "string"));
     const s = r.readiness_state;
-    typeof s == "string" && vr(s) && (t.readinessState = s);
+    typeof s == "string" && xr(s) && (t.readinessState = s);
     const a = r.ready_for_transition;
     if (a && typeof a == "object" && !Array.isArray(a))
       for (const [i, o] of Object.entries(a)) typeof o == "boolean" && (t.readyForTransition[i] = o);
@@ -572,13 +572,13 @@ function $(e) {
   }
   return t;
 }
-function wo(e) {
+function Co(e) {
   return $(e).hasReadinessMetadata;
 }
-function xo(e, t) {
+function $o(e, t) {
   return $(e).readyForTransition[t] === !0;
 }
-function vr(e) {
+function xr(e) {
   return [
     "ready",
     "missing_locales",
@@ -586,63 +586,63 @@ function vr(e) {
     "missing_locales_and_fields"
   ].includes(e);
 }
-function ot(e, t = {}) {
+function lt(e, t = {}) {
   const r = "resolvedLocale" in e ? e : L(e), { showFallbackIndicator: n = !0, size: s = "default", extraClass: a = "" } = t;
   if (!r.resolvedLocale) return "";
-  const i = r.resolvedLocale.toUpperCase(), o = r.fallbackUsed || r.missingRequestedLocale, c = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
-  return o && n ? `<span class="${c} bg-amber-100 text-amber-800 ${a}"
+  const i = r.resolvedLocale.toUpperCase(), o = r.fallbackUsed || r.missingRequestedLocale, l = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
+  return o && n ? `<span class="${l} bg-amber-100 text-amber-800 ${a}"
                   title="Showing ${r.resolvedLocale} content (${r.requestedLocale || "requested locale"} not available)"
                   aria-label="Fallback locale: ${i}">
       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
       </svg>
       ${i}
-    </span>` : `<span class="${c} bg-blue-100 text-blue-800 ${a}"
+    </span>` : `<span class="${l} bg-blue-100 text-blue-800 ${a}"
                 title="Locale: ${i}"
                 aria-label="Locale: ${i}">
     ${i}
   </span>`;
 }
-function wr(e, t = {}) {
+function Sr(e, t = {}) {
   const r = "resolvedLocale" in e ? e : L(e), { maxLocales: n = 3, size: s = "default" } = t;
   if (r.availableLocales.length === 0) return "";
-  const a = s === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", i = s === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", o = r.availableLocales.slice(0, n), c = r.availableLocales.length - n, l = o.map((h) => `<span class="${h === r.resolvedLocale ? `${i} rounded bg-blue-100 text-blue-700 font-medium` : `${i} rounded bg-gray-100 text-gray-600`}">${h.toUpperCase()}</span>`).join(""), u = c > 0 ? `<span class="${i} rounded bg-gray-100 text-gray-500">+${c}</span>` : "";
+  const a = s === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", i = s === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", o = r.availableLocales.slice(0, n), l = r.availableLocales.length - n, c = o.map((h) => `<span class="${h === r.resolvedLocale ? `${i} rounded bg-blue-100 text-blue-700 font-medium` : `${i} rounded bg-gray-100 text-gray-600`}">${h.toUpperCase()}</span>`).join(""), u = l > 0 ? `<span class="${i} rounded bg-gray-100 text-gray-500">+${l}</span>` : "";
   return `<span class="inline-flex items-center ${a}"
                 title="Available locales: ${r.availableLocales.join(", ")}"
                 aria-label="Available locales: ${r.availableLocales.join(", ")}">
-    ${l}${u}
+    ${c}${u}
   </span>`;
 }
-function xr(e, t = {}) {
+function Cr(e, t = {}) {
   const r = "resolvedLocale" in e ? e : L(e), { showResolvedLocale: n = !0, size: s = "default" } = t, a = [];
-  return n && r.resolvedLocale && a.push(ot(r, {
+  return n && r.resolvedLocale && a.push(lt(r, {
     size: s,
     showFallbackIndicator: !0
-  })), r.availableLocales.length > 1 && a.push(wr(r, {
+  })), r.availableLocales.length > 1 && a.push(Sr(r, {
     ...t,
     size: s
   })), a.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${a.join("")}</div>`;
 }
-function So(e, t = "default") {
+function Eo(e, t = "default") {
   if (!e) return "";
   const r = e.trim();
-  if (we(r) !== null) return F(r, { size: t === "sm" ? "sm" : "default" });
+  if (xe(r) !== null) return F(r, { size: t === "sm" ? "sm" : "default" });
   const n = r.toLowerCase();
   return W(e, "status", n, { size: t === "sm" ? "sm" : void 0 });
 }
-function Co(e, t = {}) {
+function ko(e, t = {}) {
   const r = $(e);
   if (!r.hasReadinessMetadata) return "";
-  const { size: n = "default", showDetailedTooltip: s = !0, extraClass: a = "" } = t, i = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, o = r.readinessState || "ready", { icon: c, label: l, bgClass: u, textClass: h, tooltip: f } = Sr(o, r, s);
+  const { size: n = "default", showDetailedTooltip: s = !0, extraClass: a = "" } = t, i = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, o = r.readinessState || "ready", { icon: l, label: c, bgClass: u, textClass: h, tooltip: f } = $r(o, r, s);
   return `<span class="${i} ${u} ${h} ${a}"
                 title="${f}"
-                aria-label="${l}"
+                aria-label="${c}"
                 data-readiness-state="${o}">
-    ${c}
-    <span>${l}</span>
+    ${l}
+    <span>${c}</span>
   </span>`;
 }
-function $o(e, t = {}) {
+function Ao(e, t = {}) {
   const r = $(e);
   if (!r.hasReadinessMetadata) return "";
   const n = r.readyForTransition.publish === !0, { size: s = "default", extraClass: a = "" } = t, i = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
@@ -664,23 +664,23 @@ function $o(e, t = {}) {
     ${o > 0 ? `${o} missing` : "Not ready"}
   </span>`;
 }
-function Eo(e, t = {}) {
+function Lo(e, t = {}) {
   const r = $(e);
   if (!r.hasReadinessMetadata || r.requiredLocales.length === 0) return "";
-  const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs" : "text-sm", i = r.requiredLocales.length, o = r.availableLocales.filter((c) => r.requiredLocales.includes(c)).length;
+  const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs" : "text-sm", i = r.requiredLocales.length, o = r.availableLocales.filter((l) => r.requiredLocales.includes(l)).length;
   return `<span class="${a} ${i > 0 && o === i ? "text-green-600" : o > 0 ? "text-amber-600" : "text-gray-500"} font-medium ${s}"
                 title="Locale completeness: ${o} of ${i} required locales available"
                 aria-label="${o} of ${i} locales">
     ${o}/${i}
   </span>`;
 }
-function Ao(e, t = {}) {
+function _o(e, t = {}) {
   const r = $(e);
   if (!r.hasReadinessMetadata || r.readinessState === "ready") return "";
-  const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", i = r.missingRequiredLocales.length, o = i > 0, c = Object.keys(r.missingRequiredFieldsByLocale).length > 0;
-  let l = "", u = "", h = "";
-  if (o && c ? (l = "missing_locales_and_fields", u = `${i} missing`, h = `Missing translations: ${r.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : o ? (l = "missing_locales", u = `${i} missing`, h = `Missing translations: ${r.missingRequiredLocales.join(", ")}`) : c && (l = "missing_fields", u = "Incomplete", h = `Incomplete fields in: ${Object.keys(r.missingRequiredFieldsByLocale).join(", ")}`), !u) return "";
-  const f = we(l, "core");
+  const { size: n = "default", extraClass: s = "" } = t, a = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", i = r.missingRequiredLocales.length, o = i > 0, l = Object.keys(r.missingRequiredFieldsByLocale).length > 0;
+  let c = "", u = "", h = "";
+  if (o && l ? (c = "missing_locales_and_fields", u = `${i} missing`, h = `Missing translations: ${r.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : o ? (c = "missing_locales", u = `${i} missing`, h = `Missing translations: ${r.missingRequiredLocales.join(", ")}`) : l && (c = "missing_fields", u = "Incomplete", h = `Incomplete fields in: ${Object.keys(r.missingRequiredFieldsByLocale).join(", ")}`), !u) return "";
+  const f = xe(c, "core");
   return `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${a} ${f?.bgClass || "bg-amber-50"} ${f?.textClass || "text-amber-700"} ${s}"
                 title="${h}"
                 aria-label="${h}"
@@ -690,15 +690,15 @@ function Ao(e, t = {}) {
     <span>${u}</span>
   </span>`;
 }
-function ko(e) {
+function Ro(e) {
   const t = $(e);
   return t.hasReadinessMetadata ? t.readinessState !== "ready" : !1;
 }
-function Lo(e) {
+function Do(e) {
   return $(e).missingRequiredLocales.length;
 }
-function Sr(e, t, r) {
-  const n = we(e, "core"), s = n ? Wt(n, "sm") : "", a = n?.bgClass || "bg-gray-100", i = n?.textClass || "text-gray-600", o = n?.label || "Unknown", c = n?.description || "Unknown readiness state";
+function $r(e, t, r) {
+  const n = xe(e, "core"), s = n ? Zt(n, "sm") : "", a = n?.bgClass || "bg-gray-100", i = n?.textClass || "text-gray-600", o = n?.label || "Unknown", l = n?.description || "Unknown readiness state";
   switch (e) {
     case "ready":
       return {
@@ -706,31 +706,31 @@ function Sr(e, t, r) {
         label: o,
         bgClass: a,
         textClass: i,
-        tooltip: c
+        tooltip: l
       };
     case "missing_locales": {
-      const l = t.missingRequiredLocales, u = r && l.length > 0 ? `Missing translations: ${l.join(", ")}` : "Missing required translations";
+      const c = t.missingRequiredLocales, u = r && c.length > 0 ? `Missing translations: ${c.join(", ")}` : "Missing required translations";
       return {
         icon: s,
-        label: `${l.length} missing`,
+        label: `${c.length} missing`,
         bgClass: a,
         textClass: i,
         tooltip: u
       };
     }
     case "missing_fields": {
-      const l = Object.keys(t.missingRequiredFieldsByLocale);
+      const c = Object.keys(t.missingRequiredFieldsByLocale);
       return {
         icon: s,
         label: "Incomplete",
         bgClass: a,
         textClass: i,
-        tooltip: r && l.length > 0 ? `Incomplete fields in: ${l.join(", ")}` : "Some translations have missing required fields"
+        tooltip: r && c.length > 0 ? `Incomplete fields in: ${c.join(", ")}` : "Some translations have missing required fields"
       };
     }
     case "missing_locales_and_fields": {
-      const l = t.missingRequiredLocales, u = Object.keys(t.missingRequiredFieldsByLocale), h = [];
-      return l.length > 0 && h.push(`Missing: ${l.join(", ")}`), u.length > 0 && h.push(`Incomplete: ${u.join(", ")}`), {
+      const c = t.missingRequiredLocales, u = Object.keys(t.missingRequiredFieldsByLocale), h = [];
+      return c.length > 0 && h.push(`Missing: ${c.join(", ")}`), u.length > 0 && h.push(`Incomplete: ${u.join(", ")}`), {
         icon: s,
         label: "Not ready",
         bgClass: a,
@@ -744,17 +744,17 @@ function Sr(e, t, r) {
         label: o,
         bgClass: a,
         textClass: i,
-        tooltip: c
+        tooltip: l
       };
   }
 }
-function Cr(e, t = {}) {
+function Er(e, t = {}) {
   const { size: r = "sm", maxLocales: n = 5, showLabels: s = !1 } = t, a = $(e);
   if (!a.hasReadinessMetadata) return '<span class="text-gray-400">-</span>';
-  const { requiredLocales: i, availableLocales: o, missingRequiredFieldsByLocale: c } = a, l = i.length > 0 ? i : o;
-  if (l.length === 0) return '<span class="text-gray-400">-</span>';
-  const u = new Set(o), h = $r(c);
-  return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${l.slice(0, n).map((f) => {
+  const { requiredLocales: i, availableLocales: o, missingRequiredFieldsByLocale: l } = a, c = i.length > 0 ? i : o;
+  if (c.length === 0) return '<span class="text-gray-400">-</span>';
+  const u = new Set(o), h = kr(l);
+  return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${c.slice(0, n).map((f) => {
     const m = u.has(f), y = m && h.has(f), b = m && !y;
     let g, w, C;
     b ? (g = "bg-green-100 text-green-700 border-green-300", w = "●", C = "Complete") : y ? (g = "bg-amber-100 text-amber-700 border-amber-300", w = "◐", C = "Incomplete") : (g = "bg-white text-gray-400 border-gray-300 border-dashed", w = "○", C = "Missing");
@@ -769,18 +769,18 @@ function Cr(e, t = {}) {
           <span aria-hidden="true">${w}</span>
         </span>
       `;
-  }).join("")}${l.length > n ? `<span class="text-[10px] text-gray-500" title="${l.length - n} more locales">+${l.length - n}</span>` : ""}</div>`;
+  }).join("")}${c.length > n ? `<span class="text-[10px] text-gray-500" title="${c.length - n} more locales">+${c.length - n}</span>` : ""}</div>`;
 }
-function $r(e) {
+function kr(e) {
   const t = /* @__PURE__ */ new Set();
   if (e && typeof e == "object")
     for (const [r, n] of Object.entries(e)) Array.isArray(n) && n.length > 0 && t.add(r);
   return t;
 }
-function _o(e = {}) {
-  return (t, r, n) => Cr(r, e);
+function To(e = {}) {
+  return (t, r, n) => Er(r, e);
 }
-function Ro(e, t = {}) {
+function Po(e, t = {}) {
   if (!e.fallbackUsed && !e.missingRequestedLocale) return "";
   const { showCreateButton: r = !0, createTranslationUrl: n, panelName: s } = t, a = e.requestedLocale || "requested locale", i = e.resolvedLocale || "default", o = r ? `
     <button type="button"
@@ -824,36 +824,36 @@ function Ro(e, t = {}) {
     </div>
   `;
 }
-function Pe(e = {}) {
-  return (t, r, n) => xr(r, e);
+function Me(e = {}) {
+  return (t, r, n) => Cr(r, e);
 }
-function Er(e = {}) {
-  return (t, r, n) => ot(r, e);
+function Ar(e = {}) {
+  return (t, r, n) => lt(r, e);
 }
 function D(e, t) {
   for (const r of t) {
-    const n = Ce(e, r);
+    const n = $e(e, r);
     if (typeof n == "string" && n.trim()) return n;
   }
   return null;
 }
-function Ar(e, t) {
+function Lr(e, t) {
   for (const r of t) {
-    const n = Ce(e, r);
+    const n = $e(e, r);
     if (Array.isArray(n)) return n.filter((s) => typeof s == "string");
   }
   return [];
 }
-function Me(e, t) {
+function Ie(e, t) {
   for (const r of t) {
-    const n = Ce(e, r);
+    const n = $e(e, r);
     if (typeof n == "boolean") return n;
     if (n === "true") return !0;
     if (n === "false") return !1;
   }
   return !1;
 }
-function Ce(e, t) {
+function $e(e, t) {
   const r = t.split(".");
   let n = e;
   for (const s of r) {
@@ -862,7 +862,7 @@ function Ce(e, t) {
   }
   return n;
 }
-var A = '<span class="text-gray-400">-</span>', kr = [
+var k = '<span class="text-gray-400">-</span>', _r = [
   "name",
   "label",
   "title",
@@ -875,14 +875,14 @@ var A = '<span class="text-gray-400">-</span>', kr = [
   "blockType",
   "block_type"
 ];
-function Lr(e) {
+function Rr(e) {
   try {
     return JSON.stringify(e);
   } catch {
     return String(e);
   }
 }
-function _r(e) {
+function Dr(e) {
   const t = [], r = (s) => {
     if (typeof s != "string") return;
     const a = s.trim();
@@ -892,7 +892,7 @@ function _r(e) {
   const n = e.display_keys ?? e.displayKeys;
   return Array.isArray(n) && n.forEach(r), t;
 }
-function Rr(e, t) {
+function Tr(e, t) {
   if (!t) return;
   if (Object.prototype.hasOwnProperty.call(e, t)) return e[t];
   if (!t.includes(".")) return;
@@ -904,7 +904,7 @@ function Rr(e, t) {
   }
   return n;
 }
-function Dr(e) {
+function Pr(e) {
   if (e == null) return "";
   switch (typeof e) {
     case "string":
@@ -918,39 +918,39 @@ function Dr(e) {
       return "";
   }
 }
-function he(e, t) {
+function fe(e, t) {
   if (e == null) return "";
-  if (Array.isArray(e)) return fe(e, t);
+  if (Array.isArray(e)) return pe(e, t);
   if (typeof e != "object") return String(e);
-  const r = [..._r(t), ...kr], n = /* @__PURE__ */ new Set();
+  const r = [...Dr(t), ..._r], n = /* @__PURE__ */ new Set();
   for (const s of r) {
     if (n.has(s)) continue;
     n.add(s);
-    const a = Dr(Rr(e, s));
+    const a = Pr(Tr(e, s));
     if (a) return a;
   }
-  return Lr(e);
+  return Rr(e);
 }
-function fe(e, t) {
+function pe(e, t) {
   if (!Array.isArray(e) || e.length === 0) return "";
-  const r = e.map((i) => he(i, t).trim()).filter(Boolean);
+  const r = e.map((i) => fe(i, t).trim()).filter(Boolean);
   if (r.length === 0) return "";
   const n = Number(t.preview_limit ?? t.previewLimit ?? 3), s = Number.isFinite(n) && n > 0 ? Math.floor(n) : 3, a = r.slice(0, s);
   return r.length <= s ? a.join(", ") : `${a.join(", ")} +${r.length - s} more`;
 }
-function Tr(e, t, r, n) {
+function Mr(e, t, r, n) {
   const s = e[t] ?? e[r] ?? n, a = Number(s);
   return Number.isFinite(a) && a > 0 ? Math.floor(a) : n;
 }
-function Pr(e, t, r, n) {
+function Ir(e, t, r, n) {
   const s = e[t] ?? e[r];
   return s == null ? n : typeof s == "boolean" ? s : typeof s == "string" ? s.toLowerCase() === "true" || s === "1" : !!s;
 }
-function Mr(e, t, r, n) {
+function Br(e, t, r, n) {
   const s = e[t] ?? e[r];
   return s == null ? n : String(s).trim() || n;
 }
-function Ir(e) {
+function Fr(e) {
   if (e == null) return "";
   if (typeof e == "string") return e.trim();
   if (typeof e != "object") return String(e).trim();
@@ -965,7 +965,7 @@ function Ir(e) {
   }
   return "";
 }
-function Br(e) {
+function qr(e) {
   switch (e) {
     case "muted":
       return "bg-gray-100 text-gray-600";
@@ -975,18 +975,18 @@ function Br(e) {
       return "bg-blue-50 text-blue-700";
   }
 }
-var Fr = class {
+var Or = class {
   constructor() {
     this.renderers = /* @__PURE__ */ new Map(), this.defaultRenderer = (e) => {
-      if (e == null) return A;
+      if (e == null) return k;
       if (typeof e == "boolean") return e ? "Yes" : "No";
       if (Array.isArray(e)) {
-        const t = fe(e, {});
-        return t ? d(t) : A;
+        const t = pe(e, {});
+        return t ? d(t) : k;
       }
       if (typeof e == "object") {
-        const t = he(e, {});
-        return t ? d(t) : A;
+        const t = fe(e, {});
+        return t ? d(t) : k;
       }
       return String(e);
     }, this.registerDefaultRenderers();
@@ -1037,35 +1037,35 @@ var Fr = class {
       const t = String(e), r = 50;
       return t.length <= r ? t : `<span title="${t}">${t.substring(0, r)}...</span>`;
     }), this.renderers.set("_array", (e, t, r, n) => {
-      if (!Array.isArray(e) || e.length === 0) return A;
-      const s = fe(e, n?.options || {});
-      return s ? d(s) : A;
+      if (!Array.isArray(e) || e.length === 0) return k;
+      const s = pe(e, n?.options || {});
+      return s ? d(s) : k;
     }), this.renderers.set("_object", (e, t, r, n) => {
-      if (e == null) return A;
-      const s = he(e, n?.options || {});
-      return s ? d(s) : A;
+      if (e == null) return k;
+      const s = fe(e, n?.options || {});
+      return s ? d(s) : k;
     }), this.renderers.set("_tags", (e) => !Array.isArray(e) || e.length === 0 ? '<span class="text-gray-400">-</span>' : e.map((t) => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">${t}</span>`).join("")), this.renderers.set("blocks_chips", (e, t, r, n) => {
-      if (!Array.isArray(e) || e.length === 0) return A;
-      const s = n?.options || {}, a = Tr(s, "max_visible", "maxVisible", 3), i = Pr(s, "show_count", "showCount", !0), o = Mr(s, "chip_variant", "chipVariant", "default"), c = s.block_icons_map || s.blockIconsMap || {}, l = [], u = e.slice(0, a);
+      if (!Array.isArray(e) || e.length === 0) return k;
+      const s = n?.options || {}, a = Mr(s, "max_visible", "maxVisible", 3), i = Ir(s, "show_count", "showCount", !0), o = Br(s, "chip_variant", "chipVariant", "default"), l = s.block_icons_map || s.blockIconsMap || {}, c = [], u = e.slice(0, a);
       for (const m of u) {
-        const y = Ir(m);
+        const y = Fr(m);
         if (!y) continue;
-        const b = c[y] || "view-grid", g = qt(b, {
+        const b = l[y] || "view-grid", g = jt(b, {
           size: "14px",
           extraClass: "flex-shrink-0"
-        }), w = Br(o);
-        l.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${w}">${g}<span>${d(y)}</span></span>`);
+        }), w = qr(o);
+        c.push(`<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${w}">${g}<span>${d(y)}</span></span>`);
       }
-      if (l.length === 0) return A;
+      if (c.length === 0) return k;
       const h = e.length - a;
       let f = "";
-      return i && h > 0 && (f = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${h} more</span>`), `<div class="flex flex-wrap gap-1">${l.join("")}${f}</div>`;
+      return i && h > 0 && (f = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${h} more</span>`), `<div class="flex flex-wrap gap-1">${c.join("")}${f}</div>`;
     }), this.renderers.set("_image", (e) => e ? `<img src="${e}" alt="Thumbnail" class="h-10 w-10 rounded object-cover" />` : '<span class="text-gray-400">-</span>'), this.renderers.set("_avatar", (e, t) => {
       const r = t.name || t.username || t.email || "U", n = r.charAt(0).toUpperCase();
       return e ? `<img src="${e}" alt="${r}" class="h-8 w-8 rounded-full object-cover" />` : `<div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">${n}</div>`;
     });
   }
-}, Do = {
+}, Mo = {
   statusBadge: (e) => (t) => {
     const r = String(t).toLowerCase();
     return W(String(t), "status", r);
@@ -1078,7 +1078,7 @@ var Fr = class {
     const r = e || t.name || t.username || "-", n = t.email || "";
     return n ? `<div><div class="font-medium text-gray-900">${r}</div><div class="text-sm text-gray-500">${n}</div></div>` : `<div class="font-medium text-gray-900">${r}</div>`;
   },
-  booleanChip: (e) => (t) => Kt(!!t, e),
+  booleanChip: (e) => (t) => Qt(!!t, e),
   relativeTime: (e) => {
     if (!e) return '<span class="text-gray-400">-</span>';
     const t = X(e);
@@ -1086,17 +1086,17 @@ var Fr = class {
     const r = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), n = Math.floor(r / 6e4), s = Math.floor(r / 36e5), a = Math.floor(r / 864e5);
     return n < 1 ? "Just now" : n < 60 ? `${n} minute${n > 1 ? "s" : ""} ago` : s < 24 ? `${s} hour${s > 1 ? "s" : ""} ago` : a < 30 ? `${a} day${a > 1 ? "s" : ""} ago` : t.toLocaleDateString();
   },
-  localeBadge: Er(),
-  translationStatus: Pe(),
-  translationStatusCompact: Pe({
+  localeBadge: Ar(),
+  translationStatus: Me(),
+  translationStatusCompact: Me({
     size: "sm",
     maxLocales: 2
   })
-}, qr = "datagrid.state.", ae = "datagrid.share.", lt = "datagrid.share.index", Or = 20, jr = 1500;
-function zr(e) {
+}, jr = "datagrid.state.", ie = "datagrid.share.", ct = "datagrid.share.index", zr = 20, Nr = 1500;
+function Gr(e) {
   return String(e || "").trim() || "default";
 }
-function ie(e, t = {}) {
+function oe(e, t = {}) {
   if (!Array.isArray(e)) return;
   const r = e.map((n) => typeof n == "string" ? n.trim() : "").filter((n) => n.length > 0);
   return r.length === 0 ? t.allowEmpty === !0 ? [] : void 0 : Array.from(new Set(r));
@@ -1105,14 +1105,14 @@ function N(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = e, r = { version: 1 };
   (t.viewMode === "flat" || t.viewMode === "grouped" || t.viewMode === "matrix") && (r.viewMode = t.viewMode), (t.expandMode === "all" || t.expandMode === "none" || t.expandMode === "explicit") && (r.expandMode = t.expandMode);
-  const n = ie(t.expandedGroups, { allowEmpty: !0 });
+  const n = oe(t.expandedGroups, { allowEmpty: !0 });
   n !== void 0 && (r.expandedGroups = n);
-  const s = ie(t.hiddenColumns, { allowEmpty: !0 });
+  const s = oe(t.hiddenColumns, { allowEmpty: !0 });
   s !== void 0 && (r.hiddenColumns = s);
-  const a = ie(t.columnOrder);
+  const a = oe(t.columnOrder);
   return a && (r.columnOrder = a), typeof t.updatedAt == "number" && Number.isFinite(t.updatedAt) && (r.updatedAt = t.updatedAt), r;
 }
-function Ie(e) {
+function Be(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = e, r = { version: 1 };
   if (typeof t.search == "string") {
@@ -1123,19 +1123,19 @@ function Ie(e) {
   const n = N(t.persisted);
   return n && (r.persisted = n), typeof t.updatedAt == "number" && Number.isFinite(t.updatedAt) && (r.updatedAt = t.updatedAt), r;
 }
-function ct(e) {
+function dt(e) {
   const t = String(e || "").trim();
   return t ? t.replace(/\/+$/, "") : "";
 }
-function Nr(e) {
+function Ur(e) {
   return String(e || "").trim().replace(/[^a-zA-Z0-9._-]/g, "");
 }
-function Gr() {
+function Hr() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`.slice(0, 16);
 }
-function Ur(e) {
+function Vr(e) {
   try {
-    const t = localStorage.getItem(lt);
+    const t = localStorage.getItem(ct);
     if (!t) return [];
     const r = JSON.parse(t);
     if (!Array.isArray(r)) return [];
@@ -1152,16 +1152,16 @@ function Ur(e) {
     return [];
   }
 }
-function Hr(e) {
+function Kr(e) {
   try {
-    localStorage.setItem(lt, JSON.stringify(e));
+    localStorage.setItem(ct, JSON.stringify(e));
   } catch {
   }
 }
-var dt = class {
+var ut = class {
   constructor(e) {
-    const t = zr(e.key);
-    this.key = t, this.persistedStorageKey = `${qr}${t}`, this.maxShareEntries = Math.max(1, e.maxShareEntries || Or);
+    const t = Gr(e.key);
+    this.key = t, this.persistedStorageKey = `${jr}${t}`, this.maxShareEntries = Math.max(1, e.maxShareEntries || zr);
   }
   loadPersistedState() {
     try {
@@ -1188,21 +1188,21 @@ var dt = class {
     }
   }
   createShareState(e) {
-    const t = Ie(e);
+    const t = Be(e);
     if (!t) return null;
     t.updatedAt || (t.updatedAt = Date.now());
-    const r = Gr(), n = `${ae}${r}`;
+    const r = Hr(), n = `${ie}${r}`;
     try {
       localStorage.setItem(n, JSON.stringify(t));
-      const s = Ur(this.maxShareEntries).filter((a) => a.token !== r);
+      const s = Vr(this.maxShareEntries).filter((a) => a.token !== r);
       for (s.unshift({
         token: r,
         updatedAt: t.updatedAt
       }); s.length > this.maxShareEntries; ) {
         const a = s.pop();
-        a && localStorage.removeItem(`${ae}${a.token}`);
+        a && localStorage.removeItem(`${ie}${a.token}`);
       }
-      return Hr(s), r;
+      return Kr(s), r;
     } catch {
       return null;
     }
@@ -1211,16 +1211,16 @@ var dt = class {
     const t = String(e || "").trim();
     if (!t) return null;
     try {
-      const r = localStorage.getItem(`${ae}${t}`);
-      return r ? Ie(JSON.parse(r)) : null;
+      const r = localStorage.getItem(`${ie}${t}`);
+      return r ? Be(JSON.parse(r)) : null;
     } catch {
       return null;
     }
   }
-}, Vr = class extends dt {
+}, Jr = class extends ut {
   constructor(e) {
-    if (super(e), this.syncTimeout = null, this.mutationQueue = Promise.resolve(), this.preferencesEndpoint = ct(e.preferencesEndpoint), !this.preferencesEndpoint) throw new Error("PreferencesDataGridStateStore requires an advertised preferences endpoint");
-    this.resource = Nr(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3), this.hydrateTimeoutMs = Math.max(100, e.hydrateTimeoutMs || jr), this.preferencesWritable = e.preferencesWritable !== !1;
+    if (super(e), this.syncTimeout = null, this.mutationQueue = Promise.resolve(), this.preferencesEndpoint = dt(e.preferencesEndpoint), !this.preferencesEndpoint) throw new Error("PreferencesDataGridStateStore requires an advertised preferences endpoint");
+    this.resource = Ur(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3), this.hydrateTimeoutMs = Math.max(100, e.hydrateTimeoutMs || Nr), this.preferencesWritable = e.preferencesWritable !== !1;
   }
   get serverStateKey() {
     return `ui.datagrid.${this.resource}.state`;
@@ -1239,8 +1239,8 @@ var dt = class {
       if (!n.ok) return;
       const s = await n.json(), a = this.extractFirstRecord(s);
       if (!a) return;
-      const i = this.extractMap(a.effective), o = this.extractMap(a.raw), c = N(i[this.serverStateKey] ?? o[this.serverStateKey]);
-      c && super.savePersistedState(c);
+      const i = this.extractMap(a.effective), o = this.extractMap(a.raw), l = N(i[this.serverStateKey] ?? o[this.serverStateKey]);
+      l && super.savePersistedState(l);
     } catch {
     } finally {
       clearTimeout(t);
@@ -1302,14 +1302,14 @@ var dt = class {
     return !e || typeof e != "object" || Array.isArray(e) ? {} : e;
   }
 };
-function Kr(e) {
-  return (e.mode || "local") === "preferences" && ct(e.preferencesEndpoint) ? new Vr(e) : new dt(e);
+function Qr(e) {
+  return (e.mode || "local") === "preferences" && dt(e.preferencesEndpoint) ? new Jr(e) : new ut(e);
 }
-var G = "search", U = "page", H = "per_page", P = "filters", V = "sort", Z = "state", J = "advanced_search", ee = "hidden_columns", te = "view_mode", $e = "expanded_groups", ut = [
+var G = "search", U = "page", H = "per_page", P = "filters", V = "sort", Z = "state", J = "advanced_search", ee = "hidden_columns", te = "view_mode", Ee = "expanded_groups", ht = [
   "perPage",
   "hiddenColumns",
   "advancedSearch"
-], Ee = [
+], ke = [
   G,
   U,
   H,
@@ -1318,16 +1318,16 @@ var G = "search", U = "page", H = "per_page", P = "filters", V = "sort", Z = "st
   Z,
   ee,
   te,
-  $e
-], Jr = [...Ee, J], Qr = 1800;
-function Yr(e) {
+  Ee
+], Yr = [...ke, J], Wr = 1800;
+function Xr(e) {
   return {
     maxURLLength: Math.max(256, e.config.urlState?.maxURLLength || 1800),
     maxFiltersLength: Math.max(64, e.config.urlState?.maxFiltersLength || 600),
     enableStateToken: e.config.urlState?.enableStateToken !== !1
   };
 }
-function Wr(e, t, r) {
+function Zr(e, t, r) {
   const n = String(t || "").trim();
   if (!n) return null;
   try {
@@ -1337,38 +1337,38 @@ function Wr(e, t, r) {
     return console.warn(`[DataGrid] Failed to parse ${r} payload from URL:`, s), null;
   }
 }
-function Be(e, t) {
+function Fe(e, t) {
   return Array.from(new Set(Array.from(e).map((r) => String(r || "").trim()).filter((r) => r.length > 0 && t.has(r)))).sort();
 }
-function Xr(e, t) {
+function en(e, t) {
   return e.length !== t.length ? !1 : e.every((r, n) => r === t[n]);
 }
-function Zr(e) {
-  const t = new Set(e.config.columns.map((n) => n.field)), r = Be(e.state.hiddenColumns || [], t);
-  return Xr(r, Be(e.config.columns.filter((n) => n.hidden).map((n) => n.field), t)) ? null : JSON.stringify(r);
+function tn(e) {
+  const t = new Set(e.config.columns.map((n) => n.field)), r = Fe(e.state.hiddenColumns || [], t);
+  return en(r, Fe(e.config.columns.filter((n) => n.hidden).map((n) => n.field), t)) ? null : JSON.stringify(r);
 }
-function en(e, t, r = {}) {
+function rn(e, t, r = {}) {
   const n = r.merge === !0, s = new Set(e.config.columns.map((o) => o.field)), a = Array.isArray(t.hiddenColumns) ? new Set(t.hiddenColumns.map((o) => String(o || "").trim()).filter((o) => o.length > 0 && s.has(o))) : null;
   a ? (e.state.hiddenColumns = a, e.hasPersistedHiddenColumnState = !0) : n || (e.state.hiddenColumns = new Set(e.config.columns.filter((o) => o.hidden).map((o) => o.field)), e.hasPersistedHiddenColumnState = !1);
   const i = Array.isArray(t.columnOrder) ? t.columnOrder.map((o) => String(o || "").trim()).filter((o) => o.length > 0 && s.has(o)) : null;
   if (i && i.length > 0) {
     const o = e.mergeColumnOrder(i);
-    e.state.columnOrder = o, e.hasPersistedColumnOrderState = !0, e.didRestoreColumnOrder = !0, e.shouldReorderDOMOnRestore = e.defaultColumns.map((l) => l.field).join("|") !== o.join("|");
-    const c = new Map(e.config.columns.map((l) => [l.field, l]));
-    e.config.columns = o.map((l) => c.get(l)).filter((l) => l !== void 0);
+    e.state.columnOrder = o, e.hasPersistedColumnOrderState = !0, e.didRestoreColumnOrder = !0, e.shouldReorderDOMOnRestore = e.defaultColumns.map((c) => c.field).join("|") !== o.join("|");
+    const l = new Map(e.config.columns.map((c) => [c.field, c]));
+    e.config.columns = o.map((c) => l.get(c)).filter((c) => c !== void 0);
   } else n || (e.state.columnOrder = e.config.columns.map((o) => o.field), e.hasPersistedColumnOrderState = !1, e.didRestoreColumnOrder = !1, e.shouldReorderDOMOnRestore = !1);
   if (e.config.enableGroupedMode) {
     if (t.viewMode) {
-      const o = Xe(t.viewMode);
-      o && (e.state.viewMode = Se(o));
+      const o = Ze(t.viewMode);
+      o && (e.state.viewMode = Ce(o));
     }
-    e.state.expandMode = xe(t.expandMode, e.state.expandMode), Array.isArray(t.expandedGroups) ? (e.state.expandedGroups = new Set(t.expandedGroups.map((o) => String(o || "").trim()).filter(Boolean)), e.state.hasPersistedExpandState = !0) : t.expandMode !== void 0 && (e.state.hasPersistedExpandState = !0);
+    e.state.expandMode = Se(t.expandMode, e.state.expandMode), Array.isArray(t.expandedGroups) ? (e.state.expandedGroups = new Set(t.expandedGroups.map((o) => String(o || "").trim()).filter(Boolean)), e.state.hasPersistedExpandState = !0) : t.expandMode !== void 0 && (e.state.hasPersistedExpandState = !0);
   }
 }
-function tn(e, t) {
+function nn(e, t) {
   t.persisted && e.applyPersistedStateSnapshot(t.persisted, { merge: !0 }), typeof t.search == "string" && (e.state.search = t.search), typeof t.page == "number" && Number.isFinite(t.page) && (e.state.currentPage = Math.max(1, Math.trunc(t.page))), typeof t.perPage == "number" && Number.isFinite(t.perPage) && (e.state.perPage = Math.max(1, Math.trunc(t.perPage))), Array.isArray(t.filters) && (e.state.filters = t.filters), Array.isArray(t.sort) && (e.state.sort = t.sort);
 }
-function rn(e) {
+function sn(e) {
   const t = {
     version: 1,
     hiddenColumns: Array.from(e.state.hiddenColumns),
@@ -1377,7 +1377,7 @@ function rn(e) {
   };
   return e.config.enableGroupedMode && (t.viewMode = e.state.viewMode, t.expandMode = e.state.expandMode, t.expandedGroups = Array.from(e.state.expandedGroups)), t;
 }
-function nn(e) {
+function an(e) {
   return {
     version: 1,
     search: e.state.search || void 0,
@@ -1389,62 +1389,62 @@ function nn(e) {
     updatedAt: Date.now()
   };
 }
-function sn(e) {
+function on(e) {
   e.stateStore.savePersistedState(e.buildPersistedStateSnapshot());
 }
-function an(e) {
+function ln(e) {
   const t = new URLSearchParams(window.location.search);
-  e.didRestoreColumnOrder = !1, e.shouldReorderDOMOnRestore = !1, e.hasURLStateOverrides = Jr.some((l) => t.has(l));
+  e.didRestoreColumnOrder = !1, e.shouldReorderDOMOnRestore = !1, e.hasURLStateOverrides = Yr.some((c) => t.has(c));
   const r = t.get(Z);
   if (r) {
-    const l = e.stateStore.resolveShareState(r);
-    l && e.applyShareStateSnapshot(l);
+    const c = e.stateStore.resolveShareState(r);
+    c && e.applyShareStateSnapshot(c);
   }
   const n = t.get(G);
   if (n) {
     e.state.search = n;
-    const l = document.querySelector(e.selectors.searchInput);
-    l && (l.value = n);
+    const c = document.querySelector(e.selectors.searchInput);
+    c && (c.value = n);
   }
   const s = t.get(U);
   if (s) {
-    const l = parseInt(s, 10);
-    e.state.currentPage = Number.isNaN(l) ? 1 : Math.max(1, l);
+    const c = parseInt(s, 10);
+    e.state.currentPage = Number.isNaN(c) ? 1 : Math.max(1, c);
   }
   const a = t.get(H);
   if (a) {
-    const l = parseInt(a, 10), u = e.config.perPage || 10;
-    e.state.perPage = Number.isNaN(l) ? u : Math.max(1, l);
+    const c = parseInt(a, 10), u = e.config.perPage || 10;
+    e.state.perPage = Number.isNaN(c) ? u : Math.max(1, c);
     const h = document.querySelector(e.selectors.perPageSelect);
     h && (h.value = String(e.state.perPage));
   }
   const i = t.get(P);
   if (i) {
-    const l = e.parseJSONArray(i, "filters");
-    l && (e.state.filters = l);
+    const c = e.parseJSONArray(i, "filters");
+    c && (e.state.filters = c);
   }
   const o = t.get(V);
   if (o) {
-    const l = e.parseJSONArray(o, "sort");
-    l && (e.state.sort = l);
+    const c = e.parseJSONArray(o, "sort");
+    c && (e.state.sort = c);
   }
   if (e.config.enableGroupedMode) {
-    const l = Xe(t.get(te));
-    l && (e.state.viewMode = Se(l)), t.has("expanded_groups") && (e.state.expandedGroups = or(t.get($e)), e.state.expandMode = "explicit", e.state.hasPersistedExpandState = !0);
+    const c = Ze(t.get(te));
+    c && (e.state.viewMode = Ce(c)), t.has("expanded_groups") && (e.state.expandedGroups = cr(t.get(Ee)), e.state.expandMode = "explicit", e.state.hasPersistedExpandState = !0);
   }
-  const c = t.get(ee);
-  if (c) {
-    const l = e.parseJSONArray(c, "hidden columns");
-    if (l) {
+  const l = t.get(ee);
+  if (l) {
+    const c = e.parseJSONArray(l, "hidden columns");
+    if (c) {
       const u = new Set(e.config.columns.map((h) => h.field));
-      e.state.hiddenColumns = new Set(l.map((h) => typeof h == "string" ? h.trim() : "").filter((h) => h.length > 0 && u.has(h)));
+      e.state.hiddenColumns = new Set(c.map((h) => typeof h == "string" ? h.trim() : "").filter((h) => h.length > 0 && u.has(h)));
     }
   } else if (!e.hasPersistedHiddenColumnState && e.config.behaviors?.columnVisibility) {
-    const l = e.config.columns.map((h) => h.field), u = e.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(l);
+    const c = e.config.columns.map((h) => h.field), u = e.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(c);
     u.size > 0 && (e.state.hiddenColumns = u);
   }
   if (!e.hasPersistedColumnOrderState && e.config.behaviors?.columnVisibility?.loadColumnOrderFromCache) {
-    const l = e.config.columns.map((h) => h.field), u = e.config.behaviors.columnVisibility.loadColumnOrderFromCache(l);
+    const c = e.config.columns.map((h) => h.field), u = e.config.behaviors.columnVisibility.loadColumnOrderFromCache(c);
     if (u && u.length > 0) {
       const h = e.mergeColumnOrder(u);
       e.state.columnOrder = h, e.didRestoreColumnOrder = !0, e.shouldReorderDOMOnRestore = e.defaultColumns.map((m) => m.field).join("|") !== h.join("|");
@@ -1456,7 +1456,7 @@ function an(e) {
     e.applyRestoredState();
   }, 0);
 }
-function on(e) {
+function cn(e) {
   const t = document.querySelector(e.selectors.searchInput);
   t && (t.value = e.state.search);
   const r = document.querySelector(e.selectors.perPageSelect);
@@ -1467,28 +1467,28 @@ function on(e) {
   const n = e.config.columns.filter((s) => !e.state.hiddenColumns.has(s.field)).map((s) => s.field);
   e.updateColumnVisibility(n, !0), e.state.sort.length > 0 && e.updateSortIndicators();
 }
-function ln(e, t = {}) {
+function dn(e, t = {}) {
   e.persistStateSnapshot();
   const r = e.getURLStateConfig(), n = new URLSearchParams(window.location.search);
-  Te(n, Ee), Te(n, ut), e.state.search && n.set(G, e.state.search), e.state.currentPage > 1 && n.set(U, String(e.state.currentPage)), e.state.perPage !== (e.config.perPage || 10) && n.set(H, String(e.state.perPage));
+  Pe(n, ke), Pe(n, ht), e.state.search && n.set(G, e.state.search), e.state.currentPage > 1 && n.set(U, String(e.state.currentPage)), e.state.perPage !== (e.config.perPage || 10) && n.set(H, String(e.state.perPage));
   let s = !1;
   if (e.state.filters.length > 0) {
-    const c = JSON.stringify(e.state.filters);
-    c.length <= r.maxFiltersLength ? n.set(P, c) : s = !0;
+    const l = JSON.stringify(e.state.filters);
+    l.length <= r.maxFiltersLength ? n.set(P, l) : s = !0;
   }
   e.state.sort.length > 0 && n.set(V, JSON.stringify(e.state.sort));
-  const a = Zr(e);
+  const a = tn(e);
   a !== null && n.set(ee, a), e.config.enableGroupedMode && n.set(te, e.state.viewMode);
-  let i = De(window.location.pathname, n);
+  let i = Te(window.location.pathname, n);
   const o = i.length > r.maxURLLength;
   if (r.enableStateToken && (s || o)) {
     n.delete(G), n.delete(U), n.delete(H), n.delete(P), n.delete(V);
-    const c = e.stateStore.createShareState(e.buildShareStateSnapshot());
-    c && n.set(Z, c), i = De(window.location.pathname, n);
+    const l = e.stateStore.createShareState(e.buildShareStateSnapshot());
+    l && n.set(Z, l), i = Te(window.location.pathname, n);
   }
   t.replace ? window.history.replaceState({}, "", i) : window.history.pushState({}, "", i), console.log("[DataGrid] URL updated:", i);
 }
-async function cn(e, t) {
+async function un(e, t) {
   console.log("[DataGrid] ===== refresh() CALLED ====="), console.log("[DataGrid] Current sort state:", JSON.stringify(e.state.sort)), e.abortController && e.abortController.abort(), e.abortController = new AbortController(), e.tableEl && (e.tableEl.dataset.state = "loading", e.tableEl.setAttribute("aria-busy", "true")), e.renderLoadingState();
   try {
     const r = e.buildApiUrl(), n = await x(r, {
@@ -1500,7 +1500,7 @@ async function cn(e, t) {
       if (e.handleGroupedModeStatusFallback(n.status)) return;
       throw new Error(`HTTP error! status: ${n.status}`);
     }
-    const s = await n.json(), a = lr(s) || s;
+    const s = await n.json(), a = dr(s) || s;
     if (typeof t == "number" && typeof e.isCurrentRefresh == "function" && !e.isCurrentRefresh(t)) {
       console.log("[DataGrid] Ignoring stale refresh response");
       return;
@@ -1528,7 +1528,7 @@ async function cn(e, t) {
     e.renderErrorState(n), e.showError(n);
   }
 }
-function dn(e) {
+function hn(e) {
   const t = new URLSearchParams(), r = e.buildQueryParams();
   Object.entries(r).forEach(([s, a]) => {
     a != null && t.append(s, String(a));
@@ -1536,13 +1536,13 @@ function dn(e) {
   const n = `${e.config.apiEndpoint}?${t.toString()}`;
   return console.log(`[DataGrid] API URL: ${n}`), n;
 }
-function un(e) {
+function fn(e) {
   const t = new URLSearchParams(), r = e.buildQueryParams();
   return Object.entries(r).forEach(([n, s]) => {
     s != null && t.append(n, String(s));
   }), t.toString();
 }
-function hn(e) {
+function pn(e) {
   const t = {};
   if (e.config.behaviors?.pagination) {
     const r = e.config.behaviors.pagination.buildQuery(e.state.currentPage, e.state.perPage);
@@ -1562,10 +1562,10 @@ function hn(e) {
   }
   return e.isGroupedViewActive() && (t.group_by = e.config.groupByField || "family_id"), t;
 }
-function fn(e, t) {
+function mn(e, t) {
   return t.total !== void 0 && t.total !== null ? t.total : t.$meta?.count !== void 0 && t.$meta?.count !== null ? t.$meta.count : t.count !== void 0 && t.count !== null ? t.count : null;
 }
-function pn(e, t) {
+function gn(e, t) {
   if (t === null) return !1;
   const r = Math.max(1, e.state.perPage || e.config.perPage || 10), n = Math.max(1, Math.ceil(t / r));
   let s = e.state.currentPage;
@@ -1573,7 +1573,7 @@ function pn(e, t) {
   const a = r !== e.state.perPage || s !== e.state.currentPage;
   return a && (e.state.perPage = r, e.state.currentPage = s, e.pushStateToURL()), t === 0 ? !1 : a;
 }
-async function mn(e, t) {
+async function bn(e, t) {
   const r = await x(`${e.config.apiEndpoint}/${t}`, {
     method: "GET",
     accept: "application/json"
@@ -1585,8 +1585,8 @@ async function mn(e, t) {
     tabs: s.schema?.tabs || []
   };
 }
-function gn(e, t) {
-  const r = Ze(t) || t;
+function yn(e, t) {
+  const r = et(t) || t;
   if (r && typeof r == "object" && "data" in r) {
     const n = r;
     return {
@@ -1597,59 +1597,59 @@ function gn(e, t) {
   }
   return { data: t };
 }
-function bn(e) {
+function vn(e) {
   return e.lastSchema;
 }
-function yn(e) {
+function wn(e) {
   return e.lastForm;
 }
-function vn(e) {
+function xn(e) {
   return e.lastSchema?.tabs || [];
 }
-function wn(e, t, r, n) {
-  const s = e.config.groupByField || "family_id", a = r.filter((l) => !!l && typeof l == "object" && !Array.isArray(l));
-  let i = nr(a, {
+function Sn(e, t, r, n) {
+  const s = e.config.groupByField || "family_id", a = r.filter((c) => !!c && typeof c == "object" && !Array.isArray(c));
+  let i = ar(a, {
     groupByField: s,
     defaultExpanded: !e.state.hasPersistedExpandState,
     expandMode: e.state.expandMode,
     expandedGroups: e.state.expandedGroups
   });
-  i || (i = Qt(a, {
+  i || (i = Wt(a, {
     groupByField: s,
     defaultExpanded: !e.state.hasPersistedExpandState,
     expandMode: e.state.expandMode,
     expandedGroups: e.state.expandedGroups
   }));
-  const o = Xt(t);
-  o.size > 0 && (i = ir(i, o)), e.state.groupedData = i;
-  const c = e.config.columns.length;
-  for (const l of i.groups) {
-    const u = Zt(l, c);
+  const o = er(t);
+  o.size > 0 && (i = lr(i, o)), e.state.groupedData = i;
+  const l = e.config.columns.length;
+  for (const c of i.groups) {
+    const u = tr(c, l, { fixedColumnCount: 1 + (e.isCapabilityEnabled("selection") ? 1 : 0) });
     n.insertAdjacentHTML("beforeend", u);
     const h = n.lastElementChild;
-    h && (h.addEventListener("click", () => e.toggleGroup(l.groupId)), h.addEventListener("keydown", (f) => {
-      (f.key === "Enter" || f.key === " ") && (f.preventDefault(), e.toggleGroup(l.groupId));
+    h && (h.addEventListener("click", () => e.toggleGroup(c.groupId)), h.addEventListener("keydown", (f) => {
+      (f.key === "Enter" || f.key === " ") && (f.preventDefault(), e.toggleGroup(c.groupId));
     }));
-    for (const f of l.records) {
+    for (const f of c.records) {
       f.id && (e.recordsById[f.id] = f);
       const m = e.createTableRow(f);
-      m.dataset.groupId = l.groupId, m.classList.add("group-child-row"), l.expanded || (m.style.display = "none"), n.appendChild(m);
+      m.dataset.groupId = c.groupId, m.classList.add("group-child-row"), c.expanded || (m.style.display = "none"), n.appendChild(m);
     }
   }
-  for (const l of i.ungrouped) {
-    l.id && (e.recordsById[l.id] = l);
-    const u = e.createTableRow(l);
+  for (const c of i.ungrouped) {
+    c.id && (e.recordsById[c.id] = c);
+    const u = e.createTableRow(c);
     n.appendChild(u);
   }
   console.log(`[DataGrid] Rendered ${i.groups.length} groups, ${i.ungrouped.length} ungrouped`);
 }
-function xn(e) {
+function Cn(e) {
   return e.config.enableGroupedMode ? e.state.viewMode === "grouped" || e.state.viewMode === "matrix" : !1;
 }
-function Sn(e, t) {
+function $n(e, t) {
   e.isGroupedViewActive() && (e.state.viewMode = "flat", e.state.groupedData = null, e.pushStateToURL({ replace: !0 }), e.notify(t, "warning"), e.refresh());
 }
-function Cn(e, t) {
+function En(e, t) {
   return !e.isGroupedViewActive() || ![
     400,
     404,
@@ -1657,12 +1657,12 @@ function Cn(e, t) {
     422
   ].includes(t) ? !1 : (e.fallbackGroupedMode("Grouped pagination is not supported by this panel. Switched to flat view."), !0);
 }
-function $n(e, t) {
+function kn(e, t) {
   if (!e.isGroupedViewActive() || t.length === 0) return !1;
   const r = t.filter((n) => !!n && typeof n == "object" && !Array.isArray(n));
-  return r.length !== t.length || !tr(r) ? (e.fallbackGroupedMode("Grouped pagination contract is unavailable. Switched to flat view to avoid split groups."), !0) : !1;
+  return r.length !== t.length || !nr(r) ? (e.fallbackGroupedMode("Grouped pagination contract is unavailable. Switched to flat view to avoid split groups."), !0) : !1;
 }
-function En(e, t) {
+function An(e, t) {
   if (!e.state.groupedData) return;
   const r = String(t || "").trim();
   if (!r) return;
@@ -1671,18 +1671,18 @@ function En(e, t) {
   const s = e.state.groupedData.groups.find((a) => a.groupId === r);
   s && (s.expanded = e.isGroupExpandedByState(r)), e.updateGroupVisibility(r), e.pushStateToURL({ replace: !0 });
 }
-function An(e, t) {
+function Ln(e, t) {
   if (!e.config.enableGroupedMode) return;
   const r = new Set((t || []).map((n) => String(n || "").trim()).filter(Boolean));
   e.state.expandMode = "explicit", e.state.expandedGroups = r, e.state.hasPersistedExpandState = !0, e.updateGroupedRowsFromState(), e.pushStateToURL({ replace: !0 }), !e.state.groupedData && e.isGroupedViewActive() && e.refresh();
 }
-function kn(e) {
+function _n(e) {
   e.config.enableGroupedMode && (e.state.expandMode = "all", e.state.expandedGroups.clear(), e.state.hasPersistedExpandState = !0, e.updateGroupedRowsFromState(), e.pushStateToURL({ replace: !0 }), !e.state.groupedData && e.isGroupedViewActive() && e.refresh());
 }
-function Ln(e) {
+function Rn(e) {
   e.config.enableGroupedMode && (e.state.expandMode = "none", e.state.expandedGroups.clear(), e.state.hasPersistedExpandState = !0, e.updateGroupedRowsFromState(), e.pushStateToURL({ replace: !0 }), !e.state.groupedData && e.isGroupedViewActive() && e.refresh());
 }
-function _n(e, t) {
+function Dn(e, t) {
   const r = e.tableEl?.querySelector("tbody");
   if (!r) return;
   const n = r.querySelector(`tr[data-group-id="${t}"]`);
@@ -1694,30 +1694,30 @@ function _n(e, t) {
     i.style.display = s ? "" : "none";
   });
 }
-function Rn(e) {
+function Tn(e) {
   if (e.state.groupedData)
     for (const t of e.state.groupedData.groups)
       t.expanded = e.isGroupExpandedByState(t.groupId), e.updateGroupVisibility(t.groupId);
 }
-function Dn(e, t, r = !1) {
-  const n = xe(e.state.expandMode, "explicit");
+function Pn(e, t, r = !1) {
+  const n = Se(e.state.expandMode, "explicit");
   return n === "all" ? !e.state.expandedGroups.has(t) : n === "none" ? e.state.expandedGroups.has(t) : e.state.expandedGroups.size === 0 ? r : e.state.expandedGroups.has(t);
 }
-function Tn(e, t) {
+function Mn(e, t) {
   if (!e.config.enableGroupedMode) {
     console.warn("[DataGrid] Grouped mode not enabled");
     return;
   }
-  const r = Se(t);
+  const r = Ce(t);
   e.state.viewMode = r, r === "flat" && (e.state.groupedData = null), e.pushStateToURL(), e.refresh();
 }
-function Pn(e) {
+function In(e) {
   return e.state.viewMode;
 }
-function Mn(e) {
+function Bn(e) {
   return e.state.groupedData;
 }
-function In(e) {
+function Fn(e) {
   return {
     textCode: null,
     message: e,
@@ -1726,7 +1726,7 @@ function In(e) {
     validationErrors: null
   };
 }
-async function Bn(e) {
+async function qn(e) {
   const t = String(e.confirmMessage || "Are you sure you want to delete this item?").trim() || "Are you sure you want to delete this item?", r = String(e.confirmTitle || "Confirm Delete").trim() || "Confirm Delete";
   if (e.notifier?.confirm) return e.notifier.confirm(t, {
     title: r,
@@ -1736,21 +1736,21 @@ async function Bn(e) {
   const n = globalThis.window;
   return n && typeof n.confirm == "function" ? n.confirm(t) : !0;
 }
-async function ht(e) {
-  if (!await Bn(e)) return null;
-  const t = await Qe(e.endpoint, {
+async function ft(e) {
+  if (!await qn(e)) return null;
+  const t = await Ye(e.endpoint, {
     method: "DELETE",
     headers: { Accept: "application/json" }
   });
   if (t.success)
     return await e.onSuccess?.(t), t;
-  const r = String(e.fallbackMessage || "Delete failed").trim() || "Delete failed", n = t.error || In(r), s = {
+  const r = String(e.fallbackMessage || "Delete failed").trim() || "Delete failed", n = t.error || Fn(r), s = {
     ...n,
     message: I(n, r)
   };
   throw s.textCode && e.reconcileOnDomainFailure && await e.reconcileOnDomainFailure(s), await e.onError?.(s), Y(s, r, !!e.onError);
 }
-function Fn(e, t, r = !1) {
+function On(e, t, r = !1) {
   if (!e.tableEl) return;
   const n = new Set(t);
   e.state.hiddenColumns.clear(), e.config.columns.forEach((s) => {
@@ -1763,7 +1763,7 @@ function Fn(e, t, r = !1) {
     a && (s.style.display = n.has(a) ? "" : "none");
   }), e.syncColumnVisibilityCheckboxes();
 }
-function qn(e) {
+function jn(e) {
   if (e.columnManager) {
     e.columnManager.syncWithGridState();
     return;
@@ -1774,36 +1774,42 @@ function qn(e) {
     n && (n.checked = !e.state.hiddenColumns.has(r.field));
   });
 }
-function ft(e) {
+function pt(e) {
   e.querySelectorAll("[data-datagrid-state]").forEach((t) => t.remove());
 }
-function pt(e, t, r) {
+function re(e) {
+  return 1 + (e.isCapabilityEnabled("selection") ? 1 : 0);
+}
+function mt(e) {
+  return Math.max(1, (e.config.columns?.length || 0) + re(e));
+}
+function gt(e, t, r) {
   const n = document.createElement("tr");
   n.className = "admin-datagrid__state-row", n.dataset.datagridState = t;
   const s = document.createElement("td");
-  return s.colSpan = Math.max(1, (e.config.columns?.length || 0) + 2), s.className = `admin-datagrid__state admin-datagrid__state--${t} px-6 py-8 text-center`, s.setAttribute("role", t === "error" ? "alert" : "status"), s.setAttribute("aria-live", t === "error" ? "assertive" : "polite"), s.textContent = r, n.appendChild(s), n;
+  return s.colSpan = mt(e), s.className = `admin-datagrid__state admin-datagrid__state--${t} px-6 py-8 text-center`, s.setAttribute("role", t === "error" ? "alert" : "status"), s.setAttribute("aria-live", t === "error" ? "assertive" : "polite"), s.textContent = r, n.appendChild(s), n;
 }
-function On(e) {
+function zn(e) {
   const t = e.tableEl?.querySelector("tbody");
-  if (t && (ft(t), !(t.children.length > 0))) {
+  if (t && (pt(t), !(t.children.length > 0))) {
     if (e.isGroupedViewActive()) {
-      t.insertAdjacentHTML("beforeend", ur(e.config.columns.length));
+      t.insertAdjacentHTML("beforeend", fr(e.config.columns.length, re(e)));
       return;
     }
-    t.appendChild(pt(e, "loading", "Loading…"));
+    t.appendChild(gt(e, "loading", "Loading…"));
   }
 }
-function jn(e, t) {
+function Nn(e, t) {
   const r = e.tableEl?.querySelector("tbody");
   if (r) {
-    if (ft(r), e.isGroupedViewActive()) {
-      r.insertAdjacentHTML("afterbegin", Jt(e.config.columns.length, t));
+    if (pt(r), e.isGroupedViewActive()) {
+      r.insertAdjacentHTML("afterbegin", Yt(e.config.columns.length, t, void 0, re(e)));
       return;
     }
-    r.prepend(pt(e, "error", t));
+    r.prepend(gt(e, "error", t));
   }
 }
-function zn(e, t) {
+function Gn(e, t) {
   const r = e.tableEl?.querySelector("tbody");
   if (!r) {
     console.error("[DataGrid] tbody not found!");
@@ -1814,9 +1820,9 @@ function zn(e, t) {
   e.tableEl.dataset.state = n.length === 0 ? "empty" : "ready", e.tableEl.setAttribute("aria-busy", "false"), console.log(`[DataGrid] renderData() called with ${n.length} items`), console.log("[DataGrid] First 3 items:", n.slice(0, 3));
   const s = e.getResponseTotal(t);
   if (e.state.totalRows = s ?? n.length, n.length === 0) {
-    e.isGroupedViewActive() ? r.innerHTML = Yt(e.config.columns.length) : r.innerHTML = `
+    e.isGroupedViewActive() ? r.innerHTML = Xt(e.config.columns.length, re(e)) : r.innerHTML = `
           <tr class="admin-datagrid__state-row" data-datagrid-state="empty">
-            <td colspan="${e.config.columns.length + 2}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-8 text-center text-gray-500">
+            <td colspan="${mt(e)}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-8 text-center text-gray-500">
               No results found
             </td>
           </tr>
@@ -1826,61 +1832,63 @@ function zn(e, t) {
   e.recordsById = /* @__PURE__ */ Object.create(null), e.isGroupedViewActive() ? e.renderGroupedData(t, n, r) : e.renderFlatData(n, r), e.state.hiddenColumns.size > 0 && r.querySelectorAll("td[data-column]").forEach((a) => {
     const i = a.dataset.column;
     i && e.state.hiddenColumns.has(i) && (a.style.display = "none");
-  }), e.updateSelectionBindings();
+  }), e.isCapabilityEnabled("selection") && e.updateSelectionBindings();
 }
-function Nn(e, t, r) {
+function Un(e, t, r) {
   t.forEach((n, s) => {
     console.log(`[DataGrid] Rendering row ${s + 1}: id=${n.id}`), n.id && (e.recordsById[n.id] = n);
     const a = e.createTableRow(n);
     r.appendChild(a);
   }), console.log(`[DataGrid] Finished appending ${t.length} rows to tbody`), console.log("[DataGrid] tbody.children.length =", r.children.length);
 }
-function Gn(e, t) {
+function Hn(e, t) {
   const r = t.rendererOptions ?? t.renderer_options;
   return !r || typeof r != "object" || Array.isArray(r) ? {} : r;
 }
-function Un(e, t) {
+function Vn(e, t) {
   const r = document.createElement("tr");
   let n = ["admin-datagrid__row", "hover:bg-gray-50"];
-  e.config.rowClassProvider && (n = n.concat(e.config.rowClassProvider(t))), r.className = n.join(" ");
-  const s = document.createElement("td");
-  s.className = "admin-datagrid__cell px-6 py-4 whitespace-nowrap", s.dataset.role = "selection", s.dataset.fixed = "left", s.innerHTML = `
-      <label class="flex">
-        <input type="checkbox"
-               class="table-checkbox shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
-               data-id="${p(t.id)}">
-        <span class="sr-only">Select</span>
-      </label>
-    `, r.appendChild(s), e.config.columns.forEach((c) => {
+  if (e.config.rowClassProvider && (n = n.concat(e.config.rowClassProvider(t))), r.className = n.join(" "), e.isCapabilityEnabled("selection")) {
+    const o = document.createElement("td");
+    o.className = "admin-datagrid__cell px-6 py-4 whitespace-nowrap", o.dataset.role = "selection", o.dataset.fixed = "left", o.innerHTML = `
+        <label class="flex">
+          <input type="checkbox"
+                 class="table-checkbox shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+                 data-id="${p(t.id)}">
+          <span class="sr-only">Select</span>
+        </label>
+      `, r.appendChild(o);
+  }
+  e.config.columns.forEach((o) => {
     const l = document.createElement("td");
-    l.className = "admin-datagrid__cell px-6 py-4 whitespace-nowrap text-sm text-gray-800", l.setAttribute("data-column", c.field);
-    const u = t[c.field], h = typeof c.renderer == "string" ? c.renderer.trim() : "", f = { options: e.resolveRendererOptions(c) };
-    if (c.render) l.innerHTML = c.render(u, t);
-    else if (e.cellRendererRegistry.has(c.field)) l.innerHTML = e.cellRendererRegistry.get(c.field)(u, t, c.field, f);
-    else if (h && e.cellRendererRegistry.has(h)) l.innerHTML = e.cellRendererRegistry.get(h)(u, t, c.field, f);
-    else if (u == null) l.textContent = "-";
-    else if (c.field.includes("_at")) {
-      const m = X(u);
-      l.textContent = m ? m.toLocaleDateString() : String(u);
-    } else l.textContent = String(u);
+    l.className = "admin-datagrid__cell px-6 py-4 whitespace-nowrap text-sm text-gray-800", l.setAttribute("data-column", o.field);
+    const c = t[o.field], u = typeof o.renderer == "string" ? o.renderer.trim() : "", h = { options: e.resolveRendererOptions(o) };
+    if (o.render) l.innerHTML = o.render(c, t);
+    else if (e.cellRendererRegistry.has(o.field)) l.innerHTML = e.cellRendererRegistry.get(o.field)(c, t, o.field, h);
+    else if (u && e.cellRendererRegistry.has(u)) l.innerHTML = e.cellRendererRegistry.get(u)(c, t, o.field, h);
+    else if (c == null) l.textContent = "-";
+    else if (o.field.includes("_at")) {
+      const f = X(c);
+      l.textContent = f ? f.toLocaleDateString() : String(c);
+    } else l.textContent = String(c);
     r.appendChild(l);
   });
-  const a = e.config.actionBasePath || e.config.apiEndpoint, i = document.createElement("td");
-  i.className = "admin-datagrid__cell admin-datagrid__actions px-6 py-4 whitespace-nowrap text-end text-sm font-medium", i.dataset.role = "actions", i.dataset.fixed = "right";
-  const o = (c) => {
-    i.innerHTML = e.actionRenderer.renderRowActions(t, c), e.actionRenderer.attachRowActionListeners(i, c, t, { onError: async (l, u) => {
+  const s = e.config.actionBasePath || e.config.apiEndpoint, a = document.createElement("td");
+  a.className = "admin-datagrid__cell admin-datagrid__actions px-6 py-4 whitespace-nowrap text-end text-sm font-medium", a.dataset.role = "actions", a.dataset.fixed = "right";
+  const i = (o) => {
+    a.innerHTML = e.actionRenderer.renderRowActions(t, o), e.actionRenderer.attachRowActionListeners(a, o, t, { onError: async (l, c) => {
       if (z(l)?.textCode && await e.refresh(), !T(l)) {
-        const h = l instanceof Error ? l.message : `Action "${u.label}" failed`;
-        e.notify(h, "error");
+        const u = l instanceof Error ? l.message : `Action "${c.label}" failed`;
+        e.notify(u, "error");
       }
     } });
   };
-  return e.config.rowActions ? o(e.config.rowActions(t)) : e.config.useDefaultActions !== !1 && o([
+  return e.config.rowActions ? i(e.config.rowActions(t)) : e.config.useDefaultActions !== !1 && i([
     {
       label: "View",
       icon: "eye",
       action: () => {
-        window.location.href = `${a}/${t.id}`;
+        window.location.href = `${s}/${t.id}`;
       },
       variant: "secondary"
     },
@@ -1888,7 +1896,7 @@ function Un(e, t) {
       label: "Edit",
       icon: "edit",
       action: () => {
-        window.location.href = `${a}/${t.id}/edit`;
+        window.location.href = `${s}/${t.id}/edit`;
       },
       variant: "primary"
     },
@@ -1900,14 +1908,14 @@ function Un(e, t) {
       },
       variant: "danger"
     }
-  ]), r.appendChild(i), r;
+  ]), r.appendChild(a), r;
 }
-function Hn(e, t) {
+function Kn(e, t) {
   return t.toLowerCase().replace(/[^a-z0-9]/g, "-");
 }
-async function Vn(e, t) {
+async function Jn(e, t) {
   try {
-    await ht({
+    await ft({
       endpoint: `${e.config.apiEndpoint}/${t}`,
       confirmMessage: "Are you sure you want to delete this item?",
       confirmTitle: "Confirm Delete",
@@ -1926,11 +1934,11 @@ async function Vn(e, t) {
     console.error("Error deleting item:", r), T(r) || e.showError(r instanceof Error ? r.message : "Failed to delete item");
   }
 }
-function Kn(e, t) {
-  const r = e.getResponseTotal(t) ?? e.state.totalRows, n = e.state.perPage * (e.state.currentPage - 1), s = r === 0 ? 0 : n + 1, a = Math.min(n + e.state.perPage, r), i = document.querySelector(e.selectors.tableInfoStart), o = document.querySelector(e.selectors.tableInfoEnd), c = document.querySelector(e.selectors.tableInfoTotal);
-  i && (i.textContent = String(s)), o && (o.textContent = String(a)), c && (c.textContent = String(r)), e.renderPaginationButtons(r);
+function Qn(e, t) {
+  const r = e.getResponseTotal(t) ?? e.state.totalRows, n = e.state.perPage * (e.state.currentPage - 1), s = r === 0 ? 0 : n + 1, a = Math.min(n + e.state.perPage, r), i = document.querySelector(e.selectors.tableInfoStart), o = document.querySelector(e.selectors.tableInfoEnd), l = document.querySelector(e.selectors.tableInfoTotal);
+  i && (i.textContent = String(s)), o && (o.textContent = String(a)), l && (l.textContent = String(r)), e.renderPaginationButtons(r);
 }
-function Jn(e, t) {
+function Yn(e, t) {
   const r = document.querySelector(e.selectors.paginationContainer);
   if (!r) return;
   const n = Math.ceil(t / e.state.perPage);
@@ -1951,16 +1959,16 @@ function Jn(e, t) {
       </button>
     `);
   const i = 5;
-  let o = Math.max(1, a - Math.floor(i / 2)), c = Math.min(n, o + i - 1);
-  c - o < 4 && (o = Math.max(1, c - i + 1));
-  for (let l = o; l <= c; l++) {
-    const u = l === a;
+  let o = Math.max(1, a - Math.floor(i / 2)), l = Math.min(n, o + i - 1);
+  l - o < 4 && (o = Math.max(1, l - i + 1));
+  for (let c = o; c <= l; c++) {
+    const u = c === a;
     s.push(`
         <button type="button"
-                data-page="${l}"
+                data-page="${c}"
                 ${u ? 'aria-current="page"' : ""}
                 class="min-h-[38px] min-w-[38px] flex justify-center items-center ${u ? "bg-gray-200 text-gray-800 focus:outline-none focus:bg-gray-300" : "text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100"} admin-datagrid__page-button py-2 px-3 text-sm rounded-lg">
-          ${l}
+          ${c}
         </button>
       `);
   }
@@ -1974,14 +1982,14 @@ function Jn(e, t) {
           <path d="m9 18 6-6-6-6"></path>
         </svg>
       </button>
-    `), r.innerHTML = s.join(""), r.querySelectorAll("[data-page]").forEach((l) => {
-    l.addEventListener("click", async () => {
-      const u = parseInt(l.dataset.page || "1", 10);
+    `), r.innerHTML = s.join(""), r.querySelectorAll("[data-page]").forEach((c) => {
+    c.addEventListener("click", async () => {
+      const u = parseInt(c.dataset.page || "1", 10);
       u >= 1 && u <= n && (e.state.currentPage = u, e.pushStateToURL(), e.config.behaviors?.pagination ? await e.config.behaviors.pagination.onPageChange(u, e) : await e.refresh());
     });
   });
 }
-var Qn = class {
+var Wn = class {
   constructor(e) {
     this.sortable = null, this.searchInput = null, this.columnListEl = null, this.countBadgeEl = null, this.container = e.container, this.grid = e.grid, this.onReorder = e.onReorder, this.onToggle = e.onToggle, this.onReset = e.onReset, this.initialize();
   }
@@ -2016,8 +2024,8 @@ var Qn = class {
     o.type = "text", o.className = "column-search-input", o.placeholder = "Filter columns...", o.setAttribute("aria-label", "Filter columns"), this.searchInput = o, o.addEventListener("input", () => {
       this.filterColumns(o.value);
     }), n.appendChild(s), n.appendChild(o);
-    const c = document.createElement("span");
-    return c.className = "column-count-badge", c.textContent = `${t} of ${e}`, c.setAttribute("aria-live", "polite"), this.countBadgeEl = c, r.appendChild(n), r.appendChild(c), r;
+    const l = document.createElement("span");
+    return l.className = "column-count-badge", l.textContent = `${t} of ${e}`, l.setAttribute("aria-live", "polite"), this.countBadgeEl = l, r.appendChild(n), r.appendChild(l), r;
   }
   filterColumns(e) {
     const t = e.toLowerCase().trim();
@@ -2079,20 +2087,20 @@ var Qn = class {
       const b = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       b.setAttribute("cx", String(m)), b.setAttribute("cy", String(y)), b.setAttribute("r", "1.5"), o.appendChild(b);
     });
-    const c = document.createElement("span");
-    c.className = "column-label", c.id = `${n}-label`, c.textContent = t, i.appendChild(o), i.appendChild(c);
-    const l = document.createElement("label");
-    l.className = "column-switch", l.htmlFor = s;
+    const l = document.createElement("span");
+    l.className = "column-label", l.id = `${n}-label`, l.textContent = t, i.appendChild(o), i.appendChild(l);
+    const c = document.createElement("label");
+    c.className = "column-switch", c.htmlFor = s;
     const u = document.createElement("input");
     u.type = "checkbox", u.id = s, u.dataset.column = e, u.checked = r, u.setAttribute("role", "switch"), u.setAttribute("aria-checked", String(r)), u.setAttribute("aria-labelledby", `${n}-label`), u.setAttribute("aria-describedby", `${n}-desc`);
     const h = document.createElement("span");
     h.id = `${n}-desc`, h.className = "sr-only", h.textContent = `Press Space or Enter to toggle ${t} column visibility. Currently ${r ? "visible" : "hidden"}.`;
     const f = document.createElement("span");
-    return f.className = "column-switch-slider", f.setAttribute("aria-hidden", "true"), l.appendChild(u), l.appendChild(f), a.appendChild(i), a.appendChild(l), a.appendChild(h), a;
+    return f.className = "column-switch-slider", f.setAttribute("aria-hidden", "true"), c.appendChild(u), c.appendChild(f), a.appendChild(i), a.appendChild(c), a.appendChild(h), a;
   }
   setupDragAndDrop() {
     const e = this.container.querySelector(".column-list") || this.container;
-    this.sortable = hr.create(e, {
+    this.sortable = pr.create(e, {
       animation: 150,
       handle: ".drag-handle",
       ghostClass: "column-item-ghost",
@@ -2140,16 +2148,16 @@ var Qn = class {
     this.sortable && (this.sortable.destroy(), this.sortable = null);
   }
 };
-function Yn(e, t, r, n, s) {
+function Xn(e, t, r, n, s) {
   const a = (i) => {
     const o = i.target;
     if (!o) return;
-    const c = o.closest(r);
-    !c || !(c instanceof HTMLElement) || n(i, c);
+    const l = o.closest(r);
+    !l || !(l instanceof HTMLElement) || n(i, l);
   };
   return e.addEventListener(t, a, s), () => e.removeEventListener(t, a, s);
 }
-function Wn(e) {
+function Zn(e) {
   const t = e.tableEl;
   if (!t || !t.classList || typeof t.closest != "function") return;
   t.classList.add("admin-datagrid__table"), (t.closest("[data-datagrid-surface]") || t).classList.add("admin-datagrid");
@@ -2175,7 +2183,7 @@ function Wn(e) {
   }
   document.querySelector(e.selectors.perPageSelect)?.parentElement?.classList.add("admin-datagrid__pagination-text");
 }
-function Xn(e) {
+function es(e) {
   const t = document.querySelector(e.selectors.searchInput);
   if (!t) {
     console.warn(`[DataGrid] Search input not found: ${e.selectors.searchInput}`);
@@ -2193,34 +2201,34 @@ function Xn(e) {
     t.value = "", t.focus(), n(), e.state.search = "", e.pushStateToURL(), e.config.behaviors?.search ? await e.config.behaviors.search.onSearch("", e) : (e.resetPagination(), await e.refresh());
   }), n();
 }
-function Zn(e) {
+function ts(e) {
   const t = document.querySelector(e.selectors.perPageSelect);
   t && t.addEventListener("change", async () => {
     e.state.perPage = parseInt(t.value, 10), e.resetPagination(), e.pushStateToURL(), await e.refresh();
   });
 }
-function es(e) {
+function rs(e) {
   document.querySelectorAll(e.selectors.filterRow).forEach((t) => {
     const r = async () => {
       const n = t.dataset.filterColumn, s = t instanceof HTMLInputElement ? t.type.toLowerCase() : "", a = t instanceof HTMLSelectElement ? "eq" : s === "" || s === "text" || s === "search" || s === "email" || s === "tel" || s === "url" ? "ilike" : "eq", i = t.dataset.filterOperator || a, o = t.value;
       if (!n) return;
-      const c = e.state.filters.findIndex((l) => l.column === n);
+      const l = e.state.filters.findIndex((c) => c.column === n);
       if (o) {
-        const l = {
+        const c = {
           column: n,
           operator: i,
           value: o
         };
-        c >= 0 ? e.state.filters[c] = l : e.state.filters.push(l);
-      } else c >= 0 && e.state.filters.splice(c, 1);
+        l >= 0 ? e.state.filters[l] = c : e.state.filters.push(c);
+      } else l >= 0 && e.state.filters.splice(l, 1);
       e.pushStateToURL(), e.config.behaviors?.filter ? await e.config.behaviors.filter.onFilterChange(n, o, e) : (e.resetPagination(), await e.refresh());
     };
     t.addEventListener("input", r), t.addEventListener("change", r);
   });
 }
-function ts(e) {
+function ns(e) {
   const t = document.querySelector(e.selectors.columnToggleBtn), r = document.querySelector(e.selectors.columnToggleMenu);
-  !t || !r || (e.columnManager = new Qn({
+  !t || !r || (e.columnManager = new Wn({
     container: r,
     grid: e,
     onToggle: (n, s) => {
@@ -2231,7 +2239,8 @@ function ts(e) {
     }
   }));
 }
-function rs(e) {
+function ss(e) {
+  if (!e.isCapabilityEnabled("export")) return;
   const t = document.querySelector(e.selectors.exportMenu);
   if (!t) return;
   const r = t.querySelectorAll("[data-export-format]");
@@ -2244,28 +2253,28 @@ function rs(e) {
       const o = (u) => {
         const h = u.querySelector(".export-icon"), f = u.querySelector(".export-spinner");
         h && h.classList.add("hidden"), f && f.classList.remove("hidden");
-      }, c = (u) => {
+      }, l = (u) => {
         const h = u.querySelector(".export-icon"), f = u.querySelector(".export-spinner");
         h && h.classList.remove("hidden"), f && f.classList.add("hidden");
       };
       i.forEach((u) => {
         u.setAttribute("data-export-loading", "true"), u.disabled = !0, o(u);
       });
-      const l = a === "none";
-      l && (n.setAttribute("data-export-loading", "true"), o(n));
+      const c = a === "none";
+      c && (n.setAttribute("data-export-loading", "true"), o(n));
       try {
         await e.config.behaviors.export.export(s, e);
       } catch (u) {
         console.error("[DataGrid] Export failed:", u);
       } finally {
         i.forEach((u) => {
-          u.removeAttribute("data-export-loading"), u.disabled = !1, c(u);
-        }), l && (n.removeAttribute("data-export-loading"), c(n));
+          u.removeAttribute("data-export-loading"), u.disabled = !1, l(u);
+        }), c && (n.removeAttribute("data-export-loading"), l(n));
       }
     });
   });
 }
-function ns(e) {
+function as(e) {
   e.tableEl && (e.tableEl.querySelectorAll("[data-sort-column]").forEach((t) => {
     t.addEventListener("click", async (r) => {
       r.preventDefault(), r.stopPropagation();
@@ -2292,7 +2301,7 @@ function ns(e) {
     });
   }));
 }
-function ss(e) {
+function is(e) {
   e.tableEl && (e.tableEl.querySelectorAll("[data-sort-column]").forEach((t) => {
     const r = t.dataset.sortColumn;
     if (!r) return;
@@ -2303,13 +2312,17 @@ function ss(e) {
     s && (s.textContent = n ? n.direction === "asc" ? "↑" : "↓" : "");
   }));
 }
-function as(e) {
+function os(e) {
+  if (!e.isCapabilityEnabled("selection")) {
+    e.selectionAbortController?.abort(), e.selectionAbortController = null, e.state.selectedRows.clear();
+    return;
+  }
   if (!e.tableEl) return;
   e.selectionAbortController && e.selectionAbortController.abort(), e.selectionAbortController = new AbortController();
   const { signal: t } = e.selectionAbortController, r = e.tableEl.querySelector(e.selectors.selectAllCheckbox);
   r && r.addEventListener("change", () => {
     e.tableEl.querySelectorAll(e.selectors.rowCheckboxes).forEach((n) => {
-      n.checked = r.checked, pe(n);
+      n.checked = r.checked, me(n);
       const s = n.dataset.id;
       s && (r.checked ? e.state.selectedRows.add(s) : e.state.selectedRows.delete(s));
     }), e.updateBulkActionsBar();
@@ -2317,30 +2330,30 @@ function as(e) {
     const s = n.target;
     if (!s || s === r || typeof s.matches != "function" || !s.matches(e.selectors.rowCheckboxes)) return;
     const a = s.dataset.id;
-    a && (s.checked ? e.state.selectedRows.add(a) : e.state.selectedRows.delete(a)), pe(s), e.updateBulkActionsBar();
+    a && (s.checked ? e.state.selectedRows.add(a) : e.state.selectedRows.delete(a)), me(s), e.updateBulkActionsBar();
   }, { signal: t }), e.updateSelectionBindings();
 }
-function is(e) {
-  (e.tableEl?.querySelectorAll(e.selectors.rowCheckboxes) || []).forEach((t) => {
+function ls(e) {
+  e.isCapabilityEnabled("selection") && (e.tableEl?.querySelectorAll(e.selectors.rowCheckboxes) || []).forEach((t) => {
     const r = t.dataset.id;
-    r && (t.checked = e.state.selectedRows.has(r)), pe(t);
+    r && (t.checked = e.state.selectedRows.has(r)), me(t);
   });
 }
-function pe(e) {
+function me(e) {
   const t = e.closest("tr");
   t && (t.dataset.selected = String(e.checked), t.setAttribute("aria-selected", String(e.checked)));
 }
-function Fe(e) {
+function qe(e) {
   return Array.from(new Set(e.filter(Boolean)));
 }
-function me(e, t) {
+function ge(e, t) {
   for (const r of t) {
     const n = e.querySelector(r);
     if (n) return n;
   }
   return null;
 }
-function os(e) {
+function cs(e) {
   const t = e?.selectors?.bulkActionsBar;
   if (!t) return null;
   try {
@@ -2350,8 +2363,8 @@ function os(e) {
   }
 }
 function q(e) {
-  const t = os(e);
-  return t && e?.selectors?.bulkActionsBar !== "#bulk-actions-bar" ? t : me(document, [
+  const t = cs(e);
+  return t && e?.selectors?.bulkActionsBar !== "#bulk-actions-bar" ? t : ge(document, [
     "[data-bulk-action-overlay]",
     "#bulk-actions-overlay",
     '[data-bulk-action-bar="true"]'
@@ -2361,30 +2374,30 @@ function Ae(e) {
   const t = q(e);
   return Array.from(t ? t.querySelectorAll("[data-bulk-action]") : document.querySelectorAll("[data-bulk-action]"));
 }
-function ls(e) {
+function ds(e) {
   const t = q(e), r = [
     "[data-bulk-selection-count]",
     "#selected-count",
     e?.selectors?.selectedCount
   ].filter(Boolean);
-  return (t ? me(t, r) : null) || me(document, r);
+  return (t ? ge(t, r) : null) || ge(document, r);
 }
-function cs(e) {
+function us(e) {
   const t = q(e), r = [
     "[data-bulk-clear]",
     "#bulk-clear-selection",
     "#clear-selection-btn"
   ], n = r.flatMap((s) => Array.from((t || document).querySelectorAll(s)));
-  return n.length ? Fe(n) : Fe(r.flatMap((s) => Array.from(document.querySelectorAll(s))));
+  return n.length ? qe(n) : qe(r.flatMap((s) => Array.from(document.querySelectorAll(s))));
 }
-function mt(e) {
-  cs(e).forEach((t) => {
+function bt(e) {
+  us(e).forEach((t) => {
     t.dataset.bulkClearBound !== "true" && (t.dataset.bulkClearBound = "true", t.addEventListener("click", () => {
       e.clearSelection();
     }));
   });
 }
-function ds(e, t) {
+function hs(e, t) {
   if (e.hasAttribute("data-selection-count") && (e.dataset.selectionCount = String(t)), t > 0) {
     e.classList.remove("hidden", "pointer-events-none", "translate-y-full", "-translate-y-full"), e.classList.add("translate-y-0"), e.removeAttribute("aria-hidden");
     return;
@@ -2396,13 +2409,13 @@ function ds(e, t) {
   }
   e.classList.add("hidden");
 }
-function us(e) {
+function fs(e) {
   if (!e) return null;
   let t = e.querySelector("[data-bulk-action-state-reasons]");
   return t || (t = document.createElement("div"), t.dataset.bulkActionStateReasons = "true", t.className = "hidden mt-3 text-sm text-gray-700", e.appendChild(t), t);
 }
-function gt(e, t) {
-  const r = us(q(t));
+function yt(e, t) {
+  const r = fs(q(t));
   if (r) {
     if (!e.length) {
       r.classList.add("hidden"), r.innerHTML = "";
@@ -2415,7 +2428,7 @@ function gt(e, t) {
   `).join("");
   }
 }
-function hs(e, t, r) {
+function ps(e, t, r) {
   const n = t?.enabled === !1, s = typeof t?.reason == "string" ? t.reason.trim() : "";
   return e.dataset.disabled = n ? "true" : "false", e.setAttribute("aria-disabled", n ? "true" : "false"), e.dataset.bulkState = n ? "disabled" : "enabled", e.classList.toggle("opacity-50", n), e.classList.toggle("cursor-not-allowed", n), n && s ? (e.setAttribute("title", s), {
     actionId: e.dataset.bulkAction || "",
@@ -2423,7 +2436,7 @@ function hs(e, t, r) {
     reason: s
   }) : (e.removeAttribute("title"), null);
 }
-function fs(e) {
+function ms(e) {
   const t = Ae(e), r = "Checking selected records...", n = [];
   t.forEach((s) => {
     s.dataset.disabled = "true", s.dataset.bulkState = "loading", s.setAttribute("aria-disabled", "true"), s.setAttribute("title", r), s.classList.add("opacity-50", "cursor-not-allowed"), n.push({
@@ -2431,27 +2444,27 @@ function fs(e) {
       label: s.textContent?.trim() || s.dataset.bulkAction || "Action",
       reason: r
     });
-  }), gt(n, e);
+  }), yt(n, e);
 }
-function bt(e) {
-  return et(e.bulkActionStateConfig);
+function vt(e) {
+  return tt(e.bulkActionStateConfig);
 }
-function ps(e, t, r) {
-  e.bulkActionState = tt(t), e.bulkActionStateConfig = et(r), e.applyBulkActionState(e.bulkActionState);
+function gs(e, t, r) {
+  e.bulkActionState = rt(t), e.bulkActionStateConfig = tt(r), e.applyBulkActionState(e.bulkActionState);
 }
-function ms(e, t) {
-  const r = tt(t);
+function bs(e, t) {
+  const r = rt(t);
   e.bulkActionState = r;
   const n = [];
   Ae(e).forEach((s) => {
     const a = s.dataset.bulkAction;
     if (!a) return;
-    const i = hs(s, r[a] || null, s.textContent?.trim() || a);
+    const i = ps(s, r[a] || null, s.textContent?.trim() || a);
     i && n.push(i);
-  }), gt(n, e);
+  }), yt(n, e);
 }
-async function gs(e) {
-  const t = bt(e), r = typeof t?.selection_state_endpoint == "string" ? t.selection_state_endpoint.trim() : "";
+async function ys(e) {
+  const t = vt(e), r = typeof t?.selection_state_endpoint == "string" ? t.selection_state_endpoint.trim() : "";
   if (!r) {
     e.applyBulkActionState(e.bulkActionState);
     return;
@@ -2470,31 +2483,33 @@ async function gs(e) {
       json: { ids: n }
     });
     if (!o.ok) throw new Error(`Bulk action state request failed: ${o.status}`);
-    const c = sr(await o.json());
-    if (!c || s !== e.bulkActionStateRequestSeq) return;
+    const l = ir(await o.json());
+    if (!l || s !== e.bulkActionStateRequestSeq) return;
     e.applyBulkActionState({
       ...e.bulkActionState,
-      ...c.bulk_action_state
+      ...l.bulk_action_state
     });
   } catch (o) {
     if (o instanceof Error && o.name === "AbortError") return;
     console.warn("[DataGrid] Failed to refresh selection-sensitive bulk action state:", o), s === e.bulkActionStateRequestSeq && e.applyBulkActionState(e.bulkActionState);
   }
 }
-function bs(e) {
+function vs(e) {
+  if (!e.isCapabilityEnabled("bulk")) return;
   e.bulkActionStateDebounce && (clearTimeout(e.bulkActionStateDebounce), e.bulkActionStateDebounce = null);
-  const t = bt(e), r = e.state.selectedRows.size;
+  const t = vt(e), r = e.state.selectedRows.size;
   if (!t?.selection_sensitive || !t.selection_state_endpoint || r === 0) {
     e.bulkActionStateAbortController && (e.bulkActionStateAbortController.abort(), e.bulkActionStateAbortController = null), e.applyBulkActionState(e.bulkActionState);
     return;
   }
-  fs(e);
+  ms(e);
   const n = typeof t.debounce_ms == "number" ? t.debounce_ms : 150;
   e.bulkActionStateDebounce = window.setTimeout(() => {
-    e.bulkActionStateDebounce = null, gs(e);
+    e.bulkActionStateDebounce = null, ys(e);
   }, n);
 }
-function ys(e) {
+function ws(e) {
+  if (!e.isCapabilityEnabled("bulk")) return;
   const t = q(e)?.dataset?.bulkBase || "";
   Ae(e).forEach((r) => {
     r.addEventListener("click", async () => {
@@ -2517,13 +2532,13 @@ function ys(e) {
         }
       }
       if (t) {
-        const i = `${t}/${s}`, o = n.dataset.bulkConfirm, c = e.parseDatasetStringArray(n.dataset.bulkPayloadRequired), l = e.parseDatasetObject(n.dataset.bulkPayloadSchema), u = {
+        const i = `${t}/${s}`, o = n.dataset.bulkConfirm, l = e.parseDatasetStringArray(n.dataset.bulkPayloadRequired), c = e.parseDatasetObject(n.dataset.bulkPayloadSchema), u = {
           id: s,
           label: n.textContent?.trim() || s,
           endpoint: i,
           confirm: o,
-          payloadRequired: c,
-          payloadSchema: l
+          payloadRequired: l,
+          payloadSchema: c
         };
         try {
           await e.actionRenderer.executeBulkAction(u, a), e.clearSelection(), await e.refresh();
@@ -2538,9 +2553,9 @@ function ys(e) {
         console.error("Bulk action failed:", i), z(i)?.textCode && await e.refresh(), T(i) || e.showError(i instanceof Error ? i.message : "Bulk action failed");
       }
     });
-  }), mt(e), e.bindOverflowMenu();
+  }), bt(e), e.bindOverflowMenu();
 }
-function vs(e) {
+function xs(e) {
   const t = document.getElementById("bulk-more-btn"), r = document.getElementById("bulk-overflow-menu");
   !t || !r || (t.addEventListener("click", (n) => {
     n.stopPropagation(), r.classList.toggle("hidden");
@@ -2552,25 +2567,27 @@ function vs(e) {
     n.stopPropagation();
   }));
 }
-function ws(e) {
-  const t = q(e), r = ls(e), n = e.state.selectedRows.size;
-  !t || !r || (r.textContent = String(n), ds(t, n), n > 0 && t.offsetHeight, e.syncBulkActionState());
-}
-function xs(e) {
-  mt(e);
-}
 function Ss(e) {
+  if (!e.isCapabilityEnabled("bulk")) return;
+  const t = q(e), r = ds(e), n = e.state.selectedRows.size;
+  !t || !r || (r.textContent = String(n), hs(t, n), n > 0 && t.offsetHeight, e.syncBulkActionState());
+}
+function Cs(e) {
+  e.isCapabilityEnabled("bulk") && bt(e);
+}
+function $s(e) {
+  if (!e.isCapabilityEnabled("selection")) return;
   console.log("[DataGrid] Clearing selection..."), e.state.selectedRows.clear();
   const t = e.tableEl?.querySelector(e.selectors.selectAllCheckbox);
   t && (t.checked = !1), e.updateBulkActionsBar(), e.updateSelectionBindings();
 }
-function Cs(e, t, r) {
-  Ht({
+function Es(e, t, r) {
+  Kt({
     trigger: t,
     menu: r
   });
 }
-function $s(e) {
+function ks(e) {
   e.actionMenuController && (e.actionMenuController.destroy(), e.actionMenuController = null), e.dropdownAbortController && e.dropdownAbortController.abort(), e.dropdownAbortController = new AbortController();
   const { signal: t } = e.dropdownAbortController;
   document.querySelectorAll("[data-dropdown-toggle]").forEach((s) => {
@@ -2583,19 +2600,18 @@ function $s(e) {
       i && i.classList.add("hidden");
     });
   };
-  Yn(document, "click", "[data-dropdown-toggle]", (s, a) => {
-    s.stopPropagation();
+  Xn(document, "click", "[data-dropdown-toggle]", (s, a) => {
     const i = a.dataset.dropdownToggle, o = document.getElementById(i || "");
-    o && (document.querySelectorAll("[data-dropdown-toggle]").forEach((c) => {
-      const l = c.dataset.dropdownToggle, u = document.getElementById(l || "");
+    !e.isCapabilityEnabled("export") && (a.matches(e.selectors.exportBtn) || o?.matches(e.selectors.exportMenu)) || (s.stopPropagation(), o && (document.querySelectorAll("[data-dropdown-toggle]").forEach((l) => {
+      const c = l.dataset.dropdownToggle, u = document.getElementById(c || "");
       u && u !== o && u.classList.add("hidden");
-    }), o.classList.toggle("hidden"));
+    }), o.classList.toggle("hidden")));
   }, { signal: t }), document.addEventListener("click", (s) => {
     const a = s.target;
     a && typeof a.closest == "function" && a.closest("[data-dropdown-toggle], #column-toggle-menu, #export-menu") || r();
   }, { signal: t });
   const n = e.tableEl ?? document;
-  e.actionMenuController = Vt(n, {
+  e.actionMenuController = Jt(n, {
     containerSelector: "[data-dropdown], .actions-dropdown",
     triggerSelector: "[data-dropdown-trigger], .actions-menu-trigger",
     menuSelector: ".actions-menu",
@@ -2610,22 +2626,22 @@ function $s(e) {
     s.key === "Escape" && r();
   }, { signal: t });
 }
-function Es(e, t) {
+function As(e, t) {
   console.error(t), e.notifier.error(t);
 }
-function As(e, t, r) {
+function Ls(e, t, r) {
   e.notifier.show({
     message: t,
     type: r
   });
 }
-async function ks(e, t) {
+async function _s(e, t) {
   return e.notifier.confirm(t);
 }
-async function Ls(e, t) {
-  return t instanceof Response ? zt(t) : t instanceof Error ? t.message : "An unexpected error occurred";
+async function Rs(e, t) {
+  return t instanceof Response ? Gt(t) : t instanceof Error ? t.message : "An unexpected error occurred";
 }
-function _s(e, t) {
+function Ds(e, t) {
   if (t)
     try {
       const r = JSON.parse(t);
@@ -2637,7 +2653,7 @@ function _s(e, t) {
       return;
     }
 }
-function Rs(e, t) {
+function Ts(e, t) {
   if (t)
     try {
       const r = JSON.parse(t);
@@ -2647,23 +2663,23 @@ function Rs(e, t) {
       return;
     }
 }
-function Ds(e, t) {
+function Ps(e, t) {
   if (!e.tableEl) return;
   const r = e.mergeColumnOrder(t);
   e.state.columnOrder = r;
   const n = new Map(e.config.columns.map((s) => [s.field, s]));
   e.config.columns = r.map((s) => n.get(s)).filter((s) => s !== void 0), e.reorderTableColumns(r), e.persistStateSnapshot(), console.log("[DataGrid] Columns reordered:", r);
 }
-function Ts(e) {
+function Ms(e) {
   e.config.behaviors?.columnVisibility?.clearSavedPrefs?.(), e.config.columns = e.defaultColumns.map((r) => ({ ...r })), e.state.columnOrder = e.config.columns.map((r) => r.field);
   const t = e.config.columns.filter((r) => !r.hidden).map((r) => r.field);
   e.tableEl ? (e.reorderTableColumns(e.state.columnOrder), e.updateColumnVisibility(t)) : (e.state.hiddenColumns = new Set(e.config.columns.filter((r) => r.hidden).map((r) => r.field)), e.persistStateSnapshot()), e.columnManager && (e.columnManager.refresh(), e.columnManager.syncWithGridState()), console.log("[DataGrid] Columns reset to default");
 }
-function Ps(e, t) {
+function Is(e, t) {
   const r = new Set(e.config.columns.map((i) => i.field)), n = new Set(t), s = t.filter((i) => r.has(i)), a = e.config.columns.map((i) => i.field).filter((i) => !n.has(i));
   return [...s, ...a];
 }
-function Ms(e, t) {
+function Bs(e, t) {
   if (!e.tableEl) return;
   const r = e.tableEl.querySelector("thead tr:first-child");
   r && e.reorderRowCells(r, t, "th");
@@ -2672,22 +2688,37 @@ function Ms(e, t) {
     e.reorderRowCells(s, t, "td");
   });
 }
-function Is(e, t, r, n) {
-  const s = Array.from(t.querySelectorAll(`${n}[data-column]`)), a = new Map(s.map((u) => [u.dataset.column, u])), i = Array.from(t.querySelectorAll(n)), o = t.querySelector(`${n}[data-role="selection"]`) || i.find((u) => u.querySelector('input[type="checkbox"]')), c = t.querySelector(`${n}[data-role="actions"]`) || i.find((u) => !u.dataset.column && (u.querySelector("[data-action]") || u.querySelector("[data-action-id]") || u.querySelector(".dropdown"))), l = [];
-  o && l.push(o), r.forEach((u) => {
+function Fs(e, t, r, n) {
+  const s = Array.from(t.querySelectorAll(`${n}[data-column]`)), a = new Map(s.map((u) => [u.dataset.column, u])), i = Array.from(t.querySelectorAll(n)), o = t.querySelector(`${n}[data-role="selection"]`) || i.find((u) => u.querySelector('input[type="checkbox"]')), l = t.querySelector(`${n}[data-role="actions"]`) || i.find((u) => !u.dataset.column && (u.querySelector("[data-action]") || u.querySelector("[data-action-id]") || u.querySelector(".dropdown"))), c = [];
+  o && c.push(o), r.forEach((u) => {
     const h = a.get(u);
-    h && l.push(h);
-  }), c && l.push(c), l.forEach((u) => {
+    h && c.push(h);
+  }), l && c.push(l), c.forEach((u) => {
     t.appendChild(u);
   });
 }
-var S, yt = class {
+var S;
+function qs(e) {
+  if (!e) return {
+    selection: !0,
+    bulk: !0,
+    export: !0
+  };
+  const t = e.bulk !== !1, r = e.export !== !1;
+  return {
+    selection: t || r,
+    bulk: t,
+    export: r
+  };
+}
+var wt = class {
   constructor(e) {
     this.tableEl = null, this.searchTimeout = null, this.abortController = null, this.dropdownAbortController = null, this.actionMenuController = null, this.selectionAbortController = null, this.didRestoreColumnOrder = !1, this.shouldReorderDOMOnRestore = !1, this.recordsById = {}, this.columnManager = null, this.lastSchema = null, this.lastForm = null, this.bulkActionState = {}, this.bulkActionStateConfig = null, this.bulkActionStateDebounce = null, this.bulkActionStateAbortController = null, this.bulkActionStateRequestSeq = 0, this.refreshDrainPromise = null, this.refreshInFlight = null, this.refreshQueued = !1, this.refreshRequestSeq = 0, this.activeRefreshSeq = 0, this.hasURLStateOverrides = !1, this.hasPersistedHiddenColumnState = !1, this.hasPersistedColumnOrderState = !1, this.config = {
       perPage: 10,
       searchDelay: 300,
       behaviors: {},
-      ...e
+      ...e,
+      capabilities: qs(e.capabilities)
     }, this.notifier = e.notifier || new B(), this.selectors = {
       table: `#${e.tableId}`,
       searchInput: "#table-search",
@@ -2708,15 +2739,15 @@ var S, yt = class {
       ...e.selectors
     };
     const t = this.config.panelId || this.config.tableId;
-    this.stateStore = this.config.stateStore || Kr({
+    this.stateStore = this.config.stateStore || Qr({
       key: t,
       ...this.config.stateStoreConfig || {}
     });
     const r = this.stateStore.loadPersistedState(), n = new Set(this.config.columns.map((v) => v.field)), s = new Set(this.config.columns.filter((v) => v.hidden).map((v) => v.field)), a = !!r && Array.isArray(r.hiddenColumns);
     this.hasPersistedHiddenColumnState = a;
-    const i = new Set((r?.hiddenColumns || []).filter((v) => n.has(v))), o = this.config.columns.map((v) => v.field), c = !!r && Array.isArray(r.columnOrder) && r.columnOrder.length > 0;
-    this.hasPersistedColumnOrderState = c;
-    const l = (r?.columnOrder || []).filter((v) => n.has(v)), u = c ? [...l, ...o.filter((v) => !l.includes(v))] : o, h = this.config.enableGroupedMode ? rr(t) : !1, f = this.config.enableGroupedMode ? ar(t) : null, m = this.config.enableGroupedMode ? dr(t) : "explicit", y = this.config.enableGroupedMode ? er(t) : /* @__PURE__ */ new Set(), b = xe(r?.expandMode, m), g = new Set((r?.expandedGroups || Array.from(y)).map((v) => String(v).trim()).filter(Boolean)), w = this.config.enableGroupedMode ? r?.expandMode !== void 0 || g.size > 0 || h : !1, C = (this.config.enableGroupedMode ? r?.viewMode || f : null) || this.config.defaultViewMode || "flat";
+    const i = new Set((r?.hiddenColumns || []).filter((v) => n.has(v))), o = this.config.columns.map((v) => v.field), l = !!r && Array.isArray(r.columnOrder) && r.columnOrder.length > 0;
+    this.hasPersistedColumnOrderState = l;
+    const c = (r?.columnOrder || []).filter((v) => n.has(v)), u = l ? [...c, ...o.filter((v) => !c.includes(v))] : o, h = this.config.enableGroupedMode ? sr(t) : !1, f = this.config.enableGroupedMode ? or(t) : null, m = this.config.enableGroupedMode ? hr(t) : "explicit", y = this.config.enableGroupedMode ? rr(t) : /* @__PURE__ */ new Set(), b = Se(r?.expandMode, m), g = new Set((r?.expandedGroups || Array.from(y)).map((v) => String(v).trim()).filter(Boolean)), w = this.config.enableGroupedMode ? r?.expandMode !== void 0 || g.size > 0 || h : !1, C = (this.config.enableGroupedMode ? r?.viewMode || f : null) || this.config.defaultViewMode || "flat";
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -2732,12 +2763,12 @@ var S, yt = class {
       groupedData: null,
       expandedGroups: g,
       hasPersistedExpandState: w
-    }, this.actionRenderer = new gr({
+    }, this.actionRenderer = new yr({
       mode: this.config.actionRenderMode || "dropdown",
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
       notifier: this.notifier,
       domIdPrefix: this.config.tableId
-    }), this.cellRendererRegistry = new Fr(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([v, O]) => {
+    }), this.cellRendererRegistry = new Or(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([v, O]) => {
       this.cellRendererRegistry.register(v, O);
     }), this.defaultColumns = this.config.columns.map((v) => ({ ...v }));
   }
@@ -2746,7 +2777,10 @@ var S, yt = class {
       console.error(`[DataGrid] Table element not found: ${this.selectors.table}`);
       return;
     }
-    console.log("[DataGrid] Table element found:", this.tableEl), Wn(this), this.restoreStateFromURL(), this.bindSearchInput(), this.bindPerPageSelect(), this.bindFilterInputs(), this.bindColumnVisibility(), this.bindExportButtons(), this.bindSorting(), this.bindSelection(), this.bindBulkActions(), this.bindBulkClearButton(), this.bindDropdownToggles(), this.refreshAfterStateHydration();
+    console.log("[DataGrid] Table element found:", this.tableEl), Zn(this), this.restoreStateFromURL(), this.bindSearchInput(), this.bindPerPageSelect(), this.bindFilterInputs(), this.bindColumnVisibility(), this.bindExportButtons(), this.bindSorting(), this.bindSelection(), this.bindBulkActions(), this.bindBulkClearButton(), this.bindDropdownToggles(), this.refreshAfterStateHydration();
+  }
+  isCapabilityEnabled(e) {
+    return this.config.capabilities?.[e] !== !1;
   }
   async refreshAfterStateHydration() {
     if (typeof this.stateStore.hydrate == "function") try {
@@ -2759,34 +2793,34 @@ var S, yt = class {
     await this.refresh();
   }
   getURLStateConfig() {
-    return Yr(this);
+    return Xr(this);
   }
   parseJSONArray(e, t) {
-    return Wr(this, e, t);
+    return Zr(this, e, t);
   }
   applyPersistedStateSnapshot(e, t = {}) {
-    en(this, e, t);
+    rn(this, e, t);
   }
   applyShareStateSnapshot(e) {
-    tn(this, e);
+    nn(this, e);
   }
   buildPersistedStateSnapshot() {
-    return rn(this);
+    return sn(this);
   }
   buildShareStateSnapshot() {
-    return nn(this);
+    return an(this);
   }
   persistStateSnapshot() {
-    sn(this);
-  }
-  restoreStateFromURL() {
-    an(this);
-  }
-  applyRestoredState() {
     on(this);
   }
+  restoreStateFromURL() {
+    ln(this);
+  }
+  applyRestoredState() {
+    cn(this);
+  }
   pushStateToURL(e = {}) {
-    ln(this, e);
+    dn(this, e);
   }
   syncURL() {
     this.pushStateToURL();
@@ -2806,218 +2840,218 @@ var S, yt = class {
     for (; this.refreshQueued; ) {
       this.refreshQueued = !1;
       const e = ++this.refreshRequestSeq;
-      this.activeRefreshSeq = e, this.refreshInFlight = cn(this, e), await this.refreshInFlight, this.refreshInFlight = null;
+      this.activeRefreshSeq = e, this.refreshInFlight = un(this, e), await this.refreshInFlight, this.refreshInFlight = null;
     }
   }
   buildApiUrl() {
-    return dn(this);
-  }
-  buildQueryString() {
-    return un(this);
-  }
-  buildQueryParams() {
     return hn(this);
   }
+  buildQueryString() {
+    return fn(this);
+  }
+  buildQueryParams() {
+    return pn(this);
+  }
   getResponseTotal(e) {
-    return fn(this, e);
+    return mn(this, e);
   }
   normalizePagination(e) {
-    return pn(this, e);
+    return gn(this, e);
   }
   resetPagination() {
     this.state.currentPage = 1;
   }
   updateColumnVisibility(e, t = !1) {
-    Fn(this, e, t);
+    On(this, e, t);
   }
   syncColumnVisibilityCheckboxes() {
-    qn(this);
+    jn(this);
   }
   renderData(e) {
-    zn(this, e);
+    Gn(this, e);
   }
   renderLoadingState() {
-    On(this);
+    zn(this);
   }
   renderErrorState(e) {
-    jn(this, e);
+    Nn(this, e);
   }
   renderFlatData(e, t) {
-    Nn(this, e, t);
+    Un(this, e, t);
   }
   renderGroupedData(e, t, r) {
-    wn(this, e, t, r);
+    Sn(this, e, t, r);
   }
   isGroupedViewActive() {
-    return xn(this);
+    return Cn(this);
   }
   fallbackGroupedMode(e) {
-    Sn(this, e);
+    $n(this, e);
   }
   handleGroupedModeStatusFallback(e) {
-    return Cn(this, e);
+    return En(this, e);
   }
   handleGroupedModePayloadFallback(e) {
-    return $n(this, e);
+    return kn(this, e);
   }
   toggleGroup(e) {
-    En(this, e);
-  }
-  setExpandedGroups(e) {
     An(this, e);
   }
+  setExpandedGroups(e) {
+    Ln(this, e);
+  }
   expandAllGroups() {
-    kn(this);
+    _n(this);
   }
   collapseAllGroups() {
-    Ln(this);
-  }
-  updateGroupVisibility(e) {
-    _n(this, e);
-  }
-  updateGroupedRowsFromState() {
     Rn(this);
   }
+  updateGroupVisibility(e) {
+    Dn(this, e);
+  }
+  updateGroupedRowsFromState() {
+    Tn(this);
+  }
   isGroupExpandedByState(e, t = !1) {
-    return Dn(this, e, t);
+    return Pn(this, e, t);
   }
   setViewMode(e) {
-    Tn(this, e);
+    Mn(this, e);
   }
   getViewMode() {
-    return Pn(this);
+    return In(this);
   }
   getGroupedData() {
-    return Mn(this);
+    return Bn(this);
   }
   async fetchDetail(e) {
-    return mn(this, e);
+    return bn(this, e);
   }
   getSchema() {
-    return bn(this);
-  }
-  getForm() {
-    return yn(this);
-  }
-  getTabs() {
     return vn(this);
   }
+  getForm() {
+    return wn(this);
+  }
+  getTabs() {
+    return xn(this);
+  }
   normalizeDetailResponse(e) {
-    return gn(this, e);
+    return yn(this, e);
   }
   resolveRendererOptions(e) {
-    return Gn(this, e);
-  }
-  createTableRow(e) {
-    return Un(this, e);
-  }
-  sanitizeActionId(e) {
     return Hn(this, e);
   }
-  async handleDelete(e) {
+  createTableRow(e) {
     return Vn(this, e);
   }
+  sanitizeActionId(e) {
+    return Kn(this, e);
+  }
+  async handleDelete(e) {
+    return Jn(this, e);
+  }
   updatePaginationUI(e) {
-    Kn(this, e);
+    Qn(this, e);
   }
   renderPaginationButtons(e) {
-    Jn(this, e);
+    Yn(this, e);
   }
   bindSearchInput() {
-    Xn(this);
-  }
-  bindPerPageSelect() {
-    Zn(this);
-  }
-  bindFilterInputs() {
     es(this);
   }
-  bindColumnVisibility() {
+  bindPerPageSelect() {
     ts(this);
   }
-  bindExportButtons() {
+  bindFilterInputs() {
     rs(this);
   }
-  bindSorting() {
+  bindColumnVisibility() {
     ns(this);
   }
-  updateSortIndicators() {
+  bindExportButtons() {
     ss(this);
   }
-  bindSelection() {
+  bindSorting() {
     as(this);
   }
-  updateSelectionBindings() {
+  updateSortIndicators() {
     is(this);
   }
+  bindSelection() {
+    os(this);
+  }
+  updateSelectionBindings() {
+    ls(this);
+  }
   bindBulkActions() {
-    ys(this);
-  }
-  bindOverflowMenu() {
-    vs(this);
-  }
-  updateBulkActionsBar() {
     ws(this);
   }
-  setBulkActionState(e, t) {
-    ps(this, e, t);
-  }
-  applyBulkActionState(e) {
-    ms(this, e);
-  }
-  syncBulkActionState() {
-    bs(this);
-  }
-  bindBulkClearButton() {
+  bindOverflowMenu() {
     xs(this);
   }
-  clearSelection() {
+  updateBulkActionsBar() {
     Ss(this);
   }
-  positionDropdownMenu(e, t) {
-    Cs(this, e, t);
+  setBulkActionState(e, t) {
+    gs(this, e, t);
   }
-  bindDropdownToggles() {
+  applyBulkActionState(e) {
+    bs(this, e);
+  }
+  syncBulkActionState() {
+    vs(this);
+  }
+  bindBulkClearButton() {
+    Cs(this);
+  }
+  clearSelection() {
     $s(this);
   }
+  positionDropdownMenu(e, t) {
+    Es(this, e, t);
+  }
+  bindDropdownToggles() {
+    ks(this);
+  }
   showError(e) {
-    Es(this, e);
+    As(this, e);
   }
   notify(e, t) {
-    As(this, e, t);
+    Ls(this, e, t);
   }
   async confirmAction(e) {
-    return ks(this, e);
-  }
-  async extractError(e) {
-    return Ls(this, e);
-  }
-  parseDatasetStringArray(e) {
     return _s(this, e);
   }
-  parseDatasetObject(e) {
+  async extractError(e) {
     return Rs(this, e);
   }
+  parseDatasetStringArray(e) {
+    return Ds(this, e);
+  }
+  parseDatasetObject(e) {
+    return Ts(this, e);
+  }
   reorderColumns(e) {
-    Ds(this, e);
+    Ps(this, e);
   }
   resetColumnsToDefault() {
-    Ts(this);
+    Ms(this);
   }
   mergeColumnOrder(e) {
-    return Ps(this, e);
+    return Is(this, e);
   }
   reorderTableColumns(e) {
-    Ms(this, e);
+    Bs(this, e);
   }
   reorderRowCells(e, t, r) {
-    Is(this, e, t, r);
+    Fs(this, e, t, r);
   }
   destroy() {
     this.columnManager && (this.columnManager.destroy(), this.columnManager = null), this.dropdownAbortController && (this.dropdownAbortController.abort(), this.dropdownAbortController = null), this.actionMenuController && (this.actionMenuController.destroy(), this.actionMenuController = null), this.selectionAbortController && (this.selectionAbortController.abort(), this.selectionAbortController = null), this.abortController && (this.abortController.abort(), this.abortController = null), this.bulkActionStateAbortController && (this.bulkActionStateAbortController.abort(), this.bulkActionStateAbortController = null), this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), this.bulkActionStateDebounce && (clearTimeout(this.bulkActionStateDebounce), this.bulkActionStateDebounce = null), console.log("[DataGrid] Instance destroyed");
   }
 };
-S = yt;
+S = wt;
 S.URL_KEY_SEARCH = G;
 S.URL_KEY_PAGE = U;
 S.URL_KEY_PER_PAGE = H;
@@ -3026,12 +3060,12 @@ S.URL_KEY_SORT = V;
 S.URL_KEY_STATE = Z;
 S.URL_KEY_HIDDEN_COLUMNS = ee;
 S.URL_KEY_VIEW_MODE = te;
-S.URL_KEY_EXPANDED_GROUPS = $e;
-S.MANAGED_URL_KEYS = Ee;
-S.DEFAULT_MAX_URL_LENGTH = Qr;
+S.URL_KEY_EXPANDED_GROUPS = Ee;
+S.MANAGED_URL_KEYS = ke;
+S.DEFAULT_MAX_URL_LENGTH = Wr;
 S.DEFAULT_MAX_FILTERS_LENGTH = 600;
-typeof window < "u" && (window.DataGrid = yt);
-var qe = {
+typeof window < "u" && (window.DataGrid = wt);
+var Oe = {
   text: [
     {
       label: "contains",
@@ -3101,7 +3135,7 @@ var qe = {
       value: "between"
     }
   ]
-}, To = class {
+}, Io = class {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new B();
   }
@@ -3160,7 +3194,7 @@ var qe = {
   }
   pushCriteriaToURL() {
     const e = new URLSearchParams(window.location.search);
-    this.criteria.length > 0 ? e.set(J, JSON.stringify(this.criteria)) : (e.delete(J), e.delete(P)), ut.forEach((r) => e.delete(r));
+    this.criteria.length > 0 ? e.set(J, JSON.stringify(this.criteria)) : (e.delete(J), e.delete(P)), ht.forEach((r) => e.delete(r));
     const t = e.toString() ? `${window.location.pathname}?${e.toString()}` : window.location.pathname;
     window.history.pushState({}, "", t), console.log("[AdvancedSearch] URL updated with criteria");
   }
@@ -3293,13 +3327,13 @@ var qe = {
     return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({
       label: t,
       value: t
-    })) : qe[e.type] || qe.text;
+    })) : Oe[e.type] || Oe.text;
   }
   applySearch() {
     this.pushCriteriaToURL(), this.config.onSearch(this.criteria), this.renderChips(), this.close();
   }
   savePreset() {
-    new Re({
+    new De({
       title: "Save Search Preset",
       label: "Preset name",
       placeholder: "e.g. Active users filter",
@@ -3316,7 +3350,7 @@ var qe = {
       this.notifier.warning("No saved presets found.");
       return;
     }
-    new Re({
+    new De({
       title: "Load Search Preset",
       label: `Available presets: ${t.join(", ")}`,
       placeholder: "Enter preset name",
@@ -3381,7 +3415,7 @@ var qe = {
   clearAllChips() {
     this.criteria = [], this.renderCriteria(), this.renderChips(), this.pushCriteriaToURL(), this.config.onClear && this.config.onClear();
   }
-}, Oe = {
+}, je = {
   text: [
     {
       label: "contains",
@@ -3443,7 +3477,7 @@ var qe = {
     label: "is not",
     value: "ne"
   }]
-}, Po = class {
+}, Bo = class {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new B(), this.structure = {
       groups: [],
@@ -3556,8 +3590,8 @@ var qe = {
     `, r.appendChild(n), e.conditions.forEach((a, i) => {
       const o = this.createConditionElement(a, t, i);
       if (r.appendChild(o), i < e.conditions.length - 1) {
-        const c = this.createConditionConnector(t, i, e.logic);
-        r.appendChild(c);
+        const l = this.createConditionConnector(t, i, e.logic);
+        r.appendChild(l);
       }
     });
     const s = document.createElement("button");
@@ -3662,23 +3696,23 @@ var qe = {
     r && r.addEventListener("click", () => this.removeGroup(t));
     const n = e.querySelector(`[data-add-condition="${t}"]`);
     n && n.addEventListener("click", () => this.addCondition(t)), e.querySelectorAll("[data-cond]").forEach((s) => {
-      const a = s, [i, o, c] = a.dataset.cond.split("-"), l = parseInt(i, 10), u = parseInt(o, 10);
+      const a = s, [i, o, l] = a.dataset.cond.split("-"), c = parseInt(i, 10), u = parseInt(o, 10);
       a.addEventListener("change", () => {
-        c === "field" ? (this.structure.groups[l].conditions[u].field = a.value, this.render()) : c === "operator" ? (this.structure.groups[l].conditions[u].operator = a.value, this.updatePreview()) : c === "value" && (this.structure.groups[l].conditions[u].value = a.value, this.updatePreview());
+        l === "field" ? (this.structure.groups[c].conditions[u].field = a.value, this.render()) : l === "operator" ? (this.structure.groups[c].conditions[u].operator = a.value, this.updatePreview()) : l === "value" && (this.structure.groups[c].conditions[u].value = a.value, this.updatePreview());
       });
     }), e.querySelectorAll("[data-remove-cond]").forEach((s) => {
       s.addEventListener("click", (a) => {
         const i = a.target.closest("[data-remove-cond]");
         if (!i) return;
-        const [o, c] = i.dataset.removeCond.split("-").map(Number);
-        this.removeCondition(o, c);
+        const [o, l] = i.dataset.removeCond.split("-").map(Number);
+        this.removeCondition(o, l);
       });
     }), e.querySelectorAll("[data-add-cond-or], [data-add-cond-and]").forEach((s) => {
       s.addEventListener("click", (a) => {
-        const i = a.target, o = i.dataset.addCondOr !== void 0, c = o ? i.dataset.addCondOr : i.dataset.addCondAnd;
-        if (!c) return;
-        const [l] = c.split("-").map(Number);
-        this.structure.groups[l].logic = o ? "or" : "and", this.addCondition(l);
+        const i = a.target, o = i.dataset.addCondOr !== void 0, l = o ? i.dataset.addCondOr : i.dataset.addCondAnd;
+        if (!l) return;
+        const [c] = l.split("-").map(Number);
+        this.structure.groups[c].logic = o ? "or" : "and", this.addCondition(c);
       });
     });
   }
@@ -3696,7 +3730,7 @@ var qe = {
     return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({
       label: t,
       value: t
-    })) : Oe[e.type] || Oe.text;
+    })) : je[e.type] || je.text;
   }
   updatePreview() {
     const e = this.generateSQLPreview(), t = this.generateTextPreview();
@@ -3806,7 +3840,7 @@ var qe = {
   setStructure(e) {
     this.structure = e, this.render();
   }
-}, Mo = class {
+}, Fo = class {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0) throw new Error("At least one searchable field is required");
   }
@@ -3820,7 +3854,7 @@ var qe = {
   async onSearch(e, t) {
     t.resetPagination(), await t.refresh();
   }
-}, Io = class {
+}, qo = class {
   buildFilters(e) {
     const t = {}, r = /* @__PURE__ */ new Map();
     return e.forEach((n) => {
@@ -3840,7 +3874,7 @@ var qe = {
   async onFilterChange(e, t, r) {
     r.resetPagination(), await r.refresh();
   }
-}, Bo = class {
+}, Oo = class {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -3850,14 +3884,14 @@ var qe = {
   async onPageChange(e, t) {
     await t.refresh();
   }
-}, Fo = class {
+}, jo = class {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((t) => `${t.field} ${t.direction}`).join(",") };
   }
   async onSort(e, t, r) {
     await r.refresh();
   }
-}, qo = class {
+}, zo = class {
   constructor(e) {
     if (!e || !e.endpoint) throw new Error("export endpoint is required");
     if (!e.definition && !e.resource) throw new Error("export definition or resource is required");
@@ -3871,8 +3905,8 @@ var qe = {
   }
   async export(e, t) {
     if (!t) throw new Error("datagrid instance is required");
-    const r = Bs(t, this.config, e);
-    r.delivery = Fs(this.config, e);
+    const r = Os(t, this.config, e);
+    r.delivery = js(this.config, e);
     let n;
     try {
       n = await x(this.getEndpoint(), {
@@ -3884,25 +3918,25 @@ var qe = {
       throw _(t, "error", s instanceof Error ? s.message : "Network error during export"), s;
     }
     if (n.status === 202) {
-      const s = await vt(n);
+      const s = await xt(n);
       _(t, "info", "Export queued. You can download it when ready.");
       const a = s?.status_url || "";
       if (a) {
-        const i = js(s, a);
+        const i = Gs(s, a);
         try {
-          await zs(a, {
-            intervalMs: qs(this.config),
-            timeoutMs: Os(this.config)
+          await Us(a, {
+            intervalMs: zs(this.config),
+            timeoutMs: Ns(this.config)
           });
           const o = await x(i, {
             method: "GET",
             headers: { Accept: "application/octet-stream" }
           });
           if (!o.ok) {
-            const c = await ge(o);
-            throw _(t, "error", c), new Error(c);
+            const l = await be(o);
+            throw _(t, "error", l), new Error(l);
           }
-          await ze(o, r.definition || r.resource || "export", r.format), _(t, "success", "Export ready.");
+          await Ne(o, r.definition || r.resource || "export", r.format), _(t, "success", "Export ready.");
           return;
         } catch (o) {
           throw _(t, "error", o instanceof Error ? o.message : "Export failed"), o;
@@ -3915,16 +3949,16 @@ var qe = {
       return;
     }
     if (!n.ok) {
-      const s = await ge(n);
+      const s = await be(n);
       throw _(t, "error", s), new Error(s);
     }
-    await ze(n, r.definition || r.resource || "export", r.format), _(t, "success", "Export ready.");
+    await Ne(n, r.definition || r.resource || "export", r.format), _(t, "success", "Export ready.");
   }
 };
-function Bs(e, t, r) {
-  const n = Qs(r), s = Gs(e, t), a = Us(e, t), i = {
+function Os(e, t, r) {
+  const n = Xs(r), s = Vs(e, t), a = Ks(e, t), i = {
     format: n,
-    query: Vs(Hs(e)),
+    query: Qs(Js(e)),
     selection: s,
     columns: a,
     delivery: t.delivery || "auto"
@@ -3933,24 +3967,24 @@ function Bs(e, t, r) {
   const o = t.sourceVariant || t.variant;
   return o && (i.source_variant = o), i;
 }
-function Fs(e, t) {
+function js(e, t) {
   return e.delivery ? e.delivery : (e.asyncFormats && e.asyncFormats.length > 0 ? e.asyncFormats : ["pdf"]).includes(t) ? "async" : "auto";
 }
-function qs(e) {
+function zs(e) {
   const t = Number(e.statusPollIntervalMs);
   return Number.isFinite(t) && t > 0 ? t : 2e3;
 }
-function Os(e) {
+function Ns(e) {
   const t = Number(e.statusPollTimeoutMs);
   return Number.isFinite(t) && t >= 0 ? t : 3e5;
 }
-function js(e, t) {
+function Gs(e, t) {
   return e?.download_url ? e.download_url : `${t.replace(/\/+$/, "")}/download`;
 }
-async function vt(e) {
-  return await jt(e);
+async function xt(e) {
+  return await Nt(e);
 }
-async function zs(e, t) {
+async function Us(e, t) {
   const r = Date.now(), n = Math.max(250, t.intervalMs);
   for (; ; ) {
     const s = await x(e, {
@@ -3958,22 +3992,22 @@ async function zs(e, t) {
       headers: { Accept: "application/json" }
     });
     if (!s.ok) {
-      const o = await ge(s);
+      const o = await be(s);
       throw new Error(o);
     }
-    const a = await vt(s), i = String(a?.state || "").toLowerCase();
+    const a = await xt(s), i = String(a?.state || "").toLowerCase();
     if (i === "completed") return a;
     if (i === "failed") throw new Error("Export failed");
     if (i === "canceled") throw new Error("Export canceled");
     if (i === "deleted") throw new Error("Export deleted");
     if (t.timeoutMs > 0 && Date.now() - r > t.timeoutMs) throw new Error("Export status timed out");
-    await Ns(n);
+    await Hs(n);
   }
 }
-function Ns(e) {
+function Hs(e) {
   return new Promise((t) => setTimeout(t, e));
 }
-function Gs(e, t) {
+function Vs(e, t) {
   if (t.selection?.mode) return t.selection;
   const r = Array.from(e.state.selectedRows || []), n = r.length > 0 ? "ids" : "all";
   return {
@@ -3981,36 +4015,36 @@ function Gs(e, t) {
     ids: n === "ids" ? r : []
   };
 }
-function Us(e, t) {
+function Ks(e, t) {
   if (Array.isArray(t.columns) && t.columns.length > 0) return t.columns.slice();
   const r = e.state?.hiddenColumns ? new Set(e.state.hiddenColumns) : /* @__PURE__ */ new Set();
   return (Array.isArray(e.state?.columnOrder) && e.state.columnOrder.length > 0 ? e.state.columnOrder : e.config.columns.map((n) => n.field)).filter((n) => !r.has(n));
 }
-function Hs(e) {
+function Js(e) {
   const t = {}, r = e.config.behaviors || {};
   return r.pagination && Object.assign(t, r.pagination.buildQuery(e.state.currentPage, e.state.perPage)), e.state.search && r.search && Object.assign(t, r.search.buildQuery(e.state.search)), e.state.filters.length > 0 && r.filter && Object.assign(t, r.filter.buildFilters(e.state.filters)), e.state.sort.length > 0 && r.sort && Object.assign(t, r.sort.buildQuery(e.state.sort)), t;
 }
-function Vs(e) {
+function Qs(e) {
   const t = {}, r = [];
   return Object.entries(e).forEach(([n, s]) => {
     if (s == null || s === "") return;
     switch (n) {
       case "limit":
-        t.limit = je(s);
+        t.limit = ze(s);
         return;
       case "offset":
-        t.offset = je(s);
+        t.offset = ze(s);
         return;
       case "order":
       case "sort":
-        t.sort = Js(String(s));
+        t.sort = Ws(String(s));
         return;
       case "q":
       case "search":
         t.search = String(s);
         return;
     }
-    const { field: a, op: i } = Ks(n);
+    const { field: a, op: i } = Ys(n);
     a && r.push({
       field: a,
       op: i,
@@ -4018,14 +4052,14 @@ function Vs(e) {
     });
   }), r.length > 0 && (t.filters = r), t;
 }
-function Ks(e) {
+function Ys(e) {
   const t = e.split("__");
   return {
     field: t[0]?.trim() || "",
     op: t[1]?.trim() || "eq"
   };
 }
-function Js(e) {
+function Ws(e) {
   return e ? e.split(",").map((t) => t.trim()).filter(Boolean).map((t) => {
     const r = t.split(/\s+/);
     return {
@@ -4034,31 +4068,31 @@ function Js(e) {
     };
   }).filter((t) => t.field) : [];
 }
-function Qs(e) {
+function Xs(e) {
   const t = String(e || "").trim().toLowerCase();
   return t === "excel" || t === "xls" ? "xlsx" : t || "csv";
 }
-function je(e) {
+function ze(e) {
   const t = Number(e);
   return Number.isFinite(t) ? t : 0;
 }
-async function ze(e, t, r) {
-  const n = await e.blob(), s = Ys(e, t, r), a = URL.createObjectURL(n), i = document.createElement("a");
+async function Ne(e, t, r) {
+  const n = await e.blob(), s = Zs(e, t, r), a = URL.createObjectURL(n), i = document.createElement("a");
   i.href = a, i.download = s, i.rel = "noopener", document.body.appendChild(i), i.click(), i.remove(), URL.revokeObjectURL(a);
 }
-function Ys(e, t, r) {
+function Zs(e, t, r) {
   const n = e.headers.get("content-disposition") || "", s = `${t}.${r}`;
-  return Ws(n) || s;
+  return ea(n) || s;
 }
-function Ws(e) {
+function ea(e) {
   if (!e) return null;
   const t = e.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
   if (t && t[1]) return decodeURIComponent(t[1].replace(/"/g, "").trim());
   const r = e.match(/filename="?([^";]+)"?/i);
   return r && r[1] ? r[1].trim() : null;
 }
-async function ge(e) {
-  return ye(e, `Export failed (${e.status})`, { appendStatusToFallback: !1 });
+async function be(e) {
+  return ve(e, `Export failed (${e.status})`, { appendStatusToFallback: !1 });
 }
 function _(e, t, r) {
   const n = e.config.notifier;
@@ -4073,7 +4107,7 @@ function _(e, t, r) {
   }
   t === "error" && alert(r);
 }
-var Oo = class {
+var No = class {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -4090,19 +4124,19 @@ var Oo = class {
       accept: "application/json"
     });
     if (!s.ok) {
-      const a = await ye(s, `Bulk action '${e}' failed`);
+      const a = await ve(s, `Bulk action '${e}' failed`);
       throw new Error(`Bulk action '${e}' failed: ${a}`);
     }
     await r.refresh();
   }
-}, Xs = 1500;
-function Zs(e) {
+}, ta = 1500;
+function ra(e) {
   return typeof e == "object" && e !== null && "name" in e && e.name === "AbortError";
 }
-function wt(e) {
+function St(e) {
   return typeof e == "object" && e !== null && "version" in e && e.version === 2;
 }
-var ea = class {
+var na = class {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -4158,7 +4192,7 @@ var ea = class {
       const e = localStorage.getItem(this.storageKey);
       if (!e) return null;
       const t = JSON.parse(e);
-      if (wt(t)) return t;
+      if (St(t)) return t;
       const r = {
         version: 2,
         visibility: t
@@ -4182,11 +4216,11 @@ var ea = class {
       console.warn("Failed to clear column preferences:", e);
     }
   }
-}, jo = class extends ea {
+}, Go = class extends na {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
     if (super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.mutationQueue = Promise.resolve(), this.resource = t.resource, this.preferencesEndpoint = String(t.preferencesEndpoint || "").trim().replace(/\/+$/, ""), !this.preferencesEndpoint) throw new Error("ServerColumnVisibilityBehavior requires an advertised preferences endpoint");
-    this.syncDebounce = t.syncDebounce ?? 1e3, this.loadTimeoutMs = Math.max(100, t.loadTimeoutMs || Xs), this.canWrite = t.canWrite !== !1;
+    this.syncDebounce = t.syncDebounce ?? 1e3, this.loadTimeoutMs = Math.max(100, t.loadTimeoutMs || ta), this.canWrite = t.canWrite !== !1;
   }
   get serverPrefsKey() {
     return `ui.datagrid.${this.resource}.columns`;
@@ -4217,9 +4251,9 @@ var ea = class {
       if (!s || !s[this.serverPrefsKey])
         return console.log("[ServerColumnVisibility] No column preferences in server response"), null;
       const a = s[this.serverPrefsKey];
-      return wt(a) ? (this.serverPrefs = a, this.savePrefs(a), console.log("[ServerColumnVisibility] Loaded prefs from server:", a), a) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", a), null);
+      return St(a) ? (this.serverPrefs = a, this.savePrefs(a), console.log("[ServerColumnVisibility] Loaded prefs from server:", a), a) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", a), null);
     } catch (r) {
-      return Zs(r) || console.warn("[ServerColumnVisibility] Error loading server prefs:", r), null;
+      return ra(r) || console.warn("[ServerColumnVisibility] Error loading server prefs:", r), null;
     } finally {
       clearTimeout(t);
     }
@@ -4308,7 +4342,7 @@ var ea = class {
     }
   }
 };
-function ta(e) {
+function sa(e) {
   const t = e.trim(), r = t.indexOf("?");
   return r === -1 ? {
     path: t,
@@ -4319,13 +4353,13 @@ function ta(e) {
   };
 }
 function R(e, t, r = "", n = "") {
-  const { path: s, query: a } = ta(e), i = s.replace(/\/+$/, ""), o = r.replace(/^\/+/, "");
-  let c = `${i}/${encodeURIComponent(t)}`;
-  o && (c += `/${o}`);
-  const l = [];
-  return a && l.push(a), n && l.push(n), l.length > 0 ? `${c}?${l.join("&")}` : c;
+  const { path: s, query: a } = sa(e), i = s.replace(/\/+$/, ""), o = r.replace(/^\/+/, "");
+  let l = `${i}/${encodeURIComponent(t)}`;
+  o && (l += `/${o}`);
+  const c = [];
+  return a && c.push(a), n && c.push(n), c.length > 0 ? `${l}?${c.join("&")}` : l;
 }
-var Ne = {
+var Ge = {
   view: 100,
   view_family: 150,
   edit: 200,
@@ -4339,7 +4373,7 @@ var Ne = {
   archive: 1e3,
   restore: 1100,
   delete: 9e3
-}, ra = 5e3, xt = class {
+}, aa = 5e3, Ct = class {
   constructor(e) {
     this.seenActions = /* @__PURE__ */ new Set(), this.config = {
       useDefaultFallback: !0,
@@ -4364,9 +4398,9 @@ var Ne = {
         const o = a.name.toLowerCase();
         if (this.seenActions.has(o)) continue;
         this.seenActions.add(o);
-        const c = this.normalizeContextBoundActionState(e, a, i), l = this.buildActionFromSchema(e, a, s, c);
-        l && r.push({
-          action: l,
+        const l = this.normalizeContextBoundActionState(e, a, i), c = this.buildActionFromSchema(e, a, s, l);
+        c && r.push({
+          action: c,
           name: a.name,
           order: this.resolveActionOrder(a.name, a.order),
           insertionIndex: n++
@@ -4379,11 +4413,11 @@ var Ne = {
   resolveActionOrder(e, t) {
     if (typeof t == "number" && Number.isFinite(t)) return t;
     const r = e.toLowerCase();
-    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : Ne[r] !== void 0 ? Ne[r] : ra;
+    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : Ge[r] !== void 0 ? Ge[r] : aa;
   }
   buildActionFromSchema(e, t, r, n) {
-    const s = t.name, a = t.label || t.label_key || s, i = t.variant || "secondary", o = t.icon, c = this.isNavigationAction(t), l = s === "delete";
-    return c ? this.applyActionState(this.buildNavigationAction(e, t, a, i, o, r), n) : l ? this.applyActionState(this.buildDeleteAction(e, a, i, o), n) : this.applyActionState(this.buildPostAction(e, t, a, i, o), n);
+    const s = t.name, a = t.label || t.label_key || s, i = t.variant || "secondary", o = t.icon, l = this.isNavigationAction(t), c = s === "delete";
+    return l ? this.applyActionState(this.buildNavigationAction(e, t, a, i, o, r), n) : c ? this.applyActionState(this.buildDeleteAction(e, a, i, o), n) : this.applyActionState(this.buildPostAction(e, t, a, i, o), n);
   }
   isNavigationAction(e) {
     return e.type === "navigation" || e.href ? !0 : [
@@ -4397,7 +4431,7 @@ var Ne = {
     return this.matchesActionScope(t.scope) ? this.missingRequiredContext(e, t).length === 0 ? !0 : r !== null : !1;
   }
   resolveRecordActionState(e, t) {
-    return rt(e, t);
+    return nt(e, t);
   }
   applyActionState(e, t) {
     if (!t || t.enabled !== !1) return e;
@@ -4426,7 +4460,7 @@ var Ne = {
     if (t) return t;
     const r = typeof e.reason_code == "string" ? e.reason_code.trim() : "";
     if (r) {
-      const n = We({ reason_code: r });
+      const n = Xe({ reason_code: r });
       if (n?.message) return n.message;
     }
     switch (r.toLowerCase()) {
@@ -4489,18 +4523,18 @@ var Ne = {
   }
   buildNavigationAction(e, t, r, n, s, a) {
     const i = String(e.id || ""), o = this.config.actionBasePath;
-    let c;
+    let l;
     if (t.href) {
-      const l = this.interpolateHrefTemplate(t.href, e, i);
-      a ? c = l.includes("?") ? `${l}&${a}` : `${l}?${a}` : c = l;
-    } else t.name === "edit" ? c = R(o, i, "edit", a) : c = R(o, i, "", a);
+      const c = this.interpolateHrefTemplate(t.href, e, i);
+      a ? l = c.includes("?") ? `${c}&${a}` : `${c}?${a}` : l = c;
+    } else t.name === "edit" ? l = R(o, i, "edit", a) : l = R(o, i, "", a);
     return {
       id: t.name,
       label: r,
       icon: s || this.getDefaultIcon(t.name),
       variant: n,
       action: () => {
-        window.location.href = c;
+        window.location.href = l;
       }
     };
   }
@@ -4522,7 +4556,7 @@ var Ne = {
       icon: n || "trash",
       variant: r === "secondary" ? "danger" : r,
       action: async () => {
-        await ht({
+        await ft({
           endpoint: `${a}/${s}`,
           fallbackMessage: "Delete failed",
           onSuccess: async (i) => {
@@ -4551,22 +4585,22 @@ var Ne = {
       action: async () => {
         if (t.confirm && !window.confirm(t.confirm))
           return;
-        const c = await this.buildActionPayload(e, t);
-        c !== null && await this.executePostAction({
+        const l = await this.buildActionPayload(e, t);
+        l !== null && await this.executePostAction({
           actionName: i,
           endpoint: o,
-          payload: c,
+          payload: l,
           recordId: a
         });
       }
     };
   }
   async executePostAction(e) {
-    const t = await ve(e.endpoint, e.payload);
+    const t = await we(e.endpoint, e.payload);
     if (t.success)
       return e.actionName.toLowerCase() === "create_translation" && t.data ? (this.handleCreateTranslationSuccess(t.data, e.payload), t) : (this.handleActionRedirectSuccess(t.data) || this.config.onActionSuccess?.(e.actionName, t), t);
-    if (t.error && Gt(t.error)) {
-      const r = Nt(t.error);
+    if (t.error && Ht(t.error)) {
+      const r = Ut(t.error);
       if (r && this.config.onTranslationBlocker) {
         const n = { ...e.payload }, s = this.getContentChannel() || r.channel || null;
         return this.config.onTranslationBlocker({
@@ -4619,37 +4653,37 @@ var Ne = {
     n && a.set("locale", n);
     const i = this.getContentChannel();
     i && a.set("channel", i);
-    const o = a.toString(), c = `${s}/${r}/edit${o ? `?${o}` : ""}`, l = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", u = this.localeLabel(n || "unknown");
+    const o = a.toString(), l = `${s}/${r}/edit${o ? `?${o}` : ""}`, c = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", u = this.localeLabel(n || "unknown");
     typeof window < "u" && "toastManager" in window ? window.toastManager.success(`${u} translation created`, { action: {
-      label: `View ${l.toUpperCase()}`,
+      label: `View ${c.toUpperCase()}`,
       handler: () => {
         const h = new URLSearchParams();
-        h.set("locale", l), i && h.set("channel", i);
+        h.set("locale", c), i && h.set("channel", i);
         const f = typeof t.id == "string" ? t.id : String(t.id || r);
         window.location.href = `${s}/${f}/edit?${h.toString()}`;
       }
-    } }) : console.log(`[SchemaActionBuilder] Translation created: ${n}`), window.location.href = c;
+    } }) : console.log(`[SchemaActionBuilder] Translation created: ${n}`), window.location.href = l;
   }
   async buildActionPayload(e, t) {
     const r = t.name.trim().toLowerCase(), n = { id: e.id };
     this.config.locale && r !== "create_translation" && (n.locale = this.config.locale);
     const s = this.getContentChannel();
     if (s && (n.channel = s), this.config.panelName && (n.policy_entity = this.config.panelName), n.expected_version === void 0) {
-      const l = this.resolveExpectedVersion(e);
-      l !== null && (n.expected_version = l);
+      const c = this.resolveExpectedVersion(e);
+      c !== null && (n.expected_version = c);
     }
     const a = this.normalizePayloadSchema(t.payload_schema), i = this.collectRequiredFields(t.payload_required, a);
     if (r === "create_translation" && this.applySchemaTranslationContext(n, e, a), a?.properties)
-      for (const [l, u] of Object.entries(a.properties)) n[l] === void 0 && u.default !== void 0 && (n[l] = u.default);
+      for (const [c, u] of Object.entries(a.properties)) n[c] === void 0 && u.default !== void 0 && (n[c] = u.default);
     i.includes("idempotency_key") && this.isEmptyPayloadValue(n.idempotency_key) && (n.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
-    const o = i.filter((l) => this.isEmptyPayloadValue(n[l]));
+    const o = i.filter((c) => this.isEmptyPayloadValue(n[c]));
     if (o.length === 0) return n;
-    const c = await this.promptForPayload(t, o, a, n, e);
-    if (c === null) return null;
-    for (const l of o) {
-      const u = a?.properties?.[l], h = c[l] ?? "", f = this.coercePromptValue(h, l, u);
+    const l = await this.promptForPayload(t, o, a, n, e);
+    if (l === null) return null;
+    for (const c of o) {
+      const u = a?.properties?.[c], h = l[c] ?? "", f = this.coercePromptValue(h, c, u);
       if (f.error) throw new Error(f.error);
-      n[l] = f.value;
+      n[c] = f.value;
     }
     return n;
   }
@@ -4666,7 +4700,7 @@ var Ne = {
         options: this.buildFieldOptions(i, e.name, o, s, n)
       };
     });
-    return await st.prompt({
+    return await at.prompt({
       title: `Complete ${e.label || e.name}`,
       fields: a
     });
@@ -4692,21 +4726,21 @@ var Ne = {
     const n = [];
     for (const s of r) {
       if (typeof s == "string") {
-        const l = this.stringifyDefault(s);
-        if (!l) continue;
+        const c = this.stringifyDefault(s);
+        if (!c) continue;
         n.push({
-          value: l,
-          label: l
+          value: c,
+          label: c
         });
         continue;
       }
       if (!s || typeof s != "object") continue;
       const a = s.value, i = this.stringifyDefault(a);
       if (!i) continue;
-      const o = s.label, c = this.stringifyDefault(o) || i;
+      const o = s.label, l = this.stringifyDefault(o) || i;
       n.push({
         value: i,
-        label: c
+        label: l
       });
     }
     return n.length > 0 ? n : void 0;
@@ -4719,24 +4753,24 @@ var Ne = {
       const b = this.asStringArray(a.required_locales), g = new Set(this.asStringArray(a.available_locales));
       o = b.filter((w) => !g.has(w));
     }
-    const c = this.asStringArray(n?.enum);
-    if (c.length > 0) {
-      const b = new Set(c);
+    const l = this.asStringArray(n?.enum);
+    if (l.length > 0) {
+      const b = new Set(l);
       o = o.filter((g) => b.has(g));
     }
     if (o.length === 0) return;
-    const l = this.extractStringField(i, "recommended_locale") || this.extractStringField(r, "recommended_locale") || this.extractStringField(a || {}, "recommended_locale"), u = this.asStringArray(i.required_for_publish ?? r.required_for_publish ?? a?.required_for_publish ?? a?.required_locales), h = this.asStringArray(i.existing_locales ?? r.existing_locales ?? a?.available_locales), f = this.createTranslationLocaleLabelMap(n), m = /* @__PURE__ */ new Set(), y = [];
+    const c = this.extractStringField(i, "recommended_locale") || this.extractStringField(r, "recommended_locale") || this.extractStringField(a || {}, "recommended_locale"), u = this.asStringArray(i.required_for_publish ?? r.required_for_publish ?? a?.required_for_publish ?? a?.required_locales), h = this.asStringArray(i.existing_locales ?? r.existing_locales ?? a?.available_locales), f = this.createTranslationLocaleLabelMap(n), m = /* @__PURE__ */ new Set(), y = [];
     for (const b of o) {
       const g = b.trim().toLowerCase();
       if (!g || m.has(g)) continue;
       m.add(g);
-      const w = l?.toLowerCase() === g, C = u.includes(g), v = [];
+      const w = c?.toLowerCase() === g, C = u.includes(g), v = [];
       C && v.push("Required for publishing"), h.length > 0 && v.push(`${h.length} translation${h.length > 1 ? "s" : ""} exist`);
-      const O = v.length > 0 ? v.join(" • ") : void 0, Ft = f[g] || this.localeLabel(g);
-      let _e = `${g.toUpperCase()} - ${Ft}`;
-      w && (_e += " (recommended)"), y.push({
+      const O = v.length > 0 ? v.join(" • ") : void 0, Ot = f[g] || this.localeLabel(g);
+      let Re = `${g.toUpperCase()} - ${Ot}`;
+      w && (Re += " (recommended)"), y.push({
         value: g,
-        label: _e,
+        label: Re,
         description: O,
         recommended: w
       });
@@ -4750,8 +4784,8 @@ var Ne = {
       for (const [s, a] of Object.entries(n)) {
         const i = s.trim(), o = a.trim();
         if (!i || !o || !this.isEmptyPayloadValue(e[i])) continue;
-        const c = this.resolveRecordContextValue(t, o);
-        c != null && (e[i] = this.clonePayloadValue(c));
+        const l = this.resolveRecordContextValue(t, o);
+        l != null && (e[i] = this.clonePayloadValue(l));
       }
   }
   extractTranslationContextMap(e) {
@@ -4838,7 +4872,7 @@ var Ne = {
     let r;
     if (t && typeof t == "object" && !Array.isArray(t)) {
       r = {};
-      for (const [o, c] of Object.entries(t)) c && typeof c == "object" && !Array.isArray(c) && (r[o] = c);
+      for (const [o, l] of Object.entries(t)) l && typeof l == "object" && !Array.isArray(l) && (r[o] = l);
     }
     const n = e.required, s = Array.isArray(n) ? n.filter((o) => typeof o == "string").map((o) => o.trim()).filter((o) => o.length > 0) : void 0, a = e["x-translation-context"] ?? e.x_translation_context, i = a && typeof a == "object" && !Array.isArray(a) ? a : void 0;
     return {
@@ -4963,10 +4997,10 @@ var Ne = {
       }
     ];
     let o = n;
-    for (const c of i) this.seenActions.has(c.name) || (this.seenActions.add(c.name), e.push({
-      action: c.button,
-      name: c.name,
-      order: this.resolveActionOrder(c.name, void 0),
+    for (const l of i) this.seenActions.has(l.name) || (this.seenActions.add(l.name), e.push({
+      action: l.button,
+      name: l.name,
+      order: this.resolveActionOrder(l.name, void 0),
       insertionIndex: o++
     }));
   }
@@ -4988,23 +5022,23 @@ var Ne = {
     }[e.toLowerCase()];
   }
 };
-function zo(e, t, r) {
-  return new xt(r).buildRowActions(e, t);
+function Uo(e, t, r) {
+  return new Ct(r).buildRowActions(e, t);
 }
-function No(e) {
+function Ho(e) {
   return e.schema?.actions;
 }
-function na() {
+function ia() {
   const e = globalThis.window;
   return e?.toastManager ? e.toastManager : new B();
 }
-async function sa(e) {
-  return Je(e, null);
+async function oa(e) {
+  return Qe(e, null);
 }
-function be(e, t) {
+function ye(e, t) {
   return (typeof e.id == "string" && e.id.trim() ? e.id.trim() : `${e.label}-${t + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `action-${t + 1}`;
 }
-function aa(e, t) {
+function la(e, t) {
   const r = "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2";
   if (t) return `${r} cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 focus:ring-gray-300`;
   switch ((e.variant || "secondary").toLowerCase()) {
@@ -5020,7 +5054,7 @@ function aa(e, t) {
       return `${r} border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500`;
   }
 }
-function ia(e, t) {
+function ca(e, t) {
   const r = "flex w-full items-center gap-2 px-4 py-2.5 text-sm text-left transition-colors";
   if (t) return `${r} cursor-not-allowed text-gray-400`;
   switch ((e.variant || "secondary").toLowerCase()) {
@@ -5034,7 +5068,7 @@ function ia(e, t) {
       return `${r} text-gray-700 hover:bg-gray-50`;
   }
 }
-function Ge(e) {
+function Ue(e) {
   return {
     edit: "iconoir-edit-pencil",
     delete: "iconoir-trash",
@@ -5050,7 +5084,7 @@ function Ge(e) {
     create_translation: "iconoir-translate"
   }[String(e.id || "").toLowerCase().replace(/[^a-z_]/g, "_")] || "";
 }
-function oa(e) {
+function da(e) {
   const t = e.findIndex((n) => String(n.id || "").toLowerCase() === "edit");
   if (t >= 0) return {
     primary: e[t],
@@ -5068,12 +5102,12 @@ function oa(e) {
     rest: e
   };
 }
-function la(e) {
+function ua(e) {
   if (e.length === 0) return "";
-  const { primary: t, rest: r } = oa(e);
+  const { primary: t, rest: r } = da(e);
   let n = "";
   if (t) {
-    const a = t.disabled === !0, i = be(t, 0), o = Ge(t), c = a ? (t.disabledReason || "Action unavailable").trim() : "", l = c ? `detail-action-reason-${i}` : "", u = l ? `aria-describedby="${l}"` : "", h = c ? `${t.label} unavailable: ${c}` : t.label, f = a && t.remediation?.href && t.remediation?.label ? `
+    const a = t.disabled === !0, i = ye(t, 0), o = Ue(t), l = a ? (t.disabledReason || "Action unavailable").trim() : "", c = l ? `detail-action-reason-${i}` : "", u = c ? `aria-describedby="${c}"` : "", h = l ? `${t.label} unavailable: ${l}` : t.label, f = a && t.remediation?.href && t.remediation?.label ? `
           <a
             href="${d(t.remediation.href.trim())}"
             class="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
@@ -5081,17 +5115,17 @@ function la(e) {
           >
             ${d(t.remediation.label.trim())}
           </a>
-        ` : "", m = c ? `title="${d(c)}"` : "", y = a && c ? `<span
+        ` : "", m = l ? `title="${d(l)}"` : "", y = a && l ? `<span
            class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 text-amber-600 text-xs cursor-help"
-           title="${d(c)}"
+           title="${d(l)}"
            aria-hidden="true"
          >?</span>
-         <span class="sr-only" data-detail-action-reason="${d(i)}" id="detail-action-reason-${d(i)}">${d(c)}</span>` : "";
+         <span class="sr-only" data-detail-action-reason="${d(i)}" id="detail-action-reason-${d(i)}">${d(l)}</span>` : "";
     n = `
       <div data-detail-action-card="${d(i)}" class="flex items-center gap-2">
         <button
           type="button"
-          class="${aa(t, a)}"
+          class="${la(t, a)}"
           data-detail-action-button="${d(i)}"
           data-detail-action-name="${d(t.id || t.label)}"
           data-disabled="${a}"
@@ -5128,11 +5162,11 @@ function la(e) {
           aria-orientation="vertical"
         >
           ${r.map((a, i) => {
-    const o = a.disabled === !0, c = be(a, t ? i + 1 : i), l = Ge(a), u = o ? (a.disabledReason || "Action unavailable").trim() : "", h = u ? `detail-action-reason-${c}` : "", f = h ? `aria-describedby="${h}"` : "", m = u ? `${a.label} unavailable: ${u}` : a.label, y = a.variant === "danger" && i > 0 ? '<div class="my-1 border-t border-gray-100"></div>' : "", b = u ? `title="${d(u)}"` : "", g = o && a.remediation?.href && a.remediation?.label ? `
+    const o = a.disabled === !0, l = ye(a, t ? i + 1 : i), c = Ue(a), u = o ? (a.disabledReason || "Action unavailable").trim() : "", h = u ? `detail-action-reason-${l}` : "", f = h ? `aria-describedby="${h}"` : "", m = u ? `${a.label} unavailable: ${u}` : a.label, y = a.variant === "danger" && i > 0 ? '<div class="my-1 border-t border-gray-100"></div>' : "", b = u ? `title="${d(u)}"` : "", g = o && a.remediation?.href && a.remediation?.label ? `
             <a
               href="${d(a.remediation.href.trim())}"
               class="block px-4 pb-2 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
-              data-detail-action-remediation="${d(c)}"
+              data-detail-action-remediation="${d(l)}"
             >
               ${d(a.remediation.label.trim())}
             </a>
@@ -5141,14 +5175,14 @@ function la(e) {
              title="${d(u)}"
              aria-hidden="true"
            >?</span>
-           <span class="sr-only" data-detail-action-reason="${d(c)}" id="detail-action-reason-${d(c)}">${d(u)}</span>` : "";
+           <span class="sr-only" data-detail-action-reason="${d(l)}" id="detail-action-reason-${d(l)}">${d(u)}</span>` : "";
     return `
         ${y}
-        <div data-detail-action-card="${d(c)}" class="space-y-1">
+        <div data-detail-action-card="${d(l)}" class="space-y-1">
           <button
             type="button"
-            class="${ia(a, o)}"
-            data-detail-action-button="${d(c)}"
+            class="${ca(a, o)}"
+            data-detail-action-button="${d(l)}"
             data-detail-action-name="${d(a.id || a.label)}"
             data-disabled="${o}"
             aria-disabled="${o ? "true" : "false"}"
@@ -5156,7 +5190,7 @@ function la(e) {
             ${f}
             ${b}
           >
-            ${l ? `<i class="${l} text-base"></i>` : '<span class="w-4"></span>'}
+            ${c ? `<i class="${c} text-base"></i>` : '<span class="w-4"></span>'}
             <span class="flex-1">${d(a.label)}</span>
             ${w}
             ${o ? '<i class="iconoir-lock text-gray-400 text-xs ml-1"></i>' : ""}
@@ -5174,9 +5208,9 @@ function la(e) {
     </div>
   `;
 }
-var ca = class {
+var ha = class {
   constructor(e) {
-    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || na(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
+    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || ia(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
   }
   async init() {
     this.mount && (this.mount.setAttribute("aria-busy", "true"), await this.refresh());
@@ -5193,12 +5227,12 @@ var ca = class {
       this.mount.innerHTML = "", this.mount.setAttribute("aria-busy", "false");
       return;
     }
-    const n = this.panelName(), s = this.recordID(), a = this.panelBasePath(), i = `${this.apiBasePath()}/panels/${encodeURIComponent(n)}`, o = new URLSearchParams(window.location.search), c = o.get("locale") || void 0, l = o.get("channel") || o.get("environment") || void 0, u = new xt({
+    const n = this.panelName(), s = this.recordID(), a = this.panelBasePath(), i = `${this.apiBasePath()}/panels/${encodeURIComponent(n)}`, o = new URLSearchParams(window.location.search), l = o.get("locale") || void 0, c = o.get("channel") || o.get("environment") || void 0, u = new Ct({
       apiEndpoint: i,
       actionBasePath: a,
       panelName: n,
-      locale: c,
-      channel: l,
+      locale: l,
+      channel: c,
       actionContext: "detail",
       onActionSuccess: async (h) => {
         if (h === "delete") {
@@ -5219,7 +5253,7 @@ var ca = class {
         await this.refresh();
       }
     });
-    this.record = t, this.actions = u.buildRowActions(t, r), this.mount.innerHTML = la(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(s), this.attachDropdownListeners();
+    this.record = t, this.actions = u.buildRowActions(t, r), this.mount.innerHTML = ua(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(s), this.attachDropdownListeners();
   }
   async fetchDetailPayload() {
     const e = this.detailEndpoint();
@@ -5227,12 +5261,12 @@ var ca = class {
     const t = await this.fetchImpl(e, { headers: { Accept: "application/json" } });
     if (!t.ok)
       return this.notifier.error(`Actions unavailable (${t.status})`), null;
-    const r = await sa(t);
-    return !r || typeof r != "object" ? null : Ze(r);
+    const r = await oa(t);
+    return !r || typeof r != "object" ? null : et(r);
   }
   attachListeners(e) {
     this.actions.forEach((t, r) => {
-      const n = be(t, r), s = this.mount.querySelector(`[data-detail-action-button="${n}"]`);
+      const n = ye(t, r), s = this.mount.querySelector(`[data-detail-action-button="${n}"]`);
       s && s.addEventListener("click", async (a) => {
         if (a.preventDefault(), !(s.getAttribute("aria-disabled") === "true" || s.dataset.disabled === "true"))
           try {
@@ -5242,8 +5276,8 @@ var ca = class {
             });
           } catch (i) {
             if (!T(i)) {
-              const o = z(i), c = o ? I(o, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
-              this.notifier.error(c);
+              const o = z(i), l = o ? I(o, `${t.label} failed`) : i instanceof Error ? i.message : `${t.label} failed`;
+              this.notifier.error(l);
             }
           }
       });
@@ -5303,15 +5337,15 @@ var ca = class {
     return String(this.mount.dataset.recordId || "").trim();
   }
 };
-async function Go(e = document) {
+async function Vo(e = document) {
   const t = Array.from(e.querySelectorAll("[data-panel-detail-actions]")), r = [];
   for (const n of t) {
-    const s = new ca({ mount: n });
+    const s = new ha({ mount: n });
     r.push(s), await s.init();
   }
   return r;
 }
-var da = class St extends Ot {
+var fa = class $t extends zt {
   constructor(t) {
     super({
       size: "lg",
@@ -5331,7 +5365,7 @@ var da = class St extends Ot {
   static showBlocker(t) {
     return new Promise((r) => {
       const n = t.onDismiss;
-      new St({
+      new $t({
         ...t,
         onDismiss: () => {
           n?.(), r();
@@ -5472,9 +5506,9 @@ var da = class St extends Ot {
     i.set("locale", t);
     const o = this.getContentChannel();
     o && i.set("channel", o);
-    const c = `${s}/${a}/edit?${i.toString()}`;
+    const l = `${s}/${a}/edit?${i.toString()}`;
     return `
-      <a href="${d(c)}"
+      <a href="${d(l)}"
          data-blocker-action="open"
          data-locale="${d(t)}"
          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer transition-colors"
@@ -5535,7 +5569,7 @@ var da = class St extends Ot {
           locale: t
         }, s = this.getContentChannel();
         s && (n.channel = s), this.config.panelName && (n.policy_entity = this.config.panelName);
-        const a = `${this.config.apiEndpoint}/actions/create_translation`, i = await ve(a, n);
+        const a = `${this.config.apiEndpoint}/actions/create_translation`, i = await we(a, n);
         if (i.success) {
           r.loading = !1, r.created = !0, i.data?.id && (r.newRecordId = String(i.data.id)), this.updateLocaleItemUI(t);
           const o = {
@@ -5585,16 +5619,16 @@ var da = class St extends Ot {
     return this.resolved || (this.resolved = !0, this.config.onDismiss?.()), !0;
   }
 };
-async function Uo(e) {
+async function Ko(e) {
   try {
-    await da.showBlocker(e);
+    await fa.showBlocker(e);
   } catch (t) {
     console.error("[TranslationBlockerModal] Render failed, using fallback:", t);
     const r = `Cannot ${e.transition || "complete action"}: Missing translations for ${e.missingLocales.join(", ")}`;
     typeof window < "u" && "toastManager" in window ? window.toastManager.error(r) : alert(r);
   }
 }
-var ua = [
+var pa = [
   {
     key: "ready",
     label: "Ready",
@@ -5623,7 +5657,7 @@ var ua = [
     colorClass: "text-amber-600",
     description: "Viewing fallback content or stale data"
   }
-], Ct = class {
+], Et = class {
   constructor(e) {
     this.container = null;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -5633,7 +5667,7 @@ var ua = [
       title: e.title || "",
       orientation: e.orientation || "horizontal",
       size: e.size || "default",
-      items: e.items || ua
+      items: e.items || pa
     }, this.container = t;
   }
   render() {
@@ -5644,13 +5678,13 @@ var ua = [
     this.container.innerHTML = this.buildHTML();
   }
   buildHTML() {
-    const { title: e, orientation: t, size: r, items: n, containerClass: s } = this.config, a = t === "vertical", i = r === "sm", o = a ? "flex-col" : "flex-row flex-wrap", c = i ? "gap-2" : "gap-4", l = i ? "text-xs" : "text-sm", u = i ? "text-sm" : "text-base";
+    const { title: e, orientation: t, size: r, items: n, containerClass: s } = this.config, a = t === "vertical", i = r === "sm", o = a ? "flex-col" : "flex-row flex-wrap", l = i ? "gap-2" : "gap-4", c = i ? "text-xs" : "text-sm", u = i ? "text-sm" : "text-base";
     return `
-      <div class="status-legend inline-flex items-center ${o} ${c} ${s}"
+      <div class="status-legend inline-flex items-center ${o} ${l} ${s}"
            role="list"
            aria-label="Translation status legend">
-        ${e ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${l}">${d(e)}</span>` : ""}
-        ${n.map((h) => this.renderItem(h, u, l)).join("")}
+        ${e ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${c}">${d(e)}</span>` : ""}
+        ${n.map((h) => this.renderItem(h, u, c)).join("")}
       </div>
     `;
   }
@@ -5672,15 +5706,15 @@ var ua = [
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function ha(e) {
-  const t = new Ct(e);
+function ma(e) {
+  const t = new Et(e);
   return t.render(), t;
 }
-function Ho() {
+function Jo() {
   const e = document.querySelectorAll("[data-status-legend]"), t = [];
   return e.forEach((r) => {
     if (r.hasAttribute("data-status-legend-init")) return;
-    const n = ha({
+    const n = ma({
       container: r,
       orientation: r.dataset.orientation || "horizontal",
       size: r.dataset.size || "default",
@@ -5689,14 +5723,14 @@ function Ho() {
     r.setAttribute("data-status-legend-init", "true"), t.push(n);
   }), t;
 }
-function Vo(e = {}) {
+function Qo(e = {}) {
   const t = document.createElement("div");
-  return new Ct({
+  return new Et({
     container: t,
     ...e
   }).buildHTML();
 }
-var $t = [
+var kt = [
   {
     key: "all",
     label: "All",
@@ -5742,7 +5776,7 @@ var $t = [
     styleClass: "bg-orange-100 text-orange-700 hover:bg-orange-200",
     description: "Records currently viewed in fallback mode"
   }
-], fa = class {
+], ga = class {
   constructor(e) {
     if (this.container = null, this.config = e, this.container = typeof e.container == "string" ? document.querySelector(e.container) : e.container, this.state = {
       activeKey: null,
@@ -5770,14 +5804,14 @@ var $t = [
   }
   renderFilterButton(e, t, r) {
     const n = this.state.capabilities.get(e.key), s = n?.supported !== !1, a = this.state.activeKey === e.key, i = n?.disabledReason || "Filter not available", o = `inline-flex items-center gap-1 ${r} ${t} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
-    let c, l;
-    s ? a ? (c = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, l = 'aria-pressed="true"') : (c = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", l = 'aria-pressed="false"') : (c = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", l = `aria-disabled="true" title="${p(i)}"`);
+    let l, c;
+    s ? a ? (l = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, c = 'aria-pressed="true"') : (l = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", c = 'aria-pressed="false"') : (l = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", c = `aria-disabled="true" title="${p(i)}"`);
     const u = e.icon ? `<span aria-hidden="true">${e.icon}</span>` : "";
     return `
       <button type="button"
-              class="quick-filter-btn ${o} ${c}"
+              class="quick-filter-btn ${o} ${l}"
               data-filter-key="${p(e.key)}"
-              ${l}
+              ${c}
               ${s ? "" : "disabled"}>
         ${u}
         <span>${d(e.label)}</span>
@@ -5832,38 +5866,38 @@ var $t = [
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function pa(e, t, r = {}) {
-  return new fa({
+function ba(e, t, r = {}) {
+  return new ga({
     container: e,
-    filters: $t,
+    filters: kt,
     onFilterSelect: t,
     ...r
   });
 }
-function Ko(e) {
+function Yo(e) {
   const t = document.querySelectorAll("[data-quick-filters]"), r = [];
   return t.forEach((n) => {
     if (n.hasAttribute("data-quick-filters-init")) return;
-    const s = pa(n, (a) => e(a, n), { size: n.dataset.size || "default" });
+    const s = ba(n, (a) => e(a, n), { size: n.dataset.size || "default" });
     n.setAttribute("data-quick-filters-init", "true"), r.push(s);
   }), r;
 }
-function Jo(e = {}) {
-  const { filters: t = $t, activeKey: r = null, capabilities: n = [], size: s = "default", containerClass: a = "" } = e, i = s === "sm" ? "text-xs" : "text-sm", o = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", c = /* @__PURE__ */ new Map();
-  for (const l of n) c.set(l.key, l);
-  return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${a}">${t.map((l) => {
-    const u = c.get(l.key), h = u?.supported !== !1, f = r === l.key, m = u?.disabledReason || "Filter not available", y = `inline-flex items-center gap-1 ${o} ${i} rounded-full font-medium`;
+function Wo(e = {}) {
+  const { filters: t = kt, activeKey: r = null, capabilities: n = [], size: s = "default", containerClass: a = "" } = e, i = s === "sm" ? "text-xs" : "text-sm", o = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
+  for (const c of n) l.set(c.key, c);
+  return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${a}">${t.map((c) => {
+    const u = l.get(c.key), h = u?.supported !== !1, f = r === c.key, m = u?.disabledReason || "Filter not available", y = `inline-flex items-center gap-1 ${o} ${i} rounded-full font-medium`;
     let b;
-    h ? f ? b = `${l.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : b = l.styleClass || "bg-gray-100 text-gray-700" : b = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
-    const g = l.icon ? `<span>${l.icon}</span>` : "", w = h ? "" : `title="${p(m)}"`;
-    return `<span class="${y} ${b}" ${w}>${g}<span>${d(l.label)}</span></span>`;
+    h ? f ? b = `${c.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : b = c.styleClass || "bg-gray-100 text-gray-700" : b = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
+    const g = c.icon ? `<span>${c.icon}</span>` : "", w = h ? "" : `title="${p(m)}"`;
+    return `<span class="${y} ${b}" ${w}>${g}<span>${d(c.label)}</span></span>`;
   }).join("")}</div>`;
 }
-var oe = "go-admin:translation-panel-expanded", ma = class {
+var le = "go-admin:translation-panel-expanded", ya = class {
   constructor(e) {
     this.toggleButton = null, this.panelElement = null, this.expandAllButton = null, this.collapseAllButton = null, this.groupControls = null, this.viewModeButtons = [], this.expanded = !1, this.boundToggleHandler = null, this.config = {
       ...e,
-      storageKey: e.storageKey || oe
+      storageKey: e.storageKey || le
     };
   }
   init() {
@@ -5904,7 +5938,7 @@ var oe = "go-admin:translation-panel-expanded", ma = class {
   getPersistedExpandedState() {
     if (typeof window > "u" || !window.localStorage) return !1;
     try {
-      return window.localStorage.getItem(this.config.storageKey || oe) === "true";
+      return window.localStorage.getItem(this.config.storageKey || le) === "true";
     } catch {
       return !1;
     }
@@ -5912,7 +5946,7 @@ var oe = "go-admin:translation-panel-expanded", ma = class {
   persistExpandedState(e) {
     if (!(typeof window > "u" || !window.localStorage))
       try {
-        window.localStorage.setItem(this.config.storageKey || oe, e ? "true" : "false");
+        window.localStorage.setItem(this.config.storageKey || le, e ? "true" : "false");
       } catch {
       }
   }
@@ -5926,10 +5960,10 @@ var oe = "go-admin:translation-panel-expanded", ma = class {
     } }));
   }
 };
-function Qo(e) {
-  return new ma(e);
+function Xo(e) {
+  return new ya(e);
 }
-async function ga(e, t, r = {}) {
+async function va(e, t, r = {}) {
   const { apiEndpoint: n, notifier: s = new B(), maxFailuresToShow: a = 5 } = e, i = `${n}/bulk/create-missing-translations`;
   try {
     const o = await x(i, {
@@ -5943,15 +5977,15 @@ async function ga(e, t, r = {}) {
         locales: r.locales
       })
     });
-    if (!o.ok) throw new Error(await ye(o, `Request failed: ${o.status}`, { appendStatusToFallback: !1 }));
-    const c = ba(await o.json(), a);
-    return ya(c, s), e.onSuccess && e.onSuccess(c), c;
+    if (!o.ok) throw new Error(await ve(o, `Request failed: ${o.status}`, { appendStatusToFallback: !1 }));
+    const l = wa(await o.json(), a);
+    return xa(l, s), e.onSuccess && e.onSuccess(l), l;
   } catch (o) {
-    const c = o instanceof Error ? o : new Error(String(o));
-    throw s.error(`Failed to create translations: ${c.message}`), e.onError && e.onError(c), c;
+    const l = o instanceof Error ? o : new Error(String(o));
+    throw s.error(`Failed to create translations: ${l.message}`), e.onError && e.onError(l), l;
   }
 }
-function ba(e, t) {
+function wa(e, t) {
   const r = e.data || [], n = e.created_count ?? r.filter((i) => i.success).length, s = e.failed_count ?? r.filter((i) => !i.success).length, a = e.skipped_count ?? 0;
   return {
     total: e.total ?? r.length,
@@ -5965,7 +5999,7 @@ function ba(e, t) {
     }))
   };
 }
-function ya(e, t) {
+function xa(e, t) {
   const { created: r, failed: n, skipped: s, total: a } = e;
   if (a === 0) {
     t.info("No translations to create");
@@ -5973,7 +6007,7 @@ function ya(e, t) {
   }
   n === 0 ? r > 0 ? t.success(`Created ${r} translation${r !== 1 ? "s" : ""}${s > 0 ? ` (${s} skipped)` : ""}`) : s > 0 && t.info(`All ${s} translation${s !== 1 ? "s" : ""} already exist`) : r === 0 ? t.error(`Failed to create ${n} translation${n !== 1 ? "s" : ""}`) : t.warning(`Created ${r}, failed ${n}${s > 0 ? `, skipped ${s}` : ""}`);
 }
-function Yo(e) {
+function Zo(e) {
   const { created: t, failed: r, skipped: n, total: s, failures: a } = e, i = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
@@ -6004,11 +6038,11 @@ function Yo(e) {
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              ${a.map((c) => `
+              ${a.map((l) => `
         <tr>
-          <td class="px-3 py-2 text-sm text-gray-700">${d(c.id)}</td>
-          <td class="px-3 py-2 text-sm text-gray-700">${d(c.locale)}</td>
-          <td class="px-3 py-2 text-sm text-red-600">${d(c.error)}</td>
+          <td class="px-3 py-2 text-sm text-gray-700">${d(l.id)}</td>
+          <td class="px-3 py-2 text-sm text-gray-700">${d(l.locale)}</td>
+          <td class="px-3 py-2 text-sm text-red-600">${d(l.error)}</td>
         </tr>
       `).join("")}
             </tbody>
@@ -6026,18 +6060,18 @@ function Yo(e) {
     </div>
   `;
 }
-function Wo(e) {
+function el(e) {
   const { created: t, failed: r, skipped: n } = e, s = [];
   return t > 0 && s.push(`<span class="text-green-600">+${t}</span>`), r > 0 && s.push(`<span class="text-red-600">${r} failed</span>`), n > 0 && s.push(`<span class="text-yellow-600">${n} skipped</span>`), s.join(" · ");
 }
-function Xo(e, t, r) {
-  return async (n) => ga({
+function tl(e, t, r) {
+  return async (n) => va({
     apiEndpoint: e,
     notifier: t,
     onSuccess: r
   }, n);
 }
-var va = {
+var Sa = {
   en: "English",
   es: "Spanish",
   fr: "French",
@@ -6058,9 +6092,9 @@ var va = {
 };
 function E(e) {
   const t = e.toLowerCase();
-  return va[t] || e.toUpperCase();
+  return Sa[t] || e.toUpperCase();
 }
-var re = class {
+var ne = class {
   constructor(e) {
     this.element = null, this.config = {
       size: "sm",
@@ -6077,12 +6111,12 @@ var re = class {
     return String(this.config.channel ?? "").trim() || void 0;
   }
   render() {
-    const { locale: e, size: t, mode: r, localeExists: n } = this.config, { loading: s, created: a, error: i } = this.state, o = E(e), c = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", l = r === "button" ? "rounded-lg" : "rounded-full";
+    const { locale: e, size: t, mode: r, localeExists: n } = this.config, { loading: s, created: a, error: i } = this.state, o = E(e), l = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", c = r === "button" ? "rounded-lg" : "rounded-full";
     let u, h = "";
     s ? (u = "bg-gray-100 text-gray-600 border-gray-300", h = this.renderSpinner()) : a ? (u = "bg-green-100 text-green-700 border-green-300", h = this.renderCheckIcon()) : i ? (u = "bg-red-100 text-red-700 border-red-300", h = this.renderErrorIcon()) : n ? u = "bg-blue-100 text-blue-700 border-blue-300" : u = "bg-amber-100 text-amber-700 border-amber-300";
     const f = this.renderActions();
     return `
-      <div class="inline-flex items-center gap-1.5 ${c} ${l} border ${u}"
+      <div class="inline-flex items-center gap-1.5 ${l} ${c} border ${u}"
            data-locale-action="${d(e)}"
            data-locale-exists="${n}"
            data-loading="${s}"
@@ -6110,10 +6144,10 @@ var re = class {
           </svg>
         </button>
       `), t || s) {
-      const c = s ? "hover:bg-green-200" : "hover:bg-blue-200", l = s ? "focus:ring-green-500" : "focus:ring-blue-500";
+      const l = s ? "hover:bg-green-200" : "hover:bg-blue-200", c = s ? "focus:ring-green-500" : "focus:ring-blue-500";
       o.push(`
         <button type="button"
-                class="inline-flex items-center justify-center ${a} rounded ${c} focus:outline-none focus:ring-1 ${l} transition-colors"
+                class="inline-flex items-center justify-center ${a} rounded ${l} focus:outline-none focus:ring-1 ${c} transition-colors"
                 data-action="open"
                 data-locale="${d(e)}"
                 aria-label="Open ${E(e)} translation"
@@ -6150,7 +6184,7 @@ var re = class {
           locale: this.config.locale
         }, t = this.getContentChannel();
         t && (e.channel = t), this.config.panelName && (e.policy_entity = this.config.panelName);
-        const r = `${this.config.apiEndpoint}/actions/create_translation`, n = await ve(r, e);
+        const r = `${this.config.apiEndpoint}/actions/create_translation`, n = await we(r, e);
         if (n.success) {
           const s = n.data?.id ? String(n.data.id) : void 0;
           this.setState({
@@ -6224,20 +6258,20 @@ var re = class {
     return { ...this.state };
   }
 };
-function Et(e) {
-  return new re(e).render();
+function At(e) {
+  return new ne(e).render();
 }
-function Zo(e, t) {
+function rl(e, t) {
   return e.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
-      ${e.map((r) => Et({
+      ${e.map((r) => At({
     ...t,
     locale: r
   })).join("")}
     </div>
   `;
 }
-function el(e, t) {
+function nl(e, t) {
   const r = /* @__PURE__ */ new Map();
   return e.querySelectorAll("[data-locale-action]").forEach((n) => {
     const s = n.getAttribute("data-locale-action");
@@ -6246,17 +6280,17 @@ function el(e, t) {
       ...t,
       locale: s,
       localeExists: a
-    }, o = new re(i), c = n.parentElement;
-    c && (o.mount(c), r.set(s, o));
+    }, o = new ne(i), l = n.parentElement;
+    l && (o.mount(l), r.set(s, o));
   }), r;
 }
-function Ue(e, t, r, n) {
+function He(e, t, r, n) {
   const s = new URLSearchParams();
   s.set("locale", r);
   const a = String(n ?? "").trim();
   return a && s.set("channel", a), `${e}/${t}/edit?${s.toString()}`;
 }
-var ke = class {
+var Le = class {
   constructor(e) {
     this.element = null, this.localeChip = null, this.config = {
       showFormLockMessage: !0,
@@ -6283,7 +6317,7 @@ var ke = class {
   }
   render() {
     if (!this.isInFallbackMode()) return "";
-    const { context: e, showFormLockMessage: t } = this.config, r = e.requestedLocale || "requested", n = e.resolvedLocale || "default", s = E(r), a = E(n), i = this.renderPrimaryCta(), o = this.renderSecondaryCta(), c = t ? this.renderFormLockMessage() : "";
+    const { context: e, showFormLockMessage: t } = this.config, r = e.requestedLocale || "requested", n = e.resolvedLocale || "default", s = E(r), a = E(n), i = this.renderPrimaryCta(), o = this.renderSecondaryCta(), l = t ? this.renderFormLockMessage() : "";
     return `
       <div class="fallback-banner bg-amber-50 border border-amber-200 rounded-lg shadow-sm"
            role="alert"
@@ -6311,7 +6345,7 @@ var ke = class {
                 <strong class="font-medium">${d(a)}</strong> (${d(n.toUpperCase())}).
               </p>
 
-              ${c}
+              ${l}
 
               <!-- Actions -->
               <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -6346,7 +6380,7 @@ var ke = class {
   renderSecondaryCta() {
     const { context: e, navigationBasePath: t, channel: r } = this.config, n = e.resolvedLocale;
     if (!n || !e.recordId) return "";
-    const s = Ue(t, e.recordId, n, r);
+    const s = He(t, e.recordId, n, r);
     return `
       <a href="${d(s)}"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
@@ -6385,7 +6419,7 @@ var ke = class {
   }
   async handleCreate() {
     const { context: e, apiEndpoint: t, panelName: r, channel: n, navigationBasePath: s } = this.config, a = e.requestedLocale, i = e.recordId, o = String(n ?? "").trim() || void 0;
-    !a || !i || await new re({
+    !a || !i || await new ne({
       locale: a,
       recordId: i,
       apiEndpoint: t,
@@ -6393,20 +6427,20 @@ var ke = class {
       panelName: r,
       channel: o,
       localeExists: !1,
-      onCreateSuccess: (c, l) => {
-        this.config.onCreateSuccess?.(c, l);
-        const u = Ue(s, l.id, c, o);
+      onCreateSuccess: (l, c) => {
+        this.config.onCreateSuccess?.(l, c);
+        const u = He(s, c.id, l, o);
         window.location.href = u;
       },
-      onError: (c, l) => {
-        this.config.onError?.(l);
+      onError: (l, c) => {
+        this.config.onError?.(c);
       }
     }).handleCreate();
   }
 };
-function wa(e, t) {
+function Ca(e, t) {
   if (!t.locked) {
-    xa(e);
+    $a(e);
     return;
   }
   if (e.classList.add("form-locked", "pointer-events-none", "opacity-75"), e.setAttribute("data-form-locked", "true"), e.setAttribute("data-lock-reason", t.reason || ""), e.querySelectorAll('input, textarea, select, button[type="submit"]').forEach((r) => {
@@ -6416,41 +6450,41 @@ function wa(e, t) {
     r.setAttribute("data-form-lock-overlay", "true"), r.className = "absolute inset-0 bg-amber-50/30 cursor-not-allowed z-10", r.setAttribute("title", t.reason || "Form is locked"), window.getComputedStyle(e).position === "static" && (e.style.position = "relative"), e.appendChild(r);
   }
 }
-function xa(e) {
+function $a(e) {
   e.classList.remove("form-locked", "pointer-events-none", "opacity-75"), e.removeAttribute("data-form-locked"), e.removeAttribute("data-lock-reason"), e.querySelectorAll('[data-was-enabled="true"]').forEach((t) => {
     t.removeAttribute("disabled"), t.removeAttribute("data-was-enabled"), t.removeAttribute("aria-disabled");
   }), e.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function tl(e) {
+function sl(e) {
   return e.getAttribute("data-form-locked") === "true";
 }
-function rl(e) {
+function al(e) {
   return e.getAttribute("data-lock-reason");
 }
-function nl(e, t) {
+function il(e, t) {
   const r = L(e);
-  return new ke({
+  return new Le({
     ...t,
     context: r
   }).render();
 }
-function sl(e) {
+function ol(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function al(e, t) {
-  const r = new ke(t);
+function ll(e, t) {
+  const r = new Le(t);
   return r.mount(e), r;
 }
-function il(e, t) {
-  const r = L(t), n = new ke({
+function cl(e, t) {
+  const r = L(t), n = new Le({
     context: r,
     apiEndpoint: "",
     navigationBasePath: ""
   }).getFormLockState();
-  return wa(e, n), n;
+  return Ca(e, n), n;
 }
-var At = class {
+var Lt = class {
   constructor(e, t) {
     this.chips = /* @__PURE__ */ new Map(), this.element = null, this.config = {
       maxChips: 3,
@@ -6459,7 +6493,7 @@ var At = class {
     }, this.readiness = $(e), this.actionState = this.extractActionState(e, "create_translation");
   }
   extractActionState(e, t) {
-    return rt(e, t);
+    return nt(e, t);
   }
   isCreateActionEnabled() {
     return this.actionState ? this.actionState.enabled : !0;
@@ -6467,7 +6501,7 @@ var At = class {
   getDisabledReason() {
     if (this.isCreateActionEnabled()) return null;
     if (this.actionState?.reason) return this.actionState.reason;
-    const e = We({ reason_code: this.actionState?.reason_code });
+    const e = Xe({ reason_code: this.actionState?.reason_code });
     if (e?.message) return e.message;
     const t = String(this.actionState?.reason_code || "").trim().toLowerCase();
     return t === "workflow_transition_not_available" ? "Translation creation is not available in the current workflow state." : t === "permission_denied" ? "You do not have permission to create translations." : "Translation creation is currently unavailable.";
@@ -6496,20 +6530,20 @@ var At = class {
     `;
   }
   renderChip(e, t, r) {
-    const { recordId: n, apiEndpoint: s, navigationBasePath: a, panelName: i, channel: o, size: c } = this.config, l = String(o ?? "").trim() || void 0;
-    return t ? Et({
+    const { recordId: n, apiEndpoint: s, navigationBasePath: a, panelName: i, channel: o, size: l } = this.config, c = String(o ?? "").trim() || void 0;
+    return t ? At({
       locale: e,
       recordId: n,
       apiEndpoint: s,
       navigationBasePath: a,
       panelName: i,
-      channel: l,
+      channel: c,
       localeExists: !1,
-      size: c,
+      size: l,
       mode: "chip",
       onCreateSuccess: this.config.onCreateSuccess,
       onError: this.config.onError
-    }) : this.renderDisabledChip(e, r, c);
+    }) : this.renderDisabledChip(e, r, l);
   }
   renderDisabledChip(e, t, r) {
     const n = r === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", s = t || "Translation creation unavailable", a = E(e);
@@ -6544,7 +6578,7 @@ var At = class {
     !this.element || !this.isCreateActionEnabled() || this.element.querySelectorAll("[data-locale-action]").forEach((e) => {
       const t = e.getAttribute("data-locale-action");
       if (!t) return;
-      const r = new re({
+      const r = new ne({
         locale: t,
         recordId: this.config.recordId,
         apiEndpoint: this.config.apiEndpoint,
@@ -6567,35 +6601,35 @@ var At = class {
     return this.chips.get(e);
   }
 };
-function Sa(e, t) {
+function Ea(e, t) {
   const r = String(e.id || "");
-  return r ? new At(e, {
+  return r ? new Lt(e, {
     ...t,
     recordId: r
   }).render() : "";
 }
-function ol(e) {
+function dl(e) {
   const t = $(e);
   return t.hasReadinessMetadata && t.missingRequiredLocales.length > 0;
 }
-function ll(e, t, r) {
-  const n = String(t.id || ""), s = new At(t, {
+function ul(e, t, r) {
+  const n = String(t.id || ""), s = new Lt(t, {
     ...r,
     recordId: n
   });
   return s.mount(e), s;
 }
-function cl(e) {
-  return (t, r, n) => Sa(r, e);
+function hl(e) {
+  return (t, r, n) => Ea(r, e);
 }
-function ne() {
+function se() {
   return typeof navigator > "u" ? !1 : /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
 }
-function Ca() {
-  return ne() ? "⌘" : "Ctrl";
+function ka() {
+  return se() ? "⌘" : "Ctrl";
 }
-function $a(e) {
-  if (ne()) switch (e) {
+function Aa(e) {
+  if (se()) switch (e) {
     case "ctrl":
       return "⌃";
     case "alt":
@@ -6616,11 +6650,11 @@ function $a(e) {
       return "Win";
   }
 }
-function kt(e) {
-  const t = e.modifiers.map($a), r = Ea(e.key);
-  return ne() ? [...t, r].join("") : [...t, r].join("+");
+function _t(e) {
+  const t = e.modifiers.map(Aa), r = La(e.key);
+  return se() ? [...t, r].join("") : [...t, r].join("+");
 }
-function Ea(e) {
+function La(e) {
   return {
     Enter: "↵",
     Escape: "Esc",
@@ -6633,7 +6667,7 @@ function Ea(e) {
     "]": "]"
   }[e] || e.toUpperCase();
 }
-var Lt = class {
+var Rt = class {
   constructor(e = {}) {
     this.shortcuts = /* @__PURE__ */ new Map(), this.keydownHandler = null, this.boundElement = null, this.config = {
       enabled: !0,
@@ -6716,8 +6750,8 @@ var Lt = class {
   matchesEvent(e, t) {
     const r = t.key.toLowerCase(), n = e.key.toLowerCase();
     if (r !== n && t.code.toLowerCase() !== n) return !1;
-    const s = ne(), a = new Set(e.modifiers), i = a.has("ctrl"), o = a.has("meta"), c = a.has("alt"), l = a.has("shift");
-    return !(i && !(s ? t.metaKey : t.ctrlKey) || o && !s && !t.metaKey || c && !t.altKey || l && !t.shiftKey || !i && !o && (s ? t.metaKey : t.ctrlKey) || !c && t.altKey || !l && t.shiftKey);
+    const s = se(), a = new Set(e.modifiers), i = a.has("ctrl"), o = a.has("meta"), l = a.has("alt"), c = a.has("shift");
+    return !(i && !(s ? t.metaKey : t.ctrlKey) || o && !s && !t.metaKey || l && !t.altKey || c && !t.shiftKey || !i && !o && (s ? t.metaKey : t.ctrlKey) || !l && t.altKey || !c && t.shiftKey);
   }
   isInputFocused(e) {
     const t = e.target;
@@ -6729,7 +6763,7 @@ var Lt = class {
     this.unbind(), this.shortcuts.clear();
   }
 };
-function Aa(e) {
+function _a(e) {
   const t = [];
   return e.onSave && t.push({
     id: "save",
@@ -6777,7 +6811,7 @@ function Aa(e) {
     handler: e.onCreateTranslation
   }), t;
 }
-function dl(e) {
+function fl(e) {
   const t = /* @__PURE__ */ new Map();
   for (const a of e) {
     if (a.enabled === !1) continue;
@@ -6814,12 +6848,12 @@ function dl(e) {
         <dl class="space-y-1">
     `;
       for (const o of i) {
-        const c = kt(o);
+        const l = _t(o);
         s += `
           <div class="flex justify-between items-center py-1">
             <dt class="text-sm text-gray-600">${d(o.description)}</dt>
             <dd class="flex-shrink-0 ml-4">
-              <kbd class="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-700">${d(c)}</kbd>
+              <kbd class="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-700">${d(l)}</kbd>
             </dd>
           </div>
       `;
@@ -6832,19 +6866,19 @@ function dl(e) {
   }
   return s += "</div>", s;
 }
-var _t = "admin_keyboard_shortcuts_settings", Rt = "admin_keyboard_shortcuts_hint_dismissed", Q = {
+var Dt = "admin_keyboard_shortcuts_settings", Tt = "admin_keyboard_shortcuts_hint_dismissed", Q = {
   enabled: !0,
   shortcuts: {},
   updatedAt: (/* @__PURE__ */ new Date()).toISOString()
 };
-function se() {
+function ae() {
   return typeof localStorage > "u" || !localStorage || typeof localStorage.getItem != "function" || typeof localStorage.setItem != "function" ? null : localStorage;
 }
-function ka() {
-  const e = se();
+function Ra() {
+  const e = ae();
   if (!e) return { ...Q };
   try {
-    const t = e.getItem(_t);
+    const t = e.getItem(Dt);
     if (!t) return { ...Q };
     const r = JSON.parse(t);
     return {
@@ -6856,32 +6890,32 @@ function ka() {
     return { ...Q };
   }
 }
-function ul(e) {
-  const t = se();
+function pl(e) {
+  const t = ae();
   if (t)
     try {
       const r = {
         ...e,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      t.setItem(_t, JSON.stringify(r));
+      t.setItem(Dt, JSON.stringify(r));
     } catch {
     }
 }
-function La() {
-  const e = se();
-  return e ? e.getItem(Rt) === "true" : !1;
+function Da() {
+  const e = ae();
+  return e ? e.getItem(Tt) === "true" : !1;
 }
-function _a() {
-  const e = se();
+function Ta() {
+  const e = ae();
   if (e)
     try {
-      e.setItem(Rt, "true");
+      e.setItem(Tt, "true");
     } catch {
     }
 }
-function Ra(e) {
-  if (La()) return null;
+function Pa(e) {
+  if (Da()) return null;
   const { container: t, position: r = "bottom", onDismiss: n, onShowHelp: s, autoDismissMs: a = 1e4 } = e, i = document.createElement("div");
   i.className = `shortcuts-discovery-hint fixed ${r === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, i.setAttribute("role", "alert"), i.setAttribute("aria-live", "polite"), i.innerHTML = `
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
@@ -6897,7 +6931,7 @@ function Ra(e) {
           </p>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Press <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">?</kbd>
-            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${Ca()}+S</kbd> to save.
+            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${ka()}+S</kbd> to save.
           </p>
           <div class="mt-3 flex items-center gap-2">
             <button type="button" data-hint-action="show-help"
@@ -6920,8 +6954,8 @@ function Ra(e) {
       </div>
     </div>
   `;
-  const o = (c) => {
-    c && _a(), i.remove(), n?.();
+  const o = (l) => {
+    l && Ta(), i.remove(), n?.();
   };
   return i.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
     o(!0), s?.();
@@ -6933,7 +6967,7 @@ function Ra(e) {
     i.parentElement && o(!1);
   }, a), t.appendChild(i), i;
 }
-function hl(e) {
+function ml(e) {
   const { container: t, shortcuts: r, settings: n, onSettingsChange: s } = e, a = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -6942,9 +6976,9 @@ function hl(e) {
     help: "Help",
     other: "Other"
   }, i = /* @__PURE__ */ new Map();
-  for (const l of r) {
-    const u = i.get(l.category) || [];
-    u.push(l), i.set(l.category, u);
+  for (const c of r) {
+    const u = i.get(c.category) || [];
+    u.push(c), i.set(c.category, u);
   }
   const o = [
     "save",
@@ -6954,7 +6988,7 @@ function hl(e) {
     "help",
     "other"
   ];
-  let c = `
+  let l = `
     <div class="shortcuts-settings space-y-6">
       <!-- Global toggle -->
       <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -6981,19 +7015,19 @@ function hl(e) {
       <!-- Per-shortcut toggles -->
       <div class="${n.enabled ? "" : "opacity-50 pointer-events-none"}" data-shortcuts-list>
   `;
-  for (const l of o) {
-    const u = i.get(l);
+  for (const c of o) {
+    const u = i.get(c);
     if (!(!u || u.length === 0)) {
-      c += `
+      l += `
       <div class="space-y-2">
         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-          ${a[l]}
+          ${a[c]}
         </h4>
         <div class="space-y-1">
     `;
       for (const h of u) {
-        const f = n.shortcuts[h.id] !== !1, m = kt(h);
-        c += `
+        const f = n.shortcuts[h.id] !== !1, m = _t(h);
+        l += `
         <div class="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
           <div class="flex items-center gap-3">
             <kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-xs font-mono text-gray-700 dark:text-gray-300">
@@ -7011,13 +7045,13 @@ function hl(e) {
         </div>
       `;
       }
-      c += `
+      l += `
         </div>
       </div>
     `;
     }
   }
-  c += `
+  l += `
       </div>
 
       <!-- Reset button -->
@@ -7029,21 +7063,21 @@ function hl(e) {
         </button>
       </div>
     </div>
-  `, t.innerHTML = c, t.querySelector('[data-settings-action="toggle-global"]')?.addEventListener("click", () => {
-    const l = {
+  `, t.innerHTML = l, t.querySelector('[data-settings-action="toggle-global"]')?.addEventListener("click", () => {
+    const c = {
       ...n,
       enabled: !n.enabled
     };
-    s(l);
-  }), t.querySelectorAll('[data-settings-action="toggle-shortcut"]').forEach((l) => {
-    l.addEventListener("change", () => {
-      const u = l.getAttribute("data-shortcut-id");
+    s(c);
+  }), t.querySelectorAll('[data-settings-action="toggle-shortcut"]').forEach((c) => {
+    c.addEventListener("change", () => {
+      const u = c.getAttribute("data-shortcut-id");
       if (!u) return;
       const h = {
         ...n,
         shortcuts: {
           ...n.shortcuts,
-          [u]: l.checked
+          [u]: c.checked
         }
       };
       s(h);
@@ -7052,7 +7086,7 @@ function hl(e) {
     s({ ...Q });
   });
 }
-function Da(e, t) {
+function Ma(e, t) {
   const r = e;
   r.config && (r.config.enabled = t.enabled);
   for (const n of e.getShortcuts()) {
@@ -7060,50 +7094,50 @@ function Da(e, t) {
     e.setEnabled(n.id, s);
   }
 }
-var le = null;
-function fl() {
-  return le || (le = new Lt()), le;
+var ce = null;
+function gl() {
+  return ce || (ce = new Rt()), ce;
 }
-function Ta(e, t) {
-  const r = ka(), n = new Lt({
+function Ia(e, t) {
+  const r = Ra(), n = new Rt({
     ...t,
     enabled: r.enabled
-  }), s = Aa(e);
+  }), s = _a(e);
   for (const a of s) n.register(a);
-  return Da(n, r), n.bind(), n;
+  return Ma(n, r), n.bind(), n;
 }
-function pl(e, t) {
-  const r = Ta(e, t);
-  return t.hintContainer && Ra({
+function bl(e, t) {
+  const r = Ia(e, t);
+  return t.hintContainer && Pa({
     container: t.hintContainer,
     onShowHelp: t.onShowHelp,
     onDismiss: () => {
     }
   }), r;
 }
-var Pa = 1500, Ma = 2e3, Le = "autosave", j = {
+var Ba = 1500, Fa = 2e3, _e = "autosave", j = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
   error: "Save failed",
   conflict: "Conflict detected"
-}, Ia = {
+}, qa = {
   title: "Save Conflict",
   message: "This content was modified by someone else. Choose how to proceed:",
   useServer: "Use server version",
   forceSave: "Overwrite with my changes",
   viewDiff: "View differences",
   dismiss: "Dismiss"
-}, Dt = class {
+}, Pt = class {
   constructor(e = {}) {
     this.state = "idle", this.conflictInfo = null, this.pendingData = null, this.lastError = null, this.debounceTimer = null, this.savedTimer = null, this.listeners = [], this.isDirty = !1, this.config = {
       container: e.container,
       onSave: e.onSave,
-      debounceMs: e.debounceMs ?? Pa,
-      savedDurationMs: e.savedDurationMs ?? Ma,
+      debounceMs: e.debounceMs ?? Ba,
+      savedDurationMs: e.savedDurationMs ?? Fa,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
-      classPrefix: e.classPrefix ?? Le,
+      classPrefix: e.classPrefix ?? _e,
       labels: {
         ...j,
         ...e.labels
@@ -7113,7 +7147,7 @@ var Pa = 1500, Ma = 2e3, Le = "autosave", j = {
       fetchServerState: e.fetchServerState,
       allowForceSave: e.allowForceSave ?? !0,
       conflictLabels: {
-        ...Ia,
+        ...qa,
         ...e.conflictLabels
       }
     };
@@ -7347,8 +7381,8 @@ var Pa = 1500, Ma = 2e3, Le = "autosave", j = {
     e && e.addEventListener("click", () => this.retry());
   }
 };
-function ml(e) {
-  return new Dt({
+function yl(e) {
+  return new Pt({
     debounceMs: 1500,
     savedDurationMs: 2e3,
     showToasts: !1,
@@ -7364,8 +7398,8 @@ function ml(e) {
     ...e
   });
 }
-function gl(e, t = {}) {
-  const r = t.classPrefix ?? Le, n = {
+function vl(e, t = {}) {
+  const r = t.classPrefix ?? _e, n = {
     ...j,
     ...t.labels
   }[e] || "";
@@ -7388,7 +7422,7 @@ function gl(e, t = {}) {
     <span class="${r}__label">${n}</span>
   </div>`;
 }
-function bl(e = Le) {
+function wl(e = _e) {
   return `
     .${e} {
       display: inline-flex;
@@ -7528,11 +7562,11 @@ function bl(e = Le) {
     }
   `;
 }
-function yl(e, t) {
+function xl(e, t) {
   const { watchFields: r, indicatorSelector: n, ...s } = t;
   let a = s.container;
   !a && n && (a = e.querySelector(n) ?? void 0);
-  const i = new Dt({
+  const i = new Pt({
     ...s,
     container: a
   }), o = () => {
@@ -7540,7 +7574,7 @@ function yl(e, t) {
     return f.forEach((y, b) => {
       m[b] = y;
     }), m;
-  }, c = (f) => {
+  }, l = (f) => {
     const m = f.target;
     if (m) {
       if (r && r.length > 0) {
@@ -7550,23 +7584,23 @@ function yl(e, t) {
       i.markDirty(o());
     }
   };
-  e.addEventListener("input", c), e.addEventListener("change", c), e.addEventListener("submit", async (f) => {
+  e.addEventListener("input", l), e.addEventListener("change", l), e.addEventListener("submit", async (f) => {
     i.hasPendingChanges() && (f.preventDefault(), await i.save() && e.submit());
   });
-  const l = (f) => {
+  const c = (f) => {
     i.hasPendingChanges() && (f.preventDefault(), f.returnValue = "");
   };
-  window.addEventListener("beforeunload", l);
+  window.addEventListener("beforeunload", c);
   const u = () => {
     document.hidden && i.hasPendingChanges() && i.save();
   };
   document.addEventListener("visibilitychange", u);
   const h = i.destroy.bind(i);
   return i.destroy = () => {
-    e.removeEventListener("input", c), e.removeEventListener("change", c), window.removeEventListener("beforeunload", l), document.removeEventListener("visibilitychange", u), h();
+    e.removeEventListener("input", l), e.removeEventListener("change", l), window.removeEventListener("beforeunload", c), document.removeEventListener("visibilitychange", u), h();
   }, i;
 }
-var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
+var Mt = "char-counter", Oa = "interpolation-preview", It = "dir-toggle", Bt = [
   {
     pattern: /\{\{(\w+(?:\.\w+)*)\}\}/g,
     name: "Mustache",
@@ -7592,7 +7626,7 @@ var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
     name: "Template Literal",
     example: "${name}"
   }
-], Fa = {
+], ja = {
   name: "John",
   count: "5",
   email: "user@example.com",
@@ -7601,7 +7635,7 @@ var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
   user: "Jane",
   item: "Product",
   total: "100"
-}, qa = class {
+}, za = class {
   constructor(e) {
     this.counterEl = null, this.config = {
       input: e.input,
@@ -7610,7 +7644,7 @@ var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
       hardLimit: e.hardLimit,
       thresholds: e.thresholds ?? this.buildDefaultThresholds(e),
       enforceHardLimit: e.enforceHardLimit ?? !1,
-      classPrefix: e.classPrefix ?? Tt,
+      classPrefix: e.classPrefix ?? Mt,
       formatDisplay: e.formatDisplay ?? this.defaultFormatDisplay.bind(this)
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
@@ -7655,15 +7689,15 @@ var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
   defaultFormatDisplay(e, t) {
     return t ? `${e} / ${t}` : `${e}`;
   }
-}, Oa = class {
+}, Na = class {
   constructor(e) {
     this.previewEl = null, this.config = {
       input: e.input,
       container: e.container,
-      sampleValues: e.sampleValues ?? Fa,
-      patterns: [...Mt, ...e.customPatterns ?? []],
+      sampleValues: e.sampleValues ?? ja,
+      patterns: [...Bt, ...e.customPatterns ?? []],
       highlightVariables: e.highlightVariables ?? !0,
-      classPrefix: e.classPrefix ?? Ba
+      classPrefix: e.classPrefix ?? Oa
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
   getMatches() {
@@ -7729,14 +7763,14 @@ var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
     for (const [r, n] of Object.entries(this.config.sampleValues)) if (r.toLowerCase() === t) return n;
     return null;
   }
-}, ja = class {
+}, Ga = class {
   constructor(e) {
     this.toggleEl = null, this.config = {
       input: e.input,
       container: e.container,
       initialDirection: e.initialDirection ?? "auto",
       persistenceKey: e.persistenceKey,
-      classPrefix: e.classPrefix ?? Pt,
+      classPrefix: e.classPrefix ?? It,
       onChange: e.onChange
     }, this.currentDirection = this.resolveInitialDirection(), this.init();
   }
@@ -7795,25 +7829,25 @@ var Tt = "char-counter", Ba = "interpolation-preview", Pt = "dir-toggle", Mt = [
     </svg>`;
   }
 };
-function vl(e, t = {}) {
+function Sl(e, t = {}) {
   const r = [], n = [], s = [];
   for (const a of t.charCounterFields ?? []) {
     const i = e.querySelector(`[name="${a}"]`);
-    i && r.push(new qa({
+    i && r.push(new za({
       input: i,
       ...t.charCounterConfig
     }));
   }
   for (const a of t.interpolationFields ?? []) {
     const i = e.querySelector(`[name="${a}"]`);
-    i && n.push(new Oa({
+    i && n.push(new Na({
       input: i,
       ...t.interpolationConfig
     }));
   }
   for (const a of t.directionToggleFields ?? []) {
     const i = e.querySelector(`[name="${a}"]`);
-    i && s.push(new ja({
+    i && s.push(new Ga({
       input: i,
       persistenceKey: `dir-${a}`,
       ...t.directionToggleConfig
@@ -7828,20 +7862,20 @@ function vl(e, t = {}) {
     }
   };
 }
-function wl(e, t, r, n = Tt) {
+function Cl(e, t, r, n = Mt) {
   const s = [n];
   r && s.push(`${n}--${r}`);
   const a = t ? `${e} / ${t}` : `${e}`;
   return `<span class="${s.join(" ")}" aria-live="polite">${a}</span>`;
 }
-function xl(e, t = Pt) {
+function $l(e, t = It) {
   const r = e === "rtl", n = r ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${t}" aria-pressed="${r}" title="Toggle text direction (${e.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${n}</svg>
     <span class="${t}__label">${e.toUpperCase()}</span>
   </button>`;
 }
-function Sl() {
+function El() {
   return `
     /* Character Counter */
     .char-counter {
@@ -7921,7 +7955,7 @@ function Sl() {
     }
   `;
 }
-function Cl(e, t = Mt) {
+function kl(e, t = Bt) {
   const r = [];
   for (const n of t) {
     n.pattern.lastIndex = 0;
@@ -7935,10 +7969,10 @@ function Cl(e, t = Mt) {
   }
   return r;
 }
-function $l(e, t, r) {
+function Al(e, t, r) {
   return r && e >= r ? "error" : t && e >= t ? "warning" : null;
 }
-function El(e) {
+function Ll(e) {
   return typeof e == "string" && [
     "none",
     "core",
@@ -7947,19 +7981,19 @@ function El(e) {
     "full"
   ].includes(e) ? e : "none";
 }
-function za(e) {
+function Ua(e) {
   return e === "core+exchange" || e === "full";
 }
-function Na(e) {
+function Ha(e) {
   return e === "core+queue" || e === "full";
 }
-function Al(e) {
+function _l(e) {
   return e !== "none";
 }
-function Ga(e) {
-  return !e || typeof e != "object" ? null : fr(e);
+function Va(e) {
+  return !e || typeof e != "object" ? null : mr(e);
 }
-var It = class {
+var Ft = class {
   constructor(e) {
     this.capabilities = e;
   }
@@ -7971,7 +8005,7 @@ var It = class {
   }
   isModuleEnabledByMode(e) {
     const t = this.capabilities.profile;
-    return e === "exchange" ? za(t) : Na(t);
+    return e === "exchange" ? Ua(t) : Ha(t);
   }
   getModuleState(e) {
     return this.capabilities.modules[e] || null;
@@ -8050,20 +8084,20 @@ var It = class {
     return this.capabilities.features[e] === !0;
   }
 };
-function He(e) {
-  const t = Ga(e);
-  return t ? new It(t) : null;
+function Ve(e) {
+  const t = Va(e);
+  return t ? new Ft(t) : null;
 }
-function kl() {
-  return new It({ ...pr });
+function Rl() {
+  return new Ft({ ...gr });
 }
-function Ll(e) {
+function Dl(e) {
   return e.visible ? e.enabled ? "" : `aria-disabled="true"${e.reason ? ` title="${p(e.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
-function Ua(e) {
+function Ka(e) {
   if (e.enabled || !e.reason) return "";
   const t = (e.reasonCode || "").trim();
-  return t ? cr(t, {
+  return t ? ur(t, {
     size: "sm",
     showFullMessage: !0
   }) : `
@@ -8077,7 +8111,7 @@ function Ua(e) {
     </span>
   `.trim();
 }
-function _l() {
+function Tl() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -8114,32 +8148,32 @@ function _l() {
     }
   `;
 }
-function Ha(e, t) {
+function Ja(e, t) {
   if (!t.visible) {
     e.style.display = "none", e.setAttribute("aria-hidden", "true");
     return;
   }
-  e.style.display = "", e.removeAttribute("aria-hidden"), t.enabled ? (e.removeAttribute("aria-disabled"), e.classList.remove("capability-gate-disabled"), e.removeAttribute("title"), delete e.dataset.reasonCode, e.removeEventListener("click", Ve, !0)) : (e.setAttribute("aria-disabled", "true"), e.classList.add("capability-gate-disabled"), t.reason && (e.setAttribute("title", t.reason), e.dataset.reasonCode = t.reasonCode || ""), e.addEventListener("click", Ve, !0));
+  e.style.display = "", e.removeAttribute("aria-hidden"), t.enabled ? (e.removeAttribute("aria-disabled"), e.classList.remove("capability-gate-disabled"), e.removeAttribute("title"), delete e.dataset.reasonCode, e.removeEventListener("click", Ke, !0)) : (e.setAttribute("aria-disabled", "true"), e.classList.add("capability-gate-disabled"), t.reason && (e.setAttribute("title", t.reason), e.dataset.reasonCode = t.reasonCode || ""), e.addEventListener("click", Ke, !0));
 }
-function Ve(e) {
+function Ke(e) {
   e.currentTarget.getAttribute("aria-disabled") === "true" && (e.preventDefault(), e.stopPropagation());
 }
-function Rl(e, t) {
+function Pl(e, t) {
   e.querySelectorAll("[data-capability-gate]").forEach((r) => {
     const n = r.dataset.capabilityGate;
     if (n)
       try {
         const s = JSON.parse(n);
-        Ha(r, t.gateNavItem(s));
+        Ja(r, t.gateNavItem(s));
       } catch {
         console.warn("Invalid capability gate config:", n);
       }
   });
 }
-async function Va(e) {
-  return Ke(e);
+async function Qa(e) {
+  return Je(e);
 }
-var Ka = {
+var Ya = {
   title: "My Translation Work",
   myAssignments: "My Assignments",
   dueSoon: "Due Soon",
@@ -8161,7 +8195,7 @@ var Ka = {
   status: "Status",
   targetLocale: "Target",
   sourceTitle: "Content"
-}, Ja = [
+}, Wa = [
   {
     id: "all",
     label: "All",
@@ -8182,19 +8216,19 @@ var Ka = {
     label: "Needs Review",
     filters: { status: "review" }
   }
-], Qa = class extends nt {
+], Xa = class extends st {
   constructor(e) {
     super("loading"), this.container = null, this.gateResult = null, this.data = null, this.error = null, this.activePreset = "all", this.refreshTimer = null, this.config = {
       myWorkEndpoint: e.myWorkEndpoint,
       queueEndpoint: e.queueEndpoint || "",
       panelBaseUrl: e.panelBaseUrl || "",
       capabilityGate: e.capabilityGate,
-      filterPresets: e.filterPresets || Ja,
+      filterPresets: e.filterPresets || Wa,
       refreshInterval: e.refreshInterval || 0,
       onAssignmentClick: e.onAssignmentClick,
       onActionClick: e.onActionClick,
       labels: {
-        ...Ka,
+        ...Ya,
         ...e.labels || {}
       }
     };
@@ -8237,7 +8271,7 @@ var Ka = {
     try {
       const e = this.config.filterPresets.find((s) => s.id === this.activePreset), t = new URLSearchParams(e?.filters || {}), r = `${this.config.myWorkEndpoint}${t.toString() ? "?" + t.toString() : ""}`, n = await fetch(r, { headers: { Accept: "application/json" } });
       if (!n.ok) throw new Error(`Failed to load: ${n.status}`);
-      this.data = await Va(n), this.state = this.data.assignments.length === 0 ? "empty" : "loaded", this.error = null;
+      this.data = await Qa(n), this.state = this.data.assignments.length === 0 ? "empty" : "loaded", this.error = null;
     } catch (e) {
       this.error = e instanceof Error ? e : new Error(String(e)), this.state = "error";
     }
@@ -8370,7 +8404,7 @@ var Ka = {
     `;
   }
   renderDisabled() {
-    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? Ua(this.gateResult) : "";
+    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? Ka(this.gateResult) : "";
     return `
       <div class="dashboard-disabled" role="alert" aria-live="polite">
         <div class="disabled-icon">
@@ -8413,10 +8447,10 @@ var Ka = {
   }
   renderAssignmentRow(e) {
     this.config.labels;
-    const t = Ya(e.due_state), r = Wa(e.priority), n = F(e.queue_state, {
+    const t = Za(e.due_state), r = ei(e.priority), n = F(e.queue_state, {
       domain: "queue",
       size: "sm"
-    }), s = e.due_date ? Za(new Date(e.due_date)) : "-";
+    }), s = e.due_date ? ri(new Date(e.due_date)) : "-";
     return `
       <tr class="assignment-row" data-assignment-id="${p(e.id)}">
         <td class="title-cell">
@@ -8437,7 +8471,7 @@ var Ka = {
           ${s}
         </td>
         <td class="priority-cell">
-          <span class="priority-indicator ${r}">${d(Xa(e.priority))}</span>
+          <span class="priority-indicator ${r}">${d(ti(e.priority))}</span>
         </td>
         <td class="actions-cell">
           ${this.renderAssignmentActions(e)}
@@ -8517,7 +8551,7 @@ var Ka = {
     return !r || !n ? "" : `${t}/${encodeURIComponent(r)}/${encodeURIComponent(n)}/edit`;
   }
 };
-function Ya(e) {
+function Za(e) {
   switch (e) {
     case "overdue":
       return "due-overdue";
@@ -8529,7 +8563,7 @@ function Ya(e) {
       return "";
   }
 }
-function Wa(e) {
+function ei(e) {
   switch (e) {
     case "urgent":
       return "priority-urgent";
@@ -8543,17 +8577,17 @@ function Wa(e) {
       return "priority-normal";
   }
 }
-function Xa(e) {
+function ti(e) {
   return e.charAt(0).toUpperCase() + e.slice(1);
 }
-function Za(e) {
+function ri(e) {
   const t = /* @__PURE__ */ new Date(), r = e.getTime() - t.getTime(), n = Math.ceil(r / 864e5);
   return n < 0 ? `${Math.abs(n)}d overdue` : n === 0 ? "Today" : n === 1 ? "Tomorrow" : n <= 7 ? `${n}d` : e.toLocaleDateString(void 0, {
     month: "short",
     day: "numeric"
   });
 }
-function Dl() {
+function Ml() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -8944,19 +8978,19 @@ function Dl() {
     }
   `;
 }
-function ei(e, t) {
-  const r = new Qa(t);
+function ni(e, t) {
+  const r = new Xa(t);
   return r.mount(e), r;
 }
-function Tl(e) {
-  return ti(e);
+function Il(e) {
+  return si(e);
 }
-function ti(e, t = {}) {
+function si(e, t = {}) {
   const r = e.dataset.myWorkEndpoint;
   if (!r)
     return console.warn("TranslatorDashboard: Missing data-my-work-endpoint attribute"), null;
-  const n = ri(t);
-  return ei(e, {
+  const n = ai(t);
+  return ni(e, {
     myWorkEndpoint: r,
     panelBaseUrl: e.dataset.panelBaseUrl,
     queueEndpoint: e.dataset.queueEndpoint,
@@ -8964,13 +8998,13 @@ function ti(e, t = {}) {
     capabilityGate: n || void 0
   });
 }
-function ri(e) {
+function ai(e) {
   if (e.capabilityGate) return e.capabilityGate;
-  if (e.capabilitiesPayload !== void 0) return He(e.capabilitiesPayload);
-  const t = ni();
-  return t === null ? null : He(t);
+  if (e.capabilitiesPayload !== void 0) return Ve(e.capabilitiesPayload);
+  const t = ii();
+  return t === null ? null : Ve(t);
 }
-function ni() {
+function ii() {
   if (typeof window < "u") {
     const e = window.__TRANSLATION_CAPABILITIES__;
     if (e && typeof e == "object") return e;
@@ -8985,10 +9019,10 @@ function ni() {
   }
   return null;
 }
-async function ce(e) {
-  return Ke(e);
+async function de(e) {
+  return Je(e);
 }
-var si = {
+var oi = {
   title: "Import Translations",
   selectFile: "Select file or paste data",
   validateButton: "Validate",
@@ -9020,7 +9054,7 @@ var si = {
   allowCreateMissing: "Create missing translations",
   continueOnError: "Continue on error",
   dryRun: "Dry run (preview only)"
-}, ai = class extends nt {
+}, li = class extends st {
   constructor(e) {
     super("idle"), this.container = null, this.validationResult = null, this.previewRows = [], this.selection = {
       selected: /* @__PURE__ */ new Set(),
@@ -9033,7 +9067,7 @@ var si = {
       async: !1
     }, this.error = null, this.file = null, this.rawData = "";
     const t = {
-      ...si,
+      ...oi,
       ...e.labels || {}
     };
     this.config = {
@@ -9079,7 +9113,7 @@ var si = {
           body: this.rawData
         });
         if (!n.ok) throw new Error(`Validation failed: ${n.status}`);
-        const s = await ce(n);
+        const s = await de(n);
         return this.handleValidationResult(s), s;
       } else throw new Error("No file or data to validate");
       const t = await x(this.config.validateEndpoint, {
@@ -9087,7 +9121,7 @@ var si = {
         body: e
       });
       if (!t.ok) throw new Error(`Validation failed: ${t.status}`);
-      const r = await ce(t);
+      const r = await de(t);
       return this.handleValidationResult(r), r;
     } catch (e) {
       return this.error = e instanceof Error ? e : new Error(String(e)), this.state = "error", this.config.onError?.(this.error), this.render(), null;
@@ -9109,7 +9143,7 @@ var si = {
     try {
       const n = {
         rows: (this.validationResult?.results.filter((i) => r.includes(i.index)) || []).map((i) => {
-          const o = this.previewRows.find((c) => c.index === i.index);
+          const o = this.previewRows.find((l) => l.index === i.index);
           return {
             ...i,
             resolution: o?.resolution
@@ -9129,7 +9163,7 @@ var si = {
         body: JSON.stringify(n)
       });
       if (!s.ok) throw new Error(`Apply failed: ${s.status}`);
-      const a = await ce(s);
+      const a = await de(s);
       return this.state = "applied", this.config.onApplyComplete?.(a), this.render(), a;
     } catch (n) {
       return this.error = n instanceof Error ? n : new Error(String(n)), this.state = "error", this.config.onError?.(this.error), this.render(), null;
@@ -9291,7 +9325,7 @@ var si = {
   }
   renderPreviewRow(e) {
     this.config.labels;
-    const t = Ye(e.status, "exchange"), r = e.status === "error", n = F(e.status, {
+    const t = We(e.status, "exchange"), r = e.status === "error", n = F(e.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -9307,7 +9341,7 @@ var si = {
         <td class="field-cell">${d(e.fieldPath)}</td>
         <td class="status-cell">
           ${n}
-          ${e.error ? `<span class="error-message" title="${p(e.error)}">${d(ii(e.error, 30))}</span>` : ""}
+          ${e.error ? `<span class="error-message" title="${p(e.error)}">${d(ci(e.error, 30))}</span>` : ""}
         </td>
         <td class="translation-cell">
           <span class="translation-text" title="${p(e.targetLocale)}">${d(e.targetLocale)}</span>
@@ -9407,10 +9441,10 @@ var si = {
     }));
   }
 };
-function ii(e, t) {
+function ci(e, t) {
   return e.length <= t ? e : e.slice(0, t - 3) + "...";
 }
-function Pl() {
+function Bl() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -9749,18 +9783,18 @@ function Pl() {
     }
   `;
 }
-function oi(e, t) {
-  const r = new ai(t);
+function di(e, t) {
+  const r = new li(t);
   return r.mount(e), r;
 }
-function Ml(e) {
+function Fl(e) {
   const t = e.dataset.validateEndpoint, r = e.dataset.applyEndpoint;
-  return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : oi(e, {
+  return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : di(e, {
     validateEndpoint: t,
     applyEndpoint: r
   });
 }
-var li = {
+var ui = {
   title: "Job Progress",
   running: "In Progress",
   completed: "Completed",
@@ -9779,17 +9813,17 @@ var li = {
   startedAt: "Started",
   elapsed: "Elapsed",
   conflicts: "Conflicts"
-}, ci = 2e3, di = 300, ui = "async_job_", Bt = class {
+}, hi = 2e3, fi = 300, pi = "async_job_", qt = class {
   constructor(e = {}) {
     this.container = null, this.job = null, this.pollingState = "idle", this.pollTimer = null, this.pollAttempts = 0, this.startTime = null, this.error = null;
     const t = {
-      ...li,
+      ...ui,
       ...e.labels || {}
     };
     this.config = {
-      storageKeyPrefix: e.storageKeyPrefix || ui,
-      pollInterval: e.pollInterval || ci,
-      maxPollAttempts: e.maxPollAttempts || di,
+      storageKeyPrefix: e.storageKeyPrefix || pi,
+      pollInterval: e.pollInterval || hi,
+      maxPollAttempts: e.maxPollAttempts || fi,
       onComplete: e.onComplete,
       onFailed: e.onFailed,
       onError: e.onError,
@@ -9950,7 +9984,7 @@ var li = {
           <span class="progress-status">${d(e.noActiveJob)}</span>
         </div>
       `;
-    const t = Ye(this.job.status, "exchange"), r = this.getStatusLabel(), n = this.pollingState === "paused" ? `<span class="progress-status ${t}">${d(r)}</span>` : F(this.job.status, {
+    const t = We(this.job.status, "exchange"), r = this.getStatusLabel(), n = this.pollingState === "paused" ? `<span class="progress-status ${t}">${d(r)}</span>` : F(this.job.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -10087,7 +10121,7 @@ var li = {
     this.container && (this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset()));
   }
 };
-function Il() {
+function ql() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -10321,21 +10355,21 @@ function Il() {
     }
   `;
 }
-function hi(e, t) {
-  const r = new Bt(t);
+function mi(e, t) {
+  const r = new qt(t);
   return r.mount(e), r;
 }
-function Bl(e) {
-  return hi(e, {
+function Ol(e) {
+  return mi(e, {
     pollInterval: e.dataset.pollInterval ? parseInt(e.dataset.pollInterval, 10) : void 0,
     autoStart: e.dataset.autoStart !== "false"
   });
 }
-function Fl(e, t) {
-  const r = new Bt(t);
+function jl(e, t) {
+  const r = new qt(t);
   return r.hasPersistedJob(e) ? r : null;
 }
-var de = {
+var ue = {
   sourceColumn: "Source",
   targetColumn: "Translation",
   driftBannerTitle: "Source content has changed",
@@ -10345,7 +10379,7 @@ var de = {
   copySourceButton: "Copy from source",
   fieldChangedIndicator: "Source changed"
 };
-function fi(e) {
+function gi(e) {
   const t = {
     sourceHash: null,
     sourceVersion: null,
@@ -10364,13 +10398,13 @@ function fi(e) {
   }
   return t;
 }
-function pi(e, t) {
+function bi(e, t) {
   return !e || !e.hasDrift ? !1 : e.changedFieldsSummary.fields.some((r) => r.toLowerCase() === t.toLowerCase());
 }
-function ql(e) {
+function zl(e) {
   return !e || !e.hasDrift ? [] : [...e.changedFieldsSummary.fields];
 }
-var mi = class {
+var yi = class {
   constructor(e) {
     this.container = null, this.driftAcknowledged = !1;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -10387,7 +10421,7 @@ var mi = class {
       onDriftAcknowledge: e.onDriftAcknowledge,
       onCopySource: e.onCopySource,
       labels: {
-        ...de,
+        ...ue,
         ...e.labels
       }
     }, this.container = t;
@@ -10424,7 +10458,7 @@ var mi = class {
   }
   renderDriftBanner(e, t) {
     const r = {
-      ...de,
+      ...ue,
       ...t
     }, n = e.changedFieldsSummary.count, s = e.changedFieldsSummary.fields, a = s.length > 0 ? `<ul class="sbs-drift-fields-list">${s.map((i) => `<li>${d(i)}</li>`).join("")}</ul>` : "";
     return `
@@ -10452,7 +10486,7 @@ var mi = class {
   }
   renderFieldRow(e, t) {
     const r = {
-      ...de,
+      ...ue,
       ...t
     }, n = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${d(r.fieldChangedIndicator)}">
           <svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
@@ -10589,19 +10623,19 @@ var mi = class {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function gi(e) {
-  const t = new mi(e);
+function vi(e) {
+  const t = new yi(e);
   return t.render(), t;
 }
-function Ol(e, t, r, n, s) {
-  const a = fi(t);
-  return gi({
+function Nl(e, t, r, n, s) {
+  const a = gi(t);
+  return vi({
     container: e,
     fields: n.map((i) => ({
       key: i,
       label: i.replace(/_/g, " ").replace(/\b\w/g, (o) => o.toUpperCase()),
       type: "text",
-      hasSourceChanged: pi(a, i),
+      hasSourceChanged: bi(a, i),
       sourceValue: String(r[i] || ""),
       targetValue: String(t[i] || ""),
       sourceLocale: s.sourceLocale || "en",
@@ -10615,7 +10649,7 @@ function Ol(e, t, r, n, s) {
     ...s
   });
 }
-function jl() {
+function Gl() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -10986,227 +11020,227 @@ function jl() {
   `;
 }
 export {
-  gr as ActionRenderer,
-  To as AdvancedSearch,
-  Bt as AsyncProgress,
-  Dt as AutosaveIndicator,
-  Pi as CORE_READINESS_DISPLAY,
-  It as CapabilityGate,
-  Fr as CellRendererRegistry,
-  qa as CharacterCounter,
-  Qn as ColumnManager,
-  Do as CommonRenderers,
-  Ja as DEFAULT_FILTER_PRESETS,
-  Mt as DEFAULT_INTERPOLATION_PATTERNS,
-  Fa as DEFAULT_SAMPLE_VALUES,
-  de as DEFAULT_SIDE_BY_SIDE_LABELS,
-  ua as DEFAULT_STATUS_LEGEND_ITEMS,
-  $t as DEFAULT_TRANSLATION_QUICK_FILTERS,
-  Ni as DISABLED_REASON_DISPLAY,
-  yt as DataGrid,
-  ea as DefaultColumnVisibilityBehavior,
-  ca as DetailActionsController,
-  ja as DirectionToggle,
-  Zi as EXCHANGE_JOB_STATUS_DISPLAY,
-  Ti as EXCHANGE_ROW_STATUS_DISPLAY,
-  ai as ExchangeImport,
-  ke as FallbackBanner,
-  Po as FilterBuilder,
-  Oo as GoCrudBulkActionBehavior,
-  qo as GoCrudExportBehavior,
-  Io as GoCrudFilterBehavior,
-  Bo as GoCrudPaginationBehavior,
-  Mo as GoCrudSearchBehavior,
-  Fo as GoCrudSortBehavior,
-  At as InlineLocaleChips,
-  Oa as InterpolationPreview,
-  Lt as KeyboardShortcutRegistry,
-  dt as LocalDataGridStateStore,
-  re as LocaleActionChip,
-  st as PayloadInputModal,
-  Vr as PreferencesDataGridStateStore,
-  Xi as QUEUE_CONTENT_STATE_DISPLAY,
-  ji as QUEUE_DUE_STATE_DISPLAY,
-  zi as QUEUE_STATE_DISPLAY,
-  fa as QuickFilters,
-  xt as SchemaActionBuilder,
-  jo as ServerColumnVisibilityBehavior,
-  mi as SideBySideEditor,
-  Ct as StatusLegend,
-  da as TranslationBlockerModal,
-  ma as TranslationPanel,
-  Qa as TranslatorDashboard,
-  wa as applyFormLock,
-  Ha as applyGateToElement,
-  Da as applyShortcutSettings,
-  Ue as buildLocaleEditUrl,
-  zo as buildSchemaRowActions,
-  Fl as checkForPersistedJob,
-  no as collapseAllGroups,
-  hi as createAsyncProgress,
-  Xo as createBulkCreateMissingHandler,
-  He as createCapabilityGate,
-  Kr as createDataGridStateStore,
-  kl as createEmptyCapabilityGate,
-  oi as createExchangeImport,
-  cl as createInlineLocaleChipsRenderer,
-  Er as createLocaleBadgeRenderer,
-  Gi as createReasonCodeCellRenderer,
-  gi as createSideBySideEditor,
-  Mi as createStatusCellRenderer,
-  ha as createStatusLegend,
-  ml as createTranslationAutosave,
-  _o as createTranslationMatrixRenderer,
-  Qo as createTranslationPanel,
-  pa as createTranslationQuickFilters,
-  Aa as createTranslationShortcuts,
-  Pe as createTranslationStatusRenderer,
-  ei as createTranslatorDashboard,
-  or as decodeExpandedGroupsToken,
-  Cl as detectInterpolations,
-  _a as dismissShortcutHint,
-  ro as encodeExpandedGroupsToken,
-  ga as executeBulkCreateMissing,
-  Wi as expandAllGroups,
-  Xt as extractBackendSummaries,
-  Ga as extractCapabilities,
-  Ci as extractExchangeError,
-  No as extractSchemaActions,
-  fi as extractSourceTargetDrift,
+  yr as ActionRenderer,
+  Io as AdvancedSearch,
+  qt as AsyncProgress,
+  Pt as AutosaveIndicator,
+  Bi as CORE_READINESS_DISPLAY,
+  Ft as CapabilityGate,
+  Or as CellRendererRegistry,
+  za as CharacterCounter,
+  Wn as ColumnManager,
+  Mo as CommonRenderers,
+  Wa as DEFAULT_FILTER_PRESETS,
+  Bt as DEFAULT_INTERPOLATION_PATTERNS,
+  ja as DEFAULT_SAMPLE_VALUES,
+  ue as DEFAULT_SIDE_BY_SIDE_LABELS,
+  pa as DEFAULT_STATUS_LEGEND_ITEMS,
+  kt as DEFAULT_TRANSLATION_QUICK_FILTERS,
+  Hi as DISABLED_REASON_DISPLAY,
+  wt as DataGrid,
+  na as DefaultColumnVisibilityBehavior,
+  ha as DetailActionsController,
+  Ga as DirectionToggle,
+  ro as EXCHANGE_JOB_STATUS_DISPLAY,
+  Ii as EXCHANGE_ROW_STATUS_DISPLAY,
+  li as ExchangeImport,
+  Le as FallbackBanner,
+  Bo as FilterBuilder,
+  No as GoCrudBulkActionBehavior,
+  zo as GoCrudExportBehavior,
+  qo as GoCrudFilterBehavior,
+  Oo as GoCrudPaginationBehavior,
+  Fo as GoCrudSearchBehavior,
+  jo as GoCrudSortBehavior,
+  Lt as InlineLocaleChips,
+  Na as InterpolationPreview,
+  Rt as KeyboardShortcutRegistry,
+  ut as LocalDataGridStateStore,
+  ne as LocaleActionChip,
+  at as PayloadInputModal,
+  Jr as PreferencesDataGridStateStore,
+  to as QUEUE_CONTENT_STATE_DISPLAY,
+  Gi as QUEUE_DUE_STATE_DISPLAY,
+  Ui as QUEUE_STATE_DISPLAY,
+  ga as QuickFilters,
+  Ct as SchemaActionBuilder,
+  Go as ServerColumnVisibilityBehavior,
+  yi as SideBySideEditor,
+  Et as StatusLegend,
+  fa as TranslationBlockerModal,
+  ya as TranslationPanel,
+  Xa as TranslatorDashboard,
+  Ca as applyFormLock,
+  Ja as applyGateToElement,
+  Ma as applyShortcutSettings,
+  He as buildLocaleEditUrl,
+  Uo as buildSchemaRowActions,
+  jl as checkForPersistedJob,
+  io as collapseAllGroups,
+  mi as createAsyncProgress,
+  tl as createBulkCreateMissingHandler,
+  Ve as createCapabilityGate,
+  Qr as createDataGridStateStore,
+  Rl as createEmptyCapabilityGate,
+  di as createExchangeImport,
+  hl as createInlineLocaleChipsRenderer,
+  Ar as createLocaleBadgeRenderer,
+  Vi as createReasonCodeCellRenderer,
+  vi as createSideBySideEditor,
+  Fi as createStatusCellRenderer,
+  ma as createStatusLegend,
+  yl as createTranslationAutosave,
+  To as createTranslationMatrixRenderer,
+  Xo as createTranslationPanel,
+  ba as createTranslationQuickFilters,
+  _a as createTranslationShortcuts,
+  Me as createTranslationStatusRenderer,
+  ni as createTranslatorDashboard,
+  cr as decodeExpandedGroupsToken,
+  kl as detectInterpolations,
+  Ta as dismissShortcutHint,
+  ao as encodeExpandedGroupsToken,
+  va as executeBulkCreateMissing,
+  eo as expandAllGroups,
+  er as extractBackendSummaries,
+  Va as extractCapabilities,
+  ki as extractExchangeError,
+  Ho as extractSchemaActions,
+  gi as extractSourceTargetDrift,
   L as extractTranslationContext,
   $ as extractTranslationReadiness,
-  kt as formatShortcutDisplay,
-  $i as generateExchangeReport,
-  We as getActionBlockDisplay,
-  Oi as getAllReasonCodes,
-  Il as getAsyncProgressStyles,
-  bl as getAutosaveIndicatorStyles,
-  _l as getCapabilityGateStyles,
-  ql as getChangedFields,
-  $l as getCharCountSeverity,
-  fl as getDefaultShortcutRegistry,
-  Hi as getDisabledReasonDisplay,
-  Pl as getExchangeImportStyles,
-  eo as getExpandedGroupIds,
-  Sl as getFieldHelperStyles,
-  rl as getFormLockReason,
+  _t as formatShortcutDisplay,
+  Ai as generateExchangeReport,
+  Xe as getActionBlockDisplay,
+  Ni as getAllReasonCodes,
+  ql as getAsyncProgressStyles,
+  wl as getAutosaveIndicatorStyles,
+  Tl as getCapabilityGateStyles,
+  zl as getChangedFields,
+  Al as getCharCountSeverity,
+  gl as getDefaultShortcutRegistry,
+  Ji as getDisabledReasonDisplay,
+  Bl as getExchangeImportStyles,
+  no as getExpandedGroupIds,
+  El as getFieldHelperStyles,
+  al as getFormLockReason,
   E as getLocaleLabel,
-  Lo as getMissingTranslationsCount,
-  $a as getModifierSymbol,
-  er as getPersistedExpandState,
-  ar as getPersistedViewMode,
-  Ca as getPrimaryModifierLabel,
-  lo as getSeverityCssClass,
-  jl as getSideBySideEditorStyles,
-  Ye as getStatusCssClass,
-  we as getStatusDisplay,
-  Bi as getStatusVocabularyStyles,
-  Ki as getStatusesForDomain,
-  Dl as getTranslatorDashboardStyles,
-  Se as getViewModeForViewport,
-  Ei as groupRowResultsByStatus,
-  Vn as handleDelete,
-  tr as hasBackendGroupedRows,
-  pi as hasFieldDrift,
-  ko as hasMissingTranslations,
-  mo as hasTranslationContext,
-  wo as hasTranslationReadiness,
-  Bl as initAsyncProgress,
-  Rl as initCapabilityGating,
-  Ml as initExchangeImport,
-  al as initFallbackBanner,
-  vl as initFieldHelpers,
-  yl as initFormAutosave,
-  il as initFormLock,
-  ll as initInlineLocaleChips,
-  Ta as initKeyboardShortcuts,
-  pl as initKeyboardShortcutsWithDiscovery,
-  el as initLocaleActionChips,
-  Go as initPanelDetailActions,
-  Ko as initQuickFilters,
-  Ol as initSideBySideEditorFromRecord,
-  Ho as initStatusLegends,
-  Tl as initTranslatorDashboard,
-  ti as initTranslatorDashboardWithOptions,
-  Ji as initializeVocabularyFromPayload,
-  Al as isCoreEnabled,
-  za as isExchangeEnabled,
-  Ai as isExchangeError,
-  tl as isFormLocked,
-  po as isInFallbackMode,
-  ne as isMacPlatform,
-  to as isNarrowViewport,
-  Na as isQueueEnabled,
-  xo as isReadyForTransition,
-  La as isShortcutHintDismissed,
-  Ii as isValidReasonCode,
-  qi as isValidStatus,
-  ka as loadShortcutSettings,
-  ir as mergeBackendSummaries,
-  Qi as normalizeActionBlockCode,
-  Ui as normalizeActionState,
-  Di as normalizeActionStateMap,
-  Yi as normalizeActionStateMeta,
-  so as normalizeActionStateRecord,
-  nr as normalizeBackendGroupedRows,
-  et as normalizeBulkActionStateConfig,
-  tt as normalizeBulkActionStateMap,
-  sr as normalizeBulkActionStateResponse,
-  Ze as normalizeDetailActionStatePayload,
-  lr as normalizeListActionStatePayload,
-  El as parseCapabilityMode,
-  ki as parseImportResult,
-  Xe as parseViewMode,
-  ao as persistExpandState,
-  oo as persistViewMode,
-  xa as removeFormLock,
-  gl as renderAutosaveIndicator,
-  wr as renderAvailableLocalesIndicator,
-  Wo as renderBulkResultInline,
-  Yo as renderBulkResultSummary,
-  wl as renderCharacterCounter,
-  la as renderDetailActions,
-  xl as renderDirectionToggle,
-  Ua as renderDisabledReasonBadge,
-  Ra as renderDiscoveryHint,
-  nl as renderFallbackBannerFromRecord,
-  Ro as renderFallbackWarning,
-  Ll as renderGateAriaAttributes,
-  Zt as renderGroupHeaderRow,
-  io as renderGroupHeaderSummary,
-  Yt as renderGroupedEmptyState,
-  Jt as renderGroupedErrorState,
-  ur as renderGroupedLoadingState,
-  Sa as renderInlineLocaleChips,
-  Et as renderLocaleActionChip,
-  Zo as renderLocaleActionList,
-  ot as renderLocaleBadge,
-  Eo as renderLocaleCompleteness,
-  Ao as renderMissingTranslationsBadge,
-  $o as renderPublishReadinessBadge,
-  Jo as renderQuickFiltersHTML,
-  Co as renderReadinessIndicator,
-  cr as renderReasonCodeBadge,
-  Fi as renderReasonCodeIndicator,
-  hl as renderShortcutSettingsUI,
-  dl as renderShortcutsHelpContent,
-  So as renderStatusBadge,
-  Vo as renderStatusLegendHTML,
-  yo as renderTranslationAssignmentSummary,
-  vo as renderTranslationExchangeSummary,
-  go as renderTranslationFamilyLink,
-  bo as renderTranslationFamilyMemberCount,
-  Cr as renderTranslationMatrixCell,
-  xr as renderTranslationStatusCell,
+  Do as getMissingTranslationsCount,
+  Aa as getModifierSymbol,
+  rr as getPersistedExpandState,
+  or as getPersistedViewMode,
+  ka as getPrimaryModifierLabel,
+  ho as getSeverityCssClass,
+  Gl as getSideBySideEditorStyles,
+  We as getStatusCssClass,
+  xe as getStatusDisplay,
+  Oi as getStatusVocabularyStyles,
+  Yi as getStatusesForDomain,
+  Ml as getTranslatorDashboardStyles,
+  Ce as getViewModeForViewport,
+  Li as groupRowResultsByStatus,
+  Jn as handleDelete,
+  nr as hasBackendGroupedRows,
+  bi as hasFieldDrift,
+  Ro as hasMissingTranslations,
+  yo as hasTranslationContext,
+  Co as hasTranslationReadiness,
+  Ol as initAsyncProgress,
+  Pl as initCapabilityGating,
+  Fl as initExchangeImport,
+  ll as initFallbackBanner,
+  Sl as initFieldHelpers,
+  xl as initFormAutosave,
+  cl as initFormLock,
+  ul as initInlineLocaleChips,
+  Ia as initKeyboardShortcuts,
+  bl as initKeyboardShortcutsWithDiscovery,
+  nl as initLocaleActionChips,
+  Vo as initPanelDetailActions,
+  Yo as initQuickFilters,
+  Nl as initSideBySideEditorFromRecord,
+  Jo as initStatusLegends,
+  Il as initTranslatorDashboard,
+  si as initTranslatorDashboardWithOptions,
+  Wi as initializeVocabularyFromPayload,
+  _l as isCoreEnabled,
+  Ua as isExchangeEnabled,
+  _i as isExchangeError,
+  sl as isFormLocked,
+  bo as isInFallbackMode,
+  se as isMacPlatform,
+  so as isNarrowViewport,
+  Ha as isQueueEnabled,
+  $o as isReadyForTransition,
+  Da as isShortcutHintDismissed,
+  qi as isValidReasonCode,
+  zi as isValidStatus,
+  Ra as loadShortcutSettings,
+  lr as mergeBackendSummaries,
+  Xi as normalizeActionBlockCode,
+  Ki as normalizeActionState,
+  Mi as normalizeActionStateMap,
+  Zi as normalizeActionStateMeta,
+  oo as normalizeActionStateRecord,
+  ar as normalizeBackendGroupedRows,
+  tt as normalizeBulkActionStateConfig,
+  rt as normalizeBulkActionStateMap,
+  ir as normalizeBulkActionStateResponse,
+  et as normalizeDetailActionStatePayload,
+  dr as normalizeListActionStatePayload,
+  Ll as parseCapabilityMode,
+  Ri as parseImportResult,
+  Ze as parseViewMode,
+  lo as persistExpandState,
+  uo as persistViewMode,
+  $a as removeFormLock,
+  vl as renderAutosaveIndicator,
+  Sr as renderAvailableLocalesIndicator,
+  el as renderBulkResultInline,
+  Zo as renderBulkResultSummary,
+  Cl as renderCharacterCounter,
+  ua as renderDetailActions,
+  $l as renderDirectionToggle,
+  Ka as renderDisabledReasonBadge,
+  Pa as renderDiscoveryHint,
+  il as renderFallbackBannerFromRecord,
+  Po as renderFallbackWarning,
+  Dl as renderGateAriaAttributes,
+  tr as renderGroupHeaderRow,
+  co as renderGroupHeaderSummary,
+  Xt as renderGroupedEmptyState,
+  Yt as renderGroupedErrorState,
+  fr as renderGroupedLoadingState,
+  Ea as renderInlineLocaleChips,
+  At as renderLocaleActionChip,
+  rl as renderLocaleActionList,
+  lt as renderLocaleBadge,
+  Lo as renderLocaleCompleteness,
+  _o as renderMissingTranslationsBadge,
+  Ao as renderPublishReadinessBadge,
+  Wo as renderQuickFiltersHTML,
+  ko as renderReadinessIndicator,
+  ur as renderReasonCodeBadge,
+  ji as renderReasonCodeIndicator,
+  ml as renderShortcutSettingsUI,
+  fl as renderShortcutsHelpContent,
+  Eo as renderStatusBadge,
+  Qo as renderStatusLegendHTML,
+  xo as renderTranslationAssignmentSummary,
+  So as renderTranslationExchangeSummary,
+  vo as renderTranslationFamilyLink,
+  wo as renderTranslationFamilyMemberCount,
+  Er as renderTranslationMatrixCell,
+  Cr as renderTranslationStatusCell,
   F as renderVocabularyStatusBadge,
-  Wt as renderVocabularyStatusIcon,
-  rt as resolveActionState,
-  ul as saveShortcutSettings,
-  sl as shouldShowFallbackBanner,
-  ol as shouldShowInlineLocaleChips,
-  Uo as showTranslationBlocker,
-  Vi as toggleGroupExpand,
-  Qt as transformToGroups
+  Zt as renderVocabularyStatusIcon,
+  nt as resolveActionState,
+  pl as saveShortcutSettings,
+  ol as shouldShowFallbackBanner,
+  dl as shouldShowInlineLocaleChips,
+  Ko as showTranslationBlocker,
+  Qi as toggleGroupExpand,
+  Wt as transformToGroups
 };
 
 //# sourceMappingURL=index.js.map

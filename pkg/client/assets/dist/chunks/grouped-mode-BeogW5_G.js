@@ -54,8 +54,8 @@ function re(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = e;
   if (!ee(t)) return null;
-  const r = z({ reason_code: t.reason_code }), s = { enabled: typeof t.enabled == "boolean" ? t.enabled : !1 }, n = m(t.reason), a = m(t.severity), o = m(t.kind), i = m(t.permission), d = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, c = Q(t.remediation), u = Z(t.available_transitions);
-  return n && (s.reason = n), r && (s.reason_code = r), a && (s.severity = a), o && (s.kind = o), i && (s.permission = i), d && (s.metadata = d), c && (s.remediation = c), u && (s.available_transitions = u), s;
+  const r = z({ reason_code: t.reason_code }), s = { enabled: typeof t.enabled == "boolean" ? t.enabled : !1 }, n = m(t.reason), a = m(t.severity), o = m(t.kind), i = m(t.permission), d = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, l = Q(t.remediation), u = Z(t.available_transitions);
+  return n && (s.reason = n), r && (s.reason_code = r), a && (s.severity = a), o && (s.kind = o), i && (s.permission = i), d && (s.metadata = d), l && (s.remediation = l), u && (s.available_transitions = u), s;
 }
 function L(e) {
   if (!y(e)) return {};
@@ -152,7 +152,7 @@ var g = {
   warning: "border-amber-200",
   error: "border-rose-200"
 };
-function l(e, t = {}) {
+function c(e, t = {}) {
   const r = K(e), s = r?.tone ?? "neutral";
   return {
     label: r?.label ?? j(e),
@@ -168,51 +168,51 @@ function l(e, t = {}) {
   };
 }
 var S = {
-  ready: l("ready", {
+  ready: c("ready", {
     shortLabel: "Ready",
     description: "All required translations are complete"
   }),
-  missing_locales: l("missing_locales", {
+  missing_locales: c("missing_locales", {
     shortLabel: "Missing",
     description: "Required locale translations are missing"
   }),
-  missing_fields: l("missing_fields", {
+  missing_fields: c("missing_fields", {
     shortLabel: "Incomplete",
     description: "Some translations have missing required fields"
   }),
-  missing_locales_and_fields: l("missing_locales_and_fields", {
+  missing_locales_and_fields: c("missing_locales_and_fields", {
     shortLabel: "Not Ready",
     description: "Missing translations and incomplete fields"
   })
 }, C = {
-  open: l("open", { description: "Available to be claimed" }),
-  pending: l("pending", { description: "Waiting to be assigned" }),
-  assigned: l("assigned", { description: "Assigned to a translator" }),
-  in_progress: l("in_progress", { description: "Translation in progress" }),
-  review: l("review", { description: "Pending review" }),
-  rejected: l("rejected", { description: "Translation rejected" }),
-  approved: l("approved", { description: "Translation approved" }),
-  published: l("published", { description: "Translation published" }),
-  archived: l("archived", { description: "Translation archived" })
+  open: c("open", { description: "Available to be claimed" }),
+  pending: c("pending", { description: "Waiting to be assigned" }),
+  assigned: c("assigned", { description: "Assigned to a translator" }),
+  in_progress: c("in_progress", { description: "Translation in progress" }),
+  review: c("review", { description: "Pending review" }),
+  rejected: c("rejected", { description: "Translation rejected" }),
+  approved: c("approved", { description: "Translation approved" }),
+  published: c("published", { description: "Translation published" }),
+  archived: c("archived", { description: "Translation archived" })
 }, w = {
-  draft: l("draft", { description: "Draft content" }),
-  review: l("review", { description: "Content under review" }),
-  ready: l("ready", { description: "Content ready" }),
-  archived: l("archived", { description: "Content archived" })
+  draft: c("draft", { description: "Draft content" }),
+  review: c("review", { description: "Content under review" }),
+  ready: c("ready", { description: "Content ready" }),
+  archived: c("archived", { description: "Content archived" })
 }, k = {
-  overdue: l("overdue", { description: "Past due date" }),
-  due_soon: l("due_soon", { description: "Due within 24 hours" }),
-  on_track: l("on_track", { description: "On schedule" }),
-  none: l("none", { description: "No due date set" })
+  overdue: c("overdue", { description: "Past due date" }),
+  due_soon: c("due_soon", { description: "Due within 24 hours" }),
+  on_track: c("on_track", { description: "On schedule" }),
+  none: c("none", { description: "No due date set" })
 }, E = {
-  success: l("success", { description: "Import/export succeeded" }),
-  error: l("error", { description: "Import/export failed" }),
-  conflict: l("conflict", { description: "Conflicting changes detected" }),
-  skipped: l("skipped", { description: "Row skipped" })
+  success: c("success", { description: "Import/export succeeded" }),
+  error: c("error", { description: "Import/export failed" }),
+  conflict: c("conflict", { description: "Conflicting changes detected" }),
+  skipped: c("skipped", { description: "Row skipped" })
 }, I = {
-  running: l("running", { description: "Job in progress" }),
-  completed: l("completed", { description: "Job completed successfully" }),
-  failed: l("failed", { description: "Job failed" })
+  running: c("running", { description: "Job in progress" }),
+  completed: c("completed", { description: "Job completed successfully" }),
+  failed: c("failed", { description: "Job failed" })
 }, _ = {
   TRANSLATION_MISSING: {
     message: "Required translation is missing",
@@ -379,12 +379,12 @@ function le(e, t = {}) {
     xs: "px-1.5 py-0.5 text-[10px]",
     sm: "px-2 py-0.5",
     default: ""
-  }, d = n ? ce(r, s) : "", c = a ? `<span>${f(r.label)}</span>` : "";
+  }, d = n ? ce(r, s) : "", l = a ? `<span>${f(r.label)}</span>` : "";
   return `<span class="status-chip status-chip--${r.severity} ${i[s]} ${o}"
                 title="${f(r.description || r.label)}"
                 aria-label="${f(r.label)}"
                 data-status="${f(e)}">
-    ${d}${c}
+    ${d}${l}
   </span>`;
 }
 function ce(e, t = "default") {
@@ -409,13 +409,13 @@ function de(e, t = {}) {
     default: "px-2.5 py-1 text-sm"
   }, d = n ? `<svg class="${s === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
         <path fill-rule="evenodd" d="${r.icon}" clip-rule="evenodd"/>
-      </svg>` : "", c = a ? r.message : r.shortMessage;
+      </svg>` : "", l = a ? r.message : r.shortMessage;
   return `<span class="inline-flex items-center gap-1.5 rounded ${i[s]} ${r.colorClass} ${o}"
                 role="status"
                 aria-label="${f(r.message)}"
                 data-reason-code="${f(e)}">
     ${d}
-    <span>${f(c)}</span>
+    <span>${f(l)}</span>
   </span>`;
 }
 function Ne(e, t) {
@@ -469,25 +469,25 @@ function Ge() {
 }
 function Pe(e, t = {}) {
   const { groupByField: r = "family_id", defaultExpanded: s = !0, expandMode: n = "explicit", expandedGroups: a = /* @__PURE__ */ new Set() } = t, o = /* @__PURE__ */ new Map(), i = [];
-  for (const c of e) {
-    const u = be(c, r);
+  for (const l of e) {
+    const u = be(l, r);
     if (u) {
       const p = o.get(u);
-      p ? p.push(c) : o.set(u, [c]);
-    } else i.push(c);
+      p ? p.push(l) : o.set(u, [l]);
+    } else i.push(l);
   }
   const d = [];
-  for (const [c, u] of o) {
-    const p = U(u), b = D(c, n, a, s);
+  for (const [l, u] of o) {
+    const p = U(u), b = D(l, n, a, s);
     d.push({
-      groupId: c,
+      groupId: l,
       records: u,
       summary: p,
       expanded: b,
       summaryFromBackend: !1
     });
   }
-  return d.sort((c, u) => e.indexOf(c.records[0]) - e.indexOf(u.records[0])), {
+  return d.sort((l, u) => e.indexOf(l.records[0]) - e.indexOf(u.records[0])), {
     groups: d,
     ungrouped: i,
     totalGroups: d.length,
@@ -520,11 +520,11 @@ function Ve(e, t = {}) {
       o.push({ ...d }), i += 1;
       continue;
     }
-    const c = me(d);
-    if (!c) return null;
-    const u = V(d), p = ge(d, u), b = D(c, s, n, r);
+    const l = me(d);
+    if (!l) return null;
+    const u = V(d), p = ge(d, u), b = D(l, s, n, r);
     a.push({
-      groupId: c,
+      groupId: l,
       displayLabel: ye(d, u),
       records: u,
       summary: p,
@@ -621,11 +621,11 @@ function U(e) {
   for (const o of e) {
     const i = o.translation_readiness;
     if (i) {
-      const c = i.available_locales, u = i.missing_required_locales, p = i.readiness_state;
-      Array.isArray(c) && c.filter(h).forEach((b) => t.add(b)), Array.isArray(u) && u.filter(h).forEach((b) => r.add(b)), (p === "missing_fields" || p === "missing_locales_and_fields") && (s = !0), p === "ready" && n++;
+      const l = i.available_locales, u = i.missing_required_locales, p = i.readiness_state;
+      Array.isArray(l) && l.filter(h).forEach((b) => t.add(b)), Array.isArray(u) && u.filter(h).forEach((b) => r.add(b)), (p === "missing_fields" || p === "missing_locales_and_fields") && (s = !0), p === "ready" && n++;
     }
     const d = o.available_locales;
-    Array.isArray(d) && d.filter(h).forEach((c) => t.add(c));
+    Array.isArray(d) && d.filter(h).forEach((l) => t.add(l));
   }
   let a = null;
   if (e.length > 0) {
@@ -849,12 +849,12 @@ function _e(e, t = {}) {
       </span>
     `;
   }
-  const d = o > 0 ? `<span class="${n} text-gray-500">${a}/${o} locales</span>` : "", c = `<span class="${n} text-gray-500">${r.totalItems} item${r.totalItems !== 1 ? "s" : ""}</span>`;
+  const d = o > 0 ? `<span class="${n} text-gray-500">${a}/${o} locales</span>` : "", l = `<span class="${n} text-gray-500">${r.totalItems} item${r.totalItems !== 1 ? "s" : ""}</span>`;
   return `
     <div class="inline-flex items-center gap-2">
       ${i}
       ${d}
-      ${c}
+      ${l}
     </div>
   `;
 }
@@ -923,7 +923,7 @@ function Ae(e) {
   return `Translation Group (${e.groupId.length > 8 ? e.groupId.slice(0, 8) + "..." : e.groupId})`;
 }
 function nt(e, t, r = {}) {
-  const { showExpandIcon: s = !0 } = r, n = s ? `<span class="expand-icon mr-2" aria-hidden="true">${e.expanded ? "▼" : "▶"}</span>` : "", a = _e(e), o = f(Ae(e)), i = e.records.length, d = i > 1 ? `<span class="ml-2 text-xs text-gray-500">(${i} locales)</span>` : "";
+  const { showExpandIcon: s = !0, fixedColumnCount: n = 2 } = r, a = s ? `<span class="expand-icon mr-2" aria-hidden="true">${e.expanded ? "▼" : "▶"}</span>` : "", o = _e(e), i = f(Ae(e)), d = e.records.length, l = d > 1 ? `<span class="ml-2 text-xs text-gray-500">(${d} locales)</span>` : "";
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
         data-group-id="${J(e.groupId)}"
@@ -931,23 +931,23 @@ function nt(e, t, r = {}) {
         role="row"
         aria-expanded="${e.expanded}"
         tabindex="0">
-      <td colspan="${t + 2}" class="px-4 py-2">
+      <td colspan="${t + n}" class="px-4 py-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center">
-            ${n}
-            <span class="font-medium text-gray-700">${o}</span>
-            ${d}
+            ${a}
+            <span class="font-medium text-gray-700">${i}</span>
+            ${l}
           </div>
-          ${a}
+          ${o}
         </div>
       </td>
     </tr>
   `;
 }
-function at(e) {
+function at(e, t = 2) {
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="empty">
-      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-12 text-center">
+      <td colspan="${e + t}" class="admin-datagrid__state admin-datagrid__state--empty px-6 py-12 text-center">
         <div class="text-gray-500">
           <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -960,10 +960,10 @@ function at(e) {
     </tr>
   `;
 }
-function it(e) {
+function it(e, t = 2) {
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="loading">
-      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center" role="status" aria-live="polite">
+      <td colspan="${e + t}" class="admin-datagrid__state admin-datagrid__state--loading px-6 py-12 text-center" role="status" aria-live="polite">
         <div class="flex items-center justify-center">
           <svg class="animate-spin h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -975,11 +975,11 @@ function it(e) {
     </tr>
   `;
 }
-function ot(e, t, r) {
-  const s = r ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
+function ot(e, t, r, s = 2) {
+  const n = r ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
   return `
     <tr class="admin-datagrid__state-row" data-datagrid-state="error">
-      <td colspan="${e + 2}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center" role="alert" aria-live="assertive">
+      <td colspan="${e + s}" class="admin-datagrid__state admin-datagrid__state--error px-6 py-12 text-center" role="alert" aria-live="assertive">
         <div class="text-red-500">
           <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -987,7 +987,7 @@ function ot(e, t, r) {
           </svg>
           <h3 class="mt-2 text-sm font-medium text-gray-900">Error loading groups</h3>
           <p class="mt-1 text-sm text-gray-500">${f(t)}</p>
-          ${s}
+          ${n}
         </div>
       </td>
     </tr>
@@ -1063,4 +1063,4 @@ export {
   je as z
 };
 
-//# sourceMappingURL=grouped-mode-B--tWGTf.js.map
+//# sourceMappingURL=grouped-mode-BeogW5_G.js.map

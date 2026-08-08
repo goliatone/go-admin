@@ -5,6 +5,11 @@ import type { ToastNotifier } from '../toast/types.js';
 import type { ViewMode, GroupedData, GroupExpandMode } from './grouped-mode.js';
 import type { DataGridStateStore, DataGridPersistedState, DataGridShareState, DataGridStateStoreConfig } from './state-store.js';
 import type { ActionState, ActionStateRecord, BulkActionStateMap } from './action-contracts.js';
+export interface DataGridCapabilities {
+    selection: boolean;
+    bulk: boolean;
+    export: boolean;
+}
 export interface DataGridConfig {
     tableId: string;
     apiEndpoint: string;
@@ -28,6 +33,7 @@ export interface DataGridConfig {
     stateStore?: DataGridStateStore;
     stateStoreConfig?: Omit<DataGridStateStoreConfig, 'key'>;
     urlState?: DataGridURLStateConfig;
+    capabilities?: DataGridCapabilities;
 }
 export interface DataGridURLStateConfig {
     maxURLLength?: number;

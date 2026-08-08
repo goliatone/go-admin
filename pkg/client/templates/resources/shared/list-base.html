@@ -128,6 +128,7 @@
           </div>
 
           <!-- Export Dropdown -->
+          {% if not list_capabilities or list_capabilities["export"] %}
           <div class="relative">
             <button id="export-btn" type="button"
                     data-dropdown-toggle="export-menu"
@@ -186,6 +187,7 @@
               </div>
             </div>
           </div>
+          {% endif %}
 
           {% block toolbar_right_extra %}{% endblock %}
 
@@ -216,6 +218,7 @@
         <thead class="admin-datagrid__header bg-gray-50">
           <tr>
             <!-- Selection Column (fixed, not reorderable) -->
+            {% if not list_capabilities or list_capabilities.selection %}
             <th scope="col" data-role="selection" data-fixed="left" class="admin-datagrid__header-cell px-6 py-3 text-start">
               <label class="flex">
                 <input type="checkbox"
@@ -224,6 +227,7 @@
                 <span class="sr-only">Select all</span>
               </label>
             </th>
+            {% endif %}
             {% for col in columns %}
             <th scope="col"
                 data-column="{{ col.field }}"
@@ -256,7 +260,9 @@
           {% block filter_row %}
           <tr class="admin-datagrid__filter-row bg-gray-100" id="filter-row">
             <!-- Selection filter cell (fixed, not reorderable) -->
+            {% if not list_capabilities or list_capabilities.selection %}
             <th data-role="selection" data-fixed="left" class="admin-datagrid__header-cell"></th>
+            {% endif %}
             {% for col in columns %}
             <th data-column="{{ col.field }}" class="admin-datagrid__header-cell px-6 py-2">
               {% if not col.filterable %}
@@ -332,6 +338,7 @@
   <div id="filter-overlay" class="hidden fixed inset-0 bg-black opacity-30 z-40"></div>
 
   {% block bulk_actions_overlay %}
+  {% if not list_capabilities or list_capabilities.bulk %}
   <!-- Floating Bulk Actions Bar (data-driven from panel config) -->
   <div id="bulk-actions-overlay" class="bulk-actions-overlay hidden"{% if bulk_base %} data-bulk-base="{{ bulk_base }}"{% endif %}>
     <div class="bulk-actions-bar">
@@ -385,6 +392,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
   {% endblock %}
 
   {% block extra_modals %}{% endblock %}

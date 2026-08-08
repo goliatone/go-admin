@@ -181,6 +181,132 @@ test('DataGrid adopts semantic structure, renders loading, and delegates selecti
   }
 });
 
+test('DataGrid treats disabled list capabilities as authoritative', async () => {
+  const { dom, cleanup } = installDOM();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => response([{ id: 'article_1', title: 'Contract', status: 'draft' }]);
+
+  try {
+    dom.window.document.body.insertAdjacentHTML(
+      'beforeend',
+      [
+        '<button id="other-toggle" data-dropdown-toggle="other-menu">Options</button>',
+        '<div id="other-menu" class="hidden">Other options</div>',
+        '<button id="export-btn" data-dropdown-toggle="export-menu">Export</button>',
+        '<div id="export-menu"><button data-export-format="csv">CSV</button></div>',
+      ].join(''),
+    );
+    let exportCalls = 0;
+    const grid = createGrid(undefined, {
+      capabilities: { selection: false, bulk: false, export: false },
+      columns: [
+        { field: 'title', label: 'Title' },
+        { field: 'status', label: 'Status' },
+      ],
+      behaviors: {
+        export: {
+          async export() {
+            exportCalls += 1;
+          },
+        },
+      },
+    });
+    let bulkUpdates = 0;
+    grid.updateBulkActionsBar = () => {
+      bulkUpdates += 1;
+    };
+
+    grid.init();
+    await wait(20);
+
+    const otherToggle = dom.window.document.querySelector('#other-toggle');
+    const otherMenu = dom.window.document.querySelector('#other-menu');
+    otherToggle.click();
+    assert.equal(otherMenu.classList.contains('hidden'), false, 'non-export dropdowns must remain interactive');
+    otherToggle.click();
+    assert.equal(otherMenu.classList.contains('hidden'), true);
+
+    const exportToggle = dom.window.document.querySelector('#export-btn');
+    const exportMenu = dom.window.document.querySelector('#export-menu');
+    assert.equal(exportMenu.classList.contains('hidden'), true, 'dropdown initialization must hide the export menu');
+    exportToggle.click();
+    assert.equal(exportMenu.classList.contains('hidden'), true, 'disabled export trigger must remain inert');
+
+    const table = dom.window.document.querySelector('#documents-datatable');
+    assert.equal(table.querySelector('tbody .table-checkbox'), null);
+    grid.reorderColumns(['status', 'title']);
+    assert.deepEqual(
+      [...table.querySelectorAll('tbody tr:first-child td')].map((cell) => (
+        cell.dataset.column || cell.dataset.role
+      )),
+      ['status', 'title', 'actions'],
+      'fixed-column reordering must tolerate an omitted selection cell',
+    );
+
+    const updatesBeforeChange = bulkUpdates;
+    const staleHeaderCheckbox = table.querySelector('#table-checkbox-all');
+    staleHeaderCheckbox.checked = true;
+    staleHeaderCheckbox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    assert.equal(
+      bulkUpdates,
+      updatesBeforeChange,
+      'selection listeners must not bind when selection is disabled',
+    );
+    dom.window.document.querySelector('[data-export-format="csv"]').click();
+    await wait(0);
+    assert.equal(exportCalls, 0, 'export handlers must not bind when export is disabled');
+
+    grid.destroy();
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanup();
+  }
+});
+
+test('DataGrid normalizes selection from bulk and export capability ownership', () => {
+  const { cleanup } = installDOM();
+  try {
+    const grid = createGrid(undefined, {
+      capabilities: { selection: false, bulk: false, export: true },
+    });
+    assert.deepEqual(grid.config.capabilities, {
+      selection: true,
+      bulk: false,
+      export: true,
+    });
+    grid.destroy();
+  } finally {
+    cleanup();
+  }
+});
+
+test('DataGrid uses capability-aware structural colspans in flat and grouped empty states', async () => {
+  for (const grouped of [false, true]) {
+    const { dom, cleanup } = installDOM();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => response([]);
+
+    try {
+      const grid = createGrid(undefined, {
+        capabilities: { selection: false, bulk: false, export: false },
+        enableGroupedMode: grouped,
+        defaultViewMode: grouped ? 'grouped' : 'flat',
+      });
+      grid.init();
+      await wait(20);
+
+      const stateCell = dom.window.document.querySelector(
+        '#documents-datatable [data-datagrid-state="empty"] td',
+      );
+      assert.equal(stateCell?.getAttribute('colspan'), '2');
+      grid.destroy();
+    } finally {
+      globalThis.fetch = originalFetch;
+      cleanup();
+    }
+  }
+});
+
 test('DataGrid renders an accessible error row without discarding stale records', async () => {
   const { dom, cleanup } = installDOM();
   const originalFetch = globalThis.fetch;
