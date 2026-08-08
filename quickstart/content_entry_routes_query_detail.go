@@ -296,6 +296,7 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 		}
 	}
 	fields := detailFieldsForRecord(panel, contentType, record)
+	saveSuccess := queryParamEnabled(c, "saved")
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
 		"base_path":      h.cfg.BasePath,
@@ -306,6 +307,8 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 		"resource_item":  record,
 		"fields":         fields,
 		"upload_success": queryParamEnabled(c, "created"),
+		"saved":          saveSuccess,
+		"save_success":   saveSuccess,
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
 			"name":   contentTypeLabel(contentType, panelName),

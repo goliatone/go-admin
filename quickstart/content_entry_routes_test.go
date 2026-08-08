@@ -801,6 +801,7 @@ func TestEntryForPanelUsesCurrentUserDetailEntryMode(t *testing.T) {
 	}
 	ctx := router.NewMockContext()
 	ctx.HeadersM["X-User-ID"] = strings.TrimSpace(anyToString(record["id"]))
+	ctx.QueriesM["saved"] = "1"
 	ctx.On("Context").Return(context.Background())
 	ctx.On("Render", "resources/content/detail", mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
@@ -813,7 +814,9 @@ func TestEntryForPanelUsesCurrentUserDetailEntryMode(t *testing.T) {
 		}
 		return strings.TrimSpace(anyToString(item["id"])) == strings.TrimSpace(anyToString(record["id"])) &&
 			strings.TrimSpace(anyToString(item["display_name"])) == "Jane Doe" &&
-			strings.TrimSpace(anyToString(viewCtx["panel_name"])) == "profile"
+			strings.TrimSpace(anyToString(viewCtx["panel_name"])) == "profile" &&
+			viewCtx["saved"] == true &&
+			viewCtx["save_success"] == true
 	})).Return(nil).Once()
 
 	if err := h.entryForPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser); err != nil {
@@ -973,6 +976,93 @@ func TestContentEntryCreateRedirectTargetNormalizesUnknownPolicyDestinationToEdi
 	if got != "/admin/content/sample_records/item-7/edit" {
 		t.Fatalf("expected edit redirect, got %q", got)
 	}
+}
+
+func TestCanonicalPanelMutationRedirectTargetUsesCurrentUserCanonicalSurface(t *testing.T) {
+	got := canonicalPanelMutationRedirectTarget(
+		admin.PanelEntryModeDetailCurrentUser,
+		"/admin/profile?tab=account",
+		"staging",
+		map[string]string{"saved": "1", "locale": "fr"},
+	)
+	if got != "/admin/profile?channel=staging&locale=fr&saved=1&tab=account" {
+		t.Fatalf("expected canonical current-user redirect, got %q", got)
+	}
+}
+
+func TestCanonicalPanelMutationRedirectTargetSkipsListPanels(t *testing.T) {
+	got := canonicalPanelMutationRedirectTarget(
+		admin.PanelEntryModeList,
+		"/admin/users",
+		"staging",
+		map[string]string{"saved": "1"},
+	)
+	if got != "" {
+		t.Fatalf("expected list panel to retain generic redirect behavior, got %q", got)
+	}
+}
+
+func TestCreateForCanonicalCurrentUserPanelRedirectsToCanonicalSurface(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	if _, err := fixture.Admin.RegisterPanel("profile", newInMemoryPanelBuilder().
+		WithEntryMode(admin.PanelEntryModeDetailCurrentUser).
+		FormFields(admin.Field{Name: "display_name", Type: "text", Required: true})); err != nil {
+		t.Fatalf("register profile panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
+	ctx.QueriesM[admin.ContentChannelScopeQueryParam] = "staging"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Body").Return([]byte(url.Values{
+		"display_name": []string{"Jane Doe"},
+	}.Encode()))
+	ctx.On("Redirect", "/admin/profile?channel=staging&saved=1").Return(nil).Once()
+
+	h := &contentEntryHandlers{admin: fixture.Admin, cfg: fixture.Config}
+	if err := h.createForCanonicalPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser, "/admin/profile"); err != nil {
+		t.Fatalf("create canonical profile: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestUpdateForCanonicalCurrentUserPanelRedirectsWithLocale(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"display_name": "Jane Doe",
+		"locale":       "en",
+	})
+	if err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+	if _, err = fixture.Admin.RegisterPanel("profile", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		WithEntryMode(admin.PanelEntryModeDetailCurrentUser).
+		FormFields(
+			admin.Field{Name: "display_name", Type: "text", Required: true},
+			admin.Field{Name: "locale", Type: "text"},
+		)); err != nil {
+		t.Fatalf("register profile panel: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
+	ctx.QueriesM[admin.ContentChannelScopeQueryParam] = "staging"
+	ctx.QueriesM["locale"] = "fr"
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Body").Return([]byte(url.Values{
+		"display_name": []string{"Jeanne Doe"},
+		"locale":       []string{"fr"},
+	}.Encode()))
+	ctx.On("Redirect", "/admin/profile?channel=staging&locale=fr&saved=1").Return(nil).Once()
+
+	h := &contentEntryHandlers{admin: fixture.Admin, cfg: fixture.Config}
+	if err := h.updateForCanonicalPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser, "/admin/profile"); err != nil {
+		t.Fatalf("update canonical profile: %v", err)
+	}
+	ctx.AssertExpectations(t)
 }
 
 func TestMediaContentEntryViewContextUsesSharedMediaEndpoints(t *testing.T) {

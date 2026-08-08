@@ -46,7 +46,7 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 			return handlers.newForPanel(c, panelName)
 		}))
 		r.Post(listPath, wrap(func(c router.Context) error {
-			return handlers.createForPanel(c, panelName)
+			return handlers.createForCanonicalPanel(c, panelName, entryMode, listPath)
 		}))
 		r.Get(previewPath, wrap(func(c router.Context) error {
 			return handlers.previewForPanel(c, panelName)
@@ -58,7 +58,7 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 			return handlers.editForPanel(c, panelName)
 		}))
 		r.Post(detailPath, wrap(func(c router.Context) error {
-			return handlers.updateForPanel(c, panelName)
+			return handlers.updateForCanonicalPanel(c, panelName, entryMode, listPath)
 		}))
 		r.Post(deletePath, wrap(func(c router.Context) error {
 			return handlers.deleteForPanel(c, panelName)
@@ -266,6 +266,34 @@ func contentEntryCreateRedirectTarget(slug, createdID string, routes contentEntr
 		return target
 	}
 	return routes.edit(id)
+}
+
+func canonicalPanelMutationRedirectTarget(entryMode admin.PanelEntryMode, canonicalPath, channel string, queryValues map[string]string) string {
+	if entryMode != admin.PanelEntryModeDetailCurrentUser {
+		return ""
+	}
+	target := strings.TrimSpace(canonicalPath)
+	if target == "" {
+		return ""
+	}
+	if channel = strings.TrimSpace(channel); channel != "" {
+		target = appendQueryParam(target, "channel", channel)
+	}
+	keys := make([]string, 0, len(queryValues))
+	for key := range queryValues {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		normalizedKey := strings.ToLower(strings.TrimSpace(key))
+		if normalizedKey == "" || normalizedKey == "channel" || normalizedKey == admin.ContentChannelScopeQueryParam {
+			continue
+		}
+		if value := strings.TrimSpace(queryValues[key]); value != "" {
+			target = appendQueryParam(target, normalizedKey, value)
+		}
+	}
+	return target
 }
 
 func appendQueryParam(rawPath, key, value string) string {

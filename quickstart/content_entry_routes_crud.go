@@ -40,6 +40,14 @@ func (h *contentEntryHandlers) Create(c router.Context) error {
 }
 
 func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string) error {
+	return h.createForPanelWithCanonicalTarget(c, panelSlug, admin.PanelEntryModeList, "")
+}
+
+func (h *contentEntryHandlers) createForCanonicalPanel(c router.Context, panelSlug string, entryMode admin.PanelEntryMode, canonicalPath string) error {
+	return h.createForPanelWithCanonicalTarget(c, panelSlug, entryMode, canonicalPath)
+}
+
+func (h *contentEntryHandlers) createForPanelWithCanonicalTarget(c router.Context, panelSlug string, entryMode admin.PanelEntryMode, canonicalPath string) error {
 	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
@@ -64,6 +72,11 @@ func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string
 	created, err := panel.Create(adminCtx, record)
 	if err != nil {
 		return contentEntryRouteError(panelName, "create record", "", err)
+	}
+	if target := canonicalPanelMutationRedirectTarget(entryMode, canonicalPath, adminCtx.Channel, map[string]string{
+		"saved": "1",
+	}); target != "" {
+		return c.Redirect(target)
 	}
 	baseSlug := contentTypeSlug(contentType, panelName)
 	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
@@ -139,6 +152,14 @@ func (h *contentEntryHandlers) Update(c router.Context) error {
 }
 
 func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string) error {
+	return h.updateForPanelWithCanonicalTarget(c, panelSlug, admin.PanelEntryModeList, "")
+}
+
+func (h *contentEntryHandlers) updateForCanonicalPanel(c router.Context, panelSlug string, entryMode admin.PanelEntryMode, canonicalPath string) error {
+	return h.updateForPanelWithCanonicalTarget(c, panelSlug, entryMode, canonicalPath)
+}
+
+func (h *contentEntryHandlers) updateForPanelWithCanonicalTarget(c router.Context, panelSlug string, entryMode admin.PanelEntryMode, canonicalPath string) error {
 	panel, panelName, contentType, adminCtx, err := h.resolvePanelContext(c, panelSlug)
 	if err != nil {
 		return err
@@ -198,11 +219,18 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	if err != nil {
 		return contentEntryRouteError(panelName, "update record", id, err)
 	}
+	requestedLocale := contentEntryRequestedLocale(c, existingTranslationState.RequestedLocale)
+	if target := canonicalPanelMutationRedirectTarget(entryMode, canonicalPath, adminCtx.Channel, map[string]string{
+		"locale": requestedLocale,
+		"saved":  "1",
+	}); target != "" {
+		return c.Redirect(target)
+	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	if updatedID := strings.TrimSpace(anyToString(updated["id"])); updatedID != "" {
 		target := routes.edit(updatedID)
-		if locale := contentEntryRequestedLocale(c, existingTranslationState.RequestedLocale); locale != "" {
-			target = appendQueryParam(target, "locale", locale)
+		if requestedLocale != "" {
+			target = appendQueryParam(target, "locale", requestedLocale)
 		}
 		return c.Redirect(target)
 	}
