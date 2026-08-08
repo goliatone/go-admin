@@ -10,110 +10,94 @@ import (
 
 	i18n "github.com/goliatone/go-i18n"
 	notifactivity "github.com/goliatone/go-notifications/pkg/activity"
-	"github.com/goliatone/go-notifications/pkg/adapters"
 	notifconfig "github.com/goliatone/go-notifications/pkg/config"
+	"github.com/goliatone/go-notifications/pkg/deliveries"
 	"github.com/goliatone/go-notifications/pkg/domain"
+	"github.com/goliatone/go-notifications/pkg/events"
 	notifinbox "github.com/goliatone/go-notifications/pkg/inbox"
 	notiflogger "github.com/goliatone/go-notifications/pkg/interfaces/logger"
 	notifstore "github.com/goliatone/go-notifications/pkg/interfaces/store"
 	"github.com/goliatone/go-notifications/pkg/notifier"
-	notifpreferences "github.com/goliatone/go-notifications/pkg/preferences"
+	"github.com/goliatone/go-notifications/pkg/privacy"
+	"github.com/goliatone/go-notifications/pkg/retention"
+	notifstorage "github.com/goliatone/go-notifications/pkg/storage"
 	notiftemplates "github.com/goliatone/go-notifications/pkg/templates"
 	"github.com/google/uuid"
 )
 
 const defaultNotificationDefinition = "admin.notification"
 
+// go-template/pongo2 registers filters in a process-global map while a
+// notification module is constructed. Serialize that narrow initialization
+// boundary; runtime use and persistent seed reconciliation remain concurrent.
+var notificationModuleInitMu sync.Mutex
+
 type goNotificationsService struct {
+	module            *notifier.Module
 	manager           *notifier.Manager
 	inbox             *notifinbox.Service
-	preferences       *notifpreferences.Service
 	definitions       notifstore.NotificationDefinitionRepository
 	defaultLocale     string
 	defaultDefinition string
 	defaultChannel    string
 	activityHook      *notificationsActivityHook
+	metrics           notifstorage.MetricsCollector
 }
 
 func newGoNotificationsService(defaultLocale string, translator Translator, sink ActivitySink) (*goNotificationsService, error) {
+	return newGoNotificationsServiceWithProviders(defaultLocale, translator, sink, notifstorage.NewMemoryProviders())
+}
+
+func newGoNotificationsServiceWithProviders(defaultLocale string, translator Translator, sink ActivitySink, providers notifstorage.Providers) (*goNotificationsService, error) {
 	if strings.TrimSpace(defaultLocale) == "" {
 		defaultLocale = "en"
 	}
-
-	defRepo := newMemoryDefinitionRepository()
-	tplRepo := newMemoryTemplateRepository()
-	eventRepo := newMemoryEventRepository()
-	messageRepo := newMemoryMessageRepository()
-	attemptRepo := newMemoryAttemptRepository()
-	prefRepo := newMemoryPreferenceRepository()
-	inboxRepo := newMemoryInboxRepository()
-
-	i18nTranslator := notificationsTranslator(defaultLocale, translator)
-	tplSvc, err := notiftemplates.New(notiftemplates.Dependencies{
-		Repository:    tplRepo,
-		Translator:    i18nTranslator,
-		Fallbacks:     i18n.NewStaticFallbackResolver(),
-		DefaultLocale: defaultLocale,
-	})
-	if err != nil {
+	if err := validateNotificationProviders(providers); err != nil {
 		return nil, err
 	}
-	tplSvc.RegisterHelpers(map[string]any{"snake_case": toSnakeCase})
-
-	prefSvc, err := notifpreferences.New(notifpreferences.Dependencies{
-		Repository: prefRepo,
-		Logger:     &notiflogger.Nop{},
-	})
-	if err != nil {
-		return nil, err
-	}
+	providers.Metrics = normalizeNotificationMetrics(providers.Metrics)
 	activityHook := &notificationsActivityHook{}
 	activityHook.SetSink(sink)
-	inboxSvc, err := notifinbox.New(notifinbox.Dependencies{
-		Repository: inboxRepo,
+	moduleConfig := notifconfig.Defaults()
+	moduleConfig.Localization.DefaultLocale = defaultLocale
+	notificationModuleInitMu.Lock()
+	module, err := notifier.NewModule(notifier.ModuleOptions{
+		Config:     moduleConfig,
+		Storage:    providers,
 		Logger:     &notiflogger.Nop{},
+		Translator: notificationsTranslator(defaultLocale, translator),
+		Fallbacks:  i18n.NewStaticFallbackResolver(),
 		Activity:   notifactivity.Hooks{activityHook},
 	})
 	if err != nil {
+		notificationModuleInitMu.Unlock()
 		return nil, err
 	}
-
-	registry := adapters.NewRegistry()
-
-	manager, err := notifier.New(notifier.Dependencies{
-		Definitions: defRepo,
-		Events:      eventRepo,
-		Messages:    messageRepo,
-		Attempts:    attemptRepo,
-		Templates:   tplSvc,
-		Adapters:    registry,
-		Logger:      &notiflogger.Nop{},
-		Config: notifconfig.DispatcherConfig{
-			MaxWorkers:  4,
-			MaxAttempts: 3,
-		},
-		Preferences: prefSvc,
-		Inbox:       inboxSvc,
-		Activity:    notifactivity.Hooks{activityHook},
-	})
-	if err != nil {
-		return nil, err
-	}
+	module.Templates().RegisterHelpers(map[string]any{"snake_case": toSnakeCase})
+	notificationModuleInitMu.Unlock()
 
 	svc := &goNotificationsService{
-		manager:           manager,
-		inbox:             inboxSvc,
-		preferences:       prefSvc,
-		definitions:       defRepo,
+		module:            module,
+		manager:           module.Manager(),
+		inbox:             module.Inbox(),
+		definitions:       providers.Definitions,
 		defaultDefinition: defaultNotificationDefinition,
 		defaultChannel:    "inbox",
 		defaultLocale:     defaultLocale,
 		activityHook:      activityHook,
+		metrics:           normalizeNotificationMetrics(providers.Metrics),
 	}
-	if err := svc.registerDefaults(tplSvc); err != nil {
+	if err := svc.registerDefaults(module.Templates()); err != nil {
 		return nil, err
 	}
 	return svc, nil
+}
+
+func (s *goNotificationsService) notificationMetrics() notifstorage.MetricsCollector {
+	if s == nil {
+		return nil
+	}
+	return normalizeNotificationMetrics(s.metrics)
 }
 
 func (s *goNotificationsService) List(ctx context.Context) ([]Notification, error) {
@@ -170,22 +154,106 @@ func (s *goNotificationsService) Add(ctx context.Context, n Notification) (Notif
 	if len(n.Metadata) > 0 {
 		payload["metadata"] = cloneNotificationMap(n.Metadata)
 	}
-	if err := s.manager.Send(ctx, notifier.Event{
+	receipt, err := s.manager.SendWithReceipt(ctx, notifier.Event{
 		DefinitionCode: definition,
 		Recipients:     []string{userID},
 		Context:        payload,
 		Channels:       []string{channel},
 		ActorID:        actorFromContext(ctx),
+		TenantID:       tenantIDFromContext(ctx),
 		Locale:         locale,
-	}); err != nil {
+	})
+	if err != nil {
 		return Notification{}, err
 	}
-	withUser := context.WithValue(ctx, userIDContextKey, userID)
-	items, err := s.List(withUser)
-	if err != nil || len(items) == 0 {
+	messageID, err := notificationInboxMessageID(receipt, userID, channel)
+	if err != nil {
 		return Notification{}, err
 	}
-	return items[0], nil
+	result, err := s.inbox.List(ctx, userID, notifstore.ListOptions{}, notifinbox.ListFilters{})
+	if err != nil {
+		return Notification{}, err
+	}
+	for _, item := range result.Items {
+		if item.MessageID == messageID {
+			return mapInboxItem(item), nil
+		}
+	}
+	return Notification{}, serviceUnavailableDomainError(
+		"notification inbox item unavailable",
+		map[string]any{"component": "notifications", "capability": "inbox"},
+	)
+}
+
+func notificationInboxMessageID(receipt events.DispatchReceipt, userID, channel string) (uuid.UUID, error) {
+	safeSubjectID := privacy.DefaultPolicy{}.SafeSubjectID(userID)
+	for _, outcome := range receipt.Outcomes {
+		if outcome.MessageID == uuid.Nil || !strings.EqualFold(strings.TrimSpace(outcome.Channel), strings.TrimSpace(channel)) {
+			continue
+		}
+		if outcome.SubjectID != "" && outcome.SubjectID != safeSubjectID {
+			continue
+		}
+		return outcome.MessageID, nil
+	}
+	return uuid.Nil, serviceUnavailableDomainError(
+		"notification dispatch outcome unavailable",
+		map[string]any{"component": "notifications", "capability": "inbox_receipt"},
+	)
+}
+
+func (s *goNotificationsService) DispatchWithReceipt(ctx context.Context, event notifier.Event) (events.DispatchReceipt, error) {
+	if s == nil || s.manager == nil {
+		return events.DispatchReceipt{}, NotificationCapabilityUnavailableError{Capability: "events"}
+	}
+	return s.manager.SendWithReceipt(ctx, event)
+}
+
+func (s *goNotificationsService) RetryWithReceipt(ctx context.Context, request events.RetryRequest) (events.DispatchReceipt, error) {
+	if s == nil || s.module == nil {
+		return events.DispatchReceipt{}, NotificationCapabilityUnavailableError{Capability: "events"}
+	}
+	return s.module.RetryWithReceipt(ctx, request)
+}
+
+func (s *goNotificationsService) RecoverPending(ctx context.Context, limit int) error {
+	if s == nil || s.module == nil {
+		return NotificationCapabilityUnavailableError{Capability: "events"}
+	}
+	return s.module.RecoverPending(ctx, limit)
+}
+
+func (s *goNotificationsService) LookupReceipt(ctx context.Context, lookup events.ReceiptLookup) (events.DispatchReceipt, error) {
+	if s == nil || s.module == nil {
+		return events.DispatchReceipt{}, NotificationCapabilityUnavailableError{Capability: "receipts"}
+	}
+	if strings.TrimSpace(lookup.IdempotencyScope) == "" {
+		return events.DispatchReceipt{}, privacy.SafeError{
+			Category: "validation", Code: "idempotency_scope_required", Message: "idempotency scope is required",
+		}
+	}
+	return s.module.LookupReceipt(ctx, lookup)
+}
+
+func (s *goNotificationsService) GetDelivery(ctx context.Context, query deliveries.GetQuery) (deliveries.View, error) {
+	if s == nil || s.module == nil || s.module.Deliveries() == nil {
+		return deliveries.View{}, NotificationCapabilityUnavailableError{Capability: "delivery_inspection"}
+	}
+	return s.module.Deliveries().Get(ctx, query)
+}
+
+func (s *goNotificationsService) ListDeliveries(ctx context.Context, query deliveries.ListQuery) (deliveries.Page, error) {
+	if s == nil || s.module == nil || s.module.Deliveries() == nil {
+		return deliveries.Page{}, NotificationCapabilityUnavailableError{Capability: "delivery_inspection"}
+	}
+	return s.module.Deliveries().List(ctx, query)
+}
+
+func (s *goNotificationsService) Purge(ctx context.Context, request retention.Request) (retention.Result, error) {
+	if s == nil || s.module == nil || s.module.Retention() == nil {
+		return retention.Result{}, NotificationCapabilityUnavailableError{Capability: "retention"}
+	}
+	return s.module.Retention().Purge(ctx, request)
 }
 
 func (s *goNotificationsService) Mark(ctx context.Context, ids []string, read bool) error {
@@ -240,38 +308,49 @@ func (s *goNotificationsService) registerDefaults(tplSvc *notiftemplates.Service
 		return nil
 	}
 	ctx := context.Background()
-	if _, err := s.definitions.GetByCode(ctx, s.defaultDefinition); errors.Is(err, notifstore.ErrNotFound) {
-		def := domain.NotificationDefinition{
-			Code:        s.defaultDefinition,
-			Name:        "Admin Notifications",
-			Description: "Admin inbox notifications",
-			Severity:    "info",
-			Channels:    domain.StringList{s.defaultChannel},
-			TemplateKeys: domain.StringList{
-				s.defaultDefinition,
-			},
-			Metadata: domain.JSONMap{
-				"source": "go-admin",
-			},
-		}
-		_ = s.definitions.Create(ctx, &def) //nolint:errcheck // legacy best-effort call intentionally does not affect the primary result.
+	if err := s.ensureDefaultDefinition(ctx); err != nil {
+		return err
 	}
-	if _, err := tplSvc.Get(ctx, s.defaultDefinition, s.defaultChannel, s.defaultLocale); errors.Is(err, notifstore.ErrNotFound) {
-		_, tplErr := tplSvc.Create(ctx, notiftemplates.TemplateInput{
-			Code:    s.defaultDefinition,
-			Channel: s.defaultChannel,
-			Locale:  s.defaultLocale,
-			Subject: "{{ title }}",
-			Body:    "{{ body }}",
-			Format:  "text",
-			Schema:  domain.TemplateSchema{Required: []string{"title", "body"}},
-			Metadata: domain.JSONMap{
-				"source": "go-admin",
-			},
-		})
-		if tplErr != nil {
-			return tplErr
+	return s.ensureDefaultTemplate(ctx, tplSvc)
+}
+
+func (s *goNotificationsService) ensureDefaultDefinition(ctx context.Context) error {
+	if _, err := s.definitions.GetByCode(ctx, s.defaultDefinition); err == nil {
+		return nil
+	} else if !errors.Is(err, notifstore.ErrNotFound) {
+		return err
+	}
+	definition := domain.NotificationDefinition{
+		Code: s.defaultDefinition, Name: "Admin Notifications", Description: "Admin inbox notifications",
+		Severity: "info", Channels: domain.StringList{s.defaultChannel},
+		TemplateKeys: domain.StringList{s.defaultDefinition}, Metadata: domain.JSONMap{"source": "go-admin"},
+	}
+	if err := s.definitions.Create(ctx, &definition); err != nil {
+		if _, rereadErr := s.definitions.GetByCode(ctx, s.defaultDefinition); rereadErr == nil {
+			return nil
 		}
+		return err
+	}
+	return nil
+}
+
+func (s *goNotificationsService) ensureDefaultTemplate(ctx context.Context, tplSvc *notiftemplates.Service) error {
+	if _, err := tplSvc.Get(ctx, s.defaultDefinition, s.defaultChannel, s.defaultLocale); err == nil {
+		return nil
+	} else if !errors.Is(err, notifstore.ErrNotFound) {
+		return err
+	}
+	input := notiftemplates.TemplateInput{
+		Code: s.defaultDefinition, Channel: s.defaultChannel, Locale: s.defaultLocale,
+		Subject: "{{ title }}", Body: "{{ body }}", Format: "text",
+		Schema:   domain.TemplateSchema{Required: []string{"title", "body"}},
+		Metadata: domain.JSONMap{"source": "go-admin"},
+	}
+	if _, err := tplSvc.Create(ctx, input); err != nil {
+		if _, rereadErr := tplSvc.Get(ctx, s.defaultDefinition, s.defaultChannel, s.defaultLocale); rereadErr == nil {
+			return nil
+		}
+		return err
 	}
 	return nil
 }

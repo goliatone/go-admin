@@ -584,10 +584,10 @@ func assertLoginLogoPlacement(t *testing.T, html string, inside bool) {
 	if logoIndex < 0 || cardIndex < 0 || headerIndex < 0 {
 		t.Fatalf("expected logo, card, and header markers in %q", html)
 	}
-	if inside && !(cardIndex < logoIndex && logoIndex < headerIndex) {
+	if inside && (cardIndex >= logoIndex || logoIndex >= headerIndex) {
 		t.Fatalf("expected logo inside card before header, got %q", html)
 	}
-	if !inside && !(logoIndex < cardIndex) {
+	if !inside && logoIndex >= cardIndex {
 		t.Fatalf("expected logo outside card, got %q", html)
 	}
 }
