@@ -1,6 +1,41 @@
 # Changelog
 
+# [0.130.0](https://github.com/goliatone/go-admin/compare/v0.129.0...v0.130.0) - (2026-08-08)
+
+
+## Migration Notes
+
+Fresh quickstart and services migration graphs now include the stable `go-notifications` source at order 50. Fresh app-local service sources at order 100+ depend on it.
+
+Existing databases whose persisted graph already ends at order 50 or later must not insert this source at order 50. Back up the database, select a permanent order after the last persisted source with `WithUserMigrationsNotificationPlacement` or `WithServiceMigrationsNotificationPlacement`, depend on that source, and call `notifications.AdoptAdditiveOrderedMigrationGraph` before migrating. Adoption is suffix-only and is not drift repair; restore from the pre-adoption backup is the rollback path for forward-only or destructive migrations.
+
+Construct persistent notification providers only after migrations with `admin.NewBunNotificationRuntime`. Missing or partial notification schema and required default-seed failures now fail startup instead of falling back to memory.
+
+## Notification Runtime Corrections
+
+Legacy notification `Add` now returns the exact inbox item from its dispatch receipt, persistent default seeds tolerate verified uniqueness races, and Bun startup validates the complete pinned schema/index contract without scanning notification rows.
+
+Global retention purge now requires affirmative trusted system authority via `admin.WithNotificationSystemAuthority` or `admin.NotificationSystemAuthorityMetadataKey`; missing tenant context is no longer implicit authority. Invalid ranges and batches return HTTP 400, final activity-sink wiring is honored, and telemetry failures cannot change purge results.
+
+Custom delivery routes must use exactly `:event_id` for `notifications.deliveries.event` and `:message_id` for `notifications.deliveries.message`. Legacy `:id`, missing, or extra path parameters now fail startup validation.
+
+## <!-- 16 -->➕ Add
+
+- Panel capabilities handle optional bulk commands ([37b221d](https://github.com/goliatone/go-admin/commit/37b221d680a4690e46f1a221aeabd523aa434b8d))  - (goliatone)
+- Notification handle permanent store ([5ed2c94](https://github.com/goliatone/go-admin/commit/5ed2c940d6941e609cff83ec8895635975e803ad))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([9d0e14e](https://github.com/goliatone/go-admin/commit/9d0e14e7f64601a4d472e6e5cf7d29e2372969cc))  - (goliatone)
+
 # [0.129.0](https://github.com/goliatone/go-admin/compare/v0.128.5...v0.129.0) - (2026-08-07)
+
+
+New minor release: v0.129.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.129.0 ([b46b8e6](https://github.com/goliatone/go-admin/commit/b46b8e67957ac3a6777c1f0acbb92517af133a3c))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
