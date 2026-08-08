@@ -494,6 +494,10 @@ Panel entry behavior:
 - `profile` defaults to `admin.PanelEntryModeDetailCurrentUser`, so
   `GET /admin/profile` resolves to the current user detail view instead of the
   profile datagrid/list.
+- Successful profile create-as-update and update submissions return to the
+  canonical route with `saved=1`, preserving channel and requested locale.
+  `WithContentEntryPostCreatePolicy` still runs once after create and may add
+  query state, but cannot replace the singleton destination or reserved state.
 - Panels without explicit entry mode use `admin.PanelEntryModeList`.
 
 To opt a panel into a different canonical entry point:

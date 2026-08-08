@@ -86,8 +86,20 @@ function removeDataGridStateRows(tbody: HTMLElement): void {
   tbody.querySelectorAll('[data-datagrid-state]').forEach((row) => row.remove());
 }
 
+function hasActionColumn(grid: any): boolean {
+  return typeof grid.config.rowActions === 'function' || grid.config.useDefaultActions !== false;
+}
+
+export function syncActionColumnStructure(grid: any): void {
+  if (!grid.tableEl || hasActionColumn(grid)) return;
+
+  grid.tableEl
+    .querySelectorAll('thead [data-role="actions"]')
+    .forEach((cell: HTMLElement) => cell.remove());
+}
+
 function fixedColumnCount(grid: any): number {
-  return 1 + (grid.isCapabilityEnabled('selection') ? 1 : 0);
+  return (hasActionColumn(grid) ? 1 : 0) + (grid.isCapabilityEnabled('selection') ? 1 : 0);
 }
 
 function structuralColumnCount(grid: any): number {
@@ -304,6 +316,10 @@ export function createTableRow(grid: any, item: any): HTMLTableRowElement {
 
       row.appendChild(cell);
     });
+
+    if (!hasActionColumn(grid)) {
+      return row;
+    }
 
     // Actions cell
     const actionBase = grid.config.actionBasePath || grid.config.apiEndpoint;

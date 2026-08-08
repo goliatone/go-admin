@@ -5,6 +5,7 @@ export declare function updateColumnVisibility(grid: any, visibleColumns: string
  * Uses ColumnManager if available, falls back to direct DOM manipulation
  */
 export declare function syncColumnVisibilityCheckboxes(grid: any): void;
+export declare function syncActionColumnStructure(grid: any): void;
 export declare function renderLoadingState(grid: any): void;
 export declare function renderErrorState(grid: any, message: string): void;
 /**

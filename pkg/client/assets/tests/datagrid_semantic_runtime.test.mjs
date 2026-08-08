@@ -31,7 +31,7 @@ function installDOM() {
             <tr>
               <th></th>
               <th><input data-filter-column="title"></th>
-              <th></th>
+              <th data-role="actions"></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -304,6 +304,91 @@ test('DataGrid uses capability-aware structural colspans in flat and grouped emp
       globalThis.fetch = originalFetch;
       cleanup();
     }
+  }
+});
+
+test('DataGrid omits action structure when default and custom row actions are absent', async () => {
+  const { dom, cleanup } = installDOM();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => response([{ id: 'article_1', title: 'Contract' }]);
+
+  try {
+    const grid = createGrid(undefined, {
+      capabilities: { selection: false, bulk: false, export: false },
+      useDefaultActions: false,
+    });
+    grid.init();
+    await wait(20);
+
+    const table = dom.window.document.querySelector('#documents-datatable');
+    assert.equal(table.querySelectorAll('thead [data-role="actions"]').length, 0);
+    assert.deepEqual(
+      [...table.querySelectorAll('tbody tr:first-child td')].map((cell) => (
+        cell.dataset.column || cell.dataset.role
+      )),
+      ['title'],
+    );
+    grid.destroy();
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanup();
+  }
+});
+
+test('DataGrid excludes an omitted action column from flat and grouped empty-state colspans', async () => {
+  for (const grouped of [false, true]) {
+    const { dom, cleanup } = installDOM();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => response([]);
+
+    try {
+      const grid = createGrid(undefined, {
+        capabilities: { selection: false, bulk: false, export: false },
+        enableGroupedMode: grouped,
+        defaultViewMode: grouped ? 'grouped' : 'flat',
+        useDefaultActions: false,
+      });
+      grid.init();
+      await wait(20);
+
+      const stateCell = dom.window.document.querySelector(
+        '#documents-datatable [data-datagrid-state="empty"] td',
+      );
+      assert.equal(stateCell?.getAttribute('colspan'), '1');
+      grid.destroy();
+    } finally {
+      globalThis.fetch = originalFetch;
+      cleanup();
+    }
+  }
+});
+
+test('DataGrid retains action structure for a custom row-action provider', async () => {
+  const { dom, cleanup } = installDOM();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => response([{ id: 'article_1', title: 'Contract' }]);
+
+  try {
+    const grid = createGrid(undefined, {
+      capabilities: { selection: false, bulk: false, export: false },
+      useDefaultActions: false,
+      rowActions: () => [],
+    });
+    grid.init();
+    await wait(20);
+
+    const table = dom.window.document.querySelector('#documents-datatable');
+    assert.equal(table.querySelectorAll('thead [data-role="actions"]').length, 2);
+    assert.deepEqual(
+      [...table.querySelectorAll('tbody tr:first-child td')].map((cell) => (
+        cell.dataset.column || cell.dataset.role
+      )),
+      ['title', 'actions'],
+    );
+    grid.destroy();
+  } finally {
+    globalThis.fetch = originalFetch;
+    cleanup();
   }
 });
 

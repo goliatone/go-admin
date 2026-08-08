@@ -712,6 +712,12 @@ For a concrete panel route such as `/admin/users`, quickstart registers:
 - `POST /admin/<panel>/:id`: update record.
 - `POST /admin/<panel>/:id/delete`: delete record.
 
+For `PanelEntryModeDetailCurrentUser`, successful create-as-update and update
+requests redirect back to `/admin/<panel>` with `saved=1`, channel, and any
+requested locale. `WithContentEntryPostCreatePolicy` is evaluated once after a
+create; its additional query values are retained, while the canonical
+singleton destination and routing/save state take precedence.
+
 The generic `/admin/content/:panel` content-entry handler resolves panel
 context, applies panel permissions, then renders the shared templates. It does
 not serve panels marked `PanelUIRouteModeCustom`.

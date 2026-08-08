@@ -553,6 +553,7 @@ Common route options:
 - `quickstart.WithContentEntryMergeDefaultRenderers(map[string]string{...})` (merge/override configured map)
 - `quickstart.WithContentEntryRecommendedDefaults()` (opt-in recommended renderer defaults)
 - `quickstart.WithContentEntryUpdateIntentPolicy(...)` (programmatic nested-array patch policy)
+- `quickstart.WithContentEntryPostCreatePolicy(...)` (post-create destination and query state)
 
 Nested array patch/preserve behavior is an opt-in content-entry contract, not a
 default route behavior. Policy can come from schema/UI schema/capabilities
@@ -577,6 +578,12 @@ base routes honor panel entry mode:
 - `PanelEntryModeList` (default): base route renders list/datagrid.
 - `PanelEntryModeDetailCurrentUser`: base route renders detail for the current
   authenticated user record.
+
+Successful creates and updates for `PanelEntryModeDetailCurrentUser` return to
+that canonical route with `saved=1`, preserving channel and requested locale.
+A post-create policy still runs exactly once and may add query state, but its
+destination and any channel, locale, or save-state overrides cannot escape or
+replace the canonical singleton context.
 
 go-admin also registers alias routes for Pages/Posts when CMS is enabled:
 

@@ -443,6 +443,12 @@ Panel UI behavior has two independent controls:
 Use entry mode for reusable package-level behavior (for example self-service
 profile screens) without app-specific route overrides.
 
+Singleton mutations return to the same canonical panel route with save-success
+state and preserve channel/requested-locale context. A configured
+`WithContentEntryPostCreatePolicy` still contributes query values after create,
+but its destination and reserved routing/save keys do not override the
+singleton contract.
+
 ### Custom UI Route Registration
 
 `PanelUIRouteModeCustom` only declares ownership. It does not register HTTP

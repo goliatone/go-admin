@@ -234,6 +234,7 @@ export class DataGrid {
       return;
     }
     console.log('[DataGrid] Table element found:', this.tableEl);
+    renderOps.syncActionColumnStructure(this);
     lifecycleOps.adoptSemanticPresentation(this);
 
     this.restoreStateFromURL();

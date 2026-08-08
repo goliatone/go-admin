@@ -27,4 +27,11 @@ All three booleans are required when the object is present. DataGrid normalizes
 `selection` to `bulk || export`, skips disabled structure and lifecycle binding,
 and preserves the legacy all-enabled behavior when `capabilities` is omitted.
 
+Row-action structure follows the configured action policy. Default actions and
+their column remain enabled for compatibility. Set `useDefaultActions: false`
+without a `rowActions` provider to omit the action header, filter, and body cells
+and exclude that fixed column from loading, error, empty, and grouped colspans.
+A custom `rowActions` provider retains the action column even when default
+actions are disabled.
+
 See the repository compatibility matrix before coordinating browser-client and Go module upgrades.
