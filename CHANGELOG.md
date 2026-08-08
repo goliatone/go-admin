@@ -1,23 +1,23 @@
 # Changelog
 
+# [0.131.0](https://github.com/goliatone/go-admin/compare/v0.130.0...v0.131.0) - (2026-08-08)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Form width ([60f205e](https://github.com/goliatone/go-admin/commit/60f205e75440191b559efe44c349c3bc51fbff83))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Canonical mutations are now entry mode aware ([d1d6554](https://github.com/goliatone/go-admin/commit/d1d65545720aa95090159ba12c0510e0aa8380f1))  - (goliatone)
+
 # [0.130.0](https://github.com/goliatone/go-admin/compare/v0.129.0...v0.130.0) - (2026-08-08)
 
 
-## Migration Notes
+New minor release: v0.130.0
 
-Fresh quickstart and services migration graphs now include the stable `go-notifications` source at order 50. Fresh app-local service sources at order 100+ depend on it.
+## <!-- 13 -->📦 Bumps
 
-Existing databases whose persisted graph already ends at order 50 or later must not insert this source at order 50. Back up the database, select a permanent order after the last persisted source with `WithUserMigrationsNotificationPlacement` or `WithServiceMigrationsNotificationPlacement`, depend on that source, and call `notifications.AdoptAdditiveOrderedMigrationGraph` before migrating. Adoption is suffix-only and is not drift repair; restore from the pre-adoption backup is the rollback path for forward-only or destructive migrations.
-
-Construct persistent notification providers only after migrations with `admin.NewBunNotificationRuntime`. Missing or partial notification schema and required default-seed failures now fail startup instead of falling back to memory.
-
-## Notification Runtime Corrections
-
-Legacy notification `Add` now returns the exact inbox item from its dispatch receipt, persistent default seeds tolerate verified uniqueness races, and Bun startup validates the complete pinned schema/index contract without scanning notification rows.
-
-Global retention purge now requires affirmative trusted system authority via `admin.WithNotificationSystemAuthority` or `admin.NotificationSystemAuthorityMetadataKey`; missing tenant context is no longer implicit authority. Invalid ranges and batches return HTTP 400, final activity-sink wiring is honored, and telemetry failures cannot change purge results.
-
-Custom delivery routes must use exactly `:event_id` for `notifications.deliveries.event` and `:message_id` for `notifications.deliveries.message`. Legacy `:id`, missing, or extra path parameters now fail startup validation.
+- Bump version: v0.130.0 ([0e99287](https://github.com/goliatone/go-admin/commit/0e992879ae9fa3222f10ec27c82151ac90a95821))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
