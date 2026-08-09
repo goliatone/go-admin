@@ -11,7 +11,7 @@
  * the page header outside the editor root.
  */
 
-import { TextPromptModal } from '../../shared/modal';
+import { TextPromptModal } from '../../components/modal.js';
 import { inputClasses } from './field-input-classes';
 import { CHANNEL_HELP_TEXT, normalizeKnownChannel, validateChannelName } from './channel-validation';
 export { CHANNEL_HELP_TEXT, normalizeChannelName, validateChannelName } from './channel-validation';

@@ -11,7 +11,7 @@
  */
 
 import { executeActionRequest } from '../toast/error-helpers.js';
-import { escapeHtml } from '../shared/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // ============================================================================
 // Types

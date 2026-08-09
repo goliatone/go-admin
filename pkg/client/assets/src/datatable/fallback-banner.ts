@@ -12,7 +12,7 @@
  * - Secondary CTA: Open resolved/source locale
  */
 
-import { escapeHtml } from '../shared/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 import {
   LocaleActionChip,
   getLocaleLabel,

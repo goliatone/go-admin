@@ -19,7 +19,7 @@ import { FieldConfigForm } from './field-config-form';
 import { fieldsToBlockSchema, schemaToFields, generateFieldId } from './api-client';
 import { badge } from '../shared/badge';
 import { onReady } from '../shared/dom-ready.js';
-import { Modal, ConfirmModal, TextPromptModal } from '../shared/modal.js';
+import { Modal, ConfirmModal, TextPromptModal } from '../components/modal.js';
 import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
@@ -39,7 +39,7 @@ export class BlockLibraryManager extends Modal {
   private categories: string[] = [];
 
   constructor(config: BlockLibraryManagerConfig) {
-    super({ size: '4xl', backdropDataAttr: 'data-block-library-backdrop' });
+    super({ size: '4xl', ariaLabel: 'Block library', backdropDataAttr: 'data-block-library-backdrop' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
     this.state = {
@@ -654,7 +654,7 @@ class BlockDefinitionEditor extends Modal {
   private isNew: boolean;
 
   constructor(config: BlockDefinitionEditorConfig) {
-    super({ size: '3xl' });
+    super({ size: '3xl', ariaLabel: 'Block definition editor' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
     this.isNew = !config.block;
@@ -999,7 +999,7 @@ class BlockVersionHistoryViewer extends Modal {
   private versions: BlockSchemaVersion[] = [];
 
   constructor(config: BlockVersionHistoryViewerConfig) {
-    super({ size: '2xl', maxHeight: 'max-h-[80vh]' });
+    super({ size: '2xl', maxHeight: 'max-h-[80vh]', ariaLabel: 'Block version history' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
   }

@@ -5,7 +5,7 @@
  */
 
 import type { FieldType, FieldTypeMetadata, FieldTypeCategory, FieldTypePickerConfig } from './types';
-import { Modal } from '../shared/modal';
+import { Modal } from '../components/modal.js';
 
 // =============================================================================
 // SVG Icon Map
@@ -375,6 +375,7 @@ export class FieldTypePicker extends Modal {
       size: '3xl',
       maxHeight: 'h-[80vh]',
       initialFocus: '[data-field-type-search]',
+      ariaLabel: 'Choose field type',
       backdropDataAttr: 'data-field-type-picker-backdrop',
     });
     this.config = config;

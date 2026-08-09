@@ -15,7 +15,7 @@
  * genuinely shared rendering pieces live here.
  */
 
-import { Modal } from '../../shared/modal';
+import { Modal } from '../../components/modal.js';
 
 /**
  * Wrap generated preview HTML so an inline/side-pane preview reads as a
@@ -51,7 +51,12 @@ export function initPreviewEditors(): void {
  */
 export class PreviewModal extends Modal {
   constructor(private readonly previewHtml: string, private readonly hydrate: () => void) {
-    super({ size: '4xl', maxHeight: 'max-h-[90vh]', initialFocus: '[data-preview-modal-close]' });
+    super({
+      size: '4xl',
+      maxHeight: 'max-h-[90vh]',
+      initialFocus: '[data-preview-modal-close]',
+      ariaLabel: 'Interactive form preview',
+    });
   }
 
   protected renderContent(): string {

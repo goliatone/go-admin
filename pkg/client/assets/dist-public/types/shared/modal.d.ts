@@ -1,7 +1,7 @@
 /**
  * Shared Modal Base Class
  *
- * Provides backdrop management, opacity animations, escape-key handling,
+ * Provides dialog semantics, focus management, backdrop and escape dismissal,
  * z-index stacking for nested modals, body scroll lock, and cleanup.
  *
  * Subclasses implement renderContent() and bindContentEvents() to provide
@@ -33,22 +33,49 @@ export interface ModalOptions {
     dismissOnEscape?: boolean;
     /** Lock body scroll when open. Default: true */
     lockBodyScroll?: boolean;
-    /** CSS selector for element to focus on open */
-    initialFocus?: string | null;
+    /** CSS selector or element to focus on open */
+    initialFocus?: string | HTMLElement | null;
+    /** ID of the element that names the dialog */
+    labelledBy?: string | null;
+    /** Explicit accessible name when labelledBy is not used */
+    ariaLabel?: string | null;
+    /** ID of the element that describes the dialog */
+    describedBy?: string | null;
     /** Extra CSS classes for the container div */
     containerClass?: string;
     /** Data attribute name to set on backdrop (e.g. 'data-my-modal-backdrop') */
     backdropDataAttr?: string;
 }
+type ResolvedModalOptions = {
+    size: ModalSize;
+    maxHeight: string;
+    flexColumn: boolean;
+    animationDuration: number;
+    dismissOnBackdropClick: boolean;
+    dismissOnEscape: boolean;
+    lockBodyScroll: boolean;
+    initialFocus: string | HTMLElement | null;
+    labelledBy: string | null;
+    ariaLabel: string | null;
+    describedBy: string | null;
+    containerClass: string;
+    backdropDataAttr: string;
+};
 export declare abstract class Modal {
     protected backdrop: HTMLElement | null;
     protected container: HTMLElement | null;
     private _options;
-    private _escHandler;
+    private _documentKeyHandler;
+    private _backdropClickHandler;
     private _isOpen;
+    private _invoker;
+    private _bodyLocked;
+    private _cleanupTimer;
+    private _lifecycle;
+    private _fallbackTabIndex;
     constructor(opts?: ModalOptions);
     get isOpen(): boolean;
-    protected get options(): Required<ModalOptions>;
+    protected get options(): Readonly<ResolvedModalOptions>;
     /** Return inner HTML for the container. Called once during show(). */
     protected abstract renderContent(): string;
     /** Bind event listeners to content elements. Called after renderContent(). */
@@ -57,17 +84,33 @@ export declare abstract class Modal {
     show(): Promise<void>;
     /** Hide the modal with fade-out animation. */
     hide(): void;
+    /** Request the normal vetoable close lifecycle. */
+    requestClose(): boolean;
     /** Remove immediately without animation. */
     destroy(): void;
     /** Called after DOM is mounted and events are bound. Override for data loading. */
     protected onAfterShow(): Promise<void>;
     /** Called before hide. Return false to prevent closing. */
     protected onBeforeHide(): boolean;
+    /** Called after the modal DOM and shared state have been released. */
+    protected onAfterHide(): void;
+    /** Replace product content without replacing the dialog container or stack. */
+    protected replaceContent(content: string, initialFocus?: string | HTMLElement | null): void;
+    /** Re-evaluate focus after product content changes in place. */
+    protected refreshFocus(initialFocus?: string | HTMLElement | null): void;
     /** Try to hide; calls onBeforeHide() first. */
     protected requestHide(): void;
     private _bindBaseEvents;
-    private _manageFocus;
+    private _applyAccessibleName;
+    private _focusInitial;
+    private _resolveFocusTarget;
+    private _focusableElements;
+    private _canReceiveFocus;
+    private _trapFocus;
+    private _beginClose;
     private _cleanup;
+    private _animationDuration;
+    private _cancelCleanupTimer;
 }
 export interface ConfirmModalOptions {
     title?: string;

@@ -29,6 +29,7 @@ function copyDeclarations(source, destination) {
     const allowedTopLevels = new Set([
       'public.d.ts',
       'public.d.ts.map',
+      'components',
       'shared',
       'services',
       'toast',

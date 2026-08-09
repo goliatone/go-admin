@@ -11,7 +11,8 @@
  * - Accessible with keyboard navigation and screen-reader labels
  */
 
-import { Modal, escapeHtml } from '../shared/modal.js';
+import { Modal } from '../components/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { executeActionRequest } from '../toast/error-helpers.js';
 
 // ============================================================================
@@ -84,6 +85,8 @@ export class TranslationBlockerModal extends Modal {
     super({
       size: 'lg',
       initialFocus: '[data-blocker-action]',
+      labelledBy: 'blocker-title',
+      describedBy: 'blocker-description',
       lockBodyScroll: true,
       dismissOnBackdropClick: true,
       dismissOnEscape: true,
@@ -126,7 +129,7 @@ export class TranslationBlockerModal extends Modal {
       Object.keys(this.config.missingFieldsByLocale).length > 0;
 
     return `
-      <div class="flex flex-col" role="dialog" aria-labelledby="blocker-title" aria-describedby="blocker-description">
+      <div class="flex flex-col">
         <!-- Header -->
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
           <div class="flex items-center gap-3">

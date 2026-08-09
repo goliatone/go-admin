@@ -16,7 +16,7 @@ import type {
 import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToBlockSchema, generateFieldId } from './api-client';
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
-import { ConfirmModal, TextPromptModal } from '../shared/modal';
+import { ConfirmModal, TextPromptModal } from '../components/modal.js';
 import { escapeHTML as esc } from '../shared/html';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { resolveIcon } from './shared/icon-picker';

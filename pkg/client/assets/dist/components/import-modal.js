@@ -1,6 +1,7 @@
 import { httpRequest as A } from "../shared/transport/http-client.js";
 import { formatByteSize as N } from "../shared/size-formatters.js";
-function z(e) {
+import { s as z } from "../chunks/accessibility-g-YQUfb2.js";
+function P(e) {
   return N(e, {
     zeroFallback: "0 Bytes",
     invalidFallback: "0 Bytes",
@@ -19,9 +20,9 @@ function z(e) {
     trimTrailingZeros: !0
   });
 }
-var M = class {
+var R = class {
   constructor(e = {}) {
-    if (this.modalId = e.modalId || "import-modal", e.endpoint) this.endpoint = e.endpoint;
+    if (this.releaseFocusTrap = null, this.bodyWasLocked = !1, this.modalId = e.modalId || "import-modal", e.endpoint) this.endpoint = e.endpoint;
     else if (e.apiBasePath) {
       const s = e.apiBasePath.trim().replace(/\/+$/, "");
       this.endpoint = `${s}/import`;
@@ -68,13 +69,11 @@ var M = class {
   }
   bindEvents() {
     const { modal: e, backdrop: s, closeBtn: t, cancelBtn: i, fileInput: n, fileRemove: l, anotherBtn: r, submitBtn: a, fullscreenBtn: c } = this.elements;
-    t && t.addEventListener("click", () => this.close()), i && i.addEventListener("click", () => this.close()), s && s.addEventListener("click", () => this.close()), n && n.addEventListener("change", () => this.updateFilePreview()), l && l.addEventListener("click", (d) => {
-      d.preventDefault(), d.stopPropagation();
+    t && t.addEventListener("click", () => this.close()), i && i.addEventListener("click", () => this.close()), s && s.addEventListener("click", () => this.close()), n && n.addEventListener("change", () => this.updateFilePreview()), l && l.addEventListener("click", (o) => {
+      o.preventDefault(), o.stopPropagation();
       const m = this.elements.fileInput;
       m && (m.value = ""), this.updateFilePreview();
-    }), r && r.addEventListener("click", () => this.reset()), a && a.addEventListener("click", (d) => this.handleSubmit(d)), c && c.addEventListener("click", () => this.toggleFullscreen()), this.bindDragAndDrop(), this.bindFilterButtons(), document.addEventListener("keydown", (d) => {
-      d.key === "Escape" && e && !e.classList.contains("hidden") && (this.isFullscreen ? this.toggleFullscreen() : this.close());
-    });
+    }), r && r.addEventListener("click", () => this.reset()), a && a.addEventListener("click", (o) => this.handleSubmit(o)), c && c.addEventListener("click", () => this.toggleFullscreen()), this.bindDragAndDrop(), this.bindFilterButtons();
   }
   bindFilterButtons() {
     const { modal: e } = this.elements;
@@ -127,11 +126,11 @@ var M = class {
   }
   updateFilePreview() {
     const e = this.elements.fileInput, { dropzoneEmpty: s, dropzoneSelected: t, fileName: i, fileSize: n, submitBtn: l } = this.elements, r = e?.files?.[0] ?? null;
-    r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = z(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
+    r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = P(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
   }
   reset() {
-    const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: d, statFailed: m, visibleCount: b, totalCount: x, modal: h } = this.elements;
-    e && (e.value = ""), this.updateFilePreview(), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && i.classList.add("hidden"), n && (n.textContent = ""), l && (l.innerHTML = ""), r && (r.classList.remove("hidden"), r.disabled = !0), a && a.classList.add("hidden"), c && (c.textContent = "0"), d && (d.textContent = "0"), m && (m.textContent = "0"), b && (b.textContent = "0"), x && (x.textContent = "0"), this.currentFilter = "all", this.resultItems = [], h && h.querySelectorAll(".import-filter-btn").forEach((f) => {
+    const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: b, totalCount: B, modal: h } = this.elements;
+    e && (e.value = ""), this.updateFilePreview(), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && i.classList.add("hidden"), n && (n.textContent = ""), l && (l.innerHTML = ""), r && (r.classList.remove("hidden"), r.disabled = !0), a && a.classList.add("hidden"), c && (c.textContent = "0"), o && (o.textContent = "0"), m && (m.textContent = "0"), b && (b.textContent = "0"), B && (B.textContent = "0"), this.currentFilter = "all", this.resultItems = [], h && h.querySelectorAll(".import-filter-btn").forEach((f) => {
       const p = f.getAttribute("data-filter") === "all";
       f.classList.toggle("active", p), f.classList.toggle("bg-gray-100", p), f.classList.toggle("text-gray-700", p), f.classList.toggle("text-gray-500", !p);
     }), this.isFullscreen && this.toggleFullscreen();
@@ -142,34 +141,43 @@ var M = class {
   }
   open() {
     const { modal: e } = this.elements;
-    e && (this.reset(), e.classList.remove("hidden"), document.body.classList.add("overflow-hidden"));
+    e && e.classList.contains("hidden") && (this.reset(), this.bodyWasLocked = document.body.classList.contains("overflow-hidden"), e.classList.remove("hidden"), e.setAttribute("data-go-admin-modal-scroll-lock", "true"), document.body.classList.add("overflow-hidden"), this.releaseFocusTrap = z({
+      container: e,
+      initialFocus: this.elements.fileInput || this.elements.closeBtn,
+      onEscape: () => {
+        this.isFullscreen ? this.toggleFullscreen() : this.close();
+      }
+    }));
   }
   close() {
     const { modal: e } = this.elements;
-    e && (e.classList.add("hidden"), document.body.classList.remove("overflow-hidden"));
+    if (!e || e.classList.contains("hidden")) return;
+    this.releaseFocusTrap?.(), this.releaseFocusTrap = null, e.classList.add("hidden"), e.removeAttribute("data-go-admin-modal-scroll-lock");
+    const s = !!document.querySelector('[data-go-admin-modal-scroll-lock="true"]');
+    !this.bodyWasLocked && !s && document.body.classList.remove("overflow-hidden");
   }
   buildCell(e, s) {
     const t = document.createElement("td");
     return t.className = s, t.textContent = e, t;
   }
   renderResults(e) {
-    const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: d, statFailed: m, visibleCount: b, totalCount: x } = this.elements;
+    const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: b, totalCount: B } = this.elements;
     if (!s || !t) return;
-    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, S = Number(h.failed) || 0, B = Array.isArray(e && e.results) ? e.results : [], C = e && e.error ? String(e.error).trim() : "";
-    if (this.resultItems = B, c && (c.textContent = String(f)), d && (d.textContent = String(p)), m && (m.textContent = String(S)), x && (x.textContent = String(B.length)), b && (b.textContent = String(B.length)), C && r && a && (a.textContent = C, r.classList.remove("hidden")), t.innerHTML = "", B.length === 0) {
-      const o = document.createElement("tr"), E = this.buildCell("No results to display", "px-4 py-4 text-gray-500 text-center");
-      E.colSpan = 5, o.appendChild(E), t.appendChild(o);
-    } else B.forEach((o, E) => {
-      const u = document.createElement("tr"), F = typeof o.index == "number" ? o.index + 1 : E + 1, $ = o.email ? String(o.email) : "-", w = o.user_id ? String(o.user_id) : "-", g = o.error && String(o.error).trim() !== "", k = g ? "Failed" : o.status ? String(o.status) : "Created";
-      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(F), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-500 font-mono text-xs"));
-      const L = document.createElement("td");
-      L.className = "px-4 py-2";
-      const I = document.createElement("span");
-      I.className = g ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700";
+    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, F = Number(h.failed) || 0, x = Array.isArray(e && e.results) ? e.results : [], C = e && e.error ? String(e.error).trim() : "";
+    if (this.resultItems = x, c && (c.textContent = String(f)), o && (o.textContent = String(p)), m && (m.textContent = String(F)), B && (B.textContent = String(x.length)), b && (b.textContent = String(x.length)), C && r && a && (a.textContent = C, r.classList.remove("hidden")), t.innerHTML = "", x.length === 0) {
+      const d = document.createElement("tr"), E = this.buildCell("No results to display", "px-4 py-4 text-gray-500 text-center");
+      E.colSpan = 5, d.appendChild(E), t.appendChild(d);
+    } else x.forEach((d, E) => {
+      const u = document.createElement("tr"), S = typeof d.index == "number" ? d.index + 1 : E + 1, $ = d.email ? String(d.email) : "-", w = d.user_id ? String(d.user_id) : "-", g = d.error && String(d.error).trim() !== "", k = g ? "Failed" : d.status ? String(d.status) : "Created";
+      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(S), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-500 font-mono text-xs"));
+      const I = document.createElement("td");
+      I.className = "px-4 py-2";
+      const L = document.createElement("span");
+      L.className = g ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700";
       const y = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       y.setAttribute("class", "w-3 h-3"), y.setAttribute("fill", "none"), y.setAttribute("stroke", "currentColor"), y.setAttribute("viewBox", "0 0 24 24");
       const v = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      v.setAttribute("stroke-linecap", "round"), v.setAttribute("stroke-linejoin", "round"), v.setAttribute("stroke-width", "2"), v.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(v), I.appendChild(y), I.appendChild(document.createTextNode(k)), L.appendChild(I), u.appendChild(L), u.appendChild(this.buildCell(g ? String(o.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
+      v.setAttribute("stroke-linecap", "round"), v.setAttribute("stroke-linejoin", "round"), v.setAttribute("stroke-width", "2"), v.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(v), L.appendChild(y), L.appendChild(document.createTextNode(k)), I.appendChild(L), u.appendChild(I), u.appendChild(this.buildCell(g ? String(d.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
     });
     i && i.classList.add("hidden"), s.classList.remove("hidden"), n && n.classList.add("hidden"), l && l.classList.remove("hidden"), this.applyFilter();
   }
@@ -188,8 +196,8 @@ var M = class {
         method: "POST",
         body: i
       }), (n.headers.get("Content-Type") || "").includes("application/json") ? l = await n.json() : l = { error: "Import failed" };
-    } catch (d) {
-      console.error("Import failed:", d), this.notifier.error("Import failed.");
+    } catch (o) {
+      console.error("Import failed:", o), this.notifier.error("Import failed.");
     } finally {
       this.setLoading(!1);
     }
@@ -198,16 +206,16 @@ var M = class {
     const r = l.summary || {}, a = Number(r.succeeded) || 0, c = Number(r.failed) || 0;
     if (n && n.ok && c === 0) this.notifier.success(`${this.resourceName} imported successfully.`);
     else {
-      const d = l.error ? String(l.error) : "Import completed with errors.";
-      this.notifier.error(d);
+      const o = l.error ? String(l.error) : "Import completed with errors.";
+      this.notifier.error(o);
     }
     a > 0 && this.onSuccess(r);
   }
 };
 export {
-  M as ImportModal,
-  M as default,
-  z as formatFileSize
+  R as ImportModal,
+  R as default,
+  P as formatFileSize
 };
 
 //# sourceMappingURL=import-modal.js.map

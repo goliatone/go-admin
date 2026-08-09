@@ -3,6 +3,7 @@ import { resolve } from 'path';
 
 const entry = {
   index: resolve(import.meta.dirname, 'src/public.ts'),
+  'components/modal': resolve(import.meta.dirname, 'src/components/modal.ts'),
   'shared/html': resolve(import.meta.dirname, 'src/shared/html.ts'),
   'shared/coercion': resolve(import.meta.dirname, 'src/shared/coercion.ts'),
   'shared/json-parse': resolve(import.meta.dirname, 'src/shared/json-parse.ts'),

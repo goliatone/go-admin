@@ -1,7 +1,7 @@
 import { escapeAttribute as p, escapeHTML as d } from "../shared/html.js";
 import { t as zt } from "../chunks/icon-renderer-DauoBn1n.js";
-import { n as Nt, r as Te } from "../chunks/modal-D1hUYSoJ.js";
-import { t as B } from "../chunks/toast-manager-BwGNIQYR.js";
+import { n as Nt, r as Te } from "../chunks/modal-WgxT86m5.js";
+import { t as B } from "../chunks/toast-manager-C4Oe2Ljd.js";
 import { httpRequest as x, readHTTPError as ve, readHTTPJSON as Qe, readHTTPJSONObject as Gt, readHTTPJSONValue as Ye } from "../shared/transport/http-client.js";
 import { createStructuredActionError as W, executeActionRequest as we, executeStructuredRequest as We, extractErrorMessage as Ut, extractExchangeError as _i, extractTranslationBlocker as Ht, formatStructuredErrorForDisplay as I, generateExchangeReport as Ri, getStructuredActionError as z, groupRowResultsByStatus as Di, isExchangeError as Ti, isHandledActionError as T, isTranslationBlocker as Vt, parseImportResult as Mi } from "../toast/error-helpers.js";
 import { closeActionMenu as Kt, defaultActionMenuPositioner as Jt, initActionMenus as Qt } from "../shared/action-menu.js";
@@ -12,7 +12,7 @@ import { t as mr } from "../chunks/sortable.esm-ChQrsKAN.js";
 import { r as gr, t as br } from "../chunks/translation-contracts-C_O37O2-.js";
 import { t as at } from "../chunks/stateful-controller-BhTsWevz.js";
 var it = { async prompt(e) {
-  const { PayloadInputModal: t } = await import("../chunks/payload-modal-C6X6DRVi.js");
+  const { PayloadInputModal: t } = await import("../chunks/payload-modal-DCrBu3FW.js");
   return t.prompt(e);
 } }, yr = 0, vr = class {
   constructor(e = {}) {
@@ -5398,6 +5398,8 @@ var ga = class Et extends Nt {
     super({
       size: "lg",
       initialFocus: "[data-blocker-action]",
+      labelledBy: "blocker-title",
+      describedBy: "blocker-description",
       lockBodyScroll: !0,
       dismissOnBackdropClick: !0,
       dismissOnEscape: !0
@@ -5424,7 +5426,7 @@ var ga = class Et extends Nt {
   renderContent() {
     const t = this.config.transition || "complete action", r = this.config.entityType || "content", n = this.config.missingFieldsByLocale !== null && Object.keys(this.config.missingFieldsByLocale).length > 0;
     return `
-      <div class="flex flex-col" role="dialog" aria-labelledby="blocker-title" aria-describedby="blocker-description">
+      <div class="flex flex-col">
         <!-- Header -->
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
           <div class="flex items-center gap-3">
@@ -9257,7 +9259,7 @@ var di = {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="exchange-import" role="dialog" aria-label="${d(e.title)}">
+      <div class="exchange-import" role="region" aria-label="${d(e.title)}">
         ${this.renderHeader()}
         ${this.renderContent()}
         ${this.renderFooter()}

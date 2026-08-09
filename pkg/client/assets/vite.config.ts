@@ -25,6 +25,7 @@ export default defineConfig({
         'formgen/schema_editor': resolve(import.meta.dirname, 'src/formgen/schema_editor.ts'),
         'login-submit-loading/index': resolve(import.meta.dirname, 'src/login-submit-loading/index.ts'),
         'components/import-modal': resolve(import.meta.dirname, 'src/components/import-modal.ts'),
+        'components/modal': resolve(import.meta.dirname, 'src/components/modal.ts'),
         'components/permission-pills': resolve(import.meta.dirname, 'src/components/permission-pills.ts'),
         'debug/index': resolve(import.meta.dirname, 'src/debug/index.ts'),
         'debug/repl': resolve(import.meta.dirname, 'src/debug/repl/index.ts'),

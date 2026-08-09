@@ -20,6 +20,7 @@ import {
 import { parseJSONValue } from '../shared/json-parse.js';
 import { initActionMenus, type ActionMenuController } from '../shared/action-menu.js';
 import { initEnhancedActions, type EnhancedActionRuntimeOptions } from '../shared/enhanced-action.js';
+import { Modal } from '../components/modal.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -35,11 +36,8 @@ import {
   ERROR_STATE_TEXT,
   LOADING_STATE,
   CARD,
-  MODAL_OVERLAY,
-  MODAL_CONTENT,
   formatTranslationTimestampUTC,
   sentenceCaseToken,
-  trapFocus,
   getStatusColorClass,
 } from '../translation-shared/index.js';
 
@@ -3237,26 +3235,44 @@ interface CreateLocaleDialogConfig {
   onSuccess?: (result: TranslationCreateLocaleResult) => Promise<void> | void;
 }
 
-function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
-  const doc = typeof document !== 'undefined' ? document : null;
-  if (!doc) return;
-  const quickCreate = config.quickCreate;
-  if (!quickCreate.enabled || quickCreate.missingLocales.length === 0) {
-    globalToast('warning', quickCreate.disabledReason || 'Locale creation is unavailable.');
-    return;
+class CreateLocaleModal extends Modal {
+  private readonly config: CreateLocaleDialogConfig;
+  private readonly quickCreate: TranslationFamilyQuickCreateHints;
+  private readonly selectedLocale: string;
+
+  constructor(config: CreateLocaleDialogConfig) {
+    super({
+      size: 'xl',
+      animationDuration: 0,
+      labelledBy: 'translation-create-locale-title',
+      initialFocus: 'select[name="locale"]',
+      containerClass: 'border border-gray-200',
+      backdropDataAttr: 'data-translation-create-locale-modal',
+    });
+    this.config = config;
+    this.quickCreate = config.quickCreate;
+    const recommended = asString(
+      config.initialLocale || this.quickCreate.recommendedLocale || this.quickCreate.missingLocales[0],
+    ).toLowerCase();
+    this.selectedLocale = this.quickCreate.missingLocales.includes(recommended)
+      ? recommended
+      : this.quickCreate.missingLocales[0];
   }
 
-  const recommendedLocale = asString(config.initialLocale || quickCreate.recommendedLocale || quickCreate.missingLocales[0]).toLowerCase();
-  const selectedLocale = quickCreate.missingLocales.includes(recommendedLocale)
-    ? recommendedLocale
-    : quickCreate.missingLocales[0];
+  protected async onAfterShow(): Promise<void> {
+    this.backdrop?.setAttribute('data-formgen-auto-init', 'true');
+    if (this.container) {
+      await initFamilyAssigneeControls(
+        this.container,
+        this.config.assigneeOptionsBasePath || '/admin/api',
+        { fetch: this.config.fetch },
+      );
+    }
+  }
 
-  const overlay = doc.createElement('div');
-  overlay.className = MODAL_OVERLAY;
-  overlay.setAttribute('data-translation-create-locale-modal', 'true');
-  overlay.setAttribute('data-formgen-auto-init', 'true');
-  overlay.innerHTML = `
-    <div class="${MODAL_CONTENT}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+  protected renderContent(): string {
+    const { config, quickCreate, selectedLocale } = this;
+    return `
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -3316,81 +3332,78 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
           <button type="submit" class="${BTN_PRIMARY}">${escapeHTML(config.submitLabel || 'Create locale')}</button>
         </div>
       </form>
-    </div>
-  `;
-  doc.body.appendChild(overlay);
-  void initFamilyAssigneeControls(overlay, config.assigneeOptionsBasePath || '/admin/api', { fetch: config.fetch });
+    `;
+  }
 
-  const modalContent = overlay.querySelector<HTMLElement>('[role="dialog"]');
-  const form = overlay.querySelector('form');
-  const localeField = overlay.querySelector<HTMLSelectElement>('select[name="locale"]');
-  const autoCreateAssignmentField = overlay.querySelector<HTMLInputElement>('input[name="auto_create_assignment"]');
-  const assigneeField = overlay.querySelector<HTMLSelectElement>('select[name="assignee_id"]');
-  const priorityField = overlay.querySelector<HTMLSelectElement>('select[name="priority"]');
-  const dueDateField = overlay.querySelector<HTMLInputElement>('input[name="due_date"]');
-  const assignmentFields = overlay.querySelector<HTMLElement>('[data-assignment-fields="true"]');
-  const feedback = overlay.querySelector<HTMLElement>('[data-create-locale-feedback="true"]');
-  const submitButton = overlay.querySelector<HTMLButtonElement>('button[type="submit"]');
-
-  const close = (): void => {
-    cleanupFocusTrap();
-    overlay.remove();
-  };
-  const syncAssignmentFields = (): void => {
-    if (!assignmentFields || !autoCreateAssignmentField) return;
-    assignmentFields.hidden = !autoCreateAssignmentField.checked;
-  };
-
-  // Set up focus trapping with Escape key handling
-  const cleanupFocusTrap = modalContent ? trapFocus(modalContent, close) : () => {};
-
-  syncAssignmentFields();
-  autoCreateAssignmentField?.addEventListener('change', syncAssignmentFields);
-  overlay.querySelectorAll<HTMLElement>('[data-close-modal="true"]').forEach((element) => {
-    element.addEventListener('click', close);
-  });
-  overlay.addEventListener('click', (event) => {
-    if (event.target === overlay) close();
-  });
-  form?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!localeField || !submitButton) return;
-    if (feedback) {
-      feedback.hidden = true;
-      feedback.textContent = '';
-    }
-    submitButton.disabled = true;
-    submitButton.classList.add('opacity-60', 'cursor-not-allowed');
-    const locale = asString(localeField.value).toLowerCase();
-    try {
-      const autoCreateAssignment = Boolean(autoCreateAssignmentField?.checked);
-      const assignmentInput = autoCreateAssignment
-        ? {
-            assigneeId: assigneeField?.value,
-            priority: priorityField?.value,
-            dueDate: toRFC3339(dueDateField?.value || ''),
-          }
-        : {};
-      const result = await config.onSubmit({
-        locale,
-        autoCreateAssignment,
-        ...assignmentInput,
-      });
-      close();
-      await config.onSuccess?.(result);
-    } catch (error) {
-      const typed = error as TranslationCreateLocaleError;
-      const message = createLocaleErrorMessage(typed, locale);
-      if (feedback) {
-        feedback.hidden = false;
-        feedback.textContent = message;
+  protected bindContentEvents(): void {
+    const root = this.container;
+    if (!root) return;
+    const form = root.querySelector('form');
+    const localeField = root.querySelector<HTMLSelectElement>('select[name="locale"]');
+    const autoCreateAssignmentField = root.querySelector<HTMLInputElement>('input[name="auto_create_assignment"]');
+    const assigneeField = root.querySelector<HTMLSelectElement>('select[name="assignee_id"]');
+    const priorityField = root.querySelector<HTMLSelectElement>('select[name="priority"]');
+    const dueDateField = root.querySelector<HTMLInputElement>('input[name="due_date"]');
+    const assignmentFields = root.querySelector<HTMLElement>('[data-assignment-fields="true"]');
+    const feedback = root.querySelector<HTMLElement>('[data-create-locale-feedback="true"]');
+    const submitButton = root.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const syncAssignmentFields = (): void => {
+      if (assignmentFields && autoCreateAssignmentField) {
+        assignmentFields.hidden = !autoCreateAssignmentField.checked;
       }
-      globalToast('error', message);
-    } finally {
-      submitButton.disabled = false;
-      submitButton.classList.remove('opacity-60', 'cursor-not-allowed');
-    }
-  });
+    };
+
+    syncAssignmentFields();
+    autoCreateAssignmentField?.addEventListener('change', syncAssignmentFields);
+    root.querySelectorAll<HTMLElement>('[data-close-modal="true"]').forEach((element) => {
+      element.addEventListener('click', () => this.requestClose());
+    });
+    form?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!localeField || !submitButton) return;
+      if (feedback) {
+        feedback.hidden = true;
+        feedback.textContent = '';
+      }
+      submitButton.disabled = true;
+      submitButton.classList.add('opacity-60', 'cursor-not-allowed');
+      const locale = asString(localeField.value).toLowerCase();
+      try {
+        const autoCreateAssignment = Boolean(autoCreateAssignmentField?.checked);
+        const assignmentInput = autoCreateAssignment
+          ? {
+              assigneeId: assigneeField?.value,
+              priority: priorityField?.value,
+              dueDate: toRFC3339(dueDateField?.value || ''),
+            }
+          : {};
+        const result = await this.config.onSubmit({ locale, autoCreateAssignment, ...assignmentInput });
+        this.requestClose();
+        await this.config.onSuccess?.(result);
+      } catch (error) {
+        const typed = error as TranslationCreateLocaleError;
+        const message = createLocaleErrorMessage(typed, locale);
+        if (feedback) {
+          feedback.hidden = false;
+          feedback.textContent = message;
+        }
+        globalToast('error', message);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
+  }
+}
+
+function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
+  if (typeof document === 'undefined') return;
+  const quickCreate = config.quickCreate;
+  if (!quickCreate.enabled || quickCreate.missingLocales.length === 0) {
+    globalToast('warning', quickCreate.disabledReason || 'Locale creation is unavailable.');
+    return;
+  }
+  void new CreateLocaleModal(config).show();
 }
 
 interface TranslationSummaryCardConfig {

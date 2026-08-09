@@ -1,6 +1,6 @@
 import { escapeHTML as n } from "../shared/html.js";
 import { t as at } from "../chunks/icon-renderer-DauoBn1n.js";
-import { n as P, r as X, t as ee } from "../chunks/modal-D1hUYSoJ.js";
+import { n as P, r as X, t as ee } from "../chunks/modal-WgxT86m5.js";
 import { httpRequest as _t } from "../shared/transport/http-client.js";
 import { extractErrorMessage as It } from "../toast/error-helpers.js";
 import { t as U } from "../chunks/badge-D5ShfcsT.js";
@@ -8,7 +8,7 @@ import { onReady as rt } from "../shared/dom-ready.js";
 import { parseJSONValue as R } from "../shared/json-parse.js";
 import { capitalizeLabel as D, nameToSlug as je, titleCaseIdentifier as he, titleCaseWords as A } from "./shared/text.js";
 import { deepCloneJSON as ve } from "../shared/deep-clone.js";
-import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as sr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-_usywWel.js";
+import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as sr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-D_vhjW2E.js";
 import { normalizeAPIBasePath as Q, trimTrailingSlash as Qe } from "../shared/path-normalization.js";
 import { formatContentTypeDate as it } from "./shared/date-formatters.js";
 import { renderBlockStatusBadge as st } from "./shared/status-badges.js";
@@ -1078,6 +1078,7 @@ var dt = class extends P {
       size: "3xl",
       maxHeight: "h-[80vh]",
       initialFocus: "[data-field-type-search]",
+      ariaLabel: "Choose field type",
       backdropDataAttr: "data-field-type-picker-backdrop"
     }), this.selectedCategory = "text", this.searchQuery = "", this.config = t;
   }
@@ -3082,6 +3083,7 @@ var me = class extends P {
     super({
       size: "2xl",
       initialFocus: 'input[name="name"]',
+      ariaLabel: "Field configuration",
       backdropDataAttr: "data-field-config-backdrop"
     }), this.config = t, this.field = { ...t.field }, this.isNewField = !t.field.id || t.field.id.startsWith("new_");
   }
@@ -4227,7 +4229,8 @@ var ua = class extends P {
   constructor(t) {
     super({
       size: "lg",
-      maxHeight: "max-h-[70vh]"
+      maxHeight: "max-h-[70vh]",
+      ariaLabel: t.title
     }), this.availableBlocks = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.selectedBlocks = new Set(t.selectedBlocks);
   }
   async onAfterShow() {
@@ -4328,6 +4331,7 @@ var ua = class extends P {
   constructor(t) {
     super({
       size: "3xl",
+      ariaLabel: "Layout editor",
       backdropDataAttr: "data-layout-editor-backdrop"
     }), this.dragState = null, this.config = t, this.layout = ve(t.layout ?? {
       type: "flat",
@@ -5417,7 +5421,8 @@ var xt = class extends P {
     super({
       size: "4xl",
       maxHeight: "max-h-[90vh]",
-      initialFocus: "[data-preview-modal-close]"
+      initialFocus: "[data-preview-modal-close]",
+      ariaLabel: "Interactive form preview"
     }), this.previewHtml = t, this.hydrate = e;
   }
   renderContent() {
@@ -7051,7 +7056,8 @@ var C = "main", Ia = class {
   constructor(t) {
     super({
       size: "lg",
-      flexColumn: !1
+      flexColumn: !1,
+      ariaLabel: "Publish content type"
     }), this.config = t;
   }
   onBeforeHide() {
@@ -7192,7 +7198,8 @@ var C = "main", Ia = class {
   constructor(t) {
     super({
       size: "md",
-      initialFocus: "[data-clone-slug]"
+      initialFocus: "[data-clone-slug]",
+      ariaLabel: "Clone content type"
     }), this.config = t;
   }
   onBeforeHide() {
@@ -7285,7 +7292,8 @@ var C = "main", Ia = class {
   constructor(t) {
     super({
       size: "2xl",
-      maxHeight: "max-h-[80vh]"
+      maxHeight: "max-h-[80vh]",
+      ariaLabel: "Content type version history"
     }), this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = t, this.api = new N({ basePath: t.apiBasePath });
   }
   async onAfterShow() {
@@ -7447,6 +7455,7 @@ var C = "main", Ia = class {
   constructor(t) {
     super({
       size: "4xl",
+      ariaLabel: "Block library",
       backdropDataAttr: "data-block-library-backdrop"
     }), this.categories = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.state = {
       blocks: [],
@@ -7867,7 +7876,10 @@ var C = "main", Ia = class {
   }
 }, Ra = class extends P {
   constructor(t) {
-    super({ size: "3xl" }), this.fields = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.isNew = !t.block, t.block?.schema && (this.fields = pe(t.block.schema));
+    super({
+      size: "3xl",
+      ariaLabel: "Block definition editor"
+    }), this.fields = [], this.config = t, this.api = new N({ basePath: t.apiBasePath }), this.isNew = !t.block, t.block?.schema && (this.fields = pe(t.block.schema));
   }
   onBeforeHide() {
     return this.config.onCancel(), !0;
@@ -8130,7 +8142,8 @@ var C = "main", Ia = class {
   constructor(t) {
     super({
       size: "2xl",
-      maxHeight: "max-h-[80vh]"
+      maxHeight: "max-h-[80vh]",
+      ariaLabel: "Block version history"
     }), this.versions = [], this.config = t, this.api = new N({ basePath: t.apiBasePath });
   }
   async onAfterShow() {

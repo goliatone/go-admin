@@ -52,6 +52,15 @@ import { renderPanelState } from '@goliatone/go-admin-client/services/ui-states'
 import { createSSEClient, type ClientOptions } from '@goliatone/go-admin-client/services/sse-client';
 import { escapeHTML } from '@goliatone/go-admin-client/shared/html';
 import { asRecord } from '@goliatone/go-admin-client/shared/coercion';
+import {
+  ConfirmModal,
+  Modal,
+  TextPromptModal,
+  type ConfirmModalOptions,
+  type ModalOptions,
+  type ModalSize,
+  type TextPromptModalConfig,
+} from '@goliatone/go-admin-client/components/modal';
 import * as datatable from '@goliatone/go-admin-client/datatable';
 import { registerApplicationWidgetRenderer, resolveApplicationWidgetRenderer } from '@goliatone/go-admin-client/renderers/application-widgets';
 
@@ -61,14 +70,31 @@ void renderPanelState;
 void createSSEClient(options);
 void escapeHTML('<test>');
 void asRecord({ test: true });
+void Modal;
+void ConfirmModal;
+void TextPromptModal;
+const modalSize: ModalSize = 'lg';
+const modalOptions: ModalOptions = { ariaLabel: 'Example', size: modalSize };
+const confirmOptions: ConfirmModalOptions = { message: 'Continue?' };
+const promptConfig: TextPromptModalConfig = { title: 'Name', label: 'Name', onConfirm: () => {} };
+void modalOptions;
+void confirmOptions;
+void promptConfig;
 void datatable;
 const unregister = registerApplicationWidgetRenderer('sample.widget.summary', { render: () => '<p>summary</p>', title: 'Summary' });
 void resolveApplicationWidgetRenderer('sample.widget.summary');
 unregister();
 `);
+  writeFileSync(join(temporary, 'consumer.mjs'), `
+import { ConfirmModal, Modal, TextPromptModal } from '@goliatone/go-admin-client/components/modal';
+if (typeof Modal !== 'function' || typeof ConfirmModal !== 'function' || typeof TextPromptModal !== 'function') {
+  throw new Error('modal runtime exports are unavailable');
+}
+`);
 
   run('npm', ['install', '--ignore-scripts', join(temporary, packed.filename), 'typescript@5.3.3']);
   run(resolve(temporary, 'node_modules', '.bin', 'tsc'), ['--project', 'tsconfig.json']);
+  run(process.execPath, ['consumer.mjs']);
 
   const installed = JSON.parse(readFileSync(join(temporary, 'node_modules', '@goliatone', 'go-admin-client', 'package.json'), 'utf8'));
   if (installed.name !== '@goliatone/go-admin-client') {

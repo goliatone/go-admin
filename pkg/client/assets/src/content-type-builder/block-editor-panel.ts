@@ -16,7 +16,7 @@ import { getFieldTypeMetadata, normalizeFieldType } from './field-type-picker';
 import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
 import { FieldConfigForm } from './field-config-form';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
-import { ConfirmModal, TextPromptModal } from '../shared/modal';
+import { ConfirmModal, TextPromptModal } from '../components/modal.js';
 import { escapeHTML as esc } from '../shared/html';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';

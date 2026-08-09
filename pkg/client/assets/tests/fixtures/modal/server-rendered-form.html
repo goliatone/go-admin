@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Server-rendered modal fixture</title>
+  <link rel="stylesheet" href="/dist/output.css">
+</head>
+<body class="p-8">
+  <button id="open-customer-modal" type="button">Create customer</button>
+
+  <template id="customer-form-template">
+    <form class="flex max-h-full flex-col" data-server-form="true">
+      <header class="border-b border-gray-200 p-4">
+        <h2 id="customer-modal-title" class="text-xl font-semibold">Create customer</h2>
+        <p id="customer-modal-description" class="text-sm text-gray-600">Fields are rendered by the host.</p>
+      </header>
+      <div class="overflow-y-auto p-4">
+        <label>Name <input name="name" autocomplete="off"></label>
+      </div>
+      <footer class="flex justify-end gap-2 border-t border-gray-200 p-4">
+        <button type="button" data-close="true">Cancel</button>
+        <button type="submit">Save</button>
+      </footer>
+    </form>
+  </template>
+
+  <template id="customer-validation-template">
+    <form class="flex max-h-full flex-col" data-server-form="true">
+      <header class="border-b border-gray-200 p-4">
+        <h2 id="customer-modal-title" class="text-xl font-semibold">Create customer</h2>
+        <p id="customer-modal-description" class="text-sm text-gray-600">Fields are rendered by the host.</p>
+      </header>
+      <div class="overflow-y-auto p-4">
+        <div id="customer-validation-summary" tabindex="-1" role="alert">Name is required.</div>
+        <label>Name <input name="name" aria-invalid="true" aria-describedby="customer-validation-summary"></label>
+      </div>
+      <footer class="flex justify-end gap-2 border-t border-gray-200 p-4">
+        <button type="button" data-close="true">Cancel</button>
+        <button type="submit">Save</button>
+      </footer>
+    </form>
+  </template>
+
+  <script type="module">
+    import { Modal } from '/dist/components/modal.js';
+
+    class ServerRenderedFormModal extends Modal {
+      constructor() {
+        super({
+          size: 'lg',
+          maxHeight: 'max-h-[90dvh]',
+          animationDuration: 0,
+          labelledBy: 'customer-modal-title',
+          describedBy: 'customer-modal-description',
+          initialFocus: 'input[name="name"]',
+          containerClass: 'max-h-[calc(100dvh-2rem)]',
+        });
+      }
+
+      renderContent() {
+        return document.querySelector('#customer-form-template').innerHTML;
+      }
+
+      bindContentEvents() {
+        this.container.querySelectorAll('[data-close="true"]').forEach((button) => {
+          button.addEventListener('click', () => this.requestClose());
+        });
+        this.container.querySelector('form').addEventListener('submit', (event) => {
+          event.preventDefault();
+          const markup = document.querySelector('#customer-validation-template').innerHTML;
+          this.replaceContent(markup, '#customer-validation-summary');
+        });
+      }
+
+      dialogElement() {
+        return this.container;
+      }
+    }
+
+    const modal = new ServerRenderedFormModal();
+    document.querySelector('#open-customer-modal').addEventListener('click', () => void modal.show());
+    window.modalFixture = { modal };
+    window.modalFixtureReady = true;
+  </script>
+</body>
+</html>

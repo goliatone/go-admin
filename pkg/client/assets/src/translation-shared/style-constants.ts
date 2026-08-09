@@ -812,6 +812,10 @@ export const MATRIX_MOBILE = 'overflow-x-auto -webkit-overflow-scrolling-touch s
  * @returns Cleanup function to remove event listeners
  */
 export function trapFocus(modal: HTMLElement, onClose?: () => void): () => void {
+  const previouslyFocused = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : null;
+  let addedFallbackTabIndex = false;
   const focusableSelector =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -828,7 +832,11 @@ export function trapFocus(modal: HTMLElement, onClose?: () => void): () => void 
 
     if (event.key === 'Tab') {
       const focusableElements = getFocusableElements();
-      if (focusableElements.length === 0) return;
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        modal.focus();
+        return;
+      }
 
       const firstElement = focusableElements[0];
       const lastElement = focusableElements[focusableElements.length - 1];
@@ -849,10 +857,18 @@ export function trapFocus(modal: HTMLElement, onClose?: () => void): () => void 
   const focusableElements = getFocusableElements();
   if (focusableElements.length > 0) {
     focusableElements[0].focus();
+  } else {
+    if (!modal.hasAttribute('tabindex')) {
+      modal.setAttribute('tabindex', '-1');
+      addedFallbackTabIndex = true;
+    }
+    modal.focus();
   }
 
   return () => {
     modal.removeEventListener('keydown', handleKeydown);
+    if (addedFallbackTabIndex) modal.removeAttribute('tabindex');
+    if (previouslyFocused?.isConnected) previouslyFocused.focus();
   };
 }
 

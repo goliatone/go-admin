@@ -5,7 +5,7 @@
 
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
-import { TextPromptModal } from '../shared/modal.js';
+import { TextPromptModal } from '../components/modal.js';
 import {
   DATAGRID_DEPRECATED_CAMEL_URL_KEYS,
   DATAGRID_URL_KEY_ADVANCED_SEARCH,

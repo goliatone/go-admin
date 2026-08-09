@@ -5,7 +5,8 @@
  * before executing actions that require input.
  */
 
-import { Modal, escapeHtml } from '../shared/modal.js';
+import { Modal } from '../components/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // ============================================================================
 // Types
@@ -51,7 +52,13 @@ export class PayloadInputModal extends Modal {
     onConfirm: (values: Record<string, string>) => void,
     onCancel: () => void
   ) {
-    super({ size: 'md', initialFocus: '[data-payload-field]', lockBodyScroll: false });
+    super({
+      size: 'md',
+      initialFocus: '[data-payload-field]',
+      labelledBy: 'go-admin-payload-modal-title',
+      describedBy: 'go-admin-payload-modal-description',
+      lockBodyScroll: false,
+    });
     this.modalConfig = config;
     this.onConfirm = onConfirm;
     this.onCancel = onCancel;
@@ -76,8 +83,8 @@ export class PayloadInputModal extends Modal {
     return `
       <form class="flex flex-col" data-payload-form>
         <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">${escapeHtml(this.modalConfig.title)}</h3>
-          <p class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
+          <h3 id="go-admin-payload-modal-title" class="text-lg font-semibold text-gray-900">${escapeHtml(this.modalConfig.title)}</h3>
+          <p id="go-admin-payload-modal-description" class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
         </div>
         <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
           ${fields}

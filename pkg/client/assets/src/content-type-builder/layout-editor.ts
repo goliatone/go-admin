@@ -5,7 +5,7 @@
  */
 
 import type { UISchemaOverlay, UILayoutConfig, UITab, FieldDefinition } from './types';
-import { Modal } from '../shared/modal';
+import { Modal } from '../components/modal.js';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { deepCloneJSON } from '../shared/deep-clone.js';
@@ -27,7 +27,7 @@ export class LayoutEditor extends Modal {
   private dragState: { tabId: string; startIndex: number } | null = null;
 
   constructor(config: LayoutEditorConfig) {
-    super({ size: '3xl', backdropDataAttr: 'data-layout-editor-backdrop' });
+    super({ size: '3xl', ariaLabel: 'Layout editor', backdropDataAttr: 'data-layout-editor-backdrop' });
     this.config = config;
     this.layout = deepCloneJSON(config.layout ?? { type: 'flat', gridColumns: 12 });
     if (!this.layout.tabs) {

@@ -21,6 +21,7 @@
 
 import { formatByteSize } from '../shared/size-formatters.js';
 import { httpRequest } from '../shared/transport/http-client.js';
+import { createFocusTrap } from '../services/accessibility.js';
 
 type ImportModalNotifier = {
   success: (message: string) => void;
@@ -64,6 +65,8 @@ export class ImportModal {
   isFullscreen: boolean;
   currentFilter: string;
   resultItems: any[];
+  private releaseFocusTrap: (() => void) | null = null;
+  private bodyWasLocked = false;
 
   /**
    * @param options - Configuration options
@@ -178,16 +181,6 @@ export class ImportModal {
     // Filter buttons
     this.bindFilterButtons();
 
-    // Escape key
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
-        if (this.isFullscreen) {
-          this.toggleFullscreen();
-        } else {
-          this.close();
-        }
-      }
-    });
   }
 
   /**
@@ -411,9 +404,20 @@ export class ImportModal {
   open() {
     const { modal } = this.elements;
     if (!modal) return;
+    if (!modal.classList.contains('hidden')) return;
     this.reset();
+    this.bodyWasLocked = document.body.classList.contains('overflow-hidden');
     modal.classList.remove('hidden');
+    modal.setAttribute('data-go-admin-modal-scroll-lock', 'true');
     document.body.classList.add('overflow-hidden');
+    this.releaseFocusTrap = createFocusTrap({
+      container: modal,
+      initialFocus: (this.elements.fileInput || this.elements.closeBtn) as HTMLElement | undefined,
+      onEscape: () => {
+        if (this.isFullscreen) this.toggleFullscreen();
+        else this.close();
+      },
+    });
   }
 
   /**
@@ -421,9 +425,15 @@ export class ImportModal {
    */
   close() {
     const { modal } = this.elements;
-    if (!modal) return;
+    if (!modal || modal.classList.contains('hidden')) return;
+    this.releaseFocusTrap?.();
+    this.releaseFocusTrap = null;
     modal.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    modal.removeAttribute('data-go-admin-modal-scroll-lock');
+    const anotherModalIsOpen = Boolean(document.querySelector('[data-go-admin-modal-scroll-lock="true"]'));
+    if (!this.bodyWasLocked && !anotherModalIsOpen) {
+      document.body.classList.remove('overflow-hidden');
+    }
   }
 
   /**

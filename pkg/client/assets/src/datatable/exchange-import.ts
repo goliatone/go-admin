@@ -516,7 +516,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
 
     const labels = this.config.labels;
     this.container.innerHTML = `
-      <div class="exchange-import" role="dialog" aria-label="${escapeHtml(labels.title)}">
+      <div class="exchange-import" role="region" aria-label="${escapeHtml(labels.title)}">
         ${this.renderHeader()}
         ${this.renderContent()}
         ${this.renderFooter()}

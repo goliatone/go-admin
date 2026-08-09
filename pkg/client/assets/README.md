@@ -51,3 +51,70 @@ new DataGrid({
 ```
 
 See the repository compatibility matrix before coordinating browser-client and Go module upgrades.
+
+## Shared modal component
+
+Use the same component from the package or the predictable embedded asset:
+
+```ts
+import {
+  Modal,
+  ConfirmModal,
+  TextPromptModal,
+  type ModalOptions,
+} from '@goliatone/go-admin-client/components/modal';
+
+// Embedded hosts use:
+// import { Modal } from '/admin/assets/components/modal.js';
+```
+
+`Modal` owns the outer dialog, backdrop, accessible name/description, initial
+and fallback focus, topmost Tab/Escape handling, focus return, nested stacking,
+body scroll locking, reduced motion, and cleanup. Product code owns content,
+validation, permissions, transport, commands, redirects, and error mapping.
+
+Every modal must provide `labelledBy` or `ariaLabel`. Use `describedBy` when a
+description is present. `initialFocus` accepts a selector or an element and
+falls back to the first focusable descendant, then the dialog itself. Override
+`onBeforeHide()` to veto a requested close, `onAfterShow()` for post-mount data
+loading, and `onAfterHide()` for product cleanup. Call `requestClose()` from
+content controls so veto and shared cleanup are preserved; reserve `destroy()`
+for immediate teardown.
+
+The server-rendered form pattern keeps trusted markup in the host and replaces
+only inner content after validation:
+
+```ts
+class CustomerFormModal extends Modal {
+  protected renderContent(): string {
+    return document.querySelector<HTMLTemplateElement>('#customer-form')!.innerHTML;
+  }
+
+  protected bindContentEvents(): void {
+    this.container?.querySelector('form')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const trustedValidationMarkup = await submitToApplicationEndpoint(event.currentTarget);
+      this.replaceContent(trustedValidationMarkup, '#validation-summary');
+    });
+  }
+}
+
+const modal = new CustomerFormModal({
+  labelledBy: 'customer-form-title',
+  describedBy: 'customer-form-description',
+  initialFocus: 'input[name="name"]',
+  containerClass: 'max-h-[calc(100dvh-2rem)]',
+});
+```
+
+`renderContent()` and `replaceContent()` assign `innerHTML`; they do not make
+untrusted input safe. Use server markup only when the application already
+establishes it as trusted, or escape values through
+`@goliatone/go-admin-client/shared/html`. Add layout/theme classes through
+`containerClass`; do not replace the backdrop, stack, or focus manager.
+
+When migrating an existing modal, remove inner `role="dialog"`/`aria-modal`,
+document Escape listeners, modal-specific focus traps/return, backdrop removal,
+and body-scroll mutation. Keep specialized product state and lazy loading in
+the subclass. The complete progressive-enhancement fixture is
+`tests/fixtures/modal/server-rendered-form.html`.

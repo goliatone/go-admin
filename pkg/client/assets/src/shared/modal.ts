@@ -1,7 +1,7 @@
 /**
  * Shared Modal Base Class
  *
- * Provides backdrop management, opacity animations, escape-key handling,
+ * Provides dialog semantics, focus management, backdrop and escape dismissal,
  * z-index stacking for nested modals, body scroll lock, and cleanup.
  *
  * Subclasses implement renderContent() and bindContentEvents() to provide
@@ -40,13 +40,35 @@ export interface ModalOptions {
   dismissOnEscape?: boolean;
   /** Lock body scroll when open. Default: true */
   lockBodyScroll?: boolean;
-  /** CSS selector for element to focus on open */
-  initialFocus?: string | null;
+  /** CSS selector or element to focus on open */
+  initialFocus?: string | HTMLElement | null;
+  /** ID of the element that names the dialog */
+  labelledBy?: string | null;
+  /** Explicit accessible name when labelledBy is not used */
+  ariaLabel?: string | null;
+  /** ID of the element that describes the dialog */
+  describedBy?: string | null;
   /** Extra CSS classes for the container div */
   containerClass?: string;
   /** Data attribute name to set on backdrop (e.g. 'data-my-modal-backdrop') */
   backdropDataAttr?: string;
 }
+
+type ResolvedModalOptions = {
+  size: ModalSize;
+  maxHeight: string;
+  flexColumn: boolean;
+  animationDuration: number;
+  dismissOnBackdropClick: boolean;
+  dismissOnEscape: boolean;
+  lockBodyScroll: boolean;
+  initialFocus: string | HTMLElement | null;
+  labelledBy: string | null;
+  ariaLabel: string | null;
+  describedBy: string | null;
+  containerClass: string;
+  backdropDataAttr: string;
+};
 
 // ---------------------------------------------------------------------------
 // Size map
@@ -68,11 +90,15 @@ const SIZE_MAP: Record<ModalSize, string> = {
 
 const MODAL_BASE_Z = 100;
 const MODAL_Z_STEP = 10;
+let modalHeadingSequence = 0;
 
 class ModalStack {
   private stack: Modal[] = [];
+  private scrollLockCount = 0;
+  private bodyHadScrollLock = false;
 
   push(modal: Modal): number {
+    this.remove(modal);
     this.stack.push(modal);
     return MODAL_BASE_Z + this.stack.length * MODAL_Z_STEP;
   }
@@ -89,6 +115,22 @@ class ModalStack {
   get count(): number {
     return this.stack.length;
   }
+
+  lockBody(): void {
+    if (this.scrollLockCount === 0) {
+      this.bodyHadScrollLock = document.body.classList.contains('overflow-hidden');
+      document.body.classList.add('overflow-hidden');
+    }
+    this.scrollLockCount += 1;
+  }
+
+  unlockBody(): void {
+    if (this.scrollLockCount === 0) return;
+    this.scrollLockCount -= 1;
+    if (this.scrollLockCount === 0 && !this.bodyHadScrollLock) {
+      document.body.classList.remove('overflow-hidden');
+    }
+  }
 }
 
 const modalStack = new ModalStack();
@@ -101,9 +143,15 @@ export abstract class Modal {
   protected backdrop: HTMLElement | null = null;
   protected container: HTMLElement | null = null;
 
-  private _options: Required<ModalOptions>;
-  private _escHandler: ((e: KeyboardEvent) => void) | null = null;
+  private _options: ResolvedModalOptions;
+  private _documentKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private _backdropClickHandler: ((e: MouseEvent) => void) | null = null;
   private _isOpen = false;
+  private _invoker: HTMLElement | null = null;
+  private _bodyLocked = false;
+  private _cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+  private _lifecycle = 0;
+  private _fallbackTabIndex = false;
 
   constructor(opts: ModalOptions = {}) {
     this._options = {
@@ -115,6 +163,9 @@ export abstract class Modal {
       dismissOnEscape: opts.dismissOnEscape ?? true,
       lockBodyScroll: opts.lockBodyScroll ?? true,
       initialFocus: opts.initialFocus ?? null,
+      labelledBy: opts.labelledBy ?? null,
+      ariaLabel: opts.ariaLabel ?? null,
+      describedBy: opts.describedBy ?? null,
       containerClass: opts.containerClass ?? '',
       backdropDataAttr: opts.backdropDataAttr ?? '',
     };
@@ -124,7 +175,7 @@ export abstract class Modal {
     return this._isOpen;
   }
 
-  protected get options(): Required<ModalOptions> {
+  protected get options(): Readonly<ResolvedModalOptions> {
     return this._options;
   }
 
@@ -142,14 +193,25 @@ export abstract class Modal {
   async show(): Promise<void> {
     if (this._isOpen) return;
 
+    const nextInvoker = this.backdrop && this._invoker?.isConnected
+      ? this._invoker
+      : document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    this._cancelCleanupTimer();
+    this._cleanup(false);
+    const lifecycle = ++this._lifecycle;
+    this._invoker = nextInvoker;
+
     const zIndex = modalStack.push(this);
 
     // Backdrop
     this.backdrop = document.createElement('div');
     this.backdrop.className =
-      'fixed inset-0 flex items-center justify-center bg-black/50 transition-opacity opacity-0';
+      'fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 transition-opacity opacity-0';
     this.backdrop.style.zIndex = String(zIndex);
-    this.backdrop.style.transitionDuration = `${this._options.animationDuration}ms`;
+    this.backdrop.style.transitionDuration = `${this._animationDuration()}ms`;
+    this.backdrop.setAttribute('data-go-admin-modal-backdrop', 'true');
 
     if (this._options.backdropDataAttr) {
       this.backdrop.setAttribute(this._options.backdropDataAttr, 'true');
@@ -170,9 +232,13 @@ export abstract class Modal {
     ]
       .filter(Boolean)
       .join(' ');
+    this.container.setAttribute('data-go-admin-modal', 'true');
+    this.container.setAttribute('role', 'dialog');
+    this.container.setAttribute('aria-modal', 'true');
 
     // Render subclass content
     this.container.innerHTML = this.renderContent();
+    this._applyAccessibleName();
 
     // Assemble DOM
     this.backdrop.appendChild(this.container);
@@ -180,11 +246,19 @@ export abstract class Modal {
 
     // Lock body scroll
     if (this._options.lockBodyScroll) {
-      document.body.classList.add('overflow-hidden');
+      modalStack.lockBody();
+      this._bodyLocked = true;
+      this.backdrop.setAttribute('data-go-admin-modal-scroll-lock', 'true');
     }
 
     // Animate in
-    requestAnimationFrame(() => {
+    const scheduleFrame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (callback: FrameRequestCallback): number => {
+          callback(0);
+          return 0;
+        };
+    scheduleFrame(() => {
       this.backdrop?.classList.remove('opacity-0');
     });
 
@@ -197,30 +271,38 @@ export abstract class Modal {
     this._isOpen = true;
 
     // Hook for subclass async loading
-    await this.onAfterShow();
+    try {
+      await this.onAfterShow();
+    } catch (error) {
+      this.destroy();
+      throw error;
+    }
 
     // Focus management
-    this._manageFocus();
+    if (this._isOpen && lifecycle === this._lifecycle) {
+      this._focusInitial();
+    }
   }
 
   /** Hide the modal with fade-out animation. */
   hide(): void {
-    if (!this._isOpen || !this.backdrop) return;
-    this._isOpen = false;
+    this.requestClose();
+  }
 
-    modalStack.remove(this);
-
-    this.backdrop.classList.add('opacity-0');
-    setTimeout(() => {
-      this._cleanup();
-    }, this._options.animationDuration);
+  /** Request the normal vetoable close lifecycle. */
+  requestClose(): boolean {
+    if (!this._isOpen || !this.backdrop || !this.onBeforeHide()) return false;
+    this._beginClose();
+    return true;
   }
 
   /** Remove immediately without animation. */
   destroy(): void {
+    ++this._lifecycle;
     this._isOpen = false;
     modalStack.remove(this);
-    this._cleanup();
+    this._cancelCleanupTimer();
+    this._cleanup(true);
   }
 
   // ---- Hooks for subclasses -----------------------------------------------
@@ -235,59 +317,209 @@ export abstract class Modal {
     return true;
   }
 
+  /** Called after the modal DOM and shared state have been released. */
+  protected onAfterHide(): void {
+    // no-op by default
+  }
+
+  /** Replace product content without replacing the dialog container or stack. */
+  protected replaceContent(content: string, initialFocus?: string | HTMLElement | null): void {
+    if (!this.container) return;
+    this.container.innerHTML = content;
+    this._applyAccessibleName();
+    this.bindContentEvents();
+    this._focusInitial(initialFocus);
+  }
+
+  /** Re-evaluate focus after product content changes in place. */
+  protected refreshFocus(initialFocus?: string | HTMLElement | null): void {
+    this._focusInitial(initialFocus);
+  }
+
   // ---- Internal -----------------------------------------------------------
 
   /** Try to hide; calls onBeforeHide() first. */
   protected requestHide(): void {
-    if (this.onBeforeHide()) {
-      this.hide();
-    }
+    this.requestClose();
   }
 
   private _bindBaseEvents(): void {
     if (this._options.dismissOnBackdropClick && this.backdrop) {
-      this.backdrop.addEventListener('click', (e) => {
-        if (e.target === this.backdrop) {
-          this.requestHide();
-        }
-      });
-    }
-
-    if (this._options.dismissOnEscape) {
-      this._escHandler = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && modalStack.isTopmost(this)) {
-          e.stopPropagation();
+      this._backdropClickHandler = (event: MouseEvent) => {
+        if (event.target === this.backdrop && modalStack.isTopmost(this)) {
           this.requestHide();
         }
       };
-      document.addEventListener('keydown', this._escHandler, true);
+      this.backdrop.addEventListener('click', this._backdropClickHandler);
     }
+
+    this._documentKeyHandler = (event: KeyboardEvent) => {
+      if (!this._isOpen || !modalStack.isTopmost(this)) return;
+      if (event.key === 'Escape' && this._options.dismissOnEscape) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.requestHide();
+        return;
+      }
+      if (event.key === 'Tab') this._trapFocus(event);
+    };
+    document.addEventListener('keydown', this._documentKeyHandler, true);
   }
 
-  private _manageFocus(): void {
-    if (!this.container || !this._options.initialFocus) return;
+  private _applyAccessibleName(): void {
+    if (!this.container) return;
+    this.container.removeAttribute('aria-label');
+    this.container.removeAttribute('aria-labelledby');
+    this.container.removeAttribute('aria-describedby');
 
-    const target = this.container.querySelector<HTMLElement>(this._options.initialFocus);
-    if (target && typeof target.focus === 'function') {
-      target.focus();
-      if (target instanceof HTMLInputElement) {
-        target.select();
+    if (this._options.labelledBy) {
+      this.container.setAttribute('aria-labelledby', this._options.labelledBy);
+    } else if (this._options.ariaLabel) {
+      this.container.setAttribute('aria-label', this._options.ariaLabel);
+    } else {
+      const heading = this.container.querySelector<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]');
+      if (heading) {
+        heading.id ||= `go-admin-modal-title-${++modalHeadingSequence}`;
+        this.container.setAttribute('aria-labelledby', heading.id);
+      } else {
+        this.container.setAttribute('aria-label', 'Dialog');
+        console.warn('Modal opened without labelledBy, ariaLabel, or heading; using fallback accessible name.');
       }
     }
+    if (this._options.describedBy) {
+      this.container.setAttribute('aria-describedby', this._options.describedBy);
+    }
   }
 
-  private _cleanup(): void {
-    if (this._escHandler) {
-      document.removeEventListener('keydown', this._escHandler, true);
-      this._escHandler = null;
+  private _focusInitial(override?: string | HTMLElement | null): void {
+    if (!this.container || !this._isOpen || !modalStack.isTopmost(this)) return;
+    const requested = override === undefined ? this._options.initialFocus : override;
+    const requestedTarget = this._resolveFocusTarget(requested);
+    const target = (requestedTarget && this._canReceiveFocus(requestedTarget) ? requestedTarget : null)
+      ?? this._focusableElements()[0]
+      ?? this.container;
+    if (target === this.container && !this.container.hasAttribute('tabindex')) {
+      this.container.setAttribute('tabindex', '-1');
+      this._fallbackTabIndex = true;
     }
+    target.focus({ preventScroll: true });
+    if (target.tagName === 'INPUT' && typeof (target as HTMLInputElement).select === 'function') {
+      (target as HTMLInputElement).select();
+    }
+  }
+
+  private _resolveFocusTarget(target: string | HTMLElement | null): HTMLElement | null {
+    if (!target || !this.container) return null;
+    if (typeof target !== 'string') {
+      return target.isConnected && this.container.contains(target) ? target : null;
+    }
+    try {
+      return this.container.querySelector<HTMLElement>(target);
+    } catch {
+      return null;
+    }
+  }
+
+  private _focusableElements(): HTMLElement[] {
+    if (!this.container) return [];
+    const selector = [
+      'a[href]',
+      'area[href]',
+      'button:not([disabled])',
+      'input:not([disabled]):not([type="hidden"])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      'iframe',
+      '[contenteditable="true"]',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+    return Array.from(this.container.querySelectorAll<HTMLElement>(selector))
+      .filter((element) => this._canReceiveFocus(element));
+  }
+
+  private _canReceiveFocus(element: HTMLElement): boolean {
+    if (!element.isConnected || element.closest('[hidden], [aria-hidden="true"], [inert]')) return false;
+    if (element.matches(':disabled')) return false;
+    const style = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(element) : null;
+    return style?.display !== 'none' && style?.visibility !== 'hidden';
+  }
+
+  private _trapFocus(event: KeyboardEvent): void {
+    if (!this.container) return;
+    const focusable = this._focusableElements();
+    if (focusable.length === 0) {
+      event.preventDefault();
+      this._focusInitial(null);
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (!this.container.contains(active)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  private _beginClose(): void {
+    ++this._lifecycle;
+    this._isOpen = false;
+    this.backdrop?.classList.add('opacity-0');
+    this._cancelCleanupTimer();
+    const delay = this._animationDuration();
+    if (delay === 0) {
+      this._cleanup(true);
+      return;
+    }
+    this._cleanupTimer = setTimeout(() => this._cleanup(true), delay);
+  }
+
+  private _cleanup(restoreFocus: boolean): void {
+    const hadDOM = Boolean(this.backdrop || this.container);
+    modalStack.remove(this);
+    if (this._documentKeyHandler) {
+      document.removeEventListener('keydown', this._documentKeyHandler, true);
+      this._documentKeyHandler = null;
+    }
+    if (this.backdrop && this._backdropClickHandler) {
+      this.backdrop.removeEventListener('click', this._backdropClickHandler);
+    }
+    this._backdropClickHandler = null;
 
     this.backdrop?.remove();
     this.backdrop = null;
+    if (this.container && this._fallbackTabIndex) this.container.removeAttribute('tabindex');
     this.container = null;
+    this._fallbackTabIndex = false;
 
-    if (this._options.lockBodyScroll && modalStack.count === 0) {
-      document.body.classList.remove('overflow-hidden');
+    if (this._bodyLocked) {
+      modalStack.unlockBody();
+      this._bodyLocked = false;
+    }
+    if (restoreFocus && this._invoker && this._canReceiveFocus(this._invoker)) {
+      this._invoker.focus({ preventScroll: true });
+    }
+    this._invoker = null;
+    if (hadDOM) this.onAfterHide();
+  }
+
+  private _animationDuration(): number {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+    }
+    return Math.max(0, this._options.animationDuration);
+  }
+
+  private _cancelCleanupTimer(): void {
+    if (this._cleanupTimer !== null) {
+      clearTimeout(this._cleanupTimer);
+      this._cleanupTimer = null;
     }
   }
 }
@@ -317,6 +549,7 @@ export class ConfirmModal extends Modal {
       dismissOnBackdropClick: true,
       dismissOnEscape: true,
       lockBodyScroll: false,
+      ariaLabel: options.title ?? 'Confirm',
     });
     this._opts = {
       title: options.title ?? 'Confirm',
@@ -426,7 +659,7 @@ export class TextPromptModal extends Modal {
   private config: TextPromptModalConfig;
 
   constructor(config: TextPromptModalConfig) {
-    super({ size: 'sm', initialFocus: '[data-prompt-input]' });
+    super({ size: 'sm', initialFocus: '[data-prompt-input]', ariaLabel: config.title });
     this.config = config;
   }
 
@@ -434,7 +667,7 @@ export class TextPromptModal extends Modal {
     const cls = this.config.inputClass ?? DEFAULT_INPUT_CLASS;
     return `
       <div class="p-5">
-        <div class="text-base font-semibold text-gray-900 dark:text-white">${escapeHtml(this.config.title)}</div>
+        <div role="heading" aria-level="2" class="text-base font-semibold text-gray-900 dark:text-white">${escapeHtml(this.config.title)}</div>
         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-3 mb-1">${escapeHtml(this.config.label)}</label>
         <input type="text"
                data-prompt-input

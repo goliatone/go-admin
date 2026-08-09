@@ -10,7 +10,7 @@
  * - Quick actions operate from typed contract data (no heuristics/string matching)
  * - Accessible with keyboard navigation and screen-reader labels
  */
-import { Modal } from '../shared/modal.js';
+import { Modal } from '../components/modal.js';
 /**
  * Configuration for the translation blocker modal
  */

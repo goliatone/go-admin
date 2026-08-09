@@ -1,10 +1,12 @@
 import { escapeHTML as n } from "../shared/html.js";
-import { r as u } from "./toast-manager-CZnLPlYg.js";
-var y = class i extends u {
+import { n as p } from "./modal-WgxT86m5.js";
+var y = class i extends p {
   constructor(e, t, a) {
     super({
       size: "md",
       initialFocus: "[data-payload-field]",
+      labelledBy: "go-admin-payload-modal-title",
+      describedBy: "go-admin-payload-modal-description",
       lockBodyScroll: !1
     }), this.resolved = !1, this.modalConfig = e, this.onConfirm = t, this.onCancel = a;
   }
@@ -18,8 +20,8 @@ var y = class i extends u {
     return `
       <form class="flex flex-col" data-payload-form>
         <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">${n(this.modalConfig.title)}</h3>
-          <p class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
+          <h3 id="go-admin-payload-modal-title" class="text-lg font-semibold text-gray-900">${n(this.modalConfig.title)}</h3>
+          <p id="go-admin-payload-modal-description" class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
         </div>
         <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
           ${e}
@@ -167,4 +169,4 @@ export {
   y as PayloadInputModal
 };
 
-//# sourceMappingURL=payload-modal-CQZG4y_l.js.map
+//# sourceMappingURL=payload-modal-DCrBu3FW.js.map

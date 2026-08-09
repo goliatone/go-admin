@@ -4,7 +4,7 @@
  * Reusable modal for collecting payload values from users
  * before executing actions that require input.
  */
-import { Modal } from '../shared/modal.js';
+import { Modal } from '../components/modal.js';
 export interface PayloadModalFieldOption {
     value: string;
     label: string;

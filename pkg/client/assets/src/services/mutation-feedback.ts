@@ -10,7 +10,7 @@
  */
 
 import type { ToastNotifier, ConfirmOptions } from '../toast/types.js';
-import { ConfirmModal } from '../shared/modal.js';
+import { ConfirmModal } from '../components/modal.js';
 import { renderIcon } from '../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import {
@@ -529,4 +529,3 @@ export class ActionQueue {
 // =============================================================================
 // Helper Functions
 // =============================================================================
-

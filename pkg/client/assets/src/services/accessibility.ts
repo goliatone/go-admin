@@ -267,7 +267,13 @@ export function createFocusTrap(config: FocusTrapConfig): () => void {
   }
 
   // Focus initial element
-  requestAnimationFrame(() => {
+  const scheduleFrame = typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : (callback: FrameRequestCallback): number => {
+        callback(0);
+        return 0;
+      };
+  scheduleFrame(() => {
     if (initialFocus) {
       const target = typeof initialFocus === 'string'
         ? container.querySelector<HTMLElement>(initialFocus)

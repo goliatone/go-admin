@@ -17,6 +17,11 @@
       "import": "./dist-public/index.js",
       "default": "./dist-public/index.js"
     },
+    "./components/modal": {
+      "types": "./dist-public/types/components/modal.d.ts",
+      "import": "./dist-public/components/modal.js",
+      "default": "./dist-public/components/modal.js"
+    },
     "./shared/html": {
       "types": "./dist-public/types/shared/html.d.ts",
       "import": "./dist-public/shared/html.js",
@@ -112,6 +117,7 @@
     "build": "node ./scripts/build-assets.mjs && node ./scripts/build-public.mjs",
     "build:public": "node ./scripts/build-public.mjs",
     "test:public": "npm run build:public && node ./scripts/test-public-package.mjs",
+    "test:modal:browsers": "node ./scripts/test-modal-browsers.mjs",
     "build:css:prod": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\" \"npm:build:css:datatable\" \"npm:build:css:site\"",
@@ -174,6 +180,7 @@
     "jsdom": "^29.1.1",
     "jsonpath-plus": "^10.3.0",
     "pdfjs-dist": "^4.10.38",
+    "playwright-previous": "npm:playwright@1.56.0",
     "prismjs": "^1.30.0",
     "simple-datatables": "10.2.0",
     "sortablejs": "^1.15.6",

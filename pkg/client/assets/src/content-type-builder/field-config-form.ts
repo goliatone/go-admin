@@ -20,7 +20,7 @@ import type {
 } from './types';
 import { getFieldTypeMetadata, FIELD_TYPES } from './field-type-picker';
 import { generateFieldId, ContentTypeAPIClient } from './api-client';
-import { Modal } from '../shared/modal';
+import { Modal } from '../components/modal.js';
 import { inputClasses, selectClasses, textareaClasses, checkboxClasses, labelClasses } from './shared/field-input-classes';
 import { loadAvailableBlocks, blockKey as sharedBlockKey, normalizeBlockSelection } from './shared/block-picker';
 import { resolveApiBasePath } from './shared/api-paths';
@@ -40,6 +40,7 @@ export class FieldConfigForm extends Modal {
     super({
       size: '2xl',
       initialFocus: 'input[name="name"]',
+      ariaLabel: 'Field configuration',
       backdropDataAttr: 'data-field-config-backdrop',
     });
     this.config = config;
@@ -1479,7 +1480,7 @@ class BlockPickerModal extends Modal {
   private selectedBlocks: Set<string>;
 
   constructor(config: BlockPickerModalConfig) {
-    super({ size: 'lg', maxHeight: 'max-h-[70vh]' });
+    super({ size: 'lg', maxHeight: 'max-h-[70vh]', ariaLabel: config.title });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
     this.selectedBlocks = new Set(config.selectedBlocks);

@@ -30,6 +30,7 @@ export declare class FilterBuilder {
     private previewElement;
     private sqlPreviewElement;
     private overlay;
+    private toggleButton;
     private notifier;
     constructor(config: FilterBuilderConfig);
     private init;

@@ -10,7 +10,7 @@
  * - Uses shared LocaleActionChip component for consistent UX
  */
 
-import { escapeHtml } from '../shared/modal.js';
+import { escapeHTML as escapeHtml } from '../shared/html.js';
 import {
   LocaleActionChip,
   getLocaleLabel,

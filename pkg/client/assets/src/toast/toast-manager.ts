@@ -1,5 +1,5 @@
 import type { ToastNotifier, ToastOptions, ConfirmOptions } from './types.js';
-import { ConfirmModal } from '../shared/modal.js';
+import { ConfirmModal } from '../components/modal.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 type ToastPosition = 'top-right' | 'top-center' | 'bottom-right' | 'bottom-center';

@@ -29,7 +29,7 @@ import { FieldTypePicker, getFieldTypeMetadata, FIELD_TYPES, normalizeFieldType 
 import { FieldConfigForm } from './field-config-form';
 import { FieldPalettePanel, PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel';
 import { LayoutEditor } from './layout-editor';
-import { Modal, ConfirmModal } from '../shared/modal';
+import { Modal, ConfirmModal } from '../components/modal.js';
 import { inputClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader } from './shared/entity-header';
@@ -2578,7 +2578,7 @@ class PublishConfirmationModal extends Modal {
   private config: PublishConfirmationModalConfig;
 
   constructor(config: PublishConfirmationModalConfig) {
-    super({ size: 'lg', flexColumn: false });
+    super({ size: 'lg', flexColumn: false, ariaLabel: 'Publish content type' });
     this.config = config;
   }
 
@@ -2759,7 +2759,7 @@ class CloneContentTypeModal extends Modal {
   private config: CloneContentTypeModalConfig;
 
   constructor(config: CloneContentTypeModalConfig) {
-    super({ size: 'md', initialFocus: '[data-clone-slug]' });
+    super({ size: 'md', initialFocus: '[data-clone-slug]', ariaLabel: 'Clone content type' });
     this.config = config;
   }
 
@@ -2898,7 +2898,7 @@ class ContentTypeVersionHistoryViewer extends Modal {
   private expandedVersions: Set<string> = new Set();
 
   constructor(config: ContentTypeVersionHistoryViewerConfig) {
-    super({ size: '2xl', maxHeight: 'max-h-[80vh]' });
+    super({ size: '2xl', maxHeight: 'max-h-[80vh]', ariaLabel: 'Content type version history' });
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
   }
