@@ -1,26 +1,49 @@
 # Changelog
 
+# [0.131.7](https://github.com/goliatone/go-admin/compare/v0.131.6...v0.131.7) - (2026-08-09)
+
+
+## Browser client: public shared modal
+
+go-admin now publishes the existing shared modal implementation from both
+`/admin/assets/components/modal.js` and
+`@goliatone/go-admin-client/components/modal`.
+
+The public entry exports `Modal`, `ModalOptions`, `ModalSize`, `ConfirmModal`,
+`ConfirmModalOptions`, `TextPromptModal`, and `TextPromptModalConfig`. The base
+now owns dialog naming, optional descriptions, deterministic initial/fallback
+focus, topmost Tab/Escape behavior, focus return, nested stacking,
+reference-counted scroll locking, reduced motion, close veto, and complete
+destroy/interrupted-animation cleanup.
+
+Existing subclasses should import from `components/modal`, provide
+`labelledBy` or `ariaLabel`, remove inner dialog roles and modal-specific focus
+or Escape handlers, and call `requestClose()` for vetoable dismissal. Product
+forms, trusted markup, validation, transport, commands, and redirects remain
+application responsibilities. Server-validation responses can replace inner
+content through the protected `replaceContent()` seam without replacing the
+dialog container or invoking-focus target.
+
+The translation-family create-locale flow now uses the shared modal lifecycle.
+The template-backed import workflow remains a documented compatibility adapter
+and now has explicit focus-trap/return and cleanup coverage.
+
+## <!-- 16 -->➕ Add
+
+- Modal component ([b627df9](https://github.com/goliatone/go-admin/commit/b627df9ee7dbbea5645dc24fe97cc9b9c74a8d22))  - (goliatone)
+
 # [0.131.6](https://github.com/goliatone/go-admin/compare/v0.131.5...v0.131.6) - (2026-08-09)
 
 
-## Migration Notes
-
-Public quickstart registration and password-reset onboarding POST routes now
-enforce browser-bound CSRF and same-origin validation. Construct one
-`quickstart.AuthUIBrowserProtection` and reuse it with
-`WithAuthUIBrowserProtection`, `WithRegistrationUIBrowserProtection`, and
-`WithOnboardingBrowserProtection`. Custom browser clients must preserve the
-opaque pre-auth cookie from the matching UI GET and send the rendered token as
-`X-CSRF-Token` (or `_token`) with same-origin `Origin`/`Referer` metadata.
-
-Multi-instance deployments must share `admin.Config.PreviewSecret` or an
-explicit `WithAuthUIBrowserProtectionSecureKey`. When HTTPS terminates at a
-trusted proxy, configure `WithAuthUIBrowserProtectionSecureRequestResolver` so
-the pre-auth cookie is emitted with `Secure`.
+New patch release: v0.131.6
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Pre auth protection and stale logouts ([6c10b77](https://github.com/goliatone/go-admin/commit/6c10b7799bae88bb0f2c64fef393eff19f09f584))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.6 ([71f14f7](https://github.com/goliatone/go-admin/commit/71f14f70a6dfebacf3e3dbaab58a60d37ed9a732))  - (goliatone)
 
 # [0.131.5](https://github.com/goliatone/go-admin/compare/v0.131.4...v0.131.5) - (2026-08-09)
 
