@@ -3,6 +3,7 @@ package quickstart
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -79,6 +80,8 @@ var (
 )
 
 const authUICSRFMinSecureKeyBytes = 32
+
+const authUILoginCSRFExpiredErrorCode = "csrf_expired"
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
 func WithAuthUIBasePath(basePath string) AuthUIOption {
@@ -497,9 +500,35 @@ func authUICSRFMiddleware(options authUIOptions, cfg admin.Config) (router.Middl
 	return csrfmw.New(csrfmw.Config{
 		SecureKey: csrfSecureKey,
 		ErrorHandler: func(c router.Context, err error) error {
+			if isRecoverableAuthUILoginCSRFFailure(c, options, err) {
+				return c.Redirect(
+					buildLoginFailureRedirect(
+						options.loginPath,
+						options.loginErrorQueryKey,
+						authUILoginCSRFExpiredErrorCode,
+						"",
+						"",
+						"",
+						false,
+					),
+					fiber.StatusSeeOther,
+				)
+			}
 			return c.Status(fiber.StatusForbidden).SendString(err.Error())
 		},
 	}), nil
+}
+
+func isRecoverableAuthUILoginCSRFFailure(c router.Context, options authUIOptions, err error) bool {
+	if c == nil || !strings.EqualFold(strings.TrimSpace(c.Method()), fiber.MethodPost) {
+		return false
+	}
+	if strings.TrimSpace(c.Path()) != strings.TrimSpace(options.loginPath) {
+		return false
+	}
+	return errors.Is(err, csrfmw.ErrTokenExpired) ||
+		errors.Is(err, csrfmw.ErrTokenMismatch) ||
+		errors.Is(err, csrfmw.ErrTokenMissing)
 }
 
 func registerAuthUILoginRoutes[T any](r router.Router[T], runtime authUIRouteRuntime) {
@@ -763,6 +792,8 @@ func resolveLoginErrorMessage(code string) string {
 		return "This account is currently disabled."
 	case "token_too_large":
 		return "Unable to sign in due to session size limits. Contact support."
+	case authUILoginCSRFExpiredErrorCode:
+		return "The sign-in form expired. Please enter your credentials and try again."
 	default:
 		return "Unable to sign in. Please try again."
 	}

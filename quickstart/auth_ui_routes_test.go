@@ -2,15 +2,24 @@ package quickstart
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/client"
 	auth "github.com/goliatone/go-auth"
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	goerrors "github.com/goliatone/go-errors"
@@ -158,11 +167,201 @@ func (s stubIdentity) Username() string { return s.identifier }
 func (s stubIdentity) Email() string    { return s.identifier + "@example.test" }
 func (s stubIdentity) Role() string     { return string(auth.RoleAdmin) }
 
+type countingAuthUIIdentityProvider struct {
+	verifyCalls int
+}
+
+func (p *countingAuthUIIdentityProvider) VerifyIdentity(ctx context.Context, identifier, password string) (auth.Identity, error) {
+	_, _, _ = ctx, identifier, password
+	p.verifyCalls++
+	return stubIdentity{identifier: identifier}, nil
+}
+
+func (*countingAuthUIIdentityProvider) FindIdentityByIdentifier(ctx context.Context, identifier string) (auth.Identity, error) {
+	_, _ = ctx, identifier
+	return stubIdentity{identifier: identifier}, nil
+}
+
 func resetAuthUICSRFKeyForTest(t *testing.T) {
 	t.Helper()
 	defaultAuthUICSRFKeyMu.Lock()
 	defaultAuthUICSRFKey = nil
 	defaultAuthUICSRFKeyMu.Unlock()
+}
+
+func expiredAuthUICSRFToken(t *testing.T, secureKey []byte) string {
+	t.Helper()
+	timestamp := time.Now().UTC().Add(-25 * time.Hour).Unix()
+	payload := fmt.Sprintf("%d:%s:", timestamp, strings.Repeat("00", csrfmw.DefaultTokenLength))
+	mac := hmac.New(sha256.New, secureKey)
+	if _, err := mac.Write([]byte(payload)); err != nil {
+		t.Fatalf("sign expired CSRF payload: %v", err)
+	}
+	token := payload + hex.EncodeToString(mac.Sum(nil))
+	return base64.RawURLEncoding.EncodeToString([]byte(token))
+}
+
+func TestAuthUICSRFMiddlewareRecoversConfiguredLoginTokenFailures(t *testing.T) {
+	secureKey := []byte("01234567890123456789012345678901")
+	options := authUIOptions{
+		loginPath:          "/control/sign-in",
+		loginErrorQueryKey: "error",
+		csrfSecureKey:      secureKey,
+	}
+	middleware, err := authUICSRFMiddleware(options, NewAdminConfig("/control", "Control", "en"))
+	if err != nil {
+		t.Fatalf("create Auth UI CSRF middleware: %v", err)
+	}
+
+	tests := map[string]string{
+		"missing":  "",
+		"mismatch": "bogus-token",
+		"expired":  expiredAuthUICSRFToken(t, secureKey),
+	}
+	for name, token := range tests {
+		t.Run(name, func(t *testing.T) {
+			ctx := router.NewMockContext()
+			ctx.On("Method").Return(http.MethodPost)
+			ctx.On("Path").Return(options.loginPath)
+			ctx.On("FormValue", csrfmw.DefaultFormFieldName).Return(token)
+			ctx.On("Locals", csrfmw.DefaultContextKey, mock.Anything).Return(nil)
+			ctx.On("Locals", csrfmw.DefaultContextKey+"_field", csrfmw.DefaultFormFieldName).Return(nil)
+			ctx.On("Locals", csrfmw.DefaultContextKey+"_header", csrfmw.DefaultHeaderName).Return(nil)
+			ctx.On("LocalsMerge", csrfmw.DefaultTemplateHelpersKey, mock.Anything).Return(nil)
+			ctx.On(
+				"Redirect",
+				"/control/sign-in?error="+authUILoginCSRFExpiredErrorCode,
+				[]int{fiber.StatusSeeOther},
+			).Return(nil)
+
+			nextCalled := false
+			err := middleware(func(router.Context) error {
+				nextCalled = true
+				return nil
+			})(ctx)
+			if err != nil {
+				t.Fatalf("middleware returned error: %v", err)
+			}
+			if nextCalled {
+				t.Fatal("expected CSRF rejection before login handler")
+			}
+			if ctx.StatusCodeM != fiber.StatusSeeOther {
+				t.Fatalf("expected %d redirect, got %d", fiber.StatusSeeOther, ctx.StatusCodeM)
+			}
+			ctx.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAuthUILoginCSRFRecoveryDoesNotMaskOtherFailuresOrRoutes(t *testing.T) {
+	options := authUIOptions{loginPath: "/admin/login"}
+
+	loginPost := router.NewMockContext()
+	loginPost.On("Method").Return(http.MethodPost)
+	loginPost.On("Path").Return(options.loginPath)
+	if isRecoverableAuthUILoginCSRFFailure(loginPost, options, csrfmw.ErrSecureKeyMissing) {
+		t.Fatal("expected CSRF configuration failure to remain non-recoverable")
+	}
+
+	logoutPost := router.NewMockContext()
+	logoutPost.On("Method").Return(http.MethodPost)
+	logoutPost.On("Path").Return("/admin/logout")
+	if isRecoverableAuthUILoginCSRFFailure(logoutPost, options, csrfmw.ErrTokenExpired) {
+		t.Fatal("expected logout CSRF behavior to remain unchanged")
+	}
+
+	loginGet := router.NewMockContext()
+	loginGet.On("Method").Return(http.MethodGet)
+	if isRecoverableAuthUILoginCSRFFailure(loginGet, options, csrfmw.ErrTokenExpired) {
+		t.Fatal("expected login GET failures not to enter POST recovery")
+	}
+}
+
+func TestAuthUIRoutesExpiredLoginCSRFFlowRedirectsAndRendersFreshForm(t *testing.T) {
+	secureKey := []byte("01234567890123456789012345678901")
+	views, err := NewViewEngine(
+		client.Templates(),
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("create Auth UI view engine: %v", err)
+	}
+	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		return fiber.New(fiber.Config{Views: views})
+	})
+
+	provider := &countingAuthUIIdentityProvider{}
+	auther := auth.NewAuthenticator(provider, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new HTTP authenticator: %v", err)
+	}
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	if err := RegisterAuthUIRoutes(
+		server.Router(),
+		cfg,
+		routeAuth,
+		WithAuthUICSRFSecureKey(secureKey),
+	); err != nil {
+		t.Fatalf("register Auth UI routes: %v", err)
+	}
+
+	expiredToken := expiredAuthUICSRFToken(t, secureKey)
+	form := url.Values{
+		csrfmw.DefaultFormFieldName: {expiredToken},
+		"identifier":                {"admin@example.test"},
+		"password":                  {"must-not-cross-redirect"},
+	}
+	postReq := httptest.NewRequest(
+		http.MethodPost,
+		"http://example.test/admin/login",
+		strings.NewReader(form.Encode()),
+	)
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postResp, err := server.WrappedRouter().Test(postReq, -1)
+	if err != nil {
+		t.Fatalf("submit expired login form: %v", err)
+	}
+	defer postResp.Body.Close()
+	if postResp.StatusCode != fiber.StatusSeeOther {
+		body, _ := io.ReadAll(postResp.Body)
+		t.Fatalf("expected %d redirect, got %d body=%s", fiber.StatusSeeOther, postResp.StatusCode, body)
+	}
+	location := postResp.Header.Get("Location")
+	if location != "/admin/login?error="+authUILoginCSRFExpiredErrorCode {
+		t.Fatalf("unexpected recovery location %q", location)
+	}
+	if provider.verifyCalls != 0 {
+		t.Fatalf("expected authentication not to run, got %d calls", provider.verifyCalls)
+	}
+	if strings.Contains(location, "must-not-cross-redirect") {
+		t.Fatal("recovery redirect exposed submitted credentials")
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "http://example.test"+location, nil)
+	getResp, err := server.WrappedRouter().Test(getReq, -1)
+	if err != nil {
+		t.Fatalf("render recovered login page: %v", err)
+	}
+	defer getResp.Body.Close()
+	body, err := io.ReadAll(getResp.Body)
+	if err != nil {
+		t.Fatalf("read recovered login page: %v", err)
+	}
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected recovered login page, got %d body=%s", getResp.StatusCode, body)
+	}
+	message := "The sign-in form expired. Please enter your credentials and try again."
+	if !strings.Contains(string(body), message) {
+		t.Fatalf("expected recovery message %q in login page", message)
+	}
+	tokenMatch := regexp.MustCompile(`name="_token" value="([^"]+)"`).FindSubmatch(body)
+	if len(tokenMatch) != 2 {
+		t.Fatalf("expected a fresh CSRF field in recovered login page")
+	}
+	if freshToken := string(tokenMatch[1]); freshToken == "" || freshToken == expiredToken {
+		t.Fatalf("expected a newly generated CSRF token, got %q", freshToken)
+	}
 }
 
 func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
