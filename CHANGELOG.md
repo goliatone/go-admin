@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.131.4](https://github.com/goliatone/go-admin/compare/v0.131.3...v0.131.4) - (2026-08-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Sidebar state management ([8ce3182](https://github.com/goliatone/go-admin/commit/8ce318287e267dae9269f01a6da26a8aa6941723))  - (goliatone)
+
 # [0.131.3](https://github.com/goliatone/go-admin/compare/v0.131.2...v0.131.3) - (2026-08-09)
+
+
+New patch release: v0.131.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Sidebar flash ([b359c79](https://github.com/goliatone/go-admin/commit/b359c7923031fce989c0f2f85b263233d62d6c60))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.3 ([c5e40ff](https://github.com/goliatone/go-admin/commit/c5e40ff0419b96eae5915dc32278502d30d17c0f))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
