@@ -1,10 +1,27 @@
 # Changelog
 
+# [0.131.3](https://github.com/goliatone/go-admin/compare/v0.131.2...v0.131.3) - (2026-08-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Sidebar flash ([b359c79](https://github.com/goliatone/go-admin/commit/b359c7923031fce989c0f2f85b263233d62d6c60))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([dee8c43](https://github.com/goliatone/go-admin/commit/dee8c437160add092a7db355515083bf32f3b365))  - (goliatone)
+
 # [0.131.2](https://github.com/goliatone/go-admin/compare/v0.131.1...v0.131.2) - (2026-08-09)
+
+
+New patch release: v0.131.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Datagrid population and on state change handler ([d94107e](https://github.com/goliatone/go-admin/commit/d94107e1a6334bbeb6f2ea47376269262ddcfc91))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.2 ([819ed65](https://github.com/goliatone/go-admin/commit/819ed65f82d7ac1e902ff746698ac4d97e80428c))  - (goliatone)
 
 # [0.131.1](https://github.com/goliatone/go-admin/compare/v0.131.0...v0.131.1) - (2026-08-09)
 
