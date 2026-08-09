@@ -10,6 +10,7 @@ import {
   renderGroupHeaderRow,
   transformToGroups,
 } from './grouped-mode.js';
+import { fixedColumnCount } from './core-structure.js';
 
 export function renderGroupedData(grid: any, data: ApiResponse, items: any[], tbody: HTMLElement): void {
     const groupByField = grid.config.groupByField || 'family_id';
@@ -50,7 +51,7 @@ export function renderGroupedData(grid: any, data: ApiResponse, items: any[], tb
     for (const group of groupedData.groups) {
       // Render group header row
       const headerHtml = renderGroupHeaderRow(group, colSpan, {
-        fixedColumnCount: 1 + (grid.isCapabilityEnabled('selection') ? 1 : 0),
+        fixedColumnCount: fixedColumnCount(grid),
       });
       tbody.insertAdjacentHTML('beforeend', headerHtml);
 

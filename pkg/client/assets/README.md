@@ -34,4 +34,20 @@ and exclude that fixed column from loading, error, empty, and grouped colspans.
 A custom `rowActions` provider retains the action column even when default
 actions are disabled.
 
+Use the typed `onStateChange` callback for application-specific loading, ready,
+empty, and error announcements. The callback runs after ready, empty, and error
+content is rendered, and it also reports loading when stale rows intentionally
+remain visible. Callback failures are isolated from the grid refresh lifecycle.
+
+```ts
+new DataGrid({
+  tableId,
+  apiEndpoint,
+  columns,
+  onStateChange(state) {
+    status.textContent = messages[state];
+  },
+});
+```
+
 See the repository compatibility matrix before coordinating browser-client and Go module upgrades.

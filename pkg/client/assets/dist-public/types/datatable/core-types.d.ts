@@ -10,6 +10,7 @@ export interface DataGridCapabilities {
     bulk: boolean;
     export: boolean;
 }
+export type DataGridRenderState = 'loading' | 'ready' | 'empty' | 'error';
 export interface DataGridConfig {
     tableId: string;
     apiEndpoint: string;
@@ -34,6 +35,7 @@ export interface DataGridConfig {
     stateStoreConfig?: Omit<DataGridStateStoreConfig, 'key'>;
     urlState?: DataGridURLStateConfig;
     capabilities?: DataGridCapabilities;
+    onStateChange?: (state: DataGridRenderState) => void;
 }
 export interface DataGridURLStateConfig {
     maxURLLength?: number;

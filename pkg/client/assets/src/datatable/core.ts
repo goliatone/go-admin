@@ -8,6 +8,7 @@ import type {
   ColumnDefinition,
   DataGridStateStore,
   DataGridCapabilities,
+  DataGridRenderState,
 } from './core-types.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
@@ -42,7 +43,7 @@ import * as lifecycleOps from './core-lifecycle.js';
 import * as columnOps from './core-columns.js';
 import type { ActionMenuController } from '../shared/action-menu.js';
 
-export type { DataGridCapabilities, DataGridConfig } from './core-types.js';
+export type { DataGridCapabilities, DataGridConfig, DataGridRenderState } from './core-types.js';
 
 function normalizeCapabilities(
   capabilities?: DataGridCapabilities,
@@ -255,6 +256,17 @@ export class DataGrid {
 
   isCapabilityEnabled(capability: keyof DataGridCapabilities): boolean {
     return this.config.capabilities?.[capability] !== false;
+  }
+
+  private setRenderState(state: DataGridRenderState): void {
+    if (!this.tableEl) return;
+    this.tableEl.dataset.state = state;
+    this.tableEl.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+    try {
+      this.config.onStateChange?.(state);
+    } catch (error) {
+      console.error('[DataGrid] onStateChange callback failed:', error);
+    }
   }
 
   private async refreshAfterStateHydration(): Promise<void> {

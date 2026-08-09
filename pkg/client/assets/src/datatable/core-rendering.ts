@@ -14,6 +14,11 @@ import {
   getStructuredActionError,
   isHandledActionError,
 } from '../toast/error-helpers.js';
+import {
+  fixedColumnCount,
+  hasActionColumn,
+  structuralColumnCount,
+} from './core-structure.js';
 
 export function updateColumnVisibility(grid: any, visibleColumns: string[], skipURLUpdate: boolean = false): void {
     if (!grid.tableEl) return;
@@ -86,24 +91,12 @@ function removeDataGridStateRows(tbody: HTMLElement): void {
   tbody.querySelectorAll('[data-datagrid-state]').forEach((row) => row.remove());
 }
 
-function hasActionColumn(grid: any): boolean {
-  return typeof grid.config.rowActions === 'function' || grid.config.useDefaultActions !== false;
-}
-
 export function syncActionColumnStructure(grid: any): void {
   if (!grid.tableEl || hasActionColumn(grid)) return;
 
   grid.tableEl
     .querySelectorAll('thead [data-role="actions"]')
     .forEach((cell: HTMLElement) => cell.remove());
-}
-
-function fixedColumnCount(grid: any): number {
-  return (hasActionColumn(grid) ? 1 : 0) + (grid.isCapabilityEnabled('selection') ? 1 : 0);
-}
-
-function structuralColumnCount(grid: any): number {
-  return Math.max(1, (grid.config.columns?.length || 0) + fixedColumnCount(grid));
 }
 
 function createDataGridStateRow(
@@ -172,8 +165,6 @@ export function renderData(grid: any, data: ApiResponse): void {
     tbody.innerHTML = '';
 
     const items = data.data || data.records || [];
-    grid.tableEl.dataset.state = items.length === 0 ? 'empty' : 'ready';
-    grid.tableEl.setAttribute('aria-busy', 'false');
     console.log(`[DataGrid] renderData() called with ${items.length} items`);
     console.log('[DataGrid] First 3 items:', items.slice(0, 3));
     const total = grid.getResponseTotal(data);
@@ -195,6 +186,7 @@ export function renderData(grid: any, data: ApiResponse): void {
           </tr>
         `;
       }
+      grid.setRenderState('empty');
       return;
     }
 
@@ -225,6 +217,7 @@ export function renderData(grid: any, data: ApiResponse): void {
     if (grid.isCapabilityEnabled('selection')) {
       grid.updateSelectionBindings();
     }
+    grid.setRenderState('ready');
   }
 
   /**

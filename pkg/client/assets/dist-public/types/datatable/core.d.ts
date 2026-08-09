@@ -1,5 +1,5 @@
 import type { DataGridConfig, DataGridState, DataGridCapabilities } from './core-types.js';
-export type { DataGridCapabilities, DataGridConfig } from './core-types.js';
+export type { DataGridCapabilities, DataGridConfig, DataGridRenderState } from './core-types.js';
 export declare class DataGrid {
     private static readonly URL_KEY_SEARCH;
     private static readonly URL_KEY_PAGE;
@@ -49,6 +49,7 @@ export declare class DataGrid {
     constructor(config: DataGridConfig);
     init(): void;
     isCapabilityEnabled(capability: keyof DataGridCapabilities): boolean;
+    private setRenderState;
     private refreshAfterStateHydration;
     private getURLStateConfig;
     private parseJSONArray;

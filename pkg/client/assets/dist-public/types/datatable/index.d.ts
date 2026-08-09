@@ -3,7 +3,7 @@
  * Exports core component and all behaviors
  */
 export { DataGrid } from './core.js';
-export type { DataGridCapabilities, DataGridConfig } from './core.js';
+export type { DataGridCapabilities, DataGridConfig, DataGridRenderState } from './core.js';
 export { handleDelete } from './core-rendering.js';
 export { createDataGridStateStore, LocalDataGridStateStore, PreferencesDataGridStateStore, } from './state-store.js';
 export type { DataGridStateStore, DataGridStateStoreMode, DataGridStateStoreConfig, DataGridPersistedState, DataGridShareState, } from './state-store.js';
