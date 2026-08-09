@@ -1,10 +1,39 @@
 # Changelog
 
+# [0.131.6](https://github.com/goliatone/go-admin/compare/v0.131.5...v0.131.6) - (2026-08-09)
+
+
+## Migration Notes
+
+Public quickstart registration and password-reset onboarding POST routes now
+enforce browser-bound CSRF and same-origin validation. Construct one
+`quickstart.AuthUIBrowserProtection` and reuse it with
+`WithAuthUIBrowserProtection`, `WithRegistrationUIBrowserProtection`, and
+`WithOnboardingBrowserProtection`. Custom browser clients must preserve the
+opaque pre-auth cookie from the matching UI GET and send the rendered token as
+`X-CSRF-Token` (or `_token`) with same-origin `Origin`/`Referer` metadata.
+
+Multi-instance deployments must share `admin.Config.PreviewSecret` or an
+explicit `WithAuthUIBrowserProtectionSecureKey`. When HTTPS terminates at a
+trusted proxy, configure `WithAuthUIBrowserProtectionSecureRequestResolver` so
+the pre-auth cookie is emitted with `Secure`.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Pre auth protection and stale logouts ([6c10b77](https://github.com/goliatone/go-admin/commit/6c10b7799bae88bb0f2c64fef393eff19f09f584))  - (goliatone)
+
 # [0.131.5](https://github.com/goliatone/go-admin/compare/v0.131.4...v0.131.5) - (2026-08-09)
+
+
+New patch release: v0.131.5
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Csrf expired token handling ([2135c85](https://github.com/goliatone/go-admin/commit/2135c8539c017ba5c1cc127749eb9c7b2062d18a))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.5 ([64e9ccf](https://github.com/goliatone/go-admin/commit/64e9ccf34a47f3a8976f726436605e6559a9e37d))  - (goliatone)
 
 # [0.131.4](https://github.com/goliatone/go-admin/compare/v0.131.3...v0.131.4) - (2026-08-09)
 
