@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.131.9](https://github.com/goliatone/go-admin/compare/v0.131.8...v0.131.9) - (2026-08-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Breadcrumb fix ([3a4ec9c](https://github.com/goliatone/go-admin/commit/3a4ec9cfc030de2719fbf505a5d56b43d3c1f847))  - (goliatone)
+
 # [0.131.8](https://github.com/goliatone/go-admin/compare/v0.131.7...v0.131.8) - (2026-08-09)
+
+
+New patch release: v0.131.8
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Modal and datagrid ([26e71bf](https://github.com/goliatone/go-admin/commit/26e71bf78f478a093196bc482d8b5cfe78e41bd9))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.8 ([7532120](https://github.com/goliatone/go-admin/commit/7532120848fcba789d049f80671914e07b3149c0))  - (goliatone)
 
 # [0.131.7](https://github.com/goliatone/go-admin/compare/v0.131.6...v0.131.7) - (2026-08-09)
 
