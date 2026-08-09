@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-notifications v0.16.1
-	github.com/goliatone/go-persistence-bun v0.16.1
+	github.com/goliatone/go-persistence-bun v0.17.0
 	github.com/goliatone/go-router v0.61.3
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-template v0.3.1

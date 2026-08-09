@@ -18,7 +18,7 @@ require (
 	github.com/goliatone/go-formgen v0.32.4
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-logger v0.10.1
-	github.com/goliatone/go-persistence-bun v0.16.1
+	github.com/goliatone/go-persistence-bun v0.17.0
 	github.com/goliatone/go-repository-bun v0.16.1
 	github.com/goliatone/go-router v0.61.3
 	github.com/goliatone/go-theme v0.5.2
