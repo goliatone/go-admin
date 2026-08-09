@@ -1,9 +1,9 @@
 import { escapeHTML as a } from "./shared/html.js";
 import { httpRequest as Lt } from "./shared/transport/http-client.js";
-import { t as mt } from "./chunks/modal-WgxT86m5.js";
-import { n as fe, r as kt, t as ye } from "./chunks/command-runtime-D7FkQAYN.js";
+import { i as kt, t as mt } from "./chunks/modal-Cl0Dmdof.js";
+import { n as fe, r as Tt, t as ye } from "./chunks/command-runtime-CVw36KYM.js";
 import { t as u } from "./chunks/icon-renderer-DauoBn1n.js";
-import { UIStateManager as xe, renderEmptyState as Tt, renderErrorState as st, renderForbiddenState as q, renderLoadingState as rt, renderNoResultsState as Et, renderPanelLoadingState as Se, renderPanelState as we, renderTableEmptyState as $e, renderTableErrorState as z, renderTableLoadingState as B, renderTableNoResultsState as F } from "./services/ui-states.js";
+import { UIStateManager as xe, renderEmptyState as Et, renderErrorState as st, renderForbiddenState as q, renderLoadingState as rt, renderNoResultsState as qt, renderPanelLoadingState as Se, renderPanelState as we, renderTableEmptyState as $e, renderTableErrorState as z, renderTableLoadingState as B, renderTableNoResultsState as I } from "./services/ui-states.js";
 var nt = class vt extends Error {
   constructor(e, i, s, r) {
     super(e), this.name = "ServicesAPIError", this.code = i, this.statusCode = s, this.details = r;
@@ -32,18 +32,18 @@ var nt = class vt extends Error {
   RECONSENT: "admin.services.reconsent",
   ACTIVITY_VIEW: "admin.services.activity.view",
   WEBHOOKS: "admin.services.webhooks"
-}, qt = {
+}, Pt = {
   basePath: "/admin/api/services",
   timeout: 3e4,
   headers: {}
 };
-function Pt() {
+function At() {
   return (typeof globalThis < "u" ? globalThis.location : void 0)?.origin || "http://localhost";
 }
 var xt = class {
   constructor(t = {}) {
     this.abortControllers = /* @__PURE__ */ new Map(), this.config = {
-      ...qt,
+      ...Pt,
       ...t
     };
   }
@@ -252,7 +252,7 @@ var xt = class {
     }
   }
   buildUrl(t, e = {}) {
-    const i = this.config.basePath.replace(/\/$/, ""), s = new URL(`${i}${t}`, Pt());
+    const i = this.config.basePath.replace(/\/$/, ""), s = new URL(`${i}${t}`, At());
     for (const [r, n] of Object.entries(e)) n != null && n !== "" && s.searchParams.set(r, String(n));
     return s.toString();
   }
@@ -303,7 +303,7 @@ function _e(t) {
 function Ce(t = {}) {
   return new xt(t);
 }
-var At = {
+var Rt = {
   defaultPage: 1,
   defaultPerPage: 25,
   searchDelay: 300,
@@ -319,7 +319,7 @@ function ct() {
 var V = class {
   constructor(t = {}) {
     this.searchTimeout = null, this.initialized = !1, this.config = {
-      ...At,
+      ...Rt,
       ...t.config
     }, this.filterFields = new Set(t.filterFields || []), this.dateFields = new Set(t.dateFields || []), this.storageKey = t.storageKey || null, this.state = {
       page: this.config.defaultPage,
@@ -656,7 +656,7 @@ function Ae(...t) {
   const e = t.flatMap((i) => Array.isArray(i) ? i : [i]);
   return (i) => () => e.every((s) => s(i)());
 }
-function M(t) {
+function F(t) {
   return A(C.VIEW, t)();
 }
 function T(t) {
@@ -671,19 +671,19 @@ function at(t) {
 function St(t) {
   return A(C.RECONSENT, t)();
 }
-function Rt(t) {
+function It(t) {
   return A(C.ACTIVITY_VIEW, t)();
 }
-function Ft(t) {
+function Mt(t) {
   if (t instanceof nt) return t.isForbidden;
   if (!t || typeof t != "object") return !1;
   const e = t;
   return e.isForbidden === !0 || e.statusCode === 403 || e.code === "FORBIDDEN";
 }
 function Re(t, e) {
-  return Ft(t) ? (e(t), !0) : !1;
+  return Mt(t) ? (e(t), !0) : !1;
 }
-function Fe(t, e, i, s) {
+function Ie(t, e, i, s) {
   const r = s || L();
   return async () => {
     if (!r.has(t)) {
@@ -698,7 +698,7 @@ function X(t, e, i) {
   let d = !0, l = [];
   r.length > 0 ? (l = s.getMissing(r), d = l.length === 0) : n.length > 0 && (d = s.hasAny(n), d || (l = n)), d || (o ? ((t instanceof HTMLButtonElement || t instanceof HTMLInputElement) && (t.disabled = !0), t.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), t.setAttribute("title", `Permission required: ${l.join(", ")}`)) : (t.style.display = "none", t.classList.add("permission-hidden")), e.deniedContent && (typeof e.deniedContent == "string" ? t.outerHTML = e.deniedContent : t.replaceWith(e.deniedContent)), c?.(l));
 }
-function Ie(t = document.body, e) {
+function Me(t = document.body, e) {
   t.querySelectorAll("[data-permission-requires]").forEach((i) => {
     const s = i.dataset.permissionRequires?.split(",").map((r) => r.trim());
     s && s.length > 0 && X(i, { requires: s }, e);
@@ -713,7 +713,7 @@ function Ie(t = document.body, e) {
     }, e);
   });
 }
-function It() {
+function Ft() {
   if (typeof window > "u" || typeof document > "u") return [];
   const t = window.__permissions;
   if (Array.isArray(t)) return t.filter((i) => Object.values(C).includes(i));
@@ -725,11 +725,11 @@ function It() {
   }
   return [];
 }
-function Me() {
-  const t = It(), e = L();
+function Fe() {
+  const t = Ft(), e = L();
   return e.init(t), e;
 }
-var Mt = class {
+var jt = class {
   constructor(t) {
     this.state = "idle", this.feedbackTimeout = null, this.busyController = null, this.button = t.button, this.originalHTML = this.button.innerHTML, this.originalDisabled = this.button.disabled, this.config = {
       loadingText: t.loadingText ?? "Processing...",
@@ -744,7 +744,7 @@ var Mt = class {
     return this.state;
   }
   setLoading() {
-    this.clearFeedbackTimeout(), this.resetBusyState(), this.state = "loading", this.button.classList.add("mutation-loading"), this.button.classList.remove("mutation-success", "mutation-error"), this.busyController = kt(this.button, {
+    this.clearFeedbackTimeout(), this.resetBusyState(), this.state = "loading", this.button.classList.add("mutation-loading"), this.button.classList.remove("mutation-success", "mutation-error"), this.busyController = Tt(this.button, {
       label: this.config.loadingText,
       generateSpinner: this.config.showSpinner
     }), this.config.disableOnLoading || (this.button.disabled = this.originalDisabled);
@@ -783,7 +783,7 @@ var Mt = class {
   }
 };
 async function v(t) {
-  const { mutation: e, notifier: i, successMessage: s, errorMessagePrefix: r = "Operation failed", buttonConfig: n, onSuccess: c, onError: o, showInlineRetry: d = !1, retryContainer: l } = t, h = n ? new Mt(n) : null;
+  const { mutation: e, notifier: i, successMessage: s, errorMessagePrefix: r = "Operation failed", buttonConfig: n, onSuccess: c, onError: o, showInlineRetry: d = !1, retryContainer: l } = t, h = n ? new jt(n) : null;
   try {
     h?.setLoading();
     const b = await e();
@@ -797,7 +797,7 @@ async function v(t) {
     };
   } catch (b) {
     const g = b instanceof Error ? b : new Error(String(b));
-    return h?.setError(), i && i.error(`${r}: ${g.message}`), d && l && jt({
+    return h?.setError(), i && i.error(`${r}: ${g.message}`), d && l && Nt({
       container: l,
       action: () => v(t).then(() => {
       }),
@@ -824,7 +824,7 @@ async function je(t) {
     cancelled: !0
   };
 }
-function jt(t) {
+function Nt(t) {
   const { container: e, action: i, errorMessage: s, retryText: r = "Retry", dismissText: n = "Dismiss", onDismiss: c } = t;
   e.innerHTML = `
     <div class="mutation-retry-ui flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
@@ -868,7 +868,7 @@ function jt(t) {
 function it(t) {
   t.querySelector(".mutation-retry-ui")?.remove();
 }
-function Nt(t) {
+function Dt(t) {
   const { action: e, resourceType: i, resourceName: s, additionalContext: r } = t, n = {
     revoke: {
       verb: "revoke",
@@ -922,7 +922,7 @@ function Nt(t) {
   };
 }
 async function G(t) {
-  const { message: e, options: i } = Nt(t);
+  const { message: e, options: i } = Dt(t);
   return mt.confirm(e, i);
 }
 var J = class {
@@ -1132,7 +1132,7 @@ var J = class {
     description: "API quota was exceeded",
     category: "errors"
   }
-}, Dt = class {
+}, Ut = class {
   constructor() {
     this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = lt;
   }
@@ -1183,11 +1183,11 @@ var J = class {
   reset() {
     this.backendLabels = {}, this.fallbackFormatter = lt, this.initialized = !1;
   }
-}, w = new Dt();
+}, w = new Ut();
 function Ne(t = {}) {
   w.init(t);
 }
-function Ut(t) {
+function Ot(t) {
   return w.getLabel(t);
 }
 function De(t) {
@@ -1196,7 +1196,7 @@ function De(t) {
 function Ue() {
   return w.getAllLabels();
 }
-function Ot() {
+function Ht() {
   return w.getActionsByCategory();
 }
 function Oe(t) {
@@ -1214,7 +1214,7 @@ function Be(t = {}) {
 function lt(t) {
   return t.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-var Ht = "/admin/services", zt = {
+var zt = "/admin/services", Bt = {
   connection: "connections",
   installation: "installations",
   subscription: "subscriptions",
@@ -1229,24 +1229,24 @@ function dt() {
   if (!(typeof globalThis > "u"))
     return globalThis.sessionStorage;
 }
-function Bt(t) {
+function Vt(t) {
   const e = k();
   if (e && typeof e.btoa == "function") return e.btoa(t);
   const i = globalThis.Buffer;
   if (i) return i.from(t, "utf8").toString("base64");
   throw new Error("base64 encoding is unavailable");
 }
-function Vt(t) {
+function Wt(t) {
   const e = k();
   if (e && typeof e.atob == "function") return e.atob(t);
   const i = globalThis.Buffer;
   if (i) return i.from(t, "base64").toString("utf8");
   throw new Error("base64 decoding is unavailable");
 }
-var Wt = class {
+var Gt = class {
   constructor(t = {}) {
-    this.contextStorageKey = "services-nav-context", this.basePath = t.basePath || Ht, this.pathMap = {
-      ...zt,
+    this.contextStorageKey = "services-nav-context", this.basePath = t.basePath || zt, this.pathMap = {
+      ...Bt,
       ...t.pathMap
     };
   }
@@ -1384,29 +1384,29 @@ var Wt = class {
   }
   encodeContext(t) {
     try {
-      return Bt(JSON.stringify(t));
+      return Vt(JSON.stringify(t));
     } catch {
       return "";
     }
   }
   decodeContext(t) {
     try {
-      return JSON.parse(Vt(t));
+      return JSON.parse(Wt(t));
     } catch {
       return;
     }
   }
-}, $ = new Wt();
+}, $ = new Gt();
 function Ve(t) {
   $.configure(t);
 }
-function Gt(t, e, i) {
+function Jt(t, e, i) {
   return $.generateLink(t, e, i);
 }
 function We(t, e) {
   return $.generateListLink(t, e);
 }
-function Jt(t, e, i, s) {
+function Qt(t, e, i, s) {
   $.navigateTo(t, e, i, s);
 }
 function Ge() {
@@ -1421,20 +1421,20 @@ function Qe(t) {
 function wt(t) {
   return $.mapObjectTypeToEntity(t);
 }
-function Qt(t, e) {
+function Kt(t, e) {
   return $.createContextFromQueryState(t, e);
 }
-function Kt(t, e) {
+function Yt(t, e) {
   return (i, s) => {
     const r = wt(i);
     if (!r) {
       console.warn(`[DeepLinks] Unknown object type: ${i}`);
       return;
     }
-    Jt(r, s, Qt(t(), e?.()));
+    Qt(r, s, Kt(t(), e?.()));
   };
 }
-function Yt(t) {
+function Zt(t) {
   const { container: e, selector: i, onSelect: s, onFocus: r, onEscape: n, wrap: c = !0, autoFocus: o = !1, keyHandlers: d = {} } = t;
   function l() {
     return Array.from(e.querySelectorAll(i));
@@ -1490,7 +1490,7 @@ function Yt(t) {
   };
 }
 function Ke(t, e) {
-  return Yt({
+  return Zt({
     container: t,
     selector: e,
     wrap: !0,
@@ -1499,7 +1499,7 @@ function Ke(t, e) {
     }
   });
 }
-var Zt = [
+var Ye = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -1508,25 +1508,18 @@ var Zt = [
   '[tabindex]:not([tabindex="-1"])'
 ].join(", ");
 function Xt(t) {
-  const { container: e, initialFocus: i, returnFocus: s, onEscape: r } = t, n = document.activeElement;
-  function c() {
-    return Array.from(e.querySelectorAll(Zt));
-  }
-  function o(d) {
-    if (d.key === "Escape") {
-      d.preventDefault(), r?.();
-      return;
-    }
-    if (d.key !== "Tab") return;
-    const l = c();
-    if (l.length === 0) return;
-    const h = l[0], b = l[l.length - 1];
-    d.shiftKey ? document.activeElement === h && (d.preventDefault(), b.focus()) : document.activeElement === b && (d.preventDefault(), h.focus());
-  }
-  return (typeof requestAnimationFrame == "function" ? requestAnimationFrame : (d) => (d(0), 0))(() => {
-    i ? (typeof i == "string" ? e.querySelector(i) : i)?.focus() : c()[0]?.focus();
-  }), e.addEventListener("keydown", o), e.hasAttribute("role") || e.setAttribute("role", "dialog"), e.setAttribute("aria-modal", "true"), () => {
-    e.removeEventListener("keydown", o), e.removeAttribute("aria-modal"), (s || n)?.focus?.();
+  const { container: e, initialFocus: i, returnFocus: s, onEscape: r } = t, n = e.ownerDocument, c = n.activeElement, o = n.defaultView?.HTMLElement, d = o && c instanceof o ? c : null, l = e.getAttribute("role"), h = e.getAttribute("aria-modal");
+  l || e.setAttribute("role", "dialog"), e.setAttribute("aria-modal", "true");
+  const b = kt({
+    container: e,
+    initialFocus: i ?? null,
+    returnFocus: s ?? d,
+    dismissOnEscape: !0,
+    onEscape: r,
+    lockBodyScroll: !1
+  });
+  return b.focusInitial(), () => {
+    b.release({ restoreFocus: !0 }), l === null ? e.removeAttribute("role") : e.setAttribute("role", l), h === null ? e.removeAttribute("aria-modal") : e.setAttribute("aria-modal", h);
   };
 }
 function te(t) {
@@ -1550,40 +1543,40 @@ function Q(t, e = {}) {
     r.textContent = t;
   }, 100);
 }
-function Ye(t) {
+function Ze(t) {
   Q(`Loading ${t}...`, { priority: "polite" });
 }
-function Ze(t) {
+function Xe(t) {
   Q(t, { priority: "polite" });
 }
-function Xe(t) {
+function ti(t) {
   Q(`Error: ${t}`, { priority: "assertive" });
 }
-function ti(t) {
+function ei(t) {
   Q(`Navigating to ${t}`, { priority: "polite" });
 }
-function ei(t, e, i) {
+function ii(t, e, i) {
   t.setAttribute("aria-expanded", String(i));
   const s = typeof e == "string" ? e : e.id;
   s && t.setAttribute("aria-controls", s);
 }
-function ii(t, e) {
+function si(t, e) {
   t.setAttribute("aria-busy", String(e)), e ? t.setAttribute("aria-describedby", "loading-indicator") : t.removeAttribute("aria-describedby");
 }
-function si(t, e, i) {
+function ri(t, e, i) {
   t.setAttribute("role", "status"), t.setAttribute("aria-label", `Status: ${i}`);
 }
-function ri(t, e) {
+function ni(t, e) {
   t.setAttribute("aria-sort", e), t.setAttribute("role", "columnheader");
 }
-function ni(t, e, i = 100, s) {
+function ai(t, e, i = 100, s) {
   t.setAttribute("role", "progressbar"), t.setAttribute("aria-valuenow", String(e)), t.setAttribute("aria-valuemin", "0"), t.setAttribute("aria-valuemax", String(i)), s && t.setAttribute("aria-label", s);
 }
-function ai(t, e = "Skip to main content") {
+function oi(t, e = "Skip to main content") {
   const i = document.createElement("a");
   return i.href = `#${t}`, i.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", i.textContent = e, i;
 }
-function oi(t, e = {}) {
+function ci(t, e = {}) {
   const { title: i, describedBy: s, onClose: r } = e;
   if (t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), i) {
     const c = `dialog-title-${Date.now()}`, o = t.querySelector('h1, h2, h3, [role="heading"]');
@@ -1601,7 +1594,7 @@ function oi(t, e = {}) {
 function ee() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function ci(t) {
+function li(t) {
   return ee() ? 0 : t;
 }
 var ut = {
@@ -1648,7 +1641,7 @@ var ut = {
     text: "text-red-700",
     icon: "iconoir:warning-circle"
   }
-}, li = class {
+}, di = class {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -1991,11 +1984,11 @@ function U(t) {
     </span>
   `;
 }
-function di(t, e) {
+function ui(t, e) {
   const i = document.createElement("span");
   i.innerHTML = U(e), t.appendChild(i.firstElementChild);
 }
-function ui() {
+function hi() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
@@ -2032,7 +2025,7 @@ function H(t) {
 function m(t, e = 12) {
   return t.length <= e ? t : `${t.slice(0, e - 3)}...`;
 }
-function I(t) {
+function M(t) {
   const e = new Date(t);
   return Number.isNaN(e.getTime()) ? t : e.toLocaleString();
 }
@@ -2116,7 +2109,7 @@ var ht = {
       console.error("[ProvidersCatalog] Container not found:", this.config.container);
       return;
     }
-    if (!M()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -2181,7 +2174,7 @@ var ht = {
     `, this.bindCardEvents();
   }
   renderEmpty() {
-    this.container && (this.container.innerHTML = Tt({ type: "providers" }));
+    this.container && (this.container.innerHTML = Et({ type: "providers" }));
   }
   buildProviderCard(t) {
     const e = this.getProviderCardData(t), i = T()() && t.supported_scope_types.includes("user"), s = T()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), n = this.buildScopeBadges(t.supported_scope_types);
@@ -2298,7 +2291,7 @@ var ht = {
     }));
   }
 };
-async function hi(t) {
+async function pi(t) {
   const e = new ne(t);
   return await e.init(), e;
 }
@@ -2364,7 +2357,7 @@ var pt = {
       console.error("[ConnectionsList] Container not found:", this.config.container);
       return;
     }
-    if (!M()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -2540,7 +2533,7 @@ var pt = {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-empty"), i = this.container?.querySelector(".connections-table-wrapper");
     if (t) {
       if (this.state.connections.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = F(6, {
+        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = I(6, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
           onReset: () => {
@@ -2738,7 +2731,7 @@ var pt = {
     o && (o.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No connections"), d && (d.disabled = !c), l && (l.disabled = !n);
   }
 };
-async function pi(t) {
+async function gi(t) {
   const e = new ae(t);
   return await e.init(), e;
 }
@@ -2825,7 +2818,7 @@ var gt = {
       console.error("[InstallationsList] Container not found:", this.config.container);
       return;
     }
-    if (!M()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -2997,7 +2990,7 @@ var gt = {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-empty"), i = this.container?.querySelector(".installations-table-wrapper");
     if (t) {
       if (this.state.installations.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = F(7, {
+        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = I(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), E(t, () => {
@@ -3130,7 +3123,7 @@ var gt = {
     o && (o.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No installations"), d && (d.disabled = !c), l && (l.disabled = !n);
   }
 };
-async function gi(t) {
+async function bi(t) {
   const e = new oe(t);
   return await e.init(), e;
 }
@@ -3193,7 +3186,7 @@ var N = {
       console.error("[ActivityPage] Container not found:", this.config.container);
       return;
     }
-    if (!Rt()()) {
+    if (!It()()) {
       this.renderForbidden();
       return;
     }
@@ -3462,7 +3455,7 @@ var N = {
       const r = this.resolveActionLabel(s);
       return `<option value="${a(s)}">${a(r)}</option>`;
     }).join("");
-    const t = Ot(), e = {
+    const t = Ht(), e = {
       connections: "Connections",
       credentials: "Credentials",
       sync: "Sync",
@@ -3483,7 +3476,7 @@ var N = {
     return i.join("");
   }
   resolveActionLabel(t) {
-    return this.config.getActionLabel ? this.config.getActionLabel(t) : Ut(t);
+    return this.config.getActionLabel ? this.config.getActionLabel(t) : Ot(t);
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -3523,13 +3516,13 @@ var N = {
   renderEntries() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), i = this.container?.querySelector(".activity-empty"), s = this.container?.querySelector(".activity-timeline-container"), r = this.container?.querySelector(".activity-table-container");
     if (this.state.entries.length === 0) {
-      this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = Et({
+      this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = qt({
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount(),
         containerClass: "bg-white rounded-lg border border-gray-200"
       }), E(t, () => {
         this.queryState.reset(), this.restoreFilterValues();
-      }))) : (r?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = F(7, {
+      }))) : (r?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = I(7, {
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount()
       }), E(e, () => {
@@ -3540,7 +3533,7 @@ var N = {
     i?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = this.state.entries.map((n) => this.renderTimelineEntry(n)).join(""), this.bindEntryActions())) : (r?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = this.state.entries.map((n) => this.renderTableRow(n)).join(""), this.bindEntryActions())), this.updateFilterSummary();
   }
   renderTimelineEntry(t) {
-    const e = N[t.status] || N.pending, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : O(t.provider_id), s = this.resolveActionLabel(t.action), r = I(t.created_at), n = f(t.created_at);
+    const e = N[t.status] || N.pending, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : O(t.provider_id), s = this.resolveActionLabel(t.action), r = M(t.created_at), n = f(t.created_at);
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
            data-entry-id="${a(t.id)}">
@@ -3608,7 +3601,7 @@ var N = {
     `;
   }
   renderTableRow(t) {
-    const e = N[t.status] || N.pending, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : O(t.provider_id), s = this.resolveActionLabel(t.action), r = I(t.created_at), n = f(t.created_at);
+    const e = N[t.status] || N.pending, i = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : O(t.provider_id), s = this.resolveActionLabel(t.action), r = M(t.created_at), n = f(t.created_at);
     return `
       <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${a(t.id)}">
         <td class="px-4 py-3 whitespace-nowrap">
@@ -3670,7 +3663,7 @@ var N = {
     });
   }
   createDeepLinkNavigateHandler() {
-    return Kt(() => {
+    return Yt(() => {
       const t = this.queryState.getState();
       return {
         filters: t.filters,
@@ -3690,7 +3683,7 @@ var N = {
       page: s.page > 1 ? s.page : void 0,
       viewMode: this.state.viewMode
     };
-    return Gt(i, e, r);
+    return Jt(i, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -3752,7 +3745,7 @@ var N = {
     return Object.entries(t).slice(0, 3).map(([e, i]) => `${e}: ${JSON.stringify(i)}`).join(", ");
   }
 };
-async function bi(t) {
+async function fi(t) {
   const e = new ce(t);
   return await e.init(), e;
 }
@@ -3853,7 +3846,7 @@ var tt = {
       console.error("[SubscriptionsSyncPage] Container not found:", this.config.container);
       return;
     }
-    if (!M()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -4081,7 +4074,7 @@ var tt = {
     const t = this.container?.querySelector(".subscriptions-tbody"), e = this.container?.querySelector(".empty-state"), i = this.container?.querySelector(".subscriptions-content");
     if (t) {
       if (this.state.subscriptions.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = F(7, {
+        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = I(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), E(t, () => {
@@ -4096,7 +4089,7 @@ var tt = {
     const e = tt[t.status] || tt.errored, i = x(t.provider_id, this.config.getProviderName), s = t.expires_at ? f(t.expires_at, {
       allowFuture: !0,
       futureImmediateLabel: "Soon"
-    }) : "—", r = t.expires_at ? I(t.expires_at) : "", n = f(t.updated_at, {
+    }) : "—", r = t.expires_at ? M(t.expires_at) : "", n = f(t.updated_at, {
       allowFuture: !0,
       futureImmediateLabel: "Soon"
     }), c = t.expires_at && this.isExpiringSoon(t.expires_at);
@@ -4180,7 +4173,7 @@ var tt = {
     const t = this.container?.querySelector(".sync-tbody"), e = this.container?.querySelector(".empty-state"), i = this.container?.querySelector(".sync-content");
     if (t) {
       if (this.state.syncJobs.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = F(7, {
+        this.queryState.getActiveFilterCount() > 0 || this.queryState.getState().search ? (i?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = I(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
         }), E(t, () => {
@@ -4420,7 +4413,7 @@ var tt = {
     return s > 0 && s < 864e5;
   }
 };
-async function fi(t) {
+async function yi(t) {
   const e = new le(t);
   return await e.init(), e;
 }
@@ -4498,7 +4491,7 @@ var yt = {
       console.error("[ConnectionDetail] Container not found:", this.config.container);
       return;
     }
-    if (!M()()) {
+    if (!F()()) {
       this.renderForbidden();
       return;
     }
@@ -4587,14 +4580,14 @@ var yt = {
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${I(t.created_at)}
+              ${M(t.created_at)}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Updated</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${I(t.updated_at)}
+              ${M(t.updated_at)}
             </dd>
           </div>
         </div>
@@ -5066,7 +5059,7 @@ var yt = {
     return o.sort((l, h) => d[l.status] - d[h.status]), o;
   }
 };
-async function yi(t) {
+async function mi(t) {
   const e = new ue(t);
   return await e.init(), e;
 }
@@ -5077,10 +5070,10 @@ export {
   ue as ConnectionDetailManager,
   ae as ConnectionsListManager,
   j as DEFAULT_ACTION_LABELS,
-  li as ExtensionDiagnosticsPanel,
-  Zt as FOCUSABLE_SELECTOR,
+  di as ExtensionDiagnosticsPanel,
+  Ye as FOCUSABLE_SELECTOR,
   oe as InstallationsListManager,
-  Mt as MutationButtonManager,
+  jt as MutationButtonManager,
   ne as ProvidersCatalogManager,
   V as QueryStateManager,
   xt as ServicesAPIClient,
@@ -5089,11 +5082,11 @@ export {
   C as ServicesPermissions,
   le as SubscriptionsSyncPageManager,
   xe as UIStateManager,
-  di as addStateSourceIndicator,
-  Xe as announceError,
-  Ye as announceLoading,
-  ti as announceNavigation,
-  Ze as announceSuccess,
+  ui as addStateSourceIndicator,
+  ti as announceError,
+  Ze as announceLoading,
+  ei as announceNavigation,
+  Xe as announceSuccess,
   Q as announceToScreenReader,
   E as bindNoResultsResetAction,
   ke as buildSearchParams,
@@ -5101,94 +5094,94 @@ export {
   R as canEdit,
   St as canReconsent,
   at as canRevoke,
-  Rt as canViewActivity,
-  M as canViewServices,
+  It as canViewActivity,
+  F as canViewServices,
   it as clearRetryUI,
   Ae as combineGuards,
   Ve as configureDeepLinks,
   G as confirmServiceAction,
   Be as createActionLabelResolver,
-  Kt as createActivityNavigateHandler,
-  bi as createActivityPage,
-  yi as createConnectionDetail,
-  pi as createConnectionsList,
+  Yt as createActivityNavigateHandler,
+  fi as createActivityPage,
+  mi as createConnectionDetail,
+  gi as createConnectionsList,
   Xt as createFocusTrap,
-  gi as createInstallationsList,
-  Qt as createNavigationContext,
+  bi as createInstallationsList,
+  Kt as createNavigationContext,
   A as createPermissionGuard,
-  hi as createProvidersCatalog,
+  pi as createProvidersCatalog,
   Ce as createServicesClient,
-  ai as createSkipLink,
-  fi as createSubscriptionsSyncPage,
+  oi as createSkipLink,
+  yi as createSubscriptionsSyncPage,
   Le as debounce,
   $ as deepLinkManager,
   K as destroyAbortableQueryPage,
-  I as formatDateTime,
+  M as formatDateTime,
   O as formatProviderId,
   f as formatRelativeTime,
   H as formatServiceLabel,
   X as gateElement,
-  Gt as generateDeepLink,
+  Jt as generateDeepLink,
   We as generateListLink,
   De as getActionEntry,
-  Ut as getActionLabel,
-  Ot as getActionsByCategory,
+  Ot as getActionLabel,
+  Ht as getActionsByCategory,
   Ue as getAllActionLabels,
-  ci as getAnimationDuration,
+  li as getAnimationDuration,
   L as getPermissionManager,
-  Nt as getServiceConfirmConfig,
+  Dt as getServiceConfirmConfig,
   P as getServicesClient,
   Re as handleForbidden,
   Ne as initActivityLabels,
   fe as initCommandRuntime,
-  Ie as initPermissionGates,
+  Me as initPermissionGates,
   Ee as initPermissions,
-  Me as initPermissionsFromContext,
+  Fe as initPermissionsFromContext,
   He as isActivityLabelsInitialized,
-  Ft as isForbiddenError,
+  Mt as isForbiddenError,
   ot as loadAndPopulateProviders,
-  It as loadPermissionsFromContext,
+  Ft as loadPermissionsFromContext,
   $t as loadProviders,
   wt as mapObjectTypeToEntity,
   Ge as navigateBack,
-  Jt as navigateToEntity,
+  Qt as navigateToEntity,
   Je as parseCurrentDeepLink,
   Qe as parseDeepLink,
   Te as parseSearchParams,
   se as populateProviderFilterOptions,
   ee as prefersReducedMotion,
-  Tt as renderEmptyState,
+  Et as renderEmptyState,
   st as renderErrorState,
   q as renderForbiddenState,
   rt as renderLoadingState,
-  Et as renderNoResultsState,
+  qt as renderNoResultsState,
   Se as renderPanelLoadingState,
   we as renderPanelState,
-  jt as renderRetryUI,
+  Nt as renderRetryUI,
   U as renderStateSourceIndicator,
-  ui as renderStateSourceLegend,
+  hi as renderStateSourceLegend,
   $e as renderTableEmptyState,
   z as renderTableErrorState,
   B as renderTableLoadingState,
-  F as renderTableNoResultsState,
+  I as renderTableNoResultsState,
   qe as requireAll,
   Pe as requireAny,
   ze as resetActivityLabels,
   x as resolveProviderDisplayName,
   Oe as setActionLabels,
-  ei as setExpandedState,
-  ii as setLoadingState,
-  ni as setProgress,
+  ii as setExpandedState,
+  si as setLoadingState,
+  ai as setProgress,
   _e as setServicesClient,
-  ri as setSortableHeader,
-  si as setStatusLabel,
-  oi as setupDialogFocus,
-  Yt as setupKeyboardNavigation,
+  ni as setSortableHeader,
+  ri as setStatusLabel,
+  ci as setupDialogFocus,
+  Zt as setupKeyboardNavigation,
   Ke as setupRovingTabindex,
   m as truncateId,
   je as withConfirmation,
   v as withMutationFeedback,
-  Fe as withPermission
+  Ie as withPermission
 };
 
 //# sourceMappingURL=services.js.map

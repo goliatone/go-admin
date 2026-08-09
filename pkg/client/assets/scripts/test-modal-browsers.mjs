@@ -58,6 +58,20 @@ async function verifyBrowser(label, browserType, launchOptions, origin) {
     if (await page.evaluate(() => document.activeElement?.getAttribute('name')) !== 'name') {
       throw new Error(`${label}: initial focus missing`);
     }
+    const desktopLayout = await page.evaluate(() => {
+      const modal = document.querySelector('[data-go-admin-modal="true"]');
+      const scrollRegion = modal?.querySelector('[data-modal-scroll-region="true"]');
+      const rect = modal?.getBoundingClientRect();
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      return {
+        hasStructuralClass: modal?.classList.contains('go-admin-modal-container') ?? false,
+        withinVisualViewport: Boolean(rect && rect.top >= -1 && rect.bottom <= viewportHeight + 1),
+        hasScrollableContent: Boolean(scrollRegion && scrollRegion.scrollHeight > scrollRegion.clientHeight),
+      };
+    });
+    if (!desktopLayout.hasStructuralClass || !desktopLayout.withinVisualViewport || !desktopLayout.hasScrollableContent) {
+      throw new Error(`${label}: structural viewport/scroll containment failed: ${JSON.stringify(desktopLayout)}`);
+    }
     await page.keyboard.press('Shift+Tab');
     if (await page.evaluate(() => document.activeElement?.getAttribute('type')) !== 'submit') {
       throw new Error(`${label}: backward focus wrap failed`);
@@ -71,12 +85,24 @@ async function verifyBrowser(label, browserType, launchOptions, origin) {
     if (!(await page.evaluate(() => document.activeElement?.id === 'customer-validation-summary'))) {
       throw new Error(`${label}: validation summary focus missing`);
     }
+    await page.keyboard.press('Shift+Tab');
+    if (await page.evaluate(() => document.activeElement?.getAttribute('type')) !== 'submit') {
+      throw new Error(`${label}: tabindex=-1 backward containment failed`);
+    }
+    await page.evaluate(() => document.querySelector('#customer-validation-summary')?.focus());
+    await page.keyboard.press('Tab');
+    if (await page.evaluate(() => document.activeElement?.getAttribute('name')) !== 'name') {
+      throw new Error(`${label}: tabindex=-1 forward containment failed`);
+    }
     const sameContainer = await page.evaluate((element) => element === window.modalFixture.modal.dialogElement(), handle);
     if (!sameContainer) throw new Error(`${label}: content replacement discarded the dialog container`);
 
-    await page.evaluate(() => { document.body.style.zoom = '2'; });
+    // A 2x browser zoom halves the available CSS-pixel viewport. Resizing the
+    // CSS viewport exercises the same responsive/overflow contract in every
+    // Playwright engine; CSS `zoom` scales fixed geometry and is not equivalent.
+    await page.setViewportSize({ width: 640, height: 400 });
     const desktopRect = await dialog.boundingBox();
-    if (!desktopRect || desktopRect.x < 0 || desktopRect.y < 0 || desktopRect.x + desktopRect.width > 1280 || desktopRect.y + desktopRect.height > 800) {
+    if (!desktopRect || desktopRect.x < 0 || desktopRect.y < 0 || desktopRect.x + desktopRect.width > 640 || desktopRect.y + desktopRect.height > 400) {
       throw new Error(`${label}: 200% zoom containment failed`);
     }
 
@@ -87,7 +113,6 @@ async function verifyBrowser(label, browserType, launchOptions, origin) {
     }
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(() => { document.body.style.zoom = '1'; });
     await page.evaluate(() => {
       const button = document.querySelector('#open-customer-modal');
       button.focus();
@@ -96,6 +121,19 @@ async function verifyBrowser(label, browserType, launchOptions, origin) {
     const mobileRect = await page.locator('[data-go-admin-modal="true"]').boundingBox();
     if (!mobileRect || mobileRect.x < 0 || mobileRect.y < 0 || mobileRect.x + mobileRect.width > 390 || mobileRect.y + mobileRect.height > 844) {
       throw new Error(`${label}: mobile containment failed`);
+    }
+    const mobileLayout = await page.evaluate(() => {
+      const modal = document.querySelector('[data-go-admin-modal="true"]');
+      const scrollRegion = modal?.querySelector('[data-modal-scroll-region="true"]');
+      const rect = modal?.getBoundingClientRect();
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      return {
+        withinVisualViewport: Boolean(rect && rect.top >= -1 && rect.bottom <= viewportHeight + 1),
+        hasScrollableContent: Boolean(scrollRegion && scrollRegion.scrollHeight > scrollRegion.clientHeight),
+      };
+    });
+    if (!mobileLayout.withinVisualViewport || !mobileLayout.hasScrollableContent) {
+      throw new Error(`${label}: mobile visual viewport/scroll containment failed: ${JSON.stringify(mobileLayout)}`);
     }
     await context.close();
     return { label, userAgent };

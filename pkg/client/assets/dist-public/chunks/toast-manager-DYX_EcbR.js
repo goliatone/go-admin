@@ -1,4 +1,4 @@
-import "./modal-WgxT86m5.js";
+import "./modal-Cl0Dmdof.js";
 var l = class {
   show(r) {
     const e = r.title ? `${r.title}: ` : "";
@@ -27,4 +27,4 @@ export {
   l as t
 };
 
-//# sourceMappingURL=toast-manager-BIjbX1qG.js.map
+//# sourceMappingURL=toast-manager-DYX_EcbR.js.map

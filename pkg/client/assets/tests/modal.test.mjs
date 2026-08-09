@@ -64,9 +64,72 @@ class FixtureModal extends Modal {
   replace(content, focus) { this.replaceContent(content, focus); }
 }
 
-function press(key, options = {}) {
-  document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options }));
+class FailingModal extends FixtureModal {
+  constructor(stage) {
+    super();
+    this.stage = stage;
+  }
+
+  renderContent() {
+    if (this.stage === 'render') {
+      document.getElementById('side-effect-target')?.focus();
+      throw new Error('render failed');
+    }
+    return super.renderContent();
+  }
+
+  bindContentEvents() {
+    if (this.stage === 'bind') throw new Error('bind failed');
+    super.bindContentEvents();
+  }
+
+  async onAfterShow() {
+    if (this.stage === 'after-show') throw new Error('after-show failed');
+  }
 }
+
+function press(key, options = {}) {
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options });
+  document.dispatchEvent(event);
+  return event;
+}
+
+test('Modal rolls back every mount stage when rendering, binding, or hydration fails', async () => {
+  setupDom('<button id="invoker">Open</button><button id="side-effect-target">Side effect</button>');
+  const invoker = document.getElementById('invoker');
+  invoker.focus();
+
+  for (const stage of ['render', 'bind', 'after-show']) {
+    const modal = new FailingModal(stage);
+    await assert.rejects(modal.show(), new RegExp(`${stage} failed`));
+    assert.equal(modal.isOpen, false);
+    assert.equal(document.querySelector('[data-go-admin-modal]'), null);
+    assert.equal(document.body.classList.contains('overflow-hidden'), false);
+    assert.equal(document.activeElement, invoker);
+  }
+
+  const healthy = new FixtureModal();
+  await healthy.show();
+  assert.equal(healthy.overlay.style.zIndex, '110');
+  healthy.destroy();
+});
+
+test('Modal establishes initial focus before asynchronous hydration resolves', async () => {
+  setupDom();
+  let resolveHydration;
+  class HydratingModal extends FixtureModal {
+    onAfterShow() {
+      return new Promise((resolve) => { resolveHydration = resolve; });
+    }
+  }
+
+  const modal = new HydratingModal({ initialFocus: '#middle' });
+  const showing = modal.show();
+  assert.equal(document.activeElement.id, 'middle');
+  resolveHydration();
+  await showing;
+  modal.destroy();
+});
 
 test('Modal establishes naming, description, deterministic focus, and dialog hooks', async () => {
   setupDom();
@@ -200,6 +263,7 @@ test('focus fallback excludes controls inside hidden or inert content', async ()
   const modal = new FixtureModal({}, `
     <div hidden><button id="hidden-control">Hidden</button></div>
     <div inert><button id="inert-control">Inert</button></div>
+    <div style="display: none"><button id="css-hidden-control">CSS hidden</button></div>
     <button id="visible-control">Visible</button>
   `);
 
@@ -252,7 +316,30 @@ test('content replacement preserves the dialog instance, stack, and accessible r
   assert.equal(modal.dialog.getAttribute('aria-labelledby'), 'fixture-title');
   assert.equal(document.activeElement.id, 'validation-summary');
   assert.equal(modal.bindCount, 2);
+
+  press('Tab', { shiftKey: true });
+  assert.equal(document.activeElement.id, 'server-field');
+  document.getElementById('validation-summary').focus();
+  press('Tab');
+  assert.equal(document.activeElement.id, 'server-field');
   modal.destroy();
+});
+
+test('focus remains contained until an animated close has released its DOM', async () => {
+  setupDom();
+  window.matchMedia = (query) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} });
+  const modal = new FixtureModal({ animationDuration: 30 });
+  await modal.show();
+  document.getElementById('last').focus();
+  modal.hide();
+
+  const tab = press('Tab');
+  assert.equal(tab.defaultPrevented, true);
+  assert.equal(document.activeElement.id, 'first');
+  assert.ok(modal.dialog.isConnected);
+
+  await new Promise((resolve) => setTimeout(resolve, 35));
+  assert.equal(document.querySelector('[data-go-admin-modal]'), null);
 });
 
 test('disconnected invokers are ignored and convenience modals provide explicit names', async () => {
@@ -279,7 +366,18 @@ test('disconnected invokers are ignored and convenience modals provide explicit 
     onCancel: () => { cancelled += 1; },
   });
   await prompt.show();
-  assert.equal(document.querySelector('[role="dialog"]').getAttribute('aria-label'), 'Rename item');
+  const promptDialog = document.querySelector('[role="dialog"]');
+  const promptInput = promptDialog.querySelector('[data-prompt-input]');
+  const promptLabel = promptDialog.querySelector('label');
+  const promptError = promptDialog.querySelector('[data-prompt-error]');
+  assert.equal(promptDialog.getAttribute('aria-label'), 'Rename item');
+  assert.equal(promptLabel.getAttribute('for'), promptInput.id);
+  assert.ok(promptInput.getAttribute('aria-describedby').includes(promptError.id));
+  assert.equal(promptError.getAttribute('role'), 'alert');
+  document.querySelector('[data-prompt-confirm]').click();
+  await Promise.resolve();
+  assert.equal(promptInput.getAttribute('aria-invalid'), 'true');
+  assert.equal(promptError.classList.contains('hidden'), false);
   document.querySelector('[data-prompt-cancel]').click();
   assert.equal(cancelled, 1);
 });

@@ -1,8 +1,8 @@
-import { httpRequest as A } from "../shared/transport/http-client.js";
-import { formatByteSize as N } from "../shared/size-formatters.js";
-import { s as z } from "../chunks/accessibility-g-YQUfb2.js";
+import { t as k } from "../chunks/modal-coordinator-Ctk09F2l.js";
+import { httpRequest as N } from "../shared/transport/http-client.js";
+import { formatByteSize as z } from "../shared/size-formatters.js";
 function P(e) {
-  return N(e, {
+  return z(e, {
     zeroFallback: "0 Bytes",
     invalidFallback: "0 Bytes",
     unitLabels: [
@@ -20,9 +20,9 @@ function P(e) {
     trimTrailingZeros: !0
   });
 }
-var R = class {
+var H = class {
   constructor(e = {}) {
-    if (this.releaseFocusTrap = null, this.bodyWasLocked = !1, this.modalId = e.modalId || "import-modal", e.endpoint) this.endpoint = e.endpoint;
+    if (this.modalLayer = null, this.modalId = e.modalId || "import-modal", e.endpoint) this.endpoint = e.endpoint;
     else if (e.apiBasePath) {
       const s = e.apiBasePath.trim().replace(/\/+$/, "");
       this.endpoint = `${s}/import`;
@@ -69,7 +69,9 @@ var R = class {
   }
   bindEvents() {
     const { modal: e, backdrop: s, closeBtn: t, cancelBtn: i, fileInput: n, fileRemove: l, anotherBtn: r, submitBtn: a, fullscreenBtn: c } = this.elements;
-    t && t.addEventListener("click", () => this.close()), i && i.addEventListener("click", () => this.close()), s && s.addEventListener("click", () => this.close()), n && n.addEventListener("change", () => this.updateFilePreview()), l && l.addEventListener("click", (o) => {
+    t && t.addEventListener("click", () => this.close()), i && i.addEventListener("click", () => this.close()), s && s.addEventListener("click", () => {
+      this.modalLayer?.isTopmost() && this.close();
+    }), n && n.addEventListener("change", () => this.updateFilePreview()), l && l.addEventListener("click", (o) => {
       o.preventDefault(), o.stopPropagation();
       const m = this.elements.fileInput;
       m && (m.value = ""), this.updateFilePreview();
@@ -129,8 +131,8 @@ var R = class {
     r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = P(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
   }
   reset() {
-    const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: b, totalCount: B, modal: h } = this.elements;
-    e && (e.value = ""), this.updateFilePreview(), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && i.classList.add("hidden"), n && (n.textContent = ""), l && (l.innerHTML = ""), r && (r.classList.remove("hidden"), r.disabled = !0), a && a.classList.add("hidden"), c && (c.textContent = "0"), o && (o.textContent = "0"), m && (m.textContent = "0"), b && (b.textContent = "0"), B && (B.textContent = "0"), this.currentFilter = "all", this.resultItems = [], h && h.querySelectorAll(".import-filter-btn").forEach((f) => {
+    const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: x, totalCount: B, modal: h } = this.elements;
+    e && (e.value = ""), this.updateFilePreview(), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && i.classList.add("hidden"), n && (n.textContent = ""), l && (l.innerHTML = ""), r && (r.classList.remove("hidden"), r.disabled = !0), a && a.classList.add("hidden"), c && (c.textContent = "0"), o && (o.textContent = "0"), m && (m.textContent = "0"), x && (x.textContent = "0"), B && (B.textContent = "0"), this.currentFilter = "all", this.resultItems = [], h && h.querySelectorAll(".import-filter-btn").forEach((f) => {
       const p = f.getAttribute("data-filter") === "all";
       f.classList.toggle("active", p), f.classList.toggle("bg-gray-100", p), f.classList.toggle("text-gray-700", p), f.classList.toggle("text-gray-500", !p);
     }), this.isFullscreen && this.toggleFullscreen();
@@ -141,43 +143,51 @@ var R = class {
   }
   open() {
     const { modal: e } = this.elements;
-    e && e.classList.contains("hidden") && (this.reset(), this.bodyWasLocked = document.body.classList.contains("overflow-hidden"), e.classList.remove("hidden"), e.setAttribute("data-go-admin-modal-scroll-lock", "true"), document.body.classList.add("overflow-hidden"), this.releaseFocusTrap = z({
-      container: e,
-      initialFocus: this.elements.fileInput || this.elements.closeBtn,
-      onEscape: () => {
-        this.isFullscreen ? this.toggleFullscreen() : this.close();
-      }
-    }));
+    if (!e || !e.classList.contains("hidden")) return;
+    this.reset();
+    const s = e.ownerDocument.activeElement, t = e.ownerDocument.defaultView?.HTMLElement, i = t && s instanceof t ? s : null;
+    e.classList.remove("hidden");
+    try {
+      this.modalLayer = k({
+        container: e,
+        zIndexTarget: e,
+        initialFocus: this.elements.fileInput || this.elements.closeBtn,
+        returnFocus: i,
+        onEscape: () => {
+          this.isFullscreen ? this.toggleFullscreen() : this.close();
+        },
+        lockBodyScroll: !0
+      }), this.modalLayer.focusInitial();
+    } catch (n) {
+      throw this.modalLayer?.release({ restoreFocus: !0 }), this.modalLayer = null, e.classList.add("hidden"), n;
+    }
   }
   close() {
     const { modal: e } = this.elements;
-    if (!e || e.classList.contains("hidden")) return;
-    this.releaseFocusTrap?.(), this.releaseFocusTrap = null, e.classList.add("hidden"), e.removeAttribute("data-go-admin-modal-scroll-lock");
-    const s = !!document.querySelector('[data-go-admin-modal-scroll-lock="true"]');
-    !this.bodyWasLocked && !s && document.body.classList.remove("overflow-hidden");
+    !e || e.classList.contains("hidden") || (e.classList.add("hidden"), this.modalLayer?.release({ restoreFocus: !0 }), this.modalLayer = null);
   }
   buildCell(e, s) {
     const t = document.createElement("td");
     return t.className = s, t.textContent = e, t;
   }
   renderResults(e) {
-    const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: b, totalCount: B } = this.elements;
+    const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: x, totalCount: B } = this.elements;
     if (!s || !t) return;
-    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, F = Number(h.failed) || 0, x = Array.isArray(e && e.results) ? e.results : [], C = e && e.error ? String(e.error).trim() : "";
-    if (this.resultItems = x, c && (c.textContent = String(f)), o && (o.textContent = String(p)), m && (m.textContent = String(F)), B && (B.textContent = String(x.length)), b && (b.textContent = String(x.length)), C && r && a && (a.textContent = C, r.classList.remove("hidden")), t.innerHTML = "", x.length === 0) {
+    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, S = Number(h.failed) || 0, b = Array.isArray(e && e.results) ? e.results : [], C = e && e.error ? String(e.error).trim() : "";
+    if (this.resultItems = b, c && (c.textContent = String(f)), o && (o.textContent = String(p)), m && (m.textContent = String(S)), B && (B.textContent = String(b.length)), x && (x.textContent = String(b.length)), C && r && a && (a.textContent = C, r.classList.remove("hidden")), t.innerHTML = "", b.length === 0) {
       const d = document.createElement("tr"), E = this.buildCell("No results to display", "px-4 py-4 text-gray-500 text-center");
       E.colSpan = 5, d.appendChild(E), t.appendChild(d);
-    } else x.forEach((d, E) => {
-      const u = document.createElement("tr"), S = typeof d.index == "number" ? d.index + 1 : E + 1, $ = d.email ? String(d.email) : "-", w = d.user_id ? String(d.user_id) : "-", g = d.error && String(d.error).trim() !== "", k = g ? "Failed" : d.status ? String(d.status) : "Created";
-      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(S), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-500 font-mono text-xs"));
+    } else b.forEach((d, E) => {
+      const u = document.createElement("tr"), F = typeof d.index == "number" ? d.index + 1 : E + 1, w = d.email ? String(d.email) : "-", $ = d.user_id ? String(d.user_id) : "-", g = d.error && String(d.error).trim() !== "", A = g ? "Failed" : d.status ? String(d.status) : "Created";
+      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(F), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-500 font-mono text-xs"));
       const I = document.createElement("td");
       I.className = "px-4 py-2";
-      const L = document.createElement("span");
-      L.className = g ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700";
+      const v = document.createElement("span");
+      v.className = g ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700";
       const y = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       y.setAttribute("class", "w-3 h-3"), y.setAttribute("fill", "none"), y.setAttribute("stroke", "currentColor"), y.setAttribute("viewBox", "0 0 24 24");
-      const v = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      v.setAttribute("stroke-linecap", "round"), v.setAttribute("stroke-linejoin", "round"), v.setAttribute("stroke-width", "2"), v.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(v), L.appendChild(y), L.appendChild(document.createTextNode(k)), I.appendChild(L), u.appendChild(I), u.appendChild(this.buildCell(g ? String(d.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
+      const L = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      L.setAttribute("stroke-linecap", "round"), L.setAttribute("stroke-linejoin", "round"), L.setAttribute("stroke-width", "2"), L.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(L), v.appendChild(y), v.appendChild(document.createTextNode(A)), I.appendChild(v), u.appendChild(I), u.appendChild(this.buildCell(g ? String(d.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
     });
     i && i.classList.add("hidden"), s.classList.remove("hidden"), n && n.classList.add("hidden"), l && l.classList.remove("hidden"), this.applyFilter();
   }
@@ -192,7 +202,7 @@ var R = class {
     i.append("file", t), this.setLoading(!0);
     let n = null, l = null;
     try {
-      n = await A(this.endpoint, {
+      n = await N(this.endpoint, {
         method: "POST",
         body: i
       }), (n.headers.get("Content-Type") || "").includes("application/json") ? l = await n.json() : l = { error: "Import failed" };
@@ -213,8 +223,8 @@ var R = class {
   }
 };
 export {
-  R as ImportModal,
-  R as default,
+  H as ImportModal,
+  H as default,
   P as formatFileSize
 };
 

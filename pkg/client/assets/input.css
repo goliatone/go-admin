@@ -111,6 +111,14 @@
 }
 
 @layer components {
+  /* Public modal structure must not depend on runtime-composed Tailwind
+     arbitrary classes. Keep dialogs inside both layout and visual viewports;
+     consumers can still provide a generated utility to override max-height. */
+  .go-admin-modal-container {
+    max-height: calc(100vh - 2rem);
+    max-height: min(90vh, calc(100dvh - 2rem));
+  }
+
   /* Semantic admin consumers. Component tokens fall back to the portable
      contract and finally to the current go-admin visual defaults. */
   body.admin-theme-root {

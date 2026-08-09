@@ -103,7 +103,6 @@ const modal = new CustomerFormModal({
   labelledBy: 'customer-form-title',
   describedBy: 'customer-form-description',
   initialFocus: 'input[name="name"]',
-  containerClass: 'max-h-[calc(100dvh-2rem)]',
 });
 ```
 
@@ -111,7 +110,11 @@ const modal = new CustomerFormModal({
 untrusted input safe. Use server markup only when the application already
 establishes it as trusted, or escape values through
 `@goliatone/go-admin-client/shared/html`. Add layout/theme classes through
-`containerClass`; do not replace the backdrop, stack, or focus manager.
+`containerClass`; do not replace the backdrop, stack, or focus manager. The
+shipped `go-admin-modal-container` class provides the default visual-viewport
+height constraint. Any utility named in `containerClass` must exist in the
+host stylesheet at build time; runtime-composed Tailwind arbitrary classes are
+not generated automatically.
 
 When migrating an existing modal, remove inner `role="dialog"`/`aria-modal`,
 document Escape listeners, modal-specific focus traps/return, backdrop removal,

@@ -21,7 +21,7 @@ export { escapeHtml };
 export interface ModalOptions {
     /** Maximum width. Default: 'lg' */
     size?: ModalSize;
-    /** Maximum height class. Default: 'max-h-[90vh]' */
+    /** Optional maximum-height class applied in addition to the structural viewport constraint. */
     maxHeight?: string;
     /** Use flex flex-col on container. Default: true */
     flexColumn?: boolean;
@@ -65,14 +65,13 @@ export declare abstract class Modal {
     protected backdrop: HTMLElement | null;
     protected container: HTMLElement | null;
     private _options;
-    private _documentKeyHandler;
     private _backdropClickHandler;
     private _isOpen;
     private _invoker;
-    private _bodyLocked;
+    private _layer;
     private _cleanupTimer;
     private _lifecycle;
-    private _fallbackTabIndex;
+    private _mounted;
     constructor(opts?: ModalOptions);
     get isOpen(): boolean;
     protected get options(): Readonly<ResolvedModalOptions>;
@@ -103,10 +102,6 @@ export declare abstract class Modal {
     private _bindBaseEvents;
     private _applyAccessibleName;
     private _focusInitial;
-    private _resolveFocusTarget;
-    private _focusableElements;
-    private _canReceiveFocus;
-    private _trapFocus;
     private _beginClose;
     private _cleanup;
     private _animationDuration;
@@ -151,6 +146,9 @@ export interface TextPromptModalConfig {
 }
 export declare class TextPromptModal extends Modal {
     private config;
+    private readonly inputId;
+    private readonly helpId;
+    private readonly errorId;
     constructor(config: TextPromptModalConfig);
     protected renderContent(): string;
     protected bindContentEvents(): void;

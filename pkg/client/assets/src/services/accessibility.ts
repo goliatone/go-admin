@@ -17,6 +17,8 @@
  *   announceToScreenReader('Connection refreshed successfully');
  */
 
+import { registerModalLayer } from '../shared/modal-coordinator.js';
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -229,79 +231,34 @@ const FOCUSABLE_SELECTOR = [
  */
 export function createFocusTrap(config: FocusTrapConfig): () => void {
   const { container, initialFocus, returnFocus, onEscape } = config;
+  const ownerDocument = container.ownerDocument;
+  const activeElement = ownerDocument.activeElement;
+  const HTMLElementType = ownerDocument.defaultView?.HTMLElement;
+  const previouslyFocused = HTMLElementType && activeElement instanceof HTMLElementType
+    ? activeElement as HTMLElement
+    : null;
+  const previousRole = container.getAttribute('role');
+  const previousAriaModal = container.getAttribute('aria-modal');
 
-  const previouslyFocused = document.activeElement as HTMLElement;
-
-  function getFocusableElements(): HTMLElement[] {
-    return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-  }
-
-  function handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      onEscape?.();
-      return;
-    }
-
-    if (event.key !== 'Tab') return;
-
-    const focusables = getFocusableElements();
-    if (focusables.length === 0) return;
-
-    const firstFocusable = focusables[0];
-    const lastFocusable = focusables[focusables.length - 1];
-
-    if (event.shiftKey) {
-      // Shift+Tab: going backward
-      if (document.activeElement === firstFocusable) {
-        event.preventDefault();
-        lastFocusable.focus();
-      }
-    } else {
-      // Tab: going forward
-      if (document.activeElement === lastFocusable) {
-        event.preventDefault();
-        firstFocusable.focus();
-      }
-    }
-  }
-
-  // Focus initial element
-  const scheduleFrame = typeof requestAnimationFrame === 'function'
-    ? requestAnimationFrame
-    : (callback: FrameRequestCallback): number => {
-        callback(0);
-        return 0;
-      };
-  scheduleFrame(() => {
-    if (initialFocus) {
-      const target = typeof initialFocus === 'string'
-        ? container.querySelector<HTMLElement>(initialFocus)
-        : initialFocus;
-      target?.focus();
-    } else {
-      const focusables = getFocusableElements();
-      focusables[0]?.focus();
-    }
-  });
-
-  // Add trap handler
-  container.addEventListener('keydown', handleKeyDown);
-
-  // Mark container as a dialog for accessibility
-  if (!container.hasAttribute('role')) {
-    container.setAttribute('role', 'dialog');
-  }
+  if (!previousRole) container.setAttribute('role', 'dialog');
   container.setAttribute('aria-modal', 'true');
 
-  // Return cleanup function
-  return () => {
-    container.removeEventListener('keydown', handleKeyDown);
-    container.removeAttribute('aria-modal');
+  const layer = registerModalLayer({
+    container,
+    initialFocus: initialFocus ?? null,
+    returnFocus: returnFocus ?? previouslyFocused,
+    dismissOnEscape: true,
+    onEscape,
+    lockBodyScroll: false,
+  });
+  layer.focusInitial();
 
-    // Return focus to previous element
-    const focusTarget = returnFocus || previouslyFocused;
-    focusTarget?.focus?.();
+  return () => {
+    layer.release({ restoreFocus: true });
+    if (previousRole === null) container.removeAttribute('role');
+    else container.setAttribute('role', previousRole);
+    if (previousAriaModal === null) container.removeAttribute('aria-modal');
+    else container.setAttribute('aria-modal', previousAriaModal);
   };
 }
 

@@ -49,8 +49,7 @@ export declare class ImportModal {
     isFullscreen: boolean;
     currentFilter: string;
     resultItems: any[];
-    private releaseFocusTrap;
-    private bodyWasLocked;
+    private modalLayer;
     /**
      * @param options - Configuration options
      * @param options.modalId - ID of the modal element

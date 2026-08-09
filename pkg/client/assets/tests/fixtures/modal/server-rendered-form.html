@@ -10,13 +10,23 @@
   <button id="open-customer-modal" type="button">Create customer</button>
 
   <template id="customer-form-template">
-    <form class="flex max-h-full flex-col" data-server-form="true">
+    <form class="flex min-h-0 max-h-full flex-col" data-server-form="true">
       <header class="border-b border-gray-200 p-4">
         <h2 id="customer-modal-title" class="text-xl font-semibold">Create customer</h2>
         <p id="customer-modal-description" class="text-sm text-gray-600">Fields are rendered by the host.</p>
       </header>
-      <div class="overflow-y-auto p-4">
-        <label>Name <input name="name" autocomplete="off"></label>
+      <div class="min-h-0 overflow-y-auto p-4" data-modal-scroll-region="true">
+        <label class="block">Name <input name="name" autocomplete="off"></label>
+        <div aria-hidden="true">
+          <p style="height: 5rem">Server-rendered field group 1</p>
+          <p style="height: 5rem">Server-rendered field group 2</p>
+          <p style="height: 5rem">Server-rendered field group 3</p>
+          <p style="height: 5rem">Server-rendered field group 4</p>
+          <p style="height: 5rem">Server-rendered field group 5</p>
+          <p style="height: 5rem">Server-rendered field group 6</p>
+          <p style="height: 5rem">Server-rendered field group 7</p>
+          <p style="height: 5rem">Server-rendered field group 8</p>
+        </div>
       </div>
       <footer class="flex justify-end gap-2 border-t border-gray-200 p-4">
         <button type="button" data-close="true">Cancel</button>
@@ -26,14 +36,24 @@
   </template>
 
   <template id="customer-validation-template">
-    <form class="flex max-h-full flex-col" data-server-form="true">
+    <form class="flex min-h-0 max-h-full flex-col" data-server-form="true">
       <header class="border-b border-gray-200 p-4">
         <h2 id="customer-modal-title" class="text-xl font-semibold">Create customer</h2>
         <p id="customer-modal-description" class="text-sm text-gray-600">Fields are rendered by the host.</p>
       </header>
-      <div class="overflow-y-auto p-4">
+      <div class="min-h-0 overflow-y-auto p-4" data-modal-scroll-region="true">
         <div id="customer-validation-summary" tabindex="-1" role="alert">Name is required.</div>
         <label>Name <input name="name" aria-invalid="true" aria-describedby="customer-validation-summary"></label>
+        <div aria-hidden="true">
+          <p style="height: 5rem">Server validation detail 1</p>
+          <p style="height: 5rem">Server validation detail 2</p>
+          <p style="height: 5rem">Server validation detail 3</p>
+          <p style="height: 5rem">Server validation detail 4</p>
+          <p style="height: 5rem">Server validation detail 5</p>
+          <p style="height: 5rem">Server validation detail 6</p>
+          <p style="height: 5rem">Server validation detail 7</p>
+          <p style="height: 5rem">Server validation detail 8</p>
+        </div>
       </div>
       <footer class="flex justify-end gap-2 border-t border-gray-200 p-4">
         <button type="button" data-close="true">Cancel</button>
@@ -49,12 +69,10 @@
       constructor() {
         super({
           size: 'lg',
-          maxHeight: 'max-h-[90dvh]',
           animationDuration: 0,
           labelledBy: 'customer-modal-title',
           describedBy: 'customer-modal-description',
           initialFocus: 'input[name="name"]',
-          containerClass: 'max-h-[calc(100dvh-2rem)]',
         });
       }
 

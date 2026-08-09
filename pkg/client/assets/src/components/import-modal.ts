@@ -21,7 +21,10 @@
 
 import { formatByteSize } from '../shared/size-formatters.js';
 import { httpRequest } from '../shared/transport/http-client.js';
-import { createFocusTrap } from '../services/accessibility.js';
+import {
+  registerModalLayer,
+  type ModalLayerHandle,
+} from '../shared/modal-coordinator.js';
 
 type ImportModalNotifier = {
   success: (message: string) => void;
@@ -65,8 +68,7 @@ export class ImportModal {
   isFullscreen: boolean;
   currentFilter: string;
   resultItems: any[];
-  private releaseFocusTrap: (() => void) | null = null;
-  private bodyWasLocked = false;
+  private modalLayer: ModalLayerHandle | null = null;
 
   /**
    * @param options - Configuration options
@@ -151,7 +153,9 @@ export class ImportModal {
       cancelBtn.addEventListener('click', () => this.close());
     }
     if (backdrop) {
-      backdrop.addEventListener('click', () => this.close());
+      backdrop.addEventListener('click', () => {
+        if (this.modalLayer?.isTopmost()) this.close();
+      });
     }
     if (fileInput) {
       fileInput.addEventListener('change', () => this.updateFilePreview());
@@ -406,18 +410,31 @@ export class ImportModal {
     if (!modal) return;
     if (!modal.classList.contains('hidden')) return;
     this.reset();
-    this.bodyWasLocked = document.body.classList.contains('overflow-hidden');
+    const activeElement = modal.ownerDocument.activeElement;
+    const HTMLElementType = modal.ownerDocument.defaultView?.HTMLElement;
+    const returnFocus = HTMLElementType && activeElement instanceof HTMLElementType
+      ? activeElement as HTMLElement
+      : null;
     modal.classList.remove('hidden');
-    modal.setAttribute('data-go-admin-modal-scroll-lock', 'true');
-    document.body.classList.add('overflow-hidden');
-    this.releaseFocusTrap = createFocusTrap({
-      container: modal,
-      initialFocus: (this.elements.fileInput || this.elements.closeBtn) as HTMLElement | undefined,
-      onEscape: () => {
-        if (this.isFullscreen) this.toggleFullscreen();
-        else this.close();
-      },
-    });
+    try {
+      this.modalLayer = registerModalLayer({
+        container: modal,
+        zIndexTarget: modal,
+        initialFocus: this.elements.fileInput || this.elements.closeBtn,
+        returnFocus,
+        onEscape: () => {
+          if (this.isFullscreen) this.toggleFullscreen();
+          else this.close();
+        },
+        lockBodyScroll: true,
+      });
+      this.modalLayer.focusInitial();
+    } catch (error) {
+      this.modalLayer?.release({ restoreFocus: true });
+      this.modalLayer = null;
+      modal.classList.add('hidden');
+      throw error;
+    }
   }
 
   /**
@@ -426,14 +443,9 @@ export class ImportModal {
   close() {
     const { modal } = this.elements;
     if (!modal || modal.classList.contains('hidden')) return;
-    this.releaseFocusTrap?.();
-    this.releaseFocusTrap = null;
     modal.classList.add('hidden');
-    modal.removeAttribute('data-go-admin-modal-scroll-lock');
-    const anotherModalIsOpen = Boolean(document.querySelector('[data-go-admin-modal-scroll-lock="true"]'));
-    if (!this.bodyWasLocked && !anotherModalIsOpen) {
-      document.body.classList.remove('overflow-hidden');
-    }
+    this.modalLayer?.release({ restoreFocus: true });
+    this.modalLayer = null;
   }
 
   /**
