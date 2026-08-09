@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Populated grouped DataGrid headers now use the same selection/action fixed-
+  column policy as child rows and loading, error, and empty states.
+- DataGrid consumers can synchronize application-specific status presentation
+  through a typed `onStateChange` callback instead of observing owned DOM.
+
 # [0.131.1](https://github.com/goliatone/go-admin/compare/v0.131.0...v0.131.1) - (2026-08-09)
 
 
@@ -6495,5 +6504,4 @@ New minor release: v0.1.0
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 
