@@ -1,27 +1,24 @@
 # Changelog
 
-## Unreleased
+# [0.131.2](https://github.com/goliatone/go-admin/compare/v0.131.1...v0.131.2) - (2026-08-09)
 
-### Fixed
+## <!-- 1 -->🐛 Bug Fixes
 
-- Populated grouped DataGrid headers now use the same selection/action fixed-
-  column policy as child rows and loading, error, and empty states.
-- DataGrid consumers can synchronize application-specific status presentation
-  through a typed `onStateChange` callback instead of observing owned DOM.
+- Datagrid population and on state change handler ([d94107e](https://github.com/goliatone/go-admin/commit/d94107e1a6334bbeb6f2ea47376269262ddcfc91))  - (goliatone)
 
 # [0.131.1](https://github.com/goliatone/go-admin/compare/v0.131.0...v0.131.1) - (2026-08-09)
 
 
-### Fixed
-
-- DataGrid now omits the actions column and related state-row colspans when
-  `useDefaultActions` is false and no custom `rowActions` provider is configured.
-  Applications can remove DOM cleanup workarounds for read-only grids.
+New patch release: v0.131.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Current user detail panel ([dfdccc1](https://github.com/goliatone/go-admin/commit/dfdccc11a59958f6d6560f3f06f87f27cbe19195))  - (goliatone)
 - Datagrid handle empty action cells ([3d21e45](https://github.com/goliatone/go-admin/commit/3d21e455e21f4f7ff3f450f73d3a384d09c031f3))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.1 ([f0493f2](https://github.com/goliatone/go-admin/commit/f0493f2d26f3470dd507f0e7eefa618ba6aa59a3))  - (goliatone)
 
 # [0.131.0](https://github.com/goliatone/go-admin/compare/v0.130.0...v0.131.0) - (2026-08-08)
 
@@ -6504,4 +6501,5 @@ New minor release: v0.1.0
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
 
