@@ -1,0 +1,5 @@
+{% if csrf_error_message %}
+<div class="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert" aria-live="polite" data-csrf-recovery-alert>
+  {{ csrf_error_message }}
+</div>
+{% endif %}

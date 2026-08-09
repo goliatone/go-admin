@@ -3,7 +3,6 @@ package quickstart
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -15,7 +14,6 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	auth "github.com/goliatone/go-auth"
-	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
@@ -50,6 +48,7 @@ type authUIOptions struct {
 	themeAssetPrefix             string
 	featureGate                  fggate.FeatureGate
 	csrfSecureKey                []byte
+	browserProtection            *AuthUIBrowserProtection
 	loginErrorQueryKey           string
 	loginIdentifierQueryKey      string
 	loginRememberQueryKey        string
@@ -82,6 +81,8 @@ var (
 const authUICSRFMinSecureKeyBytes = 32
 
 const authUILoginCSRFExpiredErrorCode = "csrf_expired"
+
+const authUIActionCSRFExpiredErrorCode = "csrf_action_expired"
 
 // WithAuthUIBasePath overrides the base path used by auth UI routes.
 func WithAuthUIBasePath(basePath string) AuthUIOption {
@@ -292,6 +293,16 @@ func WithAuthUICSRFSecureKey(key []byte) AuthUIOption {
 	}
 }
 
+// WithAuthUIBrowserProtection reuses one browser-bound CSRF contract across
+// Auth UI, registration UI, and onboarding routes.
+func WithAuthUIBrowserProtection(protection *AuthUIBrowserProtection) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && protection != nil {
+			opts.browserProtection = protection
+		}
+	}
+}
+
 // WithAuthUIPasswordResetEnabled overrides the password reset feature guard.
 func WithAuthUIPasswordResetEnabled(fn func(admin.Config) bool) AuthUIOption {
 	return func(opts *authUIOptions) {
@@ -493,29 +504,48 @@ func validateAuthUIRouteCookie(routeAuth *auth.RouteAuthenticator, options authU
 }
 
 func authUICSRFMiddleware(options authUIOptions, cfg admin.Config) (router.MiddlewareFunc, error) {
-	csrfSecureKey, err := resolveAuthUICSRFSecureKey(options, cfg)
-	if err != nil {
-		return nil, err
+	protection := options.browserProtection
+	if protection == nil {
+		protectionOptions := []AuthUIBrowserProtectionOption{}
+		if len(options.csrfSecureKey) > 0 {
+			protectionOptions = append(protectionOptions, WithAuthUIBrowserProtectionSecureKey(options.csrfSecureKey))
+		}
+		var err error
+		protection, err = NewAuthUIBrowserProtection(cfg, protectionOptions...)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return csrfmw.New(csrfmw.Config{
-		SecureKey: csrfSecureKey,
-		ErrorHandler: func(c router.Context, err error) error {
-			if isRecoverableAuthUILoginCSRFFailure(c, options, err) {
-				return c.Redirect(
-					buildLoginFailureRedirect(
-						options.loginPath,
-						options.loginErrorQueryKey,
-						authUILoginCSRFExpiredErrorCode,
-						"",
-						"",
-						"",
-						false,
-					),
-					fiber.StatusSeeOther,
-				)
-			}
-			return c.Status(fiber.StatusForbidden).SendString(err.Error())
-		},
+	return protection.HTMLMiddleware(func(c router.Context, err error) error {
+		if isRecoverableAuthUILoginCSRFFailure(c, options, err) {
+			return c.Redirect(
+				buildLoginFailureRedirect(
+					options.loginPath,
+					options.loginErrorQueryKey,
+					authUILoginCSRFExpiredErrorCode,
+					"",
+					"",
+					"",
+					false,
+				),
+				fiber.StatusSeeOther,
+			)
+		}
+		if isRecoverableAuthUILogoutCSRFFailure(c, options, err) {
+			return c.Redirect(
+				buildLoginFailureRedirect(
+					options.loginPath,
+					options.loginErrorQueryKey,
+					authUIActionCSRFExpiredErrorCode,
+					"",
+					"",
+					"",
+					false,
+				),
+				fiber.StatusSeeOther,
+			)
+		}
+		return authUIBrowserCSRFHTMLFailure(c, err)
 	}), nil
 }
 
@@ -526,9 +556,17 @@ func isRecoverableAuthUILoginCSRFFailure(c router.Context, options authUIOptions
 	if strings.TrimSpace(c.Path()) != strings.TrimSpace(options.loginPath) {
 		return false
 	}
-	return errors.Is(err, csrfmw.ErrTokenExpired) ||
-		errors.Is(err, csrfmw.ErrTokenMismatch) ||
-		errors.Is(err, csrfmw.ErrTokenMissing)
+	return isAuthUIBrowserCSRFValidationFailure(err)
+}
+
+func isRecoverableAuthUILogoutCSRFFailure(c router.Context, options authUIOptions, err error) bool {
+	if c == nil || !strings.EqualFold(strings.TrimSpace(c.Method()), fiber.MethodPost) {
+		return false
+	}
+	if strings.TrimSpace(c.Path()) != strings.TrimSpace(options.logoutPath) {
+		return false
+	}
+	return isAuthUIBrowserCSRFValidationFailure(err)
 }
 
 func registerAuthUILoginRoutes[T any](r router.Router[T], runtime authUIRouteRuntime) {
@@ -630,7 +668,7 @@ func registerAuthUIPasswordResetRoutes[T any](r router.Router[T], runtime authUI
 		}, options.passwordResetTitle, options.themeAssets, options.themeAssetPrefix, runtime.authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.passwordResetTemplate, viewCtx)
-	})
+	}, runtime.csrfMiddleware)
 
 	confirmHandler := func(c router.Context) error {
 		authState := AuthUIState{
@@ -657,14 +695,14 @@ func registerAuthUIPasswordResetRoutes[T any](r router.Router[T], runtime authUI
 		return templateview.RenderTemplateView(c, options.passwordResetConfirmTemplate, viewCtx)
 	}
 
-	r.Get(options.passwordResetConfirmPath, confirmHandler)
+	r.Get(options.passwordResetConfirmPath, confirmHandler, runtime.csrfMiddleware)
 	if strings.Contains(options.passwordResetConfirmPath, ":") {
 		if runtime.confirmBasePath != "" && runtime.confirmBasePath != options.passwordResetConfirmPath {
-			r.Get(runtime.confirmBasePath, confirmHandler)
+			r.Get(runtime.confirmBasePath, confirmHandler, runtime.csrfMiddleware)
 		}
 	} else {
 		confirmTokenPath := strings.TrimRight(options.passwordResetConfirmPath, "/") + "/:token"
-		r.Get(confirmTokenPath, confirmHandler)
+		r.Get(confirmTokenPath, confirmHandler, runtime.csrfMiddleware)
 	}
 }
 
@@ -794,6 +832,8 @@ func resolveLoginErrorMessage(code string) string {
 		return "Unable to sign in due to session size limits. Contact support."
 	case authUILoginCSRFExpiredErrorCode:
 		return "The sign-in form expired. Please enter your credentials and try again."
+	case authUIActionCSRFExpiredErrorCode:
+		return "The form expired. Please sign in and try again."
 	default:
 		return "Unable to sign in. Please try again."
 	}

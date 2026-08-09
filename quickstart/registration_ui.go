@@ -32,6 +32,7 @@ type registrationUIOptions struct {
 	themeAssetPrefix    string
 	themeAdmin          *admin.Admin
 	featureGate         fggate.FeatureGate
+	browserProtection   *AuthUIBrowserProtection
 }
 
 // WithRegistrationUIBasePath overrides the base path used by registration UI routes.
@@ -105,6 +106,16 @@ func WithRegistrationUIFeatureGate(gate fggate.FeatureGate) RegistrationUIOption
 	}
 }
 
+// WithRegistrationUIBrowserProtection reuses the public Auth UI browser CSRF
+// contract used by the matching onboarding POST endpoints.
+func WithRegistrationUIBrowserProtection(protection *AuthUIBrowserProtection) RegistrationUIOption {
+	return func(opts *registrationUIOptions) {
+		if opts != nil && protection != nil {
+			opts.browserProtection = protection
+		}
+	}
+}
+
 // WithRegistrationUIMode overrides the registration mode label in the view context.
 func WithRegistrationUIMode(fn func(admin.Config) string) RegistrationUIOption {
 	return func(opts *registrationUIOptions) {
@@ -173,6 +184,14 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 		options.title = "Register"
 	}
 	options.viewContext = resolveQuickstartRegistrationUIViewContextBuilder(options.viewContext)
+	protection := options.browserProtection
+	if protection == nil {
+		var err error
+		protection, err = NewAuthUIBrowserProtection(cfg)
+		if err != nil {
+			return err
+		}
+	}
 
 	registrationMode := ""
 	if options.registrationMode != nil {
@@ -204,7 +223,7 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 		viewCtx["registration_mode"] = registrationMode
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.template, viewCtx)
-	})
+	}, protection.HTMLMiddleware(nil))
 
 	return nil
 }

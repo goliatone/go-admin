@@ -528,13 +528,18 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		if message, _ := c.Locals(BrowserCSRFErrorMessageLocal).(string); strings.TrimSpace(message) != "" {
+			return c.SendString(message)
+		}
 		csrfToken := mustAs[string](c.Locals(csrfmw.DefaultContextKey))
 		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}
 		return c.SendString(csrfToken)
 	}))
+	browserMutationCalls := 0
 	server.Router().Post("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		browserMutationCalls++
 		return c.SendStatus(http.StatusOK)
 	}))
 	server.Router().Post("/admin/api/dashboard/config", authenticator.WrapHandler(func(c router.Context) error {
@@ -558,6 +563,31 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 		t.Fatalf("expected browser route header token to match rendered token")
 	}
 
+	staleBrowserPostReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/preferences", strings.NewReader("theme=dark"))
+	staleBrowserPostReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	staleBrowserPostReq.Header.Set("Origin", "http://example.com")
+	staleBrowserPostReq.Header.Set("Referer", "http://example.com/admin/preferences")
+	staleBrowserPostReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	staleBrowserPostRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(staleBrowserPostRes, staleBrowserPostReq)
+	if staleBrowserPostRes.Code != http.StatusSeeOther {
+		t.Fatalf("expected stale browser mutation recovery status 303, got %d body=%s", staleBrowserPostRes.Code, staleBrowserPostRes.Body.String())
+	}
+	staleLocation := staleBrowserPostRes.Header().Get("Location")
+	if staleLocation != "/admin/preferences?csrf_error=form_expired" {
+		t.Fatalf("unexpected stale browser recovery location %q", staleLocation)
+	}
+	if browserMutationCalls != 0 {
+		t.Fatalf("stale browser mutation was replayed; calls=%d", browserMutationCalls)
+	}
+	staleRecoveryReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com"+staleLocation, nil)
+	staleRecoveryReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	staleRecoveryRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(staleRecoveryRes, staleRecoveryReq)
+	if staleRecoveryRes.Code != http.StatusOK || strings.TrimSpace(staleRecoveryRes.Body.String()) != BrowserCSRFFormExpiredMessage {
+		t.Fatalf("expected stale-form recovery message, got %d body=%q", staleRecoveryRes.Code, staleRecoveryRes.Body.String())
+	}
+
 	browserPostReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/preferences", strings.NewReader("theme=dark"))
 	browserPostReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	browserPostReq.Header.Set("Origin", "http://example.com")
@@ -567,6 +597,9 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(browserPostRes, browserPostReq)
 	if browserPostRes.Code != http.StatusOK {
 		t.Fatalf("expected browser post status 200, got %d body=%s", browserPostRes.Code, browserPostRes.Body.String())
+	}
+	if browserMutationCalls != 1 {
+		t.Fatalf("expected valid browser mutation once, calls=%d", browserMutationCalls)
 	}
 
 	apiReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))

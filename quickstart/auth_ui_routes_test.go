@@ -203,12 +203,23 @@ func expiredAuthUICSRFToken(t *testing.T, secureKey []byte) string {
 
 func TestAuthUICSRFMiddlewareRecoversConfiguredLoginTokenFailures(t *testing.T) {
 	secureKey := []byte("01234567890123456789012345678901")
+	cfg := NewAdminConfig("/control", "Control", "en")
+	protection, err := NewAuthUIBrowserProtection(
+		cfg,
+		WithAuthUIBrowserProtectionSecureKey(secureKey),
+		WithAuthUIBrowserProtectionOriginConfig(router.OriginProtectionConfig{
+			Skip: func(router.Context) bool { return true },
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create Auth UI browser protection: %v", err)
+	}
 	options := authUIOptions{
 		loginPath:          "/control/sign-in",
 		loginErrorQueryKey: "error",
-		csrfSecureKey:      secureKey,
+		browserProtection:  protection,
 	}
-	middleware, err := authUICSRFMiddleware(options, NewAdminConfig("/control", "Control", "en"))
+	middleware, err := authUICSRFMiddleware(options, cfg)
 	if err != nil {
 		t.Fatalf("create Auth UI CSRF middleware: %v", err)
 	}
@@ -220,9 +231,13 @@ func TestAuthUICSRFMiddlewareRecoversConfiguredLoginTokenFailures(t *testing.T) 
 	}
 	for name, token := range tests {
 		t.Run(name, func(t *testing.T) {
+			nonce := strings.Repeat("ab", authUIBrowserCSRFNonceBytes)
 			ctx := router.NewMockContext()
+			ctx.CookiesM[authUIBrowserCSRFCookieName] = nonce
+			ctx.LocalsMock[authUIBrowserCSRFLocalKey] = nonce
 			ctx.On("Method").Return(http.MethodPost)
 			ctx.On("Path").Return(options.loginPath)
+			ctx.On("Locals", authUIBrowserCSRFLocalKey, nonce).Return(nil)
 			ctx.On("FormValue", csrfmw.DefaultFormFieldName).Return(token)
 			ctx.On("Locals", csrfmw.DefaultContextKey, mock.Anything).Return(nil)
 			ctx.On("Locals", csrfmw.DefaultContextKey+"_field", csrfmw.DefaultFormFieldName).Return(nil)
@@ -267,7 +282,11 @@ func TestAuthUILoginCSRFRecoveryDoesNotMaskOtherFailuresOrRoutes(t *testing.T) {
 	logoutPost.On("Method").Return(http.MethodPost)
 	logoutPost.On("Path").Return("/admin/logout")
 	if isRecoverableAuthUILoginCSRFFailure(logoutPost, options, csrfmw.ErrTokenExpired) {
-		t.Fatal("expected logout CSRF behavior to remain unchanged")
+		t.Fatal("expected logout CSRF failure not to use login-post classification")
+	}
+	options.logoutPath = "/admin/logout"
+	if !isRecoverableAuthUILogoutCSRFFailure(logoutPost, options, csrfmw.ErrTokenExpired) {
+		t.Fatal("expected logout CSRF failure to use controlled logout recovery")
 	}
 
 	loginGet := router.NewMockContext()
@@ -318,6 +337,7 @@ func TestAuthUIRoutesExpiredLoginCSRFFlowRedirectsAndRendersFreshForm(t *testing
 		strings.NewReader(form.Encode()),
 	)
 	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	postReq.Header.Set("Origin", "http://example.test")
 	postResp, err := server.WrappedRouter().Test(postReq, -1)
 	if err != nil {
 		t.Fatalf("submit expired login form: %v", err)
@@ -438,6 +458,9 @@ func TestAuthUIRoutesRegisterCSRFMiddlewareInRouterChain(t *testing.T) {
 	if got := r.postMiddlewareCounts["/admin/logout"]; got != 1 {
 		t.Fatalf("expected logout POST to register one middleware, got %d", got)
 	}
+	if got := r.getMiddlewareCounts["/admin/password-reset"]; got != 1 {
+		t.Fatalf("expected password-reset GET to register one middleware, got %d", got)
+	}
 }
 
 func TestAuthUIRoutesAllowLogoutMiddlewareOverride(t *testing.T) {
@@ -542,6 +565,9 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 	}
 	r := server.Router()
 	r.Get("/admin/page", func(c router.Context) error {
+		if message, _ := c.Locals(admin.BrowserCSRFErrorMessageLocal).(string); strings.TrimSpace(message) != "" {
+			return c.SendString(message)
+		}
 		token, ok := c.Locals(csrfmw.DefaultContextKey).(string)
 		if !ok {
 			t.Fatalf("expected CSRF token local to be a string")
@@ -581,11 +607,23 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 	missingReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/logout", nil)
 	missingReq.Host = "example.com"
 	missingReq.Header.Set("Origin", "http://example.com")
+	missingReq.Header.Set("Referer", "http://example.com/admin/page")
 	missingReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
 	missingResp := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(missingResp, missingReq)
-	if missingResp.Code == http.StatusFound {
-		t.Fatalf("expected logout POST without CSRF token to fail, got redirect")
+	if missingResp.Code != http.StatusSeeOther {
+		t.Fatalf("expected logout POST without CSRF token to recover with 303, got %d body=%s", missingResp.Code, missingResp.Body.String())
+	}
+	if location := missingResp.Header().Get("Location"); location != "/admin/page?csrf_error=form_expired" {
+		t.Fatalf("unexpected stale logout recovery location %q", location)
+	}
+	recoveryReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/page?csrf_error=form_expired", nil)
+	recoveryReq.Host = "example.com"
+	recoveryReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
+	recoveryResp := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(recoveryResp, recoveryReq)
+	if recoveryResp.Code != http.StatusOK || strings.TrimSpace(recoveryResp.Body.String()) != admin.BrowserCSRFFormExpiredMessage {
+		t.Fatalf("expected controlled stale-form message, got %d body=%q", recoveryResp.Code, recoveryResp.Body.String())
 	}
 
 	form := url.Values{}

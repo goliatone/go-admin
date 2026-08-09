@@ -1541,15 +1541,19 @@ func main() {
 		TokenRepo:    usersDeps.UserTokenRepo,
 		ResetRepo:    usersDeps.ResetRepo,
 	}
+	authUIBrowserProtection, err := quickstart.NewAuthUIBrowserProtection(cfg)
+	if err != nil {
+		fatalf("failed to configure Auth UI browser protection: %v", err)
+	}
 
 	onboardingBase := path.Join(adminAPIBasePath, "onboarding")
 	adminAPI.Post(path.Join(onboardingBase, "invite"), wrapAuthed(onboardingHandlers.Invite))
 	adminAPI.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
 	adminAPI.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
-	adminAPI.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
-	adminAPI.Post(path.Join(onboardingBase, "register", "confirm"), onboardingHandlers.ConfirmRegistration)
-	adminAPI.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
-	adminAPI.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
+	adminAPI.Post(path.Join(onboardingBase, "register"), authUIBrowserProtection.WrapAPI(onboardingHandlers.SelfRegister))
+	adminAPI.Post(path.Join(onboardingBase, "register", "confirm"), authUIBrowserProtection.WrapAPI(onboardingHandlers.ConfirmRegistration))
+	adminAPI.Post(path.Join(onboardingBase, "password", "reset", "request"), authUIBrowserProtection.WrapAPI(onboardingHandlers.RequestPasswordReset))
+	adminAPI.Post(path.Join(onboardingBase, "password", "reset", "confirm"), authUIBrowserProtection.WrapAPI(onboardingHandlers.ConfirmPasswordReset))
 	adminAPI.Get(path.Join(onboardingBase, "token", "metadata"), onboardingHandlers.TokenMetadata)
 
 	uploadsBase := path.Join(adminAPIBasePath, "uploads", "users")
@@ -1725,6 +1729,7 @@ func main() {
 		quickstart.WithAuthUIPasswordResetConfirmPath(passwordResetConfirmPath),
 		quickstart.WithAuthUIRegisterPath(registerPath),
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
+		quickstart.WithAuthUIBrowserProtection(authUIBrowserProtection),
 		quickstart.WithAuthUILogoutAuthenticator(authn),
 		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
@@ -1732,29 +1737,23 @@ func main() {
 		fatalf("failed to register auth UI routes: %v", err)
 	}
 
-	adminUI.Get(registerPath, func(c router.Context) error {
-		if !featureEnabled(adm.FeatureGate(), setup.FeatureSelfRegistration) {
-			return goerrors.New("registration disabled", goerrors.CategoryAuthz).
-				WithCode(fiber.StatusForbidden).
-				WithTextCode("FEATURE_DISABLED")
-		}
-		featureSnapshot := map[string]bool{
-			setup.FeaturePasswordReset:    featureEnabled(adm.FeatureGate(), setup.FeaturePasswordReset),
-			setup.FeatureSelfRegistration: featureEnabled(adm.FeatureGate(), setup.FeatureSelfRegistration),
-		}
-		viewCtx := router.ViewContext{
-			"title":                       cfg.Title,
-			"base_path":                   cfg.BasePath,
-			"password_reset_path":         passwordResetPath,
-			"password_reset_confirm_path": passwordResetConfirmPath,
-			"register_path":               registerPath,
-			"registration_mode":           registrationCfg.Mode,
-		}
-		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
-		viewCtx = quickstart.WithFeatureTemplateContext(viewCtx, c.Context(), fggate.ScopeChain{{Kind: fggate.ScopeSystem}}, featureSnapshot)
-		viewCtx = authUIViewContext(viewCtx, c)
-		return helpers.RenderTemplateView(c, registerTemplate, viewCtx)
-	})
+	if err := quickstart.RegisterRegistrationUIRoutes(
+		adminUI,
+		cfg,
+		quickstart.WithRegistrationUIRegisterPath(registerPath),
+		quickstart.WithRegistrationUIPasswordResetPath(passwordResetPath),
+		quickstart.WithRegistrationUITemplate(registerTemplate),
+		quickstart.WithRegistrationUIEnabled(func(admin.Config) bool {
+			return featureEnabled(adm.FeatureGate(), setup.FeatureSelfRegistration)
+		}),
+		quickstart.WithRegistrationUIFeatureGate(adm.FeatureGate()),
+		quickstart.WithRegistrationUIMode(func(admin.Config) string { return string(registrationCfg.Mode) }),
+		quickstart.WithRegistrationUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
+		quickstart.WithRegistrationUIViewContextBuilder(authUIViewContext),
+		quickstart.WithRegistrationUIBrowserProtection(authUIBrowserProtection),
+	); err != nil {
+		fatalf("failed to register registration UI routes: %v", err)
+	}
 
 	// User tab routes are custom and not part of canonical panel route wiring.
 	adminUI.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))

@@ -71,6 +71,9 @@ Quickstart registers the onboarding API under `<basePath>/api/onboarding`:
 - `GET /token/metadata`
 
 Use `RegisterOnboardingRoutes` plus `WithOnboardingRoutePaths` to override defaults.
+Registration and password-reset mutations are browser-owned endpoints: they
+require the token, opaque pre-auth cookie, and same-origin metadata issued by the
+matching UI page.
 
 ## Auth + registration UI routes
 
@@ -93,7 +96,9 @@ CSRF behavior:
 
 - Browser forms served by the auth UI include CSRF helpers automatically (`csrf_field`, `csrf_meta`).
 - If you replace the built-in form submissions with custom JavaScript, include `X-CSRF-Token` from `meta[name="csrf-token"]` on unsafe same-origin requests.
-- Programmatic onboarding API calls made with Bearer auth do not need browser form fields, but cookie-backed browser calls still follow the CSRF contract.
+- Public registration and password-reset API calls must first load the matching UI page and preserve its pre-auth cookie; direct non-browser clients should use a separate host-owned API contract.
+- Missing, cross-client, expired, and cross-origin public-browser requests are rejected before onboarding handlers execute.
+- Reuse one `AuthUIBrowserProtection` across all three registrars. This prevents custom signing keys or cookie settings from drifting between the page that issues a token and the endpoint that validates it.
 
 ## Token lifecycle + replay protection
 
@@ -163,11 +168,19 @@ Use quickstart options to override routes, templates, and view context:
 secureCfg := quickstart.DefaultSecureLinkConfig(cfg.BasePath)
 secureCfg.SigningKey = "replace-with-real-key"
 
+browserProtection, err := quickstart.NewAuthUIBrowserProtection(
+	cfg,
+	quickstart.WithAuthUIBrowserProtectionSecureKey([]byte("replace-with-at-least-32-shared-bytes")),
+)
+if err != nil {
+	return err
+}
+
 if err := quickstart.RegisterAuthUIRoutes(
 	r,
 	cfg,
-	auther,
-	authCookieName,
+	routeAuth,
+	quickstart.WithAuthUIBrowserProtection(browserProtection),
 	quickstart.WithAuthUITemplates("login_custom", "password_reset_custom"),
 	quickstart.WithAuthUIPasswordResetConfirmTemplate("password_reset_confirm_custom"),
 	quickstart.WithAuthUIRegisterPath(path.Join(cfg.BasePath, "signup")),
@@ -182,12 +195,22 @@ if err := quickstart.RegisterAuthUIRoutes(
 if err := quickstart.RegisterRegistrationUIRoutes(
 	r,
 	cfg,
+	quickstart.WithRegistrationUIBrowserProtection(browserProtection),
 	quickstart.WithRegistrationUITemplate("signup"),
 	quickstart.WithRegistrationUIViewContextBuilder(func(ctx router.ViewContext, _ router.Context) router.ViewContext {
 		ctx["token_query_key"] = secureCfg.QueryKey
 		ctx["token_as_query"] = secureCfg.AsQuery
 		return ctx
 	}),
+); err != nil {
+	return err
+}
+
+if err := quickstart.RegisterOnboardingRoutes(
+	r,
+	cfg,
+	onboardingHandlers,
+	quickstart.WithOnboardingBrowserProtection(browserProtection),
 ); err != nil {
 	return err
 }

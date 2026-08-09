@@ -188,6 +188,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   const debugToolbarSource = readSource('../src/debug/toolbar/debug-toolbar.ts');
   const registerTemplateSource = readSource('../../templates/register.html');
   const layoutTemplateSource = readSource('../../templates/layout.html');
+  const csrfRecoveryAlertSource = readSource('../../templates/partials/csrf-recovery-alert.html');
   const loginLayoutTemplateSource = readSource('../../templates/login-layout.html');
   const debugStandaloneTemplateSource = readSource('../../templates/resources/debug/index.html');
   const browserGlobalsSource = readSource('../src/shared/transport/browser-globals.ts');
@@ -229,6 +230,9 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   assert.match(browserGlobalsSource, /from '\.\/http-client\.js'/);
   assert.match(browserGlobalsSource, /return httpRequestWith\(fetch\.bind\(globalThis\), input, init\);/);
   assert.match(layoutTemplateSource, /assets\/dist\/runtime\/go-admin-browser\.js/);
+  assert.match(layoutTemplateSource, /partials\/csrf-recovery-alert\.html/);
+  assert.match(csrfRecoveryAlertSource, /role="alert"/);
+  assert.match(csrfRecoveryAlertSource, /csrf_error_message/);
   assert.match(loginLayoutTemplateSource, /assets\/dist\/runtime\/go-admin-browser\.js/);
   assert.match(debugStandaloneTemplateSource, /\{\{\s*csrf_meta\|safe\s*\}\}/);
   assert.doesNotMatch(layoutTemplateSource, /window\.goAdminFetch = function/);

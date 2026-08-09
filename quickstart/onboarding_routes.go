@@ -51,10 +51,11 @@ type OnboardingRoutePaths struct {
 type OnboardingRouteOption func(*onboardingRouteOptions)
 
 type onboardingRouteOptions struct {
-	basePath  string
-	paths     OnboardingRoutePaths
-	auth      admin.HandlerAuthenticator
-	protected map[OnboardingRouteKey]bool
+	basePath          string
+	paths             OnboardingRoutePaths
+	auth              admin.HandlerAuthenticator
+	protected         map[OnboardingRouteKey]bool
+	browserProtection *AuthUIBrowserProtection
 }
 
 // WithOnboardingBasePath overrides the onboarding API base path.
@@ -80,6 +81,16 @@ func WithOnboardingAuth(auth admin.HandlerAuthenticator) OnboardingRouteOption {
 	return func(opts *onboardingRouteOptions) {
 		if opts != nil {
 			opts.auth = auth
+		}
+	}
+}
+
+// WithOnboardingBrowserProtection reuses the public Auth UI browser CSRF
+// contract that issued tokens to registration and password-reset pages.
+func WithOnboardingBrowserProtection(protection *AuthUIBrowserProtection) OnboardingRouteOption {
+	return func(opts *onboardingRouteOptions) {
+		if opts != nil && protection != nil {
+			opts.browserProtection = protection
 		}
 	}
 }
@@ -137,6 +148,14 @@ func RegisterOnboardingRoutes[T any](r router.Router[T], cfg admin.Config, handl
 	}
 	defaultPaths := DefaultOnboardingRoutePaths(options.basePath)
 	options.paths = mergeOnboardingPaths(defaultPaths, options.paths)
+	protection := options.browserProtection
+	if protection == nil {
+		var err error
+		protection, err = NewAuthUIBrowserProtection(cfg)
+		if err != nil {
+			return err
+		}
+	}
 
 	wrap := func(key OnboardingRouteKey, handler router.HandlerFunc) router.HandlerFunc {
 		if handler == nil {
@@ -145,19 +164,34 @@ func RegisterOnboardingRoutes[T any](r router.Router[T], cfg admin.Config, handl
 		if options.auth != nil && options.protected[key] {
 			return options.auth.WrapHandler(handler)
 		}
+		if onboardingRouteUsesPublicBrowserCSRF(key) {
+			return protection.WrapAPI(handler)
+		}
 		return handler
 	}
 
 	registerOptionalPostRoute(r, options.paths.Invite, wrap(OnboardingRouteInvite, handlers.Invite))
 	registerOptionalGetRoute(r, options.paths.InviteVerify, handlers.VerifyInvite)
-	registerOptionalPostRoute(r, options.paths.InviteAccept, handlers.AcceptInvite)
-	registerOptionalPostRoute(r, options.paths.Register, handlers.SelfRegister)
-	registerOptionalPostRoute(r, options.paths.RegisterConfirm, handlers.ConfirmRegistration)
-	registerOptionalPostRoute(r, options.paths.PasswordResetRequest, handlers.RequestPasswordReset)
-	registerOptionalPostRoute(r, options.paths.PasswordResetConfirm, handlers.ConfirmPasswordReset)
+	registerOptionalPostRoute(r, options.paths.InviteAccept, wrap(OnboardingRouteInviteAccept, handlers.AcceptInvite))
+	registerOptionalPostRoute(r, options.paths.Register, wrap(OnboardingRouteRegister, handlers.SelfRegister))
+	registerOptionalPostRoute(r, options.paths.RegisterConfirm, wrap(OnboardingRouteRegisterConfirm, handlers.ConfirmRegistration))
+	registerOptionalPostRoute(r, options.paths.PasswordResetRequest, wrap(OnboardingRoutePasswordResetRequest, handlers.RequestPasswordReset))
+	registerOptionalPostRoute(r, options.paths.PasswordResetConfirm, wrap(OnboardingRoutePasswordResetConfirm, handlers.ConfirmPasswordReset))
 	registerOptionalGetRoute(r, options.paths.TokenMetadata, handlers.TokenMetadata)
 
 	return nil
+}
+
+func onboardingRouteUsesPublicBrowserCSRF(key OnboardingRouteKey) bool {
+	switch key {
+	case OnboardingRouteRegister,
+		OnboardingRouteRegisterConfirm,
+		OnboardingRoutePasswordResetRequest,
+		OnboardingRoutePasswordResetConfirm:
+		return true
+	default:
+		return false
+	}
 }
 
 func registerOptionalGetRoute[T any](r router.Router[T], route string, handler router.HandlerFunc) {

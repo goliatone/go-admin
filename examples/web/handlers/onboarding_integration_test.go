@@ -18,6 +18,7 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
@@ -277,7 +278,15 @@ func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDepe
 	})
 
 	r := adapter.Router()
-	err := quickstart.RegisterOnboardingRoutes(r, cfg, quickstart.OnboardingHandlers{
+	protection, err := quickstart.NewAuthUIBrowserProtection(cfg)
+	if err != nil {
+		t.Fatalf("create onboarding browser protection: %v", err)
+	}
+	r.Get("/admin/onboarding-csrf", func(c router.Context) error {
+		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		return c.SendString(token)
+	}, protection.HTMLMiddleware(nil))
+	err = quickstart.RegisterOnboardingRoutes(r, cfg, quickstart.OnboardingHandlers{
 		Invite:               onboardingHandlers.Invite,
 		VerifyInvite:         onboardingHandlers.VerifyInvite,
 		AcceptInvite:         onboardingHandlers.AcceptInvite,
@@ -286,7 +295,7 @@ func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDepe
 		RequestPasswordReset: onboardingHandlers.RequestPasswordReset,
 		ConfirmPasswordReset: onboardingHandlers.ConfirmPasswordReset,
 		TokenMetadata:        onboardingHandlers.TokenMetadata,
-	})
+	}, quickstart.WithOnboardingBrowserProtection(protection))
 	if err != nil {
 		t.Fatalf("register onboarding routes: %v", err)
 	}
@@ -297,6 +306,26 @@ func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDepe
 
 func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, body map[string]any) (map[string]any, int) {
 	t.Helper()
+	var csrfToken string
+	var csrfCookie *http.Cookie
+	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete {
+		csrfResponse, err := app.Test(httptest.NewRequest(http.MethodGet, "http://example.com/admin/onboarding-csrf", nil), -1)
+		if err != nil {
+			t.Fatalf("request onboarding csrf token: %v", err)
+		}
+		rawToken, _ := io.ReadAll(csrfResponse.Body)
+		csrfResponse.Body.Close()
+		csrfToken = strings.TrimSpace(string(rawToken))
+		for _, cookie := range csrfResponse.Cookies() {
+			if cookie.Name == quickstart.AuthUIBrowserCSRFCookieName {
+				csrfCookie = cookie
+				break
+			}
+		}
+		if csrfToken == "" || csrfCookie == nil {
+			t.Fatal("expected onboarding csrf token and browser cookie")
+		}
+	}
 
 	var reader io.Reader
 	if body != nil {
@@ -310,6 +339,11 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+	}
+	if csrfToken != "" {
+		req.Header.Set("Origin", "http://example.com")
+		req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
+		req.AddCookie(csrfCookie)
 	}
 
 	resp, err := app.Test(req, -1)

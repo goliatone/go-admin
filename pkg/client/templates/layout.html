@@ -56,6 +56,7 @@
     {% include "partials/sidebar.html" %}
     <script src="{{ asset_base_path }}/assets/sidebar.js"></script>
     <main class="admin-main flex-1 min-w-0 flex flex-col overflow-hidden">
+      {% include "partials/csrf-recovery-alert.html" %}
       {% block content %}{% endblock %}
     </main>
   </div>

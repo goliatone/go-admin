@@ -51,6 +51,7 @@ type GoAuthAuthenticator struct {
 	authConfig            auth.Config
 	optionalAuth          bool
 	authErrorHandler      func(router.Context, error) error
+	browserProtection     *auth.BrowserProtectionConfig
 	protectedSurfaceScope ProtectedSurfaceScope
 	browserRoots          []string
 	apiRoots              []string
@@ -146,7 +147,12 @@ func resolveProtectedRouteMiddleware(
 		return nil
 	}
 	protectedRoute := authenticator.routeAuth.ProtectedRoute(authenticator.authConfig, handler)
-	protectedBrowserRoute := resolveProtectedBrowserRouteMiddleware(authenticator.routeAuth, authenticator.authConfig, handler)
+	protectedBrowserRoute := resolveProtectedBrowserRouteMiddleware(
+		authenticator.routeAuth,
+		authenticator.authConfig,
+		handler,
+		authenticator.resolveBrowserProtectionConfig(),
+	)
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		browserHandler := protectedBrowserRoute(next)
 		routeHandler := protectedRoute(func(c router.Context) error {
@@ -165,6 +171,7 @@ func resolveProtectedRouteMiddleware(
 			if authenticator.isProtectedAPIRequest(c) {
 				return routeHandler(c)
 			}
+			applyBrowserCSRFRecoveryContext(c)
 			return browserHandler(c)
 		}
 	}
@@ -195,11 +202,12 @@ func resolveProtectedBrowserRouteMiddleware(
 	routeAuth *auth.RouteAuthenticator,
 	cfg auth.Config,
 	handler func(router.Context, error) error,
+	protection auth.BrowserProtectionConfig,
 ) router.MiddlewareFunc {
 	if routeAuth == nil {
 		return nil
 	}
-	return routeAuth.ProtectedBrowserRoute(cfg, handler)
+	return routeAuth.ProtectedBrowserRoute(cfg, handler, protection)
 }
 
 func resolveProtectedSurfaceRoots(authenticator *GoAuthAuthenticator) ([]string, []string) {
@@ -422,6 +430,17 @@ func WithAuthErrorHandler(handler func(router.Context, error) error) GoAuthAuthe
 	return func(g *GoAuthAuthenticator) {
 		if g != nil && handler != nil {
 			g.authErrorHandler = handler
+		}
+	}
+}
+
+// WithBrowserProtectionConfig overrides the browser CSRF/origin protection
+// contract while retaining controlled go-admin defaults for omitted handlers.
+func WithBrowserProtectionConfig(config auth.BrowserProtectionConfig) GoAuthAuthenticatorOption {
+	return func(g *GoAuthAuthenticator) {
+		if g != nil {
+			copy := config
+			g.browserProtection = &copy
 		}
 	}
 }
