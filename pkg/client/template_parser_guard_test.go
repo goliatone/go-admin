@@ -13,6 +13,7 @@ func TestTemplatesAvoidUnsupportedSyntax(t *testing.T) {
 	violations := []string{}
 	unsupportedIfTest := regexp.MustCompile(`{%\s*(?:if|elif)\b[^%}]*\bis\b`)
 	unsupportedTagConcat := regexp.MustCompile(`{%(?:[^%}]|"[^"]*"|'[^']*')*~`)
+	unsupportedDjangoForloopField := regexp.MustCompile(`\bforloop\.(?:counter|counter0|revcounter|revcounter0|first|last|parentloop)\b`)
 
 	err := fs.WalkDir(tplFS, ".", func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -44,6 +45,9 @@ func TestTemplatesAvoidUnsupportedSyntax(t *testing.T) {
 			if unsupportedTagConcat.MatchString(line) {
 				violations = append(violations, fmt.Sprintf("%s:%d", path, idx+1))
 			}
+			if unsupportedDjangoForloopField.MatchString(line) {
+				violations = append(violations, fmt.Sprintf("%s:%d", path, idx+1))
+			}
 		}
 		return nil
 	})
@@ -51,6 +55,6 @@ func TestTemplatesAvoidUnsupportedSyntax(t *testing.T) {
 		t.Fatalf("walk templates: %v", err)
 	}
 	if len(violations) != 0 {
-		t.Fatalf("found unsupported literal defaults in templates: %s", strings.Join(violations, ", "))
+		t.Fatalf("found unsupported syntax in templates: %s", strings.Join(violations, ", "))
 	}
 }

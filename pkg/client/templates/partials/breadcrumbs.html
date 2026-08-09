@@ -2,7 +2,7 @@
 <nav aria-label="Breadcrumb" class="mb-2">
   <ol class="flex flex-wrap items-center gap-2 text-sm">
     {% for crumb in breadcrumbs %}
-      {% if not forloop.first %}
+      {% if not forloop.First %}
       <li aria-hidden="true" class="text-gray-400">/</li>
       {% endif %}
       <li class="min-w-0">
