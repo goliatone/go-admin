@@ -449,6 +449,7 @@ export function renderPaginationButtons(grid: any, total: number): void {
     buttons.push(`
       <button type="button"
               data-page="${current - 1}"
+              aria-label="Previous page"
               ${current === 1 ? 'disabled' : ''}
               class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
         <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -458,27 +459,24 @@ export function renderPaginationButtons(grid: any, total: number): void {
       </button>
     `);
 
-    // Page numbers
-    const maxButtons = 5;
-    let startPage = Math.max(1, current - Math.floor(maxButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-
-    if (endPage - startPage < maxButtons - 1) {
-      startPage = Math.max(1, endPage - maxButtons + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      const isActive = i === current;
+    // Page numbers retain first/last reachability and communicate skipped ranges.
+    for (const item of paginationWindow(totalPages, current)) {
+      if (item === 'ellipsis') {
+        buttons.push('<span class="admin-datagrid__page-ellipsis min-w-[24px] text-center text-gray-500" aria-hidden="true">…</span>');
+        continue;
+      }
+      const isActive = item === current;
       buttons.push(`
         <button type="button"
-                data-page="${i}"
+                data-page="${item}"
+                aria-label="Page ${item}"
                 ${isActive ? 'aria-current="page"' : ''}
                 class="min-h-[38px] min-w-[38px] flex justify-center items-center ${
                   isActive
                     ? 'bg-gray-200 text-gray-800 focus:outline-none focus:bg-gray-300'
                     : 'text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100'
                 } admin-datagrid__page-button py-2 px-3 text-sm rounded-lg">
-          ${i}
+          ${item}
         </button>
       `);
     }
@@ -487,6 +485,7 @@ export function renderPaginationButtons(grid: any, total: number): void {
     buttons.push(`
       <button type="button"
               data-page="${current + 1}"
+              aria-label="Next page"
               ${current === totalPages ? 'disabled' : ''}
               class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
         <span>Next</span>
@@ -514,3 +513,12 @@ export function renderPaginationButtons(grid: any, total: number): void {
       });
     });
   }
+
+export function paginationWindow(totalPages: number, currentPage: number): Array<number | 'ellipsis'> {
+  const total = Math.max(0, Math.floor(totalPages));
+  const current = Math.min(Math.max(1, Math.floor(currentPage)), Math.max(total, 1));
+  if (total <= 7) return Array.from({ length: total }, (_value, index) => index + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, 'ellipsis', total];
+  if (current >= total - 3) return [1, 'ellipsis', total - 4, total - 3, total - 2, total - 1, total];
+  return [1, 'ellipsis', current - 1, current, current + 1, 'ellipsis', total];
+}

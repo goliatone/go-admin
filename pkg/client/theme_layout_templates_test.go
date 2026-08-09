@@ -72,3 +72,26 @@ func TestAdminLayoutHeadExtraFollowsSharedStylesheets(t *testing.T) {
 		t.Fatal("head_extra must follow the shared stylesheet so product CSS can compose predictably")
 	}
 }
+
+func TestAdminLayoutLoadsSidebarStateBeforeSharedStylesheetsAndRuntime(t *testing.T) {
+	template := mustReadClientTemplate(t, "layout.html")
+	prePaint := strings.Index(template, `assets/sidebar-state.js`)
+	shellStyles := strings.Index(template, `assets/output.css`)
+	sidebarMarkup := strings.Index(template, `{% include "partials/sidebar.html" %}`)
+	runtime := strings.Index(template, `assets/sidebar.js`)
+	if prePaint < 0 || shellStyles < 0 || sidebarMarkup < 0 || runtime < 0 {
+		t.Fatal("layout must include the sidebar pre-paint, stylesheet, markup, and runtime contracts")
+	}
+	if !(prePaint < shellStyles && shellStyles < sidebarMarkup && sidebarMarkup < runtime) {
+		t.Fatalf(
+			"sidebar asset order must be pre-paint < styles < markup < runtime; got %d < %d < %d < %d",
+			prePaint,
+			shellStyles,
+			sidebarMarkup,
+			runtime,
+		)
+	}
+	if !strings.Contains(template, `data-admin-sidebar-state`) {
+		t.Fatal("sidebar pre-paint asset must expose a stable layout marker")
+	}
+}

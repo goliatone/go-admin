@@ -1047,12 +1047,17 @@ export function bindDropdownToggles(grid: any): void {
       }
     });
 
-    const closeGenericDropdowns = () => {
+    const closeGenericDropdowns = (restoreFocus = false) => {
       document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
         const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
         const target = document.getElementById(targetId || '');
         if (target) {
           target.classList.add('hidden');
+          toggle.setAttribute('aria-expanded', 'false');
+          if (restoreFocus && target.getAttribute('data-dropdown-open') === 'true') {
+            (toggle as HTMLElement).focus();
+          }
+          target.removeAttribute('data-dropdown-open');
         }
       });
     };
@@ -1069,15 +1074,29 @@ export function bindDropdownToggles(grid: any): void {
       event.stopPropagation();
 
       if (target) {
+        const opening = target.classList.contains('hidden');
         document.querySelectorAll('[data-dropdown-toggle]').forEach((otherToggle) => {
           const otherId = (otherToggle as HTMLElement).dataset.dropdownToggle;
           const otherTarget = document.getElementById(otherId || '');
           if (otherTarget && otherTarget !== target) {
             otherTarget.classList.add('hidden');
+            otherToggle.setAttribute('aria-expanded', 'false');
+            otherTarget.removeAttribute('data-dropdown-open');
           }
         });
 
         target.classList.toggle('hidden');
+        toggle.setAttribute('aria-expanded', String(opening));
+        if (opening) {
+          target.setAttribute('data-dropdown-open', 'true');
+          const focusTarget = target.querySelector<HTMLElement>(
+            '[role="option"], [role="menuitem"], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          focusTarget?.focus();
+        } else {
+          target.removeAttribute('data-dropdown-open');
+          toggle.focus();
+        }
       }
     }, { signal });
 
@@ -1108,7 +1127,7 @@ export function bindDropdownToggles(grid: any): void {
     // ESC key closes all generic dropdowns. Row action menus are closed by the shared primitive.
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        closeGenericDropdowns();
+        closeGenericDropdowns(true);
       }
     }, { signal });
   }

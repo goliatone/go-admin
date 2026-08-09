@@ -57,6 +57,7 @@ export class FilterBuilder {
   private previewElement: HTMLElement | null = null;
   private sqlPreviewElement: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
+  private toggleButton: HTMLElement | null = null;
   private notifier: ToastNotifier;
 
   constructor(config: FilterBuilderConfig) {
@@ -80,9 +81,9 @@ export class FilterBuilder {
     this.buildPanelStructure();
 
     // Bind toggle button
-    const toggleBtn = document.getElementById('filter-toggle-btn');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => this.toggle());
+    this.toggleButton = document.getElementById('filter-toggle-btn');
+    if (this.toggleButton) {
+      this.toggleButton.addEventListener('click', () => this.toggle());
     }
 
     // Bind clear filters
@@ -93,13 +94,13 @@ export class FilterBuilder {
 
     // Close on overlay click
     if (this.overlay) {
-      this.overlay.addEventListener('click', () => this.close());
+      this.overlay.addEventListener('click', () => this.close(true));
     }
 
     // Close on Escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !this.panel!.classList.contains('hidden')) {
-        this.close();
+        this.close(true);
       }
     });
 
@@ -589,7 +590,7 @@ export class FilterBuilder {
 
   private applyFilters(): void {
     this.config.onApply(this.structure);
-    this.close();
+    this.close(true);
   }
 
   private clearAll(): void {
@@ -634,26 +635,55 @@ export class FilterBuilder {
     if (this.panel?.classList.contains('hidden')) {
       this.open();
     } else {
-      this.close();
+      this.close(true);
     }
   }
 
   private open(): void {
-    // Position panel below the filter button
-    const toggleBtn = document.getElementById('filter-toggle-btn');
-    if (toggleBtn && this.panel) {
-      const rect = toggleBtn.getBoundingClientRect();
-      this.panel.style.top = `${rect.bottom + 8}px`;
-      this.panel.style.left = `${rect.left}px`;
-    }
+    if (!this.panel || !this.toggleButton) return;
 
-    this.panel?.classList.remove('hidden');
+    const margin = 8;
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport?.offsetLeft ?? 0;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const viewportRight = viewportLeft + viewportWidth;
+    const viewportBottom = viewportTop + viewportHeight;
+    const triggerRect = this.toggleButton.getBoundingClientRect();
+
+    this.panel.classList.remove('hidden');
+    this.panel.style.visibility = 'hidden';
+    const panelRect = this.panel.getBoundingClientRect();
+    const availableWidth = Math.max(0, viewportWidth - margin * 2);
+    const panelWidth = Math.min(panelRect.width || 800, availableWidth);
+    const panelHeight = panelRect.height || this.panel.scrollHeight;
+    const left = Math.min(
+      Math.max(triggerRect.left, viewportLeft + margin),
+      Math.max(viewportLeft + margin, viewportRight - margin - panelWidth),
+    );
+    const belowTop = triggerRect.bottom + margin;
+    const roomBelow = viewportBottom - margin - belowTop;
+    const roomAbove = triggerRect.top - margin - viewportTop;
+    const top = panelHeight > roomBelow && roomAbove > roomBelow
+      ? Math.max(viewportTop + margin, triggerRect.top - margin - Math.min(panelHeight, roomAbove))
+      : Math.max(viewportTop + margin, belowTop);
+
+    this.panel.style.left = `${left}px`;
+    this.panel.style.top = `${top}px`;
+    this.panel.style.maxWidth = `${availableWidth}px`;
+    this.panel.style.maxHeight = `${Math.max(0, viewportBottom - margin - top)}px`;
+    this.panel.style.visibility = '';
+    this.toggleButton.setAttribute('aria-expanded', 'true');
     this.overlay?.classList.remove('hidden');
+    this.panel.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
   }
 
-  private close(): void {
+  private close(returnFocus: boolean = false): void {
     this.panel?.classList.add('hidden');
     this.overlay?.classList.add('hidden');
+    this.toggleButton?.setAttribute('aria-expanded', 'false');
+    if (returnFocus) this.toggleButton?.focus();
   }
 
   private restoreFromURL(): void {

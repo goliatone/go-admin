@@ -2200,7 +2200,7 @@ If you previously imported quickstart as part of the root module, keep the same 
 
 ## What’s included
 - Navigation: slug-derived menu IDs/lookup, parent scaffolder for grouped/collapsible defaults, canonical content-parent permission helper (`DefaultContentParentPermissions`), idempotent seeding (`SeedNavigation`), deterministic ordering, permission filtering, collapsible state, and view helpers (`WithNav`, `BuildNavItems`).
-- Sidebar: embedded templates/partials and assets (CSS/JS) with collapse + submenu persistence; apps can override by adding their own template/assets FS ahead of the defaults.
+- Sidebar: embedded templates/partials and assets (CSS/JS) with pre-paint desktop collapse restoration, collapse + submenu persistence, and a separate narrow drawer; stock layouts need no configuration. Apps can override by adding their own template/assets FS ahead of the defaults.
 - Error handling: Fiber error handler that returns JSON for API paths and renders the branded error page (with nav/theme/session) for HTML routes.
 - Adapters: explicit `AdapterFlags` wiring for persistent CMS, go-options settings, and go-users activity sink with safe in-memory fallbacks.
 - Auth debug: `GoAuthAuthorizer` supports explicit config debug mode for structured decision logging (logger injectable).
@@ -2211,7 +2211,7 @@ If you previously imported quickstart as part of the root module, keep the same 
 - For authz diagnostics, set `admin.GoAuthAuthorizerConfig.Debug` explicitly when constructing the authorizer.
 
 ## Overrides
-- Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar.
+- Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar. Full `layout.html` overrides must keep the render-blocking `assets/sidebar-state.js` tag before shell stylesheets and continue serving that asset; do not defer it.
 - Navigation seed: pass custom items to `SeedNavigation`; module menu contributions flow through `BuildMenuSeedPlan` and generated-menu reconciliation.
 - Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
 - Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds dashboard/queue/exchange links into a dedicated `Translations` menu group in server-seeded navigation.

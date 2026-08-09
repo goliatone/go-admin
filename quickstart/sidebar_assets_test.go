@@ -10,6 +10,31 @@ import (
 
 func TestSidebarAssetsExposeAccessibleNarrowDisclosureContract(t *testing.T) {
 	assets := SidebarAssetsFS()
+	stateBytes, err := fs.ReadFile(assets, "sidebar-state.js")
+	if err != nil {
+		t.Fatalf("read sidebar-state.js: %v", err)
+	}
+	canonicalState, err := fs.ReadFile(client.Assets(), "sidebar-state.js")
+	if err != nil {
+		t.Fatalf("read canonical sidebar-state.js: %v", err)
+	}
+	if string(stateBytes) != string(canonicalState) {
+		t.Fatal("quickstart sidebar-state.js fallback drifted from the canonical client asset")
+	}
+	state := string(stateBytes)
+	for _, required := range []string{
+		"admin-sidebar-collapsed",
+		"data-admin-sidebar-collapsed",
+		"data-admin-sidebar-ready",
+		"readStorage",
+		"writeStorage",
+		"applyInitialState",
+	} {
+		if !strings.Contains(state, required) {
+			t.Fatalf("sidebar-state.js missing %q", required)
+		}
+	}
+
 	scriptBytes, err := fs.ReadFile(assets, "sidebar.js")
 	if err != nil {
 		t.Fatalf("read sidebar.js: %v", err)
@@ -30,7 +55,9 @@ func TestSidebarAssetsExposeAccessibleNarrowDisclosureContract(t *testing.T) {
 		"event.key === 'Escape'",
 		"setMobileOpen(false, true)",
 		"mobileToggle?.focus()",
-		"localStorage.setItem(sidebarStateKey",
+		"sidebarState.writeStoredCollapsed",
+		"sidebarState.readStorage",
+		"data-sidebar-runtime-initialized",
 	} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("sidebar.js missing %q", required)
@@ -49,6 +76,8 @@ func TestSidebarAssetsExposeAccessibleNarrowDisclosureContract(t *testing.T) {
 		`.sidebar-mobile-toggle`,
 		`.sidebar-backdrop:not([hidden])`,
 		`@media (prefers-reduced-motion: reduce)`,
+		`data-admin-sidebar-collapsed`,
+		`data-admin-sidebar-ready`,
 	} {
 		if !strings.Contains(css, required) {
 			t.Fatalf("sidebar.css missing %q", required)

@@ -1,13 +1,58 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function initializeAdminSidebarRuntime(global) {
+  'use strict';
+
+  const root = global.document.documentElement;
+  const fallbackState = {
+    narrowMediaQuery: '(max-width: 1023px)',
+    readStorage(key) {
+      try {
+        return global.localStorage?.getItem(key) ?? null;
+      } catch (_error) {
+        return null;
+      }
+    },
+    writeStorage(key, value) {
+      try {
+        global.localStorage?.setItem(key, String(value));
+        return true;
+      } catch (_error) {
+        return false;
+      }
+    },
+    resolveCollapsed() {
+      try {
+        return !global.matchMedia(this.narrowMediaQuery).matches &&
+          this.readStorage('admin-sidebar-collapsed') === 'true';
+      } catch (_error) {
+        return false;
+      }
+    },
+    writeStoredCollapsed(collapsed) {
+      return this.writeStorage('admin-sidebar-collapsed', String(Boolean(collapsed)));
+    },
+    setRootCollapsed(collapsed) {
+      root.setAttribute('data-admin-sidebar-collapsed', String(Boolean(collapsed)));
+    },
+    setReady(ready) {
+      root.setAttribute('data-admin-sidebar-ready', String(Boolean(ready)));
+    },
+  };
+  const sidebarState = global.GoAdminSidebarState || fallbackState;
+
+  const initializeSidebar = () => {
   const sidebar = document.getElementById('sidebar');
+  if (!sidebar || sidebar.getAttribute('data-sidebar-runtime-initialized') === 'true') return;
+  sidebar.setAttribute('data-sidebar-runtime-initialized', 'true');
+
   const desktopToggle = document.getElementById('sidebar-toggle');
   const mobileToggle = document.getElementById('sidebar-mobile-toggle');
   const backdrop = document.getElementById('sidebar-backdrop');
-  const sidebarStateKey = 'admin-sidebar-collapsed';
-  const narrowSidebarQuery = window.matchMedia('(max-width: 1023px)');
+  const narrowSidebarQuery = typeof global.matchMedia === 'function'
+    ? global.matchMedia(sidebarState.narrowMediaQuery)
+    : { matches: false, addEventListener() {} };
 
   const setDesktopCollapsed = (collapsed) => {
-    if (!sidebar) return;
+    sidebarState.setRootCollapsed(collapsed);
     sidebar.setAttribute('data-collapsed', String(collapsed));
     desktopToggle?.setAttribute('aria-expanded', String(!collapsed));
     desktopToggle?.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
@@ -49,18 +94,25 @@ document.addEventListener('DOMContentLoaded', () => {
       backdrop.hidden = true;
     }
     document.documentElement.classList.remove('sidebar-mobile-open');
-    setDesktopCollapsed(localStorage.getItem(sidebarStateKey) === 'true');
+    setDesktopCollapsed(sidebarState.resolveCollapsed());
   };
 
   applySidebarState();
   narrowSidebarQuery.addEventListener?.('change', applySidebarState);
+
+  const markReady = () => sidebarState.setReady(true);
+  if (typeof global.requestAnimationFrame === 'function') {
+    global.requestAnimationFrame(() => global.requestAnimationFrame(markReady));
+  } else {
+    global.setTimeout(markReady, 0);
+  }
 
   desktopToggle?.addEventListener('click', (event) => {
     event.preventDefault();
     if (!sidebar || narrowSidebarQuery.matches) return;
     const nextCollapsed = sidebar.getAttribute('data-collapsed') !== 'true';
     setDesktopCollapsed(nextCollapsed);
-    localStorage.setItem(sidebarStateKey, String(nextCollapsed));
+    sidebarState.writeStoredCollapsed(nextCollapsed);
   });
 
   mobileToggle?.addEventListener('click', (event) => {
@@ -123,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const storageKey = `submenu-${target}-collapsed`;
     const indicator = toggleButton.querySelector('.submenu-indicator');
-    const saved = localStorage.getItem(storageKey);
+    const saved = sidebarState.readStorage(storageKey);
 
     const setExpanded = (expanded) => {
       container.setAttribute('data-expanded', expanded.toString());
@@ -132,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (indicator) {
         indicator.classList.toggle('rotate-180', expanded);
       }
-      localStorage.setItem(storageKey, (!expanded).toString());
+      sidebarState.writeStorage(storageKey, (!expanded).toString());
     };
 
     if (saved === 'true') {
@@ -164,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const storageKey = `group-${target}-collapsed`;
     const indicator = toggleButton.querySelector('.group-indicator');
-    const saved = localStorage.getItem(storageKey);
+    const saved = sidebarState.readStorage(storageKey);
 
     const setExpanded = (expanded) => {
       container.setAttribute('data-expanded', expanded.toString());
@@ -173,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (indicator) {
         indicator.classList.toggle('rotate-180', expanded);
       }
-      localStorage.setItem(storageKey, (!expanded).toString());
+      sidebarState.writeStorage(storageKey, (!expanded).toString());
     };
 
     if (saved === 'true') {
@@ -188,4 +240,11 @@ document.addEventListener('DOMContentLoaded', () => {
       setExpanded(!isExpanded);
     });
   });
-});
+  };
+
+  if (document.getElementById('sidebar')) {
+    initializeSidebar();
+  } else {
+    document.addEventListener('DOMContentLoaded', initializeSidebar, { once: true });
+  }
+})(window);

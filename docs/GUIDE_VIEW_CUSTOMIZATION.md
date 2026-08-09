@@ -848,7 +848,19 @@ When overriding `partials/sidebar.html`:
 - keep `logo`, `icon`, and favicon roles distinct;
 - preserve the mobile disclosure state attributes, `aria-expanded`, Escape and
   focus behavior, breakpoint hooks, and the desktop collapsed-state key;
+- keep collapsed presentation keyed from
+  `html[data-admin-sidebar-collapsed="true"]` so the saved desktop state is
+  correct before the sidebar element and normal runtime are parsed;
 - preserve the `sidebar_hide_search` conditional when hosts may remove search.
+
+The stock `layout.html` needs no sidebar-state configuration. A full layout
+override must retain the render-blocking, same-origin
+`assets/sidebar-state.js` tag in the head before shell stylesheets, and must
+serve that file through the admin asset mount. Keep the regular `sidebar.js`
+near the end of the body. The head asset establishes the first-paint root state;
+the body runtime synchronizes element attributes, accessibility metadata,
+interactions, and safe persistence. Deferring the head asset reintroduces the
+expanded-to-collapsed flash.
 
 Theme icon assets accept safe relative paths or `http`/`https` URLs. They render
 as decorative images with the canonical

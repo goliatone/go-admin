@@ -474,6 +474,24 @@ ephemeral and separate from the persisted desktop collapsed state; it maintains
 changes, and suppresses transitions under reduced motion. Preserve the
 packaged state attributes and controls in sidebar overrides.
 
+The stock admin layout restores the persisted desktop state before first paint
+without host configuration. It loads the same-origin
+`assets/sidebar-state.js` classic script synchronously in the document head,
+before shell stylesheets. That script projects `admin-sidebar-collapsed` onto
+`html[data-admin-sidebar-collapsed]`; the normal sidebar runtime later syncs
+`#sidebar[data-collapsed]`, control ARIA, and persistence. Initial restoration
+does not animate, while user-triggered toggles regain transitions after
+`html[data-admin-sidebar-ready="true"]` is set.
+
+If a host replaces `layout.html`, preserve that script and its ordering. Do
+not add `defer` or `async`, move it below the shell stylesheet, or wait for
+`DOMContentLoaded`. Ensure the admin asset mount serves
+`sidebar-state.js`. Custom collapsed-state CSS should consume the root
+`data-admin-sidebar-collapsed` attribute for first-paint presentation; the
+sidebar element attribute remains available as a synchronized compatibility
+hook after the runtime initializes. This external asset design does not require
+an inline-script CSP exception.
+
 ## Preferences And Request Overrides
 
 Preferences can override the selected admin theme when `FeaturePreferences` is enabled. The supported preference keys are:

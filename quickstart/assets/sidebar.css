@@ -15,6 +15,10 @@
   background: var(--sidebar-bg);
   color: var(--sidebar-text);
   width: var(--sidebar-width, 260px);
+  transition: none;
+}
+
+:root[data-admin-sidebar-ready="true"] #sidebar {
   transition: width 0.2s ease;
 }
 
@@ -23,34 +27,34 @@
   display: none;
 }
 
-#sidebar[data-collapsed="true"] {
+:root[data-admin-sidebar-collapsed="true"] #sidebar {
   width: 64px !important;
 }
 
-#sidebar[data-collapsed="true"] .nav-text,
-#sidebar[data-collapsed="true"] .sidebar-user-info,
-#sidebar[data-collapsed="true"] kbd,
-#sidebar[data-collapsed="true"] .menu-group button span,
-#sidebar[data-collapsed="true"] #user-menu,
-#sidebar[data-collapsed="true"] .submenu,
-#sidebar[data-collapsed="true"] .submenu-indicator {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .nav-text,
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-user-info,
+:root[data-admin-sidebar-collapsed="true"] #sidebar kbd,
+:root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group button span,
+:root[data-admin-sidebar-collapsed="true"] #sidebar #user-menu,
+:root[data-admin-sidebar-collapsed="true"] #sidebar .submenu,
+:root[data-admin-sidebar-collapsed="true"] #sidebar .submenu-indicator {
   display: none !important;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-search-container {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-search-container {
   display: none !important;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-header {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-header {
   flex-direction: column;
   align-items: center;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-toggle-btn {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-toggle-btn {
   margin-left: 0;
 }
 
-#sidebar[data-collapsed="true"] .nav-item {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .nav-item {
   justify-content: center;
   width: 48px;
   margin-left: auto;
@@ -59,11 +63,11 @@
   padding-right: 0;
 }
 
-#sidebar[data-collapsed="true"] .nav-item .iconoir-open-new-window {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .nav-item .iconoir-open-new-window {
   display: none !important;
 }
 
-#sidebar[data-collapsed="true"] .menu-group button {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group button {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
@@ -71,27 +75,27 @@
   margin-right: 0;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-bottom > div:last-child > div {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-bottom > div:last-child > div {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-bottom {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-bottom {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
 
-#sidebar[data-collapsed="true"] nav {
+:root[data-admin-sidebar-collapsed="true"] #sidebar nav {
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
 
-#sidebar[data-collapsed="true"] .menu-group-ellipsis {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group-ellipsis {
   display: block !important;
 }
 
-#sidebar[data-collapsed="true"] .menu-group button i {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group button i {
   display: none !important;
 }
 
@@ -213,22 +217,22 @@
   max-height: var(--sidebar-brand-collapsed-size, 32px);
 }
 
-#sidebar[data-collapsed="true"] .sidebar-header {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-header {
   flex-direction: column;
   align-items: center;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-brand-link {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-brand-link {
   flex: 0 0 auto;
   width: auto;
   overflow: visible;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-brand-expanded {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-brand-expanded {
   display: none;
 }
 
-#sidebar[data-collapsed="true"] .sidebar-brand-collapsed {
+:root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-brand-collapsed {
   display: flex;
 }
 

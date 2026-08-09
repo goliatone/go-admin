@@ -48,6 +48,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 	}{
 		{path: "/admin/assets/output.css"},
 		{path: "/admin/assets/logo.svg"},
+		{path: "/admin/assets/sidebar-state.js"},
 		{path: "/admin/assets/sidebar.js"},
 		{path: "/admin/assets/dist/dashboard/index.js"},
 		{path: "/admin/assets/dist/runtime/go-admin-browser.js"},
