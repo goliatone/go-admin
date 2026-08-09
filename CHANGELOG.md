@@ -1,10 +1,31 @@
 # Changelog
 
+# [0.131.1](https://github.com/goliatone/go-admin/compare/v0.131.0...v0.131.1) - (2026-08-09)
+
+
+### Fixed
+
+- DataGrid now omits the actions column and related state-row colspans when
+  `useDefaultActions` is false and no custom `rowActions` provider is configured.
+  Applications can remove DOM cleanup workarounds for read-only grids.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Current user detail panel ([dfdccc1](https://github.com/goliatone/go-admin/commit/dfdccc11a59958f6d6560f3f06f87f27cbe19195))  - (goliatone)
+- Datagrid handle empty action cells ([3d21e45](https://github.com/goliatone/go-admin/commit/3d21e455e21f4f7ff3f450f73d3a384d09c031f3))  - (goliatone)
+
 # [0.131.0](https://github.com/goliatone/go-admin/compare/v0.130.0...v0.131.0) - (2026-08-08)
+
+
+New minor release: v0.131.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Form width ([60f205e](https://github.com/goliatone/go-admin/commit/60f205e75440191b559efe44c349c3bc51fbff83))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.0 ([46f2593](https://github.com/goliatone/go-admin/commit/46f259314865c647776b6a7107077a0adac5d1cc))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
