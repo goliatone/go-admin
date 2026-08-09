@@ -4,8 +4,8 @@ go 1.26.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-admin v0.131.4
-	github.com/goliatone/go-admin/quickstart v0.131.4
+	github.com/goliatone/go-admin v0.131.5
+	github.com/goliatone/go-admin/quickstart v0.131.5
 	github.com/goliatone/go-auth v0.45.0
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2

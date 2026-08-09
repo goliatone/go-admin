@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.131.5](https://github.com/goliatone/go-admin/compare/v0.131.4...v0.131.5) - (2026-08-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Csrf expired token handling ([2135c85](https://github.com/goliatone/go-admin/commit/2135c8539c017ba5c1cc127749eb9c7b2062d18a))  - (goliatone)
+
 # [0.131.4](https://github.com/goliatone/go-admin/compare/v0.131.3...v0.131.4) - (2026-08-09)
+
+
+New patch release: v0.131.4
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Sidebar state management ([8ce3182](https://github.com/goliatone/go-admin/commit/8ce318287e267dae9269f01a6da26a8aa6941723))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.4 ([7f2f8ea](https://github.com/goliatone/go-admin/commit/7f2f8ead0974b92296ef183b74b0a66a6766b375))  - (goliatone)
 
 # [0.131.3](https://github.com/goliatone/go-admin/compare/v0.131.2...v0.131.3) - (2026-08-09)
 
