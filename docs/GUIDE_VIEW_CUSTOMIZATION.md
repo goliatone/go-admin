@@ -849,18 +849,21 @@ When overriding `partials/sidebar.html`:
 - preserve the mobile disclosure state attributes, `aria-expanded`, Escape and
   focus behavior, breakpoint hooks, and the desktop collapsed-state key;
 - keep collapsed presentation keyed from
-  `html[data-admin-sidebar-collapsed="true"]` so the saved desktop state is
-  correct before the sidebar element and normal runtime are parsed;
+  `html[data-admin-sidebar-collapsed="true"] #sidebar` so the saved desktop
+  state is correct before the sidebar element and normal runtime are parsed,
+  without affecting module-owned `.sidebar` elements;
 - preserve the `sidebar_hide_search` conditional when hosts may remove search.
 
 The stock `layout.html` needs no sidebar-state configuration. A full layout
-override must retain the render-blocking, same-origin
-`assets/sidebar-state.js` tag in the head before shell stylesheets, and must
-serve that file through the admin asset mount. Keep the regular `sidebar.js`
-near the end of the body. The head asset establishes the first-paint root state;
-the body runtime synchronizes element attributes, accessibility metadata,
-interactions, and safe persistence. Deferring the head asset reintroduces the
-expanded-to-collapsed flash.
+override must retain the render-blocking `assets/sidebar-state.js` tag in the
+head before shell stylesheets, and must serve that file through
+`asset_base_path`. Assets are same-origin by default; a CDN asset host must be
+allowed by the document's `script-src` CSP. Place the regular `sidebar.js`
+immediately after the sidebar markup and before main content. The head asset
+establishes the first-paint root state; the adjacent runtime synchronizes
+element attributes, accessibility metadata, interactions, and safe persistence
+before page content is parsed. Deferring the head asset or moving the runtime
+after main content reintroduces an inconsistent shell initialization window.
 
 Theme icon assets accept safe relative paths or `http`/`https` URLs. They render
 as decorative images with the canonical
@@ -889,9 +892,11 @@ The helper mounts separate package-owned surfaces:
 | go-dashboard shell | `/dashboard/assets/shell` | `WithDashboardShellPrefix` |
 
 The admin asset filesystem is first-wins: disk development override, supplied
-host assets, extra fallbacks, then packaged sidebar assets. Theme manifest
-filenames do not mount files; their resolved prefix must point at one of these
-or another host-owned static route.
+host assets, extra fallbacks, explicit `WithSidebarAssetsFS` overrides, then
+packaged sidebar assets. A custom sidebar filesystem may override one file;
+missing files continue to use packaged state, runtime, and stylesheet assets.
+Theme manifest filenames do not mount files; their resolved prefix must point
+at one of these or another host-owned static route.
 
 For local dev fallback, opt in and probe for a disk build:
 

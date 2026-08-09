@@ -2211,7 +2211,7 @@ If you previously imported quickstart as part of the root module, keep the same 
 - For authz diagnostics, set `admin.GoAuthAuthorizerConfig.Debug` explicitly when constructing the authorizer.
 
 ## Overrides
-- Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar. Full `layout.html` overrides must keep the render-blocking `assets/sidebar-state.js` tag before shell stylesheets and continue serving that asset; do not defer it.
+- Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar. `WithSidebarAssetsFS` is a partial first-wins override, so omitted files continue to fall back to packaged sidebar assets. Full `layout.html` overrides must keep the render-blocking `assets/sidebar-state.js` tag from `asset_base_path` before shell stylesheets, place `sidebar.js` immediately after the sidebar markup and before main content, and continue serving both assets. Do not defer the state script; if `asset_base_path` uses a CDN, allow its origin in `script-src`.
 - Navigation seed: pass custom items to `SeedNavigation`; module menu contributions flow through `BuildMenuSeedPlan` and generated-menu reconciliation.
 - Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
 - Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds dashboard/queue/exchange links into a dedicated `Translations` menu group in server-seeded navigation.

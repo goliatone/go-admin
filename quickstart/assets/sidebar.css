@@ -18,10 +18,6 @@
   transition: none;
 }
 
-:root[data-admin-sidebar-ready="true"] #sidebar {
-  transition: width 0.2s ease;
-}
-
 .sidebar-mobile-toggle,
 .sidebar-backdrop {
   display: none;
@@ -99,6 +95,12 @@
   display: none !important;
 }
 
+@media (min-width: 1024px) {
+  :root[data-admin-sidebar-ready="true"] #sidebar {
+    transition: width 0.2s ease;
+  }
+}
+
 @media (max-width: 1023px) {
   .admin-layout {
     padding-left: 0;
@@ -117,6 +119,10 @@
     max-width: calc(100vw - 64px);
     box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
     transform: translateX(-100%);
+    transition: none;
+  }
+
+  :root[data-admin-sidebar-ready="true"] #sidebar {
     transition: transform 0.2s ease;
   }
 

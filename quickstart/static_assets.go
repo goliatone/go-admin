@@ -40,7 +40,6 @@ func resolveStaticAssetsOptions(cfg admin.Config, opts []StaticAssetsOption) sta
 		syncClientPrefix: ResolveSyncClientAssetsPrefix(cfg),
 		echartsPrefix:    strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
 		shellPrefix:      strings.TrimSuffix(dashboardcmp.DefaultShellAssetsPath, "/"),
-		sidebarAssets:    SidebarAssetsFS(),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -141,7 +140,9 @@ func WithDashboardShellPrefix(prefix string) StaticAssetsOption {
 	}
 }
 
-// WithSidebarAssetsFS overrides the default quickstart sidebar assets.
+// WithSidebarAssetsFS adds sidebar asset overrides ahead of the packaged
+// quickstart assets. Files missing from the supplied filesystem continue to
+// fall back to the packaged asset set.
 func WithSidebarAssetsFS(fsys fs.FS) StaticAssetsOption {
 	return func(opts *staticAssetsOptions) {
 		if opts == nil {
@@ -218,6 +219,9 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 	assetStack = append(assetStack, options.extraAssetsFS...)
 	if options.sidebarAssets != nil {
 		assetStack = append(assetStack, options.sidebarAssets)
+	}
+	if packagedSidebarAssets := SidebarAssetsFS(); packagedSidebarAssets != nil {
+		assetStack = append(assetStack, packagedSidebarAssets)
 	}
 	staticFS := fallbackFSList(assetStack)
 	if staticFS != nil && options.assetsPrefix != "" {

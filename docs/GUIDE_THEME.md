@@ -475,22 +475,26 @@ changes, and suppresses transitions under reduced motion. Preserve the
 packaged state attributes and controls in sidebar overrides.
 
 The stock admin layout restores the persisted desktop state before first paint
-without host configuration. It loads the same-origin
-`assets/sidebar-state.js` classic script synchronously in the document head,
-before shell stylesheets. That script projects `admin-sidebar-collapsed` onto
-`html[data-admin-sidebar-collapsed]`; the normal sidebar runtime later syncs
-`#sidebar[data-collapsed]`, control ARIA, and persistence. Initial restoration
-does not animate, while user-triggered toggles regain transitions after
+without host configuration. It loads `assets/sidebar-state.js` synchronously
+from `asset_base_path` in the document head, before shell stylesheets. Assets
+are same-origin by default; when `asset_base_path` uses a CDN, allow that origin
+in the document's `script-src` CSP. The state script projects
+`admin-sidebar-collapsed` onto `html[data-admin-sidebar-collapsed]`; the normal
+sidebar runtime runs immediately after the sidebar markup and syncs
+`#sidebar[data-collapsed]`, control ARIA, and persistence before main content is
+parsed. Initial restoration does not animate, while user-triggered toggles
+regain breakpoint-specific motion after
 `html[data-admin-sidebar-ready="true"]` is set.
 
 If a host replaces `layout.html`, preserve that script and its ordering. Do
 not add `defer` or `async`, move it below the shell stylesheet, or wait for
 `DOMContentLoaded`. Ensure the admin asset mount serves
-`sidebar-state.js`. Custom collapsed-state CSS should consume the root
-`data-admin-sidebar-collapsed` attribute for first-paint presentation; the
-sidebar element attribute remains available as a synchronized compatibility
-hook after the runtime initializes. This external asset design does not require
-an inline-script CSP exception.
+`sidebar-state.js`. Custom collapsed-state CSS should combine the root
+`data-admin-sidebar-collapsed` attribute with `#sidebar` for first-paint
+presentation; do not target the generic `.sidebar` class because modules may
+reuse it. The sidebar element attribute remains available as a synchronized
+compatibility hook after the runtime initializes. This external asset design
+does not require an inline-script CSP exception.
 
 ## Preferences And Request Overrides
 

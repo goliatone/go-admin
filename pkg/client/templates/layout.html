@@ -54,6 +54,7 @@
 
   <div class="admin-layout flex w-full h-screen overflow-hidden">
     {% include "partials/sidebar.html" %}
+    <script src="{{ asset_base_path }}/assets/sidebar.js"></script>
     <main class="admin-main flex-1 min-w-0 flex flex-col overflow-hidden">
       {% block content %}{% endblock %}
     </main>
@@ -61,8 +62,6 @@
 
   <!-- Initialize toast manager globally -->
   <script type="module" src="{{ asset_base_path }}/assets/dist/toast/init.js"></script>
-
-  <script src="{{ asset_base_path }}/assets/sidebar.js"></script>
 
   {% block scripts %}{% endblock %}
 

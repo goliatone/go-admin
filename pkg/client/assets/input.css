@@ -371,7 +371,7 @@
   }
 
   /* Active state with 8px padding on collapsed sidebar */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .nav-item.active {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .nav-item.active {
     @apply mx-2;
   }
 
@@ -502,13 +502,18 @@
   }
 
   .admin-theme-root .sidebar {
-    transition: none;
     background-color: var(--admin-sidebar-background, var(--color-surface-default, #18181b));
     color: var(--admin-sidebar-text, var(--color-text-primary, #f4f4f5));
   }
 
-  :root[data-admin-sidebar-ready="true"] .admin-theme-root .sidebar {
-    @apply transition-all duration-300;
+  .admin-theme-root #sidebar {
+    transition: none;
+  }
+
+  @media (min-width: 1024px) {
+    :root[data-admin-sidebar-ready="true"] .admin-theme-root #sidebar {
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
   }
 
   .sidebar-bottom {
@@ -596,50 +601,50 @@
     line-height: var(--admin-sidebar-user-name-line-height, 1rem);
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar {
     width: 64px !important;
   }
 
   /* Hide text elements when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .nav-text,
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-user-info,
-  :root[data-admin-sidebar-collapsed="true"] .sidebar kbd,
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .menu-group button span,
-  :root[data-admin-sidebar-collapsed="true"] .sidebar #user-menu,
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .submenu,
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .submenu-indicator {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .nav-text,
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-user-info,
+  :root[data-admin-sidebar-collapsed="true"] #sidebar kbd,
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group button span,
+  :root[data-admin-sidebar-collapsed="true"] #sidebar #user-menu,
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .submenu,
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .submenu-indicator {
     @apply hidden;
   }
 
   /* Hide search when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-search-container {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-search-container {
     @apply hidden;
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-header {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-header {
     @apply flex-col items-center;
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-toggle-btn {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-toggle-btn {
     margin-left: 0;
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-brand-link {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-brand-link {
     flex: 0 0 auto;
     width: auto;
     overflow: visible;
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-brand-expanded {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-brand-expanded {
     display: none;
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-brand-collapsed {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-brand-collapsed {
     display: flex;
   }
 
   /* Center nav items when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .nav-item {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .nav-item {
     @apply justify-center;
     width: 48px;
     margin-left: auto;
@@ -649,33 +654,33 @@
   }
 
   /* Hide external link icons when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .nav-item .iconoir-open-new-window {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .nav-item .iconoir-open-new-window {
     @apply hidden;
   }
 
   /* Show ellipsis for group headers when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .menu-group button {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group button {
     @apply justify-center px-0 mx-0;
   }
 
   /* Center user profile when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-bottom > div:last-child > div {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-bottom > div:last-child > div {
     @apply justify-center px-0;
   }
 
   /* Remove padding from bottom section when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .sidebar-bottom {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .sidebar-bottom {
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
 
   /* Remove padding from nav when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar nav {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar nav {
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
 
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .menu-group-ellipsis {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group-ellipsis {
     @apply block;
   }
 
@@ -689,7 +694,7 @@
   }
 
   /* Hide chevron and show only ellipsis when collapsed */
-  :root[data-admin-sidebar-collapsed="true"] .sidebar .menu-group button i {
+  :root[data-admin-sidebar-collapsed="true"] #sidebar .menu-group button i {
     @apply hidden;
   }
 
@@ -703,7 +708,7 @@
       min-width: 0;
     }
 
-    .sidebar {
+    #sidebar {
       position: fixed;
       inset: 0 auto 0 0;
       z-index: 50;
@@ -711,10 +716,14 @@
       max-width: calc(100vw - 64px);
       box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
       transform: translateX(-100%);
+      transition: none;
+    }
+
+    :root[data-admin-sidebar-ready="true"] .admin-theme-root #sidebar {
       transition: transform 0.2s ease;
     }
 
-    .sidebar[data-mobile-open="true"] {
+    #sidebar[data-mobile-open="true"] {
       transform: translateX(0);
     }
 
@@ -783,7 +792,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sidebar,
+    #sidebar,
     .nav-item,
     .submenu,
     .submenu-indicator,

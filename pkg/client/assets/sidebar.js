@@ -13,7 +13,8 @@
     },
     writeStorage(key, value) {
       try {
-        global.localStorage?.setItem(key, String(value));
+        if (!global.localStorage) return false;
+        global.localStorage.setItem(key, String(value));
         return true;
       } catch (_error) {
         return false;
@@ -161,13 +162,13 @@
     }
   });
 
-  document.querySelectorAll('[data-submenu-toggle]').forEach((container) => {
+  sidebar.querySelectorAll('[data-submenu-toggle]').forEach((container) => {
     const target = container.getAttribute('data-submenu-toggle');
     if (!target) {
       return;
     }
 
-    const submenu = document.querySelector(`[data-submenu="${target}"]`);
+    const submenu = sidebar.querySelector(`[data-submenu="${target}"]`);
     const toggleButton = container.querySelector('button.nav-item');
     if (!submenu || !toggleButton) {
       return;
@@ -202,7 +203,7 @@
   });
 
   // Group collapse toggle (top-level menu groups like Navigation, Tools, Translations)
-  document.querySelectorAll('[data-group-toggle]').forEach((container) => {
+  sidebar.querySelectorAll('[data-group-toggle]').forEach((container) => {
     const target = container.getAttribute('data-group-toggle');
     if (!target) {
       return;

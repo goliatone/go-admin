@@ -75,13 +75,18 @@ function assertBuiltShellResponsiveCss(relativePath) {
 
   assert.match(
     css,
-    /\[data-admin-sidebar-collapsed=?true\][^{]*\.sidebar/,
+    /\[data-admin-sidebar-collapsed=?true\][^{]*#sidebar/,
     `${relativePath} consumes pre-paint sidebar root state`,
   );
   assert.match(
     css,
-    /\[data-admin-sidebar-ready=?true\][^{]*\.admin-theme-root[^}]*\.sidebar/,
+    /\[data-admin-sidebar-ready=?true\][^{]*\.admin-theme-root[^}]*#sidebar/,
     `${relativePath} gates sidebar motion behind runtime readiness`,
+  );
+  assert.doesNotMatch(
+    css,
+    /\[data-admin-sidebar-(?:collapsed|ready)=?true\][^{]*\.admin-theme-root[^,{]*\.sidebar(?:\W|$)/,
+    `${relativePath} must not project global sidebar state onto secondary .sidebar elements`,
   );
 
   assert.match(
@@ -96,36 +101,44 @@ function assertBuiltShellResponsiveCss(relativePath) {
   );
 }
 
-test('sidebar pre-paint state resolves before DOMContentLoaded and before runtime hydration', () => {
+test('sidebar pre-paint state resolves persisted true, false, and missing values synchronously', () => {
   for (const relativePath of [
     'pkg/client/assets/sidebar-state.js',
     'quickstart/assets/sidebar-state.js',
   ]) {
-    const dom = new JSDOM(sidebarFixture(), {
-      runScripts: 'outside-only',
-      url: 'http://localhost/admin',
-    });
-    const { window } = dom;
-    installMatchMedia(window, false);
-    window.localStorage.setItem('admin-sidebar-collapsed', 'true');
+    for (const scenario of [
+      { stored: 'true', expected: 'true' },
+      { stored: 'false', expected: 'false' },
+      { stored: null, expected: 'false' },
+    ]) {
+      const dom = new JSDOM(sidebarFixture(), {
+        runScripts: 'outside-only',
+        url: 'http://localhost/admin',
+      });
+      const { window } = dom;
+      installMatchMedia(window, false);
+      if (scenario.stored !== null) {
+        window.localStorage.setItem('admin-sidebar-collapsed', scenario.stored);
+      }
 
-    window.eval(read(relativePath));
+      window.eval(read(relativePath));
 
-    assert.equal(
-      window.document.documentElement.getAttribute('data-admin-sidebar-collapsed'),
-      'true',
-      `${relativePath} projects persisted desktop state synchronously`,
-    );
-    assert.equal(
-      window.document.documentElement.getAttribute('data-admin-sidebar-ready'),
-      'false',
-      `${relativePath} keeps initial transitions disabled`,
-    );
-    assert.equal(
-      window.document.getElementById('sidebar').getAttribute('data-collapsed'),
-      'false',
-      `${relativePath} does not depend on post-DOM sidebar mutation for first paint`,
-    );
+      assert.equal(
+        window.document.documentElement.getAttribute('data-admin-sidebar-collapsed'),
+        scenario.expected,
+        `${relativePath} projects stored value ${String(scenario.stored)} synchronously`,
+      );
+      assert.equal(
+        window.document.documentElement.getAttribute('data-admin-sidebar-ready'),
+        'false',
+        `${relativePath} keeps initial transitions disabled`,
+      );
+      assert.equal(
+        window.document.getElementById('sidebar').getAttribute('data-collapsed'),
+        'false',
+        `${relativePath} leaves element synchronization to the adjacent runtime`,
+      );
+    }
   }
 });
 
@@ -150,6 +163,62 @@ test('pre-paint root state drives complete compact fallback presentation', () =>
   assert.equal(window.getComputedStyle(sidebar.querySelector('.sidebar-brand-expanded')).display, 'none');
   assert.equal(window.getComputedStyle(sidebar.querySelector('.sidebar-brand-collapsed')).display, 'flex');
   assert.equal(window.getComputedStyle(sidebar.querySelector('.nav-text')).display, 'none');
+});
+
+test('pre-paint root state is isolated to the global sidebar', () => {
+  const css = read('quickstart/assets/sidebar.css');
+  const dom = new JSDOM(sidebarFixture(), {
+    runScripts: 'outside-only',
+    url: 'http://localhost/admin',
+  });
+  const { window } = dom;
+  window.document.body.insertAdjacentHTML('beforeend', `
+    <aside id="secondary-sidebar" class="sidebar" style="width: 320px">
+      <span class="nav-text">Secondary navigation</span>
+    </aside>
+  `);
+  const style = window.document.createElement('style');
+  style.textContent = css;
+  window.document.head.append(style);
+  installMatchMedia(window, false);
+  window.localStorage.setItem('admin-sidebar-collapsed', 'true');
+
+  window.eval(read('quickstart/assets/sidebar-state.js'));
+
+  const secondary = window.document.getElementById('secondary-sidebar');
+  assert.equal(window.getComputedStyle(secondary).width, '320px');
+  assert.notEqual(window.getComputedStyle(secondary.querySelector('.nav-text')).display, 'none');
+});
+
+test('sidebar runtimes ignore submenu and group contracts outside the global sidebar', () => {
+  for (const relativePath of [
+    'pkg/client/assets/sidebar.js',
+    'quickstart/assets/sidebar.js',
+  ]) {
+    const dom = new JSDOM(sidebarFixture(), {
+      runScripts: 'outside-only',
+      url: 'http://localhost/admin',
+    });
+    const { window } = dom;
+    window.document.body.insertAdjacentHTML('beforeend', `
+      <section id="module-submenu" data-submenu-toggle="module" data-expanded="true">
+        <button class="nav-item">Module submenu</button>
+        <div data-submenu="module" class="submenu expanded"></div>
+      </section>
+      <section id="module-group" data-group-toggle="module-tools" data-expanded="true">
+        <button>Module group</button>
+        <div data-group="module-tools" class="expanded"></div>
+      </section>
+    `);
+    installMatchMedia(window, false);
+    window.eval(read('pkg/client/assets/sidebar-state.js'));
+    window.eval(read(relativePath));
+
+    window.document.querySelector('#module-submenu button').click();
+    window.document.querySelector('#module-group button').click();
+    assert.equal(window.document.getElementById('module-submenu').getAttribute('data-expanded'), 'true');
+    assert.equal(window.document.getElementById('module-group').getAttribute('data-expanded'), 'true');
+  }
 });
 
 test('sidebar runtime synchronizes DOM, ARIA, readiness, and persisted desktop state', () => {
@@ -190,6 +259,34 @@ test('sidebar runtime synchronizes DOM, ARIA, readiness, and persisted desktop s
   assert.equal(window.localStorage.getItem('admin-sidebar-collapsed'), 'false');
 });
 
+test('sidebar runtime preserves expanded state for persisted false and missing values', () => {
+  for (const relativePath of [
+    'pkg/client/assets/sidebar.js',
+    'quickstart/assets/sidebar.js',
+  ]) {
+    for (const stored of ['false', null]) {
+      const dom = new JSDOM(sidebarFixture(), {
+        runScripts: 'outside-only',
+        url: 'http://localhost/admin',
+      });
+      const { window } = dom;
+      installMatchMedia(window, false);
+      if (stored !== null) {
+        window.localStorage.setItem('admin-sidebar-collapsed', stored);
+      }
+      window.eval(read('pkg/client/assets/sidebar-state.js'));
+      window.eval(read(relativePath));
+
+      const sidebar = window.document.getElementById('sidebar');
+      const toggle = window.document.getElementById('sidebar-toggle');
+      assert.equal(sidebar.getAttribute('data-collapsed'), 'false');
+      assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+      assert.equal(toggle.getAttribute('aria-label'), 'Collapse sidebar');
+      assert.equal(window.localStorage.getItem('admin-sidebar-collapsed'), stored);
+    }
+  }
+});
+
 test('sidebar state fails safely when browser storage is unavailable', () => {
   const dom = new JSDOM(sidebarFixture(`
     <div data-submenu-toggle="reports" data-expanded="true">
@@ -228,12 +325,12 @@ test('admin layout uses an off-canvas sidebar drawer on narrow viewports', () =>
 
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.admin-layout[\s\S]*padding-left:\s*0/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.admin-main[\s\S]*width:\s*100vw/);
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar[\s\S]*position:\s*fixed/);
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar[\s\S]*transform:\s*translateX\(-100%\)/);
-  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar\[data-mobile-open="true"\][\s\S]*transform:\s*translateX\(0\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar[\s\S]*position:\s*fixed/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar[\s\S]*transform:\s*translateX\(-100%\)/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar\[data-mobile-open="true"\][\s\S]*transform:\s*translateX\(0\)/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*\.sidebar-mobile-toggle[\s\S]*display:\s*inline-flex/);
   assert.match(css, /\.admin-theme-root\s+\.sidebar[\s\S]*background-color:\s*var\(--admin-sidebar-background/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.sidebar[\s\S]*transition-duration:\s*0\.001ms !important/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*#sidebar[\s\S]*transition-duration:\s*0\.001ms !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\[data-dashboard-shell\][\s\S]*flex-direction:\s*column !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__region:not\(\[data-collapsed="true"\]\)[\s\S]*width:\s*100% !important/);
   assert.match(css, /@media \(max-width: 767px\)[\s\S]*\.dashboard-shell__region\[data-collapsed="true"\][\s\S]*width:\s*var\(--dashboard-shell-rail-collapsed, 0px\) !important/);
@@ -260,7 +357,9 @@ test('quickstart fallback sidebar assets mirror narrow layout behavior', () => {
   const sidebarState = read('quickstart/assets/sidebar-state.js');
 
   assert.match(css, /:root\[data-admin-sidebar-collapsed="true"\]\s+#sidebar\s*\{[\s\S]*width:\s*64px !important/);
-  assert.match(css, /:root\[data-admin-sidebar-ready="true"\]\s+#sidebar\s*\{[\s\S]*transition:\s*width/);
+  assert.match(css, /@media \(min-width: 1024px\)[\s\S]*:root\[data-admin-sidebar-ready="true"\]\s+#sidebar\s*\{[^}]*transition:\s*width/);
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*:root\[data-admin-sidebar-ready="true"\]\s+#sidebar\s*\{[^}]*transition:\s*transform/);
+  assert.doesNotMatch(css, /:root\[data-admin-sidebar-ready="true"\]\s+#sidebar\s*\{[^}]*transition:\s*width[^}]*\}\s*@media \(max-width:/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar[\s\S]*position:\s*fixed/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar[\s\S]*transform:\s*translateX\(-100%\)/);
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*#sidebar\[data-mobile-open="true"\][\s\S]*transform:\s*translateX\(0\)/);

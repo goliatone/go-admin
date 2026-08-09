@@ -101,7 +101,9 @@ quickstart.NewStaticAssets(
 ```
 
 The admin asset filesystem wins on path conflicts. Extra filesystems are checked in
-the order supplied, before quickstart sidebar assets. Keep product paths unique, for
+the order supplied, before explicit sidebar overrides and packaged quickstart sidebar
+assets. `WithSidebarAssetsFS` is also a partial first-wins override: files it omits
+continue to fall back to the packaged sidebar bundle. Keep product paths unique, for
 example `dist/esign/esign.css`, rather than overriding `output.css`.
 
 Link product CSS from a template derived from the admin layout. `head_extra` is emitted

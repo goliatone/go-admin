@@ -198,6 +198,41 @@ func TestNewStaticAssetsTreatsExtraAssetsAsOrderedFallbacks(t *testing.T) {
 	}
 }
 
+func TestNewStaticAssetsTreatsCustomSidebarAssetsAsPartialOverrides(t *testing.T) {
+	r := &stubRouter{}
+	cfg := admin.Config{BasePath: "/admin"}
+	assetsFS := fstest.MapFS{
+		"app.js": {Data: []byte("assets")},
+	}
+	customSidebarFS := fstest.MapFS{
+		"sidebar.css": {Data: []byte("custom sidebar css")},
+	}
+
+	NewStaticAssets(r, cfg, assetsFS, WithSidebarAssetsFS(customSidebarFS))
+
+	call, ok := findStaticCall(r.staticCalls, "/admin/assets")
+	if !ok {
+		t.Fatal("expected assets mount")
+	}
+	customCSS, err := fs.ReadFile(call.config.FS, "sidebar.css")
+	if err != nil {
+		t.Fatalf("read custom sidebar stylesheet: %v", err)
+	}
+	if got := string(customCSS); got != "custom sidebar css" {
+		t.Fatalf("expected custom sidebar stylesheet to win, got %q", got)
+	}
+	for _, packagedAsset := range []string{"sidebar-state.js", "sidebar.js"} {
+		data, readErr := fs.ReadFile(call.config.FS, packagedAsset)
+		if readErr != nil {
+			t.Errorf("read packaged sidebar fallback %q: %v", packagedAsset, readErr)
+			continue
+		}
+		if len(data) == 0 {
+			t.Errorf("expected packaged sidebar fallback %q to be non-empty", packagedAsset)
+		}
+	}
+}
+
 func TestNewStaticAssetsServesExtraProductStylesheetAtCustomPrefix(t *testing.T) {
 	cfg := admin.Config{BasePath: "/console"}
 	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
