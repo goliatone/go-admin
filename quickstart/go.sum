@@ -215,8 +215,8 @@ github.com/goliatone/go-notifications v0.16.1 h1:iR8YxnYU1rzHr2XFHCTYEcN71e12TQu
 github.com/goliatone/go-notifications v0.16.1/go.mod h1:7tC4wjR/x7gXfiUKxxm+1G1fW0IGtxBSHvpmXAFjVFI=
 github.com/goliatone/go-options v0.7.2 h1:sQJ3CvqarraGflRkkL1ve+/3qdDbehmKYgkcdJrb6+U=
 github.com/goliatone/go-options v0.7.2/go.mod h1:oSxNI/UybEEWOQMJzR4U4xNCstJg9uxsipQvOOYYrUs=
-github.com/goliatone/go-persistence-bun v0.17.0 h1:y7D37bI0ij4ootRfVfElaPGrGmdpkoWw2lPA5zOCzuM=
-github.com/goliatone/go-persistence-bun v0.17.0/go.mod h1:OMgptAviubbi+0du7cMeqOEFLCDVDVUHwhmClB/Z5F4=
+github.com/goliatone/go-persistence-bun v0.17.1 h1:t4RFp2g7CFxYSWtOWYXgu8bpedEgDEVV+FC8MBntTSY=
+github.com/goliatone/go-persistence-bun v0.17.1/go.mod h1:OMgptAviubbi+0du7cMeqOEFLCDVDVUHwhmClB/Z5F4=
 github.com/goliatone/go-print v0.4.1 h1:rRcmZOWd27gq25Ays0nRu09tAH6wgTdfshE4rPpNYNY=
 github.com/goliatone/go-print v0.4.1/go.mod h1:hx13/Im2TeOYwwBwj/ImfjneDQ0MyN0ybfrgHripAus=
 github.com/goliatone/go-repository-bun v0.16.1 h1:nTYn+MwwvhX4o2MuBYiM8aDYpO++2XM3b+9afu/EFNI=
