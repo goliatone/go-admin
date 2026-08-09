@@ -1,32 +1,19 @@
 # Changelog
 
+# [0.131.8](https://github.com/goliatone/go-admin/compare/v0.131.7...v0.131.8) - (2026-08-09)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Modal and datagrid ([26e71bf](https://github.com/goliatone/go-admin/commit/26e71bf78f478a093196bc482d8b5cfe78e41bd9))  - (goliatone)
+
 # [0.131.7](https://github.com/goliatone/go-admin/compare/v0.131.6...v0.131.7) - (2026-08-09)
 
 
-## Browser client: public shared modal
+New patch release: v0.131.7
 
-go-admin now publishes the existing shared modal implementation from both
-`/admin/assets/components/modal.js` and
-`@goliatone/go-admin-client/components/modal`.
+## <!-- 13 -->📦 Bumps
 
-The public entry exports `Modal`, `ModalOptions`, `ModalSize`, `ConfirmModal`,
-`ConfirmModalOptions`, `TextPromptModal`, and `TextPromptModalConfig`. The base
-now owns dialog naming, optional descriptions, deterministic initial/fallback
-focus, topmost Tab/Escape behavior, focus return, nested stacking,
-reference-counted scroll locking, reduced motion, close veto, and complete
-destroy/interrupted-animation cleanup.
-
-Existing subclasses should import from `components/modal`, provide
-`labelledBy` or `ariaLabel`, remove inner dialog roles and modal-specific focus
-or Escape handlers, and call `requestClose()` for vetoable dismissal. Product
-forms, trusted markup, validation, transport, commands, and redirects remain
-application responsibilities. Server-validation responses can replace inner
-content through the protected `replaceContent()` seam without replacing the
-dialog container or invoking-focus target.
-
-The translation-family create-locale flow now uses the shared modal lifecycle.
-The template-backed import workflow remains a documented compatibility adapter
-and now has explicit focus-trap/return and cleanup coverage.
+- Bump version: v0.131.7 ([8a0b2c3](https://github.com/goliatone/go-admin/commit/8a0b2c33d7995aafb1361040de6261f88b673a29))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
