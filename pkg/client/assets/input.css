@@ -136,6 +136,10 @@
     color: var(--color-text-primary, #111827);
   }
 
+  .admin-shell-content {
+    background-color: var(--admin-shell-background, var(--color-surface-canvas, #f9fafb));
+  }
+
   .admin-page-header.admin-page-header {
     background-color: var(--admin-header-background, var(--color-surface-default, #ffffff));
     border-color: var(--admin-header-border, var(--color-border-default, #e5e7eb));
@@ -164,6 +168,67 @@
   }
 
   .admin-page-header p {
+    color: var(--color-text-secondary, #6b7280);
+  }
+
+  .admin-page-header__actions:empty {
+    display: none;
+  }
+
+  .admin-page-header__row,
+  .admin-page-heading-group {
+    min-width: 0;
+  }
+
+  .admin-page-header__actions {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 767px) {
+    .admin-page-header__row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .admin-page-heading-group {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .admin-page-header__actions {
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      overflow-x: auto;
+      width: 100%;
+    }
+
+    .admin-page-header__actions > * {
+      flex-shrink: 0;
+    }
+  }
+
+  .admin-breadcrumbs {
+    color: var(--color-text-secondary, #6b7280);
+    flex-shrink: 0;
+  }
+
+  .admin-breadcrumbs__link {
+    color: var(--color-text-secondary, #6b7280);
+  }
+
+  .admin-breadcrumbs__link:hover,
+  .admin-breadcrumbs__current {
+    color: var(--color-text-primary, #111827);
+  }
+
+  .admin-breadcrumbs__separator {
+    color: var(--color-border-default, #9ca3af);
+  }
+
+  .admin-shell-footer {
+    background-color: var(--admin-header-background, var(--color-surface-default, #ffffff));
+    border-color: var(--admin-header-border, var(--color-border-default, #e5e7eb));
     color: var(--color-text-secondary, #6b7280);
   }
 

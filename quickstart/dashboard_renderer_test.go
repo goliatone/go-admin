@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -42,6 +43,11 @@ func TestDashboardRendererUsesEmbeddedTemplates(t *testing.T) {
 	if !strings.Contains(html, `data-widget-grid`) ||
 		!strings.Contains(html, `assets/dist/styles/widgets.css`) {
 		t.Fatalf("default renderer did not use the canonical admin dashboard shell: %q", html)
+	}
+	for _, marker := range []string{"data-admin-shell", "data-admin-page-header", "data-admin-shell-content"} {
+		if !strings.Contains(html, marker) {
+			t.Fatalf("default renderer omitted canonical shell marker %q: %q", marker, html)
+		}
 	}
 }
 
@@ -224,6 +230,34 @@ func TestDashboardRendererDisableEmbeddedRequiresTemplates(t *testing.T) {
 	}
 }
 
+func TestDashboardRendererDisableEmbeddedRejectsIncompleteShell(t *testing.T) {
+	_, err := newDashboardTemplateRenderer(
+		WithDashboardTemplatesFS(fstest.MapFS{
+			"dashboard_ssr.html": {Data: []byte("custom-dashboard")},
+		}),
+		WithDashboardEmbeddedTemplates(false),
+	)
+	if err == nil {
+		t.Fatal("expected an incomplete isolated dashboard shell to fail")
+	}
+	if !strings.Contains(err.Error(), "isolated dashboard template set is incomplete") ||
+		!strings.Contains(err.Error(), "layout.html") {
+		t.Fatalf("expected missing canonical shell error, got %v", err)
+	}
+}
+
+func TestDashboardTemplatesFSReturnsCanonicalAdminShell(t *testing.T) {
+	template, err := fs.ReadFile(DashboardTemplatesFS(), "layout.html")
+	if err != nil {
+		t.Fatalf("read canonical dashboard layout: %v", err)
+	}
+	for _, marker := range []string{"data-admin-shell", "data-admin-page-header", "data-admin-shell-content"} {
+		if !strings.Contains(string(template), marker) {
+			t.Fatalf("expected canonical dashboard layout marker %q", marker)
+		}
+	}
+}
+
 func TestWithDefaultDashboardRendererSkipsWhenAlreadySet(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
 	adm, adminErr := admin.New(cfg, admin.Dependencies{})
@@ -344,6 +378,60 @@ func TestDefaultDashboardRendererHonorsHostShellOverlayAndRequestContext(t *test
 		if !strings.Contains(html, expected) {
 			t.Fatalf("expected shared dashboard shell to contain %q, got %q", expected, html)
 		}
+	}
+}
+
+func TestDashboardRenderersHonorThemeSelectedBreadcrumbPartial(t *testing.T) {
+	hostTemplates := fstest.MapFS{
+		"themes/acme/breadcrumbs.html": {
+			Data: []byte(`<nav aria-label="Breadcrumb" data-host-breadcrumbs="dashboard">dashboard</nav>`),
+		},
+	}
+	selection := admin.DefaultAdminStructuralPartials()
+	selection.Breadcrumbs = "themes/acme/breadcrumbs.html"
+	page := admin.AdminDashboardPage{
+		Chrome: admin.AdminChromeState{
+			Title:         "Operations",
+			BasePath:      "/admin",
+			AssetBasePath: "/admin",
+			AdminPartials: selection,
+			PageHeader: admin.AdminPageHeader{Breadcrumbs: []admin.AdminPageHeaderBreadcrumb{
+				{Label: "Dashboard", Current: true},
+			}},
+		},
+	}
+
+	views, err := NewViewEngine(
+		client.Templates(),
+		WithViewTemplatesFS(hostTemplates),
+		WithViewBasePath("/admin"),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine: %v", err)
+	}
+	if err := views.Load(); err != nil {
+		t.Fatalf("load views: %v", err)
+	}
+	shared := &dashboardViewRenderer{views: views}
+	standalone, err := newDashboardTemplateRenderer(WithDashboardTemplatesFS(hostTemplates))
+	if err != nil {
+		t.Fatalf("newDashboardTemplateRenderer: %v", err)
+	}
+
+	for name, renderer := range map[string]admin.DashboardRenderer{
+		"shared view": shared,
+		"standalone":  standalone,
+	} {
+		t.Run(name, func(t *testing.T) {
+			html, err := renderer.RenderPage("dashboard_ssr.html", page)
+			if err != nil {
+				t.Fatalf("RenderPage: %v", err)
+			}
+			if !strings.Contains(html, `data-host-breadcrumbs="dashboard"`) ||
+				strings.Count(html, `aria-label="Breadcrumb"`) != 1 {
+				t.Fatalf("dashboard renderer did not use selected breadcrumb leaf: %q", html)
+			}
+		})
 	}
 }
 
@@ -523,6 +611,7 @@ func TestDashboardRendererRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
 	renderer, err := newDashboardTemplateRenderer(
 		WithDashboardEmbeddedTemplates(false),
 		WithDashboardTemplatesFS(customFS),
+		WithDashboardTemplatesFS(client.Templates()),
 	)
 	if err != nil {
 		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
@@ -574,6 +663,7 @@ func TestDashboardRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) 
 	renderer, err := newDashboardTemplateRenderer(
 		WithDashboardEmbeddedTemplates(false),
 		WithDashboardTemplatesFS(customFS),
+		WithDashboardTemplatesFS(client.Templates()),
 	)
 	if err != nil {
 		t.Fatalf("newDashboardTemplateRenderer error: %v", err)

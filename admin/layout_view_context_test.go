@@ -108,6 +108,10 @@ func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 		externalAssets["echarts_js"] != "https://assets.example/echarts.js" {
 		t.Fatalf("unexpected external assets: %+v", externalAssets)
 	}
+	partials, ok := view["admin_partials"].(AdminStructuralPartials)
+	if !ok || partials.Breadcrumbs != "partials/breadcrumbs.html" || partials.Sidebar != "partials/sidebar.html" || partials.Footer != "partials/admin-footer.html" {
+		t.Fatalf("unexpected structural partial defaults: %#v", view["admin_partials"])
+	}
 }
 
 func TestBuildAdminLayoutViewContextIncludesRequestTemplateHelpers(t *testing.T) {

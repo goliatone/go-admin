@@ -50,13 +50,18 @@ func TestAdminAndAuthLayoutsDefaultToPackagedDocumentDependencies(t *testing.T) 
 }
 
 func TestAdminHeaderTemplatesExposeThemeCompositionHook(t *testing.T) {
-	for _, name := range []string{
-		"partials/admin-page-header.html",
-		"resources/shared/list-base.html",
-	} {
+	for _, name := range []string{"layout.html", "partials/admin-page-header.html"} {
 		template := mustReadClientTemplate(t, name)
 		if !strings.Contains(template, "admin-page-heading-group") {
 			t.Fatalf("%s is missing the additive heading composition hook", name)
+		}
+	}
+	for _, name := range []string{"resources/shared/list-base.html", "resources/shared/detail-base.html"} {
+		template := mustReadClientTemplate(t, name)
+		for _, fragment := range []string{`{% block page_title %}`, `{% block page_header_actions %}`} {
+			if !strings.Contains(template, fragment) {
+				t.Fatalf("%s is missing canonical page-header block %q", name, fragment)
+			}
 		}
 	}
 }
@@ -98,5 +103,49 @@ func TestAdminLayoutLoadsSidebarStateBeforeSharedStylesheetsAndRuntime(t *testin
 	}
 	if !strings.Contains(template, `data-admin-sidebar-state`) {
 		t.Fatal("sidebar pre-paint asset must expose a stable layout marker")
+	}
+}
+
+func TestAdminLayoutOwnsCanonicalShellAndCompatibilitySlots(t *testing.T) {
+	template := mustReadClientTemplate(t, "layout.html")
+	for _, fragment := range []string{
+		`data-admin-shell`,
+		`class="admin-shell-content flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden"`,
+		`{% block shell_sidebar %}`,
+		`{% block shell_page_header %}`,
+		`{% block page_breadcrumbs %}`,
+		`{% block page_title %}`,
+		`{% block page_pretitle %}`,
+		`{% block page_subtitle %}`,
+		`{% block page_header_actions %}`,
+		`{% block page_below_header %}`,
+		`{% block shell_content %}{% block content %}`,
+		`{% block shell_footer %}`,
+		`{% block header_actions %}`,
+		`{% block header_actions_prepend %}`,
+		`{% block header_actions_append %}`,
+		`{% block header_title %}`,
+		`{% block header_pretitle %}`,
+		`{% block tabs_area %}`,
+	} {
+		if !strings.Contains(template, fragment) {
+			t.Fatalf("layout.html missing canonical shell contract %q", fragment)
+		}
+	}
+}
+
+func TestLegacyPageHeaderDelegatesToCanonicalBreadcrumbLeaf(t *testing.T) {
+	header := mustReadClientTemplate(t, "partials/admin-page-header.html")
+	if strings.Contains(header, `<nav`) || strings.Contains(header, `<ol`) {
+		t.Fatal("legacy page header must not own breadcrumb navigation markup")
+	}
+	for _, fragment := range []string{`include admin_partials.Breadcrumbs`, `include "partials/breadcrumbs.html"`} {
+		if !strings.Contains(header, fragment) {
+			t.Fatalf("legacy page header missing breadcrumb delegation %q", fragment)
+		}
+	}
+	footer := mustReadClientTemplate(t, "partials/admin-footer.html")
+	if !strings.Contains(footer, `{% if footer_content %}`) || !strings.Contains(footer, `data-admin-shell-footer`) {
+		t.Fatal("packaged footer must remain empty unless footer_content is supplied")
 	}
 }

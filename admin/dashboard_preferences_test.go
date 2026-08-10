@@ -250,7 +250,20 @@ func TestDashboardAPIRouteUsesTypedPageSource(t *testing.T) {
 
 func TestAdminChromeStateFromViewContextPreservesNavigationSlices(t *testing.T) {
 	state := adminChromeStateFromViewContext(router.ViewContext{
-		"active": "/admin/dashboard",
+		"active":        "/admin/dashboard",
+		"page_title":    "Operations",
+		"page_pretitle": "Workspace",
+		"page_subtitle": "Current activity",
+		"breadcrumbs": []map[string]any{
+			{"label": "Dashboard", "href": "/admin"},
+			{"label": "Operations", "current": true},
+		},
+		"admin_partials": AdminStructuralPartials{
+			Sidebar:     "partials/sidebar.html",
+			Breadcrumbs: "themes/acme/breadcrumbs.html",
+			Footer:      "partials/admin-footer.html",
+			Diagnostics: []AdminStructuralPartialDiagnostic{{Key: AdminPartialShellFooter, ReasonCode: AdminPartialUnavailable}},
+		},
 		"nav_items": []map[string]any{
 			{"label": "Dashboard", "href": "/admin/dashboard"},
 		},
@@ -279,6 +292,14 @@ func TestAdminChromeStateFromViewContextPreservesNavigationSlices(t *testing.T) 
 	}
 	if len(state.NavUtilityItems) != 1 {
 		t.Fatalf("expected one utility nav item, got %+v", state.NavUtilityItems)
+	}
+	if state.PageHeader.Title != "Operations" || state.PageHeader.Pretitle != "Workspace" ||
+		state.PageHeader.Subtitle != "Current activity" || len(state.PageHeader.Breadcrumbs) != 2 ||
+		!state.PageHeader.Breadcrumbs[1].Current {
+		t.Fatalf("expected typed page-header context to round-trip, got %+v", state.PageHeader)
+	}
+	if state.AdminPartials.Breadcrumbs != "themes/acme/breadcrumbs.html" || len(state.AdminPartials.Diagnostics) != 1 {
+		t.Fatalf("expected typed structural selection to round-trip, got %+v", state.AdminPartials)
 	}
 	item, ok := state.NavItems[0].(map[string]any)
 	if !ok {

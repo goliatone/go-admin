@@ -85,6 +85,7 @@ func TestMediaPageTemplatePreservesListOverflowOwnership(t *testing.T) {
 
 func TestMediaPageTemplatePreservesRuntimeMarkers(t *testing.T) {
 	template := mustReadClientTemplate(t, "resources/media/page.html")
+	headerActions := mustReadClientTemplate(t, "resources/media/header-actions.html")
 
 	mediaRequireFragments(t, template,
 		"data-media-page-root",
@@ -115,8 +116,6 @@ func TestMediaPageTemplatePreservesRuntimeMarkers(t *testing.T) {
 		"data-media-no-results",
 		"data-media-error",
 		"data-media-status",
-		"data-media-upload-trigger",
-		"data-media-upload-input",
 		"data-media-upload-empty",
 		"data-media-selection-bar",
 		"data-media-selected-count",
@@ -137,6 +136,10 @@ func TestMediaPageTemplatePreservesRuntimeMarkers(t *testing.T) {
 		"data-media-delete",
 		"data-media-detail-error",
 		"data-media-detail-feedback",
+	)
+	mediaRequireFragments(t, headerActions,
+		"data-media-upload-trigger",
+		"data-media-upload-input",
 	)
 }
 

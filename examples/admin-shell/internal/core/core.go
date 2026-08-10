@@ -583,6 +583,7 @@ func (m *adminModuleLifecycle) Stop(ctx context.Context) error {
 func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin) (fiber.Views, error) {
 	return quickstart.NewViewEngine(
 		client.FS(),
+		quickstart.WithViewAdmin(adm),
 		quickstart.WithViewTemplatesFS(adminShellTemplatesFS()),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
 			quickstart.WithTemplateURLResolver(adm.URLs()),

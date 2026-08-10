@@ -8,17 +8,12 @@
 {% endfor %}
 {% endblock %}
 
-{% block content %}
+{% block page_title %}Content Types{% endblock %}
+{% block page_subtitle %}Design schemas, layout, and capabilities for structured content.{% endblock %}
+{% block page_header_actions %}
 {% set active_channel = content_types_effective_channel|default:"default" %}
 {% set in_default_channel = active_channel == "default" %}
-{% set visible_total = content_types_total_effective|default:0 %}
-{% set default_total = content_types_total_default|default:0 %}
 {% set available_channels = content_types_available_channels %}
-<header class="px-4 sm:px-6 py-4 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 items-center justify-between">
-  <div class="min-w-0">
-    <h1 class="text-xl font-bold text-gray-900 dark:text-white">Content Types</h1>
-    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Design schemas, layout, and capabilities for structured content.</p>
-  </div>
   <div class="flex flex-wrap items-center justify-start sm:justify-end gap-2 max-w-full min-w-0">
     <nav class="cm-mode-switch shrink-0" aria-label="Content modeling section">
       <a href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}"
@@ -82,8 +77,14 @@
     </div>
     <a class="btn btn-primary shrink-0" href="{{ adminURL("content/types") }}{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
   </div>
-</header>
+{% endblock %}
 
+{% block content %}
+{% set active_channel = content_types_effective_channel|default:"default" %}
+{% set in_default_channel = active_channel == "default" %}
+{% set visible_total = content_types_total_effective|default:0 %}
+{% set default_total = content_types_total_default|default:0 %}
+{% set available_channels = content_types_available_channels %}
 <div class="flex-1 dashboard-shell flex flex-col md:flex-row overflow-hidden min-h-0"
      data-dashboard-shell
      data-dashboard-shell-surface="{{ content_types_shell.surface_id|default:"content-types" }}"

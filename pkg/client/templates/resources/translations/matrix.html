@@ -2,9 +2,11 @@
 
 {% block title %}Translation Matrix - {{ title }}{% endblock %}
 
-{% block content %}
-{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Matrix view" page_subtitle="View family-by-locale coverage and trigger quick actions from the grid." header_actions_id="matrix-header-actions" %}
+{% block page_title %}Matrix view{% endblock %}
+{% block page_subtitle %}View family-by-locale coverage and trigger quick actions from the grid.{% endblock %}
+{% block page_header_actions %}<div id="matrix-header-actions"></div>{% endblock %}
 
+{% block content %}
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto max-w-[96rem]">
     <div

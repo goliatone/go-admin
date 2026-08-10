@@ -52,12 +52,59 @@
   <!-- Toast notification container -->
   {% include "partials/toast-container.html" %}
 
-  <div class="admin-layout flex w-full h-screen overflow-hidden">
-    {% include "partials/sidebar.html" %}
+  <div class="admin-layout flex w-full h-screen overflow-hidden" data-admin-shell>
+    {% block shell_sidebar %}
+      {% if admin_partials and admin_partials.Sidebar %}
+        {% include admin_partials.Sidebar %}
+      {% else %}
+        {% include "partials/sidebar.html" %}
+      {% endif %}
+    {% endblock %}
     <script src="{{ asset_base_path }}/assets/sidebar.js"></script>
-    <main class="admin-main flex-1 min-w-0 flex flex-col overflow-hidden">
+    <main class="admin-main flex-1 min-w-0 flex flex-col overflow-hidden" data-admin-shell-main>
       {% include "partials/csrf-recovery-alert.html" %}
-      {% block content %}{% endblock %}
+
+      {% block shell_page_header %}
+      {% if not hide_page_header %}
+      <header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200" data-admin-page-header>
+        <div class="admin-page-header__row flex items-center justify-between gap-4">
+          <div class="admin-page-heading-group flex items-center gap-4 min-w-0 flex-1">
+            {% block page_breadcrumbs %}
+              {% if not hide_breadcrumbs and breadcrumbs %}
+                {% if admin_partials and admin_partials.Breadcrumbs %}
+                  {% include admin_partials.Breadcrumbs %}
+                {% else %}
+                  {% include "partials/breadcrumbs.html" %}
+                {% endif %}
+              {% endif %}
+            {% endblock %}
+            <div class="admin-page-header__titles min-w-0 flex-1">
+              {% block page_pretitle %}{% block header_pretitle %}{% if page_pretitle %}<p class="admin-page-header__pretitle mb-1 text-sm text-gray-500">{{ page_pretitle }}</p>{% endif %}{% endblock %}{% endblock %}
+              <h1 class="admin-page-header__title text-2xl font-bold text-gray-900 truncate">{% block page_title %}{% block header_title %}{{ page_title|default:title }}{% endblock %}{% endblock %}</h1>
+              {% block page_subtitle %}{% if page_subtitle %}<p class="admin-page-header__subtitle mt-1 text-sm text-gray-500">{{ page_subtitle }}</p>{% endif %}{% endblock %}
+            </div>
+          </div>
+          <div class="admin-page-header__actions flex items-center gap-3 flex-shrink-0" data-admin-page-actions>
+            {% block page_header_actions %}{% block header_actions %}{% block header_actions_prepend %}{% endblock %}{% block header_actions_append %}{% endblock %}{% endblock %}{% endblock %}
+          </div>
+        </div>
+      </header>
+      {% endif %}
+      {% endblock %}
+
+      {% block page_below_header %}{% block tabs_area %}{% endblock %}{% endblock %}
+
+      <div class="admin-shell-content flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden" data-admin-shell-content>
+        {% block shell_content %}{% block content %}{% endblock %}{% endblock %}
+      </div>
+
+      {% block shell_footer %}
+        {% if admin_partials and admin_partials.Footer %}
+          {% include admin_partials.Footer %}
+        {% else %}
+          {% include "partials/admin-footer.html" %}
+        {% endif %}
+      {% endblock %}
     </main>
   </div>
 

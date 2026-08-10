@@ -123,6 +123,12 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	state := AdminChromeState{}
 	assignAdminChromeString(&state.Title, view["title"])
+	assignAdminChromeString(&state.PageHeader.Title, view["page_title"])
+	assignAdminChromeString(&state.PageHeader.Pretitle, view["page_pretitle"])
+	assignAdminChromeString(&state.PageHeader.Subtitle, view["page_subtitle"])
+	assignAdminChromeBool(&state.PageHeader.HideHeader, view["hide_page_header"])
+	assignAdminChromeBool(&state.PageHeader.HideBreadcrumbs, view["hide_breadcrumbs"])
+	state.PageHeader.Breadcrumbs = adminPageHeaderBreadcrumbsFromValue(view["breadcrumbs"])
 	assignAdminChromeString(&state.BasePath, view["base_path"])
 	assignAdminChromeString(&state.AssetBasePath, view["asset_base_path"])
 	assignAdminChromeString(&state.APIBasePath, view["api_base_path"])
@@ -152,7 +158,27 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	assignAdminChromeBool(&state.UsersImportEnabled, view["users_import_enabled"])
 	assignAdminChromeBool(&state.NavDebug, view["nav_debug"])
 	assignAdminChromeString(&state.NavItemsJSON, view["nav_items_json"])
+	if partials, ok := view["admin_partials"].(AdminStructuralPartials); ok {
+		state.AdminPartials = partials.Clone()
+	} else {
+		state.AdminPartials = DefaultAdminStructuralPartials()
+	}
 	return state
+}
+
+func adminPageHeaderBreadcrumbsFromValue(value any) []AdminPageHeaderBreadcrumb {
+	if value == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil
+	}
+	var breadcrumbs []AdminPageHeaderBreadcrumb
+	if err := json.Unmarshal(encoded, &breadcrumbs); err != nil {
+		return nil
+	}
+	return breadcrumbs
 }
 
 func assignAdminChromeString(target *string, value any) {

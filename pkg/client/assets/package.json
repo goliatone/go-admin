@@ -139,10 +139,10 @@
     "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "test:clean": "npm run clean && npm test",
     "pack:public": "node ./scripts/pack-public-package.mjs",
-    "e2e": "playwright test",
-    "e2e:headed": "playwright test --headed",
-    "e2e:ui": "playwright test --ui",
-    "e2e:install": "playwright install chromium",
+    "e2e": "node ./node_modules/@playwright/test/cli.js test",
+    "e2e:headed": "node ./node_modules/@playwright/test/cli.js test --headed",
+    "e2e:ui": "node ./node_modules/@playwright/test/cli.js test --ui",
+    "e2e:install": "node ./node_modules/@playwright/test/cli.js install chromium",
     "prepack": "npm run build:public"
   },
   "keywords": [

@@ -22,7 +22,7 @@ the closest existing guide when conventions change.
 | Panel CRUD, DataGrid wiring, list APIs, row actions, and bulk actions | `GUIDE_CRUD.md` |
 | Browser-client version compatibility and coordinated release artifacts | `browser-client-compatibility.md` |
 | Action availability, enhanced SSR actions, fragments, and mutation feedback | `GUIDE_ACTIONS.md` |
-| View engine layering, template overrides, and asset pipeline | `GUIDE_VIEW_CUSTOMIZATION.md` |
+| Canonical admin shell, view-stack precedence, structural partial overrides, and asset pipeline | `GUIDE_VIEW_CUSTOMIZATION.md` |
 | Form generation, go-formgen semantic themes/states, and UI schema overlays | `GUIDE_FORMGEN.md` |
 | Block editor setup and content-type-builder UI | `GUIDE_BLOCK_EDITOR.md` |
 | Tab widgets and tabbed detail surfaces | `GUIDE_TAB_WIDGETS.md` |

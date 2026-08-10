@@ -1100,7 +1100,7 @@ func TestTranslationEditorTemplateRendersSSRSections(t *testing.T) {
 			t.Fatalf("expected editor template to contain %q", expected)
 		}
 	}
-	if strings.Contains(template, "id=\"translation-editor-root\"") && strings.Contains(template, "></div>") {
+	if regexp.MustCompile(`(?s)id="translation-editor-root"[^>]*>\s*</div>`).MatchString(template) {
 		t.Fatalf("expected editor root to contain SSR markup, found empty root pattern")
 	}
 }

@@ -13,6 +13,10 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 	}
 	css := string(content)
 	required := []string{
+		".admin-shell-content {\n    background-color:",
+		".admin-shell-footer {\n    background-color:",
+		".admin-breadcrumbs {\n    color:",
+		".admin-page-header__actions:empty {\n    display: none;",
 		".admin-page-content {\n    display: flex;\n    flex-direction: column;",
 		".admin-page-content > .formgen-form {\n    width: 100%;",
 		`var(--admin-shell-background, var(--color-surface-canvas, #f9fafb))`,
@@ -56,6 +60,20 @@ func TestSharedAdminTemplatesOptIntoSemanticPrimitiveClasses(t *testing.T) {
 	checks := map[string][]string{
 		"layout.html": {
 			`class="admin-theme-root`,
+			`data-admin-shell`,
+			`data-admin-shell-main`,
+			`data-admin-page-header`,
+			`data-admin-page-actions`,
+			`data-admin-shell-content`,
+		},
+		"partials/breadcrumbs.html": {
+			`data-admin-breadcrumbs`,
+			`admin-breadcrumbs__list`,
+			`admin-breadcrumbs__link`,
+			`admin-breadcrumbs__current`,
+		},
+		"partials/admin-footer.html": {
+			`data-admin-shell-footer`,
 		},
 		"login-layout.html": {
 			`class="admin-theme-root`,
@@ -84,7 +102,8 @@ func TestSharedAdminTemplatesOptIntoSemanticPrimitiveClasses(t *testing.T) {
 			`class="admin-surface-card`,
 		},
 		"resources/content/form.html": {
-			`class="admin-page-header`,
+			`{% block page_title %}`,
+			`{% block page_header_actions %}`,
 			`class="admin-page-content`,
 		},
 		"resources/users/list.html": {

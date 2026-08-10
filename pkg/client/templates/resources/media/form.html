@@ -2,12 +2,12 @@
 
 {% block title %}{{ is_edit|yesno:"Edit Media,New Media" }} - {{ title }}{% endblock %}
 
-{% block content %}
-<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-  <h1 class="text-3xl font-bold text-admin-dark">{{ is_edit|yesno:"Edit Media,New Media" }}</h1>
+{% block page_title %}{{ is_edit|yesno:"Edit Media,New Media" }}{% endblock %}
+{% block page_header_actions %}
   <a href="{{ routes.index }}" class="text-sm text-blue-600 hover:text-blue-800">Back to list</a>
-</header>
+{% endblock %}
 
+{% block content %}
 <div class="flex-1 p-8 overflow-y-auto">
   <div class="bg-white border border-gray-200 rounded-xl p-6">
     <form method="POST" action="{% if is_edit %}{{ routes.index }}/{{ item.id }}{% else %}{{ routes.index }}{% endif %}">

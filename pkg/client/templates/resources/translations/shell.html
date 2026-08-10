@@ -2,10 +2,11 @@
 
 {% block title %}{{ translation_shell_title|default:"Translation" }} - {{ title }}{% endblock %}
 
+{% block page_title %}{{ translation_shell_title|default:"Translation" }}{% endblock %}
+{% block page_subtitle %}{{ translation_shell_description|default:"Translation work surface with feature-based routing." }}{% endblock %}
+{% block page_header_actions %}<div id="translation-shell-header-actions"></div>{% endblock %}
+
 {% block content %}
-
-{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title=translation_shell_title|default:"Translation" page_subtitle=translation_shell_description|default:"Translation work surface with feature-based routing." header_actions_id="translation-shell-header-actions" %}
-
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
     <section class="{% if translation_shell_surface != "queue" %}rounded-xl border border-gray-200 bg-white p-6 shadow-sm{% endif %}">

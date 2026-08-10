@@ -2,11 +2,9 @@
 
 {% block title %}Preferences - {{ title }}{% endblock %}
 
-{% block content %}
-  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <h1 class="text-3xl font-bold text-admin-dark">Preferences</h1>
-  </header>
+{% block page_title %}Preferences{% endblock %}
 
+{% block content %}
   <div class="flex-1 p-8 overflow-y-auto" data-preferences-form data-json-editor-strict="{{ json_editor_strict }}">
     {{ form_html|safe }}
 

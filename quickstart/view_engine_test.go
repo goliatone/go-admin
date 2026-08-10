@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
+	router "github.com/goliatone/go-router"
 )
 
 func TestViewEngineTemplateOverrides(t *testing.T) {
@@ -115,6 +116,205 @@ func TestViewEngineTemplateStackPrefersOverlayOverHostBase(t *testing.T) {
 	}
 	if string(data) != "override template" {
 		t.Fatalf("expected overlay template to win, got %q", string(data))
+	}
+}
+
+func TestViewEngineAdminBindingUsesExactNormalizedTemplateStack(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/layout.html": {Data: []byte("host layout")},
+	}
+	overlayFS := fstest.MapFS{
+		"templates/themes/acme/breadcrumbs.html": {Data: []byte("acme breadcrumbs")},
+	}
+	adm, err := admin.New(admin.Config{}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithThemeProvider(func(context.Context, admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{Partials: map[string]string{
+			admin.AdminPartialPageBreadcrumbs: "themes/acme/breadcrumbs.html",
+		}}, nil
+	})
+
+	if _, err := newViewEngineConfig(hostFS, WithViewTemplatesFS(overlayFS), WithViewAdmin(adm)); err != nil {
+		t.Fatalf("newViewEngineConfig: %v", err)
+	}
+	selection := adm.StructuralPartials(context.Background())
+	if selection.Breadcrumbs != "themes/acme/breadcrumbs.html" || len(selection.Diagnostics) != 0 {
+		t.Fatalf("bound structural selection = %+v", selection)
+	}
+}
+
+func TestStructuralBreadcrumbOverrideRendersAcrossAuthenticatedSurfaceMatrix(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"partials/breadcrumbs.html": {
+			Data: []byte(`<nav aria-label="Breadcrumb" data-host-breadcrumbs="fixed">fixed</nav>`),
+		},
+		"themes/acme/breadcrumbs.html": {
+			Data: []byte(`<nav aria-label="Breadcrumb" data-host-breadcrumbs="selected">selected</nav>`),
+		},
+	}
+	adm, err := admin.New(admin.Config{BasePath: "/admin"}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		selection := &admin.ThemeSelection{}
+		if selector.Variant == "contrast" {
+			selection.Partials = map[string]string{
+				admin.AdminPartialPageBreadcrumbs: "themes/acme/breadcrumbs.html",
+			}
+		}
+		return selection, nil
+	})
+
+	views, err := NewViewEngine(
+		client.Templates(),
+		WithViewTemplatesFS(hostFS),
+		WithViewAdmin(adm),
+		WithViewReload(false),
+		WithViewBasePath("/admin"),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine: %v", err)
+	}
+	if err := views.Load(); err != nil {
+		t.Fatalf("load views: %v", err)
+	}
+
+	pages := []string{
+		"resources/users/list",
+		"resources/translations/shell",
+		"resources/activity/list",
+		"resources/feature-flags/index",
+		"resources/media/list",
+	}
+	for _, variant := range []struct {
+		name   string
+		ctx    context.Context
+		marker string
+	}{
+		{name: "fixed path overlay", ctx: context.Background(), marker: `data-host-breadcrumbs="fixed"`},
+		{name: "theme selected path", ctx: admin.WithThemeSelection(context.Background(), admin.ThemeSelector{Variant: "contrast"}), marker: `data-host-breadcrumbs="selected"`},
+	} {
+		t.Run(variant.name, func(t *testing.T) {
+			selection := adm.StructuralPartials(variant.ctx)
+			for _, page := range pages {
+				var rendered bytes.Buffer
+				data := structuralSurfaceRenderContext(selection)
+				if err := views.Render(&rendered, page, data); err != nil {
+					t.Fatalf("render %s: %v", page, err)
+				}
+				html := rendered.String()
+				if !containsAll(html, variant.marker, "data-admin-shell", "data-admin-page-header", "data-admin-shell-content") {
+					t.Fatalf("%s did not use %s through canonical shell", page, variant.marker)
+				}
+				if strings.Count(html, `aria-label="Breadcrumb"`) != 1 {
+					t.Fatalf("%s rendered competing breadcrumb frames", page)
+				}
+			}
+		})
+	}
+}
+
+func TestOrdinaryAndModuleViewProvidersRenderStructuralDefaults(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"provider.html": {Data: []byte(`{% extends "layout.html" %}{% block page_title %}Provider{% endblock %}{% block content %}<div data-provider-content></div>{% endblock %}`)},
+	}
+	views, err := NewViewEngine(client.Templates(), WithViewTemplatesFS(hostFS), WithViewBasePath("/admin"))
+	if err != nil {
+		t.Fatalf("NewViewEngine: %v", err)
+	}
+	if err := views.Load(); err != nil {
+		t.Fatalf("load views: %v", err)
+	}
+
+	base := router.ViewContext(structuralSurfaceRenderContext(admin.DefaultAdminStructuralPartials()))
+	providers := map[string]router.ViewContext{
+		"ordinary quickstart": WithThemeContext(maps.Clone(base), nil, nil),
+		"module enrichment":   admin.EnrichLayoutViewContext(nil, nil, maps.Clone(base), "activity"),
+	}
+	for name, view := range providers {
+		t.Run(name, func(t *testing.T) {
+			partials, ok := view["admin_partials"].(admin.AdminStructuralPartials)
+			if !ok || partials.Breadcrumbs == "" || partials.Sidebar == "" || partials.Footer == "" {
+				t.Fatalf("provider omitted typed structural defaults: %#v", view["admin_partials"])
+			}
+			var rendered bytes.Buffer
+			if err := views.Render(&rendered, "provider", view); err != nil {
+				t.Fatalf("render provider context: %v", err)
+			}
+			if !containsAll(rendered.String(), "data-admin-shell", "data-admin-page-header", "data-admin-shell-content", "data-provider-content") {
+				t.Fatalf("provider did not render canonical shell")
+			}
+		})
+	}
+}
+
+func structuralSurfaceRenderContext(selection admin.AdminStructuralPartials) fiber.Map {
+	return fiber.Map{
+		"title":                     "Admin",
+		"base_path":                 "/admin",
+		"asset_base_path":           "/admin",
+		"api_base_path":             "/admin/api",
+		"active":                    "test",
+		"nav_items":                 []any{},
+		"nav_utility_items":         []any{},
+		"session_user":              map[string]any{},
+		"theme":                     map[string]map[string]string{},
+		"external_assets":           map[string]string{},
+		"csrf_meta":                 "",
+		"csrf_field":                "",
+		"breadcrumbs":               []map[string]any{{"label": "Home", "href": "/admin"}, {"label": "Current", "current": true}},
+		"admin_partials":            selection.Clone(),
+		"admin_partial_diagnostics": append([]admin.AdminStructuralPartialDiagnostic(nil), selection.Diagnostics...),
+		"routes":                    map[string]string{"new": "/admin/new"},
+		"resource":                  "users",
+		"resource_label":            "Users",
+		"items":                     []any{},
+		"can_edit":                  false,
+		"columns":                   []any{},
+		"datagrid_config":           map[string]any{},
+		"activity_action_labels":    map[string]string{},
+		"translation_shell_surface": "surface",
+		"media_view":                "list",
+		"media_gallery_path":        "/admin/media",
+		"media_list_path":           "/admin/media/list",
+	}
+}
+
+func TestViewEngineAdminLookupFollowsReloadAndCachePolicy(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		reload      bool
+		wantVisible bool
+	}{
+		{name: "reload sees new template", reload: true, wantVisible: true},
+		{name: "non-reload caches negative lookup", reload: false, wantVisible: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			hostFS := fstest.MapFS{"templates/layout.html": {Data: []byte("layout")}}
+			adm, err := admin.New(admin.Config{}, admin.Dependencies{})
+			if err != nil {
+				t.Fatalf("admin.New: %v", err)
+			}
+			adm.WithThemeProvider(func(context.Context, admin.ThemeSelector) (*admin.ThemeSelection, error) {
+				return &admin.ThemeSelection{Partials: map[string]string{
+					admin.AdminPartialShellFooter: "themes/runtime/footer.html",
+				}}, nil
+			})
+			if _, err := newViewEngineConfig(hostFS, WithViewReload(test.reload), WithViewAdmin(adm)); err != nil {
+				t.Fatalf("newViewEngineConfig: %v", err)
+			}
+			if got := adm.StructuralPartials(context.Background()).Footer; got != "partials/admin-footer.html" {
+				t.Fatalf("initial footer = %q", got)
+			}
+			hostFS["templates/themes/runtime/footer.html"] = &fstest.MapFile{Data: []byte("runtime footer")}
+			got := adm.StructuralPartials(context.Background()).Footer
+			if visible := got == "themes/runtime/footer.html"; visible != test.wantVisible {
+				t.Fatalf("footer = %q, visible=%v want %v", got, visible, test.wantVisible)
+			}
+		})
 	}
 }
 

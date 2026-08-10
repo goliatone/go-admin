@@ -3,6 +3,7 @@ package quickstart
 import (
 	"fmt"
 	"io/fs"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
@@ -30,6 +31,17 @@ type viewEngineOptions struct {
 	urlPrefix            string
 	basePath             string
 	urls                 urlkit.Resolver
+	admin                *admin.Admin
+}
+
+// WithViewAdmin binds the exact normalized template stack to Admin's bounded
+// structural-partial resolver during view-engine construction.
+func WithViewAdmin(adm *admin.Admin) ViewEngineOption {
+	return func(opts *viewEngineOptions) {
+		if opts != nil {
+			opts.admin = adm
+		}
+	}
 }
 
 // WithViewTemplatesFS appends template overlays in precedence order. Earlier
@@ -243,7 +255,7 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 		assetStack = append(assetStack, qsAssets)
 	}
 
-	return &viewEngineConfig{
+	config := &viewEngineConfig{
 		templateFS:    templateStack,
 		assetsFS:      fallbackFSList(assetStack),
 		dirFS:         dirFS,
@@ -254,7 +266,52 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 		embed:         options.embed,
 		ext:           options.ext,
 		urlPrefix:     options.urlPrefix,
-	}, nil
+	}
+	if options.admin != nil {
+		options.admin.WithAdminTemplateLookup(newViewTemplateLookup(templateStack, options.reload))
+	}
+	return config, nil
+}
+
+type viewTemplateLookup struct {
+	stack  []fs.FS
+	reload bool
+	mu     sync.RWMutex
+	cache  map[string]bool
+}
+
+func newViewTemplateLookup(stack []fs.FS, reload bool) admin.AdminTemplateLookup {
+	return &viewTemplateLookup{stack: append([]fs.FS(nil), stack...), reload: reload, cache: map[string]bool{}}
+}
+
+func (lookup *viewTemplateLookup) TemplateExists(identifier string) bool {
+	if lookup == nil {
+		return false
+	}
+	if !lookup.reload {
+		lookup.mu.RLock()
+		cached, ok := lookup.cache[identifier]
+		lookup.mu.RUnlock()
+		if ok {
+			return cached
+		}
+	}
+	exists := false
+	for _, fsys := range lookup.stack {
+		if fsys == nil {
+			continue
+		}
+		if info, err := fs.Stat(fsys, identifier); err == nil && !info.IsDir() {
+			exists = true
+			break
+		}
+	}
+	if !lookup.reload {
+		lookup.mu.Lock()
+		lookup.cache[identifier] = exists
+		lookup.mu.Unlock()
+	}
+	return exists
 }
 
 func (c *viewEngineConfig) GetReload() bool { return c.reload }

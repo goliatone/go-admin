@@ -2,17 +2,15 @@
 
 {% block title %}Profile - {{ title }}{% endblock %}
 
-{% block content %}
-  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <div>
-      <h1 class="text-3xl font-bold text-admin-dark">Profile</h1>
-      <p class="text-sm text-gray-500 mt-1">Manage your personal details.</p>
-    </div>
+{% block page_title %}Profile{% endblock %}
+{% block page_subtitle %}Manage your personal details.{% endblock %}
+{% block page_header_actions %}
     {% if not can_edit %}
       <span class="text-sm text-gray-500">Read-only</span>
     {% endif %}
-  </header>
+{% endblock %}
 
+{% block content %}
   <div class="flex-1 p-8 overflow-y-auto">
     {% if saved %}
       <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-green-800">

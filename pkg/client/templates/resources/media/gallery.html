@@ -4,6 +4,9 @@
 
 {% set media_view = "grid" %}
 
+{% block page_title %}Media{% endblock %}
+{% block page_header_actions %}{% include "resources/media/header-actions.html" %}{% endblock %}
+
 {% block content %}
   {% include "resources/media/page.html" %}
 {% endblock %}

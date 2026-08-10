@@ -21,17 +21,17 @@ func renderBreadcrumbPartial(t *testing.T, breadcrumbs []map[string]any) string 
 	return out
 }
 
-func TestTranslationTemplatesRenderBreadcrumbPartial(t *testing.T) {
+func TestTranslationTemplatesUseCanonicalShellHeaderBlocks(t *testing.T) {
 	required := map[string][]string{
-		"resources/translations/dashboard.html":          {`partials/admin-page-header.html`},
-		"resources/translations/shell.html":              {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/editor.html":             {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/family-detail.html":      {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/family-assignments.html": {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/matrix.html":             {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/translations/exchange.html":           {`partials/admin-page-header.html`, `breadcrumbs=breadcrumbs`},
-		"resources/shared/list-base.html":                {`partials/breadcrumbs.html`},
-		"resources/shared/detail-base.html":              {`partials/breadcrumbs.html`},
+		"resources/translations/dashboard.html":          {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/shell.html":              {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/editor.html":             {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/family-detail.html":      {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/family-assignments.html": {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/matrix.html":             {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/exchange.html":           {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"resources/translations/families.html":           {`{% block page_title %}`, `{% block page_header_actions %}`},
+		"layout.html":                                    {`include admin_partials.Breadcrumbs`, `partials/breadcrumbs.html`},
 	}
 
 	for name, fragments := range required {
@@ -41,11 +41,14 @@ func TestTranslationTemplatesRenderBreadcrumbPartial(t *testing.T) {
 				t.Fatalf("expected template %s to contain %q", name, fragment)
 			}
 		}
+		if name != "layout.html" && strings.Contains(template, `partials/admin-page-header.html`) {
+			t.Fatalf("translation template %s still owns the legacy page header include", name)
+		}
 	}
 }
 
 func TestBreadcrumbPartialRendersSeparatorsOnlyBetweenItems(t *testing.T) {
-	const separator = `aria-hidden="true" class="text-gray-400">/</li>`
+	const separator = `aria-hidden="true" class="admin-breadcrumbs__separator text-gray-400">/</li>`
 
 	single := renderBreadcrumbPartial(t, []map[string]any{
 		{"label": "Customers", "current": true},

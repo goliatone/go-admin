@@ -1185,6 +1185,7 @@ func main() {
 
 	// Initialize view engine
 	viewEngineOptions := []quickstart.ViewEngineOption{
+		quickstart.WithViewAdmin(adm),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
 			append(
 				helpers.TemplateFuncOptions(),

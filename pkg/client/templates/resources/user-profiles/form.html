@@ -2,17 +2,17 @@
 
 {% block title %}{% if is_edit %}Edit {{ singularize(resource_label|default:resource)|title }}{% else %}New {{ singularize(resource_label|default:resource)|title }}{% endif %} - {{ title }}{% endblock %}
 
-{% block content %}
-  <header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
-    <h1 class="text-3xl font-bold text-admin-dark">{% if is_edit %}Edit{% else %}Create{% endif %} {{ singularize(resource_label|default:resource)|title }}</h1>
+{% block page_title %}{% if is_edit %}Edit{% else %}Create{% endif %} {{ singularize(resource_label|default:resource)|title }}{% endblock %}
+{% block page_header_actions %}
     {% if routes.index %}
       <a href="{{ routes.index }}" class="btn btn-secondary">
         <i class="iconoir-arrow-left"></i>
         Back to {{ resource_label|default:resource|title }}
       </a>
     {% endif %}
-  </header>
+{% endblock %}
 
+{% block content %}
   <div class="flex-1 p-8 overflow-y-auto">
     {{ form_html|safe }}
   </div>

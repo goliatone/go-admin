@@ -13,6 +13,8 @@ func WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Conte
 		ctx = router.ViewContext{}
 	}
 	if adm == nil {
+		ctx["admin_partials"] = admin.DefaultAdminStructuralPartials()
+		ctx["admin_partial_diagnostics"] = []admin.AdminStructuralPartialDiagnostic(nil)
 		return ctx
 	}
 
@@ -36,6 +38,9 @@ func WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Conte
 
 	theme := adm.ThemePayload(baseCtx)
 	ctx["theme"] = theme
+	partials := adm.StructuralPartials(baseCtx)
+	ctx["admin_partials"] = partials.Clone()
+	ctx["admin_partial_diagnostics"] = append([]admin.AdminStructuralPartialDiagnostic(nil), partials.Diagnostics...)
 	if selection, ok := theme["selection"]; ok {
 		if name, ok := selection["name"]; ok {
 			ctx["theme_name"] = name

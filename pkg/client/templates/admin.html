@@ -2,22 +2,17 @@
 
 {% block title %}Dashboard - {{ title }}{% endblock %}
 
-{% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-    <div class="flex items-center gap-3 flex-shrink-0">
-      <button id="dashboard-export" class="btn btn-secondary">↑ Export</button>
-    </div>
-  </div>
-</header>
+{% block page_title %}Dashboard{% endblock %}
+{% block page_header_actions %}<button id="dashboard-export" class="btn btn-secondary">↑ Export</button>{% endblock %}
 
+{% block page_below_header %}
 <!-- Save status indicator -->
 <div id="save-status" class="px-8 py-3 bg-blue-50 text-blue-900 text-sm border-b border-blue-200">
   Drag widgets to rearrange, resize, or hide them. Changes save automatically.
 </div>
+{% endblock %}
 
+{% block content %}
 <div class="flex-1 p-8 overflow-y-auto" data-widget-grid>
   <!-- Widget Grid Container -->
   <div class="dashboard-grid grid grid-cols-1 lg:grid-cols-3 gap-8">

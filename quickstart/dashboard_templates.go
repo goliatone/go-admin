@@ -1,18 +1,13 @@
 package quickstart
 
 import (
-	"embed"
 	"io/fs"
+
+	client "github.com/goliatone/go-admin/pkg/client"
 )
 
-//go:embed templates/dashboard_ssr.html
-var dashboardTemplates embed.FS
-
-// DashboardTemplatesFS returns the embedded dashboard templates filesystem.
+// DashboardTemplatesFS returns the canonical packaged admin template set.
+// The legacy compact quickstart dashboard document is no longer a fallback.
 func DashboardTemplatesFS() fs.FS {
-	sub, err := fs.Sub(dashboardTemplates, "templates")
-	if err != nil {
-		return nil
-	}
-	return sub
+	return client.Templates()
 }

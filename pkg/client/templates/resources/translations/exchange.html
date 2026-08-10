@@ -2,10 +2,12 @@
 
 {% block title %}Translation Exchange - {{ title }}{% endblock %}
 
+{% block page_title %}Translation Exchange{% endblock %}
+{% block page_subtitle %}Export packages, validate imports, and apply translation files with conflict resolution.{% endblock %}
+{% block page_header_actions %}<div id="translation-exchange-header-actions"></div>{% endblock %}
+
 {% block content %}
 {% with page=translation_exchange_ssr %}
-{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Translation Exchange" page_subtitle="Export packages, validate imports, and apply translation files with conflict resolution." header_actions_id="translation-exchange-header-actions" %}
-
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto max-w-[96rem]">
     <div

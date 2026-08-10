@@ -396,6 +396,22 @@ They affect only consumers that read the key. For example, go-formgen reads
 `ThemeSelection.Templates`. A manifest entry does not add a file to go-admin's
 view engine and cannot override `partials/sidebar.html` by itself.
 
+Admin recognizes a bounded structural subset of resolved
+`ThemeSelection.Partials`, sourced from manifest `templates`:
+
+- `admin.shell.sidebar`
+- `admin.page.breadcrumbs`
+- `admin.shell.footer`
+
+Call `quickstart.WithViewAdmin(adm)` while constructing the view engine. It
+binds Admin to the exact normalized first-wins template stack, allowing
+`StructuralPartials(ctx)` to accept only registered safe relative `.html`
+identifiers. Fixed-path overlays require no manifest entry. With no lookup, or
+for invalid/missing selections, packaged paths remain active. Structural
+diagnostics are separate from semantic token diagnostics and use
+`invalid_identifier`, `template_unavailable`, or `unsupported_admin_key`, with
+deterministic deduplication and an eight-entry per-request cap.
+
 Admin page/template overrides use the first-wins view filesystem stack:
 
 ``` text
@@ -410,7 +426,9 @@ that actually serves the file.
 
 Keep these mechanisms separate:
 
-- Use manifest `templates` for renderer partial selection.
+- Use manifest `templates` for renderer-owned template selection.
+- Use the three Admin structural template keys only for bounded shell leaves whose files
+  are present in the registered view stack.
 - Use `WithViewTemplatesFS` for concrete go-admin page/partial overrides.
 - Use `WithThemeAssets` for manifest-relative files.
 - Use `ThemeAssets` / `WithThemeAssetURLs` for already resolved host URLs.

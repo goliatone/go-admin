@@ -2,17 +2,15 @@
 
 {% block title %}Menu Builder - {{ title }}{% endblock %}
 
-{% block content %}
-<header class="px-6 py-4 bg-white border-b border-gray-200 flex items-center justify-between">
-  <div>
-    <h1 class="text-xl font-bold text-gray-900">Menu Builder</h1>
-    <p class="text-xs text-gray-500 mt-1">Use the dedicated builder screen to manage menu trees and publishing.</p>
-  </div>
+{% block page_title %}Menu Builder{% endblock %}
+{% block page_subtitle %}Use the dedicated builder screen to manage menu trees and publishing.{% endblock %}
+{% block page_header_actions %}
   {% if routes and routes.index %}
   <a href="{{ routes.index }}" class="btn btn-primary">Open Menu Builder</a>
   {% endif %}
-</header>
+{% endblock %}
 
+{% block content %}
 <div class="p-6">
   <div class="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
     Menu detail and edit flows are unified in the menu builder screen.

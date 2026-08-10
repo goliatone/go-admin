@@ -77,6 +77,7 @@ func (page AdminDashboardPage) LayoutJSON() string {
 // AdminChromeState captures host chrome metadata needed by go-admin templates.
 type AdminChromeState struct {
 	Title                        string                       `json:"title,omitempty"`
+	PageHeader                   AdminPageHeader              `json:"page_header,omitempty"`
 	BasePath                     string                       `json:"base_path,omitempty"`
 	AssetBasePath                string                       `json:"asset_base_path,omitempty"`
 	APIBasePath                  string                       `json:"api_base_path,omitempty"`
@@ -98,6 +99,7 @@ type AdminChromeState struct {
 	UsersImportEnabled           bool                         `json:"users_import_enabled,omitempty"`
 	NavDebug                     bool                         `json:"nav_debug,omitempty"`
 	NavItemsJSON                 string                       `json:"nav_items_json,omitempty"`
+	AdminPartials                AdminStructuralPartials      `json:"admin_partials"`
 }
 
 func (state AdminChromeState) Empty() bool {
@@ -119,12 +121,15 @@ func adminChromeHasText(state AdminChromeState) bool {
 func adminChromeHasCollections(state AdminChromeState) bool {
 	return len(state.NavItems) > 0 || len(state.NavUtilityItems) > 0 || len(state.SessionUser) > 0 ||
 		len(state.Theme) > 0 || len(state.ExternalAssets) > 0 || len(state.CSRFTemplateHelpers) > 0 ||
-		len(state.TranslationCapabilities) > 0
+		len(state.TranslationCapabilities) > 0 || len(state.PageHeader.Breadcrumbs) > 0 || len(state.PageHeader.Hooks) > 0 ||
+		state.AdminPartials.Sidebar != "" ||
+		state.AdminPartials.Breadcrumbs != "" || state.AdminPartials.Footer != ""
 }
 
 func adminChromeHasFlags(state AdminChromeState) bool {
 	return state.SidebarHideSearch || state.SidebarCompactFooter || state.SidebarHidePresence ||
-		state.SidebarHideUserMenuIndicator || state.UsersImportAvailable || state.UsersImportEnabled || state.NavDebug
+		state.SidebarHideUserMenuIndicator || state.UsersImportAvailable || state.UsersImportEnabled || state.NavDebug ||
+		state.PageHeader.HideHeader || state.PageHeader.HideBreadcrumbs
 }
 
 func withAdminChromeState(page dashcmp.Page, state AdminChromeState) (dashcmp.Page, error) {
@@ -176,6 +181,9 @@ func cloneAdminChromeState(state AdminChromeState) AdminChromeState {
 	state.ExternalAssets = cloneStringMap(state.ExternalAssets)
 	state.CSRFTemplateHelpers = cloneStringMap(state.CSRFTemplateHelpers)
 	state.TranslationCapabilities = cloneAny(state.TranslationCapabilities)
+	state.PageHeader.Breadcrumbs = append([]AdminPageHeaderBreadcrumb(nil), state.PageHeader.Breadcrumbs...)
+	state.PageHeader.Hooks = cloneStringMap(state.PageHeader.Hooks)
+	state.AdminPartials = state.AdminPartials.Clone()
 	return state
 }
 

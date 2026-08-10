@@ -53,7 +53,8 @@ cannot be configured or safely extended.
 | Declarative button/form busy state | Shared behavior layer | `pkg/client/assets/src/shared/behaviors/`, `docs/GUIDE_UI_PRIMITIVES.md#busy-buttons-and-submit-feedback` |
 | Toast notifications | Global toast manager / notifier contract | `pkg/client/assets/src/toast/`, `pkg/client/templates/partials/toast-container.html` |
 | Structured error display | Toast error helpers | `pkg/client/assets/src/toast/error-helpers.ts` |
-| Page headers, menus, filters, badges, tabs, metrics | Template partials | `pkg/client/templates/partials/`, `docs/GUIDE_UI_PRIMITIVES.md` |
+| Authenticated page shell/header/actions/footer | Canonical `layout.html` blocks and bounded structural leaves | `docs/GUIDE_VIEW_CUSTOMIZATION.md#canonical-authenticated-shell` |
+| Menus, filters, badges, tabs, metrics | Template partials | `pkg/client/templates/partials/`, `docs/GUIDE_UI_PRIMITIVES.md` |
 | DataGrid state and column preferences | DataGrid state store / preferences mode | `pkg/client/assets/src/datatable/state-store.ts`, `docs/GUIDE_CRUD.md#datagrid-state-and-preferences` |
 | Revision-safe sync, autosave, idempotency, conflict recovery | `pkg/go-sync` and `sync-core` | `pkg/go-sync/`, `docs/reference/root/PKG_SYNC.md` |
 | Dashboard cards/widgets | Dashboard widget providers/renderers | `docs/GUIDE_DASHBOARD_WIDGETS.md` |
@@ -65,8 +66,8 @@ Use existing primitives before creating page-specific UI.
 Shared template partials live under `pkg/client/templates/partials/`. Important
 defaults include:
 
-- `admin-page-header.html` and `admin-page-heading.html` for page titles and
-  actions
+- shell-owned `page_title`, `page_subtitle`, `page_header_actions`, and
+  `page_below_header` blocks for authenticated page composition
 - `action-menu.html` for row and contextual menus
 - `bulk-action-overlay.html` for selection-based operations
 - `quick-filters.html`, `filter-panel.html`, and `filter-summary.html` for
@@ -125,6 +126,14 @@ HTTP response, media type, template link order, and stale-output gate.
 
 Do not add consumer repository paths to go-admin's Tailwind content list, copy
 go-admin's generated CSS, or hand-edit generated product bundles.
+
+The shared admin build owns semantic shell consumers such as `.admin-main`,
+`.admin-shell-content`, `.admin-page-header`, `.admin-breadcrumbs`, and
+`.admin-shell-footer`. Theme these through the existing semantic variables in
+`docs/GUIDE_THEME.md`; do not patch individual product pages or globally remap
+Tailwind palette utilities. After changing shared shell CSS, run
+`npm run build:css` from `pkg/client/assets` and keep `output.css` and
+`dist/output.css` identical.
 
 ## DataGrid
 

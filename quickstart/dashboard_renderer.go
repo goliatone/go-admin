@@ -149,20 +149,20 @@ func newDashboardTemplateRenderer(opts ...DashboardRendererOption) (*dashboardTe
 
 	templateStack := append([]fs.FS{}, options.templateFS...)
 	if options.useEmbedded {
-		// The full admin shell owns the canonical dashboard template set. Keep
-		// quickstart's compact template as a last-resort fallback for custom
-		// distributions that intentionally omit a client template.
+		// The full admin shell owns the only packaged dashboard template set.
 		if canonical := client.Templates(); canonical != nil {
 			templateStack = append(templateStack, canonical)
-		}
-		if embedded := DashboardTemplatesFS(); embedded != nil {
-			templateStack = append(templateStack, embedded)
 		}
 	}
 
 	templateFS := fallbackFSList(templateStack)
 	if templateFS == nil {
 		return nil, fmt.Errorf("dashboard templates are required")
+	}
+	if !options.useEmbedded {
+		if err := validateIsolatedDashboardTemplateSet(templateFS); err != nil {
+			return nil, err
+		}
 	}
 
 	templateFuncs := options.templateFuncs
@@ -179,6 +179,33 @@ func newDashboardTemplateRenderer(opts ...DashboardRendererOption) (*dashboardTe
 		return nil, err
 	}
 	return &dashboardTemplateRenderer{renderer: renderer}, nil
+}
+
+func validateIsolatedDashboardTemplateSet(templateFS fs.FS) error {
+	required := []string{
+		"dashboard_ssr.html",
+		"dashboard_widget.html",
+		"dashboard_widget_content.html",
+		"layout.html",
+		"partials/admin-footer.html",
+		"partials/breadcrumbs.html",
+		"partials/csrf-recovery-alert.html",
+		"partials/debug-toolbar.html",
+		"partials/jserror-collector.html",
+		"partials/menu-item.html",
+		"partials/sidebar.html",
+		"partials/toast-container.html",
+	}
+	missing := make([]string, 0)
+	for _, identifier := range required {
+		if info, err := fs.Stat(templateFS, identifier); err != nil || info.IsDir() {
+			missing = append(missing, identifier)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("isolated dashboard template set is incomplete: missing %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // RenderPage renders the dashboard template with the typed admin wrapper.
@@ -253,14 +280,16 @@ func (r *dashboardTemplateRenderer) normalizeData(data any) (map[string]any, err
 func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardPage) map[string]any {
 	if len(page.Dashboard.Areas) == 0 && page.Chrome.Empty() {
 		return map[string]any{
-			"title":             "Dashboard",
-			"base_path":         "",
-			"asset_base_path":   "",
-			"nav_items":         []any{},
-			"nav_utility_items": []any{},
-			"session_user":      map[string]any{},
-			"areas":             []map[string]any{},
-			"layout_json":       "{}",
+			"title":                     "Dashboard",
+			"base_path":                 "",
+			"asset_base_path":           "",
+			"nav_items":                 []any{},
+			"nav_utility_items":         []any{},
+			"session_user":              map[string]any{},
+			"areas":                     []map[string]any{},
+			"layout_json":               "{}",
+			"admin_partials":            admin.DefaultAdminStructuralPartials(),
+			"admin_partial_diagnostics": []admin.AdminStructuralPartialDiagnostic(nil),
 		}
 	}
 
@@ -271,6 +300,12 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 		"api_base_path",
 		"body_classes",
 		"active",
+		"page_title",
+		"page_pretitle",
+		"page_subtitle",
+		"breadcrumbs",
+		"hide_page_header",
+		"hide_breadcrumbs",
 		"nav_items",
 		"nav_utility_items",
 		"nav_debug",
@@ -288,6 +323,8 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 		"users_import_available",
 		"users_import_enabled",
 		"locale",
+		"admin_partials",
+		"admin_partial_diagnostics",
 	)
 	view["areas"] = areas
 	view["base_path"] = page.Chrome.BasePath
@@ -320,11 +357,18 @@ func dashboardTemplateAreas(page admin.AdminDashboardPage) []map[string]any {
 }
 
 func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]any {
+	partials := normalizedDashboardAdminPartials(page.Chrome.AdminPartials)
 	return map[string]any{
 		"asset_base_path":                  page.Chrome.AssetBasePath,
 		"api_base_path":                    page.Chrome.APIBasePath,
 		"body_classes":                     page.Chrome.BodyClasses,
 		"active":                           page.Chrome.Active,
+		"page_title":                       page.Chrome.PageHeader.Title,
+		"page_pretitle":                    page.Chrome.PageHeader.Pretitle,
+		"page_subtitle":                    page.Chrome.PageHeader.Subtitle,
+		"breadcrumbs":                      page.Chrome.PageHeader.Breadcrumbs,
+		"hide_page_header":                 page.Chrome.PageHeader.HideHeader,
+		"hide_breadcrumbs":                 page.Chrome.PageHeader.HideBreadcrumbs,
 		"nav_items":                        page.Chrome.NavItems,
 		"nav_utility_items":                page.Chrome.NavUtilityItems,
 		"nav_debug":                        page.Chrome.NavDebug,
@@ -342,7 +386,30 @@ func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]an
 		"users_import_available":           page.Chrome.UsersImportAvailable,
 		"users_import_enabled":             page.Chrome.UsersImportEnabled,
 		"locale":                           page.Dashboard.Locale,
+		"admin_partials": map[string]any{
+			"Sidebar":     partials.Sidebar,
+			"Breadcrumbs": partials.Breadcrumbs,
+			"Footer":      partials.Footer,
+			"Diagnostics": partials.Diagnostics,
+		},
+		"admin_partial_diagnostics": partials.Diagnostics,
 	}
+}
+
+func normalizedDashboardAdminPartials(selection admin.AdminStructuralPartials) admin.AdminStructuralPartials {
+	if selection.Sidebar == "" || selection.Breadcrumbs == "" || selection.Footer == "" {
+		defaults := admin.DefaultAdminStructuralPartials()
+		if selection.Sidebar == "" {
+			selection.Sidebar = defaults.Sidebar
+		}
+		if selection.Breadcrumbs == "" {
+			selection.Breadcrumbs = defaults.Breadcrumbs
+		}
+		if selection.Footer == "" {
+			selection.Footer = defaults.Footer
+		}
+	}
+	return selection.Clone()
 }
 
 func normalizeSpan(span int) int {

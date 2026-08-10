@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -22,6 +23,23 @@ func TestEnrichLayoutViewContextPreservesActiveModule(t *testing.T) {
 	}, "users")
 	if got := view["active"]; got != "users" {
 		t.Fatalf("expected active users, got %v", got)
+	}
+}
+
+func TestEnrichLayoutViewContextProjectsThemeSelectedStructuralPartials(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin"}, Dependencies{})
+	adm.WithThemeProvider(func(context.Context, ThemeSelector) (*ThemeSelection, error) {
+		return &ThemeSelection{Partials: map[string]string{
+			AdminPartialPageBreadcrumbs: "themes/acme/breadcrumbs.html",
+		}}, nil
+	}).WithAdminTemplateLookup(AdminTemplateLookupFunc(func(identifier string) bool {
+		return identifier == "themes/acme/breadcrumbs.html"
+	}))
+
+	view := EnrichLayoutViewContext(adm, nil, nil, "activity")
+	partials, ok := view["admin_partials"].(AdminStructuralPartials)
+	if !ok || partials.Breadcrumbs != "themes/acme/breadcrumbs.html" {
+		t.Fatalf("expected module context to project selected structural partials, got %#v", view["admin_partials"])
 	}
 }
 

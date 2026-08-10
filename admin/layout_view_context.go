@@ -20,10 +20,25 @@ func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewC
 	applyAdminLayoutAPIBasePath(adm, view)
 	applyAdminLayoutNavigationDefaults(adm, c, view, basePath)
 	applyAdminLayoutThemeDefault(adm, c, view)
+	applyAdminLayoutStructuralPartials(adm, c, view)
 	applyAdminLayoutTranslationDefaults(adm, c, view)
 	applyAdminLayoutUserImportDefaults(adm, c, view)
 	applyAdminLayoutRequestTemplateDefaults(c, view)
 	return view
+}
+
+func applyAdminLayoutStructuralPartials(adm *Admin, c router.Context, view router.ViewContext) {
+	if _, ok := view["admin_partials"]; ok {
+		return
+	}
+	selection := DefaultAdminStructuralPartials()
+	if adm != nil {
+		selection = adm.StructuralPartials(adminLayoutRequestContext(c))
+	}
+	view["admin_partials"] = selection.Clone()
+	if _, ok := view["admin_partial_diagnostics"]; !ok {
+		view["admin_partial_diagnostics"] = append([]AdminStructuralPartialDiagnostic(nil), selection.Diagnostics...)
+	}
 }
 
 func resolveAdminLayoutBasePath(adm *Admin, view router.ViewContext) string {

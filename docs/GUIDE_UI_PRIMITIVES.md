@@ -611,19 +611,34 @@ Enhanced SSR actions are documented in `docs/GUIDE_ACTIONS.md`. Translation-fami
 
 ## Page Headers
 
-Use `pkg/client/templates/partials/admin-page-header.html` for consistent page headers when a page follows the standard admin header pattern:
+The authenticated `layout.html` owns the single page-header frame. Fill its
+blocks from an extending page; do not include a second header partial:
 
 ```html
-{% include "partials/admin-page-header.html" with page_title=page_title page_subtitle=page_subtitle breadcrumbs=breadcrumbs header_actions_id="queue-header-actions" %}
+{% extends "layout.html" %}
+{% block page_pretitle %}Content{% endblock %}
+{% block page_title %}Articles{% endblock %}
+{% block page_subtitle %}Manage published and draft entries.{% endblock %}
+{% block page_header_actions %}
+  <button id="articles-export" class="btn btn-secondary">Export</button>
+{% endblock %}
+{% block page_below_header %}
+  {% include "partials/panel-tabs.html" %}
+{% endblock %}
 ```
 
-The partial accepts `breadcrumbs`, `page_title`, `page_subtitle`, `header_actions_id`, and `header_actions_slot`.
+Resolved `breadcrumbs` are rendered by the one canonical breadcrumb leaf.
+Theme or host code may replace that leaf through `admin.page.breadcrumbs`; page
+actions remain trusted template-owned block content. The legacy
+`partials/admin-page-header.html`, `header_title`, `header_pretitle`,
+`header_actions`, and `tabs_area` contracts remain compatibility aliases for at
+least one major release, but are not the authoring path for new pages.
 
 ## Migration Checklist
 
 When adding or migrating admin pages, verify:
 
-- [ ] Uses `admin-page-header.html` when the standard admin header pattern applies
+- [ ] Extends the canonical shell and fills `page_*` blocks without adding a second header or breadcrumb frame
 - [ ] Uses `quick-filters.html` for simple status/category filters when presenter data is available
 - [ ] Uses `filter-panel.html` or equivalent translation-owned form markup for advanced filters
 - [ ] Uses `filter-summary.html` for active filter chips when applicable

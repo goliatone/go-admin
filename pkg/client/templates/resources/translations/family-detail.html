@@ -2,9 +2,11 @@
 
 {% block title %}{{ translation_family_id|default:"Translation Family" }} - {{ title }}{% endblock %}
 
-{% block content %}
-{% include "partials/admin-page-header.html" with breadcrumbs=breadcrumbs page_title="Family detail" page_subtitle="View locale coverage, assignments, and family activity." header_actions_id="family-detail-header-actions" %}
+{% block page_title %}Family detail{% endblock %}
+{% block page_subtitle %}View locale coverage, assignments, and family activity.{% endblock %}
+{% block page_header_actions %}<div id="family-detail-header-actions"></div>{% endblock %}
 
+{% block content %}
 <div class="flex-1 overflow-y-auto bg-gray-50 p-8">
   <div class="mx-auto">
     <div

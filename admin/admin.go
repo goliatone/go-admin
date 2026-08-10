@@ -88,6 +88,8 @@ type Admin struct {
 	themeProvider                   ThemeProvider
 	themeManifest                   *theme.Manifest
 	defaultTheme                    *ThemeSelection
+	adminTemplateLookup             AdminTemplateLookup
+	adminStructuralDiagnosticSink   AdminStructuralDiagnosticSink
 	exportRegistry                  ExportRegistry
 	exportRegistrar                 ExportHTTPRegistrar
 	exportMetadata                  ExportMetadataProvider

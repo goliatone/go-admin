@@ -5,9 +5,9 @@ This guide explains how go-admin templates are packaged, how the view engine is 
 ## What it provides
 
 - Embedded admin templates and assets via `pkg/client` (HTML templates + static assets).
-- Quickstart view engine setup with template/assets fallback stacking.
+- Quickstart view engine setup with first-wins template/assets stacking.
 - Default template helpers (JSON, dict, singularize/pluralize, adminURL, widget titles, etc.).
-- Sidebar templates/assets and dashboard SSR templates embedded in quickstart.
+- Canonical client shell templates used by ordinary and dashboard SSR views.
 - Theme payload handoff points for templates; detailed go-theme wiring lives in
   `docs/GUIDE_THEME.md`.
 - Opt-in UI route helpers for the admin shell, notifications, and auth pages.
@@ -19,18 +19,21 @@ registration, and field-level form templates, see `docs/GUIDE_FORMGEN.md`.
 
 ## Template sources and layering
 
-The view engine always starts with a base filesystem and then appends optional fallbacks.
+The view engine normalizes every filesystem to its template root and resolves
+the first file found. The order is:
 
 `quickstart.NewViewEngine(baseFS, ...)`:
 
-- Uses `baseFS` as the primary template root (looks for `templates/` by default).
-- Appends any `WithViewTemplatesFS(...)` fallbacks.
-- Appends quickstart sidebar templates (`quickstart.SidebarTemplatesFS()`) automatically.
+- each `WithViewTemplatesFS(...)` value, in call order;
+- `baseFS` (looking below `templates/` when that directory exists);
+- quickstart compatibility fallbacks such as `SidebarTemplatesFS()`.
 
-So overrides are "first wins":
+`WithViewTemplatesFS` therefore supplies overlays, not trailing fallbacks. An
+overlay may contain one file; missing paths continue through the stack.
 
-- Put your customized templates in `baseFS/templates/...` to override.
-- For fallbacks, pass additional FS values to `WithViewTemplatesFS(...)`.
+- Put host overrides in a filesystem passed through `WithViewTemplatesFS`.
+- Keep `client.FS()` or `client.Templates()` as the base to retain packaged
+  pages and partials.
 
 ## Using the embedded templates
 
@@ -39,6 +42,7 @@ The admin UI templates ship with the module and are exported from `pkg/client`.
 ```go
 views, err := quickstart.NewViewEngine(
 	client.FS(),
+	quickstart.WithViewAdmin(adm),
 	quickstart.WithViewURLResolver(adm.URLs()),
 	quickstart.WithViewBasePath(cfg.BasePath),
 )
@@ -59,6 +63,7 @@ funcs := quickstart.DefaultTemplateFuncs(
 )
 views, err := quickstart.NewViewEngine(
 	client.FS(),
+	quickstart.WithViewAdmin(adm),
 	quickstart.WithViewTemplateFuncs(funcs),
 )
 ```
@@ -90,16 +95,109 @@ Example: override the users list
 templates/resources/users/list.html
 ```
 
-Your copy will take precedence over the embedded version because `baseFS` is resolved first.
+Your copy takes precedence when its filesystem is passed through
+`WithViewTemplatesFS`.
 
-You can still fall back to the embedded templates:
+Keep the embedded templates as the base and prepend the host overlay:
 
 ```go
 views, err := quickstart.NewViewEngine(
-	os.DirFS("./web"),
-	quickstart.WithViewTemplatesFS(client.Templates()),
+	client.Templates(),
+	quickstart.WithViewTemplatesFS(os.DirFS("./web/templates")),
+	quickstart.WithViewAdmin(adm),
 )
 ```
+
+## Canonical authenticated shell
+
+Authenticated pages extend `layout.html` directly or through the shared list
+and detail bases. The shell owns the sidebar, page-header frame, below-header
+region, content boundary, and optional footer. Pages fill these blocks:
+
+- `page_title`, `page_pretitle`, and `page_subtitle`;
+- `page_header_actions` (with `header_actions`,
+  `header_actions_prepend`, and `header_actions_append` compatibility aliases);
+- `page_below_header` (with the `tabs_area` compatibility alias);
+- `content` (nested beneath the canonical `shell_content` block).
+
+Do not copy `layout.html` merely to change page actions. Extend a packaged base:
+
+```html
+{% extends "resources/shared/list-base.html" %}
+{% block page_title %}Orders{% endblock %}
+{% block header_actions_append %}
+  <button class="btn btn-secondary" data-export-orders>Export</button>
+{% endblock %}
+```
+
+The legacy `partials/admin-page-header.html` include and `header_*`/`tabs_area`
+aliases remain for at least one major release. New templates should use the
+shell-owned blocks. The compatibility include delegates breadcrumbs to the
+canonical leaf and must not become a second public block owner.
+
+### Bounded structural partial overrides
+
+Only three Admin-owned structural keys are supported:
+
+| Key | Packaged path |
+|---|---|
+| `admin.shell.sidebar` | `partials/sidebar.html` |
+| `admin.page.breadcrumbs` | `partials/breadcrumbs.html` |
+| `admin.shell.footer` | `partials/admin-footer.html` |
+
+A fixed-path override needs only the matching file in the host overlay. For
+example, embed `templates/partials/breadcrumbs.html`, prepend that filesystem,
+and bind the exact stack to Admin:
+
+```go
+views, err := quickstart.NewViewEngine(
+	client.FS(),
+	quickstart.WithViewTemplatesFS(hostTemplates),
+	quickstart.WithViewAdmin(adm),
+)
+```
+
+The embedded breadcrumb override is a normal leaf; it receives the existing
+resolved `breadcrumbs` input:
+
+```html
+{% if breadcrumbs %}
+<nav aria-label="Breadcrumb" data-host-breadcrumbs>
+  {% for crumb in breadcrumbs %}
+    {% if crumb.href and not crumb.current %}<a href="{{ crumb.href }}">{{ crumb.label }}</a>{% else %}<span {% if crumb.current %}aria-current="page"{% endif %}>{{ crumb.label }}</span>{% endif %}
+  {% endfor %}
+</nav>
+{% endif %}
+```
+
+For richer host chrome, keep page actions in the page block shown above and
+override only `partials/admin-footer.html` (or select another registered footer
+path):
+
+```html
+<footer class="admin-shell-footer border-t px-8 py-3" data-admin-shell-footer>
+  <span>{{ deployment_name }}</span>
+  <a href="{{ support_url }}">Support</a>
+</footer>
+```
+
+For a theme-selected alternative, register a safe template identifier in the
+manifest and provide that file through the same view stack:
+
+```go
+manifest.Templates[admin.AdminPartialPageBreadcrumbs] = "themes/acme/breadcrumbs.html"
+```
+
+Manifest metadata never mounts files. Identifiers must be relative `.html`
+paths using letters, numbers, `/`, `.`, `_`, or `-`; absolute paths, traversal,
+backslashes, queries/fragments, hidden segments, controls, and unregistered
+files fall back to the packaged path. Without `WithViewAdmin`, Admin deliberately
+ignores structural manifest metadata and returns packaged defaults.
+
+Rejected reserved keys use safe diagnostics with reason codes
+`invalid_identifier`, `template_unavailable`, or `unsupported_admin_key`.
+Diagnostics are sorted, deduplicated, omit raw candidate values, and are capped
+at eight per request under `admin_partial_diagnostics`.
 
 The embedded resource CRUD templates under `pkg/client/templates/resources/*` are reusable defaults and can be overridden the same way. Auth and shell templates live at `pkg/client/templates/login.html`, `pkg/client/templates/password_reset.html`, `pkg/client/templates/password_reset_confirm.html`, `pkg/client/templates/admin.html`, and `pkg/client/templates/notifications.html`.
 
@@ -787,7 +885,9 @@ The default activity template also short-circuits JS bootstrapping when `feature
 
 ## Dashboard SSR templates
 
-Quickstart provides a default dashboard renderer that uses embedded templates:
+Quickstart dashboard SSR uses the same canonical client shell as ordinary
+views. `DashboardTemplatesFS()` returns `client.Templates()`; there is no
+compact alternate dashboard document.
 
 - Embedded dashboard templates: `quickstart.DashboardTemplatesFS()`
 - Wiring helper: `quickstart.WithDefaultDashboardRenderer(...)`
@@ -802,6 +902,13 @@ err := quickstart.WithDefaultDashboardRenderer(
 	quickstart.WithDashboardTemplatesFS(os.DirFS("./web/templates")),
 )
 ```
+
+When `views` is the shared application view engine, the dashboard renderer uses
+that exact stack. The standalone renderer prepends `WithDashboardTemplatesFS`
+values to the canonical client templates. If
+`WithDashboardEmbeddedTemplates(false)` is used, the supplied stack must
+contain the complete compatible shell and dashboard template set or renderer
+construction fails explicitly.
 
 ### Dashboard canonical payload contract
 
@@ -838,8 +945,10 @@ viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
 Manifest partials and view templates are different layers.
 `theme.partials["forms.input"]`, for example, is metadata for a renderer that
 reads that key; it does not make a template file available to the admin view
-engine. Override a concrete admin template through the first-wins filesystem
-stack described above.
+engine. The three reserved Admin structural keys are also metadata until
+`WithViewAdmin(adm)` validates their identifiers against the registered
+first-wins stack. Override a concrete admin template through that filesystem
+stack; never treat a manifest path as file delivery.
 
 When overriding `partials/sidebar.html`:
 

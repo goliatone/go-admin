@@ -6,12 +6,9 @@
 <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/activity.css") }}">
 {% endblock %}
 
-{% block content %}
-{# Compact Header (Option 3: Integrated Breadcrumb) #}
-<header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200">
-  <div class="flex items-center justify-between gap-4">
-    <h1 class="text-2xl font-bold text-gray-900">Activity</h1>
-    <div class="flex items-center gap-4 flex-shrink-0">
+{% block page_title %}Activity{% endblock %}
+{% block page_subtitle %}Track actions and changes across your system.{% endblock %}
+{% block page_header_actions %}
       <div id="activity-view-switcher" class="activity-view-switcher">
         <button type="button" class="activity-view-tab active" data-view-tab="table" aria-selected="true">
           <i class="iconoir-table-rows"></i>
@@ -26,11 +23,9 @@
         <i class="iconoir-refresh"></i>
         <span>Refresh</span>
       </button>
-    </div>
-  </div>
-  <p class="mt-2 text-sm text-gray-500">Track actions and changes across your system.</p>
-</header>
+{% endblock %}
 
+{% block content %}
 <div class="flex-1 p-8 overflow-y-auto">
   <div id="activity-disabled" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
     Activity logging is not configured. Connect an ActivityRepository to enable this view.

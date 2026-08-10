@@ -93,6 +93,27 @@ Create optional `data/` subdirectories only when they have a real owned
 artifact; the starter includes templates but does not add empty migration,
 asset, i18n, or OpenAPI trees.
 
+## Customize The Admin Shell
+
+The starter prepends `data/templates/` to the packaged client templates and
+binds that exact stack to Admin with `quickstart.WithViewAdmin(adm)`. Override a
+single leaf by preserving its relative path; omitted files continue to use the
+packaged implementation.
+
+For example, add `data/templates/partials/breadcrumbs.html` to replace
+breadcrumbs everywhere in the authenticated shell. For a theme-specific leaf,
+add a file such as `data/templates/themes/acme/breadcrumbs.html` and register
+that path under `admin.page.breadcrumbs` in the theme manifest. Manifest
+metadata does not embed the file, and invalid or missing identifiers fall back
+to `partials/breadcrumbs.html`.
+
+Page-specific titles and actions belong in inherited `page_title`,
+`page_subtitle`, and `page_header_actions` blocks. A host footer belongs in
+`data/templates/partials/admin-footer.html` or a registered
+`admin.shell.footer` leaf. Neither customization requires copying
+`layout.html`. See `../../docs/GUIDE_VIEW_CUSTOMIZATION.md#canonical-authenticated-shell`
+for the complete precedence, safety, diagnostic, and compatibility contract.
+
 ## Composition Contract
 
 `core.New` owns startup ordering:
