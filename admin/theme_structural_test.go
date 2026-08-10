@@ -58,7 +58,7 @@ func TestStructuralPartialsResolveOnlyRegisteredSafeIdentifiers(t *testing.T) {
 
 func TestStructuralPartialDiagnosticsAreSortedDeduplicatedAndBounded(t *testing.T) {
 	partials := map[string]string{}
-	for index := 0; index < 20; index++ {
+	for index := range 20 {
 		partials[fmt.Sprintf("admin.shell.unknown-%02d", index)] = fmt.Sprintf("host/%02d.html", index)
 	}
 	adm := (&Admin{defaultTheme: &ThemeSelection{Partials: partials}}).

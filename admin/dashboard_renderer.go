@@ -77,7 +77,7 @@ func (page AdminDashboardPage) LayoutJSON() string {
 // AdminChromeState captures host chrome metadata needed by go-admin templates.
 type AdminChromeState struct {
 	Title                        string                       `json:"title,omitempty"`
-	PageHeader                   AdminPageHeader              `json:"page_header,omitempty"`
+	PageHeader                   AdminPageHeader              `json:"page_header"`
 	BasePath                     string                       `json:"base_path,omitempty"`
 	AssetBasePath                string                       `json:"asset_base_path,omitempty"`
 	APIBasePath                  string                       `json:"api_base_path,omitempty"`

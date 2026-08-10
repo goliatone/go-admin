@@ -212,7 +212,7 @@ func normalizeAdminTemplateIdentifier(candidate string) (string, bool) {
 	if cleaned != normalized || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
 		return "", false
 	}
-	for _, segment := range strings.Split(cleaned, "/") {
+	for segment := range strings.SplitSeq(cleaned, "/") {
 		if segment == "" || segment == "." || segment == ".." || strings.HasPrefix(segment, ".") {
 			return "", false
 		}
