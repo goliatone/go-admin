@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="admin-shell-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -54,8 +54,8 @@
 
   <div class="admin-layout flex w-full h-screen overflow-hidden" data-admin-shell>
     {% block shell_sidebar %}
-      {% if admin_partials and admin_partials.Sidebar %}
-        {% include admin_partials.Sidebar %}
+      {% if admin_partials and admin_partials.sidebar %}
+        {% include admin_partials.sidebar %}
       {% else %}
         {% include "partials/sidebar.html" %}
       {% endif %}
@@ -71,8 +71,8 @@
           <div class="admin-page-heading-group flex items-center gap-4 min-w-0 flex-1">
             {% block page_breadcrumbs %}
               {% if not hide_breadcrumbs and breadcrumbs %}
-                {% if admin_partials and admin_partials.Breadcrumbs %}
-                  {% include admin_partials.Breadcrumbs %}
+                {% if admin_partials and admin_partials.breadcrumbs %}
+                  {% include admin_partials.breadcrumbs %}
                 {% else %}
                   {% include "partials/breadcrumbs.html" %}
                 {% endif %}
@@ -99,8 +99,8 @@
       </div>
 
       {% block shell_footer %}
-        {% if admin_partials and admin_partials.Footer %}
-          {% include admin_partials.Footer %}
+        {% if admin_partials and admin_partials.footer %}
+          {% include admin_partials.footer %}
         {% else %}
           {% include "partials/admin-footer.html" %}
         {% endif %}

@@ -13,8 +13,8 @@
     {# Left: Breadcrumb | Title #}
     <div class="admin-page-heading-group flex items-center gap-4 min-w-0 flex-1">
       {% if breadcrumbs %}
-        {% if admin_partials and admin_partials.Breadcrumbs %}
-          {% include admin_partials.Breadcrumbs %}
+        {% if admin_partials and admin_partials.breadcrumbs %}
+          {% include admin_partials.breadcrumbs %}
         {% else %}
           {% include "partials/breadcrumbs.html" %}
         {% endif %}

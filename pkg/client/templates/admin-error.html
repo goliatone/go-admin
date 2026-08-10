@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+
+{% block title %}Error {{ status|default:500 }} - {{ title|default:"Enterprise Admin" }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/error-page.css") }}">
+{% endblock %}
+
+{% block page_title %}{{ headline|default:"Something went wrong" }}{% endblock %}
+
+{% block page_subtitle %}{{ message|default:"We couldn't complete your request. Please try again or contact support if the problem persists." }}{% endblock %}
+
+{% block content %}
+<section class="admin-page-content flex-1 overflow-y-auto p-8" data-page-scroll-owner data-admin-error-page>
+  <div class="error-card mx-auto">
+    <div class="error-header">
+      <div class="error-icon">
+        {% if status == 404 %}&#128269;{% elif status == 403 %}&#128274;{% elif status == 401 %}&#128683;{% else %}&#9888;&#65039;{% endif %}
+      </div>
+      <div class="error-status">{{ status|default:500 }}</div>
+      <div class="error-type">
+        {% if status == 404 %}Not Found
+        {% elif status == 403 %}Forbidden
+        {% elif status == 401 %}Unauthorized
+        {% elif status == 500 %}Internal Server Error
+        {% else %}Error
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="error-body">
+      {% if request_path %}
+      <div class="error-path">
+        <div class="error-path-label">Request Path</div>
+        <div class="error-path-value">{{ request_path }}</div>
+      </div>
+      {% endif %}
+
+      {% if dev_mode %}
+      <div class="dev-error-code">
+        {% if error_text_code %}<span class="dev-error-code-label">{{ error_text_code }}</span>{% endif %}
+        {% if error_category %}<span class="dev-error-category">{{ error_category }}</span>{% endif %}
+      </div>
+      {% if error_detail %}<div class="dev-error-detail-box"><pre>{{ error_detail }}</pre></div>{% endif %}
+      {% if error_metadata_json %}<div class="dev-section"><div class="dev-section-header">Error Metadata</div><div class="dev-section-content"><pre class="dev-json">{{ error_metadata_json }}</pre></div></div>{% endif %}
+      {% if error_stack %}<div class="dev-section"><div class="dev-section-header">Stack Trace</div><div class="dev-section-content"><pre id="raw-stack">{{ error_stack }}</pre></div></div>{% endif %}
+      {% endif %}
+
+      <div class="error-actions">
+        <a href="{{ adminURL("") }}" class="btn btn-primary"><i class="iconoir-home"></i>Back to Dashboard</a>
+        <a href="javascript:history.back()" class="btn btn-secondary"><i class="iconoir-arrow-left"></i>Go Back</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
