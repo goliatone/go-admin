@@ -1,33 +1,37 @@
 # Changelog
 
+# [0.131.11](https://github.com/goliatone/go-admin/compare/v0.131.10...v0.131.11) - (2026-08-10)
+
+
+## FilterBuilder
+
+- Added an additive compact, embeddable `FilterBuilder` mode with caller-owned
+  hosts, initial rule hydration, cloned change notifications, optional built-in
+  chrome/actions, multiple-instance isolation, and explicit `destroy()`.
+- Preserved the existing overlay defaults, URL restoration, viewport-aware
+  placement, apply/clear behavior, and focus return for current consumers.
+- Exported the compact configuration and field/operator contract from
+  `@goliatone/go-admin-client/datatable` with built JavaScript and declarations.
+- Hardened stale-rule repair, group-connector preview fidelity, accessible
+  disabled reasons, compact external previews, and caller-owned host/ARIA
+  restoration during teardown.
+
+## <!-- 16 -->➕ Add
+
+- Datatable filters and componentization ([e99a864](https://github.com/goliatone/go-admin/commit/e99a864cfad03e53111960b40ff46d0ae7e94c6e))  - (goliatone)
+
 # [0.131.10](https://github.com/goliatone/go-admin/compare/v0.131.9...v0.131.10) - (2026-08-10)
 
 
-## Migration Notes
-
-- Authenticated admin pages and default dashboard SSR now use the canonical
-  client shell. Host templates that copied the previous header or dashboard
-  document should extend the packaged layout and use the documented
-  `page_*`/`shell_*` blocks instead.
-- Theme-selected structural partials require their template files to be
-  registered in the quickstart view stack and the view engine to be bound with
-  `quickstart.WithViewAdmin(adm)`. Missing, unsafe, or unavailable selections
-  fall back to packaged partials.
-- `quickstart.DashboardTemplatesFS()` now exposes the canonical client
-  templates. Disabling packaged dashboard templates requires a complete
-  compatible host shell; incomplete isolated stacks fail during renderer
-  construction.
-- Existing fixed-path partial overlays and legacy shell block aliases remain
-  supported for at least one major release.
-- Host templates that inspect resolved structural paths must use the stable
-  lowercase template keys: `admin_partials.sidebar`,
-  `admin_partials.breadcrumbs`, and `admin_partials.footer`.
-- Authenticated admin HTML errors now render through the canonical admin shell;
-  non-admin HTML errors continue to use the standalone error document.
+New patch release: v0.131.10
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Admin partials use map in partial ([36461ec](https://github.com/goliatone/go-admin/commit/36461eceb642a36454a2ecd861f3678ce40e94c6))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.10 ([9b87b40](https://github.com/goliatone/go-admin/commit/9b87b400bce062dd1a8817d837bdd029c1ed4cd7))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
