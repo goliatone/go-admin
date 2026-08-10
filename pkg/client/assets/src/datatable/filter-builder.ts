@@ -1,30 +1,82 @@
 /**
  * FilterBuilder Component
  *
- * Manages complex filter groups with AND/OR logic between conditions and groups.
- * Renders a UI similar to query builders with drag-and-drop reordering.
+ * Manages the shared two-level filter structure in either the legacy overlay
+ * or a caller-owned compact host. Overlay mode remains the default.
  */
 
 import type { FilterCondition, FilterGroup, FilterStructure } from './behaviors/types.js';
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 
-export interface FieldDefinition {
+export type FilterBuilderMode = 'overlay' | 'compact';
+export type FilterBuilderElementTarget = string | HTMLElement;
+
+export interface FilterBuilderOperatorOption {
+  label: string;
+  value: string;
+}
+
+export interface FilterBuilderFieldDefinition {
   name: string;
   label: string;
   type: 'text' | 'number' | 'date' | 'select';
-  operators?: string[];
+  operators?: Array<string | FilterBuilderOperatorOption>;
   options?: { label: string; value: string }[];
+  group?: string;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export interface FilterBuilderChromeConfig {
+  header?: boolean;
+  title?: string;
+  savedFilters?: boolean;
+  sqlPreview?: boolean;
+}
+
+export interface FilterBuilderActionsConfig {
+  apply?: boolean;
+  clear?: boolean;
+  save?: boolean;
 }
 
 export interface FilterBuilderConfig {
-  fields: FieldDefinition[];
-  onApply: (structure: FilterStructure) => void;
-  onClear: () => void;
+  fields: FilterBuilderFieldDefinition[];
+  onApply?: (structure: FilterStructure) => void;
+  onClear?: () => void;
+  onChange?: (structure: FilterStructure) => void;
   notifier?: ToastNotifier;
+  mode?: FilterBuilderMode;
+  host?: FilterBuilderElementTarget;
+  toggleButton?: FilterBuilderElementTarget;
+  overlay?: FilterBuilderElementTarget;
+  previewElement?: FilterBuilderElementTarget;
+  initialStructure?: FilterStructure;
+  chrome?: boolean | FilterBuilderChromeConfig;
+  actions?: boolean | FilterBuilderActionsConfig;
+  restoreFromURL?: boolean;
 }
 
-const DEFAULT_OPERATORS: Record<string, { label: string; value: string }[]> = {
+interface ResolvedChromeConfig {
+  header: boolean;
+  title: string;
+  savedFilters: boolean;
+  sqlPreview: boolean;
+}
+
+interface ResolvedActionsConfig {
+  apply: boolean;
+  clear: boolean;
+  save: boolean;
+}
+
+interface FilterBuilderPreviewPart {
+  groupIndex: number;
+  text: string;
+}
+
+const DEFAULT_OPERATORS: Record<string, FilterBuilderOperatorOption[]> = {
   text: [
     { label: 'contains', value: 'ilike' },
     { label: 'is', value: 'eq' },
@@ -49,461 +101,652 @@ const DEFAULT_OPERATORS: Record<string, { label: string; value: string }[]> = {
   ],
 };
 
+let nextInstanceID = 0;
+
+function escapeHTML(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function cloneValue<T>(value: T): T {
+  if (value === undefined || value === null) return value;
+  if (typeof structuredClone === 'function') return structuredClone(value);
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function cloneStructure(structure: FilterStructure): FilterStructure {
+  return {
+    groups: structure.groups.map(group => ({
+      logic: group.logic,
+      conditions: group.conditions.map(condition => ({
+        field: condition.field,
+        operator: condition.operator,
+        value: cloneValue(condition.value),
+      })),
+    })),
+    groupLogic: [...structure.groupLogic],
+  };
+}
+
+function resolveTarget(target: FilterBuilderElementTarget | undefined): HTMLElement | null {
+  if (!target) return null;
+  if (typeof target !== 'string') return target;
+  return document.querySelector<HTMLElement>(target);
+}
+
 export class FilterBuilder {
-  private config: FilterBuilderConfig;
+  private readonly config: FilterBuilderConfig;
+  private readonly mode: FilterBuilderMode;
+  private readonly chrome: ResolvedChromeConfig;
+  private readonly actions: ResolvedActionsConfig;
+  private readonly instanceID: string;
+  private readonly notifier: ToastNotifier;
+  private readonly cleanupListeners: Array<() => void> = [];
   private structure: FilterStructure;
   private panel: HTMLElement | null = null;
+  private root: HTMLElement | null = null;
   private container: HTMLElement | null = null;
   private previewElement: HTMLElement | null = null;
   private sqlPreviewElement: HTMLElement | null = null;
   private overlay: HTMLElement | null = null;
   private toggleButton: HTMLElement | null = null;
-  private notifier: ToastNotifier;
+  private appliedPreviewContainer: HTMLElement | null = null;
+  private ownsPanelID = false;
+  private previousPanelInstance: string | null = null;
+  private previousToggleAriaControls: string | null = null;
+  private previousToggleAriaExpanded: string | null = null;
+  private destroyed = false;
 
   constructor(config: FilterBuilderConfig) {
+    if (!Array.isArray(config.fields) || config.fields.length === 0) {
+      throw new Error('[FilterBuilder] At least one field is required');
+    }
+
     this.config = config;
+    this.mode = config.mode ?? 'overlay';
+    this.chrome = this.resolveChrome(config.chrome);
+    this.actions = this.resolveActions(config.actions);
+    this.instanceID = `filter-builder-${++nextInstanceID}`;
     this.notifier = config.notifier || new FallbackNotifier();
-    this.structure = { groups: [], groupLogic: [] };
+    this.structure = config.initialStructure
+      ? this.normalizeStructure(config.initialStructure)
+      : this.createDefaultStructure();
     this.init();
   }
 
+  private resolveChrome(input: FilterBuilderConfig['chrome']): ResolvedChromeConfig {
+    const defaults: ResolvedChromeConfig = this.mode === 'overlay'
+      ? { header: true, title: 'Filters', savedFilters: true, sqlPreview: true }
+      : { header: false, title: 'Filters', savedFilters: false, sqlPreview: false };
+    if (input === undefined) return defaults;
+    if (typeof input === 'boolean') {
+      return { header: input, title: defaults.title, savedFilters: input, sqlPreview: input };
+    }
+    return { ...defaults, ...input };
+  }
+
+  private resolveActions(input: FilterBuilderConfig['actions']): ResolvedActionsConfig {
+    const defaults: ResolvedActionsConfig = this.mode === 'overlay'
+      ? { apply: true, clear: true, save: true }
+      : { apply: false, clear: false, save: false };
+    if (input === undefined) return defaults;
+    if (typeof input === 'boolean') return { apply: input, clear: input, save: input };
+    return { ...defaults, ...input };
+  }
+
   private init(): void {
-    this.panel = document.getElementById('filter-panel');
-    this.overlay = document.getElementById('filter-overlay');
-    this.previewElement = document.getElementById('filter-preview-text');
-
-    if (!this.panel) {
-      console.error('[FilterBuilder] Panel element not found');
-      return;
-    }
-
-    // Build panel structure
-    this.buildPanelStructure();
-
-    // Bind toggle button
-    this.toggleButton = document.getElementById('filter-toggle-btn');
-    if (this.toggleButton) {
-      this.toggleButton.addEventListener('click', () => this.toggle());
-    }
-
-    // Bind clear filters
-    const clearBtn = document.getElementById('clear-filters-btn');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => this.clearFilters());
-    }
-
-    // Close on overlay click
-    if (this.overlay) {
-      this.overlay.addEventListener('click', () => this.close(true));
-    }
-
-    // Close on Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !this.panel!.classList.contains('hidden')) {
-        this.close(true);
+    this.previewElement = resolveTarget(this.config.previewElement);
+    if (this.mode === 'compact') {
+      this.panel = resolveTarget(this.config.host);
+      if (!this.panel) {
+        throw new Error('[FilterBuilder] Compact mode requires a valid host');
       }
-    });
+    } else {
+      this.panel = resolveTarget(this.config.host) || document.getElementById('filter-panel');
+      if (!this.panel) {
+        console.error('[FilterBuilder] Panel element not found');
+        return;
+      }
+      this.toggleButton = resolveTarget(this.config.toggleButton) || document.getElementById('filter-toggle-btn');
+      this.overlay = resolveTarget(this.config.overlay) || document.getElementById('filter-overlay');
+      this.previewElement ||= document.getElementById('filter-preview-text');
+      this.appliedPreviewContainer = document.getElementById('applied-filter-preview');
+    }
 
-    // Restore from URL
-    this.restoreFromURL();
+    if (Array.from(this.panel.children).some(child => child.hasAttribute('data-filter-builder-root'))) {
+      throw new Error('[FilterBuilder] Host already contains a mounted FilterBuilder');
+    }
+
+    this.previousPanelInstance = this.panel.getAttribute('data-filter-builder-instance');
+    this.panel.dataset.filterBuilderInstance = this.instanceID;
+    if (this.mode === 'overlay' && !this.panel.id) {
+      this.panel.id = this.instanceID;
+      this.ownsPanelID = true;
+    }
+    if (this.toggleButton) {
+      this.previousToggleAriaControls = this.toggleButton.getAttribute('aria-controls');
+      this.previousToggleAriaExpanded = this.toggleButton.getAttribute('aria-expanded');
+    }
+    this.buildPanelStructure();
+    this.bindOwnedListeners();
+
+    if (this.mode === 'overlay' && !this.config.initialStructure && (this.config.restoreFromURL ?? true)) {
+      this.restoreFromURL();
+    }
   }
 
   private buildPanelStructure(): void {
     if (!this.panel) return;
 
-    this.panel.innerHTML = `
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-base font-semibold text-gray-900">Filters</h3>
-        <div class="flex gap-2">
-          <button type="button" id="saved-filters-btn" class="text-sm text-blue-600 hover:text-blue-800">
-            Saved filters ▾
-          </button>
-          <button type="button" id="edit-sql-btn" class="text-sm text-blue-600 hover:text-blue-800">
-            Edit as SQL
-          </button>
+    this.root = document.createElement('div');
+    this.root.dataset.filterBuilderRoot = this.instanceID;
+    this.panel.appendChild(this.root);
+
+    const header = this.chrome.header ? `
+      <div class="flex items-center justify-between mb-4" data-filter-builder-header>
+        <h3 id="${this.instanceID}-title" class="text-base font-semibold text-gray-900">${escapeHTML(this.chrome.title)}</h3>
+        ${this.chrome.savedFilters ? `
+          <div class="flex gap-2">
+            <button type="button" data-filter-builder-saved-menu class="text-sm text-blue-600 hover:text-blue-800">
+              Saved filters ▾
+            </button>
+            <button type="button" data-filter-builder-edit-sql class="text-sm text-blue-600 hover:text-blue-800">
+              Edit as SQL
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    ` : '';
+
+    const sqlPreview = this.chrome.sqlPreview ? `
+      <div class="border-t border-gray-200 pt-3 mb-4" data-filter-builder-preview-region>
+        <div class="text-xs text-gray-500 mb-1">Preview:</div>
+        <div data-filter-builder-sql-preview aria-live="polite" class="text-xs font-mono text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 min-h-[40px] max-h-[100px] overflow-y-auto break-words">
+          No filters applied
         </div>
       </div>
+    ` : '';
 
-      <!-- Filter Groups Container -->
-      <div id="filter-groups-container" class="space-y-3 mb-4">
-        <!-- Groups will be rendered here -->
+    const hasActions = this.actions.apply || this.actions.clear || this.actions.save;
+    const actionFooter = hasActions ? `
+      <div class="flex items-center justify-between border-t border-gray-200 pt-4" data-filter-builder-actions>
+        <div class="flex gap-2">
+          ${this.actions.save ? `
+            <label class="sr-only" for="${this.instanceID}-save-name">Filter name</label>
+            <input type="text" id="${this.instanceID}-save-name" data-filter-builder-save-name placeholder="Type a name here" class="text-sm border border-gray-200 rounded px-3 py-1.5 w-48">
+            <button type="button" data-filter-builder-action="save" class="text-sm text-gray-600 hover:text-gray-800 border border-gray-200 rounded px-3 py-1.5">
+              Save filter
+            </button>
+          ` : ''}
+        </div>
+        <div class="flex gap-2">
+          ${this.actions.clear ? `
+            <button type="button" data-filter-builder-action="clear" class="text-sm text-gray-700 hover:text-gray-900 px-4 py-2">
+              Clear all
+            </button>
+          ` : ''}
+          ${this.actions.apply ? `
+            <button type="button" data-filter-builder-action="apply" class="text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-4 py-2">
+              Apply filter
+            </button>
+          ` : ''}
+        </div>
       </div>
+    ` : '';
 
-      <!-- Add Group Button -->
-      <button type="button" id="add-group-btn" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-4">
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    this.root.innerHTML = `
+      ${header}
+      <div data-filter-builder-groups class="space-y-3 mb-4"></div>
+      <button type="button" data-filter-builder-action="add-group" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-4" aria-label="Add filter group">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
           <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
         AND
       </button>
-
-      <!-- SQL Preview -->
-      <div class="border-t border-gray-200 pt-3 mb-4">
-        <div class="text-xs text-gray-500 mb-1">Preview:</div>
-        <div id="sql-preview" class="text-xs font-mono text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 min-h-[40px] max-h-[100px] overflow-y-auto break-words">
-          No filters applied
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="flex items-center justify-between border-t border-gray-200 pt-4">
-        <div class="flex gap-2">
-          <input type="text" id="save-filter-name" placeholder="Type a name here" class="text-sm border border-gray-200 rounded px-3 py-1.5 w-48">
-          <button type="button" id="save-filter-btn" class="text-sm text-gray-600 hover:text-gray-800 border border-gray-200 rounded px-3 py-1.5">
-            Save filter
-          </button>
-        </div>
-        <div class="flex gap-2">
-          <button type="button" id="clear-all-btn" class="text-sm text-gray-700 hover:text-gray-900 px-4 py-2">
-            Clear all
-          </button>
-          <button type="button" id="apply-filter-btn" class="text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-4 py-2">
-            Apply filter
-          </button>
-        </div>
-      </div>
+      ${sqlPreview}
+      ${actionFooter}
     `;
 
-    this.container = document.getElementById('filter-groups-container');
-    this.sqlPreviewElement = document.getElementById('sql-preview');
-
-    // Bind action buttons
-    this.bindActions();
-
-    // Start with one empty group
-    if (this.structure.groups.length === 0) {
-      this.addGroup();
-    }
-  }
-
-  private bindActions(): void {
-    const addGroupBtn = document.getElementById('add-group-btn');
-    const applyBtn = document.getElementById('apply-filter-btn');
-    const clearAllBtn = document.getElementById('clear-all-btn');
-    const saveBtn = document.getElementById('save-filter-btn');
-
-    if (addGroupBtn) {
-      addGroupBtn.addEventListener('click', () => this.addGroup());
-    }
-
-    if (applyBtn) {
-      applyBtn.addEventListener('click', () => this.applyFilters());
-    }
-
-    if (clearAllBtn) {
-      clearAllBtn.addEventListener('click', () => this.clearAll());
-    }
-
-    if (saveBtn) {
-      saveBtn.addEventListener('click', () => this.saveFilter());
-    }
-  }
-
-  private addGroup(): void {
-    const newGroup: FilterGroup = {
-      conditions: [this.createEmptyCondition()],
-      logic: 'or'
-    };
-
-    this.structure.groups.push(newGroup);
-
-    // Add group logic if not first group
-    if (this.structure.groups.length > 1) {
-      this.structure.groupLogic.push('and');
-    }
-
+    this.container = this.root.querySelector<HTMLElement>('[data-filter-builder-groups]');
+    this.sqlPreviewElement = this.root.querySelector<HTMLElement>('[data-filter-builder-sql-preview]');
     this.render();
   }
 
+  private bindOwnedListeners(): void {
+    if (!this.root) return;
+
+    this.listen(this.root, 'click', event => this.handleClick(event));
+    this.listen(this.root, 'change', event => this.handleChange(event));
+    this.listen(this.root, 'input', event => this.handleInput(event));
+
+    if (this.mode !== 'overlay') return;
+
+    if (this.toggleButton) {
+      this.listen(this.toggleButton, 'click', () => this.toggle());
+    }
+    const clearButton = document.getElementById('clear-filters-btn');
+    if (clearButton) {
+      this.listen(clearButton, 'click', () => this.clearFilters());
+    }
+    if (this.overlay) {
+      this.listen(this.overlay, 'click', () => this.close(true));
+    }
+    this.listen(document, 'keydown', event => {
+      const keyEvent = event as KeyboardEvent;
+      if (keyEvent.key === 'Escape' && this.panel && !this.panel.classList.contains('hidden')) {
+        this.close(true);
+      }
+    });
+  }
+
+  private listen(target: EventTarget, type: string, listener: EventListener): void {
+    target.addEventListener(type, listener);
+    this.cleanupListeners.push(() => target.removeEventListener(type, listener));
+  }
+
+  private handleClick(event: Event): void {
+    if (this.destroyed) return;
+    const target = event.target as HTMLElement | null;
+    const actionElement = target?.closest<HTMLElement>('[data-filter-builder-action]');
+    if (!actionElement || !this.root?.contains(actionElement)) return;
+
+    const action = actionElement.dataset.filterBuilderAction;
+    switch (action) {
+      case 'add-group':
+        this.addGroup();
+        return;
+      case 'remove-group':
+        this.removeGroup(Number(actionElement.dataset.groupIndex));
+        return;
+      case 'add-condition':
+        this.addCondition(Number(actionElement.dataset.groupIndex));
+        return;
+      case 'add-condition-and':
+        this.setGroupLogicAndAddCondition(Number(actionElement.dataset.groupIndex), 'and');
+        return;
+      case 'add-condition-or':
+        this.setGroupLogicAndAddCondition(Number(actionElement.dataset.groupIndex), 'or');
+        return;
+      case 'remove-condition':
+        this.removeCondition(Number(actionElement.dataset.groupIndex), Number(actionElement.dataset.conditionIndex));
+        return;
+      case 'group-logic':
+        this.setGroupConnector(Number(actionElement.dataset.groupIndex), actionElement.dataset.logicValue as 'and' | 'or');
+        return;
+      case 'apply':
+        this.applyFilters();
+        return;
+      case 'clear':
+        this.clearAll(true);
+        return;
+      case 'save':
+        this.saveFilter();
+    }
+  }
+
+  private handleChange(event: Event): void {
+    if (this.destroyed) return;
+    const input = event.target as HTMLInputElement | HTMLSelectElement | null;
+    if (!input?.dataset.filterBuilderPart) return;
+
+    const groupIndex = Number(input.dataset.groupIndex);
+    const conditionIndex = Number(input.dataset.conditionIndex);
+    const condition = this.structure.groups[groupIndex]?.conditions[conditionIndex];
+    if (!condition) return;
+
+    switch (input.dataset.filterBuilderPart) {
+      case 'field': {
+        const field = this.getField(input.value);
+        if (!field || field.disabled) return;
+        condition.field = input.value;
+        condition.operator = this.getOperatorsForField(field)[0]?.value ?? 'eq';
+        condition.value = '';
+        this.render();
+        this.focusConditionPart(groupIndex, conditionIndex, 'operator');
+        this.emitChange();
+        return;
+      }
+      case 'operator': {
+        const field = this.getField(condition.field);
+        if (!field || field.disabled) {
+          return;
+        }
+        const operators = this.getOperatorsForField(field);
+        if (!operators.some(operator => operator.value === input.value)) return;
+        const previousOperatorAvailable = operators.some(operator => operator.value === condition.operator);
+        condition.operator = input.value;
+        if (previousOperatorAvailable) this.updatePreview();
+        else {
+          this.render();
+          this.focusConditionPart(groupIndex, conditionIndex, 'value');
+        }
+        this.emitChange();
+        return;
+      }
+      case 'value':
+        if (input.tagName === 'INPUT') return;
+        {
+          const field = this.getField(condition.field);
+          if (!field || field.disabled || !this.getOperatorsForField(field).some(operator => operator.value === condition.operator)) {
+            return;
+          }
+        }
+        condition.value = input.value;
+        this.updatePreview();
+        this.emitChange();
+    }
+  }
+
+  private handleInput(event: Event): void {
+    if (this.destroyed) return;
+    const input = event.target as HTMLInputElement | null;
+    if (input?.dataset.filterBuilderPart !== 'value' || input.tagName === 'SELECT') return;
+
+    const groupIndex = Number(input.dataset.groupIndex);
+    const conditionIndex = Number(input.dataset.conditionIndex);
+    const condition = this.structure.groups[groupIndex]?.conditions[conditionIndex];
+    if (!condition) return;
+    const field = this.getField(condition.field);
+    if (!field || field.disabled || !this.getOperatorsForField(field).some(operator => operator.value === condition.operator)) {
+      return;
+    }
+    condition.value = input.value;
+    this.updatePreview();
+    this.emitChange();
+  }
+
+  private createDefaultStructure(): FilterStructure {
+    return {
+      groups: [{ conditions: [this.createEmptyCondition()], logic: 'or' }],
+      groupLogic: [],
+    };
+  }
+
+  private normalizeStructure(structure: FilterStructure): FilterStructure {
+    const cloned = cloneStructure(structure);
+    cloned.groups = cloned.groups.filter(group => Array.isArray(group.conditions) && group.conditions.length > 0);
+    cloned.groups.forEach(group => {
+      group.logic = group.logic === 'and' ? 'and' : 'or';
+    });
+    cloned.groupLogic = cloned.groupLogic
+      .slice(0, Math.max(0, cloned.groups.length - 1))
+      .map(logic => logic === 'or' ? 'or' : 'and');
+    while (cloned.groupLogic.length < Math.max(0, cloned.groups.length - 1)) {
+      cloned.groupLogic.push('and');
+    }
+    return cloned.groups.length > 0 ? cloned : this.createDefaultStructure();
+  }
+
   private createEmptyCondition(): FilterCondition {
-    const firstField = this.config.fields[0];
+    const firstField = this.config.fields.find(field => !field.disabled) || this.config.fields[0];
     return {
       field: firstField.name,
-      operator: 'ilike',
-      value: ''
+      operator: this.getOperatorsForField(firstField)[0]?.value ?? 'eq',
+      value: '',
     };
   }
 
   private render(): void {
-    if (!this.container) return;
-
-    this.container.innerHTML = '';
-
-    this.structure.groups.forEach((group, groupIndex) => {
-      // Create group container
-      const groupEl = this.createGroupElement(group, groupIndex);
-      this.container!.appendChild(groupEl);
-
-      // Add group logic connector (except after last group)
-      if (groupIndex < this.structure.groups.length - 1) {
-        const connector = this.createGroupConnector(groupIndex);
-        this.container!.appendChild(connector);
-      }
-    });
-
+    if (!this.container || this.destroyed) return;
+    this.container.innerHTML = this.structure.groups.map((group, groupIndex) => {
+      const connector = groupIndex < this.structure.groups.length - 1
+        ? this.renderGroupConnector(groupIndex)
+        : '';
+      return `${this.renderGroup(group, groupIndex)}${connector}`;
+    }).join('');
     this.updatePreview();
   }
 
-  private createGroupElement(group: FilterGroup, groupIndex: number): HTMLElement {
-    const groupEl = document.createElement('div');
-    groupEl.className = 'border border-gray-200 rounded-lg p-3 bg-gray-50';
+  private renderGroup(group: FilterGroup, groupIndex: number): string {
+    const conditions = group.conditions.map((condition, conditionIndex) => {
+      const connector = conditionIndex < group.conditions.length - 1
+        ? `<div class="flex items-center justify-center my-1" aria-hidden="true">
+            <span class="text-xs font-medium text-gray-500 px-2 py-0.5 bg-white border border-gray-200 rounded">${group.logic.toUpperCase()}</span>
+          </div>`
+        : '';
+      return `${this.renderCondition(condition, groupIndex, conditionIndex)}${connector}`;
+    }).join('');
 
-    // Group header (if multiple groups)
-    const header = document.createElement('div');
-    header.className = 'flex justify-end mb-2';
-    header.innerHTML = `
-      <button type="button" data-remove-group="${groupIndex}" class="text-xs text-red-600 hover:text-red-800">
-        Remove group
-      </button>
-    `;
-    groupEl.appendChild(header);
-
-    // Render conditions
-    group.conditions.forEach((condition, condIndex) => {
-      const condEl = this.createConditionElement(condition, groupIndex, condIndex);
-      groupEl.appendChild(condEl);
-
-      // Add condition logic (except after last condition)
-      if (condIndex < group.conditions.length - 1) {
-        const condConnector = this.createConditionConnector(groupIndex, condIndex, group.logic);
-        groupEl.appendChild(condConnector);
-      }
-    });
-
-    // Add condition button
-    const addCondBtn = document.createElement('button');
-    addCondBtn.type = 'button';
-    addCondBtn.className = 'mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800';
-    addCondBtn.dataset.addCondition = String(groupIndex);
-    addCondBtn.innerHTML = `
-      <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M12 5v14"/><path d="M5 12h14"/>
-      </svg>
-      ${group.logic.toUpperCase()}
-    `;
-    groupEl.appendChild(addCondBtn);
-
-    // Bind events
-    this.bindGroupEvents(groupEl, groupIndex);
-
-    return groupEl;
-  }
-
-  private createConditionElement(condition: FilterCondition, groupIndex: number, condIndex: number): HTMLElement {
-    const condEl = document.createElement('div');
-    condEl.className = 'flex items-center gap-2 mb-2';
-
-    const field = this.config.fields.find(f => f.name === condition.field) || this.config.fields[0];
-
-    condEl.innerHTML = `
-      <div class="flex items-center text-gray-400 cursor-move" title="Drag to reorder">
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
-          <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
-        </svg>
+    return `
+      <div class="border border-gray-200 rounded-lg p-3 bg-gray-50" data-filter-builder-group="${groupIndex}">
+        <div class="flex justify-end mb-2">
+          <button type="button" data-filter-builder-action="remove-group" data-group-index="${groupIndex}" class="text-xs text-red-600 hover:text-red-800" aria-label="Remove filter group ${groupIndex + 1}">
+            Remove group
+          </button>
+        </div>
+        ${conditions}
+        <button type="button" data-filter-builder-action="add-condition" data-group-index="${groupIndex}" class="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800" aria-label="Add ${group.logic.toUpperCase()} condition to group ${groupIndex + 1}">
+          <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M12 5v14"/><path d="M5 12h14"/>
+          </svg>
+          ${group.logic.toUpperCase()}
+        </button>
       </div>
-
-      <select data-cond="${groupIndex}-${condIndex}-field" class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-32">
-        ${this.config.fields.map(f => `
-          <option value="${f.name}" ${f.name === condition.field ? 'selected' : ''}>${f.label}</option>
-        `).join('')}
-      </select>
-
-      <select data-cond="${groupIndex}-${condIndex}-operator" class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-36">
-        ${this.getOperatorsForField(field).map(op => `
-          <option value="${op.value}" ${op.value === condition.operator ? 'selected' : ''}>${op.label}</option>
-        `).join('')}
-      </select>
-
-      ${this.renderValueInput(field, condition, groupIndex, condIndex)}
-
-      <button type="button" data-remove-cond="${groupIndex}-${condIndex}" class="text-red-600 hover:text-red-800">
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-        </svg>
-      </button>
-
-      <button type="button" data-add-cond-or="${groupIndex}-${condIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50" title="Add OR condition">
-        OR
-      </button>
-
-      <button type="button" data-add-cond-and="${groupIndex}-${condIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50" title="Add AND condition">
-        AND
-      </button>
     `;
-
-    return condEl;
   }
 
-  private renderValueInput(field: FieldDefinition, condition: FilterCondition, groupIndex: number, condIndex: number): string {
+  private renderCondition(condition: FilterCondition, groupIndex: number, conditionIndex: number): string {
+    const field = this.getField(condition.field);
+    const sequence = conditionIndex + 1;
+    const fieldOptions = this.renderFieldOptions(condition.field);
+    const availableOperators = field ? this.getOperatorsForField(field) : [];
+    const operatorAvailable = availableOperators.some(operator => operator.value === condition.operator);
+    const operatorOptions = `${operatorAvailable ? '' : `
+      <option value="${escapeHTML(condition.operator)}" selected disabled>
+        ${escapeHTML(`Unavailable operator: ${condition.operator}`)}
+      </option>
+    `}${availableOperators.map(operator => `
+      <option value="${escapeHTML(operator.value)}" ${operator.value === condition.operator ? 'selected' : ''}>${escapeHTML(operator.label)}</option>
+    `).join('')}`;
+    const fieldReason = !field
+      ? `Field "${condition.field}" is no longer available. Select a supported field to repair this condition.`
+      : field.disabled
+        ? field.disabledReason || `Field "${field.label}" is unavailable.`
+        : '';
+    const operatorReason = field && !operatorAvailable
+      ? `Operator "${condition.operator}" is not available for ${field.label}. Select a supported operator.`
+      : '';
+    const availabilityReason = fieldReason || operatorReason;
+    const statusID = `${this.instanceID}-group-${groupIndex + 1}-condition-${conditionIndex + 1}-status`;
+    const describedBy = availabilityReason ? ` aria-describedby="${statusID}"` : '';
+    const valueField: FilterBuilderFieldDefinition = field || {
+      name: condition.field,
+      label: condition.field,
+      type: 'text',
+    };
+    const valueDisabled = !field || field.disabled || !operatorAvailable;
+
+    return `
+      <div class="flex flex-wrap items-center gap-2 mb-2" data-filter-builder-condition="${groupIndex}-${conditionIndex}">
+        <div class="flex items-center text-gray-400 cursor-move" title="Drag to reorder" aria-hidden="true">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+            <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+          </svg>
+        </div>
+        <select data-filter-builder-part="field" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="Group ${groupIndex + 1} filter ${sequence} field"${describedBy} class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-32">
+          ${fieldOptions}
+        </select>
+        <select data-filter-builder-part="operator" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="Group ${groupIndex + 1} filter ${sequence} operator"${describedBy} ${!field || field.disabled ? 'disabled' : ''} class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-36">
+          ${operatorOptions}
+        </select>
+        ${this.renderValueInput(valueField, condition, groupIndex, conditionIndex, sequence, valueDisabled, describedBy)}
+        <button type="button" data-filter-builder-action="remove-condition" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" class="text-red-600 hover:text-red-800" aria-label="Remove filter ${sequence}">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+          </svg>
+        </button>
+        <button type="button" data-filter-builder-action="add-condition-or" data-group-index="${groupIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50" aria-label="Add OR condition">
+          OR
+        </button>
+        <button type="button" data-filter-builder-action="add-condition-and" data-group-index="${groupIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50" aria-label="Add AND condition">
+          AND
+        </button>
+        ${availabilityReason ? `
+          <p id="${statusID}" data-filter-builder-field-status class="w-full text-xs text-amber-700" role="note">
+            ${escapeHTML(availabilityReason)}
+          </p>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  private renderFieldOptions(selectedField: string): string {
+    let activeGroup = '';
+    let html = '';
+    if (!this.getField(selectedField)) {
+      html += `
+        <option value="${escapeHTML(selectedField)}" selected disabled>
+          ${escapeHTML(`Unavailable field: ${selectedField}`)}
+        </option>
+      `;
+    }
+    for (const field of this.config.fields) {
+      const nextGroup = field.group?.trim() || '';
+      if (nextGroup !== activeGroup) {
+        if (activeGroup) html += '</optgroup>';
+        if (nextGroup) html += `<optgroup label="${escapeHTML(nextGroup)}">`;
+        activeGroup = nextGroup;
+      }
+      const optionLabel = field.disabled
+        ? `${field.label} — ${field.disabledReason || 'Unavailable'}`
+        : field.label;
+      html += `
+        <option value="${escapeHTML(field.name)}" ${field.name === selectedField ? 'selected' : ''} ${field.disabled ? 'disabled' : ''}>
+          ${escapeHTML(optionLabel)}
+        </option>
+      `;
+    }
+    if (activeGroup) html += '</optgroup>';
+    return html;
+  }
+
+  private renderValueInput(
+    field: FilterBuilderFieldDefinition,
+    condition: FilterCondition,
+    groupIndex: number,
+    conditionIndex: number,
+    sequence: number,
+    disabled: boolean,
+    describedBy: string,
+  ): string {
+    const common = `data-filter-builder-part="value" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="Group ${groupIndex + 1} filter ${sequence} value"${describedBy} ${disabled ? 'disabled' : ''}`;
     if (field.type === 'select' && field.options) {
+      const options = field.options.map(option => `
+        <option value="${escapeHTML(option.value)}" ${option.value === condition.value ? 'selected' : ''}>${escapeHTML(option.label)}</option>
+      `).join('');
       return `
-        <select data-cond="${groupIndex}-${condIndex}-value" class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white">
+        <select ${common} class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white">
           <option value="">Select...</option>
-          ${field.options.map(opt => `
-            <option value="${opt.value}" ${opt.value === condition.value ? 'selected' : ''}>${opt.label}</option>
-          `).join('')}
+          ${options}
         </select>
       `;
     }
 
     const inputType = field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text';
-
     return `
-      <input type="${inputType}"
-             data-cond="${groupIndex}-${condIndex}-value"
-             value="${condition.value || ''}"
-             placeholder="Enter value..."
-             class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg">
+      <input type="${inputType}" ${common} value="${escapeHTML(condition.value)}" placeholder="Enter value..." class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg">
     `;
   }
 
-  private createConditionConnector(groupIndex: number, condIndex: number, logic: 'and' | 'or'): HTMLElement {
-    const connector = document.createElement('div');
-    connector.className = 'flex items-center justify-center my-1';
-    connector.innerHTML = `
-      <span class="text-xs font-medium text-gray-500 px-2 py-0.5 bg-white border border-gray-200 rounded">
-        ${logic.toUpperCase()}
-      </span>
-    `;
-    return connector;
-  }
-
-  private createGroupConnector(groupIndex: number): HTMLElement {
-    const connector = document.createElement('div');
-    connector.className = 'flex items-center justify-center py-2';
-
+  private renderGroupConnector(groupIndex: number): string {
     const logic = this.structure.groupLogic[groupIndex] || 'and';
-
-    connector.innerHTML = `
-      <button type="button"
-              data-group-logic="${groupIndex}"
-              data-logic-value="and"
-              class="px-3 py-1 text-xs font-medium rounded-l border ${logic === 'and' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
-        AND
-      </button>
-      <button type="button"
-              data-group-logic="${groupIndex}"
-              data-logic-value="or"
-              class="px-3 py-1 text-xs font-medium rounded-r border ${logic === 'or' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
-        OR
-      </button>
+    return `
+      <div class="flex items-center justify-center py-2" role="group" aria-label="Logic between filter groups ${groupIndex + 1} and ${groupIndex + 2}">
+        <button type="button" data-filter-builder-action="group-logic" data-group-index="${groupIndex}" data-logic-value="and" aria-pressed="${logic === 'and'}" class="px-3 py-1 text-xs font-medium rounded-l border ${logic === 'and' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
+          AND
+        </button>
+        <button type="button" data-filter-builder-action="group-logic" data-group-index="${groupIndex}" data-logic-value="or" aria-pressed="${logic === 'or'}" class="px-3 py-1 text-xs font-medium rounded-r border ${logic === 'or' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
+          OR
+        </button>
+      </div>
     `;
-
-    // Bind logic toggle
-    connector.querySelectorAll('[data-group-logic]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        const idx = parseInt(target.dataset.groupLogic || '0', 10);
-        const value = target.dataset.logicValue as 'and' | 'or';
-        this.structure.groupLogic[idx] = value;
-        this.render();
-      });
-    });
-
-    return connector;
   }
 
-  private bindGroupEvents(groupEl: HTMLElement, groupIndex: number): void {
-    // Remove group
-    const removeGroupBtn = groupEl.querySelector(`[data-remove-group="${groupIndex}"]`);
-    if (removeGroupBtn) {
-      removeGroupBtn.addEventListener('click', () => this.removeGroup(groupIndex));
-    }
-
-    // Add condition
-    const addCondBtn = groupEl.querySelector(`[data-add-condition="${groupIndex}"]`);
-    if (addCondBtn) {
-      addCondBtn.addEventListener('click', () => this.addCondition(groupIndex));
-    }
-
-    // Condition field changes
-    groupEl.querySelectorAll('[data-cond]').forEach(el => {
-      const input = el as HTMLInputElement | HTMLSelectElement;
-      const [gIdx, cIdx, part] = input.dataset.cond!.split('-');
-      const gi = parseInt(gIdx, 10);
-      const ci = parseInt(cIdx, 10);
-
-      input.addEventListener('change', () => {
-        if (part === 'field') {
-          this.structure.groups[gi].conditions[ci].field = input.value;
-          this.render(); // Re-render to update operators
-        } else if (part === 'operator') {
-          this.structure.groups[gi].conditions[ci].operator = input.value;
-          this.updatePreview();
-        } else if (part === 'value') {
-          this.structure.groups[gi].conditions[ci].value = input.value;
-          this.updatePreview();
-        }
-      });
-    });
-
-    // Remove condition
-    groupEl.querySelectorAll('[data-remove-cond]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        const closest = target.closest('[data-remove-cond]') as HTMLElement;
-        if (!closest) return;
-        const [gIdx, cIdx] = closest.dataset.removeCond!.split('-').map(Number);
-        this.removeCondition(gIdx, cIdx);
-      });
-    });
-
-    // Add OR/AND condition
-    groupEl.querySelectorAll('[data-add-cond-or], [data-add-cond-and]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const target = e.target as HTMLElement;
-        const isOr = target.dataset.addCondOr !== undefined;
-        const dataAttr = isOr ? target.dataset.addCondOr : target.dataset.addCondAnd;
-        if (!dataAttr) return;
-        const [gIdx] = dataAttr.split('-').map(Number);
-
-        // Toggle group logic
-        this.structure.groups[gIdx].logic = isOr ? 'or' : 'and';
-        this.addCondition(gIdx);
-      });
-    });
+  private addGroup(): void {
+    this.structure.groups.push({ conditions: [this.createEmptyCondition()], logic: 'or' });
+    if (this.structure.groups.length > 1) this.structure.groupLogic.push('and');
+    this.render();
+    this.focusConditionPart(this.structure.groups.length - 1, 0, 'field');
+    this.emitChange();
   }
 
   private addCondition(groupIndex: number): void {
-    this.structure.groups[groupIndex].conditions.push(this.createEmptyCondition());
+    const group = this.structure.groups[groupIndex];
+    if (!group) return;
+    group.conditions.push(this.createEmptyCondition());
     this.render();
+    this.focusConditionPart(groupIndex, group.conditions.length - 1, 'field');
+    this.emitChange();
   }
 
-  private removeCondition(groupIndex: number, condIndex: number): void {
+  private setGroupLogicAndAddCondition(groupIndex: number, logic: 'and' | 'or'): void {
     const group = this.structure.groups[groupIndex];
-    group.conditions.splice(condIndex, 1);
+    if (!group) return;
+    group.logic = logic;
+    group.conditions.push(this.createEmptyCondition());
+    this.render();
+    this.focusConditionPart(groupIndex, group.conditions.length - 1, 'field');
+    this.emitChange();
+  }
 
-    // If group is empty, remove it
+  private removeCondition(groupIndex: number, conditionIndex: number): void {
+    const group = this.structure.groups[groupIndex];
+    if (!group) return;
+    group.conditions.splice(conditionIndex, 1);
     if (group.conditions.length === 0) {
       this.removeGroup(groupIndex);
-    } else {
-      this.render();
+      return;
     }
+    this.render();
+    this.focusConditionPart(groupIndex, Math.min(conditionIndex, group.conditions.length - 1), 'field');
+    this.emitChange();
   }
 
   private removeGroup(groupIndex: number): void {
+    if (!this.structure.groups[groupIndex]) return;
     this.structure.groups.splice(groupIndex, 1);
-
-    // Adjust groupLogic array
     if (groupIndex < this.structure.groupLogic.length) {
       this.structure.groupLogic.splice(groupIndex, 1);
-    } else if (groupIndex > 0 && this.structure.groupLogic.length > 0) {
+    } else if (groupIndex > 0) {
       this.structure.groupLogic.splice(groupIndex - 1, 1);
     }
-
-    // Ensure at least one group
-    if (this.structure.groups.length === 0) {
-      this.addGroup();
-    } else {
-      this.render();
-    }
+    if (this.structure.groups.length === 0) this.structure = this.createDefaultStructure();
+    this.render();
+    this.focusConditionPart(Math.min(groupIndex, this.structure.groups.length - 1), 0, 'field');
+    this.emitChange();
   }
 
-  private getOperatorsForField(field: FieldDefinition): { label: string; value: string }[] {
+  private setGroupConnector(groupIndex: number, logic: 'and' | 'or'): void {
+    if ((logic !== 'and' && logic !== 'or') || !this.structure.groupLogic[groupIndex]) return;
+    this.structure.groupLogic[groupIndex] = logic;
+    this.render();
+    this.root?.querySelector<HTMLElement>(
+      `[data-filter-builder-action="group-logic"][data-group-index="${groupIndex}"][data-logic-value="${logic}"]`,
+    )?.focus();
+    this.emitChange();
+  }
+
+  private focusConditionPart(groupIndex: number, conditionIndex: number, part: 'field' | 'operator' | 'value'): void {
+    this.root?.querySelector<HTMLElement>(
+      `[data-filter-builder-part="${part}"][data-group-index="${groupIndex}"][data-condition-index="${conditionIndex}"]`,
+    )?.focus();
+  }
+
+  private getField(name: string): FilterBuilderFieldDefinition | undefined {
+    return this.config.fields.find(field => field.name === name);
+  }
+
+  private getOperatorsForField(field: FilterBuilderFieldDefinition): FilterBuilderOperatorOption[] {
     if (field.operators && field.operators.length > 0) {
-      return field.operators.map(op => ({ label: op, value: op }));
+      return field.operators.map(operator => typeof operator === 'string'
+        ? { label: operator, value: operator }
+        : operator);
     }
     return DEFAULT_OPERATORS[field.type] || DEFAULT_OPERATORS.text;
   }
@@ -511,113 +754,97 @@ export class FilterBuilder {
   private updatePreview(): void {
     const sqlPreview = this.generateSQLPreview();
     const textPreview = this.generateTextPreview();
-
-    if (this.sqlPreviewElement) {
-      this.sqlPreviewElement.textContent = sqlPreview || 'No filters applied';
-    }
-
-    if (this.previewElement) {
-      this.previewElement.textContent = textPreview;
-    }
-
-    // Show/hide applied filter preview
-    const previewContainer = document.getElementById('applied-filter-preview');
-    if (previewContainer) {
-      if (this.hasActiveFilters()) {
-        previewContainer.classList.remove('hidden');
-      } else {
-        previewContainer.classList.add('hidden');
-      }
+    if (this.sqlPreviewElement) this.sqlPreviewElement.textContent = sqlPreview || 'No filters applied';
+    if (this.previewElement) this.previewElement.textContent = textPreview;
+    if (this.appliedPreviewContainer) {
+      this.appliedPreviewContainer.classList.toggle('hidden', !this.hasActiveFilters());
     }
   }
 
   private hasActiveFilters(): boolean {
-    return this.structure.groups.some(g =>
-      g.conditions.some(c => c.value !== '' && c.value !== null && c.value !== undefined)
-    );
+    return this.structure.groups.some(group => group.conditions.some(condition =>
+      condition.value !== '' && condition.value !== null && condition.value !== undefined));
   }
 
   private generateSQLPreview(): string {
-    const groupParts = this.structure.groups.map(group => {
-      const condParts = group.conditions
-        .filter(c => c.value !== '' && c.value !== null)
-        .map(c => {
-          const op = c.operator.toUpperCase();
-          const val = typeof c.value === 'string' ? `'${c.value}'` : c.value;
-          return `${c.field} ${op === 'ILIKE' ? 'ILIKE' : op === 'EQ' ? '=' : op} ${val}`;
+    const groupParts = this.structure.groups.map((group, groupIndex): FilterBuilderPreviewPart | null => {
+      const conditionParts = group.conditions
+        .filter(condition => condition.value !== '' && condition.value !== null && condition.value !== undefined)
+        .map(condition => {
+          const operator = condition.operator.toUpperCase();
+          const value = typeof condition.value === 'string' ? `'${condition.value}'` : condition.value;
+          return `${condition.field} ${operator === 'ILIKE' ? 'ILIKE' : operator === 'EQ' ? '=' : operator} ${value}`;
         });
-
-      if (condParts.length === 0) return '';
-      if (condParts.length === 1) return condParts[0];
-      return `( ${condParts.join(` ${group.logic.toUpperCase()} `)} )`;
-    }).filter(p => p !== '');
-
-    if (groupParts.length === 0) return '';
-    if (groupParts.length === 1) return groupParts[0];
-
-    return groupParts.reduce((acc, part, idx) => {
-      if (idx === 0) return part;
-      const logic = this.structure.groupLogic[idx - 1] || 'and';
-      return `${acc} ${logic.toUpperCase()} ${part}`;
-    }, '');
+      if (conditionParts.length === 0) return null;
+      const text = conditionParts.length === 1
+        ? conditionParts[0]
+        : `( ${conditionParts.join(` ${group.logic.toUpperCase()} `)} )`;
+      return { groupIndex, text };
+    }).filter((part): part is FilterBuilderPreviewPart => part !== null);
+    return this.joinGroups(groupParts);
   }
 
   private generateTextPreview(): string {
-    const groupParts = this.structure.groups.map(group => {
-      const condParts = group.conditions
-        .filter(c => c.value !== '' && c.value !== null)
-        .map(c => {
-          const field = this.config.fields.find(f => f.name === c.field);
-          const fieldLabel = field?.label || c.field;
-          const opLabel = this.getOperatorsForField(field!).find(op => op.value === c.operator)?.label || c.operator;
-          return `${fieldLabel} ${opLabel} "${c.value}"`;
+    const groupParts = this.structure.groups.map((group, groupIndex): FilterBuilderPreviewPart | null => {
+      const conditionParts = group.conditions
+        .filter(condition => condition.value !== '' && condition.value !== null && condition.value !== undefined)
+        .map(condition => {
+          const field = this.getField(condition.field);
+          const operator = field
+            ? this.getOperatorsForField(field).find(item => item.value === condition.operator)
+            : undefined;
+          const fieldLabel = field?.label || `Unavailable field (${condition.field})`;
+          return `${fieldLabel} ${operator?.label || condition.operator} "${condition.value}"`;
         });
+      if (conditionParts.length === 0) return null;
+      const text = conditionParts.length === 1
+        ? conditionParts[0]
+        : `( ${conditionParts.join(` ${group.logic.toUpperCase()} `)} )`;
+      return { groupIndex, text };
+    }).filter((part): part is FilterBuilderPreviewPart => part !== null);
+    return this.joinGroups(groupParts);
+  }
 
-      if (condParts.length === 0) return '';
-      if (condParts.length === 1) return condParts[0];
-      return `( ${condParts.join(` ${group.logic.toUpperCase()} `)} )`;
-    }).filter(p => p !== '');
-
-    if (groupParts.length === 0) return '';
-    if (groupParts.length === 1) return groupParts[0];
-
-    return groupParts.reduce((acc, part, idx) => {
-      if (idx === 0) return part;
-      const logic = this.structure.groupLogic[idx - 1] || 'and';
-      return `${acc} ${logic.toUpperCase()} ${part}`;
+  private joinGroups(parts: FilterBuilderPreviewPart[]): string {
+    if (parts.length < 2) return parts[0]?.text || '';
+    return parts.reduce((result, part, index) => {
+      if (index === 0) return part.text;
+      const connectorIndex = Math.max(0, part.groupIndex - 1);
+      return `${result} ${(this.structure.groupLogic[connectorIndex] || 'and').toUpperCase()} ${part.text}`;
     }, '');
   }
 
-  private applyFilters(): void {
-    this.config.onApply(this.structure);
-    this.close(true);
+  private emitChange(): void {
+    this.config.onChange?.(cloneStructure(this.structure));
   }
 
-  private clearAll(): void {
-    this.structure = { groups: [], groupLogic: [] };
-    this.addGroup();
-    this.updatePreview();
+  private applyFilters(): void {
+    this.config.onApply?.(cloneStructure(this.structure));
+    if (this.mode === 'overlay') this.close(true);
+  }
+
+  private clearAll(notify: boolean): void {
+    this.structure = this.createDefaultStructure();
+    this.render();
+    this.focusConditionPart(0, 0, 'field');
+    if (notify) this.emitChange();
   }
 
   private clearFilters(): void {
-    this.clearAll();
-    this.config.onClear();
-    this.updatePreview();
+    this.clearAll(true);
+    this.config.onClear?.();
   }
 
   private saveFilter(): void {
-    const nameInput = document.getElementById('save-filter-name') as HTMLInputElement;
+    const nameInput = this.root?.querySelector<HTMLInputElement>('[data-filter-builder-save-name]');
     const name = nameInput?.value.trim();
-
     if (!name) {
       this.notifier.warning('Please enter a name for the filter');
       return;
     }
-
     const saved = this.getSavedFilters();
-    saved[name] = this.structure;
+    saved[name] = cloneStructure(this.structure);
     localStorage.setItem('saved_filters', JSON.stringify(saved));
-
     this.notifier.success(`Filter "${name}" saved!`);
     if (nameInput) nameInput.value = '';
   }
@@ -625,23 +852,19 @@ export class FilterBuilder {
   private getSavedFilters(): Record<string, FilterStructure> {
     try {
       const saved = localStorage.getItem('saved_filters');
-      return saved ? JSON.parse(saved) : {};
+      return saved ? JSON.parse(saved) as Record<string, FilterStructure> : {};
     } catch {
       return {};
     }
   }
 
   private toggle(): void {
-    if (this.panel?.classList.contains('hidden')) {
-      this.open();
-    } else {
-      this.close(true);
-    }
+    if (this.panel?.classList.contains('hidden')) this.open();
+    else this.close(true);
   }
 
-  private open(): void {
-    if (!this.panel || !this.toggleButton) return;
-
+  public open(): void {
+    if (this.mode !== 'overlay' || !this.panel || !this.toggleButton || this.destroyed) return;
     const margin = 8;
     const viewport = window.visualViewport;
     const viewportLeft = viewport?.offsetLeft ?? 0;
@@ -675,11 +898,13 @@ export class FilterBuilder {
     this.panel.style.maxHeight = `${Math.max(0, viewportBottom - margin - top)}px`;
     this.panel.style.visibility = '';
     this.toggleButton.setAttribute('aria-expanded', 'true');
+    this.toggleButton.setAttribute('aria-controls', this.panel.id || this.instanceID);
     this.overlay?.classList.remove('hidden');
-    this.panel.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
+    this.root?.querySelector<HTMLElement>('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')?.focus();
   }
 
-  private close(returnFocus: boolean = false): void {
+  public close(returnFocus = false): void {
+    if (this.mode !== 'overlay') return;
     this.panel?.classList.add('hidden');
     this.overlay?.classList.add('hidden');
     this.toggleButton?.setAttribute('aria-expanded', 'false');
@@ -687,60 +912,78 @@ export class FilterBuilder {
   }
 
   private restoreFromURL(): void {
-    const params = new URLSearchParams(window.location.search);
-    const filtersParam = params.get('filters');
-
-    if (filtersParam) {
-      try {
-        const filters = JSON.parse(filtersParam);
-        // Convert old format to new group structure if needed
-        if (Array.isArray(filters) && filters.length > 0) {
-          this.structure = this.convertLegacyFilters(filters);
-          this.render();
-        }
-      } catch (e) {
-        console.warn('[FilterBuilder] Failed to parse filters from URL:', e);
+    const filtersParam = new URLSearchParams(window.location.search).get('filters');
+    if (!filtersParam) return;
+    try {
+      const filters = JSON.parse(filtersParam);
+      if (Array.isArray(filters) && filters.length > 0) {
+        this.structure = this.normalizeStructure(this.convertLegacyFilters(filters));
+        this.render();
+      } else if (filters && Array.isArray(filters.groups) && Array.isArray(filters.groupLogic)) {
+        this.structure = this.normalizeStructure(filters as FilterStructure);
+        this.render();
       }
+    } catch (error) {
+      console.warn('[FilterBuilder] Failed to parse filters from URL:', error);
     }
   }
 
-  private convertLegacyFilters(filters: any[]): FilterStructure {
-    // Group filters by field to detect OR conditions
-    const fieldGroups = new Map<string, any[]>();
-
-    filters.forEach(f => {
-      const key = f.column;
-      if (!fieldGroups.has(key)) {
-        fieldGroups.set(key, []);
-      }
-      fieldGroups.get(key)!.push(f);
+  private convertLegacyFilters(filters: Array<{ column: string; operator?: string; value: unknown }>): FilterStructure {
+    const fieldGroups = new Map<string, Array<{ column: string; operator?: string; value: unknown }>>();
+    filters.forEach(filter => {
+      const group = fieldGroups.get(filter.column) || [];
+      group.push(filter);
+      fieldGroups.set(filter.column, group);
     });
-
     const groups: FilterGroup[] = [];
-
-    fieldGroups.forEach((conditions) => {
+    fieldGroups.forEach(conditions => {
       groups.push({
-        conditions: conditions.map(c => ({
-          field: c.column,
-          operator: c.operator || 'ilike',
-          value: c.value
+        conditions: conditions.map(condition => ({
+          field: condition.column,
+          operator: condition.operator || 'ilike',
+          value: cloneValue(condition.value),
         })),
-        logic: conditions.length > 1 ? 'or' : 'and'
+        logic: conditions.length > 1 ? 'or' : 'and',
       });
     });
-
-    return {
-      groups,
-      groupLogic: new Array(groups.length - 1).fill('and')
-    };
+    return { groups, groupLogic: new Array(Math.max(0, groups.length - 1)).fill('and') };
   }
 
-  getStructure(): FilterStructure {
-    return this.structure;
+  public getStructure(): FilterStructure {
+    return cloneStructure(this.structure);
   }
 
-  setStructure(structure: FilterStructure): void {
-    this.structure = structure;
+  public setStructure(structure: FilterStructure, notify = true): void {
+    if (this.destroyed) return;
+    this.structure = this.normalizeStructure(structure);
     this.render();
+    if (notify) this.emitChange();
+  }
+
+  public destroy(): void {
+    if (this.destroyed) return;
+    this.close(false);
+    this.destroyed = true;
+    while (this.cleanupListeners.length > 0) this.cleanupListeners.pop()?.();
+    this.root?.remove();
+    if (this.panel) {
+      if (this.previousPanelInstance === null) this.panel.removeAttribute('data-filter-builder-instance');
+      else this.panel.setAttribute('data-filter-builder-instance', this.previousPanelInstance);
+      if (this.ownsPanelID) this.panel.removeAttribute('id');
+    }
+    if (this.toggleButton) {
+      if (this.previousToggleAriaControls === null) this.toggleButton.removeAttribute('aria-controls');
+      else this.toggleButton.setAttribute('aria-controls', this.previousToggleAriaControls);
+      if (this.previousToggleAriaExpanded === null) this.toggleButton.removeAttribute('aria-expanded');
+      else this.toggleButton.setAttribute('aria-expanded', this.previousToggleAriaExpanded);
+    }
+    this.root = null;
+    this.container = null;
+    this.sqlPreviewElement = null;
+    this.previewElement = null;
+    this.appliedPreviewContainer = null;
+    this.overlay = null;
+    this.toggleButton = null;
+    this.panel = null;
   }
 }

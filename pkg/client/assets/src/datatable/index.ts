@@ -23,7 +23,15 @@ export { AdvancedSearch } from './advanced-search.js';
 export type { AdvancedSearchConfig, SearchCriterion, FieldDefinition } from './advanced-search.js';
 
 export { FilterBuilder } from './filter-builder.js';
-export type { FilterBuilderConfig } from './filter-builder.js';
+export type {
+  FilterBuilderActionsConfig,
+  FilterBuilderChromeConfig,
+  FilterBuilderConfig,
+  FilterBuilderElementTarget,
+  FilterBuilderFieldDefinition,
+  FilterBuilderMode,
+  FilterBuilderOperatorOption,
+} from './filter-builder.js';
 
 // Export behavior types
 export type {

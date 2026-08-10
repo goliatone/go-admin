@@ -10,7 +10,7 @@ export type { DataGridStateStore, DataGridStateStoreMode, DataGridStateStoreConf
 export { AdvancedSearch } from './advanced-search.js';
 export type { AdvancedSearchConfig, SearchCriterion, FieldDefinition } from './advanced-search.js';
 export { FilterBuilder } from './filter-builder.js';
-export type { FilterBuilderConfig } from './filter-builder.js';
+export type { FilterBuilderActionsConfig, FilterBuilderChromeConfig, FilterBuilderConfig, FilterBuilderElementTarget, FilterBuilderFieldDefinition, FilterBuilderMode, FilterBuilderOperatorOption, } from './filter-builder.js';
 export type { ColumnDefinition, ColumnFilter, SortColumn, SearchBehavior, FilterBehavior, PaginationBehavior, SortBehavior, ExportBehavior, BulkActionBehavior, ColumnVisibilityBehavior, DataGridBehaviors, FilterCondition, FilterGroup, FilterStructure } from './behaviors/types.js';
 export { GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, GoCrudBulkActionBehavior, DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior } from './go-crud/index.js';
 export type { ServerColumnVisibilityConfig } from './go-crud/index.js';
