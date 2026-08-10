@@ -37,8 +37,8 @@ func TestEnrichLayoutViewContextProjectsThemeSelectedStructuralPartials(t *testi
 	}))
 
 	view := EnrichLayoutViewContext(adm, nil, nil, "activity")
-	partials, ok := view["admin_partials"].(AdminStructuralPartials)
-	if !ok || partials.Breadcrumbs != "themes/acme/breadcrumbs.html" {
+	partials := adminStructuralPartialsFromViewValue(view["admin_partials"])
+	if partials.Breadcrumbs != "themes/acme/breadcrumbs.html" {
 		t.Fatalf("expected module context to project selected structural partials, got %#v", view["admin_partials"])
 	}
 }

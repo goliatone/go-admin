@@ -20,7 +20,8 @@ const (
 	AdminPartialUnavailable       = "template_unavailable"
 	AdminPartialUnsupportedKey    = "unsupported_admin_key"
 
-	maxAdminStructuralDiagnostics = 8
+	maxAdminStructuralDiagnostics        = 8
+	maxAdminStructuralDiagnosticKeyRunes = 96
 )
 
 const (
@@ -108,6 +109,19 @@ func DefaultAdminStructuralPartials() AdminStructuralPartials {
 func (selection AdminStructuralPartials) Clone() AdminStructuralPartials {
 	selection.Diagnostics = append([]AdminStructuralPartialDiagnostic(nil), selection.Diagnostics...)
 	return selection
+}
+
+// TemplateContext returns the serialized, lowercase view contract consumed by
+// Pongo templates. Using the JSON-shaped map here keeps direct view rendering
+// and router-serialized rendering identical.
+func (selection AdminStructuralPartials) TemplateContext() map[string]any {
+	selection = selection.Clone()
+	return map[string]any{
+		"sidebar":     selection.Sidebar,
+		"breadcrumbs": selection.Breadcrumbs,
+		"footer":      selection.Footer,
+		"diagnostics": selection.Diagnostics,
+	}
 }
 
 // WithAdminTemplateLookup installs the configuration-time availability lookup
@@ -203,21 +217,35 @@ func normalizeAdminTemplateIdentifier(candidate string) (string, bool) {
 	if strings.ContainsAny(normalized, `\?#`) || strings.HasPrefix(normalized, "/") || path.Ext(normalized) != ".html" {
 		return "", false
 	}
-	for _, r := range normalized {
-		if unicode.IsControl(r) || !isAdminTemplateIdentifierRune(r) {
-			return "", false
-		}
+	if !hasValidAdminTemplateIdentifierRunes(normalized) {
+		return "", false
 	}
 	cleaned := path.Clean(normalized)
 	if cleaned != normalized || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
 		return "", false
 	}
-	for segment := range strings.SplitSeq(cleaned, "/") {
-		if segment == "" || segment == "." || segment == ".." || strings.HasPrefix(segment, ".") {
-			return "", false
-		}
+	if !hasValidAdminTemplateIdentifierSegments(cleaned) {
+		return "", false
 	}
 	return cleaned, true
+}
+
+func hasValidAdminTemplateIdentifierRunes(identifier string) bool {
+	for _, r := range identifier {
+		if unicode.IsControl(r) || !isAdminTemplateIdentifierRune(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasValidAdminTemplateIdentifierSegments(identifier string) bool {
+	for segment := range strings.SplitSeq(identifier, "/") {
+		if segment == "" || segment == "." || segment == ".." || strings.HasPrefix(segment, ".") {
+			return false
+		}
+	}
+	return true
 }
 
 func isAdminTemplateIdentifierRune(r rune) bool {
@@ -239,11 +267,36 @@ func newAdminStructuralDiagnostic(key, reason, candidate string) AdminStructural
 		basename = string(basenameRunes[:64])
 	}
 	return AdminStructuralPartialDiagnostic{
-		Key:                  strings.TrimSpace(key),
+		Key:                  safeAdminStructuralDiagnosticKey(key),
 		ReasonCode:           reason,
 		CandidateFingerprint: hex.EncodeToString(sum[:8]),
 		CandidateBasename:    basename,
 	}
+}
+
+func safeAdminStructuralDiagnosticKey(key string) string {
+	trimmed := strings.TrimSpace(key)
+	if isSafeAdminStructuralDiagnosticKey(trimmed) {
+		return trimmed
+	}
+	sum := sha256.Sum256([]byte(key))
+	return "unsafe-admin-key-" + hex.EncodeToString(sum[:8])
+}
+
+func isSafeAdminStructuralDiagnosticKey(key string) bool {
+	if !utf8.ValidString(key) {
+		return false
+	}
+	runes := []rune(key)
+	if len(runes) == 0 || len(runes) > maxAdminStructuralDiagnosticKeyRunes {
+		return false
+	}
+	for _, r := range runes {
+		if r == '/' || !isAdminTemplateIdentifierRune(r) {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeAdminStructuralDiagnostics(input []AdminStructuralPartialDiagnostic) []AdminStructuralPartialDiagnostic {

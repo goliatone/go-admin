@@ -210,18 +210,35 @@ func (r fiberErrorHandlerRuntime) renderHTMLError(c *fiber.Ctx, err error, resol
 	for key, value := range viewCtx {
 		c.Locals(key, value)
 	}
-	if renderErr := c.Status(resolved.code).Render("error", nil); renderErr != nil {
+	templateName := "error"
+	if r.routeDomains.classify(c.Path(), hostRouteStandard) == adminrouting.RouteDomainAdminUI {
+		templateName = "admin-error"
+		viewCtx["page_title"] = headline
+		viewCtx["page_subtitle"] = userMessage
+		viewCtx["body_classes"] = "admin-error-page"
+		for key, value := range viewCtx {
+			c.Locals(key, value)
+		}
+	}
+	if renderErr := c.Status(resolved.code).Render(templateName, fiber.Map(viewCtx)); renderErr != nil {
 		return c.SendString(fmt.Sprintf("%d - %s", resolved.code, headline))
 	}
 	return nil
 }
 
 func (r fiberErrorHandlerRuntime) baseErrorViewContext(c *fiber.Ctx, code int, headline, message string) router.ViewContext {
-	reqCtx := c.UserContext()
-	if reqCtx == nil {
-		reqCtx = context.Background()
+	reqCtx := fiberAdminThemeContext(c)
+	viewCtx := router.ViewContext{}
+	if r.adm != nil {
+		viewCtx = WithNav(viewCtx, r.adm, r.cfg, "", reqCtx)
+		partials := r.adm.StructuralPartials(reqCtx)
+		viewCtx["admin_partials"] = partials.TemplateContext()
+		viewCtx["admin_partial_diagnostics"] = append([]admin.AdminStructuralPartialDiagnostic(nil), partials.Diagnostics...)
+	} else {
+		viewCtx = WithPathViewContext(viewCtx, r.cfg, PathViewContextConfig{BasePath: r.cfg.BasePath})
+		viewCtx["admin_partials"] = admin.DefaultAdminStructuralPartials().TemplateContext()
+		viewCtx["admin_partial_diagnostics"] = []admin.AdminStructuralPartialDiagnostic(nil)
 	}
-	viewCtx := WithNav(router.ViewContext{}, r.adm, r.cfg, "", reqCtx)
 	viewCtx["status"] = code
 	viewCtx["headline"] = headline
 	viewCtx["message"] = message
@@ -230,6 +247,30 @@ func (r fiberErrorHandlerRuntime) baseErrorViewContext(c *fiber.Ctx, code int, h
 	viewCtx["title"] = r.cfg.Title
 	viewCtx["dev_mode"] = r.errorCfg.DevMode
 	return viewCtx
+}
+
+func fiberAdminThemeContext(c *fiber.Ctx) context.Context {
+	if c == nil {
+		return context.Background()
+	}
+	ctx := c.UserContext()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	selector := admin.ThemeSelector{
+		Name:    strings.TrimSpace(c.Query("theme")),
+		Variant: strings.TrimSpace(c.Query("variant")),
+	}
+	if selector.Name == "" {
+		selector.Name = strings.TrimSpace(c.Get("X-Admin-Theme"))
+	}
+	if selector.Variant == "" {
+		selector.Variant = strings.TrimSpace(c.Get("X-Admin-Theme-Variant"))
+	}
+	if selector.Name != "" || selector.Variant != "" {
+		ctx = admin.WithThemeSelection(ctx, selector)
+	}
+	return ctx
 }
 
 func (r fiberErrorHandlerRuntime) applyDevErrorContext(c *fiber.Ctx, err error, viewCtx router.ViewContext) {

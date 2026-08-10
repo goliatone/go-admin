@@ -79,6 +79,24 @@ func TestStructuralPartialDiagnosticsAreSortedDeduplicatedAndBounded(t *testing.
 	}
 }
 
+func TestStructuralPartialDiagnosticKeysAreBoundedAndLogSafe(t *testing.T) {
+	hostileKey := "admin.shell." + strings.Repeat("very-long-", 40) + "\nforged-entry"
+	diagnostic := newAdminStructuralDiagnostic(hostileKey, AdminPartialUnsupportedKey, "host/footer.html")
+
+	if strings.ContainsAny(diagnostic.Key, "\r\n\t") {
+		t.Fatalf("diagnostic key contains control characters: %q", diagnostic.Key)
+	}
+	if len([]rune(diagnostic.Key)) > maxAdminStructuralDiagnosticKeyRunes {
+		t.Fatalf("diagnostic key is not bounded: %d runes", len([]rune(diagnostic.Key)))
+	}
+	if !strings.HasPrefix(diagnostic.Key, "unsafe-admin-key-") {
+		t.Fatalf("hostile diagnostic key was not fingerprinted: %q", diagnostic.Key)
+	}
+	if got := safeAdminStructuralDiagnosticKey(AdminPartialShellFooter); got != AdminPartialShellFooter {
+		t.Fatalf("supported key changed from %q to %q", AdminPartialShellFooter, got)
+	}
+}
+
 func TestStructuralPartialsReturnAndSinkClones(t *testing.T) {
 	var captured []AdminStructuralPartialDiagnostic
 	adm := (&Admin{defaultTheme: &ThemeSelection{Partials: map[string]string{

@@ -2,11 +2,40 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	router "github.com/goliatone/go-router"
 )
+
+func TestDashboardPageViewContextUsesResolvedAdminContextTheme(t *testing.T) {
+	adm := (&Admin{}).WithThemeProvider(func(_ context.Context, selector ThemeSelector) (*ThemeSelection, error) {
+		variant := selector.Variant
+		if variant == "" {
+			variant = "light"
+		}
+		return &ThemeSelection{
+			CSSVars: map[string]string{"--selected-variant": variant},
+			Partials: map[string]string{
+				AdminPartialPageBreadcrumbs: "themes/acme/" + variant + "-breadcrumbs.html",
+			},
+		}, nil
+	}).WithAdminTemplateLookup(AdminTemplateLookupFunc(func(identifier string) bool {
+		return strings.HasPrefix(identifier, "themes/acme/")
+	}))
+
+	requestCtx := WithThemeSelection(context.Background(), ThemeSelector{Variant: "dark"})
+	view := (&dashboardBinding{admin: adm}).dashboardPageViewContext(requestCtx, nil)
+	theme, ok := view["theme"].(map[string]map[string]string)
+	if !ok || theme["css_vars"]["--selected-variant"] != "dark" {
+		t.Fatalf("dashboard chrome did not use request-resolved theme: %#v", view["theme"])
+	}
+	partials := adminStructuralPartialsFromViewValue(view["admin_partials"])
+	if partials.Breadcrumbs != "themes/acme/dark-breadcrumbs.html" {
+		t.Fatalf("dashboard chrome split theme and partial selection: %#v", view["admin_partials"])
+	}
+}
 
 func TestBuildAdminLayoutViewContextIncludesUtilityNavItems(t *testing.T) {
 	cfg := Config{
@@ -108,8 +137,8 @@ func TestBuildAdminLayoutViewContextIncludesShellConfiguration(t *testing.T) {
 		externalAssets["echarts_js"] != "https://assets.example/echarts.js" {
 		t.Fatalf("unexpected external assets: %+v", externalAssets)
 	}
-	partials, ok := view["admin_partials"].(AdminStructuralPartials)
-	if !ok || partials.Breadcrumbs != "partials/breadcrumbs.html" || partials.Sidebar != "partials/sidebar.html" || partials.Footer != "partials/admin-footer.html" {
+	partials := adminStructuralPartialsFromViewValue(view["admin_partials"])
+	if partials.Breadcrumbs != "partials/breadcrumbs.html" || partials.Sidebar != "partials/sidebar.html" || partials.Footer != "partials/admin-footer.html" {
 		t.Fatalf("unexpected structural partial defaults: %#v", view["admin_partials"])
 	}
 }

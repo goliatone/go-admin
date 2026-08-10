@@ -11,31 +11,42 @@ import (
 // buildAdminLayoutViewContext injects common layout context used by admin templates.
 // It is shared by module-owned pages that render layout.html directly.
 func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
+	return buildAdminLayoutViewContextFromContext(adm, c, adminLayoutRequestContext(c), view, active)
+}
+
+// buildAdminLayoutViewContextFromContext keeps request-derived policy and theme
+// state authoritative when a transport has already normalized the request into
+// an AdminContext. The router context remains available for navigation, CSRF,
+// and other transport-owned values.
+func buildAdminLayoutViewContextFromContext(adm *Admin, c router.Context, requestCtx context.Context, view router.ViewContext, active string) router.ViewContext {
 	if view == nil {
 		view = router.ViewContext{}
+	}
+	if requestCtx == nil {
+		requestCtx = context.Background()
 	}
 	basePath := resolveAdminLayoutBasePath(adm, view)
 	applyAdminLayoutPathDefaults(view, basePath)
 	applyAdminLayoutStringDefault(view, "active", strings.TrimSpace(active))
 	applyAdminLayoutAPIBasePath(adm, view)
 	applyAdminLayoutNavigationDefaults(adm, c, view, basePath)
-	applyAdminLayoutThemeDefault(adm, c, view)
-	applyAdminLayoutStructuralPartials(adm, c, view)
-	applyAdminLayoutTranslationDefaults(adm, c, view)
-	applyAdminLayoutUserImportDefaults(adm, c, view)
+	applyAdminLayoutThemeDefault(adm, requestCtx, view)
+	applyAdminLayoutStructuralPartials(adm, requestCtx, view)
+	applyAdminLayoutTranslationDefaults(adm, requestCtx, view)
+	applyAdminLayoutUserImportDefaults(adm, requestCtx, view)
 	applyAdminLayoutRequestTemplateDefaults(c, view)
 	return view
 }
 
-func applyAdminLayoutStructuralPartials(adm *Admin, c router.Context, view router.ViewContext) {
+func applyAdminLayoutStructuralPartials(adm *Admin, requestCtx context.Context, view router.ViewContext) {
 	if _, ok := view["admin_partials"]; ok {
 		return
 	}
 	selection := DefaultAdminStructuralPartials()
 	if adm != nil {
-		selection = adm.StructuralPartials(adminLayoutRequestContext(c))
+		selection = adm.StructuralPartials(requestCtx)
 	}
-	view["admin_partials"] = selection.Clone()
+	view["admin_partials"] = selection.TemplateContext()
 	if _, ok := view["admin_partial_diagnostics"]; !ok {
 		view["admin_partial_diagnostics"] = append([]AdminStructuralPartialDiagnostic(nil), selection.Diagnostics...)
 	}
@@ -113,24 +124,24 @@ func applyAdminSidebarCompositionDefaults(view router.ViewContext, cfg Config) {
 	}
 }
 
-func applyAdminLayoutThemeDefault(adm *Admin, c router.Context, view router.ViewContext) {
+func applyAdminLayoutThemeDefault(adm *Admin, requestCtx context.Context, view router.ViewContext) {
 	if _, ok := view["theme"]; !ok && adm != nil {
-		view["theme"] = adm.themePayload(adminLayoutRequestContext(c))
+		view["theme"] = adm.themePayload(requestCtx)
 	}
 }
 
-func applyAdminLayoutTranslationDefaults(adm *Admin, c router.Context, view router.ViewContext) {
+func applyAdminLayoutTranslationDefaults(adm *Admin, requestCtx context.Context, view router.ViewContext) {
 	if _, ok := view["translation_capabilities"]; !ok {
-		view["translation_capabilities"] = TranslationCapabilitiesForContext(adm, adminLayoutRequestContext(c))
+		view["translation_capabilities"] = TranslationCapabilitiesForContext(adm, requestCtx)
 	}
 }
 
-func applyAdminLayoutUserImportDefaults(adm *Admin, c router.Context, view router.ViewContext) {
+func applyAdminLayoutUserImportDefaults(adm *Admin, requestCtx context.Context, view router.ViewContext) {
 	if _, ok := view["users_import_available"]; !ok {
 		view["users_import_available"] = adm != nil && adm.UserImportEnabled()
 	}
 	if _, ok := view["users_import_enabled"]; !ok {
-		view["users_import_enabled"] = adm != nil && adm.UserImportAllowed(adminLayoutRequestContext(c))
+		view["users_import_enabled"] = adm != nil && adm.UserImportAllowed(requestCtx)
 	}
 }
 

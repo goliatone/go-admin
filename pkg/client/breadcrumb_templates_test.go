@@ -31,7 +31,7 @@ func TestTranslationTemplatesUseCanonicalShellHeaderBlocks(t *testing.T) {
 		"resources/translations/matrix.html":             {`{% block page_title %}`, `{% block page_header_actions %}`},
 		"resources/translations/exchange.html":           {`{% block page_title %}`, `{% block page_header_actions %}`},
 		"resources/translations/families.html":           {`{% block page_title %}`, `{% block page_header_actions %}`},
-		"layout.html":                                    {`include admin_partials.Breadcrumbs`, `partials/breadcrumbs.html`},
+		"layout.html":                                    {`include admin_partials.breadcrumbs`, `partials/breadcrumbs.html`},
 	}
 
 	for name, fragments := range required {

@@ -13,7 +13,7 @@ func TestPongoShellOwnedBlocksAndDynamicLeafIncludesCompose(t *testing.T) {
 		"layout.html": {Data: []byte(`
 <main>
   <header>
-    {% block page_breadcrumbs %}{% include admin_partials.Breadcrumbs %}{% endblock %}
+    {% block page_breadcrumbs %}{% include admin_partials.breadcrumbs %}{% endblock %}
     <h1>{% block page_title %}Default{% endblock %}</h1>
     <div>{% block page_header_actions %}{% block header_actions %}Default action{% endblock %}{% endblock %}</div>
   </header>
@@ -37,7 +37,7 @@ func TestPongoShellOwnedBlocksAndDynamicLeafIncludesCompose(t *testing.T) {
 		t.Fatalf("parse multi-level shell fixture: %v", err)
 	}
 	out, err := tpl.Execute(pongo2.Context{
-		"admin_partials": map[string]any{"Breadcrumbs": "partials/host.html"},
+		"admin_partials": map[string]any{"breadcrumbs": "partials/host.html"},
 	})
 	if err != nil {
 		t.Fatalf("render multi-level shell fixture: %v", err)

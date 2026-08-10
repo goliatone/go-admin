@@ -16,6 +16,7 @@ type adminShellInventoryEntry struct {
 // canonical shell migration. Keep this exact list intentional: adding a new
 // authenticated page must select both a surface group and a context provider.
 var authenticatedTemplateInventory = map[string]adminShellInventoryEntry{
+	"admin-error.html":                               {"shared-error", "error-handler"},
 	"admin.html":                                     {"dashboard-client", "quickstart"},
 	"dashboard_ssr.html":                             {"dashboard-ssr", "dashboard-chrome"},
 	"feature-unavailable.html":                       {"shared", "quickstart"},
@@ -61,6 +62,58 @@ var authenticatedTemplateInventory = map[string]adminShellInventoryEntry{
 	"resources/users/detail.html":                    {"users", "quickstart"},
 	"resources/users/form.html":                      {"users", "quickstart"},
 	"resources/users/list.html":                      {"users", "quickstart"},
+}
+
+// packagedDocumentOwners classifies every template that owns an HTML document.
+// Leaf templates may extend one of these owners, but adding another doctype is
+// an explicit shell decision and must update this inventory.
+var packagedDocumentOwners = map[string]string{
+	"error.html":                 "standalone-error",
+	"export.html":                "standalone-export",
+	"layout.html":                "authenticated-shell",
+	"login-layout.html":          "unauthenticated-shell",
+	"resources/debug/index.html": "standalone-debug",
+	"site/base.html":             "public-site-shell",
+}
+
+func TestPackagedDocumentOwnersAreExplicitlyClassified(t *testing.T) {
+	tplFS := Templates()
+	discovered := make([]string, 0, len(packagedDocumentOwners))
+	err := fs.WalkDir(tplFS, ".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil || entry == nil || entry.IsDir() || !strings.HasSuffix(path, ".html") {
+			return walkErr
+		}
+		content, err := fs.ReadFile(tplFS, path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(strings.ToLower(string(content)), "<!doctype html>") {
+			discovered = append(discovered, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk packaged templates: %v", err)
+	}
+	sort.Strings(discovered)
+
+	missing := make([]string, 0)
+	for _, path := range discovered {
+		if strings.TrimSpace(packagedDocumentOwners[path]) == "" {
+			missing = append(missing, path)
+		}
+	}
+	stale := make([]string, 0)
+	for path := range packagedDocumentOwners {
+		if _, err := fs.Stat(tplFS, path); err != nil {
+			stale = append(stale, path)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(stale)
+	if len(missing) != 0 || len(stale) != 0 || len(discovered) != len(packagedDocumentOwners) {
+		t.Fatalf("document-owner inventory mismatch: missing=%v stale=%v discovered=%d classified=%d", missing, stale, len(discovered), len(packagedDocumentOwners))
+	}
 }
 
 func TestAuthenticatedTemplateInventoryIsComplete(t *testing.T) {
@@ -111,7 +164,7 @@ func TestAuthenticatedTemplateInventoryCoversContextProviders(t *testing.T) {
 	for _, entry := range authenticatedTemplateInventory {
 		providers[entry.provider] = true
 	}
-	for _, required := range []string{"quickstart", "module", "dashboard-chrome"} {
+	for _, required := range []string{"quickstart", "module", "dashboard-chrome", "error-handler"} {
 		if !providers[required] {
 			t.Fatalf("authenticated template inventory is missing provider %q", required)
 		}

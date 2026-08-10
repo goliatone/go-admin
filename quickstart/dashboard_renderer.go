@@ -178,7 +178,13 @@ func newDashboardTemplateRenderer(opts ...DashboardRendererOption) (*dashboardTe
 	if err != nil {
 		return nil, err
 	}
-	return &dashboardTemplateRenderer{renderer: renderer}, nil
+	result := &dashboardTemplateRenderer{renderer: renderer}
+	if !options.useEmbedded {
+		if err := validateIsolatedDashboardRenderer(result); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func validateIsolatedDashboardTemplateSet(templateFS fs.FS) error {
@@ -206,6 +212,54 @@ func validateIsolatedDashboardTemplateSet(templateFS fs.FS) error {
 		return fmt.Errorf("isolated dashboard template set is incomplete: missing %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+func validateIsolatedDashboardRenderer(renderer *dashboardTemplateRenderer) error {
+	html, err := renderer.RenderPage("dashboard_ssr.html", admin.AdminDashboardPage{})
+	if err != nil {
+		return fmt.Errorf("isolated dashboard template set cannot render the canonical entry point: %w", err)
+	}
+	lowerHTML := strings.ToLower(html)
+	if count := strings.Count(lowerHTML, "<!doctype html>"); count != 1 {
+		return fmt.Errorf("isolated dashboard template set is incompatible: document owner marker %q rendered %d times", "<!doctype html>", count)
+	}
+	for _, check := range []struct {
+		name      string
+		attribute string
+	}{
+		{name: "admin shell", attribute: "data-admin-shell"},
+		{name: "page header", attribute: "data-admin-page-header"},
+		{name: "shell content", attribute: "data-admin-shell-content"},
+		{name: "dashboard content", attribute: "data-widget-grid"},
+	} {
+		if count := countRenderedHTMLAttribute(html, check.attribute); count != 1 {
+			return fmt.Errorf("isolated dashboard template set is incompatible: %s attribute %q rendered %d times", check.name, check.attribute, count)
+		}
+	}
+	return nil
+}
+
+func countRenderedHTMLAttribute(source, attribute string) int {
+	count := 0
+	for offset := 0; offset < len(source); {
+		index := strings.Index(source[offset:], attribute)
+		if index < 0 {
+			break
+		}
+		index += offset
+		beforeOK := index > 0 && isHTMLAttributeBoundary(source[index-1])
+		after := index + len(attribute)
+		afterOK := after == len(source) || isHTMLAttributeBoundary(source[after]) || source[after] == '='
+		if beforeOK && afterOK {
+			count++
+		}
+		offset = after
+	}
+	return count
+}
+
+func isHTMLAttributeBoundary(value byte) bool {
+	return value == ' ' || value == '\t' || value == '\r' || value == '\n' || value == '>' || value == '/'
 }
 
 // RenderPage renders the dashboard template with the typed admin wrapper.
@@ -288,7 +342,7 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 			"session_user":              map[string]any{},
 			"areas":                     []map[string]any{},
 			"layout_json":               "{}",
-			"admin_partials":            admin.DefaultAdminStructuralPartials(),
+			"admin_partials":            admin.DefaultAdminStructuralPartials().TemplateContext(),
 			"admin_partial_diagnostics": []admin.AdminStructuralPartialDiagnostic(nil),
 		}
 	}
@@ -386,13 +440,8 @@ func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]an
 		"users_import_available":           page.Chrome.UsersImportAvailable,
 		"users_import_enabled":             page.Chrome.UsersImportEnabled,
 		"locale":                           page.Dashboard.Locale,
-		"admin_partials": map[string]any{
-			"Sidebar":     partials.Sidebar,
-			"Breadcrumbs": partials.Breadcrumbs,
-			"Footer":      partials.Footer,
-			"Diagnostics": partials.Diagnostics,
-		},
-		"admin_partial_diagnostics": partials.Diagnostics,
+		"admin_partials":                   partials.TemplateContext(),
+		"admin_partial_diagnostics":        partials.Diagnostics,
 	}
 }
 

@@ -88,7 +88,7 @@ func TestAdminLayoutLoadsSidebarStateBeforeSharedStylesheetsAndRuntime(t *testin
 	if prePaint < 0 || shellStyles < 0 || sidebarMarkup < 0 || runtime < 0 || main < 0 {
 		t.Fatal("layout must include the sidebar pre-paint, stylesheet, markup, runtime, and main-content contracts")
 	}
-	if !(prePaint < shellStyles && shellStyles < sidebarMarkup && sidebarMarkup < runtime && runtime < main) {
+	if prePaint >= shellStyles || shellStyles >= sidebarMarkup || sidebarMarkup >= runtime || runtime >= main {
 		t.Fatalf(
 			"sidebar asset order must be pre-paint < styles < markup < runtime < main; got %d < %d < %d < %d < %d",
 			prePaint,
@@ -139,7 +139,7 @@ func TestLegacyPageHeaderDelegatesToCanonicalBreadcrumbLeaf(t *testing.T) {
 	if strings.Contains(header, `<nav`) || strings.Contains(header, `<ol`) {
 		t.Fatal("legacy page header must not own breadcrumb navigation markup")
 	}
-	for _, fragment := range []string{`include admin_partials.Breadcrumbs`, `include "partials/breadcrumbs.html"`} {
+	for _, fragment := range []string{`include admin_partials.breadcrumbs`, `include "partials/breadcrumbs.html"`} {
 		if !strings.Contains(header, fragment) {
 			t.Fatalf("legacy page header missing breadcrumb delegation %q", fragment)
 		}

@@ -9,10 +9,80 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/pkg/client"
 )
+
+func TestFiberErrorHandlerUsesCanonicalShellOnlyForAdminUI(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin", Title: "Test Admin"}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("construct admin: %v", err)
+	}
+	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{
+			Variant: selector.Variant,
+			Partials: map[string]string{
+				admin.AdminPartialShellFooter: "themes/test/footer.html",
+			},
+		}, nil
+	})
+	hostTemplates := fstest.MapFS{
+		"templates/themes/test/footer.html": {Data: []byte(`<footer data-host-error-footer>Host error footer</footer>`)},
+	}
+	views, err := NewViewEngine(client.Templates(),
+		WithViewTemplatesFS(hostTemplates),
+		WithViewAdmin(adm),
+		WithViewBasePath(cfg.BasePath),
+	)
+	if err != nil {
+		t.Fatalf("construct view engine: %v", err)
+	}
+	app := fiber.New(fiber.Config{Views: views, ErrorHandler: NewFiberErrorHandler(adm, cfg, false)})
+	app.Get("/admin/fail", func(*fiber.Ctx) error { return fiber.ErrNotFound })
+	app.Get("/public/fail", func(*fiber.Ctx) error { return fiber.ErrNotFound })
+
+	adminResp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/fail?variant=contrast", nil), -1)
+	if err != nil {
+		t.Fatalf("request admin error: %v", err)
+	}
+	defer closeResponseBody(t, adminResp)
+	adminBody, err := io.ReadAll(adminResp.Body)
+	if err != nil {
+		t.Fatalf("read admin error: %v", err)
+	}
+	adminHTML := string(adminBody)
+	for _, marker := range []string{`data-admin-shell`, `data-admin-page-header`, `data-admin-error-page`, `data-host-error-footer`} {
+		if countRenderedHTMLAttribute(adminHTML, marker) != 1 {
+			t.Fatalf("admin error marker %q count mismatch in body: %s", marker, adminHTML)
+		}
+	}
+	if countRenderedHTMLAttribute(adminHTML, "data-theme") != 1 || !strings.Contains(adminHTML, `data-theme="contrast"`) {
+		t.Fatalf("admin error did not render the selected contrast theme exactly once: %s", adminHTML)
+	}
+	if strings.Count(strings.ToLower(adminHTML), "<!doctype html>") != 1 {
+		t.Fatalf("admin error must own exactly one document: %s", adminHTML)
+	}
+
+	publicResp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/public/fail", nil), -1)
+	if err != nil {
+		t.Fatalf("request public error: %v", err)
+	}
+	defer closeResponseBody(t, publicResp)
+	publicBody, err := io.ReadAll(publicResp.Body)
+	if err != nil {
+		t.Fatalf("read public error: %v", err)
+	}
+	if strings.Contains(string(publicBody), "data-admin-shell") {
+		t.Fatalf("public error unexpectedly rendered authenticated shell: %s", publicBody)
+	}
+	if strings.Count(strings.ToLower(string(publicBody)), "<!doctype html>") != 1 {
+		t.Fatalf("public error must retain standalone document: %s", publicBody)
+	}
+}
 
 func TestFiberErrorHandlerPreservesAPI404ForUnmatchedRoutes(t *testing.T) {
 	cfg := admin.Config{

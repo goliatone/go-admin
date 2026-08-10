@@ -158,12 +158,32 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	assignAdminChromeBool(&state.UsersImportEnabled, view["users_import_enabled"])
 	assignAdminChromeBool(&state.NavDebug, view["nav_debug"])
 	assignAdminChromeString(&state.NavItemsJSON, view["nav_items_json"])
-	if partials, ok := view["admin_partials"].(AdminStructuralPartials); ok {
-		state.AdminPartials = partials.Clone()
-	} else {
-		state.AdminPartials = DefaultAdminStructuralPartials()
-	}
+	state.AdminPartials = adminStructuralPartialsFromViewValue(view["admin_partials"])
 	return state
+}
+
+func adminStructuralPartialsFromViewValue(value any) AdminStructuralPartials {
+	if partials, ok := value.(AdminStructuralPartials); ok {
+		return partials.Clone()
+	}
+	defaults := DefaultAdminStructuralPartials()
+	view, ok := value.(map[string]any)
+	if !ok {
+		return defaults
+	}
+	if candidate := strings.TrimSpace(toString(view["sidebar"])); candidate != "" {
+		defaults.Sidebar = candidate
+	}
+	if candidate := strings.TrimSpace(toString(view["breadcrumbs"])); candidate != "" {
+		defaults.Breadcrumbs = candidate
+	}
+	if candidate := strings.TrimSpace(toString(view["footer"])); candidate != "" {
+		defaults.Footer = candidate
+	}
+	if diagnostics, ok := view["diagnostics"].([]AdminStructuralPartialDiagnostic); ok {
+		defaults.Diagnostics = append([]AdminStructuralPartialDiagnostic(nil), diagnostics...)
+	}
+	return defaults
 }
 
 func adminPageHeaderBreadcrumbsFromValue(value any) []AdminPageHeaderBreadcrumb {
@@ -305,15 +325,15 @@ func (d *dashboardBinding) resolveAdminDashboardPage(c router.Context, locale st
 }
 
 func (d *dashboardBinding) dashboardPageContext(adminCtx AdminContext, c router.Context) context.Context {
-	return withAdminDashboardChrome(adminCtx.Context, adminChromeStateFromViewContext(d.dashboardPageViewContext(c)))
+	return withAdminDashboardChrome(adminCtx.Context, adminChromeStateFromViewContext(d.dashboardPageViewContext(adminCtx.Context, c)))
 }
 
-func (d *dashboardBinding) dashboardPageViewContext(c router.Context) router.ViewContext {
+func (d *dashboardBinding) dashboardPageViewContext(requestCtx context.Context, c router.Context) router.ViewContext {
 	basePath := "/"
 	if d.admin != nil && strings.TrimSpace(d.admin.config.BasePath) != "" {
 		basePath = d.admin.config.BasePath
 	}
-	return buildAdminLayoutViewContext(d.admin, c, router.ViewContext{
+	return buildAdminLayoutViewContextFromContext(d.admin, c, requestCtx, router.ViewContext{
 		"title":           d.admin.config.Title,
 		"base_path":       basePath,
 		"asset_base_path": basePath,

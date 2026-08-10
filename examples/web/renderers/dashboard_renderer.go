@@ -23,7 +23,6 @@ func NewTemplateRenderer(templatesFS fs.FS) (*TemplateRenderer, error) {
 		return nil, fmt.Errorf("templates filesystem is required")
 	}
 	renderer, err := quickstart.NewDashboardTemplateRenderer(
-		quickstart.WithDashboardEmbeddedTemplates(false),
 		quickstart.WithDashboardTemplatesFS(templatesFS),
 		quickstart.WithDashboardTemplateFuncOptions(helpers.TemplateFuncOptions()...),
 	)

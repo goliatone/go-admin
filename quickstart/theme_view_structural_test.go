@@ -24,8 +24,8 @@ func TestWithThemeContextProjectsStructuralSelectionAndDiagnostics(t *testing.T)
 	}))
 
 	view := WithThemeContext(router.ViewContext{}, adm, nil)
-	partials, ok := view["admin_partials"].(admin.AdminStructuralPartials)
-	if !ok || partials.Breadcrumbs != "host/breadcrumbs.html" || partials.Footer != "partials/admin-footer.html" {
+	partials, ok := view["admin_partials"].(map[string]any)
+	if !ok || partials["breadcrumbs"] != "host/breadcrumbs.html" || partials["footer"] != "partials/admin-footer.html" {
 		t.Fatalf("admin_partials = %#v", view["admin_partials"])
 	}
 	diagnostics, ok := view["admin_partial_diagnostics"].([]admin.AdminStructuralPartialDiagnostic)
@@ -36,9 +36,9 @@ func TestWithThemeContextProjectsStructuralSelectionAndDiagnostics(t *testing.T)
 
 func TestWithThemeContextUsesPackagedStructuralDefaultsWithoutAdmin(t *testing.T) {
 	view := WithThemeContext(nil, nil, nil)
-	partials, ok := view["admin_partials"].(admin.AdminStructuralPartials)
+	partials, ok := view["admin_partials"].(map[string]any)
 	defaults := admin.DefaultAdminStructuralPartials()
-	if !ok || partials.Sidebar != defaults.Sidebar || partials.Breadcrumbs != defaults.Breadcrumbs || partials.Footer != defaults.Footer || len(partials.Diagnostics) != 0 {
+	if !ok || partials["sidebar"] != defaults.Sidebar || partials["breadcrumbs"] != defaults.Breadcrumbs || partials["footer"] != defaults.Footer {
 		t.Fatalf("admin_partials = %#v", view["admin_partials"])
 	}
 }
@@ -53,7 +53,7 @@ func TestWithThemeContextKeepsPublicSiteThemeIsolated(t *testing.T) {
 	if !reflect.DeepEqual(got["site_theme"], siteTheme) {
 		t.Fatalf("admin structural projection changed public site theme: %#v", got["site_theme"])
 	}
-	if _, ok := got["admin_partials"].(admin.AdminStructuralPartials); !ok {
+	if _, ok := got["admin_partials"].(map[string]any); !ok {
 		t.Fatalf("expected isolated admin structural defaults, got %#v", got["admin_partials"])
 	}
 }

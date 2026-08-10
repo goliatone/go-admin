@@ -201,7 +201,10 @@ func TestStructuralBreadcrumbOverrideRendersAcrossAuthenticatedSurfaceMatrix(t *
 			selection := adm.StructuralPartials(variant.ctx)
 			for _, page := range pages {
 				var rendered bytes.Buffer
-				data := structuralSurfaceRenderContext(selection)
+				data, err := router.SerializeAsContext(structuralSurfaceRenderContext(selection))
+				if err != nil {
+					t.Fatalf("serialize %s render context: %v", page, err)
+				}
 				if err := views.Render(&rendered, page, data); err != nil {
 					t.Fatalf("render %s: %v", page, err)
 				}
@@ -236,8 +239,8 @@ func TestOrdinaryAndModuleViewProvidersRenderStructuralDefaults(t *testing.T) {
 	}
 	for name, view := range providers {
 		t.Run(name, func(t *testing.T) {
-			partials, ok := view["admin_partials"].(admin.AdminStructuralPartials)
-			if !ok || partials.Breadcrumbs == "" || partials.Sidebar == "" || partials.Footer == "" {
+			partials, ok := view["admin_partials"].(map[string]any)
+			if !ok || partials["breadcrumbs"] == "" || partials["sidebar"] == "" || partials["footer"] == "" {
 				t.Fatalf("provider omitted typed structural defaults: %#v", view["admin_partials"])
 			}
 			var rendered bytes.Buffer
@@ -266,7 +269,7 @@ func structuralSurfaceRenderContext(selection admin.AdminStructuralPartials) fib
 		"csrf_meta":                 "",
 		"csrf_field":                "",
 		"breadcrumbs":               []map[string]any{{"label": "Home", "href": "/admin"}, {"label": "Current", "current": true}},
-		"admin_partials":            selection.Clone(),
+		"admin_partials":            selection.TemplateContext(),
 		"admin_partial_diagnostics": append([]admin.AdminStructuralPartialDiagnostic(nil), selection.Diagnostics...),
 		"routes":                    map[string]string{"new": "/admin/new"},
 		"resource":                  "users",
