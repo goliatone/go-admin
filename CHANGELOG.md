@@ -1,10 +1,55 @@
 # Changelog
 
+# [0.131.10](https://github.com/goliatone/go-admin/compare/v0.131.9...v0.131.10) - (2026-08-10)
+
+
+## Migration Notes
+
+- Authenticated admin pages and default dashboard SSR now use the canonical
+  client shell. Host templates that copied the previous header or dashboard
+  document should extend the packaged layout and use the documented
+  `page_*`/`shell_*` blocks instead.
+- Theme-selected structural partials require their template files to be
+  registered in the quickstart view stack and the view engine to be bound with
+  `quickstart.WithViewAdmin(adm)`. Missing, unsafe, or unavailable selections
+  fall back to packaged partials.
+- `quickstart.DashboardTemplatesFS()` now exposes the canonical client
+  templates. Disabling packaged dashboard templates requires a complete
+  compatible host shell; incomplete isolated stacks fail during renderer
+  construction.
+- Existing fixed-path partial overlays and legacy shell block aliases remain
+  supported for at least one major release.
+- Host templates that inspect resolved structural paths must use the stable
+  lowercase template keys: `admin_partials.sidebar`,
+  `admin_partials.breadcrumbs`, and `admin_partials.footer`.
+- Authenticated admin HTML errors now render through the canonical admin shell;
+  non-admin HTML errors continue to use the standalone error document.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Admin partials use map in partial ([36461ec](https://github.com/goliatone/go-admin/commit/36461eceb642a36454a2ecd861f3678ce40e94c6))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Error template ([214ad55](https://github.com/goliatone/go-admin/commit/214ad556f46d2459afcb6e1eec9a3b44eb5e2edf))  - (goliatone)
+- Theme normalization and slots ([e999625](https://github.com/goliatone/go-admin/commit/e9996251b21d217edfd6e52e13ea11fbf8b3f942))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([b0f8a1c](https://github.com/goliatone/go-admin/commit/b0f8a1ccfefa1eefab1a4925504783e29d5ac737))  - (goliatone)
+
 # [0.131.9](https://github.com/goliatone/go-admin/compare/v0.131.8...v0.131.9) - (2026-08-09)
+
+
+New patch release: v0.131.9
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Breadcrumb fix ([3a4ec9c](https://github.com/goliatone/go-admin/commit/3a4ec9cfc030de2719fbf505a5d56b43d3c1f847))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.9 ([94e3573](https://github.com/goliatone/go-admin/commit/94e35734566d589317b9b4a1ccd92ae1c3007029))  - (goliatone)
 
 # [0.131.8](https://github.com/goliatone/go-admin/compare/v0.131.7...v0.131.8) - (2026-08-09)
 
