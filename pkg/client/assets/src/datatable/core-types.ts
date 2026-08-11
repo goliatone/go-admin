@@ -24,15 +24,23 @@ export interface DataGridCapabilities {
 
 export type DataGridRenderState = 'loading' | 'ready' | 'empty' | 'error';
 
+export type DataGridPaginationMode = 'legacy' | 'semantic';
+
+export type DataGridPaginationPluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other';
+
+export type DataGridPaginationSummaryLabels = Partial<Record<DataGridPaginationPluralCategory, string>>;
+
 export interface DataGridPaginationLabels {
   previous?: string;
   next?: string;
   previousPage?: string;
   nextPage?: string;
   page?: string;
+  summary?: DataGridPaginationSummaryLabels;
 }
 
 export interface DataGridPaginationPresentation {
+  mode?: DataGridPaginationMode;
   locale?: string | string[];
   labels?: DataGridPaginationLabels;
 }
@@ -84,6 +92,7 @@ export interface DataGridSelectors {
   tableInfoStart: string;
   tableInfoEnd: string;
   tableInfoTotal: string;
+  tableInfoSummary: string;
   selectAllCheckbox: string;
   rowCheckboxes: string;
   bulkActionsBar: string;

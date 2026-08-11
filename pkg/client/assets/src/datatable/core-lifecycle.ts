@@ -55,12 +55,17 @@ export function adoptSemanticPresentation(grid: any): void {
   const paginationControls = document.querySelector<HTMLElement>(grid.selectors.paginationContainer);
   const pagination = paginationControls?.closest<HTMLElement>('[data-datagrid-pagination]') || paginationControls;
   pagination?.classList.add('admin-surface-card', 'admin-datagrid__pagination');
+  pagination?.classList.toggle(
+    'admin-datagrid__pagination--presented',
+    grid.config.pagination?.mode === 'semantic',
+  );
   paginationControls?.classList.add('admin-datagrid__pagination-controls');
 
   for (const selector of [
     grid.selectors.tableInfoStart,
     grid.selectors.tableInfoEnd,
     grid.selectors.tableInfoTotal,
+    grid.selectors.tableInfoSummary,
   ]) {
     const value = document.querySelector<HTMLElement>(selector);
     value?.classList.add('admin-datagrid__pagination-text');

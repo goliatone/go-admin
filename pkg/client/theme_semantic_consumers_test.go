@@ -47,6 +47,10 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 		`var(--datagrid-pagination-active-background, var(--datagrid-row-selected, var(--color-action-primary, #e5e7eb)))`,
 		`var(--datagrid-pagination-active-text, var(--color-text-inverse, #1f2937))`,
 		`var(--datagrid-pagination-active-shadow, none)`,
+		`var(--datagrid-pagination-hover-background, var(--color-surface-subtle, #f3f4f6))`,
+		`var(--datagrid-pagination-focus-border, var(--color-focus-ring, #3b82f6))`,
+		`var(--datagrid-pagination-disabled-background, var(--datagrid-pagination-control-background, var(--color-surface-default, #ffffff)))`,
+		`var(--datagrid-pagination-disabled-opacity, 0.5)`,
 		`var(--datagrid-pagination-control-height, var(--size-control-height, 38px))`,
 		`var(--datagrid-pagination-page-width, 38px)`,
 		`.admin-select .admin-select__field {`,
@@ -63,6 +67,28 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 	}
 	if strings.Contains(css, `--admin-sidebar-title-height`) {
 		t.Fatal("sidebar title token must remain unconsumed until a reusable title slot exists")
+	}
+}
+
+func TestSemanticPaginationStatesAreScopedAndDoNotOverrideCurrentPage(t *testing.T) {
+	content, err := os.ReadFile("assets/input.css")
+	if err != nil {
+		t.Fatalf("read semantic style source: %v", err)
+	}
+	css := string(content)
+	for _, fragment := range []string{
+		`.admin-datagrid__pagination--presented .admin-datagrid__page-button:not([aria-current="page"]):not(:disabled):hover`,
+		`.admin-datagrid__pagination--presented .admin-datagrid__page-button:not([aria-current="page"]):not(:disabled):focus-visible`,
+		`.admin-datagrid__pagination--presented .admin-datagrid__page-button:disabled`,
+		`pointer-events: none;`,
+	} {
+		if !strings.Contains(css, fragment) {
+			t.Fatalf("owned pagination state selector missing %q", fragment)
+		}
+	}
+	if strings.Contains(css, `.admin-datagrid__pagination .admin-datagrid__page-button:hover`) ||
+		strings.Contains(css, `.admin-datagrid__pagination .admin-datagrid__page-button:focus-visible`) {
+		t.Fatal("semantic pagination must not use ungated interaction selectors")
 	}
 }
 

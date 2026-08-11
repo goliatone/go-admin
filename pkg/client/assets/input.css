@@ -424,23 +424,26 @@
   }
 
   .admin-datagrid__toolbar.admin-datagrid__toolbar,
-  .admin-datagrid__filter-panel.admin-datagrid__filter-panel,
-  .admin-datagrid__pagination.admin-datagrid__pagination {
+  .admin-datagrid__filter-panel.admin-datagrid__filter-panel {
     border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
   }
 
-  .admin-datagrid__pagination .admin-datagrid__pagination-text,
+  .admin-datagrid__pagination--presented.admin-datagrid__pagination--presented {
+    border-color: var(--datagrid-border, var(--color-border-default, #e5e7eb));
+  }
+
+  .admin-datagrid__pagination--presented .admin-datagrid__pagination-text,
   .admin-datagrid__actions-empty {
     color: var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280));
   }
 
-  .admin-datagrid__pagination-controls {
+  .admin-datagrid__pagination--presented .admin-datagrid__pagination-controls {
     display: flex;
     align-items: center;
     gap: var(--datagrid-pagination-gap, 0.25rem);
   }
 
-  .admin-datagrid__pagination .admin-datagrid__page-button {
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -455,18 +458,18 @@
     line-height: var(--datagrid-pagination-line-height, var(--line-height-body, 1.25rem));
   }
 
-  .admin-datagrid__pagination .admin-datagrid__page-button--boundary {
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button--boundary {
     background-color: var(--datagrid-pagination-control-background, var(--color-surface-default, #ffffff));
     border-color: var(--datagrid-pagination-control-border, var(--datagrid-border, var(--color-border-default, #e5e7eb)));
     color: var(--datagrid-pagination-control-text, var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280)));
   }
 
-  .admin-datagrid__pagination .admin-datagrid__page-button--page {
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button--page {
     min-width: var(--datagrid-pagination-page-width, 38px);
     padding-inline: 0;
   }
 
-  .admin-datagrid__page-ellipsis {
+  .admin-datagrid__pagination--presented .admin-datagrid__page-ellipsis {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -475,22 +478,37 @@
     color: var(--datagrid-pagination-page-text, var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280)));
   }
 
-  .admin-datagrid__page-ellipsis svg {
+  .admin-datagrid__pagination--presented .admin-datagrid__page-ellipsis svg {
     width: var(--datagrid-pagination-ellipsis-size, 1rem);
     height: var(--datagrid-pagination-ellipsis-size, 1rem);
   }
 
-  .admin-datagrid__pagination .admin-datagrid__page-button:hover,
-  .admin-datagrid__pagination .admin-datagrid__page-button:focus-visible {
-    background-color: var(--datagrid-row-hover, var(--color-surface-subtle, #f3f4f6));
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button:not([aria-current="page"]):not(:disabled):hover {
+    background-color: var(--datagrid-pagination-hover-background, var(--color-surface-subtle, #f3f4f6));
+    border-color: var(--datagrid-pagination-hover-border, var(--datagrid-pagination-control-border, var(--color-border-default, #e5e7eb)));
+    color: var(--datagrid-pagination-hover-text, var(--datagrid-pagination-page-text, var(--color-text-secondary, #6b7280)));
   }
 
-  .admin-datagrid__pagination .admin-datagrid__page-button--active,
-  .admin-datagrid__pagination .admin-datagrid__page-button[aria-current="page"] {
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button:not([aria-current="page"]):not(:disabled):focus-visible {
+    background-color: var(--datagrid-pagination-focus-background, var(--datagrid-pagination-hover-background, var(--color-surface-subtle, #f3f4f6)));
+    border-color: var(--datagrid-pagination-focus-border, var(--color-focus-ring, #3b82f6));
+    color: var(--datagrid-pagination-focus-text, var(--datagrid-pagination-hover-text, var(--color-text-secondary, #6b7280)));
+  }
+
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button--active,
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button[aria-current="page"] {
     background-color: var(--datagrid-pagination-active-background, var(--datagrid-row-selected, var(--color-action-primary, #e5e7eb)));
     border-color: var(--datagrid-pagination-active-border, var(--datagrid-border, var(--color-border-default, #e5e7eb)));
     box-shadow: var(--datagrid-pagination-active-shadow, none);
     color: var(--datagrid-pagination-active-text, var(--color-text-inverse, #1f2937));
+  }
+
+  .admin-datagrid__pagination--presented .admin-datagrid__page-button:disabled {
+    background-color: var(--datagrid-pagination-disabled-background, var(--datagrid-pagination-control-background, var(--color-surface-default, #ffffff)));
+    border-color: var(--datagrid-pagination-disabled-border, var(--datagrid-pagination-control-border, var(--color-border-default, #e5e7eb)));
+    color: var(--datagrid-pagination-disabled-text, var(--color-text-secondary, #9ca3af));
+    opacity: var(--datagrid-pagination-disabled-opacity, 0.5);
+    pointer-events: none;
   }
 
   .admin-datagrid .admin-datagrid__state--empty,

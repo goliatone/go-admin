@@ -3,7 +3,7 @@
  * Exports core component and all behaviors
  */
 export { DataGrid } from './core.js';
-export type { DataGridCapabilities, DataGridConfig, DataGridPaginationLabels, DataGridPaginationPresentation, DataGridRenderState, } from './core.js';
+export type { DataGridCapabilities, DataGridConfig, DataGridPaginationLabels, DataGridPaginationMode, DataGridPaginationPresentation, DataGridPaginationPluralCategory, DataGridPaginationSummaryLabels, DataGridRenderState, } from './core.js';
 export { formatPaginationNumber, handleDelete, paginationWindow, renderPaginationButtons } from './core-rendering.js';
 export { createDataGridStateStore, LocalDataGridStateStore, PreferencesDataGridStateStore, } from './state-store.js';
 export type { DataGridStateStore, DataGridStateStoreMode, DataGridStateStoreConfig, DataGridPersistedState, DataGridShareState, } from './state-store.js';

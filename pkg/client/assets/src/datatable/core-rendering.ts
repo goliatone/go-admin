@@ -422,10 +422,17 @@ export function updatePaginationUI(grid: any, data: ApiResponse): void {
     const startEl = document.querySelector(grid.selectors.tableInfoStart);
     const endEl = document.querySelector(grid.selectors.tableInfoEnd);
     const totalEl = document.querySelector(grid.selectors.tableInfoTotal);
+    const summaryEl = grid.selectors.tableInfoSummary
+      ? document.querySelector(grid.selectors.tableInfoSummary)
+      : null;
 
     if (startEl) startEl.textContent = formatPaginationNumber(grid, start);
     if (endEl) endEl.textContent = formatPaginationNumber(grid, end);
     if (totalEl) totalEl.textContent = formatPaginationNumber(grid, total);
+    if (summaryEl) {
+      const summary = formatPaginationSummary(grid, start, end, total);
+      if (summary !== null) summaryEl.textContent = summary;
+    }
 
     grid.renderPaginationButtons(total);
   }
@@ -437,20 +444,48 @@ export function renderPaginationButtons(grid: any, total: number): void {
     const container = document.querySelector(grid.selectors.paginationContainer);
     if (!container) return;
 
+    const semantic = grid.config.pagination?.mode === 'semantic';
+    const pagination = container.closest?.('[data-datagrid-pagination]') || container;
+    pagination.classList?.toggle('admin-datagrid__pagination--presented', semantic);
+
     const totalPages = Math.ceil(total / grid.state.perPage);
     if (totalPages <= 1) {
       container.innerHTML = '';
       return;
     }
 
-    const buttons: string[] = [];
     const current = grid.state.currentPage;
+    const buttons = semantic
+      ? renderSemanticPaginationButtons(grid, totalPages, current)
+      : renderLegacyPaginationButtons(totalPages, current);
+
+    container.innerHTML = buttons.join('');
+
+    // Bind click handlers
+    container.querySelectorAll('[data-page]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const page = parseInt((btn as HTMLElement).dataset.page || '1', 10);
+        if (page >= 1 && page <= totalPages) {
+          grid.state.currentPage = page;
+          grid.pushStateToURL();
+          if (grid.config.behaviors?.pagination) {
+            await grid.config.behaviors.pagination.onPageChange(page, grid);
+          } else {
+            await grid.refresh();
+          }
+        }
+      });
+    });
+  }
+
+function renderSemanticPaginationButtons(grid: any, totalPages: number, current: number): string[] {
+    const buttons: string[] = [];
     const labels = {
-      previous: grid.config.pagination?.labels?.previous || 'Previous',
-      next: grid.config.pagination?.labels?.next || 'Next',
-      previousPage: grid.config.pagination?.labels?.previousPage || 'Previous page',
-      nextPage: grid.config.pagination?.labels?.nextPage || 'Next page',
-      page: grid.config.pagination?.labels?.page || 'Page {page}',
+      previous: resolvePaginationLabel(grid.config.pagination?.labels?.previous, 'Previous'),
+      next: resolvePaginationLabel(grid.config.pagination?.labels?.next, 'Next'),
+      previousPage: resolvePaginationLabel(grid.config.pagination?.labels?.previousPage, 'Previous page'),
+      nextPage: resolvePaginationLabel(grid.config.pagination?.labels?.nextPage, 'Next page'),
+      page: resolvePaginationLabel(grid.config.pagination?.labels?.page, 'Page {page}'),
     };
 
     // Previous button
@@ -497,24 +532,86 @@ export function renderPaginationButtons(grid: any, total: number): void {
       </button>
     `);
 
-    container.innerHTML = buttons.join('');
-
-    // Bind click handlers
-    container.querySelectorAll('[data-page]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const page = parseInt((btn as HTMLElement).dataset.page || '1', 10);
-        if (page >= 1 && page <= totalPages) {
-          grid.state.currentPage = page;
-          grid.pushStateToURL();
-          if (grid.config.behaviors?.pagination) {
-            await grid.config.behaviors.pagination.onPageChange(page, grid);
-          } else {
-            await grid.refresh();
-          }
-        }
-      });
-    });
+    return buttons;
   }
+
+function renderLegacyPaginationButtons(totalPages: number, current: number): string[] {
+  const buttons: string[] = [];
+
+  buttons.push(`
+    <button type="button"
+            data-page="${current - 1}"
+            aria-label="Previous page"
+            ${current === 1 ? 'disabled' : ''}
+            class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
+      <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"></path>
+      </svg>
+      <span>Previous</span>
+    </button>
+  `);
+
+  for (const item of paginationWindow(totalPages, current)) {
+    if (item === 'ellipsis') {
+      buttons.push('<span class="admin-datagrid__page-ellipsis min-w-[24px] text-center text-gray-500" aria-hidden="true">…</span>');
+      continue;
+    }
+    const isActive = item === current;
+    buttons.push(`
+      <button type="button"
+              data-page="${item}"
+              aria-label="Page ${item}"
+              ${isActive ? 'aria-current="page"' : ''}
+              class="min-h-[38px] min-w-[38px] flex justify-center items-center ${
+                isActive
+                  ? 'bg-gray-200 text-gray-800 focus:outline-none focus:bg-gray-300'
+                  : 'text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100'
+              } admin-datagrid__page-button py-2 px-3 text-sm rounded-lg">
+        ${item}
+      </button>
+    `);
+  }
+
+  buttons.push(`
+    <button type="button"
+            data-page="${current + 1}"
+            aria-label="Next page"
+            ${current === totalPages ? 'disabled' : ''}
+            class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
+      <span>Next</span>
+      <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m9 18 6-6-6-6"></path>
+      </svg>
+    </button>
+  `);
+
+  return buttons;
+}
+
+function resolvePaginationLabel(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function formatPaginationSummary(grid: any, start: number, end: number, total: number): string | null {
+  const templates = grid.config.pagination?.labels?.summary;
+  if (!templates || typeof templates !== 'object') return null;
+
+  let category = total === 1 ? 'one' : 'other';
+  try {
+    category = new Intl.PluralRules(grid.config.pagination?.locale).select(total);
+  } catch {
+    // Invalid or unsupported locale values retain deterministic English-style fallback.
+  }
+  const template = resolvePaginationLabel(templates[category], resolvePaginationLabel(templates.other, ''));
+  if (!template) return null;
+
+  const values: Record<string, string> = {
+    start: formatPaginationNumber(grid, start),
+    end: formatPaginationNumber(grid, end),
+    total: formatPaginationNumber(grid, total),
+  };
+  return template.replace(/\{(start|end|total)\}/g, (_match, key) => values[key]);
+}
 
 export function formatPaginationNumber(grid: any, value: number): string {
   const locale = grid.config.pagination?.locale;

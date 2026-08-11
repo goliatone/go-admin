@@ -40,6 +40,7 @@ test('DataGrid pagination uses stable classes, localized labels, formatted numbe
     state: { currentPage: 10, perPage: 10 },
     config: {
       pagination: {
+        mode: 'semantic',
         locale: 'de-DE',
         labels: {
           previous: 'Zurück',
@@ -76,6 +77,134 @@ test('DataGrid pagination uses stable classes, localized labels, formatted numbe
     assert.equal(container.querySelector('path[d="m9 18 6-6-6-6"]'), null);
     assert.doesNotMatch(container.innerHTML, /min-h-|text-gray-|rounded-lg/);
   } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+    dom.window.close();
+  }
+});
+
+test('DataGrid pagination preserves the historical renderer when semantic mode is absent', () => {
+  const dom = new JSDOM('<footer data-datagrid-pagination><nav id="table-pagination"></nav></footer>');
+  const previous = {};
+  for (const key of ['window', 'document', 'HTMLElement', 'Event']) {
+    previous[key] = globalThis[key];
+    globalThis[key] = dom.window[key];
+  }
+  const grid = {
+    selectors: { paginationContainer: '#table-pagination' },
+    state: { currentPage: 1, perPage: 10 },
+    config: {},
+    pushStateToURL() {},
+    async refresh() {},
+  };
+
+  try {
+    renderPaginationButtons(grid, 200);
+    const pagination = dom.window.document.querySelector('[data-datagrid-pagination]');
+    const container = dom.window.document.getElementById('table-pagination');
+    assert.equal(pagination.classList.contains('admin-datagrid__pagination--presented'), false);
+    assert.ok(container.querySelector('path[d="m15 18-6-6 6-6"]'));
+    assert.ok(container.querySelector('path[d="m9 18 6-6-6-6"]'));
+    assert.match(container.innerHTML, /min-h-\[38px\]/);
+    assert.match(container.innerHTML, /hover:bg-gray-100/);
+    assert.equal(container.querySelector('.admin-datagrid__page-ellipsis')?.textContent, '…');
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+    dom.window.close();
+  }
+});
+
+test('semantic pagination safely resolves hostile labels and invalid locales', () => {
+  const dom = new JSDOM('<footer data-datagrid-pagination><nav id="table-pagination"></nav></footer>');
+  const previous = {};
+  for (const key of ['window', 'document', 'HTMLElement', 'Event']) {
+    previous[key] = globalThis[key];
+    globalThis[key] = dom.window[key];
+  }
+  const grid = {
+    selectors: { paginationContainer: '#table-pagination' },
+    state: { currentPage: 1, perPage: 10 },
+    config: {
+      pagination: {
+        mode: 'semantic',
+        locale: 'not_a_locale',
+        labels: {
+          previous: '   ',
+          next: 42,
+          previousPage: {},
+          nextPage: null,
+          page: { includes() { throw new Error('must not be called'); } },
+        },
+      },
+    },
+    pushStateToURL() {},
+    async refresh() {},
+  };
+
+  try {
+    assert.doesNotThrow(() => renderPaginationButtons(grid, 20));
+    const container = dom.window.document.getElementById('table-pagination');
+    assert.equal(container.querySelector('[data-page="0"]').textContent.trim(), 'Previous');
+    assert.equal(container.querySelector('[data-page="0"]').getAttribute('aria-label'), 'Previous page');
+    assert.equal(container.querySelector('[data-page="2"]:last-of-type').textContent.trim(), 'Next');
+    assert.equal(container.querySelector('[aria-current="page"]').getAttribute('aria-label'), 'Page 1');
+    assert.equal(formatPaginationNumber(grid, 12345), '12345');
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+    dom.window.close();
+  }
+});
+
+test('semantic pagination formats complete plural-aware summaries for zero, one, and many rows', () => {
+  const dom = new JSDOM(`
+    <span id="table-info-start"></span>
+    <span id="table-info-end"></span>
+    <span id="table-info-total"></span>
+    <p id="table-info-summary"></p>
+    <nav id="table-pagination"></nav>
+  `);
+  const previous = {};
+  for (const key of ['window', 'document', 'HTMLElement', 'Event']) {
+    previous[key] = globalThis[key];
+    globalThis[key] = dom.window[key];
+  }
+  const grid = new DataGrid({
+    tableId: 'missing-table',
+    apiEndpoint: '/records',
+    columns: [],
+    perPage: 10,
+    pagination: {
+      mode: 'semantic',
+      locale: 'de-DE',
+      labels: {
+        summary: {
+          one: '{total} Datensatz; Bereich {start}–{end}',
+          other: '{total} Datensätze; Bereich {start}–{end}',
+        },
+      },
+    },
+  });
+
+  try {
+    for (const [total, expected] of [
+      [0, '0 Datensätze; Bereich 0–0'],
+      [1, '1 Datensatz; Bereich 1–1'],
+      [12345, '12.345 Datensätze; Bereich 1–10'],
+    ]) {
+      grid.state.currentPage = 1;
+      grid.updatePaginationUI({ records: [], total });
+      assert.equal(dom.window.document.getElementById('table-info-summary').textContent, expected);
+    }
+  } finally {
+    grid.destroy();
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete globalThis[key];
       else globalThis[key] = value;

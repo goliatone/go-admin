@@ -8,7 +8,10 @@ export type {
   DataGridCapabilities,
   DataGridConfig,
   DataGridPaginationLabels,
+  DataGridPaginationMode,
   DataGridPaginationPresentation,
+  DataGridPaginationPluralCategory,
+  DataGridPaginationSummaryLabels,
   DataGridRenderState,
 } from './core.js';
 export { formatPaginationNumber, handleDelete, paginationWindow, renderPaginationButtons } from './core-rendering.js';

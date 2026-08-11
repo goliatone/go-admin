@@ -47,7 +47,10 @@ export type {
   DataGridCapabilities,
   DataGridConfig,
   DataGridPaginationLabels,
+  DataGridPaginationMode,
   DataGridPaginationPresentation,
+  DataGridPaginationPluralCategory,
+  DataGridPaginationSummaryLabels,
   DataGridRenderState,
 } from './core-types.js';
 
@@ -138,6 +141,7 @@ export class DataGrid {
       tableInfoStart: '#table-info-start',
       tableInfoEnd: '#table-info-end',
       tableInfoTotal: '#table-info-total',
+      tableInfoSummary: '#table-info-summary',
       selectAllCheckbox: '#table-checkbox-all',
       rowCheckboxes: '.table-checkbox',
       bulkActionsBar: '#bulk-actions-bar',
