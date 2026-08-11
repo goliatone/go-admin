@@ -1,20 +1,33 @@
 # Changelog
 
-# [0.131.11](https://github.com/goliatone/go-admin/compare/v0.131.10...v0.131.11) - (2026-08-10)
+# [0.131.12](https://github.com/goliatone/go-admin/compare/v0.131.11...v0.131.12) - (2026-08-11)
 
 
 ## FilterBuilder
 
-- Added an additive compact, embeddable `FilterBuilder` mode with caller-owned
-  hosts, initial rule hydration, cloned change notifications, optional built-in
-  chrome/actions, multiple-instance isolation, and explicit `destroy()`.
-- Preserved the existing overlay defaults, URL restoration, viewport-aware
-  placement, apply/clear behavior, and focus return for current consumers.
-- Exported the compact configuration and field/operator contract from
-  `@goliatone/go-admin-client/datatable` with built JavaScript and declarations.
-- Hardened stale-rule repair, group-connector preview fidelity, accessible
-  disabled reasons, compact external previews, and caller-owned host/ARIA
-  restoration during teardown.
+- Added typed caller-supplied messages for all FilterBuilder-visible copy,
+  accessibility labels, limit feedback, and stale-catalog repair guidance while
+  preserving the existing English defaults.
+- Added optional group, per-group condition, and total-condition editing limits.
+  Additive controls disable at the configured boundary while over-limit hydrated
+  rules remain intact and repairable.
+- Preserved removed select values as explicit unavailable selections so the UI,
+  preview, and retained rule state remain truthful until the caller repairs them.
+- Rebuilt the embedded and public JavaScript, source maps, declarations, and
+  declaration maps with focused compatibility and artifact coverage.
+
+## <!-- 16 -->➕ Add
+
+- Better pagination and filter support ([ef1d66c](https://github.com/goliatone/go-admin/commit/ef1d66c590fa4060ca2d8e04c94fe2d44d424c95))  - (goliatone)
+
+# [0.131.11](https://github.com/goliatone/go-admin/compare/v0.131.10...v0.131.11) - (2026-08-10)
+
+
+New patch release: v0.131.11
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.11 ([8b3feb2](https://github.com/goliatone/go-admin/commit/8b3feb205428ca190eabf109a84a448d5bb7ac39))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
