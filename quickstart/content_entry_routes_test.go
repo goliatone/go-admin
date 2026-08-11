@@ -1162,6 +1162,7 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 				apiEndpoint := strings.TrimSpace(anyToString(dataGridCfg["api_endpoint"]))
 				actionBase := strings.TrimSpace(anyToString(dataGridCfg["action_base"]))
 				columnStorage := strings.TrimSpace(anyToString(dataGridCfg["column_storage_key"]))
+				pagination, paginationOK := dataGridCfg["pagination"].(map[string]any)
 
 				capabilities, ok := dataGridCfg["capabilities"].(map[string]any)
 				if !ok || capabilities["export"] != false || capabilities["selection"] != false {
@@ -1173,7 +1174,8 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 					tableID == "content-"+tc.panel &&
 					apiEndpoint == "/admin/api/panels/"+tc.panel &&
 					actionBase == "/admin/content/"+tc.panel &&
-					columnStorage == "content_"+tc.panel+"_datatable_columns"
+					columnStorage == "content_"+tc.panel+"_datatable_columns" &&
+					paginationOK && strings.TrimSpace(anyToString(pagination["mode"])) == "semantic"
 			})).Return(nil).Once()
 
 			if err := handler.listForPanel(ctx, tc.panel); err != nil {

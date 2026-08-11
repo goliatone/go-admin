@@ -277,6 +277,57 @@ func TestServicesLifecycle_RetentionAndFallbackExecutionPaths(t *testing.T) {
 	}
 }
 
+func TestRetryableNotificationLedgerClaimsBeforeDispatch(t *testing.T) {
+	_, module, _, _ := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) { adm.WithAuthorizer(servicesAllowAuthorizer{}) },
+	)
+	prepareLifecycleTables(t, module)
+	ledger := &retryableNotificationLedger{
+		db:             mustRepositoryDB(t, module),
+		claimTTL:       time.Minute,
+		fallbackClaims: map[string]time.Time{},
+	}
+	const key = "projector::event::recipient"
+	start := make(chan struct{})
+	results := make(chan bool, 16)
+	errs := make(chan error, 16)
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Go(func() {
+			<-start
+			seen, err := ledger.Seen(context.Background(), key)
+			results <- seen
+			errs <- err
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	owners := 0
+	for seen := range results {
+		if !seen {
+			owners++
+		}
+	}
+	if owners != 1 {
+		t.Fatalf("concurrent notification claims selected %d senders", owners)
+	}
+	if err := ledger.Record(context.Background(), gocore.NotificationDispatchRecord{IdempotencyKey: key, Status: "sent"}); err != nil {
+		t.Fatal(err)
+	}
+	seen, err := ledger.Seen(context.Background(), key)
+	if err != nil || !seen {
+		t.Fatalf("expected completed notification replay, seen=%v err=%v", seen, err)
+	}
+}
+
 func mustOutboxStore(t *testing.T, module *Module) *sqlstore.OutboxStore {
 	t.Helper()
 	provider, ok := module.RepositoryFactory().(interface{ OutboxStore() *sqlstore.OutboxStore })

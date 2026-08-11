@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -11,6 +12,14 @@ type idempotencyEntry struct {
 	status    int
 	body      []byte
 	createdAt time.Time
+	completed bool
+	token     uint64
+	done      chan struct{}
+}
+
+type idempotencyReservation struct {
+	key   string
+	token uint64
 }
 
 type idempotencyStore struct {
@@ -18,6 +27,7 @@ type idempotencyStore struct {
 	now     func() time.Time
 	mu      sync.Mutex
 	entries map[string]idempotencyEntry
+	next    uint64
 }
 
 func newIdempotencyStore(ttl time.Duration) *idempotencyStore {
@@ -33,40 +43,84 @@ func newIdempotencyStore(ttl time.Duration) *idempotencyStore {
 	}
 }
 
-func (s *idempotencyStore) ReplayIfMatch(key string, hash string) (int, []byte, bool, bool) {
+func (s *idempotencyStore) Reserve(ctx context.Context, key string, hash string) (idempotencyReservation, int, []byte, bool, bool, error) {
 	if s == nil || key == "" {
-		return 0, nil, false, false
+		return idempotencyReservation{}, 0, nil, false, false, nil
 	}
-	now := s.now()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.pruneLocked(now)
-	entry, ok := s.entries[key]
-	if !ok {
-		return 0, nil, false, false
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	if entry.hash != hash {
-		return 0, nil, false, true
+	for {
+		now := s.now()
+		s.mu.Lock()
+		s.pruneLocked(now)
+		entry, ok := s.entries[key]
+		if !ok {
+			s.next++
+			reservation := idempotencyReservation{key: key, token: s.next}
+			s.entries[key] = idempotencyEntry{
+				key:       key,
+				hash:      hash,
+				createdAt: now,
+				token:     reservation.token,
+				done:      make(chan struct{}),
+			}
+			s.mu.Unlock()
+			return reservation, 0, nil, false, false, nil
+		}
+		if entry.hash != hash {
+			s.mu.Unlock()
+			return idempotencyReservation{}, 0, nil, false, true, nil
+		}
+		if entry.completed {
+			body := append([]byte(nil), entry.body...)
+			s.mu.Unlock()
+			return idempotencyReservation{}, entry.status, body, true, false, nil
+		}
+		done := entry.done
+		s.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return idempotencyReservation{}, 0, nil, false, false, ctx.Err()
+		case <-done:
+		}
 	}
-	body := append([]byte(nil), entry.body...)
-	return entry.status, body, true, false
 }
 
-func (s *idempotencyStore) Store(key string, hash string, status int, body []byte) {
-	if s == nil || key == "" || hash == "" {
-		return
+func (s *idempotencyStore) Commit(reservation idempotencyReservation, status int, body []byte) bool {
+	if s == nil || reservation.key == "" || reservation.token == 0 {
+		return false
 	}
 	now := s.now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.pruneLocked(now)
-	s.entries[key] = idempotencyEntry{
-		key:       key,
-		hash:      hash,
-		status:    status,
-		body:      append([]byte(nil), body...),
-		createdAt: now,
+	entry, ok := s.entries[reservation.key]
+	if !ok || entry.token != reservation.token || entry.completed {
+		return false
 	}
+	entry.status = status
+	entry.body = append([]byte(nil), body...)
+	entry.createdAt = now
+	entry.completed = true
+	s.entries[reservation.key] = entry
+	close(entry.done)
+	return true
+}
+
+func (s *idempotencyStore) Release(reservation idempotencyReservation) bool {
+	if s == nil || reservation.key == "" || reservation.token == 0 {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.entries[reservation.key]
+	if !ok || entry.token != reservation.token || entry.completed {
+		return false
+	}
+	delete(s.entries, reservation.key)
+	close(entry.done)
+	return true
 }
 
 func (s *idempotencyStore) pruneLocked(now time.Time) {
@@ -74,7 +128,7 @@ func (s *idempotencyStore) pruneLocked(now time.Time) {
 		return
 	}
 	for key, entry := range s.entries {
-		if now.Sub(entry.createdAt) >= s.ttl {
+		if entry.completed && now.Sub(entry.createdAt) >= s.ttl {
 			delete(s.entries, key)
 		}
 	}

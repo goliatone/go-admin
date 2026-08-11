@@ -110,12 +110,12 @@ func TestBuildPanelViewCapabilitiesProjectsNormalizedCapabilityMatrix(t *testing
 				},
 			})
 
-			listCapabilities := viewCtx["list_capabilities"].(map[string]any)
+			listCapabilities := requireViewCapabilityMap(t, viewCtx["list_capabilities"], "list_capabilities")
 			if listCapabilities["bulk"] != tc.bulk || listCapabilities["export"] != tc.export || listCapabilities["selection"] != (tc.bulk || tc.export) {
 				t.Fatalf("unexpected list capabilities: %+v", listCapabilities)
 			}
-			dataGrid := viewCtx["datagrid_config"].(map[string]any)
-			dataGridCapabilities := dataGrid["capabilities"].(map[string]any)
+			dataGrid := requireViewCapabilityMap(t, viewCtx["datagrid_config"], "datagrid_config")
+			dataGridCapabilities := requireViewCapabilityMap(t, dataGrid["capabilities"], "datagrid_config.capabilities")
 			if dataGridCapabilities["selection"] != listCapabilities["selection"] || dataGridCapabilities["bulk"] != listCapabilities["bulk"] || dataGridCapabilities["export"] != listCapabilities["export"] {
 				t.Fatalf("DataGrid capabilities drifted from list capabilities: list=%+v grid=%+v", listCapabilities, dataGridCapabilities)
 			}
@@ -146,15 +146,15 @@ func TestBuildPanelViewCapabilitiesFailsClosedForIncompleteResolvedExport(t *tes
 				ResolvedExport: tc.resolved,
 			})
 
-			listCapabilities := viewCtx["list_capabilities"].(map[string]any)
+			listCapabilities := requireViewCapabilityMap(t, viewCtx["list_capabilities"], "list_capabilities")
 			if listCapabilities["selection"] != false || listCapabilities["bulk"] != false || listCapabilities["export"] != false {
 				t.Fatalf("incomplete export configuration must disable export and selection, got %+v", listCapabilities)
 			}
 			if _, ok := viewCtx["export_config"]; ok {
 				t.Fatalf("incomplete export configuration must not be emitted: %+v", viewCtx)
 			}
-			dataGrid := viewCtx["datagrid_config"].(map[string]any)
-			dataGridCapabilities := dataGrid["capabilities"].(map[string]any)
+			dataGrid := requireViewCapabilityMap(t, viewCtx["datagrid_config"], "datagrid_config")
+			dataGridCapabilities := requireViewCapabilityMap(t, dataGrid["capabilities"], "datagrid_config.capabilities")
 			if dataGridCapabilities["selection"] != false || dataGridCapabilities["export"] != false {
 				t.Fatalf("DataGrid must receive effective capabilities, got %+v", dataGridCapabilities)
 			}
@@ -171,10 +171,19 @@ func TestBuildPanelViewCapabilitiesPreservesBulkWhenResolvedExportIsIncomplete(t
 		},
 	})
 
-	listCapabilities := viewCtx["list_capabilities"].(map[string]any)
+	listCapabilities := requireViewCapabilityMap(t, viewCtx["list_capabilities"], "list_capabilities")
 	if listCapabilities["selection"] != true || listCapabilities["bulk"] != true || listCapabilities["export"] != false {
 		t.Fatalf("bulk-only behavior must remain available, got %+v", listCapabilities)
 	}
+}
+
+func requireViewCapabilityMap(t *testing.T, value any, label string) map[string]any {
+	t.Helper()
+	result, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s map, got %T", label, value)
+	}
+	return result
 }
 
 func TestBuildPanelExportConfigReturnsNilWithoutDefinition(t *testing.T) {
@@ -200,6 +209,28 @@ func TestBuildPanelDataGridConfigHonorsExplicitColumnStorageKey(t *testing.T) {
 	}
 	if key := cfg["column_storage_key"]; key != "roles_custom_columns" {
 		t.Fatalf("expected explicit column storage key roles_custom_columns, got %v", key)
+	}
+}
+
+func TestBuildPanelDataGridConfigIncludesPaginationPresentation(t *testing.T) {
+	cfg := BuildPanelDataGridConfig(PanelDataGridConfigOptions{
+		TableID:        "content-pages",
+		PaginationMode: " semantic ",
+	})
+	if cfg == nil {
+		t.Fatal("expected datagrid config")
+	}
+	pagination, ok := cfg["pagination"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pagination config map, got %T", cfg["pagination"])
+	}
+	if mode := pagination["mode"]; mode != "semantic" {
+		t.Fatalf("expected semantic pagination mode, got %v", mode)
+	}
+
+	withoutMode := BuildPanelDataGridConfig(PanelDataGridConfigOptions{TableID: "content-pages"})
+	if _, exists := withoutMode["pagination"]; exists {
+		t.Fatalf("unspecified pagination mode must stay omitted: %+v", withoutMode)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -89,15 +90,18 @@ type bunTranslationExchangeJobArtifactRecord struct {
 type bunTranslationExchangeApplyLedgerRecord struct {
 	bun.BaseModel `bun:"table:translation_exchange_apply_ledger,alias:txal"`
 
-	LedgerID          string    `bun:"ledger_id,pk" json:"ledger_id"`
-	TenantID          string    `bun:"tenant_id" json:"tenant_id"`
-	OrgID             string    `bun:"org_id" json:"org_id"`
-	LinkageKey        string    `bun:"linkage_key" json:"linkage_key"`
-	PayloadHash       string    `bun:"payload_hash" json:"payload_hash"`
-	CreateTranslation bool      `bun:"create_translation" json:"create_translation"`
-	WorkflowStatus    string    `bun:"workflow_status" json:"workflow_status"`
-	AppliedAt         time.Time `bun:"applied_at" json:"applied_at"`
-	RequestJSON       string    `bun:"request_json" json:"request_json"`
+	LedgerID          string     `bun:"ledger_id,pk" json:"ledger_id"`
+	TenantID          string     `bun:"tenant_id" json:"tenant_id"`
+	OrgID             string     `bun:"org_id" json:"org_id"`
+	LinkageKey        string     `bun:"linkage_key" json:"linkage_key"`
+	PayloadHash       string     `bun:"payload_hash" json:"payload_hash"`
+	CreateTranslation bool       `bun:"create_translation" json:"create_translation"`
+	WorkflowStatus    string     `bun:"workflow_status" json:"workflow_status"`
+	AppliedAt         time.Time  `bun:"applied_at" json:"applied_at"`
+	RequestJSON       string     `bun:"request_json" json:"request_json"`
+	Status            string     `bun:"status" json:"status"`
+	ClaimToken        string     `bun:"claim_token" json:"claim_token"`
+	LeaseExpiresAt    *time.Time `bun:"lease_expires_at" json:"lease_expires_at"`
 }
 
 func (s *BunTranslationExchangeRuntimeStore) CreateJob(ctx context.Context, job translationExchangeAsyncJob) (translationExchangeAsyncJob, error) {
@@ -114,6 +118,74 @@ func (s *BunTranslationExchangeRuntimeStore) CreateJob(ctx context.Context, job 
 		return translationExchangeAsyncJob{}, err
 	}
 	return s.jobFromRecord(ctx, record)
+}
+
+func (s *BunTranslationExchangeRuntimeStore) CreateOrGetApplyJob(ctx context.Context, identity translationTransportIdentity, job translationExchangeAsyncJob, rows []TranslationExchangeRow) (translationExchangeAsyncJob, bool, error) {
+	if s == nil || s.db == nil {
+		return translationExchangeAsyncJob{}, false, serviceNotConfiguredDomainError("translation exchange runtime store", map[string]any{
+			"component": "translation_exchange_runtime_store_bun",
+		})
+	}
+	job.CreatedBy = strings.TrimSpace(identity.ActorID)
+	job.TenantID = strings.TrimSpace(identity.TenantID)
+	job.OrgID = strings.TrimSpace(identity.OrgID)
+	record, err := bunTranslationExchangeJobRecordFromJob(job)
+	if err != nil {
+		return translationExchangeAsyncJob{}, false, err
+	}
+	var result translationExchangeAsyncJob
+	replayed := false
+	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		insertResult, insertErr := tx.NewInsert().Model(&record).On("CONFLICT DO NOTHING").Exec(ctx)
+		if insertErr != nil {
+			return insertErr
+		}
+		affected, affectedErr := insertResult.RowsAffected()
+		if affectedErr != nil {
+			return affectedErr
+		}
+		if affected == 0 {
+			existing := bunTranslationExchangeJobRecord{}
+			if scanErr := tx.NewSelect().
+				Model(&existing).
+				Where("kind = ?", strings.TrimSpace(job.Kind)).
+				Where("request_hash = ?", strings.TrimSpace(job.RequestHash)).
+				Where("created_by = ?", strings.TrimSpace(identity.ActorID)).
+				Where("COALESCE(tenant_id, '') = ?", strings.TrimSpace(identity.TenantID)).
+				Where("COALESCE(org_id, '') = ?", strings.TrimSpace(identity.OrgID)).
+				Where("deleted_at IS NULL").
+				Limit(1).
+				Scan(ctx); scanErr != nil {
+				return fmt.Errorf("translation exchange request hash conflict without replayable job: %w", scanErr)
+			}
+			loaded, loadErr := s.jobFromRecordTx(ctx, tx, existing)
+			if loadErr != nil {
+				return loadErr
+			}
+			result = loaded
+			replayed = true
+			return nil
+		}
+		rowRecords, rowErr := bunTranslationExchangeJobRowRecords(record, rows)
+		if rowErr != nil {
+			return rowErr
+		}
+		if len(rowRecords) > 0 {
+			if _, insertRowsErr := tx.NewInsert().Model(&rowRecords).Exec(ctx); insertRowsErr != nil {
+				return insertRowsErr
+			}
+		}
+		created, createErr := translationExchangeAsyncJobFromRecord(record)
+		if createErr != nil {
+			return createErr
+		}
+		result = created
+		return nil
+	})
+	if err != nil {
+		return translationExchangeAsyncJob{}, false, err
+	}
+	return result, replayed, nil
 }
 
 func (s *BunTranslationExchangeRuntimeStore) FindJobByRequestHash(ctx context.Context, kind string, identity translationTransportIdentity, requestHash string) (translationExchangeAsyncJob, bool, error) {
@@ -230,16 +302,41 @@ func (s *BunTranslationExchangeRuntimeStore) SaveJobRows(ctx context.Context, jo
 	if s == nil || s.db == nil || strings.TrimSpace(job.ID) == "" {
 		return nil
 	}
+	record, err := bunTranslationExchangeJobRecordFromJob(job)
+	if err != nil {
+		return err
+	}
+	records, err := bunTranslationExchangeJobRowRecords(record, rows)
+	if err != nil {
+		return err
+	}
+	if len(records) == 0 {
+		return nil
+	}
+	_, err = s.db.NewInsert().
+		Model(&records).
+		On("CONFLICT(job_id, row_index) DO UPDATE").
+		Set("tenant_id = EXCLUDED.tenant_id").
+		Set("org_id = EXCLUDED.org_id").
+		Set("kind = EXCLUDED.kind").
+		Set("input_json = EXCLUDED.input_json").
+		Set("create_translation = EXCLUDED.create_translation").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
+}
+
+func bunTranslationExchangeJobRowRecords(job bunTranslationExchangeJobRecord, rows []TranslationExchangeRow) ([]bunTranslationExchangeJobRowRecord, error) {
 	now := time.Now().UTC()
 	records := make([]bunTranslationExchangeJobRowRecord, 0, len(rows))
 	for index, row := range rows {
 		row = normalizeTranslationExchangeRowIndex(row, index)
 		raw, err := json.Marshal(row)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		records = append(records, bunTranslationExchangeJobRowRecord{
-			JobID:             job.ID,
+			JobID:             job.JobID,
 			RowIndex:          row.Index,
 			TenantID:          job.TenantID,
 			OrgID:             job.OrgID,
@@ -251,20 +348,7 @@ func (s *BunTranslationExchangeRuntimeStore) SaveJobRows(ctx context.Context, jo
 			UpdatedAt:         now,
 		})
 	}
-	if len(records) == 0 {
-		return nil
-	}
-	_, err := s.db.NewInsert().
-		Model(&records).
-		On("CONFLICT(job_id, row_index) DO UPDATE").
-		Set("tenant_id = EXCLUDED.tenant_id").
-		Set("org_id = EXCLUDED.org_id").
-		Set("kind = EXCLUDED.kind").
-		Set("input_json = EXCLUDED.input_json").
-		Set("create_translation = EXCLUDED.create_translation").
-		Set("updated_at = EXCLUDED.updated_at").
-		Exec(ctx)
-	return err
+	return records, nil
 }
 
 func (s *BunTranslationExchangeRuntimeStore) ListJobRows(ctx context.Context, jobID string) ([]translationExchangeStoredRow, error) {
@@ -491,6 +575,7 @@ func (s *BunTranslationExchangeRuntimeStore) LookupApplyRecord(ctx context.Conte
 		Where("COALESCE(org_id, '') = ?", strings.TrimSpace(identity.OrgID)).
 		Where("linkage_key = ?", strings.TrimSpace(linkageKey)).
 		Where("payload_hash = ?", strings.TrimSpace(payloadHash)).
+		Where("status = ?", "applied").
 		Limit(1).
 		Scan(ctx)
 	if err != nil {
@@ -508,6 +593,127 @@ func (s *BunTranslationExchangeRuntimeStore) LookupApplyRecord(ctx context.Conte
 		},
 		AppliedAt: record.AppliedAt,
 	}, true, nil
+}
+
+func (s *BunTranslationExchangeRuntimeStore) ReserveApplyRecord(ctx context.Context, identity translationTransportIdentity, linkageKey, payloadHash string, now, leaseUntil time.Time) (translationExchangeApplyReservation, translationExchangeAppliedRecord, string, error) {
+	token := defaultTranslationExchangeRuntimeJobID()
+	reservation := translationExchangeApplyReservation{
+		Identity:    identity,
+		LinkageKey:  strings.TrimSpace(linkageKey),
+		PayloadHash: strings.TrimSpace(payloadHash),
+		Token:       token,
+	}
+	entry := bunTranslationExchangeApplyLedgerRecord{
+		LedgerID:       defaultTranslationExchangeRuntimeJobID(),
+		TenantID:       strings.TrimSpace(identity.TenantID),
+		OrgID:          strings.TrimSpace(identity.OrgID),
+		LinkageKey:     reservation.LinkageKey,
+		PayloadHash:    reservation.PayloadHash,
+		AppliedAt:      now,
+		RequestJSON:    "{}",
+		Status:         "pending",
+		ClaimToken:     token,
+		LeaseExpiresAt: &leaseUntil,
+	}
+	result, err := s.db.NewInsert().Model(&entry).On("CONFLICT DO NOTHING").Exec(ctx)
+	if err != nil {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, "", err
+	}
+	if affected, affectedErr := result.RowsAffected(); affectedErr != nil {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, "", affectedErr
+	} else if affected > 0 {
+		return reservation, translationExchangeAppliedRecord{}, translationExchangeApplyReservationAcquired, nil
+	}
+	existing := bunTranslationExchangeApplyLedgerRecord{}
+	if selectErr := s.db.NewSelect().Model(&existing).
+		Where("COALESCE(tenant_id, '') = ?", strings.TrimSpace(identity.TenantID)).
+		Where("COALESCE(org_id, '') = ?", strings.TrimSpace(identity.OrgID)).
+		Where("linkage_key = ?", reservation.LinkageKey).
+		Where("payload_hash = ?", reservation.PayloadHash).
+		Limit(1).
+		Scan(ctx); selectErr != nil {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, "", selectErr
+	}
+	if existing.Status == "applied" {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{
+			LinkageKey:  existing.LinkageKey,
+			PayloadHash: existing.PayloadHash,
+			Request: TranslationExchangeApplyRequest{
+				CreateTranslation: existing.CreateTranslation,
+				WorkflowStatus:    existing.WorkflowStatus,
+			},
+			AppliedAt: existing.AppliedAt,
+		}, translationExchangeApplyReservationApplied, nil
+	}
+	if existing.LeaseExpiresAt != nil && existing.LeaseExpiresAt.After(now) {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, translationExchangeApplyReservationPending, nil
+	}
+	updateResult, err := s.db.NewUpdate().Model((*bunTranslationExchangeApplyLedgerRecord)(nil)).
+		Set("claim_token = ?", token).
+		Set("lease_expires_at = ?", leaseUntil).
+		Set("applied_at = ?", now).
+		Where("ledger_id = ?", existing.LedgerID).
+		Where("status = ?", "pending").
+		Where("(lease_expires_at IS NULL OR lease_expires_at <= ?)", now).
+		Exec(ctx)
+	if err != nil {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, "", err
+	}
+	if affected, affectedErr := updateResult.RowsAffected(); affectedErr != nil {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, "", affectedErr
+	} else if affected > 0 {
+		return reservation, translationExchangeAppliedRecord{}, translationExchangeApplyReservationAcquired, nil
+	}
+	return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, translationExchangeApplyReservationPending, nil
+}
+
+func (s *BunTranslationExchangeRuntimeStore) CommitApplyRecord(ctx context.Context, reservation translationExchangeApplyReservation, record translationExchangeAppliedRecord) (translationExchangeAppliedRecord, error) {
+	requestJSON, err := marshalTranslationExchangeJSON(map[string]any{
+		"linkage_key":        record.LinkageKey,
+		"payload_hash":       record.PayloadHash,
+		"create_translation": record.Request.CreateTranslation,
+		"workflow_status":    record.Request.WorkflowStatus,
+	})
+	if err != nil {
+		return translationExchangeAppliedRecord{}, err
+	}
+	record.AppliedAt = coalesceTime(record.AppliedAt, time.Now().UTC())
+	result, err := s.db.NewUpdate().Model((*bunTranslationExchangeApplyLedgerRecord)(nil)).
+		Set("status = ?", "applied").
+		Set("claim_token = NULL").
+		Set("lease_expires_at = NULL").
+		Set("create_translation = ?", record.Request.CreateTranslation).
+		Set("workflow_status = ?", strings.TrimSpace(record.Request.WorkflowStatus)).
+		Set("request_json = ?", requestJSON).
+		Set("applied_at = ?", record.AppliedAt).
+		Where("COALESCE(tenant_id, '') = ?", strings.TrimSpace(reservation.Identity.TenantID)).
+		Where("COALESCE(org_id, '') = ?", strings.TrimSpace(reservation.Identity.OrgID)).
+		Where("linkage_key = ?", reservation.LinkageKey).
+		Where("payload_hash = ?", reservation.PayloadHash).
+		Where("status = ?", "pending").
+		Where("claim_token = ?", reservation.Token).
+		Exec(ctx)
+	if err != nil {
+		return translationExchangeAppliedRecord{}, err
+	}
+	if affected, affectedErr := result.RowsAffected(); affectedErr != nil {
+		return translationExchangeAppliedRecord{}, affectedErr
+	} else if affected != 1 {
+		return translationExchangeAppliedRecord{}, errors.New("translation exchange apply reservation is no longer owned")
+	}
+	return record, nil
+}
+
+func (s *BunTranslationExchangeRuntimeStore) ReleaseApplyRecord(ctx context.Context, reservation translationExchangeApplyReservation) error {
+	_, err := s.db.NewDelete().Model((*bunTranslationExchangeApplyLedgerRecord)(nil)).
+		Where("COALESCE(tenant_id, '') = ?", strings.TrimSpace(reservation.Identity.TenantID)).
+		Where("COALESCE(org_id, '') = ?", strings.TrimSpace(reservation.Identity.OrgID)).
+		Where("linkage_key = ?", reservation.LinkageKey).
+		Where("payload_hash = ?", reservation.PayloadHash).
+		Where("status = ?", "pending").
+		Where("claim_token = ?", reservation.Token).
+		Exec(ctx)
+	return err
 }
 
 func (s *BunTranslationExchangeRuntimeStore) RecordApplyRecord(ctx context.Context, identity translationTransportIdentity, record translationExchangeAppliedRecord) (translationExchangeAppliedRecord, bool, error) {
@@ -534,6 +740,7 @@ func (s *BunTranslationExchangeRuntimeStore) RecordApplyRecord(ctx context.Conte
 		WorkflowStatus:    strings.TrimSpace(record.Request.WorkflowStatus),
 		AppliedAt:         coalesceTime(record.AppliedAt, time.Now().UTC()),
 		RequestJSON:       requestJSON,
+		Status:            "applied",
 	}
 	if _, err := s.db.NewInsert().Model(&entry).Exec(ctx); err != nil {
 		return translationExchangeAppliedRecord{}, false, err

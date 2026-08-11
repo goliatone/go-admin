@@ -18,6 +18,44 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+func TestTranslationQueueActionReplayReservationCoalescesConcurrentCallers(t *testing.T) {
+	binding := newTranslationQueueBinding(&Admin{})
+	payload := map[string]any{"idempotency_key": "key-1", "expected_version": 3}
+	reservation, _, replay, err := binding.reserveActionReplay(context.Background(), "actor-1", "assignment-1", "claim", "key-1", payload)
+	if err != nil || replay || reservation.Token == 0 {
+		t.Fatalf("reserve owner: reservation=%+v replay=%v err=%v", reservation, replay, err)
+	}
+
+	type replayResult struct {
+		payload map[string]any
+		replay  bool
+		err     error
+	}
+	resultCh := make(chan replayResult, 1)
+	go func() {
+		_, response, ok, reserveErr := binding.reserveActionReplay(context.Background(), "actor-1", "assignment-1", "claim", "key-1", payload)
+		resultCh <- replayResult{payload: response, replay: ok, err: reserveErr}
+	}()
+	select {
+	case result := <-resultCh:
+		t.Fatalf("follower returned before owner completed: %+v", result)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	response := map[string]any{"data": map[string]any{"id": "assignment-1"}}
+	if !binding.commitActionReplay(reservation, response) {
+		t.Fatal("expected reservation commit")
+	}
+	select {
+	case result := <-resultCh:
+		if result.err != nil || !result.replay || toString(extractMap(result.payload["data"])["id"]) != "assignment-1" {
+			t.Fatalf("unexpected follower replay: %+v", result)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("follower did not wake after commit")
+	}
+}
+
 func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{

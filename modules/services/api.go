@@ -92,6 +92,12 @@ func (m *Module) wrapServiceRoute(permission string, mutating bool, skipClientId
 		if err != nil {
 			return writeServiceError(c, err)
 		}
+		committed := false
+		defer func() {
+			if !committed {
+				m.releaseServiceRouteIdempotency(idempotency)
+			}
+		}()
 		if handled, replayErr := writeServiceRouteReplay(c, idempotency); handled {
 			return replayErr
 		}
@@ -101,6 +107,7 @@ func (m *Module) wrapServiceRoute(permission string, mutating bool, skipClientId
 		}
 		status, payload = normalizeServiceRouteResponse(status, payload)
 		m.storeServiceRouteIdempotency(mutating, skipClientIdempotency, idempotency, status, payload)
+		committed = true
 		return c.JSON(status, payload)
 	}
 }
@@ -111,6 +118,7 @@ type serviceRouteIdempotency struct {
 	replay      bool
 	status      int
 	body        []byte
+	reservation idempotencyReservation
 }
 
 func parseServiceRouteBody(c router.Context, mutating bool, skipClientIdempotency bool) (map[string]any, []byte, error) {
@@ -144,14 +152,20 @@ func (m *Module) resolveServiceRouteIdempotency(c router.Context, mutating bool,
 		dedupeKey:   idempotencyScopeKey(c, idempotencyKey),
 		payloadHash: hashPayload(rawBody),
 	}
-	if status, replayBody, ok, conflict := m.idempotencyStore.ReplayIfMatch(state.dedupeKey, state.payloadHash); ok {
+	reservation, status, replayBody, ok, conflict, reserveErr := m.idempotencyStore.Reserve(c.Context(), state.dedupeKey, state.payloadHash)
+	if reserveErr != nil {
+		return serviceRouteIdempotency{}, reserveErr
+	}
+	if ok {
 		state.replay = true
 		state.status = status
 		state.body = replayBody
 		return state, nil
-	} else if conflict {
+	}
+	if conflict {
 		return serviceRouteIdempotency{}, conflictError("Idempotency key reuse with different payload", map[string]any{"idempotency_key": idempotencyKey})
 	}
+	state.reservation = reservation
 	return state, nil
 }
 
@@ -180,7 +194,14 @@ func (m *Module) storeServiceRouteIdempotency(mutating bool, skipClientIdempoten
 	if !mutating || skipClientIdempotency || state.dedupeKey == "" {
 		return
 	}
-	m.idempotencyStore.Store(state.dedupeKey, state.payloadHash, status, toBytesJSON(payload))
+	m.idempotencyStore.Commit(state.reservation, status, toBytesJSON(payload))
+}
+
+func (m *Module) releaseServiceRouteIdempotency(state serviceRouteIdempotency) {
+	if m == nil || m.idempotencyStore == nil || state.replay {
+		return
+	}
+	m.idempotencyStore.Release(state.reservation)
 }
 
 func (m *Module) authorizeRoute(c router.Context, permission string) error {

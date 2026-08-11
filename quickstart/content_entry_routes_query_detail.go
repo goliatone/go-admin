@@ -174,6 +174,7 @@ func (h *contentEntryHandlers) contentEntryListCapabilities(params contentEntryL
 			TableID:             params.DataTableID,
 			APIEndpoint:         params.ListAPI,
 			ActionBase:          params.ActionBase,
+			PaginationMode:      "semantic",
 			PreferencesEndpoint: params.PreferencesAPI,
 			PreferencesWritable: params.PreferencesWritable,
 			TranslationUX:       params.TranslationUXEnabled,

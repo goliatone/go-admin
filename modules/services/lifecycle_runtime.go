@@ -237,12 +237,11 @@ func buildNotificationsProjector(
 	if definitionResolver == nil || recipientResolver == nil || sender == nil {
 		return nil
 	}
-	dispatchLedger := gocore.NotificationDispatchLedger(ledger)
-	if db != nil {
-		dispatchLedger = retryableNotificationLedger{
-			db:       db,
-			fallback: ledger,
-		}
+	dispatchLedger := &retryableNotificationLedger{
+		db:             db,
+		fallback:       ledger,
+		claimTTL:       5 * time.Minute,
+		fallbackClaims: map[string]time.Time{},
 	}
 	return gocore.NewGoNotificationsProjector(definitionResolver, recipientResolver, sender, dispatchLedger)
 }
@@ -370,42 +369,92 @@ func (s adminNotificationSender) Send(ctx context.Context, req gocore.Notificati
 }
 
 type retryableNotificationLedger struct {
-	db       *bun.DB
-	fallback gocore.NotificationDispatchLedger
+	db             *bun.DB
+	fallback       gocore.NotificationDispatchLedger
+	claimTTL       time.Duration
+	mu             sync.Mutex
+	fallbackClaims map[string]time.Time
 }
 
-func (l retryableNotificationLedger) Seen(ctx context.Context, idempotencyKey string) (bool, error) {
+func (l *retryableNotificationLedger) Seen(ctx context.Context, idempotencyKey string) (bool, error) {
 	key := strings.TrimSpace(idempotencyKey)
 	if key == "" {
 		return false, fmt.Errorf("modules/services: idempotency key is required")
 	}
 	if l.db == nil {
-		if l.fallback == nil {
-			return false, nil
-		}
-		return l.fallback.Seen(ctx, key)
+		return l.reserveFallback(ctx, key)
 	}
-	count, err := l.db.NewSelect().
-		Table("service_notification_dispatches").
-		Where("idempotency_key = ?", key).
-		Where("status = ?", "sent").
-		Count(ctx)
+	now := time.Now().UTC()
+	claimTTL := l.claimTTL
+	if claimTTL <= 0 {
+		claimTTL = 5 * time.Minute
+	}
+	result, err := l.db.NewRaw(
+		`INSERT INTO service_notification_dispatches (
+			id, event_id, projector, definition_code, recipient_key, idempotency_key, status, error, metadata, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (idempotency_key) DO NOTHING`,
+		uuid.NewString(), "", "services.notifications", "", "", key, "processing", "", map[string]any{}, now,
+	).Exec(ctx)
 	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	if affected, affectedErr := result.RowsAffected(); affectedErr != nil {
+		return false, affectedErr
+	} else if affected > 0 {
+		return false, nil
+	}
+	var status string
+	var createdAt time.Time
+	if selectErr := l.db.NewSelect().
+		Table("service_notification_dispatches").
+		Column("status", "created_at").
+		Where("idempotency_key = ?", key).
+		Limit(1).
+		Scan(ctx, &status, &createdAt); selectErr != nil {
+		return false, selectErr
+	}
+	status = strings.TrimSpace(strings.ToLower(status))
+	if status == "sent" {
+		return true, nil
+	}
+	if status == "processing" && createdAt.After(now.Add(-claimTTL)) {
+		return true, nil
+	}
+	update := l.db.NewUpdate().
+		Table("service_notification_dispatches").
+		Set("status = ?", "processing").
+		Set("error = ''").
+		Set("created_at = ?", now).
+		Where("idempotency_key = ?", key).
+		Where("status <> ? OR created_at <= ?", "processing", now.Add(-claimTTL))
+	updateResult, err := update.Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+	if affected, affectedErr := updateResult.RowsAffected(); affectedErr != nil {
+		return false, affectedErr
+	} else if affected > 0 {
+		return false, nil
+	}
+	return true, nil
 }
 
-func (l retryableNotificationLedger) Record(ctx context.Context, record gocore.NotificationDispatchRecord) error {
+func (l *retryableNotificationLedger) Record(ctx context.Context, record gocore.NotificationDispatchRecord) error {
 	key := strings.TrimSpace(record.IdempotencyKey)
 	if key == "" {
 		return fmt.Errorf("modules/services: idempotency key is required")
 	}
 	if l.db == nil {
 		if l.fallback == nil {
+			l.releaseFallback(key)
 			return nil
 		}
-		return l.fallback.Record(ctx, record)
+		err := l.fallback.Record(ctx, record)
+		if err == nil {
+			l.releaseFallback(key)
+		}
+		return err
 	}
 	now := time.Now().UTC()
 	_, err := l.db.NewRaw(
@@ -414,6 +463,10 @@ func (l retryableNotificationLedger) Record(ctx context.Context, record gocore.N
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (idempotency_key)
 		DO UPDATE SET
+			event_id = EXCLUDED.event_id,
+			projector = EXCLUDED.projector,
+			definition_code = EXCLUDED.definition_code,
+			recipient_key = EXCLUDED.recipient_key,
 			status = EXCLUDED.status,
 			error = EXCLUDED.error,
 			metadata = EXCLUDED.metadata`,
@@ -431,8 +484,43 @@ func (l retryableNotificationLedger) Record(ctx context.Context, record gocore.N
 	return err
 }
 
+func (l *retryableNotificationLedger) reserveFallback(ctx context.Context, key string) (bool, error) {
+	now := time.Now().UTC()
+	claimTTL := l.claimTTL
+	if claimTTL <= 0 {
+		claimTTL = 5 * time.Minute
+	}
+	l.mu.Lock()
+	if l.fallbackClaims == nil {
+		l.fallbackClaims = map[string]time.Time{}
+	}
+	if expiresAt, ok := l.fallbackClaims[key]; ok && expiresAt.After(now) {
+		l.mu.Unlock()
+		return true, nil
+	}
+	l.fallbackClaims[key] = now.Add(claimTTL)
+	l.mu.Unlock()
+	if l.fallback == nil {
+		return false, nil
+	}
+	seen, err := l.fallback.Seen(ctx, key)
+	if err != nil || seen {
+		l.releaseFallback(key)
+	}
+	return seen, err
+}
+
+func (l *retryableNotificationLedger) releaseFallback(key string) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	delete(l.fallbackClaims, strings.TrimSpace(key))
+	l.mu.Unlock()
+}
+
 var _ gocore.ServicesActivitySink = (*memoryActivityFallbackSink)(nil)
 var _ gocore.NotificationDefinitionResolver = lifecycleDefinitionMapResolver{}
 var _ gocore.NotificationRecipientResolver = defaultLifecycleRecipientResolver{}
 var _ gocore.NotificationSender = adminNotificationSender{}
-var _ gocore.NotificationDispatchLedger = retryableNotificationLedger{}
+var _ gocore.NotificationDispatchLedger = (*retryableNotificationLedger)(nil)

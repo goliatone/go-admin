@@ -26,6 +26,7 @@ type PanelDataGridConfigOptions struct {
 	TableID             string                         `json:"table_id"`
 	APIEndpoint         string                         `json:"api_endpoint"`
 	ActionBase          string                         `json:"action_base"`
+	PaginationMode      string                         `json:"pagination_mode"`
 	PreferencesEndpoint string                         `json:"preferences_endpoint"`
 	PreferencesWritable bool                           `json:"preferences_writable"`
 	ColumnStorageKey    string                         `json:"column_storage_key"`
@@ -147,6 +148,9 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	if actionBase != "" {
 		dataGridConfig["action_base"] = actionBase
 	}
+	if paginationMode := strings.TrimSpace(opts.PaginationMode); paginationMode != "" {
+		dataGridConfig["pagination"] = map[string]any{"mode": paginationMode}
+	}
 	if preferencesEndpoint != "" {
 		dataGridConfig["preferences_endpoint"] = preferencesEndpoint
 		dataGridConfig["preferences_writable"] = opts.PreferencesWritable
@@ -154,6 +158,20 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	if columnStorageKey != "" {
 		dataGridConfig["column_storage_key"] = columnStorageKey
 	}
+	addPanelDataGridViewConfig(dataGridConfig, opts)
+	if stateStoreCfg := buildPanelDataGridStateStoreConfig(opts.StateStore); len(stateStoreCfg) > 0 {
+		dataGridConfig["state_store"] = stateStoreCfg
+	}
+	if urlStateCfg := buildPanelDataGridURLStateConfig(opts.URLState); len(urlStateCfg) > 0 {
+		dataGridConfig["url_state"] = urlStateCfg
+	}
+	if len(dataGridConfig) == 0 {
+		return nil
+	}
+	return dataGridConfig
+}
+
+func addPanelDataGridViewConfig(dataGridConfig map[string]any, opts PanelDataGridConfigOptions) {
 	if opts.TranslationUX {
 		dataGridConfig["translation_ux_enabled"] = true
 	}
@@ -166,16 +184,6 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	if groupByField := strings.TrimSpace(opts.GroupByField); groupByField != "" {
 		dataGridConfig["group_by_field"] = groupByField
 	}
-	if stateStoreCfg := buildPanelDataGridStateStoreConfig(opts.StateStore); len(stateStoreCfg) > 0 {
-		dataGridConfig["state_store"] = stateStoreCfg
-	}
-	if urlStateCfg := buildPanelDataGridURLStateConfig(opts.URLState); len(urlStateCfg) > 0 {
-		dataGridConfig["url_state"] = urlStateCfg
-	}
-	if len(dataGridConfig) == 0 {
-		return nil
-	}
-	return dataGridConfig
 }
 
 func panelListCapabilitiesMap(capabilities admin.PanelListCapabilities) map[string]any {

@@ -270,6 +270,9 @@ Use these keys in templates:
 - `datagrid_config.table_id`
 - `datagrid_config.api_endpoint`
 - `datagrid_config.action_base`
+- `datagrid_config.pagination` (optional: `{mode: "semantic"}` enables the
+  canonical semantic pagination presentation; omission preserves legacy
+  presentation)
 - `datagrid_config.preferences_endpoint` (optional)
 - `datagrid_config.column_storage_key`
 - `datagrid_config.translation_ux_enabled` (optional)
@@ -287,6 +290,7 @@ const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
 const tableId = `${dataGridConfig.table_id || '{{ datatable_id|default:resource }}'}-datatable`;
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
+const pagination = dataGridConfig.pagination || undefined;
 const preferencesEndpoint = dataGridConfig.preferences_endpoint || '{{ preferences_api_path|default:"" }}';
 const stateStoreConfig = dataGridConfig.state_store || null;
 const urlStateConfig = dataGridConfig.url_state || null;

@@ -5,12 +5,49 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 )
 
 type stubTranslationExchangeStore struct {
 	mu      sync.Mutex
 	resolve map[string]TranslationExchangeLinkage
 	apply   []TranslationExchangeApplyRequest
+}
+
+type blockingTranslationExchangeStore struct {
+	stubTranslationExchangeStore
+	started chan struct{}
+	release chan struct{}
+}
+
+type observingTranslationApplyLedger struct {
+	*MemoryTranslationExchangeRuntimeStore
+	reserveCalls chan struct{}
+}
+
+func (l *observingTranslationApplyLedger) ReserveApplyRecord(ctx context.Context, identity translationTransportIdentity, linkageKey, payloadHash string, now, leaseUntil time.Time) (translationExchangeApplyReservation, translationExchangeAppliedRecord, string, error) {
+	reservation, record, state, err := l.MemoryTranslationExchangeRuntimeStore.ReserveApplyRecord(ctx, identity, linkageKey, payloadHash, now, leaseUntil)
+	select {
+	case l.reserveCalls <- struct{}{}:
+	default:
+	}
+	return reservation, record, state, err
+}
+
+func (s *blockingTranslationExchangeStore) ApplyTranslation(ctx context.Context, req TranslationExchangeApplyRequest) error {
+	s.mu.Lock()
+	s.apply = append(s.apply, req)
+	s.mu.Unlock()
+	select {
+	case s.started <- struct{}{}:
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.release:
+		return nil
+	}
 }
 
 func (s *stubTranslationExchangeStore) ExportRows(_ context.Context, _ TranslationExportFilter) ([]TranslationExchangeRow, error) {
@@ -693,6 +730,75 @@ func TestTranslationExchangeServiceApplyImportDuplicateRowsSkipSecondWrite(t *te
 	}
 	if len(store.apply) != 1 {
 		t.Fatalf("expected one write for duplicate rows, got %d", len(store.apply))
+	}
+}
+
+func TestTranslationExchangeServiceDurableClaimCoalescesAcrossInstances(t *testing.T) {
+	key := TranslationExchangeLinkageKey{Resource: "pages", EntityID: "1", FamilyID: "family-1", TargetLocale: "es", FieldPath: "title"}
+	store := &blockingTranslationExchangeStore{
+		stubTranslationExchangeStore: stubTranslationExchangeStore{
+			resolve: map[string]TranslationExchangeLinkage{key.String(): {Key: key, TargetExists: true}},
+		},
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	ledger := &observingTranslationApplyLedger{
+		MemoryTranslationExchangeRuntimeStore: NewMemoryTranslationExchangeRuntimeStore(time.Now),
+		reserveCalls:                          make(chan struct{}, 8),
+	}
+	serviceA := NewTranslationExchangeService(store, WithTranslationExchangeApplyRecordStore(ledger))
+	serviceB := NewTranslationExchangeService(store, WithTranslationExchangeApplyRecordStore(ledger))
+	input := TranslationImportApplyInput{Rows: []TranslationExchangeRow{{
+		Resource: "pages", EntityID: "1", FamilyID: "family-1", TargetLocale: "es", FieldPath: "title", TranslatedText: "Hola",
+	}}}
+
+	results := make(chan TranslationExchangeResult, 2)
+	errs := make(chan error, 2)
+	go func() {
+		result, err := serviceA.ApplyImport(context.Background(), input)
+		results <- result
+		errs <- err
+	}()
+	select {
+	case <-store.started:
+	case <-time.After(time.Second):
+		t.Fatal("first service did not reach apply boundary")
+	}
+	select {
+	case <-ledger.reserveCalls:
+	case <-time.After(time.Second):
+		t.Fatal("first service did not reserve apply ledger")
+	}
+	go func() {
+		result, err := serviceB.ApplyImport(context.Background(), input)
+		results <- result
+		errs <- err
+	}()
+	select {
+	case <-ledger.reserveCalls:
+	case <-time.After(time.Second):
+		t.Fatal("second service did not observe pending apply claim")
+	}
+	store.mu.Lock()
+	applyCount := len(store.apply)
+	store.mu.Unlock()
+	if applyCount != 1 {
+		t.Fatalf("pending durable claim allowed %d translation writes", applyCount)
+	}
+	close(store.release)
+	for range 2 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+		result := <-results
+		if len(result.Results) != 1 || result.Results[0].Status != translationExchangeRowStatusSuccess {
+			t.Fatalf("unexpected apply result: %+v", result)
+		}
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.apply) != 1 {
+		t.Fatalf("shared durable ledger executed apply %d times", len(store.apply))
 	}
 }
 

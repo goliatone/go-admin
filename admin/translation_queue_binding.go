@@ -51,6 +51,7 @@ type translationQueueBinding struct {
 	dashboardLoadRuntime func(context.Context, string) (*translationFamilyRuntime, error)
 	idempotencyMu        sync.Mutex
 	idempotency          map[string]translationQueueActionReplay
+	idempotencyNext      uint64
 	snapshotMu           sync.Mutex
 	snapshots            map[string]translationQueueFilterSnapshot
 }
@@ -59,6 +60,14 @@ type translationQueueActionReplay struct {
 	PayloadHash string         `json:"payload_hash"`
 	Response    map[string]any `json:"response"`
 	StoredAt    time.Time      `json:"stored_at"`
+	Token       uint64         `json:"-"`
+	Pending     bool           `json:"-"`
+	Done        chan struct{}  `json:"-"`
+}
+
+type translationQueueActionReservation struct {
+	Key   string
+	Token uint64
 }
 
 type translationQueueBulkActionSelection struct {
@@ -519,7 +528,8 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	}
 
 	idempotencyKey := strings.TrimSpace(toString(body["idempotency_key"]))
-	if replay, ok, replayErr := b.lookupActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body); replayErr != nil {
+	reservation, replay, ok, replayErr := b.reserveActionReplay(c.Context(), identity.ActorID, assignmentID, action, idempotencyKey, body)
+	if replayErr != nil {
 		return nil, replayErr
 	} else if ok {
 		if rawMeta, hasMeta := replay["meta"]; hasMeta {
@@ -529,6 +539,12 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 		}
 		return replay, nil
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			b.releaseActionReplay(reservation)
+		}
+	}()
 
 	current, err := repo.Get(adminCtx.Context, assignmentID)
 	if err != nil {
@@ -545,7 +561,8 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 		return nil, err
 	}
 	response := b.assignmentActionResponse(adminCtx, updated, assignmentID, channel, now)
-	b.storeActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body, response)
+	b.commitActionReplay(reservation, response)
+	committed = true
 	return response, nil
 }
 
@@ -677,7 +694,8 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 	}
 	idempotencyKey := strings.TrimSpace(toString(body["idempotency_key"]))
 	replayScope := "bulk"
-	if replay, ok, replayErr := b.lookupActionReplay(identity.ActorID, replayScope, action, idempotencyKey, body); replayErr != nil {
+	reservation, replay, ok, replayErr := b.reserveActionReplay(c.Context(), identity.ActorID, replayScope, action, idempotencyKey, body)
+	if replayErr != nil {
 		return nil, replayErr
 	} else if ok {
 		if rawMeta, hasMeta := replay["meta"]; hasMeta {
@@ -687,6 +705,12 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		}
 		return replay, nil
 	}
+	committed := false
+	defer func() {
+		if !committed {
+			b.releaseActionReplay(reservation)
+		}
+	}()
 	var snapshot *translationQueueFilterSnapshot
 	var selections []translationQueueBulkActionSelection
 	if selectionScope == "filter_snapshot" {
@@ -730,7 +754,8 @@ func (b *translationQueueBinding) RunAssignmentBulkAction(c router.Context, body
 		},
 		"meta": meta,
 	}
-	b.storeActionReplay(identity.ActorID, replayScope, action, idempotencyKey, body, response)
+	b.commitActionReplay(reservation, response)
+	committed = true
 	return response, nil
 }
 
@@ -2063,47 +2088,100 @@ func validateArchiveAssignmentPermission(assignment TranslationAssignment) error
 	})
 }
 
-func (b *translationQueueBinding) lookupActionReplay(actorID, assignmentID, action, idempotencyKey string, payload map[string]any) (map[string]any, bool, error) {
+func (b *translationQueueBinding) reserveActionReplay(ctx context.Context, actorID, assignmentID, action, idempotencyKey string, payload map[string]any) (translationQueueActionReservation, map[string]any, bool, error) {
 	idempotencyKey = strings.TrimSpace(idempotencyKey)
 	if b == nil || idempotencyKey == "" {
-		return nil, false, nil
+		return translationQueueActionReservation{}, nil, false, nil
 	}
 	recordKey := b.actionReplayKey(actorID, assignmentID, action, idempotencyKey)
 	payloadHash := actionReplayPayloadHash(payload)
-	now := b.now().UTC()
-
-	b.idempotencyMu.Lock()
-	defer b.idempotencyMu.Unlock()
-	record, ok := b.idempotency[recordKey]
-	if !ok {
-		return nil, false, nil
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	if now.Sub(record.StoredAt) > 24*time.Hour {
-		delete(b.idempotency, recordKey)
-		return nil, false, nil
+	for {
+		now := time.Now().UTC()
+		if b.now != nil {
+			now = b.now().UTC()
+		}
+		b.idempotencyMu.Lock()
+		if b.idempotency == nil {
+			b.idempotency = map[string]translationQueueActionReplay{}
+		}
+		record, ok := b.idempotency[recordKey]
+		if ok && !record.Pending && now.Sub(record.StoredAt) > 24*time.Hour {
+			delete(b.idempotency, recordKey)
+			ok = false
+		}
+		if !ok {
+			b.idempotencyNext++
+			reservation := translationQueueActionReservation{Key: recordKey, Token: b.idempotencyNext}
+			b.idempotency[recordKey] = translationQueueActionReplay{
+				PayloadHash: payloadHash,
+				StoredAt:    now,
+				Token:       reservation.Token,
+				Pending:     true,
+				Done:        make(chan struct{}),
+			}
+			b.idempotencyMu.Unlock()
+			return reservation, nil, false, nil
+		}
+		if record.PayloadHash != payloadHash {
+			b.idempotencyMu.Unlock()
+			return translationQueueActionReservation{}, nil, false, NewDomainError(string(translationcore.ErrorVersionConflict), "idempotency key was already used with a different assignment action payload", map[string]any{
+				"assignment_id":   assignmentID,
+				"action":          action,
+				"idempotency_key": idempotencyKey,
+			})
+		}
+		if !record.Pending {
+			response := primitives.CloneAnyMap(record.Response)
+			b.idempotencyMu.Unlock()
+			return translationQueueActionReservation{}, response, true, nil
+		}
+		done := record.Done
+		b.idempotencyMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return translationQueueActionReservation{}, nil, false, ctx.Err()
+		case <-done:
+		}
 	}
-	if record.PayloadHash != payloadHash {
-		return nil, false, NewDomainError(string(translationcore.ErrorVersionConflict), "idempotency key was already used with a different assignment action payload", map[string]any{
-			"assignment_id":   assignmentID,
-			"action":          action,
-			"idempotency_key": idempotencyKey,
-		})
-	}
-	return primitives.CloneAnyMap(record.Response), true, nil
 }
 
-func (b *translationQueueBinding) storeActionReplay(actorID, assignmentID, action, idempotencyKey string, payload map[string]any, response map[string]any) {
-	idempotencyKey = strings.TrimSpace(idempotencyKey)
-	if b == nil || idempotencyKey == "" {
-		return
+func (b *translationQueueBinding) commitActionReplay(reservation translationQueueActionReservation, response map[string]any) bool {
+	if b == nil || reservation.Key == "" || reservation.Token == 0 {
+		return false
 	}
 	b.idempotencyMu.Lock()
 	defer b.idempotencyMu.Unlock()
-	b.idempotency[b.actionReplayKey(actorID, assignmentID, action, idempotencyKey)] = translationQueueActionReplay{
-		PayloadHash: actionReplayPayloadHash(payload),
-		Response:    primitives.CloneAnyMap(response),
-		StoredAt:    b.now().UTC(),
+	record, ok := b.idempotency[reservation.Key]
+	if !ok || !record.Pending || record.Token != reservation.Token {
+		return false
 	}
+	record.Response = primitives.CloneAnyMap(response)
+	record.Pending = false
+	record.StoredAt = time.Now().UTC()
+	if b.now != nil {
+		record.StoredAt = b.now().UTC()
+	}
+	b.idempotency[reservation.Key] = record
+	close(record.Done)
+	return true
+}
+
+func (b *translationQueueBinding) releaseActionReplay(reservation translationQueueActionReservation) bool {
+	if b == nil || reservation.Key == "" || reservation.Token == 0 {
+		return false
+	}
+	b.idempotencyMu.Lock()
+	defer b.idempotencyMu.Unlock()
+	record, ok := b.idempotency[reservation.Key]
+	if !ok || !record.Pending || record.Token != reservation.Token {
+		return false
+	}
+	delete(b.idempotency, reservation.Key)
+	close(record.Done)
+	return true
 }
 
 func (b *translationQueueBinding) actionReplayKey(actorID, assignmentID, action, idempotencyKey string) string {

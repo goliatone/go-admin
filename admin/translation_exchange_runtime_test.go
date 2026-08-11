@@ -121,6 +121,71 @@ func TestTranslationExchangeRuntimeNilReceiverExecuteJobsDoNotPanic(t *testing.T
 	}, nil, nil, &progressMu, &progress)
 }
 
+func TestMemoryTranslationExchangeRuntimeStoreCoalescesConcurrentApplyJobCreation(t *testing.T) {
+	store := NewMemoryTranslationExchangeRuntimeStore(time.Now)
+	identity := translationTransportIdentity{ActorID: "actor-1", TenantID: "tenant-1", OrgID: "org-1"}
+	job := translationExchangeAsyncJob{
+		Kind:        translationExchangeJobKindImportApply,
+		Status:      translationExchangeAsyncJobStatusRunning,
+		CreatedBy:   identity.ActorID,
+		TenantID:    identity.TenantID,
+		OrgID:       identity.OrgID,
+		RequestHash: "request-hash",
+	}
+	rows := []TranslationExchangeRow{{Index: 0, Resource: "pages", EntityID: "1"}}
+	const callers = 32
+	start := make(chan struct{})
+	ids := make(chan string, callers)
+	replays := make(chan bool, callers)
+	errs := make(chan error, callers)
+	var wg sync.WaitGroup
+	for range callers {
+		wg.Go(func() {
+			<-start
+			created, replay, err := store.CreateOrGetApplyJob(context.Background(), identity, job, rows)
+			if err != nil {
+				errs <- err
+				return
+			}
+			ids <- created.ID
+			replays <- replay
+		})
+	}
+	close(start)
+	wg.Wait()
+	close(ids)
+	close(replays)
+	close(errs)
+	for err := range errs {
+		t.Fatal(err)
+	}
+	unique := map[string]struct{}{}
+	for id := range ids {
+		unique[id] = struct{}{}
+	}
+	if len(unique) != 1 {
+		t.Fatalf("concurrent apply requests created %d jobs: %v", len(unique), unique)
+	}
+	replayCount := 0
+	for replay := range replays {
+		if replay {
+			replayCount++
+		}
+	}
+	if replayCount != callers-1 {
+		t.Fatalf("expected %d replays, got %d", callers-1, replayCount)
+	}
+	for id := range unique {
+		storedRows, err := store.ListJobRows(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(storedRows) != 1 {
+			t.Fatalf("expected one atomic row set, got %d", len(storedRows))
+		}
+	}
+}
+
 func TestTranslationExchangeRuntimeExecuteExportJobFailsJobWhenExporterMissing(t *testing.T) {
 	store := NewMemoryTranslationExchangeRuntimeStore(func() time.Time {
 		return time.Date(2026, 3, 25, 12, 0, 0, 0, time.UTC)

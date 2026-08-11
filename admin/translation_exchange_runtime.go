@@ -102,20 +102,15 @@ func (r *TranslationExchangeRuntime) QueueApply(ctx context.Context, identity tr
 			"component": "translation_exchange_runtime",
 		})
 	}
-	if existing, ok, err := r.store.FindJobByRequestHash(ctx, job.Kind, identity, job.RequestHash); err != nil {
-		return translationExchangeAsyncJob{}, false, err
-	} else if ok {
-		return existing, true, nil
-	}
 	if strings.TrimSpace(job.Status) == "" {
 		job.Status = translationExchangeAsyncJobStatusRunning
 	}
-	created, err := r.store.CreateJob(ctx, job)
+	created, replay, err := r.store.CreateOrGetApplyJob(ctx, identity, job, rows)
 	if err != nil {
 		return translationExchangeAsyncJob{}, false, err
 	}
-	if err := r.store.SaveJobRows(ctx, created, rows); err != nil {
-		return translationExchangeAsyncJob{}, false, err
+	if replay {
+		return created, true, nil
 	}
 	r.ensureWorker(created.ID)
 	return created, false, nil

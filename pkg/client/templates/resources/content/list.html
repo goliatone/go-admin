@@ -712,6 +712,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     urlState: urlStateConfig,
     columns: gridColumns,
     perPage: 10,
+    pagination: dataGridConfig.pagination || undefined,
     searchDelay: 300,
     cellRenderers: mergedCellRenderers,
     rowActions: (item) => {

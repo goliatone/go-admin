@@ -37,6 +37,7 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 				"dataGridConfig.api_endpoint",
 				"dataGridConfig.action_base",
 				"dataGridConfig.column_storage_key",
+				"pagination: dataGridConfig.pagination || undefined",
 			},
 		},
 	}

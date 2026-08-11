@@ -519,6 +519,9 @@ Current keys:
 - `api_endpoint`: canonical list API, usually `/admin/api/panels/:panel`.
 - `action_base`: HTML action base for navigation, usually
   `/admin/content/:panel` for content-entry screens.
+- `pagination`: optional presentation object. Set `mode: "semantic"` to make
+  DataGrid consume the canonical pagination classes and semantic theme tokens;
+  omission preserves the historical renderer.
 - `preferences_endpoint`: optional preferences panel API path.
 - `column_storage_key`: stable column-visibility storage key.
 - `translation_ux_enabled`: content translation UI opt-in.
@@ -538,6 +541,7 @@ const tableBaseId = dataGridConfig.table_id || '{{ datatable_id|default:resource
 const tableId = `${tableBaseId}-datatable`;
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
+const pagination = dataGridConfig.pagination || undefined;
 const exportConfig = dataGridConfig.export_config || {{ toJSON(export_config)|safe }};
 ```
 
@@ -551,6 +555,7 @@ const grid = new DataGrid({
   actionBasePath,
   columns,
   perPage: 10,
+  pagination,
   behaviors: {
     search: new PanelSearchBehavior(),
     filter: new GoCrudFilterBehavior(),

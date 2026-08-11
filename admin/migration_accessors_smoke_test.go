@@ -31,6 +31,7 @@ func TestTranslationFlowPostgresAdditiveOverridesAreRetrySafe(t *testing.T) {
 		"postgres/0009_translation_exchange_runtime.up.sql",
 		"postgres/0010_translation_flow_admin_fields.up.sql",
 		"postgres/0014_translation_assignment_assigned_at.up.sql",
+		"postgres/0015_translation_exchange_idempotency_claims.up.sql",
 	} {
 		data, err := fs.ReadFile(migrationsFS, path)
 		if err != nil {
@@ -88,6 +89,7 @@ func TestTranslationFlowSQLiteSubsetAppliesCleanly(t *testing.T) {
 		"0010_translation_flow_admin_fields.up.sql",
 		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
 		"0014_translation_assignment_assigned_at.up.sql",
+		"0015_translation_exchange_idempotency_claims.up.sql",
 	)
 }
 
@@ -100,6 +102,7 @@ func TestTranslationFlowSQLiteSubsetAddsAssignmentAssignedAt(t *testing.T) {
 		"0010_translation_flow_admin_fields.up.sql",
 		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
 		"0014_translation_assignment_assigned_at.up.sql",
+		"0015_translation_exchange_idempotency_claims.up.sql",
 	)
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
@@ -108,6 +111,47 @@ func TestTranslationFlowSQLiteSubsetAddsAssignmentAssignedAt(t *testing.T) {
 	}()
 	if !sqliteColumnExists(t, db, "translation_assignments", "assigned_at") {
 		t.Fatalf("expected translation_assignments.assigned_at column")
+	}
+}
+
+func TestTranslationFlowSQLiteSubsetAddsIdempotencyClaims(t *testing.T) {
+	migrationsFS := GetTranslationFlowSQLiteMigrationsFS()
+	db := migratedSQLiteDB(t, migrationsFS,
+		"0007_translation_flow_foundation.up.sql",
+		"sqlite/0008_translation_flow_active_unique.up.sql",
+		"0009_translation_exchange_runtime.up.sql",
+		"0010_translation_flow_admin_fields.up.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
+		"0014_translation_assignment_assigned_at.up.sql",
+		"0015_translation_exchange_idempotency_claims.up.sql",
+	)
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			t.Fatalf("close sqlite: %v", closeErr)
+		}
+	}()
+	for _, column := range []string{"status", "claim_token", "lease_expires_at"} {
+		if !sqliteColumnExists(t, db, "translation_exchange_apply_ledger", column) {
+			t.Fatalf("expected translation_exchange_apply_ledger.%s column", column)
+		}
+	}
+	insertJob := `INSERT INTO exchange_jobs (
+		job_id, kind, status, created_by, request_hash, progress_json, result_json, created_at, updated_at
+	) VALUES (?, 'import_apply', 'running', 'actor-1', 'hash-1', '{}', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`
+	if _, err := db.ExecContext(context.Background(), insertJob, "job-1"); err != nil {
+		t.Fatalf("insert first scoped job: %v", err)
+	}
+	if _, err := db.ExecContext(context.Background(), insertJob, "job-2"); err == nil {
+		t.Fatal("expected normalized request hash uniqueness for nullable scope")
+	}
+	insertLedger := `INSERT INTO translation_exchange_apply_ledger (
+		ledger_id, linkage_key, payload_hash, applied_at
+	) VALUES (?, 'pages::1::family::es::title', 'payload-1', CURRENT_TIMESTAMP)`
+	if _, err := db.ExecContext(context.Background(), insertLedger, "ledger-1"); err != nil {
+		t.Fatalf("insert first apply ledger row: %v", err)
+	}
+	if _, err := db.ExecContext(context.Background(), insertLedger, "ledger-2"); err == nil {
+		t.Fatal("expected normalized apply ledger uniqueness for nullable scope")
 	}
 }
 

@@ -69,7 +69,9 @@ type TranslationExchangeServiceOption func(*TranslationExchangeService)
 
 type translationExchangeApplyRecordStore interface {
 	LookupApplyRecord(context.Context, translationTransportIdentity, string, string) (translationExchangeAppliedRecord, bool, error)
-	RecordApplyRecord(context.Context, translationTransportIdentity, translationExchangeAppliedRecord) (translationExchangeAppliedRecord, bool, error)
+	ReserveApplyRecord(context.Context, translationTransportIdentity, string, string, time.Time, time.Time) (translationExchangeApplyReservation, translationExchangeAppliedRecord, string, error)
+	CommitApplyRecord(context.Context, translationExchangeApplyReservation, translationExchangeAppliedRecord) (translationExchangeAppliedRecord, error)
+	ReleaseApplyRecord(context.Context, translationExchangeApplyReservation) error
 }
 
 func WithTranslationExchangeApplyRecordStore(store translationExchangeApplyRecordStore) TranslationExchangeServiceOption {
@@ -686,21 +688,9 @@ func (s *TranslationExchangeService) applyTranslationIdempotently(
 			continue
 		}
 
-		err := s.store.ApplyTranslation(ctx, req)
-		record := translationExchangeAppliedRecord{
-			LinkageKey:  req.Key.String(),
-			PayloadHash: payloadHash,
-			Request:     req,
-			AppliedAt:   time.Now().UTC(),
-		}
-		persisted, persistErr := s.completeApplyFlight(ctx, identity, fingerprint, record, err == nil)
-		if persistErr != nil {
-			return translationExchangeAppliedRecord{}, false, persistErr
-		}
-		if err != nil {
-			return translationExchangeAppliedRecord{}, false, err
-		}
-		return persisted, false, nil
+		record, replay, applyErr := s.executeClaimedTranslationApply(ctx, identity, req, payloadHash)
+		s.completeApplyFlight(fingerprint, record, applyErr == nil)
+		return record, replay, applyErr
 	}
 }
 
@@ -738,37 +728,66 @@ func (s *TranslationExchangeService) acquireApplyFlight(fingerprint string) (*tr
 	return flight, true
 }
 
-func (s *TranslationExchangeService) completeApplyFlight(ctx context.Context, identity translationTransportIdentity, fingerprint string, record translationExchangeAppliedRecord, persist bool) (translationExchangeAppliedRecord, error) {
+func (s *TranslationExchangeService) completeApplyFlight(fingerprint string, record translationExchangeAppliedRecord, persist bool) {
 	s.applyMu.Lock()
 	defer s.applyMu.Unlock()
 	fingerprint = strings.TrimSpace(fingerprint)
 	flight, ok := s.inFlight[fingerprint]
-	persisted := record
 	if persist {
-		var err error
-		persisted, err = s.persistApplyRecord(ctx, identity, record)
-		if err != nil {
-			s.finishApplyFlightLocked(fingerprint, ok, flight)
-			return translationExchangeAppliedRecord{}, err
-		}
-		s.applied[fingerprint] = persisted
+		s.applied[fingerprint] = record
 	}
 	s.finishApplyFlightLocked(fingerprint, ok, flight)
-	return persisted, nil
 }
 
-func (s *TranslationExchangeService) persistApplyRecord(ctx context.Context, identity translationTransportIdentity, record translationExchangeAppliedRecord) (translationExchangeAppliedRecord, error) {
+func (s *TranslationExchangeService) executeClaimedTranslationApply(ctx context.Context, identity translationTransportIdentity, req TranslationExchangeApplyRequest, payloadHash string) (translationExchangeAppliedRecord, bool, error) {
+	record := translationExchangeAppliedRecord{
+		LinkageKey:  req.Key.String(),
+		PayloadHash: payloadHash,
+		Request:     req,
+		AppliedAt:   time.Now().UTC(),
+	}
 	if s.ledger == nil {
-		return record, nil
+		if err := s.store.ApplyTranslation(ctx, req); err != nil {
+			return translationExchangeAppliedRecord{}, false, err
+		}
+		return record, false, nil
 	}
-	stored, replay, err := s.ledger.RecordApplyRecord(ctx, identity, record)
-	if err != nil {
-		return translationExchangeAppliedRecord{}, err
+	for {
+		now := time.Now().UTC()
+		reservation, existing, state, err := s.ledger.ReserveApplyRecord(ctx, identity, record.LinkageKey, payloadHash, now, now.Add(5*time.Minute))
+		if err != nil {
+			return translationExchangeAppliedRecord{}, false, err
+		}
+		switch state {
+		case translationExchangeApplyReservationApplied:
+			return existing, true, nil
+		case translationExchangeApplyReservationPending:
+			timer := time.NewTimer(5 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return translationExchangeAppliedRecord{}, false, ctx.Err()
+			case <-timer.C:
+				continue
+			}
+		case translationExchangeApplyReservationAcquired:
+			if err := s.store.ApplyTranslation(ctx, req); err != nil {
+				if releaseErr := s.ledger.ReleaseApplyRecord(ctx, reservation); releaseErr != nil {
+					return translationExchangeAppliedRecord{}, false, errors.Join(err, releaseErr)
+				}
+				return translationExchangeAppliedRecord{}, false, err
+			}
+			persisted, err := s.ledger.CommitApplyRecord(ctx, reservation, record)
+			if err != nil {
+				return translationExchangeAppliedRecord{}, false, err
+			}
+			return persisted, false, nil
+		default:
+			return translationExchangeAppliedRecord{}, false, errors.New("translation exchange apply ledger returned an invalid reservation state")
+		}
 	}
-	if replay {
-		return stored, nil
-	}
-	return record, nil
 }
 
 func (s *TranslationExchangeService) finishApplyFlightLocked(fingerprint string, ok bool, flight *translationExchangeApplyFlight) {

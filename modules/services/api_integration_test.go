@@ -155,6 +155,38 @@ type captureJobEnqueuer struct {
 	messages []gocore.JobExecutionMessage
 }
 
+type blockingJobEnqueuer struct {
+	mu      sync.Mutex
+	calls   int
+	started chan struct{}
+	release chan struct{}
+}
+
+func (e *blockingJobEnqueuer) Enqueue(ctx context.Context, message *gocore.JobExecutionMessage) (gocore.JobEnqueueReceipt, error) {
+	if message == nil {
+		return gocore.JobEnqueueReceipt{}, errors.New("message is required")
+	}
+	e.mu.Lock()
+	e.calls++
+	e.mu.Unlock()
+	select {
+	case e.started <- struct{}{}:
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return gocore.JobEnqueueReceipt{}, ctx.Err()
+	case <-e.release:
+		return gocore.JobEnqueueReceipt{DispatchID: "dispatch-blocking", EnqueuedAt: time.Now().UTC()}, nil
+	}
+}
+
+func (e *blockingJobEnqueuer) Calls() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.calls
+}
+
 func (e *captureJobEnqueuer) Enqueue(_ context.Context, message *gocore.JobExecutionMessage) (gocore.JobEnqueueReceipt, error) {
 	if message == nil {
 		return gocore.JobEnqueueReceipt{}, errors.New("message is required")
@@ -1107,6 +1139,45 @@ func TestServicesAPI_MutatingRouteIdempotencyReplayAndConflict(t *testing.T) {
 		t.Fatalf("expected refresh conflict 409, got %d body=%s", conflict.Code, conflict.Body.String())
 	}
 	assertErrorCode(t, conflict.Body.Bytes(), "conflict")
+}
+
+func TestServicesAPI_ConcurrentIdempotencyExecutesMutationOnce(t *testing.T) {
+	enqueuer := &blockingJobEnqueuer{started: make(chan struct{}, 1), release: make(chan struct{})}
+	_, module, server, base := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) { adm.WithAuthorizer(servicesAllowAuthorizer{}) },
+		WithJobEnqueuer(enqueuer),
+	)
+	seedServicesReadModelFixtures(t, module)
+	headers := map[string]string{"Idempotency-Key": "refresh-concurrent-1"}
+	payload := map[string]any{"provider_id": "github"}
+	responses := make(chan *httptest.ResponseRecorder, 2)
+	go func() {
+		responses <- performJSONRequest(t, server, http.MethodPost, base+"/connections/conn_1/refresh", payload, headers)
+	}()
+	select {
+	case <-enqueuer.started:
+	case <-time.After(time.Second):
+		t.Fatal("first request did not reach mutation boundary")
+	}
+	go func() {
+		responses <- performJSONRequest(t, server, http.MethodPost, base+"/connections/conn_1/refresh", payload, headers)
+	}()
+	select {
+	case <-enqueuer.started:
+		t.Fatal("concurrent replay reached the mutation boundary")
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(enqueuer.release)
+	first := <-responses
+	second := <-responses
+	if first.Code != http.StatusAccepted || second.Code != http.StatusAccepted {
+		t.Fatalf("expected concurrent responses 202, got %d and %d", first.Code, second.Code)
+	}
+	assertJSONEqual(t, first.Body.Bytes(), second.Body.Bytes())
+	if calls := enqueuer.Calls(); calls != 1 {
+		t.Fatalf("concurrent idempotent requests executed mutation %d times", calls)
+	}
 }
 
 func TestServicesAPI_WorkflowMappingSyncConflictWorkflow(t *testing.T) {

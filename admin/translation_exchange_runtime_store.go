@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +16,7 @@ import (
 // TranslationExchangeRuntimeStore persists async exchange jobs, artifacts, row state, and apply dedupe records.
 type TranslationExchangeRuntimeStore interface {
 	CreateJob(context.Context, translationExchangeAsyncJob) (translationExchangeAsyncJob, error)
+	CreateOrGetApplyJob(context.Context, translationTransportIdentity, translationExchangeAsyncJob, []TranslationExchangeRow) (translationExchangeAsyncJob, bool, error)
 	FindJobByRequestHash(context.Context, string, translationTransportIdentity, string) (translationExchangeAsyncJob, bool, error)
 	GetJob(context.Context, translationTransportIdentity, string) (translationExchangeAsyncJob, bool, error)
 	ListJobs(context.Context, translationExchangeJobQuery) ([]translationExchangeAsyncJob, int, error)
@@ -30,6 +32,72 @@ type TranslationExchangeRuntimeStore interface {
 	ListRecoverableJobs(context.Context, time.Time, int) ([]translationExchangeAsyncJob, error)
 	LookupApplyRecord(context.Context, translationTransportIdentity, string, string) (translationExchangeAppliedRecord, bool, error)
 	RecordApplyRecord(context.Context, translationTransportIdentity, translationExchangeAppliedRecord) (translationExchangeAppliedRecord, bool, error)
+	ReserveApplyRecord(context.Context, translationTransportIdentity, string, string, time.Time, time.Time) (translationExchangeApplyReservation, translationExchangeAppliedRecord, string, error)
+	CommitApplyRecord(context.Context, translationExchangeApplyReservation, translationExchangeAppliedRecord) (translationExchangeAppliedRecord, error)
+	ReleaseApplyRecord(context.Context, translationExchangeApplyReservation) error
+}
+
+const (
+	translationExchangeApplyReservationAcquired = "acquired"
+	translationExchangeApplyReservationPending  = "pending"
+	translationExchangeApplyReservationApplied  = "applied"
+)
+
+type translationExchangeApplyReservation struct {
+	Identity    translationTransportIdentity
+	LinkageKey  string
+	PayloadHash string
+	Token       string
+}
+
+type translationExchangeMemoryApplyClaim struct {
+	Token      string
+	LeaseUntil time.Time
+}
+
+func (s *MemoryTranslationExchangeRuntimeStore) CreateOrGetApplyJob(_ context.Context, identity translationTransportIdentity, job translationExchangeAsyncJob, rows []TranslationExchangeRow) (translationExchangeAsyncJob, bool, error) {
+	if s == nil {
+		return translationExchangeAsyncJob{}, false, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job.CreatedBy = strings.TrimSpace(identity.ActorID)
+	job.TenantID = strings.TrimSpace(identity.TenantID)
+	job.OrgID = strings.TrimSpace(identity.OrgID)
+	requestKey := translationExchangeAsyncJobRequestKey(job.Kind, identity.ActorID, identity.TenantID, identity.OrgID, job.RequestHash)
+	if id, ok := s.requestIndex[requestKey]; ok {
+		if existing, exists := s.jobs[id]; exists && translationExchangeJobVisibleToIdentity(existing, identity) {
+			return cloneTranslationExchangeAsyncJob(existing), true, nil
+		}
+	}
+	now := s.nowFn().UTC()
+	if strings.TrimSpace(job.ID) == "" {
+		job.ID = s.nextJobIDLocked()
+	}
+	job.CreatedAt = coalesceTime(job.CreatedAt, now)
+	job.UpdatedAt = coalesceTime(job.UpdatedAt, now)
+	job.Progress = primitives.CloneAnyMap(job.Progress)
+	job.Request = primitives.CloneAnyMap(job.Request)
+	job.Result = primitives.CloneAnyMap(job.Result)
+	job.Retention = primitives.CloneAnyMap(job.Retention)
+	job.Summary = primitives.CloneAnyMap(job.Summary)
+	job.Artifacts = cloneTranslationExchangeJobArtifacts(job.Artifacts)
+	storedRows := make(map[int]translationExchangeStoredRow, len(rows))
+	for index, row := range rows {
+		row = normalizeTranslationExchangeRowIndex(row, index)
+		storedRows[row.Index] = translationExchangeStoredRow{
+			RowIndex:          row.Index,
+			Input:             row,
+			CreateTranslation: row.CreateTranslation,
+			UpdatedAt:         now,
+		}
+	}
+	s.jobs[job.ID] = cloneTranslationExchangeAsyncJob(job)
+	s.rows[job.ID] = storedRows
+	if requestKey != "" {
+		s.requestIndex[requestKey] = job.ID
+	}
+	return cloneTranslationExchangeAsyncJob(job), false, nil
 }
 
 type translationExchangeJobArtifact struct {
@@ -71,6 +139,7 @@ type MemoryTranslationExchangeRuntimeStore struct {
 	rows         map[string]map[int]translationExchangeStoredRow
 	artifacts    map[string][]translationExchangeJobArtifact
 	ledger       map[string]translationExchangeAppliedRecord
+	applyClaims  map[string]translationExchangeMemoryApplyClaim
 }
 
 func NewMemoryTranslationExchangeRuntimeStore(nowFn func() time.Time) *MemoryTranslationExchangeRuntimeStore {
@@ -85,6 +154,7 @@ func NewMemoryTranslationExchangeRuntimeStore(nowFn func() time.Time) *MemoryTra
 		rows:         map[string]map[int]translationExchangeStoredRow{},
 		artifacts:    map[string][]translationExchangeJobArtifact{},
 		ledger:       map[string]translationExchangeAppliedRecord{},
+		applyClaims:  map[string]translationExchangeMemoryApplyClaim{},
 	}
 }
 
@@ -434,6 +504,62 @@ func (s *MemoryTranslationExchangeRuntimeStore) RecordApplyRecord(_ context.Cont
 	record.AppliedAt = coalesceTime(record.AppliedAt, s.nowFn().UTC())
 	s.ledger[key] = cloneTranslationExchangeAppliedRecord(record)
 	return cloneTranslationExchangeAppliedRecord(record), false, nil
+}
+
+func (s *MemoryTranslationExchangeRuntimeStore) ReserveApplyRecord(_ context.Context, identity translationTransportIdentity, linkageKey, payloadHash string, now, leaseUntil time.Time) (translationExchangeApplyReservation, translationExchangeAppliedRecord, string, error) {
+	if s == nil {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, translationExchangeApplyReservationPending, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := translationExchangeAppliedLedgerKey(identity, linkageKey, payloadHash)
+	if record, ok := s.ledger[key]; ok {
+		return translationExchangeApplyReservation{}, cloneTranslationExchangeAppliedRecord(record), translationExchangeApplyReservationApplied, nil
+	}
+	if claim, ok := s.applyClaims[key]; ok && claim.LeaseUntil.After(now) {
+		return translationExchangeApplyReservation{}, translationExchangeAppliedRecord{}, translationExchangeApplyReservationPending, nil
+	}
+	token := defaultTranslationExchangeRuntimeJobID()
+	if token == "" {
+		token = key + "::claim"
+	}
+	s.applyClaims[key] = translationExchangeMemoryApplyClaim{Token: token, LeaseUntil: leaseUntil}
+	return translationExchangeApplyReservation{
+		Identity:    identity,
+		LinkageKey:  strings.TrimSpace(linkageKey),
+		PayloadHash: strings.TrimSpace(payloadHash),
+		Token:       token,
+	}, translationExchangeAppliedRecord{}, translationExchangeApplyReservationAcquired, nil
+}
+
+func (s *MemoryTranslationExchangeRuntimeStore) CommitApplyRecord(_ context.Context, reservation translationExchangeApplyReservation, record translationExchangeAppliedRecord) (translationExchangeAppliedRecord, error) {
+	if s == nil {
+		return record, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := translationExchangeAppliedLedgerKey(reservation.Identity, reservation.LinkageKey, reservation.PayloadHash)
+	claim, ok := s.applyClaims[key]
+	if !ok || claim.Token != reservation.Token {
+		return translationExchangeAppliedRecord{}, errors.New("translation exchange apply reservation is no longer owned")
+	}
+	record.AppliedAt = coalesceTime(record.AppliedAt, s.nowFn().UTC())
+	s.ledger[key] = cloneTranslationExchangeAppliedRecord(record)
+	delete(s.applyClaims, key)
+	return cloneTranslationExchangeAppliedRecord(record), nil
+}
+
+func (s *MemoryTranslationExchangeRuntimeStore) ReleaseApplyRecord(_ context.Context, reservation translationExchangeApplyReservation) error {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := translationExchangeAppliedLedgerKey(reservation.Identity, reservation.LinkageKey, reservation.PayloadHash)
+	if claim, ok := s.applyClaims[key]; ok && claim.Token == reservation.Token {
+		delete(s.applyClaims, key)
+	}
+	return nil
 }
 
 func (s *MemoryTranslationExchangeRuntimeStore) nextJobIDLocked() string {
