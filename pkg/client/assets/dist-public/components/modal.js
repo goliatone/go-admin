@@ -1,6 +1,7 @@
-import { n as a, r, t } from "../chunks/modal-Cl0Dmdof.js";
+import { i as a, n as r, r as t, t as M } from "../chunks/modal-sFlRazoM.js";
 export {
-  t as ConfirmModal,
-  a as Modal,
-  r as TextPromptModal
+  M as ConfirmModal,
+  r as MODAL_ANATOMY,
+  t as Modal,
+  a as TextPromptModal
 };

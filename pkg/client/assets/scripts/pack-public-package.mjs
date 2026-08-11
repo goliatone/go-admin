@@ -92,6 +92,13 @@ function inspectArtifact(artifact) {
     throw new Error(`packed identity mismatch: ${packedJSON.name}@${packedJSON.version}`);
   }
   for (const [subpath, targets] of Object.entries(packedJSON.exports ?? {})) {
+	if (typeof targets === 'string') {
+		const normalized = targets.replace(/^\.\//, '');
+		if (!statSync(join(packageRoot, normalized)).isFile()) {
+			throw new Error(`missing packed target for ${subpath}: ${targets}`);
+		}
+		continue;
+	}
     for (const [kind, target] of Object.entries(targets)) {
       const normalized = String(target).replace(/^\.\//, '');
       if (!statSync(join(packageRoot, normalized)).isFile()) {

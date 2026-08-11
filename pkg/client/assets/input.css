@@ -21,33 +21,33 @@
     --translation-color-surface: var(--site-color-surface, #ffffff);
 
     /* Status Colors - Success (ready, approved, published, on_track) */
-    --translation-status-success-bg: #ecfdf5;
-    --translation-status-success-text: #065f46;
-    --translation-status-success-border: #a7f3d0;
+    --translation-status-success-bg: var(--admin-status-success-surface, #ecfdf5);
+    --translation-status-success-text: var(--admin-status-success-text, #065f46);
+    --translation-status-success-border: var(--admin-status-success-border, #a7f3d0);
     --translation-status-success-icon: #10b981;
 
     /* Status Colors - Warning (pending_review, due_soon, missing_field) */
-    --translation-status-warning-bg: #fffbeb;
-    --translation-status-warning-text: #92400e;
-    --translation-status-warning-border: #fcd34d;
+    --translation-status-warning-bg: var(--admin-status-warning-surface, #fffbeb);
+    --translation-status-warning-text: var(--admin-status-warning-text, #92400e);
+    --translation-status-warning-border: var(--admin-status-warning-border, #fcd34d);
     --translation-status-warning-icon: #f59e0b;
 
     /* Status Colors - Error (blocked, overdue, rejected, missing_locale) */
-    --translation-status-error-bg: #fef2f2;
-    --translation-status-error-text: #991b1b;
-    --translation-status-error-border: #fecaca;
+    --translation-status-error-bg: var(--admin-status-error-surface, #fef2f2);
+    --translation-status-error-text: var(--admin-status-error-text, #991b1b);
+    --translation-status-error-border: var(--admin-status-error-border, #fecaca);
     --translation-status-error-icon: #ef4444;
 
     /* Status Colors - Info (in_progress, assigned, in_review) */
-    --translation-status-info-bg: #eff6ff;
-    --translation-status-info-text: #1e40af;
-    --translation-status-info-border: #bfdbfe;
+    --translation-status-info-bg: var(--admin-status-info-surface, #eff6ff);
+    --translation-status-info-text: var(--admin-status-info-text, #1e40af);
+    --translation-status-info-border: var(--admin-status-info-border, #bfdbfe);
     --translation-status-info-icon: #3b82f6;
 
     /* Status Colors - Neutral (draft, archived, none, not_required) */
-    --translation-status-neutral-bg: #f3f4f6;
-    --translation-status-neutral-text: #374151;
-    --translation-status-neutral-border: #d1d5db;
+    --translation-status-neutral-bg: var(--admin-status-neutral-surface, #f3f4f6);
+    --translation-status-neutral-text: var(--admin-status-neutral-text, #374151);
+    --translation-status-neutral-border: var(--admin-status-neutral-border, #d1d5db);
     --translation-status-neutral-icon: #6b7280;
 
     /* Status Colors - Purple (in_review, changes_requested) */
@@ -94,16 +94,6 @@
 
   /* Dark mode overrides */
   [data-theme="dark"] {
-    --translation-status-success-bg: rgba(16, 185, 129, 0.15);
-    --translation-status-success-text: #6ee7b7;
-    --translation-status-warning-bg: rgba(245, 158, 11, 0.15);
-    --translation-status-warning-text: #fcd34d;
-    --translation-status-error-bg: rgba(239, 68, 68, 0.15);
-    --translation-status-error-text: #fca5a5;
-    --translation-status-info-bg: rgba(59, 130, 246, 0.15);
-    --translation-status-info-text: #93c5fd;
-    --translation-status-neutral-bg: rgba(107, 114, 128, 0.15);
-    --translation-status-neutral-text: #d1d5db;
     --translation-surface-card: #1f2937;
     --translation-surface-muted: #111827;
     --translation-surface-page: #0f172a;
@@ -260,8 +250,7 @@
   }
 
   .admin-surface-card.admin-surface-card,
-  .metric-card.metric-card,
-  .filter-panel.filter-panel {
+  .metric-card.metric-card {
     background-color: var(--color-surface-raised, #ffffff);
     border-color: var(--color-border-default, #e5e7eb);
     border-radius: var(--radius-surface, 0.75rem);
@@ -543,22 +532,6 @@
   .admin-datagrid__pagination :is(button, input, select):disabled {
     color: var(--color-text-secondary, #9ca3af);
     opacity: 0.5;
-  }
-
-  .status-chip--info {
-    color: var(--color-status-info, #0369a1);
-  }
-
-  .status-chip--success {
-    color: var(--color-status-success, #047857);
-  }
-
-  .status-chip--warning {
-    color: var(--color-status-warning, #b45309);
-  }
-
-  .status-chip--error {
-    color: var(--color-status-danger, #be123c);
   }
 
   .nav-item {
@@ -1171,51 +1144,6 @@
   .btn-danger-outline {
     @apply bg-white text-rose-700 border border-solid border-rose-300 hover:bg-rose-50;
     @apply dark:bg-transparent dark:text-rose-400 dark:border-rose-700 dark:hover:bg-rose-900/20;
-  }
-
-  /* ================================================================
-     Status Chip — canonical tone-based status pill.
-     One anatomy for translation surfaces (SSR partial status-badge.html
-     and TS renderers via shared/status-vocabulary.ts getToneClasses).
-     ================================================================ */
-
-  .status-chip {
-    @apply inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
-  }
-
-  .status-chip--neutral {
-    @apply bg-gray-100 text-gray-700;
-    @apply dark:bg-gray-800/60 dark:text-gray-300;
-  }
-
-  .status-chip--info {
-    @apply bg-sky-50 text-sky-700;
-    @apply dark:bg-sky-900/30 dark:text-sky-300;
-  }
-
-  .status-chip--success {
-    @apply bg-emerald-50 text-emerald-700;
-    @apply dark:bg-emerald-900/30 dark:text-emerald-300;
-  }
-
-  .status-chip--warning {
-    @apply bg-amber-50 text-amber-700;
-    @apply dark:bg-amber-900/30 dark:text-amber-300;
-  }
-
-  .status-chip--error {
-    @apply bg-rose-50 text-rose-700;
-    @apply dark:bg-rose-900/30 dark:text-rose-300;
-  }
-
-  .status-chip--source {
-    @apply bg-slate-100 text-slate-700;
-    @apply dark:bg-slate-800/60 dark:text-slate-300;
-  }
-
-  .status-chip__count {
-    @apply rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold tabular-nums;
-    @apply dark:bg-black/20;
   }
 
   /* ================================================================

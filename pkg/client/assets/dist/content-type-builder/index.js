@@ -1,14 +1,14 @@
 import { escapeHTML as n } from "../shared/html.js";
 import { t as at } from "../chunks/icon-renderer-DauoBn1n.js";
-import { n as P, r as X, t as ee } from "../chunks/modal-3jeDrPyW.js";
+import { i as X, r as P, t as ee } from "../chunks/modal-BQ_g-w1L.js";
 import { httpRequest as _t } from "../shared/transport/http-client.js";
 import { extractErrorMessage as It } from "../toast/error-helpers.js";
-import { t as U } from "../chunks/badge-D5ShfcsT.js";
+import { t as U } from "../chunks/badge-uRjgR9qC.js";
 import { onReady as rt } from "../shared/dom-ready.js";
 import { parseJSONValue as R } from "../shared/json-parse.js";
 import { capitalizeLabel as D, nameToSlug as je, titleCaseIdentifier as he, titleCaseWords as A } from "./shared/text.js";
 import { deepCloneJSON as ve } from "../shared/deep-clone.js";
-import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as sr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-9okoVsHo.js";
+import { a as qt, c as p, d as Re, i as Dt, l as b, n as zt, o as E, r as sr, s as Ht, t as Rt, u as M } from "../chunks/channel-switcher-CscsUdZK.js";
 import { normalizeAPIBasePath as Q, trimTrailingSlash as Qe } from "../shared/path-normalization.js";
 import { formatContentTypeDate as it } from "./shared/date-formatters.js";
 import { renderBlockStatusBadge as st } from "./shared/status-badges.js";

@@ -1060,33 +1060,27 @@ const MATRIX_BLOCKER_CODES = [
   'qa_blocked',
 ];
 
-// Mirrors the quick-filter classes from partials/quick-filters.html so the
-// CSR matrix renders the same filter chips as the SSR Queue/Families pages.
-function quickFilterClass(tone: MatrixQuickFilterOption['tone'], active: boolean): string {
-  const base = 'quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors';
-  const palette: Record<MatrixQuickFilterOption['tone'], { active: string; idle: string }> = {
-    neutral: { active: 'bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1', idle: 'bg-gray-100 text-gray-700 hover:bg-gray-200' },
-    success: { active: 'bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1', idle: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
-    error: { active: 'bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1', idle: 'bg-rose-50 text-rose-700 hover:bg-rose-100' },
-  };
-  return `${base} ${active ? palette[tone].active : palette[tone].idle}`;
-}
-
 function renderMatrixFilters(
   query: TranslationMatrixQuery,
   payload: TranslationMatrixResponse | null,
   busy = false
 ): string {
   const currentReadiness = asString(query.readinessState);
-  const quickFilters = MATRIX_READINESS_FILTERS.map((option) => `
+  const quickFilters = MATRIX_READINESS_FILTERS.map((option) => {
+    const active = currentReadiness === option.value;
+    return `
     <button type="button"
-            class="${quickFilterClass(option.tone, currentReadiness === option.value)}"
+            class="quick-filter quick-filter--sm"
             data-matrix-quick-filter="${escapeAttribute(option.value)}"
-            ${currentReadiness === option.value ? 'aria-current="true"' : ''}
+            data-quick-filter-value="${escapeAttribute(option.value)}"
+            data-tone="${option.tone}"
+            data-state="${active ? 'active' : 'inactive'}"
+            ${active ? 'aria-current="true"' : ''}
             ${busy ? 'disabled' : ''}>
       ${escapeHTML(option.label)}
     </button>
-  `).join('');
+  `;
+  }).join('');
 
   const blockerOptions = MATRIX_BLOCKER_CODES.map((code) => `
     <option value="${escapeAttribute(code)}" ${query.blockerCode === code ? 'selected' : ''}>${escapeHTML(getStatusLabel(code))}</option>
@@ -1103,8 +1097,11 @@ function renderMatrixFilters(
     const active = selectedLocales.includes(locale);
     return `
       <button type="button"
-              class="${quickFilterClass('neutral', active)}"
+              class="quick-filter quick-filter--sm"
               data-matrix-filter-locale="${escapeAttribute(locale)}"
+              data-quick-filter-value="${escapeAttribute(locale)}"
+              data-tone="neutral"
+              data-state="${active ? 'active' : 'inactive'}"
               aria-pressed="${active ? 'true' : 'false'}"
               ${busy ? 'disabled' : ''}>
         ${escapeHTML(label)}
@@ -1116,36 +1113,36 @@ function renderMatrixFilters(
 
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" data-matrix-filters="true">
-      <div class="quick-filters flex flex-wrap items-center gap-3" data-quick-filters>
-        <span class="quick-filters__label text-xs font-semibold uppercase tracking-wide text-gray-500">Readiness</span>
-        <div class="quick-filters__items inline-flex flex-wrap items-center gap-2" role="group" aria-label="Readiness filters">
+      <div class="quick-filters" data-quick-filters>
+        <span class="quick-filters__label">Readiness</span>
+        <div class="quick-filters__items" role="group" aria-label="Readiness filters">
           ${quickFilters}
         </div>
       </div>
-      <details class="filter-panel mt-4 rounded-lg border border-gray-200 bg-gray-50" data-filter-panel ${activeCount > 0 ? 'open' : ''}>
-        <summary class="filter-panel__trigger cursor-pointer select-none list-none px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100">
-          <span class="inline-flex items-center gap-2">
-            <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
+      <details class="filter-panel" data-filter-panel ${activeCount > 0 ? 'open' : ''}>
+        <summary class="filter-panel__trigger">
+          <span>
+            <i class="filter-panel__icon iconoir-filter" aria-hidden="true"></i>
             <span>Advanced Filters</span>
-            ${activeCount > 0 ? `<span class="filter-panel__badge rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">${activeCount}</span>` : ''}
-            <i class="iconoir-nav-arrow-down text-gray-400 transition-transform" aria-hidden="true"></i>
+            ${activeCount > 0 ? `<span class="filter-panel__badge">${activeCount}</span>` : ''}
+            <i class="filter-panel__chevron iconoir-nav-arrow-down" aria-hidden="true"></i>
           </span>
         </summary>
-        <form data-matrix-filter-form="true" class="filter-panel__form border-t border-gray-200 p-4">
-          <div class="filter-panel__grid grid gap-3 md:grid-cols-3">
-            <label class="filter-panel__field grid gap-1 text-sm">
-              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Content type</span>
-              <input name="content_type" value="${escapeAttribute(query.contentType || '')}" class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="e.g. pages" data-filter-field="content_type">
+        <form data-matrix-filter-form="true" class="filter-panel__form">
+          <div class="filter-panel__grid">
+            <label class="filter-panel__field">
+              <span>Content type</span>
+              <input name="content_type" value="${escapeAttribute(query.contentType || '')}" placeholder="e.g. pages" data-filter-field="content_type">
             </label>
-            <label class="filter-panel__field grid gap-1 text-sm">
-              <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Blocker</span>
-              <select name="blocker_code" class="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" data-filter-field="blocker_code">
+            <label class="filter-panel__field">
+              <span>Blocker</span>
+              <select name="blocker_code" data-filter-field="blocker_code">
                 <option value="">All</option>
                 ${blockerOptions}
               </select>
             </label>
-            <div class="filter-panel__actions flex items-end gap-2">
-              <button type="submit" class="${BTN_PRIMARY} h-10 px-4 py-2 flex-1" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply')}</button>
+            <div class="filter-panel__actions">
+              <button type="submit" class="${BTN_PRIMARY}" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply')}</button>
             </div>
           </div>
           ${localeChips ? `

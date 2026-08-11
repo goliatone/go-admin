@@ -855,7 +855,7 @@ function renderDashboardRowActionMenu(
   }
   const menuItems = visible
     .map((item) => `
-        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+        <a class="action-menu__item"
            data-action-menu-item
            data-action="${escapeAttribute(item.key)}"
            role="menuitem"
@@ -865,9 +865,9 @@ function renderDashboardRowActionMenu(
         </a>`)
     .join('');
   return `
-    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${escapeAttribute(rowId)}" data-translation-row-actions>
+    <div class="action-menu action-menu--right" data-action-menu data-row-id="${escapeAttribute(rowId)}" data-translation-row-actions>
       <button type="button"
-              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              class="action-menu__trigger"
               data-action-menu-trigger
               aria-label="Actions for ${escapeAttribute(triggerLabel)}"
               aria-haspopup="true"
@@ -876,7 +876,7 @@ function renderDashboardRowActionMenu(
           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
         </svg>
       </button>
-      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+      <div class="action-menu__content hidden"
            data-action-menu-content
            role="menu"
            aria-orientation="vertical">${menuItems}

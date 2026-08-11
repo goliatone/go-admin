@@ -23,7 +23,9 @@ export interface QuickFilter {
     value: string;
     /** Icon or badge (optional) */
     icon?: string;
-    /** CSS class for styling */
+    /** Stable semantic tone rendered through the canonical component stylesheet. */
+    tone?: 'neutral' | 'success' | 'warning' | 'error' | 'info';
+    /** Additive consumer class. Framework-owned presentation belongs in components.css. */
     styleClass?: string;
     /** Tooltip description */
     description?: string;

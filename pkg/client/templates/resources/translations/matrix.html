@@ -78,39 +78,39 @@
             {% if page.Enhancement.query.readiness_state %}
             <input type="hidden" name="readiness_state" value="{{ page.Enhancement.query.readiness_state }}">
             {% endif %}
-            <div class="quick-filters flex flex-wrap items-center gap-3" data-quick-filters>
-              <span class="quick-filters__label text-xs font-semibold uppercase tracking-wide text-gray-500">Readiness</span>
-              <div class="quick-filters__items inline-flex flex-wrap items-center gap-2" role="group" aria-label="Readiness filters">
-                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if not page.Enhancement.query.readiness_state %}bg-gray-200 text-gray-900 ring-2 ring-gray-500 ring-offset-1{% else %}bg-gray-100 text-gray-700 hover:bg-gray-200{% endif %}" href="{% if page.Links.matrix_all %}{{ page.Links.matrix_all }}{% else %}{{ page.Links.matrix|default:"" }}{% endif %}">All</a>
-                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "ready" %}bg-emerald-100 text-emerald-800 ring-2 ring-emerald-500 ring-offset-1{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}" href="{{ page.Links.matrix_ready|default:"" }}">Ready</a>
-                <a class="quick-filter inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium {% if page.Enhancement.query.readiness_state == "blocked" %}bg-rose-100 text-rose-800 ring-2 ring-rose-500 ring-offset-1{% else %}bg-rose-50 text-rose-700 hover:bg-rose-100{% endif %}" href="{{ page.Links.matrix_blocked|default:"" }}">Blocked</a>
+            <div class="quick-filters" data-quick-filters>
+              <span class="quick-filters__label">Readiness</span>
+              <div class="quick-filters__items" role="group" aria-label="Readiness filters">
+                <a class="quick-filter" data-quick-filter-value="" data-tone="neutral" data-state="{% if not page.Enhancement.query.readiness_state %}active{% else %}inactive{% endif %}" {% if not page.Enhancement.query.readiness_state %}aria-current="true"{% endif %} href="{% if page.Links.matrix_all %}{{ page.Links.matrix_all }}{% else %}{{ page.Links.matrix|default:"" }}{% endif %}">All</a>
+                <a class="quick-filter" data-quick-filter-value="ready" data-tone="success" data-state="{% if page.Enhancement.query.readiness_state == "ready" %}active{% else %}inactive{% endif %}" {% if page.Enhancement.query.readiness_state == "ready" %}aria-current="true"{% endif %} href="{{ page.Links.matrix_ready|default:"" }}">Ready</a>
+                <a class="quick-filter" data-quick-filter-value="blocked" data-tone="error" data-state="{% if page.Enhancement.query.readiness_state == "blocked" %}active{% else %}inactive{% endif %}" {% if page.Enhancement.query.readiness_state == "blocked" %}aria-current="true"{% endif %} href="{{ page.Links.matrix_blocked|default:"" }}">Blocked</a>
               </div>
             </div>
 
-            <details class="filter-panel rounded-lg border border-gray-200 bg-gray-50" data-filter-panel>
-              <summary class="filter-panel__trigger cursor-pointer select-none list-none px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100">
-                <span class="inline-flex items-center gap-2">
-                  <i class="iconoir-filter text-gray-500" aria-hidden="true"></i>
+            <details class="filter-panel" data-filter-panel>
+              <summary class="filter-panel__trigger">
+                <span>
+                  <i class="filter-panel__icon iconoir-filter" aria-hidden="true"></i>
                   <span>Advanced Filters</span>
-                  <i class="iconoir-nav-arrow-down text-gray-400 transition-transform" aria-hidden="true"></i>
+                  <i class="filter-panel__chevron iconoir-nav-arrow-down" aria-hidden="true"></i>
                 </span>
               </summary>
-              <div class="filter-panel__form border-t border-gray-200 p-4">
-                <div class="filter-panel__grid grid gap-3 md:grid-cols-4">
-                  <label class="filter-panel__field grid gap-1 text-sm">
-                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Content type</span>
-                    <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" name="content_type" value="{{ page.Enhancement.query.content_type|default:"" }}" placeholder="pages">
+              <div class="filter-panel__form">
+                <div class="filter-panel__grid" style="--filter-panel-columns: 4">
+                  <label class="filter-panel__field">
+                    <span>Content type</span>
+                    <input name="content_type" value="{{ page.Enhancement.query.content_type|default:"" }}" placeholder="pages">
                   </label>
-                  <label class="filter-panel__field grid gap-1 text-sm">
-                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Family</span>
-                    <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" name="family_id" value="{{ page.Enhancement.query.family_id|default:"" }}" placeholder="Family ID">
+                  <label class="filter-panel__field">
+                    <span>Family</span>
+                    <input name="family_id" value="{{ page.Enhancement.query.family_id|default:"" }}" placeholder="Family ID">
                   </label>
-                  <label class="filter-panel__field grid gap-1 text-sm">
-                    <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Blocker</span>
-                    <input class="h-10 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" name="blocker_code" value="{{ page.Enhancement.query.blocker_code|default:"" }}" placeholder="missing_locale">
+                  <label class="filter-panel__field">
+                    <span>Blocker</span>
+                    <input name="blocker_code" value="{{ page.Enhancement.query.blocker_code|default:"" }}" placeholder="missing_locale">
                   </label>
-                  <div class="filter-panel__actions flex items-end">
-                    <button type="submit" class="btn btn-primary h-10 px-4 py-2 w-full">Apply</button>
+                  <div class="filter-panel__actions">
+                    <button type="submit" class="btn btn-primary">Apply</button>
                   </div>
                 </div>
               </div>

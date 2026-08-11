@@ -1,18 +1,18 @@
 import { escapeAttribute as f, escapeHTML as d } from "../shared/html.js";
 import { t as Kt } from "../chunks/icon-renderer-DauoBn1n.js";
-import { n as Jt, r as Fe } from "../chunks/modal-3jeDrPyW.js";
-import { t as O } from "../chunks/toast-manager-BXCGGKRA.js";
+import { i as Fe, r as Jt } from "../chunks/modal-BQ_g-w1L.js";
+import { t as O } from "../chunks/toast-manager-DnIPQSyp.js";
 import { httpRequest as C, readHTTPError as $e, readHTTPJSON as Ze, readHTTPJSONObject as Qt, readHTTPJSONValue as et } from "../shared/transport/http-client.js";
 import { createStructuredActionError as re, executeActionRequest as Ae, executeStructuredRequest as tt, extractErrorMessage as Yt, extractExchangeError as ja, extractTranslationBlocker as Wt, formatStructuredErrorForDisplay as q, generateExchangeReport as Na, getStructuredActionError as V, groupRowResultsByStatus as za, isExchangeError as Ga, isHandledActionError as M, isTranslationBlocker as Xt, parseImportResult as Ua } from "../toast/error-helpers.js";
 import { closeActionMenu as Zt, defaultActionMenuPositioner as er, initActionMenus as tr } from "../shared/action-menu.js";
-import { n as rr, t as se } from "../chunks/badge-D5ShfcsT.js";
-import { $ as Ja, A as Qa, B as rt, C as sr, D as Ya, E as nr, F as Wa, G as Xa, H as Za, I as st, J as eo, K as to, L as ro, M as so, N as no, O as io, P as ao, Q as oo, R as lo, S as ir, T as co, U as uo, V as Ee, W as ho, X as ar, Y as j, Z as po, _ as nt, a as or, at as it, b as lr, c as cr, d as dr, et as fo, f as ur, g as ke, h as hr, i as mo, it as pr, j as go, k as bo, l as fr, m as mr, n as gr, nt as at, o as yo, ot as br, p as vo, q as yr, r as wo, rt as ot, s as vr, st as lt, t as xo, tt as So, u as Le, v as Co, w as wr, x as $o, y as Ao, z as Eo } from "../chunks/grouped-mode-BeogW5_G.js";
+import { n as rr, t as se } from "../chunks/badge-uRjgR9qC.js";
+import { $ as Ja, A as Qa, B as rt, C as sr, D as Ya, E as nr, F as Wa, G as Xa, H as Za, I as st, J as eo, K as to, L as ro, M as so, N as no, O as io, P as ao, Q as oo, R as lo, S as ir, T as co, U as uo, V as Ee, W as ho, X as ar, Y as j, Z as po, _ as nt, a as or, at as it, b as lr, c as cr, d as dr, et as fo, f as ur, g as ke, h as hr, i as mo, it as pr, j as go, k as bo, l as fr, m as mr, n as gr, nt as at, o as yo, ot as br, p as vo, q as yr, r as wo, rt as ot, s as vr, st as lt, t as xo, tt as So, u as Le, v as Co, w as wr, x as $o, y as Ao, z as Eo } from "../chunks/grouped-mode-YpblxoX1.js";
 import { buildURL as qe, deleteSearchParams as Oe } from "../shared/query-state/url-state.js";
 import { t as xr } from "../chunks/sortable.esm-ChQrsKAN.js";
 import { r as Sr, t as Cr } from "../chunks/translation-contracts-C_O37O2-.js";
 import { t as ct } from "../chunks/stateful-controller-BhTsWevz.js";
 var dt = { async prompt(e) {
-  const { PayloadInputModal: t } = await import("../chunks/payload-modal-8i1sOycU.js");
+  const { PayloadInputModal: t } = await import("../chunks/payload-modal-CmVOg7fu.js");
   return t.prompt(e);
 } }, $r = 0, Ar = class {
   constructor(e = {}) {
@@ -51,9 +51,10 @@ var dt = { async prompt(e) {
     if (s.length === 0) return '<div class="admin-datagrid__actions-empty text-sm text-gray-400">No actions</div>';
     const n = `${r}-menu`, i = this.buildDropdownItems(e, s, r);
     return `
-      <div class="actions-dropdown" data-dropdown>
+      <div class="action-menu action-menu--right actions-dropdown" data-action-menu data-dropdown>
         <button type="button"
-                class="actions-menu-trigger"
+                class="action-menu__trigger actions-menu-trigger"
+                data-action-menu-trigger
                 data-dropdown-trigger
                 aria-label="Actions menu"
                 aria-haspopup="true"
@@ -63,7 +64,9 @@ var dt = { async prompt(e) {
         </button>
 
         <div id="${f(n)}"
-             class="actions-menu hidden"
+             class="action-menu__content actions-menu hidden"
+             data-action-menu-content
+             data-position="right"
              role="menu"
              aria-orientation="vertical">
           ${i}
@@ -73,12 +76,13 @@ var dt = { async prompt(e) {
   }
   buildDropdownItems(e, t, r) {
     return t.map(({ action: s, sourceIndex: n }, i) => {
-      const a = s.variant === "danger", o = s.disabled === !0, l = this.getActionKey(s, n), c = s.icon ? this.renderIcon(s.icon) : "", u = this.shouldShowDivider(s, i), h = o ? (s.disabledReason || "Action unavailable").trim() : "", p = h ? `${r}-${l}-disabled-reason` : "", m = u ? '<div class="action-divider"></div>' : "", v = o ? "action-item action-item--disabled" : a ? "action-item action-item--danger" : "action-item", y = o ? 'aria-disabled="true"' : "", b = p ? `aria-describedby="${f(p)}"` : "", x = h ? `${s.label} unavailable: ${h}` : s.label, S = s.disabledReason ? `title="${f(s.disabledReason)}"` : "", w = h ? `<span id="${f(p)}" class="action-item-reason">${d(h)}</span>` : "";
+      const a = s.variant === "danger", o = s.disabled === !0, l = this.getActionKey(s, n), c = s.icon ? this.renderIcon(s.icon) : "", u = this.shouldShowDivider(s, i), h = o ? (s.disabledReason || "Action unavailable").trim() : "", p = h ? `${r}-${l}-disabled-reason` : "", m = u ? '<div class="action-menu__divider action-divider" role="separator"></div>' : "", v = o ? "action-menu__item action-item action-item--disabled" : a ? "action-menu__item action-menu__item--danger action-item action-item--danger" : "action-menu__item action-item", y = o ? 'aria-disabled="true"' : "", b = p ? `aria-describedby="${f(p)}"` : "", x = h ? `${s.label} unavailable: ${h}` : s.label, S = s.disabledReason ? `title="${f(s.disabledReason)}"` : "", w = h ? `<span id="${f(p)}" class="action-item-reason">${d(h)}</span>` : "";
       return `
         ${m}
         <button type="button"
                 class="${f(v)}"
                 data-action-id="${f(this.sanitize(s.label))}"
+                data-action-menu-item
                 data-action-key="${f(l)}"
                 data-record-id="${f(e.id)}"
                 data-disabled="${o}"
@@ -106,7 +110,7 @@ var dt = { async prompt(e) {
   }
   renderDotsIcon() {
     return `
-      <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+      <svg class="action-menu__icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
       </svg>
     `;
@@ -119,7 +123,7 @@ var dt = { async prompt(e) {
       const a = this.getActionKey(n, i), o = e.querySelector(`[data-action-key="${a}"]`);
       o && o.addEventListener("click", async (l) => {
         if (l.preventDefault(), o.getAttribute("aria-disabled") === "true" || o.dataset.disabled === "true") return;
-        const c = o.closest(".actions-menu");
+        const c = o.closest("[data-action-menu-content]");
         c && Zt(c);
         try {
           await n.action(r);
@@ -6168,7 +6172,7 @@ var Dt = [
     field: "",
     value: "",
     icon: "○",
-    styleClass: "bg-gray-100 text-gray-700 hover:bg-gray-200",
+    tone: "neutral",
     description: "Show all records"
   },
   {
@@ -6177,7 +6181,7 @@ var Dt = [
     field: "readiness_state",
     value: "ready",
     icon: "●",
-    styleClass: "bg-green-100 text-green-700 hover:bg-green-200",
+    tone: "success",
     description: "All translations complete"
   },
   {
@@ -6186,7 +6190,7 @@ var Dt = [
     field: "readiness_state",
     value: "missing_locales",
     icon: "○",
-    styleClass: "bg-amber-100 text-amber-700 hover:bg-amber-200",
+    tone: "warning",
     description: "Missing required locale translations"
   },
   {
@@ -6195,7 +6199,7 @@ var Dt = [
     field: "readiness_state",
     value: "missing_fields",
     icon: "◐",
-    styleClass: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200",
+    tone: "warning",
     description: "Has translations but missing required fields"
   },
   {
@@ -6204,7 +6208,7 @@ var Dt = [
     field: "fallback_used",
     value: "true",
     icon: "⚠",
-    styleClass: "bg-orange-100 text-orange-700 hover:bg-orange-200",
+    tone: "warning",
     description: "Records currently viewed in fallback mode"
   }
 ], Ri = class {
@@ -6224,35 +6228,39 @@ var Dt = [
       console.warn("[QuickFilters] Container not found");
       return;
     }
-    const { size: e = "default", containerClass: t = "" } = this.config, r = e === "sm" ? "text-xs" : "text-sm", s = e === "sm" ? "px-2 py-1" : "px-3 py-1.5", n = this.config.filters.map((i) => this.renderFilterButton(i, r, s)).join("");
+    const { size: e = "default", containerClass: t = "" } = this.config, r = this.config.filters.map((s) => this.renderFilterButton(s, e)).join("");
     this.container.innerHTML = `
-      <div class="quick-filters inline-flex items-center gap-1 flex-wrap ${t}"
+      <div class="quick-filters ${t}"
            role="group"
            aria-label="Quick filters">
-        ${n}
+        ${r}
       </div>
     `, this.bindEventListeners();
   }
-  renderFilterButton(e, t, r) {
-    const s = this.state.capabilities.get(e.key), n = s?.supported !== !1, i = this.state.activeKey === e.key, a = s?.disabledReason || "Filter not available", o = `inline-flex items-center gap-1 ${r} ${t} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
-    let l, c;
-    n ? i ? (l = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, c = 'aria-pressed="true"') : (l = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", c = 'aria-pressed="false"') : (l = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", c = `aria-disabled="true" title="${f(a)}"`);
-    const u = e.icon ? `<span aria-hidden="true">${e.icon}</span>` : "";
+  renderFilterButton(e, t) {
+    const r = this.state.capabilities.get(e.key), s = r?.supported !== !1, n = this.state.activeKey === e.key, i = r?.disabledReason || "Filter not available";
+    let a;
+    s ? n ? a = 'aria-pressed="true"' : a = 'aria-pressed="false"' : a = `aria-disabled="true" aria-pressed="false" title="${f(i)}"`;
+    const o = e.icon ? `<span aria-hidden="true">${e.icon}</span>` : "";
     return `
       <button type="button"
-              class="quick-filter-btn ${o} ${l}"
+              class="quick-filter quick-filter--${t} ${f(e.styleClass || "")}"
+              data-quick-filter-value="${f(e.value)}"
+              data-quick-filter-key="${f(e.key)}"
               data-filter-key="${f(e.key)}"
-              ${c}
-              ${n ? "" : "disabled"}>
-        ${u}
+              data-tone="${f(e.tone || "neutral")}"
+              data-state="${s ? n ? "active" : "inactive" : "disabled"}"
+              ${a}
+              ${s ? "" : "disabled"}>
+        ${o}
         <span>${d(e.label)}</span>
       </button>
     `;
   }
   bindEventListeners() {
-    this.container && this.container.querySelectorAll(".quick-filter-btn").forEach((e) => {
+    this.container && this.container.querySelectorAll("[data-quick-filter-value]").forEach((e) => {
       e.addEventListener("click", () => {
-        const t = e.dataset.filterKey;
+        const t = e.dataset.quickFilterKey || e.dataset.filterKey;
         t && !e.disabled && this.selectFilter(t);
       });
     });
@@ -6314,15 +6322,13 @@ function dl(e) {
   }), r;
 }
 function ul(e = {}) {
-  const { filters: t = Dt, activeKey: r = null, capabilities: s = [], size: n = "default", containerClass: i = "" } = e, a = n === "sm" ? "text-xs" : "text-sm", o = n === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
-  for (const c of s) l.set(c.key, c);
-  return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${i}">${t.map((c) => {
-    const u = l.get(c.key), h = u?.supported !== !1, p = r === c.key, m = u?.disabledReason || "Filter not available", v = `inline-flex items-center gap-1 ${o} ${a} rounded-full font-medium`;
-    let y;
-    h ? p ? y = `${c.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : y = c.styleClass || "bg-gray-100 text-gray-700" : y = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
-    const b = c.icon ? `<span>${c.icon}</span>` : "", x = h ? "" : `title="${f(m)}"`;
-    return `<span class="${v} ${y}" ${x}>${b}<span>${d(c.label)}</span></span>`;
-  }).join("")}</div>`;
+  const { filters: t = Dt, activeKey: r = null, capabilities: s = [], size: n = "default", containerClass: i = "" } = e, a = /* @__PURE__ */ new Map();
+  for (const l of s) a.set(l.key, l);
+  const o = t.map((l) => {
+    const c = a.get(l.key), u = c?.supported !== !1, h = r === l.key, p = c?.disabledReason || "Filter not available", m = l.icon ? `<span aria-hidden="true">${d(l.icon)}</span>` : "", v = u ? "" : `title="${f(p)}"`, y = u ? "" : 'aria-disabled="true"', b = h ? 'aria-current="true"' : "", x = u ? h ? "active" : "inactive" : "disabled";
+    return `<span class="quick-filter quick-filter--${n} ${f(l.styleClass || "")}" data-quick-filter-value="${f(l.value)}" data-quick-filter-key="${f(l.key)}" data-tone="${f(l.tone || "neutral")}" data-state="${x}" ${y} ${b} ${v}>${m}<span>${d(l.label)}</span></span>`;
+  }).join("");
+  return `<div class="quick-filters ${f(i)}" data-quick-filters role="group" aria-label="Quick filters">${o}</div>`;
 }
 var pe = "go-admin:translation-panel-expanded", Ti = class {
   constructor(e) {

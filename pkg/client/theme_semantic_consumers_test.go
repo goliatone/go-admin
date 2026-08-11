@@ -208,9 +208,9 @@ func TestSharedAdminTemplatesOptIntoSemanticPrimitiveClasses(t *testing.T) {
 }
 
 func TestDataGridActionStylesUseSemanticFallbacks(t *testing.T) {
-	content, err := os.ReadFile("assets/src/datatable/actions.css")
+	content, err := os.ReadFile("assets/src/styles/components.css")
 	if err != nil {
-		t.Fatalf("read DataGrid action styles: %v", err)
+		t.Fatalf("read canonical component styles: %v", err)
 	}
 	css := string(content)
 	required := []string{

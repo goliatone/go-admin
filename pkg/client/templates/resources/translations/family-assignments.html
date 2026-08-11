@@ -119,12 +119,12 @@
                   <div class="mt-1 text-sm text-gray-600">{{ row.display_due_date|default:"" }}</div>
                 </td>
                 <td class="px-4 py-4 align-top text-right">
-                  <div class="action-menu relative flex justify-end"
+                  <div class="action-menu action-menu--right"
                        data-action-menu
                        data-row-id="{{ row.assignment_id|default:row.id }}"
                        data-row-version="{{ row.row_version|default:row.version }}">
                     <button type="button"
-                            class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                            class="action-menu__trigger"
                             data-action-menu-trigger
                             aria-label="Actions for {{ row.display_title|default:row.source_title|default:row.assignment_id|default:row.id }}"
                             aria-haspopup="true"
@@ -133,11 +133,11 @@
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                       </svg>
 	                    </button>
-	                    <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+	                    <div class="action-menu__content hidden"
 	                         data-action-menu-content
 	                         role="menu"
 	                         aria-orientation="vertical">
-                      <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                      <a class="action-menu__item"
                          data-action-menu-item
                          data-action="open"
                          role="menuitem"
@@ -145,10 +145,10 @@
                         <i class="iconoir-edit w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
                         <span>Open editor</span>
                       </a>
-                      <div class="action-menu__divider my-1 border-t border-gray-100" role="separator"></div>
+                      <div class="action-menu__divider" role="separator"></div>
                       {% set claim_disabled = not assignment_action_endpoint or row.actions.claim.enabled == false %}
                       <button type="button"
-                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if claim_disabled %}cursor-not-allowed opacity-50{% endif %}"
+                              class="action-menu__item {% if claim_disabled %}cursor-not-allowed opacity-50{% endif %}"
                               data-action-menu-item
                               data-action="claim"
                               data-translation-action="claim"
@@ -161,7 +161,7 @@
                       </button>
                       {% set release_disabled = not assignment_action_endpoint or row.actions.release.enabled == false %}
                       <button type="button"
-                              class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none {% if release_disabled %}cursor-not-allowed opacity-50{% endif %}"
+                              class="action-menu__item {% if release_disabled %}cursor-not-allowed opacity-50{% endif %}"
                               data-action-menu-item
                               data-action="release"
                               data-translation-action="release"

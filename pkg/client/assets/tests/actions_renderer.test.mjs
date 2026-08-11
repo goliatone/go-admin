@@ -76,8 +76,9 @@ test('ActionRenderer dropdown leaves overlay geometry to the shared menu contrac
   );
   const menuClass = html.match(/<div[^>]*class="([^"]*)"[^>]*role="menu"/)?.[1] || '';
 
-  assert.ok(menuClass, 'expected an actions-menu class list');
-  assert.deepEqual(menuClass.split(/\s+/), ['actions-menu', 'hidden']);
+  assert.ok(menuClass, 'expected an action-menu class list');
+  assert.deepEqual(menuClass.split(/\s+/), ['action-menu__content', 'actions-menu', 'hidden']);
+  assert.match(html, /data-action-menu-content/);
   for (const conflictingClass of ['absolute', 'right-0', 'mt-2', 'z-10', 'w-56', 'bg-white']) {
     assert.equal(
       menuClass.split(/\s+/).includes(conflictingClass),
@@ -100,7 +101,7 @@ test('ActionRenderer closes a dropdown before invoking its enabled action', asyn
   const button = {
     dataset: { recordId: 'row_1', disabled: 'false' },
     getAttribute() { return null; },
-    closest(selector) { return selector === '.actions-menu' ? menu : null; },
+    closest(selector) { return selector === '[data-action-menu-content]' ? menu : null; },
     addEventListener(_event, handler) { this.handler = handler; },
   };
   const container = { querySelector() { return button; } };

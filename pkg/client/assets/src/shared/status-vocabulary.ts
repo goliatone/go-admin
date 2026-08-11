@@ -100,6 +100,17 @@ export const TRANSLATION_STATUS_REGISTRY: Record<string, StatusEntry> = {
   cancelled: { tone: 'neutral', label: 'Cancelled', icon: 'xmark-circle' },
   running: { tone: 'info', label: 'Running', icon: 'arrow-right' },
 
+  // General admin/component compatibility states
+  suspended: { tone: 'warning', label: 'Suspended', icon: 'pause' },
+  deprecated: { tone: 'error', label: 'Deprecated', icon: 'warning-triangle' },
+  breaking: { tone: 'error', label: 'Breaking', icon: 'warning-triangle' },
+  migrating: { tone: 'info', label: 'Migrating', icon: 'arrow-right' },
+  migrated: { tone: 'success', label: 'Migrated', icon: 'check' },
+  required: { tone: 'warning', label: 'Required', icon: 'warning-circle' },
+  readonly: { tone: 'neutral', label: 'Read Only', icon: 'lock' },
+  hidden: { tone: 'neutral', label: 'Hidden', icon: 'eye-closed' },
+  unknown: { tone: 'neutral', label: 'Unknown', icon: 'help-circle' },
+
   // Exchange row/job statuses
   success: { tone: 'success', label: 'Success', icon: 'check' },
   error: { tone: 'error', label: 'Error', icon: 'xmark' },
@@ -278,7 +289,7 @@ export function renderStatusChip(
     options.count === undefined || options.count === null || options.count === ''
       ? ''
       : `<span class="status-chip__count">${escapeChipText(String(options.count))}</span>`;
-  return `<span class="${classes}" data-status="${escapeChipText(status)}">${icon}${escapeChipText(display.label)}${count}</span>`;
+  return `<span class="${classes}" data-status="${escapeChipText(status)}" data-tone="${display.tone}">${icon}${escapeChipText(display.label)}${count}</span>`;
 }
 
 function escapeChipText(value: string): string {

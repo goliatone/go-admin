@@ -184,9 +184,10 @@ export class ActionRenderer {
     const actionItems = this.buildDropdownItems(record, visibleActions, rowScope);
 
     return `
-      <div class="actions-dropdown" data-dropdown>
+      <div class="action-menu action-menu--right actions-dropdown" data-action-menu data-dropdown>
         <button type="button"
-                class="actions-menu-trigger"
+                class="action-menu__trigger actions-menu-trigger"
+                data-action-menu-trigger
                 data-dropdown-trigger
                 aria-label="Actions menu"
                 aria-haspopup="true"
@@ -196,7 +197,9 @@ export class ActionRenderer {
         </button>
 
         <div id="${escapeAttr(menuId)}"
-             class="actions-menu hidden"
+             class="action-menu__content actions-menu hidden"
+             data-action-menu-content
+             data-position="right"
              role="menu"
              aria-orientation="vertical">
           ${actionItems}
@@ -222,13 +225,13 @@ export class ActionRenderer {
         ? `${rowScope}-${actionKey}-disabled-reason`
         : '';
 
-      const divider = needsDivider ? '<div class="action-divider"></div>' : '';
+      const divider = needsDivider ? '<div class="action-menu__divider action-divider" role="separator"></div>' : '';
 
       const itemClass = disabled
-        ? 'action-item action-item--disabled'
+        ? 'action-menu__item action-item action-item--disabled'
         : isDestructive
-        ? 'action-item action-item--danger'
-        : 'action-item';
+        ? 'action-menu__item action-menu__item--danger action-item action-item--danger'
+        : 'action-menu__item action-item';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
       const describedByAttr = reasonID ? `aria-describedby="${escapeAttr(reasonID)}"` : '';
@@ -247,6 +250,7 @@ export class ActionRenderer {
         <button type="button"
                 class="${escapeAttr(itemClass)}"
                 data-action-id="${escapeAttr(this.sanitize(action.label))}"
+                data-action-menu-item
                 data-action-key="${escapeAttr(actionKey)}"
                 data-record-id="${escapeAttr(record.id)}"
                 data-disabled="${disabled}"
@@ -286,7 +290,7 @@ export class ActionRenderer {
    */
   private renderDotsIcon(): string {
     return `
-      <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+      <svg class="action-menu__icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
       </svg>
     `;
@@ -329,7 +333,7 @@ export class ActionRenderer {
         if (button.getAttribute('aria-disabled') === 'true' || button.dataset.disabled === 'true') {
           return;
         }
-        const menu = button.closest<HTMLElement>('.actions-menu');
+        const menu = button.closest<HTMLElement>('[data-action-menu-content]');
         if (menu) {
           closeActionMenu(menu);
         }

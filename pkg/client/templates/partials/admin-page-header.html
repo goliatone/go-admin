@@ -1,4 +1,9 @@
 {% comment %}
+  Compatibility alias only. New authenticated templates must use layout.html's
+  page-header blocks. Retain for at least two minor releases after typed page
+  chrome publication; remove only after a downstream usage audit and migration
+  note.
+
   Variables:
     - breadcrumbs: array of {label, href, current} objects
     - page_title: main heading text (required)

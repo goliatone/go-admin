@@ -156,6 +156,25 @@ test('Modal establishes naming, description, deterministic focus, and dialog hoo
   assert.equal(modal.afterHideCount, 1);
 });
 
+test('Modal exposes stable visual anatomy, size, state, and additive host classes', async () => {
+  setupDom();
+  const modal = new FixtureModal({ size: '2xl', containerClass: 'host-modal-surface' });
+  await modal.show();
+
+  assert.ok(modal.overlay.classList.contains('go-admin-modal'));
+  assert.ok(modal.overlay.classList.contains('go-admin-modal__backdrop'));
+  assert.equal(modal.overlay.getAttribute('data-state'), 'open');
+  assert.ok(modal.dialog.classList.contains('go-admin-modal-container'));
+  assert.ok(modal.dialog.classList.contains('go-admin-modal__container'));
+  assert.ok(modal.dialog.classList.contains('go-admin-modal__surface'));
+  assert.ok(modal.dialog.classList.contains('go-admin-modal__container--2xl'));
+  assert.ok(modal.dialog.classList.contains('go-admin-modal__container--flex'));
+  assert.ok(modal.dialog.classList.contains('host-modal-surface'));
+  assert.equal(modal.dialog.getAttribute('data-size'), '2xl');
+
+  modal.destroy();
+});
+
 test('Modal traps Tab and Shift+Tab within the topmost dialog', async () => {
   setupDom();
   const modal = new FixtureModal({ initialFocus: '#first' });

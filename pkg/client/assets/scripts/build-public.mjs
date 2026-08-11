@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,9 +57,16 @@ run('vite', ['build', '--config', 'vite.public.config.ts']);
 run('tsc', ['--emitDeclarationOnly', '--outDir', declarationStaging, '--declarationDir', declarationStaging]);
 copyDeclarations(declarationStaging, resolve(output, 'types'));
 rmSync(declarationStaging, { recursive: true, force: true });
+copyFileSync(resolve(root, 'src/styles/components.css'), resolve(output, 'components.css'));
 
 const packageJSON = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 for (const [subpath, target] of Object.entries(packageJSON.exports ?? {})) {
+	if (typeof target === 'string') {
+		if (!existsSync(resolve(root, target))) {
+			throw new Error(`missing target for ${subpath}: ${target}`);
+		}
+		continue;
+	}
   for (const field of ['types', 'import', 'default']) {
     if (target[field] && !existsSync(resolve(root, target[field]))) {
       throw new Error(`missing ${field} target for ${subpath}: ${target[field]}`);

@@ -66,6 +66,9 @@ const POSITION_STYLE_PROPERTIES = [
 ];
 
 const PORTAL_THEME_CUSTOM_PROPERTIES = [
+  '--admin-action-menu-surface',
+  '--admin-action-menu-text',
+  '--admin-action-menu-border',
   '--action-menu-z-index',
   '--action-menu-width',
   '--action-menu-min-width',

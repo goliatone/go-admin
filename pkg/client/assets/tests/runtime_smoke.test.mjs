@@ -129,18 +129,17 @@ test('toast/init.js is importable', async () => {
 test('datatable-actions.css contains action dropdown styles', () => {
   const path = resolve(DIST_DIR, 'styles/datatable-actions.css');
   const content = readFileSync(path, 'utf-8');
+  const canonical = readFileSync(resolve(ASSETS_DIR, 'src/styles/components.css'), 'utf-8');
 
-  // Core selectors that must be present
+  assert.equal(content, canonical, 'legacy DataGrid stylesheet URL must be generated from canonical components.css');
   assert.match(content, /\.actions-dropdown/, 'Should have .actions-dropdown class');
   assert.match(content, /\.actions-menu-trigger/, 'Should have .actions-menu-trigger class');
   assert.match(content, /\.actions-menu/, 'Should have .actions-menu class');
   assert.match(content, /\.action-item/, 'Should have .action-item class');
-  const menuRule = content.match(/\.actions-menu\s*\{([^}]*)\}/)?.[1] || '';
-  assert.ok(menuRule, 'Should find the .actions-menu declaration block');
-  assert.match(menuRule, /position:\s*fixed/, 'Action menus should use viewport coordinates');
-  assert.match(menuRule, /--action-menu-z-index/, 'Action menu stacking should be theme-configurable');
-  assert.match(menuRule, /100dvh\s*-\s*20px/, 'Action menu height should track the dynamic viewport');
-  assert.match(menuRule, /--action-menu-width/, 'Action menu width should be component-owned');
+  assert.match(content, /\.actions-menu\s*\{\s*position:\s*fixed/, 'DataGrid compatibility menus should use viewport coordinates');
+  assert.match(content, /--action-menu-z-index/, 'Action menu stacking should be theme-configurable');
+  assert.match(content, /100dvh\s*-\s*20px/, 'Action menu height should track the dynamic viewport');
+  assert.match(content, /--action-menu-width/, 'Action menu width should be component-owned');
 });
 
 test('datatable-actions.css contains aria-disabled styles for visible-disabled actions', () => {

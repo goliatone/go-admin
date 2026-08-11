@@ -12,7 +12,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +29,10 @@ const widgetSource = readFileSync(
   resolve(here, '../../templates/dashboard_widget_content.html'),
   'utf8'
 );
+const badgeSource = readFileSync(resolve(here, '../src/shared/badge.ts'), 'utf8');
+const componentCSS = readFileSync(resolve(here, '../src/styles/components.css'), 'utf8');
+const inputCSS = readFileSync(resolve(here, '../input.css'), 'utf8');
+const contentListSource = readFileSync(resolve(here, '../../templates/resources/content/list.html'), 'utf8');
 
 /**
  * Parse TRANSLATION_STATUS_REGISTRY entries from the TS source.
@@ -109,6 +113,10 @@ describe('status vocabulary drift', () => {
     assert.equal(registry.missing_locales?.tone, 'warning', 'missing_locales must be warning');
     assert.equal(registry.in_progress?.tone, 'info', 'in_progress must be info');
     assert.equal(registry.pending_review?.tone, 'warning', 'pending_review must be warning');
+    assert.equal(registry.required?.tone, 'warning', 'required compatibility tone must remain warning');
+    assert.equal(registry.breaking?.tone, 'error', 'breaking compatibility tone must remain error');
+    assert.equal(registry.migrating?.tone, 'info', 'migrating compatibility tone must remain info');
+    assert.equal(registry.migrated?.tone, 'success', 'migrated compatibility tone must remain success');
   });
 
   it('dashboard widget renders status chips through the shared partial', () => {
@@ -140,5 +148,21 @@ describe('status vocabulary drift', () => {
       !/bg-(amber|rose|emerald|sky|slate|gray)-\d/.test(partialSource),
       'partial must use status-chip tone classes, not inline Tailwind tints'
     );
+    assert.match(partialSource, /data-tone="\{\{ tone \}\}"/);
+  });
+
+  it('legacy badge and translation aliases project onto canonical status anatomy', () => {
+    assert.match(badgeSource, /getStatusTone/);
+    assert.match(badgeSource, /\['status-chip', `status-chip--\$\{getStatusTone\(v\)\}`, 'status-badge'\]/);
+    assert.match(componentCSS, /\.status-chip,\s*\.status-badge\s*\{/);
+    assert.doesNotMatch(inputCSS, /^\s*\.status-chip(?:--[a-z]+)?\s*\{/m);
+    assert.match(inputCSS, /--translation-status-success-bg:\s*var\(--admin-status-success-surface/);
+    assert.equal(existsSync(resolve(here, '../src/styles/translation-tokens.css')), false);
+  });
+
+  it('content queue does not bypass the canonical vocabulary presenter', () => {
+    assert.doesNotMatch(contentListSource, /translationQueueSharedStatusVariants/);
+    assert.doesNotMatch(contentListSource, /class="status-badge status-\$\{normalized\}"/);
+    assert.match(contentListSource, /return renderVocabularyStatusBadge\(normalized/);
   });
 });

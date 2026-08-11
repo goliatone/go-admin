@@ -2,6 +2,7 @@ package client
 
 import (
 	"io/fs"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -171,6 +172,33 @@ func TestAuthenticatedTemplateInventoryCoversContextProviders(t *testing.T) {
 	}
 }
 
+func TestQuickstartContextProviderUsesTypedPageChromeProjection(t *testing.T) {
+	source, err := os.ReadFile("../../quickstart/ui_routes.go")
+	if err != nil {
+		t.Fatalf("read quickstart UI provider: %v", err)
+	}
+	if !strings.Contains(string(source), "admin.EnrichLayoutViewContextWithChrome(") {
+		t.Fatal("central quickstart UI provider must project route presentation through typed page chrome")
+	}
+}
+
+func TestModuleContextProvidersUseTypedPageChromeProjection(t *testing.T) {
+	for _, path := range []string{
+		"../../admin/debug_view.go",
+		"../../admin/media_module.go",
+		"../../admin/preferences_ui.go",
+		"../../admin/boot_bindings_dashboard.go",
+	} {
+		source, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read module UI provider %s: %v", path, err)
+		}
+		if !strings.Contains(string(source), "LayoutViewContextWithChrome") {
+			t.Errorf("module UI provider %s must project presentation through typed page chrome", path)
+		}
+	}
+}
+
 func TestAuthenticatedTemplatesUseCanonicalShellContract(t *testing.T) {
 	tplFS := Templates()
 	for path := range authenticatedTemplateInventory {
@@ -223,5 +251,30 @@ func TestAuthenticatedTemplatesUseCanonicalShellContract(t *testing.T) {
 	}
 	if strings.Join(headerOwners, ",") != "layout.html,partials/admin-page-header.html" {
 		t.Fatalf("canonical header owners drift: got %v", headerOwners)
+	}
+}
+
+func TestCompatibilityPageHeaderAliasesAreNotUsedByPackagedTemplates(t *testing.T) {
+	aliases := []string{
+		"partials/admin-page-header.html",
+		"partials/admin-page-heading.html",
+	}
+	tplFS := Templates()
+	if err := fs.WalkDir(tplFS, ".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil || entry == nil || entry.IsDir() || !strings.HasSuffix(path, ".html") {
+			return walkErr
+		}
+		content, err := fs.ReadFile(tplFS, path)
+		if err != nil {
+			return err
+		}
+		for _, alias := range aliases {
+			if path != alias && strings.Contains(string(content), alias) {
+				t.Errorf("%s must not include compatibility page-header alias %s", path, alias)
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("walk packaged templates: %v", err)
 	}
 }

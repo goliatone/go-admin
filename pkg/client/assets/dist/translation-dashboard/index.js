@@ -1,11 +1,11 @@
 import { escapeAttribute as d, escapeHTML as l } from "../shared/html.js";
-import { t as z } from "../chunks/icon-renderer-DauoBn1n.js";
+import { t as H } from "../chunks/icon-renderer-DauoBn1n.js";
 import { readHTTPError as oe } from "../shared/transport/http-client.js";
 import { extractStructuredError as le } from "../toast/error-helpers.js";
 import { buildEndpointURL as de, readLocationSearchParams as ce } from "../shared/query-state/url-state.js";
 import { t as ue } from "../chunks/stateful-controller-BhTsWevz.js";
-import { asNumberish as y, asRecord as h, asString as r } from "../shared/coercion.js";
-import { A as H, C as $, D as F, E as P, F as fe, N as he, O as U, P as pe, R as ge, T as G, a as S, d as be, f as T, g as me, i as ye, k as E, l as xe, n as I, o as ve, r as K, s as $e, t as V, u as w, ut as X, y as we } from "../chunks/translation-shared-CAzSmGhq.js";
+import { asNumberish as y, asRecord as p, asString as r } from "../shared/coercion.js";
+import { A as z, C as $, D as F, E as P, F as he, N as pe, O as U, P as fe, R as ge, T as G, a as S, d as be, f as T, g as me, i as ye, k as E, l as xe, n as I, o as ve, r as K, s as $e, t as V, u as w, ut as X, y as we } from "../chunks/translation-shared-Dy-TBOmE.js";
 import { normalizeNumberRecord as D, normalizeStringRecord as k } from "../shared/record-normalization.js";
 import { c as L, s as ke } from "../chunks/ui-states-DDJEdXAd.js";
 var v = class extends Error {
@@ -53,7 +53,7 @@ function Y(t) {
   };
 }
 function _e(t) {
-  const e = h(t), a = r(e.key);
+  const e = p(t), a = r(e.key);
   return a ? {
     key: a,
     label: r(e.label),
@@ -66,9 +66,9 @@ function _e(t) {
   } : null;
 }
 function Te(t) {
-  const e = h(t), a = r(e.id);
+  const e = p(t), a = r(e.id);
   if (!a) return null;
-  const s = h(e.alert);
+  const s = p(e.alert);
   return {
     id: a,
     label: r(e.label),
@@ -85,7 +85,7 @@ function Te(t) {
   };
 }
 function Le(t) {
-  const e = h(t), a = r(e.code);
+  const e = p(t), a = r(e.code);
   return a ? {
     code: a,
     label: r(e.label) || m(a),
@@ -94,7 +94,7 @@ function Le(t) {
   } : null;
 }
 function Ee(t) {
-  const e = h(t), a = r(e.state);
+  const e = p(t), a = r(e.state);
   if (!(!a || a !== "available" && a !== "unavailable" && a !== "degraded"))
     return {
       state: a,
@@ -102,19 +102,19 @@ function Ee(t) {
     };
 }
 function Ce(t) {
-  const e = h(t);
+  const e = p(t);
   if (Object.keys(e).length === 0) return null;
   const a = {};
-  for (const [f, u] of Object.entries(h(e.links))) {
+  for (const [h, u] of Object.entries(p(e.links))) {
     const c = Y(u);
-    c && (a[f] = c);
+    c && (a[h] = c);
   }
-  const s = b(e.blocker_codes, (f) => r(f) || null), n = {};
-  for (const [f, u] of Object.entries(h(e.blocker_labels))) {
+  const s = b(e.blocker_codes, (h) => r(h) || null), n = {};
+  for (const [h, u] of Object.entries(p(e.blocker_labels))) {
     const c = r(u);
-    c && (n[f] = c);
+    c && (n[h] = c);
   }
-  const i = b(e.reason_breakdown, Le), o = b(e.affected_locales, (f) => r(f) || null), p = Ee(e.reason_data);
+  const i = b(e.reason_breakdown, Le), o = b(e.affected_locales, (h) => r(h) || null), f = Ee(e.reason_data);
   return {
     ...e,
     links: a,
@@ -122,11 +122,11 @@ function Ce(t) {
     blockerLabels: Object.keys(n).length > 0 ? n : void 0,
     reasonBreakdown: i.length > 0 ? i : void 0,
     affectedLocales: o.length > 0 ? o : void 0,
-    reasonData: p
+    reasonData: f
   };
 }
 function Ae(t, e = "") {
-  const a = h(t), s = b(a.rows, Ce);
+  const a = p(t), s = b(a.rows, Ce);
   return {
     id: r(a.id) || e,
     label: r(a.label) || e,
@@ -136,7 +136,7 @@ function Ae(t, e = "") {
   };
 }
 function W(t) {
-  const e = h(t), a = r(e.id);
+  const e = p(t), a = r(e.id);
   return a ? {
     id: a,
     title: r(e.title),
@@ -148,10 +148,10 @@ function W(t) {
   } : null;
 }
 function Q(t) {
-  const e = h(t), a = r(e.id);
+  const e = p(t), a = r(e.id);
   if (!a) return null;
   const s = {};
-  for (const [n, i] of Object.entries(h(e.drilldown_links))) {
+  for (const [n, i] of Object.entries(p(e.drilldown_links))) {
     const o = _e(i);
     o && (s[n] = o);
   }
@@ -171,8 +171,8 @@ function Q(t) {
   };
 }
 function Re(t) {
-  const e = h(t), a = {};
-  for (const [s, n] of Object.entries(h(e.query_models))) {
+  const e = p(t), a = {};
+  for (const [s, n] of Object.entries(p(e.query_models))) {
     const i = Q(n);
     i && (a[s] = i);
   }
@@ -186,7 +186,7 @@ function Re(t) {
   };
 }
 function Se(t) {
-  const e = h(t), a = r(e.code);
+  const e = p(t), a = r(e.code);
   return a ? {
     state: O(e.state),
     code: a,
@@ -201,12 +201,12 @@ function Ie(t, e) {
   return e.cardIds.forEach((s, n) => a.set(s, n)), [...t].sort((s, n) => (a.get(s.id) ?? Number.MAX_SAFE_INTEGER) - (a.get(n.id) ?? Number.MAX_SAFE_INTEGER));
 }
 function De(t) {
-  const e = h(t), a = h(e.data), s = h(e.meta), n = Re(s.contracts), i = Ie(b(a.cards, Te), n), o = {};
-  for (const [f, u] of Object.entries(h(a.tables))) o[f] = Ae(u, f);
-  const p = { ...n.queryModels };
-  for (const [f, u] of Object.entries(h(s.query_models))) {
+  const e = p(t), a = p(e.data), s = p(e.meta), n = Re(s.contracts), i = Ie(b(a.cards, Te), n), o = {};
+  for (const [h, u] of Object.entries(p(a.tables))) o[h] = Ae(u, h);
+  const f = { ...n.queryModels };
+  for (const [h, u] of Object.entries(p(s.query_models))) {
     const c = Q(u);
-    c && (p[f] = c);
+    c && (f[h] = c);
   }
   return {
     data: {
@@ -222,27 +222,27 @@ function De(t) {
       refreshIntervalMs: y(s.refresh_interval_ms, 3e4),
       latencyTargetMs: y(s.latency_target_ms, 0),
       degraded: s.degraded === !0,
-      degradedReasons: b(s.degraded_reasons, (f) => {
-        const u = h(f), c = r(u.component), x = r(u.message);
+      degradedReasons: b(s.degraded_reasons, (h) => {
+        const u = p(h), c = r(u.component), x = r(u.message);
         return !c && !x ? null : {
           component: c,
           message: x
         };
       }),
-      familyReport: h(s.family_report),
+      familyReport: p(s.family_report),
       scope: k(s.scope, { omitEmptyValues: !0 }),
-      metrics: b(s.metrics, (f) => {
-        const u = h(f), c = r(u.key);
+      metrics: b(s.metrics, (h) => {
+        const u = p(h), c = r(u.key);
         return c ? {
           key: c,
           unit: r(u.unit),
           sloP95Ms: u.slo_p95_ms === void 0 ? null : y(u.slo_p95_ms)
         } : null;
       }),
-      queryModels: p,
+      queryModels: f,
       contracts: {
         ...n,
-        queryModels: p
+        queryModels: f
       }
     }
   };
@@ -388,13 +388,13 @@ function M(t, e) {
 }
 function N(t) {
   const e = _[t]?.icon;
-  return e ? z(e, {
+  return e ? H(e, {
     size: "16px",
     extraClass: "text-current"
   }) : "";
 }
 function g(t, e = "", a = "16px") {
-  return z(t, {
+  return H(t, {
     size: a,
     extraClass: `text-current ${e}`.trim()
   });
@@ -418,12 +418,12 @@ function ee(t) {
     </button>
   `;
 }
-function ze(t) {
+function He(t) {
   if (t < 1e3) return `${t}ms`;
   const e = Math.floor(t / 1e3);
   return e < 60 ? `${e}s` : `${Math.floor(e / 60)}m`;
 }
-function He(t) {
+function ze(t) {
   return t <= 0 ? "N/A" : t < 1e3 ? `${t}ms` : `${(t / 1e3).toFixed(1)}s`;
 }
 function te(t, e, a = "") {
@@ -434,7 +434,7 @@ function ae(t, e, a) {
   const s = a.filter((i) => i.href);
   if (s.length === 0) return '<span class="text-gray-400">No drill-downs</span>';
   const n = s.map((i) => `
-        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+        <a class="action-menu__item"
            data-action-menu-item
            data-action="${d(i.key)}"
            role="menuitem"
@@ -443,9 +443,9 @@ function ae(t, e, a) {
           <span>${l(i.label)}</span>
         </a>`).join("");
   return `
-    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${d(e)}" data-translation-row-actions>
+    <div class="action-menu action-menu--right" data-action-menu data-row-id="${d(e)}" data-translation-row-actions>
       <button type="button"
-              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              class="action-menu__trigger"
               data-action-menu-trigger
               aria-label="Actions for ${d(t)}"
               aria-haspopup="true"
@@ -454,7 +454,7 @@ function ae(t, e, a) {
           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
         </svg>
       </button>
-      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+      <div class="action-menu__content hidden"
            data-action-menu-content
            role="menu"
            aria-orientation="vertical">${n}
@@ -528,7 +528,7 @@ function Ge(t, e) {
 function Ke(t, e, a, s) {
   const n = t.filter((c) => !s.has(c.code));
   if (n.length === 0) return "";
-  const i = Ue(n), o = n.reduce((c, x) => (c[x.state] = (c[x.state] || 0) + 1, c), {}), p = Object.entries(o).filter(([, c]) => c > 0).map(([c, x]) => `${x} ${c}`).join(", "), f = n.map((c) => {
+  const i = Ue(n), o = n.reduce((c, x) => (c[x.state] = (c[x.state] || 0) + 1, c), {}), f = Object.entries(o).filter(([, c]) => c > 0).map(([c, x]) => `${x} ${c}`).join(", "), h = n.map((c) => {
     const x = e.find((ie) => ie.id === c.cardId), ne = x ? Z(c.cardId, x.label) : m(c.cardId);
     return `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-white/60 text-gray-700" data-alert-card="${d(c.cardId)}">${l(ne)}</span>`;
   }).join(""), u = a ? "rotate-180" : "";
@@ -543,8 +543,8 @@ function Ke(t, e, a, s) {
               aria-expanded="${a}">
         <div class="flex items-center gap-3 flex-wrap min-w-0 flex-1">
           ${g(T, "h-5 w-5 flex-shrink-0", "20px")}
-          <span class="text-sm font-semibold">${l(p)}</span>
-          ${a ? "" : `<div class="flex items-center gap-1.5 flex-wrap">${f}</div>`}
+          <span class="text-sm font-semibold">${l(f)}</span>
+          ${a ? "" : `<div class="flex items-center gap-1.5 flex-wrap">${h}</div>`}
         </div>
         ${g(K, `h-5 w-5 flex-shrink-0 transition-transform ${u}`, "20px")}
       </button>
@@ -626,8 +626,8 @@ function Xe(t) {
     };
   });
   for (const [i, o] of Object.entries(a)) {
-    const p = o.toLowerCase();
-    e.includes(i) || s.has(p) || (s.add(p), n.push({
+    const f = o.toLowerCase();
+    e.includes(i) || s.has(f) || (s.add(f), n.push({
       code: i,
       label: o
     }));
@@ -706,7 +706,7 @@ function j(t, e = [], a = {}) {
   const s = t.id === "top_overdue_assignments" ? Ve(t) : Qe(t), n = A(t.id, t.label), i = {
     top_overdue_assignments: "translations.dashboard.overdue_triage",
     blocked_families: "translations.dashboard.publish_blockers"
-  }[t.id], o = i ? e.find((p) => p.id === i) : void 0;
+  }[t.id], o = i ? e.find((f) => f.id === i) : void 0;
   return a.embedded ? `
       <div data-dashboard-table="${d(t.id)}">
         <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 bg-white">
@@ -755,32 +755,32 @@ function Je(t, e, a) {
   if (s.length === 0) return "";
   if (s.length === 1) return `<section class="space-y-4">${j(t[s[0]], e)}</section>`;
   const n = s.map((o) => {
-    const p = je[o] || {
+    const f = je[o] || {
       label: A(o, o),
       shortLabel: A(o, o),
       icon: ""
-    }, f = o === a;
+    }, h = o === a;
     return `
         <button type="button"
-                class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${f ? "text-blue-600 border-blue-600" : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"}"
+                class="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${h ? "text-blue-600 border-blue-600" : "text-gray-600 border-transparent hover:text-gray-900 hover:border-gray-300"}"
                 data-table-tab="${d(o)}"
                 role="tab"
-                aria-selected="${f}"
+                aria-selected="${h}"
                 aria-controls="table-panel-${d(o)}">
-          ${p.icon ? g(p.icon, "h-4 w-4", "16px") : ""}
-          <span>${l(p.shortLabel)}</span>
-          <span class="sr-only">${l(p.label)}</span>
-          <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${f ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}">
+          ${f.icon ? g(f.icon, "h-4 w-4", "16px") : ""}
+          <span>${l(f.shortLabel)}</span>
+          <span class="sr-only">${l(f.label)}</span>
+          <span class="ml-1 px-2 py-0.5 text-xs rounded-full ${h ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}">
             ${t[o]?.total || 0}
           </span>
         </button>
       `;
   }).join(""), i = s.map((o) => {
-    const p = o === a;
+    const f = o === a;
     return `
         <div id="table-panel-${d(o)}"
              role="tabpanel"
-             ${p ? "" : "hidden"}
+             ${f ? "" : "hidden"}
              data-table-panel="${d(o)}">
           ${j(t[o], e, { embedded: !0 })}
         </div>
@@ -834,15 +834,15 @@ function tt(t, e = !1, a = !1) {
   const s = t?.meta.generatedAt ? new Date(t.meta.generatedAt).toLocaleString() : "Unavailable", n = t ? Object.entries(t.meta.scope).filter(([, u]) => u).filter(([u]) => u !== "actor_id").map(([u, c]) => ({
     key: m(u),
     value: String(c)
-  })) : [], i = t ? ze(t.meta.refreshIntervalMs) : "N/A", o = t ? He(t.meta.latencyTargetMs) : "N/A", p = t?.meta.channel || "default", f = a ? "rotate-180" : "";
+  })) : [], i = t ? He(t.meta.refreshIntervalMs) : "N/A", o = t ? ze(t.meta.latencyTargetMs) : "N/A", f = t?.meta.channel || "default", h = a ? "rotate-180" : "";
   return `
     <section class="${$} shadow-sm overflow-hidden" data-dashboard-toolbar="true">
       <div class="px-5 py-4">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p class="${pe}">Manager Monitoring</p>
-            <h2 class="${fe} text-xl mt-2">Queue health and publish blockers</h2>
-            <p class="${he} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+            <p class="${fe}">Manager Monitoring</p>
+            <h2 class="${he} text-xl mt-2">Queue health and publish blockers</h2>
+            <p class="${pe} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <span class="text-xs uppercase tracking-wider text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
@@ -861,7 +861,7 @@ function tt(t, e = !1, a = !1) {
             <div class="flex items-center gap-2 flex-wrap">
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Dashboard channel">
                 ${g(xe, "h-3 w-3 text-gray-400", "12px")}
-                <span>${l(p)}</span>
+                <span>${l(f)}</span>
               </span>
               <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-600 bg-white rounded border border-gray-200" title="Refresh interval: ${l(i)}">
                 ${g(S, "h-3 w-3 text-gray-400", "12px")}
@@ -879,14 +879,14 @@ function tt(t, e = !1, a = !1) {
                     aria-label="Toggle technical details">
               ${g(w, "h-3.5 w-3.5", "14px")}
               <span>Details</span>
-              ${g(K, `h-3 w-3 transition-transform ${f}`, "12px")}
+              ${g(K, `h-3 w-3 transition-transform ${h}`, "12px")}
             </button>
           </div>
           <div class="${a ? "mt-3" : "hidden"}" data-meta-content="true">
             <dl class="border-t border-gray-200 pt-3 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
               <div>
                 <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Channel</dt>
-                <dd class="mt-1 text-sm font-medium text-gray-900">${l(p)}</dd>
+                <dd class="mt-1 text-sm font-medium text-gray-900">${l(f)}</dd>
               </div>
               <div>
                 <dt class="text-xs font-medium uppercase tracking-wider text-gray-500">Refresh Interval</dt>
@@ -942,7 +942,7 @@ function st(t) {
     bodyClass: "",
     contentClass: "",
     title: "Latest refresh failed",
-    titleClass: H,
+    titleClass: z,
     message: t instanceof Error ? t.message : "Failed to load translation dashboard",
     messageClass: `${E} mt-2`,
     metadata: s,
@@ -959,7 +959,7 @@ function rt(t) {
     bodyClass: "",
     contentClass: "",
     title: "Translation dashboard unavailable",
-    titleClass: H,
+    titleClass: z,
     heading: "Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.",
     headingTag: "p",
     headingClass: `${E} mt-2`,

@@ -40,5 +40,15 @@ test('public facade is a zero-behavior selected re-export', async () => {
   const publicModal = await import('../dist-public/components/modal.js');
   const embeddedModal = await import('../dist/components/modal.js');
   assert.deepEqual(Object.keys(publicModal).sort(), Object.keys(embeddedModal).sort());
-  assert.deepEqual(Object.keys(publicModal).sort(), ['ConfirmModal', 'Modal', 'TextPromptModal']);
+  assert.deepEqual(Object.keys(publicModal).sort(), ['ConfirmModal', 'MODAL_ANATOMY', 'Modal', 'TextPromptModal']);
+  assert.deepEqual(publicModal.MODAL_ANATOMY, {
+    root: 'go-admin-modal',
+    backdrop: 'go-admin-modal__backdrop',
+    container: 'go-admin-modal__container',
+    surface: 'go-admin-modal__surface',
+    header: 'go-admin-modal__header',
+    body: 'go-admin-modal__body',
+    footer: 'go-admin-modal__footer',
+    close: 'go-admin-modal__close',
+  });
 });

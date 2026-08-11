@@ -9,6 +9,9 @@ var T = "[data-action-menu], [data-dropdown]", B = "[data-action-menu-trigger], 
   "left",
   "top"
 ], tt = [
+  "--admin-action-menu-surface",
+  "--admin-action-menu-text",
+  "--admin-action-menu-border",
   "--action-menu-z-index",
   "--action-menu-width",
   "--action-menu-min-width",
@@ -59,19 +62,19 @@ function nt(e) {
 function M(e, t) {
   return "contains" in e && typeof e.contains == "function" ? e.contains(t) : !1;
 }
-function rt(e, t) {
+function ot(e, t) {
   const i = /* @__PURE__ */ new Map();
-  return t.forEach((r) => {
-    i.set(r, {
-      value: e.style.getPropertyValue(r),
-      priority: e.style.getPropertyPriority(r)
+  return t.forEach((o) => {
+    i.set(o, {
+      value: e.style.getPropertyValue(o),
+      priority: e.style.getPropertyPriority(o)
     });
   }), i;
 }
-function ot(e, t) {
-  t.forEach(({ value: i, priority: r }, n) => {
+function rt(e, t) {
+  t.forEach(({ value: i, priority: o }, n) => {
     if (i) {
-      e.style.setProperty(n, i, r);
+      e.style.setProperty(n, i, o);
       return;
     }
     e.style.removeProperty(n);
@@ -79,31 +82,31 @@ function ot(e, t) {
 }
 function q(e) {
   const t = R.get(e);
-  t && (R.delete(e), ot(e, t));
+  t && (R.delete(e), rt(e, t));
 }
 function it(e) {
   const t = /* @__PURE__ */ new Map(), i = e.ownerDocument.defaultView;
   if (!i) return t;
-  const r = i.getComputedStyle(e), n = new Set(tt);
-  for (let s = 0; s < r.length; s += 1) {
-    const a = r.item(s);
+  const o = i.getComputedStyle(e), n = new Set(tt);
+  for (let s = 0; s < o.length; s += 1) {
+    const a = o.item(s);
     a.startsWith("--") && n.add(a);
   }
   return n.forEach((s) => {
-    const a = r.getPropertyValue(s).trim();
+    const a = o.getPropertyValue(s).trim();
     a && t.set(s, a);
   }), et.forEach((s) => {
-    const a = r.getPropertyValue(s).trim();
+    const a = o.getPropertyValue(s).trim();
     a && t.set(s, a);
   }), t;
 }
 function st(e, t) {
-  t.forEach((i, r) => {
-    e.style.setProperty(r, i);
+  t.forEach((i, o) => {
+    e.style.setProperty(o, i);
   });
 }
 function at(e, t = {}) {
-  const i = t.containerSelector || T, r = t.menuSelector || I, n = e.closest(i), s = _.get(e) ?? n?.querySelector(r) ?? null;
+  const i = t.containerSelector || T, o = t.menuSelector || I, n = e.closest(i), s = _.get(e) ?? n?.querySelector(o) ?? null;
   return !n || !s ? null : {
     container: n,
     trigger: e,
@@ -111,19 +114,19 @@ function at(e, t = {}) {
   };
 }
 function ct(e, t) {
-  const { container: i, trigger: r, menu: n } = e;
+  const { container: i, trigger: o, menu: n } = e;
   if (v.has(n)) return;
   const s = n.ownerDocument, a = n.parentNode;
   if (!s.body || !a) return;
   const g = it(n);
   v.set(n, {
     container: i,
-    trigger: r,
+    trigger: o,
     root: t,
     parent: a,
     nextSibling: n.nextSibling,
     inlineStyle: n.getAttribute("style")
-  }), P.add(n), _.set(r, n), s.body.appendChild(n), st(n, g);
+  }), P.add(n), _.set(o, n), s.body.appendChild(n), st(n, g);
 }
 function lt(e) {
   const t = v.get(e);
@@ -142,15 +145,15 @@ function lt(e) {
 function L(e, t = {}) {
   const i = t.hiddenClass || U;
   e.classList.add(i);
-  const r = v.get(e), n = r?.container ?? e.closest(t.containerSelector || T);
-  (r?.trigger ?? n?.querySelector(t.triggerSelector || B))?.setAttribute("aria-expanded", "false"), q(e), lt(e);
+  const o = v.get(e), n = o?.container ?? e.closest(t.containerSelector || T);
+  (o?.trigger ?? n?.querySelector(t.triggerSelector || B))?.setAttribute("aria-expanded", "false"), q(e), lt(e);
 }
 function dt(e = document, t = {}) {
-  const i = t.menuSelector || I, r = new Set(Array.from(e.querySelectorAll(i)));
+  const i = t.menuSelector || I, o = new Set(Array.from(e.querySelectorAll(i)));
   P.forEach((n) => {
     const s = v.get(n);
-    s && (s.root === e || M(e, s.trigger)) && r.add(n);
-  }), r.forEach((n) => {
+    s && (s.root === e || M(e, s.trigger)) && o.add(n);
+  }), o.forEach((n) => {
     L(n, t);
   });
 }
@@ -169,53 +172,53 @@ function C(e) {
     }
 }
 function ft(e, t, i) {
-  const r = new Set(Array.from(e.querySelectorAll(t)));
+  const o = new Set(Array.from(e.querySelectorAll(t)));
   return P.forEach((n) => {
     const s = v.get(n);
-    s && (s.root === e || M(e, s.trigger)) && r.add(n);
-  }), Array.from(r).find((n) => !n.classList.contains(i)) ?? null;
+    s && (s.root === e || M(e, s.trigger)) && o.add(n);
+  }), Array.from(o).find((n) => !n.classList.contains(i)) ?? null;
 }
 function gt({ trigger: e, menu: t }) {
-  q(t), R.set(t, rt(t, Z));
-  const i = e.getBoundingClientRect(), r = e.ownerDocument.defaultView ?? window, n = r.visualViewport, s = n?.offsetLeft ?? 0, a = n?.offsetTop ?? 0, g = n?.width ?? r.innerWidth, f = n?.height ?? r.innerHeight, h = 10, S = 8, w = Math.max(0, g - 20), d = Math.max(0, f - 20), o = r.getComputedStyle(t), c = (J, Q) => {
+  q(t), R.set(t, ot(t, Z));
+  const i = e.getBoundingClientRect(), o = e.ownerDocument.defaultView ?? window, n = o.visualViewport, s = n?.offsetLeft ?? 0, a = n?.offsetTop ?? 0, g = n?.width ?? o.innerWidth, f = n?.height ?? o.innerHeight, h = 10, S = 8, w = Math.max(0, g - 20), d = Math.max(0, f - 20), r = o.getComputedStyle(t), c = (J, Q) => {
     const N = Number.parseFloat(J);
     return Number.isFinite(N) ? N : Q;
-  }, u = c(o.minWidth, 192), m = c(o.maxWidth, w), l = c(o.maxHeight, d), p = Math.min(m, w), b = s + g, A = a + f, E = Math.max(0, A - h - i.bottom - S), x = Math.max(0, i.top - a - h - S), y = Math.min(t.scrollHeight || t.offsetHeight || Math.min(300, d), l, d), k = y > E && x > E, D = Math.min(l, d, k ? x : E);
+  }, u = c(r.minWidth, 192), m = c(r.maxWidth, w), l = c(r.maxHeight, d), p = Math.min(m, w), b = s + g, A = a + f, E = Math.max(0, A - h - i.bottom - S), x = Math.max(0, i.top - a - h - S), y = Math.min(t.scrollHeight || t.offsetHeight || Math.min(300, d), l, d), k = y > E && x > E, D = Math.min(l, d, k ? x : E);
   t.style.position = "fixed", t.style.right = "auto", t.style.bottom = "auto", t.style.margin = "0", t.style.minWidth = `${Math.min(u, p)}px`, t.style.maxWidth = `${p}px`, t.style.maxHeight = `${D}px`;
   const H = Math.min(t.offsetWidth || 224, w), O = Math.min(t.offsetHeight || y, D), z = i.right - H, W = s + h, $ = Math.max(W, b - H - h), G = Math.min(Math.max(W, z), $), K = k ? i.top - O - S : i.bottom + S, V = a + h, Y = Math.max(V, A - O - h), j = Math.min(Math.max(V, K), Y);
   t.style.left = `${G}px`, t.style.top = `${j}px`;
 }
 function ht(e = document, t = {}) {
-  const i = t.triggerSelector || B, r = t.itemSelector || X, n = t.hiddenClass || U, s = t.menuSelector || I, a = t.positionMenu, g = e.nodeType === 9 ? e : e.ownerDocument || document, f = [], h = {
+  const i = t.triggerSelector || B, o = t.itemSelector || X, n = t.hiddenClass || U, s = t.menuSelector || I, a = t.positionMenu, g = e.nodeType === 9 ? e : e.ownerDocument || document, f = [], h = {
     closeAll: () => dt(e, t),
     destroy: () => {
       for (h.closeAll(); f.length > 0; ) f.pop()?.();
     }
   };
-  e.querySelectorAll(s).forEach((o) => {
-    o.classList.contains(n) || o.classList.add(n);
+  e.querySelectorAll(s).forEach((r) => {
+    r.classList.contains(n) || r.classList.add(n);
   });
-  const S = (o) => {
-    const c = nt(o);
+  const S = (r) => {
+    const c = nt(r);
     if (!c) return;
     const u = c.closest(i);
     if (u && M(e, u)) {
       const y = at(u, t);
       if (!y) return;
-      if (o.stopPropagation(), !y.menu.classList.contains(n)) {
+      if (r.stopPropagation(), !y.menu.classList.contains(n)) {
         L(y.menu, t);
         return;
       }
       h.closeAll(), y.menu.classList.remove(n), y.trigger.setAttribute("aria-expanded", "true"), t.portal && ct(y, e), a && a({
         ...y,
         opening: !0
-      }), C(F(y.menu, r)[0]);
+      }), C(F(y.menu, o)[0]);
       return;
     }
-    const m = c.closest(r), l = m?.closest(s) ?? null, p = l ? v.get(l) : void 0, b = !!(l && (M(e, l) || p?.root === e));
+    const m = c.closest(o), l = m?.closest(s) ?? null, p = l ? v.get(l) : void 0, b = !!(l && (M(e, l) || p?.root === e));
     if (m && b) {
       if (ut(m)) {
-        o.preventDefault(), o.stopPropagation();
+        r.preventDefault(), r.stopPropagation();
         return;
       }
       L(l, t);
@@ -225,22 +228,22 @@ function ht(e = document, t = {}) {
     if (A && c.closest(A)) return;
     const E = c.closest(s), x = E ? v.get(E) : void 0;
     E && (M(e, E) || x?.root === e) || h.closeAll();
-  }, w = (o) => {
+  }, w = (r) => {
     const c = ft(e, s, n);
     if (!c) return;
-    const u = F(c, r), m = g.activeElement, l = m ? u.indexOf(m) : -1;
-    if (o.key === "Escape") {
+    const u = F(c, o), m = g.activeElement, l = m ? u.indexOf(m) : -1;
+    if (r.key === "Escape") {
       const b = v.get(c)?.trigger ?? c.closest(t.containerSelector || T)?.querySelector(i) ?? null;
-      o.preventDefault(), o.stopPropagation(), L(c, t), b?.isConnected && C(b);
+      r.preventDefault(), r.stopPropagation(), L(c, t), b?.isConnected && C(b);
       return;
     }
     let p = null;
-    o.key === "ArrowDown" ? p = l < 0 ? 0 : (l + 1) % u.length : o.key === "ArrowUp" ? p = l < 0 ? u.length - 1 : (l - 1 + u.length) % u.length : o.key === "Home" ? p = 0 : o.key === "End" && (p = u.length - 1), p !== null && u.length > 0 && (o.preventDefault(), o.stopPropagation(), C(u[p]));
+    r.key === "ArrowDown" ? p = l < 0 ? 0 : (l + 1) % u.length : r.key === "ArrowUp" ? p = l < 0 ? u.length - 1 : (l - 1 + u.length) % u.length : r.key === "Home" ? p = 0 : r.key === "End" && (p = u.length - 1), p !== null && u.length > 0 && (r.preventDefault(), r.stopPropagation(), C(u[p]));
   };
   g.addEventListener("click", S), g.addEventListener("keydown", w), f.push(() => g.removeEventListener("click", S)), f.push(() => g.removeEventListener("keydown", w));
   const d = g.defaultView;
   if (d && (t.portal || a)) {
-    const o = () => h.closeAll(), c = (u) => {
+    const r = () => h.closeAll(), c = (u) => {
       const m = u.target;
       if (m && typeof m.closest == "function") {
         const l = m.closest(s), p = l ? v.get(l) : void 0;
@@ -248,11 +251,11 @@ function ht(e = document, t = {}) {
       }
       h.closeAll();
     };
-    d.addEventListener("pagehide", o), d.addEventListener("pageshow", o), d.addEventListener("resize", o), d.visualViewport?.addEventListener("resize", o), d.visualViewport?.addEventListener("scroll", o), g.addEventListener("scroll", c, !0), f.push(() => d.removeEventListener("pagehide", o)), f.push(() => d.removeEventListener("pageshow", o)), f.push(() => d.removeEventListener("resize", o)), f.push(() => d.visualViewport?.removeEventListener("resize", o)), f.push(() => d.visualViewport?.removeEventListener("scroll", o)), f.push(() => g.removeEventListener("scroll", c, !0));
+    d.addEventListener("pagehide", r), d.addEventListener("pageshow", r), d.addEventListener("resize", r), d.visualViewport?.addEventListener("resize", r), d.visualViewport?.addEventListener("scroll", r), g.addEventListener("scroll", c, !0), f.push(() => d.removeEventListener("pagehide", r)), f.push(() => d.removeEventListener("pageshow", r)), f.push(() => d.removeEventListener("resize", r)), f.push(() => d.visualViewport?.removeEventListener("resize", r)), f.push(() => d.visualViewport?.removeEventListener("scroll", r)), f.push(() => g.removeEventListener("scroll", c, !0));
   }
   if (t.signal) {
-    const o = () => h.destroy();
-    t.signal.addEventListener("abort", o, { once: !0 }), f.push(() => t.signal?.removeEventListener("abort", o));
+    const r = () => h.destroy();
+    t.signal.addEventListener("abort", r, { once: !0 }), f.push(() => t.signal?.removeEventListener("abort", r));
   }
   return h;
 }

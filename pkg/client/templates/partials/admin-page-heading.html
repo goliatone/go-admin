@@ -1,3 +1,9 @@
+{% comment %}
+  Compatibility alias only. New authenticated templates must use layout.html's
+  page-header blocks. Retain for at least two minor releases after typed page
+  chrome publication; remove only after a downstream usage audit and migration
+  note.
+{% endcomment %}
 <div>
   {% include "partials/breadcrumbs.html" with breadcrumbs=breadcrumbs %}
   {% if page_heading_pretitle %}

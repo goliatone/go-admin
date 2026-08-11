@@ -151,26 +151,6 @@ const translationPanelStorageKey = `go-admin:translation-panel-expanded:${panelN
 let schemaActionBuilder = null;
 let cachedSchemaActions = null;
 
-const translationQueueSharedStatusVariants = new Set([
-  'active',
-  'inactive',
-  'suspended',
-  'disabled',
-  'pending',
-  'published',
-  'draft',
-  'archived',
-  'deprecated',
-  'breaking',
-  'migrating',
-  'migrated',
-  'failed',
-  'required',
-  'readonly',
-  'hidden',
-  'unknown'
-]);
-
 const translationQueueStatusLabels = {
   in_progress: 'In Progress',
   assigned: 'Assigned',
@@ -228,9 +208,6 @@ function renderTranslationQueueStatusChip(value) {
   const normalized = normalizeQueueStatus(value);
   if (!normalized) {
     return '<span class="text-gray-400">-</span>';
-  }
-  if (translationQueueSharedStatusVariants.has(normalized)) {
-    return `<span class="status-badge status-${normalized}">${escapeHtml(formatQueueStatusLabel(normalized))}</span>`;
   }
   return renderVocabularyStatusBadge(normalized, {
     domain: 'queue',

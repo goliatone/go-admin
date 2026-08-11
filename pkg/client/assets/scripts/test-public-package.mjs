@@ -86,9 +86,15 @@ void resolveApplicationWidgetRenderer('sample.widget.summary');
 unregister();
 `);
   writeFileSync(join(temporary, 'consumer.mjs'), `
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { ConfirmModal, Modal, TextPromptModal } from '@goliatone/go-admin-client/components/modal';
+const componentCSS = fileURLToPath(import.meta.resolve('@goliatone/go-admin-client/components.css'));
 if (typeof Modal !== 'function' || typeof ConfirmModal !== 'function' || typeof TextPromptModal !== 'function') {
   throw new Error('modal runtime exports are unavailable');
+}
+if (!existsSync(componentCSS) || !readFileSync(componentCSS, 'utf8').includes('.go-admin-modal__surface')) {
+  throw new Error('public component stylesheet export is unavailable');
 }
 `);
 

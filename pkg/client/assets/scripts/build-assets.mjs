@@ -12,6 +12,10 @@ import {
 } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  composeAdminStylesheet,
+  writeLegacyComponentStylesheet,
+} from './component-styles.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -86,9 +90,12 @@ function stageRuntimeAssets() {
   run('tsc', ['--emitDeclarationOnly', '--outDir', distTypesDir, '--declarationDir', distTypesDir]);
 
   run('tailwindcss', ['-i', './input.css', '-o', './output.css', '--minify']);
+  composeAdminStylesheet(root, resolve(root, 'output.css'));
   copyFile(resolve(root, 'output.css'), resolve(distStagingDir, 'output.css'));
 
-  copyFile(resolve(root, 'src/datatable/actions.css'), resolve(distStagingDir, 'styles/datatable-actions.css'));
+  // Keep the legacy DataGrid stylesheet URL as a generated compatibility copy
+  // of the single canonical component source.
+  writeLegacyComponentStylesheet(root, resolve(distStagingDir, 'styles/datatable-actions.css'));
   writeConcatenatedFile(resolve(distStagingDir, 'styles/debug.css'), [
     resolve(root, 'src/styles/debug/console.css'),
     resolve(root, 'src/styles/debug/prism-catppuccin.css'),

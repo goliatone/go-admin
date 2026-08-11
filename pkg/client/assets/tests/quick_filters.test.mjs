@@ -5,6 +5,22 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { importDatatableModule } from './helpers/load-datatable-dist.mjs';
+
+const {
+  DEFAULT_TRANSLATION_QUICK_FILTERS: canonicalDefaults,
+  QuickFilters: CanonicalQuickFilters,
+  initQuickFilters: initCanonicalQuickFilters,
+  renderQuickFiltersHTML: renderCanonicalQuickFiltersHTML,
+} = await importDatatableModule();
+
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch (_error) {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
 
 // ============================================================================
 // TX-036: Quick Filters Tests
@@ -99,6 +115,65 @@ describe('DEFAULT_TRANSLATION_QUICK_FILTERS', () => {
     assert.equal(missing.icon, '○', 'Missing should have empty circle');
     assert.equal(incomplete.icon, '◐', 'Incomplete should have half circle');
     assert.equal(fallback.icon, '⚠', 'Fallback should have warning icon');
+  });
+});
+
+describe('canonical quick-filter anatomy', () => {
+  it('renders stable anatomy, tones, states, and no framework utility palette', () => {
+    const html = renderCanonicalQuickFiltersHTML({
+      filters: canonicalDefaults,
+      activeKey: 'ready',
+      capabilities: [{ key: 'fallback', supported: false, disabledReason: 'Unavailable' }],
+      size: 'sm',
+    });
+
+    assert.match(html, /class="quick-filters/);
+    assert.match(html, /data-quick-filters/);
+    assert.match(html, /class="quick-filter quick-filter--sm/);
+    assert.match(html, /data-quick-filter-value="ready"/);
+    assert.match(html, /data-tone="success"/);
+    assert.match(html, /data-state="active"/);
+    assert.match(html, /aria-current="true"/);
+    assert.match(html, /data-state="disabled"/);
+    assert.match(html, /aria-disabled="true"/);
+    assert.doesNotMatch(html, /bg-(?:gray|green|amber|yellow|orange|blue)-/);
+    assert.doesNotMatch(html, /ring-[0-9]/);
+  });
+
+  it('binds behavior through stable data attributes and preserves disabled state', async () => {
+    const { JSDOM } = await loadJSDOM();
+    const dom = new JSDOM('<div id="filters"></div>');
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.HTMLElement = dom.window.HTMLElement;
+    const selected = [];
+    const component = new CanonicalQuickFilters({
+      container: '#filters',
+      filters: canonicalDefaults.slice(0, 2),
+      capabilities: [{ key: 'all', supported: false, disabledReason: 'Locked' }],
+      onFilterSelect: (filter) => selected.push(filter?.key || null),
+    });
+
+    const disabled = dom.window.document.querySelector('[data-quick-filter-key="all"]');
+    const ready = dom.window.document.querySelector('[data-quick-filter-key="ready"]');
+    assert.equal(disabled.disabled, true);
+    assert.equal(disabled.getAttribute('aria-disabled'), 'true');
+    ready.click();
+    assert.deepEqual(selected, ['ready']);
+    assert.equal(dom.window.document.querySelector('[data-quick-filter-key="ready"]').dataset.state, 'active');
+    component.destroy();
+  });
+
+  it('initializes each declared host once without creating discoverable nested roots', async () => {
+    const { JSDOM } = await loadJSDOM();
+    const dom = new JSDOM('<div id="filters" data-quick-filters></div>');
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.HTMLElement = dom.window.HTMLElement;
+
+    assert.equal(initCanonicalQuickFilters(() => {}).length, 1);
+    assert.equal(initCanonicalQuickFilters(() => {}).length, 0);
+    assert.equal(dom.window.document.querySelectorAll('[data-quick-filters]').length, 1);
   });
 });
 

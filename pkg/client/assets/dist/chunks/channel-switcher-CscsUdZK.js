@@ -1,4 +1,4 @@
-import { r as w } from "./modal-3jeDrPyW.js";
+import { i as w } from "./modal-BQ_g-w1L.js";
 var h = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500", f = "px-3 py-2 text-sm border-gray-300", m = "px-2 py-1 text-[12px] border-gray-200";
 function p(t = "sm") {
   return t === "xs" ? `${h} ${m}` : `${h} ${f}`;
@@ -86,4 +86,4 @@ export {
   z as u
 };
 
-//# sourceMappingURL=channel-switcher-9okoVsHo.js.map
+//# sourceMappingURL=channel-switcher-CscsUdZK.js.map

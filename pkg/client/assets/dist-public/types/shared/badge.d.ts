@@ -5,8 +5,8 @@
  * All visual styling is defined in input.css via composable CSS classes.
  *
  * Usage patterns:
- *   badgeClasses('status', 'draft')         → "status-badge status-draft"
- *   badge('Draft', 'status', 'draft')       → '<span class="status-badge status-draft">Draft</span>'
+ *   badgeClasses('status', 'draft')         → "status-chip status-chip--neutral status-badge status-draft"
+ *   badge('Draft', 'status', 'draft')       → shared status-chip anatomy plus compatibility aliases
  *   booleanChip(true)                       → '<span class="badge badge-boolean-true">✓ Yes</span>'
  */
 export type BadgeCategory = 'status' | 'role' | 'generic';

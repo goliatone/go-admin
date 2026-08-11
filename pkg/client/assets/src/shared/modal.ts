@@ -75,18 +75,19 @@ type ResolvedModalOptions = {
 };
 
 // ---------------------------------------------------------------------------
-// Size map
+// Stable public anatomy
 // ---------------------------------------------------------------------------
 
-const SIZE_MAP: Record<ModalSize, string> = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl',
-  '2xl': 'max-w-2xl',
-  '3xl': 'max-w-3xl',
-  '4xl': 'max-w-4xl',
-};
+export const MODAL_ANATOMY = Object.freeze({
+  root: 'go-admin-modal',
+  backdrop: 'go-admin-modal__backdrop',
+  container: 'go-admin-modal__container',
+  surface: 'go-admin-modal__surface',
+  header: 'go-admin-modal__header',
+  body: 'go-admin-modal__body',
+  footer: 'go-admin-modal__footer',
+  close: 'go-admin-modal__close',
+} as const);
 
 let modalHeadingSequence = 0;
 
@@ -160,25 +161,34 @@ export abstract class Modal {
       // Backdrop
       const backdrop = document.createElement('div');
       this.backdrop = backdrop;
-      backdrop.className =
-        'fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 transition-opacity opacity-0';
+      backdrop.className = [
+        MODAL_ANATOMY.root,
+        MODAL_ANATOMY.backdrop,
+        'go-admin-modal--opening',
+        // Structural utilities keep the embedded build safe before a host's
+        // component stylesheet finishes loading; visual defaults live in CSS.
+        'fixed inset-0 flex items-center justify-center overflow-y-auto overscroll-contain p-4 transition-opacity',
+      ].join(' ');
       backdrop.style.transitionDuration = `${this._animationDuration()}ms`;
       backdrop.setAttribute('data-go-admin-modal-backdrop', 'true');
+      backdrop.setAttribute('data-state', 'opening');
 
       if (this._options.backdropDataAttr) {
         backdrop.setAttribute(this._options.backdropDataAttr, 'true');
       }
 
       // Container
-      const sizeClass = SIZE_MAP[this._options.size] ?? SIZE_MAP.lg;
-      const flexClass = this._options.flexColumn ? 'flex flex-col' : '';
+      const size = this._options.size ?? 'lg';
+      const flexClass = this._options.flexColumn ? 'go-admin-modal__container--flex flex flex-col' : '';
       const extra = this._options.containerClass;
 
       const container = document.createElement('div');
       this.container = container;
       container.className = [
-        'go-admin-modal-container bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full overflow-hidden',
-        sizeClass,
+        'go-admin-modal-container w-full overflow-hidden',
+        MODAL_ANATOMY.container,
+        MODAL_ANATOMY.surface,
+        `go-admin-modal__container--${size}`,
         this._options.maxHeight,
         flexClass,
         extra,
@@ -186,6 +196,7 @@ export abstract class Modal {
         .filter(Boolean)
         .join(' ');
       container.setAttribute('data-go-admin-modal', 'true');
+      container.setAttribute('data-size', size);
       container.setAttribute('role', 'dialog');
       container.setAttribute('aria-modal', 'true');
 
@@ -216,7 +227,10 @@ export abstract class Modal {
             return 0;
           };
       scheduleFrame(() => {
-        if (backdrop === this.backdrop) backdrop.classList.remove('opacity-0');
+        if (backdrop === this.backdrop) {
+          backdrop.classList.remove('go-admin-modal--opening');
+          backdrop.setAttribute('data-state', 'open');
+        }
       });
 
       this._bindBaseEvents();
@@ -338,7 +352,9 @@ export abstract class Modal {
     ++this._lifecycle;
     this._isOpen = false;
     this._layer?.setClosing(true);
-    this.backdrop?.classList.add('opacity-0');
+    this.backdrop?.classList.remove('go-admin-modal--opening');
+    this.backdrop?.classList.add('go-admin-modal--closing');
+    this.backdrop?.setAttribute('data-state', 'closing');
     this._cancelCleanupTimer();
     const delay = this._animationDuration();
     if (delay === 0) {
@@ -440,19 +456,19 @@ export class ConfirmModal extends Modal {
         : 'bg-blue-600 hover:bg-blue-700 text-white';
 
     return `
-      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="go-admin-modal__header px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
           ${escapeHtml(this._opts.title)}
         </h3>
       </div>
-      <div class="px-6 py-4">
+      <div class="go-admin-modal__body px-6 py-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
           ${escapeHtml(this._opts.message)}
         </p>
       </div>
-      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="go-admin-modal__footer flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
         <button type="button" data-modal-cancel
-          class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+          class="go-admin-modal__close px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
           ${escapeHtml(this._opts.cancelText)}
         </button>
         <button type="button" data-modal-confirm
@@ -532,7 +548,7 @@ export class TextPromptModal extends Modal {
   protected renderContent(): string {
     const cls = this.config.inputClass ?? DEFAULT_INPUT_CLASS;
     return `
-      <div class="p-5">
+      <div class="go-admin-modal__body p-5">
         <div role="heading" aria-level="2" class="text-base font-semibold text-gray-900 dark:text-white">${escapeHtml(this.config.title)}</div>
         <label for="${this.inputId}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mt-3 mb-1">${escapeHtml(this.config.label)}</label>
         <input type="text"
@@ -546,7 +562,7 @@ export class TextPromptModal extends Modal {
         <div id="${this.errorId}" data-prompt-error role="alert" aria-live="assertive" class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
         <div class="flex items-center justify-end gap-2 mt-4">
           <button type="button" data-prompt-cancel
-                  class="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                  class="go-admin-modal__close px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
             ${escapeHtml(this.config.cancelLabel ?? 'Cancel')}
           </button>
           <button type="button" data-prompt-confirm

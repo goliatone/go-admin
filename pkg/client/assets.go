@@ -24,7 +24,7 @@ var assetAliasPaths = map[string]string{
 	"dist/runtime/cms-relationship-actions.js": "src/runtime/cms-relationship-actions.js",
 	"dist/runtime/site-runtime.js":             "src/site/site-runtime.js",
 	"dist/styles/activity.css":                 "src/styles/activity.css",
-	"dist/styles/datatable-actions.css":        "src/datatable/actions.css",
+	"dist/styles/datatable-actions.css":        "src/styles/components.css",
 	"dist/styles/error-page.css":               "src/styles/error-page.css",
 	"dist/styles/export.css":                   "src/styles/export.css",
 	"dist/styles/site-runtime.css":             "src/styles/site-runtime.css",

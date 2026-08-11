@@ -565,7 +565,7 @@ export function renderVocabularyStatusBadge(
 ): string {
   const display = getStatusDisplay(status, options.domain);
   if (!display) {
-    return `<span class="status-chip status-chip--neutral">${escapeHtml(humanizeStatus(status) || status)}</span>`;
+    return `<span class="status-chip status-chip--neutral" data-status="${escapeHtml(status)}" data-tone="neutral">${escapeHtml(humanizeStatus(status) || status)}</span>`;
   }
 
   const { size = 'default', showIcon = true, showLabel = true, extraClass = '' } = options;
@@ -583,7 +583,8 @@ export function renderVocabularyStatusBadge(
   return `<span class="status-chip status-chip--${display.severity} ${sizeClasses[size]} ${extraClass}"
                 title="${escapeHtml(display.description || display.label)}"
                 aria-label="${escapeHtml(display.label)}"
-                data-status="${escapeHtml(status)}">
+                data-status="${escapeHtml(status)}"
+                data-tone="${display.severity}">
     ${iconHtml}${labelHtml}
   </span>`;
 }

@@ -1,5 +1,5 @@
 /** Supported public modal entry. Behavioral implementation stays in shared/modal. */
-export { ConfirmModal, Modal, TextPromptModal } from '../shared/modal.js';
+export { ConfirmModal, MODAL_ANATOMY, Modal, TextPromptModal } from '../shared/modal.js';
 export type {
   ConfirmModalOptions,
   ModalOptions,

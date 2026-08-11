@@ -50,6 +50,15 @@
 {% elif status == "failed" %}{% set registry_tone = "error" %}{% set status_icon = "xmark" %}{% set status_label = "Failed" %}
 {% elif status == "cancelled" %}{% set registry_tone = "neutral" %}{% set status_icon = "xmark-circle" %}{% set status_label = "Cancelled" %}
 {% elif status == "running" %}{% set registry_tone = "info" %}{% set status_icon = "arrow-right" %}{% set status_label = "Running" %}
+{% elif status == "suspended" %}{% set registry_tone = "warning" %}{% set status_icon = "pause" %}{% set status_label = "Suspended" %}
+{% elif status == "deprecated" %}{% set registry_tone = "error" %}{% set status_icon = "warning-triangle" %}{% set status_label = "Deprecated" %}
+{% elif status == "breaking" %}{% set registry_tone = "error" %}{% set status_icon = "warning-triangle" %}{% set status_label = "Breaking" %}
+{% elif status == "migrating" %}{% set registry_tone = "info" %}{% set status_icon = "arrow-right" %}{% set status_label = "Migrating" %}
+{% elif status == "migrated" %}{% set registry_tone = "success" %}{% set status_icon = "check" %}{% set status_label = "Migrated" %}
+{% elif status == "required" %}{% set registry_tone = "warning" %}{% set status_icon = "warning-circle" %}{% set status_label = "Required" %}
+{% elif status == "readonly" %}{% set registry_tone = "neutral" %}{% set status_icon = "lock" %}{% set status_label = "Read Only" %}
+{% elif status == "hidden" %}{% set registry_tone = "neutral" %}{% set status_icon = "eye-closed" %}{% set status_label = "Hidden" %}
+{% elif status == "unknown" %}{% set registry_tone = "neutral" %}{% set status_icon = "help-circle" %}{% set status_label = "Unknown" %}
 {% elif status == "success" %}{% set registry_tone = "success" %}{% set status_icon = "check" %}{% set status_label = "Success" %}
 {% elif status == "error" %}{% set registry_tone = "error" %}{% set status_icon = "xmark" %}{% set status_label = "Error" %}
 {% elif status == "conflict" %}{% set registry_tone = "warning" %}{% set status_icon = "warning-triangle" %}{% set status_label = "Conflict" %}
@@ -82,7 +91,7 @@
 {% endif %}
 
 {% set hide_icon = badge.show_icon == false or show_icon == false %}
-<span class="status-chip {{ tone_class }}" data-status="{{ status }}">
+<span class="status-chip {{ tone_class }}" data-status="{{ status }}" data-tone="{{ tone }}">
   {% if not hide_icon %}
   <i class="iconoir-{{ status_icon }} text-[10px]" aria-hidden="true"></i>
   {% endif %}

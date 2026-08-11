@@ -1,5 +1,5 @@
 import { escapeAttribute as J, escapeHTML as f } from "../shared/html.js";
-import { a as W, n as K, o as j } from "./status-vocabulary-DrEqqUD1.js";
+import { a as W, n as K, o as j } from "./status-vocabulary-BYdivV6D.js";
 function v(e) {
   return typeof e == "string" ? e.trim() : "";
 }
@@ -44,7 +44,7 @@ function te(e) {
 function N(e, t = 0) {
   return !e || t > 2 ? "" : v(e.reason_code) || v(e.textCode) || v(e.text_code) || N(e.error ?? void 0, t + 1);
 }
-function z(e) {
+function $(e) {
   if (typeof e == "string") return e.trim().toUpperCase() || null;
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = N(e);
@@ -54,10 +54,10 @@ function re(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return null;
   const t = e;
   if (!ee(t)) return null;
-  const r = z({ reason_code: t.reason_code }), s = { enabled: typeof t.enabled == "boolean" ? t.enabled : !1 }, n = m(t.reason), a = m(t.severity), o = m(t.kind), i = m(t.permission), d = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, l = Q(t.remediation), u = Z(t.available_transitions);
+  const r = $({ reason_code: t.reason_code }), s = { enabled: typeof t.enabled == "boolean" ? t.enabled : !1 }, n = m(t.reason), a = m(t.severity), o = m(t.kind), i = m(t.permission), d = t.metadata && typeof t.metadata == "object" && !Array.isArray(t.metadata) ? t.metadata : null, l = Q(t.remediation), u = Z(t.available_transitions);
   return n && (s.reason = n), r && (s.reason_code = r), a && (s.severity = a), o && (s.kind = o), i && (s.permission = i), d && (s.metadata = d), l && (s.remediation = l), u && (s.available_transitions = u), s;
 }
-function L(e) {
+function z(e) {
   if (!y(e)) return {};
   const t = e, r = {};
   for (const [s, n] of Object.entries(t)) {
@@ -67,7 +67,7 @@ function L(e) {
   return r;
 }
 function B(e) {
-  return L(e);
+  return z(e);
 }
 function se(e) {
   if (!y(e)) return null;
@@ -78,7 +78,7 @@ function se(e) {
 }
 function O(e) {
   if (!y(e)) return null;
-  const t = L(e._action_state);
+  const t = z(e._action_state);
   return Object.keys(t).length === 0 ? { ...e } : {
     ...e,
     _action_state: t
@@ -119,7 +119,7 @@ function Ee(e) {
 }
 function Ie(e, t) {
   const r = m(t);
-  return r && L(e._action_state)[r] || null;
+  return r && z(e._action_state)[r] || null;
 }
 var g = {
   check: "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z",
@@ -332,21 +332,21 @@ function x(e, t) {
   }
   return null;
 }
-function $(e) {
-  const t = z(e);
+function L(e) {
+  const t = $(e);
   return t && t in _ ? _[t] : null;
 }
 function Me(e) {
-  const t = z(e);
+  const t = $(e);
   return t && t in _ ? _[t] : null;
 }
-function ze(e, t) {
+function $e(e, t) {
   return x(e, t) !== null;
 }
-function Le(e) {
-  return $(e) !== null;
+function ze(e) {
+  return L(e) !== null;
 }
-function $e(e) {
+function Le(e) {
   switch (e) {
     case "core":
       return Object.keys(S);
@@ -374,7 +374,7 @@ function je(e, t) {
 }
 function le(e, t = {}) {
   const r = x(e, t.domain);
-  if (!r) return `<span class="status-chip status-chip--neutral">${f(j(e) || e)}</span>`;
+  if (!r) return `<span class="status-chip status-chip--neutral" data-status="${f(e)}" data-tone="neutral">${f(j(e) || e)}</span>`;
   const { size: s = "default", showIcon: n = !0, showLabel: a = !0, extraClass: o = "" } = t, i = {
     xs: "px-1.5 py-0.5 text-[10px]",
     sm: "px-2 py-0.5",
@@ -383,7 +383,8 @@ function le(e, t = {}) {
   return `<span class="status-chip status-chip--${r.severity} ${i[s]} ${o}"
                 title="${f(r.description || r.label)}"
                 aria-label="${f(r.label)}"
-                data-status="${f(e)}">
+                data-status="${f(e)}"
+                data-tone="${r.severity}">
     ${d}${l}
   </span>`;
 }
@@ -402,7 +403,7 @@ function ce(e, t = "default") {
   </svg>`;
 }
 function de(e, t = {}) {
-  const r = $(e);
+  const r = L(e);
   if (!r) return `<span class="text-gray-500 text-xs">${f(e)}</span>`;
   const { size: s = "default", showIcon: n = !0, showFullMessage: a = !1, extraClass: o = "" } = t, i = {
     sm: "px-2 py-0.5 text-xs",
@@ -419,7 +420,7 @@ function de(e, t = {}) {
   </span>`;
 }
 function Ne(e, t) {
-  const r = $(e);
+  const r = L(e);
   if (!r) return "";
   const s = t || r.message;
   return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full ${r.bgClass} ${r.textClass}"
@@ -1000,33 +1001,33 @@ function lt(e, t = 768) {
   return ve(t) && e === "grouped" ? "flat" : e;
 }
 export {
-  L as $,
+  z as $,
   E as A,
   Te as B,
   ot as C,
   S as D,
   Pe as E,
   Be as F,
-  Le as G,
+  ze as G,
   Ge as H,
   Me as I,
   Ne as J,
-  ze as K,
+  $e as K,
   Re as L,
   k as M,
   C as N,
   _ as O,
   Oe as P,
   re as Q,
-  $ as R,
+  L as R,
   at as S,
   Je as T,
-  $e as U,
+  Le as U,
   x as V,
   De as W,
   ce as X,
   le as Y,
-  z as Z,
+  $ as Z,
   tt as _,
   He as a,
   Ee as at,
@@ -1063,4 +1064,4 @@ export {
   je as z
 };
 
-//# sourceMappingURL=grouped-mode-BeogW5_G.js.map
+//# sourceMappingURL=grouped-mode-YpblxoX1.js.map

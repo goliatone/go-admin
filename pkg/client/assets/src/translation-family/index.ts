@@ -2789,9 +2789,9 @@ function renderFamilyMetric(value: number, label: string, tone = 'text-gray-900'
 function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: string, matrixURL: string, queueURL: string): string {
   const label = familyDisplayTitle(row);
   return `
-    <div class="action-menu relative flex justify-end" data-action-menu data-row-id="${escapeAttribute(row.familyId)}">
+    <div class="action-menu action-menu--right" data-action-menu data-row-id="${escapeAttribute(row.familyId)}">
       <button type="button"
-              class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+              class="action-menu__trigger"
               data-action-menu-trigger
               aria-label="Actions for ${escapeAttribute(label)}"
               aria-haspopup="true"
@@ -2800,11 +2800,11 @@ function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: strin
           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
         </svg>
       </button>
-      <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+      <div class="action-menu__content hidden"
            data-action-menu-content
            role="menu"
            aria-orientation="vertical">
-        <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+        <a class="action-menu__item"
            data-action-menu-item
            data-action="open"
            role="menuitem"
@@ -2812,8 +2812,8 @@ function renderFamilyActionMenu(row: TranslationFamilyListItem, detailURL: strin
           <i class="iconoir-folder w-4 h-4 flex-shrink-0" aria-hidden="true"></i>
           <span>Open family</span>
         </a>
-        ${matrixURL ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="matrix" role="menuitem" href="${escapeAttribute(matrixURL)}"><i class="iconoir-table-2-columns w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Matrix</span></a>` : ''}
-        ${queueURL ? `<a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none" data-action-menu-item data-action="queue" role="menuitem" href="${escapeAttribute(queueURL)}"><i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Queue</span></a>` : ''}
+        ${matrixURL ? `<a class="action-menu__item" data-action-menu-item data-action="matrix" role="menuitem" href="${escapeAttribute(matrixURL)}"><i class="iconoir-table-2-columns w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Matrix</span></a>` : ''}
+        ${queueURL ? `<a class="action-menu__item" data-action-menu-item data-action="queue" role="menuitem" href="${escapeAttribute(queueURL)}"><i class="iconoir-list w-4 h-4 flex-shrink-0" aria-hidden="true"></i><span>Queue</span></a>` : ''}
       </div>
     </div>
   `;

@@ -1,5 +1,6 @@
 import { escapeHTML as escapeHtml } from './html.js';
 import { escapeAttribute as escapeAttr } from './html.js';
+import { getStatusTone } from './status-vocabulary.js';
 
 /**
  * Shared Badge Utility
@@ -8,8 +9,8 @@ import { escapeAttribute as escapeAttr } from './html.js';
  * All visual styling is defined in input.css via composable CSS classes.
  *
  * Usage patterns:
- *   badgeClasses('status', 'draft')         → "status-badge status-draft"
- *   badge('Draft', 'status', 'draft')       → '<span class="status-badge status-draft">Draft</span>'
+ *   badgeClasses('status', 'draft')         → "status-chip status-chip--neutral status-badge status-draft"
+ *   badge('Draft', 'status', 'draft')       → shared status-chip anatomy plus compatibility aliases
  *   booleanChip(true)                       → '<span class="badge badge-boolean-true">✓ Yes</span>'
  */
 
@@ -45,13 +46,17 @@ export function badgeClasses(
   size?: BadgeSize,
 ): string {
   const v = variant.toLowerCase();
+  if (category === 'status') {
+    const parts = ['status-chip', `status-chip--${getStatusTone(v)}`, 'status-badge'];
+    if (size === 'sm') parts.push('status-chip--sm', 'status-badge--sm');
+    parts.push(`status-${v}`);
+    return parts.join(' ');
+  }
 
-  const base = category === 'status' ? 'status-badge'
-    : category === 'role' ? 'role-badge'
+  const base = category === 'role' ? 'role-badge'
     : 'badge';
 
-  const prefix = category === 'status' ? 'status'
-    : category === 'role' ? 'role'
+  const prefix = category === 'role' ? 'role'
     : 'badge';
 
   const parts: string[] = [base];
@@ -91,7 +96,8 @@ export function badge(
       .join('');
   }
 
-  return `<span class="${parts.join(' ')}"${attrStr}>${escapeHtml(text)}</span>`;
+  const toneAttr = category === 'status' ? ` data-tone="${getStatusTone(variant)}"` : '';
+  return `<span class="${parts.join(' ')}"${toneAttr}${attrStr}>${escapeHtml(text)}</span>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,4 +126,3 @@ export function booleanChip(
 // ---------------------------------------------------------------------------
 // Escape Helpers
 // ---------------------------------------------------------------------------
-

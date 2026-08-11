@@ -210,12 +210,12 @@
                     <td class="px-5 py-4 text-right font-semibold text-gray-700">{{ row.display_review|default:"0" }}</td>
                     <td class="px-5 py-4">
                       {% if row.links.family.href or row.links.queue.href %}
-                      <div class="action-menu relative flex justify-end"
+                      <div class="action-menu action-menu--right"
                            data-action-menu
                            data-row-id="{{ row.family_id|default:row.id }}"
                            data-translation-row-actions>
                         <button type="button"
-                                class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                class="action-menu__trigger"
                                 data-action-menu-trigger
                                 aria-label="Actions for {{ row.display_title|default:row.content_type|default:row.family_id|default:"family" }}"
                                 aria-haspopup="true"
@@ -224,12 +224,12 @@
                             <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                           </svg>
                         </button>
-                        <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                        <div class="action-menu__content hidden"
                              data-action-menu-content
                              role="menu"
                              aria-orientation="vertical">
                           {% if row.links.family.href %}
-                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                          <a class="action-menu__item"
                              data-action-menu-item
                              data-action="open-family"
                              role="menuitem"
@@ -239,7 +239,7 @@
                           </a>
                           {% endif %}
                           {% if row.links.queue.href %}
-                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                          <a class="action-menu__item"
                              data-action-menu-item
                              data-action="open-queue"
                              role="menuitem"
@@ -288,12 +288,12 @@
                     </td>
                     <td class="px-5 py-4">
                       {% if row.links.assignment.href or row.links.family.href or row.links.queue.href or row.href %}
-                      <div class="action-menu relative flex justify-end"
+                      <div class="action-menu action-menu--right"
                            data-action-menu
                            data-row-id="{{ row.assignment_id|default:row.id }}"
                            data-translation-row-actions>
                         <button type="button"
-                                class="action-menu__trigger rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                                class="action-menu__trigger"
                                 data-action-menu-trigger
                                 aria-label="Actions for {{ row.display_title|default:row.source_title|default:row.title|default:row.assignment_id|default:"assignment" }}"
                                 aria-haspopup="true"
@@ -302,12 +302,12 @@
                             <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
                           </svg>
                         </button>
-                        <div class="action-menu__content hidden absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                        <div class="action-menu__content hidden"
                              data-action-menu-content
                              role="menu"
                              aria-orientation="vertical">
                           {% if row.links.assignment.href %}
-                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                          <a class="action-menu__item"
                              data-action-menu-item
                              data-action="open-assignment"
                              role="menuitem"
@@ -317,7 +317,7 @@
                           </a>
                           {% endif %}
                           {% if row.links.family.href %}
-                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                          <a class="action-menu__item"
                              data-action-menu-item
                              data-action="open-family"
                              role="menuitem"
@@ -327,7 +327,7 @@
                           </a>
                           {% endif %}
                           {% if row.links.queue.href %}
-                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                          <a class="action-menu__item"
                              data-action-menu-item
                              data-action="open-queue"
                              role="menuitem"
@@ -337,7 +337,7 @@
                           </a>
                           {% endif %}
                           {% if row.href %}
-                          <a class="action-menu__item flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                          <a class="action-menu__item"
                              data-action-menu-item
                              data-action="open"
                              role="menuitem"

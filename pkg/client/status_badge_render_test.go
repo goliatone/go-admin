@@ -47,7 +47,7 @@ func renderStatusBadge(t *testing.T, ctx pongo2.Context) string {
 
 func TestStatusBadgeRendersRegistryToneLabelIcon(t *testing.T) {
 	out := renderStatusBadge(t, pongo2.Context{"badge_status": "in_review"})
-	for _, fragment := range []string{"status-chip--warning", "In Review", "iconoir-clock", `data-status="in_review"`} {
+	for _, fragment := range []string{"status-chip--warning", "In Review", "iconoir-clock", `data-status="in_review"`, `data-tone="warning"`} {
 		if !strings.Contains(out, fragment) {
 			t.Fatalf("expected %q in rendered badge, got: %s", fragment, out)
 		}

@@ -31,7 +31,9 @@ export interface QuickFilter {
   value: string;
   /** Icon or badge (optional) */
   icon?: string;
-  /** CSS class for styling */
+  /** Stable semantic tone rendered through the canonical component stylesheet. */
+  tone?: 'neutral' | 'success' | 'warning' | 'error' | 'info';
+  /** Additive consumer class. Framework-owned presentation belongs in components.css. */
   styleClass?: string;
   /** Tooltip description */
   description?: string;
@@ -91,7 +93,7 @@ export const DEFAULT_TRANSLATION_QUICK_FILTERS: QuickFilter[] = [
     field: '',
     value: '',
     icon: '○',
-    styleClass: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+    tone: 'neutral',
     description: 'Show all records',
   },
   {
@@ -100,7 +102,7 @@ export const DEFAULT_TRANSLATION_QUICK_FILTERS: QuickFilter[] = [
     field: 'readiness_state',
     value: 'ready',
     icon: '●',
-    styleClass: 'bg-green-100 text-green-700 hover:bg-green-200',
+    tone: 'success',
     description: 'All translations complete',
   },
   {
@@ -109,7 +111,7 @@ export const DEFAULT_TRANSLATION_QUICK_FILTERS: QuickFilter[] = [
     field: 'readiness_state',
     value: 'missing_locales',
     icon: '○',
-    styleClass: 'bg-amber-100 text-amber-700 hover:bg-amber-200',
+    tone: 'warning',
     description: 'Missing required locale translations',
   },
   {
@@ -118,7 +120,7 @@ export const DEFAULT_TRANSLATION_QUICK_FILTERS: QuickFilter[] = [
     field: 'readiness_state',
     value: 'missing_fields',
     icon: '◐',
-    styleClass: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200',
+    tone: 'warning',
     description: 'Has translations but missing required fields',
   },
   {
@@ -127,7 +129,7 @@ export const DEFAULT_TRANSLATION_QUICK_FILTERS: QuickFilter[] = [
     field: 'fallback_used',
     value: 'true',
     icon: '⚠',
-    styleClass: 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+    tone: 'warning',
     description: 'Records currently viewed in fallback mode',
   },
 ];
@@ -182,15 +184,13 @@ export class QuickFilters {
     }
 
     const { size = 'default', containerClass = '' } = this.config;
-    const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
-    const padding = size === 'sm' ? 'px-2 py-1' : 'px-3 py-1.5';
 
     const filtersHtml = this.config.filters
-      .map((filter) => this.renderFilterButton(filter, textSize, padding))
+      .map((filter) => this.renderFilterButton(filter, size))
       .join('');
 
     this.container.innerHTML = `
-      <div class="quick-filters inline-flex items-center gap-1 flex-wrap ${containerClass}"
+      <div class="quick-filters ${containerClass}"
            role="group"
            aria-label="Quick filters">
         ${filtersHtml}
@@ -204,28 +204,22 @@ export class QuickFilters {
   /**
    * Render a single filter button
    */
-  private renderFilterButton(filter: QuickFilter, textSize: string, padding: string): string {
+  private renderFilterButton(filter: QuickFilter, size: 'sm' | 'default'): string {
     const capability = this.state.capabilities.get(filter.key);
     const isSupported = capability?.supported !== false;
     const isActive = this.state.activeKey === filter.key;
     const disabledReason = capability?.disabledReason || 'Filter not available';
 
-    const baseClasses = `inline-flex items-center gap-1 ${padding} ${textSize} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
-
-    let stateClasses: string;
     let ariaAttributes: string;
 
     if (!isSupported) {
       // Disabled state with visible reason
-      stateClasses = 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60';
-      ariaAttributes = `aria-disabled="true" title="${escapeAttr(disabledReason)}"`;
+      ariaAttributes = `aria-disabled="true" aria-pressed="false" title="${escapeAttr(disabledReason)}"`;
     } else if (isActive) {
       // Active state
-      stateClasses = `${filter.styleClass || 'bg-blue-100 text-blue-700'} ring-2 ring-offset-1 ring-blue-500`;
       ariaAttributes = 'aria-pressed="true"';
     } else {
       // Normal state
-      stateClasses = filter.styleClass || 'bg-gray-100 text-gray-700 hover:bg-gray-200';
       ariaAttributes = 'aria-pressed="false"';
     }
 
@@ -235,8 +229,12 @@ export class QuickFilters {
 
     return `
       <button type="button"
-              class="quick-filter-btn ${baseClasses} ${stateClasses}"
+              class="quick-filter quick-filter--${size} ${escapeAttr(filter.styleClass || '')}"
+              data-quick-filter-value="${escapeAttr(filter.value)}"
+              data-quick-filter-key="${escapeAttr(filter.key)}"
               data-filter-key="${escapeAttr(filter.key)}"
+              data-tone="${escapeAttr(filter.tone || 'neutral')}"
+              data-state="${isSupported ? (isActive ? 'active' : 'inactive') : 'disabled'}"
               ${ariaAttributes}
               ${!isSupported ? 'disabled' : ''}>
         ${iconHtml}
@@ -251,10 +249,10 @@ export class QuickFilters {
   private bindEventListeners(): void {
     if (!this.container) return;
 
-    const buttons = this.container.querySelectorAll<HTMLButtonElement>('.quick-filter-btn');
+    const buttons = this.container.querySelectorAll<HTMLButtonElement>('[data-quick-filter-value]');
     buttons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        const key = btn.dataset.filterKey;
+      const key = btn.dataset.quickFilterKey || btn.dataset.filterKey;
         if (key && !btn.disabled) {
           this.selectFilter(key);
         }
@@ -422,9 +420,6 @@ export function renderQuickFiltersHTML(options: {
     containerClass = '',
   } = options;
 
-  const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
-  const padding = size === 'sm' ? 'px-2 py-1' : 'px-3 py-1.5';
-
   const capMap = new Map<string, QuickFilterCapability>();
   for (const cap of capabilities) {
     capMap.set(cap.key, cap);
@@ -437,25 +432,17 @@ export function renderQuickFiltersHTML(options: {
       const isActive = activeKey === filter.key;
       const disabledReason = capability?.disabledReason || 'Filter not available';
 
-      const baseClasses = `inline-flex items-center gap-1 ${padding} ${textSize} rounded-full font-medium`;
-
-      let stateClasses: string;
-      if (!isSupported) {
-        stateClasses = 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60';
-      } else if (isActive) {
-        stateClasses = `${filter.styleClass || 'bg-blue-100 text-blue-700'} ring-2 ring-offset-1 ring-blue-500`;
-      } else {
-        stateClasses = filter.styleClass || 'bg-gray-100 text-gray-700';
-      }
-
-      const iconHtml = filter.icon ? `<span>${filter.icon}</span>` : '';
+      const iconHtml = filter.icon ? `<span aria-hidden="true">${escapeHtml(filter.icon)}</span>` : '';
       const titleAttr = !isSupported ? `title="${escapeAttr(disabledReason)}"` : '';
+      const ariaDisabled = !isSupported ? 'aria-disabled="true"' : '';
+      const ariaCurrent = isActive ? 'aria-current="true"' : '';
+      const state = !isSupported ? 'disabled' : (isActive ? 'active' : 'inactive');
 
-      return `<span class="${baseClasses} ${stateClasses}" ${titleAttr}>${iconHtml}<span>${escapeHtml(filter.label)}</span></span>`;
+      return `<span class="quick-filter quick-filter--${size} ${escapeAttr(filter.styleClass || '')}" data-quick-filter-value="${escapeAttr(filter.value)}" data-quick-filter-key="${escapeAttr(filter.key)}" data-tone="${escapeAttr(filter.tone || 'neutral')}" data-state="${state}" ${ariaDisabled} ${ariaCurrent} ${titleAttr}>${iconHtml}<span>${escapeHtml(filter.label)}</span></span>`;
     })
     .join('');
 
-  return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${containerClass}">${filtersHtml}</div>`;
+  return `<div class="quick-filters ${escapeAttr(containerClass)}" data-quick-filters role="group" aria-label="Quick filters">${filtersHtml}</div>`;
 }
 
 // ============================================================================

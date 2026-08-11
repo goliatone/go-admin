@@ -214,6 +214,51 @@ var l = {
     label: "Running",
     icon: "arrow-right"
   },
+  suspended: {
+    tone: "warning",
+    label: "Suspended",
+    icon: "pause"
+  },
+  deprecated: {
+    tone: "error",
+    label: "Deprecated",
+    icon: "warning-triangle"
+  },
+  breaking: {
+    tone: "error",
+    label: "Breaking",
+    icon: "warning-triangle"
+  },
+  migrating: {
+    tone: "info",
+    label: "Migrating",
+    icon: "arrow-right"
+  },
+  migrated: {
+    tone: "success",
+    label: "Migrated",
+    icon: "check"
+  },
+  required: {
+    tone: "warning",
+    label: "Required",
+    icon: "warning-circle"
+  },
+  readonly: {
+    tone: "neutral",
+    label: "Read Only",
+    icon: "lock"
+  },
+  hidden: {
+    tone: "neutral",
+    label: "Hidden",
+    icon: "eye-closed"
+  },
+  unknown: {
+    tone: "neutral",
+    label: "Unknown",
+    icon: "help-circle"
+  },
   success: {
     tone: "success",
     label: "Success",
@@ -279,7 +324,7 @@ var l = {
     label: "Source Changed",
     icon: "warning-triangle"
   }
-}, k = Object.fromEntries(Object.entries(l).map(([e, n]) => [e, n.tone])), b = {
+}, f = Object.fromEntries(Object.entries(l).map(([e, n]) => [e, n.tone])), g = {
   healthy: "success",
   ok: "success",
   warning: "warning",
@@ -287,19 +332,19 @@ var l = {
   error: "error",
   info: "info",
   neutral: "neutral"
-}, g = "help-circle";
+}, b = "help-circle";
 function o(e) {
   return e?.toLowerCase().trim().replace(/-/g, "_") || "";
 }
-function c(e) {
+function a(e) {
   return l[o(e)] ?? null;
 }
 function d(e, n = "translation") {
   const r = o(e);
-  return n === "alert" ? b[r] || "neutral" : l[r]?.tone || "neutral";
+  return n === "alert" ? g[r] || "neutral" : l[r]?.tone || "neutral";
 }
 function p(e) {
-  const n = c(e);
+  const n = a(e);
   return n ? n.label : w(e);
 }
 function w(e) {
@@ -331,20 +376,20 @@ function h(e, n = "badge") {
   };
   return r[e]?.[n] || r.neutral[n];
 }
-function m(e) {
-  return c(e)?.icon || g;
+function k(e) {
+  return a(e)?.icon || b;
 }
-function f(e, n) {
+function m(e, n) {
   return {
     status: e,
     tone: d(e),
-    icon: m(e),
+    icon: k(e),
     label: n || p(e)
   };
 }
 function _(e, n = {}) {
-  const r = f(e, n.label), a = n.showIcon !== !1, t = `${h(r.tone, "badge")}${n.extraClass ? ` ${n.extraClass}` : ""}`, s = a ? `<i class="iconoir-${r.icon} text-[10px]" aria-hidden="true"></i>` : "", u = n.count === void 0 || n.count === null || n.count === "" ? "" : `<span class="status-chip__count">${i(String(n.count))}</span>`;
-  return `<span class="${t}" data-status="${i(e)}">${s}${i(r.label)}${u}</span>`;
+  const r = m(e, n.label), c = n.showIcon !== !1, t = `${h(r.tone, "badge")}${n.extraClass ? ` ${n.extraClass}` : ""}`, s = c ? `<i class="iconoir-${r.icon} text-[10px]" aria-hidden="true"></i>` : "", u = n.count === void 0 || n.count === null || n.count === "" ? "" : `<span class="status-chip__count">${i(String(n.count))}</span>`;
+  return `<span class="${t}" data-status="${i(e)}" data-tone="${r.tone}">${s}${i(r.label)}${u}</span>`;
 }
 function i(e) {
   return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -352,11 +397,11 @@ function i(e) {
 export {
   h as a,
   d as i,
-  c as n,
+  a as n,
   w as o,
   p as r,
   _ as s,
   l as t
 };
 
-//# sourceMappingURL=status-vocabulary-DrEqqUD1.js.map
+//# sourceMappingURL=status-vocabulary-BYdivV6D.js.map

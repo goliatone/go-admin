@@ -61,6 +61,16 @@ type ResolvedModalOptions = {
     containerClass: string;
     backdropDataAttr: string;
 };
+export declare const MODAL_ANATOMY: Readonly<{
+    readonly root: "go-admin-modal";
+    readonly backdrop: "go-admin-modal__backdrop";
+    readonly container: "go-admin-modal__container";
+    readonly surface: "go-admin-modal__surface";
+    readonly header: "go-admin-modal__header";
+    readonly body: "go-admin-modal__body";
+    readonly footer: "go-admin-modal__footer";
+    readonly close: "go-admin-modal__close";
+}>;
 export declare abstract class Modal {
     protected backdrop: HTMLElement | null;
     protected container: HTMLElement | null;
