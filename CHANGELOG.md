@@ -1,20 +1,57 @@
 # Changelog
 
+# [0.132.0](https://github.com/goliatone/go-admin/compare/v0.131.12...v0.132.0) - (2026-08-11)
+
+
+## Theme And Template Customization
+
+- Added typed authenticated-page presentation through `admin.AdminPageChrome`
+  and `admin.EnrichLayoutViewContextWithChrome`, with typed values taking
+  precedence over legacy page keys while trusted action markup remains
+  template-owned.
+- Consolidated modal, action-menu, status, filter-panel, quick-filter, and
+  shared-button presentation into one canonical component stylesheet. Browser
+  consumers can import `@goliatone/go-admin-client/components.css`; embedded
+  Admin output is built from the same source.
+- Added supported component theme tokens and component-to-portable-to-current
+  fallback behavior, plus downstream composition coverage for bounded shell
+  overrides and namespaced product assets mounted with `WithExtraAssetsFS`.
+
+## Migration Notes
+
+New authenticated routes should build `admin.AdminPageChrome` and call
+`admin.EnrichLayoutViewContextWithChrome`. Keep arbitrary actions in the
+`page_header_actions` template block. Browser consumers should import
+`@goliatone/go-admin-client/components.css` instead of package source paths,
+then load namespaced product CSS afterward.
+
+The legacy page-header partial/keys, DataGrid action class aliases, and
+`status-badge` class aliases remain available. They will not be removed before
+`v0.133.0`, and removal additionally requires a downstream-usage audit showing
+that no consumers remain.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Error source ([6f5ea7e](https://github.com/goliatone/go-admin/commit/6f5ea7e8021a2ccf4487484dd84ddd9c4dbcb593))  - (goliatone)
+- Cache miss data race ([6b39025](https://github.com/goliatone/go-admin/commit/6b39025af536602b94e51fa4733d254908dc6225))  - (goliatone)
+- Focus ring, filter tokens, scopes ([6380e96](https://github.com/goliatone/go-admin/commit/6380e96fdd949c7e5f2e35fbcb11a882f8493ac5))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Theme components and udpates ([a0df3d9](https://github.com/goliatone/go-admin/commit/a0df3d978b7fca46102a2589dbe38fa874d1aa1b))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Fix release ([6837fb4](https://github.com/goliatone/go-admin/commit/6837fb4b912c44b8124dfb5f05bf5b10e573dfca))  - (goliatone)
+
 # [0.131.12](https://github.com/goliatone/go-admin/compare/v0.131.11...v0.131.12) - (2026-08-11)
 
 
-## FilterBuilder
+New patch release: v0.131.12
 
-- Added typed caller-supplied messages for all FilterBuilder-visible copy,
-  accessibility labels, limit feedback, and stale-catalog repair guidance while
-  preserving the existing English defaults.
-- Added optional group, per-group condition, and total-condition editing limits.
-  Additive controls disable at the configured boundary while over-limit hydrated
-  rules remain intact and repairable.
-- Preserved removed select values as explicit unavailable selections so the UI,
-  preview, and retained rule state remain truthful until the caller repairs them.
-- Rebuilt the embedded and public JavaScript, source maps, declarations, and
-  declaration maps with focused compatibility and artifact coverage.
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.131.12 ([2d9c7b3](https://github.com/goliatone/go-admin/commit/2d9c7b3a76232529bbfce2cec9fbb64538905414))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
