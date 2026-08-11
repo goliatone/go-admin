@@ -1,40 +1,25 @@
 # Changelog
 
+# [0.132.1](https://github.com/goliatone/go-admin/compare/v0.132.0...v0.132.1) - (2026-08-11)
+
+## <!-- 16 -->➕ Add
+
+- Semantic pagination list, translation idempotency ([ba3f6cb](https://github.com/goliatone/go-admin/commit/ba3f6cbcbe62bcc9b611c64f8d6bee92b31b5713))  - (goliatone)
+
 # [0.132.0](https://github.com/goliatone/go-admin/compare/v0.131.12...v0.132.0) - (2026-08-11)
 
 
-## Theme And Template Customization
-
-- Added typed authenticated-page presentation through `admin.AdminPageChrome`
-  and `admin.EnrichLayoutViewContextWithChrome`, with typed values taking
-  precedence over legacy page keys while trusted action markup remains
-  template-owned.
-- Consolidated modal, action-menu, status, filter-panel, quick-filter, and
-  shared-button presentation into one canonical component stylesheet. Browser
-  consumers can import `@goliatone/go-admin-client/components.css`; embedded
-  Admin output is built from the same source.
-- Added supported component theme tokens and component-to-portable-to-current
-  fallback behavior, plus downstream composition coverage for bounded shell
-  overrides and namespaced product assets mounted with `WithExtraAssetsFS`.
-
-## Migration Notes
-
-New authenticated routes should build `admin.AdminPageChrome` and call
-`admin.EnrichLayoutViewContextWithChrome`. Keep arbitrary actions in the
-`page_header_actions` template block. Browser consumers should import
-`@goliatone/go-admin-client/components.css` instead of package source paths,
-then load namespaced product CSS afterward.
-
-The legacy page-header partial/keys, DataGrid action class aliases, and
-`status-badge` class aliases remain available. They will not be removed before
-`v0.133.0`, and removal additionally requires a downstream-usage audit showing
-that no consumers remain.
+New minor release: v0.132.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Error source ([6f5ea7e](https://github.com/goliatone/go-admin/commit/6f5ea7e8021a2ccf4487484dd84ddd9c4dbcb593))  - (goliatone)
 - Cache miss data race ([6b39025](https://github.com/goliatone/go-admin/commit/6b39025af536602b94e51fa4733d254908dc6225))  - (goliatone)
 - Focus ring, filter tokens, scopes ([6380e96](https://github.com/goliatone/go-admin/commit/6380e96fdd949c7e5f2e35fbcb11a882f8493ac5))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.132.0 ([4b4ce5d](https://github.com/goliatone/go-admin/commit/4b4ce5dbb3abf411c659fa92e4177bc6c38f72a4))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
