@@ -11,6 +11,17 @@ export interface DataGridCapabilities {
     export: boolean;
 }
 export type DataGridRenderState = 'loading' | 'ready' | 'empty' | 'error';
+export interface DataGridPaginationLabels {
+    previous?: string;
+    next?: string;
+    previousPage?: string;
+    nextPage?: string;
+    page?: string;
+}
+export interface DataGridPaginationPresentation {
+    locale?: string | string[];
+    labels?: DataGridPaginationLabels;
+}
 export interface DataGridConfig {
     tableId: string;
     apiEndpoint: string;
@@ -35,6 +46,7 @@ export interface DataGridConfig {
     stateStoreConfig?: Omit<DataGridStateStoreConfig, 'key'>;
     urlState?: DataGridURLStateConfig;
     capabilities?: DataGridCapabilities;
+    pagination?: DataGridPaginationPresentation;
     onStateChange?: (state: DataGridRenderState) => void;
 }
 export interface DataGridURLStateConfig {

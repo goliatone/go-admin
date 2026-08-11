@@ -40,5 +40,6 @@ export declare function updatePaginationUI(grid: any, data: ApiResponse): void;
  * Render pagination buttons
  */
 export declare function renderPaginationButtons(grid: any, total: number): void;
+export declare function formatPaginationNumber(grid: any, value: number): string;
 export declare function paginationWindow(totalPages: number, currentPage: number): Array<number | 'ellipsis'>;
 //# sourceMappingURL=core-rendering.d.ts.map

@@ -4,8 +4,14 @@
  */
 
 export { DataGrid } from './core.js';
-export type { DataGridCapabilities, DataGridConfig, DataGridRenderState } from './core.js';
-export { handleDelete, paginationWindow } from './core-rendering.js';
+export type {
+  DataGridCapabilities,
+  DataGridConfig,
+  DataGridPaginationLabels,
+  DataGridPaginationPresentation,
+  DataGridRenderState,
+} from './core.js';
+export { formatPaginationNumber, handleDelete, paginationWindow, renderPaginationButtons } from './core-rendering.js';
 export {
   createDataGridStateStore,
   LocalDataGridStateStore,
@@ -29,6 +35,8 @@ export type {
   FilterBuilderConfig,
   FilterBuilderElementTarget,
   FilterBuilderFieldDefinition,
+  FilterBuilderLimitsConfig,
+  FilterBuilderMessages,
   FilterBuilderMode,
   FilterBuilderOperatorOption,
 } from './filter-builder.js';

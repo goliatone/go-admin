@@ -1,5 +1,5 @@
 import type { DataGridConfig, DataGridState, DataGridCapabilities } from './core-types.js';
-export type { DataGridCapabilities, DataGridConfig, DataGridRenderState } from './core-types.js';
+export type { DataGridCapabilities, DataGridConfig, DataGridPaginationLabels, DataGridPaginationPresentation, DataGridRenderState, } from './core-types.js';
 export declare class DataGrid {
     private static readonly URL_KEY_SEARCH;
     private static readonly URL_KEY_PAGE;

@@ -43,7 +43,13 @@ import * as lifecycleOps from './core-lifecycle.js';
 import * as columnOps from './core-columns.js';
 import type { ActionMenuController } from '../shared/action-menu.js';
 
-export type { DataGridCapabilities, DataGridConfig, DataGridRenderState } from './core-types.js';
+export type {
+  DataGridCapabilities,
+  DataGridConfig,
+  DataGridPaginationLabels,
+  DataGridPaginationPresentation,
+  DataGridRenderState,
+} from './core-types.js';
 
 function normalizeCapabilities(
   capabilities?: DataGridCapabilities,

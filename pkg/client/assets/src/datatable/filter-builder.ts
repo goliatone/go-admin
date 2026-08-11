@@ -41,6 +41,68 @@ export interface FilterBuilderActionsConfig {
   save?: boolean;
 }
 
+export interface FilterBuilderLimitsConfig {
+  maxGroups?: number;
+  maxConditionsPerGroup?: number;
+  maxTotalConditions?: number;
+}
+
+export interface FilterBuilderMessages {
+  filtersTitle: string;
+  savedFilters: string;
+  editAsSQL: string;
+  previewLabel: string;
+  noFiltersApplied: string;
+  filterName: string;
+  filterNamePlaceholder: string;
+  saveFilter: string;
+  clearAll: string;
+  applyFilter: string;
+  addFilterGroup: string;
+  removeGroup: string;
+  dragToReorder: string;
+  selectValue: string;
+  enterValue: string;
+  unavailable: string;
+  and: string;
+  or: string;
+  operatorContains: string;
+  operatorIs: string;
+  operatorIsNot: string;
+  operatorEquals: string;
+  operatorNotEquals: string;
+  operatorGreaterThan: string;
+  operatorLessThan: string;
+  operatorGreaterThanOrEqual: string;
+  operatorLessThanOrEqual: string;
+  operatorBefore: string;
+  operatorAfter: string;
+  removeGroupLabel: (group: number) => string;
+  addConditionLabel: (logic: string, group: number) => string;
+  unavailableOperatorOption: (operator: string) => string;
+  missingFieldReason: (field: string) => string;
+  disabledFieldReason: (field: string) => string;
+  missingOperatorReason: (operator: string, field: string) => string;
+  missingValueReason: (value: string, field: string) => string;
+  fieldControlLabel: (group: number, condition: number) => string;
+  operatorControlLabel: (group: number, condition: number) => string;
+  valueControlLabel: (group: number, condition: number) => string;
+  removeConditionLabel: (condition: number) => string;
+  addLogicConditionLabel: (logic: string) => string;
+  unavailableFieldOption: (field: string) => string;
+  disabledFieldOption: (field: string, reason: string) => string;
+  unavailableValueOption: (value: string) => string;
+  groupConnectorLabel: (leftGroup: number, rightGroup: number) => string;
+  unavailableFieldPreview: (field: string) => string;
+  unavailableValuePreview: (value: string) => string;
+  saveNameRequired: string;
+  filterSaved: (name: string) => string;
+  groupLimitReached: (limit: number) => string;
+  conditionsPerGroupLimitReached: (limit: number) => string;
+  totalConditionsLimitReached: (limit: number) => string;
+  structureExceedsLimits: (reasons: string[]) => string;
+}
+
 export interface FilterBuilderConfig {
   fields: FilterBuilderFieldDefinition[];
   onApply?: (structure: FilterStructure) => void;
@@ -55,6 +117,8 @@ export interface FilterBuilderConfig {
   initialStructure?: FilterStructure;
   chrome?: boolean | FilterBuilderChromeConfig;
   actions?: boolean | FilterBuilderActionsConfig;
+  messages?: Partial<FilterBuilderMessages>;
+  limits?: FilterBuilderLimitsConfig;
   restoreFromURL?: boolean;
 }
 
@@ -71,34 +135,71 @@ interface ResolvedActionsConfig {
   save: boolean;
 }
 
+interface ResolvedLimitsConfig {
+  maxGroups: number;
+  maxConditionsPerGroup: number;
+  maxTotalConditions: number;
+}
+
 interface FilterBuilderPreviewPart {
   groupIndex: number;
   text: string;
 }
 
-const DEFAULT_OPERATORS: Record<string, FilterBuilderOperatorOption[]> = {
-  text: [
-    { label: 'contains', value: 'ilike' },
-    { label: 'is', value: 'eq' },
-    { label: 'is not', value: 'ne' },
-  ],
-  number: [
-    { label: 'equals', value: 'eq' },
-    { label: 'not equals', value: 'ne' },
-    { label: 'greater than', value: 'gt' },
-    { label: 'less than', value: 'lt' },
-    { label: 'greater than or equal', value: 'gte' },
-    { label: 'less than or equal', value: 'lte' },
-  ],
-  date: [
-    { label: 'is', value: 'eq' },
-    { label: 'before', value: 'lt' },
-    { label: 'after', value: 'gt' },
-  ],
-  select: [
-    { label: 'is', value: 'eq' },
-    { label: 'is not', value: 'ne' },
-  ],
+const DEFAULT_MESSAGES: FilterBuilderMessages = {
+  filtersTitle: 'Filters',
+  savedFilters: 'Saved filters',
+  editAsSQL: 'Edit as SQL',
+  previewLabel: 'Preview:',
+  noFiltersApplied: 'No filters applied',
+  filterName: 'Filter name',
+  filterNamePlaceholder: 'Type a name here',
+  saveFilter: 'Save filter',
+  clearAll: 'Clear all',
+  applyFilter: 'Apply filter',
+  addFilterGroup: 'Add filter group',
+  removeGroup: 'Remove group',
+  dragToReorder: 'Drag to reorder',
+  selectValue: 'Select...',
+  enterValue: 'Enter value...',
+  unavailable: 'Unavailable',
+  and: 'AND',
+  or: 'OR',
+  operatorContains: 'contains',
+  operatorIs: 'is',
+  operatorIsNot: 'is not',
+  operatorEquals: 'equals',
+  operatorNotEquals: 'not equals',
+  operatorGreaterThan: 'greater than',
+  operatorLessThan: 'less than',
+  operatorGreaterThanOrEqual: 'greater than or equal',
+  operatorLessThanOrEqual: 'less than or equal',
+  operatorBefore: 'before',
+  operatorAfter: 'after',
+  removeGroupLabel: group => `Remove filter group ${group}`,
+  addConditionLabel: (logic, group) => `Add ${logic} condition to group ${group}`,
+  unavailableOperatorOption: operator => `Unavailable operator: ${operator}`,
+  missingFieldReason: field => `Field "${field}" is no longer available. Select a supported field to repair this condition.`,
+  disabledFieldReason: field => `Field "${field}" is unavailable.`,
+  missingOperatorReason: (operator, field) => `Operator "${operator}" is not available for ${field}. Select a supported operator.`,
+  missingValueReason: (value, field) => `Value "${value}" is no longer available for ${field}. Select a supported value.`,
+  fieldControlLabel: (group, condition) => `Group ${group} filter ${condition} field`,
+  operatorControlLabel: (group, condition) => `Group ${group} filter ${condition} operator`,
+  valueControlLabel: (group, condition) => `Group ${group} filter ${condition} value`,
+  removeConditionLabel: condition => `Remove filter ${condition}`,
+  addLogicConditionLabel: logic => `Add ${logic} condition`,
+  unavailableFieldOption: field => `Unavailable field: ${field}`,
+  disabledFieldOption: (field, reason) => `${field} — ${reason}`,
+  unavailableValueOption: value => `Unavailable value: ${value}`,
+  groupConnectorLabel: (leftGroup, rightGroup) => `Logic between filter groups ${leftGroup} and ${rightGroup}`,
+  unavailableFieldPreview: field => `Unavailable field (${field})`,
+  unavailableValuePreview: value => `Unavailable value (${value})`,
+  saveNameRequired: 'Please enter a name for the filter',
+  filterSaved: name => `Filter "${name}" saved!`,
+  groupLimitReached: limit => `The maximum of ${limit} filter groups has been reached.`,
+  conditionsPerGroupLimitReached: limit => `The maximum of ${limit} conditions in this group has been reached.`,
+  totalConditionsLimitReached: limit => `The maximum of ${limit} total conditions has been reached.`,
+  structureExceedsLimits: reasons => `This filter exceeds the editing limits: ${reasons.join(' ')}`,
 };
 
 let nextInstanceID = 0;
@@ -143,6 +244,8 @@ export class FilterBuilder {
   private readonly mode: FilterBuilderMode;
   private readonly chrome: ResolvedChromeConfig;
   private readonly actions: ResolvedActionsConfig;
+  private readonly messages: FilterBuilderMessages;
+  private readonly limits: ResolvedLimitsConfig;
   private readonly instanceID: string;
   private readonly notifier: ToastNotifier;
   private readonly cleanupListeners: Array<() => void> = [];
@@ -168,6 +271,8 @@ export class FilterBuilder {
 
     this.config = config;
     this.mode = config.mode ?? 'overlay';
+    this.messages = { ...DEFAULT_MESSAGES, ...config.messages };
+    this.limits = this.resolveLimits(config.limits);
     this.chrome = this.resolveChrome(config.chrome);
     this.actions = this.resolveActions(config.actions);
     this.instanceID = `filter-builder-${++nextInstanceID}`;
@@ -180,8 +285,8 @@ export class FilterBuilder {
 
   private resolveChrome(input: FilterBuilderConfig['chrome']): ResolvedChromeConfig {
     const defaults: ResolvedChromeConfig = this.mode === 'overlay'
-      ? { header: true, title: 'Filters', savedFilters: true, sqlPreview: true }
-      : { header: false, title: 'Filters', savedFilters: false, sqlPreview: false };
+      ? { header: true, title: this.messages.filtersTitle, savedFilters: true, sqlPreview: true }
+      : { header: false, title: this.messages.filtersTitle, savedFilters: false, sqlPreview: false };
     if (input === undefined) return defaults;
     if (typeof input === 'boolean') {
       return { header: input, title: defaults.title, savedFilters: input, sqlPreview: input };
@@ -196,6 +301,21 @@ export class FilterBuilder {
     if (input === undefined) return defaults;
     if (typeof input === 'boolean') return { apply: input, clear: input, save: input };
     return { ...defaults, ...input };
+  }
+
+  private resolveLimits(input: FilterBuilderLimitsConfig | undefined): ResolvedLimitsConfig {
+    const resolve = (value: number | undefined, name: string): number => {
+      if (value === undefined) return Number.POSITIVE_INFINITY;
+      if (!Number.isInteger(value) || value < 1) {
+        throw new Error(`[FilterBuilder] ${name} must be a positive integer`);
+      }
+      return value;
+    };
+    return {
+      maxGroups: resolve(input?.maxGroups, 'maxGroups'),
+      maxConditionsPerGroup: resolve(input?.maxConditionsPerGroup, 'maxConditionsPerGroup'),
+      maxTotalConditions: resolve(input?.maxTotalConditions, 'maxTotalConditions'),
+    };
   }
 
   private init(): void {
@@ -252,10 +372,10 @@ export class FilterBuilder {
         ${this.chrome.savedFilters ? `
           <div class="flex gap-2">
             <button type="button" data-filter-builder-saved-menu class="text-sm text-blue-600 hover:text-blue-800">
-              Saved filters ▾
+              ${escapeHTML(this.messages.savedFilters)} ▾
             </button>
             <button type="button" data-filter-builder-edit-sql class="text-sm text-blue-600 hover:text-blue-800">
-              Edit as SQL
+              ${escapeHTML(this.messages.editAsSQL)}
             </button>
           </div>
         ` : ''}
@@ -264,9 +384,9 @@ export class FilterBuilder {
 
     const sqlPreview = this.chrome.sqlPreview ? `
       <div class="border-t border-gray-200 pt-3 mb-4" data-filter-builder-preview-region>
-        <div class="text-xs text-gray-500 mb-1">Preview:</div>
+        <div class="text-xs text-gray-500 mb-1">${escapeHTML(this.messages.previewLabel)}</div>
         <div data-filter-builder-sql-preview aria-live="polite" class="text-xs font-mono text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 min-h-[40px] max-h-[100px] overflow-y-auto break-words">
-          No filters applied
+          ${escapeHTML(this.messages.noFiltersApplied)}
         </div>
       </div>
     ` : '';
@@ -276,22 +396,22 @@ export class FilterBuilder {
       <div class="flex items-center justify-between border-t border-gray-200 pt-4" data-filter-builder-actions>
         <div class="flex gap-2">
           ${this.actions.save ? `
-            <label class="sr-only" for="${this.instanceID}-save-name">Filter name</label>
-            <input type="text" id="${this.instanceID}-save-name" data-filter-builder-save-name placeholder="Type a name here" class="text-sm border border-gray-200 rounded px-3 py-1.5 w-48">
+            <label class="sr-only" for="${this.instanceID}-save-name">${escapeHTML(this.messages.filterName)}</label>
+            <input type="text" id="${this.instanceID}-save-name" data-filter-builder-save-name placeholder="${escapeHTML(this.messages.filterNamePlaceholder)}" class="text-sm border border-gray-200 rounded px-3 py-1.5 w-48">
             <button type="button" data-filter-builder-action="save" class="text-sm text-gray-600 hover:text-gray-800 border border-gray-200 rounded px-3 py-1.5">
-              Save filter
+              ${escapeHTML(this.messages.saveFilter)}
             </button>
           ` : ''}
         </div>
         <div class="flex gap-2">
           ${this.actions.clear ? `
             <button type="button" data-filter-builder-action="clear" class="text-sm text-gray-700 hover:text-gray-900 px-4 py-2">
-              Clear all
+              ${escapeHTML(this.messages.clearAll)}
             </button>
           ` : ''}
           ${this.actions.apply ? `
             <button type="button" data-filter-builder-action="apply" class="text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-4 py-2">
-              Apply filter
+              ${escapeHTML(this.messages.applyFilter)}
             </button>
           ` : ''}
         </div>
@@ -301,12 +421,13 @@ export class FilterBuilder {
     this.root.innerHTML = `
       ${header}
       <div data-filter-builder-groups class="space-y-3 mb-4"></div>
-      <button type="button" data-filter-builder-action="add-group" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-4" aria-label="Add filter group">
+      <p data-filter-builder-limit-status class="hidden mb-3 text-xs text-amber-700" role="status" aria-live="polite"></p>
+      <button type="button" data-filter-builder-action="add-group" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50 mb-4" aria-label="${escapeHTML(this.messages.addFilterGroup)}">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
           <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
-        AND
+        ${escapeHTML(this.messages.and)}
       </button>
       ${sqlPreview}
       ${actionFooter}
@@ -435,10 +556,17 @@ export class FilterBuilder {
           if (!field || field.disabled || !this.getOperatorsForField(field).some(operator => operator.value === condition.operator)) {
             return;
           }
+          const previousValueAvailable = this.isValueAvailable(field, condition.value);
+          condition.value = input.value;
+          if (!previousValueAvailable) {
+            this.render();
+            this.focusConditionPart(groupIndex, conditionIndex, 'value');
+          } else {
+            this.updatePreview();
+          }
+          this.emitChange();
+          return;
         }
-        condition.value = input.value;
-        this.updatePreview();
-        this.emitChange();
     }
   }
 
@@ -491,6 +619,64 @@ export class FilterBuilder {
     };
   }
 
+  private totalConditions(): number {
+    return this.structure.groups.reduce((total, group) => total + group.conditions.length, 0);
+  }
+
+  private addGroupLimitReason(): string {
+    if (this.structure.groups.length >= this.limits.maxGroups) {
+      return this.messages.groupLimitReached(this.limits.maxGroups);
+    }
+    if (this.totalConditions() >= this.limits.maxTotalConditions) {
+      return this.messages.totalConditionsLimitReached(this.limits.maxTotalConditions);
+    }
+    return '';
+  }
+
+  private addConditionLimitReason(groupIndex: number): string {
+    const group = this.structure.groups[groupIndex];
+    if (!group) return '';
+    if (group.conditions.length >= this.limits.maxConditionsPerGroup) {
+      return this.messages.conditionsPerGroupLimitReached(this.limits.maxConditionsPerGroup);
+    }
+    if (this.totalConditions() >= this.limits.maxTotalConditions) {
+      return this.messages.totalConditionsLimitReached(this.limits.maxTotalConditions);
+    }
+    return '';
+  }
+
+  private structureLimitReasons(): string[] {
+    const reasons: string[] = [];
+    if (this.structure.groups.length > this.limits.maxGroups) {
+      reasons.push(this.messages.groupLimitReached(this.limits.maxGroups));
+    }
+    if (this.structure.groups.some(group => group.conditions.length > this.limits.maxConditionsPerGroup)) {
+      reasons.push(this.messages.conditionsPerGroupLimitReached(this.limits.maxConditionsPerGroup));
+    }
+    if (this.totalConditions() > this.limits.maxTotalConditions) {
+      reasons.push(this.messages.totalConditionsLimitReached(this.limits.maxTotalConditions));
+    }
+    return reasons;
+  }
+
+  private updateLimitState(): void {
+    if (!this.root) return;
+    const status = this.root.querySelector<HTMLElement>('[data-filter-builder-limit-status]');
+    const reasons = this.structureLimitReasons();
+    if (status) {
+      status.textContent = reasons.length > 0 ? this.messages.structureExceedsLimits(reasons) : '';
+      status.classList.toggle('hidden', reasons.length === 0);
+    }
+
+    const addGroup = this.root.querySelector<HTMLButtonElement>('[data-filter-builder-action="add-group"]');
+    const reason = this.addGroupLimitReason();
+    if (addGroup) {
+      addGroup.disabled = reason !== '';
+      if (reason) addGroup.title = reason;
+      else addGroup.removeAttribute('title');
+    }
+  }
+
   private render(): void {
     if (!this.container || this.destroyed) return;
     this.container.innerHTML = this.structure.groups.map((group, groupIndex) => {
@@ -499,14 +685,18 @@ export class FilterBuilder {
         : '';
       return `${this.renderGroup(group, groupIndex)}${connector}`;
     }).join('');
+    this.updateLimitState();
     this.updatePreview();
   }
 
   private renderGroup(group: FilterGroup, groupIndex: number): string {
+    const addLimitReason = this.addConditionLimitReason(groupIndex);
+    const addDisabled = addLimitReason ? ` disabled title="${escapeHTML(addLimitReason)}"` : '';
+    const logicLabel = group.logic === 'and' ? this.messages.and : this.messages.or;
     const conditions = group.conditions.map((condition, conditionIndex) => {
       const connector = conditionIndex < group.conditions.length - 1
         ? `<div class="flex items-center justify-center my-1" aria-hidden="true">
-            <span class="text-xs font-medium text-gray-500 px-2 py-0.5 bg-white border border-gray-200 rounded">${group.logic.toUpperCase()}</span>
+            <span class="text-xs font-medium text-gray-500 px-2 py-0.5 bg-white border border-gray-200 rounded">${escapeHTML(logicLabel)}</span>
           </div>`
         : '';
       return `${this.renderCondition(condition, groupIndex, conditionIndex)}${connector}`;
@@ -515,16 +705,16 @@ export class FilterBuilder {
     return `
       <div class="border border-gray-200 rounded-lg p-3 bg-gray-50" data-filter-builder-group="${groupIndex}">
         <div class="flex justify-end mb-2">
-          <button type="button" data-filter-builder-action="remove-group" data-group-index="${groupIndex}" class="text-xs text-red-600 hover:text-red-800" aria-label="Remove filter group ${groupIndex + 1}">
-            Remove group
+          <button type="button" data-filter-builder-action="remove-group" data-group-index="${groupIndex}" class="text-xs text-red-600 hover:text-red-800" aria-label="${escapeHTML(this.messages.removeGroupLabel(groupIndex + 1))}">
+            ${escapeHTML(this.messages.removeGroup)}
           </button>
         </div>
         ${conditions}
-        <button type="button" data-filter-builder-action="add-condition" data-group-index="${groupIndex}" class="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800" aria-label="Add ${group.logic.toUpperCase()} condition to group ${groupIndex + 1}">
+        <button type="button" data-filter-builder-action="add-condition" data-group-index="${groupIndex}" class="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-50" aria-label="${escapeHTML(this.messages.addConditionLabel(logicLabel, groupIndex + 1))}"${addDisabled}>
           <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M12 5v14"/><path d="M5 12h14"/>
           </svg>
-          ${group.logic.toUpperCase()}
+          ${escapeHTML(logicLabel)}
         </button>
       </div>
     `;
@@ -538,20 +728,24 @@ export class FilterBuilder {
     const operatorAvailable = availableOperators.some(operator => operator.value === condition.operator);
     const operatorOptions = `${operatorAvailable ? '' : `
       <option value="${escapeHTML(condition.operator)}" selected disabled>
-        ${escapeHTML(`Unavailable operator: ${condition.operator}`)}
+        ${escapeHTML(this.messages.unavailableOperatorOption(condition.operator))}
       </option>
     `}${availableOperators.map(operator => `
       <option value="${escapeHTML(operator.value)}" ${operator.value === condition.operator ? 'selected' : ''}>${escapeHTML(operator.label)}</option>
     `).join('')}`;
     const fieldReason = !field
-      ? `Field "${condition.field}" is no longer available. Select a supported field to repair this condition.`
+      ? this.messages.missingFieldReason(condition.field)
       : field.disabled
-        ? field.disabledReason || `Field "${field.label}" is unavailable.`
+        ? field.disabledReason || this.messages.disabledFieldReason(field.label)
         : '';
     const operatorReason = field && !operatorAvailable
-      ? `Operator "${condition.operator}" is not available for ${field.label}. Select a supported operator.`
+      ? this.messages.missingOperatorReason(condition.operator, field.label)
       : '';
-    const availabilityReason = fieldReason || operatorReason;
+    const valueAvailable = field ? this.isValueAvailable(field, condition.value) : true;
+    const valueReason = field && operatorAvailable && !field.disabled && !valueAvailable
+      ? this.messages.missingValueReason(String(condition.value), field.label)
+      : '';
+    const availabilityReason = fieldReason || operatorReason || valueReason;
     const statusID = `${this.instanceID}-group-${groupIndex + 1}-condition-${conditionIndex + 1}-status`;
     const describedBy = availabilityReason ? ` aria-describedby="${statusID}"` : '';
     const valueField: FilterBuilderFieldDefinition = field || {
@@ -563,29 +757,29 @@ export class FilterBuilder {
 
     return `
       <div class="flex flex-wrap items-center gap-2 mb-2" data-filter-builder-condition="${groupIndex}-${conditionIndex}">
-        <div class="flex items-center text-gray-400 cursor-move" title="Drag to reorder" aria-hidden="true">
+        <div class="flex items-center text-gray-400 cursor-move" title="${escapeHTML(this.messages.dragToReorder)}" aria-hidden="true">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
             <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
           </svg>
         </div>
-        <select data-filter-builder-part="field" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="Group ${groupIndex + 1} filter ${sequence} field"${describedBy} class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-32">
+        <select data-filter-builder-part="field" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="${escapeHTML(this.messages.fieldControlLabel(groupIndex + 1, sequence))}"${describedBy} class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-32">
           ${fieldOptions}
         </select>
-        <select data-filter-builder-part="operator" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="Group ${groupIndex + 1} filter ${sequence} operator"${describedBy} ${!field || field.disabled ? 'disabled' : ''} class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-36">
+        <select data-filter-builder-part="operator" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="${escapeHTML(this.messages.operatorControlLabel(groupIndex + 1, sequence))}"${describedBy} ${!field || field.disabled ? 'disabled' : ''} class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-36">
           ${operatorOptions}
         </select>
         ${this.renderValueInput(valueField, condition, groupIndex, conditionIndex, sequence, valueDisabled, describedBy)}
-        <button type="button" data-filter-builder-action="remove-condition" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" class="text-red-600 hover:text-red-800" aria-label="Remove filter ${sequence}">
+        <button type="button" data-filter-builder-action="remove-condition" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" class="text-red-600 hover:text-red-800" aria-label="${escapeHTML(this.messages.removeConditionLabel(sequence))}">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M3 6h18"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
           </svg>
         </button>
-        <button type="button" data-filter-builder-action="add-condition-or" data-group-index="${groupIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50" aria-label="Add OR condition">
-          OR
+        <button type="button" data-filter-builder-action="add-condition-or" data-group-index="${groupIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50" aria-label="${escapeHTML(this.messages.addLogicConditionLabel(this.messages.or))}"${this.addConditionLimitReason(groupIndex) ? ` disabled title="${escapeHTML(this.addConditionLimitReason(groupIndex))}"` : ''}>
+          ${escapeHTML(this.messages.or)}
         </button>
-        <button type="button" data-filter-builder-action="add-condition-and" data-group-index="${groupIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50" aria-label="Add AND condition">
-          AND
+        <button type="button" data-filter-builder-action="add-condition-and" data-group-index="${groupIndex}" class="px-2 py-1 text-xs border border-blue-600 text-blue-600 rounded hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50" aria-label="${escapeHTML(this.messages.addLogicConditionLabel(this.messages.and))}"${this.addConditionLimitReason(groupIndex) ? ` disabled title="${escapeHTML(this.addConditionLimitReason(groupIndex))}"` : ''}>
+          ${escapeHTML(this.messages.and)}
         </button>
         ${availabilityReason ? `
           <p id="${statusID}" data-filter-builder-field-status class="w-full text-xs text-amber-700" role="note">
@@ -602,7 +796,7 @@ export class FilterBuilder {
     if (!this.getField(selectedField)) {
       html += `
         <option value="${escapeHTML(selectedField)}" selected disabled>
-          ${escapeHTML(`Unavailable field: ${selectedField}`)}
+          ${escapeHTML(this.messages.unavailableFieldOption(selectedField))}
         </option>
       `;
     }
@@ -614,7 +808,7 @@ export class FilterBuilder {
         activeGroup = nextGroup;
       }
       const optionLabel = field.disabled
-        ? `${field.label} — ${field.disabledReason || 'Unavailable'}`
+        ? this.messages.disabledFieldOption(field.label, field.disabledReason || this.messages.unavailable)
         : field.label;
       html += `
         <option value="${escapeHTML(field.name)}" ${field.name === selectedField ? 'selected' : ''} ${field.disabled ? 'disabled' : ''}>
@@ -635,14 +829,19 @@ export class FilterBuilder {
     disabled: boolean,
     describedBy: string,
   ): string {
-    const common = `data-filter-builder-part="value" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="Group ${groupIndex + 1} filter ${sequence} value"${describedBy} ${disabled ? 'disabled' : ''}`;
-    if (field.type === 'select' && field.options) {
-      const options = field.options.map(option => `
-        <option value="${escapeHTML(option.value)}" ${option.value === condition.value ? 'selected' : ''}>${escapeHTML(option.label)}</option>
+    const common = `data-filter-builder-part="value" data-group-index="${groupIndex}" data-condition-index="${conditionIndex}" aria-label="${escapeHTML(this.messages.valueControlLabel(groupIndex + 1, sequence))}"${describedBy} ${disabled ? 'disabled' : ''}`;
+    if (field.type === 'select') {
+      const valueAvailable = this.isValueAvailable(field, condition.value);
+      const unavailableOption = valueAvailable ? '' : `
+        <option value="${escapeHTML(condition.value)}" selected disabled>${escapeHTML(this.messages.unavailableValueOption(String(condition.value)))}</option>
+      `;
+      const options = (field.options || []).map(option => `
+        <option value="${escapeHTML(option.value)}" ${String(option.value) === String(condition.value) ? 'selected' : ''}>${escapeHTML(option.label)}</option>
       `).join('');
       return `
         <select ${common} class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white">
-          <option value="">Select...</option>
+          <option value="">${escapeHTML(this.messages.selectValue)}</option>
+          ${unavailableOption}
           ${options}
         </select>
       `;
@@ -650,25 +849,31 @@ export class FilterBuilder {
 
     const inputType = field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text';
     return `
-      <input type="${inputType}" ${common} value="${escapeHTML(condition.value)}" placeholder="Enter value..." class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg">
+      <input type="${inputType}" ${common} value="${escapeHTML(condition.value)}" placeholder="${escapeHTML(this.messages.enterValue)}" class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg">
     `;
+  }
+
+  private isValueAvailable(field: FilterBuilderFieldDefinition, value: unknown): boolean {
+    if (field.type !== 'select' || value === '' || value === null || value === undefined) return true;
+    return (field.options || []).some(option => String(option.value) === String(value));
   }
 
   private renderGroupConnector(groupIndex: number): string {
     const logic = this.structure.groupLogic[groupIndex] || 'and';
     return `
-      <div class="flex items-center justify-center py-2" role="group" aria-label="Logic between filter groups ${groupIndex + 1} and ${groupIndex + 2}">
+      <div class="flex items-center justify-center py-2" role="group" aria-label="${escapeHTML(this.messages.groupConnectorLabel(groupIndex + 1, groupIndex + 2))}">
         <button type="button" data-filter-builder-action="group-logic" data-group-index="${groupIndex}" data-logic-value="and" aria-pressed="${logic === 'and'}" class="px-3 py-1 text-xs font-medium rounded-l border ${logic === 'and' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
-          AND
+          ${escapeHTML(this.messages.and)}
         </button>
         <button type="button" data-filter-builder-action="group-logic" data-group-index="${groupIndex}" data-logic-value="or" aria-pressed="${logic === 'or'}" class="px-3 py-1 text-xs font-medium rounded-r border ${logic === 'or' ? 'bg-green-600 text-white border-green-600' : 'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'}">
-          OR
+          ${escapeHTML(this.messages.or)}
         </button>
       </div>
     `;
   }
 
   private addGroup(): void {
+    if (this.addGroupLimitReason()) return;
     this.structure.groups.push({ conditions: [this.createEmptyCondition()], logic: 'or' });
     if (this.structure.groups.length > 1) this.structure.groupLogic.push('and');
     this.render();
@@ -678,7 +883,7 @@ export class FilterBuilder {
 
   private addCondition(groupIndex: number): void {
     const group = this.structure.groups[groupIndex];
-    if (!group) return;
+    if (!group || this.addConditionLimitReason(groupIndex)) return;
     group.conditions.push(this.createEmptyCondition());
     this.render();
     this.focusConditionPart(groupIndex, group.conditions.length - 1, 'field');
@@ -687,7 +892,7 @@ export class FilterBuilder {
 
   private setGroupLogicAndAddCondition(groupIndex: number, logic: 'and' | 'or'): void {
     const group = this.structure.groups[groupIndex];
-    if (!group) return;
+    if (!group || this.addConditionLimitReason(groupIndex)) return;
     group.logic = logic;
     group.conditions.push(this.createEmptyCondition());
     this.render();
@@ -748,13 +953,37 @@ export class FilterBuilder {
         ? { label: operator, value: operator }
         : operator);
     }
-    return DEFAULT_OPERATORS[field.type] || DEFAULT_OPERATORS.text;
+    const defaults: Record<string, FilterBuilderOperatorOption[]> = {
+      text: [
+        { label: this.messages.operatorContains, value: 'ilike' },
+        { label: this.messages.operatorIs, value: 'eq' },
+        { label: this.messages.operatorIsNot, value: 'ne' },
+      ],
+      number: [
+        { label: this.messages.operatorEquals, value: 'eq' },
+        { label: this.messages.operatorNotEquals, value: 'ne' },
+        { label: this.messages.operatorGreaterThan, value: 'gt' },
+        { label: this.messages.operatorLessThan, value: 'lt' },
+        { label: this.messages.operatorGreaterThanOrEqual, value: 'gte' },
+        { label: this.messages.operatorLessThanOrEqual, value: 'lte' },
+      ],
+      date: [
+        { label: this.messages.operatorIs, value: 'eq' },
+        { label: this.messages.operatorBefore, value: 'lt' },
+        { label: this.messages.operatorAfter, value: 'gt' },
+      ],
+      select: [
+        { label: this.messages.operatorIs, value: 'eq' },
+        { label: this.messages.operatorIsNot, value: 'ne' },
+      ],
+    };
+    return defaults[field.type] || defaults.text;
   }
 
   private updatePreview(): void {
     const sqlPreview = this.generateSQLPreview();
     const textPreview = this.generateTextPreview();
-    if (this.sqlPreviewElement) this.sqlPreviewElement.textContent = sqlPreview || 'No filters applied';
+    if (this.sqlPreviewElement) this.sqlPreviewElement.textContent = sqlPreview || this.messages.noFiltersApplied;
     if (this.previewElement) this.previewElement.textContent = textPreview;
     if (this.appliedPreviewContainer) {
       this.appliedPreviewContainer.classList.toggle('hidden', !this.hasActiveFilters());
@@ -793,24 +1022,31 @@ export class FilterBuilder {
           const operator = field
             ? this.getOperatorsForField(field).find(item => item.value === condition.operator)
             : undefined;
-          const fieldLabel = field?.label || `Unavailable field (${condition.field})`;
-          return `${fieldLabel} ${operator?.label || condition.operator} "${condition.value}"`;
+          const fieldLabel = field?.label || this.messages.unavailableFieldPreview(condition.field);
+          const valueLabel = field && !this.isValueAvailable(field, condition.value)
+            ? this.messages.unavailableValuePreview(String(condition.value))
+            : String(condition.value);
+          return `${fieldLabel} ${operator?.label || condition.operator} "${valueLabel}"`;
         });
       if (conditionParts.length === 0) return null;
       const text = conditionParts.length === 1
         ? conditionParts[0]
-        : `( ${conditionParts.join(` ${group.logic.toUpperCase()} `)} )`;
+        : `( ${conditionParts.join(` ${group.logic === 'and' ? this.messages.and : this.messages.or} `)} )`;
       return { groupIndex, text };
     }).filter((part): part is FilterBuilderPreviewPart => part !== null);
-    return this.joinGroups(groupParts);
+    return this.joinGroups(groupParts, true);
   }
 
-  private joinGroups(parts: FilterBuilderPreviewPart[]): string {
+  private joinGroups(parts: FilterBuilderPreviewPart[], localized = false): string {
     if (parts.length < 2) return parts[0]?.text || '';
     return parts.reduce((result, part, index) => {
       if (index === 0) return part.text;
       const connectorIndex = Math.max(0, part.groupIndex - 1);
-      return `${result} ${(this.structure.groupLogic[connectorIndex] || 'and').toUpperCase()} ${part.text}`;
+      const logic = this.structure.groupLogic[connectorIndex] || 'and';
+      const connector = localized
+        ? logic === 'and' ? this.messages.and : this.messages.or
+        : logic.toUpperCase();
+      return `${result} ${connector} ${part.text}`;
     }, '');
   }
 
@@ -839,13 +1075,13 @@ export class FilterBuilder {
     const nameInput = this.root?.querySelector<HTMLInputElement>('[data-filter-builder-save-name]');
     const name = nameInput?.value.trim();
     if (!name) {
-      this.notifier.warning('Please enter a name for the filter');
+      this.notifier.warning(this.messages.saveNameRequired);
       return;
     }
     const saved = this.getSavedFilters();
     saved[name] = cloneStructure(this.structure);
     localStorage.setItem('saved_filters', JSON.stringify(saved));
-    this.notifier.success(`Filter "${name}" saved!`);
+    this.notifier.success(this.messages.filterSaved(name));
     if (nameInput) nameInput.value = '';
   }
 

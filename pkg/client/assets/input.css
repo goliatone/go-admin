@@ -313,6 +313,63 @@
     color: var(--form-control-disabled-text, var(--color-text-secondary, #6b7280));
   }
 
+  /* Opt-in structural select primitive. Themes own presentation through the
+     form-control tokens while the wrapper owns native-arrow suppression and
+     decoration placement consistently across browsers. */
+  .admin-select {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    height: var(--form-control-height, var(--size-control-height, 36px));
+    min-height: var(--form-control-height, var(--size-control-height, 36px));
+    background-color: var(--form-control-background, var(--color-surface-default, #ffffff));
+    border: 1px solid var(--form-control-border, var(--color-border-default, #d1d5db));
+    border-radius: var(--form-control-radius, var(--radius-control, 0.5rem));
+    color: var(--form-control-text, var(--color-text-primary, #111827));
+  }
+
+  .admin-select:focus-within {
+    border-color: var(--form-control-border-focus, var(--color-focus-ring, #3b82f6));
+    outline: 2px solid var(--color-focus-ring, #3b82f6);
+    outline-offset: 2px;
+  }
+
+  .admin-select .admin-select__field {
+    appearance: none;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+    background: transparent;
+    background-image: none;
+    border: 0;
+    border-radius: inherit;
+    color: inherit;
+    font: inherit;
+    outline: 0;
+  }
+
+  .admin-select .admin-select__field:focus-visible {
+    outline: 0;
+  }
+
+  .admin-select__decoration {
+    position: absolute;
+    right: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .admin-select:has(.admin-select__field:disabled) {
+    background-color: var(--form-control-disabled-background, var(--color-surface-subtle, #f3f4f6));
+    color: var(--form-control-disabled-text, var(--color-text-secondary, #6b7280));
+  }
+
   .admin-theme-root :is(a, button, input, select, textarea, [tabindex]):focus-visible {
     outline: 2px solid var(--color-focus-ring, #3b82f6);
     outline-offset: 2px;
@@ -349,7 +406,7 @@
 
   .admin-datagrid .admin-datagrid__row[data-selected="true"] {
     background-color: var(--datagrid-row-selected, var(--color-action-primary, #2563eb));
-    color: var(--color-text-inverse, #ffffff);
+    color: var(--datagrid-row-selected-text, var(--color-text-inverse, #ffffff));
   }
 
   .admin-datagrid .admin-datagrid__row[data-selected="true"] .admin-datagrid__cell {
@@ -373,9 +430,54 @@
   }
 
   .admin-datagrid__pagination .admin-datagrid__pagination-text,
-  .admin-datagrid__pagination .admin-datagrid__page-button,
   .admin-datagrid__actions-empty {
     color: var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280));
+  }
+
+  .admin-datagrid__pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--datagrid-pagination-gap, 0.25rem);
+  }
+
+  .admin-datagrid__pagination .admin-datagrid__page-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--datagrid-pagination-control-height, var(--size-control-height, 38px));
+    padding-inline: var(--datagrid-pagination-padding-inline, 0.625rem);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--datagrid-pagination-radius, var(--radius-control, 0.5rem));
+    color: var(--datagrid-pagination-page-text, var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280)));
+    font-size: var(--datagrid-pagination-font-size, var(--font-size-body, 0.875rem));
+    font-weight: var(--datagrid-pagination-font-weight, var(--font-weight-emphasis, 500));
+    line-height: var(--datagrid-pagination-line-height, var(--line-height-body, 1.25rem));
+  }
+
+  .admin-datagrid__pagination .admin-datagrid__page-button--boundary {
+    background-color: var(--datagrid-pagination-control-background, var(--color-surface-default, #ffffff));
+    border-color: var(--datagrid-pagination-control-border, var(--datagrid-border, var(--color-border-default, #e5e7eb)));
+    color: var(--datagrid-pagination-control-text, var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280)));
+  }
+
+  .admin-datagrid__pagination .admin-datagrid__page-button--page {
+    min-width: var(--datagrid-pagination-page-width, 38px);
+    padding-inline: 0;
+  }
+
+  .admin-datagrid__page-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--datagrid-pagination-page-width, 38px);
+    height: var(--datagrid-pagination-control-height, var(--size-control-height, 38px));
+    color: var(--datagrid-pagination-page-text, var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280)));
+  }
+
+  .admin-datagrid__page-ellipsis svg {
+    width: var(--datagrid-pagination-ellipsis-size, 1rem);
+    height: var(--datagrid-pagination-ellipsis-size, 1rem);
   }
 
   .admin-datagrid__pagination .admin-datagrid__page-button:hover,
@@ -383,9 +485,12 @@
     background-color: var(--datagrid-row-hover, var(--color-surface-subtle, #f3f4f6));
   }
 
+  .admin-datagrid__pagination .admin-datagrid__page-button--active,
   .admin-datagrid__pagination .admin-datagrid__page-button[aria-current="page"] {
-    background-color: var(--datagrid-row-selected, var(--color-action-primary, #e5e7eb));
-    color: var(--color-text-inverse, #1f2937);
+    background-color: var(--datagrid-pagination-active-background, var(--datagrid-row-selected, var(--color-action-primary, #e5e7eb)));
+    border-color: var(--datagrid-pagination-active-border, var(--datagrid-border, var(--color-border-default, #e5e7eb)));
+    box-shadow: var(--datagrid-pagination-active-shadow, none);
+    color: var(--datagrid-pagination-active-text, var(--color-text-inverse, #1f2937));
   }
 
   .admin-datagrid .admin-datagrid__state--empty,

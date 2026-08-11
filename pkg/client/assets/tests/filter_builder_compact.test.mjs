@@ -156,6 +156,98 @@ test('compact FilterBuilder supports optional chrome/actions, destroy, and modal
   });
 });
 
+test('compact FilterBuilder localizes visible copy, default operators, previews, and accessible names', () => {
+  withDOM('<div id="host"></div><div id="preview"></div>', 'http://localhost/admin/items', window => {
+    const builder = new FilterBuilder({
+      mode: 'compact',
+      host: '#host',
+      previewElement: '#preview',
+      fields: [{ name: 'name', label: 'Ñom', type: 'text' }],
+      chrome: { header: true },
+      messages: {
+        filtersTitle: 'Fïltres très détaillés',
+        addFilterGroup: 'Ajouter un groupe de filtres',
+        removeGroup: 'Retirer le groupe',
+        and: 'ET',
+        or: 'OU',
+        enterValue: 'Saisir une valeur très longue',
+        operatorContains: 'contient',
+        fieldControlLabel: (group, condition) => `Champ ${condition} du groupe ${group}`,
+        operatorControlLabel: (group, condition) => `Opérateur ${condition} du groupe ${group}`,
+        valueControlLabel: (group, condition) => `Valeur ${condition} du groupe ${group}`,
+        removeConditionLabel: condition => `Retirer le filtre ${condition}`,
+        addConditionLabel: (logic, group) => `Ajouter ${logic} au groupe ${group}`,
+        addLogicConditionLabel: logic => `Ajouter une condition ${logic}`,
+      },
+    });
+
+    const host = window.document.getElementById('host');
+    assert.equal(host.querySelector('h3').textContent, 'Fïltres très détaillés');
+    assert.equal(host.querySelector('[data-filter-builder-action="add-group"]').getAttribute('aria-label'), 'Ajouter un groupe de filtres');
+    assert.equal(host.querySelector('[data-filter-builder-part="field"]').getAttribute('aria-label'), 'Champ 1 du groupe 1');
+    assert.equal(host.querySelector('[data-filter-builder-part="operator"]').getAttribute('aria-label'), 'Opérateur 1 du groupe 1');
+    assert.equal(host.querySelector('[data-filter-builder-part="operator"] option').textContent.trim(), 'contient');
+    assert.equal(host.querySelector('[data-filter-builder-part="value"]').placeholder, 'Saisir une valeur très longue');
+    assert.equal(host.querySelector('[data-filter-builder-action="remove-condition"]').getAttribute('aria-label'), 'Retirer le filtre 1');
+    assert.equal(host.querySelector('[data-filter-builder-action="remove-group"]').textContent.trim(), 'Retirer le groupe');
+
+    host.querySelector('[data-filter-builder-action="add-condition-or"]').click();
+    assert.match(host.textContent, /OU/);
+    const value = host.querySelector('[data-filter-builder-part="value"]');
+    value.value = 'Ada';
+    value.dispatchEvent(new window.Event('input', { bubbles: true }));
+    assert.match(window.document.getElementById('preview').textContent, /Ñom contient "Ada"/);
+    builder.destroy();
+  });
+});
+
+test('compact FilterBuilder enforces configured editing limits without truncating hydrated structures', () => {
+  withDOM('<div id="host"></div>', 'http://localhost/admin/items', window => {
+    const builder = new FilterBuilder({
+      mode: 'compact',
+      host: '#host',
+      fields,
+      limits: { maxGroups: 2, maxConditionsPerGroup: 2, maxTotalConditions: 3 },
+    });
+    const host = window.document.getElementById('host');
+
+    host.querySelector('[data-filter-builder-action="add-condition"]').click();
+    assert.equal(builder.getStructure().groups[0].conditions.length, 2);
+    assert.equal(host.querySelector('[data-filter-builder-action="add-condition"]').disabled, true);
+
+    host.querySelector('[data-filter-builder-action="add-group"]').click();
+    assert.equal(builder.getStructure().groups.length, 2);
+    assert.equal(builder.getStructure().groups.flatMap(group => group.conditions).length, 3);
+    assert.equal(host.querySelector('[data-filter-builder-action="add-group"]').disabled, true);
+    assert.match(host.querySelector('[data-filter-builder-action="add-group"]').title, /maximum of 2 filter groups|maximum of 3 total conditions/i);
+
+    builder.setStructure({
+      groups: [
+        { logic: 'or', conditions: [{ field: 'name', operator: 'ilike', value: 'A' }] },
+        { logic: 'or', conditions: [{ field: 'name', operator: 'ilike', value: 'B' }] },
+        { logic: 'or', conditions: [{ field: 'name', operator: 'ilike', value: 'C' }] },
+      ],
+      groupLogic: ['and', 'or'],
+    }, false);
+    assert.equal(builder.getStructure().groups.length, 3, 'over-limit hydration must not be truncated');
+    const limitStatus = host.querySelector('[data-filter-builder-limit-status]');
+    assert.equal(limitStatus.classList.contains('hidden'), false);
+    assert.match(limitStatus.textContent, /exceeds the editing limits/i);
+
+    host.querySelector('[data-filter-builder-action="remove-group"][data-group-index="2"]').click();
+    assert.equal(builder.getStructure().groups.length, 2);
+    assert.equal(host.querySelector('[data-filter-builder-limit-status]').classList.contains('hidden'), true);
+    builder.destroy();
+  });
+
+  withDOM('<div></div>', 'http://localhost/admin/items', () => {
+    assert.throws(
+      () => new FilterBuilder({ mode: 'compact', host: 'div', fields, limits: { maxGroups: 0 } }),
+      /maxGroups must be a positive integer/,
+    );
+  });
+});
+
 test('overlay FilterBuilder preserves URL restore, apply/clear, focus, and listener cleanup', () => {
   const filters = encodeURIComponent(JSON.stringify([{ column: 'name', operator: 'ilike', value: 'Ada' }]));
   withDOM(`
@@ -262,6 +354,39 @@ test('FilterBuilder keeps unavailable hydrated rules truthful and repairable', (
   });
 });
 
+test('FilterBuilder preserves and repairs a hydrated select value removed from the catalog', () => {
+  withDOM('<div id="host"></div><div id="preview"></div>', 'http://localhost/admin/items', window => {
+    const changes = [];
+    const builder = new FilterBuilder({
+      mode: 'compact',
+      host: '#host',
+      previewElement: '#preview',
+      fields,
+      initialStructure: {
+        groups: [{ logic: 'or', conditions: [{ field: 'status', operator: 'eq', value: 'paused' }] }],
+        groupLogic: [],
+      },
+      onChange(structure) { changes.push(structure); },
+    });
+
+    const value = window.document.querySelector('[data-filter-builder-part="value"]');
+    const status = window.document.querySelector('[data-filter-builder-field-status]');
+    assert.equal(value.value, 'paused');
+    assert.match(value.selectedOptions[0].textContent, /Unavailable value: paused/);
+    assert.match(status.textContent, /paused.*no longer available/i);
+    assert.equal(value.getAttribute('aria-describedby'), status.id);
+    assert.equal(builder.getStructure().groups[0].conditions[0].value, 'paused');
+    assert.match(window.document.getElementById('preview').textContent, /Unavailable value \(paused\)/);
+
+    value.value = 'active';
+    value.dispatchEvent(new window.Event('change', { bubbles: true }));
+    assert.equal(builder.getStructure().groups[0].conditions[0].value, 'active');
+    assert.equal(window.document.querySelector('[data-filter-builder-field-status]'), null);
+    assert.equal(changes.length, 1);
+    builder.destroy();
+  });
+});
+
 test('FilterBuilder previews retain connectors from the original group positions', () => {
   withDOM('<div id="host"></div>', 'http://localhost/admin/items', window => {
     const builder = new FilterBuilder({
@@ -343,6 +468,10 @@ test('FilterBuilder compact contract is present in embedded and public artifacts
   assert.match(declaration, /FilterBuilderMode = 'overlay' \| 'compact'/);
   assert.match(declaration, /initialStructure\?: FilterStructure/);
   assert.match(declaration, /onChange\?: \(structure: FilterStructure\)/);
+  assert.match(declaration, /messages\?: Partial<FilterBuilderMessages>/);
+  assert.match(declaration, /limits\?: FilterBuilderLimitsConfig/);
   assert.match(declaration, /destroy\(\): void/);
   assert.match(entryDeclaration, /FilterBuilderFieldDefinition/);
+  assert.match(entryDeclaration, /FilterBuilderLimitsConfig/);
+  assert.match(entryDeclaration, /FilterBuilderMessages/);
 });

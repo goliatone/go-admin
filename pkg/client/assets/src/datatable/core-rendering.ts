@@ -8,7 +8,8 @@ import {
   renderGroupedLoadingState,
 } from './grouped-mode.js';
 import { parseDateLike } from '../shared/date-utils.js';
-import { escapeAttribute as escapeAttr } from '../shared/html.js';
+import { escapeAttribute as escapeAttr, escapeHTML } from '../shared/html.js';
+import paginationEllipsisIcon from './assets/pagination-ellipsis.svg?raw';
 import {
   formatStructuredErrorForDisplay,
   getStructuredActionError,
@@ -422,9 +423,9 @@ export function updatePaginationUI(grid: any, data: ApiResponse): void {
     const endEl = document.querySelector(grid.selectors.tableInfoEnd);
     const totalEl = document.querySelector(grid.selectors.tableInfoTotal);
 
-    if (startEl) startEl.textContent = String(start);
-    if (endEl) endEl.textContent = String(end);
-    if (totalEl) totalEl.textContent = String(total);
+    if (startEl) startEl.textContent = formatPaginationNumber(grid, start);
+    if (endEl) endEl.textContent = formatPaginationNumber(grid, end);
+    if (totalEl) totalEl.textContent = formatPaginationNumber(grid, total);
 
     grid.renderPaginationButtons(total);
   }
@@ -444,39 +445,43 @@ export function renderPaginationButtons(grid: any, total: number): void {
 
     const buttons: string[] = [];
     const current = grid.state.currentPage;
+    const labels = {
+      previous: grid.config.pagination?.labels?.previous || 'Previous',
+      next: grid.config.pagination?.labels?.next || 'Next',
+      previousPage: grid.config.pagination?.labels?.previousPage || 'Previous page',
+      nextPage: grid.config.pagination?.labels?.nextPage || 'Next page',
+      page: grid.config.pagination?.labels?.page || 'Page {page}',
+    };
 
     // Previous button
     buttons.push(`
       <button type="button"
               data-page="${current - 1}"
-              aria-label="Previous page"
+              aria-label="${escapeAttr(labels.previousPage)}"
               ${current === 1 ? 'disabled' : ''}
-              class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
-        <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6"></path>
-        </svg>
-        <span>Previous</span>
+              class="admin-datagrid__page-button admin-datagrid__page-button--boundary">
+        <span>${escapeHTML(labels.previous)}</span>
       </button>
     `);
 
     // Page numbers retain first/last reachability and communicate skipped ranges.
     for (const item of paginationWindow(totalPages, current)) {
       if (item === 'ellipsis') {
-        buttons.push('<span class="admin-datagrid__page-ellipsis min-w-[24px] text-center text-gray-500" aria-hidden="true">…</span>');
+        buttons.push(`<span class="admin-datagrid__page-ellipsis" aria-hidden="true">${paginationEllipsisIcon}</span>`);
         continue;
       }
       const isActive = item === current;
+      const formattedPage = formatPaginationNumber(grid, item);
+      const pageLabel = labels.page.includes('{page}')
+        ? labels.page.replace('{page}', formattedPage)
+        : `${labels.page} ${formattedPage}`;
       buttons.push(`
         <button type="button"
                 data-page="${item}"
-                aria-label="Page ${item}"
+                aria-label="${escapeAttr(pageLabel)}"
                 ${isActive ? 'aria-current="page"' : ''}
-                class="min-h-[38px] min-w-[38px] flex justify-center items-center ${
-                  isActive
-                    ? 'bg-gray-200 text-gray-800 focus:outline-none focus:bg-gray-300'
-                    : 'text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100'
-                } admin-datagrid__page-button py-2 px-3 text-sm rounded-lg">
-          ${item}
+                class="admin-datagrid__page-button admin-datagrid__page-button--page${isActive ? ' admin-datagrid__page-button--active' : ''}">
+          ${escapeHTML(formattedPage)}
         </button>
       `);
     }
@@ -485,13 +490,10 @@ export function renderPaginationButtons(grid: any, total: number): void {
     buttons.push(`
       <button type="button"
               data-page="${current + 1}"
-              aria-label="Next page"
+              aria-label="${escapeAttr(labels.nextPage)}"
               ${current === totalPages ? 'disabled' : ''}
-              class="admin-datagrid__page-button min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
-        <span>Next</span>
-        <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m9 18 6-6-6-6"></path>
-        </svg>
+              class="admin-datagrid__page-button admin-datagrid__page-button--boundary">
+        <span>${escapeHTML(labels.next)}</span>
       </button>
     `);
 
@@ -513,6 +515,16 @@ export function renderPaginationButtons(grid: any, total: number): void {
       });
     });
   }
+
+export function formatPaginationNumber(grid: any, value: number): string {
+  const locale = grid.config.pagination?.locale;
+  if (!locale) return String(value);
+  try {
+    return new Intl.NumberFormat(locale).format(value);
+  } catch {
+    return String(value);
+  }
+}
 
 export function paginationWindow(totalPages: number, currentPage: number): Array<number | 'ellipsis'> {
   const total = Math.max(0, Math.floor(totalPages));

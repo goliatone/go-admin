@@ -39,9 +39,19 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 		`var(--datagrid-header-background, var(--color-surface-subtle, #f9fafb))`,
 		`var(--datagrid-row-hover, var(--color-surface-subtle, #f9fafb))`,
 		`var(--datagrid-row-selected, var(--color-action-primary, #2563eb))`,
+		`var(--datagrid-row-selected-text, var(--color-text-inverse, #ffffff))`,
 		`var(--datagrid-border, var(--color-border-default, #e5e7eb))`,
 		`var(--datagrid-empty-text, var(--color-text-secondary, #6b7280))`,
 		`var(--datagrid-pagination-text, var(--color-text-secondary, #6b7280))`,
+		`var(--datagrid-pagination-control-background, var(--color-surface-default, #ffffff))`,
+		`var(--datagrid-pagination-active-background, var(--datagrid-row-selected, var(--color-action-primary, #e5e7eb)))`,
+		`var(--datagrid-pagination-active-text, var(--color-text-inverse, #1f2937))`,
+		`var(--datagrid-pagination-active-shadow, none)`,
+		`var(--datagrid-pagination-control-height, var(--size-control-height, 38px))`,
+		`var(--datagrid-pagination-page-width, 38px)`,
+		`.admin-select .admin-select__field {`,
+		`appearance: none;`,
+		`.admin-select__decoration {`,
 		`var(--color-focus-ring, #3b82f6)`,
 		`var(--color-action-primary-hover, #3f3f46)`,
 		`var(--color-text-secondary, #6b7280)`,
@@ -53,6 +63,39 @@ func TestSemanticAdminStylesUseComponentPortableAndCurrentFallbacks(t *testing.T
 	}
 	if strings.Contains(css, `--admin-sidebar-title-height`) {
 		t.Fatal("sidebar title token must remain unconsumed until a reusable title slot exists")
+	}
+}
+
+func TestDatagridPaginationUsesNormalizedFigmaEllipsisAsset(t *testing.T) {
+	content, err := os.ReadFile("assets/src/datatable/assets/pagination-ellipsis.svg")
+	if err != nil {
+		t.Fatalf("read pagination ellipsis asset: %v", err)
+	}
+	svg := string(content)
+	for _, fragment := range []string{
+		`viewBox="0 0 16 16"`,
+		`transform="translate(2.16665 6.83333)"`,
+		`M7 1.16667C7 1.811`,
+		`M11.6667 1.16667C11.6667 1.811`,
+		`M2.33333 1.16667C2.33333 1.811`,
+		`fill="currentColor"`,
+	} {
+		if !strings.Contains(svg, fragment) {
+			t.Fatalf("normalized pagination ellipsis missing %q", fragment)
+		}
+	}
+}
+
+func TestPublicSelectPrimitiveIsSafelistedForHostTemplates(t *testing.T) {
+	content, err := os.ReadFile("assets/tailwind.config.cjs")
+	if err != nil {
+		t.Fatalf("read Tailwind config: %v", err)
+	}
+	config := string(content)
+	for _, className := range []string{"admin-select", "admin-select__field", "admin-select__decoration"} {
+		if !strings.Contains(config, `'`+className+`'`) {
+			t.Fatalf("public select class %q is not safelisted", className)
+		}
 	}
 }
 

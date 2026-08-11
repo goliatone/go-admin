@@ -36,6 +36,66 @@ export interface FilterBuilderActionsConfig {
     clear?: boolean;
     save?: boolean;
 }
+export interface FilterBuilderLimitsConfig {
+    maxGroups?: number;
+    maxConditionsPerGroup?: number;
+    maxTotalConditions?: number;
+}
+export interface FilterBuilderMessages {
+    filtersTitle: string;
+    savedFilters: string;
+    editAsSQL: string;
+    previewLabel: string;
+    noFiltersApplied: string;
+    filterName: string;
+    filterNamePlaceholder: string;
+    saveFilter: string;
+    clearAll: string;
+    applyFilter: string;
+    addFilterGroup: string;
+    removeGroup: string;
+    dragToReorder: string;
+    selectValue: string;
+    enterValue: string;
+    unavailable: string;
+    and: string;
+    or: string;
+    operatorContains: string;
+    operatorIs: string;
+    operatorIsNot: string;
+    operatorEquals: string;
+    operatorNotEquals: string;
+    operatorGreaterThan: string;
+    operatorLessThan: string;
+    operatorGreaterThanOrEqual: string;
+    operatorLessThanOrEqual: string;
+    operatorBefore: string;
+    operatorAfter: string;
+    removeGroupLabel: (group: number) => string;
+    addConditionLabel: (logic: string, group: number) => string;
+    unavailableOperatorOption: (operator: string) => string;
+    missingFieldReason: (field: string) => string;
+    disabledFieldReason: (field: string) => string;
+    missingOperatorReason: (operator: string, field: string) => string;
+    missingValueReason: (value: string, field: string) => string;
+    fieldControlLabel: (group: number, condition: number) => string;
+    operatorControlLabel: (group: number, condition: number) => string;
+    valueControlLabel: (group: number, condition: number) => string;
+    removeConditionLabel: (condition: number) => string;
+    addLogicConditionLabel: (logic: string) => string;
+    unavailableFieldOption: (field: string) => string;
+    disabledFieldOption: (field: string, reason: string) => string;
+    unavailableValueOption: (value: string) => string;
+    groupConnectorLabel: (leftGroup: number, rightGroup: number) => string;
+    unavailableFieldPreview: (field: string) => string;
+    unavailableValuePreview: (value: string) => string;
+    saveNameRequired: string;
+    filterSaved: (name: string) => string;
+    groupLimitReached: (limit: number) => string;
+    conditionsPerGroupLimitReached: (limit: number) => string;
+    totalConditionsLimitReached: (limit: number) => string;
+    structureExceedsLimits: (reasons: string[]) => string;
+}
 export interface FilterBuilderConfig {
     fields: FilterBuilderFieldDefinition[];
     onApply?: (structure: FilterStructure) => void;
@@ -50,6 +110,8 @@ export interface FilterBuilderConfig {
     initialStructure?: FilterStructure;
     chrome?: boolean | FilterBuilderChromeConfig;
     actions?: boolean | FilterBuilderActionsConfig;
+    messages?: Partial<FilterBuilderMessages>;
+    limits?: FilterBuilderLimitsConfig;
     restoreFromURL?: boolean;
 }
 export declare class FilterBuilder {
@@ -57,6 +119,8 @@ export declare class FilterBuilder {
     private readonly mode;
     private readonly chrome;
     private readonly actions;
+    private readonly messages;
+    private readonly limits;
     private readonly instanceID;
     private readonly notifier;
     private readonly cleanupListeners;
@@ -77,6 +141,7 @@ export declare class FilterBuilder {
     constructor(config: FilterBuilderConfig);
     private resolveChrome;
     private resolveActions;
+    private resolveLimits;
     private init;
     private buildPanelStructure;
     private bindOwnedListeners;
@@ -87,11 +152,17 @@ export declare class FilterBuilder {
     private createDefaultStructure;
     private normalizeStructure;
     private createEmptyCondition;
+    private totalConditions;
+    private addGroupLimitReason;
+    private addConditionLimitReason;
+    private structureLimitReasons;
+    private updateLimitState;
     private render;
     private renderGroup;
     private renderCondition;
     private renderFieldOptions;
     private renderValueInput;
+    private isValueAvailable;
     private renderGroupConnector;
     private addGroup;
     private addCondition;

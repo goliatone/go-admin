@@ -11,7 +11,13 @@ async function loadJSDOM() {
 }
 
 const { JSDOM } = await loadJSDOM();
-const { DataGrid, FilterBuilder, paginationWindow } = await importDatatableModule();
+const {
+  DataGrid,
+  FilterBuilder,
+  formatPaginationNumber,
+  paginationWindow,
+  renderPaginationButtons,
+} = await importDatatableModule();
 
 test('paginationWindow preserves boundaries and marks skipped ranges', () => {
   assert.deepEqual(paginationWindow(0, 1), []);
@@ -20,6 +26,62 @@ test('paginationWindow preserves boundaries and marks skipped ranges', () => {
   assert.deepEqual(paginationWindow(20, 1), [1, 2, 3, 4, 5, 'ellipsis', 20]);
   assert.deepEqual(paginationWindow(20, 10), [1, 'ellipsis', 9, 10, 11, 'ellipsis', 20]);
   assert.deepEqual(paginationWindow(20, 20), [1, 'ellipsis', 16, 17, 18, 19, 20]);
+});
+
+test('DataGrid pagination uses stable classes, localized labels, formatted numbers, and the exact ellipsis asset', () => {
+  const dom = new JSDOM('<nav id="table-pagination"></nav>', { url: 'http://localhost/admin/customers' });
+  const previous = {};
+  for (const key of ['window', 'document', 'HTMLElement', 'Event']) {
+    previous[key] = globalThis[key];
+    globalThis[key] = dom.window[key];
+  }
+  const grid = {
+    selectors: { paginationContainer: '#table-pagination' },
+    state: { currentPage: 10, perPage: 10 },
+    config: {
+      pagination: {
+        locale: 'de-DE',
+        labels: {
+          previous: 'Zurück',
+          next: 'Weiter',
+          previousPage: 'Vorherige Seite',
+          nextPage: 'Nächste Seite',
+          page: 'Seite {page}',
+        },
+      },
+    },
+    pushStateToURL() {},
+    async refresh() {},
+  };
+
+  try {
+    assert.equal(formatPaginationNumber(grid, 12345), '12.345');
+    renderPaginationButtons(grid, 200);
+    const container = dom.window.document.getElementById('table-pagination');
+    const previousButton = container.querySelector('[data-page="9"]');
+    const active = container.querySelector('[aria-current="page"]');
+    const nextButton = container.querySelector('[data-page="11"]:last-of-type');
+    const ellipsis = container.querySelector('.admin-datagrid__page-ellipsis');
+
+    assert.equal(previousButton.textContent.trim(), 'Zurück');
+    assert.equal(previousButton.getAttribute('aria-label'), 'Vorherige Seite');
+    assert.equal(nextButton.textContent.trim(), 'Weiter');
+    assert.equal(nextButton.getAttribute('aria-label'), 'Nächste Seite');
+    assert.equal(active.textContent.trim(), '10');
+    assert.equal(active.getAttribute('aria-label'), 'Seite 10');
+    assert.equal(active.classList.contains('admin-datagrid__page-button--active'), true);
+    assert.ok(ellipsis.querySelector('svg'));
+    assert.match(ellipsis.innerHTML, /M11\.6667 1\.16667C11\.6667 1\.811/);
+    assert.equal(container.querySelector('path[d="m15 18-6-6 6-6"]'), null);
+    assert.equal(container.querySelector('path[d="m9 18 6-6-6-6"]'), null);
+    assert.doesNotMatch(container.innerHTML, /min-h-|text-gray-|rounded-lg/);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+    dom.window.close();
+  }
 });
 
 test('FilterBuilder stays inside the visual viewport and restores focus', () => {
