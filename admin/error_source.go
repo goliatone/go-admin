@@ -281,7 +281,7 @@ func classifyStackFrame(filePath, fn string, cfg ErrorConfig) stackFrameClassifi
 	if isGoAdminRouteBoundary(filePath) {
 		return stackFrameClassification{Rank: rankRouteBoundary, SourceEligible: true, PrimaryEligible: true}
 	}
-	if isGoAdminPath(filePath) {
+	if isGoAdminPath(filePath, fn) {
 		return stackFrameClassification{Rank: rankGoAdmin, SourceEligible: true, PrimaryEligible: true}
 	}
 	return stackFrameClassification{Rank: rankHost, SourceEligible: true, PrimaryEligible: true}
@@ -356,9 +356,10 @@ func isGoAdminRouteBoundary(filePath string) bool {
 	)
 }
 
-func isGoAdminPath(filePath string) bool {
+func isGoAdminPath(filePath, fn string) bool {
 	return strings.Contains(filePath, "github.com/goliatone/go-admin/") ||
-		strings.Contains(filePath, "/go-admin/")
+		strings.Contains(filePath, "/go-admin/") ||
+		strings.HasPrefix(fn, "github.com/goliatone/go-admin/")
 }
 
 func pathWithinRoot(filePath, root string) bool {

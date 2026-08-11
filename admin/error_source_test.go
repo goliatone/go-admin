@@ -105,6 +105,28 @@ func TestBuildDevErrorContextPrefersRouteBoundaryOverGenericGoAdminCheckout(t *t
 	}
 }
 
+func TestBuildDevErrorContextPrefersRouteBoundaryInRelocatedModuleSource(t *testing.T) {
+	root := t.TempDir()
+	testFile := writeSourceFile(t, root, "module-source/quickstart/content_entry_routes_errors_test.go")
+	routeFile := writeSourceFile(t, root, "module-source/quickstart/content_entry_routes_crud.go")
+
+	err := &stackError{
+		err: errors.New("repository failed"),
+		stack: goerrors.StackTrace{
+			{Function: "github.com/goliatone/go-admin/quickstart.(*contentEntryHandlers).editForPanel", File: routeFile, Line: 1},
+			{Function: "github.com/goliatone/go-admin/quickstart.TestContentEntryEditRawRepositoryFailureGetsRouteBoundaryStack", File: testFile, Line: 1},
+		},
+	}
+
+	ctx := NewErrorPresenter(ErrorConfig{DevMode: true}).BuildDevErrorContext(err, nil)
+	if ctx == nil || ctx.PrimarySource == nil {
+		t.Fatalf("expected primary source")
+	}
+	if ctx.PrimarySource.File != routeFile {
+		t.Fatalf("primary source = %q, want relocated route boundary %q", ctx.PrimarySource.File, routeFile)
+	}
+}
+
 func TestBuildDevErrorContextSkipsGOROOTStdlibFrames(t *testing.T) {
 	root := t.TempDir()
 	routeFile := writeSourceFile(t, root, "github.com/goliatone/go-admin/admin/internal/boot/step_panels.go")
