@@ -109,6 +109,53 @@ func TestAdminSemanticProfileReturnsDefensiveCopies(t *testing.T) {
 	}
 }
 
+func TestAdminSemanticProfileIncludesDatagridPaginationContracts(t *testing.T) {
+	profile := AdminSemanticProfile()
+	for _, token := range []string{
+		"datagrid.row.selected-text",
+		"datagrid.pagination.control-background",
+		"datagrid.pagination.control-border",
+		"datagrid.pagination.control-text",
+		"datagrid.pagination.page-text",
+		"datagrid.pagination.active-background",
+		"datagrid.pagination.active-border",
+		"datagrid.pagination.active-text",
+		"datagrid.pagination.active-shadow",
+		"datagrid.pagination.radius",
+		"datagrid.pagination.control-height",
+		"datagrid.pagination.page-width",
+		"datagrid.pagination.gap",
+		"datagrid.pagination.padding-inline",
+		"datagrid.pagination.font-size",
+		"datagrid.pagination.line-height",
+		"datagrid.pagination.font-weight",
+		"datagrid.pagination.ellipsis-size",
+	} {
+		if _, ok := profile.Tokens[token]; !ok {
+			t.Fatalf("pagination semantic token %q is missing", token)
+		}
+	}
+
+	selection := normalizeThemeProjection(&ThemeSelection{Tokens: map[string]string{
+		"datagrid.row.selected-text":            "#0a0a0a",
+		"datagrid.pagination.active-background": "#ffffff",
+		"datagrid.pagination.active-shadow":     "0 1px 2px rgba(0, 0, 0, 0.05)",
+		"datagrid.pagination.control-height":    "36px",
+		"datagrid.pagination.font-weight":       "500",
+	}})
+	for _, declaration := range []string{
+		"--datagrid-row-selected-text:#0a0a0a;",
+		"--datagrid-pagination-active-background:#ffffff;",
+		"--datagrid-pagination-active-shadow:0 1px 2px rgba(0, 0, 0, 0.05);",
+		"--datagrid-pagination-control-height:36px;",
+		"--datagrid-pagination-font-weight:500;",
+	} {
+		if !strings.Contains(selection.RootCSSVarsInline, declaration) {
+			t.Fatalf("pagination declaration %q missing from %q", declaration, selection.RootCSSVarsInline)
+		}
+	}
+}
+
 func TestThemePayloadAddsSemanticSectionsWithoutReplacingLegacySections(t *testing.T) {
 	selection := normalizeThemeProjection(&ThemeSelection{
 		Name:    "brand",
@@ -164,21 +211,26 @@ func TestNormalizeThemeProjectionReportsAdminConsumptionAndUnusedTransport(t *te
 func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *testing.T) {
 	selection := normalizeThemeProjection(&ThemeSelection{
 		Tokens: map[string]string{
-			"admin.shell.background":       "#f8fafc",
-			"color.surface.canvas":         "#ffffff",
-			"admin.page.gap":               "12px",
-			"admin.sidebar.section-gap":    "18px",
-			"space.stack":                  "24px",
-			"admin.sidebar.padding-inline": "10px",
-			"admin.sidebar.padding-block":  "8px",
-			"space.surface":                "16px",
-			"admin.sidebar.item-height":    "40px",
-			"admin.sidebar.item-radius":    "5px",
-			"size.control.height":          "36px",
-			"form.control.radius":          "6px",
-			"radius.control":               "4px",
-			"admin.sidebar.title-height":   "42px",
-			"dashboard.card.background":    "#ffffff",
+			"admin.shell.background":             "#f8fafc",
+			"color.surface.canvas":               "#ffffff",
+			"admin.page.gap":                     "12px",
+			"admin.sidebar.section-gap":          "18px",
+			"space.stack":                        "24px",
+			"admin.sidebar.padding-inline":       "10px",
+			"admin.sidebar.padding-block":        "8px",
+			"space.surface":                      "16px",
+			"admin.sidebar.item-height":          "40px",
+			"admin.sidebar.item-radius":          "5px",
+			"size.control.height":                "36px",
+			"form.control.radius":                "6px",
+			"radius.control":                     "4px",
+			"datagrid.pagination.radius":         "8px",
+			"datagrid.pagination.control-height": "38px",
+			"datagrid.pagination.font-size":      "14px",
+			"datagrid.pagination.line-height":    "20px",
+			"datagrid.pagination.font-weight":    "500",
+			"admin.sidebar.title-height":         "42px",
+			"dashboard.card.background":          "#ffffff",
 		},
 	})
 
