@@ -322,7 +322,26 @@ Examples:
 admin.shell.background -> color.surface.canvas -> current shell background
 datagrid.row.hover -> color.surface.subtle -> current row hover
 form.control.border -> color.border.default -> current control border
+admin.modal.surface -> color.surface.raised -> current modal surface
+admin.modal.radius -> radius.surface -> current modal radius
+admin.modal.shadow -> shadow.surface -> current modal shadow
+admin.modal.padding-block -> space.surface -> current modal block padding
+admin.action-menu.surface -> color.surface.raised -> current menu surface
+admin.status.surface -> color.surface.subtle -> current status surface
+admin.filter.surface -> color.surface.default -> current filter surface
+admin.quick-filter.ring -> color.focus.ring -> current quick-filter focus ring
 ```
+
+The supported shared-browser families expose `surface`, `text`, and the
+relevant `border`, `backdrop`, or `ring` keys. Modal geometry additionally uses
+validated `radius`, `shadow`, `padding-block`, `padding-inline`,
+`viewport-padding`, `max-height`, and `width` keys under `admin.modal.*`.
+Named modal sizes retain their existing literal defaults; `admin.modal.width`
+is the bounded host override for the selected size. These keys, together with
+`admin.action-menu.*`, `admin.status.*`, `admin.filter.*`, and
+`admin.quick-filter.*`, are projected through `AdminSemanticProfile`; do not
+emit raw manifest values or invent host-only CSS variables. Missing or invalid
+values preserve the existing component output.
 
 Legacy keys such as `primary`, `sidebar-width`, and
 `sidebar-brand-max-height` remain supported aliases. Canonical keys win when
@@ -707,6 +726,9 @@ override the current selection.
       override, and manifest asset paths are backed by a mounted static route.
 - [ ] Sidebar overrides preserve theme menu-icon fallback, mobile disclosure,
       focus, ARIA, breakpoint, desktop persistence, and reduced-motion hooks.
+- [ ] Modal, action-menu, status, filter, and quick-filter component tokens
+      resolve through component -> portable -> current-default fallback in the
+      embedded and public component stylesheets.
 - [ ] Public-site routes render `site_theme`, not admin `theme`.
 - [ ] `/admin/*` routes do not consume public-site theme bundles or partials.
 

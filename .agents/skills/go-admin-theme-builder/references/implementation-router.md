@@ -44,7 +44,8 @@ interfaces. Do not let the top-level screen name choose the owner.
 | Design pattern | Reuse first | Bounded gap owner |
 |---|---|---|
 | Global/utility navigation | go-admin navigation registry and sidebar/header primitives | go-admin, only for reusable presentation or missing semantic state |
-| Page title, breadcrumbs, actions | go-admin page-header/layout context | go-admin |
+| Page title, pretitle, subtitle, breadcrumbs, active nav, body classes | go-admin `AdminPageChrome` and layout enrichment | go-admin |
+| Trusted page actions | `page_header_actions` template block | go-admin for shared anatomy; host/product for action meaning |
 | Card or stat card | existing admin/dashboard card or widget chrome | go-admin for general admin cards; go-dashboard for widget/metric semantics |
 | Filters and search | existing filter controls plus form primitives | go-admin for DataGrid/filter composition; go-formgen for control rendering |
 | Create/edit form | go-formgen renderer and admin panel/form adapter | go-formgen for reusable field/control chrome; product module for validation/actions |
@@ -94,6 +95,11 @@ Do not:
 Use a host-owned manifest and source assets for brand values. Use
 first-wins template filesystems only for intentional structural replacement.
 Use class/renderer options where the owning package exposes them.
+
+For shared browser presentation, consume the generated
+`@goliatone/go-admin-client/components.css` export and add namespaced product
+CSS afterward. Do not copy the canonical component stylesheet, import package
+`src/` paths, or create a second modal/action-menu/status/filter vocabulary.
 
 Promote a host override upstream only after it demonstrates a reusable gap.
 When promoted, retain the host override as a compatibility fixture until the

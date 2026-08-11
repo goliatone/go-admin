@@ -17,6 +17,15 @@ trap cleanup EXIT
 # shellcheck disable=SC1091
 source "${repo_root}/taskfile"
 
+# Synthetic release fixtures exercise orchestration and rollback without the
+# repository's full publishable asset tree. The Go releasecheck tests cover the
+# real local-proxy artifact implementation; this override records invocation.
+function release:modules:validate {
+    if [ -n "${RELEASE_MODULE_VALIDATION_LOG:-}" ]; then
+        printf '%s %s\n' "${1}" "${2}" >> "${RELEASE_MODULE_VALIDATION_LOG}"
+    fi
+}
+
 function assert_file_content {
     local path=$1
     local expected=$2
@@ -931,6 +940,7 @@ function test_release_success_end_to_end {
     local git_log="${fixture_root}/release-success-git.log"
     local client_log="${fixture_root}/release-success-client.log"
     local publish_log="${fixture_root}/release-success-publish.log"
+    local module_validation_log="${fixture_root}/release-success-module-validation.log"
 
     mkdir -p "${release_fixture}/quickstart" "${release_fixture}/examples" "${release_fixture}/pkg/client/assets/scripts"
     printf '%s\n' '0.121.2' > "${release_fixture}/.version"
@@ -985,6 +995,7 @@ function test_release_success_end_to_end {
     (
         cd "${release_fixture}" || exit 1
         VERSION_FILE=.version
+        RELEASE_MODULE_VALIDATION_LOG="${module_validation_log}"
 
         function release:client:preflight {
             printf '%s\n' preflight >> "${client_log}"
@@ -1083,6 +1094,7 @@ function test_release_success_end_to_end {
     assert_file_content "${publish_log}" $'push\npublish'
     grep -q '^add pkg/client/assets/package.json pkg/client/assets/package-lock.json$' "${git_log}"
     grep -q '^push --atomic origin HEAD:main refs/tags/v0.121.3 refs/tags/quickstart/v0.121.3$' "${git_log}"
+    grep -q '^v0.121.3 ' "${module_validation_log}"
     if grep -q '^reset --mixed' "${git_log}"; then
         echo "successful release unexpectedly rolled back" >&2
         return 1

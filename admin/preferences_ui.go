@@ -118,13 +118,14 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 		},
 		"json_editor_strict": jsonEditorStrict,
 	}
-	viewCtx = buildAdminLayoutViewContext(admin, c, viewCtx, preferencesModuleID)
+	pageChrome := AdminPageChrome{Header: AdminPageHeader{Title: "Preferences"}, Active: preferencesModuleID}
+	viewCtx = buildAdminLayoutViewContextWithChrome(admin, c, viewCtx, pageChrome)
 	if viewBuilder != nil {
 		if updated := viewBuilder(admin, c, viewCtx, preferencesModuleID); updated != nil {
 			viewCtx = updated
 		}
 	}
-	viewCtx = buildAdminLayoutViewContext(admin, c, viewCtx, preferencesModuleID)
+	viewCtx = buildAdminLayoutViewContextWithChrome(admin, c, viewCtx, pageChrome)
 	viewCtx = CaptureViewContextForRequest(admin.Debug(), c, viewCtx)
 	return templateview.RenderTemplateView(c, preferencesFormTemplate, viewCtx)
 }

@@ -61,7 +61,14 @@ func buildDebugViewContext(adm *Admin, cfg DebugConfig, c router.Context, view r
 	if cfg.LayoutMode != DebugLayoutAdmin {
 		return view
 	}
-	view = buildAdminLayoutViewContext(adm, c, view, "")
+	view = buildAdminLayoutViewContextWithChrome(adm, c, view, AdminPageChrome{
+		Header: AdminPageHeader{Title: primitives.FirstNonEmpty(
+			strings.TrimSpace(toString(view["page_title"])),
+			strings.TrimSpace(toString(view["title"])),
+			"Debug",
+		)},
+		Active: "debug",
+	})
 	if _, ok := view["debug_standalone_path"]; !ok {
 		if debugPath, ok := view["debug_path"].(string); ok && debugPath != "" {
 			view["debug_standalone_path"] = debugStandalonePath(debugPath)

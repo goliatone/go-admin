@@ -170,6 +170,87 @@ func TestAdminSemanticProfileIncludesDatagridPaginationContracts(t *testing.T) {
 	}
 }
 
+func TestAdminSemanticProfileIncludesPromotedComponentConsumers(t *testing.T) {
+	profile := AdminSemanticProfile()
+	tokens := map[string]string{
+		"admin.modal.surface":          "#ffffff",
+		"admin.modal.text":             "#111827",
+		"admin.modal.border":           "#e5e7eb",
+		"admin.modal.backdrop":         "rgba(15, 23, 42, 0.5)",
+		"admin.modal.radius":           "12px",
+		"admin.modal.shadow":           "0 20px 40px rgba(0, 0, 0, 0.2)",
+		"admin.modal.padding-block":    "16px",
+		"admin.modal.padding-inline":   "20px",
+		"admin.modal.viewport-padding": "16px",
+		"admin.modal.max-height":       "80vh",
+		"admin.modal.width":            "48rem",
+		"admin.action-menu.surface":    "#ffffff",
+		"admin.action-menu.text":       "#374151",
+		"admin.action-menu.border":     "#e5e7eb",
+		"admin.status.surface":         "#f3f4f6",
+		"admin.status.text":            "#374151",
+		"admin.status.border":          "#d1d5db",
+		"admin.filter.surface":         "#f9fafb",
+		"admin.filter.text":            "#374151",
+		"admin.filter.border":          "#e5e7eb",
+		"admin.quick-filter.surface":   "#f3f4f6",
+		"admin.quick-filter.text":      "#374151",
+		"admin.quick-filter.ring":      "#3b82f6",
+	}
+	for token := range tokens {
+		if _, ok := profile.Tokens[token]; !ok {
+			t.Errorf("promoted component token %q is missing", token)
+		}
+	}
+
+	selection := normalizeThemeProjection(&ThemeSelection{Tokens: tokens})
+	statuses := map[string]string{}
+	for _, diagnostic := range selection.Diagnostics {
+		if diagnostic.Consumer == "go-admin/client" {
+			statuses[diagnostic.Canonical] = diagnostic.Status
+		}
+	}
+	for token, value := range tokens {
+		declaration := semanticCSSVariable(token) + ":" + value + ";"
+		if !strings.Contains(selection.RootCSSVarsInline, declaration) {
+			t.Errorf("component declaration %q missing from %q", declaration, selection.RootCSSVarsInline)
+		}
+		if statuses[token] != "consumed" {
+			t.Errorf("component token %q diagnostic = %q, want consumed", token, statuses[token])
+		}
+	}
+}
+
+func TestPromotedComponentFallbackChainsPreferScopedTokens(t *testing.T) {
+	selection := normalizeThemeProjection(&ThemeSelection{Tokens: map[string]string{
+		"admin.modal.surface":  "#ffffff",
+		"color.surface.raised": "#f8fafc",
+		"color.text.primary":   "#111827",
+	}})
+	statuses := map[string]string{}
+	for _, diagnostic := range selection.Diagnostics {
+		if diagnostic.Consumer == "go-admin/client" {
+			statuses[diagnostic.Canonical] = diagnostic.Status
+		}
+	}
+	if statuses["admin.modal.surface"] != "consumed" {
+		t.Fatalf("scoped modal surface must win its fallback chain: %+v", statuses)
+	}
+	if statuses["color.text.primary"] != "consumed" {
+		t.Fatalf("portable token without a scoped override must remain consumed: %+v", statuses)
+	}
+	found := false
+	for _, chain := range adminSemanticConsumerChains {
+		if reflect.DeepEqual(chain, []string{"admin.modal.surface", "color.surface.raised"}) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("modal surface must declare component-to-portable consumer precedence")
+	}
+}
+
 func TestThemePayloadAddsSemanticSectionsWithoutReplacingLegacySections(t *testing.T) {
 	selection := normalizeThemeProjection(&ThemeSelection{
 		Name:    "brand",
@@ -263,6 +344,7 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 		"admin.sidebar.item-height",
 		"admin.sidebar.item-radius",
 		"form.control.radius",
+		"space.surface",
 	} {
 		if got := statuses[token]; got.Status != "consumed" {
 			t.Fatalf("expected selected component token %s to be consumed, got %+v", token, got)
@@ -271,7 +353,6 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 	for _, token := range []string{
 		"color.surface.canvas",
 		"space.stack",
-		"space.surface",
 		"size.control.height",
 		"radius.control",
 		"admin.sidebar.title-height",

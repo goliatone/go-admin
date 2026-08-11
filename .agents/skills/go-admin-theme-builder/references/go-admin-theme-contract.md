@@ -106,6 +106,14 @@ Admin template customization is instead a first-wins filesystem stack built by
 quickstart fallbacks. A file such as `partials/sidebar.html` overrides that
 concrete path. Keep this separate from a manifest key such as `forms.input`.
 
+Authenticated route presentation is a typed go-admin contract. Use
+`AdminPageChrome` with `EnrichLayoutViewContextWithChrome`; non-zero typed
+values win over legacy page keys. The type owns title, pretitle, subtitle,
+breadcrumbs, active navigation, and body classes. It deliberately does not own
+arbitrary HTML actions, which remain trusted `page_header_actions` template
+content. A theme may select only the bounded sidebar, breadcrumbs, and footer
+structural leaves; it must not add another shell or page-header owner.
+
 Focused checks: `quickstart/theme_selector_test.go`,
 `quickstart/view_engine_test.go`, go-theme `manifest_test.go`, and go-theme
 `selector_test.go`.
@@ -152,6 +160,15 @@ embedded output directly. In go-admin, inspect
 before changing client presentation; treat `dist/` and bundled `output.css` as
 generated. The quickstart sidebar has its own source and embed boundary in
 `quickstart/assets/` and `quickstart/sidebar_embed.go`.
+
+Shared Admin modal, action-menu, status, filter, quick-filter, and button
+presentation has one canonical source:
+`pkg/client/assets/src/styles/components.css`. The embedded stylesheet imports
+that entry, while public consumers import the generated
+`@goliatone/go-admin-client/components.css` subpath. Package exports must point
+only to `dist-public/`; a host must not import package `src/` paths. Mount
+namespaced product CSS with `WithExtraAssetsFS` and load it after the shared
+stylesheet through `head_extra`.
 
 ## Public-site isolation
 

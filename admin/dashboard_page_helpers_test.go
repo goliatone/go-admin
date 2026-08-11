@@ -111,3 +111,49 @@ func TestDashboardPagePreservesCustomAreasAndControllerDecorationAfterInitialize
 		t.Fatalf("expected controller decoration chrome base path, got %+v", composed.Chrome)
 	}
 }
+
+func TestAdminDashboardPageChromeNormalizationPrecedence(t *testing.T) {
+	tests := []struct {
+		name string
+		page AdminDashboardPage
+		want string
+	}{
+		{name: "typed page", page: AdminDashboardPage{Dashboard: dashcmp.Page{Title: "Dashboard page"}, Chrome: AdminChromeState{
+			Page:       AdminPageChrome{Header: AdminPageHeader{Title: "Typed"}},
+			PageHeader: AdminPageHeader{Title: "Legacy header"}, Title: "Legacy title",
+		}}, want: "Typed"},
+		{name: "legacy header", page: AdminDashboardPage{Dashboard: dashcmp.Page{Title: "Dashboard page"}, Chrome: AdminChromeState{
+			PageHeader: AdminPageHeader{Title: "Legacy header"}, Title: "Legacy title",
+		}}, want: "Legacy header"},
+		{name: "legacy title", page: AdminDashboardPage{Dashboard: dashcmp.Page{Title: "Dashboard page"}, Chrome: AdminChromeState{
+			Title: "Legacy title",
+		}}, want: "Legacy title"},
+		{name: "dashboard page", page: AdminDashboardPage{Dashboard: dashcmp.Page{Title: "Dashboard page"}}, want: "Dashboard page"},
+		{name: "default", page: AdminDashboardPage{}, want: "Dashboard"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.page.PageChrome().Header.Title; got != test.want {
+				t.Fatalf("expected title %q, got %q", test.want, got)
+			}
+		})
+	}
+}
+
+func TestAdminDashboardPageChromeNormalizesRemainingLegacyFields(t *testing.T) {
+	page := AdminDashboardPage{Chrome: AdminChromeState{
+		Page: AdminPageChrome{Header: AdminPageHeader{Title: "Typed"}},
+		PageHeader: AdminPageHeader{
+			Pretitle: "Workspace", Subtitle: "Current activity",
+			Breadcrumbs:     []AdminPageHeaderBreadcrumb{{Label: "Dashboard", Current: true}},
+			HideBreadcrumbs: true,
+		},
+		Active: "dashboard", BodyClasses: "dashboard-page",
+	}}
+	chrome := page.PageChrome()
+	if chrome.Header.Pretitle != "Workspace" || chrome.Header.Subtitle != "Current activity" ||
+		len(chrome.Header.Breadcrumbs) != 1 || !chrome.Header.HideBreadcrumbs ||
+		chrome.Active != "dashboard" || chrome.BodyClasses != "dashboard-page" {
+		t.Fatalf("legacy presentation fields did not normalize through Page: %+v", chrome)
+	}
+}

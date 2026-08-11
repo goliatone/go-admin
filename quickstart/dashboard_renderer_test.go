@@ -821,3 +821,23 @@ func unsafeDashboardRenderer(dash *admin.Dashboard) admin.DashboardRenderer {
 	}
 	return renderer
 }
+
+func TestDashboardTemplateChromeContextUsesCanonicalHookProjection(t *testing.T) {
+	page := admin.AdminDashboardPage{
+		Chrome: admin.AdminChromeState{
+			Page: admin.AdminPageChrome{Header: admin.AdminPageHeader{
+				Title: "Operations",
+				Hooks: map[string]string{"mount": `<section data-value="unsafe">`},
+			}},
+		},
+	}
+
+	view := dashboardTemplateChromeContext(page)
+	hooks, ok := view["page_hooks"].(map[string]string)
+	if !ok {
+		t.Fatalf("dashboard page hooks have unexpected type: %T", view["page_hooks"])
+	}
+	if got := hooks["mount"]; got != `&lt;section data-value=&#34;unsafe&#34;&gt;` {
+		t.Fatalf("dashboard hook projection = %q, want canonical escaped value", got)
+	}
+}

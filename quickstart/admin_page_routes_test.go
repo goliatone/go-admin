@@ -135,3 +135,26 @@ func TestRegisterAdminPageRoutesRegistersGetAndHead(t *testing.T) {
 		t.Fatal("expected HEAD route for registered admin page")
 	}
 }
+
+func TestBuildAdminPageViewContextProjectsTypedChromeForCustomRoutes(t *testing.T) {
+	input := router.ViewContext{"page_title": "Legacy", "product_data": "kept"}
+	view, err := buildAdminPageViewContext(nil, nil, AdminPageSpec{
+		Title:  "Document title",
+		Active: "catalog",
+		Chrome: admin.AdminPageChrome{
+			Header:      admin.AdminPageHeader{Title: "Source Browser", Subtitle: "Downstream extension"},
+			BodyClasses: "source-browser",
+		},
+		BuildContext: func(router.Context) (router.ViewContext, error) { return input, nil },
+	}, nil, "catalog")
+	if err != nil {
+		t.Fatalf("build typed custom route context: %v", err)
+	}
+	if view["page_title"] != "Source Browser" || view["page_subtitle"] != "Downstream extension" ||
+		view["active"] != "catalog" || view["body_classes"] != "source-browser" {
+		t.Fatalf("typed custom route chrome was not projected: %+v", view)
+	}
+	if view["product_data"] != "kept" || input["page_title"] != "Legacy" {
+		t.Fatalf("typed custom route lost domain data or mutated its source: input=%+v view=%+v", input, view)
+	}
+}

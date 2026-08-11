@@ -360,6 +360,7 @@ func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardP
 		"breadcrumbs",
 		"hide_page_header",
 		"hide_breadcrumbs",
+		"page_hooks",
 		"nav_items",
 		"nav_utility_items",
 		"nav_debug",
@@ -412,17 +413,10 @@ func dashboardTemplateAreas(page admin.AdminDashboardPage) []map[string]any {
 
 func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]any {
 	partials := normalizedDashboardAdminPartials(page.Chrome.AdminPartials)
-	return map[string]any{
+	chrome := page.PageChrome()
+	view := map[string]any{
 		"asset_base_path":                  page.Chrome.AssetBasePath,
 		"api_base_path":                    page.Chrome.APIBasePath,
-		"body_classes":                     page.Chrome.BodyClasses,
-		"active":                           page.Chrome.Active,
-		"page_title":                       page.Chrome.PageHeader.Title,
-		"page_pretitle":                    page.Chrome.PageHeader.Pretitle,
-		"page_subtitle":                    page.Chrome.PageHeader.Subtitle,
-		"breadcrumbs":                      page.Chrome.PageHeader.Breadcrumbs,
-		"hide_page_header":                 page.Chrome.PageHeader.HideHeader,
-		"hide_breadcrumbs":                 page.Chrome.PageHeader.HideBreadcrumbs,
 		"nav_items":                        page.Chrome.NavItems,
 		"nav_utility_items":                page.Chrome.NavUtilityItems,
 		"nav_debug":                        page.Chrome.NavDebug,
@@ -443,6 +437,10 @@ func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]an
 		"admin_partials":                   partials.TemplateContext(),
 		"admin_partial_diagnostics":        partials.Diagnostics,
 	}
+	for key, value := range chrome.TemplateContext() {
+		view[key] = value
+	}
+	return view
 }
 
 func normalizedDashboardAdminPartials(selection admin.AdminStructuralPartials) admin.AdminStructuralPartials {

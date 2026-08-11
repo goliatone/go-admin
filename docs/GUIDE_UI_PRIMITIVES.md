@@ -13,6 +13,20 @@ The primitives are meant to:
 - Keep JavaScript enhancement hooks stable
 - Use shared status/tone vocabulary where possible
 
+## Support Tiers
+
+- **Canonical:** typed page chrome; modal; action menu; status chip; filter
+  panel; quick filters; and shared button variants. Their documented anatomy,
+  semantic tokens, public imports, and accessibility behavior are supported.
+- **Internal:** page-specific templates and browser controllers may consume
+  canonical primitives but are not reusable package entrypoints.
+- **Compatibility-only:** legacy page-header partial/keys, DataGrid action
+  class aliases, and `status-badge` class aliases remain temporarily gated.
+- **Downstream-owned:** product copy, business state, commands, permissions,
+  validation, and namespaced product CSS.
+- **Deferred:** any primitive not listed as canonical remains private until it
+  receives an explicit anatomy, token, delivery, and validation contract.
+
 ## Authoring Rules
 
 Use the repository paths shown in this guide. Template partials live under `pkg/client/templates/partials/`, and client assets live under `pkg/client/assets/src/`.
@@ -513,13 +527,12 @@ Some current translation templates still contain inline `{% set %}` tone logic. 
 
 ## CSS Components
 
-The primitive styles live under `pkg/client/assets/src/styles/components/`:
-
-| File | Description |
-|------|-------------|
-| `action-menu.css` | Action menu dropdown styling |
-| `quick-filters.css` | Quick filter badge styling |
-| `filter-panel.css` | Filter panel form styling and filter-summary companion styles |
+The canonical primitive stylesheet is the single self-contained source
+`pkg/client/assets/src/styles/components.css`. Former per-component files under
+`pkg/client/assets/src/styles/components/` were consolidated and removed; they
+are not supported import paths. Keep modal, action-menu, status, filter-panel,
+and quick-filter rules in the canonical file so embedded and package delivery
+cannot drift.
 
 ### Semantic admin classes
 
@@ -549,10 +562,25 @@ order is component token, portable token, then the current literal.
 Product-specific Tailwind utilities remain unchanged, and these classes must
 not be added to public-site templates.
 
-The canonical sources are `pkg/client/assets/input.css` and
-`pkg/client/assets/src/datatable/actions.css`. Files under
-`pkg/client/assets/dist/` and `output.css` are generated; rebuild them with
-`npm run build` rather than editing them directly.
+The shared CSS build helper compiles `pkg/client/assets/input.css` and then
+composes the canonical component source into `output.css` exactly once. The
+legacy `dist/styles/datatable-actions.css` URL remains a generated compatibility
+artifact but is no longer linked by the canonical shell. Full, CSS-only,
+production, and watch builds use the same composition helper. The public package
+emits the same canonical source as
+`@goliatone/go-admin-client/components.css`. Files under
+`pkg/client/assets/dist/`, `pkg/client/assets/dist-public/`, and `output.css`
+are generated; rebuild them with `npm run build` rather than editing them
+directly. A consuming browser application should import the supported public
+subpath, never a package `src/` path:
+
+```ts
+import '@goliatone/go-admin-client/components.css';
+```
+
+The composed shared stylesheet loads before host `head_extra` and product CSS. Host
+rules should be namespaced and use semantic variables instead of copying the
+shared component source.
 
 Tone classes are mostly Tailwind utility classes in templates, with the same broad palette:
 
@@ -611,8 +639,11 @@ Enhanced SSR actions are documented in `docs/GUIDE_ACTIONS.md`. Translation-fami
 
 ## Page Headers
 
-The authenticated `layout.html` owns the single page-header frame. Fill its
-blocks from an extending page; do not include a second header partial:
+The authenticated `layout.html` owns the single page-header frame. New route
+handlers provide title, pretitle, subtitle, breadcrumbs, active navigation,
+and body classes through `admin.AdminPageChrome` and
+`admin.EnrichLayoutViewContextWithChrome`. Trusted actions remain template
+content in `page_header_actions`; do not include a second header partial:
 
 ```html
 {% extends "layout.html" %}
@@ -632,13 +663,38 @@ Theme or host code may replace that leaf through `admin.page.breadcrumbs`; page
 actions remain trusted template-owned block content. The legacy
 `partials/admin-page-header.html`, `header_title`, `header_pretitle`,
 `header_actions`, and `tabs_area` contracts remain compatibility aliases for at
-least one major release, but are not the authoring path for new pages.
+least one major release, but are not the authoring path for new pages. They may
+not be removed before `v0.133.0`, and only after a downstream-usage audit finds
+no remaining consumers. The same gate applies to legacy DataGrid action class
+aliases and `status-badge` class aliases.
+
+## Browser Components And Modal Composition
+
+The supported cross-host component set is page chrome, modal, action menu,
+status chip, filter panel, quick filters, and shared button variants. Template
+partials own server-rendered anatomy; TypeScript enhances behavior without
+replacing native links, forms, buttons, or `<details>` disclosure.
+
+Import modal behavior from
+`@goliatone/go-admin-client/components/modal` and pair it with the public
+`components.css` import. Subclass `Modal` to provide product content, call
+`show()` to open it, and use `requestClose()` for normal close controls. The
+base owns dialog semantics, accessible naming, focus containment/return,
+Escape/Tab handling, stacking, scroll locking, reduced motion, and visual
+viewport containment. Product code owns validation, authorization, transport,
+commands, redirects, and trusted-markup policy.
+
+Every modal supplies `labelledBy` or `ariaLabel`. Action menus use the shared
+`action-menu__*` anatomy and `data-action-menu*` hooks. Statuses use
+`status-chip`; filters use `filter-panel__*`; quick filters use
+`quick-filter`. Component token fallback is component token, portable token,
+then the current literal.
 
 ## Migration Checklist
 
 When adding or migrating admin pages, verify:
 
-- [ ] Extends the canonical shell and fills `page_*` blocks without adding a second header or breadcrumb frame
+- [ ] Extends the canonical shell, uses typed page chrome, and adds no second header or breadcrumb frame
 - [ ] Uses `quick-filters.html` for simple status/category filters when presenter data is available
 - [ ] Uses `filter-panel.html` or equivalent translation-owned form markup for advanced filters
 - [ ] Uses `filter-summary.html` for active filter chips when applicable

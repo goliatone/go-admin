@@ -24,6 +24,10 @@ support.
 4. Read the owning source and focused tests before proposing or making changes.
 5. Keep the admin `theme` contract separate from the public-site `site_theme`
    contract.
+6. For Admin shell or shared-component work, read
+   `docs/GUIDE_VIEW_CUSTOMIZATION.md`, `docs/GUIDE_UI_PRIMITIVES.md`,
+   `docs/GUIDE_THEME.md`, and `docs/GUIDE_FRONTEND.md` from the selected
+   go-admin source before changing a host override.
 
 Run `scripts/audit_go_admin_theme.sh <repository-root>` when a POSIX shell is
 available. It is a read-only discovery index, not a substitute for source
@@ -60,13 +64,22 @@ Route every change to the narrowest owner:
 2. `go-formgen` or `go-dashboard`: package-specific semantic consumers and
    rendering states.
 3. `go-admin`: admin payload adapters, shell/shared primitives, safe layout
-   projection, favicon rendering, and embedded DataGrid/client presentation.
+   projection, typed page chrome, favicon rendering, and embedded/public
+   DataGrid and client-component presentation.
 4. Host theme/override: brand values and assets, manifest configuration, and
    supported first-wins template or asset overrides.
 5. Product module: routes, permissions, data, workflows, and domain behavior.
 
 Do not hide a reusable framework gap behind broad host CSS. Document the gap
 and make a bounded upstream change with contract tests.
+
+Keep manifest metadata, template filesystem overlays, SSR primitives, browser
+components, and product CSS as separate delivery tiers. New authenticated
+routes use `AdminPageChrome` plus `EnrichLayoutViewContextWithChrome`; trusted
+action markup remains template-owned. Shared modal/action-menu/status/filter/
+quick-filter/button styling comes from the canonical go-admin component source
+and the generated `@goliatone/go-admin-client/components.css` export. Never
+copy that source into a theme package or import package `src/` paths.
 
 ## Cross-package development
 

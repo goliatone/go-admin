@@ -48,6 +48,12 @@ New renderers should accept `dashboard.Page`. Payload-map helpers are migration
 adapters only. Do not resolve another theme selector from a widget provider or
 template.
 
+The dashboard route remains subordinate to the shared authenticated shell. It
+builds typed `AdminPageChrome`, and the canonical dashboard renderer consumes
+one typed `dashboard.Page`; widget providers do not own the document, route,
+page header, breadcrumbs, or shell renderer. Trusted page actions and bounded
+sidebar/breadcrumb/footer overrides remain host template concerns.
+
 The canonical serialized theme can include:
 
 - `name`, `variant`, `tokens`, `css_vars`, and `css_vars_inline`;
@@ -242,7 +248,13 @@ Focused go-admin checks:
 go test ./admin -run 'TestDashboard.*Theme|TestDashboardTheme|TestDashboardRouteReturnsTheme|TestDashboardProviderPresentation|TestDashboardRegisterProviderChecked'
 go test ./pkg/client -run 'TestDashboardWidgetStylesUseSemanticThemeContract'
 go test ./quickstart -run 'TestDefaultDashboardRenderer|TestDashboardRenderer'
+go test ./quickstart -run TestDownstreamExtensionContract
 ```
+
+The downstream contract also proves typed page chrome, one shell/document
+owner, provider template and placement metadata, public modal/component CSS,
+product CSS mounting, theme propagation, CSRF helpers, and bounded footer
+composition without copying the dashboard layout.
 
 When changing go-dashboard itself, also run its theme, chart provider, renderer,
 and shell asset tests.

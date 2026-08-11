@@ -159,6 +159,7 @@ func adminChromeStateFromViewContext(view router.ViewContext) AdminChromeState {
 	assignAdminChromeBool(&state.NavDebug, view["nav_debug"])
 	assignAdminChromeString(&state.NavItemsJSON, view["nav_items_json"])
 	state.AdminPartials = adminStructuralPartialsFromViewValue(view["admin_partials"])
+	state.Page = normalizedAdminPageChrome(state, "")
 	return state
 }
 
@@ -333,11 +334,11 @@ func (d *dashboardBinding) dashboardPageViewContext(requestCtx context.Context, 
 	if d.admin != nil && strings.TrimSpace(d.admin.config.BasePath) != "" {
 		basePath = d.admin.config.BasePath
 	}
-	return buildAdminLayoutViewContextFromContext(d.admin, c, requestCtx, router.ViewContext{
+	return buildAdminLayoutViewContextWithChromeFromContext(d.admin, c, requestCtx, router.ViewContext{
 		"title":           d.admin.config.Title,
 		"base_path":       basePath,
 		"asset_base_path": basePath,
-	}, "dashboard")
+	}, AdminPageChrome{Header: AdminPageHeader{Title: "Dashboard"}, Active: "dashboard"})
 }
 
 func dashboardWidgetsFromPage(page dashcmp.Page) []map[string]any {

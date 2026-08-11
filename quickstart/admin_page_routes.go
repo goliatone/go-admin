@@ -18,6 +18,7 @@ type AdminPageSpec struct {
 	Template           string                                           `json:"template"`
 	Title              string                                           `json:"title"`
 	Active             string                                           `json:"active"`
+	Chrome             admin.AdminPageChrome                            `json:"chrome"`
 	Feature            string                                           `json:"feature"`
 	Permission         string                                           `json:"permission"`
 	ViewContextBuilder UIViewContextBuilder                             `json:"view_context_builder"`
@@ -62,7 +63,7 @@ func RegisterAdminPageRoutes[T any](
 			if err := guardAdminPageRoute(c, adm, spec, fallbackAuthz); err != nil {
 				return err
 			}
-			viewCtx, err := buildAdminPageViewContext(c, spec, viewBuilder, active)
+			viewCtx, err := buildAdminPageViewContext(c, adm, spec, viewBuilder, active)
 			if err != nil {
 				return err
 			}
@@ -131,7 +132,7 @@ func guardAdminPageRoute(c router.Context, adm *admin.Admin, spec AdminPageSpec,
 	return nil
 }
 
-func buildAdminPageViewContext(c router.Context, spec AdminPageSpec, viewBuilder UIViewContextBuilder, active string) (router.ViewContext, error) {
+func buildAdminPageViewContext(c router.Context, adm *admin.Admin, spec AdminPageSpec, viewBuilder UIViewContextBuilder, active string) (router.ViewContext, error) {
 	viewCtx := router.ViewContext{}
 	if title := strings.TrimSpace(spec.Title); title != "" {
 		viewCtx["title"] = title
@@ -146,6 +147,14 @@ func buildAdminPageViewContext(c router.Context, spec AdminPageSpec, viewBuilder
 	if viewBuilder != nil {
 		viewCtx = viewBuilder(viewCtx, active, c)
 	}
+	chrome := spec.Chrome.Clone()
+	if strings.TrimSpace(chrome.Header.Title) == "" {
+		chrome.Header.Title = strings.TrimSpace(spec.Title)
+	}
+	if strings.TrimSpace(chrome.Active) == "" {
+		chrome.Active = active
+	}
+	viewCtx = admin.EnrichLayoutViewContextWithChrome(adm, c, viewCtx, chrome)
 	return viewCtx, nil
 }
 

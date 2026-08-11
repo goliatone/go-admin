@@ -100,10 +100,13 @@ func RegisterSettingsUIRoutes[T any](
 	}
 
 	spec := AdminPageSpec{
-		Route:              options.route,
-		Template:           options.template,
-		Title:              cfg.Title,
-		Active:             options.active,
+		Route:    options.route,
+		Template: options.template,
+		Title:    cfg.Title,
+		Active:   options.active,
+		Chrome: admin.AdminPageChrome{Header: admin.AdminPageHeader{
+			Title: "Settings", Subtitle: "System and site-level configuration (read-only)",
+		}},
 		Feature:            string(admin.FeatureSettings),
 		Permission:         admin.EffectiveSettingsPermission(cfg),
 		ViewContextBuilder: options.viewContext,

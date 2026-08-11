@@ -779,10 +779,10 @@ func TestTranslationQueueTemplateRendersUIPresetLinks(t *testing.T) {
 	if !strings.Contains(html, `action="/admin/translations/queue?channel=staging&amp;page=1&amp;status=assigned"`) {
 		t.Fatalf("expected filter form to use apply URL with active query state, got %q", html)
 	}
-	if !strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;page=1&amp;per_page=25" class="btn btn-secondary h-10 px-4 py-2" data-navigation-busy-trigger>Clear</a>`) {
+	if !strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;page=1&amp;per_page=25" class="btn btn-secondary" data-navigation-busy-trigger>Clear</a>`) {
 		t.Fatalf("expected filter Clear link to use clear-all URL without active filters, got %q", html)
 	}
-	if strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;page=1&amp;status=assigned" class="btn btn-secondary h-10 px-4 py-2">Clear</a>`) {
+	if strings.Contains(html, `href="/admin/translations/queue?channel=staging&amp;page=1&amp;status=assigned" class="btn btn-secondary">Clear</a>`) {
 		t.Fatalf("expected filter Clear link not to reuse apply URL, got %q", html)
 	}
 	for _, expected := range []string{

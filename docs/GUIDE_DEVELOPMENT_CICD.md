@@ -292,7 +292,14 @@ with fast-forward-only semantics, and requires the latest `vX.Y.Z` and
 `quickstart/vX.Y.Z` tags to identify the same version and commit. Release
 preparation tests the publishable root and quickstart graph with workspace mode
 disabled, advances examples development metadata, and assigns the same version
-to `@goliatone/go-admin-client`.
+to `@goliatone/go-admin-client`. After release-generated files are finalized,
+the task stages the intended commit, constructs a local Go module proxy from
+that exact index, hydrates quickstart's direct root-module checksums through the
+proxy, and runs the staged quickstart module with `GOWORK=off -mod=readonly`.
+The proxy is consumed through an isolated module cache, so an older cached copy
+cannot satisfy the check. This gate catches nested-module metadata defects that
+a temporary local `replace` cannot expose; untracked files do not affect the
+proxy archive.
 
 Failures before a successful atomic push restore version, changelog, module
 metadata, the index, temporary notes, release commit, and local tags. If

@@ -58,8 +58,9 @@ func resolveQuickstartAdminAPIBase(adm *admin.Admin, cfg admin.Config, fallbackB
 
 func renderQuickstartUIView(c router.Context, template, title, active, basePath string, builder UIViewContextBuilder, extra router.ViewContext) error {
 	viewCtx := router.ViewContext{
-		"title":     title,
-		"base_path": basePath,
+		"title":      title,
+		"page_title": title,
+		"base_path":  basePath,
 	}
 	viewCtx = mergeViewContext(viewCtx, extra)
 	if builder != nil {

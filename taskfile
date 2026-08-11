@@ -2121,6 +2121,53 @@ function quickstart:sync {
     fi
 }
 
+function release:modules:validate {
+    local release_tag=${1}
+    local state_dir=${2}
+    local source_dir="${state_dir}/module-source"
+    local proxy_dir="${state_dir}/module-proxy"
+    local module_cache="${state_dir}/module-cache"
+    local upstream_proxy
+    local no_sum_db
+
+    [ -n "${release_tag}" ] || return 1
+    [ -n "${state_dir}" ] || return 1
+    mkdir -p "${source_dir}" "${proxy_dir}" "${module_cache}" || return 1
+
+    # Materialize the index, not the working directory, so ignored/untracked
+    # release notes and local context cannot alter the module ZIP checksum.
+    git checkout-index --all --prefix="${source_dir}/" || return 1
+    GOWORK=off go run ./cmd/go-admin-release-check \
+        -module-root "${source_dir}" \
+        -version "${release_tag}" \
+        -module-proxy "${proxy_dir}" || return 1
+
+    upstream_proxy=$(GOWORK=off go env GOPROXY) || return 1
+    no_sum_db="github.com/goliatone/go-admin"
+    if [ -n "${GONOSUMDB:-}" ]; then
+        no_sum_db="${GONOSUMDB},${no_sum_db}"
+    fi
+
+    (
+        cd quickstart || exit 1
+        GOWORK=off \
+            GOMODCACHE="${module_cache}" \
+            GOPROXY="file://${proxy_dir},${upstream_proxy}" \
+            GONOSUMDB="${no_sum_db}" \
+            go mod download "github.com/goliatone/go-admin@${release_tag}" || exit 1
+    ) || return 1
+
+    cp quickstart/go.sum "${source_dir}/quickstart/go.sum" || return 1
+    (
+        cd "${source_dir}/quickstart" || exit 1
+        GOWORK=off \
+            GOMODCACHE="${module_cache}" \
+            GOPROXY="file://${proxy_dir},${upstream_proxy}" \
+            GONOSUMDB="${no_sum_db}" \
+            go test -mod=readonly ./...
+    )
+}
+
 function examples:sync {
     local tag=${1}
 
@@ -2371,7 +2418,8 @@ function release {
         git cliff --tag "${release_tag}" --output CHANGELOG.md || exit 1
     fi
 
-    # Add updated version file to git
+    # Stage the exact release tree, then prove quickstart against a local proxy
+    # generated from that staged root module before any release tag exists.
     git add "${VERSION_FILE}" CHANGELOG.md go.mod go.sum || exit 1
     if [ -f "quickstart/go.mod" ]; then
         git add quickstart/go.mod quickstart/go.sum || exit 1
@@ -2382,6 +2430,8 @@ function release {
     if [ "${release_client_enabled}" -eq 1 ]; then
         git add pkg/client/assets/package.json pkg/client/assets/package-lock.json || exit 1
     fi
+    release:modules:validate "${release_tag}" "${release_state_dir}" || exit 1
+    git add quickstart/go.sum || exit 1
     git commit -m "Bump version: v${tag}" || exit 1
 
     # Create a new tag

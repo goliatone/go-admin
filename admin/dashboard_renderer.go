@@ -60,13 +60,14 @@ func ComposeAdminDashboardPage(page dashcmp.Page) AdminDashboardPage {
 
 // Title returns the preferred page title after host composition.
 func (page AdminDashboardPage) Title() string {
-	if title := strings.TrimSpace(page.Chrome.Title); title != "" {
-		return title
-	}
-	if title := strings.TrimSpace(page.Dashboard.Title); title != "" {
-		return title
-	}
-	return "Dashboard"
+	return page.PageChrome().Header.Title
+}
+
+// PageChrome returns the normalized presentation projection used by dashboard
+// templates. The typed page wins, followed by compatibility page-header/title
+// fields, the go-dashboard page title, and finally the Dashboard default.
+func (page AdminDashboardPage) PageChrome() AdminPageChrome {
+	return normalizedAdminPageChrome(page.Chrome, page.Dashboard.Title)
 }
 
 // LayoutJSON derives the dashboard state JSON from the canonical typed page.
@@ -76,6 +77,7 @@ func (page AdminDashboardPage) LayoutJSON() string {
 
 // AdminChromeState captures host chrome metadata needed by go-admin templates.
 type AdminChromeState struct {
+	Page                         AdminPageChrome              `json:"page"`
 	Title                        string                       `json:"title,omitempty"`
 	PageHeader                   AdminPageHeader              `json:"page_header"`
 	BasePath                     string                       `json:"base_path,omitempty"`
@@ -109,7 +111,9 @@ func (state AdminChromeState) Empty() bool {
 func adminChromeHasText(state AdminChromeState) bool {
 	for _, value := range []string{
 		state.Title, state.BasePath, state.AssetBasePath, state.APIBasePath,
-		state.BodyClasses, state.Active, string(state.SidebarCollapsePlacement), state.NavItemsJSON,
+		state.BodyClasses, state.Active, state.Page.Header.Title, state.Page.Header.Pretitle,
+		state.Page.Header.Subtitle, state.Page.Active, state.Page.BodyClasses,
+		string(state.SidebarCollapsePlacement), state.NavItemsJSON,
 	} {
 		if strings.TrimSpace(value) != "" {
 			return true
@@ -122,6 +126,7 @@ func adminChromeHasCollections(state AdminChromeState) bool {
 	return len(state.NavItems) > 0 || len(state.NavUtilityItems) > 0 || len(state.SessionUser) > 0 ||
 		len(state.Theme) > 0 || len(state.ExternalAssets) > 0 || len(state.CSRFTemplateHelpers) > 0 ||
 		len(state.TranslationCapabilities) > 0 || len(state.PageHeader.Breadcrumbs) > 0 || len(state.PageHeader.Hooks) > 0 ||
+		len(state.Page.Header.Breadcrumbs) > 0 || len(state.Page.Header.Hooks) > 0 ||
 		state.AdminPartials.Sidebar != "" ||
 		state.AdminPartials.Breadcrumbs != "" || state.AdminPartials.Footer != ""
 }
@@ -129,18 +134,19 @@ func adminChromeHasCollections(state AdminChromeState) bool {
 func adminChromeHasFlags(state AdminChromeState) bool {
 	return state.SidebarHideSearch || state.SidebarCompactFooter || state.SidebarHidePresence ||
 		state.SidebarHideUserMenuIndicator || state.UsersImportAvailable || state.UsersImportEnabled || state.NavDebug ||
-		state.PageHeader.HideHeader || state.PageHeader.HideBreadcrumbs
+		state.PageHeader.HideHeader || state.PageHeader.HideBreadcrumbs ||
+		state.Page.Header.HideHeader || state.Page.Header.HideBreadcrumbs
 }
 
 func withAdminChromeState(page dashcmp.Page, state AdminChromeState) (dashcmp.Page, error) {
-	if title := strings.TrimSpace(state.Title); title != "" {
-		page.Title = title
-	}
 	if state.Empty() {
 		return page, nil
 	}
+	state = cloneAdminChromeState(state)
+	state.Page = normalizedAdminPageChrome(state, page.Title)
+	page.Title = state.Page.Header.Title
 
-	encoded, err := json.Marshal(cloneAdminChromeState(state))
+	encoded, err := json.Marshal(state)
 	if err != nil {
 		return dashcmp.Page{}, err
 	}
@@ -166,6 +172,7 @@ func adminChromeStateFromPage(page dashcmp.Page) AdminChromeState {
 	if err := json.Unmarshal(raw, &state); err != nil {
 		return AdminChromeState{}
 	}
+	state.Page = normalizedAdminPageChrome(state, page.Title)
 	return cloneAdminChromeState(state)
 }
 
@@ -183,8 +190,46 @@ func cloneAdminChromeState(state AdminChromeState) AdminChromeState {
 	state.TranslationCapabilities = cloneAny(state.TranslationCapabilities)
 	state.PageHeader.Breadcrumbs = append([]AdminPageHeaderBreadcrumb(nil), state.PageHeader.Breadcrumbs...)
 	state.PageHeader.Hooks = cloneStringMap(state.PageHeader.Hooks)
+	state.Page = state.Page.Clone()
 	state.AdminPartials = state.AdminPartials.Clone()
 	return state
+}
+
+func normalizedAdminPageChrome(state AdminChromeState, dashboardTitle string) AdminPageChrome {
+	page := state.Page.Clone()
+	if strings.TrimSpace(page.Header.Title) == "" {
+		page.Header.Title = strings.TrimSpace(state.PageHeader.Title)
+	}
+	if strings.TrimSpace(page.Header.Title) == "" {
+		page.Header.Title = strings.TrimSpace(state.Title)
+	}
+	if strings.TrimSpace(page.Header.Title) == "" {
+		page.Header.Title = strings.TrimSpace(dashboardTitle)
+	}
+	if strings.TrimSpace(page.Header.Title) == "" {
+		page.Header.Title = "Dashboard"
+	}
+	if strings.TrimSpace(page.Header.Pretitle) == "" {
+		page.Header.Pretitle = strings.TrimSpace(state.PageHeader.Pretitle)
+	}
+	if strings.TrimSpace(page.Header.Subtitle) == "" {
+		page.Header.Subtitle = strings.TrimSpace(state.PageHeader.Subtitle)
+	}
+	if len(page.Header.Breadcrumbs) == 0 {
+		page.Header.Breadcrumbs = append([]AdminPageHeaderBreadcrumb(nil), state.PageHeader.Breadcrumbs...)
+	}
+	if len(page.Header.Hooks) == 0 {
+		page.Header.Hooks = cloneStringMap(state.PageHeader.Hooks)
+	}
+	page.Header.HideHeader = page.Header.HideHeader || state.PageHeader.HideHeader
+	page.Header.HideBreadcrumbs = page.Header.HideBreadcrumbs || state.PageHeader.HideBreadcrumbs
+	if strings.TrimSpace(page.Active) == "" {
+		page.Active = strings.TrimSpace(state.Active)
+	}
+	if strings.TrimSpace(page.BodyClasses) == "" {
+		page.BodyClasses = strings.TrimSpace(state.BodyClasses)
+	}
+	return page
 }
 
 func cloneNestedStringMap(input map[string]map[string]string) map[string]map[string]string {

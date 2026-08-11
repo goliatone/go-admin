@@ -836,7 +836,10 @@ func (m *MediaModule) renderPage(adm *Admin, c router.Context, view string) erro
 		"media_download_url_template": mediaCfg.DownloadURLTemplate,
 		"media_default_value_mode":    string(mediaCfg.DefaultValueMode),
 	}
-	viewCtx = EnrichLayoutViewContext(adm, c, viewCtx, mediaModuleID)
+	viewCtx = EnrichLayoutViewContextWithChrome(adm, c, viewCtx, AdminPageChrome{
+		Header: AdminPageHeader{Title: "Media"},
+		Active: mediaModuleID,
+	})
 	viewCtx = CaptureViewContextForRequest(adm.Debug(), c, viewCtx)
 
 	templateName := "resources/media/gallery"

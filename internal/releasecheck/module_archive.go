@@ -3,11 +3,15 @@ package releasecheck
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 	modzip "golang.org/x/mod/zip"
 )
@@ -63,9 +67,9 @@ func CheckModuleArchive(moduleRoot string, version module.Version, requiredPaths
 		return err
 	}
 
-	var archive bytes.Buffer
-	if err := modzip.CreateFromDir(&archive, version, moduleRoot); err != nil {
-		return fmt.Errorf("create module archive: %w", err)
+	archive, err := createModuleArchive(moduleRoot, version)
+	if err != nil {
+		return err
 	}
 	reader, err := zip.NewReader(bytes.NewReader(archive.Bytes()), int64(archive.Len()))
 	if err != nil {
@@ -90,4 +94,74 @@ func CheckModuleArchive(moduleRoot string, version module.Version, requiredPaths
 		return fmt.Errorf("module archive omitted required paths: %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+// WriteModuleProxy writes one module version using the Go file-proxy protocol.
+// The generated ZIP is built with x/mod from moduleRoot, so consumers exercise
+// the same module-boundary and archive rules as a published coordinate.
+func WriteModuleProxy(moduleRoot, proxyRoot string, version module.Version) error {
+	if strings.TrimSpace(proxyRoot) == "" {
+		return fmt.Errorf("module proxy root is required")
+	}
+	if err := module.CheckPath(version.Path); err != nil {
+		return fmt.Errorf("invalid module path %q: %w", version.Path, err)
+	}
+	if err := module.Check(version.Path, version.Version); err != nil {
+		return fmt.Errorf("invalid module version %q: %w", version.Version, err)
+	}
+
+	archive, err := createModuleArchive(moduleRoot, version)
+	if err != nil {
+		return err
+	}
+	modFile, err := os.ReadFile(filepath.Join(moduleRoot, "go.mod"))
+	if err != nil {
+		return fmt.Errorf("read module go.mod: %w", err)
+	}
+	declaredPath := modfile.ModulePath(modFile)
+	if declaredPath != version.Path {
+		return fmt.Errorf("module go.mod declares %q, expected %q", declaredPath, version.Path)
+	}
+	escapedPath, err := module.EscapePath(version.Path)
+	if err != nil {
+		return fmt.Errorf("escape module path %q: %w", version.Path, err)
+	}
+	escapedVersion, err := module.EscapeVersion(version.Version)
+	if err != nil {
+		return fmt.Errorf("escape module version %q: %w", version.Version, err)
+	}
+
+	versionDir := filepath.Join(proxyRoot, filepath.FromSlash(escapedPath), "@v")
+	if err := os.MkdirAll(versionDir, 0o755); err != nil {
+		return fmt.Errorf("create module proxy directory: %w", err)
+	}
+	info, err := json.Marshal(struct {
+		Version string    `json:"Version"`
+		Time    time.Time `json:"Time"`
+	}{Version: version.Version, Time: time.Now().UTC()})
+	if err != nil {
+		return fmt.Errorf("encode module proxy info: %w", err)
+	}
+
+	files := map[string][]byte{
+		escapedVersion + ".info": append(info, '\n'),
+		escapedVersion + ".mod":  modFile,
+		escapedVersion + ".zip":  archive.Bytes(),
+		"list":                   []byte(version.Version + "\n"),
+	}
+	for name, content := range files {
+		path := filepath.Join(versionDir, name)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return fmt.Errorf("write module proxy file %q: %w", path, err)
+		}
+	}
+	return nil
+}
+
+func createModuleArchive(moduleRoot string, version module.Version) (*bytes.Buffer, error) {
+	var archive bytes.Buffer
+	if err := modzip.CreateFromDir(&archive, version, moduleRoot); err != nil {
+		return nil, fmt.Errorf("create module archive: %w", err)
+	}
+	return &archive, nil
 }

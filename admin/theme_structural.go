@@ -89,6 +89,32 @@ type AdminPageHeader struct {
 	Hooks           map[string]string           `json:"hooks,omitempty"`
 }
 
+// AdminPageChrome is the presentation-only page contract used by authenticated
+// route authors. Request/session/theme state is added by the layout enrichment
+// boundary, while arbitrary action markup remains template-owned.
+type AdminPageChrome struct {
+	Header      AdminPageHeader `json:"header"`
+	Active      string          `json:"active,omitempty"`
+	BodyClasses string          `json:"body_classes,omitempty"`
+}
+
+// Clone returns an independent page-chrome value suitable for request storage.
+func (chrome AdminPageChrome) Clone() AdminPageChrome {
+	chrome.Header.Breadcrumbs = append([]AdminPageHeaderBreadcrumb(nil), chrome.Header.Breadcrumbs...)
+	chrome.Header.Hooks = cloneStringMap(chrome.Header.Hooks)
+	return chrome
+}
+
+// Empty reports whether no page presentation has been supplied.
+func (chrome AdminPageChrome) Empty() bool {
+	return strings.TrimSpace(chrome.Header.Title) == "" &&
+		strings.TrimSpace(chrome.Header.Pretitle) == "" &&
+		strings.TrimSpace(chrome.Header.Subtitle) == "" &&
+		len(chrome.Header.Breadcrumbs) == 0 && len(chrome.Header.Hooks) == 0 &&
+		!chrome.Header.HideHeader && !chrome.Header.HideBreadcrumbs &&
+		strings.TrimSpace(chrome.Active) == "" && strings.TrimSpace(chrome.BodyClasses) == ""
+}
+
 // AdminPageHeaderBreadcrumb is already-resolved breadcrumb presentation data.
 type AdminPageHeaderBreadcrumb struct {
 	Label   string `json:"label"`

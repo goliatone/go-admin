@@ -135,6 +135,38 @@ aliases remain for at least one major release. New templates should use the
 shell-owned blocks. The compatibility include delegates breadcrumbs to the
 canonical leaf and must not become a second public block owner.
 
+For new or migrated route handlers, page presentation is typed. Build an
+`admin.AdminPageChrome` and enrich the view once:
+
+```go
+view = admin.EnrichLayoutViewContextWithChrome(adm, c, view, admin.AdminPageChrome{
+	Header: admin.AdminPageHeader{
+		Pretitle: "Content",
+		Title:    "Orders",
+		Subtitle: "Manage customer orders.",
+		Breadcrumbs: []admin.AdminPageHeaderBreadcrumb{
+			{Label: "Content", Href: "/admin/content"},
+			{Label: "Orders", Current: true},
+		},
+	},
+	Active: "orders",
+})
+```
+
+Non-zero typed values win over legacy `page_*` view keys and are defensively
+cloned before request-scoped navigation, session, theme, CSRF, and path data is
+added. `Header.Title` is the only typed title source. Arbitrary action markup
+is intentionally not part of the type: trusted page actions remain in the
+`page_header_actions` block. Old `page_title`, `page_subtitle`, and header
+partial inputs are compatibility fallbacks for unmigrated callers, not a
+second authoring path.
+
+Renderer integrations that already own request/shell state may serialize the
+typed presentation subset with `AdminPageChrome.TemplateContext()`. It is the
+same lowercase projection used by `EnrichLayoutViewContextWithChrome`, including
+defensive cloning and escaping of documented `Header.Hooks` mount identifiers;
+normal route handlers should continue to use the enrichment helper.
+
 ### Bounded structural partial overrides
 
 Only three Admin-owned structural keys are supported:

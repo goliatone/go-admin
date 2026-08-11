@@ -321,7 +321,7 @@ func TestViewEngineAdminLookupFollowsReloadAndCachePolicy(t *testing.T) {
 	}
 }
 
-func TestSidebarTemplateCopiesExposeBrandVariants(t *testing.T) {
+func TestSidebarTemplateFallbackUsesCanonicalPackagedSource(t *testing.T) {
 	shared, err := fs.ReadFile(client.Templates(), "partials/sidebar.html")
 	if err != nil {
 		t.Fatalf("read shared sidebar template: %v", err)
@@ -330,9 +330,12 @@ func TestSidebarTemplateCopiesExposeBrandVariants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read quickstart sidebar template: %v", err)
 	}
+	if !bytes.Equal(shared, embedded) {
+		t.Fatal("quickstart sidebar fallback must resolve the packaged canonical template")
+	}
 	for name, template := range map[string][]byte{
-		"shared":     shared,
-		"quickstart": embedded,
+		"packaged": shared,
+		"fallback": embedded,
 	} {
 		if !containsAll(
 			string(template),
@@ -350,9 +353,6 @@ func TestSidebarTemplateCopiesExposeBrandVariants(t *testing.T) {
 	}
 	if strings.Contains(string(shared), `assets/sidebar.css`) {
 		t.Fatalf("shared sidebar template must use the compiled client stylesheet, got %q", string(shared))
-	}
-	if !strings.Contains(string(embedded), `assets/sidebar.css`) {
-		t.Fatalf("quickstart fallback sidebar template must load its standalone stylesheet, got %q", string(embedded))
 	}
 }
 

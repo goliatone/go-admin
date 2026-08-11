@@ -102,3 +102,63 @@ func TestEnrichLayoutViewContextPreservesProvidedTranslationCapabilities(t *test
 		t.Fatalf("expected custom translation capabilities to be preserved, got %v", view["translation_capabilities"])
 	}
 }
+
+func TestEnrichLayoutViewContextWithChromeClonesAndOverridesLegacyPageKeys(t *testing.T) {
+	input := router.ViewContext{
+		"base_path":       "/admin",
+		"page_title":      "Legacy title",
+		"page_subtitle":   "Legacy subtitle",
+		"breadcrumbs":     []map[string]any{{"label": "Legacy"}},
+		"active":          "legacy",
+		"body_classes":    "legacy-body",
+		"unrelated_value": "domain data",
+	}
+	chrome := AdminPageChrome{
+		Header: AdminPageHeader{
+			Title:       "Typed title",
+			Pretitle:    "Workspace",
+			Subtitle:    "Typed subtitle",
+			Breadcrumbs: []AdminPageHeaderBreadcrumb{{Label: "Typed", Current: true}},
+			Hooks:       map[string]string{"mount": `<section data-value="unsafe">`},
+		},
+		Active:      "typed",
+		BodyClasses: "typed-body",
+	}
+
+	view := EnrichLayoutViewContextWithChrome(nil, nil, input, chrome)
+	if view["page_title"] != "Typed title" || view["page_pretitle"] != "Workspace" ||
+		view["page_subtitle"] != "Typed subtitle" || view["active"] != "typed" ||
+		view["body_classes"] != "typed-body" {
+		t.Fatalf("typed page chrome did not win over legacy keys: %+v", view)
+	}
+	if view["unrelated_value"] != "domain data" {
+		t.Fatalf("domain data was not preserved: %+v", view)
+	}
+	if input["page_title"] != "Legacy title" || input["active"] != "legacy" {
+		t.Fatalf("typed enrichment mutated its caller map: %+v", input)
+	}
+	projected := mustAs[[]AdminPageHeaderBreadcrumb](view["breadcrumbs"])
+	chrome.Header.Breadcrumbs[0].Label = "Mutated"
+	if projected[0].Label != "Typed" {
+		t.Fatalf("projected breadcrumbs alias the caller slice: %+v", projected)
+	}
+	hooks := mustAs[map[string]string](view["page_hooks"])
+	if hooks["mount"] != `&lt;section data-value=&#34;unsafe&#34;&gt;` {
+		t.Fatalf("expected hook identifiers to be escaped, got %+v", hooks)
+	}
+	projectedContext := chrome.TemplateContext()
+	projectedHooks := mustAs[map[string]string](projectedContext["page_hooks"])
+	if projectedHooks["mount"] != hooks["mount"] {
+		t.Fatalf("public template projection diverged from enrichment: %+v", projectedContext)
+	}
+}
+
+func TestEnrichLayoutViewContextWithChromeKeepsOptionalLegacyValues(t *testing.T) {
+	view := EnrichLayoutViewContextWithChrome(nil, nil, router.ViewContext{
+		"page_title":       "Legacy",
+		"hide_page_header": true,
+	}, AdminPageChrome{})
+	if view["page_title"] != "Legacy" || view["hide_page_header"] != true {
+		t.Fatalf("zero typed values must not erase compatibility page values: %+v", view)
+	}
+}

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"html"
 	"strings"
 
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
@@ -12,6 +13,88 @@ import (
 // It is shared by module-owned pages that render layout.html directly.
 func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
 	return buildAdminLayoutViewContextFromContext(adm, c, adminLayoutRequestContext(c), view, active)
+}
+
+func buildAdminLayoutViewContextWithChrome(adm *Admin, c router.Context, view router.ViewContext, chrome AdminPageChrome) router.ViewContext {
+	return buildAdminLayoutViewContextWithChromeFromContext(adm, c, adminLayoutRequestContext(c), view, chrome)
+}
+
+func buildAdminLayoutViewContextWithChromeFromContext(adm *Admin, c router.Context, requestCtx context.Context, view router.ViewContext, chrome AdminPageChrome) router.ViewContext {
+	cloned := cloneAdminLayoutViewContext(view)
+	applyAdminPageChrome(cloned, chrome)
+	return buildAdminLayoutViewContextFromContext(adm, c, requestCtx, cloned, "")
+}
+
+func cloneAdminLayoutViewContext(view router.ViewContext) router.ViewContext {
+	cloned := make(router.ViewContext, len(view))
+	for key, value := range view {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func applyAdminPageChrome(view router.ViewContext, chrome AdminPageChrome) {
+	if view == nil {
+		return
+	}
+	for key, value := range chrome.TemplateContext() {
+		view[key] = value
+	}
+}
+
+// TemplateContext returns the lowercase, presentation-only projection consumed
+// by authenticated templates. Values are cloned and hook identifiers are
+// normalized once so normal and dashboard renderers share identical behavior.
+func (chrome AdminPageChrome) TemplateContext() map[string]any {
+	view := map[string]any{}
+	chrome = chrome.Clone()
+	if value := strings.TrimSpace(chrome.Header.Title); value != "" {
+		view["page_title"] = value
+	}
+	if value := strings.TrimSpace(chrome.Header.Pretitle); value != "" {
+		view["page_pretitle"] = value
+	}
+	if value := strings.TrimSpace(chrome.Header.Subtitle); value != "" {
+		view["page_subtitle"] = value
+	}
+	if len(chrome.Header.Breadcrumbs) > 0 {
+		view["breadcrumbs"] = append([]AdminPageHeaderBreadcrumb(nil), chrome.Header.Breadcrumbs...)
+	}
+	if chrome.Header.HideHeader {
+		view["hide_page_header"] = true
+	}
+	if chrome.Header.HideBreadcrumbs {
+		view["hide_breadcrumbs"] = true
+	}
+	if hooks := escapedAdminPageHooks(chrome.Header.Hooks); len(hooks) > 0 {
+		view["page_hooks"] = hooks
+	}
+	if value := strings.TrimSpace(chrome.Active); value != "" {
+		view["active"] = value
+	}
+	if value := strings.TrimSpace(chrome.BodyClasses); value != "" {
+		view["body_classes"] = value
+	}
+	return view
+}
+
+func escapedAdminPageHooks(hooks map[string]string) map[string]string {
+	if len(hooks) == 0 {
+		return nil
+	}
+	escaped := make(map[string]string, len(hooks))
+	for key, value := range hooks {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		escaped[key] = html.EscapeString(value)
+	}
+	if len(escaped) == 0 {
+		return nil
+	}
+	return escaped
 }
 
 // buildAdminLayoutViewContextFromContext keeps request-derived policy and theme

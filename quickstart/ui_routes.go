@@ -1064,6 +1064,8 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 		}
 		ctx["activity_action_labels"] = labels
 		ctx = withUIFeatureContext(ctx, adm, active, reqCtx)
+		chrome := adminPageChromeFromViewContext(ctx, pageChromeString(ctx, "title", ""), active)
+		ctx = admin.EnrichLayoutViewContextWithChrome(adm, c, ctx, chrome)
 		return admin.CaptureViewContextForRequest(adm.Debug(), c, ctx)
 	}
 }

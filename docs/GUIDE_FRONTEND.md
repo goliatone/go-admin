@@ -53,8 +53,10 @@ cannot be configured or safely extended.
 | Declarative button/form busy state | Shared behavior layer | `pkg/client/assets/src/shared/behaviors/`, `docs/GUIDE_UI_PRIMITIVES.md#busy-buttons-and-submit-feedback` |
 | Toast notifications | Global toast manager / notifier contract | `pkg/client/assets/src/toast/`, `pkg/client/templates/partials/toast-container.html` |
 | Structured error display | Toast error helpers | `pkg/client/assets/src/toast/error-helpers.ts` |
-| Authenticated page shell/header/actions/footer | Canonical `layout.html` blocks and bounded structural leaves | `docs/GUIDE_VIEW_CUSTOMIZATION.md#canonical-authenticated-shell` |
+| Authenticated page shell/header/breadcrumbs/navigation | `AdminPageChrome` + `EnrichLayoutViewContextWithChrome` | `docs/GUIDE_VIEW_CUSTOMIZATION.md#canonical-authenticated-shell` |
+| Trusted page actions and bounded shell leaves | Canonical `layout.html` blocks and registered sidebar/breadcrumb/footer partials | `docs/GUIDE_VIEW_CUSTOMIZATION.md#bounded-structural-partial-overrides` |
 | Menus, filters, badges, tabs, metrics | Template partials | `pkg/client/templates/partials/`, `docs/GUIDE_UI_PRIMITIVES.md` |
+| Cross-host modal behavior and shared component styling | Public modal entry + `components.css` | `@goliatone/go-admin-client/components/modal`, `@goliatone/go-admin-client/components.css` |
 | DataGrid state and column preferences | DataGrid state store / preferences mode | `pkg/client/assets/src/datatable/state-store.ts`, `docs/GUIDE_CRUD.md#datagrid-state-and-preferences` |
 | Revision-safe sync, autosave, idempotency, conflict recovery | `pkg/go-sync` and `sync-core` | `pkg/go-sync/`, `docs/reference/root/PKG_SYNC.md` |
 | Dashboard cards/widgets | Dashboard widget providers/renderers | `docs/GUIDE_DASHBOARD_WIDGETS.md` |
@@ -84,6 +86,17 @@ shared hooks such as `data-action`, `data-action-menu`, `data-bulk-action`,
 page-specific metadata beside the shared selector when a page needs more data.
 
 ## Product Stylesheets And Embedded Assets
+
+Import framework component styles from the generated public entry:
+
+```ts
+import '@goliatone/go-admin-client/components.css';
+```
+
+Do not import `src/styles/components.css` from a package consumer. Embedded
+go-admin output and the public subpath are built from that one canonical source;
+package exports must point only at `dist-public/` artifacts. Load namespaced
+product CSS afterward so hosts can make bounded presentation adjustments.
 
 Applications own CSS for product-specific routes and components. Go-admin's Tailwind
 build scans go-admin sources only; a utility used exclusively by a consuming module is
@@ -449,6 +462,9 @@ Add adapter and UI tests when the transport or interaction adds behavior:
 - DataGrid query, action, bulk action, and refresh behavior
 - sync stale revision, retry, and idempotency behavior
 - toast/error formatting for structured backend errors
+- typed page-chrome precedence, one shell/document owner, public package
+  imports, computed component tokens, keyboard/focus behavior, reduced motion,
+  and narrow-viewport containment when shared UI surfaces change
 
 Do not rely on browser-only tests to prove business logic.
 
