@@ -222,7 +222,7 @@ func (e *renderCacheHandlerExecutor) lookup(c router.Context, tracker *renderCac
 			return hitErr
 		}
 	}
-	return e.executeMiss(c, tracker, policy, store, decision, generations, key)
+	return e.executeMiss(c, tracker, policy, store, decision, key)
 }
 
 func (e *renderCacheHandlerExecutor) handleHit(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, key string, response RenderedSiteResponse) (bool, error) {
@@ -270,7 +270,7 @@ func renderCacheHandlerRenewalFailure(c router.Context, tracker *renderCacheRequ
 	return replayRenderCacheResponse(c, response, renderCacheStatusHit, RenderCacheRequestOutcomeHit)
 }
 
-func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generations renderCacheGenerationSnapshot, key string) error {
+func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, key string) error {
 	writeRenderCacheHandlerDebugHeaders(c, policy, renderCacheStatusMiss, "", key)
 	if renderCacheMethodIsHead(c) {
 		return renderCacheHandlerHeadMiss(c, e.handler, policy)
@@ -287,7 +287,34 @@ func (e *renderCacheHandlerExecutor) executeMiss(c router.Context, tracker *rend
 		}
 	}
 	defer e.fills.done(key, fillDone)
-	return e.executeMissLeader(c, tracker, policy, store, decision, generations, key)
+	currentGenerations, fenceErr := e.readRequiredGenerations(c, decision)
+	if fenceErr != nil {
+		return renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonFenceReadError, fenceErr)
+	}
+	if currentKey := buildRenderCacheHandlerKey(policy, decision, currentGenerations); currentKey != key {
+		// Release followers waiting on the obsolete representation before
+		// re-entering lookup with the current generation snapshot.
+		e.fills.done(key, fillDone)
+		return e.execute(c, tracker, policy, store)
+	}
+
+	// The initial lookup and fill ownership are intentionally separate so
+	// cache hits do not contend on the local coordinator. A request can observe
+	// a miss, be descheduled, and acquire ownership only after an earlier leader
+	// has stored and released the same key. Recheck while owning the fill before
+	// executing the handler so that handoff window cannot create a duplicate
+	// cold fill.
+	response, hit, getErr := store.Get(RequestContext(c), key)
+	if getErr != nil {
+		return renderCacheHandlerPreExecutionFailure(c, e.handler, tracker, policy, renderCacheReasonCacheReadError, getErr)
+	}
+	if hit {
+		handled, hitErr := e.handleHit(c, tracker, policy, store, decision, key, response)
+		if handled {
+			return hitErr
+		}
+	}
+	return e.executeMissLeader(c, tracker, policy, store, decision, currentGenerations, key)
 }
 
 func (e *renderCacheHandlerExecutor) executeMissLeader(c router.Context, tracker *renderCacheRequestTracker, policy RenderCachePolicy, store RenderCacheStore, decision RenderCacheHandlerDecision, generations renderCacheGenerationSnapshot, key string) error {
