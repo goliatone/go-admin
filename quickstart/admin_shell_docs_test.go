@@ -2,8 +2,12 @@ package quickstart
 
 import (
 	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/goliatone/go-admin/admin"
 )
 
 func TestAdminShellCustomizationDocsMatchRuntimeContract(t *testing.T) {
@@ -83,6 +87,73 @@ func TestAdminShellCustomizationDocsMatchRuntimeContract(t *testing.T) {
 	} {
 		if info, err := os.Stat(path); err != nil || info.IsDir() {
 			t.Errorf("documented template path %s is unavailable", path)
+		}
+	}
+}
+
+func TestDashboardRendererGuidanceMatchesTypedRuntimeContract(t *testing.T) {
+	renderer := reflect.TypeFor[admin.DashboardRenderer]()
+	method, ok := renderer.MethodByName("RenderPage")
+	if !ok || method.Type.NumIn() < 2 {
+		t.Fatal("admin.DashboardRenderer.RenderPage contract is unavailable")
+	}
+	pageType := method.Type.In(1)
+	if pageType.PkgPath() != "github.com/goliatone/go-admin/admin" || pageType.Name() != "AdminDashboardPage" {
+		t.Fatalf("unexpected dashboard renderer page contract %s.%s", pageType.PkgPath(), pageType.Name())
+	}
+
+	guidance := map[string][]string{
+		"../docs/GUIDE_DASHBOARD_WIDGETS.md": {
+			"accept `admin.AdminDashboardPage` only",
+			"`quickstart.DashboardTemplatesFS()` returns",
+			"`client.Templates()`",
+			"is not retained as a fallback",
+			"`quickstart.NormalizeDashboardTemplateData(...)`",
+			"does not broaden the `admin.DashboardRenderer` interface",
+		},
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		skillRoot := filepath.Join(home, ".agents", "skills", "go-admin-dashboard-builder")
+		for path, required := range map[string][]string{
+			filepath.Join(skillRoot, "SKILL.md"): {
+				"accept `admin.AdminDashboardPage`",
+				"`quickstart.NormalizeDashboardTemplateData(...)` accepts a raw typed `dashboard.Page`",
+				"`quickstart.DashboardTemplatesFS()` returns `client.Templates()`",
+				"is not a fallback",
+			},
+			filepath.Join(skillRoot, "references", "rendering-and-placements.md"): {
+				"accept `admin.AdminDashboardPage`",
+				"`quickstart.NormalizeDashboardTemplateData(...)` accepts a raw typed `dashboard.Page`",
+				"`quickstart.DashboardTemplatesFS()` returns `client.Templates()`",
+				"is not a fallback",
+			},
+		} {
+			if _, statErr := os.Stat(path); statErr == nil {
+				guidance[path] = required
+			}
+		}
+	}
+
+	for path, required := range guidance {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read dashboard renderer guidance %s: %v", path, err)
+		}
+		text := string(content)
+		normalized := strings.Join(strings.Fields(text), " ")
+		for _, fragment := range required {
+			if !strings.Contains(normalized, strings.Join(strings.Fields(fragment), " ")) {
+				t.Errorf("%s is missing live renderer contract fragment %q", path, fragment)
+			}
+		}
+		for _, stale := range []string{
+			"accept `admin.DashboardLayout`",
+			"accept `DashboardLayout` only",
+			"retains compact quickstart templates",
+		} {
+			if strings.Contains(text, stale) {
+				t.Errorf("%s retains stale renderer guidance %q", path, stale)
+			}
 		}
 	}
 }

@@ -283,6 +283,13 @@ func TestDashboardTemplatesFSReturnsCanonicalAdminShell(t *testing.T) {
 			t.Fatalf("expected canonical dashboard layout marker %q", marker)
 		}
 	}
+	packaged, err := fs.ReadFile(client.Templates(), "layout.html")
+	if err != nil {
+		t.Fatalf("read packaged client layout: %v", err)
+	}
+	if string(template) != string(packaged) {
+		t.Fatal("DashboardTemplatesFS must return the canonical packaged client template stack")
+	}
 }
 
 func TestWithDefaultDashboardRendererSkipsWhenAlreadySet(t *testing.T) {

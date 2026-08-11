@@ -83,16 +83,22 @@ test('real-host component gallery exposes the supported anatomy and theme states
     }
     await expect(page.locator('.action-menu__content')).toHaveCount(1);
     await expect(page.locator('link[data-product-styles]')).toHaveCount(1);
+    await page.locator('.quick-filter').first().focus();
     const styles = await page.evaluate(() => {
       const menu = document.querySelector('.action-menu__content') as HTMLElement;
       const filter = document.querySelector('.filter-panel') as HTMLElement;
       const filterForm = document.querySelector('.filter-panel__form') as HTMLElement;
       const chip = document.querySelector('.status-chip') as HTMLElement;
+      const quickFilters = Array.from(document.querySelectorAll<HTMLElement>('.quick-filter'));
       return {
         menuBackground: getComputedStyle(menu).backgroundColor,
         filterBackground: getComputedStyle(filter).backgroundColor,
         filterFormBackground: getComputedStyle(filterForm).backgroundColor,
         chipDisplay: getComputedStyle(chip).display,
+        quickFilterTones: quickFilters.map((filter) => filter.dataset.tone || 'neutral'),
+        quickFilterBackgrounds: quickFilters.map((filter) => getComputedStyle(filter).backgroundColor),
+        quickFilterText: quickFilters.map((filter) => getComputedStyle(filter).color),
+        quickFilterOutline: getComputedStyle(quickFilters[0]).outlineColor,
         documentFits: document.documentElement.scrollWidth <= window.innerWidth,
       };
     });
@@ -101,8 +107,52 @@ test('real-host component gallery exposes the supported anatomy and theme states
     expect(styles.filterFormBackground).toBe(styles.filterBackground);
     if (variant === 'contrast') expect(styles.menuBackground).toBe('rgb(31, 41, 55)');
     if (variant === 'dark') expect(styles.menuBackground).toBe('rgb(17, 24, 39)');
+    const expectedQuickFilterBackground = {
+      default: 'rgb(249, 250, 251)',
+      light: 'rgb(249, 250, 251)',
+      dark: 'rgb(15, 23, 42)',
+      contrast: 'rgb(17, 24, 39)',
+    }[variant];
+    const expectedQuickFilterText = {
+      default: 'rgb(30, 41, 59)',
+      light: 'rgb(30, 41, 59)',
+      dark: 'rgb(226, 232, 240)',
+      contrast: 'rgb(249, 250, 251)',
+    }[variant];
+    const expectedQuickFilterRing = {
+      default: 'rgb(37, 99, 235)',
+      light: 'rgb(37, 99, 235)',
+      dark: 'rgb(96, 165, 250)',
+      contrast: 'rgb(251, 191, 36)',
+    }[variant];
+    expect(styles.quickFilterTones).toEqual(['neutral', 'success', 'warning', 'info', 'error', 'danger']);
+    expect(new Set(styles.quickFilterBackgrounds)).toEqual(new Set([expectedQuickFilterBackground]));
+    expect(new Set(styles.quickFilterText)).toEqual(new Set([expectedQuickFilterText]));
+    expect(styles.quickFilterOutline).toBe(expectedQuickFilterRing);
     expect(styles.chipDisplay).toBe('inline-flex');
     expect(styles.documentFits).toBe(true);
+
+    if (variant === 'dark') {
+      await page.goto(`${shellBaseURL}/admin/component-gallery?variant=dark&theme=portable-defaults`);
+      const darkDefaults = await page.evaluate(() => {
+        return Object.fromEntries(
+          Array.from(document.querySelectorAll<HTMLElement>('.quick-filter[data-tone]:not([data-tone="neutral"])')).map((filter) => [
+            filter.dataset.tone,
+            {
+              background: getComputedStyle(filter).backgroundColor,
+              text: getComputedStyle(filter).color,
+            },
+          ]),
+        );
+      });
+      expect(darkDefaults).toEqual({
+        success: { background: 'rgb(2, 44, 34)', text: 'rgb(167, 243, 208)' },
+        warning: { background: 'rgb(69, 26, 3)', text: 'rgb(253, 230, 138)' },
+        info: { background: 'rgb(23, 37, 84)', text: 'rgb(191, 219, 254)' },
+        error: { background: 'rgb(76, 5, 25)', text: 'rgb(254, 205, 211)' },
+        danger: { background: 'rgb(76, 5, 25)', text: 'rgb(254, 205, 211)' },
+      });
+    }
   }
 });
 

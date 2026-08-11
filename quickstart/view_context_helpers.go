@@ -41,19 +41,22 @@ func adminPageChromeFromViewContext(ctx router.ViewContext, fallbackTitle, activ
 }
 
 func pageChromeString(ctx router.ViewContext, key, fallback string) string {
-	if ctx != nil {
-		if value, ok := ctx[key]; ok {
-			switch typed := value.(type) {
-			case string:
-				if normalized := strings.TrimSpace(typed); normalized != "" {
-					return normalized
-				}
-			case fmt.Stringer:
-				if normalized := strings.TrimSpace(typed.String()); normalized != "" {
-					return normalized
-				}
-			}
-		}
+	if ctx == nil {
+		return strings.TrimSpace(fallback)
+	}
+	value, ok := ctx[key]
+	if !ok {
+		return strings.TrimSpace(fallback)
+	}
+	var normalized string
+	switch typed := value.(type) {
+	case string:
+		normalized = strings.TrimSpace(typed)
+	case fmt.Stringer:
+		normalized = strings.TrimSpace(typed.String())
+	}
+	if normalized != "" {
+		return normalized
 	}
 	return strings.TrimSpace(fallback)
 }

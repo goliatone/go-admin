@@ -299,6 +299,69 @@ func TestCanonicalFilterPanelStylesHaveNoHigherSpecificityCompetitor(t *testing.
 	}
 }
 
+func TestQuickFilterToneStylesPreserveSemanticHostOwnership(t *testing.T) {
+	css := string(mustReadFile(t, "assets/src/styles/components.css"))
+	if !strings.Contains(css, ".admin-theme-root .quick-filter:focus-visible") {
+		t.Fatal("quick-filter focus ownership must outrank the generic shell focus selector")
+	}
+	toneRules := map[string][]string{
+		`.quick-filter[data-tone="error"], .quick-filter[data-tone="danger"]`: {
+			`color: var(--admin-quick-filter-text, var(--color-status-danger, #9f1239));`,
+			`background: var(--admin-quick-filter-surface, #fff1f2);`,
+		},
+		`.quick-filter[data-tone="warning"]`: {
+			`color: var(--admin-quick-filter-text, var(--color-status-warning, #92400e));`,
+			`background: var(--admin-quick-filter-surface, #fffbeb);`,
+		},
+		`.quick-filter[data-tone="success"]`: {
+			`color: var(--admin-quick-filter-text, var(--color-status-success, #065f46));`,
+			`background: var(--admin-quick-filter-surface, #ecfdf5);`,
+		},
+		`.quick-filter[data-tone="info"]`: {
+			`color: var(--admin-quick-filter-text, var(--color-status-info, #1e40af));`,
+			`background: var(--admin-quick-filter-surface, #eff6ff);`,
+		},
+	}
+	for selector, required := range toneRules {
+		block := cssRuleBlock(t, css, selector)
+		for _, declaration := range required {
+			if !strings.Contains(block, declaration) {
+				t.Errorf("quick-filter rule %q bypasses semantic ownership; missing %q", selector, declaration)
+			}
+		}
+	}
+	for selector, required := range map[string][]string{
+		`[data-theme="dark"] .quick-filter[data-tone="error"]`: {
+			`var(--admin-quick-filter-text, var(--color-status-danger, #fecdd3))`,
+			`var(--admin-quick-filter-surface, #4c0519)`,
+		},
+		`[data-theme="dark"] .quick-filter[data-tone="warning"]`: {
+			`var(--admin-quick-filter-text, var(--color-status-warning, #fde68a))`,
+			`var(--admin-quick-filter-surface, #451a03)`,
+		},
+		`[data-theme="dark"] .quick-filter[data-tone="success"]`: {
+			`var(--admin-quick-filter-text, var(--color-status-success, #a7f3d0))`,
+			`var(--admin-quick-filter-surface, #022c22)`,
+		},
+		`[data-theme="dark"] .quick-filter[data-tone="info"]`: {
+			`var(--admin-quick-filter-text, var(--color-status-info, #bfdbfe))`,
+			`var(--admin-quick-filter-surface, #172554)`,
+		},
+	} {
+		start := strings.Index(css, selector)
+		if start < 0 {
+			t.Errorf("dark quick-filter selector %q is missing", selector)
+			continue
+		}
+		block := cssRuleBlock(t, css[start:], selector)
+		for _, declaration := range required {
+			if !strings.Contains(block, declaration) {
+				t.Errorf("dark quick-filter rule %q is missing %q", selector, declaration)
+			}
+		}
+	}
+}
+
 func TestActionMenuRenderersShareStableAnatomy(t *testing.T) {
 	sources := []string{
 		"templates/partials/action-menu.html",
@@ -427,4 +490,22 @@ func mustReadFile(t *testing.T, path string) []byte {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return content
+}
+
+func cssRuleBlock(t *testing.T, css, selector string) string {
+	t.Helper()
+	start := strings.Index(css, selector)
+	if start < 0 {
+		t.Fatalf("CSS selector %q is missing", selector)
+	}
+	open := strings.Index(css[start:], "{")
+	if open < 0 {
+		t.Fatalf("CSS selector %q has no rule body", selector)
+	}
+	bodyStart := start + open + 1
+	close := strings.Index(css[bodyStart:], "}")
+	if close < 0 {
+		t.Fatalf("CSS selector %q has an unterminated rule body", selector)
+	}
+	return css[bodyStart : bodyStart+close]
 }

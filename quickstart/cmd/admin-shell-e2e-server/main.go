@@ -90,7 +90,18 @@ func main() {
 		view := shellViewContext(adm, c, "Reports", "reports")
 		return c.Render("e2e/downstream", view)
 	})
-	routes.Get("/admin/component-gallery", func(c router.Context) error {
+	routes.Get("/admin/component-gallery", componentGalleryHandler(adm))
+	routes.Get("/admin/dashboard", dashboardHandler(adm, cfg, dashboardRenderer))
+
+	address := listenAddress()
+	log.Printf("admin shell E2E host listening on http://%s", address)
+	if err := server.WrappedRouter().Listen(address); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func componentGalleryHandler(adm *admin.Admin) router.HandlerFunc {
+	return func(c router.Context) error {
 		view := shellViewContext(adm, c, "Component Gallery", "component-gallery")
 		view["gallery_actions"] = []map[string]any{
 			{"key": "view", "label": "View", "href": "/admin/component-gallery"},
@@ -104,12 +115,18 @@ func main() {
 		view["gallery_quick_filters"] = []map[string]any{
 			{"value": "", "label": "All", "href": "/admin/component-gallery", "tone": "neutral", "count": 4},
 			{"value": "ready", "label": "Ready", "href": "/admin/component-gallery?state=ready", "tone": "success", "count": 2},
+			{"value": "waiting", "label": "Waiting", "href": "/admin/component-gallery?state=waiting", "tone": "warning", "count": 3},
+			{"value": "noted", "label": "Noted", "href": "/admin/component-gallery?state=noted", "tone": "info", "count": 5},
 			{"value": "blocked", "label": "Blocked", "href": "/admin/component-gallery?state=blocked", "tone": "error", "count": 1},
+			{"value": "danger", "label": "Danger", "href": "/admin/component-gallery?state=danger", "tone": "danger", "count": 1},
 		}
 		view["gallery_active"] = strings.TrimSpace(c.Query("state"))
 		return c.Render("e2e/component-gallery", view)
-	})
-	routes.Get("/admin/dashboard", func(c router.Context) error {
+	}
+}
+
+func dashboardHandler(adm *admin.Admin, cfg admin.Config, dashboardRenderer admin.DashboardRenderer) router.HandlerFunc {
+	return func(c router.Context) error {
 		ctx := selectedThemeContext(c)
 		partials := adm.StructuralPartials(ctx)
 		page := admin.AdminDashboardPage{
@@ -140,12 +157,6 @@ func main() {
 		}
 		c.SetHeader("Content-Type", "text/html; charset=utf-8")
 		return c.SendString(html)
-	})
-
-	address := listenAddress()
-	log.Printf("admin shell E2E host listening on http://%s", address)
-	if err := server.WrappedRouter().Listen(address); err != nil {
-		log.Fatal(err)
 	}
 }
 
@@ -206,37 +217,48 @@ func e2eThemeProvider(_ context.Context, selector admin.ThemeSelector) (*admin.T
 	}
 	header := "#ffffff"
 	shell := "#f9fafb"
+	text := "#1e293b"
+	ring := "#2563eb"
 	if variant == "dark" {
 		header = "#111827"
 		shell = "#0f172a"
+		text = "#e2e8f0"
+		ring = "#60a5fa"
 	}
 	if variant == "contrast" {
 		header = "#1f2937"
 		shell = "#111827"
+		text = "#f9fafb"
+		ring = "#fbbf24"
 	}
 	breadcrumbVariant := "default"
 	if variant == "contrast" {
 		breadcrumbVariant = "contrast"
 	}
+	tokens := map[string]string{
+		"admin.header.background":      header,
+		"admin.shell.background":       shell,
+		"admin.modal.surface":          header,
+		"admin.modal.radius":           "18px",
+		"admin.modal.shadow":           "0 20px 40px rgba(0, 0, 0, 0.35)",
+		"admin.modal.padding-block":    "18px",
+		"admin.modal.padding-inline":   "24px",
+		"admin.modal.viewport-padding": "12px",
+		"admin.modal.max-height":       "70vh",
+		"admin.modal.width":            "40rem",
+		"admin.action-menu.surface":    header,
+		"admin.filter.surface":         shell,
+		"admin.status.surface":         shell,
+	}
+	if strings.TrimSpace(selector.Name) != "portable-defaults" {
+		tokens["admin.quick-filter.surface"] = shell
+		tokens["admin.quick-filter.text"] = text
+		tokens["admin.quick-filter.ring"] = ring
+	}
 	return &admin.ThemeSelection{
 		Name:    "e2e-host",
 		Variant: variant,
-		Tokens: map[string]string{
-			"admin.header.background":      header,
-			"admin.shell.background":       shell,
-			"admin.modal.surface":          header,
-			"admin.modal.radius":           "18px",
-			"admin.modal.shadow":           "0 20px 40px rgba(0, 0, 0, 0.35)",
-			"admin.modal.padding-block":    "18px",
-			"admin.modal.padding-inline":   "24px",
-			"admin.modal.viewport-padding": "12px",
-			"admin.modal.max-height":       "70vh",
-			"admin.modal.width":            "40rem",
-			"admin.action-menu.surface":    header,
-			"admin.filter.surface":         shell,
-			"admin.quick-filter.surface":   shell,
-			"admin.status.surface":         shell,
-		},
+		Tokens:  tokens,
 		Partials: map[string]string{
 			admin.AdminPartialPageBreadcrumbs: fmt.Sprintf("themes/e2e/%s-breadcrumbs.html", breadcrumbVariant),
 			admin.AdminPartialShellFooter:     "themes/e2e/footer.html",

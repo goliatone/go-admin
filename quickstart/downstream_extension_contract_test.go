@@ -37,7 +37,7 @@ func TestDownstreamExtensionComposesCanonicalShellAssetsAndDashboard(t *testing.
 		"themes/product/footer.html":             {Data: []byte(`<footer data-product-footer>Product footer</footer>`)},
 		"dashboard/widgets/product/summary.html": {Data: []byte(`<div data-product-widget>{{ widget.data.label }}</div>`)},
 	}
-	if _, err := fs.Stat(hostTemplates, "layout.html"); err == nil {
+	if _, statErr := fs.Stat(hostTemplates, "layout.html"); statErr == nil {
 		t.Fatal("downstream fixture must extend, not copy, the canonical shell")
 	}
 
@@ -49,8 +49,8 @@ func TestDownstreamExtensionComposesCanonicalShellAssetsAndDashboard(t *testing.
 	if err != nil {
 		t.Fatalf("create shared view engine: %v", err)
 	}
-	if err := views.Load(); err != nil {
-		t.Fatalf("load shared view engine: %v", err)
+	if loadErr := views.Load(); loadErr != nil {
+		t.Fatalf("load shared view engine: %v", loadErr)
 	}
 
 	partials := admin.DefaultAdminStructuralPartials()
@@ -84,8 +84,8 @@ func TestDownstreamExtensionComposesCanonicalShellAssetsAndDashboard(t *testing.
 		t.Fatalf("serialize typed downstream view context: %v", err)
 	}
 	var extensionHTML bytes.Buffer
-	if err := views.Render(&extensionHTML, "downstream/reports", serializedExtensionContext); err != nil {
-		t.Fatalf("render downstream extension: %v", err)
+	if renderErr := views.Render(&extensionHTML, "downstream/reports", serializedExtensionContext); renderErr != nil {
+		t.Fatalf("render downstream extension: %v", renderErr)
 	}
 
 	dashboardRenderer := &dashboardViewRenderer{views: views}

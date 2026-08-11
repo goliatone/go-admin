@@ -437,9 +437,7 @@ func dashboardTemplateChromeContext(page admin.AdminDashboardPage) map[string]an
 		"admin_partials":                   partials.TemplateContext(),
 		"admin_partial_diagnostics":        partials.Diagnostics,
 	}
-	for key, value := range chrome.TemplateContext() {
-		view[key] = value
-	}
+	maps.Copy(view, chrome.TemplateContext())
 	return view
 }
 

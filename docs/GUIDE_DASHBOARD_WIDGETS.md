@@ -201,9 +201,10 @@ named/custom ECharts theme can remain authoritative.
 
 ## Templates And Assets
 
-The default quickstart renderer prefers packaged `pkg/client` dashboard
-templates and retains compact quickstart templates only as fallbacks. Explicit
-caller template filesystems remain first-wins.
+The default quickstart renderer uses the canonical packaged `pkg/client`
+dashboard templates. `quickstart.DashboardTemplatesFS()` returns
+`client.Templates()`; the removed compact quickstart document is not retained as
+a fallback. Explicit caller template filesystems remain first-wins overlays.
 
 Manifest template entries arrive as `ThemeSelection.Templates`; they are
 metadata for a renderer that reads the key. They do not install or override a
@@ -229,7 +230,12 @@ mounting is separate from theme asset roles and manifest template metadata.
 Dashboard provider outputs are sanitized centrally. Unsafe keys/content are stripped before persistence/rendering. Treat sanitizer behavior as a safety net, not a primary contract design tool.
 
 Provider handlers must return `admin.WidgetPayload` with a struct (or pointer to struct) at the root. Root `map[string]any` payloads are rejected.
-Dashboard template renderers accept `DashboardLayout` only; map payload bridge paths are not supported.
+Dashboard template renderers accept `admin.AdminDashboardPage` only. The typed
+wrapper carries the canonical `dashboard.Page` and host chrome through the
+renderer boundary; arbitrary map payload bridge paths are not supported.
+`quickstart.NormalizeDashboardTemplateData(...)` also accepts a raw typed
+`dashboard.Page` for template-adapter compatibility, but that helper does not
+broaden the `admin.DashboardRenderer` interface.
 
 ## Canonical Hygiene
 

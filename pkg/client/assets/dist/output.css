@@ -287,16 +287,52 @@
 }
 
 .quick-filter:hover { filter: brightness(0.97); }
-.quick-filter:focus-visible { outline: 2px solid var(--admin-quick-filter-ring, var(--color-focus-ring, #3b82f6)); outline-offset: 2px; }
+.quick-filter:focus-visible,
+.admin-theme-root .quick-filter:focus-visible { outline: 2px solid var(--admin-quick-filter-ring, var(--color-focus-ring, #3b82f6)); outline-offset: 2px; }
 .quick-filter[aria-current="true"] { box-shadow: 0 0 0 2px var(--admin-quick-filter-ring, var(--color-focus-ring, #6b7280)); }
 .quick-filter[data-state="active"], .quick-filter[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--admin-quick-filter-ring, var(--color-focus-ring, #6b7280)); }
 .quick-filter--sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
 .quick-filter--default { padding: 0.375rem 0.75rem; font-size: 0.875rem; }
 .quick-filter:disabled, .quick-filter[aria-disabled="true"] { cursor: not-allowed; opacity: 0.6; }
-.quick-filter[data-tone="error"], .quick-filter[data-tone="danger"] { color: #9f1239; background: #fff1f2; }
-.quick-filter[data-tone="warning"] { color: #92400e; background: #fffbeb; }
-.quick-filter[data-tone="success"] { color: #065f46; background: #ecfdf5; }
-.quick-filter[data-tone="info"] { color: #1e40af; background: #eff6ff; }
+.quick-filter[data-tone="error"], .quick-filter[data-tone="danger"] {
+  color: var(--admin-quick-filter-text, var(--color-status-danger, #9f1239));
+  background: var(--admin-quick-filter-surface, #fff1f2);
+}
+.quick-filter[data-tone="warning"] {
+  color: var(--admin-quick-filter-text, var(--color-status-warning, #92400e));
+  background: var(--admin-quick-filter-surface, #fffbeb);
+}
+.quick-filter[data-tone="success"] {
+  color: var(--admin-quick-filter-text, var(--color-status-success, #065f46));
+  background: var(--admin-quick-filter-surface, #ecfdf5);
+}
+.quick-filter[data-tone="info"] {
+  color: var(--admin-quick-filter-text, var(--color-status-info, #1e40af));
+  background: var(--admin-quick-filter-surface, #eff6ff);
+}
+
+[data-theme="dark"] .quick-filter[data-tone="error"],
+[data-theme="dark"] .quick-filter[data-tone="danger"],
+.dark .quick-filter[data-tone="error"],
+.dark .quick-filter[data-tone="danger"] {
+  color: var(--admin-quick-filter-text, var(--color-status-danger, #fecdd3));
+  background: var(--admin-quick-filter-surface, #4c0519);
+}
+[data-theme="dark"] .quick-filter[data-tone="warning"],
+.dark .quick-filter[data-tone="warning"] {
+  color: var(--admin-quick-filter-text, var(--color-status-warning, #fde68a));
+  background: var(--admin-quick-filter-surface, #451a03);
+}
+[data-theme="dark"] .quick-filter[data-tone="success"],
+.dark .quick-filter[data-tone="success"] {
+  color: var(--admin-quick-filter-text, var(--color-status-success, #a7f3d0));
+  background: var(--admin-quick-filter-surface, #022c22);
+}
+[data-theme="dark"] .quick-filter[data-tone="info"],
+.dark .quick-filter[data-tone="info"] {
+  color: var(--admin-quick-filter-text, var(--color-status-info, #bfdbfe));
+  background: var(--admin-quick-filter-surface, #172554);
+}
 .quick-filter__count { padding: 0.125rem 0.375rem; background: rgba(255, 255, 255, 0.5); border-radius: 9999px; font-size: 0.625rem; font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) {

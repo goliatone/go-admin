@@ -405,6 +405,15 @@ func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
 	debugregistry.UnregisterPanel(panelID)
 	t.Cleanup(func() { debugregistry.UnregisterPanel(panelID) })
 
+	snapshotReady := make(chan struct{})
+	releaseSnapshot := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-releaseSnapshot:
+		default:
+			close(releaseSnapshot)
+		}
+	})
 	var hook *DebugQueryHook
 	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
 		SnapshotKey: panelID,
@@ -415,6 +424,8 @@ func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
 					StartTime: time.Now(),
 				})
 			}
+			close(snapshotReady)
+			<-releaseSnapshot
 			return map[string]any{"ready": true}
 		},
 	}); err != nil {
@@ -437,6 +448,7 @@ func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
 		handled <- mod.handleDebugWebSocket(ws)
 	}()
 	waitForDebugWebSocketSignal(t, ws.readStarted, "reader start after initial snapshot")
+	waitForDebugWebSocketSignal(t, snapshotReady, "capture-suppressed snapshot")
 
 	select {
 	case err := <-handled:
@@ -448,13 +460,8 @@ func TestDebugWebSocketSnapshotCaptureDoesNotCloseLiveConnection(t *testing.T) {
 		Query:     "SELECT application_request",
 		StartTime: time.Now(),
 	})
-	deadline := time.Now().Add(time.Second)
-	for ws.writeCount.Load() < 2 && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
-	if got := ws.writeCount.Load(); got < 2 {
-		t.Fatalf("ordinary live SQL was not written after snapshot; writes=%d", got)
-	}
+	close(releaseSnapshot)
+	waitForDebugWebSocketWrites(t, ws, 2)
 
 	cancel()
 	select {

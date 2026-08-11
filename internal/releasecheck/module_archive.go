@@ -114,9 +114,9 @@ func WriteModuleProxy(moduleRoot, proxyRoot string, version module.Version) erro
 	if err != nil {
 		return err
 	}
-	modFile, err := os.ReadFile(filepath.Join(moduleRoot, "go.mod"))
+	modFile, err := readModuleGoMod(moduleRoot)
 	if err != nil {
-		return fmt.Errorf("read module go.mod: %w", err)
+		return err
 	}
 	declaredPath := modfile.ModulePath(modFile)
 	if declaredPath != version.Path {
@@ -132,12 +132,12 @@ func WriteModuleProxy(moduleRoot, proxyRoot string, version module.Version) erro
 	}
 
 	versionDir := filepath.Join(proxyRoot, filepath.FromSlash(escapedPath), "@v")
-	if err := os.MkdirAll(versionDir, 0o755); err != nil {
-		return fmt.Errorf("create module proxy directory: %w", err)
+	if mkdirErr := os.MkdirAll(versionDir, 0o750); mkdirErr != nil {
+		return fmt.Errorf("create module proxy directory: %w", mkdirErr)
 	}
 	info, err := json.Marshal(struct {
-		Version string    `json:"Version"`
-		Time    time.Time `json:"Time"`
+		Version string    `json:"Version"` //nolint:tagliatelle // The Go module proxy .info protocol requires this exact field name.
+		Time    time.Time `json:"Time"`    //nolint:tagliatelle // The Go module proxy .info protocol requires this exact field name.
 	}{Version: version.Version, Time: time.Now().UTC()})
 	if err != nil {
 		return fmt.Errorf("encode module proxy info: %w", err)
@@ -151,11 +151,27 @@ func WriteModuleProxy(moduleRoot, proxyRoot string, version module.Version) erro
 	}
 	for name, content := range files {
 		path := filepath.Join(versionDir, name)
-		if err := os.WriteFile(path, content, 0o644); err != nil {
+		if err := os.WriteFile(path, content, 0o600); err != nil {
 			return fmt.Errorf("write module proxy file %q: %w", path, err)
 		}
 	}
 	return nil
+}
+
+func readModuleGoMod(moduleRoot string) ([]byte, error) {
+	root, err := os.OpenRoot(moduleRoot)
+	if err != nil {
+		return nil, fmt.Errorf("open module root: %w", err)
+	}
+	modFile, readErr := root.ReadFile("go.mod")
+	closeErr := root.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("read module go.mod: %w", readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close module root: %w", closeErr)
+	}
+	return modFile, nil
 }
 
 func createModuleArchive(moduleRoot string, version module.Version) (*bytes.Buffer, error) {

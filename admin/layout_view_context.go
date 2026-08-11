@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"html"
+	"maps"
 	"strings"
 
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
@@ -27,9 +28,7 @@ func buildAdminLayoutViewContextWithChromeFromContext(adm *Admin, c router.Conte
 
 func cloneAdminLayoutViewContext(view router.ViewContext) router.ViewContext {
 	cloned := make(router.ViewContext, len(view))
-	for key, value := range view {
-		cloned[key] = value
-	}
+	maps.Copy(cloned, view)
 	return cloned
 }
 
@@ -37,9 +36,7 @@ func applyAdminPageChrome(view router.ViewContext, chrome AdminPageChrome) {
 	if view == nil {
 		return
 	}
-	for key, value := range chrome.TemplateContext() {
-		view[key] = value
-	}
+	maps.Copy(view, chrome.TemplateContext())
 }
 
 // TemplateContext returns the lowercase, presentation-only projection consumed

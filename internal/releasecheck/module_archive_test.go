@@ -23,7 +23,7 @@ func TestWriteModuleProxySupportsReadonlyConsumerDownload(t *testing.T) {
 
 	consumerRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(consumerRoot, "go.mod"), "module example.com/consumer\n\ngo 1.26.5\n\nrequire example.com/release/root v1.2.3\n")
-	command := exec.Command("go", "mod", "download", "example.com/release/root@v1.2.3")
+	command := exec.CommandContext(t.Context(), "go", "mod", "download", "example.com/release/root@v1.2.3")
 	command.Dir = consumerRoot
 	command.Env = append(os.Environ(),
 		"GOWORK=off",
