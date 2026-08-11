@@ -1,36 +1,38 @@
 package site
 
 import (
-	"os"
-	"path/filepath"
+	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/goliatone/go-admin/pkg/client"
 )
 
 func TestSiteTemplateContractsForPhase14(t *testing.T) {
-	baseTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "base.html")
-	baseRaw, err := os.ReadFile(baseTemplatePath)
+	templates := client.Templates()
+	baseTemplatePath := "site/base.html"
+	baseRaw, err := fs.ReadFile(templates, baseTemplatePath)
 	if err != nil {
 		t.Fatalf("read base template: %v", err)
 	}
 	base := string(baseRaw)
-	headerTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "header.html")
-	headerRaw, err := os.ReadFile(headerTemplatePath)
+	headerTemplatePath := "site/partials/header.html"
+	headerRaw, err := fs.ReadFile(templates, headerTemplatePath)
 	if err != nil {
 		t.Fatalf("read header partial: %v", err)
 	}
-	footerTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "footer.html")
-	footerRaw, err := os.ReadFile(footerTemplatePath)
+	footerTemplatePath := "site/partials/footer.html"
+	footerRaw, err := fs.ReadFile(templates, footerTemplatePath)
 	if err != nil {
 		t.Fatalf("read footer partial: %v", err)
 	}
-	mainMenuPartialPath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html")
-	mainMenuRaw, err := os.ReadFile(mainMenuPartialPath)
+	mainMenuPartialPath := "site/partials/menu_main.html"
+	mainMenuRaw, err := fs.ReadFile(templates, mainMenuPartialPath)
 	if err != nil {
 		t.Fatalf("read main menu partial: %v", err)
 	}
-	footerMenuPartialPath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_footer.html")
-	footerMenuRaw, err := os.ReadFile(footerMenuPartialPath)
+	footerMenuPartialPath := "site/partials/menu_footer.html"
+	footerMenuRaw, err := fs.ReadFile(templates, footerMenuPartialPath)
 	if err != nil {
 		t.Fatalf("read footer menu partial: %v", err)
 	}
@@ -62,8 +64,8 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 		}
 	}
 
-	errorTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "error.html")
-	errorRaw, err := os.ReadFile(errorTemplatePath)
+	errorTemplatePath := "site/error.html"
+	errorRaw, err := fs.ReadFile(templates, errorTemplatePath)
 	if err != nil {
 		t.Fatalf("read generic error template: %v", err)
 	}
@@ -86,19 +88,19 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		filepath.Join("..", "..", "pkg", "client", "templates", "site", "error", "404.html"),
-		filepath.Join("..", "..", "pkg", "client", "templates", "site", "error", "missing_translation.html"),
-		filepath.Join("..", "..", "pkg", "client", "templates", "site", "home", "page.html"),
-		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html"),
-		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_footer.html"),
+		"site/error/404.html",
+		"site/error/missing_translation.html",
+		"site/home/page.html",
+		"site/partials/menu_main.html",
+		"site/partials/menu_footer.html",
 	} {
-		if _, err = os.Stat(path); err != nil {
+		if _, err = fs.Stat(templates, path); err != nil {
 			t.Fatalf("expected default site template %s to exist: %v", path, err)
 		}
 	}
 
-	searchTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "search.html")
-	searchRaw, err := os.ReadFile(searchTemplatePath)
+	searchTemplatePath := "site/search.html"
+	searchRaw, err := fs.ReadFile(templates, searchTemplatePath)
 	if err != nil {
 		t.Fatalf("read search template: %v", err)
 	}
@@ -123,8 +125,8 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 		}
 	}
 
-	homepageTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "home", "page.html")
-	homepageRaw, err := os.ReadFile(homepageTemplatePath)
+	homepageTemplatePath := "site/home/page.html"
+	homepageRaw, err := fs.ReadFile(templates, homepageTemplatePath)
 	if err != nil {
 		t.Fatalf("read homepage template: %v", err)
 	}

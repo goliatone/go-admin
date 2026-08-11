@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -238,7 +238,7 @@ func TestTranslationExchangeUIConfigForAdminReadsCapabilitySnapshot(t *testing.T
 }
 
 func TestTranslationExchangeTemplateSerializesUIConfigAndTemplateMetadata(t *testing.T) {
-	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/exchange.html")
+	raw, err := fs.ReadFile(client.Templates(), "resources/translations/exchange.html")
 	if err != nil {
 		t.Fatalf("read exchange template: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestTranslationExchangeTemplateSerializesUIConfigAndTemplateMetadata(t *tes
 }
 
 func TestTranslationFamilyDetailTemplateRendersSSRSections(t *testing.T) {
-	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/family-detail.html")
+	raw, err := fs.ReadFile(client.Templates(), "resources/translations/family-detail.html")
 	if err != nil {
 		t.Fatalf("read family detail template: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 	}{
 		{
 			name: "dashboard",
-			path: "../pkg/client/templates/resources/translations/dashboard.html",
+			path: "resources/translations/dashboard.html",
 			expected: []string{
 				"translation_dashboard_ssr.Data",
 				"data-translation-dashboard-ssr=\"true\"",
@@ -313,7 +313,7 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 		},
 		{
 			name: "families",
-			path: "../pkg/client/templates/resources/translations/families.html",
+			path: "resources/translations/families.html",
 			expected: []string{
 				"translation_families_ssr",
 				"data-translation-family-list-ssr=\"true\"",
@@ -326,7 +326,7 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 		},
 		{
 			name: "matrix",
-			path: "../pkg/client/templates/resources/translations/matrix.html",
+			path: "resources/translations/matrix.html",
 			expected: []string{
 				"translation_matrix_ssr",
 				"data-translation-matrix-ssr=\"true\"",
@@ -339,7 +339,7 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 		},
 		{
 			name: "exchange",
-			path: "../pkg/client/templates/resources/translations/exchange.html",
+			path: "resources/translations/exchange.html",
 			expected: []string{
 				"translation_exchange_ssr",
 				"data-translation-exchange-ssr=\"true\"",
@@ -354,7 +354,7 @@ func TestTranslationDashboardAndFamiliesTemplatesRenderSSRSections(t *testing.T)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			raw, err := os.ReadFile(tt.path)
+			raw, err := fs.ReadFile(client.Templates(), tt.path)
 			if err != nil {
 				t.Fatalf("read template: %v", err)
 			}
@@ -549,7 +549,7 @@ func TestTranslationMatrixTemplateRendersSSRGrid(t *testing.T) {
 }
 
 func TestTranslationQueueTemplateRendersSSRSections(t *testing.T) {
-	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/shell.html")
+	raw, err := fs.ReadFile(client.Templates(), "resources/translations/shell.html")
 	if err != nil {
 		t.Fatalf("read queue shell template: %v", err)
 	}
@@ -572,7 +572,7 @@ func TestTranslationQueueTemplateRendersSSRSections(t *testing.T) {
 }
 
 func TestTranslationFamilyAssignmentsTemplateRendersSSRSections(t *testing.T) {
-	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/family-assignments.html")
+	raw, err := fs.ReadFile(client.Templates(), "resources/translations/family-assignments.html")
 	if err != nil {
 		t.Fatalf("read family assignments template: %v", err)
 	}
@@ -1080,7 +1080,7 @@ func TestMigratedTranslationTemplatesRenderHydratedSSRData(t *testing.T) {
 }
 
 func TestTranslationEditorTemplateRendersSSRSections(t *testing.T) {
-	raw, err := os.ReadFile("../pkg/client/templates/resources/translations/editor.html")
+	raw, err := fs.ReadFile(client.Templates(), "resources/translations/editor.html")
 	if err != nil {
 		t.Fatalf("read editor template: %v", err)
 	}

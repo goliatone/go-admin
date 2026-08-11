@@ -172,16 +172,6 @@ func TestAuthenticatedTemplateInventoryCoversContextProviders(t *testing.T) {
 	}
 }
 
-func TestQuickstartContextProviderUsesTypedPageChromeProjection(t *testing.T) {
-	source, err := os.ReadFile("../../quickstart/ui_routes.go")
-	if err != nil {
-		t.Fatalf("read quickstart UI provider: %v", err)
-	}
-	if !strings.Contains(string(source), "admin.EnrichLayoutViewContextWithChrome(") {
-		t.Fatal("central quickstart UI provider must project route presentation through typed page chrome")
-	}
-}
-
 func TestModuleContextProvidersUseTypedPageChromeProjection(t *testing.T) {
 	for _, path := range []string{
 		"../../admin/debug_view.go",

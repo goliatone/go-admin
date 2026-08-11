@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"io/fs"
 	"maps"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -91,12 +90,12 @@ func TestContentBuilderUIStaticAssetOptionsDerivesConfiguredShellPrefix(t *testi
 
 func TestContentBuilderTemplatesUseSharedDashboardShellContract(t *testing.T) {
 	files := []string{
-		filepath.Join("..", "pkg", "client", "templates", "resources", "content-types", "editor.html"),
-		filepath.Join("..", "pkg", "client", "templates", "resources", "block-definitions", "index.html"),
+		"resources/content-types/editor.html",
+		"resources/block-definitions/index.html",
 	}
 	for _, file := range files {
-		t.Run(filepath.Base(filepath.Dir(file))+"/"+filepath.Base(file), func(t *testing.T) {
-			data, err := os.ReadFile(file)
+		t.Run(file, func(t *testing.T) {
+			data, err := fs.ReadFile(client.Templates(), file)
 			if err != nil {
 				t.Fatalf("read template: %v", err)
 			}

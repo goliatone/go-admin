@@ -1,10 +1,11 @@
 package quickstart
 
 import (
-	"os"
-	"path/filepath"
+	"io/fs"
 	"strings"
 	"testing"
+
+	"github.com/goliatone/go-admin/pkg/client"
 )
 
 func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
@@ -16,7 +17,7 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 	}{
 		{
 			name: "roles",
-			path: filepath.Join("..", "pkg", "client", "templates", "resources", "roles", "list.html"),
+			path: "resources/roles/list.html",
 			required: []string{
 				"const dataGridConfig =",
 				"dataGridConfig.table_id",
@@ -30,7 +31,7 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 		},
 		{
 			name: "content",
-			path: filepath.Join("..", "pkg", "client", "templates", "resources", "content", "list.html"),
+			path: "resources/content/list.html",
 			required: []string{
 				"const dataGridConfig =",
 				"dataGridConfig.table_id",
@@ -44,7 +45,7 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			raw, err := os.ReadFile(tc.path)
+			raw, err := fs.ReadFile(client.Templates(), tc.path)
 			if err != nil {
 				t.Fatalf("read template: %v", err)
 			}
@@ -64,8 +65,8 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 }
 
 func TestSharedListTemplateCanRenderDataGridShellWithoutPrefetchedItems(t *testing.T) {
-	path := filepath.Join("..", "pkg", "client", "templates", "resources", "shared", "list-base.html")
-	raw, err := os.ReadFile(path)
+	path := "resources/shared/list-base.html"
+	raw, err := fs.ReadFile(client.Templates(), path)
 	if err != nil {
 		t.Fatalf("read template: %v", err)
 	}
@@ -79,8 +80,8 @@ func TestSharedListTemplateCanRenderDataGridShellWithoutPrefetchedItems(t *testi
 }
 
 func TestRolesListTemplateNoopsWhenDataTableIsMissing(t *testing.T) {
-	rolesPath := filepath.Join("..", "pkg", "client", "templates", "resources", "roles", "list.html")
-	raw, err := os.ReadFile(rolesPath)
+	rolesPath := "resources/roles/list.html"
+	raw, err := fs.ReadFile(client.Templates(), rolesPath)
 	if err != nil {
 		t.Fatalf("read roles template: %v", err)
 	}
@@ -95,8 +96,8 @@ func TestRolesListTemplateNoopsWhenDataTableIsMissing(t *testing.T) {
 		}
 	}
 
-	sharedPath := filepath.Join("..", "pkg", "client", "templates", "resources", "shared", "list-base.html")
-	raw, err = os.ReadFile(sharedPath)
+	sharedPath := "resources/shared/list-base.html"
+	raw, err = fs.ReadFile(client.Templates(), sharedPath)
 	if err != nil {
 		t.Fatalf("read shared template: %v", err)
 	}

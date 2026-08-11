@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -77,7 +78,12 @@ func TestContentEntryEditRawRepositoryFailureGetsRouteBoundaryStack(t *testing.T
 	if strings.HasSuffix(devCtx.PrimarySource.File, "/admin/error_presenter.go") {
 		t.Fatalf("primary source should not be presenter: %s", devCtx.PrimarySource.File)
 	}
-	if !strings.HasSuffix(devCtx.PrimarySource.File, "/quickstart/content_entry_routes_crud.go") {
+	switch filepath.Base(devCtx.PrimarySource.File) {
+	case "content_entry_routes_crud.go", "content_entry_routes_errors.go":
+		// Both are valid quickstart route-boundary frames. Which one is selected
+		// depends on whether quickstart is checked out beneath go-admin or is the
+		// root of its independently downloaded module artifact.
+	default:
 		t.Fatalf("primary source = %s, want content entry route", devCtx.PrimarySource.File)
 	}
 }
