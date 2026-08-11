@@ -352,6 +352,21 @@ function test_release_client_preflight_accepts_supported_npm_versions {
     done
 }
 
+function test_transaction_cleanup_removes_readonly_module_cache {
+    local state_dir="${fixture_root}/readonly-transaction-state"
+
+    mkdir -p "${state_dir}/module-cache/example.org/dependency@v1.0.0"
+    printf '%s\n' 'package dependency' > "${state_dir}/module-cache/example.org/dependency@v1.0.0/dependency.go"
+    chmod -R a-w "${state_dir}/module-cache"
+
+    release:transaction:cleanup "${state_dir}"
+
+    if [ -e "${state_dir}" ]; then
+        echo "release transaction cleanup left a read-only module cache behind" >&2
+        return 1
+    fi
+}
+
 function test_transaction_rollback {
     local transaction_fixture="${fixture_root}/transaction"
     local git_log="${fixture_root}/git.log"
@@ -1111,6 +1126,7 @@ test_quickstart_sync_runs_tests
 test_quickstart_sync_check_restores_after_interruption
 test_release_client_preflight_accepts_supported_node_versions
 test_release_client_preflight_accepts_supported_npm_versions
+test_transaction_cleanup_removes_readonly_module_cache
 test_transaction_rollback
 test_release_client_prepare_uses_tagged_source
 test_release_client_prepare_rejects_tag_skew

@@ -1900,6 +1900,9 @@ function release:transaction:cleanup {
     local state_dir=${1}
 
     if [ -n "${state_dir}" ] && [ -d "${state_dir}" ]; then
+        # Go makes downloaded module directories read-only. Restore owner write
+        # permission within this release-owned temp tree before removing it.
+        chmod -R u+w "${state_dir}" || return 1
         rm -rf "${state_dir}"
     fi
 }
