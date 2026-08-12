@@ -1035,12 +1035,13 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 		}
 		return nil, err
 	}
-	page = aBinding.admin.enrichActivityReadPage(adminCtx.Context, ActivityReadContext{
+	readCtx := ActivityReadContext{
 		Actor: actorRef,
 		Scope: filter.Scope.Clone(),
-	}, page)
+	}
+	page = aBinding.admin.enrichActivityReadPage(adminCtx.Context, readCtx, page)
 	return map[string]any{
-		"entries":     entriesFromUsersRecords(page.Records),
+		"entries":     aBinding.admin.entriesFromActivityRecords(adminCtx.Context, readCtx, page.Records),
 		"total":       page.Total,
 		"next_offset": page.NextOffset,
 		"has_more":    page.HasMore,
@@ -1048,19 +1049,44 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 }
 
 func (a *Admin) enrichActivityReadPage(ctx context.Context, readCtx ActivityReadContext, page usertypes.ActivityPage) usertypes.ActivityPage {
-	if a == nil || a.activityPageEnricher == nil {
+	if a == nil || (a.activityPageEnricher == nil && a.activityNavigationResolver == nil) {
 		return page
 	}
 	if err := validateActivityReadPage(readCtx, page); err != nil {
 		a.reportActivityReadEnrichmentError(ctx, readCtx, err)
 		return safeActivityReadFallbackPage(page)
 	}
-	enriched, err := a.activityPageEnricher.EnrichActivityPage(ctx, readCtx, page)
+	if a.activityPageEnricher == nil {
+		return page
+	}
+	enriched, err := a.activityPageEnricher.EnrichActivityPage(ctx, readCtx, cloneActivityPage(page))
 	if err != nil {
 		a.reportActivityReadEnrichmentError(ctx, readCtx, err)
 		return safeActivityReadFallbackPage(page)
 	}
+	if err := validateActivityReadPage(readCtx, enriched); err != nil {
+		a.reportActivityReadEnrichmentError(ctx, readCtx, err)
+		return safeActivityReadFallbackPage(page)
+	}
 	return enriched
+}
+
+func (a *Admin) reportActivityNavigationError(ctx context.Context, readCtx ActivityReadContext, err ActivityNavigationError) {
+	if a == nil || err.Err == nil {
+		return
+	}
+	if a.activityNavigationErrorHandler != nil {
+		a.activityNavigationErrorHandler(ctx, readCtx, err)
+		return
+	}
+	if a.logger != nil {
+		a.logger.Error(
+			"activity navigation resolution failed",
+			"activity_id", uuidString(err.ActivityID),
+			"target", string(err.Target),
+			"error", err.Err,
+		)
+	}
 }
 
 func (a *Admin) reportActivityReadEnrichmentError(ctx context.Context, readCtx ActivityReadContext, err error) {

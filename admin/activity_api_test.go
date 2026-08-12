@@ -88,10 +88,10 @@ func (s *stubActivityRepository) ActivityStats(ctx context.Context, filter usert
 }
 
 type activityListResponse struct {
-	Entries    []ActivityEntry `json:"entries"`
-	Total      int             `json:"total"`
-	NextOffset int             `json:"next_offset"`
-	HasMore    bool            `json:"has_more"`
+	Entries    []ActivityReadEntry `json:"entries"`
+	Total      int                 `json:"total"`
+	NextOffset int                 `json:"next_offset"`
+	HasMore    bool                `json:"has_more"`
 }
 
 func setupActivityServer(t *testing.T, deps Dependencies) router.Server[*httprouter.Router] {
@@ -240,10 +240,15 @@ func TestActivityRouteRequiresActorContext(t *testing.T) {
 func TestActivityRouteRequiresPermission(t *testing.T) {
 	feed := &captureActivityFeedQuery{}
 	enricher := &captureActivityPageEnricher{}
+	navigationCalls := 0
 	server := setupActivityServer(t, Dependencies{
 		Authorizer:           denyAll{},
 		ActivityFeedQuery:    feed,
 		ActivityPageEnricher: enricher,
+		ActivityNavigationResolver: ActivityNavigationResolverFunc(func(context.Context, ActivityReadContext, []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
+			navigationCalls++
+			return nil, nil
+		}),
 	})
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
@@ -256,6 +261,9 @@ func TestActivityRouteRequiresPermission(t *testing.T) {
 	}
 	if enricher.calls != 0 {
 		t.Fatalf("expected unauthorized request not to call enricher, got %d calls", enricher.calls)
+	}
+	if navigationCalls != 0 {
+		t.Fatalf("expected unauthorized request not to resolve navigation, got %d calls", navigationCalls)
 	}
 }
 
@@ -313,6 +321,106 @@ func TestActivityRouteEnrichesAuthorizedPageOnceWithTrustedScope(t *testing.T) {
 	}
 }
 
+func TestActivityRouteProjectsCRMNavigationAfterEnrichment(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	customerID := uuid.New()
+	record := usertypes.ActivityRecord{
+		ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID,
+		Verb: "customer.consent.capture", ObjectType: "customer", ObjectID: customerID.String(),
+	}
+	enriched := usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}
+	enriched.Records[0].Data = map[string]any{
+		usersactivity.DataKeyActorDisplay:  "Owner User",
+		usersactivity.DataKeyObjectDisplay: "customer:" + customerID.String(),
+	}
+	navigationCalls := 0
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:           allowAuthorizer{},
+		ActivityFeedQuery:    &captureActivityFeedQuery{page: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}},
+		ActivityPageEnricher: &captureActivityPageEnricher{result: enriched},
+		ActivityNavigationResolver: ActivityNavigationResolverFunc(func(_ context.Context, readCtx ActivityReadContext, records []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
+			navigationCalls++
+			got := records[0]
+			if readCtx.Actor.ID != actorID || readCtx.Scope.TenantID != tenantID || readCtx.Scope.OrgID != orgID {
+				t.Fatalf("unexpected trusted navigation context: %+v", readCtx)
+			}
+			if got.Data[usersactivity.DataKeyActorDisplay] != "Owner User" || got.ObjectID != customerID.String() {
+				t.Fatalf("navigation did not receive enriched canonical record: %+v", got)
+			}
+			return []ActivityNavigation{{
+				ActorHref:  "/admin/users/" + actorID.String(),
+				ObjectHref: "/admin/customers/" + customerID.String(),
+			}}, nil
+		}),
+	})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(), Role: "owner", TenantID: tenantID.String(), OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	body := decodeActivityResponse(t, rr)
+	if rr.Code != http.StatusOK || navigationCalls != 1 || len(body.Entries) != 1 {
+		t.Fatalf("expected one CRM navigation projection, status=%d calls=%d body=%s", rr.Code, navigationCalls, rr.Body.String())
+	}
+	entry := body.Entries[0]
+	if entry.Actor != "Owner User" || entry.ActorHref != "/admin/users/"+actorID.String() ||
+		entry.Object != "customer:"+customerID.String() || entry.ObjectHref != "/admin/customers/"+customerID.String() {
+		t.Fatalf("unexpected navigable Activity entry: %+v", entry)
+	}
+}
+
+func TestActivityRouteNavigationFailureAndUnsafeHrefFailOpen(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	record := usertypes.ActivityRecord{ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID, Verb: "updated"}
+	for _, tc := range []struct {
+		name    string
+		resolve ActivityNavigationResolverFunc
+	}{
+		{name: "resolver error", resolve: func(context.Context, ActivityReadContext, []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
+			return nil, errors.New("route registry unavailable")
+		}},
+		{name: "unsafe href", resolve: func(context.Context, ActivityReadContext, []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
+			return []ActivityNavigation{{ActorHref: "javascript:alert(1)"}}, nil
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			observed := 0
+			readErrors := 0
+			server := setupActivityServer(t, Dependencies{
+				Authorizer:                 allowAuthorizer{},
+				ActivityFeedQuery:          &captureActivityFeedQuery{page: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}},
+				ActivityNavigationResolver: tc.resolve,
+				ActivityNavigationErrorHandler: func(_ context.Context, _ ActivityReadContext, got ActivityNavigationError) {
+					observed++
+					if got.Target != ActivityNavigationTargetResolver && got.ActivityID != record.ID {
+						t.Errorf("unexpected activity navigation error: %+v", got)
+					}
+				},
+				ActivityReadErrorHandler: func(context.Context, ActivityReadContext, error) {
+					readErrors++
+				},
+			})
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
+			req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+				ActorID: actorID.String(), TenantID: tenantID.String(), OrganizationID: orgID.String(),
+			}))
+			rr := httptest.NewRecorder()
+			server.WrappedRouter().ServeHTTP(rr, req)
+
+			body := decodeActivityResponse(t, rr)
+			if rr.Code != http.StatusOK || observed != 1 || readErrors != 0 || len(body.Entries) != 1 || body.Entries[0].ActorHref != "" || body.Entries[0].ObjectHref != "" {
+				t.Fatalf("navigation failure must keep plain authorized entry: status=%d observed=%d read_errors=%d entries=%+v", rr.Code, observed, readErrors, body.Entries)
+			}
+		})
+	}
+}
+
 func TestActivityRouteInvalidScopeFailsOpenBeforeEnricher(t *testing.T) {
 	actorID := uuid.New()
 	tenantID := uuid.New()
@@ -323,11 +431,16 @@ func TestActivityRouteInvalidScopeFailsOpenBeforeEnricher(t *testing.T) {
 		Verb: "audience.update", ObjectType: "audience", ObjectID: "aud-1",
 	}
 	enricher := &captureActivityPageEnricher{}
+	navigationCalls := 0
 	observed := 0
 	server := setupActivityServer(t, Dependencies{
 		Authorizer:           allowAuthorizer{},
 		ActivityFeedQuery:    &captureActivityFeedQuery{page: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}},
 		ActivityPageEnricher: enricher,
+		ActivityNavigationResolver: ActivityNavigationResolverFunc(func(context.Context, ActivityReadContext, []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
+			navigationCalls++
+			return nil, nil
+		}),
 		ActivityReadErrorHandler: func(_ context.Context, readCtx ActivityReadContext, err error) {
 			observed++
 			if readCtx.Scope.OrgID != orgID || !errors.Is(err, errInvalidActivityReadScope) {
@@ -343,12 +456,60 @@ func TestActivityRouteInvalidScopeFailsOpenBeforeEnricher(t *testing.T) {
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusOK || enricher.calls != 0 || observed != 1 {
-		t.Fatalf("expected fail-open without enrichment, status=%d calls=%d observed=%d body=%s", rr.Code, enricher.calls, observed, rr.Body.String())
+	if rr.Code != http.StatusOK || enricher.calls != 0 || navigationCalls != 0 || observed != 1 {
+		t.Fatalf("expected fail-open without enrichment or navigation, status=%d enrichment_calls=%d navigation_calls=%d observed=%d body=%s", rr.Code, enricher.calls, navigationCalls, observed, rr.Body.String())
 	}
 	body := decodeActivityResponse(t, rr)
 	if len(body.Entries) != 1 || body.Entries[0].Actor != actorID.String() {
 		t.Fatalf("expected original UUID fallback, got %+v", body.Entries)
+	}
+}
+
+func TestActivityRouteInvalidEnrichedScopeFallsBackBeforeNavigation(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	record := usertypes.ActivityRecord{
+		ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID,
+		Verb: "customer.read", ObjectType: "customer", ObjectID: uuid.NewString(),
+	}
+	foreign := record
+	foreign.ID = uuid.New()
+	foreign.OrgID = uuid.New()
+	foreign.Data = map[string]any{usersactivity.DataKeyActorDisplay: "Foreign Actor"}
+	navigationCalls := 0
+	observed := 0
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:        allowAuthorizer{},
+		ActivityFeedQuery: &captureActivityFeedQuery{page: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}},
+		ActivityPageEnricher: &captureActivityPageEnricher{result: usertypes.ActivityPage{
+			Records: []usertypes.ActivityRecord{foreign},
+		}},
+		ActivityNavigationResolver: ActivityNavigationResolverFunc(func(_ context.Context, _ ActivityReadContext, records []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
+			navigationCalls++
+			return make([]ActivityNavigation, len(records)), nil
+		}),
+		ActivityReadErrorHandler: func(_ context.Context, _ ActivityReadContext, err error) {
+			observed++
+			if !errors.Is(err, errInvalidActivityReadScope) {
+				t.Errorf("unexpected enrichment scope error: %v", err)
+			}
+		},
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(), TenantID: tenantID.String(), OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	body := decodeActivityResponse(t, rr)
+	if rr.Code != http.StatusOK || observed != 1 || navigationCalls != 1 || len(body.Entries) != 1 {
+		t.Fatalf("invalid enriched scope must fall back to the original scoped page: status=%d observed=%d navigation=%d entries=%+v", rr.Code, observed, navigationCalls, body.Entries)
+	}
+	if body.Entries[0].ID != record.ID.String() || body.Entries[0].Actor != actorID.String() {
+		t.Fatalf("foreign enriched record escaped fallback: %+v", body.Entries[0])
 	}
 }
 

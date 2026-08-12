@@ -19,6 +19,7 @@ import (
 	errors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-formgen/pkg/orchestrator"
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
+	"github.com/goliatone/go-notifications/pkg/storage"
 	repository "github.com/goliatone/go-repository-bun"
 	router "github.com/goliatone/go-router"
 	theme "github.com/goliatone/go-theme"
@@ -53,6 +54,9 @@ const (
 	ActivityActorTypeSystem                        = core.ActivityActorTypeSystem
 	ActivityActorTypeTask                          = core.ActivityActorTypeTask
 	ActivityActorTypeUser                          = core.ActivityActorTypeUser
+	ActivityNavigationTargetActor                  = core.ActivityNavigationTargetActor
+	ActivityNavigationTargetObject                 = core.ActivityNavigationTargetObject
+	ActivityNavigationTargetResolver               = core.ActivityNavigationTargetResolver
 	ActivityObjectTypeBlock                        = core.ActivityObjectTypeBlock
 	ActivityObjectTypeBlockDefinition              = core.ActivityObjectTypeBlockDefinition
 	ActivityObjectTypeContent                      = core.ActivityObjectTypeContent
@@ -73,6 +77,12 @@ const (
 	ActivityObjectTypeWidgetArea                   = core.ActivityObjectTypeWidgetArea
 	ActivityObjectTypeWidgetDefinition             = core.ActivityObjectTypeWidgetDefinition
 	ActivityObjectTypeWidgetInstance               = core.ActivityObjectTypeWidgetInstance
+	AdminPartialInvalidIdentifier                  = core.AdminPartialInvalidIdentifier
+	AdminPartialPageBreadcrumbs                    = core.AdminPartialPageBreadcrumbs
+	AdminPartialShellFooter                        = core.AdminPartialShellFooter
+	AdminPartialShellSidebar                       = core.AdminPartialShellSidebar
+	AdminPartialUnavailable                        = core.AdminPartialUnavailable
+	AdminPartialUnsupportedKey                     = core.AdminPartialUnsupportedKey
 	AssignmentStatusApproved                       = core.AssignmentStatusApproved
 	AssignmentStatusArchived                       = core.AssignmentStatusArchived
 	AssignmentStatusAssigned                       = core.AssignmentStatusAssigned
@@ -86,6 +96,10 @@ const (
 	AssignmentStatusReview                         = core.AssignmentStatusReview
 	AssignmentTypeDirect                           = core.AssignmentTypeDirect
 	AssignmentTypeOpenPool                         = core.AssignmentTypeOpenPool
+	BrowserCSRFErrorMessageLocal                   = core.BrowserCSRFErrorMessageLocal
+	BrowserCSRFErrorQueryKey                       = core.BrowserCSRFErrorQueryKey
+	BrowserCSRFFormExpiredCode                     = core.BrowserCSRFFormExpiredCode
+	BrowserCSRFFormExpiredMessage                  = core.BrowserCSRFFormExpiredMessage
 	CMSPageContentTypeSlug                         = core.CMSPageContentTypeSlug
 	CMSPagePolicyEntity                            = core.CMSPagePolicyEntity
 	CommandRunDiagnosticClosed                     = core.CommandRunDiagnosticClosed
@@ -233,6 +247,8 @@ const (
 	LocalePathRouteKeyAmbiguous                    = core.LocalePathRouteKeyAmbiguous
 	LocalePathRouteKeyMissingDerivable             = core.LocalePathRouteKeyMissingDerivable
 	LocalePathRouteKeyPresentConsistent            = core.LocalePathRouteKeyPresentConsistent
+	LoginLogoPlacementInsideCard                   = core.LoginLogoPlacementInsideCard
+	LoginLogoPlacementOutsideCard                  = core.LoginLogoPlacementOutsideCard
 	MediaDeliveryCapabilityAuthRequired            = core.MediaDeliveryCapabilityAuthRequired
 	MediaDeliveryCapabilityDownload                = core.MediaDeliveryCapabilityDownload
 	MediaDeliveryCapabilityImport                  = core.MediaDeliveryCapabilityImport
@@ -296,7 +312,16 @@ const (
 	NavigationRouteMissingPolicyAuto               = core.NavigationRouteMissingPolicyAuto
 	NavigationRouteMissingPolicyReport             = core.NavigationRouteMissingPolicyReport
 	NavigationRouteMissingPolicyStrict             = core.NavigationRouteMissingPolicyStrict
+	NotificationDeliveryEventParameter             = core.NotificationDeliveryEventParameter
+	NotificationDeliveryMessageParameter           = core.NotificationDeliveryMessageParameter
 	NotificationMarkCommandName                    = core.NotificationMarkCommandName
+	NotificationRetentionPurgeCommandName          = core.NotificationRetentionPurgeCommandName
+	NotificationRouteDeliveries                    = core.NotificationRouteDeliveries
+	NotificationRouteDeliveryEvent                 = core.NotificationRouteDeliveryEvent
+	NotificationRouteDeliveryMessage               = core.NotificationRouteDeliveryMessage
+	NotificationRouteReceiptLookup                 = core.NotificationRouteReceiptLookup
+	NotificationRouteRetentionPurge                = core.NotificationRouteRetentionPurge
+	NotificationSystemAuthorityMetadataKey         = core.NotificationSystemAuthorityMetadataKey
 	PanelActionDefaultsModeCRUD                    = core.PanelActionDefaultsModeCRUD
 	PanelActionDefaultsModeConservative            = core.PanelActionDefaultsModeConservative
 	PanelActionDefaultsModeNone                    = core.PanelActionDefaultsModeNone
@@ -336,6 +361,9 @@ const (
 	PermAdminMenusEdit                             = core.PermAdminMenusEdit
 	PermAdminMenusPublish                          = core.PermAdminMenusPublish
 	PermAdminMenusView                             = core.PermAdminMenusView
+	PermAdminNotificationsInspect                  = core.PermAdminNotificationsInspect
+	PermAdminNotificationsReceiptsView             = core.PermAdminNotificationsReceiptsView
+	PermAdminNotificationsRetentionPurge           = core.PermAdminNotificationsRetentionPurge
 	PermAdminNotificationsUpdate                   = core.PermAdminNotificationsUpdate
 	PermAdminNotificationsView                     = core.PermAdminNotificationsView
 	PermAdminOrganizationsCreate                   = core.PermAdminOrganizationsCreate
@@ -446,8 +474,6 @@ const (
 	SettingsScopeSite                              = core.SettingsScopeSite
 	SettingsScopeSystem                            = core.SettingsScopeSystem
 	SettingsScopeUser                              = core.SettingsScopeUser
-	LoginLogoPlacementInsideCard                   = core.LoginLogoPlacementInsideCard
-	LoginLogoPlacementOutsideCard                  = core.LoginLogoPlacementOutsideCard
 	SidebarCollapsePlacementFooter                 = core.SidebarCollapsePlacementFooter
 	SidebarCollapsePlacementHeader                 = core.SidebarCollapsePlacementHeader
 	SiteRouteContentDetail                         = core.SiteRouteContentDetail
@@ -619,6 +645,8 @@ type (
 	ActionResponseCollector                           = core.ActionResponseCollector
 	ActionScope                                       = core.ActionScope
 	ActionState                                       = core.ActionState
+	ActivityDisplayHintPolicy                         = core.ActivityDisplayHintPolicy
+	ActivityDisplayHintPolicyFunc                     = core.ActivityDisplayHintPolicyFunc
 	ActivityEntry                                     = core.ActivityEntry
 	ActivityFeed                                      = core.ActivityFeed
 	ActivityFeedQuerier                               = core.ActivityFeedQuerier
@@ -626,10 +654,22 @@ type (
 	ActivityFilter                                    = core.ActivityFilter
 	ActivityLogger                                    = core.ActivityLogger
 	ActivityModule                                    = core.ActivityModule
+	ActivityNavigation                                = core.ActivityNavigation
+	ActivityNavigationError                           = core.ActivityNavigationError
+	ActivityNavigationErrorHandler                    = core.ActivityNavigationErrorHandler
+	ActivityNavigationResolver                        = core.ActivityNavigationResolver
+	ActivityNavigationResolverFunc                    = core.ActivityNavigationResolverFunc
+	ActivityNavigationTarget                          = core.ActivityNavigationTarget
+	ActivityPageEnricher                              = core.ActivityPageEnricher
+	ActivityPageEnricherFunc                          = core.ActivityPageEnricherFunc
+	ActivityReadContext                               = core.ActivityReadContext
+	ActivityReadEntry                                 = core.ActivityReadEntry
+	ActivityReadErrorHandler                          = core.ActivityReadErrorHandler
 	ActivityRecord                                    = core.ActivityRecord
 	ActivityRecordLister                              = core.ActivityRecordLister
 	ActivitySink                                      = core.ActivitySink
 	ActivitySinkAdapter                               = core.ActivitySinkAdapter
+	ActivityUserBatchReader                           = core.ActivityUserBatchReader
 	Admin                                             = core.Admin
 	AdminActivityEnricherConfig                       = core.AdminActivityEnricherConfig
 	AdminActorResolver                                = core.AdminActorResolver
@@ -646,13 +686,22 @@ type (
 	AdminMenuRecord                                   = core.AdminMenuRecord
 	AdminMenuViewProfileRecord                        = core.AdminMenuViewProfileRecord
 	AdminObjectResolverConfig                         = core.AdminObjectResolverConfig
+	AdminPageChrome                                   = core.AdminPageChrome
 	AdminPageGetOptions                               = core.AdminPageGetOptions
+	AdminPageHeader                                   = core.AdminPageHeader
+	AdminPageHeaderBreadcrumb                         = core.AdminPageHeaderBreadcrumb
 	AdminPageListOptions                              = core.AdminPageListOptions
 	AdminPageReadService                              = core.AdminPageReadService
 	AdminPageRecord                                   = core.AdminPageRecord
 	AdminPageWriteService                             = core.AdminPageWriteService
 	AdminRouter                                       = core.AdminRouter
 	AdminStaticRouter[T any]                          = core.AdminStaticRouter[T]
+	AdminStructuralDiagnosticSink                     = core.AdminStructuralDiagnosticSink
+	AdminStructuralDiagnosticSinkFunc                 = core.AdminStructuralDiagnosticSinkFunc
+	AdminStructuralPartialDiagnostic                  = core.AdminStructuralPartialDiagnostic
+	AdminStructuralPartials                           = core.AdminStructuralPartials
+	AdminTemplateLookup                               = core.AdminTemplateLookup
+	AdminTemplateLookupFunc                           = core.AdminTemplateLookupFunc
 	AssignmentStatus                                  = core.AssignmentStatus
 	AssignmentType                                    = core.AssignmentType
 	AuthConfig                                        = core.AuthConfig
@@ -1003,6 +1052,7 @@ type (
 	LogEntry                                          = core.LogEntry
 	Logger                                            = core.Logger
 	LoggerProvider                                    = core.LoggerProvider
+	LoginLogoPlacement                                = core.LoginLogoPlacement
 	ManagementContentService                          = core.ManagementContentService
 	ManagementContentTypeService                      = core.ManagementContentTypeService
 	ManagementPageService                             = core.ManagementPageService
@@ -1118,8 +1168,16 @@ type (
 	NoopCMSContainer                                  = core.NoopCMSContainer
 	NoopTranslator                                    = core.NoopTranslator
 	Notification                                      = core.Notification
+	NotificationCapabilityUnavailableError            = core.NotificationCapabilityUnavailableError
+	NotificationDeliveryInspector                     = core.NotificationDeliveryInspector
+	NotificationEventService                          = core.NotificationEventService
 	NotificationMarkCommand                           = core.NotificationMarkCommand
 	NotificationMarkMsg                               = core.NotificationMarkMsg
+	NotificationReceiptService                        = core.NotificationReceiptService
+	NotificationRetentionPurgeCommand                 = core.NotificationRetentionPurgeCommand
+	NotificationRetentionPurgeMsg                     = core.NotificationRetentionPurgeMsg
+	NotificationRetentionService                      = core.NotificationRetentionService
+	NotificationRuntimeOptions                        = core.NotificationRuntimeOptions
 	NotificationService                               = core.NotificationService
 	NotificationsWidgetPayload                        = core.NotificationsWidgetPayload
 	ObjectResolverFunc                                = core.ObjectResolverFunc
@@ -1148,6 +1206,7 @@ type (
 	PanelFormAdapter                                  = core.PanelFormAdapter
 	PanelFormRequest                                  = core.PanelFormRequest
 	PanelHooks                                        = core.PanelHooks
+	PanelListCapabilities                             = core.PanelListCapabilities
 	PanelPermissions                                  = core.PanelPermissions
 	PanelSubresource                                  = core.PanelSubresource
 	PanelSubresourceRepository                        = core.PanelSubresourceRepository
@@ -1216,6 +1275,7 @@ type (
 	ResolveResult                                     = core.ResolveResult
 	ResolveSource                                     = core.ResolveSource
 	ResolvedSetting                                   = core.ResolvedSetting
+	ResolverActivityPageEnricherConfig                = core.ResolverActivityPageEnricherConfig
 	ResultDispatchFactory                             = core.ResultDispatchFactory
 	RingBuffer[T any]                                 = core.RingBuffer[T]
 	RoleAssignmentLookup                              = core.RoleAssignmentLookup
@@ -1279,7 +1339,6 @@ type (
 	SettingsUpdateCommand                             = core.SettingsUpdateCommand
 	SettingsUpdateMsg                                 = core.SettingsUpdateMsg
 	SettingsValidationErrors                          = core.SettingsValidationErrors
-	LoginLogoPlacement                                = core.LoginLogoPlacement
 	SidebarCollapsePlacement                          = core.SidebarCollapsePlacement
 	SignedTokenStrategy                               = core.SignedTokenStrategy
 	SiteAPIClient                                     = core.SiteAPIClient
@@ -1737,6 +1796,10 @@ func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
 	return core.DecodeWidgetConfig[T](cfg)
 }
 
+func DefaultAdminStructuralPartials() AdminStructuralPartials {
+	return core.DefaultAdminStructuralPartials()
+}
+
 func DefaultBlockFieldTypeRegistry() *FieldTypeRegistry {
 	return core.DefaultBlockFieldTypeRegistry()
 }
@@ -1823,6 +1886,10 @@ func EnhancedActionRuntimeOptionsFromConfig(cfg EnhancedActionNegotiationConfig)
 
 func EnrichLayoutViewContext(adm *Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
 	return core.EnrichLayoutViewContext(adm, c, view, active)
+}
+
+func EnrichLayoutViewContextWithChrome(adm *Admin, c router.Context, view router.ViewContext, chrome AdminPageChrome) router.ViewContext {
+	return core.EnrichLayoutViewContextWithChrome(adm, c, view, chrome)
 }
 
 func EnrichStackFrames(frames []StackFrameInfo, contextLines int, maxFrames int) []StackFrameInfo {
@@ -2003,6 +2070,10 @@ func NewAdminContentWriteServiceWithEntryNavigationOptions(content CMSContentSer
 
 func NewAdminObjectResolver(cfg AdminObjectResolverConfig) activity.ObjectResolver {
 	return core.NewAdminObjectResolver(cfg)
+}
+
+func NewBunNotificationRuntime(ctx context.Context, db *bun.DB, opts ...storage.Option) (*NotificationRuntimeOptions, error) {
+	return core.NewBunNotificationRuntime(ctx, db, opts...)
 }
 
 func NewBunRepositoryAdapter[T any](repo repository.Repository[T], opts ...BunRepositoryOption[T]) *BunRepositoryAdapter[T] {
@@ -2501,6 +2572,10 @@ func NewRegistry() *Registry {
 	return core.NewRegistry()
 }
 
+func NewResolverActivityPageEnricher(cfg ResolverActivityPageEnricherConfig) ActivityPageEnricher {
+	return core.NewResolverActivityPageEnricher(cfg)
+}
+
 func NewRingBuffer[T any](capacity int) *RingBuffer[T] {
 	return core.NewRingBuffer[T](capacity)
 }
@@ -2621,6 +2696,10 @@ func NormalizeListPredicates(opts ListOptions) []ListPredicate {
 	return core.NormalizeListPredicates(opts)
 }
 
+func NormalizeLoginLogoPlacement(value LoginLogoPlacement) LoginLogoPlacement {
+	return core.NormalizeLoginLogoPlacement(value)
+}
+
 func NormalizeMediaDeliveryCapabilities(values ...MediaDeliveryCapability) []MediaDeliveryCapability {
 	return core.NormalizeMediaDeliveryCapabilities(values...)
 }
@@ -2653,12 +2732,12 @@ func NormalizeNavigationPermissionDeniedMode(mode NavigationPermissionDeniedMode
 	return core.NormalizeNavigationPermissionDeniedMode(mode)
 }
 
-func NormalizeLoginLogoPlacement(value LoginLogoPlacement) LoginLogoPlacement {
-	return core.NormalizeLoginLogoPlacement(value)
-}
-
 func NormalizeSidebarCollapsePlacement(value SidebarCollapsePlacement) SidebarCollapsePlacement {
 	return core.NormalizeSidebarCollapsePlacement(value)
+}
+
+func NotificationSystemAuthorityFromContext(ctx context.Context) bool {
+	return core.NotificationSystemAuthorityFromContext(ctx)
 }
 
 func ParseContentTypeCapabilityContracts(capabilities map[string]any) ContentTypeCapabilityContracts {
@@ -2857,6 +2936,10 @@ func ResolveEntryNavigationVisibility(location string, overrides map[string]stri
 	return core.ResolveEntryNavigationVisibility(location, overrides, defaultSet, policy)
 }
 
+func ResolvePanelListCapabilities(bulk bool, export bool) PanelListCapabilities {
+	return core.ResolvePanelListCapabilities(bulk, export)
+}
+
 func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (TranslationExchangeLinkageKey, error) {
 	return core.ResolveTranslationExchangeLinkageKey(row)
 }
@@ -3007,6 +3090,10 @@ func WithAuthErrorHandler(handler func(router.Context, error) error) GoAuthAuthe
 
 func WithAuthenticatedRequest(ctx context.Context) context.Context {
 	return core.WithAuthenticatedRequest(ctx)
+}
+
+func WithBrowserProtectionConfig(config auth.BrowserProtectionConfig) GoAuthAuthenticatorOption {
+	return core.WithBrowserProtectionConfig(config)
 }
 
 func WithBunBaseCriteria[T any](criteria ...repository.SelectCriteria) BunRepositoryOption[T] {
@@ -3247,6 +3334,10 @@ func WithMutationStatus(status int) func(*MutationPresentation) {
 
 func WithMutationToast(toast EnhancedToast) func(*MutationPresentation) {
 	return core.WithMutationToast(toast)
+}
+
+func WithNotificationSystemAuthority(ctx context.Context) context.Context {
+	return core.WithNotificationSystemAuthority(ctx)
 }
 
 func WithOptionalAuth(optional bool) GoAuthAuthenticatorOption {

@@ -39,9 +39,12 @@ Validation rules:
   "entries": [
     {
       "id": "uuid",
-      "actor": "uuid-or-string",
-      "action": "verb",
+      "actor": "Owner User",
+      "actor_href": "/admin/users/actor-uuid",
+      "action": "Captured customer consent",
+      "action_key": "customer.consent.capture",
       "object": "type:id",
+      "object_href": "/admin/customers/object-uuid",
       "channel": "users",
       "metadata": {
         "ip": "0.0.0.0"
@@ -57,9 +60,12 @@ Validation rules:
 
 Notes:
 
-- `action` maps to go-users `verb`.
+- `action` contains the presentation label when read enrichment provides one;
+  `action_key` retains the canonical go-users verb.
 - `object` joins `object_type` and `object_id` as `type:id`.
 - `actor` uses `actor_id` when present (falls back to `user_id`).
+- `actor_href` and `object_href` are optional host-resolved local navigation
+  targets. They are omitted when navigation is not configured or not allowed.
 - `created_at` maps to go-users `occurred_at`.
 
 ## Pagination and ordering
@@ -136,6 +142,106 @@ adm, _, err := quickstart.NewAdmin(cfg, hooks, quickstart.WithAdminDependencies(
 ```
 
 If you already have an `ActivityFeedQuery` or `ActivityService`, provide that instead of the repository.
+
+## Read-time navigation links
+
+Activity labels can link to host-owned detail pages by supplying an optional
+`ActivityNavigationResolver`. The resolver runs only after Activity permission
+checks, trusted-scope validation, the feed query, access-policy sanitization,
+and optional page enrichment. It receives the canonical record and the trusted
+request context through a detached copy; stored metadata is not URL authority.
+The API returns links through `ActivityReadEntry`, while the write-side
+`ActivityEntry` remains free of presentation fields.
+
+This example matches an application with user detail routes at
+`/admin/users/:id` and custom customer detail routes at
+`/admin/customers/:id`:
+
+```go
+import (
+    "context"
+    "log/slog"
+    "net/url"
+    "strings"
+
+    "github.com/goliatone/go-admin/pkg/admin"
+    usersactivity "github.com/goliatone/go-users/activity"
+    usertypes "github.com/goliatone/go-users/pkg/types"
+    "github.com/google/uuid"
+)
+
+adminBase := strings.TrimRight(cfg.BasePath, "/")
+systemActorIDs := map[uuid.UUID]struct{}{
+    // Populate from the host's compiled scheduler/job actor catalog.
+}
+navigation := admin.ActivityNavigationResolverFunc(func(
+    _ context.Context,
+    _ admin.ActivityReadContext,
+    records []usertypes.ActivityRecord,
+) ([]admin.ActivityNavigation, error) {
+    out := make([]admin.ActivityNavigation, len(records))
+
+    // Resolve the viewer's destination permissions once for the complete page,
+    // then apply them while projecting each record. This example's system
+    // actor catalog prevents machine identities from linking to Users.
+    for index, record := range records {
+        actorID := record.ActorID
+        if actorID == uuid.Nil {
+            actorID = record.UserID
+        }
+        _, systemActor := systemActorIDs[actorID]
+        actorType, _ := record.Data[usersactivity.DataKeyActorType].(string)
+        if actorID != uuid.Nil && !systemActor && strings.EqualFold(actorType, "user") {
+            out[index].ActorHref = adminBase + "/users/" + url.PathEscape(actorID.String())
+        }
+
+        deleted, objectResolved := record.Data[usersactivity.DataKeyObjectDeleted].(bool)
+        if objectResolved && !deleted && strings.EqualFold(strings.TrimSpace(record.ObjectType), "customer") {
+            if objectID, err := uuid.Parse(strings.TrimSpace(record.ObjectID)); err == nil && objectID != uuid.Nil {
+                out[index].ObjectHref = adminBase + "/customers/" + url.PathEscape(objectID.String())
+            }
+        }
+    }
+    return out, nil
+})
+
+adminDeps := admin.Dependencies{
+    ActivityRepository:         usersDeps.ActivityRepo,
+    ActivityAccessPolicy:       usersactivity.NewDefaultAccessPolicy(),
+    ActivityPageEnricher:       pageEnricher,
+    ActivityNavigationResolver: navigation,
+    ActivityNavigationErrorHandler: func(
+        ctx context.Context,
+        readCtx admin.ActivityReadContext,
+        err admin.ActivityNavigationError,
+    ) {
+        slog.Default().WarnContext(ctx, "activity navigation failed",
+            "activity_id", err.ActivityID,
+            "target", err.Target,
+            "error", err.Err,
+        )
+    },
+}
+```
+
+Resolver guidance:
+
+- Build final paths through the host's route registry when available; do not
+  assume every object type is a generic panel slug.
+- Return only local absolute paths beginning with `/`. go-admin rejects
+  schemes, hosts, protocol-relative references, relative paths, backslashes,
+  and control characters.
+- Return no href for system actors, unsupported object kinds, deleted targets,
+  unavailable modules, or denied destination permissions.
+- Keep resolution a cheap route/policy projection. Entity lookup and label
+  caching belong in the page enricher, not the navigation resolver. Resolve
+  request-level permission state once and preserve record order in the result.
+- Destination routes must enforce authorization, scope, feature availability,
+  and existence again when the link is followed.
+- Resolution and unsafe-href errors are reported through the dedicated
+  `ActivityNavigationErrorHandler`; the entry remains visible as plain text.
+  `ActivityReadErrorHandler` remains reserved for page enrichment and scope
+  integrity failures.
 
 ## Quickstart activity wiring (sink + UI)
 

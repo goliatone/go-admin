@@ -432,6 +432,41 @@ export interface FormatActivitySentenceOptions {
 }
 
 /**
+ * Keep Activity navigation on the current origin even when an API response is
+ * modified after the server-side validation boundary.
+ */
+export function safeActivityHref(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const href = value.trim();
+  if (!href || !href.startsWith('/') || href.startsWith('//')) return '';
+  if (/\\|[\u0000-\u001f\u007f]/.test(href)) return '';
+
+  try {
+    const parsed = new URL(href, 'https://activity.invalid');
+    if (parsed.origin !== 'https://activity.invalid' || !parsed.pathname.startsWith('/')) return '';
+    if (!hasSafeActivityEncoding(parsed.pathname) || !hasSafeActivityEncoding(href)) return '';
+  } catch {
+    return '';
+  }
+  return href;
+}
+
+function hasSafeActivityEncoding(value: string): boolean {
+  let decoded = decodeURIComponent(value);
+  while (true) {
+    if (/\\|[\u0000-\u001f\u007f]/.test(decoded)) return false;
+    if (!/%[0-9a-f]{2}/i.test(decoded)) return true;
+    decoded = decodeURIComponent(decoded);
+  }
+}
+
+function activityEntityLink(href: unknown, content: string, kind: 'actor' | 'object'): string {
+  const safeHref = safeActivityHref(href);
+  if (!safeHref) return content;
+  return `<a class="activity-entity-link activity-entity-link--${kind}" href="${escapeHtml(safeHref)}">${content}</a>`;
+}
+
+/**
  * Format an activity entry into a human-readable sentence
  */
 export function formatActivitySentence(
@@ -454,9 +489,10 @@ export function formatActivitySentence(
   }
 
   // Format actor - shorten if UUID
-  const actorDisplay = isUuidLike(actor)
-    ? `${actorTypeBadge}${formatIdWithTooltip(actor, 8)}`
-    : `${actorTypeBadge}<strong>${escapeHtml(actor)}</strong>`;
+  const actorLabel = isUuidLike(actor)
+    ? formatIdWithTooltip(actor, 8)
+    : `<strong>${escapeHtml(actor)}</strong>`;
+  const actorDisplay = `${actorTypeBadge}${activityEntityLink(entry.actor_href, actorLabel, 'actor')}`;
 
   // Check if object has been deleted
   const objectDeleted = isObjectDeleted(entry);
@@ -495,7 +531,7 @@ export function formatActivitySentence(
 
   // Standard sentence
   if (objectRef) {
-    return `${actorDisplay} ${escapeHtml(verb)} <strong>${objectRef}</strong>`;
+    return `${actorDisplay} ${escapeHtml(verb)} <strong>${activityEntityLink(entry.object_href, objectRef, 'object')}</strong>`;
   }
 
   return `${actorDisplay} ${escapeHtml(verb)}`;

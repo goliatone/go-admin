@@ -53,6 +53,8 @@ type Dependencies struct {
 	ActivityFeedQuery              ActivityFeedQuerier             `json:"activity_feed_query"`
 	ActivityService                ActivityFeedQuerier             `json:"activity_service"`
 	ActivityPageEnricher           ActivityPageEnricher            `json:"activity_page_enricher"`
+	ActivityNavigationResolver     ActivityNavigationResolver      `json:"activity_navigation_resolver"`
+	ActivityNavigationErrorHandler ActivityNavigationErrorHandler  `json:"activity_navigation_error_handler"`
 	ActivityReadErrorHandler       ActivityReadErrorHandler        `json:"activity_read_error_handler"`
 	ActivityEnricher               activity.ActivityEnricher       `json:"activity_enricher"`
 	ActivityEnrichmentErrorHandler activity.EnrichmentErrorHandler `json:"activity_enrichment_error_handler"`

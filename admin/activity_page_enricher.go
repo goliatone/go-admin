@@ -102,7 +102,7 @@ func cloneActivityPage(page userstypes.ActivityPage) userstypes.ActivityPage {
 	out.Records = make([]userstypes.ActivityRecord, len(page.Records))
 	for i, record := range page.Records {
 		out.Records[i] = record
-		out.Records[i].Data = primitives.CloneAnyMap(record.Data)
+		out.Records[i].Data = primitives.CloneAnyMapDeep(record.Data)
 	}
 	return out
 }
@@ -148,6 +148,8 @@ func (e *resolverActivityPageEnricher) applyResolvedDisplays(
 		record.Data = map[string]any{}
 	}
 	delete(record.Data, usersactivity.DataKeyActionDisplay)
+	delete(record.Data, usersactivity.DataKeyActorType)
+	delete(record.Data, usersactivity.DataKeyObjectDeleted)
 	if actionDisplay := strings.TrimSpace(e.actionLabels[strings.TrimSpace(record.Verb)]); actionDisplay != "" {
 		record.Data[usersactivity.DataKeyActionDisplay] = actionDisplay
 	}
@@ -160,6 +162,9 @@ func (e *resolverActivityPageEnricher) applyResolvedDisplays(
 	if actorID != uuid.Nil {
 		if info, ok := actors[actorID]; ok && strings.TrimSpace(info.Display) != "" {
 			record.Data[usersactivity.DataKeyActorDisplay] = strings.TrimSpace(info.Display)
+			if actorType := strings.ToLower(strings.TrimSpace(info.Type)); actorType != "" {
+				record.Data[usersactivity.DataKeyActorType] = actorType
+			}
 		} else if !keepActorHint {
 			record.Data[usersactivity.DataKeyActorDisplay] = "User:" + actorID.String()
 		}
@@ -229,6 +234,8 @@ func safeActivityReadFallbackPage(page userstypes.ActivityPage) userstypes.Activ
 		delete(out.Records[i].Data, usersactivity.DataKeyActorDisplay)
 		delete(out.Records[i].Data, usersactivity.DataKeyObjectDisplay)
 		delete(out.Records[i].Data, usersactivity.DataKeyActionDisplay)
+		delete(out.Records[i].Data, usersactivity.DataKeyActorType)
+		delete(out.Records[i].Data, usersactivity.DataKeyObjectDeleted)
 	}
 	return out
 }

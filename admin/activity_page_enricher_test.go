@@ -60,8 +60,8 @@ func TestResolverActivityPageEnricherBatchesClonesAndReplacesUntrustedHints(t *t
 	})
 	page := userstypes.ActivityPage{
 		Records: []userstypes.ActivityRecord{
-			{ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID, Verb: "audience.update", ObjectType: " Audience ", ObjectID: "aud-1", Data: map[string]any{usersactivity.DataKeyActorDisplay: "forged actor", usersactivity.DataKeyObjectDisplay: "forged audience", usersactivity.DataKeyActionDisplay: "Forged action"}},
-			{ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID, ObjectType: "customer", ObjectID: "cust-1", Data: map[string]any{usersactivity.DataKeyObjectDisplay: "Customer PII"}},
+			{ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID, Verb: "audience.update", ObjectType: " Audience ", ObjectID: "aud-1", Data: map[string]any{usersactivity.DataKeyActorDisplay: "forged actor", usersactivity.DataKeyActorType: "system", usersactivity.DataKeyObjectDisplay: "forged audience", usersactivity.DataKeyObjectDeleted: true, usersactivity.DataKeyActionDisplay: "Forged action"}},
+			{ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID, ObjectType: "customer", ObjectID: "cust-1", Data: map[string]any{usersactivity.DataKeyObjectDisplay: "Customer PII", usersactivity.DataKeyObjectDeleted: true}},
 		},
 		Total: 9, NextOffset: 2, HasMore: true,
 	}
@@ -88,6 +88,9 @@ func TestResolverActivityPageEnricherBatchesClonesAndReplacesUntrustedHints(t *t
 	if got.Records[0].Data[usersactivity.DataKeyActionDisplay] != "Updated audience" {
 		t.Fatalf("unexpected action presentation: %+v", got.Records[0].Data)
 	}
+	if got.Records[0].Data[usersactivity.DataKeyActorType] != "user" || got.Records[0].Data[usersactivity.DataKeyObjectDeleted] != false || got.Records[1].Data[usersactivity.DataKeyObjectDeleted] != false {
+		t.Fatalf("canonical actor type/deletion state did not replace forged metadata: %+v", got.Records)
+	}
 	if got.Records[1].Data[usersactivity.DataKeyObjectDisplay] != "M-1042" {
 		t.Fatalf("unexpected customer enrichment: %+v", got.Records[1].Data)
 	}
@@ -103,8 +106,8 @@ func TestResolverActivityPageEnricherHintPolicyAndSafeFallbacks(t *testing.T) {
 	})
 	enricher := NewResolverActivityPageEnricher(ResolverActivityPageEnricherConfig{HintPolicy: policy})
 	page := userstypes.ActivityPage{Records: []userstypes.ActivityRecord{
-		{ActorID: actorID, ObjectType: "audience", ObjectID: "aud-1", Data: map[string]any{usersactivity.DataKeyObjectDisplay: "Trusted Audience"}},
-		{ActorID: actorID, ObjectType: "customer", ObjectID: "cust-1", Data: map[string]any{usersactivity.DataKeyObjectDisplay: "Forged Customer Name"}},
+		{ActorID: actorID, ObjectType: "audience", ObjectID: "aud-1", Data: map[string]any{usersactivity.DataKeyActorType: "user", usersactivity.DataKeyObjectDisplay: "Trusted Audience"}},
+		{ActorID: actorID, ObjectType: "customer", ObjectID: "cust-1", Data: map[string]any{usersactivity.DataKeyObjectDisplay: "Forged Customer Name", usersactivity.DataKeyObjectDeleted: false}},
 	}}
 
 	got, err := enricher.EnrichActivityPage(context.Background(), ActivityReadContext{}, page)
@@ -119,6 +122,12 @@ func TestResolverActivityPageEnricherHintPolicyAndSafeFallbacks(t *testing.T) {
 	}
 	if got.Records[0].Data[usersactivity.DataKeyActorDisplay] != "User:"+actorID.String() {
 		t.Fatalf("expected typed actor fallback, got %+v", got.Records[0].Data)
+	}
+	if _, exists := got.Records[0].Data[usersactivity.DataKeyActorType]; exists {
+		t.Fatalf("unresolved forged actor type remained authoritative: %+v", got.Records[0].Data)
+	}
+	if _, exists := got.Records[1].Data[usersactivity.DataKeyObjectDeleted]; exists {
+		t.Fatalf("unresolved forged deletion state remained authoritative: %+v", got.Records[1].Data)
 	}
 }
 

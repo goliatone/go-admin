@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	usersactivity "github.com/goliatone/go-users/activity"
@@ -47,10 +48,82 @@ func (f ActivityPageEnricherFunc) EnrichActivityPage(ctx context.Context, readCt
 	return f(ctx, readCtx, page)
 }
 
+// ActivityNavigation contains optional host-owned navigation targets for one
+// Activity record. Hrefs are presentation-only and are never persisted.
+type ActivityNavigation struct {
+	ActorHref  string
+	ObjectHref string
+}
+
+// ActivityReadEntry is the read-only API projection of an ActivityEntry.
+// Navigation fields are deliberately excluded from the write-side entry so
+// presentation state cannot cross a persistence boundary.
+type ActivityReadEntry struct {
+	ActivityEntry
+	ActorHref  string `json:"actor_href,omitempty"`
+	ObjectHref string `json:"object_href,omitempty"`
+}
+
+// ActivityNavigationResolver derives host-specific navigation for one
+// authorized canonical Activity page. The result must preserve record order.
+// Implementations must not treat record metadata as URL authority and should
+// batch any request-level permission policy evaluation.
+type ActivityNavigationResolver interface {
+	ResolveActivityNavigation(context.Context, ActivityReadContext, []types.ActivityRecord) ([]ActivityNavigation, error)
+}
+
+// ActivityNavigationResolverFunc adapts a function into an
+// ActivityNavigationResolver.
+type ActivityNavigationResolverFunc func(context.Context, ActivityReadContext, []types.ActivityRecord) ([]ActivityNavigation, error)
+
+// ResolveActivityNavigation implements ActivityNavigationResolver.
+func (f ActivityNavigationResolverFunc) ResolveActivityNavigation(ctx context.Context, readCtx ActivityReadContext, records []types.ActivityRecord) ([]ActivityNavigation, error) {
+	return f(ctx, readCtx, records)
+}
+
+// ActivityNavigationTarget identifies the navigation projection stage that
+// failed while preserving fail-open Activity reads.
+type ActivityNavigationTarget string
+
+const (
+	ActivityNavigationTargetResolver ActivityNavigationTarget = "resolver"
+	ActivityNavigationTargetActor    ActivityNavigationTarget = "actor"
+	ActivityNavigationTargetObject   ActivityNavigationTarget = "object"
+)
+
+// ActivityNavigationError describes one fail-open navigation projection
+// failure without conflating it with Activity page enrichment errors.
+type ActivityNavigationError struct {
+	ActivityID uuid.UUID
+	Target     ActivityNavigationTarget
+	Err        error
+}
+
+// Error implements error.
+func (e ActivityNavigationError) Error() string {
+	if e.ActivityID == uuid.Nil {
+		return fmt.Sprintf("activity %s navigation failed: %v", e.Target, e.Err)
+	}
+	return fmt.Sprintf("activity %s navigation failed for %s: %v", e.Target, e.ActivityID.String(), e.Err)
+}
+
+// Unwrap exposes the underlying resolver or href validation error.
+func (e ActivityNavigationError) Unwrap() error {
+	return e.Err
+}
+
+// ActivityNavigationErrorHandler observes fail-open navigation projection
+// errors independently of page enrichment observability.
+type ActivityNavigationErrorHandler func(context.Context, ActivityReadContext, ActivityNavigationError)
+
 // ActivityReadErrorHandler observes fail-open read-enrichment errors.
 type ActivityReadErrorHandler func(context.Context, ActivityReadContext, error)
 
 var errInvalidActivityReadScope = errors.New("activity read enrichment requires exact tenant and organization scope")
+
+var errUnsafeActivityNavigationHref = errors.New("activity navigation href must be a safe local absolute path")
+
+var errInvalidActivityNavigationResult = errors.New("activity navigation result count must match the authorized record count")
 
 func validateActivityReadPage(readCtx ActivityReadContext, page types.ActivityPage) error {
 	if readCtx.Scope.TenantID == uuid.Nil || readCtx.Scope.OrgID == uuid.Nil {
@@ -238,6 +311,115 @@ func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
 		Metadata:  metadata,
 		CreatedAt: record.OccurredAt,
 	}
+}
+
+func (a *Admin) entriesFromActivityRecords(ctx context.Context, readCtx ActivityReadContext, records []types.ActivityRecord) []ActivityReadEntry {
+	baseEntries := entriesFromUsersRecords(records)
+	entries := make([]ActivityReadEntry, len(baseEntries))
+	for index := range baseEntries {
+		entries[index].ActivityEntry = baseEntries[index]
+	}
+	if a == nil || a.activityNavigationResolver == nil {
+		return entries
+	}
+	if err := validateActivityReadPage(readCtx, types.ActivityPage{Records: records}); err != nil {
+		return entries
+	}
+	detached := make([]types.ActivityRecord, len(records))
+	for index := range records {
+		detached[index] = records[index]
+		detached[index].Data = primitives.CloneAnyMapDeep(records[index].Data)
+	}
+	navigations, err := a.activityNavigationResolver.ResolveActivityNavigation(ctx, readCtx, detached)
+	if err == nil && len(navigations) != len(records) {
+		err = fmt.Errorf("%w: got %d results for %d records", errInvalidActivityNavigationResult, len(navigations), len(records))
+	}
+	if err != nil {
+		a.reportActivityNavigationError(ctx, readCtx, ActivityNavigationError{
+			Target: ActivityNavigationTargetResolver,
+			Err:    err,
+		})
+		return entries
+	}
+	for index, navigation := range navigations {
+		record := records[index]
+		actorHref, actorErr := safeActivityNavigationHref(navigation.ActorHref)
+		if actorErr != nil {
+			a.reportActivityNavigationError(ctx, readCtx, ActivityNavigationError{
+				ActivityID: record.ID,
+				Target:     ActivityNavigationTargetActor,
+				Err:        actorErr,
+			})
+		} else {
+			entries[index].ActorHref = actorHref
+		}
+		objectHref, objectErr := safeActivityNavigationHref(navigation.ObjectHref)
+		if objectErr != nil {
+			a.reportActivityNavigationError(ctx, readCtx, ActivityNavigationError{
+				ActivityID: record.ID,
+				Target:     ActivityNavigationTargetObject,
+				Err:        objectErr,
+			})
+		} else {
+			entries[index].ObjectHref = objectHref
+		}
+	}
+	return entries
+}
+
+func safeActivityNavigationHref(raw string) (string, error) {
+	href := strings.TrimSpace(raw)
+	if href == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(href, "/") || strings.HasPrefix(href, "//") || strings.ContainsRune(href, '\\') || strings.IndexFunc(href, isActivityNavigationControl) >= 0 {
+		return "", errUnsafeActivityNavigationHref
+	}
+	parsed, err := url.Parse(href)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Opaque != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") {
+		return "", errUnsafeActivityNavigationHref
+	}
+	if !safeActivityNavigationEncoding(parsed.EscapedPath()) || !safeActivityNavigationEncoding(href) {
+		return "", errUnsafeActivityNavigationHref
+	}
+	return href, nil
+}
+
+func safeActivityNavigationEncoding(value string) bool {
+	decoded, err := url.PathUnescape(value)
+	if err != nil {
+		return false
+	}
+	for {
+		if strings.ContainsRune(decoded, '\\') || strings.IndexFunc(decoded, isActivityNavigationControl) >= 0 {
+			return false
+		}
+		if !containsActivityNavigationEscape(decoded) {
+			return true
+		}
+		next, err := url.PathUnescape(decoded)
+		if err != nil {
+			return false
+		}
+		decoded = next
+	}
+}
+
+func containsActivityNavigationEscape(value string) bool {
+	for index := 0; index+2 < len(value); index++ {
+		if value[index] == '%' && isActivityNavigationHex(value[index+1]) && isActivityNavigationHex(value[index+2]) {
+			return true
+		}
+	}
+	return false
+}
+
+func isActivityNavigationHex(value byte) bool {
+	return value >= '0' && value <= '9' || value >= 'a' && value <= 'f' || value >= 'A' && value <= 'F'
+}
+
+func isActivityNavigationControl(value rune) bool {
+	return value < 0x20 || value == 0x7f
 }
 
 func uuidString(id uuid.UUID) string {

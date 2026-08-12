@@ -32,9 +32,11 @@ export interface EnrichmentMetadata {
 export interface ActivityEntry {
   id: string;
   actor: string;
+  actor_href?: string;
   action: string;
   action_key?: string;
   object: string;
+  object_href?: string;
   channel?: string;
   metadata?: Record<string, unknown> & Partial<EnrichmentMetadata>;
   created_at: string;

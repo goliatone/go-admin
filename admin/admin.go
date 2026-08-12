@@ -73,6 +73,8 @@ type Admin struct {
 	activityFeed                    ActivityFeedQuerier
 	activityPolicy                  activity.ActivityAccessPolicy
 	activityPageEnricher            ActivityPageEnricher
+	activityNavigationResolver      ActivityNavigationResolver
+	activityNavigationErrorHandler  ActivityNavigationErrorHandler
 	activityReadErrorHandler        ActivityReadErrorHandler
 	jobs                            *JobRegistry
 	settings                        *SettingsService
