@@ -1,6 +1,24 @@
 # Changelog
 
+# [0.133.0](https://github.com/goliatone/go-admin/compare/v0.132.1...v0.133.0) - (2026-08-12)
+
+## <!-- 16 -->➕ Add
+
+- Activity better display ([d7e4172](https://github.com/goliatone/go-admin/commit/d7e41724fdbdce4906274e47c83ca4b3928fda67))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([c4bb975](https://github.com/goliatone/go-admin/commit/c4bb9757daffbdf6af1a35c9a4ba1a0887db053f))  - (goliatone)
+- Updated tests ([01d38b7](https://github.com/goliatone/go-admin/commit/01d38b711c962b16b6355472107ef5521a44dfb5))  - (goliatone)
+
 # [0.132.1](https://github.com/goliatone/go-admin/compare/v0.132.0...v0.132.1) - (2026-08-11)
+
+
+New patch release: v0.132.1
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.132.1 ([48e5c30](https://github.com/goliatone/go-admin/commit/48e5c3089bc573e460b0a5f98f8ae808c893fb4d))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
