@@ -23,7 +23,7 @@ require (
 	github.com/goliatone/go-router v0.61.3
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.24.1
+	github.com/goliatone/go-users v0.25.0
 	github.com/goliatone/hashid v0.2.2
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
