@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.133.1](https://github.com/goliatone/go-admin/compare/v0.133.0...v0.133.1) - (2026-08-12)
+
+## <!-- 16 -->➕ Add
+
+- Clickable entities in activity ([adae694](https://github.com/goliatone/go-admin/commit/adae694812f8d5331865f29da34a64b4e9df647b))  - (goliatone)
+
 # [0.133.0](https://github.com/goliatone/go-admin/compare/v0.132.1...v0.133.0) - (2026-08-12)
+
+
+New minor release: v0.133.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.133.0 ([82b10a9](https://github.com/goliatone/go-admin/commit/82b10a9826120c1d9276f5b345a1275c41e9b638))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
