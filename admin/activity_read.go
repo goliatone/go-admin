@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"strings"
@@ -22,6 +24,44 @@ const (
 // ActivityFeedQuerier represents the go-users activity feed query contract.
 type ActivityFeedQuerier interface {
 	Query(context.Context, types.ActivityFilter) (types.ActivityPage, error)
+}
+
+// ActivityReadContext carries trusted request authority into page enrichment.
+// Scope is derived from the authenticated request and must never be inferred
+// from activity metadata.
+type ActivityReadContext struct {
+	Actor types.ActorRef
+	Scope types.ScopeFilter
+}
+
+// ActivityPageEnricher enriches one authorized and sanitized activity page.
+type ActivityPageEnricher interface {
+	EnrichActivityPage(context.Context, ActivityReadContext, types.ActivityPage) (types.ActivityPage, error)
+}
+
+// ActivityPageEnricherFunc adapts a function into an ActivityPageEnricher.
+type ActivityPageEnricherFunc func(context.Context, ActivityReadContext, types.ActivityPage) (types.ActivityPage, error)
+
+// EnrichActivityPage implements ActivityPageEnricher.
+func (f ActivityPageEnricherFunc) EnrichActivityPage(ctx context.Context, readCtx ActivityReadContext, page types.ActivityPage) (types.ActivityPage, error) {
+	return f(ctx, readCtx, page)
+}
+
+// ActivityReadErrorHandler observes fail-open read-enrichment errors.
+type ActivityReadErrorHandler func(context.Context, ActivityReadContext, error)
+
+var errInvalidActivityReadScope = errors.New("activity read enrichment requires exact tenant and organization scope")
+
+func validateActivityReadPage(readCtx ActivityReadContext, page types.ActivityPage) error {
+	if readCtx.Scope.TenantID == uuid.Nil || readCtx.Scope.OrgID == uuid.Nil {
+		return errInvalidActivityReadScope
+	}
+	for _, record := range page.Records {
+		if record.TenantID != readCtx.Scope.TenantID || record.OrgID != readCtx.Scope.OrgID {
+			return fmt.Errorf("%w: activity page contains a record outside the trusted scope", errInvalidActivityReadScope)
+		}
+	}
+	return nil
 }
 
 func parseActivityFilter(c router.Context, actor types.ActorRef, scope types.ScopeFilter) (types.ActivityFilter, error) {
@@ -185,12 +225,14 @@ func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
 	metadata := primitives.CloneAnyMap(record.Data)
 	actorDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyActorDisplay]))
 	objectDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyObjectDisplay]))
+	actionDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyActionDisplay]))
 	actorID := primitives.FirstNonEmptyRaw(uuidString(record.ActorID), uuidString(record.UserID))
 	objectRef := joinObject(strings.TrimSpace(record.ObjectType), strings.TrimSpace(record.ObjectID))
 	return ActivityEntry{
 		ID:        uuidString(record.ID),
 		Actor:     primitives.FirstNonEmptyRaw(actorDisplay, actorID),
-		Action:    strings.TrimSpace(record.Verb),
+		Action:    primitives.FirstNonEmptyRaw(actionDisplay, strings.TrimSpace(record.Verb)),
+		ActionKey: strings.TrimSpace(record.Verb),
 		Object:    primitives.FirstNonEmptyRaw(objectDisplay, objectRef),
 		Channel:   strings.TrimSpace(record.Channel),
 		Metadata:  metadata,

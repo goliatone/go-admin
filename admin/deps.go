@@ -52,6 +52,8 @@ type Dependencies struct {
 	ActivityAccessPolicy           activity.ActivityAccessPolicy   `json:"activity_access_policy"`
 	ActivityFeedQuery              ActivityFeedQuerier             `json:"activity_feed_query"`
 	ActivityService                ActivityFeedQuerier             `json:"activity_service"`
+	ActivityPageEnricher           ActivityPageEnricher            `json:"activity_page_enricher"`
+	ActivityReadErrorHandler       ActivityReadErrorHandler        `json:"activity_read_error_handler"`
 	ActivityEnricher               activity.ActivityEnricher       `json:"activity_enricher"`
 	ActivityEnrichmentErrorHandler activity.EnrichmentErrorHandler `json:"activity_enrichment_error_handler"`
 	ActivityEnrichmentWriteMode    activity.EnrichmentWriteMode    `json:"activity_enrichment_write_mode"`

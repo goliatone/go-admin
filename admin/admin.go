@@ -72,6 +72,8 @@ type Admin struct {
 	activity                        ActivitySink
 	activityFeed                    ActivityFeedQuerier
 	activityPolicy                  activity.ActivityAccessPolicy
+	activityPageEnricher            ActivityPageEnricher
+	activityReadErrorHandler        ActivityReadErrorHandler
 	jobs                            *JobRegistry
 	settings                        *SettingsService
 	settingsForm                    *SettingsFormAdapter

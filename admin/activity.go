@@ -19,6 +19,7 @@ type ActivityEntry struct {
 	ID        string         `json:"id"`
 	Actor     string         `json:"actor,omitempty"`
 	Action    string         `json:"action,omitempty"`
+	ActionKey string         `json:"action_key,omitempty"`
 	Object    string         `json:"object,omitempty"`
 	Channel   string         `json:"channel,omitempty"`
 	Metadata  map[string]any `json:"metadata,omitempty"`
@@ -306,7 +307,7 @@ func recordFromEntry(entry ActivityEntry) ActivityRecord {
 		ID:         entry.ID,
 		ActorID:    entry.Actor,
 		UserID:     entry.Actor,
-		Verb:       entry.Action,
+		Verb:       primitives.FirstNonEmptyRaw(entry.ActionKey, entry.Action),
 		ObjectType: objectType,
 		ObjectID:   objectID,
 		Channel:    strings.TrimSpace(entry.Channel),
@@ -321,6 +322,7 @@ func entryFromRecord(record ActivityRecord) ActivityEntry {
 		ID:        record.ID,
 		Actor:     primitives.FirstNonEmptyRaw(record.ActorID, record.UserID),
 		Action:    record.Verb,
+		ActionKey: record.Verb,
 		Object:    joinObject(record.ObjectType, record.ObjectID),
 		Channel:   record.Channel,
 		Metadata:  primitives.CloneAnyMap(record.Data),

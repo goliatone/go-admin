@@ -33,6 +33,7 @@ export interface ActivityEntry {
   id: string;
   actor: string;
   action: string;
+  action_key?: string;
   object: string;
   channel?: string;
   metadata?: Record<string, unknown> & Partial<EnrichmentMetadata>;

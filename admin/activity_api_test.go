@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,6 +25,27 @@ type captureActivityFeedQuery struct {
 	lastFilter usertypes.ActivityFilter
 	page       usertypes.ActivityPage
 	err        error
+}
+
+type captureActivityPageEnricher struct {
+	calls   int
+	readCtx ActivityReadContext
+	page    usertypes.ActivityPage
+	result  usertypes.ActivityPage
+	err     error
+}
+
+func (c *captureActivityPageEnricher) EnrichActivityPage(_ context.Context, readCtx ActivityReadContext, page usertypes.ActivityPage) (usertypes.ActivityPage, error) {
+	c.calls++
+	c.readCtx = readCtx
+	c.page = page
+	if c.err != nil {
+		return c.result, c.err
+	}
+	if c.result.Records != nil || c.result.Total != 0 || c.result.NextOffset != 0 || c.result.HasMore {
+		return c.result, nil
+	}
+	return page, nil
 }
 
 func (c *captureActivityFeedQuery) Query(ctx context.Context, filter usertypes.ActivityFilter) (usertypes.ActivityPage, error) {
@@ -217,9 +239,11 @@ func TestActivityRouteRequiresActorContext(t *testing.T) {
 
 func TestActivityRouteRequiresPermission(t *testing.T) {
 	feed := &captureActivityFeedQuery{}
+	enricher := &captureActivityPageEnricher{}
 	server := setupActivityServer(t, Dependencies{
-		Authorizer:        denyAll{},
-		ActivityFeedQuery: feed,
+		Authorizer:           denyAll{},
+		ActivityFeedQuery:    feed,
+		ActivityPageEnricher: enricher,
 	})
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
@@ -229,6 +253,149 @@ func TestActivityRouteRequiresPermission(t *testing.T) {
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if enricher.calls != 0 {
+		t.Fatalf("expected unauthorized request not to call enricher, got %d calls", enricher.calls)
+	}
+}
+
+func TestActivityRouteEnrichesAuthorizedPageOnceWithTrustedScope(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	recordID := uuid.New()
+	original := usertypes.ActivityPage{
+		Records: []usertypes.ActivityRecord{{
+			ID: recordID, ActorID: actorID, TenantID: tenantID, OrgID: orgID,
+			Verb: "audience.update", ObjectType: "audience", ObjectID: "aud-1",
+		}},
+		Total: 7, NextOffset: 4, HasMore: true,
+	}
+	enriched := original
+	enriched.Records = append([]usertypes.ActivityRecord(nil), original.Records...)
+	enriched.Records[0].Data = map[string]any{
+		usersactivity.DataKeyActorDisplay:  "Owner",
+		usersactivity.DataKeyObjectDisplay: "VIP",
+		usersactivity.DataKeyActionDisplay: "Updated audience",
+	}
+	enricher := &captureActivityPageEnricher{result: enriched}
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:           allowAuthorizer{},
+		ActivityFeedQuery:    &captureActivityFeedQuery{page: original},
+		ActivityPageEnricher: enricher,
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(), Role: "owner", TenantID: tenantID.String(), OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if enricher.calls != 1 {
+		t.Fatalf("expected one enrichment call, got %d", enricher.calls)
+	}
+	if enricher.readCtx.Actor.ID != actorID || enricher.readCtx.Scope.TenantID != tenantID || enricher.readCtx.Scope.OrgID != orgID {
+		t.Fatalf("unexpected trusted read context: %+v", enricher.readCtx)
+	}
+	body := decodeActivityResponse(t, rr)
+	if body.Total != original.Total || body.NextOffset != original.NextOffset || body.HasMore != original.HasMore {
+		t.Fatalf("pagination changed: %+v", body)
+	}
+	if len(body.Entries) != 1 || body.Entries[0].Actor != "Owner" || body.Entries[0].Object != "VIP" {
+		t.Fatalf("unexpected enriched entries: %+v", body.Entries)
+	}
+	if body.Entries[0].Action != "Updated audience" || body.Entries[0].ActionKey != "audience.update" {
+		t.Fatalf("unexpected action contract: %+v", body.Entries[0])
+	}
+}
+
+func TestActivityRouteInvalidScopeFailsOpenBeforeEnricher(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	foreignOrgID := uuid.New()
+	record := usertypes.ActivityRecord{
+		ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: foreignOrgID,
+		Verb: "audience.update", ObjectType: "audience", ObjectID: "aud-1",
+	}
+	enricher := &captureActivityPageEnricher{}
+	observed := 0
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:           allowAuthorizer{},
+		ActivityFeedQuery:    &captureActivityFeedQuery{page: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}},
+		ActivityPageEnricher: enricher,
+		ActivityReadErrorHandler: func(_ context.Context, readCtx ActivityReadContext, err error) {
+			observed++
+			if readCtx.Scope.OrgID != orgID || !errors.Is(err, errInvalidActivityReadScope) {
+				t.Errorf("unexpected enrichment error: scope=%+v err=%v", readCtx.Scope, err)
+			}
+		},
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(), TenantID: tenantID.String(), OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK || enricher.calls != 0 || observed != 1 {
+		t.Fatalf("expected fail-open without enrichment, status=%d calls=%d observed=%d body=%s", rr.Code, enricher.calls, observed, rr.Body.String())
+	}
+	body := decodeActivityResponse(t, rr)
+	if len(body.Entries) != 1 || body.Entries[0].Actor != actorID.String() {
+		t.Fatalf("expected original UUID fallback, got %+v", body.Entries)
+	}
+}
+
+func TestActivityRouteEnrichmentErrorReturnsOriginalPage(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	record := usertypes.ActivityRecord{
+		ID: uuid.New(), ActorID: actorID, TenantID: tenantID, OrgID: orgID,
+		Verb: "audience.update", ObjectType: "audience", ObjectID: "aud-1",
+		Data: map[string]any{
+			usersactivity.DataKeyActorDisplay:  "Forged Actor",
+			usersactivity.DataKeyObjectDisplay: "Forged Customer PII",
+			usersactivity.DataKeyActionDisplay: "Forged action",
+		},
+	}
+	enricherErr := errors.New("resolver unavailable")
+	enricher := &captureActivityPageEnricher{
+		result: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{{Data: map[string]any{usersactivity.DataKeyActorDisplay: "unsafe partial"}}}},
+		err:    enricherErr,
+	}
+	observed := 0
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:           allowAuthorizer{},
+		ActivityFeedQuery:    &captureActivityFeedQuery{page: usertypes.ActivityPage{Records: []usertypes.ActivityRecord{record}}},
+		ActivityPageEnricher: enricher,
+		ActivityReadErrorHandler: func(_ context.Context, _ ActivityReadContext, err error) {
+			observed++
+			if !errors.Is(err, enricherErr) {
+				t.Errorf("unexpected enrichment error: %v", err)
+			}
+		},
+	})
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(), TenantID: tenantID.String(), OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	body := decodeActivityResponse(t, rr)
+	if rr.Code != http.StatusOK || enricher.calls != 1 || observed != 1 || len(body.Entries) != 1 || body.Entries[0].Actor != actorID.String() {
+		t.Fatalf("expected original fail-open page, status=%d calls=%d observed=%d entries=%+v", rr.Code, enricher.calls, observed, body.Entries)
+	}
+	if body.Entries[0].Object != "audience:aud-1" || body.Entries[0].Action != "audience.update" || body.Entries[0].ActionKey != "audience.update" {
+		t.Fatalf("expected safe canonical fail-open presentation, got %+v", body.Entries[0])
 	}
 }
 

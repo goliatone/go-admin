@@ -42,14 +42,26 @@ const (
 
 // AdminActorResolver enriches actor details using admin user sources.
 type AdminActorResolver struct {
-	Users    UserRepository `json:"users"`
-	Profiles ProfileStore   `json:"profiles"`
+	Users      UserRepository          `json:"users"`
+	BatchUsers ActivityUserBatchReader `json:"batch_users"`
+	Profiles   ProfileStore            `json:"profiles"`
+}
+
+// ActivityUserBatchReader supplies a true set-based user projection for
+// Activity actor enrichment. The legacy UserRepository.Get path remains a
+// compatibility fallback when this optional contract is absent.
+type ActivityUserBatchReader interface {
+	ReadActivityUsers(context.Context, []uuid.UUID, usersactivity.ResolveContext) (map[uuid.UUID]UserRecord, error)
 }
 
 // ResolveActors resolves actor details in batch.
-func (r AdminActorResolver) ResolveActors(ctx context.Context, ids []uuid.UUID, _ usersactivity.ResolveContext) (map[uuid.UUID]usersactivity.ActorInfo, error) {
+func (r AdminActorResolver) ResolveActors(ctx context.Context, ids []uuid.UUID, meta usersactivity.ResolveContext) (map[uuid.UUID]usersactivity.ActorInfo, error) {
+	ids = normalizeActivityActorIDs(ids)
 	if len(ids) == 0 {
 		return nil, nil
+	}
+	if r.BatchUsers != nil {
+		return r.resolveActorsBatch(ctx, ids, meta)
 	}
 	out := make(map[uuid.UUID]usersactivity.ActorInfo, len(ids))
 	for _, id := range ids {
@@ -66,6 +78,28 @@ func (r AdminActorResolver) ResolveActors(ctx context.Context, ids []uuid.UUID, 
 	}
 	if len(out) == 0 {
 		return nil, nil
+	}
+	return out, nil
+}
+
+func (r AdminActorResolver) resolveActorsBatch(ctx context.Context, ids []uuid.UUID, meta usersactivity.ResolveContext) (map[uuid.UUID]usersactivity.ActorInfo, error) {
+	users, err := r.BatchUsers.ReadActivityUsers(ctx, ids, meta)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID]usersactivity.ActorInfo, len(users))
+	for _, id := range ids {
+		if id == uuid.Nil {
+			continue
+		}
+		user, ok := users[id]
+		if !ok {
+			continue
+		}
+		out[id] = usersactivity.ActorInfo{
+			ID: id, Type: ActivityActorTypeUser,
+			Display: formatUserDisplay(user), Email: strings.TrimSpace(user.Email),
+		}
 	}
 	return out, nil
 }

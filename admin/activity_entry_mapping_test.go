@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	usersactivity "github.com/goliatone/go-users/activity"
 	usertypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
 )
@@ -45,6 +46,23 @@ func TestActivityEntryFromUsersRecordMapsFields(t *testing.T) {
 	}
 	if !entry.CreatedAt.Equal(now) {
 		t.Fatalf("expected created_at %s, got %s", now, entry.CreatedAt)
+	}
+}
+
+func TestActivityEntryFromUsersRecordMapsPresentationActionAndCanonicalKey(t *testing.T) {
+	record := usertypes.ActivityRecord{
+		ID: uuid.New(), Verb: "audience.update",
+		Data: map[string]any{usersactivity.DataKeyActionDisplay: "Updated audience"},
+	}
+	entry := entryFromUsersRecord(record)
+	if entry.Action != "Updated audience" || entry.ActionKey != "audience.update" {
+		t.Fatalf("unexpected action mapping: %+v", entry)
+	}
+
+	record.Data = nil
+	entry = entryFromUsersRecord(record)
+	if entry.Action != "audience.update" || entry.ActionKey != "audience.update" {
+		t.Fatalf("unexpected fallback action mapping: %+v", entry)
 	}
 }
 

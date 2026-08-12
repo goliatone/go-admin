@@ -1035,12 +1035,45 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 		}
 		return nil, err
 	}
+	page = aBinding.admin.enrichActivityReadPage(adminCtx.Context, ActivityReadContext{
+		Actor: actorRef,
+		Scope: filter.Scope.Clone(),
+	}, page)
 	return map[string]any{
 		"entries":     entriesFromUsersRecords(page.Records),
 		"total":       page.Total,
 		"next_offset": page.NextOffset,
 		"has_more":    page.HasMore,
 	}, nil
+}
+
+func (a *Admin) enrichActivityReadPage(ctx context.Context, readCtx ActivityReadContext, page usertypes.ActivityPage) usertypes.ActivityPage {
+	if a == nil || a.activityPageEnricher == nil {
+		return page
+	}
+	if err := validateActivityReadPage(readCtx, page); err != nil {
+		a.reportActivityReadEnrichmentError(ctx, readCtx, err)
+		return safeActivityReadFallbackPage(page)
+	}
+	enriched, err := a.activityPageEnricher.EnrichActivityPage(ctx, readCtx, page)
+	if err != nil {
+		a.reportActivityReadEnrichmentError(ctx, readCtx, err)
+		return safeActivityReadFallbackPage(page)
+	}
+	return enriched
+}
+
+func (a *Admin) reportActivityReadEnrichmentError(ctx context.Context, readCtx ActivityReadContext, err error) {
+	if a == nil || err == nil {
+		return
+	}
+	if a.activityReadErrorHandler != nil {
+		a.activityReadErrorHandler(ctx, readCtx, err)
+		return
+	}
+	if a.logger != nil {
+		a.logger.Error("activity read enrichment failed", "error", err)
+	}
 }
 
 func isActivityActorContextInvalid(err error) bool {
