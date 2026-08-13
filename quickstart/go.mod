@@ -7,7 +7,7 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin v0.135.1
+	github.com/goliatone/go-admin v0.135.2
 	github.com/goliatone/go-auth v0.45.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
 	github.com/goliatone/go-cache v0.3.1
