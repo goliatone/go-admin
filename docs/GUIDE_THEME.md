@@ -144,7 +144,8 @@ Canonical keys win over aliases; projection never chooses a collision winner
 from map iteration order.
 
 `admin.AdminSemanticProfile()` defensively extends the portable profile with
-admin shell/sidebar, DataGrid, form, and dashboard namespaces. The normalized
+admin shell/sidebar, DataGrid, and dashboard namespaces, then composes the
+go-formgen registry and compatibility aliases. The normalized
 `ThemeSelection` exposes:
 
 - `SemanticTokens`: supported, valid canonical values.
@@ -570,8 +571,10 @@ exposes the same typed value as `RenderTheme` for in-process rendering while
 keeping it out of JSON because `AssetURL` is a function. The wire payload
 remains under `Theme`.
 
-Quickstart content-entry routes pass this typed projection to go-formgen
-automatically. For a standalone formgen orchestrator, opt in through
+Quickstart content-entry, roles, and example user routes pass this typed
+projection to go-formgen automatically. Set `form.container.max-width` to
+`100%` for page-width forms; `container-max-width` remains a deprecated
+go-formgen compatibility alias. For a standalone formgen orchestrator, opt in through
 `pkg/orchestrator/defaults`:
 
 ``` go
@@ -597,7 +600,7 @@ registry. Custom renderers can use:
 
 The vanilla and Preact renderers opt into semantic styling only when semantic
 tokens exist, mark the root with `data-formgen-semantic="true"`, and cover
-default, focus, invalid, disabled, readonly, loading, label/help/error,
+container width, default, focus, invalid, disabled, readonly, loading, label/help/error,
 typography, spacing, and narrow layout states. Vanilla also consumes primary
 action/hover tokens; Preact currently reports those action tokens unused.
 Missing themes keep existing renderer classes and styles unchanged. See

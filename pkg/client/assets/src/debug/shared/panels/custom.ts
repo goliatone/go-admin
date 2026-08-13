@@ -4,7 +4,7 @@
 import type { CustomSnapshot, CustomLogEntry } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatTimestamp, formatJSON, formatNumber, countPayload } from '../utils.js';
-import { highlightJSON } from '../../syntax-highlight.js';
+import { renderDeferredSyntax } from '../../deferred-syntax.js';
 
 /**
  * Options for rendering the custom panel
@@ -67,7 +67,7 @@ function renderCustomDataSection(
   const { useIconCopyButton = false, showCount = true } = options;
 
   const rawJSON = formatJSON(data);
-  const highlighted = highlightJSON(data, true);
+  const highlighted = renderDeferredSyntax(rawJSON, 'json');
   const copyButton = renderCopyButton(styles, useIconCopyButton);
   const countDisplay = showCount
     ? `<span class="${styles.muted}">${formatNumber(countPayload(data))} keys</span>`

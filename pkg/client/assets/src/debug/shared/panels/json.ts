@@ -4,7 +4,7 @@
 
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatJSON, formatNumber, countPayload } from '../utils.js';
-import { highlightJSON } from '../../syntax-highlight.js';
+import { renderDeferredSyntax } from '../../deferred-syntax.js';
 
 /**
  * Options for rendering the JSON panel
@@ -83,7 +83,7 @@ export function renderJSONPanel(
   }
 
   const rawJSON = formatJSON(displayData);
-  const highlighted = highlightJSON(displayData, true);
+  const highlighted = renderDeferredSyntax(rawJSON, 'json');
   const count = countPayload(displayData);
   const unit = isArray ? 'items' : isObject ? 'keys' : 'entries';
   const copyId = `copy-${title.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
@@ -127,7 +127,7 @@ export function renderJSONViewer(
   }
 
   const rawJSON = formatJSON(data);
-  const highlighted = highlightJSON(data, true);
+  const highlighted = renderDeferredSyntax(rawJSON, 'json');
 
   const copyButton = renderCopyButton(styles, useIconCopyButton, `viewer-${Date.now()}`);
 

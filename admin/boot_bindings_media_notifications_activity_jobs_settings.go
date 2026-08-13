@@ -1068,8 +1068,8 @@ func (aBinding *activityBinding) FilterOptions(c router.Context) (any, error) {
 	if aBinding.admin.activityFeed == nil {
 		return nil, FeatureDisabledError{Feature: "activity"}
 	}
-	if err := rejectActivityFilterOptionsQuery(c); err != nil {
-		return nil, err
+	if queryErr := rejectActivityFilterOptionsQuery(c); queryErr != nil {
+		return nil, queryErr
 	}
 	selection, err := parseActivityFilterOptionsSelection(c, aBinding.admin.config.ActivityFilterOptions.MaxOptions)
 	if err != nil {

@@ -48,6 +48,7 @@ import (
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-export/export"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	"github.com/goliatone/go-i18n"
 	glog "github.com/goliatone/go-logger/glog"
@@ -467,8 +468,9 @@ func main() {
 		quickstart.WithNavDebugLog(runtimeConfig.Navigation.DebugLog),
 		quickstart.WithNavPermissionDeniedMode(coreadmin.NavigationPermissionDeniedMode(runtimeConfig.Navigation.PermissionDeniedMode)),
 		quickstart.WithThemeTokens(map[string]string{
-			"primary": "#2563eb",
-			"accent":  "#f59e0b",
+			"primary":                                "#2563eb",
+			"accent":                                 "#f59e0b",
+			formgenrender.FormContainerMaxWidthToken: "100%",
 		}),
 		quickstart.WithThemeAssetURLs(runtimeConfig.Admin.ThemeAssets),
 		quickstart.WithScopeConfig(scopeCfg),

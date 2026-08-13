@@ -7,6 +7,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
+	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -95,13 +96,26 @@ func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
 	cfg := admin.Config{
 		BasePath: "/admin",
 		Title:    "Admin",
+		Theme:    "test-theme",
 	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{
+			Name: selector.Name,
+			Tokens: map[string]string{
+				formgenrender.FormContainerMaxWidthToken: "100%",
+			},
+		}, nil
+	})
 	formGen, err := admin.NewRoleFormGenerator(cfg)
 	if err != nil {
 		t.Fatalf("new role form generator: %v", err)
 	}
 	handler := newRoleHandlersWithRoutes(
-		nil,
+		adm,
 		cfg,
 		formGen,
 		nil,
@@ -124,7 +138,9 @@ func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
 		}
 		html := strings.TrimSpace(anyToString(viewCtx["form_html"]))
 		return strings.Contains(html, `name="_token" value="csrf-token"`) &&
-			strings.Contains(html, `<form`)
+			strings.Contains(html, `<form`) &&
+			strings.Contains(html, `data-formgen-semantic="true"`) &&
+			strings.Contains(html, `max-width:var(--form-container-max-width)`)
 	})).Return(nil).Once()
 
 	if err := handler.renderForm(ctx, map[string]any{"name": "Editor", "key": "editor"}, false, "resources/roles/form"); err != nil {

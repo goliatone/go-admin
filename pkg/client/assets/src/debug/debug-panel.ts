@@ -1,7 +1,9 @@
 import Sortable from 'sortablejs';
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
-import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
-import { filterObjectBySearch } from './shared/jsonpath-search.js';
+import type { DebugReplPanel, DebugReplCommand } from './repl/repl-panel.js';
+import { loadDebugReplPanel } from './repl/repl-loader.js';
+import { filterByKeyMatch, isJsonPathExpression } from './shared/simple-object-search.js';
+import { loadJSONPathSearch } from './shared/jsonpath-loader.js';
 import type {
   RequestEntry,
   SQLEntry,
@@ -49,7 +51,6 @@ import {
   logSearchText,
   commandRunSelectionEvent,
   commandRunKey,
-  commandRunRevision,
   commandRunTerminal,
   commandRunRevisionGap,
   captureCommandRunSnapshotBaseline,
@@ -169,7 +170,7 @@ const normalizePanelList = (value: any): string[] => {
 };
 
 const filterObjectByKey = (data: Record<string, any>, search: string): Record<string, any> => {
-  return filterObjectBySearch(data, search) as Record<string, any>;
+  return filterByKeyMatch(data, search) as Record<string, any>;
 };
 
 const setNestedValue = (dest: Record<string, any>, key: string, value: any): void => {
@@ -245,6 +246,13 @@ export class DebugPanel {
   private activeSessionId: string | null = null;
   private activeSession: DebugUserSession | null = null;
   private replPanels: Map<string, DebugReplPanel>;
+  private replLoadGeneration = 0;
+  private jsonPathLoadGeneration = 0;
+  private jsonPathResult: {
+    data: Record<string, unknown>;
+    search: string;
+    result: Record<string, unknown>;
+  } | null = null;
   private replCommands: DebugReplCommand[];
   private panelRenderers: Map<string, PanelRenderer>;
   private tabsEl: HTMLElement;
@@ -1102,6 +1110,8 @@ export class DebugPanel {
         }
       });
       this.filters.objects = next;
+      this.jsonPathLoadGeneration += 1;
+      this.jsonPathResult = null;
     }
     this.renderPanel();
   }
@@ -1157,6 +1167,7 @@ export class DebugPanel {
       renderer.render();
       return;
     }
+    this.replLoadGeneration += 1;
     this.panelEl.classList.remove('debug-content--repl');
 
     let content = '';
@@ -1551,16 +1562,40 @@ export class DebugPanel {
 
   private renderReplPanel(panel: string): void {
     this.panelEl.classList.add('debug-content--repl');
-    let replPanel = this.replPanels.get(panel);
-    if (!replPanel) {
-      replPanel = new DebugReplPanel({
-        kind: panel === 'shell' ? 'shell' : 'console',
-        debugPath: this.debugPath,
-        commands: panel === 'console' ? this.replCommands : [],
-      });
-      this.replPanels.set(panel, replPanel);
+    const existing = this.replPanels.get(panel);
+    if (existing) {
+      existing.attach(this.panelEl);
+      return;
     }
-    replPanel.attach(this.panelEl);
+
+    const generation = ++this.replLoadGeneration;
+    this.panelEl.innerHTML = this.renderCapabilityLoading('terminal');
+    void loadDebugReplPanel()
+      .then(({ DebugReplPanel: ReplPanel }) => {
+        if (this.destroyed || generation !== this.replLoadGeneration || this.activePanel !== panel) return;
+        const replPanel = new ReplPanel({
+          kind: panel === 'shell' ? 'shell' : 'console',
+          debugPath: this.debugPath,
+          commands: panel === 'console' ? this.replCommands : [],
+        });
+        this.replPanels.set(panel, replPanel);
+        replPanel.attach(this.panelEl);
+      })
+      .catch(() => {
+        if (this.destroyed || generation !== this.replLoadGeneration || this.activePanel !== panel) return;
+        this.panelEl.innerHTML = this.renderCapabilityError('terminal');
+        this.panelEl.querySelector<HTMLButtonElement>('[data-debug-capability-retry]')?.addEventListener('click', () => {
+          if (!this.destroyed && this.activePanel === panel) this.renderReplPanel(panel);
+        }, { once: true });
+      });
+  }
+
+  private renderCapabilityLoading(label: string): string {
+    return `<div class="debug-empty-state" role="status">Loading ${escapeHTML(label)}…</div>`;
+  }
+
+  private renderCapabilityError(label: string): string {
+    return `<div class="debug-empty-state" role="alert">Unable to load ${escapeHTML(label)}. <button class="debug-btn" type="button" data-debug-capability-retry>Retry</button></div>`;
   }
 
   private getUniqueContentTypes(): string[] {
@@ -1871,7 +1906,34 @@ export class DebugPanel {
       return this.renderEmptyState(`No ${title.toLowerCase()} data available.`);
     }
 
-    // Use shared renderer with console-specific options and search filter
+    if (search && isJsonPathExpression(search)) {
+      const source = data as Record<string, unknown>;
+      if (this.jsonPathResult?.data === source && this.jsonPathResult.search === search) {
+        return renderSharedJSONPanel(title, this.jsonPathResult.result, consoleStyles, {
+          useIconCopyButton: true,
+          showCount: true,
+        });
+      }
+      const generation = ++this.jsonPathLoadGeneration;
+      void loadJSONPathSearch()
+        .then(({ filterObjectBySearch }) => {
+          if (this.destroyed || generation !== this.jsonPathLoadGeneration) return;
+          if (this.filters.objects.search !== search) return;
+          this.jsonPathResult = { data: source, search, result: filterObjectBySearch(source, search) };
+          this.renderPanel();
+        })
+        .catch(() => {
+          if (this.destroyed || generation !== this.jsonPathLoadGeneration) return;
+          this.panelEl.innerHTML = this.renderCapabilityError('JSONPath filter');
+          this.panelEl.querySelector<HTMLButtonElement>('[data-debug-capability-retry]')?.addEventListener('click', () => {
+            this.jsonPathResult = null;
+            if (!this.destroyed) this.renderPanel();
+          }, { once: true });
+        });
+      return this.renderCapabilityLoading('JSONPath filter');
+    }
+
+    // Use shared renderer with console-specific options and synchronous key search
     return renderSharedJSONPanel(title, data, consoleStyles, {
       useIconCopyButton: true, // Console uses iconoir icons
       showCount: true,
@@ -2783,6 +2845,10 @@ export class DebugPanel {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.replLoadGeneration += 1;
+    this.jsonPathLoadGeneration += 1;
+    this.replPanels.forEach((panel) => panel.destroy());
+    this.replPanels.clear();
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('pagehide', this.handlePageHide);
     this.stopCommandRunReconciliation(true);

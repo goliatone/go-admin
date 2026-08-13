@@ -125,6 +125,11 @@ export class DebugReplPanel {
     this.terminal.focus();
   }
 
+  destroy(): void {
+    this.terminal.dispose();
+    this.root.remove();
+  }
+
   private bindActions(): void {
     this.actionsEl.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;

@@ -1400,9 +1400,9 @@ to the base.
 
 Quickstart propagates the same request-scoped selection to admin views,
 DataGrid, dashboard pages/charts, panel and settings forms, and CMS content
-forms. Content-entry rendering passes `adm.FormTheme(ctx)` to go-formgen, so
-portable and `form.*` semantic tokens cover focus, invalid, disabled,
-readonly, loading, label/help/error, and responsive states. No semantic tokens
+forms. Content-entry and roles rendering pass `adm.FormTheme(ctx)` to
+go-formgen, so portable and `form.*` semantic tokens cover container width,
+focus, invalid, disabled, readonly, loading, label/help/error, and responsive states. No semantic tokens
 preserve the existing renderer output.
 
 Navigation may reference `asset:<role>` or `theme:<role>` and resolves the

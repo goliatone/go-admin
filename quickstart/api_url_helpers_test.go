@@ -45,6 +45,43 @@ func TestResolveAdminPanelAPICollectionPathUsesURLKitPanelRoute(t *testing.T) {
 	}
 }
 
+func TestResolveAdminAPIRoutePathUsesNamedRoute(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Routes: map[string]string{
+							"activity.filter_options": "/audit/filter-vocabulary",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+
+	cfg := admin.Config{BasePath: "/admin"}
+	got := resolveAdminAPIRoutePath(manager, cfg, "/admin", "activity.filter_options", "activity", "filter-options")
+	if got != "/admin/api/audit/filter-vocabulary" {
+		t.Fatalf("expected named Activity filter-options route, got %q", got)
+	}
+}
+
+func TestResolveAdminAPIRoutePathFallsBackToCanonicalPath(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+	got := resolveAdminAPIRoutePath(nil, cfg, "/admin", "activity.filter_options", "activity", "filter-options")
+	if got != "/admin/api/activity/filter-options" {
+		t.Fatalf("expected canonical Activity filter-options fallback, got %q", got)
+	}
+}
+
 func TestResolveAdminPanelAPIDetailPathUsesURLKitPanelRoute(t *testing.T) {
 	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
 		Groups: []urlkit.GroupConfig{

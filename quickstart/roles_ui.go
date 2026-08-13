@@ -308,6 +308,9 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 	routes := newResourceRoutes(h.basePath, "roles")
 	operationID := admin.CreateRoleOperation
 	opts := formgenrender.RenderOptions{}
+	if h.admin != nil {
+		opts.Theme = h.admin.FormTheme(c.Context())
+	}
 	if isEdit {
 		operationID = admin.UpdateRoleOperation
 		opts.Values = roleFormValues(record)

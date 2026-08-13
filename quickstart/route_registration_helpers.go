@@ -56,6 +56,14 @@ func resolveQuickstartAdminAPIBase(adm *admin.Admin, cfg admin.Config, fallbackB
 	return resolveAdminAPIBasePath(urls, cfg, fallbackBase)
 }
 
+func resolveQuickstartAdminAPIRoutePath(adm *admin.Admin, cfg admin.Config, fallbackBase, route string, fallbackSegments ...string) string {
+	var urls urlkit.Resolver
+	if adm != nil {
+		urls = adm.URLs()
+	}
+	return resolveAdminAPIRoutePath(urls, cfg, fallbackBase, route, fallbackSegments...)
+}
+
 func renderQuickstartUIView(c router.Context, template, title, active, basePath string, builder UIViewContextBuilder, extra router.ViewContext) error {
 	viewCtx := router.ViewContext{
 		"title":      title,

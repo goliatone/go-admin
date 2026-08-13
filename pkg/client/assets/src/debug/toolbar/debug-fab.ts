@@ -2,7 +2,7 @@
 // A minimized debug indicator that expands on hover and opens the toolbar on click
 
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-stream.js';
-import { getCounts, type DebugSnapshot } from './panel-renderers.js';
+import type { DebugSnapshot } from '../shared/types.js';
 import { fabStyles } from './fab-styles.js';
 import { panelRegistry, type RegistryChangeEvent } from '../shared/panel-registry.js';
 import {
@@ -11,12 +11,13 @@ import {
   fetchDebugSnapshot,
   getDefaultToolbarPanels,
   getPanelEventTypes,
+  getToolbarCounts,
 } from '../shared/runtime-helpers.js';
-import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
 import { escapeHTML } from '../shared/utils.js';
 import { deploymentIndicator } from '../shared/deployment-identity.js';
 import { renderDeploymentPersonaAvatar } from '../shared/deployment-persona.js';
-import '../shared/builtin-panels.js';
+
+const getCounts = getToolbarCounts;
 
 export class DebugFab extends HTMLElement {
   private shadow: ShadowRoot;
@@ -25,6 +26,8 @@ export class DebugFab extends HTMLElement {
   private connectionStatus: DebugStreamStatus = 'disconnected';
   private isHovered = false;
   private toolbarExpanded = false;
+  private toolbarLoading = false;
+  private toolbarLoadError = false;
   private eventToPanel: Record<string, string> = {};
   private unsubscribeRegistry: (() => void) | null = null;
   private initializeGeneration = 0;
@@ -44,10 +47,6 @@ export class DebugFab extends HTMLElement {
   }
 
   private async initialize(generation: number): Promise<void> {
-    await hydrateServerPanelDefinitions(this.debugPath);
-    if (this.isInitializationStale(generation)) {
-      return;
-    }
     this.eventToPanel = buildEventToPanel();
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
     if (this.isInitializationStale(generation)) {
@@ -88,6 +87,18 @@ export class DebugFab extends HTMLElement {
   public setToolbarExpanded(expanded: boolean): void {
     this.toolbarExpanded = expanded;
     this.saveState();
+    this.render();
+  }
+
+  public setToolbarLoading(loading: boolean): void {
+    this.toolbarLoading = loading;
+    if (loading) this.toolbarLoadError = false;
+    this.render();
+  }
+
+  public setToolbarLoadError(hasError: boolean): void {
+    this.toolbarLoadError = hasError;
+    if (hasError) this.toolbarLoading = false;
     this.render();
   }
 
@@ -216,7 +227,9 @@ export class DebugFab extends HTMLElement {
   ): string {
     const plural = (count: number, singular: string, pluralForm: string) =>
       `${count} ${count === 1 ? singular : pluralForm}`;
-    const parts = ['Open debug toolbar'];
+    const parts = [this.toolbarLoadError
+      ? 'Debug toolbar failed to load. Activate to retry'
+      : this.toolbarLoading ? 'Loading debug toolbar' : 'Open debug toolbar'];
     if (identity) {
       parts.push(identity.title);
     }
@@ -240,7 +253,7 @@ export class DebugFab extends HTMLElement {
     const identity = deploymentIndicator(this.snapshot, this.panels);
 
     // Hide FAB when toolbar is expanded
-    const hiddenClass = this.toolbarExpanded ? 'hidden' : '';
+    const hiddenClass = this.toolbarExpanded && !this.toolbarLoading ? 'hidden' : '';
     const label = this.accessibleLabel(identity, counts);
 
     this.shadow.innerHTML = `
@@ -249,10 +262,11 @@ export class DebugFab extends HTMLElement {
         class="fab ${hiddenClass} ${identity ? 'has-identity' : ''}"
         data-status="${this.connectionStatus}"
         role="button"
-        tabindex="${this.toolbarExpanded ? '-1' : '0'}"
-        aria-hidden="${this.toolbarExpanded ? 'true' : 'false'}"
+        tabindex="${this.toolbarExpanded && !this.toolbarLoading ? '-1' : '0'}"
+        aria-hidden="${this.toolbarExpanded && !this.toolbarLoading ? 'true' : 'false'}"
+        aria-busy="${this.toolbarLoading ? 'true' : 'false'}"
         aria-label="${escapeHTML(label)}"
-        title="${escapeHTML(identity ? identity.title : 'Open debug toolbar')}"
+        title="${escapeHTML(this.toolbarLoadError ? 'Debug toolbar failed to load. Activate to retry.' : identity ? identity.title : 'Open debug toolbar')}"
       >
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed ${identity ? 'has-identity' : ''}" ${identity ? `style="--fab-environment:${escapeHTML(identity.color)}"` : ''}>
@@ -362,7 +376,7 @@ export class DebugFab extends HTMLElement {
     fab.setAttribute('aria-label', this.accessibleLabel(deploymentIndicator(this.snapshot, this.panels), counts));
   }
 
-  private handleRegistryChange(event: RegistryChangeEvent): void {
+  private handleRegistryChange(_event: RegistryChangeEvent): void {
     this.eventToPanel = buildEventToPanel();
     this.updateSubscriptions();
   }

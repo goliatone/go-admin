@@ -29,6 +29,20 @@ func resolveAdminAPIBasePath(urls urlkit.Resolver, cfg admin.Config, fallbackBas
 	return apiBase
 }
 
+func resolveAdminAPIRoutePath(urls urlkit.Resolver, cfg admin.Config, fallbackBase, route string, fallbackSegments ...string) string {
+	group := adminAPIGroupName(cfg)
+	if resolved := strings.TrimSpace(resolveRouteURL(urls, group, route, nil, nil)); resolved != "" {
+		return resolved
+	}
+	if resolved := strings.TrimSpace(resolveRoutePath(urls, group, route)); resolved != "" && !strings.ContainsAny(resolved, ":*{}") {
+		return resolved
+	}
+	if len(fallbackSegments) == 0 {
+		return ""
+	}
+	return prefixBasePath(resolveAdminAPIBasePath(urls, cfg, fallbackBase), path.Join(fallbackSegments...))
+}
+
 func adminAPIGroupName(cfg admin.Config) string {
 	version := effectiveAdminAPIVersion(cfg)
 	if strings.TrimSpace(version) == "" {

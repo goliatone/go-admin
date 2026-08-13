@@ -138,7 +138,8 @@ renderOptions := render.RenderOptions{
 
 `Admin.FormTheme` returns a defensive `*render.ThemeConfig`; callers may
 customize it for one render without mutating admin state. Quickstart
-content-entry routes already assign this value to `RenderOptions.Theme`.
+content-entry and roles routes, plus the example user routes, already assign
+this value to `RenderOptions.Theme`.
 `PanelFormAdapter.Build` exposes it as `PanelFormRequest.RenderTheme` for
 in-process renderers, while the serializable map remains in
 `PanelFormRequest.Theme` and `schema.theme`.
@@ -197,6 +198,7 @@ component token falls back to a portable token:
 
 | Form token | Portable fallback |
 |---|---|
+| `form.container.max-width` | Existing 56rem stylesheet default |
 | `form.control.background` | `color.surface.default` |
 | `form.control.text` | `color.text.primary` |
 | `form.control.border` | `color.border.default` |
@@ -210,6 +212,10 @@ component token falls back to a portable token:
 | `form.label.text` | `color.text.primary` |
 | `form.help.text` | `color.text.secondary` |
 | `form.error.text` | `color.status.danger` |
+
+Use `form.container.max-width: "100%"` for a form that fills its available
+page width. The deprecated `container-max-width` token remains an alias, and
+the canonical token wins when both are present.
 
 Renderer-independent typography, spacing, motion, action, surface, and focus
 values use the portable `font.*`, `space.*`, `motion.*`, `color.*`,

@@ -397,8 +397,11 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	resolveAPIBase := func() string {
 		return resolveQuickstartAdminAPIBase(adm, cfg, options.basePath)
 	}
+	resolveAPIPath := func(route string, fallbackSegments ...string) string {
+		return resolveQuickstartAdminAPIRoutePath(adm, cfg, options.basePath, route, fallbackSegments...)
+	}
 
-	registerAdminUIStandardRoutes(r, options, wrap, renderView, resolveAPIBase)
+	registerAdminUIStandardRoutes(r, options, wrap, renderView, resolveAPIBase, resolveAPIPath)
 	registerAdminUITranslationRoutes(r, options, wrap, renderView, resolveAPIBase)
 	return nil
 }
@@ -559,6 +562,7 @@ func registerAdminUIStandardRoutes[T any](
 	wrap func(router.HandlerFunc) router.HandlerFunc,
 	renderView func(router.Context, string, string, string, router.ViewContext) error,
 	resolveAPIBase func() string,
+	resolveAPIPath func(string, ...string) string,
 ) {
 	if options.registerDashboard {
 		r.Get(options.dashboardPath, wrap(func(c router.Context) error {
@@ -574,10 +578,9 @@ func registerAdminUIStandardRoutes[T any](
 
 	if options.registerActivity {
 		r.Get(options.activityPath, wrap(func(c router.Context) error {
-			apiBase := resolveAPIBase()
 			return renderView(c, options.activityTemplate, options.activityTitle, options.activityActive, router.ViewContext{
-				"activity_api_path":                prefixBasePath(apiBase, "activity"),
-				"activity_filter_options_api_path": prefixBasePath(apiBase, path.Join("activity", "filter-options")),
+				"activity_api_path":                resolveAPIPath("activity", "activity"),
+				"activity_filter_options_api_path": resolveAPIPath("activity.filter_options", "activity", "filter-options"),
 			})
 		}))
 	}

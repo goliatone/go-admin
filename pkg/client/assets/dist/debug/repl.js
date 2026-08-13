@@ -1,5 +1,5 @@
-import { n as a, t as l } from "../chunks/repl-panel-Ce3vonoJ.js";
+import { r, t as a } from "../chunks/repl-panel-BY_ZYjKg.js";
 export {
-  l as DebugReplPanel,
-  a as DebugReplTerminal
+  a as DebugReplPanel,
+  r as DebugReplTerminal
 };

@@ -13,9 +13,9 @@ func TestContractTypesAliasRootContract(t *testing.T) {
 		quickstart reflect.Type
 		root       reflect.Type
 	}{
-		{name: "predicate", quickstart: reflect.TypeOf(ListPredicate{}), root: reflect.TypeOf(rootcontract.ListPredicate{})},
-		{name: "options", quickstart: reflect.TypeOf(ListOptions{}), root: reflect.TypeOf(rootcontract.ListOptions{})},
-		{name: "config", quickstart: reflect.TypeOf(PaginationContractConfig{}), root: reflect.TypeOf(rootcontract.PaginationContractConfig{})},
+		{name: "predicate", quickstart: reflect.TypeFor[ListPredicate](), root: reflect.TypeFor[rootcontract.ListPredicate]()},
+		{name: "options", quickstart: reflect.TypeFor[ListOptions](), root: reflect.TypeFor[rootcontract.ListOptions]()},
+		{name: "config", quickstart: reflect.TypeFor[PaginationContractConfig](), root: reflect.TypeFor[rootcontract.PaginationContractConfig]()},
 	}
 
 	for _, test := range tests {

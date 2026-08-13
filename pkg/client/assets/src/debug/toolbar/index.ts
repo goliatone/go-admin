@@ -11,6 +11,7 @@ export { deploymentIndicator } from '../shared/deployment-identity.js';
 export type { DeploymentIndicator } from '../shared/deployment-identity.js';
 export { DebugManager, initDebugManager } from './debug-manager.js';
 export type { DebugManagerOptions } from './debug-manager.js';
+export { createDebugToolbarLoader, loadDebugToolbar } from './toolbar-loader.js';
 export { renderPanel, getCounts } from './panel-renderers.js';
 export {
   applyCustomEventPayload,

@@ -176,6 +176,13 @@ export class DebugReplTerminal {
     }
   }
 
+  dispose(): void {
+    this.disconnect();
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    this.terminal.dispose();
+  }
+
   kill(): void {
     this.sendCommand({ type: 'close' });
     this.disconnect();

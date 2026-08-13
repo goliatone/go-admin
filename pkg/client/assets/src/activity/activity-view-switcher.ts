@@ -56,8 +56,11 @@ export class ActivityViewSwitcher {
   /**
    * Set the view mode programmatically
    */
-  setView(view: ActivityViewMode, options: { persist?: boolean; updateUrl?: boolean } = {}): void {
-    const { persist = true, updateUrl = true } = options;
+  setView(
+    view: ActivityViewMode,
+    options: { persist?: boolean; updateUrl?: boolean; notify?: boolean } = {}
+  ): void {
+    const { persist = true, updateUrl = true, notify = true } = options;
 
     if (view !== 'table' && view !== 'timeline') {
       view = 'table';
@@ -74,8 +77,9 @@ export class ActivityViewSwitcher {
       this.updateUrlParam();
     }
 
-    // Emit view change event
-    this.emitViewChange();
+    if (notify) {
+      this.emitViewChange();
+    }
   }
 
   /**
@@ -117,19 +121,19 @@ export class ActivityViewSwitcher {
     const urlView = params.get(URL_PARAM) as ActivityViewMode | null;
 
     if (urlView === 'table' || urlView === 'timeline') {
-      this.setView(urlView, { persist: true, updateUrl: false });
+      this.setView(urlView, { persist: true, updateUrl: false, notify: false });
       return;
     }
 
     // Fall back to localStorage
     const storedView = localStorage.getItem(STORAGE_KEY) as ActivityViewMode | null;
     if (storedView === 'table' || storedView === 'timeline') {
-      this.setView(storedView, { persist: false, updateUrl: true });
+      this.setView(storedView, { persist: false, updateUrl: true, notify: false });
       return;
     }
 
     // Default to table view
-    this.setView('table', { persist: false, updateUrl: false });
+    this.setView('table', { persist: false, updateUrl: false, notify: false });
   }
 
   /**

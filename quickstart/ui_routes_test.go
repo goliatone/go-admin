@@ -17,6 +17,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -2158,6 +2159,58 @@ func TestRegisterAdminUIRoutesActivityInjectsOnlyEndpointMetadata(t *testing.T) 
 			}
 		}
 		return true
+	})).Return(nil)
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render Activity shell: %v", err)
+	}
+}
+
+func TestRegisterAdminUIRoutesActivityResolvesNamedAPIPaths(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Routes:  map[string]string{"dashboard": "/"},
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Routes: map[string]string{
+							"activity":                "/audit-feed",
+							"activity.filter_options": "/audit-vocabulary",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+
+	cfg := NewAdminConfig("/admin", "Admin", "en", nil)
+	adm, err := admin.New(cfg, admin.Dependencies{URLManager: manager})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUIViewContextBuilder(func(view router.ViewContext, _ string, _ router.Context) router.ViewContext {
+		return view
+	})); err != nil {
+		t.Fatalf("RegisterAdminUIRoutes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/activity"]
+	if handler == nil {
+		t.Fatal("expected Activity UI route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Render", "resources/activity/list", mock.MatchedBy(func(arg any) bool {
+		view, ok := arg.(router.ViewContext)
+		return ok &&
+			view["activity_api_path"] == "/admin/api/audit-feed" &&
+			view["activity_filter_options_api_path"] == "/admin/api/audit-vocabulary"
 	})).Return(nil)
 	if err := handler(ctx); err != nil {
 		t.Fatalf("render Activity shell: %v", err)

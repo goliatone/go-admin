@@ -13,6 +13,14 @@ if (document.readyState === 'loading') {
 
 // Core exports
 export { DebugPanel, DebugStream, RemoteDebugStream, initDebugPanel };
+export { createDebugReplLoader, loadDebugReplPanel } from './repl/repl-loader.js';
+export { createJSONPathLoader, loadJSONPathSearch } from './shared/jsonpath-loader.js';
+export {
+  createSyntaxLoader,
+  loadSyntaxHighlight,
+  enhanceDeferredSyntax,
+  renderDeferredSyntax,
+} from './deferred-syntax.js';
 export type {
   DebugEvent,
   DebugStreamOptions,

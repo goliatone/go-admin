@@ -102,6 +102,9 @@ export class ActivityManager {
   private limitInput: HTMLSelectElement | null = null;
   private filterOptionsAbortController: AbortController | null = null;
   private filterOptionsRequestGeneration = 0;
+  private activityAbortController: AbortController | null = null;
+  private activityPaginationAbortController: AbortController | null = null;
+  private activityRequestGeneration = 0;
 
   // Timeline-related properties
   private viewSwitcher: ActivityViewSwitcher | null = null;
@@ -253,10 +256,19 @@ export class ActivityManager {
    * Load more entries for infinite scroll
    */
   private async loadMoreEntries(): Promise<void> {
-    if (this.isLoadingMore || this.allEntriesLoaded || !this.state.hasMore) {
+    if (
+      this.isLoadingMore
+      || this.activityAbortController !== null
+      || this.allEntriesLoaded
+      || !this.state.hasMore
+    ) {
       return;
     }
 
+    const generation = this.activityRequestGeneration;
+    const requestedOffset = this.state.nextOffset;
+    const controller = new AbortController();
+    this.activityPaginationAbortController = controller;
     this.isLoadingMore = true;
 
     // Show loading indicator
@@ -264,18 +276,26 @@ export class ActivityManager {
     this.timelineSentinel?.parentElement?.insertBefore(loadingIndicator, this.timelineSentinel);
 
     try {
-      // Update offset for next page
-      this.state.offset = this.state.nextOffset;
       const params = this.buildParams();
+      params.set('offset', String(requestedOffset));
 
       const url = `${this.config.apiPath}?${params.toString()}`;
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
 
+      if (generation !== this.activityRequestGeneration || controller.signal.aborted) {
+        return;
+      }
       if (!response.ok) {
         throw new Error(`Failed to load more entries (${response.status})`);
       }
 
       const payload: ActivityPayload = await response.json();
+      if (generation !== this.activityRequestGeneration || controller.signal.aborted) {
+        return;
+      }
       const entries = Array.isArray(payload.entries) ? payload.entries : [];
 
       // Update state
@@ -283,7 +303,7 @@ export class ActivityManager {
       this.state.nextOffset =
         typeof payload.next_offset === 'number'
           ? payload.next_offset
-          : this.state.offset + entries.length;
+          : requestedOffset + entries.length;
 
       if (entries.length === 0) {
         this.allEntriesLoaded = true;
@@ -304,11 +324,16 @@ export class ActivityManager {
         this.timelineSentinel?.parentElement?.insertBefore(endIndicator, this.timelineSentinel);
       }
     } catch (err) {
-      logger.error('Failed to load more entries:', err);
+      if (generation === this.activityRequestGeneration && !controller.signal.aborted) {
+        logger.error('Failed to load more entries:', err);
+      }
     } finally {
       // Remove loading indicator
       loadingIndicator.remove();
-      this.isLoadingMore = false;
+      if (this.activityPaginationAbortController === controller) {
+        this.activityPaginationAbortController = null;
+        this.isLoadingMore = false;
+      }
     }
   }
 
@@ -619,6 +644,13 @@ export class ActivityManager {
   }
 
   async loadActivity(): Promise<void> {
+    const generation = ++this.activityRequestGeneration;
+    this.activityAbortController?.abort();
+    this.activityPaginationAbortController?.abort();
+    this.activityPaginationAbortController = null;
+    this.isLoadingMore = false;
+    const controller = new AbortController();
+    this.activityAbortController = controller;
     this.resetStates();
     const params = this.buildParams();
     this.syncUrl(params);
@@ -626,14 +658,23 @@ export class ActivityManager {
     const url = `${this.config.apiPath}?${params.toString()}`;
 
     try {
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
 
+      if (generation !== this.activityRequestGeneration || controller.signal.aborted) {
+        return;
+      }
       if (!response.ok) {
         let payload: unknown = null;
         try {
           payload = await response.json();
         } catch {
           payload = null;
+        }
+        if (generation !== this.activityRequestGeneration || controller.signal.aborted) {
+          return;
         }
         const apiError = parseActivityAPIError(payload);
 
@@ -649,6 +690,9 @@ export class ActivityManager {
       }
 
       const payload: ActivityPayload = await response.json();
+      if (generation !== this.activityRequestGeneration || controller.signal.aborted) {
+        return;
+      }
       const entries = Array.isArray(payload.entries) ? payload.entries : [];
 
       this.state.total = typeof payload.total === 'number' ? payload.total : entries.length;
@@ -674,7 +718,13 @@ export class ActivityManager {
       }
       this.updatePagination(entries.length);
     } catch (_err) {
-      this.showError('Failed to load activity.');
+      if (!controller.signal.aborted && generation === this.activityRequestGeneration) {
+        this.showError('Failed to load activity.');
+      }
+    } finally {
+      if (generation === this.activityRequestGeneration) {
+        this.activityAbortController = null;
+      }
     }
   }
 

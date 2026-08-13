@@ -6,6 +6,7 @@ import type { SQLEntry } from './types.js';
 import { formatDuration } from './utils.js';
 import { escapeAttribute as escapeAttr } from '../../shared/html.js';
 import { sqlRowKey } from './panels/sql.js';
+import { enhanceDeferredSyntax } from '../deferred-syntax.js';
 
 /**
  * Copy text to clipboard and provide visual feedback on the button.
@@ -26,6 +27,21 @@ export type CopyFeedbackOptions = {
 };
 
 const copyListenerRoots = new WeakSet<object>();
+const syntaxListenerRoots = new WeakSet<object>();
+
+export function attachDeferredSyntaxListeners(root: ParentNode): void {
+  if (syntaxListenerRoots.has(root)) return;
+  syntaxListenerRoots.add(root);
+  const enhanceForEvent = (event: Event): void => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    const row = target.closest<HTMLElement>('.expandable-row');
+    const scope = row?.nextElementSibling || target.closest('pre, .expansion-row, [data-debug-syntax]');
+    if (scope) void enhanceDeferredSyntax(scope);
+  };
+  (root as ParentNode & EventTarget).addEventListener('click', enhanceForEvent);
+  (root as ParentNode & EventTarget).addEventListener('focusin', enhanceForEvent);
+}
 
 /**
  * Copy text to clipboard with visual feedback on the button element.
@@ -119,6 +135,7 @@ export function attachCopyListeners(
  * @param root - The root element to search for expandable rows
  */
 export function attachExpandableRowListeners(root: ParentNode): void {
+  attachDeferredSyntaxListeners(root);
   root.querySelectorAll('.expandable-row').forEach((row) => {
     // Live-list panels (SQL, jserrors, ...) own their expansion via delegated,
     // id-keyed handlers (attachRowExpansion / SqlLiveView). Skip those rows here

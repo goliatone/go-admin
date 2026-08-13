@@ -3,7 +3,8 @@
 // Works in conjunction with DebugFab for collapsed state
 
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-stream.js';
-import { DebugReplPanel, type DebugReplCommand } from '../repl/repl-panel.js';
+import type { DebugReplPanel, DebugReplCommand } from '../repl/repl-panel.js';
+import { loadDebugReplPanel } from '../repl/repl-loader.js';
 import { toolbarStyles } from './toolbar-styles.js';
 import { renderPanel, getCounts, type DebugSnapshot, type PanelOptions } from './panel-renderers.js';
 import { escapeHTML, formatJSON } from '../shared/utils.js';
@@ -72,6 +73,7 @@ export class DebugToolbar extends HTMLElement {
   private externalStream: DebugStream | null = null;
   private snapshot: DebugSnapshot = {};
   private replPanels: Map<string, DebugReplPanel> = new Map();
+  private replLoadGeneration = 0;
   private replCommands: DebugReplCommand[] = [];
   private expanded = false;
   private activePanel = 'requests';
@@ -212,10 +214,17 @@ export class DebugToolbar extends HTMLElement {
       this.fetchInitialSnapshot(generation);
     }
     this.setupKeyboardShortcut();
+    this.dispatchEvent(new CustomEvent('debug-toolbar-ready', {
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   disconnectedCallback(): void {
     this.initializeGeneration += 1;
+    this.replLoadGeneration += 1;
+    this.replPanels.forEach((panel) => panel.destroy());
+    this.replPanels.clear();
     this.stream?.close();
     this.stream = null;
     this.unsubscribeRegistry?.();
@@ -230,7 +239,7 @@ export class DebugToolbar extends HTMLElement {
   /**
    * Handle registry changes (panel registered/unregistered)
    */
-  private handleRegistryChange(event: RegistryChangeEvent): void {
+  private handleRegistryChange(_event: RegistryChangeEvent): void {
     // Rebuild event-to-panel mapping
     this.eventToPanel = buildEventToPanel();
 
@@ -594,7 +603,7 @@ export class DebugToolbar extends HTMLElement {
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
+              ${replPanelIDs.has(this.activePanel) ? this.renderCapabilityLoading('terminal') : renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
             </div>
           </div>
         ` : ''}
@@ -629,6 +638,10 @@ export class DebugToolbar extends HTMLElement {
 
     this.attachEventListeners();
     this.renderStoredPanelActionResult(this.activePanel);
+    if (this.expanded && replPanelIDs.has(this.activePanel)) {
+      const container = this.shadow.getElementById('panel-content');
+      if (container) this.renderReplPanel(container, this.activePanel);
+    }
   }
 
   private updateContent(): void {
@@ -639,6 +652,7 @@ export class DebugToolbar extends HTMLElement {
         if (replPanelIDs.has(this.activePanel)) {
           this.renderReplPanel(container, this.activePanel);
         } else {
+          this.replLoadGeneration += 1;
           container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions());
           this.attachExpandableRowListeners();
           this.attachCopyListeners();
@@ -766,12 +780,17 @@ export class DebugToolbar extends HTMLElement {
           // Render panel content
           const container = this.shadow.getElementById('panel-content');
           if (container) {
-            container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions());
-            this.attachExpandableRowListeners();
-            this.attachCopyListeners();
-            this.attachSortToggleListeners();
-            this.mountActivePanelViews();
-            this.attachPanelActionListeners();
+            if (replPanelIDs.has(this.activePanel)) {
+              this.renderReplPanel(container, this.activePanel);
+            } else {
+              this.replLoadGeneration += 1;
+              container.innerHTML = renderPanel(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions());
+              this.attachExpandableRowListeners();
+              this.attachCopyListeners();
+              this.attachSortToggleListeners();
+              this.mountActivePanelViews();
+              this.attachPanelActionListeners();
+            }
           }
         }
       });
@@ -919,16 +938,39 @@ export class DebugToolbar extends HTMLElement {
   }
 
   private renderReplPanel(container: HTMLElement, panel: string): void {
-    let replPanel = this.replPanels.get(panel);
-    if (!replPanel) {
-      replPanel = new DebugReplPanel({
-        kind: panel === 'shell' ? 'shell' : 'console',
-        debugPath: this.debugPath,
-        commands: panel === 'console' ? this.replCommands : [],
-      });
-      this.replPanels.set(panel, replPanel);
+    const existing = this.replPanels.get(panel);
+    if (existing) {
+      existing.attach(container);
+      return;
     }
-    replPanel.attach(container);
+    const generation = ++this.replLoadGeneration;
+    container.innerHTML = this.renderCapabilityLoading('terminal');
+    void loadDebugReplPanel()
+      .then(({ DebugReplPanel: ReplPanel }) => {
+        if (generation !== this.replLoadGeneration || !this.isConnected || this.activePanel !== panel) return;
+        const replPanel = new ReplPanel({
+          kind: panel === 'shell' ? 'shell' : 'console',
+          debugPath: this.debugPath,
+          commands: panel === 'console' ? this.replCommands : [],
+        });
+        this.replPanels.set(panel, replPanel);
+        replPanel.attach(container);
+      })
+      .catch(() => {
+        if (generation !== this.replLoadGeneration || !this.isConnected || this.activePanel !== panel) return;
+        container.innerHTML = this.renderCapabilityError('terminal');
+        container.querySelector<HTMLButtonElement>('[data-debug-capability-retry]')?.addEventListener('click', () => {
+          if (this.isConnected && this.activePanel === panel) this.renderReplPanel(container, panel);
+        }, { once: true });
+      });
+  }
+
+  private renderCapabilityLoading(label: string): string {
+    return `<div class="empty-state" role="status">Loading ${escapeHTML(label)}…</div>`;
+  }
+
+  private renderCapabilityError(label: string): string {
+    return `<div class="empty-state" role="alert">Unable to load ${escapeHTML(label)}. <button class="debug-btn" type="button" data-debug-capability-retry>Retry</button></div>`;
   }
 
   private attachResizeListeners(): void {

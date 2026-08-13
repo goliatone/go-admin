@@ -2,8 +2,8 @@
 // Coordinates the FAB and Toolbar components, sharing WebSocket connection and state
 
 import { DebugFab } from './debug-fab.js';
-import { DebugToolbar } from './debug-toolbar.js';
-import type { DebugSnapshot } from './panel-renderers.js';
+import type { DebugToolbar } from './debug-toolbar.js';
+import { loadDebugToolbar } from './toolbar-loader.js';
 import { normalizeDebugBasePath } from '../shared/path-helpers.js';
 
 export interface DebugManagerOptions {
@@ -20,6 +20,8 @@ export class DebugManager {
   private toolbar: DebugToolbar | null = null;
   private options: DebugManagerOptions;
   private initialized = false;
+  private expanded = false;
+  private toolbarMountGeneration = 0;
 
   constructor(options: DebugManagerOptions = {}) {
     this.options = {
@@ -46,14 +48,15 @@ export class DebugManager {
     this.initialized = true;
 
     this.createFab();
-    this.createToolbar();
-    this.wireEvents();
+    this.wireFabEvents();
+    if (this.shouldRestoreExpanded()) this.expand();
   }
 
   /**
    * Destroy the debug UI
    */
   public destroy(): void {
+    this.toolbarMountGeneration += 1;
     if (this.fab) {
       this.fab.remove();
       this.fab = null;
@@ -63,32 +66,37 @@ export class DebugManager {
       this.toolbar = null;
     }
     this.initialized = false;
+    this.expanded = false;
   }
 
   /**
    * Expand the toolbar programmatically
    */
   public expand(): void {
-    if (!this.toolbar || !this.fab) return;
+    if (!this.fab) return;
+    this.expanded = true;
+    this.fab.setToolbarLoadError(false);
+    this.fab.setToolbarLoading(true);
     this.fab.setToolbarExpanded(true);
-    this.toolbar.setExpanded(true);
+    void this.ensureToolbar();
   }
 
   /**
    * Collapse the toolbar programmatically
    */
   public collapse(): void {
-    if (!this.toolbar || !this.fab) return;
+    if (!this.fab) return;
+    this.expanded = false;
+    this.fab.setToolbarLoading(false);
     this.fab.setToolbarExpanded(false);
-    this.toolbar.setExpanded(false);
+    this.toolbar?.setExpanded(false);
   }
 
   /**
    * Toggle the toolbar state
    */
   public toggle(): void {
-    if (!this.toolbar) return;
-    if (this.toolbar.isExpanded()) {
+    if (this.expanded) {
       this.collapse();
     } else {
       this.expand();
@@ -112,8 +120,8 @@ export class DebugManager {
     this.options.container?.appendChild(this.fab);
   }
 
-  private createToolbar(): void {
-    this.toolbar = document.createElement('debug-toolbar') as DebugToolbar;
+  private createToolbar(Toolbar: typeof DebugToolbar): DebugToolbar {
+    this.toolbar = new Toolbar();
     if (this.options.debugPath) {
       this.toolbar.setAttribute('debug-path', this.options.debugPath);
     }
@@ -131,31 +139,15 @@ export class DebugManager {
       this.toolbar.setAttribute('slow-threshold-ms', String(this.options.slowThresholdMs));
     }
     this.options.container?.appendChild(this.toolbar);
+    return this.toolbar;
   }
 
-  private wireEvents(): void {
-    if (!this.fab || !this.toolbar) return;
+  private wireFabEvents(): void {
+    if (!this.fab) return;
 
     // FAB dispatches expand event when clicked
     this.fab.addEventListener('debug-expand', ((e: CustomEvent) => {
-      if (e.detail?.expanded && this.toolbar) {
-        // Share the FAB's stream with the toolbar
-        const stream = this.fab?.getStream();
-        if (stream) {
-          this.toolbar.setStream(stream);
-        }
-        // Share the snapshot
-        const snapshot = this.fab?.getSnapshot();
-        if (snapshot) {
-          this.toolbar.setSnapshot(snapshot);
-        }
-        // Share the connection status
-        const status = this.fab?.getConnectionStatus();
-        if (status) {
-          this.toolbar.setConnectionStatus(status);
-        }
-        this.toolbar.setExpanded(true);
-      }
+      if (e.detail?.expanded) this.expand();
     }) as EventListener);
 
     // FAB dispatches status changes
@@ -172,12 +164,67 @@ export class DebugManager {
       }
     }) as EventListener);
 
-    // Toolbar dispatches collapse event
-    this.toolbar.addEventListener('debug-expand', ((e: CustomEvent) => {
+  }
+
+  private wireToolbarEvents(toolbar: DebugToolbar): void {
+    toolbar.addEventListener('debug-expand', ((e: CustomEvent) => {
       if (!e.detail?.expanded && this.fab) {
+        this.expanded = false;
         this.fab.setToolbarExpanded(false);
       }
     }) as EventListener);
+    toolbar.addEventListener('debug-toolbar-ready', (() => {
+      const stream = this.fab?.getStream();
+      if (stream) {
+        toolbar.setStream(stream);
+        stream.requestSnapshot();
+      }
+      const snapshot = this.fab?.getSnapshot();
+      if (snapshot) toolbar.setSnapshot(snapshot);
+      const status = this.fab?.getConnectionStatus();
+      if (status) toolbar.setConnectionStatus(status);
+    }) as EventListener);
+  }
+
+  private async ensureToolbar(): Promise<void> {
+    if (this.toolbar) {
+      if (this.expanded) {
+        this.fab?.setToolbarLoading(false);
+        this.toolbar.setExpanded(true);
+      }
+      return;
+    }
+    const generation = ++this.toolbarMountGeneration;
+    try {
+      const { DebugToolbar: Toolbar } = await loadDebugToolbar();
+      if (!this.initialized || !this.expanded || generation !== this.toolbarMountGeneration) return;
+      const toolbar = this.createToolbar(Toolbar);
+      this.wireToolbarEvents(toolbar);
+      const stream = this.fab?.getStream();
+      if (stream) toolbar.setStream(stream);
+      const snapshot = this.fab?.getSnapshot();
+      if (snapshot) toolbar.setSnapshot(snapshot);
+      const status = this.fab?.getConnectionStatus();
+      if (status) toolbar.setConnectionStatus(status);
+      this.fab?.setToolbarLoading(false);
+      toolbar.setExpanded(true);
+    } catch {
+      if (!this.initialized || generation !== this.toolbarMountGeneration) return;
+      this.expanded = false;
+      this.fab?.setToolbarLoadError(true);
+      this.fab?.setToolbarExpanded(false);
+      this.fab?.dispatchEvent(new CustomEvent('debug-toolbar-load-error', {
+        detail: { retryable: true }, bubbles: true, composed: true,
+      }));
+    }
+  }
+
+  private shouldRestoreExpanded(): boolean {
+    try {
+      return localStorage.getItem('debug-toolbar-expanded') === 'true';
+    } catch {
+      return false;
+    }
   }
 }
 

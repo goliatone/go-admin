@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 )
 
 func TestNormalizeThemeProjectionPreservesLegacyPayloadAndSafeApprovedRoot(t *testing.T) {
@@ -106,6 +108,41 @@ func TestAdminSemanticProfileReturnsDefensiveCopies(t *testing.T) {
 	}
 	if second.Aliases["sidebar-width"] != "admin.sidebar.width" {
 		t.Fatalf("alias profile was not defensively copied: %+v", second.Aliases)
+	}
+}
+
+func TestAdminSemanticProfileComposesFormgenRegistryAndAliases(t *testing.T) {
+	profile := AdminSemanticProfile()
+	for token, formSpec := range formgenrender.FormSemanticTokenSpecs() {
+		adminSpec, ok := profile.Tokens[token]
+		if !ok {
+			t.Fatalf("go-formgen semantic token %q is missing", token)
+		}
+		if got, want := string(adminSpec.Constraint), formSpec.Constraint; got != want {
+			t.Fatalf("constraint for %q = %q, want %q", token, got, want)
+		}
+		for _, alias := range formSpec.Aliases {
+			if got := profile.Aliases[alias]; got != token {
+				t.Fatalf("alias %q = %q, want %q", alias, got, token)
+			}
+		}
+	}
+}
+
+func TestNormalizeThemeProjectionProjectsFormContainerWidth(t *testing.T) {
+	selection := normalizeThemeProjection(&ThemeSelection{Tokens: map[string]string{
+		formgenrender.LegacyContainerMaxWidthToken: "64rem",
+		formgenrender.FormContainerMaxWidthToken:   "100%",
+	}})
+
+	if got := selection.SemanticTokens[formgenrender.FormContainerMaxWidthToken]; got != "100%" {
+		t.Fatalf("canonical form width = %q, want 100%%", got)
+	}
+	if !strings.Contains(selection.RootCSSVarsInline, "--form-container-max-width:100%;") {
+		t.Fatalf("form width missing from root projection: %q", selection.RootCSSVarsInline)
+	}
+	if strings.Contains(selection.RootCSSVarsInline, "64rem") {
+		t.Fatalf("deprecated alias overrode the canonical token: %q", selection.RootCSSVarsInline)
 	}
 }
 

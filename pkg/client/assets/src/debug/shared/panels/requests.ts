@@ -10,7 +10,7 @@ import {
   formatBytes,
   truncate,
 } from '../utils.js';
-import { highlightJSON } from '../../syntax-highlight.js';
+import { renderDeferredSyntax } from '../../deferred-syntax.js';
 import { renderSortToggle } from '../panel-controls.js';
 import { hashString } from './live-list-view.js';
 
@@ -146,7 +146,7 @@ export function renderRequestDetail(
     let bodyContent: string;
     try {
       const parsed = JSON.parse(entry.request_body);
-      bodyContent = highlightJSON(parsed, true);
+      bodyContent = renderDeferredSyntax(JSON.stringify(parsed, null, 2), 'json');
     } catch {
       bodyContent = escapeHTML(entry.request_body);
     }
@@ -186,7 +186,7 @@ export function renderRequestDetail(
     let bodyContent: string;
     try {
       const parsed = JSON.parse(entry.response_body);
-      bodyContent = highlightJSON(parsed, true);
+      bodyContent = renderDeferredSyntax(JSON.stringify(parsed, null, 2), 'json');
     } catch {
       bodyContent = escapeHTML(entry.response_body);
     }

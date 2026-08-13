@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	gotheme "github.com/goliatone/go-theme"
 )
 
@@ -120,19 +121,6 @@ var adminSemanticTokenSpecs = map[string]gotheme.TokenSpec{
 	"datagrid.pagination.line-height":                {Constraint: gotheme.ConstraintNonnegativeLength},
 	"datagrid.pagination.font-weight":                {Constraint: gotheme.ConstraintFontWeight},
 	"datagrid.pagination.ellipsis-size":              {Constraint: gotheme.ConstraintNonnegativeLength},
-	"form.control.background":                        {Constraint: gotheme.ConstraintColor},
-	"form.control.text":                              {Constraint: gotheme.ConstraintColor},
-	"form.control.border":                            {Constraint: gotheme.ConstraintColor},
-	"form.control.border-focus":                      {Constraint: gotheme.ConstraintColor},
-	"form.control.placeholder":                       {Constraint: gotheme.ConstraintColor},
-	"form.control.disabled-background":               {Constraint: gotheme.ConstraintColor},
-	"form.control.disabled-text":                     {Constraint: gotheme.ConstraintColor},
-	"form.control.invalid-border":                    {Constraint: gotheme.ConstraintColor},
-	"form.control.height":                            {Constraint: gotheme.ConstraintNonnegativeLength},
-	"form.control.radius":                            {Constraint: gotheme.ConstraintNonnegativeLength},
-	"form.label.text":                                {Constraint: gotheme.ConstraintColor},
-	"form.help.text":                                 {Constraint: gotheme.ConstraintColor},
-	"form.error.text":                                {Constraint: gotheme.ConstraintColor},
 	"dashboard.surface":                              {Constraint: gotheme.ConstraintColor},
 	"dashboard.card.background":                      {Constraint: gotheme.ConstraintColor},
 	"dashboard.card.border":                          {Constraint: gotheme.ConstraintColor},
@@ -294,6 +282,7 @@ var adminSemanticConsumerChains = [][]string{
 	{"datagrid.pagination.line-height", "line.height.body"},
 	{"datagrid.pagination.font-weight", "font.weight.emphasis"},
 	{"datagrid.pagination.ellipsis-size"},
+	{formgenrender.FormContainerMaxWidthToken},
 	{"form.control.background", "color.surface.default"},
 	{"form.control.text", "color.text.primary"},
 	{"form.control.border", "color.border.default"},
@@ -337,6 +326,14 @@ func AdminSemanticProfile() gotheme.TokenProfile {
 	profile.Name = "go-admin"
 	maps.Copy(profile.Tokens, adminSemanticTokenSpecs)
 	maps.Copy(profile.Aliases, adminSemanticAliases)
+	for token, spec := range formgenrender.FormSemanticTokenSpecs() {
+		profile.Tokens[token] = gotheme.TokenSpec{
+			Constraint: gotheme.ValueConstraint(spec.Constraint),
+		}
+		for _, alias := range spec.Aliases {
+			profile.Aliases[alias] = token
+		}
+	}
 	return profile
 }
 

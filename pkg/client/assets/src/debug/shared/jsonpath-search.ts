@@ -2,8 +2,11 @@
 // Supports both simple key matching and complex JSONPath expressions like "profile.roles[0].label"
 
 import { createLogger } from '../../shared/logger.js';
+import { filterByKeyMatch, isJsonPathExpression, normalizeToJsonPath } from './simple-object-search.js';
 
 import { JSONPath } from 'jsonpath-plus';
+
+export { filterByKeyMatch, isJsonPathExpression, normalizeToJsonPath } from './simple-object-search.js';
 
 const logger = createLogger("JSONPathSearch");
 
@@ -18,30 +21,6 @@ export type SearchResult = {
  * Detect if a search string is a JSONPath expression
  * JSONPath expressions start with $ or contain path-like syntax (dots, brackets)
  */
-export function isJsonPathExpression(search: string): boolean {
-  if (!search) return false;
-  // Starts with $ (explicit JSONPath)
-  if (search.startsWith('$')) return true;
-  // Contains array bracket notation like [0] or ['key']
-  if (/\[\d+\]/.test(search) || /\[['"]/.test(search)) return true;
-  // Contains dot notation with at least one segment (a.b but not "a.")
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(search)) return true;
-  // Contains wildcard or recursive descent
-  if (search.includes('..') || search.includes('*')) return true;
-  return false;
-}
-
-/**
- * Normalize a search string to a valid JSONPath expression
- */
-export function normalizeToJsonPath(search: string): string {
-  if (!search) return '$';
-  // Already a JSONPath expression
-  if (search.startsWith('$')) return search;
-  // Prepend $. for path-like expressions
-  return `$.${search}`;
-}
-
 /**
  * Search an object using JSONPath and return matching paths with values
  */
@@ -101,22 +80,6 @@ export function filterObjectBySearch(
 /**
  * Simple key matching - filters top-level keys containing the search string
  */
-function filterByKeyMatch(
-  data: Record<string, unknown>,
-  search: string
-): Record<string, unknown> {
-  const needle = search.toLowerCase();
-  const out: Record<string, unknown> = {};
-
-  for (const [key, value] of Object.entries(data || {})) {
-    if (key.toLowerCase().includes(needle)) {
-      out[key] = value;
-    }
-  }
-
-  return out;
-}
-
 /**
  * JSONPath filtering - extracts matching subtrees preserving structure
  */

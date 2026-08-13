@@ -10,7 +10,7 @@ import {
   formatNumber,
 } from '../utils.js';
 import { escapeAttribute } from '../../../shared/html.js';
-import { highlightSQL } from '../../syntax-highlight.js';
+import { renderDeferredSyntax } from '../../deferred-syntax.js';
 import { renderSortToggle } from '../panel-controls.js';
 import { appendListRow, evictListOverflow, hashString } from './live-list-view.js';
 
@@ -111,7 +111,7 @@ export function renderSQLRow(
   const rowId = `sql-row-${rowKey}`;
   const rowIdAttr = escapeAttribute(rowId);
   const rawQuery = entry.query || '';
-  const highlightedSQL = highlightSQL(rawQuery, true);
+  const highlightedSQL = renderDeferredSyntax(rawQuery, 'sql');
 
   const rowClasses = [styles.expandableRow];
   if (isSlow) rowClasses.push(styles.slowQuery);

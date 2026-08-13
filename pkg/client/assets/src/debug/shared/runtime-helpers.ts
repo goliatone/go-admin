@@ -21,6 +21,17 @@ type DebugReplCommandPayload = {
 
 const defaultDebugPanels = ['template', 'session', 'requests', 'sql', 'logs', 'config', 'routes', 'custom'];
 const defaultToolbarPanels = ['requests', 'sql', 'logs', 'routes', 'config'];
+const corePanelEventTypes: Record<string, string[]> = {
+  requests: ['request'],
+  sql: ['sql'],
+  logs: ['log'],
+  template: ['template'],
+  session: ['session'],
+  custom: ['custom'],
+  jserrors: ['jserror'],
+  routes: [],
+  config: [],
+};
 
 export const replPanelIDs = new Set(['console', 'shell']);
 
@@ -132,11 +143,14 @@ export function getPanelEventTypes(panelId: string): string[] {
     return normalizeEventTypes(def);
   }
 
-  return [panelId];
+  return corePanelEventTypes[panelId] || [panelId];
 }
 
 export function buildEventToPanel(): Record<string, string> {
   const mapping: Record<string, string> = {};
+  for (const [panelID, eventTypes] of Object.entries(corePanelEventTypes)) {
+    for (const eventType of eventTypes) mapping[eventType] = panelID;
+  }
   for (const def of panelRegistry.list()) {
     for (const eventType of normalizeEventTypes(def)) {
       mapping[eventType] = def.id;

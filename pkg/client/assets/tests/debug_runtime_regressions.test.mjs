@@ -1897,7 +1897,7 @@ test('debug panel surfaces WebSocket command errors without storing an unknown p
   assert.equal(panel.state.extra.debug_command_error, undefined);
 });
 
-test('debug syntax highlighting renders bundled SQL and JSON safely', () => {
+test('debug syntax highlighting progressively enhances safe SQL and JSON fallbacks', async () => {
   const sqlHTML = debugModule.renderSQLPanel([{
     query: 'select id, title from pages where id = 1',
     duration: '12ms',
@@ -1912,10 +1912,16 @@ test('debug syntax highlighting renders bundled SQL and JSON safely', () => {
     enabled: true,
   }, debugModule.consoleStyles);
 
-  assert.match(sqlHTML, /token keyword/i);
-  assert.match(sqlHTML, /token number/i);
-  assert.match(jsonHTML, /token property/i);
-  assert.match(jsonHTML, /token boolean/i);
+  assert.match(sqlHTML, /data-debug-syntax="sql"/i);
+  assert.match(jsonHTML, /data-debug-syntax="json"/i);
+  assert.doesNotMatch(sqlHTML, /token keyword/i);
+
+  const dom = new JSDOM(`<main>${sqlHTML}${jsonHTML}</main>`, { url: 'http://localhost/' });
+  setGlobals(dom.window);
+  await debugModule.enhanceDeferredSyntax(dom.window.document);
+  assert.match(dom.window.document.body.innerHTML, /token keyword/i);
+  assert.match(dom.window.document.body.innerHTML, /token property/i);
+  assert.match(dom.window.document.body.innerHTML, /token boolean/i);
 });
 
 test('debug syntax highlight source does not use Prism dynamic language loading', () => {
