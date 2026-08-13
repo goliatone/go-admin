@@ -199,20 +199,20 @@ func TestRegisterServiceMigrations_NotificationAdoptionRequiresSuffix(t *testing
 		t.Fatalf("migrate baseline graph: %v", err)
 	}
 
-	unsafe, err := persistence.New(testPersistenceConfig{driver: "sqlite", server: "shared"}, baseline.DB().DB, sqlitedialect.New())
-	if err != nil {
-		t.Fatalf("new unsafe client: %v", err)
+	unsafe, unsafeErr := persistence.New(testPersistenceConfig{driver: "sqlite", server: "shared"}, baseline.DB().DB, sqlitedialect.New())
+	if unsafeErr != nil {
+		t.Fatalf("new unsafe client: %v", unsafeErr)
 	}
-	if err := RegisterServiceMigrations(unsafe, WithServiceMigrationsAppSource("app-local", appFS)); err != nil {
-		t.Fatalf("register unsafe inserted graph: %v", err)
+	if registerErr := RegisterServiceMigrations(unsafe, WithServiceMigrationsAppSource("app-local", appFS)); registerErr != nil {
+		t.Fatalf("register unsafe inserted graph: %v", registerErr)
 	}
-	if err := notifications.AdoptAdditiveOrderedMigrationGraph(ctx, baseline.DB(), unsafe.GetMigrations()); !errors.Is(err, notifications.ErrUnsafeMigrationGraphAdoption) {
-		t.Fatalf("expected non-suffix adoption rejection, got %v", err)
+	if adoptionErr := notifications.AdoptAdditiveOrderedMigrationGraph(ctx, baseline.DB(), unsafe.GetMigrations()); !errors.Is(adoptionErr, notifications.ErrUnsafeMigrationGraphAdoption) {
+		t.Fatalf("expected non-suffix adoption rejection, got %v", adoptionErr)
 	}
 
-	suffix, err := persistence.New(testPersistenceConfig{driver: "sqlite", server: "shared"}, baseline.DB().DB, sqlitedialect.New())
-	if err != nil {
-		t.Fatalf("new suffix client: %v", err)
+	suffix, suffixErr := persistence.New(testPersistenceConfig{driver: "sqlite", server: "shared"}, baseline.DB().DB, sqlitedialect.New())
+	if suffixErr != nil {
+		t.Fatalf("new suffix client: %v", suffixErr)
 	}
 	if err := RegisterServiceMigrations(suffix,
 		WithServiceMigrationsAppSource("app-local", appFS),
@@ -220,8 +220,8 @@ func TestRegisterServiceMigrations_NotificationAdoptionRequiresSuffix(t *testing
 	); err != nil {
 		t.Fatalf("register suffix graph: %v", err)
 	}
-	if err := notifications.AdoptAdditiveOrderedMigrationGraph(ctx, baseline.DB(), suffix.GetMigrations()); err != nil {
-		t.Fatalf("adopt suffix graph: %v", err)
+	if adoptionErr := notifications.AdoptAdditiveOrderedMigrationGraph(ctx, baseline.DB(), suffix.GetMigrations()); adoptionErr != nil {
+		t.Fatalf("adopt suffix graph: %v", adoptionErr)
 	}
 	if err := suffix.Migrate(ctx); err != nil {
 		t.Fatalf("migrate adopted suffix graph: %v", err)

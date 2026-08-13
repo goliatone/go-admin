@@ -29,7 +29,10 @@ func TestListTemplateRendersResolvedPanelCapabilityMatrix(t *testing.T) {
 				"adminURL":    func(path string) string { return "/admin/" + path },
 				"singularize": func(value string) string { return value },
 				"toJSON": func(value any) string {
-					encoded, _ := json.Marshal(value)
+					encoded, marshalErr := json.Marshal(value)
+					if marshalErr != nil {
+						t.Fatalf("marshal template value: %v", marshalErr)
+					}
 					return string(encoded)
 				},
 				"resource":              "items",

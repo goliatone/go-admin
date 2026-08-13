@@ -31,15 +31,15 @@ func NotificationSystemAuthorityFromContext(ctx context.Context) bool {
 	if ctx == nil {
 		return false
 	}
-	if authorized, _ := ctx.Value(notificationSystemAuthorityContextKey{}).(bool); authorized {
+	if authorized, ok := ctx.Value(notificationSystemAuthorityContextKey{}).(bool); ok && authorized {
 		return true
 	}
 	actor, ok := auth.ActorFromContext(ctx)
 	if !ok || actor == nil || actor.Metadata == nil {
 		return false
 	}
-	authorized, _ := actor.Metadata[NotificationSystemAuthorityMetadataKey].(bool)
-	return authorized
+	authorized, ok := actor.Metadata[NotificationSystemAuthorityMetadataKey].(bool)
+	return ok && authorized
 }
 
 func notificationReadScope(adminCtx AdminContext) (string, error) {

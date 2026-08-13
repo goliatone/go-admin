@@ -316,13 +316,13 @@ func TestAuthUIRoutesExpiredLoginCSRFFlowRedirectsAndRendersFreshForm(t *testing
 		t.Fatalf("new HTTP authenticator: %v", err)
 	}
 	cfg := NewAdminConfig("/admin", "Admin", "en")
-	if err := RegisterAuthUIRoutes(
+	if registerErr := RegisterAuthUIRoutes(
 		server.Router(),
 		cfg,
 		routeAuth,
 		WithAuthUICSRFSecureKey(secureKey),
-	); err != nil {
-		t.Fatalf("register Auth UI routes: %v", err)
+	); registerErr != nil {
+		t.Fatalf("register Auth UI routes: %v", registerErr)
 	}
 
 	expiredToken := expiredAuthUICSRFToken(t, secureKey)
@@ -331,7 +331,7 @@ func TestAuthUIRoutesExpiredLoginCSRFFlowRedirectsAndRendersFreshForm(t *testing
 		"identifier":                {"admin@example.test"},
 		"password":                  {"must-not-cross-redirect"},
 	}
-	postReq := httptest.NewRequest(
+	postReq := newAuthUITestRequest(
 		http.MethodPost,
 		"http://example.test/admin/login",
 		strings.NewReader(form.Encode()),
@@ -342,9 +342,9 @@ func TestAuthUIRoutesExpiredLoginCSRFFlowRedirectsAndRendersFreshForm(t *testing
 	if err != nil {
 		t.Fatalf("submit expired login form: %v", err)
 	}
-	defer postResp.Body.Close()
+	defer closeAuthUITestResponse(t, postResp)
 	if postResp.StatusCode != fiber.StatusSeeOther {
-		body, _ := io.ReadAll(postResp.Body)
+		body := readAuthUITestResponseBody(t, postResp)
 		t.Fatalf("expected %d redirect, got %d body=%s", fiber.StatusSeeOther, postResp.StatusCode, body)
 	}
 	location := postResp.Header.Get("Location")
@@ -358,12 +358,12 @@ func TestAuthUIRoutesExpiredLoginCSRFFlowRedirectsAndRendersFreshForm(t *testing
 		t.Fatal("recovery redirect exposed submitted credentials")
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "http://example.test"+location, nil)
+	getReq := newAuthUITestRequest(http.MethodGet, "http://example.test"+location, nil)
 	getResp, err := server.WrappedRouter().Test(getReq, -1)
 	if err != nil {
 		t.Fatalf("render recovered login page: %v", err)
 	}
-	defer getResp.Body.Close()
+	defer closeAuthUITestResponse(t, getResp)
 	body, err := io.ReadAll(getResp.Body)
 	if err != nil {
 		t.Fatalf("read recovered login page: %v", err)
@@ -565,7 +565,7 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 	}
 	r := server.Router()
 	r.Get("/admin/page", func(c router.Context) error {
-		if message, _ := c.Locals(admin.BrowserCSRFErrorMessageLocal).(string); strings.TrimSpace(message) != "" {
+		if message, exists := c.Locals(admin.BrowserCSRFErrorMessageLocal).(string); exists && strings.TrimSpace(message) != "" {
 			return c.SendString(message)
 		}
 		token, ok := c.Locals(csrfmw.DefaultContextKey).(string)

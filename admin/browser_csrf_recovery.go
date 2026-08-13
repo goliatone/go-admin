@@ -86,7 +86,7 @@ func browserCSRFRecoveryTarget(c router.Context, fallback string) string {
 	}
 	parsed, err := url.Parse(target)
 	if err != nil || parsed == nil || parsed.IsAbs() || parsed.Host != "" {
-		parsed, _ = url.Parse(fallback)
+		parsed = &url.URL{Path: fallback}
 	}
 	if parsed == nil {
 		parsed = &url.URL{Path: "/"}

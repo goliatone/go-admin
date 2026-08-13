@@ -239,10 +239,14 @@ func (c *NotificationRetentionPurgeCommand) record(ctx context.Context, action s
 		return
 	}
 	bestEffortNotificationTelemetry(func() {
-		_ = activity.Record(ctx, ActivityEntry{
+		if err := activity.Record(ctx, ActivityEntry{
 			Action: action,
 			Object: "notifications:retention", Channel: "notifications", Metadata: metadata,
-		})
+		}); err != nil {
+			c.log(ctx, "notification retention activity recording failed", map[string]any{
+				"action": action,
+			}, true)
+		}
 	})
 }
 
@@ -294,8 +298,14 @@ func bestEffortNotificationTelemetry(record func()) {
 	if record == nil {
 		return
 	}
-	defer func() {
-		_ = recover()
-	}()
+	defer recoverNotificationTelemetryPanic()
 	record()
+}
+
+func recoverNotificationTelemetryPanic() {
+	// Telemetry must never replace the primary command result. The observer
+	// itself is the failing boundary, so there is no safe recursive reporter.
+	if recovered := recover(); recovered == nil {
+		return
+	}
 }

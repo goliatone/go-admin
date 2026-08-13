@@ -75,7 +75,7 @@ func TestNotificationRetentionInvalidRequestEmitsSafeRejectedEvidence(t *testing
 	if service.calls != 0 {
 		t.Fatalf("invalid request reached retention service %d times", service.calls)
 	}
-	entries, _ := activity.List(context.Background(), 10)
+	entries := mustListNotificationActivity(t, activity, 10)
 	if len(entries) != 1 || entries[0].Action != "notifications.retention.purge.rejected" ||
 		len(metrics.records) != 1 || len(logger.entries) != 1 {
 		t.Fatalf("expected one rejected evidence set, activity=%+v metrics=%v logs=%v", entries, metrics.records, logger.entries)
@@ -103,7 +103,7 @@ func TestNotificationRetentionPurgeCommandDelegatesOnceStoresResultAndEmitsSafeT
 	if !ok || got != want {
 		t.Fatalf("unexpected stored result: %+v ok=%v", got, ok)
 	}
-	entries, _ := activity.List(context.Background(), 10)
+	entries := mustListNotificationActivity(t, activity, 10)
 	if len(entries) != 2 || len(metrics.records) != 1 || len(logger.entries) != 1 {
 		t.Fatalf("expected attempt/outcome telemetry, activity=%d metrics=%d logs=%d", len(entries), len(metrics.records), len(logger.entries))
 	}
@@ -122,19 +122,18 @@ func TestNotificationRetentionPurgeCommandSanitizesServiceFailure(t *testing.T) 
 	if !errors.As(err, &safe) || safe.Code != "retention_purge_failed" || strings.Contains(err.Error(), "recipient@example.test") {
 		t.Fatalf("expected sanitized failure, got %T %v", err, err)
 	}
-	entries, _ := activity.List(context.Background(), 10)
+	entries := mustListNotificationActivity(t, activity, 10)
 	assertSafeNotificationTelemetry(t, entries, metrics.records, logger.entries)
 }
 
 func TestNotificationRetentionMetricsCannotChangeSuccessOrFailureOutcomes(t *testing.T) {
 	var typedNil *panickingNotificationMetrics
-	collectors := map[string]any{
+	collectors := map[string]*panickingNotificationMetrics{
 		"typed nil": typedNil,
-		"panic":     &panickingNotificationMetrics{},
+		"panic":     {},
 	}
-	for name, rawCollector := range collectors {
+	for name, collector := range collectors {
 		t.Run(name+" success", func(t *testing.T) {
-			collector := rawCollector.(*panickingNotificationMetrics)
 			want := retention.Result{EventsDeleted: 3, HasMore: true}
 			command := &NotificationRetentionPurgeCommand{
 				Service: &retentionServiceSpy{result: want}, Metrics: collector,
@@ -145,7 +144,6 @@ func TestNotificationRetentionMetricsCannotChangeSuccessOrFailureOutcomes(t *tes
 			}
 		})
 		t.Run(name+" failure", func(t *testing.T) {
-			collector := rawCollector.(*panickingNotificationMetrics)
 			command := &NotificationRetentionPurgeCommand{
 				Service: &retentionServiceSpy{err: errors.New("raw provider failure")}, Metrics: collector,
 			}
@@ -156,6 +154,146 @@ func TestNotificationRetentionMetricsCannotChangeSuccessOrFailureOutcomes(t *tes
 			}
 		})
 	}
+}
+
+func TestNotificationRetentionActivityFailuresCannotChangeCommandOutcomes(t *testing.T) {
+	activityFailures := []struct {
+		name       string
+		err        error
+		panicValue string
+		wantLog    bool
+	}{
+		{name: "returned error", err: errors.New("activity backend unavailable"), wantLog: true},
+		{name: "panic", panicValue: "activity backend panic"},
+	}
+	outcomes := []struct {
+		name    string
+		service *retentionServiceSpy
+		failed  bool
+	}{
+		{name: "success", service: &retentionServiceSpy{result: retention.Result{EventsDeleted: 3, HasMore: true}}},
+		{name: "failure", service: &retentionServiceSpy{err: errors.New("raw provider failure")}, failed: true},
+	}
+
+	for _, failure := range activityFailures {
+		for _, outcome := range outcomes {
+			t.Run(failure.name+"/"+outcome.name, func(t *testing.T) {
+				activity := &notificationActivityFailureSpy{err: failure.err, panicValue: failure.panicValue}
+				logger := &notificationLoggerSpy{}
+				command := &NotificationRetentionPurgeCommand{
+					Service: outcome.service, Activity: activity, Logger: logger,
+				}
+
+				assertNotificationRetentionOutcome(t, command, outcome.failed)
+				if activity.calls != 2 {
+					t.Fatalf("expected attempt and outcome activity calls, got %d", activity.calls)
+				}
+				if failure.wantLog && !notificationLogContains(logger.entries, "notification retention activity recording failed") {
+					t.Fatalf("expected activity failure warning, logs=%v", logger.entries)
+				}
+			})
+		}
+	}
+}
+
+func TestNotificationRetentionLoggerPanicsCannotChangeCommandOutcomes(t *testing.T) {
+	tests := []struct {
+		name    string
+		panicOn string
+		service *retentionServiceSpy
+		failed  bool
+	}{
+		{name: "context success", panicOn: "context", service: &retentionServiceSpy{result: retention.Result{EventsDeleted: 1}}},
+		{name: "info success", panicOn: "info", service: &retentionServiceSpy{result: retention.Result{EventsDeleted: 1}}},
+		{name: "context failure", panicOn: "context", service: &retentionServiceSpy{err: errors.New("raw provider failure")}, failed: true},
+		{name: "warn failure", panicOn: "warn", service: &retentionServiceSpy{err: errors.New("raw provider failure")}, failed: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			logger := &panickingNotificationLogger{panicOn: test.panicOn}
+			command := &NotificationRetentionPurgeCommand{Service: test.service, Logger: logger}
+
+			assertNotificationRetentionOutcome(t, command, test.failed)
+			if logger.panicCalls != 1 {
+				t.Fatalf("expected one isolated logger panic, got %d", logger.panicCalls)
+			}
+		})
+	}
+}
+
+func assertNotificationRetentionOutcome(t *testing.T, command *NotificationRetentionPurgeCommand, wantFailure bool) {
+	t.Helper()
+	result, err := command.Run(context.Background(), validNotificationRetentionPurgeMsg())
+	if !wantFailure {
+		if err != nil || result.EventsDeleted == 0 {
+			t.Fatalf("observer changed successful result: result=%+v err=%v", result, err)
+		}
+		return
+	}
+	var safe privacy.SafeError
+	if !errors.As(err, &safe) || safe.Code != "retention_purge_failed" {
+		t.Fatalf("observer changed sanitized failure: %T %v", err, err)
+	}
+}
+
+type notificationActivityFailureSpy struct {
+	err        error
+	panicValue string
+	calls      int
+}
+
+func (s *notificationActivityFailureSpy) Record(context.Context, ActivityEntry) error {
+	s.calls++
+	if s.panicValue != "" {
+		panic(s.panicValue)
+	}
+	return s.err
+}
+
+func (*notificationActivityFailureSpy) List(context.Context, int, ...ActivityFilter) ([]ActivityEntry, error) {
+	return nil, nil
+}
+
+type panickingNotificationLogger struct {
+	panicOn    string
+	panicCalls int
+}
+
+func (*panickingNotificationLogger) Trace(string, ...any) {}
+func (*panickingNotificationLogger) Debug(string, ...any) {}
+
+func (l *panickingNotificationLogger) Info(string, ...any) {
+	l.panicAt("info")
+}
+
+func (l *panickingNotificationLogger) Warn(string, ...any) {
+	l.panicAt("warn")
+}
+
+func (*panickingNotificationLogger) Error(string, ...any) {}
+func (*panickingNotificationLogger) Fatal(string, ...any) {}
+
+func (l *panickingNotificationLogger) WithContext(context.Context) Logger {
+	l.panicAt("context")
+	return l
+}
+
+func (l *panickingNotificationLogger) panicAt(point string) {
+	if l.panicOn != point {
+		return
+	}
+	l.panicCalls++
+	panic("notification logger " + point + " panic")
+}
+
+func notificationLogContains(entries []string, message string) bool {
+	for _, entry := range entries {
+		if strings.Contains(entry, message) {
+			return true
+		}
+	}
+	return false
 }
 
 type panickingNotificationMetrics struct{}
@@ -226,8 +364,8 @@ func TestAdminWithActivitySinkRewiresRegisteredNotificationRetentionCommand(t *t
 		gocommand.DispatchOptions{Mode: gocommand.ExecutionModeInline}); err != nil {
 		t.Fatalf("dispatch retention purge: %v", err)
 	}
-	originalEntries, _ := original.List(context.Background(), 20)
-	replacementEntries, _ := replacement.List(context.Background(), 20)
+	originalEntries := mustListNotificationActivity(t, original, 20)
+	replacementEntries := mustListNotificationActivity(t, replacement, 20)
 	if got := countRetentionCommandActivity(originalEntries); got != 0 {
 		t.Fatalf("stale activity sink received %d retention command events", got)
 	}
@@ -292,8 +430,7 @@ func (s *notificationMetricsSpy) Record(operation string, labels map[string]stri
 type notificationLoggerSpy struct{ entries []string }
 
 func (l *notificationLoggerSpy) append(message string, args ...any) {
-	encoded, _ := json.Marshal(args)
-	l.entries = append(l.entries, message+string(encoded))
+	l.entries = append(l.entries, message+fmt.Sprint(args...))
 }
 func (l *notificationLoggerSpy) Trace(message string, args ...any)  { l.append(message, args...) }
 func (l *notificationLoggerSpy) Debug(message string, args ...any)  { l.append(message, args...) }
@@ -305,15 +442,27 @@ func (l *notificationLoggerSpy) WithContext(context.Context) Logger { return l }
 
 func assertSafeNotificationTelemetry(t *testing.T, entries []ActivityEntry, metrics, logs []string) {
 	t.Helper()
-	payload, _ := json.Marshal(struct {
+	payload, err := json.Marshal(struct {
 		Entries []ActivityEntry
 		Metrics []string
 		Logs    []string
 	}{entries, metrics, logs})
+	if err != nil {
+		t.Fatalf("marshal notification telemetry: %v", err)
+	}
 	serialized := string(payload)
 	for _, forbidden := range []string{"recipient@example.test", "event-id-secret", "payload-secret", "system-admin", "raw_error", "event_id", "message_id"} {
 		if strings.Contains(serialized, forbidden) {
 			t.Fatalf("unsafe telemetry contains %q: %s", forbidden, serialized)
 		}
 	}
+}
+
+func mustListNotificationActivity(t *testing.T, activity *ActivityFeed, limit int) []ActivityEntry {
+	t.Helper()
+	entries, err := activity.List(context.Background(), limit)
+	if err != nil {
+		t.Fatalf("list notification activity: %v", err)
+	}
+	return entries
 }

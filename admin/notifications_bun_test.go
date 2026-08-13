@@ -31,13 +31,17 @@ func TestNewBunNotificationRuntimeRequiresMigrationsAndSupportsBootstrap(t *test
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer sqlDB.Close()
+	t.Cleanup(func() {
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Errorf("close sqlite: %v", closeErr)
+		}
+	})
 	client, err := persistence.New(notificationPersistenceConfig{dsn: dsn}, sqlDB, sqlitedialect.New())
 	if err != nil {
 		t.Fatalf("new persistence client: %v", err)
 	}
 	ctx := context.Background()
-	if _, err := NewBunNotificationRuntime(ctx, client.DB()); err == nil {
+	if _, runtimeErr := NewBunNotificationRuntime(ctx, client.DB()); runtimeErr == nil {
 		t.Fatal("expected runtime construction to fail before migrations")
 	}
 	root, err := notifications.GetMigrationsFS()
@@ -56,7 +60,7 @@ func TestNewBunNotificationRuntimeRequiresMigrationsAndSupportsBootstrap(t *test
 			t.Fatalf("apply partial migration %s: %v", name, execErr)
 		}
 	}
-	if _, err := NewBunNotificationRuntime(ctx, client.DB()); err == nil {
+	if _, runtimeErr := NewBunNotificationRuntime(ctx, client.DB()); runtimeErr == nil {
 		t.Fatal("expected runtime construction to reject migrations missing schema/index upgrades")
 	}
 	fullDSN := "file:" + filepath.Join(t.TempDir(), "notifications-full.db") + "?cache=shared&_fk=1"
@@ -64,7 +68,11 @@ func TestNewBunNotificationRuntimeRequiresMigrationsAndSupportsBootstrap(t *test
 	if err != nil {
 		t.Fatalf("open full sqlite: %v", err)
 	}
-	defer fullSQLDB.Close()
+	t.Cleanup(func() {
+		if closeErr := fullSQLDB.Close(); closeErr != nil {
+			t.Errorf("close full sqlite: %v", closeErr)
+		}
+	})
 	client, err = persistence.New(notificationPersistenceConfig{dsn: fullDSN}, fullSQLDB, sqlitedialect.New())
 	if err != nil {
 		t.Fatalf("new full persistence client: %v", err)
@@ -73,11 +81,11 @@ func TestNewBunNotificationRuntimeRequiresMigrationsAndSupportsBootstrap(t *test
 	if err != nil {
 		t.Fatalf("notification migration source: %v", err)
 	}
-	if err := client.RegisterOrderedMigrationSources(source); err != nil {
-		t.Fatalf("register notification migrations: %v", err)
+	if registerErr := client.RegisterOrderedMigrationSources(source); registerErr != nil {
+		t.Fatalf("register notification migrations: %v", registerErr)
 	}
-	if err := client.Migrate(ctx); err != nil {
-		t.Fatalf("migrate notifications: %v", err)
+	if migrationErr := client.Migrate(ctx); migrationErr != nil {
+		t.Fatalf("migrate notifications: %v", migrationErr)
 	}
 	runtime, err := NewBunNotificationRuntime(ctx, client.DB())
 	if err != nil {
@@ -97,7 +105,11 @@ func TestBunNotificationRuntimeSeedsAreConcurrentAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer sqlDB.Close()
+	t.Cleanup(func() {
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Errorf("close sqlite: %v", closeErr)
+		}
+	})
 	sqlDB.SetMaxOpenConns(16)
 	client, err := persistence.New(notificationPersistenceConfig{dsn: dsn}, sqlDB, sqlitedialect.New())
 	if err != nil {
@@ -107,11 +119,11 @@ func TestBunNotificationRuntimeSeedsAreConcurrentAndIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("notification migration source: %v", err)
 	}
-	if err := client.RegisterOrderedMigrationSources(source); err != nil {
-		t.Fatalf("register notification migrations: %v", err)
+	if registerErr := client.RegisterOrderedMigrationSources(source); registerErr != nil {
+		t.Fatalf("register notification migrations: %v", registerErr)
 	}
-	if err := client.Migrate(context.Background()); err != nil {
-		t.Fatalf("migrate notifications: %v", err)
+	if migrationErr := client.Migrate(context.Background()); migrationErr != nil {
+		t.Fatalf("migrate notifications: %v", migrationErr)
 	}
 	providers := storage.NewBunProviders(client.DB())
 

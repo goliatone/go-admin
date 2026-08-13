@@ -202,14 +202,34 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 	}
 
 	options := resolveStaticAssetsOptions(cfg, opts)
-
-	if options.diskAssetsFS == nil && options.diskAssetsDir != "" {
-		if _, err := os.Stat(options.diskAssetsDir); err == nil {
-			options.diskAssetsFS = os.DirFS(options.diskAssetsDir)
-		}
+	options.diskAssetsFS = resolveDiskAssetsFS(options.diskAssetsFS, options.diskAssetsDir)
+	staticFS := fallbackFSList(staticAssetStack(options, assetsFS))
+	if staticFS != nil && options.assetsPrefix != "" {
+		staticFS = legacyDocumentAssetAliasesFS{FS: staticFS}
+		r.Static(options.assetsPrefix, ".", router.Static{
+			FS:   staticFS,
+			Root: ".",
+		})
 	}
 
-	assetStack := []fs.FS{}
+	registerFormgenRuntimeAssets(r, options.runtimePrefix)
+	registerStaticFS(r, options.formgenPrefix, formgenvanilla.AssetsFS())
+	registerStaticFS(r, options.echartsPrefix, httpFSAdapter{fs: dashboardcmp.EChartsAssetsFS()})
+	registerStaticFS(r, options.shellPrefix, dashboardcmp.ShellAssets())
+}
+
+func resolveDiskAssetsFS(configured fs.FS, directory string) fs.FS {
+	if configured != nil || directory == "" {
+		return configured
+	}
+	if _, err := os.Stat(directory); err != nil {
+		return nil
+	}
+	return os.DirFS(directory)
+}
+
+func staticAssetStack(options staticAssetsOptions, assetsFS fs.FS) []fs.FS {
+	assetStack := make([]fs.FS, 0, 4+len(options.extraAssetsFS))
 	if options.diskAssetsFS != nil {
 		assetStack = append(assetStack, resolveAssetsFS(options.diskAssetsFS))
 	}
@@ -223,50 +243,26 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 	if packagedSidebarAssets := SidebarAssetsFS(); packagedSidebarAssets != nil {
 		assetStack = append(assetStack, packagedSidebarAssets)
 	}
-	staticFS := fallbackFSList(assetStack)
-	if staticFS != nil && options.assetsPrefix != "" {
-		staticFS = legacyDocumentAssetAliasesFS{FS: staticFS}
-		r.Static(options.assetsPrefix, ".", router.Static{
-			FS:   staticFS,
-			Root: ".",
-		})
-	}
+	return assetStack
+}
 
-	if options.runtimePrefix != "" {
-		r.Static(options.runtimePrefix, ".", router.Static{
-			FS:   formgen.RuntimeAssetsFS(),
-			Root: ".",
-		})
-		// go-formgen injects the relationships runtime at "/runtime/..." by default.
-		// Keep a root alias so forms work even when the admin is served under a base path.
-		if staticprefixes.NeedsRuntimeRootAlias(options.runtimePrefix) {
-			r.Static("/runtime", ".", router.Static{
-				FS:   formgen.RuntimeAssetsFS(),
-				Root: ".",
-			})
-		}
+func registerFormgenRuntimeAssets[T any](r router.Router[T], runtimePrefix string) {
+	if runtimePrefix == "" {
+		return
 	}
+	registerStaticFS(r, runtimePrefix, formgen.RuntimeAssetsFS())
+	// go-formgen injects the relationships runtime at "/runtime/..." by default.
+	// Keep a root alias so forms work even when the admin is served under a base path.
+	if staticprefixes.NeedsRuntimeRootAlias(runtimePrefix) {
+		registerStaticFS(r, "/runtime", formgen.RuntimeAssetsFS())
+	}
+}
 
-	if options.formgenPrefix != "" {
-		r.Static(options.formgenPrefix, ".", router.Static{
-			FS:   formgenvanilla.AssetsFS(),
-			Root: ".",
-		})
+func registerStaticFS[T any](r router.Router[T], prefix string, assets fs.FS) {
+	if prefix == "" {
+		return
 	}
-
-	if options.echartsPrefix != "" {
-		r.Static(options.echartsPrefix, ".", router.Static{
-			FS:   httpFSAdapter{fs: dashboardcmp.EChartsAssetsFS()},
-			Root: ".",
-		})
-	}
-
-	if options.shellPrefix != "" {
-		r.Static(options.shellPrefix, ".", router.Static{
-			FS:   dashboardcmp.ShellAssets(),
-			Root: ".",
-		})
-	}
+	r.Static(prefix, ".", router.Static{FS: assets, Root: "."})
 }
 
 // legacyDocumentAssetAliasesFS keeps quickstart compatible with go-admin

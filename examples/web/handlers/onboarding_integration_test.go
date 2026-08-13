@@ -309,7 +309,13 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 	var csrfToken string
 	var csrfCookie *http.Cookie
 	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete {
-		csrfResponse, err := app.Test(httptest.NewRequest(http.MethodGet, "http://example.com/admin/onboarding-csrf", nil), -1)
+		csrfRequest := httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"http://example.com/admin/onboarding-csrf",
+			nil,
+		)
+		csrfResponse, err := app.Test(csrfRequest, -1)
 		if err != nil {
 			t.Fatalf("request onboarding csrf token: %v", err)
 		}

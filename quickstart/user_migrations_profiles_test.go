@@ -132,8 +132,8 @@ func TestRegisterUserMigrations_NotificationPlacementAndOptOut(t *testing.T) {
 	assertUserSourceStablePlanEntry(t, plan, "go_notifications", 60, []string{"go_users"})
 
 	disabled := newUserMigrationsPersistenceClient(t)
-	if err := RegisterUserMigrations(disabled, WithUserMigrationsNotificationsEnabled(false)); err != nil {
-		t.Fatalf("register without notifications: %v", err)
+	if registerErr := RegisterUserMigrations(disabled, WithUserMigrationsNotificationsEnabled(false)); registerErr != nil {
+		t.Fatalf("register without notifications: %v", registerErr)
 	}
 	disabledPlan, err := disabled.Plan(context.Background())
 	if err != nil {

@@ -273,8 +273,20 @@ func TestActivityEntriesNavigationReceivesDetachedMetadata(t *testing.T) {
 	}
 	adm := &Admin{activityNavigationResolver: ActivityNavigationResolverFunc(func(_ context.Context, _ ActivityReadContext, records []usertypes.ActivityRecord) ([]ActivityNavigation, error) {
 		got := records[0]
-		got.Data["nested"].(map[string]any)["label"] = "changed"
-		got.Data["items"].([]any)[0].(map[string]any)["label"] = "changed again"
+		nestedData, ok := got.Data["nested"].(map[string]any)
+		if !ok {
+			t.Fatalf("detached nested metadata has type %T", got.Data["nested"])
+		}
+		nestedData["label"] = "changed"
+		items, ok := got.Data["items"].([]any)
+		if !ok || len(items) == 0 {
+			t.Fatalf("detached item metadata has type %T and length %d", got.Data["items"], len(items))
+		}
+		itemData, ok := items[0].(map[string]any)
+		if !ok {
+			t.Fatalf("detached item metadata entry has type %T", items[0])
+		}
+		itemData["label"] = "changed again"
 		return []ActivityNavigation{{}}, nil
 	})}
 

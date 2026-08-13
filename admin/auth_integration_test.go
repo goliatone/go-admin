@@ -528,7 +528,7 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
-		if message, _ := c.Locals(BrowserCSRFErrorMessageLocal).(string); strings.TrimSpace(message) != "" {
+		if message, ok := c.Locals(BrowserCSRFErrorMessageLocal).(string); ok && strings.TrimSpace(message) != "" {
 			return c.SendString(message)
 		}
 		csrfToken := mustAs[string](c.Locals(csrfmw.DefaultContextKey))

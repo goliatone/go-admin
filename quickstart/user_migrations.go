@@ -92,7 +92,28 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		return nil
 	}
 
-	options := userMigrationsOptions{
+	options := defaultUserMigrationsOptions()
+	applyUserMigrationsOptions(&options, opts)
+	enabled, err := resolveUserMigrationEnabledSources(options)
+	if err != nil {
+		return err
+	}
+
+	orderedSources := make([]persistence.OrderedMigrationSource, 0, 5)
+	if err := appendUserMigrationSources(&orderedSources, options, enabled); err != nil {
+		return err
+	}
+	if err := appendUserNotificationMigrationSource(&orderedSources, options, enabled); err != nil {
+		return err
+	}
+	if len(orderedSources) == 0 {
+		return nil
+	}
+	return client.RegisterOrderedMigrationSources(orderedSources...)
+}
+
+func defaultUserMigrationsOptions() userMigrationsOptions {
+	return userMigrationsOptions{
 		profile:                 UserMigrationsProfileCombined,
 		authLabel:               UserMigrationsSourceLabelAuth,
 		usersCoreLabel:          UserMigrationsSourceLabelUsersCore,
@@ -100,18 +121,17 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		usersAuthExtrasLabel:    UserMigrationsSourceLabelUsersAuthExtras,
 		validationTargets:       []string{"postgres", "sqlite"},
 	}
+}
+
+func applyUserMigrationsOptions(options *userMigrationsOptions, opts []UserMigrationsOption) {
 	for _, opt := range opts {
 		if opt != nil {
-			opt(&options)
+			opt(options)
 		}
 	}
+}
 
-	enabled, err := resolveUserMigrationEnabledSources(options)
-	if err != nil {
-		return err
-	}
-
-	orderedSources := make([]persistence.OrderedMigrationSource, 0, 5)
+func appendUserMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, options userMigrationsOptions, enabled userMigrationEnabledSources) error {
 	sourceNameCounts := map[string]int{}
 	for _, source := range userMigrationSourceSpecs(options, enabled) {
 		if !source.enabled {
@@ -121,33 +141,34 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		if err != nil {
 			return err
 		}
-		appendStableOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, source.label, source.sourceKey, source.order, source.dependsOn, options.validationTargets, options.observer)
+		appendStableOrderedMigrationSource(orderedSources, sourceNameCounts, migrationsFS, source.label, source.sourceKey, source.order, source.dependsOn, options.validationTargets, options.observer)
 	}
-	if enabled.notifications {
-		order := notifications.MigrationSourceOrder
-		dependencies := append([]string{}, options.notificationDependencies...)
-		if options.notificationPlacementSet {
-			order = options.notificationOrder
-			if order <= notifications.MigrationSourceOrder || len(dependencies) == 0 {
-				return fmt.Errorf("quickstart: explicit notification migration placement must use order > %d and depend on the persisted predecessor", notifications.MigrationSourceOrder)
-			}
-		} else if predecessor := nearestUserMigrationPredecessor(enabled); predecessor != "" {
-			dependencies = append(dependencies, predecessor)
-		}
-		source, sourceErr := notifications.OrderedMigrationSourceWithOptions(notifications.MigrationSourceOptions{Order: order, Dependencies: dependencies})
-		if sourceErr != nil {
-			return sourceErr
-		}
-		if options.observer != nil {
-			options.observer(UserMigrationRegistration{Label: UserMigrationsSourceLabelNotifications})
-		}
-		orderedSources = append(orderedSources, source)
-	}
+	return nil
+}
 
-	if len(orderedSources) == 0 {
+func appendUserNotificationMigrationSource(orderedSources *[]persistence.OrderedMigrationSource, options userMigrationsOptions, enabled userMigrationEnabledSources) error {
+	if !enabled.notifications {
 		return nil
 	}
-	return client.RegisterOrderedMigrationSources(orderedSources...)
+	order := notifications.MigrationSourceOrder
+	dependencies := append([]string{}, options.notificationDependencies...)
+	if options.notificationPlacementSet {
+		order = options.notificationOrder
+		if order <= notifications.MigrationSourceOrder || len(dependencies) == 0 {
+			return fmt.Errorf("quickstart: explicit notification migration placement must use order > %d and depend on the persisted predecessor", notifications.MigrationSourceOrder)
+		}
+	} else if predecessor := nearestUserMigrationPredecessor(enabled); predecessor != "" {
+		dependencies = append(dependencies, predecessor)
+	}
+	source, err := notifications.OrderedMigrationSourceWithOptions(notifications.MigrationSourceOptions{Order: order, Dependencies: dependencies})
+	if err != nil {
+		return err
+	}
+	if options.observer != nil {
+		options.observer(UserMigrationRegistration{Label: UserMigrationsSourceLabelNotifications})
+	}
+	*orderedSources = append(*orderedSources, source)
+	return nil
 }
 
 type userMigrationEnabledSources struct {

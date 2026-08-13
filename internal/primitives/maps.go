@@ -24,7 +24,9 @@ func CloneAnyMapDeep(in map[string]any) map[string]any {
 		return nil
 	}
 	cloned := cloneMutableValue(reflect.ValueOf(in), make(map[cloneVisit]reflect.Value))
-	return cloned.Interface().(map[string]any)
+	var out map[string]any
+	reflect.ValueOf(&out).Elem().Set(cloned)
+	return out
 }
 
 type cloneVisit struct {
@@ -38,76 +40,97 @@ func cloneMutableValue(value reflect.Value, seen map[cloneVisit]reflect.Value) r
 	}
 	switch value.Kind() {
 	case reflect.Interface:
-		if value.IsNil() {
-			return reflect.Zero(value.Type())
-		}
-		cloned := cloneMutableValue(value.Elem(), seen)
-		out := reflect.New(value.Type()).Elem()
-		out.Set(cloned)
-		return out
+		return cloneInterfaceValue(value, seen)
 	case reflect.Map:
-		if value.IsNil() {
-			return reflect.Zero(value.Type())
-		}
-		visit := cloneVisit{typ: value.Type(), ptr: value.Pointer()}
-		if cloned, ok := seen[visit]; ok {
-			return cloned
-		}
-		out := reflect.MakeMapWithSize(value.Type(), value.Len())
-		seen[visit] = out
-		iterator := value.MapRange()
-		for iterator.Next() {
-			out.SetMapIndex(
-				iterator.Key(),
-				cloneMutableValue(iterator.Value(), seen),
-			)
-		}
-		return out
+		return cloneMapValue(value, seen)
 	case reflect.Slice:
-		if value.IsNil() {
-			return reflect.Zero(value.Type())
-		}
-		visit := cloneVisit{typ: value.Type(), ptr: value.Pointer()}
-		if cloned, ok := seen[visit]; ok {
-			return cloned
-		}
-		out := reflect.MakeSlice(value.Type(), value.Len(), value.Cap())
-		seen[visit] = out
-		for index := range value.Len() {
-			out.Index(index).Set(cloneMutableValue(value.Index(index), seen))
-		}
-		return out
+		return cloneSliceValue(value, seen)
 	case reflect.Array:
-		out := reflect.New(value.Type()).Elem()
-		for index := range value.Len() {
-			out.Index(index).Set(cloneMutableValue(value.Index(index), seen))
-		}
-		return out
+		return cloneArrayValue(value, seen)
 	case reflect.Pointer:
-		if value.IsNil() {
-			return reflect.Zero(value.Type())
-		}
-		visit := cloneVisit{typ: value.Type(), ptr: value.Pointer()}
-		if cloned, ok := seen[visit]; ok {
-			return cloned
-		}
-		out := reflect.New(value.Type().Elem())
-		seen[visit] = out
-		out.Elem().Set(cloneMutableValue(value.Elem(), seen))
-		return out
+		return clonePointerValue(value, seen)
 	case reflect.Struct:
-		out := reflect.New(value.Type()).Elem()
-		out.Set(value)
-		for index := range value.NumField() {
-			if !out.Field(index).CanSet() || !value.Field(index).CanInterface() {
-				continue
-			}
-			out.Field(index).Set(cloneMutableValue(value.Field(index), seen))
-		}
-		return out
+		return cloneStructValue(value, seen)
 	default:
 		return value
 	}
+}
+
+func cloneInterfaceValue(value reflect.Value, seen map[cloneVisit]reflect.Value) reflect.Value {
+	if value.IsNil() {
+		return reflect.Zero(value.Type())
+	}
+	cloned := cloneMutableValue(value.Elem(), seen)
+	out := reflect.New(value.Type()).Elem()
+	out.Set(cloned)
+	return out
+}
+
+func cloneMapValue(value reflect.Value, seen map[cloneVisit]reflect.Value) reflect.Value {
+	if value.IsNil() {
+		return reflect.Zero(value.Type())
+	}
+	visit := cloneVisit{typ: value.Type(), ptr: value.Pointer()}
+	if cloned, ok := seen[visit]; ok {
+		return cloned
+	}
+	out := reflect.MakeMapWithSize(value.Type(), value.Len())
+	seen[visit] = out
+	iterator := value.MapRange()
+	for iterator.Next() {
+		out.SetMapIndex(iterator.Key(), cloneMutableValue(iterator.Value(), seen))
+	}
+	return out
+}
+
+func cloneSliceValue(value reflect.Value, seen map[cloneVisit]reflect.Value) reflect.Value {
+	if value.IsNil() {
+		return reflect.Zero(value.Type())
+	}
+	visit := cloneVisit{typ: value.Type(), ptr: value.Pointer()}
+	if cloned, ok := seen[visit]; ok {
+		return cloned
+	}
+	out := reflect.MakeSlice(value.Type(), value.Len(), value.Cap())
+	seen[visit] = out
+	for index := range value.Len() {
+		out.Index(index).Set(cloneMutableValue(value.Index(index), seen))
+	}
+	return out
+}
+
+func cloneArrayValue(value reflect.Value, seen map[cloneVisit]reflect.Value) reflect.Value {
+	out := reflect.New(value.Type()).Elem()
+	for index := range value.Len() {
+		out.Index(index).Set(cloneMutableValue(value.Index(index), seen))
+	}
+	return out
+}
+
+func clonePointerValue(value reflect.Value, seen map[cloneVisit]reflect.Value) reflect.Value {
+	if value.IsNil() {
+		return reflect.Zero(value.Type())
+	}
+	visit := cloneVisit{typ: value.Type(), ptr: value.Pointer()}
+	if cloned, ok := seen[visit]; ok {
+		return cloned
+	}
+	out := reflect.New(value.Type().Elem())
+	seen[visit] = out
+	out.Elem().Set(cloneMutableValue(value.Elem(), seen))
+	return out
+}
+
+func cloneStructValue(value reflect.Value, seen map[cloneVisit]reflect.Value) reflect.Value {
+	out := reflect.New(value.Type()).Elem()
+	out.Set(value)
+	for index := range value.NumField() {
+		if !out.Field(index).CanSet() || !value.Field(index).CanInterface() {
+			continue
+		}
+		out.Field(index).Set(cloneMutableValue(value.Field(index), seen))
+	}
+	return out
 }
 
 // CloneAnyMapNilOnEmpty returns nil when input is nil or empty.

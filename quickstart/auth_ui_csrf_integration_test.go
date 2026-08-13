@@ -84,23 +84,23 @@ func TestAuthUIBrowserCSRFIsBoundToIssuingClientAndOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create browser protection: %v", err)
 	}
-	if err := RegisterAuthUIRoutes(routes, cfg, routeAuth, WithAuthUIBrowserProtection(protection)); err != nil {
-		t.Fatalf("register Auth UI routes: %v", err)
+	if registerErr := RegisterAuthUIRoutes(routes, cfg, routeAuth, WithAuthUIBrowserProtection(protection)); registerErr != nil {
+		t.Fatalf("register Auth UI routes: %v", registerErr)
 	}
 
 	getResponse, err := server.WrappedRouter().Test(
-		httptest.NewRequest(http.MethodGet, "http://example.test/admin/login", nil),
+		newAuthUITestRequest(http.MethodGet, "http://example.test/admin/login", nil),
 		-1,
 	)
 	if err != nil {
 		t.Fatalf("get login page: %v", err)
 	}
+	defer closeAuthUITestResponse(t, getResponse)
 	if getResponse.StatusCode != http.StatusOK {
 		t.Fatalf("expected login page, got %d", getResponse.StatusCode)
 	}
 	issuedToken := authUICSRFTokenFromResponse(t, getResponse)
 	issuedCookie := authUICSRFCookieFromResponse(t, getResponse)
-	getResponse.Body.Close()
 	if !issuedCookie.HttpOnly || issuedCookie.Path != "/" || issuedCookie.SameSite != http.SameSiteLaxMode {
 		t.Fatalf("unexpected pre-auth cookie security attributes: %#v", issuedCookie)
 	}
@@ -110,7 +110,7 @@ func TestAuthUIBrowserCSRFIsBoundToIssuingClientAndOrigin(t *testing.T) {
 		"identifier":                {"admin@example.test"},
 		"password":                  {"password"},
 	}
-	sameClientRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/login", strings.NewReader(form.Encode()))
+	sameClientRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/login", strings.NewReader(form.Encode()))
 	sameClientRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	sameClientRequest.Header.Set("Origin", "http://example.test")
 	sameClientRequest.AddCookie(issuedCookie)
@@ -118,7 +118,7 @@ func TestAuthUIBrowserCSRFIsBoundToIssuingClientAndOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit same-client login: %v", err)
 	}
-	sameClientResponse.Body.Close()
+	defer closeAuthUITestResponse(t, sameClientResponse)
 	if sameClientResponse.StatusCode != http.StatusFound {
 		t.Fatalf("expected same-client login success, got %d", sameClientResponse.StatusCode)
 	}
@@ -126,14 +126,14 @@ func TestAuthUIBrowserCSRFIsBoundToIssuingClientAndOrigin(t *testing.T) {
 		t.Fatalf("expected one authentication call, got %d", provider.verifyCalls)
 	}
 
-	otherClientRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/login", strings.NewReader(form.Encode()))
+	otherClientRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/login", strings.NewReader(form.Encode()))
 	otherClientRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	otherClientRequest.Header.Set("Origin", "http://example.test")
 	otherClientResponse, err := server.WrappedRouter().Test(otherClientRequest, -1)
 	if err != nil {
 		t.Fatalf("submit cross-client login: %v", err)
 	}
-	otherClientResponse.Body.Close()
+	defer closeAuthUITestResponse(t, otherClientResponse)
 	if otherClientResponse.StatusCode != http.StatusSeeOther {
 		t.Fatalf("expected cross-client token rejection, got %d", otherClientResponse.StatusCode)
 	}
@@ -141,7 +141,7 @@ func TestAuthUIBrowserCSRFIsBoundToIssuingClientAndOrigin(t *testing.T) {
 		t.Fatalf("cross-client token reached authentication; calls=%d", provider.verifyCalls)
 	}
 
-	crossOriginRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/login", strings.NewReader(form.Encode()))
+	crossOriginRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/login", strings.NewReader(form.Encode()))
 	crossOriginRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	crossOriginRequest.Header.Set("Origin", "https://attacker.example")
 	crossOriginRequest.AddCookie(issuedCookie)
@@ -149,9 +149,9 @@ func TestAuthUIBrowserCSRFIsBoundToIssuingClientAndOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit cross-origin login: %v", err)
 	}
-	defer crossOriginResponse.Body.Close()
+	defer closeAuthUITestResponse(t, crossOriginResponse)
 	if crossOriginResponse.StatusCode != http.StatusForbidden {
-		body, _ := io.ReadAll(crossOriginResponse.Body)
+		body := readAuthUITestResponseBody(t, crossOriginResponse)
 		t.Fatalf("expected cross-origin rejection, got %d body=%s", crossOriginResponse.StatusCode, body)
 	}
 	if provider.verifyCalls != 1 {
@@ -175,15 +175,15 @@ func TestAuthUIBrowserCSRFSecureRequestsUseHostPrefixedCookie(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create HTTP authenticator: %v", err)
 	}
-	if err := RegisterAuthUIRoutes(routes, cfg, routeAuth, WithAuthUIBrowserProtection(protection)); err != nil {
-		t.Fatalf("register Auth UI routes: %v", err)
+	if registerErr := RegisterAuthUIRoutes(routes, cfg, routeAuth, WithAuthUIBrowserProtection(protection)); registerErr != nil {
+		t.Fatalf("register Auth UI routes: %v", registerErr)
 	}
 
-	response, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "http://example.test/admin/login", nil), -1)
+	response, err := server.WrappedRouter().Test(newAuthUITestRequest(http.MethodGet, "http://example.test/admin/login", nil), -1)
 	if err != nil {
 		t.Fatalf("get secure login page: %v", err)
 	}
-	defer response.Body.Close()
+	defer closeAuthUITestResponse(t, response)
 	for _, cookie := range response.Cookies() {
 		if cookie.Name != AuthUIBrowserCSRFSecureCookieName {
 			continue
@@ -211,29 +211,29 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("create HTTP authenticator: %v", err)
 	}
-	if err := RegisterAuthUIRoutes(
+	if registerErr := RegisterAuthUIRoutes(
 		routes,
 		cfg,
 		routeAuth,
 		WithAuthUIBrowserProtection(protection),
 		WithAuthUIPasswordResetEnabled(func(admin.Config) bool { return true }),
-	); err != nil {
-		t.Fatalf("register Auth UI routes: %v", err)
+	); registerErr != nil {
+		t.Fatalf("register Auth UI routes: %v", registerErr)
 	}
-	if err := RegisterRegistrationUIRoutes(
+	if registerErr := RegisterRegistrationUIRoutes(
 		routes,
 		cfg,
 		WithRegistrationUIBrowserProtection(protection),
 		WithRegistrationUIEnabled(func(admin.Config) bool { return true }),
-	); err != nil {
-		t.Fatalf("register registration UI routes: %v", err)
+	); registerErr != nil {
+		t.Fatalf("register registration UI routes: %v", registerErr)
 	}
 
 	registerCalls := 0
 	registerConfirmCalls := 0
 	resetCalls := 0
 	resetConfirmCalls := 0
-	if err := RegisterOnboardingRoutes(
+	if registerErr := RegisterOnboardingRoutes(
 		routes,
 		cfg,
 		OnboardingHandlers{
@@ -255,19 +255,19 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 			},
 		},
 		WithOnboardingBrowserProtection(protection),
-	); err != nil {
-		t.Fatalf("register onboarding routes: %v", err)
+	); registerErr != nil {
+		t.Fatalf("register onboarding routes: %v", registerErr)
 	}
 
-	registerPage, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "http://example.test/admin/register", nil), -1)
+	registerPage, err := server.WrappedRouter().Test(newAuthUITestRequest(http.MethodGet, "http://example.test/admin/register", nil), -1)
 	if err != nil {
 		t.Fatalf("get registration page: %v", err)
 	}
+	defer closeAuthUITestResponse(t, registerPage)
 	registerToken := authUICSRFTokenFromResponse(t, registerPage)
 	browserCookie := authUICSRFCookieFromResponse(t, registerPage)
-	registerPage.Body.Close()
 
-	registerRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/api/onboarding/register", strings.NewReader(`{"email":"user@example.test"}`))
+	registerRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/api/onboarding/register", strings.NewReader(`{"email":"user@example.test"}`))
 	registerRequest.Header.Set("Content-Type", "application/json")
 	registerRequest.Header.Set("Accept", "application/json")
 	registerRequest.Header.Set("Origin", "http://example.test")
@@ -277,11 +277,11 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("submit registration: %v", err)
 	}
-	registerResponse.Body.Close()
+	defer closeAuthUITestResponse(t, registerResponse)
 	if registerResponse.StatusCode != http.StatusOK || registerCalls != 1 {
 		t.Fatalf("expected protected registration handler once, status=%d calls=%d", registerResponse.StatusCode, registerCalls)
 	}
-	registerConfirmRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/api/onboarding/register/confirm", strings.NewReader(`{"token":"registration-token","password":"password"}`))
+	registerConfirmRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/api/onboarding/register/confirm", strings.NewReader(`{"token":"registration-token","password":"password"}`))
 	registerConfirmRequest.Header.Set("Content-Type", "application/json")
 	registerConfirmRequest.Header.Set("Accept", "application/json")
 	registerConfirmRequest.Header.Set("Origin", "http://example.test")
@@ -291,21 +291,21 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("submit registration confirmation: %v", err)
 	}
-	registerConfirmResponse.Body.Close()
+	defer closeAuthUITestResponse(t, registerConfirmResponse)
 	if registerConfirmResponse.StatusCode != http.StatusOK || registerConfirmCalls != 1 {
 		t.Fatalf("expected protected registration confirmation once, status=%d calls=%d", registerConfirmResponse.StatusCode, registerConfirmCalls)
 	}
 
-	resetPageRequest := httptest.NewRequest(http.MethodGet, "http://example.test/admin/password-reset", nil)
+	resetPageRequest := newAuthUITestRequest(http.MethodGet, "http://example.test/admin/password-reset", nil)
 	resetPageRequest.AddCookie(browserCookie)
 	resetPage, err := server.WrappedRouter().Test(resetPageRequest, -1)
 	if err != nil {
 		t.Fatalf("get password-reset page: %v", err)
 	}
+	defer closeAuthUITestResponse(t, resetPage)
 	resetToken := authUICSRFTokenFromResponse(t, resetPage)
-	resetPage.Body.Close()
 
-	resetRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/api/onboarding/password/reset/request", strings.NewReader(`{"identifier":"user@example.test"}`))
+	resetRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/api/onboarding/password/reset/request", strings.NewReader(`{"identifier":"user@example.test"}`))
 	resetRequest.Header.Set("Content-Type", "application/json")
 	resetRequest.Header.Set("Accept", "application/json")
 	resetRequest.Header.Set("Origin", "http://example.test")
@@ -315,20 +315,20 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("submit password reset: %v", err)
 	}
-	resetResponse.Body.Close()
+	defer closeAuthUITestResponse(t, resetResponse)
 	if resetResponse.StatusCode != http.StatusOK || resetCalls != 1 {
 		t.Fatalf("expected protected reset handler once, status=%d calls=%d", resetResponse.StatusCode, resetCalls)
 	}
 
-	resetConfirmPageRequest := httptest.NewRequest(http.MethodGet, "http://example.test/admin/password-reset/confirm", nil)
+	resetConfirmPageRequest := newAuthUITestRequest(http.MethodGet, "http://example.test/admin/password-reset/confirm", nil)
 	resetConfirmPageRequest.AddCookie(browserCookie)
 	resetConfirmPage, err := server.WrappedRouter().Test(resetConfirmPageRequest, -1)
 	if err != nil {
 		t.Fatalf("get password-reset confirmation page: %v", err)
 	}
+	defer closeAuthUITestResponse(t, resetConfirmPage)
 	resetConfirmToken := authUICSRFTokenFromResponse(t, resetConfirmPage)
-	resetConfirmPage.Body.Close()
-	resetConfirmRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/api/onboarding/password/reset/confirm", strings.NewReader(`{"token":"reset-token","password":"password"}`))
+	resetConfirmRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/api/onboarding/password/reset/confirm", strings.NewReader(`{"token":"reset-token","password":"password"}`))
 	resetConfirmRequest.Header.Set("Content-Type", "application/json")
 	resetConfirmRequest.Header.Set("Accept", "application/json")
 	resetConfirmRequest.Header.Set("Origin", "http://example.test")
@@ -338,12 +338,12 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("submit password-reset confirmation: %v", err)
 	}
-	resetConfirmResponse.Body.Close()
+	defer closeAuthUITestResponse(t, resetConfirmResponse)
 	if resetConfirmResponse.StatusCode != http.StatusOK || resetConfirmCalls != 1 {
 		t.Fatalf("expected protected reset confirmation once, status=%d calls=%d", resetConfirmResponse.StatusCode, resetConfirmCalls)
 	}
 
-	missingTokenRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/api/onboarding/register", strings.NewReader(`{"email":"user@example.test"}`))
+	missingTokenRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/api/onboarding/register", strings.NewReader(`{"email":"user@example.test"}`))
 	missingTokenRequest.Header.Set("Content-Type", "application/json")
 	missingTokenRequest.Header.Set("Accept", "application/json")
 	missingTokenRequest.Header.Set("Origin", "http://example.test")
@@ -352,8 +352,8 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("submit registration without token: %v", err)
 	}
-	missingBody, _ := io.ReadAll(missingTokenResponse.Body)
-	missingTokenResponse.Body.Close()
+	defer closeAuthUITestResponse(t, missingTokenResponse)
+	missingBody := readAuthUITestResponseBody(t, missingTokenResponse)
 	if missingTokenResponse.StatusCode != http.StatusForbidden || registerCalls != 1 {
 		t.Fatalf("expected missing-token rejection before handler, status=%d calls=%d body=%s", missingTokenResponse.StatusCode, registerCalls, missingBody)
 	}
@@ -361,7 +361,7 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 		t.Fatalf("structured error exposed dependency detail: %s", missingBody)
 	}
 
-	crossOriginRequest := httptest.NewRequest(http.MethodPost, "http://example.test/admin/api/onboarding/password/reset/request", strings.NewReader(`{"identifier":"user@example.test"}`))
+	crossOriginRequest := newAuthUITestRequest(http.MethodPost, "http://example.test/admin/api/onboarding/password/reset/request", strings.NewReader(`{"identifier":"user@example.test"}`))
 	crossOriginRequest.Header.Set("Content-Type", "application/json")
 	crossOriginRequest.Header.Set("Accept", "application/json")
 	crossOriginRequest.Header.Set("Origin", "https://attacker.example")
@@ -371,7 +371,7 @@ func TestRegistrationAndPasswordResetUseSharedBrowserCSRFProtection(t *testing.T
 	if err != nil {
 		t.Fatalf("submit cross-origin password reset: %v", err)
 	}
-	crossOriginResponse.Body.Close()
+	defer closeAuthUITestResponse(t, crossOriginResponse)
 	if crossOriginResponse.StatusCode != http.StatusForbidden || resetCalls != 1 {
 		t.Fatalf("expected cross-origin rejection before handler, status=%d calls=%d", crossOriginResponse.StatusCode, resetCalls)
 	}
@@ -392,8 +392,8 @@ func TestAuthUIBrowserCSRFRuntimeFailureReturnsGenericServerError(t *testing.T) 
 	if err != nil {
 		t.Fatalf("create HTTP authenticator: %v", err)
 	}
-	if err := RegisterAuthUIRoutes(routes, cfg, routeAuth, WithAuthUIBrowserProtection(protection)); err != nil {
-		t.Fatalf("register Auth UI routes: %v", err)
+	if registerErr := RegisterAuthUIRoutes(routes, cfg, routeAuth, WithAuthUIBrowserProtection(protection)); registerErr != nil {
+		t.Fatalf("register Auth UI routes: %v", registerErr)
 	}
 
 	originalRandRead := authUIBrowserCSRFRandRead
@@ -407,12 +407,32 @@ func TestAuthUIBrowserCSRFRuntimeFailureReturnsGenericServerError(t *testing.T) 
 	if err != nil {
 		t.Fatalf("get login page with entropy failure: %v", err)
 	}
-	defer response.Body.Close()
-	body, _ := io.ReadAll(response.Body)
+	defer closeAuthUITestResponse(t, response)
+	body := readAuthUITestResponseBody(t, response)
 	if response.StatusCode != http.StatusInternalServerError {
 		t.Fatalf("expected generic server failure, got %d body=%s", response.StatusCode, body)
 	}
 	if strings.Contains(string(body), "entropy unavailable") {
 		t.Fatalf("server response exposed runtime detail: %s", body)
+	}
+}
+
+func newAuthUITestRequest(method, target string, body io.Reader) *http.Request {
+	return httptest.NewRequestWithContext(context.Background(), method, target, body)
+}
+
+func readAuthUITestResponseBody(t *testing.T, response *http.Response) []byte {
+	t.Helper()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read Auth UI response body: %v", err)
+	}
+	return body
+}
+
+func closeAuthUITestResponse(t *testing.T, response *http.Response) {
+	t.Helper()
+	if err := response.Body.Close(); err != nil {
+		t.Errorf("close Auth UI response body: %v", err)
 	}
 }

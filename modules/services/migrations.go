@@ -102,25 +102,8 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		return err
 	}
 	enableNotifications := options.enableNotifications == nil || *options.enableNotifications
-	if enableNotifications {
-		order := notifications.MigrationSourceOrder
-		dependencies := append([]string{}, options.notificationDependencies...)
-		if options.notificationPlacementSet {
-			order = options.notificationOrder
-			if order <= notifications.MigrationSourceOrder || len(dependencies) == 0 {
-				return fmt.Errorf("modules/services: explicit notification migration placement must use order > %d and depend on the persisted predecessor", notifications.MigrationSourceOrder)
-			}
-		} else if predecessor := nearestServiceMigrationPredecessor(enableAuth, enableUsers, enableServices); predecessor != "" {
-			dependencies = append(dependencies, predecessor)
-		}
-		source, sourceErr := notifications.OrderedMigrationSourceWithOptions(notifications.MigrationSourceOptions{Order: order, Dependencies: dependencies})
-		if sourceErr != nil {
-			return sourceErr
-		}
-		if options.observer != nil {
-			options.observer(MigrationRegistration{Label: ServiceMigrationsSourceLabelNotifications})
-		}
-		orderedSources = append(orderedSources, source)
+	if err := appendNotificationServiceMigrationSource(&orderedSources, options, enableAuth, enableUsers, enableServices, enableNotifications); err != nil {
+		return err
 	}
 	if err := appendAppServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices, enableNotifications); err != nil {
 		return err
@@ -129,6 +112,35 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		return nil
 	}
 	return client.RegisterOrderedMigrationSources(orderedSources...)
+}
+
+func appendNotificationServiceMigrationSource(
+	orderedSources *[]persistence.OrderedMigrationSource,
+	options serviceMigrationsOptions,
+	enableAuth, enableUsers, enableServices, enableNotifications bool,
+) error {
+	if !enableNotifications {
+		return nil
+	}
+	order := notifications.MigrationSourceOrder
+	dependencies := append([]string{}, options.notificationDependencies...)
+	if options.notificationPlacementSet {
+		order = options.notificationOrder
+		if order <= notifications.MigrationSourceOrder || len(dependencies) == 0 {
+			return fmt.Errorf("modules/services: explicit notification migration placement must use order > %d and depend on the persisted predecessor", notifications.MigrationSourceOrder)
+		}
+	} else if predecessor := nearestServiceMigrationPredecessor(enableAuth, enableUsers, enableServices); predecessor != "" {
+		dependencies = append(dependencies, predecessor)
+	}
+	source, err := notifications.OrderedMigrationSourceWithOptions(notifications.MigrationSourceOptions{Order: order, Dependencies: dependencies})
+	if err != nil {
+		return err
+	}
+	if options.observer != nil {
+		options.observer(MigrationRegistration{Label: ServiceMigrationsSourceLabelNotifications})
+	}
+	*orderedSources = append(*orderedSources, source)
+	return nil
 }
 
 func defaultServiceMigrationsOptions() serviceMigrationsOptions {

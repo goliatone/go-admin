@@ -153,6 +153,16 @@ func (e *resolverActivityPageEnricher) applyResolvedDisplays(
 	if actionDisplay := strings.TrimSpace(e.actionLabels[strings.TrimSpace(record.Verb)]); actionDisplay != "" {
 		record.Data[usersactivity.DataKeyActionDisplay] = actionDisplay
 	}
+	e.applyResolvedActorDisplay(ctx, readCtx, record, actors)
+	e.applyResolvedObjectDisplay(ctx, readCtx, record, objects)
+}
+
+func (e *resolverActivityPageEnricher) applyResolvedActorDisplay(
+	ctx context.Context,
+	readCtx ActivityReadContext,
+	record *userstypes.ActivityRecord,
+	actors map[uuid.UUID]usersactivity.ActorInfo,
+) {
 	actorHint := strings.TrimSpace(toString(record.Data[usersactivity.DataKeyActorDisplay]))
 	keepActorHint := e.allowHint(ctx, readCtx, *record, usersactivity.DataKeyActorDisplay, actorHint)
 	if !keepActorHint {
@@ -169,7 +179,14 @@ func (e *resolverActivityPageEnricher) applyResolvedDisplays(
 			record.Data[usersactivity.DataKeyActorDisplay] = "User:" + actorID.String()
 		}
 	}
+}
 
+func (e *resolverActivityPageEnricher) applyResolvedObjectDisplay(
+	ctx context.Context,
+	readCtx ActivityReadContext,
+	record *userstypes.ActivityRecord,
+	objects map[string]map[string]usersactivity.ObjectInfo,
+) {
 	objectHint := strings.TrimSpace(toString(record.Data[usersactivity.DataKeyObjectDisplay]))
 	keepObjectHint := e.allowHint(ctx, readCtx, *record, usersactivity.DataKeyObjectDisplay, objectHint)
 	if !keepObjectHint {

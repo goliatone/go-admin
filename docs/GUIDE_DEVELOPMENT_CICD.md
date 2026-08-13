@@ -390,6 +390,46 @@ What to do:
 - do not suppress unless the code is intentionally correct and the reason is documented
 - if a suppression is required, use a specific `nolint` with explanation
 
+### 7.5 Error-handling policy
+
+Classify every fallible operation at its owning boundary:
+
+1. **Required operations** include validation, authorization, persistence,
+   parsing needed for correctness, and domain mutations. Return their errors or
+   preserve the cause while wrapping them. Use the repository's `go-errors`
+   conventions when the caller needs a structured category or code.
+2. **Boundary-mapped operations** are converted once by the HTTP, command, job,
+   or CLI adapter. Lower layers return errors and should not also render a
+   response or log the same failure unless an additional operational event is
+   intentionally required.
+3. **Best-effort operations** are side effects whose failure must not replace
+   the primary result, such as optional telemetry. Isolate their errors and
+   panics and observe failures through an existing logger, metric, or observer
+   when possible. Keep this behavior behind a named helper and cover meaningful
+   failure isolation with tests.
+4. **Contractually ignorable operations** are rare. Use a specific, explained
+   `nolint` only when the result cannot affect correctness and there is no useful
+   observation path. A blank assignment by itself is not an explanation.
+
+Additional rules:
+
+- Preserve errors for `errors.Is` and `errors.As`; avoid replacing a useful
+  cause with a new message-only error.
+- Do not both log and return the same error unless it crosses an asynchronous
+  or process boundary, or the log represents a separate operational event.
+- Check cleanup errors. Production code should return or join relevant cleanup
+  failures; tests should report them from `t.Cleanup` with `t.Errorf`.
+- Use comma-ok type assertions. Tests should fail with useful context when a
+  fixture or result has an unexpected type instead of relying on a panic.
+- Check test setup, readback, and marshaling errors. Discarding those failures
+  can make a passing test meaningless.
+- Every `nolint` must name the exact linter, explain why the code is correct,
+  and remain as narrow as possible.
+
+When deciding whether an operation is best-effort, write down the primary
+operation whose result must be preserved and the safe observation channel. If
+neither is clear, treat the error as required.
+
 ## 8. GitHub Actions Workflow
 
 The GitHub workflow file is `.github/workflows/go-quality.yml`.

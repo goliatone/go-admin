@@ -850,8 +850,8 @@ func (n *notificationsBinding) ListDeliveries(c router.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := rejectNotificationAuthorityQuery(c); err != nil {
-		return nil, err
+	if authorityErr := rejectNotificationAuthorityQuery(c); authorityErr != nil {
+		return nil, authorityErr
 	}
 	query := deliveries.ListQuery{
 		Scope: scope, DefinitionCode: strings.TrimSpace(c.Query("definition_code")),
@@ -886,8 +886,8 @@ func (n *notificationsBinding) getDelivery(c router.Context, rawID string, event
 	if err != nil {
 		return nil, err
 	}
-	if err := rejectNotificationAuthorityQuery(c); err != nil {
-		return nil, err
+	if authorityErr := rejectNotificationAuthorityQuery(c); authorityErr != nil {
+		return nil, authorityErr
 	}
 	id, err := uuid.Parse(strings.TrimSpace(rawID))
 	if err != nil || id == uuid.Nil {

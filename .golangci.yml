@@ -71,25 +71,14 @@ linters:
       - comments
       - common-false-positives
     rules:
-      - path: ^examples/web/
-        linters:
-          - dupl
-          - errcheck
-          - funlen
-          - gocyclo
-          - govet
-          - ineffassign
-          - nestif
-          - nolintlint
-          - staticcheck
-          - unconvert
-          - unused
       - path: _test\.go
         linters:
           - dupl
           - funlen
           - gocyclo
           - nestif
+      # Existing translation and preference fixtures intentionally remain a
+      # separate cleanup slice. Their exact backlog is tracked as CQ-012.
       - path: ^admin/boot_bindings_translation_test\.go$
         linters:
           - errcheck
@@ -110,6 +99,19 @@ linters:
       - path: ^admin/translation_queue_binding_test\.go$
         linters:
           - govet
+      # The web example predates the repository lint gate. Its remaining
+      # backlog is tracked as CQ-011 in REFACTORING_REPORT.md. Keep only the
+      # checks with known findings excluded; all other checks run normally.
+      - path: ^examples/web/
+        linters:
+          - dupl
+          - errcheck
+          - funlen
+          - gocyclo
+          - govet
+          - nestif
+          - staticcheck
+          - unused
 formatters:
   enable:
     - gofmt

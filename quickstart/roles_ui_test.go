@@ -57,7 +57,7 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 			return false
 		}
 
-		if _, ok := viewCtx["export_config"]; ok {
+		if _, exists := viewCtx["export_config"]; exists {
 			return false
 		}
 
@@ -78,7 +78,7 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 			return false
 		}
 
-		if _, ok := dataGridCfg["export_config"]; ok {
+		if _, exists := dataGridCfg["export_config"]; exists {
 			return false
 		}
 		capabilities, ok := dataGridCfg["capabilities"].(map[string]any)

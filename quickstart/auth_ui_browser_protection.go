@@ -91,20 +91,37 @@ func WithAuthUIBrowserProtectionOriginConfig(config router.OriginProtectionConfi
 // NewAuthUIBrowserProtection constructs a browser-bound, stateless CSRF
 // boundary suitable for public login, registration, and password-reset flows.
 func NewAuthUIBrowserProtection(cfg admin.Config, options ...AuthUIBrowserProtectionOption) (*AuthUIBrowserProtection, error) {
+	resolved := resolveAuthUIBrowserProtectionOptions(options)
+	secureKey, err := resolveAuthUICSRFSecureKey(authUIOptions{csrfSecureKey: resolved.secureKey}, cfg)
+	if err != nil {
+		return nil, err
+	}
+	cookie, err := resolveAuthUIBrowserCSRFCookie(resolved)
+	if err != nil {
+		return nil, err
+	}
+	return &AuthUIBrowserProtection{
+		secureKey:     secureKey,
+		cookie:        cookie,
+		secureRequest: resolveAuthUIBrowserSecureRequest(cfg, resolved),
+		origin:        resolved.origin,
+		useHostPrefix: !resolved.cookieExplicitlySet,
+	}, nil
+}
+
+func resolveAuthUIBrowserProtectionOptions(options []AuthUIBrowserProtectionOption) authUIBrowserProtectionOptions {
 	resolved := authUIBrowserProtectionOptions{}
 	for _, option := range options {
 		if option != nil {
 			option(&resolved)
 		}
 	}
+	return resolved
+}
 
-	secureKey, err := resolveAuthUICSRFSecureKey(authUIOptions{csrfSecureKey: resolved.secureKey}, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	cookie := resolved.cookie
-	if !resolved.cookieExplicitlySet {
+func resolveAuthUIBrowserCSRFCookie(options authUIBrowserProtectionOptions) (router.Cookie, error) {
+	cookie := options.cookie
+	if !options.cookieExplicitlySet {
 		cookie = router.FirstPartySessionCookie(authUIBrowserCSRFCookieName, "")
 		// Auth UI route options may place login, registration, or onboarding
 		// outside cfg.BasePath. A host-only root path keeps one browser binding
@@ -119,37 +136,32 @@ func NewAuthUIBrowserProtection(cfg admin.Config, options ...AuthUIBrowserProtec
 		cookie.Path = "/"
 	}
 	if strings.TrimSpace(cookie.Domain) != "" {
-		return nil, fmt.Errorf("auth ui csrf cookie must be host-only")
+		return router.Cookie{}, fmt.Errorf("auth ui csrf cookie must be host-only")
 	}
 	cookie.HTTPOnly = true
 	if strings.HasPrefix(cookie.Name, "__Host-") && (!cookie.Secure || cookie.Path != "/") {
-		return nil, fmt.Errorf("auth ui csrf __Host- cookie must be Secure with Path=/")
+		return router.Cookie{}, fmt.Errorf("auth ui csrf __Host- cookie must be Secure with Path=/")
 	}
 	if strings.HasPrefix(cookie.Name, "__Secure-") && !cookie.Secure {
-		return nil, fmt.Errorf("auth ui csrf __Secure- cookie must be Secure")
+		return router.Cookie{}, fmt.Errorf("auth ui csrf __Secure- cookie must be Secure")
 	}
 	if strings.TrimSpace(cookie.SameSite) == "" {
 		cookie.SameSite = router.CookieSameSiteLaxMode
 	}
 	if err := router.ValidateCookie(cookie); err != nil {
-		return nil, fmt.Errorf("invalid auth ui csrf cookie: %w", err)
+		return router.Cookie{}, fmt.Errorf("invalid auth ui csrf cookie: %w", err)
 	}
+	return cookie, nil
+}
 
-	secureRequest := resolved.secureRequest
-	if secureRequest == nil && cfg.Debug.SecureRequestResolver != nil {
-		secureRequest = cfg.Debug.SecureRequestResolver
+func resolveAuthUIBrowserSecureRequest(cfg admin.Config, options authUIBrowserProtectionOptions) func(router.Context) bool {
+	if options.secureRequest != nil {
+		return options.secureRequest
 	}
-	if secureRequest == nil {
-		secureRequest = authUIBrowserRequestIsSecure
+	if cfg.Debug.SecureRequestResolver != nil {
+		return cfg.Debug.SecureRequestResolver
 	}
-
-	return &AuthUIBrowserProtection{
-		secureKey:     secureKey,
-		cookie:        cookie,
-		secureRequest: secureRequest,
-		origin:        resolved.origin,
-		useHostPrefix: !resolved.cookieExplicitlySet,
-	}, nil
+	return authUIBrowserRequestIsSecure
 }
 
 // HTMLMiddleware returns browser CSRF middleware with caller-owned recovery
@@ -219,7 +231,10 @@ func (p *AuthUIBrowserProtection) sessionKey(c router.Context) (string, bool) {
 	if c == nil {
 		return "", false
 	}
-	nonce, _ := c.Locals(authUIBrowserCSRFLocalKey).(string)
+	nonce, ok := c.Locals(authUIBrowserCSRFLocalKey).(string)
+	if !ok {
+		nonce = ""
+	}
 	nonce = strings.TrimSpace(nonce)
 	if !validAuthUIBrowserCSRFNonce(nonce) {
 		nonce = strings.TrimSpace(c.Cookies(p.cookieForRequest(c).Name))

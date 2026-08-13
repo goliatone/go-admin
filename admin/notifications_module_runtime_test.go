@@ -65,10 +65,22 @@ func TestGoNotificationsModuleRuntimeSharesReceiptInspectionAndRetentionGraph(t 
 		t.Fatal("expected dispatch receipt event ID")
 	}
 
-	eventsBeforeLookup, _ := providers.Events.List(context.Background(), store.ListOptions{})
-	messagesBeforeLookup, _ := providers.Messages.List(context.Background(), store.ListOptions{})
-	attemptsBeforeLookup, _ := providers.DeliveryAttempts.List(context.Background(), store.ListOptions{})
-	activityBeforeLookup, _ := activity.List(context.Background(), 100)
+	eventsBeforeLookup, listErr := providers.Events.List(context.Background(), store.ListOptions{})
+	if listErr != nil {
+		t.Fatalf("list events before receipt lookup: %v", listErr)
+	}
+	messagesBeforeLookup, listErr := providers.Messages.List(context.Background(), store.ListOptions{})
+	if listErr != nil {
+		t.Fatalf("list messages before receipt lookup: %v", listErr)
+	}
+	attemptsBeforeLookup, listErr := providers.DeliveryAttempts.List(context.Background(), store.ListOptions{})
+	if listErr != nil {
+		t.Fatalf("list attempts before receipt lookup: %v", listErr)
+	}
+	activityBeforeLookup, listErr := activity.List(context.Background(), 100)
+	if listErr != nil {
+		t.Fatalf("list activity before receipt lookup: %v", listErr)
+	}
 	recovered, err := service.LookupReceipt(context.Background(), events.ReceiptLookup{
 		DefinitionCode: defaultNotificationDefinition, IdempotencyScope: "system", IdempotencyKey: "same-request",
 	})
@@ -78,10 +90,22 @@ func TestGoNotificationsModuleRuntimeSharesReceiptInspectionAndRetentionGraph(t 
 	if recovered.EventID != eventID || !recovered.Replay {
 		t.Fatalf("unexpected recovered receipt: %+v", recovered)
 	}
-	eventsAfterLookup, _ := providers.Events.List(context.Background(), store.ListOptions{})
-	messagesAfterLookup, _ := providers.Messages.List(context.Background(), store.ListOptions{})
-	attemptsAfterLookup, _ := providers.DeliveryAttempts.List(context.Background(), store.ListOptions{})
-	activityAfterLookup, _ := activity.List(context.Background(), 100)
+	eventsAfterLookup, listErr := providers.Events.List(context.Background(), store.ListOptions{})
+	if listErr != nil {
+		t.Fatalf("list events after receipt lookup: %v", listErr)
+	}
+	messagesAfterLookup, listErr := providers.Messages.List(context.Background(), store.ListOptions{})
+	if listErr != nil {
+		t.Fatalf("list messages after receipt lookup: %v", listErr)
+	}
+	attemptsAfterLookup, listErr := providers.DeliveryAttempts.List(context.Background(), store.ListOptions{})
+	if listErr != nil {
+		t.Fatalf("list attempts after receipt lookup: %v", listErr)
+	}
+	activityAfterLookup, listErr := activity.List(context.Background(), 100)
+	if listErr != nil {
+		t.Fatalf("list activity after receipt lookup: %v", listErr)
+	}
 	if eventsAfterLookup.Total != eventsBeforeLookup.Total || messagesAfterLookup.Total != messagesBeforeLookup.Total ||
 		attemptsAfterLookup.Total != attemptsBeforeLookup.Total || len(activityAfterLookup) != len(activityBeforeLookup) {
 		t.Fatalf("receipt lookup caused side effects: events %d/%d messages %d/%d attempts %d/%d activity %d/%d",
@@ -101,11 +125,11 @@ func TestGoNotificationsModuleRuntimeSharesReceiptInspectionAndRetentionGraph(t 
 	if err != nil || len(inbox.Items) != 1 {
 		t.Fatalf("list inbox before purge: total=%d err=%v", len(inbox.Items), err)
 	}
-	if err := providers.Inbox.Dismiss(context.Background(), inbox.Items[0].ID); err != nil {
-		t.Fatalf("dismiss inbox before purge: %v", err)
+	if dismissErr := providers.Inbox.Dismiss(context.Background(), inbox.Items[0].ID); dismissErr != nil {
+		t.Fatalf("dismiss inbox before purge: %v", dismissErr)
 	}
-	if err := providers.Events.UpdateStatus(context.Background(), eventID, domain.EventStatusProcessed); err != nil {
-		t.Fatalf("mark event terminal before purge: %v", err)
+	if statusErr := providers.Events.UpdateStatus(context.Background(), eventID, domain.EventStatusProcessed); statusErr != nil {
+		t.Fatalf("mark event terminal before purge: %v", statusErr)
 	}
 	time.Sleep(time.Millisecond)
 	cutoff := time.Now().UTC()
@@ -119,7 +143,7 @@ func TestGoNotificationsModuleRuntimeSharesReceiptInspectionAndRetentionGraph(t 
 	if result.EventsDeleted != 1 {
 		t.Fatalf("expected one event deletion, got %+v", result)
 	}
-	if _, err := service.GetDelivery(context.Background(), deliveries.GetQuery{Scope: "system", EventID: eventID}); err == nil {
+	if _, inspectionErr := service.GetDelivery(context.Background(), deliveries.GetQuery{Scope: "system", EventID: eventID}); inspectionErr == nil {
 		t.Fatal("expected purged event to be absent from inspection")
 	}
 }
@@ -189,7 +213,7 @@ func TestGoNotificationsDeliveryInspectionPreservesScopeFiltersPaginationAndPriv
 	if err != nil || messageView.MessageID != messageID {
 		t.Fatalf("message inspection: %+v err=%v", messageView, err)
 	}
-	if _, err := service.GetDelivery(context.Background(), deliveries.GetQuery{Scope: "system", EventID: eventIDs[0]}); err == nil {
+	if _, inspectionErr := service.GetDelivery(context.Background(), deliveries.GetQuery{Scope: "system", EventID: eventIDs[0]}); inspectionErr == nil {
 		t.Fatal("expected cross-scope event lookup to fail safely")
 	}
 
@@ -212,8 +236,8 @@ func TestGoNotificationsModuleRuntimeDerivesTrustedTenantAndKeepsRecipientSepara
 		t.Fatalf("construct notification runtime: %v", err)
 	}
 	ctx := context.WithValue(context.Background(), tenantIDContextKey, "tenant-1")
-	if _, err := service.Add(ctx, Notification{Title: "Hello", Message: "World", UserID: "recipient-9"}); err != nil {
-		t.Fatalf("add tenant notification: %v", err)
+	if _, addErr := service.Add(ctx, Notification{Title: "Hello", Message: "World", UserID: "recipient-9"}); addErr != nil {
+		t.Fatalf("add tenant notification: %v", addErr)
 	}
 	eventsResult, err := providers.Events.List(context.Background(), store.ListOptions{})
 	if err != nil || len(eventsResult.Items) != 1 {
@@ -227,8 +251,8 @@ func TestGoNotificationsModuleRuntimeDerivesTrustedTenantAndKeepsRecipientSepara
 		t.Fatalf("expected recipient to remain separate, got %v", got.Recipients)
 	}
 
-	if _, err := service.Add(context.Background(), Notification{Title: "System", Message: "World", UserID: "tenant-looking-recipient"}); err != nil {
-		t.Fatalf("add system notification: %v", err)
+	if _, addErr := service.Add(context.Background(), Notification{Title: "System", Message: "World", UserID: "tenant-looking-recipient"}); addErr != nil {
+		t.Fatalf("add system notification: %v", addErr)
 	}
 	eventsResult, err = providers.Events.List(context.Background(), store.ListOptions{})
 	if err != nil || len(eventsResult.Items) != 2 {
@@ -298,11 +322,11 @@ func TestNotificationInboxLookupIgnoresNewerSystemItemsAndFailsWhenExactItemIsMi
 	if err != nil {
 		t.Fatalf("resolve target message: %v", err)
 	}
-	if _, err := service.DispatchWithReceipt(context.Background(), notifier.Event{
+	if _, dispatchErr := service.DispatchWithReceipt(context.Background(), notifier.Event{
 		DefinitionCode: defaultNotificationDefinition, Recipients: []string{"system"},
 		Context: map[string]any{"title": "Newer system item", "body": "Other"}, Channels: []string{"inbox"},
-	}); err != nil {
-		t.Fatalf("dispatch newer system item: %v", err)
+	}); dispatchErr != nil {
+		t.Fatalf("dispatch newer system item: %v", dispatchErr)
 	}
 	got, err := service.notificationForInboxMessage(context.Background(), "recipient", targetMessageID)
 	if err != nil || got.Title != "Target" || got.Message != "Exact" {

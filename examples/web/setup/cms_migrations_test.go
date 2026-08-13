@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func TestPersistentCMSAppliesMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "migration verification database")()
 
 	rows, err := db.QueryContext(ctx, `
 SELECT name FROM sqlite_master
@@ -48,16 +49,15 @@ ORDER BY name`)
 	if err != nil {
 		t.Fatalf("list tables: %v", err)
 	}
-	defer func() {
-		_ = rows.Close() //nolint:errcheck // test cleanup failure cannot change the schema assertions.
-	}()
+	defer closeSQLRows(t, rows, "table inventory")
 
 	tables := map[string]bool{}
 	for rows.Next() {
 		var name string
-		if scanErr := rows.Scan(&name); scanErr == nil {
-			tables[name] = true
+		if scanErr := rows.Scan(&name); scanErr != nil {
+			t.Fatalf("scan table inventory: %v", scanErr)
 		}
+		tables[name] = true
 	}
 	if rowsErr := rows.Err(); rowsErr != nil {
 		t.Fatalf("iterate tables: %v", rowsErr)
@@ -76,13 +76,11 @@ ORDER BY name`)
 		}
 	}
 
-	colRows, err := db.QueryContext(ctx, `PRAGMA table_info('menu_items')`) //nolint:rowserrcheck // migration test only scans expected rows and validates required columns.
+	colRows, err := db.QueryContext(ctx, `PRAGMA table_info('menu_items')`)
 	if err != nil {
 		t.Fatalf("inspect menu_items columns: %v", err)
 	}
-	defer func() {
-		_ = colRows.Close() //nolint:errcheck // test cleanup failure cannot change the schema assertions.
-	}()
+	defer closeSQLRows(t, colRows, "menu_items column inventory")
 
 	hasCanonicalKey := false
 	for colRows.Next() {
@@ -111,6 +109,32 @@ ORDER BY name`)
 	}
 }
 
+func trackSQLDBCleanup(t *testing.T, db *sql.DB, operation string) func() {
+	t.Helper()
+	return trackSQLCleanup(t, operation, db.Close)
+}
+
+func closeSQLRows(t *testing.T, rows *sql.Rows, operation string) {
+	t.Helper()
+	if err := rows.Close(); err != nil {
+		t.Errorf("close %s rows: %v", operation, err)
+	}
+}
+
+func trackSQLCleanup(t *testing.T, operation string, closeResource func() error) func() {
+	t.Helper()
+	var once sync.Once
+	closeTrackedResource := func() {
+		once.Do(func() {
+			if err := closeResource(); err != nil {
+				t.Errorf("close %s: %v", operation, err)
+			}
+		})
+	}
+	t.Cleanup(closeTrackedResource)
+	return closeTrackedResource
+}
+
 func TestPersistentCMSReconcilesStaleMediaShowcaseRows(t *testing.T) {
 	t.Helper()
 
@@ -129,8 +153,8 @@ func TestPersistentCMSReconcilesStaleMediaShowcaseRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
+	closeDB := trackSQLDBCleanup(t, db, "stale media setup database")
 	if _, err := db.ExecContext(ctx, `DELETE FROM media`); err != nil {
-		_ = db.Close()
 		t.Fatalf("clear media rows: %v", err)
 	}
 	staleRows := []struct {
@@ -164,13 +188,10 @@ INSERT INTO media (id, filename, url, type, mime_type, size, metadata, uploaded_
 VALUES (?, ?, ?, 'image', ?, 1, '{}', 'test', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 			row.id, row.filename, row.url, row.mimeType,
 		); err != nil {
-			_ = db.Close()
 			t.Fatalf("insert stale media row %s: %v", row.filename, err)
 		}
 	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("close sqlite before setup rerun: %v", err)
-	}
+	closeDB()
 
 	opts, err = SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {
@@ -184,13 +205,13 @@ VALUES (?, ?, ?, 'image', ?, 1, '{}', 'test', CURRENT_TIMESTAMP, CURRENT_TIMESTA
 	if err != nil {
 		t.Fatalf("reopen sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "stale media verification database")()
 
 	rows, err := db.QueryContext(ctx, `SELECT COALESCE(url, '') FROM media`)
 	if err != nil {
 		t.Fatalf("query media urls: %v", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(t, rows, "media URL inventory")
 
 	urls := map[string]bool{}
 	for rows.Next() {
@@ -247,7 +268,7 @@ func TestPersistentCMSSeedsRequiredContentTypes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "content model verification database")()
 
 	required := []struct {
 		name   string
@@ -344,7 +365,7 @@ func TestPersistentCMSSeedsSiteMenuBindingsAndViewProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "menu binding verification database")()
 
 	for _, profile := range []string{"full", "footer_top_5"} {
 		var status string
@@ -518,7 +539,7 @@ func TestPersistentCMSSeedsMediaGalleryBlocksFromContentFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "home block verification database")()
 
 	rows, err := db.QueryContext(ctx, `
 SELECT ct.content
@@ -528,7 +549,7 @@ WHERE c.slug = 'home'`)
 	if err != nil {
 		t.Fatalf("query home content translations: %v", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(t, rows, "home content translation inventory")
 
 	rowCount := 0
 	galleryCount := 0
@@ -611,7 +632,7 @@ func TestPersistentCMSReconcilesRichTextBlockSlugDrift(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "rich text reconciliation database")()
 
 	result, err := db.ExecContext(ctx, `
 UPDATE block_definitions
@@ -689,7 +710,7 @@ func TestPersistentCMSBackfillsContentTranslationPathFromPageTranslations(t *tes
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "translation path verification database")()
 
 	rows, err := db.QueryContext(ctx, `
 SELECT ct.content
@@ -699,7 +720,7 @@ WHERE c.slug = 'home'`)
 	if err != nil {
 		t.Fatalf("query home content translations: %v", err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(t, rows, "translation path inventory")
 
 	rowCount := 0
 	for rows.Next() {
@@ -741,7 +762,7 @@ func TestPersistentCMSRepairsLegacyMenuChannelSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer db.Close()
+	defer trackSQLDBCleanup(t, db, "legacy menu schema database")()
 
 	_, err = db.ExecContext(ctx, `
 DROP TABLE IF EXISTS menu_view_profiles;
@@ -815,7 +836,7 @@ func sqliteTableHasColumn(t *testing.T, db *sql.DB, table, column string) bool {
 	if err != nil {
 		t.Fatalf("pragma table_info(%s): %v", table, err)
 	}
-	defer rows.Close()
+	defer closeSQLRows(t, rows, table+" column inventory")
 	for rows.Next() {
 		var cid int
 		var name, columnType string
