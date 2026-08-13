@@ -71,7 +71,8 @@
         "translation-matrix/index": { "rawBytes": 118784, "gzipBytes": 33792 },
         "translation-operations/index": { "rawBytes": 63488, "gzipBytes": 18432 },
         "translation-queue/index": { "rawBytes": 295936, "gzipBytes": 72704 },
-        "translation-shared/formatters": { "rawBytes": 4096, "gzipBytes": 2048 }
+        "translation-shared/formatters": { "rawBytes": 4096, "gzipBytes": 2048 },
+        "users/import-adapter": { "rawBytes": 4096, "gzipBytes": 2048 }
       },
       "maxChunk": { "rawBytes": 473088, "gzipBytes": 106496 },
       "total": { "rawBytes": 3639296, "gzipBytes": 855040 }

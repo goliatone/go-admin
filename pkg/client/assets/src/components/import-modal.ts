@@ -894,6 +894,21 @@ function defaultAttemptFactory(): ImportAttemptContext {
   return Object.freeze({ attemptId: random, idempotencyKey: random });
 }
 
+type ImportLifecycleTransitionKind = 'close' | 'source' | 'change' | 'reset';
+
+type ImportLifecycleTransition = Readonly<{
+  epoch: number;
+  sequence: number;
+  kind: ImportLifecycleTransitionKind;
+}>;
+
+type ImportReconciliationFlight = Readonly<{
+  epoch: number;
+  source: AnyImportSourceDescriptor;
+  attempt: ImportAttemptContext;
+  promise: Promise<boolean>;
+}>;
+
 /** Canonical modal + file/custom source + report workflow composition. */
 export class BulkImportModal extends Modal {
   private readonly config: BulkImportModalOptions;
@@ -914,24 +929,26 @@ export class BulkImportModal extends Modal {
   private panelCleanup: (() => void) | null = null;
   private reportView: ImportReportView | null = null;
   private busy = false;
-  /** One-shot authorization for the second pass of a confirmed close. */
-  private closeAuthorized = false;
-  /** Repeated dismissal requests while a confirmation is pending are ignored. */
-  private closePending = false;
-  /** Source activation is single-flight while discard/reconciliation awaits. */
-  private sourceTransitionPending = false;
-  /** Invalidates an async source continuation when the instance is destroyed. */
-  private sourceTransitionGeneration = 0;
+  /** Changes whenever a fresh modal DOM lifecycle begins or is destroyed. */
+  private lifecycleEpoch = 0;
+  private transitionSequence = 0;
+  /** Close, source, Change, and reset share one authoritative async transition. */
+  private activeTransition: ImportLifecycleTransition | null = null;
+  /** Reconciliation is shared even if another internal caller joins its flight. */
+  private reconciliationFlight: ImportReconciliationFlight | null = null;
+  /** One-shot authorization is valid only for the lifecycle that granted it. */
+  private closeAuthorizedEpoch: number | null = null;
 
   constructor(options: BulkImportModalOptions) {
     if (!options.root || options.sources.length === 0) throw new Error('BulkImportModal requires a root and at least one source.');
+    const availableSourceCount = options.sources.filter((source) => source.available !== false).length;
     super({
       size: '4xl',
       ariaLabel: options.copy?.title || defaultCopy.title,
       // With one source the tablist is hidden, so focus must land on the first
       // real input control instead of a tab stop the operator cannot see.
-      initialFocus: options.sources.length > 1
-        ? '[data-import-source-tab]'
+      initialFocus: availableSourceCount > 1
+        ? '[data-import-source-tab][tabindex="0"]'
         : '[data-import-browse], [data-import-input] button, [data-import-input] input, [data-import-input] select, [data-import-primary]',
       maximizable: true,
       containerClass: 'go-admin-import',
@@ -958,6 +975,11 @@ export class BulkImportModal extends Modal {
     void this.show();
   }
 
+  override async show(): Promise<void> {
+    if (!this.isOpen) this.startLifecycle();
+    await super.show();
+  }
+
   close(): void {
     this.hide();
   }
@@ -970,18 +992,41 @@ export class BulkImportModal extends Modal {
   }
 
   async reset(): Promise<boolean> {
-    if (!await this.reconcileAttempt()) return false;
-    this.clearWorkflow();
-    this.renderSourcePanel();
-    this.setStatus(this.copy.idleStatus);
-    this.updateActions();
-    return true;
+    const transition = this.beginTransition('reset');
+    if (!transition) return false;
+    try {
+      if (!await this.reconcileAttempt(transition) || !this.isTransitionCurrent(transition)) return false;
+      this.clearWorkflow();
+      this.renderSourcePanel();
+      this.setStatus(this.copy.idleStatus);
+      this.updateActions();
+      return true;
+    } catch {
+      this.reportTransitionFailure(transition);
+      return false;
+    } finally {
+      this.finishTransition(transition);
+    }
   }
 
   override destroy(): void {
-    this.sourceTransitionGeneration += 1;
-    this.sourceTransitionPending = false;
-    if (this.attempt && !this.attemptTerminal) void this.source.onReconcileAttempt?.(this.attempt);
+    const attempt = this.attempt;
+    const source = this.source;
+    const reconcile = source.onReconcileAttempt;
+    const reconciliationAlreadyPending = Boolean(
+      this.reconciliationFlight
+      && this.reconciliationFlight.epoch === this.lifecycleEpoch
+      && this.reconciliationFlight.source === source
+      && this.reconciliationFlight.attempt === attempt,
+    );
+    this.invalidateLifecycle();
+    if (attempt && !this.attemptTerminal && reconcile && !reconciliationAlreadyPending) {
+      // Teardown cannot display feedback, but an application callback must
+      // never escape as an unhandled rejection. If a transition already owns
+      // this exact attempt, let that single flight settle instead of invoking
+      // application reconciliation twice during teardown.
+      void Promise.resolve().then(() => reconcile(attempt)).catch(() => undefined);
+    }
     this.aborter?.abort();
     this.releasePanel();
     super.destroy();
@@ -991,7 +1036,7 @@ export class BulkImportModal extends Modal {
     const description = this.copy.description ? `<p id="${this.instanceID}-description">${escapeHtml(this.copy.description)}</p>` : '';
     // One source needs no tab stop, but its panel still needs an accessible
     // name, so the panel is labelled directly instead of by a hidden tab.
-    const single = this.config.sources.length < 2;
+    const single = this.availableSourceIndexes().length <= 1;
     const panelLabel = single
       ? `aria-label="${escapeHtml(this.config.sources[this.sourceIndex]?.label || this.copy.sourceTabsLabel)}"`
       : `aria-labelledby="${this.instanceID}-source-tab-${this.sourceIndex}"`;
@@ -1008,7 +1053,7 @@ export class BulkImportModal extends Modal {
         </div>
       </header>
       <div class="go-admin-import__sources" role="tablist" aria-label="${escapeHtml(this.copy.sourceTabsLabel)}" ${single ? 'hidden' : ''}>
-        ${this.config.sources.map((source, index) => `<button id="${this.instanceID}-source-tab-${index}" type="button" role="tab" data-import-source-tab="${index}" aria-controls="${this.instanceID}-source-panel" aria-selected="${String(index === this.sourceIndex)}" ${source.available === false ? 'disabled' : ''}>${escapeHtml(source.label)}</button>`).join('')}
+        ${this.config.sources.map((source, index) => `<button id="${this.instanceID}-source-tab-${index}" type="button" role="tab" data-import-source-tab="${index}" aria-controls="${this.instanceID}-source-panel" aria-selected="${String(index === this.sourceIndex)}" tabindex="${index === this.sourceIndex && source.available !== false ? 0 : -1}" ${source.available === false ? 'disabled' : ''}>${escapeHtml(source.label)}</button>`).join('')}
       </div>
       <div class="go-admin-modal__body go-admin-import__body">
         <section id="${this.instanceID}-source-panel" role="tabpanel" ${panelLabel} data-import-source-panel>
@@ -1071,22 +1116,23 @@ export class BulkImportModal extends Modal {
   protected onBeforeHide(): boolean {
     // Modal's veto is synchronous while discard confirmation is not, so a
     // confirmed dismissal re-enters through this one-shot authorization.
-    if (this.closeAuthorized) {
-      this.closeAuthorized = false;
+    if (this.closeAuthorizedEpoch === this.lifecycleEpoch) {
+      this.closeAuthorizedEpoch = null;
       return true;
     }
+    this.closeAuthorizedEpoch = null;
     if (this.busy) {
       this.setStatus(this.copy.busyDismissBlocked);
       return false;
     }
     if (!this.hasDiscardableEditableWork()) return true;
-    if (this.closePending) return false;
-    this.closePending = true;
-    void this.resolveDismissal();
+    const transition = this.beginTransition('close');
+    if (!transition) return false;
+    void this.resolveDismissal(transition);
     return false;
   }
 
-  private async resolveDismissal(): Promise<void> {
+  private async resolveDismissal(transition: ImportLifecycleTransition): Promise<void> {
     try {
       const context: ImportDiscardContext = {
         reason: 'close',
@@ -1104,21 +1150,46 @@ export class BulkImportModal extends Modal {
           confirmText: this.copy.discard,
           cancelText: this.copy.cancel,
         });
-      if (!approved) return;
+      if (!approved || !this.isTransitionCurrent(transition) || !this.isOpen || !this.container) return;
       this.clearWorkflow();
       this.renderSourcePanel();
-      this.closeAuthorized = true;
-      // If the instance was destroyed or already hidden while the operator was
-      // deciding, the authorization is spent here rather than left armed for a
-      // later dismissal that must confirm on its own terms.
-      if (!this.requestClose()) this.closeAuthorized = false;
+      this.closeAuthorizedEpoch = transition.epoch;
+      if (!this.requestClose()) this.closeAuthorizedEpoch = null;
+    } catch {
+      this.reportTransitionFailure(transition);
     } finally {
-      this.closePending = false;
+      this.finishTransition(transition);
     }
   }
 
   private get source(): AnyImportSourceDescriptor {
     return this.config.sources[this.sourceIndex];
+  }
+
+  private availableSourceIndexes(): number[] {
+    return this.config.sources
+      .map((source, index) => source.available === false ? -1 : index)
+      .filter((index) => index >= 0);
+  }
+
+  private syncSourceTabs(): void {
+    const multiple = this.availableSourceIndexes().length > 1;
+    this.container?.querySelectorAll<HTMLElement>('[data-import-source-tab]').forEach((tab) => {
+      const index = Number(tab.dataset.importSourceTab);
+      const selected = index === this.sourceIndex;
+      const available = this.config.sources[index]?.available !== false;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected && available ? 0 : -1;
+    });
+    const panel = this.container?.querySelector<HTMLElement>('[data-import-source-panel]');
+    if (!panel) return;
+    if (multiple) {
+      panel.removeAttribute('aria-label');
+      panel.setAttribute('aria-labelledby', `${this.instanceID}-source-tab-${this.sourceIndex}`);
+    } else {
+      panel.removeAttribute('aria-labelledby');
+      panel.setAttribute('aria-label', this.source.label || this.copy.sourceTabsLabel);
+    }
   }
 
   private resolveModes(source: AnyImportSourceDescriptor): ImportModeDescriptor[] {
@@ -1155,6 +1226,47 @@ export class BulkImportModal extends Modal {
 
   private setError(message = ''): void {
     this.setBanner(message, message ? 'danger' : 'neutral');
+  }
+
+  private startLifecycle(): void {
+    this.lifecycleEpoch += 1;
+    this.activeTransition = null;
+    this.reconciliationFlight = null;
+    this.closeAuthorizedEpoch = null;
+  }
+
+  private invalidateLifecycle(): void {
+    this.startLifecycle();
+  }
+
+  private beginTransition(kind: ImportLifecycleTransitionKind): ImportLifecycleTransition | null {
+    if (this.activeTransition?.epoch === this.lifecycleEpoch) return null;
+    const transition = Object.freeze({
+      epoch: this.lifecycleEpoch,
+      sequence: ++this.transitionSequence,
+      kind,
+    });
+    this.activeTransition = transition;
+    this.updateActions();
+    return transition;
+  }
+
+  private isTransitionCurrent(transition: ImportLifecycleTransition): boolean {
+    return transition.epoch === this.lifecycleEpoch
+      && this.activeTransition?.sequence === transition.sequence;
+  }
+
+  private finishTransition(transition: ImportLifecycleTransition): void {
+    if (!this.isTransitionCurrent(transition)) return;
+    this.activeTransition = null;
+    this.updateActions();
+  }
+
+  private reportTransitionFailure(transition: ImportLifecycleTransition): void {
+    if (!this.isTransitionCurrent(transition)) return;
+    this.setError(this.copy.importFailed);
+    this.setStatus(this.copy.importFailed);
+    this.updateActions();
   }
 
   /** Recompute the banner from the workflow state plus the current report. */
@@ -1240,8 +1352,16 @@ export class BulkImportModal extends Modal {
       this.setStatus(this.copy.busyDismissBlocked);
       return;
     }
-    if (!await this.reconcileAttempt()) return;
-    this.invalidatePreview();
+    const transition = this.beginTransition('change');
+    if (!transition) return;
+    try {
+      if (!await this.reconcileAttempt(transition) || !this.isTransitionCurrent(transition)) return;
+      this.invalidatePreview();
+    } catch {
+      this.reportTransitionFailure(transition);
+    } finally {
+      this.finishTransition(transition);
+    }
   }
 
   private updateMaximizeControl(): void {
@@ -1395,15 +1515,45 @@ export class BulkImportModal extends Modal {
     return this.currentInput !== null || this.previewState !== null || this.report !== null;
   }
 
-  private async reconcileAttempt(): Promise<boolean> {
+  private async reconcileAttempt(transition: ImportLifecycleTransition): Promise<boolean> {
     if (!this.attempt || this.attemptTerminal) return true;
-    const reconcile = this.source.onReconcileAttempt;
-    if (!reconcile || !await reconcile(this.attempt)) {
+    const source = this.source;
+    const attempt = this.attempt;
+    const existing = this.reconciliationFlight;
+    if (existing
+      && existing.epoch === transition.epoch
+      && existing.source === source
+      && existing.attempt === attempt) {
+      return existing.promise;
+    }
+    const reconcile = source.onReconcileAttempt;
+    if (!reconcile) {
       this.setStatus(this.copy.reconcileRequired);
+      this.updateActions();
       return false;
     }
-    this.attemptTerminal = true;
-    return true;
+    const operation = (async (): Promise<boolean> => {
+      try {
+        const reconciled = Boolean(await reconcile(attempt));
+        if (!this.isTransitionCurrent(transition) || this.source !== source || this.attempt !== attempt) return false;
+        if (!reconciled) {
+          this.setStatus(this.copy.reconcileRequired);
+          this.updateActions();
+          return false;
+        }
+        this.attemptTerminal = true;
+        this.updateActions();
+        return true;
+      } catch {
+        this.reportTransitionFailure(transition);
+        return false;
+      }
+    })();
+    const shared = operation.finally(() => {
+      if (this.reconciliationFlight?.promise === shared) this.reconciliationFlight = null;
+    });
+    this.reconciliationFlight = { epoch: transition.epoch, source, attempt, promise: shared };
+    return shared;
   }
 
   private clearWorkflow(): void {
@@ -1438,9 +1588,9 @@ export class BulkImportModal extends Modal {
     this.updateActions();
   }
 
-  private async confirmSourceDiscard(next: AnyImportSourceDescriptor): Promise<boolean> {
+  private async confirmSourceDiscard(next: AnyImportSourceDescriptor, transition: ImportLifecycleTransition): Promise<boolean> {
     if (!this.hasDiscardableWork()) return true;
-    if (!await this.reconcileAttempt()) return false;
+    if (!await this.reconcileAttempt(transition)) return false;
     const context: ImportDiscardContext = {
       reason: 'source-switch',
       state: this.workflowState,
@@ -1461,39 +1611,35 @@ export class BulkImportModal extends Modal {
 
   private async activateSource(index: number): Promise<boolean> {
     const next = this.config.sources[index];
-    if (!next || next.available === false || index === this.sourceIndex || this.busy || this.sourceTransitionPending) return false;
-    const generation = ++this.sourceTransitionGeneration;
-    this.sourceTransitionPending = true;
+    if (!next || next.available === false || index === this.sourceIndex || this.busy) return false;
+    const transition = this.beginTransition('source');
+    if (!transition) return false;
     try {
-      if (!await this.confirmSourceDiscard(next)) return false;
-      // A decision that resolves after teardown is stale and must not mutate a
-      // later lifecycle or donate authorization to another source request.
-      if (generation !== this.sourceTransitionGeneration || !this.container) return false;
+      if (!await this.confirmSourceDiscard(next, transition)) return false;
+      if (!this.isTransitionCurrent(transition) || !this.container) return false;
       this.clearWorkflow();
       this.sourceIndex = index;
       this.selectedMode = this.resolveModes(next)[0];
       // Report vocabulary belongs to the source; the next source must not inherit
       // the previous one's columns, filters, labels, tones or active filter.
       this.reportView?.setPresentation(next.report);
-      this.container.querySelectorAll<HTMLElement>('[data-import-source-tab]').forEach((tab) => {
-        const selected = Number(tab.dataset.importSourceTab) === index;
-        tab.setAttribute('aria-selected', String(selected));
-        tab.tabIndex = selected ? 0 : -1;
-      });
-      this.container.querySelector<HTMLElement>('[data-import-source-panel]')
-        ?.setAttribute('aria-labelledby', `${this.instanceID}-source-tab-${index}`);
+      this.syncSourceTabs();
       this.renderSourcePanel();
       this.setStatus(next.help || this.copy.idleStatus);
       return true;
+    } catch {
+      this.reportTransitionFailure(transition);
+      return false;
     } finally {
-      if (generation === this.sourceTransitionGeneration) this.sourceTransitionPending = false;
+      this.finishTransition(transition);
     }
   }
 
   private onSourceKeydown(event: KeyboardEvent): void {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const enabled = this.config.sources.map((source, index) => source.available === false ? -1 : index).filter((index) => index >= 0);
+    const enabled = this.availableSourceIndexes();
+    if (enabled.length < 2) return;
     const current = enabled.indexOf(this.sourceIndex);
     const offset = event.key === 'ArrowRight' ? 1 : -1;
     const next = event.key === 'Home'
@@ -1659,39 +1805,47 @@ export class BulkImportModal extends Modal {
     const input = this.hasUnresolvedAttempt() ? this.currentInput : this.readInput();
     const ready = this.inputReady(input) && this.source.available !== false;
     const settled = ['complete', 'terminal-error'].includes(this.workflowState);
-    const inputLocked = this.busy || this.hasUnresolvedAttempt() || settled;
+    const transitioning = this.activeTransition?.epoch === this.lifecycleEpoch;
+    const inputLocked = this.busy || transitioning || this.hasUnresolvedAttempt() || settled;
 
-    this.updateFooterActions(primary, reset, { ready, settled });
+    this.updateFooterActions(primary, reset, { ready, settled, transitioning });
     this.dropzone?.setDisabled(inputLocked);
     const inputRoot = this.container?.querySelector<HTMLElement>('[data-import-input]');
     if (inputRoot) this.source.setInputDisabled?.(inputRoot, inputLocked);
     this.container?.querySelectorAll<HTMLButtonElement>('[data-import-source-tab]').forEach((tab, index) => {
-      tab.disabled = this.busy || this.config.sources[index].available === false;
+      tab.disabled = this.busy || transitioning || this.config.sources[index].available === false;
     });
     this.container?.querySelectorAll<HTMLSelectElement>('[data-import-mode] select').forEach((select) => {
       select.disabled = inputLocked;
+    });
+    this.container?.querySelectorAll<HTMLButtonElement>('[data-import-change], [data-import-close]').forEach((button) => {
+      button.disabled = transitioning;
     });
   }
 
   private updateFooterActions(
     primary: HTMLButtonElement,
     reset: HTMLButtonElement,
-    { ready, settled }: { ready: boolean; settled: boolean },
+    { ready, settled, transitioning }: { ready: boolean; settled: boolean; transitioning: boolean },
   ): void {
     // A settled import has no actionable primary. Leaving a disabled "Preview"
     // reads as a broken control, so the action is removed and Import another
     // takes over as the primary path.
     primary.hidden = settled;
-    primary.disabled = this.busy || settled || !ready
+    primary.disabled = this.busy || transitioning || settled || !ready
       || (this.source.workflow === 'preview-apply' && this.workflowState === 'preview-ready' && !this.eligibility.allowed);
-    primary.setAttribute('aria-busy', String(this.busy));
+    primary.setAttribute('aria-busy', String(this.busy || transitioning));
     primary.textContent = this.primaryActionLabel();
     reset.hidden = !settled;
+    reset.disabled = transitioning;
     reset.dataset.importPriority = settled ? 'primary' : 'secondary';
     const dismiss = this.container?.querySelector<HTMLButtonElement>('[data-import-dismiss]');
     // Cancel abandons editable pre-apply work; Close leaves a settled or
     // preserved result in place.
-    if (dismiss) dismiss.textContent = this.hasDiscardableEditableWork() ? this.copy.cancel : this.copy.dismiss;
+    if (dismiss) {
+      dismiss.disabled = transitioning;
+      dismiss.textContent = this.hasDiscardableEditableWork() ? this.copy.cancel : this.copy.dismiss;
+    }
   }
 
   private primaryActionLabel(): string {

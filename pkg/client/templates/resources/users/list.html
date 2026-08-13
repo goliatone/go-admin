@@ -371,6 +371,7 @@ import { DataGrid, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationB
 import { mountFilterBuilderOnInteraction } from '{{ adminURL("assets/dist/datatable/filter-builder-loader.js") }}';
 import { BulkImportModal } from '{{ adminURL("assets/dist/components/import-modal.js") }}';
 import { httpRequest } from '{{ adminURL("assets/dist/shared/transport/http-client.js") }}';
+import { adaptUsersImportResult } from '{{ adminURL("assets/dist/users/import-adapter.js") }}';
 
 // Template variables
 const basePath = '{{ base_path }}';
@@ -769,34 +770,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // Users owns its upload and response adapter; go-admin owns the shared UI.
   if (usersImportEnabled) {
-    const adaptUsersImportReport = (payload) => {
-      const summary = payload?.summary || {};
-      const rows = (Array.isArray(payload?.results) ? payload.results : []).map((item, index) => {
-        const failed = Boolean(String(item?.error || '').trim());
-        return {
-          reference: String(Number.isFinite(item?.index) ? item.index + 1 : index + 1),
-          outcome: failed ? 'failed' : 'succeeded',
-          action: failed ? 'rejected' : String(item?.status || 'imported'),
-          message: failed ? String(item.error) : '',
-          metadata: {
-            email: item?.email ? String(item.email) : '',
-            user_id: item?.user_id ? String(item.user_id) : ''
-          }
-        };
-      });
-      return {
-        phase: 'complete',
-        mode: 'users-create',
-        metrics: [
-          { key: 'processed', label: 'Processed', value: Number(summary.processed) || 0 },
-          { key: 'succeeded', label: 'Succeeded', value: Number(summary.succeeded) || 0, tone: 'success', filter: { key: 'succeeded', label: 'Succeeded', outcome: 'succeeded' } },
-          { key: 'failed', label: 'Failed', value: Number(summary.failed) || 0, tone: 'danger', filter: { key: 'failed', label: 'Failed', outcome: 'failed' } }
-        ],
-        rows,
-        bounds: { returnedRows: rows.length, totalRows: Number(summary.processed) || rows.length, truncated: false },
-        partial: Number(summary.failed) > 0
-      };
-    };
     const importRoot = document.getElementById('import-users-root') || document.getElementById('import-users-btn');
     const importModal = new BulkImportModal({
       root: importRoot,
@@ -843,7 +816,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             : { error: 'Import failed', summary: {}, results: [] };
           return { response, payload };
         },
-        adaptSubmit: ({ payload }) => adaptUsersImportReport(payload),
+        adaptSubmit: adaptUsersImportResult,
         onComplete: async ({ report, response }) => {
           const metrics = Object.fromEntries(report.metrics.map(metric => [metric.key, metric.value]));
           if (Number(metrics.succeeded || 0) > 0) await grid?.refresh();

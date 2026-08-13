@@ -334,19 +334,21 @@ export declare class BulkImportModal extends Modal {
     private panelCleanup;
     private reportView;
     private busy;
-    /** One-shot authorization for the second pass of a confirmed close. */
-    private closeAuthorized;
-    /** Repeated dismissal requests while a confirmation is pending are ignored. */
-    private closePending;
-    /** Source activation is single-flight while discard/reconciliation awaits. */
-    private sourceTransitionPending;
-    /** Invalidates an async source continuation when the instance is destroyed. */
-    private sourceTransitionGeneration;
+    /** Changes whenever a fresh modal DOM lifecycle begins or is destroyed. */
+    private lifecycleEpoch;
+    private transitionSequence;
+    /** Close, source, Change, and reset share one authoritative async transition. */
+    private activeTransition;
+    /** Reconciliation is shared even if another internal caller joins its flight. */
+    private reconciliationFlight;
+    /** One-shot authorization is valid only for the lifecycle that granted it. */
+    private closeAuthorizedEpoch;
     constructor(options: BulkImportModalOptions);
     get state(): ImportWorkflowState;
     get activeAttempt(): Readonly<ImportAttemptContext> | null;
     get isFullscreen(): boolean;
     open(): void;
+    show(): Promise<void>;
     close(): void;
     toggleFullscreen(): boolean;
     reset(): Promise<boolean>;
@@ -358,6 +360,8 @@ export declare class BulkImportModal extends Modal {
     protected onBeforeHide(): boolean;
     private resolveDismissal;
     private get source();
+    private availableSourceIndexes;
+    private syncSourceTabs;
     private resolveModes;
     private setState;
     private setStatus;
@@ -369,6 +373,12 @@ export declare class BulkImportModal extends Modal {
      */
     private setBanner;
     private setError;
+    private startLifecycle;
+    private invalidateLifecycle;
+    private beginTransition;
+    private isTransitionCurrent;
+    private finishTransition;
+    private reportTransitionFailure;
     /** Recompute the banner from the workflow state plus the current report. */
     private refreshBanner;
     /**

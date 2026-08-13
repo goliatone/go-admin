@@ -544,12 +544,14 @@ test('BulkImportModal prevents double submit, uses maximize before Escape close,
 
 test('Users owns its response adapter while the public component remains application-neutral', () => {
   const componentSource = readFileSync(resolve(import.meta.dirname, '../src/components/import-modal.ts'), 'utf8');
+  const usersAdapterSource = readFileSync(resolve(import.meta.dirname, '../src/users/import-adapter.ts'), 'utf8');
   const usersTemplate = readFileSync(resolve(import.meta.dirname, '../../templates/resources/users/list.html'), 'utf8');
   assert.doesNotMatch(componentSource, /legacyUsersReport|LegacyImportModalOptions|users-owned|user_id|class ImportModal/);
   assert.match(usersTemplate, /import \{ BulkImportModal \}/);
-  assert.match(usersTemplate, /const adaptUsersImportReport = \(payload\) =>/);
-  assert.match(usersTemplate, /metadata:\s*\{\s*email:.*user_id:/s);
-  assert.match(usersTemplate, /adaptSubmit: \(\{ payload \}\) => adaptUsersImportReport\(payload\)/);
+  assert.match(usersTemplate, /import \{ adaptUsersImportResult \} from .*users\/import-adapter\.js/);
+  assert.match(usersAdapterSource, /metadata:\s*\{\s*email:.*user_id:/s);
+  assert.match(usersAdapterSource, /status === 422/);
+  assert.match(usersTemplate, /adaptSubmit: adaptUsersImportResult/);
   assert.match(usersTemplate, /new BulkImportModal\(/);
   assert.match(usersTemplate, /httpRequest\(`\$\{apiRoot\}\/users-import`/);
   assert.doesNotMatch(usersTemplate, /legacyUsersReport|id="import-users-modal"|new ImportModal\(/);
@@ -875,12 +877,64 @@ test('T22 informational metrics are not disabled buttons and filters expose aria
 
 test('T22 a single available source hides the tablist and keeps the panel named', async () => {
   setup();
-  const modal = await openWith({ sources: [rowSource()] });
+  const modal = await openWith({
+    sources: [rowSource(), rowSource({ key: 'unavailable', label: 'Unavailable', available: false })],
+  });
   const tablist = modal.container.querySelector('.go-admin-import__sources');
   assert.equal(tablist.hidden, true, 'one source must not leave a vestigial tab stop');
   const panel = modal.container.querySelector('[data-import-source-panel]');
-  assert.ok(panel.getAttribute('aria-label') || panel.getAttribute('aria-labelledby') !== `${tablist.querySelector('[data-import-source-tab]')?.id}`,
-    'the panel keeps an accessible name that does not depend on a hidden tab');
+  assert.equal(panel.getAttribute('aria-label'), 'Row source', 'the panel keeps an accessible name that does not depend on a hidden tab');
+  assert.equal(panel.hasAttribute('aria-labelledby'), false);
+  assert.deepEqual([...tablist.querySelectorAll('[data-import-source-tab]')].map((tab) => tab.tabIndex), [0, -1]);
+  modal.destroy();
+});
+
+test('T32 source tabs establish and preserve one available roving tab stop', async () => {
+  setup();
+  const modal = await openWith({
+    confirmDiscard: async () => true,
+    sources: [
+      rowSource({ key: 'first', label: 'First' }),
+      rowSource({ key: 'unavailable', label: 'Unavailable', available: false }),
+      rowSource({ key: 'third', label: 'Third' }),
+    ],
+  });
+  const tabs = [...modal.container.querySelectorAll('[data-import-source-tab]')];
+  assert.equal(modal.container.querySelector('.go-admin-import__sources').hidden, false);
+  assert.deepEqual(tabs.map((tab) => tab.tabIndex), [0, -1, -1], 'only the selected available tab starts in the tab sequence');
+  assert.equal(tabs[1].disabled, true);
+
+  tabs[0].focus();
+  tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  await tick(); await tick();
+  assert.deepEqual(tabs.map((tab) => tab.tabIndex), [-1, -1, 0], 'ArrowRight skips unavailable sources');
+  assert.equal(document.activeElement, tabs[2]);
+
+  tabs[2].dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  await tick(); await tick();
+  assert.deepEqual(tabs.map((tab) => tab.tabIndex), [0, -1, -1]);
+  assert.equal(document.activeElement, tabs[0]);
+
+  tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  await tick(); await tick();
+  assert.deepEqual(tabs.map((tab) => tab.tabIndex), [-1, -1, 0]);
+  assert.equal(document.activeElement, tabs[2]);
+  modal.destroy();
+});
+
+test('T32 initial selection and focus skip an unavailable first descriptor', async () => {
+  setup();
+  const modal = await openWith({
+    sources: [
+      rowSource({ key: 'unavailable', label: 'Unavailable', available: false }),
+      rowSource({ key: 'second', label: 'Second' }),
+      rowSource({ key: 'third', label: 'Third' }),
+    ],
+  });
+  const tabs = [...modal.container.querySelectorAll('[data-import-source-tab]')];
+  assert.deepEqual(tabs.map((tab) => tab.tabIndex), [-1, 0, -1]);
+  assert.equal(tabs[1].getAttribute('aria-selected'), 'true');
+  assert.equal(document.activeElement, tabs[1]);
   modal.destroy();
 });
 
@@ -1033,4 +1087,144 @@ test('T25 an approval that arrives after teardown does not arm a later dismissal
   assert.deepEqual(prompts, ['asked'], 'the later dismissal confirms on its own terms');
   assert.equal(next.isOpen, true);
   next.destroy();
+});
+
+test('T31 a close approval from an old lifecycle cannot mutate the same reopened instance', async () => {
+  setup();
+  let release;
+  const modal = await openWith({
+    confirmDiscard: () => new Promise((resolve) => { release = resolve; }),
+    sources: [rowSource()],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  assert.equal(modal.state, 'preview-ready');
+  modal.container.querySelector('[data-import-close]').click();
+  await tick();
+
+  modal.destroy();
+  await modal.show();
+  const reopenedState = modal.state;
+  assert.equal(reopenedState, 'preview-ready');
+  assert.equal(modal.isOpen, true);
+
+  release(true);
+  await tick(); await tick();
+  assert.equal(modal.isOpen, true, 'approval from the destroyed lifecycle cannot close the reopened modal');
+  assert.equal(modal.state, reopenedState, 'approval from the destroyed lifecycle cannot clear reopened work');
+  assert.equal(modal.container.dataset.importPhase, 'review');
+  modal.destroy();
+});
+
+test('T31 Change, reset, and source switching share one reconciliation transition', async () => {
+  setup();
+  let resolveReconciliation;
+  let reconciliationCalls = 0;
+  const first = rowSource({
+    key: 'first',
+    label: 'First',
+    apply: async () => { throw new ImportTransportError('Unknown result.', 'unknown'); },
+    adaptApply: () => ({ ...previewReport('app-mode'), phase: 'apply' }),
+    onReconcileAttempt: () => {
+      reconciliationCalls += 1;
+      return new Promise((resolve) => { resolveReconciliation = resolve; });
+    },
+  });
+  const modal = await openWith({ sources: [first, rowSource({ key: 'second', label: 'Second' })] });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-modal-confirm]').click();
+  await tick(); await tick();
+  assert.equal(modal.state, 'recoverable-error');
+
+  modal.container.querySelector('[data-import-change]').click();
+  const resetResult = modal.reset();
+  modal.container.querySelector('[data-import-source-tab="1"]')
+    .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  await tick();
+  assert.equal(reconciliationCalls, 1, 'all competing entry points share the authoritative reconciliation');
+  assert.equal(await resetResult, false, 'a competing public reset is rejected while Change owns the transition');
+
+  resolveReconciliation(true);
+  await tick(); await tick();
+  assert.equal(modal.state, 'selected');
+  assert.equal(modal.container.querySelector('[data-import-source-tab="0"]').getAttribute('aria-selected'), 'true');
+  assert.equal(modal.container.querySelector('[data-import-primary]').disabled, false, 'controls refresh after reconciliation settles');
+  modal.destroy();
+});
+
+test('T31 teardown does not duplicate an in-flight attempt reconciliation', async () => {
+  setup();
+  let resolveReconciliation;
+  let reconciliationCalls = 0;
+  const modal = await openWith({
+    sources: [rowSource({
+      apply: async () => { throw new ImportTransportError('Unknown result.', 'unknown'); },
+      adaptApply: () => ({ ...previewReport('app-mode'), phase: 'apply' }),
+      onReconcileAttempt: () => {
+        reconciliationCalls += 1;
+        return new Promise((resolve) => { resolveReconciliation = resolve; });
+      },
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-modal-confirm]').click();
+  await tick(); await tick();
+
+  modal.container.querySelector('[data-import-change]').click();
+  await tick();
+  assert.equal(reconciliationCalls, 1);
+  modal.destroy();
+  assert.equal(reconciliationCalls, 1, 'destroy joins the pending reconciliation instead of invoking it again');
+  resolveReconciliation(true);
+  await tick(); await tick();
+  assert.equal(reconciliationCalls, 1);
+});
+
+test('T31 rejected application decisions are contained and preserve workflow state', async () => {
+  setup();
+  const modal = await openWith({
+    copy: { importFailed: 'Safe transition failure' },
+    confirmDiscard: async () => { throw new Error('private decision detail'); },
+    sources: [rowSource()],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  modal.container.querySelector('[data-import-close]').click();
+  await tick(); await tick();
+  assert.equal(modal.isOpen, true);
+  assert.equal(modal.state, 'preview-ready');
+  assert.equal(modal.container.querySelector('[data-import-banner]').textContent, 'Safe transition failure');
+  assert.doesNotMatch(modal.container.textContent, /private decision detail/);
+  assert.equal(modal.container.querySelector('[data-import-close]').disabled, false);
+  modal.destroy();
+
+  setup();
+  const uncertain = await openWith({
+    copy: { importFailed: 'Safe reconciliation failure' },
+    sources: [rowSource({
+      apply: async () => { throw new ImportTransportError('Unknown result.', 'unknown'); },
+      adaptApply: () => ({ ...previewReport('app-mode'), phase: 'apply' }),
+      onReconcileAttempt: async () => { throw new Error('private reconciliation detail'); },
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-modal-confirm]').click();
+  await tick(); await tick();
+  const attempt = uncertain.activeAttempt;
+  uncertain.container.querySelector('[data-import-change]').click();
+  await tick(); await tick();
+  assert.equal(uncertain.state, 'recoverable-error');
+  assert.deepEqual(uncertain.activeAttempt, attempt);
+  assert.equal(uncertain.container.querySelector('[data-import-banner]').textContent, 'Safe reconciliation failure');
+  assert.doesNotMatch(uncertain.container.textContent, /private reconciliation detail/);
+  uncertain.destroy();
 });

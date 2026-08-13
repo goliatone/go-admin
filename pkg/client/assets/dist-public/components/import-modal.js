@@ -1,12 +1,12 @@
 import { escapeHTML as l } from "../shared/html.js";
 import { createLogger as f } from "../shared/logger.js";
 import { formatByteSize as b } from "../shared/size-formatters.js";
-import { r as g, t as h } from "../chunks/modal-nXs4C8ko.js";
-var w = class extends Error {
+import { r as g, t as u } from "../chunks/modal-nXs4C8ko.js";
+var v = class extends Error {
   constructor(t, e = "unknown") {
     super(t), this.name = "ImportTransportError", this.outcome = e;
   }
-}, c = {
+}, p = {
   title: "Bulk import",
   description: "Choose a source, review the result, and apply only when the preview is eligible.",
   close: "Close bulk import",
@@ -52,7 +52,7 @@ var w = class extends Error {
   change: "Change",
   summaryBounds: "{total} records",
   busyDismissBlocked: "An import is in progress. Wait for it to finish before closing."
-}, v = {
+}, w = {
   browse: "Choose a file or drag and drop it here",
   guidance: "Select a supported import file.",
   remove: "Remove selected file",
@@ -93,10 +93,10 @@ function d(t, e, i) {
 function m(t, e) {
   return Object.entries(e).reduce((i, [s, r]) => i.split(`{${s}}`).join(String(r)), t);
 }
-var _ = class {
+var A = class {
   constructor(t) {
     this.cleanup = [], this.input = null, this.selected = null, this.dragDepth = 0, this.disabled = !1, this.options = t, this.copy = {
-      ...v,
+      ...w,
       ...t.copy
     }, this.render(), this.bind();
   }
@@ -179,7 +179,7 @@ var _ = class {
     t && (t.hidden = !!this.selected), e && (e.hidden = !this.selected), this.options.root.dataset.importState = this.selected ? "selected" : "empty", i && (i.textContent = this.selected?.name || ""), s && (s.textContent = this.selected ? y(this.selected.size) : "");
   }
 };
-function A(t, e, i = {}) {
+function _(t, e, i = {}) {
   if (e.value) return e.value(t);
   switch (e.key) {
     case "reference":
@@ -201,7 +201,7 @@ function A(t, e, i = {}) {
 function x(t, e) {
   return e.predicate ? !!e.predicate(t) : !(e.outcome && t.outcome !== e.outcome || e.action && t.action !== e.action || e.code && !(t.codes || []).includes(e.code));
 }
-var I = Object.freeze([
+var E = Object.freeze([
   {
     key: "reference",
     label: "Row",
@@ -222,17 +222,17 @@ var I = Object.freeze([
     label: "Details",
     priority: "secondary"
   }
-]), E = class {
+]), I = class {
   constructor(t, e = {}) {
-    this.presentation = {}, this.report = null, this.activeFilter = "all", this.root = t, this.fallbackColumns = e.columns || I, this.fallbackFilters = e.filters || [], this.presentation = e.presentation || {}, this.noRows = e.noRows || c.noRows, this.copy = {
-      reportFiltersLabel: c.reportFiltersLabel,
-      allRows: c.allRows,
-      reportBounds: c.reportBounds,
-      reportTruncated: c.reportTruncated,
-      reportAggregate: c.reportAggregate,
-      runDetailsLabel: c.runDetailsLabel,
-      partialResult: c.partialResult,
-      replayedResult: c.replayedResult,
+    this.presentation = {}, this.report = null, this.activeFilter = "all", this.root = t, this.fallbackColumns = e.columns || E, this.fallbackFilters = e.filters || [], this.presentation = e.presentation || {}, this.noRows = e.noRows || p.noRows, this.copy = {
+      reportFiltersLabel: p.reportFiltersLabel,
+      allRows: p.allRows,
+      reportBounds: p.reportBounds,
+      reportTruncated: p.reportTruncated,
+      reportAggregate: p.reportAggregate,
+      runDetailsLabel: p.runDetailsLabel,
+      partialResult: p.partialResult,
+      replayedResult: p.replayedResult,
       ...e.copy
     };
   }
@@ -348,11 +348,11 @@ var I = Object.freeze([
     for (const o of e) {
       const a = document.createElement("td");
       a.dataset.column = o.key, a.dataset.priority = o.priority || "primary";
-      const n = A(t, o, i), p = n === null ? "" : String(n);
-      if ((o.key === "outcome" || o.key === "action") && p) {
-        const u = document.createElement("span");
-        u.className = "go-admin-import__outcome", u.dataset.tone = s[o.key === "outcome" ? t.outcome : t.action || ""] || "neutral", u.textContent = p, a.appendChild(u);
-      } else a.textContent = p;
+      const n = _(t, o, i), c = n === null ? "" : String(n);
+      if ((o.key === "outcome" || o.key === "action") && c) {
+        const h = document.createElement("span");
+        h.className = "go-admin-import__outcome", h.dataset.tone = s[o.key === "outcome" ? t.outcome : t.action || ""] || "neutral", h.textContent = c, a.appendChild(h);
+      } else a.textContent = c;
       r.appendChild(a);
     }
     return r;
@@ -370,32 +370,33 @@ var I = Object.freeze([
     for (const { field: r, value: o } of i) {
       const a = document.createElement("dt");
       a.textContent = r.label, a.dataset.runField = r.key;
-      const n = document.createElement("dd"), p = r.format ? r.format(o) : o;
-      n.textContent = p === null ? "" : String(p), s.append(a, n);
+      const n = document.createElement("dd"), c = r.format ? r.format(o) : o;
+      n.textContent = c === null ? "" : String(c), s.append(a, n);
     }
     this.root.appendChild(s);
   }
 };
-function M() {
+function T() {
   const t = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return Object.freeze({
     attemptId: t,
     idempotencyKey: t
   });
 }
-var q = class extends g {
+var D = class extends g {
   constructor(t) {
     if (!t.root || t.sources.length === 0) throw new Error("BulkImportModal requires a root and at least one source.");
+    const e = t.sources.filter((i) => i.available !== !1).length;
     super({
       size: "4xl",
-      ariaLabel: t.copy?.title || c.title,
-      initialFocus: t.sources.length > 1 ? "[data-import-source-tab]" : "[data-import-browse], [data-import-input] button, [data-import-input] input, [data-import-input] select, [data-import-primary]",
+      ariaLabel: t.copy?.title || p.title,
+      initialFocus: e > 1 ? '[data-import-source-tab][tabindex="0"]' : "[data-import-browse], [data-import-input] button, [data-import-input] input, [data-import-input] select, [data-import-primary]",
       maximizable: !0,
       containerClass: "go-admin-import"
-    }), this.instanceID = `go-admin-bulk-import-${++C}`, this.workflowState = "idle", this.sourceIndex = 0, this.currentInput = null, this.previewState = null, this.eligibility = { allowed: !1 }, this.attempt = null, this.attemptTerminal = !0, this.report = null, this.response = null, this.aborter = null, this.dropzone = null, this.panelCleanup = null, this.reportView = null, this.busy = !1, this.closeAuthorized = !1, this.closePending = !1, this.sourceTransitionPending = !1, this.sourceTransitionGeneration = 0, this.config = t, this.copy = {
-      ...c,
+    }), this.instanceID = `go-admin-bulk-import-${++C}`, this.workflowState = "idle", this.sourceIndex = 0, this.currentInput = null, this.previewState = null, this.eligibility = { allowed: !1 }, this.attempt = null, this.attemptTerminal = !0, this.report = null, this.response = null, this.aborter = null, this.dropzone = null, this.panelCleanup = null, this.reportView = null, this.busy = !1, this.lifecycleEpoch = 0, this.transitionSequence = 0, this.activeTransition = null, this.reconciliationFlight = null, this.closeAuthorizedEpoch = null, this.config = t, this.copy = {
+      ...p,
       ...t.copy
-    }, this.sourceIndex = Math.max(0, t.sources.findIndex((e) => e.available !== !1)), this.selectedMode = this.resolveModes(this.source)[0];
+    }, this.sourceIndex = Math.max(0, t.sources.findIndex((i) => i.available !== !1)), this.selectedMode = this.resolveModes(this.source)[0];
   }
   get state() {
     return this.workflowState;
@@ -409,6 +410,9 @@ var q = class extends g {
   open() {
     this.show();
   }
+  async show() {
+    this.isOpen || this.startLifecycle(), await super.show();
+  }
   close() {
     this.hide();
   }
@@ -417,13 +421,23 @@ var q = class extends g {
     return this.updateMaximizeControl(), e;
   }
   async reset() {
-    return await this.reconcileAttempt() ? (this.clearWorkflow(), this.renderSourcePanel(), this.setStatus(this.copy.idleStatus), this.updateActions(), !0) : !1;
+    const t = this.beginTransition("reset");
+    if (!t) return !1;
+    try {
+      return !await this.reconcileAttempt(t) || !this.isTransitionCurrent(t) ? !1 : (this.clearWorkflow(), this.renderSourcePanel(), this.setStatus(this.copy.idleStatus), this.updateActions(), !0);
+    } catch {
+      return this.reportTransitionFailure(t), !1;
+    } finally {
+      this.finishTransition(t);
+    }
   }
   destroy() {
-    this.sourceTransitionGeneration += 1, this.sourceTransitionPending = !1, this.attempt && !this.attemptTerminal && this.source.onReconcileAttempt?.(this.attempt), this.aborter?.abort(), this.releasePanel(), super.destroy();
+    const t = this.attempt, e = this.source, i = e.onReconcileAttempt, s = !!(this.reconciliationFlight && this.reconciliationFlight.epoch === this.lifecycleEpoch && this.reconciliationFlight.source === e && this.reconciliationFlight.attempt === t);
+    this.invalidateLifecycle(), t && !this.attemptTerminal && i && !s && Promise.resolve().then(() => i(t)).catch(() => {
+    }), this.aborter?.abort(), this.releasePanel(), super.destroy();
   }
   renderContent() {
-    const t = this.copy.description ? `<p id="${this.instanceID}-description">${l(this.copy.description)}</p>` : "", e = this.config.sources.length < 2, i = e ? `aria-label="${l(this.config.sources[this.sourceIndex]?.label || this.copy.sourceTabsLabel)}"` : `aria-labelledby="${this.instanceID}-source-tab-${this.sourceIndex}"`;
+    const t = this.copy.description ? `<p id="${this.instanceID}-description">${l(this.copy.description)}</p>` : "", e = this.availableSourceIndexes().length <= 1, i = e ? `aria-label="${l(this.config.sources[this.sourceIndex]?.label || this.copy.sourceTabsLabel)}"` : `aria-labelledby="${this.instanceID}-source-tab-${this.sourceIndex}"`;
     return `
       <header class="go-admin-modal__header go-admin-import__header">
         <div class="go-admin-import__heading"><h2 id="${this.instanceID}-title">${l(this.copy.title)}</h2>${t}</div>
@@ -437,7 +451,7 @@ var q = class extends g {
         </div>
       </header>
       <div class="go-admin-import__sources" role="tablist" aria-label="${l(this.copy.sourceTabsLabel)}" ${e ? "hidden" : ""}>
-        ${this.config.sources.map((s, r) => `<button id="${this.instanceID}-source-tab-${r}" type="button" role="tab" data-import-source-tab="${r}" aria-controls="${this.instanceID}-source-panel" aria-selected="${String(r === this.sourceIndex)}" ${s.available === !1 ? "disabled" : ""}>${l(s.label)}</button>`).join("")}
+        ${this.config.sources.map((s, r) => `<button id="${this.instanceID}-source-tab-${r}" type="button" role="tab" data-import-source-tab="${r}" aria-controls="${this.instanceID}-source-panel" aria-selected="${String(r === this.sourceIndex)}" tabindex="${r === this.sourceIndex && s.available !== !1 ? 0 : -1}" ${s.available === !1 ? "disabled" : ""}>${l(s.label)}</button>`).join("")}
       </div>
       <div class="go-admin-modal__body go-admin-import__body">
         <section id="${this.instanceID}-source-panel" role="tabpanel" ${i} data-import-source-panel>
@@ -471,7 +485,7 @@ var q = class extends g {
       this.reset();
     });
     const t = this.container?.querySelector("[data-import-report]");
-    t && (this.reportView = new E(t, {
+    t && (this.reportView = new I(t, {
       columns: this.config.columns,
       filters: this.config.filters,
       presentation: this.source.report,
@@ -486,30 +500,50 @@ var q = class extends g {
     this.updateMaximizeControl(), this.backdrop?.classList.toggle("go-admin-modal--import-fullbleed", this.isMaximized);
   }
   onBeforeHide() {
-    return this.closeAuthorized ? (this.closeAuthorized = !1, !0) : this.busy ? (this.setStatus(this.copy.busyDismissBlocked), !1) : this.hasDiscardableEditableWork() ? (this.closePending || (this.closePending = !0, this.resolveDismissal()), !1) : !0;
+    if (this.closeAuthorizedEpoch === this.lifecycleEpoch)
+      return this.closeAuthorizedEpoch = null, !0;
+    if (this.closeAuthorizedEpoch = null, this.busy)
+      return this.setStatus(this.copy.busyDismissBlocked), !1;
+    if (!this.hasDiscardableEditableWork()) return !0;
+    const t = this.beginTransition("close");
+    return t && this.resolveDismissal(t), !1;
   }
-  async resolveDismissal() {
+  async resolveDismissal(t) {
     try {
-      const t = {
+      const e = {
         reason: "close",
         state: this.workflowState,
         sourceKey: this.source.key,
         hasInput: this.currentInput !== null,
         hasPreview: this.previewState !== null,
         attempt: this.attempt || void 0
-      }, e = this.source.confirmDiscard || this.config.confirmDiscard;
-      if (!(e ? await e(t) : await h.confirm(this.copy.discardOnClose, {
+      }, i = this.source.confirmDiscard || this.config.confirmDiscard;
+      if (!(i ? await i(e) : await u.confirm(this.copy.discardOnClose, {
         title: this.copy.discardTitle,
         confirmText: this.copy.discard,
         cancelText: this.copy.cancel
-      }))) return;
-      this.clearWorkflow(), this.renderSourcePanel(), this.closeAuthorized = !0, this.requestClose() || (this.closeAuthorized = !1);
+      })) || !this.isTransitionCurrent(t) || !this.isOpen || !this.container) return;
+      this.clearWorkflow(), this.renderSourcePanel(), this.closeAuthorizedEpoch = t.epoch, this.requestClose() || (this.closeAuthorizedEpoch = null);
+    } catch {
+      this.reportTransitionFailure(t);
     } finally {
-      this.closePending = !1;
+      this.finishTransition(t);
     }
   }
   get source() {
     return this.config.sources[this.sourceIndex];
+  }
+  availableSourceIndexes() {
+    return this.config.sources.map((t, e) => t.available === !1 ? -1 : e).filter((t) => t >= 0);
+  }
+  syncSourceTabs() {
+    const t = this.availableSourceIndexes().length > 1;
+    this.container?.querySelectorAll("[data-import-source-tab]").forEach((i) => {
+      const s = Number(i.dataset.importSourceTab), r = s === this.sourceIndex, o = this.config.sources[s]?.available !== !1;
+      i.setAttribute("aria-selected", String(r)), i.tabIndex = r && o ? 0 : -1;
+    });
+    const e = this.container?.querySelector("[data-import-source-panel]");
+    e && (t ? (e.removeAttribute("aria-label"), e.setAttribute("aria-labelledby", `${this.instanceID}-source-tab-${this.sourceIndex}`)) : (e.removeAttribute("aria-labelledby"), e.setAttribute("aria-label", this.source.label || this.copy.sourceTabsLabel)));
   }
   resolveModes(t) {
     const e = t.modes?.length ? Array.from(t.modes) : [t.mode];
@@ -528,6 +562,30 @@ var q = class extends g {
   }
   setError(t = "") {
     this.setBanner(t, t ? "danger" : "neutral");
+  }
+  startLifecycle() {
+    this.lifecycleEpoch += 1, this.activeTransition = null, this.reconciliationFlight = null, this.closeAuthorizedEpoch = null;
+  }
+  invalidateLifecycle() {
+    this.startLifecycle();
+  }
+  beginTransition(t) {
+    if (this.activeTransition?.epoch === this.lifecycleEpoch) return null;
+    const e = Object.freeze({
+      epoch: this.lifecycleEpoch,
+      sequence: ++this.transitionSequence,
+      kind: t
+    });
+    return this.activeTransition = e, this.updateActions(), e;
+  }
+  isTransitionCurrent(t) {
+    return t.epoch === this.lifecycleEpoch && this.activeTransition?.sequence === t.sequence;
+  }
+  finishTransition(t) {
+    this.isTransitionCurrent(t) && (this.activeTransition = null, this.updateActions());
+  }
+  reportTransitionFailure(t) {
+    this.isTransitionCurrent(t) && (this.setError(this.copy.importFailed), this.setStatus(this.copy.importFailed), this.updateActions());
   }
   refreshBanner() {
     const t = this.report;
@@ -572,7 +630,16 @@ var q = class extends g {
       this.setStatus(this.copy.busyDismissBlocked);
       return;
     }
-    await this.reconcileAttempt() && this.invalidatePreview();
+    const t = this.beginTransition("change");
+    if (t)
+      try {
+        if (!await this.reconcileAttempt(t) || !this.isTransitionCurrent(t)) return;
+        this.invalidatePreview();
+      } catch {
+        this.reportTransitionFailure(t);
+      } finally {
+        this.finishTransition(t);
+      }
   }
   updateMaximizeControl() {
     const t = this.container?.querySelector("[data-import-maximize]");
@@ -613,7 +680,7 @@ var q = class extends g {
     this.renderModeDescription(e);
   }
   mountFileSource(t, e) {
-    this.dropzone = new _({
+    this.dropzone = new A({
       root: e,
       ...t.file || {},
       copy: {
@@ -666,10 +733,29 @@ var q = class extends g {
   hasDiscardableEditableWork() {
     return this.hasUnresolvedAttempt() || ["complete", "terminal-error"].includes(this.workflowState) ? !1 : this.currentInput !== null || this.previewState !== null || this.report !== null;
   }
-  async reconcileAttempt() {
+  async reconcileAttempt(t) {
     if (!this.attempt || this.attemptTerminal) return !0;
-    const t = this.source.onReconcileAttempt;
-    return !t || !await t(this.attempt) ? (this.setStatus(this.copy.reconcileRequired), !1) : (this.attemptTerminal = !0, !0);
+    const e = this.source, i = this.attempt, s = this.reconciliationFlight;
+    if (s && s.epoch === t.epoch && s.source === e && s.attempt === i) return s.promise;
+    const r = e.onReconcileAttempt;
+    if (!r)
+      return this.setStatus(this.copy.reconcileRequired), this.updateActions(), !1;
+    const o = (async () => {
+      try {
+        const a = !!await r(i);
+        return !this.isTransitionCurrent(t) || this.source !== e || this.attempt !== i ? !1 : a ? (this.attemptTerminal = !0, this.updateActions(), !0) : (this.setStatus(this.copy.reconcileRequired), this.updateActions(), !1);
+      } catch {
+        return this.reportTransitionFailure(t), !1;
+      }
+    })().finally(() => {
+      this.reconciliationFlight?.promise === o && (this.reconciliationFlight = null);
+    });
+    return this.reconciliationFlight = {
+      epoch: t.epoch,
+      source: e,
+      attempt: i,
+      promise: o
+    }, o;
   }
   clearWorkflow() {
     this.aborter?.abort(), this.aborter = null, this.attempt = null, this.attemptTerminal = !0, this.previewState = null, this.eligibility = { allowed: !1 }, this.report = null, this.response = null, this.currentInput = null, this.setState("idle"), this.reportView?.clear(), this.updatePhase();
@@ -679,10 +765,10 @@ var q = class extends g {
     const e = this.inputReady(this.currentInput);
     this.setState(e ? "selected" : "idle"), this.setError(), this.setStatus(t || (e ? this.copy.selectedStatus : this.copy.idleStatus)), this.updatePhase(), this.updateActions();
   }
-  async confirmSourceDiscard(t) {
+  async confirmSourceDiscard(t, e) {
     if (!this.hasDiscardableWork()) return !0;
-    if (!await this.reconcileAttempt()) return !1;
-    const e = {
+    if (!await this.reconcileAttempt(e)) return !1;
+    const i = {
       reason: "source-switch",
       state: this.workflowState,
       sourceKey: this.source.key,
@@ -690,8 +776,8 @@ var q = class extends g {
       hasInput: this.currentInput !== null,
       hasPreview: this.previewState !== null,
       attempt: this.attempt || void 0
-    }, i = this.source.confirmDiscard || this.config.confirmDiscard;
-    return i ? !!await i(e) : h.confirm(this.copy.discardSourceChange, {
+    }, s = this.source.confirmDiscard || this.config.confirmDiscard;
+    return s ? !!await s(i) : u.confirm(this.copy.discardSourceChange, {
       title: this.copy.discardTitle,
       confirmText: this.copy.discard,
       cancelText: this.copy.cancel
@@ -699,16 +785,15 @@ var q = class extends g {
   }
   async activateSource(t) {
     const e = this.config.sources[t];
-    if (!e || e.available === !1 || t === this.sourceIndex || this.busy || this.sourceTransitionPending) return !1;
-    const i = ++this.sourceTransitionGeneration;
-    this.sourceTransitionPending = !0;
+    if (!e || e.available === !1 || t === this.sourceIndex || this.busy) return !1;
+    const i = this.beginTransition("source");
+    if (!i) return !1;
     try {
-      return !await this.confirmSourceDiscard(e) || i !== this.sourceTransitionGeneration || !this.container ? !1 : (this.clearWorkflow(), this.sourceIndex = t, this.selectedMode = this.resolveModes(e)[0], this.reportView?.setPresentation(e.report), this.container.querySelectorAll("[data-import-source-tab]").forEach((s) => {
-        const r = Number(s.dataset.importSourceTab) === t;
-        s.setAttribute("aria-selected", String(r)), s.tabIndex = r ? 0 : -1;
-      }), this.container.querySelector("[data-import-source-panel]")?.setAttribute("aria-labelledby", `${this.instanceID}-source-tab-${t}`), this.renderSourcePanel(), this.setStatus(e.help || this.copy.idleStatus), !0);
+      return !await this.confirmSourceDiscard(e, i) || !this.isTransitionCurrent(i) || !this.container ? !1 : (this.clearWorkflow(), this.sourceIndex = t, this.selectedMode = this.resolveModes(e)[0], this.reportView?.setPresentation(e.report), this.syncSourceTabs(), this.renderSourcePanel(), this.setStatus(e.help || this.copy.idleStatus), !0);
+    } catch {
+      return this.reportTransitionFailure(i), !1;
     } finally {
-      i === this.sourceTransitionGeneration && (this.sourceTransitionPending = !1);
+      this.finishTransition(i);
     }
   }
   onSourceKeydown(t) {
@@ -719,7 +804,9 @@ var q = class extends g {
       "End"
     ].includes(t.key)) return;
     t.preventDefault();
-    const e = this.config.sources.map((o, a) => o.available === !1 ? -1 : a).filter((o) => o >= 0), i = e.indexOf(this.sourceIndex), s = t.key === "ArrowRight" ? 1 : -1, r = t.key === "Home" ? e[0] : t.key === "End" ? e[e.length - 1] : e[(i + s + e.length) % e.length];
+    const e = this.availableSourceIndexes();
+    if (e.length < 2) return;
+    const i = e.indexOf(this.sourceIndex), s = t.key === "ArrowRight" ? 1 : -1, r = t.key === "Home" ? e[0] : t.key === "End" ? e[e.length - 1] : e[(i + s + e.length) % e.length];
     this.activateSource(r).then((o) => {
       o && this.container?.querySelector(`[data-import-source-tab="${r}"]`)?.focus();
     });
@@ -777,12 +864,12 @@ var q = class extends g {
     }
   }
   async applyPreview(t) {
-    if (!this.source.apply || !this.source.adaptApply || this.previewState === null || !this.eligibility.allowed || !await h.confirm(this.selectedMode.confirmation || this.copy.confirmApply, {
+    if (!this.source.apply || !this.source.adaptApply || this.previewState === null || !this.eligibility.allowed || !await u.confirm(this.selectedMode.confirmation || this.copy.confirmApply, {
       title: this.selectedMode.label,
       confirmText: this.copy.apply,
       cancelText: this.copy.cancel
     })) return;
-    (!this.attempt || this.attemptTerminal) && (this.attempt = Object.freeze((this.config.attemptFactory || M)())), this.attemptTerminal = !1;
+    (!this.attempt || this.attemptTerminal) && (this.attempt = Object.freeze((this.config.attemptFactory || T)())), this.attemptTerminal = !1;
     const e = this.startBusy("applying", this.copy.applyingStatus);
     try {
       const i = await this.source.apply(t, this.previewState, {
@@ -821,7 +908,7 @@ var q = class extends g {
     }
   }
   handleError(t, e) {
-    const i = (t instanceof w ? t : null)?.outcome === "terminal";
+    const i = (t instanceof v ? t : null)?.outcome === "terminal";
     e && i && (this.attemptTerminal = !0), this.setState(i ? "terminal-error" : "recoverable-error");
     const s = t instanceof Error ? t.message : this.copy.importFailed;
     this.setError(s), this.setStatus(e && !i ? this.copy.unknownOutcome : s);
@@ -833,27 +920,30 @@ var q = class extends g {
   updateActions() {
     const t = this.container?.querySelector("[data-import-primary]"), e = this.container?.querySelector("[data-import-reset]");
     if (!t || !e) return;
-    const i = this.hasUnresolvedAttempt() ? this.currentInput : this.readInput(), s = this.inputReady(i) && this.source.available !== !1, r = ["complete", "terminal-error"].includes(this.workflowState), o = this.busy || this.hasUnresolvedAttempt() || r;
+    const i = this.hasUnresolvedAttempt() ? this.currentInput : this.readInput(), s = this.inputReady(i) && this.source.available !== !1, r = ["complete", "terminal-error"].includes(this.workflowState), o = this.activeTransition?.epoch === this.lifecycleEpoch, a = this.busy || o || this.hasUnresolvedAttempt() || r;
     this.updateFooterActions(t, e, {
       ready: s,
-      settled: r
-    }), this.dropzone?.setDisabled(o);
-    const a = this.container?.querySelector("[data-import-input]");
-    a && this.source.setInputDisabled?.(a, o), this.container?.querySelectorAll("[data-import-source-tab]").forEach((n, p) => {
-      n.disabled = this.busy || this.config.sources[p].available === !1;
-    }), this.container?.querySelectorAll("[data-import-mode] select").forEach((n) => {
-      n.disabled = o;
+      settled: r,
+      transitioning: o
+    }), this.dropzone?.setDisabled(a);
+    const n = this.container?.querySelector("[data-import-input]");
+    n && this.source.setInputDisabled?.(n, a), this.container?.querySelectorAll("[data-import-source-tab]").forEach((c, h) => {
+      c.disabled = this.busy || o || this.config.sources[h].available === !1;
+    }), this.container?.querySelectorAll("[data-import-mode] select").forEach((c) => {
+      c.disabled = a;
+    }), this.container?.querySelectorAll("[data-import-change], [data-import-close]").forEach((c) => {
+      c.disabled = o;
     });
   }
-  updateFooterActions(t, e, { ready: i, settled: s }) {
-    t.hidden = s, t.disabled = this.busy || s || !i || this.source.workflow === "preview-apply" && this.workflowState === "preview-ready" && !this.eligibility.allowed, t.setAttribute("aria-busy", String(this.busy)), t.textContent = this.primaryActionLabel(), e.hidden = !s, e.dataset.importPriority = s ? "primary" : "secondary";
-    const r = this.container?.querySelector("[data-import-dismiss]");
-    r && (r.textContent = this.hasDiscardableEditableWork() ? this.copy.cancel : this.copy.dismiss);
+  updateFooterActions(t, e, { ready: i, settled: s, transitioning: r }) {
+    t.hidden = s, t.disabled = this.busy || r || s || !i || this.source.workflow === "preview-apply" && this.workflowState === "preview-ready" && !this.eligibility.allowed, t.setAttribute("aria-busy", String(this.busy || r)), t.textContent = this.primaryActionLabel(), e.hidden = !s, e.disabled = r, e.dataset.importPriority = s ? "primary" : "secondary";
+    const o = this.container?.querySelector("[data-import-dismiss]");
+    o && (o.disabled = r, o.textContent = this.hasDiscardableEditableWork() ? this.copy.cancel : this.copy.dismiss);
   }
   primaryActionLabel() {
     return this.busy ? this.workflowState === "previewing" ? this.copy.previewingStatus : this.copy.applyingStatus : this.workflowState === "recoverable-error" ? this.copy.retry : this.source.workflow === "single" ? this.copy.submit : this.workflowState === "preview-ready" ? this.copy.apply : this.copy.preview;
   }
-}, L = Object.freeze({
+}, q = Object.freeze({
   createOnly: {
     key: "create-only",
     label: "Create only",
@@ -876,12 +966,12 @@ var q = class extends g {
   }
 });
 export {
-  q as BulkImportModal,
-  L as COMMON_IMPORT_MODES,
-  _ as FileDropzone,
-  E as ImportReportView,
-  w as ImportTransportError,
-  q as default,
+  D as BulkImportModal,
+  q as COMMON_IMPORT_MODES,
+  A as FileDropzone,
+  I as ImportReportView,
+  v as ImportTransportError,
+  D as default,
   y as formatFileSize
 };
 
