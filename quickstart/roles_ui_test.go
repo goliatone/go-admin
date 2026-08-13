@@ -103,10 +103,14 @@ func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
 		t.Fatalf("new admin: %v", err)
 	}
 	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		width := "48rem"
+		if selector.Name == "wide-theme" {
+			width = "100%"
+		}
 		return &admin.ThemeSelection{
 			Name: selector.Name,
 			Tokens: map[string]string{
-				formgenrender.FormContainerMaxWidthToken: "100%",
+				formgenrender.FormContainerMaxWidthToken: width,
 			},
 		}, nil
 	})
@@ -127,6 +131,7 @@ func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
 	)
 
 	ctx := router.NewMockContext()
+	ctx.QueriesM["theme"] = "wide-theme"
 	ctx.On("Context").Return(context.Background())
 	ctx.LocalsMock[csrfmw.DefaultTemplateHelpersKey] = map[string]any{
 		"csrf_field": `<input type="hidden" name="_token" value="csrf-token">`,
@@ -139,8 +144,10 @@ func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
 		html := strings.TrimSpace(anyToString(viewCtx["form_html"]))
 		return strings.Contains(html, `name="_token" value="csrf-token"`) &&
 			strings.Contains(html, `<form`) &&
+			strings.Contains(html, `data-formgen-theme="wide-theme"`) &&
 			strings.Contains(html, `data-formgen-semantic="true"`) &&
-			strings.Contains(html, `max-width:var(--form-container-max-width)`)
+			strings.Contains(html, `max-width:var(--form-container-max-width)`) &&
+			strings.Contains(html, `--form-container-max-width:100%;`)
 	})).Return(nil).Once()
 
 	if err := handler.renderForm(ctx, map[string]any{"name": "Editor", "key": "editor"}, false, "resources/roles/form"); err != nil {

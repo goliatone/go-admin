@@ -315,10 +315,11 @@ func TestThemePayloadAddsSemanticSectionsWithoutReplacingLegacySections(t *testi
 func TestNormalizeThemeProjectionReportsAdminConsumptionAndUnusedTransport(t *testing.T) {
 	selection := normalizeThemeProjection(&ThemeSelection{
 		Tokens: map[string]string{
-			"admin.shell.background":     "#f8fafc",
-			"admin.sidebar.title-height": "42px",
-			"datagrid.row.selected":      "#123456",
-			"dashboard.card.background":  "#ffffff",
+			"admin.shell.background":                 "#f8fafc",
+			"admin.sidebar.title-height":             "42px",
+			"datagrid.row.selected":                  "#123456",
+			"dashboard.card.background":              "#ffffff",
+			formgenrender.FormContainerMaxWidthToken: "100%",
 		},
 	})
 
@@ -333,7 +334,7 @@ func TestNormalizeThemeProjectionReportsAdminConsumptionAndUnusedTransport(t *te
 			t.Fatalf("expected %s to be consumed by go-admin/client, got %+v", token, got)
 		}
 	}
-	for _, token := range []string{"admin.sidebar.title-height", "dashboard.card.background"} {
+	for _, token := range []string{"admin.sidebar.title-height", "dashboard.card.background", formgenrender.FormContainerMaxWidthToken} {
 		if got := statuses[token]; got.Status != "unused" {
 			t.Fatalf("expected %s to remain transport-only for go-admin/client, got %+v", token, got)
 		}

@@ -282,7 +282,6 @@ var adminSemanticConsumerChains = [][]string{
 	{"datagrid.pagination.line-height", "line.height.body"},
 	{"datagrid.pagination.font-weight", "font.weight.emphasis"},
 	{"datagrid.pagination.ellipsis-size"},
-	{formgenrender.FormContainerMaxWidthToken},
 	{"form.control.background", "color.surface.default"},
 	{"form.control.text", "color.text.primary"},
 	{"form.control.border", "color.border.default"},

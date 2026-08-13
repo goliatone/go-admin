@@ -870,10 +870,7 @@ func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminCo
 	ctx = a.withEffectiveRequestScope(c, ctx, ScopeInput{})
 	ctx.FallbackLocales = a.dashboardFallbackLocales(locale)
 	ctx.Translator = a.translator
-	selector := selectorFromRequest(c)
-	if selector.Name != "" || selector.Variant != "" {
-		ctx.Context = WithThemeSelection(ctx.Context, selector)
-	}
+	ctx.Context = WithThemeSelectionFromRequest(ctx.Context, c)
 	if sink := newAdminActionDiagnosticSink(a); sink != nil {
 		ctx.Context = ContextWithActionDiagnostics(ctx.Context, sink)
 	}

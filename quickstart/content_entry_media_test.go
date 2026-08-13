@@ -109,10 +109,14 @@ func TestRenderFormPassesResolvedSemanticThemeToFormgen(t *testing.T) {
 		t.Fatalf("new admin: %v", err)
 	}
 	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		background := "#f8fafc"
+		if selector.Name == "preview-theme" {
+			background = "#ffffff"
+		}
 		return &admin.ThemeSelection{
 			Name: selector.Name,
 			Tokens: map[string]string{
-				"form.control.background": "#ffffff",
+				"form.control.background": background,
 				"form.control.text":       "#0a0a0a",
 				"color.action.primary":    "#171717",
 			},
@@ -124,6 +128,7 @@ func TestRenderFormPassesResolvedSemanticThemeToFormgen(t *testing.T) {
 	}
 
 	ctx := router.NewMockContext()
+	ctx.QueriesM["theme"] = "preview-theme"
 	ctx.On("Context").Return(context.Background())
 	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
@@ -131,9 +136,10 @@ func TestRenderFormPassesResolvedSemanticThemeToFormgen(t *testing.T) {
 			return false
 		}
 		html := anyToString(viewCtx["form_html"])
-		return strings.Contains(html, `data-formgen-theme="niceguys"`) &&
+		return strings.Contains(html, `data-formgen-theme="preview-theme"`) &&
 			strings.Contains(html, `data-formgen-semantic="true"`) &&
-			strings.Contains(html, `data-formgen-semantic-style`)
+			strings.Contains(html, `data-formgen-semantic-style`) &&
+			strings.Contains(html, `--form-control-background:#ffffff;`)
 	})).Return(nil).Once()
 
 	handler := &contentEntryHandlers{

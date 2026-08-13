@@ -308,8 +308,10 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 	routes := newResourceRoutes(h.basePath, "roles")
 	operationID := admin.CreateRoleOperation
 	opts := formgenrender.RenderOptions{}
+	requestCtx := c.Context()
 	if h.admin != nil {
-		opts.Theme = h.admin.FormTheme(c.Context())
+		requestCtx = admin.WithThemeSelectionFromRequest(requestCtx, c)
+		opts.Theme = h.admin.FormTheme(requestCtx)
 	}
 	if isEdit {
 		operationID = admin.UpdateRoleOperation
@@ -319,7 +321,7 @@ func (h *roleHandlers) renderForm(c router.Context, record map[string]any, isEdi
 		}
 	}
 
-	html, err := h.formGenerator.Generate(c.Context(), formgenorchestrator.Request{
+	html, err := h.formGenerator.Generate(requestCtx, formgenorchestrator.Request{
 		Source:        formgenopenapi.SourceFromFS(admin.RolesOpenAPISource),
 		OperationID:   operationID,
 		RenderOptions: opts,

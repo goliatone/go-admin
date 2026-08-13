@@ -120,6 +120,13 @@ func selectorFromRequest(c RouterContext) ThemeSelector {
 	return selector
 }
 
+// WithThemeSelectionFromRequest applies the supported query/header theme
+// overrides to ctx. Query values take precedence over headers, matching the
+// admin request-resolution contract.
+func WithThemeSelectionFromRequest(ctx context.Context, c RouterContext) context.Context {
+	return WithThemeSelection(ctx, selectorFromRequest(c))
+}
+
 func mergeSelector(base, override ThemeSelector) ThemeSelector {
 	if override.Name != "" {
 		base.Name = override.Name

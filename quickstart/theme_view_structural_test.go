@@ -34,6 +34,27 @@ func TestWithThemeContextProjectsStructuralSelectionAndDiagnostics(t *testing.T)
 	}
 }
 
+func TestWithThemeContextUsesHeaderThemeSelection(t *testing.T) {
+	adm, err := admin.New(admin.Config{Theme: "default-theme"}, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithThemeProvider(func(_ context.Context, selector admin.ThemeSelector) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{Name: selector.Name, Variant: selector.Variant}, nil
+	})
+
+	request := router.NewMockContext()
+	request.HeadersM["X-Admin-Theme"] = "header-theme"
+	request.HeadersM["X-Admin-Theme-Variant"] = "contrast"
+	request.On("Context").Return(context.Background())
+
+	view := WithThemeContext(router.ViewContext{}, adm, request)
+	if view["theme_name"] != "header-theme" || view["theme_variant"] != "contrast" {
+		t.Fatalf("theme selection = %q/%q", view["theme_name"], view["theme_variant"])
+	}
+	request.AssertExpectations(t)
+}
+
 func TestWithThemeContextUsesPackagedStructuralDefaultsWithoutAdmin(t *testing.T) {
 	view := WithThemeContext(nil, nil, nil)
 	partials, ok := view["admin_partials"].(map[string]any)

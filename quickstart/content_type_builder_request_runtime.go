@@ -120,6 +120,7 @@ func adminContextFromRequest(adm *admin.Admin, c router.Context, locale string) 
 	if locale != "" {
 		ctx = admin.WithLocale(ctx, locale)
 	}
+	ctx = admin.WithThemeSelectionFromRequest(ctx, c)
 	return admin.AdminContext{
 		Context:     ctx,
 		UserID:      userID,

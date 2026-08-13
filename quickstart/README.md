@@ -121,7 +121,7 @@ container examples.
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
-- `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection, the serialized lowercase `admin_partials` template map, bounded structural diagnostics, and query-string theme preview overrides.
+- `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection, the serialized lowercase `admin_partials` template map, bounded structural diagnostics, and query/header theme preview overrides.
 - `admin.EnrichLayoutViewContextWithChrome(adm *admin.Admin, req router.Context, ctx router.ViewContext, chrome admin.AdminPageChrome) router.ViewContext` - Inputs: Admin, request, base view context, and typed page presentation. Outputs: a cloned context where non-zero typed title/pretitle/subtitle/breadcrumb/navigation/body values win over legacy keys before request-scoped shell enrichment; trusted action markup remains template-owned.
 - `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
@@ -1398,7 +1398,7 @@ selector/provider that resolves an empty variant. The attached manifest is the
 Preferences option authority, so stale stored or preview variants are cleared
 to the base.
 
-Quickstart propagates the same request-scoped selection to admin views,
+Quickstart propagates the same request-scoped query/header selection to admin views,
 DataGrid, dashboard pages/charts, panel and settings forms, and CMS content
 forms. Content-entry and roles rendering pass `adm.FormTheme(ctx)` to
 go-formgen, so portable and `form.*` semantic tokens cover container width,

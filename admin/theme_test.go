@@ -477,6 +477,27 @@ func TestBaseOnlyManifestClearsRequestPreviewVariant(t *testing.T) {
 	mockCtx.AssertExpectations(t)
 }
 
+func TestWithThemeSelectionFromRequestUsesQueryThenHeaderPrecedence(t *testing.T) {
+	request := router.NewMockContext()
+	request.QueriesM["theme"] = " query-theme "
+	request.QueriesM["variant"] = " query-variant "
+	request.HeadersM["X-Admin-Theme"] = "header-theme"
+	request.HeadersM["X-Admin-Theme-Variant"] = "header-variant"
+
+	ctx := WithThemeSelection(context.Background(), ThemeSelector{Name: "context-theme", Variant: "context-variant"})
+	selection := ThemeSelectorFromContext(WithThemeSelectionFromRequest(ctx, request))
+	if selection.Name != "query-theme" || selection.Variant != "query-variant" {
+		t.Fatalf("query selection = %+v", selection)
+	}
+
+	delete(request.QueriesM, "theme")
+	delete(request.QueriesM, "variant")
+	selection = ThemeSelectorFromContext(WithThemeSelectionFromRequest(ctx, request))
+	if selection.Name != "header-theme" || selection.Variant != "header-variant" {
+		t.Fatalf("header selection = %+v", selection)
+	}
+}
+
 func TestBaseOnlyManifestFallsBackOnProviderFailure(t *testing.T) {
 	manifest := baseOnlyTestManifest("brand")
 	tests := []struct {
