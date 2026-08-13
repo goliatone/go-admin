@@ -18,7 +18,7 @@ require (
 	github.com/goliatone/go-dashboard v0.15.4
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-featuregate v0.6.1
-	github.com/goliatone/go-formgen v0.32.4
+	github.com/goliatone/go-formgen v0.33.0
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.10.1

@@ -177,8 +177,8 @@ github.com/goliatone/go-auth v0.45.0 h1:FzjdI0j8nsQpScUmP2hkYwPV2qQxXPaVM98wWbW9
 github.com/goliatone/go-auth v0.45.0/go.mod h1:bwD+0rIKjBz6zv/t2KDPd9mPmRcgK54EjvF3wrcuk5g=
 github.com/goliatone/go-auth/adapters/featuregate v0.45.0 h1:OHdSd0JLTiYDxfjjE4PQb5hzhepx4ZWvtGiegVY816U=
 github.com/goliatone/go-auth/adapters/featuregate v0.45.0/go.mod h1:sQqr82updcvD7IbqjCDYyQ9g5wJLhGObzc/cP14aaIM=
-github.com/goliatone/go-cache v0.2.1 h1:oNqsY5f3QU/k1z+fYGzvVHy2alOMpCfp96xpgcZYVxk=
-github.com/goliatone/go-cache v0.2.1/go.mod h1:/Sjv3+lO0mwZ1oDxUhjKbTyz2n3I5ZJHcTFq5yGV0c0=
+github.com/goliatone/go-cache v0.3.1 h1:I3AijvmWPWCcwe60iDPYgg3BnaE3N+EaefJigs4z5xE=
+github.com/goliatone/go-cache v0.3.1/go.mod h1:/Sjv3+lO0mwZ1oDxUhjKbTyz2n3I5ZJHcTFq5yGV0c0=
 github.com/goliatone/go-cms v0.60.7 h1:nAHwOhjjNs6uzKjSjvOWCwFBTaOLf0nm/UTCRyvs1r4=
 github.com/goliatone/go-cms v0.60.7/go.mod h1:OmVQ45L6Z8/zsCbrjC1+M71tVXtFtRBuu5ebqLBoRuA=
 github.com/goliatone/go-command v0.24.2 h1:GXJ7yVvQ2fU7GYTpQVep1NtDyfhkhwin8OifnSZ2Vpo=
@@ -201,8 +201,8 @@ github.com/goliatone/go-export/adapters/template/go-template v0.9.0 h1:iwQlU51+u
 github.com/goliatone/go-export/adapters/template/go-template v0.9.0/go.mod h1:JztM9CA+SbWGMyMF7pgW9ySiPxuuzF1hRg/qtsN0Fa4=
 github.com/goliatone/go-featuregate v0.6.1 h1:3fxOcSWTxpC3YxKJMDhM12j8vL/D+CUD7meS/L8b5CM=
 github.com/goliatone/go-featuregate v0.6.1/go.mod h1:7cTSfGckWEdVPRD3NMPrvjQxkEd4/Z0SolKa9aSrBvM=
-github.com/goliatone/go-formgen v0.32.4 h1:tvqDr5SmvjIQS+ETx4n7D1+tUxrxbCsM9SKrKF2ho68=
-github.com/goliatone/go-formgen v0.32.4/go.mod h1:KwJxWGEeZwm+IfA4mjD/IPNtP6Y9WSTqTM7/QvEUirM=
+github.com/goliatone/go-formgen v0.33.0 h1:cerPw5wQEoWkYLDk3VoiuotALDlOCfGhbhfFwoGtSGI=
+github.com/goliatone/go-formgen v0.33.0/go.mod h1:KwJxWGEeZwm+IfA4mjD/IPNtP6Y9WSTqTM7/QvEUirM=
 github.com/goliatone/go-i18n v0.5.0 h1:xc2mYv0XWoMHpfyDj6JEJS53cUUDCvAtSjieG2OYdBc=
 github.com/goliatone/go-i18n v0.5.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
 github.com/goliatone/go-job v0.19.0 h1:xdjp9aWTst9vwiiCLGQUuwSnfXt8ehbVhRfYjw6mUoY=
