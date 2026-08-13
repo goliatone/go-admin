@@ -1,22 +1,25 @@
 # Changelog
 
+# [0.134.1](https://github.com/goliatone/go-admin/compare/v0.134.0...v0.134.1) - (2026-08-13)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([83ea0ae](https://github.com/goliatone/go-admin/commit/83ea0ae4e35556b1d6555073c1c5414fa263f836))  - (goliatone)
+
 # [0.134.0](https://github.com/goliatone/go-admin/compare/v0.133.1...v0.134.0) - (2026-08-13)
 
 
-## Theme Integration
-
-- Added `admin.WithThemeSelectionFromRequest` to apply supported query/header
-  theme overrides consistently before resolving in-process renderers.
-- Quickstart content and roles forms, plus the web example users form, now use
-  the same request-scoped theme selection as the surrounding admin view.
-- Form-container width remains projected by go-admin but consumption is
-  reported by go-formgen, the package that owns the rendered form.
+New minor release: v0.134.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Budget size for fe lib ([63e13c5](https://github.com/goliatone/go-admin/commit/63e13c5eb285d6b9ee53de3fb4ce824dddbd249b))  - (goliatone)
 - Injetable logger to fe code, use loger vs console ([578c6dc](https://github.com/goliatone/go-admin/commit/578c6dcd34bbfb5b85881ce4467566c95d147cd7))  - (goliatone)
 - Linting ([75524d1](https://github.com/goliatone/go-admin/commit/75524d1ee90a078381426dc7a26ba5e96a7db39b))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.134.0 ([6ebf91d](https://github.com/goliatone/go-admin/commit/6ebf91d47e78da54925408db0f81f9f583e8c650))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
