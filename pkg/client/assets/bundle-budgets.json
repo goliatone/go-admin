@@ -4,7 +4,7 @@
     "runtime": {
       "entries": {
         "activity/index": { "rawBytes": 66560, "gzipBytes": 18432 },
-        "components/import-modal": { "rawBytes": 65536, "gzipBytes": 18432 },
+        "components/import-modal": { "rawBytes": 76800, "gzipBytes": 21504 },
         "components/modal": { "rawBytes": 21504, "gzipBytes": 8192 },
         "components/permission-pills": { "rawBytes": 5120, "gzipBytes": 3072 },
         "content-type-builder/index": { "rawBytes": 521216, "gzipBytes": 114688 },
@@ -78,7 +78,7 @@
     },
     "public": {
       "entries": {
-        "components/import-modal": { "rawBytes": 65536, "gzipBytes": 18432 },
+        "components/import-modal": { "rawBytes": 76800, "gzipBytes": 21504 },
         "components/modal": { "rawBytes": 21504, "gzipBytes": 7168 },
         "datatable": { "rawBytes": 629760, "gzipBytes": 158720 },
         "datatable/runtime": { "rawBytes": 319488, "gzipBytes": 86016 },

@@ -12,6 +12,7 @@ const {
   ImportTransportError,
   legacyUsersReport,
 } = await import('../dist/components/import-modal.js');
+const { configureLogging } = await import('../dist/shared/logger.js');
 
 function setup(markup = '<button id="open">Open</button><div id="host"></div>') {
   const dom = new JSDOM(`<!doctype html><html><body>${markup}</body></html>`, {
@@ -136,7 +137,7 @@ test('ImportReportView renders application vocabularies, bounds, unknown categor
   assert.equal(root.querySelector('img'), null);
   assert.match(root.querySelector('[data-outcome="queued"]').textContent, /<img src=x/);
   assert.match(root.querySelector('.go-admin-import__bounds').textContent, /2 returned rows \(12 total\).*truncated/);
-  assert.match(root.querySelector('.go-admin-import__flags').textContent, /Partial result.*Idempotent replay.*More safe rows/);
+  assert.equal(root.querySelector('.go-admin-import__flags'), null, 'partial/replay/continuation state belongs to the modal banner, above the detail it describes');
   root.querySelector('[data-active="false"]').click();
   assert.equal(root.querySelectorAll('tbody tr').length, 1);
 });
@@ -164,7 +165,6 @@ test('ImportReportView localizes shared filters, bounds, truncation, and result 
   assert.equal(root.querySelector('[role="toolbar"]').getAttribute('aria-label'), 'Localized filter label');
   assert.match(root.textContent, /Àll localized/);
   assert.match(root.textContent, /1 visible \/ 1 returned \/ 2 total localized Localized truncation/);
-  assert.match(root.textContent, /Localized partial · Localized replay/);
   assert.doesNotMatch(root.textContent, /Showing|Details are truncated|Partial result|Idempotent replay/);
 });
 
@@ -447,7 +447,11 @@ test('BulkImportModal prevents double submit, uses maximize before Escape close,
     submit: () => { submits += 1; return new Promise((resolve) => { resolveSubmit = resolve; }); },
     adaptSubmit: () => previewReport('app-owned'),
   };
-  const first = new BulkImportModal({ root: document.getElementById('one'), sources: [source] });
+  const first = new BulkImportModal({
+    root: document.getElementById('one'),
+    sources: [source],
+    copy: { maximize: 'Expand localized', restore: 'Restore localized' },
+  });
   const second = new BulkImportModal({ root: document.getElementById('two'), sources: [{ ...source, key: 'other' }] });
   await first.show();
   const primary = document.querySelector('[data-import-primary]');
@@ -457,11 +461,23 @@ test('BulkImportModal prevents double submit, uses maximize before Escape close,
   resolveSubmit({ ok: true });
   await tick();
 
-  document.querySelector('[data-import-maximize]').click();
+  const maximize = document.querySelector('[data-import-maximize]');
+  const maximizeIcon = maximize.querySelector('[data-import-maximize-icon]');
+  assert.equal(maximize.textContent.trim(), '');
+  assert.equal(maximize.getAttribute('aria-label'), 'Expand localized');
+  assert.equal(maximize.getAttribute('aria-expanded'), 'false');
+  assert.equal(maximizeIcon.dataset.importMaximizeIcon, 'expand');
+  maximize.click();
   assert.equal(first.isMaximized, true);
+  assert.equal(maximize.getAttribute('aria-label'), 'Restore localized');
+  assert.equal(maximize.getAttribute('aria-expanded'), 'true');
+  assert.equal(maximizeIcon.dataset.importMaximizeIcon, 'collapse');
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(first.isMaximized, false);
   assert.equal(first.isOpen, true);
+  assert.equal(maximize.getAttribute('aria-label'), 'Expand localized');
+  assert.equal(maximize.getAttribute('aria-expanded'), 'false');
+  assert.equal(maximizeIcon.dataset.importMaximizeIcon, 'expand');
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(first.isOpen, false);
 
@@ -489,4 +505,484 @@ test('Users template configures the public component and does not retain a paral
   assert.match(source, /new BulkImportModal\(/);
   assert.match(source, /httpRequest\(`\$\{apiRoot\}\/users-import`/);
   assert.doesNotMatch(source, /id="import-users-modal"|new ImportModal\(/);
+});
+
+// --- T22 review-first presentation contract -------------------------------
+// These lock the confirmed presentation defects recorded in the 2026-08-13 UI
+// review. Quantitative layout gates live in scripts/test-import-browsers.mjs
+// because JSDOM has no layout engine.
+
+const componentCSS = () => readFileSync(resolve(import.meta.dirname, '../src/styles/components.css'), 'utf8');
+
+function rowSource(overrides = {}) {
+  return {
+    key: 'rows',
+    label: 'Row source',
+    kind: 'custom',
+    workflow: 'preview-apply',
+    mode: { key: 'app-mode', label: 'Application policy' },
+    mountInput(root, api) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = 'ready';
+      root.appendChild(button);
+      api.setReady(true);
+    },
+    readInput: () => ({ ready: true }),
+    preview: async () => ({ ok: true }),
+    adaptPreview: () => ({ state: 'opaque', eligibility: { allowed: true }, report: previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]) }),
+    ...overrides,
+  };
+}
+
+async function openWith(options) {
+  const modal = new BulkImportModal({ root: document.getElementById('host'), ...options });
+  await modal.show();
+  return modal;
+}
+
+test('T22 file chooser exposes mutually exclusive empty and selected structures', () => {
+  setup('<div id="zone"></div>');
+  const root = document.getElementById('zone');
+  const dropzone = new FileDropzone({ root });
+
+  assert.equal(root.dataset.importState, 'empty', 'chooser must expose a stable empty/selected state attribute');
+  dropzone.setFile(file('contacts.csv'));
+  assert.equal(root.dataset.importState, 'selected');
+  assert.equal(root.querySelector('[data-import-empty]').hidden, true);
+  assert.equal(root.querySelector('[data-import-selected]').hidden, false);
+
+  const css = componentCSS();
+  assert.doesNotMatch(
+    css,
+    /\.go-admin-import__dropzone\s*>\s*div\s*\{[^}]*display:\s*(flex|grid|block)/,
+    'a blanket child display rule defeats native [hidden] and renders both chooser states at once',
+  );
+  assert.match(css, /\[hidden\]\s*\{[^}]*display:\s*none/, 'shared CSS must keep native [hidden] authoritative for import content');
+  dropzone.destroy();
+});
+
+test('T22 shared stylesheet styles import controls, tones, and high-contrast output', () => {
+  const css = componentCSS();
+  assert.match(css, /\.go-admin-import__action\[data-import-priority="primary"\]/, 'primary import action must have shared component styling');
+  assert.match(css, /\.go-admin-import__action\[data-import-priority="ghost"\]/, 'secondary and ghost actions share one control system');
+  assert.match(css, /\.go-admin-import__filters button\[aria-pressed="true"\]/, 'filter pills must express active state through aria-pressed');
+  assert.match(css, /\.go-admin-import__outcome/, 'row outcomes need a shared badge treatment, not raw token text');
+  assert.match(css, /@media \(forced-colors: active\)/, 'import surfaces must survive forced-colors mode');
+  assert.doesNotMatch(css, /would_create|skipped_duplicate|user_id/, 'shared CSS must not name application outcome vocabulary');
+});
+
+test('T22 report presentation is source-scoped and does not leak between sources', async () => {
+  setup();
+  const modal = await openWith({
+    columns: [{ key: 'reference', label: 'Fallback row' }],
+    filters: [{ key: 'fallback', label: 'Fallback filter', outcome: 'kept' }],
+    sources: [
+      rowSource({
+        report: {
+          columns: [{ key: 'reference', label: 'Scoped row' }, { key: 'outcome', label: 'Scoped outcome' }],
+          filters: [{ key: 'scoped', label: 'Scoped filter', outcome: 'kept' }],
+          outcomeLabels: { kept: 'Kept by policy' },
+          outcomeTones: { kept: 'success' },
+        },
+        adaptPreview: () => ({
+          state: 'opaque',
+          report: { ...previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]) },
+          eligibility: { allowed: true },
+        }),
+      }),
+      rowSource({ key: 'other', label: 'Other source' }),
+    ],
+  });
+
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  const container = modal.container;
+  assert.match(container.querySelector('thead').textContent, /Scoped row.*Scoped outcome/s, 'source columns must win over modal fallbacks');
+  assert.doesNotMatch(container.querySelector('thead').textContent, /Fallback row/);
+  assert.match(container.querySelector('[role="toolbar"]').textContent, /Scoped filter/);
+  assert.doesNotMatch(container.querySelector('[role="toolbar"]').textContent, /Fallback filter/);
+  assert.match(container.querySelector('tbody tr').textContent, /Kept by policy/, 'outcome cells must render source-declared labels, not raw keys');
+  assert.equal(container.querySelector('tbody tr [data-tone]')?.dataset.tone, 'success');
+  modal.destroy();
+});
+
+test('T22 aggregate detail mode is declared, never inferred from empty rows', async () => {
+  setup();
+  const aggregate = await openWith({
+    sources: [rowSource({
+      report: { runFields: [{ key: 'status', label: 'Run status' }], emptyState: 'Totals only by design.' },
+      adaptPreview: () => ({
+        state: 'opaque',
+        eligibility: { allowed: true },
+        report: {
+          phase: 'preview', mode: 'app-mode', detailMode: 'aggregate',
+          metrics: [{ key: 'read', label: 'Read', value: 100 }],
+          rows: [],
+          bounds: { returnedRows: 0, totalRows: 100, truncated: false },
+          run: { status: 'partial', internal_cursor: 'must-not-render' },
+        },
+      }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  let container = aggregate.container;
+  assert.equal(container.querySelector('.go-admin-import__report-table'), null, 'aggregate mode must not render a row table');
+  assert.equal(container.querySelector('.go-admin-import__filters'), null, 'aggregate mode must not render row filters');
+  assert.match(container.textContent, /Totals only by design/);
+  assert.doesNotMatch(container.textContent, /truncated/i, 'absent-by-design detail must not be reported as truncation');
+  assert.match(container.textContent, /Run status/);
+  assert.doesNotMatch(container.textContent, /internal_cursor|must-not-render/, 'only declared run fields may reach the DOM');
+  aggregate.destroy();
+
+  setup();
+  const rowMode = await openWith({
+    sources: [rowSource({
+      adaptPreview: () => ({
+        state: 'opaque',
+        eligibility: { allowed: true },
+        report: {
+          phase: 'preview', mode: 'app-mode',
+          metrics: [], rows: [],
+          bounds: { returnedRows: 0, totalRows: 40, truncated: true },
+        },
+      }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  container = rowMode.container;
+  assert.ok(container.querySelector('.go-admin-import__report-table'), 'zero rows with a positive total stays row mode with a truthful empty table');
+  rowMode.destroy();
+});
+
+test('T23 aggregate reports that ship row detail are diagnosed, not silently relabelled', async () => {
+  setup();
+  const warnings = [];
+  const restoreLogging = configureLogging({ level: 'warn', sink: { warn: (...args) => warnings.push(args.map(String).join(' ')) } });
+  try {
+    const modal = await openWith({
+      sources: [rowSource({
+        adaptPreview: () => ({
+          state: 'opaque',
+          eligibility: { allowed: true },
+          report: {
+            phase: 'preview', mode: 'app-mode', detailMode: 'aggregate',
+            metrics: [{ key: 'read', label: 'Read', value: 3 }],
+            rows: [{ reference: '1', outcome: 'kept' }],
+            bounds: { returnedRows: 1, totalRows: 3, truncated: false },
+          },
+        }),
+      })],
+    });
+    document.querySelector('[data-import-primary]').click();
+    await tick();
+    assert.equal(modal.container.querySelector('.go-admin-import__report-table'), null, 'the declared aggregate mode still wins');
+    assert.ok(warnings.some((entry) => /aggregate report declared with row detail/.test(entry)), 'the inconsistent payload is diagnosed');
+    modal.destroy();
+  } finally {
+    restoreLogging();
+  }
+});
+
+test('T22 result banner precedes report controls and renders before any report exists', async () => {
+  setup();
+  const modal = await openWith({
+    sources: [rowSource({
+      preview: async () => { throw new ImportTransportError('Preview rejected.', 'terminal'); },
+      adaptPreview: () => { throw new Error('unreachable'); },
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  const banner = modal.container.querySelector('[data-import-banner]');
+  assert.ok(banner, 'a banner must exist for errors raised before a report');
+  assert.equal(banner.getAttribute('role'), 'alert');
+  assert.match(banner.textContent, /Preview rejected/);
+  assert.equal(banner.dataset.tone, 'danger');
+  modal.destroy();
+
+  setup();
+  const settled = await openWith({
+    sources: [rowSource({
+      adaptPreview: () => ({ state: 'opaque', eligibility: { allowed: true }, report: previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]) }),
+      apply: async () => ({ ok: true }),
+      adaptApply: () => ({ ...previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]), phase: 'apply', partial: true, replayed: true }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-modal-confirm]').click();
+  await tick(); await tick();
+  const report = settled.container.querySelector('[data-import-report]');
+  const resultBanner = settled.container.querySelector('[data-import-banner]');
+  assert.ok(resultBanner, 'partial/replayed state must surface in the banner');
+  assert.match(resultBanner.textContent, /Partial result.*Idempotent replay/);
+  assert.equal(
+    resultBanner.compareDocumentPosition(report) & 4 /* DOCUMENT_POSITION_FOLLOWING */,
+    4,
+    'banner must precede report metrics and controls',
+  );
+  assert.equal(settled.container.querySelector('.go-admin-import__flags'), null, 'flags must not remain below the table where they are unreachable');
+  settled.destroy();
+});
+
+test('T22 phase attribute tracks compose and review ownership', async () => {
+  setup();
+  const modal = await openWith({
+    sources: [rowSource({
+      adaptPreview: () => ({ state: 'opaque', eligibility: { allowed: true }, report: previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]) }),
+    })],
+  });
+  assert.equal(modal.container.dataset.importPhase, 'compose');
+  assert.equal(modal.container.dataset.importSource, 'rows');
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  assert.equal(modal.container.dataset.importPhase, 'review');
+  assert.ok(modal.container.querySelector('[data-import-summary]'), 'review must expose a compact source summary with a Change action');
+  modal.container.querySelector('[data-import-summary] [data-import-change]').click();
+  await tick();
+  assert.equal(modal.container.dataset.importPhase, 'compose', 'Change returns to compose through preview invalidation');
+  modal.destroy();
+});
+
+test('T22 settled results hide the primary action instead of disabling Preview', async () => {
+  setup();
+  const modal = await openWith({
+    sources: [rowSource({
+      adaptPreview: () => ({ state: 'opaque', eligibility: { allowed: true }, report: previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]) }),
+      apply: async () => ({ ok: true }),
+      adaptApply: () => ({ ...previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]), phase: 'apply' }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-modal-confirm]').click();
+  await tick(); await tick();
+  const primary = modal.container.querySelector('[data-import-primary]');
+  const reset = modal.container.querySelector('[data-import-reset]');
+  assert.equal(primary.hidden, true, 'a settled import must hide the primary, not leave a disabled Preview');
+  assert.equal(reset.hidden, false);
+  assert.equal(reset.dataset.importPriority, 'primary', 'Import another is promoted after completion');
+  assert.match(modal.container.querySelector('[data-import-dismiss]').textContent, /close/i, 'settled dismissal reads Close, not Cancel');
+  modal.destroy();
+});
+
+test('T22 report columns declare priority and identity instead of positional semantics', async () => {
+  setup();
+  const modal = await openWith({
+    sources: [rowSource({
+      report: {
+        columns: [
+          { key: 'reference', label: 'Row', priority: 'primary' },
+          { key: 'codes', label: 'Codes', priority: 'secondary' },
+        ],
+      },
+      adaptPreview: () => ({ state: 'opaque', eligibility: { allowed: true }, report: previewReport('app-mode', [{ reference: '1', outcome: 'kept', codes: ['a'] }]) }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  const heads = [...modal.container.querySelectorAll('thead th')];
+  assert.deepEqual(heads.map((cell) => cell.dataset.column), ['reference', 'codes']);
+  assert.deepEqual(heads.map((cell) => cell.dataset.priority), ['primary', 'secondary']);
+  assert.deepEqual([...modal.container.querySelectorAll('tbody td')].map((cell) => cell.dataset.column), ['reference', 'codes']);
+  assert.doesNotMatch(componentCSS(), /report-table (th|td):nth-child/, 'narrow column behavior must key on data-priority, not column index');
+  modal.destroy();
+});
+
+test('T22 informational metrics are not disabled buttons and filters expose aria-pressed', async () => {
+  setup();
+  const modal = await openWith({
+    sources: [rowSource({
+      adaptPreview: () => ({
+        state: 'opaque',
+        eligibility: { allowed: true },
+        report: {
+          ...previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]),
+          metrics: [
+            { key: 'processed', label: 'Processed', value: 1 },
+            { key: 'kept', label: 'Kept', value: 1, tone: 'success', filter: { key: 'kept', label: 'Kept', outcome: 'kept' } },
+          ],
+        },
+      }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  const metrics = [...modal.container.querySelectorAll('.go-admin-import__metric')];
+  assert.equal(metrics[0].tagName, 'DIV', 'informational metrics must not render as disabled controls');
+  assert.equal(metrics[1].tagName, 'BUTTON');
+  assert.equal(metrics[1].getAttribute('aria-pressed'), 'false');
+  metrics[1].click();
+  assert.equal(modal.container.querySelector('.go-admin-import__metric[aria-pressed="true"]')?.textContent.includes('Kept'), true);
+  assert.ok([...modal.container.querySelectorAll('.go-admin-import__filters button')].every((button) => button.hasAttribute('aria-pressed')));
+  modal.destroy();
+});
+
+test('T22 a single available source hides the tablist and keeps the panel named', async () => {
+  setup();
+  const modal = await openWith({ sources: [rowSource()] });
+  const tablist = modal.container.querySelector('.go-admin-import__sources');
+  assert.equal(tablist.hidden, true, 'one source must not leave a vestigial tab stop');
+  const panel = modal.container.querySelector('[data-import-source-panel]');
+  assert.ok(panel.getAttribute('aria-label') || panel.getAttribute('aria-labelledby') !== `${tablist.querySelector('[data-import-source-tab]')?.id}`,
+    'the panel keeps an accessible name that does not depend on a hidden tab');
+  modal.destroy();
+});
+
+test('T22 every dismissal path shares one guard, veto and preserved-attempt policy', async () => {
+  setup();
+  const prompts = [];
+  const modal = await openWith({
+    confirmDiscard: async (context) => { prompts.push(context.reason); return false; },
+    sources: [rowSource({
+      adaptPreview: () => ({ state: 'opaque', eligibility: { allowed: true }, report: previewReport('app-mode', [{ reference: '1', outcome: 'kept' }]) }),
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+
+  modal.container.querySelector('[data-import-close]').click();
+  await tick();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await tick();
+  assert.deepEqual(prompts, ['close', 'close'], 'header close and Escape share the same discard policy');
+  assert.equal(modal.isOpen, true, 'a declined discard keeps the modal and its work');
+
+  prompts.length = 0;
+  modal.container.querySelector('[data-import-close]').click();
+  modal.container.querySelector('[data-import-close]').click();
+  await tick();
+  assert.equal(prompts.length, 1, 'repeated close requests while a confirmation is pending create one prompt');
+  modal.destroy();
+});
+
+test('T22 busy work vetoes dismissal with localized feedback and never claims cancellation', async () => {
+  setup();
+  let release;
+  const modal = await openWith({
+    copy: { busyDismissBlocked: 'An import is in progress.' },
+    sources: [rowSource({ preview: () => new Promise((resolve) => { release = resolve; }) })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await tick();
+  assert.equal(modal.isOpen, true);
+  assert.equal(modal.container.querySelector('[data-import-status]').textContent, 'An import is in progress.');
+  assert.doesNotMatch(modal.container.textContent, /cancell?ed|rolled back/i);
+  release({});
+  await tick();
+  modal.destroy();
+});
+
+test('T25 footer dismissal and backdrop share the guard, and unknown applies survive close/reopen', async () => {
+  setup();
+  const prompts = [];
+  const modal = await openWith({
+    confirmDiscard: async (context) => { prompts.push(context.reason); return false; },
+    sources: [rowSource()],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+
+  modal.container.querySelector('[data-import-dismiss]').click();
+  await tick();
+  modal.backdrop.click();
+  await tick();
+  assert.deepEqual(prompts, ['close', 'close'], 'footer dismissal and backdrop use the same discard policy as close and Escape');
+  assert.equal(modal.isOpen, true);
+  assert.match(modal.container.querySelector('[data-import-dismiss]').textContent, /cancel/i, 'editable pre-apply work reads Cancel');
+  modal.destroy();
+
+  setup();
+  const uncertain = await openWith({
+    confirmDiscard: async () => { throw new Error('an unresolved attempt must not be offered for discard'); },
+    sources: [rowSource({
+      apply: async () => { throw new ImportTransportError('No confirmed outcome.', 'unknown'); },
+      adaptApply: () => previewReport('app-mode'),
+      onReconcileAttempt: async () => false,
+    })],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  document.querySelector('[data-modal-confirm]').click();
+  await tick(); await tick();
+  assert.equal(uncertain.state, 'recoverable-error');
+  const attempt = uncertain.activeAttempt;
+  assert.ok(attempt?.idempotencyKey);
+
+  uncertain.container.querySelector('[data-import-close]').click();
+  await tick();
+  assert.equal(uncertain.isOpen, false, 'an unresolved attempt closes without a discard prompt');
+  await uncertain.show();
+  assert.deepEqual(uncertain.activeAttempt, attempt, 'reopening reuses the exact attempt identity');
+  assert.equal(uncertain.state, 'recoverable-error', 'the truthful uncertain outcome survives close/reopen');
+  assert.match(uncertain.container.querySelector('[data-import-dismiss]').textContent, /close/i);
+  uncertain.destroy();
+});
+
+test('T25 a confirmed dismissal discards editable work and closes in one authorized pass', async () => {
+  setup();
+  let passes = 0;
+  const modal = await openWith({
+    confirmDiscard: async () => { passes += 1; return true; },
+    sources: [rowSource()],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  assert.equal(modal.state, 'preview-ready');
+
+  modal.container.querySelector('[data-import-close]').click();
+  await tick();
+  assert.equal(passes, 1, 'approval is requested exactly once');
+  assert.equal(modal.isOpen, false);
+
+  await modal.show();
+  // A custom panel that re-mounts ready lands on `selected`; what must be gone
+  // is the preview, its report and any attempt.
+  assert.ok(['idle', 'selected'].includes(modal.state), `confirmed discard cleared the preview, got ${modal.state}`);
+  assert.equal(modal.container.dataset.importPhase, 'compose');
+  assert.equal(modal.container.querySelector('[data-import-report]').hidden, true);
+  assert.equal(modal.container.querySelector('[data-import-banner]').hidden, true);
+  assert.equal(modal.activeAttempt, null);
+  modal.destroy();
+});
+
+test('T25 an approval that arrives after teardown does not arm a later dismissal', async () => {
+  setup();
+  let release;
+  const modal = await openWith({
+    confirmDiscard: () => new Promise((resolve) => { release = resolve; }),
+    sources: [rowSource()],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  modal.container.querySelector('[data-import-close]').click();
+  await tick();
+
+  modal.destroy();
+  release(true);
+  await tick();
+
+  const prompts = [];
+  const next = await openWith({
+    confirmDiscard: async () => { prompts.push('asked'); return false; },
+    sources: [rowSource()],
+  });
+  document.querySelector('[data-import-primary]').click();
+  await tick();
+  next.container.querySelector('[data-import-close]').click();
+  await tick();
+  assert.deepEqual(prompts, ['asked'], 'the later dismissal confirms on its own terms');
+  assert.equal(next.isOpen, true);
+  next.destroy();
 });

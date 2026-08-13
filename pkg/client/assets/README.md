@@ -215,10 +215,96 @@ again, and a later apply receives a new context even when it uses another
 source. Reports must contain only bounded safe references, allowlisted
 fields/codes, and non-sensitive metadata.
 
+### Compose and review phases
+
+The dialog exposes `data-import-phase="compose"|"review"` and
+`data-import-source="<key>"` on its container. Phase is derived from workflow
+state plus real report presence, never from row counts:
+
+- compose — idle, selected, submitting/previewing, and errors with no report.
+  The modal body stays vertically scrollable so short viewports and 200% zoom
+  reach every input and action.
+- review — preview-ready, applying, complete, and errors that retain a report.
+  The source panel collapses to a `[data-import-summary]` strip carrying the
+  source, safe file name/size or bounds, mode, and a `[data-import-change]`
+  action; `.go-admin-import__report-scroll` becomes the single bounded scroller.
+
+`[data-import-banner]` sits above the metrics and table and carries eligibility
+reasons, partial/replayed state, uncertain outcomes and errors, including errors
+raised before any report exists. It takes `role="alert"` only for error tones;
+routine transitions stay with the polite `[data-import-status]` footer region so
+each change is announced once.
+
+The file chooser renders mutually exclusive `[data-import-empty]` and
+`[data-import-selected]` structures and mirrors them on `data-import-state`. The
+drop target is not a `role="button"`: a dedicated `[data-import-browse]` control
+opens the picker, and the selected-file card owns `[data-import-replace]` and
+`[data-import-remove]` so one click performs exactly one action.
+
+### Source-scoped report presentation
+
+Report vocabulary belongs to the source, not the modal. Declare it through
+`ImportSourceDescriptor.report`; modal-level `columns` and `filters` remain
+fallbacks for sources that do not, and the active source's presentation is
+reapplied on every source change so filters, labels and active filter state
+never leak between tabs.
+
+```ts
+const source: ImportSourceDescriptor<File> = {
+  // ...
+  report: {
+    columns: [
+      { key: 'reference', label: 'Row', priority: 'primary' },
+      { key: 'outcome', label: 'Outcome', priority: 'primary' },
+      { key: 'codes', label: 'Codes', priority: 'secondary' },
+    ],
+    filters: [{ key: 'skipped', label: 'Skipped duplicates', outcome: 'skipped_duplicate' }],
+    outcomeLabels: { would_create: 'Would create', skipped_duplicate: 'Skipped duplicate' },
+    outcomeTones: { would_create: 'success', skipped_duplicate: 'warning' },
+    runFields: [{ key: 'status', label: 'Run status' }],
+    emptyState: 'This source reports bounded totals only.',
+  },
+};
+```
+
+- `outcomeLabels` resolve `outcome` and `action` cells, so tables show localized
+  human text instead of raw application keys. `outcomeTones` emit a semantic
+  `data-tone`; shared CSS styles the tone and never names an application key.
+- `priority` drives narrow-layout column visibility through `data-priority`.
+  Column order is never treated as meaning.
+- `runFields` is an allowlist. `ImportReportData.run` stays open-ended safe
+  metadata and is never enumerated into the DOM; only declared keys render, with
+  localized labels and text-safe formatted values. Empty values are omitted.
+
+Row detail and aggregate totals are **declared**, not inferred. Set
+`ImportReportData.detailMode` to `'aggregate'` for sources that have no safe row
+detail by design; it renders metrics, the `emptyState` explanation and allowed
+run details, with no row table, row filters, or truncation claim. The default is
+`'rows'`, and a row report with zero rows and a positive total stays a truthful
+bounded row report rather than being relabelled. An aggregate payload that also
+ships rows keeps its declared mode and is reported through the logging boundary.
+
 Completion callbacks are post-commit observers, not part of the import
 transport. If `onComplete` fails, the modal remains complete and cannot replay
 the apply; it shows localized `completionError` copy and reports the observer
 failure through optional `onCompletionError` hooks.
+
+Header close, footer dismissal, Escape and backdrop all route through
+`Modal.requestClose()`. Because that veto is synchronous and discard
+confirmation is not, a dismissal with editable work starts one confirmation,
+vetoes the current request, ignores repeated requests while pending, and
+re-enters with a one-shot authorization once approved. Busy preview/apply work
+vetoes dismissal and reports `busyDismissBlocked`; it is never described as
+cancelled, because aborting the client does not cancel accepted server work. An
+unresolved unknown/retryable apply is never discarded or retired by closing:
+its attempt, input and report are preserved and reopening the same instance
+shows the truthful uncertain state.
+
+Footer controls are state-aware. Preview/Apply/Retry is present only while
+actionable and is hidden — not left disabled — after complete or terminal
+results, where Import another takes over as the primary action. The dismissal
+control reads `cancel` while abandoning editable pre-apply work and `dismiss`
+for settled or preserved results.
 
 Changing a selectable mode invalidates its preview. Custom panels must call
 `ImportSourcePanelAPI.inputChanged()` whenever application-owned input changes;

@@ -103,57 +103,321 @@
 }
 
 /* Bulk import */
-.go-admin-import { min-height: min(42rem, calc(100dvh - 2rem)); }
+/* Native [hidden] stays authoritative inside the import surface. A blanket
+   child display rule previously rendered the empty chooser and the selected
+   file card at the same time. */
+.go-admin-import [hidden] { display: none; }
+
+.go-admin-import {
+  display: flex;
+  min-height: 0;
+  max-height: var(--admin-import-max-height, min(94dvh, calc(100dvh - 2rem)));
+  flex-direction: column;
+}
+/* Maximize exists to grow the report, so the dialog takes the whole visual
+   viewport rather than staying inside the backdrop gutter. */
+.go-admin-modal--import-fullbleed { padding: 0; }
+.go-admin-modal__container.go-admin-import[data-maximized="true"] {
+  height: 100dvh;
+  max-height: 100dvh;
+}
 .go-admin-import__header,
 .go-admin-import__header-actions,
 .go-admin-import__footer,
-.go-admin-import__footer > div,
+.go-admin-import__actions,
 .go-admin-import__sources,
 .go-admin-import__metrics,
 .go-admin-import__filters,
-.go-admin-import__samples { display: flex; align-items: center; gap: 0.75rem; }
+.go-admin-import__samples,
+.go-admin-import__summary { display: flex; align-items: center; gap: 0.75rem; }
 .go-admin-import__header,
-.go-admin-import__footer { justify-content: space-between; }
+.go-admin-import__footer,
+.go-admin-import__summary { justify-content: space-between; }
+.go-admin-import__header { flex: none; padding-block: 0.875rem; }
 .go-admin-import__header h2 { margin: 0; font-size: 1.25rem; font-weight: 700; }
-.go-admin-import__header p,
+.go-admin-import__heading p,
 .go-admin-import__footer p { margin: 0.25rem 0 0; color: var(--color-text-secondary, #6b7280); }
-.go-admin-import__sources { padding-inline: 1.25rem; border-bottom: 1px solid var(--color-border-default, #e5e7eb); overflow-x: auto; }
-.go-admin-import__sources button { padding: 0.75rem 0.5rem; border-bottom: 2px solid transparent; white-space: nowrap; }
+/* Review needs the vertical space for results, so source guidance that only
+   helps during compose is not repeated above the report. */
+.go-admin-import[data-import-phase="review"] .go-admin-import__heading p { display: none; }
+
+/* Controls */
+.go-admin-import__action {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control, 0.375rem);
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.go-admin-import__action[data-import-priority="primary"] {
+  color: var(--admin-import-primary-text, var(--color-text-inverse, #ffffff));
+  background: var(--admin-import-primary-surface, var(--color-accent, #2563eb));
+  border-color: var(--admin-import-primary-surface, var(--color-accent, #2563eb));
+}
+.go-admin-import__action[data-import-priority="secondary"] {
+  color: var(--color-text-primary, #111827);
+  background: var(--color-surface-raised, #ffffff);
+  border-color: var(--color-border-default, #d1d5db);
+}
+.go-admin-import__action[data-import-priority="ghost"] {
+  color: var(--color-text-secondary, #6b7280);
+  background: transparent;
+}
+.go-admin-import__action:hover:not(:disabled) { filter: brightness(0.96); }
+.go-admin-import__action[data-import-priority="ghost"]:hover:not(:disabled) { background: var(--color-surface-subtle, #f3f4f6); }
+.go-admin-import__action:disabled { cursor: not-allowed; opacity: 0.55; }
+.go-admin-import__action:focus-visible,
+.go-admin-import__icon-action:focus-visible,
+.go-admin-import__dropzone:focus-within,
+.go-admin-import__filters button:focus-visible,
+.go-admin-import__metric:focus-visible,
+.go-admin-import__sources button:focus-visible {
+  outline: 2px solid var(--color-focus-ring, #3b82f6);
+  outline-offset: 2px;
+}
+.go-admin-import__icon-action {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  color: var(--color-text-secondary, #6b7280);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control, 0.375rem);
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+.go-admin-import__icon-action:hover:not(:disabled) {
+  color: var(--color-text-primary, #111827);
+  background: var(--color-surface-subtle, #f3f4f6);
+}
+.go-admin-import__action-icon,
+.go-admin-import__chooser-icon {
+  flex: none;
+  background: currentColor;
+  mask: center / contain no-repeat;
+  -webkit-mask: center / contain no-repeat;
+}
+.go-admin-import__action-icon { width: 1.25rem; height: 1.25rem; }
+.go-admin-import__chooser-icon { width: 1.75rem; height: 1.75rem; color: var(--color-text-secondary, #6b7280); }
+.go-admin-import__action-icon[data-import-maximize-icon="expand"] {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 9 4 4m0 0v4m0-4h4M15 9l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4m7-5 5 5m0 0v-4m0 4h-4'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 9 4 4m0 0v4m0-4h4M15 9l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4m7-5 5 5m0 0v-4m0 4h-4'/%3E%3C/svg%3E");
+}
+.go-admin-import__action-icon[data-import-maximize-icon="collapse"] {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m20 20-5-5m0 0v4m0-4h4M4 20l5-5m0 0v4m0-4H5M20 4l-5 5m0 0V5m0 4h4M4 4l5 5m0 0V5m0 4H5'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m20 20-5-5m0 0v4m0-4h4M4 20l5-5m0 0v4m0-4H5M20 4l-5 5m0 0V5m0 4h4M4 4l5 5m0 0V5m0 4H5'/%3E%3C/svg%3E");
+}
+.go-admin-import__action-icon[data-import-icon="close"] {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E");
+}
+.go-admin-import__chooser-icon[data-import-icon="upload"] {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V4m0 0L8 8m4-4 4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2'/%3E%3C/svg%3E");
+}
+.go-admin-import__chooser-icon[data-import-icon="file"] {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/%3E%3C/svg%3E");
+}
+
+/* Source tabs */
+.go-admin-import__sources { flex: none; padding-inline: 1.25rem; border-bottom: 1px solid var(--color-border-default, #e5e7eb); overflow-x: auto; }
+.go-admin-import__sources button { min-height: 2.75rem; padding: 0.75rem 0.5rem; border-bottom: 2px solid transparent; background: transparent; font: inherit; white-space: nowrap; cursor: pointer; }
 .go-admin-import__sources button[aria-selected="true"] { border-color: currentColor; font-weight: 700; }
-.go-admin-import__body { display: flex; min-height: 0; flex-direction: column; gap: 1rem; }
+
+/* Body scroll ownership. Compose keeps the modal body scrollable so short
+   viewports and 200% zoom reach every control. Review hands the remaining
+   space to one bounded report scroller instead of nesting two. */
+.go-admin-import__body { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 0.875rem; }
+.go-admin-import[data-import-phase="compose"] .go-admin-import__body { overflow: auto; }
+.go-admin-import[data-import-phase="review"] .go-admin-import__body { overflow: hidden; }
+.go-admin-import[data-import-phase="review"] [data-import-source-panel] { flex: none; }
+/* Review trades compose breathing room for report height. */
+.go-admin-import[data-import-phase="review"] .go-admin-import__header,
+.go-admin-import[data-import-phase="review"] .go-admin-import__body,
+.go-admin-import[data-import-phase="review"] .go-admin-import__footer { padding-block: 0.625rem; }
+.go-admin-import[data-import-phase="review"] .go-admin-import__body { gap: 0.625rem; }
+
 .go-admin-import__mode > div { padding: 0.75rem; border: 1px solid var(--color-border-default, #e5e7eb); border-radius: 0.5rem; }
 .go-admin-import__mode p { margin: 0.25rem 0 0; color: var(--color-text-secondary, #6b7280); }
+
+/* Compact review summary */
+.go-admin-import__summary {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--color-surface-subtle, #f9fafb);
+}
+.go-admin-import__summary-facts { display: flex; min-width: 0; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.go-admin-import__summary-facts [data-summary-fact] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-admin-import__summary-facts [data-summary-fact="input"] { font-weight: 600; }
+.go-admin-import__summary-facts [data-summary-fact="mode"],
+.go-admin-import__summary-facts [data-summary-fact="source"] { color: var(--color-text-secondary, #6b7280); }
+
+/* File chooser */
 .go-admin-import__dropzone { position: relative; display: grid; min-height: 9rem; place-items: center; padding: 1.5rem; text-align: center; border: 2px dashed var(--color-border-default, #d1d5db); border-radius: 0.75rem; }
-.go-admin-import__dropzone > div { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.go-admin-import__dropzone > div:not([hidden]) { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .go-admin-import__file-input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 [data-drag-active="true"] .go-admin-import__dropzone { border-color: var(--color-focus-ring, #3b82f6); background: color-mix(in srgb, var(--color-focus-ring, #3b82f6) 8%, transparent); }
+.go-admin-import__chooser-guidance,
+.go-admin-import__chooser-types { color: var(--color-text-secondary, #6b7280); font-size: 0.875rem; }
+.go-admin-import__file-card:not([hidden]) {
+  max-width: 100%;
+  flex-direction: row !important;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--color-surface-subtle, #f9fafb);
+}
+.go-admin-import__file-meta { display: flex; min-width: 0; flex-direction: column; text-align: start; }
+.go-admin-import__file-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-admin-import__file-meta span { color: var(--color-text-secondary, #6b7280); font-size: 0.8125rem; }
 .go-admin-import__samples { justify-content: center; margin-top: 0.75rem; }
 .go-admin-import__sample { text-decoration: underline; }
+.go-admin-import__sample[aria-disabled="true"] { pointer-events: none; opacity: 0.55; }
+
+/* Result banner */
+.go-admin-import__banner {
+  margin: 0;
+  flex: none;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+}
+.go-admin-import__banner[data-tone="success"] { border-left-color: var(--color-status-success, #16a34a); background: var(--color-status-success-subtle, #f0fdf4); }
+.go-admin-import__banner[data-tone="warning"] { border-left-color: var(--color-status-warning, #d97706); background: var(--color-status-warning-subtle, #fffbeb); }
+.go-admin-import__banner[data-tone="danger"] { border-left-color: var(--color-status-danger, #dc2626); background: var(--color-status-danger-subtle, #fef2f2); color: var(--color-status-danger-strong, #991b1b); }
+
+/* Report */
 .go-admin-import__report { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 0.75rem; }
-.go-admin-import__metrics { align-items: stretch; flex-wrap: wrap; }
-.go-admin-import__metric { min-width: 7rem; flex: 1 1 7rem; padding: 0.75rem; text-align: left; border: 1px solid var(--color-border-default, #e5e7eb); border-radius: 0.5rem; }
+.go-admin-import__metrics { align-items: stretch; flex: none; flex-wrap: wrap; }
+.go-admin-import__metric {
+  min-width: 7rem;
+  flex: 1 1 7rem;
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--color-surface-subtle, #f9fafb);
+}
+button.go-admin-import__metric { cursor: pointer; }
 .go-admin-import__metric strong,
 .go-admin-import__metric span { display: block; }
-.go-admin-import__metric strong { font-size: 1.25rem; }
-.go-admin-import__metric[data-tone="success"] { border-color: var(--color-status-success, #16a34a); }
-.go-admin-import__metric[data-tone="warning"] { border-color: var(--color-status-warning, #d97706); }
-.go-admin-import__metric[data-tone="danger"] { border-color: var(--color-status-danger, #dc2626); }
-.go-admin-import__filters { flex-wrap: wrap; }
-.go-admin-import__filters button[data-active="true"] { font-weight: 700; text-decoration: underline; }
+.go-admin-import__metric strong { font-size: 1.375rem; font-weight: 700; line-height: 1.15; }
+.go-admin-import__metric span { color: var(--color-text-secondary, #6b7280); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.go-admin-import__metric[data-tone="success"] { border-color: var(--color-status-success, #16a34a); background: var(--color-status-success-subtle, #f0fdf4); }
+.go-admin-import__metric[data-tone="warning"] { border-color: var(--color-status-warning, #d97706); background: var(--color-status-warning-subtle, #fffbeb); }
+.go-admin-import__metric[data-tone="danger"] { border-color: var(--color-status-danger, #dc2626); background: var(--color-status-danger-subtle, #fef2f2); }
+.go-admin-import__metric[aria-pressed="true"] { outline: 2px solid var(--color-focus-ring, #3b82f6); outline-offset: -1px; }
+
+.go-admin-import__filters { flex: none; flex-wrap: wrap; gap: 0.5rem; }
+.go-admin-import__filters button {
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: 9999px;
+  background: var(--color-surface-raised, #ffffff);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.go-admin-import__filters button[aria-pressed="true"] {
+  color: var(--color-text-primary, #111827);
+  background: var(--color-surface-subtle, #e5e7eb);
+  border-color: currentColor;
+  font-weight: 700;
+}
 .go-admin-import__bounds,
-.go-admin-import__flags { margin: 0; color: var(--color-text-secondary, #6b7280); font-size: 0.875rem; }
-.go-admin-import__report-scroll { min-height: 8rem; max-height: 40dvh; overflow: auto; border: 1px solid var(--color-border-default, #e5e7eb); border-radius: 0.5rem; }
-[data-maximized="true"] .go-admin-import__report-scroll { max-height: none; flex: 1 1 auto; }
+.go-admin-import__aggregate { margin: 0; flex: none; color: var(--color-text-secondary, #6b7280); font-size: 0.875rem; }
+.go-admin-import__run { display: grid; margin: 0; flex: none; grid-template-columns: auto 1fr; gap: 0.125rem 0.75rem; font-size: 0.8125rem; }
+.go-admin-import__run dt { color: var(--color-text-secondary, #6b7280); }
+.go-admin-import__run dd { margin: 0; }
+
+.go-admin-import__report-scroll { min-height: 6rem; flex: 1 1 auto; overflow: auto; border: 1px solid var(--color-border-default, #e5e7eb); border-radius: 0.5rem; }
 .go-admin-import__report-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .go-admin-import__report-table th,
-.go-admin-import__report-table td { padding: 0.625rem; text-align: left; border-bottom: 1px solid var(--color-border-default, #e5e7eb); vertical-align: top; }
-.go-admin-import__report-table th { position: sticky; top: 0; background: var(--color-surface-raised, #fff); }
-.go-admin-import__error { margin: 0; padding: 0.75rem; color: var(--color-status-danger, #991b1b); background: var(--color-status-danger-subtle, #fef2f2); border-radius: 0.5rem; }
+.go-admin-import__report-table td { padding: 0.5rem 0.625rem; text-align: left; border-bottom: 1px solid var(--color-border-default, #e5e7eb); vertical-align: top; }
+.go-admin-import__report-table th { position: sticky; top: 0; z-index: 1; background: var(--color-surface-raised, #fff); white-space: nowrap; }
+.go-admin-import__report-table td { overflow-wrap: anywhere; }
+.go-admin-import__report-table [data-column="reference"] { width: 1%; white-space: nowrap; }
+.go-admin-import__report-table tbody tr[data-outcome] { border-left: 3px solid transparent; }
+.go-admin-import__outcome {
+  display: inline-block;
+  padding: 0.0625rem 0.5rem;
+  border: 1px solid var(--color-border-default, #e5e7eb);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.go-admin-import__outcome[data-tone="success"] { color: var(--color-status-success-strong, #166534); background: var(--color-status-success-subtle, #f0fdf4); border-color: var(--color-status-success, #16a34a); }
+.go-admin-import__outcome[data-tone="warning"] { color: var(--color-status-warning-strong, #92400e); background: var(--color-status-warning-subtle, #fffbeb); border-color: var(--color-status-warning, #d97706); }
+.go-admin-import__outcome[data-tone="danger"] { color: var(--color-status-danger-strong, #991b1b); background: var(--color-status-danger-subtle, #fef2f2); border-color: var(--color-status-danger, #dc2626); }
+
+.go-admin-import__footer { flex: none; padding-block: 0.75rem; }
+.go-admin-import__footer p { min-width: 0; }
+.go-admin-import__actions { flex: none; }
 
 @media (max-width: 40rem) {
-  .go-admin-import__header,
-  .go-admin-import__footer { align-items: flex-start; flex-direction: column; }
-  .go-admin-import__footer > div { align-self: stretch; justify-content: flex-end; }
+  /* A floating card wastes the little height narrow layouts have. */
+  .go-admin-modal__container.go-admin-import {
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+  /* Stacking the header wastes the height narrow layouts are short on; the
+     title truncates instead so the icon actions stay on the same line. */
+  .go-admin-import__header { align-items: flex-start; }
+  .go-admin-import__header h2 { font-size: 1.0625rem; }
+  .go-admin-import__heading { min-width: 0; }
+  .go-admin-import__heading p { display: none; }
+  .go-admin-import__footer { align-items: stretch; flex-direction: column; gap: 0.5rem; padding-block: 0.5rem; }
+  .go-admin-import__actions { justify-content: flex-end; }
+  .go-admin-import__summary-facts [data-summary-fact="source"] { display: none; }
+  .go-admin-import__action,
+  .go-admin-import__icon-action,
+  .go-admin-import__sources button { min-height: 2.75rem; }
+  .go-admin-import__icon-action { width: 2.75rem; }
+  /* Two-up metric cards plus a floor-height table overflowed the clipped review
+     body by a few pixels; the compact card reclaims that space. */
+  .go-admin-import__metric { flex-basis: 40%; padding: 0.5rem 0.625rem; }
+  .go-admin-import__metric strong { font-size: 1.125rem; }
+  .go-admin-import__report-scroll { min-height: 4rem; }
+  /* Optional columns are declared by the source, never by column index. */
+  .go-admin-import__report-table [data-priority="secondary"] { display: none; }
+}
+
+@media (forced-colors: active) {
+  .go-admin-import__action,
+  .go-admin-import__icon-action,
+  .go-admin-import__filters button,
+  .go-admin-import__metric,
+  .go-admin-import__outcome,
+  .go-admin-import__banner,
+  .go-admin-import__summary { border: 1px solid CanvasText; }
+  .go-admin-import__action[data-import-priority="primary"] { color: HighlightText; background: Highlight; border-color: Highlight; }
+  .go-admin-import__filters button[aria-pressed="true"],
+  .go-admin-import__metric[aria-pressed="true"] { color: HighlightText; background: Highlight; }
+  /* Masked icons are painted from currentColor, which forced colors strips. */
+  .go-admin-import__action-icon,
+  .go-admin-import__chooser-icon { forced-color-adjust: none; background: CanvasText; }
+  .go-admin-import__banner[data-tone] { border-left: 4px solid Highlight; }
 }
 
 /* Action menu */

@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BulkImportModal layout fixture</title>
+<link rel="stylesheet" href="/dist-public/components.css">
+<style>
+  /* Minimal host token surface. The fixture proves component styling, not a theme. */
+  :root {
+    --color-text-primary: #111827;
+    --color-text-secondary: #6b7280;
+    --color-surface-raised: #ffffff;
+    --color-surface-subtle: #f3f4f6;
+    --color-border-default: #e5e7eb;
+    --color-focus-ring: #3b82f6;
+    --color-status-success: #16a34a;
+    --color-status-warning: #d97706;
+    --color-status-danger: #dc2626;
+    --color-status-danger-subtle: #fef2f2;
+  }
+  body { margin: 0; font: 14px/1.5 system-ui, sans-serif; color: #111827; background: #f8fafc; }
+  main { padding: 16px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fixture host</h1>
+  <button id="open-import" type="button">Open bulk import</button>
+  <span id="import-root" hidden></span>
+</main>
+<script type="module">
+import { BulkImportModal, ImportTransportError } from '/dist-public/components/import-modal.js';
+
+// The fixture owns every outcome key, label and tone. Shared go-admin code must
+// never contain this vocabulary; the harness exists to prove that boundary.
+const OUTCOME_LABELS = {
+  would_create: 'Would create',
+  created: 'Created',
+  skipped_duplicate: 'Skipped duplicate',
+  invalid: 'Invalid',
+  failed: 'Failed',
+};
+const OUTCOME_TONES = {
+  would_create: 'success', created: 'success',
+  skipped_duplicate: 'warning', invalid: 'danger', failed: 'danger',
+};
+
+const state = { scenario: 'default', rowCount: 12, longCopy: false };
+const pending = () => new Promise(() => {});
+
+function rows(count, phase) {
+  return Array.from({ length: count }, (_, index) => {
+    const bucket = index % 5;
+    if (bucket === 3) {
+      return { reference: String(index + 1), outcome: 'skipped_duplicate', action: 'skipped_duplicate', fields: ['email'], codes: ['duplicate_email_scoped'] };
+    }
+    if (bucket === 4) {
+      const outcome = phase === 'preview' ? 'invalid' : 'failed';
+      return { reference: String(index + 1), outcome, action: outcome, fields: ['email', 'consent'], codes: ['invalid_email_format', 'unsupported_consent_value'] };
+    }
+    const outcome = phase === 'preview' ? 'would_create' : 'created';
+    return { reference: String(index + 1), outcome, action: outcome, fields: [], codes: [] };
+  });
+}
+
+function rowReport(phase) {
+  const detail = rows(state.rowCount, phase);
+  const count = (...keys) => detail.filter((row) => keys.includes(row.outcome)).length;
+  const truncated = state.scenario === 'truncated';
+  return {
+    phase,
+    mode: 'fixture_create_only.v1',
+    detailMode: 'rows',
+    metrics: [
+      { key: 'processed', label: 'Processed', value: truncated ? 4820 : detail.length },
+      { key: 'planned', label: phase === 'preview' ? OUTCOME_LABELS.would_create : OUTCOME_LABELS.created, value: count('would_create', 'created'), tone: 'success', filter: { key: 'planned', label: phase === 'preview' ? OUTCOME_LABELS.would_create : OUTCOME_LABELS.created, outcome: phase === 'preview' ? 'would_create' : 'created' } },
+      { key: 'skipped', label: OUTCOME_LABELS.skipped_duplicate, value: count('skipped_duplicate'), tone: 'warning', filter: { key: 'skipped_duplicate', label: OUTCOME_LABELS.skipped_duplicate, outcome: 'skipped_duplicate' } },
+      { key: 'rejected', label: phase === 'preview' ? OUTCOME_LABELS.invalid : OUTCOME_LABELS.failed, value: count('invalid', 'failed'), tone: 'danger', filter: { key: 'rejected', label: phase === 'preview' ? OUTCOME_LABELS.invalid : OUTCOME_LABELS.failed, outcome: phase === 'preview' ? 'invalid' : 'failed' } },
+    ],
+    rows: detail,
+    bounds: { returnedRows: detail.length, totalRows: truncated ? 4820 : detail.length, truncated },
+    partial: state.scenario === 'partial',
+    replayed: state.scenario === 'partial',
+  };
+}
+
+function aggregateReport(phase) {
+  const metrics = [{ key: 'read', label: 'Read', value: 100 }];
+  if (phase === 'apply') {
+    metrics.push(
+      { key: 'applied', label: 'Applied', value: 63, tone: 'success' },
+      { key: 'skipped', label: 'Skipped', value: 37, tone: 'warning' },
+    );
+  }
+  return {
+    phase,
+    mode: 'fixture_projection.v1',
+    detailMode: 'aggregate',
+    metrics,
+    rows: [],
+    bounds: { returnedRows: 0, totalRows: 100, truncated: false },
+    run: { status: 'partial', retryable: false, error_code: 'bound_reached', internal_cursor: 'must-not-render' },
+    partial: true,
+  };
+}
+
+const longSuffix = ' — Ausführliche mehrsprachige Betreiberbeschreibung mit sehr langen zusammengesetzten Substantiven.';
+const copy = (text) => (state.longCopy ? text + longSuffix : text);
+
+const fileSource = {
+  key: 'fixture-file',
+  label: 'CSV / JSON',
+  kind: 'file',
+  workflow: 'preview-apply',
+  help: 'Select a bounded fixture file. Preview is advisory.',
+  mode: {
+    key: 'fixture_create_only.v1',
+    label: copy('Create records; skip likely duplicates'),
+    description: copy('Creates new records only. Scoped duplicate matches are skipped; nothing is updated or merged.'),
+    confirmation: 'Apply the reviewed fixture preview?',
+  },
+  file: {
+    accept: '.csv,.json,text/csv,application/json',
+    maxBytes: 2097152,
+    guidance: copy('CSV or JSON up to the configured file and row limits.'),
+    samples: [{ label: 'CSV sample', href: '#csv' }, { label: 'JSON sample', href: '#json' }],
+    schema: {
+      summary: 'Required and optional fields',
+      items: [
+        { name: 'email', requirement: 'required', description: 'Primary contact email address.' },
+        { name: 'first_name', description: 'Given name.' },
+      ],
+    },
+  },
+  report: {
+    outcomeLabels: OUTCOME_LABELS,
+    outcomeTones: OUTCOME_TONES,
+    columns: [
+      { key: 'reference', label: 'Row', priority: 'primary' },
+      { key: 'outcome', label: 'Outcome', priority: 'primary' },
+      { key: 'action', label: 'Action', priority: 'secondary' },
+      { key: 'fields', label: 'Fields', priority: 'secondary' },
+      { key: 'codes', label: 'Codes', priority: 'secondary' },
+    ],
+    filters: [
+      { key: 'would_create', label: OUTCOME_LABELS.would_create, outcome: 'would_create' },
+      { key: 'created', label: OUTCOME_LABELS.created, outcome: 'created' },
+      { key: 'skipped_duplicate', label: OUTCOME_LABELS.skipped_duplicate, outcome: 'skipped_duplicate' },
+      { key: 'invalid', label: OUTCOME_LABELS.invalid, outcome: 'invalid' },
+      { key: 'failed', label: OUTCOME_LABELS.failed, outcome: 'failed' },
+    ],
+  },
+  preview: async () => (state.scenario === 'previewing' ? pending() : { ok: true }),
+  adaptPreview: () => ({
+    state: { receipt: 'fixture-receipt' },
+    report: rowReport('preview'),
+    eligibility: state.scenario === 'ineligible'
+      ? { allowed: false, reason: 'No eligible rows remain in this preview.' }
+      : { allowed: true },
+  }),
+  apply: async () => {
+    if (state.scenario === 'applying') return pending();
+    if (state.scenario === 'terminal-error') throw new ImportTransportError('The import request was rejected.', 'terminal');
+    if (state.scenario === 'unknown') throw new ImportTransportError('The import request did not return a confirmed outcome.', 'unknown');
+    return { ok: true };
+  },
+  adaptApply: () => rowReport('apply'),
+  onReconcileAttempt: async () => false,
+};
+
+const aggregateSource = {
+  key: 'fixture-aggregate',
+  label: 'Aggregate source',
+  kind: 'custom',
+  workflow: 'preview-apply',
+  help: 'Preview the bounded read-only fixture lane.',
+  mode: { key: 'fixture_projection.v1', label: copy('Apply inbound projection'), description: copy('Creates or corrects linked projections without mutating the upstream source.') },
+  report: {
+    runFields: [
+      { key: 'status', label: 'Run status' },
+      { key: 'retryable', label: 'Retryable' },
+      { key: 'error_code', label: 'Bound reason' },
+    ],
+    emptyState: 'This source reports bounded totals only.',
+  },
+  mountInput: (root, api) => {
+    const text = document.createElement('p');
+    text.textContent = 'The preview reads at most 2 pages and 100 records.';
+    root.replaceChildren(text);
+    api.setReady(true);
+  },
+  readInput: () => ({ maxPages: 2, maxRecords: 100 }),
+  isInputReady: (input) => Boolean(input),
+  preview: async () => ({ ok: true }),
+  adaptPreview: () => ({ state: {}, report: aggregateReport('preview'), eligibility: { allowed: true } }),
+  apply: async () => ({ ok: true }),
+  adaptApply: () => aggregateReport('apply'),
+  onReconcileAttempt: async () => false,
+};
+
+let modal = null;
+function build(sources) {
+  modal?.destroy();
+  modal = new BulkImportModal({
+    root: document.getElementById('import-root'),
+    sources,
+    // Modal-level vocabulary stays a fallback. The aggregate source must not
+    // inherit these row filters; that leak is one of the recorded defects.
+    columns: [
+      { key: 'reference', label: 'Row' },
+      { key: 'outcome', label: 'Outcome' },
+      { key: 'message', label: 'Details' },
+    ],
+    filters: [
+      { key: 'would_create', label: OUTCOME_LABELS.would_create, outcome: 'would_create' },
+      { key: 'created', label: OUTCOME_LABELS.created, outcome: 'created' },
+      { key: 'skipped_duplicate', label: OUTCOME_LABELS.skipped_duplicate, outcome: 'skipped_duplicate' },
+      { key: 'invalid', label: OUTCOME_LABELS.invalid, outcome: 'invalid' },
+      { key: 'failed', label: OUTCOME_LABELS.failed, outcome: 'failed' },
+    ],
+    copy: { title: copy('Bulk import fixture'), description: copy('Choose a source, review the bounded report, then apply.') },
+  });
+  window.importFixture.modal = modal;
+  return modal;
+}
+
+const rect = (selector, scope) => {
+  const element = (scope || document).querySelector(selector);
+  if (!element) return null;
+  const box = element.getBoundingClientRect();
+  return { width: Math.round(box.width), height: Math.round(box.height), top: Math.round(box.top), bottom: Math.round(box.bottom) };
+};
+
+window.importFixture = {
+  modal: null,
+  configure(options = {}) {
+    Object.assign(state, options);
+    build(options.sources === 'aggregate-only' ? [aggregateSource] : [fileSource, aggregateSource]);
+  },
+  open() {
+    modal.open();
+  },
+  measure() {
+    const dialog = document.querySelector('[data-go-admin-modal].go-admin-import');
+    if (!dialog) return null;
+    const body = dialog.querySelector('.go-admin-import__body');
+    const scroller = dialog.querySelector('.go-admin-import__report-scroll');
+    // Measure the whole source panel: in review it holds the collapsed summary
+    // that replaces compose, so this is the honest "input chrome" height.
+    const compose = dialog.querySelector('[data-import-source-panel]');
+    const reportRegion = dialog.querySelector('[data-import-report]');
+    const banner = dialog.querySelector('[data-import-banner]') || dialog.querySelector('.go-admin-import__flags');
+    const firstRow = dialog.querySelector('.go-admin-import__report-table tbody tr');
+    const primary = dialog.querySelector('[data-import-primary]');
+    const dismiss = dialog.querySelector('[data-import-close]');
+    const bodyBox = body?.getBoundingClientRect();
+    const visible = (element) => {
+      if (!element || !bodyBox) return false;
+      const box = element.getBoundingClientRect();
+      if (box.width === 0 && box.height === 0) return false;
+      return box.top >= bodyBox.top - 1 && box.bottom <= bodyBox.bottom + 1;
+    };
+    const footerBox = dialog.querySelector('.go-admin-import__footer')?.getBoundingClientRect();
+    return {
+      viewportSize: { width: window.innerWidth, height: window.innerHeight },
+      phase: dialog.dataset.importPhase || null,
+      workflowState: dialog.dataset.importState || null,
+      maximized: dialog.dataset.maximized === 'true',
+      dialog: rect('[data-go-admin-modal].go-admin-import'),
+      dialogWithinViewport: (() => {
+        const box = dialog.getBoundingClientRect();
+        const height = window.visualViewport?.height ?? window.innerHeight;
+        const width = window.visualViewport?.width ?? window.innerWidth;
+        return box.top >= -1 && box.bottom <= height + 1 && box.left >= -1 && box.right <= width + 1;
+      })(),
+      composeHeight: compose ? Math.round(compose.getBoundingClientRect().height) : null,
+      body: { clientHeight: body?.clientHeight ?? null, scrollHeight: body?.scrollHeight ?? null },
+      bodyScrolls: Boolean(body && body.scrollHeight > body.clientHeight + 1),
+      reportRegionHeight: reportRegion && !reportRegion.hidden ? Math.round(reportRegion.getBoundingClientRect().height) : null,
+      report: {
+        clientHeight: scroller?.clientHeight ?? null,
+        scrollHeight: scroller?.scrollHeight ?? null,
+        scrolls: Boolean(scroller && scroller.scrollHeight > scroller.clientHeight + 1),
+      },
+      nestedVerticalScroll: Boolean(body && scroller && body.scrollHeight > body.clientHeight + 1 && scroller.scrollHeight > scroller.clientHeight + 1),
+      bannerVisible: visible(banner),
+      bannerText: banner?.textContent?.trim() || null,
+      firstRowVisible: visible(firstRow),
+      footerHeight: footerBox ? Math.round(footerBox.height) : null,
+      footerWithinViewport: Boolean(footerBox && footerBox.bottom <= (window.visualViewport?.height ?? window.innerHeight) + 1),
+      primary: primary && !primary.hidden ? { text: primary.textContent.trim(), disabled: primary.disabled, height: Math.round(primary.getBoundingClientRect().height), width: Math.round(primary.getBoundingClientRect().width) } : null,
+      dismissTarget: dismiss ? { height: Math.round(dismiss.getBoundingClientRect().height), width: Math.round(dismiss.getBoundingClientRect().width) } : null,
+      dropzone: (() => {
+        const empty = dialog.querySelector('[data-import-empty]');
+        const selected = dialog.querySelector('[data-import-selected]');
+        const shown = (element) => Boolean(element) && getComputedStyle(element).display !== 'none';
+        return { emptyShown: shown(empty), selectedShown: shown(selected), bothShown: shown(empty) && shown(selected) };
+      })(),
+      rowsRendered: dialog.querySelectorAll('.go-admin-import__report-table tbody tr').length,
+      filterPills: dialog.querySelectorAll('.go-admin-import__filters button').length,
+      tablistHidden: Boolean(dialog.querySelector('.go-admin-import__sources')?.hidden),
+    };
+  },
+};
+window.importFixtureReady = true;
+document.getElementById('open-import').addEventListener('click', () => window.importFixture.open());
+window.importFixture.configure({});
+</script>
+</body>
+</html>

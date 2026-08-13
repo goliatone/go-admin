@@ -8,6 +8,7 @@
  */
 
 import { ConfirmModal, Modal } from './modal.js';
+import { createLogger } from '../shared/logger.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { formatByteSize } from '../shared/size-formatters.js';
 import { httpRequest } from '../shared/transport/http-client.js';
@@ -72,12 +73,21 @@ export interface ImportReportBounds {
   continuation?: ImportReportContinuation;
 }
 
+/**
+ * Row detail and aggregate totals are distinct declared presentations. The
+ * renderer never infers one from the other: a source that returns no rows for a
+ * positive total is a truthful bounded row report, not an aggregate report.
+ */
+export type ImportReportDetailMode = 'rows' | 'aggregate';
+
 export interface ImportReportData {
   phase: 'preview' | 'apply' | 'complete';
   mode: string;
   metrics: ImportMetric[];
   rows: ImportReportRow[];
   bounds: ImportReportBounds;
+  /** Defaults to `rows` so existing application adapters are unchanged. */
+  detailMode?: ImportReportDetailMode;
   run?: Record<string, ImportSafeValue>;
   replayed?: boolean;
   partial?: boolean;
@@ -86,7 +96,30 @@ export interface ImportReportData {
 export interface ImportReportColumn {
   key: string;
   label: string;
+  /** Narrow layouts hide `secondary` columns. Column order is never semantic. */
+  priority?: 'primary' | 'secondary';
   value?: (row: Readonly<ImportReportRow>) => ImportSafeValue;
+}
+
+/** One allowlisted, localized `report.run` fact. Undeclared keys never render. */
+export interface ImportRunField {
+  key: string;
+  label: string;
+  format?: (value: ImportSafeValue) => ImportSafeValue;
+}
+
+/**
+ * Per-source report vocabulary. Modal-level `columns`/`filters` remain
+ * compatibility fallbacks; a source that declares its own presentation wins and
+ * is reapplied whenever the active source changes.
+ */
+export interface ImportReportPresentation {
+  columns?: readonly ImportReportColumn[];
+  filters?: readonly ImportReportFilter[];
+  outcomeLabels?: Readonly<Record<string, string>>;
+  outcomeTones?: Readonly<Record<string, ImportMetricTone>>;
+  runFields?: readonly ImportRunField[];
+  emptyState?: string;
 }
 
 export interface ImportAttemptContext {
@@ -140,7 +173,7 @@ export interface ImportSourcePanelAPI {
   setStatus(message: string): void;
 }
 
-export type ImportDiscardReason = 'source-switch';
+export type ImportDiscardReason = 'source-switch' | 'close';
 
 export interface ImportDiscardContext {
   reason: ImportDiscardReason;
@@ -169,6 +202,7 @@ export interface ImportSourceDescriptor<
   selectableModes?: boolean;
   workflow: 'single' | 'preview-apply';
   kind: 'file' | 'custom';
+  report?: ImportReportPresentation;
   file?: Omit<FileDropzoneOptions, 'root' | 'onChange'>;
   mountInput?: (root: HTMLElement, api: ImportSourcePanelAPI) => void | (() => void);
   readInput?: (root: HTMLElement) => TInput | null;
@@ -216,6 +250,8 @@ export interface BulkImportCopy {
   allRows: string;
   reportBounds: string;
   reportTruncated: string;
+  reportAggregate: string;
+  runDetailsLabel: string;
   partialResult: string;
   replayedResult: string;
   inputRequired: string;
@@ -227,8 +263,13 @@ export interface BulkImportCopy {
   unavailableSource: string;
   discardTitle: string;
   discardSourceChange: string;
+  discardOnClose: string;
   discard: string;
   cancel: string;
+  dismiss: string;
+  change: string;
+  summaryBounds: string;
+  busyDismissBlocked: string;
 }
 
 export interface BulkImportModalOptions {
@@ -248,6 +289,8 @@ export interface FileDropzoneCopy {
   browse: string;
   guidance: string;
   remove: string;
+  replace: string;
+  acceptedTypes: string;
   invalid: string;
   tooLarge: string;
   samplesLabel: string;
@@ -295,6 +338,8 @@ const defaultCopy: BulkImportCopy = {
   allRows: 'All',
   reportBounds: 'Showing {visible} of {returned} returned rows ({total} total).',
   reportTruncated: 'Details are truncated.',
+  reportAggregate: 'This source reports bounded totals only.',
+  runDetailsLabel: 'Run details',
   partialResult: 'Partial result',
   replayedResult: 'Idempotent replay',
   inputRequired: 'Provide valid import input first.',
@@ -306,18 +351,27 @@ const defaultCopy: BulkImportCopy = {
   unavailableSource: 'This import source is unavailable.',
   discardTitle: 'Discard current import?',
   discardSourceChange: 'Switching sources will discard the selected input and current preview.',
+  discardOnClose: 'Closing will discard the selected input and current preview.',
   discard: 'Discard and continue',
   cancel: 'Cancel',
+  dismiss: 'Close',
+  change: 'Change',
+  summaryBounds: '{total} records',
+  busyDismissBlocked: 'An import is in progress. Wait for it to finish before closing.',
 };
 
 const defaultDropzoneCopy: FileDropzoneCopy = {
   browse: 'Choose a file or drag and drop it here',
   guidance: 'Select a supported import file.',
   remove: 'Remove selected file',
+  replace: 'Change file',
+  acceptedTypes: 'Accepts {types} files.',
   invalid: 'The selected file is not supported.',
   tooLarge: 'The selected file exceeds the client-visible size limit.',
   samplesLabel: 'Import samples',
 };
+
+const logger = createLogger('BulkImportModal');
 
 let importModalSequence = 0;
 
@@ -403,6 +457,13 @@ export class FileDropzone {
     this.options.root.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
       button.disabled = disabled;
     });
+    // Sample links are anchors, so `disabled` does not apply. Without this they
+    // stay in the tab order inside an aria-disabled region.
+    this.options.root.querySelectorAll<HTMLAnchorElement>('.go-admin-import__sample').forEach((link) => {
+      link.setAttribute('aria-disabled', String(disabled));
+      if (disabled) link.setAttribute('tabindex', '-1');
+      else link.removeAttribute('tabindex');
+    });
   }
 
   destroy(): void {
@@ -418,22 +479,49 @@ export class FileDropzone {
     const samples = (this.options.samples || []).map((sample) =>
       `<a class="go-admin-import__sample" href="${escapeHtml(sample.href)}">${escapeHtml(sample.label)}</a>`,
     ).join('');
+    const accepted = this.acceptedTypesHint();
+    // The drop target is not a role="button": nesting the selected-file card,
+    // Change and Remove inside one button made every descendant click reopen
+    // the picker. A dedicated chooser button owns that single action instead.
     this.options.root.innerHTML = `
-      <div class="go-admin-import__dropzone" data-import-dropzone tabindex="0" role="button">
+      <div class="go-admin-import__dropzone" data-import-dropzone>
         <input data-import-file type="file" class="go-admin-import__file-input" accept="${escapeHtml(this.options.accept || '')}">
-        <div data-import-empty>
-          <strong>${escapeHtml(this.copy.browse)}</strong>
-          <span>${escapeHtml(guidance)}</span>
+        <div class="go-admin-import__chooser" data-import-empty>
+          <span class="go-admin-import__chooser-icon" data-import-icon="upload" aria-hidden="true"></span>
+          <button type="button" class="go-admin-import__action" data-import-browse data-import-priority="secondary">${escapeHtml(this.copy.browse)}</button>
+          <span class="go-admin-import__chooser-guidance">${escapeHtml(guidance)}</span>
+          ${accepted ? `<span class="go-admin-import__chooser-types">${escapeHtml(accepted)}</span>` : ''}
         </div>
-        <div data-import-selected hidden>
-          <strong data-import-file-name></strong>
-          <span data-import-file-size></span>
-          <button data-import-remove type="button">${escapeHtml(this.copy.remove)}</button>
+        <div class="go-admin-import__file-card" data-import-selected hidden>
+          <span class="go-admin-import__chooser-icon" data-import-icon="file" aria-hidden="true"></span>
+          <span class="go-admin-import__file-meta">
+            <strong data-import-file-name dir="auto"></strong>
+            <span data-import-file-size></span>
+          </span>
+          <button type="button" class="go-admin-import__action" data-import-replace data-import-priority="ghost">${escapeHtml(this.copy.replace)}</button>
+          <button type="button" class="go-admin-import__icon-action" data-import-remove aria-label="${escapeHtml(this.copy.remove)}" title="${escapeHtml(this.copy.remove)}">
+            <span class="go-admin-import__action-icon" data-import-icon="close" aria-hidden="true"></span>
+          </button>
         </div>
       </div>
       ${samples ? `<nav class="go-admin-import__samples" aria-label="${escapeHtml(this.copy.samplesLabel)}">${samples}</nav>` : ''}
     `;
     this.input = this.options.root.querySelector<HTMLInputElement>('[data-import-file]');
+    this.options.root.dataset.importState = 'empty';
+  }
+
+  /**
+   * Human-readable accepted types. MIME tokens are dropped rather than echoed,
+   * so the hint reads "CSV, JSON" instead of "text/csv, application/json".
+   */
+  private acceptedTypesHint(): string {
+    const extensions = (this.options.accept || '')
+      .split(',')
+      .map((rule) => rule.trim())
+      .filter((rule) => rule.startsWith('.'))
+      .map((rule) => rule.slice(1).toUpperCase());
+    if (!extensions.length) return '';
+    return formatCopy(this.copy.acceptedTypes, { types: [...new Set(extensions)].join(', ') });
   }
 
   private bind(): void {
@@ -443,16 +531,15 @@ export class FileDropzone {
     this.cleanup.push(listen(this.input, 'change', () => {
       this.setFile(this.input?.files?.[0] || null);
     }));
-    this.cleanup.push(listen(dropzone, 'keydown', (rawEvent) => {
-      const event = rawEvent as KeyboardEvent;
-      if (!this.disabled && (event.key === 'Enter' || event.key === ' ')) {
+    for (const selector of ['[data-import-browse]', '[data-import-replace]']) {
+      const chooser = this.options.root.querySelector<HTMLElement>(selector);
+      if (!chooser) continue;
+      this.cleanup.push(listen(chooser, 'click', (event) => {
         event.preventDefault();
-        this.input?.click();
-      }
-    }));
-    this.cleanup.push(listen(dropzone, 'click', (event) => {
-      if (!this.disabled && event.target === dropzone) this.input?.click();
-    }));
+        event.stopPropagation();
+        if (!this.disabled) this.input?.click();
+      }));
+    }
     for (const name of ['dragenter', 'dragover']) {
       this.cleanup.push(listen(dropzone, name, (rawEvent) => {
         const event = rawEvent as DragEvent;
@@ -490,17 +577,24 @@ export class FileDropzone {
     const size = this.options.root.querySelector<HTMLElement>('[data-import-file-size]');
     if (empty) empty.hidden = Boolean(this.selected);
     if (selected) selected.hidden = !this.selected;
+    this.options.root.dataset.importState = this.selected ? 'selected' : 'empty';
     if (name) name.textContent = this.selected?.name || '';
     if (size) size.textContent = this.selected ? formatFileSize(this.selected.size) : '';
   }
 }
 
-function reportValue(row: ImportReportRow, column: ImportReportColumn): ImportSafeValue {
+function reportValue(
+  row: ImportReportRow,
+  column: ImportReportColumn,
+  labels: Readonly<Record<string, string>> = {},
+): ImportSafeValue {
   if (column.value) return column.value(row);
   switch (column.key) {
+    // Outcome and action share one application vocabulary, so both resolve
+    // through the source's declared labels before falling back to the raw key.
     case 'reference': return row.reference;
-    case 'outcome': return row.outcome;
-    case 'action': return row.action || '';
+    case 'outcome': return labels[row.outcome] ?? row.outcome;
+    case 'action': return row.action ? labels[row.action] ?? row.action : '';
     case 'fields': return (row.fields || []).join(', ');
     case 'codes': return (row.codes || []).join(', ');
     case 'message': return row.message || '';
@@ -516,55 +610,94 @@ function matchesFilter(row: ImportReportRow, filter: ImportReportFilter): boolea
   return true;
 }
 
+type ImportReportViewCopy = Pick<BulkImportCopy,
+  'reportFiltersLabel' | 'allRows' | 'reportBounds' | 'reportTruncated'
+  | 'reportAggregate' | 'runDetailsLabel' | 'partialResult' | 'replayedResult'>;
+
+const DEFAULT_REPORT_COLUMNS: readonly ImportReportColumn[] = Object.freeze([
+  { key: 'reference', label: 'Row', priority: 'primary' },
+  { key: 'outcome', label: 'Outcome', priority: 'primary' },
+  { key: 'action', label: 'Action', priority: 'secondary' },
+  { key: 'message', label: 'Details', priority: 'secondary' },
+]);
+
 /** Safe, data-driven import report renderer. */
 export class ImportReportView {
   private readonly root: HTMLElement;
-  private readonly columns: readonly ImportReportColumn[];
-  private readonly filters: readonly ImportReportFilter[];
+  private readonly fallbackColumns: readonly ImportReportColumn[];
+  private readonly fallbackFilters: readonly ImportReportFilter[];
   private readonly noRows: string;
-  private readonly copy: Pick<BulkImportCopy,
-    'reportFiltersLabel' | 'allRows' | 'reportBounds' | 'reportTruncated' | 'partialResult' | 'replayedResult'>;
+  private readonly copy: ImportReportViewCopy;
+  private presentation: ImportReportPresentation = {};
   private report: ImportReportData | null = null;
   private activeFilter = 'all';
 
   constructor(root: HTMLElement, options: {
     columns?: readonly ImportReportColumn[];
     filters?: readonly ImportReportFilter[];
+    presentation?: ImportReportPresentation;
     noRows?: string;
-    copy?: Partial<Pick<BulkImportCopy,
-      'reportFiltersLabel' | 'allRows' | 'reportBounds' | 'reportTruncated' | 'partialResult' | 'replayedResult'>>;
+    copy?: Partial<ImportReportViewCopy>;
   } = {}) {
     this.root = root;
-    this.columns = options.columns || [
-      { key: 'reference', label: 'Row' },
-      { key: 'outcome', label: 'Outcome' },
-      { key: 'action', label: 'Action' },
-      { key: 'message', label: 'Details' },
-    ];
-    this.filters = options.filters || [];
+    this.fallbackColumns = options.columns || DEFAULT_REPORT_COLUMNS;
+    this.fallbackFilters = options.filters || [];
+    this.presentation = options.presentation || {};
     this.noRows = options.noRows || defaultCopy.noRows;
     this.copy = {
       reportFiltersLabel: defaultCopy.reportFiltersLabel,
       allRows: defaultCopy.allRows,
       reportBounds: defaultCopy.reportBounds,
       reportTruncated: defaultCopy.reportTruncated,
+      reportAggregate: defaultCopy.reportAggregate,
+      runDetailsLabel: defaultCopy.runDetailsLabel,
       partialResult: defaultCopy.partialResult,
       replayedResult: defaultCopy.replayedResult,
       ...options.copy,
     };
   }
 
+  /** Swap the active source's report vocabulary. Clears stale filter state. */
+  setPresentation(presentation: ImportReportPresentation = {}): void {
+    this.presentation = presentation;
+    this.activeFilter = 'all';
+    if (this.report) this.draw();
+  }
+
+  private get columns(): readonly ImportReportColumn[] {
+    return this.presentation.columns?.length ? this.presentation.columns : this.fallbackColumns;
+  }
+
+  private get filters(): readonly ImportReportFilter[] {
+    return this.presentation.filters?.length ? this.presentation.filters : this.fallbackFilters;
+  }
+
   render(report: ImportReportData): void {
     const rows = Array.isArray(report.rows) ? report.rows.slice() : [];
-    const totalRows = Math.max(rows.length, Number(report.bounds?.totalRows) || 0);
+    const aggregate = report.detailMode === 'aggregate';
+    const declaredTotal = Number(report.bounds?.totalRows) || 0;
+    if (aggregate && rows.length > 0) {
+      // The declared mode wins so presentation stays deterministic, but an
+      // adapter that ships row detail under an aggregate contract is a bug the
+      // operator must not silently inherit as "no detail available".
+      logger.warn('aggregate report declared with row detail; row detail is not rendered', {
+        mode: report.mode,
+        phase: report.phase,
+        returnedRows: rows.length,
+      });
+    }
+    // Aggregate reports have no row detail by design, so returned/total/truncated
+    // keep the source's declared totals instead of being recomputed from rows.
+    const totalRows = aggregate ? declaredTotal : Math.max(rows.length, declaredTotal);
     this.report = {
       ...report,
+      detailMode: aggregate ? 'aggregate' : 'rows',
       metrics: Array.isArray(report.metrics) ? report.metrics.slice() : [],
-      rows,
+      rows: aggregate ? [] : rows,
       bounds: {
-        returnedRows: rows.length,
+        returnedRows: aggregate ? 0 : rows.length,
         totalRows,
-        truncated: Boolean(report.bounds?.truncated || totalRows > rows.length),
+        truncated: aggregate ? false : Boolean(report.bounds?.truncated || totalRows > rows.length),
         continuation: report.bounds?.continuation,
       },
     };
@@ -582,45 +715,23 @@ export class ImportReportView {
     if (!report) return;
     this.root.replaceChildren();
     this.root.setAttribute('data-phase', report.phase);
+    this.root.dataset.detailMode = report.detailMode || 'rows';
+    this.root.appendChild(this.buildMetrics(report));
 
-    const metrics = document.createElement('div');
-    metrics.className = 'go-admin-import__metrics';
-    for (const metric of report.metrics) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'go-admin-import__metric';
-      card.dataset.tone = metric.tone || 'neutral';
-      card.disabled = !metric.filter;
-      card.append(Object.assign(document.createElement('strong'), { textContent: String(metric.value) }));
-      card.append(Object.assign(document.createElement('span'), { textContent: metric.label }));
-      if (metric.filter) card.addEventListener('click', () => { this.activeFilter = metric.filter!.key; this.draw(); });
-      metrics.appendChild(card);
-    }
-    this.root.appendChild(metrics);
-
-    const availableFilters = [
-      { key: 'all', label: this.copy.allRows } as ImportReportFilter,
-      ...this.filters,
-      ...report.metrics.flatMap((metric) => metric.filter ? [metric.filter] : []),
-    ].filter((filter, index, all) => all.findIndex((candidate) => candidate.key === filter.key) === index);
-    if (availableFilters.length > 1) {
-      const controls = document.createElement('div');
-      controls.className = 'go-admin-import__filters';
-      controls.setAttribute('role', 'toolbar');
-      controls.setAttribute('aria-label', this.copy.reportFiltersLabel);
-      for (const filter of availableFilters) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = filter.label;
-        button.dataset.active = String(filter.key === this.activeFilter);
-        button.addEventListener('click', () => { this.activeFilter = filter.key; this.draw(); });
-        controls.appendChild(button);
-      }
-      this.root.appendChild(controls);
+    if (report.detailMode === 'aggregate') {
+      const note = document.createElement('p');
+      note.className = 'go-admin-import__aggregate';
+      note.textContent = this.presentation.emptyState || this.copy.reportAggregate;
+      this.root.appendChild(note);
+      this.drawRunDetails(report);
+      return;
     }
 
-    const filter = availableFilters.find((candidate) => candidate.key === this.activeFilter);
-    const rows = filter && filter.key !== 'all' ? report.rows.filter((row) => matchesFilter(row, filter)) : report.rows;
+    const available = this.availableFilters(report);
+    if (available.length > 1) this.root.appendChild(this.buildFilters(available));
+    const active = available.find((candidate) => candidate.key === this.activeFilter);
+    const rows = active && active.key !== 'all' ? report.rows.filter((row) => matchesFilter(row, active)) : report.rows;
+
     const bounds = document.createElement('p');
     bounds.className = 'go-admin-import__bounds';
     bounds.textContent = [
@@ -636,52 +747,146 @@ export class ImportReportView {
     const scroller = document.createElement('div');
     scroller.className = 'go-admin-import__report-scroll';
     scroller.tabIndex = 0;
+    scroller.appendChild(this.buildTable(rows));
+    this.root.appendChild(scroller);
+
+    this.drawRunDetails(report);
+  }
+
+  private buildMetrics(report: ImportReportData): HTMLElement {
+    const metrics = document.createElement('div');
+    metrics.className = 'go-admin-import__metrics';
+    for (const metric of report.metrics) {
+      // An informational metric is a label, not a broken control. Only metrics
+      // that actually filter render as buttons, and those expose aria-pressed.
+      const card = document.createElement(metric.filter ? 'button' : 'div');
+      card.className = 'go-admin-import__metric';
+      card.dataset.tone = metric.tone || 'neutral';
+      card.append(Object.assign(document.createElement('strong'), { textContent: String(metric.value) }));
+      card.append(Object.assign(document.createElement('span'), { textContent: metric.label }));
+      if (metric.filter) {
+        const button = card as HTMLButtonElement;
+        button.type = 'button';
+        button.setAttribute('aria-pressed', String(metric.filter.key === this.activeFilter));
+        button.addEventListener('click', () => { this.activeFilter = metric.filter!.key; this.draw(); });
+      }
+      metrics.appendChild(card);
+    }
+    return metrics;
+  }
+
+  private availableFilters(report: ImportReportData): ImportReportFilter[] {
+    return [
+      { key: 'all', label: this.copy.allRows } as ImportReportFilter,
+      ...this.filters,
+      ...report.metrics.flatMap((metric) => metric.filter ? [metric.filter] : []),
+    ].filter((filter, index, all) => all.findIndex((candidate) => candidate.key === filter.key) === index);
+  }
+
+  private buildFilters(available: readonly ImportReportFilter[]): HTMLElement {
+    const controls = document.createElement('div');
+    controls.className = 'go-admin-import__filters';
+    controls.setAttribute('role', 'toolbar');
+    controls.setAttribute('aria-label', this.copy.reportFiltersLabel);
+    for (const filter of available) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = filter.label;
+      const active = filter.key === this.activeFilter;
+      button.dataset.active = String(active);
+      button.setAttribute('aria-pressed', String(active));
+      button.addEventListener('click', () => { this.activeFilter = filter.key; this.draw(); });
+      controls.appendChild(button);
+    }
+    return controls;
+  }
+
+  private buildTable(rows: readonly ImportReportRow[]): HTMLElement {
+    const columns = this.columns;
     const table = document.createElement('table');
     table.className = 'go-admin-import__report-table';
     const head = document.createElement('thead');
     const headRow = document.createElement('tr');
-    for (const column of this.columns) {
+    for (const column of columns) {
       const cell = document.createElement('th');
       cell.scope = 'col';
       cell.textContent = column.label;
+      cell.dataset.column = column.key;
+      cell.dataset.priority = column.priority || 'primary';
       headRow.appendChild(cell);
     }
     head.appendChild(headRow);
     table.appendChild(head);
+
     const body = document.createElement('tbody');
     if (rows.length === 0) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = Math.max(1, this.columns.length);
-      cell.textContent = this.noRows;
+      cell.colSpan = Math.max(1, columns.length);
+      cell.textContent = this.presentation.emptyState || this.noRows;
       row.appendChild(cell);
       body.appendChild(row);
     } else {
-      for (const item of rows) {
-        const row = document.createElement('tr');
-        row.dataset.outcome = item.outcome || 'unknown';
-        row.dataset.action = item.action || '';
-        for (const column of this.columns) {
-          const cell = document.createElement('td');
-          const value = reportValue(item, column);
-          cell.textContent = value === null ? '' : String(value);
-          row.appendChild(cell);
-        }
-        body.appendChild(row);
-      }
+      for (const item of rows) body.appendChild(this.buildRow(item, columns));
     }
     table.appendChild(body);
-    scroller.appendChild(table);
-    this.root.appendChild(scroller);
+    return table;
+  }
 
-    const flags = [report.partial ? this.copy.partialResult : '', report.replayed ? this.copy.replayedResult : ''].filter(Boolean);
-    if (report.bounds.continuation?.available && report.bounds.continuation.label) flags.push(report.bounds.continuation.label);
-    if (flags.length) {
-      const note = document.createElement('p');
-      note.className = 'go-admin-import__flags';
-      note.textContent = flags.join(' · ');
-      this.root.appendChild(note);
+  private buildRow(item: ImportReportRow, columns: readonly ImportReportColumn[]): HTMLElement {
+    const labels = this.presentation.outcomeLabels || {};
+    const tones = this.presentation.outcomeTones || {};
+    const row = document.createElement('tr');
+    row.dataset.outcome = item.outcome || 'unknown';
+    row.dataset.action = item.action || '';
+    for (const column of columns) {
+      const cell = document.createElement('td');
+      cell.dataset.column = column.key;
+      cell.dataset.priority = column.priority || 'primary';
+      const value = reportValue(item, column, labels);
+      const text = value === null ? '' : String(value);
+      // Outcome and action carry a declared tone so status is not conveyed by
+      // colour alone and shared CSS never names an application key.
+      if ((column.key === 'outcome' || column.key === 'action') && text) {
+        const badge = document.createElement('span');
+        badge.className = 'go-admin-import__outcome';
+        badge.dataset.tone = tones[column.key === 'outcome' ? item.outcome : (item.action || '')] || 'neutral';
+        badge.textContent = text;
+        cell.appendChild(badge);
+      } else {
+        cell.textContent = text;
+      }
+      row.appendChild(cell);
     }
+    return row;
+  }
+
+  /**
+   * Renders only source-declared run facts. `report.run` stays open-ended safe
+   * metadata; enumerating it into the DOM would leak whatever an adapter adds.
+   */
+  private drawRunDetails(report: ImportReportData): void {
+    const fields = this.presentation.runFields || [];
+    if (!fields.length || !report.run) return;
+    const entries = fields
+      .map((field) => ({ field, value: report.run?.[field.key] }))
+      .filter(({ value }) => value !== undefined && value !== null && value !== '');
+    if (!entries.length) return;
+
+    const list = document.createElement('dl');
+    list.className = 'go-admin-import__run';
+    list.dataset.importRun = 'true';
+    list.setAttribute('aria-label', this.copy.runDetailsLabel);
+    for (const { field, value } of entries) {
+      const term = document.createElement('dt');
+      term.textContent = field.label;
+      term.dataset.runField = field.key;
+      const detail = document.createElement('dd');
+      const formatted = field.format ? field.format(value as ImportSafeValue) : value;
+      detail.textContent = formatted === null ? '' : String(formatted);
+      list.append(term, detail);
+    }
+    this.root.appendChild(list);
   }
 }
 
@@ -710,13 +915,21 @@ export class BulkImportModal extends Modal {
   private panelCleanup: (() => void) | null = null;
   private reportView: ImportReportView | null = null;
   private busy = false;
+  /** One-shot authorization for the second pass of a confirmed close. */
+  private closeAuthorized = false;
+  /** Repeated dismissal requests while a confirmation is pending are ignored. */
+  private closePending = false;
 
   constructor(options: BulkImportModalOptions) {
     if (!options.root || options.sources.length === 0) throw new Error('BulkImportModal requires a root and at least one source.');
     super({
       size: '4xl',
       ariaLabel: options.copy?.title || defaultCopy.title,
-      initialFocus: '[data-import-source-tab]',
+      // With one source the tablist is hidden, so focus must land on the first
+      // real input control instead of a tab stop the operator cannot see.
+      initialFocus: options.sources.length > 1
+        ? '[data-import-source-tab]'
+        : '[data-import-browse], [data-import-input] button, [data-import-input] input, [data-import-input] select, [data-import-primary]',
       maximizable: true,
       containerClass: 'go-admin-import',
     });
@@ -771,30 +984,44 @@ export class BulkImportModal extends Modal {
 
   protected renderContent(): string {
     const description = this.copy.description ? `<p id="${this.instanceID}-description">${escapeHtml(this.copy.description)}</p>` : '';
+    // One source needs no tab stop, but its panel still needs an accessible
+    // name, so the panel is labelled directly instead of by a hidden tab.
+    const single = this.config.sources.length < 2;
+    const panelLabel = single
+      ? `aria-label="${escapeHtml(this.config.sources[this.sourceIndex]?.label || this.copy.sourceTabsLabel)}"`
+      : `aria-labelledby="${this.instanceID}-source-tab-${this.sourceIndex}"`;
     return `
       <header class="go-admin-modal__header go-admin-import__header">
-        <div><h2 id="${this.instanceID}-title">${escapeHtml(this.copy.title)}</h2>${description}</div>
+        <div class="go-admin-import__heading"><h2 id="${this.instanceID}-title">${escapeHtml(this.copy.title)}</h2>${description}</div>
         <div class="go-admin-import__header-actions">
-          <button type="button" data-import-maximize aria-expanded="${String(this.isMaximized)}">${escapeHtml(this.isMaximized ? this.copy.restore : this.copy.maximize)}</button>
-          <button type="button" class="go-admin-modal__close" data-import-close aria-label="${escapeHtml(this.copy.close)}">×</button>
+          <button type="button" class="go-admin-import__icon-action" data-import-maximize aria-label="${escapeHtml(this.isMaximized ? this.copy.restore : this.copy.maximize)}" title="${escapeHtml(this.isMaximized ? this.copy.restore : this.copy.maximize)}" aria-expanded="${String(this.isMaximized)}">
+            <span class="go-admin-import__action-icon" data-import-maximize-icon="${this.isMaximized ? 'collapse' : 'expand'}" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="go-admin-import__icon-action" data-import-close aria-label="${escapeHtml(this.copy.close)}">
+            <span class="go-admin-import__action-icon" data-import-icon="close" aria-hidden="true"></span>
+          </button>
         </div>
       </header>
-      <div class="go-admin-import__sources" role="tablist" aria-label="${escapeHtml(this.copy.sourceTabsLabel)}">
+      <div class="go-admin-import__sources" role="tablist" aria-label="${escapeHtml(this.copy.sourceTabsLabel)}" ${single ? 'hidden' : ''}>
         ${this.config.sources.map((source, index) => `<button id="${this.instanceID}-source-tab-${index}" type="button" role="tab" data-import-source-tab="${index}" aria-controls="${this.instanceID}-source-panel" aria-selected="${String(index === this.sourceIndex)}" ${source.available === false ? 'disabled' : ''}>${escapeHtml(source.label)}</button>`).join('')}
       </div>
       <div class="go-admin-modal__body go-admin-import__body">
-        <section id="${this.instanceID}-source-panel" role="tabpanel" aria-labelledby="${this.instanceID}-source-tab-${this.sourceIndex}" data-import-source-panel>
-          <section class="go-admin-import__mode" data-import-mode></section>
-          <section class="go-admin-import__input" data-import-input></section>
+        <section id="${this.instanceID}-source-panel" role="tabpanel" ${panelLabel} data-import-source-panel>
+          <div class="go-admin-import__compose" data-import-compose>
+            <section class="go-admin-import__mode" data-import-mode></section>
+            <section class="go-admin-import__input" data-import-input></section>
+          </div>
+          <div class="go-admin-import__summary" data-import-summary hidden></div>
         </section>
+        <p class="go-admin-import__banner" data-import-banner data-import-error role="alert" hidden></p>
         <section class="go-admin-import__report" data-import-report hidden></section>
-        <p class="go-admin-import__error" data-import-error role="alert" hidden></p>
       </div>
       <footer class="go-admin-modal__footer go-admin-import__footer">
         <p data-import-status role="status" aria-live="polite">${escapeHtml(this.copy.idleStatus)}</p>
-        <div>
-          <button type="button" data-import-reset hidden>${escapeHtml(this.copy.importAnother)}</button>
-          <button type="button" data-import-primary disabled>${escapeHtml(this.copy.preview)}</button>
+        <div class="go-admin-import__actions">
+          <button type="button" class="go-admin-import__action" data-import-dismiss data-import-priority="ghost">${escapeHtml(this.copy.cancel)}</button>
+          <button type="button" class="go-admin-import__action" data-import-reset data-import-priority="secondary" hidden>${escapeHtml(this.copy.importAnother)}</button>
+          <button type="button" class="go-admin-import__action" data-import-primary data-import-priority="primary" disabled>${escapeHtml(this.copy.preview)}</button>
         </div>
       </footer>
     `;
@@ -807,6 +1034,7 @@ export class BulkImportModal extends Modal {
       tab.addEventListener('click', () => void this.activateSource(Number(tab.dataset.importSourceTab)));
       tab.addEventListener('keydown', (event) => this.onSourceKeydown(event));
     });
+    this.container?.querySelector('[data-import-dismiss]')?.addEventListener('click', () => this.requestClose());
     this.container?.querySelector('[data-import-primary]')?.addEventListener('click', () => void this.advance());
     this.container?.querySelector('[data-import-reset]')?.addEventListener('click', () => void this.reset());
     const reportRoot = this.container?.querySelector<HTMLElement>('[data-import-report]');
@@ -814,12 +1042,14 @@ export class BulkImportModal extends Modal {
       this.reportView = new ImportReportView(reportRoot, {
         columns: this.config.columns,
         filters: this.config.filters,
+        presentation: this.source.report,
         noRows: this.copy.noRows,
         copy: this.copy,
       });
     }
     this.renderSourcePanel();
     if (this.report) this.showReport(this.report);
+    this.updatePhase();
     this.updateActions();
   }
 
@@ -830,10 +1060,56 @@ export class BulkImportModal extends Modal {
 
   protected onMaximizedChange(): void {
     this.updateMaximizeControl();
+    this.backdrop?.classList.toggle('go-admin-modal--import-fullbleed', this.isMaximized);
   }
 
   protected onBeforeHide(): boolean {
-    return !this.busy;
+    // Modal's veto is synchronous while discard confirmation is not, so a
+    // confirmed dismissal re-enters through this one-shot authorization.
+    if (this.closeAuthorized) {
+      this.closeAuthorized = false;
+      return true;
+    }
+    if (this.busy) {
+      this.setStatus(this.copy.busyDismissBlocked);
+      return false;
+    }
+    if (!this.hasDiscardableEditableWork()) return true;
+    if (this.closePending) return false;
+    this.closePending = true;
+    void this.resolveDismissal();
+    return false;
+  }
+
+  private async resolveDismissal(): Promise<void> {
+    try {
+      const context: ImportDiscardContext = {
+        reason: 'close',
+        state: this.workflowState,
+        sourceKey: this.source.key,
+        hasInput: this.currentInput !== null,
+        hasPreview: this.previewState !== null,
+        attempt: this.attempt || undefined,
+      };
+      const confirm = this.source.confirmDiscard || this.config.confirmDiscard;
+      const approved = confirm
+        ? Boolean(await confirm(context))
+        : await ConfirmModal.confirm(this.copy.discardOnClose, {
+          title: this.copy.discardTitle,
+          confirmText: this.copy.discard,
+          cancelText: this.copy.cancel,
+        });
+      if (!approved) return;
+      this.clearWorkflow();
+      this.renderSourcePanel();
+      this.closeAuthorized = true;
+      // If the instance was destroyed or already hidden while the operator was
+      // deciding, the authorization is spent here rather than left armed for a
+      // later dismissal that must confirm on its own terms.
+      if (!this.requestClose()) this.closeAuthorized = false;
+    } finally {
+      this.closePending = false;
+    }
   }
 
   private get source(): AnyImportSourceDescriptor {
@@ -856,18 +1132,122 @@ export class BulkImportModal extends Modal {
     if (status) status.textContent = message;
   }
 
+  /**
+   * The banner is the single visible result surface. It sits above metrics and
+   * the row table so partial, replayed, ineligible, uncertain and terminal
+   * outcomes are read before the detail they describe, and it renders for
+   * errors raised before any report exists.
+   */
+  private setBanner(message = '', tone: ImportMetricTone = 'neutral'): void {
+    const banner = this.container?.querySelector<HTMLElement>('[data-import-banner]');
+    if (!banner) return;
+    banner.hidden = !message;
+    banner.textContent = message;
+    banner.dataset.tone = tone;
+    if (tone === 'danger') banner.setAttribute('role', 'alert');
+    else banner.removeAttribute('role');
+  }
+
   private setError(message = ''): void {
-    const error = this.container?.querySelector<HTMLElement>('[data-import-error]');
-    if (!error) return;
-    error.hidden = !message;
-    error.textContent = message;
+    this.setBanner(message, message ? 'danger' : 'neutral');
+  }
+
+  /** Recompute the banner from the workflow state plus the current report. */
+  private refreshBanner(): void {
+    const report = this.report;
+    if (!report) return;
+    const notes: string[] = [];
+    if (report.partial) notes.push(this.copy.partialResult);
+    if (report.replayed) notes.push(this.copy.replayedResult);
+    if (report.bounds?.continuation?.available && report.bounds.continuation.label) {
+      notes.push(report.bounds.continuation.label);
+    }
+    if (this.workflowState === 'preview-ready' && !this.eligibility.allowed) {
+      notes.unshift(this.eligibility.reason || this.copy.previewIneligible);
+    }
+    if (!notes.length) {
+      if (this.workflowState === 'complete') this.setBanner(this.copy.completeStatus, 'success');
+      else if (this.workflowState === 'preview-ready') this.setBanner(this.copy.previewReady, 'neutral');
+      else this.setBanner();
+      return;
+    }
+    const tone: ImportMetricTone = this.workflowState === 'preview-ready' && !this.eligibility.allowed ? 'danger' : 'warning';
+    this.setBanner(notes.join(' · '), tone);
+  }
+
+  /**
+   * Phase is derived from workflow state plus real report presence, never from
+   * row counts. Compose keeps the body scrollable so short viewports and 200%
+   * zoom reach every input; review collapses input to the summary strip and
+   * gives the report the remaining bounded scroll.
+   */
+  private updatePhase(): void {
+    const container = this.container;
+    if (!container) return;
+    const review = this.report !== null;
+    container.dataset.importPhase = review ? 'review' : 'compose';
+    container.dataset.importSource = this.source.key;
+    const compose = container.querySelector<HTMLElement>('[data-import-compose]');
+    const summary = container.querySelector<HTMLElement>('[data-import-summary]');
+    if (compose) compose.hidden = review;
+    if (summary) {
+      summary.hidden = !review;
+      if (review) this.renderSummary(summary);
+      else summary.replaceChildren();
+    }
+    const report = container.querySelector<HTMLElement>('[data-import-report]');
+    if (report && !review) report.hidden = true;
+  }
+
+  /** Compact review-state summary: source, input identity, mode, and Change. */
+  private renderSummary(root: HTMLElement): void {
+    root.replaceChildren();
+    const facts = document.createElement('div');
+    facts.className = 'go-admin-import__summary-facts';
+    const add = (text: string, kind: string) => {
+      if (!text) return;
+      const item = document.createElement('span');
+      item.dataset.summaryFact = kind;
+      item.textContent = text;
+      if (kind === 'input') item.setAttribute('dir', 'auto');
+      facts.appendChild(item);
+    };
+    add(this.source.label, 'source');
+    const input = this.currentInput;
+    if (input instanceof File) add(`${input.name} · ${formatFileSize(input.size)}`, 'input');
+    else if (this.report) add(formatCopy(this.copy.summaryBounds, { total: this.report.bounds?.totalRows ?? 0 }), 'input');
+    add(this.selectedMode.label, 'mode');
+    root.appendChild(facts);
+
+    const change = document.createElement('button');
+    change.type = 'button';
+    change.className = 'go-admin-import__action';
+    change.dataset.importChange = 'true';
+    change.dataset.importPriority = 'secondary';
+    change.textContent = this.copy.change;
+    change.addEventListener('click', () => void this.requestChange());
+    root.appendChild(change);
+  }
+
+  /** Return to compose through the existing preview-invalidation path. */
+  private async requestChange(): Promise<void> {
+    if (this.busy) {
+      this.setStatus(this.copy.busyDismissBlocked);
+      return;
+    }
+    if (!await this.reconcileAttempt()) return;
+    this.invalidatePreview();
   }
 
   private updateMaximizeControl(): void {
-    const control = this.container?.querySelector<HTMLElement>('[data-import-maximize]');
+    const control = this.container?.querySelector<HTMLButtonElement>('[data-import-maximize]');
     if (!control) return;
-    control.textContent = this.isMaximized ? this.copy.restore : this.copy.maximize;
+    const label = this.isMaximized ? this.copy.restore : this.copy.maximize;
+    const icon = control.querySelector<HTMLElement>('[data-import-maximize-icon]');
+    control.setAttribute('aria-label', label);
+    control.title = label;
     control.setAttribute('aria-expanded', String(this.isMaximized));
+    if (icon) icon.dataset.importMaximizeIcon = this.isMaximized ? 'collapse' : 'expand';
   }
 
   private renderSourcePanel(): void {
@@ -887,6 +1267,7 @@ export class BulkImportModal extends Modal {
     }
     if (source.kind === 'file') this.mountFileSource(source, inputRoot);
     else if (source.mountInput) this.mountCustomSource(source, inputRoot);
+    this.updatePhase();
     this.updateActions();
   }
 
@@ -998,6 +1379,17 @@ export class BulkImportModal extends Modal {
       || !['idle', 'selected'].includes(this.workflowState);
   }
 
+  /**
+   * Work a confirmed dismissal may discard. An unresolved unknown/retryable
+   * apply is deliberately excluded: closing preserves its attempt, input and
+   * report so reopening still shows the truthful uncertain outcome.
+   */
+  private hasDiscardableEditableWork(): boolean {
+    if (this.hasUnresolvedAttempt()) return false;
+    if (['complete', 'terminal-error'].includes(this.workflowState)) return false;
+    return this.currentInput !== null || this.previewState !== null || this.report !== null;
+  }
+
   private async reconcileAttempt(): Promise<boolean> {
     if (!this.attempt || this.attemptTerminal) return true;
     const reconcile = this.source.onReconcileAttempt;
@@ -1021,6 +1413,7 @@ export class BulkImportModal extends Modal {
     this.currentInput = null;
     this.setState('idle');
     this.reportView?.clear();
+    this.updatePhase();
   }
 
   private invalidatePreview(status?: string): void {
@@ -1036,6 +1429,7 @@ export class BulkImportModal extends Modal {
     this.setState(ready ? 'selected' : 'idle');
     this.setError();
     this.setStatus(status || (ready ? this.copy.selectedStatus : this.copy.idleStatus));
+    this.updatePhase();
     this.updateActions();
   }
 
@@ -1067,6 +1461,9 @@ export class BulkImportModal extends Modal {
     this.clearWorkflow();
     this.sourceIndex = index;
     this.selectedMode = this.resolveModes(next)[0];
+    // Report vocabulary belongs to the source; the next source must not inherit
+    // the previous one's columns, filters, labels, tones or active filter.
+    this.reportView?.setPresentation(next.report);
     this.container?.querySelectorAll<HTMLElement>('[data-import-source-tab]').forEach((tab) => {
       const selected = Number(tab.dataset.importSourceTab) === index;
       tab.setAttribute('aria-selected', String(selected));
@@ -1123,7 +1520,7 @@ export class BulkImportModal extends Modal {
     this.aborter = new AbortController();
     this.setState(state);
     this.setStatus(status);
-    this.setError();
+    this.setBanner(status, 'neutral');
     this.dropzone?.setDisabled(true);
     this.updateActions();
     return this.aborter.signal;
@@ -1234,6 +1631,8 @@ export class BulkImportModal extends Modal {
     const root = this.container?.querySelector<HTMLElement>('[data-import-report]');
     if (root) root.hidden = false;
     this.reportView?.render(report);
+    this.updatePhase();
+    this.refreshBanner();
   }
 
   private updateActions(): void {
@@ -1244,13 +1643,8 @@ export class BulkImportModal extends Modal {
     const ready = this.inputReady(input) && this.source.available !== false;
     const settled = ['complete', 'terminal-error'].includes(this.workflowState);
     const inputLocked = this.busy || this.hasUnresolvedAttempt() || settled;
-    primary.disabled = this.busy || settled || !ready || (this.source.workflow === 'preview-apply' && this.workflowState === 'preview-ready' && !this.eligibility.allowed);
-    if (this.busy) primary.textContent = this.workflowState === 'previewing' ? this.copy.previewingStatus : this.copy.applyingStatus;
-    else if (this.workflowState === 'recoverable-error') primary.textContent = this.copy.retry;
-    else if (this.source.workflow === 'single') primary.textContent = this.copy.submit;
-    else if (this.workflowState === 'preview-ready') primary.textContent = this.copy.apply;
-    else primary.textContent = this.copy.preview;
-    reset.hidden = !['complete', 'terminal-error'].includes(this.workflowState);
+
+    this.updateFooterActions(primary, reset, { ready, settled });
     this.dropzone?.setDisabled(inputLocked);
     const inputRoot = this.container?.querySelector<HTMLElement>('[data-import-input]');
     if (inputRoot) this.source.setInputDisabled?.(inputRoot, inputLocked);
@@ -1260,6 +1654,35 @@ export class BulkImportModal extends Modal {
     this.container?.querySelectorAll<HTMLSelectElement>('[data-import-mode] select').forEach((select) => {
       select.disabled = inputLocked;
     });
+  }
+
+  private updateFooterActions(
+    primary: HTMLButtonElement,
+    reset: HTMLButtonElement,
+    { ready, settled }: { ready: boolean; settled: boolean },
+  ): void {
+    // A settled import has no actionable primary. Leaving a disabled "Preview"
+    // reads as a broken control, so the action is removed and Import another
+    // takes over as the primary path.
+    primary.hidden = settled;
+    primary.disabled = this.busy || settled || !ready
+      || (this.source.workflow === 'preview-apply' && this.workflowState === 'preview-ready' && !this.eligibility.allowed);
+    primary.setAttribute('aria-busy', String(this.busy));
+    primary.textContent = this.primaryActionLabel();
+    reset.hidden = !settled;
+    reset.dataset.importPriority = settled ? 'primary' : 'secondary';
+    const dismiss = this.container?.querySelector<HTMLButtonElement>('[data-import-dismiss]');
+    // Cancel abandons editable pre-apply work; Close leaves a settled or
+    // preserved result in place.
+    if (dismiss) dismiss.textContent = this.hasDiscardableEditableWork() ? this.copy.cancel : this.copy.dismiss;
+  }
+
+  private primaryActionLabel(): string {
+    if (this.busy) return this.workflowState === 'previewing' ? this.copy.previewingStatus : this.copy.applyingStatus;
+    if (this.workflowState === 'recoverable-error') return this.copy.retry;
+    if (this.source.workflow === 'single') return this.copy.submit;
+    if (this.workflowState === 'preview-ready') return this.copy.apply;
+    return this.copy.preview;
   }
 }
 

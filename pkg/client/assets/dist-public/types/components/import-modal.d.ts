@@ -50,12 +50,20 @@ export interface ImportReportBounds {
     truncated: boolean;
     continuation?: ImportReportContinuation;
 }
+/**
+ * Row detail and aggregate totals are distinct declared presentations. The
+ * renderer never infers one from the other: a source that returns no rows for a
+ * positive total is a truthful bounded row report, not an aggregate report.
+ */
+export type ImportReportDetailMode = 'rows' | 'aggregate';
 export interface ImportReportData {
     phase: 'preview' | 'apply' | 'complete';
     mode: string;
     metrics: ImportMetric[];
     rows: ImportReportRow[];
     bounds: ImportReportBounds;
+    /** Defaults to `rows` so existing application adapters are unchanged. */
+    detailMode?: ImportReportDetailMode;
     run?: Record<string, ImportSafeValue>;
     replayed?: boolean;
     partial?: boolean;
@@ -63,7 +71,28 @@ export interface ImportReportData {
 export interface ImportReportColumn {
     key: string;
     label: string;
+    /** Narrow layouts hide `secondary` columns. Column order is never semantic. */
+    priority?: 'primary' | 'secondary';
     value?: (row: Readonly<ImportReportRow>) => ImportSafeValue;
+}
+/** One allowlisted, localized `report.run` fact. Undeclared keys never render. */
+export interface ImportRunField {
+    key: string;
+    label: string;
+    format?: (value: ImportSafeValue) => ImportSafeValue;
+}
+/**
+ * Per-source report vocabulary. Modal-level `columns`/`filters` remain
+ * compatibility fallbacks; a source that declares its own presentation wins and
+ * is reapplied whenever the active source changes.
+ */
+export interface ImportReportPresentation {
+    columns?: readonly ImportReportColumn[];
+    filters?: readonly ImportReportFilter[];
+    outcomeLabels?: Readonly<Record<string, string>>;
+    outcomeTones?: Readonly<Record<string, ImportMetricTone>>;
+    runFields?: readonly ImportRunField[];
+    emptyState?: string;
 }
 export interface ImportAttemptContext {
     readonly attemptId: string;
@@ -102,7 +131,7 @@ export interface ImportSourcePanelAPI {
     inputChanged(ready?: boolean): void;
     setStatus(message: string): void;
 }
-export type ImportDiscardReason = 'source-switch';
+export type ImportDiscardReason = 'source-switch' | 'close';
 export interface ImportDiscardContext {
     reason: ImportDiscardReason;
     state: ImportWorkflowState;
@@ -123,6 +152,7 @@ export interface ImportSourceDescriptor<TInput = unknown, TPreview = unknown, TS
     selectableModes?: boolean;
     workflow: 'single' | 'preview-apply';
     kind: 'file' | 'custom';
+    report?: ImportReportPresentation;
     file?: Omit<FileDropzoneOptions, 'root' | 'onChange'>;
     mountInput?: (root: HTMLElement, api: ImportSourcePanelAPI) => void | (() => void);
     readInput?: (root: HTMLElement) => TInput | null;
@@ -166,6 +196,8 @@ export interface BulkImportCopy {
     allRows: string;
     reportBounds: string;
     reportTruncated: string;
+    reportAggregate: string;
+    runDetailsLabel: string;
     partialResult: string;
     replayedResult: string;
     inputRequired: string;
@@ -177,8 +209,13 @@ export interface BulkImportCopy {
     unavailableSource: string;
     discardTitle: string;
     discardSourceChange: string;
+    discardOnClose: string;
     discard: string;
     cancel: string;
+    dismiss: string;
+    change: string;
+    summaryBounds: string;
+    busyDismissBlocked: string;
 }
 export interface BulkImportModalOptions {
     root: HTMLElement;
@@ -196,6 +233,8 @@ export interface FileDropzoneCopy {
     browse: string;
     guidance: string;
     remove: string;
+    replace: string;
+    acceptedTypes: string;
     invalid: string;
     tooLarge: string;
     samplesLabel: string;
@@ -231,27 +270,49 @@ export declare class FileDropzone {
     setDisabled(disabled: boolean): void;
     destroy(): void;
     private render;
+    /**
+     * Human-readable accepted types. MIME tokens are dropped rather than echoed,
+     * so the hint reads "CSV, JSON" instead of "text/csv, application/json".
+     */
+    private acceptedTypesHint;
     private bind;
     private update;
 }
+type ImportReportViewCopy = Pick<BulkImportCopy, 'reportFiltersLabel' | 'allRows' | 'reportBounds' | 'reportTruncated' | 'reportAggregate' | 'runDetailsLabel' | 'partialResult' | 'replayedResult'>;
 /** Safe, data-driven import report renderer. */
 export declare class ImportReportView {
     private readonly root;
-    private readonly columns;
-    private readonly filters;
+    private readonly fallbackColumns;
+    private readonly fallbackFilters;
     private readonly noRows;
     private readonly copy;
+    private presentation;
     private report;
     private activeFilter;
     constructor(root: HTMLElement, options?: {
         columns?: readonly ImportReportColumn[];
         filters?: readonly ImportReportFilter[];
+        presentation?: ImportReportPresentation;
         noRows?: string;
-        copy?: Partial<Pick<BulkImportCopy, 'reportFiltersLabel' | 'allRows' | 'reportBounds' | 'reportTruncated' | 'partialResult' | 'replayedResult'>>;
+        copy?: Partial<ImportReportViewCopy>;
     });
+    /** Swap the active source's report vocabulary. Clears stale filter state. */
+    setPresentation(presentation?: ImportReportPresentation): void;
+    private get columns();
+    private get filters();
     render(report: ImportReportData): void;
     clear(): void;
     private draw;
+    private buildMetrics;
+    private availableFilters;
+    private buildFilters;
+    private buildTable;
+    private buildRow;
+    /**
+     * Renders only source-declared run facts. `report.run` stays open-ended safe
+     * metadata; enumerating it into the DOM would leak whatever an adapter adds.
+     */
+    private drawRunDetails;
 }
 /** Canonical modal + file/custom source + report workflow composition. */
 export declare class BulkImportModal extends Modal {
@@ -273,6 +334,10 @@ export declare class BulkImportModal extends Modal {
     private panelCleanup;
     private reportView;
     private busy;
+    /** One-shot authorization for the second pass of a confirmed close. */
+    private closeAuthorized;
+    /** Repeated dismissal requests while a confirmation is pending are ignored. */
+    private closePending;
     constructor(options: BulkImportModalOptions);
     get state(): ImportWorkflowState;
     get activeAttempt(): Readonly<ImportAttemptContext> | null;
@@ -287,11 +352,32 @@ export declare class BulkImportModal extends Modal {
     protected onAfterHide(): void;
     protected onMaximizedChange(): void;
     protected onBeforeHide(): boolean;
+    private resolveDismissal;
     private get source();
     private resolveModes;
     private setState;
     private setStatus;
+    /**
+     * The banner is the single visible result surface. It sits above metrics and
+     * the row table so partial, replayed, ineligible, uncertain and terminal
+     * outcomes are read before the detail they describe, and it renders for
+     * errors raised before any report exists.
+     */
+    private setBanner;
     private setError;
+    /** Recompute the banner from the workflow state plus the current report. */
+    private refreshBanner;
+    /**
+     * Phase is derived from workflow state plus real report presence, never from
+     * row counts. Compose keeps the body scrollable so short viewports and 200%
+     * zoom reach every input; review collapses input to the summary strip and
+     * gives the report the remaining bounded scroll.
+     */
+    private updatePhase;
+    /** Compact review-state summary: source, input identity, mode, and Change. */
+    private renderSummary;
+    /** Return to compose through the existing preview-invalidation path. */
+    private requestChange;
     private updateMaximizeControl;
     private renderSourcePanel;
     private renderModeControls;
@@ -301,6 +387,12 @@ export declare class BulkImportModal extends Modal {
     private releasePanel;
     private hasUnresolvedAttempt;
     private hasDiscardableWork;
+    /**
+     * Work a confirmed dismissal may discard. An unresolved unknown/retryable
+     * apply is deliberately excluded: closing preserves its attempt, input and
+     * report so reopening still shows the truthful uncertain outcome.
+     */
+    private hasDiscardableEditableWork;
     private reconcileAttempt;
     private clearWorkflow;
     private invalidatePreview;
@@ -319,6 +411,8 @@ export declare class BulkImportModal extends Modal {
     private handleError;
     private showReport;
     private updateActions;
+    private updateFooterActions;
+    private primaryActionLabel;
 }
 type LegacyImportModalOptions = {
     modalId?: string;

@@ -154,6 +154,8 @@
     "lint:console": "node ./scripts/check-no-direct-console.mjs",
     "test:public": "npm run build:public && node ./scripts/test-public-package.mjs",
     "test:modal:browsers": "node ./scripts/test-modal-browsers.mjs",
+    "test:import:browsers": "npm run build:public && node ./scripts/test-import-browsers.mjs",
+    "test:import:baseline": "node ./scripts/test-import-browsers.mjs --baseline",
     "build:css:prod": "node ./scripts/build-css.mjs",
     "build:css": "node ./scripts/build-css.mjs",
     "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\" \"npm:build:css:datatable\" \"npm:build:css:site\"",

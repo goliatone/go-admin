@@ -58,6 +58,7 @@ cannot be configured or safely extended.
 | Menus, filters, badges, tabs, metrics | Template partials | `pkg/client/templates/partials/`, `docs/GUIDE_UI_PRIMITIVES.md` |
 | Cross-host modal behavior and shared component styling | Public modal entry + `components.css` | `@goliatone/go-admin-client/components/modal`, `@goliatone/go-admin-client/components.css` |
 | Bulk-import modal, file intake, workflow, and safe reports | Public import entry + `components.css` | `@goliatone/go-admin-client/components/import-modal`, `@goliatone/go-admin-client/components.css` |
+| Per-source import report vocabulary, tones, run-detail allowlist, row/aggregate mode | `ImportSourceDescriptor.report` + `ImportReportData.detailMode` | `pkg/client/assets/README.md#source-scoped-report-presentation` |
 | DataGrid state and column preferences | DataGrid state store / preferences mode | `pkg/client/assets/src/datatable/state-store.ts`, `docs/GUIDE_CRUD.md#datagrid-state-and-preferences` |
 | Revision-safe sync, autosave, idempotency, conflict recovery | `pkg/go-sync` and `sync-core` | `pkg/go-sync/`, `docs/reference/root/PKG_SYNC.md` |
 | Dashboard cards/widgets | Dashboard widget providers/renderers | `docs/GUIDE_DASHBOARD_WIDGETS.md` |
