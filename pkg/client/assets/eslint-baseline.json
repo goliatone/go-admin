@@ -3,12 +3,6 @@
   "description": "Reviewed frontend static-analysis debt. New locations fail; stale entries may be removed.",
   "findings": [
     {
-      "file": "src/components/import-modal.ts",
-      "line": 151,
-      "column": 13,
-      "rule": "@typescript-eslint/no-unused-vars"
-    },
-    {
       "file": "src/content-type-builder/api-client.ts",
       "line": 1243,
       "column": 1,

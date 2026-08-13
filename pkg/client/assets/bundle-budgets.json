@@ -4,10 +4,13 @@
     "runtime": {
       "entries": {
         "activity/index": { "rawBytes": 66560, "gzipBytes": 18432 },
-        "components/import-modal": { "rawBytes": 28672, "gzipBytes": 10240 },
+        "components/import-modal": { "rawBytes": 65536, "gzipBytes": 18432 },
         "components/modal": { "rawBytes": 21504, "gzipBytes": 8192 },
         "components/permission-pills": { "rawBytes": 5120, "gzipBytes": 3072 },
-        "content-type-builder/index": { "rawBytes": 517120, "gzipBytes": 108544 },
+        "content-type-builder/index": { "rawBytes": 521216, "gzipBytes": 114688 },
+        "content-type-builder/bootstrap": { "rawBytes": 7168, "gzipBytes": 4096 },
+        "content-type-builder/content-editor-runtime": { "rawBytes": 373760, "gzipBytes": 82944 },
+        "content-type-builder/block-library-runtime": { "rawBytes": 359424, "gzipBytes": 80896 },
         "content-type-builder/shared/channel-switcher": { "rawBytes": 25600, "gzipBytes": 9216 },
         "content-type-builder/shared/date-formatters": { "rawBytes": 2048, "gzipBytes": 2048 },
         "content-type-builder/shared/status-badges": { "rawBytes": 12288, "gzipBytes": 5120 },
@@ -71,10 +74,11 @@
         "translation-shared/formatters": { "rawBytes": 4096, "gzipBytes": 2048 }
       },
       "maxChunk": { "rawBytes": 473088, "gzipBytes": 106496 },
-      "total": { "rawBytes": 3631104, "gzipBytes": 847872 }
+      "total": { "rawBytes": 3639296, "gzipBytes": 855040 }
     },
     "public": {
       "entries": {
+        "components/import-modal": { "rawBytes": 65536, "gzipBytes": 18432 },
         "components/modal": { "rawBytes": 21504, "gzipBytes": 7168 },
         "datatable": { "rawBytes": 629760, "gzipBytes": 158720 },
         "datatable/runtime": { "rawBytes": 319488, "gzipBytes": 86016 },
@@ -100,7 +104,7 @@
         "toast/error-helpers": { "rawBytes": 21504, "gzipBytes": 7168 }
       },
       "maxChunk": { "rawBytes": 220160, "gzipBytes": 57344 },
-      "total": { "rawBytes": 923648, "gzipBytes": 220160 }
+      "total": { "rawBytes": 1048576, "gzipBytes": 262144 }
     }
   }
 }

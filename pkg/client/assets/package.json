@@ -1,6 +1,6 @@
 {
   "name": "@goliatone/go-admin-client",
-  "version": "0.134.1",
+  "version": "0.135.0",
   "description": "Supported browser client contracts for go-admin applications",
   "type": "module",
   "main": "./dist-public/index.js",
@@ -21,6 +21,11 @@
       "types": "./dist-public/types/components/modal.d.ts",
       "import": "./dist-public/components/modal.js",
       "default": "./dist-public/components/modal.js"
+    },
+    "./components/import-modal": {
+      "types": "./dist-public/types/components/import-modal.d.ts",
+      "import": "./dist-public/components/import-modal.js",
+      "default": "./dist-public/components/import-modal.js"
     },
     "./components.css": "./dist-public/components.css",
     "./shared/html": {

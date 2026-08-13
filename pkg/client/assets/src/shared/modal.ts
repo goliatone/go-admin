@@ -60,6 +60,8 @@ export interface ModalOptions {
   containerClass?: string;
   /** Data attribute name to set on backdrop (e.g. 'data-my-modal-backdrop') */
   backdropDataAttr?: string;
+  /** Allow the dialog surface to fill the current visual viewport. Default: false. */
+  maximizable?: boolean;
 }
 
 type ResolvedModalOptions = {
@@ -76,6 +78,7 @@ type ResolvedModalOptions = {
   describedBy: string | null;
   containerClass: string;
   backdropDataAttr: string;
+  maximizable: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -111,6 +114,7 @@ export abstract class Modal {
   private _cleanupTimer: ReturnType<typeof setTimeout> | null = null;
   private _lifecycle = 0;
   private _mounted = false;
+  private _isMaximized = false;
 
   constructor(opts: ModalOptions = {}) {
     this._options = {
@@ -127,11 +131,16 @@ export abstract class Modal {
       describedBy: opts.describedBy ?? null,
       containerClass: opts.containerClass ?? '',
       backdropDataAttr: opts.backdropDataAttr ?? '',
+      maximizable: opts.maximizable ?? false,
     };
   }
 
   get isOpen(): boolean {
     return this._isOpen;
+  }
+
+  get isMaximized(): boolean {
+    return this._isMaximized;
   }
 
   protected get options(): Readonly<ResolvedModalOptions> {
@@ -203,6 +212,10 @@ export abstract class Modal {
       container.setAttribute('data-size', size);
       container.setAttribute('role', 'dialog');
       container.setAttribute('aria-modal', 'true');
+      container.setAttribute('data-maximized', String(this._isMaximized));
+      if (this._options.maximizable) {
+        container.setAttribute('data-maximizable', 'true');
+      }
 
       // Register before calling product code so even a renderer that moves
       // focus and then throws is rolled back through the same coordinator.
@@ -274,6 +287,23 @@ export abstract class Modal {
     this._cleanup(true);
   }
 
+  /** Toggle the opt-in visual-viewport presentation without leaving the modal stack. */
+  toggleMaximized(control?: HTMLElement | null): boolean {
+    return this.setMaximized(!this._isMaximized, control);
+  }
+
+  /** Set the opt-in visual-viewport presentation. Existing consumers are unchanged by default. */
+  setMaximized(maximized: boolean, control?: HTMLElement | null): boolean {
+    if (!this._options.maximizable) return false;
+    this._isMaximized = Boolean(maximized);
+    this.container?.setAttribute('data-maximized', String(this._isMaximized));
+    if (control) {
+      control.setAttribute('aria-expanded', String(this._isMaximized));
+    }
+    this.onMaximizedChange(this._isMaximized);
+    return this._isMaximized;
+  }
+
   // ---- Hooks for subclasses -----------------------------------------------
 
   /** Called after DOM is mounted and events are bound. Override for data loading. */
@@ -288,6 +318,11 @@ export abstract class Modal {
 
   /** Called after the modal DOM and shared state have been released. */
   protected onAfterHide(): void {
+    // no-op by default
+  }
+
+  /** Called when the dialog enters or leaves its visual-viewport presentation. */
+  protected onMaximizedChange(_maximized: boolean): void {
     // no-op by default
   }
 
@@ -309,6 +344,10 @@ export abstract class Modal {
 
   /** Try to hide; calls onBeforeHide() first. */
   protected requestHide(): void {
+    if (this._isMaximized) {
+      this.setMaximized(false);
+      return;
+    }
     this.requestClose();
   }
 

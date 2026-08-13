@@ -175,6 +175,28 @@ test('Modal exposes stable visual anatomy, size, state, and additive host classe
   modal.destroy();
 });
 
+test('Modal maximize is opt-in, preserves its stack, and restores before Escape dismissal', async () => {
+  setupDom();
+  const fixed = new FixtureModal();
+  await fixed.show();
+  assert.equal(fixed.setMaximized(true), false);
+  assert.equal(fixed.isMaximized, false);
+  fixed.destroy();
+
+  const modal = new FixtureModal({ maximizable: true });
+  await modal.show();
+  const control = document.createElement('button');
+  modal.dialog.appendChild(control);
+  assert.equal(modal.setMaximized(true, control), true);
+  assert.equal(modal.dialog.getAttribute('data-maximized'), 'true');
+  assert.equal(control.getAttribute('aria-expanded'), 'true');
+  press('Escape');
+  assert.equal(modal.isMaximized, false);
+  assert.equal(modal.isOpen, true);
+  press('Escape');
+  assert.equal(modal.isOpen, false);
+});
+
 test('Modal traps Tab and Shift+Tab within the topmost dialog', async () => {
   setupDom();
   const modal = new FixtureModal({ initialFocus: '#first' });

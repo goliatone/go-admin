@@ -62,11 +62,14 @@ func buildDebugViewContext(adm *Admin, cfg DebugConfig, c router.Context, view r
 		return view
 	}
 	view = buildAdminLayoutViewContextWithChrome(adm, c, view, AdminPageChrome{
-		Header: AdminPageHeader{Title: primitives.FirstNonEmpty(
-			strings.TrimSpace(toString(view["page_title"])),
-			strings.TrimSpace(toString(view["title"])),
-			"Debug",
-		)},
+		Header: AdminPageHeader{
+			Title: primitives.FirstNonEmpty(
+				strings.TrimSpace(toString(view["page_title"])),
+				strings.TrimSpace(toString(view["title"])),
+				"Debug",
+			),
+			HideHeader: true,
+		},
 		Active: "debug",
 	})
 	if _, ok := view["debug_standalone_path"]; !ok {
@@ -82,8 +85,6 @@ func buildDebugViewContext(adm *Admin, cfg DebugConfig, c router.Context, view r
 	if cfg.ToolbarMode && c != nil && debugToolbarExcluded(cfg, c.Path()) {
 		view["debug_toolbar_enabled"] = false
 	}
-	// Hide content header for admin layout since the iframe provides its own UI
-	view["hide_content_header"] = true
 	return view
 }
 

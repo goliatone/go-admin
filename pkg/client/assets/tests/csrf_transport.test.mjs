@@ -211,7 +211,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   assert.match(translationExchangeSource, /const response = await httpRequest\(path, init\);/);
 
   assert.match(importModalSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(importModalSource, /response = await httpRequest\(this\.endpoint, \{/);
+  assert.match(importModalSource, /response = await httpRequest\(endpoint, \{/);
 
   assert.match(exchangeImportSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((exchangeImportSource.match(/await httpRequest\(/g) || []).length >= 3);

@@ -2,13 +2,12 @@ import { createLogger as w } from "../shared/logger.js";
 import { escapeHTML as o } from "../shared/html.js";
 import { t as u } from "../chunks/icon-renderer-CRFyVbyB.js";
 import { formatRelativeTimeCompact as Ot } from "../shared/time-formatters.js";
-import { t as Ht } from "../chunks/modal-coordinator-Ctk09F2l.js";
-import { t as Rt } from "../chunks/modal-BwzAtNla.js";
-import { t as Bt } from "../chunks/toast-manager-CEA-8d8Y.js";
+import { a as Ht, t as Rt } from "../chunks/modal-ClEsOn-S.js";
+import { t as Bt } from "../chunks/toast-manager-ClAN0E8z.js";
 import { httpRequest as zt, httpRequestWith as tt, readHTTPJSONValue as Vt } from "../shared/transport/http-client.js";
 import { extractStructuredError as gt, formatStructuredErrorForDisplay as ft, parseActionResponse as Wt } from "../toast/error-helpers.js";
 import { p as at, u as bt } from "../chunks/behaviors-DAT-GAWx.js";
-import { a as lt, c as li, d as W, f as N, i as P, l as di, n as Gt, o as Jt, r as dt, s as ui, t as hi, u as G } from "../chunks/ui-states-DcGB3TAV.js";
+import { a as lt, c as ci, d as W, f as N, i as P, l as li, n as Gt, o as Jt, r as dt, s as di, t as ui, u as G } from "../chunks/ui-states-DcGB3TAV.js";
 var ut = class It extends Error {
   constructor(e, i, s, r) {
     super(e), this.name = "ServicesAPIError", this.code = i, this.statusCode = s, this.details = r;
@@ -302,10 +301,10 @@ var Ft = class {
 function R() {
   return H || (H = new Ft()), H;
 }
-function pi(t) {
+function hi(t) {
   H = t;
 }
-function gi(t = {}) {
+function pi(t = {}) {
   return new Ft(t);
 }
 var yt = w("QueryStateManager"), Yt = {
@@ -482,7 +481,7 @@ var J = class {
     return new Date(e.getTime() - i).toISOString().slice(0, 16);
   }
 };
-function fi(t, e) {
+function gi(t, e) {
   let i = null;
   return Object.assign(((...n) => {
     i && clearTimeout(i), i = setTimeout(() => {
@@ -492,7 +491,7 @@ function fi(t, e) {
     i && (clearTimeout(i), i = null);
   } });
 }
-function bi(t, e) {
+function fi(t, e) {
   if (!("filters" in t)) {
     const c = t, a = new URLSearchParams();
     for (const [l, d] of Object.entries(c)) d != null && d !== "" && a.set(l, String(d));
@@ -503,7 +502,7 @@ function bi(t, e) {
   for (const [c, a] of Object.entries(i.filters)) a != null && a !== "" && s.set(c, a);
   return s;
 }
-function yi(t, e, i) {
+function bi(t, e, i) {
   if (!i) {
     const l = {};
     for (const d of e) {
@@ -636,7 +635,7 @@ var Q = class {
 function T() {
   return it || (it = new Q()), it;
 }
-function mi(t) {
+function yi(t) {
   T().init(t);
 }
 function I(t, e) {
@@ -645,19 +644,19 @@ function I(t, e) {
     return () => s.hasAll(r);
   };
 }
-function vi(t, e) {
+function mi(t, e) {
   return (i) => {
     const s = i instanceof Q ? i : e || T();
     return () => s.hasAll(t);
   };
 }
-function xi(t, e) {
+function vi(t, e) {
   return (i) => {
     const s = i instanceof Q ? i : e || T();
     return () => s.hasAny(t);
   };
 }
-function Si(...t) {
+function xi(...t) {
   const e = t.flatMap((i) => Array.isArray(i) ? i : [i]);
   return (i) => () => e.every((s) => s(i)());
 }
@@ -685,10 +684,10 @@ function Xt(t) {
   const e = t;
   return e.isForbidden === !0 || e.statusCode === 403 || e.code === "FORBIDDEN";
 }
-function wi(t, e) {
+function Si(t, e) {
   return Xt(t) ? (e(t), !0) : !1;
 }
-function _i(t, e, i, s) {
+function wi(t, e, i, s) {
   const r = s || T();
   return async () => {
     if (!r.has(t)) {
@@ -703,7 +702,7 @@ function st(t, e, i) {
   let l = !0, d = [];
   r.length > 0 ? (d = s.getMissing(r), l = d.length === 0) : n.length > 0 && (l = s.hasAny(n), l || (d = n)), l || (a ? ((t instanceof HTMLButtonElement || t instanceof HTMLInputElement) && (t.disabled = !0), t.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), t.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (t.style.display = "none", t.classList.add("permission-hidden")), e.deniedContent && (typeof e.deniedContent == "string" ? t.outerHTML = e.deniedContent : t.replaceWith(e.deniedContent)), c?.(d));
 }
-function $i(t = document.body, e) {
+function _i(t = document.body, e) {
   t.querySelectorAll("[data-permission-requires]").forEach((i) => {
     const s = i.dataset.permissionRequires?.split(",").map((r) => r.trim());
     s && s.length > 0 && st(i, { requires: s }, e);
@@ -730,7 +729,7 @@ function te() {
   }
   return [];
 }
-function Ci() {
+function $i() {
   const t = te(), e = T();
   return e.init(t), e;
 }
@@ -814,7 +813,7 @@ async function x(t) {
     };
   }
 }
-async function Li(t) {
+async function Ci(t) {
   const { confirmMessage: e, confirmOptions: i, ...s } = t;
   return await Rt.confirm(e, {
     title: i?.title ?? "Confirm Action",
@@ -1189,31 +1188,31 @@ var Y = class {
     this.backendLabels = {}, this.fallbackFormatter = vt, this.initialized = !1;
   }
 }, $ = new re();
-function ki(t = {}) {
+function Li(t = {}) {
   $.init(t);
 }
 function ne(t) {
   return $.getLabel(t);
 }
-function Ti(t) {
+function ki(t) {
   return $.getEntry(t);
 }
-function Ei() {
+function Ti() {
   return $.getAllLabels();
 }
 function ae() {
   return $.getActionsByCategory();
 }
-function Ai(t) {
+function Ei(t) {
   $.setLabels(t);
 }
-function qi() {
+function Ai() {
   return $.isInitialized();
 }
-function Pi() {
+function qi() {
   $.reset();
 }
-function Ri(t = {}) {
+function Pi(t = {}) {
   return (e) => t[e] ? t[e] : $.getLabel(e);
 }
 function vt(t) {
@@ -1402,25 +1401,25 @@ var he = class {
     }
   }
 }, C = new he();
-function Ii(t) {
+function Ri(t) {
   C.configure(t);
 }
 function pe(t, e, i) {
   return C.generateLink(t, e, i);
 }
-function Fi(t, e) {
+function Ii(t, e) {
   return C.generateListLink(t, e);
 }
 function ge(t, e, i, s) {
   C.navigateTo(t, e, i, s);
 }
-function Mi() {
+function Fi() {
   return C.navigateBack();
 }
-function Ni() {
+function Mi() {
   return C.parseCurrentUrl();
 }
-function ji(t) {
+function Ni(t) {
   return C.parseUrl(t);
 }
 function Nt(t) {
@@ -1494,7 +1493,7 @@ function ye(t) {
     e.removeEventListener("keydown", f);
   };
 }
-function Di(t, e) {
+function ji(t, e) {
   return ye({
     container: t,
     selector: e,
@@ -1504,7 +1503,7 @@ function Di(t, e) {
     }
   });
 }
-var Ui = [
+var Di = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -1548,40 +1547,40 @@ function Z(t, e = {}) {
     r.textContent = t;
   }, 100);
 }
-function Oi(t) {
+function Ui(t) {
   Z(`Loading ${t}...`, { priority: "polite" });
 }
-function Hi(t) {
+function Oi(t) {
   Z(t, { priority: "polite" });
 }
-function Bi(t) {
+function Hi(t) {
   Z(`Error: ${t}`, { priority: "assertive" });
 }
-function zi(t) {
+function Bi(t) {
   Z(`Navigating to ${t}`, { priority: "polite" });
 }
-function Vi(t, e, i) {
+function zi(t, e, i) {
   t.setAttribute("aria-expanded", String(i));
   const s = typeof e == "string" ? e : e.id;
   s && t.setAttribute("aria-controls", s);
 }
-function Wi(t, e) {
+function Vi(t, e) {
   t.setAttribute("aria-busy", String(e)), e ? t.setAttribute("aria-describedby", "loading-indicator") : t.removeAttribute("aria-describedby");
 }
-function Gi(t, e, i) {
+function Wi(t, e, i) {
   t.setAttribute("role", "status"), t.setAttribute("aria-label", `Status: ${i}`);
 }
-function Ji(t, e) {
+function Gi(t, e) {
   t.setAttribute("aria-sort", e), t.setAttribute("role", "columnheader");
 }
-function Qi(t, e, i = 100, s) {
+function Ji(t, e, i = 100, s) {
   t.setAttribute("role", "progressbar"), t.setAttribute("aria-valuenow", String(e)), t.setAttribute("aria-valuemin", "0"), t.setAttribute("aria-valuemax", String(i)), s && t.setAttribute("aria-label", s);
 }
-function Ki(t, e = "Skip to main content") {
+function Qi(t, e = "Skip to main content") {
   const i = document.createElement("a");
   return i.href = `#${t}`, i.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", i.textContent = e, i;
 }
-function Yi(t, e = {}) {
+function Ki(t, e = {}) {
   const { title: i, describedBy: s, onClose: r } = e;
   if (t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), i) {
     const c = `dialog-title-${Date.now()}`, a = t.querySelector('h1, h2, h3, [role="heading"]');
@@ -1599,7 +1598,7 @@ function Yi(t, e = {}) {
 function xe() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function Zi(t) {
+function Yi(t) {
   return xe() ? 0 : t;
 }
 var Se = w("ExtensionDiagnostics"), St = {
@@ -1646,7 +1645,7 @@ var Se = w("ExtensionDiagnostics"), St = {
     text: "text-red-700",
     icon: "iconoir:warning-circle"
   }
-}, Xi = class {
+}, Zi = class {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -1989,11 +1988,11 @@ function B(t) {
     </span>
   `;
 }
-function ts(t, e) {
+function Xi(t, e) {
   const i = document.createElement("span");
   i.innerHTML = B(e), t.appendChild(i.firstElementChild);
 }
-function es() {
+function ts() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
@@ -2542,7 +2541,7 @@ Enter a reason:`, l = globalThis.window?.prompt(a, "") ?? null;
     i.replaceWith(n), n instanceof Element && Ie(n, r);
   }
 };
-function is(t) {
+function es(t) {
   if (!t.mount) return null;
   const e = new Me(t);
   return e.init(), e;
@@ -2824,7 +2823,7 @@ var je = w("ProvidersCatalog"), kt = {
     }));
   }
 };
-async function ss(t) {
+async function is(t) {
   const e = new Ue(t);
   return await e.init(), e;
 }
@@ -3264,7 +3263,7 @@ var Oe = w("ConnectionsList"), Tt = {
     a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No connections"), l && (l.disabled = !c), d && (d.disabled = !n);
   }
 };
-async function rs(t) {
+async function ss(t) {
   const e = new He(t);
   return await e.init(), e;
 }
@@ -3656,7 +3655,7 @@ var Be = w("InstallationsList"), Et = {
     a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No installations"), l && (l.disabled = !c), d && (d.disabled = !n);
   }
 };
-async function ns(t) {
+async function rs(t) {
   const e = new ze(t);
   return await e.init(), e;
 }
@@ -4278,7 +4277,7 @@ var Ve = w("ServicesActivity"), O = {
     return Object.entries(t).slice(0, 3).map(([e, i]) => `${e}: ${JSON.stringify(i)}`).join(", ");
   }
 };
-async function as(t) {
+async function ns(t) {
   const e = new We(t);
   return await e.init(), e;
 }
@@ -4946,7 +4945,7 @@ var Ge = w("SubscriptionsSync"), rt = {
     return s > 0 && s < 864e5;
   }
 };
-async function os(t) {
+async function as(t) {
   const e = new Je(t);
   return await e.init(), e;
 }
@@ -5592,7 +5591,7 @@ var Qe = w("ConnectionDetail"), Pt = {
     return a.sort((d, h) => l[d.status] - l[h.status]), a;
   }
 };
-async function cs(t) {
+async function os(t) {
   const e = new Ye(t);
   return await e.init(), e;
 }
@@ -5603,8 +5602,8 @@ export {
   Ye as ConnectionDetailManager,
   He as ConnectionsListManager,
   U as DEFAULT_ACTION_LABELS,
-  Xi as ExtensionDiagnosticsPanel,
-  Ui as FOCUSABLE_SELECTOR,
+  Zi as ExtensionDiagnosticsPanel,
+  Di as FOCUSABLE_SELECTOR,
   ze as InstallationsListManager,
   ee as MutationButtonManager,
   Ue as ProvidersCatalogManager,
@@ -5614,15 +5613,15 @@ export {
   Q as ServicesPermissionManager,
   k as ServicesPermissions,
   Je as SubscriptionsSyncPageManager,
-  hi as UIStateManager,
-  ts as addStateSourceIndicator,
-  Bi as announceError,
-  Oi as announceLoading,
-  zi as announceNavigation,
-  Hi as announceSuccess,
+  ui as UIStateManager,
+  Xi as addStateSourceIndicator,
+  Hi as announceError,
+  Ui as announceLoading,
+  Bi as announceNavigation,
+  Oi as announceSuccess,
   Z as announceToScreenReader,
   q as bindNoResultsResetAction,
-  bi as buildSearchParams,
+  fi as buildSearchParams,
   A as canConnect,
   F as canEdit,
   Mt as canReconsent,
@@ -5630,23 +5629,23 @@ export {
   Zt as canViewActivity,
   D as canViewServices,
   ot as clearRetryUI,
-  Si as combineGuards,
-  Ii as configureDeepLinks,
+  xi as combineGuards,
+  Ri as configureDeepLinks,
   K as confirmServiceAction,
-  Ri as createActionLabelResolver,
+  Pi as createActionLabelResolver,
   be as createActivityNavigateHandler,
-  as as createActivityPage,
-  cs as createConnectionDetail,
-  rs as createConnectionsList,
+  ns as createActivityPage,
+  os as createConnectionDetail,
+  ss as createConnectionsList,
   me as createFocusTrap,
-  ns as createInstallationsList,
+  rs as createInstallationsList,
   fe as createNavigationContext,
   I as createPermissionGuard,
-  ss as createProvidersCatalog,
-  gi as createServicesClient,
-  Ki as createSkipLink,
-  os as createSubscriptionsSyncPage,
-  fi as debounce,
+  is as createProvidersCatalog,
+  pi as createServicesClient,
+  Qi as createSkipLink,
+  as as createSubscriptionsSyncPage,
+  gi as debounce,
   C as deepLinkManager,
   X as destroyAbortableQueryPage,
   j as formatDateTime,
@@ -5655,32 +5654,32 @@ export {
   V as formatServiceLabel,
   st as gateElement,
   pe as generateDeepLink,
-  Fi as generateListLink,
-  Ti as getActionEntry,
+  Ii as generateListLink,
+  ki as getActionEntry,
   ne as getActionLabel,
   ae as getActionsByCategory,
-  Ei as getAllActionLabels,
-  Zi as getAnimationDuration,
+  Ti as getAllActionLabels,
+  Yi as getAnimationDuration,
   T as getPermissionManager,
   se as getServiceConfirmConfig,
   R as getServicesClient,
-  wi as handleForbidden,
-  ki as initActivityLabels,
-  is as initCommandRuntime,
-  $i as initPermissionGates,
-  mi as initPermissions,
-  Ci as initPermissionsFromContext,
-  qi as isActivityLabelsInitialized,
+  Si as handleForbidden,
+  Li as initActivityLabels,
+  es as initCommandRuntime,
+  _i as initPermissionGates,
+  yi as initPermissions,
+  $i as initPermissionsFromContext,
+  Ai as isActivityLabelsInitialized,
   Xt as isForbiddenError,
   pt as loadAndPopulateProviders,
   te as loadPermissionsFromContext,
   jt as loadProviders,
   Nt as mapObjectTypeToEntity,
-  Mi as navigateBack,
+  Fi as navigateBack,
   ge as navigateToEntity,
-  Ni as parseCurrentDeepLink,
-  ji as parseDeepLink,
-  yi as parseSearchParams,
+  Mi as parseCurrentDeepLink,
+  Ni as parseDeepLink,
+  bi as parseSearchParams,
   Ne as populateProviderFilterOptions,
   xe as prefersReducedMotion,
   Gt as renderEmptyState,
@@ -5688,33 +5687,33 @@ export {
   P as renderForbiddenState,
   lt as renderLoadingState,
   Jt as renderNoResultsState,
-  ui as renderPanelLoadingState,
-  li as renderPanelState,
+  di as renderPanelLoadingState,
+  ci as renderPanelState,
   ie as renderRetryUI,
   B as renderStateSourceIndicator,
-  es as renderStateSourceLegend,
-  di as renderTableEmptyState,
+  ts as renderStateSourceLegend,
+  li as renderTableEmptyState,
   G as renderTableErrorState,
   W as renderTableLoadingState,
   N as renderTableNoResultsState,
-  vi as requireAll,
-  xi as requireAny,
-  Pi as resetActivityLabels,
+  mi as requireAll,
+  vi as requireAny,
+  qi as resetActivityLabels,
   S as resolveProviderDisplayName,
-  Ai as setActionLabels,
-  Vi as setExpandedState,
-  Wi as setLoadingState,
-  Qi as setProgress,
-  pi as setServicesClient,
-  Ji as setSortableHeader,
-  Gi as setStatusLabel,
-  Yi as setupDialogFocus,
+  Ei as setActionLabels,
+  zi as setExpandedState,
+  Vi as setLoadingState,
+  Ji as setProgress,
+  hi as setServicesClient,
+  Gi as setSortableHeader,
+  Wi as setStatusLabel,
+  Ki as setupDialogFocus,
   ye as setupKeyboardNavigation,
-  Di as setupRovingTabindex,
+  ji as setupRovingTabindex,
   v as truncateId,
-  Li as withConfirmation,
+  Ci as withConfirmation,
   x as withMutationFeedback,
-  _i as withPermission
+  wi as withPermission
 };
 
 //# sourceMappingURL=index.js.map

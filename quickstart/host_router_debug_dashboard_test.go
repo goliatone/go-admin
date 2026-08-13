@@ -53,6 +53,9 @@ func TestDashboardEnabledHostKeepsAdminDebugConsoleRoute(t *testing.T) {
 	if !strings.Contains(adminPage, `title="Debug Console"`) || !strings.Contains(adminPage, "debug_layout=standalone") {
 		t.Fatalf("expected admin-framed Debug Console iframe, body=%s", adminPage)
 	}
+	if strings.Contains(adminPage, "data-admin-page-header") {
+		t.Fatalf("admin-framed Debug Console rendered the shell page header, body=%s", adminPage)
+	}
 	if strings.Contains(adminPage, "data-widget-grid") {
 		t.Fatalf("admin debug mode rendered dashboard widgets, body=%s", adminPage)
 	}

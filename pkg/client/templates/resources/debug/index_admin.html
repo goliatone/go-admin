@@ -5,7 +5,7 @@
 {% block page_title %}Debug Console{% endblock %}
 {% block page_subtitle %}Live debug panels and realtime events.{% endblock %}
 {% block page_header_actions %}
-  {% if not hide_content_header %}
+  {% if not hide_page_header %}
     <a class="btn btn-secondary" href="{{ debug_standalone_path|default:debug_path }}" target="_blank" rel="noopener">Open standalone</a>
   {% endif %}
 {% endblock %}

@@ -167,6 +167,72 @@ import {
 // import { Modal } from '/admin/assets/components/modal.js';
 ```
 
+## Bulk import components
+
+Bulk import is available from the matched embedded and package entries:
+
+```ts
+import {
+  BulkImportModal,
+  type ImportSourceDescriptor,
+} from '@goliatone/go-admin-client/components/import-modal';
+import '@goliatone/go-admin-client/components.css';
+
+// Embedded hosts use /admin/assets/components/import-modal.js.
+const source: ImportSourceDescriptor<File> = {
+  key: 'contacts-file',
+  label: 'CSV / JSON',
+  kind: 'file',
+  workflow: 'preview-apply',
+  mode: {
+    key: 'create-only',
+    label: 'Create only',
+    description: 'The application service creates new records and skips conflicts.',
+  },
+  file: { accept: '.csv,.json,text/csv,application/json' },
+  preview: async (file, { signal, mode }) => appPreview(file, mode.key, signal),
+  adaptPreview: response => ({
+    state: response.receipt,
+    report: adaptSafePreview(response),
+    eligibility: response.applyEligibility,
+  }),
+  apply: async (file, receipt, { signal, mode, attempt }) =>
+    appApply(file, receipt, mode.key, attempt.idempotencyKey, signal),
+  adaptApply: adaptSafeApply,
+};
+
+const modal = new BulkImportModal({ root: document.body, sources: [source] });
+await modal.show();
+```
+
+The mode key is inert presentation data. The application must independently
+allowlist it and own authorization, parsing, validation, conflict policy,
+persistence, transactions, receipts, idempotency, audit, and result redaction.
+Preview/apply adapters receive one stable `ImportAttemptContext`; reuse its
+idempotency key after retryable or unknown outcomes. Completed and terminal
+attempts are retired: the operator must reset/import-another before applying
+again, and a later apply receives a new context even when it uses another
+source. Reports must contain only bounded safe references, allowlisted
+fields/codes, and non-sensitive metadata.
+
+Completion callbacks are post-commit observers, not part of the import
+transport. If `onComplete` fails, the modal remains complete and cannot replay
+the apply; it shows localized `completionError` copy and reports the observer
+failure through optional `onCompletionError` hooks.
+
+Changing a selectable mode invalidates its preview. Custom panels must call
+`ImportSourcePanelAPI.inputChanged()` whenever application-owned input changes;
+this clears stale preview state and eligibility. Provide `setInputDisabled`
+when a custom panel has mutable controls so unresolved attempts can lock them
+while retaining the exact retry input. Source changes with selected or
+previewed work use `confirmDiscard` when supplied, otherwise the localized
+discard confirmation from `BulkImportCopy`.
+
+Pass every operator-visible and assistive string through `copy`, including
+source/mode/sample labels, report filters and bounds, partial/replay flags,
+preview/reconciliation states, and confirmation actions. The built-in English
+values are fallbacks for hosts that do not provide localization.
+
 `Modal` owns the outer dialog, backdrop, accessible name/description, initial
 and fallback focus, topmost Tab/Escape handling, focus return, nested stacking,
 body scroll locking, reduced motion, and cleanup. Product code owns content,

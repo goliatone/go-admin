@@ -9,7 +9,7 @@ const jsonParse = await import('../dist/shared/json-parse.js');
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const entryNavigationSourcePath = path.resolve(testFileDir, '../src/entry-navigation/index.ts');
 const translationFamilySourcePath = path.resolve(testFileDir, '../src/translation-family/index.ts');
-const contentTypeBuilderIndexSourcePath = path.resolve(testFileDir, '../src/content-type-builder/index.ts');
+const contentTypeEditorRuntimeSourcePath = path.resolve(testFileDir, '../src/content-type-builder/content-editor-runtime.ts');
 const contentTypeEditorSourcePath = path.resolve(testFileDir, '../src/content-type-builder/content-type-editor.ts');
 const blockEditorPanelSourcePath = path.resolve(testFileDir, '../src/content-type-builder/block-editor-panel.ts');
 const blockLibraryIdeSourcePath = path.resolve(testFileDir, '../src/content-type-builder/block-library-ide.ts');
@@ -72,7 +72,7 @@ test('shared json parser preserves fallback and script bootstrap behavior', () =
 test('json/bootstrap callers now route through shared json-parse helper', () => {
   const entryNavigationSource = readFileSync(entryNavigationSourcePath, 'utf8');
   const translationFamilySource = readFileSync(translationFamilySourcePath, 'utf8');
-  const contentTypeBuilderIndexSource = readFileSync(contentTypeBuilderIndexSourcePath, 'utf8');
+  const contentTypeEditorRuntimeSource = readFileSync(contentTypeEditorRuntimeSourcePath, 'utf8');
   const contentTypeEditorSource = readFileSync(contentTypeEditorSourcePath, 'utf8');
   const blockEditorPanelSource = readFileSync(blockEditorPanelSourcePath, 'utf8');
   const blockLibraryIdeSource = readFileSync(blockLibraryIdeSourcePath, 'utf8');
@@ -85,9 +85,9 @@ test('json/bootstrap callers now route through shared json-parse helper', () => 
   assert.match(translationFamilySource, /from '\.\.\/shared\/json-parse\.js'/);
   assert.ok(!translationFamilySource.includes('function parseJSONAttribute('));
 
-  assert.match(contentTypeBuilderIndexSource, /from '\.\.\/shared\/json-parse\.js'/);
-  assert.match(contentTypeBuilderIndexSource, /parseJSONValue/);
-  assert.ok(!contentTypeBuilderIndexSource.includes('JSON.parse('));
+  assert.match(contentTypeEditorRuntimeSource, /from '\.\.\/shared\/json-parse\.js'/);
+  assert.match(contentTypeEditorRuntimeSource, /parseJSONValue/);
+  assert.ok(!contentTypeEditorRuntimeSource.includes('JSON.parse('));
 
   assert.match(contentTypeEditorSource, /from '\.\.\/shared\/json-parse\.js'/);
   assert.match(contentTypeEditorSource, /parseJSONValue/);

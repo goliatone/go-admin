@@ -4,6 +4,7 @@ import { bundleBudgetPlugin } from './scripts/bundle-budget-plugin.mjs';
 
 const entry = {
   index: resolve(import.meta.dirname, 'src/public.ts'),
+  'components/import-modal': resolve(import.meta.dirname, 'src/components/import-modal.ts'),
   'components/modal': resolve(import.meta.dirname, 'src/components/modal.ts'),
   'shared/html': resolve(import.meta.dirname, 'src/shared/html.ts'),
   'shared/logger': resolve(import.meta.dirname, 'src/shared/logger.ts'),

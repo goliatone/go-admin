@@ -62,6 +62,16 @@ import {
   type ModalSize,
   type TextPromptModalConfig,
 } from '@goliatone/go-admin-client/components/modal';
+import {
+  BulkImportModal,
+  FileDropzone,
+  ImportReportView,
+  type BulkImportModalOptions,
+  type ImportAttemptContext,
+  type ImportModeDescriptor,
+  type ImportReportData,
+  type ImportSourceDescriptor,
+} from '@goliatone/go-admin-client/components/import-modal';
 import * as datatable from '@goliatone/go-admin-client/datatable';
 import { DataGrid } from '@goliatone/go-admin-client/datatable/runtime';
 import { SchemaActionBuilder } from '@goliatone/go-admin-client/datatable/content-runtime';
@@ -89,6 +99,16 @@ const promptConfig: TextPromptModalConfig = { title: 'Name', label: 'Name', onCo
 void modalOptions;
 void confirmOptions;
 void promptConfig;
+void BulkImportModal;
+void FileDropzone;
+void ImportReportView;
+const importMode: ImportModeDescriptor = { key: 'create-only', label: 'Create only' };
+const importAttempt: ImportAttemptContext = { attemptId: 'attempt-1', idempotencyKey: 'key-1' };
+const importReport: ImportReportData = { phase: 'preview', mode: importMode.key, metrics: [], rows: [], bounds: { returnedRows: 0, totalRows: 0, truncated: false } };
+const importSource: ImportSourceDescriptor<File> = { key: 'file', label: 'File', kind: 'file', workflow: 'single', mode: importMode, submit: async () => importReport, adaptSubmit: response => response as ImportReportData };
+const importOptions = { root: document.body, sources: [importSource] } satisfies BulkImportModalOptions;
+void importAttempt;
+void importOptions;
 void datatable;
 void DataGrid;
 void SchemaActionBuilder;
@@ -102,9 +122,10 @@ unregister();
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfirmModal, Modal, TextPromptModal } from '@goliatone/go-admin-client/components/modal';
+import { BulkImportModal, FileDropzone, ImportReportView } from '@goliatone/go-admin-client/components/import-modal';
 import { configureLogging, createLogger } from '@goliatone/go-admin-client/shared/logger';
 const componentCSS = fileURLToPath(import.meta.resolve('@goliatone/go-admin-client/components.css'));
-if (typeof Modal !== 'function' || typeof ConfirmModal !== 'function' || typeof TextPromptModal !== 'function') {
+if (typeof Modal !== 'function' || typeof ConfirmModal !== 'function' || typeof TextPromptModal !== 'function' || typeof BulkImportModal !== 'function' || typeof FileDropzone !== 'function' || typeof ImportReportView !== 'function') {
   throw new Error('modal runtime exports are unavailable');
 }
 if (!existsSync(componentCSS) || !readFileSync(componentCSS, 'utf8').includes('.go-admin-modal__surface')) {

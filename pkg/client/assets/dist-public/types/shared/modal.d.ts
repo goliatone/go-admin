@@ -45,6 +45,8 @@ export interface ModalOptions {
     containerClass?: string;
     /** Data attribute name to set on backdrop (e.g. 'data-my-modal-backdrop') */
     backdropDataAttr?: string;
+    /** Allow the dialog surface to fill the current visual viewport. Default: false. */
+    maximizable?: boolean;
 }
 type ResolvedModalOptions = {
     size: ModalSize;
@@ -60,6 +62,7 @@ type ResolvedModalOptions = {
     describedBy: string | null;
     containerClass: string;
     backdropDataAttr: string;
+    maximizable: boolean;
 };
 export declare const MODAL_ANATOMY: Readonly<{
     readonly root: "go-admin-modal";
@@ -82,8 +85,10 @@ export declare abstract class Modal {
     private _cleanupTimer;
     private _lifecycle;
     private _mounted;
+    private _isMaximized;
     constructor(opts?: ModalOptions);
     get isOpen(): boolean;
+    get isMaximized(): boolean;
     protected get options(): Readonly<ResolvedModalOptions>;
     /** Return inner HTML for the container. Called once during show(). */
     protected abstract renderContent(): string;
@@ -97,12 +102,18 @@ export declare abstract class Modal {
     requestClose(): boolean;
     /** Remove immediately without animation. */
     destroy(): void;
+    /** Toggle the opt-in visual-viewport presentation without leaving the modal stack. */
+    toggleMaximized(control?: HTMLElement | null): boolean;
+    /** Set the opt-in visual-viewport presentation. Existing consumers are unchanged by default. */
+    setMaximized(maximized: boolean, control?: HTMLElement | null): boolean;
     /** Called after DOM is mounted and events are bound. Override for data loading. */
     protected onAfterShow(): Promise<void>;
     /** Called before hide. Return false to prevent closing. */
     protected onBeforeHide(): boolean;
     /** Called after the modal DOM and shared state have been released. */
     protected onAfterHide(): void;
+    /** Called when the dialog enters or leaves its visual-viewport presentation. */
+    protected onMaximizedChange(_maximized: boolean): void;
     /** Replace product content without replacing the dialog container or stack. */
     protected replaceContent(content: string, initialFocus?: string | HTMLElement | null): void;
     /** Re-evaluate focus after product content changes in place. */

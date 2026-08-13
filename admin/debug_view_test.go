@@ -54,6 +54,9 @@ func TestBuildDebugViewContextAdminLayoutDerivesNavAndSession(t *testing.T) {
 	view := buildDebugViewContext(adm, DebugConfig{LayoutMode: DebugLayoutAdmin}, req, router.ViewContext{
 		"debug_path": "/admin/debug",
 	})
+	if hideHeader, ok := view["hide_page_header"].(bool); !ok || !hideHeader {
+		t.Fatalf("expected admin Debug Console to hide the shell page header, got %v", view["hide_page_header"])
+	}
 
 	navItems, ok := view["nav_items"].([]map[string]any)
 	if !ok {

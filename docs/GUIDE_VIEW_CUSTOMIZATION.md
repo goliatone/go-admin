@@ -825,7 +825,7 @@ When debug mode is enabled (`cfg.Debug.Enabled`):
 | `debug_standalone_path` | `string` | Standalone debug path |
 | `debug_admin_path` | `string` | Admin-embedded debug path |
 | `debug_toolbar_enabled` | `bool` | Whether debug toolbar is shown |
-| `hide_content_header` | `bool` | Hide content header in admin layout |
+| `hide_page_header` | `bool` | Hide the shared page header in the admin layout |
 
 ### Auth UI context variables
 
