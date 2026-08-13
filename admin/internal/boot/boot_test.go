@@ -62,6 +62,7 @@ type stubCtx struct {
 	registry      SchemaRegistryBinding
 	overrides     FeatureOverridesBinding
 	notifications NotificationsBinding
+	activity      ActivityBinding
 	gates         FeatureGates
 	defaultLoc    string
 	navCode       string
@@ -125,7 +126,7 @@ func (s *stubCtx) BootTranslationQueue() TranslationQueueBinding {
 func (s *stubCtx) BootNotifications() NotificationsBinding {
 	return s.notifications
 }
-func (s *stubCtx) BootActivity() ActivityBinding { return nil }
+func (s *stubCtx) BootActivity() ActivityBinding { return s.activity }
 func (s *stubCtx) BootJobs() JobsBinding         { return nil }
 func (s *stubCtx) BootSettings() SettingsBinding { return s.settings }
 func (s *stubCtx) BootWorkflows() WorkflowManagementBinding {
@@ -216,21 +217,23 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 						Name: "api",
 						Path: "/api",
 						Routes: map[string]string{
-							"dashboard":              "/dashboard",
-							"dashboard.preferences":  "/dashboard/preferences",
-							"dashboard.config":       "/dashboard/config",
-							"dashboard.debug":        "/dashboard/debug",
-							"navigation":             "/navigation",
-							"settings":               "/settings",
-							"settings.form":          "/settings/form",
-							"workflows":              "/workflows",
-							"workflows.id":           "/workflows/:id",
-							"workflows.bindings":     "/workflows/bindings",
-							"workflows.bindings.id":  "/workflows/bindings/:id",
-							"translations.export":    "/translations/exchange/export",
-							"translations.template":  "/translations/exchange/template",
-							"translations.dashboard": "/translations/dashboard",
-							"translations.matrix":    "/translations/matrix",
+							"activity":                "/activity",
+							"activity.filter_options": "/activity/filter-options",
+							"dashboard":               "/dashboard",
+							"dashboard.preferences":   "/dashboard/preferences",
+							"dashboard.config":        "/dashboard/config",
+							"dashboard.debug":         "/dashboard/debug",
+							"navigation":              "/navigation",
+							"settings":                "/settings",
+							"settings.form":           "/settings/form",
+							"workflows":               "/workflows",
+							"workflows.id":            "/workflows/:id",
+							"workflows.bindings":      "/workflows/bindings",
+							"workflows.bindings.id":   "/workflows/bindings/:id",
+							"translations.export":     "/translations/exchange/export",
+							"translations.template":   "/translations/exchange/template",
+							"translations.dashboard":  "/translations/dashboard",
+							"translations.matrix":     "/translations/matrix",
 							"translations.matrix.actions.create_missing":  "/translations/matrix/actions/create-missing",
 							"translations.matrix.actions.export_selected": "/translations/matrix/actions/export-selected",
 							"translations.assignments":                    "/translations/assignments",

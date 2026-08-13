@@ -1048,6 +1048,73 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 	}, nil
 }
 
+func (aBinding *activityBinding) FilterOptions(c router.Context) (any, error) {
+	c.SetHeader("Cache-Control", "private, no-store")
+	adminCtx := aBinding.admin.adminContextFromRequest(c, aBinding.admin.config.DefaultLocale)
+	actorCtx, err := authctx.ResolveActorContext(adminCtx.Context)
+	if err != nil {
+		return nil, err
+	}
+	actorRef, err := authctx.ActorRefFromActorContext(actorCtx)
+	if err != nil {
+		if isActivityActorContextInvalid(err) {
+			return nil, invalidActivityActorContextDomainError(actorCtx, err)
+		}
+		return nil, err
+	}
+	if permissionErr := aBinding.admin.requirePermission(adminCtx, aBinding.admin.config.ActivityPermission, "activity"); permissionErr != nil {
+		return nil, permissionErr
+	}
+	if aBinding.admin.activityFeed == nil {
+		return nil, FeatureDisabledError{Feature: "activity"}
+	}
+	if err := rejectActivityFilterOptionsQuery(c); err != nil {
+		return nil, err
+	}
+	selection, err := parseActivityFilterOptionsSelection(c, aBinding.admin.config.ActivityFilterOptions.MaxOptions)
+	if err != nil {
+		return nil, err
+	}
+	readCtx := ActivityReadContext{
+		Actor: actorRef,
+		Scope: authctx.ScopeFromActorContext(actorCtx).Clone(),
+	}
+	return aBinding.admin.resolveActivityFilterOptions(adminCtx.Context, actorCtx, readCtx, selection)
+}
+
+func rejectActivityFilterOptionsQuery(c router.Context) error {
+	for _, field := range []string{
+		"actor_id", "user_id", "tenant_id", "org_id", "scope", "role",
+		"channel", "channel_denylist", "object_id", "q", "since", "until",
+		"limit", "offset",
+	} {
+		if len(c.QueryValues(field)) > 0 || strings.TrimSpace(c.Query(field)) != "" {
+			return activityQueryError(field, "activity filter options accepts selection fields only")
+		}
+	}
+	return nil
+}
+
+func parseActivityFilterOptionsSelection(c router.Context, maxOptions int) (ActivityFilterSelection, error) {
+	verbs, err := normalizeActivityFilterSelectionValues(queryValuesFallback(c, "verb"), effectiveActivityFilterOptionsMax(maxOptions), "verb")
+	if err != nil {
+		return ActivityFilterSelection{}, err
+	}
+	channels, err := normalizeActivityFilterSelectionValues(queryValuesFallback(c, "channels"), effectiveActivityFilterOptionsMax(maxOptions), "channels")
+	if err != nil {
+		return ActivityFilterSelection{}, err
+	}
+	objectTypes, err := normalizeActivityFilterSelectionValues(queryValuesFallback(c, "object_type"), 1, "object_type")
+	if err != nil {
+		return ActivityFilterSelection{}, err
+	}
+	objectType := ""
+	if len(objectTypes) > 0 {
+		objectType = objectTypes[0]
+	}
+	return ActivityFilterSelection{Verbs: verbs, Channels: channels, ObjectType: objectType}, nil
+}
+
 func (a *Admin) enrichActivityReadPage(ctx context.Context, readCtx ActivityReadContext, page usertypes.ActivityPage) usertypes.ActivityPage {
 	if a == nil || (a.activityPageEnricher == nil && a.activityNavigationResolver == nil) {
 		return page

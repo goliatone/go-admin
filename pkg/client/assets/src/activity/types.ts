@@ -49,8 +49,21 @@ export interface ActivityPayload {
   next_offset?: number;
 }
 
+export interface ActivityFilterOption {
+  value: string;
+  label: string;
+}
+
+export interface ActivityFilterOptionsPayload {
+  verbs: ActivityFilterOption[];
+  channels: ActivityFilterOption[];
+  object_types: ActivityFilterOption[];
+  revision?: string;
+}
+
 export interface ActivityConfig {
   apiPath: string;
+	filterOptionsPath?: string;
   basePath: string;
   actionLabels?: Record<string, string>;
 }

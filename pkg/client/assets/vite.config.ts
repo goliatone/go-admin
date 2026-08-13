@@ -1,9 +1,11 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { bundleBudgetPlugin } from './scripts/bundle-budget-plugin.mjs';
 
 const outDir = process.env.GO_ADMIN_ASSET_OUT_DIR || 'dist';
 
 export default defineConfig({
+  plugins: [bundleBudgetPlugin({ profile: 'runtime' })],
   build: {
     // Library mode configuration
     lib: {

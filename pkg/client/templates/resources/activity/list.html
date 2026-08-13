@@ -42,18 +42,28 @@
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-verb">Verb</label>
-          <input id="filter-verb" name="verb" type="text" placeholder="created, updated, deleted"
-                 class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+          <select id="filter-verb" name="verb" multiple
+                  aria-describedby="filter-verb-help"
+                  class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+            <option value="">All verbs</option>
+          </select>
+          <span id="filter-verb-help" class="sr-only">Select zero or more activity verbs.</span>
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-channels">Channels</label>
-          <input id="filter-channels" name="channels" type="text" placeholder="users, settings"
-                 class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+          <select id="filter-channels" name="channels" multiple
+                  aria-describedby="filter-channels-help"
+                  class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+            <option value="">All channels</option>
+          </select>
+          <span id="filter-channels-help" class="sr-only">Select zero or more activity channels.</span>
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-object-type">Object Type</label>
-          <input id="filter-object-type" name="object_type" type="text" placeholder="user, role"
-                 class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+          <select id="filter-object-type" name="object_type"
+                  class="w-full border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:ring-0 focus:border-gray-300">
+            <option value="">All object types</option>
+          </select>
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1" for="filter-object-id">Object ID</label>
@@ -149,11 +159,13 @@ import { ActivityManager } from '{{ adminURL("assets/dist/activity/index.js") }}
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const apiPath = '{{ activity_api_path|default:"" }}' || (apiBasePath ? `${apiBasePath}/activity` : `${basePath}/api/activity`);
+const filterOptionsPath = '{{ activity_filter_options_api_path|default:"" }}' || `${apiPath}/filter-options`;
 const actionLabels = {{ toJSON(activity_action_labels)|safe }};
 const activityEnabled = !document.body.classList.contains('feature-activity-disabled');
 if (activityEnabled) {
   const manager = new ActivityManager({
     apiPath,
+    filterOptionsPath,
     basePath,
     actionLabels,
   });

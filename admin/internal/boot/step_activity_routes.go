@@ -28,6 +28,17 @@ func ActivityRouteStep(ctx BootCtx) error {
 				return responder.WriteJSON(c, payload)
 			},
 		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "activity.filter_options"),
+			Handler: func(c router.Context) error {
+				payload, err := binding.FilterOptions(c)
+				if err != nil {
+					return responder.WriteError(c, err)
+				}
+				return responder.WriteJSON(c, payload)
+			},
+		},
 	}
 	return applyRoutes(ctx, routes)
 }

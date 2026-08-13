@@ -122,6 +122,7 @@
   "scripts": {
     "build": "node ./scripts/build-assets.mjs && node ./scripts/build-public.mjs",
     "build:public": "node ./scripts/build-public.mjs",
+    "bundle:report": "GO_ADMIN_BUNDLE_BUDGET_REPORT=1 npm run build",
     "lint": "npm run lint:eslint && npm run lint:console",
     "lint:eslint": "node ./scripts/check-eslint-baseline.mjs",
     "lint:eslint:baseline": "node ./scripts/check-eslint-baseline.mjs --write-baseline",

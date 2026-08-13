@@ -8,6 +8,8 @@ import { createLogger } from '../shared/logger.js';
 import type {
   ActivityEntry,
   ActivityPayload,
+  ActivityFilterOption,
+  ActivityFilterOptionsPayload,
   ActivityConfig,
   ActivitySelectors,
   ActivityState,
@@ -31,7 +33,7 @@ import {
 import { renderIcon } from '../shared/icon-renderer.js';
 
 import { ActivityViewSwitcher } from './activity-view-switcher.js';
-import { TimelineRenderer, createLoadingIndicator, createEndIndicator, createScrollSentinel } from './activity-timeline.js';
+import { TimelineRenderer, createLoadingIndicator, createEndIndicator } from './activity-timeline.js';
 
 const logger = createLogger("Activity");
 
@@ -54,9 +56,12 @@ const TIMELINE_SELECTORS = {
   sentinel: '#activity-timeline-sentinel',
 };
 
-const FIELD_IDS = ['q', 'verb', 'channels', 'object_type', 'object_id'];
+const SCALAR_FIELD_IDS = ['q', 'object_type', 'object_id'];
+const MULTI_FIELD_IDS = ['verb', 'channels'];
 const DATE_FIELDS = ['since', 'until'];
 const PASSTHROUGH_FIELDS = ['user_id', 'actor_id'];
+const RAW_OPTION_MAX_BYTES = 256;
+const RAW_MULTI_OPTION_MAX_VALUES = 500;
 
 type ActivityAPIError = {
   textCode: string;
@@ -95,6 +100,8 @@ export class ActivityManager {
   private refreshBtn: HTMLButtonElement | null = null;
   private clearBtn: HTMLButtonElement | null = null;
   private limitInput: HTMLSelectElement | null = null;
+  private filterOptionsAbortController: AbortController | null = null;
+  private filterOptionsRequestGeneration = 0;
 
   // Timeline-related properties
   private viewSwitcher: ActivityViewSwitcher | null = null;
@@ -136,6 +143,7 @@ export class ActivityManager {
     this.initTimeline();
     this.bindEvents();
     this.syncFromQuery();
+    void this.loadFilterOptions();
     this.loadActivity();
   }
 
@@ -327,7 +335,8 @@ export class ActivityManager {
     });
 
     this.clearBtn?.addEventListener('click', () => {
-      FIELD_IDS.forEach((name) => this.setInputValue(name, ''));
+      SCALAR_FIELD_IDS.forEach((name) => this.setInputValue(name, ''));
+      MULTI_FIELD_IDS.forEach((name) => this.setInputValues(name, []));
       DATE_FIELDS.forEach((name) => this.setInputValue(name, ''));
       this.state.offset = 0;
       this.loadActivity();
@@ -345,6 +354,7 @@ export class ActivityManager {
     });
 
     this.refreshBtn?.addEventListener('click', () => {
+      void this.loadFilterOptions();
       this.loadActivity();
     });
   }
@@ -358,7 +368,56 @@ export class ActivityManager {
   private setInputValue(name: string, value: string): void {
     const input = document.getElementById(`filter-${name.replace(/_/g, '-')}`);
     if (!input) return;
-    (input as HTMLInputElement).value = value || '';
+    if (input instanceof HTMLSelectElement && value && !this.selectHasValue(input, value)) {
+      input.add(new Option(value, value));
+    }
+    (input as HTMLInputElement | HTMLSelectElement).value = value || '';
+  }
+
+  private getInputValues(name: string): string[] {
+    const input = document.getElementById(`filter-${name.replace(/_/g, '-')}`);
+    if (!(input instanceof HTMLSelectElement)) return [];
+    return Array.from(input.selectedOptions)
+      .map((option) => option.value.trim())
+      .filter((value) => value !== '');
+  }
+
+  private setInputValues(name: string, values: string[]): void {
+    const input = document.getElementById(`filter-${name.replace(/_/g, '-')}`);
+    if (!(input instanceof HTMLSelectElement)) return;
+    const normalized = this.normalizeRawValues(values);
+    normalized.forEach((value) => {
+      if (!this.selectHasValue(input, value)) {
+        input.add(new Option(value, value));
+      }
+    });
+    const selected = new Set(normalized);
+    Array.from(input.options).forEach((option) => {
+      option.selected = option.value === '' ? selected.size === 0 : selected.has(option.value);
+    });
+  }
+
+  private selectHasValue(select: HTMLSelectElement, value: string): boolean {
+    return Array.from(select.options).some((option) => option.value === value);
+  }
+
+  private normalizeRawValues(values: string[]): string[] {
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const raw of values) {
+      for (const part of raw.split(',')) {
+        const value = part.trim();
+        if (!value || seen.has(value) || new TextEncoder().encode(value).length > RAW_OPTION_MAX_BYTES) {
+          continue;
+        }
+        seen.add(value);
+        normalized.push(value);
+        if (normalized.length === RAW_MULTI_OPTION_MAX_VALUES) {
+          return normalized;
+        }
+      }
+    }
+    return normalized;
   }
 
   private toLocalInput(value: string): string {
@@ -392,7 +451,8 @@ export class ActivityManager {
       this.limitInput.value = String(this.state.limit);
     }
 
-    FIELD_IDS.forEach((name) => this.setInputValue(name, params.get(name) || ''));
+    SCALAR_FIELD_IDS.forEach((name) => this.setInputValue(name, params.get(name) || ''));
+    MULTI_FIELD_IDS.forEach((name) => this.setInputValues(name, this.normalizeRawValues(params.getAll(name))));
     DATE_FIELDS.forEach((name) => this.setInputValue(name, this.toLocalInput(params.get(name) || '')));
     PASSTHROUGH_FIELDS.forEach((name) => {
       const val = params.get(name);
@@ -409,9 +469,13 @@ export class ActivityManager {
     params.set('limit', String(this.state.limit));
     params.set('offset', String(this.state.offset));
 
-    FIELD_IDS.forEach((name) => {
+    SCALAR_FIELD_IDS.forEach((name) => {
       const value = this.getInputValue(name);
       if (value) params.set(name, value);
+    });
+
+    MULTI_FIELD_IDS.forEach((name) => {
+      this.getInputValues(name).forEach((value) => params.append(name, value));
     });
 
     DATE_FIELDS.forEach((name) => {
@@ -424,6 +488,104 @@ export class ActivityManager {
     });
 
     return params;
+  }
+
+  private buildFilterOptionsParams(): URLSearchParams {
+    const params = new URLSearchParams();
+    MULTI_FIELD_IDS.forEach((name) => {
+      this.getInputValues(name).forEach((value) => params.append(name, value));
+    });
+    const objectType = this.getInputValue('object_type');
+    if (objectType) {
+      params.set('object_type', objectType);
+    }
+    return params;
+  }
+
+  private filterOptionsURL(params: URLSearchParams): string {
+    const path = this.config.filterOptionsPath || `${this.config.apiPath}/filter-options`;
+    const query = params.toString();
+    if (!query) return path;
+    return `${path}${path.includes('?') ? '&' : '?'}${query}`;
+  }
+
+  private async loadFilterOptions(): Promise<void> {
+    const generation = ++this.filterOptionsRequestGeneration;
+    this.filterOptionsAbortController?.abort();
+    const controller = new AbortController();
+    this.filterOptionsAbortController = controller;
+
+    try {
+      const response = await fetch(this.filterOptionsURL(this.buildFilterOptionsParams()), {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to load activity filter options (${response.status})`);
+      }
+      const payload: unknown = await response.json();
+      if (generation !== this.filterOptionsRequestGeneration || controller.signal.aborted) {
+        return;
+      }
+      const options = this.parseFilterOptionsPayload(payload);
+      this.replaceFilterOptions('verb', options.verbs, 'All verbs');
+      this.replaceFilterOptions('channels', options.channels, 'All channels');
+      this.replaceFilterOptions('object_type', options.object_types, 'All object types');
+    } catch (err) {
+      if (!controller.signal.aborted && generation === this.filterOptionsRequestGeneration) {
+        logger.warn('Failed to refresh activity filter options:', err);
+      }
+    } finally {
+      if (generation === this.filterOptionsRequestGeneration) {
+        this.filterOptionsAbortController = null;
+      }
+    }
+  }
+
+  private parseFilterOptionsPayload(payload: unknown): ActivityFilterOptionsPayload {
+    if (!isRecord(payload)
+      || !Array.isArray(payload.verbs)
+      || !Array.isArray(payload.channels)
+      || !Array.isArray(payload.object_types)) {
+      throw new Error('Invalid activity filter options response');
+    }
+    const record = payload;
+    return {
+      verbs: this.parseFilterOptionList(record.verbs),
+      channels: this.parseFilterOptionList(record.channels),
+      object_types: this.parseFilterOptionList(record.object_types),
+      revision: typeof record.revision === 'string' ? record.revision : undefined,
+    };
+  }
+
+  private parseFilterOptionList(value: unknown): ActivityFilterOption[] {
+    if (!Array.isArray(value)) return [];
+    const options: ActivityFilterOption[] = [];
+    const seen = new Set<string>();
+    for (const item of value) {
+      if (!isRecord(item) || typeof item.value !== 'string' || typeof item.label !== 'string') {
+        continue;
+      }
+      const optionValue = item.value.trim();
+      const label = item.label.trim() || optionValue;
+      if (!optionValue || seen.has(optionValue)) continue;
+      seen.add(optionValue);
+      options.push({ value: optionValue, label });
+    }
+    return options;
+  }
+
+  private replaceFilterOptions(name: string, options: ActivityFilterOption[], emptyLabel: string): void {
+    const control = document.getElementById(`filter-${name.replace(/_/g, '-')}`);
+    if (!(control instanceof HTMLSelectElement)) return;
+    const selected = name === 'object_type' ? this.normalizeRawValues([control.value]).slice(0, 1) : this.getInputValues(name);
+    control.replaceChildren(new Option(emptyLabel, ''));
+    options.forEach((option) => control.add(new Option(option.label, option.value)));
+    if (name === 'object_type') {
+      this.setInputValue(name, selected[0] || '');
+    } else {
+      this.setInputValues(name, selected);
+    }
   }
 
   private syncUrl(params: URLSearchParams): void {
@@ -511,7 +673,7 @@ export class ActivityManager {
         this.renderRows(entries);
       }
       this.updatePagination(entries.length);
-    } catch (err) {
+    } catch (_err) {
       this.showError('Failed to load activity.');
     }
   }

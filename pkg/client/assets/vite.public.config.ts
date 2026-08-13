@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { bundleBudgetPlugin } from './scripts/bundle-budget-plugin.mjs';
 
 const entry = {
   index: resolve(import.meta.dirname, 'src/public.ts'),
@@ -24,6 +25,7 @@ const entry = {
 };
 
 export default defineConfig({
+  plugins: [bundleBudgetPlugin({ profile: 'public' })],
   build: {
     lib: {
       entry,

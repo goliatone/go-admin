@@ -3,18 +3,6 @@
   "description": "Reviewed frontend static-analysis debt. New locations fail; stale entries may be removed.",
   "findings": [
     {
-      "file": "src/activity/activity-manager.ts",
-      "line": 34,
-      "column": 72,
-      "rule": "@typescript-eslint/no-unused-vars"
-    },
-    {
-      "file": "src/activity/activity-manager.ts",
-      "line": 514,
-      "column": 14,
-      "rule": "@typescript-eslint/no-unused-vars"
-    },
-    {
       "file": "src/components/import-modal.ts",
       "line": 151,
       "column": 13,
@@ -940,4 +928,3 @@
     }
   ]
 }
-

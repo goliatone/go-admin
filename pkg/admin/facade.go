@@ -652,6 +652,15 @@ type (
 	ActivityFeedQuerier                               = core.ActivityFeedQuerier
 	ActivityFeedWidgetPayload                         = core.ActivityFeedWidgetPayload
 	ActivityFilter                                    = core.ActivityFilter
+	ActivityFilterOption                              = core.ActivityFilterOption
+	ActivityFilterOptions                             = core.ActivityFilterOptions
+	ActivityFilterOptionsConfig                       = core.ActivityFilterOptionsConfig
+	ActivityFilterOptionsPolicy                       = core.ActivityFilterOptionsPolicy
+	ActivityFilterOptionsPolicyFunc                   = core.ActivityFilterOptionsPolicyFunc
+	ActivityFilterOptionsProvider                     = core.ActivityFilterOptionsProvider
+	ActivityFilterOptionsProviderFunc                 = core.ActivityFilterOptionsProviderFunc
+	ActivityFilterOptionsQuery                        = core.ActivityFilterOptionsQuery
+	ActivityFilterSelection                           = core.ActivityFilterSelection
 	ActivityLogger                                    = core.ActivityLogger
 	ActivityModule                                    = core.ActivityModule
 	ActivityNavigation                                = core.ActivityNavigation

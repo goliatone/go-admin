@@ -10,6 +10,13 @@ This guide documents the Activity read API, query parameters, pagination contrac
 - Requires `admin.activity.view` (configurable via `Config.ActivityPermission`).
 - Requires an Activity feed query or repository; otherwise the API returns a feature-disabled error (404 + `FEATURE_DISABLED`).
 
+`GET /admin/api/activity/filter-options` returns the authorized Verb, Channel,
+and Object Type option catalog used by the Activity UI. It has the same actor,
+permission, and feature requirements as the feed endpoint and returns
+`Cache-Control: private, no-store`. It accepts only repeatable/CSV `verb`,
+repeatable/CSV `channels`, and one `object_type` value so selected fallbacks can
+be preserved. Authority and feed-only query fields are rejected.
+
 ## Query parameters
 
 - `user_id`: UUID filter for the subject user.
@@ -143,6 +150,78 @@ adm, _, err := quickstart.NewAdmin(cfg, hooks, quickstart.WithAdminDependencies(
 
 If you already have an `ActivityFeedQuery` or `ActivityService`, provide that instead of the repository.
 
+## Filter option catalogs
+
+Hosts can declare a curated baseline without installing a provider. Values are
+the exact stored values used by Activity filtering; labels are presentation
+only. `MaxOptions` applies independently to each category, defaults to 100, and
+clamps to 500.
+
+```go
+cfg.ActivityFilterOptions = admin.ActivityFilterOptionsConfig{
+    MaxOptions: 100,
+    Verbs: []admin.ActivityFilterOption{
+        {Value: "customer.created", Label: "Customer created"},
+        {Value: "customer.consent.capture", Label: "Consent captured"},
+    },
+    Channels: []admin.ActivityFilterOption{
+        {Value: "customers", Label: "Customers"},
+    },
+    ObjectTypes: []admin.ActivityFilterOption{
+        {Value: "customer", Label: "Customer"},
+    },
+}
+```
+
+Configured values remain useful when no provider is installed or a provider
+temporarily fails. Blank, duplicate, over-length, or invalid UTF-8 entries are
+normalized away. Config labels win when a provider returns the same exact
+value.
+
+For live values, inject an `ActivityFilterOptionsProvider`. It is invoked for
+every options request; provider-owned caches must key every effective visibility
+dimension carried in `query.EffectiveFilter`.
+
+```go
+deps.ActivityFilterOptionsProvider = admin.ActivityFilterOptionsProviderFunc(
+    func(ctx context.Context, query admin.ActivityFilterOptionsQuery) (admin.ActivityFilterOptions, error) {
+        // Query an application-owned catalog with query.EffectiveFilter.
+        // The filter already contains trusted tenant/org, self-only, channel,
+        // and machine-activity constraints from ActivityAccessPolicy.
+        return catalog.ActivityFilterOptions(ctx, query.EffectiveFilter)
+    },
+)
+```
+
+The provider is a trusted backend integration and must never return a global
+catalog merely because the actor can open Activity. Browser-selected verbs,
+channels, and object type are available in `query.Selected`; they deliberately
+do not narrow `query.EffectiveFilter`. Provider errors degrade to the authorized
+Config baseline and are reported through the Activity logger.
+
+Hosts with additional guards, RBAC, or ABAC should install a final policy. It
+filters the complete Config/provider/selected merge, so it can hide declared
+Config vocabulary as well as discovered values. Policy errors fail closed;
+categorized permission denial produces the normal 403 response.
+
+```go
+deps.ActivityFilterOptionsPolicy = admin.ActivityFilterOptionsPolicyFunc(
+    func(ctx context.Context, query admin.ActivityFilterOptionsQuery, options admin.ActivityFilterOptions) (admin.ActivityFilterOptions, error) {
+        return activityGuards.FilterOptions(ctx, query.ReadContext, options)
+    },
+)
+```
+
+If a host supplies a custom `ActivityFeedQuery` or `ActivityService`, its custom
+provider and final option policy must reproduce the feed's visibility rules.
+The framework cannot infer row guards implemented inside a custom feed.
+
+The initial feature does not persist observed values. A future application-owned
+collector should observe the canonical Activity write path or an asynchronous
+projector—not paginated UI reads—and retain tenant, organization, user, actor,
+channel, and machine-classification dimensions. Retention, counts, pruning,
+backfill, and collector failure policy belong to that application integration.
+
 ## Read-time navigation links
 
 Activity labels can link to host-owned detail pages by supplying an optional
@@ -275,7 +354,8 @@ To expose the activity UI page, use quickstart UI routes (enabled by default) an
 if err := quickstart.RegisterAdminUIRoutes(router, cfg, adm, authn); err != nil {
     return err
 }
-// Default UI route: {basePath}/activity with activity_api_path in the view context.
+// Default UI route: {basePath}/activity with activity_api_path and
+// activity_filter_options_api_path in the view context.
 ```
 
 Note: the UI route is wrapped by your auth middleware but does not enforce `admin.activity.view`; the API does. Missing permissions results in 403 responses and an empty UI.

@@ -105,6 +105,25 @@ npm run lint:eslint:baseline
 Review the generated diff before accepting it. Zero-tolerance errors are never
 written to the baseline.
 
+## Bundle budgets
+
+Both the embedded runtime and public-package Vite builds enforce raw and gzip
+JavaScript limits from `bundle-budgets.json`. Entrypoint limits include every
+statically imported chunk once; dynamic chunks are covered by the per-chunk and
+aggregate profile limits. New, removed, or renamed entries fail until their
+budget coverage is reviewed.
+
+Print current measurements and suggested limits without changing the committed
+budget file:
+
+```sh
+npm run bundle:report
+```
+
+When a budget fails, reduce or split the dependency graph where practical. If
+growth is intentional, update the corresponding absolute limit explicitly and
+review the reported contributors. The build never updates limits automatically.
+
 ## Shared modal component
 
 Use the same component from the package or the predictable embedded asset:

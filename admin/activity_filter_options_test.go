@@ -28,6 +28,7 @@ func TestNormalizeActivityFilterOptionsConfigDefaultsAndClamps(t *testing.T) {
 
 func TestNormalizeActivityFilterOptionsConfigValues(t *testing.T) {
 	overlong := strings.Repeat("x", activityFilterOptionMaxBytes+1)
+	invalidUTF8 := string([]byte{0xff})
 	cfg := normalizeActivityFilterOptionsConfig(ActivityFilterOptionsConfig{
 		Verbs: []ActivityFilterOption{
 			{Value: "  User.Created  ", Label: "  User created  "},
@@ -36,6 +37,8 @@ func TestNormalizeActivityFilterOptionsConfigValues(t *testing.T) {
 			{Value: " "},
 			{Value: overlong, Label: "long value"},
 			{Value: "long-label", Label: overlong},
+			{Value: invalidUTF8, Label: "invalid value"},
+			{Value: "invalid-label", Label: invalidUTF8},
 		},
 	})
 
@@ -188,6 +191,29 @@ func TestResolveActivityFilterOptionsProviderFailureDegradesToConfig(t *testing.
 	}
 	if len(got.Verbs) != 1 || got.Verbs[0].Value != "created" || got.Revision != "" {
 		t.Fatalf("degraded options = %#v", got)
+	}
+}
+
+func TestResolveActivityFilterOptionsReadsProviderSnapshotPerRequest(t *testing.T) {
+	revision := "rev-1"
+	adm := activityFilterOptionsTestAdmin(ActivityFilterOptionsConfig{})
+	adm.activityFilterOptionsProvider = ActivityFilterOptionsProviderFunc(func(context.Context, ActivityFilterOptionsQuery) (ActivityFilterOptions, error) {
+		return ActivityFilterOptions{
+			Verbs:    []ActivityFilterOption{{Value: revision, Label: revision}},
+			Revision: revision,
+		}, nil
+	})
+	first, err := adm.resolveActivityFilterOptions(context.Background(), nil, ActivityReadContext{}, ActivityFilterSelection{})
+	if err != nil {
+		t.Fatalf("first resolve: %v", err)
+	}
+	revision = "rev-2"
+	second, err := adm.resolveActivityFilterOptions(context.Background(), nil, ActivityReadContext{}, ActivityFilterSelection{})
+	if err != nil {
+		t.Fatalf("second resolve: %v", err)
+	}
+	if first.Revision != "rev-1" || second.Revision != "rev-2" || second.Verbs[0].Value != "rev-2" {
+		t.Fatalf("snapshots = %#v then %#v", first, second)
 	}
 }
 

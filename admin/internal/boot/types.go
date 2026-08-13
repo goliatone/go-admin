@@ -250,6 +250,7 @@ type NotificationsBinding interface {
 // ActivityBinding exposes activity operations.
 type ActivityBinding interface {
 	List(router.Context) (map[string]any, error)
+	FilterOptions(router.Context) (any, error)
 }
 
 // JobsBinding exposes job operations.

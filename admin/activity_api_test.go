@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	auth "github.com/goliatone/go-auth"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	usersactivity "github.com/goliatone/go-users/activity"
 	usertypes "github.com/goliatone/go-users/pkg/types"
@@ -96,16 +97,35 @@ type activityListResponse struct {
 
 func setupActivityServer(t *testing.T, deps Dependencies) router.Server[*httprouter.Router] {
 	t.Helper()
-	cfg := Config{
+	return setupActivityServerWithConfig(t, Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
-	}
+	}, deps)
+}
+
+func setupActivityServerWithConfig(t *testing.T, cfg Config, deps Dependencies) router.Server[*httprouter.Router] {
+	t.Helper()
 	adm := mustNewAdmin(t, cfg, deps)
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("init: %v", err)
 	}
 	return server
+}
+
+type activityPermissionAuthorizer bool
+
+func (a activityPermissionAuthorizer) Can(context.Context, string, string) bool {
+	return bool(a)
+}
+
+func decodeActivityFilterOptionsResponse(t *testing.T, rr *httptest.ResponseRecorder) ActivityFilterOptions {
+	t.Helper()
+	var body ActivityFilterOptions
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode filter options response: %v", err)
+	}
+	return body
 }
 
 func decodeActivityResponse(t *testing.T, rr *httptest.ResponseRecorder) activityListResponse {
@@ -690,6 +710,208 @@ func TestActivityRouteFeatureDisabledWhenNoFeed(t *testing.T) {
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestActivityFilterOptionsRouteReturnsAuthorizedSnapshot(t *testing.T) {
+	actorID := uuid.New()
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	providerCalls := 0
+	var captured ActivityFilterOptionsQuery
+	server := setupActivityServerWithConfig(t, Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		ActivityFilterOptions: ActivityFilterOptionsConfig{
+			MaxOptions: 4,
+			Verbs:      []ActivityFilterOption{{Value: "created", Label: "Created"}},
+		},
+	}, Dependencies{
+		Authorizer:        allowAuthorizer{},
+		ActivityFeedQuery: &captureActivityFeedQuery{},
+		ActivityFilterOptionsProvider: ActivityFilterOptionsProviderFunc(func(_ context.Context, query ActivityFilterOptionsQuery) (ActivityFilterOptions, error) {
+			providerCalls++
+			captured = query
+			return ActivityFilterOptions{
+				Channels: []ActivityFilterOption{{Value: "audit", Label: "Audit"}},
+				Revision: "catalog-2",
+			}, nil
+		}),
+	})
+
+	values := url.Values{}
+	values.Add("verb", "created,stale")
+	values.Add("verb", "updated")
+	values.Add("channels", "audit")
+	values.Set("object_type", "user")
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity/filter-options?"+values.Encode(), nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{
+		ActorID: actorID.String(), Role: "member", TenantID: tenantID.String(), OrganizationID: orgID.String(),
+	}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("filter options status: %d body=%s", rr.Code, rr.Body.String())
+	}
+	if got := rr.Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Fatalf("Cache-Control = %q", got)
+	}
+	got := decodeActivityFilterOptionsResponse(t, rr)
+	if providerCalls != 1 || got.Revision != "catalog-2" {
+		t.Fatalf("provider calls/revision = %d/%q", providerCalls, got.Revision)
+	}
+	if captured.ReadContext.Actor.ID != actorID || captured.EffectiveFilter.Scope.TenantID != tenantID || captured.EffectiveFilter.Scope.OrgID != orgID {
+		t.Fatalf("trusted provider context = %#v", captured)
+	}
+	if captured.EffectiveFilter.UserID != actorID || captured.EffectiveFilter.ActorID != actorID {
+		t.Fatalf("member self-only filter = %#v", captured.EffectiveFilter)
+	}
+	if len(captured.EffectiveFilter.Verbs) != 0 || captured.EffectiveFilter.ObjectType != "" {
+		t.Fatalf("selection narrowed effective filter: %#v", captured.EffectiveFilter)
+	}
+	if len(captured.Selected.Verbs) != 3 || captured.Selected.ObjectType != "user" {
+		t.Fatalf("normalized selections = %#v", captured.Selected)
+	}
+	if len(got.Verbs) != 3 || len(got.Channels) != 1 || len(got.ObjectTypes) != 1 {
+		t.Fatalf("response options = %#v", got)
+	}
+}
+
+func TestActivityFilterOptionsRouteRejectsNonSelectionQueryBeforeProvider(t *testing.T) {
+	for _, field := range []string{"actor_id", "user_id", "tenant_id", "org_id", "scope", "role", "channel", "channel_denylist", "object_id", "q", "since", "until", "limit", "offset"} {
+		t.Run(field, func(t *testing.T) {
+			calls := 0
+			server := setupActivityServer(t, Dependencies{
+				Authorizer:        allowAuthorizer{},
+				ActivityFeedQuery: &captureActivityFeedQuery{},
+				ActivityFilterOptionsProvider: ActivityFilterOptionsProviderFunc(func(context.Context, ActivityFilterOptionsQuery) (ActivityFilterOptions, error) {
+					calls++
+					return ActivityFilterOptions{}, nil
+				}),
+			})
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity/filter-options?"+field+"=supplied", nil)
+			req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: uuid.NewString()}))
+			rr := httptest.NewRecorder()
+			server.WrappedRouter().ServeHTTP(rr, req)
+			if rr.Code != http.StatusBadRequest || calls != 0 {
+				t.Fatalf("status/calls = %d/%d body=%s", rr.Code, calls, rr.Body.String())
+			}
+			if got := rr.Header().Get("Cache-Control"); got != "private, no-store" {
+				t.Fatalf("error Cache-Control = %q", got)
+			}
+		})
+	}
+}
+
+func TestActivityFilterOptionsRoutePermissionAndFeatureDisabled(t *testing.T) {
+	reqFor := func() *http.Request {
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity/filter-options", nil)
+		return req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: uuid.NewString()}))
+	}
+
+	denied := setupActivityServer(t, Dependencies{
+		Authorizer:        activityPermissionAuthorizer(false),
+		ActivityFeedQuery: &captureActivityFeedQuery{},
+	})
+	rr := httptest.NewRecorder()
+	denied.WrappedRouter().ServeHTTP(rr, reqFor())
+	if rr.Code != http.StatusForbidden || rr.Header().Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("denied status/cache = %d/%q body=%s", rr.Code, rr.Header().Get("Cache-Control"), rr.Body.String())
+	}
+
+	disabled := setupActivityServer(t, Dependencies{Authorizer: allowAuthorizer{}})
+	rr = httptest.NewRecorder()
+	disabled.WrappedRouter().ServeHTTP(rr, reqFor())
+	if rr.Code != http.StatusNotFound || rr.Header().Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("disabled status/cache = %d/%q body=%s", rr.Code, rr.Header().Get("Cache-Control"), rr.Body.String())
+	}
+}
+
+func TestActivityFilterOptionsRoutePolicyErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{name: "permission denial", err: goerrors.New("options denied", goerrors.CategoryAuthz).WithCode(http.StatusForbidden), status: http.StatusForbidden},
+		{name: "policy failure", err: errors.New("policy failed"), status: http.StatusInternalServerError},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			server := setupActivityServer(t, Dependencies{
+				Authorizer:        allowAuthorizer{},
+				ActivityFeedQuery: &captureActivityFeedQuery{},
+				ActivityFilterOptionsPolicy: ActivityFilterOptionsPolicyFunc(func(context.Context, ActivityFilterOptionsQuery, ActivityFilterOptions) (ActivityFilterOptions, error) {
+					return ActivityFilterOptions{}, tc.err
+				}),
+			})
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity/filter-options", nil)
+			req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: uuid.NewString()}))
+			rr := httptest.NewRecorder()
+			server.WrappedRouter().ServeHTTP(rr, req)
+			if rr.Code != tc.status || rr.Header().Get("Cache-Control") != "private, no-store" {
+				t.Fatalf("status/cache = %d/%q want %d body=%s", rr.Code, rr.Header().Get("Cache-Control"), tc.status, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestActivityFilterOptionsRoutePassesChannelAndMachinePolicyToProvider(t *testing.T) {
+	actorID := uuid.New()
+	var captured ActivityFilterOptionsQuery
+	policy := newDefaultActivityAccessPolicy(usersactivity.WithPolicyFilterOptions(
+		usersactivity.WithChannelAllowlist("audit", "security"),
+		usersactivity.WithChannelDenylist("security"),
+		usersactivity.WithMachineActivityEnabled(false),
+	))
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:           allowAuthorizer{},
+		ActivityFeedQuery:    &captureActivityFeedQuery{},
+		ActivityAccessPolicy: policy,
+		ActivityFilterOptionsProvider: ActivityFilterOptionsProviderFunc(func(_ context.Context, query ActivityFilterOptionsQuery) (ActivityFilterOptions, error) {
+			captured = query
+			return ActivityFilterOptions{}, nil
+		}),
+	})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity/filter-options?channels=browser-selection", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: actorID.String(), Role: "member"}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !reflect.DeepEqual(captured.EffectiveFilter.Channels, []string{"audit"}) || !reflect.DeepEqual(captured.EffectiveFilter.ChannelDenylist, []string{"security"}) {
+		t.Fatalf("channel policy filter = %#v", captured.EffectiveFilter)
+	}
+	if captured.EffectiveFilter.MachineActivityEnabled == nil || *captured.EffectiveFilter.MachineActivityEnabled {
+		t.Fatalf("machine policy filter = %#v", captured.EffectiveFilter)
+	}
+	if !reflect.DeepEqual(captured.Selected.Channels, []string{"browser-selection"}) {
+		t.Fatalf("selected channels = %#v", captured.Selected.Channels)
+	}
+}
+
+func TestActivityFilterOptionsRouteAdminIsNotSelfScoped(t *testing.T) {
+	actorID := uuid.New()
+	var captured ActivityFilterOptionsQuery
+	server := setupActivityServer(t, Dependencies{
+		Authorizer:        allowAuthorizer{},
+		ActivityFeedQuery: &captureActivityFeedQuery{},
+		ActivityFilterOptionsProvider: ActivityFilterOptionsProviderFunc(func(_ context.Context, query ActivityFilterOptionsQuery) (ActivityFilterOptions, error) {
+			captured = query
+			return ActivityFilterOptions{}, nil
+		}),
+	})
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/activity/filter-options", nil)
+	req = req.WithContext(auth.WithActorContext(req.Context(), &auth.ActorContext{ActorID: actorID.String(), Role: "admin"}))
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if captured.EffectiveFilter.UserID != uuid.Nil || captured.EffectiveFilter.ActorID != uuid.Nil {
+		t.Fatalf("admin unexpectedly self-scoped: %#v", captured.EffectiveFilter)
 	}
 }
 

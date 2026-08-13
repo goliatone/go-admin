@@ -2124,6 +2124,46 @@ func assertRouteRegisteredBefore(t *testing.T, paths []string, before, after str
 	}
 }
 
+func TestRegisterAdminUIRoutesActivityInjectsOnlyEndpointMetadata(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en", func(cfg *admin.Config) {
+		cfg.ActivityFilterOptions.Verbs = []admin.ActivityFilterOption{{Value: "secret.verb", Label: "Secret verb"}}
+	})
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUIViewContextBuilder(func(view router.ViewContext, _ string, _ router.Context) router.ViewContext {
+		return view
+	})); err != nil {
+		t.Fatalf("RegisterAdminUIRoutes: %v", err)
+	}
+	handler := captureRouter.getHandlers["/admin/activity"]
+	if handler == nil {
+		t.Fatal("expected Activity UI route handler")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Render", "resources/activity/list", mock.MatchedBy(func(arg any) bool {
+		view, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		if view["activity_api_path"] != "/admin/api/activity" || view["activity_filter_options_api_path"] != "/admin/api/activity/filter-options" {
+			return false
+		}
+		for _, value := range view {
+			if strings.Contains(fmt.Sprint(value), "secret.verb") || strings.Contains(fmt.Sprint(value), "Secret verb") {
+				return false
+			}
+		}
+		return true
+	})).Return(nil)
+	if err := handler(ctx); err != nil {
+		t.Fatalf("render Activity shell: %v", err)
+	}
+}
+
 func renderTranslationUITemplate(t *testing.T, template string, data fiber.Map) string {
 	t.Helper()
 

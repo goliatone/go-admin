@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/goliatone/go-auth"
 	usertypes "github.com/goliatone/go-users/pkg/types"
@@ -111,7 +112,7 @@ func normalizeActivityFilterOptionList(options []ActivityFilterOption, limit int
 	for _, option := range options {
 		value := strings.TrimSpace(option.Value)
 		label := strings.TrimSpace(option.Label)
-		if value == "" || len(value) > activityFilterOptionMaxBytes || len(label) > activityFilterOptionMaxBytes {
+		if value == "" || !utf8.ValidString(value) || !utf8.ValidString(label) || len(value) > activityFilterOptionMaxBytes || len(label) > activityFilterOptionMaxBytes {
 			continue
 		}
 		if _, ok := seen[value]; ok {
@@ -159,7 +160,7 @@ func normalizeActivityFilterSelectionValues(values []string, limit int, field st
 			if value == "" {
 				continue
 			}
-			if len(value) > activityFilterOptionMaxBytes {
+			if !utf8.ValidString(value) || len(value) > activityFilterOptionMaxBytes {
 				return nil, activityQueryError(field, fmt.Sprintf("%s values must not exceed %d bytes", field, activityFilterOptionMaxBytes))
 			}
 			if _, ok := seen[value]; ok {
@@ -268,7 +269,7 @@ func normalizeActivityFilterOptions(options ActivityFilterOptions, limit int) Ac
 
 func normalizeActivityFilterOptionsRevision(revision string) string {
 	revision = strings.TrimSpace(revision)
-	if len(revision) > activityFilterOptionMaxBytes {
+	if !utf8.ValidString(revision) || len(revision) > activityFilterOptionMaxBytes {
 		return ""
 	}
 	return revision

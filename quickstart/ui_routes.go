@@ -576,7 +576,8 @@ func registerAdminUIStandardRoutes[T any](
 		r.Get(options.activityPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			return renderView(c, options.activityTemplate, options.activityTitle, options.activityActive, router.ViewContext{
-				"activity_api_path": prefixBasePath(apiBase, "activity"),
+				"activity_api_path":                prefixBasePath(apiBase, "activity"),
+				"activity_filter_options_api_path": prefixBasePath(apiBase, path.Join("activity", "filter-options")),
 			})
 		}))
 	}
