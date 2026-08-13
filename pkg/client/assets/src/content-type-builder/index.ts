@@ -114,6 +114,8 @@ export type { FieldCardConfig, DropZoneConfig } from './shared/field-card';
 // Auto-initialization
 // =============================================================================
 
+import { createLogger } from '../shared/logger.js';
+
 import { ContentTypeEditor } from './content-type-editor';
 import { initBlockLibraryIDE } from './block-library-ide';
 import type { ContentTypeEditorConfig } from './types';
@@ -121,6 +123,8 @@ import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 import { onReady } from '../shared/dom-ready.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 import { initContentTypeChannelSwitcher } from './shared/channel-switcher';
+
+const logger = createLogger("ContentTypeBuilder");
 
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
@@ -134,7 +138,7 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
 
     const config = parseConfig(root);
     if (!config.apiBasePath) {
-      console.warn('Content type editor missing apiBasePath', root);
+      logger.warn('Content type editor missing apiBasePath', root);
       return;
     }
 
@@ -171,7 +175,7 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
       editor.init();
       root.dataset.initialized = 'true';
     } catch (error) {
-      console.error('Content type editor failed to initialize:', error);
+      logger.error('Content type editor failed to initialize:', error);
       root.innerHTML = `
         <div class="flex flex-col items-center justify-center min-h-[300px] p-8 text-center">
           <svg class="w-12 h-12 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

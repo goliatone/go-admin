@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { createLogger } from '../shared/logger.js';
+
 import type {
   ColumnDefinition,
   ColumnFilter,
@@ -31,6 +33,8 @@ import {
 } from './core-constants.js';
 import { buildURL, deleteSearchParams } from '../shared/query-state/url-state.js';
 
+const logger = createLogger("DataGrid");
+
 export function getURLStateConfig(grid: any): Required<DataGridURLStateConfig> {
   const maxURLLength = Math.max(
     256,
@@ -56,12 +60,12 @@ export function parseJSONArray(_grid: any, raw: string, label: string): unknown[
   try {
     const parsed = JSON.parse(normalized) as unknown;
     if (!Array.isArray(parsed)) {
-      console.warn(`[DataGrid] Invalid ${label} payload in URL (expected array)`);
+      logger.warn(`[DataGrid] Invalid ${label} payload in URL (expected array)`);
       return null;
     }
     return parsed;
   } catch (error) {
-    console.warn(`[DataGrid] Failed to parse ${label} payload from URL:`, error);
+    logger.warn(`[DataGrid] Failed to parse ${label} payload from URL:`, error);
     return null;
   }
 }
@@ -337,7 +341,7 @@ export function restoreStateFromURL(grid: any): void {
 
   grid.persistStateSnapshot();
 
-  console.log('[DataGrid] State restored from URL:', grid.state);
+  logger.debug('[DataGrid] State restored from URL:', grid.state);
 
   setTimeout(() => {
     grid.applyRestoredState();
@@ -446,5 +450,5 @@ export function pushStateToURL(grid: any, options: { replace?: boolean } = {}): 
   } else {
     window.history.pushState({}, '', newURL);
   }
-  console.log('[DataGrid] URL updated:', newURL);
+  logger.debug('[DataGrid] URL updated:', newURL);
 }

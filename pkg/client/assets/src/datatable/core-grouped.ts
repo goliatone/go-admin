@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { createLogger } from '../shared/logger.js';
+
 import type { ApiResponse, GroupedData, ViewMode } from './core-types.js';
 import {
   extractBackendSummaries,
@@ -11,6 +13,8 @@ import {
   transformToGroups,
 } from './grouped-mode.js';
 import { fixedColumnCount } from './core-structure.js';
+
+const logger = createLogger("DataGrid");
 
 export function renderGroupedData(grid: any, data: ApiResponse, items: any[], tbody: HTMLElement): void {
     const groupByField = grid.config.groupByField || 'family_id';
@@ -91,7 +95,7 @@ export function renderGroupedData(grid: any, data: ApiResponse, items: any[], tb
       tbody.appendChild(row);
     }
 
-    console.log(`[DataGrid] Rendered ${groupedData.groups.length} groups, ${groupedData.ungrouped.length} ungrouped`);
+    logger.debug(`[DataGrid] Rendered ${groupedData.groups.length} groups, ${groupedData.ungrouped.length} ungrouped`);
   }
 
   /**
@@ -312,7 +316,7 @@ export function isGroupExpandedByState(grid: any, groupId: string, defaultExpand
    */
 export function setViewMode(grid: any, mode: ViewMode): void {
     if (!grid.config.enableGroupedMode) {
-      console.warn('[DataGrid] Grouped mode not enabled');
+      logger.warn('[DataGrid] Grouped mode not enabled');
       return;
     }
 

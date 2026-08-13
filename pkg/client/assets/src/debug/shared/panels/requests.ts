@@ -11,6 +11,7 @@ import {
   truncate,
 } from '../utils.js';
 import { highlightJSON } from '../../syntax-highlight.js';
+import { renderSortToggle } from '../panel-controls.js';
 import { hashString } from './live-list-view.js';
 
 type NormalizedMethod = {
@@ -65,20 +66,6 @@ export function getRequestKey(entry: RequestEntry, index: number): string {
 export function requestRowKey(entry: RequestEntry): string {
   if (entry.id) return entry.id;
   return `req-${hashString(`${entry.timestamp || ''}|${entry.method || ''}|${entry.path || ''}|${entry.status ?? ''}`)}`;
-}
-
-/**
- * Render the sort toggle control for the requests panel
- */
-function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleConfig): string {
-  return `
-    <div class="${styles.panelControls}">
-      <label class="${styles.sortToggle}">
-        <input type="checkbox" data-sort-toggle="${panelId}" ${newestFirst ? 'checked' : ''}>
-        <span>Newest first</span>
-      </label>
-    </div>
-  `;
 }
 
 /**

@@ -28,6 +28,11 @@
       "import": "./dist-public/shared/html.js",
       "default": "./dist-public/shared/html.js"
     },
+    "./shared/logger": {
+      "types": "./dist-public/types/shared/logger.d.ts",
+      "import": "./dist-public/shared/logger.js",
+      "default": "./dist-public/shared/logger.js"
+    },
     "./shared/coercion": {
       "types": "./dist-public/types/shared/coercion.d.ts",
       "import": "./dist-public/shared/coercion.js",
@@ -117,6 +122,8 @@
   "scripts": {
     "build": "node ./scripts/build-assets.mjs && node ./scripts/build-public.mjs",
     "build:public": "node ./scripts/build-public.mjs",
+    "lint": "npm run lint:console",
+    "lint:console": "node ./scripts/check-no-direct-console.mjs",
     "test:public": "npm run build:public && node ./scripts/test-public-package.mjs",
     "test:modal:browsers": "node ./scripts/test-modal-browsers.mjs",
     "build:css:prod": "node ./scripts/build-css.mjs",
@@ -137,7 +144,7 @@
     "dev:legacy": "concurrently \"npm:watch:ts\" \"npm:watch:css\"",
     "preview": "vite preview",
     "clean": "rm -rf dist dist-types .dist-staging .dist-prev",
-    "test": "npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
+    "test": "npm run lint && npm run build && node --test --test-concurrency=1 tests/*.test.mjs",
     "test:clean": "npm run clean && npm test",
     "pack:public": "node ./scripts/pack-public-package.mjs",
     "e2e": "node ./node_modules/@playwright/test/cli.js test",

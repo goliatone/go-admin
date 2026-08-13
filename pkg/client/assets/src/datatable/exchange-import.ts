@@ -8,6 +8,8 @@
  * - Permission-gated apply action
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import { httpRequest, readHTTPJSON } from '../shared/transport/http-client.js';
 import type { GateResult, CapabilityGate } from './capability-gate.js';
 import type {
@@ -21,6 +23,8 @@ import { renderVocabularyStatusBadge, getStatusCssClass } from './translation-st
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
 import { StatefulController } from '../shared/stateful-controller.js';
+
+const logger = createLogger("DataGrid");
 
 // ============================================================================
 // Types
@@ -1224,7 +1228,7 @@ export function initExchangeImport(container: HTMLElement): ExchangeImport | nul
   const applyEndpoint = container.dataset.applyEndpoint;
 
   if (!validateEndpoint || !applyEndpoint) {
-    console.warn('ExchangeImport: Missing required data attributes');
+    logger.warn('ExchangeImport: Missing required data attributes');
     return null;
   }
 

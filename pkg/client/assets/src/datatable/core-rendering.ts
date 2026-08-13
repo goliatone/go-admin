@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { createLogger } from '../shared/logger.js';
+
 import { executeStructuredDelete } from './action-execution.js';
 import type { ApiResponse, ColumnDefinition } from './core-types.js';
 import type { CellRendererContext } from './renderers.js';
@@ -20,6 +22,8 @@ import {
   hasActionColumn,
   structuralColumnCount,
 } from './core-structure.js';
+
+const logger = createLogger("DataGrid");
 
 export function updateColumnVisibility(grid: any, visibleColumns: string[], skipURLUpdate: boolean = false): void {
     if (!grid.tableEl) return;
@@ -158,7 +162,7 @@ export function renderErrorState(grid: any, message: string): void {
 export function renderData(grid: any, data: ApiResponse): void {
     const tbody = grid.tableEl?.querySelector('tbody');
     if (!tbody) {
-      console.error('[DataGrid] tbody not found!');
+      logger.error('[DataGrid] tbody not found!');
       return;
     }
 
@@ -166,8 +170,8 @@ export function renderData(grid: any, data: ApiResponse): void {
     tbody.innerHTML = '';
 
     const items = data.data || data.records || [];
-    console.log(`[DataGrid] renderData() called with ${items.length} items`);
-    console.log('[DataGrid] First 3 items:', items.slice(0, 3));
+    logger.debug(`[DataGrid] renderData() called with ${items.length} items`);
+    logger.debug('[DataGrid] First 3 items:', items.slice(0, 3));
     const total = grid.getResponseTotal(data);
     grid.state.totalRows = total ?? items.length;
 
@@ -226,7 +230,7 @@ export function renderData(grid: any, data: ApiResponse): void {
    */
 export function renderFlatData(grid: any, items: any[], tbody: HTMLElement): void {
     items.forEach((item: any, index: number) => {
-      console.log(`[DataGrid] Rendering row ${index + 1}: id=${item.id}`);
+      logger.debug(`[DataGrid] Rendering row ${index + 1}: id=${item.id}`);
       if (item.id) {
         grid.recordsById[item.id] = item;
       }
@@ -234,8 +238,8 @@ export function renderFlatData(grid: any, items: any[], tbody: HTMLElement): voi
       tbody.appendChild(row);
     });
 
-    console.log(`[DataGrid] Finished appending ${items.length} rows to tbody`);
-    console.log(`[DataGrid] tbody.children.length =`, tbody.children.length);
+    logger.debug(`[DataGrid] Finished appending ${items.length} rows to tbody`);
+    logger.debug(`[DataGrid] tbody.children.length =`, tbody.children.length);
   }
 
   /**
@@ -403,7 +407,7 @@ export async function handleDelete(grid: any, id: string): Promise<void> {
         },
       });
     } catch (error) {
-      console.error('Error deleting item:', error);
+      logger.error('Error deleting item:', error);
       if (!isHandledActionError(error)) {
         grid.showError(error instanceof Error ? error.message : 'Failed to delete item');
       }

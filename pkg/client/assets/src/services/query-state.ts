@@ -1,3 +1,8 @@
+import { createLogger } from '../shared/logger.js';
+
+const logger = createLogger("QueryStateManager");
+
+
 /**
  * Services Query State Manager
  * URL-synced filters, pagination, search, and reset behavior for list pages
@@ -434,7 +439,7 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
         }
       }
     } catch (e) {
-      console.warn('[QueryStateManager] Failed to restore from localStorage:', e);
+      logger.warn('[QueryStateManager] Failed to restore from localStorage:', e);
     }
   }
 
@@ -449,7 +454,7 @@ export class QueryStateManager<F extends Record<string, string> = Record<string,
         JSON.stringify({ per_page: this.state.per_page })
       );
     } catch (e) {
-      console.warn('[QueryStateManager] Failed to save to localStorage:', e);
+      logger.warn('[QueryStateManager] Failed to save to localStorage:', e);
     }
   }
 

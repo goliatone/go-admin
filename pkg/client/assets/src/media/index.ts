@@ -1,4 +1,5 @@
 import { httpRequest } from '../shared/transport/http-client';
+import { escapeHTML } from '../shared/html.js';
 
 type RecordValue = Record<string, unknown>;
 
@@ -399,15 +400,6 @@ function formatDate(value: string): string {
     month: 'short',
     day: 'numeric',
   });
-}
-
-function escapeHTML(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function iconForFamily(family: MediaFamily): string {

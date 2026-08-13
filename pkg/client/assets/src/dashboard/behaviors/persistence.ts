@@ -2,8 +2,12 @@
  * Default persistence behavior using fetch API
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type { PersistenceBehavior, LayoutPreferences } from '../types.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
+
+const logger = createLogger("DashboardPersistence");
 
 export class DefaultPersistenceBehavior implements PersistenceBehavior {
   async save(endpoint: string, layout: LayoutPreferences): Promise<void> {
@@ -25,7 +29,7 @@ export class DefaultPersistenceBehavior implements PersistenceBehavior {
       }
       return await response.json();
     } catch (error) {
-      console.warn('Failed to load layout preferences:', error);
+      logger.warn('Failed to load layout preferences:', error);
       return null;
     }
   }

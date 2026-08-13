@@ -58,6 +58,7 @@ export default defineConfig({
         'shared/enhanced-action': resolve(import.meta.dirname, 'src/shared/enhanced-action.ts'),
         'shared/behaviors/index': resolve(import.meta.dirname, 'src/shared/behaviors/index.ts'),
         'shared/json-parse': resolve(import.meta.dirname, 'src/shared/json-parse.ts'),
+        'shared/logger': resolve(import.meta.dirname, 'src/shared/logger.ts'),
         'shared/query-state/url-state': resolve(import.meta.dirname, 'src/shared/query-state/url-state.ts'),
         'shared/record-normalization': resolve(import.meta.dirname, 'src/shared/record-normalization.ts'),
         'shared/dom-ready': resolve(import.meta.dirname, 'src/shared/dom-ready.ts'),

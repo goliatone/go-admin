@@ -14,6 +14,19 @@ export function normalizeBasePath(basePath?: string): string {
   return `/${trimmed.replace(/^\/+|\/+$/g, '')}`;
 }
 
+export function resolvePath(basePath: string, path: string, emptyFallback = basePath): string {
+  if (!path) {
+    return emptyFallback;
+  }
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (path.startsWith('/')) {
+    return path;
+  }
+  return `${basePath.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+}
+
 export function normalizeAPIBasePath(
   apiBasePath?: string,
   options: NormalizeAPIBasePathOptions = {}

@@ -1,4 +1,8 @@
+import { createLogger } from '../shared/logger.js';
+
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+
+const logger = createLogger("DataGrid");
 
 /**
  * Keyboard Shortcuts Registry
@@ -220,7 +224,7 @@ export class KeyboardShortcutRegistry {
     const { override = false } = options;
 
     if (this.shortcuts.has(shortcut.id) && !override) {
-      console.warn(`[KeyboardShortcuts] Shortcut "${shortcut.id}" already registered`);
+      logger.warn(`[KeyboardShortcuts] Shortcut "${shortcut.id}" already registered`);
       return;
     }
 
@@ -364,11 +368,11 @@ export class KeyboardShortcutRegistry {
       const result = matchingShortcut.handler(event);
       if (result instanceof Promise) {
         result.catch((err) => {
-          console.error(`[KeyboardShortcuts] Handler error for "${matchingShortcut.id}":`, err);
+          logger.error(`[KeyboardShortcuts] Handler error for "${matchingShortcut.id}":`, err);
         });
       }
     } catch (err) {
-      console.error(`[KeyboardShortcuts] Handler error for "${matchingShortcut.id}":`, err);
+      logger.error(`[KeyboardShortcuts] Handler error for "${matchingShortcut.id}":`, err);
     }
   }
 

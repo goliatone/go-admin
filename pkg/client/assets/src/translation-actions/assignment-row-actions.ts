@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import { initActionMenus } from '../shared/action-menu.js';
 import { asString } from '../shared/coercion.js';
 import {
@@ -5,6 +7,8 @@ import {
   readLocationSearchParams,
 } from '../shared/query-state/url-state.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
+
+const logger = createLogger("AssignmentRowActions");
 
 export type AssignmentSSRRowActionName = 'claim' | 'release' | 'approve' | 'reject' | 'archive';
 
@@ -155,7 +159,7 @@ export function initAssignmentSSRRowActions(
         }
       } catch (error) {
         button.disabled = false;
-        console.error(error);
+        logger.error(error);
       }
     });
   });

@@ -1,5 +1,9 @@
+import { createLogger } from '../shared/logger.js';
+
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
+
+const logger = createLogger("DataGrid");
 
 /**
  * Side-by-Side Translation Editor (Phase 5 - TX-051)
@@ -227,7 +231,7 @@ export class SideBySideEditor {
    */
   render(): void {
     if (!this.container) {
-      console.warn('[SideBySideEditor] Container not found');
+      logger.warn('[SideBySideEditor] Container not found');
       return;
     }
 

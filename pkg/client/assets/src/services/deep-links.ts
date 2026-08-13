@@ -1,3 +1,8 @@
+import { createLogger } from '../shared/logger.js';
+
+const logger = createLogger("DeepLinks");
+
+
 /**
  * Deep Links Module
  * Handles navigation to service entities with filter context preservation.
@@ -527,7 +532,7 @@ export function createActivityNavigateHandler(
   return (objectType: string, objectId: string) => {
     const entityType = mapObjectTypeToEntity(objectType);
     if (!entityType) {
-      console.warn(`[DeepLinks] Unknown object type: ${objectType}`);
+      logger.warn(`[DeepLinks] Unknown object type: ${objectType}`);
       return;
     }
 

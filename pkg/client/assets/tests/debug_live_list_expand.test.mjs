@@ -43,6 +43,7 @@ const {
   renderLogRow,
   logRowKey,
   logSearchText,
+  renderSQLPanel,
   consoleStyles,
 } = await import('../dist/debug/index.js');
 
@@ -94,6 +95,20 @@ test('renderJSErrorsPanel marks a live-list tbody with keyed error rows', () => 
   assert.match(html, /<tbody data-live-list>/);
   assert.match(html, /data-row-key="e1"/);
   assert.match(html, /expandable-row/);
+});
+
+test('shared debug panels render the common newest-first control', () => {
+  const cases = [
+    [renderRequestsPanel([], consoleStyles, { showSortToggle: true }), 'requests'],
+    [renderJSErrorsPanel([], consoleStyles, { showSortToggle: true }), 'jserrors'],
+    [renderLogsPanel([], consoleStyles, { showSortToggle: true }), 'logs'],
+    [renderSQLPanel([], consoleStyles, { showSortToggle: true }), 'sql'],
+  ];
+
+  for (const [html, panelId] of cases) {
+    assert.match(html, new RegExp(`data-sort-toggle="${panelId}"`));
+    assert.match(html, /<span>Newest first<\/span>/);
+  }
 });
 
 test('rich logs render an accessible summary plus prioritized structured details', () => {

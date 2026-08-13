@@ -11,6 +11,8 @@
  * - Deterministic precedence: schema > defaults
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import { executeStructuredDelete } from './action-execution.js';
 import type { ActionButton, ActionVariant } from './actions.js';
 import type { ActionRemediation, ActionState } from './action-contracts.js';
@@ -26,6 +28,8 @@ import {
 } from '../toast/error-helpers.js';
 import { getActionBlockDisplay } from './translation-status-vocabulary.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
+
+const logger = createLogger("DataGrid");
 
 // ============================================================================
 // URL Helpers
@@ -865,7 +869,7 @@ export class SchemaActionBuilder {
     const newLocale = typeof data.locale === 'string' ? data.locale : '';
 
     if (!newId) {
-      console.warn('[SchemaActionBuilder] create_translation response missing id');
+      logger.warn('[SchemaActionBuilder] create_translation response missing id');
       return;
     }
 
@@ -912,7 +916,7 @@ export class SchemaActionBuilder {
         },
       });
     } else {
-      console.log(`[SchemaActionBuilder] Translation created: ${newLocale}`);
+      logger.debug(`[SchemaActionBuilder] Translation created: ${newLocale}`);
     }
 
     // Redirect to new translation edit page

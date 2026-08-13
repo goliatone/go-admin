@@ -3,6 +3,8 @@
  * Displays available service providers with capability summaries and connect actions
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type { Provider, ProviderCapability, ScopeType } from '../types.js';
 import { getServicesClient } from '../api-client.js';
 import { getPermissionManager, canConnect, canViewServices } from '../permissions.js';
@@ -16,6 +18,8 @@ import type { ToastNotifier } from '../../toast/types.js';
 import { renderIcon } from '../../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import { loadProviders, resolveProviderDisplayName } from './formatters.js';
+
+const logger = createLogger("ProvidersCatalog");
 
 // =============================================================================
 // Types
@@ -108,7 +112,7 @@ export class ProvidersCatalogManager {
         : this.config.container;
 
     if (!this.container) {
-      console.error('[ProvidersCatalog] Container not found:', this.config.container);
+      logger.error('[ProvidersCatalog] Container not found:', this.config.container);
       return;
     }
 

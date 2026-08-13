@@ -11,6 +11,7 @@ import {
 } from '../utils.js';
 import { escapeAttribute } from '../../../shared/html.js';
 import { highlightSQL } from '../../syntax-highlight.js';
+import { renderSortToggle } from '../panel-controls.js';
 import { appendListRow, evictListOverflow, hashString } from './live-list-view.js';
 
 /**
@@ -35,20 +36,6 @@ export type SQLPanelOptions = PanelOptions & {
   /** Whether to use icon-based copy button (console) vs SVG-based (toolbar). Defaults to false. */
   useIconCopyButton?: boolean;
 };
-
-/**
- * Render the sort toggle control for the SQL panel
- */
-function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleConfig): string {
-  return `
-    <div class="${styles.panelControls}">
-      <label class="${styles.sortToggle}">
-        <input type="checkbox" data-sort-toggle="${panelId}" ${newestFirst ? 'checked' : ''}>
-        <span>Newest first</span>
-      </label>
-    </div>
-  `;
-}
 
 /**
  * Render the selection toolbar (hidden by default, shown when rows are selected)

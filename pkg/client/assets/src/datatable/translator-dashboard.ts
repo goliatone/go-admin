@@ -5,6 +5,8 @@
  * Card + table hybrid: workload summary + actionable assignments list.
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type { GateResult, CapabilityGate } from './capability-gate.js';
 import { createCapabilityGate, renderDisabledReasonBadge } from './capability-gate.js';
 import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
@@ -12,6 +14,8 @@ import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { readHTTPJSON } from '../shared/transport/http-client.js';
+
+const logger = createLogger("DataGrid");
 
 // ============================================================================
 // Types
@@ -1316,7 +1320,7 @@ export function initTranslatorDashboardWithOptions(
 ): TranslatorDashboard | null {
   const endpoint = container.dataset.myWorkEndpoint;
   if (!endpoint) {
-    console.warn('TranslatorDashboard: Missing data-my-work-endpoint attribute');
+    logger.warn('TranslatorDashboard: Missing data-my-work-endpoint attribute');
     return null;
   }
 

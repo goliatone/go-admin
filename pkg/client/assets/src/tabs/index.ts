@@ -15,8 +15,8 @@
  *
  * // Or with options
  * const controller = initTabsController({
- *   onTabChange: (tabId) => console.log('Tab changed:', tabId),
- *   onError: (err) => console.error('Tab error:', err),
+ *   onTabChange: (tabId) => handleTabChange(tabId),
+ *   onError: (err) => handleTabError(err),
  * });
  *
  * // Programmatic tab switching

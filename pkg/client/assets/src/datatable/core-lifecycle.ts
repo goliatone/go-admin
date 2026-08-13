@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { createLogger } from '../shared/logger.js';
+
 import type { ColumnFilter } from './core-types.js';
 import { ColumnManager } from './column-manager.js';
 import {
@@ -14,6 +16,8 @@ import {
 import { addDelegatedEventListener } from '../shared/events/delegation.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import { defaultActionMenuPositioner, initActionMenus } from '../shared/action-menu.js';
+
+const logger = createLogger("DataGrid");
 
 export function adoptSemanticPresentation(grid: any): void {
   const table = grid.tableEl as HTMLTableElement | null;
@@ -79,11 +83,11 @@ export function adoptSemanticPresentation(grid: any): void {
 export function bindSearchInput(grid: any): void {
     const input = document.querySelector<HTMLInputElement>(grid.selectors.searchInput);
     if (!input) {
-      console.warn(`[DataGrid] Search input not found: ${grid.selectors.searchInput}`);
+      logger.warn(`[DataGrid] Search input not found: ${grid.selectors.searchInput}`);
       return;
     }
 
-    console.log(`[DataGrid] Search input bound to: ${grid.selectors.searchInput}`);
+    logger.debug(`[DataGrid] Search input bound to: ${grid.selectors.searchInput}`);
 
     const clearBtn = document.getElementById('clear-search-btn');
 
@@ -106,7 +110,7 @@ export function bindSearchInput(grid: any): void {
       }
 
       grid.searchTimeout = window.setTimeout(async () => {
-        console.log(`[DataGrid] Search triggered: "${input.value}"`);
+        logger.debug(`[DataGrid] Search triggered: "${input.value}"`);
         grid.state.search = input.value;
         grid.pushStateToURL();
         if (grid.config.behaviors?.search) {
@@ -222,10 +226,10 @@ export function bindColumnVisibility(grid: any): void {
       container: menu,
       grid: grid,
       onToggle: (field, visible) => {
-        console.log(`[DataGrid] Column ${field} visibility toggled to ${visible}`);
+        logger.debug(`[DataGrid] Column ${field} visibility toggled to ${visible}`);
       },
       onReorder: (order) => {
-        console.log(`[DataGrid] Columns reordered:`, order);
+        logger.debug(`[DataGrid] Columns reordered:`, order);
       }
     });
   }
@@ -292,7 +296,7 @@ export function bindExportButtons(grid: any): void {
           await grid.config.behaviors.export.export(format, grid);
         } catch (error) {
           // Error already handled by the export behavior (toast shown)
-          console.error('[DataGrid] Export failed:', error);
+          logger.error('[DataGrid] Export failed:', error);
         } finally {
           // Clear loading state from disabled buttons
           buttonsToDisable.forEach(b => {
@@ -328,7 +332,7 @@ export function bindSorting(grid: any): void {
         const field = button.dataset.sortColumn;
         if (!field) return;
 
-        console.log(`[DataGrid] Sort button clicked for field: ${field}`);
+        logger.debug(`[DataGrid] Sort button clicked for field: ${field}`);
 
         // Triple-click cycle: none -> asc -> desc -> none -> asc -> ...
         const existing = grid.state.sort.find(s => s.field === field);
@@ -343,7 +347,7 @@ export function bindSorting(grid: any): void {
             // desc -> none (clear sort)
             grid.state.sort = grid.state.sort.filter(s => s.field !== field);
             direction = null;
-            console.log(`[DataGrid] Sort cleared for field: ${field}`);
+            logger.debug(`[DataGrid] Sort cleared for field: ${field}`);
           }
         } else {
           // none -> asc
@@ -351,20 +355,20 @@ export function bindSorting(grid: any): void {
           grid.state.sort = [{ field, direction }];
         }
 
-        console.log(`[DataGrid] New sort state:`, grid.state.sort);
+        logger.debug(`[DataGrid] New sort state:`, grid.state.sort);
 
         grid.pushStateToURL();
 
         if (direction !== null && grid.config.behaviors?.sort) {
-          console.log('[DataGrid] Calling custom sort behavior');
+          logger.debug('[DataGrid] Calling custom sort behavior');
           await grid.config.behaviors.sort.onSort(field, direction, grid);
         } else {
-          console.log('[DataGrid] Calling refresh() for sort');
+          logger.debug('[DataGrid] Calling refresh() for sort');
           await grid.refresh();
         }
 
         // Update UI
-        console.log('[DataGrid] Updating sort indicators');
+        logger.debug('[DataGrid] Updating sort indicators');
         grid.updateSortIndicators();
       });
     });
@@ -805,7 +809,7 @@ async function fetchSelectionSensitiveBulkActionState(grid: any): Promise<void> 
     if (error instanceof Error && error.name === 'AbortError') {
       return;
     }
-    console.warn('[DataGrid] Failed to refresh selection-sensitive bulk action state:', error);
+    logger.warn('[DataGrid] Failed to refresh selection-sensitive bulk action state:', error);
     if (requestSeq === grid.bulkActionStateRequestSeq) {
       grid.applyBulkActionState(grid.bulkActionState);
     }
@@ -871,7 +875,7 @@ export function bindBulkActions(grid: any): void {
               grid.clearSelection();
               await grid.refresh();
             } catch (error) {
-              console.error('Bulk action failed:', error);
+              logger.error('Bulk action failed:', error);
               const structured = getStructuredActionError(error);
               if (structured?.textCode) {
                 await grid.refresh();
@@ -903,7 +907,7 @@ export function bindBulkActions(grid: any): void {
             grid.clearSelection();
             await grid.refresh();
           } catch (error) {
-            console.error('Bulk action failed:', error);
+            logger.error('Bulk action failed:', error);
             const structured = getStructuredActionError(error);
             if (structured?.textCode) {
               await grid.refresh();
@@ -921,7 +925,7 @@ export function bindBulkActions(grid: any): void {
             await grid.config.behaviors.bulkActions.execute(actionId, ids, grid);
             grid.clearSelection();
           } catch (error) {
-            console.error('Bulk action failed:', error);
+            logger.error('Bulk action failed:', error);
             const structured = getStructuredActionError(error);
             if (structured?.textCode) {
               await grid.refresh();
@@ -1007,7 +1011,7 @@ export function bindBulkClearButton(grid: any): void {
    */
 export function clearSelection(grid: any): void {
     if (!grid.isCapabilityEnabled('selection')) return;
-    console.log('[DataGrid] Clearing selection...');
+    logger.debug('[DataGrid] Clearing selection...');
     grid.state.selectedRows.clear();
 
     // Uncheck the "select all" checkbox in the table header
@@ -1141,7 +1145,7 @@ export function bindDropdownToggles(grid: any): void {
    * Show error message using notifier
    */
 export function showError(grid: any, message: string): void {
-    console.error(message);
+    logger.error(message);
     grid.notifier.error(message);
   }
 
@@ -1186,7 +1190,7 @@ export function parseDatasetStringArray(grid: any, raw: string | undefined): str
         .filter((item) => item.length > 0);
       return result.length > 0 ? result : undefined;
     } catch (error) {
-      console.warn('[DataGrid] Failed to parse bulk payload_required:', error);
+      logger.warn('[DataGrid] Failed to parse bulk payload_required:', error);
       return undefined;
     }
   }
@@ -1202,7 +1206,7 @@ export function parseDatasetObject(grid: any, raw: string | undefined): Record<s
       }
       return parsed as Record<string, unknown>;
     } catch (error) {
-      console.warn('[DataGrid] Failed to parse bulk payload_schema:', error);
+      logger.warn('[DataGrid] Failed to parse bulk payload_schema:', error);
       return undefined;
     }
   }

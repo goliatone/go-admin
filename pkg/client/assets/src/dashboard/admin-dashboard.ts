@@ -2,9 +2,13 @@
  * Admin Dashboard - Client-side initialization and rendering
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import { WidgetGrid } from './widget-grid.js';
 import { WidgetRenderer } from './widget-renderer.js';
 import type { Widget, AdminDashboardConfig, DashboardResponse } from './types.js';
+
+const logger = createLogger("AdminDashboard");
 
 const chartScriptCache = new Map<string, Promise<void>>();
 const chartResizeObservers = new WeakMap<HTMLElement, ResizeObserver>();
@@ -51,10 +55,10 @@ export async function initAdminDashboard(config: AdminDashboardConfig): Promise<
       resizeBtn: '.resize-widget',
     },
     onSave: (layout) => {
-      console.log('Layout saved:', layout);
+      logger.debug('Layout saved:', layout);
     },
     onError: (error) => {
-      console.error('Widget grid error:', error);
+      logger.error('Widget grid error:', error);
       const statusEl = document.getElementById('save-status');
       if (statusEl) {
         statusEl.textContent = 'Failed to save layout';
@@ -129,7 +133,7 @@ function parseChartOptions(container: HTMLElement): Record<string, any> | null {
   try {
     return JSON.parse(payloadEl.textContent);
   } catch (error) {
-    console.error('[admin-dashboard] Failed to parse chart options', error);
+    logger.error('[admin-dashboard] Failed to parse chart options', error);
     return null;
   }
 }
@@ -152,7 +156,7 @@ function mountChart(container: HTMLElement): void {
       try {
         chart.resize();
       } catch (resizeError) {
-        console.warn('[admin-dashboard] Chart resize failed', resizeError);
+        logger.warn('[admin-dashboard] Chart resize failed', resizeError);
       }
     });
     observer.observe(target);
@@ -169,7 +173,7 @@ async function hydrateCharts(): Promise<void> {
       await ensureEChartsAssets(theme, assetsHost);
       mountChart(container);
     } catch (error) {
-      console.error('[admin-dashboard] Failed to hydrate chart widget', error);
+      logger.error('[admin-dashboard] Failed to hydrate chart widget', error);
     }
   }
 }
@@ -180,16 +184,16 @@ async function hydrateCharts(): Promise<void> {
 export function bootstrapAdminDashboard(): void {
   const configEl = document.getElementById('admin-dashboard-config');
   if (!configEl?.textContent) {
-    console.error('[admin-dashboard] Missing #admin-dashboard-config element');
+    logger.error('[admin-dashboard] Missing #admin-dashboard-config element');
     return;
   }
 
   try {
     const config: AdminDashboardConfig = JSON.parse(configEl.textContent);
     initAdminDashboard(config).catch(err => {
-      console.error('[admin-dashboard] Failed to initialize:', err);
+      logger.error('[admin-dashboard] Failed to initialize:', err);
     });
   } catch (err) {
-    console.error('[admin-dashboard] Invalid config JSON:', err);
+    logger.error('[admin-dashboard] Invalid config JSON:', err);
   }
 }

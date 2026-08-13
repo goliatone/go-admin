@@ -1,3 +1,4 @@
+import { escapeHTML as w } from "../shared/html.js";
 import { httpRequest as ce } from "../shared/transport/http-client.js";
 var ue = 24, me = 50, J = /* @__PURE__ */ new Set([
   "image",
@@ -161,9 +162,6 @@ function H(t) {
     day: "numeric"
   });
 }
-function w(t) {
-  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 function Ie(t) {
   switch (t) {
     case "image":
@@ -263,7 +261,7 @@ function A(t, e) {
   }
   return De(n, e);
 }
-function Pe(t, e) {
+function Ae(t, e) {
   return A(z(t), e);
 }
 function Le(t, e, i) {
@@ -710,7 +708,7 @@ async function $e() {
 }
 typeof document < "u" && $e();
 export {
-  Pe as buildMediaPreview,
+  Ae as buildMediaPreview,
   ee as inferMediaFamily,
   $e as initMediaPages,
   Ee as mediaTypeFilterParam,

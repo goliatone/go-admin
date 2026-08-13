@@ -1,4 +1,5 @@
 import { asRecord } from '../shared/coercion.js';
+import { resolvePath } from '../shared/path-normalization.js';
 import { httpRequest, readHTTPResponsePayload } from '../shared/transport/http-client.js';
 import type { EntryNavigationPatchResult, NavigationOverrideValue } from './types.js';
 
@@ -14,19 +15,6 @@ export class EntryNavigationAPIError extends Error {
     this.textCode = textCode;
     this.metadata = metadata;
   }
-}
-
-function normalizePath(basePath: string, path: string, emptyFallback = basePath): string {
-  if (!path) {
-    return emptyFallback;
-  }
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  if (path.startsWith('/')) {
-    return path;
-  }
-  return `${basePath.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 }
 
 function fillPath(pathTemplate: string, params: Record<string, string>): string {
@@ -82,7 +70,7 @@ export class EntryNavigationAPIClient {
     allowedLocations: string[] = []
   ): Promise<EntryNavigationPatchResult> {
     const template = this.config.endpoint || `${this.config.basePath}/content/:type/:id/navigation`;
-    const endpoint = normalizePath(this.config.basePath, fillPath(template, { type: contentType, id: recordID }));
+    const endpoint = resolvePath(this.config.basePath, fillPath(template, { type: contentType, id: recordID }));
     const response = await httpRequest(endpoint, {
       method: 'PATCH',
       credentials: this.config.credentials,

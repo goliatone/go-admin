@@ -3,6 +3,8 @@
  * Provides a query builder UI for complex search queries
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { TextPromptModal } from '../components/modal.js';
@@ -11,6 +13,8 @@ import {
   DATAGRID_URL_KEY_ADVANCED_SEARCH,
   DATAGRID_URL_KEY_FILTERS,
 } from './core-constants.js';
+
+const logger = createLogger("DataGrid");
 
 export interface SearchCriterion {
   field: string;
@@ -82,7 +86,7 @@ export class AdvancedSearch {
     this.clearBtn = document.getElementById('search-clear-btn');
 
     if (!this.modal || !this.container) {
-      console.error('[AdvancedSearch] Required elements not found');
+      logger.error('[AdvancedSearch] Required elements not found');
       return;
     }
 
@@ -134,10 +138,10 @@ export class AdvancedSearch {
             }))
             : [],
         );
-        console.log('[AdvancedSearch] Restored criteria from URL:', this.criteria);
+        logger.debug('[AdvancedSearch] Restored criteria from URL:', this.criteria);
         return true;
       } catch (e) {
-        console.warn('[AdvancedSearch] Failed to parse filters from URL:', e);
+        logger.warn('[AdvancedSearch] Failed to parse filters from URL:', e);
       }
     }
     return false;
@@ -147,14 +151,14 @@ export class AdvancedSearch {
     try {
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) {
-        console.warn('[AdvancedSearch] Invalid advanced_search payload in URL (expected array)');
+        logger.warn('[AdvancedSearch] Invalid advanced_search payload in URL (expected array)');
         return null;
       }
       const criteria = this.normalizeCriteria(parsed);
-      console.log('[AdvancedSearch] Restored criteria from URL:', criteria);
+      logger.debug('[AdvancedSearch] Restored criteria from URL:', criteria);
       return criteria;
     } catch (e) {
-      console.warn('[AdvancedSearch] Failed to parse advanced_search from URL:', e);
+      logger.warn('[AdvancedSearch] Failed to parse advanced_search from URL:', e);
       return null;
     }
   }
@@ -196,7 +200,7 @@ export class AdvancedSearch {
       : window.location.pathname;
 
     window.history.pushState({}, '', newURL);
-    console.log('[AdvancedSearch] URL updated with criteria');
+    logger.debug('[AdvancedSearch] URL updated with criteria');
   }
 
   private bindEvents(): void {

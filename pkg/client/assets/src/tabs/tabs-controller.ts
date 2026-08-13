@@ -2,9 +2,13 @@
  * TabsController - Manages tab navigation and content loading for resource detail views
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type { TabLink, TabPanelContainer, TabControllerOptions } from './types';
 import { hydrateTimeElements } from './formatters';
 import { renderClientTab } from './renderers';
+
+const logger = createLogger("TabsController");
 
 export class TabsController {
   private tabsNav: HTMLElement;
@@ -79,7 +83,7 @@ export class TabsController {
     try {
       window.history.pushState({ tab: href }, '', href);
     } catch (err) {
-      console.warn('[TabsController] Unable to update URL', err);
+      logger.warn('[TabsController] Unable to update URL', err);
     }
   }
 
@@ -141,7 +145,7 @@ export class TabsController {
         return true;
       }
     } catch (err) {
-      console.warn('[TabsController] Failed to load tab', err);
+      logger.warn('[TabsController] Failed to load tab', err);
       this.options.onError?.(err as Error);
 
       if (href) {

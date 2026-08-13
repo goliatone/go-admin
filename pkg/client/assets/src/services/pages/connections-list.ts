@@ -3,6 +3,8 @@
  * Displays service connections with filters, pagination, and management actions
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type {
   Connection,
   ConnectionStatus,
@@ -44,6 +46,8 @@ import {
   resolveProviderDisplayName,
   truncateId,
 } from './formatters.js';
+
+const logger = createLogger("ConnectionsList");
 
 // =============================================================================
 // Types
@@ -143,7 +147,7 @@ export class ConnectionsListManager {
         : this.config.container;
 
     if (!this.container) {
-      console.error('[ConnectionsList] Container not found:', this.config.container);
+      logger.error('[ConnectionsList] Container not found:', this.config.container);
       return;
     }
 

@@ -1,4 +1,8 @@
+import { createLogger } from '../shared/logger.js';
+
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+
+const logger = createLogger("DataGrid");
 
 /**
  * Translation Status Legend Component
@@ -128,7 +132,7 @@ export class StatusLegend {
    */
   render(): void {
     if (!this.container) {
-      console.warn('[StatusLegend] Container not found');
+      logger.warn('[StatusLegend] Container not found');
       return;
     }
 

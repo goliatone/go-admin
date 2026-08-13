@@ -3,6 +3,8 @@
  * Displays service installations with filters, pagination, and management actions
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type {
   Installation,
   InstallationStatus,
@@ -41,6 +43,8 @@ import {
   resolveProviderDisplayName,
   truncateId,
 } from './formatters.js';
+
+const logger = createLogger("InstallationsList");
 
 // =============================================================================
 // Types
@@ -147,7 +151,7 @@ export class InstallationsListManager {
         : this.config.container;
 
     if (!this.container) {
-      console.error('[InstallationsList] Container not found:', this.config.container);
+      logger.error('[InstallationsList] Container not found:', this.config.container);
       return;
     }
 

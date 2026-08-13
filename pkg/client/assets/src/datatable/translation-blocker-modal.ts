@@ -11,9 +11,13 @@
  * - Accessible with keyboard navigation and screen-reader labels
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import { Modal } from '../components/modal.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { executeActionRequest } from '../toast/error-helpers.js';
+
+const logger = createLogger("DataGrid");
 
 // ============================================================================
 // Types
@@ -493,7 +497,7 @@ export async function showTranslationBlocker(config: TranslationBlockerModalConf
     await TranslationBlockerModal.showBlocker(config);
   } catch (err) {
     // Fallback to toast/alert if modal render fails
-    console.error('[TranslationBlockerModal] Render failed, using fallback:', err);
+    logger.error('[TranslationBlockerModal] Render failed, using fallback:', err);
     const transition = config.transition || 'complete action';
     const locales = config.missingLocales.join(', ');
     const message = `Cannot ${transition}: Missing translations for ${locales}`;

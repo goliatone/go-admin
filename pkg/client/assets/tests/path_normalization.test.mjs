@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const {
   trimTrailingSlash,
   normalizeBasePath,
+  resolvePath,
   normalizeAPIBasePath,
   deriveBasePathFromAPIEndpoint,
 } = await import('../dist/shared/path-normalization.js');
@@ -33,6 +34,14 @@ test('shared path normalization preserves the datatable base-path contracts', ()
   assert.equal(normalizeAPIBasePath('/'), '');
   assert.equal(normalizeAPIBasePath('/admin/api/'), '/admin/api');
   assert.equal(normalizeAPIBasePath('/admin/preferences///'), '/admin/preferences');
+});
+
+test('shared path resolution preserves entry-navigation relative and absolute paths', () => {
+  assert.equal(resolvePath('/admin', ''), '/admin');
+  assert.equal(resolvePath('/admin', '', '/fallback'), '/fallback');
+  assert.equal(resolvePath('/admin/', 'entries/1'), '/admin/entries/1');
+  assert.equal(resolvePath('/admin', '/entries/1'), '/entries/1');
+  assert.equal(resolvePath('/admin', 'https://example.com/entries/1'), 'https://example.com/entries/1');
 });
 
 test('shared path normalization preserves the content-type-builder API suffix rules', () => {

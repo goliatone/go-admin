@@ -1,14 +1,15 @@
-import { httpRequest as b } from "../shared/transport/http-client.js";
-import { s as y } from "../chunks/status-vocabulary-BYdivV6D.js";
-import { t as w } from "../chunks/sortable.esm-ChQrsKAN.js";
-import { n as x, t as $ } from "../chunks/application-widgets-ghhHXoXr.js";
-var S = class {
+import { createLogger as m } from "../shared/logger.js";
+import { httpRequest as x } from "../shared/transport/http-client.js";
+import { s as $ } from "../chunks/status-vocabulary-BYdivV6D.js";
+import { t as S } from "../chunks/sortable.esm-ChQrsKAN.js";
+import { n as _, t as E } from "../chunks/application-widgets-ghhHXoXr.js";
+var A = class {
   constructor() {
     this.sortableInstances = [];
   }
   enable(t, e) {
     t.querySelectorAll("[data-widgets-grid]").forEach((a) => {
-      const n = w.create(a, {
+      const n = S.create(a, {
         handle: ".widget-drag-handle",
         draggable: "[data-widget]",
         animation: 150,
@@ -28,7 +29,7 @@ var S = class {
       t.destroy();
     }), this.sortableInstances = [];
   }
-}, _ = class {
+}, C = class {
   toggleWidth(t, e, a) {
     const n = e === a ? a / 2 : a;
     return this.applyWidth(t, n), n;
@@ -36,7 +37,7 @@ var S = class {
   applyWidth(t, e) {
     t.dataset.span = e.toString(), t.style.setProperty("--span", e.toString());
   }
-}, E = class {
+}, T = class {
   toggle(t) {
     const e = t.dataset.hidden !== "true";
     return this.applyVisibility(t, e), e;
@@ -44,9 +45,9 @@ var S = class {
   applyVisibility(t, e) {
     e ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
-}, A = class {
+}, N = m("DashboardPersistence"), z = class {
   async save(t, e) {
-    const a = await b(t, {
+    const a = await x(t, {
       method: "POST",
       json: e
     });
@@ -57,10 +58,10 @@ var S = class {
       const e = await fetch(t);
       return e.ok ? await e.json() : null;
     } catch (e) {
-      return console.warn("Failed to load layout preferences:", e), null;
+      return N.warn("Failed to load layout preferences:", e), null;
     }
   }
-}, C = class {
+}, v = m("WidgetGrid"), j = class {
   constructor(t) {
     this.container = null, this.saveTimer = null, this.statusElement = null, this.panelSchema = null, this.panelTabs = [], this.config = {
       apiEndpoint: t.apiEndpoint,
@@ -80,12 +81,12 @@ var S = class {
       behaviors: t.behaviors || {},
       onSave: t.onSave || (() => {
       }),
-      onError: t.onError || ((e) => console.error("WidgetGrid error:", e))
+      onError: t.onError || ((e) => v.error("WidgetGrid error:", e))
     }, this.behaviors = {
-      dragDrop: t.behaviors?.dragDrop || new S(),
-      resize: t.behaviors?.resize || new _(),
-      visibility: t.behaviors?.visibility || new E(),
-      persistence: t.behaviors?.persistence || new A()
+      dragDrop: t.behaviors?.dragDrop || new A(),
+      resize: t.behaviors?.resize || new C(),
+      visibility: t.behaviors?.visibility || new T(),
+      persistence: t.behaviors?.persistence || new z()
     };
   }
   async init(t) {
@@ -98,7 +99,7 @@ var S = class {
     const e = Array.from(this.container.querySelectorAll("[data-widgets-grid][data-area-grid]")).map((r) => r.dataset.areaGrid || r.dataset.areaCode || "").filter((r) => !!r);
     if (e.length === 0) return;
     const a = new Set(t.areas.map((r) => r?.code || r?.area_code || r?.id || "").filter((r) => typeof r == "string" && r.length > 0)), n = e.filter((r) => !a.has(r));
-    n.length > 0 && console.warn("Hydration mismatch: rendered area(s) missing from server state", {
+    n.length > 0 && v.warn("Hydration mismatch: rendered area(s) missing from server state", {
       missing: n,
       server: Array.from(a),
       dom: e
@@ -203,7 +204,7 @@ var S = class {
   destroy() {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
-}, T = {
+}, k = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -218,18 +219,18 @@ var S = class {
   "admin.widget.pie_chart": "Pie Chart",
   "admin.widget.gauge_chart": "Gauge",
   "admin.widget.scatter_chart": "Scatter Chart"
-}, N = /* @__PURE__ */ new Set([
+}, B = /* @__PURE__ */ new Set([
   "admin.widget.bar_chart",
   "admin.widget.line_chart",
   "admin.widget.pie_chart",
   "admin.widget.gauge_chart",
   "admin.widget.scatter_chart"
-]), z = class {
+]), D = class {
   constructor(t) {
     this.activityActionLabels = t.activityActionLabels || {};
   }
   render(t, e) {
-    const a = e === "admin.dashboard.main" || e === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), r = t.hidden || !1, i = t.data?.title || t.config?.title || x(t.definition, t) || this.getTitle(t.definition), s = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, d = this.renderContent(t);
+    const a = e === "admin.dashboard.main" || e === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), r = t.hidden || !1, i = t.data?.title || t.config?.title || _(t.definition, t) || this.getTitle(t.definition), s = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, d = this.renderContent(t);
     let o = '<div class="widget__toolbar">';
     return o += '<button type="button" class="hide-widget">Toggle Hide</button>', a ? o += '<button type="button" class="resize-widget">Half Width</button>' : o += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>', o += "</div>", `
       <article class="widget"
@@ -257,7 +258,7 @@ var S = class {
     `;
   }
   renderContent(t) {
-    const e = t.definition || "", a = t.data || {}, n = t.config || {}, r = $(e);
+    const e = t.definition || "", a = t.data || {}, n = t.config || {}, r = E(e);
     if (r) return r.render(t);
     if (e === "admin.widget.user_stats") {
       const i = {
@@ -307,11 +308,11 @@ var S = class {
       return i.length === 0 ? '<p class="text-gray-500">No recent activity</p>' : `
         <ul class="space-y-3">
           ${i.map((s) => {
-        const d = String(s?.actor || s?.metadata?.actor || "system").trim() || "system", o = String(s?.action || "").trim(), l = this.activityActionLabels?.[o] || o || "updated", h = String(s?.object || "").trim();
+        const d = String(s?.actor || s?.metadata?.actor || "system").trim() || "system", o = String(s?.action || "").trim(), l = this.activityActionLabels?.[o] || o || "updated", u = String(s?.object || "").trim();
         return `
             <li class="py-3 border-b border-gray-100 last:border-b-0">
               <div class="font-semibold text-gray-900 text-sm">${d}</div>
-              <div class="text-gray-600 text-sm mt-1">${l}${h ? ` ${h}` : ""}</div>
+              <div class="text-gray-600 text-sm mt-1">${l}${u ? ` ${u}` : ""}</div>
             </li>
           `;
       }).join("")}
@@ -409,7 +410,7 @@ var S = class {
       `;
     }
     if (e === "admin.widget.translation_progress") {
-      const i = a.summary || {}, s = a.status_counts || {}, d = a.locale_counts || {}, o = Array.isArray(a.links) ? a.links : [], l = Number(i.overdue || 0), h = a.updated_at ? String(a.updated_at) : "", f = (c, u) => y(String(c || ""), { count: this.formatNumber(u) });
+      const i = a.summary || {}, s = a.status_counts || {}, d = a.locale_counts || {}, o = Array.isArray(a.links) ? a.links : [], l = Number(i.overdue || 0), u = a.updated_at ? String(a.updated_at) : "", w = (c, p) => $(String(c || ""), { count: this.formatNumber(p) });
       return `
         <div class="grid grid-cols-3 gap-3 mb-4">
           <div class="bg-gray-50 rounded-lg p-3 text-center">
@@ -443,7 +444,7 @@ var S = class {
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(s).map(([c, u]) => f(c, u)).join("")}
+              ${Object.entries(s).map(([c, p]) => w(c, p)).join("")}
             </div>
           </div>
         ` : ""}
@@ -452,10 +453,10 @@ var S = class {
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Language</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(d).map(([c, u]) => `
+              ${Object.entries(d).map(([c, p]) => `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
                   <span class="uppercase font-semibold">${c}</span>
-                  <span class="text-indigo-500">${this.formatNumber(u)}</span>
+                  <span class="text-indigo-500">${this.formatNumber(p)}</span>
                 </span>
               `).join("")}
             </div>
@@ -479,14 +480,14 @@ var S = class {
           </div>
         ` : ""}
 
-        ${h ? `
+        ${u ? `
           <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
-            Updated <time data-relative-time="${h}">${h}</time>
+            Updated <time data-relative-time="${u}">${u}</time>
           </div>
         ` : ""}
       `;
     }
-    if (N.has(e)) {
+    if (B.has(e)) {
       const i = a.subtitle || n.subtitle || "", s = String(a.theme || "westeros"), d = String(a.chart_assets_host || "/dashboard/assets/echarts/"), o = a.chart_options ? JSON.stringify(a.chart_options) : "", l = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
@@ -504,7 +505,7 @@ var S = class {
     return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(a, null, 2)}</pre>`;
   }
   getTitle(t) {
-    return T[t] || t;
+    return k[t] || t;
   }
   formatNumber(t) {
     return typeof t == "number" ? t.toLocaleString() : String(t);
@@ -513,16 +514,16 @@ var S = class {
     const e = Number.parseInt(String(t ?? ""), 10);
     return !Number.isFinite(e) || e < 1 || e > 12 ? 12 : e;
   }
-}, p = /* @__PURE__ */ new Map(), g = /* @__PURE__ */ new WeakMap();
-async function j(t) {
-  const e = new z(t), a = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, n = document.getElementById("dashboard-export");
+}, h = m("AdminDashboard"), g = /* @__PURE__ */ new Map(), f = /* @__PURE__ */ new WeakMap();
+async function L(t) {
+  const e = new D(t), a = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, n = document.getElementById("dashboard-export");
   n && n.addEventListener("click", () => window.open(a));
-  const r = k((await (await fetch(a)).json()).widgets || []);
+  const r = W((await (await fetch(a)).json()).widgets || []);
   for (const [i, s] of Object.entries(r)) {
     const d = document.querySelector(`[data-area-grid="${i}"]`);
     d && (d.innerHTML = s.map((o) => e.render(o, i)).join(""));
   }
-  await v(), await new C({
+  await y(), await new j({
     apiEndpoint: a,
     preferencesEndpoint: `${a}/preferences`,
     areas: [
@@ -535,100 +536,100 @@ async function j(t) {
       resizeBtn: ".resize-widget"
     },
     onSave: (i) => {
-      console.log("Layout saved:", i);
+      h.debug("Layout saved:", i);
     },
     onError: (i) => {
-      console.error("Widget grid error:", i);
+      h.error("Widget grid error:", i);
       const s = document.getElementById("save-status");
       s && (s.textContent = "Failed to save layout");
     }
-  }).init(), await v();
+  }).init(), await y();
 }
-function k(t) {
+function W(t) {
   return t.reduce((e, a) => {
     const n = a.area || "admin.dashboard.main";
     return e[n] || (e[n] = []), e[n].push(a), e;
   }, {});
 }
-function B(t) {
+function O(t) {
   const e = (t || "").trim();
   return e ? e.endsWith("/") ? e : `${e}/` : "/dashboard/assets/echarts/";
 }
-function m(t) {
+function b(t) {
   if (!t) return Promise.resolve();
-  if (p.has(t)) return p.get(t);
+  if (g.has(t)) return g.get(t);
   if (document.querySelector(`script[src="${t}"]`)) {
     const a = Promise.resolve();
-    return p.set(t, a), a;
+    return g.set(t, a), a;
   }
   const e = new Promise((a, n) => {
     const r = document.createElement("script");
     r.src = t, r.async = !0, r.onload = () => a(), r.onerror = () => n(/* @__PURE__ */ new Error(`Failed to load chart asset: ${t}`)), document.head.appendChild(r);
   });
-  return p.set(t, e), e;
+  return g.set(t, e), e;
 }
-async function D(t, e) {
-  const a = B(e);
-  await m(`${a}echarts.min.js`), t && t !== "default" && await m(`${a}themes/${t}.js`);
+async function I(t, e) {
+  const a = O(e);
+  await b(`${a}echarts.min.js`), t && t !== "default" && await b(`${a}themes/${t}.js`);
 }
-function L(t) {
+function R(t) {
   const e = t.querySelector("script[data-chart-options]");
   if (!e?.textContent) return null;
   try {
     return JSON.parse(e.textContent);
   } catch (a) {
-    return console.error("[admin-dashboard] Failed to parse chart options", a), null;
+    return h.error("[admin-dashboard] Failed to parse chart options", a), null;
   }
 }
-function O(t) {
-  const e = (t.dataset.chartId || "").trim(), a = (t.dataset.chartTheme || "westeros").trim(), n = L(t), r = e ? document.getElementById(e) : null, i = window.echarts;
+function P(t) {
+  const e = (t.dataset.chartId || "").trim(), a = (t.dataset.chartTheme || "westeros").trim(), n = R(t), r = e ? document.getElementById(e) : null, i = window.echarts;
   if (!r || !n || !i) return;
   const s = i.getInstanceByDom(r) || i.init(r, a, { renderer: "canvas" });
-  if (s.setOption(n, !0), !g.has(t) && window.ResizeObserver) {
+  if (s.setOption(n, !0), !f.has(t) && window.ResizeObserver) {
     const d = new ResizeObserver(() => {
       try {
         s.resize();
       } catch (o) {
-        console.warn("[admin-dashboard] Chart resize failed", o);
+        h.warn("[admin-dashboard] Chart resize failed", o);
       }
     });
-    d.observe(r), g.set(t, d);
+    d.observe(r), f.set(t, d);
   }
 }
-async function v() {
+async function y() {
   const t = Array.from(document.querySelectorAll("[data-echart-widget]"));
   for (const e of t) {
     const a = (e.dataset.chartTheme || "westeros").trim(), n = e.dataset.chartAssetsHost || "";
     try {
-      await D(a, n), O(e);
+      await I(a, n), P(e);
     } catch (r) {
-      console.error("[admin-dashboard] Failed to hydrate chart widget", r);
+      h.error("[admin-dashboard] Failed to hydrate chart widget", r);
     }
   }
 }
-function H() {
+function J() {
   const t = document.getElementById("admin-dashboard-config");
   if (!t?.textContent) {
-    console.error("[admin-dashboard] Missing #admin-dashboard-config element");
+    h.error("[admin-dashboard] Missing #admin-dashboard-config element");
     return;
   }
   try {
-    j(JSON.parse(t.textContent)).catch((e) => {
-      console.error("[admin-dashboard] Failed to initialize:", e);
+    L(JSON.parse(t.textContent)).catch((e) => {
+      h.error("[admin-dashboard] Failed to initialize:", e);
     });
   } catch (e) {
-    console.error("[admin-dashboard] Invalid config JSON:", e);
+    h.error("[admin-dashboard] Invalid config JSON:", e);
   }
 }
 export {
-  S as DefaultDragDropBehavior,
-  A as DefaultPersistenceBehavior,
-  _ as DefaultResizeBehavior,
-  E as DefaultVisibilityBehavior,
-  C as WidgetGrid,
-  z as WidgetRenderer,
-  H as bootstrapAdminDashboard,
-  j as initAdminDashboard
+  A as DefaultDragDropBehavior,
+  z as DefaultPersistenceBehavior,
+  C as DefaultResizeBehavior,
+  T as DefaultVisibilityBehavior,
+  j as WidgetGrid,
+  D as WidgetRenderer,
+  J as bootstrapAdminDashboard,
+  L as initAdminDashboard
 };
 
 //# sourceMappingURL=index.js.map

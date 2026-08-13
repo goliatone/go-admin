@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import { escapeHTML } from '../shared/html.js';
 import { onReady } from '../shared/dom-ready.js';
 import { parseJSONArray, parseJSONValue } from '../shared/json-parse.js';
@@ -9,6 +11,8 @@ import {
   refreshBlockTemplateRegistry,
   markRequiredFields,
 } from './block_editor';
+
+const logger = createLogger("BlockLibraryPicker");
 
 // =============================================================================
 // 5.1  Type Definitions
@@ -764,12 +768,12 @@ async function initPicker(root: HTMLElement): Promise<void> {
 
   const apiBase = root.dataset.apiBase || config.apiBase || '';
   if (!apiBase) {
-    console.warn('block-library-picker: missing data-api-base');
+    logger.warn('block-library-picker: missing data-api-base');
     return;
   }
   const { listBase, templatesBase } = resolvePickerBases(apiBase);
   if (!listBase || !templatesBase) {
-    console.warn('block-library-picker: invalid api base', apiBase);
+    logger.warn('block-library-picker: invalid api base', apiBase);
     return;
   }
 
@@ -787,7 +791,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
   try {
     definitions = await fetchBlockMetadata(listBase, includeInactive);
   } catch (err) {
-    console.error('block-library-picker: metadata fetch failed', err);
+    logger.error('block-library-picker: metadata fetch failed', err);
     const message = err instanceof Error ? err.message : 'Failed to load block definitions.';
     renderPickerLoadError(root, `Failed to load block definitions: ${message}`);
     return;
@@ -830,7 +834,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
         templateCache.set(tmpl.slug, tmpl);
       }
     } catch (err) {
-      console.error('block-library-picker: template fetch failed', err);
+      logger.error('block-library-picker: template fetch failed', err);
     }
   }
 
@@ -848,7 +852,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
           templateCache.set(tmpl.slug, tmpl);
         }
       } catch (err) {
-        console.error('block-library-picker: prefetch failed', err);
+        logger.error('block-library-picker: prefetch failed', err);
       }
     }
   }
@@ -953,7 +957,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
             templateCache.set(tmplResp.slug, tmplResp);
           }
         } catch (err) {
-          console.error(`block-library-picker: fetch template ${slug} failed`, err);
+          logger.error(`block-library-picker: fetch template ${slug} failed`, err);
           pickerPopover.close();
           return;
         }

@@ -1,8 +1,10 @@
-import { t as k } from "../chunks/modal-coordinator-Ctk09F2l.js";
-import { httpRequest as N } from "../shared/transport/http-client.js";
-import { formatByteSize as z } from "../shared/size-formatters.js";
-function P(e) {
-  return z(e, {
+import { createLogger as N } from "../shared/logger.js";
+import { t as z } from "../chunks/modal-coordinator-Ctk09F2l.js";
+import { httpRequest as P } from "../shared/transport/http-client.js";
+import { formatByteSize as D } from "../shared/size-formatters.js";
+var C = N("ImportModal");
+function M(e) {
+  return D(e, {
     zeroFallback: "0 Bytes",
     invalidFallback: "0 Bytes",
     unitLabels: [
@@ -20,7 +22,7 @@ function P(e) {
     trimTrailingZeros: !0
   });
 }
-var H = class {
+var j = class {
   constructor(e = {}) {
     if (this.modalLayer = null, this.modalId = e.modalId || "import-modal", e.endpoint) this.endpoint = e.endpoint;
     else if (e.apiBasePath) {
@@ -29,8 +31,8 @@ var H = class {
     } else this.endpoint = "/api/import";
     this.onSuccess = e.onSuccess || (() => {
     }), this.notifier = e.notifier || {
-      success: console.log,
-      error: console.error
+      success: C.debug,
+      error: C.error
     }, this.resourceName = e.resourceName || "items", this.elements = {}, this.isFullscreen = !1, this.currentFilter = "all", this.resultItems = [], this.bindElements(), this.bindEvents();
   }
   bindElements() {
@@ -128,7 +130,7 @@ var H = class {
   }
   updateFilePreview() {
     const e = this.elements.fileInput, { dropzoneEmpty: s, dropzoneSelected: t, fileName: i, fileSize: n, submitBtn: l } = this.elements, r = e?.files?.[0] ?? null;
-    r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = P(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
+    r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = M(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
   }
   reset() {
     const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: x, totalCount: B, modal: h } = this.elements;
@@ -148,7 +150,7 @@ var H = class {
     const s = e.ownerDocument.activeElement, t = e.ownerDocument.defaultView?.HTMLElement, i = t && s instanceof t ? s : null;
     e.classList.remove("hidden");
     try {
-      this.modalLayer = k({
+      this.modalLayer = z({
         container: e,
         zIndexTarget: e,
         initialFocus: this.elements.fileInput || this.elements.closeBtn,
@@ -173,13 +175,13 @@ var H = class {
   renderResults(e) {
     const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: x, totalCount: B } = this.elements;
     if (!s || !t) return;
-    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, S = Number(h.failed) || 0, b = Array.isArray(e && e.results) ? e.results : [], C = e && e.error ? String(e.error).trim() : "";
-    if (this.resultItems = b, c && (c.textContent = String(f)), o && (o.textContent = String(p)), m && (m.textContent = String(S)), B && (B.textContent = String(b.length)), x && (x.textContent = String(b.length)), C && r && a && (a.textContent = C, r.classList.remove("hidden")), t.innerHTML = "", b.length === 0) {
+    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, F = Number(h.failed) || 0, b = Array.isArray(e && e.results) ? e.results : [], S = e && e.error ? String(e.error).trim() : "";
+    if (this.resultItems = b, c && (c.textContent = String(f)), o && (o.textContent = String(p)), m && (m.textContent = String(F)), B && (B.textContent = String(b.length)), x && (x.textContent = String(b.length)), S && r && a && (a.textContent = S, r.classList.remove("hidden")), t.innerHTML = "", b.length === 0) {
       const d = document.createElement("tr"), E = this.buildCell("No results to display", "px-4 py-4 text-gray-500 text-center");
       E.colSpan = 5, d.appendChild(E), t.appendChild(d);
     } else b.forEach((d, E) => {
-      const u = document.createElement("tr"), F = typeof d.index == "number" ? d.index + 1 : E + 1, w = d.email ? String(d.email) : "-", $ = d.user_id ? String(d.user_id) : "-", g = d.error && String(d.error).trim() !== "", A = g ? "Failed" : d.status ? String(d.status) : "Created";
-      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(F), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-500 font-mono text-xs"));
+      const u = document.createElement("tr"), w = typeof d.index == "number" ? d.index + 1 : E + 1, $ = d.email ? String(d.email) : "-", A = d.user_id ? String(d.user_id) : "-", g = d.error && String(d.error).trim() !== "", k = g ? "Failed" : d.status ? String(d.status) : "Created";
+      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(w), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell(A, "px-4 py-2 text-gray-500 font-mono text-xs"));
       const I = document.createElement("td");
       I.className = "px-4 py-2";
       const v = document.createElement("span");
@@ -187,7 +189,7 @@ var H = class {
       const y = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       y.setAttribute("class", "w-3 h-3"), y.setAttribute("fill", "none"), y.setAttribute("stroke", "currentColor"), y.setAttribute("viewBox", "0 0 24 24");
       const L = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      L.setAttribute("stroke-linecap", "round"), L.setAttribute("stroke-linejoin", "round"), L.setAttribute("stroke-width", "2"), L.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(L), v.appendChild(y), v.appendChild(document.createTextNode(A)), I.appendChild(v), u.appendChild(I), u.appendChild(this.buildCell(g ? String(d.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
+      L.setAttribute("stroke-linecap", "round"), L.setAttribute("stroke-linejoin", "round"), L.setAttribute("stroke-width", "2"), L.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(L), v.appendChild(y), v.appendChild(document.createTextNode(k)), I.appendChild(v), u.appendChild(I), u.appendChild(this.buildCell(g ? String(d.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
     });
     i && i.classList.add("hidden"), s.classList.remove("hidden"), n && n.classList.add("hidden"), l && l.classList.remove("hidden"), this.applyFilter();
   }
@@ -202,12 +204,12 @@ var H = class {
     i.append("file", t), this.setLoading(!0);
     let n = null, l = null;
     try {
-      n = await N(this.endpoint, {
+      n = await P(this.endpoint, {
         method: "POST",
         body: i
       }), (n.headers.get("Content-Type") || "").includes("application/json") ? l = await n.json() : l = { error: "Import failed" };
     } catch (o) {
-      console.error("Import failed:", o), this.notifier.error("Import failed.");
+      C.error("Import failed:", o), this.notifier.error("Import failed.");
     } finally {
       this.setLoading(!1);
     }
@@ -223,9 +225,9 @@ var H = class {
   }
 };
 export {
-  H as ImportModal,
-  H as default,
-  P as formatFileSize
+  j as ImportModal,
+  j as default,
+  M as formatFileSize
 };
 
 //# sourceMappingURL=import-modal.js.map

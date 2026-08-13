@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import type { DisabledReasonCode, TranslationErrorEnvelope } from '../translation-contracts/index.js';
 import { normalizeActionBlockCode, type ActionBlockCodeInput } from './action-contracts.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
@@ -7,6 +9,8 @@ import {
   humanizeStatus,
   type StatusTone,
 } from '../shared/status-vocabulary.js';
+
+const logger = createLogger("DataGrid");
 export type { DisabledReasonCode } from '../translation-contracts/index.js';
 export type { ActionBlockCodeInput } from './action-contracts.js';
 
@@ -726,7 +730,7 @@ export function initializeVocabularyFromPayload(_payload: StatusVocabularyPayloa
   // Currently vocabulary is static; this hook allows future dynamic updates
   // Validate payload matches expected structure
   if (_payload.schema_version !== 1) {
-    console.warn('[TranslationStatusVocabulary] Unknown schema version:', _payload.schema_version);
+    logger.warn('[TranslationStatusVocabulary] Unknown schema version:', _payload.schema_version);
   }
 }
 

@@ -3,6 +3,8 @@
  * Manages activity feed display with enhanced formatting and view switching
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type {
   ActivityEntry,
   ActivityPayload,
@@ -30,6 +32,8 @@ import { renderIcon } from '../shared/icon-renderer.js';
 
 import { ActivityViewSwitcher } from './activity-view-switcher.js';
 import { TimelineRenderer, createLoadingIndicator, createEndIndicator, createScrollSentinel } from './activity-timeline.js';
+
+const logger = createLogger("Activity");
 
 const DEFAULT_SELECTORS: ActivitySelectors = {
   form: '#activity-filters',
@@ -292,7 +296,7 @@ export class ActivityManager {
         this.timelineSentinel?.parentElement?.insertBefore(endIndicator, this.timelineSentinel);
       }
     } catch (err) {
-      console.error('Failed to load more entries:', err);
+      logger.error('Failed to load more entries:', err);
     } finally {
       // Remove loading indicator
       loadingIndicator.remove();

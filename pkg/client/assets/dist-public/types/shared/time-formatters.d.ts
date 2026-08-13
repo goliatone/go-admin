@@ -9,6 +9,11 @@ export interface RelativeTimeCompactPastOptions {
     emptyFallback?: string;
     invalidFallback?: string;
 }
+export interface RelativeTimeCompactOptions extends RelativeTimeCompactPastOptions {
+    allowFuture?: boolean;
+    pastImmediateLabel?: string;
+    futureImmediateLabel?: string;
+}
 export interface RelativeTimeNaturalOptions {
     emptyFallback?: string;
     invalidFallback?: string;
@@ -24,6 +29,7 @@ export interface RelativeTimeVerbosePastOptions {
 export declare function parseTimeValue(value: unknown): Date | null;
 export declare function formatAbsoluteDateTime(value: unknown, options?: AbsoluteTimeFormatOptions): string;
 export declare function formatRelativeTimeCompactPast(value: unknown, options?: RelativeTimeCompactPastOptions): string;
+export declare function formatRelativeTimeCompact(value: unknown, options?: RelativeTimeCompactOptions): string;
 export declare function formatRelativeTimeNatural(value: unknown, options?: RelativeTimeNaturalOptions): string;
 export declare function formatRelativeTimeVerbosePast(value: unknown, options?: RelativeTimeVerbosePastOptions): string;
 //# sourceMappingURL=time-formatters.d.ts.map

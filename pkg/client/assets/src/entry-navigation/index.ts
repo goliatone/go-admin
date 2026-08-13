@@ -1,29 +1,21 @@
+import { createLogger } from '../shared/logger.js';
+
 import { coerceString } from '../shared/coercion.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { parseJSONValue } from '../shared/json-parse.js';
 import { onReady } from '../shared/dom-ready.js';
+import { resolvePath } from '../shared/path-normalization.js';
 import { EntryNavigationAPIClient, EntryNavigationAPIError } from './api-client.js';
 import type { EntryNavigationConfig, EntryNavigationState, NavigationOverrideValue } from './types.js';
+
+const logger = createLogger("EntryNavigation");
 
 export type { EntryNavigationConfig, EntryNavigationPatchResult, EntryNavigationState, NavigationOverrideValue } from './types.js';
 export { EntryNavigationAPIClient, EntryNavigationAPIError, parseNavigationOverrides } from './api-client.js';
 
-function normalizePath(basePath: string, path: string, emptyFallback = basePath): string {
-  if (!path) {
-    return emptyFallback;
-  }
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  if (path.startsWith('/')) {
-    return path;
-  }
-  return `${basePath.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
-}
-
 function normalizeAPIBasePath(basePath: string, candidate: string): string {
   const fallback = `${basePath.replace(/\/+$/, '')}/api`;
-  const resolved = normalizePath(basePath, candidate || fallback, fallback);
+  const resolved = resolvePath(basePath, candidate || fallback, fallback);
   if (/\/api(\/|$)/.test(resolved)) {
     return resolved;
   }
@@ -192,7 +184,7 @@ export async function initEntryNavigationOverrides(root: HTMLElement): Promise<E
     return null;
   }
 
-  const basePath = normalizePath('/', String(root.dataset.basePath || '/admin'), '');
+  const basePath = resolvePath('/', String(root.dataset.basePath || '/admin'), '');
   const apiBase = normalizeAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
   const config = parseEntryNavigationConfig(root);
   const client = new EntryNavigationAPIClient({ basePath: apiBase, endpoint: config.endpoint });
@@ -210,7 +202,7 @@ onReady(() => {
         root.dataset.initialized = 'true';
       })
       .catch((error: unknown) => {
-        console.error('[entry-navigation] failed to initialize', error);
+        logger.error('[entry-navigation] failed to initialize', error);
         root.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${error instanceof Error ? error.message : String(error)}</div>`;
       });
   });

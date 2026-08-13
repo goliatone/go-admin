@@ -5,6 +5,7 @@ import type { LogEntry, PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatTimestamp, getLevelClass, truncate } from '../utils.js';
 import { escapeAttribute } from '../../../shared/html.js';
+import { renderSortToggle } from '../panel-controls.js';
 import { hashString } from './live-list-view.js';
 
 const ERROR_FIELD_ORDER = [
@@ -66,17 +67,6 @@ export type LogsPanelOptions = PanelOptions & {
   /** Rich adjacent detail rows. Off by default so toolbar output remains compact. */
   expandable?: boolean;
 };
-
-function renderSortToggle(panelId: string, newestFirst: boolean, styles: StyleConfig): string {
-  return `
-    <div class="${styles.panelControls}">
-      <label class="${styles.sortToggle}">
-        <input type="checkbox" data-sort-toggle="${panelId}" ${newestFirst ? 'checked' : ''}>
-        <span>Newest first</span>
-      </label>
-    </div>
-  `;
-}
 
 function readableLabel(key: string): string {
   return key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());

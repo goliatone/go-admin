@@ -1,5 +1,5 @@
 import { escapeAttribute as y, escapeHTML as i } from "../shared/html.js";
-import { t as m } from "../chunks/icon-renderer-DauoBn1n.js";
+import { t as m } from "../chunks/icon-renderer-DWZ4R-YR.js";
 var h = {
   providers: {
     icon: "iconoir:plug",

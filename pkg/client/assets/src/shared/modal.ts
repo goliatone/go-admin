@@ -16,11 +16,15 @@
  *   new MyModal().show();
  */
 
+import { createLogger } from './logger.js';
+
 import { escapeHTML, escapeHTML as escapeHtml } from './html.js';
 import {
   registerModalLayer,
   type ModalLayerHandle,
 } from './modal-coordinator.js';
+
+const logger = createLogger("Modal");
 
 // ---------------------------------------------------------------------------
 // Types
@@ -336,7 +340,7 @@ export abstract class Modal {
         this.container.setAttribute('aria-labelledby', heading.id);
       } else {
         this.container.setAttribute('aria-label', 'Dialog');
-        console.warn('Modal opened without labelledBy, ariaLabel, or heading; using fallback accessible name.');
+        logger.warn('Modal opened without labelledBy, ariaLabel, or heading; using fallback accessible name.');
       }
     }
     if (this._options.describedBy) {

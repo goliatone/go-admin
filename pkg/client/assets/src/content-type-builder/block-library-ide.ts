@@ -6,6 +6,8 @@
  * Phase 8: Block Editor Panel (center column) — metadata, field cards, sections
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type {
   BlockDefinition,
   BlockDefinitionStatus,
@@ -25,6 +27,8 @@ import { renderBlockStatusBadge } from './shared/status-badges';
 import { capitalizeLabel, nameToSlug } from './shared/text';
 import { CHANNEL_HELP_TEXT, normalizeKnownChannel, validateChannelName } from './shared/channel-validation';
 import { parseJSONValue } from '../shared/json-parse.js';
+
+const logger = createLogger("BlockLibraryIDE");
 
 // =============================================================================
 // Types
@@ -306,11 +310,11 @@ export class BlockLibraryIDE {
           this.showToast(fallbackMessage, newStatus === 'active' ? 'success' : 'info');
           return;
         } catch (fallbackErr) {
-          console.error('Status change fallback failed:', fallbackErr);
+          logger.error('Status change fallback failed:', fallbackErr);
         }
       }
       const msg = err instanceof Error ? err.message : 'Status change failed';
-      console.error('Status change failed:', err);
+      logger.error('Status change failed:', err);
       this.showToast(msg, 'error');
       this.editorPanel?.revertStatus(oldStatus);
     }
@@ -1640,7 +1644,7 @@ export class BlockLibraryIDE {
       this.updateBlockInState(blockId, updated);
     } catch (err) {
       // Silently revert on error
-      console.error('Rename failed:', err);
+      logger.error('Rename failed:', err);
     } finally {
       this.state.renamingBlockId = null;
       this.renderBlockList();
@@ -1673,7 +1677,7 @@ export class BlockLibraryIDE {
       this.renderBlockList();
       this.renderEditor();
     } catch (err) {
-      console.error('Duplicate failed:', err);
+      logger.error('Duplicate failed:', err);
       this.showToast(err instanceof Error ? err.message : 'Failed to duplicate block.', 'error');
     }
   }
@@ -1702,7 +1706,7 @@ export class BlockLibraryIDE {
         if (refreshed) this.editorPanel.update(refreshed);
       }
     } catch (err) {
-      console.error('Publish failed:', err);
+      logger.error('Publish failed:', err);
       this.showToast(err instanceof Error ? err.message : 'Failed to publish block.', 'error');
     }
   }
@@ -1727,7 +1731,7 @@ export class BlockLibraryIDE {
         if (refreshed) this.editorPanel.update(refreshed);
       }
     } catch (err) {
-      console.error('Deprecate failed:', err);
+      logger.error('Deprecate failed:', err);
       this.showToast(err instanceof Error ? err.message : 'Failed to deprecate block.', 'error');
     }
   }
@@ -1761,7 +1765,7 @@ export class BlockLibraryIDE {
       this.updateCount();
       this.renderBlockList();
     } catch (err) {
-      console.error('Delete failed:', err);
+      logger.error('Delete failed:', err);
       this.showToast(err instanceof Error ? err.message : 'Failed to delete block.', 'error');
     }
   }
@@ -1911,7 +1915,7 @@ export function initBlockLibraryIDE(scope: ParentNode = document): void {
       ide.init();
       root.dataset.ideInitialized = 'true';
     } catch (err) {
-      console.error('Block Library IDE failed to initialize:', err);
+      logger.error('Block Library IDE failed to initialize:', err);
     }
   });
 }

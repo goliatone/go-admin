@@ -52,6 +52,38 @@ new DataGrid({
 
 See the repository compatibility matrix before coordinating browser-client and Go module upgrades.
 
+## Logging
+
+Client diagnostics are silent by default. Applications can inject their own
+sink and choose a minimum level:
+
+```ts
+import {
+  configureLogging,
+  createLogger,
+  type LoggerSink,
+} from '@goliatone/go-admin-client/shared/logger';
+
+const sink: LoggerSink = {
+  warn: (...args) => applicationLogger.warn(...args),
+  error: (...args) => applicationLogger.error(...args),
+};
+const restoreLogging = configureLogging({ sink, level: 'warn' });
+
+createLogger('Orders').warn('Refresh delayed', { attempt: 2 });
+
+// Restore the previous package-wide configuration during teardown.
+restoreLogging();
+```
+
+For local development, console output must be enabled explicitly:
+
+```ts
+import { enableConsoleLogging } from '@goliatone/go-admin-client/shared/logger';
+
+const restoreLogging = enableConsoleLogging('debug');
+```
+
 ## Shared modal component
 
 Use the same component from the package or the predictable embedded asset:

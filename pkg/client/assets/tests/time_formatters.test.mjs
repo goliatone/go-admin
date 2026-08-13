@@ -53,6 +53,36 @@ test('shared compact past relative formatter preserves activity-style output', (
   });
 });
 
+test('shared compact relative formatter preserves services bidirectional labels', () => {
+  withFixedNow('2026-03-27T12:00:00Z', () => {
+    assert.equal(
+      sharedTimeFormatters.formatRelativeTimeCompact('2026-03-27T11:59:45Z', {
+        pastImmediateLabel: 'Just now',
+      }),
+      'Just now'
+    );
+    assert.equal(
+      sharedTimeFormatters.formatRelativeTimeCompact('2026-03-27T12:00:15Z', {
+        allowFuture: true,
+        futureImmediateLabel: 'Soon',
+      }),
+      'Soon'
+    );
+    assert.equal(
+      sharedTimeFormatters.formatRelativeTimeCompact('2026-03-27T12:05:00Z', {
+        allowFuture: true,
+      }),
+      'in 5m'
+    );
+    assert.equal(
+      sharedTimeFormatters.formatRelativeTimeCompact('2026-03-27T11:55:00Z', {
+        allowFuture: true,
+      }),
+      '5m ago'
+    );
+  });
+});
+
 test('shared natural relative formatter preserves tabs-style bidirectional output', () => {
   withFixedNow('2026-03-27T12:00:00Z', () => {
     const expectedFuture = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(2, 'hour');

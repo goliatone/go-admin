@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import type {
   DataGridConfig,
   DataGridURLStateConfig,
@@ -42,6 +44,8 @@ import * as renderOps from './core-rendering.js';
 import * as lifecycleOps from './core-lifecycle.js';
 import * as columnOps from './core-columns.js';
 import type { ActionMenuController } from '../shared/action-menu.js';
+
+const logger = createLogger("DataGrid");
 
 export type {
   DataGridCapabilities,
@@ -238,13 +242,13 @@ export class DataGrid {
   }
 
   init(): void {
-    console.log('[DataGrid] Initializing with config:', this.config);
+    logger.debug('[DataGrid] Initializing with config:', this.config);
     this.tableEl = document.querySelector(this.selectors.table);
     if (!this.tableEl) {
-      console.error(`[DataGrid] Table element not found: ${this.selectors.table}`);
+      logger.error(`[DataGrid] Table element not found: ${this.selectors.table}`);
       return;
     }
-    console.log('[DataGrid] Table element found:', this.tableEl);
+    logger.debug('[DataGrid] Table element found:', this.tableEl);
     renderOps.syncActionColumnStructure(this);
     lifecycleOps.adoptSemanticPresentation(this);
 
@@ -275,7 +279,7 @@ export class DataGrid {
     try {
       this.config.onStateChange?.(state);
     } catch (error) {
-      console.error('[DataGrid] onStateChange callback failed:', error);
+      logger.error('[DataGrid] onStateChange callback failed:', error);
     }
   }
 
@@ -688,7 +692,7 @@ export class DataGrid {
       this.bulkActionStateDebounce = null;
     }
 
-    console.log('[DataGrid] Instance destroyed');
+    logger.debug('[DataGrid] Instance destroyed');
   }
 }
 

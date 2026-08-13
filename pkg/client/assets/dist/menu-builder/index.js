@@ -1,19 +1,20 @@
+import { createLogger as q } from "../shared/logger.js";
 import { escapeHTML as c } from "../shared/html.js";
-import { httpRequest as N } from "../shared/transport/http-client.js";
-import { onReady as O } from "../shared/dom-ready.js";
+import { httpRequest as O } from "../shared/transport/http-client.js";
+import { onReady as k } from "../shared/dom-ready.js";
 import { asRecord as f, coerceInteger as E, coerceString as l, coerceStringArray as w } from "../shared/coercion.js";
-import { normalizeMenuBuilderAPIBasePath as k, normalizeMenuBuilderPath as C, normalizeMenuBuilderRoute as F } from "./shared/path-helpers.js";
-import { n as ue, t as pe } from "../chunks/entry-navigation-CjKQoJNU.js";
-var z = /* @__PURE__ */ new Set([
+import { normalizeMenuBuilderAPIBasePath as F, normalizeMenuBuilderPath as C, normalizeMenuBuilderRoute as z } from "./shared/path-helpers.js";
+import { n as fe, t as ge } from "../chunks/entry-navigation-CDCMhcIB.js";
+var U = /* @__PURE__ */ new Set([
   "inherit",
   "show",
   "hide"
-]), U = /* @__PURE__ */ new Set(["draft", "published"]), V = /* @__PURE__ */ new Set([
+]), V = /* @__PURE__ */ new Set(["draft", "published"]), G = /* @__PURE__ */ new Set([
   "content",
   "route",
   "module",
   "external"
-]), G = /* @__PURE__ */ new Set([
+]), J = /* @__PURE__ */ new Set([
   "full",
   "top_level_limit",
   "max_depth",
@@ -31,13 +32,13 @@ function $(t) {
 }
 function A(t) {
   const e = l(t, "draft").toLowerCase();
-  return U.has(e) ? e : "draft";
-}
-function J(t) {
-  const e = l(t, "full").toLowerCase();
-  return G.has(e) ? e : "full";
+  return V.has(e) ? e : "draft";
 }
 function W(t) {
+  const e = l(t, "full").toLowerCase();
+  return J.has(e) ? e : "full";
+}
+function H(t) {
   const e = g(t, "menu contracts"), r = g(e.endpoints, "menu contracts endpoints"), a = g(e.error_codes ?? e.errorCode ?? {}, "menu contracts error codes"), i = {};
   Object.entries(r).forEach(([n, o]) => {
     const d = l(o);
@@ -50,10 +51,10 @@ function W(t) {
   }), {
     endpoints: i,
     error_codes: s,
-    content_navigation: H(e.content_navigation)
+    content_navigation: K(e.content_navigation)
   };
 }
-function H(t) {
+function K(t) {
   if (!t || typeof t != "object" || Array.isArray(t)) return;
   const e = t, r = e.endpoints, a = e.entry_navigation_overrides, i = e.validation, s = {};
   r && typeof r == "object" && !Array.isArray(r) && Object.entries(r).forEach(([o, d]) => {
@@ -121,7 +122,7 @@ function x(t) {
   return {
     code: r,
     name: l(e.name, r),
-    mode: J(e.mode),
+    mode: W(e.mode),
     max_top_level: E(e.max_top_level, 0) || void 0,
     max_depth: E(e.max_depth, 0) || void 0,
     include_item_ids: w(e.include_item_ids),
@@ -132,10 +133,10 @@ function x(t) {
     published_at: l(e.published_at)
   };
 }
-function K(t) {
+function Q(t) {
   if (!t || typeof t != "object" || Array.isArray(t)) return;
   const e = t, r = l(e.type).toLowerCase();
-  if (V.has(r))
+  if (G.has(r))
     return {
       type: r,
       id: l(e.id),
@@ -156,11 +157,11 @@ function _(t, e = "menu item") {
     label: l(r.label, a),
     type: l(r.type),
     parent_id: l(r.parent_id ?? r.parentID ?? r.ParentID),
-    target: K(r.target ?? r.Target),
+    target: Q(r.target ?? r.Target),
     children: s
   };
 }
-function Q(t) {
+function X(t) {
   const e = g(t, "menu preview response"), r = g(e.menu ?? e.data, "menu preview menu"), a = r.items ?? r.Items, i = Array.isArray(a) ? a.map((s, n) => _(s, `preview.menu.items[${n}]`)) : [];
   return {
     menu: {
@@ -179,7 +180,7 @@ function Q(t) {
     } : void 0
   };
 }
-function X(t, e = []) {
+function Y(t, e = []) {
   if (!t || typeof t != "object" || Array.isArray(t)) return {};
   const r = t, a = new Set(e.map((s) => s.trim()).filter(Boolean)), i = {};
   return Object.entries(r).forEach(([s, n]) => {
@@ -187,7 +188,7 @@ function X(t, e = []) {
     if (!o) return;
     if (a.size > 0 && !a.has(o)) throw new Error(`invalid navigation location: ${o}`);
     const d = l(n).toLowerCase();
-    if (!z.has(d)) throw new Error(`invalid navigation value for ${o}: ${String(n)}`);
+    if (!U.has(d)) throw new Error(`invalid navigation value for ${o}: ${String(n)}`);
     i[o] = d;
   }), i;
 }
@@ -202,7 +203,7 @@ function T(t, e) {
     r = r.replace(`:${a}`, encodeURIComponent(String(i)));
   }), r;
 }
-var Y = class {
+var Z = class {
   constructor(t) {
     this.contracts = null;
     const e = t.basePath.replace(/\/+$/, "");
@@ -215,7 +216,7 @@ var Y = class {
   }
   async loadContracts(t = !1) {
     if (this.contracts && !t) return this.contracts;
-    const e = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = f(e), a = W(r.contracts ?? r);
+    const e = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = f(e), a = H(r.contracts ?? r);
     return this.contracts = a, a;
   }
   async listMenus() {
@@ -287,7 +288,7 @@ var Y = class {
       params: { id: t.menuId },
       query: e
     });
-    return Q(r);
+    return X(r);
   }
   async listBindings() {
     const t = await this.fetchFromEndpoint("menu.bindings", { method: "GET" });
@@ -349,7 +350,7 @@ var Y = class {
       headers: { "Content-Type": "application/json" }
     }), o = f(n), d = f(o.data ?? o);
     return {
-      overrides: X(d._navigation, a),
+      overrides: Y(d._navigation, a),
       effective_visibility: f(d.effective_navigation_visibility)
     };
   }
@@ -364,7 +365,7 @@ var Y = class {
     return f(n);
   }
   async fetchJSON(t, e) {
-    const r = await N(t, {
+    const r = await O(t, {
       ...e,
       credentials: this.config.credentials,
       headers: {
@@ -384,7 +385,7 @@ var Y = class {
     }
     return a;
   }
-}, Z = {
+}, ee = {
   loading: !1,
   error: "",
   contracts: null,
@@ -404,9 +405,9 @@ function h(t) {
     children: h(e.children || [])
   }));
 }
-function q(t, e = /* @__PURE__ */ new Set()) {
+function B(t, e = /* @__PURE__ */ new Set()) {
   return t.forEach((r) => {
-    e.add(r.id), q(r.children || [], e);
+    e.add(r.id), B(r.children || [], e);
   }), e;
 }
 function M(t, e) {
@@ -438,12 +439,12 @@ function M(t, e) {
     next: r
   };
 }
-function B(t, e, r) {
+function j(t, e, r) {
   const a = [];
   let i = !1;
   return t.forEach((s) => {
     !i && s.id === e && (a.push(r), i = !0);
-    const n = B(s.children || [], e, r);
+    const n = j(s.children || [], e, r);
     if (n.inserted) {
       i = !0, a.push({
         ...s,
@@ -460,11 +461,11 @@ function B(t, e, r) {
     items: a
   };
 }
-function j(t, e, r) {
+function R(t, e, r) {
   const a = [];
   let i = !1;
   return t.forEach((s) => {
-    const n = j(s.children || [], e, r);
+    const n = R(s.children || [], e, r);
     if (n.inserted) {
       i = !0, a.push({
         ...s,
@@ -503,11 +504,11 @@ function L(t, e, r) {
     items: i
   };
 }
-function ee(t) {
+function te(t) {
   const e = t.target;
   return !e || !e.type ? "" : e.type === "external" ? `external:${String(e.url || "").trim().toLowerCase()}` : e.type === "route" || e.type === "module" ? `${e.type}:${String(e.path || e.route || e.module || "").trim().toLowerCase()}` : `content:${String(e.content_type || "").trim().toLowerCase()}:${String(e.slug || e.id || "").trim().toLowerCase()}`;
 }
-function te(t) {
+function re(t) {
   const e = t.target;
   if (!e) return {
     url: "",
@@ -555,9 +556,9 @@ function te(t) {
       };
   }
 }
-var re = class extends EventTarget {
+var ie = class extends EventTarget {
   constructor(t) {
-    super(), this.client = t, this.state = { ...Z };
+    super(), this.client = t, this.state = { ...ee };
   }
   snapshot() {
     return {
@@ -715,17 +716,17 @@ var re = class extends EventTarget {
   }
   moveItem(t, e, r) {
     if (!t || !e || t === e) return;
-    const a = q(this.state.draft_items);
+    const a = B(this.state.draft_items);
     if (!a.has(t) || !a.has(e)) return;
     const i = M(this.state.draft_items, t);
     if (!i.node) return;
     let s;
     switch (r) {
       case "before":
-        s = B(i.next, e, i.node);
+        s = j(i.next, e, i.node);
         break;
       case "after":
-        s = j(i.next, e, i.node);
+        s = R(i.next, e, i.node);
         break;
       default:
         s = L(i.next, e, i.node);
@@ -773,7 +774,7 @@ var re = class extends EventTarget {
     return this.client.patchEntryNavigation(t, e, r, a);
   }
   resolveTarget(t) {
-    return te(t);
+    return re(t);
   }
   mapItems(t, e, r) {
     return t.map((a) => a.id === e ? r({
@@ -805,7 +806,7 @@ var re = class extends EventTarget {
         message: `${i.label || i.id}: ${o.message}`,
         item_id: i.id
       });
-      const d = ee(i);
+      const d = te(i);
       if (d) {
         const p = r.get(d);
         p && p !== i.id ? e.push({
@@ -826,7 +827,7 @@ var re = class extends EventTarget {
       ...t
     }, e && !Object.prototype.hasOwnProperty.call(t, "preview_result") && (this.state.preview_result = null), this.dispatchEvent(new CustomEvent("change", { detail: this.snapshot() }));
   }
-};
+}, ae = q("MenuBuilder");
 function D(t) {
   return t.split(",").map((e) => e.trim()).filter(Boolean).filter((e, r, a) => a.indexOf(e) === r).sort();
 }
@@ -834,7 +835,7 @@ function S(t, e = "") {
   const r = window.prompt(t, e);
   return String(r || "").trim();
 }
-var ie = class {
+var se = class {
   constructor(t, e) {
     this.state = null, this.dragItemID = "", this.onClick = async (a) => {
       const i = a.target, s = i.closest("[data-menu-select]");
@@ -974,8 +975,8 @@ var ie = class {
             include_item_ids: D(String(b?.value || "")),
             exclude_item_ids: D(String(m?.value || ""))
           });
-        } catch (R) {
-          this.showError(R);
+        } catch (N) {
+          this.showError(N);
         }
         return;
       }
@@ -1078,8 +1079,8 @@ var ie = class {
       const i = a.target.closest("[data-menu-item-id]");
       i && i.classList.remove("opacity-60"), this.root.querySelectorAll("[data-drop-zone]").forEach((s) => s.classList.remove("bg-blue-100"));
     }, this.root = t, this.config = e;
-    const r = new Y({ basePath: e.apiBasePath });
-    this.store = new re(r);
+    const r = new Z({ basePath: e.apiBasePath });
+    this.store = new ie(r);
   }
   async init() {
     this.root.addEventListener("click", this.onClick), this.root.addEventListener("change", this.onChange), this.root.addEventListener("dragstart", this.onDragStart), this.root.addEventListener("dragover", this.onDragOver), this.root.addEventListener("dragleave", this.onDragLeave), this.root.addEventListener("drop", this.onDrop), this.root.addEventListener("dragend", this.onDragEnd), this.store.addEventListener("change", (e) => {
@@ -1384,7 +1385,7 @@ var ie = class {
       e.textContent = r, e.classList.remove("hidden");
       return;
     }
-    console.error("[MenuBuilderUI]", r, t);
+    ae.error("[MenuBuilderUI]", r, t);
   }
   formatError(t) {
     if (t instanceof P) {
@@ -1394,37 +1395,38 @@ var ie = class {
     return t instanceof Error ? t.message : String(t);
   }
 };
-async function ae(t) {
-  const e = F("/", String(t.dataset.basePath || "/admin")), r = k(e, String(t.dataset.apiBasePath || `${e}/api`)), a = String(t.dataset.menuId || "").trim(), i = new ie(t, {
+async function ne(t) {
+  const e = z("/", String(t.dataset.basePath || "/admin")), r = F(e, String(t.dataset.apiBasePath || `${e}/api`)), a = String(t.dataset.menuId || "").trim(), i = new se(t, {
     basePath: e,
     apiBasePath: r,
     initialMenuID: a
   });
   return await i.init(), i;
 }
-O(() => {
+var oe = q("MenuBuilder");
+k(() => {
   document.querySelectorAll("[data-menu-builder-root]").forEach((t) => {
-    t.dataset.initialized !== "true" && ae(t).then(() => {
+    t.dataset.initialized !== "true" && ne(t).then(() => {
       t.dataset.initialized = "true";
     }).catch((e) => {
-      console.error("[menu-builder] failed to initialize", e), t.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
+      oe.error("[menu-builder] failed to initialize", e), t.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
     });
   });
 });
 export {
-  pe as EntryNavigationOverrideUI,
-  Y as MenuBuilderAPIClient,
+  ge as EntryNavigationOverrideUI,
+  Z as MenuBuilderAPIClient,
   P as MenuBuilderAPIError,
-  re as MenuBuilderStore,
-  ie as MenuBuilderUI,
-  ue as initEntryNavigationOverrides,
-  ae as initMenuBuilder,
+  ie as MenuBuilderStore,
+  se as MenuBuilderUI,
+  fe as initEntryNavigationOverrides,
+  ne as initMenuBuilder,
   I as parseMenuBindingRecord,
-  W as parseMenuContracts,
+  H as parseMenuContracts,
   _ as parseMenuItemNode,
   y as parseMenuRecord,
   x as parseMenuViewProfileRecord,
-  X as parseNavigationOverrides
+  Y as parseNavigationOverrides
 };
 
 //# sourceMappingURL=index.js.map

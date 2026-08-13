@@ -5,6 +5,7 @@ import type { JSErrorEntry, PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatTimestamp } from '../utils.js';
 import { escapeAttribute } from '../../../shared/html.js';
+import { renderSortToggle } from '../panel-controls.js';
 import { hashString } from './live-list-view.js';
 
 /**
@@ -226,20 +227,6 @@ export function renderErrorRow(
 }
 
 /**
- * Render the sort toggle control for the JS errors panel.
- */
-function renderSortToggle(newestFirst: boolean, styles: StyleConfig): string {
-  return `
-    <div class="${styles.panelControls}">
-      <label class="${styles.sortToggle}">
-        <input type="checkbox" data-sort-toggle="jserrors" ${newestFirst ? 'checked' : ''}>
-        <span>Newest first</span>
-      </label>
-    </div>
-  `;
-}
-
-/**
  * Render the JS errors panel table.
  *
  * @param errors - Array of JS error entries to render
@@ -259,7 +246,7 @@ export function renderJSErrorsPanel(
     showSortToggle = false,
   } = options;
 
-  const sortToggle = showSortToggle ? renderSortToggle(newestFirst, styles) : '';
+  const sortToggle = showSortToggle ? renderSortToggle('jserrors', newestFirst, styles) : '';
 
   if (!errors.length) {
     return sortToggle + `<div class="${styles.emptyState}">No JS errors captured</div>`;

@@ -1,5 +1,9 @@
+import { createLogger } from '../shared/logger.js';
+
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
+
+const logger = createLogger("DataGrid");
 
 /**
  * Quick Filters Component (Phase 2)
@@ -179,7 +183,7 @@ export class QuickFilters {
    */
   render(): void {
     if (!this.container) {
-      console.warn('[QuickFilters] Container not found');
+      logger.warn('[QuickFilters] Container not found');
       return;
     }
 
@@ -266,13 +270,13 @@ export class QuickFilters {
   selectFilter(key: string): void {
     const filter = this.config.filters.find((f) => f.key === key);
     if (!filter) {
-      console.warn(`[QuickFilters] Filter not found: ${key}`);
+      logger.warn(`[QuickFilters] Filter not found: ${key}`);
       return;
     }
 
     const capability = this.state.capabilities.get(key);
     if (capability?.supported === false) {
-      console.warn(`[QuickFilters] Filter not supported: ${key}`);
+      logger.warn(`[QuickFilters] Filter not supported: ${key}`);
       return;
     }
 

@@ -9,6 +9,8 @@
  * - Visible + Enabled: Module is on and user has all required permissions
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import {
   EMPTY_TRANSLATION_CAPABILITIES,
   normalizeTranslationCapabilities,
@@ -20,6 +22,8 @@ import {
 import { renderReasonCodeBadge } from './translation-status-vocabulary.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
+
+const logger = createLogger("DataGrid");
 
 export type CapabilityMode = TranslationCapabilityMode;
 export type ActionState = TranslationActionState;
@@ -470,7 +474,7 @@ export function initCapabilityGating(
       const result = gate.gateNavItem(config);
       applyGateToElement(element, result);
     } catch {
-      console.warn('Invalid capability gate config:', gateConfig);
+      logger.warn('Invalid capability gate config:', gateConfig);
     }
   });
 }

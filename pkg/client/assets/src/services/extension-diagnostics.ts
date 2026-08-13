@@ -7,8 +7,12 @@
  * the current state of go-services extensions and registered packages.
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import { renderIcon } from '../shared/icon-renderer.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+
+const logger = createLogger("ExtensionDiagnostics");
 
 // =============================================================================
 // Types
@@ -170,7 +174,7 @@ export class ExtensionDiagnosticsPanel {
       : this.config.container;
 
     if (!this.container) {
-      console.error('[ExtensionDiagnostics] Container not found');
+      logger.error('[ExtensionDiagnostics] Container not found');
       return;
     }
 

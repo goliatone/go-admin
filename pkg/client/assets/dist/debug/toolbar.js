@@ -2,9 +2,9 @@ import { $ as M, S as _, T as $, _ as I, a as kt, b as H, c as C, d as k, et as 
 import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as G, readExpectedHTTPJSON as B, readHTTPError as K } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as Q } from "./shared/path-helpers.js";
-import { C as U, E as Y, F as J, G as L, I as W, M as X, N as Z, P as tt, R as et, T as at, V as ot, _ as st, b as rt, f as nt, g as it, h as lt, k as h, m as dt, p as ct, r as ht, v as pt, w as bt, x as ut } from "../chunks/builtin-panels-Csd134JF.js";
-import { t as gt } from "../chunks/repl-panel-BIrcm_ge.js";
-import { i as ft } from "../chunks/icons-Cghe1ioa.js";
+import { C as U, E as Y, F as J, G as L, I as W, M as X, N as Z, P as tt, R as et, T as at, V as ot, _ as st, b as rt, f as nt, g as it, h as lt, k as h, m as dt, p as ct, r as ht, v as pt, w as bt, x as ut } from "../chunks/builtin-panels-BT8XjVgD.js";
+import { t as gt } from "../chunks/repl-panel-Ce3vonoJ.js";
+import { i as ft } from "../chunks/icons-CAenalpJ.js";
 import { t as S } from "../chunks/deployment-identity-BEQ9jwJN.js";
 var xt = `
   :host {

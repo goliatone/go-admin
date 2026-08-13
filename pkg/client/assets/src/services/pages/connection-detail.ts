@@ -3,6 +3,8 @@
  * Displays connection information with grant matrix and re-consent workflow
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type {
   Connection,
   ConnectionStatus,
@@ -43,6 +45,8 @@ import {
   resolveProviderDisplayName,
   truncateId,
 } from './formatters.js';
+
+const logger = createLogger("ConnectionDetail");
 
 // =============================================================================
 // Types
@@ -144,7 +148,7 @@ export class ConnectionDetailManager {
         : this.config.container;
 
     if (!this.container) {
-      console.error('[ConnectionDetail] Container not found:', this.config.container);
+      logger.error('[ConnectionDetail] Container not found:', this.config.container);
       return;
     }
 

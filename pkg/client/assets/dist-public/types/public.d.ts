@@ -1,4 +1,5 @@
 export * from './shared/html.js';
+export * from './shared/logger.js';
 export * from './shared/coercion.js';
 export * from './shared/json-parse.js';
 export * from './shared/date-utils.js';

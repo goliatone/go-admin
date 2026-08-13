@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { renderIcon } from '../shared/icon-renderer.js';
 import { asNumberish as asNumber, asRecord, asString } from '../shared/coercion.js';
@@ -38,6 +40,8 @@ import {
   ICON_SETTINGS,
   ICON_WARNING,
 } from '../translation-shared/icon-constants.js';
+
+const logger = createLogger("TranslationDashboard");
 
 export type DashboardAlertState = 'ok' | 'warning' | 'critical' | 'degraded';
 export type TranslationDashboardScreenState = 'idle' | 'loading' | 'ready' | 'error';
@@ -1880,7 +1884,7 @@ export class TranslationDashboardPage extends StatefulController<TranslationDash
             btn.innerHTML = originalHTML;
           }, 1500);
         } catch {
-          console.warn('Failed to copy UUID');
+          logger.warn('Failed to copy UUID');
         }
       });
     });

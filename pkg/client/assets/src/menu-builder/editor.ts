@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 import { MenuBuilderStore } from './store.js';
 import { coerceString } from '../shared/coercion.js';
@@ -10,6 +12,8 @@ import type {
   MenuTargetType,
   MenuViewProfileRecord,
 } from './types.js';
+
+const logger = createLogger("MenuBuilder");
 function normalizeCSV(raw: string): string[] {
   return raw
     .split(',')
@@ -764,7 +768,7 @@ export class MenuBuilderUI {
       container.classList.remove('hidden');
       return;
     }
-    console.error('[MenuBuilderUI]', message, error);
+    logger.error('[MenuBuilderUI]', message, error);
   }
 
   private formatError(error: unknown): string {

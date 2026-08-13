@@ -1,7 +1,11 @@
 // JSONPath search utility for debug panels
 // Supports both simple key matching and complex JSONPath expressions like "profile.roles[0].label"
 
+import { createLogger } from '../../shared/logger.js';
+
 import { JSONPath } from 'jsonpath-plus';
+
+const logger = createLogger("JSONPathSearch");
 
 export type SearchMode = 'simple' | 'jsonpath';
 
@@ -80,17 +84,17 @@ export function filterObjectBySearch(
 
   // Detect search mode
   const isJPath = isJsonPathExpression(search);
-  console.log('[jsonpath-search] search:', search, 'isJsonPath:', isJPath);
+  logger.debug('[jsonpath-search] search:', search, 'isJsonPath:', isJPath);
 
   if (isJPath) {
     const result = filterByJsonPath(data, search);
-    console.log('[jsonpath-search] JSONPath result:', result);
+    logger.debug('[jsonpath-search] JSONPath result:', result);
     return result;
   }
 
   // Simple key matching (original behavior)
   const result = filterByKeyMatch(data, search);
-  console.log('[jsonpath-search] key match result:', result);
+  logger.debug('[jsonpath-search] key match result:', result);
   return result;
 }
 

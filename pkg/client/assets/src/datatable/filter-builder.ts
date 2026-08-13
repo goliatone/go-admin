@@ -5,9 +5,14 @@
  * or a caller-owned compact host. Overlay mode remains the default.
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type { FilterCondition, FilterGroup, FilterStructure } from './behaviors/types.js';
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
+import { escapeHTML } from '../shared/html.js';
+
+const logger = createLogger("DataGrid");
 
 export type FilterBuilderMode = 'overlay' | 'compact';
 export type FilterBuilderElementTarget = string | HTMLElement;
@@ -204,15 +209,6 @@ const DEFAULT_MESSAGES: FilterBuilderMessages = {
 
 let nextInstanceID = 0;
 
-function escapeHTML(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function cloneValue<T>(value: T): T {
   if (value === undefined || value === null) return value;
   if (typeof structuredClone === 'function') return structuredClone(value);
@@ -328,7 +324,7 @@ export class FilterBuilder {
     } else {
       this.panel = resolveTarget(this.config.host) || document.getElementById('filter-panel');
       if (!this.panel) {
-        console.error('[FilterBuilder] Panel element not found');
+        logger.error('[FilterBuilder] Panel element not found');
         return;
       }
       this.toggleButton = resolveTarget(this.config.toggleButton) || document.getElementById('filter-toggle-btn');
@@ -1160,7 +1156,7 @@ export class FilterBuilder {
         this.render();
       }
     } catch (error) {
-      console.warn('[FilterBuilder] Failed to parse filters from URL:', error);
+      logger.warn('[FilterBuilder] Failed to parse filters from URL:', error);
     }
   }
 

@@ -1,6 +1,10 @@
+import { createLogger } from '../../shared/logger.js';
+
 import type { ColumnVisibilityBehavior } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
+
+const logger = createLogger("DataGrid");
 
 /**
  * Legacy V1 storage format (visibility only)
@@ -130,7 +134,7 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
       order
     });
 
-    console.log('[ColumnVisibility] Order saved:', order);
+    logger.debug('[ColumnVisibility] Order saved:', order);
   }
 
   /**
@@ -152,10 +156,10 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
       // Cache the loaded order for future saves
       this.cachedOrder = validOrder;
 
-      console.log('[ColumnVisibility] Order loaded from cache:', validOrder);
+      logger.debug('[ColumnVisibility] Order loaded from cache:', validOrder);
       return validOrder;
     } catch (e) {
-      console.warn('Failed to load column order from cache:', e);
+      logger.warn('Failed to load column order from cache:', e);
       return [];
     }
   }
@@ -185,7 +189,7 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
 
       return hidden;
     } catch (e) {
-      console.warn('Failed to load column visibility state:', e);
+      logger.warn('Failed to load column visibility state:', e);
       return new Set();
     }
   }
@@ -214,12 +218,12 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
       };
 
       // Save migrated prefs back to storage
-      console.log('[ColumnVisibility] Migrating V1 prefs to V2 format');
+      logger.debug('[ColumnVisibility] Migrating V1 prefs to V2 format');
       this.savePrefs(migratedPrefs);
 
       return migratedPrefs;
     } catch (e) {
-      console.warn('Failed to load column preferences:', e);
+      logger.warn('Failed to load column preferences:', e);
       return null;
     }
   }
@@ -231,7 +235,7 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(prefs));
     } catch (e) {
-      console.warn('Failed to save column preferences:', e);
+      logger.warn('Failed to save column preferences:', e);
     }
   }
 
@@ -243,9 +247,9 @@ export class DefaultColumnVisibilityBehavior implements ColumnVisibilityBehavior
     try {
       localStorage.removeItem(this.storageKey);
       this.cachedOrder = null;
-      console.log('[ColumnVisibility] Preferences cleared');
+      logger.debug('[ColumnVisibility] Preferences cleared');
     } catch (e) {
-      console.warn('Failed to clear column preferences:', e);
+      logger.warn('Failed to clear column preferences:', e);
     }
   }
 }
@@ -354,7 +358,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       });
 
       if (!response.ok) {
-        console.warn('[ServerColumnVisibility] Failed to load server prefs:', response.status);
+        logger.warn('[ServerColumnVisibility] Failed to load server prefs:', response.status);
         return null;
       }
 
@@ -363,13 +367,13 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       // Server response format: { records: [{ raw: { "ui.datagrid.users.columns": {...} } }] }
       const records = data.records || [];
       if (records.length === 0) {
-        console.log('[ServerColumnVisibility] No server preferences found');
+        logger.debug('[ServerColumnVisibility] No server preferences found');
         return null;
       }
 
       const rawPrefs = records[0]?.raw;
       if (!rawPrefs || !rawPrefs[this.serverPrefsKey]) {
-        console.log('[ServerColumnVisibility] No column preferences in server response');
+        logger.debug('[ServerColumnVisibility] No column preferences in server response');
         return null;
       }
 
@@ -377,7 +381,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
 
       // Validate it's V2 format
       if (!isV2Prefs(serverPrefs)) {
-        console.warn('[ServerColumnVisibility] Server prefs not in V2 format:', serverPrefs);
+        logger.warn('[ServerColumnVisibility] Server prefs not in V2 format:', serverPrefs);
         return null;
       }
 
@@ -387,11 +391,11 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       // Store as local cache so DataGrid can restore synchronously on init.
       this.savePrefs(serverPrefs);
 
-      console.log('[ServerColumnVisibility] Loaded prefs from server:', serverPrefs);
+      logger.debug('[ServerColumnVisibility] Loaded prefs from server:', serverPrefs);
       return serverPrefs;
     } catch (e) {
       if (!isAbortError(e)) {
-        console.warn('[ServerColumnVisibility] Error loading server prefs:', e);
+        logger.warn('[ServerColumnVisibility] Error loading server prefs:', e);
       }
       return null;
     } finally {
@@ -496,16 +500,16 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       });
 
       if (!response.ok) {
-        console.warn('[ServerColumnVisibility] Failed to sync to server:', response.status);
+        logger.warn('[ServerColumnVisibility] Failed to sync to server:', response.status);
         return;
       }
 
       // Update cached server prefs
       this.serverPrefs = prefs;
 
-      console.log('[ServerColumnVisibility] Synced prefs to server:', prefs);
+      logger.debug('[ServerColumnVisibility] Synced prefs to server:', prefs);
     } catch (e) {
-      console.warn('[ServerColumnVisibility] Error syncing to server:', e);
+      logger.warn('[ServerColumnVisibility] Error syncing to server:', e);
     }
   }
 
@@ -548,13 +552,13 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       });
 
       if (!response.ok) {
-        console.warn('[ServerColumnVisibility] Failed to clear server prefs:', response.status);
+        logger.warn('[ServerColumnVisibility] Failed to clear server prefs:', response.status);
         return;
       }
 
-      console.log('[ServerColumnVisibility] Server prefs cleared');
+      logger.debug('[ServerColumnVisibility] Server prefs cleared');
     } catch (e) {
-      console.warn('[ServerColumnVisibility] Error clearing server prefs:', e);
+      logger.warn('[ServerColumnVisibility] Error clearing server prefs:', e);
     } finally {
       // An older in-flight sync may have populated the cache before this
       // serialized clear ran. Keep the local reset authoritative either way.

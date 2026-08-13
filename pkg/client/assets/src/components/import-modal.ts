@@ -19,12 +19,16 @@
  *   document.getElementById('import-btn')?.addEventListener('click', () => importModal.open());
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import { formatByteSize } from '../shared/size-formatters.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import {
   registerModalLayer,
   type ModalLayerHandle,
 } from '../shared/modal-coordinator.js';
+
+const logger = createLogger("ImportModal");
 
 type ImportModalNotifier = {
   success: (message: string) => void;
@@ -89,7 +93,7 @@ export class ImportModal {
       this.endpoint = '/api/import';
     }
     this.onSuccess = options.onSuccess || (() => {});
-    this.notifier = options.notifier || { success: console.log, error: console.error };
+    this.notifier = options.notifier || { success: logger.debug, error: logger.error };
     this.resourceName = options.resourceName || 'items';
 
     this.elements = {};
@@ -594,7 +598,7 @@ export class ImportModal {
         payload = { error: 'Import failed' };
       }
     } catch (err) {
-      console.error('Import failed:', err);
+      logger.error('Import failed:', err);
       this.notifier.error('Import failed.');
     } finally {
       this.setLoading(false);

@@ -3,6 +3,8 @@
  * Supports drag & drop, resize, visibility toggle, and layout persistence
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type {
   WidgetGridConfig,
   LayoutPreferences,
@@ -15,6 +17,8 @@ import { DefaultDragDropBehavior } from './behaviors/drag-drop.js';
 import { DefaultResizeBehavior } from './behaviors/resize.js';
 import { DefaultVisibilityBehavior } from './behaviors/visibility.js';
 import { DefaultPersistenceBehavior } from './behaviors/persistence.js';
+
+const logger = createLogger("WidgetGrid");
 
 export class WidgetGrid {
   private config: Required<WidgetGridConfig>;
@@ -43,7 +47,7 @@ export class WidgetGrid {
       },
       behaviors: config.behaviors || {},
       onSave: config.onSave || (() => {}),
-      onError: config.onError || ((error) => console.error('WidgetGrid error:', error)),
+      onError: config.onError || ((error) => logger.error('WidgetGrid error:', error)),
     };
 
     this.behaviors = {
@@ -104,7 +108,7 @@ export class WidgetGrid {
 
     const missingFromServer = renderedAreaCodes.filter((code) => !serverAreaCodes.has(code));
     if (missingFromServer.length > 0) {
-      console.warn('Hydration mismatch: rendered area(s) missing from server state', {
+      logger.warn('Hydration mismatch: rendered area(s) missing from server state', {
         missing: missingFromServer,
         server: Array.from(serverAreaCodes),
         dom: renderedAreaCodes,

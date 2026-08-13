@@ -1,27 +1,29 @@
-import { escapeHTML as H } from "../shared/html.js";
-import { readHTTPJSON as R } from "../shared/transport/http-client.js";
-import { onReady as j } from "../shared/dom-ready.js";
-import { parseJSONArray as F, parseJSONValue as O } from "../shared/json-parse.js";
-import { initBlockEditor as z, markRequiredFields as U, refreshBlockTemplateRegistry as V, registerBlockTemplate as W } from "./block_editor.js";
-function J(t) {
-  const a = O(t, null);
-  return a && typeof a == "object" ? a : {};
+import { createLogger as R } from "../shared/logger.js";
+import { escapeHTML as j } from "../shared/html.js";
+import { readHTTPJSON as F } from "../shared/transport/http-client.js";
+import { onReady as z } from "../shared/dom-ready.js";
+import { parseJSONArray as U, parseJSONValue as O } from "../shared/json-parse.js";
+import { initBlockEditor as V, markRequiredFields as W, refreshBlockTemplateRegistry as J, registerBlockTemplate as K } from "./block_editor.js";
+var $ = R("BlockLibraryPicker");
+function G(t) {
+  const r = O(t, null);
+  return r && typeof r == "object" ? r : {};
 }
-function K(t, a) {
-  return O(t, a);
+function Q(t, r) {
+  return O(t, r);
 }
-function I(t) {
-  const a = t.trim().toLowerCase();
-  return a ? Array.from(/* @__PURE__ */ new Set([
-    a,
-    a.replace(/-/g, "_"),
-    a.replace(/_/g, "-")
+function P(t) {
+  const r = t.trim().toLowerCase();
+  return r ? Array.from(/* @__PURE__ */ new Set([
+    r,
+    r.replace(/-/g, "_"),
+    r.replace(/_/g, "-")
   ])) : [];
 }
-function G(t) {
-  const a = t.trim(), o = a.replace(/\/+$/, "");
+function X(t) {
+  const r = t.trim(), o = r.replace(/\/+$/, "");
   if (!o) {
-    const m = a === "/" ? "/api" : "";
+    const m = r === "/" ? "/api" : "";
     return m ? {
       listBase: `${m}/panels/block_definitions`,
       templatesBase: `${m}/block_definitions_meta`
@@ -48,7 +50,7 @@ function G(t) {
     templatesBase: `${l}/block_definitions_meta`
   };
 }
-function Q(t, a) {
+function Y(t, r) {
   const o = t.querySelector("[data-picker-load-error]");
   o && o.remove();
   const l = document.createElement("div");
@@ -57,25 +59,25 @@ function Q(t, a) {
       <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
       </svg>
-      <p class="text-xs text-red-700 dark:text-red-300">${H(a)}</p>
+      <p class="text-xs text-red-700 dark:text-red-300">${j(r)}</p>
     </div>
     <button type="button" data-picker-retry
             class="mt-2 ml-6 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
       Retry
     </button>
   `, l.querySelector("[data-picker-retry]")?.addEventListener("click", () => {
-    l.remove(), P(t);
+    l.remove(), H(t);
   }), t.prepend(l);
 }
-async function T(t) {
-  const a = await fetch(t);
-  if (!a.ok) throw new Error(`fetch ${t}: ${a.status}`);
-  return R(a);
+async function I(t) {
+  const r = await fetch(t);
+  if (!r.ok) throw new Error(`fetch ${t}: ${r.status}`);
+  return F(r);
 }
-async function X(t, a) {
+async function Z(t, r) {
   const o = new URLSearchParams();
-  a || o.set("filter_status", "active");
-  const l = o.toString(), m = await T(l ? `${t}?${l}` : t);
+  r || o.set("filter_status", "active");
+  const l = o.toString(), m = await I(l ? `${t}?${l}` : t);
   return Array.isArray(m.items) ? m.items.map((n) => {
     const c = typeof n.status == "string" ? n.status.trim() : "";
     return {
@@ -91,37 +93,37 @@ async function X(t, a) {
     };
   }) : [];
 }
-async function D(t, a, o) {
-  if (a.length === 0) return [];
-  let l = `${t}/templates?slugs=${encodeURIComponent(a.join(","))}`;
-  return o && (l += "&include_inactive=true"), (await T(l)).items ?? [];
+async function D(t, r, o) {
+  if (r.length === 0) return [];
+  let l = `${t}/templates?slugs=${encodeURIComponent(r.join(","))}`;
+  return o && (l += "&include_inactive=true"), (await I(l)).items ?? [];
 }
-async function Y(t, a, o) {
-  let l = `${t}/templates/${encodeURIComponent(a)}`;
+async function ee(t, r, o) {
+  let l = `${t}/templates/${encodeURIComponent(r)}`;
   o && (l += "?include_inactive=true");
   try {
-    return (await T(l)).items?.[0] ?? null;
+    return (await I(l)).items?.[0] ?? null;
   } catch {
     return null;
   }
 }
-function M(t, a) {
-  W(t, {
-    type: a.slug,
-    label: a.label,
-    icon: a.icon || void 0,
-    schemaVersion: a.schema_version || void 0,
-    requiredFields: a.required_fields ?? [],
-    html: a.html
-  }), V(t);
+function T(t, r) {
+  K(t, {
+    type: r.slug,
+    label: r.label,
+    icon: r.icon || void 0,
+    schemaVersion: r.schema_version || void 0,
+    requiredFields: r.required_fields ?? [],
+    html: r.html
+  }), J(t);
 }
-function Z(t, a) {
+function te(t, r) {
   const o = typeof t.schema_version == "string" ? t.schema_version.trim() : "";
-  return o || (a ? a.replace("{type}", t.slug) : `${t.slug}@v1.0.0`);
+  return o || (r ? r.replace("{type}", t.slug) : `${t.slug}@v1.0.0`);
 }
-function ee(t, a, o) {
+function re(t, r, o) {
   const l = document.createElement("div");
-  l.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", l.setAttribute("data-block-item", "true"), l.dataset.blockType = t.slug, a && l.setAttribute("draggable", "true");
+  l.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", l.setAttribute("data-block-item", "true"), l.dataset.blockType = t.slug, r && l.setAttribute("draggable", "true");
   const m = document.createElement("div");
   m.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", m.setAttribute("data-block-header", "true");
   const n = document.createElement("div");
@@ -132,10 +134,10 @@ function ee(t, a, o) {
   x.textContent = t.label;
   const b = document.createElement("span");
   b.className = "text-xs text-gray-500 dark:text-gray-400", b.textContent = t.slug;
-  const E = Z(t, o), C = document.createElement("span");
+  const E = te(t, o), C = document.createElement("span");
   C.className = "block-schema-badge inline-flex items-center text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded dark:bg-blue-900/20 dark:text-blue-400", C.textContent = E, C.setAttribute("data-block-schema-badge", "true"), n.appendChild(c), n.appendChild(x), n.appendChild(b), n.appendChild(C);
   const y = document.createElement("div");
-  if (y.className = "flex items-center gap-2", a) {
+  if (y.className = "flex items-center gap-2", r) {
     const p = document.createElement("button");
     p.type = "button", p.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", p.textContent = "Up", p.setAttribute("data-block-move-up", "true"), y.appendChild(p);
     const w = document.createElement("button");
@@ -144,7 +146,7 @@ function ee(t, a, o) {
   const d = document.createElement("button");
   d.type = "button", d.className = "text-xs text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white", d.textContent = "Collapse", d.setAttribute("data-block-collapse", "true"), y.appendChild(d);
   const u = document.createElement("button");
-  if (u.type = "button", u.className = "text-xs text-red-600 hover:text-red-700", u.textContent = "Remove", u.setAttribute("data-block-remove", "true"), y.appendChild(u), a) {
+  if (u.type = "button", u.className = "text-xs text-red-600 hover:text-red-700", u.textContent = "Remove", u.setAttribute("data-block-remove", "true"), y.appendChild(u), r) {
     const p = document.createElement("span");
     p.className = "text-xs text-gray-400 cursor-move", p.textContent = "Drag", p.setAttribute("data-block-drag-handle", "true"), y.appendChild(p);
   }
@@ -152,14 +154,14 @@ function ee(t, a, o) {
   const B = document.createElement("div");
   B.className = "p-4 space-y-4", B.setAttribute("data-block-body", "true"), B.innerHTML = t.html;
   const L = t.required_fields || [];
-  L.length > 0 && U(B, L), l.appendChild(m), l.appendChild(B);
+  L.length > 0 && W(B, L), l.appendChild(m), l.appendChild(B);
   const v = document.createElement("input");
   v.type = "hidden", v.name = "_type", v.value = t.slug, v.readOnly = !0, v.setAttribute("data-block-type-input", "true"), v.setAttribute("data-block-ignore", "true"), l.appendChild(v), l.dataset.blockSchema = E;
   const A = document.createElement("input");
   return A.type = "hidden", A.name = "_schema", A.value = E, A.setAttribute("data-block-schema-input", "true"), A.setAttribute("data-block-ignore", "true"), l.appendChild(A), l;
 }
-function te(t, a, o) {
-  const l = a.searchable !== !1, m = a.groupByCategory !== !1, n = document.createElement("div");
+function ae(t, r, o) {
+  const l = r.searchable !== !1, m = r.groupByCategory !== !1, n = document.createElement("div");
   n.className = "absolute left-0 z-50 mt-1 w-80 rounded-lg border border-gray-200 bg-white shadow-xl overflow-hidden picker-popover dark:bg-slate-900 dark:border-gray-700", n.style.display = "none", n.setAttribute("data-picker-popover", "true"), n.setAttribute("data-picker-dropdown", "true"), n.setAttribute("role", "dialog"), n.setAttribute("aria-label", "Add block");
   let c = null;
   if (l) {
@@ -180,8 +182,8 @@ function te(t, a, o) {
   C.setAttribute("data-picker-empty-text", "true"), C.textContent = "No block types available", b.appendChild(E), b.appendChild(C), n.appendChild(b);
   let y = !1, d = -1, u = [], B = [...t], L = /* @__PURE__ */ new Set();
   function v(s, e) {
-    const i = e || !!s.disabled, r = document.createElement("button");
-    r.type = "button", r.setAttribute("data-picker-item", s.slug), r.setAttribute("data-picker-card", s.slug), r.setAttribute("role", "option"), r.setAttribute("aria-selected", "false"), s.category && (r.dataset.category = s.category), r.className = "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors " + (i ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 dark:hover:bg-slate-800 focus:outline-none"), i && (r.disabled = !0, r.setAttribute("aria-disabled", "true"), r.title = s.status && s.status.toLowerCase() !== "active" ? "This block type is inactive" : "This block type is not available");
+    const i = e || !!s.disabled, a = document.createElement("button");
+    a.type = "button", a.setAttribute("data-picker-item", s.slug), a.setAttribute("data-picker-card", s.slug), a.setAttribute("role", "option"), a.setAttribute("aria-selected", "false"), s.category && (a.dataset.category = s.category), a.className = "w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors " + (i ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 dark:hover:bg-slate-800 focus:outline-none"), i && (a.disabled = !0, a.setAttribute("aria-disabled", "true"), a.title = s.status && s.status.toLowerCase() !== "active" ? "This block type is inactive" : "This block type is not available");
     const h = document.createElement("span");
     h.className = "inline-flex items-center justify-center h-9 w-9 shrink-0 rounded-lg text-xs font-semibold " + (i ? "bg-gray-100 text-gray-400 dark:bg-slate-800 dark:text-gray-500" : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"), h.textContent = s.icon || s.label.slice(0, 2).toUpperCase();
     const f = document.createElement("div");
@@ -191,24 +193,24 @@ function te(t, a, o) {
     const N = document.createElement("div");
     N.className = "text-xs text-gray-500 dark:text-gray-400 truncate";
     const _ = [s.description || s.slug];
-    return s.status && s.status.toLowerCase() !== "active" && _.push(`(${s.status})`), N.textContent = _.join(" "), f.appendChild(S), f.appendChild(N), r.appendChild(h), r.appendChild(f), r;
+    return s.status && s.status.toLowerCase() !== "active" && _.push(`(${s.status})`), N.textContent = _.join(" "), f.appendChild(S), f.appendChild(N), a.appendChild(h), a.appendChild(f), a;
   }
   function A(s = "") {
     x.innerHTML = "", u = [], d = -1;
-    const e = s.toLowerCase().trim(), i = e ? B.filter((r) => r.label.toLowerCase().includes(e) || r.slug.toLowerCase().includes(e) || (r.category || "").toLowerCase().includes(e) || (r.description || "").toLowerCase().includes(e)) : B;
+    const e = s.toLowerCase().trim(), i = e ? B.filter((a) => a.label.toLowerCase().includes(e) || a.slug.toLowerCase().includes(e) || (a.category || "").toLowerCase().includes(e) || (a.description || "").toLowerCase().includes(e)) : B;
     if (i.length === 0) {
       b.style.display = "";
-      const r = b.querySelector("[data-picker-empty-text]");
-      r && (r.textContent = e ? "No blocks match your search" : "No block types available");
+      const a = b.querySelector("[data-picker-empty-text]");
+      a && (a.textContent = e ? "No blocks match your search" : "No block types available");
       return;
     }
     if (b.style.display = "none", m) {
-      const r = /* @__PURE__ */ new Map();
+      const a = /* @__PURE__ */ new Map();
       for (const h of i) {
         const f = h.category || "other";
-        r.has(f) || r.set(f, []), r.get(f).push(h);
+        a.has(f) || a.set(f, []), a.get(f).push(h);
       }
-      for (const [h, f] of r) {
+      for (const [h, f] of a) {
         const S = document.createElement("div");
         S.className = "px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider sticky top-0 bg-white dark:bg-slate-900", S.setAttribute("data-picker-category", h), S.setAttribute("role", "presentation"), S.textContent = h, x.appendChild(S);
         for (const N of f) {
@@ -216,8 +218,8 @@ function te(t, a, o) {
           x.appendChild(_), _.disabled || u.push(_);
         }
       }
-    } else for (const r of i) {
-      const h = v(r, L.has(r.slug));
+    } else for (const a of i) {
+      const h = v(a, L.has(a.slug));
       x.appendChild(h), h.disabled || u.push(h);
     }
   }
@@ -267,114 +269,114 @@ function te(t, a, o) {
       n.getBoundingClientRect().bottom > window.innerHeight - 8 && (n.style.bottom = "100%", n.style.top = "auto", n.style.marginBottom = "4px", n.style.marginTop = "0");
     });
   }
-  function $() {
+  function q() {
     n.style.display = "", y = !0, g(), c && (c.value = "", A(""), requestAnimationFrame(() => c.focus())), n.addEventListener("keydown", w);
   }
   function k() {
     n.style.display = "none", y = !1, d = -1, n.removeEventListener("keydown", w);
   }
-  function q(s, e) {
+  function M(s, e) {
     B = s, e && (L = e), A(c?.value || "");
   }
   return {
     element: n,
-    open: $,
+    open: q,
     close: k,
     isOpen: () => y,
-    updateCards: q
+    updateCards: M
   };
 }
-async function P(t) {
-  const a = J((t.closest("[data-component-config]") || t).getAttribute("data-component-config")), o = t.dataset.apiBase || a.apiBase || "";
+async function H(t) {
+  const r = G((t.closest("[data-component-config]") || t).getAttribute("data-component-config")), o = t.dataset.apiBase || r.apiBase || "";
   if (!o) {
-    console.warn("block-library-picker: missing data-api-base");
+    $.warn("block-library-picker: missing data-api-base");
     return;
   }
-  const { listBase: l, templatesBase: m } = G(o);
+  const { listBase: l, templatesBase: m } = X(o);
   if (!l || !m) {
-    console.warn("block-library-picker: invalid api base", o);
+    $.warn("block-library-picker: invalid api base", o);
     return;
   }
-  const n = K(t.dataset.allowedBlocks, a.allowedBlocks ?? []), c = parseInt(t.dataset.maxBlocks || "", 10) || a.maxBlocks || 0, x = a.lazyLoad !== !1, b = a.includeInactive === !0, E = a.sortable ?? t.dataset.blockSortable === "true", C = /* @__PURE__ */ new Set(), y = /* @__PURE__ */ new Map();
+  const n = Q(t.dataset.allowedBlocks, r.allowedBlocks ?? []), c = parseInt(t.dataset.maxBlocks || "", 10) || r.maxBlocks || 0, x = r.lazyLoad !== !1, b = r.includeInactive === !0, E = r.sortable ?? t.dataset.blockSortable === "true", C = /* @__PURE__ */ new Set(), y = /* @__PURE__ */ new Map();
   let d;
   try {
-    d = await X(l, b);
+    d = await Z(l, b);
   } catch (e) {
-    console.error("block-library-picker: metadata fetch failed", e), Q(t, `Failed to load block definitions: ${e instanceof Error ? e.message : "Failed to load block definitions."}`);
+    $.error("block-library-picker: metadata fetch failed", e), Y(t, `Failed to load block definitions: ${e instanceof Error ? e.message : "Failed to load block definitions."}`);
     return;
   }
   if (n.length > 0) {
     const e = /* @__PURE__ */ new Set();
-    for (const i of n) for (const r of I(i)) e.add(r);
+    for (const i of n) for (const a of P(i)) e.add(a);
     d = d.filter((i) => {
-      for (const r of I(i.slug)) if (e.has(r)) return !0;
+      for (const a of P(i.slug)) if (e.has(a)) return !0;
       return !1;
     });
   }
-  const u = t.querySelector("input[data-block-output]"), B = F(u?.value, []), L = [...new Set(B.map((e) => e && typeof e == "object" ? e._type : "").filter((e) => typeof e == "string" && e.length > 0))];
+  const u = t.querySelector("input[data-block-output]"), B = U(u?.value, []), L = [...new Set(B.map((e) => e && typeof e == "object" ? e._type : "").filter((e) => typeof e == "string" && e.length > 0))];
   if (L.length > 0) try {
     const e = await D(m, L, b);
     for (const i of e)
-      M(t, i), C.add(i.slug), y.set(i.slug, i);
+      T(t, i), C.add(i.slug), y.set(i.slug, i);
   } catch (e) {
-    console.error("block-library-picker: template fetch failed", e);
+    $.error("block-library-picker: template fetch failed", e);
   }
   if (!x) {
     const e = d.filter((i) => !C.has(i.slug)).map((i) => i.slug);
     if (e.length > 0) try {
       const i = await D(m, e, b);
-      for (const r of i)
-        M(t, r), C.add(r.slug), y.set(r.slug, r);
+      for (const a of i)
+        T(t, a), C.add(a.slug), y.set(a.slug, a);
     } catch (i) {
-      console.error("block-library-picker: prefetch failed", i);
+      $.error("block-library-picker: prefetch failed", i);
     }
   }
-  z(t);
+  V(t);
   const v = t.querySelector("[data-block-add-select]"), A = t.querySelector("[data-block-add]"), p = document.createElement("div");
   p.className = "mt-3", p.setAttribute("data-picker-controls", "true");
   const w = document.createElement("div");
   w.className = "relative inline-block";
   const g = document.createElement("button");
-  g.type = "button", g.className = "inline-flex items-center gap-1.5 py-2 px-4 rounded-md border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 dark:hover:bg-slate-800", g.setAttribute("data-picker-add-btn", "true"), g.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>${typeof a.addLabel == "string" && a.addLabel.trim() ? a.addLabel.trim() : "Add Block"}</span>`;
-  const $ = () => {
+  g.type = "button", g.className = "inline-flex items-center gap-1.5 py-2 px-4 rounded-md border border-dashed border-gray-300 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:text-gray-300 dark:hover:bg-slate-800", g.setAttribute("data-picker-add-btn", "true"), g.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg><span>${typeof r.addLabel == "string" && r.addLabel.trim() ? r.addLabel.trim() : "Add Block"}</span>`;
+  const q = () => {
     if (c <= 0) return;
     const e = t.querySelectorAll("[data-block-item]").length >= c;
     g.disabled = e, g.classList.toggle("opacity-50", e), g.classList.toggle("cursor-not-allowed", e), g.title = e ? `Maximum of ${c} blocks reached` : "";
-  }, k = te(d, a, {
-    onSelect: (e) => q(e),
+  }, k = ae(d, r, {
+    onSelect: (e) => M(e),
     onClose: () => {
       k.close(), g.focus();
     }
   });
-  async function q(e) {
-    const i = d.find((r) => r.slug === e);
+  async function M(e) {
+    const i = d.find((a) => a.slug === e);
     if (!(!i || i.disabled)) {
       if (c > 0 && t.querySelectorAll("[data-block-item]").length >= c) {
         k.close();
         return;
       }
-      if (v instanceof HTMLSelectElement && Array.from(v.options).some((r) => r.value === e))
+      if (v instanceof HTMLSelectElement && Array.from(v.options).some((a) => a.value === e))
         v.value = e, A?.click();
       else {
-        let r = y.get(e);
-        if (!r) try {
-          const f = await Y(m, e, b);
-          f && (r = f, M(t, r), C.add(r.slug), y.set(r.slug, r));
+        let a = y.get(e);
+        if (!a) try {
+          const f = await ee(m, e, b);
+          f && (a = f, T(t, a), C.add(a.slug), y.set(a.slug, a));
         } catch (f) {
-          console.error(`block-library-picker: fetch template ${e} failed`, f), k.close();
+          $.error(`block-library-picker: fetch template ${e} failed`, f), k.close();
           return;
         }
-        if (!r) {
+        if (!a) {
           k.close();
           return;
         }
         const h = t.querySelector("[data-block-list]");
         if (h) {
-          const f = ee(r, E, a.schemaVersionPattern);
+          const f = re(a, E, r.schemaVersionPattern);
           h.appendChild(f), f.dispatchEvent(new Event("input", { bubbles: !0 }));
         }
       }
-      k.close(), $();
+      k.close(), q();
     }
   }
   if (g.addEventListener("click", (e) => {
@@ -387,21 +389,21 @@ async function P(t) {
     e.key === "Escape" && k.isOpen() && (k.close(), g.focus());
   }), c > 0) {
     const e = t.querySelector("[data-block-list]");
-    e && new MutationObserver(() => $()).observe(e, { childList: !0 }), $();
+    e && new MutationObserver(() => q()).observe(e, { childList: !0 }), q();
   }
   w.appendChild(g), w.appendChild(k.element), p.appendChild(w);
   const s = t.querySelector("[data-block-list]");
   s && s.nextSibling ? s.parentElement?.insertBefore(p, s.nextSibling) : t.appendChild(p), t.setAttribute("data-picker-initialized", "true");
 }
-async function ae(t = document) {
-  const a = Array.from(t.querySelectorAll('[data-block-library-picker="true"]')).filter((o) => o.getAttribute("data-picker-initialized") !== "true").map((o) => P(o));
-  await Promise.all(a);
+async function ne(t = document) {
+  const r = Array.from(t.querySelectorAll('[data-block-library-picker="true"]')).filter((o) => o.getAttribute("data-picker-initialized") !== "true").map((o) => H(o));
+  await Promise.all(r);
 }
-j(() => {
-  ae();
+z(() => {
+  ne();
 });
 export {
-  ae as initBlockLibraryPickers
+  ne as initBlockLibraryPickers
 };
 
 //# sourceMappingURL=block_library_picker.js.map

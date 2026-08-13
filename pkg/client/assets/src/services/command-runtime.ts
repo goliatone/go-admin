@@ -1,3 +1,5 @@
+import { createLogger } from '../shared/logger.js';
+
 import {
   extractStructuredError,
   formatStructuredErrorForDisplay,
@@ -12,6 +14,8 @@ import {
   setBusy,
   type BusyController,
 } from '../shared/behaviors/index.js';
+
+const logger = createLogger("CommandRuntime");
 
 export type CommandTransport = 'action' | 'rpc';
 
@@ -590,7 +594,7 @@ export class CommandRuntimeController {
       try {
         listener(event);
       } catch (error) {
-        console.warn('Inline status listener error:', error);
+        logger.warn('Inline status listener error:', error);
       }
     });
   }

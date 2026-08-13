@@ -1,5 +1,9 @@
+import { createLogger } from './logger.js';
+
 import { escapeHTML as escapeHtml } from './html.js';
 import { escapeAttribute as escapeAttr } from './html.js';
+
+const logger = createLogger("IconRenderer");
 
 /**
  * Shared Icon Renderer Utility
@@ -233,7 +237,7 @@ export function renderParsedIcon(ref: IconReference, opts?: IconRenderOptions): 
         return renderSvgIcon(ref.value, size, extraClass);
       }
       // Untrusted SVG: fall back to empty or a placeholder
-      console.warn('[icon-renderer] SVG content blocked for untrusted source');
+      logger.warn('[icon-renderer] SVG content blocked for untrusted source');
       return '';
 
     case 'url':
@@ -293,7 +297,7 @@ function renderUrlIcon(url: string, size: string, extraClass: string, trusted?: 
   // Validate URL
   const validated = validateIconUrl(url, trusted);
   if (!validated) {
-    console.warn('[icon-renderer] URL blocked:', url);
+    logger.warn('[icon-renderer] URL blocked:', url);
     return '';
   }
 
@@ -333,7 +337,7 @@ function validateIconUrl(url: string, trusted?: boolean): string | null {
 
     // Untrusted sources: block external URLs unless explicitly trusted
     if (!trusted) {
-      console.warn('[icon-renderer] External URL blocked for untrusted source');
+      logger.warn('[icon-renderer] External URL blocked for untrusted source');
       return null;
     }
 
@@ -350,7 +354,7 @@ function validateDataUri(dataUri: string, trusted?: boolean): string | null {
 
   // Check size limit
   if (dataUri.length > MAX_DATA_URI_SIZE) {
-    console.warn('[icon-renderer] Data URI exceeds size limit');
+    logger.warn('[icon-renderer] Data URI exceeds size limit');
     return null;
   }
 
@@ -366,13 +370,13 @@ function validateDataUri(dataUri: string, trusted?: boolean): string | null {
 
   // Check MIME allowlist
   if (!ALLOWED_DATA_MIMES.includes(mimeType.toLowerCase())) {
-    console.warn('[icon-renderer] Data URI MIME type not allowed:', mimeType);
+    logger.warn('[icon-renderer] Data URI MIME type not allowed:', mimeType);
     return null;
   }
 
   // For untrusted sources, only allow non-SVG data URIs
   if (!trusted && mimeType.toLowerCase() === 'image/svg+xml') {
-    console.warn('[icon-renderer] SVG data URI blocked for untrusted source');
+    logger.warn('[icon-renderer] SVG data URI blocked for untrusted source');
     return null;
   }
 

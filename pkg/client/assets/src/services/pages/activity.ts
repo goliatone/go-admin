@@ -3,6 +3,8 @@
  * Displays service activity with timeline and table views, filters, and pagination
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type {
   ServiceActivityEntry,
   ServiceActivityStatus,
@@ -44,6 +46,8 @@ import {
   formatServiceLabel,
   truncateId,
 } from './formatters.js';
+
+const logger = createLogger("ServicesActivity");
 
 // =============================================================================
 // Types
@@ -175,7 +179,7 @@ export class ActivityPageManager {
         : this.config.container;
 
     if (!this.container) {
-      console.error('[ActivityPage] Container not found:', this.config.container);
+      logger.error('[ActivityPage] Container not found:', this.config.container);
       return;
     }
 

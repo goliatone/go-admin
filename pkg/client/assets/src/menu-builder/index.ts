@@ -9,9 +9,13 @@ export type { EntryNavigationConfig, EntryNavigationState, NavigationOverrideVal
 
 export { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 export { MenuBuilderStore } from './store.js';
+import { createLogger } from '../shared/logger.js';
+
 import { MenuBuilderUI, initMenuBuilder } from './editor.js';
 import { EntryNavigationOverrideUI, initEntryNavigationOverrides } from '../entry-navigation/index.js';
 import { onReady } from '../shared/dom-ready.js';
+
+const logger = createLogger("MenuBuilder");
 export { MenuBuilderUI, EntryNavigationOverrideUI, initMenuBuilder, initEntryNavigationOverrides };
 export {
   parseMenuContracts,
@@ -30,7 +34,7 @@ onReady(() => {
         root.dataset.initialized = 'true';
       })
       .catch((error: unknown) => {
-        console.error('[menu-builder] failed to initialize', error);
+        logger.error('[menu-builder] failed to initialize', error);
         root.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${error instanceof Error ? error.message : String(error)}</div>`;
       });
   });

@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { createLogger } from '../shared/logger.js';
+
 import type { ApiResponse, DetailResponse } from './core-types.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import {
@@ -6,9 +8,11 @@ import {
   normalizeListActionStatePayload,
 } from './action-contracts.js';
 
+const logger = createLogger("DataGrid");
+
 export async function refresh(grid: any, requestSeq?: number): Promise<void> {
-    console.log('[DataGrid] ===== refresh() CALLED =====');
-    console.log('[DataGrid] Current sort state:', JSON.stringify(grid.state.sort));
+    logger.debug('[DataGrid] ===== refresh() CALLED =====');
+    logger.debug('[DataGrid] Current sort state:', JSON.stringify(grid.state.sort));
 
     if (grid.abortController) {
       grid.abortController.abort();
@@ -36,12 +40,12 @@ export async function refresh(grid: any, requestSeq?: number): Promise<void> {
       const rawData: ApiResponse = await response.json();
       const data = normalizeListActionStatePayload(rawData) as ApiResponse || rawData;
       if (typeof requestSeq === 'number' && typeof grid.isCurrentRefresh === 'function' && !grid.isCurrentRefresh(requestSeq)) {
-        console.log('[DataGrid] Ignoring stale refresh response');
+        logger.debug('[DataGrid] Ignoring stale refresh response');
         return;
       }
-      console.log('[DataGrid] API Response:', data);
-      console.log('[DataGrid] API Response data array:', data.data);
-      console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
+      logger.debug('[DataGrid] API Response:', data);
+      logger.debug('[DataGrid] API Response data array:', data.data);
+      logger.debug('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
       const items = data.data || data.records || [];
       if (grid.handleGroupedModePayloadFallback(items)) {
         return;
@@ -57,18 +61,18 @@ export async function refresh(grid: any, requestSeq?: number): Promise<void> {
         }
         return grid.refresh();
       }
-      console.log('[DataGrid] About to call renderData()...');
+      logger.debug('[DataGrid] About to call renderData()...');
       grid.renderData(data);
-      console.log('[DataGrid] renderData() completed');
+      logger.debug('[DataGrid] renderData() completed');
       grid.updatePaginationUI(data);
       grid.updateBulkActionsBar();
-      console.log('[DataGrid] ===== refresh() COMPLETED =====');
+      logger.debug('[DataGrid] ===== refresh() COMPLETED =====');
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log('[DataGrid] Request aborted');
+        logger.debug('[DataGrid] Request aborted');
         return;
       }
-      console.error('[DataGrid] Error fetching data:', error);
+      logger.error('[DataGrid] Error fetching data:', error);
       const message = 'Failed to load data';
       grid.renderErrorState(message);
       grid.setRenderState('error');
@@ -90,7 +94,7 @@ export function buildApiUrl(grid: any): string {
     });
 
     const url = `${grid.config.apiEndpoint}?${params.toString()}`;
-    console.log(`[DataGrid] API URL: ${url}`);
+    logger.debug(`[DataGrid] API URL: ${url}`);
     return url;
   }
 

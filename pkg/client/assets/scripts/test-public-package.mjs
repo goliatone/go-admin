@@ -51,6 +51,7 @@ import { httpRequest } from '@goliatone/go-admin-client/shared/transport/http-cl
 import { renderPanelState } from '@goliatone/go-admin-client/services/ui-states';
 import { createSSEClient, type ClientOptions } from '@goliatone/go-admin-client/services/sse-client';
 import { escapeHTML } from '@goliatone/go-admin-client/shared/html';
+import { configureLogging, createLogger, type LoggerSink } from '@goliatone/go-admin-client/shared/logger';
 import { asRecord } from '@goliatone/go-admin-client/shared/coercion';
 import {
   ConfirmModal,
@@ -69,6 +70,10 @@ void httpRequest;
 void renderPanelState;
 void createSSEClient(options);
 void escapeHTML('<test>');
+const sink: LoggerSink = { info: () => {} };
+const restoreLogging = configureLogging({ sink, level: 'info' });
+createLogger('consumer').info('ready');
+restoreLogging();
 void asRecord({ test: true });
 void Modal;
 void ConfirmModal;
@@ -89,12 +94,20 @@ unregister();
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfirmModal, Modal, TextPromptModal } from '@goliatone/go-admin-client/components/modal';
+import { configureLogging, createLogger } from '@goliatone/go-admin-client/shared/logger';
 const componentCSS = fileURLToPath(import.meta.resolve('@goliatone/go-admin-client/components.css'));
 if (typeof Modal !== 'function' || typeof ConfirmModal !== 'function' || typeof TextPromptModal !== 'function') {
   throw new Error('modal runtime exports are unavailable');
 }
 if (!existsSync(componentCSS) || !readFileSync(componentCSS, 'utf8').includes('.go-admin-modal__surface')) {
   throw new Error('public component stylesheet export is unavailable');
+}
+const calls = [];
+const restoreLogging = configureLogging({ sink: { info: (...args) => calls.push(args) }, level: 'info' });
+createLogger('consumer').info('ready', 42);
+restoreLogging();
+if (calls.length !== 1 || calls[0][0] !== '[consumer]' || calls[0][1] !== 'ready' || calls[0][2] !== 42) {
+  throw new Error('public logger export did not preserve scoped arguments');
 }
 `);
 

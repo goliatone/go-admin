@@ -3,6 +3,8 @@
  * Displays subscription channels and sync job status with management actions
  */
 
+import { createLogger } from '../../shared/logger.js';
+
 import type {
   Connection,
   ConnectionSyncSummary,
@@ -41,6 +43,8 @@ import {
   resolveProviderDisplayName,
   truncateId,
 } from './formatters.js';
+
+const logger = createLogger("SubscriptionsSync");
 
 // =============================================================================
 // Types
@@ -166,7 +170,7 @@ export class SubscriptionsSyncPageManager {
         : this.config.container;
 
     if (!this.container) {
-      console.error('[SubscriptionsSyncPage] Container not found:', this.config.container);
+      logger.error('[SubscriptionsSyncPage] Container not found:', this.config.container);
       return;
     }
 

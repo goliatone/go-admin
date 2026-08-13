@@ -3,6 +3,7 @@ import type { QueryStateManager } from '../query-state.js';
 import type { Provider } from '../types.js';
 import type { ToastNotifier } from '../../toast/types.js';
 import { escapeHTML } from '../../shared/html.js';
+import { formatRelativeTimeCompact } from '../../shared/time-formatters.js';
 
 export type ProviderNameResolver = ((providerId: string) => string) | undefined;
 
@@ -69,42 +70,12 @@ export function formatDateTime(dateStr: string): string {
 }
 
 export function formatRelativeTime(dateStr: string, options: RelativeTimeOptions = {}): string {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
-
-  if (!options.allowFuture) {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return options.pastImmediateLabel || 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return date.toLocaleDateString();
-  }
-
-  const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const isFuture = diffMs > 0;
-  const absDiffMs = Math.abs(diffMs);
-  const diffMins = Math.floor(absDiffMs / 60000);
-  const diffHours = Math.floor(absDiffMs / 3600000);
-  const diffDays = Math.floor(absDiffMs / 86400000);
-
-  if (diffMins < 1) {
-    return isFuture
-      ? options.futureImmediateLabel || 'Soon'
-      : options.pastImmediateLabel || 'Just now';
-  }
-  if (diffMins < 60) return isFuture ? `in ${diffMins}m` : `${diffMins}m ago`;
-  if (diffHours < 24) return isFuture ? `in ${diffHours}h` : `${diffHours}h ago`;
-  if (diffDays < 7) return isFuture ? `in ${diffDays}d` : `${diffDays}d ago`;
-
-  return date.toLocaleDateString();
+  return formatRelativeTimeCompact(dateStr, {
+    allowFuture: options.allowFuture,
+    pastImmediateLabel: options.pastImmediateLabel || 'Just now',
+    futureImmediateLabel: options.futureImmediateLabel || 'Soon',
+    invalidFallback: '__ORIGINAL__',
+  });
 }
 
 export async function loadProviders(

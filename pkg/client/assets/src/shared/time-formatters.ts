@@ -12,6 +12,12 @@ export interface RelativeTimeCompactPastOptions {
   invalidFallback?: string;
 }
 
+export interface RelativeTimeCompactOptions extends RelativeTimeCompactPastOptions {
+  allowFuture?: boolean;
+  pastImmediateLabel?: string;
+  futureImmediateLabel?: string;
+}
+
 export interface RelativeTimeNaturalOptions {
   emptyFallback?: string;
   invalidFallback?: string;
@@ -62,24 +68,39 @@ export function formatRelativeTimeCompactPast(
   value: unknown,
   options: RelativeTimeCompactPastOptions = {}
 ): string {
+  return formatRelativeTimeCompact(value, {
+    ...options,
+    pastImmediateLabel: 'just now',
+  });
+}
+
+export function formatRelativeTimeCompact(
+  value: unknown,
+  options: RelativeTimeCompactOptions = {}
+): string {
   const {
     emptyFallback = '',
     invalidFallback = '__ORIGINAL__',
+    allowFuture = false,
+    pastImmediateLabel = 'just now',
+    futureImmediateLabel = 'soon',
   } = options;
 
   const parsed = parseTimeValue(value);
   if (!parsed) return resolveFallback(value, emptyFallback, invalidFallback);
 
-  const diffMs = Date.now() - parsed.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMs = allowFuture ? parsed.getTime() - Date.now() : Date.now() - parsed.getTime();
+  const isFuture = allowFuture && diffMs > 0;
+  const elapsedMs = allowFuture ? Math.abs(diffMs) : diffMs;
+  const diffSecs = Math.floor(elapsedMs / 1000);
   const diffMins = Math.floor(diffSecs / 60);
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
 
-  if (diffSecs < 60) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffSecs < 60) return isFuture ? futureImmediateLabel : pastImmediateLabel;
+  if (diffMins < 60) return isFuture ? `in ${diffMins}m` : `${diffMins}m ago`;
+  if (diffHours < 24) return isFuture ? `in ${diffHours}h` : `${diffHours}h ago`;
+  if (diffDays < 7) return isFuture ? `in ${diffDays}d` : `${diffDays}d ago`;
 
   return parsed.toLocaleDateString();
 }

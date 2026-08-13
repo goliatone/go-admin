@@ -3,6 +3,8 @@
  * Provides extensible row, detail, and bulk action capabilities.
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type { ActionRemediation } from './action-contracts.js';
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
@@ -17,6 +19,8 @@ import { closeActionMenu } from '../shared/action-menu.js';
 import { readHTTPJSONValue } from '../shared/transport/http-client.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
 import type { PayloadModalFieldOption } from './payload-modal.js';
+
+const logger = createLogger("DataGrid");
 
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
 export type ActionRenderMode = 'inline' | 'dropdown';
@@ -340,7 +344,7 @@ export class ActionRenderer {
         try {
           await action.action(record);
         } catch (error) {
-          console.error(`Action "${action.label}" failed:`, error);
+          logger.error(`Action "${action.label}" failed:`, error);
           if (options.onError) {
             await options.onError(error, action, record);
             return;
@@ -405,7 +409,7 @@ export class ActionRenderer {
   ): Promise<void> {
     // Check guard condition
     if (config.guard && !config.guard(selectedIds)) {
-      console.warn(`Bulk action "${config.id}" guard failed`);
+      logger.warn(`Bulk action "${config.id}" guard failed`);
       return;
     }
 
@@ -466,7 +470,7 @@ export class ActionRenderer {
         config.onSuccess(data);
       }
     } catch (error) {
-      console.error(`Bulk action "${config.id}" failed:`, error);
+      logger.error(`Bulk action "${config.id}" failed:`, error);
 
       // Show error toast if onError callback didn't handle it
       if (!config.onError && !isHandledActionError(error)) {

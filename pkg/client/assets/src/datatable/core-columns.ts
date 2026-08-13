@@ -1,5 +1,9 @@
 // @ts-nocheck
+import { createLogger } from '../shared/logger.js';
+
 import type { ColumnDefinition } from './core-types.js';
+
+const logger = createLogger("DataGrid");
 
 export function reorderColumns(grid: any, newOrder: string[]): void {
     if (!grid.tableEl) return;
@@ -22,7 +26,7 @@ export function reorderColumns(grid: any, newOrder: string[]): void {
     grid.reorderTableColumns(validOrder);
     grid.persistStateSnapshot();
 
-    console.log('[DataGrid] Columns reordered:', validOrder);
+    logger.debug('[DataGrid] Columns reordered:', validOrder);
   }
 
   /**
@@ -60,7 +64,7 @@ export function resetColumnsToDefault(grid: any): void {
       grid.columnManager.syncWithGridState();
     }
 
-    console.log('[DataGrid] Columns reset to default');
+    logger.debug('[DataGrid] Columns reset to default');
   }
 
   /**

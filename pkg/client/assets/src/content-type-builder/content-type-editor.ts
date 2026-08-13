@@ -6,6 +6,8 @@
  * and schema preview integration.
  */
 
+import { createLogger } from '../shared/logger.js';
+
 import type {
   ContentType,
   ContentTypeEditorConfig,
@@ -42,6 +44,8 @@ import { nameToSlug, titleCaseIdentifier } from './shared/text';
 import { deriveAdminBasePath } from './shared/api-paths';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { parseJSONValue } from '../shared/json-parse.js';
+
+const logger = createLogger("ContentTypeEditor");
 
 // =============================================================================
 // Content Type Editor Component
@@ -174,7 +178,7 @@ export class ContentTypeEditor {
       this.bindEvents();
       this.schedulePreview();
     } catch (error) {
-      console.error('Failed to load content type:', error);
+      logger.error('Failed to load content type:', error);
       this.showToast('Failed to load content type', 'error');
     } finally {
       this.state.isLoading = false;
@@ -227,7 +231,7 @@ export class ContentTypeEditor {
       this.showToast('Content type saved successfully', 'success');
       this.config.onSave?.(saved);
     } catch (error) {
-      console.error('Failed to save content type:', error);
+      logger.error('Failed to save content type:', error);
       const message = error instanceof Error ? error.message : 'Failed to save content type';
       this.showToast(message, 'error');
     } finally {
@@ -525,7 +529,7 @@ export class ContentTypeEditor {
         this.showToast('Schema has validation errors', 'error');
       }
     } catch (error) {
-      console.error('Validation failed:', error);
+      logger.error('Validation failed:', error);
       const message = error instanceof Error ? error.message : 'Validation failed';
       this.showToast(message, 'error');
     }
@@ -579,7 +583,7 @@ export class ContentTypeEditor {
       this.renderPreview();
     } catch (error) {
       if (seq !== this.previewRequestSeq) return;
-      console.error('Preview failed:', error);
+      logger.error('Preview failed:', error);
       const message = error instanceof Error ? error.message : 'Preview failed';
       this.state.previewHtml = null;
       this.state.previewError = message;
@@ -2529,9 +2533,9 @@ export class ContentTypeEditor {
 
     // Fallback to console
     if (type === 'error') {
-      console.error(message);
+      logger.error(message);
     } else {
-      console.log(message);
+      logger.debug(message);
     }
   }
 
