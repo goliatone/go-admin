@@ -1,6 +1,47 @@
 # Changelog
 
+# [0.134.0](https://github.com/goliatone/go-admin/compare/v0.133.1...v0.134.0) - (2026-08-13)
+
+
+## Theme Integration
+
+- Added `admin.WithThemeSelectionFromRequest` to apply supported query/header
+  theme overrides consistently before resolving in-process renderers.
+- Quickstart content and roles forms, plus the web example users form, now use
+  the same request-scoped theme selection as the surrounding admin view.
+- Form-container width remains projected by go-admin but consumption is
+  reported by go-formgen, the package that owns the rendered form.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Budget size for fe lib ([63e13c5](https://github.com/goliatone/go-admin/commit/63e13c5eb285d6b9ee53de3fb4ce824dddbd249b))  - (goliatone)
+- Injetable logger to fe code, use loger vs console ([578c6dc](https://github.com/goliatone/go-admin/commit/578c6dcd34bbfb5b85881ce4467566c95d147cd7))  - (goliatone)
+- Linting ([75524d1](https://github.com/goliatone/go-admin/commit/75524d1ee90a078381426dc7a26ba5e96a7db39b))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Theme selection from request ([85e9ba8](https://github.com/goliatone/go-admin/commit/85e9ba88185469144fd95143920e4dc958654eb0))  - (goliatone)
+- Updated theme support ([1e4968b](https://github.com/goliatone/go-admin/commit/1e4968bd9b14347204d3ee741dc1f9ac14420c65))  - (goliatone)
+- Customize form width ([9424f67](https://github.com/goliatone/go-admin/commit/9424f676cc2604ea28aa0b5315fb11862d241bea))  - (goliatone)
+- Activity dynamic filters ([8147899](https://github.com/goliatone/go-admin/commit/81478995b644c2971c2c50b72150bea121c8dcac))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Consolidate helpers and primitives ([b9b0106](https://github.com/goliatone/go-admin/commit/b9b0106e8e5ed202ba979badca0a1288cb3b7dc0))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([58c5b27](https://github.com/goliatone/go-admin/commit/58c5b27735bc12285a9ec6d8d78b3ab92e462860))  - (goliatone)
+- Lint client code ([03dbeb5](https://github.com/goliatone/go-admin/commit/03dbeb5c629d3e0723b2b9ef2847a07a2e825f65))  - (goliatone)
+
 # [0.133.1](https://github.com/goliatone/go-admin/compare/v0.133.0...v0.133.1) - (2026-08-12)
+
+
+New patch release: v0.133.1
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.133.1 ([86423f3](https://github.com/goliatone/go-admin/commit/86423f34aa367058b531fac8041a2b4525db8856))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
