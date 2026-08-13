@@ -1,0 +1,943 @@
+{
+  "version": 1,
+  "description": "Reviewed frontend static-analysis debt. New locations fail; stale entries may be removed.",
+  "findings": [
+    {
+      "file": "src/activity/activity-manager.ts",
+      "line": 34,
+      "column": 72,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/activity/activity-manager.ts",
+      "line": 514,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/components/import-modal.ts",
+      "line": 151,
+      "column": 13,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/api-client.ts",
+      "line": 1243,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/api-client.ts",
+      "line": 1409,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/api-client.ts",
+      "line": 888,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/block-editor-panel.ts",
+      "line": 943,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/block-field-type-registry.ts",
+      "line": 8,
+      "column": 15,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/block-library-ide.ts",
+      "line": 1520,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/block-library-manager.ts",
+      "line": 10,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/block-library-manager.ts",
+      "line": 14,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/block-library-manager.ts",
+      "line": 17,
+      "column": 27,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/block-library-manager.ts",
+      "line": 561,
+      "column": 22,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/content-type-editor.ts",
+      "line": 1432,
+      "column": 50,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/content-type-editor.ts",
+      "line": 2594,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/content-type-editor.ts",
+      "line": 30,
+      "column": 49,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/field-config-form.ts",
+      "line": 11,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/field-config-form.ts",
+      "line": 1159,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/field-config-form.ts",
+      "line": 1244,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/field-config-form.ts",
+      "line": 21,
+      "column": 32,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/field-config-form.ts",
+      "line": 353,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/content-type-builder/layout-editor.ts",
+      "line": 7,
+      "column": 15,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/content-type-builder/shared/field-card.ts",
+      "line": 74,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/dashboard/widget-grid.ts",
+      "line": 11,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/dashboard/widget-renderer.ts",
+      "line": 100,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/datatable/action-contracts.ts",
+      "line": 288,
+      "column": 49,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/action-contracts.ts",
+      "line": 328,
+      "column": 51,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/actions.ts",
+      "line": 308,
+      "column": 24,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/actions.ts",
+      "line": 308,
+      "column": 37,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/actions.ts",
+      "line": 648,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/datatable/advanced-search.ts",
+      "line": 504,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/async-progress.ts",
+      "line": 541,
+      "column": 11,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/core-lifecycle.ts",
+      "line": 855,
+      "column": 46,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/datatable/core-lifecycle.ts",
+      "line": 950,
+      "column": 34,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/core-state.ts",
+      "line": 232,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/datatable/core.ts",
+      "line": 124,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/datatable/core.ts",
+      "line": 9,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/detail-actions.ts",
+      "line": 45,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/exchange-import.ts",
+      "line": 17,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/exchange-import.ts",
+      "line": 18,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/exchange-import.ts",
+      "line": 19,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/exchange-import.ts",
+      "line": 653,
+      "column": 11,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/exchange-import.ts",
+      "line": 701,
+      "column": 11,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/fallback-banner.ts",
+      "line": 184,
+      "column": 35,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/fallback-banner.ts",
+      "line": 274,
+      "column": 41,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/grouped-mode.ts",
+      "line": 448,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/inline-locale-chips.ts",
+      "line": 18,
+      "column": 8,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/payload-modal.ts",
+      "line": 240,
+      "column": 21,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/renderers.ts",
+      "line": 11,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/renderers.ts",
+      "line": 12,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/schema-actions.ts",
+      "line": 1112,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/datatable/schema-actions.ts",
+      "line": 256,
+      "column": 7,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/datatable/translator-dashboard.ts",
+      "line": 641,
+      "column": 11,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/debug-panel.ts",
+      "line": 1149,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/debug-panel.ts",
+      "line": 1271,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/debug-panel.ts",
+      "line": 1360,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/debug-panel.ts",
+      "line": 2153,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/debug-panel.ts",
+      "line": 52,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/debug-panel.ts",
+      "line": 880,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 177,
+      "column": 33,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 253,
+      "column": 26,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 302,
+      "column": 26,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 354,
+      "column": 26,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 406,
+      "column": 26,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 5,
+      "column": 15,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 515,
+      "column": 26,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 522,
+      "column": 33,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 529,
+      "column": 33,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 559,
+      "column": 26,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 566,
+      "column": 33,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/builtin-panels.ts",
+      "line": 7,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/deployment-identity.ts",
+      "line": 68,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/shared/panels/command-launcher.ts",
+      "line": 1357,
+      "column": 50,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/panels/command-launcher.ts",
+      "line": 727,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/shared/panels/command-launcher.ts",
+      "line": 815,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/shared/panels/live-list-view.ts",
+      "line": 210,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/shared/panels/permissions.ts",
+      "line": 177,
+      "column": 54,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/panels/permissions.ts",
+      "line": 367,
+      "column": 31,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/shared/server-definitions.ts",
+      "line": 133,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/shared/server-definitions.ts",
+      "line": 500,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/toolbar/debug-fab.ts",
+      "line": 365,
+      "column": 32,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/toolbar/debug-manager.ts",
+      "line": 6,
+      "column": 15,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/toolbar/debug-toolbar.ts",
+      "line": 233,
+      "column": 32,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/debug/toolbar/debug-toolbar.ts",
+      "line": 709,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/debug/toolbar/panel-renderers.ts",
+      "line": 53,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/feature-flags/feature-flags-manager.ts",
+      "line": 288,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/feature-flags/feature-flags-manager.ts",
+      "line": 329,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/feature-flags/scope-search/scope-search-box.ts",
+      "line": 17,
+      "column": 7,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/formgen/block_editor.ts",
+      "line": 1561,
+      "column": 44,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/formgen/block_editor.ts",
+      "line": 645,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/formgen/block_editor.ts",
+      "line": 914,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/formgen/block_library_picker.ts",
+      "line": 765,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/media/index.ts",
+      "line": 251,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/menu-builder/editor.ts",
+      "line": 427,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/menu-builder/editor.ts",
+      "line": 5,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/menu-builder/editor.ts",
+      "line": 85,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/runtime/cms-relationship-actions.js",
+      "line": 65,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/services/accessibility.ts",
+      "line": 269,
+      "column": 5,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/accessibility.ts",
+      "line": 86,
+      "column": 7,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/command-runtime.ts",
+      "line": 398,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/services/command-runtime.ts",
+      "line": 644,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/services/command-runtime.ts",
+      "line": 719,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/services/command-runtime.ts",
+      "line": 874,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/services/deep-links.ts",
+      "line": 389,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/deep-links.ts",
+      "line": 405,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/deep-links.ts",
+      "line": 414,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/deep-links.ts",
+      "line": 422,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 1104,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 1112,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 15,
+      "column": 34,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 16,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 21,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 35,
+      "column": 8,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/activity.ts",
+      "line": 658,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/services/pages/connection-detail.ts",
+      "line": 12,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connection-detail.ts",
+      "line": 14,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connection-detail.ts",
+      "line": 20,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connection-detail.ts",
+      "line": 35,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connections-list.ts",
+      "line": 16,
+      "column": 34,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connections-list.ts",
+      "line": 18,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connections-list.ts",
+      "line": 29,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/connections-list.ts",
+      "line": 36,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/installations-list.ts",
+      "line": 17,
+      "column": 34,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/installations-list.ts",
+      "line": 19,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/providers-catalog.ts",
+      "line": 10,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/providers-catalog.ts",
+      "line": 312,
+      "column": 14,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/subscriptions-sync.ts",
+      "line": 21,
+      "column": 34,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/pages/subscriptions-sync.ts",
+      "line": 22,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/services/query-state.ts",
+      "line": 347,
+      "column": 37,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/shared/behaviors/index.ts",
+      "line": 10,
+      "column": 8,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/shared/behaviors/index.ts",
+      "line": 3,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/shared/behaviors/navigation.ts",
+      "line": 249,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/shared/behaviors/navigation.ts",
+      "line": 69,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/shared/modal.ts",
+      "line": 21,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/toast/error-helpers.ts",
+      "line": 125,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/toast/error-helpers.ts",
+      "line": 539,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-contracts/index.ts",
+      "line": 489,
+      "column": 8,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-contracts/index.ts",
+      "line": 737,
+      "column": 37,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-dashboard/index.ts",
+      "line": 1384,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-dashboard/index.ts",
+      "line": 1531,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-dashboard/index.ts",
+      "line": 813,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-dashboard/index.ts",
+      "line": 909,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-dashboard/index.ts",
+      "line": 929,
+      "column": 53,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-editor/index.ts",
+      "line": 1852,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-editor/index.ts",
+      "line": 1861,
+      "column": 3,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-editor/index.ts",
+      "line": 2097,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-editor/index.ts",
+      "line": 992,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-exchange/translation-exchange-manager.ts",
+      "line": 226,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-exchange/translation-exchange-manager.ts",
+      "line": 834,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-family/index.ts",
+      "line": 1639,
+      "column": 10,
+      "rule": "@typescript-eslint/no-unused-vars"
+    },
+    {
+      "file": "src/translation-family/index.ts",
+      "line": 3792,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-matrix/index.ts",
+      "line": 1392,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-matrix/index.ts",
+      "line": 981,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-queue/index.ts",
+      "line": 1633,
+      "column": 1,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-queue/index.ts",
+      "line": 2743,
+      "column": 3,
+      "rule": "complexity"
+    },
+    {
+      "file": "src/translation-queue/index.ts",
+      "line": 3392,
+      "column": 3,
+      "rule": "complexity"
+    }
+  ]
+}
+

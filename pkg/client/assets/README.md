@@ -84,6 +84,27 @@ import { enableConsoleLogging } from '@goliatone/go-admin-client/shared/logger';
 const restoreLogging = enableConsoleLogging('debug');
 ```
 
+## Static analysis
+
+Run the same production-source policy used by the test workflow:
+
+```sh
+npm run lint
+```
+
+ESLint rejects direct console ownership and imports through generated or
+published package artifacts. Existing complexity and unused-code debt is
+tracked by exact source location in `eslint-baseline.json`; new findings fail,
+while resolved entries are reported as stale and can be removed. After
+reviewing an intentional baseline change, regenerate the inventory with:
+
+```sh
+npm run lint:eslint:baseline
+```
+
+Review the generated diff before accepting it. Zero-tolerance errors are never
+written to the baseline.
+
 ## Shared modal component
 
 Use the same component from the package or the predictable embedded asset:
