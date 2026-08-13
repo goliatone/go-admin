@@ -10,7 +10,6 @@ const {
   FileDropzone,
   ImportReportView,
   ImportTransportError,
-  legacyUsersReport,
 } = await import('../dist/components/import-modal.js');
 const { configureLogging } = await import('../dist/shared/logger.js');
 
@@ -435,6 +434,63 @@ test('source switching confirms before discarding selected or preview-ready work
   modal.destroy();
 });
 
+test('source switching is single-flight, cancellation-safe, keyboard-safe, and teardown-safe', async () => {
+  setup();
+  const decisions = [];
+  const mounts = new Map();
+  const source = (key, label) => customSource({
+    key,
+    label,
+    mountInput(root, api) {
+      mounts.set(key, (mounts.get(key) || 0) + 1);
+      root.textContent = `${label} ready`;
+      api.setReady(true);
+    },
+  });
+  const modal = new BulkImportModal({
+    root: document.getElementById('host'),
+    sources: [source('first', 'First'), source('second', 'Second'), source('third', 'Third')],
+    confirmDiscard: (context) => new Promise((resolve) => decisions.push({ context, resolve })),
+  });
+  await modal.show();
+
+  document.querySelector('[data-import-source-tab="1"]').click();
+  document.querySelector('[data-import-source-tab="1"]').click();
+  document.querySelector('[data-import-source-tab="2"]').click();
+  await tick();
+  assert.equal(decisions.length, 1, 'rapid same and different destinations share one pending decision');
+  assert.equal(decisions[0].context.nextSourceKey, 'second', 'the first accepted request is authoritative');
+  decisions[0].resolve(false);
+  await tick();
+  assert.equal(document.querySelector('[data-import-source-tab="0"]').getAttribute('aria-selected'), 'true', 'cancellation preserves the source');
+
+  document.querySelector('[data-import-source-tab="2"]').click();
+  await tick();
+  assert.equal(decisions.length, 2, 'a new request is allowed after cancellation settles');
+  decisions[1].resolve(true);
+  await tick();
+  const thirdTab = document.querySelector('[data-import-source-tab="2"]');
+  assert.equal(thirdTab.getAttribute('aria-selected'), 'true');
+
+  thirdTab.focus();
+  thirdTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+  thirdTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  await tick();
+  assert.equal(decisions.length, 3, 'repeated keyboard activation stays single-flight');
+  decisions[2].resolve(false);
+  await tick();
+  assert.equal(document.activeElement, thirdTab, 'cancelled keyboard activation does not move focus to a rejected destination');
+  assert.equal(thirdTab.getAttribute('aria-selected'), 'true');
+
+  document.querySelector('[data-import-source-tab="1"]').click();
+  await tick();
+  assert.equal(decisions.length, 4);
+  modal.destroy();
+  decisions[3].resolve(true);
+  await tick();
+  assert.equal(mounts.get('second') || 0, 0, 'a decision resolved after teardown cannot mount its destination');
+});
+
 test('BulkImportModal prevents double submit, uses maximize before Escape close, and isolates instances', async () => {
   setup('<button id="open">Open</button><div id="one"></div><div id="two"></div>');
   let resolveSubmit;
@@ -486,25 +542,17 @@ test('BulkImportModal prevents double submit, uses maximize before Escape close,
   second.destroy();
 });
 
-test('legacy Users adapter keeps Users response vocabulary in the application adapter', () => {
-  const report = legacyUsersReport({
-    summary: { processed: 2, succeeded: 1, failed: 1 },
-    results: [
-      { index: 0, email: 'safe@example.test', user_id: 'user-1', status: 'created' },
-      { index: 1, error: 'email is required' },
-    ],
-  });
-  assert.deepEqual(report.metrics.map(({ key, value }) => [key, value]), [['processed', 2], ['succeeded', 1], ['failed', 1]]);
-  assert.deepEqual(report.rows.map(({ outcome, action }) => [outcome, action]), [['succeeded', 'created'], ['failed', 'rejected']]);
-  assert.equal(report.partial, true);
-});
-
-test('Users template configures the public component and does not retain a parallel modal runtime', () => {
-  const source = readFileSync(resolve(import.meta.dirname, '../../templates/resources/users/list.html'), 'utf8');
-  assert.match(source, /import \{ BulkImportModal, legacyUsersReport \}/);
-  assert.match(source, /new BulkImportModal\(/);
-  assert.match(source, /httpRequest\(`\$\{apiRoot\}\/users-import`/);
-  assert.doesNotMatch(source, /id="import-users-modal"|new ImportModal\(/);
+test('Users owns its response adapter while the public component remains application-neutral', () => {
+  const componentSource = readFileSync(resolve(import.meta.dirname, '../src/components/import-modal.ts'), 'utf8');
+  const usersTemplate = readFileSync(resolve(import.meta.dirname, '../../templates/resources/users/list.html'), 'utf8');
+  assert.doesNotMatch(componentSource, /legacyUsersReport|LegacyImportModalOptions|users-owned|user_id|class ImportModal/);
+  assert.match(usersTemplate, /import \{ BulkImportModal \}/);
+  assert.match(usersTemplate, /const adaptUsersImportReport = \(payload\) =>/);
+  assert.match(usersTemplate, /metadata:\s*\{\s*email:.*user_id:/s);
+  assert.match(usersTemplate, /adaptSubmit: \(\{ payload \}\) => adaptUsersImportReport\(payload\)/);
+  assert.match(usersTemplate, /new BulkImportModal\(/);
+  assert.match(usersTemplate, /httpRequest\(`\$\{apiRoot\}\/users-import`/);
+  assert.doesNotMatch(usersTemplate, /legacyUsersReport|id="import-users-modal"|new ImportModal\(/);
 });
 
 // --- T22 review-first presentation contract -------------------------------

@@ -1,9 +1,8 @@
 import { escapeHTML as l } from "../shared/html.js";
 import { createLogger as f } from "../shared/logger.js";
 import { formatByteSize as b } from "../shared/size-formatters.js";
-import { httpRequest as g } from "../shared/transport/http-client.js";
-import { r as w, t as h } from "../chunks/modal-nXs4C8ko.js";
-var v = class extends Error {
+import { r as g, t as h } from "../chunks/modal-nXs4C8ko.js";
+var w = class extends Error {
   constructor(t, e = "unknown") {
     super(t), this.name = "ImportTransportError", this.outcome = e;
   }
@@ -53,7 +52,7 @@ var v = class extends Error {
   change: "Change",
   summaryBounds: "{total} records",
   busyDismissBlocked: "An import is in progress. Wait for it to finish before closing."
-}, S = {
+}, v = {
   browse: "Choose a file or drag and drop it here",
   guidance: "Select a supported import file.",
   remove: "Remove selected file",
@@ -62,7 +61,7 @@ var v = class extends Error {
   invalid: "The selected file is not supported.",
   tooLarge: "The selected file exceeds the client-visible size limit.",
   samplesLabel: "Import samples"
-}, k = f("BulkImportModal"), C = 0;
+}, S = f("BulkImportModal"), C = 0;
 function y(t) {
   return b(t, {
     zeroFallback: "0 Bytes",
@@ -82,22 +81,22 @@ function y(t) {
     trimTrailingZeros: !0
   });
 }
-function _(t, e) {
+function k(t, e) {
   const i = e.split(",").map((o) => o.trim().toLowerCase()).filter(Boolean);
   if (i.length === 0) return !0;
   const s = t.name.toLowerCase(), r = t.type.toLowerCase();
   return i.some((o) => o.startsWith(".") ? s.endsWith(o) : o.endsWith("/*") ? r.startsWith(o.slice(0, -1)) : r === o);
 }
-function p(t, e, i) {
+function d(t, e, i) {
   return t.addEventListener(e, i), () => t.removeEventListener(e, i);
 }
 function m(t, e) {
   return Object.entries(e).reduce((i, [s, r]) => i.split(`{${s}}`).join(String(r)), t);
 }
-var A = class {
+var _ = class {
   constructor(t) {
     this.cleanup = [], this.input = null, this.selected = null, this.dragDepth = 0, this.disabled = !1, this.options = t, this.copy = {
-      ...S,
+      ...v,
       ...t.copy
     }, this.render(), this.bind();
   }
@@ -105,7 +104,7 @@ var A = class {
     return this.selected;
   }
   setFile(t, e = !0) {
-    return t && this.options.maxBytes && t.size > this.options.maxBytes ? (this.options.onInvalid?.(this.copy.tooLarge), !1) : t && this.options.accept && !_(t, this.options.accept) ? (this.options.onInvalid?.(this.copy.invalid), !1) : (this.selected = t, this.update(), e && this.options.onChange?.(t), !0);
+    return t && this.options.maxBytes && t.size > this.options.maxBytes ? (this.options.onInvalid?.(this.copy.tooLarge), !1) : t && this.options.accept && !k(t, this.options.accept) ? (this.options.onInvalid?.(this.copy.invalid), !1) : (this.selected = t, this.update(), e && this.options.onChange?.(t), !0);
   }
   reset() {
     this.input && (this.input.value = ""), this.setFile(null);
@@ -153,24 +152,24 @@ var A = class {
   bind() {
     const t = this.options.root.querySelector("[data-import-dropzone]"), e = this.options.root.querySelector("[data-import-remove]");
     if (!(!t || !this.input)) {
-      this.cleanup.push(p(this.input, "change", () => {
+      this.cleanup.push(d(this.input, "change", () => {
         this.setFile(this.input?.files?.[0] || null);
       }));
       for (const i of ["[data-import-browse]", "[data-import-replace]"]) {
         const s = this.options.root.querySelector(i);
-        s && this.cleanup.push(p(s, "click", (r) => {
+        s && this.cleanup.push(d(s, "click", (r) => {
           r.preventDefault(), r.stopPropagation(), this.disabled || this.input?.click();
         }));
       }
-      for (const i of ["dragenter", "dragover"]) this.cleanup.push(p(t, i, (s) => {
+      for (const i of ["dragenter", "dragover"]) this.cleanup.push(d(t, i, (s) => {
         s.preventDefault(), !this.disabled && (i === "dragenter" && (this.dragDepth += 1), this.options.root.setAttribute("data-drag-active", "true"));
       }));
-      this.cleanup.push(p(t, "dragleave", (i) => {
+      this.cleanup.push(d(t, "dragleave", (i) => {
         i.preventDefault(), this.dragDepth = Math.max(0, this.dragDepth - 1), this.dragDepth === 0 && this.options.root.removeAttribute("data-drag-active");
-      })), this.cleanup.push(p(t, "drop", (i) => {
+      })), this.cleanup.push(d(t, "drop", (i) => {
         const s = i;
         s.preventDefault(), this.dragDepth = 0, this.options.root.removeAttribute("data-drag-active"), this.disabled || this.setFile(s.dataTransfer?.files?.[0] || null);
-      })), e && this.cleanup.push(p(e, "click", (i) => {
+      })), e && this.cleanup.push(d(e, "click", (i) => {
         i.preventDefault(), i.stopPropagation(), this.disabled || this.reset();
       }));
     }
@@ -180,7 +179,7 @@ var A = class {
     t && (t.hidden = !!this.selected), e && (e.hidden = !this.selected), this.options.root.dataset.importState = this.selected ? "selected" : "empty", i && (i.textContent = this.selected?.name || ""), s && (s.textContent = this.selected ? y(this.selected.size) : "");
   }
 };
-function x(t, e, i = {}) {
+function A(t, e, i = {}) {
   if (e.value) return e.value(t);
   switch (e.key) {
     case "reference":
@@ -199,10 +198,10 @@ function x(t, e, i = {}) {
       return t.metadata?.[e.key] ?? "";
   }
 }
-function I(t, e) {
+function x(t, e) {
   return e.predicate ? !!e.predicate(t) : !(e.outcome && t.outcome !== e.outcome || e.action && t.action !== e.action || e.code && !(t.codes || []).includes(e.code));
 }
-var E = Object.freeze([
+var I = Object.freeze([
   {
     key: "reference",
     label: "Row",
@@ -223,9 +222,9 @@ var E = Object.freeze([
     label: "Details",
     priority: "secondary"
   }
-]), R = class {
+]), E = class {
   constructor(t, e = {}) {
-    this.presentation = {}, this.report = null, this.activeFilter = "all", this.root = t, this.fallbackColumns = e.columns || E, this.fallbackFilters = e.filters || [], this.presentation = e.presentation || {}, this.noRows = e.noRows || c.noRows, this.copy = {
+    this.presentation = {}, this.report = null, this.activeFilter = "all", this.root = t, this.fallbackColumns = e.columns || I, this.fallbackFilters = e.filters || [], this.presentation = e.presentation || {}, this.noRows = e.noRows || c.noRows, this.copy = {
       reportFiltersLabel: c.reportFiltersLabel,
       allRows: c.allRows,
       reportBounds: c.reportBounds,
@@ -248,7 +247,7 @@ var E = Object.freeze([
   }
   render(t) {
     const e = Array.isArray(t.rows) ? t.rows.slice() : [], i = t.detailMode === "aggregate", s = Number(t.bounds?.totalRows) || 0;
-    i && e.length > 0 && k.warn("aggregate report declared with row detail; row detail is not rendered", {
+    i && e.length > 0 && S.warn("aggregate report declared with row detail; row detail is not rendered", {
       mode: t.mode,
       phase: t.phase,
       returnedRows: e.length
@@ -280,7 +279,7 @@ var E = Object.freeze([
     }
     const e = this.availableFilters(t);
     e.length > 1 && this.root.appendChild(this.buildFilters(e));
-    const i = e.find((a) => a.key === this.activeFilter), s = i && i.key !== "all" ? t.rows.filter((a) => I(a, i)) : t.rows, r = document.createElement("p");
+    const i = e.find((a) => a.key === this.activeFilter), s = i && i.key !== "all" ? t.rows.filter((a) => x(a, i)) : t.rows, r = document.createElement("p");
     r.className = "go-admin-import__bounds", r.textContent = [m(this.copy.reportBounds, {
       visible: s.length,
       returned: t.bounds.returnedRows,
@@ -349,11 +348,11 @@ var E = Object.freeze([
     for (const o of e) {
       const a = document.createElement("td");
       a.dataset.column = o.key, a.dataset.priority = o.priority || "primary";
-      const n = x(t, o, i), d = n === null ? "" : String(n);
-      if ((o.key === "outcome" || o.key === "action") && d) {
+      const n = A(t, o, i), p = n === null ? "" : String(n);
+      if ((o.key === "outcome" || o.key === "action") && p) {
         const u = document.createElement("span");
-        u.className = "go-admin-import__outcome", u.dataset.tone = s[o.key === "outcome" ? t.outcome : t.action || ""] || "neutral", u.textContent = d, a.appendChild(u);
-      } else a.textContent = d;
+        u.className = "go-admin-import__outcome", u.dataset.tone = s[o.key === "outcome" ? t.outcome : t.action || ""] || "neutral", u.textContent = p, a.appendChild(u);
+      } else a.textContent = p;
       r.appendChild(a);
     }
     return r;
@@ -371,8 +370,8 @@ var E = Object.freeze([
     for (const { field: r, value: o } of i) {
       const a = document.createElement("dt");
       a.textContent = r.label, a.dataset.runField = r.key;
-      const n = document.createElement("dd"), d = r.format ? r.format(o) : o;
-      n.textContent = d === null ? "" : String(d), s.append(a, n);
+      const n = document.createElement("dd"), p = r.format ? r.format(o) : o;
+      n.textContent = p === null ? "" : String(p), s.append(a, n);
     }
     this.root.appendChild(s);
   }
@@ -384,7 +383,7 @@ function M() {
     idempotencyKey: t
   });
 }
-var D = class extends w {
+var q = class extends g {
   constructor(t) {
     if (!t.root || t.sources.length === 0) throw new Error("BulkImportModal requires a root and at least one source.");
     super({
@@ -393,7 +392,7 @@ var D = class extends w {
       initialFocus: t.sources.length > 1 ? "[data-import-source-tab]" : "[data-import-browse], [data-import-input] button, [data-import-input] input, [data-import-input] select, [data-import-primary]",
       maximizable: !0,
       containerClass: "go-admin-import"
-    }), this.instanceID = `go-admin-bulk-import-${++C}`, this.workflowState = "idle", this.sourceIndex = 0, this.currentInput = null, this.previewState = null, this.eligibility = { allowed: !1 }, this.attempt = null, this.attemptTerminal = !0, this.report = null, this.response = null, this.aborter = null, this.dropzone = null, this.panelCleanup = null, this.reportView = null, this.busy = !1, this.closeAuthorized = !1, this.closePending = !1, this.config = t, this.copy = {
+    }), this.instanceID = `go-admin-bulk-import-${++C}`, this.workflowState = "idle", this.sourceIndex = 0, this.currentInput = null, this.previewState = null, this.eligibility = { allowed: !1 }, this.attempt = null, this.attemptTerminal = !0, this.report = null, this.response = null, this.aborter = null, this.dropzone = null, this.panelCleanup = null, this.reportView = null, this.busy = !1, this.closeAuthorized = !1, this.closePending = !1, this.sourceTransitionPending = !1, this.sourceTransitionGeneration = 0, this.config = t, this.copy = {
       ...c,
       ...t.copy
     }, this.sourceIndex = Math.max(0, t.sources.findIndex((e) => e.available !== !1)), this.selectedMode = this.resolveModes(this.source)[0];
@@ -421,7 +420,7 @@ var D = class extends w {
     return await this.reconcileAttempt() ? (this.clearWorkflow(), this.renderSourcePanel(), this.setStatus(this.copy.idleStatus), this.updateActions(), !0) : !1;
   }
   destroy() {
-    this.attempt && !this.attemptTerminal && this.source.onReconcileAttempt?.(this.attempt), this.aborter?.abort(), this.releasePanel(), super.destroy();
+    this.sourceTransitionGeneration += 1, this.sourceTransitionPending = !1, this.attempt && !this.attemptTerminal && this.source.onReconcileAttempt?.(this.attempt), this.aborter?.abort(), this.releasePanel(), super.destroy();
   }
   renderContent() {
     const t = this.copy.description ? `<p id="${this.instanceID}-description">${l(this.copy.description)}</p>` : "", e = this.config.sources.length < 2, i = e ? `aria-label="${l(this.config.sources[this.sourceIndex]?.label || this.copy.sourceTabsLabel)}"` : `aria-labelledby="${this.instanceID}-source-tab-${this.sourceIndex}"`;
@@ -472,7 +471,7 @@ var D = class extends w {
       this.reset();
     });
     const t = this.container?.querySelector("[data-import-report]");
-    t && (this.reportView = new R(t, {
+    t && (this.reportView = new E(t, {
       columns: this.config.columns,
       filters: this.config.filters,
       presentation: this.source.report,
@@ -614,7 +613,7 @@ var D = class extends w {
     this.renderModeDescription(e);
   }
   mountFileSource(t, e) {
-    this.dropzone = new A({
+    this.dropzone = new _({
       root: e,
       ...t.file || {},
       copy: {
@@ -700,10 +699,17 @@ var D = class extends w {
   }
   async activateSource(t) {
     const e = this.config.sources[t];
-    !e || e.available === !1 || t === this.sourceIndex || this.busy || await this.confirmSourceDiscard(e) && (this.clearWorkflow(), this.sourceIndex = t, this.selectedMode = this.resolveModes(e)[0], this.reportView?.setPresentation(e.report), this.container?.querySelectorAll("[data-import-source-tab]").forEach((i) => {
-      const s = Number(i.dataset.importSourceTab) === t;
-      i.setAttribute("aria-selected", String(s)), i.tabIndex = s ? 0 : -1;
-    }), this.container?.querySelector("[data-import-source-panel]")?.setAttribute("aria-labelledby", `${this.instanceID}-source-tab-${t}`), this.renderSourcePanel(), this.setStatus(e.help || this.copy.idleStatus));
+    if (!e || e.available === !1 || t === this.sourceIndex || this.busy || this.sourceTransitionPending) return !1;
+    const i = ++this.sourceTransitionGeneration;
+    this.sourceTransitionPending = !0;
+    try {
+      return !await this.confirmSourceDiscard(e) || i !== this.sourceTransitionGeneration || !this.container ? !1 : (this.clearWorkflow(), this.sourceIndex = t, this.selectedMode = this.resolveModes(e)[0], this.reportView?.setPresentation(e.report), this.container.querySelectorAll("[data-import-source-tab]").forEach((s) => {
+        const r = Number(s.dataset.importSourceTab) === t;
+        s.setAttribute("aria-selected", String(r)), s.tabIndex = r ? 0 : -1;
+      }), this.container.querySelector("[data-import-source-panel]")?.setAttribute("aria-labelledby", `${this.instanceID}-source-tab-${t}`), this.renderSourcePanel(), this.setStatus(e.help || this.copy.idleStatus), !0);
+    } finally {
+      i === this.sourceTransitionGeneration && (this.sourceTransitionPending = !1);
+    }
   }
   onSourceKeydown(t) {
     if (![
@@ -714,7 +720,9 @@ var D = class extends w {
     ].includes(t.key)) return;
     t.preventDefault();
     const e = this.config.sources.map((o, a) => o.available === !1 ? -1 : a).filter((o) => o >= 0), i = e.indexOf(this.sourceIndex), s = t.key === "ArrowRight" ? 1 : -1, r = t.key === "Home" ? e[0] : t.key === "End" ? e[e.length - 1] : e[(i + s + e.length) % e.length];
-    this.activateSource(r).then(() => this.container?.querySelector(`[data-import-source-tab="${r}"]`)?.focus());
+    this.activateSource(r).then((o) => {
+      o && this.container?.querySelector(`[data-import-source-tab="${r}"]`)?.focus();
+    });
   }
   readInput() {
     const t = this.container?.querySelector("[data-import-input]");
@@ -813,7 +821,7 @@ var D = class extends w {
     }
   }
   handleError(t, e) {
-    const i = (t instanceof v ? t : null)?.outcome === "terminal";
+    const i = (t instanceof w ? t : null)?.outcome === "terminal";
     e && i && (this.attemptTerminal = !0), this.setState(i ? "terminal-error" : "recoverable-error");
     const s = t instanceof Error ? t.message : this.copy.importFailed;
     this.setError(s), this.setStatus(e && !i ? this.copy.unknownOutcome : s);
@@ -831,8 +839,8 @@ var D = class extends w {
       settled: r
     }), this.dropzone?.setDisabled(o);
     const a = this.container?.querySelector("[data-import-input]");
-    a && this.source.setInputDisabled?.(a, o), this.container?.querySelectorAll("[data-import-source-tab]").forEach((n, d) => {
-      n.disabled = this.busy || this.config.sources[d].available === !1;
+    a && this.source.setInputDisabled?.(a, o), this.container?.querySelectorAll("[data-import-source-tab]").forEach((n, p) => {
+      n.disabled = this.busy || this.config.sources[p].available === !1;
     }), this.container?.querySelectorAll("[data-import-mode] select").forEach((n) => {
       n.disabled = o;
     });
@@ -845,134 +853,7 @@ var D = class extends w {
   primaryActionLabel() {
     return this.busy ? this.workflowState === "previewing" ? this.copy.previewingStatus : this.copy.applyingStatus : this.workflowState === "recoverable-error" ? this.copy.retry : this.source.workflow === "single" ? this.copy.submit : this.workflowState === "preview-ready" ? this.copy.apply : this.copy.preview;
   }
-}, L = class extends D {
-  constructor(t = {}) {
-    const e = t.resourceName || "items", i = t.endpoint || `${(t.apiBasePath || "/api").replace(/\/+$/, "")}/import`, s = document.getElementById(t.modalId || "import-modal") || document.body;
-    super({
-      root: s,
-      copy: {
-        title: `Import ${e}`,
-        submit: `Import ${e}`
-      },
-      columns: [
-        {
-          key: "reference",
-          label: "#"
-        },
-        {
-          key: "email",
-          label: "Email"
-        },
-        {
-          key: "user_id",
-          label: "User ID"
-        },
-        {
-          key: "outcome",
-          label: "Status"
-        },
-        {
-          key: "message",
-          label: "Error"
-        }
-      ],
-      filters: [{
-        key: "succeeded",
-        label: "Succeeded",
-        outcome: "succeeded"
-      }, {
-        key: "failed",
-        label: "Failed",
-        outcome: "failed"
-      }],
-      sources: [{
-        key: "file",
-        label: "File",
-        workflow: "single",
-        kind: "file",
-        mode: {
-          key: "users-owned",
-          label: "Users import policy"
-        },
-        file: { accept: ".csv,.json,text/csv,application/json" },
-        submit: async (r, o) => {
-          const a = new FormData();
-          a.set("file", r);
-          const n = await g(i, {
-            method: "POST",
-            body: a,
-            signal: o.signal
-          });
-          return {
-            response: n,
-            payload: await n.json()
-          };
-        },
-        adaptSubmit: ({ payload: r }) => z(r),
-        onComplete: ({ report: r, response: o }) => {
-          const a = Object.fromEntries(r.metrics.map((n) => [n.key, n.value]));
-          t.onSuccess?.(a), Number(a.failed || 0) > 0 ? t.notifier?.error(String(o?.payload?.error || "Import completed with errors.")) : t.notifier?.success(`${e} imported successfully.`);
-        }
-      }]
-    });
-  }
-};
-function z(t) {
-  const e = t?.summary || {}, i = (Array.isArray(t?.results) ? t.results : []).map((s, r) => {
-    const o = !!String(s?.error || "").trim();
-    return {
-      reference: String(Number.isFinite(s?.index) ? s.index + 1 : r + 1),
-      outcome: o ? "failed" : "succeeded",
-      action: o ? "rejected" : String(s?.status || "imported"),
-      message: o ? String(s.error) : "",
-      metadata: {
-        email: s?.email ? String(s.email) : "",
-        user_id: s?.user_id ? String(s.user_id) : ""
-      }
-    };
-  });
-  return {
-    phase: "complete",
-    mode: "users-owned",
-    metrics: [
-      {
-        key: "processed",
-        label: "Processed",
-        value: Number(e.processed) || 0
-      },
-      {
-        key: "succeeded",
-        label: "Succeeded",
-        value: Number(e.succeeded) || 0,
-        tone: "success",
-        filter: {
-          key: "succeeded",
-          label: "Succeeded",
-          outcome: "succeeded"
-        }
-      },
-      {
-        key: "failed",
-        label: "Failed",
-        value: Number(e.failed) || 0,
-        tone: "danger",
-        filter: {
-          key: "failed",
-          label: "Failed",
-          outcome: "failed"
-        }
-      }
-    ],
-    rows: i,
-    bounds: {
-      returnedRows: i.length,
-      totalRows: Number(e.processed) || i.length,
-      truncated: !1
-    },
-    partial: Number(e.failed) > 0
-  };
-}
-var P = Object.freeze({
+}, L = Object.freeze({
   createOnly: {
     key: "create-only",
     label: "Create only",
@@ -995,15 +876,13 @@ var P = Object.freeze({
   }
 });
 export {
-  D as BulkImportModal,
-  P as COMMON_IMPORT_MODES,
-  A as FileDropzone,
-  L as ImportModal,
-  R as ImportReportView,
-  v as ImportTransportError,
-  D as default,
-  y as formatFileSize,
-  z as legacyUsersReport
+  q as BulkImportModal,
+  L as COMMON_IMPORT_MODES,
+  _ as FileDropzone,
+  E as ImportReportView,
+  w as ImportTransportError,
+  q as default,
+  y as formatFileSize
 };
 
 //# sourceMappingURL=import-modal.js.map

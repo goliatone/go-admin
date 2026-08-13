@@ -338,6 +338,10 @@ export declare class BulkImportModal extends Modal {
     private closeAuthorized;
     /** Repeated dismissal requests while a confirmation is pending are ignored. */
     private closePending;
+    /** Source activation is single-flight while discard/reconciliation awaits. */
+    private sourceTransitionPending;
+    /** Invalidates an async source continuation when the instance is destroyed. */
+    private sourceTransitionGeneration;
     constructor(options: BulkImportModalOptions);
     get state(): ImportWorkflowState;
     get activeAttempt(): Readonly<ImportAttemptContext> | null;
@@ -414,22 +418,6 @@ export declare class BulkImportModal extends Modal {
     private updateFooterActions;
     private primaryActionLabel;
 }
-type LegacyImportModalOptions = {
-    modalId?: string;
-    endpoint?: string;
-    apiBasePath?: string;
-    onSuccess?: (summary: Record<string, number>) => void;
-    notifier?: {
-        success: (message: string) => void;
-        error: (message: string) => void;
-    };
-    resourceName?: string;
-};
-/** @deprecated Configure BulkImportModal directly for new import workflows. */
-export declare class ImportModal extends BulkImportModal {
-    constructor(options?: LegacyImportModalOptions);
-}
-export declare function legacyUsersReport(payload: any): ImportReportData;
 export declare const COMMON_IMPORT_MODES: Readonly<{
     createOnly: {
         key: string;

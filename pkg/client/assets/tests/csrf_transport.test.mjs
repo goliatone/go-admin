@@ -183,6 +183,7 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   const servicesAPIClientSource = readSource('../src/services/api-client.ts');
   const translationExchangeSource = readSource('../src/translation-exchange/translation-exchange-manager.ts');
   const importModalSource = readSource('../src/components/import-modal.ts');
+  const usersTemplateSource = readSource('../../templates/resources/users/list.html');
   const exchangeImportSource = readSource('../src/datatable/exchange-import.ts');
   const debugPanelSource = readSource('../src/debug/debug-panel.ts');
   const debugToolbarSource = readSource('../src/debug/toolbar/debug-toolbar.ts');
@@ -210,8 +211,9 @@ test('csrf-aware transport is adopted by shared wrappers and admin mutation page
   assert.match(translationExchangeSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.match(translationExchangeSource, /const response = await httpRequest\(path, init\);/);
 
-  assert.match(importModalSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
-  assert.match(importModalSource, /response = await httpRequest\(endpoint, \{/);
+  assert.doesNotMatch(importModalSource, /httpRequest|shared\/transport\/http-client/, 'the generic import component owns no application transport');
+  assert.match(usersTemplateSource, /assets\/dist\/shared\/transport\/http-client\.js/);
+  assert.match(usersTemplateSource, /response = await httpRequest\(`\$\{apiRoot\}\/users-import`, \{/);
 
   assert.match(exchangeImportSource, /from '\.\.\/shared\/transport\/http-client\.js'/);
   assert.ok((exchangeImportSource.match(/await httpRequest\(/g) || []).length >= 3);

@@ -11,7 +11,6 @@ import { ConfirmModal, Modal } from './modal.js';
 import { createLogger } from '../shared/logger.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { formatByteSize } from '../shared/size-formatters.js';
-import { httpRequest } from '../shared/transport/http-client.js';
 
 export type ImportWorkflowState =
   | 'idle'
@@ -919,6 +918,10 @@ export class BulkImportModal extends Modal {
   private closeAuthorized = false;
   /** Repeated dismissal requests while a confirmation is pending are ignored. */
   private closePending = false;
+  /** Source activation is single-flight while discard/reconciliation awaits. */
+  private sourceTransitionPending = false;
+  /** Invalidates an async source continuation when the instance is destroyed. */
+  private sourceTransitionGeneration = 0;
 
   constructor(options: BulkImportModalOptions) {
     if (!options.root || options.sources.length === 0) throw new Error('BulkImportModal requires a root and at least one source.');
@@ -976,6 +979,8 @@ export class BulkImportModal extends Modal {
   }
 
   override destroy(): void {
+    this.sourceTransitionGeneration += 1;
+    this.sourceTransitionPending = false;
     if (this.attempt && !this.attemptTerminal) void this.source.onReconcileAttempt?.(this.attempt);
     this.aborter?.abort();
     this.releasePanel();
@@ -1454,25 +1459,35 @@ export class BulkImportModal extends Modal {
     });
   }
 
-  private async activateSource(index: number): Promise<void> {
+  private async activateSource(index: number): Promise<boolean> {
     const next = this.config.sources[index];
-    if (!next || next.available === false || index === this.sourceIndex || this.busy) return;
-    if (!await this.confirmSourceDiscard(next)) return;
-    this.clearWorkflow();
-    this.sourceIndex = index;
-    this.selectedMode = this.resolveModes(next)[0];
-    // Report vocabulary belongs to the source; the next source must not inherit
-    // the previous one's columns, filters, labels, tones or active filter.
-    this.reportView?.setPresentation(next.report);
-    this.container?.querySelectorAll<HTMLElement>('[data-import-source-tab]').forEach((tab) => {
-      const selected = Number(tab.dataset.importSourceTab) === index;
-      tab.setAttribute('aria-selected', String(selected));
-      tab.tabIndex = selected ? 0 : -1;
-    });
-    this.container?.querySelector<HTMLElement>('[data-import-source-panel]')
-      ?.setAttribute('aria-labelledby', `${this.instanceID}-source-tab-${index}`);
-    this.renderSourcePanel();
-    this.setStatus(next.help || this.copy.idleStatus);
+    if (!next || next.available === false || index === this.sourceIndex || this.busy || this.sourceTransitionPending) return false;
+    const generation = ++this.sourceTransitionGeneration;
+    this.sourceTransitionPending = true;
+    try {
+      if (!await this.confirmSourceDiscard(next)) return false;
+      // A decision that resolves after teardown is stale and must not mutate a
+      // later lifecycle or donate authorization to another source request.
+      if (generation !== this.sourceTransitionGeneration || !this.container) return false;
+      this.clearWorkflow();
+      this.sourceIndex = index;
+      this.selectedMode = this.resolveModes(next)[0];
+      // Report vocabulary belongs to the source; the next source must not inherit
+      // the previous one's columns, filters, labels, tones or active filter.
+      this.reportView?.setPresentation(next.report);
+      this.container.querySelectorAll<HTMLElement>('[data-import-source-tab]').forEach((tab) => {
+        const selected = Number(tab.dataset.importSourceTab) === index;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      this.container.querySelector<HTMLElement>('[data-import-source-panel]')
+        ?.setAttribute('aria-labelledby', `${this.instanceID}-source-tab-${index}`);
+      this.renderSourcePanel();
+      this.setStatus(next.help || this.copy.idleStatus);
+      return true;
+    } finally {
+      if (generation === this.sourceTransitionGeneration) this.sourceTransitionPending = false;
+    }
   }
 
   private onSourceKeydown(event: KeyboardEvent): void {
@@ -1486,7 +1501,9 @@ export class BulkImportModal extends Modal {
       : event.key === 'End'
         ? enabled[enabled.length - 1]
         : enabled[(current + offset + enabled.length) % enabled.length];
-    void this.activateSource(next).then(() => this.container?.querySelector<HTMLElement>(`[data-import-source-tab="${next}"]`)?.focus());
+    void this.activateSource(next).then((activated) => {
+      if (activated) this.container?.querySelector<HTMLElement>(`[data-import-source-tab="${next}"]`)?.focus();
+    });
   }
 
   private readInput(): unknown {
@@ -1684,88 +1701,6 @@ export class BulkImportModal extends Modal {
     if (this.workflowState === 'preview-ready') return this.copy.apply;
     return this.copy.preview;
   }
-}
-
-type LegacyImportModalOptions = {
-  modalId?: string;
-  endpoint?: string;
-  apiBasePath?: string;
-  onSuccess?: (summary: Record<string, number>) => void;
-  notifier?: { success: (message: string) => void; error: (message: string) => void };
-  resourceName?: string;
-};
-
-/** @deprecated Configure BulkImportModal directly for new import workflows. */
-export class ImportModal extends BulkImportModal {
-  constructor(options: LegacyImportModalOptions = {}) {
-    const resource = options.resourceName || 'items';
-    const endpoint = options.endpoint || `${(options.apiBasePath || '/api').replace(/\/+$/, '')}/import`;
-    const root = document.getElementById(options.modalId || 'import-modal') || document.body;
-    super({
-      root,
-      copy: { title: `Import ${resource}`, submit: `Import ${resource}` },
-      columns: [
-        { key: 'reference', label: '#' },
-        { key: 'email', label: 'Email' },
-        { key: 'user_id', label: 'User ID' },
-        { key: 'outcome', label: 'Status' },
-        { key: 'message', label: 'Error' },
-      ],
-      filters: [
-        { key: 'succeeded', label: 'Succeeded', outcome: 'succeeded' },
-        { key: 'failed', label: 'Failed', outcome: 'failed' },
-      ],
-      sources: [{
-        key: 'file', label: 'File', workflow: 'single', kind: 'file',
-        mode: { key: 'users-owned', label: 'Users import policy' },
-        file: { accept: '.csv,.json,text/csv,application/json' },
-        submit: async (input, context) => {
-          const body = new FormData();
-          body.set('file', input as File);
-          const response = await httpRequest(endpoint, { method: 'POST', body, signal: context.signal });
-          const payload = await response.json();
-          return { response, payload };
-        },
-        adaptSubmit: ({ payload }: any) => legacyUsersReport(payload),
-        onComplete: ({ report, response }) => {
-          const metrics = Object.fromEntries(report.metrics.map((metric) => [metric.key, metric.value]));
-          options.onSuccess?.(metrics);
-          const failed = Number(metrics.failed || 0);
-          if (failed > 0) options.notifier?.error(String((response as any)?.payload?.error || 'Import completed with errors.'));
-          else options.notifier?.success(`${resource} imported successfully.`);
-        },
-      }],
-    });
-  }
-}
-
-export function legacyUsersReport(payload: any): ImportReportData {
-  const summary = payload?.summary || {};
-  const rows: ImportReportRow[] = (Array.isArray(payload?.results) ? payload.results : []).map((item: any, index: number) => {
-    const failed = Boolean(String(item?.error || '').trim());
-    return {
-      reference: String(Number.isFinite(item?.index) ? item.index + 1 : index + 1),
-      outcome: failed ? 'failed' : 'succeeded',
-      action: failed ? 'rejected' : String(item?.status || 'imported'),
-      message: failed ? String(item.error) : '',
-      metadata: {
-        email: item?.email ? String(item.email) : '',
-        user_id: item?.user_id ? String(item.user_id) : '',
-      },
-    };
-  });
-  return {
-    phase: 'complete',
-    mode: 'users-owned',
-    metrics: [
-      { key: 'processed', label: 'Processed', value: Number(summary.processed) || 0 },
-      { key: 'succeeded', label: 'Succeeded', value: Number(summary.succeeded) || 0, tone: 'success', filter: { key: 'succeeded', label: 'Succeeded', outcome: 'succeeded' } },
-      { key: 'failed', label: 'Failed', value: Number(summary.failed) || 0, tone: 'danger', filter: { key: 'failed', label: 'Failed', outcome: 'failed' } },
-    ],
-    rows,
-    bounds: { returnedRows: rows.length, totalRows: Number(summary.processed) || rows.length, truncated: false },
-    partial: Number(summary.failed) > 0,
-  };
 }
 
 export const COMMON_IMPORT_MODES = Object.freeze({
