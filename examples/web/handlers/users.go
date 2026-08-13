@@ -455,11 +455,13 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 	if h.FormGenerator == nil {
 		return fmt.Errorf("form generator is not configured")
 	}
+	requestCtx := c.Context()
 	if h.Admin != nil {
-		opts.Theme = h.Admin.FormTheme(c.Context())
+		requestCtx = admin.WithThemeSelectionFromRequest(requestCtx, c)
+		opts.Theme = h.Admin.FormTheme(requestCtx)
 	}
 
-	html, err := h.FormGenerator.Generate(c.Context(), formgenorchestrator.Request{
+	html, err := h.FormGenerator.Generate(requestCtx, formgenorchestrator.Request{
 		Source:        formgenopenapi.SourceFromFS(userFormSource),
 		OperationID:   operationID,
 		RenderOptions: opts,

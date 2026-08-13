@@ -131,8 +131,9 @@ There are two supported integration paths.
 Inside go-admin, resolve the current request once and pass its typed projection:
 
 ``` go
+themeCtx := admin.WithThemeSelectionFromRequest(c.Context(), c)
 renderOptions := render.RenderOptions{
-    Theme: adm.FormTheme(ctx),
+    Theme: adm.FormTheme(themeCtx),
 }
 ```
 

@@ -372,7 +372,7 @@ Admin layout templates receive theme data through these helpers:
 
 - `admin.EnrichLayoutViewContext(...)` injects `theme` for custom module views that render the shared admin layout.
 - `quickstart.WithNav(...)` injects nav, session, feature context, path helpers, and `theme` from the request context.
-- `quickstart.WithThemeContext(...)` reads `?theme=` and `?variant=` from the router request, resolves `adm.ThemePayload(...)`, and adds `theme_name` and `theme_variant` convenience keys.
+- `quickstart.WithThemeContext(...)` reads the supported query/header overrides from the router request, resolves `adm.ThemePayload(...)`, and adds `theme_name` and `theme_variant` convenience keys.
 
 For custom quickstart views that need query-string theme previews, call `WithThemeContext(...)` after `WithNav(...)`:
 
@@ -547,6 +547,19 @@ Request and context overrides use the same selector shape:
 - Admin headers on supported routes: `X-Admin-Theme`, `X-Admin-Theme-Variant`
 - Code: `admin.WithThemeSelection(ctx, admin.ThemeSelector{...})`
 
+When a route renders both an outer admin view and an in-process component,
+derive one request-scoped context and pass it to every consumer:
+
+``` go
+themeCtx := admin.WithThemeSelectionFromRequest(c.Context(), c)
+viewCtx = quickstart.WithThemeContext(viewCtx, adm, c)
+opts.Theme = adm.FormTheme(themeCtx)
+```
+
+`WithThemeSelectionFromRequest` centralizes query-over-header precedence so
+the shell, generated forms, dashboards, and other typed adapters do not
+resolve different theme identities for the same request.
+
 Preference and request overrides affect admin theme selection only. They do not select public-site theme packages.
 
 An attached manifest is authoritative for its theme. A manifest with no named
@@ -556,11 +569,13 @@ that the manifest does not declare.
 
 ## go-formgen Integration
 
-Use `adm.FormTheme(ctx)` when rendering a form inside go-admin:
+Use `adm.FormTheme(ctx)` when rendering a form inside go-admin. For a router
+request, first apply its supported selector overrides:
 
 ``` go
+themeCtx := admin.WithThemeSelectionFromRequest(c.Context(), c)
 opts := render.RenderOptions{
-    Theme: adm.FormTheme(ctx),
+    Theme: adm.FormTheme(themeCtx),
 }
 ```
 
@@ -572,7 +587,7 @@ keeping it out of JSON because `AssetURL` is a function. The wire payload
 remains under `Theme`.
 
 Quickstart content-entry, roles, and example user routes pass this typed
-projection to go-formgen automatically. Set `form.container.max-width` to
+request-scoped projection to go-formgen automatically. Set `form.container.max-width` to
 `100%` for page-width forms; `container-max-width` remains a deprecated
 go-formgen compatibility alias. For a standalone formgen orchestrator, opt in through
 `pkg/orchestrator/defaults`:

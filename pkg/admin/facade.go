@@ -3393,6 +3393,10 @@ func WithThemeSelection(ctx context.Context, selector ThemeSelector) context.Con
 	return core.WithThemeSelection(ctx, selector)
 }
 
+func WithThemeSelectionFromRequest(ctx context.Context, c RouterContext) context.Context {
+	return core.WithThemeSelectionFromRequest(ctx, c)
+}
+
 func WithTranslations() CMSContentListOption {
 	return core.WithTranslations()
 }
