@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.135.1](https://github.com/goliatone/go-admin/compare/v0.135.0...v0.135.1) - (2026-08-13)
+
+## <!-- 16 -->➕ Add
+
+- Bulk import UI/UX ([6963563](https://github.com/goliatone/go-admin/commit/6963563af4b298d2d4a8377d62f67ceebbaaff8b))  - (goliatone)
+
 # [0.135.0](https://github.com/goliatone/go-admin/compare/v0.134.1...v0.135.0) - (2026-08-13)
+
+
+New minor release: v0.135.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.135.0 ([f7d2cce](https://github.com/goliatone/go-admin/commit/f7d2cce39040d56d7502bfb67cae4cdf95a7d006))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
