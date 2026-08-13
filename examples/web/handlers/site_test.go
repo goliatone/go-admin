@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"context"
-	"maps"
 	"testing"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/web/setup"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -273,11 +273,4 @@ func (s *stubPostRepo) Archive(context.Context, []string) ([]map[string]any, err
 	return nil, admin.ErrNotFound
 }
 
-func cloneMap(src map[string]any) map[string]any {
-	if src == nil {
-		return map[string]any{}
-	}
-	dst := make(map[string]any, len(src))
-	maps.Copy(dst, src)
-	return dst
-}
+var cloneMap = primitives.CloneAnyMapEmptyOnEmpty

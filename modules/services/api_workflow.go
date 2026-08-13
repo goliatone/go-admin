@@ -1906,8 +1906,8 @@ func workflowExternalSchemaFromMap(raw map[string]any, fallback gocore.ExternalS
 					field := gocore.ExternalField{
 						Path:       strings.TrimSpace(primitives.FirstNonEmptyFromAny(fieldMap["path"])),
 						Type:       strings.TrimSpace(primitives.FirstNonEmptyFromAny(fieldMap["type"])),
-						Required:   toBool(fieldMap["required"], false),
-						Repeatable: toBool(fieldMap["repeatable"], false),
+						Required:   primitives.BoolFromAnyDefault(fieldMap["required"], false),
+						Repeatable: primitives.BoolFromAnyDefault(fieldMap["repeatable"], false),
 						Format:     strings.TrimSpace(primitives.FirstNonEmptyFromAny(fieldMap["format"])),
 					}
 					field.Constraints = extractMap(fieldMap["constraints"])
@@ -1946,7 +1946,7 @@ func workflowMappingRulesFromAny(value any) []gocore.MappingRule {
 			SourcePath:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(ruleMap["source_path"], ruleMap["sourcePath"])),
 			TargetPath:  strings.TrimSpace(primitives.FirstNonEmptyFromAny(ruleMap["target_path"], ruleMap["targetPath"])),
 			Transform:   workflowNormalizeTransformAlias(primitives.FirstNonEmptyFromAny(ruleMap["transform"])),
-			Required:    toBool(ruleMap["required"], false),
+			Required:    primitives.BoolFromAnyDefault(ruleMap["required"], false),
 			Default:     ruleMap["default"],
 			Constraints: extractMap(ruleMap["constraints"]),
 			Metadata:    extractMap(ruleMap["metadata"]),

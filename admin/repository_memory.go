@@ -85,11 +85,7 @@ func (r *MemoryRepository) Delete(_ context.Context, id string) error {
 	return ErrNotFound
 }
 
-func cloneMap(in map[string]any) map[string]any {
-	out := make(map[string]any, len(in))
-	maps.Copy(out, in)
-	return out
-}
+var cloneMap = primitives.CloneAnyMapEmptyOnEmpty
 
 func cloneSlice(in []map[string]any) []map[string]any {
 	out := make([]map[string]any, 0, len(in))

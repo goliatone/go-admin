@@ -47,6 +47,45 @@ func TestCloneAnyMapVariants(t *testing.T) {
 	}
 }
 
+func TestMapFromAnyEmptyPreservesBorrowedMapSemantics(t *testing.T) {
+	source := map[string]any{"status": "ready"}
+	got := MapFromAnyEmpty(source)
+	got["status"] = "changed"
+	if source["status"] != "changed" {
+		t.Fatal("MapFromAnyEmpty must return the typed map without copying")
+	}
+
+	var typedNil map[string]any
+	if MapFromAnyEmpty(typedNil) != nil {
+		t.Fatal("MapFromAnyEmpty must preserve a typed nil map")
+	}
+	if invalid := MapFromAnyEmpty(map[string]string{"status": "ready"}); invalid == nil || len(invalid) != 0 {
+		t.Fatalf("MapFromAnyEmpty invalid input = %#v, want non-nil empty map", invalid)
+	}
+}
+
+func TestBoolFromAnyDefaultPreservesFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    any
+		fallback bool
+		want     bool
+	}{
+		{name: "bool", value: false, fallback: true, want: false},
+		{name: "truthy string", value: " yes ", fallback: false, want: true},
+		{name: "zero number", value: 0, fallback: true, want: false},
+		{name: "invalid false fallback", value: "unknown", fallback: false, want: false},
+		{name: "invalid true fallback", value: struct{}{}, fallback: true, want: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := BoolFromAnyDefault(test.value, test.fallback); got != test.want {
+				t.Fatalf("BoolFromAnyDefault(%#v, %t) = %t, want %t", test.value, test.fallback, got, test.want)
+			}
+		})
+	}
+}
+
 func TestCloneStringMapVariants(t *testing.T) {
 	if CloneStringMap(nil) != nil {
 		t.Fatalf("CloneStringMap(nil) should be nil")

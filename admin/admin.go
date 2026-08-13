@@ -72,6 +72,8 @@ type Admin struct {
 	activity                        ActivitySink
 	activityFeed                    ActivityFeedQuerier
 	activityPolicy                  activity.ActivityAccessPolicy
+	activityFilterOptionsProvider   ActivityFilterOptionsProvider
+	activityFilterOptionsPolicy     ActivityFilterOptionsPolicy
 	activityPageEnricher            ActivityPageEnricher
 	activityNavigationResolver      ActivityNavigationResolver
 	activityNavigationErrorHandler  ActivityNavigationErrorHandler

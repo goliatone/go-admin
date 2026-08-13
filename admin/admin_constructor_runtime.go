@@ -221,6 +221,8 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		activity:                       state.activitySink,
 		activityFeed:                   state.activityFeed,
 		activityPolicy:                 state.activityPolicy,
+		activityFilterOptionsProvider:  deps.ActivityFilterOptionsProvider,
+		activityFilterOptionsPolicy:    deps.ActivityFilterOptionsPolicy,
 		activityPageEnricher:           deps.ActivityPageEnricher,
 		activityNavigationResolver:     deps.ActivityNavigationResolver,
 		activityNavigationErrorHandler: deps.ActivityNavigationErrorHandler,

@@ -89,13 +89,13 @@
     <!-- Table View -->
     <div id="activity-table-container" class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="activity-table w-full text-sm text-left text-gray-700" style="table-layout: fixed;">
+        <table class="activity-table w-full text-sm text-left text-gray-700">
           <colgroup>
-            <col style="width: 170px;">
-            <col style="width: 180px;">
-            <col style="width: auto; min-width: 200px;">
-            <col style="width: 80px;">
-            <col style="width: 100px;">
+            <col class="activity-table__col activity-table__col--when">
+            <col class="activity-table__col activity-table__col--action">
+            <col class="activity-table__col activity-table__col--activity">
+            <col class="activity-table__col activity-table__col--channel">
+            <col class="activity-table__col activity-table__col--details">
           </colgroup>
           <thead class="text-xs uppercase tracking-wide text-gray-500 bg-gray-50 border-b border-gray-200">
             <tr>

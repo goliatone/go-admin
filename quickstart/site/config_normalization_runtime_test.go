@@ -54,6 +54,9 @@ func TestConfigNormalizationNormalizePathAndAssetPathPreserveExpectedContracts(t
 	if got := normalizePathOrDefault("", "/fallback/"); got != "/fallback" {
 		t.Fatalf("expected fallback path /fallback, got %q", got)
 	}
+	if got := normalizePath(" /site//assets/../images/ "); got != "/site//assets/../images" {
+		t.Fatalf("site config path must preserve internal slashes and dot segments, got %q", got)
+	}
 	if got := normalizeAssetPath("https://cdn.example.com/assets/"); got != "https://cdn.example.com/assets" {
 		t.Fatalf("expected absolute asset URL without trailing slash, got %q", got)
 	}

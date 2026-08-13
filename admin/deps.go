@@ -52,6 +52,8 @@ type Dependencies struct {
 	ActivityAccessPolicy           activity.ActivityAccessPolicy   `json:"activity_access_policy"`
 	ActivityFeedQuery              ActivityFeedQuerier             `json:"activity_feed_query"`
 	ActivityService                ActivityFeedQuerier             `json:"activity_service"`
+	ActivityFilterOptionsProvider  ActivityFilterOptionsProvider   `json:"activity_filter_options_provider"`
+	ActivityFilterOptionsPolicy    ActivityFilterOptionsPolicy     `json:"activity_filter_options_policy"`
 	ActivityPageEnricher           ActivityPageEnricher            `json:"activity_page_enricher"`
 	ActivityNavigationResolver     ActivityNavigationResolver      `json:"activity_navigation_resolver"`
 	ActivityNavigationErrorHandler ActivityNavigationErrorHandler  `json:"activity_navigation_error_handler"`

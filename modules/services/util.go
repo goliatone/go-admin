@@ -8,13 +8,6 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 )
 
-func toBool(value any, fallback bool) bool {
-	if parsed, ok := primitives.BoolFromAny(value); ok {
-		return parsed
-	}
-	return fallback
-}
-
 func toTime(value any) (*time.Time, error) {
 	raw := strings.TrimSpace(primitives.StringFromAny(value))
 	if raw == "" {

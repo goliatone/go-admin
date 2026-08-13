@@ -55,3 +55,15 @@ func TestApplySourceTargetDriftContractBuildsSummary(t *testing.T) {
 		t.Fatalf("expected normalized drift count 2, got %d", got)
 	}
 }
+
+func TestStringSliceFromAnyPreservesTypedStringSliceValues(t *testing.T) {
+	input := []string{" title ", "", "summary"}
+	got := stringSliceFromAny(input)
+	if len(got) != len(input) || got[0] != " title " || got[1] != "" {
+		t.Fatalf("typed string slice semantics changed: %#v", got)
+	}
+	got[0] = "changed"
+	if input[0] != " title " {
+		t.Fatal("typed string slice result must remain a detached copy")
+	}
+}

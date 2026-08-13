@@ -145,12 +145,7 @@ func commandIDsFromPayload(ids []string, payload map[string]any) []string {
 	return dedupeStrings(ids)
 }
 
-func extractMap(val any) map[string]any {
-	if m, ok := val.(map[string]any); ok {
-		return m
-	}
-	return map[string]any{}
-}
+var extractMap = primitives.MapFromAnyEmpty
 
 func dedupeStrings(values []string) []string {
 	seen := map[string]struct{}{}

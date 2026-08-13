@@ -119,9 +119,7 @@ func embeddedBlocksFromAnySlice(values []any) []map[string]any {
 	return out
 }
 
-func stringSliceFromAny(value []any) []string {
-	return primitives.StringSliceFromAny(value)
-}
+var stringSliceFromAny = primitives.StringSliceFromAny
 
 func embeddedBlocksFromLegacy(blocks []CMSBlock) []map[string]any {
 	if len(blocks) == 0 {

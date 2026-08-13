@@ -4,8 +4,17 @@ import (
 	"testing"
 
 	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
+	"github.com/goliatone/go-admin/internal/primitives"
 	router "github.com/goliatone/go-router"
 )
+
+func TestExtractMapTrimsKeysAndDropsBlankKeys(t *testing.T) {
+	source := map[string]any{" name ": "publish", "  ": "ignored"}
+	got := extractMap(source, primitives.StringFromAny)
+	if len(got) != 1 || got["name"] != "publish" {
+		t.Fatalf("extractMap sanitized keys = %#v", got)
+	}
+}
 
 func testAtoiDefault(input string, fallback int) int {
 	switch input {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/admin/routing"
+	quickpathutil "github.com/goliatone/go-admin/quickstart/internal/pathutil"
 	staticprefixes "github.com/goliatone/go-admin/quickstart/internal/staticprefixes"
 )
 
@@ -82,13 +83,4 @@ func normalizePaths(values []string) []string {
 	return out
 }
 
-func normalizePath(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	if value == "/" {
-		return "/"
-	}
-	return routing.JoinAbsolutePath("", value)
-}
+var normalizePath = quickpathutil.NormalizeAbsolutePath

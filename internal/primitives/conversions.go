@@ -71,6 +71,15 @@ func BoolFromAny(value any) (bool, bool) {
 	}
 }
 
+// BoolFromAnyDefault converts common scalar values into a boolean and returns
+// fallback when the value is not recognized.
+func BoolFromAnyDefault(value any, fallback bool) bool {
+	if parsed, ok := BoolFromAny(value); ok {
+		return parsed
+	}
+	return fallback
+}
+
 // IntFromAny converts common scalar values into int when the value fits.
 func IntFromAny(value any) (int, bool) {
 	switch typed := value.(type) {

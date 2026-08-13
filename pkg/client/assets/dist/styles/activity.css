@@ -45,6 +45,24 @@ body.feature-activity-disabled #activity-disabled {
 .activity-table {
   border-collapse: collapse;
   border-spacing: 0;
+  min-width: 900px;
+  table-layout: fixed;
+}
+
+.activity-table__col--when {
+  width: 170px;
+}
+
+.activity-table__col--action {
+  width: 220px;
+}
+
+.activity-table__col--channel {
+  width: 96px;
+}
+
+.activity-table__col--details {
+  width: 120px;
 }
 
 .activity-table thead th {
@@ -107,7 +125,9 @@ body.feature-activity-disabled #activity-disabled {
 .activity-metadata-toggle {
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 4px;
+  max-width: 100%;
   padding: 4px 8px;
   font-size: 12px;
   color: #6b7280;
@@ -116,6 +136,22 @@ body.feature-activity-disabled #activity-disabled {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.activity-metadata-icon,
+.activity-metadata-chevron {
+  flex: 0 0 auto;
+}
+
+.activity-metadata-icon {
+  font-size: 12px;
+}
+
+.activity-metadata-chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s ease;
 }
 
 .activity-metadata-toggle:hover {
@@ -170,6 +206,8 @@ body.feature-activity-disabled #activity-disabled {
   color: #6b7280;
   background: #f3f4f6;
   border-radius: 4px;
+  cursor: default;
+  white-space: nowrap;
 }
 
 /* Namespace icon box */
@@ -177,11 +215,19 @@ body.feature-activity-disabled #activity-disabled {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 28px;
   width: 28px;
   height: 28px;
   background: #f3f4f6;
   border-radius: 6px;
   color: #6b7280;
+}
+
+.activity-action-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .activity-namespace-icon i {
@@ -192,11 +238,26 @@ body.feature-activity-disabled #activity-disabled {
 .activity-action-badge {
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+.activity-action-badge-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.activity-action-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -883,7 +944,8 @@ body.feature-activity-disabled #activity-disabled {
   border: 1px dashed #e5e7eb;
 }
 
-.timeline-metadata-toggle--debug {
+.timeline-metadata-toggle--debug,
+.activity-metadata-toggle--debug {
   color: #9ca3af;
   background: transparent;
   border: 1px dashed #d1d5db;

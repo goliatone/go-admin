@@ -2,7 +2,6 @@ package navigation
 
 import (
 	"github.com/goliatone/go-admin/internal/primitives"
-	"maps"
 	"reflect"
 	"slices"
 	"sort"
@@ -821,14 +820,7 @@ func itemIdentity(item Item) string {
 	return ""
 }
 
-func cloneMap(input map[string]any) map[string]any {
-	if len(input) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(input))
-	maps.Copy(out, input)
-	return out
-}
+var cloneMap = primitives.CloneAnyMapNilOnEmpty
 
 func unique(values []string) []string {
 	seen := map[string]bool{}

@@ -939,6 +939,4 @@ func cloneEmbeddedBlocks(blocks []map[string]any) []map[string]any {
 	return out
 }
 
-func stringSliceFromAny(value []any) []string {
-	return primitives.StringSliceFromAny(value)
-}
+var stringSliceFromAny = primitives.StringSliceFromAny

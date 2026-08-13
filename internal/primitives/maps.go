@@ -5,6 +5,15 @@ import (
 	"reflect"
 )
 
+// MapFromAnyEmpty returns a borrowed map[string]any value as-is, including a
+// typed nil map, and returns a non-nil empty map for every other input type.
+func MapFromAnyEmpty(value any) map[string]any {
+	if typed, ok := value.(map[string]any); ok {
+		return typed
+	}
+	return map[string]any{}
+}
+
 // CloneAnyMap returns a shallow copy and preserves nil-vs-empty input.
 func CloneAnyMap(in map[string]any) map[string]any {
 	if in == nil {

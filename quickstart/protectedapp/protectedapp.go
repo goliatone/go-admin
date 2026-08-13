@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/admin/routing"
+	quickpathutil "github.com/goliatone/go-admin/quickstart/internal/pathutil"
 	router "github.com/goliatone/go-router"
 )
 
@@ -153,16 +154,7 @@ func matchesPrefix(pathValue, prefix string) bool {
 	return pathValue == prefix || strings.HasPrefix(pathValue, prefix+"/")
 }
 
-func normalizePath(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	if value == "/" {
-		return "/"
-	}
-	return routing.JoinAbsolutePath("", value)
-}
+var normalizePath = quickpathutil.NormalizeAbsolutePath
 
 func uniquePaths(values []string) []string {
 	if len(values) == 0 {

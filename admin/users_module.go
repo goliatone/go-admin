@@ -1032,6 +1032,10 @@ func recordToRole(record map[string]any, id string) RoleRecord {
 	}
 }
 
+var toBool = func(value any) bool {
+	return primitives.BoolFromAnyDefault(value, false)
+}
+
 func rolePermissionsFromRecordField(value any) []string {
 	perms := permissionStrings(value)
 	if len(perms) == 0 {
@@ -1085,11 +1089,4 @@ func roleMetadata(value any) map[string]any {
 		}
 	}
 	return nil
-}
-
-func toBool(val any) bool {
-	if value, ok := primitives.BoolFromAny(val); ok {
-		return value
-	}
-	return false
 }

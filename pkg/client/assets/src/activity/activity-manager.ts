@@ -602,21 +602,23 @@ export class ActivityManager {
     if (parsedAction.namespace) {
       // Dotted action like "debug.repl.close" - show namespace icon + action badge
       actionCellHtml = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${escapeHtml(parsedAction.namespace)}">
+        <div class="activity-action-cell">
+          <span class="activity-namespace-icon" title="${escapeHtml(parsedAction.namespace)}">
             ${renderIcon(`iconoir:${parsedAction.icon}`, { size: '14px' })}
           </span>
-          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};">
-            ${escapeHtml(parsedAction.action)}
+          <span class="activity-action-badge activity-action-badge--${parsedAction.category}"
+                title="${escapeHtml(parsedAction.action)}">
+            <span class="activity-action-label">${escapeHtml(parsedAction.action)}</span>
           </span>
         </div>
       `;
     } else {
       // Simple action - show as colored badge with icon
       actionCellHtml = `
-        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};">
-          ${renderIcon(`iconoir:${parsedAction.icon}`, { size: '14px' })}
-          <span>${escapeHtml(parsedAction.action || '-')}</span>
+        <span class="activity-action-badge activity-action-badge--${parsedAction.category}"
+              title="${escapeHtml(parsedAction.action || '-')}">
+          <span class="activity-action-badge-icon">${renderIcon(`iconoir:${parsedAction.icon}`, { size: '14px' })}</span>
+          <span class="activity-action-label">${escapeHtml(parsedAction.action || '-')}</span>
         </span>
       `;
     }
@@ -625,7 +627,7 @@ export class ActivityManager {
     let channelHtml = '';
     if (entry.channel) {
       channelHtml = `
-        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 11px; font-weight: 500; font-family: ui-monospace, monospace; color: #6b7280; background: #f3f4f6; border-radius: 4px; cursor: default;" title="${escapeHtml(entry.channel)}">
+        <span class="activity-channel" title="${escapeHtml(entry.channel)}">
           ${escapeHtml(shortChannel)}
         </span>
       `;
@@ -639,32 +641,28 @@ export class ActivityManager {
       // Determine button label and style
       let buttonLabel = metadataSummary || '';
       let buttonClass = 'activity-metadata-toggle';
-      let buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;';
       let buttonIcon = '';
 
       // Handle hidden metadata case (support role scenario)
       if (metadataSummary === 'hidden') {
         buttonLabel = 'Hidden';
         buttonClass += ' activity-metadata-toggle--hidden';
-        buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;';
-        buttonIcon = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>';
+        buttonIcon = '<i class="iconoir-eye-off activity-metadata-icon"></i>';
       } else if (!hasMetadata && hasDebugInfo) {
         // Only debug info, no metadata
         buttonLabel = 'Debug';
         buttonClass += ' activity-metadata-toggle--debug';
-        buttonStyle = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;';
-        buttonIcon = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>';
+        buttonIcon = '<i class="iconoir-info-circle activity-metadata-icon"></i>';
       }
 
       metadataCellHtml = `
         <button type="button"
                 class="${buttonClass}"
-                style="${buttonStyle}"
                 aria-expanded="false"
                 data-metadata-toggle="${entry.id}">
           ${buttonIcon}
-          <span>${buttonLabel}</span>
-          <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span class="activity-metadata-toggle-label">${buttonLabel}</span>
+          <svg class="activity-metadata-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
         </button>
@@ -753,15 +751,6 @@ export class ActivityManager {
         // Toggle the details row visibility
         detailsRow.style.display = newExpanded ? 'table-row' : 'none';
         toggle.setAttribute('aria-expanded', newExpanded ? 'true' : 'false');
-
-        // Update toggle button appearance
-        toggle.style.background = newExpanded ? '#e5e7eb' : '#f3f4f6';
-
-        // Rotate chevron
-        const chevron = toggle.querySelector<SVGElement>('.activity-metadata-chevron');
-        if (chevron) {
-          chevron.style.transform = newExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
-        }
       });
     });
   }

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/stretchr/testify/require"
 )
 
@@ -364,12 +365,7 @@ func normalizeActionContracts(value any) []map[string]any {
 	return out
 }
 
-func extractMap(value any) map[string]any {
-	if raw, ok := value.(map[string]any); ok {
-		return raw
-	}
-	return map[string]any{}
-}
+var extractMap = primitives.MapFromAnyEmpty
 
 const (
 	httpMethodDelete = "DELETE"

@@ -4,8 +4,9 @@ package admincontract
 import (
 	"context"
 	"fmt"
-	"maps"
 	"testing"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // ListPredicate is a transport-agnostic predicate shape for list contracts.
@@ -162,14 +163,7 @@ func keyValue(record map[string]any, key string) string {
 	return fmt.Sprint(raw)
 }
 
-func cloneMap(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(in))
-	maps.Copy(out, in)
-	return out
-}
+var cloneMap = primitives.CloneAnyMapNilOnEmpty
 
 func clonePredicates(in []ListPredicate) []ListPredicate {
 	if len(in) == 0 {

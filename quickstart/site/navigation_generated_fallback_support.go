@@ -303,9 +303,7 @@ func navigationVisibilityBoolMap(raw any) map[string]bool {
 	return out
 }
 
-func stringSliceFromAny(raw any) []string {
-	return primitives.NormalizeStringSlice(primitives.StringSliceFromAny(raw))
-}
+var stringSliceFromAny = primitives.StringSliceFromAny
 
 func normalizedStringSet(values []string) map[string]struct{} {
 	if len(values) == 0 {

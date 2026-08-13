@@ -387,7 +387,7 @@ func (m *Module) handleRunActivityRetentionCleanup(c router.Context, body map[st
 	if m.activityRuntime == nil {
 		return 0, nil, providerUnavailableError("activity runtime is not configured", nil)
 	}
-	if toBool(body["async"], false) && m.worker != nil && m.config.Worker.Enabled && m.worker.HasEnqueuer() {
+	if primitives.BoolFromAnyDefault(body["async"], false) && m.worker != nil && m.config.Worker.Enabled && m.worker.HasEnqueuer() {
 		if err := m.worker.EnqueueActivityRetentionRun(c.Context(), strings.TrimSpace(c.Header("Idempotency-Key"))); err != nil {
 			return 0, nil, providerUnavailableError("unable to enqueue activity retention cleanup", map[string]any{"reason": err.Error()})
 		}
