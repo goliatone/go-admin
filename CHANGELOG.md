@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.135.0](https://github.com/goliatone/go-admin/compare/v0.134.1...v0.135.0) - (2026-08-13)
+
+## <!-- 16 -->➕ Add
+
+- Export bulk import components ([f869590](https://github.com/goliatone/go-admin/commit/f8695905b44d97d0a41ff8c09778f733c7fdc0e7))  - (goliatone)
+
 # [0.134.1](https://github.com/goliatone/go-admin/compare/v0.134.0...v0.134.1) - (2026-08-13)
+
+
+New patch release: v0.134.1
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.134.1 ([e9af5bc](https://github.com/goliatone/go-admin/commit/e9af5bc84cd3250ebee303f72644763604f60fea))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
