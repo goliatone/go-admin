@@ -4,7 +4,8 @@
 
 {% block datatable_scripts %}
 <script type="module">
-import { DataGrid, FilterBuilder, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { DataGrid, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, CommonRenderers } from '{{ adminURL("assets/dist/datatable/runtime.js") }}';
+import { mountFilterBuilderOnInteraction } from '{{ adminURL("assets/dist/datatable/filter-builder-loader.js") }}';
 import { permissionPillsRenderer } from '{{ adminURL("assets/dist/components/permission-pills.js") }}';
 
 const actionBasePath = '{{ routes.index }}';
@@ -145,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   const filterToggleBtn = document.getElementById('filter-toggle-btn');
   if (filterFields.length > 0) {
-    new FilterBuilder({
+    mountFilterBuilderOnInteraction({
       notifier: window.toastManager,
       fields: filterFields,
       onApply: (structure) => {

@@ -72,12 +72,13 @@
 <script type="module">
 import {
   DataGrid,
-  FilterBuilder,
   GoCrudFilterBehavior,
   GoCrudSortBehavior,
   GoCrudExportBehavior,
   DefaultColumnVisibilityBehavior,
-  ServerColumnVisibilityBehavior,
+  ServerColumnVisibilityBehavior
+} from '{{ adminURL("assets/dist/datatable/runtime.js") }}';
+import {
   SchemaActionBuilder,
   extractSchemaActions,
   showTranslationBlocker,
@@ -102,7 +103,8 @@ import {
   // Phase 2 (TX-088): Translation UX primitives with template-level initialization
   createTranslationQuickFilters,
   createTranslationPanel
-} from '{{ adminURL("assets/dist/datatable/index.js") }}';
+} from '{{ adminURL("assets/dist/datatable/content-runtime.js") }}';
+import { mountFilterBuilderOnInteraction } from '{{ adminURL("assets/dist/datatable/filter-builder-loader.js") }}';
 import { formatStructuredErrorForDisplay } from '{{ adminURL("assets/dist/toast/error-helpers.js") }}';
 
 const basePath = '{{ base_path }}';
@@ -910,7 +912,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   const filterToggleBtn = document.getElementById('filter-toggle-btn');
   if (filterFields.length > 0) {
-    new FilterBuilder({
+    mountFilterBuilderOnInteraction({
       notifier: window.toastManager,
       fields: filterFields,
       onApply: (structure) => {

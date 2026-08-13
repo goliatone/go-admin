@@ -62,3 +62,15 @@ This document defines the in-repo extraction seams introduced in Phase 4.
 - Internal-only split modules are explicit (`core-*` files).
 - Datagrid dependencies are grouped by concern (state/fetch/render/grouped/lifecycle/columns).
 - Transport/query-state/event primitives are reusable by non-datagrid surfaces.
+
+## Runtime Composition Entrypoints
+
+- `runtime.ts` is the supported focused grid and Go CRUD entrypoint.
+- `content-runtime.ts` owns content-list schema and translation enhancements.
+- `detail-runtime.ts` owns detail-panel action initialization.
+- `filter-builder-loader.ts` dynamically imports FilterBuilder on the first
+  overlay-toggle interaction and protects retry and teardown behavior.
+- `index.ts` remains the complete compatibility barrel. First-party templates
+  must compose the focused entries instead of importing that barrel.
+- Grouped mode remains statically owned by the core runtime because state
+  restoration, rendering, and public group mutations are synchronous.

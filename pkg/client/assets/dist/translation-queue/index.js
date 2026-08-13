@@ -1,7 +1,8 @@
 import { escapeAttribute as c, escapeHTML as p } from "../shared/html.js";
 import { httpRequest as j, readHTTPError as Ee } from "../shared/transport/http-client.js";
 import { extractStructuredError as Ie } from "../toast/error-helpers.js";
-import { T as Ce, Y as Q, c as Le, h as Pe, i as Fe, l as Te, o as U, t as Me, v as A, x as De, y as ne } from "../chunks/grouped-mode-BimyymkX.js";
+import { C as Q } from "../chunks/translation-status-vocabulary-NKPjpKF9.js";
+import { T as Ce, c as Le, h as Pe, i as Fe, l as Te, o as U, t as Me, v as A, x as De, y as ne } from "../chunks/grouped-mode-C1WBh7ma.js";
 import { buildEndpointURL as _e, getNumberSearchParam as oe, getStringSearchParam as we, readLocationSearchParams as qe, setNumberSearchParam as le, setSearchParam as b } from "../shared/query-state/url-state.js";
 import { t as Be } from "../chunks/stateful-controller-BhTsWevz.js";
 import { a as je, n as ze, r as Ne, t as Ge } from "../chunks/entity-renderer-DjI18qqO.js";
@@ -4159,7 +4160,7 @@ function Vt() {
   const i = (qe(window.location) ?? new URLSearchParams()).get("translation_client_render");
   return i === "1" || i === "true";
 }
-function di(i) {
+function ci(i) {
   const e = i.dataset.endpoint || i.dataset.assignmentListEndpoint || "";
   if (!e) return null;
   if (i.dataset.ssrEnhanced === "true" && !Vt())
@@ -4210,7 +4211,7 @@ export {
   Qt as getAssignmentQueueStyles,
   xt as hasAssignmentListQueryState,
   ke as initAssignmentQueueFilterTypeaheads,
-  di as initAssignmentQueueScreen,
+  ci as initAssignmentQueueScreen,
   ot as initAssignmentSSRRowActions,
   Ft as normalizeAssignmentActionResponse,
   wt as normalizeAssignmentListMeta,

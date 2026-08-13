@@ -23,6 +23,33 @@ const capabilities: DataGridCapabilities = {
 new DataGrid({ tableId, apiEndpoint, columns, capabilities });
 ```
 
+Consumers that only need the grid and Go CRUD behaviors should prefer the
+focused runtime so optional translation/workflow components are not part of the
+initial graph:
+
+```ts
+import {
+  DataGrid,
+  GoCrudFilterBehavior,
+  GoCrudPaginationBehavior,
+} from '@goliatone/go-admin-client/datatable/runtime';
+```
+
+The broad `@goliatone/go-admin-client/datatable` export remains supported for
+compatibility. Overlay filters can be deferred until their first activation:
+
+```ts
+import { mountFilterBuilderOnInteraction } from '@goliatone/go-admin-client/datatable/filter-builder-loader';
+
+const filterMount = mountFilterBuilderOnInteraction({ fields, onApply });
+// Call filterMount.destroy() when the owning page/controller is torn down.
+```
+
+The mount is single-flight, exposes `aria-busy` while loading, retries after a
+failed chunk request, and suppresses construction after teardown. Focused
+content-list and detail-action contracts are available through
+`datatable/content-runtime` and `datatable/detail-runtime` respectively.
+
 All three booleans are required when the object is present. DataGrid normalizes
 `selection` to `bulk || export`, skips disabled structure and lifecycle binding,
 and preserves the legacy all-enabled behavior when `capabilities` is omitted.

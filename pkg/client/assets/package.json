@@ -103,6 +103,26 @@
       "import": "./dist-public/datatable.js",
       "default": "./dist-public/datatable.js"
     },
+    "./datatable/runtime": {
+      "types": "./dist-public/types/datatable/runtime.d.ts",
+      "import": "./dist-public/datatable/runtime.js",
+      "default": "./dist-public/datatable/runtime.js"
+    },
+    "./datatable/content-runtime": {
+      "types": "./dist-public/types/datatable/content-runtime.d.ts",
+      "import": "./dist-public/datatable/content-runtime.js",
+      "default": "./dist-public/datatable/content-runtime.js"
+    },
+    "./datatable/detail-runtime": {
+      "types": "./dist-public/types/datatable/detail-runtime.d.ts",
+      "import": "./dist-public/datatable/detail-runtime.js",
+      "default": "./dist-public/datatable/detail-runtime.js"
+    },
+    "./datatable/filter-builder-loader": {
+      "types": "./dist-public/types/datatable/filter-builder-loader.d.ts",
+      "import": "./dist-public/datatable/filter-builder-loader.js",
+      "default": "./dist-public/datatable/filter-builder-loader.js"
+    },
     "./renderers/application-widgets": {
       "types": "./dist-public/types/renderers/application-widgets.d.ts",
       "import": "./dist-public/renderers/application-widgets.js",

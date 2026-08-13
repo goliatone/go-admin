@@ -176,6 +176,10 @@ test('output.css has non-zero size (Tailwind output)', () => {
 const EXPECTED_ENTRY_POINTS = [
   'activity/index.js',
   'datatable/index.js',
+  'datatable/runtime.js',
+  'datatable/content-runtime.js',
+  'datatable/detail-runtime.js',
+  'datatable/filter-builder-loader.js',
   'dashboard/index.js',
   'feature-flags/index.js',
   'searchbox/index.js',

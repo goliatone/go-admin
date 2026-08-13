@@ -327,7 +327,8 @@
 
 {% block scripts %}
 <script type="module">
-import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+import { DataGrid, GoCrudSearchBehavior, GoCrudFilterBehavior, GoCrudPaginationBehavior, GoCrudSortBehavior, GoCrudExportBehavior, DefaultColumnVisibilityBehavior, ServerColumnVisibilityBehavior } from '{{ adminURL("assets/dist/datatable/runtime.js") }}';
+import { mountFilterBuilderOnInteraction } from '{{ adminURL("assets/dist/datatable/filter-builder-loader.js") }}';
 
 // Template variables
 const basePath = '{{ base_path }}';
@@ -463,7 +464,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // Initialize FilterBuilder
-  const filterBuilder = new FilterBuilder({
+  mountFilterBuilderOnInteraction({
     notifier: window.toastManager,
     fields: [
       { name: 'id', label: 'User ID', type: 'text' },

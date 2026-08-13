@@ -21,6 +21,10 @@ const entry = {
   'services/sse-client': resolve(import.meta.dirname, 'src/services/sse-client.ts'),
   'toast/error-helpers': resolve(import.meta.dirname, 'src/toast/error-helpers.ts'),
   datatable: resolve(import.meta.dirname, 'src/datatable/index.ts'),
+  'datatable/runtime': resolve(import.meta.dirname, 'src/datatable/runtime.ts'),
+  'datatable/content-runtime': resolve(import.meta.dirname, 'src/datatable/content-runtime.ts'),
+  'datatable/detail-runtime': resolve(import.meta.dirname, 'src/datatable/detail-runtime.ts'),
+  'datatable/filter-builder-loader': resolve(import.meta.dirname, 'src/datatable/filter-builder-loader.ts'),
   'renderers/application-widgets': resolve(import.meta.dirname, 'src/renderers/application-widgets.ts'),
 };
 

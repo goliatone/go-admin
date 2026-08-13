@@ -13,7 +13,11 @@
         "content-type-builder/shared/status-badges": { "rawBytes": 12288, "gzipBytes": 5120 },
         "content-type-builder/shared/text": { "rawBytes": 2048, "gzipBytes": 2048 },
         "dashboard/index": { "rawBytes": 95232, "gzipBytes": 27648 },
-        "datatable/index": { "rawBytes": 643072, "gzipBytes": 158720 },
+        "datatable/index": { "rawBytes": 648192, "gzipBytes": 166912 },
+        "datatable/runtime": { "rawBytes": 328704, "gzipBytes": 91136 },
+        "datatable/content-runtime": { "rawBytes": 146432, "gzipBytes": 41984 },
+        "datatable/detail-runtime": { "rawBytes": 116736, "gzipBytes": 34816 },
+        "datatable/filter-builder-loader": { "rawBytes": 4096, "gzipBytes": 2048 },
         "debug/index": { "rawBytes": 369664, "gzipBytes": 94208 },
         "debug/jsonpath-search": { "rawBytes": 40960, "gzipBytes": 12288 },
         "debug/repl": { "rawBytes": 481280, "gzipBytes": 109568 },
@@ -67,12 +71,16 @@
         "translation-shared/formatters": { "rawBytes": 4096, "gzipBytes": 2048 }
       },
       "maxChunk": { "rawBytes": 473088, "gzipBytes": 106496 },
-      "total": { "rawBytes": 3605504, "gzipBytes": 829440 }
+      "total": { "rawBytes": 3631104, "gzipBytes": 847872 }
     },
     "public": {
       "entries": {
         "components/modal": { "rawBytes": 21504, "gzipBytes": 7168 },
-        "datatable": { "rawBytes": 624640, "gzipBytes": 150528 },
+        "datatable": { "rawBytes": 629760, "gzipBytes": 158720 },
+        "datatable/runtime": { "rawBytes": 319488, "gzipBytes": 86016 },
+        "datatable/content-runtime": { "rawBytes": 144384, "gzipBytes": 39936 },
+        "datatable/detail-runtime": { "rawBytes": 110592, "gzipBytes": 31744 },
+        "datatable/filter-builder-loader": { "rawBytes": 4096, "gzipBytes": 2048 },
         "index": { "rawBytes": 119808, "gzipBytes": 34816 },
         "renderers/application-widgets": { "rawBytes": 3072, "gzipBytes": 2048 },
         "services": { "rawBytes": 308224, "gzipBytes": 64512 },
@@ -91,8 +99,8 @@
         "shared/transport/http-client": { "rawBytes": 8192, "gzipBytes": 3072 },
         "toast/error-helpers": { "rawBytes": 21504, "gzipBytes": 7168 }
       },
-      "maxChunk": { "rawBytes": 574464, "gzipBytes": 135168 },
-      "total": { "rawBytes": 913408, "gzipBytes": 208896 }
+      "maxChunk": { "rawBytes": 220160, "gzipBytes": 57344 },
+      "total": { "rawBytes": 923648, "gzipBytes": 220160 }
     }
   }
 }

@@ -13,6 +13,10 @@ export default defineConfig({
       entry: {
         'activity/index': resolve(import.meta.dirname, 'src/activity/index.ts'),
         'datatable/index': resolve(import.meta.dirname, 'src/datatable/index.ts'),
+        'datatable/runtime': resolve(import.meta.dirname, 'src/datatable/runtime.ts'),
+        'datatable/content-runtime': resolve(import.meta.dirname, 'src/datatable/content-runtime.ts'),
+        'datatable/detail-runtime': resolve(import.meta.dirname, 'src/datatable/detail-runtime.ts'),
+        'datatable/filter-builder-loader': resolve(import.meta.dirname, 'src/datatable/filter-builder-loader.ts'),
         'dashboard/index': resolve(import.meta.dirname, 'src/dashboard/index.ts'),
         'feature-flags/index': resolve(import.meta.dirname, 'src/feature-flags/index.ts'),
         'searchbox/index': resolve(import.meta.dirname, 'src/searchbox/index.ts'),

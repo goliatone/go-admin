@@ -209,14 +209,14 @@
 <script type="module">
   import {
     DataGrid,
-    FilterBuilder,
     GoCrudSearchBehavior,
     GoCrudFilterBehavior,
     GoCrudPaginationBehavior,
     GoCrudSortBehavior,
     GoCrudExportBehavior,
     DefaultColumnVisibilityBehavior
-  } from '{{ adminURL("assets/dist/datatable/index.js") }}';
+  } from '{{ adminURL("assets/dist/datatable/runtime.js") }}';
+  import { mountFilterBuilderOnInteraction } from '{{ adminURL("assets/dist/datatable/filter-builder-loader.js") }}';
 
   // Action base path for view/edit/delete
   const basePath = '{{ base_path }}';
@@ -277,7 +277,7 @@
   });
 
   // Initialize FilterBuilder
-  new FilterBuilder({
+  mountFilterBuilderOnInteraction({
     fields: [
       { name: 'name', label: 'Name', type: 'text' },
       { name: 'slug', label: 'Slug', type: 'text' },

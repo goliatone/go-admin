@@ -63,6 +63,10 @@ import {
   type TextPromptModalConfig,
 } from '@goliatone/go-admin-client/components/modal';
 import * as datatable from '@goliatone/go-admin-client/datatable';
+import { DataGrid } from '@goliatone/go-admin-client/datatable/runtime';
+import { SchemaActionBuilder } from '@goliatone/go-admin-client/datatable/content-runtime';
+import { initPanelDetailActions } from '@goliatone/go-admin-client/datatable/detail-runtime';
+import { mountFilterBuilderOnInteraction } from '@goliatone/go-admin-client/datatable/filter-builder-loader';
 import { registerApplicationWidgetRenderer, resolveApplicationWidgetRenderer } from '@goliatone/go-admin-client/renderers/application-widgets';
 
 const options: ClientOptions = { url: '/events' };
@@ -86,6 +90,10 @@ void modalOptions;
 void confirmOptions;
 void promptConfig;
 void datatable;
+void DataGrid;
+void SchemaActionBuilder;
+void initPanelDetailActions;
+void mountFilterBuilderOnInteraction;
 const unregister = registerApplicationWidgetRenderer('sample.widget.summary', { render: () => '<p>summary</p>', title: 'Summary' });
 void resolveApplicationWidgetRenderer('sample.widget.summary');
 unregister();
