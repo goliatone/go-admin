@@ -1,11 +1,24 @@
 # Changelog
 
+# [0.135.3](https://github.com/goliatone/go-admin/compare/v0.135.2...v0.135.3) - (2026-08-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Confirm removed ([537b5f8](https://github.com/goliatone/go-admin/commit/537b5f87079406663f954d303dd34d4fdb27c433))  - (goliatone)
+
 # [0.135.2](https://github.com/goliatone/go-admin/compare/v0.135.1...v0.135.2) - (2026-08-13)
+
+
+New patch release: v0.135.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - User import schea, fail closed respones ([50000e8](https://github.com/goliatone/go-admin/commit/50000e8c6b3cc334c27c7c157df8bce6238e1210))  - (goliatone)
 - Modal and legacy support ([3a4d4bd](https://github.com/goliatone/go-admin/commit/3a4d4bda98ea09c03bbd87acfb8b8ebbca35f462))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.135.2 ([c8bd354](https://github.com/goliatone/go-admin/commit/c8bd3547dd2b28cd70637e666f5139f58a2768f4))  - (goliatone)
 
 # [0.135.1](https://github.com/goliatone/go-admin/compare/v0.135.0...v0.135.1) - (2026-08-13)
 
