@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.135.4](https://github.com/goliatone/go-admin/compare/v0.135.3...v0.135.4) - (2026-08-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- First access confirm override ([512eacd](https://github.com/goliatone/go-admin/commit/512eacd5872d0e396a67126c504871ca50d52ad9))  - (goliatone)
+
 # [0.135.3](https://github.com/goliatone/go-admin/compare/v0.135.2...v0.135.3) - (2026-08-15)
+
+
+New patch release: v0.135.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Confirm removed ([537b5f8](https://github.com/goliatone/go-admin/commit/537b5f87079406663f954d303dd34d4fdb27c433))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.135.3 ([ce7d63b](https://github.com/goliatone/go-admin/commit/ce7d63bbb79f807de07928cacd247ee882839469))  - (goliatone)
 
 # [0.135.2](https://github.com/goliatone/go-admin/compare/v0.135.1...v0.135.2) - (2026-08-13)
 
