@@ -3,7 +3,7 @@ import { t as x } from "./toast-manager-ClAN0E8z.js";
 import { readHTTPJSONValue as A } from "../shared/transport/http-client.js";
 import { formatStructuredErrorForDisplay as y, getStructuredActionError as L, isHandledActionError as D } from "../toast/error-helpers.js";
 import { N as k } from "./translation-status-vocabulary-NKPjpKF9.js";
-import { t as H } from "./schema-actions-DJ1F8ITa.js";
+import { t as H } from "./schema-actions-CJ9VyJX0.js";
 function S() {
   const e = globalThis.window;
   return e?.toastManager ? e.toastManager : new x();
@@ -327,4 +327,4 @@ export {
   j as t
 };
 
-//# sourceMappingURL=detail-actions-DPjA-MsN.js.map
+//# sourceMappingURL=detail-actions-DQvtGXxH.js.map

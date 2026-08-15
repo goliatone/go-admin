@@ -208,6 +208,8 @@ export declare class SchemaActionBuilder {
     private buildFieldOptions;
     private buildExtensionFieldOptions;
     private deriveCreateTranslationLocaleOptions;
+    private isCreateTranslationLocaleField;
+    private buildCreateTranslationLocaleOptions;
     private applySchemaTranslationContext;
     private extractTranslationContextMap;
     private clonePayloadValue;

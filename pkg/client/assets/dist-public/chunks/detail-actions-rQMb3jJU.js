@@ -2,8 +2,8 @@ import { escapeHTML as i } from "../shared/html.js";
 import { readHTTPJSONValue as x } from "../shared/transport/http-client.js";
 import { formatStructuredErrorForDisplay as y, getStructuredActionError as A, isHandledActionError as L } from "../toast/error-helpers.js";
 import { t as D } from "./toast-manager-CbwnrqR9.js";
-import { P as k } from "./action-execution-BD_-_Uw1.js";
-import { t as H } from "./schema-actions-53JxlLjO.js";
+import { P as k } from "./action-execution-DXtVRyWi.js";
+import { t as H } from "./schema-actions-CeNQvt5t.js";
 function S() {
   const e = globalThis.window;
   return e?.toastManager ? e.toastManager : new D();
@@ -327,4 +327,4 @@ export {
   j as t
 };
 
-//# sourceMappingURL=detail-actions-CQpchL_g.js.map
+//# sourceMappingURL=detail-actions-rQMb3jJU.js.map

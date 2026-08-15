@@ -11,6 +11,57 @@ const {
   PayloadInputModal,
 } = await importDatatableModule();
 
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
+
+const { JSDOM } = await loadJSDOM();
+
+function setupConfirmDom() {
+  const previous = {
+    window: globalThis.window,
+    document: globalThis.document,
+    Node: globalThis.Node,
+    Element: globalThis.Element,
+    HTMLElement: globalThis.HTMLElement,
+    KeyboardEvent: globalThis.KeyboardEvent,
+    MouseEvent: globalThis.MouseEvent,
+    requestAnimationFrame: globalThis.requestAnimationFrame,
+  };
+  const dom = new JSDOM('<!doctype html><html><body><button id="invoker">Open</button></body></html>', {
+    url: 'http://localhost/admin',
+    pretendToBeVisual: true,
+  });
+  const win = dom.window;
+  win.matchMedia = () => ({
+    matches: true,
+    media: '(prefers-reduced-motion: reduce)',
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent() { return true; },
+  });
+  globalThis.window = win;
+  globalThis.document = win.document;
+  globalThis.Node = win.Node;
+  globalThis.Element = win.Element;
+  globalThis.HTMLElement = win.HTMLElement;
+  globalThis.KeyboardEvent = win.KeyboardEvent;
+  globalThis.MouseEvent = win.MouseEvent;
+  globalThis.requestAnimationFrame = (callback) => callback(0);
+
+  return () => {
+    dom.window.close();
+    Object.assign(globalThis, previous);
+  };
+}
+
 // =============================================================================
 // Test Helpers
 // =============================================================================
@@ -1081,15 +1132,16 @@ test('delete action uses record id in API path', () => {
 });
 
 test('schema-backed delete uses structured errors and success callbacks', async () => {
+  const restoreDom = setupConfirmDom();
   const originalFetch = globalThis.fetch;
-  const originalWindow = globalThis.window;
   let actionSuccess = 0;
   let actionError = null;
   let requestedURL = '';
+  let nativeConfirmCalls = 0;
 
-  globalThis.window = {
-    confirm: () => true,
-    location: { href: '' },
+  window.confirm = () => {
+    nativeConfirmCalls += 1;
+    return true;
   };
 
   try {
@@ -1120,27 +1172,34 @@ test('schema-backed delete uses structured errors and success callbacks', async 
       }), { status: 409, headers: { 'Content-Type': 'application/json' } });
     };
 
-    await assert.rejects(() => actions[0].action(record), /RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules/);
+    const execution = actions[0].action(record);
+    assert.ok(document.querySelector('[data-go-admin-modal]'));
+    assert.equal(nativeConfirmCalls, 0);
+    document.querySelector('[data-modal-confirm]').click();
+
+    await assert.rejects(() => execution, /RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules/);
     assert.equal(requestedURL, '/admin/api/panels/pages/deletable_record_456');
     assert.equal(actionSuccess, 0);
     assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
     assert.equal(actionError?.message, 'RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules');
+    assert.equal(nativeConfirmCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
-    globalThis.window = originalWindow;
+    restoreDom();
   }
 });
 
 test('fallback delete uses the shared structured delete executor', async () => {
+  const restoreDom = setupConfirmDom();
   const originalFetch = globalThis.fetch;
-  const originalWindow = globalThis.window;
   let actionError = null;
   let reconcileCalls = 0;
   let requestedURL = '';
+  let nativeConfirmCalls = 0;
 
-  globalThis.window = {
-    confirm: () => true,
-    location: { href: '' },
+  window.confirm = () => {
+    nativeConfirmCalls += 1;
+    return true;
   };
 
   try {
@@ -1168,14 +1227,20 @@ test('fallback delete uses the shared structured delete executor', async () => {
     const record = createMockRecord({ id: 'fallback_delete_123' });
     const actions = builder.buildRowActions(record, undefined);
 
-    await assert.rejects(() => actions[2].action(record), /RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules/);
+    const execution = actions[2].action(record);
+    assert.ok(document.querySelector('[data-go-admin-modal]'));
+    assert.equal(nativeConfirmCalls, 0);
+    document.querySelector('[data-modal-confirm]').click();
+
+    await assert.rejects(() => execution, /RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules/);
     assert.equal(requestedURL, '/admin/api/panels/pages/fallback_delete_123');
     assert.equal(actionError?.textCode, 'RESOURCE_IN_USE');
     assert.equal(actionError?.message, 'RESOURCE_IN_USE: Article cannot be deleted while assigned to publishing schedules');
     assert.equal(reconcileCalls, 1);
+    assert.equal(nativeConfirmCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
-    globalThis.window = originalWindow;
+    restoreDom();
   }
 });
 
@@ -1212,18 +1277,79 @@ test('schema-backed post actions can reconcile after structured domain failures'
   }
 });
 
-test('confirm message from schema is used', () => {
-  const builder = createBuilder();
+test('confirmed schema actions use the shared modal without calling native confirm', async () => {
+  const restoreDom = setupConfirmDom();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  let nativeConfirmCalls = 0;
+  window.confirm = () => {
+    nativeConfirmCalls += 1;
+    return true;
+  };
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response(JSON.stringify({ status: 'ok', data: {} }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const builder = createBuilder({ useDefaultFallback: false });
   const record = createMockRecord();
   const schemaActions = [
     { name: 'archive', label: 'Archive', confirm: 'Are you sure you want to archive this item?' },
   ];
-
   const actions = builder.buildRowActions(record, schemaActions);
 
-  assert.equal(actions.length, 1);
-  assert.equal(actions[0].label, 'Archive');
-  // Confirm message is used during action execution
+  try {
+    const execution = actions[0].action();
+    const dialog = document.querySelector('[data-go-admin-modal]');
+    assert.ok(dialog);
+    assert.equal(dialog.getAttribute('role'), 'dialog');
+    assert.match(dialog.textContent, /Confirm Archive/);
+    assert.match(dialog.textContent, /Are you sure you want to archive this item\?/);
+    assert.equal(document.querySelector('[data-modal-confirm]')?.textContent.trim(), 'Archive');
+    assert.equal(fetchCalls, 0);
+    assert.equal(nativeConfirmCalls, 0);
+
+    document.querySelector('[data-modal-confirm]').click();
+    await execution;
+
+    assert.equal(fetchCalls, 1);
+    assert.equal(nativeConfirmCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreDom();
+  }
+});
+
+test('canceling the shared schema-action confirmation modal prevents dispatch', async () => {
+  const restoreDom = setupConfirmDom();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  window.confirm = () => {
+    throw new Error('native confirm must not be called');
+  };
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
+  };
+
+  const actions = createBuilder({ useDefaultFallback: false }).buildRowActions(
+    createMockRecord(),
+    [{ name: 'resend', label: 'Resend', confirm: 'Send again?' }],
+  );
+
+  try {
+    const execution = actions[0].action();
+    assert.ok(document.querySelector('[data-go-admin-modal]'));
+    document.querySelector('[data-modal-cancel]').click();
+    await execution;
+    assert.equal(fetchCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreDom();
+  }
 });
 
 // =============================================================================

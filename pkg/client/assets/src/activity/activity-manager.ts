@@ -778,7 +778,7 @@ export class ActivityManager {
 
   private createRowPair(entry: ActivityEntry): { mainRow: HTMLTableRowElement; detailsRow: HTMLTableRowElement | null } {
     const actionLabels = this.config.actionLabels || {};
-    const parsedAction = parseActionString(entry.action, actionLabels);
+    const parsedAction = parseActionString(entry.action, actionLabels, entry.action_key);
     // Use showActorTypeBadge option to embed actor type badge in sentence
     const sentence = formatActivitySentence(entry, actionLabels, { showActorTypeBadge: true });
     const timestamp = formatTimestamp(entry.created_at);

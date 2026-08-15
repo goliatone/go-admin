@@ -5,7 +5,7 @@ import { t as we } from "./toast-manager-ClAN0E8z.js";
 import { httpRequest as A, readHTTPError as ve, readHTTPJSONObject as Ue, readHTTPJSONValue as ze } from "../shared/transport/http-client.js";
 import { createStructuredActionError as de, executeStructuredRequest as Ve, extractErrorMessage as He, formatStructuredErrorForDisplay as Ae, getStructuredActionError as U, isHandledActionError as D } from "../toast/error-helpers.js";
 import { closeActionMenu as Ke, defaultActionMenuPositioner as Qe, initActionMenus as Je } from "../shared/action-menu.js";
-import { n as Ye, t as We } from "./action-execution-CY7Ol7m3.js";
+import { n as Ye, t as We } from "./action-execution-Bc4l1JsL.js";
 import { n as Xe, t as Z } from "./badge-uRjgR9qC.js";
 import { A as Ce, M as Ze, N as et, P as tt, j as Ee } from "./translation-status-vocabulary-NKPjpKF9.js";
 import { r as fe, t as rt } from "./translation-context-Dzj4Lb4I.js";
@@ -3293,4 +3293,4 @@ export {
   Ft as y
 };
 
-//# sourceMappingURL=go-crud-DLsm43_s.js.map
+//# sourceMappingURL=go-crud-C9Beu_3M.js.map

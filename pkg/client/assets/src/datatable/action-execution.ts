@@ -1,4 +1,5 @@
 import type { ToastNotifier } from '../toast/types.js';
+import { ConfirmModal } from '../shared/modal.js';
 import {
   createStructuredActionError,
   executeStructuredRequest,
@@ -41,12 +42,12 @@ async function confirmDelete(config: StructuredDeleteConfig): Promise<boolean> {
     });
   }
 
-  const maybeWindow = globalThis.window as ({ confirm?: (message: string) => boolean } | undefined);
-  if (maybeWindow && typeof maybeWindow.confirm === 'function') {
-    return maybeWindow.confirm(message);
-  }
-
-  return true;
+  return ConfirmModal.confirm(message, {
+    title,
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    confirmVariant: 'danger',
+  });
 }
 
 export async function executeStructuredDelete(config: StructuredDeleteConfig): Promise<StructuredRequestResult | null> {

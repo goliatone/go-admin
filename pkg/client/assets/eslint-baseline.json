@@ -285,18 +285,6 @@
       "rule": "@typescript-eslint/no-unused-vars"
     },
     {
-      "file": "src/datatable/schema-actions.ts",
-      "line": 1112,
-      "column": 3,
-      "rule": "complexity"
-    },
-    {
-      "file": "src/datatable/schema-actions.ts",
-      "line": 256,
-      "column": 7,
-      "rule": "@typescript-eslint/no-unused-vars"
-    },
-    {
       "file": "src/datatable/translator-dashboard.ts",
       "line": 641,
       "column": 11,

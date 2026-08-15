@@ -221,26 +221,34 @@ export function resolveActionLabel(
 
 export function parseActionString(
   actionStr: string,
-  labels?: Record<string, string>
+  labels?: Record<string, string>,
+  actionKey?: string
 ): ParsedAction {
   if (!actionStr) {
     return { namespace: '', action: '', icon: 'activity', category: 'system' };
   }
 
   const actionLabel = resolveActionLabel(actionStr, labels);
+  const semanticAction = actionKey?.trim() || actionStr;
 
   // Check if it's a dotted notation action
-  if (actionStr.includes('.')) {
-    const parts = actionStr.split('.');
+  if (semanticAction.includes('.')) {
+    const parts = semanticAction.split('.');
     const namespace = parts[0].toLowerCase();
     const action = parts.slice(1).join('.');
     const icon = NAMESPACE_ICONS[namespace] || 'activity';
 
-    // Determine category from the last part (the verb)
+    // Prefer the canonical namespace and fall back to the terminal verb for
+    // legacy dotted actions without a recognized semantic namespace.
     const verb = parts[parts.length - 1];
-    const category = getActionCategory(verb);
+    const canonicalCategory = getActionCategory(semanticAction);
+    const category = canonicalCategory !== 'system'
+      ? canonicalCategory
+      : getActionCategory(verb);
 
-    const displayAction = actionLabel !== actionStr ? actionLabel : action;
+    const displayAction = semanticAction !== actionStr || actionLabel !== actionStr
+      ? actionLabel
+      : action;
     return { namespace, action: displayAction, icon, category };
   }
 
@@ -261,6 +269,9 @@ export function parseActionString(
 export function getActionCategory(verb: string): ActionCategory {
   if (!verb) return 'system';
   const normalized = verb.toLowerCase().trim().replace(/-/g, '_');
+  if (normalized === 'auth' || normalized.startsWith('auth.') || normalized.startsWith('authentication.')) {
+    return 'auth';
+  }
   return ACTION_CATEGORY_MAP[normalized] || 'system';
 }
 
@@ -477,6 +488,7 @@ export function formatActivitySentence(
   const { showActorTypeBadge = false } = options || {};
   const actor = resolveActorLabel(entry) || 'Unknown';
   const rawVerb = entry.action || 'performed action on';
+  const actionKey = entry.action_key || rawVerb;
   const verb = resolveActionLabel(rawVerb, labels);
 
   // Get actor type badge if requested (only for non-user types)
@@ -518,7 +530,7 @@ export function formatActivitySentence(
   }
 
   // Build sentence based on action category
-  const category = getActionCategory(rawVerb);
+  const category = getActionCategory(actionKey);
 
   // Special handling for auth events
   if (category === 'auth') {

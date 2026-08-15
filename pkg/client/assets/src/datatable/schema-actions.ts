@@ -12,6 +12,7 @@
  */
 
 import { createLogger } from '../shared/logger.js';
+import { ConfirmModal } from '../shared/modal.js';
 
 import { executeStructuredDelete } from './action-execution.js';
 import type { ActionButton, ActionVariant } from './actions.js';
@@ -160,6 +161,13 @@ export interface PayloadSchemaOption {
   title?: string;
 }
 
+interface TranslationLocaleOption {
+  value: string;
+  label: string;
+  description?: string;
+  recommended?: boolean;
+}
+
 // ============================================================================
 // Schema Action Builder Configuration
 // ============================================================================
@@ -251,9 +259,6 @@ const STABLE_ACTION_ORDER: Record<string, number> = {
 
 /** Default order for unknown actions (before destructive actions) */
 const DEFAULT_ACTION_ORDER = 5000;
-
-/** Maximum order value for insertion-order tie-breaking */
-const MAX_ORDER = 10000;
 
 /**
  * Internal wrapper for action with ordering metadata
@@ -729,7 +734,11 @@ export class SchemaActionBuilder {
       action: async () => {
         // Handle confirmation if required
         if (schemaAction.confirm) {
-          const confirmed = window.confirm(schemaAction.confirm);
+          const confirmed = await ConfirmModal.confirm(schemaAction.confirm, {
+            title: `Confirm ${label}`,
+            confirmText: label,
+            confirmVariant: variant === 'danger' ? 'danger' : 'primary',
+          });
           if (!confirmed) return;
         }
 
@@ -1115,14 +1124,8 @@ export class SchemaActionBuilder {
     record?: Record<string, unknown>,
     prop?: PayloadSchemaProperty,
     payload?: Record<string, unknown>
-  ): Array<{ value: string; label: string; description?: string; recommended?: boolean }> | undefined {
-    if (fieldName.trim().toLowerCase() !== 'locale') {
-      return undefined;
-    }
-    if (actionName.trim().toLowerCase() !== 'create_translation') {
-      return undefined;
-    }
-    if (!record || typeof record !== 'object') {
+  ): TranslationLocaleOption[] | undefined {
+    if (!this.isCreateTranslationLocaleField(fieldName, actionName, record)) {
       return undefined;
     }
 
@@ -1168,8 +1171,44 @@ export class SchemaActionBuilder {
     );
     const localizedLabels = this.createTranslationLocaleLabelMap(prop);
 
+    const options = this.buildCreateTranslationLocaleOptions(
+      locales,
+      recommendedLocale,
+      requiredForPublish,
+      existingLocales,
+      localizedLabels,
+    );
+
+    // Sort: recommended first, then alphabetically
+    options.sort((a, b) => {
+      if (a.recommended && !b.recommended) return -1;
+      if (!a.recommended && b.recommended) return 1;
+      return a.value.localeCompare(b.value);
+    });
+
+    return options.length > 0 ? options : undefined;
+  }
+
+  private isCreateTranslationLocaleField(
+    fieldName: string,
+    actionName: string,
+    record?: Record<string, unknown>,
+  ): record is Record<string, unknown> {
+    return fieldName.trim().toLowerCase() === 'locale'
+      && actionName.trim().toLowerCase() === 'create_translation'
+      && !!record
+      && typeof record === 'object';
+  }
+
+  private buildCreateTranslationLocaleOptions(
+    locales: string[],
+    recommendedLocale: string | null | undefined,
+    requiredForPublish: string[],
+    existingLocales: string[],
+    localizedLabels: Record<string, string>,
+  ): TranslationLocaleOption[] {
     const seen = new Set<string>();
-    const options: Array<{ value: string; label: string; description?: string; recommended?: boolean }> = [];
+    const options: TranslationLocaleOption[] = [];
     for (const rawLocale of locales) {
       const locale = rawLocale.trim().toLowerCase();
       if (!locale || seen.has(locale)) {
@@ -1204,15 +1243,7 @@ export class SchemaActionBuilder {
         recommended: isRecommended,
       });
     }
-
-    // Sort: recommended first, then alphabetically
-    options.sort((a, b) => {
-      if (a.recommended && !b.recommended) return -1;
-      if (!a.recommended && b.recommended) return 1;
-      return a.value.localeCompare(b.value);
-    });
-
-    return options.length > 0 ? options : undefined;
+    return options;
   }
 
   private applySchemaTranslationContext(

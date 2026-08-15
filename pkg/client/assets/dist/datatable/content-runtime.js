@@ -1,6 +1,6 @@
 import { C as e } from "../chunks/translation-status-vocabulary-NKPjpKF9.js";
 import { C as r, S as n, T as t, _ as i, a as o, b as l, c as d, d as c, f as T, g as m, h as u, i as g, l as S, m as F, n as R, o as h, p as x, r as C, s as k, t as B, u as L, v as M, w as b, x as A, y as p } from "../chunks/translation-context-Dzj4Lb4I.js";
-import { n as I, r as f, t as Q } from "../chunks/schema-actions-DJ1F8ITa.js";
+import { n as I, r as f, t as Q } from "../chunks/schema-actions-CJ9VyJX0.js";
 import { a as w, c as E, i as P, l as v, n as N, o as U, r as D, s as H, t as K } from "../chunks/translation-panel-BBhJShFK.js";
 export {
   D as DEFAULT_TRANSLATION_QUICK_FILTERS,

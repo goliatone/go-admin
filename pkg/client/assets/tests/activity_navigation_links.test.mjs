@@ -42,6 +42,45 @@ test('Activity sentence links CRM actor and customer from typed href fields', ()
   assert.doesNotMatch(sentence, /forged\.example|javascript:/);
 });
 
+test('Activity sentence uses canonical action key for authentication structure', () => {
+  const entry = crmEntry({
+    action: 'Signed in',
+    action_key: 'auth.login.success',
+    object: `user:${actorID}`,
+    object_href: `/control/users/${actorID}`,
+    metadata: {
+      actor_display: 'Owner User',
+      object_display: 'Owner User',
+      actor_type: 'user',
+      object_deleted: false,
+    },
+  });
+  const sentence = activity.formatActivitySentence(entry);
+
+  assert.equal((sentence.match(/Owner User/g) || []).length, 1);
+  assert.match(sentence, /Signed in/);
+  assert.match(sentence, new RegExp(`href="/control/users/${actorID}"`));
+
+  const manager = new activity.ActivityManager({ apiPath: '/control/api/activity', basePath: '/control' });
+  const { mainRow } = manager.createRowPair(entry);
+  const timeline = activity.renderTimelineEntry(entry);
+  assert.match(mainRow.className, /activity-row--auth/);
+  assert.match(timeline.className, /timeline-entry--auth/);
+});
+
+test('Activity sentence keeps legacy action-only categorization compatible', () => {
+  const sentence = activity.formatActivitySentence(crmEntry({
+    action: 'login',
+    action_key: undefined,
+    object: `user:${actorID}`,
+    object_href: `/control/users/${actorID}`,
+    metadata: { actor_display: 'Owner User', object_display: 'Owner User' },
+  }));
+
+  assert.equal((sentence.match(/Owner User/g) || []).length, 1);
+  assert.match(sentence, /login/);
+});
+
 test('Activity sentence preserves plain text and rejects unsafe typed hrefs', () => {
   for (const href of [
     'https://evil.example/users/actor',

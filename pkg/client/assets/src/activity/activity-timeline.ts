@@ -200,7 +200,7 @@ export function renderTimelineEntry(
   options?: { showDebugInfo?: boolean }
 ): HTMLElement {
   const { showDebugInfo = false } = options || {};
-  const parsedAction = parseActionString(entry.action, actionLabels);
+  const parsedAction = parseActionString(entry.action, actionLabels, entry.action_key);
   const sentence = formatActivitySentence(entry, actionLabels);
   const relativeTime = formatRelativeTimeIntl(entry.created_at);
   const metadataSummary = getMetadataSummary(entry.metadata);

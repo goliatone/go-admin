@@ -1,4 +1,4 @@
-import { n as i, r as e, t as n } from "../chunks/detail-actions-DPjA-MsN.js";
+import { n as i, r as e, t as n } from "../chunks/detail-actions-DQvtGXxH.js";
 export {
   n as DetailActionsController,
   i as initPanelDetailActions,
