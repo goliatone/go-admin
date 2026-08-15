@@ -37,13 +37,16 @@ var ue = {
   read: "viewed",
   downloaded: "viewed",
   exported: "viewed"
-}, fe = "actor_display", he = "object_display", pe = "object_deleted", me = "actor_type", ge = "actor_email", be = "session_id", ye = "enriched_at", ve = "enricher_version", Y = {
+}, fe = {
+  "first_access.confirm": "auth",
+  "password.change": "auth"
+}, he = "actor_display", pe = "object_display", me = "object_deleted", ge = "actor_type", be = "actor_email", ye = "session_id", ve = "enriched_at", we = "enricher_version", Y = {
   user: "user",
   system: "settings",
   job: "clock",
   api: "cloud",
   unknown: "help-circle"
-}, we = {
+}, Ee = {
   user: "User",
   system: "System",
   job: "Job",
@@ -72,7 +75,7 @@ var J = {
   auth: "key",
   viewed: "eye",
   system: "settings"
-}, Ee = {
+}, Se = {
   debug: "terminal",
   user: "user",
   users: "group",
@@ -118,7 +121,7 @@ function X(e, t, i) {
   };
   const n = Q(e, t), s = i?.trim() || e;
   if (s.includes(".")) {
-    const r = s.split("."), o = r[0].toLowerCase(), c = r.slice(1).join("."), h = Ee[o] || "activity", p = r[r.length - 1], f = _(s), u = f !== "system" ? f : _(p);
+    const r = s.split("."), o = r[0].toLowerCase(), c = r.slice(1).join("."), h = Se[o] || "activity", p = r[r.length - 1], f = _(s), u = f !== "system" ? f : _(p);
     return {
       namespace: o,
       action: s !== e || n !== e ? n : c,
@@ -136,10 +139,10 @@ function X(e, t, i) {
 }
 function _(e) {
   if (!e) return "system";
-  const t = e.toLowerCase().trim().replace(/-/g, "_");
-  return t === "auth" || t.startsWith("auth.") || t.startsWith("authentication.") ? "auth" : ue[t] || "system";
+  const t = e.toLowerCase().trim().replace(/-/g, "_"), i = fe[t];
+  return i || (t === "auth" || t.startsWith("auth.") || t.startsWith("authentication.") ? "auth" : ue[t] || "system");
 }
-function Se(e) {
+function Ae(e) {
   if (!e) return {
     type: "",
     id: ""
@@ -159,7 +162,7 @@ function A(e, t) {
   const i = e[t];
   return i == null ? "" : typeof i == "string" ? i.trim() : typeof i == "number" || typeof i == "boolean" ? String(i) : "";
 }
-function Ae(...e) {
+function Te(...e) {
   for (const t of e) {
     if (!t) continue;
     const i = t.trim();
@@ -168,41 +171,41 @@ function Ae(...e) {
   return "";
 }
 function Z(e) {
-  return Ae(A(e.metadata, fe), e.actor);
-}
-function Te(e) {
-  return A(e.metadata, he);
+  return Te(A(e.metadata, he), e.actor);
 }
 function $e(e) {
-  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[pe] === !0;
+  return A(e.metadata, pe);
+}
+function xe(e) {
+  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[me] === !0;
 }
 function V(e) {
   if (!e.metadata || typeof e.metadata != "object") return "unknown";
-  const t = e.metadata[me];
+  const t = e.metadata[ge];
   if (typeof t == "string") {
     const i = t.toLowerCase();
     if (i in Y) return i;
   }
   return "unknown";
 }
-function it(e) {
-  return A(e.metadata, ge);
-}
-function ee(e) {
+function nt(e) {
   return A(e.metadata, be);
 }
-function xe(e) {
-  const t = A(e.metadata, ye), i = A(e.metadata, ve);
+function ee(e) {
+  return A(e.metadata, ye);
+}
+function _e(e) {
+  const t = A(e.metadata, ve), i = A(e.metadata, we);
   return !t && !i ? null : {
     enrichedAt: t,
     enricherVersion: i
   };
 }
-function _e(e) {
+function Ce(e) {
   return e ? e.charAt(0).toUpperCase() + e.slice(1) : "";
 }
 function N(e) {
-  return e ? e.split(/[_-]/).map(_e).join(" ") : "";
+  return e ? e.split(/[_-]/).map(Ce).join(" ") : "";
 }
 function L(e, t = 7) {
   if (!e) return "";
@@ -214,7 +217,7 @@ function te(e) {
   const t = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(t);
 }
-function I(e, t = 8) {
+function C(e, t = 8) {
   if (!e) return "";
   const i = L(e, t);
   return i === e ? l(e) : `<span class="activity-id-short" title="${l(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${l(i)}</span>`;
@@ -253,16 +256,16 @@ function ie(e, t, i) {
       size: "sm"
     }) + " ");
   }
-  const h = te(s) ? I(s, 8) : `<strong>${l(s)}</strong>`, p = `${c}${q(e.actor_href, h, "actor")}`, f = $e(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
+  const h = te(s) ? C(s, 8) : `<strong>${l(s)}</strong>`, p = `${c}${q(e.actor_href, h, "actor")}`, f = xe(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
   let u = "";
-  const g = Te(e);
+  const g = $e(e);
   if (g) u = l(g) + f;
   else {
-    const { type: d, id: m } = Se(e.object);
+    const { type: d, id: m } = Ae(e.object);
     if (d && m) {
-      const b = I(m, 8);
+      const b = C(m, 8);
       u = `${l(N(d))} #${b}${f}`;
-    } else d ? u = l(N(d)) + f : m && (u = `#${I(m, 8)}${f}`);
+    } else d ? u = l(N(d)) + f : m && (u = `#${C(m, 8)}${f}`);
   }
   if (_(r) === "auth") {
     const d = e.metadata?.ip || e.metadata?.IP;
@@ -270,18 +273,18 @@ function ie(e, t, i) {
   }
   return u ? `${p} ${l(o)} <strong>${q(e.object_href, u, "object")}</strong>` : `${p} ${l(o)}`;
 }
-function Ce(e) {
+function Le(e) {
   if (!e) return "-";
   const t = new Date(e);
   return Number.isNaN(t.getTime()) ? e : t.toLocaleString();
 }
-function Le(e) {
+function ke(e) {
   return ce(e, {
     emptyFallback: "",
     invalidFallback: "__ORIGINAL__"
   });
 }
-function ke(e) {
+function Oe(e) {
   return de(e, {
     emptyFallback: "",
     invalidFallback: "__ORIGINAL__",
@@ -308,13 +311,13 @@ function se(e) {
 function T(e) {
   return `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}`;
 }
-function Oe(e) {
+function Me(e) {
   return !e || typeof e != "object" ? 0 : Object.keys(e).length;
 }
 function ae(e) {
   if (e === null) return "hidden";
   if (e === void 0 || typeof e != "object") return "";
-  const t = Oe(e);
+  const t = Me(e);
   return t === 0 || W(e) ? "hidden" : t === 1 ? "1 field" : `${t} fields`;
 }
 function re(e) {
@@ -348,7 +351,7 @@ function re(e) {
   }).join("");
 }
 function oe(e) {
-  const t = xe(e);
+  const t = _e(e);
   if (!t) return "";
   const i = [];
   if (t.enrichedAt) {
@@ -378,18 +381,18 @@ function oe(e) {
 function P(e) {
   return e == null ? "-" : typeof e == "boolean" ? e ? "Yes" : "No" : typeof e == "number" ? String(e) : typeof e == "string" ? e.length > 100 ? e.substring(0, 100) + "..." : e : JSON.stringify(e);
 }
-function Me(e) {
+function Re(e) {
   return e ? L(e, 7) : "";
 }
-function nt(e) {
+function st(e) {
   return `activity-action--${e}`;
 }
-function st(e) {
+function at(e) {
   const t = J[e];
   return S(`iconoir:${t}`, { extraClass: "activity-action-icon" });
 }
 function B(e, t) {
-  const { badge: i = !1, size: n = "md" } = t || {}, s = Y[e], a = we[e], r = {
+  const { badge: i = !1, size: n = "md" } = t || {}, s = Y[e], a = Ee[e], r = {
     sm: "12px",
     md: "14px",
     lg: "16px"
@@ -407,8 +410,8 @@ function B(e, t) {
     extraClass: `activity-actor-type-icon activity-actor-type-icon--${e}`
   });
 }
-function at(e) {
-  const t = Z(e) || "Unknown", i = V(e), n = te(t) ? I(t, 8) : l(t);
+function rt(e) {
+  const t = Z(e) || "Unknown", i = V(e), n = te(t) ? C(t, 8) : l(t);
   return `${i !== "user" && i !== "unknown" ? B(i, {
     badge: !0,
     size: "sm"
@@ -417,10 +420,10 @@ function at(e) {
 function De(e, t = 10) {
   return e ? L(e, t) : "";
 }
-function Re(e) {
+function Ve(e) {
   return e ? K(e) ? "Session (masked)" : `Session ${De(e, 8)}` : "No session";
 }
-var Ve = {
+var Be = {
   container: "#activity-view-switcher",
   tableTab: '[data-view-tab="table"]',
   timelineTab: '[data-view-tab="timeline"]',
@@ -434,7 +437,7 @@ var Ve = {
     }, this.handleTimelineClick = () => {
       this.setView("timeline");
     }, this.selectors = {
-      ...Ve,
+      ...Be,
       ...e
     }, this.onViewChange = t;
   }
@@ -544,7 +547,7 @@ var Ve = {
     border: "#e5e7eb"
   }
 };
-function Be(e) {
+function Ne(e) {
   if (!e || e.length === 0) return [];
   const t = /* @__PURE__ */ new Map();
   return e.forEach((i) => {
@@ -559,14 +562,14 @@ function Be(e) {
     }), t.get(s).entries.push(i);
   }), Array.from(t.values()).sort((i, n) => n.date.getTime() - i.date.getTime());
 }
-function Ne(e) {
+function je(e) {
   if (!e || e.length === 0) return [];
   const t = /* @__PURE__ */ new Map();
   e.forEach((n) => {
     const s = ee(n) || "", a = s || "__no_session__";
     t.has(a) || t.set(a, {
       sessionId: s,
-      label: Re(s),
+      label: Ve(s),
       entries: [],
       collapsed: !1
     }), t.get(a).entries.push(n);
@@ -581,7 +584,7 @@ function Ne(e) {
     return (s.entries[0] ? new Date(s.entries[0].created_at).getTime() : 0) - a;
   });
 }
-function je(e, t) {
+function qe(e, t) {
   if (!t || t.length === 0) return e;
   const i = /* @__PURE__ */ new Map();
   e.forEach((s) => {
@@ -607,7 +610,7 @@ function je(e, t) {
     s.entries.sort((a, r) => new Date(r.created_at).getTime() - new Date(a.created_at).getTime());
   }), n;
 }
-function qe(e) {
+function Pe(e) {
   if (!e) return "?";
   const t = e.replace(/-/g, "");
   if (/^[0-9a-f]{32}$/i.test(t)) return e.substring(0, 2).toUpperCase();
@@ -615,7 +618,7 @@ function qe(e) {
   return i.length >= 2 ? (i[0][0] + i[1][0]).toUpperCase() : e.substring(0, 2).toUpperCase();
 }
 function M(e, t, i) {
-  const { showDebugInfo: n = !1 } = i || {}, s = X(e.action, t, e.action_key), a = ie(e, t), r = ke(e.created_at), o = ae(e.metadata), c = re(e.metadata), h = n ? oe(e) : "", p = z[s.category] || z.system, f = qe(e.actor), u = V(e), g = u !== "user" && u !== "unknown" ? B(u, {
+  const { showDebugInfo: n = !1 } = i || {}, s = X(e.action, t, e.action_key), a = ie(e, t), r = Oe(e.created_at), o = ae(e.metadata), c = re(e.metadata), h = n ? oe(e) : "", p = z[s.category] || z.system, f = Pe(e.actor), u = V(e), g = u !== "user" && u !== "unknown" ? B(u, {
     badge: !0,
     size: "sm"
   }) : "", d = document.createElement("div");
@@ -701,7 +704,7 @@ function M(e, t, i) {
     </div>
   `, d;
 }
-function Pe(e, t, i) {
+function Fe(e, t, i) {
   const n = `${t}__${e.sessionId || "no-session"}`, s = document.createElement("div");
   s.className = "timeline-session-header", s.dataset.sessionGroup = n;
   const a = e.entries.length, r = a === 1 ? "1 entry" : `${a} entries`;
@@ -721,7 +724,7 @@ function Pe(e, t, i) {
     e.collapsed = c, o.setAttribute("aria-expanded", (!c).toString()), i(n, c);
   }), s;
 }
-function Fe(e, t) {
+function He(e, t) {
   const i = T(e.date), n = document.createElement("div");
   n.className = "timeline-date-header", n.dataset.dateGroup = i, n.innerHTML = `
     <button type="button" class="timeline-date-toggle" aria-expanded="${!e.collapsed}">
@@ -738,18 +741,18 @@ function Fe(e, t) {
     e.collapsed = a, s.setAttribute("aria-expanded", (!a).toString()), t(i, a);
   }), n;
 }
-function He(e, t, i, n) {
+function ze(e, t, i, n) {
   const { groupBySession: s = !0, showDebugInfo: a = !1, onSessionToggle: r, collapsedSessions: o = /* @__PURE__ */ new Set() } = n || {}, c = T(e.date), h = document.createElement("div");
   h.className = "timeline-group", h.dataset.dateGroup = c;
-  const p = Fe(e, i);
+  const p = He(e, i);
   h.appendChild(p);
   const f = document.createElement("div");
   if (f.className = "timeline-entries", e.collapsed && f.classList.add("collapsed"), s) {
-    const u = Ne(e.entries), g = u.length > 1 || u.length === 1 && u[0].sessionId;
+    const u = je(e.entries), g = u.length > 1 || u.length === 1 && u[0].sessionId;
     u.forEach((d) => {
       const m = `${c}__${d.sessionId || "no-session"}`;
       if (d.collapsed = o.has(m), g) {
-        const b = Pe(d, c, r);
+        const b = Fe(d, c, r);
         f.appendChild(b);
         const y = document.createElement("div");
         y.className = "timeline-session-entries", y.dataset.sessionEntries = m, d.collapsed && y.classList.add("collapsed"), d.entries.forEach(($) => {
@@ -767,7 +770,7 @@ function He(e, t, i, n) {
   });
   return h.appendChild(f), h;
 }
-var ze = class {
+var Ue = class {
   constructor(e, t, i) {
     this.collapsedGroups = /* @__PURE__ */ new Set(), this.collapsedSessions = /* @__PURE__ */ new Set(), this.groups = [], this.container = e, this.actionLabels = t, this.options = {
       groupBySession: !0,
@@ -782,7 +785,7 @@ var ze = class {
     };
   }
   render(e) {
-    if (this.groups = Be(e), this.container.innerHTML = "", this.groups.length === 0) {
+    if (this.groups = Ne(e), this.container.innerHTML = "", this.groups.length === 0) {
       this.renderEmptyState();
       return;
     }
@@ -790,7 +793,7 @@ var ze = class {
     t.className = "timeline", this.groups.forEach((i) => {
       const n = T(i.date);
       i.collapsed = this.collapsedGroups.has(n);
-      const s = He(i, this.actionLabels, (a, r) => {
+      const s = ze(i, this.actionLabels, (a, r) => {
         this.handleGroupToggle(a, r);
       }, {
         groupBySession: this.options.groupBySession,
@@ -804,7 +807,7 @@ var ze = class {
     }), this.container.appendChild(t), this.wireMetadataToggles();
   }
   appendEntries(e) {
-    this.groups = je(this.groups, e);
+    this.groups = qe(this.groups, e);
     const t = this.groups.flatMap((i) => i.entries);
     this.render(t);
   }
@@ -847,24 +850,24 @@ var ze = class {
     });
   }
 };
-function Ue() {
+function Ge() {
   const e = document.createElement("div");
   return e.className = "timeline-loading", e.innerHTML = `
     <div class="timeline-loading-spinner"></div>
     <span>Loading more entries...</span>
   `, e;
 }
-function Ge() {
+function Ye() {
   const e = document.createElement("div");
   return e.className = "timeline-end", e.innerHTML = `
     <span>No more entries</span>
   `, e;
 }
-function rt() {
+function ot() {
   const e = document.createElement("div");
   return e.className = "timeline-sentinel", e.setAttribute("aria-hidden", "true"), e;
 }
-var U = le("Activity"), Ye = {
+var U = le("Activity"), Ke = {
   form: "#activity-filters",
   tableBody: "#activity-table-body",
   emptyState: "#activity-empty",
@@ -879,26 +882,26 @@ var U = le("Activity"), Ye = {
 }, G = {
   container: "#activity-timeline",
   sentinel: "#activity-timeline-sentinel"
-}, D = [
+}, R = [
   "q",
   "object_type",
   "object_id"
-], x = ["verb", "channels"], R = ["since", "until"], Ke = ["user_id", "actor_id"], We = 256, Je = 500;
-function C(e) {
+], x = ["verb", "channels"], D = ["since", "until"], We = ["user_id", "actor_id"], Je = 256, Qe = 500;
+function I(e) {
   return e !== null && typeof e == "object" && !Array.isArray(e);
 }
-function Qe(e) {
-  if (!C(e)) return {
+function Xe(e) {
+  if (!I(e)) return {
     textCode: "",
     message: ""
   };
-  const t = C(e.error) ? e.error : e;
+  const t = I(e.error) ? e.error : e;
   return {
     textCode: typeof t.text_code == "string" ? t.text_code.trim() : "",
     message: typeof t.message == "string" ? t.message.trim() : ""
   };
 }
-var ot = class {
+var lt = class {
   constructor(e, t = {}, i) {
     this.form = null, this.tableBody = null, this.emptyState = null, this.disabledState = null, this.errorState = null, this.countEl = null, this.prevBtn = null, this.nextBtn = null, this.refreshBtn = null, this.clearBtn = null, this.limitInput = null, this.filterOptionsAbortController = null, this.filterOptionsRequestGeneration = 0, this.activityAbortController = null, this.activityPaginationAbortController = null, this.activityRequestGeneration = 0, this.viewSwitcher = null, this.timelineRenderer = null, this.timelineContainer = null, this.timelineSentinel = null, this.infiniteScrollObserver = null, this.isLoadingMore = !1, this.allEntriesLoaded = !1, this.cachedEntries = [], this.state = {
       limit: 50,
@@ -908,7 +911,7 @@ var ot = class {
       hasMore: !1,
       extraParams: {}
     }, this.config = e, this.selectors = {
-      ...Ye,
+      ...Ke,
       ...t
     }, this.toast = i || window.toastManager || null;
   }
@@ -926,7 +929,7 @@ var ot = class {
     }, (e) => this.handleViewChange(e)), this.viewSwitcher.init();
   }
   initTimeline() {
-    this.timelineContainer = document.querySelector(G.container), this.timelineSentinel = document.querySelector(G.sentinel), this.timelineContainer && (this.timelineRenderer = new ze(this.timelineContainer, this.config.actionLabels)), this.setupInfiniteScroll();
+    this.timelineContainer = document.querySelector(G.container), this.timelineSentinel = document.querySelector(G.sentinel), this.timelineContainer && (this.timelineRenderer = new Ue(this.timelineContainer, this.config.actionLabels)), this.setupInfiniteScroll();
   }
   handleViewChange(e) {
     e === "timeline" ? (this.allEntriesLoaded = !1, this.isLoadingMore = !1, this.state.offset = 0, this.loadActivity(), this.enableInfiniteScroll()) : (this.disableInfiniteScroll(), this.state.offset = 0, this.loadActivity());
@@ -950,7 +953,7 @@ var ot = class {
     if (this.isLoadingMore || this.activityAbortController !== null || this.allEntriesLoaded || !this.state.hasMore) return;
     const e = this.activityRequestGeneration, t = this.state.nextOffset, i = new AbortController();
     this.activityPaginationAbortController = i, this.isLoadingMore = !0;
-    const n = Ue();
+    const n = Ge();
     this.timelineSentinel?.parentElement?.insertBefore(n, this.timelineSentinel);
     try {
       const s = this.buildParams();
@@ -966,7 +969,7 @@ var ot = class {
       const c = Array.isArray(o.entries) ? o.entries : [];
       if (this.state.hasMore = !!o.has_more, this.state.nextOffset = typeof o.next_offset == "number" ? o.next_offset : t + c.length, c.length === 0 ? this.allEntriesLoaded = !0 : (this.cachedEntries = [...this.cachedEntries, ...c], this.timelineRenderer && this.timelineRenderer.appendEntries(c)), !this.state.hasMore) {
         this.allEntriesLoaded = !0;
-        const h = Ge();
+        const h = Ye();
         this.timelineSentinel?.parentElement?.insertBefore(h, this.timelineSentinel);
       }
     } catch (s) {
@@ -982,7 +985,7 @@ var ot = class {
     this.form?.addEventListener("submit", (e) => {
       e.preventDefault(), this.state.limit = parseInt(this.limitInput?.value || "50", 10) || 50, this.state.offset = 0, this.loadActivity();
     }), this.clearBtn?.addEventListener("click", () => {
-      D.forEach((e) => this.setInputValue(e, "")), x.forEach((e) => this.setInputValues(e, [])), R.forEach((e) => this.setInputValue(e, "")), this.state.offset = 0, this.loadActivity();
+      R.forEach((e) => this.setInputValue(e, "")), x.forEach((e) => this.setInputValues(e, [])), D.forEach((e) => this.setInputValue(e, "")), this.state.offset = 0, this.loadActivity();
     }), this.prevBtn?.addEventListener("click", () => {
       this.state.offset = Math.max(0, this.state.offset - this.state.limit), this.loadActivity();
     }), this.nextBtn?.addEventListener("click", () => {
@@ -1022,7 +1025,7 @@ var ot = class {
     const t = /* @__PURE__ */ new Set(), i = [];
     for (const n of e) for (const s of n.split(",")) {
       const a = s.trim();
-      if (!(!a || t.has(a) || new TextEncoder().encode(a).length > We) && (t.add(a), i.push(a), i.length === Je))
+      if (!(!a || t.has(a) || new TextEncoder().encode(a).length > Je) && (t.add(a), i.push(a), i.length === Qe))
         return i;
     }
     return i;
@@ -1041,19 +1044,19 @@ var ot = class {
   }
   syncFromQuery() {
     const e = new URLSearchParams(window.location.search), t = parseInt(e.get("limit") || "", 10), i = parseInt(e.get("offset") || "", 10);
-    !Number.isNaN(t) && t > 0 && (this.state.limit = t), !Number.isNaN(i) && i >= 0 && (this.state.offset = i), this.limitInput && (this.limitInput.value = String(this.state.limit)), D.forEach((n) => this.setInputValue(n, e.get(n) || "")), x.forEach((n) => this.setInputValues(n, this.normalizeRawValues(e.getAll(n)))), R.forEach((n) => this.setInputValue(n, this.toLocalInput(e.get(n) || ""))), Ke.forEach((n) => {
+    !Number.isNaN(t) && t > 0 && (this.state.limit = t), !Number.isNaN(i) && i >= 0 && (this.state.offset = i), this.limitInput && (this.limitInput.value = String(this.state.limit)), R.forEach((n) => this.setInputValue(n, e.get(n) || "")), x.forEach((n) => this.setInputValues(n, this.normalizeRawValues(e.getAll(n)))), D.forEach((n) => this.setInputValue(n, this.toLocalInput(e.get(n) || ""))), We.forEach((n) => {
       const s = e.get(n);
       s && (this.state.extraParams[n] = s);
     });
   }
   buildParams() {
     const e = new URLSearchParams();
-    return e.set("limit", String(this.state.limit)), e.set("offset", String(this.state.offset)), D.forEach((t) => {
+    return e.set("limit", String(this.state.limit)), e.set("offset", String(this.state.offset)), R.forEach((t) => {
       const i = this.getInputValue(t);
       i && e.set(t, i);
     }), x.forEach((t) => {
       this.getInputValues(t).forEach((i) => e.append(t, i));
-    }), R.forEach((t) => {
+    }), D.forEach((t) => {
       const i = this.toRFC3339(this.getInputValue(t));
       i && e.set(t, i);
     }), Object.entries(this.state.extraParams).forEach(([t, i]) => {
@@ -1094,7 +1097,7 @@ var ot = class {
     }
   }
   parseFilterOptionsPayload(e) {
-    if (!C(e) || !Array.isArray(e.verbs) || !Array.isArray(e.channels) || !Array.isArray(e.object_types)) throw new Error("Invalid activity filter options response");
+    if (!I(e) || !Array.isArray(e.verbs) || !Array.isArray(e.channels) || !Array.isArray(e.object_types)) throw new Error("Invalid activity filter options response");
     const t = e;
     return {
       verbs: this.parseFilterOptionList(t.verbs),
@@ -1107,7 +1110,7 @@ var ot = class {
     if (!Array.isArray(e)) return [];
     const t = [], i = /* @__PURE__ */ new Set();
     for (const n of e) {
-      if (!C(n) || typeof n.value != "string" || typeof n.label != "string") continue;
+      if (!I(n) || typeof n.value != "string" || typeof n.label != "string") continue;
       const s = n.value.trim(), a = n.label.trim() || s;
       !s || i.has(s) || (i.add(s), t.push({
         value: s,
@@ -1158,7 +1161,7 @@ var ot = class {
           o = null;
         }
         if (e !== this.activityRequestGeneration || t.signal.aborted) return;
-        const c = Qe(o);
+        const c = Xe(o);
         if (s.status === 404 && c.textCode === "FEATURE_DISABLED") {
           this.showDisabled(c.message || "Activity feature disabled."), this.renderRows([]), this.updatePagination(0);
           return;
@@ -1195,7 +1198,7 @@ var ot = class {
     }), this.wireMetadataToggles();
   }
   createRowPair(e) {
-    const t = this.config.actionLabels || {}, i = X(e.action, t, e.action_key), n = ie(e, t, { showActorTypeBadge: !0 }), s = Ce(e.created_at), a = Le(e.created_at), r = ae(e.metadata), o = re(e.metadata), c = oe(e), h = Me(e.channel), p = !!r, f = !!c, u = p || f, g = {
+    const t = this.config.actionLabels || {}, i = X(e.action, t, e.action_key), n = ie(e, t, { showActorTypeBadge: !0 }), s = Le(e.created_at), a = ke(e.created_at), r = ae(e.metadata), o = re(e.metadata), c = oe(e), h = Re(e.channel), p = !!r, f = !!c, u = p || f, g = {
       created: {
         bg: "#ecfdf5",
         color: "#10b981",
@@ -1332,53 +1335,53 @@ var ot = class {
 export {
   J as ACTION_ICONS,
   Y as ACTOR_TYPE_ICONS,
-  we as ACTOR_TYPE_LABELS,
-  ot as ActivityManager,
+  Ee as ACTOR_TYPE_LABELS,
+  lt as ActivityManager,
   H as ActivityViewSwitcher,
-  Ee as NAMESPACE_ICONS,
-  ze as TimelineRenderer,
-  Oe as countMetadataFields,
-  Ge as createEndIndicator,
-  Ue as createLoadingIndicator,
-  rt as createScrollSentinel,
+  Se as NAMESPACE_ICONS,
+  Ue as TimelineRenderer,
+  Me as countMetadataFields,
+  Ye as createEndIndicator,
+  Ge as createLoadingIndicator,
+  ot as createScrollSentinel,
   l as escapeHtml,
   ie as formatActivitySentence,
-  at as formatActorWithType,
-  Me as formatChannel,
+  rt as formatActorWithType,
+  Re as formatChannel,
   oe as formatEnrichmentDebugInfo,
   re as formatMetadataExpanded,
-  Le as formatRelativeTime,
-  ke as formatRelativeTimeIntl,
+  ke as formatRelativeTime,
+  Oe as formatRelativeTimeIntl,
   De as formatSessionId,
-  Ce as formatTimestamp,
+  Le as formatTimestamp,
   _ as getActionCategory,
-  nt as getActionClass,
-  st as getActionIconHtml,
-  it as getActorEmail,
+  st as getActionClass,
+  at as getActionIconHtml,
+  nt as getActorEmail,
   V as getActorType,
   B as getActorTypeIconHtml,
   ne as getDateGroupLabel,
   T as getDateKey,
-  xe as getEnrichmentInfo,
+  _e as getEnrichmentInfo,
   ae as getMetadataSummary,
-  Re as getSessionGroupLabel,
+  Ve as getSessionGroupLabel,
   ee as getSessionId,
   se as getStartOfDay,
-  Be as groupEntriesByDate,
-  Ne as groupEntriesBySession,
+  Ne as groupEntriesByDate,
+  je as groupEntriesBySession,
   K as isMaskedValue,
   W as isMetadataHidden,
-  $e as isObjectDeleted,
-  je as mergeEntriesIntoGroups,
+  xe as isObjectDeleted,
+  qe as mergeEntriesIntoGroups,
   X as parseActionString,
-  Se as parseObject,
-  He as renderDateGroup,
-  Fe as renderDateGroupHeader,
-  Pe as renderSessionGroupHeader,
+  Ae as parseObject,
+  ze as renderDateGroup,
+  He as renderDateGroupHeader,
+  Fe as renderSessionGroupHeader,
   M as renderTimelineEntry,
   Q as resolveActionLabel,
   Z as resolveActorLabel,
-  Te as resolveObjectDisplay,
+  $e as resolveObjectDisplay,
   Ie as safeActivityHref,
   L as shortenId
 };

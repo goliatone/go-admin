@@ -62,6 +62,14 @@ const ACTION_CATEGORY_MAP: Record<string, ActionCategory> = {
   exported: 'viewed',
 };
 
+// Canonical keys whose sentence semantics differ from their presentation
+// verb. Keep this exact-key map narrow: other actions in the same namespace,
+// such as first_access.resend, still have a distinct target object.
+const ACTION_KEY_CATEGORY_MAP: Record<string, ActionCategory> = {
+  'first_access.confirm': 'auth',
+  'password.change': 'auth',
+};
+
 const METADATA_KEY_ACTOR_DISPLAY = 'actor_display';
 const METADATA_KEY_OBJECT_DISPLAY = 'object_display';
 const METADATA_KEY_OBJECT_DELETED = 'object_deleted';
@@ -269,6 +277,8 @@ export function parseActionString(
 export function getActionCategory(verb: string): ActionCategory {
   if (!verb) return 'system';
   const normalized = verb.toLowerCase().trim().replace(/-/g, '_');
+  const canonicalCategory = ACTION_KEY_CATEGORY_MAP[normalized];
+  if (canonicalCategory) return canonicalCategory;
   if (normalized === 'auth' || normalized.startsWith('auth.') || normalized.startsWith('authentication.')) {
     return 'auth';
   }

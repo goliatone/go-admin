@@ -68,6 +68,35 @@ test('Activity sentence uses canonical action key for authentication structure',
   assert.match(timeline.className, /timeline-entry--auth/);
 });
 
+test('Activity sentence treats first-access confirmation as a self-authentication event', () => {
+  const entry = crmEntry({
+    action: 'Confirmed first access',
+    action_key: 'first_access.confirm',
+    object: `user:${actorID}`,
+    object_href: `/control/users/${actorID}`,
+    metadata: {
+      actor_display: 'Simple Analyst',
+      object_display: 'Simple Analyst',
+      actor_type: 'user',
+      object_deleted: false,
+    },
+  });
+  const sentence = activity.formatActivitySentence(entry);
+
+  assert.equal((sentence.match(/Simple Analyst/g) || []).length, 1);
+  assert.match(sentence, /Confirmed first access/);
+  assert.match(sentence, new RegExp(`href="/control/users/${actorID}"`));
+  assert.doesNotMatch(sentence, /activity-entity-link--object/);
+
+  const resendSentence = activity.formatActivitySentence({
+    ...entry,
+    action: 'Resent first access',
+    action_key: 'first_access.resend',
+  });
+  assert.equal((resendSentence.match(/Simple Analyst/g) || []).length, 2);
+  assert.match(resendSentence, /activity-entity-link--object/);
+});
+
 test('Activity sentence keeps legacy action-only categorization compatible', () => {
   const sentence = activity.formatActivitySentence(crmEntry({
     action: 'login',
