@@ -167,8 +167,8 @@ github.com/goliatone/go-formgen v0.33.2 h1:OEDsskGQCLXx28kUM4hkDNAu4flaYrH2zpe+t
 github.com/goliatone/go-formgen v0.33.2/go.mod h1:KwJxWGEeZwm+IfA4mjD/IPNtP6Y9WSTqTM7/QvEUirM=
 github.com/goliatone/go-i18n v0.5.0 h1:xc2mYv0XWoMHpfyDj6JEJS53cUUDCvAtSjieG2OYdBc=
 github.com/goliatone/go-i18n v0.5.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
-github.com/goliatone/go-job v0.19.0 h1:xdjp9aWTst9vwiiCLGQUuwSnfXt8ehbVhRfYjw6mUoY=
-github.com/goliatone/go-job v0.19.0/go.mod h1:WbBgtMg6VBycejrgyPaKatMOMMUobuRbhlrzQtnjLYk=
+github.com/goliatone/go-job v0.19.1 h1:8veFSpdx5rIM23uGcLYlDpYPgwR7taWGYp4XGhGLabk=
+github.com/goliatone/go-job v0.19.1/go.mod h1:qt2xeBxiBnf5KeEUT6aCu9fbfW49+PZDFY53g6Y00+g=
 github.com/goliatone/go-logger v0.10.1 h1:Ir8j/d5nttxRVkjfqYWhPzRSwLpKWhps/l59QGMdQFQ=
 github.com/goliatone/go-logger v0.10.1/go.mod h1:hWv7Tj+af3E0vjJIHR52JmmK3jKk6rCKFtvhCC/3jXE=
 github.com/goliatone/go-masker v0.2.0 h1:M+Xx+AVJqTpNCQNPrPgVL6ft7oao5oT+/jQ+G8XCYVg=
@@ -191,8 +191,8 @@ github.com/goliatone/go-search v0.14.5 h1:rTI9QcaEpAFiG+u20Mwc+CoeU3S9KcKUg5sxlD
 github.com/goliatone/go-search v0.14.5/go.mod h1:MhNvJD7TjSbwbPOP7zq08mODM62V9tYFsCcE+MO3Qms=
 github.com/goliatone/go-search/adapters/goadmin v0.14.5 h1:Rvihq31AI31p+3GxDRTAkZSawoX6Pr3be/qFPP9inTs=
 github.com/goliatone/go-search/adapters/goadmin v0.14.5/go.mod h1:pzAGrRT7GkXBxwoosh2M1T+OjbtCFjpXI37hTF+7G9o=
-github.com/goliatone/go-services v0.7.2 h1:PS001UIRajMcHnNGUKY1YfDoQ285s/8pLGmX/Y88y7s=
-github.com/goliatone/go-services v0.7.2/go.mod h1:N+dqd2xXtu4ztNgLyF0W2ax76lICKbged4fAAQSGrPE=
+github.com/goliatone/go-services v0.8.0 h1:k4QHXZ6nT9sRiFN/vArBzQ+qTN2uo4GMfjdyOzisRok=
+github.com/goliatone/go-services v0.8.0/go.mod h1:0CX7pmpV1eFF4kCU0q7eW9DLMeFnzUzMWFEOiFgAeUI=
 github.com/goliatone/go-slug v0.1.0 h1:0APBcu2X9MWF2t6X3LN55XfQ47zf4FUzDmXYJ1YraAk=
 github.com/goliatone/go-slug v0.1.0/go.mod h1:8lXx322OHfQQzdrwikY2uqhQVmH3IVNGiVxn9kPmX1w=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=

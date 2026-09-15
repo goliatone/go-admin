@@ -20,7 +20,7 @@ require (
 	github.com/goliatone/go-featuregate v0.6.1
 	github.com/goliatone/go-formgen v0.33.2
 	github.com/goliatone/go-i18n v0.5.0
-	github.com/goliatone/go-job v0.19.0
+	github.com/goliatone/go-job v0.19.1
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-notifications v0.16.1
 	github.com/goliatone/go-persistence-bun v0.17.1

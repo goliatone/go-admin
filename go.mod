@@ -20,7 +20,7 @@ require (
 	github.com/goliatone/go-featuregate v0.6.1
 	github.com/goliatone/go-formgen v0.33.2
 	github.com/goliatone/go-i18n v0.5.0
-	github.com/goliatone/go-job v0.19.0
+	github.com/goliatone/go-job v0.19.1
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-masker v0.2.0
 	github.com/goliatone/go-notifications v0.16.1
@@ -106,7 +106,7 @@ require (
 	github.com/goliatone/go-config v0.14.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect
-	github.com/goliatone/go-services v0.7.2
+	github.com/goliatone/go-services v0.8.0
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect

@@ -24,7 +24,7 @@ require (
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
 	github.com/goliatone/go-users v0.25.0
-	github.com/goliatone/hashid v0.2.2
+	github.com/goliatone/hashid v0.2.3
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun v1.2.18
@@ -109,7 +109,7 @@ require (
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-crud/gql v0.25.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.9.0 // indirect
-	github.com/goliatone/go-job v0.19.0 // indirect
+	github.com/goliatone/go-job v0.19.1 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
 	github.com/goliatone/go-notifications v0.16.1 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
