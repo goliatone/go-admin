@@ -542,10 +542,20 @@ Tailwind colors:
 | Class | Purpose |
 |------|---------|
 | `admin-theme-root` | Admin-only semantic variable scope and focus behavior |
+| `admin-forms-root` | Opt-in forms base layer for host-owned documents |
 | `admin-page-header` / `admin-page-content` | Shared page chrome |
 | `admin-surface-card` | Reusable raised surface |
 | `admin-empty-state` | Shared empty-state text |
 | `admin-datagrid` / `admin-datagrid__*` | Embedded DataGrid presentation and states |
+
+`output.css` applies the `@tailwindcss/forms` base layer (padding, border,
+focus ring, select chevron, placeholder color, custom checkbox and radio) to
+bare `input`, `select` and `textarea` controls only inside `admin-theme-root`,
+`site-shell` or `admin-forms-root`. The admin shell and login layout carry
+`admin-theme-root` and the site runtime carries `site-shell`, so their controls
+need no extra class. A host document that loads `output.css` without one of
+these roots keeps preflight-only controls; add `admin-forms-root` to an
+ancestor of its controls to opt in.
 
 DataGrid applies its structural semantic classes at initialization. Custom
 list templates should expose the stable `data-datagrid-surface`,
