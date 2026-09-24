@@ -8,6 +8,7 @@ import (
 )
 
 type routeStackCarrier interface {
+	error
 	StackTrace() goerrors.StackTrace
 }
 

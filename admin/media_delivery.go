@@ -271,18 +271,18 @@ func (r *MediaDeliveryRegistry) Resolve(ctx context.Context, req MediaDeliveryRe
 	adapter, ok := r.Adapter(provider)
 	if !ok {
 		return MediaDeliveryResponse{
-				Mode: MediaDeliveryModeUnavailable,
-				Unavailable: &MediaDeliveryUnavailable{
-					State:  MediaDeliveryStateUnavailable,
-					Reason: "media delivery adapter unavailable",
-					Code:   http.StatusServiceUnavailable,
-				},
-			}, MediaDeliveryUnavailableError{
-				State:    MediaDeliveryStateUnavailable,
-				Reason:   "media delivery adapter unavailable",
-				Code:     http.StatusServiceUnavailable,
-				Provider: provider,
-			}
+			Mode: MediaDeliveryModeUnavailable,
+			Unavailable: &MediaDeliveryUnavailable{
+				State:  MediaDeliveryStateUnavailable,
+				Reason: "media delivery adapter unavailable",
+				Code:   http.StatusServiceUnavailable,
+			},
+		}, MediaDeliveryUnavailableError{
+			State:    MediaDeliveryStateUnavailable,
+			Reason:   "media delivery adapter unavailable",
+			Code:     http.StatusServiceUnavailable,
+			Provider: provider,
+		}
 	}
 	return adapter.ResolveMediaDelivery(ctx, req)
 }

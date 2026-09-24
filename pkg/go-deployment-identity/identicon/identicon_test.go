@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"image"
+	"image/draw"
 	"image/png"
 	"sync"
 	"testing"
@@ -23,13 +25,20 @@ func TestGeneratorGoldenVector(t *testing.T) {
 	if _, err = deploymentidentity.Validate(persona); err != nil {
 		t.Fatal(err)
 	}
-	sum := sha256.Sum256(persona.Visual.Data)
-	if persona.Name != "lively-raven" || hex.EncodeToString(sum[:]) != "50216a110d4a8870944c3098e74e4024ec9df23a556845b4c4a74fbe5465eb72" {
-		t.Fatalf("unexpected golden vector: name=%s png=%s", persona.Name, hex.EncodeToString(sum[:]))
+	decoded, err := png.Decode(bytes.NewReader(persona.Visual.Data))
+	if err != nil {
+		t.Fatal(err)
 	}
-	config, err := png.DecodeConfig(bytes.NewReader(persona.Visual.Data))
-	if err != nil || config.Width != 64 || config.Height != 64 {
-		t.Fatalf("invalid PNG config: %+v, %v", config, err)
+	if decoded.Bounds() != image.Rect(0, 0, 64, 64) {
+		t.Fatalf("invalid PNG bounds: %v", decoded.Bounds())
+	}
+	// Pin the visual independently of standard-library compression changes.
+	// Repeatability and rollback tests below still require byte-identical PNGs.
+	pixels := image.NewNRGBA(decoded.Bounds())
+	draw.Draw(pixels, pixels.Bounds(), decoded, decoded.Bounds().Min, draw.Src)
+	sum := sha256.Sum256(pixels.Pix)
+	if persona.Name != "lively-raven" || hex.EncodeToString(sum[:]) != "8790bc2a82705748921ea88944aa99e0d69d1d0e21ec7ab3f28a62f01a5d0c41" {
+		t.Fatalf("unexpected golden vector: name=%s pixels=%s", persona.Name, hex.EncodeToString(sum[:]))
 	}
 }
 

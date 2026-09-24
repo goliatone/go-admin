@@ -82,24 +82,22 @@ func TestQuickstartDoctorBlockDefinitionsCheckPassesWhenRequiredSeedsExist(t *te
 
 	ctx := admin.WithContentChannel(context.Background(), defaultChannelKey)
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
-		ID:          "hero",
-		Name:        "Hero",
-		Slug:        "hero",
-		Type:        "hero",
-		Channel:     defaultChannelKey,
-		Environment: defaultChannelKey,
-		Schema:      map[string]any{"type": "object"},
+		ID:      "hero",
+		Name:    "Hero",
+		Slug:    "hero",
+		Type:    "hero",
+		Channel: defaultChannelKey,
+		Schema:  map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed hero: %v", err)
 	}
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
-		ID:          "rich_text",
-		Name:        "Rich Text",
-		Slug:        "rich_text",
-		Type:        "rich_text",
-		Channel:     defaultChannelKey,
-		Environment: defaultChannelKey,
-		Schema:      map[string]any{"type": "object"},
+		ID:      "rich_text",
+		Name:    "Rich Text",
+		Slug:    "rich_text",
+		Type:    "rich_text",
+		Channel: defaultChannelKey,
+		Schema:  map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed rich_text: %v", err)
 	}
@@ -127,13 +125,12 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsMissingSeeds(t *testing.T) 
 
 	ctx := admin.WithContentChannel(context.Background(), defaultChannelKey)
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
-		ID:          "hero",
-		Name:        "Hero",
-		Slug:        "hero",
-		Type:        "hero",
-		Channel:     defaultChannelKey,
-		Environment: defaultChannelKey,
-		Schema:      map[string]any{"type": "object"},
+		ID:      "hero",
+		Name:    "Hero",
+		Slug:    "hero",
+		Type:    "hero",
+		Channel: defaultChannelKey,
+		Schema:  map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed hero: %v", err)
 	}
@@ -164,24 +161,22 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsVisibilityMismatch(t *testi
 
 	ctx := admin.WithContentChannel(context.Background(), defaultChannelKey)
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
-		ID:          "hero",
-		Name:        "Hero",
-		Slug:        "hero",
-		Type:        "hero",
-		Channel:     defaultChannelKey,
-		Environment: defaultChannelKey,
-		Schema:      map[string]any{"type": "object"},
+		ID:      "hero",
+		Name:    "Hero",
+		Slug:    "hero",
+		Type:    "hero",
+		Channel: defaultChannelKey,
+		Schema:  map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed hero: %v", err)
 	}
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
-		ID:          "rich_text",
-		Name:        "Rich Text",
-		Slug:        "rich_text",
-		Type:        "rich_text",
-		Channel:     defaultChannelKey,
-		Environment: defaultChannelKey,
-		Schema:      map[string]any{"type": "object"},
+		ID:      "rich_text",
+		Name:    "Rich Text",
+		Slug:    "rich_text",
+		Type:    "rich_text",
+		Channel: defaultChannelKey,
+		Schema:  map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed rich_text: %v", err)
 	}

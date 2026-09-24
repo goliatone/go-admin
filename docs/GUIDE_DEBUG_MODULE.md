@@ -347,6 +347,8 @@ deps.DeploymentPersonaGenerator = deploymentidentity.GeneratorFunc(
 
 Both built-in algorithms are versioned (`v1`) and pin their word tables,
 palette choices, digest separation, and graphics with golden vectors. A
+given build produces byte-identical PNGs for identical inputs; Go toolchain
+upgrades may change PNG compression bytes while preserving the exact pixels. A
 friendly name is not unique and is never an authorization or lookup key; the
 full commit remains the authoritative source identifier. The same commit can
 still describe differently rebuilt or dirty artifacts, so use an immutable

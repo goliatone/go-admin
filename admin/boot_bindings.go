@@ -802,8 +802,7 @@ func (p *panelBinding) createTranslationViaPanelClone(
 	if err != nil {
 		err = mapCreateTranslationPersistenceError(err, p.name, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, groupID)
 		outcome := "error"
-		var dup TranslationAlreadyExistsError
-		if errors.As(err, &dup) {
+		if _, ok := errors.AsType[TranslationAlreadyExistsError](err); ok {
 			outcome = "duplicate"
 		}
 		p.recordCreateTranslationMetric(ctx.Context, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, environment, outcome, groupID, err)

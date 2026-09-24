@@ -208,8 +208,7 @@ func (c *NotificationRetentionPurgeCommand) recordRejection(ctx context.Context,
 }
 
 func notificationSafeErrorIdentity(err error) (string, string) {
-	var safe privacy.SafeError
-	if errors.As(err, &safe) {
+	if safe, ok := errors.AsType[privacy.SafeError](err); ok {
 		return safe.Category, safe.Code
 	}
 	return "notification", "retention_purge_failed"
@@ -219,8 +218,7 @@ func sanitizeNotificationRetentionError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var safe privacy.SafeError
-	if errors.As(err, &safe) {
+	if safe, ok := errors.AsType[privacy.SafeError](err); ok {
 		return safe
 	}
 	return privacy.SafeError{

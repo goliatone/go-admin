@@ -13,28 +13,28 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 
 	seedCtx := context.Background()
 	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
-		ID:          "hero",
-		Name:        "Hero",
-		Slug:        "hero",
-		Type:        "hero",
-		Environment: "default",
-		Schema:      map[string]any{"type": "object"},
+		ID:      "hero",
+		Name:    "Hero",
+		Slug:    "hero",
+		Type:    "hero",
+		Channel: "default",
+		Schema:  map[string]any{"type": "object"},
 	})
 	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
-		ID:          "rich_text",
-		Name:        "Rich Text",
-		Slug:        "rich_text",
-		Type:        "rich_text",
-		Environment: "default",
-		Schema:      map[string]any{"type": "object"},
+		ID:      "rich_text",
+		Name:    "Rich Text",
+		Slug:    "rich_text",
+		Type:    "rich_text",
+		Channel: "default",
+		Schema:  map[string]any{"type": "object"},
 	})
 	_, _ = content.CreateBlockDefinition(seedCtx, CMSBlockDefinition{ //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
-		ID:          "promo",
-		Name:        "Promo",
-		Slug:        "promo",
-		Type:        "promo",
-		Environment: "staging",
-		Schema:      map[string]any{"type": "object"},
+		ID:      "promo",
+		Name:    "Promo",
+		Slug:    "promo",
+		Type:    "promo",
+		Channel: "staging",
+		Schema:  map[string]any{"type": "object"},
 	})
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/block_definitions_meta/diagnostics?channel=staging", nil)

@@ -1998,8 +1998,7 @@ func translationQueueBulkActionError(selection translationQueueBulkActionSelecti
 	errorBody := map[string]any{
 		"message": err.Error(),
 	}
-	var richErr *goerrors.Error
-	if errors.As(err, &richErr) {
+	if richErr, ok := errors.AsType[*goerrors.Error](err); ok {
 		if richErr.TextCode != "" {
 			errorBody["code"] = richErr.TextCode
 		}

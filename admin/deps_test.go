@@ -38,8 +38,7 @@ func TestNewValidatesUserAndRoleRepositories(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error")
 	}
-	var depErr InvalidDependenciesError
-	if !errors.As(err, &depErr) {
+	if _, ok := errors.AsType[InvalidDependenciesError](err); !ok {
 		t.Fatalf("expected InvalidDependenciesError, got %T", err)
 	}
 

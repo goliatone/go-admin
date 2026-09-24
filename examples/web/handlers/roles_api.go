@@ -180,7 +180,7 @@ func parseRoleListQuery(c router.Context) roleListQuery {
 	}
 
 	if order := strings.TrimSpace(c.Query("order", "")); order != "" {
-		first := strings.Split(order, ",")[0]
+		first, _, _ := strings.Cut(order, ",")
 		parts := strings.Fields(first)
 		if len(parts) > 0 {
 			query.SortBy = strings.TrimSpace(parts[0])

@@ -246,8 +246,7 @@ func TestMediaDeliveryRegistryResolvesAdaptersAndFailsTypedUnavailable(t *testin
 	if resp.Mode != MediaDeliveryModeUnavailable || resp.Unavailable == nil {
 		t.Fatalf("expected typed unavailable response, got %+v", resp)
 	}
-	var mediaDeliveryUnavailableError MediaDeliveryUnavailableError
-	if !errors.As(err, &mediaDeliveryUnavailableError) {
+	if _, ok := errors.AsType[MediaDeliveryUnavailableError](err); !ok {
 		t.Fatalf("expected MediaDeliveryUnavailableError, got %T %v", err, err)
 	}
 }

@@ -57,8 +57,7 @@ func TestPlannerConflictPolicyModesStillFailFast(t *testing.T) {
 				t.Fatalf("expected strict fail-fast conflict under policy %q", policy)
 			}
 
-			var conflictErr *ConflictError
-			if !errors.As(err, &conflictErr) {
+			if _, ok := errors.AsType[*ConflictError](err); !ok {
 				t.Fatalf("expected conflict error under policy %q, got %T", policy, err)
 			}
 		})

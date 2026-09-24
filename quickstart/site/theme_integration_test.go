@@ -309,10 +309,10 @@ func TestQuickstartSiteThemeHomepageTemplateWinsAtRoot(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},

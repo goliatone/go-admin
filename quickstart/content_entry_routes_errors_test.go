@@ -89,12 +89,12 @@ func TestContentEntryEditRawRepositoryFailureGetsRouteBoundaryStack(t *testing.T
 }
 
 type testStackCarrier interface {
+	error
 	StackTrace() goerrors.StackTrace
 }
 
 func adminStackTrace(err error) goerrors.StackTrace {
-	var carrier testStackCarrier
-	if errors.As(err, &carrier) {
+	if carrier, ok := errors.AsType[testStackCarrier](err); ok {
 		return carrier.StackTrace()
 	}
 	return nil

@@ -18,8 +18,7 @@ func TestAdminWorkflowAuthoringRPCRequiresPermission(t *testing.T) {
 	_, err := adm.RPCServer().Invoke(context.Background(), flow.FSMRPCMethodAuthoringListMachines, &cmdrpc.RequestEnvelope[flow.FSMAuthoringListMachinesRequest]{
 		Data: flow.FSMAuthoringListMachinesRequest{},
 	})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected PermissionDeniedError, got %T (%v)", err, err)
 	}
 }
@@ -56,8 +55,7 @@ func TestAdminWorkflowBindingRPCRequiresPermission(t *testing.T) {
 	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodWorkflowBindingsList, &cmdrpc.RequestEnvelope[rpcWorkflowBindingsListRequest]{
 		Data: rpcWorkflowBindingsListRequest{},
 	})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected PermissionDeniedError, got %T (%v)", err, err)
 	}
 }

@@ -103,7 +103,7 @@ func resolveSort(c router.Context) (string, bool) {
 	if order == "" {
 		return "", sortDesc
 	}
-	first := strings.Split(order, ",")[0]
+	first, _, _ := strings.Cut(order, ",")
 	parts := strings.Fields(first)
 	if len(parts) == 0 {
 		return "", sortDesc

@@ -606,8 +606,7 @@ func debugStatusFromError(err error) int {
 	if err == nil {
 		return http.StatusOK
 	}
-	var routerErr *goerrors.Error
-	if errors.As(err, &routerErr) {
+	if routerErr, ok := errors.AsType[*goerrors.Error](err); ok {
 		if routerErr.Code != 0 {
 			return routerErr.Code
 		}

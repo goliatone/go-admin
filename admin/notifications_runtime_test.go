@@ -38,8 +38,7 @@ func TestLegacyNotificationRuntimeDistinguishesUnavailableCapabilities(t *testin
 func TestDisabledNotificationRuntimeReturnsFeatureDisabled(t *testing.T) {
 	runtime := disabledNotificationRuntime()
 	_, err := runtime.receipts.LookupReceipt(context.Background(), events.ReceiptLookup{})
-	var disabled FeatureDisabledError
-	if !errors.As(err, &disabled) {
+	if _, ok := errors.AsType[FeatureDisabledError](err); !ok {
 		t.Fatalf("expected feature disabled error, got %T %v", err, err)
 	}
 }

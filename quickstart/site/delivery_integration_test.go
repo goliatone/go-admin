@@ -19,10 +19,10 @@ func TestSiteDeliveryPreviewFidelityThroughRegisteredRoutes(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "post-type",
-		Name:        "Post",
-		Slug:        "post",
-		Environment: "default",
+		ID:      "post-type",
+		Name:    "Post",
+		Slug:    "post",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -144,10 +144,10 @@ func TestSiteDeliveryLocaleFallbackPolicies(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "post-type",
-		Name:        "Post",
-		Slug:        "post",
-		Environment: "default",
+		ID:      "post-type",
+		Name:    "Post",
+		Slug:    "post",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -215,10 +215,10 @@ func TestSiteDeliveryFallbackCanonicalRedirectDefaultsToResolvedLocale(t *testin
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "post-type",
-		Name:        "Post",
-		Slug:        "post",
-		Environment: "default",
+		ID:      "post-type",
+		Name:    "Post",
+		Slug:    "post",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -272,10 +272,10 @@ func TestSiteDeliveryFallbackCanonicalRedirectCanPreserveRequestedLocale(t *test
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "post-type",
-		Name:        "Post",
-		Slug:        "post",
-		Environment: "default",
+		ID:      "post-type",
+		Name:    "Post",
+		Slug:    "post",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -332,10 +332,10 @@ func TestSiteDeliveryRedirectsToCanonicalLocalizedPath(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -399,10 +399,10 @@ func TestSiteDeliveryCanonicalRedirectToleratesLegacyLocalizedStoredRootPaths(t 
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -483,10 +483,10 @@ func TestSiteDeliveryPersistsLocaleCookieAndRedirectsUnscopedFallbackRequest(t *
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "post-type",
-		Name:        "Post",
-		Slug:        "post",
-		Environment: "default",
+		ID:      "post-type",
+		Name:    "Post",
+		Slug:    "post",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -557,10 +557,10 @@ func TestSiteLocaleSwitcherCanSwitchToDefaultLocaleWithLocaleCookie(t *testing.T
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -653,10 +653,10 @@ func TestSiteDeliveryStrictLocalizedPathsDisablesAliasResolution(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -720,10 +720,10 @@ func TestSiteDeliveryHandlesMixedRouteKeyFamiliesWithLegacyAndTranslatedPaths(t 
 	content := admin.NewInMemoryContentService()
 
 	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "default",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},

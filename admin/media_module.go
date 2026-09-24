@@ -514,8 +514,7 @@ func (m *MediaModule) serveMediaDelivery(c router.Context, adm *Admin, ctx conte
 		CredentialResolver: adm.mediaDeliveryCredentials,
 	})
 	if err != nil && response.Unavailable == nil {
-		var unavailable MediaDeliveryUnavailableError
-		if errors.As(err, &unavailable) {
+		if unavailable, ok := errors.AsType[MediaDeliveryUnavailableError](err); ok {
 			response = MediaDeliveryResponse{
 				Mode: MediaDeliveryModeUnavailable,
 				Unavailable: &MediaDeliveryUnavailable{

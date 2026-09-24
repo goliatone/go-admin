@@ -1660,8 +1660,7 @@ func (p *panelBinding) recordBlockedTransition(ctx AdminContext, entityID, trans
 		"policy_entity":    strings.TrimSpace(input.PolicyEntity),
 		"translation_code": TextCodeTranslationMissing,
 	}
-	var missing MissingTranslationsError
-	if errors.As(policyErr, &missing) {
+	if missing, ok := errors.AsType[MissingTranslationsError](policyErr); ok {
 		metadata["missing_locales"] = normalizeLocaleList(missing.MissingLocales)
 	}
 	p.panel.recordActivity(ctx, "panel.transition.blocked", metadata)

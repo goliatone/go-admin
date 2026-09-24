@@ -74,6 +74,11 @@ This installs:
 - `govulncheck`
 - `gosec`
 
+Security tasks verify the installed scanner's package and version against the
+taskfile pins and install a matching binary when needed. The installer returns
+the binary from `GOBIN` (or `GOPATH/bin`), even when an older copy appears first
+on `PATH`.
+
 If you only need the linter:
 
 ```bash

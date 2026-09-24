@@ -667,8 +667,7 @@ func isFlowStateNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var ge *goerrors.Error
-	if errors.As(err, &ge) {
+	if ge, ok := errors.AsType[*goerrors.Error](err); ok {
 		return strings.TrimSpace(ge.TextCode) == flow.ErrCodeStateNotFound
 	}
 	return false
@@ -678,8 +677,7 @@ func isFlowVersionConflictError(err error) bool {
 	if err == nil {
 		return false
 	}
-	var ge *goerrors.Error
-	if errors.As(err, &ge) {
+	if ge, ok := errors.AsType[*goerrors.Error](err); ok {
 		return strings.TrimSpace(ge.TextCode) == flow.ErrCodeVersionConflict
 	}
 	return false

@@ -67,8 +67,7 @@ func mapWorkflowErrors(err error) (*goerrors.Error, int, bool) {
 		return mapped, mapped.Code, true
 	}
 
-	var workflowVersionConflict WorkflowVersionConflictError
-	if errors.As(err, &workflowVersionConflict) {
+	if workflowVersionConflict, ok := errors.AsType[WorkflowVersionConflictError](err); ok {
 		meta := map[string]any{
 			"workflow_id":      strings.TrimSpace(workflowVersionConflict.WorkflowID),
 			"expected_version": workflowVersionConflict.ExpectedVersion,
@@ -77,8 +76,7 @@ func mapWorkflowErrors(err error) (*goerrors.Error, int, bool) {
 		mapped := NewDomainError(TextCodeConflict, workflowVersionConflict.Error(), meta)
 		return mapped, mapped.Code, true
 	}
-	var workflowBindingConflict WorkflowBindingConflictError
-	if errors.As(err, &workflowBindingConflict) {
+	if workflowBindingConflict, ok := errors.AsType[WorkflowBindingConflictError](err); ok {
 		meta := map[string]any{
 			"binding_id":          strings.TrimSpace(workflowBindingConflict.BindingID),
 			"existing_binding_id": strings.TrimSpace(workflowBindingConflict.ExistingBindingID),
@@ -90,8 +88,7 @@ func mapWorkflowErrors(err error) (*goerrors.Error, int, bool) {
 		mapped := NewDomainError(TextCodeConflict, workflowBindingConflict.Error(), meta)
 		return mapped, mapped.Code, true
 	}
-	var workflowBindingVersionConflict WorkflowBindingVersionConflictError
-	if errors.As(err, &workflowBindingVersionConflict) {
+	if workflowBindingVersionConflict, ok := errors.AsType[WorkflowBindingVersionConflictError](err); ok {
 		meta := map[string]any{
 			"binding_id":       strings.TrimSpace(workflowBindingVersionConflict.BindingID),
 			"expected_version": workflowBindingVersionConflict.ExpectedVersion,
@@ -464,12 +461,12 @@ func mapPermissionDeniedError(err error, permission PermissionDeniedError) *goer
 }
 
 type routeBoundaryContextCarrier interface {
+	error
 	RouteBoundaryContext() string
 }
 
 func mappedControlFlowMessage(err error, canonical string) string {
-	var boundary routeBoundaryContextCarrier
-	if errors.As(err, &boundary) {
+	if _, ok := errors.AsType[routeBoundaryContextCarrier](err); ok {
 		return strings.TrimSpace(canonical)
 	}
 	if message := strings.TrimSpace(err.Error()); message != "" {

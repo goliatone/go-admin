@@ -434,8 +434,7 @@ func TestLifecycleManagedAdminModuleShutdownIsBoundedAndRetryable(t *testing.T) 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	err = appCore.Shutdown(shutdownCtx)
-	var incomplete *golifecycle.ShutdownIncompleteError
-	if !errors.As(err, &incomplete) {
+	if _, ok := errors.AsType[*golifecycle.ShutdownIncompleteError](err); !ok {
 		t.Fatalf("shutdown error = %v, want ShutdownIncompleteError", err)
 	}
 	select {

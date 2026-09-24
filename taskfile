@@ -23,10 +23,10 @@ PATH=$(pwd)/node_modules/.bin:$PATH
 PATH=$(pwd)/src/bin:$PATH
 
 GO_TOOLCHAIN="${GO_TOOLCHAIN:-local}"
-GO_GOLANGCI_LINT_VERSION="${GO_GOLANGCI_LINT_VERSION:-v2.12.2}"
+GO_GOLANGCI_LINT_VERSION="${GO_GOLANGCI_LINT_VERSION:-v2.13.2}"
 GO_GOLANGCI_LINT_VERSION_FILE="${GO_GOLANGCI_LINT_VERSION_FILE:-.golangci-lint-version}"
-GO_GOVULNCHECK_VERSION="${GO_GOVULNCHECK_VERSION:-v1.1.4}"
-GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.25.0}"
+GO_GOVULNCHECK_VERSION="${GO_GOVULNCHECK_VERSION:-v1.8.0}"
+GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.29.0}"
 GO_QUALITY_BASELINE_DIR="${GO_QUALITY_BASELINE_DIR:-ops/quality/baselines}"
 GO_QUALITY_BASELINE_SCRIPT="${GO_QUALITY_BASELINE_SCRIPT:-./tools/quality/baseline.sh}"
 GO_QUALITY_GOCACHE="${GO_QUALITY_GOCACHE:-${GOCACHE:-}}"
@@ -161,20 +161,46 @@ function _go:tool:install {
     local name=$1
     local target=$2
     local go_bin
+    local bin_dir
 
     go_bin=$(_go:bin) || return 1
+    bin_dir=$(_go:tool_bin_dir) || return 1
     _go:quality:prepare_env || return 1
     echo "Installing ${name} (${target})" >&2
     GOTOOLCHAIN="${GO_TOOLCHAIN}" "${go_bin}" install "${target}" || return 1
-    _go:tool:path "${name}" || return 1
+    # Return the installed binary even when PATH contains an older copy first.
+    printf '%s/%s\n' "${bin_dir}" "${name}"
+}
+
+function _go:tool:matches {
+    local tool_path=$1
+    local target=$2
+    local go_bin
+
+    go_bin=$(_go:bin) || return 1
+    "${go_bin}" version -m "${tool_path}" 2>/dev/null | awk \
+        -v package="${target%@*}" -v version="${target##*@}" '
+        $1 == "path" { path_matches = ($2 == package) }
+        $1 == "mod" { version_matches = ($3 == version) }
+        END { exit !(path_matches && version_matches) }
+    '
 }
 
 function _go:tool:ensure {
     local name=$1
     local target=$2
     local tool_path
+    local bin_dir
 
     if tool_path=$(_go:tool:path "${name}" 2>/dev/null); then
+        if _go:tool:matches "${tool_path}" "${target}"; then
+            printf '%s\n' "${tool_path}"
+            return 0
+        fi
+    fi
+    bin_dir=$(_go:tool_bin_dir) || return 1
+    tool_path="${bin_dir}/${name}"
+    if [ -x "${tool_path}" ] && _go:tool:matches "${tool_path}" "${target}"; then
         printf '%s\n' "${tool_path}"
         return 0
     fi

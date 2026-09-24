@@ -1079,8 +1079,7 @@ func mockBody(c *router.MockContext) {
 }
 
 func routeErrorStackTrace(err error) goerrors.StackTrace {
-	var carrier routeStackCarrier
-	if errors.As(err, &carrier) {
+	if carrier, ok := errors.AsType[routeStackCarrier](err); ok {
 		return carrier.StackTrace()
 	}
 	return nil

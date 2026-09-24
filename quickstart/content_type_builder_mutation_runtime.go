@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -469,8 +470,8 @@ func buildBlockSchemaVersions(items []admin.CMSBlockDefinitionVersion) []blockSc
 		return nil
 	}
 	out := make([]blockSchemaVersion, 0, len(items))
-	for i := len(items) - 1; i >= 0; i-- {
-		out = append(out, blockSchemaVersionFromCMS(items[i]))
+	for _, item := range slices.Backward(items) {
+		out = append(out, blockSchemaVersionFromCMS(item))
 	}
 	return out
 }

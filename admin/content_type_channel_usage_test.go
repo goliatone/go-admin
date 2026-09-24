@@ -78,7 +78,7 @@ func TestResolveContentNavigationPanelUsesContentTypeChannelCandidate(t *testing
 }
 
 func TestCMSContentTypeChannelUsesInternalCompatibilityHelper(t *testing.T) {
-	ct := CMSContentType{Environment: "preview"}
+	ct := CMSContentType{Environment: "preview"} //nolint:staticcheck // Verify the deprecated Environment fallback for existing callers.
 	if got := CMSContentTypeChannel(ct); got != "preview" {
 		t.Fatalf("expected preview from exported compatibility helper, got %q", got)
 	}

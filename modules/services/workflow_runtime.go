@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -199,8 +200,8 @@ func (r *workflowRuntime) listSyncRuns(
 	defer r.mu.Unlock()
 
 	filtered := make([]workflowSyncRunRecord, 0)
-	for idx := len(r.runOrder) - 1; idx >= 0; idx-- {
-		runID := strings.TrimSpace(r.runOrder[idx])
+	for _, v := range slices.Backward(r.runOrder) {
+		runID := strings.TrimSpace(v)
 		record, ok := r.runRecords[runID]
 		if !ok {
 			continue

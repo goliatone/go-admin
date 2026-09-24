@@ -524,8 +524,7 @@ func shutdownTaskIncomplete(
 	ctx context.Context,
 	shutdownErr error,
 ) *ShutdownIncompleteError {
-	var incomplete *ShutdownIncompleteError
-	if errors.As(shutdownErr, &incomplete) {
+	if incomplete, ok := errors.AsType[*ShutdownIncompleteError](shutdownErr); ok {
 		return incomplete
 	}
 	if shutdownErr == nil || ctx == nil || ctx.Err() == nil {

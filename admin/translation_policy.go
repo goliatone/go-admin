@@ -260,8 +260,7 @@ func applyTranslationPolicy(ctx context.Context, policy TranslationPolicy, input
 	if err == nil {
 		return nil
 	}
-	var missing MissingTranslationsError
-	if errors.As(err, &missing) {
+	if missing, ok := errors.AsType[MissingTranslationsError](err); ok {
 		recordTranslationBlockedTransitionMetric(ctx, input, missing)
 	}
 	return err

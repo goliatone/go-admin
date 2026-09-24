@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
@@ -513,11 +514,11 @@ func chainHostHandler(handler router.HandlerFunc, middlewares []router.Middlewar
 		return handler
 	}
 	wrapped := handler
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		if middlewares[i] == nil {
+	for _, middleware := range slices.Backward(middlewares) {
+		if middleware == nil {
 			continue
 		}
-		wrapped = middlewares[i](wrapped)
+		wrapped = middleware(wrapped)
 	}
 	return wrapped
 }

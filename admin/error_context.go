@@ -8,6 +8,7 @@ import (
 )
 
 type stackCarrier interface {
+	error
 	StackTrace() goerrors.StackTrace
 }
 
@@ -77,8 +78,7 @@ func stackFromError(err error) goerrors.StackTrace {
 	if err == nil {
 		return nil
 	}
-	var carrier stackCarrier
-	if stderrors.As(err, &carrier) {
+	if carrier, ok := stderrors.AsType[stackCarrier](err); ok {
 		return carrier.StackTrace()
 	}
 	var ge *goerrors.Error

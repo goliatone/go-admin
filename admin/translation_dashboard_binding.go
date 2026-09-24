@@ -206,45 +206,45 @@ func translationDashboardAssignmentSummaryFromAssignments(assignments []Translat
 func (b *translationQueueBinding) translationDashboardOptimizedSections(assignments TranslationAssignmentDashboardSummary, families TranslationDashboardFamilyMetrics, runtime *translationFamilyRuntime, degradedReasons []map[string]any, identity translationTransportIdentity, actorID, channel string, now time.Time, overdueLimit, blockedLimit int) (map[string]any, map[string]any) {
 	cards := b.translationDashboardOptimizedCards(channel, now, assignments, families)
 	return map[string]any{
-			"cards": cards,
-			"tables": map[string]any{
-				translationDashboardTableTopOverdueAssignments: map[string]any{
-					"id":    translationDashboardTableTopOverdueAssignments,
-					"label": "Top Overdue Assignments",
-					"total": assignments.OverdueTasks,
-					"limit": overdueLimit,
-					"rows":  translationDashboardTopOverdueRows(b.admin.URLs(), assignments.TopOverdue, overdueLimit, now, channel),
-				},
-				translationDashboardTableBlockedFamilies: map[string]any{
-					"id":    translationDashboardTableBlockedFamilies,
-					"label": "Blocked Families",
-					"total": families.BlockedFamilies,
-					"limit": blockedLimit,
-					"rows":  translationDashboardTopBlockedRows(b.admin.URLs(), families.TopBlocked, blockedLimit, channel),
-				},
+		"cards": cards,
+		"tables": map[string]any{
+			translationDashboardTableTopOverdueAssignments: map[string]any{
+				"id":    translationDashboardTableTopOverdueAssignments,
+				"label": "Top Overdue Assignments",
+				"total": assignments.OverdueTasks,
+				"limit": overdueLimit,
+				"rows":  translationDashboardTopOverdueRows(b.admin.URLs(), assignments.TopOverdue, overdueLimit, now, channel),
 			},
-			"alerts":    translationDashboardAlerts(cards, len(degradedReasons) > 0),
-			"runbooks":  translationDashboardRunbooks(b.admin.URLs()),
-			"generated": now,
-			"summary": map[string]any{
-				"my_tasks":                 assignments.MyTasks,
-				"needs_review":             assignments.NeedsReview,
-				"overdue_tasks":            assignments.OverdueTasks,
-				"blocked_families":         families.BlockedFamilies,
-				"missing_required_locales": families.MissingRequiredFamilies,
+			translationDashboardTableBlockedFamilies: map[string]any{
+				"id":    translationDashboardTableBlockedFamilies,
+				"label": "Blocked Families",
+				"total": families.BlockedFamilies,
+				"limit": blockedLimit,
+				"rows":  translationDashboardTopBlockedRows(b.admin.URLs(), families.TopBlocked, blockedLimit, channel),
 			},
-		}, mergeTranslationChannelContract(map[string]any{
-			"generated_at":        now,
-			"refresh_interval_ms": translationDashboardRefreshIntervalMS,
-			"latency_target_ms":   translationDashboardLatencyTargetMS,
-			"query_models":        TranslationDashboardQueryModels(),
-			"contracts":           TranslationDashboardContractPayload(),
-			"degraded":            len(degradedReasons) > 0,
-			"degraded_reasons":    degradedReasons,
-			"family_report":       translationDashboardFamilyReport(runtime),
-			"scope":               map[string]any{ScopeTenantIDKey: identity.TenantID, ScopeOrgIDKey: identity.OrgID, "actor_id": actorID},
-			"metrics":             translationDashboardMetricCatalog(),
-		}, channel)
+		},
+		"alerts":    translationDashboardAlerts(cards, len(degradedReasons) > 0),
+		"runbooks":  translationDashboardRunbooks(b.admin.URLs()),
+		"generated": now,
+		"summary": map[string]any{
+			"my_tasks":                 assignments.MyTasks,
+			"needs_review":             assignments.NeedsReview,
+			"overdue_tasks":            assignments.OverdueTasks,
+			"blocked_families":         families.BlockedFamilies,
+			"missing_required_locales": families.MissingRequiredFamilies,
+		},
+	}, mergeTranslationChannelContract(map[string]any{
+		"generated_at":        now,
+		"refresh_interval_ms": translationDashboardRefreshIntervalMS,
+		"latency_target_ms":   translationDashboardLatencyTargetMS,
+		"query_models":        TranslationDashboardQueryModels(),
+		"contracts":           TranslationDashboardContractPayload(),
+		"degraded":            len(degradedReasons) > 0,
+		"degraded_reasons":    degradedReasons,
+		"family_report":       translationDashboardFamilyReport(runtime),
+		"scope":               map[string]any{ScopeTenantIDKey: identity.TenantID, ScopeOrgIDKey: identity.OrgID, "actor_id": actorID},
+		"metrics":             translationDashboardMetricCatalog(),
+	}, channel)
 }
 
 func (b *translationQueueBinding) translationDashboardOptimizedCards(channel string, now time.Time, assignments TranslationAssignmentDashboardSummary, families TranslationDashboardFamilyMetrics) []map[string]any {
@@ -354,30 +354,30 @@ func (b *translationQueueBinding) translationDashboardSections(assignments []Tra
 	missingRequiredFamilies := translationDashboardMissingRequiredFamilies(scopedFamilies)
 	cards := b.translationDashboardCards(channel, now, myTasks, needsReview, overdueAssignments, blockedFamilies, missingRequiredFamilies)
 	return map[string]any{
-			"cards":     cards,
-			"tables":    translationDashboardTables(b.admin.URLs(), overdueAssignments, blockedFamilies, overdueLimit, blockedLimit, now, channel),
-			"alerts":    translationDashboardAlerts(cards, len(degradedReasons) > 0),
-			"runbooks":  translationDashboardRunbooks(b.admin.URLs()),
-			"generated": now,
-			"summary": map[string]any{
-				"my_tasks":                 len(myTasks),
-				"needs_review":             len(needsReview),
-				"overdue_tasks":            len(overdueAssignments),
-				"blocked_families":         len(blockedFamilies),
-				"missing_required_locales": len(missingRequiredFamilies),
-			},
-		}, mergeTranslationChannelContract(map[string]any{
-			"generated_at":        now,
-			"refresh_interval_ms": translationDashboardRefreshIntervalMS,
-			"latency_target_ms":   translationDashboardLatencyTargetMS,
-			"query_models":        TranslationDashboardQueryModels(),
-			"contracts":           TranslationDashboardContractPayload(),
-			"degraded":            len(degradedReasons) > 0,
-			"degraded_reasons":    degradedReasons,
-			"family_report":       translationDashboardFamilyReport(runtime),
-			"scope":               map[string]any{ScopeTenantIDKey: identity.TenantID, ScopeOrgIDKey: identity.OrgID, "actor_id": actorID},
-			"metrics":             translationDashboardMetricCatalog(),
-		}, channel)
+		"cards":     cards,
+		"tables":    translationDashboardTables(b.admin.URLs(), overdueAssignments, blockedFamilies, overdueLimit, blockedLimit, now, channel),
+		"alerts":    translationDashboardAlerts(cards, len(degradedReasons) > 0),
+		"runbooks":  translationDashboardRunbooks(b.admin.URLs()),
+		"generated": now,
+		"summary": map[string]any{
+			"my_tasks":                 len(myTasks),
+			"needs_review":             len(needsReview),
+			"overdue_tasks":            len(overdueAssignments),
+			"blocked_families":         len(blockedFamilies),
+			"missing_required_locales": len(missingRequiredFamilies),
+		},
+	}, mergeTranslationChannelContract(map[string]any{
+		"generated_at":        now,
+		"refresh_interval_ms": translationDashboardRefreshIntervalMS,
+		"latency_target_ms":   translationDashboardLatencyTargetMS,
+		"query_models":        TranslationDashboardQueryModels(),
+		"contracts":           TranslationDashboardContractPayload(),
+		"degraded":            len(degradedReasons) > 0,
+		"degraded_reasons":    degradedReasons,
+		"family_report":       translationDashboardFamilyReport(runtime),
+		"scope":               map[string]any{ScopeTenantIDKey: identity.TenantID, ScopeOrgIDKey: identity.OrgID, "actor_id": actorID},
+		"metrics":             translationDashboardMetricCatalog(),
+	}, channel)
 }
 
 func (b *translationQueueBinding) translationDashboardCards(channel string, now time.Time, myTasks, needsReview, overdueAssignments []TranslationAssignment, blockedFamilies, missingRequiredFamilies []translationservices.FamilyRecord) []map[string]any {

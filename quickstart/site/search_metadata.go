@@ -20,8 +20,7 @@ func searchUnavailableErrorPayload(err error) map[string]any {
 }
 
 func searchErrorStatus(err error) int {
-	var clientErr searchClientError
-	if errors.As(err, &clientErr) {
+	if _, ok := errors.AsType[searchClientError](err); ok {
 		return 400
 	}
 	return 502

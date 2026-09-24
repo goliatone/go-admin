@@ -40,8 +40,7 @@ func TestCoordinateShutdownDefersAdminForCanceledLifecycleAndRetries(t *testing.
 	canceledCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 	err = coordinateShutdown(canceledCtx, nil, runner.Shutdown, adminShutdown)
-	var incomplete *golifecycle.ShutdownIncompleteError
-	if !errors.As(err, &incomplete) {
+	if _, ok := errors.AsType[*golifecycle.ShutdownIncompleteError](err); !ok {
 		t.Fatalf("shutdown error = %v, want ShutdownIncompleteError", err)
 	}
 	if got := shutdownRuns.Load(); got != 0 {
@@ -107,8 +106,7 @@ func TestCoordinateShutdownBoundsContextIgnoringLifecycleTask(t *testing.T) {
 		t.Fatalf("shutdown exceeded host deadline: %s", elapsed)
 	}
 	<-started
-	var incomplete *golifecycle.ShutdownIncompleteError
-	if !errors.As(err, &incomplete) {
+	if _, ok := errors.AsType[*golifecycle.ShutdownIncompleteError](err); !ok {
 		t.Fatalf("shutdown error = %v, want ShutdownIncompleteError", err)
 	}
 	if got := adminRuns.Load(); got != 0 {

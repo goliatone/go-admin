@@ -282,8 +282,7 @@ func (r fiberErrorHandlerRuntime) applyDevErrorContext(c *fiber.Ctx, err error, 
 		applySyntheticRouteMissDevContext(err, devCtx)
 		applyEnrichedDevErrorContext(viewCtx, devCtx)
 	}
-	var disabled admin.FeatureDisabledError
-	if errors.As(err, &disabled) {
+	if disabled, ok := errors.AsType[admin.FeatureDisabledError](err); ok {
 		viewCtx["error_feature"] = disabled.Feature
 		viewCtx["error_reason"] = disabled.Reason
 	}

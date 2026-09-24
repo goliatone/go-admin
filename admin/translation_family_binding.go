@@ -849,8 +849,7 @@ func (r translationFamilyPolicyResolver) ResolvePolicyBlockers(ctx context.Conte
 	if err == nil {
 		return nil, nil
 	}
-	var missing MissingTranslationsError
-	if errors.As(err, &missing) {
+	if _, ok := errors.AsType[MissingTranslationsError](err); ok {
 		return nil, nil
 	}
 	if translationFamilyPolicySourceNotFound(err) {
@@ -1349,8 +1348,8 @@ func (b *translationFamilyBinding) rollbackArchivedAssignments(
 	cause error,
 ) error {
 	var rollbackErr error
-	for i := len(archivedSnapshots) - 1; i >= 0; i-- {
-		snapshot := archivedSnapshots[i]
+	for _, snapshot := range slices.Backward(archivedSnapshots) {
+
 		if _, err := repo.Update(ctx, snapshot.original, snapshot.current.Version); err != nil {
 			rollbackErr = errors.Join(rollbackErr, err)
 		}

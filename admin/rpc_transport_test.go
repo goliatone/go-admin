@@ -398,8 +398,7 @@ func TestAdminRPCDispatchEndpointRequiresPermission(t *testing.T) {
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
 	})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected PermissionDeniedError, got %T (%v)", err, err)
 	}
 }
@@ -423,8 +422,7 @@ func TestAdminRPCDispatchEndpointRequiresDispatchPermission(t *testing.T) {
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
 	})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected dispatch PermissionDeniedError, got %T (%v)", err, err)
 	}
 }
@@ -456,8 +454,7 @@ func TestAdminRPCDispatchEndpointExactPermissionModeIgnoresResourceRoleAllow(t *
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
 	})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected exact permission denial, got %T (%v)", err, err)
 	}
 }
@@ -489,8 +486,7 @@ func TestAdminRPCDispatchEndpointGlobalExactPermissionModeAppliesToRules(t *test
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
 	})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected inherited exact permission denial, got %T (%v)", err, err)
 	}
 }
@@ -581,8 +577,7 @@ func TestAdminRPCCommandListExactPermissionModeRequiresReadGrant(t *testing.T) {
 	})
 	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected exact discovery permission denial, got %T (%v)", err, err)
 	}
 }
@@ -847,8 +842,7 @@ func TestAdminRPCListEndpointRequiresPermissionWhenEnabled(t *testing.T) {
 	})
 	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
 	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
-	var denied PermissionDeniedError
-	if !errors.As(err, &denied) {
+	if _, ok := errors.AsType[PermissionDeniedError](err); !ok {
 		t.Fatalf("expected PermissionDeniedError, got %T (%v)", err, err)
 	}
 }

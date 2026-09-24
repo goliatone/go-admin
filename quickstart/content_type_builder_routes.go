@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -357,8 +358,8 @@ func (s *contentTypeVersionStore) listVersions(key string) []contentTypeSchemaVe
 		return nil
 	}
 	out := make([]contentTypeSchemaVersion, 0, len(versions))
-	for i := len(versions) - 1; i >= 0; i-- {
-		out = append(out, versions[i])
+	for _, version := range slices.Backward(versions) {
+		out = append(out, version)
 	}
 	return out
 }

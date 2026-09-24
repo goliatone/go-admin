@@ -247,8 +247,7 @@ func extractErrorTypeName(err error) string {
 		return ""
 	}
 
-	var mapped *goerrors.Error
-	if errors.As(err, &mapped) {
+	if _, ok := errors.AsType[*goerrors.Error](err); ok {
 		return "goerrors.Error"
 	}
 	if unwrapper, ok := err.(interface{ Unwrap() error }); ok {

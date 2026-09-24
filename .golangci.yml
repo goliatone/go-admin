@@ -40,6 +40,9 @@ linters:
     errcheck:
       check-type-assertions: true
       check-blank: true
+      exclude-functions:
+        # AsType returns the matched error as data; its bool reports the match.
+        - errors.AsType
     funlen:
       lines: 90
       statements: 45
@@ -67,6 +70,9 @@ linters:
   exclusions:
     generated: strict
     warn-unused: true
+    paths:
+      # npm dependencies may contain Go examples outside our maintained modules.
+      - (^|/)node_modules/
     presets:
       - comments
       - common-false-positives

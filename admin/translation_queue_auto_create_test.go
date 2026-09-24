@@ -295,8 +295,7 @@ func TestApplyTranslationPolicyWithQueueHookTriggersHookOnBlocker(t *testing.T) 
 	if err == nil {
 		t.Fatal("expected error to be returned")
 	}
-	var missing MissingTranslationsError
-	if !errors.As(err, &missing) {
+	if _, ok := errors.AsType[MissingTranslationsError](err); !ok {
 		t.Fatal("expected MissingTranslationsError")
 	}
 

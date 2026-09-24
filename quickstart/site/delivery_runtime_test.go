@@ -326,10 +326,10 @@ func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *
 func TestDeliveryRuntimeResolvesWithEnvironmentScopedContentTypes(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
-		ID:          "page-type",
-		Name:        "Page",
-		Slug:        "page",
-		Environment: "prod",
+		ID:      "page-type",
+		Name:    "Page",
+		Slug:    "page",
+		Channel: "prod",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},

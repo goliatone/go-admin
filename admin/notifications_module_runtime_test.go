@@ -382,8 +382,7 @@ func TestAdminNotificationRuntimeResolutionAndAccessors(t *testing.T) {
 			t.Fatalf("construct disabled admin: %v", err)
 		}
 		_, err = adm.NotificationReceipts().LookupReceipt(context.Background(), events.ReceiptLookup{})
-		var disabled FeatureDisabledError
-		if !errors.As(err, &disabled) {
+		if _, ok := errors.AsType[FeatureDisabledError](err); !ok {
 			t.Fatalf("expected disabled receipt service, got %T %v", err, err)
 		}
 	})
@@ -413,8 +412,7 @@ func TestAdminNotificationRuntimeResolutionAndAccessors(t *testing.T) {
 			t.Fatalf("construct legacy runtime: %v", err)
 		}
 		_, err = adm.NotificationRetention().Purge(context.Background(), retention.Request{})
-		var unavailable NotificationCapabilityUnavailableError
-		if !errors.As(err, &unavailable) {
+		if _, ok := errors.AsType[NotificationCapabilityUnavailableError](err); !ok {
 			t.Fatalf("expected unavailable retention, got %T %v", err, err)
 		}
 	})
@@ -424,8 +422,7 @@ func TestAdminNotificationRuntimeResolutionAndAccessors(t *testing.T) {
 			FeatureGate:         featureGateFromKeys(FeatureNotifications),
 			NotificationService: legacyNotificationServiceStub{}, NotificationRuntime: &NotificationRuntimeOptions{},
 		})
-		var invalid InvalidDependenciesError
-		if !errors.As(err, &invalid) {
+		if _, ok := errors.AsType[InvalidDependenciesError](err); !ok {
 			t.Fatalf("expected invalid dependency conflict, got %T %v", err, err)
 		}
 	})
@@ -457,8 +454,7 @@ func TestAdminNotificationRuntimeResolutionAndAccessors(t *testing.T) {
 		_, err := New(Config{}, Dependencies{
 			FeatureGate: featureGateFromKeys(FeatureNotifications), NotificationRuntime: &NotificationRuntimeOptions{},
 		})
-		var invalid InvalidDependenciesError
-		if !errors.As(err, &invalid) {
+		if _, ok := errors.AsType[InvalidDependenciesError](err); !ok {
 			t.Fatalf("expected partial provider error, got %T %v", err, err)
 		}
 
