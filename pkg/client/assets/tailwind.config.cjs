@@ -1,3 +1,29 @@
+const plugin = require('tailwindcss/plugin')
+const forms = require('@tailwindcss/forms')
+
+// Roots that carry the forms base layer. Host documents opt in with admin-forms-root.
+const FORMS_ROOTS = ['.admin-theme-root', '.site-shell', '.admin-forms-root']
+
+const scopedForms = plugin((api) => {
+  const captured = []
+  forms({ strategy: 'base' }).handler({
+    ...api,
+    addBase: (rules) => captured.push(...[].concat(rules)),
+    addComponents: () => {},
+  })
+  const prefix = `:where(${FORMS_ROOTS.join(', ')}) `
+  api.addBase(
+    captured.map((rule) =>
+      Object.fromEntries(
+        Object.entries(rule).map(([selector, styles]) => [
+          selector.split(',').map((part) => prefix + part.trim()).join(','),
+          styles,
+        ]),
+      ),
+    ),
+  )
+})
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -82,6 +108,6 @@ module.exports = {
     },
   },
   plugins: [
-    require('@tailwindcss/forms'),
+    scopedForms,
   ],
 }
