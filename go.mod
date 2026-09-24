@@ -106,7 +106,7 @@ require (
 	github.com/goliatone/go-config v0.14.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect
-	github.com/goliatone/go-services v0.8.0
+	github.com/goliatone/go-services v0.9.1
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
