@@ -8,6 +8,7 @@ export interface BusyOptions {
     label?: string;
     generateSpinner?: boolean;
     compatibilitySubmitLoading?: boolean;
+    indicator?: 'all' | 'submitter';
 }
 export interface BusyController {
     readonly root: BusyRoot;

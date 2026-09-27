@@ -43,6 +43,11 @@
       "import": "./dist-public/shared/coercion.js",
       "default": "./dist-public/shared/coercion.js"
     },
+    "./shared/enhanced-action": {
+      "types": "./dist-public/types/shared/enhanced-action.d.ts",
+      "import": "./dist-public/shared/enhanced-action.js",
+      "default": "./dist-public/shared/enhanced-action.js"
+    },
     "./shared/json-parse": {
       "types": "./dist-public/types/shared/json-parse.d.ts",
       "import": "./dist-public/shared/json-parse.js",

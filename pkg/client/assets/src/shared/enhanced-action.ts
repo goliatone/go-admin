@@ -51,6 +51,7 @@ export interface EnhancedActionRuntimeOptions {
   request_header_value?: string;
   accept?: string;
   onFragmentsApplied?: (fragments: EnhancedActionFragment[]) => void | Promise<void>;
+  liveDebounceMs?: number;
 }
 
 export interface EnhancedActionController {
@@ -84,6 +85,12 @@ export function initEnhancedActions(
     if (!canEnhance(options.fetch ?? globalThis.fetch, form.ownerDocument)) {
       return;
     }
+    if (isLiveForm(form)) {
+      event.preventDefault();
+      cancelLiveTimer(form);
+      void runLiveRequest(form, { ...options, document: doc });
+      return;
+    }
     if (isBusy(form)) {
       event.preventDefault();
       return;
@@ -91,10 +98,22 @@ export function initEnhancedActions(
     event.preventDefault();
     void submitEnhancedForm(form, event.submitter, { ...options, document: doc });
   };
+  const handleInput = (event: Event) => {
+    const form = ownerFormOf(event.target);
+    if (!form || !form.matches('form[data-enhance-action]') || !isLiveForm(form)) {
+      return;
+    }
+    if (!canEnhance(options.fetch ?? globalThis.fetch, form.ownerDocument)) {
+      return;
+    }
+    scheduleLiveRequest(form, event.target, { ...options, document: doc });
+  };
   root.addEventListener('submit', handleSubmit as EventListener);
+  root.addEventListener('input', handleInput);
   return {
     destroy() {
       root.removeEventListener('submit', handleSubmit as EventListener);
+      root.removeEventListener('input', handleInput);
     },
   };
 }
@@ -122,12 +141,15 @@ export async function submitEnhancedForm(
   const headers = new HeadersCtor();
   headers.set(enhancedRequestHeader(options), enhancedRequestHeaderValue(options));
   headers.set('Accept', enhancedActionAccept(options));
-  const busy = setBusy(form, { submitter });
+  const busy = setBusy(form, {
+    submitter,
+    indicator: form.getAttribute('data-busy-indicator')?.trim() === 'submitter' ? 'submitter' : 'all',
+  });
   try {
     const response = await httpRequestWith(fetchImpl, requestURL, {
       method,
       headers,
-      body: method === 'GET' || method === 'HEAD' ? undefined : formData,
+      body: method === 'GET' || method === 'HEAD' ? undefined : requestBody(form, submitter, formData),
       credentials: 'same-origin',
     });
     const result = await readEnhancedResponse(response, options);
@@ -137,9 +159,11 @@ export async function submitEnhancedForm(
       return envelope;
     }
     if (!response.ok || envelope.ok === false) {
+      const doc = options.document ?? form.ownerDocument;
+      await applyEnhancedFragments(envelope, options, doc);
       applyEnhancedErrors(form, envelope);
       showEnhancedToasts(envelope, options.toast);
-      focusEnhancedTarget(envelope, options.document ?? form.ownerDocument);
+      focusEnhancedTarget(envelope, doc);
       return envelope;
     }
     await applyEnhancedEnvelope(envelope, options);
@@ -164,6 +188,16 @@ export async function applyEnhancedEnvelope(
   options: EnhancedActionRuntimeOptions = {},
 ): Promise<void> {
   const doc = options.document ?? globalThis.document;
+  await applyEnhancedFragments(envelope, options, doc);
+  showEnhancedToasts(envelope, options.toast);
+  focusEnhancedTarget(envelope, doc);
+}
+
+async function applyEnhancedFragments(
+  envelope: EnhancedActionEnvelope,
+  options: EnhancedActionRuntimeOptions,
+  doc: Document,
+): Promise<void> {
   const applied: EnhancedActionFragment[] = [];
   const appliedRoots: HTMLElement[] = [];
   for (const fragment of envelope.fragments ?? []) {
@@ -178,8 +212,6 @@ export async function applyEnhancedEnvelope(
     await options.onFragmentsApplied?.(applied);
     dispatchEnhancedFragmentsApplied(doc, applied, appliedRoots);
   }
-  showEnhancedToasts(envelope, options.toast);
-  focusEnhancedTarget(envelope, doc);
 }
 
 export function applyEnhancedFragment(doc: Document, fragment: EnhancedActionFragment): boolean {
@@ -404,6 +436,20 @@ function appendSubmitterValue(body: FormData, submitter: HTMLElement | null): vo
   body.append(name, submitter.getAttribute('value') ?? '');
 }
 
+// Mirror the native form: multipart only when the form or submitter declares it.
+function requestBody(form: HTMLFormElement, submitter: HTMLElement | null, formData: FormData): FormData | URLSearchParams {
+  const submitterEnctype = isSubmitterControl(submitter) ? submitter.getAttribute('formenctype')?.trim() : '';
+  const enctype = (submitterEnctype || form.getAttribute('enctype') || '').trim().toLowerCase();
+  if (enctype === 'multipart/form-data') {
+    return formData;
+  }
+  const params = new URLSearchParams();
+  formData.forEach((value, name) => {
+    params.append(name, typeof value === 'string' ? value : value.name);
+  });
+  return params;
+}
+
 function isSubmitterControl(submitter: HTMLElement | null): submitter is HTMLButtonElement | HTMLInputElement {
   if (!submitter) {
     return false;
@@ -536,4 +582,138 @@ function dispatchEnhancedFragmentsApplied(doc: Document, fragments: EnhancedActi
 
 function ownerDocument(root: Document | HTMLElement): Document {
   return root instanceof Document ? root : root.ownerDocument;
+}
+
+const DEFAULT_LIVE_DEBOUNCE_MS = 180;
+
+interface LiveFormState {
+  timer?: ReturnType<typeof setTimeout>;
+  controller?: AbortController;
+  sequence: number;
+  lastURL?: string;
+}
+
+const liveStates = new WeakMap<HTMLFormElement, LiveFormState>();
+
+function isLiveForm(form: HTMLFormElement): boolean {
+  return form.hasAttribute('data-enhance-live') && resolveFormMethod(form, null) === 'GET';
+}
+
+function liveState(form: HTMLFormElement): LiveFormState {
+  let state = liveStates.get(form);
+  if (!state) {
+    state = { sequence: 0 };
+    liveStates.set(form, state);
+  }
+  return state;
+}
+
+function cancelLiveTimer(form: HTMLFormElement): void {
+  const state = liveStates.get(form);
+  if (state?.timer !== undefined) {
+    clearTimeout(state.timer);
+    state.timer = undefined;
+  }
+}
+
+function ownerFormOf(target: EventTarget | null): HTMLFormElement | null {
+  const control = target as { form?: HTMLFormElement | null } | null;
+  return control && control.form ? control.form : null;
+}
+
+function liveNumber(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function scheduleLiveRequest(form: HTMLFormElement, trigger: EventTarget | null, options: EnhancedActionRuntimeOptions): void {
+  const min = liveNumber(form.dataset.enhanceLiveMin, 1);
+  const text = (trigger as { value?: unknown } | null)?.value;
+  const typed = typeof text === 'string' && (trigger as HTMLInputElement).type !== 'radio' && (trigger as HTMLInputElement).type !== 'checkbox';
+  if (typed) {
+    const length = text.trim().length;
+    if (length > 0 && length < min) {
+      cancelLiveTimer(form);
+      return;
+    }
+  }
+  const state = liveState(form);
+  cancelLiveTimer(form);
+  const delay = liveNumber(form.dataset.enhanceLiveDebounce, options.liveDebounceMs ?? DEFAULT_LIVE_DEBOUNCE_MS);
+  state.timer = setTimeout(() => {
+    state.timer = undefined;
+    void runLiveRequest(form, options);
+  }, delay);
+}
+
+// Live forms keep the controls usable: they mark the form pending instead of busy,
+// abort superseded requests and drop responses that arrive out of order.
+async function runLiveRequest(form: HTMLFormElement, options: EnhancedActionRuntimeOptions): Promise<void> {
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  if (!canEnhance(fetchImpl, form.ownerDocument)) {
+    return;
+  }
+  const action = resolveFormAction(form, null);
+  if (!action) {
+    return;
+  }
+  const FormDataCtor = formDataConstructor(form.ownerDocument);
+  const HeadersCtor = headersConstructor(form.ownerDocument);
+  const requestURL = resolveRequestURL(action, 'GET', new FormDataCtor(form));
+  const state = liveState(form);
+  if (requestURL === state.lastURL) {
+    return;
+  }
+  state.controller?.abort();
+  const AbortCtor = form.ownerDocument.defaultView?.AbortController ?? globalThis.AbortController;
+  const controller = typeof AbortCtor === 'function' ? new AbortCtor() : undefined;
+  state.controller = controller;
+  state.lastURL = requestURL;
+  const sequence = ++state.sequence;
+  const doc = options.document ?? form.ownerDocument;
+  const headers = new HeadersCtor();
+  headers.set(enhancedRequestHeader(options), enhancedRequestHeaderValue(options));
+  headers.set('Accept', enhancedActionAccept(options));
+  form.setAttribute('aria-busy', 'true');
+  form.dataset.enhanceLivePending = 'true';
+  clearEnhancedErrors(form);
+  try {
+    const response = await httpRequestWith(fetchImpl, requestURL, {
+      method: 'GET',
+      headers,
+      credentials: 'same-origin',
+      signal: controller?.signal,
+    });
+    const result = await readEnhancedResponse(response, options);
+    if (sequence !== state.sequence) {
+      return;
+    }
+    const envelope = result.navigationURL
+      ? { ok: false, error: { message: 'Expected an enhanced action response.' } }
+      : result.envelope;
+    if (!response.ok || envelope.ok === false) {
+      state.lastURL = undefined;
+      await applyEnhancedFragments(envelope, options, doc);
+      applyEnhancedErrors(form, envelope);
+      showEnhancedToasts(envelope, options.toast);
+      return;
+    }
+    await applyEnhancedEnvelope(envelope, { ...options, document: doc });
+  } catch (error) {
+    if (sequence !== state.sequence || isAbortError(error)) {
+      return;
+    }
+    state.lastURL = undefined;
+    const message = error instanceof Error ? error.message : 'Request failed';
+    applyEnhancedErrors(form, { ok: false, error: { message } });
+  } finally {
+    if (sequence === state.sequence) {
+      form.removeAttribute('aria-busy');
+      delete form.dataset.enhanceLivePending;
+    }
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return !!error && typeof error === 'object' && (error as { name?: string }).name === 'AbortError';
 }

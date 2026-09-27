@@ -9,6 +9,7 @@ const entry = {
   'shared/html': resolve(import.meta.dirname, 'src/shared/html.ts'),
   'shared/logger': resolve(import.meta.dirname, 'src/shared/logger.ts'),
   'shared/coercion': resolve(import.meta.dirname, 'src/shared/coercion.ts'),
+  'shared/enhanced-action': resolve(import.meta.dirname, 'src/shared/enhanced-action.ts'),
   'shared/json-parse': resolve(import.meta.dirname, 'src/shared/json-parse.ts'),
   'shared/date-utils': resolve(import.meta.dirname, 'src/shared/date-utils.ts'),
   'shared/dom-ready': resolve(import.meta.dirname, 'src/shared/dom-ready.ts'),

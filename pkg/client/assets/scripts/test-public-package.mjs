@@ -54,6 +54,13 @@ import { escapeHTML } from '@goliatone/go-admin-client/shared/html';
 import { configureLogging, createLogger, type LoggerSink } from '@goliatone/go-admin-client/shared/logger';
 import { asRecord } from '@goliatone/go-admin-client/shared/coercion';
 import {
+  applyEnhancedEnvelope,
+  initEnhancedActions,
+  submitEnhancedForm,
+  type EnhancedActionEnvelope,
+  type EnhancedActionRuntimeOptions,
+} from '@goliatone/go-admin-client/shared/enhanced-action';
+import {
   ConfirmModal,
   Modal,
   TextPromptModal,
@@ -89,6 +96,11 @@ const restoreLogging = configureLogging({ sink, level: 'info' });
 createLogger('consumer').info('ready');
 restoreLogging();
 void asRecord({ test: true });
+const enhancedOptions: EnhancedActionRuntimeOptions = { liveDebounceMs: 120 };
+const enhancedEnvelope: EnhancedActionEnvelope = { version: 1, ok: true, fragments: [], focus: '#target' };
+void initEnhancedActions;
+void submitEnhancedForm;
+void applyEnhancedEnvelope(enhancedEnvelope, enhancedOptions);
 void Modal;
 void ConfirmModal;
 void TextPromptModal;
@@ -124,6 +136,10 @@ import { fileURLToPath } from 'node:url';
 import { ConfirmModal, Modal, TextPromptModal } from '@goliatone/go-admin-client/components/modal';
 import { BulkImportModal, FileDropzone, ImportReportView } from '@goliatone/go-admin-client/components/import-modal';
 import { configureLogging, createLogger } from '@goliatone/go-admin-client/shared/logger';
+import { ENHANCED_ACTION_ACCEPT, initEnhancedActions } from '@goliatone/go-admin-client/shared/enhanced-action';
+if (typeof initEnhancedActions !== 'function' || ENHANCED_ACTION_ACCEPT !== 'application/vnd.admin.enhanced+json') {
+  throw new Error('enhanced-action runtime exports are unavailable');
+}
 const componentCSS = fileURLToPath(import.meta.resolve('@goliatone/go-admin-client/components.css'));
 if (typeof Modal !== 'function' || typeof ConfirmModal !== 'function' || typeof TextPromptModal !== 'function' || typeof BulkImportModal !== 'function' || typeof FileDropzone !== 'function' || typeof ImportReportView !== 'function') {
   throw new Error('modal runtime exports are unavailable');

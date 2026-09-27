@@ -9,6 +9,16 @@ import { httpRequest } from '@goliatone/go-admin-client/shared/transport/http-cl
 import { createSSEClient } from '@goliatone/go-admin-client/services/sse-client';
 ```
 
+Server-rendered pages outside the admin shell can use the enhanced SSR action runtime. It posts `data-enhance-action` forms with the enhanced markers, applies the returned fragments, toasts and focus, and runs `data-enhance-live` GET forms as the user types:
+
+```ts
+import { initEnhancedActions } from '@goliatone/go-admin-client/shared/enhanced-action';
+
+initEnhancedActions(document, { toast: { success: announce, error: announce } });
+```
+
+See `docs/GUIDE_ACTIONS.md` in go-admin for the envelope, encoding, busy and live-form contracts.
+
 Panel list consumers can provide an explicit capability contract:
 
 ```ts

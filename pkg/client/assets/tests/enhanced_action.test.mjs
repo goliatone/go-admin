@@ -688,3 +688,193 @@ test('enhanced fragment replacement keeps inline scripts inert for behavior bind
 
   assert.equal(form.dataset.busy, 'true');
 });
+
+function enhancedResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/vnd.admin.enhanced+json' },
+  });
+}
+
+function submitWith(dom, form, submitter) {
+  const event = typeof dom.window.SubmitEvent === 'function'
+    ? new dom.window.SubmitEvent('submit', { bubbles: true, cancelable: true, submitter })
+    : new dom.window.Event('submit', { bubbles: true, cancelable: true });
+  if (!('submitter' in event) || event.submitter !== submitter) {
+    Object.defineProperty(event, 'submitter', { value: submitter });
+  }
+  form.dispatchEvent(event);
+}
+
+test('enhanced-action runtime sends URL-encoded bodies unless the form declares multipart', async () => {
+  const dom = setupDom(`
+    <form id="plain" data-enhance-action action="/admin/api/plain" method="post">
+      <input name="title" value="Hello world">
+      <button type="submit" name="intent" value="save">Save</button>
+    </form>
+    <form id="multi" data-enhance-action action="/admin/api/multi" method="post" enctype="multipart/form-data">
+      <input name="title" value="Upload">
+      <button type="submit">Upload</button>
+    </form>
+    <form id="override" data-enhance-action action="/admin/api/override" method="post">
+      <input name="title" value="Override">
+      <button type="submit" formenctype="multipart/form-data">Send</button>
+    </form>
+  `);
+  const requests = [];
+  initEnhancedActions(dom.window.document, {
+    fetch: async (url, init) => {
+      requests.push({ url, init });
+      return enhancedResponse({ ok: true });
+    },
+  });
+  const doc = dom.window.document;
+  submitWith(dom, doc.querySelector('#plain'), doc.querySelector('#plain button'));
+  await nextTick();
+  submitWith(dom, doc.querySelector('#multi'), doc.querySelector('#multi button'));
+  await nextTick();
+  submitWith(dom, doc.querySelector('#override'), doc.querySelector('#override button'));
+  await nextTick();
+
+  assert.equal(requests.length, 3);
+  assert.ok(requests[0].init.body instanceof URLSearchParams);
+  assert.equal(requests[0].init.body.toString(), 'title=Hello+world&intent=save');
+  assert.ok(requests[1].init.body instanceof dom.window.FormData);
+  assert.equal(requests[1].init.body.get('title'), 'Upload');
+  assert.ok(requests[2].init.body instanceof dom.window.FormData);
+});
+
+test('enhanced-action runtime applies fragments carried by an error envelope', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action data-enhance-error-target="#error" action="/admin/api/link" method="post">
+      <div id="state"><input type="hidden" name="expected_revision" value="r1"></div>
+      <button type="submit">Link</button>
+    </form>
+    <p id="error" hidden></p>
+    <ul id="linked"><li>one</li></ul>
+  `);
+  const toasts = [];
+  initEnhancedActions(dom.window.document, {
+    fetch: async () => enhancedResponse({
+      version: 1,
+      ok: false,
+      error: { message: 'This decision changed since you opened it.' },
+      toasts: [{ type: 'error', message: 'Stale revision.' }],
+      fragments: [
+        { selector: '#state', mode: 'replace', html: '<div id="state"><input type="hidden" name="expected_revision" value="r2"></div>' },
+        { selector: '#linked', mode: 'replace', html: '<ul id="linked"><li>one</li><li>two</li></ul>' },
+      ],
+    }, 409),
+    toast: { error(message) { toasts.push(message); } },
+  });
+  const doc = dom.window.document;
+  submitWith(dom, doc.querySelector('form'), doc.querySelector('button'));
+  await nextTick();
+  await nextTick();
+
+  assert.equal(doc.querySelector('[name="expected_revision"]').value, 'r2');
+  assert.equal(doc.querySelectorAll('#linked li').length, 2);
+  assert.equal(doc.querySelector('#error').hidden, false);
+  assert.equal(doc.querySelector('#error').textContent, 'This decision changed since you opened it.');
+  assert.deepEqual(toasts, ['Stale revision.']);
+});
+
+test('enhanced-action runtime keeps busy indicators on the submitter when the form asks', async () => {
+  const dom = setupDom(`
+    <form data-enhance-action data-busy-indicator="submitter" action="/admin/api/link" method="post">
+      <button id="a" type="submit" name="relation" value="spec:a" data-busy-label="Linking…"><span data-busy-spinner hidden></span><span data-busy-label-target>Link A</span></button>
+      <button id="b" type="submit" name="relation" value="spec:b" data-busy-label="Linking…"><span data-busy-spinner hidden></span><span data-busy-label-target>Link B</span></button>
+    </form>
+  `);
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const bodies = [];
+  initEnhancedActions(dom.window.document, {
+    fetch: async (_url, init) => {
+      bodies.push(init.body.toString());
+      await gate;
+      return enhancedResponse({ ok: true });
+    },
+  });
+  const doc = dom.window.document;
+  const a = doc.querySelector('#a');
+  const b = doc.querySelector('#b');
+  submitWith(dom, doc.querySelector('form'), a);
+
+  assert.equal(a.disabled, true);
+  assert.equal(b.disabled, true);
+  assert.equal(a.querySelector('[data-busy-label-target]').textContent, 'Linking…');
+  assert.equal(a.querySelector('[data-busy-spinner]').hidden, false);
+  assert.equal(b.querySelector('[data-busy-label-target]').textContent, 'Link B');
+  assert.equal(b.querySelector('[data-busy-spinner]').hidden, true);
+
+  release();
+  await nextTick();
+  await nextTick();
+  assert.equal(bodies[0], 'relation=spec%3Aa');
+  assert.equal(a.disabled, false);
+  assert.equal(b.disabled, false);
+  assert.equal(a.querySelector('[data-busy-label-target]').textContent, 'Link A');
+});
+
+test('live GET forms debounce input, skip short queries and apply the latest response only', async () => {
+  const dom = setupDom(`
+    <form id="search" data-enhance-action data-enhance-live data-enhance-live-debounce="0" data-enhance-live-min="2" action="/admin/api/options" method="get">
+      <input type="hidden" name="kind" value="spec">
+    </form>
+    <input id="q" name="q" form="search" value="">
+    <ul id="options"><li>initial</li></ul>
+  `);
+  const requests = [];
+  const pending = [];
+  initEnhancedActions(dom.window.document, {
+    fetch: (url, init) => {
+      requests.push({ url, init });
+      return new Promise((resolve, reject) => {
+        pending.push({ url, resolve, reject });
+        init.signal?.addEventListener('abort', () => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        });
+      });
+    },
+  });
+  const doc = dom.window.document;
+  const form = doc.querySelector('#search');
+  const input = doc.querySelector('#q');
+  const type = async (value) => {
+    input.value = value;
+    input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  };
+
+  await type('c');
+  assert.equal(requests.length, 0);
+
+  await type('ch');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, '/admin/api/options?kind=spec&q=ch');
+  assert.equal(form.getAttribute('aria-busy'), 'true');
+  assert.equal(form.dataset.enhanceLivePending, 'true');
+
+  await type('cha');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].init.signal.aborted, true);
+
+  pending[1].resolve(enhancedResponse({
+    ok: true,
+    fragments: [{ selector: '#options', mode: 'replace', html: '<ul id="options"><li>chat</li></ul>' }],
+  }));
+  await nextTick();
+  await nextTick();
+  assert.equal(doc.querySelector('#options').textContent, 'chat');
+  assert.equal(form.hasAttribute('aria-busy'), false);
+
+  await type('cha');
+  assert.equal(requests.length, 2);
+
+  await type('');
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].url, '/admin/api/options?kind=spec&q=');
+});

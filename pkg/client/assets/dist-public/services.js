@@ -3,9 +3,10 @@ import { createLogger as w } from "./shared/logger.js";
 import { formatRelativeTimeCompact as Tt } from "./shared/time-formatters.js";
 import { httpRequest as Et } from "./shared/transport/http-client.js";
 import { a as qt, t as xt } from "./chunks/modal-nXs4C8ko.js";
-import { n as Ee, r as Pt, t as qe } from "./chunks/command-runtime-DC62FVL-.js";
+import { i as Pt } from "./chunks/busy-MPizSUwt.js";
+import { CommandRuntimeController as qe, initCommandRuntime as Pe } from "./services/command-runtime.js";
 import { t as u } from "./chunks/icon-renderer-DWZ4R-YR.js";
-import { UIStateManager as Re, renderEmptyState as At, renderErrorState as rt, renderForbiddenState as P, renderLoadingState as nt, renderNoResultsState as Rt, renderPanelLoadingState as Ie, renderPanelState as Fe, renderTableEmptyState as Me, renderTableErrorState as B, renderTableLoadingState as V, renderTableNoResultsState as F } from "./services/ui-states.js";
+import { UIStateManager as Ie, renderEmptyState as At, renderErrorState as rt, renderForbiddenState as P, renderLoadingState as nt, renderNoResultsState as Rt, renderPanelLoadingState as Fe, renderPanelState as Me, renderTableEmptyState as je, renderTableErrorState as B, renderTableLoadingState as V, renderTableNoResultsState as F } from "./services/ui-states.js";
 var at = class St extends Error {
   constructor(e, i, s, r) {
     super(e), this.name = "ServicesAPIError", this.code = i, this.statusCode = s, this.details = r;
@@ -299,10 +300,10 @@ var wt = class {
 function A() {
   return U || (U = new wt()), U;
 }
-function je(t) {
+function Ne(t) {
   U = t;
 }
-function Ne(t = {}) {
+function De(t = {}) {
   return new wt(t);
 }
 var lt = w("QueryStateManager"), Mt = {
@@ -479,7 +480,7 @@ var W = class {
     return new Date(e.getTime() - i).toISOString().slice(0, 16);
   }
 };
-function De(t, e) {
+function Ue(t, e) {
   let i = null;
   return Object.assign(((...n) => {
     i && clearTimeout(i), i = setTimeout(() => {
@@ -489,7 +490,7 @@ function De(t, e) {
     i && (clearTimeout(i), i = null);
   } });
 }
-function Ue(t, e) {
+function Oe(t, e) {
   if (!("filters" in t)) {
     const c = t, o = new URLSearchParams();
     for (const [d, l] of Object.entries(c)) l != null && l !== "" && o.set(d, String(l));
@@ -500,7 +501,7 @@ function Ue(t, e) {
   for (const [c, o] of Object.entries(i.filters)) o != null && o !== "" && s.set(c, o);
   return s;
 }
-function Oe(t, e, i) {
+function He(t, e, i) {
   if (!i) {
     const d = {};
     for (const l of e) {
@@ -633,7 +634,7 @@ var G = class {
 function k() {
   return X || (X = new G()), X;
 }
-function He(t) {
+function ze(t) {
   k().init(t);
 }
 function R(t, e) {
@@ -642,19 +643,19 @@ function R(t, e) {
     return () => s.hasAll(r);
   };
 }
-function ze(t, e) {
+function Be(t, e) {
   return (i) => {
     const s = i instanceof G ? i : e || k();
     return () => s.hasAll(t);
   };
 }
-function Be(t, e) {
+function Ve(t, e) {
   return (i) => {
     const s = i instanceof G ? i : e || k();
     return () => s.hasAny(t);
   };
 }
-function Ve(...t) {
+function We(...t) {
   const e = t.flatMap((i) => Array.isArray(i) ? i : [i]);
   return (i) => () => e.every((s) => s(i)());
 }
@@ -682,10 +683,10 @@ function Nt(t) {
   const e = t;
   return e.isForbidden === !0 || e.statusCode === 403 || e.code === "FORBIDDEN";
 }
-function We(t, e) {
+function Ge(t, e) {
   return Nt(t) ? (e(t), !0) : !1;
 }
-function Ge(t, e, i, s) {
+function Qe(t, e, i, s) {
   const r = s || k();
   return async () => {
     if (!r.has(t)) {
@@ -700,7 +701,7 @@ function tt(t, e, i) {
   let d = !0, l = [];
   r.length > 0 ? (l = s.getMissing(r), d = l.length === 0) : n.length > 0 && (d = s.hasAny(n), d || (l = n)), d || (o ? ((t instanceof HTMLButtonElement || t instanceof HTMLInputElement) && (t.disabled = !0), t.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), t.setAttribute("title", `Permission required: ${l.join(", ")}`)) : (t.style.display = "none", t.classList.add("permission-hidden")), e.deniedContent && (typeof e.deniedContent == "string" ? t.outerHTML = e.deniedContent : t.replaceWith(e.deniedContent)), c?.(l));
 }
-function Qe(t = document.body, e) {
+function Je(t = document.body, e) {
   t.querySelectorAll("[data-permission-requires]").forEach((i) => {
     const s = i.dataset.permissionRequires?.split(",").map((r) => r.trim());
     s && s.length > 0 && tt(i, { requires: s }, e);
@@ -727,7 +728,7 @@ function Dt() {
   }
   return [];
 }
-function Je() {
+function Ke() {
   const t = Dt(), e = k();
   return e.init(t), e;
 }
@@ -811,7 +812,7 @@ async function v(t) {
     };
   }
 }
-async function Ke(t) {
+async function Ye(t) {
   const { confirmMessage: e, confirmOptions: i, ...s } = t;
   return await xt.confirm(e, {
     title: i?.title ?? "Confirm Action",
@@ -1186,31 +1187,31 @@ var J = class {
     this.backendLabels = {}, this.fallbackFormatter = ut, this.initialized = !1;
   }
 }, $ = new zt();
-function Ye(t = {}) {
+function Ze(t = {}) {
   $.init(t);
 }
 function Bt(t) {
   return $.getLabel(t);
 }
-function Ze(t) {
+function Xe(t) {
   return $.getEntry(t);
 }
-function Xe() {
+function ti() {
   return $.getAllLabels();
 }
 function Vt() {
   return $.getActionsByCategory();
 }
-function ti(t) {
+function ei(t) {
   $.setLabels(t);
 }
-function ei() {
+function ii() {
   return $.isInitialized();
 }
-function ii() {
+function si() {
   $.reset();
 }
-function si(t = {}) {
+function ri(t = {}) {
   return (e) => t[e] ? t[e] : $.getLabel(e);
 }
 function ut(t) {
@@ -1399,25 +1400,25 @@ var Yt = class {
     }
   }
 }, _ = new Yt();
-function ri(t) {
+function ni(t) {
   _.configure(t);
 }
 function Zt(t, e, i) {
   return _.generateLink(t, e, i);
 }
-function ni(t, e) {
+function ai(t, e) {
   return _.generateListLink(t, e);
 }
 function Xt(t, e, i, s) {
   _.navigateTo(t, e, i, s);
 }
-function ai() {
+function oi() {
   return _.navigateBack();
 }
-function oi() {
+function ci() {
   return _.parseCurrentUrl();
 }
-function ci(t) {
+function li(t) {
   return _.parseUrl(t);
 }
 function _t(t) {
@@ -1491,7 +1492,7 @@ function ie(t) {
     e.removeEventListener("keydown", b);
   };
 }
-function li(t, e) {
+function di(t, e) {
   return ie({
     container: t,
     selector: e,
@@ -1501,7 +1502,7 @@ function li(t, e) {
     }
   });
 }
-var di = [
+var ui = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -1545,40 +1546,40 @@ function K(t, e = {}) {
     r.textContent = t;
   }, 100);
 }
-function ui(t) {
+function hi(t) {
   K(`Loading ${t}...`, { priority: "polite" });
 }
-function hi(t) {
+function pi(t) {
   K(t, { priority: "polite" });
 }
-function pi(t) {
+function gi(t) {
   K(`Error: ${t}`, { priority: "assertive" });
 }
-function gi(t) {
+function bi(t) {
   K(`Navigating to ${t}`, { priority: "polite" });
 }
-function bi(t, e, i) {
+function fi(t, e, i) {
   t.setAttribute("aria-expanded", String(i));
   const s = typeof e == "string" ? e : e.id;
   s && t.setAttribute("aria-controls", s);
 }
-function fi(t, e) {
+function yi(t, e) {
   t.setAttribute("aria-busy", String(e)), e ? t.setAttribute("aria-describedby", "loading-indicator") : t.removeAttribute("aria-describedby");
 }
-function yi(t, e, i) {
+function mi(t, e, i) {
   t.setAttribute("role", "status"), t.setAttribute("aria-label", `Status: ${i}`);
 }
-function mi(t, e) {
+function vi(t, e) {
   t.setAttribute("aria-sort", e), t.setAttribute("role", "columnheader");
 }
-function vi(t, e, i = 100, s) {
+function xi(t, e, i = 100, s) {
   t.setAttribute("role", "progressbar"), t.setAttribute("aria-valuenow", String(e)), t.setAttribute("aria-valuemin", "0"), t.setAttribute("aria-valuemax", String(i)), s && t.setAttribute("aria-label", s);
 }
-function xi(t, e = "Skip to main content") {
+function Si(t, e = "Skip to main content") {
   const i = document.createElement("a");
   return i.href = `#${t}`, i.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", i.textContent = e, i;
 }
-function Si(t, e = {}) {
+function wi(t, e = {}) {
   const { title: i, describedBy: s, onClose: r } = e;
   if (t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), i) {
     const c = `dialog-title-${Date.now()}`, o = t.querySelector('h1, h2, h3, [role="heading"]');
@@ -1596,7 +1597,7 @@ function Si(t, e = {}) {
 function ne() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function wi(t) {
+function $i(t) {
   return ne() ? 0 : t;
 }
 var ae = w("ExtensionDiagnostics"), pt = {
@@ -1643,7 +1644,7 @@ var ae = w("ExtensionDiagnostics"), pt = {
     text: "text-red-700",
     icon: "iconoir:warning-circle"
   }
-}, $i = class {
+}, _i = class {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -1986,11 +1987,11 @@ function O(t) {
     </span>
   `;
 }
-function _i(t, e) {
+function Ci(t, e) {
   const i = document.createElement("span");
   i.innerHTML = O(e), t.appendChild(i.firstElementChild);
 }
-function Ci() {
+function Li() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
@@ -2291,7 +2292,7 @@ var le = w("ProvidersCatalog"), gt = {
     }));
   }
 };
-async function Li(t) {
+async function ki(t) {
   const e = new ue(t);
   return await e.init(), e;
 }
@@ -2731,7 +2732,7 @@ var he = w("ConnectionsList"), bt = {
     o && (o.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No connections"), d && (d.disabled = !c), l && (l.disabled = !n);
   }
 };
-async function ki(t) {
+async function Ti(t) {
   const e = new pe(t);
   return await e.init(), e;
 }
@@ -3123,7 +3124,7 @@ var ge = w("InstallationsList"), ft = {
     o && (o.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No installations"), d && (d.disabled = !c), l && (l.disabled = !n);
   }
 };
-async function Ti(t) {
+async function Ei(t) {
   const e = new be(t);
   return await e.init(), e;
 }
@@ -3745,7 +3746,7 @@ var fe = w("ServicesActivity"), D = {
     return Object.entries(t).slice(0, 3).map(([e, i]) => `${e}: ${JSON.stringify(i)}`).join(", ");
   }
 };
-async function Ei(t) {
+async function qi(t) {
   const e = new ye(t);
   return await e.init(), e;
 }
@@ -4413,7 +4414,7 @@ var me = w("SubscriptionsSync"), et = {
     return s > 0 && s < 864e5;
   }
 };
-async function qi(t) {
+async function Pi(t) {
   const e = new ve(t);
   return await e.init(), e;
 }
@@ -5059,7 +5060,7 @@ var xe = w("ConnectionDetail"), vt = {
     return o.sort((l, h) => d[l.status] - d[h.status]), o;
   }
 };
-async function Pi(t) {
+async function Ai(t) {
   const e = new we(t);
   return await e.init(), e;
 }
@@ -5070,8 +5071,8 @@ export {
   we as ConnectionDetailManager,
   pe as ConnectionsListManager,
   N as DEFAULT_ACTION_LABELS,
-  $i as ExtensionDiagnosticsPanel,
-  di as FOCUSABLE_SELECTOR,
+  _i as ExtensionDiagnosticsPanel,
+  ui as FOCUSABLE_SELECTOR,
   be as InstallationsListManager,
   Ut as MutationButtonManager,
   ue as ProvidersCatalogManager,
@@ -5081,15 +5082,15 @@ export {
   G as ServicesPermissionManager,
   L as ServicesPermissions,
   ve as SubscriptionsSyncPageManager,
-  Re as UIStateManager,
-  _i as addStateSourceIndicator,
-  pi as announceError,
-  ui as announceLoading,
-  gi as announceNavigation,
-  hi as announceSuccess,
+  Ie as UIStateManager,
+  Ci as addStateSourceIndicator,
+  gi as announceError,
+  hi as announceLoading,
+  bi as announceNavigation,
+  pi as announceSuccess,
   K as announceToScreenReader,
   q as bindNoResultsResetAction,
-  Ue as buildSearchParams,
+  Oe as buildSearchParams,
   E as canConnect,
   I as canEdit,
   $t as canReconsent,
@@ -5097,23 +5098,23 @@ export {
   jt as canViewActivity,
   j as canViewServices,
   st as clearRetryUI,
-  Ve as combineGuards,
-  ri as configureDeepLinks,
+  We as combineGuards,
+  ni as configureDeepLinks,
   Q as confirmServiceAction,
-  si as createActionLabelResolver,
+  ri as createActionLabelResolver,
   ee as createActivityNavigateHandler,
-  Ei as createActivityPage,
-  Pi as createConnectionDetail,
-  ki as createConnectionsList,
+  qi as createActivityPage,
+  Ai as createConnectionDetail,
+  Ti as createConnectionsList,
   se as createFocusTrap,
-  Ti as createInstallationsList,
+  Ei as createInstallationsList,
   te as createNavigationContext,
   R as createPermissionGuard,
-  Li as createProvidersCatalog,
-  Ne as createServicesClient,
-  xi as createSkipLink,
-  qi as createSubscriptionsSyncPage,
-  De as debounce,
+  ki as createProvidersCatalog,
+  De as createServicesClient,
+  Si as createSkipLink,
+  Pi as createSubscriptionsSyncPage,
+  Ue as debounce,
   _ as deepLinkManager,
   Y as destroyAbortableQueryPage,
   M as formatDateTime,
@@ -5122,32 +5123,32 @@ export {
   z as formatServiceLabel,
   tt as gateElement,
   Zt as generateDeepLink,
-  ni as generateListLink,
-  Ze as getActionEntry,
+  ai as generateListLink,
+  Xe as getActionEntry,
   Bt as getActionLabel,
   Vt as getActionsByCategory,
-  Xe as getAllActionLabels,
-  wi as getAnimationDuration,
+  ti as getAllActionLabels,
+  $i as getAnimationDuration,
   k as getPermissionManager,
   Ht as getServiceConfirmConfig,
   A as getServicesClient,
-  We as handleForbidden,
-  Ye as initActivityLabels,
-  Ee as initCommandRuntime,
-  Qe as initPermissionGates,
-  He as initPermissions,
-  Je as initPermissionsFromContext,
-  ei as isActivityLabelsInitialized,
+  Ge as handleForbidden,
+  Ze as initActivityLabels,
+  Pe as initCommandRuntime,
+  Je as initPermissionGates,
+  ze as initPermissions,
+  Ke as initPermissionsFromContext,
+  ii as isActivityLabelsInitialized,
   Nt as isForbiddenError,
   ct as loadAndPopulateProviders,
   Dt as loadPermissionsFromContext,
   Ct as loadProviders,
   _t as mapObjectTypeToEntity,
-  ai as navigateBack,
+  oi as navigateBack,
   Xt as navigateToEntity,
-  oi as parseCurrentDeepLink,
-  ci as parseDeepLink,
-  Oe as parseSearchParams,
+  ci as parseCurrentDeepLink,
+  li as parseDeepLink,
+  He as parseSearchParams,
   ce as populateProviderFilterOptions,
   ne as prefersReducedMotion,
   At as renderEmptyState,
@@ -5155,33 +5156,33 @@ export {
   P as renderForbiddenState,
   nt as renderLoadingState,
   Rt as renderNoResultsState,
-  Ie as renderPanelLoadingState,
-  Fe as renderPanelState,
+  Fe as renderPanelLoadingState,
+  Me as renderPanelState,
   Ot as renderRetryUI,
   O as renderStateSourceIndicator,
-  Ci as renderStateSourceLegend,
-  Me as renderTableEmptyState,
+  Li as renderStateSourceLegend,
+  je as renderTableEmptyState,
   B as renderTableErrorState,
   V as renderTableLoadingState,
   F as renderTableNoResultsState,
-  ze as requireAll,
-  Be as requireAny,
-  ii as resetActivityLabels,
+  Be as requireAll,
+  Ve as requireAny,
+  si as resetActivityLabels,
   x as resolveProviderDisplayName,
-  ti as setActionLabels,
-  bi as setExpandedState,
-  fi as setLoadingState,
-  vi as setProgress,
-  je as setServicesClient,
-  mi as setSortableHeader,
-  yi as setStatusLabel,
-  Si as setupDialogFocus,
+  ei as setActionLabels,
+  fi as setExpandedState,
+  yi as setLoadingState,
+  xi as setProgress,
+  Ne as setServicesClient,
+  vi as setSortableHeader,
+  mi as setStatusLabel,
+  wi as setupDialogFocus,
   ie as setupKeyboardNavigation,
-  li as setupRovingTabindex,
+  di as setupRovingTabindex,
   m as truncateId,
-  Ke as withConfirmation,
+  Ye as withConfirmation,
   v as withMutationFeedback,
-  Ge as withPermission
+  Qe as withPermission
 };
 
 //# sourceMappingURL=services.js.map

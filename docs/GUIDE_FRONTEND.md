@@ -385,6 +385,12 @@ Use this for Rails/Turbolinks-like page refinement where the page remains
 server-rendered, but a mutation can update known sections without a full
 navigation. It is not a general whole-page navigation replacement layer.
 
+The same runtime also drives live GET forms (`data-enhance-live`) for
+server-rendered option lists and search results, and it is published as
+`@goliatone/go-admin-client/shared/enhanced-action` for hosts outside the admin
+shell. See `docs/GUIDE_ACTIONS.md` for encoding, error fragments, busy
+indicators and host setup.
+
 ## `pkg/go-sync`
 
 Use `pkg/go-sync` for revision-safe, retry-safe interactions rather than

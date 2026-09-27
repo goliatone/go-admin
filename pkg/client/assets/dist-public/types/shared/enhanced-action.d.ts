@@ -37,6 +37,7 @@ export interface EnhancedActionRuntimeOptions {
     request_header_value?: string;
     accept?: string;
     onFragmentsApplied?: (fragments: EnhancedActionFragment[]) => void | Promise<void>;
+    liveDebounceMs?: number;
 }
 export interface EnhancedActionController {
     destroy(): void;

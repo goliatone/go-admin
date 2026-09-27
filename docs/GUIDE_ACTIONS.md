@@ -230,6 +230,12 @@ Errors use the same envelope with `ok: false`, `error.message`,
 `error.fields`, and status-specific HTTP codes. The client keeps form values and
 renders field/action errors into `data-enhance-error-target` when present.
 
+An error envelope may also carry `fragments`. The client applies them before it
+renders the error, so a `409` can refresh stale state (for example a hidden
+expected revision) and let the user retry. Build these responses with
+`Respond` and a presentation that sets `OK: false`, `Status` and `Error`;
+`RespondError` does not attach fragments.
+
 ### Markup and client attributes
 
 Use semantic forms:
@@ -265,6 +271,73 @@ After fragment replacement, the enhanced runtime initializes behavior hooks for
 the applied roots and then emits `go-admin:enhanced-fragments-applied` with the
 same roots. Page modules should use `onFragmentsApplied` for page-specific
 widgets only.
+
+### Request encoding
+
+Enhanced submissions send what the native form would: an
+`application/x-www-form-urlencoded` body unless the form (or the submitter's
+`formenctype`) declares `multipart/form-data`. Submitter `name`/`value` pairs
+are included either way, and GET forms serialize their fields into the URL.
+
+### Busy indicators in multi-button forms
+
+Forms with many submit buttons (a list of per-row actions) can add
+`data-busy-indicator="submitter"`. Every submit control is still disabled while
+the request runs, but busy labels and spinners appear only on the button that
+submitted.
+
+### Live GET forms
+
+A GET form marked `data-enhance-action data-enhance-live` submits as the user
+types. Use it for option lists and search results that the server renders:
+
+```html
+<form id="options-search" method="get" action="/app/options"
+      data-enhance-action data-enhance-live
+      data-enhance-live-debounce="180" data-enhance-live-min="2">
+  <input type="hidden" name="kind" value="task">
+</form>
+<input type="search" name="q" form="options-search">
+<ul id="options">...</ul>
+```
+
+- `input` events from the form's controls (including controls associated
+  through `form=`) schedule a request after `data-enhance-live-debounce`
+  milliseconds (default 180).
+- Non-empty text shorter than `data-enhance-live-min` (default 1) does not
+  request; clearing the field does.
+- A newer request aborts the previous one, and a late response is ignored.
+  Repeating the same URL does not request again.
+- While a request is in flight the form carries `aria-busy="true"` and
+  `data-enhance-live-pending="true"`; controls stay enabled.
+- The response is a normal enhanced envelope; its fragments replace the
+  results region. Errors render into `data-enhance-error-target` and keep the
+  previous results.
+
+### Using the runtime outside the admin shell
+
+Hosts that render their own pages import the runtime from the public client
+package, installed from the release tarball:
+
+```ts
+import { initEnhancedActions } from '@goliatone/go-admin-client/shared/enhanced-action';
+
+initEnhancedActions(document, {
+  toast: { success: announce, error: announce, info: announce },
+  onFragmentsApplied: () => remountPageWidgets(),
+});
+```
+
+- Initialize once on `document`; the submit and input listeners are
+  delegated, so forms inserted later are covered.
+- Pass a `toast` sink. Outside the shell there is no `window.toastManager`.
+- CSRF travels as a form field in the body, or as `X-CSRF-Token` when the page
+  renders `<meta name="csrf-token">`.
+- Listen for `go-admin:enhanced-fragments-applied` (or use
+  `onFragmentsApplied`) to re-bind page widgets inside replaced fragments.
+- Style the busy contract (`aria-busy`, `data-busy`, `[data-busy-spinner]`,
+  `data-busy-label`) with the host's own CSS; the runtime only toggles
+  attributes and text.
 
 ### Fragment rules
 

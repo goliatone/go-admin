@@ -1,5 +1,5 @@
 import { escapeAttribute as r, escapeHTML as t } from "./shared/html.js";
-import { configureLogging as o, createLogger as i, enableConsoleLogging as n, setLoggerSink as s } from "./shared/logger.js";
+import { configureLogging as a, createLogger as i, enableConsoleLogging as n, setLoggerSink as s } from "./shared/logger.js";
 import { asBoolean as p, asLooseBoolean as d, asNumber as l, asNumberish as c, asOptionalNumber as u, asOptionalString as S, asRecord as g, asString as T, asStringArray as R, asUniqueStringArray as f, coerceInteger as E, coerceString as A, coerceStringArray as P } from "./shared/coercion.js";
 import { parseJSONArray as b, parseJSONValue as H, readJSONScriptValue as O, readJSONSelectorValue as x } from "./shared/json-parse.js";
 import { parseDateLike as C } from "./shared/date-utils.js";
@@ -7,14 +7,14 @@ import { onReady as h } from "./shared/dom-ready.js";
 import { formatByteSize as q } from "./shared/size-formatters.js";
 import { t as B } from "./chunks/stateful-controller-BhTsWevz.js";
 import { formatAbsoluteDateTime as k, formatRelativeTimeCompact as W, formatRelativeTimeCompactPast as F, formatRelativeTimeNatural as M, formatRelativeTimeVerbosePast as D, parseTimeValue as I } from "./shared/time-formatters.js";
-import { HTTPAuthenticationRequiredError as j, HTTPResponseProtocolError as w, appendCSRFHeader as z, httpJSON as G, httpRequest as K, httpRequestWith as Q, readCSRFToken as X, readExpectedHTTPJSON as Y, readHTTPError as Z, readHTTPErrorResult as _, readHTTPJSON as $, readHTTPJSONObject as ee, readHTTPJSONValue as re, readHTTPResponsePayload as te, readHTTPStructuredErrorResult as ae } from "./shared/transport/http-client.js";
+import { HTTPAuthenticationRequiredError as j, HTTPResponseProtocolError as w, appendCSRFHeader as z, httpJSON as G, httpRequest as K, httpRequestWith as Q, readCSRFToken as X, readExpectedHTTPJSON as Y, readHTTPError as Z, readHTTPErrorResult as _, readHTTPJSON as $, readHTTPJSONObject as ee, readHTTPJSONValue as re, readHTTPResponsePayload as te, readHTTPStructuredErrorResult as oe } from "./shared/transport/http-client.js";
 import { createStructuredActionError as ie, executeActionRequest as ne, executeStructuredRequest as se, extractErrorMessage as me, extractExchangeError as pe, extractStructuredError as de, extractTranslationBlocker as le, formatStructuredErrorForDisplay as ce, generateExchangeReport as ue, getErrorMessage as Se, getStructuredActionError as ge, groupRowResultsByStatus as Te, isExchangeError as Re, isHandledActionError as fe, isTranslationBlocker as Ee, parseActionResponse as Ae, parseImportResult as Pe } from "./toast/error-helpers.js";
-import { n as be, t as He } from "./chunks/command-runtime-DC62FVL-.js";
+import { CommandRuntimeController as be, initCommandRuntime as He } from "./services/command-runtime.js";
 import { UIStateManager as xe, renderEmptyState as ye, renderErrorState as Ce, renderForbiddenState as Le, renderLoadingState as he, renderNoResultsState as Je, renderPanelLoadingState as qe, renderPanelState as ve, renderTableEmptyState as Be, renderTableErrorState as Ve, renderTableLoadingState as ke, renderTableNoResultsState as We } from "./services/ui-states.js";
 import { createSSEClient as Me } from "./services/sse-client.js";
 import { registerApplicationWidgetRenderer as Ie, resolveApplicationWidgetRenderer as Ue, resolveApplicationWidgetTitle as je, unregisterApplicationWidgetRenderer as we } from "./renderers/application-widgets.js";
 export {
-  He as CommandRuntimeController,
+  be as CommandRuntimeController,
   j as HTTPAuthenticationRequiredError,
   w as HTTPResponseProtocolError,
   B as StatefulController,
@@ -33,7 +33,7 @@ export {
   E as coerceInteger,
   A as coerceString,
   P as coerceStringArray,
-  o as configureLogging,
+  a as configureLogging,
   i as createLogger,
   Me as createSSEClient,
   ie as createStructuredActionError,
@@ -60,7 +60,7 @@ export {
   G as httpJSON,
   K as httpRequest,
   Q as httpRequestWith,
-  be as initCommandRuntime,
+  He as initCommandRuntime,
   Re as isExchangeError,
   fe as isHandledActionError,
   Ee as isTranslationBlocker,
@@ -79,7 +79,7 @@ export {
   ee as readHTTPJSONObject,
   re as readHTTPJSONValue,
   te as readHTTPResponsePayload,
-  ae as readHTTPStructuredErrorResult,
+  oe as readHTTPStructuredErrorResult,
   O as readJSONScriptValue,
   x as readJSONSelectorValue,
   Ie as registerApplicationWidgetRenderer,

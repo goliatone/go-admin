@@ -1079,6 +1079,11 @@
     @apply inline-block;
   }
 
+  /* Submitter-only forms keep every other control's spinner hidden while busy. */
+  [data-busy-indicator="submitter"] [data-busy-spinner][hidden] {
+    @apply hidden;
+  }
+
   [data-submit-loading-form][data-loading="true"] [data-submit-loading-label] {
     @apply sr-only;
   }

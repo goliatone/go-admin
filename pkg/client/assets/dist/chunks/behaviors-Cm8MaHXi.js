@@ -1,9 +1,9 @@
 import { onReady as G } from "../shared/dom-ready.js";
-var d = "true", g = /* @__PURE__ */ new WeakMap();
+var f = "true", g = /* @__PURE__ */ new WeakMap();
 function R(t) {
   return t ? g.has(t) || t.dataset.busy === "true" || t.dataset.submitLoadingActive === "true" || t.getAttribute("aria-busy") === "true" : !1;
 }
-function w(t, e = {}) {
+function M(t, e = {}) {
   const n = g.get(t);
   if (n) return F(n);
   const i = {
@@ -20,20 +20,25 @@ function w(t, e = {}) {
     generatedSpinners: [],
     overrides: null
   };
-  t.setAttribute("aria-busy", d), t.dataset.busy = d, (e.compatibilitySubmitLoading || t.hasAttribute("data-submit-loading-form")) && (t.dataset.loading = d, t.dataset.submitLoadingActive = d), y(t) && et(t, S(e.submitter), i);
-  const a = j(t, e);
-  for (const r of a)
-    z(r, i), J(r, e, i);
+  t.setAttribute("aria-busy", f), t.dataset.busy = f, (e.compatibilitySubmitLoading || t.hasAttribute("data-submit-loading-form")) && (t.dataset.loading = f, t.dataset.submitLoadingActive = f), y(t) && et(t, L(e.submitter), i);
+  const a = j(t, e), r = e.indicator === "submitter" ? L(e.submitter) : null;
+  for (const u of a) {
+    if (z(u, i), e.indicator === "submitter" && u !== r) {
+      u.disabled = !0;
+      continue;
+    }
+    J(u, e, i);
+  }
   return g.set(t, i), F(i);
 }
-function v(t) {
+function S(t) {
   if (!t) return;
   const e = g.get(t);
   if (!e) {
     t.dataset.busy === "true" && (delete t.dataset.busy, t.removeAttribute("aria-busy")), (t.dataset.submitLoadingActive === "true" || t.dataset.loading === "true") && (delete t.dataset.loading, delete t.dataset.submitLoadingActive);
     return;
   }
-  m(t, "aria-busy", e.ariaBusy), A(t, "busy", e.dataBusy), A(t, "loading", e.dataLoading), A(t, "submitLoadingActive", e.dataSubmitLoadingActive);
+  m(t, "aria-busy", e.ariaBusy), w(t, "busy", e.dataBusy), w(t, "loading", e.dataLoading), w(t, "submitLoadingActive", e.dataSubmitLoadingActive);
   for (const n of e.controls)
     n.control.disabled = n.disabled, m(n.control, "aria-label", n.ariaLabel);
   for (const n of e.labels) n.innerHTML !== void 0 ? n.element.innerHTML = n.innerHTML : n.element.textContent = n.textContent;
@@ -50,14 +55,14 @@ function W(t = document) {
   }), e.querySelectorAll('form[data-submit-loading-form][data-loading="true"]').forEach((i) => {
     (t.contains?.(i) || t === e) && n.push(i);
   });
-  for (const i of Array.from(new Set(n))) v(i);
+  for (const i of Array.from(new Set(n))) S(i);
 }
 function N(t, e) {
-  const n = S(e);
+  const n = L(e);
   return t.noValidate || n?.hasAttribute("formnovalidate") === !0 || n?.formNoValidate === !0;
 }
 function k(t, e) {
-  return U(t.ownerDocument, nt(t, S(e)));
+  return U(t.ownerDocument, nt(t, L(e)));
 }
 function U(t, e) {
   const n = it(t, e).toLowerCase();
@@ -67,7 +72,7 @@ function F(t) {
   return {
     root: t.root,
     reset() {
-      v(t.root);
+      S(t.root);
     }
   };
 }
@@ -86,7 +91,7 @@ function p(t) {
   const e = t?.ownerDocument?.defaultView;
   return !!t && (e?.HTMLButtonElement && t instanceof e.HTMLButtonElement || e?.HTMLInputElement && t instanceof e.HTMLInputElement || e?.HTMLTextAreaElement && t instanceof e.HTMLTextAreaElement || e?.HTMLSelectElement && t instanceof e.HTMLSelectElement || typeof HTMLButtonElement < "u" && t instanceof HTMLButtonElement || typeof HTMLInputElement < "u" && t instanceof HTMLInputElement || typeof HTMLTextAreaElement < "u" && t instanceof HTMLTextAreaElement || typeof HTMLSelectElement < "u" && t instanceof HTMLSelectElement);
 }
-function S(t) {
+function L(t) {
   if (!t) return null;
   const e = t.ownerDocument?.defaultView;
   return e?.HTMLButtonElement && t instanceof e.HTMLButtonElement || e?.HTMLInputElement && t instanceof e.HTMLInputElement || typeof HTMLButtonElement < "u" && t instanceof HTMLButtonElement || typeof HTMLInputElement < "u" && t instanceof HTMLInputElement ? t : null;
@@ -161,9 +166,9 @@ function tt(t, e, n) {
   const i = t.ownerDocument.createElement("span");
   return i.setAttribute("data-busy-spinner", ""), i.setAttribute("data-busy-generated-spinner", "true"), i.setAttribute("aria-hidden", "true"), i.className = "busy-spinner", t.insertBefore(i, t.firstChild), n.generatedSpinners.push(i), i;
 }
-function T(t, e, n, i, a = null) {
+function A(t, e, n, i, a = null) {
   const r = e.ownerDocument.createElement("input");
-  return r.type = "hidden", r.name = n, r.value = i, r.dataset.busyGenerated = d, r.dataset.submitLoadingGenerated = d, a && a.parentNode === e ? a.after(r) : e.appendChild(r), t.generatedInputs.push(r), r;
+  return r.type = "hidden", r.name = n, r.value = i, r.dataset.busyGenerated = f, r.dataset.submitLoadingGenerated = f, a && a.parentNode === e ? a.after(r) : e.appendChild(r), t.generatedInputs.push(r), r;
 }
 function et(t, e, n) {
   if (!e || !Y(e) || e.disabled) return;
@@ -175,21 +180,21 @@ function et(t, e, n) {
     noValidate: t.noValidate
   };
   let a = !1;
-  for (const [s, c] of [
+  for (const [u, c] of [
     ["formaction", "action"],
     ["formmethod", "method"],
     ["formenctype", "enctype"],
     ["formtarget", "target"]
-  ]) e.hasAttribute(s) && (t.setAttribute(c, e.getAttribute(s) ?? ""), a = !0);
+  ]) e.hasAttribute(u) && (t.setAttribute(c, e.getAttribute(u) ?? ""), a = !0);
   (e.hasAttribute("formnovalidate") || e.formNoValidate) && (t.noValidate = !0, a = !0), a && (n.overrides = i);
   const r = e.getAttribute("name")?.trim();
   if (r) {
     if ((e.tagName.toLowerCase() === "input" ? (e.getAttribute("type") || "text").trim().toLowerCase() : "submit") === "image") {
-      const s = T(n, t, `${r}.x`, "0", e);
-      T(n, t, `${r}.y`, "0", s);
+      const u = A(n, t, `${r}.x`, "0", e);
+      A(n, t, `${r}.y`, "0", u);
       return;
     }
-    T(n, t, r, e.getAttribute("value") ?? "", e);
+    A(n, t, r, e.getAttribute("value") ?? "", e);
   }
 }
 function nt(t, e) {
@@ -206,32 +211,32 @@ function at(t, e) {
 function m(t, e, n) {
   n === null ? t.removeAttribute(e) : t.setAttribute(e, n);
 }
-function A(t, e, n) {
+function w(t, e, n) {
   n === void 0 ? delete t.dataset[e] : t.dataset[e] = n;
 }
-var rt = '[data-behavior~="navigation-busy"]', q = "[data-navigation-busy-trigger]", L = /* @__PURE__ */ new WeakMap(), b = /* @__PURE__ */ new WeakSet();
+var rt = '[data-behavior~="navigation-busy"]', q = "[data-navigation-busy-trigger]", h = /* @__PURE__ */ new WeakMap(), b = /* @__PURE__ */ new WeakSet();
 function ut(t, e, n) {
   if (b.has(t)) return !0;
   const i = ct(t.target, e);
   if (!i) return !1;
   const a = $(i, e);
-  return !a || !mt(i, t, n) ? !1 : h(a) ? (b.add(t), t.preventDefault(), !0) : (b.add(t), _(a, i), !0);
+  return !a || !mt(i, t, n) ? !1 : E(a) ? (b.add(t), t.preventDefault(), !0) : (b.add(t), _(a, i), !0);
 }
 function st(t, e, n) {
   if (b.has(t)) return !0;
-  const i = ft(t.target, e);
+  const i = dt(t.target, e);
   if (!i) return !1;
   const a = $(i, e);
   if (!a || t.defaultPrevented || i.matches("form[data-enhance-action]")) return !1;
   const r = ht(t, i);
-  return k(i, r) || !bt(i, r) || !N(i, r) && typeof i.checkValidity == "function" && !i.checkValidity() ? !1 : h(a) ? (b.add(t), t.preventDefault(), !0) : (b.add(t), _(a, i, r), !0);
+  return k(i, r) || !bt(i, r) || !N(i, r) && typeof i.checkValidity == "function" && !i.checkValidity() ? !1 : E(a) ? (b.add(t), t.preventDefault(), !0) : (b.add(t), _(a, i, r), !0);
 }
-function h(t) {
-  return !!t && (L.has(t) || t.dataset.navigationBusyActive === "true");
+function E(t) {
+  return !!t && (h.has(t) || t.dataset.navigationBusyActive === "true");
 }
 function ot(t) {
   if (!t) return;
-  const e = L.get(t);
+  const e = h.get(t);
   if (!e) {
     t.dataset.navigationBusyActive === "true" && delete t.dataset.navigationBusyActive;
     return;
@@ -239,57 +244,57 @@ function ot(t) {
   e.rootBusy.reset(), e.formBusy?.reset(), V(t, "navigationBusyActive", e.active);
   for (const n of e.triggers)
     At(n.element, "aria-disabled", n.ariaDisabled), V(n.element, "navigationBusyTriggerActive", n.active);
-  e.status && (e.status.element.hidden = e.status.hidden, e.status.labelTarget && (e.status.labelTarget.textContent = e.status.labelText)), L.delete(t);
+  e.status && (e.status.element.hidden = e.status.hidden, e.status.labelTarget && (e.status.labelTarget.textContent = e.status.labelText)), h.delete(t);
 }
 function lt(t = document) {
   const e = [];
-  Tt(t) && h(t) && e.push(t), t.querySelectorAll('[data-navigation-busy-active="true"]').forEach((n) => {
+  Tt(t) && E(t) && e.push(t), t.querySelectorAll('[data-navigation-busy-active="true"]').forEach((n) => {
     e.push(n);
   });
   for (const n of Array.from(new Set(e))) ot(n);
 }
 function _(t, e, n = null) {
-  if (h(t)) return;
-  const i = O(e) ? e : null, a = i && i !== t ? w(i, { submitter: n }) : null, r = w(t, i === t ? { submitter: n } : {
+  if (E(t)) return;
+  const i = O(e) ? e : null, a = i && i !== t ? M(i, { submitter: n }) : null, r = M(t, i === t ? { submitter: n } : {
     controls: Array.from(t.querySelectorAll('button, input[type="submit"], input[type="button"], input[type="image"]')),
     includeDescendantControls: !1
-  }), s = dt(t).map((l) => ({
+  }), u = ft(t).map((l) => ({
     element: l,
     ariaDisabled: l.getAttribute("aria-disabled"),
     active: l.dataset.navigationBusyTriggerActive
   }));
-  for (const l of s)
+  for (const l of u)
     l.element.setAttribute("aria-disabled", "true"), l.element === e && (l.element.dataset.navigationBusyTriggerActive = "true");
-  const c = Lt(t), f = c?.querySelector("[data-navigation-busy-label-target]") ?? null, o = c ? {
+  const c = Lt(t), d = c?.querySelector("[data-navigation-busy-label-target]") ?? null, o = c ? {
     element: c,
     hidden: c.hidden,
-    labelTarget: f,
-    labelText: f?.textContent ?? null
+    labelTarget: d,
+    labelText: d?.textContent ?? null
   } : null;
   o && (o.labelTarget && (o.labelTarget.textContent = yt(t, e)), o.element.hidden = !1);
-  const u = {
+  const s = {
     root: t,
     active: t.dataset.navigationBusyActive,
     rootBusy: r,
     formBusy: a,
-    triggers: s,
+    triggers: u,
     status: o
   };
-  t.dataset.navigationBusyActive = "true", L.set(t, u);
+  t.dataset.navigationBusyActive = "true", h.set(t, s);
 }
 function ct(t, e) {
   if (!Et(t)) return null;
   const n = t.closest(`a[href]${q}`);
   return n && H(e, n) ? n : null;
 }
-function ft(t, e) {
+function dt(t, e) {
   return !O(t) || !t.matches("form[data-navigation-busy-trigger]") ? null : H(e, t) ? t : null;
 }
 function $(t, e) {
   const n = t.closest(rt);
   return n && H(e, n) ? n : null;
 }
-function dt(t) {
+function ft(t) {
   const e = Array.from(t.querySelectorAll(q));
   return t.matches("[data-navigation-busy-trigger]") && e.unshift(t), e;
 }
@@ -301,8 +306,8 @@ function mt(t, e, n) {
     const a = n?.location?.href || t.ownerDocument.URL, r = new URL(i, a);
     if (r.protocol !== "http:" && r.protocol !== "https:") return !1;
     if (n?.location) {
-      const s = new URL(n.location.href);
-      if (r.origin === s.origin && r.pathname === s.pathname && r.search === s.search && (r.hash || s.hash)) return !1;
+      const u = new URL(n.location.href);
+      if (r.origin === u.origin && r.pathname === u.pathname && r.search === u.search && (r.hash || u.hash)) return !1;
     }
   } catch {
     return !1;
@@ -383,22 +388,22 @@ function Mt(t, e) {
     ut(o, t, i);
   }, r = (o) => {
     if (st(o, t, i)) return;
-    const u = Ct(o.target, n), l = u ? Ht(u, f.submitRules) : null;
-    if (!u || !l || o.defaultPrevented || u.matches("form[data-enhance-action]") || x.has(o)) return;
-    if (R(u)) {
+    const s = Ct(o.target, n), l = s ? Ht(s, d.submitRules) : null;
+    if (!s || !l || o.defaultPrevented || s.matches("form[data-enhance-action]") || x.has(o)) return;
+    if (R(s)) {
       o.preventDefault();
       return;
     }
-    const E = Ft(o, u, n);
-    !N(u, E) && typeof u.checkValidity == "function" && !u.checkValidity() || (x.add(o), w(u, {
-      submitter: E,
-      compatibilitySubmitLoading: l.compatibilitySubmitLoading || u.hasAttribute("data-submit-loading-form")
-    }), k(u, E) && i?.setTimeout(() => {
-      v(u);
+    const T = Ft(o, s, n);
+    !N(s, T) && typeof s.checkValidity == "function" && !s.checkValidity() || (x.add(o), M(s, {
+      submitter: T,
+      compatibilitySubmitLoading: l.compatibilitySubmitLoading || s.hasAttribute("data-submit-loading-form")
+    }), k(s, T) && i?.setTimeout(() => {
+      S(s);
     }, 0));
-  }, s = () => {
-    M(t);
-  }, f = {
+  }, u = () => {
+    v(t);
+  }, d = {
     root: t,
     doc: n,
     win: i,
@@ -406,18 +411,18 @@ function Mt(t, e) {
     fragmentListenerAttached: !1,
     handleClick: a,
     handleSubmit: r,
-    handlePageShow: s,
+    handlePageShow: u,
     handleFragmentsApplied: (o) => {
-      const u = o.detail;
-      if (Array.isArray(u?.roots) && u.roots.length > 0) {
-        u.roots.forEach((l) => D(f, l));
+      const s = o.detail;
+      if (Array.isArray(s?.roots) && s.roots.length > 0) {
+        s.roots.forEach((l) => D(d, l));
         return;
       }
-      if (u?.root) {
-        D(f, u.root);
+      if (s?.root) {
+        D(d, s.root);
         return;
       }
-      f.submitRules.forEach((l) => {
+      d.submitRules.forEach((l) => {
         C(t, {
           submitBusySelector: l.selector,
           compatibilitySubmitLoading: l.compatibilitySubmitLoading,
@@ -427,27 +432,27 @@ function Mt(t, e) {
       });
     }
   };
-  return t.addEventListener("click", a), t.addEventListener("submit", r), i?.addEventListener("pageshow", s), B.set(t, f), f;
+  return t.addEventListener("click", a), t.addEventListener("submit", r), i?.addEventListener("pageshow", u), B.set(t, d), d;
 }
 function vt(t, e) {
   const n = e.submitBusySelector || wt, i = e.compatibilitySubmitLoading === !0, a = `${n}
 ${i ? "compat" : "standard"}`, r = t.submitRules.find((c) => c.key === a);
   if (r) return r;
-  const s = {
+  const u = {
     key: a,
     selector: n,
     compatibilitySubmitLoading: i,
     controller: {
       reset() {
-        M(t.root);
+        v(t.root);
       },
       destroy() {
-        const c = t.submitRules.findIndex((f) => f.key === a);
-        c >= 0 && t.submitRules.splice(c, 1), t.submitRules.length === 0 && (M(t.root), t.root.removeEventListener("click", t.handleClick), t.root.removeEventListener("submit", t.handleSubmit), t.win?.removeEventListener("pageshow", t.handlePageShow), t.doc.removeEventListener("go-admin:enhanced-fragments-applied", t.handleFragmentsApplied), B.delete(t.root));
+        const c = t.submitRules.findIndex((d) => d.key === a);
+        c >= 0 && t.submitRules.splice(c, 1), t.submitRules.length === 0 && (v(t.root), t.root.removeEventListener("click", t.handleClick), t.root.removeEventListener("submit", t.handleSubmit), t.win?.removeEventListener("pageshow", t.handlePageShow), t.doc.removeEventListener("go-admin:enhanced-fragments-applied", t.handleFragmentsApplied), B.delete(t.root));
       }
     }
   };
-  return t.submitRules.push(s), s;
+  return t.submitRules.push(u), u;
 }
 function St(t) {
   t.fragmentListenerAttached || (t.doc.addEventListener("go-admin:enhanced-fragments-applied", t.handleFragmentsApplied), t.fragmentListenerAttached = !0);
@@ -471,7 +476,7 @@ function Ht(t, e) {
     }
   return n;
 }
-function M(t = document) {
+function v(t = document) {
   lt(t), W(t);
 }
 function Vt(t = {}) {
@@ -504,17 +509,17 @@ function Ft(t, e, n) {
 export {
   q as a,
   lt as c,
-  v as d,
+  S as d,
   W as f,
   rt as i,
-  d as l,
+  f as l,
   C as n,
-  h as o,
-  w as p,
-  M as r,
+  E as o,
+  M as p,
+  v as r,
   ot as s,
   Vt as t,
   R as u
 };
 
-//# sourceMappingURL=behaviors-DAT-GAWx.js.map
+//# sourceMappingURL=behaviors-Cm8MaHXi.js.map

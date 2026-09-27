@@ -10,6 +10,8 @@ export interface BusyOptions {
   label?: string;
   generateSpinner?: boolean;
   compatibilitySubmitLoading?: boolean;
+  // 'submitter' keeps labels and spinners on the submitter while every control is still disabled.
+  indicator?: 'all' | 'submitter';
 }
 
 export interface BusyController {
@@ -107,8 +109,13 @@ export function setBusy(root: BusyRoot, options: BusyOptions = {}): BusyControll
   }
 
   const controls = resolveBusyControls(root, options);
+  const indicated = options.indicator === 'submitter' ? submitControlFromElement(options.submitter) : null;
   for (const control of controls) {
     captureControl(control, state);
+    if (options.indicator === 'submitter' && control !== indicated) {
+      control.disabled = true;
+      continue;
+    }
     applyControlBusy(control, options, state);
   }
 
