@@ -1,12 +1,19 @@
 # Changelog
 
+# [0.137.0](https://github.com/goliatone/go-admin/compare/v0.136.0...v0.137.0) - (2026-09-28)
+
+## <!-- 16 -->➕ Add
+
+- Better enhanced actions and busy handler ([5ffdc48](https://github.com/goliatone/go-admin/commit/5ffdc48d8aaf2e168f3589fb4039acdd31bec997))  - (goliatone)
+
 # [0.136.0](https://github.com/goliatone/go-admin/compare/v0.135.4...v0.136.0) - (2026-09-24)
 
 
-## Migration Notes
+New minor release: v0.136.0
 
-- `output.css` now scopes the `@tailwindcss/forms` base layer to `.admin-theme-root`, `.site-shell` and the new opt-in `.admin-forms-root`. go-admin's admin shell, login layout, formgen forms and site runtime pages render as before.
-- Host documents that load `output.css` without one of those roots no longer receive the forms padding, border, focus ring, select chevron, placeholder color or custom checkbox and radio; bare controls fall back to preflight. To keep the previous look, add `admin-forms-root` to an ancestor of the controls, for example `<body class="admin-forms-root">`.
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.136.0 ([d73da42](https://github.com/goliatone/go-admin/commit/d73da42c619e2692afd7266c64ae8b0c35fe3bcb))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
