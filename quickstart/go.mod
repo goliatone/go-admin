@@ -8,8 +8,8 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin v0.138.0
-	github.com/goliatone/go-auth v0.45.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
+	github.com/goliatone/go-auth v0.45.1
+	github.com/goliatone/go-auth/adapters/featuregate v0.45.1
 	github.com/goliatone/go-cache v0.3.1
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2
@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.25.0
+	github.com/goliatone/go-users v0.26.1
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -121,7 +121,7 @@ require (
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
-	github.com/goliatone/hashid v0.2.2 // indirect
+	github.com/goliatone/hashid v0.2.3 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect

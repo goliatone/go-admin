@@ -9,8 +9,8 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-auth v0.45.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.45.0
+	github.com/goliatone/go-auth v0.45.1
+	github.com/goliatone/go-auth/adapters/featuregate v0.45.1
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2
 	github.com/goliatone/go-crud v0.25.0
@@ -32,7 +32,7 @@ require (
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.25.0
+	github.com/goliatone/go-users v0.26.1
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -49,7 +49,7 @@ require (
 
 require (
 	github.com/goliatone/go-template v0.3.1 // indirect
-	github.com/goliatone/hashid v0.2.2 // indirect
+	github.com/goliatone/hashid v0.2.3 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	go.beyondstorage.io/v5 v5.0.0 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
