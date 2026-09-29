@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.138.0](https://github.com/goliatone/go-admin/compare/v0.137.0...v0.138.0) - (2026-09-29)
+
+## <!-- 16 -->➕ Add
+
+- Activity timeline updates ([0aa994a](https://github.com/goliatone/go-admin/commit/0aa994a639073051269c261c6158010c659dc1e8))  - (goliatone)
+
 # [0.137.0](https://github.com/goliatone/go-admin/compare/v0.136.0...v0.137.0) - (2026-09-28)
+
+
+New minor release: v0.137.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.137.0 ([0abb597](https://github.com/goliatone/go-admin/commit/0abb597c0fec89cfb0faf0758fde2272baa07ad4))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
