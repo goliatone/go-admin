@@ -101,3 +101,11 @@ test('Activity template uses named columns and a horizontally scrollable minimum
   assert.doesNotMatch(activityTemplate, /<table[^>]+style="[^"]*table-layout/);
 });
 
+
+// Keep the distributed page stylesheet in sync: consumers load dist, not src.
+test('Activity shipped stylesheet includes long-text sizing rules', () => {
+  const shipped = readFileSync(resolve(assetsRoot, 'dist/styles/activity.css'), 'utf8');
+  assert.equal(shipped, activityCSS);
+  assert.match(cssRule('.timeline-entry-card'), /min-width:\s*0/);
+  assert.match(cssRule('.timeline-action-badge'), /max-width:\s*100%/);
+});

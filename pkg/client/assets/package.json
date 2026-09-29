@@ -158,6 +158,7 @@
     "lint:eslint:baseline": "node ./scripts/check-eslint-baseline.mjs --write-baseline",
     "lint:console": "node ./scripts/check-no-direct-console.mjs",
     "test:public": "npm run build:public && node ./scripts/test-public-package.mjs",
+    "test:activity:browsers": "node ./scripts/test-activity-browsers.mjs",
     "test:modal:browsers": "node ./scripts/test-modal-browsers.mjs",
     "test:import:browsers": "npm run build:public && node ./scripts/test-import-browsers.mjs",
     "test:import:baseline": "node ./scripts/test-import-browsers.mjs --baseline",

@@ -574,6 +574,7 @@ body.feature-activity-disabled #activity-disabled {
 /* Entry card */
 .timeline-entry-card {
   flex: 1;
+  min-width: 0;
   padding: 16px;
   background: white;
   border: 1px solid #e5e7eb;
@@ -617,6 +618,7 @@ body.feature-activity-disabled #activity-disabled {
 
 .timeline-action-badge {
   display: inline-flex;
+  max-width: 100%;
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
@@ -1031,4 +1033,21 @@ body.feature-activity-disabled #activity-disabled {
     width: 28px;
     height: 28px;
   }
+}
+
+/* Long labels and metadata must fit the reusable Activity containers. */
+.timeline-action-badge > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.timeline-action-badge > svg,
+.timeline-action-badge > i {
+  flex-shrink: 0;
+}
+
+.activity-row > td,
+.activity-metadata-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
