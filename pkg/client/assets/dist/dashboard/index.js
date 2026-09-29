@@ -1,15 +1,15 @@
 import { createLogger as m } from "../shared/logger.js";
-import { httpRequest as x } from "../shared/transport/http-client.js";
-import { s as $ } from "../chunks/status-vocabulary-BYdivV6D.js";
-import { t as S } from "../chunks/sortable.esm-ChQrsKAN.js";
-import { n as _, t as E } from "../chunks/application-widgets-ghhHXoXr.js";
-var A = class {
+import { httpRequest as $ } from "../shared/transport/http-client.js";
+import { s as S } from "../chunks/status-vocabulary-BYdivV6D.js";
+import { t as _ } from "../chunks/sortable.esm-ChQrsKAN.js";
+import { n as E, t as A } from "../chunks/application-widgets-ghhHXoXr.js";
+var T = class {
   constructor() {
     this.sortableInstances = [];
   }
   enable(t, e) {
     t.querySelectorAll("[data-widgets-grid]").forEach((a) => {
-      const n = S.create(a, {
+      const n = _.create(a, {
         handle: ".widget-drag-handle",
         draggable: "[data-widget]",
         animation: 150,
@@ -37,7 +37,7 @@ var A = class {
   applyWidth(t, e) {
     t.dataset.span = e.toString(), t.style.setProperty("--span", e.toString());
   }
-}, T = class {
+}, N = class {
   toggle(t) {
     const e = t.dataset.hidden !== "true";
     return this.applyVisibility(t, e), e;
@@ -45,9 +45,9 @@ var A = class {
   applyVisibility(t, e) {
     e ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
-}, N = m("DashboardPersistence"), z = class {
+}, z = m("DashboardPersistence"), j = class {
   async save(t, e) {
-    const a = await x(t, {
+    const a = await $(t, {
       method: "POST",
       json: e
     });
@@ -58,10 +58,10 @@ var A = class {
       const e = await fetch(t);
       return e.ok ? await e.json() : null;
     } catch (e) {
-      return N.warn("Failed to load layout preferences:", e), null;
+      return z.warn("Failed to load layout preferences:", e), null;
     }
   }
-}, v = m("WidgetGrid"), j = class {
+}, v = m("WidgetGrid"), k = class {
   constructor(t) {
     this.container = null, this.saveTimer = null, this.statusElement = null, this.panelSchema = null, this.panelTabs = [], this.config = {
       apiEndpoint: t.apiEndpoint,
@@ -83,10 +83,10 @@ var A = class {
       }),
       onError: t.onError || ((e) => v.error("WidgetGrid error:", e))
     }, this.behaviors = {
-      dragDrop: t.behaviors?.dragDrop || new A(),
+      dragDrop: t.behaviors?.dragDrop || new T(),
       resize: t.behaviors?.resize || new C(),
-      visibility: t.behaviors?.visibility || new T(),
-      persistence: t.behaviors?.persistence || new z()
+      visibility: t.behaviors?.visibility || new N(),
+      persistence: t.behaviors?.persistence || new j()
     };
   }
   async init(t) {
@@ -204,7 +204,7 @@ var A = class {
   destroy() {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
-}, k = {
+}, B = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -219,18 +219,18 @@ var A = class {
   "admin.widget.pie_chart": "Pie Chart",
   "admin.widget.gauge_chart": "Gauge",
   "admin.widget.scatter_chart": "Scatter Chart"
-}, B = /* @__PURE__ */ new Set([
+}, D = /* @__PURE__ */ new Set([
   "admin.widget.bar_chart",
   "admin.widget.line_chart",
   "admin.widget.pie_chart",
   "admin.widget.gauge_chart",
   "admin.widget.scatter_chart"
-]), D = class {
+]), L = class {
   constructor(t) {
     this.activityActionLabels = t.activityActionLabels || {};
   }
   render(t, e) {
-    const a = e === "admin.dashboard.main" || e === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), r = t.hidden || !1, i = t.data?.title || t.config?.title || _(t.definition, t) || this.getTitle(t.definition), s = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, d = this.renderContent(t);
+    const a = e === "admin.dashboard.main" || e === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), r = t.hidden || !1, i = t.data?.title || t.config?.title || E(t.definition, t) || this.getTitle(t.definition), s = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, d = this.renderContent(t);
     let o = '<div class="widget__toolbar">';
     return o += '<button type="button" class="hide-widget">Toggle Hide</button>', a ? o += '<button type="button" class="resize-widget">Half Width</button>' : o += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>', o += "</div>", `
       <article class="widget"
@@ -258,7 +258,7 @@ var A = class {
     `;
   }
   renderContent(t) {
-    const e = t.definition || "", a = t.data || {}, n = t.config || {}, r = E(e);
+    const e = t.definition || "", a = t.data || {}, n = t.config || {}, r = A(e);
     if (r) return r.render(t);
     if (e === "admin.widget.user_stats") {
       const i = {
@@ -410,7 +410,7 @@ var A = class {
       `;
     }
     if (e === "admin.widget.translation_progress") {
-      const i = a.summary || {}, s = a.status_counts || {}, d = a.locale_counts || {}, o = Array.isArray(a.links) ? a.links : [], l = Number(i.overdue || 0), u = a.updated_at ? String(a.updated_at) : "", w = (c, p) => $(String(c || ""), { count: this.formatNumber(p) });
+      const i = a.summary || {}, s = a.status_counts || {}, d = a.locale_counts || {}, o = Array.isArray(a.links) ? a.links : [], l = Number(i.overdue || 0), u = a.updated_at ? String(a.updated_at) : "", x = (c, p) => S(String(c || ""), { count: this.formatNumber(p) });
       return `
         <div class="grid grid-cols-3 gap-3 mb-4">
           <div class="bg-gray-50 rounded-lg p-3 text-center">
@@ -444,7 +444,7 @@ var A = class {
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(s).map(([c, p]) => w(c, p)).join("")}
+              ${Object.entries(s).map(([c, p]) => x(c, p)).join("")}
             </div>
           </div>
         ` : ""}
@@ -487,7 +487,7 @@ var A = class {
         ` : ""}
       `;
     }
-    if (B.has(e)) {
+    if (D.has(e)) {
       const i = a.subtitle || n.subtitle || "", s = String(a.theme || "westeros"), d = String(a.chart_assets_host || "/dashboard/assets/echarts/"), o = a.chart_options ? JSON.stringify(a.chart_options) : "", l = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
@@ -505,7 +505,7 @@ var A = class {
     return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(a, null, 2)}</pre>`;
   }
   getTitle(t) {
-    return k[t] || t;
+    return B[t] || t;
   }
   formatNumber(t) {
     return typeof t == "number" ? t.toLocaleString() : String(t);
@@ -515,15 +515,15 @@ var A = class {
     return !Number.isFinite(e) || e < 1 || e > 12 ? 12 : e;
   }
 }, h = m("AdminDashboard"), g = /* @__PURE__ */ new Map(), f = /* @__PURE__ */ new WeakMap();
-async function L(t) {
-  const e = new D(t), a = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, n = document.getElementById("dashboard-export");
+async function W(t) {
+  const e = new L(t), a = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, n = document.getElementById("dashboard-export");
   n && n.addEventListener("click", () => window.open(a));
-  const r = W((await (await fetch(a)).json()).widgets || []);
+  const r = O((await (await fetch(a)).json()).widgets || []);
   for (const [i, s] of Object.entries(r)) {
     const d = document.querySelector(`[data-area-grid="${i}"]`);
     d && (d.innerHTML = s.map((o) => e.render(o, i)).join(""));
   }
-  await y(), await new j({
+  await y(), await new k({
     apiEndpoint: a,
     preferencesEndpoint: `${a}/preferences`,
     areas: [
@@ -545,13 +545,13 @@ async function L(t) {
     }
   }).init(), await y();
 }
-function W(t) {
+function O(t) {
   return t.reduce((e, a) => {
     const n = a.area || "admin.dashboard.main";
     return e[n] || (e[n] = []), e[n].push(a), e;
   }, {});
 }
-function O(t) {
+function w(t) {
   const e = (t || "").trim();
   return e ? e.endsWith("/") ? e : `${e}/` : "/dashboard/assets/echarts/";
 }
@@ -568,11 +568,20 @@ function b(t) {
   });
   return g.set(t, e), e;
 }
-async function I(t, e) {
-  const a = O(e);
-  await b(`${a}echarts.min.js`), t && t !== "default" && await b(`${a}themes/${t}.js`);
+var I = /* @__PURE__ */ new Set([
+  "default",
+  "light",
+  "dark"
+]);
+function R(t, e) {
+  const a = (t || "").trim();
+  return !a || I.has(a) ? "" : `${w(e)}themes/${a}.js`;
 }
-function R(t) {
+async function H(t, e) {
+  const a = w(e);
+  await b(`${a}echarts.min.js`), await b(R(t, a));
+}
+function P(t) {
   const e = t.querySelector("script[data-chart-options]");
   if (!e?.textContent) return null;
   try {
@@ -581,8 +590,8 @@ function R(t) {
     return h.error("[admin-dashboard] Failed to parse chart options", a), null;
   }
 }
-function P(t) {
-  const e = (t.dataset.chartId || "").trim(), a = (t.dataset.chartTheme || "westeros").trim(), n = R(t), r = e ? document.getElementById(e) : null, i = window.echarts;
+function q(t) {
+  const e = (t.dataset.chartId || "").trim(), a = (t.dataset.chartTheme || "westeros").trim(), n = P(t), r = e ? document.getElementById(e) : null, i = window.echarts;
   if (!r || !n || !i) return;
   const s = i.getInstanceByDom(r) || i.init(r, a, { renderer: "canvas" });
   if (s.setOption(n, !0), !f.has(t) && window.ResizeObserver) {
@@ -601,20 +610,20 @@ async function y() {
   for (const e of t) {
     const a = (e.dataset.chartTheme || "westeros").trim(), n = e.dataset.chartAssetsHost || "";
     try {
-      await I(a, n), P(e);
+      await H(a, n), q(e);
     } catch (r) {
       h.error("[admin-dashboard] Failed to hydrate chart widget", r);
     }
   }
 }
-function J() {
+function V() {
   const t = document.getElementById("admin-dashboard-config");
   if (!t?.textContent) {
     h.error("[admin-dashboard] Missing #admin-dashboard-config element");
     return;
   }
   try {
-    L(JSON.parse(t.textContent)).catch((e) => {
+    W(JSON.parse(t.textContent)).catch((e) => {
       h.error("[admin-dashboard] Failed to initialize:", e);
     });
   } catch (e) {
@@ -622,14 +631,15 @@ function J() {
   }
 }
 export {
-  A as DefaultDragDropBehavior,
-  z as DefaultPersistenceBehavior,
+  T as DefaultDragDropBehavior,
+  j as DefaultPersistenceBehavior,
   C as DefaultResizeBehavior,
-  T as DefaultVisibilityBehavior,
-  j as WidgetGrid,
-  D as WidgetRenderer,
-  J as bootstrapAdminDashboard,
-  L as initAdminDashboard
+  N as DefaultVisibilityBehavior,
+  k as WidgetGrid,
+  L as WidgetRenderer,
+  V as bootstrapAdminDashboard,
+  R as echartsThemeScriptURL,
+  W as initAdminDashboard
 };
 
 //# sourceMappingURL=index.js.map

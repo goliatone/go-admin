@@ -65,7 +65,7 @@
 
 {% block scripts %}
 <script type="module">
-  import { WidgetGrid } from '{{ asset_base_path }}/assets/dist/dashboard/index.js';
+  import { WidgetGrid, echartsThemeScriptURL } from '{{ asset_base_path }}/assets/dist/dashboard/index.js';
 
   const chartScriptCache = new Map();
   const chartResizeObservers = new WeakMap();
@@ -106,9 +106,7 @@
   async function ensureEChartsAssets(theme, assetsHost) {
     const host = normalizeChartAssetsHost(assetsHost);
     await ensureScript(`${host}echarts.min.js`);
-    if (theme && theme !== 'default') {
-      await ensureScript(`${host}themes/${theme}.js`);
-    }
+    await ensureScript(echartsThemeScriptURL(theme, host));
   }
 
   function parseChartOptions(container) {

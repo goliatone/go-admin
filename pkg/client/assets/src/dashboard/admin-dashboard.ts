@@ -117,12 +117,30 @@ function ensureScript(src: string): Promise<void> {
   return pending;
 }
 
+/**
+ * Chart themes the ECharts runtime registers itself: ECharts 5 ships `light`
+ * and `dark`, ECharts 6 ships `default` and `dark`. No theme script exists for
+ * them under the chart assets host, so requesting one 404s and aborts
+ * hydration.
+ */
+const RUNTIME_ECHARTS_THEMES = new Set(['default', 'light', 'dark']);
+
+/**
+ * Resolve the script that registers a named chart theme, or '' when the theme
+ * is empty or provided by the ECharts runtime.
+ */
+export function echartsThemeScriptURL(theme: string, assetsHost: string): string {
+  const name = (theme || '').trim();
+  if (!name || RUNTIME_ECHARTS_THEMES.has(name)) {
+    return '';
+  }
+  return `${normalizeChartAssetsHost(assetsHost)}themes/${name}.js`;
+}
+
 async function ensureEChartsAssets(theme: string, assetsHost: string): Promise<void> {
   const host = normalizeChartAssetsHost(assetsHost);
   await ensureScript(`${host}echarts.min.js`);
-  if (theme && theme !== 'default') {
-    await ensureScript(`${host}themes/${theme}.js`);
-  }
+  await ensureScript(echartsThemeScriptURL(theme, host));
 }
 
 function parseChartOptions(container: HTMLElement): Record<string, any> | null {

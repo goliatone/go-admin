@@ -177,6 +177,13 @@ Never emit:
 per-widget `theme`, `WithChartTheme`, and `WithChartThemeResolver` settings win
 over selection-derived defaults.
 
+The dashboard client loads `<chart_assets_host>themes/<theme>.js` before
+hydrating a chart, except for themes the ECharts runtime registers itself:
+`light` and `dark` (ECharts 5) and `default` (ECharts 6). The stock `light` and
+`dark` variants therefore hydrate without a theme script. A custom
+`ChartTheme` must be served at `themes/<name>.js` under the chart assets host
+and call `echarts.registerTheme(name, ...)`.
+
 `ThemeSelection.SemanticChartPalette()` returns a typed eight-series palette:
 
 - `Series` and `SeriesActive`;

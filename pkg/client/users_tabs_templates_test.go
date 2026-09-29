@@ -162,6 +162,30 @@ func TestDashboardClientHydrationCanonicalContract(t *testing.T) {
 	}
 }
 
+func TestDashboardChartThemeScriptsSkipRuntimeThemes(t *testing.T) {
+	source := mustReadClientSourceFile(t, filepath.Join("assets", "src", "dashboard", "admin-dashboard.ts"))
+	assertContainsAll(t, source,
+		`new Set(['default', 'light', 'dark'])`,
+		`await ensureScript(echartsThemeScriptURL(theme, host));`,
+	)
+	template := mustReadEmbeddedTemplate(t, "dashboard_ssr.html")
+	assertContainsAll(t, template,
+		`import { WidgetGrid, echartsThemeScriptURL } from`,
+		`await ensureScript(echartsThemeScriptURL(theme, host));`,
+	)
+	for name, content := range map[string]string{"admin-dashboard.ts": source, "dashboard_ssr.html": template} {
+		if strings.Contains(content, "themes/${theme}.js") {
+			t.Fatalf("%s must resolve theme scripts through echartsThemeScriptURL so runtime themes load none", name)
+		}
+	}
+	// The template imports the helper from the built bundle; a stale dist would
+	// fail that import and stop the whole dashboard module.
+	bundle := mustReadClientSourceFile(t, filepath.Join("assets", "dist", "dashboard", "index.js"))
+	if !strings.Contains(bundle, "as echartsThemeScriptURL") {
+		t.Fatalf("dist/dashboard/index.js must export echartsThemeScriptURL; rebuild the client assets")
+	}
+}
+
 func mustReadEmbeddedTemplate(t *testing.T, name string) string {
 	t.Helper()
 

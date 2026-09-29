@@ -30,4 +30,4 @@ export { DefaultPersistenceBehavior } from './behaviors/persistence.js';
 
 // Admin dashboard client-side rendering
 export { WidgetRenderer } from './widget-renderer.js';
-export { initAdminDashboard, bootstrapAdminDashboard } from './admin-dashboard.js';
+export { initAdminDashboard, bootstrapAdminDashboard, echartsThemeScriptURL } from './admin-dashboard.js';
