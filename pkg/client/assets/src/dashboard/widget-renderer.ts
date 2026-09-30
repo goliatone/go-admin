@@ -3,6 +3,7 @@
  */
 
 import type { Widget, AdminDashboardConfig, WidgetTitleMap } from './types.js';
+import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { renderStatusChip } from '../shared/status-vocabulary.js';
 import { resolveApplicationWidgetRenderer, resolveApplicationWidgetTitle } from '../renderers/application-widgets.js';
 
@@ -31,6 +32,19 @@ const CHART_WIDGET_DEFINITIONS = new Set([
   'admin.widget.gauge_chart',
   'admin.widget.scatter_chart',
 ]);
+
+/**
+ * Serialize chart options for an inline JSON script element. Chart options
+ * carry raw display text, so <, > and & are written as JSON unicode escapes
+ * (like Go encoding/json) to keep text such as `</script>` from closing the
+ * element. JSON.parse decodes the escapes back to the original text.
+ */
+function serializeChartOptions(options: unknown): string {
+  return JSON.stringify(options)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
+}
 
 /**
  * Renders dashboard widgets to HTML strings
@@ -76,16 +90,16 @@ export class WidgetRenderer {
 
     return `
       <article class="widget"
-               data-widget="${widgetId}"
+               data-widget="${escapeAttribute(widgetId)}"
                data-span="${span}"
-               data-area-code="${areaCode}"
+               data-area-code="${escapeAttribute(areaCode)}"
                data-resizable="${areaResizable}"
                ${hidden ? 'data-hidden="true"' : ''}
                style="--span: ${span}">
         ${toolbarHTML}
         <div class="widget__header mb-4">
           ${dragHandleHTML}
-          <h3 class="text-lg font-semibold text-gray-900">${title}</h3>
+          <h3 class="text-lg font-semibold text-gray-900">${escapeHTML(title)}</h3>
         </div>
         <div class="widget__content">
           ${widgetContent}
@@ -120,7 +134,7 @@ export class WidgetRenderer {
           ${Object.entries(values).map(([key, value]) => `
             <div class="metric">
               <small>${key}</small>
-              <span>${this.formatNumber(value)}</span>
+              <span>${escapeHTML(this.formatNumber(value))}</span>
             </div>
           `).join('')}
         </div>
@@ -138,8 +152,8 @@ export class WidgetRenderer {
         <dl class="space-y-2">
           ${entries.map(([key, val]) => `
             <div class="flex items-start justify-between gap-4">
-              <dt class="text-sm text-gray-600">${key}</dt>
-              <dd class="text-sm font-semibold text-gray-900">${val ?? '—'}</dd>
+              <dt class="text-sm text-gray-600">${escapeHTML(key)}</dt>
+              <dd class="text-sm font-semibold text-gray-900">${escapeHTML(val ?? '—')}</dd>
             </div>
           `).join('')}
         </dl>
@@ -159,8 +173,8 @@ export class WidgetRenderer {
             const value = typeof val === 'object' && val !== null ? (val as Record<string, unknown>).value ?? val : val;
             return `
               <div class="flex items-start justify-between gap-4">
-                <dt class="text-sm text-gray-600">${key}</dt>
-                <dd class="text-sm font-semibold text-gray-900">${value ?? '—'}</dd>
+                <dt class="text-sm text-gray-600">${escapeHTML(key)}</dt>
+                <dd class="text-sm font-semibold text-gray-900">${escapeHTML(value ?? '—')}</dd>
               </div>
             `;
           }).join('')}
@@ -183,8 +197,8 @@ export class WidgetRenderer {
             const objectLabel = String(entry?.object || '').trim();
             return `
             <li class="py-3 border-b border-gray-100 last:border-b-0">
-              <div class="font-semibold text-gray-900 text-sm">${actor}</div>
-              <div class="text-gray-600 text-sm mt-1">${actionLabel}${objectLabel ? ` ${objectLabel}` : ''}</div>
+              <div class="font-semibold text-gray-900 text-sm">${escapeHTML(actor)}</div>
+              <div class="text-gray-600 text-sm mt-1">${escapeHTML(actionLabel)}${objectLabel ? ` ${escapeHTML(objectLabel)}` : ''}</div>
             </li>
           `;
           }).join('')}
@@ -201,12 +215,12 @@ export class WidgetRenderer {
       return `
         <div class="space-y-2">
           ${actions.map((action: { url?: string; label?: string; method?: string; description?: string }) => `
-            <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${action.url || '#'}" target="_blank" rel="noreferrer">
+            <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${escapeAttribute(action.url || '#')}" target="_blank" rel="noreferrer">
               <div class="flex items-center justify-between gap-2">
-                <div class="font-semibold text-gray-900 text-sm">${action.label || 'Action'}</div>
-                ${action.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${action.method}</span>` : ''}
+                <div class="font-semibold text-gray-900 text-sm">${escapeHTML(action.label || 'Action')}</div>
+                ${action.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${escapeHTML(action.method)}</span>` : ''}
               </div>
-              ${action.description ? `<div class="text-gray-600 text-sm mt-1">${action.description}</div>` : ''}
+              ${action.description ? `<div class="text-gray-600 text-sm mt-1">${escapeHTML(action.description)}</div>` : ''}
             </a>
           `).join('')}
         </div>
@@ -227,19 +241,19 @@ export class WidgetRenderer {
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-600">Status:</span>
-            <span class="font-semibold text-green-600">${data.status || 'unknown'}</span>
+            <span class="font-semibold text-green-600">${escapeHTML(data.status || 'unknown')}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">Uptime:</span>
-            <span class="font-semibold">${data.uptime || 'N/A'}</span>
+            <span class="font-semibold">${escapeHTML(data.uptime || 'N/A')}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">API Latency:</span>
-            <span class="font-semibold">${data.api_latency || 'N/A'}</span>
+            <span class="font-semibold">${escapeHTML(data.api_latency || 'N/A')}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">Database:</span>
-            <span class="font-semibold ${data.db_status === 'connected' ? 'text-green-600' : 'text-red-600'}">${data.db_status || 'unknown'}</span>
+            <span class="font-semibold ${data.db_status === 'connected' ? 'text-green-600' : 'text-red-600'}">${escapeHTML(data.db_status || 'unknown')}</span>
           </div>
         </div>
       `;
@@ -251,15 +265,15 @@ export class WidgetRenderer {
         <div class="metrics">
           <div class="metric">
             <small>Published</small>
-            <span>${this.formatNumber(data.published || 0)}</span>
+            <span>${escapeHTML(this.formatNumber(data.published || 0))}</span>
           </div>
           <div class="metric">
             <small>Draft</small>
-            <span>${this.formatNumber(data.draft || 0)}</span>
+            <span>${escapeHTML(this.formatNumber(data.draft || 0))}</span>
           </div>
           <div class="metric">
             <small>Scheduled</small>
-            <span>${this.formatNumber(data.scheduled || 0)}</span>
+            <span>${escapeHTML(this.formatNumber(data.scheduled || 0))}</span>
           </div>
         </div>
       `;
@@ -271,15 +285,15 @@ export class WidgetRenderer {
         <div class="metrics">
           <div class="metric">
             <small>Used</small>
-            <span>${data.used || '0 GB'}</span>
+            <span>${escapeHTML(data.used || '0 GB')}</span>
           </div>
           <div class="metric">
             <small>Total</small>
-            <span>${data.total || '0 GB'}</span>
+            <span>${escapeHTML(data.total || '0 GB')}</span>
           </div>
           <div class="metric">
             <small>Usage</small>
-            <span>${data.percentage || '0%'}</span>
+            <span>${escapeHTML(data.percentage || '0%')}</span>
           </div>
         </div>
       `;
@@ -297,8 +311,8 @@ export class WidgetRenderer {
             <li class="py-3 border-b border-gray-100 last:border-b-0">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <div class="font-semibold text-gray-900 text-sm">${notif.title}</div>
-                  <div class="text-gray-600 text-sm mt-1">${notif.message}</div>
+                  <div class="font-semibold text-gray-900 text-sm">${escapeHTML(notif.title)}</div>
+                  <div class="text-gray-600 text-sm mt-1">${escapeHTML(notif.message)}</div>
                 </div>
                 <span class="px-2 py-1 text-xs font-semibold ${notif.read ? 'text-gray-600 bg-gray-100' : 'text-white bg-blue-500'} rounded-full whitespace-nowrap">
                   ${notif.read ? 'Read' : 'New'}
@@ -327,15 +341,15 @@ export class WidgetRenderer {
       return `
         <div class="grid grid-cols-3 gap-3 mb-4">
           <div class="bg-gray-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-gray-900">${this.formatNumber(summary.total || 0)}</div>
+            <div class="text-2xl font-bold text-gray-900">${escapeHTML(this.formatNumber(summary.total || 0))}</div>
             <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
           </div>
           <div class="bg-blue-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-blue-700">${this.formatNumber(summary.active || 0)}</div>
+            <div class="text-2xl font-bold text-blue-700">${escapeHTML(this.formatNumber(summary.active || 0))}</div>
             <div class="text-xs text-blue-600 uppercase tracking-wide">Active</div>
           </div>
           <div class="bg-purple-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-purple-700">${this.formatNumber(summary.review || 0)}</div>
+            <div class="text-2xl font-bold text-purple-700">${escapeHTML(this.formatNumber(summary.review || 0))}</div>
             <div class="text-xs text-purple-600 uppercase tracking-wide">Review</div>
           </div>
         </div>
@@ -343,12 +357,12 @@ export class WidgetRenderer {
         <div class="grid grid-cols-2 gap-3 mb-4">
           <div class="${overdueCount > 0 ? 'bg-red-50' : 'bg-gray-50'} rounded-lg p-2 text-center">
             <div class="text-lg font-bold ${overdueCount > 0 ? 'text-red-700' : 'text-gray-600'}">
-              ${this.formatNumber(overdueCount)}
+              ${escapeHTML(this.formatNumber(overdueCount))}
             </div>
             <div class="text-xs ${overdueCount > 0 ? 'text-red-600' : 'text-gray-500'} uppercase tracking-wide">Overdue</div>
           </div>
           <div class="bg-green-50 rounded-lg p-2 text-center">
-            <div class="text-lg font-bold text-green-700">${this.formatNumber(summary.approved || 0)}</div>
+            <div class="text-lg font-bold text-green-700">${escapeHTML(this.formatNumber(summary.approved || 0))}</div>
             <div class="text-xs text-green-600 uppercase tracking-wide">Approved</div>
           </div>
         </div>
@@ -368,8 +382,8 @@ export class WidgetRenderer {
             <div class="flex flex-wrap gap-2">
               ${Object.entries(localeCounts).map(([locale, count]) => `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
-                  <span class="uppercase font-semibold">${locale}</span>
-                  <span class="text-indigo-500">${this.formatNumber(count)}</span>
+                  <span class="uppercase font-semibold">${escapeHTML(locale)}</span>
+                  <span class="text-indigo-500">${escapeHTML(this.formatNumber(count))}</span>
                 </span>
               `).join('')}
             </div>
@@ -381,9 +395,9 @@ export class WidgetRenderer {
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Quick Access</div>
             <div class="flex flex-wrap gap-2">
               ${links.map((link: { url?: string; label?: string }) => `
-                <a href="${link.url || '#'}"
+                <a href="${escapeAttribute(link.url || '#')}"
                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors">
-                  ${link.label || 'Open'}
+                  ${escapeHTML(link.label || 'Open')}
                   <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
@@ -395,7 +409,7 @@ export class WidgetRenderer {
 
         ${updatedAt ? `
           <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
-            Updated <time data-relative-time="${updatedAt}">${updatedAt}</time>
+            Updated <time data-relative-time="${escapeAttribute(updatedAt)}">${escapeHTML(updatedAt)}</time>
           </div>
         ` : ''}
       `;
@@ -406,24 +420,24 @@ export class WidgetRenderer {
       const subtitle = data.subtitle || config.subtitle || '';
       const chartTheme = String(data.theme || 'westeros');
       const assetsHost = String(data.chart_assets_host || '/dashboard/assets/echarts/');
-      const chartOptions = data.chart_options ? JSON.stringify(data.chart_options) : '';
-      const chartId = `chart-${widget.id || widget.definition || Math.random().toString(36).slice(2, 10)}`;
+      const chartOptions = data.chart_options ? serializeChartOptions(data.chart_options) : '';
+      const chartId = escapeAttribute(`chart-${widget.id || widget.definition || Math.random().toString(36).slice(2, 10)}`);
       return `
         <div>
-          ${subtitle ? `<p class="text-sm text-gray-500 mb-3">${subtitle}</p>` : ''}
+          ${subtitle ? `<p class="text-sm text-gray-500 mb-3">${escapeHTML(subtitle)}</p>` : ''}
           ${chartOptions ? `
-            <div class="chart-container" data-echart-widget data-chart-id="${chartId}" data-chart-theme="${chartTheme}" data-chart-assets-host="${assetsHost}">
+            <div class="chart-container" data-echart-widget data-chart-id="${chartId}" data-chart-theme="${escapeAttribute(chartTheme)}" data-chart-assets-host="${escapeAttribute(assetsHost)}">
               <div id="${chartId}" class="w-full" style="height: 360px;"></div>
               <script type="application/json" data-chart-options>${chartOptions}</script>
             </div>
           ` : `<p class="text-sm text-gray-500 italic">Chart configuration unavailable.</p>`}
-          ${data.footer_note ? `<p class="text-xs text-gray-500 mt-2">${data.footer_note}</p>` : ''}
+          ${data.footer_note ? `<p class="text-xs text-gray-500 mt-2">${escapeHTML(data.footer_note)}</p>` : ''}
         </div>
       `;
     }
 
     // Default: show raw data
-    return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(data, null, 2)}</pre>`;
+    return `<pre class="text-xs text-gray-600 overflow-auto">${escapeHTML(JSON.stringify(data, null, 2))}</pre>`;
   }
 
   /**

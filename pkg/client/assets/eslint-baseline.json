@@ -130,7 +130,7 @@
     },
     {
       "file": "src/dashboard/widget-renderer.ts",
-      "line": 100,
+      "line": 114,
       "column": 3,
       "rule": "complexity"
     },

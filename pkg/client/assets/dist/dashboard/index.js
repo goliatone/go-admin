@@ -1,15 +1,16 @@
-import { createLogger as m } from "../shared/logger.js";
-import { httpRequest as $ } from "../shared/transport/http-client.js";
-import { s as S } from "../chunks/status-vocabulary-BYdivV6D.js";
-import { t as _ } from "../chunks/sortable.esm-ChQrsKAN.js";
-import { n as E, t as A } from "../chunks/application-widgets-ghhHXoXr.js";
-var T = class {
+import { createLogger as f } from "../shared/logger.js";
+import { escapeAttribute as u, escapeHTML as o } from "../shared/html.js";
+import { httpRequest as _ } from "../shared/transport/http-client.js";
+import { s as E } from "../chunks/status-vocabulary-BYdivV6D.js";
+import { t as A } from "../chunks/sortable.esm-ChQrsKAN.js";
+import { n as T, t as C } from "../chunks/application-widgets-ghhHXoXr.js";
+var N = class {
   constructor() {
     this.sortableInstances = [];
   }
   enable(t, e) {
     t.querySelectorAll("[data-widgets-grid]").forEach((a) => {
-      const n = _.create(a, {
+      const n = A.create(a, {
         handle: ".widget-drag-handle",
         draggable: "[data-widget]",
         animation: 150,
@@ -29,7 +30,7 @@ var T = class {
       t.destroy();
     }), this.sortableInstances = [];
   }
-}, C = class {
+}, z = class {
   toggleWidth(t, e, a) {
     const n = e === a ? a / 2 : a;
     return this.applyWidth(t, n), n;
@@ -37,7 +38,7 @@ var T = class {
   applyWidth(t, e) {
     t.dataset.span = e.toString(), t.style.setProperty("--span", e.toString());
   }
-}, N = class {
+}, j = class {
   toggle(t) {
     const e = t.dataset.hidden !== "true";
     return this.applyVisibility(t, e), e;
@@ -45,9 +46,9 @@ var T = class {
   applyVisibility(t, e) {
     e ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
-}, z = m("DashboardPersistence"), j = class {
+}, k = f("DashboardPersistence"), B = class {
   async save(t, e) {
-    const a = await $(t, {
+    const a = await _(t, {
       method: "POST",
       json: e
     });
@@ -58,10 +59,10 @@ var T = class {
       const e = await fetch(t);
       return e.ok ? await e.json() : null;
     } catch (e) {
-      return z.warn("Failed to load layout preferences:", e), null;
+      return k.warn("Failed to load layout preferences:", e), null;
     }
   }
-}, v = m("WidgetGrid"), k = class {
+}, b = f("WidgetGrid"), D = class {
   constructor(t) {
     this.container = null, this.saveTimer = null, this.statusElement = null, this.panelSchema = null, this.panelTabs = [], this.config = {
       apiEndpoint: t.apiEndpoint,
@@ -81,12 +82,12 @@ var T = class {
       behaviors: t.behaviors || {},
       onSave: t.onSave || (() => {
       }),
-      onError: t.onError || ((e) => v.error("WidgetGrid error:", e))
+      onError: t.onError || ((e) => b.error("WidgetGrid error:", e))
     }, this.behaviors = {
-      dragDrop: t.behaviors?.dragDrop || new T(),
-      resize: t.behaviors?.resize || new C(),
-      visibility: t.behaviors?.visibility || new N(),
-      persistence: t.behaviors?.persistence || new j()
+      dragDrop: t.behaviors?.dragDrop || new N(),
+      resize: t.behaviors?.resize || new z(),
+      visibility: t.behaviors?.visibility || new j(),
+      persistence: t.behaviors?.persistence || new B()
     };
   }
   async init(t) {
@@ -99,7 +100,7 @@ var T = class {
     const e = Array.from(this.container.querySelectorAll("[data-widgets-grid][data-area-grid]")).map((r) => r.dataset.areaGrid || r.dataset.areaCode || "").filter((r) => !!r);
     if (e.length === 0) return;
     const a = new Set(t.areas.map((r) => r?.code || r?.area_code || r?.id || "").filter((r) => typeof r == "string" && r.length > 0)), n = e.filter((r) => !a.has(r));
-    n.length > 0 && v.warn("Hydration mismatch: rendered area(s) missing from server state", {
+    n.length > 0 && b.warn("Hydration mismatch: rendered area(s) missing from server state", {
       missing: n,
       server: Array.from(a),
       dom: e
@@ -204,7 +205,7 @@ var T = class {
   destroy() {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
-}, B = {
+}, L = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -219,28 +220,32 @@ var T = class {
   "admin.widget.pie_chart": "Pie Chart",
   "admin.widget.gauge_chart": "Gauge",
   "admin.widget.scatter_chart": "Scatter Chart"
-}, D = /* @__PURE__ */ new Set([
+}, O = /* @__PURE__ */ new Set([
   "admin.widget.bar_chart",
   "admin.widget.line_chart",
   "admin.widget.pie_chart",
   "admin.widget.gauge_chart",
   "admin.widget.scatter_chart"
-]), L = class {
+]);
+function W(t) {
+  return JSON.stringify(t).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
+}
+var I = class {
   constructor(t) {
     this.activityActionLabels = t.activityActionLabels || {};
   }
   render(t, e) {
-    const a = e === "admin.dashboard.main" || e === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), r = t.hidden || !1, i = t.data?.title || t.config?.title || E(t.definition, t) || this.getTitle(t.definition), s = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, d = this.renderContent(t);
-    let o = '<div class="widget__toolbar">';
-    return o += '<button type="button" class="hide-widget">Toggle Hide</button>', a ? o += '<button type="button" class="resize-widget">Half Width</button>' : o += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>', o += "</div>", `
+    const a = e === "admin.dashboard.main" || e === "admin.dashboard.footer", n = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), r = t.hidden || !1, i = t.data?.title || t.config?.title || T(t.definition, t) || this.getTitle(t.definition), s = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, l = this.renderContent(t);
+    let d = '<div class="widget__toolbar">';
+    return d += '<button type="button" class="hide-widget">Toggle Hide</button>', a ? d += '<button type="button" class="resize-widget">Half Width</button>' : d += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>', d += "</div>", `
       <article class="widget"
-               data-widget="${s}"
+               data-widget="${u(s)}"
                data-span="${n}"
-               data-area-code="${e}"
+               data-area-code="${u(e)}"
                data-resizable="${a}"
                ${r ? 'data-hidden="true"' : ""}
                style="--span: ${n}">
-        ${o}
+        ${d}
         <div class="widget__header mb-4">
           
       <button type="button" class="widget-drag-handle" title="Drag to reorder" aria-label="Drag to reorder widget">
@@ -249,16 +254,16 @@ var T = class {
         </svg>
       </button>
     
-          <h3 class="text-lg font-semibold text-gray-900">${i}</h3>
+          <h3 class="text-lg font-semibold text-gray-900">${o(i)}</h3>
         </div>
         <div class="widget__content">
-          ${d}
+          ${l}
         </div>
       </article>
     `;
   }
   renderContent(t) {
-    const e = t.definition || "", a = t.data || {}, n = t.config || {}, r = A(e);
+    const e = t.definition || "", a = t.data || {}, n = t.config || {}, r = C(e);
     if (r) return r.render(t);
     if (e === "admin.widget.user_stats") {
       const i = {
@@ -268,10 +273,10 @@ var T = class {
       };
       return a.trend && (i.Trend = a.trend), `
         <div class="metrics">
-          ${Object.entries(i).map(([s, d]) => `
+          ${Object.entries(i).map(([s, l]) => `
             <div class="metric">
               <small>${s}</small>
-              <span>${this.formatNumber(d)}</span>
+              <span>${o(this.formatNumber(l))}</span>
             </div>
           `).join("")}
         </div>
@@ -281,10 +286,10 @@ var T = class {
       const i = a.values || {}, s = Object.entries(i);
       return s.length === 0 ? '<p class="text-gray-500">No profile data to display</p>' : `
         <dl class="space-y-2">
-          ${s.map(([d, o]) => `
+          ${s.map(([l, d]) => `
             <div class="flex items-start justify-between gap-4">
-              <dt class="text-sm text-gray-600">${d}</dt>
-              <dd class="text-sm font-semibold text-gray-900">${o ?? "—"}</dd>
+              <dt class="text-sm text-gray-600">${o(l)}</dt>
+              <dd class="text-sm font-semibold text-gray-900">${o(d ?? "—")}</dd>
             </div>
           `).join("")}
         </dl>
@@ -294,12 +299,15 @@ var T = class {
       const i = a.values || {}, s = Object.entries(i);
       return s.length === 0 ? '<p class="text-gray-500">No settings to display</p>' : `
         <dl class="space-y-2">
-          ${s.map(([d, o]) => `
+          ${s.map(([l, d]) => {
+        const c = typeof d == "object" && d !== null ? d.value ?? d : d;
+        return `
               <div class="flex items-start justify-between gap-4">
-                <dt class="text-sm text-gray-600">${d}</dt>
-                <dd class="text-sm font-semibold text-gray-900">${(typeof o == "object" && o !== null ? o.value ?? o : o) ?? "—"}</dd>
+                <dt class="text-sm text-gray-600">${o(l)}</dt>
+                <dd class="text-sm font-semibold text-gray-900">${o(c ?? "—")}</dd>
               </div>
-            `).join("")}
+            `;
+      }).join("")}
         </dl>
       `;
     }
@@ -308,11 +316,11 @@ var T = class {
       return i.length === 0 ? '<p class="text-gray-500">No recent activity</p>' : `
         <ul class="space-y-3">
           ${i.map((s) => {
-        const d = String(s?.actor || s?.metadata?.actor || "system").trim() || "system", o = String(s?.action || "").trim(), l = this.activityActionLabels?.[o] || o || "updated", u = String(s?.object || "").trim();
+        const l = String(s?.actor || s?.metadata?.actor || "system").trim() || "system", d = String(s?.action || "").trim(), c = this.activityActionLabels?.[d] || d || "updated", g = String(s?.object || "").trim();
         return `
             <li class="py-3 border-b border-gray-100 last:border-b-0">
-              <div class="font-semibold text-gray-900 text-sm">${d}</div>
-              <div class="text-gray-600 text-sm mt-1">${l}${u ? ` ${u}` : ""}</div>
+              <div class="font-semibold text-gray-900 text-sm">${o(l)}</div>
+              <div class="text-gray-600 text-sm mt-1">${o(c)}${g ? ` ${o(g)}` : ""}</div>
             </li>
           `;
       }).join("")}
@@ -324,12 +332,12 @@ var T = class {
       return i.length === 0 ? '<p class="text-gray-500">No quick actions configured</p>' : `
         <div class="space-y-2">
           ${i.map((s) => `
-            <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${s.url || "#"}" target="_blank" rel="noreferrer">
+            <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${u(s.url || "#")}" target="_blank" rel="noreferrer">
               <div class="flex items-center justify-between gap-2">
-                <div class="font-semibold text-gray-900 text-sm">${s.label || "Action"}</div>
-                ${s.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${s.method}</span>` : ""}
+                <div class="font-semibold text-gray-900 text-sm">${o(s.label || "Action")}</div>
+                ${s.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${o(s.method)}</span>` : ""}
               </div>
-              ${s.description ? `<div class="text-gray-600 text-sm mt-1">${s.description}</div>` : ""}
+              ${s.description ? `<div class="text-gray-600 text-sm mt-1">${o(s.description)}</div>` : ""}
             </a>
           `).join("")}
         </div>
@@ -341,19 +349,19 @@ var T = class {
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-600">Status:</span>
-            <span class="font-semibold text-green-600">${a.status || "unknown"}</span>
+            <span class="font-semibold text-green-600">${o(a.status || "unknown")}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">Uptime:</span>
-            <span class="font-semibold">${a.uptime || "N/A"}</span>
+            <span class="font-semibold">${o(a.uptime || "N/A")}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">API Latency:</span>
-            <span class="font-semibold">${a.api_latency || "N/A"}</span>
+            <span class="font-semibold">${o(a.api_latency || "N/A")}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-600">Database:</span>
-            <span class="font-semibold ${a.db_status === "connected" ? "text-green-600" : "text-red-600"}">${a.db_status || "unknown"}</span>
+            <span class="font-semibold ${a.db_status === "connected" ? "text-green-600" : "text-red-600"}">${o(a.db_status || "unknown")}</span>
           </div>
         </div>
       `;
@@ -361,15 +369,15 @@ var T = class {
         <div class="metrics">
           <div class="metric">
             <small>Published</small>
-            <span>${this.formatNumber(a.published || 0)}</span>
+            <span>${o(this.formatNumber(a.published || 0))}</span>
           </div>
           <div class="metric">
             <small>Draft</small>
-            <span>${this.formatNumber(a.draft || 0)}</span>
+            <span>${o(this.formatNumber(a.draft || 0))}</span>
           </div>
           <div class="metric">
             <small>Scheduled</small>
-            <span>${this.formatNumber(a.scheduled || 0)}</span>
+            <span>${o(this.formatNumber(a.scheduled || 0))}</span>
           </div>
         </div>
       `;
@@ -377,15 +385,15 @@ var T = class {
         <div class="metrics">
           <div class="metric">
             <small>Used</small>
-            <span>${a.used || "0 GB"}</span>
+            <span>${o(a.used || "0 GB")}</span>
           </div>
           <div class="metric">
             <small>Total</small>
-            <span>${a.total || "0 GB"}</span>
+            <span>${o(a.total || "0 GB")}</span>
           </div>
           <div class="metric">
             <small>Usage</small>
-            <span>${a.percentage || "0%"}</span>
+            <span>${o(a.percentage || "0%")}</span>
           </div>
         </div>
       `;
@@ -397,8 +405,8 @@ var T = class {
             <li class="py-3 border-b border-gray-100 last:border-b-0">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <div class="font-semibold text-gray-900 text-sm">${s.title}</div>
-                  <div class="text-gray-600 text-sm mt-1">${s.message}</div>
+                  <div class="font-semibold text-gray-900 text-sm">${o(s.title)}</div>
+                  <div class="text-gray-600 text-sm mt-1">${o(s.message)}</div>
                 </div>
                 <span class="px-2 py-1 text-xs font-semibold ${s.read ? "text-gray-600 bg-gray-100" : "text-white bg-blue-500"} rounded-full whitespace-nowrap">
                   ${s.read ? "Read" : "New"}
@@ -410,32 +418,32 @@ var T = class {
       `;
     }
     if (e === "admin.widget.translation_progress") {
-      const i = a.summary || {}, s = a.status_counts || {}, d = a.locale_counts || {}, o = Array.isArray(a.links) ? a.links : [], l = Number(i.overdue || 0), u = a.updated_at ? String(a.updated_at) : "", x = (c, p) => S(String(c || ""), { count: this.formatNumber(p) });
+      const i = a.summary || {}, s = a.status_counts || {}, l = a.locale_counts || {}, d = Array.isArray(a.links) ? a.links : [], c = Number(i.overdue || 0), g = a.updated_at ? String(a.updated_at) : "", S = (h, m) => E(String(h || ""), { count: this.formatNumber(m) });
       return `
         <div class="grid grid-cols-3 gap-3 mb-4">
           <div class="bg-gray-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-gray-900">${this.formatNumber(i.total || 0)}</div>
+            <div class="text-2xl font-bold text-gray-900">${o(this.formatNumber(i.total || 0))}</div>
             <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
           </div>
           <div class="bg-blue-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-blue-700">${this.formatNumber(i.active || 0)}</div>
+            <div class="text-2xl font-bold text-blue-700">${o(this.formatNumber(i.active || 0))}</div>
             <div class="text-xs text-blue-600 uppercase tracking-wide">Active</div>
           </div>
           <div class="bg-purple-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-purple-700">${this.formatNumber(i.review || 0)}</div>
+            <div class="text-2xl font-bold text-purple-700">${o(this.formatNumber(i.review || 0))}</div>
             <div class="text-xs text-purple-600 uppercase tracking-wide">Review</div>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3 mb-4">
-          <div class="${l > 0 ? "bg-red-50" : "bg-gray-50"} rounded-lg p-2 text-center">
-            <div class="text-lg font-bold ${l > 0 ? "text-red-700" : "text-gray-600"}">
-              ${this.formatNumber(l)}
+          <div class="${c > 0 ? "bg-red-50" : "bg-gray-50"} rounded-lg p-2 text-center">
+            <div class="text-lg font-bold ${c > 0 ? "text-red-700" : "text-gray-600"}">
+              ${o(this.formatNumber(c))}
             </div>
-            <div class="text-xs ${l > 0 ? "text-red-600" : "text-gray-500"} uppercase tracking-wide">Overdue</div>
+            <div class="text-xs ${c > 0 ? "text-red-600" : "text-gray-500"} uppercase tracking-wide">Overdue</div>
           </div>
           <div class="bg-green-50 rounded-lg p-2 text-center">
-            <div class="text-lg font-bold text-green-700">${this.formatNumber(i.approved || 0)}</div>
+            <div class="text-lg font-bold text-green-700">${o(this.formatNumber(i.approved || 0))}</div>
             <div class="text-xs text-green-600 uppercase tracking-wide">Approved</div>
           </div>
         </div>
@@ -444,33 +452,33 @@ var T = class {
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(s).map(([c, p]) => x(c, p)).join("")}
+              ${Object.entries(s).map(([h, m]) => S(h, m)).join("")}
             </div>
           </div>
         ` : ""}
 
-        ${Object.keys(d).length > 0 ? `
+        ${Object.keys(l).length > 0 ? `
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Language</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(d).map(([c, p]) => `
+              ${Object.entries(l).map(([h, m]) => `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
-                  <span class="uppercase font-semibold">${c}</span>
-                  <span class="text-indigo-500">${this.formatNumber(p)}</span>
+                  <span class="uppercase font-semibold">${o(h)}</span>
+                  <span class="text-indigo-500">${o(this.formatNumber(m))}</span>
                 </span>
               `).join("")}
             </div>
           </div>
         ` : ""}
 
-        ${o.length > 0 ? `
+        ${d.length > 0 ? `
           <div class="pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Quick Access</div>
             <div class="flex flex-wrap gap-2">
-              ${o.map((c) => `
-                <a href="${c.url || "#"}"
+              ${d.map((h) => `
+                <a href="${u(h.url || "#")}"
                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors">
-                  ${c.label || "Open"}
+                  ${o(h.label || "Open")}
                   <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
@@ -480,32 +488,32 @@ var T = class {
           </div>
         ` : ""}
 
-        ${u ? `
+        ${g ? `
           <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
-            Updated <time data-relative-time="${u}">${u}</time>
+            Updated <time data-relative-time="${u(g)}">${o(g)}</time>
           </div>
         ` : ""}
       `;
     }
-    if (D.has(e)) {
-      const i = a.subtitle || n.subtitle || "", s = String(a.theme || "westeros"), d = String(a.chart_assets_host || "/dashboard/assets/echarts/"), o = a.chart_options ? JSON.stringify(a.chart_options) : "", l = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
+    if (O.has(e)) {
+      const i = a.subtitle || n.subtitle || "", s = String(a.theme || "westeros"), l = String(a.chart_assets_host || "/dashboard/assets/echarts/"), d = a.chart_options ? W(a.chart_options) : "", c = u(`chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`);
       return `
         <div>
-          ${i ? `<p class="text-sm text-gray-500 mb-3">${i}</p>` : ""}
-          ${o ? `
-            <div class="chart-container" data-echart-widget data-chart-id="${l}" data-chart-theme="${s}" data-chart-assets-host="${d}">
-              <div id="${l}" class="w-full" style="height: 360px;"></div>
-              <script type="application/json" data-chart-options>${o}<\/script>
+          ${i ? `<p class="text-sm text-gray-500 mb-3">${o(i)}</p>` : ""}
+          ${d ? `
+            <div class="chart-container" data-echart-widget data-chart-id="${c}" data-chart-theme="${u(s)}" data-chart-assets-host="${u(l)}">
+              <div id="${c}" class="w-full" style="height: 360px;"></div>
+              <script type="application/json" data-chart-options>${d}<\/script>
             </div>
           ` : '<p class="text-sm text-gray-500 italic">Chart configuration unavailable.</p>'}
-          ${a.footer_note ? `<p class="text-xs text-gray-500 mt-2">${a.footer_note}</p>` : ""}
+          ${a.footer_note ? `<p class="text-xs text-gray-500 mt-2">${o(a.footer_note)}</p>` : ""}
         </div>
       `;
     }
-    return `<pre class="text-xs text-gray-600 overflow-auto">${JSON.stringify(a, null, 2)}</pre>`;
+    return `<pre class="text-xs text-gray-600 overflow-auto">${o(JSON.stringify(a, null, 2))}</pre>`;
   }
   getTitle(t) {
-    return B[t] || t;
+    return L[t] || t;
   }
   formatNumber(t) {
     return typeof t == "number" ? t.toLocaleString() : String(t);
@@ -514,16 +522,16 @@ var T = class {
     const e = Number.parseInt(String(t ?? ""), 10);
     return !Number.isFinite(e) || e < 1 || e > 12 ? 12 : e;
   }
-}, h = m("AdminDashboard"), g = /* @__PURE__ */ new Map(), f = /* @__PURE__ */ new WeakMap();
-async function W(t) {
-  const e = new L(t), a = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, n = document.getElementById("dashboard-export");
+}, p = f("AdminDashboard"), v = /* @__PURE__ */ new Map(), y = /* @__PURE__ */ new WeakMap();
+async function R(t) {
+  const e = new I(t), a = t.apiBasePath ? `${t.apiBasePath}/dashboard` : `${t.basePath}/api/dashboard`, n = document.getElementById("dashboard-export");
   n && n.addEventListener("click", () => window.open(a));
-  const r = O((await (await fetch(a)).json()).widgets || []);
+  const r = H((await (await fetch(a)).json()).widgets || []);
   for (const [i, s] of Object.entries(r)) {
-    const d = document.querySelector(`[data-area-grid="${i}"]`);
-    d && (d.innerHTML = s.map((o) => e.render(o, i)).join(""));
+    const l = document.querySelector(`[data-area-grid="${i}"]`);
+    l && (l.innerHTML = s.map((d) => e.render(d, i)).join(""));
   }
-  await y(), await new k({
+  await x(), await new D({
     apiEndpoint: a,
     preferencesEndpoint: `${a}/preferences`,
     areas: [
@@ -536,110 +544,111 @@ async function W(t) {
       resizeBtn: ".resize-widget"
     },
     onSave: (i) => {
-      h.debug("Layout saved:", i);
+      p.debug("Layout saved:", i);
     },
     onError: (i) => {
-      h.error("Widget grid error:", i);
+      p.error("Widget grid error:", i);
       const s = document.getElementById("save-status");
       s && (s.textContent = "Failed to save layout");
     }
-  }).init(), await y();
+  }).init(), await x();
 }
-function O(t) {
+function H(t) {
   return t.reduce((e, a) => {
     const n = a.area || "admin.dashboard.main";
     return e[n] || (e[n] = []), e[n].push(a), e;
   }, {});
 }
-function w(t) {
+function $(t) {
   const e = (t || "").trim();
   return e ? e.endsWith("/") ? e : `${e}/` : "/dashboard/assets/echarts/";
 }
-function b(t) {
+function w(t) {
   if (!t) return Promise.resolve();
-  if (g.has(t)) return g.get(t);
+  if (v.has(t)) return v.get(t);
   if (document.querySelector(`script[src="${t}"]`)) {
     const a = Promise.resolve();
-    return g.set(t, a), a;
+    return v.set(t, a), a;
   }
   const e = new Promise((a, n) => {
     const r = document.createElement("script");
     r.src = t, r.async = !0, r.onload = () => a(), r.onerror = () => n(/* @__PURE__ */ new Error(`Failed to load chart asset: ${t}`)), document.head.appendChild(r);
   });
-  return g.set(t, e), e;
+  return v.set(t, e), e;
 }
-var I = /* @__PURE__ */ new Set([
+var P = /* @__PURE__ */ new Set([
   "default",
   "light",
   "dark"
 ]);
-function R(t, e) {
+function q(t, e) {
   const a = (t || "").trim();
-  return !a || I.has(a) ? "" : `${w(e)}themes/${a}.js`;
+  return !a || P.has(a) ? "" : `${$(e)}themes/${a}.js`;
 }
-async function H(t, e) {
-  const a = w(e);
-  await b(`${a}echarts.min.js`), await b(R(t, a));
+async function M(t, e) {
+  const a = $(e);
+  await w(`${a}echarts.min.js`), await w(q(t, a));
 }
-function P(t) {
+function F(t) {
   const e = t.querySelector("script[data-chart-options]");
   if (!e?.textContent) return null;
   try {
     return JSON.parse(e.textContent);
   } catch (a) {
-    return h.error("[admin-dashboard] Failed to parse chart options", a), null;
+    return p.error("[admin-dashboard] Failed to parse chart options", a), null;
   }
 }
-function q(t) {
-  const e = (t.dataset.chartId || "").trim(), a = (t.dataset.chartTheme || "westeros").trim(), n = P(t), r = e ? document.getElementById(e) : null, i = window.echarts;
+function G(t) {
+  const e = (t.dataset.chartId || "").trim(), a = (t.dataset.chartTheme || "westeros").trim(), n = F(t), r = e ? document.getElementById(e) : null, i = window.echarts;
   if (!r || !n || !i) return;
   const s = i.getInstanceByDom(r) || i.init(r, a, { renderer: "canvas" });
-  if (s.setOption(n, !0), !f.has(t) && window.ResizeObserver) {
-    const d = new ResizeObserver(() => {
+  if (s.setOption(n, !0), !y.has(t) && window.ResizeObserver) {
+    const l = new ResizeObserver(() => {
       try {
         s.resize();
-      } catch (o) {
-        h.warn("[admin-dashboard] Chart resize failed", o);
+      } catch (d) {
+        p.warn("[admin-dashboard] Chart resize failed", d);
       }
     });
-    d.observe(r), f.set(t, d);
+    l.observe(r), y.set(t, l);
   }
 }
-async function y() {
+async function x() {
   const t = Array.from(document.querySelectorAll("[data-echart-widget]"));
   for (const e of t) {
     const a = (e.dataset.chartTheme || "westeros").trim(), n = e.dataset.chartAssetsHost || "";
     try {
-      await H(a, n), q(e);
+      await M(a, n), G(e);
     } catch (r) {
-      h.error("[admin-dashboard] Failed to hydrate chart widget", r);
+      p.error("[admin-dashboard] Failed to hydrate chart widget", r);
     }
   }
 }
-function V() {
+function Y() {
   const t = document.getElementById("admin-dashboard-config");
   if (!t?.textContent) {
-    h.error("[admin-dashboard] Missing #admin-dashboard-config element");
+    p.error("[admin-dashboard] Missing #admin-dashboard-config element");
     return;
   }
   try {
-    W(JSON.parse(t.textContent)).catch((e) => {
-      h.error("[admin-dashboard] Failed to initialize:", e);
+    R(JSON.parse(t.textContent)).catch((e) => {
+      p.error("[admin-dashboard] Failed to initialize:", e);
     });
   } catch (e) {
-    h.error("[admin-dashboard] Invalid config JSON:", e);
+    p.error("[admin-dashboard] Invalid config JSON:", e);
   }
 }
 export {
-  T as DefaultDragDropBehavior,
-  j as DefaultPersistenceBehavior,
-  C as DefaultResizeBehavior,
-  N as DefaultVisibilityBehavior,
-  k as WidgetGrid,
-  L as WidgetRenderer,
-  V as bootstrapAdminDashboard,
-  R as echartsThemeScriptURL,
-  W as initAdminDashboard
+  N as DefaultDragDropBehavior,
+  B as DefaultPersistenceBehavior,
+  z as DefaultResizeBehavior,
+  j as DefaultVisibilityBehavior,
+  D as WidgetGrid,
+  I as WidgetRenderer,
+  Y as bootstrapAdminDashboard,
+  q as echartsThemeScriptURL,
+  R as initAdminDashboard,
+  F as parseChartOptions
 };
 
 //# sourceMappingURL=index.js.map

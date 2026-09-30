@@ -143,7 +143,10 @@ async function ensureEChartsAssets(theme: string, assetsHost: string): Promise<v
   await ensureScript(echartsThemeScriptURL(theme, host));
 }
 
-function parseChartOptions(container: HTMLElement): Record<string, any> | null {
+/**
+ * Parse the chart options embedded in a chart container's JSON script element
+ */
+export function parseChartOptions(container: HTMLElement): Record<string, any> | null {
   const payloadEl = container.querySelector('script[data-chart-options]');
   if (!payloadEl?.textContent) {
     return null;
