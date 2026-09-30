@@ -1,6 +1,27 @@
 # Changelog
 
+# [0.138.2](https://github.com/goliatone/go-admin/compare/v0.138.1...v0.138.2) - (2026-09-30)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Chart improvements ([8c0ce6c](https://github.com/goliatone/go-admin/commit/8c0ce6c12c20c27ac223726efa74439dd491a0b8))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Better chart setup ([233cfe5](https://github.com/goliatone/go-admin/commit/233cfe50f8bb1f974fbeba68de7800fc54ffd230))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([29bfd21](https://github.com/goliatone/go-admin/commit/29bfd211e61855b28c19caddc68d92a6e9589336))  - (goliatone)
+
 # [0.138.1](https://github.com/goliatone/go-admin/compare/v0.138.0...v0.138.1) - (2026-09-29)
+
+
+New patch release: v0.138.1
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.138.1 ([c0bb2f3](https://github.com/goliatone/go-admin/commit/c0bb2f32c092684f2fb22155dd361615e1652c04))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
