@@ -312,7 +312,7 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 		csrfRequest := httptest.NewRequestWithContext(
 			t.Context(),
 			http.MethodGet,
-			"http://example.com/admin/onboarding-csrf",
+			"/admin/onboarding-csrf",
 			nil,
 		)
 		csrfResponse, err := app.Test(csrfRequest, -1)

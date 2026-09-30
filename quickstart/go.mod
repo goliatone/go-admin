@@ -13,7 +13,7 @@ require (
 	github.com/goliatone/go-cache v0.3.1
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2
-	github.com/goliatone/go-dashboard v0.15.7
+	github.com/goliatone/go-dashboard v0.15.8
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-export v0.9.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.9.0
@@ -24,13 +24,13 @@ require (
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-notifications v0.16.1
 	github.com/goliatone/go-persistence-bun v0.17.1
-	github.com/goliatone/go-router v0.62.0
+	github.com/goliatone/go-router v0.62.1
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.26.1
+	github.com/goliatone/go-users v0.26.2
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -39,7 +39,7 @@ require (
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
 	github.com/valkey-io/valkey-go v1.0.72
-	golang.org/x/text v0.39.0
+	golang.org/x/text v0.41.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -123,7 +123,7 @@ require (
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.3 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
-	github.com/google/cel-go v0.26.1 // indirect
+	github.com/google/cel-go v0.30.0 // indirect
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -165,7 +165,6 @@ require (
 	github.com/showa-93/go-mask v0.6.2 // indirect
 	github.com/soongo/path-to-regexp v1.6.4 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	github.com/stoewer/go-strcase v1.3.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tidwall/gjson v1.14.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -194,11 +193,12 @@ require (
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
