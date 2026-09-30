@@ -189,10 +189,7 @@ func requestText[T any](t *testing.T, server router.Server[T], method, target st
 
 func requestHTTP[T any](t *testing.T, server router.Server[T], method, target string) *http.Response {
 	t.Helper()
-	req, err := http.NewRequestWithContext(context.Background(), method, target, nil)
-	if err != nil {
-		t.Fatalf("new request: %v", err)
-	}
+	req := httptest.NewRequestWithContext(context.Background(), method, target, nil)
 	switch wrapped := any(server.WrappedRouter()).(type) {
 	case http.Handler:
 		rec := httptest.NewRecorder()

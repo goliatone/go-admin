@@ -682,7 +682,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *te
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 
@@ -732,7 +732,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(csrfmw.DefaultHeaderName, "bogus")
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
@@ -783,7 +783,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	tokenReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/translations", nil)
+	tokenReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/translations", nil)
 	tokenReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	tokenResp, err := app.Test(tokenReq)
 	if err != nil {
@@ -802,7 +802,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 		t.Fatalf("expected csrf token from browser route")
 	}
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
@@ -832,7 +832,7 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProt
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Cookie", "session=opaque")
 	req.Header.Set("X-User-ID", "user-123")
@@ -879,7 +879,7 @@ func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t 
 	binding := newTranslationExchangeBinding(adm)
 	app := newTranslationExchangeTestApp(t, binding)
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "http://example.com/admin/api/translations/exchange/jobs/job-1", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/admin/api/translations/exchange/jobs/job-1", nil)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 
 	resp, err := app.Test(req)

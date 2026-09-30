@@ -401,7 +401,7 @@ func TestAuthUIBrowserCSRFRuntimeFailureReturnsGenericServerError(t *testing.T) 
 	t.Cleanup(func() { authUIBrowserCSRFRandRead = originalRandRead })
 
 	response, err := server.WrappedRouter().Test(
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.test/admin/login", nil),
+		newAuthUITestRequest(http.MethodGet, "http://example.test/admin/login", nil),
 		-1,
 	)
 	if err != nil {
@@ -418,7 +418,11 @@ func TestAuthUIBrowserCSRFRuntimeFailureReturnsGenericServerError(t *testing.T) 
 }
 
 func newAuthUITestRequest(method, target string, body io.Reader) *http.Request {
-	return httptest.NewRequestWithContext(context.Background(), method, target, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, target, body)
+	// Fiber dumps the request before parsing it; an absolute RequestURI omits
+	// the Host header. Preserve the target host and use an origin-form URI.
+	req.RequestURI = req.URL.RequestURI()
+	return req
 }
 
 func readAuthUITestResponseBody(t *testing.T, response *http.Response) []byte {
