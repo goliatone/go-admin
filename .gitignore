@@ -85,3 +85,5 @@ pkg/client/assets/test-results/.last-run.json
 
 **/*.db-shm
 **/*.db-wal
+.claude
+.codex

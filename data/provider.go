@@ -44,6 +44,9 @@ type AccessRequest struct {
 	Artifact  *ArtifactRef
 }
 type Policy interface {
+	// Return CodeDenied (or a legacy untyped denial) for denied access.
+	// Backend failures must use CodeProvider/CodeUnavailable; cancellation uses
+	// standard context causes. These fail closed without declaring grant loss.
 	Authorize(context.Context, Principal, AccessRequest) error
 }
 

@@ -156,7 +156,7 @@ func ParseClientCapabilities(value string) ClientCapabilities {
 		return ClientCapabilities{Mode: ClientCapabilitiesLegacy}
 	}
 	caps := ClientCapabilities{Mode: ClientCapabilitiesAdvertised, set: map[string]bool{}}
-	for _, item := range strings.Split(value, ",") {
+	for item := range strings.SplitSeq(value, ",") {
 		item = strings.ToLower(strings.TrimSpace(item))
 		if item == "" || len(caps.set) >= clientCapabilitiesMax || !capabilityIdentifier(item) {
 			continue

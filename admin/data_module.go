@@ -232,19 +232,15 @@ func (m *DataModule) allowAction(ctx context.Context, _ console.Identity, panel,
 	return false
 }
 func (m *DataModule) allowRecord(ctx context.Context, _ console.Identity, panel string, record console.Record) bool {
-	if projection := m.projection(ctx); projection != nil {
-		return m.allowProjectedRecord(ctx, projection.model, panel, record)
+	if m.projection(ctx) == nil {
+		var err error
+		ctx, err = m.prepareSnapshot(ctx, console.Identity{})
+		if err != nil {
+			return false
+		}
 	}
-	if record.TargetID != "" && record.TargetID != m.config.TargetID {
-		return false
-	}
-	if panel == DataPanelOperations {
-		op, err := m.config.Service.LookupOperation(ctx, record.Key)
-		return err == nil && op.Target.TargetID == m.config.TargetID
-	}
-	// State and evidence were loaded through authorized service reads. Delivery
-	// needs fresh read grants, not another full state-store read for every check.
-	return m.config.Service.AuthorizeView(ctx, m.config.TargetID) == nil
+	allowed, err := m.authorizeProjectedRecord(ctx, m.projection(ctx).model, panel, record)
+	return allowed && err == nil
 }
 
 type dataModuleReadModel struct {
@@ -290,24 +286,15 @@ func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error)
 	for _, receipt := range page.Receipts {
 		model.receipts = append(model.receipts, &receipt)
 	}
-	for _, id := range []string{model.state.Activation.ReceiptID, model.state.PendingReceiptID} {
-		if id == "" || slices.ContainsFunc(model.receipts, func(r *data.PreparationReceipt) bool { return r.ID == id }) {
-			continue
-		}
-		receipt, lookupErr := m.config.Service.LookupReceipt(ctx, m.config.TargetID, id)
-		if lookupErr != nil {
-			if data.ErrorCode(lookupErr) == data.CodeGone {
-				continue
-			}
-			return model, lookupErr
-		}
-		model.receipts = append(model.receipts, &receipt)
+	if err = m.pinModelReceipts(ctx, &model); err != nil {
+		return model, err
 	}
 	return model, nil
 }
 func (m *DataModule) permittedChoice(ctx context.Context, choice DataActionChoice, capabilities map[data.Kind]data.Capability) bool {
 	if projection := m.projection(ctx); projection != nil {
-		return m.permittedProjectedChoice(ctx, projection.model, choice, capabilities)
+		allowed, err := m.authorizeProjectedChoice(ctx, projection.model, choice, capabilities)
+		return allowed && err == nil
 	}
 	capability := capabilities[choice.Kind]
 	if choice.ReceiptInput {
@@ -482,4 +469,21 @@ func (model dataModuleReadModel) coverageRecords(revision uint64) []console.Reco
 		}
 	}
 	return out
+}
+
+func (m *DataModule) pinModelReceipts(ctx context.Context, model *dataModuleReadModel) error {
+	for _, id := range []string{model.state.Activation.ReceiptID, model.state.PendingReceiptID} {
+		if id == "" || slices.ContainsFunc(model.receipts, func(r *data.PreparationReceipt) bool { return r.ID == id }) {
+			continue
+		}
+		receipt, lookupErr := m.config.Service.LookupReceipt(ctx, m.config.TargetID, id)
+		if lookupErr != nil {
+			if data.ErrorCode(lookupErr) == data.CodeGone {
+				continue
+			}
+			return lookupErr
+		}
+		model.receipts = append(model.receipts, &receipt)
+	}
+	return nil
 }

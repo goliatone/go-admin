@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,11 +36,16 @@ var RequiredClientArchivePaths = []string{
 
 // CheckRequiredModuleSource applies x/mod's real directory classification to
 // moduleRoot and verifies that every required path is eligible for a module
-// archive.
+// archive. Aggregate checkout size is not an eligibility rule: local caches
+// and other untracked files may exceed the release archive limit.
+// CheckModuleArchive still enforces the limit on the exact archive source.
 func CheckRequiredModuleSource(moduleRoot string, requiredPaths []string) error {
 	checked, err := modzip.CheckDir(moduleRoot)
-	if err != nil {
+	if err != nil && !errors.Is(err, checked.SizeError) {
 		return fmt.Errorf("check module source %q: %w", moduleRoot, err)
+	}
+	if len(checked.Invalid) > 0 {
+		return fmt.Errorf("check module source %q: %w", moduleRoot, modzip.FileErrorList(checked.Invalid))
 	}
 	valid := make(map[string]struct{}, len(checked.Valid))
 	for _, file := range checked.Valid {
@@ -68,6 +74,9 @@ func CheckRequiredModuleSource(moduleRoot string, requiredPaths []string) error 
 // verifies that every required source-relative path is present in the exact
 // archive.
 func CheckModuleArchive(moduleRoot string, version module.Version, requiredPaths []string) error {
+	if _, err := modzip.CheckDir(moduleRoot); err != nil {
+		return fmt.Errorf("check module archive source %q: %w", moduleRoot, err)
+	}
 	if err := CheckRequiredModuleSource(moduleRoot, requiredPaths); err != nil {
 		return err
 	}

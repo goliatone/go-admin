@@ -1204,3 +1204,105 @@ func TestProjectionAuthorizationIsFreshAndNeverMutationAuthority(t *testing.T) {
 		t.Fatal("cancellation misclassified", err)
 	}
 }
+
+func TestAuthorizationBackendFailuresRetainCauses(t *testing.T) {
+	for _, source := range []string{"resolver", "policy"} {
+		for _, cause := range []error{data.Error(data.CodeProvider), data.Error(data.CodeUnavailable), context.Canceled, context.DeadlineExceeded} {
+			t.Run(source+"/"+cause.Error(), func(t *testing.T) {
+				f := newFixture(t)
+				cfg := f.serviceConfig(f.store)
+				wrapped := fmt.Errorf("authorization adapter: %w", cause)
+				if source == "resolver" {
+					cfg.Resolve = func(context.Context) (data.Principal, error) { return data.Principal{}, wrapped }
+				} else {
+					cfg.Policy = policyFunc(func(context.Context, data.Principal, data.AccessRequest) error { return wrapped })
+				}
+				service, err := data.NewService(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = service.AuthorizeView(t.Context(), "preview")
+				if !errors.Is(err, cause) || data.ErrorCode(err) == data.CodeDenied {
+					t.Fatal("backend error became denial", err)
+				}
+				if _, err = service.Run(t.Context(), data.Prepare, f.input); !errors.Is(err, cause) || f.provider.effects.Load() != 0 {
+					t.Fatal("backend failure did not fail closed", err)
+				}
+			})
+		}
+	}
+}
+
+func TestRecordAuthorizationBackendFailuresAreNotHidden(t *testing.T) {
+	f := newFixture(t)
+	prepared := run(t, f, data.Prepare, f.input)
+	successful(t, prepared)
+	cfg := f.serviceConfig(f.store)
+	cause := fmt.Errorf("receipt policy backend: %w", data.Error(data.CodeProvider))
+	cfg.Policy = policyFunc(func(_ context.Context, _ data.Principal, a data.AccessRequest) error {
+		if a.Operation != nil || a.Receipt != nil {
+			return cause
+		}
+		return nil
+	})
+	service, err := data.NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, call := range map[string]func() error{
+		"operation": func() error { _, err := service.LookupOperation(t.Context(), prepared.OperationID); return err },
+		"operations": func() error {
+			rows, err := service.Operations(t.Context(), "preview", 10)
+			if len(rows) != 0 {
+				t.Error("partial operation list")
+			}
+			return err
+		},
+		"receipt": func() error { _, err := service.LookupReceipt(t.Context(), "preview", prepared.Receipt.ID); return err },
+		"receipts": func() error {
+			page, err := service.Receipts(t.Context(), "preview", data.ReceiptQuery{Limit: 10})
+			if len(page.Receipts) != 0 {
+				t.Error("partial receipt page")
+			}
+			return err
+		},
+		"factory": func() error {
+			input := f.input
+			input.ReceiptID = prepared.Receipt.ID
+			return service.AuthorizeInput(t.Context(), data.Verify, input)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); !errors.Is(err, cause) || data.ErrorCode(err) != data.CodeProvider {
+				t.Fatal("backend failure became hidden record", err)
+			}
+		})
+	}
+}
+
+type deliveryDescribeProvider struct {
+	data.Provider
+	after func()
+}
+
+func (p deliveryDescribeProvider) Describe(ctx context.Context, principal data.Principal, ref data.DatasetRef) (data.Descriptor, error) {
+	d, err := p.Provider.Describe(ctx, principal, ref)
+	p.after()
+	return d, err
+}
+
+func TestDescribePreservesPostProviderCancellation(t *testing.T) {
+	f := newFixture(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	cfg := f.serviceConfig(f.store)
+	cfg.Providers = map[string]data.Provider{"sample": deliveryDescribeProvider{Provider: f.provider, after: cancel}}
+	service, err := data.NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := service.Describe(ctx, f.input.Dataset, "preview")
+	if !errors.Is(err, context.Canceled) || d.Dataset.Valid() {
+		t.Fatal("post-provider cancellation became denial or success", d, err)
+	}
+}

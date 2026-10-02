@@ -151,7 +151,7 @@ func consoleRecordValid(record console.Record) bool {
 }
 
 func (h *ConsoleHost) prepareRecord(ctx context.Context, identity console.Identity, panelID string, record console.Record) (console.Record, bool) {
-	if !consoleRecordValid(record) {
+	if !consoleRecordValid(record) || h.config.Access.DeliverRecord == nil && !h.config.Access.Record(ctx, identity, panelID, record) {
 		return console.Record{}, false
 	}
 	// Detach provider payloads before a masking callback or consumer receives them.
@@ -196,6 +196,9 @@ func (h *ConsoleHost) projectRecord(ctx context.Context, identity console.Identi
 	ctx, _, err := h.current(ctx, identity)
 	if err != nil {
 		return console.Record{}, false, err
+	}
+	if _, allowed := h.panel(ctx, identity, panelID); !allowed {
+		return console.Record{}, false, nil
 	}
 	record, allowed, err := h.deliverRecord(ctx, identity, panelID, record)
 	if err != nil {

@@ -86,8 +86,8 @@ func snapshotFixture(t *testing.T, before func(context.Context) error, policy sn
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := store.Close(); err != nil {
-			t.Error(err)
+		if closeErr := store.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	})
 	wrapped := &snapshotStore{OperationStore: store}
@@ -100,8 +100,8 @@ func snapshotFixture(t *testing.T, before func(context.Context) error, policy sn
 	}
 	d.Scenarios[0].Dataset = d.Dataset
 	provider := &snapshotProvider{moduleCatalogProvider: moduleCatalogProvider{dataRegistrationProvider{descriptor: d}}, before: before}
-	p := data.Principal{ActorID: "operator", ExecutionID: "operator", ScopeKey: "org", ModuleHash: hash, PolicyHash: hash, PermissionHash: hash}
-	ctx := context.WithValue(t.Context(), dataRegistrationPrincipalKey{}, p)
+	principal := data.Principal{ActorID: "operator", ExecutionID: "operator", ScopeKey: "org", ModuleHash: hash, PolicyHash: hash, PermissionHash: hash}
+	ctx := context.WithValue(t.Context(), dataRegistrationPrincipalKey{}, principal)
 	service, err := data.NewService(data.ServiceConfig{Providers: map[string]data.Provider{"sample": provider}, Target: dataRegistrationTarget{}, Store: wrapped, Policy: policy, Resolve: func(ctx context.Context) (data.Principal, error) {
 		p, ok := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
 		if !ok {
@@ -112,7 +112,7 @@ func snapshotFixture(t *testing.T, before func(context.Context) error, policy sn
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity := console.Identity{ConsoleID: "data", ApplicationID: "test", EnvironmentID: "dev", ActorID: p.ActorID, ScopeKey: p.ScopeKey}
+	identity := console.Identity{ConsoleID: "data", ApplicationID: "test", EnvironmentID: "dev", ActorID: principal.ActorID, ScopeKey: principal.ScopeKey}
 	m, err := NewDataModule(DataModuleConfig{Service: service, TargetID: "preview", Enabled: func() bool { return true }, ResolveIdentity: func(ctx context.Context) (console.Identity, error) {
 		p, ok := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
 		if !ok {
@@ -151,7 +151,7 @@ func TestDataSnapshotConcurrentIsolationAndCancellation(t *testing.T) {
 	var block atomic.Bool
 	block.Store(true)
 	m, p, _, ctx, id := snapshotFixture(t, func(ctx context.Context) error {
-		principal := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
+		principal := snapshotPrincipal(t, ctx)
 		if principal.ActorID == "operator" && block.Load() {
 			close(started)
 			<-ctx.Done()
@@ -167,7 +167,7 @@ func TestDataSnapshotConcurrentIsolationAndCancellation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("snapshot did not start")
 	}
-	other := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
+	other := snapshotPrincipal(t, ctx)
 	other.ActorID = "other"
 	other.ExecutionID = "other"
 	other.ScopeKey = "another-org"
@@ -181,9 +181,9 @@ func TestDataSnapshotConcurrentIsolationAndCancellation(t *testing.T) {
 	}
 	cancel()
 	select {
-	case err := <-result:
-		if !errors.Is(err, context.Canceled) || errors.Is(err, ErrForbidden) {
-			t.Fatal("cancellation became denial", err)
+	case snapshotErr := <-result:
+		if !errors.Is(snapshotErr, context.Canceled) || errors.Is(snapshotErr, ErrForbidden) {
+			t.Fatal("cancellation became denial", snapshotErr)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("canceled provider leaked work")
@@ -242,7 +242,7 @@ func TestDataSnapshotFreshGrantsAfterConstruction(t *testing.T) {
 					overview = panel
 				}
 			}
-			encoded, _ := json.Marshal(overview.Records)
+			encoded := snapshotJSON(t, overview.Records)
 			if strings.Contains(string(encoded), `"availability":"Available"`) {
 				t.Fatal("capability summary retained revoked grant", string(encoded))
 			}
@@ -267,7 +267,7 @@ func TestDataSnapshotReadBudgetAndDetachmentAcrossRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(second)
+	raw := snapshotJSON(t, second)
 	if strings.Contains(string(raw), "MUTATED") || p.catalogs.Load() != 2 || s.targets.Load() != 2 || s.operations.Load() != 2 || s.receipts.Load() != 2 {
 		t.Fatal("projection cached across requests or shared mutable data", string(raw))
 	}
@@ -342,7 +342,7 @@ func TestDataSnapshotBoundedWorkAndErrorPresentation(t *testing.T) {
 			rt := router.NewHTTPServer()
 			rt.Router().Get("/snapshot", func(c router.Context) error { c.SetContext(ctx); return h.handleSnapshot(c) })
 			response := httptest.NewRecorder()
-			rt.WrappedRouter().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/snapshot", nil))
+			rt.WrappedRouter().ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/snapshot", nil))
 			if response.Code != wantStatus || mode != "denied" && !strings.Contains(response.Body.String(), wantCode) {
 				t.Fatalf("misleading error: %d %s; expected %d %s", response.Code, response.Body.String(), wantStatus, wantCode)
 			}
@@ -367,7 +367,7 @@ func TestDataSnapshotOperationActorAndScopeIsolation(t *testing.T) {
 	}
 	s.getOps.Store(0)
 	for _, scope := range []string{"org", "foreign-org"} {
-		p := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
+		p := snapshotPrincipal(t, ctx)
 		p.ActorID = "other"
 		p.ExecutionID = "other"
 		p.ScopeKey = scope
@@ -375,11 +375,11 @@ func TestDataSnapshotOperationActorAndScopeIsolation(t *testing.T) {
 		actorID := id
 		actorID.ActorID = p.ActorID
 		actorID.ScopeKey = scope
-		snap, err := m.Console().Snapshot(actorCtx, actorID)
-		if err != nil {
-			t.Fatal(err)
+		snap, snapshotErr := m.Console().Snapshot(actorCtx, actorID)
+		if snapshotErr != nil {
+			t.Fatal(snapshotErr)
 		}
-		raw, _ := json.Marshal(snap)
+		raw := snapshotJSON(t, snap)
 		if strings.Contains(string(raw), result.OperationID) {
 			t.Fatal("foreign operation leaked", string(raw))
 		}
@@ -388,7 +388,7 @@ func TestDataSnapshotOperationActorAndScopeIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(own)
+	raw := snapshotJSON(t, own)
 	if !strings.Contains(string(raw), result.OperationID) {
 		t.Fatal("original actor lost operation")
 	}
@@ -446,7 +446,7 @@ func TestDataSnapshotRetainedReceiptAndHistoryReadBudget(t *testing.T) {
 	if provider.catalogs.Load() != 1 || provider.describes.Load() != 1 || store.targets.Load() != 1 || store.operations.Load() != 1 || store.receipts.Load() != 1 || store.getOps.Load() != 0 || store.getReceipts.Load() != 1 {
 		t.Fatal("history, evidence or choices repeated lifecycle reads")
 	}
-	raw, _ := json.Marshal(snap)
+	raw := snapshotJSON(t, snap)
 	if !strings.Contains(string(raw), input.ReceiptID) {
 		t.Fatal("active receipt outside receipt/history windows was not pinned")
 	}
@@ -514,7 +514,7 @@ func TestDataSnapshotRecordRevocationAfterLoad(t *testing.T) {
 			}
 		}
 		if panel.ID == DataPanelOverview {
-			raw, _ := json.Marshal(panel.Records)
+			raw := snapshotJSON(t, panel.Records)
 			if strings.Contains(string(raw), "latest_operation") || strings.Contains(string(raw), "dataset_label") {
 				t.Fatal("overview leaked revoked record details", string(raw))
 			}
@@ -553,10 +553,28 @@ func TestDataSnapshotEmptyCatalogRedactsRevokedHistory(t *testing.T) {
 	}
 	for _, panel := range snap.Panels {
 		if panel.ID == DataPanelOverview {
-			raw, _ := json.Marshal(panel.Records)
+			raw := snapshotJSON(t, panel.Records)
 			if strings.Contains(string(raw), "latest_operation") {
 				t.Fatal("empty catalog bypassed current history policy", string(raw))
 			}
 		}
 	}
+}
+
+func snapshotPrincipal(t *testing.T, ctx context.Context) data.Principal {
+	t.Helper()
+	principal, ok := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
+	if !ok {
+		t.Fatal("snapshot context has no Data principal")
+	}
+	return principal
+}
+
+func snapshotJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("encode snapshot: %v", err)
+	}
+	return encoded
 }

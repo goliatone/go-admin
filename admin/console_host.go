@@ -27,7 +27,7 @@ type ConsoleHostConfig struct {
 	// PrepareSnapshot optionally loads an invocation-owned projection shared by
 	// panel sources and definition filters. It must preserve context cancellation.
 	// Its context is never mutation authority or a cache of grants.
-	PrepareSnapshot      func(context.Context, console.Identity) (context.Context, error)
+	PrepareSnapshot func(context.Context, console.Identity) (context.Context, error)
 	// PrepareLookup supplies invocation-owned read data for lookup delivery.
 	// Like PrepareSnapshot it must retain cancellation and never cache grants.
 	PrepareLookup        func(context.Context, console.Identity) (context.Context, error)
@@ -83,7 +83,7 @@ func NewConsoleHost(config ConsoleHostConfig) (*ConsoleHost, error) {
 }
 
 func consoleHostConfigValid(config ConsoleHostConfig) bool {
-	return consoleIdentifierValid(config.ID) && config.Registry != nil && config.Enabled != nil && config.RequestIdentity != nil && config.Access.Resolve != nil && config.Access.Read != nil && config.Access.Panel != nil && config.Access.Record != nil && config.Snapshot != nil
+	return consoleIdentifierValid(config.ID) && config.Registry != nil && config.Enabled != nil && config.RequestIdentity != nil && config.Access.Resolve != nil && config.Access.Read != nil && config.Access.Panel != nil && (config.Access.Record != nil || config.Access.DeliverRecord != nil) && config.Snapshot != nil
 }
 
 func consoleIdentifierValid(id string) bool {
@@ -235,18 +235,9 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 		return console.Snapshot{}, err
 	}
 	snapshot := console.Snapshot{Identity: identity, Watermark: h.config.Events.Watermark(identity), Panels: []console.PanelSnapshot{}}
-	if h.config.PrepareSnapshot != nil {
-		prepared, prepareErr := h.config.PrepareSnapshot(ctx, identity)
-		if ctx.Err() != nil {
-			return console.Snapshot{}, ctx.Err()
-		}
-		if prepareErr != nil {
-			return console.Snapshot{}, prepareErr
-		}
-		if prepared == nil {
-			return console.Snapshot{}, validationDomainError("console snapshot preparer returned no context", nil)
-		}
-		ctx = prepared
+	ctx, err = prepareConsoleRead(ctx, identity, h.config.PrepareSnapshot, "snapshot")
+	if err != nil {
+		return console.Snapshot{}, err
 	}
 	for _, candidate := range h.config.Registry.Registrations() {
 		if ctx.Err() != nil {
@@ -269,18 +260,8 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 	}
 	// Finish every masking callback before delivery authorization. A later
 	// projector may observe/revoke grants for an earlier record or action.
-	for i := range snapshot.Panels {
-		panel := &snapshot.Panels[i]
-		prepared := []console.Record{}
-		for _, record := range panel.Records {
-			if ctx.Err() != nil {
-				return console.Snapshot{}, ctx.Err()
-			}
-			if projected, valid := h.prepareRecord(ctx, identity, panel.ID, record); valid {
-				prepared = append(prepared, projected)
-			}
-		}
-		panel.Records = prepared
+	if err = h.prepareSnapshotPanels(ctx, identity, snapshot.Panels); err != nil {
+		return console.Snapshot{}, err
 	}
 	// Re-resolve identity and filter exact declarations/records only after all
 	// source and masking work. Delivery hooks are policy/redaction-only.
@@ -288,26 +269,9 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 	if err != nil {
 		return console.Snapshot{}, err
 	}
-	panels := []console.PanelSnapshot{}
-	for _, panel := range snapshot.Panels {
-		def, ok := h.panel(currentCtx, identity, panel.ID)
-		if !ok {
-			continue
-		}
-		records := []console.Record{}
-		for _, record := range panel.Records {
-			if currentCtx.Err() != nil {
-				return console.Snapshot{}, currentCtx.Err()
-			}
-			projected, allowed, deliveryErr := h.deliverRecord(currentCtx, identity, panel.ID, record)
-			if deliveryErr != nil {
-				return console.Snapshot{}, deliveryErr
-			}
-			if allowed {
-				records = append(records, projected)
-			}
-		}
-		panels = append(panels, console.PanelSnapshot{PanelDefinition: def, Records: records})
+	panels, err := h.deliverSnapshotPanels(currentCtx, identity, snapshot.Panels)
+	if err != nil {
+		return console.Snapshot{}, err
 	}
 	// Projection can itself perform slow/current-policy reads. Never deliver a
 	// partial success after its deadline, shutdown or principal revocation.
@@ -386,7 +350,7 @@ func consoleGeneratedFieldErrors(action console.PanelUIAction, payload map[strin
 
 func consolePayloadValue(payload map[string]any, path string) any {
 	var current any = payload
-	for _, part := range strings.Split(path, ".") {
+	for part := range strings.SplitSeq(path, ".") {
 		object, ok := current.(map[string]any)
 		if !ok {
 			return nil
@@ -477,22 +441,18 @@ func (h *ConsoleHost) RequestStatus(ctx context.Context, identity console.Identi
 func (h *ConsoleHost) Lookup(ctx context.Context, identity console.Identity, panelID, recordKey string) (console.Record, error) {
 	ctx, done := h.operationContext(ctx)
 	defer done()
+	ctx, cancel := context.WithTimeout(ctx, h.config.SnapshotTimeout)
+	defer cancel()
 	ctx, identity, err := h.current(ctx, identity)
 	if err != nil {
 		return console.Record{}, err
 	}
-	if h.config.PrepareLookup != nil {
-		prepared, prepareErr := h.config.PrepareLookup(ctx, identity)
-		if ctx.Err() != nil {
-			return console.Record{}, ctx.Err()
-		}
-		if prepareErr != nil {
-			return console.Record{}, prepareErr
-		}
-		if prepared == nil {
-			return console.Record{}, validationDomainError("console lookup preparer returned no context", nil)
-		}
-		ctx = prepared
+	if _, ok := h.config.Registry.Registration(panelID); !ok || h.config.Lookup == nil {
+		return console.Record{}, ErrNotFound
+	}
+	ctx, err = prepareConsoleRead(ctx, identity, h.config.PrepareLookup, "lookup")
+	if err != nil {
+		return console.Record{}, err
 	}
 	def, ok := h.panel(ctx, identity, panelID)
 	if !ok || h.config.Lookup == nil {
@@ -523,4 +483,63 @@ func (h *ConsoleHost) Lookup(ctx context.Context, identity console.Identity, pan
 		return projected, nil
 	}
 	return console.Record{}, ErrNotFound
+}
+
+func (h *ConsoleHost) deliverSnapshotPanels(ctx context.Context, identity console.Identity, source []console.PanelSnapshot) ([]console.PanelSnapshot, error) {
+	panels := []console.PanelSnapshot{}
+	for _, panel := range source {
+		def, ok := h.panel(ctx, identity, panel.ID)
+		if !ok {
+			continue
+		}
+		records := []console.Record{}
+		for _, record := range panel.Records {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			projected, allowed, deliveryErr := h.deliverRecord(ctx, identity, panel.ID, record)
+			if deliveryErr != nil {
+				return nil, deliveryErr
+			}
+			if allowed {
+				records = append(records, projected)
+			}
+		}
+		panels = append(panels, console.PanelSnapshot{PanelDefinition: def, Records: records})
+	}
+	return panels, nil
+}
+
+func (h *ConsoleHost) prepareSnapshotPanels(ctx context.Context, identity console.Identity, panels []console.PanelSnapshot) error {
+	for i := range panels {
+		panel := &panels[i]
+		prepared := []console.Record{}
+		for _, record := range panel.Records {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if projected, valid := h.prepareRecord(ctx, identity, panel.ID, record); valid {
+				prepared = append(prepared, projected)
+			}
+		}
+		panel.Records = prepared
+	}
+	return nil
+}
+
+func prepareConsoleRead(ctx context.Context, identity console.Identity, prepare func(context.Context, console.Identity) (context.Context, error), operation string) (context.Context, error) {
+	if prepare == nil {
+		return ctx, nil
+	}
+	prepared, err := prepare(ctx, identity)
+	if ctx.Err() != nil {
+		return ctx, ctx.Err()
+	}
+	if err != nil {
+		return ctx, err
+	}
+	if prepared == nil {
+		return ctx, validationDomainError("console "+operation+" preparer returned no context", nil)
+	}
+	return prepared, nil
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"golang.org/x/mod/module"
+	modzip "golang.org/x/mod/zip"
 )
 
 func TestWriteModuleProxySupportsReadonlyConsumerDownload(t *testing.T) {
@@ -70,5 +71,34 @@ func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func TestRequiredSourceEligibilityIsIndependentOfCheckoutSize(t *testing.T) {
+	moduleRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(moduleRoot, "go.mod"), "module example.com/release/root\n\ngo 1.26.5\n")
+	writeTestFile(t, filepath.Join(moduleRoot, "required.js"), "export const value = 1;\n")
+	large, err := os.Create(filepath.Join(moduleRoot, "local-cache"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	truncateErr := large.Truncate(modzip.MaxZipFile + 1)
+	closeErr := large.Close()
+	if truncateErr != nil || closeErr != nil {
+		t.Fatalf("create sparse local cache: truncate=%v close=%v", truncateErr, closeErr)
+	}
+	if eligibilityErr := CheckRequiredModuleSource(moduleRoot, []string{"required.js"}); eligibilityErr != nil {
+		t.Fatalf("local checkout size changed required-path eligibility: %v", eligibilityErr)
+	}
+	if eligibilityErr := CheckRequiredModuleSource(moduleRoot, []string{"missing.js"}); eligibilityErr == nil {
+		t.Fatal("oversized checkout concealed a missing required file")
+	}
+	version := module.Version{Path: "example.com/release/root", Version: "v1.0.0"}
+	if archiveErr := CheckModuleArchive(moduleRoot, version, []string{"required.js"}); archiveErr == nil {
+		t.Fatal("oversized release archive was accepted")
+	}
+	writeTestFile(t, filepath.Join(moduleRoot, "bad:name"), "invalid module path\n")
+	if eligibilityErr := CheckRequiredModuleSource(moduleRoot, []string{"required.js"}); eligibilityErr == nil {
+		t.Fatal("aggregate size error concealed an invalid source path")
 	}
 }
