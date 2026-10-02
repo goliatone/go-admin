@@ -416,8 +416,9 @@ func TestDataConsolePageFixtureMatchesPackagedTemplate(t *testing.T) {
 func TestDataConsolePageExtendsTheNeutralShellWithoutDebug(t *testing.T) {
 	page := renderDataConsolePage(t, dataConsoleBootstrap(console.Snapshot{Identity: dataConsoleIdentity, Panels: []console.PanelSnapshot{}}))
 	for _, fragment := range []string{
-		`class="console-root" data-console-root data-console-id="data"`, `data-data-console-intro`,
-		`does not change the active dataset until an activation completes`,
+		`class="console-root" id="console-data" data-console-root data-console-id="data"`, `data-data-console-intro`,
+		`data-console-page-actions data-console-for="console-data"`,
+		`Preparing or verifying never changes what a target serves.`,
 		`href="/admin/assets/dist/styles/console.css"`, `src="/admin/assets/dist/console/index.js"`,
 		`<script type="application/json" data-console-bootstrap>`,
 	} {

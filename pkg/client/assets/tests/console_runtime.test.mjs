@@ -14,6 +14,7 @@ import {
   operationsPanel,
   snapshot,
   targetsPanel,
+  urls,
 } from './fixtures/console-inputs.mjs';
 
 async function loadJSDOM() {
@@ -684,6 +685,173 @@ test('storage failures and tab keyboard navigation do not break the console', as
   root.querySelector('[data-console-tab="targets"]').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'End', bubbles: true }));
   assert.equal(runtime.getActivePanel(), 'broken');
   assert.equal(root.querySelector('[data-console-panel]').getAttribute('aria-labelledby'), `${runtime.idScope}-tab-broken`);
+  runtime.destroy();
+});
+
+// Page header controls rendered by resources/console/base.html outside the root.
+function pageControls(forId) {
+  const group = win.document.createElement('div');
+  group.className = 'console-page-actions';
+  group.setAttribute('data-console-page-actions', '');
+  group.setAttribute('data-console-for', forId);
+  group.innerHTML = `
+    <span class="console-connection" data-console-status data-status="offline"><span class="console-connection__dot"></span><span data-console-connection>Not live</span></span>
+    <button type="button" class="console-btn" data-console-action="refresh" disabled><span>Refresh</span></button>
+  `;
+  win.document.body.appendChild(group);
+  return group;
+}
+
+function pageRoot(payload, id, attributes = '') {
+  const root = win.document.createElement('section');
+  root.setAttribute('data-console-root', '');
+  root.setAttribute('data-console-manual', '');
+  if (id) root.id = id;
+  for (const attribute of attributes.split(/\s+/).filter(Boolean)) root.setAttribute(attribute, '');
+  root.innerHTML = `<script type="application/json" data-console-bootstrap>${JSON.stringify(payload).replace(/</g, '\\u003c')}</script>`;
+  win.document.body.appendChild(root);
+  return root;
+}
+
+const snapshotGets = (prefix) => fetchCalls.filter((call) => call.method === 'GET' && call.url === `${prefix}/api/snapshot`).length;
+
+test('page header live status and Refresh bind to their own root by DOM id', async () => {
+  resetEnvironment();
+  const firstGroup = pageControls('console-data-a');
+  const secondGroup = pageControls('console-data-b');
+  const firstRoot = pageRoot(bootstrap(), 'console-data-a');
+  const otherUrls = { ...urls, snapshot: '/admin/data-b/api/snapshot', live: '/admin/data-b/ws' };
+  const secondRoot = pageRoot(bootstrap({ urls: otherUrls }), 'console-data-b');
+  const first = mountConsole(firstRoot, { live: true, recoveryDelaysMs: [5] });
+  const second = mountConsole(secondRoot, { live: true, recoveryDelaysMs: [5] });
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 2));
+  assert.equal(first.identity.console_id, second.identity.console_id, 'both instances share console id "data"');
+  assert.equal(firstRoot.dataset.consoleControls, 'page');
+  assert.equal(secondRoot.dataset.consoleControls, 'page');
+  const firstRefresh = firstGroup.querySelector('[data-console-action="refresh"]');
+  const secondRefresh = secondGroup.querySelector('[data-console-action="refresh"]');
+  assert.equal(firstRefresh.disabled, false, 'a bound Refresh is enabled');
+  assert.equal(secondRefresh.disabled, false);
+
+  const [firstSocket] = FakeSocket.instances;
+  firstSocket.open();
+  firstSocket.message(snapshot());
+  await waitFor(() => assert.equal(firstGroup.querySelector('[data-console-connection]').textContent, 'Live'));
+  assert.equal(firstGroup.querySelector('[data-console-status]').dataset.status, 'connected');
+  assert.notEqual(secondGroup.querySelector('[data-console-connection]').textContent, 'Live', 'live state is per instance');
+
+  firstRefresh.click();
+  await waitFor(() => assert.equal(snapshotGets('/admin/data'), 1));
+  assert.equal(snapshotGets('/admin/data-b'), 0, 'one header never refreshes another instance');
+  secondRefresh.click();
+  await waitFor(() => assert.equal(snapshotGets('/admin/data-b'), 1));
+  assert.equal(snapshotGets('/admin/data'), 1);
+
+  first.destroy();
+  assert.equal(firstRefresh.disabled, true, 'disposal disables the bound Refresh');
+  assert.equal(firstGroup.querySelector('[data-console-connection]').textContent, 'Not live');
+  assert.equal(firstGroup.querySelector('[data-console-status]').dataset.status, 'offline');
+  firstRefresh.disabled = false;
+  firstRefresh.click();
+  await settle();
+  assert.equal(snapshotGets('/admin/data'), 1, 'disposal releases the header listener');
+  secondRefresh.click();
+  await waitFor(() => assert.equal(snapshotGets('/admin/data-b'), 2, 'the other instance keeps its binding'));
+
+  firstRefresh.disabled = true;
+  const remounted = mountConsole(firstRoot, { live: false, recoveryDelaysMs: [5] });
+  assert.equal(firstRoot.dataset.consoleControls, 'page', 'a released group binds again on remount');
+  assert.equal(firstRefresh.disabled, false);
+  remounted.destroy();
+  second.destroy();
+});
+
+test('ambiguous or foreign page header bindings bind nothing', async () => {
+  resetEnvironment();
+  const duplicates = [pageControls('console-twice'), pageControls('console-twice')];
+  const doubled = pageRoot(bootstrap(), 'console-twice');
+  const doubledRuntime = mountConsole(doubled, { live: false });
+  assert.equal(doubled.dataset.consoleControls, 'ambiguous', 'two groups for one root are rejected');
+  duplicates.forEach((group) => {
+    assert.equal(group.querySelector('[data-console-action="refresh"]').disabled, true);
+    group.querySelector('[data-console-action="refresh"]').disabled = false;
+    group.querySelector('[data-console-action="refresh"]').click();
+  });
+  await settle();
+  assert.equal(snapshotGets('/admin/data'), 0, 'unbound controls dispatch nothing');
+  doubledRuntime.destroy();
+
+  resetEnvironment();
+  const shared = pageControls('console-same');
+  const left = pageRoot(bootstrap(), 'console-same');
+  const right = pageRoot(bootstrap(), 'console-same');
+  const leftRuntime = mountConsole(left, { live: false });
+  const rightRuntime = mountConsole(right, { live: false });
+  assert.equal(left.dataset.consoleControls, 'ambiguous', 'a duplicated root id never binds');
+  assert.equal(right.dataset.consoleControls, 'ambiguous');
+  assert.equal(shared.querySelector('[data-console-action="refresh"]').disabled, true);
+  leftRuntime.destroy();
+  rightRuntime.destroy();
+
+  resetEnvironment();
+  const anonymous = pageRoot(bootstrap(), '');
+  pageControls('');
+  const anonymousRuntime = mountConsole(anonymous, { live: false });
+  assert.equal(anonymous.dataset.consoleControls, 'none', 'a root without an id binds nothing');
+  anonymousRuntime.destroy();
+
+  resetEnvironment();
+  const host = pageRoot(bootstrap(), 'console-host');
+  const nested = pageControls('console-guest');
+  host.appendChild(nested);
+  const guest = pageRoot(bootstrap(), 'console-guest');
+  const hostRuntime = mountConsole(host, { live: false });
+  const guestRuntime = mountConsole(guest, { live: false });
+  assert.equal(guest.dataset.consoleControls, 'none', 'groups inside another console root are ignored');
+  hostRuntime.destroy();
+  guestRuntime.destroy();
+});
+
+test('in-root controls take precedence and display widgets never bind header controls', async () => {
+  resetEnvironment();
+  const group = pageControls('console-inline');
+  const root = pageRoot(bootstrap(), 'console-inline');
+  root.insertAdjacentHTML('afterbegin', '<div class="console-header"><span class="console-connection" data-console-status data-status="offline"><span data-console-connection>Not live</span></span><button type="button" class="console-btn" data-console-action="refresh">Refresh</button></div>');
+  const runtime = mountConsole(root, { live: false, recoveryDelaysMs: [5] });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  assert.equal(root.dataset.consoleControls, 'root');
+  assert.equal(group.querySelector('[data-console-action="refresh"]').disabled, true, 'the page group stays unbound');
+  root.querySelector('[data-console-action="refresh"]').click();
+  await waitFor(() => assert.equal(snapshotGets('/admin/data'), 1, 'the in-root Refresh drives this instance'));
+  runtime.destroy();
+  assert.equal(root.querySelector('[data-console-action="refresh"]').disabled, true, 'disposal disables in-root Refresh too');
+
+  resetEnvironment();
+  const widgetGroup = pageControls('console-widget');
+  const widget = pageRoot({}, 'console-widget', 'data-console-display');
+  widget.querySelector('script').remove();
+  const golden = JSON.parse(fs.readFileSync(path.resolve(dist, '../tests/fixtures/console-contract.json'), 'utf8'));
+  widget.insertAdjacentHTML('beforeend', `<script type="application/json" data-console-widget>${JSON.stringify(golden.widget).replace(/</g, '\\u003c')}</script>`);
+  const display = mountConsole(widget);
+  await waitFor(() => assert.equal(display.getState(), 'ready'));
+  assert.notEqual(widget.dataset.consoleControls, 'page', 'display-only widgets never bind header controls');
+  assert.equal(widgetGroup.querySelector('[data-console-action="refresh"]').disabled, true);
+  display.destroy();
+});
+
+test('denied access disables the bound Refresh and clears live status', async () => {
+  resetEnvironment();
+  const group = pageControls('console-denied');
+  fetchRoute = () => jsonResponse({ error: { code: 'FORBIDDEN', message: 'revoked' } }, 403);
+  const root = pageRoot(bootstrap({ snapshot: undefined }), 'console-denied');
+  const runtime = mountConsole(root, { live: false, recoveryDelaysMs: [5] });
+  await waitFor(() => assert.equal(runtime.getState(), 'denied'));
+  const refresh = group.querySelector('[data-console-action="refresh"]');
+  assert.equal(refresh.disabled, true, 'Refresh cannot restore access');
+  assert.equal(group.querySelector('[data-console-connection]').textContent, 'Not live');
+  assert.equal(group.querySelector('[data-console-status]').dataset.status, 'offline');
+  assert.match(root.querySelector('[data-console-notice]').textContent, /do not have access/);
+  assert.ok(root.querySelector('[data-console-action="reload"]'), 'the in-root notice offers Reload');
   runtime.destroy();
 });
 

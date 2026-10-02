@@ -28,7 +28,7 @@ const types = new Map([
 ]);
 
 const bootstraps = { data: golden.bootstrap, ops: golden.second_bootstrap };
-const state = { revoked: new Set(), actions: [] };
+const state = { revoked: new Set(), actions: [], snapshots: { data: 0, ops: 0 } };
 
 function jsonForScript(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
@@ -40,9 +40,15 @@ function twoConsolePage() {
   const start = consolePage.indexOf('<section class="console-root"');
   const bootstrapAt = consolePage.indexOf('data-console-bootstrap', start);
   const end = consolePage.indexOf('</section>', bootstrapAt) + '</section>'.length;
-  if (start < 0 || bootstrapAt < 0 || end <= start) throw new Error('console shell section not found in fixture');
-  const shell = consolePage.slice(start, end);
+  const headerStart = consolePage.indexOf('<div class="console-page-actions"');
+  const headerEnd = consolePage.indexOf('</div>', headerStart) + '</div>'.length;
+  if (start < 0 || bootstrapAt < 0 || end <= start || headerStart < 0 || headerEnd <= headerStart) {
+    throw new Error('console shell section or page header controls not found in fixture');
+  }
+  // Each console keeps its own header group, bound by the root's DOM ID.
+  const shell = consolePage.slice(headerStart, headerEnd) + consolePage.slice(start, end);
   const second = shell
+    .replaceAll('"console-data"', '"console-ops"')
     .replace('data-console-id="data"', 'data-console-id="ops"')
     .replaceAll('Data operations', 'Operations review')
     .replace(/(data-console-bootstrap>)[\s\S]*?(<\/script>)/, (_match, open, close) => `${open}${jsonForScript(golden.second_bootstrap)}${close}`);
@@ -73,6 +79,7 @@ const server = createServer((request, response) => {
   const snapshot = pathname.match(/^\/fixture\/(data|ops)\/api\/snapshot$/);
   if (snapshot) {
     const id = snapshot[1];
+    state.snapshots[id] += 1;
     if (state.revoked.has(id)) return send(response, 403, { error: { code: 'FORBIDDEN', message: 'console access changed' } });
     return send(response, 200, bootstraps[id].snapshot);
   }
@@ -169,10 +176,19 @@ async function verifyDesktop(label, browser, origin) {
     check(new URL(socket.url()).search === '?panels=operations%2Ctargets%2Caudit', `${label}: live selection ${socket.url()}`);
 
     socket.send(JSON.stringify(golden.bootstrap.snapshot));
+    const header = '[data-admin-page-actions] [data-console-page-actions][data-console-for="console-data"]';
+    await eventually(async () => (await page.locator(`${header} span[data-console-connection]`).textContent()) === 'Live', `${label}: page header connection indicator`);
+    check(await page.getAttribute(`${header} [data-console-status]`, 'data-status') === 'connected', `${label}: page header live state`);
+    check(await page.getAttribute('[data-console-root]', 'data-console-live') === 'connected', `${label}: root live state`);
+    check(await page.getAttribute('[data-console-root]', 'data-console-controls') === 'page', `${label}: header bound by root DOM id`);
+    check(await page.locator('[data-console-root] [data-console-status]').count() === 0, `${label}: no duplicate in-root status`);
+    // The fixture serves the bootstrap snapshot, so refresh before live events advance past it.
+    const before = state.snapshots.data;
+    await page.click(`${header} [data-console-action="refresh"]`);
+    await eventually(async () => state.snapshots.data === before + 1, `${label}: page header Refresh recovers this console`);
+    await eventually(async () => (await page.getAttribute('[data-console-root]', 'data-console-sync')) === 'current', `${label}: refreshed snapshot applied`);
     socket.send(JSON.stringify(golden.upsert));
     await eventually(async () => /succeeded/.test(await bodyText(page)), `${label}: live upsert applied`);
-    check(await page.locator('[data-console-root] span[data-console-connection]').textContent() === 'Live', `${label}: connection indicator`);
-    check(await page.getAttribute('[data-console-root]', 'data-console-live') === 'connected', `${label}: root live state`);
 
     await page.focus('[data-console-tab="operations"]');
     await page.keyboard.press('ArrowRight');
@@ -216,6 +232,8 @@ async function verifyDesktop(label, browser, origin) {
     state.revoked.add('data');
     socket.close({ code: 1008, reason: 'console access changed' });
     await eventually(async () => (await consoleState(page)) === 'denied', `${label}: revocation denies`);
+    check(await page.locator(`${header} [data-console-action="refresh"]`).isDisabled(), `${label}: denial disables the page header Refresh`);
+    check(await page.locator(`${header} span[data-console-connection]`).textContent() === 'Not live', `${label}: denial clears the live status`);
     check(await page.locator('[data-console-tabs]').isHidden(), `${label}: tabs hidden after denial`);
     check((await bodyText(page)).trim() === '', `${label}: records cleared after denial`);
     check(/do not have access/.test(await page.textContent('[data-console-notice]')), `${label}: denial notice`);
@@ -245,8 +263,16 @@ async function verifyMobile(label, browser, origin, isMobile) {
         fieldRatio: form ? form.querySelector('select').getBoundingClientRect().width / form.getBoundingClientRect().width : 0,
         searchHeight: consoleRoot.querySelector('[data-console-filters] .console-filter--grow')?.getBoundingClientRect().height ?? 0,
         tabsScroll: getComputedStyle(consoleRoot.querySelector('[data-console-tabs]')).overflowX,
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        header: (() => {
+          const group = document.querySelector('[data-console-page-actions][data-console-for="console-data"]');
+          const box = group?.getBoundingClientRect();
+          return box ? { visible: box.width > 0 && box.height > 0, right: box.right, refresh: !group.querySelector('[data-console-action="refresh"]').disabled } : null;
+        })(),
       };
     });
+    check(layout.pageOverflow <= 1, `${label}: page overflows a 375px viewport by ${layout.pageOverflow}px`);
+    check(layout.header?.visible && layout.header.right <= 376 && layout.header.refresh, `${label}: page header live status and Refresh stay reachable (${JSON.stringify(layout.header)})`);
     check(layout.searchHeight > 0 && layout.searchHeight <= 72, `${label}: stacked search filter keeps content height (${layout.searchHeight}px)`);
     check(layout.overflow <= 1, `${label}: console overflows a 375px viewport by ${layout.overflow}px`);
     check(layout.formDirection === 'column', `${label}: action form stacks on mobile (${layout.formDirection})`);
@@ -287,6 +313,15 @@ async function verifyTwoConsoles(label, browser, origin) {
     check(isolation.duplicateIds.length === 0, `${label}: duplicate element ids ${isolation.duplicateIds.join(',')}`);
     check(isolation.debugRegistry === false, `${label}: Debug runtime must not load on a Debug-disabled host`);
     check(isolation.operationsPanels === 2, `${label}: both consoles render the shared panel id`);
+
+    const opsBefore = state.snapshots.ops;
+    const dataBefore = state.snapshots.data;
+    await page.click('[data-console-for="console-ops"] [data-console-action="refresh"]');
+    await eventually(async () => state.snapshots.ops === opsBefore + 1, `${label}: ops header Refresh recovers ops`);
+    await page.waitForTimeout(200);
+    check(state.snapshots.data === dataBefore, `${label}: ops header Refresh never refreshes data`);
+    const bindings = await page.evaluate(() => Array.from(document.querySelectorAll('[data-console-root]'), (root) => `${root.id}:${root.dataset.consoleControls}`));
+    check(bindings.join(',') === 'console-data:page,console-ops:page', `${label}: each root binds its own header (${bindings})`);
 
     await page.click('[data-console-id="ops"] [data-console-tab="audit"]');
     const keys = await page.evaluate(() => Object.keys(sessionStorage));

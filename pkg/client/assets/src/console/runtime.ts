@@ -71,6 +71,8 @@ type ActionResultView = {
 type NoticeKind = 'none' | 'loading' | 'error' | 'denied';
 
 const ROOT_SELECTOR = '[data-console-root]';
+/** Page header group carrying live status and Refresh for one root. */
+const PAGE_CONTROLS_SELECTOR = '[data-console-page-actions][data-console-for]';
 const BOOTSTRAP_SELECTOR = 'script[type="application/json"][data-console-bootstrap]';
 const WIDGET_SELECTOR = 'script[type="application/json"][data-console-widget]';
 const LIST_RENDERERS = new Set(['table', 'status_list', 'timeline']);
@@ -86,6 +88,8 @@ const POLICY_CLOSE_LIMIT = 3;
 const POLICY_CLOSE_WINDOW_MS = 60000;
 
 const mounted = new WeakMap<HTMLElement, ConsoleRuntime>();
+/** Page header groups claimed by a live runtime; a group serves one instance. */
+const boundPageControls = new WeakMap<HTMLElement, ConsoleRuntime>();
 let instanceSequence = 0;
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -218,6 +222,9 @@ export class ConsoleRuntime {
     notice: HTMLElement;
     connection: HTMLElement | null;
     status: HTMLElement | null;
+    refresh: HTMLButtonElement | null;
+    /** Page header group bound to this root, when the controls live outside it. */
+    pageControls: HTMLElement | null;
   };
 
   private state: ConsoleRuntimeState = 'loading';
@@ -336,6 +343,7 @@ export class ConsoleRuntime {
     this.cancelFrame?.();
     this.cancelFrame = null;
     this.cleanup.splice(0).forEach((release) => release());
+    this.releaseHeaderControls();
     this.registry.dispose();
     this.store.clear();
     this.serverDefinitions.clear();
@@ -679,6 +687,8 @@ export class ConsoleRuntime {
     this.preferences.clear();
     this.activePanel = '';
     this.setConnection('offline');
+    // Refresh cannot restore access; the notice offers Reload instead.
+    this.setRefreshEnabled(false);
     const message = error.status === 401
       ? 'Your session expired. Sign in again to continue.'
       : error.code === 'IDENTITY_CHANGED'
@@ -834,14 +844,68 @@ export class ConsoleRuntime {
     panel.id = panel.id || `${this.idScope}-panel`;
     panel.setAttribute('role', 'tabpanel');
     panel.tabIndex = 0;
+    return { tabs, filters, panel, notice, ...this.resolveHeaderControls(own) };
+  }
+
+  /**
+   * Live status and Refresh. Controls inside the root win (standalone hosts);
+   * otherwise exactly one page header group whose data-console-for names this
+   * root's unique DOM ID. A console ID alone can repeat on a page, so a missing
+   * or duplicated root ID, a second group or a group another instance holds
+   * binds nothing rather than letting one control drive another instance.
+   */
+  private resolveHeaderControls(own: <T extends HTMLElement>(selector: string) => T | null): Pick<ConsoleRuntime['regions'], 'connection' | 'status' | 'refresh' | 'pageControls'> {
+    const connection = own<HTMLElement>('[data-console-connection]');
+    const status = own<HTMLElement>('[data-console-status]');
+    const refresh = own<HTMLButtonElement>('button[data-console-action="refresh"]');
+    if (connection || status || refresh) {
+      this.root.dataset.consoleControls = 'root';
+      return { connection, status, refresh, pageControls: null };
+    }
+    const group = this.options.display ? null : this.pageControlsGroup();
+    if (!group) return { connection: null, status: null, refresh: null, pageControls: null };
+    boundPageControls.set(group, this);
+    this.root.dataset.consoleControls = 'page';
     return {
-      tabs,
-      filters,
-      panel,
-      notice,
-      connection: own<HTMLElement>('[data-console-connection]'),
-      status: own<HTMLElement>('[data-console-status]'),
+      connection: group.querySelector<HTMLElement>('[data-console-connection]'),
+      status: group.querySelector<HTMLElement>('[data-console-status]'),
+      refresh: group.querySelector<HTMLButtonElement>('button[data-console-action="refresh"]'),
+      pageControls: group,
     };
+  }
+
+  private pageControlsGroup(): HTMLElement | null {
+    const id = this.root.id;
+    const doc = this.root.ownerDocument;
+    const groups = id
+      ? Array.from(doc.querySelectorAll<HTMLElement>(PAGE_CONTROLS_SELECTOR))
+        .filter((group) => group.getAttribute('data-console-for') === id && !group.closest(ROOT_SELECTOR))
+      : [];
+    if (groups.length === 0) {
+      this.root.dataset.consoleControls = 'none';
+      return null;
+    }
+    const unique = doc.querySelectorAll(`[id="${cssEscape(id)}"]`).length === 1;
+    if (!unique || groups.length !== 1 || boundPageControls.has(groups[0])) {
+      this.root.dataset.consoleControls = 'ambiguous';
+      return null;
+    }
+    return groups[0];
+  }
+
+  private setRefreshEnabled(enabled: boolean): void {
+    const refresh = this.regions.refresh;
+    if (!refresh) return;
+    refresh.disabled = !enabled;
+  }
+
+  /** Leave bound header controls inert and free a page group for a remount. */
+  private releaseHeaderControls(): void {
+    this.connection = 'offline';
+    this.renderConnection();
+    this.setRefreshEnabled(false);
+    const group = this.regions.pageControls;
+    if (group && boundPageControls.get(group) === this) boundPageControls.delete(group);
   }
 
   private listen(target: EventTarget, type: string, handler: (event: Event) => void): void {
@@ -888,6 +952,14 @@ export class ConsoleRuntime {
         this.root.ownerDocument.defaultView?.location.reload();
       }
     });
+    const pageRefresh = this.regions.pageControls ? this.regions.refresh : null;
+    if (pageRefresh) {
+      this.listen(pageRefresh, 'click', (event) => {
+        event.preventDefault();
+        if (!pageRefresh.disabled) void this.refresh();
+      });
+    }
+    this.setRefreshEnabled(true);
   }
 
   private handleTabKeydown(event: KeyboardEvent): void {

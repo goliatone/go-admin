@@ -186,6 +186,18 @@
           </div>
           <div class="admin-page-header__actions flex items-center gap-3 flex-shrink-0" data-admin-page-actions>
             
+<div class="console-page-actions" data-console-page-actions data-console-for="console-data">
+  
+  <span class="console-connection" data-console-status data-status="offline">
+    <span class="console-connection__dot" aria-hidden="true"></span>
+    <span data-console-connection>Not live</span>
+  </span>
+  <button type="button" class="console-btn" data-console-action="refresh" disabled>
+    <i class="iconoir-refresh" aria-hidden="true"></i>
+    <span>Refresh</span>
+  </button>
+</div>
+
           </div>
         </div>
       </header>
@@ -198,18 +210,8 @@
         
 <div class="flex-1 p-8 overflow-y-auto">
 
-<section class="console-root" data-console-root data-console-id="data" aria-label="Data operations">
-  <div class="console-header">
-    <div class="console-header__lead"></div>
-    <div class="console-header__actions">
-      
-      <span class="console-connection" data-console-status data-status="offline">
-        <span class="console-connection__dot" aria-hidden="true"></span>
-        <span data-console-connection>Not live</span>
-      </span>
-      <button type="button" class="console-btn" data-console-action="refresh">Refresh</button>
-    </div>
-  </div>
+<section class="console-root" id="console-data" data-console-root data-console-id="data" aria-label="Data operations">
+  
   <div class="console-notice" data-console-notice hidden></div>
   <nav class="console-tabs" data-console-tabs aria-label="Data operations panels" hidden></nav>
   <div class="console-filters" data-console-filters hidden></div>

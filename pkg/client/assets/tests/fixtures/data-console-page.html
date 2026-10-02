@@ -181,11 +181,23 @@
             <div class="admin-page-header__titles min-w-0 flex-1">
               
               <h1 class="admin-page-header__title text-2xl font-bold text-gray-900 truncate">Data</h1>
-              
+              <p class="admin-page-header__subtitle console-page-subtitle mt-1 text-sm text-gray-500" data-data-console-intro>Prepare, verify and activate datasets. Preparing or verifying never changes what a target serves.</p>
             </div>
           </div>
           <div class="admin-page-header__actions flex items-center gap-3 flex-shrink-0" data-admin-page-actions>
             
+<div class="console-page-actions" data-console-page-actions data-console-for="console-data">
+  
+  <span class="console-connection" data-console-status data-status="offline">
+    <span class="console-connection__dot" aria-hidden="true"></span>
+    <span data-console-connection>Not live</span>
+  </span>
+  <button type="button" class="console-btn" data-console-action="refresh" disabled>
+    <i class="iconoir-refresh" aria-hidden="true"></i>
+    <span>Refresh</span>
+  </button>
+</div>
+
           </div>
         </div>
       </header>
@@ -198,20 +210,8 @@
         
 <div class="flex-1 p-8 overflow-y-auto">
 
-<section class="console-root" data-console-root data-console-id="data" aria-label="Data">
-  <div class="console-header">
-    <div class="console-header__lead">
-<p class="console-muted" data-data-console-intro>Validate, prepare, verify and activate provider-backed datasets. Accepted, prepared or verified work does not change the active dataset until an activation completes.</p>
-</div>
-    <div class="console-header__actions">
-      
-      <span class="console-connection" data-console-status data-status="offline">
-        <span class="console-connection__dot" aria-hidden="true"></span>
-        <span data-console-connection>Not live</span>
-      </span>
-      <button type="button" class="console-btn" data-console-action="refresh">Refresh</button>
-    </div>
-  </div>
+<section class="console-root" id="console-data" data-console-root data-console-id="data" aria-label="Data">
+  
   <div class="console-notice" data-console-notice hidden></div>
   <nav class="console-tabs" data-console-tabs aria-label="Data panels" hidden></nav>
   <div class="console-filters" data-console-filters hidden></div>

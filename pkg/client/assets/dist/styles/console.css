@@ -1,57 +1,123 @@
 /**
  * Operator console styles.
  *
- * Every rule is scoped to a `.console-root` element (the runtime adds the class
- * to each mounted root) so a console can sit inside any admin
+ * Rules are scoped to a `.console-root` element (the runtime adds the class to
+ * each mounted root) or to the `.console-page-actions` group a page shell
+ * renders in the admin page header, so a console can sit inside any admin
  * shell (or next to another console) without root/body resets or class bleed.
- * Colors come from scoped --console-* tokens that default to the admin semantic
- * theme; [data-console-theme="debug"] maps them onto Debug's --debug-* palette
- * so existing Debug customizations keep applying.
+ *
+ * Colors, radii and shadows resolve from the admin semantic theme: the console
+ * component keys (`admin.console.*`, projected as --admin-console-*), then the
+ * portable tokens, then the light literals below. Theme variants selected by
+ * the manifest, config default or Preferences therefore restyle consoles
+ * without code changes; only the light appearance ships. Status tones follow
+ * the admin status chips (--admin-status-*). [data-console-theme="debug"] maps
+ * the tokens onto Debug's --debug-* palette so Debug customizations keep
+ * applying.
+ *
+ * Specificity: rules use :where(.console-root) so hosts can override them. The
+ * control block ("Controls") is the one deliberate exception: it is scoped to
+ * `.console-root` itself so admin form CSS such as [type="text"] and select
+ * rules cannot resize console inputs, selects and buttons away from the shared
+ * 36px control height.
  */
 
-.console-root {
-  --console-surface: var(--color-surface-default, #ffffff);
-  --console-surface-muted: var(--color-surface-subtle, #f8fafc);
-  --console-border: var(--color-border-default, #e2e8f0);
-  --console-text: var(--color-text-primary, #0f172a);
-  --console-text-muted: var(--color-text-secondary, #64748b);
-  --console-accent: var(--color-action-primary, #2563eb);
-  --console-success: #15803d;
-  --console-danger: #b91c1c;
-  --console-warning: #b45309;
-  --console-info: #0e7490;
-  --console-focus: var(--color-focus-ring, #2563eb);
-  --console-radius: var(--radius-control, 6px);
+.console-root,
+.console-page-actions {
+  --console-surface: var(--admin-console-surface, var(--color-surface-default, #ffffff));
+  --console-surface-muted: var(--admin-console-surface-muted, var(--color-surface-subtle, #f9fafb));
+  --console-border: var(--admin-console-border, var(--color-border-default, #e5e7eb));
+  --console-divider: var(--admin-console-divider, var(--color-border-default, #f3f4f6));
+  --console-control-border: var(--admin-console-control-border, var(--form-control-border, var(--color-border-default, #d1d5db)));
+  --console-text: var(--admin-console-text, var(--color-text-primary, #111827));
+  --console-text-muted: var(--admin-console-text-muted, var(--color-text-secondary, #6b7280));
+  --console-text-faint: color-mix(in srgb, var(--console-text-muted) 65%, var(--console-surface));
+  --console-accent: var(--admin-console-accent, var(--color-action-primary, #2563eb));
+  --console-accent-text: var(--admin-console-accent-text, var(--color-text-inverse, #ffffff));
+  --console-focus: var(--admin-console-focus, var(--color-focus-ring, #3b82f6));
+  --console-radius: var(--admin-console-radius, var(--radius-control, 8px));
+  --console-radius-surface: var(--admin-console-surface-radius, var(--radius-surface, 12px));
+  --console-shadow: var(--admin-console-shadow, var(--shadow-surface, 0 1px 2px rgba(16, 24, 40, 0.04)));
+  --console-control-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --console-canvas: var(--admin-shell-background, var(--color-surface-canvas, #f9fafb));
   --console-font: var(--font-family-body, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif);
   --console-mono-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  --console-identity-color: #64748b;
+  --console-identity-color: var(--console-text-muted);
 
+  /* Solid status colors for dots and indicators. */
+  --console-success: var(--color-status-success, #10b981);
+  --console-warning: var(--color-status-warning, #f59e0b);
+  --console-danger: var(--color-status-danger, #dc2626);
+  --console-info: var(--color-status-info, #2563eb);
+
+  /* Status chip tones, read from the admin status chips. */
+  --console-tone-success-text: var(--admin-status-text, var(--admin-status-success-text, #065f46));
+  --console-tone-success-surface: var(--admin-status-surface, var(--admin-status-success-surface, #ecfdf5));
+  --console-tone-success-border: var(--admin-status-border, var(--admin-status-success-border, #a7f3d0));
+  --console-tone-warning-text: var(--admin-status-text, var(--admin-status-warning-text, #92400e));
+  --console-tone-warning-surface: var(--admin-status-surface, var(--admin-status-warning-surface, #fffbeb));
+  --console-tone-warning-border: var(--admin-status-border, var(--admin-status-warning-border, #fcd34d));
+  --console-tone-error-text: var(--admin-status-text, var(--admin-status-error-text, #991b1b));
+  --console-tone-error-surface: var(--admin-status-surface, var(--admin-status-error-surface, #fef2f2));
+  --console-tone-error-border: var(--admin-status-border, var(--admin-status-error-border, #fecaca));
+  --console-tone-info-text: var(--admin-status-text, var(--admin-status-info-text, #1e40af));
+  --console-tone-info-surface: var(--admin-status-surface, var(--admin-status-info-surface, #eff6ff));
+  --console-tone-info-border: var(--admin-status-border, var(--admin-status-info-border, #bfdbfe));
+  --console-tone-neutral-text: var(--admin-status-text, var(--admin-status-neutral-text, #374151));
+  --console-tone-neutral-surface: var(--admin-status-surface, var(--admin-status-neutral-surface, #f3f4f6));
+  --console-tone-neutral-border: var(--admin-status-border, var(--admin-status-neutral-border, #d1d5db));
+}
+
+.console-root {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
   min-width: 0;
   color: var(--console-text);
   font-family: var(--console-font);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 20px;
 }
 
-/* Debug-compatible aliases: a Debug-themed console uses the Debug palette. */
+/* Debug-compatible aliases: a Debug-themed console uses the Debug palette.
+   Page header controls stay in the admin chrome and keep its theme. */
 .console-root[data-console-theme="debug"] {
   --console-surface: var(--debug-bg-secondary, #181825);
   --console-surface-muted: var(--debug-bg, #1e1e2e);
   --console-border: var(--debug-border, #313244);
+  --console-divider: var(--debug-border, #313244);
+  --console-control-border: var(--debug-border, #313244);
   --console-text: var(--debug-text, #cdd6f4);
   --console-text-muted: var(--debug-text-muted, #6c7086);
   --console-accent: var(--debug-accent, #89b4fa);
+  --console-accent-text: var(--debug-bg, #1e1e2e);
+  --console-focus: var(--debug-accent, #89b4fa);
   --console-success: var(--debug-success, #a6e3a1);
   --console-danger: var(--debug-error, #f38ba8);
   --console-warning: var(--debug-warning, #f9e2af);
   --console-info: var(--debug-info, #89dceb);
+  --console-shadow: none;
+  --console-control-shadow: none;
+  --console-canvas: var(--debug-bg, #1e1e2e);
   --console-font: var(--debug-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  --console-tone-success-text: var(--console-success);
+  --console-tone-success-surface: color-mix(in srgb, var(--console-success) 14%, transparent);
+  --console-tone-success-border: color-mix(in srgb, var(--console-success) 45%, transparent);
+  --console-tone-warning-text: var(--console-warning);
+  --console-tone-warning-surface: color-mix(in srgb, var(--console-warning) 14%, transparent);
+  --console-tone-warning-border: color-mix(in srgb, var(--console-warning) 45%, transparent);
+  --console-tone-error-text: var(--console-danger);
+  --console-tone-error-surface: color-mix(in srgb, var(--console-danger) 14%, transparent);
+  --console-tone-error-border: color-mix(in srgb, var(--console-danger) 45%, transparent);
+  --console-tone-info-text: var(--console-info);
+  --console-tone-info-surface: color-mix(in srgb, var(--console-info) 14%, transparent);
+  --console-tone-info-border: color-mix(in srgb, var(--console-info) 45%, transparent);
+  --console-tone-neutral-text: var(--console-text);
+  --console-tone-neutral-surface: var(--console-surface-muted);
+  --console-tone-neutral-border: var(--console-border);
 }
 
-:where(.console-root) :where(*, *::before, *::after) {
+:where(.console-root, .console-page-actions) :where(*, *::before, *::after) {
   box-sizing: border-box;
 }
 
@@ -60,8 +126,27 @@
   gap: 8px;
 }
 
-/* Header and connection state ------------------------------------------- */
+/* Page header controls --------------------------------------------------- */
 
+/* Live status and Refresh rendered in the admin page header. The runtime
+   binds the group to the root whose DOM ID matches data-console-for. */
+.console-page-actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--console-text);
+  font-family: var(--console-font);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.console-page-actions[hidden] {
+  display: none;
+}
+
+/* In-root header for standalone hosts without the admin page header. */
 :where(.console-root) .console-header {
   display: flex;
   flex-wrap: wrap;
@@ -73,7 +158,8 @@
 :where(.console-root) .console-header__title {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  line-height: 24px;
+  font-weight: 600;
 }
 
 :where(.console-root) .console-header__lead {
@@ -82,6 +168,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  color: var(--console-text-muted);
 }
 
 :where(.console-root) .console-header__actions {
@@ -91,43 +178,91 @@
   gap: 8px;
 }
 
-:where(.console-root) .console-connection {
+/* Connection state: a status pill whose tone follows the live state. */
+:where(.console-root, .console-page-actions) .console-connection {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--console-text-muted);
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--console-tone-neutral-border);
+  border-radius: 999px;
+  background: var(--console-tone-neutral-surface);
+  color: var(--console-tone-neutral-text);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-:where(.console-root) .console-connection__dot {
-  width: 8px;
-  height: 8px;
+:where(.console-root, .console-page-actions) .console-connection__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
   border-radius: 50%;
-  background: var(--console-text-muted);
+  background: var(--console-text-faint);
 }
 
-:where(.console-root) .console-connection[data-status="connected"] .console-connection__dot {
+:where(.console-root, .console-page-actions) .console-connection[data-status="connected"] {
+  border-color: var(--console-tone-success-border);
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root, .console-page-actions) .console-connection[data-status="connected"] .console-connection__dot {
   background: var(--console-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--console-success) 18%, transparent);
 }
 
-:where(.console-root) .console-connection[data-status="reconnecting"] .console-connection__dot {
+:where(.console-root, .console-page-actions) .console-connection[data-status="reconnecting"] {
+  border-color: var(--console-tone-warning-border);
+  background: var(--console-tone-warning-surface);
+  color: var(--console-tone-warning-text);
+}
+
+:where(.console-root, .console-page-actions) .console-connection[data-status="reconnecting"] .console-connection__dot {
   background: var(--console-warning);
 }
 
-:where(.console-root) .console-connection[data-status="error"] .console-connection__dot,
-:where(.console-root) .console-connection[data-status="disconnected"] .console-connection__dot {
+:where(.console-root, .console-page-actions) .console-connection:is([data-status="error"], [data-status="disconnected"]) {
+  border-color: var(--console-tone-error-border);
+  background: var(--console-tone-error-surface);
+  color: var(--console-tone-error-text);
+}
+
+:where(.console-root, .console-page-actions) .console-connection:is([data-status="error"], [data-status="disconnected"]) .console-connection__dot {
   background: var(--console-danger);
 }
+
+/* Notices ------------------------------------------------------------------ */
 
 :where(.console-root) .console-notice {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--console-border);
-  border-radius: var(--console-radius);
-  background: var(--console-surface-muted);
+  padding: 12px 16px;
+  border: 1px solid var(--console-tone-info-border);
+  border-radius: 10px;
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+}
+
+:where(.console-root) .console-notice__message {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-notice[data-console-notice="loading"] {
+  border-color: var(--console-border);
+  background: var(--console-surface);
+  color: var(--console-text-muted);
+}
+
+:where(.console-root) .console-notice:is([data-console-notice="error"], [data-console-notice="denied"]) {
+  border-color: var(--console-tone-error-border);
+  background: var(--console-tone-error-surface);
+  color: var(--console-tone-error-text);
 }
 
 :where(.console-root) .console-notice[hidden],
@@ -136,58 +271,137 @@
   display: none;
 }
 
-:where(.console-root) .console-notice[data-console-notice="error"],
-:where(.console-root) .console-notice[data-console-notice="denied"] {
-  border-color: var(--console-danger);
+/* Controls ------------------------------------------------------------------
+   Deliberate exception to the :where() convention (see the file header): one
+   control height for text inputs, selects and buttons regardless of host form
+   CSS. Checkboxes and radios keep their native box. */
+
+.console-root input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="color"], [type="file"]),
+.console-root select,
+.console-root textarea {
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--console-control-border);
+  border-radius: var(--console-radius);
+  background-color: var(--console-surface);
+  color: var(--console-text);
+  box-shadow: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
 }
 
-/* Buttons and form controls --------------------------------------------- */
+.console-root select {
+  padding-right: 36px;
+}
 
-:where(.console-root) .console-btn {
+.console-root textarea {
+  height: auto;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.console-root input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="color"], [type="file"]):focus,
+.console-root select:focus,
+.console-root textarea:focus {
+  border-color: var(--console-focus);
+  outline: 2px solid color-mix(in srgb, var(--console-focus) 35%, transparent);
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+.console-root input:is([type="checkbox"], [type="radio"]) {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--console-accent);
+}
+
+.console-root .console-btn,
+.console-page-actions .console-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  min-height: 32px;
-  padding: 6px 12px;
-  border: 1px solid var(--console-border);
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--console-control-border);
   border-radius: var(--console-radius);
-  background: var(--console-surface);
+  background-color: var(--console-surface);
+  background-image: none;
   color: var(--console-text);
+  box-shadow: var(--console-control-shadow);
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-:where(.console-root) .console-btn:hover:not(:disabled) {
+/* Filter checkboxes render as a label styled like a button. */
+.console-root label.console-btn {
+  cursor: pointer;
+}
+
+.console-root .console-btn:hover:not(:disabled, [aria-disabled="true"]),
+.console-page-actions .console-btn:hover:not(:disabled, [aria-disabled="true"]) {
+  background-color: var(--console-surface-muted);
+}
+
+.console-root .console-btn.console-btn--primary,
+.console-page-actions .console-btn.console-btn--primary {
   border-color: var(--console-accent);
-  color: var(--console-accent);
+  background-color: var(--console-accent);
+  color: var(--console-accent-text);
 }
 
-:where(.console-root) .console-btn:disabled {
+.console-root .console-btn.console-btn--primary:hover:not(:disabled, [aria-disabled="true"]),
+.console-page-actions .console-btn.console-btn--primary:hover:not(:disabled, [aria-disabled="true"]) {
+  background-color: color-mix(in srgb, var(--console-accent) 88%, #000000);
+}
+
+.console-root .console-btn.console-btn--ghost,
+.console-page-actions .console-btn.console-btn--ghost {
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--console-text-muted);
+}
+
+.console-root .console-btn:is(.console-btn--sm, .console-copy--sm),
+.console-page-actions .console-btn.console-btn--sm {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.console-root .console-btn:is(:disabled, [aria-disabled="true"]),
+.console-page-actions .console-btn:is(:disabled, [aria-disabled="true"]) {
+  border-color: var(--console-border);
+  background-color: var(--console-surface-muted);
+  box-shadow: none;
+  color: var(--console-text-faint);
   cursor: not-allowed;
-  opacity: 0.6;
 }
 
-:where(.console-root) :is(button, input, select, textarea, [tabindex]):focus-visible {
+:where(.console-root, .console-page-actions) .console-btn :is(i, svg) {
+  flex: none;
+  font-size: 16px;
+  line-height: 1;
+}
+
+:where(.console-root, .console-page-actions) :is(button, input, select, textarea, a, [tabindex]):focus-visible {
   outline: 2px solid var(--console-focus);
   outline-offset: 2px;
-}
-
-:where(.console-root) :is(input, select, textarea) {
-  min-height: 32px;
-  padding: 6px 8px;
-  border: 1px solid var(--console-border);
-  border-radius: var(--console-radius);
-  background: var(--console-surface);
-  color: var(--console-text);
-  font: inherit;
-  font-size: 12px;
-}
-
-:where(.console-root) textarea {
-  min-height: 64px;
-  resize: vertical;
 }
 
 :where(.console-root) .console-filters,
@@ -195,15 +409,17 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 8px 12px;
+  gap: 12px 16px;
 }
 
 :where(.console-root) .console-filter {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  gap: 6px;
   color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 :where(.console-root) .console-filter--grow {
@@ -216,23 +432,40 @@
   flex: 0 0 auto;
 }
 
-/* Choice inputs keep their native box rather than the text-field sizing. */
-:where(.console-root) input:is([type="checkbox"], [type="radio"]) {
-  min-height: 0;
-  padding: 0;
+:where(.console-root) form[data-panel-action-form] label {
+  color: var(--console-text);
+  font-weight: 500;
 }
 
 :where(.console-root) form[data-panel-action-form] label > input:is([type="checkbox"], [type="radio"]) {
   align-self: flex-start;
 }
 
+:where(.console-root) form[data-panel-action-form] small {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+:where(.console-root) form[data-panel-action-form] small[data-action-field-error] {
+  color: var(--console-tone-error-text);
+}
+
 /* Tabs -------------------------------------------------------------------- */
 
+/* Overflow is visible: scroll shadows appear only on the side that can still
+   scroll, so a narrow viewport never hides tabs without a hint. */
 :where(.console-root) .console-tabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   overflow-x: auto;
   border-bottom: 1px solid var(--console-border);
+  background:
+    linear-gradient(to right, var(--console-canvas) 30%, transparent) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--console-canvas) 30%, transparent) right center / 40px 100% no-repeat local,
+    linear-gradient(to right, rgba(17, 24, 39, 0.14), transparent) left center / 14px 100% no-repeat scroll,
+    linear-gradient(to left, rgba(17, 24, 39, 0.14), transparent) right center / 14px 100% no-repeat scroll;
   scrollbar-width: thin;
 }
 
@@ -242,13 +475,16 @@
   gap: 8px;
   flex: 0 0 auto;
   min-height: 40px;
-  padding: 8px 14px;
+  margin-bottom: -1px;
+  padding: 10px 12px;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--console-text-muted);
   font: inherit;
-  font-weight: 600;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -257,27 +493,45 @@
   color: var(--console-text);
 }
 
+:where(.console-root) .console-tab:focus-visible {
+  outline-offset: -2px;
+}
+
 :where(.console-root) .console-tab--active {
   border-bottom-color: var(--console-accent);
   color: var(--console-text);
+  font-weight: 600;
 }
 
 :where(.console-root) .console-tab__count {
-  min-width: 22px;
-  padding: 1px 6px;
+  min-width: 20px;
+  padding: 0 6px;
   border-radius: 999px;
-  background: var(--console-surface-muted);
-  font-size: 11px;
+  background: var(--console-tone-neutral-surface);
+  color: var(--console-tone-neutral-text);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Panel content ------------------------------------------------------------ */
 
-:where(.console-root) .console-panel {
+:where(.console-root) .console-panel,
+:where(.console-root) .console-panel__body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
   min-width: 0;
+}
+
+:where(.console-root) .console-panel:focus-visible {
+  outline-offset: 4px;
+}
+
+:where(.console-root.console-root--widget) .console-panel {
+  gap: 16px;
 }
 
 :where(.console-root) .console-panel__actions:empty,
@@ -285,10 +539,22 @@
   display: none;
 }
 
+/* Interim result presentation: the result slot holds a sentence, so it reads
+   as a banner rather than a chip. */
+:where(.console-root) .console-panel__result > .console-badge {
+  display: flex;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: normal;
+}
+
 :where(.console-root) .console-empty {
-  padding: 24px 16px;
+  padding: 32px 16px;
   border: 1px dashed var(--console-border);
-  border-radius: var(--console-radius);
+  border-radius: var(--console-radius-surface);
   color: var(--console-text-muted);
   text-align: center;
 }
@@ -298,21 +564,29 @@
   color: var(--console-text-muted);
 }
 
+:where(.console-root) .console-timestamp {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Sections: one card per declared view, 24px apart (see .console-panel__body). */
 :where(.console-root) .console-json-panel {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--console-border);
-  border-radius: var(--console-radius);
+  border-radius: var(--console-radius-surface);
   background: var(--console-surface);
+  box-shadow: var(--console-shadow);
 }
 
 :where(.console-root) .console-json-panel > pre {
   max-height: 420px;
   margin: 0;
-  padding: 12px;
+  padding: 16px 20px;
   overflow: auto;
   font-family: var(--console-mono-font);
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 18px;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -322,19 +596,21 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--console-border);
-  background: var(--console-surface-muted);
+  gap: 8px 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--console-divider);
+  background: transparent;
 }
 
 :where(.console-root) .console-json-title,
 :where(.console-root) .console-json-header h3 {
   margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--console-text);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 :where(.console-root) .console-json-actions {
@@ -343,54 +619,62 @@
   gap: 8px;
 }
 
+/* Metrics read as flat statistics inside their section, not nested tiles. */
 :where(.console-root) .console-json-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px;
-  padding: 12px;
+  gap: 16px 24px;
+  padding: 16px 20px 20px;
 }
 
 :where(.console-root) .console-detail-pane {
-  padding: 10px 12px;
-  border: 1px solid var(--console-border);
-  border-radius: var(--console-radius);
-  background: var(--console-surface-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 :where(.console-root) .console-detail-label {
   color: var(--console-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 :where(.console-root) .console-detail-value {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-:where(.console-root) .console-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 :where(.console-root) .console-json-panel:has(> .console-table) {
   overflow-x: auto;
 }
 
+:where(.console-root) .console-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+}
+
 :where(.console-root) .console-table :is(th, td) {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--console-border);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--console-divider);
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 :where(.console-root) .console-table th {
+  padding: 10px 16px;
+  border-bottom-color: var(--console-border);
+  background: var(--console-surface-muted);
   color: var(--console-text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -399,63 +683,98 @@
   border-bottom: 0;
 }
 
+:where(.console-root) .console-table td > strong {
+  font-weight: 600;
+}
+
+:where(.console-root) .console-table td > .console-muted {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+/* Status chips ------------------------------------------------------------- */
+
 :where(.console-root) .console-badge {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 9px;
+  border: 1px solid var(--console-tone-neutral-border);
   border-radius: 999px;
-  background: var(--console-surface-muted);
-  border: 1px solid var(--console-border);
-  font-size: 11px;
-  font-weight: 700;
+  background: var(--console-tone-neutral-surface);
+  color: var(--console-tone-neutral-text);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-:where(.console-root) .console-badge--danger,
-:where(.console-root) .console-badge--error {
-  border-color: var(--console-danger);
-  color: var(--console-danger);
+:where(.console-root) .console-badge--success {
+  border-color: var(--console-tone-success-border);
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
 }
 
-:where(.console-root) .console-badge--warning,
-:where(.console-root) .console-badge--warn {
-  border-color: var(--console-warning);
-  color: var(--console-warning);
+:where(.console-root) .console-badge--info {
+  border-color: var(--console-tone-info-border);
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+}
+
+:where(.console-root) :is(.console-badge--warning, .console-badge--warn) {
+  border-color: var(--console-tone-warning-border);
+  background: var(--console-tone-warning-surface);
+  color: var(--console-tone-warning-text);
+}
+
+:where(.console-root) :is(.console-badge--error, .console-badge--danger) {
+  border-color: var(--console-tone-error-border);
+  background: var(--console-tone-error-surface);
+  color: var(--console-tone-error-text);
+}
+
+/* Planned work never reads as executed: a dashed outline on the surface. */
+:where(.console-root) .console-badge--planned {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+  background: var(--console-surface);
+  color: var(--console-text-muted);
 }
 
 /* Declared key/value pairs and identity headers -------------------------- */
 
 :where(.console-root) .console-kv {
   display: grid;
-  grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
   margin: 0;
-  font-size: 12px;
 }
 
 :where(.console-root) .console-kv > dt {
-  padding: 8px 12px;
+  padding: 10px 20px;
   color: var(--console-text-muted);
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 :where(.console-root) .console-kv > dd {
   margin: 0;
-  padding: 8px 12px 8px 0;
+  padding: 10px 20px 10px 0;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 :where(.console-root) .console-kv > :is(dt, dd):not(:nth-last-child(-n + 2)) {
-  border-bottom: 1px solid var(--console-border);
+  border-bottom: 1px solid var(--console-divider);
 }
 
 :where(.console-root) .console-kv__empty {
-  color: var(--console-text-muted);
-  font-style: italic;
+  color: var(--console-text-faint);
 }
 
 :where(.console-root) .console-kv__mono,
 :where(.console-root) .console-code {
   font-family: var(--console-mono-font);
+  font-size: 12.5px;
 }
 
 :where(.console-root) .console-kv__copy,
@@ -463,6 +782,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
 }
 
 :where(.console-root) .console-kv__swatch-dot {
@@ -478,11 +798,12 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 32px;
-  padding: 14px 16px 14px 19px;
+  padding: 16px 20px 16px 21px;
   border: 1px solid var(--console-border);
   border-left: 3px solid var(--console-identity-color);
-  border-radius: var(--console-radius);
+  border-radius: var(--console-radius-surface);
   background: var(--console-surface);
+  box-shadow: var(--console-shadow);
 }
 
 :where(.console-root) .console-identity[data-accent="none"] {
@@ -508,7 +829,7 @@
   border-radius: 10px;
   background: var(--persona-background, var(--console-surface-muted));
   color: var(--persona-foreground, var(--console-text));
-  font-weight: 800;
+  font-weight: 700;
 }
 
 :where(.console-root) .console-identity__avatar img {
@@ -521,12 +842,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--console-border);
+  padding: 1px 9px;
+  border: 1px solid var(--console-tone-neutral-border);
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  background: var(--console-tone-neutral-surface);
+  color: var(--console-tone-neutral-text);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 :where(.console-root) .console-identity__dot {
@@ -547,26 +871,27 @@
 :where(.console-root) .console-identity__label,
 :where(.console-root) .console-identity__chip dt {
   color: var(--console-text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 :where(.console-root) .console-identity__title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
 }
 
 :where(.console-root) .console-identity__subtitle {
   color: var(--console-text-muted);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 18px;
 }
 
 :where(.console-root) .console-identity__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 22px;
+  gap: 8px 24px;
   margin: 0;
 }
 
@@ -576,17 +901,26 @@
 
 :where(.console-root) .console-schema-grid {
   column-width: 320px;
-  column-gap: 12px;
+  column-gap: 16px;
 }
 
 :where(.console-root) .console-schema-grid > * {
   break-inside: avoid;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
 }
 
-/* Small screens: stack controls and keep wide tables scrollable. --------- */
+/* Small screens: stack controls and keep wide tables inside their card. --- */
 
 @media (max-width: 640px) {
+  .console-root {
+    gap: 16px;
+  }
+
+  :where(.console-root) .console-panel,
+  :where(.console-root) .console-panel__body {
+    gap: 16px;
+  }
+
   :where(.console-root) .console-header,
   :where(.console-root) .console-filters,
   :where(.console-root) .console-controls,
@@ -612,23 +946,35 @@
     justify-content: center;
   }
 
+  :where(.console-root) :is(.console-json-header, .console-identity) {
+    padding-inline: 16px;
+  }
+
+  :where(.console-root) .console-table :is(th, td) {
+    padding-inline: 12px;
+  }
+
   :where(.console-root) .console-kv {
     grid-template-columns: minmax(0, 1fr);
   }
 
   :where(.console-root) .console-kv > dt {
-    padding-bottom: 0;
+    padding: 10px 16px 0;
+  }
+
+  :where(.console-root) .console-kv > dt:not(:nth-last-child(-n + 2)) {
     border-bottom: 0;
   }
 
   :where(.console-root) .console-kv > dd {
-    padding: 4px 12px 8px;
+    padding: 2px 16px 10px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(.console-root) * {
+  :where(.console-root, .console-page-actions) * {
     transition: none !important;
     animation: none !important;
+    scroll-behavior: auto !important;
   }
 }

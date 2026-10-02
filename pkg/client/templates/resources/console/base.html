@@ -5,15 +5,27 @@
   Context:
     console_id              trusted console identifier
     console_title           page heading (falls back to title)
+    console_dom_id          optional unique DOM ID for the console root;
+                            defaults to "console-<console_id>"
     console_theme           optional token theme (e.g. "debug")
     console_bootstrap_json  HTML-safe JSON from encoding/json (identity, urls,
                             preferences_namespace, snapshot); rendered verbatim
 
-  Slots: console_head, console_heading, console_header_lead,
-  console_header_actions, console_after, console_scripts and console_shell.
+  Slots: console_head, console_heading, console_subtitle (admin page header
+  subtitle; defaults to page_subtitle), console_header_actions (extra page
+  header actions before the live status and Refresh), console_inline_header,
+  console_after, console_scripts and console_shell.
+
+  The admin page header carries the subtitle, the live status and Refresh. The
+  runtime binds that group to this page's root through data-console-for, which
+  names the root's unique DOM ID (a console ID alone can repeat on one page).
   Standalone hosts extend this template and empty the admin chrome blocks
-  (shell_sidebar, shell_page_header, shell_footer); the console regions and
-  bootstrap stay identical so the runtime mounts the same way in every host.
+  (shell_sidebar, shell_page_header, shell_footer); they render the same
+  controls (data-console-status, data-console-connection and
+  data-console-action="refresh") inside the root through console_inline_header.
+  In-root controls take precedence over a page-header binding. The console
+  regions and bootstrap stay identical so the runtime mounts the same way in
+  every host.
 {% endcomment %}
 
 {% block title %}{% block console_document_title %}{{ console_title|default:title|default:"Console" }}{% endblock %}{% endblock %}
@@ -25,21 +37,27 @@
 
 {% block page_title %}{% block console_heading %}{{ console_title|default:title|default:"Console" }}{% endblock %}{% endblock %}
 
+{% block page_subtitle %}{% block console_subtitle %}{% if page_subtitle %}<p class="admin-page-header__subtitle console-page-subtitle mt-1 text-sm text-gray-500">{{ page_subtitle }}</p>{% endif %}{% endblock %}{% endblock %}
+
+{% block page_header_actions %}
+<div class="console-page-actions" data-console-page-actions data-console-for="{% if console_dom_id %}{{ console_dom_id }}{% else %}console-{{ console_id }}{% endif %}">
+  {% block console_header_actions %}{% endblock %}
+  <span class="console-connection" data-console-status data-status="offline">
+    <span class="console-connection__dot" aria-hidden="true"></span>
+    <span data-console-connection>Not live</span>
+  </span>
+  <button type="button" class="console-btn" data-console-action="refresh" disabled>
+    <i class="iconoir-refresh" aria-hidden="true"></i>
+    <span>Refresh</span>
+  </button>
+</div>
+{% endblock %}
+
 {% block content %}
 <div class="flex-1 p-8 overflow-y-auto">
 {% block console_shell %}
-<section class="console-root" data-console-root data-console-id="{{ console_id }}"{% if console_theme %} data-console-theme="{{ console_theme }}"{% endif %} aria-label="{{ console_title|default:title|default:"Console" }}">
-  <div class="console-header">
-    <div class="console-header__lead">{% block console_header_lead %}{% endblock %}</div>
-    <div class="console-header__actions">
-      {% block console_header_actions %}{% endblock %}
-      <span class="console-connection" data-console-status data-status="offline">
-        <span class="console-connection__dot" aria-hidden="true"></span>
-        <span data-console-connection>Not live</span>
-      </span>
-      <button type="button" class="console-btn" data-console-action="refresh">Refresh</button>
-    </div>
-  </div>
+<section class="console-root" id="{% if console_dom_id %}{{ console_dom_id }}{% else %}console-{{ console_id }}{% endif %}" data-console-root data-console-id="{{ console_id }}"{% if console_theme %} data-console-theme="{{ console_theme }}"{% endif %} aria-label="{{ console_title|default:title|default:"Console" }}">
+  {% block console_inline_header %}{% endblock %}
   <div class="console-notice" data-console-notice hidden></div>
   <nav class="console-tabs" data-console-tabs aria-label="{{ console_title|default:title|default:"Console" }} panels" hidden></nav>
   <div class="console-filters" data-console-filters hidden></div>

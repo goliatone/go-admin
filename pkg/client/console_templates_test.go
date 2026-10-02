@@ -57,9 +57,10 @@ func TestConsoleBaseTemplateRendersRuntimeRegionsAndBootstrap(t *testing.T) {
 		"console_bootstrap_json": string(bootstrap),
 	})
 	for _, fragment := range []string{
-		`class="console-root" data-console-root data-console-id="data"`,
+		`class="console-root" id="console-data" data-console-root data-console-id="data"`,
 		`data-console-tabs`, `data-console-filters`, `data-console-panel`, `data-console-notice`,
-		`data-console-status data-status="offline"`, `data-console-connection`, `data-console-action="refresh"`,
+		`data-console-page-actions data-console-for="console-data"`,
+		`data-console-status data-status="offline"`, `data-console-connection`, `data-console-action="refresh" disabled`,
 		`href="/admin/assets/dist/styles/console.css"`, `src="/admin/assets/dist/console/index.js"`,
 		`<script type="application/json" data-console-bootstrap>` + string(bootstrap) + `</script>`,
 	} {
@@ -72,6 +73,37 @@ func TestConsoleBaseTemplateRendersRuntimeRegionsAndBootstrap(t *testing.T) {
 	}
 	if regexp.MustCompile(`class="[^"]*\bdebug-`).MatchString(out) {
 		t.Fatal("neutral console shell must not use Debug class names")
+	}
+}
+
+// The admin page header carries the live status and Refresh outside the root;
+// they bind to the root through its DOM ID, never through the console ID.
+func TestConsoleBaseTemplateBindsPageHeaderControlsToTheRootDOMID(t *testing.T) {
+	out := renderClientTemplate(t, "resources/console/base.html", pongo2.Context{
+		"title":                  "Data operations",
+		"page_subtitle":          "Datasets <for> operators",
+		"console_id":             "data",
+		"console_dom_id":         "console-data-primary",
+		"console_title":          "Data operations",
+		"console_bootstrap_json": `{"console_id":"data"}`,
+	})
+	actions := strings.Index(out, `data-admin-page-actions`)
+	group := strings.Index(out, `data-console-page-actions data-console-for="console-data-primary"`)
+	root := strings.Index(out, `<section class="console-root" id="console-data-primary"`)
+	if actions < 0 || group < actions || root < 0 || group > root {
+		t.Fatalf("header controls must render in the page header before the root (actions=%d group=%d root=%d):\n%s", actions, group, root, out)
+	}
+	rootMarkup := out[root:]
+	for _, control := range []string{"data-console-status", "data-console-connection", `data-console-action="refresh"`} {
+		if strings.Count(out, control) != 1 || strings.Contains(rootMarkup, control) {
+			t.Fatalf("%s must render once, in the page header only", control)
+		}
+	}
+	if !strings.Contains(out, `<p class="admin-page-header__subtitle console-page-subtitle mt-1 text-sm text-gray-500">Datasets &lt;for&gt; operators</p>`) {
+		t.Fatalf("console shell must render the escaped page subtitle in the header:\n%s", out)
+	}
+	if !strings.Contains(out, `id="console-data-primary"`) || strings.Contains(out, `id="console-data"`) {
+		t.Fatal("console_dom_id must replace the default root ID")
 	}
 }
 

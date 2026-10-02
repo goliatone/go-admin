@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -358,6 +359,7 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 			"form.control.radius":                "6px",
 			"radius.control":                     "4px",
 			"datagrid.pagination.radius":         "8px",
+			"admin.console.radius":               "8px",
 			"datagrid.pagination.control-height": "38px",
 			"datagrid.pagination.font-size":      "14px",
 			"datagrid.pagination.line-height":    "20px",
@@ -382,6 +384,7 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 		"admin.sidebar.item-height",
 		"admin.sidebar.item-radius",
 		"form.control.radius",
+		"admin.console.radius",
 		"space.surface",
 	} {
 		if got := statuses[token]; got.Status != "consumed" {
@@ -425,6 +428,87 @@ func TestNormalizeThemeProjectionConsumptionFollowsRenderedFallbackChains(t *tes
 	} {
 		if got := fallbackStatuses[token]; got.Status != "consumed" {
 			t.Fatalf("expected portable fallback %s to be consumed, got %+v", token, got)
+		}
+	}
+}
+
+func TestAdminSemanticProfileProjectsConsoleComponentKeys(t *testing.T) {
+	tokens := map[string]string{
+		"admin.console.surface":        "#ffffff",
+		"admin.console.surface-muted":  "#f9fafb",
+		"admin.console.border":         "#e5e7eb",
+		"admin.console.divider":        "#f3f4f6",
+		"admin.console.control-border": "#d1d5db",
+		"admin.console.text":           "#111827",
+		"admin.console.text-muted":     "#6b7280",
+		"admin.console.accent":         "#2563eb",
+		"admin.console.accent-text":    "#ffffff",
+		"admin.console.focus":          "#3b82f6",
+		"admin.console.radius":         "8px",
+		"admin.console.surface-radius": "12px",
+		"admin.console.shadow":         "0 1px 2px rgba(16, 24, 40, 0.04)",
+	}
+	profile := AdminSemanticProfile()
+	for token := range tokens {
+		if _, ok := profile.Tokens[token]; !ok {
+			t.Errorf("console token %q is missing from the admin profile", token)
+		}
+	}
+
+	selection := normalizeThemeProjection(&ThemeSelection{Tokens: tokens})
+	statuses := map[string]string{}
+	for _, diagnostic := range selection.Diagnostics {
+		if diagnostic.Consumer == "go-admin/client" {
+			statuses[diagnostic.Canonical] = diagnostic.Status
+		}
+	}
+	for token, value := range tokens {
+		declaration := semanticCSSVariable(token) + ":" + value + ";"
+		if !strings.Contains(selection.RootCSSVarsInline, declaration) {
+			t.Errorf("console declaration %q missing from %q", declaration, selection.RootCSSVarsInline)
+		}
+		if statuses[token] != "consumed" {
+			t.Errorf("console token %q diagnostic = %q, want consumed", token, statuses[token])
+		}
+	}
+
+	invalid := normalizeThemeProjection(&ThemeSelection{Tokens: map[string]string{
+		"admin.console.surface": "red;display:none",
+		"admin.console.radius":  "-4px",
+	}})
+	if strings.Contains(invalid.RootCSSVarsInline, "--admin-console-") {
+		t.Fatalf("invalid console values reached the admin root: %q", invalid.RootCSSVarsInline)
+	}
+}
+
+// The console stylesheet must consume each console key through the same
+// component -> portable -> literal order that the diagnostics report.
+func TestConsoleStylesheetConsumesConsoleKeysInDeclaredFallbackOrder(t *testing.T) {
+	data, err := os.ReadFile("../pkg/client/assets/src/styles/console/console.css")
+	if err != nil {
+		t.Fatalf("read console stylesheet: %v", err)
+	}
+	css := string(data)
+	found := 0
+	for _, chain := range adminSemanticConsumerChains {
+		if !strings.HasPrefix(chain[0], "admin.console.") {
+			continue
+		}
+		found++
+		var fragment strings.Builder
+		for _, token := range chain {
+			fragment.WriteString("var(" + semanticCSSVariable(token) + ", ")
+		}
+		if !strings.Contains(css, fragment.String()) {
+			t.Errorf("console.css does not consume %v as %q…", chain, fragment.String())
+		}
+	}
+	if found == 0 {
+		t.Fatal("no console consumer chains are declared")
+	}
+	for _, line := range strings.Split(css, "\n") {
+		if strings.Contains(line, "--admin-console-") && !strings.Contains(line, "var(--admin-console-") {
+			t.Errorf("console.css must read console keys, never define them: %q", strings.TrimSpace(line))
 		}
 	}
 }
