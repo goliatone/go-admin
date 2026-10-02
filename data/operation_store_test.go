@@ -355,7 +355,7 @@ func TestStoreRequestLookupHonorsScopeAndRetryTombstones(t *testing.T) {
 func TestStoreReceiptPagesDoNotDependOnOperationHistory(t *testing.T) {
 	f := newFixture(t)
 	want := map[string]bool{}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		receipt := prepared(t, f, fmt.Sprintf("prepare-%d", i))
 		want[receipt.ID] = true
 		f.now.Add(int64(time.Second))
@@ -363,7 +363,7 @@ func TestStoreReceiptPagesDoNotDependOnOperationHistory(t *testing.T) {
 	key := data.TargetKey{ScopeKey: f.principal.ScopeKey, TargetID: f.input.TargetID}
 	query := data.ReceiptQuery{Limit: 1}
 	seen := map[string]bool{}
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		page, err := f.store.ListReceipts(t.Context(), key, query)
 		if err != nil || len(page.Receipts) != 1 {
 			t.Fatal(page, err)

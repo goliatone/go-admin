@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -179,12 +180,8 @@ func dataModuleAction(t *testing.T, snapshot console.Snapshot, kind data.Kind, c
 func (f *dataModuleFixture) action(t *testing.T, actor string, kind data.Kind, action console.PanelUIAction, payload map[string]any) console.PanelActionResult {
 	t.Helper()
 	merged := map[string]any{}
-	for key, value := range action.Payload {
-		merged[key] = value
-	}
-	for key, value := range payload {
-		merged[key] = value
-	}
+	maps.Copy(merged, action.Payload)
+	maps.Copy(merged, payload)
 	panel := dataChoicePanel(kind)
 	res := f.request(t, http.MethodPost, "/admin/data/api/panels/"+panel+"/actions/"+action.ID, actor, merged)
 	if res.Code != http.StatusOK {
@@ -235,7 +232,7 @@ func TestDataModuleHTTPRecoveryAfterRestart(t *testing.T) {
 	f := newDataModuleFixture(t, filename, &clock)
 	// Read-only history can grow while writes are paused. Pending work must not
 	// disappear from supervisor controls when it leaves that history window.
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		input := f.input
 		input.IdempotencyKey = fmt.Sprintf("validate-%03d", i)
 		if _, err = f.service.Run(t.Context(), data.Validate, input); err != nil {
@@ -374,7 +371,7 @@ func TestDataModuleReceiptsSurviveHistoryAndRemainSelectable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		input := f.input
 		input.IdempotencyKey = fmt.Sprintf("history-%03d", i)
 		if _, err = f.service.Run(t.Context(), data.Validate, input); err != nil {
