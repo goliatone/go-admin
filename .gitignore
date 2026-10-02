@@ -80,3 +80,8 @@ pkg/client/assets/.dist-staging/
 pkg/client/assets/.dist-prev/
 pkg/client/assets/test-results/.playwright-artifacts-1
 pkg/client/assets/test-results/.last-run.json
+
+
+
+**/*.db-shm
+**/*.db-wal
