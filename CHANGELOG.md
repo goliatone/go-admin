@@ -1,6 +1,30 @@
 # Changelog
 
+# [0.139.1](https://github.com/goliatone/go-admin/compare/v0.139.0...v0.139.1) - (2026-10-02)
+
+
+## Migration Notes
+
+- Custom Data `OperationStore` adapters must implement read-only `LookupRequest` and bounded `ListReceipts`. Request lookup uses the durable actor/scope/target/command/key claim and retains live tombstones as `gone`; receipt pages are independent of operation history and use opaque cursors. The reference SQLite adapter requires no document schema migration.
+- Custom Data console action callers must forward the rendered `expected_generation` payload for Activate/Reset. Action IDs remain stable across generation changes; authorized same-key retries bind to their original durable generation, while new requests keep stale-generation protection. Direct typed command fingerprints remain strict.
+- `admin.data.recover.v1` accepts only `target_id` and `operation_id`. Hosts must authorize current recovery grants; recovery reconciles existing work under lease/fence authority and records the supervisor separately from the requester.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Example setup and data module path ([bc5fb1c](https://github.com/goliatone/go-admin/commit/bc5fb1c7f22cd0e899a8f409392dc0382edbae0a))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Data recovery support ([863040e](https://github.com/goliatone/go-admin/commit/863040e100aa85d0fe5ccbbffaab55866b3bd4b6))  - (goliatone)
+
 # [0.139.0](https://github.com/goliatone/go-admin/compare/v0.138.2...v0.139.0) - (2026-10-02)
+
+
+New minor release: v0.139.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.139.0 ([eddf1da](https://github.com/goliatone/go-admin/commit/eddf1dafd690cc5dd7cb79a5dacd03a5a79a8a9f))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
