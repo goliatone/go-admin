@@ -32,6 +32,11 @@
       "scope_limit": 200,
       "navigation_integrity_strict": false
     },
+    "data": {
+      "enabled": true,
+      "writes_enabled": true,
+      "store_path": "data-console.db"
+    },
     "errors": {
       "dev_mode": true,
       "include_stack_trace": true,

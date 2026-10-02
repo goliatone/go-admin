@@ -66,6 +66,7 @@ type AdminConfig struct {
 	ThemeAssets                 map[string]string `koanf:"theme_assets" json:"theme_assets" yaml:"theme_assets"`
 	Preferences                 PreferencesConfig `koanf:"preferences" json:"preferences" yaml:"preferences"`
 	Debug                       AdminDebugConfig  `koanf:"debug" json:"debug" yaml:"debug"`
+	Data                        AdminDataConfig   `koanf:"data" json:"data" yaml:"data"`
 	Errors                      AdminErrorsConfig `koanf:"errors" json:"errors" yaml:"errors"`
 	Scope                       AdminScopeConfig  `koanf:"scope" json:"scope" yaml:"scope"`
 	AuthzPreflight              AdminAuthzConfig  `koanf:"authz_preflight" json:"authz_preflight" yaml:"authz_preflight"`
@@ -89,6 +90,12 @@ type AdminDebugConfig struct {
 	ScopeLimit       int    `koanf:"scope_limit" json:"scope_limit" yaml:"scope_limit"`
 	DoctorEnabled    *bool  `koanf:"doctor_enabled" json:"doctor_enabled" yaml:"doctor_enabled"`
 	NavigationStrict bool   `koanf:"navigation_integrity_strict" json:"navigation_integrity_strict" yaml:"navigation_integrity_strict"`
+}
+
+type AdminDataConfig struct {
+	Enabled       bool   `koanf:"enabled" json:"enabled" yaml:"enabled"`
+	WritesEnabled bool   `koanf:"writes_enabled" json:"writes_enabled" yaml:"writes_enabled"`
+	StorePath     string `koanf:"store_path" json:"store_path" yaml:"store_path"`
 }
 
 type AdminErrorsConfig struct {
@@ -277,6 +284,9 @@ type CMSConfig struct {
 }
 
 func (c Config) Validate() error {
+	if c.Admin.Data.Enabled && strings.TrimSpace(c.Admin.Data.StorePath) == "" {
+		return fmt.Errorf("admin.data.store_path is required when Data is enabled")
+	}
 	if strings.TrimSpace(c.App.Name) == "" {
 		return fmt.Errorf("app.name is required")
 	}
@@ -390,6 +400,7 @@ func Defaults() *Config {
 				Mode:  "warn",
 				Roles: []string{"superadmin", "owner"},
 			},
+			Data:                       AdminDataConfig{Enabled: true, WritesEnabled: true, StorePath: "data-console.db"},
 			PermissionResolverCacheTTL: 30 * time.Second,
 			PasswordPolicyHints: []string{
 				"Use at least 8 characters",

@@ -6,6 +6,8 @@ package admin
 import (
 	"context"
 	core "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/console"
+	"github.com/goliatone/go-admin/data"
 	deploymentidentity "github.com/goliatone/go-admin/pkg/go-deployment-identity"
 	auth "github.com/goliatone/go-auth"
 	cms "github.com/goliatone/go-cms"
@@ -121,6 +123,7 @@ const (
 	CommandRunSchemaVersion                        = core.CommandRunSchemaVersion
 	CommandRunTransportDurabilityDurable           = core.CommandRunTransportDurabilityDurable
 	CommandRunTransportDurabilityEphemeral         = core.CommandRunTransportDurabilityEphemeral
+	ConsolePageTemplate                            = core.ConsolePageTemplate
 	ContentChannelScopeQueryParam                  = core.ContentChannelScopeQueryParam
 	ContentTypeCapabilityKeyBlockTypes             = core.ContentTypeCapabilityKeyBlockTypes
 	ContentTypeCapabilityKeyBlocks                 = core.ContentTypeCapabilityKeyBlocks
@@ -146,6 +149,14 @@ const (
 	ContentTypeCapabilityKeyWorkflowKey            = core.ContentTypeCapabilityKeyWorkflowKey
 	CreateRoleOperation                            = core.CreateRoleOperation
 	CreateTranslationKey                           = core.CreateTranslationKey
+	DataOverviewRecordKey                          = core.DataOverviewRecordKey
+	DataPageTemplate                               = core.DataPageTemplate
+	DataPanelCoverage                              = core.DataPanelCoverage
+	DataPanelDatasets                              = core.DataPanelDatasets
+	DataPanelOperations                            = core.DataPanelOperations
+	DataPanelOverview                              = core.DataPanelOverview
+	DataPanelScenarios                             = core.DataPanelScenarios
+	DataPanelVerification                          = core.DataPanelVerification
 	DebugLayoutAdmin                               = core.DebugLayoutAdmin
 	DebugLayoutDashboard                           = core.DebugLayoutDashboard
 	DebugLayoutStandalone                          = core.DebugLayoutStandalone
@@ -860,6 +871,16 @@ type (
 	DashboardRenderer                                 = core.DashboardRenderer
 	DashboardRendererFunc                             = core.DashboardRendererFunc
 	DashboardWidgetInstance                           = core.DashboardWidgetInstance
+	DataActionChoice                                  = core.DataActionChoice
+	DataCheckView                                     = core.DataCheckView
+	DataCoverageView                                  = core.DataCoverageView
+	DataModule                                        = core.DataModule
+	DataModuleConfig                                  = core.DataModuleConfig
+	DataOverviewCounts                                = core.DataOverviewCounts
+	DataOverviewView                                  = core.DataOverviewView
+	DataPanelActions                                  = core.DataPanelActions
+	DataScenarioView                                  = core.DataScenarioView
+	DataTargetView                                    = core.DataTargetView
 	DebugCollector                                    = core.DebugCollector
 	DebugCollectorProvider                            = core.DebugCollectorProvider
 	DebugConfig                                       = core.DebugConfig
@@ -1771,6 +1792,10 @@ func ConfigureTranslationSuggestionServiceDependencies(service TranslationSugges
 	core.ConfigureTranslationSuggestionServiceDependencies(service, deps)
 }
 
+func ConsolePageRenderer(adm *Admin, template string, chrome AdminPageChrome) func(router.Context, console.Bootstrap) error {
+	return core.ConsolePageRenderer(adm, template, chrome)
+}
+
 func ContentChannelFromContext(ctx context.Context) string {
 	return core.ContentChannelFromContext(ctx)
 }
@@ -1801,6 +1826,42 @@ func DashboardPageAreaByCode(page dashboard.Page, areaCode string) (dashboard.Pa
 
 func DashboardPageWidgetsForAreaCode(page dashboard.Page, areaCode string) []dashboard.WidgetFrame {
 	return core.DashboardPageWidgetsForAreaCode(page, areaCode)
+}
+
+func DataActionKind(actionID string) (data.Kind, bool) {
+	return core.DataActionKind(actionID)
+}
+
+func DataActionResult(kind data.Kind, result data.Result, err error) (console.PanelActionResult, error) {
+	return core.DataActionResult(kind, result, err)
+}
+
+func DataCheckRecord(view DataCheckView, revision uint64) console.Record {
+	return core.DataCheckRecord(view, revision)
+}
+
+func DataCoverageRecord(view DataCoverageView, revision uint64) console.Record {
+	return core.DataCoverageRecord(view, revision)
+}
+
+func DataDatasetRecord(descriptor data.Descriptor, revision uint64) console.Record {
+	return core.DataDatasetRecord(descriptor, revision)
+}
+
+func DataOperationRecord(operation data.Operation) console.Record {
+	return core.DataOperationRecord(operation)
+}
+
+func DataOverviewRecord(view DataOverviewView, revision uint64) console.Record {
+	return core.DataOverviewRecord(view, revision)
+}
+
+func DataPanelIDs() []string {
+	return core.DataPanelIDs()
+}
+
+func DataScenarioRecord(view DataScenarioView, revision uint64) console.Record {
+	return core.DataScenarioRecord(view, revision)
 }
 
 func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
@@ -2205,6 +2266,10 @@ func NewDashboard() *Dashboard {
 
 func NewDashboardPreferencesAdapter(service *PreferencesService) DashboardPreferences {
 	return core.NewDashboardPreferencesAdapter(service)
+}
+
+func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
+	return core.NewDataModule(cfg)
 }
 
 func NewDebugCollector(cfg DebugConfig) *DebugCollector {
@@ -2829,6 +2894,14 @@ func RegisterCoreCommandFactories(bus *CommandBus) error {
 
 func RegisterDashboardProviderFactory(bus *CommandBus, commandName string, code string, defaultConfig map[string]any) error {
 	return core.RegisterDashboardProviderFactory(bus, commandName, code, defaultConfig)
+}
+
+func RegisterDataCommands(bus *CommandBus, service *data.Service) (CommandRegistrationHandle, error) {
+	return core.RegisterDataCommands(bus, service)
+}
+
+func RegisterDataPanels(registry *console.PanelRegistry, actions ...DataPanelActions) error {
+	return core.RegisterDataPanels(registry, actions...)
 }
 
 func RegisterDefaultCMSWorkflows(registrar WorkflowRegistrar) {

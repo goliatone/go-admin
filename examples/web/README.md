@@ -60,6 +60,65 @@ deterministic failure, and observed queued-progress samples. The latter two
 also carry command-specific descriptor permissions, so non-superadmin roles
 can be used to verify partial catalog/run visibility.
 
+### Data console
+
+The kitchen sink also enables the independent Data module at `/admin/data`.
+Log in as the seeded superadmin, or assign the `data_viewer`, `data_operator`
+or `data_custodian` role through Users/Roles. Those roles grant no Debug access;
+the existing developer/admin role gains no Data access. Viewer can read the six
+panels; operator can validate, prepare, refresh, verify and activate. Reset,
+generation and cancellation are explicitly unsupported by this demo, even for
+custodian. Data grants confer no CMS/user/export permissions.
+
+Configuration lives in `admin.data` in `config/app.json` and accepts:
+
+```bash
+# From examples/web; Data works with Debug disabled.
+APP_ADMIN__DEBUG__ENABLED=false \
+APP_ADMIN__DATA__ENABLED=true \
+APP_ADMIN__DATA__WRITES_ENABLED=true \
+APP_ADMIN__DATA__STORE_PATH=data-console.db \
+go run .
+```
+
+`store_path` is a dedicated SQLite file, relative to the working directory unless
+absolute. The example creates its parent directory. Operations, immutable stages,
+physical routing and receipts persist across restart. Retry identities remain
+for 30 days; receipt retention is 7 days with active/recovery references protected.
+Set `writes_enabled=false` for catalog/validation only; this example also disables
+writes outside development. `enabled=false` omits Data without changing Debug.
+
+In Overview, choose an action, enter a unique request key, and submit:
+
+1. Validate `ready`. Prepare `ready` with Dry run selected to inspect a plan;
+   the Verification panel labels its checks planned and no stage is created.
+2. Prepare `ready` with Dry run cleared and a new key. Completion creates a
+   receipt; it does not activate anything. Retry with the same key and identical
+   options to get the same operation; changed options conflict.
+3. Verify the new `ready` receipt. Real SQLite queries check 3 orders, a total of
+   250, and the UTC sample day `2026-01-01`.
+4. Activate that receipt with a new key. Overview reports active generation 1.
+5. Refresh `quiet`, then verify its receipt. It has 0 orders and covered-empty
+   sample evidence. `ready` remains active throughout staging and verification.
+6. Activate `quiet` separately. The physical route now selects the empty stage
+   and advances generation. Activation checks the generation selected by the
+   server; a stale page is rejected/refreshed rather than silently overwriting it.
+
+The wiring is in `data_module_example.go`: `data.NewService` receives the
+application's provider, managed target, operation store, current policy and
+principal resolver; `admin.NewDataModule` receives that service, target, current
+feature gate and console identity resolver. Its page actions dispatch the same
+registered `admin.data.*.v1` typed commands available to other trusted adapters.
+`datamodule/runtime.go` implements the synthetic provider/target using isolated
+`data_example_*` tables and the opt-in `data/examples/sqlitestore` reference store.
+`setup/data_console.go` rechecks account status, session expiry, scope and current
+role assignments on every boundary, without the main permission cache.
+
+This fixture exercises dataset management rather than replacing the kitchen
+sink's CMS/users seeds. Applications must supply and verify their own provider,
+target/recovery and durable-store adapters before enabling writes. No artifact
+downloads are advertised by this example.
+
 If you are iterating on the `quickstart` submodule locally, make sure the root
 module resolves it via either:
 - a `replace github.com/goliatone/go-admin/quickstart => ./quickstart` entry in

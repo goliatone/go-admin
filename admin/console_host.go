@@ -15,19 +15,21 @@ import (
 // Page rendering remains an adapter so shared hosting never owns product markup.
 type ConsoleHostConfig struct {
 	ID, Title, FeatureKey string
-	Registry              *console.PanelRegistry
-	Events                *console.EventStream
-	Access                ConsoleAccess
-	Enabled               func() bool
-	RequestIdentity       func(router.Context) (console.Identity, error)
-	Snapshot              console.SnapshotSource
-	Lookup                console.LookupSource
-	RenderPage            func(router.Context, console.Bootstrap) error
-	PreferencesNamespace  string
-	LoadPreferences       func(context.Context, string) ([]string, error)
-	SavePreferences       func(context.Context, string, []string) error
-	RevalidateInterval    time.Duration
-	SnapshotTimeout       time.Duration
+	// RouteNamespace defaults to ID and isolates named routes from module identity.
+	RouteNamespace       string
+	Registry             *console.PanelRegistry
+	Events               *console.EventStream
+	Access               ConsoleAccess
+	Enabled              func() bool
+	RequestIdentity      func(router.Context) (console.Identity, error)
+	Snapshot             console.SnapshotSource
+	Lookup               console.LookupSource
+	RenderPage           func(router.Context, console.Bootstrap) error
+	PreferencesNamespace string
+	LoadPreferences      func(context.Context, string) ([]string, error)
+	SavePreferences      func(context.Context, string, []string) error
+	RevalidateInterval   time.Duration
+	SnapshotTimeout      time.Duration
 	// Invalidated may be a broadcast host signal. Idle checks remain mandatory.
 	Invalidated <-chan struct{}
 }
@@ -48,6 +50,9 @@ type ConsoleHost struct {
 func NewConsoleHost(config ConsoleHostConfig) (*ConsoleHost, error) {
 	if !consoleIdentifierValid(config.ID) || config.Registry == nil || config.Enabled == nil || config.RequestIdentity == nil || config.Access.Resolve == nil || config.Access.Read == nil || config.Access.Panel == nil || config.Access.Record == nil || config.Snapshot == nil {
 		return nil, validationDomainError("console requires identity, registry, gate, snapshot and current read policies", nil)
+	}
+	if config.RouteNamespace != "" && !consoleIdentifierValid(config.RouteNamespace) {
+		return nil, validationDomainError("invalid console route namespace", nil)
 	}
 	if config.RevalidateInterval <= 0 {
 		config.RevalidateInterval = 15 * time.Second
@@ -90,16 +95,24 @@ func (h *ConsoleHost) Manifest() ModuleManifest {
 }
 
 func (h *ConsoleHost) RouteContract() routing.ModuleContract {
+	prefix := h.routeNamespace()
 	return routing.ModuleContract{Slug: h.config.ID, UIRouteDeclarations: map[string]routing.RouteDeclaration{
-		h.config.ID + ".page":             {Method: router.GET, Path: "/"},
-		h.config.ID + ".panels":           {Method: router.GET, Path: "api/panels"},
-		h.config.ID + ".snapshot":         {Method: router.GET, Path: "api/snapshot"},
-		h.config.ID + ".lookup":           {Method: router.GET, Path: "api/panels/:panel/records/:record"},
-		h.config.ID + ".action":           {Method: router.POST, Path: "api/panels/:panel/actions/:action"},
-		h.config.ID + ".preferences":      {Method: router.GET, Path: "api/preferences/panel-order"},
-		h.config.ID + ".preferences.save": {Method: router.PUT, Path: "api/preferences/panel-order"},
-		h.config.ID + ".live":             {Method: router.GET, Path: "ws"},
+		prefix + ".page":             {Method: router.GET, Path: "/"},
+		prefix + ".panels":           {Method: router.GET, Path: "api/panels"},
+		prefix + ".snapshot":         {Method: router.GET, Path: "api/snapshot"},
+		prefix + ".lookup":           {Method: router.GET, Path: "api/panels/:panel/records/:record"},
+		prefix + ".action":           {Method: router.POST, Path: "api/panels/:panel/actions/:action"},
+		prefix + ".preferences":      {Method: router.GET, Path: "api/preferences/panel-order"},
+		prefix + ".preferences.save": {Method: router.PUT, Path: "api/preferences/panel-order"},
+		prefix + ".live":             {Method: router.GET, Path: "ws"},
 	}}
+}
+
+func (h *ConsoleHost) routeNamespace() string {
+	if h.config.RouteNamespace != "" {
+		return h.config.RouteNamespace
+	}
+	return h.config.ID
 }
 
 func (h *ConsoleHost) Register(ctx ModuleContext) error {
@@ -111,7 +124,7 @@ func (h *ConsoleHost) Register(ctx ModuleContext) error {
 	if h.registered || h.closed() {
 		return validationDomainError("console registration is startup-only", nil)
 	}
-	get := func(key string) string { return ctx.Routing.RoutePath(routing.SurfaceUI, h.config.ID+"."+key) }
+	get := func(key string) string { return ctx.Routing.RoutePath(routing.SurfaceUI, h.routeNamespace()+"."+key) }
 	h.routes = console.Routes{Page: get("page"), Panels: get("panels"), Snapshot: get("snapshot"), Action: get("action"), Preferences: get("preferences"), Live: get("live"), Lookup: get("lookup")}
 	if slices.Contains([]string{h.routes.Page, h.routes.Panels, h.routes.Snapshot, h.routes.Action, h.routes.Preferences, h.routes.Live, h.routes.Lookup}, "") {
 		return validationDomainError("console route contract is unresolved", nil)

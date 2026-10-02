@@ -787,6 +787,20 @@ func seedDebugRoles(ctx context.Context, registry types.RoleRegistry, users map[
 		},
 	}
 	roles := map[string]*types.RoleDefinition{}
+	// Independent Data personas are assignable through Users/Roles. Existing
+	// developer/admin roles gain no Data grants; superadmin retains admin.*.
+	dataRead := []string{"admin.dashboard.view", "admin.profile.view", "admin.profile.edit", "admin.data.view"}
+	dataOperate := append(cloneRolePermissions(dataRead), "admin.data.validate", "admin.data.prepare", "admin.data.refresh", "admin.data.verify", "admin.data.activate")
+	for _, seed := range []struct {
+		Key, Name   string
+		Permissions []string
+	}{
+		{"data_viewer", "Data Viewer", dataRead},
+		{"data_operator", "Data Operator", dataOperate},
+		{"data_custodian", "Data Custodian", append(cloneRolePermissions(dataOperate), "admin.data.reset", "admin.data.generate", "admin.data.cancel", "admin.data.recover")},
+	} {
+		roleSeeds = append(roleSeeds, seed)
+	}
 	for _, seed := range roleSeeds {
 		role, err := ensureSeedRole(ctx, registry, scope, seed.Key, seed.Name, seed.Permissions)
 		if err != nil {

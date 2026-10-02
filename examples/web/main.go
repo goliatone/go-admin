@@ -505,6 +505,7 @@ func main() {
 	configDir := filepath.Dir(strings.TrimSpace(runtimeConfig.ConfigPath))
 	cfg.FeatureCatalogPath = resolveFeatureCatalogPath(runtimeConfig.Admin.FeatureCatalogPath, configDir)
 	featureDefaults := map[string]bool{
+		"data":                        runtimeConfig.Admin.Data.Enabled,
 		"dashboard":                   true,
 		"cms":                         true,
 		"commands":                    true,
@@ -1364,6 +1365,18 @@ func main() {
 	}
 	if debugEnabled {
 		modules = append(modules, quickstart.NewDebugModule(cfg.Debug))
+	}
+	if runtimeConfig.Admin.Data.Enabled {
+		dataModule, closeData, err := newExampleDataModule(adm, cfg, runtimeConfig.Admin.Data, usersDeps, runtimeConfig.App.Env, isDev)
+		if err != nil {
+			fatalf("failed to configure Data module: %v", err)
+		}
+		defer func() {
+			if err := closeData(); err != nil {
+				warnf("failed to close Data module: %v", err)
+			}
+		}()
+		modules = append(modules, dataModule)
 	}
 
 	logTranslationNavigationSnapshot(context.Background(), "before-module-registrar", adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale, infof, warnf)
