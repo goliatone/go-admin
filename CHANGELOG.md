@@ -1,17 +1,28 @@
 # Changelog
 
+# [0.139.2](https://github.com/goliatone/go-admin/compare/v0.139.1...v0.139.2) - (2026-10-02)
+
+## <!-- 16 -->➕ Add
+
+- Better data UI/UX ([3fa5f6b](https://github.com/goliatone/go-admin/commit/3fa5f6b65a680dfa92ff329903c61fa5c6f5e97c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update gitignore ([08abe30](https://github.com/goliatone/go-admin/commit/08abe303010096f62829a09fb03c76fc31817930))  - (goliatone)
+- Code quality ([6c13377](https://github.com/goliatone/go-admin/commit/6c133779b834ef312739b83fc759ce409fcdaa5e))  - (goliatone)
+
 # [0.139.1](https://github.com/goliatone/go-admin/compare/v0.139.0...v0.139.1) - (2026-10-02)
 
 
-## Migration Notes
-
-- Custom Data `OperationStore` adapters must implement read-only `LookupRequest` and bounded `ListReceipts`. Request lookup uses the durable actor/scope/target/command/key claim and retains live tombstones as `gone`; receipt pages are independent of operation history and use opaque cursors. The reference SQLite adapter requires no document schema migration.
-- Custom Data console action callers must forward the rendered `expected_generation` payload for Activate/Reset. Action IDs remain stable across generation changes; authorized same-key retries bind to their original durable generation, while new requests keep stale-generation protection. Direct typed command fingerprints remain strict.
-- `admin.data.recover.v1` accepts only `target_id` and `operation_id`. Hosts must authorize current recovery grants; recovery reconciles existing work under lease/fence authority and records the supervisor separately from the requester.
+New patch release: v0.139.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Example setup and data module path ([bc5fb1c](https://github.com/goliatone/go-admin/commit/bc5fb1c7f22cd0e899a8f409392dc0382edbae0a))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.139.1 ([5bdf514](https://github.com/goliatone/go-admin/commit/5bdf514ba27e85b8bf9ed099d591c87e9676432e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
