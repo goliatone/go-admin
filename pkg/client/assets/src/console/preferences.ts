@@ -2,6 +2,7 @@
 // console, application, environment, actor or scope; storage failures are
 // tolerated because preferences are conveniences, not state of record.
 
+import { consolePreferenceKey } from './preference-key.js';
 import type { ConsoleIdentity } from './types.js';
 
 export type ConsoleStorageArea = 'local' | 'session';
@@ -18,7 +19,7 @@ export type LegacyPreferenceKey = {
   area: ConsoleStorageArea;
 };
 
-const KEY_PREFIX = 'go-admin:console:';
+export { consolePreferenceKey };
 
 /**
  * Stable namespace for an identity. Mirrors the server's unambiguous identity
@@ -48,7 +49,7 @@ export class ConsolePreferences {
   private readonly provider: ConsoleStorageProvider | null;
 
   constructor(namespace: string, provider: ConsoleStorageProvider | null = null) {
-    this.prefix = `${KEY_PREFIX}${namespace}:`;
+    this.prefix = consolePreferenceKey(namespace, '');
     this.provider = provider;
   }
 

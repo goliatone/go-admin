@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{{ adminURL("formgen/formgen-vanilla.css") }}">
   <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/debug.css") }}">
 </head>
-<body>
+<body data-debug-root>
   <header class="debug-header">
     <div class="debug-header__left">
       <span class="debug-header__title">
@@ -51,6 +51,7 @@
         data-debug-console
         data-debug-path="{{ debug_path }}"
         data-panel-order-preferences-path="{{ panel_order_preferences_path }}"
+        data-preferences-namespace="{{ debug_preferences_namespace }}"
         data-panels='{{ toJSON(panels) }}'
         data-repl-commands='{{ toJSON(repl_commands) }}'
         data-max-log-entries="{{ max_log_entries }}"

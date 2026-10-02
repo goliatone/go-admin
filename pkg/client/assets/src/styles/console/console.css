@@ -55,6 +55,11 @@
   box-sizing: border-box;
 }
 
+/* Dashboard widgets render a single read-only panel body. */
+.console-root.console-root--widget {
+  gap: 8px;
+}
+
 /* Header and connection state ------------------------------------------- */
 
 :where(.console-root) .console-header {
@@ -69,6 +74,14 @@
   margin: 0;
   font-size: 16px;
   font-weight: 700;
+}
+
+:where(.console-root) .console-header__lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 :where(.console-root) .console-header__actions {

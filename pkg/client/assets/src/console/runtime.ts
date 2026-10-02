@@ -52,6 +52,11 @@ export type ConsoleRuntimeOptions = {
   requestTimeoutMs?: number;
   /** How long to wait for the host's live snapshot before fetching over HTTP. */
   snapshotWaitMs?: number;
+  /**
+   * Read-only view of an embedded snapshot (dashboard widgets): no live
+   * stream, recovery, actions, tabs or filters.
+   */
+  display?: boolean;
   /** Confirmation prompt for actions that require it. */
   confirm?: (message: string) => boolean;
 };
@@ -67,6 +72,7 @@ type NoticeKind = 'none' | 'loading' | 'error' | 'denied';
 
 const ROOT_SELECTOR = '[data-console-root]';
 const BOOTSTRAP_SELECTOR = 'script[type="application/json"][data-console-bootstrap]';
+const WIDGET_SELECTOR = 'script[type="application/json"][data-console-widget]';
 const LIST_RENDERERS = new Set(['table', 'status_list', 'timeline']);
 const POLICY_CLOSE_CODES = new Set([1008, 4401, 4403]);
 const DEFAULT_RECOVERY_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
@@ -110,6 +116,31 @@ export function readConsoleBootstrap(root: HTMLElement): ConsoleBootstrap | null
   if (!own) return null;
   try {
     return normalizeBootstrap(JSON.parse(own.textContent || ''));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read a dashboard widget payload (`identity`, `panel`, `watermark`) owned by
+ * this root and expose it as a display-only bootstrap.
+ */
+export function readConsoleWidgetBootstrap(root: HTMLElement): ConsoleBootstrap | null {
+  const scripts = Array.from(root.querySelectorAll<HTMLScriptElement>(WIDGET_SELECTOR));
+  const own = scripts.find((script) => script.closest(ROOT_SELECTOR) === root);
+  if (!own) return null;
+  try {
+    const payload = JSON.parse(own.textContent || '') as unknown;
+    if (!isObject(payload) || !isObject(payload.panel)) return null;
+    const identity = normalizeConsoleIdentity(payload);
+    const watermark = typeof payload.watermark === 'number' ? payload.watermark : 0;
+    if (!identity.console_id) return null;
+    return {
+      ...identity,
+      title: text(payload.panel.label) || undefined,
+      urls: { snapshot: '' },
+      snapshot: { ...identity, watermark, panels: [payload.panel as ServerPanelDefinition] },
+    };
   } catch {
     return null;
   }
@@ -315,7 +346,7 @@ export class ConsoleRuntime {
     } else {
       await this.recover();
     }
-    if (this.isClosed()) return;
+    if (this.isClosed() || this.options.display) return;
     this.connectLive();
   }
 
@@ -332,7 +363,7 @@ export class ConsoleRuntime {
    * snapshot newer than every trigger was applied (or access was denied).
    */
   private recover(): Promise<void> {
-    if (this.isClosed()) return Promise.resolve();
+    if (this.isClosed() || this.options.display || !this.bootstrap.urls.snapshot) return Promise.resolve();
     if (this.recoveryPromise) {
       this.recoveryPending = true;
       return this.recoveryPromise;
@@ -648,7 +679,7 @@ export class ConsoleRuntime {
     const panelId = normalizeSchemaID(element.dataset.panelId);
     const actionId = normalizeSchemaID(element.dataset.actionId);
     const template = this.bootstrap.urls.actions;
-    if (this.state !== 'ready' || !template || !panelId || !actionId) return;
+    if (this.state !== 'ready' || this.options.display || !template || !panelId || !actionId) return;
     if (!this.visiblePanels().includes(panelId) || !this.declaredAction(panelId, actionId)) return;
     if (!this.confirmAction(element)) return;
     const payload = buildPanelActionPayload(element);
@@ -946,7 +977,7 @@ export class ConsoleRuntime {
     const focusedTab = focused instanceof HTMLElement && this.regions.tabs.contains(focused)
       ? focused.dataset.consoleTab || ''
       : '';
-    this.regions.tabs.hidden = panels.length === 0;
+    this.regions.tabs.hidden = panels.length === 0 || Boolean(this.options.display);
     this.regions.tabs.innerHTML = panels.map((panelId) => {
       const definition = this.registry.get(panelId);
       const active = panelId === this.activePanel;
@@ -991,7 +1022,7 @@ export class ConsoleRuntime {
 
   private renderFilters(): void {
     const definition = this.registry.get(this.activePanel);
-    if (!definition?.renderFilters || definition.showFilters === false || this.state !== 'ready') {
+    if (!definition?.renderFilters || definition.showFilters === false || this.state !== 'ready' || this.options.display) {
       this.regions.filters.innerHTML = '';
       this.regions.filters.hidden = true;
       return;
@@ -1033,6 +1064,11 @@ export class ConsoleRuntime {
       data = definition.applyFilters(data, this.filterStateFor(panelId, definition));
     }
     const options = this.renderOptions();
+    if (this.options.display && definition.renderBody) {
+      panel.innerHTML = definition.renderBody(data, this.styles, options);
+      panel.dataset.consolePanelId = panelId;
+      return;
+    }
     if (definition.renderActions && definition.renderBody) {
       const body = panel.querySelector<HTMLElement>(':scope > [data-console-panel-body]');
       if (!full && body && this.panelMounted(panelId)) {
@@ -1083,7 +1119,7 @@ export class ConsoleRuntime {
     const { kind, message, action } = this.notice;
     const notice = this.regions.notice;
     notice.dataset.consoleNotice = kind;
-    if (kind === 'none' || !message) {
+    if (kind === 'none' || !message || (this.options.display && kind === 'loading')) {
       notice.hidden = true;
       notice.innerHTML = '';
       notice.removeAttribute('role');
@@ -1103,12 +1139,15 @@ export class ConsoleRuntime {
 export function mountConsole(root: HTMLElement, options: ConsoleRuntimeOptions = {}): ConsoleRuntime | null {
   const existing = mounted.get(root);
   if (existing) return existing;
-  const bootstrap = options.bootstrap ? normalizeBootstrap(options.bootstrap) : readConsoleBootstrap(root);
+  const display = Boolean(options.display) || root.hasAttribute('data-console-display');
+  const bootstrap = options.bootstrap
+    ? normalizeBootstrap(options.bootstrap)
+    : display ? readConsoleWidgetBootstrap(root) : readConsoleBootstrap(root);
   if (!bootstrap) {
     root.dataset.consoleState = 'error';
     return null;
   }
-  const runtime = new ConsoleRuntime(root, bootstrap, options);
+  const runtime = new ConsoleRuntime(root, bootstrap, display ? { ...options, display: true, live: false } : options);
   mounted.set(root, runtime);
   return runtime;
 }

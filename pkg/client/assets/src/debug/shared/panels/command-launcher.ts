@@ -16,6 +16,7 @@ import { escapeHTML } from '../utils.js';
 import { registerServerPanelConsoleRenderer, type ServerPanelConsoleRendererContext } from '../server-definitions.js';
 import { panelActionHasSensitiveFields } from '../panel-actions.js';
 import { readCSRFToken } from '../../../shared/transport/http-client.js';
+import { createDebugBrowserState, type DebugBrowserState } from '../browser-state.js';
 
 const COMMAND_LAUNCHER_PANEL_ID = 'commands';
 const COMMAND_OPTION_ENDPOINT_SCHEME = 'command-options://';
@@ -114,7 +115,7 @@ const formgenControllers = new Map<string, FormgenControllerSession>();
 
 // Operator-chosen master-list width (app-shell splitter). The panel rebuilds its
 // innerHTML on every snapshot, so the width lives in module scope (mirrored to
-// localStorage) and is re-applied on every attach, like the selection/filter.
+// identity-scoped browser storage) and is re-applied on every attach.
 let sidebarWidth = 0; // 0 == unset → fall back to the CSS default track width.
 const SIDEBAR_DEFAULT_PX = 230;
 const SIDEBAR_MIN_PX = 180;
@@ -1245,21 +1246,22 @@ function captureFormDraft(form: HTMLElement): void {
 
 const RECENT_LIMIT = 6;
 
-function launcherStorage(): Storage | null {
-  try {
-    return typeof localStorage !== 'undefined' ? localStorage : null;
-  } catch {
-    return null;
+// Recall, presets and layout are identity-scoped by the hosting Debug console
+// so one actor's payloads never surface for another actor or scope.
+let launcherState: DebugBrowserState = createDebugBrowserState();
+
+/** Scope launcher browser state to the Debug console's identity. */
+export function configureCommandLauncherState(state: DebugBrowserState): void {
+  if (state === launcherState) {
+    return;
   }
+  launcherState = state;
+  sidebarWidth = 0;
 }
 
 function readInvocationStore(key: string): Array<Record<string, unknown>> {
-  const store = launcherStorage();
-  if (!store) {
-    return [];
-  }
   try {
-    const raw = store.getItem(key);
+    const raw = launcherState.get(key);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -1268,14 +1270,11 @@ function readInvocationStore(key: string): Array<Record<string, unknown>> {
 }
 
 function writeInvocationStore(key: string, value: unknown): void {
-  const store = launcherStorage();
-  if (!store) {
-    return;
-  }
   try {
-    store.setItem(key, JSON.stringify(value));
+    // Storage unavailable or over quota is tolerated: recall is best-effort.
+    launcherState.set(key, JSON.stringify(value));
   } catch {
-    // storage unavailable or over quota — recall is best-effort.
+    // Unserializable values are skipped.
   }
 }
 
@@ -1466,16 +1465,8 @@ function setJsonMode(form: HTMLElement, on: boolean): void {
 // ============================================================================
 
 function readStoredSidebarWidth(): number {
-  const store = launcherStorage();
-  if (!store) {
-    return 0;
-  }
-  try {
-    const raw = Number(store.getItem(SIDEBAR_WIDTH_KEY));
-    return Number.isFinite(raw) && raw >= SIDEBAR_MIN_PX ? raw : 0;
-  } catch {
-    return 0;
-  }
+  const raw = Number(launcherState.get(SIDEBAR_WIDTH_KEY));
+  return Number.isFinite(raw) && raw >= SIDEBAR_MIN_PX ? raw : 0;
 }
 
 // Upper bound keeps a usable detail column; falls back when layout width is not
@@ -1489,14 +1480,7 @@ function applySidebarWidth(body: HTMLElement, width: number): number {
   const clamped = Math.min(Math.max(Math.round(width), SIDEBAR_MIN_PX), sidebarMaxWidth(body));
   sidebarWidth = clamped;
   body.style.setProperty('--cmdl-sidebar-w', `${clamped}px`);
-  const store = launcherStorage();
-  if (store) {
-    try {
-      store.setItem(SIDEBAR_WIDTH_KEY, String(clamped));
-    } catch {
-      // best-effort persistence
-    }
-  }
+  launcherState.set(SIDEBAR_WIDTH_KEY, String(clamped));
   return clamped;
 }
 

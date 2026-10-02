@@ -1,0 +1,14 @@
+{% comment %}
+  Console panel dashboard widget. widget.data is the host's authorized
+  ConsolePanelWidgetPayload (identity, panel definition + records, watermark).
+  The summary is server-rendered; the console runtime upgrades it to the
+  panel's declared read-only view. Actions stay on the console page.
+{% endcomment %}
+<link rel="stylesheet" href="{{ adminURL("assets/dist/styles/console.css") }}">
+<div class="console-root console-root--widget" data-console-root data-console-display data-console-id="{{ widget.data.console_id }}">
+  <script type="application/json" data-console-widget>{{ toJSON(widget.data)|safe }}</script>
+  <section class="console-panel" data-console-panel>
+    <p class="console-muted">{{ widget.data.panel.label|default:widget.data.panel.id }}: {{ widget.data.panel.records|length }} records</p>
+  </section>
+</div>
+<script type="module" src="{{ adminURL("assets/dist/console/index.js") }}"></script>

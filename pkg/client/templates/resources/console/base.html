@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% comment %}
+  Neutral operator console page shell.
+
+  Context:
+    console_id              trusted console identifier
+    console_title           page heading (falls back to title)
+    console_theme           optional token theme (e.g. "debug")
+    console_bootstrap_json  HTML-safe JSON from encoding/json (identity, urls,
+                            preferences_namespace, snapshot); rendered verbatim
+
+  Slots: console_head, console_heading, console_header_lead,
+  console_header_actions, console_after, console_scripts and console_shell.
+  Standalone hosts extend this template and empty the admin chrome blocks
+  (shell_sidebar, shell_page_header, shell_footer); the console regions and
+  bootstrap stay identical so the runtime mounts the same way in every host.
+{% endcomment %}
+
+{% block title %}{% block console_document_title %}{{ console_title|default:title|default:"Console" }}{% endblock %}{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ adminURL("assets/dist/styles/console.css") }}">
+  {% block console_head %}{% endblock %}
+{% endblock %}
+
+{% block page_title %}{% block console_heading %}{{ console_title|default:title|default:"Console" }}{% endblock %}{% endblock %}
+
+{% block content %}
+{% block console_shell %}
+<section class="console-root" data-console-root data-console-id="{{ console_id }}"{% if console_theme %} data-console-theme="{{ console_theme }}"{% endif %} aria-label="{{ console_title|default:title|default:"Console" }}">
+  <div class="console-header">
+    <div class="console-header__lead">{% block console_header_lead %}{% endblock %}</div>
+    <div class="console-header__actions">
+      {% block console_header_actions %}{% endblock %}
+      <span class="console-connection" data-console-status data-status="offline">
+        <span class="console-connection__dot" aria-hidden="true"></span>
+        <span data-console-connection>Not live</span>
+      </span>
+      <button type="button" class="console-btn" data-console-action="refresh">Refresh</button>
+    </div>
+  </div>
+  <div class="console-notice" data-console-notice hidden></div>
+  <nav class="console-tabs" data-console-tabs aria-label="{{ console_title|default:title|default:"Console" }} panels" hidden></nav>
+  <div class="console-filters" data-console-filters hidden></div>
+  <section class="console-panel" data-console-panel></section>
+  {% block console_after %}{% endblock %}
+  <script type="application/json" data-console-bootstrap>{{ console_bootstrap_json|safe }}</script>
+</section>
+{% endblock %}
+{% endblock %}
+
+{% block scripts %}
+  <script type="module" src="{{ adminURL("assets/dist/console/index.js") }}"></script>
+  {% block console_scripts %}{% endblock %}
+{% endblock %}

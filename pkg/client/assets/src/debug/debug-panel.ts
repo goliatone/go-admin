@@ -94,8 +94,10 @@ import {
   applyCommandLauncherControllerErrors,
   loadCommandLauncherControllerValues,
   detachCommandLauncherControllers,
+  configureCommandLauncherState,
 } from './shared/panels/command-launcher.js';
 import { httpRequest, readExpectedHTTPJSON, readHTTPErrorResult } from '../shared/transport/http-client.js';
+import { createDebugBrowserState, type DebugBrowserState } from './shared/browser-state.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
 
@@ -223,6 +225,7 @@ const clonePanelActionPayload = (payload: Record<string, unknown>): Record<strin
 export class DebugPanel {
   private container: HTMLElement;
   private root: ParentNode;
+  private browserState: DebugBrowserState;
   private debugPath: string;
   private panelOrderPreferencesPath: string;
   private availablePanels: string[];
@@ -289,6 +292,8 @@ export class DebugPanel {
   private commandRunReconcileFailures = 0;
   private commandRunSnapshotAbort: AbortController | null = null;
   private destroyed = false;
+  // Releases every element listener bound by this console on destroy().
+  private readonly listenerAbort = new AbortController();
   private readonly handleVisibilityChange = (): void => {
     if (this.destroyed) return;
     if (document.visibilityState === 'hidden') {
@@ -303,6 +308,9 @@ export class DebugPanel {
 
   constructor(container: HTMLElement) {
     this.container = container;
+    // Identity-scoped browser state; legacy keys only for the unscoped adapter.
+    this.browserState = createDebugBrowserState(container.dataset.preferencesNamespace);
+    configureCommandLauncherState(this.browserState);
     const panelsData = parseJSON(container.dataset.panels);
     const serverPanels = normalizePanelList(panelsData);
     if (!serverPanels.includes('sessions')) {
@@ -369,7 +377,7 @@ export class DebugPanel {
     this.sessionMetaEl = this.root.querySelector<HTMLElement>('[data-debug-session-meta]');
     this.sessionDetachEl = this.root.querySelector<HTMLButtonElement>('[data-debug-session-detach]');
     if (this.sessionDetachEl) {
-      this.sessionDetachEl.addEventListener('click', () => this.detachSession());
+      this.sessionDetachEl.addEventListener('click', () => this.detachSession(), { signal: this.listenerAbort.signal });
     }
 
     this.sqlView = new SqlLiveView({
@@ -539,7 +547,7 @@ export class DebugPanel {
     let restored: string | null = null;
     let urlPanel: string | null = null;
     try {
-      restored = this.normalizeStoredPanelID(sessionStorage.getItem(DEBUG_CONSOLE_ACTIVE_PANEL_KEY));
+      restored = this.normalizeStoredPanelID(this.browserState.get(DEBUG_CONSOLE_ACTIVE_PANEL_KEY, 'session'));
       const params = new URLSearchParams(window.location.search);
       urlPanel = this.normalizeStoredPanelID(params.get('panel'));
       const target = parseCommandRunsNavigation(params.toString());
@@ -555,11 +563,7 @@ export class DebugPanel {
   }
 
   private persistActivePanel(): void {
-    try {
-      sessionStorage.setItem(DEBUG_CONSOLE_ACTIVE_PANEL_KEY, this.activePanel);
-    } catch {
-      // Ignore blocked or unavailable browser storage.
-    }
+    this.browserState.set(DEBUG_CONSOLE_ACTIVE_PANEL_KEY, this.activePanel, 'session');
   }
 
   private replacePanelURL(panel: string, runID = '', dispatchID = '', correlationID = ''): void {
@@ -582,14 +586,10 @@ export class DebugPanel {
   }
 
   /**
-   * Persist panel order to localStorage
+   * Persist panel order to identity-scoped browser storage
    */
   private persistPanelOrder(): void {
-    try {
-      localStorage.setItem(DEBUG_CONSOLE_PANEL_ORDER_KEY, JSON.stringify(this.panels));
-    } catch {
-      // Ignore blocked or unavailable browser storage.
-    }
+    this.browserState.set(DEBUG_CONSOLE_PANEL_ORDER_KEY, JSON.stringify(this.panels));
   }
 
   private async loadServerPanelOrderPreference(): Promise<boolean> {
@@ -612,7 +612,7 @@ export class DebugPanel {
       this.savedPanelOrder = this.normalizeAvailablePanelIDs(payload.panel_order);
       return this.savedPanelOrder.length > 0;
     } catch {
-      // Server preferences are optional; localStorage remains the fallback.
+      // Server preferences are optional; browser storage remains the fallback.
       return false;
     }
   }
@@ -634,12 +634,12 @@ export class DebugPanel {
   }
 
   /**
-   * Read panel order from localStorage without filtering unknown IDs yet. Server
+   * Read panel order from browser storage without filtering unknown IDs yet. Server
    * definitions can arrive later, so saved dynamic panels must remain available.
    */
   private loadStoredPanelOrder(): string[] | null {
     try {
-      const stored = localStorage.getItem(DEBUG_CONSOLE_PANEL_ORDER_KEY);
+      const stored = this.browserState.get(DEBUG_CONSOLE_PANEL_ORDER_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         return this.normalizeSavedPanelOrder(parsed);
@@ -792,6 +792,7 @@ export class DebugPanel {
   }
 
   private bindActions(): void {
+    const { signal } = this.listenerAbort;
     this.tabsEl.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
@@ -814,7 +815,7 @@ export class DebugPanel {
       } else {
         this.stopCommandRunReconciliation();
       }
-    });
+    }, { signal });
 
     this.container.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
@@ -839,7 +840,7 @@ export class DebugPanel {
         default:
           break;
       }
-    });
+    }, { signal });
 
     this.panelEl.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
@@ -859,14 +860,14 @@ export class DebugPanel {
       const confirmText = button.dataset.doctorActionConfirm || '';
       const requiresConfirmation = button.dataset.doctorActionRequiresConfirmation === 'true';
       this.runDoctorAction(checkID, confirmText, requiresConfirmation);
-    });
+    }, { signal });
 
     this.panelEl.addEventListener(commandRunSelectionEvent, (event) => {
       if (this.activePanel !== 'command_runs') return;
       const detail = (event as CustomEvent<{ runID?: string }>).detail;
       const runID = typeof detail?.runID === 'string' ? detail.runID : '';
       if (runID) this.replacePanelURL('command_runs', runID);
-    });
+    }, { signal });
   }
 
   private renderTabs(): void {
@@ -2858,6 +2859,7 @@ export class DebugPanel {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.listenerAbort.abort();
     this.replLoadGeneration += 1;
     this.jsonPathLoadGeneration += 1;
     this.replPanels.forEach((panel) => panel.destroy());

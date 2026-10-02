@@ -16,6 +16,7 @@ import {
 import { escapeHTML } from '../shared/utils.js';
 import { deploymentIndicator } from '../shared/deployment-identity.js';
 import { renderDeploymentPersonaAvatar } from '../shared/deployment-persona.js';
+import { createDebugBrowserState, type DebugBrowserState } from '../shared/browser-state.js';
 
 const getCounts = getToolbarCounts;
 
@@ -140,24 +141,20 @@ export class DebugFab extends HTMLElement {
   }
 
   // State persistence
+  private browserState(): DebugBrowserState {
+    return createDebugBrowserState(this.getAttribute('preferences-namespace'));
+  }
+
   private loadState(): void {
-    try {
-      const stored = localStorage.getItem('debug-toolbar-expanded');
-      if (stored !== null) {
-        this.toolbarExpanded = stored === 'true';
-        this.render();
-      }
-    } catch {
-      // Ignore localStorage errors
+    const stored = this.browserState().get('debug-toolbar-expanded');
+    if (stored !== null) {
+      this.toolbarExpanded = stored === 'true';
+      this.render();
     }
   }
 
   private saveState(): void {
-    try {
-      localStorage.setItem('debug-toolbar-expanded', String(this.toolbarExpanded));
-    } catch {
-      // Ignore localStorage errors
-    }
+    this.browserState().set('debug-toolbar-expanded', String(this.toolbarExpanded));
   }
 
   // WebSocket initialization

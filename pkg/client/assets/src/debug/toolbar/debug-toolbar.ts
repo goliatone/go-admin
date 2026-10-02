@@ -50,6 +50,7 @@ import { renderDebugIconRef } from '../shared/icons.js';
 import { buildPanelActionPayload } from '../shared/panel-actions.js';
 import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
 import { httpRequest, readExpectedHTTPJSON, readHTTPError } from '../../shared/transport/http-client.js';
+import { createDebugBrowserState, type DebugBrowserState } from '../shared/browser-state.js';
 // Import to ensure built-in panels are registered
 import '../shared/builtin-panels.js';
 
@@ -321,13 +322,18 @@ export class DebugToolbar extends HTMLElement {
     return this.panels[0] || 'requests';
   }
 
+  private browserState(): DebugBrowserState {
+    return createDebugBrowserState(this.getAttribute('preferences-namespace'));
+  }
+
   private loadState(): void {
+    const state = this.browserState();
     try {
-      const stored = localStorage.getItem('debug-toolbar-expanded');
+      const stored = state.get('debug-toolbar-expanded');
       if (stored !== null) {
         this.expanded = stored === 'true';
       }
-      const storedHeight = localStorage.getItem('debug-toolbar-height');
+      const storedHeight = state.get('debug-toolbar-height');
       if (storedHeight !== null) {
         const height = parseInt(storedHeight, 10);
         if (!isNaN(height) && height >= DebugToolbar.MIN_HEIGHT) {
@@ -335,7 +341,7 @@ export class DebugToolbar extends HTMLElement {
         }
       }
       // Load sort order preferences
-      const storedSortOrder = localStorage.getItem('debug-toolbar-sort-order');
+      const storedSortOrder = state.get('debug-toolbar-sort-order');
       if (storedSortOrder) {
         try {
           const parsed = JSON.parse(storedSortOrder) as Record<string, boolean>;
@@ -346,30 +352,27 @@ export class DebugToolbar extends HTMLElement {
           // Ignore parse errors
         }
       }
-      const storedActivePanel = this.normalizeStoredPanelID(localStorage.getItem(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY));
+      const storedActivePanel = this.normalizeStoredPanelID(state.get(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY));
       this.activePanel = storedActivePanel || this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     } catch {
-      // Ignore localStorage errors
+      // Ignore malformed stored values
       this.activePanel = this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     }
   }
 
   private saveState(): void {
-    try {
-      localStorage.setItem('debug-toolbar-expanded', String(this.expanded));
-      if (this.customHeight !== null) {
-        localStorage.setItem('debug-toolbar-height', String(this.customHeight));
-      }
-      // Save sort order preferences
-      const sortOrderObj: Record<string, boolean> = {};
-      this.panelSortOrder.forEach((value, key) => {
-        sortOrderObj[key] = value;
-      });
-      localStorage.setItem('debug-toolbar-sort-order', JSON.stringify(sortOrderObj));
-      localStorage.setItem(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY, this.activePanel);
-    } catch {
-      // Ignore localStorage errors
+    const state = this.browserState();
+    state.set('debug-toolbar-expanded', String(this.expanded));
+    if (this.customHeight !== null) {
+      state.set('debug-toolbar-height', String(this.customHeight));
     }
+    // Save sort order preferences
+    const sortOrderObj: Record<string, boolean> = {};
+    this.panelSortOrder.forEach((value, key) => {
+      sortOrderObj[key] = value;
+    });
+    state.set('debug-toolbar-sort-order', JSON.stringify(sortOrderObj));
+    state.set(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY, this.activePanel);
   }
 
   // Keyboard shortcut

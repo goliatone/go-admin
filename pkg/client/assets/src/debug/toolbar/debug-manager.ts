@@ -5,6 +5,7 @@ import { DebugFab } from './debug-fab.js';
 import type { DebugToolbar } from './debug-toolbar.js';
 import { loadDebugToolbar } from './toolbar-loader.js';
 import { normalizeDebugBasePath } from '../shared/path-helpers.js';
+import { createDebugBrowserState, type DebugBrowserState } from '../shared/browser-state.js';
 
 export interface DebugManagerOptions {
   basePath?: string;
@@ -13,6 +14,8 @@ export interface DebugManagerOptions {
   panels?: string[];
   slowThresholdMs?: number;
   container?: HTMLElement;
+  /** Server-issued identity namespace for toolbar browser state ("" keeps legacy keys). */
+  preferencesNamespace?: string;
 }
 
 export class DebugManager {
@@ -22,6 +25,7 @@ export class DebugManager {
   private initialized = false;
   private expanded = false;
   private toolbarMountGeneration = 0;
+  private readonly browserState: DebugBrowserState;
 
   constructor(options: DebugManagerOptions = {}) {
     this.options = {
@@ -38,6 +42,8 @@ export class DebugManager {
     if (!this.options.debugPath && normalizedBasePath) {
       this.options.debugPath = `${normalizedBasePath}/debug`;
     }
+    this.options.preferencesNamespace = (this.options.preferencesNamespace || '').trim();
+    this.browserState = createDebugBrowserState(this.options.preferencesNamespace);
   }
 
   /**
@@ -117,6 +123,9 @@ export class DebugManager {
     if (this.options.panels) {
       this.fab.setAttribute('panels', this.options.panels.join(','));
     }
+    if (this.options.preferencesNamespace) {
+      this.fab.setAttribute('preferences-namespace', this.options.preferencesNamespace);
+    }
     this.options.container?.appendChild(this.fab);
   }
 
@@ -137,6 +146,9 @@ export class DebugManager {
     }
     if (this.options.slowThresholdMs) {
       this.toolbar.setAttribute('slow-threshold-ms', String(this.options.slowThresholdMs));
+    }
+    if (this.options.preferencesNamespace) {
+      this.toolbar.setAttribute('preferences-namespace', this.options.preferencesNamespace);
     }
     this.options.container?.appendChild(this.toolbar);
     return this.toolbar;
@@ -220,11 +232,7 @@ export class DebugManager {
   }
 
   private shouldRestoreExpanded(): boolean {
-    try {
-      return localStorage.getItem('debug-toolbar-expanded') === 'true';
-    } catch {
-      return false;
-    }
+    return this.browserState.get('debug-toolbar-expanded') === 'true';
   }
 }
 
@@ -249,6 +257,9 @@ export function initDebugManager(): DebugManager | null {
         : undefined,
       panels: windowConfig.panels,
       slowThresholdMs: windowConfig.slowThresholdMs,
+      preferencesNamespace: typeof windowConfig.preferencesNamespace === 'string'
+        ? windowConfig.preferencesNamespace
+        : undefined,
     };
   } else if (existingElement) {
     options = {
@@ -256,6 +267,7 @@ export function initDebugManager(): DebugManager | null {
       debugPath: existingElement.getAttribute('data-debug-path') || undefined,
       panels: existingElement.getAttribute('data-panels')?.split(','),
       slowThresholdMs: parseInt(existingElement.getAttribute('data-slow-threshold-ms') || '50', 10),
+      preferencesNamespace: existingElement.getAttribute('data-preferences-namespace') || undefined,
     };
   }
 
