@@ -38,7 +38,11 @@ func TestDataModuleBindsRoutesActionsAndIndependentCurrentPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	t.Cleanup(func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
 	hash := strings.Repeat("a", 64)
 	descriptor := data.Descriptor{Dataset: data.DatasetRef{Provider: "sample", ID: "a", Version: "1"}, SourceContractHash: hash, SourceContractVersion: "1", PolicyHash: hash, Capabilities: map[data.Kind]data.Capability{data.Validate: {Supported: true}, data.Prepare: {Supported: true}}}
 	descriptor.Scenarios = []data.ScenarioRef{{Dataset: descriptor.Dataset, ID: "ready", Version: "1", ProfileHash: hash}}
@@ -70,17 +74,28 @@ func TestDataModuleBindsRoutesActionsAndIndependentCurrentPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer module.Close()
+	t.Cleanup(func() {
+		if closeErr := module.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
 	adm := mustNewAdmin(t, Config{BasePath: "/control", Debug: DebugConfig{Enabled: false}}, Dependencies{})
 	adm.commandBus = NewCommandBus(true)
 	rt := &stubWebSocketRouter{}
 	adm.router = rt
 	contract := module.RouteContract()
+	planner, err := routing.NewPlanner(routing.Config{Roots: routing.RootsConfig{AdminRoot: "/control", APIRoot: "/control/api", PublicAPIRoot: "/api"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = planner.RegisterModule(contract); err != nil {
+		t.Fatal("Data route contract rejected at startup", err)
+	}
 	moduleContext := ModuleContext{Admin: adm, ProtectedRouter: rt, AuthMiddleware: func(next router.HandlerFunc) router.HandlerFunc { return next }, Routing: routing.BuildModuleContext(contract, routing.ResolvedModule{Slug: "data", UIMountBase: "/control/data"})}
 	if err = module.Register(moduleContext); err != nil {
 		t.Fatal(err)
 	}
-	if module.Manifest().ID != "data" || module.host.routes.Page != "/control/data" || contract.UIRouteDeclarations["data_tools.action"].Method != router.POST {
+	if module.Manifest().ID != "data" || module.host.routes.Page != "/control/data" || contract.UIRouteDeclarations["data.action"].Method != router.POST || contract.RouteNamePrefix != "data_tools" {
 		t.Fatal("incorrect Data contract", contract, module.host.routes)
 	}
 	if adm.Debug() != nil {

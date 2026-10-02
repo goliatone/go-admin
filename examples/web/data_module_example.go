@@ -40,7 +40,8 @@ func newExampleDataModule(adm *coreadmin.Admin, cfg coreadmin.Config, options ap
 		return nil, nil, errors.Join(err, runtime.Close())
 	}
 	module, err := coreadmin.NewDataModule(coreadmin.DataModuleConfig{
-		Service: service, TargetID: datamodule.TargetID, Enabled: enabled, ResolveIdentity: access.Identity,
+		BasePath: cfg.BasePath,
+		Service:  service, TargetID: datamodule.TargetID, Enabled: enabled, ResolveIdentity: access.Identity,
 		MenuParent: setup.NavigationGroupMain,
 	})
 	if err != nil {

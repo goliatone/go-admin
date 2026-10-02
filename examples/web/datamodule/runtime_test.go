@@ -176,6 +176,24 @@ type ambiguousTarget struct {
 	ambiguous bool
 }
 
+func TestDemoRejectsDatasetVersionCollision(t *testing.T) {
+	filename := filepath.Join(t.TempDir(), "data.db")
+	runtime, err := Open(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.Close()
+	if _, err = runtime.db.Exec(`UPDATE data_example_catalog SET digest=?`, Hash("different-source")); err != nil {
+		t.Fatal(err)
+	}
+	if reopened, openErr := Open(filename); openErr == nil {
+		reopened.Close()
+		t.Fatal("changed content reused the same dataset version")
+	} else if data.ErrorCode(openErr) != data.CodeConflict {
+		t.Fatal(openErr)
+	}
+}
+
 func (r *ambiguousTarget) InspectIntent(ctx context.Context, intent data.Intent) (data.Observation, error) {
 	if r.ambiguous {
 		return data.Observation{Routing: data.RoutingUnknown}, nil
