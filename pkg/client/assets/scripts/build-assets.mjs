@@ -102,6 +102,7 @@ function stageRuntimeAssets() {
     resolve(root, 'src/styles/debug/expandable-rows.css'),
     resolve(root, 'src/styles/debug/command-launcher.css'),
   ]);
+  copyFile(resolve(root, 'src/styles/console/console.css'), resolve(distStagingDir, 'styles/console.css'));
   copyFile(resolve(root, 'src/styles/widgets.css'), resolve(distStagingDir, 'styles/widgets.css'));
   copyFile(resolve(root, 'src/styles/error-page.css'), resolve(distStagingDir, 'styles/error-page.css'));
   copyFile(resolve(root, 'src/styles/export.css'), resolve(distStagingDir, 'styles/export.css'));

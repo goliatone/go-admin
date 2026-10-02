@@ -1,31 +1,32 @@
-import { C as a, S as n, a as s, b as r, c as o, d as t, f as l, i, l as p, n as m, o as f, p as g, r as D, s as P, t as d, u } from "../chunks/runtime-helpers-C2cPJaEE.js";
-import { i as v, n as y, r as c, t as S } from "../chunks/server-definitions-yM2kAYaY.js";
-import { i as C, n as E, r as R, t as h } from "../chunks/icons-CAenalpJ.js";
-import { t as z } from "../chunks/deployment-identity-qBgNJ52n.js";
+import { n as a, t as n } from "../chunks/avatar-DIbK-LSg.js";
+import { a as s, c as o, d as t, f as l, i, l as m, m as p, n as P, o as f, p as g, r as D, s as d, t as u, u as v } from "../chunks/runtime-helpers-BJB2ragE.js";
+import { i as y, n as c, r as I, t as S } from "../chunks/server-definitions-Dac0Clwk.js";
+import { i as R, n as h, r as C, t as T } from "../chunks/icons-CAenalpJ.js";
+import { t as A } from "../chunks/deployment-identity-BcRV4akm.js";
 export {
-  h as DEBUG_ICON_REFS,
-  d as applyCustomEventPayload,
-  m as applyDebugEventToSnapshot,
+  T as DEBUG_ICON_REFS,
+  u as applyCustomEventPayload,
+  P as applyDebugEventToSnapshot,
   D as buildEventToPanel,
-  z as deploymentIndicator,
+  A as deploymentIndicator,
   i as fetchDebugSnapshot,
   S as fetchServerPanelDefinitions,
-  E as getDebugIconRef,
+  h as getDebugIconRef,
   s as getDefaultPanels,
   f as getDefaultToolbarPanels,
-  P as getPanelEventTypes,
+  d as getPanelEventTypes,
   o as getPanelIcon,
-  p as getPanelLabel,
-  u as getToolbarCounts,
-  y as hydrateServerPanelDefinitions,
+  m as getPanelLabel,
+  v as getToolbarCounts,
+  c as hydrateServerPanelDefinitions,
   t as isKnownPanel,
   n as normalizeDeploymentPersona,
   l as normalizeReplCommands,
-  c as panelDefinitionFromServer,
-  r as panelRegistry,
-  v as registerServerPanelConsoleRenderer,
-  R as renderDebugIcon,
-  C as renderDebugIconRef,
+  I as panelDefinitionFromServer,
+  p as panelRegistry,
+  y as registerServerPanelConsoleRenderer,
+  C as renderDebugIcon,
+  R as renderDebugIconRef,
   a as renderDeploymentPersonaAvatar,
   g as replPanelIDs
 };

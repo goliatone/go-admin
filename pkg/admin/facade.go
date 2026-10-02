@@ -826,6 +826,11 @@ type (
 	CommandRunsSnapshot                               = core.CommandRunsSnapshot
 	CommandStatusEvent                                = core.CommandStatusEvent
 	Config                                            = core.Config
+	ConsoleAccess                                     = core.ConsoleAccess
+	ConsoleDashboardConfig                            = core.ConsoleDashboardConfig
+	ConsoleHost                                       = core.ConsoleHost
+	ConsoleHostConfig                                 = core.ConsoleHostConfig
+	ConsolePanelWidgetPayload                         = core.ConsolePanelWidgetPayload
 	ContentPreviewPathOptions                         = core.ContentPreviewPathOptions
 	ContentTranslation                                = core.ContentTranslation
 	ContentTypeBuilderModule                          = core.ContentTypeBuilderModule
@@ -838,6 +843,7 @@ type (
 	ContextMessageFactory                             = core.ContextMessageFactory
 	ConvertedFields                                   = core.ConvertedFields
 	CountTranslator                                   = core.CountTranslator
+	CurrentContextResolver                            = core.CurrentContextResolver
 	CustomLogEntry                                    = core.CustomLogEntry
 	Dashboard                                         = core.Dashboard
 	DashboardAssetOwnershipProvider                   = core.DashboardAssetOwnershipProvider
@@ -2183,6 +2189,10 @@ func NewCommandRunRuntime(config CommandRunRuntimeConfig) (*CommandRunRuntime, e
 
 func NewCommandRunsDebugPanel(adm *Admin) *CommandRunsDebugPanel {
 	return core.NewCommandRunsDebugPanel(adm)
+}
+
+func NewConsoleHost(config ConsoleHostConfig) (*ConsoleHost, error) {
+	return core.NewConsoleHost(config)
 }
 
 func NewContentTypeBuilderModule(opts ...ContentTypeBuilderOption) *ContentTypeBuilderModule {

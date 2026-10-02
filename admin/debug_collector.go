@@ -43,7 +43,9 @@ type DebugPanelActionProvider interface {
 
 // DebugCollector aggregates debug data from multiple sources.
 type DebugCollector struct {
-	mu sync.RWMutex
+	registry *debugregistry.PanelRegistry
+	host     *ConsoleHost
+	mu       sync.RWMutex
 
 	config               DebugConfig
 	jsErrorRouteEnabled  bool
@@ -448,6 +450,7 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 		panelSet[debugpanels.NormalizePanelID(panel)] = true
 	}
 	return &DebugCollector{
+		registry:             debugregistry.DefaultRegistry(),
 		config:               cfg,
 		jsErrorRouteEnabled:  cfg.CaptureJSErrors,
 		liveTransportEnabled: false,
@@ -586,7 +589,8 @@ func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
 		return debugPanelMeta{}, false
 	}
 	ensureDebugBuiltinPanels()
-	if def, ok := debugregistry.PanelDefinitionFor(panelID); ok {
+	if reg, ok := c.registry.Registration(panelID); ok {
+		def := reg.Definition
 		meta := debugPanelMeta{
 			Label: strings.TrimSpace(def.Label),
 			Icon:  strings.TrimSpace(def.Icon),
@@ -949,7 +953,7 @@ func (c *DebugCollector) panelSnapshotWithContext(ctx context.Context, panelID s
 	}
 
 	ensureDebugBuiltinPanels()
-	if registration, ok := debugregistry.Panel(panelID); ok && registration.Snapshot != nil {
+	if registration, ok := c.registry.Registration(panelID); ok && registration.Snapshot != nil {
 		return debugcollector.ClonePanelPayload(debugMaskValue(c.config, registration.Snapshot(ctx))), true
 	}
 
@@ -1048,7 +1052,7 @@ func (c *DebugCollector) collectPanelDataSnapshot(snapshot map[string]any, panel
 }
 
 func (c *DebugCollector) collectRegisteredPanelSnapshots(ctx context.Context, snapshot map[string]any) {
-	for _, registration := range debugregistry.PanelRegistrations() {
+	for _, registration := range c.registry.Registrations() {
 		id := debugpanels.NormalizePanelID(registration.Definition.ID)
 		if id == "" || !c.panelEnabled(id) || registration.Snapshot == nil {
 			continue
@@ -1132,7 +1136,11 @@ func (c *DebugCollector) PanelDefinitionsWithContext(ctx context.Context) []debu
 	ensureDebugBuiltinPanels()
 	defs := make([]debugregistry.PanelDefinition, 0, len(c.config.Panels))
 	for _, panelID := range c.config.Panels {
-		def := debugPanelDefinitionForContext(ctx, panelID)
+		def, ok := c.registry.DefinitionForContext(ctx, panelID)
+		if !ok {
+			def = defaultDebugPanelDefinition(panelID)
+		}
+		def = normalizeDebugPanelDefinition(panelID, def)
 		if def.ID == "" {
 			continue
 		}
@@ -1151,7 +1159,7 @@ func (c *DebugCollector) RunPanelAction(ctx context.Context, req debugregistry.P
 	if panelID == "" || actionID == "" || !c.panelEnabled(panelID) {
 		return debugregistry.PanelActionResult{}, ErrNotFound
 	}
-	registration, ok := debugregistry.Panel(panelID)
+	registration, ok := c.registry.Registration(panelID)
 	if !ok {
 		return debugregistry.PanelActionResult{}, ErrNotFound
 	}
@@ -1282,7 +1290,7 @@ func (c *DebugCollector) enabledPanelRegistrations() []debugregistry.PanelRegist
 	if c == nil {
 		return nil
 	}
-	registrations := debugregistry.PanelRegistrations()
+	registrations := c.registry.Registrations()
 	out := make([]debugregistry.PanelRegistration, 0, len(registrations))
 	for _, registration := range registrations {
 		id := debugpanels.NormalizePanelID(registration.Definition.ID)
@@ -1333,7 +1341,7 @@ func (c *DebugCollector) ClearPanelsStrictWithContext(ctx context.Context, panel
 		if !c.panelEnabled(panelID) || !c.clearablePanel(panelID) {
 			return false, nil
 		}
-		if registration, ok := debugregistry.Panel(panelID); ok {
+		if registration, ok := c.registry.Registration(panelID); ok {
 			registrations = append(registrations, registration)
 		}
 	}
@@ -1363,7 +1371,7 @@ func (c *DebugCollector) clearablePanel(panelID string) bool {
 	if isBuiltinDebugPanel(panelID) {
 		return true
 	}
-	if _, ok := debugregistry.Panel(panelID); ok {
+	if _, ok := c.registry.Registration(panelID); ok {
 		return true
 	}
 	c.mu.RLock()
@@ -1440,7 +1448,7 @@ func (c *DebugCollector) clearPanelData(panelID string) bool {
 		}
 	}
 	_, legacy := c.panelIndex[panelID]
-	_, registered := debugregistry.Panel(panelID)
+	_, registered := c.registry.Registration(panelID)
 	return registered || legacy || hadData
 }
 
@@ -1473,7 +1481,7 @@ func (c *DebugCollector) eventTypeEnabled(eventType string) bool {
 		return false
 	}
 	ensureDebugBuiltinPanels()
-	panels := debugregistry.PanelsForEventType(eventType)
+	panels := c.registry.PanelsForEventType(eventType)
 	if len(panels) == 0 {
 		return true
 	}

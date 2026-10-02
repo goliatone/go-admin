@@ -4,8 +4,10 @@ import (
 	"context"
 	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/admin/routing"
+	debugregistry "github.com/goliatone/go-admin/debug"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
@@ -67,6 +69,8 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 
 // DebugModule registers the debug dashboard integration and menu entry.
 type DebugModule struct {
+	hostMu        sync.Mutex
+	host          *ConsoleHost
 	admin         *Admin
 	collector     *DebugCollector
 	config        DebugConfig
@@ -86,6 +90,24 @@ func NewDebugModule(config DebugConfig) *DebugModule {
 	return &DebugModule{config: config}
 }
 
+func (m *DebugModule) consoleHost() *ConsoleHost {
+	m.hostMu.Lock()
+	defer m.hostMu.Unlock()
+	if m.host == nil {
+		m.host = compatibilityConsoleHost(debugModuleID, debugregistry.DefaultRegistry())
+	}
+	return m.host
+}
+
+// Close releases Debug-owned delivery without stopping a shared command runtime
+// or dashboard. The router retains startup routes, which now deny access.
+func (m *DebugModule) Close() error {
+	if m == nil {
+		return nil
+	}
+	return m.consoleHost().Close()
+}
+
 func (m *DebugModule) Manifest() ModuleManifest {
 	featureKey := strings.TrimSpace(m.config.FeatureKey)
 	if featureKey == "" {
@@ -100,6 +122,9 @@ func (m *DebugModule) Manifest() ModuleManifest {
 }
 
 func (m *DebugModule) Register(ctx ModuleContext) error {
+	if m.consoleHost().closed() {
+		return ErrForbidden
+	}
 	if ctx.Admin == nil {
 		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "debug_module"})
 	}
@@ -113,6 +138,8 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.admin = ctx.Admin
 	m.applyModuleDefaults(ctx.Admin, cfg)
 	m.configureCollector(ctx.Admin, cfg)
+	m.collector.registry = m.consoleHost().config.Registry
+	m.collector.host = m.consoleHost()
 	if err := m.startCommandRunRuntime(ctx.Admin, cfg); err != nil {
 		return err
 	}
@@ -375,6 +402,14 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 			Permission:  m.permission,
 			Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 				_ = cfg
+				if m.consoleHost().closed() {
+					return EmptyWidgetPayload(), ErrForbidden
+				}
+				currentCtx, err := debugCurrentContext(admin, m.config, ctx.Context, m.permission)
+				if err != nil {
+					return EmptyWidgetPayload(), err
+				}
+				ctx.Context = currentCtx
 				panelData, _ := m.collector.panelSnapshotWithContext(ctx.Context, panelID)
 				return WidgetPayloadOf(DebugPanelWidgetPayload{
 					Panel: panelID,
@@ -457,7 +492,7 @@ func registerDebugDashboardRouter[T any](
 	}); err != nil {
 		return err
 	}
-	registerDebugDashboardWebSocket(group, routes.WebSocket, admin.dash.runtime.Broadcast, authHandler)
+	registerDebugDashboardWebSocket(group, routes.WebSocket, admin.dash.runtime.Broadcast, authHandler, admin, admin.debugCollector.config)
 	return nil
 }
 

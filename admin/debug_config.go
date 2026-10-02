@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -92,10 +93,16 @@ func DefaultDebugToolbarPanels() []string {
 
 // DebugConfig controls the debug module behavior and feature flags.
 type DebugConfig struct {
-	Enabled            bool `json:"enabled"`
-	CaptureSQL         bool `json:"capture_sql"`
-	CaptureLogs        bool `json:"capture_logs"`
-	CaptureRequestBody bool `json:"capture_request_body"`
+	// ResolveCurrentContext refreshes current account/session/scope/grants for live
+	// delivery. When omitted, current authorizer resolution and claim expiry still
+	// run on every event and at the idle interval. Hosts with mutable session or
+	// scope state should supply this hook or implement CurrentContextResolver.
+	ResolveCurrentContext  func(context.Context) (context.Context, error) `json:"-"`
+	LiveRevalidateInterval time.Duration                                  `json:"live_revalidate_interval,omitempty"`
+	Enabled                bool                                           `json:"enabled"`
+	CaptureSQL             bool                                           `json:"capture_sql"`
+	CaptureLogs            bool                                           `json:"capture_logs"`
+	CaptureRequestBody     bool                                           `json:"capture_request_body"`
 	// CaptureJSErrors enables the global JS error collector on all pages.
 	// When true, an inline script is injected into every page <head> that
 	// captures uncaught exceptions, unhandled rejections, and console.error

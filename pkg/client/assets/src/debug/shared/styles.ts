@@ -1,92 +1,14 @@
 // Shared style configuration for debug panels
 // Abstracts CSS class differences between console and toolbar contexts
 
+import type { StyleConfig } from '../../console/style-config.js';
 import { getStatusClass, getLevelClass } from './utils.js';
 
 /**
- * CSS class configuration for different rendering contexts.
- * Provides functions that generate appropriate class names for console or toolbar.
+ * CSS class configuration for different rendering contexts. The shape is owned
+ * by the shared console runtime; Debug supplies its console and toolbar values.
  */
-export type StyleConfig = {
-  // Table styling
-  table: string;
-  tableRoutes: string;
-
-  // Badge styling
-  badge: string;
-  badgeMethod: (method: string) => string;
-  badgeStatus: (status: number) => string;
-  badgeLevel: (level: string) => string;
-  badgeError: string;
-  badgeCustom: string;
-
-  // Duration styling
-  duration: string;
-  durationSlow: string;
-
-  // Cell content styling
-  timestamp: string;
-  path: string;
-  message: string;
-  queryText: string;
-
-  // Row styling
-  rowError: string;
-  rowSlow: string;
-  expandableRow: string;
-  expansionRow: string;
-  slowQuery: string;
-  errorQuery: string;
-
-  // Expand icon
-  expandIcon: string;
-
-  // Empty state
-  emptyState: string;
-
-  // JSON viewer
-  jsonViewer: string;
-  jsonViewerHeader: string;
-  jsonViewerTitle: string;
-  jsonGrid: string;
-  jsonPanel: string;
-  jsonHeader: string;
-  jsonActions: string;
-  jsonContent: string;
-
-  // Copy button
-  copyBtn: string;
-  copyBtnSm: string;
-
-  // Panel controls
-  panelControls: string;
-  sortToggle: string;
-
-  // Expanded content
-  expandedContent: string;
-  expandedContentHeader: string;
-
-  // Muted text
-  muted: string;
-
-  // SQL selection
-  selectCell: string;
-  sqlToolbar: string;
-  sqlToolbarBtn: string;
-
-  // Request detail
-  detailRow: string;
-  detailPane: string;
-  detailSection: string;
-  detailLabel: string;
-  detailValue: string;
-  detailKeyValueTable: string;
-  detailError: string;
-  detailMasked: string;
-  detailBody: string;
-  detailMetadataLine: string;
-  badgeContentType: string;
-};
+export type { StyleConfig };
 
 /**
  * Per-panel column configuration for consistent layouts across console/toolbar.

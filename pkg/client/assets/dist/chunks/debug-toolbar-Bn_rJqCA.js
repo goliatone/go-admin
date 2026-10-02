@@ -1,10 +1,13 @@
 import { n as R } from "./rolldown-runtime-DpiKQypI.js";
 import { escapeHTML as p } from "../shared/html.js";
 import { httpRequest as z, readExpectedHTTPJSON as C, readHTTPError as T } from "../shared/transport/http-client.js";
-import { t as _ } from "./debug-stream-o5N7-MAm.js";
-import { O as M, _ as A, b as h, c as I, f as H, g as $, i as O, l as j, n as D, o as y, p as u, r as k, s as S, u as F, v as V, x as N } from "./runtime-helpers-C2cPJaEE.js";
-import { C as G, E as B, F as K, I as U, K as J, M as Q, N as Y, P as W, R as X, T as Z, V as ee, _ as te, b as ae, f as oe, g as re, h as se, k as d, m as ne, p as ie, r as le, v as de, w as ce, x as pe } from "./builtin-panels-uRf1D3XB.js";
-import { N as f, j as g, n as he } from "./server-definitions-yM2kAYaY.js";
+import { g as u, y as _ } from "./hydrate-mOOlPiY2.js";
+import { c as M, d as A, l as I, s as H } from "./avatar-DIbK-LSg.js";
+import { r as $ } from "./actions-zb2HbM0q.js";
+import { n as O } from "./capability-loader-DZC_IOL_.js";
+import { A as j, L as D, M as F, O as V, P as N, S as G, T as d, V as f, Y as B, _ as K, b as U, c as J, d as Y, f as Q, g as W, j as X, k as Z, l as ee, m as te, p as ae, u as oe, x as re, y as se } from "./builtin-panels-CIrbXjki.js";
+import { c as ne, f as ie, i as le, l as de, m as h, n as ce, o as y, p as g, r as k, s as S, u as pe } from "./runtime-helpers-BJB2ragE.js";
+import { n as he } from "./server-definitions-Dac0Clwk.js";
 import { i as be } from "./icons-CAenalpJ.js";
 var ue = `
   :host {
@@ -1394,13 +1397,13 @@ var ue = `
 function v(c, e, t = 50, a) {
   const o = h.get(c);
   if (o) {
-    const s = A(e, o);
-    return N(o, s, l, a || {}, "toolbar");
+    const s = M(e, o);
+    return A(o, s, l, a || {}, "toolbar");
   }
   const r = a?.newestFirst ?? !0, n = a?.slowThresholdMs ?? t;
   switch (c) {
     case "requests":
-      return Z(e.requests || [], l, {
+      return re(e.requests || [], l, {
         newestFirst: r,
         slowThresholdMs: n,
         maxEntries: 50,
@@ -1411,7 +1414,7 @@ function v(c, e, t = 50, a) {
         maxDetailLength: 80
       });
     case "sql":
-      return ee(e.sql || [], l, {
+      return D(e.sql || [], l, {
         newestFirst: r,
         slowThresholdMs: n,
         maxEntries: 50,
@@ -1419,7 +1422,7 @@ function v(c, e, t = 50, a) {
         useIconCopyButton: !1
       });
     case "logs":
-      return pe(e.logs || [], l, {
+      return K(e.logs || [], l, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1428,31 +1431,31 @@ function v(c, e, t = 50, a) {
         maxMessageLength: 100
       });
     case "config":
-      return g("Config", e.config || {}, l, {
+      return u("Config", e.config || {}, l, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
-      return te(e.routes || [], l, { showName: !1 });
+      return ae(e.routes || [], l, { showName: !1 });
     case "template":
-      return g("Template Context", e.template || {}, l, {
+      return u("Template Context", e.template || {}, l, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return g("Session", e.session || {}, l, {
+      return u("Session", e.session || {}, l, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "jserrors":
-      return ne(e.jserrors || [], l, {
+      return oe(e.jserrors || [], l, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return se(e.custom || {}, l, {
+      return Y(e.custom || {}, l, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1461,7 +1464,7 @@ function v(c, e, t = 50, a) {
       const s = e[c];
       if (s != null) {
         const i = c.replace(/[_-]/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
-        return g(i, s, l, {
+        return u(i, s, l, {
           useIconCopyButton: !1,
           showCount: !1
         });
@@ -1471,9 +1474,9 @@ function v(c, e, t = 50, a) {
   }
 }
 function P(c, e = 50) {
-  return F(c, e);
+  return pe(c, e);
 }
-var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-active-panel", w = class b extends HTMLElement {
+var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-active-panel", w = class b extends HTMLElement {
   static get observedAttributes() {
     return [
       "base-path",
@@ -1488,7 +1491,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
   constructor() {
     super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replLoadGeneration = 0, this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (e) => {
       (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d" && (e.preventDefault(), this.toggleExpanded()), e.key === "Escape" && this.expanded && this.collapse();
-    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new G({
+    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new se({
       styles: d,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
@@ -1502,8 +1505,8 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
       onNeedFullRender: () => this.updateContent()
     }), this.logsView = new f({
       styles: d,
-      keyOf: de,
-      renderRow: (e) => ae(e, d, {
+      keyOf: te,
+      renderRow: (e) => W(e, d, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1516,8 +1519,8 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
-      keyOf: B,
-      renderRow: (e) => ce(e, d, {
+      keyOf: G,
+      renderRow: (e) => U(e, d, {
         slowThresholdMs: this.slowThresholdMs,
         truncatePath: !0,
         maxPathLength: 50,
@@ -1527,26 +1530,26 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("requests") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (e) => W(e, this.expandedRequests, { useIconFeedback: !1 })
+      onAdopt: (e) => j(e, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new f({
       styles: d,
-      keyOf: oe,
-      renderRow: (e) => ie(e, d, { compact: !0 }),
+      keyOf: J,
+      renderRow: (e) => ee(e, d, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (e) => K(e, {
+      onAdopt: (e) => X(e, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (e) => X(e, {
+      onRestore: (e) => N(e, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new re({
+    }), this.registryLiveList = new Q({
       styles: d,
       allowUpsert: !1,
       getRenderOptions: () => ({}),
@@ -1626,7 +1629,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
         });
       } catch {
       }
-      const o = this.normalizeStoredPanelID(localStorage.getItem(E));
+      const o = this.normalizeStoredPanelID(localStorage.getItem(L));
       this.activePanel = o || this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     } catch {
       this.activePanel = this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
@@ -1638,7 +1641,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
       const e = {};
       this.panelSortOrder.forEach((t, a) => {
         e[a] = t;
-      }), localStorage.setItem("debug-toolbar-sort-order", JSON.stringify(e)), localStorage.setItem(E, this.activePanel);
+      }), localStorage.setItem("debug-toolbar-sort-order", JSON.stringify(e)), localStorage.setItem(L, this.activePanel);
     } catch {
     }
   }
@@ -1685,7 +1688,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
     return this.externalStream || this.stream;
   }
   initWebSocket() {
-    this.stream = new _({
+    this.stream = new O({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
@@ -1695,7 +1698,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
     this.stream.subscribe(Array.from(e));
   }
   async fetchInitialSnapshot(e = this.initializeGeneration) {
-    const t = await O(this.debugPath);
+    const t = await le(this.debugPath);
     this.isInitializationStale(e) || t && this.applySnapshot(t);
   }
   handleEvent(e) {
@@ -1704,13 +1707,13 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
       this.applySnapshot(e.payload);
       return;
     }
-    const t = D(this.snapshot, e, { eventToPanel: this.eventToPanel }) || e.type;
+    const t = ce(this.snapshot, e, { eventToPanel: this.eventToPanel }) || e.type;
     if (t === this.activePanel && this.expanded) if (t === "sql") this.sqlView.enqueue([e.payload]);
     else if (t === "logs") this.logsView.enqueue([e.payload]);
     else if (t === "requests") this.requestsView.enqueue([e.payload]);
     else if (t === "jserrors") this.jserrorsView.enqueue([e.payload]);
     else if (this.registryLiveList.handles(h.get(t))) {
-      const a = h.get(t), o = this.snapshot[V(a)], r = Array.isArray(o) ? o[o.length - 1] : void 0;
+      const a = h.get(t), o = this.snapshot[I(a)], r = Array.isArray(o) ? o[o.length - 1] : void 0;
       this.registryLiveList.enqueue(a, r);
     } else this.updateContent();
   }
@@ -1718,16 +1721,16 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
     this.connectionStatus = e, this.updateConnectionStatus();
   }
   applySnapshot(e) {
-    this.snapshot = e || {}, this.replCommands = H(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = e || {}, this.replCommands = ie(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
     const e = P(this.snapshot, this.slowThresholdMs), t = this.panels.map((s) => {
-      const i = j(s), m = this.getPanelCount(s), L = this.activePanel === s ? "active" : "", q = be(I(s), {
+      const i = de(s), m = this.getPanelCount(s), E = this.activePanel === s ? "active" : "", q = be(ne(s), {
         size: "14px",
         extraClass: "tab-icon"
       });
       return `
-          <button class="tab ${L}" data-panel="${p(s)}">
+          <button class="tab ${E}" data-panel="${p(s)}">
             ${q}
             <span class="tab-label">${p(i)}</span>
             <span class="tab-count">${m}</span>
@@ -1770,7 +1773,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${u.has(this.activePanel) ? this.renderCapabilityLoading("terminal") : v(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
+              ${g.has(this.activePanel) ? this.renderCapabilityLoading("terminal") : v(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
             </div>
           </div>
         ` : ""}
@@ -1801,7 +1804,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
           </div>
         `}
       </div>
-    `, this.attachEventListeners(), this.renderStoredPanelActionResult(this.activePanel), this.expanded && u.has(this.activePanel)) {
+    `, this.attachEventListeners(), this.renderStoredPanelActionResult(this.activePanel), this.expanded && g.has(this.activePanel)) {
       const s = this.shadow.getElementById("panel-content");
       s && this.renderReplPanel(s, this.activePanel);
     }
@@ -1809,7 +1812,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
   updateContent() {
     if (this.expanded) {
       const e = this.shadow.getElementById("panel-content");
-      e && (u.has(this.activePanel) ? this.renderReplPanel(e, this.activePanel) : (this.replLoadGeneration += 1, e.innerHTML = v(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((t) => {
+      e && (g.has(this.activePanel) ? this.renderReplPanel(e, this.activePanel) : (this.replLoadGeneration += 1, e.innerHTML = v(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.renderStoredPanelActionResult(this.activePanel))), this.panels.forEach((t) => {
         const a = this.shadow.querySelector(`[data-panel="${t}"] .tab-count`);
         a && (a.textContent = String(this.getPanelCount(t)));
       });
@@ -1831,7 +1834,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
   }
   getPanelCount(e) {
     const t = h.get(e);
-    if (t) return $(this.snapshot, t);
+    if (t) return H(this.snapshot, t);
     switch (e) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1870,7 +1873,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
         if (a && a !== this.activePanel) {
           this.activePanel = a, this.saveState(), this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), t.currentTarget.classList.add("active");
           const o = this.shadow.getElementById("panel-content");
-          o && (u.has(this.activePanel) ? this.renderReplPanel(o, this.activePanel) : (this.replLoadGeneration += 1, o.innerHTML = v(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners()));
+          o && (g.has(this.activePanel) ? this.renderReplPanel(o, this.activePanel) : (this.replLoadGeneration += 1, o.innerHTML = v(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners()));
         }
       });
     }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.mountActivePanelViews(), this.attachPanelActionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((e) => {
@@ -1916,7 +1919,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
     if (!a || !o) return;
     const r = e.dataset.actionConfirm || "";
     if ((e.dataset.actionRequiresConfirm === "true" || r) && !window.confirm(r || "Run this debug panel action?")) return;
-    const n = le(e);
+    const n = $(e);
     t && (t.disabled = !0);
     try {
       const s = await z(`${this.debugPath}/api/panels/${encodeURIComponent(a)}/actions/${encodeURIComponent(o)}`, {
@@ -1947,7 +1950,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
     if (!t) return;
     const a = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === e);
     if (!a) return;
-    const o = t.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${p(M(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    const o = t.data === void 0 ? "" : `<pre style="margin-top:0.5rem;max-height:14rem;overflow:auto;white-space:pre-wrap;font-size:11px">${p(_(t.data, { nullAsEmptyObject: !1 }))}</pre>`;
     a.innerHTML = `<div class="${t.status === "error" ? "badge error" : "badge"}">${p(t.message)}</div>${o}`;
   }
   renderReplPanel(e, t) {
@@ -1957,7 +1960,7 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
       return;
     }
     const o = ++this.replLoadGeneration;
-    e.innerHTML = this.renderCapabilityLoading("terminal"), J().then(({ DebugReplPanel: r }) => {
+    e.innerHTML = this.renderCapabilityLoading("terminal"), B().then(({ DebugReplPanel: r }) => {
       if (o !== this.replLoadGeneration || !this.isConnected || this.activePanel !== t) return;
       const n = new r({
         kind: t === "shell" ? "shell" : "console",
@@ -2008,13 +2011,13 @@ var Se = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, E = "debug-toolbar-act
     r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    Y(this.shadow);
+    Z(this.shadow);
   }
   attachCopyListeners() {
-    Q(this.shadow, { useIconFeedback: !1 });
+    V(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    U(this.shadow, (e, t) => {
+    F(this.shadow, (e, t) => {
       this.panelSortOrder.set(e, t), this.saveState(), this.updateContent();
     });
   }
@@ -2045,9 +2048,9 @@ x.DEFAULT_HEIGHT = 320;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", w);
 export {
   v as i,
-  Se as n,
+  Ee as n,
   P as r,
   w as t
 };
 
-//# sourceMappingURL=debug-toolbar-DG7S5eSJ.js.map
+//# sourceMappingURL=debug-toolbar-Bn_rJqCA.js.map

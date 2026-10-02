@@ -16,9 +16,14 @@ import (
 	modzip "golang.org/x/mod/zip"
 )
 
-// RequiredClientArchivePaths lists the pinned browser dependencies that every
-// root module release must contain.
+// RequiredClientArchivePaths lists the console entrypoints/styles and pinned
+// browser dependencies that every root module release must contain.
 var RequiredClientArchivePaths = []string{
+	"pkg/client/assets/dist/console/index.js",
+	"pkg/client/assets/dist/styles/console.css",
+	"pkg/client/assets/dist/debug/index.js",
+	"pkg/client/assets/dist/debug/toolbar-bootstrap.js",
+	"pkg/client/assets/dist/styles/debug.css",
 	"pkg/client/assets/dist/third-party/iconoir/iconoir.css",
 	"pkg/client/assets/dist/third-party/iconoir/LICENSE",
 	"pkg/client/assets/dist/third-party/simple-datatables/style.css",

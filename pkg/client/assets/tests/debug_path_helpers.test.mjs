@@ -10,6 +10,7 @@ const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const debugManagerSourcePath = path.resolve(testFileDir, '../src/debug/toolbar/debug-manager.ts');
 const debugStreamSourcePath = path.resolve(testFileDir, '../src/debug/debug-stream.ts');
 const replTerminalSourcePath = path.resolve(testFileDir, '../src/debug/repl/repl-terminal.ts');
+const consoleLiveStreamSourcePath = path.resolve(testFileDir, '../src/console/live-stream.ts');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -39,11 +40,14 @@ test('debug callers now route through the shared path helper module', () => {
 });
 
 test('debug and REPL websocket retry budgets reset only after connection stability', () => {
+  // DebugStream inherits connection lifetime from the shared console transport.
   const debugStreamSource = read(debugStreamSourcePath);
+  const liveStreamSource = read(consoleLiveStreamSourcePath);
   const replTerminalSource = read(replTerminalSourcePath);
 
-  assert.match(debugStreamSource, /scheduleReconnectBudgetReset\(socket\)/);
+  assert.match(debugStreamSource, /class DebugStream extends ConsoleLiveStream/);
+  assert.match(liveStreamSource, /scheduleReconnectBudgetReset\(socket\)/);
   assert.match(replTerminalSource, /scheduleReconnectBudgetReset\(socket\)/);
-  assert.doesNotMatch(debugStreamSource, /onopen\s*=\s*\(\)\s*=>\s*\{\s*this\.reconnectAttempts\s*=\s*0/);
+  assert.doesNotMatch(liveStreamSource, /onopen\s*=\s*\(\)\s*=>\s*\{\s*this\.reconnectAttempts\s*=\s*0/);
   assert.doesNotMatch(replTerminalSource, /onopen\s*=\s*\(\)\s*=>\s*\{\s*this\.reconnectAttempts\s*=\s*0/);
 });

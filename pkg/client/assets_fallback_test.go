@@ -39,6 +39,7 @@ func TestAssetsFSSynthesizesDebugStyles(t *testing.T) {
 		"src/styles/debug/console.css":          &fstest.MapFile{Data: []byte(".console{}\n")},
 		"src/styles/debug/prism-catppuccin.css": &fstest.MapFile{Data: []byte(".prism{}\n")},
 		"src/styles/debug/expandable-rows.css":  &fstest.MapFile{Data: []byte(".rows{}\n")},
+		"src/styles/debug/command-launcher.css": &fstest.MapFile{Data: []byte(".launcher{}\n")},
 	})
 
 	got, err := fs.ReadFile(assets, "dist/styles/debug.css")
@@ -47,9 +48,25 @@ func TestAssetsFSSynthesizesDebugStyles(t *testing.T) {
 	}
 
 	content := string(got)
-	for _, fragment := range []string{".console{}", ".prism{}", ".rows{}"} {
+	for _, fragment := range []string{".console{}", ".prism{}", ".rows{}", ".launcher{}"} {
 		if !strings.Contains(content, fragment) {
 			t.Fatalf("expected synthesized debug.css to contain %q, got %q", fragment, content)
+		}
+	}
+}
+
+func TestAssetsFSConsoleFallbackAndDistPrecedence(t *testing.T) {
+	source := &fstest.MapFile{Data: []byte("[data-console-root]{--console-color:var(--color-text);}")}
+	for _, dist := range []bool{false, true} {
+		files := fstest.MapFS{"src/styles/console/console.css": source}
+		want := string(source.Data)
+		if dist {
+			files["dist/styles/console.css"] = &fstest.MapFile{Data: []byte(".from-dist{}")}
+			want = ".from-dist{}"
+		}
+		got, err := fs.ReadFile(newAssetsFS(files), "dist/styles/console.css")
+		if err != nil || strings.TrimSpace(string(got)) != want {
+			t.Fatalf("console stylesheet dist=%v: %s %v", dist, got, err)
 		}
 	}
 }

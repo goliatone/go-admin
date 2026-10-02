@@ -29,6 +29,7 @@ const debugMaxBodyBytes = 64 * 1024
 // - debug_toolbar_transport_base_path: canonical transport base path used by live toolbars
 // - debug_toolbar_errors_path: JS error ingestion path when enabled
 // - debug_toolbar_live_enabled: true when live toolbar transport is available
+// - debug_preferences_namespace: identity namespace for toolbar browser state ("" keeps legacy keys)
 //
 // Note: this variant cannot inject JS error nonce cookies because it does not
 // have access to the router.Context. Use CaptureViewContextForRequest when
@@ -86,6 +87,7 @@ func captureViewContext(collector *DebugCollector, c router.Context, viewCtx rou
 			return viewCtx
 		}
 		injectDebugToolbarContext(collector, viewCtx)
+		viewCtx["debug_preferences_namespace"] = debugBrowserStateNamespace(cfg, c)
 	}
 	return viewCtx
 }

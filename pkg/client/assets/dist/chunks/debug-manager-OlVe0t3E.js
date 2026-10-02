@@ -1,8 +1,9 @@
 import { escapeHTML as r } from "../shared/html.js";
-import { normalizeDebugBasePath as c } from "../debug/shared/path-helpers.js";
-import { t as f } from "./debug-stream-o5N7-MAm.js";
-import { C as g, F as x, b as v, i as m, n as y, o as h, r as b, s as w, u as S } from "./runtime-helpers-C2cPJaEE.js";
-import { t as p } from "./deployment-identity-qBgNJ52n.js";
+import { n as c } from "./avatar-DIbK-LSg.js";
+import { normalizeDebugBasePath as f } from "../debug/shared/path-helpers.js";
+import { n as g, t as x } from "./capability-loader-DZC_IOL_.js";
+import { i as v, m, n as y, o as h, r as b, s as w, u as S } from "./runtime-helpers-BJB2ragE.js";
+import { t as p } from "./deployment-identity-BcRV4akm.js";
 var C = `
   :host {
     --fab-bg: #1e1e2e;
@@ -402,7 +403,7 @@ var C = `
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(t) {
-    if (this.eventToPanel = b(), this.unsubscribeRegistry = v.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
+    if (this.eventToPanel = b(), this.unsubscribeRegistry = m.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
       this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
       return;
     }
@@ -464,14 +465,14 @@ var C = `
     }
   }
   initWebSocket() {
-    this.stream = new f({
+    this.stream = new g({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot(t = this.initializeGeneration) {
-    const e = await m(this.debugPath);
+    const e = await v(this.debugPath);
     this.isInitializationStale(t) || e && this.applySnapshot(e);
   }
   handleEvent(t) {
@@ -528,7 +529,7 @@ var C = `
           </span>
           ${s ? `
             <span class="fab-identity">
-              ${s.persona ? g(s.persona, "fab-persona-avatar") : ""}
+              ${s.persona ? c(s.persona, "fab-persona-avatar") : ""}
               <span class="fab-identity-env">
                 <span class="fab-identity-dot" aria-hidden="true"></span>
                 <span class="fab-identity-env-full">${r(s.environment)}</span>
@@ -624,7 +625,7 @@ customElements.get("debug-fab") || customElements.define("debug-fab", E);
 function L(t) {
   return x(t).load;
 }
-var T = L(() => import("./debug-toolbar-DG7S5eSJ.js").then((t) => t.n)), u = class {
+var T = L(() => import("./debug-toolbar-Bn_rJqCA.js").then((t) => t.n)), u = class {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.expanded = !1, this.toolbarMountGeneration = 0, this.options = {
       panels: [
@@ -638,7 +639,7 @@ var T = L(() => import("./debug-toolbar-DG7S5eSJ.js").then((t) => t.n)), u = cla
       container: document.body,
       ...t
     };
-    const e = c(this.options.basePath);
+    const e = f(this.options.basePath);
     e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`);
   }
   init() {
@@ -745,4 +746,4 @@ export {
   u as t
 };
 
-//# sourceMappingURL=debug-manager-CDofd6Ls.js.map
+//# sourceMappingURL=debug-manager-OlVe0t3E.js.map

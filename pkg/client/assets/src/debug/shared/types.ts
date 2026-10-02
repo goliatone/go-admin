@@ -1,6 +1,8 @@
 // Shared type definitions for debug panels
 // Used by both the full debug console and the debug toolbar
 
+import type { Persona, PersonaVisual } from '../../console/types.js';
+
 export type RequestEntry = {
   id?: string;
   timestamp?: string;
@@ -109,23 +111,9 @@ export type DeploymentSnapshot = {
   };
 };
 
-export type DeploymentPersona = {
-  name?: string;
-  algorithm?: string;
-  version?: string;
-  source?: string;
-  visual?: DeploymentPersonaVisual;
-};
+export type DeploymentPersona = Persona;
 
-export type DeploymentPersonaVisual = {
-  kind?: 'monogram' | 'image' | string;
-  text?: string;
-  alt?: string;
-  background?: string;
-  foreground?: string;
-  media_type?: string;
-  data?: string;
-};
+export type DeploymentPersonaVisual = PersonaVisual;
 
 export type JSErrorEntry = {
   id?: string;
@@ -161,117 +149,13 @@ export type DebugSnapshot = {
   [key: string]: unknown;
 };
 
-export type PanelUIRendererKind =
-  | 'metrics'
-  | 'key_value'
-  | 'identity'
-  | 'table'
-  | 'status_list'
-  | 'timeline'
-  | 'json'
-  | 'stack';
-
-export type ServerPanelUIView = {
-  renderer?: string;
-  title?: string;
-  bind?: string;
-  options?: Record<string, unknown>;
-  sections?: ServerPanelUIView[];
-};
-
-export type ServerPanelUI = {
-  schema_version?: string;
-  views?: {
-    console?: ServerPanelUIView;
-    toolbar?: ServerPanelUIView;
-  };
-  count?: {
-    bind?: string;
-    mode?: string;
-    label?: string;
-  };
-  filters?: Array<{
-    id?: string;
-    label?: string;
-    kind?: string;
-    bind?: string;
-    options?: string[];
-  }>;
-  events?: {
-    mode?: string;
-    bind?: string;
-    key?: string;
-    max_entries?: number;
-    /** Row order for list views: 'newest_first' to prepend, else chronological. */
-    order?: string;
-  };
-  action_layout?: {
-    mode?: string;
-    picker_label?: string;
-    empty_text?: string;
-  };
-  actions?: Array<{
-    id?: string;
-    label?: string;
-    submit_label?: string;
-    kind?: string;
-    confirm_text?: string;
-    requires_confirm?: boolean;
-    hidden?: boolean;
-    refresh?: boolean;
-    update_policy?: string;
-    payload?: Record<string, unknown>;
-    fields?: Array<{
-      name?: string;
-      label?: string;
-      kind?: string;
-      payload_path?: string;
-      placeholder?: string;
-      description?: string;
-      help?: string;
-      required?: boolean;
-      sensitive?: boolean;
-      options?: string[];
-      option_items?: Array<{
-        value?: string;
-        label?: string;
-        description?: string;
-        disabled?: boolean;
-        metadata?: Record<string, unknown>;
-      }>;
-      option_source?: {
-        id?: string;
-        label?: string;
-        dynamic?: boolean;
-        cache_scope?: string;
-        params?: Record<string, unknown>;
-      };
-      default?: unknown;
-      display_hints?: Record<string, unknown>;
-    }>;
-  }>;
-  metadata?: Record<string, unknown>;
-};
-
-export type ServerPanelDefinition = {
-  id?: string;
-  label?: string;
-  icon?: string;
-  span?: number;
-  snapshot_key?: string;
-  event_types?: string[];
-  supports_toolbar?: boolean;
-  category?: string;
-  order?: number;
-  version?: string;
-  metadata?: Record<string, unknown>;
-  ui?: ServerPanelUI;
-};
-
-export type ServerPanelDefinitionsResponse = {
-  panels?: ServerPanelDefinition[];
-  version?: string;
-};
+export type {
+  PanelUIRendererKind,
+  ServerPanelUIView,
+  ServerPanelUI,
+  ServerPanelDefinition,
+  ServerPanelDefinitionsResponse,
+} from '../../console/types.js';
 
 export type DebugUserSession = {
   session_id?: string;
@@ -287,10 +171,7 @@ export type DebugUserSession = {
 };
 
 // Panel rendering options
-export type PanelOptions = {
-  slowThresholdMs?: number;
-  newestFirst?: boolean;
-};
+export type { PanelOptions } from '../../console/types.js';
 
 // Duration result type for formatDuration
 export type DurationResult = {

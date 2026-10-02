@@ -4,30 +4,13 @@
 import { formatByteSize } from '../../shared/size-formatters.js';
 import type { DurationResult } from './types.js';
 export { escapeHTML } from '../../shared/html.js';
-
-/**
- * Escape HTML special characters to prevent XSS
- */
-
-/**
- * Format a timestamp value to a locale time string
- */
-export const formatTimestamp = (value: unknown): string => {
-  if (!value) {
-    return '';
-  }
-  if (typeof value === 'number') {
-    return new Date(value).toLocaleTimeString();
-  }
-  if (typeof value === 'string') {
-    const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) {
-      return date.toLocaleTimeString();
-    }
-    return value;
-  }
-  return '';
-};
+export {
+  countPayload,
+  formatJSON,
+  formatNumber,
+  formatTimestamp,
+  type FormatJSONOptions,
+} from '../../console/format.js';
 
 /**
  * Format a duration value (in nanoseconds) to a human-readable string.
@@ -85,34 +68,6 @@ export const isSlowDuration = (value: unknown, slowThresholdMs = 50): boolean =>
 };
 
 /**
- * Options for formatJSON
- */
-export type FormatJSONOptions = {
-  /** If true, return '{}' for null/undefined values. Defaults to true. */
-  nullAsEmptyObject?: boolean;
-  /** Indentation spaces. Defaults to 2. */
-  indent?: number;
-};
-
-/**
- * Format a value as a JSON string.
- * Defaults to '{}' for null/undefined (configurable via options).
- */
-export const formatJSON = (value: unknown, options?: FormatJSONOptions): string => {
-  const { nullAsEmptyObject = true, indent = 2 } = options || {};
-
-  if (value === undefined || value === null) {
-    return nullAsEmptyObject ? '{}' : 'null';
-  }
-
-  try {
-    return JSON.stringify(value, null, indent);
-  } catch {
-    return String(value ?? '');
-  }
-};
-
-/**
  * Truncate a string to a maximum length, adding ellipsis if truncated
  */
 export const truncate = (str: string, len: number): string => {
@@ -163,36 +118,6 @@ const parseDurationMs = (value: unknown): number | null => {
     return null;
   }
   return nanos / 1e6;
-};
-
-/**
- * Format a number with locale-specific thousands separators
- */
-export const formatNumber = (value: unknown): string => {
-  if (value === null || value === undefined || value === '') {
-    return '0';
-  }
-  const num = Number(value);
-  if (Number.isNaN(num)) {
-    return String(value);
-  }
-  return num.toLocaleString();
-};
-
-/**
- * Count the number of items in a value (array length, object keys, or 1 for primitives)
- */
-export const countPayload = (value: unknown): number => {
-  if (value === null || value === undefined) {
-    return 0;
-  }
-  if (Array.isArray(value)) {
-    return value.length;
-  }
-  if (typeof value === 'object') {
-    return Object.keys(value).length;
-  }
-  return 1;
 };
 
 /**

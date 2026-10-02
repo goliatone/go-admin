@@ -32,11 +32,15 @@ var assetAliasPaths = map[string]string{
 }
 
 var assetContentBuilders = map[string]func(fs.FS) ([]byte, error){
+	"dist/styles/console.css": func(base fs.FS) ([]byte, error) {
+		return concatEmbeddedFiles(base, "src/styles/console/console.css")
+	},
 	"dist/styles/debug.css": func(base fs.FS) ([]byte, error) {
 		parts := []string{
 			"src/styles/debug/console.css",
 			"src/styles/debug/prism-catppuccin.css",
 			"src/styles/debug/expandable-rows.css",
+			"src/styles/debug/command-launcher.css",
 		}
 		return concatEmbeddedFiles(base, parts...)
 	},

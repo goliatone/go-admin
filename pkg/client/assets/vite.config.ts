@@ -34,6 +34,7 @@ export default defineConfig({
         'components/modal': resolve(import.meta.dirname, 'src/components/modal.ts'),
         'components/permission-pills': resolve(import.meta.dirname, 'src/components/permission-pills.ts'),
         'users/import-adapter': resolve(import.meta.dirname, 'src/users/import-adapter.ts'),
+        'console/index': resolve(import.meta.dirname, 'src/console/index.ts'),
         'debug/index': resolve(import.meta.dirname, 'src/debug/index.ts'),
         'debug/repl': resolve(import.meta.dirname, 'src/debug/repl/index.ts'),
         'debug/shared-helpers': resolve(import.meta.dirname, 'src/debug/shared-helpers.ts'),

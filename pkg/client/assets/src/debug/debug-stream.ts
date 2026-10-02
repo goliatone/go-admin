@@ -1,3 +1,6 @@
+import { ConsoleLiveStream } from '../console/live-stream.js';
+import { normalizeDebugBasePath } from './shared/path-helpers.js';
+
 export type DebugEvent = {
   type: string;
   payload: any;
@@ -44,13 +47,7 @@ export type RemoteDebugStreamOptions = Omit<DebugStreamOptions, 'basePath' | 'ur
   tokenParam?: string;
   appId?: string;
 };
-import { normalizeDebugBasePath } from './shared/path-helpers.js';
 
-const defaultReconnectDelayMs = 1000;
-const defaultMaxReconnectDelayMs = 12000;
-const defaultMaxReconnectAttempts = 8;
-const defaultMaxInitialReconnectAttempts = 1;
-const defaultReconnectStabilityMs = 10000;
 const defaultTokenRefreshBufferMs = 30000;
 
 const buildWebSocketURL = (basePath: string): string => {
@@ -128,20 +125,12 @@ const resolveTokenExpiryMs = (token: string, meta?: RemoteDebugToken): number | 
   return parseJWTExpiryMs(token);
 };
 
-export class DebugStream {
-  protected options: DebugStreamOptions;
-  protected ws: WebSocket | null = null;
-  protected reconnectTimer: number | null = null;
-  protected reconnectStabilityTimer: number | null = null;
-  protected reconnectAttempts = 0;
-  protected manualClose = false;
-  protected pendingCommands: DebugCommand[] = [];
-  protected status: DebugStreamStatus = 'disconnected';
-  protected hasConnected = false;
+export class DebugStream extends ConsoleLiveStream {
+  protected declare options: DebugStreamOptions;
   protected snapshotRecoveryPending = false;
 
   constructor(options: DebugStreamOptions) {
-    this.options = options;
+    super(options);
   }
 
   protected getWebSocketURL(): string {
@@ -151,105 +140,28 @@ export class DebugStream {
     return buildWebSocketURL(this.options.basePath || '');
   }
 
-  connect(): void {
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+  protected handleMessage(message: unknown): void {
+    const parsed = message as DebugEvent;
+    if (parsed?.type === debugSnapshotInvalidatedEvent) {
+      if (!this.snapshotRecoveryPending) {
+        this.snapshotRecoveryPending = true;
+        this.requestSnapshot();
+      }
+      this.options.onSnapshotInvalidated?.();
       return;
     }
-
-    if (this.reconnectTimer !== null) {
-      window.clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.manualClose = false;
-    const url = this.getWebSocketURL();
-    if (!url) {
-      this.setStatus('error');
-      return;
-    }
-    const socket = new WebSocket(url);
-    this.ws = socket;
-
-    socket.onopen = () => {
-      if (this.ws !== socket) {
-        return;
-      }
-      this.hasConnected = true;
-      this.scheduleReconnectBudgetReset(socket);
-      this.setStatus('connected');
-      this.flushPending();
-    };
-
-    socket.onmessage = (event) => {
-      if (this.ws !== socket) {
-        return;
-      }
-      if (!event || typeof event.data !== 'string') {
-        return;
-      }
-      try {
-        const parsed = JSON.parse(event.data) as DebugEvent;
-        if (parsed?.type === debugSnapshotInvalidatedEvent) {
-          if (!this.snapshotRecoveryPending) {
-            this.snapshotRecoveryPending = true;
-            this.requestSnapshot();
-          }
-          this.options.onSnapshotInvalidated?.();
-          return;
-        }
-        if (parsed?.type === 'snapshot') {
-          this.snapshotRecoveryPending = false;
-        }
-        this.options.onEvent?.(parsed);
-      } catch {
-        // ignore malformed payloads
-      }
-    };
-
-    socket.onclose = () => {
-      if (this.ws !== socket) {
-        return;
-      }
-      this.clearReconnectStabilityTimer();
+    if (parsed?.type === 'snapshot') {
       this.snapshotRecoveryPending = false;
-      this.ws = null;
-      if (this.manualClose) {
-        this.setStatus('disconnected');
-        return;
-      }
-      this.setStatus('reconnecting');
-      this.scheduleReconnect();
-    };
-
-    socket.onerror = (event) => {
-      if (this.ws !== socket) {
-        return;
-      }
-      this.options.onError?.(event);
-      this.setStatus('error');
-    };
+    }
+    this.options.onEvent?.(parsed);
   }
 
-  close(): void {
-    this.manualClose = true;
-    if (this.reconnectTimer !== null) {
-      window.clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.clearReconnectStabilityTimer();
-    if (this.ws) {
-      this.ws.close();
-    }
+  protected handleSocketClosed(): void {
+    this.snapshotRecoveryPending = false;
   }
 
   sendCommand(cmd: DebugCommand): void {
-    if (!cmd || !cmd.type) {
-      return;
-    }
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(cmd));
-      return;
-    }
-    this.pendingCommands.push(cmd);
+    super.sendCommand(cmd);
   }
 
   subscribe(panels: string[]): void {
@@ -269,67 +181,11 @@ export class DebugStream {
   }
 
   getStatus(): DebugStreamStatus {
-    return this.status;
+    return super.getStatus();
   }
 
   protected setStatus(status: DebugStreamStatus): void {
-    if (this.status === status) {
-      return;
-    }
-    this.status = status;
-    this.options.onStatusChange?.(status);
-  }
-
-  protected flushPending(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    if (this.pendingCommands.length === 0) {
-      return;
-    }
-    const pending = [...this.pendingCommands];
-    this.pendingCommands = [];
-    for (const cmd of pending) {
-      this.ws.send(JSON.stringify(cmd));
-    }
-  }
-
-  protected clearReconnectStabilityTimer(): void {
-    if (this.reconnectStabilityTimer !== null) {
-      window.clearTimeout(this.reconnectStabilityTimer);
-      this.reconnectStabilityTimer = null;
-    }
-  }
-
-  protected scheduleReconnectBudgetReset(socket: WebSocket): void {
-    this.clearReconnectStabilityTimer();
-    const stabilityMs = Math.max(this.options.reconnectStabilityMs ?? defaultReconnectStabilityMs, 0);
-    this.reconnectStabilityTimer = window.setTimeout(() => {
-      this.reconnectStabilityTimer = null;
-      if (this.ws === socket && socket.readyState === WebSocket.OPEN) {
-        this.reconnectAttempts = 0;
-      }
-    }, stabilityMs);
-  }
-
-  protected scheduleReconnect(): void {
-    const maxAttempts = this.hasConnected
-      ? (this.options.maxReconnectAttempts ?? defaultMaxReconnectAttempts)
-      : (this.options.maxInitialReconnectAttempts ?? defaultMaxInitialReconnectAttempts);
-    const baseDelay = this.options.reconnectDelayMs ?? defaultReconnectDelayMs;
-    const maxDelay = this.options.maxReconnectDelayMs ?? defaultMaxReconnectDelayMs;
-    if (this.reconnectAttempts >= maxAttempts) {
-      this.setStatus('disconnected');
-      return;
-    }
-    const attempt = this.reconnectAttempts;
-    const backoff = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
-    const jitter = backoff * (0.2 + Math.random() * 0.3);
-    this.reconnectAttempts += 1;
-    this.reconnectTimer = window.setTimeout(() => {
-      this.reconnectTimer = null;
-      this.connect();
-    }, backoff + jitter);
+    super.setStatus(status);
   }
 }
 

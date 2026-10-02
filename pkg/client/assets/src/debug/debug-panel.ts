@@ -203,6 +203,15 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
   return parsed;
 };
 
+/**
+ * Debug chrome (tabs, filters, status) lives beside the panel element. A
+ * `[data-debug-root]` ancestor scopes those lookups to one console; legacy
+ * templates without it resolve against the owning document.
+ */
+const resolveDebugRoot = (container: HTMLElement): ParentNode => {
+  return container.closest<HTMLElement>('[data-debug-root]') || container.ownerDocument || document;
+};
+
 const clonePanelActionPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
   try {
     return JSON.parse(JSON.stringify(payload)) as Record<string, unknown>;
@@ -213,6 +222,7 @@ const clonePanelActionPayload = (payload: Record<string, unknown>): Record<strin
 
 export class DebugPanel {
   private container: HTMLElement;
+  private root: ParentNode;
   private debugPath: string;
   private panelOrderPreferencesPath: string;
   private availablePanels: string[];
@@ -345,16 +355,19 @@ export class DebugPanel {
     // Build event-to-panel mapping from registry
     this.eventToPanel = buildEventToPanel();
 
-    this.tabsEl = this.requireElement('[data-debug-tabs]', document);
-    this.panelEl = this.requireElement('[data-debug-panel]', document);
-    this.filtersEl = this.requireElement('[data-debug-filters]', document);
-    this.statusEl = document.querySelector('[data-debug-status]') || this.container;
-    this.connectionEl = this.requireElement('[data-debug-connection]', document);
-    this.eventCountEl = this.requireElement('[data-debug-events]', document);
-    this.lastEventEl = this.requireElement('[data-debug-last]', document);
-    this.sessionBannerEl = document.querySelector('[data-debug-session-banner]');
-    this.sessionMetaEl = document.querySelector('[data-debug-session-meta]');
-    this.sessionDetachEl = document.querySelector('[data-debug-session-detach]');
+    // Resolve chrome inside the console's own root. Legacy templates without a
+    // root wrapper keep resolving against the owning document.
+    this.root = resolveDebugRoot(container);
+    this.tabsEl = this.requireElement('[data-debug-tabs]', this.root);
+    this.panelEl = this.requireElement('[data-debug-panel]', this.root);
+    this.filtersEl = this.requireElement('[data-debug-filters]', this.root);
+    this.statusEl = this.root.querySelector<HTMLElement>('[data-debug-status]') || this.container;
+    this.connectionEl = this.requireElement('[data-debug-connection]', this.root);
+    this.eventCountEl = this.requireElement('[data-debug-events]', this.root);
+    this.lastEventEl = this.requireElement('[data-debug-last]', this.root);
+    this.sessionBannerEl = this.root.querySelector<HTMLElement>('[data-debug-session-banner]');
+    this.sessionMetaEl = this.root.querySelector<HTMLElement>('[data-debug-session-meta]');
+    this.sessionDetachEl = this.root.querySelector<HTMLButtonElement>('[data-debug-session-detach]');
     if (this.sessionDetachEl) {
       this.sessionDetachEl.addEventListener('click', () => this.detachSession());
     }

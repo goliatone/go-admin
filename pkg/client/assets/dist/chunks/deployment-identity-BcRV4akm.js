@@ -1,4 +1,4 @@
-import { S as p } from "./runtime-helpers-C2cPJaEE.js";
+import { t as p } from "./avatar-DIbK-LSg.js";
 var u = "#64748b", d = {
   development: "DEV",
   dev: "DEV",
@@ -27,10 +27,10 @@ function f(e) {
   return n.length <= 5 ? n : n.slice(0, 4);
 }
 function C(e, t) {
-  if (t && !t.some((c) => c.trim().toLowerCase() === "deployment")) return null;
+  if (t && !t.some((l) => l.trim().toLowerCase() === "deployment")) return null;
   const n = e.deployment, i = o(n?.environment?.name), s = o(n?.runtime?.instance_name);
   if (!i || !s) return null;
-  const a = i.toUpperCase(), r = p(n?.persona), m = r?.name || s, l = [
+  const a = i.toUpperCase(), r = p(n?.persona), m = r?.name || s, c = [
     `Environment: ${i}`,
     `Instance: ${s}`,
     r ? `Persona: ${r.name}` : "",
@@ -44,11 +44,11 @@ function C(e, t) {
     environmentShort: f(i),
     instance: s,
     ...r ? { persona: r } : {},
-    title: l.join(" · ")
+    title: c.join(" · ")
   };
 }
 export {
   C as t
 };
 
-//# sourceMappingURL=deployment-identity-qBgNJ52n.js.map
+//# sourceMappingURL=deployment-identity-BcRV4akm.js.map

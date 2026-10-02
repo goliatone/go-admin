@@ -60,6 +60,9 @@ func (m *DebugModule) registerDebugREPLAppWebSocket(admin *Admin) {
 	}
 	cfg := router.DefaultWebSocketConfig()
 	cfg.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
+		if m.consoleHost().closed() {
+			return nil, ErrForbidden
+		}
 		if c == nil {
 			return nil, ErrForbidden
 		}
@@ -87,6 +90,11 @@ func (m *DebugModule) registerDebugREPLAppWebSocket(admin *Admin) {
 		path = joinBasePath(basePath, debugREPLAppPathSuffix)
 	}
 	ws.WebSocket(path, cfg, func(c router.WebSocketContext) error {
+		stopHost, err := m.consoleHost().bindSocket(c)
+		if err != nil {
+			return err
+		}
+		defer stopHost()
 		return handleDebugREPLAppWebSocket(admin, m.config, c)
 	})
 }

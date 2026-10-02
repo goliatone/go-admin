@@ -58,6 +58,9 @@ func buildDebugViewContext(adm *Admin, cfg DebugConfig, c router.Context, view r
 		}
 	}
 	view["layout_mode"] = string(cfg.LayoutMode)
+	if _, ok := view["debug_preferences_namespace"]; !ok {
+		view["debug_preferences_namespace"] = debugBrowserStateNamespace(cfg, c)
+	}
 	if cfg.LayoutMode != DebugLayoutAdmin {
 		return view
 	}
