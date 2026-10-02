@@ -46,3 +46,10 @@ type AccessRequest struct {
 type Policy interface {
 	Authorize(context.Context, Principal, AccessRequest) error
 }
+
+// CatalogProvider returns bounded references already filtered by application
+// domain policy. The service rechecks each descriptor before disclosing it.
+// Absence means catalog discovery is unsupported; exact Describe remains usable.
+type CatalogProvider interface {
+	Catalog(context.Context, Principal, TargetKey, int) ([]DatasetRef, error)
+}

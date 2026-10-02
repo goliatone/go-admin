@@ -65,6 +65,7 @@ export {
   type ConsoleEventOutcome,
   type ConsoleRecordStoreOptions,
   type ConsoleSequenceMode,
+  type ConsoleSnapshotOptions,
   type ConsoleSnapshotOutcome,
 } from './store.js';
 export {

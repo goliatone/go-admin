@@ -119,3 +119,63 @@ func TestEventStreamRejectsForeignIdentityAndUnboundedKeys(t *testing.T) {
 		t.Fatal("foreign console accepted")
 	}
 }
+
+// A provider marshaler must run only during validation. Once accepted, delivery
+// copies the detached JSON value instead of invoking provider code again.
+type singleMarshalEventPayload struct{ calls int }
+
+func (p *singleMarshalEventPayload) MarshalJSON() ([]byte, error) {
+	p.calls++
+	if p.calls > 1 {
+		return nil, errors.New("provider payload marshaled again")
+	}
+	return []byte(`{"items":[{"state":"running"}]}`), nil
+}
+
+func TestEventStreamDetachesPayloadForEachConsumer(t *testing.T) {
+	stream := NewEventStream("data", 4)
+	identity := eventIdentity("alice")
+	first, cancelFirst, err := stream.Subscribe(identity, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancelFirst()
+	second, cancelSecond, err := stream.Subscribe(identity, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancelSecond()
+	payload := &singleMarshalEventPayload{}
+	published, err := stream.Publish(Event{Identity: identity, PanelID: "operations", Record: Record{Key: "op", Data: payload}, Kind: EventUpsert})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := func(event Event) map[string]any {
+		t.Helper()
+		data, ok := event.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected event data: %T", event.Data)
+		}
+		items, ok := data["items"].([]any)
+		if !ok || len(items) != 1 {
+			t.Fatalf("unexpected event items: %#v", data["items"])
+		}
+		value, ok := items[0].(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected event item: %T", items[0])
+		}
+		return value
+	}
+	item(published)["state"] = "changed by publisher"
+	firstItem := item(<-first)
+	if firstItem["state"] != "running" {
+		t.Fatal("returned payload aliases a consumer")
+	}
+	firstItem["state"] = "changed by consumer"
+	if secondItem := item(<-second); secondItem["state"] != "running" {
+		t.Fatal("consumer payloads alias each other")
+	}
+	if payload.calls != 1 {
+		t.Fatalf("provider marshaler called %d times", payload.calls)
+	}
+}

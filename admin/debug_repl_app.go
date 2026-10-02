@@ -87,6 +87,22 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 	closeReason := debugREPLAppCloseReasonUser
 	defer debugREPLFinishSession(admin, runtime, &closeReason)
 
+	access, err := newDebugREPLAccess(admin, cfg, c, runtime.adminCtx.Context, false)
+	if err != nil {
+		closeReason = debugREPLAppCloseReasonError
+		return err
+	}
+	defer func() {
+		access.Close()
+		// A policy close can wake the reader before the loop sees cancellation.
+		// Preserve that denial over EOF or teardown errors in either ordering.
+		if policyErr := access.Result(); policyErr != nil {
+			result = preserveDebugWebSocketPrimaryError(policyErr, result)
+			closeReason = debugREPLAppCloseReasonError
+		}
+	}()
+	runtime.adminCtx.Context = access
+
 	interpreter, err := debugREPLAppReadyInterpreter(admin, runtime.adminCtx, replCfg, c, runtime.session)
 	if err != nil {
 		closeReason = debugREPLAppCloseReasonError
@@ -109,15 +125,18 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
 	defer stopTimeout()
 
-	return runDebugREPLAppLoop(admin, runtime.adminCtx, replCfg, runtime.session, interpreter, c, reader.messages, reader.errors, timeoutCh, &closeReason)
+	return runDebugREPLAppLoop(admin, runtime.adminCtx, access, replCfg, runtime.session, interpreter, c, reader.messages, reader.errors, timeoutCh, &closeReason)
 }
 
-func runDebugREPLAppLoop(admin *Admin, adminCtx AdminContext, replCfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, commandCh <-chan debugREPLAppCommand, commandErrCh <-chan error, timeoutCh <-chan time.Time, closeReason *string) error {
+func runDebugREPLAppLoop(admin *Admin, adminCtx AdminContext, access *debugREPLAccess, replCfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, commandCh <-chan debugREPLAppCommand, commandErrCh <-chan error, timeoutCh <-chan time.Time, closeReason *string) error {
 	for {
 		select {
-		case <-c.Context().Done():
+		case <-access.Done():
 			*closeReason = debugREPLAppCloseReasonUser
-			return nil
+			if access.Result() != nil {
+				*closeReason = debugREPLAppCloseReasonError
+			}
+			return access.Result()
 		case err := <-commandErrCh:
 			return handleDebugREPLAppCommandReadError(err, closeReason)
 		case cmd, ok := <-commandCh:
@@ -128,7 +147,7 @@ func runDebugREPLAppLoop(admin *Admin, adminCtx AdminContext, replCfg DebugREPLC
 				*closeReason = debugREPLAppCloseReasonUser
 				return nil
 			}
-			if err := handleDebugREPLAppCommand(admin, adminCtx, replCfg, session, interpreter, c, cmd); err != nil {
+			if err := handleDebugREPLAppCommand(admin, adminCtx, access, replCfg, session, interpreter, c, cmd); err != nil {
 				return handleDebugREPLAppCommandError(err, closeReason)
 			}
 		case <-timeoutCh:
@@ -191,9 +210,12 @@ func debugREPLAppCommandReader(c router.WebSocketContext) (*debugWebSocketJSONRe
 	return startDebugWebSocketJSONReader[debugREPLAppCommand](c, 16, false)
 }
 
-func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, cmd debugREPLAppCommand) error {
+func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, access *debugREPLAccess, cfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, cmd debugREPLAppCommand) error {
 	if admin == nil || c == nil {
 		return ErrForbidden
+	}
+	if err := access.Check(false); err != nil {
+		return err
 	}
 	if interpreter == nil {
 		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{ //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
@@ -203,36 +225,45 @@ func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREP
 	}
 	switch strings.ToLower(strings.TrimSpace(cmd.Type)) {
 	case debugREPLAppCommandEval:
-		code := strings.TrimSpace(cmd.Code)
-		if code == "" {
-			return nil
-		}
-		requiresExec := debugREPLAppRequiresExec(code)
-		if requiresExec {
-			if cfg.ReadOnlyEnabled() {
-				return debugREPLAppWriteError(admin, adminCtx, session, c, code, NewDomainError(TextCodeReplReadOnly, "app console is read-only", map[string]any{
-					"component": "debug_repl_app",
-				}))
-			}
-			if err := admin.requirePermission(adminCtx, cfg.ExecPermission, debugReplResource); err != nil {
-				return debugREPLAppWriteError(admin, adminCtx, session, c, code, err)
-			}
-		}
-		output, err, timedOut := debugREPLAppEval(interpreter, code, time.Duration(cfg.AppEvalTimeoutMs)*time.Millisecond)
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) && timedOut {
-				_ = debugREPLAppWriteError(admin, adminCtx, session, c, code, err) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
-				return errDebugREPLAppTimeout
-			}
-			return debugREPLAppWriteError(admin, adminCtx, session, c, code, err)
-		}
-		if err := c.WriteJSON(debugREPLAppEvent{Type: debugREPLAppEventResult, Output: output}); err != nil {
-			return err
-		}
-		debugREPLAppRecordEval(admin, adminCtx.Context, session, code, output, nil)
+		return handleDebugREPLAppEval(admin, adminCtx, access, cfg, session, interpreter, c, cmd.Code)
 	case debugREPLAppCommandClose:
 		return errDebugREPLAppClose
 	}
+	return nil
+}
+
+func handleDebugREPLAppEval(admin *Admin, adminCtx AdminContext, access *debugREPLAccess, cfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, code string) error {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return nil
+	}
+	requiresExec := debugREPLAppRequiresExec(code)
+	if requiresExec {
+		if cfg.ReadOnlyEnabled() {
+			return debugREPLAppWriteError(admin, adminCtx, session, c, code, NewDomainError(TextCodeReplReadOnly, "app console is read-only", map[string]any{
+				"component": "debug_repl_app",
+			}))
+		}
+		defer access.BeginExec()()
+		if err := access.Check(true); err != nil {
+			return err
+		}
+	}
+	output, err, timedOut := debugREPLAppEval(access, interpreter, code, time.Duration(cfg.AppEvalTimeoutMs)*time.Millisecond)
+	if policyErr := access.Check(requiresExec); policyErr != nil {
+		return policyErr
+	}
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) && timedOut {
+			_ = debugREPLAppWriteError(admin, adminCtx, session, c, code, err) //nolint:errcheck // legacy dynamic payload keeps existing zero-value fallback behavior.
+			return errDebugREPLAppTimeout
+		}
+		return debugREPLAppWriteError(admin, adminCtx, session, c, code, err)
+	}
+	if err := c.WriteJSON(debugREPLAppEvent{Type: debugREPLAppEventResult, Output: output}); err != nil {
+		return err
+	}
+	debugREPLAppRecordEval(admin, adminCtx.Context, session, code, output, nil)
 	return nil
 }
 
@@ -316,40 +347,18 @@ func debugREPLAppRequiresExec(code string) bool {
 	return true
 }
 
-type debugREPLAppEvalResult struct {
-	value reflect.Value
-	err   error
-}
-
-type debugREPLAppEvalWithContext interface {
-	EvalWithContext(context.Context, string) (reflect.Value, error)
-}
-
-func debugREPLAppEval(interpreter *interp.Interpreter, code string, timeout time.Duration) (string, error, bool) {
+// Evaluation shares the authorized session lifetime, including idle revocation.
+func debugREPLAppEval(ctx context.Context, interpreter *interp.Interpreter, code string, timeout time.Duration) (string, error, bool) {
 	if interpreter == nil {
 		return "", ErrForbidden, false
 	}
-	if timeout <= 0 {
-		value, err := interpreter.Eval(code)
-		return debugREPLAppFormatValue(value), err, false
-	}
-	if evaler, ok := any(interpreter).(debugREPLAppEvalWithContext); ok {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
-		value, err := evaler.EvalWithContext(ctx, code)
-		return debugREPLAppFormatValue(value), err, false
 	}
-	resultCh := make(chan debugREPLAppEvalResult, 1)
-	go func() {
-		value, err := interpreter.Eval(code)
-		resultCh <- debugREPLAppEvalResult{value: value, err: err}
-	}()
-	select {
-	case result := <-resultCh:
-		return debugREPLAppFormatValue(result.value), result.err, false
-	case <-time.After(timeout):
-		return "", context.DeadlineExceeded, true
-	}
+	value, err := interpreter.EvalWithContext(ctx, code)
+	return debugREPLAppFormatValue(value), err, errors.Is(err, context.DeadlineExceeded)
 }
 
 func debugREPLAppFormatValue(value reflect.Value) string {

@@ -79,6 +79,8 @@ const DEFAULT_RECOVERY_DELAYS_MS = [1000, 2000, 5000, 10000, 30000];
 const ACTIVE_PANEL_KEY = 'active-panel';
 const FRAME_FALLBACK_MS = 16;
 const DEFAULT_SNAPSHOT_WAIT_MS = 5000;
+/** Rank of panels without a declared order, as for hydrated definitions. */
+const DEFAULT_PANEL_ORDER = 100;
 /** Policy closes tolerated per window before live updates stop retrying. */
 const POLICY_CLOSE_LIMIT = 3;
 const POLICY_CLOSE_WINDOW_MS = 60000;
@@ -225,6 +227,9 @@ export class ConsoleRuntime {
   private stream: ConsoleLiveStream | null = null;
   private recoveryPromise: Promise<void> | null = null;
   private recoveryPending = false;
+  private snapshotEpoch = 0;
+  /** The next live snapshot is the first frame of a newly connected socket. */
+  private freshStreamSnapshot = false;
   private recoveryAttempts = 0;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private cancelFrame: (() => void) | null = null;
@@ -385,6 +390,7 @@ export class ConsoleRuntime {
       this.recoveryPending = false;
       this.store.beginRecovery();
       this.root.dataset.consoleSync = 'recovering';
+      const epoch = this.snapshotEpoch;
       const controller = new AbortController();
       this.controllers.add(controller);
       const result = await consoleRequest<ConsoleSnapshot>(this.bootstrap.urls.snapshot, {
@@ -395,6 +401,13 @@ export class ConsoleRuntime {
       });
       this.controllers.delete(controller);
       if (this.isClosed()) return;
+      // A live snapshot/invalidation supersedes this HTTP observation even
+      // when its watermark is equal (grant changes need not publish events).
+      // A later explicit trigger still deserves its own fresh observation.
+      if (epoch !== this.snapshotEpoch) {
+        if (this.recoveryPending) continue;
+        return;
+      }
       if (!result.ok) {
         if (result.status === 401 || result.status === 403) {
           this.deny(result.error);
@@ -403,7 +416,8 @@ export class ConsoleRuntime {
         }
         return;
       }
-      if (this.acceptSnapshot(result.value)) {
+      // Without live delivery each poll is the only sequence there is.
+      if (this.acceptSnapshot(result.value, !this.liveConfigured())) {
         if (this.isClosed()) return;
         // The snapshot did not close a gap; bound the follow-up fetches.
         this.recoveryAttempts += 1;
@@ -442,9 +456,10 @@ export class ConsoleRuntime {
   }
 
   /** Apply a snapshot; returns true when another recovery is required. */
-  private acceptSnapshot(snapshot: ConsoleSnapshot): boolean {
-    const outcome = this.store.applySnapshot(snapshot);
+  private acceptSnapshot(snapshot: ConsoleSnapshot, rewind = false): boolean {
+    const outcome = this.store.applySnapshot(snapshot, { rewind });
     if (!outcome.ok) {
+      if (outcome.reason === 'stale') return outcome.needsRecovery;
       if (outcome.reason === 'foreign') {
         this.deny({
           status: 409,
@@ -459,6 +474,7 @@ export class ConsoleRuntime {
       }
       return false;
     }
+    this.snapshotEpoch += 1;
     this.syncDefinitions(snapshot.panels);
     this.setState('ready');
     this.root.dataset.consoleSync = outcome.needsRecovery ? 'recovering' : 'current';
@@ -514,13 +530,17 @@ export class ConsoleRuntime {
   // revalidation and invalidation with `invalidate` followed by a fresh
   // snapshot. Access changes close the socket with a policy code.
 
+  private liveConfigured(): boolean {
+    return Boolean(this.bootstrap.urls.live) && this.options.live !== false;
+  }
+
   private connectLive(): void {
     const live = this.bootstrap.urls.live;
-    if (!live || this.options.live === false || this.isClosed()) {
+    if (!live || !this.liveConfigured() || this.isClosed()) {
       this.setConnection('offline');
       return;
     }
-    const panels = this.store.panelIds();
+    const panels = this.byDeclaredOrder(this.store.panelIds());
     this.livePanels = panels;
     const stream = new ConsoleLiveStream({
       ...(this.options.liveOptions || {}),
@@ -543,6 +563,7 @@ export class ConsoleRuntime {
   private closeLive(): void {
     const stream = this.stream;
     this.stream = null;
+    this.freshStreamSnapshot = false;
     this.clearSnapshotWait();
     stream?.close();
   }
@@ -551,7 +572,11 @@ export class ConsoleRuntime {
     if (this.isClosed()) return;
     this.setConnection(status);
     if (status === 'connected') {
-      // The host's first frame is a fresh authorized snapshot.
+      // The host's first frame is a fresh authorized snapshot. It covers
+      // events held from the previous socket, and after a host restart it
+      // starts a new sequence below the cursor.
+      this.store.discardBuffered();
+      this.freshStreamSnapshot = true;
       this.awaitStreamSnapshot();
     } else if (status === 'disconnected') {
       // Retries are exhausted: distinguish lost access from an outage.
@@ -579,13 +604,14 @@ export class ConsoleRuntime {
   }
 
   /**
-   * Keep live selection in step with authorization. Newly authorized panels
-   * need a new subscription; removed panels are already filtered by the host.
+   * Keep requested live selection equal to the current authorized panel set.
+   * Reconcile removals too, so regrants become fresh selections even when
+   * reconnecting to a host without retained subscription intent.
    */
   private syncSubscription(): void {
     if (!this.stream) return;
     const panels = this.store.panelIds();
-    if (panels.some((id) => !this.livePanels.includes(id))) {
+    if (panels.length !== this.livePanels.length || panels.some((id) => !this.livePanels.includes(id))) {
       this.closeLive();
       this.connectLive();
     }
@@ -613,7 +639,9 @@ export class ConsoleRuntime {
     if (this.isClosed() || !isObject(message)) return;
     if (isConsoleSnapshot(message)) {
       this.clearSnapshotWait();
-      if (this.acceptSnapshot(message)) void this.recover();
+      const rewind = this.freshStreamSnapshot;
+      this.freshStreamSnapshot = false;
+      if (this.acceptSnapshot(message, rewind)) void this.recover();
       return;
     }
     if (!isConsoleEvent(message)) return;
@@ -621,6 +649,7 @@ export class ConsoleRuntime {
     if (outcome === 'applied') {
       this.markPanelDirty(normalizeSchemaID(message.panel_id));
     } else if (outcome === 'invalidated') {
+      this.snapshotEpoch += 1;
       this.awaitStreamSnapshot();
     } else if (outcome === 'gap') {
       void this.recover();
@@ -962,9 +991,25 @@ export class ConsoleRuntime {
     this.renderPanel(true);
   }
 
-  /** Authorized panels in snapshot order that have a renderer. */
+  /** Authorized panels that have a renderer, in declared order. */
   private visiblePanels(): string[] {
-    return this.store.panelIds().filter((id) => this.registry.has(id));
+    return this.byDeclaredOrder(this.store.panelIds()).filter((id) => this.registry.has(id));
+  }
+
+  /**
+   * Hosts list snapshot panels by ID, so tabs, the default panel and the live
+   * selection follow the declared `order` (unset ranks as 100); snapshot order
+   * breaks ties.
+   */
+  private byDeclaredOrder(ids: string[]): string[] {
+    const rank = (id: string): number => {
+      const order = this.serverDefinitions.get(id)?.order ?? this.registry.get(id)?.order;
+      return typeof order === 'number' && Number.isFinite(order) ? order : DEFAULT_PANEL_ORDER;
+    };
+    return ids
+      .map((id, index) => ({ id, index, order: rank(id) }))
+      .sort((a, b) => a.order - b.order || a.index - b.index)
+      .map((entry) => entry.id);
   }
 
   private tabButton(panelId: string): HTMLButtonElement | null {
@@ -1105,7 +1150,7 @@ export class ConsoleRuntime {
       error: 'Connection error',
       offline: 'Not live',
     };
-    this.root.dataset.consoleConnection = this.connection;
+    this.root.dataset.consoleLive = this.connection;
     if (this.regions.status) this.regions.status.dataset.status = this.connection;
     if (this.regions.connection) this.regions.connection.textContent = labels[this.connection];
   }

@@ -6,15 +6,16 @@ import (
 )
 
 type Operation struct {
-	Result          Result    `json:"result"`
-	Target          TargetKey `json:"target"`
-	Principal       Principal `json:"principal"`
-	Input           Input     `json:"input"`
-	Fingerprint     string    `json:"fingerprint"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	StageID         string    `json:"stage_id,omitempty"`
-	CancelRequested bool      `json:"cancel_requested"`
+	Result            Result     `json:"result"`
+	Target            TargetKey  `json:"target"`
+	Principal         Principal  `json:"principal"`
+	Input             Input      `json:"input"`
+	Fingerprint       string     `json:"fingerprint"`
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	RecoveryPrincipal *Principal `json:"recovery_principal,omitempty"`
+	StageID           string     `json:"stage_id,omitempty"`
+	CancelRequested   bool       `json:"cancel_requested"`
 }
 type Claim struct {
 	Operation Operation
@@ -55,6 +56,9 @@ func (c StoreCapabilities) WriteReady() bool {
 // BeginIntent atomically checks lease, generation, receipt/content and operation
 // revision. ResolveIntent atomically finalizes activation, intent and operation;
 // routing-next increments generation exactly once; routing-prior retains it.
+// Both known routes require Observation.Ready (physical safety/health); an
+// unready route follows AuthoritativeRouting's unknown/recovery rule and cannot
+// finalize a terminal outcome or clear pending evidence.
 // Unknown preserves intent, blocks writes and persists recovering, not failed.
 // Retention preserves idempotency tombstones for its advertised retry window,
 // active/pending/rollback receipts, artifacts and all recovery evidence. Hosts must
@@ -68,11 +72,16 @@ type OperationStore interface {
 	AcquireRecovery(context.Context, string, TargetKey, time.Duration) (Lease, error)
 	Renew(context.Context, Lease, time.Duration) (Lease, error)
 	CheckLease(context.Context, Lease) error
+	// CheckCleanup rejects active, pending or retained receipts under the lease.
+	CheckCleanup(context.Context, Lease, string) error
 	Release(context.Context, Lease) error
 	Save(context.Context, Operation, uint64, *Lease) (Operation, error)
 	RequestCancel(context.Context, string, uint64) (Operation, error)
 	PutReceipt(context.Context, Lease, PreparationReceipt) error
 	GetReceipt(context.Context, string) (PreparationReceipt, error)
+	// GetArtifact loads original metadata by provider and opaque ID; caller
+	// claims about requester, scope, expiry or generation are never authoritative.
+	GetArtifact(context.Context, string, string) (ArtifactRef, error)
 	PutVerification(context.Context, Lease, string, uint64, VerificationResult) (PreparationReceipt, error)
 	Target(context.Context, TargetKey) (TargetState, error)
 	BeginIntent(context.Context, Lease, Intent, uint64) error

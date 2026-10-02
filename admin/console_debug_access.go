@@ -15,6 +15,20 @@ type CurrentContextResolver interface {
 }
 
 func debugCurrentContext(admin *Admin, cfg DebugConfig, ctx context.Context, permission string) (context.Context, error) {
+	ctx, err := debugResolveCurrentContext(admin, cfg, ctx)
+	if err != nil {
+		return ctx, err
+	}
+	if admin != nil && debugHasAuthenticatedExposure(admin) {
+		if err := requirePermissionWithAuthorizer(admin.authorizer, ctx, debugResolvedPermission(cfg, permission), debugModuleID); err != nil {
+			return ctx, err
+		}
+	}
+	return ctx, nil
+}
+
+// Resolution is shared with REPL, whose grants use the debug.repl resource.
+func debugResolveCurrentContext(admin *Admin, cfg DebugConfig, ctx context.Context) (context.Context, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -31,11 +45,6 @@ func debugCurrentContext(admin *Admin, cfg DebugConfig, ctx context.Context, per
 	}
 	// Do not retain the HTTP request's permission-cache entries across deliveries.
 	ctx = context.WithValue(ctx, resolvedPermissionsCacheContextKey{}, &resolvedPermissionsCache{})
-	if admin != nil && debugHasAuthenticatedExposure(admin) {
-		if err := requirePermissionWithAuthorizer(admin.authorizer, ctx, debugResolvedPermission(cfg, permission), debugModuleID); err != nil {
-			return ctx, err
-		}
-	}
 	return ctx, nil
 }
 
@@ -99,7 +108,11 @@ func debugClaimsExpired(ctx context.Context) bool {
 }
 
 func (m *DebugModule) debugDeliveryInterval() time.Duration {
-	interval := m.config.LiveRevalidateInterval
+	return debugDeliveryInterval(m.config)
+}
+
+func debugDeliveryInterval(cfg DebugConfig) time.Duration {
+	interval := cfg.LiveRevalidateInterval
 	if interval <= 0 || interval > 30*time.Second {
 		return 15 * time.Second
 	}

@@ -210,6 +210,22 @@
   flex: 1 1 220px;
 }
 
+/* Grow is a row-axis width. In column parents (the select-layout action
+   launcher, stacked mobile controls) the basis would become a height. */
+:where(.console-root) [data-panel-action-launcher] > .console-filter--grow {
+  flex: 0 0 auto;
+}
+
+/* Choice inputs keep their native box rather than the text-field sizing. */
+:where(.console-root) input:is([type="checkbox"], [type="radio"]) {
+  min-height: 0;
+  padding: 0;
+}
+
+:where(.console-root) form[data-panel-action-form] label > input:is([type="checkbox"], [type="radio"]) {
+  align-self: flex-start;
+}
+
 /* Tabs -------------------------------------------------------------------- */
 
 :where(.console-root) .console-tabs {
@@ -577,6 +593,19 @@
   :where(.console-root) form[data-panel-action-form] {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  :where(.console-root) :is(.console-filters, .console-controls) > .console-filter--grow {
+    flex: 0 0 auto;
+  }
+
+  /* Shared action forms carry inline flex alignment; stack them full width. */
+  :where(.console-root) form[data-panel-action-form] {
+    align-items: stretch !important;
+  }
+
+  :where(.console-root) form[data-panel-action-form] :is(label, select, input:not([type="checkbox"]), textarea) {
+    width: 100%;
   }
 
   :where(.console-root) .console-btn {

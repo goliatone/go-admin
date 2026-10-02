@@ -28,9 +28,23 @@ const (
 
 type Observation struct {
 	Routing IntentObservation
-	Ready   bool
+	// Ready means the observed physical routing is safe and healthy, including
+	// a safely deactivated target. It is distinct from Activation.Ready, which
+	// reports an active prepared dataset. An unready prior route cannot settle
+	// an intent any more than an unready next route can.
+	Ready bool
 }
 
+// AuthoritativeRouting keeps reconciliation and store validation on the same
+// authority rule. Known routing without readiness still requires recovery.
+func (o Observation) AuthoritativeRouting() IntentObservation {
+	if o.Ready && (o.Routing == RoutingPrior || o.Routing == RoutingNext) {
+		return o.Routing
+	}
+	return RoutingUnknown
+}
+
+// Allocate uses the persisted Work.StageID and is idempotent by operation/stage.
 // ManagedTarget implements physical effects, not operation/generation authority.
 // Commit is idempotent by intent.ID and fenced: durable routing identifies the
 // intent even across restart. An ambiguous error must be inspected, never undone
@@ -39,7 +53,7 @@ type Observation struct {
 // for active, retained rollback or pending-intent receipts.
 type ManagedTarget interface {
 	Capabilities() TargetCapabilities
-	Allocate(context.Context, Work) (string, error)
+	Allocate(context.Context, Work) error
 	InspectReceipt(context.Context, PreparationReceipt) error
 	Commit(context.Context, Work, Intent) error
 	InspectIntent(context.Context, Intent) (Observation, error)

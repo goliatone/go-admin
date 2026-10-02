@@ -50,6 +50,11 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 		locale = admin.config.DefaultLocale
 	}
 	adminCtx := admin.adminContextFromRequest(c, locale)
+	current, err := debugResolveCurrentContext(admin, cfg, adminCtx.Context)
+	if err != nil {
+		return adminCtx, ErrForbidden
+	}
+	adminCtx.Context = current
 	c.SetContext(adminCtx.Context)
 
 	if !replCfg.Enabled {

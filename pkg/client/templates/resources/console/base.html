@@ -26,6 +26,7 @@
 {% block page_title %}{% block console_heading %}{{ console_title|default:title|default:"Console" }}{% endblock %}{% endblock %}
 
 {% block content %}
+<div class="flex-1 p-8 overflow-y-auto">
 {% block console_shell %}
 <section class="console-root" data-console-root data-console-id="{{ console_id }}"{% if console_theme %} data-console-theme="{{ console_theme }}"{% endif %} aria-label="{{ console_title|default:title|default:"Console" }}">
   <div class="console-header">
@@ -47,6 +48,7 @@
   <script type="application/json" data-console-bootstrap>{{ console_bootstrap_json|safe }}</script>
 </section>
 {% endblock %}
+</div>
 {% endblock %}
 
 {% block scripts %}

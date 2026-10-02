@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -12,9 +13,14 @@ func contractDescriptor() Descriptor {
 	h := strings.Repeat("a", 64)
 	return Descriptor{Dataset: DatasetRef{Provider: "sample", ID: "a", Version: "1"}, Components: []Component{{Path: "z.json", Digest: h}, {Path: "a.json", Digest: h}}, SourceContractHash: h, SourceContractVersion: "1", PolicyHash: h, AudienceHashes: map[string]string{"a": h}, Timezone: "America/Los_Angeles", Synthetic: true}
 }
-func contractInput() Input {
+func contractInput(t *testing.T) Input {
+	t.Helper()
 	d := contractDescriptor()
-	d.Dataset.Digest, _ = d.CompositeDigest()
+	digest, err := d.CompositeDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Dataset.Digest = digest
 	return Input{Dataset: d.Dataset, Scenario: ScenarioRef{Dataset: d.Dataset, ID: "ready", Version: "1", ProfileHash: strings.Repeat("b", 64)}, TargetID: "preview", IdempotencyKey: "request-1"}
 }
 func TestCompositeIdentityBindsContentAndMetadata(t *testing.T) {
@@ -26,14 +32,14 @@ func TestCompositeIdentityBindsContentAndMetadata(t *testing.T) {
 	d.Components[0], d.Components[1] = d.Components[1], d.Components[0]
 	d.Dataset.Digest = want
 	d.Capabilities = map[Kind]Capability{Prepare: {Supported: true, Permitted: true}}
-	if got, _ := d.CompositeDigest(); got != want {
+	if got, digestErr := d.CompositeDigest(); digestErr != nil || got != want {
 		t.Fatal("inventory order/discovery changed identity")
 	}
 	if err := d.ValidateIdentity(); err != nil {
 		t.Fatal(err)
 	}
 	d.SourceContractVersion = "2"
-	if got, _ := d.CompositeDigest(); got == want {
+	if got, digestErr := d.CompositeDigest(); digestErr != nil || got == want {
 		t.Fatal("source version not bound")
 	}
 	if err := d.ValidateIdentity(); ErrorCode(err) != CodeConflict {
@@ -51,18 +57,18 @@ func TestCompositeIdentityBindsContentAndMetadata(t *testing.T) {
 	}
 }
 func TestFingerprintAndMandatoryGeneration(t *testing.T) {
-	in := contractInput()
+	in := contractInput(t)
 	want, err := in.Fingerprint(Prepare)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := in.Normalize().Fingerprint(Prepare); got != want {
+	if got, fingerprintErr := in.Normalize().Fingerprint(Prepare); fingerprintErr != nil || got != want {
 		t.Fatal("normalization changed fingerprint")
 	}
 	for _, alter := range []func(*Input){func(i *Input) { i.DryRun = true }, func(i *Input) { i.BatchLimit = 2 }, func(i *Input) { i.Scenario.ProfileHash = strings.Repeat("c", 64) }, func(i *Input) { i.Dataset.Digest = strings.Repeat("d", 64); i.Scenario.Dataset = i.Dataset }} {
 		changed := in
 		alter(&changed)
-		if got, _ := changed.Fingerprint(Prepare); got == want {
+		if got, fingerprintErr := changed.Fingerprint(Prepare); fingerprintErr != nil || got == want {
 			t.Fatal("work-affecting input not bound")
 		}
 	}
@@ -83,7 +89,7 @@ func TestFingerprintAndMandatoryGeneration(t *testing.T) {
 	}
 }
 func TestLifecycleWireAndSafeErrors(t *testing.T) {
-	in := contractInput()
+	in := contractInput(t)
 	b, err := json.Marshal(in)
 	if err != nil {
 		t.Fatal(err)
@@ -94,14 +100,17 @@ func TestLifecycleWireAndSafeErrors(t *testing.T) {
 		}
 	}
 	for _, code := range []string{CodeDenied, CodeStale, CodeConflict, CodeBusy, CodeUnavailable, CodeLeaseLost, CodeRecovery} {
-		err := Error(code)
-		structured, ok := err.(*gerrors.Error)
-		if !ok || structured.TextCode != code || structured.Code == 0 || ErrorCode(err) != code {
-			t.Fatal(code, err)
+		codeErr := Error(code)
+		structured, ok := errors.AsType[*gerrors.Error](codeErr)
+		if !ok || structured.TextCode != code || structured.Code == 0 || ErrorCode(codeErr) != code {
+			t.Fatal(code, codeErr)
 		}
 	}
 	result := Result{OperationID: "op-1", Kind: Prepare, State: Queued, Revision: 1, Phase: "accepted"}
-	b, _ = json.Marshal(result)
+	b, err = json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(string(b), `"active":false`) || strings.Contains(string(b), `"activation"`) {
 		t.Fatal(string(b))
 	}
@@ -115,5 +124,17 @@ func TestLifecycleWireAndSafeErrors(t *testing.T) {
 	}
 	if (StoreCapabilities{AtomicClaims: true, Fencing: true, AtomicIntentFinalize: true, ProtectedRetention: true}).WriteReady() {
 		t.Fatal("memory store enables writes")
+	}
+}
+
+func TestErrorCodePreservesDataCodesThroughCommandWrappers(t *testing.T) {
+	wrapped := gerrors.Wrap(Error(CodeDenied), gerrors.CategoryOperation, "handler failed").WithTextCode("HANDLER_EXECUTION_FAILED")
+	for _, err := range []error{wrapped, errors.Join(errors.New("cleanup failed"), wrapped)} {
+		if code := ErrorCode(err); code != CodeDenied {
+			t.Fatalf("wrapped denial code = %s", code)
+		}
+	}
+	if code := ErrorCode(errors.New("private provider failure")); code != CodeProvider {
+		t.Fatalf("unknown error code = %s", code)
 	}
 }

@@ -56,9 +56,13 @@ func consoleContractDocument(t *testing.T) map[string]any {
 	}
 	register("operations", console.PanelConfig{
 		Label: "Operations",
+		Order: 10,
 		UI: &console.PanelUI{
-			Views:   console.PanelUIViews{Console: tableView},
-			Filters: []console.PanelUIFilter{{ID: "state", Label: "State", Kind: console.PanelFilterSelect, Bind: "state", Options: []string{"running", "succeeded"}}},
+			Views: console.PanelUIViews{Console: tableView},
+			Filters: []console.PanelUIFilter{
+				{ID: "q", Label: "Search", Kind: console.PanelFilterSearch, Bind: "name"},
+				{ID: "state", Label: "State", Kind: console.PanelFilterSelect, Bind: "state", Options: []string{"running", "succeeded"}},
+			},
 			Actions: []console.PanelUIAction{{
 				ID: "preview", Label: "Preview dataset", SubmitLabel: "Run preview",
 				Fields: []console.PanelUIActionField{{Name: "dataset", Label: "Dataset", Kind: "select", Required: true,
@@ -67,8 +71,15 @@ func consoleContractDocument(t *testing.T) map[string]any {
 		},
 		Actions: map[string]console.PanelActionHandler{"preview": noop},
 	})
-	register("targets", console.PanelConfig{Label: "Targets", UI: console.NewPanelUI(console.StatusListView(""), nil)})
-	register("audit", console.PanelConfig{Label: "Audit", UI: console.NewPanelUI(console.TimelineView(""), nil)})
+	targetsUI := console.NewPanelUI(console.StatusListView(""), nil)
+	targetsUI.ActionLayout = &console.PanelUIActionLayout{Mode: console.PanelActionLayoutSelect, PickerLabel: "Target action"}
+	targetsUI.Actions = []console.PanelUIAction{{
+		ID: "retry", Label: "Retry target",
+		Fields: []console.PanelUIActionField{{Name: "force", Label: "Force", Kind: "boolean"}},
+	}}
+	register("targets", console.PanelConfig{Label: "Targets", Order: 20, UI: targetsUI,
+		Actions: map[string]console.PanelActionHandler{"retry": noop}})
+	register("audit", console.PanelConfig{Label: "Audit", Order: 30, UI: console.NewPanelUI(console.TimelineView(""), nil)})
 
 	identity := console.Identity{ConsoleID: "data", ApplicationID: "crm", EnvironmentID: "staging", ActorID: "operator-1", ScopeKey: "synthetic-org"}
 	second := identity
@@ -76,11 +87,12 @@ func consoleContractDocument(t *testing.T) map[string]any {
 	operations := console.PanelSnapshot{PanelDefinition: contractDefinition(t, reg, "operations"), Records: []console.Record{{
 		Key: "op-1", Revision: 3, Data: map[string]any{"id": "op-1", "name": "Seed <baseline>", "state": "running"},
 	}}}
+	// Hosts list snapshot panels by ID; the client orders tabs by `order`.
 	panels := []console.PanelSnapshot{
-		operations,
-		{PanelDefinition: contractDefinition(t, reg, "targets"), Records: []console.Record{}},
 		{PanelDefinition: contractDefinition(t, reg, "audit"), Records: []console.Record{{Key: "a-1", Revision: 1,
 			Data: map[string]any{"timestamp": "2026-10-01T10:00:00Z", "message": "Reset requested", "level": "info"}}}},
+		operations,
+		{PanelDefinition: contractDefinition(t, reg, "targets"), Records: []console.Record{}},
 	}
 	urls := func(id string) console.Routes {
 		base := "/fixture/" + id

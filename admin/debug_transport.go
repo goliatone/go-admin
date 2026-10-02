@@ -592,7 +592,7 @@ func debugPanelOrderStorageKey(m *DebugModule, ctx context.Context, userID strin
 	if m.config.AppID == "" && m.config.Environment == "" && tenant == "" && org == "" {
 		return debugPanelOrderPreferenceKey
 	}
-	scope, _ := json.Marshal([]string{tenant, org}) //nolint:errcheck // A string slice is always JSON-encodable.
+	scope, _ := json.Marshal([]string{tenant, org}) //nolint:errcheck,errchkjson // A string slice is always JSON-encodable.
 	identity := console.Identity{ConsoleID: debugModuleID, ApplicationID: m.config.AppID, EnvironmentID: m.config.Environment, ActorID: userID, ScopeKey: string(scope)}
 	return debugPanelOrderPreferenceKey + ":" + identity.Namespace()
 }
@@ -958,30 +958,46 @@ func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscript
 		case <-c.Context().Done():
 			return nil
 		case cmd, ok := <-commandCh:
-			if err := m.revalidateDebugSocket(c, subscriptions, m.permission); err != nil {
-				return err
-			}
-			if !ok {
-				return debugWebSocketReadResult(readErrors)
-			}
-			if err := m.handleDebugCommand(c, subscriptions, cmd); err != nil {
-				if errors.Is(err, context.Canceled) {
-					return debugWebSocketReadResult(readErrors)
-				}
-				return err
+			finished, commandErr := m.dispatchDebugSocketCommand(c, subscriptions, m.permission, cmd, ok, readErrors, func(cmd debugCommand) error {
+				return m.handleDebugCommand(c, subscriptions, cmd)
+			})
+			if finished {
+				return commandErr
 			}
 		case event, ok := <-events:
-			if err := m.revalidateDebugSocket(c, subscriptions, m.permission); err != nil {
-				return err
-			}
-			if !ok {
-				return errDebugWebSocketSubscriberClosed
-			}
-			if err := writeSubscribedDebugEvent(c, subscriptions, event); err != nil {
+			if err := m.deliverDebugSocketEvent(c, subscriptions, m.permission, event, ok, func(event DebugEvent) error {
+				return writeSubscribedDebugEvent(c, subscriptions, event)
+			}); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+func (m *DebugModule) dispatchDebugSocketCommand(c router.WebSocketContext, subscriptions *debugSubscription, permission string, cmd debugCommand, open bool, readErrors <-chan error, handle func(debugCommand) error) (bool, error) {
+	if err := m.revalidateDebugSocket(c, subscriptions, permission); err != nil {
+		return true, err
+	}
+	if !open {
+		return true, debugWebSocketReadResult(readErrors)
+	}
+	if err := handle(cmd); err != nil {
+		if errors.Is(err, context.Canceled) {
+			return true, debugWebSocketReadResult(readErrors)
+		}
+		return true, err
+	}
+	return false, nil
+}
+
+func (m *DebugModule) deliverDebugSocketEvent(c router.WebSocketContext, subscriptions *debugSubscription, permission string, event DebugEvent, open bool, write func(DebugEvent) error) error {
+	if err := m.revalidateDebugSocket(c, subscriptions, permission); err != nil {
+		return err
+	}
+	if !open {
+		return errDebugWebSocketSubscriberClosed
+	}
+	return write(event)
 }
 
 func writeSubscribedDebugEvent(c router.WebSocketContext, subscriptions *debugSubscription, event DebugEvent) error {
@@ -1087,26 +1103,16 @@ func (m *DebugModule) runDebugSessionWebSocketLoop(c router.WebSocketContext, su
 		case <-c.Context().Done():
 			return nil
 		case cmd, ok := <-commandCh:
-			if err := m.revalidateDebugSocket(c, subscriptions, debugSessionAttachPermission); err != nil {
-				return err
-			}
-			if !ok {
-				return debugWebSocketReadResult(readErrors)
-			}
-			if err := m.handleDebugSessionCommand(c, subscriptions, cmd, sessionID, includeGlobals); err != nil {
-				if errors.Is(err, context.Canceled) {
-					return debugWebSocketReadResult(readErrors)
-				}
-				return err
+			finished, commandErr := m.dispatchDebugSocketCommand(c, subscriptions, debugSessionAttachPermission, cmd, ok, readErrors, func(cmd debugCommand) error {
+				return m.handleDebugSessionCommand(c, subscriptions, cmd, sessionID, includeGlobals)
+			})
+			if finished {
+				return commandErr
 			}
 		case event, ok := <-events:
-			if err := m.revalidateDebugSocket(c, subscriptions, debugSessionAttachPermission); err != nil {
-				return err
-			}
-			if !ok {
-				return errDebugWebSocketSubscriberClosed
-			}
-			if err := writeDebugSessionEvent(c, subscriptions, event, sessionID, includeGlobals); err != nil {
+			if err := m.deliverDebugSocketEvent(c, subscriptions, debugSessionAttachPermission, event, ok, func(event DebugEvent) error {
+				return writeDebugSessionEvent(c, subscriptions, event, sessionID, includeGlobals)
+			}); err != nil {
 				return err
 			}
 		}
@@ -1629,74 +1635,82 @@ func registerDebugDashboardWebSocket[T any](r router.Router[T], path string, hoo
 		return router.UpgradeData{debugUpgradeAdminContext: admin.adminContextFromRequest(c, admin.config.DefaultLocale)}, nil
 	}
 	r.WebSocket(path, cfg, func(ws router.WebSocketContext) error {
-		defer closeDebugWebSocket(ws)
-		if admin.debugCollector.host != nil {
-			stop, err := admin.debugCollector.host.bindSocket(ws)
-			if err != nil {
-				return err
-			}
-			defer stop()
-		}
-		var hostDone <-chan struct{}
-		if admin.debugCollector.host != nil {
-			hostDone = admin.debugCollector.host.ctx.Done()
-		}
-		value, _ := ws.UpgradeData(debugUpgradeAdminContext)
-		adminCtx, ok := value.(AdminContext)
-		if !ok || adminCtx.Context == nil {
-			return ErrForbidden
-		}
-		interval := debugConfig.LiveRevalidateInterval
-		if interval <= 0 || interval > 30*time.Second {
-			interval = 15 * time.Second
-		}
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		events, cancel := hook.Subscribe()
-		defer cancel()
-		refresh := func() error {
-			currentCtx, err := debugCurrentContext(admin, debugConfig, adminCtx.Context, debugConfig.Permission)
-			if err == nil {
-				adminCtx.Context = currentCtx
-			} else {
-				err = preserveDebugWebSocketPrimaryError(err, ws.CloseWithStatus(1008, "console access changed"))
-			}
+		return runDebugDashboardWebSocket(ws, hook, admin, debugConfig)
+	})
+}
+
+func runDebugDashboardWebSocket(ws router.WebSocketContext, hook *dashcmp.BroadcastHook, admin *Admin, debugConfig DebugConfig) error {
+	defer closeDebugWebSocket(ws)
+	if admin.debugCollector.host != nil {
+		stop, err := admin.debugCollector.host.bindSocket(ws)
+		if err != nil {
 			return err
 		}
-		write := func(event dashcmp.WidgetEvent) error {
-			if err := ws.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		defer stop()
+	}
+	var hostDone <-chan struct{}
+	if admin.debugCollector.host != nil {
+		hostDone = admin.debugCollector.host.ctx.Done()
+	}
+	value, _ := ws.UpgradeData(debugUpgradeAdminContext)
+	adminCtx, ok := value.(AdminContext)
+	if !ok || adminCtx.Context == nil {
+		return ErrForbidden
+	}
+
+	return runDebugDashboardDelivery(ws, hook, admin, debugConfig, &adminCtx, hostDone)
+}
+
+func runDebugDashboardDelivery(ws router.WebSocketContext, hook *dashcmp.BroadcastHook, admin *Admin, debugConfig DebugConfig, adminCtx *AdminContext, hostDone <-chan struct{}) error {
+	ticker := time.NewTicker(debugDeliveryInterval(debugConfig))
+	defer ticker.Stop()
+	events, cancel := hook.Subscribe()
+	defer cancel()
+
+	for {
+		select {
+		case <-hostDone:
+			return nil
+		case <-ws.Context().Done():
+			return nil
+		case <-ticker.C:
+			if err := refreshDebugDashboardSocket(ws, admin, debugConfig, adminCtx); err != nil {
 				return err
 			}
-			return ws.WriteJSON(event)
-		}
-		for {
-			select {
-			case <-hostDone:
+			if err := writeDebugDashboardSocketEvent(ws, dashcmp.WidgetEvent{AreaCode: debugWidgetAreaCode, Reason: "refresh"}); err != nil {
+				return err
+			}
+		case event, ok := <-events:
+			if !ok {
 				return nil
-			case <-ws.Context().Done():
-				return nil
-			case <-ticker.C:
-				if err := refresh(); err != nil {
-					return err
-				}
-				if err := write(dashcmp.WidgetEvent{AreaCode: debugWidgetAreaCode, Reason: "refresh"}); err != nil {
-					return err
-				}
-			case event, ok := <-events:
-				if !ok {
-					return nil
-				}
-				if err := refresh(); err != nil {
-					return err
-				}
-				projected, allowed := projectDebugDashboardEvent(event)
-				if !allowed {
-					continue
-				}
-				if err := write(projected); err != nil {
-					return err
-				}
+			}
+			if err := refreshDebugDashboardSocket(ws, admin, debugConfig, adminCtx); err != nil {
+				return err
+			}
+			projected, allowed := projectDebugDashboardEvent(event)
+			if !allowed {
+				continue
+			}
+			if err := writeDebugDashboardSocketEvent(ws, projected); err != nil {
+				return err
 			}
 		}
-	})
+	}
+}
+
+func refreshDebugDashboardSocket(ws router.WebSocketContext, admin *Admin, config DebugConfig, adminCtx *AdminContext) error {
+	currentCtx, err := debugCurrentContext(admin, config, adminCtx.Context, config.Permission)
+	if err == nil {
+		adminCtx.Context = currentCtx
+	} else {
+		err = preserveDebugWebSocketPrimaryError(err, ws.CloseWithStatus(1008, "console access changed"))
+	}
+	return err
+}
+
+func writeDebugDashboardSocketEvent(ws router.WebSocketContext, event dashcmp.WidgetEvent) error {
+	if err := ws.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return err
+	}
+	return ws.WriteJSON(event)
 }

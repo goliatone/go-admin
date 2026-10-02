@@ -1,0 +1,10 @@
+{% extends "resources/console/base.html" %}
+{% comment %}
+  Data console page. It reuses the neutral console shell and runtime, so it
+  loads no Debug assets and mounts from the same bootstrap contract. Panels and
+  records come from the Data module; this template only adds page guidance.
+{% endcomment %}
+
+{% block console_header_lead %}
+<p class="console-muted" data-data-console-intro>Validate, prepare, verify and activate provider-backed datasets. Accepted, prepared or verified work does not change the active dataset until an activation completes.</p>
+{% endblock %}

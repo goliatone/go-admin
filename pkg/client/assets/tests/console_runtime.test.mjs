@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   auditPanel,
   bootstrap,
+  brokenPanel,
   event,
   identity,
   identityFor,
@@ -164,6 +165,42 @@ test('record store applies contiguous events and rejects duplicates, stale revis
   assert.equal(store.applyEvent(event({ sequence: 25, revision: 6, kind: 'delete', data: undefined })), 'applied');
   assert.deepEqual(store.records('operations'), []);
   assert.equal(store.applyEvent({ ...identity, sequence: 26 }), 'malformed');
+});
+
+test('record store rejects backward snapshots, retains recovery buffers and accepts equal-watermark policy removal', () => {
+  const store = new ConsoleRecordStore({ identity, sequenceMode: 'contiguous' });
+  store.applySnapshot(snapshot());
+  store.applyEvent(event());
+  assert.equal(store.watermark(), 22);
+  assert.equal(store.applySnapshot(snapshot()).reason, 'stale');
+  assert.equal(store.records('operations')[0].data.state, 'succeeded');
+  assert.equal(store.watermark(), 22);
+  store.beginRecovery();
+  store.applyEvent(event({ sequence: 23, revision: 5, data: { state: 'archived' } }));
+  assert.equal(store.applySnapshot(snapshot()).needsRecovery, true);
+  const recovered = store.applySnapshot(snapshot({ watermark: 22 }));
+  assert.equal(recovered.replayed, 1, 'stale snapshots must not consume the buffer');
+  assert.equal(store.watermark(), 23);
+  assert.equal(store.records('operations')[0].data.state, 'archived');
+  assert.equal(store.applySnapshot(snapshot({ watermark: 23, panels: [] })).ok, true);
+  assert.deepEqual(store.panelIds(), [], 'policy removals at the same cursor are authoritative');
+});
+
+test('record store rewinds for a new delivery sequence and can drop held events', () => {
+  const store = new ConsoleRecordStore({ identity });
+  store.applySnapshot(snapshot());
+  store.applyEvent(event());
+  store.beginRecovery();
+  assert.equal(store.applyEvent(event({ sequence: 23, revision: 5, data: { id: 'op-1', name: 'Seed <baseline>', state: 'archived' } })), 'buffered');
+  store.discardBuffered();
+  assert.equal(store.applySnapshot(snapshot({ watermark: 2 })).reason, 'stale', 'a lower watermark is stale by default');
+  const restarted = store.applySnapshot(snapshot({ watermark: 2 }), { rewind: true });
+  assert.equal(restarted.ok, true);
+  assert.equal(restarted.replayed, 0, 'events from the previous sequence are gone');
+  assert.equal(store.watermark(), 2);
+  assert.equal(store.records('operations')[0].data.state, 'running');
+  assert.equal(store.applyEvent(event({ sequence: 3 })), 'applied');
+  assert.equal(store.records('operations')[0].data.state, 'succeeded');
 });
 
 test('record store recovers gaps and invalidations and rejects old generations', () => {
@@ -325,10 +362,98 @@ test('live stream selects authorized panels, applies host snapshots and events, 
   assert.deepEqual(rowTexts(root), ['Seed <baseline> verified'], 'held until the invalidation snapshot');
   socket.message(snapshot({ watermark: 30, panels: [{ ...operationsPanel, records: [operationRecord({ revision: 7, data: { id: 'op-1', name: 'Seed <baseline>', state: 'reset' } })] }] }));
   await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> archived']));
+  const narrowed = FakeSocket.instances.at(-1);
+  assert.notEqual(narrowed, socket, 'authorized panel removals reconcile the selection');
+  narrowed.open();
+  narrowed.message(snapshot({ watermark: 31, panels: [{ ...operationsPanel, records: [operationRecord({ revision: 8, data: { id: 'op-1', name: 'Seed <baseline>', state: 'archived' } })] }] }));
   assert.equal(fetchCalls.length, before, 'host snapshots need no HTTP recovery');
 
-  socket.message({ ...identity, panel_id: '', record_key: '', revision: 0, sequence: 32, kind: 'invalidate' });
+  fetchRoute = () => jsonResponse(snapshot({ watermark: 32, panels: [{ ...operationsPanel, records: [operationRecord({ revision: 8, data: { id: 'op-1', name: 'Seed <baseline>', state: 'archived' } })] }] }));
+  narrowed.message({ ...identity, panel_id: '', record_key: '', revision: 0, sequence: 32, kind: 'invalidate' });
   await waitFor(() => assert.equal(fetchCalls.length, before + 1, 'a missing host snapshot falls back to HTTP'));
+  runtime.destroy();
+});
+
+test('newer live state supersedes a delayed HTTP recovery response', async () => {
+  resetEnvironment();
+  const { root, runtime } = mount(bootstrap(), { live: true });
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.message(snapshot());
+  let respond;
+  fetchRoute = () => new Promise((resolve) => { respond = resolve; });
+  const recovery = runtime.refresh();
+  await waitFor(() => assert.ok(respond));
+  socket.message(snapshot());
+  socket.message(event());
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> succeeded']));
+  respond(jsonResponse(snapshot()));
+  await recovery;
+  await settle();
+  assert.deepEqual(rowTexts(root), ['Seed <baseline> succeeded']);
+  assert.equal(root.dataset.consoleSync, 'current');
+  runtime.destroy();
+});
+
+test('same-watermark live policy removals supersede delayed HTTP snapshots', async () => {
+  resetEnvironment();
+  const { runtime } = mount(bootstrap(), { live: true });
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.message(snapshot());
+  let respond;
+  fetchRoute = () => new Promise((resolve) => { respond = resolve; });
+  const recovery = runtime.refresh();
+  await waitFor(() => assert.ok(respond));
+  socket.message(snapshot({ panels: [] }));
+  assert.deepEqual(runtime.getPanels(), []);
+  respond(jsonResponse(snapshot()));
+  await recovery;
+  assert.deepEqual(runtime.getPanels(), [], 'old HTTP data cannot restore denied panels');
+  runtime.destroy();
+});
+
+test('invalidation supersedes in-flight HTTP recovery until an authoritative live snapshot arrives', async () => {
+  resetEnvironment();
+  const { root, runtime } = mount(bootstrap(), { live: true, snapshotWaitMs: 60000 });
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.message(snapshot());
+  let respond;
+  fetchRoute = () => new Promise((resolve) => { respond = resolve; });
+  const recovery = runtime.refresh();
+  await waitFor(() => assert.ok(respond));
+  socket.message(event({ kind: 'invalidate', sequence: 22 }));
+  socket.message(event({ sequence: 23, revision: 5 }));
+  respond(jsonResponse(snapshot()));
+  await recovery;
+  assert.equal(root.dataset.consoleSync, 'recovering');
+  socket.message(snapshot({ watermark: 22 }));
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> succeeded']));
+  assert.equal(root.dataset.consoleSync, 'current');
+  runtime.destroy();
+});
+
+test('a refresh requested after live supersession still gets its own current HTTP snapshot', async () => {
+  resetEnvironment();
+  const { runtime } = mount(bootstrap(), { live: true });
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.message(snapshot());
+  let respond;
+  let requests = 0;
+  fetchRoute = () => {
+    requests += 1;
+    return requests === 1 ? new Promise((resolve) => { respond = resolve; }) : jsonResponse(snapshot({ panels: [] }));
+  };
+  const first = runtime.refresh();
+  await waitFor(() => assert.ok(respond));
+  socket.message(snapshot());
+  const second = runtime.refresh();
+  respond(jsonResponse(snapshot()));
+  await Promise.all([first, second]);
+  assert.equal(requests, 2);
+  assert.deepEqual(runtime.getPanels(), []);
   runtime.destroy();
 });
 
@@ -367,13 +492,112 @@ test('late snapshots widen live selection, keep mounted forms and refresh revive
   await runtime.refresh();
   assert.equal(root.querySelector('form[data-panel-action-form]'), null, 'a changed definition rebuilds the controls');
   assert.ok(root.querySelector('[data-panel-action][data-action-id="cancel"]'));
-  assert.equal(FakeSocket.instances.length, 2, 'removed panels are filtered by the host without reconnecting');
+  assert.equal(FakeSocket.instances.length, 3, 'removed panels reconcile the requested selection');
+  const narrowed = FakeSocket.instances[2];
+  assert.match(narrowed.url, /panels=operations$/);
+  narrowed.open();
+  narrowed.message(changed);
 
-  socket.close(1006);
+  narrowed.close(1006);
   await waitFor(() => assert.equal(runtime.getConnectionState(), 'disconnected'));
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   await runtime.refresh();
-  await waitFor(() => assert.equal(FakeSocket.instances.length, 3, 'refresh reconnects stopped live delivery'));
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 4, 'refresh reconnects stopped live delivery'));
+  runtime.destroy();
+});
+
+test('revoke and regrant reconciles live selection and resumes subsequent events', async () => {
+  resetEnvironment();
+  const granted = snapshot({ panels: [{ ...operationsPanel, records: [operationRecord()] }] });
+  const denied = snapshot({ panels: [] });
+  const { root, runtime } = mount(bootstrap({ snapshot: granted }), { live: true });
+  const first = FakeSocket.instances[0];
+  first.open();
+  first.message(granted);
+  first.message(denied);
+  assert.deepEqual(runtime.getPanels(), []);
+  assert.equal(first.readyState, FakeSocket.CLOSED);
+  const empty = FakeSocket.instances[1];
+  assert.match(empty.url, /panels=$/);
+  first.message(event());
+  assert.deepEqual(runtime.getPanels(), [], 'queued frames from the old connection stay fenced');
+  empty.open();
+  empty.message(denied);
+  empty.message(granted);
+  assert.equal(empty.readyState, FakeSocket.CLOSED);
+  const restored = FakeSocket.instances[2];
+  assert.match(restored.url, /panels=operations$/);
+  restored.open();
+  restored.message(granted);
+  restored.message(event());
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> succeeded']));
+  assert.equal(fetchCalls.length, 0, 'live policy snapshots and re-selection recover without polling');
+  runtime.destroy();
+});
+
+test('tabs, the default panel and live selection follow declared panel order', async () => {
+  resetEnvironment();
+  // Hosts list panels by ID. Declared order decides presentation, an unset
+  // order ranks as 100 and snapshot order breaks ties.
+  const ordered = snapshot({ panels: [
+    { ...auditPanel, order: 30, records: [] },
+    { ...brokenPanel, records: [] },
+    { ...operationsPanel, order: 10, records: [operationRecord()] },
+    { ...targetsPanel, order: 30, records: [] },
+  ] });
+  const { root, runtime } = mount(bootstrap({ snapshot: ordered }), { live: true });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  const expected = ['operations', 'audit', 'targets', 'broken'];
+  assert.deepEqual(runtime.getPanels(), expected);
+  assert.deepEqual(Array.from(root.querySelectorAll('[data-console-tab]'), (tab) => tab.dataset.consoleTab), expected);
+  assert.equal(runtime.getActivePanel(), 'operations', 'the lowest declared order opens first');
+  assert.equal(new URL(FakeSocket.instances[0].url).searchParams.get('panels'), expected.join(','));
+  runtime.destroy();
+});
+
+test('a restarted host restarts the sequence: the next connection rewinds the cursor and drops held events', async () => {
+  resetEnvironment();
+  const { root, runtime } = mount(bootstrap(), {
+    live: true,
+    snapshotWaitMs: 60000,
+    liveOptions: { reconnectDelayMs: 5, maxReconnectDelayMs: 5 },
+  });
+  const before = FakeSocket.instances[0];
+  before.open();
+  before.message(snapshot());
+  before.message(event());
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> succeeded']));
+  // Events held for an invalidation snapshot that never comes: the host dies.
+  before.message({ ...identity, panel_id: '', record_key: '', revision: 0, sequence: 23, kind: 'invalidate' });
+  before.message(event({ sequence: 24, revision: 9, data: { id: 'op-1', name: 'Seed <baseline>', state: 'pre-restart' } }));
+  before.close(1006);
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 2, 'the stream reconnects after an outage'));
+
+  const after = FakeSocket.instances[1];
+  after.open();
+  const restarted = snapshot({ watermark: 2 });
+  restarted.panels[0].records = [operationRecord({ revision: 1, data: { id: 'op-1', name: 'Seed <baseline>', state: 'restarted' } })];
+  after.message(restarted);
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> restarted'], 'the first frame of the new sequence is authoritative'));
+  assert.equal(root.dataset.consoleSync, 'current');
+  after.message(event({ sequence: 3, revision: 2, data: { id: 'op-1', name: 'Seed <baseline>', state: 'verified' } }));
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> verified'], 'events of the new sequence apply'));
+  after.message(snapshot({ watermark: 1 }));
+  await settle();
+  assert.deepEqual(rowTexts(root), ['Seed <baseline> verified'], 'later frames on the same socket cannot rewind');
+  assert.equal(fetchCalls.length, 0, 'no HTTP recovery loop');
+  assert.ok(!/out of sync/i.test(root.textContent));
+  runtime.destroy();
+});
+
+test('without live delivery a poll after a host restart replaces the cursor', async () => {
+  resetEnvironment();
+  const { root, runtime } = mount(bootstrap());
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  fetchRoute = () => jsonResponse(snapshot({ watermark: 2, panels: [{ ...operationsPanel, records: [operationRecord({ revision: 1, data: { id: 'op-1', name: 'Seed <baseline>', state: 'restarted' } })] }] }));
+  await runtime.refresh();
+  assert.deepEqual(rowTexts(root), ['Seed <baseline> restarted']);
+  assert.equal(fetchCalls.length, 1);
   runtime.destroy();
 });
 

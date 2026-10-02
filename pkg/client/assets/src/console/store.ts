@@ -17,11 +17,21 @@ export type ConsoleEventOutcome =
 
 export type ConsoleSnapshotOutcome = {
   ok: boolean;
-  reason?: 'foreign' | 'malformed';
+  reason?: 'foreign' | 'malformed' | 'stale';
   /** Buffered events applied on top of the snapshot watermark. */
   replayed: number;
   /** Buffered input still leaves a gap or invalidation; fetch another snapshot. */
   needsRecovery: boolean;
+};
+
+export type ConsoleSnapshotOptions = {
+  /**
+   * The snapshot opens a new delivery sequence (the first frame of a newly
+   * connected stream, or a poll when live delivery is off). Host watermarks
+   * are per-process, so after a host restart it may sit below the cursor; it
+   * is accepted instead of being treated as a stale recovery response.
+   */
+  rewind?: boolean;
 };
 
 /**
@@ -110,6 +120,40 @@ function generationKey(panelId: string, target: string): string {
   return `${panelId}\u0000${target}`;
 }
 
+/** Index snapshot panels by ID (first wins) with their records and generations. */
+function indexSnapshotPanels(
+  snapshotPanels: unknown[],
+  maxRecordsPerPanel: number
+): { panels: Map<string, Map<string, ConsoleRecord>>; generations: Map<string, number> } {
+  const panels = new Map<string, Map<string, ConsoleRecord>>();
+  const generations = new Map<string, number>();
+  for (const panel of snapshotPanels) {
+    const id = isObject(panel) ? text(panel.id).toLowerCase() : '';
+    if (!id || panels.has(id)) {
+      continue;
+    }
+    const records = new Map<string, ConsoleRecord>();
+    const items = Array.isArray((panel as { records?: unknown }).records)
+      ? (panel as { records: unknown[] }).records
+      : [];
+    for (const item of items) {
+      const record = normalizeRecord(item);
+      if (!record) {
+        continue;
+      }
+      records.delete(record.record_key);
+      records.set(record.record_key, record);
+      if (record.target_id && record.generation !== undefined) {
+        const keyed = generationKey(id, record.target_id);
+        generations.set(keyed, Math.max(generations.get(keyed) ?? record.generation, record.generation));
+      }
+    }
+    trimRecords(records, maxRecordsPerPanel);
+    panels.set(id, records);
+  }
+  return { panels, generations };
+}
+
 export class ConsoleRecordStore {
   private readonly identity: ConsoleIdentity;
   private readonly sequenceMode: ConsoleSequenceMode;
@@ -169,7 +213,17 @@ export class ConsoleRecordStore {
     this.recovering = true;
   }
 
-  applySnapshot(snapshot: ConsoleSnapshot): ConsoleSnapshotOutcome {
+  /**
+   * Forget events held from an earlier live connection. A new connection
+   * starts with the host's snapshot, which already covers them on the same
+   * host; after a host restart they belong to an obsolete sequence space.
+   */
+  discardBuffered(): void {
+    this.buffer = [];
+    this.bufferOverflowed = false;
+  }
+
+  applySnapshot(snapshot: ConsoleSnapshot, options: ConsoleSnapshotOptions = {}): ConsoleSnapshotOutcome {
     if (!isObject(snapshot) || !Array.isArray(snapshot.panels)) {
       return { ok: false, reason: 'malformed', replayed: 0, needsRecovery: false };
     }
@@ -180,34 +234,14 @@ export class ConsoleRecordStore {
     if (!sameConsoleIdentity(this.identity, snapshot)) {
       return { ok: false, reason: 'foreign', replayed: 0, needsRecovery: false };
     }
-
-    const panels = new Map<string, Map<string, ConsoleRecord>>();
-    const generations = new Map<string, number>();
-    for (const panel of snapshot.panels) {
-      const id = isObject(panel) ? text(panel.id).toLowerCase() : '';
-      if (!id || panels.has(id)) {
-        continue;
-      }
-      const records = new Map<string, ConsoleRecord>();
-      const items = Array.isArray((panel as { records?: unknown }).records)
-        ? (panel as { records: unknown[] }).records
-        : [];
-      for (const item of items) {
-        const record = normalizeRecord(item);
-        if (!record) {
-          continue;
-        }
-        records.delete(record.record_key);
-        records.set(record.record_key, record);
-        if (record.target_id && record.generation !== undefined) {
-          const keyed = generationKey(id, record.target_id);
-          generations.set(keyed, Math.max(generations.get(keyed) ?? record.generation, record.generation));
-        }
-      }
-      trimRecords(records, this.maxRecordsPerPanel);
-      panels.set(id, records);
+    // Recovery cannot move the accepted stream cursor backwards. Keep buffers
+    // intact for the next snapshot. Equal watermarks remain authoritative for
+    // policy changes that occur without publishing any record events.
+    if (!options.rewind && this.lastSequence !== null && watermark < this.lastSequence) {
+      return { ok: false, reason: 'stale', replayed: 0, needsRecovery: this.recovering };
     }
 
+    const { panels, generations } = indexSnapshotPanels(snapshot.panels, this.maxRecordsPerPanel);
     this.panels = panels;
     this.generations = generations;
     this.lastSequence = watermark;

@@ -232,7 +232,7 @@ func TestDebugREPLAppTimeoutQuiescesReaderBeforeClose(t *testing.T) {
 		MaxSessionSeconds: 1,
 	}
 	debugCfg := DebugConfig{Enabled: true, Repl: repl}
-	adm := mustNewAdmin(t, Config{DefaultLocale: "en", Debug: debugCfg}, Dependencies{})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en", Debug: debugCfg}, Dependencies{Authorizer: allowAuthorizer{}})
 	ws := newBlockingDebugWebSocketContext(context.Background(), nil)
 
 	result := make(chan error, 1)
@@ -257,11 +257,11 @@ func TestDebugREPLShellTimeoutQuiescesReaderBeforeClose(t *testing.T) {
 	repl := DebugREPLConfig{
 		Enabled:           true,
 		ShellEnabled:      true,
-		ReadOnly:          new(true),
+		ReadOnly:          new(false),
 		MaxSessionSeconds: 1,
 	}
 	debugCfg := DebugConfig{Enabled: true, Repl: repl}
-	adm := mustNewAdmin(t, Config{DefaultLocale: "en", Debug: debugCfg}, Dependencies{})
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en", Debug: debugCfg}, Dependencies{Authorizer: allowAuthorizer{}})
 	ws := newBlockingDebugWebSocketContext(context.Background(), nil)
 
 	result := make(chan error, 1)
@@ -396,7 +396,8 @@ func TestDebugREPLAppLoopPreservesTerminalReadErrorWhenMessagesClose(t *testing.
 		readErrors <- readErr
 		closeReason := debugREPLAppCloseReasonUser
 
-		err := runDebugREPLAppLoop(nil, AdminContext{}, DebugREPLConfig{}, DebugREPLSession{}, nil, newStubWebSocketContext(), commands, readErrors, nil, &closeReason)
+		access := &debugREPLAccess{Context: context.Background()}
+		err := runDebugREPLAppLoop(nil, AdminContext{}, access, DebugREPLConfig{}, DebugREPLSession{}, nil, newStubWebSocketContext(), commands, readErrors, nil, &closeReason)
 		if !errors.Is(err, readErr) {
 			t.Fatalf("loop error = %v, want terminal read error", err)
 		}
@@ -415,7 +416,8 @@ func TestDebugREPLShellLoopPreservesTerminalReadErrorWhenMessagesClose(t *testin
 		readErrors <- readErr
 		closeReason := debugREPLShellCloseReasonUser
 
-		err := runDebugREPLShellLoop(nil, context.Background(), DebugREPLConfig{}, DebugREPLSession{}, nil, newStubWebSocketContext(), commands, readErrors, nil, nil, nil, nil, &closeReason)
+		access := &debugREPLAccess{Context: context.Background()}
+		err := runDebugREPLShellLoop(nil, access, DebugREPLConfig{}, DebugREPLSession{}, nil, newStubWebSocketContext(), commands, readErrors, nil, nil, nil, nil, &closeReason)
 		if !errors.Is(err, readErr) {
 			t.Fatalf("loop error = %v, want terminal read error", err)
 		}

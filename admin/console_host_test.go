@@ -139,6 +139,79 @@ func TestConsoleWatchIdleRevocationAndHostClose(t *testing.T) {
 	}
 }
 
+func TestConsoleWatchRestoresRequestedPanelsAfterRegrant(t *testing.T) {
+	for _, initialGrant := range []bool{false, true} {
+		t.Run(map[bool]string{false: "initially-denied", true: "revoked"}[initialGrant], func(t *testing.T) {
+			var revoked, execute, allowed atomic.Bool
+			allowed.Store(initialGrant)
+			h := consoleTestHost(t, "data", &revoked, &execute)
+			h.config.RevalidateInterval = 100 * time.Millisecond
+			h.config.Access.Panel = func(context.Context, console.Identity, console.PanelDefinition) bool { return allowed.Load() }
+			var revision atomic.Uint64
+			revision.Store(1)
+			h.config.Snapshot = func(context.Context, console.Identity, string) ([]console.Record, error) {
+				return []console.Record{{Key: "visible", Revision: revision.Load(), Data: "state"}}, nil
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			messages := make(chan any, 64)
+			result := make(chan error, 1)
+			go func() {
+				result <- h.Watch(ctx, consoleTestIdentity("data"), []string{" Operations ", "unknown"}, func(value any) error { messages <- value; return nil })
+			}()
+			defer func() {
+				cancel()
+				select {
+				case <-result:
+				case <-time.After(time.Second):
+					t.Error("watch failed to stop")
+				}
+			}()
+			waitSnapshot := func(present bool) {
+				t.Helper()
+				timer := time.NewTimer(time.Second)
+				defer timer.Stop()
+				for {
+					select {
+					case value := <-messages:
+						if snap, ok := value.(console.Snapshot); ok && (len(snap.Panels) > 0) == present {
+							return
+						}
+					case <-timer.C:
+						t.Fatal("missing expected policy snapshot")
+					}
+				}
+			}
+			waitSnapshot(initialGrant)
+			if initialGrant {
+				allowed.Store(false)
+				revision.Store(2)
+				if _, err := h.Events().Publish(console.Event{Identity: consoleTestIdentity("data"), PanelID: "operations", Kind: console.EventUpsert, Record: console.Record{Key: "visible", Revision: 2, Data: "denied"}}); err != nil {
+					t.Fatal(err)
+				}
+				waitSnapshot(false)
+			}
+			allowed.Store(true)
+			waitSnapshot(true)
+			revision.Store(3)
+			if _, err := h.Events().Publish(console.Event{Identity: consoleTestIdentity("data"), PanelID: "operations", Kind: console.EventUpsert, Record: console.Record{Key: "visible", Revision: 3, Data: "granted"}}); err != nil {
+				t.Fatal(err)
+			}
+			timer := time.NewTimer(time.Second)
+			defer timer.Stop()
+			for {
+				select {
+				case value := <-messages:
+					if event, ok := value.(console.Event); ok && event.Kind == console.EventUpsert && event.Revision == 3 {
+						return
+					}
+				case <-timer.C:
+					t.Fatal("authorized panel returned but live events did not")
+				}
+			}
+		})
+	}
+}
+
 func TestConsoleWatchSubscribesBeforeSnapshotAndDefaultsToNoEvents(t *testing.T) {
 	for _, subscribed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "empty", true: "selected"}[subscribed], func(t *testing.T) {

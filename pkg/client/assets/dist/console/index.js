@@ -1,31 +1,31 @@
-import { escapeAttribute as v, escapeHTML as b } from "../shared/html.js";
-import { httpRequest as B, readExpectedHTTPJSON as W, readHTTPStructuredErrorResult as U } from "../shared/transport/http-client.js";
-import { C as Y, S as K, _ as $e, a as p, b as C, d as Ne, g as xe, h as qe, i as Ie, l as He, n as je, o as Be, r as z, y as R } from "../chunks/hydrate-mOOlPiY2.js";
-import { a as J, c as Ue, d as Ye, i as V, l as Ke, o as ze, r as Je, s as Ve, u as Ge } from "../chunks/avatar-DIbK-LSg.js";
-import { n as Xe, r as G, t as Q } from "../chunks/live-stream-CyiSPucB.js";
-import { i as et, n as tt, r as X, t as st } from "../chunks/actions-zb2HbM0q.js";
-var Z = 1e3, ee = 500, te = /* @__PURE__ */ new Set([
+import { escapeAttribute as g, escapeHTML as v } from "../shared/html.js";
+import { httpRequest as q, readExpectedHTTPJSON as I, readHTTPStructuredErrorResult as H } from "../shared/transport/http-client.js";
+import { C as B, S as j, _ as Oe, a as p, b as E, d as Fe, g as $e, h as Ne, i as xe, l as qe, n as Ie, o as He, r as W, y as P } from "../chunks/hydrate-mOOlPiY2.js";
+import { a as U, c as je, d as We, i as Y, l as Ue, o as Ye, r as Ke, s as ze, u as Je } from "../chunks/avatar-DIbK-LSg.js";
+import { n as Ge, r as K, t as z } from "../chunks/live-stream-CyiSPucB.js";
+import { i as Xe, n as Ze, r as J, t as et } from "../chunks/actions-zb2HbM0q.js";
+var V = 1e3, G = 500, Q = /* @__PURE__ */ new Set([
   "upsert",
   "delete",
   "invalidate"
-]), se = [
+]), X = [
   "console_id",
   "application_id",
   "environment_id",
   "actor_id",
   "scope_key"
 ];
-function S(e) {
+function b(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
-function m(e) {
+function y(e) {
   return typeof e == "number" && Number.isFinite(e) ? e : null;
 }
 function d(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function E(e) {
-  const t = S(e) ? e : {};
+function A(e) {
+  const t = b(e) ? e : {};
   return {
     console_id: d(t.console_id),
     application_id: d(t.application_id),
@@ -34,29 +34,49 @@ function E(e) {
     scope_key: d(t.scope_key)
   };
 }
-function _(e, t) {
-  const s = E(t);
-  return se.every((i) => e[i] === s[i]);
+function R(e, t) {
+  const s = A(t);
+  return X.every((i) => e[i] === s[i]);
 }
-function ie(e) {
-  if (!S(e)) return null;
+function Z(e) {
+  if (!b(e)) return null;
   const t = d(e.record_key);
   if (!t) return null;
   const s = {
     record_key: t,
-    revision: m(e.revision) ?? 0,
+    revision: y(e.revision) ?? 0,
     data: e.data
   }, i = d(e.target_id);
   i && (s.target_id = i);
-  const n = m(e.generation);
-  return n !== null && (s.generation = n), s;
+  const r = y(e.generation);
+  return r !== null && (s.generation = r), s;
 }
-function T(e, t) {
+function F(e, t) {
   return `${e}\0${t}`;
 }
-var ne = class {
+function ee(e, t) {
+  const s = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map();
+  for (const r of e) {
+    const n = b(r) ? d(r.id).toLowerCase() : "";
+    if (!n || s.has(n)) continue;
+    const o = /* @__PURE__ */ new Map(), a = Array.isArray(r.records) ? r.records : [];
+    for (const c of a) {
+      const l = Z(c);
+      if (l && (o.delete(l.record_key), o.set(l.record_key, l), l.target_id && l.generation !== void 0)) {
+        const f = F(n, l.target_id);
+        i.set(f, Math.max(i.get(f) ?? l.generation, l.generation));
+      }
+    }
+    $(o, t), s.set(n, o);
+  }
+  return {
+    panels: s,
+    generations: i
+  };
+}
+var te = class {
   constructor(e) {
-    this.panels = /* @__PURE__ */ new Map(), this.generations = /* @__PURE__ */ new Map(), this.lastSequence = null, this.recovering = !0, this.buffer = [], this.bufferOverflowed = !1, this.identity = E(e.identity), this.sequenceMode = e.sequenceMode === "contiguous" ? "contiguous" : "monotonic", this.maxBufferedEvents = Math.max(1, e.maxBufferedEvents ?? Z), this.maxRecordsPerPanel = Math.max(1, e.maxRecordsPerPanel ?? ee);
+    this.panels = /* @__PURE__ */ new Map(), this.generations = /* @__PURE__ */ new Map(), this.lastSequence = null, this.recovering = !0, this.buffer = [], this.bufferOverflowed = !1, this.identity = A(e.identity), this.sequenceMode = e.sequenceMode === "contiguous" ? "contiguous" : "monotonic", this.maxBufferedEvents = Math.max(1, e.maxBufferedEvents ?? V), this.maxRecordsPerPanel = Math.max(1, e.maxRecordsPerPanel ?? G);
   }
   watermark() {
     return this.lastSequence;
@@ -80,93 +100,89 @@ var ne = class {
   clear() {
     this.panels.clear(), this.generations.clear(), this.lastSequence = null, this.buffer = [], this.bufferOverflowed = !1, this.recovering = !0;
   }
-  applySnapshot(e) {
-    if (!S(e) || !Array.isArray(e.panels)) return {
+  discardBuffered() {
+    this.buffer = [], this.bufferOverflowed = !1;
+  }
+  applySnapshot(e, t = {}) {
+    if (!b(e) || !Array.isArray(e.panels)) return {
       ok: !1,
       reason: "malformed",
       replayed: 0,
       needsRecovery: !1
     };
-    const t = m(e.watermark);
-    if (t === null || t < 0) return {
+    const s = y(e.watermark);
+    if (s === null || s < 0) return {
       ok: !1,
       reason: "malformed",
       replayed: 0,
       needsRecovery: !1
     };
-    if (!_(this.identity, e)) return {
+    if (!R(this.identity, e)) return {
       ok: !1,
       reason: "foreign",
       replayed: 0,
       needsRecovery: !1
     };
-    const s = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map();
-    for (const c of e.panels) {
-      const l = S(c) ? d(c.id).toLowerCase() : "";
-      if (!l || s.has(l)) continue;
-      const y = /* @__PURE__ */ new Map(), H = Array.isArray(c.records) ? c.records : [];
-      for (const j of H) {
-        const f = ie(j);
-        if (f && (y.delete(f.record_key), y.set(f.record_key, f), f.target_id && f.generation !== void 0)) {
-          const P = T(l, f.target_id);
-          i.set(P, Math.max(i.get(P) ?? f.generation, f.generation));
-        }
-      }
-      w(y, this.maxRecordsPerPanel), s.set(l, y);
-    }
-    this.panels = s, this.generations = i, this.lastSequence = t, this.recovering = !1;
-    const n = [...this.buffer].sort((c, l) => c.sequence - l.sequence), r = this.bufferOverflowed;
+    if (!t.rewind && this.lastSequence !== null && s < this.lastSequence) return {
+      ok: !1,
+      reason: "stale",
+      replayed: 0,
+      needsRecovery: this.recovering
+    };
+    const { panels: i, generations: r } = ee(e.panels, this.maxRecordsPerPanel);
+    this.panels = i, this.generations = r, this.lastSequence = s, this.recovering = !1;
+    const n = [...this.buffer].sort((l, f) => l.sequence - f.sequence), o = this.bufferOverflowed;
     this.buffer = [], this.bufferOverflowed = !1;
-    let o = 0, a = !1;
-    for (const c of n) {
-      const l = this.applyEvent(c);
-      l === "applied" ? o += 1 : (l === "gap" || l === "invalidated") && (a = !0);
+    let a = 0, c = !1;
+    for (const l of n) {
+      const f = this.applyEvent(l);
+      f === "applied" ? a += 1 : (f === "gap" || f === "invalidated") && (c = !0);
     }
-    return r && !a && (a = !0, this.recovering = !0), {
+    return o && !c && (c = !0, this.recovering = !0), {
       ok: !0,
-      replayed: o,
-      needsRecovery: a
+      replayed: a,
+      needsRecovery: c
     };
   }
   applyEvent(e) {
-    if (!S(e)) return "malformed";
-    const t = m(e.sequence), s = d(e.kind);
-    return t === null || !te.has(s) ? "malformed" : _(this.identity, e) ? s === "invalidate" ? (this.recovering = !0, "invalidated") : this.recovering || this.lastSequence === null ? (this.bufferEvent(e), "buffered") : t <= this.lastSequence ? "duplicate" : this.sequenceMode === "contiguous" && t > this.lastSequence + 1 ? (this.recovering = !0, this.bufferEvent(e), "gap") : (this.lastSequence = t, this.applyRecordEvent(e, s)) : "foreign";
+    if (!b(e)) return "malformed";
+    const t = y(e.sequence), s = d(e.kind);
+    return t === null || !Q.has(s) ? "malformed" : R(this.identity, e) ? s === "invalidate" ? (this.recovering = !0, "invalidated") : this.recovering || this.lastSequence === null ? (this.bufferEvent(e), "buffered") : t <= this.lastSequence ? "duplicate" : this.sequenceMode === "contiguous" && t > this.lastSequence + 1 ? (this.recovering = !0, this.bufferEvent(e), "gap") : (this.lastSequence = t, this.applyRecordEvent(e, s)) : "foreign";
   }
   bufferEvent(e) {
     this.buffer.length >= this.maxBufferedEvents && (this.buffer.shift(), this.bufferOverflowed = !0), this.buffer.push(e);
   }
   acceptGeneration(e, t, s) {
     if (!t || s === null) return !0;
-    const i = T(e, t), n = this.generations.get(i);
-    return n !== void 0 && s < n ? !1 : (this.generations.set(i, s), !0);
+    const i = F(e, t), r = this.generations.get(i);
+    return r !== void 0 && s < r ? !1 : (this.generations.set(i, s), !0);
   }
   applyRecordEvent(e, t) {
     const s = d(e.panel_id).toLowerCase(), i = this.panels.get(s);
     if (!i) return "foreign";
-    const n = d(e.record_key);
-    if (!n) return "malformed";
-    const r = d(e.target_id), o = m(e.generation);
-    if (!this.acceptGeneration(s, r, o)) return "stale";
-    const a = i.get(n), c = m(e.revision);
+    const r = d(e.record_key);
+    if (!r) return "malformed";
+    const n = d(e.target_id), o = y(e.generation);
+    if (!this.acceptGeneration(s, n, o)) return "stale";
+    const a = i.get(r), c = y(e.revision);
     if (c !== null && a && c <= a.revision) return "stale";
-    if (t === "delete") return a && i.delete(n) ? "applied" : "stale";
+    if (t === "delete") return a && i.delete(r) ? "applied" : "stale";
     const l = {
-      record_key: n,
+      record_key: r,
       revision: c ?? (a ? a.revision + 1 : 0),
       data: e.data
     };
-    return r && (l.target_id = r), o !== null && (l.generation = o), i.set(n, l), w(i, this.maxRecordsPerPanel), "applied";
+    return n && (l.target_id = n), o !== null && (l.generation = o), i.set(r, l), $(i, this.maxRecordsPerPanel), "applied";
   }
 };
-function w(e, t) {
+function $(e, t) {
   for (; e.size > t; ) {
     const s = e.keys().next().value;
     if (s === void 0) return;
     e.delete(s);
   }
 }
-function re(e) {
+function se(e) {
   return JSON.stringify({
     console_id: e.console_id,
     application_id: e.application_id,
@@ -175,16 +191,16 @@ function re(e) {
     scope_key: e.scope_key
   });
 }
-function oe(e) {
+function ie(e) {
   try {
     return (e === "local" ? globalThis.localStorage : globalThis.sessionStorage) ?? null;
   } catch {
     return null;
   }
 }
-var ae = class {
+var re = class {
   constructor(e, t = null) {
-    this.prefix = G(e, ""), this.provider = t;
+    this.prefix = K(e, ""), this.provider = t;
   }
   keyFor(e) {
     return `${this.prefix}${e}`;
@@ -222,8 +238,8 @@ var ae = class {
         try {
           const s = [];
           for (let i = 0; i < t.length; i += 1) {
-            const n = t.key(i);
-            n && n.startsWith(this.prefix) && s.push(n);
+            const r = t.key(i);
+            r && r.startsWith(this.prefix) && s.push(r);
           }
           s.forEach((i) => t.removeItem(i));
         } catch {
@@ -231,41 +247,41 @@ var ae = class {
     }
   }
   storage(e) {
-    return this.provider ? (e === "local" ? this.provider.local : this.provider.session) ?? null : oe(e);
+    return this.provider ? (e === "local" ? this.provider.local : this.provider.session) ?? null : ie(e);
   }
-}, le = /* @__PURE__ */ new Set([
+}, ne = /* @__PURE__ */ new Set([
   "retry",
   "reload",
   "none"
 ]);
-function k(e) {
+function C(e) {
   if (!e || typeof e != "object" || Array.isArray(e)) return {};
   const t = {};
   return Object.entries(e).forEach(([s, i]) => {
     if (typeof i == "string" && i.trim()) t[s] = i.trim();
     else if (Array.isArray(i)) {
-      const n = i.filter((r) => typeof r == "string" && r.trim()).join("; ");
-      n && (t[s] = n);
+      const r = i.filter((n) => typeof n == "string" && n.trim()).join("; ");
+      r && (t[s] = r);
     }
   }), t;
 }
-function ce(e) {
+function oe(e) {
   return e === 401 ? "reload" : e === 0 || e === 408 || e === 429 || e >= 500 ? "retry" : "none";
 }
-async function he(e, t) {
-  const s = await U(e, t, { appendStatusToFallback: !1 }), i = s.payload && typeof s.payload == "object" ? s.payload : {}, n = s.details || {}, r = {
-    ...k(i.fields),
-    ...k(n.fields)
-  }, o = String(n.action ?? i.action ?? "").trim().toLowerCase(), a = typeof s.message == "string" && s.message.trim() && s.message.length <= 500 ? s.message.trim() : t;
+async function ae(e, t) {
+  const s = await H(e, t, { appendStatusToFallback: !1 }), i = s.payload && typeof s.payload == "object" ? s.payload : {}, r = s.details || {}, n = {
+    ...C(i.fields),
+    ...C(r.fields)
+  }, o = String(r.action ?? i.action ?? "").trim().toLowerCase(), a = typeof s.message == "string" && s.message.trim() && s.message.length <= 500 ? s.message.trim() : t;
   return {
     status: e.status,
     code: s.code || (e.status === 401 ? "UNAUTHORIZED" : e.status === 403 ? "FORBIDDEN" : "REQUEST_FAILED"),
     message: a,
-    fields: r,
-    action: le.has(o) ? o : ce(e.status)
+    fields: n,
+    action: ne.has(o) ? o : oe(e.status)
   };
 }
-function de(e) {
+function le(e) {
   return {
     status: 0,
     code: "NETWORK_ERROR",
@@ -274,26 +290,26 @@ function de(e) {
     action: "retry"
   };
 }
-async function L(e, t) {
-  const { timeoutMs: s = 1e4, fallbackError: i, signal: n, ...r } = t, o = typeof AbortController < "u" ? new AbortController() : null, a = () => o?.abort();
+async function _(e, t) {
+  const { timeoutMs: s = 1e4, fallbackError: i, signal: r, ...n } = t, o = typeof AbortController < "u" ? new AbortController() : null, a = () => o?.abort();
   let c;
-  n && (n.aborted ? a() : n.addEventListener("abort", a, { once: !0 })), o && s > 0 && (c = setTimeout(a, s));
+  r && (r.aborted ? a() : r.addEventListener("abort", a, { once: !0 })), o && s > 0 && (c = setTimeout(a, s));
   try {
-    const l = await B(e, {
+    const l = await q(e, {
       credentials: "same-origin",
-      ...r,
-      signal: o?.signal ?? n
+      ...n,
+      signal: o?.signal ?? r
     });
     if (!l.ok) return {
       ok: !1,
       status: l.status,
-      error: await he(l, i)
+      error: await ae(l, i)
     };
-    const y = await W(l);
+    const f = await I(l);
     return {
       ok: !0,
       status: l.status,
-      value: y
+      value: f
     };
   } catch (l) {
     return l && typeof l == "object" && l.name === "HTTPAuthenticationRequiredError" ? {
@@ -309,41 +325,41 @@ async function L(e, t) {
     } : {
       ok: !1,
       status: 0,
-      error: de(i)
+      error: le(i)
     };
   } finally {
-    c !== void 0 && clearTimeout(c), n?.removeEventListener("abort", a);
+    c !== void 0 && clearTimeout(c), r?.removeEventListener("abort", a);
   }
 }
-function ue(e, t) {
+function ce(e, t) {
   let s = e;
-  return Object.entries(t).forEach(([i, n]) => {
-    const r = encodeURIComponent(n), o = i.replace(/_id$|_key$/, "");
-    s = s.split(`{${i}}`).join(r).split(`{${o}}`).join(r).replace(new RegExp(`:${i}(?=$|[/?#.])`, "g"), () => r).replace(new RegExp(`:${o}(?=$|[/?#.])`, "g"), () => r);
+  return Object.entries(t).forEach(([i, r]) => {
+    const n = encodeURIComponent(r), o = i.replace(/_id$|_key$/, "");
+    s = s.split(`{${i}}`).join(n).split(`{${o}}`).join(n).replace(new RegExp(`:${i}(?=$|[/?#.])`, "g"), () => n).replace(new RegExp(`:${o}(?=$|[/?#.])`, "g"), () => n);
   }), s;
 }
-var A = "[data-console-root]", fe = 'script[type="application/json"][data-console-bootstrap]', pe = 'script[type="application/json"][data-console-widget]', ye = /* @__PURE__ */ new Set([
+var S = "[data-console-root]", he = 'script[type="application/json"][data-console-bootstrap]', de = 'script[type="application/json"][data-console-widget]', ue = /* @__PURE__ */ new Set([
   "table",
   "status_list",
   "timeline"
-]), D = /* @__PURE__ */ new Set([
+]), T = /* @__PURE__ */ new Set([
   1008,
   4401,
   4403
-]), me = [
+]), fe = [
   1e3,
   2e3,
   5e3,
   1e4,
   3e4
-], M = "active-panel", ge = 16, ve = 5e3, be = 3, Se = 6e4, g = /* @__PURE__ */ new WeakMap(), Ae = 0;
+], w = "active-panel", pe = 16, ye = 5e3, me = 100, ge = 3, ve = 6e4, m = /* @__PURE__ */ new WeakMap(), be = 0;
 function u(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 function h(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function Ee(e) {
+function Se(e) {
   if (!u(e)) return null;
   const t = h(e.snapshot);
   return t ? {
@@ -356,29 +372,29 @@ function Ee(e) {
     lookup: h(e.lookup) || void 0
   } : null;
 }
-function Pe(e) {
-  const t = Array.from(e.querySelectorAll(fe)).find((s) => s.closest(A) === e);
+function Ae(e) {
+  const t = Array.from(e.querySelectorAll(he)).find((s) => s.closest(S) === e);
   if (!t) return null;
   try {
-    return q(JSON.parse(t.textContent || ""));
+    return N(JSON.parse(t.textContent || ""));
   } catch {
     return null;
   }
 }
-function Ce(e) {
-  const t = Array.from(e.querySelectorAll(pe)).find((s) => s.closest(A) === e);
+function Ee(e) {
+  const t = Array.from(e.querySelectorAll(de)).find((s) => s.closest(S) === e);
   if (!t) return null;
   try {
     const s = JSON.parse(t.textContent || "");
     if (!u(s) || !u(s.panel)) return null;
-    const i = E(s), n = typeof s.watermark == "number" ? s.watermark : 0;
+    const i = A(s), r = typeof s.watermark == "number" ? s.watermark : 0;
     return i.console_id ? {
       ...i,
       title: h(s.panel.label) || void 0,
       urls: { snapshot: "" },
       snapshot: {
         ...i,
-        watermark: n,
+        watermark: r,
         panels: [s.panel]
       }
     } : null;
@@ -386,9 +402,9 @@ function Ce(e) {
     return null;
   }
 }
-function q(e) {
+function N(e) {
   if (!u(e)) return null;
-  const t = E(e), s = Ee(e.urls);
+  const t = A(e), s = Se(e.urls);
   return !t.console_id || !s ? null : {
     ...t,
     title: h(e.title) || void 0,
@@ -397,38 +413,38 @@ function q(e) {
     snapshot: u(e.snapshot) ? e.snapshot : void 0
   };
 }
-function Re(e) {
+function Pe(e) {
   return typeof e.watermark == "number" && Array.isArray(e.panels) && typeof e.console_id == "string";
 }
-function _e(e, t, s) {
-  const [i, n] = e.split("#"), r = `${i}${i.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(s)}`;
-  return n === void 0 ? r : `${r}#${n}`;
+function Re(e, t, s) {
+  const [i, r] = e.split("#"), n = `${i}${i.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(s)}`;
+  return r === void 0 ? n : `${n}#${r}`;
 }
-function O(e) {
+function L(e) {
   return u(e) && typeof e.sequence == "number" && typeof e.kind == "string" && typeof e.console_id == "string";
 }
-function F(e) {
+function k(e) {
   const t = globalThis.CSS?.escape;
   return t ? t(e) : e.replace(/["\\]/g, "\\$&");
 }
-function Te(e) {
+function Ce(e) {
   if (typeof requestAnimationFrame == "function") {
     const s = requestAnimationFrame(() => e());
     return () => cancelAnimationFrame(s);
   }
-  const t = setTimeout(e, ge);
+  const t = setTimeout(e, pe);
   return () => clearTimeout(t);
 }
-var we = class {
+var _e = class {
   constructor(e, t, s = {}) {
-    this.serverDefinitions = /* @__PURE__ */ new Map(), this.filterState = /* @__PURE__ */ new Map(), this.actionResults = /* @__PURE__ */ new Map(), this.controllers = /* @__PURE__ */ new Set(), this.cleanup = [], this.state = "loading", this.connection = "offline", this.activePanel = "", this.policyCloses = [], this.stream = null, this.recoveryPromise = null, this.recoveryPending = !1, this.recoveryAttempts = 0, this.recoveryTimer = null, this.cancelFrame = null, this.dirtyPanels = /* @__PURE__ */ new Set(), this.structureDirty = !1, this.livePanels = [], this.snapshotWaitTimer = null, this.definitionSignatures = /* @__PURE__ */ new Map(), this.notice = {
+    this.serverDefinitions = /* @__PURE__ */ new Map(), this.filterState = /* @__PURE__ */ new Map(), this.actionResults = /* @__PURE__ */ new Map(), this.controllers = /* @__PURE__ */ new Set(), this.cleanup = [], this.state = "loading", this.connection = "offline", this.activePanel = "", this.policyCloses = [], this.stream = null, this.recoveryPromise = null, this.recoveryPending = !1, this.snapshotEpoch = 0, this.freshStreamSnapshot = !1, this.recoveryAttempts = 0, this.recoveryTimer = null, this.cancelFrame = null, this.dirtyPanels = /* @__PURE__ */ new Set(), this.structureDirty = !1, this.livePanels = [], this.snapshotWaitTimer = null, this.definitionSignatures = /* @__PURE__ */ new Map(), this.notice = {
       kind: "loading",
       message: "Loading console…",
       action: "none"
-    }, this.root = e, this.bootstrap = t, this.options = s, this.styles = s.styles || Y, this.identity = E(t), this.idScope = `console-${Ae += 1}`, this.registry = V(), this.store = new ne({
+    }, this.root = e, this.bootstrap = t, this.options = s, this.styles = s.styles || B, this.identity = A(t), this.idScope = `console-${be += 1}`, this.registry = Y(), this.store = new te({
       identity: this.identity,
       sequenceMode: "monotonic"
-    }), this.preferences = new ae(t.preferences_namespace || re(this.identity), s.storage ?? null), (s.panels || []).forEach((i) => this.registry.register(i)), this.root.classList.add("console-root"), this.regions = this.ensureRegions(), this.bindEvents(), this.root.dataset.consoleState = "loading", this.root.dataset.consoleSync = "recovering", this.render(), this.start();
+    }), this.preferences = new re(t.preferences_namespace || se(this.identity), s.storage ?? null), (s.panels || []).forEach((i) => this.registry.register(i)), this.root.classList.add("console-root"), this.regions = this.ensureRegions(), this.bindEvents(), this.root.dataset.consoleState = "loading", this.root.dataset.consoleSync = "recovering", this.render(), this.start();
   }
   getState() {
     return this.state;
@@ -447,7 +463,7 @@ var we = class {
   }
   selectPanel(e, t = !1) {
     const s = p(e);
-    return !s || !this.visiblePanels().includes(s) || this.state === "disposed" ? !1 : (s !== this.activePanel && (this.activePanel = s, this.preferences.set(M, s, "session"), this.renderTabs(), this.renderFilters(), this.renderPanel(!0)), t && this.tabButton(s)?.focus(), !0);
+    return !s || !this.visiblePanels().includes(s) || this.state === "disposed" ? !1 : (s !== this.activePanel && (this.activePanel = s, this.preferences.set(w, s, "session"), this.renderTabs(), this.renderFilters(), this.renderPanel(!0)), t && this.tabButton(s)?.focus(), !0);
   }
   refresh() {
     this.recoveryAttempts = 0, this.policyCloses = [];
@@ -457,7 +473,7 @@ var we = class {
     }), e;
   }
   destroy() {
-    this.state !== "disposed" && (this.state = "disposed", this.closeLive(), this.controllers.forEach((e) => e.abort()), this.controllers.clear(), this.recoveryTimer !== null && clearTimeout(this.recoveryTimer), this.recoveryTimer = null, this.cancelFrame?.(), this.cancelFrame = null, this.cleanup.splice(0).forEach((e) => e()), this.registry.dispose(), this.store.clear(), this.serverDefinitions.clear(), this.actionResults.clear(), this.filterState.clear(), g.get(this.root) === this && g.delete(this.root), this.root.dataset.consoleState = "disposed");
+    this.state !== "disposed" && (this.state = "disposed", this.closeLive(), this.controllers.forEach((e) => e.abort()), this.controllers.clear(), this.recoveryTimer !== null && clearTimeout(this.recoveryTimer), this.recoveryTimer = null, this.cancelFrame?.(), this.cancelFrame = null, this.cleanup.splice(0).forEach((e) => e()), this.registry.dispose(), this.store.clear(), this.serverDefinitions.clear(), this.actionResults.clear(), this.filterState.clear(), m.get(this.root) === this && m.delete(this.root), this.root.dataset.consoleState = "disposed");
   }
   async start() {
     this.bootstrap.snapshot ? this.acceptSnapshot(this.bootstrap.snapshot) : await this.recover(), !(this.isClosed() || this.options.display) && this.connectLive();
@@ -478,20 +494,24 @@ var we = class {
     for (; ; ) {
       if (this.isClosed()) return;
       this.recoveryTimer !== null && (clearTimeout(this.recoveryTimer), this.recoveryTimer = null), this.recoveryPending = !1, this.store.beginRecovery(), this.root.dataset.consoleSync = "recovering";
-      const e = new AbortController();
-      this.controllers.add(e);
-      const t = await L(this.bootstrap.urls.snapshot, {
+      const e = this.snapshotEpoch, t = new AbortController();
+      this.controllers.add(t);
+      const s = await _(this.bootstrap.urls.snapshot, {
         method: "GET",
-        signal: e.signal,
+        signal: t.signal,
         timeoutMs: this.options.requestTimeoutMs,
         fallbackError: "Unable to load console data."
       });
-      if (this.controllers.delete(e), this.isClosed()) return;
-      if (!t.ok) {
-        t.status === 401 || t.status === 403 ? this.deny(t.error) : this.scheduleRecoveryRetry(t.error.message);
+      if (this.controllers.delete(t), this.isClosed()) return;
+      if (e !== this.snapshotEpoch) {
+        if (this.recoveryPending) continue;
         return;
       }
-      if (this.acceptSnapshot(t.value)) {
+      if (!s.ok) {
+        s.status === 401 || s.status === 403 ? this.deny(s.error) : this.scheduleRecoveryRetry(s.error.message);
+        return;
+      }
+      if (this.acceptSnapshot(s.value, !this.liveConfigured())) {
         if (this.isClosed()) return;
         if (this.recoveryAttempts += 1, this.recoveryAttempts > this.maxRecoveryAttempts()) {
           this.recoveryAttempts = 0, this.setNotice("error", "Live updates are out of sync. Refresh to load the latest data.", "retry");
@@ -506,7 +526,7 @@ var we = class {
     return Math.max(1, this.options.maxRecoveryAttempts ?? 5);
   }
   scheduleRecoveryRetry(e) {
-    const t = this.options.recoveryDelaysMs || me, s = this.recoveryAttempts;
+    const t = this.options.recoveryDelaysMs || fe, s = this.recoveryAttempts;
     if (this.recoveryAttempts += 1, s >= this.maxRecoveryAttempts() || t.length === 0) {
       this.recoveryAttempts = 0, this.setState(this.state === "loading" ? "error" : this.state), this.setNotice("error", e, "retry");
       return;
@@ -517,9 +537,9 @@ var we = class {
       this.recoveryTimer = null, this.recover();
     }, Math.max(0, i));
   }
-  acceptSnapshot(e) {
-    const t = this.store.applySnapshot(e);
-    return t.ok ? (this.syncDefinitions(e.panels), this.setState("ready"), this.root.dataset.consoleSync = t.needsRecovery ? "recovering" : "current", this.setNotice("none", "", "none"), this.syncSubscription(), this.structureDirty = !0, this.flush(), t.needsRecovery) : (t.reason === "foreign" ? this.deny({
+  acceptSnapshot(e, t = !1) {
+    const s = this.store.applySnapshot(e, { rewind: t });
+    return s.ok ? (this.snapshotEpoch += 1, this.syncDefinitions(e.panels), this.setState("ready"), this.root.dataset.consoleSync = s.needsRecovery ? "recovering" : "current", this.setNotice("none", "", "none"), this.syncSubscription(), this.structureDirty = !0, this.flush(), s.needsRecovery) : s.reason === "stale" ? s.needsRecovery : (s.reason === "foreign" ? this.deny({
       status: 409,
       code: "IDENTITY_CHANGED",
       message: "Your console session changed. Reload to continue.",
@@ -530,14 +550,14 @@ var we = class {
   syncDefinitions(e) {
     const t = /* @__PURE__ */ new Set();
     e.forEach((i) => {
-      const n = p(i?.id);
-      if (!n || t.has(n)) return;
-      t.add(n);
-      const { records: r, ...o } = i, a = K(JSON.stringify(o));
-      if (this.definitionSignatures.get(n) === a && this.registry.has(n)) return;
-      this.definitionSignatures.set(n, a), this.serverDefinitions.set(n, o);
-      const c = z(o, {
-        consoleRenderer: this.options.renderers?.[n],
+      const r = p(i?.id);
+      if (!r || t.has(r)) return;
+      t.add(r);
+      const { records: n, ...o } = i, a = j(JSON.stringify(o));
+      if (this.definitionSignatures.get(r) === a && this.registry.has(r)) return;
+      this.definitionSignatures.set(r, a), this.serverDefinitions.set(r, o);
+      const c = W(o, {
+        consoleRenderer: this.options.renderers?.[r],
         styles: this.styles
       });
       c && this.registry.registerServerDefinition(c);
@@ -545,21 +565,24 @@ var we = class {
     for (const i of Array.from(this.serverDefinitions.keys())) t.has(i) || (this.serverDefinitions.delete(i), this.definitionSignatures.delete(i), this.filterState.delete(i), this.actionResults.delete(i), this.registry.isServerDefinition(i) && this.registry.unregister(i));
     const s = this.visiblePanels();
     if (!s.includes(this.activePanel)) {
-      const i = p(this.preferences.get(M, "session"));
+      const i = p(this.preferences.get(w, "session"));
       this.activePanel = s.includes(i) ? i : s[0] || "";
     }
   }
+  liveConfigured() {
+    return !!this.bootstrap.urls.live && this.options.live !== !1;
+  }
   connectLive() {
     const e = this.bootstrap.urls.live;
-    if (!e || this.options.live === !1 || this.isClosed()) {
+    if (!e || !this.liveConfigured() || this.isClosed()) {
       this.setConnection("offline");
       return;
     }
-    const t = this.store.panelIds();
+    const t = this.byDeclaredOrder(this.store.panelIds());
     this.livePanels = t;
-    const s = new Q({
+    const s = new z({
       ...this.options.liveOptions || {},
-      url: _e(e, "panels", t.join(",")),
+      url: Re(e, "panels", t.join(",")),
       onMessage: (i) => {
         this.stream === s && this.handleLiveMessage(i);
       },
@@ -567,36 +590,38 @@ var we = class {
         this.stream === s && this.handleLiveStatus(i);
       },
       onClose: (i) => {
-        this.stream === s && D.has(i.code) && this.verifyAccessAfterClose();
+        this.stream === s && T.has(i.code) && this.verifyAccessAfterClose();
       },
-      shouldReconnect: (i) => !D.has(i.code)
+      shouldReconnect: (i) => !T.has(i.code)
     });
     this.stream = s, s.connect();
   }
   closeLive() {
     const e = this.stream;
-    this.stream = null, this.clearSnapshotWait(), e?.close();
+    this.stream = null, this.freshStreamSnapshot = !1, this.clearSnapshotWait(), e?.close();
   }
   handleLiveStatus(e) {
-    this.isClosed() || (this.setConnection(e), e === "connected" ? this.awaitStreamSnapshot() : e === "disconnected" && (this.clearSnapshotWait(), this.recover()));
+    this.isClosed() || (this.setConnection(e), e === "connected" ? (this.store.discardBuffered(), this.freshStreamSnapshot = !0, this.awaitStreamSnapshot()) : e === "disconnected" && (this.clearSnapshotWait(), this.recover()));
   }
   awaitStreamSnapshot() {
     this.store.beginRecovery(), this.root.dataset.consoleSync = "recovering", this.clearSnapshotWait(), this.snapshotWaitTimer = setTimeout(() => {
       this.snapshotWaitTimer = null, this.recover();
-    }, Math.max(0, this.options.snapshotWaitMs ?? ve));
+    }, Math.max(0, this.options.snapshotWaitMs ?? ye));
   }
   clearSnapshotWait() {
     this.snapshotWaitTimer !== null && (clearTimeout(this.snapshotWaitTimer), this.snapshotWaitTimer = null);
   }
   syncSubscription() {
-    this.stream && this.store.panelIds().some((e) => !this.livePanels.includes(e)) && (this.closeLive(), this.connectLive());
+    if (!this.stream) return;
+    const e = this.store.panelIds();
+    (e.length !== this.livePanels.length || e.some((t) => !this.livePanels.includes(t))) && (this.closeLive(), this.connectLive());
   }
   async verifyAccessAfterClose() {
     if (this.isClosed()) return;
     this.closeLive();
     const e = Date.now();
-    if (this.policyCloses = this.policyCloses.filter((t) => e - t < Se), this.policyCloses.push(e), await this.recover(), !(this.isClosed() || this.state !== "ready")) {
-      if (this.policyCloses.length > be) {
+    if (this.policyCloses = this.policyCloses.filter((t) => e - t < ve), this.policyCloses.push(e), await this.recover(), !(this.isClosed() || this.state !== "ready")) {
+      if (this.policyCloses.length > ge) {
         this.setConnection("disconnected"), this.setNotice("error", "Live updates stopped. Refresh to load the latest data.", "retry");
         return;
       }
@@ -605,13 +630,15 @@ var we = class {
   }
   handleLiveMessage(e) {
     if (this.isClosed() || !u(e)) return;
-    if (Re(e)) {
-      this.clearSnapshotWait(), this.acceptSnapshot(e) && this.recover();
+    if (Pe(e)) {
+      this.clearSnapshotWait();
+      const s = this.freshStreamSnapshot;
+      this.freshStreamSnapshot = !1, this.acceptSnapshot(e, s) && this.recover();
       return;
     }
-    if (!O(e)) return;
+    if (!L(e)) return;
     const t = this.store.applyEvent(e);
-    t === "applied" ? this.markPanelDirty(p(e.panel_id)) : t === "invalidated" ? this.awaitStreamSnapshot() : t === "gap" && this.recover();
+    t === "applied" ? this.markPanelDirty(p(e.panel_id)) : t === "invalidated" ? (this.snapshotEpoch += 1, this.awaitStreamSnapshot()) : t === "gap" && this.recover();
   }
   deny(e) {
     if (this.state === "disposed") return;
@@ -627,57 +654,57 @@ var we = class {
     return e.dataset.actionRequiresConfirm !== "true" && !t ? !0 : (this.options.confirm || ((s) => window.confirm(s)))(t || "Run this action?");
   }
   async runAction(e, t) {
-    const s = p(e.dataset.panelId), i = p(e.dataset.actionId), n = this.bootstrap.urls.actions;
-    if (this.state !== "ready" || this.options.display || !n || !s || !i || !this.visiblePanels().includes(s) || !this.declaredAction(s, i) || !this.confirmAction(e)) return;
-    const r = X(e), o = ue(n, {
+    const s = p(e.dataset.panelId), i = p(e.dataset.actionId), r = this.bootstrap.urls.actions;
+    if (this.state !== "ready" || this.options.display || !r || !s || !i || !this.visiblePanels().includes(s) || !this.declaredAction(s, i) || !this.confirmAction(e)) return;
+    const n = J(e), o = ce(r, {
       panel_id: s,
       action_id: i
     });
     t && (t.disabled = !0), this.clearFieldErrors(e);
     const a = new AbortController();
     this.controllers.add(a);
-    const c = await L(o, {
+    const c = await _(o, {
       method: "POST",
-      json: r,
+      json: n,
       signal: a.signal,
       timeoutMs: this.options.requestTimeoutMs,
       fallbackError: "Action failed."
     });
     this.controllers.delete(a), t && (t.disabled = !1), !this.isClosed() && (c.ok ? this.applyActionResult(e, s, i, c.value) : this.applyActionFailure(e, s, i, c.status, c.error));
   }
-  applyActionFailure(e, t, s, i, n) {
+  applyActionFailure(e, t, s, i, r) {
     if (i === 401) {
-      this.deny(n);
+      this.deny(r);
       return;
     }
-    const r = i === 403 ? "You are not allowed to run this action." : n.message;
-    this.showFieldErrors(e, n.fields), this.showActionResult(t, {
+    const n = i === 403 ? "You are not allowed to run this action." : r.message;
+    this.showFieldErrors(e, r.fields), this.showActionResult(t, {
       status: "error",
-      message: r,
+      message: n,
       actionID: s
     }), i === 403 && this.refresh();
   }
   applyActionResult(e, t, s, i) {
-    const n = u(i) ? i : {}, r = n.ok === !1;
-    r && u(n.errors) && this.showFieldErrors(e, Object.fromEntries(Object.entries(n.errors).map(([o, a]) => [o, typeof a == "string" ? a : R(a, { nullAsEmptyObject: !1 })]))), this.showActionResult(t, {
-      status: r ? "error" : "ok",
-      message: h(n.message) || (r ? "Action failed." : "Action complete."),
+    const r = u(i) ? i : {}, n = r.ok === !1;
+    n && u(r.errors) && this.showFieldErrors(e, Object.fromEntries(Object.entries(r.errors).map(([o, a]) => [o, typeof a == "string" ? a : P(a, { nullAsEmptyObject: !1 })]))), this.showActionResult(t, {
+      status: n ? "error" : "ok",
+      message: h(r.message) || (n ? "Action failed." : "Action complete."),
       actionID: s,
-      data: n.data
-    }), O(n.event) && this.handleLiveMessage(n.event), n.refresh && this.refresh();
+      data: r.data
+    }), L(r.event) && this.handleLiveMessage(r.event), r.refresh && this.refresh();
   }
   showActionResult(e, t) {
     this.actionResults.set(e, t), e === this.activePanel && this.renderActionResult();
   }
   renderActionResult() {
-    const e = this.actionResults.get(this.activePanel), t = Array.from(this.regions.panel.querySelectorAll("[data-panel-action-result]")).find((n) => n.dataset.panelActionResult === this.activePanel);
+    const e = this.actionResults.get(this.activePanel), t = Array.from(this.regions.panel.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === this.activePanel);
     if (!t) return;
     if (!e) {
       t.innerHTML = "";
       return;
     }
-    const s = e.status === "error" ? this.styles.badgeError : this.styles.badge, i = e.data === void 0 ? "" : `<pre class="${this.styles.jsonPanel}">${b(R(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
-    t.innerHTML = `<div class="${s}" role="${e.status === "error" ? "alert" : "status"}">${b(e.message)}</div>${i}`;
+    const s = e.status === "error" ? this.styles.badgeError : this.styles.badge, i = e.data === void 0 ? "" : `<pre class="${this.styles.jsonPanel}">${v(P(e.data, { nullAsEmptyObject: !1 }))}</pre>`;
+    t.innerHTML = `<div class="${s}" role="${e.status === "error" ? "alert" : "status"}">${v(e.message)}</div>${i}`;
   }
   clearFieldErrors(e) {
     e.querySelectorAll("[data-action-field-error]").forEach((t) => {
@@ -686,19 +713,19 @@ var we = class {
   }
   showFieldErrors(e, t) {
     Object.entries(t).forEach(([s, i]) => {
-      const n = s.trim(), r = Array.from(e.querySelectorAll("[data-action-field-error]")).find((o) => o.dataset.actionFieldError === n || o.dataset.actionFieldName === n || o.dataset.actionFieldError === `payload.${n}`);
-      r && (r.textContent = i, r.hidden = !1);
+      const r = s.trim(), n = Array.from(e.querySelectorAll("[data-action-field-error]")).find((o) => o.dataset.actionFieldError === r || o.dataset.actionFieldName === r || o.dataset.actionFieldError === `payload.${r}`);
+      n && (n.textContent = i, n.hidden = !1);
     });
   }
   ensureRegions() {
-    const e = (o) => Array.from(this.root.querySelectorAll(o)).find((a) => a.closest(A) === this.root) || null, t = (o, a, c) => {
+    const e = (o) => Array.from(this.root.querySelectorAll(o)).find((a) => a.closest(S) === this.root) || null, t = (o, a, c) => {
       const l = this.root.ownerDocument.createElement(o);
       return l.setAttribute(a, ""), l.className = c, this.root.appendChild(l), l;
-    }, s = e("[data-console-notice]") || t("div", "data-console-notice", "console-notice"), i = e("[data-console-tabs]") || t("nav", "data-console-tabs", "console-tabs"), n = e("[data-console-filters]") || t("div", "data-console-filters", "console-filters"), r = e("[data-console-panel]") || t("section", "data-console-panel", "console-panel");
-    return i.setAttribute("role", "tablist"), i.hasAttribute("aria-label") || i.setAttribute("aria-label", this.bootstrap.title || "Console panels"), r.id = r.id || `${this.idScope}-panel`, r.setAttribute("role", "tabpanel"), r.tabIndex = 0, {
+    }, s = e("[data-console-notice]") || t("div", "data-console-notice", "console-notice"), i = e("[data-console-tabs]") || t("nav", "data-console-tabs", "console-tabs"), r = e("[data-console-filters]") || t("div", "data-console-filters", "console-filters"), n = e("[data-console-panel]") || t("section", "data-console-panel", "console-panel");
+    return i.setAttribute("role", "tablist"), i.hasAttribute("aria-label") || i.setAttribute("aria-label", this.bootstrap.title || "Console panels"), n.id = n.id || `${this.idScope}-panel`, n.setAttribute("role", "tabpanel"), n.tabIndex = 0, {
       tabs: i,
-      filters: n,
-      panel: r,
+      filters: r,
+      panel: n,
       notice: s,
       connection: e("[data-console-connection]"),
       status: e("[data-console-status]")
@@ -710,25 +737,25 @@ var we = class {
   bindEvents() {
     const { tabs: e, panel: t, filters: s } = this.regions;
     this.listen(e, "click", (i) => {
-      const n = i.target?.closest("[data-console-tab]");
-      n && e.contains(n) && this.selectPanel(n.dataset.consoleTab || "", !0);
+      const r = i.target?.closest("[data-console-tab]");
+      r && e.contains(r) && this.selectPanel(r.dataset.consoleTab || "", !0);
     }), this.listen(e, "keydown", (i) => this.handleTabKeydown(i)), this.listen(s, "input", () => this.updateFilters()), this.listen(s, "change", () => this.updateFilters()), this.listen(t, "click", (i) => {
-      const n = i.target?.closest("[data-panel-action]");
-      !n || !t.contains(n) || n.disabled || (i.preventDefault(), this.runAction(n, n));
+      const r = i.target?.closest("[data-panel-action]");
+      !r || !t.contains(r) || r.disabled || (i.preventDefault(), this.runAction(r, r));
     }), this.listen(t, "submit", (i) => {
-      const n = i.target?.closest("form[data-panel-action-form]");
-      if (!n || !t.contains(n)) return;
+      const r = i.target?.closest("form[data-panel-action-form]");
+      if (!r || !t.contains(r)) return;
       i.preventDefault();
-      const r = n.querySelector('button[type="submit"]');
-      r?.disabled || this.runAction(n, r);
+      const n = r.querySelector('button[type="submit"]');
+      n?.disabled || this.runAction(r, n);
     }), this.listen(t, "change", (i) => {
-      const n = i.target?.closest("[data-panel-action-picker]");
-      n && t.contains(n) && this.updateActionPicker(n);
+      const r = i.target?.closest("[data-panel-action-picker]");
+      r && t.contains(r) && this.updateActionPicker(r);
     }), this.listen(this.root, "click", (i) => {
-      const n = i.target?.closest("[data-console-action]");
-      if (!n || n.closest(A) !== this.root) return;
-      const r = n.dataset.consoleAction;
-      r === "retry" || r === "refresh" ? (i.preventDefault(), this.refresh()) : r === "reload" && (i.preventDefault(), this.root.ownerDocument.defaultView?.location.reload());
+      const r = i.target?.closest("[data-console-action]");
+      if (!r || r.closest(S) !== this.root) return;
+      const n = r.dataset.consoleAction;
+      n === "retry" || n === "refresh" ? (i.preventDefault(), this.refresh()) : n === "reload" && (i.preventDefault(), this.root.ownerDocument.defaultView?.location.reload());
     });
   }
   handleTabKeydown(e) {
@@ -765,9 +792,9 @@ var we = class {
     const e = this.activePanel, t = this.registry.get(e);
     if (!t?.renderFilters) return;
     const s = this.filterStateFor(e, t), i = u(s) ? { ...s } : {};
-    this.regions.filters.querySelectorAll("[data-filter]").forEach((n) => {
-      const r = n.dataset.filter || "";
-      r && (i[r] = n instanceof HTMLInputElement && n.type === "checkbox" ? n.checked : n.value);
+    this.regions.filters.querySelectorAll("[data-filter]").forEach((r) => {
+      const n = r.dataset.filter || "";
+      n && (i[n] = r instanceof HTMLInputElement && r.type === "checkbox" ? r.checked : r.value);
     }), this.filterState.set(e, i), this.renderPanel(!1);
   }
   filterStateFor(e, t) {
@@ -778,7 +805,7 @@ var we = class {
     return this.filterState.get(e);
   }
   markPanelDirty(e) {
-    this.dirtyPanels.add(e), !this.cancelFrame && (this.cancelFrame = Te(() => {
+    this.dirtyPanels.add(e), !this.cancelFrame && (this.cancelFrame = Ce(() => {
       this.cancelFrame = null, this.flush();
     }));
   }
@@ -795,31 +822,42 @@ var we = class {
     this.renderNotice(), this.renderConnection(), this.renderTabs(), this.renderFilters(), this.renderPanel(!0);
   }
   visiblePanels() {
-    return this.store.panelIds().filter((e) => this.registry.has(e));
+    return this.byDeclaredOrder(this.store.panelIds()).filter((e) => this.registry.has(e));
+  }
+  byDeclaredOrder(e) {
+    const t = (s) => {
+      const i = this.serverDefinitions.get(s)?.order ?? this.registry.get(s)?.order;
+      return typeof i == "number" && Number.isFinite(i) ? i : me;
+    };
+    return e.map((s, i) => ({
+      id: s,
+      index: i,
+      order: t(s)
+    })).sort((s, i) => s.order - i.order || s.index - i.index).map((s) => s.id);
   }
   tabButton(e) {
-    return this.regions.tabs.querySelector(`[data-console-tab="${F(e)}"]`);
+    return this.regions.tabs.querySelector(`[data-console-tab="${k(e)}"]`);
   }
   renderTabs() {
     const e = this.visiblePanels(), t = this.root.ownerDocument.activeElement, s = t instanceof HTMLElement && this.regions.tabs.contains(t) && t.dataset.consoleTab || "";
     this.regions.tabs.hidden = e.length === 0 || !!this.options.display, this.regions.tabs.innerHTML = e.map((i) => {
-      const n = this.registry.get(i), r = i === this.activePanel, o = this.panelCount(i, n);
-      return `<button type="button" class="console-tab${r ? " console-tab--active" : ""}" role="tab" id="${v(`${this.idScope}-tab-${i}`)}" aria-selected="${r ? "true" : "false"}" aria-controls="${v(this.regions.panel.id)}" tabindex="${r ? "0" : "-1"}" data-console-tab="${v(i)}"><span class="console-tab__label">${b(n?.label || i)}</span><span class="console-tab__count" data-console-tab-count="${v(i)}">${b(C(o))}</span></button>`;
+      const r = this.registry.get(i), n = i === this.activePanel, o = this.panelCount(i, r);
+      return `<button type="button" class="console-tab${n ? " console-tab--active" : ""}" role="tab" id="${g(`${this.idScope}-tab-${i}`)}" aria-selected="${n ? "true" : "false"}" aria-controls="${g(this.regions.panel.id)}" tabindex="${n ? "0" : "-1"}" data-console-tab="${g(i)}"><span class="console-tab__label">${v(r?.label || i)}</span><span class="console-tab__count" data-console-tab-count="${g(i)}">${v(E(o))}</span></button>`;
     }).join(""), this.activePanel ? this.regions.panel.setAttribute("aria-labelledby", `${this.idScope}-tab-${this.activePanel}`) : this.regions.panel.removeAttribute("aria-labelledby"), s && this.tabButton(e.includes(s) ? s : this.activePanel)?.focus();
   }
   updateCounts() {
     this.visiblePanels().forEach((e) => {
-      const t = this.regions.tabs.querySelector(`[data-console-tab-count="${F(e)}"]`);
-      t && (t.textContent = C(this.panelCount(e, this.registry.get(e))));
+      const t = this.regions.tabs.querySelector(`[data-console-tab-count="${k(e)}"]`);
+      t && (t.textContent = E(this.panelCount(e, this.registry.get(e))));
     });
   }
   panelCount(e, t) {
     const s = this.panelData(e);
-    return t?.getCount ? t.getCount(s) : J(s);
+    return t?.getCount ? t.getCount(s) : U(s);
   }
   panelData(e) {
-    const t = this.store.records(e), s = this.serverDefinitions.get(e), i = s?.ui?.views?.console || s?.ui?.views?.toolbar, n = p(i?.renderer);
-    return t.length === 1 && !ye.has(n) ? t[0].data : t.map((r) => r.data);
+    const t = this.store.records(e), s = this.serverDefinitions.get(e), i = s?.ui?.views?.console || s?.ui?.views?.toolbar, r = p(i?.renderer);
+    return t.length === 1 && !ue.has(r) ? t[0].data : t.map((n) => n.data);
   }
   renderFilters() {
     const e = this.registry.get(this.activePanel);
@@ -843,21 +881,21 @@ var we = class {
       t.innerHTML = this.state === "ready" ? `<div class="${this.styles.emptyState}">No panels are available.</div>` : "", t.dataset.consolePanelId = "";
       return;
     }
-    let n = this.panelData(s);
-    i.applyFilters && (n = i.applyFilters(n, this.filterStateFor(s, i)));
-    const r = this.renderOptions();
+    let r = this.panelData(s);
+    i.applyFilters && (r = i.applyFilters(r, this.filterStateFor(s, i)));
+    const n = this.renderOptions();
     if (this.options.display && i.renderBody) {
-      t.innerHTML = i.renderBody(n, this.styles, r), t.dataset.consolePanelId = s;
+      t.innerHTML = i.renderBody(r, this.styles, n), t.dataset.consolePanelId = s;
       return;
     }
     if (i.renderActions && i.renderBody) {
       const o = t.querySelector(":scope > [data-console-panel-body]");
       if (!e && o && this.panelMounted(s)) {
-        o.innerHTML = i.renderBody(n, this.styles, r);
+        o.innerHTML = i.renderBody(r, this.styles, n);
         return;
       }
-      t.innerHTML = `<div class="console-panel__actions" data-console-panel-actions>${i.renderActions(this.styles, r)}</div><div class="console-panel__body" data-console-panel-body>${i.renderBody(n, this.styles, r)}</div><div class="console-panel__result" data-panel-action-result="${v(s)}" aria-live="polite"></div>`;
-    } else t.innerHTML = (i.renderConsole || i.render)(n, this.styles, r);
+      t.innerHTML = `<div class="console-panel__actions" data-console-panel-actions>${i.renderActions(this.styles, n)}</div><div class="console-panel__body" data-console-panel-body>${i.renderBody(r, this.styles, n)}</div><div class="console-panel__result" data-panel-action-result="${g(s)}" aria-live="polite"></div>`;
+    } else t.innerHTML = (i.renderConsole || i.render)(r, this.styles, n);
     t.dataset.consolePanelId = s, t.dataset.consoleDefinition = this.definitionSignatures.get(s) || "", t.querySelectorAll("[data-panel-action-picker]").forEach((o) => this.updateActionPicker(o)), this.renderActionResult();
   }
   setState(e) {
@@ -874,7 +912,7 @@ var we = class {
       error: "Connection error",
       offline: "Not live"
     };
-    this.root.dataset.consoleConnection = this.connection, this.regions.status && (this.regions.status.dataset.status = this.connection), this.regions.connection && (this.regions.connection.textContent = e[this.connection]);
+    this.root.dataset.consoleLive = this.connection, this.regions.status && (this.regions.status.dataset.status = this.connection), this.regions.connection && (this.regions.connection.textContent = e[this.connection]);
   }
   setNotice(e, t, s) {
     this.notice = {
@@ -890,48 +928,48 @@ var we = class {
       return;
     }
     i.hidden = !1, i.setAttribute("role", e === "error" || e === "denied" ? "alert" : "status");
-    const n = s === "none" ? "" : ` <button type="button" class="console-btn" data-console-action="${s}">${s === "reload" ? "Reload" : "Retry"}</button>`;
-    i.innerHTML = `<span class="console-notice__message">${b(t)}</span>${n}`;
+    const r = s === "none" ? "" : ` <button type="button" class="console-btn" data-console-action="${s}">${s === "reload" ? "Reload" : "Retry"}</button>`;
+    i.innerHTML = `<span class="console-notice__message">${v(t)}</span>${r}`;
   }
 };
-function I(e, t = {}) {
-  const s = g.get(e);
+function x(e, t = {}) {
+  const s = m.get(e);
   if (s) return s;
-  const i = !!t.display || e.hasAttribute("data-console-display"), n = t.bootstrap ? q(t.bootstrap) : i ? Ce(e) : Pe(e);
-  if (!n)
+  const i = !!t.display || e.hasAttribute("data-console-display"), r = t.bootstrap ? N(t.bootstrap) : i ? Ee(e) : Ae(e);
+  if (!r)
     return e.dataset.consoleState = "error", null;
-  const r = new we(e, n, i ? {
+  const n = new _e(e, r, i ? {
     ...t,
     display: !0,
     live: !1
   } : t);
-  return g.set(e, r), r;
+  return m.set(e, n), n;
 }
-function it(e) {
-  return g.get(e) || null;
+function tt(e) {
+  return m.get(e) || null;
 }
-function ke(e) {
-  g.get(e)?.destroy();
+function Te(e) {
+  m.get(e)?.destroy();
 }
-function Le(e = document, t = {}) {
-  return Array.from(e.querySelectorAll(`${A}:not([data-console-manual])`)).map((s) => I(s, t)).filter((s) => s !== null);
+function we(e = document, t = {}) {
+  return Array.from(e.querySelectorAll(`${S}:not([data-console-manual])`)).map((s) => x(s, t)).filter((s) => s !== null);
 }
-var nt = "1", $ = "[data-console-root]:not([data-console-manual])";
-function N(e) {
+var st = "1", D = "[data-console-root]:not([data-console-manual])";
+function M(e) {
   if (!(e instanceof HTMLElement)) return [];
-  const t = Array.from(e.querySelectorAll($));
-  return e.matches($) ? [e, ...t] : t;
+  const t = Array.from(e.querySelectorAll(D));
+  return e.matches(D) ? [e, ...t] : t;
 }
-function De() {
+function Le() {
   typeof MutationObserver > "u" || !document.body || new MutationObserver((e) => {
     e.forEach((t) => {
       t.removedNodes.forEach((s) => {
-        N(s).forEach((i) => {
-          i.isConnected || ke(i);
+        M(s).forEach((i) => {
+          i.isConnected || Te(i);
         });
       }), t.addedNodes.forEach((s) => {
-        N(s).forEach((i) => {
-          i.isConnected && I(i);
+        M(s).forEach((i) => {
+          i.isConnected && x(i);
         });
       });
     });
@@ -940,51 +978,51 @@ function De() {
     subtree: !0
   });
 }
-var x = () => {
-  Le(document), De();
+var O = () => {
+  we(document), Le();
 };
-typeof document < "u" && (document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", x, { once: !0 }) : x());
+typeof document < "u" && (document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", O, { once: !0 }) : O());
 export {
-  Q as ConsoleLiveStream,
-  ae as ConsolePreferences,
-  ne as ConsoleRecordStore,
-  we as ConsoleRuntime,
-  nt as PANEL_UI_SCHEMA_VERSION,
-  Je as PanelRegistry,
-  st as applyPanelActionNavigation,
-  tt as applyPanelActionPayload,
-  X as buildPanelActionPayload,
-  re as consoleIdentityNamespace,
-  Y as consoleStyleConfig,
-  V as createPanelRegistry,
-  J as defaultGetCount,
-  ze as defaultHandleEvent,
-  ke as disposeConsole,
-  v as escapeAttribute,
-  b as escapeHTML,
-  je as fetchServerPanelDefinitions,
-  it as getMountedConsole,
-  Ve as getPanelCount,
-  Ue as getPanelData,
-  Ke as getSnapshotKey,
-  Be as isSchemaListRenderer,
-  I as mountConsole,
-  Le as mountConsoles,
-  E as normalizeConsoleIdentity,
-  Ge as normalizeEventTypes,
-  et as panelActionHasSensitiveFields,
-  z as panelDefinitionFromServer,
-  Pe as readConsoleBootstrap,
-  Ce as readConsoleWidgetBootstrap,
-  Ie as registerServerPanelDefinitions,
-  xe as renderJSONPanel,
-  $e as renderJSONViewer,
-  Ye as renderPanelContent,
-  He as renderSchemaListRow,
-  Ne as renderSchemaPanelView,
-  Xe as resolveLiveURL,
-  _ as sameConsoleIdentity,
-  qe as schemaRowKey
+  z as ConsoleLiveStream,
+  re as ConsolePreferences,
+  te as ConsoleRecordStore,
+  _e as ConsoleRuntime,
+  st as PANEL_UI_SCHEMA_VERSION,
+  Ke as PanelRegistry,
+  et as applyPanelActionNavigation,
+  Ze as applyPanelActionPayload,
+  J as buildPanelActionPayload,
+  se as consoleIdentityNamespace,
+  B as consoleStyleConfig,
+  Y as createPanelRegistry,
+  U as defaultGetCount,
+  Ye as defaultHandleEvent,
+  Te as disposeConsole,
+  g as escapeAttribute,
+  v as escapeHTML,
+  Ie as fetchServerPanelDefinitions,
+  tt as getMountedConsole,
+  ze as getPanelCount,
+  je as getPanelData,
+  Ue as getSnapshotKey,
+  He as isSchemaListRenderer,
+  x as mountConsole,
+  we as mountConsoles,
+  A as normalizeConsoleIdentity,
+  Je as normalizeEventTypes,
+  Xe as panelActionHasSensitiveFields,
+  W as panelDefinitionFromServer,
+  Ae as readConsoleBootstrap,
+  Ee as readConsoleWidgetBootstrap,
+  xe as registerServerPanelDefinitions,
+  $e as renderJSONPanel,
+  Oe as renderJSONViewer,
+  We as renderPanelContent,
+  qe as renderSchemaListRow,
+  Fe as renderSchemaPanelView,
+  Ge as resolveLiveURL,
+  R as sameConsoleIdentity,
+  Ne as schemaRowKey
 };
 
 //# sourceMappingURL=index.js.map

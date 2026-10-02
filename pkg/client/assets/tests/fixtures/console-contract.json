@@ -25,6 +25,35 @@
       "watermark": 21,
       "panels": [
         {
+          "id": "audit",
+          "label": "Audit",
+          "snapshot_key": "audit",
+          "event_types": [
+            "audit"
+          ],
+          "supports_toolbar": true,
+          "order": 30,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "timeline"
+              }
+            }
+          },
+          "records": [
+            {
+              "record_key": "a-1",
+              "revision": 1,
+              "data": {
+                "level": "info",
+                "message": "Reset requested",
+                "timestamp": "2026-10-01T10:00:00Z"
+              }
+            }
+          ]
+        },
+        {
           "id": "operations",
           "label": "Operations",
           "snapshot_key": "operations",
@@ -32,6 +61,7 @@
             "operations"
           ],
           "supports_toolbar": true,
+          "order": 10,
           "ui": {
             "schema_version": "1",
             "views": {
@@ -54,6 +84,12 @@
               }
             },
             "filters": [
+              {
+                "id": "q",
+                "label": "Search",
+                "kind": "search",
+                "bind": "name"
+              },
               {
                 "id": "state",
                 "label": "State",
@@ -107,43 +143,33 @@
             "targets"
           ],
           "supports_toolbar": true,
+          "order": 20,
           "ui": {
             "schema_version": "1",
             "views": {
               "console": {
                 "renderer": "status_list"
               }
-            }
+            },
+            "action_layout": {
+              "mode": "select",
+              "picker_label": "Target action"
+            },
+            "actions": [
+              {
+                "id": "retry",
+                "label": "Retry target",
+                "fields": [
+                  {
+                    "name": "force",
+                    "label": "Force",
+                    "kind": "boolean"
+                  }
+                ]
+              }
+            ]
           },
           "records": []
-        },
-        {
-          "id": "audit",
-          "label": "Audit",
-          "snapshot_key": "audit",
-          "event_types": [
-            "audit"
-          ],
-          "supports_toolbar": true,
-          "ui": {
-            "schema_version": "1",
-            "views": {
-              "console": {
-                "renderer": "timeline"
-              }
-            }
-          },
-          "records": [
-            {
-              "record_key": "a-1",
-              "revision": 1,
-              "data": {
-                "level": "info",
-                "message": "Reset requested",
-                "timestamp": "2026-10-01T10:00:00Z"
-              }
-            }
-          ]
         }
       ]
     }
@@ -186,6 +212,35 @@
       "watermark": 21,
       "panels": [
         {
+          "id": "audit",
+          "label": "Audit",
+          "snapshot_key": "audit",
+          "event_types": [
+            "audit"
+          ],
+          "supports_toolbar": true,
+          "order": 30,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "timeline"
+              }
+            }
+          },
+          "records": [
+            {
+              "record_key": "a-1",
+              "revision": 1,
+              "data": {
+                "level": "info",
+                "message": "Reset requested",
+                "timestamp": "2026-10-01T10:00:00Z"
+              }
+            }
+          ]
+        },
+        {
           "id": "operations",
           "label": "Operations",
           "snapshot_key": "operations",
@@ -193,6 +248,7 @@
             "operations"
           ],
           "supports_toolbar": true,
+          "order": 10,
           "ui": {
             "schema_version": "1",
             "views": {
@@ -215,6 +271,12 @@
               }
             },
             "filters": [
+              {
+                "id": "q",
+                "label": "Search",
+                "kind": "search",
+                "bind": "name"
+              },
               {
                 "id": "state",
                 "label": "State",
@@ -268,43 +330,33 @@
             "targets"
           ],
           "supports_toolbar": true,
+          "order": 20,
           "ui": {
             "schema_version": "1",
             "views": {
               "console": {
                 "renderer": "status_list"
               }
-            }
+            },
+            "action_layout": {
+              "mode": "select",
+              "picker_label": "Target action"
+            },
+            "actions": [
+              {
+                "id": "retry",
+                "label": "Retry target",
+                "fields": [
+                  {
+                    "name": "force",
+                    "label": "Force",
+                    "kind": "boolean"
+                  }
+                ]
+              }
+            ]
           },
           "records": []
-        },
-        {
-          "id": "audit",
-          "label": "Audit",
-          "snapshot_key": "audit",
-          "event_types": [
-            "audit"
-          ],
-          "supports_toolbar": true,
-          "ui": {
-            "schema_version": "1",
-            "views": {
-              "console": {
-                "renderer": "timeline"
-              }
-            }
-          },
-          "records": [
-            {
-              "record_key": "a-1",
-              "revision": 1,
-              "data": {
-                "level": "info",
-                "message": "Reset requested",
-                "timestamp": "2026-10-01T10:00:00Z"
-              }
-            }
-          ]
         }
       ]
     }
@@ -340,6 +392,7 @@
         "operations"
       ],
       "supports_toolbar": true,
+      "order": 10,
       "ui": {
         "schema_version": "1",
         "views": {
@@ -362,6 +415,12 @@
           }
         },
         "filters": [
+          {
+            "id": "q",
+            "label": "Search",
+            "kind": "search",
+            "bind": "name"
+          },
           {
             "id": "state",
             "label": "State",

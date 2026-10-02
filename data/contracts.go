@@ -15,6 +15,7 @@ import (
 
 // WireVersion freezes the lifecycle wire contract independently of host routes.
 const WireVersion = "v1"
+const MaxWireCounter uint64 = 1<<53 - 1
 
 type Kind string
 
@@ -88,12 +89,22 @@ func Error(code string) error {
 	return gerrors.New("data operation "+code, category).WithTextCode(code).WithCode(status)
 }
 func ErrorCode(err error) string {
-	var structured *gerrors.Error
-	if errors.As(err, &structured) {
-		switch structured.TextCode {
-		case CodeInvalid, CodeDenied, CodeConflict, CodeBusy, CodeStale, CodeUnavailable, CodeCanceled, CodeRecovery, CodeLeaseLost, CodeGone:
-			return structured.TextCode
+	for err != nil {
+		if structured, ok := errors.AsType[*gerrors.Error](err); ok {
+			switch structured.TextCode {
+			case CodeInvalid, CodeDenied, CodeConflict, CodeBusy, CodeStale, CodeUnavailable, CodeCanceled, CodeRecovery, CodeLeaseLost, CodeGone:
+				return structured.TextCode
+			}
 		}
+		if joined, ok := err.(interface{ Unwrap() []error }); ok {
+			for _, cause := range joined.Unwrap() {
+				if code := ErrorCode(cause); code != CodeProvider {
+					return code
+				}
+			}
+			return CodeProvider
+		}
+		err = errors.Unwrap(err)
 	}
 	return CodeProvider
 }
@@ -156,12 +167,9 @@ func (d Descriptor) CompositeDigest() (string, error) {
 	if !identifier(d.Dataset.Provider) || !identifier(d.Dataset.ID) || !identifier(d.Dataset.Version) || !digestValid(d.SourceContractHash) || !digestValid(d.PolicyHash) || d.SourceContractVersion == "" {
 		return "", Error(CodeInvalid)
 	}
-	copyComponents := append([]Component(nil), d.Components...)
-	sort.Slice(copyComponents, func(i, j int) bool { return copyComponents[i].Path < copyComponents[j].Path })
-	for i, c := range copyComponents {
-		if !fs.ValidPath(c.Path) || c.Path == "." || strings.Contains(c.Path, "\\") || !digestValid(c.Digest) || (i > 0 && copyComponents[i-1].Path == c.Path) {
-			return "", Error(CodeInvalid)
-		}
+	copyComponents, err := canonicalComponents(d.Components)
+	if err != nil {
+		return "", err
 	}
 	for _, v := range d.AudienceHashes {
 		if !digestValid(v) {
@@ -183,6 +191,17 @@ func (d Descriptor) CompositeDigest() (string, error) {
 	}
 	return hashJSON(d)
 }
+func canonicalComponents(components []Component) ([]Component, error) {
+	copyComponents := append([]Component(nil), components...)
+	sort.Slice(copyComponents, func(i, j int) bool { return copyComponents[i].Path < copyComponents[j].Path })
+	for i, c := range copyComponents {
+		if !fs.ValidPath(c.Path) || c.Path == "." || strings.Contains(c.Path, "\\") || !digestValid(c.Digest) || (i > 0 && copyComponents[i-1].Path == c.Path) {
+			return nil, Error(CodeInvalid)
+		}
+	}
+	return copyComponents, nil
+}
+
 func (d Descriptor) ValidateIdentity() error {
 	got, err := d.CompositeDigest()
 	if err != nil {
@@ -262,7 +281,10 @@ func (in Input) Normalize() Input {
 }
 func (in Input) Validate(k Kind) error {
 	in = in.Normalize()
-	if !k.Valid() || !identifier(in.TargetID) || !identifier(in.IdempotencyKey) || in.BatchLimit < 1 || in.BatchLimit > 10000 || in.PageLimit < 1 || in.PageLimit > 1000 || in.TimeoutSeconds < 1 || in.TimeoutSeconds > 3600 {
+	if in.ExpectedGeneration != nil && *in.ExpectedGeneration > MaxWireCounter {
+		return Error(CodeInvalid)
+	}
+	if !k.Valid() || !in.validBounds() {
 		return Error(CodeInvalid)
 	}
 	if k == Cancel {
@@ -274,16 +296,23 @@ func (in Input) Validate(k Kind) error {
 	if !in.Dataset.Valid() || !in.Scenario.Valid() || in.Scenario.Dataset != in.Dataset {
 		return Error(CodeInvalid)
 	}
-	if (k == Activate || k == Verify) && !identifier(in.ReceiptID) {
+	return in.validateOperationFields(k)
+}
+
+func (in Input) validBounds() bool {
+	return identifier(in.TargetID) && identifier(in.IdempotencyKey) &&
+		in.BatchLimit >= 1 && in.BatchLimit <= 10000 &&
+		in.PageLimit >= 1 && in.PageLimit <= 1000 &&
+		in.TimeoutSeconds >= 1 && in.TimeoutSeconds <= 3600
+}
+
+func (in Input) validateOperationFields(k Kind) error {
+	requiresReceipt := k == Activate || k == Verify
+	if requiresReceipt && !identifier(in.ReceiptID) || !requiresReceipt && in.ReceiptID != "" {
 		return Error(CodeInvalid)
 	}
-	if (k == Activate || k == Reset) && in.ExpectedGeneration == nil {
-		return Error(CodeInvalid)
-	}
-	if k != Activate && k != Reset && in.ExpectedGeneration != nil {
-		return Error(CodeInvalid)
-	}
-	if k != Verify && k != Activate && in.ReceiptID != "" || in.OperationID != "" {
+	requiresGeneration := k == Activate || k == Reset
+	if requiresGeneration != (in.ExpectedGeneration != nil) || in.OperationID != "" {
 		return Error(CodeInvalid)
 	}
 	return nil
@@ -372,6 +401,7 @@ func (v VerificationResult) Passed() bool {
 }
 
 type ArtifactRef struct {
+	Provider    string    `json:"provider"`
 	ID          string    `json:"id"`
 	Target      TargetKey `json:"target"`
 	Generation  uint64    `json:"generation"`
@@ -410,4 +440,13 @@ func (r Result) CommandResultFailure() error {
 		return Error(r.Failure.Code)
 	}
 	return nil
+}
+
+// ActiveState is the safe read model; physical intent IDs and fence/delegation
+// metadata remain in OperationStore. Transitioning never claims a ready route.
+type ActiveState struct {
+	Target           TargetKey  `json:"target"`
+	Activation       Activation `json:"activation"`
+	Transitioning    bool       `json:"transitioning"`
+	RecoveryRequired bool       `json:"recovery_required"`
 }

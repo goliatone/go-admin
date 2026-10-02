@@ -232,10 +232,10 @@ func (h *ConsoleHost) Watch(ctx context.Context, identity console.Identity, pane
 		return err
 	}
 	defer unsubscribe()
-	delivery := consoleWatchDelivery{host: h, ctx: ctx, identity: identity, selected: map[string]bool{}, send: send}
+	delivery := consoleWatchDelivery{host: h, ctx: ctx, identity: identity, requested: map[string]bool{}, send: send}
 	for _, panel := range panels {
-		if def, ok := h.panel(ctx, identity, panel); ok {
-			delivery.selected[def.ID] = true
+		if reg, ok := h.config.Registry.Registration(panel); ok {
+			delivery.requested[reg.Definition.ID] = true
 		}
 	}
 	if err := delivery.recoverSnapshot(false); err != nil {
@@ -248,6 +248,7 @@ type consoleWatchDelivery struct {
 	host      *ConsoleHost
 	ctx       context.Context
 	identity  console.Identity
+	requested map[string]bool
 	selected  map[string]bool
 	watermark uint64
 	send      func(any) error
@@ -257,6 +258,14 @@ func (d *consoleWatchDelivery) recoverSnapshot(invalidate bool) error {
 	snapshot, err := d.host.Snapshot(d.ctx, d.identity)
 	if err != nil {
 		return err
+	}
+	// Requested intent survives temporary denial. Effective selection is always
+	// rebuilt from the same authorized snapshot that refreshes the client.
+	d.selected = map[string]bool{}
+	for _, panel := range snapshot.Panels {
+		if d.requested[panel.ID] {
+			d.selected[panel.ID] = true
+		}
 	}
 	if invalidate {
 		if err := d.send(console.Event{Identity: d.identity, Kind: console.EventInvalidate, Sequence: snapshot.Watermark}); err != nil {

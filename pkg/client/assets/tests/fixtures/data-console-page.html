@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en" class="admin-shell-root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Data</title>
+  
+  <meta name="csrf-token" content="fixture-csrf">
+  <script src="/admin/assets/sidebar-state.js" data-admin-sidebar-state></script>
+  <script src="/admin/assets/dist/runtime/go-admin-browser.js"></script>
+  
+  <link rel="stylesheet" href="/admin/assets/dist/third-party/iconoir/iconoir.css">
+  
+  <link rel="stylesheet" href="/admin/formgen/formgen-vanilla.css">
+  
+  <link rel="stylesheet" href="/admin/assets/output.css">
+  
+  <link rel="stylesheet" href="/admin/assets/dist/third-party/simple-datatables/style.css">
+  
+  <!-- Pre-load ECharts for dashboard charts -->
+  
+  <script src="/admin/assets/dist/third-party/echarts/echarts.min.js"></script>
+  
+  
+  
+
+  
+  
+  <link rel="stylesheet" href="/admin/assets/dist/styles/console.css">
+  
+
+</head>
+<body class="admin-theme-root font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden " data-theme="default">
+  <!-- Toast notification container -->
+  
+<div id="toast-container" class="toast-container"></div>
+
+
+  <div class="admin-layout flex w-full h-screen overflow-hidden" data-admin-shell>
+    
+      
+        <button id="sidebar-mobile-toggle"
+        type="button"
+        class="sidebar-mobile-toggle"
+        aria-label="Open navigation"
+        aria-controls="sidebar"
+        aria-expanded="false">
+  <i class="iconoir-menu" aria-hidden="true"></i>
+</button>
+<div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true" hidden></div>
+<aside id="sidebar"
+       class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden"
+       data-collapsed="false"
+       data-mobile-open="false"
+       data-collapse-placement="header"
+       data-compact-footer="false"
+       aria-label="Admin navigation"
+       style="width: var(--admin-sidebar-width, var(--sidebar-width, 260px));">
+  <div class="sidebar-header flex items-center gap-2" style="padding: var(--admin-sidebar-header-padding-block-start, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px)))) var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px))) var(--admin-sidebar-header-padding-block-end, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))));">
+    <a href="/admin/" class="sidebar-brand-link flex items-center no-underline flex-1 min-w-0 overflow-hidden">
+      <span class="sidebar-brand sidebar-brand-expanded">
+        
+        <img src="/admin/assets/logo.svg" alt="Data" class="sidebar-logo" />
+        
+      </span>
+      <span class="sidebar-brand sidebar-brand-collapsed" aria-hidden="true">
+        
+        <img src="/admin/assets/logo.svg" alt="" class="sidebar-logo sidebar-logo-compact" />
+        
+      </span>
+    </a>
+    
+    <button id="sidebar-toggle"
+            type="button"
+            class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0"
+            aria-label="Collapse sidebar"
+            aria-controls="sidebar-navigation"
+            aria-expanded="true">
+      
+    </button>
+    
+  </div>
+
+  
+  
+  <div class="sidebar-search-container px-3 pb-3">
+    <div class="relative">
+      <input type="text"
+             class="w-full h-9 pl-9 pr-12 bg-sidebar-bg-hover border border-sidebar-border rounded-lg text-sm text-sidebar-text placeholder-sidebar-text-muted focus:outline-none focus:border-sidebar-text-muted"
+             placeholder="Search">
+      <i class="iconoir-search absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-text-muted text-base"></i>
+      <kbd class="absolute right-3 top-1/2 -translate-y-1/2">⌘K</kbd>
+    </div>
+  </div>
+  
+
+  <nav id="sidebar-navigation" class="sidebar-navigation flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
+    
+    
+  </nav>
+
+  
+
+  <div class="sidebar-bottom sidebar-user-footer border-t border-sidebar-border">
+    <div class="sidebar-user-footer-inner pt-3 pb-3 relative">
+      <button id="user-menu-toggle" class="sidebar-user-toggle flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
+        <div class="relative flex-shrink-0">
+          
+            <div class="sidebar-user-avatar w-9 h-9 sidebar-avatar rounded-full flex items-center justify-center font-semibold text-sm">
+              ?
+            </div>
+          
+          
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 sidebar-presence-dot border-2 rounded-full"></span>
+          
+        </div>
+        <div class="flex-1 min-w-0 sidebar-user-info">
+          <div class="sidebar-user-name text-sm font-medium text-sidebar-text truncate">
+            Guest
+          </div>
+          <div class="sidebar-user-detail text-xs text-sidebar-text-muted truncate">
+            Online
+          </div>
+        </div>
+        
+          <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
+        
+      </button>
+
+      <div id="user-menu" class="hidden absolute bottom-full left-0 right-0 mb-2 bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl overflow-hidden" style="margin-left: 12px; margin-right: 12px;">
+        <div class="flex items-center gap-3 p-4 border-b border-sidebar-border">
+          <div class="relative flex-shrink-0">
+            
+              <div class="w-12 h-12 sidebar-avatar rounded-xl flex items-center justify-center font-semibold text-base">
+                ?
+              </div>
+            
+            
+              <span class="absolute bottom-0 right-0 w-3 h-3 sidebar-presence-dot border-2 rounded-full"></span>
+            
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-base font-semibold text-sidebar-text truncate">
+              Guest
+            </div>
+            <div class="sidebar-user-detail text-sm text-sidebar-text-muted truncate">
+              Online
+            </div>
+          </div>
+        </div>
+
+        <div class="p-2">
+          <form method="post" action="/admin/logout">
+            
+            <button type="submit" class="flex w-full items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors text-left bg-transparent border-0">
+              <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
+              <span class="flex-1 text-sm">Log out</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+      
+    
+    <script src="/admin/assets/sidebar.js"></script>
+    <main class="admin-main flex-1 min-w-0 flex flex-col overflow-hidden" data-admin-shell-main>
+      
+
+
+      
+      
+      <header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200" data-admin-page-header>
+        <div class="admin-page-header__row flex items-center justify-between gap-4">
+          <div class="admin-page-heading-group flex items-center gap-4 min-w-0 flex-1">
+            
+              
+            
+            <div class="admin-page-header__titles min-w-0 flex-1">
+              
+              <h1 class="admin-page-header__title text-2xl font-bold text-gray-900 truncate">Data</h1>
+              
+            </div>
+          </div>
+          <div class="admin-page-header__actions flex items-center gap-3 flex-shrink-0" data-admin-page-actions>
+            
+          </div>
+        </div>
+      </header>
+      
+      
+
+      
+
+      <div class="admin-shell-content flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden" data-admin-shell-content>
+        
+<div class="flex-1 p-8 overflow-y-auto">
+
+<section class="console-root" data-console-root data-console-id="data" aria-label="Data">
+  <div class="console-header">
+    <div class="console-header__lead">
+<p class="console-muted" data-data-console-intro>Validate, prepare, verify and activate provider-backed datasets. Accepted, prepared or verified work does not change the active dataset until an activation completes.</p>
+</div>
+    <div class="console-header__actions">
+      
+      <span class="console-connection" data-console-status data-status="offline">
+        <span class="console-connection__dot" aria-hidden="true"></span>
+        <span data-console-connection>Not live</span>
+      </span>
+      <button type="button" class="console-btn" data-console-action="refresh">Refresh</button>
+    </div>
+  </div>
+  <div class="console-notice" data-console-notice hidden></div>
+  <nav class="console-tabs" data-console-tabs aria-label="Data panels" hidden></nav>
+  <div class="console-filters" data-console-filters hidden></div>
+  <section class="console-panel" data-console-panel></section>
+  
+  <script type="application/json" data-console-bootstrap>{"console_id":"data","application_id":"crm","environment_id":"staging","actor_id":"operator-1","scope_key":"synthetic-org","title":"Data","urls":{"page":"/admin/data","panels":"/admin/data/api/panels","snapshot":"/admin/data/api/snapshot","actions":"/admin/data/api/panels/:panel/actions/:action","preferences":"/admin/data/api/preferences/panel-order","live":"/admin/data/ws","lookup":"/admin/data/api/panels/:panel/records/:record"},"preferences_namespace":"console:{\"console_id\":\"data\",\"application_id\":\"crm\",\"environment_id\":\"staging\",\"actor_id\":\"operator-1\",\"scope_key\":\"synthetic-org\"}","snapshot":{"console_id":"data","application_id":"crm","environment_id":"staging","actor_id":"operator-1","scope_key":"synthetic-org","watermark":0,"panels":[{"id":"coverage","label":"Coverage","icon":"iconoir-calendar","span":12,"snapshot_key":"coverage","event_types":["coverage"],"supports_toolbar":false,"category":"data","order":60,"ui":{"schema_version":"1","views":{"console":{"renderer":"table","title":"Coverage periods","options":{"columns":[{"bind":"local_day","label":"Local day"},{"bind":"timezone","label":"Timezone"},{"bind":"coverage","label":"Coverage"},{"bind":"evidence_ref","label":"Evidence"},{"bind":"verification_id","label":"Verification"}],"key_bind":"key"}}},"filters":[{"id":"coverage","label":"Coverage","kind":"select","bind":"coverage","options":["Covered","Covered — no records","Partially covered","Not covered","Suppressed by policy","Unavailable"]}]},"records":[{"record_key":"coverage-700ae58da9e35cd7b4dff397","revision":1,"data":{"coverage":"Covered — no records","evidence_ref":"evidence/2026-03-08","key":"coverage-700ae58da9e35cd7b4dff397","local_day":"2026-03-08","receipt_id":"rcpt-ready-1","status":"covered_empty","timezone":"America/Los_Angeles","verification_id":"ver-ready"}},{"record_key":"coverage-1b4ef59567976016c724f544","revision":1,"data":{"coverage":"Suppressed by policy","evidence_ref":"evidence/2026-03-09","key":"coverage-1b4ef59567976016c724f544","local_day":"2026-03-09","receipt_id":"rcpt-ready-1","status":"policy_suppressed","timezone":"America/Los_Angeles","verification_id":"ver-ready"}},{"record_key":"coverage-fb70985b0cb95488ed84e482","revision":1,"data":{"coverage":"Not covered","evidence_ref":"evidence/2026-03-10","key":"coverage-fb70985b0cb95488ed84e482","local_day":"2026-03-10","receipt_id":"rcpt-ready-1","status":"uncovered","timezone":"America/Los_Angeles","verification_id":"ver-ready"}},{"record_key":"coverage-fef4c37e7bcc35b2cda2cc30","revision":1,"data":{"coverage":"Partially covered","evidence_ref":"evidence/2026-03-11","key":"coverage-fef4c37e7bcc35b2cda2cc30","local_day":"2026-03-11","receipt_id":"rcpt-ready-1","status":"partial","timezone":"America/Los_Angeles","verification_id":"ver-ready"}},{"record_key":"coverage-b43e0754c271c4182d526322","revision":1,"data":{"coverage":"Unavailable","evidence_ref":"evidence/2026-03-12","key":"coverage-b43e0754c271c4182d526322","local_day":"2026-03-12","receipt_id":"rcpt-ready-1","status":"unavailable","timezone":"America/Los_Angeles","verification_id":"ver-ready"}}]},{"id":"datasets","label":"Datasets","icon":"iconoir-database","span":12,"snapshot_key":"datasets","event_types":["datasets"],"supports_toolbar":false,"category":"data","order":20,"ui":{"schema_version":"1","views":{"console":{"renderer":"table","title":"Dataset catalog","options":{"columns":[{"bind":"label","label":"Dataset"},{"bind":"digest","label":"Digest"},{"bind":"origin","label":"Origin"},{"bind":"timezone","label":"Timezone"},{"bind":"scenarios","format":"number","label":"Scenarios"},{"bind":"records","label":"Records"},{"bind":"prerequisites","label":"Prerequisites"},{"bind":"actions","label":"Available actions"},{"bind":"unavailable","label":"Unavailable"}],"key_bind":"key"}}},"filters":[{"id":"origin","label":"Origin","kind":"select","bind":"origin","options":["Synthetic","Source-backed"]}]},"records":[{"record_key":"dataset-1a43cf1daf7d308aac185cf0","revision":1,"data":{"actions":"Validate, Prepare, Refresh, Verify, Activate","components":1,"dataset_id":"corpus-a","digest":"aaaaaaaaaaaa","key":"dataset-1a43cf1daf7d308aac185cf0","label":"crm/corpus-a v1","origin":"Synthetic","prerequisites":"audience-definitions","provider":"crm","records":"orders 40, people 120","samples":0,"scenarios":3,"source_contract_version":"","synthetic":true,"timezone":"America/Los_Angeles","unavailable":"Reset: unsupported (Preview target has no safe deactivation), Generate: not permitted (Requires the data custodian grant)","version":"1"}},{"record_key":"dataset-56abe205e7c8d46f9df99f30","revision":1,"data":{"actions":"Validate, Refresh, Verify, Activate","components":1,"dataset_id":"corpus-b","digest":"bbbbbbbbbbbb","key":"dataset-56abe205e7c8d46f9df99f30","label":"crm/corpus-b v2","origin":"Source-backed","prerequisites":"holiday-calendar","provider":"crm","records":"orders 40, people 120","samples":0,"scenarios":2,"source_contract_version":"","synthetic":false,"timezone":"America/Los_Angeles","unavailable":"Prepare: not permitted (Requires admin.data.prepare), Reset: unsupported (Preview target has no safe deactivation), Generate: not permitted (Requires the data custodian grant)","version":"2"}}]},{"id":"operations","label":"Operations","icon":"iconoir-flash","span":12,"snapshot_key":"operations","event_types":["operations"],"supports_toolbar":false,"category":"data","order":40,"ui":{"schema_version":"1","views":{"console":{"renderer":"table","title":"Operation history","options":{"columns":[{"bind":"operation_id","label":"Operation"},{"bind":"action","label":"Action"},{"bind":"outcome","label":"Outcome"},{"bind":"state","label":"State"},{"bind":"progress","label":"Progress"},{"bind":"target_id","label":"Target"},{"bind":"dry_run","format":"boolean","label":"Dry run"},{"bind":"updated_at","format":"datetime","label":"Updated"}],"key_bind":"key"}}},"filters":[{"id":"state","label":"State","kind":"select","bind":"state","options":["queued","running","succeeded","failed","canceled"]},{"id":"action","label":"Action","kind":"select","bind":"action","options":["Validate","Prepare","Refresh","Verify","Activate","Reset","Generate","Cancel"]}]},"records":[{"record_key":"op-0001","target_id":"preview","revision":2,"data":{"action":"Validate","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:01:00Z","dataset_label":"crm/corpus-b v2","dry_run":false,"key":"op-0001","kind":"validate","operation_id":"op-0001","outcome":"Validation found problems","phase":"accepted","progress":"","revision":2,"scenario_label":"backfill v1","state":"succeeded","target_id":"preview","updated_at":"2026-10-01T09:02:00Z"}},{"record_key":"op-0002","target_id":"preview","revision":2,"data":{"action":"Prepare","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:02:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"key":"op-0002","kind":"prepare","operation_id":"op-0002","outcome":"Accepted — not started","phase":"accepted","progress":"","revision":2,"scenario_label":"dst-week v1","state":"queued","target_id":"preview","updated_at":"2026-10-01T09:03:00Z"}},{"record_key":"op-0003","target_id":"preview","revision":2,"data":{"action":"Refresh","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:03:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"key":"op-0003","kind":"refresh","operation_id":"op-0003","outcome":"Running — preparing","phase":"preparing","progress":"40 of 100 · seed audiences","revision":2,"scenario_label":"ready v1","state":"running","target_id":"preview","updated_at":"2026-10-01T09:04:00Z"}},{"record_key":"op-0004","target_id":"preview","revision":2,"data":{"action":"Activate","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:04:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"failure_code":"stale_generation","key":"op-0004","kind":"activate","operation_id":"op-0004","outcome":"Failed — stale generation","phase":"accepted","progress":"","revision":2,"scenario_label":"empty-history v1","state":"failed","target_id":"preview","updated_at":"2026-10-01T09:05:00Z"}},{"record_key":"op-0005","target_id":"preview","revision":2,"data":{"action":"Prepare","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:05:00Z","dataset_label":"crm/corpus-b v2","dry_run":false,"failure_code":"canceled","key":"op-0005","kind":"prepare","operation_id":"op-0005","outcome":"Canceled","phase":"accepted","progress":"","revision":2,"scenario_label":"reprofiled v2","state":"canceled","target_id":"preview","updated_at":"2026-10-01T09:06:00Z"}},{"record_key":"op-0006","target_id":"staging","revision":2,"data":{"action":"Activate","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:06:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"key":"op-0006","kind":"activate","operation_id":"op-0006","outcome":"Recovering — writes paused","phase":"recovering","progress":"","revision":2,"scenario_label":"ready v1","state":"running","target_id":"staging","updated_at":"2026-10-01T09:07:00Z"}},{"record_key":"op-0007","target_id":"preview","revision":2,"data":{"action":"Verify","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:07:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"key":"op-0007","kind":"verify","operation_id":"op-0007","outcome":"Verified — not active","phase":"accepted","progress":"","revision":2,"scenario_label":"empty-history v1","state":"succeeded","target_id":"preview","updated_at":"2026-10-01T09:08:00Z"}},{"record_key":"op-0008","target_id":"preview","revision":2,"data":{"action":"Activate","active":true,"cancel_requested":false,"created_at":"2026-10-01T09:08:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"generation":3,"key":"op-0008","kind":"activate","operation_id":"op-0008","outcome":"Active — generation 3","phase":"accepted","progress":"","receipt_id":"rcpt-ready-1","revision":2,"scenario_label":"ready v1","state":"succeeded","target_id":"preview","updated_at":"2026-10-01T09:09:00Z"}},{"record_key":"op-0009","target_id":"preview","revision":2,"data":{"action":"Verify","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:09:00Z","dataset_label":"crm/corpus-a v1","dry_run":true,"key":"op-0009","kind":"verify","operation_id":"op-0009","outcome":"Dry run planned — nothing changed","phase":"accepted","progress":"","revision":2,"scenario_label":"dst-week v1","state":"succeeded","target_id":"preview","updated_at":"2026-10-01T09:10:00Z"}}]},{"id":"overview","label":"Overview","icon":"iconoir-home","span":12,"snapshot_key":"overview","event_types":["overview"],"supports_toolbar":false,"category":"data","order":10,"ui":{"schema_version":"1","views":{"console":{"renderer":"stack","sections":[{"renderer":"identity","title":"Active dataset","bind":"primary","options":{"chips":[{"bind":"target_id","empty":"None","label":"Target"},{"bind":"generation","empty":"None","format":"number","label":"Generation"},{"bind":"receipt_id","empty":"None","format":"mono","label":"Receipt"}],"empty":"Nothing active","eyebrow_bind":"status_label","subtitle_bind":"dataset_label","title_bind":"scenario_label","title_fallback_bind":"target_id"}},{"renderer":"metrics","title":"Summary","bind":"counts","options":{"metrics":[{"bind":"datasets","format":"number","label":"Datasets"},{"bind":"scenarios","format":"number","label":"Scenarios"},{"bind":"running","format":"number","label":"Running operations"},{"bind":"failed","format":"number","label":"Failed operations"}]}},{"renderer":"table","title":"Managed targets","bind":"targets","options":{"columns":[{"bind":"target_id","label":"Target"},{"bind":"status_label","label":"Status"},{"bind":"scenario_label","label":"Scenario"},{"bind":"dataset_label","label":"Dataset"},{"bind":"generation","format":"number","label":"Generation"},{"bind":"receipt_id","label":"Receipt"}],"key_bind":"key"}},{"renderer":"table","title":"Actions","bind":"capabilities","options":{"columns":[{"bind":"action","label":"Action"},{"bind":"availability","label":"Availability"},{"bind":"reason","label":"Reason"}],"key_bind":"key"}},{"renderer":"key_value","title":"Latest operation","bind":"latest_operation","options":{"fields":[{"bind":"operation_id","empty":"None","format":"mono","label":"Operation"},{"bind":"action","empty":"None","label":"Action"},{"bind":"outcome","empty":"None","format":"badge","label":"Outcome"},{"bind":"target_id","empty":"None","label":"Target"},{"bind":"progress","empty":"None","label":"Progress"},{"bind":"updated_at","empty":"None","format":"datetime","label":"Updated"}]}}]}},"count":{"bind":"targets","mode":"array_length"}},"records":[{"record_key":"summary","revision":5,"data":{"capabilities":[{"action":"Validate","availability":"Available","key":"validate","kind":"validate","permitted":true,"reason":"","supported":true},{"action":"Prepare","availability":"Available","key":"prepare","kind":"prepare","permitted":true,"reason":"","supported":true},{"action":"Refresh","availability":"Available","key":"refresh","kind":"refresh","permitted":true,"reason":"","supported":true},{"action":"Verify","availability":"Available","key":"verify","kind":"verify","permitted":true,"reason":"","supported":true},{"action":"Activate","availability":"Available","key":"activate","kind":"activate","permitted":true,"reason":"","supported":true},{"action":"Reset","availability":"Unsupported","key":"reset","kind":"reset","permitted":false,"reason":"Preview target has no safe deactivation","supported":false},{"action":"Generate","availability":"Not permitted","key":"generate","kind":"generate","permitted":false,"reason":"Requires the data custodian grant","supported":true}],"counts":{"datasets":2,"failed":1,"running":2,"scenarios":5,"targets":2},"latest_operation":{"action":"Activate","active":false,"cancel_requested":false,"created_at":"2026-10-01T09:04:00Z","dataset_label":"crm/corpus-a v1","dry_run":false,"failure_code":"stale_generation","key":"op-0004","kind":"activate","operation_id":"op-0004","outcome":"Failed — stale generation","phase":"accepted","progress":"","revision":2,"scenario_label":"empty-history v1","state":"failed","target_id":"preview","updated_at":"2026-10-01T09:05:00Z"},"primary":{"dataset_label":"crm/corpus-a v1","generation":3,"key":"preview","ready":true,"receipt_id":"rcpt-ready-1","scenario_label":"ready v1","status":"active","status_label":"Active","target_id":"preview"},"targets":[{"dataset_label":"crm/corpus-a v1","generation":3,"key":"preview","ready":true,"receipt_id":"rcpt-ready-1","scenario_label":"ready v1","status":"active","status_label":"Active","target_id":"preview"},{"generation":2,"key":"staging","ready":false,"receipt_id":"rcpt-ready-0","status":"recovery_required","status_label":"Recovery required","target_id":"staging"}]}}]},{"id":"scenarios","label":"Scenarios","icon":"iconoir-list","span":12,"snapshot_key":"scenarios","event_types":["scenarios"],"supports_toolbar":false,"category":"data","order":30,"ui":{"schema_version":"1","views":{"console":{"renderer":"table","title":"Scenario catalog","options":{"columns":[{"bind":"label","label":"Scenario"},{"bind":"dataset_label","label":"Dataset"},{"bind":"target_id","label":"Target"},{"bind":"status_label","label":"Status"},{"bind":"receipt_id","label":"Receipt"},{"bind":"profile","label":"Profile"}],"key_bind":"key"}}},"filters":[{"id":"status","label":"Status","kind":"select","bind":"status_label","options":["Active","Verified — not active","Changed since verification","Verification failed — not active","Prepared — not verified","Not prepared"]}]},"records":[{"record_key":"scenario-a07a50deab79211fb6f0d78e","target_id":"preview","revision":1,"data":{"active":true,"content_revision":2,"dataset_label":"crm/corpus-a v1","key":"scenario-a07a50deab79211fb6f0d78e","label":"ready v1","profile":"111111111111","receipt_id":"rcpt-ready-1","scenario_id":"ready","status":"active","status_label":"Active","target_id":"preview","version":"1"}},{"record_key":"scenario-067d422cc249b405a9343ebf","target_id":"preview","revision":1,"data":{"active":false,"content_revision":1,"dataset_label":"crm/corpus-a v1","key":"scenario-067d422cc249b405a9343ebf","label":"empty-history v1","profile":"222222222222","receipt_id":"rcpt-empty-1","scenario_id":"empty-history","status":"verified","status_label":"Verified — not active","target_id":"preview","version":"1"}},{"record_key":"scenario-fc74b4729b75ea2f57862239","target_id":"preview","revision":1,"data":{"active":false,"content_revision":1,"dataset_label":"crm/corpus-a v1","key":"scenario-fc74b4729b75ea2f57862239","label":"dst-week v1","profile":"333333333333","receipt_id":"rcpt-dst-1","scenario_id":"dst-week","status":"prepared","status_label":"Prepared — not verified","target_id":"preview","version":"1"}},{"record_key":"scenario-b4ed0674903bb0d1f729f092","target_id":"preview","revision":1,"data":{"active":false,"content_revision":3,"dataset_label":"crm/corpus-b v2","key":"scenario-b4ed0674903bb0d1f729f092","label":"reprofiled v2","profile":"444444444444","receipt_id":"rcpt-reprofiled-1","scenario_id":"reprofiled","status":"stale_verification","status_label":"Changed since verification","target_id":"preview","version":"2"}},{"record_key":"scenario-cb0046102660d6a65483708c","revision":1,"data":{"active":false,"dataset_label":"crm/corpus-b v2","key":"scenario-cb0046102660d6a65483708c","label":"backfill v1","profile":"555555555555","scenario_id":"backfill","status":"not_prepared","status_label":"Not prepared","target_id":"","version":"1"}}]},{"id":"verification","label":"Verification","icon":"iconoir-shield-check","span":12,"snapshot_key":"verification","event_types":["verification"],"supports_toolbar":false,"category":"data","order":50,"ui":{"schema_version":"1","views":{"console":{"renderer":"table","title":"Verification evidence","options":{"columns":[{"bind":"check_id","label":"Check"},{"bind":"result","label":"Result"},{"bind":"expected","label":"Expected"},{"bind":"actual","label":"Actual"},{"bind":"evidence_ref","label":"Evidence"},{"bind":"source","label":"Source"},{"bind":"operation_id","label":"Operation"},{"bind":"receipt_id","label":"Receipt"}],"key_bind":"key"}}},"filters":[{"id":"result","label":"Result","kind":"select","bind":"result","options":["Passed","Failed","Planned — not executed","Unavailable"]},{"id":"source","label":"Source","kind":"select","bind":"source","options":["Validation","Verification","Dry-run plan"]}]},"records":[{"record_key":"check-5af2bf2ed7bbac681c74987f","revision":1,"data":{"actual":"missing","check_id":"prerequisite.holiday-calendar","dry_run":false,"evidence_ref":"","expected":"present","key":"check-5af2bf2ed7bbac681c74987f","operation_id":"op-0001","receipt_id":"rcpt-ready-1","result":"Failed","source":"Validation","status":"failed","verification_id":""}},{"record_key":"check-2a2fc391861993059ea74dba","revision":1,"data":{"actual":"42 matches","check_id":"customer-search","dry_run":false,"evidence_ref":"evidence/search","expected":"42 matches","key":"check-2a2fc391861993059ea74dba","operation_id":"","receipt_id":"rcpt-ready-1","result":"Passed","source":"Verification","status":"passed","verification_id":"ver-ready"}},{"record_key":"check-1be538474f5d4f08c41db7d6","revision":1,"data":{"actual":"118 rows","check_id":"report-export","dry_run":false,"evidence_ref":"evidence/export","expected":"120 rows","key":"check-1be538474f5d4f08c41db7d6","operation_id":"","receipt_id":"rcpt-ready-1","result":"Failed","source":"Verification","status":"failed","verification_id":"ver-ready"}},{"record_key":"check-c4f64eeda693fd994a950837","revision":1,"data":{"actual":"","check_id":"analytics-render","dry_run":false,"evidence_ref":"","expected":"","key":"check-c4f64eeda693fd994a950837","operation_id":"","receipt_id":"rcpt-ready-1","result":"Unavailable","source":"Verification","status":"unavailable","verification_id":"ver-ready"}},{"record_key":"check-a7e6694540fb9f78378d9bf9","revision":1,"data":{"actual":"","check_id":"report-export","dry_run":true,"evidence_ref":"","expected":"120 rows","key":"check-a7e6694540fb9f78378d9bf9","operation_id":"op-0009","receipt_id":"rcpt-ready-1","result":"Planned — not executed","source":"Dry-run plan","status":"planned","verification_id":""}}]}]}}</script>
+</section>
+
+</div>
+
+      </div>
+
+      
+        
+          
+
+        
+      
+    </main>
+  </div>
+
+  <!-- Initialize toast manager globally -->
+  <script type="module" src="/admin/assets/dist/toast/init.js"></script>
+
+  
+  <script type="module" src="/admin/assets/dist/console/index.js"></script>
+  
+
+
+  <!-- Debug toolbar (only shown when debug.ToolbarMode is enabled) -->
+  
+
+</body>
+</html>

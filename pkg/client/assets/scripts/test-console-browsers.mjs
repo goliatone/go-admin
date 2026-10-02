@@ -62,7 +62,7 @@ function twoConsolePage() {
 
 function send(response, status, body, type = 'application/json; charset=utf-8') {
   response.writeHead(status, { 'content-type': type });
-  response.end(typeof body === 'string' ? body : JSON.stringify(body));
+  response.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
 const server = createServer((request, response) => {
@@ -117,12 +117,18 @@ async function eventually(probe, message, timeoutMs = 5000) {
 }
 
 async function attachHarness(page) {
-  const harness = { sockets: { data: [], ops: [] }, pageErrors: [], assetFailures: [] };
+  const harness = { sockets: { data: [], ops: [] }, pageErrors: [], assetFailures: [], debugAssets: [] };
   await page.routeWebSocket(/\/fixture\/(data|ops)\/ws/, (ws) => {
     const id = new URL(ws.url()).pathname.split('/')[2];
     harness.sockets[id].push(ws);
   });
   page.on('pageerror', (error) => harness.pageErrors.push(`${error.message}\n${error.stack || ''}`));
+  // Fixture hosts run with Debug disabled: the neutral runtime must not pull
+  // Debug entries, chunks or styles.
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (/^\/admin\/assets\/dist\/(debug\/|chunks\/debug-|styles\/debug\.css)/.test(path)) harness.debugAssets.push(path);
+  });
   page.on('response', (response) => {
     const path = new URL(response.url()).pathname;
     if (/^\/admin\/assets\/dist\/(console\/|chunks\/|styles\/console\.css)/.test(path) && !response.ok()) {
@@ -144,6 +150,7 @@ const bodyText = (page, id = 'data') =>
 
 function assertHealthy(label, harness) {
   check(harness.assetFailures.length === 0, `${label}: shipped console assets failed: ${harness.assetFailures.join(', ')}`);
+  check(harness.debugAssets.length === 0, `${label}: Debug assets loaded on a Debug-disabled host: ${harness.debugAssets.join(', ')}`);
   const consoleErrors = harness.pageErrors.filter((error) => /\/dist\/(console|chunks)\//.test(error));
   check(consoleErrors.length === 0, `${label}: console runtime threw: ${consoleErrors.join('\n')}`);
 }
@@ -164,7 +171,8 @@ async function verifyDesktop(label, browser, origin) {
     socket.send(JSON.stringify(golden.bootstrap.snapshot));
     socket.send(JSON.stringify(golden.upsert));
     await eventually(async () => /succeeded/.test(await bodyText(page)), `${label}: live upsert applied`);
-    check(await page.locator('[data-console-connection]').textContent() === 'Live', `${label}: connection indicator`);
+    check(await page.locator('[data-console-root] span[data-console-connection]').textContent() === 'Live', `${label}: connection indicator`);
+    check(await page.getAttribute('[data-console-root]', 'data-console-live') === 'connected', `${label}: root live state`);
 
     await page.focus('[data-console-tab="operations"]');
     await page.keyboard.press('ArrowRight');
@@ -182,6 +190,22 @@ async function verifyDesktop(label, browser, origin) {
     check(state.actions[0].panel === 'operations' && state.actions[0].action === 'preview', `${label}: action route`);
     check(state.actions[0].csrf === 'fixture-csrf', `${label}: CSRF header`);
     check(state.actions[0].body.dataset === 'baseline', `${label}: typed payload`);
+
+    // Grow filters widen along desktop rows but keep content height in the
+    // column action launcher; checkbox fields keep their native box.
+    const searchWidth = await page.evaluate(() => document.querySelector('[data-console-filters] .console-filter--grow')?.getBoundingClientRect().width ?? 0);
+    check(searchWidth >= 200, `${label}: search filter grows along the filter row (${searchWidth}px)`);
+    await page.click('[data-console-tab="targets"]');
+    await page.selectOption('select[data-panel-action-picker="targets"]', 'retry');
+    const launcher = await page.evaluate(() => {
+      const root = document.querySelector('[data-console-root]');
+      const picker = root.querySelector('[data-panel-action-launcher] > .console-filter--grow')?.getBoundingClientRect();
+      const checkbox = root.querySelector('[data-panel-action-choice="retry"] input[type="checkbox"]')?.getBoundingClientRect();
+      return { picker: picker ? picker.height : 0, checkbox: checkbox ? [checkbox.width, checkbox.height] : [] };
+    });
+    check(launcher.picker > 0 && launcher.picker <= 72, `${label}: action picker keeps content height (${launcher.picker}px)`);
+    check(launcher.checkbox.length === 2 && Math.max(...launcher.checkbox) <= 24, `${label}: checkbox field keeps its native size (${launcher.checkbox})`);
+    await page.click('[data-console-tab="operations"]');
 
     socket.send(JSON.stringify(golden.invalidate));
     await eventually(async () => (await page.getAttribute('[data-console-root]', 'data-console-sync')) === 'recovering', `${label}: invalidation holds events`);
@@ -218,11 +242,15 @@ async function verifyMobile(label, browser, origin, isMobile) {
       return {
         overflow: consoleRoot ? consoleRoot.scrollWidth - consoleRoot.clientWidth : 999,
         formDirection: form ? getComputedStyle(form).flexDirection : '',
+        fieldRatio: form ? form.querySelector('select').getBoundingClientRect().width / form.getBoundingClientRect().width : 0,
+        searchHeight: consoleRoot.querySelector('[data-console-filters] .console-filter--grow')?.getBoundingClientRect().height ?? 0,
         tabsScroll: getComputedStyle(consoleRoot.querySelector('[data-console-tabs]')).overflowX,
       };
     });
+    check(layout.searchHeight > 0 && layout.searchHeight <= 72, `${label}: stacked search filter keeps content height (${layout.searchHeight}px)`);
     check(layout.overflow <= 1, `${label}: console overflows a 375px viewport by ${layout.overflow}px`);
     check(layout.formDirection === 'column', `${label}: action form stacks on mobile (${layout.formDirection})`);
+    check(layout.fieldRatio > 0.9, `${label}: action fields span the mobile width (${layout.fieldRatio})`);
     check(layout.tabsScroll === 'auto', `${label}: tabs scroll horizontally`);
     await page.screenshot({ path: join(evidenceDir, `${label}-mobile.png`), fullPage: true });
     assertHealthy(`${label} mobile`, harness);
@@ -271,14 +299,75 @@ async function verifyTwoConsoles(label, browser, origin) {
   }
 }
 
+async function verifyRecoveryAndRegrant(label, browser, origin) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  try {
+    const page = await context.newPage();
+    const harness = await attachHarness(page);
+    state.revoked.clear();
+    let pending = null;
+    let requests = 0;
+    await page.route('**/fixture/data/api/snapshot', (route) => {
+      requests += 1;
+      pending = route;
+    });
+    await page.goto(`${origin}/fixture/console-page.html`);
+    await eventually(async () => harness.sockets.data.length === 1, `${label}: race fixture socket`);
+    const first = harness.sockets.data[0];
+    first.send(JSON.stringify(golden.bootstrap.snapshot));
+    const startRefresh = () => page.evaluate(async () => {
+      const { getMountedConsole } = await import('/admin/assets/dist/console/index.js');
+      globalThis.fixtureRecovery = getMountedConsole(document.querySelector('[data-console-root]')).refresh();
+    });
+    await startRefresh();
+    await eventually(() => Boolean(pending), `${label}: paused recovery request`);
+    first.send(JSON.stringify(golden.bootstrap.snapshot));
+    first.send(JSON.stringify(golden.upsert));
+    await eventually(async () => /succeeded/.test(await bodyText(page)), `${label}: newer live state`);
+    await pending.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(golden.bootstrap.snapshot) });
+    await page.evaluate(() => globalThis.fixtureRecovery);
+    check(/succeeded/.test(await bodyText(page)), `${label}: delayed HTTP snapshot cannot roll back live state`);
+
+    pending = null;
+    await startRefresh();
+    await eventually(() => Boolean(pending), `${label}: paused policy recovery request`);
+    const watermark = golden.upsert.sequence;
+    const denied = { ...golden.bootstrap.snapshot, watermark, panels: golden.bootstrap.snapshot.panels.filter((panel) => panel.id !== 'operations') };
+    first.send(JSON.stringify(denied));
+    await eventually(async () => await page.locator('[data-console-tab="operations"]').count() === 0, `${label}: panel removed`);
+    await pending.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...golden.bootstrap.snapshot, watermark }) });
+    await page.evaluate(() => globalThis.fixtureRecovery);
+    check(await page.locator('[data-console-tab="operations"]').count() === 0, `${label}: equal-watermark old response cannot restore denied panel`);
+    await eventually(() => harness.sockets.data.length === 2, `${label}: narrowed live selection`);
+    const narrowed = harness.sockets.data[1];
+    check(new URL(narrowed.url()).searchParams.get('panels') === 'targets,audit', `${label}: removed panel not requested`);
+    narrowed.send(JSON.stringify(denied));
+    const { sequence: _sequence, kind: _kind, panel_id: _panel, ...record } = golden.upsert;
+    const granted = { ...golden.bootstrap.snapshot, watermark, panels: golden.bootstrap.snapshot.panels.map((panel) => panel.id === 'operations' ? { ...panel, records: [record] } : panel) };
+    narrowed.send(JSON.stringify(granted));
+    await eventually(() => harness.sockets.data.length === 3, `${label}: regranted selection`);
+    const restored = harness.sockets.data[2];
+    check(new URL(restored.url()).searchParams.get('panels').includes('operations'), `${label}: regranted panel requested`);
+    restored.send(JSON.stringify(granted));
+    await page.click('[data-console-tab="operations"]');
+    restored.send(JSON.stringify({ ...golden.upsert, sequence: watermark + 1, revision: golden.upsert.revision + 1, data: { ...golden.upsert.data, state: 'verified' } }));
+    await eventually(async () => /verified/.test(await bodyText(page)), `${label}: regranted live event delivered`);
+    check(requests === 2, `${label}: regrant needs no extra HTTP polling`);
+    assertHealthy(`${label} recovery/regrant`, harness);
+  } finally {
+    await context.close();
+  }
+}
+
 async function verifyBrowser(label, browserType, isMobile, origin) {
   const browser = await browserType.launch({ headless: true });
   try {
     await verifyDesktop(label, browser, origin);
     await verifyMobile(label, browser, origin, isMobile);
     await verifyTwoConsoles(label, browser, origin);
+    await verifyRecoveryAndRegrant(label, browser, origin);
     const version = browser.version();
-    process.stdout.write(`✔ ${label} ${version}: shell, live recovery, keyboard, actions, revocation, mobile and two consoles\n`);
+    process.stdout.write(`✔ ${label} ${version}: shell, recovery races, regrant, keyboard, actions, revocation, mobile and two consoles\n`);
   } finally {
     await browser.close();
   }
