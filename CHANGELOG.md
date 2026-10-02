@@ -1,10 +1,24 @@
 # Changelog
 
+# [0.139.0](https://github.com/goliatone/go-admin/compare/v0.138.2...v0.139.0) - (2026-10-02)
+
+## <!-- 16 -->➕ Add
+
+- Data panel and module ([8e9f97d](https://github.com/goliatone/go-admin/commit/8e9f97dc94e807cead669e1c8f0b576c896031c3))  - (goliatone)
+- Debug console consolidation ([5b8463f](https://github.com/goliatone/go-admin/commit/5b8463fa962d3843fa9fb73adf0d893b95215d31))  - (goliatone)
+
 # [0.138.2](https://github.com/goliatone/go-admin/compare/v0.138.1...v0.138.2) - (2026-09-30)
+
+
+New patch release: v0.138.2
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Chart improvements ([8c0ce6c](https://github.com/goliatone/go-admin/commit/8c0ce6c12c20c27ac223726efa74439dd491a0b8))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.138.2 ([19b2fb4](https://github.com/goliatone/go-admin/commit/19b2fb472d831acd6b2be625a3f22b813b906e07))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 

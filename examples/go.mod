@@ -4,8 +4,9 @@ go 1.26.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.13
-	github.com/goliatone/go-admin v0.138.2
-	github.com/goliatone/go-admin/quickstart v0.138.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
+	github.com/goliatone/go-admin v0.139.0
+	github.com/goliatone/go-admin/quickstart v0.139.0
 	github.com/goliatone/go-auth v0.45.1
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2
@@ -103,7 +104,6 @@ require (
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.1 // indirect
 	github.com/goliatone/go-cache v0.3.1 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
