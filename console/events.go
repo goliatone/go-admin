@@ -57,7 +57,31 @@ func (s *EventStream) Watermark(identity Identity) uint64 {
 // canonical store, or assigned here when the stream is the revision authority.
 // Data is detached as JSON so retained/delivered records cannot alias providers.
 func (s *EventStream) Publish(event Event) (Event, error) {
-	if !event.Identity.Valid() || event.ConsoleID != s.consoleID || event.Sequence != 0 || event.PanelID == "" || event.Key == "" {
+	event, err := s.prepareEvent(event)
+	if err != nil {
+		return Event{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return Event{}, ErrClosed
+	}
+	if err := s.advanceEvent(&event); err != nil {
+		return Event{}, err
+	}
+	if event.Kind != EventUpsert {
+		event.Data = nil
+	}
+	for sub := range s.subscribers {
+		if sub.identity == event.Identity {
+			deliverConsoleEvent(sub.events, event)
+		}
+	}
+	return cloneEvent(event), nil
+}
+
+func (s *EventStream) prepareEvent(event Event) (Event, error) {
+	if !event.Valid() || event.ConsoleID != s.consoleID || event.Sequence != 0 || event.PanelID == "" || event.Key == "" {
 		return Event{}, ErrInvalidEvent
 	}
 	switch event.Kind {
@@ -69,69 +93,83 @@ func (s *EventStream) Publish(event Event) (Event, error) {
 	if err != nil || len(encoded) > 1<<20 {
 		return Event{}, ErrInvalidEvent
 	}
-	if err := json.Unmarshal(encoded, &event); err != nil {
+	var detached Event
+	if err := json.Unmarshal(encoded, &detached); err != nil {
 		return Event{}, ErrInvalidEvent
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
-		return Event{}, ErrClosed
-	}
+	return detached, nil
+}
+
+// advanceEvent runs under the stream lock and commits only valid revisions.
+func (s *EventStream) advanceEvent(event *Event) error {
 	key := eventRecordKey{event.Identity, event.PanelID, event.TargetID, event.Key}
 	prior, exists := s.revisions[key]
 	if event.Revision > MaxWireCounter || event.Generation > MaxWireCounter || prior.Revision == MaxWireCounter || s.watermarks[event.Identity] == MaxWireCounter {
-		return Event{}, ErrInvalidEvent
+		return ErrInvalidEvent
 	}
 	if event.Generation < prior.Generation {
-		return Event{}, ErrInvalidEvent
+		return ErrInvalidEvent
 	}
 	if !exists && len(s.revisions) >= s.capacity {
-		return Event{}, ErrCapacity
+		return ErrCapacity
 	}
 	if _, exists := s.watermarks[event.Identity]; !exists && len(s.watermarks) >= s.capacity {
-		return Event{}, ErrCapacity
+		return ErrCapacity
 	}
 	if event.Revision == 0 {
 		event.Revision = prior.Revision + 1
 	}
 	if event.Revision <= prior.Revision {
-		return Event{}, ErrInvalidEvent
+		return ErrInvalidEvent
 	}
 	event.Sequence = s.watermarks[event.Identity] + 1
 	s.revisions[key] = eventRevision{event.Generation, event.Revision}
 	s.watermarks[event.Identity] = event.Sequence
-	if event.Kind != EventUpsert {
-		event.Data = nil
+	return nil
+}
+
+func deliverConsoleEvent(events chan Event, event Event) {
+	// Each consumer gets a detached payload. On overflow, drop pending events
+	// and deliver recovery rather than silently leaving a stale cache.
+	select {
+	case events <- cloneEvent(event):
+		return
+	default:
 	}
-	for sub := range s.subscribers {
-		if sub.identity != event.Identity {
-			continue
-		}
-		// Each consumer gets a detached payload. On overflow, drop pending events
-		// and deliver recovery rather than silently leaving a stale cache.
-		copyEvent := cloneEvent(event)
+	for {
 		select {
-		case sub.events <- copyEvent:
+		case <-events:
 		default:
-		drain:
-			for {
-				select {
-				case <-sub.events:
-				default:
-					break drain
-				}
-			}
-			sub.events <- Event{Identity: event.Identity, Sequence: event.Sequence, Kind: EventInvalidate}
+			events <- Event{Identity: event.Identity, Sequence: event.Sequence, Kind: EventInvalidate}
+			return
 		}
 	}
-	return cloneEvent(event), nil
 }
 
 func cloneEvent(event Event) Event {
-	data, _ := json.Marshal(event)
-	var copyEvent Event
-	_ = json.Unmarshal(data, &copyEvent)
-	return copyEvent
+	// prepareEvent already decoded into a fresh Event, so Data contains only
+	// JSON maps, arrays and immutable scalar values; no provider callbacks remain.
+	event.Data = cloneEventData(event.Data)
+	return event
+}
+
+func cloneEventData(data any) any {
+	switch value := data.(type) {
+	case map[string]any:
+		copyData := make(map[string]any, len(value))
+		for key, item := range value {
+			copyData[key] = cloneEventData(item)
+		}
+		return copyData
+	case []any:
+		copyData := make([]any, len(value))
+		for i, item := range value {
+			copyData[i] = cloneEventData(item)
+		}
+		return copyData
+	default:
+		return value
+	}
 }
 
 func (s *EventStream) Subscribe(identity Identity, buffer int) (<-chan Event, func(), error) {

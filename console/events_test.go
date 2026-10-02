@@ -25,7 +25,7 @@ func TestEventStreamOverflowWithConcurrentConsumerDoesNotBlock(t *testing.T) {
 	}()
 	published := make(chan error, 1)
 	go func() {
-		for n := 0; n < 5000; n++ {
+		for range 5000 {
 			if _, err := s.Publish(Event{Identity: eventIdentity("alice"), PanelID: "operations", Record: Record{Key: "one"}, Kind: EventUpsert}); err != nil {
 				published <- err
 				return
@@ -41,7 +41,9 @@ func TestEventStreamOverflowWithConcurrentConsumerDoesNotBlock(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("overflow drain blocked on concurrent consumer")
 	}
-	_ = s.Close()
+	if closeErr := s.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
 	<-consumerDone
 }
 
@@ -64,7 +66,9 @@ func TestEventStreamOrderingIsolationOverflowAndClose(t *testing.T) {
 		t.Fatalf("first: %+v %v", first, err)
 	}
 	data["state"] = "mutated"
-	if received := <-aEvents; received.Data.(map[string]any)["state"] != "running" {
+	received := <-aEvents
+	receivedData, ok := received.Data.(map[string]any)
+	if !ok || receivedData["state"] != "running" {
 		t.Fatal("provider mutated retained event")
 	}
 	select {
@@ -76,7 +80,7 @@ func TestEventStreamOrderingIsolationOverflowAndClose(t *testing.T) {
 	if err != nil || deleted.Sequence != 2 || deleted.Revision != 2 {
 		t.Fatalf("delete: %+v %v", deleted, err)
 	}
-	if _, err := s.Publish(Event{Identity: a, PanelID: "operations", Record: Record{Key: "op", Generation: 1}, Kind: EventUpsert}); !errors.Is(err, ErrInvalidEvent) {
+	if _, publishErr := s.Publish(Event{Identity: a, PanelID: "operations", Record: Record{Key: "op", Generation: 1}, Kind: EventUpsert}); !errors.Is(publishErr, ErrInvalidEvent) {
 		t.Fatal("old generation resurrected tombstone")
 	}
 	_, err = s.Publish(Event{Identity: a, PanelID: "operations", Record: Record{Key: "op", Generation: 3}, Kind: EventUpsert})

@@ -34,7 +34,10 @@ func TestConsoleDashboardUsesSeparateProvidersAndRecordPolicy(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		panel := payload.Value().(ConsolePanelWidgetPayload)
+		panel, ok := payload.Value().(ConsolePanelWidgetPayload)
+		if !ok {
+			t.Fatalf("unexpected widget payload: %T", payload.Value())
+		}
 		if len(panel.Panel.Records) != 1 || len(panel.Panel.UI.Actions) != 0 {
 			t.Fatalf("dashboard reused action eligibility or leaked hidden rows: %+v", panel)
 		}

@@ -57,7 +57,11 @@ func consoleTestHost(t *testing.T, id string, revoked *atomic.Bool, execute *ato
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = h.Close() })
+	t.Cleanup(func() {
+		if closeErr := h.Close(); closeErr != nil {
+			t.Errorf("close console host: %v", closeErr)
+		}
+	})
 	return h
 }
 
@@ -112,7 +116,9 @@ func TestConsoleWatchIdleRevocationAndHostClose(t *testing.T) {
 				t.Fatal("missing snapshot")
 			}
 			if closeHost {
-				_ = h.Close()
+				if closeErr := h.Close(); closeErr != nil {
+					t.Fatal(closeErr)
+				}
 			} else {
 				revoked.Store(true)
 			}
@@ -290,7 +296,9 @@ func TestConsoleCloseCancelsInFlightProvider(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("provider did not start")
 	}
-	_ = h.Close()
+	if closeErr := h.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
 	select {
 	case err := <-result:
 		if !errors.Is(err, context.Canceled) {

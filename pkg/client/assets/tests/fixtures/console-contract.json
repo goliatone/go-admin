@@ -1,0 +1,412 @@
+{
+  "bootstrap": {
+    "console_id": "data",
+    "application_id": "crm",
+    "environment_id": "staging",
+    "actor_id": "operator-1",
+    "scope_key": "synthetic-org",
+    "title": "Data operations",
+    "urls": {
+      "page": "/fixture/data",
+      "panels": "/fixture/data/api/panels",
+      "snapshot": "/fixture/data/api/snapshot",
+      "actions": "/fixture/data/api/panels/:panel/actions/:action",
+      "preferences": "/fixture/data/api/preferences/panel-order",
+      "live": "/fixture/data/ws",
+      "lookup": "/fixture/data/api/panels/:panel/records/:record"
+    },
+    "preferences_namespace": "console:{\"console_id\":\"data\",\"application_id\":\"crm\",\"environment_id\":\"staging\",\"actor_id\":\"operator-1\",\"scope_key\":\"synthetic-org\"}",
+    "snapshot": {
+      "console_id": "data",
+      "application_id": "crm",
+      "environment_id": "staging",
+      "actor_id": "operator-1",
+      "scope_key": "synthetic-org",
+      "watermark": 21,
+      "panels": [
+        {
+          "id": "operations",
+          "label": "Operations",
+          "snapshot_key": "operations",
+          "event_types": [
+            "operations"
+          ],
+          "supports_toolbar": true,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "table",
+                "title": "Operations",
+                "options": {
+                  "columns": [
+                    {
+                      "bind": "name",
+                      "label": "Operation"
+                    },
+                    {
+                      "bind": "state",
+                      "label": "State"
+                    }
+                  ],
+                  "key_bind": "id"
+                }
+              }
+            },
+            "filters": [
+              {
+                "id": "state",
+                "label": "State",
+                "kind": "select",
+                "bind": "state",
+                "options": [
+                  "running",
+                  "succeeded"
+                ]
+              }
+            ],
+            "actions": [
+              {
+                "id": "preview",
+                "label": "Preview dataset",
+                "submit_label": "Run preview",
+                "fields": [
+                  {
+                    "name": "dataset",
+                    "label": "Dataset",
+                    "kind": "select",
+                    "required": true,
+                    "option_items": [
+                      {
+                        "value": "baseline",
+                        "label": "Baseline"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "records": [
+            {
+              "record_key": "op-1",
+              "revision": 3,
+              "data": {
+                "id": "op-1",
+                "name": "Seed \u003cbaseline\u003e",
+                "state": "running"
+              }
+            }
+          ]
+        },
+        {
+          "id": "targets",
+          "label": "Targets",
+          "snapshot_key": "targets",
+          "event_types": [
+            "targets"
+          ],
+          "supports_toolbar": true,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "status_list"
+              }
+            }
+          },
+          "records": []
+        },
+        {
+          "id": "audit",
+          "label": "Audit",
+          "snapshot_key": "audit",
+          "event_types": [
+            "audit"
+          ],
+          "supports_toolbar": true,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "timeline"
+              }
+            }
+          },
+          "records": [
+            {
+              "record_key": "a-1",
+              "revision": 1,
+              "data": {
+                "level": "info",
+                "message": "Reset requested",
+                "timestamp": "2026-10-01T10:00:00Z"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "invalidate": {
+    "console_id": "data",
+    "application_id": "crm",
+    "environment_id": "staging",
+    "actor_id": "operator-1",
+    "scope_key": "synthetic-org",
+    "panel_id": "",
+    "record_key": "",
+    "revision": 0,
+    "sequence": 30,
+    "kind": "invalidate"
+  },
+  "second_bootstrap": {
+    "console_id": "ops",
+    "application_id": "crm",
+    "environment_id": "staging",
+    "actor_id": "operator-2",
+    "scope_key": "synthetic-org",
+    "title": "Operations review",
+    "urls": {
+      "page": "/fixture/ops",
+      "panels": "/fixture/ops/api/panels",
+      "snapshot": "/fixture/ops/api/snapshot",
+      "actions": "/fixture/ops/api/panels/:panel/actions/:action",
+      "preferences": "/fixture/ops/api/preferences/panel-order",
+      "live": "/fixture/ops/ws",
+      "lookup": "/fixture/ops/api/panels/:panel/records/:record"
+    },
+    "preferences_namespace": "console:{\"console_id\":\"ops\",\"application_id\":\"crm\",\"environment_id\":\"staging\",\"actor_id\":\"operator-2\",\"scope_key\":\"synthetic-org\"}",
+    "snapshot": {
+      "console_id": "ops",
+      "application_id": "crm",
+      "environment_id": "staging",
+      "actor_id": "operator-2",
+      "scope_key": "synthetic-org",
+      "watermark": 21,
+      "panels": [
+        {
+          "id": "operations",
+          "label": "Operations",
+          "snapshot_key": "operations",
+          "event_types": [
+            "operations"
+          ],
+          "supports_toolbar": true,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "table",
+                "title": "Operations",
+                "options": {
+                  "columns": [
+                    {
+                      "bind": "name",
+                      "label": "Operation"
+                    },
+                    {
+                      "bind": "state",
+                      "label": "State"
+                    }
+                  ],
+                  "key_bind": "id"
+                }
+              }
+            },
+            "filters": [
+              {
+                "id": "state",
+                "label": "State",
+                "kind": "select",
+                "bind": "state",
+                "options": [
+                  "running",
+                  "succeeded"
+                ]
+              }
+            ],
+            "actions": [
+              {
+                "id": "preview",
+                "label": "Preview dataset",
+                "submit_label": "Run preview",
+                "fields": [
+                  {
+                    "name": "dataset",
+                    "label": "Dataset",
+                    "kind": "select",
+                    "required": true,
+                    "option_items": [
+                      {
+                        "value": "baseline",
+                        "label": "Baseline"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "records": [
+            {
+              "record_key": "op-1",
+              "revision": 3,
+              "data": {
+                "id": "op-1",
+                "name": "Seed \u003cbaseline\u003e",
+                "state": "running"
+              }
+            }
+          ]
+        },
+        {
+          "id": "targets",
+          "label": "Targets",
+          "snapshot_key": "targets",
+          "event_types": [
+            "targets"
+          ],
+          "supports_toolbar": true,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "status_list"
+              }
+            }
+          },
+          "records": []
+        },
+        {
+          "id": "audit",
+          "label": "Audit",
+          "snapshot_key": "audit",
+          "event_types": [
+            "audit"
+          ],
+          "supports_toolbar": true,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "timeline"
+              }
+            }
+          },
+          "records": [
+            {
+              "record_key": "a-1",
+              "revision": 1,
+              "data": {
+                "level": "info",
+                "message": "Reset requested",
+                "timestamp": "2026-10-01T10:00:00Z"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "upsert": {
+    "console_id": "data",
+    "application_id": "crm",
+    "environment_id": "staging",
+    "actor_id": "operator-1",
+    "scope_key": "synthetic-org",
+    "panel_id": "operations",
+    "record_key": "op-1",
+    "revision": 4,
+    "data": {
+      "id": "op-1",
+      "name": "Seed \u003cbaseline\u003e",
+      "state": "succeeded"
+    },
+    "sequence": 22,
+    "kind": "upsert"
+  },
+  "widget": {
+    "console_id": "data",
+    "application_id": "crm",
+    "environment_id": "staging",
+    "actor_id": "operator-1",
+    "scope_key": "synthetic-org",
+    "panel": {
+      "id": "operations",
+      "label": "Operations",
+      "snapshot_key": "operations",
+      "event_types": [
+        "operations"
+      ],
+      "supports_toolbar": true,
+      "ui": {
+        "schema_version": "1",
+        "views": {
+          "console": {
+            "renderer": "table",
+            "title": "Operations",
+            "options": {
+              "columns": [
+                {
+                  "bind": "name",
+                  "label": "Operation"
+                },
+                {
+                  "bind": "state",
+                  "label": "State"
+                }
+              ],
+              "key_bind": "id"
+            }
+          }
+        },
+        "filters": [
+          {
+            "id": "state",
+            "label": "State",
+            "kind": "select",
+            "bind": "state",
+            "options": [
+              "running",
+              "succeeded"
+            ]
+          }
+        ],
+        "actions": [
+          {
+            "id": "preview",
+            "label": "Preview dataset",
+            "submit_label": "Run preview",
+            "fields": [
+              {
+                "name": "dataset",
+                "label": "Dataset",
+                "kind": "select",
+                "required": true,
+                "option_items": [
+                  {
+                    "value": "baseline",
+                    "label": "Baseline"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "records": [
+        {
+          "record_key": "op-1",
+          "revision": 3,
+          "data": {
+            "id": "op-1",
+            "name": "Seed \u003cbaseline\u003e",
+            "state": "running"
+          }
+        }
+      ]
+    },
+    "watermark": 21
+  }
+}

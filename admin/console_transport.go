@@ -85,7 +85,7 @@ func (h *ConsoleHost) handleAction(c router.Context) error {
 	}
 	payload := map[string]any{}
 	if len(c.Body()) > 0 {
-		if err := json.Unmarshal(c.Body(), &payload); err != nil {
+		if decodeErr := json.Unmarshal(c.Body(), &payload); decodeErr != nil {
 			return writeError(c, validationDomainError("invalid console action JSON", nil))
 		}
 	}
@@ -206,7 +206,7 @@ func (h *ConsoleHost) registerLive(rt AdminRouter, auth router.MiddlewareFunc) {
 			return c.WriteJSON(value)
 		})
 		if errors.Is(err, ErrForbidden) {
-			_ = c.CloseWithStatus(1008, "console access changed")
+			err = preserveDebugWebSocketPrimaryError(err, c.CloseWithStatus(1008, "console access changed"))
 		}
 		return err
 	})
@@ -232,86 +232,94 @@ func (h *ConsoleHost) Watch(ctx context.Context, identity console.Identity, pane
 		return err
 	}
 	defer unsubscribe()
-	selected := map[string]bool{}
+	delivery := consoleWatchDelivery{host: h, ctx: ctx, identity: identity, selected: map[string]bool{}, send: send}
 	for _, panel := range panels {
 		if def, ok := h.panel(ctx, identity, panel); ok {
-			selected[def.ID] = true
+			delivery.selected[def.ID] = true
 		}
 	}
-	var watermark uint64
-	recoverSnapshot := func(invalidate bool) error {
-		snapshot, err := h.Snapshot(ctx, identity)
-		if err != nil {
-			return err
-		}
-		if invalidate {
-			if err := send(console.Event{Identity: identity, Kind: console.EventInvalidate, Sequence: snapshot.Watermark}); err != nil {
-				return err
-			}
-		}
-		if err := send(snapshot); err != nil {
-			return err
-		}
-		watermark = snapshot.Watermark
-		return nil
-	}
-	if err := recoverSnapshot(false); err != nil {
+	if err := delivery.recoverSnapshot(false); err != nil {
 		return err
 	}
-	ticker := time.NewTicker(h.config.RevalidateInterval)
+	return delivery.run(events)
+}
+
+type consoleWatchDelivery struct {
+	host      *ConsoleHost
+	ctx       context.Context
+	identity  console.Identity
+	selected  map[string]bool
+	watermark uint64
+	send      func(any) error
+}
+
+func (d *consoleWatchDelivery) recoverSnapshot(invalidate bool) error {
+	snapshot, err := d.host.Snapshot(d.ctx, d.identity)
+	if err != nil {
+		return err
+	}
+	if invalidate {
+		if err := d.send(console.Event{Identity: d.identity, Kind: console.EventInvalidate, Sequence: snapshot.Watermark}); err != nil {
+			return err
+		}
+	}
+	if err := d.send(snapshot); err != nil {
+		return err
+	}
+	d.watermark = snapshot.Watermark
+	return nil
+}
+
+func (d *consoleWatchDelivery) run(events <-chan console.Event) error {
+	ticker := time.NewTicker(d.host.config.RevalidateInterval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-d.ctx.Done():
 			return nil
-		case <-h.config.Invalidated:
+		case <-d.host.config.Invalidated:
 			// A closed signal is terminal: never spin on a closed channel.
 			return ErrForbidden
 		case <-ticker.C:
 			// Refresh authorization for cached records as well as future events.
 			// This bounds record-level idle revocation even without an invalidation hook.
-			if err := recoverSnapshot(true); err != nil {
+			if err := d.recoverSnapshot(true); err != nil {
 				return err
 			}
 		case event, ok := <-events:
 			if !ok {
 				return console.ErrClosed
 			}
-			if event.Sequence <= watermark {
-				continue
-			}
-			if event.Kind == console.EventInvalidate || event.Sequence != watermark+1 {
-				if err := recoverSnapshot(true); err != nil {
-					return err
-				}
-				continue
-			}
-			watermark = event.Sequence
-			currentCtx, _, err := h.current(ctx, identity)
-			if err != nil {
-				return err
-			}
-			if !selected[event.PanelID] || event.Identity != identity {
-				continue
-			}
-			if _, ok := h.panel(currentCtx, identity, event.PanelID); !ok {
-				delete(selected, event.PanelID)
-				if err := recoverSnapshot(true); err != nil {
-					return err
-				}
-				continue
-			}
-			record, allowed := h.projectRecord(currentCtx, identity, event.PanelID, event.Record)
-			if !allowed {
-				if err := recoverSnapshot(true); err != nil {
-					return err
-				}
-				continue
-			}
-			event.Record = record
-			if err := send(event); err != nil {
+			if err := d.deliverEvent(event); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+func (d *consoleWatchDelivery) deliverEvent(event console.Event) error {
+	if event.Sequence <= d.watermark {
+		return nil
+	}
+	if event.Kind == console.EventInvalidate || event.Sequence != d.watermark+1 {
+		return d.recoverSnapshot(true)
+	}
+	d.watermark = event.Sequence
+	currentCtx, _, err := d.host.current(d.ctx, d.identity)
+	if err != nil {
+		return err
+	}
+	if !d.selected[event.PanelID] || event.Identity != d.identity {
+		return nil
+	}
+	if _, ok := d.host.panel(currentCtx, d.identity, event.PanelID); !ok {
+		delete(d.selected, event.PanelID)
+		return d.recoverSnapshot(true)
+	}
+	record, allowed := d.host.projectRecord(currentCtx, d.identity, event.PanelID, event.Record)
+	if !allowed {
+		return d.recoverSnapshot(true)
+	}
+	event.Record = record
+	return d.send(event)
 }

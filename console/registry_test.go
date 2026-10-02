@@ -34,7 +34,7 @@ func TestRegistriesAndLegacyFacadeAreIndependent(t *testing.T) {
 	var legacy debug.PanelActionHandler = func(_ context.Context, req console.PanelActionRequest) (console.PanelActionResult, error) {
 		return debug.PanelActionResult{OK: req.PanelID == "operations"}, nil
 	}
-	var neutral console.PanelActionHandler = legacy
+	neutral := legacy
 	result, err := neutral(context.Background(), debug.PanelActionRequest{PanelID: "operations"})
 	if err != nil || !result.OK {
 		t.Fatal("legacy callback signature changed")

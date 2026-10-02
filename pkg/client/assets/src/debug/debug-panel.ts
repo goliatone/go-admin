@@ -292,8 +292,8 @@ export class DebugPanel {
   private commandRunReconcileFailures = 0;
   private commandRunSnapshotAbort: AbortController | null = null;
   private destroyed = false;
-  // Releases every element listener bound by this console on destroy().
-  private readonly listenerAbort = new AbortController();
+  // Removes every element listener bound by this console on destroy().
+  private readonly listenerCleanup: Array<() => void> = [];
   private readonly handleVisibilityChange = (): void => {
     if (this.destroyed) return;
     if (document.visibilityState === 'hidden') {
@@ -377,7 +377,7 @@ export class DebugPanel {
     this.sessionMetaEl = this.root.querySelector<HTMLElement>('[data-debug-session-meta]');
     this.sessionDetachEl = this.root.querySelector<HTMLButtonElement>('[data-debug-session-detach]');
     if (this.sessionDetachEl) {
-      this.sessionDetachEl.addEventListener('click', () => this.detachSession(), { signal: this.listenerAbort.signal });
+      this.listen(this.sessionDetachEl, 'click', () => this.detachSession());
     }
 
     this.sqlView = new SqlLiveView({
@@ -791,9 +791,13 @@ export class DebugPanel {
     return el as HTMLElement;
   }
 
+  private listen(target: EventTarget, type: string, handler: (event: Event) => void): void {
+    target.addEventListener(type, handler);
+    this.listenerCleanup.push(() => target.removeEventListener(type, handler));
+  }
+
   private bindActions(): void {
-    const { signal } = this.listenerAbort;
-    this.tabsEl.addEventListener('click', (event) => {
+    this.listen(this.tabsEl, 'click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
         return;
@@ -815,9 +819,9 @@ export class DebugPanel {
       } else {
         this.stopCommandRunReconciliation();
       }
-    }, { signal });
+    });
 
-    this.container.addEventListener('click', (event) => {
+    this.listen(this.container, 'click', (event) => {
       const target = event.target as HTMLElement | null;
       const button = target?.closest<HTMLButtonElement>('[data-debug-action]');
       if (!button || !this.container.contains(button)) {
@@ -840,9 +844,9 @@ export class DebugPanel {
         default:
           break;
       }
-    }, { signal });
+    });
 
-    this.panelEl.addEventListener('click', (event) => {
+    this.listen(this.panelEl, 'click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) {
         return;
@@ -860,14 +864,14 @@ export class DebugPanel {
       const confirmText = button.dataset.doctorActionConfirm || '';
       const requiresConfirmation = button.dataset.doctorActionRequiresConfirmation === 'true';
       this.runDoctorAction(checkID, confirmText, requiresConfirmation);
-    }, { signal });
+    });
 
-    this.panelEl.addEventListener(commandRunSelectionEvent, (event) => {
+    this.listen(this.panelEl, commandRunSelectionEvent, (event) => {
       if (this.activePanel !== 'command_runs') return;
       const detail = (event as CustomEvent<{ runID?: string }>).detail;
       const runID = typeof detail?.runID === 'string' ? detail.runID : '';
       if (runID) this.replacePanelURL('command_runs', runID);
-    }, { signal });
+    });
   }
 
   private renderTabs(): void {
@@ -2859,7 +2863,7 @@ export class DebugPanel {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    this.listenerAbort.abort();
+    this.listenerCleanup.splice(0).forEach((release) => release());
     this.replLoadGeneration += 1;
     this.jsonPathLoadGeneration += 1;
     this.replPanels.forEach((panel) => panel.destroy());

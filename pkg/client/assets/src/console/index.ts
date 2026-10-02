@@ -72,7 +72,6 @@ export {
   consoleIdentityNamespace,
   type ConsoleStorageArea,
   type ConsoleStorageProvider,
-  type LegacyPreferenceKey,
 } from './preferences.js';
 export {
   ConsoleLiveStream,

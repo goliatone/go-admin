@@ -71,32 +71,7 @@ func (m *DebugModule) registerDebugREPLShellWebSocket(admin *Admin) {
 		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
 	}
 	cfg := router.DefaultWebSocketConfig()
-	cfg.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
-		if m.consoleHost().closed() {
-			return nil, ErrForbidden
-		}
-		if c == nil {
-			return nil, ErrForbidden
-		}
-		var adminCtx AdminContext
-		wrap := admin.authWrapper()
-		err := wrap(func(c router.Context) error {
-			ctx, err := debugREPLAuthorizeRequest(admin, m.config, DebugREPLKindShell, true, c)
-			if err != nil {
-				return err
-			}
-			adminCtx = ctx
-			return nil
-		})(c)
-		if err != nil {
-			return nil, err
-		}
-		return router.UpgradeData{
-			debugREPLUpgradeAdminContext: adminCtx,
-			debugREPLUpgradeIP:           strings.TrimSpace(c.IP()),
-			debugREPLUpgradeUserAgent:    strings.TrimSpace(c.Header("User-Agent")),
-		}, nil
-	}
+	cfg.OnPreUpgrade = m.debugREPLPreUpgrade(admin, DebugREPLKindShell, true)
 	wsPath := debugRoutePath(admin, m.config, "admin.debug", "repl.shell")
 	if wsPath == "" {
 		wsPath = joinBasePath(basePath, debugREPLShellPathSuffix)

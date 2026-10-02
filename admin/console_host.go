@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -112,10 +113,8 @@ func (h *ConsoleHost) Register(ctx ModuleContext) error {
 	}
 	get := func(key string) string { return ctx.Routing.RoutePath(routing.SurfaceUI, h.config.ID+"."+key) }
 	h.routes = console.Routes{Page: get("page"), Panels: get("panels"), Snapshot: get("snapshot"), Action: get("action"), Preferences: get("preferences"), Live: get("live"), Lookup: get("lookup")}
-	for _, path := range []string{h.routes.Page, h.routes.Panels, h.routes.Snapshot, h.routes.Action, h.routes.Preferences, h.routes.Live, h.routes.Lookup} {
-		if path == "" {
-			return validationDomainError("console route contract is unresolved", nil)
-		}
+	if slices.Contains([]string{h.routes.Page, h.routes.Panels, h.routes.Snapshot, h.routes.Action, h.routes.Preferences, h.routes.Live, h.routes.Lookup}, "") {
+		return validationDomainError("console route contract is unresolved", nil)
 	}
 	if h.config.RenderPage == nil {
 		return validationDomainError("console requires a page renderer", nil)
@@ -211,9 +210,9 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 		if !allowed {
 			continue
 		}
-		records, err := h.config.Snapshot(ctx, identity, def.ID)
-		if err != nil {
-			return console.Snapshot{}, err
+		records, snapshotErr := h.config.Snapshot(ctx, identity, def.ID)
+		if snapshotErr != nil {
+			return console.Snapshot{}, snapshotErr
 		}
 		panel := console.PanelSnapshot{PanelDefinition: def, Records: []console.Record{}}
 		panel.Records = records
@@ -232,8 +231,8 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 		}
 		records := []console.Record{}
 		for _, record := range panel.Records {
-			if record, ok := h.projectRecord(currentCtx, identity, panel.ID, record); ok {
-				records = append(records, record)
+			if projected, allowed := h.projectRecord(currentCtx, identity, panel.ID, record); allowed {
+				records = append(records, projected)
 			}
 		}
 		panels = append(panels, console.PanelSnapshot{PanelDefinition: def, Records: records})

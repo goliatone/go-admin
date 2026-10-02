@@ -1,14 +1,14 @@
-import { t as p } from "./live-stream-BMaW00QB.js";
-import { normalizeDebugBasePath as c } from "../debug/shared/path-helpers.js";
-var d = 3e4, f = (e) => {
-  const t = window.location.protocol === "https:" ? "wss:" : "ws:", s = c(e);
+import { r as f, t as p } from "./live-stream-CyiSPucB.js";
+import { normalizeDebugBasePath as d } from "../debug/shared/path-helpers.js";
+var k = 3e4, m = (e) => {
+  const t = window.location.protocol === "https:" ? "wss:" : "ws:", s = d(e);
   return `${t}//${window.location.host}${s}/ws`;
-}, k = (e, t, s) => {
+}, T = (e, t, s) => {
   const r = e.trim();
   if (!r || !t || !s) return e;
-  const [o, i] = r.split("#"), n = `${o}${o.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(s)}`;
-  return i ? `${n}#${i}` : n;
-}, m = (e) => {
+  const [n, o] = r.split("#"), i = `${n}${n.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(s)}`;
+  return o ? `${i}#${o}` : i;
+}, b = (e) => {
   if (!e) return null;
   const t = e.replace(/-/g, "+").replace(/_/g, "/"), s = t.padEnd(t.length + (4 - (t.length % 4 || 4)) % 4, "=");
   try {
@@ -17,11 +17,11 @@ var d = 3e4, f = (e) => {
     return null;
   }
   return null;
-}, T = (e) => {
+}, y = (e) => {
   if (!e) return null;
   const t = e.split(".");
   if (t.length < 2) return null;
-  const s = m(t[1]);
+  const s = b(t[1]);
   if (!s) return null;
   try {
     const r = JSON.parse(s);
@@ -30,7 +30,7 @@ var d = 3e4, f = (e) => {
     return null;
   }
   return null;
-}, b = (e, t) => {
+}, g = (e, t) => {
   if (t) {
     if (typeof t.expiresInMs == "number" && t.expiresInMs > 0) return Date.now() + t.expiresInMs;
     const s = t.expiresAt ?? t.expires_at;
@@ -40,13 +40,13 @@ var d = 3e4, f = (e) => {
       if (!Number.isNaN(r.getTime())) return r.getTime();
     }
   }
-  return T(e);
-}, y = class extends p {
+  return y(e);
+}, R = class extends p {
   constructor(e) {
     super(e), this.snapshotRecoveryPending = !1;
   }
   getWebSocketURL() {
-    return this.options.url ? this.options.url : f(this.options.basePath || "");
+    return this.options.url ? this.options.url : m(this.options.basePath || "");
   }
   handleMessage(e) {
     const t = e;
@@ -89,26 +89,26 @@ var d = 3e4, f = (e) => {
   setStatus(e) {
     super.setStatus(e);
   }
-}, g = class extends y {
+}, w = class extends R {
   constructor(e) {
-    const { url: t, authToken: s, tokenProvider: r, tokenRefreshBufferMs: o, tokenParam: i, appId: n, onEvent: h, ...u } = e, l = (a) => {
-      if (n && a && !a.app_id) {
-        h?.({
+    const { url: t, authToken: s, tokenProvider: r, tokenRefreshBufferMs: n, tokenParam: o, appId: i, onEvent: u, ...l } = e, c = (a) => {
+      if (i && a && !a.app_id) {
+        u?.({
           ...a,
-          app_id: n
+          app_id: i
         });
         return;
       }
-      h?.(a);
+      u?.(a);
     };
     super({
-      ...u,
+      ...l,
       url: t,
-      onEvent: l
-    }), this.authToken = null, this.tokenRefreshTimer = null, this.tokenExpiresAt = null, this.baseUrl = t, this.tokenProvider = r, this.tokenRefreshBufferMs = o ?? d, this.tokenParam = i || "token", s && this.setToken(s);
+      onEvent: c
+    }), this.authToken = null, this.tokenRefreshTimer = null, this.tokenExpiresAt = null, this.baseUrl = t, this.tokenProvider = r, this.tokenRefreshBufferMs = n ?? k, this.tokenParam = o || "token", s && this.setToken(s);
   }
   getWebSocketURL() {
-    return this.authToken ? k(this.baseUrl, this.tokenParam, this.authToken) : this.baseUrl;
+    return this.authToken ? T(this.baseUrl, this.tokenParam, this.authToken) : this.baseUrl;
   }
   connect() {
     this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) || this.ensureToken().then((e) => {
@@ -129,7 +129,7 @@ var d = 3e4, f = (e) => {
     }, e);
   }
   setToken(e, t) {
-    this.authToken = e, this.tokenExpiresAt = b(e, t), this.scheduleTokenRefresh();
+    this.authToken = e, this.tokenExpiresAt = g(e, t), this.scheduleTokenRefresh();
   }
   tokenNeedsRefresh() {
     return this.tokenExpiresAt ? Date.now() + this.tokenRefreshBufferMs >= this.tokenExpiresAt : !1;
@@ -147,7 +147,7 @@ var d = 3e4, f = (e) => {
     }
   }
 };
-function S(e) {
+function x(e) {
   let t = null;
   return {
     load: () => (t || (t = e().catch((s) => {
@@ -158,10 +158,43 @@ function S(e) {
     }
   };
 }
+function h(e, t) {
+  try {
+    return t ? (e === "local" ? t.local : t.session) ?? null : (e === "local" ? globalThis.localStorage : globalThis.sessionStorage) ?? null;
+  } catch {
+    return null;
+  }
+}
+function P(e, t = null) {
+  const s = typeof e == "string" ? e.trim() : "", r = (n) => s ? f(s, n) : n;
+  return {
+    scoped: s !== "",
+    get: (n, o = "local") => {
+      try {
+        return h(o, t)?.getItem(r(n)) ?? null;
+      } catch {
+        return null;
+      }
+    },
+    set: (n, o, i = "local") => {
+      try {
+        h(i, t)?.setItem(r(n), o);
+      } catch {
+      }
+    },
+    remove: (n, o = "local") => {
+      try {
+        h(o, t)?.removeItem(r(n));
+      } catch {
+      }
+    }
+  };
+}
 export {
-  y as n,
-  g as r,
-  S as t
+  w as i,
+  x as n,
+  R as r,
+  P as t
 };
 
-//# sourceMappingURL=capability-loader-DZC_IOL_.js.map
+//# sourceMappingURL=browser-state-B2H0HF9F.js.map

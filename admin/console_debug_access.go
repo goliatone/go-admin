@@ -21,47 +21,12 @@ func debugCurrentContext(admin *Admin, cfg DebugConfig, ctx context.Context, per
 	if ctx.Err() != nil {
 		return ctx, ErrForbidden
 	}
-	before, hasBefore := auth.GetClaims(ctx)
-	var beforeID, beforeSubject string
-	if hasBefore && before != nil {
-		beforeID, beforeSubject = before.UserID(), before.Subject()
-	}
-	actor, hasActor := auth.ActorFromContext(ctx)
-	var priorActor auth.ActorContext
-	if hasActor && actor != nil {
-		priorActor = *actor
-	}
-	if cfg.ResolveCurrentContext != nil {
-		var err error
-		ctx, err = cfg.ResolveCurrentContext(ctx)
-		if err != nil || ctx == nil {
-			return ctx, ErrForbidden
-		}
-	} else if admin != nil {
-		if resolver, ok := admin.authenticator.(CurrentContextResolver); ok {
-			var err error
-			ctx, err = resolver.ResolveCurrentContext(ctx)
-			if err != nil || ctx == nil {
-				return ctx, ErrForbidden
-			}
-		}
-	}
-	if ctx.Err() != nil {
+	prior := debugContextIdentityFrom(ctx)
+	ctx, err := resolveDebugCurrentContext(admin, cfg, ctx)
+	if err != nil || ctx == nil || ctx.Err() != nil {
 		return ctx, ErrForbidden
 	}
-	after, hasAfter := auth.GetClaims(ctx)
-	if hasActor && actor != nil {
-		currentActor, ok := auth.ActorFromContext(ctx)
-		if !ok || currentActor == nil || currentActor.ActorID != priorActor.ActorID || currentActor.Subject != priorActor.Subject || currentActor.TenantID != priorActor.TenantID || currentActor.OrganizationID != priorActor.OrganizationID || currentActor.ImpersonatorID != priorActor.ImpersonatorID || currentActor.IsImpersonated != priorActor.IsImpersonated {
-			return ctx, ErrForbidden
-		}
-	}
-	if hasBefore && before != nil {
-		if !hasAfter || after == nil || beforeID != after.UserID() || beforeSubject != after.Subject() {
-			return ctx, ErrForbidden
-		}
-	}
-	if hasAfter && after != nil && !after.Expires().IsZero() && !time.Now().Before(after.Expires()) {
+	if !prior.matches(ctx) || debugClaimsExpired(ctx) {
 		return ctx, ErrForbidden
 	}
 	// Do not retain the HTTP request's permission-cache entries across deliveries.
@@ -72,6 +37,65 @@ func debugCurrentContext(admin *Admin, cfg DebugConfig, ctx context.Context, per
 		}
 	}
 	return ctx, nil
+}
+
+func resolveDebugCurrentContext(admin *Admin, cfg DebugConfig, ctx context.Context) (context.Context, error) {
+	if cfg.ResolveCurrentContext != nil {
+		return cfg.ResolveCurrentContext(ctx)
+	}
+	if admin != nil {
+		if resolver, ok := admin.authenticator.(CurrentContextResolver); ok {
+			return resolver.ResolveCurrentContext(ctx)
+		}
+	}
+	return ctx, nil
+}
+
+type debugContextIdentity struct {
+	hasClaims       bool
+	userID, subject string
+	hasActor        bool
+	actor           auth.ActorContext
+}
+
+func debugContextIdentityFrom(ctx context.Context) debugContextIdentity {
+	var identity debugContextIdentity
+	if claims, ok := auth.GetClaims(ctx); ok && claims != nil {
+		identity.hasClaims = true
+		identity.userID, identity.subject = claims.UserID(), claims.Subject()
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		identity.hasActor = true
+		identity.actor = *actor
+	}
+	return identity
+}
+
+func (prior debugContextIdentity) matches(ctx context.Context) bool {
+	if prior.hasActor {
+		actor, ok := auth.ActorFromContext(ctx)
+		if !ok || actor == nil || !debugActorsMatch(prior.actor, *actor) {
+			return false
+		}
+	}
+	if prior.hasClaims {
+		claims, ok := auth.GetClaims(ctx)
+		if !ok || claims == nil || prior.userID != claims.UserID() || prior.subject != claims.Subject() {
+			return false
+		}
+	}
+	return true
+}
+
+func debugActorsMatch(prior, current auth.ActorContext) bool {
+	return current.ActorID == prior.ActorID && current.Subject == prior.Subject &&
+		current.TenantID == prior.TenantID && current.OrganizationID == prior.OrganizationID &&
+		current.ImpersonatorID == prior.ImpersonatorID && current.IsImpersonated == prior.IsImpersonated
+}
+
+func debugClaimsExpired(ctx context.Context) bool {
+	claims, ok := auth.GetClaims(ctx)
+	return ok && claims != nil && !claims.Expires().IsZero() && !time.Now().Before(claims.Expires())
 }
 
 func (m *DebugModule) debugDeliveryInterval() time.Duration {
@@ -110,7 +134,7 @@ func (m *DebugModule) revalidateDebugSocket(c router.WebSocketContext, subscript
 	if err != nil {
 		// Tell the browser to clear retained records instead of reconnecting
 		// indefinitely with revoked authority. Keep the original policy error.
-		_ = c.CloseWithStatus(1008, "console access changed")
+		err = preserveDebugWebSocketPrimaryError(err, c.CloseWithStatus(1008, "console access changed"))
 	}
 	return err
 }

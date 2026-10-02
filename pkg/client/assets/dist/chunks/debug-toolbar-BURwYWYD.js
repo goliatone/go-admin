@@ -4,12 +4,12 @@ import { httpRequest as z, readExpectedHTTPJSON as C, readHTTPError as T } from 
 import { g as u, y as _ } from "./hydrate-mOOlPiY2.js";
 import { c as M, d as A, l as I, s as H } from "./avatar-DIbK-LSg.js";
 import { r as $ } from "./actions-zb2HbM0q.js";
-import { n as O } from "./capability-loader-DZC_IOL_.js";
-import { A as j, L as D, M as F, O as V, P as N, S as G, T as d, V as f, Y as B, _ as K, b as U, c as J, d as Y, f as Q, g as W, j as X, k as Z, l as ee, m as te, p as ae, u as oe, x as re, y as se } from "./builtin-panels-CIrbXjki.js";
-import { c as ne, f as ie, i as le, l as de, m as h, n as ce, o as y, p as g, r as k, s as S, u as pe } from "./runtime-helpers-BJB2ragE.js";
-import { n as he } from "./server-definitions-Dac0Clwk.js";
-import { i as be } from "./icons-CAenalpJ.js";
-var ue = `
+import { r as O, t as j } from "./browser-state-B2H0HF9F.js";
+import { A as D, L as F, M as V, O as N, P as G, S as B, T as d, V as f, Y as K, _ as U, b as J, c as Y, d as Q, f as W, g as X, j as Z, k as ee, l as te, m as ae, p as oe, u as re, x as se, y as ne } from "./builtin-panels-Bg2S-QDI.js";
+import { c as ie, f as le, i as de, l as ce, m as h, n as pe, o as y, p as g, r as k, s as S, u as he } from "./runtime-helpers-BJB2ragE.js";
+import { n as be } from "./server-definitions-Dac0Clwk.js";
+import { i as ue } from "./icons-CAenalpJ.js";
+var ge = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1403,7 +1403,7 @@ function v(c, e, t = 50, a) {
   const r = a?.newestFirst ?? !0, n = a?.slowThresholdMs ?? t;
   switch (c) {
     case "requests":
-      return re(e.requests || [], l, {
+      return se(e.requests || [], l, {
         newestFirst: r,
         slowThresholdMs: n,
         maxEntries: 50,
@@ -1414,7 +1414,7 @@ function v(c, e, t = 50, a) {
         maxDetailLength: 80
       });
     case "sql":
-      return D(e.sql || [], l, {
+      return F(e.sql || [], l, {
         newestFirst: r,
         slowThresholdMs: n,
         maxEntries: 50,
@@ -1422,7 +1422,7 @@ function v(c, e, t = 50, a) {
         useIconCopyButton: !1
       });
     case "logs":
-      return K(e.logs || [], l, {
+      return U(e.logs || [], l, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1436,7 +1436,7 @@ function v(c, e, t = 50, a) {
         showCount: !1
       });
     case "routes":
-      return ae(e.routes || [], l, { showName: !1 });
+      return oe(e.routes || [], l, { showName: !1 });
     case "template":
       return u("Template Context", e.template || {}, l, {
         useIconCopyButton: !1,
@@ -1448,14 +1448,14 @@ function v(c, e, t = 50, a) {
         showCount: !1
       });
     case "jserrors":
-      return oe(e.jserrors || [], l, {
+      return re(e.jserrors || [], l, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return Y(e.custom || {}, l, {
+      return Q(e.custom || {}, l, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1474,9 +1474,9 @@ function v(c, e, t = 50, a) {
   }
 }
 function P(c, e = 50) {
-  return pe(c, e);
+  return he(c, e);
 }
-var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-active-panel", w = class b extends HTMLElement {
+var qe = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-active-panel", w = class b extends HTMLElement {
   static get observedAttributes() {
     return [
       "base-path",
@@ -1491,7 +1491,7 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
   constructor() {
     super(), this.jserrorsExpanded = /* @__PURE__ */ new Set(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replLoadGeneration = 0, this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([["requests", !0], ["sql", !0]]), this.eventToPanel = {}, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.initializeGeneration = 0, this.panelActionResults = /* @__PURE__ */ new Map(), this.handleKeyDown = (e) => {
       (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "d" && (e.preventDefault(), this.toggleExpanded()), e.key === "Escape" && this.expanded && this.collapse();
-    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new se({
+    }, this.shadow = this.attachShadow({ mode: "open" }), this.sqlView = new ne({
       styles: d,
       copyOptions: { useIconFeedback: !1 },
       getQueries: () => this.snapshot.sql || [],
@@ -1505,8 +1505,8 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
       onNeedFullRender: () => this.updateContent()
     }), this.logsView = new f({
       styles: d,
-      keyOf: te,
-      renderRow: (e) => W(e, d, {
+      keyOf: ae,
+      renderRow: (e) => X(e, d, {
         showSource: !1,
         truncateMessage: !0,
         maxMessageLength: 100
@@ -1519,8 +1519,8 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
       containerSelector: "[data-request-table] tbody",
       rowSelector: "tr[data-request-id]",
       keyAttr: "data-request-id",
-      keyOf: G,
-      renderRow: (e) => U(e, d, {
+      keyOf: B,
+      renderRow: (e) => J(e, d, {
         slowThresholdMs: this.slowThresholdMs,
         truncatePath: !0,
         maxPathLength: 50,
@@ -1530,26 +1530,26 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("requests") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (e) => j(e, this.expandedRequests, { useIconFeedback: !1 })
+      onAdopt: (e) => D(e, this.expandedRequests, { useIconFeedback: !1 })
     }), this.jserrorsView = new f({
       styles: d,
-      keyOf: J,
-      renderRow: (e) => ee(e, d, { compact: !0 }),
+      keyOf: Y,
+      renderRow: (e) => te(e, d, { compact: !0 }),
       getRenderOptions: () => ({ newestFirst: this.panelSortOrder.get("jserrors") ?? !0 }),
       getMaxEntries: () => 50,
       onNeedFullRender: () => this.updateContent(),
-      onAdopt: (e) => X(e, {
+      onAdopt: (e) => Z(e, {
         tableSelector: "[data-live-list]",
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       }),
-      onRestore: (e) => N(e, {
+      onRestore: (e) => G(e, {
         rowSelector: "tr.expandable-row",
         keyAttr: "data-row-key",
         expanded: this.jserrorsExpanded
       })
-    }), this.registryLiveList = new Q({
+    }), this.registryLiveList = new W({
       styles: d,
       allowUpsert: !1,
       getRenderOptions: () => ({}),
@@ -1560,7 +1560,7 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(e) {
-    if (await he(this.debugPath), !this.isInitializationStale(e)) {
+    if (await be(this.debugPath), !this.isInitializationStale(e)) {
       if (this.eventToPanel = k(), this.unsubscribeRegistry = h.subscribe((t) => this.handleRegistryChange(t)), this.isInitializationStale(e)) {
         this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
         return;
@@ -1612,38 +1612,40 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
   fallbackActivePanel() {
     return this.panels[0] || "requests";
   }
+  browserState() {
+    return j(this.getAttribute("preferences-namespace"));
+  }
   loadState() {
+    const e = this.browserState();
     try {
-      const e = localStorage.getItem("debug-toolbar-expanded");
-      e !== null && (this.expanded = e === "true");
-      const t = localStorage.getItem("debug-toolbar-height");
-      if (t !== null) {
-        const r = parseInt(t, 10);
-        !isNaN(r) && r >= b.MIN_HEIGHT && (this.customHeight = r);
+      const t = e.get("debug-toolbar-expanded");
+      t !== null && (this.expanded = t === "true");
+      const a = e.get("debug-toolbar-height");
+      if (a !== null) {
+        const n = parseInt(a, 10);
+        !isNaN(n) && n >= b.MIN_HEIGHT && (this.customHeight = n);
       }
-      const a = localStorage.getItem("debug-toolbar-sort-order");
-      if (a) try {
-        const r = JSON.parse(a);
-        Object.entries(r).forEach(([n, s]) => {
-          this.panelSortOrder.set(n, s);
+      const o = e.get("debug-toolbar-sort-order");
+      if (o) try {
+        const n = JSON.parse(o);
+        Object.entries(n).forEach(([s, i]) => {
+          this.panelSortOrder.set(s, i);
         });
       } catch {
       }
-      const o = this.normalizeStoredPanelID(localStorage.getItem(L));
-      this.activePanel = o || this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
+      const r = this.normalizeStoredPanelID(e.get(L));
+      this.activePanel = r || this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     } catch {
       this.activePanel = this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     }
   }
   saveState() {
-    try {
-      localStorage.setItem("debug-toolbar-expanded", String(this.expanded)), this.customHeight !== null && localStorage.setItem("debug-toolbar-height", String(this.customHeight));
-      const e = {};
-      this.panelSortOrder.forEach((t, a) => {
-        e[a] = t;
-      }), localStorage.setItem("debug-toolbar-sort-order", JSON.stringify(e)), localStorage.setItem(L, this.activePanel);
-    } catch {
-    }
+    const e = this.browserState();
+    e.set("debug-toolbar-expanded", String(this.expanded)), this.customHeight !== null && e.set("debug-toolbar-height", String(this.customHeight));
+    const t = {};
+    this.panelSortOrder.forEach((a, o) => {
+      t[o] = a;
+    }), e.set("debug-toolbar-sort-order", JSON.stringify(t)), e.set(L, this.activePanel);
   }
   setupKeyboardShortcut() {
     document.addEventListener("keydown", this.handleKeyDown);
@@ -1698,7 +1700,7 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
     this.stream.subscribe(Array.from(e));
   }
   async fetchInitialSnapshot(e = this.initializeGeneration) {
-    const t = await le(this.debugPath);
+    const t = await de(this.debugPath);
     this.isInitializationStale(e) || t && this.applySnapshot(t);
   }
   handleEvent(e) {
@@ -1707,7 +1709,7 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
       this.applySnapshot(e.payload);
       return;
     }
-    const t = ce(this.snapshot, e, { eventToPanel: this.eventToPanel }) || e.type;
+    const t = pe(this.snapshot, e, { eventToPanel: this.eventToPanel }) || e.type;
     if (t === this.activePanel && this.expanded) if (t === "sql") this.sqlView.enqueue([e.payload]);
     else if (t === "logs") this.logsView.enqueue([e.payload]);
     else if (t === "requests") this.requestsView.enqueue([e.payload]);
@@ -1721,11 +1723,11 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
     this.connectionStatus = e, this.updateConnectionStatus();
   }
   applySnapshot(e) {
-    this.snapshot = e || {}, this.replCommands = ie(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = e || {}, this.replCommands = le(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
     const e = P(this.snapshot, this.slowThresholdMs), t = this.panels.map((s) => {
-      const i = de(s), m = this.getPanelCount(s), E = this.activePanel === s ? "active" : "", q = be(ne(s), {
+      const i = ce(s), m = this.getPanelCount(s), E = this.activePanel === s ? "active" : "", q = ue(ie(s), {
         size: "14px",
         extraClass: "tab-icon"
       });
@@ -1738,7 +1740,7 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
         `;
     }).join(""), a = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || b.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
     if (this.shadow.innerHTML = `
-      <style>${ue}</style>
+      <style>${ge}</style>
       <div class="toolbar ${a} ${o}" style="${n}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1960,7 +1962,7 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
       return;
     }
     const o = ++this.replLoadGeneration;
-    e.innerHTML = this.renderCapabilityLoading("terminal"), B().then(({ DebugReplPanel: r }) => {
+    e.innerHTML = this.renderCapabilityLoading("terminal"), K().then(({ DebugReplPanel: r }) => {
       if (o !== this.replLoadGeneration || !this.isConnected || this.activePanel !== t) return;
       const n = new r({
         kind: t === "shell" ? "shell" : "console",
@@ -2011,13 +2013,13 @@ var Ee = /* @__PURE__ */ R({ DebugToolbar: () => w }), x, L = "debug-toolbar-act
     r && (r.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    Z(this.shadow);
+    ee(this.shadow);
   }
   attachCopyListeners() {
-    V(this.shadow, { useIconFeedback: !1 });
+    N(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    F(this.shadow, (e, t) => {
+    V(this.shadow, (e, t) => {
       this.panelSortOrder.set(e, t), this.saveState(), this.updateContent();
     });
   }
@@ -2048,9 +2050,9 @@ x.DEFAULT_HEIGHT = 320;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", w);
 export {
   v as i,
-  Ee as n,
+  qe as n,
   P as r,
   w as t
 };
 
-//# sourceMappingURL=debug-toolbar-Bn_rJqCA.js.map
+//# sourceMappingURL=debug-toolbar-BURwYWYD.js.map

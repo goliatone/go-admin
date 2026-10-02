@@ -479,6 +479,42 @@ test('extension renderers stay instance-scoped and client definitions take prece
   runtime.destroy();
 });
 
+test('Go-generated wire golden mounts, applies live frames and renders widget payloads', async () => {
+  resetEnvironment();
+  const golden = JSON.parse(fs.readFileSync(path.resolve(dist, '../tests/fixtures/console-contract.json'), 'utf8'));
+  fetchRoute = (call) => (call.url === golden.bootstrap.urls.snapshot ? jsonResponse(golden.bootstrap.snapshot) : jsonResponse({}, 404));
+  const { root, runtime } = mount(golden.bootstrap, { live: true, snapshotWaitMs: 60000 });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  assert.deepEqual(runtime.getPanels(), ['operations', 'targets', 'audit']);
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
+  const socket = FakeSocket.instances[0];
+  assert.equal(socket.url, 'wss://admin.example.test/fixture/data/ws?panels=operations%2Ctargets%2Caudit');
+  socket.open();
+  socket.message(golden.bootstrap.snapshot);
+  socket.message(golden.upsert);
+  await waitFor(() => assert.deepEqual(rowTexts(root), ['Seed <baseline> succeeded']));
+  socket.message(golden.invalidate);
+  await settle();
+  assert.equal(root.dataset.consoleSync, 'recovering', 'a Go invalidation waits for the next snapshot');
+
+  const form = root.querySelector('form[data-panel-action-form]');
+  form.querySelector('select[data-action-field="dataset"]').value = 'baseline';
+  fetchRoute = (call) => (call.method === 'POST' ? jsonResponse({ ok: true, message: 'Queued' }) : jsonResponse(golden.bootstrap.snapshot));
+  form.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
+  await waitFor(() => assert.ok(fetchCalls.some((call) => call.method === 'POST')));
+  assert.equal(fetchCalls.find((call) => call.method === 'POST').url, '/fixture/data/api/panels/operations/actions/preview', 'Go route templates resolve with encoded IDs');
+  runtime.destroy();
+
+  const widgetRoot = createRoot({}, 'data-console-display');
+  widgetRoot.querySelector('script').remove();
+  widgetRoot.insertAdjacentHTML('beforeend', `<script type="application/json" data-console-widget>${JSON.stringify(golden.widget).replace(/</g, '\\u003c')}</script>`);
+  const widget = mountConsole(widgetRoot);
+  await waitFor(() => assert.equal(widget.getState(), 'ready'));
+  assert.match(widgetRoot.querySelector('[data-console-panel]').textContent, /Seed <baseline>/);
+  assert.equal(widgetRoot.querySelector('form'), null);
+  widget.destroy();
+});
+
 test('console bundle carries no Debug runtime and Debug facades keep their contracts', async () => {
   const closure = new Set();
   const pending = [path.resolve(dist, 'console/index.js')];

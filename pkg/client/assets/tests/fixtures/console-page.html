@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en" class="admin-shell-root">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Data operations</title>
+  
+  <meta name="csrf-token" content="fixture-csrf">
+  <script src="/admin/assets/sidebar-state.js" data-admin-sidebar-state></script>
+  <script src="/admin/assets/dist/runtime/go-admin-browser.js"></script>
+  
+  <link rel="stylesheet" href="/admin/assets/dist/third-party/iconoir/iconoir.css">
+  
+  <link rel="stylesheet" href="/admin/formgen/formgen-vanilla.css">
+  
+  <link rel="stylesheet" href="/admin/assets/output.css">
+  
+  <link rel="stylesheet" href="/admin/assets/dist/third-party/simple-datatables/style.css">
+  
+  <!-- Pre-load ECharts for dashboard charts -->
+  
+  <script src="/admin/assets/dist/third-party/echarts/echarts.min.js"></script>
+  
+  
+  
+
+  
+  
+  <link rel="stylesheet" href="/admin/assets/dist/styles/console.css">
+  
+
+</head>
+<body class="admin-theme-root font-sans bg-gray-50 text-gray-900 leading-normal flex h-screen overflow-hidden " data-theme="default">
+  <!-- Toast notification container -->
+  
+<div id="toast-container" class="toast-container"></div>
+
+
+  <div class="admin-layout flex w-full h-screen overflow-hidden" data-admin-shell>
+    
+      
+        <button id="sidebar-mobile-toggle"
+        type="button"
+        class="sidebar-mobile-toggle"
+        aria-label="Open navigation"
+        aria-controls="sidebar"
+        aria-expanded="false">
+  <i class="iconoir-menu" aria-hidden="true"></i>
+</button>
+<div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true" hidden></div>
+<aside id="sidebar"
+       class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden"
+       data-collapsed="false"
+       data-mobile-open="false"
+       data-collapse-placement="header"
+       data-compact-footer="false"
+       aria-label="Admin navigation"
+       style="width: var(--admin-sidebar-width, var(--sidebar-width, 260px));">
+  <div class="sidebar-header flex items-center gap-2" style="padding: var(--admin-sidebar-header-padding-block-start, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px)))) var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px))) var(--admin-sidebar-header-padding-block-end, var(--admin-sidebar-padding-block, var(--sidebar-padding-y, var(--space-surface, 12px))));">
+    <a href="/admin/" class="sidebar-brand-link flex items-center no-underline flex-1 min-w-0 overflow-hidden">
+      <span class="sidebar-brand sidebar-brand-expanded">
+        
+        <img src="/admin/assets/logo.svg" alt="Data operations" class="sidebar-logo" />
+        
+      </span>
+      <span class="sidebar-brand sidebar-brand-collapsed" aria-hidden="true">
+        
+        <img src="/admin/assets/logo.svg" alt="" class="sidebar-logo sidebar-logo-compact" />
+        
+      </span>
+    </a>
+    
+    <button id="sidebar-toggle"
+            type="button"
+            class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0"
+            aria-label="Collapse sidebar"
+            aria-controls="sidebar-navigation"
+            aria-expanded="true">
+      
+    </button>
+    
+  </div>
+
+  
+  
+  <div class="sidebar-search-container px-3 pb-3">
+    <div class="relative">
+      <input type="text"
+             class="w-full h-9 pl-9 pr-12 bg-sidebar-bg-hover border border-sidebar-border rounded-lg text-sm text-sidebar-text placeholder-sidebar-text-muted focus:outline-none focus:border-sidebar-text-muted"
+             placeholder="Search">
+      <i class="iconoir-search absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-text-muted text-base"></i>
+      <kbd class="absolute right-3 top-1/2 -translate-y-1/2">⌘K</kbd>
+    </div>
+  </div>
+  
+
+  <nav id="sidebar-navigation" class="sidebar-navigation flex-1 overflow-y-auto" style="padding: 0 var(--admin-sidebar-padding-inline, var(--sidebar-padding-x, var(--space-surface, 12px)));">
+    
+    
+  </nav>
+
+  
+
+  <div class="sidebar-bottom sidebar-user-footer border-t border-sidebar-border">
+    <div class="sidebar-user-footer-inner pt-3 pb-3 relative">
+      <button id="user-menu-toggle" class="sidebar-user-toggle flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
+        <div class="relative flex-shrink-0">
+          
+            <div class="sidebar-user-avatar w-9 h-9 sidebar-avatar rounded-full flex items-center justify-center font-semibold text-sm">
+              ?
+            </div>
+          
+          
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 sidebar-presence-dot border-2 rounded-full"></span>
+          
+        </div>
+        <div class="flex-1 min-w-0 sidebar-user-info">
+          <div class="sidebar-user-name text-sm font-medium text-sidebar-text truncate">
+            Guest
+          </div>
+          <div class="sidebar-user-detail text-xs text-sidebar-text-muted truncate">
+            Online
+          </div>
+        </div>
+        
+          <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
+        
+      </button>
+
+      <div id="user-menu" class="hidden absolute bottom-full left-0 right-0 mb-2 bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl overflow-hidden" style="margin-left: 12px; margin-right: 12px;">
+        <div class="flex items-center gap-3 p-4 border-b border-sidebar-border">
+          <div class="relative flex-shrink-0">
+            
+              <div class="w-12 h-12 sidebar-avatar rounded-xl flex items-center justify-center font-semibold text-base">
+                ?
+              </div>
+            
+            
+              <span class="absolute bottom-0 right-0 w-3 h-3 sidebar-presence-dot border-2 rounded-full"></span>
+            
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-base font-semibold text-sidebar-text truncate">
+              Guest
+            </div>
+            <div class="sidebar-user-detail text-sm text-sidebar-text-muted truncate">
+              Online
+            </div>
+          </div>
+        </div>
+
+        <div class="p-2">
+          <form method="post" action="/admin/logout">
+            
+            <button type="submit" class="flex w-full items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors text-left bg-transparent border-0">
+              <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
+              <span class="flex-1 text-sm">Log out</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+      
+    
+    <script src="/admin/assets/sidebar.js"></script>
+    <main class="admin-main flex-1 min-w-0 flex flex-col overflow-hidden" data-admin-shell-main>
+      
+
+
+      
+      
+      <header class="admin-page-header px-8 py-3 bg-white border-b border-gray-200" data-admin-page-header>
+        <div class="admin-page-header__row flex items-center justify-between gap-4">
+          <div class="admin-page-heading-group flex items-center gap-4 min-w-0 flex-1">
+            
+              
+            
+            <div class="admin-page-header__titles min-w-0 flex-1">
+              
+              <h1 class="admin-page-header__title text-2xl font-bold text-gray-900 truncate">Data operations</h1>
+              
+            </div>
+          </div>
+          <div class="admin-page-header__actions flex items-center gap-3 flex-shrink-0" data-admin-page-actions>
+            
+          </div>
+        </div>
+      </header>
+      
+      
+
+      
+
+      <div class="admin-shell-content flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden" data-admin-shell-content>
+        
+
+<section class="console-root" data-console-root data-console-id="data" aria-label="Data operations">
+  <div class="console-header">
+    <div class="console-header__lead"></div>
+    <div class="console-header__actions">
+      
+      <span class="console-connection" data-console-status data-status="offline">
+        <span class="console-connection__dot" aria-hidden="true"></span>
+        <span data-console-connection>Not live</span>
+      </span>
+      <button type="button" class="console-btn" data-console-action="refresh">Refresh</button>
+    </div>
+  </div>
+  <div class="console-notice" data-console-notice hidden></div>
+  <nav class="console-tabs" data-console-tabs aria-label="Data operations panels" hidden></nav>
+  <div class="console-filters" data-console-filters hidden></div>
+  <section class="console-panel" data-console-panel></section>
+  
+  <script type="application/json" data-console-bootstrap>{"console_id":"data","application_id":"crm","environment_id":"staging","actor_id":"operator-1","scope_key":"synthetic-org","title":"Data operations","urls":{"page":"/fixture/data","panels":"/fixture/data/api/panels","snapshot":"/fixture/data/api/snapshot","actions":"/fixture/data/api/panels/:panel/actions/:action","preferences":"/fixture/data/api/preferences/panel-order","live":"/fixture/data/ws","lookup":"/fixture/data/api/panels/:panel/records/:record"},"preferences_namespace":"console:{\"console_id\":\"data\",\"application_id\":\"crm\",\"environment_id\":\"staging\",\"actor_id\":\"operator-1\",\"scope_key\":\"synthetic-org\"}","snapshot":{"console_id":"data","application_id":"crm","environment_id":"staging","actor_id":"operator-1","scope_key":"synthetic-org","watermark":21,"panels":[{"id":"operations","label":"Operations","snapshot_key":"operations","event_types":["operations"],"supports_toolbar":true,"ui":{"schema_version":"1","views":{"console":{"renderer":"table","title":"Operations","options":{"columns":[{"bind":"name","label":"Operation"},{"bind":"state","label":"State"}],"key_bind":"id"}}},"filters":[{"id":"state","label":"State","kind":"select","bind":"state","options":["running","succeeded"]}],"actions":[{"id":"preview","label":"Preview dataset","submit_label":"Run preview","fields":[{"name":"dataset","label":"Dataset","kind":"select","required":true,"option_items":[{"value":"baseline","label":"Baseline"}]}]}]},"records":[{"record_key":"op-1","revision":3,"data":{"id":"op-1","name":"Seed \u003cbaseline\u003e","state":"running"}}]},{"id":"targets","label":"Targets","snapshot_key":"targets","event_types":["targets"],"supports_toolbar":true,"ui":{"schema_version":"1","views":{"console":{"renderer":"status_list"}}},"records":[]},{"id":"audit","label":"Audit","snapshot_key":"audit","event_types":["audit"],"supports_toolbar":true,"ui":{"schema_version":"1","views":{"console":{"renderer":"timeline"}}},"records":[{"record_key":"a-1","revision":1,"data":{"level":"info","message":"Reset requested","timestamp":"2026-10-01T10:00:00Z"}}]}]}}</script>
+</section>
+
+
+      </div>
+
+      
+        
+          
+
+        
+      
+    </main>
+  </div>
+
+  <!-- Initialize toast manager globally -->
+  <script type="module" src="/admin/assets/dist/toast/init.js"></script>
+
+  
+  <script type="module" src="/admin/assets/dist/console/index.js"></script>
+  
+
+
+  <!-- Debug toolbar (only shown when debug.ToolbarMode is enabled) -->
+  
+
+</body>
+</html>

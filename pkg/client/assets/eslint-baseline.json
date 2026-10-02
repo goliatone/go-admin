@@ -292,31 +292,31 @@
     },
     {
       "file": "src/debug/debug-panel.ts",
-      "line": 1172,
+      "line": 1177,
       "column": 3,
       "rule": "complexity"
     },
     {
       "file": "src/debug/debug-panel.ts",
-      "line": 1295,
+      "line": 1300,
       "column": 3,
       "rule": "complexity"
     },
     {
       "file": "src/debug/debug-panel.ts",
-      "line": 1384,
+      "line": 1389,
       "column": 3,
       "rule": "complexity"
     },
     {
       "file": "src/debug/debug-panel.ts",
-      "line": 2228,
+      "line": 2233,
       "column": 3,
       "rule": "complexity"
     },
     {
       "file": "src/debug/debug-panel.ts",
-      "line": 901,
+      "line": 906,
       "column": 3,
       "rule": "complexity"
     },
@@ -400,19 +400,19 @@
     },
     {
       "file": "src/debug/shared/panels/command-launcher.ts",
-      "line": 1357,
+      "line": 1356,
       "column": 50,
       "rule": "@typescript-eslint/no-unused-vars"
     },
     {
       "file": "src/debug/shared/panels/command-launcher.ts",
-      "line": 727,
+      "line": 728,
       "column": 8,
       "rule": "complexity"
     },
     {
       "file": "src/debug/shared/panels/command-launcher.ts",
-      "line": 815,
+      "line": 816,
       "column": 8,
       "rule": "complexity"
     },
@@ -436,7 +436,7 @@
     },
     {
       "file": "src/debug/toolbar/debug-toolbar.ts",
-      "line": 723,
+      "line": 726,
       "column": 3,
       "rule": "complexity"
     },

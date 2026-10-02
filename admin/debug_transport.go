@@ -592,7 +592,7 @@ func debugPanelOrderStorageKey(m *DebugModule, ctx context.Context, userID strin
 	if m.config.AppID == "" && m.config.Environment == "" && tenant == "" && org == "" {
 		return debugPanelOrderPreferenceKey
 	}
-	scope, _ := json.Marshal([]string{tenant, org})
+	scope, _ := json.Marshal([]string{tenant, org}) //nolint:errcheck // A string slice is always JSON-encodable.
 	identity := console.Identity{ConsoleID: debugModuleID, ApplicationID: m.config.AppID, EnvironmentID: m.config.Environment, ActorID: userID, ScopeKey: string(scope)}
 	return debugPanelOrderPreferenceKey + ":" + identity.Namespace()
 }
@@ -1659,7 +1659,7 @@ func registerDebugDashboardWebSocket[T any](r router.Router[T], path string, hoo
 			if err == nil {
 				adminCtx.Context = currentCtx
 			} else {
-				_ = ws.CloseWithStatus(1008, "console access changed")
+				err = preserveDebugWebSocketPrimaryError(err, ws.CloseWithStatus(1008, "console access changed"))
 			}
 			return err
 		}

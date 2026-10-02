@@ -286,3 +286,29 @@ func debugREPLResourceRoles(resourceRolesMap map[string]string) []string {
 	}
 	return resourceRoles
 }
+
+func (m *DebugModule) debugREPLPreUpgrade(admin *Admin, kind string, requireExec bool) func(router.Context) (router.UpgradeData, error) {
+	return func(c router.Context) (router.UpgradeData, error) {
+		if m.consoleHost().closed() || c == nil {
+			return nil, ErrForbidden
+		}
+		var adminCtx AdminContext
+		wrap := admin.authWrapper()
+		err := wrap(func(c router.Context) error {
+			ctx, err := debugREPLAuthorizeRequest(admin, m.config, kind, requireExec, c)
+			if err != nil {
+				return err
+			}
+			adminCtx = ctx
+			return nil
+		})(c)
+		if err != nil {
+			return nil, err
+		}
+		return router.UpgradeData{
+			debugREPLUpgradeAdminContext: adminCtx,
+			debugREPLUpgradeIP:           strings.TrimSpace(c.IP()),
+			debugREPLUpgradeUserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+		}, nil
+	}
+}

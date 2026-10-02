@@ -23,7 +23,7 @@ func (i Identity) Valid() bool {
 
 // Namespace is an unambiguous storage key, including when IDs contain separators.
 func (i Identity) Namespace() string {
-	value, _ := json.Marshal(i)
+	value, _ := json.Marshal(i) //nolint:errcheck // Identity contains only strings, which JSON marshaling cannot reject.
 	return string(value)
 }
 

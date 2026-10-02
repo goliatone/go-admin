@@ -1,24 +1,28 @@
-var c = 1e3, r = 12e3, a = 8, h = 1, l = 1e4;
-function u(t) {
+var c = "go-admin:console:";
+function m(t, e) {
+  return `${c}${t}:${e}`;
+}
+var r = 1e3, a = 12e3, h = 8, l = 1, u = 1e4;
+function d(t) {
   const e = (t || "").trim();
   if (!e) return "";
   if (/^wss?:\/\//i.test(e)) return e;
   if (typeof window > "u" || !window.location) return "";
   try {
-    const s = new URL(e, window.location.href);
-    if (s.protocol === "http:" || s.protocol === "https:")
-      return s.protocol = s.protocol === "https:" ? "wss:" : "ws:", s.toString();
+    const n = new URL(e, window.location.href);
+    if (n.protocol === "http:" || n.protocol === "https:")
+      return n.protocol = n.protocol === "https:" ? "wss:" : "ws:", n.toString();
   } catch {
     return "";
   }
   return "";
 }
-var d = class {
+var f = class {
   constructor(t) {
     this.ws = null, this.reconnectTimer = null, this.reconnectStabilityTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.pendingCommands = [], this.status = "disconnected", this.hasConnected = !1, this.options = t;
   }
   getWebSocketURL() {
-    return u(this.options.url || "");
+    return d(this.options.url || "");
   }
   handleMessage(t) {
     this.options.onMessage?.(t);
@@ -36,26 +40,26 @@ var d = class {
     const e = new WebSocket(t);
     this.ws = e, e.onopen = () => {
       this.ws === e && (this.hasConnected = !0, this.scheduleReconnectBudgetReset(e), this.setStatus("connected"), this.flushPending());
-    }, e.onmessage = (s) => {
-      if (this.ws === e && !(!s || typeof s.data != "string"))
+    }, e.onmessage = (n) => {
+      if (this.ws === e && !(!n || typeof n.data != "string"))
         try {
-          this.handleMessage(JSON.parse(s.data));
+          this.handleMessage(JSON.parse(n.data));
         } catch {
         }
-    }, e.onclose = (s) => {
+    }, e.onclose = (n) => {
       if (this.ws === e) {
         if (this.clearReconnectStabilityTimer(), this.handleSocketClosed(), this.ws = null, this.manualClose) {
           this.setStatus("disconnected");
           return;
         }
-        if (this.options.onClose?.(s), this.options.shouldReconnect && !this.options.shouldReconnect(s)) {
+        if (this.options.onClose?.(n), this.options.shouldReconnect && !this.options.shouldReconnect(n)) {
           this.setStatus("disconnected");
           return;
         }
         this.setStatus("reconnecting"), this.scheduleReconnect();
       }
-    }, e.onerror = (s) => {
-      this.ws === e && (this.options.onError?.(s), this.setStatus("error"));
+    }, e.onerror = (n) => {
+      this.ws === e && (this.options.onError?.(n), this.setStatus("error"));
     };
   }
   close() {
@@ -90,26 +94,27 @@ var d = class {
   }
   scheduleReconnectBudgetReset(t) {
     this.clearReconnectStabilityTimer();
-    const e = Math.max(this.options.reconnectStabilityMs ?? l, 0);
+    const e = Math.max(this.options.reconnectStabilityMs ?? u, 0);
     this.reconnectStabilityTimer = window.setTimeout(() => {
       this.reconnectStabilityTimer = null, this.ws === t && t.readyState === WebSocket.OPEN && (this.reconnectAttempts = 0);
     }, e);
   }
   scheduleReconnect() {
-    const t = this.hasConnected ? this.options.maxReconnectAttempts ?? a : this.options.maxInitialReconnectAttempts ?? h, e = this.options.reconnectDelayMs ?? c, s = this.options.maxReconnectDelayMs ?? r;
+    const t = this.hasConnected ? this.options.maxReconnectAttempts ?? h : this.options.maxInitialReconnectAttempts ?? l, e = this.options.reconnectDelayMs ?? r, n = this.options.maxReconnectDelayMs ?? a;
     if (this.reconnectAttempts >= t) {
       this.setStatus("disconnected");
       return;
     }
-    const i = this.reconnectAttempts, n = Math.min(e * Math.pow(2, i), s), o = n * (0.2 + Math.random() * 0.3);
+    const i = this.reconnectAttempts, s = Math.min(e * Math.pow(2, i), n), o = s * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1, this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null, this.connect();
-    }, n + o);
+    }, s + o);
   }
 };
 export {
-  u as n,
-  d as t
+  d as n,
+  m as r,
+  f as t
 };
 
-//# sourceMappingURL=live-stream-BMaW00QB.js.map
+//# sourceMappingURL=live-stream-CyiSPucB.js.map

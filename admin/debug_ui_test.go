@@ -66,6 +66,7 @@ func TestDebugDashboardRendersTemplate(t *testing.T) {
 	mod.adminBasePath = "/admin"
 
 	mockCtx := router.NewMockContext()
+	mockCtx.On("Context").Return(context.Background()).Maybe()
 	mockCtx.On("Render", "resources/debug/index", mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
 		if !ok {

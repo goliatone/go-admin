@@ -1,0 +1,296 @@
+#!/usr/bin/env node
+// Real-browser evidence for the operator console runtime. Loads the packaged
+// console shell rendered from Go (tests/fixtures/console-page.html) and the
+// Go-generated wire golden (tests/fixtures/console-contract.json), then checks
+// shipped asset imports, live snapshot/event/invalidation handling, keyboard
+// tabs, typed actions with CSRF, policy-close revocation, a mobile viewport,
+// and two independent consoles on a page without Debug.
+
+import { createServer } from 'node:http';
+import { mkdirSync, readFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { extname, join, resolve } from 'node:path';
+import { chromium, webkit } from 'playwright';
+
+const root = resolve(import.meta.dirname, '..');
+const fixtures = resolve(root, 'tests/fixtures');
+const golden = JSON.parse(readFileSync(resolve(fixtures, 'console-contract.json'), 'utf8'));
+const consolePage = readFileSync(resolve(fixtures, 'console-page.html'), 'utf8');
+const evidenceDir = process.env.CONSOLE_BROWSER_EVIDENCE_DIR || join(tmpdir(), 'go-admin-console-browsers');
+mkdirSync(evidenceDir, { recursive: true });
+
+const types = new Map([
+  ['.css', 'text/css; charset=utf-8'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.map', 'application/json; charset=utf-8'],
+  ['.svg', 'image/svg+xml'],
+]);
+
+const bootstraps = { data: golden.bootstrap, ops: golden.second_bootstrap };
+const state = { revoked: new Set(), actions: [] };
+
+function jsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+// Two consoles with the same panel IDs, cloned from the packaged shell, on a
+// page that loads no Debug assets.
+function twoConsolePage() {
+  const start = consolePage.indexOf('<section class="console-root"');
+  const bootstrapAt = consolePage.indexOf('data-console-bootstrap', start);
+  const end = consolePage.indexOf('</section>', bootstrapAt) + '</section>'.length;
+  if (start < 0 || bootstrapAt < 0 || end <= start) throw new Error('console shell section not found in fixture');
+  const shell = consolePage.slice(start, end);
+  const second = shell
+    .replace('data-console-id="data"', 'data-console-id="ops"')
+    .replaceAll('Data operations', 'Operations review')
+    .replace(/(data-console-bootstrap>)[\s\S]*?(<\/script>)/, (_match, open, close) => `${open}${jsonForScript(golden.second_bootstrap)}${close}`);
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="fixture-csrf">
+  <title>Two consoles</title>
+  <link rel="stylesheet" href="/admin/assets/dist/styles/console.css">
+  <style>body{margin:0;padding:16px;background:#f1f5f9}main{display:grid;gap:24px}</style>
+</head>
+<body><main>${shell}${second}</main><script type="module" src="/admin/assets/dist/console/index.js"></script></body>
+</html>`;
+}
+
+function send(response, status, body, type = 'application/json; charset=utf-8') {
+  response.writeHead(status, { 'content-type': type });
+  response.end(typeof body === 'string' ? body : JSON.stringify(body));
+}
+
+const server = createServer((request, response) => {
+  const url = new URL(request.url || '/', 'http://127.0.0.1');
+  const { pathname } = url;
+  if (pathname === '/fixture/console-page.html') return send(response, 200, consolePage, types.get('.html'));
+  if (pathname === '/fixture/two-consoles.html') return send(response, 200, twoConsolePage(), types.get('.html'));
+  const snapshot = pathname.match(/^\/fixture\/(data|ops)\/api\/snapshot$/);
+  if (snapshot) {
+    const id = snapshot[1];
+    if (state.revoked.has(id)) return send(response, 403, { error: { code: 'FORBIDDEN', message: 'console access changed' } });
+    return send(response, 200, bootstraps[id].snapshot);
+  }
+  const action = pathname.match(/^\/fixture\/(data|ops)\/api\/panels\/([^/]+)\/actions\/([^/]+)$/);
+  if (action && request.method === 'POST') {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      state.actions.push({ console: action[1], panel: action[2], action: action[3], csrf: request.headers['x-csrf-token'], body: JSON.parse(body || '{}') });
+      send(response, 200, { ok: true, message: 'Queued preview' });
+    });
+    return undefined;
+  }
+  if (pathname.startsWith('/admin/assets/')) {
+    const path = resolve(root, `.${pathname.slice('/admin/assets'.length)}`);
+    if (path.startsWith(`${root}/`) && isFile(path)) {
+      return send(response, 200, readFileSync(path), types.get(extname(path)) || 'application/octet-stream');
+    }
+  }
+  return send(response, 404, 'not found', 'text/plain');
+});
+
+function isFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function check(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+async function eventually(probe, message, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await probe()) return;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+  }
+  throw new Error(`timed out: ${message}`);
+}
+
+async function attachHarness(page) {
+  const harness = { sockets: { data: [], ops: [] }, pageErrors: [], assetFailures: [] };
+  await page.routeWebSocket(/\/fixture\/(data|ops)\/ws/, (ws) => {
+    const id = new URL(ws.url()).pathname.split('/')[2];
+    harness.sockets[id].push(ws);
+  });
+  page.on('pageerror', (error) => harness.pageErrors.push(`${error.message}\n${error.stack || ''}`));
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    if (/^\/admin\/assets\/dist\/(console\/|chunks\/|styles\/console\.css)/.test(path) && !response.ok()) {
+      harness.assetFailures.push(`${response.status()} ${path}`);
+    }
+  });
+  page.on('requestfailed', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (/^\/admin\/assets\/dist\/(console\/|chunks\/)/.test(path)) harness.assetFailures.push(`failed ${path}`);
+  });
+  return harness;
+}
+
+const consoleState = (page, id = 'data') =>
+  page.evaluate((consoleID) => document.querySelector(`[data-console-id="${consoleID}"]`)?.dataset.consoleState || '', id);
+
+const bodyText = (page, id = 'data') =>
+  page.evaluate((consoleID) => document.querySelector(`[data-console-id="${consoleID}"] [data-console-panel]`)?.textContent || '', id);
+
+function assertHealthy(label, harness) {
+  check(harness.assetFailures.length === 0, `${label}: shipped console assets failed: ${harness.assetFailures.join(', ')}`);
+  const consoleErrors = harness.pageErrors.filter((error) => /\/dist\/(console|chunks)\//.test(error));
+  check(consoleErrors.length === 0, `${label}: console runtime threw: ${consoleErrors.join('\n')}`);
+}
+
+async function verifyDesktop(label, browser, origin) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  try {
+    const page = await context.newPage();
+    const harness = await attachHarness(page);
+    state.actions = [];
+    state.revoked.clear();
+    await page.goto(`${origin}/fixture/console-page.html`);
+    await eventually(async () => (await consoleState(page)) === 'ready', `${label}: console ready`);
+    await eventually(async () => harness.sockets.data.length === 1, `${label}: live socket opened`);
+    const socket = harness.sockets.data[0];
+    check(new URL(socket.url()).search === '?panels=operations%2Ctargets%2Caudit', `${label}: live selection ${socket.url()}`);
+
+    socket.send(JSON.stringify(golden.bootstrap.snapshot));
+    socket.send(JSON.stringify(golden.upsert));
+    await eventually(async () => /succeeded/.test(await bodyText(page)), `${label}: live upsert applied`);
+    check(await page.locator('[data-console-connection]').textContent() === 'Live', `${label}: connection indicator`);
+
+    await page.focus('[data-console-tab="operations"]');
+    await page.keyboard.press('ArrowRight');
+    check(await page.evaluate(() => document.activeElement?.dataset.consoleTab) === 'targets', `${label}: ArrowRight focus`);
+    check(await page.getAttribute('[data-console-tab="targets"]', 'aria-selected') === 'true', `${label}: ArrowRight selection`);
+    await page.keyboard.press('End');
+    check(await page.evaluate(() => document.activeElement?.dataset.consoleTab) === 'audit', `${label}: End key`);
+    await page.keyboard.press('Home');
+    check(await page.evaluate(() => document.activeElement?.dataset.consoleTab) === 'operations', `${label}: Home key`);
+
+    await page.selectOption('select[data-action-field="dataset"]', 'baseline');
+    await page.click('form[data-panel-action-form] button[type="submit"]');
+    await eventually(async () => /Queued preview/.test(await bodyText(page) + (await page.textContent('[data-panel-action-result="operations"]'))), `${label}: action result`);
+    check(state.actions.length === 1, `${label}: one action dispatched`);
+    check(state.actions[0].panel === 'operations' && state.actions[0].action === 'preview', `${label}: action route`);
+    check(state.actions[0].csrf === 'fixture-csrf', `${label}: CSRF header`);
+    check(state.actions[0].body.dataset === 'baseline', `${label}: typed payload`);
+
+    socket.send(JSON.stringify(golden.invalidate));
+    await eventually(async () => (await page.getAttribute('[data-console-root]', 'data-console-sync')) === 'recovering', `${label}: invalidation holds events`);
+    socket.send(JSON.stringify({ ...golden.bootstrap.snapshot, watermark: 30 }));
+    await eventually(async () => (await page.getAttribute('[data-console-root]', 'data-console-sync')) === 'current', `${label}: host snapshot recovers`);
+    await page.screenshot({ path: join(evidenceDir, `${label}-desktop.png`), fullPage: true });
+
+    state.revoked.add('data');
+    socket.close({ code: 1008, reason: 'console access changed' });
+    await eventually(async () => (await consoleState(page)) === 'denied', `${label}: revocation denies`);
+    check(await page.locator('[data-console-tabs]').isHidden(), `${label}: tabs hidden after denial`);
+    check((await bodyText(page)).trim() === '', `${label}: records cleared after denial`);
+    check(/do not have access/.test(await page.textContent('[data-console-notice]')), `${label}: denial notice`);
+    await page.waitForTimeout(300);
+    check(harness.sockets.data.length === 1, `${label}: policy close never reconnects`);
+    await page.screenshot({ path: join(evidenceDir, `${label}-revoked.png`), fullPage: true });
+    assertHealthy(label, harness);
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyMobile(label, browser, origin, isMobile) {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true, ...(isMobile ? { isMobile: true } : {}) });
+  try {
+    const page = await context.newPage();
+    const harness = await attachHarness(page);
+    state.revoked.clear();
+    await page.goto(`${origin}/fixture/console-page.html`);
+    await eventually(async () => (await consoleState(page)) === 'ready', `${label}: mobile console ready`);
+    const layout = await page.evaluate(() => {
+      const consoleRoot = document.querySelector('[data-console-root]');
+      const form = consoleRoot?.querySelector('form[data-panel-action-form]');
+      return {
+        overflow: consoleRoot ? consoleRoot.scrollWidth - consoleRoot.clientWidth : 999,
+        formDirection: form ? getComputedStyle(form).flexDirection : '',
+        tabsScroll: getComputedStyle(consoleRoot.querySelector('[data-console-tabs]')).overflowX,
+      };
+    });
+    check(layout.overflow <= 1, `${label}: console overflows a 375px viewport by ${layout.overflow}px`);
+    check(layout.formDirection === 'column', `${label}: action form stacks on mobile (${layout.formDirection})`);
+    check(layout.tabsScroll === 'auto', `${label}: tabs scroll horizontally`);
+    await page.screenshot({ path: join(evidenceDir, `${label}-mobile.png`), fullPage: true });
+    assertHealthy(`${label} mobile`, harness);
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyTwoConsoles(label, browser, origin) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 1100 } });
+  try {
+    const page = await context.newPage();
+    const harness = await attachHarness(page);
+    state.revoked.clear();
+    await page.goto(`${origin}/fixture/two-consoles.html`);
+    await eventually(async () => (await consoleState(page, 'data')) === 'ready' && (await consoleState(page, 'ops')) === 'ready', `${label}: both consoles ready`);
+    await eventually(async () => harness.sockets.data.length === 1 && harness.sockets.ops.length === 1, `${label}: one stream per console`);
+    harness.sockets.data[0].send(JSON.stringify(golden.bootstrap.snapshot));
+    harness.sockets.ops[0].send(JSON.stringify(golden.second_bootstrap.snapshot));
+    harness.sockets.data[0].send(JSON.stringify(golden.upsert));
+    // A foreign identity frame on the second stream is rejected.
+    harness.sockets.ops[0].send(JSON.stringify(golden.upsert));
+    await eventually(async () => /succeeded/.test(await bodyText(page, 'data')), `${label}: data console updated`);
+    check(/running/.test(await bodyText(page, 'ops')) && !/succeeded/.test(await bodyText(page, 'ops')), `${label}: no event bleed into ops`);
+
+    const isolation = await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll('[id]')).map((element) => element.id);
+      return {
+        duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
+        debugRegistry: '__go_admin_panel_registry__' in globalThis,
+        operationsPanels: document.querySelectorAll('[data-console-tab="operations"]').length,
+      };
+    });
+    check(isolation.duplicateIds.length === 0, `${label}: duplicate element ids ${isolation.duplicateIds.join(',')}`);
+    check(isolation.debugRegistry === false, `${label}: Debug runtime must not load on a Debug-disabled host`);
+    check(isolation.operationsPanels === 2, `${label}: both consoles render the shared panel id`);
+
+    await page.click('[data-console-id="ops"] [data-console-tab="audit"]');
+    const keys = await page.evaluate(() => Object.keys(sessionStorage));
+    check(keys.length === 1 && keys[0].includes('"actor_id":"operator-2"') && keys[0].includes('"console_id":"ops"'), `${label}: preferences namespaced per identity ${keys}`);
+    check(await page.getAttribute('[data-console-id="data"] [data-console-tab="operations"]', 'aria-selected') === 'true', `${label}: tab state isolated`);
+    await page.screenshot({ path: join(evidenceDir, `${label}-two-consoles.png`), fullPage: true });
+    assertHealthy(`${label} two consoles`, harness);
+  } finally {
+    await context.close();
+  }
+}
+
+async function verifyBrowser(label, browserType, isMobile, origin) {
+  const browser = await browserType.launch({ headless: true });
+  try {
+    await verifyDesktop(label, browser, origin);
+    await verifyMobile(label, browser, origin, isMobile);
+    await verifyTwoConsoles(label, browser, origin);
+    const version = browser.version();
+    process.stdout.write(`✔ ${label} ${version}: shell, live recovery, keyboard, actions, revocation, mobile and two consoles\n`);
+  } finally {
+    await browser.close();
+  }
+}
+
+await new Promise((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
+const { port } = server.address();
+const origin = `http://127.0.0.1:${port}`;
+try {
+  await verifyBrowser('chromium', chromium, true, origin);
+  await verifyBrowser('webkit', webkit, false, origin);
+  process.stdout.write(`evidence: ${evidenceDir}\n`);
+} finally {
+  server.close();
+}

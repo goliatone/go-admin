@@ -53,34 +53,38 @@ func (h *ConsoleHost) RegisterDashboard(admin *Admin, config ConsoleDashboardCon
 	}
 	admin.RegisterWidgetArea(WidgetAreaDefinition{Code: area, Name: h.config.Title, Scope: h.config.ID})
 	for _, def := range definitions {
-		panelID := def.ID
-		if err := dashboard.RegisterProviderChecked(DashboardProviderSpec{Code: area + "." + panelID, Name: def.Label, Template: template, DefaultArea: area, DefaultSpan: def.Span,
-			Handler: func(viewer AdminContext, _ map[string]any) (WidgetPayload, error) {
-				identity, found := viewer.Context.Value(consoleDashboardIdentityKey{}).(console.Identity)
-				var err error
-				if !found {
-					identity, err = config.Identity(viewer)
-				}
-				if err != nil {
-					return EmptyWidgetPayload(), ErrForbidden
-				}
-				snapshot, err := h.Snapshot(viewer.Context, identity)
-				if err != nil {
-					return EmptyWidgetPayload(), err
-				}
-				for _, panel := range snapshot.Panels {
-					if panel.ID == panelID {
-						return WidgetPayloadOf(ConsolePanelWidgetPayload{Identity: identity, Panel: panel, Watermark: snapshot.Watermark}), nil
-					}
-				}
-				return EmptyWidgetPayload(), ErrForbidden
-			},
-		}); err != nil {
+		if err := dashboard.RegisterProviderChecked(h.dashboardProvider(config, def, template, area)); err != nil {
 			return err
 		}
 	}
 	h.dashboardAdmin = admin
 	return nil
+}
+
+func (h *ConsoleHost) dashboardProvider(config ConsoleDashboardConfig, def console.PanelDefinition, template, area string) DashboardProviderSpec {
+	panelID := def.ID
+	return DashboardProviderSpec{Code: area + "." + panelID, Name: def.Label, Template: template, DefaultArea: area, DefaultSpan: def.Span,
+		Handler: func(viewer AdminContext, _ map[string]any) (WidgetPayload, error) {
+			identity, found := viewer.Context.Value(consoleDashboardIdentityKey{}).(console.Identity)
+			var err error
+			if !found {
+				identity, err = config.Identity(viewer)
+			}
+			if err != nil {
+				return EmptyWidgetPayload(), ErrForbidden
+			}
+			snapshot, err := h.Snapshot(viewer.Context, identity)
+			if err != nil {
+				return EmptyWidgetPayload(), err
+			}
+			for _, panel := range snapshot.Panels {
+				if panel.ID == panelID {
+					return WidgetPayloadOf(ConsolePanelWidgetPayload{Identity: identity, Panel: panel, Watermark: snapshot.Watermark}), nil
+				}
+			}
+			return EmptyWidgetPayload(), ErrForbidden
+		},
+	}
 }
 
 // DashboardController reuses the existing SSR runtime. The console's route

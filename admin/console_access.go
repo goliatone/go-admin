@@ -22,7 +22,7 @@ type ConsoleAccess struct {
 }
 
 func (h *ConsoleHost) current(ctx context.Context, identity console.Identity) (context.Context, console.Identity, error) {
-	if h == nil || h.closed() || !identity.Valid() || identity.ConsoleID != h.config.ID || h.config.Enabled == nil || !h.config.Enabled() {
+	if !h.acceptsIdentity(identity) {
 		return ctx, identity, ErrForbidden
 	}
 	if ctx == nil {
@@ -32,7 +32,7 @@ func (h *ConsoleHost) current(ctx context.Context, identity console.Identity) (c
 		return ctx, identity, ErrForbidden
 	}
 	resolvedCtx, resolved, err := h.config.Access.Resolve(ctx, identity)
-	if err != nil || resolvedCtx == nil || ctx.Err() != nil || resolvedCtx.Err() != nil || resolved != identity || !resolved.Valid() {
+	if err != nil || !consoleResolvedIdentityValid(ctx, resolvedCtx, identity, resolved) {
 		return ctx, identity, ErrForbidden
 	}
 	if err := h.config.Access.Read(resolvedCtx, resolved); err != nil {
@@ -42,6 +42,14 @@ func (h *ConsoleHost) current(ctx context.Context, identity console.Identity) (c
 		return ctx, identity, ErrForbidden
 	}
 	return resolvedCtx, resolved, nil
+}
+
+func (h *ConsoleHost) acceptsIdentity(identity console.Identity) bool {
+	return h != nil && !h.closed() && identity.Valid() && identity.ConsoleID == h.config.ID && h.config.Enabled != nil && h.config.Enabled()
+}
+
+func consoleResolvedIdentityValid(ctx, resolvedCtx context.Context, identity, resolved console.Identity) bool {
+	return resolvedCtx != nil && ctx.Err() == nil && resolvedCtx.Err() == nil && resolved == identity && resolved.Valid()
 }
 
 func (h *ConsoleHost) panel(ctx context.Context, identity console.Identity, panelID string) (console.PanelDefinition, bool) {

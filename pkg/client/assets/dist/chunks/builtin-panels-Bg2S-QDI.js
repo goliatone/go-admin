@@ -1,7 +1,7 @@
 import { escapeAttribute as x, escapeHTML as a } from "../shared/html.js";
 import { S as C, b, g as $, v as xe, x as y, y as L } from "./hydrate-mOOlPiY2.js";
 import { o as O } from "./avatar-DIbK-LSg.js";
-import { t as se } from "./capability-loader-DZC_IOL_.js";
+import { n as se } from "./browser-state-B2H0HF9F.js";
 import { _ as K, g as G, m as h, t as me, v as ne, x as z, y as ye } from "./runtime-helpers-BJB2ragE.js";
 import { r as m } from "./icons-CAenalpJ.js";
 function ve(e) {
@@ -3678,4 +3678,4 @@ export {
   Te as z
 };
 
-//# sourceMappingURL=builtin-panels-CIrbXjki.js.map
+//# sourceMappingURL=builtin-panels-Bg2S-QDI.js.map

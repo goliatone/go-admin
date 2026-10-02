@@ -12,13 +12,6 @@ export type ConsoleStorageProvider = {
   session?: Storage | null;
 };
 
-/** Mapping for a one-time copy of an unscoped legacy key into a namespace. */
-export type LegacyPreferenceKey = {
-  legacyKey: string;
-  key: string;
-  area: ConsoleStorageArea;
-};
-
 export { consolePreferenceKey };
 
 /**
@@ -89,26 +82,6 @@ export class ConsolePreferences {
     }
   }
 
-  getJSON<T>(name: string, area: ConsoleStorageArea = 'local'): T | null {
-    const raw = this.get(name, area);
-    if (raw === null) return null;
-    try {
-      return JSON.parse(raw) as T;
-    } catch {
-      return null;
-    }
-  }
-
-  setJSON(name: string, value: unknown, area: ConsoleStorageArea = 'local'): boolean {
-    let raw: string;
-    try {
-      raw = JSON.stringify(value);
-    } catch {
-      return false;
-    }
-    return this.set(name, raw, area);
-  }
-
   /** Remove every key in this namespace from both storage areas. */
   clear(): void {
     for (const area of ['local', 'session'] as ConsoleStorageArea[]) {
@@ -125,31 +98,6 @@ export class ConsolePreferences {
         // Ignore blocked or unavailable browser storage.
       }
     }
-  }
-
-  /**
-   * Move unscoped legacy values into this namespace once. A namespaced value
-   * wins; the legacy key is removed either way so no later identity inherits
-   * it. Returns the number of values copied.
-   */
-  migrateLegacy(entries: LegacyPreferenceKey[]): number {
-    let migrated = 0;
-    entries.forEach(({ legacyKey, key, area }) => {
-      const storage = this.storage(area);
-      if (!storage || !legacyKey) return;
-      try {
-        const legacy = storage.getItem(legacyKey);
-        if (legacy === null) return;
-        if (storage.getItem(this.keyFor(key)) === null) {
-          storage.setItem(this.keyFor(key), legacy);
-          migrated += 1;
-        }
-        storage.removeItem(legacyKey);
-      } catch {
-        // Ignore blocked or unavailable browser storage.
-      }
-    });
-    return migrated;
   }
 
   private storage(area: ConsoleStorageArea): Storage | null {

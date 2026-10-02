@@ -1,10 +1,10 @@
 import { escapeHTML as r } from "../shared/html.js";
-import { n as c } from "./avatar-DIbK-LSg.js";
-import { normalizeDebugBasePath as f } from "../debug/shared/path-helpers.js";
-import { n as g, t as x } from "./capability-loader-DZC_IOL_.js";
-import { i as v, m, n as y, o as h, r as b, s as w, u as S } from "./runtime-helpers-BJB2ragE.js";
+import { n as f } from "./avatar-DIbK-LSg.js";
+import { normalizeDebugBasePath as g } from "../debug/shared/path-helpers.js";
+import { n as x, r as v, t as u } from "./browser-state-B2H0HF9F.js";
+import { i as m, m as w, n as y, o as h, r as b, s as S, u as C } from "./runtime-helpers-BJB2ragE.js";
 import { t as p } from "./deployment-identity-BcRV4akm.js";
-var C = `
+var E = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -387,7 +387,7 @@ var C = `
       gap: 6px;
     }
   }
-`, d = S, E = class extends HTMLElement {
+`, d = C, L = class extends HTMLElement {
   static get observedAttributes() {
     return [
       "debug-path",
@@ -403,7 +403,7 @@ var C = `
     this.initializeGeneration += 1, this.initialize(this.initializeGeneration);
   }
   async initialize(t) {
-    if (this.eventToPanel = b(), this.unsubscribeRegistry = m.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
+    if (this.eventToPanel = b(), this.unsubscribeRegistry = w.subscribe((e) => this.handleRegistryChange(e)), this.isInitializationStale(t)) {
       this.unsubscribeRegistry?.(), this.unsubscribeRegistry = null;
       return;
     }
@@ -451,28 +451,25 @@ var C = `
     const t = this.getAttribute("live-transport");
     return t === null ? !0 : t === "" || t === "true";
   }
+  browserState() {
+    return u(this.getAttribute("preferences-namespace"));
+  }
   loadState() {
-    try {
-      const t = localStorage.getItem("debug-toolbar-expanded");
-      t !== null && (this.toolbarExpanded = t === "true", this.render());
-    } catch {
-    }
+    const t = this.browserState().get("debug-toolbar-expanded");
+    t !== null && (this.toolbarExpanded = t === "true", this.render());
   }
   saveState() {
-    try {
-      localStorage.setItem("debug-toolbar-expanded", String(this.toolbarExpanded));
-    } catch {
-    }
+    this.browserState().set("debug-toolbar-expanded", String(this.toolbarExpanded));
   }
   initWebSocket() {
-    this.stream = new g({
+    this.stream = new v({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot(t = this.initializeGeneration) {
-    const e = await v(this.debugPath);
+    const e = await m(this.debugPath);
     this.isInitializationStale(t) || e && this.applySnapshot(e);
   }
   handleEvent(t) {
@@ -509,7 +506,7 @@ var C = `
   render() {
     const t = d(this.snapshot), e = t.errors > 0, a = t.slowQueries > 0, s = p(this.snapshot, this.panels), i = this.toolbarExpanded && !this.toolbarLoading ? "hidden" : "", o = this.accessibleLabel(s, t);
     this.shadow.innerHTML = `
-      <style>${C}</style>
+      <style>${E}</style>
       <div
         class="fab ${i} ${s ? "has-identity" : ""}"
         data-status="${this.connectionStatus}"
@@ -529,7 +526,7 @@ var C = `
           </span>
           ${s ? `
             <span class="fab-identity">
-              ${s.persona ? c(s.persona, "fab-persona-avatar") : ""}
+              ${s.persona ? f(s.persona, "fab-persona-avatar") : ""}
               <span class="fab-identity-env">
                 <span class="fab-identity-dot" aria-hidden="true"></span>
                 <span class="fab-identity-env-full">${r(s.environment)}</span>
@@ -599,7 +596,7 @@ var C = `
   updateSubscriptions() {
     if (!this.stream) return;
     const t = /* @__PURE__ */ new Set();
-    for (const e of this.panels) for (const a of w(e)) t.add(a);
+    for (const e of this.panels) for (const a of S(e)) t.add(a);
     this.stream.subscribe(Array.from(t));
   }
   expand() {
@@ -621,11 +618,11 @@ var C = `
     }));
   }
 };
-customElements.get("debug-fab") || customElements.define("debug-fab", E);
-function L(t) {
+customElements.get("debug-fab") || customElements.define("debug-fab", L);
+function T(t) {
   return x(t).load;
 }
-var T = L(() => import("./debug-toolbar-Bn_rJqCA.js").then((t) => t.n)), u = class {
+var P = T(() => import("./debug-toolbar-BURwYWYD.js").then((t) => t.n)), c = class {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.expanded = !1, this.toolbarMountGeneration = 0, this.options = {
       panels: [
@@ -639,8 +636,8 @@ var T = L(() => import("./debug-toolbar-Bn_rJqCA.js").then((t) => t.n)), u = cla
       container: document.body,
       ...t
     };
-    const e = f(this.options.basePath);
-    e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`);
+    const e = g(this.options.basePath);
+    e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`), this.options.preferencesNamespace = (this.options.preferencesNamespace || "").trim(), this.browserState = u(this.options.preferencesNamespace);
   }
   init() {
     this.initialized || (this.initialized = !0, this.createFab(), this.wireFabEvents(), this.shouldRestoreExpanded() && this.expand());
@@ -658,10 +655,10 @@ var T = L(() => import("./debug-toolbar-Bn_rJqCA.js").then((t) => t.n)), u = cla
     this.expanded ? this.collapse() : this.expand();
   }
   createFab() {
-    this.fab = document.createElement("debug-fab"), this.options.debugPath && this.fab.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.fab.setAttribute("base-path", this.options.basePath), typeof this.options.liveTransportEnabled == "boolean" && this.fab.setAttribute("live-transport", this.options.liveTransportEnabled ? "true" : "false"), this.options.panels && this.fab.setAttribute("panels", this.options.panels.join(",")), this.options.container?.appendChild(this.fab);
+    this.fab = document.createElement("debug-fab"), this.options.debugPath && this.fab.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.fab.setAttribute("base-path", this.options.basePath), typeof this.options.liveTransportEnabled == "boolean" && this.fab.setAttribute("live-transport", this.options.liveTransportEnabled ? "true" : "false"), this.options.panels && this.fab.setAttribute("panels", this.options.panels.join(",")), this.options.preferencesNamespace && this.fab.setAttribute("preferences-namespace", this.options.preferencesNamespace), this.options.container?.appendChild(this.fab);
   }
   createToolbar(t) {
-    return this.toolbar = new t(), this.options.debugPath && this.toolbar.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.toolbar.setAttribute("base-path", this.options.basePath), typeof this.options.liveTransportEnabled == "boolean" && this.toolbar.setAttribute("live-transport", this.options.liveTransportEnabled ? "true" : "false"), this.toolbar.setAttribute("use-fab", "true"), this.options.panels && this.toolbar.setAttribute("panels", this.options.panels.join(",")), this.options.slowThresholdMs && this.toolbar.setAttribute("slow-threshold-ms", String(this.options.slowThresholdMs)), this.options.container?.appendChild(this.toolbar), this.toolbar;
+    return this.toolbar = new t(), this.options.debugPath && this.toolbar.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.toolbar.setAttribute("base-path", this.options.basePath), typeof this.options.liveTransportEnabled == "boolean" && this.toolbar.setAttribute("live-transport", this.options.liveTransportEnabled ? "true" : "false"), this.toolbar.setAttribute("use-fab", "true"), this.options.panels && this.toolbar.setAttribute("panels", this.options.panels.join(",")), this.options.slowThresholdMs && this.toolbar.setAttribute("slow-threshold-ms", String(this.options.slowThresholdMs)), this.options.preferencesNamespace && this.toolbar.setAttribute("preferences-namespace", this.options.preferencesNamespace), this.options.container?.appendChild(this.toolbar), this.toolbar;
   }
   wireFabEvents() {
     this.fab && (this.fab.addEventListener("debug-expand", ((t) => {
@@ -691,7 +688,7 @@ var T = L(() => import("./debug-toolbar-Bn_rJqCA.js").then((t) => t.n)), u = cla
     }
     const t = ++this.toolbarMountGeneration;
     try {
-      const { DebugToolbar: e } = await T();
+      const { DebugToolbar: e } = await P();
       if (!this.initialized || !this.expanded || t !== this.toolbarMountGeneration) return;
       const a = this.createToolbar(e);
       this.wireToolbarEvents(a);
@@ -711,14 +708,10 @@ var T = L(() => import("./debug-toolbar-Bn_rJqCA.js").then((t) => t.n)), u = cla
     }
   }
   shouldRestoreExpanded() {
-    try {
-      return localStorage.getItem("debug-toolbar-expanded") === "true";
-    } catch {
-      return !1;
-    }
+    return this.browserState.get("debug-toolbar-expanded") === "true";
   }
 };
-function P() {
+function q() {
   const t = window.DEBUG_CONFIG, e = document.querySelector("[data-debug-path]");
   let a = {};
   if (t ? a = {
@@ -726,24 +719,26 @@ function P() {
     debugPath: t.debugPath,
     liveTransportEnabled: typeof t.liveTransportEnabled == "boolean" ? t.liveTransportEnabled : void 0,
     panels: t.panels,
-    slowThresholdMs: t.slowThresholdMs
+    slowThresholdMs: t.slowThresholdMs,
+    preferencesNamespace: typeof t.preferencesNamespace == "string" ? t.preferencesNamespace : void 0
   } : e && (a = {
     basePath: e.getAttribute("data-base-path") || void 0,
     debugPath: e.getAttribute("data-debug-path") || void 0,
     panels: e.getAttribute("data-panels")?.split(","),
-    slowThresholdMs: parseInt(e.getAttribute("data-slow-threshold-ms") || "50", 10)
+    slowThresholdMs: parseInt(e.getAttribute("data-slow-threshold-ms") || "50", 10),
+    preferencesNamespace: e.getAttribute("data-preferences-namespace") || void 0
   }), !a.debugPath && !a.basePath && !t && !e) return null;
-  const s = new u(a);
+  const s = new c(a);
   return s.init(), s;
 }
-window.DebugManager = u;
-window.initDebugManager = P;
+window.DebugManager = c;
+window.initDebugManager = q;
 export {
-  E as a,
-  T as i,
-  P as n,
-  L as r,
-  u as t
+  L as a,
+  P as i,
+  q as n,
+  T as r,
+  c as t
 };
 
-//# sourceMappingURL=debug-manager-OlVe0t3E.js.map
+//# sourceMappingURL=debug-manager-Bh840y6l.js.map

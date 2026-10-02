@@ -22,13 +22,15 @@ func debugBrowserStateNamespace(cfg DebugConfig, c router.Context) string {
 		return ""
 	}
 	var actorID, tenant, org string
-	if actor := actorFromRouterOrClaims(c, c.Context()); actor != nil {
-		actorID = strings.TrimSpace(actor.ActorID)
-		if actorID == "" {
-			actorID = strings.TrimSpace(actor.Subject)
+	if ctx := c.Context(); ctx != nil {
+		if actor := actorFromRouterOrClaims(c, ctx); actor != nil {
+			actorID = strings.TrimSpace(actor.ActorID)
+			if actorID == "" {
+				actorID = strings.TrimSpace(actor.Subject)
+			}
+			tenant = strings.TrimSpace(actor.TenantID)
+			org = strings.TrimSpace(actor.OrganizationID)
 		}
-		tenant = strings.TrimSpace(actor.TenantID)
-		org = strings.TrimSpace(actor.OrganizationID)
 	}
 	appID := strings.TrimSpace(cfg.AppID)
 	environment := strings.TrimSpace(cfg.Environment)

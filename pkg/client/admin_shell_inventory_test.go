@@ -28,6 +28,7 @@ var authenticatedTemplateInventory = map[string]adminShellInventoryEntry{
 	"resources/content/detail.html":                  {"content", "quickstart"},
 	"resources/content/form.html":                    {"content", "quickstart"},
 	"resources/content/list.html":                    {"content", "quickstart"},
+	"resources/console/base.html":                    {"console", "module"},
 	"resources/debug/index_admin.html":               {"debug", "module"},
 	"resources/feature-flags/index.html":             {"feature-flags", "quickstart"},
 	"resources/media/detail.html":                    {"media", "module"},
@@ -175,6 +176,7 @@ func TestAuthenticatedTemplateInventoryCoversContextProviders(t *testing.T) {
 func TestModuleContextProvidersUseTypedPageChromeProjection(t *testing.T) {
 	for _, path := range []string{
 		"../../admin/debug_view.go",
+		"../../admin/console_page.go",
 		"../../admin/media_module.go",
 		"../../admin/preferences_ui.go",
 		"../../admin/boot_bindings_dashboard.go",
