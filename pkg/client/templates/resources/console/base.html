@@ -35,6 +35,8 @@
   {% block console_head %}{% endblock %}
 {% endblock %}
 
+{% block page_pretitle %}{% block header_pretitle %}{% if page_pretitle %}<p class="admin-page-header__pretitle mb-1 text-sm text-gray-500">{{ page_pretitle }}</p>{% endif %}{% endblock %}{% if hide_breadcrumbs or not breadcrumbs %}<span class="console-page-toggle-space" aria-hidden="true"></span>{% endif %}{% endblock %}
+
 {% block page_title %}{% block console_heading %}{{ console_title|default:title|default:"Console" }}{% endblock %}{% endblock %}
 
 {% block page_subtitle %}{% block console_subtitle %}{% if page_subtitle %}<p class="admin-page-header__subtitle console-page-subtitle mt-1 text-sm text-gray-500">{{ page_subtitle }}</p>{% endif %}{% endblock %}{% endblock %}

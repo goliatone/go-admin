@@ -3,10 +3,16 @@
 
 export type PanelActionPayloadOptions = {
   excludeSensitive?: boolean;
+  /** Base payload to start from instead of the element's rendered `data-action-payload`. */
+  base?: Record<string, unknown>;
+  /** Skip client-generated fields (request IDs bound to a request draft). */
+  skipGenerated?: boolean;
 };
 
 export function buildPanelActionPayload(element: HTMLElement, options: PanelActionPayloadOptions = {}): Record<string, unknown> {
-  const payload = parseBasePayload(element.dataset.actionPayload);
+  const payload = options.base
+    ? JSON.parse(JSON.stringify(options.base)) as Record<string, unknown>
+    : parseBasePayload(element.dataset.actionPayload);
   if (!(element instanceof HTMLFormElement)) {
     return payload;
   }
@@ -20,6 +26,9 @@ export function buildPanelActionPayload(element: HTMLElement, options: PanelActi
     }
     const path = (field.dataset.actionFieldPath || field.dataset.actionField || '').trim();
     if (!path) {
+      return;
+    }
+    if (options.skipGenerated && field.hasAttribute('data-action-field-generated')) {
       return;
     }
     if (options.excludeSensitive && field.dataset.actionFieldSensitive === 'true') {
@@ -89,7 +98,7 @@ export function applyPanelActionNavigation(root: ParentNode, panelID: string, st
   return true;
 }
 
-function payloadPathValue(payload: Record<string, unknown>, path: string): unknown {
+export function payloadPathValue(payload: Record<string, unknown>, path: string): unknown {
   let current: unknown = payload;
   for (const part of path.split('.').map((item) => item.trim()).filter(Boolean)) {
     if (!current || typeof current !== 'object' || Array.isArray(current)) {
@@ -149,7 +158,7 @@ function fieldValue(field: HTMLElement): string {
   return '';
 }
 
-function setPayloadPath(payload: Record<string, unknown>, path: string, value: unknown): void {
+export function setPayloadPath(payload: Record<string, unknown>, path: string, value: unknown): void {
   const parts = path.split('.').map((part) => part.trim()).filter(Boolean);
   if (parts.length === 0) {
     return;

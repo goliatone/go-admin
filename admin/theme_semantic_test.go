@@ -3,6 +3,7 @@ package admin
 import (
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -506,9 +507,7 @@ func TestConsoleStylesheetConsumesConsoleKeysInDeclaredFallbackOrder(t *testing.
 	if found == 0 {
 		t.Fatal("no console consumer chains are declared")
 	}
-	for _, line := range strings.Split(css, "\n") {
-		if strings.Contains(line, "--admin-console-") && !strings.Contains(line, "var(--admin-console-") {
-			t.Errorf("console.css must read console keys, never define them: %q", strings.TrimSpace(line))
-		}
+	if declaration := regexp.MustCompile(`--admin-console-[a-z-]+\s*:`).FindString(css); declaration != "" {
+		t.Errorf("console.css must read console keys, never define them: %q", declaration)
 	}
 }

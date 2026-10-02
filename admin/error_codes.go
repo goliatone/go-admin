@@ -56,6 +56,7 @@ const (
 	TextCodeConflict                             = "CONFLICT"
 	TextCodeServiceUnavailable                   = "SERVICE_UNAVAILABLE"
 	TextCodeActivityActorContextInvalid          = "ACTIVITY_ACTOR_CONTEXT_INVALID"
+	TextCodeConsoleClientOutdated                = "CONSOLE_CLIENT_OUTDATED"
 	TextCodeMenuValidationCycle                  = "MENU_VALIDATION_CYCLE"
 	TextCodeMenuValidationDepth                  = "MENU_VALIDATION_DEPTH"
 	TextCodeMenuValidationInvalidTarget          = "MENU_VALIDATION_INVALID_TARGET"
@@ -84,6 +85,7 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeFeatureDisabled, Description: "The requested feature is disabled.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
 	{Code: TextCodeResourceInUse, Description: "The requested action cannot complete because the resource is in use.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodePreconditionFailed, Description: "The requested action cannot complete because one or more preconditions are not met.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: TextCodeConsoleClientOutdated, Description: "The console page assets do not implement a capability this action requires; reload the page.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeInvalidSelection, Description: "The requested bulk selection is invalid for the action.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: TextCodeRateLimited, Description: "The request is currently rate limited.", Category: goerrors.CategoryRateLimit, HTTPStatus: 429},
 	{Code: TextCodeServiceUnavailable, Description: "A required service or integration is not configured for the requested operation.", Category: goerrors.CategoryInternal, HTTPStatus: 503},

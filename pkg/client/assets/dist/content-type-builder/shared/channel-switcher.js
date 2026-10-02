@@ -1,11 +1,12 @@
-import { i as f } from "../../chunks/modal-ClEsOn-S.js";
-import { i as C, n as E, r as u, s as y, t as v } from "../../chunks/channel-validation-BBf_63LY.js";
+import { i as f } from "../../chunks/modal-Cg0_ZVPf.js";
+import "../../components/modal.js";
+import { i as C, n as A, r as u, s as y, t as v } from "../../chunks/channel-validation-BBf_63LY.js";
 function w(l, e) {
   if (Array.from(l.options).some((o) => o.value === e)) return;
   const n = document.createElement("option");
   n.value = e, n.textContent = e.charAt(0).toUpperCase() + e.slice(1), l.appendChild(n);
 }
-function A(l = document) {
+function S(l = document) {
   const e = l.querySelector("[data-content-types-channel-wrapper]");
   if (!e || e.dataset.channelInit === "true") return;
   const n = e.querySelector("[data-content-types-channel]"), o = e.querySelector("[data-content-types-channel-reset]"), p = e.querySelector("[data-content-types-channel-add]"), i = document.querySelector("[data-content-types-empty-reset-channel]");
@@ -36,8 +37,8 @@ function A(l = document) {
 }
 export {
   v as CHANNEL_HELP_TEXT,
-  A as initContentTypeChannelSwitcher,
-  E as normalizeChannelName,
+  S as initContentTypeChannelSwitcher,
+  A as normalizeChannelName,
   C as validateChannelName
 };
 

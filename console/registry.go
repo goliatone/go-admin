@@ -3,11 +3,14 @@ package console
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
+	"math"
 	"sort"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // PanelSnapshotFunc returns snapshot payloads for a panel.
@@ -44,6 +47,15 @@ const (
 	PanelRendererTimeline   = "timeline"
 	PanelRendererJSON       = "json"
 	PanelRendererStack      = "stack"
+	// PanelRendererCards renders one record card per row (title, status,
+	// metadata fields and an action slot). Options: title_bind, subtitle_bind,
+	// status_bind, tone_bind, fields, actions_bind, max_cards and columns (the
+	// compact table used once rows exceed max_cards).
+	PanelRendererCards = "cards"
+	// PanelRendererList renders compact record rows (title, subtitle, status,
+	// progress, time and an action slot). Options: title_bind, subtitle_bind,
+	// status_bind, tone_bind, progress_bind, time_bind, actions_bind and limit.
+	PanelRendererList = "list"
 
 	// PanelStackLayoutGrid flows a stack view's sections into responsive
 	// columns instead of stacking each section at full width.
@@ -53,6 +65,11 @@ const (
 	PanelCountObjectKeys  = "object_keys"
 	PanelCountTruthy      = "truthy"
 	PanelCountNumber      = "number"
+	// PanelCountMatchingRows counts list rows whose bound field is truthy (an
+	// attention badge); ToneBind names a row tone, the most severe one wins.
+	PanelCountMatchingRows = "matching_rows"
+	// PanelCountNone shows no tab count.
+	PanelCountNone = "none"
 
 	PanelFilterSearch   = "search"
 	PanelFilterSelect   = "select"
@@ -65,6 +82,76 @@ const (
 
 	PanelActionLayoutList   = "list"
 	PanelActionLayoutSelect = "select"
+	// PanelActionLayoutDrawer opens action forms from header, section, row and
+	// card action slots instead of rendering them inline.
+	PanelActionLayoutDrawer = "drawer"
+)
+
+// Action availability. An empty value is available, which keeps existing
+// schema-v1 definitions executable. Any other value is display metadata only:
+// it never grants dispatch, and the console refuses to run it.
+const (
+	PanelActionAvailable    = "available"
+	PanelActionUnsupported  = "unsupported"
+	PanelActionNotPermitted = "not_permitted"
+	PanelActionUnavailable  = "unavailable"
+)
+
+// Value formats shared by table columns, key/value fields, cards and lists.
+// Unknown formats render as escaped text.
+const (
+	PanelFormatText      = "text"
+	PanelFormatBadge     = "badge"
+	PanelFormatMono      = "mono"
+	PanelFormatCopy      = "copy"
+	PanelFormatColor     = "color"
+	PanelFormatNumber    = "number"
+	PanelFormatBoolean   = "boolean"
+	PanelFormatTimestamp = "timestamp"
+	PanelFormatDateTime  = "datetime"
+	PanelFormatRelative  = "relative"
+	// PanelFormatSteps renders a value that is an ordered []PanelUIStep.
+	PanelFormatSteps = "steps"
+	// PanelFormatProgress renders a value that is a PanelUIProgress.
+	PanelFormatProgress = "progress"
+)
+
+// Server-computed tones. Records carry a tone next to the label they color
+// (columns name it with tone_bind); unknown tones render neutral.
+const (
+	PanelToneSuccess = "success"
+	PanelToneInfo    = "info"
+	PanelToneWarning = "warning"
+	PanelToneError   = "error"
+	PanelToneNeutral = "neutral"
+	// PanelTonePlanned marks planned or dry-run work so it never reads as executed.
+	PanelTonePlanned = "planned"
+)
+
+// Generic step states. Domain code projects labels and states; the console
+// never infers lifecycle meaning from them.
+const (
+	PanelStepDone    = "done"
+	PanelStepCurrent = "current"
+	PanelStepPending = "pending"
+	PanelStepWarning = "warning"
+	PanelStepFailed  = "failed"
+)
+
+// Action reference emphasis inside an action slot.
+const (
+	PanelActionEmphasisPrimary = "primary"
+	PanelActionEmphasisDefault = "default"
+	PanelActionEmphasisMenu    = "menu"
+)
+
+const (
+	// PanelFieldGenerateRequestID asks the client to generate a request ID
+	// for the action draft (ADR-0003). Definitions never carry its value.
+	PanelFieldGenerateRequestID = "request_id"
+	// PanelFieldKindHidden is a declared field the client never renders; a
+	// submitter sets it (see PanelUIActionSubmit) or its default is sent.
+	PanelFieldKindHidden = "hidden"
 )
 
 // PanelUI is a JSON-safe declarative UI schema for Go-registered panels.
@@ -86,19 +173,117 @@ type PanelUIViews struct {
 }
 
 // PanelUIView declares one renderer instance. Stack views may use Sections.
+// Description, Empty, Link and Actions are additive section metadata that older
+// clients ignore.
 type PanelUIView struct {
 	Renderer string         `json:"renderer"`
 	Title    string         `json:"title,omitempty"`
 	Bind     string         `json:"bind,omitempty"`
 	Options  map[string]any `json:"options,omitempty"`
 	Sections []PanelUIView  `json:"sections,omitempty"`
+	// Description is a one-line section caption.
+	Description string `json:"description,omitempty"`
+	// Empty is the view's own empty-state guidance.
+	Empty string `json:"empty,omitempty"`
+	// Link navigates to another panel of the same console (for example "View all").
+	Link *PanelUILink `json:"link,omitempty"`
+	// Actions is the section header action slot.
+	Actions []PanelUIActionRef `json:"actions,omitempty"`
 }
 
-// PanelUICount declares badge/count behavior.
+// PanelUILink navigates to another panel of the same console.
+type PanelUILink struct {
+	Label   string `json:"label"`
+	PanelID string `json:"panel_id"`
+}
+
+// PanelUIActionRef names one declared action of the panel that renders it.
+// Records carry references in the field a view names with actions_bind; the
+// client resolves each one against the request-scoped definition, so it can
+// neither invent availability nor execute an undeclared, withdrawn or
+// foreign-panel reference. The action ID binds server-selected work.
+type PanelUIActionRef struct {
+	PanelID  string `json:"panel_id"`
+	ActionID string `json:"action_id"`
+	Emphasis string `json:"emphasis,omitempty"`
+}
+
+// PanelUIStep is one generic ordered step (format "steps").
+type PanelUIStep struct {
+	Label string `json:"label"`
+	State string `json:"state,omitempty"`
+	Tone  string `json:"tone,omitempty"`
+}
+
+// PanelUIProgress is bounded progress (format "progress").
+type PanelUIProgress struct {
+	Completed uint64 `json:"completed"`
+	Total     uint64 `json:"total,omitempty"`
+	Label     string `json:"label,omitempty"`
+}
+
+// PanelUIRecordRef identifies one record of a panel, for example the row an
+// action outcome affected.
+type PanelUIRecordRef struct {
+	PanelID   string `json:"panel_id"`
+	RecordKey string `json:"record_key"`
+}
+
+// PanelUIDetail is a safe label/value pair shown by a drawer.
+type PanelUIDetail struct {
+	Label  string `json:"label"`
+	Value  string `json:"value,omitempty"`
+	Format string `json:"format,omitempty"`
+}
+
+// PanelUIChange is a before/after pair shown before an action is confirmed.
+type PanelUIChange struct {
+	Label  string `json:"label"`
+	Before string `json:"before,omitempty"`
+	After  string `json:"after,omitempty"`
+	Format string `json:"format,omitempty"`
+}
+
+// PanelUIActionDrawer states what an action will do before it runs.
+type PanelUIActionDrawer struct {
+	Eyebrow    string          `json:"eyebrow,omitempty"`
+	Title      string          `json:"title,omitempty"`
+	Effect     string          `json:"effect,omitempty"`
+	EffectTone string          `json:"effect_tone,omitempty"`
+	Steps      []PanelUIStep   `json:"steps,omitempty"`
+	Details    []PanelUIDetail `json:"details,omitempty"`
+	Note       string          `json:"note,omitempty"`
+}
+
+// PanelUIActionSubmit is an explicit secondary submitter, such as Preview plan.
+// It sets one declared hidden or boolean field to Value; the primary submitter
+// sends that field's default. Each submitter is its own request, so plan and
+// execution never share a request ID.
+type PanelUIActionSubmit struct {
+	Label string `json:"label"`
+	Field string `json:"field"`
+	Value any    `json:"value"`
+}
+
+// PanelUIActionConfirmation is a structured confirmation for the admin modal.
+// ConfirmText remains the plain-text fallback for older clients.
+type PanelUIActionConfirmation struct {
+	Title        string          `json:"title,omitempty"`
+	Message      string          `json:"message,omitempty"`
+	Changes      []PanelUIChange `json:"changes,omitempty"`
+	Note         string          `json:"note,omitempty"`
+	ConfirmLabel string          `json:"confirm_label,omitempty"`
+	Tone         string          `json:"tone,omitempty"`
+}
+
+// PanelUICount declares badge/count behavior. Tone and ToneBind are additive
+// badge colors; clients without them show a neutral count.
 type PanelUICount struct {
-	Bind  string `json:"bind,omitempty"`
-	Mode  string `json:"mode,omitempty"`
-	Label string `json:"label,omitempty"`
+	Bind     string `json:"bind,omitempty"`
+	Mode     string `json:"mode,omitempty"`
+	Label    string `json:"label,omitempty"`
+	Tone     string `json:"tone,omitempty"`
+	ToneBind string `json:"tone_bind,omitempty"`
 }
 
 // PanelUIFilter declares a client-side console filter.
@@ -139,6 +324,28 @@ type PanelUIAction struct {
 	Payload         map[string]any       `json:"payload,omitempty"`
 	Fields          []PanelUIActionField `json:"fields,omitempty"`
 	Form            *PanelUIActionForm   `json:"form,omitempty"`
+	// Availability is empty (available) or one of the PanelAction*
+	// availability values. Unavailable declarations are display metadata.
+	Availability string `json:"availability,omitempty"`
+	// Reason is the safe, human-readable explanation for an unavailable action.
+	Reason string `json:"reason,omitempty"`
+	// Requires lists client capabilities this action needs. Normalization adds
+	// the capabilities implied by generated fields, hidden fields, secondary
+	// submits and unavailable availability.
+	Requires     []string                   `json:"requires,omitempty"`
+	Drawer       *PanelUIActionDrawer       `json:"drawer,omitempty"`
+	Secondary    *PanelUIActionSubmit       `json:"secondary_submit,omitempty"`
+	Confirmation *PanelUIActionConfirmation `json:"confirmation,omitempty"`
+	// RequestScope is an opaque, non-secret, server-issued selector that a
+	// client stores with a submitted request ID so the owner can find the
+	// claim again (see PanelRequestQuery). It carries no authority.
+	RequestScope string `json:"request_scope,omitempty"`
+}
+
+// Executable reports whether the declaration may be dispatched. It does not
+// authorize the actor; hosts and handlers still check current policy.
+func (a PanelUIAction) Executable() bool {
+	return normalizeAvailability(a.Availability) == PanelActionAvailable
 }
 
 // PanelUIActionForm carries trusted server-generated form markup. HTML must be
@@ -168,6 +375,15 @@ type PanelUIActionField struct {
 	OptionSource *PanelUIActionOptionSource `json:"option_source,omitempty"`
 	Default      any                        `json:"default,omitempty"`
 	DisplayHints map[string]any             `json:"display_hints,omitempty"`
+	// Advanced fields render inside the form's Advanced disclosure.
+	Advanced bool `json:"advanced,omitempty"`
+	// Generate names a client-side generator (PanelFieldGenerateRequestID).
+	// Generated fields are read-only, required and never carry a default.
+	Generate string `json:"generate,omitempty"`
+	// Min and Max bound numeric fields for in-place validation. The handler
+	// still validates every submitted value.
+	Min *float64 `json:"min,omitempty"`
+	Max *float64 `json:"max,omitempty"`
 }
 
 // PanelUIActionOption preserves a stable submitted value separately from its
@@ -190,6 +406,11 @@ type PanelUIActionOptionSource struct {
 	Dynamic    bool           `json:"dynamic,omitempty"`
 	CacheScope string         `json:"cache_scope,omitempty"`
 	Params     map[string]any `json:"params,omitempty"`
+	// Paginated options are loaded page by page from the console's options
+	// route (PanelOptionResolver) instead of being embedded in the definition.
+	Paginated bool `json:"paginated,omitempty"`
+	// Searchable paginated sources accept a bounded search term.
+	Searchable bool `json:"searchable,omitempty"`
 }
 
 // PanelUIColumn declares a table column option.
@@ -290,7 +511,8 @@ type PanelActionRequest struct {
 	Payload  map[string]any `json:"payload,omitempty"`
 }
 
-// PanelActionResult is returned by panel action handlers.
+// PanelActionResult is returned by panel action handlers. Tone, Code, Planned,
+// Record and FollowUp are additive outcome metadata for result banners.
 type PanelActionResult struct {
 	OK      bool              `json:"ok"`
 	Message string            `json:"message,omitempty"`
@@ -298,6 +520,226 @@ type PanelActionResult struct {
 	Refresh bool              `json:"refresh,omitempty"`
 	Event   *PanelActionEvent `json:"event,omitempty"`
 	Errors  map[string]any    `json:"errors,omitempty"`
+	// Tone colors the result banner (allowlisted PanelTone* values).
+	Tone string `json:"tone,omitempty"`
+	// Code is a safe machine code for a typed failure, never provider text.
+	Code string `json:"code,omitempty"`
+	// Planned marks dry-run/planned outcomes so they never read as executed.
+	Planned bool `json:"planned,omitempty"`
+	// Record is the row the outcome concerns (link and highlight).
+	Record *PanelUIRecordRef `json:"record,omitempty"`
+	// FollowUp lists declared actions the actor may take next.
+	FollowUp []PanelUIActionRef `json:"follow_up,omitempty"`
+}
+
+// Bounds for the options and request-status routes.
+const (
+	PanelOptionPageDefault = 25
+	PanelOptionPageMax     = 100
+	PanelOptionSearchMax   = 120
+	PanelOptionCursorMax   = 512
+	PanelOptionValuesMax   = 10
+	PanelRequestIDMax      = 128
+	PanelRequestScopeMax   = 200
+)
+
+// PanelOptionQuery asks for one bounded page of a declared field's options.
+// Cursor is opaque and resolver-issued; Values asks the resolver to resolve
+// already-selected values (for example an older retained receipt) without
+// scanning every page. Identity comes from trusted context, never the query.
+type PanelOptionQuery struct {
+	PanelID  string
+	ActionID string
+	Field    string
+	Cursor   string
+	Search   string
+	Limit    int
+	Values   []string
+}
+
+// PanelOptionPage is one page of options. Selected resolves requested Values
+// that the actor may still use; unknown or unauthorized values are omitted.
+type PanelOptionPage struct {
+	Items      []PanelUIActionOption `json:"items"`
+	NextCursor string                `json:"next_cursor,omitempty"`
+	Selected   []PanelUIActionOption `json:"selected,omitempty"`
+}
+
+// PanelOptionResolver loads paginated options for executable actions only. It
+// must apply current policy itself and stay bounded.
+type PanelOptionResolver func(ctx context.Context, query PanelOptionQuery) (PanelOptionPage, error)
+
+// Pending request states (ADR-0003 reconciliation).
+const (
+	// PanelRequestClaimed: the request was received; Result describes it.
+	PanelRequestClaimed = "claimed"
+	// PanelRequestUnclaimed: no claim exists for this request ID within the
+	// retry window, so resubmitting the unchanged request cannot duplicate work.
+	PanelRequestUnclaimed = "unclaimed"
+	// PanelRequestExpired: the retry window or claim authority is gone; only
+	// explicit new work may follow.
+	PanelRequestExpired = "expired"
+	// PanelRequestUnknown: the claim could not be determined now; keep the
+	// request pending and never restart it automatically.
+	PanelRequestUnknown = "unknown"
+)
+
+// PanelRequestQuery looks up the current actor's own submitted request. The
+// action may since have been withdrawn; Scope is the declaration's opaque
+// RequestScope and selects nothing beyond the trusted actor/scope namespace.
+// SubmittedAt is the client's own record of its first submission (zero when
+// unknown). It is guidance for the retry window, never authority: a resolver
+// reports unclaimed only while that window is still open, otherwise expired.
+type PanelRequestQuery struct {
+	PanelID     string
+	ActionID    string
+	RequestID   string
+	Scope       string
+	SubmittedAt time.Time
+}
+
+// PanelRequestStatus reports a pending request without exposing stored keys,
+// fingerprints or principals. RetryUntil is RFC 3339 UTC guidance.
+type PanelRequestStatus struct {
+	Status     string             `json:"status"`
+	Message    string             `json:"message,omitempty"`
+	Result     *PanelActionResult `json:"result,omitempty"`
+	RetryUntil string             `json:"retry_until,omitempty"`
+}
+
+// PanelRequestResolver answers pending-request lookups under current policy.
+type PanelRequestResolver func(ctx context.Context, query PanelRequestQuery) (PanelRequestStatus, error)
+
+// NormalizePanelActionResult sanitizes outcome metadata before delivery.
+func NormalizePanelActionResult(result PanelActionResult) PanelActionResult {
+	result.Tone = NormalizePanelTone(result.Tone)
+	result.Code = normalizeResultCode(result.Code)
+	if result.Record != nil {
+		ref := PanelUIRecordRef{PanelID: normalizeID(result.Record.PanelID), RecordKey: strings.TrimSpace(result.Record.RecordKey)}
+		if safeIdentifier(ref.PanelID) && printableBounded(ref.RecordKey, 256) {
+			result.Record = &ref
+		} else {
+			result.Record = nil
+		}
+	}
+	result.FollowUp = NormalizePanelActionRefs(result.FollowUp)
+	return result
+}
+
+// NormalizePanelOptionQuery bounds an options request.
+func NormalizePanelOptionQuery(query PanelOptionQuery) PanelOptionQuery {
+	query.PanelID, query.ActionID, query.Field = normalizeID(query.PanelID), normalizeID(query.ActionID), normalizeID(query.Field)
+	if query.Limit <= 0 {
+		query.Limit = PanelOptionPageDefault
+	}
+	if query.Limit > PanelOptionPageMax {
+		query.Limit = PanelOptionPageMax
+	}
+	query.Search = strings.TrimSpace(query.Search)
+	if len(query.Search) > PanelOptionSearchMax || !printableBounded(query.Search, PanelOptionSearchMax) {
+		query.Search = ""
+	}
+	if !printableBounded(query.Cursor, PanelOptionCursorMax) {
+		query.Cursor = ""
+	}
+	values := make([]string, 0, len(query.Values))
+	for _, value := range query.Values {
+		value = strings.TrimSpace(value)
+		if value != "" && printableBounded(value, 256) && len(values) < PanelOptionValuesMax {
+			values = append(values, value)
+		}
+	}
+	query.Values = values
+	return query
+}
+
+// NormalizePanelOptionPage bounds a resolver page to limit items and safe text.
+func NormalizePanelOptionPage(page PanelOptionPage, limit int) PanelOptionPage {
+	if limit <= 0 || limit > PanelOptionPageMax {
+		limit = PanelOptionPageMax
+	}
+	out := PanelOptionPage{Items: normalizePanelUIActionOptions(page.Items), Selected: normalizePanelUIActionOptions(page.Selected)}
+	if out.Items == nil {
+		out.Items = []PanelUIActionOption{}
+	}
+	if len(out.Items) > limit {
+		out.Items = out.Items[:limit]
+	}
+	if len(out.Selected) > PanelOptionValuesMax {
+		out.Selected = out.Selected[:PanelOptionValuesMax]
+	}
+	if cursor := strings.TrimSpace(page.NextCursor); printableBounded(cursor, PanelOptionCursorMax) {
+		out.NextCursor = cursor
+	}
+	return out
+}
+
+// NormalizePanelRequestStatus allowlists the status and sanitizes its result.
+// Only a claimed request carries a result.
+func NormalizePanelRequestStatus(status PanelRequestStatus) PanelRequestStatus {
+	out := PanelRequestStatus{Status: normalizeID(status.Status), Message: strings.TrimSpace(status.Message)}
+	switch out.Status {
+	case PanelRequestClaimed, PanelRequestUnclaimed, PanelRequestExpired:
+	default:
+		out.Status = PanelRequestUnknown
+	}
+	if out.Status == PanelRequestClaimed && status.Result != nil {
+		result := NormalizePanelActionResult(*status.Result)
+		out.Result = &result
+	}
+	if until := strings.TrimSpace(status.RetryUntil); until != "" {
+		if parsed, err := time.Parse(time.RFC3339, until); err == nil {
+			out.RetryUntil = parsed.UTC().Format(time.RFC3339)
+		}
+	}
+	return out
+}
+
+// ValidRequestID reports whether a generated request ID is a canonical UUID.
+// Request IDs are idempotency keys, never credentials or correlation IDs.
+func ValidRequestID(value string) bool {
+	if len(value) != 36 {
+		return false
+	}
+	for index, ch := range value {
+		switch index {
+		case 8, 13, 18, 23:
+			if ch != '-' {
+				return false
+			}
+		default:
+			if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func normalizeResultCode(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > 64 {
+		return ""
+	}
+	for _, ch := range value {
+		if (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') && ch != '_' && ch != '-' && ch != '.' {
+			return ""
+		}
+	}
+	return value
+}
+
+// printableBounded accepts empty values and printable text without markup.
+func printableBounded(value string, limit int) bool {
+	if len(value) > limit {
+		return false
+	}
+	for _, ch := range value {
+		if ch < 0x20 || ch == 0x7f || ch == '<' || ch == '>' {
+			return false
+		}
+	}
+	return true
 }
 
 // PanelActionEvent allows action results to be applied like a live event.
@@ -326,6 +768,10 @@ type PanelConfig struct {
 	Definition      PanelDefinitionFilter         `json:"-"`
 	Actions         map[string]PanelActionHandler `json:"-"`
 	ActionResolver  PanelActionHandlerResolver    `json:"-"`
+	// Options serves paginated option sources of this panel's action fields.
+	Options PanelOptionResolver `json:"-"`
+	// Requests answers pending-request lookups for this panel's actions.
+	Requests PanelRequestResolver `json:"-"`
 }
 
 // PanelDefinition describes a registered panel for client discovery.
@@ -353,6 +799,8 @@ type PanelRegistration struct {
 	Clear          PanelClearFunc                `json:"clear"`
 	Actions        map[string]PanelActionHandler `json:"-"`
 	ActionResolver PanelActionHandlerResolver    `json:"-"`
+	Options        PanelOptionResolver           `json:"-"`
+	Requests       PanelRequestResolver          `json:"-"`
 }
 
 // PanelRegistry stores registered panels and metadata.
@@ -568,6 +1016,8 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 		Clear:          config.Clear,
 		Actions:        normalizeActionHandlers(config.Actions),
 		ActionResolver: config.ActionResolver,
+		Options:        config.Options,
+		Requests:       config.Requests,
 	}
 }
 
@@ -581,6 +1031,9 @@ func (r PanelRegistration) definitionForContext(ctx context.Context) PanelDefini
 	if r.Filter != nil {
 		filtered := r.Filter(ctx, def)
 		if filtered.ID != "" {
+			// Request-scoped declarations get the same fail-closed workflow
+			// normalization as registered ones.
+			filtered.UI = normalizeWorkflowUI(filtered.UI)
 			return filtered
 		}
 	}
@@ -751,9 +1204,13 @@ func normalizePanelUIView(input *PanelUIView) *PanelUIView {
 		return nil
 	}
 	view := &PanelUIView{
-		Renderer: renderer,
-		Title:    trimSafeText(input.Title),
-		Bind:     normalizeBind(input.Bind),
+		Renderer:    renderer,
+		Title:       trimSafeText(input.Title),
+		Bind:        normalizeBind(input.Bind),
+		Description: trimSafeText(input.Description),
+		Empty:       trimSafeText(input.Empty),
+		Link:        normalizePanelUILink(input.Link),
+		Actions:     NormalizePanelActionRefs(input.Actions),
 	}
 	if len(input.Options) > 0 {
 		view.Options = cloneJSONSafeMap(input.Options)
@@ -766,15 +1223,276 @@ func normalizePanelUIView(input *PanelUIView) *PanelUIView {
 	return view
 }
 
+func normalizePanelUILink(input *PanelUILink) *PanelUILink {
+	if input == nil {
+		return nil
+	}
+	label, panelID := trimSafeText(input.Label), normalizeID(input.PanelID)
+	if label == "" || !safeIdentifier(panelID) {
+		return nil
+	}
+	return &PanelUILink{Label: label, PanelID: panelID}
+}
+
+// NormalizePanelActionRefs keeps well-formed, distinct action references.
+// Projections use it before placing references in record data.
+func NormalizePanelActionRefs(refs []PanelUIActionRef) []PanelUIActionRef {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]PanelUIActionRef, 0, len(refs))
+	seen := map[string]bool{}
+	for _, ref := range refs {
+		panelID, actionID := normalizeID(ref.PanelID), normalizeID(ref.ActionID)
+		key := panelID + "\x00" + actionID
+		if !safeIdentifier(panelID) || !safeIdentifier(actionID) || seen[key] {
+			continue
+		}
+		seen[key] = true
+		emphasis := normalizeID(ref.Emphasis)
+		switch emphasis {
+		case PanelActionEmphasisPrimary, PanelActionEmphasisMenu:
+		default:
+			emphasis = ""
+		}
+		out = append(out, PanelUIActionRef{PanelID: panelID, ActionID: actionID, Emphasis: emphasis})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// NormalizePanelTone returns an allowlisted tone, or "" when unknown.
+func NormalizePanelTone(value string) string {
+	switch tone := normalizeID(value); tone {
+	case PanelToneSuccess, PanelToneInfo, PanelToneWarning, PanelToneError, PanelToneNeutral, PanelTonePlanned:
+		return tone
+	default:
+		return ""
+	}
+}
+
+// NormalizePanelSteps keeps labelled steps with allowlisted states and tones.
+func NormalizePanelSteps(steps []PanelUIStep) []PanelUIStep {
+	if len(steps) == 0 {
+		return nil
+	}
+	out := make([]PanelUIStep, 0, len(steps))
+	for _, step := range steps {
+		label := trimSafeText(step.Label)
+		if label == "" {
+			continue
+		}
+		state := normalizeID(step.State)
+		switch state {
+		case PanelStepDone, PanelStepCurrent, PanelStepWarning, PanelStepFailed:
+		default:
+			state = PanelStepPending
+		}
+		out = append(out, PanelUIStep{Label: label, State: state, Tone: NormalizePanelTone(step.Tone)})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeAvailability(value string) string {
+	switch availability := normalizeID(value); availability {
+	case "", PanelActionAvailable:
+		return PanelActionAvailable
+	case PanelActionUnsupported, PanelActionNotPermitted:
+		return availability
+	default:
+		return PanelActionUnavailable
+	}
+}
+
+func defaultAvailabilityReason(availability string) string {
+	switch availability {
+	case PanelActionUnsupported:
+		return "Not supported here."
+	case PanelActionNotPermitted:
+		return "You do not have permission to run this action."
+	default:
+		return "Not available right now."
+	}
+}
+
+// safeIdentifier accepts the bounded identifier alphabet used for panel,
+// action, field and capability IDs on the wire.
+func safeIdentifier(value string) bool {
+	if value == "" || len(value) > 160 {
+		return false
+	}
+	for _, ch := range value {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '-' && ch != '_' && ch != '.' && ch != ':' {
+			return false
+		}
+	}
+	return true
+}
+
+// normalizeCapabilities lowercases, validates, deduplicates and sorts
+// capability IDs. At most eight are kept.
+func normalizeCapabilities(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = normalizeID(value)
+		if !safeIdentifier(value) || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	if len(out) > 8 {
+		out = out[:8]
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizePanelUIActionDrawer(input *PanelUIActionDrawer) *PanelUIActionDrawer {
+	if input == nil {
+		return nil
+	}
+	drawer := &PanelUIActionDrawer{
+		Eyebrow:    trimSafeText(input.Eyebrow),
+		Title:      trimSafeText(input.Title),
+		Effect:     trimSafeText(input.Effect),
+		EffectTone: NormalizePanelTone(input.EffectTone),
+		Steps:      NormalizePanelSteps(input.Steps),
+		Note:       trimSafeText(input.Note),
+	}
+	for _, detail := range input.Details {
+		label := trimSafeText(detail.Label)
+		if label == "" {
+			continue
+		}
+		drawer.Details = append(drawer.Details, PanelUIDetail{Label: label, Value: trimSafeText(detail.Value), Format: normalizeFormat(detail.Format)})
+	}
+	if drawer.Eyebrow == "" && drawer.Title == "" && drawer.Effect == "" && drawer.Note == "" && len(drawer.Steps) == 0 && len(drawer.Details) == 0 {
+		return nil
+	}
+	return drawer
+}
+
+func normalizePanelUIActionConfirmation(input *PanelUIActionConfirmation) *PanelUIActionConfirmation {
+	if input == nil {
+		return nil
+	}
+	confirmation := &PanelUIActionConfirmation{
+		Title:        trimSafeText(input.Title),
+		Message:      trimSafeText(input.Message),
+		Note:         trimSafeText(input.Note),
+		ConfirmLabel: trimSafeText(input.ConfirmLabel),
+		Tone:         NormalizePanelTone(input.Tone),
+	}
+	for _, change := range input.Changes {
+		label := trimSafeText(change.Label)
+		if label == "" {
+			continue
+		}
+		confirmation.Changes = append(confirmation.Changes, PanelUIChange{
+			Label: label, Before: trimSafeText(change.Before), After: trimSafeText(change.After), Format: normalizeFormat(change.Format),
+		})
+	}
+	if confirmation.Title == "" && confirmation.Message == "" && len(confirmation.Changes) == 0 {
+		return nil
+	}
+	return confirmation
+}
+
+// normalizePanelUIActionSubmit keeps a secondary submitter only when it sets a
+// declared hidden or boolean field to a JSON scalar.
+func normalizePanelUIActionSubmit(input *PanelUIActionSubmit, fields []PanelUIActionField) *PanelUIActionSubmit {
+	if input == nil {
+		return nil
+	}
+	label, field := trimSafeText(input.Label), normalizeID(input.Field)
+	if label == "" || field == "" {
+		return nil
+	}
+	value, ok := cloneJSONSafeValue(input.Value)
+	if !ok || value == nil {
+		return nil
+	}
+	switch value.(type) {
+	case bool, string, float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+	default:
+		return nil
+	}
+	for _, declared := range fields {
+		if declared.Name == field && (declared.Kind == PanelFieldKindHidden || declared.Kind == "boolean" || declared.Kind == "checkbox") {
+			return &PanelUIActionSubmit{Label: label, Field: field, Value: value}
+		}
+	}
+	return nil
+}
+
+func normalizeFormat(value string) string {
+	switch format := normalizeID(value); format {
+	case PanelFormatText, PanelFormatBadge, PanelFormatMono, PanelFormatCopy, PanelFormatColor, PanelFormatNumber,
+		PanelFormatBoolean, PanelFormatTimestamp, PanelFormatDateTime, PanelFormatRelative, PanelFormatSteps, PanelFormatProgress:
+		return format
+	default:
+		return ""
+	}
+}
+
+// implicitActionRequirements are the client capabilities a declaration needs
+// for its new behavior to execute safely (ADR-0004 compatibility).
+func implicitActionRequirements(action PanelUIAction) []string {
+	required := []string{}
+	if !action.Executable() {
+		required = append(required, ClientCapabilityActionAvailability)
+	}
+	if action.Secondary != nil {
+		required = append(required, ClientCapabilitySecondarySubmit)
+	}
+	for _, field := range action.Fields {
+		if field.Generate == PanelFieldGenerateRequestID {
+			required = append(required, ClientCapabilityRequestID)
+		}
+		if field.Kind == PanelFieldKindHidden {
+			required = append(required, ClientCapabilitySecondarySubmit)
+		}
+	}
+	return required
+}
+
+func normalizeRequestScope(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > PanelRequestScopeMax {
+		return ""
+	}
+	for _, ch := range value {
+		if ch < 0x21 || ch > 0x7e || ch == '<' || ch == '>' || ch == '"' || ch == '\'' || ch == '&' {
+			return ""
+		}
+	}
+	return value
+}
+
 func normalizePanelUICount(input *PanelUICount) *PanelUICount {
 	mode := normalizeCountMode(input.Mode)
 	if mode == "" {
 		mode = PanelCountArrayLength
 	}
 	return &PanelUICount{
-		Bind:  normalizeBind(input.Bind),
-		Mode:  mode,
-		Label: trimSafeText(input.Label),
+		Bind:     normalizeBind(input.Bind),
+		Mode:     mode,
+		Label:    trimSafeText(input.Label),
+		Tone:     NormalizePanelTone(input.Tone),
+		ToneBind: normalizeBind(input.ToneBind),
 	}
 }
 
@@ -831,7 +1549,7 @@ func normalizePanelUIActionLayout(input *PanelUIActionLayout) *PanelUIActionLayo
 	switch mode {
 	case "", PanelActionLayoutList:
 		mode = PanelActionLayoutList
-	case PanelActionLayoutSelect:
+	case PanelActionLayoutSelect, PanelActionLayoutDrawer:
 	default:
 		return nil
 	}
@@ -842,8 +1560,11 @@ func normalizePanelUIActionLayout(input *PanelUIActionLayout) *PanelUIActionLayo
 	}
 }
 
+// normalizePanelUIActions keeps executable declarations that have a handler
+// (or a resolver) and display-only unavailable declarations, which need none.
+// Unavailable declarations lose every executable part.
 func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelActionHandler, hasResolver bool) []PanelUIAction {
-	if len(actions) == 0 || (len(handlers) == 0 && !hasResolver) {
+	if len(actions) == 0 {
 		return nil
 	}
 	seen := map[string]bool{}
@@ -853,7 +1574,9 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 		if id == "" || seen[id] {
 			continue
 		}
-		if panelActionHandlerFor(handlers, id) == nil && !hasResolver {
+		availability := normalizeAvailability(action.Availability)
+		executable := availability == PanelActionAvailable
+		if executable && panelActionHandlerFor(handlers, id) == nil && !hasResolver {
 			continue
 		}
 		label := trimSafeText(action.Label)
@@ -861,7 +1584,7 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 			label = formatPanelLabel(id)
 		}
 		seen[id] = true
-		out = append(out, PanelUIAction{
+		out = append(out, normalizeWorkflowAction(PanelUIAction{
 			ID:              id,
 			Label:           label,
 			SubmitLabel:     trimSafeText(action.SubmitLabel),
@@ -874,9 +1597,108 @@ func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelA
 			Payload:         cloneJSONSafeMap(action.Payload),
 			Fields:          normalizePanelUIActionFields(action.Fields),
 			Form:            normalizePanelUIActionForm(action.Form),
-		})
+			Availability:    availability,
+			Reason:          action.Reason,
+			Requires:        action.Requires,
+			Drawer:          action.Drawer,
+			Secondary:       action.Secondary,
+			Confirmation:    action.Confirmation,
+			RequestScope:    action.RequestScope,
+		}))
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
+}
+
+// normalizeWorkflowAction normalizes the additive workflow metadata of one
+// declaration and fails closed: an unavailable declaration keeps only its
+// identity, label, drawer and reason, and requirements include every client
+// capability its behavior implies. Legacy fields are left as they are, so it
+// is safe to apply to request-scoped filter output.
+func normalizeWorkflowAction(action PanelUIAction) PanelUIAction {
+	action.Drawer = normalizePanelUIActionDrawer(action.Drawer)
+	if availability := normalizeAvailability(action.Availability); availability != PanelActionAvailable {
+		out := PanelUIAction{
+			ID: action.ID, Label: action.Label, SubmitLabel: action.SubmitLabel, Kind: action.Kind, Hidden: action.Hidden,
+			Drawer: action.Drawer, Availability: availability, Reason: trimSafeText(action.Reason),
+		}
+		if out.Reason == "" {
+			out.Reason = defaultAvailabilityReason(availability)
+		}
+		out.Requires = normalizeCapabilities(append(append([]string{}, action.Requires...), implicitActionRequirements(out)...))
+		return out
+	}
+	action.Availability, action.Reason = "", ""
+	action.Fields = normalizeWorkflowFields(action.Fields)
+	action.Secondary = normalizePanelUIActionSubmit(action.Secondary, action.Fields)
+	action.Confirmation = normalizePanelUIActionConfirmation(action.Confirmation)
+	action.RequestScope = normalizeRequestScope(action.RequestScope)
+	action.Requires = normalizeCapabilities(append(append([]string{}, action.Requires...), implicitActionRequirements(action)...))
+	return action
+}
+
+// normalizeWorkflowFields normalizes generated, bounded and paginated field
+// metadata on a copy of the fields.
+func normalizeWorkflowFields(fields []PanelUIActionField) []PanelUIActionField {
+	if len(fields) == 0 {
+		return fields
+	}
+	out := make([]PanelUIActionField, len(fields))
+	for index, field := range fields {
+		field.Kind = normalizeID(field.Kind)
+		field.Min, field.Max = normalizeFieldBounds(field.Min, field.Max)
+		if field.OptionSource != nil {
+			source := *field.OptionSource
+			source.Searchable = source.Paginated && source.Searchable
+			field.OptionSource = &source
+		}
+		if normalizeID(field.Generate) == PanelFieldGenerateRequestID {
+			// The client owns generated values per request draft; a definition
+			// can never supply, share or replay one.
+			field.Generate, field.Default, field.Required, field.Sensitive = PanelFieldGenerateRequestID, nil, true, false
+		} else {
+			field.Generate = ""
+		}
+		out[index] = field
+	}
+	return out
+}
+
+// normalizeWorkflowUI applies workflow normalization to request-scoped filter
+// output, whose legacy fields are trusted server code.
+func normalizeWorkflowUI(ui *PanelUI) *PanelUI {
+	if ui == nil || ui.SchemaVersion != PanelUISchemaVersion && ui.SchemaVersion != "" {
+		return ui
+	}
+	out := *ui
+	out.Views.Console = normalizeWorkflowView(ui.Views.Console)
+	out.Views.Toolbar = normalizeWorkflowView(ui.Views.Toolbar)
+	if len(ui.Actions) > 0 {
+		out.Actions = make([]PanelUIAction, 0, len(ui.Actions))
+		for _, action := range ui.Actions {
+			out.Actions = append(out.Actions, normalizeWorkflowAction(action))
+		}
+	}
+	return &out
+}
+
+func normalizeWorkflowView(view *PanelUIView) *PanelUIView {
+	if view == nil {
+		return nil
+	}
+	out := *view
+	out.Description, out.Empty = trimSafeText(view.Description), trimSafeText(view.Empty)
+	out.Link = normalizePanelUILink(view.Link)
+	out.Actions = NormalizePanelActionRefs(view.Actions)
+	if len(view.Sections) > 0 {
+		out.Sections = make([]PanelUIView, 0, len(view.Sections))
+		for index := range view.Sections {
+			out.Sections = append(out.Sections, *normalizeWorkflowView(&view.Sections[index]))
+		}
+	}
+	return &out
 }
 
 func normalizePanelUIActionForm(input *PanelUIActionForm) *PanelUIActionForm {
@@ -934,7 +1756,10 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 			OptionItems:  normalizePanelUIActionOptions(field.OptionItems),
 			OptionSource: normalizePanelUIActionOptionSource(field.OptionSource),
 			DisplayHints: cloneJSONSafeMap(field.DisplayHints),
+			Advanced:     field.Advanced,
 		}
+		normalized.Min, normalized.Max = field.Min, field.Max
+		normalized.Generate = field.Generate
 		if defaultValue, ok := cloneJSONSafeValue(field.Default); ok && !field.Sensitive {
 			if text, isText := defaultValue.(string); isText && text == "" {
 				out = append(out, normalized)
@@ -945,6 +1770,21 @@ func normalizePanelUIActionFields(fields []PanelUIActionField) []PanelUIActionFi
 		out = append(out, normalized)
 	}
 	return out
+}
+
+func normalizeFieldBounds(minimum, maximum *float64) (*float64, *float64) {
+	finite := func(value *float64) *float64 {
+		if value == nil || math.IsNaN(*value) || math.IsInf(*value, 0) {
+			return nil
+		}
+		copied := *value
+		return &copied
+	}
+	minimum, maximum = finite(minimum), finite(maximum)
+	if minimum != nil && maximum != nil && *minimum > *maximum {
+		return nil, nil
+	}
+	return minimum, maximum
 }
 
 func normalizePanelUIActionOptions(options []PanelUIActionOption) []PanelUIActionOption {
@@ -988,21 +1828,32 @@ func normalizePanelUIActionOptionSource(source *PanelUIActionOptionSource) *Pane
 		Dynamic:    source.Dynamic,
 		CacheScope: normalizeID(source.CacheScope),
 		Params:     cloneJSONSafeMap(source.Params),
+		Paginated:  source.Paginated,
+		Searchable: source.Paginated && source.Searchable,
 	}
 }
 
-// PanelDefinitionHasAction reports whether a request-scoped panel definition exposes an action.
+// PanelDefinitionHasAction reports whether a request-scoped panel definition
+// exposes an executable action. Unavailable declarations are display metadata
+// and never count as exposed.
 func PanelDefinitionHasAction(def PanelDefinition, actionID string) bool {
+	action, ok := PanelDefinitionAction(def, actionID)
+	return ok && action.Executable()
+}
+
+// PanelDefinitionAction returns the declaration for an action ID, whether or
+// not it is executable.
+func PanelDefinitionAction(def PanelDefinition, actionID string) (PanelUIAction, bool) {
 	actionID = normalizeID(actionID)
 	if actionID == "" || def.UI == nil || len(def.UI.Actions) == 0 {
-		return false
+		return PanelUIAction{}, false
 	}
 	for _, action := range def.UI.Actions {
 		if normalizeID(action.ID) == actionID {
-			return true
+			return action, true
 		}
 	}
-	return false
+	return PanelUIAction{}, false
 }
 
 func normalizeActionHandlers(handlers map[string]PanelActionHandler) map[string]PanelActionHandler {
@@ -1060,6 +1911,10 @@ func normalizeRenderer(value string) string {
 		return PanelRendererJSON
 	case PanelRendererStack:
 		return PanelRendererStack
+	case PanelRendererCards:
+		return PanelRendererCards
+	case PanelRendererList:
+		return PanelRendererList
 	default:
 		return ""
 	}
@@ -1075,6 +1930,10 @@ func normalizeCountMode(value string) string {
 		return PanelCountTruthy
 	case PanelCountNumber:
 		return PanelCountNumber
+	case PanelCountMatchingRows:
+		return PanelCountMatchingRows
+	case PanelCountNone:
+		return PanelCountNone
 	default:
 		return ""
 	}

@@ -13,7 +13,9 @@
       "actions": "/fixture/data/api/panels/:panel/actions/:action",
       "preferences": "/fixture/data/api/preferences/panel-order",
       "live": "/fixture/data/ws",
-      "lookup": "/fixture/data/api/panels/:panel/records/:record"
+      "lookup": "/fixture/data/api/panels/:panel/records/:record",
+      "options": "/fixture/data/api/panels/:panel/actions/:action/options/:field",
+      "requests": "/fixture/data/api/panels/:panel/requests/:request"
     },
     "preferences_namespace": "console:{\"console_id\":\"data\",\"application_id\":\"crm\",\"environment_id\":\"staging\",\"actor_id\":\"operator-1\",\"scope_key\":\"synthetic-org\"}",
     "snapshot": {
@@ -200,7 +202,9 @@
       "actions": "/fixture/ops/api/panels/:panel/actions/:action",
       "preferences": "/fixture/ops/api/preferences/panel-order",
       "live": "/fixture/ops/ws",
-      "lookup": "/fixture/ops/api/panels/:panel/records/:record"
+      "lookup": "/fixture/ops/api/panels/:panel/records/:record",
+      "options": "/fixture/ops/api/panels/:panel/actions/:action/options/:field",
+      "requests": "/fixture/ops/api/panels/:panel/requests/:request"
     },
     "preferences_namespace": "console:{\"console_id\":\"ops\",\"application_id\":\"crm\",\"environment_id\":\"staging\",\"actor_id\":\"operator-2\",\"scope_key\":\"synthetic-org\"}",
     "snapshot": {
@@ -467,5 +471,425 @@
       ]
     },
     "watermark": 21
+  },
+  "workflow": {
+    "client_capabilities": [
+      "action_availability.v1",
+      "action_drawer.v1",
+      "request_id.v1",
+      "rich_views.v1",
+      "secondary_submit.v1"
+    ],
+    "option_page": {
+      "items": [
+        {
+          "value": "rcpt-empty-1",
+          "label": "empty-history v1 · verified",
+          "description": "Prepared 2026-10-01 08:40"
+        },
+        {
+          "value": "rcpt-empty-0",
+          "label": "empty-history v1 · prepared",
+          "description": "Not verified",
+          "disabled": true
+        }
+      ],
+      "next_cursor": "opaque-cursor-2",
+      "selected": [
+        {
+          "value": "rcpt-old-7",
+          "label": "empty-history v1 · verified (older)"
+        }
+      ]
+    },
+    "option_query": "?cursor=opaque-cursor-1\u0026q=empty\u0026limit=25\u0026value=rcpt-old-7",
+    "panel": {
+      "id": "scenarios",
+      "label": "Scenarios",
+      "snapshot_key": "scenarios",
+      "event_types": [
+        "scenarios"
+      ],
+      "supports_toolbar": true,
+      "order": 20,
+      "ui": {
+        "schema_version": "1",
+        "views": {
+          "console": {
+            "renderer": "table",
+            "title": "Scenarios",
+            "options": {
+              "actions_bind": "actions",
+              "columns": [
+                {
+                  "bind": "title",
+                  "label": "Scenario",
+                  "secondary_bind": "subtitle"
+                },
+                {
+                  "bind": "lifecycle",
+                  "format": "steps",
+                  "label": "Lifecycle"
+                },
+                {
+                  "bind": "status",
+                  "format": "badge",
+                  "label": "Status",
+                  "tone_bind": "status_tone"
+                },
+                {
+                  "bind": "receipt",
+                  "empty": "—",
+                  "format": "copy",
+                  "label": "Receipt",
+                  "truncate": 12
+                },
+                {
+                  "bind": "progress",
+                  "empty": "—",
+                  "format": "progress",
+                  "label": "Progress"
+                },
+                {
+                  "bind": "updated_at",
+                  "format": "relative",
+                  "label": "Updated"
+                }
+              ],
+              "key_bind": "key"
+            },
+            "description": "Each scenario's lifecycle on its target",
+            "empty": "No scenarios yet. Datasets appear here once a provider publishes them.",
+            "link": {
+              "label": "All operations",
+              "panel_id": "operations"
+            }
+          }
+        },
+        "action_layout": {
+          "mode": "drawer"
+        },
+        "actions": [
+          {
+            "id": "refresh",
+            "label": "Refresh",
+            "submit_label": "Refresh",
+            "kind": "refresh",
+            "refresh": true,
+            "fields": [
+              {
+                "name": "batch_limit",
+                "label": "Batch size",
+                "kind": "integer",
+                "help": "Records written per batch, from 1 to 10,000.",
+                "default": 100,
+                "min": 1,
+                "max": 10000
+              },
+              {
+                "name": "dry_run",
+                "label": "Dry Run",
+                "kind": "hidden",
+                "default": false
+              },
+              {
+                "name": "request_id",
+                "label": "Request ID",
+                "help": "Generated for this request. Unchanged retries reuse it; Preview plan and new work get their own.",
+                "required": true,
+                "advanced": true,
+                "generate": "request_id"
+              }
+            ],
+            "requires": [
+              "request_id.v1",
+              "secondary_submit.v1"
+            ],
+            "drawer": {
+              "eyebrow": "Refresh · target preview",
+              "title": "Refresh ready v1",
+              "effect": "preview keeps serving rcpt-ready-1 (generation 3) while this runs.",
+              "effect_tone": "info",
+              "steps": [
+                {
+                  "label": "Prepare receipt",
+                  "state": "current"
+                },
+                {
+                  "label": "Verify",
+                  "state": "pending"
+                },
+                {
+                  "label": "Activate",
+                  "state": "pending"
+                }
+              ],
+              "details": [
+                {
+                  "label": "Dataset",
+                  "value": "crm/corpus-a v1"
+                },
+                {
+                  "label": "Records",
+                  "value": "orders 40, people 120"
+                }
+              ],
+              "note": "Preview plan starts a separate dry-run request. Nothing changes on preview."
+            },
+            "secondary_submit": {
+              "label": "Preview plan",
+              "field": "dry_run",
+              "value": true
+            },
+            "request_scope": "refresh:preview"
+          },
+          {
+            "id": "activate",
+            "label": "Activate…",
+            "submit_label": "Activate",
+            "kind": "activate",
+            "confirm_text": "Activate empty-history v1 on preview?",
+            "requires_confirm": true,
+            "refresh": true,
+            "payload": {
+              "expected_generation": 3
+            },
+            "fields": [
+              {
+                "name": "receipt_id",
+                "label": "Receipt",
+                "kind": "select",
+                "required": true,
+                "option_source": {
+                  "id": "receipts",
+                  "label": "Retained receipts",
+                  "paginated": true,
+                  "searchable": true
+                }
+              },
+              {
+                "name": "request_id",
+                "label": "Request ID",
+                "help": "Generated for this request. Unchanged retries reuse it; Preview plan and new work get their own.",
+                "required": true,
+                "advanced": true,
+                "generate": "request_id"
+              }
+            ],
+            "requires": [
+              "request_id.v1"
+            ],
+            "confirmation": {
+              "title": "Activate empty-history v1 on preview?",
+              "message": "preview switches datasets as soon as the activation completes.",
+              "changes": [
+                {
+                  "label": "Scenario",
+                  "before": "ready v1",
+                  "after": "empty-history v1"
+                },
+                {
+                  "label": "Receipt",
+                  "before": "rcpt-ready-1",
+                  "after": "rcpt-empty-1",
+                  "format": "mono"
+                },
+                {
+                  "label": "Generation",
+                  "before": "3",
+                  "after": "4",
+                  "format": "number"
+                }
+              ],
+              "note": "To switch back later, activate rcpt-ready-1 again. That creates generation 5.",
+              "confirm_label": "Activate empty-history v1"
+            },
+            "request_scope": "activate:preview"
+          },
+          {
+            "id": "validate",
+            "label": "Validate",
+            "kind": "validate",
+            "refresh": true,
+            "fields": [
+              {
+                "name": "request_id",
+                "label": "Request ID",
+                "help": "Generated for this request. Unchanged retries reuse it; Preview plan and new work get their own.",
+                "required": true,
+                "advanced": true,
+                "generate": "request_id"
+              }
+            ],
+            "requires": [
+              "request_id.v1"
+            ]
+          },
+          {
+            "id": "prepare-backfill",
+            "label": "Prepare",
+            "kind": "prepare",
+            "availability": "not_permitted",
+            "reason": "Needs the Data operator role.",
+            "requires": [
+              "action_availability.v1"
+            ]
+          },
+          {
+            "id": "reset",
+            "label": "Reset",
+            "kind": "reset",
+            "availability": "unsupported",
+            "reason": "This target has no safe reset.",
+            "requires": [
+              "action_availability.v1"
+            ]
+          }
+        ]
+      },
+      "records": [
+        {
+          "record_key": "ready",
+          "target_id": "preview",
+          "generation": 3,
+          "revision": 4,
+          "data": {
+            "actions": [
+              {
+                "panel_id": "scenarios",
+                "action_id": "refresh",
+                "emphasis": "primary"
+              },
+              {
+                "panel_id": "scenarios",
+                "action_id": "validate",
+                "emphasis": "menu"
+              },
+              {
+                "panel_id": "scenarios",
+                "action_id": "reset",
+                "emphasis": "menu"
+              }
+            ],
+            "key": "ready",
+            "lifecycle": [
+              {
+                "label": "Prepared",
+                "state": "done",
+                "tone": "success"
+              },
+              {
+                "label": "Verified",
+                "state": "done",
+                "tone": "success"
+              },
+              {
+                "label": "Active · gen 3",
+                "state": "current",
+                "tone": "success"
+              }
+            ],
+            "progress": {
+              "completed": 40,
+              "total": 100,
+              "label": "Refresh 40 of 100"
+            },
+            "receipt": "rcpt-ready-1",
+            "status": "Active",
+            "status_tone": "success",
+            "subtitle": "crm/corpus-a v1",
+            "title": "ready v1",
+            "updated_at": "2026-10-01T09:01:00Z"
+          }
+        },
+        {
+          "record_key": "backfill",
+          "target_id": "preview",
+          "revision": 1,
+          "data": {
+            "actions": [
+              {
+                "panel_id": "scenarios",
+                "action_id": "prepare-backfill",
+                "emphasis": "primary"
+              }
+            ],
+            "key": "backfill",
+            "lifecycle": [
+              {
+                "label": "Prepared",
+                "state": "pending"
+              },
+              {
+                "label": "Verified",
+                "state": "pending"
+              },
+              {
+                "label": "Active",
+                "state": "pending"
+              }
+            ],
+            "status": "Not prepared",
+            "status_tone": "planned",
+            "subtitle": "crm/corpus-b v2",
+            "title": "backfill v1"
+          }
+        }
+      ]
+    },
+    "request_status": [
+      {
+        "status": "claimed",
+        "result": {
+          "ok": true,
+          "message": "Refresh accepted for ready v1 on preview. preview keeps serving rcpt-ready-1.",
+          "tone": "info",
+          "record": {
+            "panel_id": "operations",
+            "record_key": "op-0003"
+          }
+        }
+      },
+      {
+        "status": "unclaimed",
+        "message": "No request with this ID was received. Resubmitting the unchanged request is safe until the retry window ends.",
+        "retry_until": "2026-10-31T09:00:00Z"
+      },
+      {
+        "status": "expired",
+        "message": "This request can no longer be resumed. Start new work."
+      },
+      {
+        "status": "unknown",
+        "message": "The request state is unknown. Check again shortly."
+      }
+    ],
+    "results": [
+      {
+        "ok": true,
+        "message": "Plan ready for ready v1 on preview. Nothing was changed.",
+        "refresh": true,
+        "tone": "planned",
+        "planned": true,
+        "record": {
+          "panel_id": "operations",
+          "record_key": "op-0007"
+        }
+      },
+      {
+        "ok": false,
+        "message": "The active dataset changed after this page loaded. Review the current target and confirm again.",
+        "refresh": true,
+        "tone": "error",
+        "code": "stale_generation",
+        "follow_up": [
+          {
+            "panel_id": "scenarios",
+            "action_id": "activate",
+            "emphasis": "primary"
+          }
+        ]
+      }
+    ]
   }
 }

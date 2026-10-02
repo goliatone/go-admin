@@ -497,6 +497,7 @@ const (
 	TextCodeAutosaveConflict                       = core.TextCodeAutosaveConflict
 	TextCodeClearKeysNotSupported                  = core.TextCodeClearKeysNotSupported
 	TextCodeConflict                               = core.TextCodeConflict
+	TextCodeConsoleClientOutdated                  = core.TextCodeConsoleClientOutdated
 	TextCodeContentTypeSchemaBreaking              = core.TextCodeContentTypeSchemaBreaking
 	TextCodeFeatureAliasDisabled                   = core.TextCodeFeatureAliasDisabled
 	TextCodeFeatureDisabled                        = core.TextCodeFeatureDisabled

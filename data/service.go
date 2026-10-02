@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -24,6 +25,11 @@ type ServiceConfig struct {
 	// WritesEnabled is the host's explicit conformance gate (T05). Durable capability
 	// flags are additionally required; they are not themselves conformance evidence.
 	WritesEnabled bool
+	// RetryWindow is the host-declared replay window of request claims; it must
+	// match the operation store's retention (1 hour–90 days). Zero leaves it
+	// undeclared, so request reconciliation never reports a missing claim as
+	// safely resubmittable.
+	RetryWindow time.Duration
 }
 type Service struct{ config ServiceConfig }
 
@@ -56,6 +62,9 @@ func normalizeServiceConfig(cfg ServiceConfig) (ServiceConfig, error) {
 	if cfg.LeaseDuration < 5*time.Second || cfg.LeaseDuration > 60*time.Second || cfg.CleanupTimeout < time.Second || cfg.CleanupTimeout > 60*time.Second {
 		return cfg, Error(CodeInvalid)
 	}
+	if cfg.RetryWindow != 0 && (cfg.RetryWindow < time.Hour || cfg.RetryWindow > 90*24*time.Hour) {
+		return cfg, Error(CodeInvalid)
+	}
 	if cfg.WritesEnabled && (!cfg.Store.Capabilities().WriteReady() || !cfg.Target.Capabilities().Recovery || !cfg.Target.Capabilities().Fencing) {
 		return cfg, Error(CodeUnavailable)
 	}
@@ -74,10 +83,19 @@ func nilValue(v any) bool {
 	return false
 }
 func (s *Service) principal(ctx context.Context) (Principal, error) {
-	if s == nil || ctx == nil || ctx.Err() != nil {
+	if s == nil || ctx == nil {
 		return Principal{}, Error(CodeDenied)
 	}
+	if ctx.Err() != nil {
+		return Principal{}, ctx.Err()
+	}
 	p, err := s.config.Resolve(ctx)
+	if ctx.Err() != nil {
+		return Principal{}, ctx.Err()
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return Principal{}, err
+	}
 	if err != nil || !p.Valid() {
 		return Principal{}, Error(CodeDenied)
 	}
@@ -85,20 +103,83 @@ func (s *Service) principal(ctx context.Context) (Principal, error) {
 }
 func (s *Service) authorize(ctx context.Context, p Principal, a AccessRequest) error {
 	current, err := s.principal(ctx)
-	if err != nil || current != p {
+	if err != nil {
+		return err
+	}
+	if current != p {
 		return Error(CodeDenied)
 	}
+	return s.authorizeResolved(ctx, p, a)
+}
+
+// The caller has just resolved p and has done no provider/repository work since.
+// Lifecycle paths retain authorize's comparison with their original principal.
+func (s *Service) authorizeResolved(ctx context.Context, p Principal, a AccessRequest) error {
 	if a.Target.ScopeKey != p.ScopeKey || !identifier(a.Target.TargetID) {
 		return Error(CodeDenied)
 	}
 	if err := s.config.Policy.Authorize(ctx, p, a); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
 		return Error(CodeDenied)
 	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	return nil
+}
+
+// AuthorizeProjection checks current policy for previously loaded display data.
+// It avoids repository reads, validates scope/target binding, and never grants
+// authority to execute Input. Factories, Run and artifact lookups still load and
+// authorize their exact authoritative records at their existing boundaries.
+func (s *Service) AuthorizeProjection(ctx context.Context, a AccessRequest) error {
+	p, err := s.principal(ctx)
+	if err != nil {
+		return err
+	}
+	if a.Action != "view" && !Kind(a.Action).Valid() {
+		return Error(CodeInvalid)
+	}
+	if a.Artifact != nil {
+		return Error(CodeInvalid)
+	}
+	if a.Receipt != nil && a.Receipt.Target != a.Target {
+		return Error(CodeGone)
+	}
+	if a.Operation != nil && a.Operation.Target != a.Target {
+		return Error(CodeGone)
+	}
+	if a.Action == string(Recover) && (!s.writeReady() || a.Operation == nil) {
+		return Error(CodeUnavailable)
+	}
+	if a.Action == string(Cancel) {
+		if a.Operation == nil || a.Operation.Principal.ActorID != p.ActorID {
+			return Error(CodeGone)
+		}
+		a.Action = string(a.Operation.Result.Kind)
+	}
+	return s.authorizeResolved(ctx, p, a)
 }
 func (s *Service) writeReady() bool {
 	return s.config.WritesEnabled && s.config.Store.Capabilities().WriteReady() && s.config.Target.Capabilities().Recovery && s.config.Target.Capabilities().Fencing
 }
+
+// Keep cooperative cancellation distinct from safe provider/storage failures.
+func readFailure(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	return Error(ErrorCode(err))
+}
+
 func (s *Service) Describe(ctx context.Context, ref DatasetRef, targetID string) (Descriptor, error) {
 	p, err := s.principal(ctx)
 	if err != nil {
@@ -114,7 +195,7 @@ func (s *Service) Describe(ctx context.Context, ref DatasetRef, targetID string)
 	}
 	d, err := provider.Describe(ctx, p, ref)
 	if err != nil {
-		return Descriptor{}, Error(ErrorCode(err))
+		return Descriptor{}, readFailure(ctx, err)
 	}
 	if d.Dataset != ref {
 		return Descriptor{}, Error(CodeConflict)
@@ -206,7 +287,7 @@ func (s *Service) catalogFromProvider(ctx context.Context, p Principal, key Targ
 	}
 	refs, e := provider.Catalog(ctx, p, key, limit)
 	if e != nil {
-		return nil, Error(ErrorCode(e))
+		return nil, readFailure(ctx, e)
 	}
 	if len(refs) > limit {
 		return nil, Error(CodeInvalid)
@@ -238,7 +319,7 @@ func (s *Service) Active(ctx context.Context, targetID string) (ActiveState, err
 	}
 	state, err := s.config.Store.Target(ctx, key)
 	if err != nil {
-		return ActiveState{}, Error(ErrorCode(err))
+		return ActiveState{}, readFailure(ctx, err)
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: key}); err != nil {
 		return ActiveState{}, err
@@ -261,9 +342,12 @@ func (s *Service) LookupOperation(ctx context.Context, id string) (Operation, er
 	}
 	op, err := s.config.Store.GetOperation(ctx, id)
 	if err != nil {
-		return Operation{}, Error(CodeGone)
+		return Operation{}, readFailure(ctx, err)
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: op.Target, Operation: &op}); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return Operation{}, err
+		}
 		return Operation{}, Error(CodeGone)
 	}
 	return op, nil
@@ -281,10 +365,16 @@ func (s *Service) LookupReceipt(ctx context.Context, targetID, id string) (Prepa
 		return PreparationReceipt{}, err
 	}
 	r, err := s.config.Store.GetReceipt(ctx, id)
-	if err != nil || r.Target != key {
+	if err != nil {
+		return PreparationReceipt{}, readFailure(ctx, err)
+	}
+	if r.Target != key {
 		return PreparationReceipt{}, Error(CodeGone)
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: key, Receipt: &r}); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return PreparationReceipt{}, err
+		}
 		return PreparationReceipt{}, Error(CodeGone)
 	}
 	return r, nil
@@ -306,7 +396,7 @@ func (s *Service) Receipts(ctx context.Context, targetID string, query ReceiptQu
 	}
 	page, err := s.config.Store.ListReceipts(ctx, key, query)
 	if err != nil {
-		return ReceiptPage{}, Error(ErrorCode(err))
+		return ReceiptPage{}, readFailure(ctx, err)
 	}
 	if len(page.Receipts) > query.Limit {
 		return ReceiptPage{}, Error(CodeInvalid)
@@ -336,7 +426,7 @@ func (s *Service) Operations(ctx context.Context, targetID string, limit int) ([
 	}
 	ops, err := s.config.Store.ListOperations(ctx, key, limit)
 	if err != nil {
-		return nil, Error(ErrorCode(err))
+		return nil, readFailure(ctx, err)
 	}
 	out := []Operation{}
 	for _, op := range ops {
@@ -377,7 +467,7 @@ func (s *Service) LookupArtifact(ctx context.Context, providerID, artifactID str
 	}
 	value, err := provider.LookupArtifact(ctx, p, ref)
 	if err != nil {
-		return nil, Error(ErrorCode(err))
+		return nil, readFailure(ctx, err)
 	}
 	// Recheck grants, expiry and generation after potentially slow provider I/O.
 	if !s.artifactStillVisible(ctx, p, ref) {
@@ -490,6 +580,186 @@ func (s *Service) ResolveRequestGeneration(ctx context.Context, kind Kind, input
 	return input, nil
 }
 
+// RequestState is what the durable store knows about one of the current actor's
+// own requests (ADR-0003 reconciliation).
+type RequestState string
+
+const (
+	// RequestClaimed: the request was received; Operation describes it.
+	RequestClaimed RequestState = "claimed"
+	// RequestUnclaimed: no claim exists although the request's retry window is
+	// still open, so resubmitting the unchanged request cannot duplicate work.
+	RequestUnclaimed RequestState = "unclaimed"
+	// RequestExpired: the claim is no longer retained, or the window cannot be
+	// established; only explicit new work may follow.
+	RequestExpired RequestState = "expired"
+)
+
+// RequestStatus never carries the stored key, fingerprint or principal to the
+// caller's presentation; Operation is for server-side projection only.
+type RequestStatus struct {
+	State      RequestState
+	Operation  *Operation
+	RetryUntil time.Time
+}
+
+// RequestStatus looks up the current actor's own request for kind, target and
+// request key without claiming anything. The actor and scope come from trusted
+// context; submittedAt is the client's own record of its first submission and
+// only bounds when a missing claim may be reported unclaimed.
+func (s *Service) RequestStatus(ctx context.Context, kind Kind, targetID, key string, submittedAt time.Time) (RequestStatus, error) {
+	if !kind.Valid() || kind == Recover || !identifier(targetID) || !identifier(key) {
+		return RequestStatus{}, Error(CodeInvalid)
+	}
+	p, err := s.principal(ctx)
+	if err != nil {
+		return RequestStatus{}, err
+	}
+	target := TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: target}); err != nil {
+		return RequestStatus{}, err
+	}
+	op, found, err := s.config.Store.LookupRequest(ctx, RequestKey{ActorID: p.ActorID, Target: target, Kind: kind, IdempotencyKey: key})
+	var status RequestStatus
+	switch {
+	case err != nil && ErrorCode(err) == CodeGone:
+		// A live tombstone whose operation was pruned: received, no longer retained.
+		status.State = RequestExpired
+	case err != nil:
+		return RequestStatus{}, Error(ErrorCode(err))
+	case found:
+		if op.Target != target || op.Principal.ActorID != p.ActorID || op.Result.Kind != kind {
+			return RequestStatus{}, Error(CodeDenied)
+		}
+		if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: target, Operation: &op}); err != nil {
+			return RequestStatus{}, err
+		}
+		status = RequestStatus{State: RequestClaimed, Operation: &op}
+		if s.config.RetryWindow > 0 && !op.CreatedAt.IsZero() {
+			status.RetryUntil = op.CreatedAt.Add(s.config.RetryWindow)
+		}
+	case s.config.RetryWindow > 0 && !submittedAt.IsZero() && time.Now().Before(submittedAt.Add(s.config.RetryWindow)):
+		status = RequestStatus{State: RequestUnclaimed, RetryUntil: submittedAt.Add(s.config.RetryWindow)}
+	default:
+		status.State = RequestExpired
+	}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: target}); err != nil {
+		return RequestStatus{}, err
+	}
+	return status, nil
+}
+
+// RetryDescriptor is the safe retained input for explicitly starting new work
+// after a terminal failed or canceled operation (Try again). It omits the
+// original request key, fingerprint, principal, stage and credentials; the
+// expected generation of activate/reset is cleared so it is re-observed before
+// confirmation, while ObservedGeneration reports the original one.
+type RetryDescriptor struct {
+	OperationID        string
+	Kind               Kind
+	State              State
+	Input              Input
+	ObservedGeneration *uint64
+	FailureCode        string
+}
+
+// RetryDescriptor loads the exact retained input of the current actor's own
+// terminal failed/canceled operation under current scope, target, read and
+// execute policy. It never substitutes a newer catalog entry or receipt:
+// missing or changed inputs, receipts and capabilities report unavailable.
+// Starting the new work still goes through the ordinary typed commands.
+func (s *Service) RetryDescriptor(ctx context.Context, operationID string) (RetryDescriptor, error) {
+	if !identifier(operationID) {
+		return RetryDescriptor{}, Error(CodeInvalid)
+	}
+	p, err := s.principal(ctx)
+	if err != nil {
+		return RetryDescriptor{}, err
+	}
+	op, err := s.config.Store.GetOperation(ctx, operationID)
+	if err != nil || op.Target.ScopeKey != p.ScopeKey {
+		return RetryDescriptor{}, Error(CodeGone)
+	}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: op.Target, Operation: &op}); err != nil {
+		return RetryDescriptor{}, Error(CodeGone)
+	}
+	// Viewing an operation never grants retrying it.
+	if op.Principal.ActorID != p.ActorID {
+		return RetryDescriptor{}, Error(CodeDenied)
+	}
+	kind := op.Result.Kind
+	if op.Result.State != Failed && op.Result.State != Canceled || !kind.Valid() || kind == Recover || kind == Cancel {
+		return RetryDescriptor{}, Error(CodeInvalid)
+	}
+	out := RetryDescriptor{OperationID: op.Result.OperationID, Kind: kind, State: op.Result.State, Input: op.Input}
+	if op.Result.Failure != nil {
+		out.FailureCode = op.Result.Failure.Code
+	}
+	out.Input.IdempotencyKey = ""
+	if out.Input.ExpectedGeneration != nil {
+		observed := *out.Input.ExpectedGeneration
+		out.ObservedGeneration = &observed
+	}
+	if kind == Activate || kind == Reset {
+		out.Input.ExpectedGeneration = nil
+	}
+	// The retained input must still describe exactly the same work.
+	check := out.Input
+	check.IdempotencyKey = "retry-descriptor"
+	check.ExpectedGeneration = out.ObservedGeneration
+	if check.Validate(kind) != nil || op.Input.TargetID != op.Target.TargetID {
+		return RetryDescriptor{}, Error(CodeUnavailable)
+	}
+	if err = s.retryInputAvailable(ctx, p, kind, check); err != nil {
+		return RetryDescriptor{}, err
+	}
+	if err = s.AuthorizeInput(ctx, kind, check); err != nil {
+		if ErrorCode(err) == CodeGone {
+			return RetryDescriptor{}, Error(CodeUnavailable)
+		}
+		return RetryDescriptor{}, Error(CodeDenied)
+	}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: op.Target, Operation: &op}); err != nil {
+		return RetryDescriptor{}, Error(CodeGone)
+	}
+	return out, nil
+}
+
+// retryInputAvailable checks that the exact dataset version is still
+// described, the kind is still supported and permitted, and a referenced
+// receipt is still retained (and verified for activation).
+func (s *Service) retryInputAvailable(ctx context.Context, p Principal, kind Kind, input Input) error {
+	descriptor, err := s.Describe(ctx, input.Dataset, input.TargetID)
+	if err != nil {
+		if code := ErrorCode(err); code == CodeDenied {
+			return Error(CodeDenied)
+		}
+		return Error(CodeUnavailable)
+	}
+	if !slices.Contains(descriptor.Scenarios, input.Scenario) {
+		return Error(CodeUnavailable)
+	}
+	if capability := descriptor.Capabilities[kind]; !capability.Supported {
+		return Error(CodeUnavailable)
+	} else if !capability.Permitted {
+		return Error(CodeDenied)
+	}
+	if input.ReceiptID == "" {
+		return nil
+	}
+	receipt, err := s.LookupReceipt(ctx, input.TargetID, input.ReceiptID)
+	if err != nil || receipt.Scenario != input.Scenario || receipt.Dataset != input.Dataset {
+		return Error(CodeUnavailable)
+	}
+	if kind == Activate && (receipt.Verification == nil || !receipt.Verification.Passed() || receipt.Verification.ContentRevision != receipt.ContentRevision) {
+		return Error(CodeUnavailable)
+	}
+	if current, currentErr := s.principal(ctx); currentErr != nil || current != p {
+		return Error(CodeDenied)
+	}
+	return nil
+}
+
 // AuthorizeView rechecks current target read grants without loading lifecycle
 // state. It is suitable for delivery of projections already loaded by the service.
 func (s *Service) AuthorizeView(ctx context.Context, targetID string) error {
@@ -497,7 +767,7 @@ func (s *Service) AuthorizeView(ctx context.Context, targetID string) error {
 	if err != nil {
 		return err
 	}
-	return s.authorize(ctx, p, AccessRequest{Action: "view", Target: TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}})
+	return s.authorizeResolved(ctx, p, AccessRequest{Action: "view", Target: TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}})
 }
 
 // AuthorizeAction rechecks current target grants without loading lifecycle
@@ -511,7 +781,7 @@ func (s *Service) AuthorizeAction(ctx context.Context, kind Kind, targetID strin
 	if err != nil {
 		return err
 	}
-	return s.authorize(ctx, p, AccessRequest{Action: string(kind), Target: TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}})
+	return s.authorizeResolved(ctx, p, AccessRequest{Action: string(kind), Target: TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}})
 }
 
 // AuthorizeInput performs no effects. Named factories use it before dispatch;

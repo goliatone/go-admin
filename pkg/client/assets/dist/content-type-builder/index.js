@@ -1,15 +1,16 @@
 import { escapeHTML as l } from "../shared/html.js";
-import { i as v, r as u, t as f } from "../chunks/modal-ClEsOn-S.js";
+import { i as v, r as u, t as f } from "../chunks/modal-Cg0_ZVPf.js";
+import "../components/modal.js";
 import { t as p } from "../chunks/badge-uRjgR9qC.js";
 import { onReady as y } from "../shared/dom-ready.js";
 import { capitalizeLabel as h } from "./shared/text.js";
-import { A as O, C as m, D as U, E as G, F as Y, I as x, M as b, N as Z, O as w, P as B, R as C, S as J, T as Q, a as W, d as X, f as L, i as ee, k as te, l as re, m as E, n as ae, o as se, p as $, r as ie, t as oe, w as M, x as ne, y as S } from "../chunks/schema-preview-CmnuWQks.js";
-import { c, l as k, n as de, s as g, u as F } from "../chunks/channel-validation-BBf_63LY.js";
-import { a as he, i as ge, n as ue, o as be, r as pe, t as T } from "../chunks/content-editor-runtime-BKzt9Yyx.js";
+import { A as U, C as m, D as G, E as Y, F as Z, I as x, M as b, N as J, O as w, P as B, R as C, S as Q, T as W, a as X, d as ee, f as L, i as te, k as re, l as ae, m as E, n as se, o as ie, p as $, r as oe, t as ne, w as M, x as le, y as S } from "../chunks/schema-preview-EBPvAMfa.js";
+import { c, l as k, n as ce, s as g, u as F } from "../chunks/channel-validation-BBf_63LY.js";
+import { a as ge, i as ue, n as be, o as pe, r as ye, t as T } from "../chunks/content-editor-runtime-CSmoJvZe.js";
 import { formatContentTypeDate as P } from "./shared/date-formatters.js";
-import { initContentTypeChannelSwitcher as ve } from "./shared/channel-switcher.js";
+import { initContentTypeChannelSwitcher as fe } from "./shared/channel-switcher.js";
 import { renderBlockStatusBadge as q } from "./shared/status-badges.js";
-import { n as j, r as xe, t as we } from "../chunks/block-library-ide-q6hmvQbs.js";
+import { n as j, r as we, t as Be } from "../chunks/block-library-ide-DtLb6x7x.js";
 var A = class extends u {
   constructor(e) {
     super({
@@ -819,41 +820,41 @@ y(() => {
   T(), j();
 });
 export {
-  xe as BlockEditorPanel,
-  we as BlockLibraryIDE,
+  we as BlockEditorPanel,
+  Be as BlockLibraryIDE,
   A as BlockLibraryManager,
   b as ContentTypeAPIClient,
-  Z as ContentTypeAPIError,
-  pe as ContentTypeEditor,
-  G as FIELD_CATEGORIES,
-  ge as FIELD_SET_PRESETS,
-  U as FIELD_TYPES,
+  J as ContentTypeAPIError,
+  ye as ContentTypeEditor,
+  Y as FIELD_CATEGORIES,
+  ue as FIELD_SET_PRESETS,
+  G as FIELD_TYPES,
   L as FieldConfigForm,
-  re as FieldPalettePanel,
+  ae as FieldPalettePanel,
   w as FieldTypePicker,
-  be as LayoutEditor,
-  X as PALETTE_DRAG_MIME,
-  oe as PreviewModal,
-  Y as fieldsToSchema,
+  pe as LayoutEditor,
+  ee as PALETTE_DRAG_MIME,
+  ne as PreviewModal,
+  Z as fieldsToSchema,
   x as generateFieldId,
-  he as getFieldSetPreset,
-  te as getFieldTypeMetadata,
-  O as getFieldTypesByCategory,
-  ne as getIconTabs,
+  ge as getFieldSetPreset,
+  re as getFieldTypeMetadata,
+  U as getFieldTypesByCategory,
+  le as getIconTabs,
   j as initBlockLibraryIDE,
   D as initBlockLibraryManagers,
-  ve as initContentTypeChannelSwitcher,
-  ue as initContentTypeEditors,
-  ae as initPreviewEditors,
-  de as normalizeChannelName,
-  J as registerIconTab,
-  ee as renderDropZone,
-  W as renderFieldCard,
-  se as renderFieldKebab,
+  fe as initContentTypeChannelSwitcher,
+  be as initContentTypeEditors,
+  se as initPreviewEditors,
+  ce as normalizeChannelName,
+  Q as registerIconTab,
+  te as renderDropZone,
+  X as renderFieldCard,
+  ie as renderFieldKebab,
   M as resolveIcon,
   C as schemaToFields,
-  Q as unregisterIconTab,
-  ie as wrapReadonlyPreview
+  W as unregisterIconTab,
+  oe as wrapReadonlyPreview
 };
 
 //# sourceMappingURL=index.js.map

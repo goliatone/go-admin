@@ -14,6 +14,15 @@ import {
 } from '../format.js';
 import { renderJSONPanel } from './json.js';
 import { normalizePersona, renderPersonaAvatar } from './avatar.js';
+import {
+  normalizeTone,
+  renderActionSlot,
+  renderProgress,
+  renderRelativeTime,
+  renderSteps,
+  renderToneBadge,
+  truncateValue,
+} from './rich.js';
 
 type SchemaItem = Record<string, unknown>;
 
@@ -104,17 +113,33 @@ function renderUnavailable(empty: string, styles: StyleConfig): string {
  * Render one declared value. `label` is only used to give copy controls an
  * accessible name; it never carries markup.
  */
+/** Rich presentation hints of one declared column/field (all optional). */
+type ValueExtras = {
+  /** Server-computed tone for badge values. */
+  tone?: unknown;
+  /** Display length for mono/copy identifiers (the full value stays copyable). */
+  truncate?: unknown;
+};
+
 function renderKeyValue(
   value: unknown,
   format: unknown,
   empty: string,
   styles: StyleConfig,
-  label = ''
+  label = '',
+  extras: ValueExtras = {}
 ): string {
   const kind = typeof format === 'string' ? format.trim().toLowerCase() : '';
   const prefix = blockPrefix(styles);
   if (isBlank(value)) {
     return renderUnavailable(empty, styles);
+  }
+  // Structured formats render from the value itself, not its text form.
+  if (kind === 'steps' || kind === 'progress' || kind === 'relative') {
+    const rendered = kind === 'steps'
+      ? renderSteps(value, styles)
+      : kind === 'progress' ? renderProgress(value, styles) : renderRelativeTime(value, styles);
+    return rendered || renderUnavailable(empty, styles);
   }
   const raw = formatValue(value, format);
   if (raw === '') {
@@ -122,7 +147,7 @@ function renderKeyValue(
   }
   switch (kind) {
     case 'copy':
-      return renderCopyValue(raw, styles, label);
+      return renderCopyValue(raw, styles, label, extras.truncate);
     case 'color': {
       const color = safeColor(raw);
       if (!color) {
@@ -131,19 +156,60 @@ function renderKeyValue(
       return `<span class="${prefix}-kv__swatch" style="--${prefix}-swatch-color:${escapeAttribute(color)}"><span class="${prefix}-kv__swatch-dot" aria-hidden="true"></span><code>${escapeHTML(color.toUpperCase())}</code></span>`;
     }
     case 'badge':
-      return `<span class="${styles.badge}">${escapeHTML(raw)}</span>`;
-    case 'mono':
-      return `<code class="${prefix}-kv__mono">${escapeHTML(raw)}</code>`;
+      return normalizeTone(extras.tone)
+        ? renderToneBadge(raw, extras.tone, styles)
+        : `<span class="${styles.badge}">${escapeHTML(raw)}</span>`;
+    case 'mono': {
+      const shown = truncateValue(raw, extras.truncate);
+      const title = shown === raw ? '' : ` title="${escapeAttribute(raw)}"`;
+      return `<code class="${prefix}-kv__mono"${title}>${escapeHTML(shown)}</code>`;
+    }
     default:
       return escapeHTML(raw);
   }
 }
 
 /** Copy affordance. Keeps the shared `data-copy-*` contract intact. */
-function renderCopyValue(raw: string, styles: StyleConfig, label = ''): string {
+function renderCopyValue(raw: string, styles: StyleConfig, label = '', truncate?: unknown): string {
   const prefix = blockPrefix(styles);
   const action = label ? `Copy ${label}` : 'Copy to clipboard';
-  return `<span class="${prefix}-kv__copy" data-copy-content="${escapeAttribute(raw)}"><code class="${prefix}-kv__mono">${escapeHTML(raw)}</code><button type="button" class="${styles.copyBtnSm} ${prefix}-kv__copy-btn" data-copy-trigger title="${escapeAttribute(action)}" aria-label="${escapeAttribute(action)}">Copy</button></span>`;
+  const shown = truncateValue(raw, truncate);
+  const title = shown === raw ? '' : ` title="${escapeAttribute(raw)}"`;
+  return `<span class="${prefix}-kv__copy" data-copy-content="${escapeAttribute(raw)}"><code class="${prefix}-kv__mono"${title}>${escapeHTML(shown)}</code><button type="button" class="${styles.copyBtnSm} ${prefix}-kv__copy-btn" data-copy-trigger title="${escapeAttribute(action)}" aria-label="${escapeAttribute(action)}">Copy</button></span>`;
+}
+
+/** Placeholder for blank declared values: the column's `empty` text, else an em dash. */
+const EMPTY_PLACEHOLDER = '—';
+
+/**
+ * A column opts into rich rendering by declaring any rich option. Legacy
+ * columns keep their exact plain-text output (Debug parity).
+ */
+function isRichColumn(column: SchemaItem): boolean {
+  return column.format !== undefined || column.empty !== undefined || column.tone_bind !== undefined
+    || column.secondary_bind !== undefined || column.truncate !== undefined;
+}
+
+/** Shared cell formatter for full and incremental table renders. */
+function renderTableCellContent(row: unknown, column: SchemaItem, styles: StyleConfig): string {
+  const value = pathValue(row, column.bind);
+  if (!isRichColumn(column)) {
+    return escapeHTML(formatValue(value, column.format));
+  }
+  const label = text(column.label || column.bind);
+  const empty = column.empty === undefined ? EMPTY_PLACEHOLDER : text(column.empty);
+  const tone = typeof column.tone_bind === 'string' && column.tone_bind ? pathValue(row, column.tone_bind) : undefined;
+  const primary = renderKeyValue(value, column.format, empty, styles, label, { tone, truncate: column.truncate });
+  const secondaryBind = typeof column.secondary_bind === 'string' ? column.secondary_bind : '';
+  const secondary = secondaryBind ? text(pathValue(row, secondaryBind)).trim() : '';
+  if (!secondary) return primary;
+  const prefix = blockPrefix(styles);
+  return `<div class="${prefix}-cell-main"><span class="${prefix}-cell-title">${primary}</span><span class="${prefix}-cell-sub">${escapeHTML(secondary)}</span></div>`;
+}
+
+/** Neutral consoles label cells for the narrow row-card layout; Debug markup is unchanged. */
+function responsiveCells(styles: StyleConfig): boolean {
+  return blockPrefix(styles) !== 'debug';
 }
 
 /**
@@ -151,11 +217,31 @@ function renderCopyValue(raw: string, styles: StyleConfig, label = ''): string {
  * host stylesheet style declarative sections exactly like hand-written panels
  * instead of leaving a bare `<h3>`.
  */
-function renderTitle(title: string, styles: StyleConfig): string {
+function renderTitle(title: string, styles: StyleConfig, view?: ServerPanelUIView, serverDef?: ServerPanelDefinition): string {
   if (!title) {
     return '';
   }
-  return `<div class="${styles.jsonHeader}"><h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3></div>`;
+  const prefix = blockPrefix(styles);
+  const description = text(view?.description).trim();
+  const linkPanel = text(view?.link?.panel_id).trim().toLowerCase();
+  const linkLabel = text(view?.link?.label).trim();
+  const link = linkPanel && linkLabel
+    ? `<button type="button" class="${prefix}-link" data-console-panel-link="${escapeAttribute(linkPanel)}">${escapeHTML(linkLabel)}<span aria-hidden="true"> →</span></button>`
+    : '';
+  const actions = renderActionSlot(view?.actions, serverDef, styles);
+  if (!description && !link && !actions) {
+    return `<div class="${styles.jsonHeader}"><h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3></div>`;
+  }
+  const heading = description
+    ? `<div class="${prefix}-section-heading"><h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3><p class="${prefix}-section-description">${escapeHTML(description)}</p></div>`
+    : `<h3 class="${styles.jsonViewerTitle}">${escapeHTML(title)}</h3>`;
+  return `<div class="${styles.jsonHeader}">${heading}${link || actions ? `<div class="${styles.jsonActions}">${link}${actions}</div>` : ''}</div>`;
+}
+
+/** The view's own empty-state copy, else the generic message. */
+function renderEmpty(view: ServerPanelUIView | undefined, fallback: string, styles: StyleConfig): string {
+  const declared = text(view?.empty).trim();
+  return `<div class="${styles.emptyState}">${escapeHTML(declared || fallback)}</div>`;
 }
 
 export function renderSchemaMetrics(
@@ -174,7 +260,7 @@ export function renderSchemaMetrics(
   }
   return `
     <section class="${styles.jsonPanel}">
-      ${renderTitle(title, styles)}
+      ${renderTitle(title, styles, view)}
       <div class="${styles.jsonGrid}">
         ${items.map((item) => {
           const label = text(item.label || item.bind);
@@ -208,13 +294,14 @@ export function renderSchemaKeyValue(
   }
   return `
     <section class="${styles.jsonPanel}">
-      ${renderTitle(title, styles)}
+      ${renderTitle(title, styles, view)}
       <dl class="${blockPrefix(styles)}-kv">
         ${items.map((item) => {
           const label = text(item.label || item.bind);
           const raw = pathValue(data, item.bind);
           const empty = text(item.empty || '');
-          return `<dt>${escapeHTML(label)}</dt><dd>${renderKeyValue(raw, item.format, empty, styles, label)}</dd>`;
+          const tone = typeof item.tone_bind === 'string' && item.tone_bind ? pathValue(data, item.tone_bind) : undefined;
+          return `<dt>${escapeHTML(label)}</dt><dd>${renderKeyValue(raw, item.format, empty, styles, label, { tone, truncate: item.truncate })}</dd>`;
         }).join('')}
       </dl>
     </section>
@@ -289,19 +376,45 @@ export function renderSchemaIdentity(
   `;
 }
 
+/** Rendering context for rich rows; absent for legacy callers. */
+export type SchemaRowContext = {
+  styles?: StyleConfig;
+  serverDef?: ServerPanelDefinition;
+  /** Record field holding this row's action references. */
+  actionsBind?: unknown;
+};
+
 /** Render a single schema table row, keyed for incremental updates. */
 export function renderSchemaTableRow(
   row: unknown,
   columns: SchemaItem[],
-  keyBind?: unknown
+  keyBind?: unknown,
+  context: SchemaRowContext = {}
 ): string {
   const effective: SchemaItem[] = columns.length > 0
     ? columns
     : Object.keys((row && typeof row === 'object' ? row : {}) as Record<string, unknown>)
         .map((key) => ({ label: key, bind: key }));
-  return `
+  const styles = context.styles;
+  if (!styles) {
+    return `
     <tr data-row-key="${escapeAttribute(schemaRowKey(row, keyBind))}">
       ${effective.map((column) => `<td>${escapeHTML(formatValue(pathValue(row, column.bind), column.format))}</td>`).join('')}
+    </tr>
+  `;
+  }
+  const labelled = responsiveCells(styles);
+  const cells = effective.map((column) => {
+    const label = labelled ? ` data-label="${escapeAttribute(text(column.label || column.bind))}"` : '';
+    return `<td${label}>${renderTableCellContent(row, column, styles)}</td>`;
+  }).join('');
+  const actionsBind = typeof context.actionsBind === 'string' ? context.actionsBind : '';
+  const actions = actionsBind
+    ? `<td class="${blockPrefix(styles)}-cell-actions"${labelled ? ' data-label="Actions"' : ''}>${renderActionSlot(pathValue(row, actionsBind), context.serverDef, styles)}</td>`
+    : '';
+  return `
+    <tr data-row-key="${escapeAttribute(schemaRowKey(row, keyBind))}">
+      ${cells}${actions}
     </tr>
   `;
 }
@@ -311,7 +424,8 @@ export function renderSchemaTable(
   data: unknown,
   view: ServerPanelUIView | undefined,
   styles: StyleConfig,
-  newestFirst = false
+  newestFirst = false,
+  serverDef?: ServerPanelDefinition
 ): string {
   const rows = dataArray(data);
   const columns = optionItems(view, 'columns');
@@ -320,21 +434,138 @@ export function renderSchemaTable(
     : Object.keys((rows[0] && typeof rows[0] === 'object' ? rows[0] : {}) as Record<string, unknown>)
         .map((key) => ({ label: key, bind: key }));
   if (rows.length === 0 || effectiveColumns.length === 0) {
-    return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} rows available</div>`;
+    return renderEmpty(view, `No ${title.toLowerCase()} rows available`, styles);
   }
   const keyBind = view?.options?.key_bind;
+  const actionsBind = view?.options?.actions_bind;
   const ordered = newestFirst ? [...rows].reverse() : rows;
+  const prefix = blockPrefix(styles);
+  const actionsHeader = typeof actionsBind === 'string' && actionsBind
+    ? `<th class="${prefix}-cell-actions"><span class="${prefix}-sr-only">Actions</span></th>`
+    : '';
   return `
     <section class="${styles.jsonPanel}">
-      ${renderTitle(title, styles)}
+      ${renderTitle(title, styles, view, serverDef)}
       <table class="${styles.table}">
         <thead>
-          <tr>${effectiveColumns.map((column) => `<th>${escapeHTML(text(column.label || column.bind))}</th>`).join('')}</tr>
+          <tr>${effectiveColumns.map((column) => `<th>${escapeHTML(text(column.label || column.bind))}</th>`).join('')}${actionsHeader}</tr>
         </thead>
         <tbody data-live-list>
-          ${ordered.map((row) => renderSchemaTableRow(row, effectiveColumns, keyBind)).join('')}
+          ${ordered.map((row) => renderSchemaTableRow(row, effectiveColumns, keyBind, { styles, serverDef, actionsBind })).join('')}
         </tbody>
       </table>
+    </section>
+  `;
+}
+
+/**
+ * Record cards: title, status chip, metadata fields and an action slot. Beyond
+ * `max_cards` rows the declared `columns` render as a compact table instead.
+ */
+export function renderSchemaCards(
+  title: string,
+  data: unknown,
+  view: ServerPanelUIView | undefined,
+  styles: StyleConfig,
+  serverDef?: ServerPanelDefinition
+): string {
+  const rows = dataArray(data);
+  const options = view?.options || {};
+  if (rows.length === 0) {
+    return renderEmpty(view, `No ${title.toLowerCase()} available`, styles);
+  }
+  const maxCards = typeof options.max_cards === 'number' && options.max_cards > 0 ? Math.floor(options.max_cards) : 0;
+  if (maxCards > 0 && rows.length > maxCards && optionItems(view, 'columns').length > 0) {
+    return renderSchemaTable(title, rows, view, styles, false, serverDef);
+  }
+  const prefix = blockPrefix(styles);
+  const fields = optionItems(view, 'fields');
+  const bound = (row: unknown, key: string): unknown => {
+    const bind = options[key];
+    return typeof bind === 'string' && bind ? pathValue(row, bind) : undefined;
+  };
+  const cards = rows.map((row) => {
+    const heading = text(bound(row, 'title_bind')).trim();
+    const subtitle = text(bound(row, 'subtitle_bind')).trim();
+    const status = text(bound(row, 'status_bind')).trim();
+    const meta = fields.map((field) => {
+      const label = text(field.label || field.bind);
+      const tone = typeof field.tone_bind === 'string' && field.tone_bind ? pathValue(row, field.tone_bind) : undefined;
+      const empty = field.empty === undefined ? EMPTY_PLACEHOLDER : text(field.empty);
+      return `<div><dt>${escapeHTML(label)}</dt><dd>${renderKeyValue(pathValue(row, field.bind), field.format, empty, styles, label, { tone, truncate: field.truncate })}</dd></div>`;
+    }).join('');
+    const eyebrow = text(bound(row, 'eyebrow_bind')).trim();
+    const actions = renderActionSlot(bound(row, 'actions_bind'), serverDef, styles);
+    const note = text(bound(row, 'note_bind')).trim();
+    return `
+      <article class="${prefix}-card" data-row-key="${escapeAttribute(schemaRowKey(row, options.key_bind))}">
+        <header class="${prefix}-card__top">
+          ${eyebrow ? `<span class="${prefix}-card__eyebrow">${escapeHTML(eyebrow)}</span>` : '<span></span>'}
+          ${status ? renderToneBadge(status, bound(row, 'tone_bind'), styles) : ''}
+        </header>
+        ${heading ? `<h4 class="${prefix}-card__title">${escapeHTML(heading)}</h4>` : ''}
+        ${subtitle ? `<p class="${prefix}-card__subtitle">${escapeHTML(subtitle)}</p>` : ''}
+        ${meta ? `<dl class="${prefix}-card__meta">${meta}</dl>` : ''}
+        ${note || actions ? `<footer class="${prefix}-card__foot">${note ? `<span class="${prefix}-muted">${escapeHTML(note)}</span>` : '<span></span>'}${actions}</footer>` : ''}
+      </article>
+    `;
+  }).join('');
+  return `
+    <section class="${prefix}-card-section">
+      ${title ? renderTitle(title, styles, view, serverDef).replace(styles.jsonHeader, `${styles.jsonHeader} ${prefix}-section-header`) : ''}
+      <div class="${prefix}-cards">${cards}</div>
+    </section>
+  `;
+}
+
+/** Compact record rows: title, subtitle, status, progress, time and actions. */
+export function renderSchemaList(
+  title: string,
+  data: unknown,
+  view: ServerPanelUIView | undefined,
+  styles: StyleConfig,
+  serverDef?: ServerPanelDefinition
+): string {
+  const options = view?.options || {};
+  const limit = typeof options.limit === 'number' && options.limit > 0 ? Math.floor(options.limit) : 0;
+  const all = dataArray(data);
+  const rows = limit > 0 ? all.slice(0, limit) : all;
+  if (rows.length === 0) {
+    return renderEmpty(view, `No ${title.toLowerCase()} yet`, styles);
+  }
+  const prefix = blockPrefix(styles);
+  const bound = (row: unknown, key: string): unknown => {
+    const bind = options[key];
+    return typeof bind === 'string' && bind ? pathValue(row, bind) : undefined;
+  };
+  const items = rows.map((row) => {
+    const heading = text(bound(row, 'title_bind')).trim();
+    const subtitle = text(bound(row, 'subtitle_bind')).trim();
+    const status = text(bound(row, 'status_bind')).trim();
+    const tone = normalizeTone(bound(row, 'tone_bind'));
+    const progress = renderProgress(bound(row, 'progress_bind'), styles);
+    const time = renderRelativeTime(bound(row, 'time_bind'), styles);
+    const actions = renderActionSlot(bound(row, 'actions_bind'), serverDef, styles);
+    const toneAttr = tone ? ` data-tone="${tone}"` : '';
+    return `
+      <li class="${prefix}-list__item" data-row-key="${escapeAttribute(schemaRowKey(row, options.key_bind))}"${toneAttr}>
+        <div class="${prefix}-list__main">
+          ${heading ? `<span class="${prefix}-list__title">${escapeHTML(heading)}</span>` : ''}
+          ${subtitle ? `<span class="${prefix}-list__subtitle">${escapeHTML(subtitle)}</span>` : ''}
+          ${progress ? `<span class="${prefix}-list__progress">${progress}</span>` : ''}
+        </div>
+        <div class="${prefix}-list__end">
+          ${status ? renderToneBadge(status, tone, styles) : ''}
+          ${time}
+          ${actions}
+        </div>
+      </li>
+    `;
+  }).join('');
+  return `
+    <section class="${styles.jsonPanel}">
+      ${renderTitle(title, styles, view, serverDef)}
+      <ul class="${prefix}-list">${items}</ul>
     </section>
   `;
 }
@@ -365,12 +596,12 @@ export function renderSchemaStatusList(
 ): string {
   const rows = dataArray(data);
   if (rows.length === 0) {
-    return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} statuses available</div>`;
+    return renderEmpty(view, `No ${title.toLowerCase()} statuses available`, styles);
   }
   const ordered = newestFirst ? [...rows].reverse() : rows;
   return `
     <section class="${styles.jsonPanel}">
-      ${renderTitle(title, styles)}
+      ${renderTitle(title, styles, view)}
       <table class="${styles.table}">
         <tbody data-live-list>
           ${ordered.map((row) => renderSchemaStatusRow(row, view, styles)).join('')}
@@ -406,12 +637,12 @@ export function renderSchemaTimeline(
 ): string {
   const rows = dataArray(data);
   if (rows.length === 0) {
-    return `<div class="${styles.emptyState}">No ${escapeHTML(title.toLowerCase())} events available</div>`;
+    return renderEmpty(view, `No ${title.toLowerCase()} events available`, styles);
   }
   const ordered = newestFirst ? [...rows].reverse() : rows;
   return `
     <section class="${styles.jsonPanel}">
-      ${renderTitle(title, styles)}
+      ${renderTitle(title, styles, view)}
       <table class="${styles.table}">
         <tbody data-live-list>
           ${ordered.map((row) => renderSchemaTimelineRow(row, view, styles)).join('')}
@@ -462,7 +693,11 @@ export function renderSchemaPanelView(
     case 'identity':
       return renderSchemaIdentity(text(view?.title), displayData, view, styles);
     case 'table':
-      return renderSchemaTable(title, displayData, view, styles, newestFirst);
+      return renderSchemaTable(title, displayData, view, styles, newestFirst, serverDef);
+    case 'cards':
+      return renderSchemaCards(text(view?.title), displayData, view, styles, serverDef);
+    case 'list':
+      return renderSchemaList(title, displayData, view, styles, serverDef);
     case 'status_list':
       return renderSchemaStatusList(title, displayData, view, styles, newestFirst);
     case 'timeline':
@@ -489,7 +724,8 @@ export function renderSchemaListRow(
   renderer: unknown,
   item: unknown,
   view: ServerPanelUIView | undefined,
-  styles: StyleConfig
+  styles: StyleConfig,
+  serverDef?: ServerPanelDefinition
 ): string {
   switch (text(renderer).toLowerCase()) {
     case 'status_list':
@@ -497,7 +733,13 @@ export function renderSchemaListRow(
     case 'timeline':
       return renderSchemaTimelineRow(item, view, styles);
     case 'table':
-    default:
-      return renderSchemaTableRow(item, optionItems(view, 'columns'), view?.options?.key_bind);
+    default: {
+      // Incremental rows share the full render's cell formatter.
+      const columns = optionItems(view, 'columns');
+      const rich = view?.options?.actions_bind !== undefined || columns.some(isRichColumn) || blockPrefix(styles) !== 'debug';
+      return rich
+        ? renderSchemaTableRow(item, columns, view?.options?.key_bind, { styles, serverDef, actionsBind: view?.options?.actions_bind })
+        : renderSchemaTableRow(item, columns, view?.options?.key_bind);
+    }
   }
 }

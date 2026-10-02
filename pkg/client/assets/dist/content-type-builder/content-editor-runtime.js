@@ -1,4 +1,4 @@
-import { n as i, r as n, t as o } from "../chunks/content-editor-runtime-BKzt9Yyx.js";
+import { n as i, r as n, t as o } from "../chunks/content-editor-runtime-CSmoJvZe.js";
 import "./shared/channel-switcher.js";
 export {
   n as ContentTypeEditor,

@@ -58,6 +58,12 @@ export interface PanelDefinition {
    */
   getCount?: (data: unknown) => number;
 
+  /** Optional allowlisted badge tone for the tab count (console hosts). */
+  getCountTone?: (data: unknown) => string;
+
+  /** Optional predicate hiding the tab count badge (console hosts). */
+  hideCount?: (count: number) => boolean;
+
   /**
    * Optional function to handle incremental updates.
    * If not provided, uses defaultHandleEvent().

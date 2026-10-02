@@ -1152,3 +1152,55 @@ func TestReceiptDeliveryReauthorizesAndFiltersRecords(t *testing.T) {
 		t.Fatal("wrong target returned receipt", err)
 	}
 }
+
+func TestProjectionAuthorizationIsFreshAndNeverMutationAuthority(t *testing.T) {
+	f := newFixture(t)
+	prepared := run(t, f, data.Prepare, f.input)
+	if prepared.Receipt == nil {
+		t.Fatal("missing receipt")
+	}
+	var denied atomic.Bool
+	config := f.serviceConfig(f.store)
+	config.Policy = policyFunc(func(_ context.Context, p data.Principal, a data.AccessRequest) error {
+		if denied.Load() || a.Receipt != nil && a.Receipt.RequesterID != p.ActorID {
+			return data.Error(data.CodeDenied)
+		}
+		return nil
+	})
+	service, err := data.NewService(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := data.AccessRequest{Action: "verify", Target: prepared.Receipt.Target, Receipt: prepared.Receipt}
+	if err = service.AuthorizeProjection(t.Context(), a); err != nil {
+		t.Fatal(err)
+	}
+	foreign := *prepared.Receipt
+	foreign.Target.ScopeKey = "foreign"
+	a.Receipt = &foreign
+	if err = service.AuthorizeProjection(t.Context(), a); data.ErrorCode(err) != data.CodeGone {
+		t.Fatal("projection accepted foreign scope", err)
+	}
+	a.Receipt = prepared.Receipt
+	denied.Store(true)
+	if err = service.AuthorizeProjection(t.Context(), a); data.ErrorCode(err) != data.CodeDenied {
+		t.Fatal("projection cached grants", err)
+	}
+	denied.Store(false)
+	// Even a previously allowed projection does not permit effects after revocation.
+	if err = service.AuthorizeProjection(t.Context(), a); err != nil {
+		t.Fatal(err)
+	}
+	denied.Store(true)
+	input := f.input
+	input.IdempotencyKey = "revoked-verify"
+	input.ReceiptID = prepared.Receipt.ID
+	if _, err = service.Run(t.Context(), data.Verify, input); data.ErrorCode(err) != data.CodeDenied {
+		t.Fatal("projection authorized mutation", err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err = service.AuthorizeProjection(ctx, a); !errors.Is(err, context.Canceled) || data.ErrorCode(err) == data.CodeDenied {
+		t.Fatal("cancellation misclassified", err)
+	}
+}

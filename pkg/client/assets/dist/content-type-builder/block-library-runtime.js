@@ -1,4 +1,4 @@
-import { n as r, t } from "../chunks/block-library-ide-q6hmvQbs.js";
+import { n as r, t } from "../chunks/block-library-ide-DtLb6x7x.js";
 function n(i = document) {
   r(i);
 }

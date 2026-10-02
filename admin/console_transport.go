@@ -11,25 +11,34 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+// request resolves the trusted identity and attaches the client handshake from
+// the X-Console-Capabilities header (absent means a legacy client).
 func (h *ConsoleHost) request(c router.Context) (context.Context, console.Identity, error) {
 	if c == nil {
 		return context.Background(), console.Identity{}, ErrForbidden
 	}
 	identity, err := h.config.RequestIdentity(c)
 	if err != nil {
-		return c.Context(), identity, ErrForbidden
+		if c.Context().Err() != nil {
+			return c.Context(), identity, c.Context().Err()
+		}
+		return c.Context(), identity, err
 	}
-	return h.current(c.Context(), identity)
+	ctx := console.WithClientCapabilities(c.Context(), console.ParseClientCapabilities(c.Header(console.ClientCapabilitiesHeader)))
+	return h.current(ctx, identity)
 }
 
 func (h *ConsoleHost) handlePage(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
+	// The page bootstrap carries declarations for the shipped client, which
+	// gates them itself; dispatch still requires its advertised handshake.
+	ctx = console.WithClientCapabilities(ctx, console.PageClientCapabilities())
 	snapshot, err := h.Snapshot(ctx, identity)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	return h.config.RenderPage(c, console.Bootstrap{Identity: identity, Title: h.config.Title, URLs: h.routes, PreferencesNamespace: h.preferenceKey(identity), Snapshot: snapshot})
 }
@@ -37,7 +46,7 @@ func (h *ConsoleHost) handlePage(c router.Context) error {
 func (h *ConsoleHost) handlePanels(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	definitions := []console.PanelDefinition{}
 	for _, def := range h.config.Registry.DefinitionsWithContext(ctx) {
@@ -54,11 +63,11 @@ func (h *ConsoleHost) handlePanels(c router.Context) error {
 func (h *ConsoleHost) handleSnapshot(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	snapshot, err := h.Snapshot(ctx, identity)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	return writeJSON(c, snapshot)
 }
@@ -66,11 +75,11 @@ func (h *ConsoleHost) handleSnapshot(c router.Context) error {
 func (h *ConsoleHost) handleLookup(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	record, err := h.Lookup(ctx, identity, c.Param("panel", ""), c.Param("record", ""))
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	return writeJSON(c, record)
 }
@@ -78,7 +87,7 @@ func (h *ConsoleHost) handleLookup(c router.Context) error {
 func (h *ConsoleHost) handleAction(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	if len(c.Body()) > 1<<20 {
 		return writeError(c, validationDomainError("console action payload exceeds limit", nil))
@@ -91,9 +100,40 @@ func (h *ConsoleHost) handleAction(c router.Context) error {
 	}
 	result, err := h.RunAction(ctx, identity, console.PanelActionRequest{PanelID: c.Param("panel", ""), ActionID: c.Param("action", ""), Payload: payload})
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	return writeJSON(c, result)
+}
+
+func (h *ConsoleHost) handleOptions(c router.Context) error {
+	ctx, identity, err := h.request(c)
+	if err != nil {
+		return writeConsoleError(c, err)
+	}
+	page, err := h.Options(ctx, identity, console.PanelOptionQuery{
+		PanelID: c.Param("panel", ""), ActionID: c.Param("action", ""), Field: c.Param("field", ""),
+		Cursor: c.Query("cursor"), Search: c.Query("q"), Limit: c.QueryInt("limit", 0), Values: c.QueryValues("value"),
+	})
+	if err != nil {
+		return writeConsoleError(c, err)
+	}
+	return writeJSON(c, page)
+}
+
+func (h *ConsoleHost) handleRequestStatus(c router.Context) error {
+	ctx, identity, err := h.request(c)
+	if err != nil {
+		return writeConsoleError(c, err)
+	}
+	query := console.PanelRequestQuery{PanelID: c.Param("panel", ""), RequestID: c.Param("request", ""), ActionID: c.Query("action"), Scope: c.Query("scope")}
+	if submitted, parseErr := time.Parse(time.RFC3339, c.Query("submitted_at")); parseErr == nil && !submitted.After(time.Now().Add(5*time.Minute)) {
+		query.SubmittedAt = submitted.UTC()
+	}
+	status, err := h.RequestStatus(ctx, identity, query)
+	if err != nil {
+		return writeConsoleError(c, err)
+	}
+	return writeJSON(c, status)
 }
 
 func (h *ConsoleHost) preferenceKey(identity console.Identity) string {
@@ -116,13 +156,13 @@ func (h *ConsoleHost) normalizeOrder(ctx context.Context, identity console.Ident
 func (h *ConsoleHost) handlePreferences(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	order := []string{}
 	if h.config.LoadPreferences != nil {
 		order, err = h.config.LoadPreferences(ctx, h.preferenceKey(identity))
 		if err != nil {
-			return writeError(c, err)
+			return writeConsoleError(c, err)
 		}
 	}
 	return writeJSON(c, map[string]any{"available": h.config.LoadPreferences != nil, "panel_order": h.normalizeOrder(ctx, identity, order)})
@@ -131,7 +171,7 @@ func (h *ConsoleHost) handlePreferences(c router.Context) error {
 func (h *ConsoleHost) handlePreferencesSave(c router.Context) error {
 	ctx, identity, err := h.request(c)
 	if err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	if h.config.SavePreferences == nil {
 		return writeError(c, ErrNotFound)
@@ -147,7 +187,7 @@ func (h *ConsoleHost) handlePreferencesSave(c router.Context) error {
 	}
 	order := h.normalizeOrder(ctx, identity, input.PanelOrder)
 	if err := h.config.SavePreferences(ctx, h.preferenceKey(identity), order); err != nil {
-		return writeError(c, err)
+		return writeConsoleError(c, err)
 	}
 	return writeJSON(c, map[string]any{"available": true, "panel_order": order})
 }
@@ -176,6 +216,8 @@ func (h *ConsoleHost) registerLive(rt AdminRouter, auth router.MiddlewareFunc) {
 		if err != nil {
 			return nil, err
 		}
+		// Browsers cannot set socket headers; the handshake rides the URL.
+		ctx = console.WithClientCapabilities(ctx, console.ParseClientCapabilities(c.Query(console.ClientCapabilitiesQuery)))
 		return router.UpgradeData{consoleUpgradeIdentity: identity, consoleUpgradeContext: ctx}, nil
 	}
 	ws.WebSocket(h.routes.Live, config, func(c router.WebSocketContext) error {
@@ -325,7 +367,10 @@ func (d *consoleWatchDelivery) deliverEvent(event console.Event) error {
 		delete(d.selected, event.PanelID)
 		return d.recoverSnapshot(true)
 	}
-	record, allowed := d.host.projectRecord(currentCtx, d.identity, event.PanelID, event.Record)
+	record, allowed, err := d.host.projectRecord(currentCtx, d.identity, event.PanelID, event.Record)
+	if err != nil {
+		return err
+	}
 	if !allowed {
 		return d.recoverSnapshot(true)
 	}

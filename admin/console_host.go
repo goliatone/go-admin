@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,13 +17,20 @@ import (
 type ConsoleHostConfig struct {
 	ID, Title, FeatureKey string
 	// RouteNamespace defaults to ID and isolates named routes from module identity.
-	RouteNamespace       string
-	Registry             *console.PanelRegistry
-	Events               *console.EventStream
-	Access               ConsoleAccess
-	Enabled              func() bool
-	RequestIdentity      func(router.Context) (console.Identity, error)
-	Snapshot             console.SnapshotSource
+	RouteNamespace  string
+	Registry        *console.PanelRegistry
+	Events          *console.EventStream
+	Access          ConsoleAccess
+	Enabled         func() bool
+	RequestIdentity func(router.Context) (console.Identity, error)
+	Snapshot        console.SnapshotSource
+	// PrepareSnapshot optionally loads an invocation-owned projection shared by
+	// panel sources and definition filters. It must preserve context cancellation.
+	// Its context is never mutation authority or a cache of grants.
+	PrepareSnapshot      func(context.Context, console.Identity) (context.Context, error)
+	// PrepareLookup supplies invocation-owned read data for lookup delivery.
+	// Like PrepareSnapshot it must retain cancellation and never cache grants.
+	PrepareLookup        func(context.Context, console.Identity) (context.Context, error)
 	Lookup               console.LookupSource
 	RenderPage           func(router.Context, console.Bootstrap) error
 	PreferencesNamespace string
@@ -106,6 +114,8 @@ func (h *ConsoleHost) RouteContract() routing.ModuleContract {
 		h.config.ID + ".snapshot":         {Method: router.GET, Path: "api/snapshot"},
 		h.config.ID + ".lookup":           {Method: router.GET, Path: "api/panels/:panel/records/:record"},
 		h.config.ID + ".action":           {Method: router.POST, Path: "api/panels/:panel/actions/:action"},
+		h.config.ID + ".options":          {Method: router.GET, Path: "api/panels/:panel/actions/:action/options/:field"},
+		h.config.ID + ".requests":         {Method: router.GET, Path: "api/panels/:panel/requests/:request"},
 		h.config.ID + ".preferences":      {Method: router.GET, Path: "api/preferences/panel-order"},
 		h.config.ID + ".preferences.save": {Method: router.PUT, Path: "api/preferences/panel-order"},
 		h.config.ID + ".live":             {Method: router.GET, Path: "ws"},
@@ -129,8 +139,9 @@ func (h *ConsoleHost) Register(ctx ModuleContext) error {
 		return validationDomainError("console registration is startup-only", nil)
 	}
 	get := func(key string) string { return ctx.Routing.RoutePath(routing.SurfaceUI, h.config.ID+"."+key) }
-	h.routes = console.Routes{Page: get("page"), Panels: get("panels"), Snapshot: get("snapshot"), Action: get("action"), Preferences: get("preferences"), Live: get("live"), Lookup: get("lookup")}
-	if slices.Contains([]string{h.routes.Page, h.routes.Panels, h.routes.Snapshot, h.routes.Action, h.routes.Preferences, h.routes.Live, h.routes.Lookup}, "") {
+	h.routes = console.Routes{Page: get("page"), Panels: get("panels"), Snapshot: get("snapshot"), Action: get("action"), Preferences: get("preferences"), Live: get("live"), Lookup: get("lookup"),
+		Options: get("options"), Requests: get("requests")}
+	if slices.Contains([]string{h.routes.Page, h.routes.Panels, h.routes.Snapshot, h.routes.Action, h.routes.Preferences, h.routes.Live, h.routes.Lookup, h.routes.Options, h.routes.Requests}, "") {
 		return validationDomainError("console route contract is unresolved", nil)
 	}
 	if h.config.RenderPage == nil {
@@ -142,6 +153,8 @@ func (h *ConsoleHost) Register(ctx ModuleContext) error {
 	ctx.ProtectedRouter.Get(h.routes.Snapshot, h.guard(h.handleSnapshot))
 	ctx.ProtectedRouter.Get(h.routes.Lookup, h.guard(h.handleLookup))
 	ctx.ProtectedRouter.Post(h.routes.Action, h.guard(h.handleAction))
+	ctx.ProtectedRouter.Get(h.routes.Options, h.guard(h.handleOptions))
+	ctx.ProtectedRouter.Get(h.routes.Requests, h.guard(h.handleRequestStatus))
 	ctx.ProtectedRouter.Get(h.routes.Preferences, h.guard(h.handlePreferences))
 	ctx.ProtectedRouter.Put(h.routes.Preferences, h.guard(h.handlePreferencesSave))
 	h.registerLive(ctx.Admin.router, ctx.AuthMiddleware)
@@ -215,27 +228,62 @@ func (h *ConsoleHost) bindSocket(c router.WebSocketContext) (func(), error) {
 func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (console.Snapshot, error) {
 	ctx, done := h.operationContext(ctx)
 	defer done()
+	ctx, cancel := context.WithTimeout(ctx, h.config.SnapshotTimeout)
+	defer cancel()
 	ctx, identity, err := h.current(ctx, identity)
 	if err != nil {
 		return console.Snapshot{}, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, h.config.SnapshotTimeout)
-	defer cancel()
 	snapshot := console.Snapshot{Identity: identity, Watermark: h.config.Events.Watermark(identity), Panels: []console.PanelSnapshot{}}
-	for _, candidate := range h.config.Registry.DefinitionsWithContext(ctx) {
-		def, allowed := h.panel(ctx, identity, candidate.ID)
+	if h.config.PrepareSnapshot != nil {
+		prepared, prepareErr := h.config.PrepareSnapshot(ctx, identity)
+		if ctx.Err() != nil {
+			return console.Snapshot{}, ctx.Err()
+		}
+		if prepareErr != nil {
+			return console.Snapshot{}, prepareErr
+		}
+		if prepared == nil {
+			return console.Snapshot{}, validationDomainError("console snapshot preparer returned no context", nil)
+		}
+		ctx = prepared
+	}
+	for _, candidate := range h.config.Registry.Registrations() {
+		if ctx.Err() != nil {
+			return console.Snapshot{}, ctx.Err()
+		}
+		def, allowed := h.panel(ctx, identity, candidate.Definition.ID)
 		if !allowed {
 			continue
 		}
 		records, snapshotErr := h.config.Snapshot(ctx, identity, def.ID)
 		if snapshotErr != nil {
+			if ctx.Err() != nil {
+				return console.Snapshot{}, ctx.Err()
+			}
 			return console.Snapshot{}, snapshotErr
 		}
 		panel := console.PanelSnapshot{PanelDefinition: def, Records: []console.Record{}}
 		panel.Records = records
 		snapshot.Panels = append(snapshot.Panels, panel)
 	}
-	// Reproject using newly resolved grants after slow providers finish.
+	// Finish every masking callback before delivery authorization. A later
+	// projector may observe/revoke grants for an earlier record or action.
+	for i := range snapshot.Panels {
+		panel := &snapshot.Panels[i]
+		prepared := []console.Record{}
+		for _, record := range panel.Records {
+			if ctx.Err() != nil {
+				return console.Snapshot{}, ctx.Err()
+			}
+			if projected, valid := h.prepareRecord(ctx, identity, panel.ID, record); valid {
+				prepared = append(prepared, projected)
+			}
+		}
+		panel.Records = prepared
+	}
+	// Re-resolve identity and filter exact declarations/records only after all
+	// source and masking work. Delivery hooks are policy/redaction-only.
 	currentCtx, _, err := h.current(ctx, identity)
 	if err != nil {
 		return console.Snapshot{}, err
@@ -248,7 +296,14 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 		}
 		records := []console.Record{}
 		for _, record := range panel.Records {
-			if projected, allowed := h.projectRecord(currentCtx, identity, panel.ID, record); allowed {
+			if currentCtx.Err() != nil {
+				return console.Snapshot{}, currentCtx.Err()
+			}
+			projected, allowed, deliveryErr := h.deliverRecord(currentCtx, identity, panel.ID, record)
+			if deliveryErr != nil {
+				return console.Snapshot{}, deliveryErr
+			}
+			if allowed {
 				records = append(records, projected)
 			}
 		}
@@ -263,6 +318,10 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 	return snapshot, nil
 }
 
+// RunAction dispatches one executable declaration for the request's client.
+// Unavailable, hidden, undeclared, withdrawn and foreign-panel actions are
+// refused; capability-dependent work additionally needs an advertised client
+// handshake, so a page served to stale cached assets cannot execute it.
 func (h *ConsoleHost) RunAction(ctx context.Context, identity console.Identity, request console.PanelActionRequest) (console.PanelActionResult, error) {
 	ctx, done := h.operationContext(ctx)
 	defer done()
@@ -270,9 +329,24 @@ func (h *ConsoleHost) RunAction(ctx context.Context, identity console.Identity, 
 	if err != nil {
 		return console.PanelActionResult{}, err
 	}
+	if caps := console.ClientCapabilitiesFromContext(ctx); caps.Mode == console.ClientCapabilitiesPage {
+		// A page bootstrap is never an executing client.
+		ctx = console.WithClientCapabilities(ctx, console.ParseClientCapabilities(""))
+	}
 	def, ok := h.panel(ctx, identity, request.PanelID)
-	if !ok || !console.PanelDefinitionHasAction(def, request.ActionID) {
+	if !ok {
 		return console.PanelActionResult{}, ErrNotFound
+	}
+	action, declared := console.PanelDefinitionAction(def, request.ActionID)
+	if !declared || !action.Executable() {
+		if h.requiresNewerClient(ctx, identity, def.ID, request.ActionID) {
+			return console.PanelActionResult{}, consoleClientOutdatedError()
+		}
+		return console.PanelActionResult{}, ErrNotFound
+	}
+	if fields := consoleGeneratedFieldErrors(action, request.Payload); len(fields) > 0 {
+		return console.PanelActionResult{OK: false, Code: TextCodeValidationError, Tone: console.PanelToneError,
+			Message: "The request ID is missing or invalid. Reopen the form to start a new request.", Errors: fields}, nil
 	}
 	reg, _ := h.config.Registry.Registration(def.ID)
 	handler := reg.ActionHandlerForContext(ctx, request.ActionID)
@@ -280,7 +354,124 @@ func (h *ConsoleHost) RunAction(ctx context.Context, identity console.Identity, 
 		return console.PanelActionResult{}, ErrNotFound
 	}
 	request.PanelID = def.ID
-	return handler(ctx, request)
+	result, err := handler(ctx, request)
+	if err != nil {
+		return result, err
+	}
+	return console.NormalizePanelActionResult(result), nil
+}
+
+func consoleClientOutdatedError() error {
+	return NewDomainError(TextCodeConsoleClientOutdated, consoleClientOutdatedMessage, map[string]any{"action": "reload"})
+}
+
+// consoleGeneratedFieldErrors requires a well-formed generated request ID for
+// every generated field. IDs stay idempotency keys: this checks shape only.
+func consoleGeneratedFieldErrors(action console.PanelUIAction, payload map[string]any) map[string]any {
+	fields := map[string]any{}
+	for _, field := range action.Fields {
+		if field.Generate != console.PanelFieldGenerateRequestID {
+			continue
+		}
+		path := field.PayloadPath
+		if path == "" {
+			path = field.Name
+		}
+		if value, ok := consolePayloadValue(payload, path).(string); !ok || !console.ValidRequestID(value) {
+			fields[field.Name] = "Reopen the form to generate a new request ID."
+		}
+	}
+	return fields
+}
+
+func consolePayloadValue(payload map[string]any, path string) any {
+	var current any = payload
+	for _, part := range strings.Split(path, ".") {
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current = object[part]
+	}
+	return current
+}
+
+// Options serves one page of a paginated option source. The action must be
+// executable for this actor and client, and the field must declare the source.
+func (h *ConsoleHost) Options(ctx context.Context, identity console.Identity, query console.PanelOptionQuery) (console.PanelOptionPage, error) {
+	ctx, done := h.operationContext(ctx)
+	defer done()
+	ctx, identity, err := h.current(ctx, identity)
+	if err != nil {
+		return console.PanelOptionPage{}, err
+	}
+	query = console.NormalizePanelOptionQuery(query)
+	def, ok := h.panel(ctx, identity, query.PanelID)
+	if !ok {
+		return console.PanelOptionPage{}, ErrNotFound
+	}
+	action, declared := console.PanelDefinitionAction(def, query.ActionID)
+	if !declared || !action.Executable() || !consoleFieldPaginated(action, query.Field) {
+		return console.PanelOptionPage{}, ErrNotFound
+	}
+	reg, _ := h.config.Registry.Registration(def.ID)
+	if reg.Options == nil {
+		return console.PanelOptionPage{}, ErrNotFound
+	}
+	query.PanelID = def.ID
+	page, err := reg.Options(ctx, query)
+	if err != nil {
+		return console.PanelOptionPage{}, err
+	}
+	// Never deliver options after revocation, shutdown or deadline.
+	if _, _, err = h.current(ctx, identity); err != nil {
+		return console.PanelOptionPage{}, err
+	}
+	return console.NormalizePanelOptionPage(page, query.Limit), nil
+}
+
+func consoleFieldPaginated(action console.PanelUIAction, field string) bool {
+	for _, declared := range action.Fields {
+		if declared.Name == field && declared.OptionSource != nil && declared.OptionSource.Paginated {
+			return true
+		}
+	}
+	return false
+}
+
+// RequestStatus looks up the current actor's own submitted request. It needs
+// panel read access, not the action's current declaration, because a
+// submitted request can outlive the choice that produced it.
+func (h *ConsoleHost) RequestStatus(ctx context.Context, identity console.Identity, query console.PanelRequestQuery) (console.PanelRequestStatus, error) {
+	ctx, done := h.operationContext(ctx)
+	defer done()
+	ctx, identity, err := h.current(ctx, identity)
+	if err != nil {
+		return console.PanelRequestStatus{}, err
+	}
+	query.ActionID = strings.ToLower(strings.TrimSpace(query.ActionID))
+	query.RequestID = strings.TrimSpace(query.RequestID)
+	query.Scope = strings.TrimSpace(query.Scope)
+	if query.ActionID == "" || len(query.ActionID) > 160 || !console.ValidRequestID(query.RequestID) || len(query.Scope) > console.PanelRequestScopeMax {
+		return console.PanelRequestStatus{}, validationDomainError("invalid console request lookup", nil)
+	}
+	def, ok := h.panel(ctx, identity, query.PanelID)
+	if !ok {
+		return console.PanelRequestStatus{}, ErrNotFound
+	}
+	reg, _ := h.config.Registry.Registration(def.ID)
+	if reg.Requests == nil {
+		return console.PanelRequestStatus{}, ErrNotFound
+	}
+	query.PanelID = def.ID
+	status, err := reg.Requests(ctx, query)
+	if err != nil {
+		return console.PanelRequestStatus{}, err
+	}
+	if _, _, err = h.current(ctx, identity); err != nil {
+		return console.PanelRequestStatus{}, err
+	}
+	return console.NormalizePanelRequestStatus(status), nil
 }
 
 func (h *ConsoleHost) Lookup(ctx context.Context, identity console.Identity, panelID, recordKey string) (console.Record, error) {
@@ -290,12 +481,31 @@ func (h *ConsoleHost) Lookup(ctx context.Context, identity console.Identity, pan
 	if err != nil {
 		return console.Record{}, err
 	}
+	if h.config.PrepareLookup != nil {
+		prepared, prepareErr := h.config.PrepareLookup(ctx, identity)
+		if ctx.Err() != nil {
+			return console.Record{}, ctx.Err()
+		}
+		if prepareErr != nil {
+			return console.Record{}, prepareErr
+		}
+		if prepared == nil {
+			return console.Record{}, validationDomainError("console lookup preparer returned no context", nil)
+		}
+		ctx = prepared
+	}
 	def, ok := h.panel(ctx, identity, panelID)
 	if !ok || h.config.Lookup == nil {
 		return console.Record{}, ErrNotFound
 	}
 	record, found, err := h.config.Lookup(ctx, identity, def.ID, recordKey)
-	if err != nil || !found || record.Key != recordKey {
+	if ctx.Err() != nil {
+		return console.Record{}, ctx.Err()
+	}
+	if err != nil {
+		return console.Record{}, err
+	}
+	if !found || record.Key != recordKey {
 		return console.Record{}, ErrNotFound
 	}
 	ctx, _, err = h.current(ctx, identity)
@@ -305,7 +515,11 @@ func (h *ConsoleHost) Lookup(ctx context.Context, identity console.Identity, pan
 	if _, ok := h.panel(ctx, identity, def.ID); !ok {
 		return console.Record{}, ErrNotFound
 	}
-	if projected, ok := h.projectRecord(ctx, identity, def.ID, record); ok {
+	projected, allowed, err := h.projectRecord(ctx, identity, def.ID, record)
+	if err != nil {
+		return console.Record{}, err
+	}
+	if allowed {
 		return projected, nil
 	}
 	return console.Record{}, ErrNotFound

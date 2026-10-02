@@ -68,8 +68,10 @@ func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
 			c.SetContext(ctx)
 			return cfg.ResolveIdentity(ctx)
 		},
-		Access:   m.access(),
-		Snapshot: m.records,
+		Access:          m.access(),
+		Snapshot:        m.records,
+		PrepareSnapshot: m.prepareSnapshot,
+		PrepareLookup:   m.prepareSnapshot,
 		Lookup: func(ctx context.Context, identity console.Identity, panel, key string) (console.Record, bool, error) {
 			rows, err := m.records(ctx, identity, panel)
 			for _, row := range rows {
@@ -183,21 +185,27 @@ func (m *DataModule) dispatch(ctx context.Context, kind data.Kind, input data.In
 }
 
 func (m *DataModule) access() ConsoleAccess {
-	return ConsoleAccess{Resolve: m.resolveConsole, Read: m.readConsole, Action: m.allowAction, Record: m.allowRecord,
+	return ConsoleAccess{Resolve: m.resolveConsole, Read: m.readConsole, Action: m.allowAction, Record: m.allowRecord, Project: m.projectDataRecord, DeliverRecord: m.deliverDataRecord,
 		Panel: func(_ context.Context, _ console.Identity, def console.PanelDefinition) bool {
 			return slices.Contains(DataPanelIDs(), def.ID)
 		}}
 }
 func (m *DataModule) resolveConsole(ctx context.Context, identity console.Identity) (context.Context, console.Identity, error) {
 	current, err := m.config.ResolveIdentity(ctx)
-	if err != nil || current != identity || current.ConsoleID != "data" {
+	if ctx.Err() != nil {
+		return ctx, identity, ctx.Err()
+	}
+	if err != nil {
+		return ctx, identity, dataConsoleReadError(err)
+	}
+	if current != identity || current.ConsoleID != "data" {
 		return ctx, identity, ErrForbidden
 	}
 	return ctx, current, nil
 }
 func (m *DataModule) readConsole(ctx context.Context, _ console.Identity) error {
-	if _, err := m.config.Service.Active(ctx, m.config.TargetID); err != nil {
-		return ErrForbidden
+	if err := m.config.Service.AuthorizeView(ctx, m.config.TargetID); err != nil {
+		return dataConsoleReadError(err)
 	}
 	return nil
 }
@@ -224,6 +232,9 @@ func (m *DataModule) allowAction(ctx context.Context, _ console.Identity, panel,
 	return false
 }
 func (m *DataModule) allowRecord(ctx context.Context, _ console.Identity, panel string, record console.Record) bool {
+	if projection := m.projection(ctx); projection != nil {
+		return m.allowProjectedRecord(ctx, projection.model, panel, record)
+	}
 	if record.TargetID != "" && record.TargetID != m.config.TargetID {
 		return false
 	}
@@ -244,6 +255,9 @@ type dataModuleReadModel struct {
 }
 
 func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error) {
+	if projection := m.projection(ctx); projection != nil {
+		return projection.model, nil
+	}
 	var model dataModuleReadModel
 	var err error
 	model.catalog, err = m.config.Service.Catalog(ctx, m.config.TargetID, 100)
@@ -262,10 +276,12 @@ func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error)
 	// operations move it out of the history window.
 	if id := model.state.PendingOperationID; id != "" && !slices.ContainsFunc(model.ops, func(op data.Operation) bool { return op.Result.OperationID == id }) {
 		op, lookupErr := m.config.Service.LookupOperation(ctx, id)
-		if lookupErr != nil {
+		if lookupErr != nil && data.ErrorCode(lookupErr) != data.CodeGone {
 			return model, lookupErr
 		}
-		model.ops = append(model.ops, op)
+		if lookupErr == nil {
+			model.ops = append(model.ops, op)
+		}
 	}
 	page, err := m.config.Service.Receipts(ctx, m.config.TargetID, data.ReceiptQuery{Limit: m.config.ReceiptLimit})
 	if err != nil {
@@ -280,6 +296,9 @@ func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error)
 		}
 		receipt, lookupErr := m.config.Service.LookupReceipt(ctx, m.config.TargetID, id)
 		if lookupErr != nil {
+			if data.ErrorCode(lookupErr) == data.CodeGone {
+				continue
+			}
 			return model, lookupErr
 		}
 		model.receipts = append(model.receipts, &receipt)
@@ -287,6 +306,9 @@ func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error)
 	return model, nil
 }
 func (m *DataModule) permittedChoice(ctx context.Context, choice DataActionChoice, capabilities map[data.Kind]data.Capability) bool {
+	if projection := m.projection(ctx); projection != nil {
+		return m.permittedProjectedChoice(ctx, projection.model, choice, capabilities)
+	}
 	capability := capabilities[choice.Kind]
 	if choice.ReceiptInput {
 		return capability.Supported && capability.Permitted
@@ -296,6 +318,9 @@ func (m *DataModule) permittedChoice(ctx context.Context, choice DataActionChoic
 	return capability.Supported && capability.Permitted && m.config.Service.AuthorizeInput(ctx, choice.Kind, input) == nil
 }
 func (m *DataModule) choices(ctx context.Context) ([]DataActionChoice, error) {
+	if projection := m.projection(ctx); projection != nil {
+		return m.projectedChoices(ctx, projection)
+	}
 	model, err := m.readModel(ctx)
 	if err != nil {
 		return nil, err
@@ -314,7 +339,7 @@ func (m *DataModule) choices(ctx context.Context) ([]DataActionChoice, error) {
 			continue
 		}
 		input := data.Input{TargetID: m.config.TargetID, OperationID: op.Result.OperationID}
-		if m.config.Service.AuthorizeInput(ctx, data.Recover, input) == nil {
+		if m.permittedRecovery(ctx, model, input) {
 			out = append(out, DataActionChoice{Kind: data.Recover, Label: "Recover " + op.Result.OperationID, Input: input})
 		}
 	}

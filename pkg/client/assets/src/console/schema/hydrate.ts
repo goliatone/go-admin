@@ -18,6 +18,8 @@ import {
   applyEventPolicy,
   defaultFilterState,
   getCountForPolicy,
+  getCountToneForPolicy,
+  countHiddenForPolicy,
   isSupportedUI,
   normalizeSchemaID,
   normalizeSchemaText,
@@ -98,7 +100,7 @@ export function panelDefinitionFromServer(
     // Custom console panels own their own filtering, so the generic object-key
     // search must not be applied to their structured snapshot payload.
     showFilters: consoleOverride && ownsFilters ? false : Boolean(ui?.filters?.length),
-    liveList: schemaLiveList(ui, ui?.views?.console || ui?.views?.toolbar, eventMode, liveNewestFirst),
+    liveList: schemaLiveList(ui, ui?.views?.console || ui?.views?.toolbar, eventMode, liveNewestFirst, renderDef),
   };
   return options.extend
     ? options.extend(definition, { serverDef, ui, eventMode, liveNewestFirst })
@@ -158,10 +160,12 @@ function schemaRenderers(
 function schemaPolicyHooks(
   ui: ServerPanelUI | undefined,
   styles: Pick<StyleConfig, 'blockPrefix'> | undefined
-): Pick<PanelDefinition, 'getCount' | 'handleEvent' | 'renderFilters' | 'defaultFilters' | 'applyFilters'> {
+): Pick<PanelDefinition, 'getCount' | 'getCountTone' | 'hideCount' | 'handleEvent' | 'renderFilters' | 'defaultFilters' | 'applyFilters'> {
   const filtered = Boolean(ui?.filters?.length);
   return {
     getCount: ui?.count ? (data) => getCountForPolicy(data, ui) : undefined,
+    getCountTone: ui?.count ? (data) => getCountToneForPolicy(data, ui) : undefined,
+    hideCount: ui?.count ? (count) => countHiddenForPolicy(count, ui) : undefined,
     handleEvent: ui?.events ? (current, payload) => applyEventPolicy(current, payload, ui) : undefined,
     renderFilters: filtered ? (state) => renderFilterControls(ui, state, styles) : undefined,
     defaultFilters: filtered ? defaultFilterState(ui) : undefined,
@@ -179,7 +183,8 @@ function schemaLiveList(
   ui: ServerPanelUI | undefined,
   primaryView: ServerPanelUIView | undefined,
   eventMode: string,
-  newestFirst: boolean
+  newestFirst: boolean,
+  serverDef?: ServerPanelDefinition
 ): PanelLiveListConfig | undefined {
   if (!ui || !primaryView || eventMode !== 'append' || !isSchemaListRenderer(primaryView.renderer)) {
     return undefined;
@@ -195,7 +200,7 @@ function schemaLiveList(
   }
   return {
     renderRow: (item: unknown, styles: StyleConfig) =>
-      renderSchemaListRow(primaryView.renderer, item, primaryView, styles),
+      renderSchemaListRow(primaryView.renderer, item, primaryView, styles, serverDef),
     keyOf: (item: unknown) => schemaRowKey(item, primaryView.options?.key_bind),
     getMaxEntries: () =>
       typeof ui.events?.max_entries === 'number' ? ui.events.max_entries : 500,

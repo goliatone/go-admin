@@ -1,7 +1,8 @@
 import { httpRequestWith as C } from "./transport/http-client.js";
-import { d as $, n as P, p as G, u as W } from "../chunks/behaviors-Cm8MaHXi.js";
-var fe = "X-Enhanced-Action", me = "application/vnd.admin.enhanced+json", he = "1";
-function pe(e = document, t = {}) {
+import { a as $, n as P, r as G } from "../chunks/busy-D8dMtGI2.js";
+import { n as W } from "../chunks/behaviors-BtQcyG0z.js";
+var me = "X-Enhanced-Action", he = "application/vnd.admin.enhanced+json", pe = "1";
+function ge(e = document, t = {}) {
   const n = t.document ?? oe(e), a = (r) => {
     const o = Y(r.target, n);
     if (!(!o || !o.matches("form[data-enhance-action]")) && g(t.fetch ?? globalThis.fetch, o.ownerDocument)) {
@@ -12,7 +13,7 @@ function pe(e = document, t = {}) {
         });
         return;
       }
-      if (W(o)) {
+      if (P(o)) {
         r.preventDefault();
         return;
       }
@@ -43,7 +44,7 @@ async function z(e, t, n = {}) {
   _(e);
   const h = new i();
   h.set(M(n), U(n)), h.set("Accept", N(n));
-  const p = G(e, {
+  const p = $(e, {
     submitter: t,
     indicator: e.getAttribute("data-busy-indicator")?.trim() === "submitter" ? "submitter" : "all"
   });
@@ -87,7 +88,7 @@ async function b(e, t, n) {
   }
   a.length > 0 && (await re(t, c), await t.onFragmentsApplied?.(a), ae(n, a, c));
 }
-function ge(e, t) {
+function Ee(e, t) {
   return !!q(e, t);
 }
 function q(e, t) {
@@ -271,7 +272,7 @@ function ne(e) {
 }
 async function re(e, t) {
   for (const a of t)
-    P(a, { window: a.ownerDocument.defaultView ?? void 0 }), $(a);
+    W(a, { window: a.ownerDocument.defaultView ?? void 0 }), G(a);
   const n = O().FormgenRelationships;
   typeof n?.initRelationships == "function" && await n.initRelationships();
 }
@@ -373,12 +374,12 @@ function ue(e) {
   return !!e && typeof e == "object" && e.name === "AbortError";
 }
 export {
-  me as ENHANCED_ACTION_ACCEPT,
-  fe as ENHANCED_ACTION_HEADER,
-  he as ENHANCED_ACTION_HEADER_VALUE,
+  he as ENHANCED_ACTION_ACCEPT,
+  me as ENHANCED_ACTION_HEADER,
+  pe as ENHANCED_ACTION_HEADER_VALUE,
   R as applyEnhancedEnvelope,
-  ge as applyEnhancedFragment,
-  pe as initEnhancedActions,
+  Ee as applyEnhancedFragment,
+  ge as initEnhancedActions,
   z as submitEnhancedForm
 };
 

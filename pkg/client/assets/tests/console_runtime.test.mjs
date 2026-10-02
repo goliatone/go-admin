@@ -101,6 +101,9 @@ const { ConsoleRecordStore, mountConsole, getMountedConsole, createPanelRegistry
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 
+// Every live URL advertises the implemented workflow capabilities (DESIGN, frozen handshake).
+const LIVE_CAPABILITIES = 'capabilities=action_availability.v1%2Caction_drawer.v1%2Crequest_id.v1%2Crich_views.v1%2Csecondary_submit.v1';
+
 async function waitFor(assertion, timeoutMs = 1000) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
@@ -343,7 +346,7 @@ test('live stream selects authorized panels, applies host snapshots and events, 
   const { root, runtime } = mount(bootstrap(), { live: true, snapshotWaitMs: 200 });
   await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
   const socket = FakeSocket.instances[0];
-  assert.equal(socket.url, 'wss://admin.example.test/admin/data/ws?panels=operations%2Ctargets%2Caudit%2Cbroken');
+  assert.equal(socket.url, `wss://admin.example.test/admin/data/ws?panels=operations%2Ctargets%2Caudit%2Cbroken&${LIVE_CAPABILITIES}`);
   const before = fetchCalls.length;
   socket.open();
   await waitFor(() => assert.equal(runtime.getConnectionState(), 'connected'));
@@ -468,14 +471,14 @@ test('late snapshots widen live selection, keep mounted forms and refresh revive
     liveOptions: { maxReconnectAttempts: 0, maxInitialReconnectAttempts: 0 },
   });
   await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
-  assert.match(FakeSocket.instances[0].url, /\?panels=$/, 'nothing selected before an authorized snapshot');
+  assert.equal(new URL(FakeSocket.instances[0].url).searchParams.get('panels'), '', 'nothing selected before an authorized snapshot');
   FakeSocket.instances[0].open();
   FakeSocket.instances[0].message(snapshot());
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   await waitFor(() => assert.equal(FakeSocket.instances.length, 2, 'newly authorized panels reconnect the selection'));
   assert.equal(FakeSocket.instances[0].readyState, FakeSocket.CLOSED);
   const socket = FakeSocket.instances[1];
-  assert.match(socket.url, /panels=operations%2Ctargets%2Caudit%2Cbroken$/);
+  assert.ok(socket.url.endsWith(`panels=operations%2Ctargets%2Caudit%2Cbroken&${LIVE_CAPABILITIES}`));
   socket.open();
   socket.message(snapshot());
 
@@ -495,7 +498,7 @@ test('late snapshots widen live selection, keep mounted forms and refresh revive
   assert.ok(root.querySelector('[data-panel-action][data-action-id="cancel"]'));
   assert.equal(FakeSocket.instances.length, 3, 'removed panels reconcile the requested selection');
   const narrowed = FakeSocket.instances[2];
-  assert.match(narrowed.url, /panels=operations$/);
+  assert.equal(new URL(narrowed.url).searchParams.get('panels'), 'operations');
   narrowed.open();
   narrowed.message(changed);
 
@@ -519,7 +522,7 @@ test('revoke and regrant reconciles live selection and resumes subsequent events
   assert.deepEqual(runtime.getPanels(), []);
   assert.equal(first.readyState, FakeSocket.CLOSED);
   const empty = FakeSocket.instances[1];
-  assert.match(empty.url, /panels=$/);
+  assert.equal(new URL(empty.url).searchParams.get('panels'), '');
   first.message(event());
   assert.deepEqual(runtime.getPanels(), [], 'queued frames from the old connection stay fenced');
   empty.open();
@@ -527,7 +530,7 @@ test('revoke and regrant reconciles live selection and resumes subsequent events
   empty.message(granted);
   assert.equal(empty.readyState, FakeSocket.CLOSED);
   const restored = FakeSocket.instances[2];
-  assert.match(restored.url, /panels=operations$/);
+  assert.equal(new URL(restored.url).searchParams.get('panels'), 'operations');
   restored.open();
   restored.message(granted);
   restored.message(event());
@@ -834,7 +837,7 @@ test('in-root controls take precedence and display widgets never bind header con
   widget.insertAdjacentHTML('beforeend', `<script type="application/json" data-console-widget>${JSON.stringify(golden.widget).replace(/</g, '\\u003c')}</script>`);
   const display = mountConsole(widget);
   await waitFor(() => assert.equal(display.getState(), 'ready'));
-  assert.notEqual(widget.dataset.consoleControls, 'page', 'display-only widgets never bind header controls');
+  assert.equal(widget.dataset.consoleControls, 'none', 'display-only widgets never bind header controls');
   assert.equal(widgetGroup.querySelector('[data-console-action="refresh"]').disabled, true);
   display.destroy();
 });
@@ -880,7 +883,7 @@ test('Go-generated wire golden mounts, applies live frames and renders widget pa
   assert.deepEqual(runtime.getPanels(), ['operations', 'targets', 'audit']);
   await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
   const socket = FakeSocket.instances[0];
-  assert.equal(socket.url, 'wss://admin.example.test/fixture/data/ws?panels=operations%2Ctargets%2Caudit');
+  assert.equal(socket.url, `wss://admin.example.test/fixture/data/ws?panels=operations%2Ctargets%2Caudit&${LIVE_CAPABILITIES}`);
   socket.open();
   socket.message(golden.bootstrap.snapshot);
   socket.message(golden.upsert);
@@ -945,4 +948,792 @@ test('console bundle carries no Debug runtime and Debug facades keep their contr
   const debugAction = helpers.panelDefinitionFromServer(operationsPanel).render([], { ...(await import('../dist/debug/index.js')).consoleStyles });
   assert.match(debugAction, /id="debug-action-operations-preview-dataset-0"/, 'Debug field ids are unchanged');
   assert.equal(targetsPanel.id, 'targets');
+});
+
+// ---------------------------------------------------------------------------
+// Workflow forms, request drafts and rich views (ADR-0003/0004, UX redesign T04)
+
+const WORKFLOW_IDS = Object.freeze([
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  '33333333-3333-4333-8333-333333333333',
+  '44444444-4444-4444-8444-444444444444',
+  '55555555-5555-4555-8555-555555555555',
+  '66666666-6666-4666-8666-666666666666',
+  '77777777-7777-4777-8777-777777777777',
+  '88888888-8888-4888-8888-888888888888',
+]);
+
+const CLIENT_CAPABILITIES = 'action_availability.v1,action_drawer.v1,request_id.v1,rich_views.v1,secondary_submit.v1';
+
+const workflowUrls = Object.freeze({
+  ...urls,
+  options: '/admin/data/api/panels/:panel/actions/:action/options/:field',
+  requests: '/admin/data/api/panels/:panel/requests/:request',
+});
+
+function requestIDs(offset = 0) {
+  let index = offset;
+  return () => WORKFLOW_IDS[index++] || '';
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+function workflowActions({ generation = 3, prepare = true } = {}) {
+  return [
+    ...(prepare ? [{
+      id: 'prepare',
+      label: 'Prepare',
+      submit_label: 'Prepare',
+      payload: { scenario: 'ready' },
+      request_scope: 'prepare:preview',
+      requires: ['action_drawer.v1', 'request_id.v1', 'secondary_submit.v1'],
+      drawer: {
+        eyebrow: 'Prepare',
+        title: 'Prepare ready on preview',
+        effect: 'Preview keeps serving its active receipt while this runs.',
+        steps: [{ label: 'Prepare', state: 'current' }, { label: 'Verify', state: 'pending' }],
+        details: [{ label: 'Dataset', value: 'crm/corpus-a v1', format: 'mono' }],
+      },
+      secondary_submit: { label: 'Preview plan', field: 'dry_run', value: true },
+      fields: [
+        { name: 'batch_limit', label: 'Batch limit', kind: 'integer', min: 1, max: 500, default: 100 },
+        { name: 'request_id', label: 'Request ID', kind: 'text', generate: 'request_id', advanced: true },
+        { name: 'dry_run', label: 'Dry run', kind: 'hidden', default: false },
+      ],
+    }] : []),
+    {
+      id: 'activate',
+      label: 'Activate',
+      payload: { expected_generation: generation },
+      request_scope: 'activate:preview',
+      requires: ['action_drawer.v1', 'request_id.v1'],
+      drawer: { title: 'Activate ready' },
+      confirmation: {
+        title: 'Activate ready',
+        message: 'Preview will serve ready v1.',
+        changes: [{ label: 'Generation', before: String(generation), after: String(generation + 1) }],
+        confirm_label: 'Activate',
+      },
+      fields: [{ name: 'request_id', label: 'Request ID', kind: 'text', generate: 'request_id', advanced: true }],
+    },
+    {
+      id: 'verify',
+      label: 'Verify',
+      request_scope: 'verify:preview',
+      requires: ['action_drawer.v1', 'request_id.v1'],
+      fields: [
+        { name: 'receipt_id', label: 'Receipt', kind: 'select', required: true, option_source: { id: 'receipts', paginated: true, searchable: true } },
+        { name: 'request_id', label: 'Request ID', kind: 'text', generate: 'request_id', advanced: true },
+      ],
+    },
+    { id: 'reset', label: 'Reset', availability: 'unsupported', reason: 'Preview has no safe deactivation.' },
+    { id: 'future', label: 'Future', requires: ['quantum.v9'] },
+    { id: 'cleanup', label: 'Clean up' },
+  ];
+}
+
+function workflowPanel(options = {}) {
+  return {
+    id: 'work',
+    label: 'Work',
+    snapshot_key: 'work',
+    supports_toolbar: false,
+    order: 1,
+    ui: {
+      schema_version: '1',
+      views: {
+        console: {
+          renderer: 'table',
+          title: 'Scenarios',
+          description: 'Prepare, verify and activate.',
+          options: {
+            key_bind: 'id',
+            actions_bind: 'actions',
+            notify_bind: 'notice',
+            columns: [
+              { label: 'Scenario', bind: 'name', secondary_bind: 'dataset' },
+              { label: 'Status', bind: 'status', format: 'badge', tone_bind: 'tone' },
+              { label: 'Track', bind: 'track', format: 'steps' },
+              { label: 'Receipt', bind: 'receipt', format: 'copy', truncate: 8 },
+            ],
+          },
+        },
+      },
+      count: { mode: 'matching_rows', bind: 'attention', tone_bind: 'tone' },
+      action_layout: { mode: 'drawer' },
+      actions: workflowActions(options),
+    },
+  };
+}
+
+function workflowRecord(overrides = {}) {
+  return {
+    record_key: 'ready',
+    revision: 1,
+    data: {
+      id: 'ready',
+      name: 'ready v1',
+      dataset: 'crm/corpus-a v1',
+      status: 'Prepared — not verified',
+      tone: 'warning',
+      attention: true,
+      receipt: 'rcpt-ready-0001-abcdef',
+      track: [{ label: 'Prepare', state: 'done' }, { label: 'Verify', state: 'current' }, { label: 'Activate', state: 'pending' }],
+      actions: [
+        { panel_id: 'work', action_id: 'prepare', emphasis: 'primary' },
+        { panel_id: 'work', action_id: 'activate' },
+        { panel_id: 'work', action_id: 'verify' },
+        { panel_id: 'work', action_id: 'reset', emphasis: 'menu' },
+        { panel_id: 'work', action_id: 'future', emphasis: 'menu' },
+        { panel_id: 'work', action_id: 'cleanup', emphasis: 'menu' },
+        { panel_id: 'operations', action_id: 'preview' },
+        { panel_id: 'work', action_id: 'undeclared' },
+      ],
+      ...overrides,
+    },
+  };
+}
+
+function workflowSnapshot(options = {}, records = [workflowRecord()]) {
+  return snapshot({ watermark: options.watermark ?? 21, panels: [{ ...workflowPanel(options), records }, { ...operationsPanel, records: [operationRecord()] }] });
+}
+
+function workflowBootstrap(options = {}) {
+  return bootstrap({ urls: { ...workflowUrls }, snapshot: workflowSnapshot(options) });
+}
+
+function rowRef(root, actionId) {
+  return root.querySelector(`[data-console-panel] [data-console-action-ref][data-action-id="${actionId}"]`);
+}
+
+function drawerForm(root) {
+  return root.querySelector('[data-console-drawer] form[data-panel-action-form]');
+}
+
+function ledgerEntries() {
+  const key = Object.keys(win.sessionStorage).find((name) => name.endsWith(':requests'));
+  return key ? JSON.parse(win.sessionStorage.getItem(key)) : [];
+}
+
+test('workflow drawers replay unchanged requests and give Preview plan and execution distinct IDs', async () => {
+  resetEnvironment();
+  const posts = [];
+  let respond = () => { throw new TypeError('offline'); };
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+    if (call.method === 'POST') {
+      posts.push(call);
+      return respond(call);
+    }
+    return jsonResponse({}, 404);
+  };
+  const { root, runtime } = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('work');
+
+  // Drawer layout: rows carry exact authorized references, nothing renders inline.
+  assert.equal(root.querySelector('[data-console-panel-actions] form'), null);
+  const tabCount = root.querySelector('[data-console-tab-count="work"]');
+  assert.equal(tabCount.textContent, '1');
+  assert.equal(tabCount.dataset.tone, 'warning', 'attention rows tone the tab count');
+  assert.ok(root.querySelector('[data-console-panel] .console-steps [aria-current="step"]'), 'steps render with the current step');
+  assert.match(root.querySelector('[data-console-panel] td[data-label="Scenario"]').textContent, /ready v1\s*crm\/corpus-a v1/);
+  assert.equal(root.querySelector('[data-console-panel] [data-action-id="preview"][data-console-action-ref]'), null, 'foreign-panel references never render');
+  assert.equal(rowRef(root, 'undeclared'), null, 'undeclared references never render');
+  assert.ok(rowRef(root, 'prepare').classList.contains('console-btn--primary'));
+  const reset = root.querySelector('.console-menu [data-action-id="reset"]');
+  assert.equal(reset.getAttribute('aria-disabled'), 'true');
+  assert.match(reset.textContent, /Preview has no safe deactivation/);
+
+  const invoker = rowRef(root, 'prepare');
+  invoker.focus();
+  invoker.click();
+  const drawer = root.querySelector('[data-console-drawer]');
+  assert.ok(drawer, 'the action opens an in-root drawer');
+  assert.equal(drawer.getAttribute('role'), 'dialog');
+  assert.equal(drawer.getAttribute('aria-modal'), 'true');
+  assert.ok(drawer.contains(win.document.activeElement), 'focus moves into the drawer');
+  assert.match(drawer.textContent, /Preview keeps serving its active receipt/);
+  const generated = drawer.querySelector('input[data-action-field-generated]');
+  assert.equal(generated.value, WORKFLOW_IDS[0]);
+  assert.ok(generated.readOnly);
+  assert.ok(generated.closest('.console-advanced[data-expanded="false"]'), 'the request ID sits under a collapsed Advanced section');
+  const advancedToggle = drawer.querySelector('[data-advanced-toggle]');
+  advancedToggle.click();
+  assert.equal(advancedToggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(generated.closest('.console-advanced').dataset.expanded, 'true');
+  assert.equal(drawer.querySelector('[data-action-field="dry_run"]'), null, 'the submitter sets dry_run');
+
+  // Escape closes and returns focus to the invoking row action.
+  win.document.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(root.querySelector('[data-console-drawer]'), null);
+  assert.equal(win.document.activeElement, invoker);
+
+  rowRef(root, 'prepare').click();
+  let form = drawerForm(root);
+  assert.equal(form.querySelector('input[data-action-field-generated]').value, WORKFLOW_IDS[1], 'a discarded unsubmitted draft gets a fresh ID');
+  form.requestSubmit(form.querySelector('[data-submitter="secondary"]'));
+  await waitFor(() => assert.equal(posts.length, 1));
+  assert.deepEqual(posts[0].body, { scenario: 'ready', batch_limit: 100, dry_run: true, request_id: WORKFLOW_IDS[1] });
+  assert.equal(posts[0].headers.get('X-Console-Capabilities'), CLIENT_CAPABILITIES);
+  await waitFor(() => assert.match(form.querySelector('[data-request-status]').textContent, /may not have been received/));
+  assert.ok(form.querySelector('[data-request-check]') && form.querySelector('[data-request-resubmit]'));
+  assert.deepEqual(ledgerEntries().map((entry) => [entry.request_id, entry.scope, entry.mode, entry.state]), [[WORKFLOW_IDS[1], 'prepare:preview', 'secondary', 'uncertain']]);
+
+  // Unchanged resubmission replays the submitted ID and frozen payload.
+  respond = () => jsonResponse({ ok: true, planned: true, message: 'Planned. Nothing changed.', record: { panel_id: 'work', record_key: 'ready' } });
+  form.requestSubmit(form.querySelector('[data-submitter="secondary"]'));
+  await waitFor(() => assert.equal(posts.length, 2));
+  assert.deepEqual(posts[1].body, posts[0].body);
+  await waitFor(() => assert.equal(root.querySelector('[data-console-drawer]'), null));
+  const banner = root.querySelector('[data-console-banner]');
+  assert.equal(banner.dataset.tone, 'planned', 'planned work never reads as executed');
+  assert.equal(win.document.activeElement, banner, 'the result banner takes focus');
+  assert.ok(root.querySelector('[data-row-key="ready"][data-console-highlight]'), 'the outcome row is highlighted');
+  assert.deepEqual(ledgerEntries(), []);
+
+  // Execution is new work with its own ID; every submitter is busy while in flight.
+  rowRef(root, 'prepare').click();
+  form = drawerForm(root);
+  const executionID = form.querySelector('input[data-action-field-generated]').value;
+  assert.ok(!WORKFLOW_IDS.slice(0, 2).includes(executionID));
+  form.querySelector('[data-action-field="batch_limit"]').value = '600';
+  form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+  await settle();
+  assert.equal(posts.length, 2, 'declared bounds are checked before submission');
+  assert.equal(form.querySelector('[data-action-field-error="batch_limit"]').textContent, 'Enter 500 or less.');
+  form.querySelector('[data-action-field="batch_limit"]').value = '50';
+  const pending = deferred();
+  respond = () => pending.promise;
+  form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+  await waitFor(() => assert.equal(posts.length, 3));
+  assert.deepEqual(posts[2].body, { scenario: 'ready', batch_limit: 50, dry_run: false, request_id: executionID });
+  assert.equal(form.getAttribute('aria-busy'), 'true');
+  assert.ok(Array.from(form.querySelectorAll('button[type="submit"]')).every((button) => button.disabled), 'all submitters are busy together');
+  form.requestSubmit(form.querySelector('[data-submitter="secondary"]'));
+  await settle();
+  assert.equal(posts.length, 3, 'no second dispatch while one is in flight');
+  pending.resolve(jsonResponse({ ok: true, message: 'Accepted prepare operation op-0010.', tone: 'info' }));
+  await waitFor(() => assert.match(root.querySelector('[data-console-banner]').textContent, /Accepted prepare operation op-0010/));
+  runtime.destroy();
+});
+
+test('unknown delivery reconciles before new work and reload restores the pending request', async () => {
+  resetEnvironment();
+  const posts = [];
+  const lookups = [];
+  let status = { status: 'unclaimed', retry_until: '2026-10-03T00:00:00Z' };
+  let respond = () => { throw new TypeError('offline'); };
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+    if (call.method === 'POST') {
+      posts.push(call);
+      return respond(call);
+    }
+    if (call.url.includes('/requests/')) {
+      lookups.push(call);
+      return jsonResponse(status);
+    }
+    return jsonResponse({}, 404);
+  };
+  const first = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(first.runtime.getState(), 'ready'));
+  first.runtime.selectPanel('work');
+  rowRef(first.root, 'prepare').click();
+  let form = drawerForm(first.root);
+  form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+  await waitFor(() => assert.equal(posts.length, 1));
+  await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'uncertain'));
+  const submitted = posts[0].body;
+
+  form.querySelector('[data-action-field="batch_limit"]').value = '25';
+  form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+  await settle();
+  assert.equal(posts.length, 1, 'changed input waits for reconciliation');
+  assert.match(form.querySelector('[data-request-status]').textContent, /Check its status before starting new work/);
+
+  // Reload: a new instance restores the request and reconciles it first.
+  first.runtime.destroy();
+  first.root.remove();
+  const second = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(lookups.length, 1));
+  const lookup = new URL(lookups[0].url, 'https://admin.example.test');
+  assert.equal(lookup.pathname, `/admin/data/api/panels/work/requests/${submitted.request_id}`);
+  assert.equal(lookup.searchParams.get('action'), 'prepare');
+  assert.equal(lookup.searchParams.get('scope'), 'prepare:preview');
+  assert.ok(lookup.searchParams.get('submitted_at'));
+  assert.equal(lookups[0].headers.get('X-Console-Capabilities'), CLIENT_CAPABILITIES);
+  second.runtime.selectPanel('work');
+  rowRef(second.root, 'prepare').click();
+  form = drawerForm(second.root);
+  await waitFor(() => assert.match(form.querySelector('[data-request-status]').textContent, /was not received/));
+  assert.equal(form.querySelector('input[data-action-field-generated]').value, submitted.request_id, 'reopen resumes the submitted ID');
+  assert.equal(form.querySelector('[data-action-field="batch_limit"]').value, '100', 'reopen shows the frozen input');
+  respond = () => jsonResponse({ ok: true, message: 'Accepted.' });
+  form.querySelector('[data-request-resubmit]').click();
+  await waitFor(() => assert.equal(posts.length, 2));
+  assert.deepEqual(posts[1].body, submitted, 'Resubmit unchanged replays the frozen payload');
+  await waitFor(() => assert.deepEqual(ledgerEntries(), []));
+  second.runtime.destroy();
+  second.root.remove();
+
+  // A claimed request resolves from the durable lookup without resubmitting.
+  resetEnvironment();
+  posts.length = 0;
+  lookups.length = 0;
+  respond = () => { throw new TypeError('offline'); };
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+    if (call.method === 'POST') {
+      posts.push(call);
+      return respond(call);
+    }
+    if (call.url.includes('/requests/')) {
+      lookups.push(call);
+      return jsonResponse(status);
+    }
+    return jsonResponse({}, 404);
+  };
+  const third = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(third.runtime.getState(), 'ready'));
+  third.runtime.selectPanel('work');
+  rowRef(third.root, 'prepare').click();
+  form = drawerForm(third.root);
+  form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+  await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'uncertain'));
+  status = { status: 'claimed', result: { ok: true, message: 'Prepare op-0011 is running.', tone: 'info' } };
+  form.querySelector('[data-request-check]').click();
+  await waitFor(() => assert.match(third.root.querySelector('[data-console-banner]').textContent, /Prepare op-0011 is running/));
+  assert.equal(posts.length, 1, 'a claimed request never resubmits');
+  assert.deepEqual(ledgerEntries(), []);
+  third.runtime.destroy();
+});
+
+test('confirmation reloads authoritative state, freezes the confirmed generation and replays keep it', async () => {
+  resetEnvironment();
+  const posts = [];
+  const confirmations = [];
+  let generation = 3;
+  let respond = () => { throw new TypeError('offline'); };
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot({ generation, watermark: 21 + generation }));
+    if (call.method === 'POST') {
+      posts.push(call);
+      return respond(call);
+    }
+    return jsonResponse({}, 404);
+  };
+  const { root, runtime } = mount(workflowBootstrap(), {
+    generateRequestID: requestIDs(),
+    confirm: (message, request) => {
+      confirmations.push(request);
+      return true;
+    },
+  });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('work');
+  rowRef(root, 'activate').click();
+  let form = drawerForm(root);
+  generation = 4; // the target moved after the page loaded
+  form.requestSubmit();
+  await waitFor(() => assert.equal(posts.length, 1));
+  assert.equal(confirmations.length, 1);
+  assert.deepEqual(confirmations[0].changes, [{ label: 'Generation', before: '4', after: '5' }], 'confirmation shows the reloaded state');
+  assert.equal(confirmations[0].confirmLabel, 'Activate');
+  assert.equal(posts[0].body.expected_generation, 4, 'the confirmed generation is frozen into the payload');
+  await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'uncertain'));
+
+  generation = 5;
+  await runtime.refresh();
+  form = drawerForm(root);
+  form.requestSubmit();
+  await settle();
+  assert.equal(posts.length, 1, 'a later generation is new work and waits for reconciliation');
+  respond = () => jsonResponse({ ok: false, code: 'stale_generation', tone: 'error', message: 'The active dataset changed since you confirmed.' });
+  form.querySelector('[data-request-resubmit]').click();
+  await waitFor(() => assert.equal(posts.length, 2));
+  assert.deepEqual(posts[1].body, posts[0].body, 'replay keeps the confirmed generation');
+  assert.equal(confirmations.length, 1, 'replays never ask again');
+  await waitFor(() => assert.match(root.querySelector('[data-console-banner]').textContent, /changed since you confirmed/));
+  runtime.destroy();
+});
+
+test('unavailable, capability-gated, foreign and withdrawn actions never dispatch and stale clients reload', async () => {
+  resetEnvironment();
+  const posts = [];
+  let current = workflowSnapshot();
+  let respond = () => jsonResponse({ ok: true, message: 'Done.' });
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(current);
+    if (call.method === 'POST') {
+      posts.push(call);
+      return respond(call);
+    }
+    return jsonResponse({}, 404);
+  };
+  const { root, runtime } = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('work');
+
+  root.querySelector('.console-menu [data-action-id="reset"]').click();
+  const future = root.querySelector('.console-menu [data-action-id="future"]');
+  assert.match(future.getAttribute('title'), /Reload the page/);
+  future.click();
+  const forged = win.document.createElement('button');
+  forged.setAttribute('data-console-action-ref', '');
+  forged.dataset.panelId = 'operations';
+  forged.dataset.actionId = 'preview';
+  root.querySelector('[data-console-panel-body]').appendChild(forged);
+  forged.click();
+  await settle();
+  assert.equal(posts.length, 0);
+  assert.equal(root.querySelector('[data-console-drawer]'), null);
+
+  // A declaration withdrawn while its drawer is open can no longer submit.
+  rowRef(root, 'prepare').click();
+  const form = drawerForm(root);
+  current = { ...workflowSnapshot({ prepare: false }), watermark: 30 };
+  await runtime.refresh();
+  assert.ok(Array.from(form.querySelectorAll('button[data-submitter]')).every((button) => button.disabled));
+  assert.match(form.textContent, /no longer available/);
+  form.requestSubmit();
+  await settle();
+  assert.equal(posts.length, 0);
+  win.document.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+  // The host refuses stale assets; the console asks for a reload and stops dispatching.
+  respond = () => jsonResponse({ error: { code: 409, text_code: 'CONSOLE_CLIENT_OUTDATED', message: 'This console was updated. Reload the page to use this action.', metadata: { action: 'reload' } } }, 409);
+  root.querySelector('.console-menu [data-action-id="cleanup"]').click();
+  await waitFor(() => assert.equal(posts.length, 1));
+  assert.equal(posts[0].headers.get('X-Console-Capabilities'), CLIENT_CAPABILITIES);
+  await waitFor(() => assert.ok(root.querySelector('[data-console-banner] [data-console-action="reload"]')));
+  assert.equal(root.dataset.consoleOutdated, 'true');
+  root.querySelector('.console-menu [data-action-id="cleanup"]').click();
+  await settle();
+  assert.equal(posts.length, 1);
+  runtime.destroy();
+});
+
+test('paginated options load authorized pages, search and load more without inventing values', async () => {
+  resetEnvironment();
+  const lookups = [];
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+    if (call.url.includes('/options/')) {
+      lookups.push(new URL(call.url, 'https://admin.example.test'));
+      const url = lookups.at(-1);
+      if (url.searchParams.get('q')) return jsonResponse({ items: [{ value: 'rcpt-9', label: 'rcpt-9 (old)' }] });
+      if (url.searchParams.get('cursor') === 'page-2') return jsonResponse({ items: [{ value: 'rcpt-3', label: 'rcpt-3' }] });
+      return jsonResponse({ items: [{ value: 'rcpt-1', label: 'rcpt-1 (active)' }, { value: 'rcpt-2', label: 'rcpt-2', disabled: true }], next_cursor: 'page-2' });
+    }
+    return jsonResponse({}, 404);
+  };
+  const { root, runtime } = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('work');
+  rowRef(root, 'verify').click();
+  const form = drawerForm(root);
+  const select = form.querySelector('select[data-action-field="receipt_id"]');
+  await waitFor(() => assert.deepEqual(Array.from(select.options).map((option) => option.value), ['', 'rcpt-1', 'rcpt-2']));
+  assert.equal(lookups[0].pathname, '/admin/data/api/panels/work/actions/verify/options/receipt_id');
+  assert.equal(lookups[0].searchParams.get('limit'), '25');
+  assert.ok(select.options[2].disabled);
+  const more = form.querySelector('[data-option-more]');
+  assert.equal(more.hidden, false);
+  more.click();
+  await waitFor(() => assert.deepEqual(Array.from(select.options).map((option) => option.value), ['', 'rcpt-1', 'rcpt-2', 'rcpt-3']));
+  assert.equal(lookups[1].searchParams.get('cursor'), 'page-2');
+  assert.equal(more.hidden, true);
+  const search = form.querySelector('[data-option-search]');
+  search.value = 'rcpt-9';
+  search.dispatchEvent(new win.Event('input', { bubbles: true }));
+  await waitFor(() => assert.deepEqual(Array.from(select.options).map((option) => option.value), ['', 'rcpt-9']));
+  assert.equal(lookups.at(-1).searchParams.get('q'), 'rcpt-9');
+
+  // A required paginated selection is validated before submission.
+  form.requestSubmit();
+  await settle();
+  assert.equal(form.querySelector('[data-action-field-error="receipt_id"]').textContent, 'Enter a value.');
+  runtime.destroy();
+});
+
+test('background completions toast once and snapshots never replay notifications', async () => {
+  resetEnvironment();
+  const toasts = [];
+  const announced = workflowRecord({ notice: { id: 'op-1:succeeded', message: 'Prepare op-1 finished.', tone: 'success' } });
+  fetchRoute = (call) => (call.url.endsWith('/api/snapshot')
+    ? jsonResponse(workflowSnapshot({}, [announced]))
+    : jsonResponse({}, 404));
+  const { runtime } = mount(bootstrap({ urls: { ...workflowUrls }, snapshot: workflowSnapshot({}, [announced]) }), {
+    live: true,
+    snapshotWaitMs: 60000,
+    notify: (tone, message) => toasts.push([tone, message]),
+  });
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
+  const socket = FakeSocket.instances[0];
+  socket.open();
+  socket.message(workflowSnapshot({}, [announced]));
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  assert.deepEqual(toasts, [], 'snapshot notifications are history');
+  const finished = { ...identity, panel_id: 'work', record_key: 'ready', revision: 2, sequence: 22, kind: 'upsert', data: { ...announced.data, notice: { id: 'op-2:succeeded', message: 'Verify op-2 passed.', tone: 'success' } } };
+  socket.message(finished);
+  socket.message({ ...finished, revision: 3, sequence: 23 });
+  await settle();
+  assert.deepEqual(toasts, [['success', 'Verify op-2 passed.']]);
+  runtime.destroy();
+});
+
+test('two instances with the same console id keep drafts, drawers and ledgers apart', async () => {
+  resetEnvironment();
+  const posts = [];
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+    if (call.method === 'POST') {
+      posts.push(call);
+      throw new TypeError('offline');
+    }
+    return jsonResponse({}, 404);
+  };
+  const other = identityFor({ scope_key: 'other-org' });
+  const a = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  const bPayload = bootstrap({ identity: other, urls: { ...workflowUrls }, snapshot: snapshot({ ...other, panels: workflowSnapshot().panels }) });
+  const b = mount(bPayload, { generateRequestID: requestIDs(4) });
+  await waitFor(() => assert.equal(a.runtime.getState(), 'ready'));
+  await waitFor(() => assert.equal(b.runtime.getState(), 'ready'));
+  a.runtime.selectPanel('work');
+  b.runtime.selectPanel('work');
+  rowRef(a.root, 'prepare').click();
+  assert.ok(a.root.querySelector('[data-console-drawer]'));
+  assert.equal(b.root.querySelector('[data-console-drawer]'), null, 'drawers belong to one root');
+  const form = drawerForm(a.root);
+  form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+  await waitFor(() => assert.equal(posts.length, 1));
+  await waitFor(() => assert.equal(ledgerEntries().length, 1));
+  const keys = Object.keys(win.sessionStorage).filter((name) => name.endsWith(':requests'));
+  assert.equal(keys.length, 1);
+  assert.ok(keys[0].includes('synthetic-org') && !keys[0].includes('other-org'), 'the ledger is namespaced by identity');
+  rowRef(b.root, 'prepare').click();
+  const otherForm = drawerForm(b.root);
+  assert.equal(otherForm.querySelector('[data-request-status]').hidden, true, 'another instance never resumes a foreign request');
+  assert.notEqual(otherForm.querySelector('input[data-action-field-generated]').value, posts[0].body.request_id);
+  a.runtime.destroy();
+  b.runtime.destroy();
+});
+
+test('display-only widgets render workflow rows without action affordances', async () => {
+  resetEnvironment();
+  const widgetRoot = win.document.createElement('div');
+  widgetRoot.setAttribute('data-console-root', '');
+  widgetRoot.setAttribute('data-console-display', '');
+  widgetRoot.setAttribute('data-console-manual', '');
+  widgetRoot.innerHTML = `<script type="application/json" data-console-widget>${JSON.stringify({ ...identity, watermark: 21, panel: { ...workflowPanel(), records: [workflowRecord()] } }).replace(/</g, '\\u003c')}</script><section class="console-panel" data-console-panel></section>`;
+  win.document.body.appendChild(widgetRoot);
+  const widget = mountConsole(widgetRoot);
+  await waitFor(() => assert.equal(widget.getState(), 'ready'));
+  assert.match(widgetRoot.querySelector('[data-console-panel]').textContent, /ready v1/);
+  assert.equal(widgetRoot.querySelectorAll('[data-console-action-ref], form, [data-console-drawer]').length, 0);
+  widget.destroy();
+});
+
+test('restored requests of withdrawn actions still reconcile through panel read access', async () => {
+  resetEnvironment();
+  const payload = workflowBootstrap({ prepare: false });
+  const key = `go-admin:console:${payload.preferences_namespace}:requests`;
+  const seed = (requestID) => win.sessionStorage.setItem(key, JSON.stringify([{
+    panel_id: 'work',
+    action_id: 'prepare',
+    request_id: requestID,
+    mode: 'primary',
+    scope: 'prepare:preview',
+    submitted_at: new Date(Date.now() - 60000).toISOString(),
+    signature: '{"batch_limit":100}',
+    state: 'uncertain',
+    payload: { batch_limit: 100, request_id: requestID },
+  }]));
+  let status = { status: 'claimed', result: { ok: true, message: 'Prepare op-0020 finished.', tone: 'success' } };
+  const lookups = [];
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(payload.snapshot);
+    if (call.url.includes('/requests/')) {
+      lookups.push(call.url);
+      return jsonResponse(status);
+    }
+    return jsonResponse({}, 404);
+  };
+  seed(WORKFLOW_IDS[0]);
+  const first = mount(payload);
+  await waitFor(() => assert.equal(lookups.length, 1));
+  assert.ok(lookups[0].includes(`/requests/${WORKFLOW_IDS[0]}?action=prepare`));
+  first.runtime.selectPanel('work');
+  await waitFor(() => assert.match(first.root.querySelector('[data-console-banner]').textContent, /Prepare op-0020 finished/));
+  assert.notEqual(win.document.activeElement, first.root.querySelector('[data-console-banner]'), 'restored outcomes never steal focus');
+  assert.equal(win.sessionStorage.getItem(key), null);
+  first.runtime.destroy();
+  first.root.remove();
+
+  status = { status: 'unclaimed', message: 'No request with this ID was received.' };
+  seed(WORKFLOW_IDS[1]);
+  const second = mount(payload);
+  await waitFor(() => assert.equal(lookups.length, 2));
+  second.runtime.selectPanel('work');
+  await waitFor(() => assert.match(second.root.querySelector('[data-console-banner]').textContent, /no longer offered/));
+  assert.equal(win.sessionStorage.getItem(key), null, 'a withdrawn action cannot be resumed, so the entry is dropped');
+  second.runtime.destroy();
+});
+
+test('confirmation never proceeds on state that could not be reloaded', async () => {
+  resetEnvironment();
+  const posts = [];
+  const confirmations = [];
+  let failSnapshots = false;
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return failSnapshots ? jsonResponse({ error: { code: 503, message: 'unavailable' } }, 503) : jsonResponse(workflowSnapshot());
+    if (call.method === 'POST') {
+      posts.push(call);
+      return jsonResponse({ ok: true });
+    }
+    return jsonResponse({}, 404);
+  };
+  const { root, runtime } = mount(workflowBootstrap(), {
+    generateRequestID: requestIDs(),
+    recoveryDelaysMs: [60000],
+    confirm: (message, request) => {
+      confirmations.push(request);
+      return true;
+    },
+  });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('work');
+  rowRef(root, 'activate').click();
+  const form = drawerForm(root);
+  failSnapshots = true;
+  form.requestSubmit();
+  await waitFor(() => assert.match(form.textContent, /could not be loaded/));
+  assert.equal(confirmations.length, 0);
+  assert.equal(posts.length, 0);
+  runtime.destroy();
+});
+
+test('a late reconciliation outcome never closes a drawer opened for other work', async () => {
+  resetEnvironment();
+  const payload = workflowBootstrap();
+  const key = `go-admin:console:${payload.preferences_namespace}:requests`;
+  win.sessionStorage.setItem(key, JSON.stringify([{
+    panel_id: 'work',
+    action_id: 'prepare',
+    request_id: WORKFLOW_IDS[7],
+    mode: 'primary',
+    scope: 'prepare:preview',
+    submitted_at: new Date(Date.now() - 60000).toISOString(),
+    signature: '{"batch_limit":100,"dry_run":false,"scenario":"ready"}',
+    state: 'uncertain',
+    payload: { scenario: 'ready', batch_limit: 100, dry_run: false, request_id: WORKFLOW_IDS[7] },
+  }]));
+  const lookup = deferred();
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(payload.snapshot);
+    if (call.url.includes('/requests/')) return lookup.promise;
+    if (call.url.includes('/options/')) return jsonResponse({ items: [] });
+    return jsonResponse({}, 404);
+  };
+  const { root, runtime } = mount(payload, { generateRequestID: requestIDs() });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('work');
+  rowRef(root, 'verify').click();
+  assert.ok(drawerForm(root));
+  lookup.resolve(jsonResponse({ status: 'claimed', result: { ok: true, message: 'Prepare op-0030 is running.', tone: 'info' } }));
+  await waitFor(() => assert.match(root.querySelector('[data-console-banner]').textContent, /Prepare op-0030 is running/));
+  assert.equal(root.querySelector('[data-console-drawer]').dataset.actionId, 'verify', 'the operator keeps the drawer they opened');
+  assert.ok(root.querySelector('[data-console-drawer]').contains(win.document.activeElement));
+  runtime.destroy();
+});
+
+test('full and incremental table rows share rich formatting while Debug rows keep their markup', async () => {
+  const { renderSchemaPanelView, renderSchemaListRow, consoleStyleConfig } = consoleModule;
+  const panel = workflowPanel();
+  const view = panel.ui.views.console;
+  const record = workflowRecord().data;
+  const squash = (html) => html.replace(/\s+/g, ' ').replace(/> </g, '><').trim();
+  const full = squash(renderSchemaPanelView(panel, view, [record], consoleStyleConfig));
+  const fullRow = full.match(/<tr data-row-key="ready">.*?<\/tr>/)[0];
+  assert.equal(squash(renderSchemaListRow('table', record, view, consoleStyleConfig, panel)), fullRow, 'incremental rows equal full rows');
+  for (const fragment of ['data-label="Scenario"', 'console-cell-sub', 'console-steps', 'console-badge--warning', 'data-copy-content="rcpt-ready-0001-abcdef"', 'rcpt-rea…', 'data-console-action-ref']) {
+    assert.ok(fullRow.includes(fragment), `rich row carries ${fragment}`);
+  }
+  assert.match(full, /<th[^>]*>Actions<\/th>|<th[^>]*><span class="console-sr-only">Actions<\/span><\/th>/, 'the action slot has a column header');
+
+  const { consoleStyles } = await import('../dist/debug/index.js');
+  const plain = { renderer: 'table', options: { key_bind: 'id', columns: [{ label: 'Name', bind: 'name' }] } };
+  const debugRow = renderSchemaListRow('table', { id: 'x', name: '<n>' }, plain, consoleStyles);
+  assert.doesNotMatch(debugRow, /data-label|console-/, 'Debug rows keep their legacy markup');
+  assert.match(debugRow, /&lt;n&gt;/);
+});
+
+test('cards and lists render tones, progress, metadata and slots, and many targets become a compact table', async () => {
+  const { renderSchemaPanelView, consoleStyleConfig } = consoleModule;
+  const panel = workflowPanel();
+  const target = (id, overrides = {}) => ({
+    key: id,
+    target: id,
+    scenario: 'ready v1',
+    status: 'Active',
+    tone: 'success',
+    generation: 3,
+    receipt: `rcpt-${id}-0001`,
+    note: 'Since 2026-10-01',
+    actions: [{ panel_id: 'work', action_id: 'prepare', emphasis: 'primary' }, { panel_id: 'work', action_id: 'reset', emphasis: 'menu' }],
+    ...overrides,
+  });
+  const cardsView = {
+    renderer: 'cards',
+    title: 'Targets',
+    empty: 'No managed targets yet.',
+    options: {
+      key_bind: 'key',
+      eyebrow_bind: 'target',
+      title_bind: 'scenario',
+      status_bind: 'status',
+      tone_bind: 'tone',
+      note_bind: 'note',
+      actions_bind: 'actions',
+      max_cards: 4,
+      fields: [{ label: 'Generation', bind: 'generation' }, { label: 'Receipt', bind: 'receipt', format: 'mono', truncate: 8 }],
+      columns: [{ label: 'Target', bind: 'target' }, { label: 'Status', bind: 'status', format: 'badge', tone_bind: 'tone' }],
+    },
+  };
+  const cards = renderSchemaPanelView(panel, cardsView, [target('preview'), target('staging', { status: 'Recovery required', tone: 'error' })], consoleStyleConfig);
+  assert.equal((cards.match(/class="console-card"/g) || []).length, 2);
+  assert.match(cards, /console-card__eyebrow">staging/);
+  assert.match(cards, /console-badge--error">Recovery required/);
+  assert.match(cards, /<dt>Generation<\/dt><dd>3<\/dd>/);
+  assert.match(cards, /title="rcpt-preview-0001"/, 'truncated identifiers keep the full value');
+  assert.match(cards, /data-console-action-ref[^>]*data-action-id="prepare"/);
+  assert.match(cards, /console-menu[\s\S]*data-action-id="reset"[^>]*aria-disabled="true"/);
+  const many = renderSchemaPanelView(panel, cardsView, ['a', 'b', 'c', 'd', 'e'].map((id) => target(id)), consoleStyleConfig);
+  assert.doesNotMatch(many, /class="console-card"/, 'beyond max_cards the view becomes a compact table');
+  assert.equal((many.match(/<tr data-row-key=/g) || []).length, 5);
+  assert.match(renderSchemaPanelView(panel, cardsView, [], consoleStyleConfig), /No managed targets yet\./);
+
+  const listView = {
+    renderer: 'list',
+    title: 'Recent operations',
+    options: { key_bind: 'id', limit: 2, title_bind: 'title', subtitle_bind: 'subtitle', status_bind: 'state', tone_bind: 'tone', progress_bind: 'progress', time_bind: 'at' },
+  };
+  const now = new Date(Date.now() - 5 * 60000).toISOString();
+  const list = renderSchemaPanelView(panel, listView, [
+    { id: 'op-3', title: 'Refresh ready v1', subtitle: 'preview', state: 'Running', tone: 'info', progress: { completed: 40, total: 100, label: '40 of 100 · seed audiences' }, at: now },
+    { id: 'op-2', title: 'Prepare', subtitle: 'preview', state: 'Planned', tone: 'planned', at: now },
+    { id: 'op-1', title: 'Hidden by limit' },
+  ], consoleStyleConfig);
+  assert.equal((list.match(/console-list__item/g) || []).length, 2, 'lists honor their limit');
+  assert.match(list, /role="progressbar"[^>]*aria-valuenow="40"/);
+  assert.match(list, /style="width:40%"/);
+  assert.match(list, /console-badge--planned">Planned/);
+  assert.match(list, /<time class="console-timestamp" datetime="[^"]+"[^>]*>5 min ago<\/time>/);
+  assert.doesNotMatch(list, /Hidden by limit/);
 });

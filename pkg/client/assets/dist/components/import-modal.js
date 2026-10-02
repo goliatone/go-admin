@@ -1,6 +1,7 @@
 import { createLogger as f } from "../shared/logger.js";
 import { escapeHTML as l } from "../shared/html.js";
-import { r as b, t as u } from "../chunks/modal-ClEsOn-S.js";
+import { r as b, t as u } from "../chunks/modal-Cg0_ZVPf.js";
+import "./modal.js";
 import { formatByteSize as g } from "../shared/size-formatters.js";
 var v = class extends Error {
   constructor(t, e = "unknown") {
@@ -383,7 +384,7 @@ function T() {
     idempotencyKey: t
   });
 }
-var D = class extends b {
+var q = class extends b {
   constructor(t) {
     if (!t.root || t.sources.length === 0) throw new Error("BulkImportModal requires a root and at least one source.");
     const e = t.sources.filter((i) => i.available !== !1).length;
@@ -943,7 +944,7 @@ var D = class extends b {
   primaryActionLabel() {
     return this.busy ? this.workflowState === "previewing" ? this.copy.previewingStatus : this.copy.applyingStatus : this.workflowState === "recoverable-error" ? this.copy.retry : this.source.workflow === "single" ? this.copy.submit : this.workflowState === "preview-ready" ? this.copy.apply : this.copy.preview;
   }
-}, q = Object.freeze({
+}, L = Object.freeze({
   createOnly: {
     key: "create-only",
     label: "Create only",
@@ -966,12 +967,12 @@ var D = class extends b {
   }
 });
 export {
-  D as BulkImportModal,
-  q as COMMON_IMPORT_MODES,
+  q as BulkImportModal,
+  L as COMMON_IMPORT_MODES,
   A as FileDropzone,
   I as ImportReportView,
   v as ImportTransportError,
-  D as default,
+  q as default,
   y as formatFileSize
 };
 

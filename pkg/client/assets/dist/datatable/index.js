@@ -1,18 +1,19 @@
 import { createLogger as v } from "../shared/logger.js";
 import { escapeAttribute as u, escapeHTML as a } from "../shared/html.js";
-import { i as M } from "../chunks/modal-ClEsOn-S.js";
-import { t as U } from "../chunks/toast-manager-ClAN0E8z.js";
+import { i as M } from "../chunks/modal-Cg0_ZVPf.js";
+import "../components/modal.js";
+import { t as U } from "../chunks/toast-manager-BcmzoXSx.js";
 import { httpRequest as x, readHTTPError as ne, readHTTPJSON as O } from "../shared/transport/http-client.js";
-import { executeActionRequest as oe, extractExchangeError as At, generateExchangeReport as _t, groupRowResultsByStatus as Tt, isExchangeError as It, parseImportResult as Dt } from "../toast/error-helpers.js";
-import { n as Pt } from "../chunks/action-execution-Bc4l1JsL.js";
-import { C as Bt, S as Ft, _ as B, a as zt, b as qt, c as Ht, d as Ut, f as Ot, g as E, h as le, i as jt, l as Nt, m as Vt, n as Gt, o as Kt, p as Jt, r as Yt, s as Wt, t as Xt, u as Qt, v as Zt, x as er, y as tr } from "../chunks/go-crud-C9Beu_3M.js";
-import { A as sr, C as I, D as ir, E as ar, F as ce, M as nr, N as or, O as lr, P as cr, S as dr, T as ur, _ as hr, a as pr, b as fr, c as gr, d as br, f as mr, g as vr, h as yr, i as wr, j as xr, k as Sr, l as $r, m as j, n as kr, o as Cr, p as Er, r as Lr, s as Ar, t as _r, u as de, v as Tr, w as Ir, x as ue, y as Dr } from "../chunks/translation-status-vocabulary-NKPjpKF9.js";
-import { C as Pr, S as Mr, T as Br, _ as Fr, a as N, b as zr, c as qr, d as Hr, f as Ur, g as Or, h as jr, i as D, l as Nr, m as Vr, n as Gr, o as Kr, p as Jr, r as Yr, s as Wr, t as Xr, u as Qr, v as Zr, w as es, x as ts, y as rs } from "../chunks/translation-context-Dzj4Lb4I.js";
-import { C as is, E as as, S as ns, T as os, _ as ls, a as cs, b as ds, c as us, d as hs, h as ps, i as fs, l as gs, m as bs, n as ms, o as vs, p as ys, r as ws, t as xs, u as Ss, v as $s, w as ks, x as Cs, y as Es } from "../chunks/grouped-mode-C1WBh7ma.js";
-import { t as As } from "../chunks/filter-builder-CwgMRfQQ.js";
-import { n as Ts, r as Is, t as Ds } from "../chunks/schema-actions-CJ9VyJX0.js";
-import { n as Ps, r as Ms, t as Bs } from "../chunks/detail-actions-DQvtGXxH.js";
-import { a as zs, c as qs, i as Hs, l as Us, n as Os, o as js, r as Ns, s as Vs, t as Gs } from "../chunks/translation-panel-BBhJShFK.js";
+import { executeActionRequest as oe, extractExchangeError as _t, generateExchangeReport as Tt, groupRowResultsByStatus as It, isExchangeError as Dt, parseImportResult as Rt } from "../toast/error-helpers.js";
+import { n as Mt } from "../chunks/action-execution-Bz2jVar7.js";
+import { C as Ft, S as zt, _ as B, a as qt, b as Ht, c as Ut, d as Ot, f as jt, g as E, h as le, i as Nt, l as Vt, m as Gt, n as Kt, o as Jt, p as Yt, r as Wt, s as Xt, t as Qt, u as Zt, v as er, x as tr, y as rr } from "../chunks/go-crud-tz1AZOIc.js";
+import { A as ir, C as I, D as ar, E as nr, F as ce, M as or, N as lr, O as cr, P as dr, S as ur, T as hr, _ as pr, a as fr, b as gr, c as br, d as mr, f as vr, g as yr, h as wr, i as xr, j as Sr, k as $r, l as kr, m as j, n as Cr, o as Er, p as Lr, r as Ar, s as _r, t as Tr, u as de, v as Ir, w as Dr, x as ue, y as Rr } from "../chunks/translation-status-vocabulary-NKPjpKF9.js";
+import { C as Mr, S as Br, T as Fr, _ as zr, a as N, b as qr, c as Hr, d as Ur, f as Or, g as jr, h as Nr, i as D, l as Vr, m as Gr, n as Kr, o as Jr, p as Yr, r as Wr, s as Xr, t as Qr, u as Zr, v as es, w as ts, x as rs, y as ss } from "../chunks/translation-context-Dzj4Lb4I.js";
+import { C as as, E as ns, S as os, T as ls, _ as cs, a as ds, b as us, c as hs, d as ps, h as fs, i as gs, l as bs, m as ms, n as vs, o as ys, p as ws, r as xs, t as Ss, u as $s, v as ks, w as Cs, x as Es, y as Ls } from "../chunks/grouped-mode-C1WBh7ma.js";
+import { t as _s } from "../chunks/filter-builder-BFxjuwFG.js";
+import { n as Is, r as Ds, t as Rs } from "../chunks/schema-actions-BwL4D7OB.js";
+import { n as Ms, r as Bs, t as Fs } from "../chunks/detail-actions-hq1qXn8D.js";
+import { a as qs, c as Hs, i as Us, l as Os, n as js, o as Ns, r as Vs, s as Gs, t as Ks } from "../chunks/translation-panel-Vmt9ldOV.js";
 import { r as he, t as pe } from "../chunks/translation-contracts-C_O37O2-.js";
 import { t as V } from "../chunks/stateful-controller-BhTsWevz.js";
 var m = v("DataGrid"), F = {
@@ -85,7 +86,7 @@ var m = v("DataGrid"), F = {
       value: "between"
     }
   ]
-}, Ys = class {
+}, Ws = class {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new U();
   }
@@ -447,7 +448,7 @@ function be(e) {
   const t = new G(e);
   return t.render(), t;
 }
-function Ws() {
+function Xs() {
   const e = document.querySelectorAll("[data-status-legend]"), t = [];
   return e.forEach((r) => {
     if (r.hasAttribute("data-status-legend-init")) return;
@@ -460,7 +461,7 @@ function Ws() {
     r.setAttribute("data-status-legend-init", "true"), t.push(s);
   }), t;
 }
-function Xs(e = {}) {
+function Qs(e = {}) {
   const t = document.createElement("div");
   return new G({
     container: t,
@@ -511,7 +512,7 @@ function ye(e, t) {
   }
   s === 0 ? r > 0 ? t.success(`Created ${r} translation${r !== 1 ? "s" : ""}${i > 0 ? ` (${i} skipped)` : ""}`) : i > 0 && t.info(`All ${i} translation${i !== 1 ? "s" : ""} already exist`) : r === 0 ? t.error(`Failed to create ${s} translation${s !== 1 ? "s" : ""}`) : t.warning(`Created ${r}, failed ${s}${i > 0 ? `, skipped ${i}` : ""}`);
 }
-function Qs(e) {
+function Zs(e) {
   const { created: t, failed: r, skipped: s, total: i, failures: n } = e, o = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
@@ -564,11 +565,11 @@ function Qs(e) {
     </div>
   `;
 }
-function Zs(e) {
+function ei(e) {
   const { created: t, failed: r, skipped: s } = e, i = [];
   return t > 0 && i.push(`<span class="text-green-600">+${t}</span>`), r > 0 && i.push(`<span class="text-red-600">${r} failed</span>`), s > 0 && i.push(`<span class="text-yellow-600">${s} skipped</span>`), i.join(" · ");
 }
-function ei(e, t, r) {
+function ti(e, t, r) {
   return async (s) => me({
     apiEndpoint: e,
     notifier: t,
@@ -765,7 +766,7 @@ var $ = class {
 function K(e) {
   return new $(e).render();
 }
-function ti(e, t) {
+function ri(e, t) {
   return e.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
       ${e.map((r) => K({
@@ -775,7 +776,7 @@ function ti(e, t) {
     </div>
   `;
 }
-function ri(e, t) {
+function si(e, t) {
   const r = /* @__PURE__ */ new Map();
   return e.querySelectorAll("[data-locale-action]").forEach((s) => {
     const i = s.getAttribute("data-locale-action");
@@ -959,28 +960,28 @@ function Se(e) {
     t.removeAttribute("disabled"), t.removeAttribute("data-was-enabled"), t.removeAttribute("aria-disabled");
   }), e.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function si(e) {
+function ii(e) {
   return e.getAttribute("data-form-locked") === "true";
 }
-function ii(e) {
+function ai(e) {
   return e.getAttribute("data-lock-reason");
 }
-function ai(e, t) {
+function ni(e, t) {
   const r = D(e);
   return new R({
     ...t,
     context: r
   }).render();
 }
-function ni(e) {
+function oi(e) {
   const t = D(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function oi(e, t) {
+function li(e, t) {
   const r = new R(t);
   return r.mount(e), r;
 }
-function li(e, t) {
+function ci(e, t) {
   const r = D(t), s = new R({
     context: r,
     apiEndpoint: "",
@@ -1112,18 +1113,18 @@ function $e(e, t) {
     recordId: r
   }).render() : "";
 }
-function ci(e) {
+function di(e) {
   const t = N(e);
   return t.hasReadinessMetadata && t.missingRequiredLocales.length > 0;
 }
-function di(e, t, r) {
+function ui(e, t, r) {
   const s = String(t.id || ""), i = new J(t, {
     ...r,
     recordId: s
   });
   return i.mount(e), i;
 }
-function ui(e) {
+function hi(e) {
   return (t, r, s) => $e(r, e);
 }
 var L = v("DataGrid");
@@ -1316,7 +1317,7 @@ function Le(e) {
     handler: e.onCreateTranslation
   }), t;
 }
-function hi(e) {
+function pi(e) {
   const t = /* @__PURE__ */ new Map();
   for (const n of e) {
     if (n.enabled === !1) continue;
@@ -1395,7 +1396,7 @@ function Ae() {
     return { ...S };
   }
 }
-function pi(e) {
+function fi(e) {
   const t = C();
   if (t)
     try {
@@ -1472,7 +1473,7 @@ function Ie(e) {
     o.parentElement && l(!1);
   }, n), t.appendChild(o), o;
 }
-function fi(e) {
+function gi(e) {
   const { container: t, shortcuts: r, settings: s, onSettingsChange: i } = e, n = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -1600,7 +1601,7 @@ function De(e, t) {
   }
 }
 var A = null;
-function gi() {
+function bi() {
   return A || (A = new W()), A;
 }
 function Re(e, t) {
@@ -1611,7 +1612,7 @@ function Re(e, t) {
   for (const n of i) s.register(n);
   return De(s, r), s.bind(), s;
 }
-function bi(e, t) {
+function mi(e, t) {
   const r = Re(e, t);
   return t.hintContainer && Ie({
     container: t.hintContainer,
@@ -1886,7 +1887,7 @@ var Pe = 1500, Me = 2e3, P = "autosave", y = {
     e && e.addEventListener("click", () => this.retry());
   }
 };
-function mi(e) {
+function vi(e) {
   return new Z({
     debounceMs: 1500,
     savedDurationMs: 2e3,
@@ -1903,7 +1904,7 @@ function mi(e) {
     ...e
   });
 }
-function vi(e, t = {}) {
+function yi(e, t = {}) {
   const r = t.classPrefix ?? P, s = {
     ...y,
     ...t.labels
@@ -1927,7 +1928,7 @@ function vi(e, t = {}) {
     <span class="${r}__label">${s}</span>
   </div>`;
 }
-function yi(e = P) {
+function wi(e = P) {
   return `
     .${e} {
       display: inline-flex;
@@ -2067,7 +2068,7 @@ function yi(e = P) {
     }
   `;
 }
-function wi(e, t) {
+function xi(e, t) {
   const { watchFields: r, indicatorSelector: s, ...i } = t;
   let n = i.container;
   !n && s && (n = e.querySelector(s) ?? void 0);
@@ -2334,7 +2335,7 @@ var ee = "char-counter", Fe = "interpolation-preview", te = "dir-toggle", re = [
     </svg>`;
   }
 };
-function xi(e, t = {}) {
+function Si(e, t = {}) {
   const r = [], s = [], i = [];
   for (const n of t.charCounterFields ?? []) {
     const o = e.querySelector(`[name="${n}"]`);
@@ -2367,20 +2368,20 @@ function xi(e, t = {}) {
     }
   };
 }
-function Si(e, t, r, s = ee) {
+function $i(e, t, r, s = ee) {
   const i = [s];
   r && i.push(`${s}--${r}`);
   const n = t ? `${e} / ${t}` : `${e}`;
   return `<span class="${i.join(" ")}" aria-live="polite">${n}</span>`;
 }
-function $i(e, t = te) {
+function ki(e, t = te) {
   const r = e === "rtl", s = r ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${t}" aria-pressed="${r}" title="Toggle text direction (${e.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${s}</svg>
     <span class="${t}__label">${e.toUpperCase()}</span>
   </button>`;
 }
-function ki() {
+function Ci() {
   return `
     /* Character Counter */
     .char-counter {
@@ -2460,7 +2461,7 @@ function ki() {
     }
   `;
 }
-function Ci(e, t = re) {
+function Ei(e, t = re) {
   const r = [];
   for (const s of t) {
     s.pattern.lastIndex = 0;
@@ -2474,11 +2475,11 @@ function Ci(e, t = re) {
   }
   return r;
 }
-function Ei(e, t, r) {
+function Li(e, t, r) {
   return r && e >= r ? "error" : t && e >= t ? "warning" : null;
 }
 var Oe = v("DataGrid");
-function Li(e) {
+function Ai(e) {
   return typeof e == "string" && [
     "none",
     "core",
@@ -2493,7 +2494,7 @@ function je(e) {
 function Ne(e) {
   return e === "core+queue" || e === "full";
 }
-function Ai(e) {
+function _i(e) {
   return e !== "none";
 }
 function Ve(e) {
@@ -2594,10 +2595,10 @@ function q(e) {
   const t = Ve(e);
   return t ? new se(t) : null;
 }
-function _i() {
+function Ti() {
   return new se({ ...pe });
 }
-function Ti(e) {
+function Ii(e) {
   return e.visible ? e.enabled ? "" : `aria-disabled="true"${e.reason ? ` title="${u(e.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
 function Ge(e) {
@@ -2617,7 +2618,7 @@ function Ge(e) {
     </span>
   `.trim();
 }
-function Ii() {
+function Di() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -2664,7 +2665,7 @@ function Ke(e, t) {
 function H(e) {
   e.currentTarget.getAttribute("aria-disabled") === "true" && (e.preventDefault(), e.stopPropagation());
 }
-function Di(e, t) {
+function Ri(e, t) {
   e.querySelectorAll("[data-capability-gate]").forEach((r) => {
     const s = r.dataset.capabilityGate;
     if (s)
@@ -3094,7 +3095,7 @@ function rt(e) {
     day: "numeric"
   });
 }
-function Ri() {
+function Pi() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -3489,7 +3490,7 @@ function st(e, t) {
   const r = new Qe(t);
   return r.mount(e), r;
 }
-function Pi(e) {
+function Mi(e) {
   return it(e);
 }
 function it(e, t = {}) {
@@ -3952,7 +3953,7 @@ var lt = {
 function dt(e, t) {
   return e.length <= t ? e : e.slice(0, t - 3) + "...";
 }
-function Mi() {
+function Bi() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -4295,7 +4296,7 @@ function ut(e, t) {
   const r = new ct(t);
   return r.mount(e), r;
 }
-function Bi(e) {
+function Fi(e) {
   const t = e.dataset.validateEndpoint, r = e.dataset.applyEndpoint;
   return !t || !r ? (ot.warn("ExchangeImport: Missing required data attributes"), null) : ut(e, {
     validateEndpoint: t,
@@ -4629,7 +4630,7 @@ var ht = {
     this.container && (this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset()));
   }
 };
-function Fi() {
+function zi() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -4867,13 +4868,13 @@ function bt(e, t) {
   const r = new ie(t);
   return r.mount(e), r;
 }
-function zi(e) {
+function qi(e) {
   return bt(e, {
     pollInterval: e.dataset.pollInterval ? parseInt(e.dataset.pollInterval, 10) : void 0,
     autoStart: e.dataset.autoStart !== "false"
   });
 }
-function qi(e, t) {
+function Hi(e, t) {
   const r = new ie(t);
   return r.hasPersistedJob(e) ? r : null;
 }
@@ -4909,7 +4910,7 @@ function vt(e) {
 function yt(e, t) {
   return !e || !e.hasDrift ? !1 : e.changedFieldsSummary.fields.some((r) => r.toLowerCase() === t.toLowerCase());
 }
-function Hi(e) {
+function Ui(e) {
   return !e || !e.hasDrift ? [] : [...e.changedFieldsSummary.fields];
 }
 var wt = class {
@@ -5135,7 +5136,7 @@ function xt(e) {
   const t = new wt(e);
   return t.render(), t;
 }
-function Ui(e, t, r, s, i) {
+function Oi(e, t, r, s, i) {
   const n = vt(t);
   return xt({
     container: e,
@@ -5157,7 +5158,7 @@ function Ui(e, t, r, s, i) {
     ...i
   });
 }
-function Oi() {
+function ji() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -5528,230 +5529,230 @@ function Oi() {
   `;
 }
 export {
-  Bt as ActionRenderer,
-  Ys as AdvancedSearch,
+  Ft as ActionRenderer,
+  Ws as AdvancedSearch,
   ie as AsyncProgress,
   Z as AutosaveIndicator,
-  _r as CORE_READINESS_DISPLAY,
+  Tr as CORE_READINESS_DISPLAY,
   se as CapabilityGate,
-  er as CellRendererRegistry,
+  tr as CellRendererRegistry,
   qe as CharacterCounter,
-  Qt as ColumnManager,
-  Ft as CommonRenderers,
+  Zt as ColumnManager,
+  zt as CommonRenderers,
   Xe as DEFAULT_FILTER_PRESETS,
   re as DEFAULT_INTERPOLATION_PATTERNS,
   ze as DEFAULT_SAMPLE_VALUES,
   T as DEFAULT_SIDE_BY_SIDE_LABELS,
   ge as DEFAULT_STATUS_LEGEND_ITEMS,
-  Ns as DEFAULT_TRANSLATION_QUICK_FILTERS,
-  kr as DISABLED_REASON_DISPLAY,
-  Nt as DataGrid,
-  Xt as DefaultColumnVisibilityBehavior,
-  Bs as DetailActionsController,
+  Vs as DEFAULT_TRANSLATION_QUICK_FILTERS,
+  Cr as DISABLED_REASON_DISPLAY,
+  Vt as DataGrid,
+  Qt as DefaultColumnVisibilityBehavior,
+  Fs as DetailActionsController,
   Ue as DirectionToggle,
-  Lr as EXCHANGE_JOB_STATUS_DISPLAY,
-  wr as EXCHANGE_ROW_STATUS_DISPLAY,
+  Ar as EXCHANGE_JOB_STATUS_DISPLAY,
+  xr as EXCHANGE_ROW_STATUS_DISPLAY,
   ct as ExchangeImport,
   R as FallbackBanner,
-  As as FilterBuilder,
-  Yt as GoCrudBulkActionBehavior,
-  jt as GoCrudExportBehavior,
-  Wt as GoCrudFilterBehavior,
-  Kt as GoCrudPaginationBehavior,
-  Ht as GoCrudSearchBehavior,
-  zt as GoCrudSortBehavior,
+  _s as FilterBuilder,
+  Wt as GoCrudBulkActionBehavior,
+  Nt as GoCrudExportBehavior,
+  Xt as GoCrudFilterBehavior,
+  Jt as GoCrudPaginationBehavior,
+  Ut as GoCrudSearchBehavior,
+  qt as GoCrudSortBehavior,
   J as InlineLocaleChips,
   He as InterpolationPreview,
   W as KeyboardShortcutRegistry,
-  Zt as LocalDataGridStateStore,
+  er as LocalDataGridStateStore,
   $ as LocaleActionChip,
-  Pt as PayloadInputModal,
-  tr as PreferencesDataGridStateStore,
-  pr as QUEUE_CONTENT_STATE_DISPLAY,
-  Cr as QUEUE_DUE_STATE_DISPLAY,
-  Ar as QUEUE_STATE_DISPLAY,
-  Hs as QuickFilters,
-  Ds as SchemaActionBuilder,
-  Gt as ServerColumnVisibilityBehavior,
+  Mt as PayloadInputModal,
+  rr as PreferencesDataGridStateStore,
+  fr as QUEUE_CONTENT_STATE_DISPLAY,
+  Er as QUEUE_DUE_STATE_DISPLAY,
+  _r as QUEUE_STATE_DISPLAY,
+  Us as QuickFilters,
+  Rs as SchemaActionBuilder,
+  Kt as ServerColumnVisibilityBehavior,
   wt as SideBySideEditor,
   G as StatusLegend,
-  qs as TranslationBlockerModal,
-  Gs as TranslationPanel,
+  Hs as TranslationBlockerModal,
+  Ks as TranslationPanel,
   Qe as TranslatorDashboard,
   xe as applyFormLock,
   Ke as applyGateToElement,
   De as applyShortcutSettings,
   z as buildLocaleEditUrl,
-  Ts as buildSchemaRowActions,
-  qi as checkForPersistedJob,
-  xs as collapseAllGroups,
+  Is as buildSchemaRowActions,
+  Hi as checkForPersistedJob,
+  Ss as collapseAllGroups,
   bt as createAsyncProgress,
-  ei as createBulkCreateMissingHandler,
+  ti as createBulkCreateMissingHandler,
   q as createCapabilityGate,
-  qt as createDataGridStateStore,
-  _i as createEmptyCapabilityGate,
+  Ht as createDataGridStateStore,
+  Ti as createEmptyCapabilityGate,
   ut as createExchangeImport,
-  ui as createInlineLocaleChipsRenderer,
-  Xr as createLocaleBadgeRenderer,
-  gr as createReasonCodeCellRenderer,
+  hi as createInlineLocaleChipsRenderer,
+  Qr as createLocaleBadgeRenderer,
+  br as createReasonCodeCellRenderer,
   xt as createSideBySideEditor,
-  $r as createStatusCellRenderer,
+  kr as createStatusCellRenderer,
   be as createStatusLegend,
-  mi as createTranslationAutosave,
-  Gr as createTranslationMatrixRenderer,
-  Os as createTranslationPanel,
-  zs as createTranslationQuickFilters,
+  vi as createTranslationAutosave,
+  Kr as createTranslationMatrixRenderer,
+  js as createTranslationPanel,
+  qs as createTranslationQuickFilters,
   Le as createTranslationShortcuts,
-  Yr as createTranslationStatusRenderer,
+  Wr as createTranslationStatusRenderer,
   st as createTranslatorDashboard,
-  ms as decodeExpandedGroupsToken,
-  Ci as detectInterpolations,
+  vs as decodeExpandedGroupsToken,
+  Ei as detectInterpolations,
   Te as dismissShortcutHint,
-  ws as encodeExpandedGroupsToken,
+  xs as encodeExpandedGroupsToken,
   me as executeBulkCreateMissing,
-  fs as expandAllGroups,
-  cs as extractBackendSummaries,
+  gs as expandAllGroups,
+  ds as extractBackendSummaries,
   Ve as extractCapabilities,
-  At as extractExchangeError,
-  Is as extractSchemaActions,
+  _t as extractExchangeError,
+  Ds as extractSchemaActions,
   vt as extractSourceTargetDrift,
   D as extractTranslationContext,
   N as extractTranslationReadiness,
-  Ut as formatPaginationNumber,
+  Ot as formatPaginationNumber,
   Y as formatShortcutDisplay,
-  _t as generateExchangeReport,
+  Tt as generateExchangeReport,
   de as getActionBlockDisplay,
-  br as getAllReasonCodes,
-  Fi as getAsyncProgressStyles,
-  yi as getAutosaveIndicatorStyles,
-  Ii as getCapabilityGateStyles,
-  Hi as getChangedFields,
-  Ei as getCharCountSeverity,
-  gi as getDefaultShortcutRegistry,
-  mr as getDisabledReasonDisplay,
-  Mi as getExchangeImportStyles,
-  vs as getExpandedGroupIds,
-  ki as getFieldHelperStyles,
-  ii as getFormLockReason,
+  mr as getAllReasonCodes,
+  zi as getAsyncProgressStyles,
+  wi as getAutosaveIndicatorStyles,
+  Di as getCapabilityGateStyles,
+  Ui as getChangedFields,
+  Li as getCharCountSeverity,
+  bi as getDefaultShortcutRegistry,
+  vr as getDisabledReasonDisplay,
+  Bi as getExchangeImportStyles,
+  ys as getExpandedGroupIds,
+  Ci as getFieldHelperStyles,
+  ai as getFormLockReason,
   g as getLocaleLabel,
-  Kr as getMissingTranslationsCount,
+  Jr as getMissingTranslationsCount,
   Ce as getModifierSymbol,
-  us as getPersistedExpandState,
-  gs as getPersistedViewMode,
+  hs as getPersistedExpandState,
+  bs as getPersistedViewMode,
   ke as getPrimaryModifierLabel,
-  Er as getSeverityCssClass,
-  Oi as getSideBySideEditorStyles,
+  Lr as getSeverityCssClass,
+  ji as getSideBySideEditorStyles,
   j as getStatusCssClass,
-  yr as getStatusDisplay,
-  vr as getStatusVocabularyStyles,
-  hr as getStatusesForDomain,
-  Ri as getTranslatorDashboardStyles,
-  Ss as getViewModeForViewport,
-  Tt as groupRowResultsByStatus,
-  Ot as handleDelete,
-  hs as hasBackendGroupedRows,
+  wr as getStatusDisplay,
+  yr as getStatusVocabularyStyles,
+  pr as getStatusesForDomain,
+  Pi as getTranslatorDashboardStyles,
+  $s as getViewModeForViewport,
+  It as groupRowResultsByStatus,
+  jt as handleDelete,
+  ps as hasBackendGroupedRows,
   yt as hasFieldDrift,
-  Wr as hasMissingTranslations,
-  qr as hasTranslationContext,
-  Nr as hasTranslationReadiness,
-  zi as initAsyncProgress,
-  Di as initCapabilityGating,
-  Bi as initExchangeImport,
-  oi as initFallbackBanner,
-  xi as initFieldHelpers,
-  wi as initFormAutosave,
-  li as initFormLock,
-  di as initInlineLocaleChips,
+  Xr as hasMissingTranslations,
+  Hr as hasTranslationContext,
+  Vr as hasTranslationReadiness,
+  qi as initAsyncProgress,
+  Ri as initCapabilityGating,
+  Fi as initExchangeImport,
+  li as initFallbackBanner,
+  Si as initFieldHelpers,
+  xi as initFormAutosave,
+  ci as initFormLock,
+  ui as initInlineLocaleChips,
   Re as initKeyboardShortcuts,
-  bi as initKeyboardShortcutsWithDiscovery,
-  ri as initLocaleActionChips,
-  Ps as initPanelDetailActions,
-  js as initQuickFilters,
-  Ui as initSideBySideEditorFromRecord,
-  Ws as initStatusLegends,
-  Pi as initTranslatorDashboard,
+  mi as initKeyboardShortcutsWithDiscovery,
+  si as initLocaleActionChips,
+  Ms as initPanelDetailActions,
+  Ns as initQuickFilters,
+  Oi as initSideBySideEditorFromRecord,
+  Xs as initStatusLegends,
+  Mi as initTranslatorDashboard,
   it as initTranslatorDashboardWithOptions,
-  Tr as initializeVocabularyFromPayload,
-  Ai as isCoreEnabled,
+  Ir as initializeVocabularyFromPayload,
+  _i as isCoreEnabled,
   je as isExchangeEnabled,
-  It as isExchangeError,
-  si as isFormLocked,
-  Qr as isInFallbackMode,
+  Dt as isExchangeError,
+  ii as isFormLocked,
+  Zr as isInFallbackMode,
   k as isMacPlatform,
-  ys as isNarrowViewport,
+  ws as isNarrowViewport,
   Ne as isQueueEnabled,
-  Hr as isReadyForTransition,
+  Ur as isReadyForTransition,
   _e as isShortcutHintDismissed,
-  Dr as isValidReasonCode,
-  fr as isValidStatus,
+  Rr as isValidReasonCode,
+  gr as isValidStatus,
   Ae as loadShortcutSettings,
-  bs as mergeBackendSummaries,
-  ur as normalizeActionBlockCode,
-  ar as normalizeActionState,
-  ir as normalizeActionStateMap,
-  lr as normalizeActionStateMeta,
-  Sr as normalizeActionStateRecord,
-  ps as normalizeBackendGroupedRows,
-  sr as normalizeBulkActionStateConfig,
-  xr as normalizeBulkActionStateMap,
-  nr as normalizeBulkActionStateResponse,
-  or as normalizeDetailActionStatePayload,
-  cr as normalizeListActionStatePayload,
-  Jt as paginationWindow,
-  Li as parseCapabilityMode,
-  Dt as parseImportResult,
-  ls as parseViewMode,
-  $s as persistExpandState,
-  Es as persistViewMode,
+  ms as mergeBackendSummaries,
+  hr as normalizeActionBlockCode,
+  nr as normalizeActionState,
+  ar as normalizeActionStateMap,
+  cr as normalizeActionStateMeta,
+  $r as normalizeActionStateRecord,
+  fs as normalizeBackendGroupedRows,
+  ir as normalizeBulkActionStateConfig,
+  Sr as normalizeBulkActionStateMap,
+  or as normalizeBulkActionStateResponse,
+  lr as normalizeDetailActionStatePayload,
+  dr as normalizeListActionStatePayload,
+  Yt as paginationWindow,
+  Ai as parseCapabilityMode,
+  Rt as parseImportResult,
+  cs as parseViewMode,
+  ks as persistExpandState,
+  Ls as persistViewMode,
   Se as removeFormLock,
-  vi as renderAutosaveIndicator,
-  Ur as renderAvailableLocalesIndicator,
-  Zs as renderBulkResultInline,
-  Qs as renderBulkResultSummary,
-  Si as renderCharacterCounter,
-  Ms as renderDetailActions,
-  $i as renderDirectionToggle,
+  yi as renderAutosaveIndicator,
+  Or as renderAvailableLocalesIndicator,
+  ei as renderBulkResultInline,
+  Zs as renderBulkResultSummary,
+  $i as renderCharacterCounter,
+  Bs as renderDetailActions,
+  ki as renderDirectionToggle,
   Ge as renderDisabledReasonBadge,
   Ie as renderDiscoveryHint,
-  ai as renderFallbackBannerFromRecord,
-  Jr as renderFallbackWarning,
-  Ti as renderGateAriaAttributes,
-  ds as renderGroupHeaderRow,
-  Cs as renderGroupHeaderSummary,
-  ns as renderGroupedEmptyState,
-  is as renderGroupedErrorState,
-  ks as renderGroupedLoadingState,
+  ni as renderFallbackBannerFromRecord,
+  Yr as renderFallbackWarning,
+  Ii as renderGateAriaAttributes,
+  us as renderGroupHeaderRow,
+  Es as renderGroupHeaderSummary,
+  os as renderGroupedEmptyState,
+  as as renderGroupedErrorState,
+  Cs as renderGroupedLoadingState,
   $e as renderInlineLocaleChips,
   K as renderLocaleActionChip,
-  ti as renderLocaleActionList,
-  Vr as renderLocaleBadge,
-  jr as renderLocaleCompleteness,
-  Or as renderMissingTranslationsBadge,
-  Vt as renderPaginationButtons,
-  Fr as renderPublishReadinessBadge,
-  Vs as renderQuickFiltersHTML,
-  Zr as renderReadinessIndicator,
+  ri as renderLocaleActionList,
+  Gr as renderLocaleBadge,
+  Nr as renderLocaleCompleteness,
+  jr as renderMissingTranslationsBadge,
+  Gt as renderPaginationButtons,
+  zr as renderPublishReadinessBadge,
+  Gs as renderQuickFiltersHTML,
+  es as renderReadinessIndicator,
   ue as renderReasonCodeBadge,
-  dr as renderReasonCodeIndicator,
-  fi as renderShortcutSettingsUI,
-  hi as renderShortcutsHelpContent,
-  rs as renderStatusBadge,
-  Xs as renderStatusLegendHTML,
-  zr as renderTranslationAssignmentSummary,
-  ts as renderTranslationExchangeSummary,
-  Mr as renderTranslationFamilyLink,
-  Pr as renderTranslationFamilyMemberCount,
-  es as renderTranslationMatrixCell,
-  Br as renderTranslationStatusCell,
+  ur as renderReasonCodeIndicator,
+  gi as renderShortcutSettingsUI,
+  pi as renderShortcutsHelpContent,
+  ss as renderStatusBadge,
+  Qs as renderStatusLegendHTML,
+  qr as renderTranslationAssignmentSummary,
+  rs as renderTranslationExchangeSummary,
+  Br as renderTranslationFamilyLink,
+  Mr as renderTranslationFamilyMemberCount,
+  ts as renderTranslationMatrixCell,
+  Fr as renderTranslationStatusCell,
   I as renderVocabularyStatusBadge,
-  Ir as renderVocabularyStatusIcon,
+  Dr as renderVocabularyStatusIcon,
   ce as resolveActionState,
-  pi as saveShortcutSettings,
-  ni as shouldShowFallbackBanner,
-  ci as shouldShowInlineLocaleChips,
-  Us as showTranslationBlocker,
-  os as toggleGroupExpand,
-  as as transformToGroups
+  fi as saveShortcutSettings,
+  oi as shouldShowFallbackBanner,
+  di as shouldShowInlineLocaleChips,
+  Os as showTranslationBlocker,
+  ls as toggleGroupExpand,
+  ns as transformToGroups
 };
 
 //# sourceMappingURL=index.js.map

@@ -13,7 +13,28 @@ export type PanelUIRendererKind =
   | 'status_list'
   | 'timeline'
   | 'json'
-  | 'stack';
+  | 'stack'
+  | 'cards'
+  | 'list';
+
+/** Server-computed tones (unknown tones render neutral). */
+export type PanelTone = 'success' | 'info' | 'warning' | 'error' | 'neutral' | 'planned';
+
+/** One generic ordered step (`format: "steps"`). */
+export type PanelUIStep = { label?: string; state?: string; tone?: string };
+
+/** Bounded progress (`format: "progress"`). */
+export type PanelUIProgress = { completed?: number; total?: number; label?: string };
+
+/**
+ * Reference to a declared action of the panel that renders it. Records carry
+ * references under a view's `actions_bind`; the client resolves them against
+ * the request-scoped declarations and never executes anything else.
+ */
+export type PanelUIActionRef = { panel_id?: string; action_id?: string; emphasis?: string };
+
+/** One record of a panel (outcome links and highlights). */
+export type PanelUIRecordRef = { panel_id?: string; record_key?: string };
 
 export type ServerPanelUIView = {
   renderer?: string;
@@ -21,6 +42,14 @@ export type ServerPanelUIView = {
   bind?: string;
   options?: Record<string, unknown>;
   sections?: ServerPanelUIView[];
+  /** One-line section caption. */
+  description?: string;
+  /** The view's own empty-state guidance. */
+  empty?: string;
+  /** Navigation to another panel of the same console. */
+  link?: { label?: string; panel_id?: string };
+  /** Section header action slot. */
+  actions?: PanelUIActionRef[];
 };
 
 export type ServerPanelUIActionField = {
@@ -47,10 +76,22 @@ export type ServerPanelUIActionField = {
     dynamic?: boolean;
     cache_scope?: string;
     params?: Record<string, unknown>;
+    /** Options load page by page from the console's options route. */
+    paginated?: boolean;
+    searchable?: boolean;
   };
   default?: unknown;
   display_hints?: Record<string, unknown>;
+  /** Rendered inside the form's Advanced disclosure. */
+  advanced?: boolean;
+  /** Client-side generator; `request_id` binds the ID to the request draft. */
+  generate?: string;
+  min?: number;
+  max?: number;
 };
+
+export type PanelUIDetail = { label?: string; value?: string; format?: string };
+export type PanelUIChange = { label?: string; before?: string; after?: string; format?: string };
 
 export type ServerPanelUIAction = {
   id?: string;
@@ -64,7 +105,36 @@ export type ServerPanelUIAction = {
   update_policy?: string;
   payload?: Record<string, unknown>;
   fields?: ServerPanelUIActionField[];
+  /** Empty or `available` executes; any other value is display metadata only. */
+  availability?: string;
+  reason?: string;
+  /** Client capabilities this declaration needs to execute safely. */
+  requires?: string[];
+  drawer?: {
+    eyebrow?: string;
+    title?: string;
+    effect?: string;
+    effect_tone?: string;
+    steps?: PanelUIStep[];
+    details?: PanelUIDetail[];
+    note?: string;
+  };
+  /** Explicit secondary submitter, e.g. Preview plan. */
+  secondary_submit?: { label?: string; field?: string; value?: unknown };
+  confirmation?: {
+    title?: string;
+    message?: string;
+    changes?: PanelUIChange[];
+    note?: string;
+    confirm_label?: string;
+    tone?: string;
+  };
+  /** Opaque selector stored with a submitted request ID for reconciliation. */
+  request_scope?: string;
 };
+
+/** Structured confirmation for consequential actions. */
+export type PanelUIActionConfirmation = NonNullable<ServerPanelUIAction['confirmation']>;
 
 export type ServerPanelUI = {
   schema_version?: string;
@@ -76,6 +146,9 @@ export type ServerPanelUI = {
     bind?: string;
     mode?: string;
     label?: string;
+    /** Badge tone, or the bound row field holding one (`matching_rows`). */
+    tone?: string;
+    tone_bind?: string;
   };
   filters?: Array<{
     id?: string;
@@ -218,6 +291,10 @@ export type ConsoleRoutes = {
   preferences?: string;
   live?: string;
   lookup?: string;
+  /** Paginated field options: `:panel`, `:action`, `:field` placeholders. */
+  options?: string;
+  /** Pending-request status: `:panel`, `:request` placeholders. */
+  requests?: string;
 };
 
 export type ConsoleBootstrap = ConsoleIdentity & {
@@ -248,4 +325,27 @@ export type PanelActionResult = {
   refresh?: boolean;
   errors?: Record<string, unknown>;
   event?: unknown;
+  tone?: string;
+  code?: string;
+  /** Planned/dry-run outcome: never presented as executed. */
+  planned?: boolean;
+  /** The row the outcome concerns. */
+  record?: PanelUIRecordRef;
+  /** Declared actions the actor may take next. */
+  follow_up?: PanelUIActionRef[];
+};
+
+/** One page of a paginated option source. */
+export type PanelOptionPage = {
+  items?: Array<{ value?: string; label?: string; description?: string; disabled?: boolean }>;
+  next_cursor?: string;
+  selected?: Array<{ value?: string; label?: string; description?: string; disabled?: boolean }>;
+};
+
+/** Pending-request reconciliation status. */
+export type PanelRequestStatus = {
+  status?: 'claimed' | 'unclaimed' | 'expired' | 'unknown' | string;
+  message?: string;
+  result?: PanelActionResult;
+  retry_until?: string;
 };

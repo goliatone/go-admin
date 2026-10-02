@@ -23,7 +23,8 @@
  */
 
 .console-root,
-.console-page-actions {
+.console-page-actions,
+.console-modal {
   --console-surface: var(--admin-console-surface, var(--color-surface-default, #ffffff));
   --console-surface-muted: var(--admin-console-surface-muted, var(--color-surface-subtle, #f9fafb));
   --console-border: var(--admin-console-border, var(--color-border-default, #e5e7eb));
@@ -66,6 +67,14 @@
   --console-tone-neutral-text: var(--admin-status-text, var(--admin-status-neutral-text, #374151));
   --console-tone-neutral-surface: var(--admin-status-surface, var(--admin-status-neutral-surface, #f3f4f6));
   --console-tone-neutral-border: var(--admin-status-border, var(--admin-status-neutral-border, #d1d5db));
+}
+
+/* The confirmation modal renders in the admin modal layer, outside any root. */
+.console-modal {
+  color: var(--console-text);
+  font-family: var(--console-font);
+  font-size: 14px;
+  line-height: 20px;
 }
 
 .console-root {
@@ -117,7 +126,7 @@
   --console-tone-neutral-border: var(--console-border);
 }
 
-:where(.console-root, .console-page-actions) :where(*, *::before, *::after) {
+:where(.console-root, .console-page-actions, .console-modal) :where(*, *::before, *::after) {
   box-sizing: border-box;
 }
 
@@ -144,6 +153,20 @@
 
 .console-page-actions[hidden] {
   display: none;
+}
+
+/* Without a breadcrumb row the admin's fixed mobile sidebar toggle would cover
+   the page title; reserve its space where the toggle is shown. */
+.console-page-toggle-space {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  body:has(.sidebar-mobile-toggle) .console-page-toggle-space {
+    display: block;
+    height: 40px;
+    margin-bottom: 8px;
+  }
 }
 
 /* In-root header for standalone hosts without the admin page header. */
@@ -189,7 +212,7 @@
   border-radius: 999px;
   background: var(--console-tone-neutral-surface);
   color: var(--console-tone-neutral-text);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 18px;
   font-weight: 500;
   white-space: nowrap;
@@ -323,7 +346,8 @@
 }
 
 .console-root .console-btn,
-.console-page-actions .console-btn {
+.console-page-actions .console-btn,
+.console-modal .console-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -352,24 +376,28 @@
 }
 
 .console-root .console-btn:hover:not(:disabled, [aria-disabled="true"]),
-.console-page-actions .console-btn:hover:not(:disabled, [aria-disabled="true"]) {
+.console-page-actions .console-btn:hover:not(:disabled, [aria-disabled="true"]),
+.console-modal .console-btn:hover:not(:disabled, [aria-disabled="true"]) {
   background-color: var(--console-surface-muted);
 }
 
 .console-root .console-btn.console-btn--primary,
-.console-page-actions .console-btn.console-btn--primary {
+.console-page-actions .console-btn.console-btn--primary,
+.console-modal .console-btn.console-btn--primary {
   border-color: var(--console-accent);
   background-color: var(--console-accent);
   color: var(--console-accent-text);
 }
 
 .console-root .console-btn.console-btn--primary:hover:not(:disabled, [aria-disabled="true"]),
-.console-page-actions .console-btn.console-btn--primary:hover:not(:disabled, [aria-disabled="true"]) {
+.console-page-actions .console-btn.console-btn--primary:hover:not(:disabled, [aria-disabled="true"]),
+.console-modal .console-btn.console-btn--primary:hover:not(:disabled, [aria-disabled="true"]) {
   background-color: color-mix(in srgb, var(--console-accent) 88%, #000000);
 }
 
 .console-root .console-btn.console-btn--ghost,
-.console-page-actions .console-btn.console-btn--ghost {
+.console-page-actions .console-btn.console-btn--ghost,
+.console-modal .console-btn.console-btn--ghost {
   border-color: transparent;
   background-color: transparent;
   box-shadow: none;
@@ -381,11 +409,11 @@
   height: 32px;
   min-height: 32px;
   padding: 0 12px;
-  font-size: 13px;
 }
 
 .console-root .console-btn:is(:disabled, [aria-disabled="true"]),
-.console-page-actions .console-btn:is(:disabled, [aria-disabled="true"]) {
+.console-page-actions .console-btn:is(:disabled, [aria-disabled="true"]),
+.console-modal .console-btn:is(:disabled, [aria-disabled="true"]) {
   border-color: var(--console-border);
   background-color: var(--console-surface-muted);
   box-shadow: none;
@@ -399,7 +427,7 @@
   line-height: 1;
 }
 
-:where(.console-root, .console-page-actions) :is(button, input, select, textarea, a, [tabindex]):focus-visible {
+:where(.console-root, .console-page-actions, .console-modal) :is(button, input, select, textarea, a, [tabindex]):focus-visible {
   outline: 2px solid var(--console-focus);
   outline-offset: 2px;
 }
@@ -688,8 +716,8 @@
 }
 
 :where(.console-root) .console-table td > .console-muted {
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 /* Status chips ------------------------------------------------------------- */
@@ -750,9 +778,10 @@
 }
 
 :where(.console-root) .console-kv > dt {
-  padding: 10px 20px;
+  padding: 12px 20px 10px;
   color: var(--console-text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 18px;
   font-weight: 500;
 }
 
@@ -783,6 +812,10 @@
   align-items: center;
   gap: 8px;
   max-width: 100%;
+}
+
+:where(.console-root) .console-kv__copy > code {
+  white-space: nowrap;
 }
 
 :where(.console-root) .console-kv__swatch-dot {
@@ -884,8 +917,8 @@
 
 :where(.console-root) .console-identity__subtitle {
   color: var(--console-text-muted);
-  font-size: 13px;
-  line-height: 18px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 :where(.console-root) .console-identity__chips {
@@ -909,6 +942,957 @@
   margin: 0 0 16px;
 }
 
+/* Workflow components (ADR-0004) ------------------------------------------
+   Rich cells, steps, progress, cards, lists, action slots, classed action
+   forms, request status, drawers, result banners and the confirmation modal.
+   Tones reuse the status chip tokens; planned work stays dashed. */
+
+:where(.console-root, .console-modal) .console-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.console-root .console-btn.console-btn--icon,
+.console-modal .console-btn.console-btn--icon {
+  width: 36px;
+  padding: 0;
+}
+
+.console-root .console-btn.console-btn--icon.console-btn--sm {
+  width: 32px;
+}
+
+.console-root .console-btn.console-btn--danger,
+.console-modal .console-btn.console-btn--danger {
+  border-color: var(--console-danger);
+  background-color: var(--console-danger);
+  color: #ffffff;
+}
+
+/* Busy submitters keep their width; the shared busy behavior adds the spinner. */
+:where(.console-root, .console-modal) .console-btn .busy-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: console-spin 0.8s linear infinite;
+}
+
+@keyframes console-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:where(.console-root) .console-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--console-accent);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-link:hover {
+  text-decoration: underline;
+}
+
+:where(.console-root) .console-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-section-description {
+  margin: 0;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Rich table cells: a primary value over a muted secondary line. */
+:where(.console-root) .console-cell-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-cell-title {
+  font-weight: 500;
+}
+
+:where(.console-root) .console-cell-sub {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-table .console-cell-actions {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* The row an outcome concerns. */
+:where(.console-root) [data-console-highlight] {
+  background: var(--console-tone-info-surface);
+  box-shadow: inset 3px 0 0 var(--console-accent);
+}
+
+:where(.console-root) [data-console-highlight]:focus {
+  outline: 2px solid var(--console-focus);
+  outline-offset: -2px;
+}
+
+/* Action slots and the row menu. Unavailable actions stay focusable with
+   their reason in the tooltip and an accessible description. */
+:where(.console-root) .console-action-slot {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+:where(.console-root) .console-menu {
+  position: relative;
+  display: inline-block;
+}
+
+:where(.console-root) .console-menu > summary {
+  list-style: none;
+}
+
+:where(.console-root) .console-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+:where(.console-root) .console-menu__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+
+:where(.console-root) .console-menu__item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--console-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-menu__item:hover:not([aria-disabled="true"]) {
+  background: var(--console-surface-muted);
+}
+
+:where(.console-root) .console-menu__item[aria-disabled="true"] {
+  color: var(--console-text-faint);
+  cursor: not-allowed;
+}
+
+/* Generic ordered steps. */
+:where(.console-root) .console-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+:where(.console-root) .console-step + .console-step::before {
+  content: "";
+  width: 12px;
+  height: 1px;
+  margin-right: 2px;
+  background: var(--console-border);
+}
+
+:where(.console-root) .console-step__mark {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border: 1.5px solid var(--console-text-faint);
+  border-radius: 50%;
+}
+
+:where(.console-root) .console-step--done {
+  color: var(--console-text);
+}
+
+:where(.console-root) .console-step--done .console-step__mark {
+  border-color: var(--console-success);
+  background: var(--console-success);
+}
+
+:where(.console-root) .console-step--current {
+  color: var(--console-text);
+  font-weight: 600;
+}
+
+:where(.console-root) .console-step--current .console-step__mark {
+  border-color: var(--console-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--console-accent) 18%, transparent);
+}
+
+:where(.console-root) .console-step--warning .console-step__mark {
+  border-color: var(--console-warning);
+  background: var(--console-warning);
+}
+
+:where(.console-root) .console-step--failed {
+  color: var(--console-tone-error-text);
+}
+
+:where(.console-root) .console-step--failed .console-step__mark {
+  border-color: var(--console-danger);
+  background: var(--console-danger);
+}
+
+/* Bounded progress. */
+:where(.console-root) .console-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-progress__bar {
+  position: relative;
+  width: 96px;
+  height: 6px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--console-tone-neutral-surface);
+}
+
+:where(.console-root) .console-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--console-accent);
+}
+
+:where(.console-root) .console-progress__label {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Record cards. */
+:where(.console-root) .console-card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-card-section > .console-json-header {
+  padding: 0;
+  border: 0;
+}
+
+:where(.console-root) .console-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+:where(.console-root) .console-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px 20px;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-surface);
+  background: var(--console-surface);
+  box-shadow: var(--console-shadow);
+}
+
+:where(.console-root) .console-card__top,
+:where(.console-root) .console-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-card__eyebrow {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+:where(.console-root) .console-card__title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-card__subtitle {
+  margin: 0;
+  color: var(--console-text-muted);
+}
+
+:where(.console-root) .console-card__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+:where(.console-root) .console-card__meta dt {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-card__meta dd {
+  margin: 2px 0 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-card__foot {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--console-divider);
+}
+
+/* Compact record lists. */
+:where(.console-root) .console-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--console-divider);
+}
+
+:where(.console-root) .console-list__item:last-child {
+  border-bottom: 0;
+}
+
+:where(.console-root) .console-list__main {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-list__title {
+  font-weight: 500;
+}
+
+:where(.console-root) .console-list__subtitle {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-list__progress {
+  margin-top: 4px;
+}
+
+:where(.console-root) .console-list__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+}
+
+/* Callouts: what an action does to the target. */
+:where(.console-root, .console-modal) .console-callout {
+  padding: 12px 16px;
+  border: 1px solid var(--console-tone-info-border);
+  border-radius: 10px;
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+}
+
+:where(.console-root, .console-modal) .console-callout > p {
+  margin: 0;
+}
+
+:where(.console-root, .console-modal) :is(.console-callout, .console-banner, .console-request-status, .console-form__message, .console-toast)[data-tone="success"] {
+  border-color: var(--console-tone-success-border);
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root, .console-modal) :is(.console-callout, .console-banner, .console-request-status, .console-form__message, .console-toast)[data-tone="warning"] {
+  border-color: var(--console-tone-warning-border);
+  background: var(--console-tone-warning-surface);
+  color: var(--console-tone-warning-text);
+}
+
+:where(.console-root, .console-modal) :is(.console-callout, .console-banner, .console-request-status, .console-form__message, .console-toast)[data-tone="error"] {
+  border-color: var(--console-tone-error-border);
+  background: var(--console-tone-error-surface);
+  color: var(--console-tone-error-text);
+}
+
+:where(.console-root, .console-modal) :is(.console-callout, .console-banner, .console-request-status, .console-form__message, .console-toast)[data-tone="neutral"] {
+  border-color: var(--console-tone-neutral-border);
+  background: var(--console-tone-neutral-surface);
+  color: var(--console-tone-neutral-text);
+}
+
+:where(.console-root, .console-modal) :is(.console-callout, .console-banner, .console-request-status, .console-form__message, .console-toast)[data-tone="planned"] {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+  background: var(--console-surface);
+  color: var(--console-text);
+}
+
+/* Classed action forms. */
+:where(.console-root) .console-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-form--inline {
+  padding: 16px 20px;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-surface);
+  background: var(--console-surface);
+  box-shadow: var(--console-shadow);
+}
+
+:where(.console-root) .console-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-field__label {
+  color: var(--console-text);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-field__help {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-field__error {
+  color: var(--console-tone-error-text);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-field__error[hidden] {
+  display: none;
+}
+
+:where(.console-root) .console-field [aria-invalid="true"] {
+  border-color: var(--console-danger);
+}
+
+:where(.console-root) .console-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--console-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-field__generated {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-field__generated > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--console-mono-font);
+  font-size: 12.5px;
+  color: var(--console-text-muted);
+  background-color: var(--console-surface-muted);
+}
+
+:where(.console-root) .console-advanced {
+  border-top: 1px solid var(--console-divider);
+  padding-top: 12px;
+}
+
+:where(.console-root) .console-advanced__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--console-text-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-advanced__toggle::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid currentColor;
+}
+
+:where(.console-root) .console-advanced__toggle[aria-expanded="true"]::before {
+  transform: rotate(90deg);
+}
+
+:where(.console-root) .console-advanced__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* Collapsed fields stay in the form (and the submitted payload), just unseen. */
+:where(.console-root) .console-advanced[data-expanded="false"] > .console-advanced__body {
+  display: none;
+}
+
+:where(.console-root) .console-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+:where(.console-root) .console-form__message,
+:where(.console-root) .console-request-status {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--console-tone-info-border);
+  border-radius: var(--console-radius);
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+:where(.console-root) .console-request-status[hidden] {
+  display: none;
+}
+
+:where(.console-root) .console-request-status__message {
+  margin: 0;
+}
+
+:where(.console-root) .console-request-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Select-layout launcher for neutral consoles. */
+:where(.console-root) .console-action-launcher {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+/* Result banner at the top of the originating panel. */
+:where(.console-root) .console-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--console-tone-success-border);
+  border-radius: 10px;
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root) .console-banner:focus {
+  outline: 2px solid var(--console-focus);
+  outline-offset: 2px;
+}
+
+:where(.console-root) .console-banner__body {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-banner__message {
+  margin: 0;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-banner__meta {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.85;
+}
+
+:where(.console-root) .console-banner__details > summary {
+  width: fit-content;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-banner__details > pre {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  overflow: auto;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+  color: var(--console-text);
+  font-family: var(--console-mono-font);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+}
+
+:where(.console-root) .console-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+:where(.console-root) .console-tab__count[data-tone="success"] {
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root) .console-tab__count[data-tone="warning"] {
+  background: var(--console-tone-warning-surface);
+  color: var(--console-tone-warning-text);
+}
+
+:where(.console-root) .console-tab__count[data-tone="error"] {
+  background: var(--console-tone-error-surface);
+  color: var(--console-tone-error-text);
+}
+
+:where(.console-root) .console-tab__count[data-tone="info"] {
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+}
+
+:where(.console-root) .console-tab__count[hidden] {
+  display: none;
+}
+
+/* Action drawer: a modal side sheet inside its console root. */
+:where(.console-root) .console-drawer-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+:where(.console-root) .console-drawer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--console-text) 40%, transparent);
+  opacity: 1;
+  transition: opacity 150ms ease;
+}
+
+:where(.console-root) .console-drawer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  height: 100%;
+  overflow: hidden;
+  border-left: 1px solid var(--console-border);
+  background: var(--console-surface);
+  box-shadow: -16px 0 40px rgba(16, 24, 40, 0.18);
+  transform: translateX(0);
+  transition: transform 180ms ease;
+}
+
+:where(.console-root) .console-drawer-layer[data-state="opening"] .console-drawer {
+  transform: translateX(24px);
+}
+
+:where(.console-root) .console-drawer-layer[data-state="opening"] .console-drawer__backdrop {
+  opacity: 0;
+}
+
+:where(.console-root) .console-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--console-divider);
+}
+
+:where(.console-root) .console-drawer__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-drawer__eyebrow {
+  margin: 0;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+:where(.console-root) .console-drawer__title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-drawer .console-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+}
+
+:where(.console-root) .console-drawer__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding: 20px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:where(.console-root) .console-drawer__details {
+  display: grid;
+  grid-template-columns: minmax(96px, max-content) minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+
+:where(.console-root) .console-drawer__details dt {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-drawer__details dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-drawer__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--console-divider);
+  background: var(--console-surface-muted);
+}
+
+/* Confirmation modal content (the admin modal provides the shell). */
+:where(.console-modal) .console-modal__header {
+  padding: 20px 24px 12px;
+}
+
+:where(.console-modal) .console-modal__title {
+  margin: 0;
+  color: var(--console-text);
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+:where(.console-modal) .console-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 24px 20px;
+  color: var(--console-text);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+:where(.console-modal) .console-modal__changes {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+:where(.console-modal) .console-modal__changes :is(th, td) {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--console-divider);
+  text-align: left;
+}
+
+:where(.console-modal) .console-modal__changes thead th {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+:where(.console-modal) .console-modal__note {
+  margin: 0;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-modal) .console-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--console-divider);
+}
+
+:where(.console-modal) .console-kv__mono {
+  font-family: var(--console-mono-font);
+  font-size: 12.5px;
+}
+
+/* Standalone hosts without the admin component stylesheet still get a
+   positioned modal; the admin rules win when present. */
+:where([data-console-modal]) {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+:where([data-console-modal]) > :where(.console-modal) {
+  width: 100%;
+  max-width: 28rem;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-surface);
+  background: var(--console-surface);
+}
+
+/* Toast fallback for hosts without the admin toast manager. */
+:where(.console-root) .console-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+:where(.console-root) .console-toast {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--console-tone-info-border);
+  border-radius: var(--console-radius);
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+
 /* Small screens: stack controls and keep wide tables inside their card. --- */
 
 @media (max-width: 640px) {
@@ -916,8 +1900,8 @@
     gap: 16px;
   }
 
-  :where(.console-root) .console-panel,
-  :where(.console-root) .console-panel__body {
+  :where(.console-root) .console-json-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 16px;
   }
 
@@ -969,10 +1953,87 @@
   :where(.console-root) .console-kv > dd {
     padding: 2px 16px 10px;
   }
+
+  /* Neutral tables label their cells, so rows become single-column cards. */
+  :where(.console-root) .console-table:has(td[data-label]) thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  :where(.console-root) .console-table:has(td[data-label]) :is(tbody, tr) {
+    display: block;
+  }
+
+  :where(.console-root) .console-table:has(td[data-label]) tr {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--console-divider);
+  }
+
+  :where(.console-root) .console-table:has(td[data-label]) tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  :where(.console-root) .console-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+    gap: 8px;
+    padding: 4px 0;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :where(.console-root) .console-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--console-text-muted);
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  :where(.console-root) .console-table td.console-cell-actions {
+    width: auto;
+    text-align: left;
+    white-space: normal;
+  }
+
+  :where(.console-root) .console-table td.console-cell-actions .console-action-slot {
+    justify-content: flex-start;
+  }
+
+  :where(.console-root) .console-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :where(.console-root) :is(.console-list__item, .console-card) {
+    padding-inline: 16px;
+  }
+
+  :where(.console-root) .console-form--inline {
+    padding: 12px;
+  }
+
+  :where(.console-root) .console-field__generated {
+    flex-wrap: wrap;
+  }
+
+  :where(.console-root) :is(.console-form__actions, .console-drawer__footer) {
+    flex-direction: column-reverse;
+  }
+
+  :where(.console-root) :is(.console-form__actions, .console-drawer__footer) .console-btn {
+    width: 100%;
+  }
+
+  :where(.console-root) :is(.console-drawer__header, .console-drawer__body, .console-drawer__footer) {
+    padding-inline: 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(.console-root, .console-page-actions) * {
+  :where(.console-root, .console-page-actions, .console-modal) * {
     transition: none !important;
     animation: none !important;
     scroll-behavior: auto !important;

@@ -1,5 +1,6 @@
 import { escapeAttribute as p, escapeHTML as m } from "../shared/html.js";
-import { r as ba } from "../chunks/modal-ClEsOn-S.js";
+import { r as ba } from "../chunks/modal-Cg0_ZVPf.js";
+import "../components/modal.js";
 import { httpRequest as Y, httpRequestWith as G, readHTTPJSON as le } from "../shared/transport/http-client.js";
 import { extractStructuredError as N } from "../toast/error-helpers.js";
 import { initActionMenus as va } from "../shared/action-menu.js";
@@ -526,7 +527,7 @@ function Qe(e, a) {
     disabledReasonCode: i ? "" : e.quickCreate.disabledReasonCode
   };
 }
-function Ss(e, a) {
+function ks(e, a) {
   if (!e || !a || !a.familyId || e.familyId !== a.familyId) return e;
   const t = n(a.locale).toLowerCase(), s = e.localeVariants.some((c) => c.locale === t) ? e.localeVariants.map((c) => c.locale === t ? {
     ...c,
@@ -606,7 +607,7 @@ function Ss(e, a) {
     quickCreate: { ...a.family.quickCreate }
   };
 }
-function ks(e, a) {
+function Ts(e, a) {
   const t = { ...e }, s = { ...y(t.translation_readiness) }, i = n(a.locale).toLowerCase(), r = n(t.requested_locale).toLowerCase(), o = n(t.translation_family_id || t.family_id || s.family_id || s.family_id);
   if (o && o !== a.familyId) return t;
   const d = M(x(t.available_locales), x(s.available_locales), a.family.availableLocales, [i]), c = Ke(M(x(t.missing_required_locales), x(s.missing_required_locales), a.family.missingLocales), i);
@@ -1821,7 +1822,7 @@ function da(e) {
     i && globalThis.navigator?.clipboard?.writeText && globalThis.navigator.clipboard.writeText(i);
   }));
 }
-async function Ts(e, a = {}) {
+async function qs(e, a = {}) {
   if (!e) return null;
   da(e);
   const t = e.dataset || {}, s = {
@@ -2054,7 +2055,7 @@ function Zt(e) {
     localeURLs: Le(e.dataset.localeUrls, {})
   };
 }
-function qs(e = document) {
+function Is(e = document) {
   typeof document > "u" || e.querySelectorAll('[data-translation-summary-card="true"]').forEach((a) => {
     if (a.dataset.translationCreateBound === "true") return;
     a.dataset.translationCreateBound = "true";
@@ -2604,8 +2605,8 @@ function ve(e = {}) {
   };
 }
 export {
-  Ss as applyCreateLocaleToFamilyDetail,
-  ks as applyCreateLocaleToSummaryState,
+  ks as applyCreateLocaleToFamilyDetail,
+  Ts as applyCreateLocaleToSummaryState,
   da as bindCopyIdAffordance,
   Fa as buildCreateLocaleURL,
   _t as buildFamilyActivityPreview,
@@ -2628,8 +2629,8 @@ export {
   Ht as fetchTranslationFamilyListState,
   et as getReadinessChip,
   V as initTranslationFamilyDetailPage,
-  Ts as initTranslationFamilyListPage,
-  qs as initTranslationSummaryCards,
+  qs as initTranslationFamilyListPage,
+  Is as initTranslationSummaryCards,
   Oa as normalizeCreateLocaleResult,
   Ge as normalizeFamilyDetail,
   Ve as normalizeFamilyListResponse,

@@ -7,7 +7,7 @@
         "components/import-modal": { "rawBytes": 76800, "gzipBytes": 21504 },
         "components/modal": { "rawBytes": 21504, "gzipBytes": 8192 },
         "components/permission-pills": { "rawBytes": 5120, "gzipBytes": 3072 },
-        "console/index": { "rawBytes": 94208, "gzipBytes": 27648 },
+        "console/index": { "rawBytes": 181248, "gzipBytes": 51200 },
         "content-type-builder/index": { "rawBytes": 521216, "gzipBytes": 114688 },
         "content-type-builder/bootstrap": { "rawBytes": 7168, "gzipBytes": 4096 },
         "content-type-builder/content-editor-runtime": { "rawBytes": 373760, "gzipBytes": 82944 },
@@ -22,13 +22,13 @@
         "datatable/content-runtime": { "rawBytes": 146432, "gzipBytes": 41984 },
         "datatable/detail-runtime": { "rawBytes": 116736, "gzipBytes": 34816 },
         "datatable/filter-builder-loader": { "rawBytes": 4096, "gzipBytes": 2048 },
-        "debug/index": { "rawBytes": 369664, "gzipBytes": 94208 },
+        "debug/index": { "rawBytes": 398336, "gzipBytes": 104448 },
         "debug/jsonpath-search": { "rawBytes": 40960, "gzipBytes": 12288 },
         "debug/repl": { "rawBytes": 481280, "gzipBytes": 109568 },
-        "debug/shared-helpers": { "rawBytes": 77824, "gzipBytes": 25600 },
+        "debug/shared-helpers": { "rawBytes": 97280, "gzipBytes": 32768 },
         "debug/shared/path-helpers": { "rawBytes": 2048, "gzipBytes": 2048 },
         "debug/syntax-highlight": { "rawBytes": 423936, "gzipBytes": 96256 },
-        "debug/toolbar": { "rawBytes": 295936, "gzipBytes": 73728 },
+        "debug/toolbar": { "rawBytes": 325632, "gzipBytes": 83968 },
         "debug/toolbar-bootstrap": { "rawBytes": 58368, "gzipBytes": 19456 },
         "entry-navigation/index": { "rawBytes": 21504, "gzipBytes": 9216 },
         "feature-flags/index": { "rawBytes": 46080, "gzipBytes": 13312 },
@@ -76,7 +76,7 @@
         "users/import-adapter": { "rawBytes": 4096, "gzipBytes": 2048 }
       },
       "maxChunk": { "rawBytes": 473088, "gzipBytes": 106496 },
-      "total": { "rawBytes": 3639296, "gzipBytes": 855040 }
+      "total": { "rawBytes": 3809280, "gzipBytes": 902144 }
     },
     "public": {
       "entries": {

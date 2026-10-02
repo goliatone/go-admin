@@ -331,6 +331,9 @@ admin.action-menu.surface -> color.surface.raised -> current menu surface
 admin.status.surface -> color.surface.subtle -> current status surface
 admin.filter.surface -> color.surface.default -> current filter surface
 admin.quick-filter.ring -> color.focus.ring -> current quick-filter focus ring
+admin.console.surface -> color.surface.default -> light console surface
+admin.console.control-border -> form.control.border -> color.border.default -> console control border
+admin.console.surface-radius -> radius.surface -> 12px console section radius
 ```
 
 The supported shared-browser families expose `surface`, `text`, and the
@@ -343,6 +346,16 @@ is the bounded host override for the selected size. These keys, together with
 `admin.quick-filter.*`, are projected through `AdminSemanticProfile`; do not
 emit raw manifest values or invent host-only CSS variables. Missing or invalid
 values preserve the existing component output.
+
+Operator consoles (Data and other neutral consoles; `styles/console.css`) read
+`admin.console.surface`, `surface-muted`, `border`, `divider`,
+`control-border`, `text`, `text-muted`, `accent`, `accent-text`, `focus`,
+`radius` (controls), `surface-radius` (sections) and `shadow`. Each falls back
+to its portable token and then to the light literal, so a theme manifest
+variant, the configured default or the Preferences theme variant restyles
+consoles without code changes. go-admin ships and verifies only the light
+appearance; a dark console is configured through those keys. Console status
+chips use the admin status chip colors, and Debug keeps its own palette.
 
 Legacy keys such as `primary`, `sidebar-width`, and
 `sidebar-brand-max-height` remain supported aliases. Canonical keys win when

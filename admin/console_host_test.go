@@ -1,11 +1,16 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sort"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -398,9 +403,337 @@ func TestConsoleSnapshotRejectsRevocationDuringProjection(t *testing.T) {
 				return record
 			}
 			snapshot, err := h.Snapshot(ctx, consoleTestIdentity("data"))
-			if !errors.Is(err, ErrForbidden) || len(snapshot.Panels) != 0 {
+			want := ErrForbidden
+			if cancelRequest {
+				want = context.Canceled
+			}
+			if !errors.Is(err, want) || len(snapshot.Panels) != 0 {
 				t.Fatalf("projection disclosed stale snapshot: %+v %v", snapshot, err)
 			}
 		})
+	}
+}
+
+// consoleHostTestModule mounts a bare ConsoleHost as an admin module.
+type consoleHostTestModule struct{ host *ConsoleHost }
+
+func (m consoleHostTestModule) Manifest() ModuleManifest              { return m.host.Manifest() }
+func (m consoleHostTestModule) RouteContract() routing.ModuleContract { return m.host.RouteContract() }
+func (m consoleHostTestModule) Register(ctx ModuleContext) error      { return m.host.Register(ctx) }
+
+type consoleWorkflowFixture struct {
+	host      *ConsoleHost
+	handler   http.Handler
+	execute   atomic.Bool
+	dispatch  atomic.Int32
+	payloads  chan map[string]any
+	options   chan console.PanelOptionQuery
+	requests  chan console.PanelRequestQuery
+	bootstrap chan console.Bootstrap
+}
+
+const consoleWorkflowCapabilities = "action_availability.v1,action_drawer.v1,request_id.v1,secondary_submit.v1,rich_views.v1"
+
+func newConsoleWorkflowFixture(t *testing.T) *consoleWorkflowFixture {
+	t.Helper()
+	f := &consoleWorkflowFixture{payloads: make(chan map[string]any, 8), options: make(chan console.PanelOptionQuery, 8),
+		requests: make(chan console.PanelRequestQuery, 8), bootstrap: make(chan console.Bootstrap, 2)}
+	f.execute.Store(true)
+	handler := func(_ context.Context, request console.PanelActionRequest) (console.PanelActionResult, error) {
+		f.dispatch.Add(1)
+		f.payloads <- request.Payload
+		return console.PanelActionResult{OK: true, Message: "Accepted.", Tone: "INFO", Code: "accepted", Record: &console.PanelUIRecordRef{PanelID: "tasks", RecordKey: "op-1"}}, nil
+	}
+	minimum := 1.0
+	registry := console.NewPanelRegistry()
+	if err := registry.Register("tasks", console.PanelConfig{
+		UI: &console.PanelUI{
+			Views:        console.PanelUIViews{Console: &console.PanelUIView{Renderer: console.PanelRendererList, Empty: "Nothing waiting."}},
+			ActionLayout: &console.PanelUIActionLayout{Mode: console.PanelActionLayoutDrawer},
+			Actions: []console.PanelUIAction{
+				{ID: "plain", Label: "Plain"},
+				{ID: "plan", Label: "Refresh", RequestScope: "refresh:preview", Fields: []console.PanelUIActionField{
+					{Name: "request_id", Generate: console.PanelFieldGenerateRequestID, Advanced: true},
+					{Name: "dry_run", Kind: console.PanelFieldKindHidden, Default: false},
+					{Name: "receipt", Kind: "select", OptionSource: &console.PanelUIActionOptionSource{ID: "receipts", Paginated: true, Searchable: true}},
+					{Name: "batch_limit", Kind: "integer", Min: &minimum},
+				}, Secondary: &console.PanelUIActionSubmit{Label: "Preview plan", Field: "dry_run", Value: true}},
+				{ID: "reset", Label: "Reset", Availability: console.PanelActionUnsupported, Reason: "This target has no safe reset."},
+			},
+		},
+		Actions: map[string]console.PanelActionHandler{"plain": handler, "plan": handler},
+		Options: func(_ context.Context, query console.PanelOptionQuery) (console.PanelOptionPage, error) {
+			f.options <- query
+			items := []console.PanelUIActionOption{}
+			for index := range 150 {
+				items = append(items, console.PanelUIActionOption{Value: fmt.Sprintf("r%03d", index), Label: fmt.Sprintf("Receipt %d", index)})
+			}
+			return console.PanelOptionPage{Items: append(items, console.PanelUIActionOption{Value: "<x>"}), NextCursor: "page-2",
+				Selected: []console.PanelUIActionOption{{Value: "r-old", Label: "Older retained receipt"}}}, nil
+		},
+		Requests: func(_ context.Context, query console.PanelRequestQuery) (console.PanelRequestStatus, error) {
+			f.requests <- query
+			return console.PanelRequestStatus{Status: "CLAIMED", RetryUntil: "2026-10-03T10:00:00Z",
+				Result: &console.PanelActionResult{OK: true, Message: "Refresh accepted.", Tone: "neon"}}, nil
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	host, err := NewConsoleHost(ConsoleHostConfig{ID: "work", Title: "Work", Registry: registry, Enabled: func() bool { return true },
+		RequestIdentity: func(router.Context) (console.Identity, error) { return consoleTestIdentity("work"), nil },
+		Access: ConsoleAccess{
+			Resolve: func(ctx context.Context, identity console.Identity) (context.Context, console.Identity, error) {
+				return ctx, identity, nil
+			},
+			Read:   func(context.Context, console.Identity) error { return nil },
+			Panel:  func(context.Context, console.Identity, console.PanelDefinition) bool { return true },
+			Action: func(context.Context, console.Identity, string, string) bool { return f.execute.Load() },
+			Record: func(context.Context, console.Identity, string, console.Record) bool { return true },
+		},
+		Snapshot: func(context.Context, console.Identity, string) ([]console.Record, error) {
+			return []console.Record{{Key: "op-1", Revision: 1, Data: map[string]any{"title": "Refresh"}}}, nil
+		},
+		RenderPage: func(_ router.Context, bootstrap console.Bootstrap) error { f.bootstrap <- bootstrap; return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.host = host
+	t.Cleanup(func() {
+		if closeErr := host.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", Debug: DebugConfig{Enabled: false}}, Dependencies{})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAllDebugAuthorizer{})
+	if err = adm.RegisterModule(consoleHostTestModule{host}); err != nil {
+		t.Fatal(err)
+	}
+	server := router.NewHTTPServer()
+	if err = adm.Initialize(server.Router()); err != nil {
+		t.Fatal(err)
+	}
+	f.handler = server.WrappedRouter()
+	return f
+}
+
+func (f *consoleWorkflowFixture) do(t *testing.T, method, path, capabilities string, payload any) *httptest.ResponseRecorder {
+	t.Helper()
+	var body io.Reader
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body = bytes.NewReader(encoded)
+	}
+	req := httptest.NewRequestWithContext(t.Context(), method, path, body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User", "alice")
+	if capabilities != "" {
+		req.Header.Set(console.ClientCapabilitiesHeader, capabilities)
+	}
+	res := httptest.NewRecorder()
+	f.handler.ServeHTTP(res, req)
+	return res
+}
+
+func (f *consoleWorkflowFixture) actions(t *testing.T, capabilities string) map[string]console.PanelUIAction {
+	t.Helper()
+	res := f.do(t, http.MethodGet, "/admin/work/api/snapshot", capabilities, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("snapshot: %d %s", res.Code, res.Body.String())
+	}
+	var snapshot console.Snapshot
+	if err := json.Unmarshal(res.Body.Bytes(), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]console.PanelUIAction{}
+	for _, action := range snapshot.Panels[0].UI.Actions {
+		out[action.ID] = action
+	}
+	return out
+}
+
+func consoleActionIDs(actions map[string]console.PanelUIAction) string {
+	ids := make([]string, 0, len(actions))
+	for id := range actions {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return strings.Join(ids, ",")
+}
+
+func TestConsoleClientHandshakeGatesWorkflowDeclarationsAndDispatch(t *testing.T) {
+	f := newConsoleWorkflowFixture(t)
+	if got := consoleActionIDs(f.actions(t, "")); got != "plain" {
+		t.Fatalf("legacy clients must not receive capability-dependent or unavailable declarations: %s", got)
+	}
+	full := f.actions(t, consoleWorkflowCapabilities)
+	if got := consoleActionIDs(full); got != "plain,plan,reset" {
+		t.Fatalf("advertised client declarations = %s", got)
+	}
+	if full["reset"].Availability != console.PanelActionUnsupported || full["plan"].Secondary == nil || full["plan"].RequestScope != "refresh:preview" {
+		t.Fatalf("workflow metadata lost in delivery: %+v", full)
+	}
+	partial := f.actions(t, console.ClientCapabilityActionAvailability)
+	if plan := partial["plan"]; plan.Executable() || plan.Reason != consoleClientOutdatedMessage || plan.Fields != nil || plan.Secondary != nil {
+		t.Fatalf("an under-capable client must receive a disabled declaration with reload guidance: %+v", plan)
+	}
+
+	res := f.do(t, http.MethodGet, "/admin/work", "", nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("page: %d %s", res.Code, res.Body.String())
+	}
+	bootstrap := <-f.bootstrap
+	if bootstrap.URLs.Options != "/admin/work/api/panels/:panel/actions/:action/options/:field" || bootstrap.URLs.Requests != "/admin/work/api/panels/:panel/requests/:request" {
+		t.Fatalf("bootstrap routes = %+v", bootstrap.URLs)
+	}
+	if got := len(bootstrap.Snapshot.Panels[0].UI.Actions); got != 3 {
+		t.Fatalf("the page bootstrap carries every declaration for client-side gating, got %d", got)
+	}
+
+	const requestID = "0b7e2c4a-1f3d-4c5e-9a8b-7c6d5e4f3a2b"
+	res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/plan", "", map[string]any{"request_id": requestID})
+	if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), TextCodeConsoleClientOutdated) || !strings.Contains(res.Body.String(), `"action":"reload"`) {
+		t.Fatalf("stale assets must not execute workflow forms: %d %s", res.Code, res.Body.String())
+	}
+	res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/plan", console.ClientCapabilityActionAvailability, map[string]any{"request_id": requestID})
+	if res.Code != http.StatusConflict {
+		t.Fatalf("an under-capable client must not execute: %d %s", res.Code, res.Body.String())
+	}
+	for _, payload := range []map[string]any{{}, {"request_id": "typed-by-hand"}, {"request_id": 42}} {
+		res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/plan", consoleWorkflowCapabilities, payload)
+		var result console.PanelActionResult
+		if res.Code != http.StatusOK || json.Unmarshal(res.Body.Bytes(), &result) != nil || result.OK || result.Errors["request_id"] == nil {
+			t.Fatalf("malformed generated IDs must fail as field errors: %d %s", res.Code, res.Body.String())
+		}
+	}
+	if f.dispatch.Load() != 0 {
+		t.Fatal("refused requests reached the handler")
+	}
+	res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/plan", consoleWorkflowCapabilities, map[string]any{"request_id": requestID, "dry_run": true})
+	var accepted console.PanelActionResult
+	if res.Code != http.StatusOK || json.Unmarshal(res.Body.Bytes(), &accepted) != nil || !accepted.OK || accepted.Tone != console.PanelToneInfo || accepted.Record == nil {
+		t.Fatalf("plan dispatch: %d %s", res.Code, res.Body.String())
+	}
+	if payload := <-f.payloads; payload["request_id"] != requestID || payload["dry_run"] != true {
+		t.Fatalf("handler payload = %+v", payload)
+	}
+	res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/plain", "", map[string]any{})
+	if res.Code != http.StatusOK {
+		t.Fatalf("schema-v1 actions keep working for legacy clients: %d %s", res.Code, res.Body.String())
+	}
+	<-f.payloads
+	res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/reset", consoleWorkflowCapabilities, map[string]any{})
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("unavailable declarations never dispatch: %d %s", res.Code, res.Body.String())
+	}
+
+	f.execute.Store(false)
+	if got := consoleActionIDs(f.actions(t, consoleWorkflowCapabilities)); got != "reset" {
+		t.Fatalf("without execute grants only display metadata remains: %s", got)
+	}
+	res = f.do(t, http.MethodPost, "/admin/work/api/panels/tasks/actions/plan", "", map[string]any{"request_id": requestID})
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("a revoked grant is not reported as an outdated client: %d %s", res.Code, res.Body.String())
+	}
+}
+
+func TestConsoleOptionsAndPendingRequestRoutes(t *testing.T) {
+	f := newConsoleWorkflowFixture(t)
+	path := "/admin/work/api/panels/tasks/actions/plan/options/receipt?limit=500&q=ready&cursor=page-1&value=r-old&value=%3Cx%3E"
+	res := f.do(t, http.MethodGet, path, consoleWorkflowCapabilities, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("options: %d %s", res.Code, res.Body.String())
+	}
+	query := <-f.options
+	if query.PanelID != "tasks" || query.ActionID != "plan" || query.Field != "receipt" || query.Limit != console.PanelOptionPageMax ||
+		query.Search != "ready" || query.Cursor != "page-1" || strings.Join(query.Values, ",") != "r-old" {
+		t.Fatalf("normalized option query = %+v", query)
+	}
+	var page console.PanelOptionPage
+	if err := json.Unmarshal(res.Body.Bytes(), &page); err != nil || len(page.Items) != console.PanelOptionPageMax || page.NextCursor != "page-2" || len(page.Selected) != 1 {
+		t.Fatalf("option page = %d items, cursor %q, selected %d (%v)", len(page.Items), page.NextCursor, len(page.Selected), err)
+	}
+	for _, refused := range []struct{ path, capabilities string }{
+		{"/admin/work/api/panels/tasks/actions/plan/options/receipt", ""},
+		{"/admin/work/api/panels/tasks/actions/plan/options/batch_limit", consoleWorkflowCapabilities},
+		{"/admin/work/api/panels/tasks/actions/reset/options/receipt", consoleWorkflowCapabilities},
+		{"/admin/work/api/panels/tasks/actions/missing/options/receipt", consoleWorkflowCapabilities},
+	} {
+		if res = f.do(t, http.MethodGet, refused.path, refused.capabilities, nil); res.Code != http.StatusNotFound {
+			t.Fatalf("%s (%q) must be refused: %d", refused.path, refused.capabilities, res.Code)
+		}
+	}
+
+	f.execute.Store(false)
+	res = f.do(t, http.MethodGet, "/admin/work/api/panels/tasks/requests/0b7e2c4a-1f3d-4c5e-9a8b-7c6d5e4f3a2b?action=Plan&scope=refresh:preview&submitted_at=2026-10-02T09:00:00%2B02:00", consoleWorkflowCapabilities, nil)
+	if res.Code != http.StatusOK {
+		t.Fatalf("request status: %d %s", res.Code, res.Body.String())
+	}
+	lookup := <-f.requests
+	if lookup.PanelID != "tasks" || lookup.ActionID != "plan" || lookup.Scope != "refresh:preview" || lookup.RequestID != "0b7e2c4a-1f3d-4c5e-9a8b-7c6d5e4f3a2b" ||
+		!lookup.SubmittedAt.Equal(time.Date(2026, 10, 2, 7, 0, 0, 0, time.UTC)) {
+		t.Fatalf("request query = %+v", lookup)
+	}
+	var status console.PanelRequestStatus
+	if err := json.Unmarshal(res.Body.Bytes(), &status); err != nil || status.Status != console.PanelRequestClaimed || status.Result == nil || status.Result.Tone != "" || status.RetryUntil != "2026-10-03T10:00:00Z" {
+		t.Fatalf("request status = %+v (%v)", status, err)
+	}
+	if res = f.do(t, http.MethodGet, "/admin/work/api/panels/tasks/requests/not-a-uuid?action=plan", consoleWorkflowCapabilities, nil); res.Code != http.StatusBadRequest {
+		t.Fatalf("malformed request IDs are rejected: %d %s", res.Code, res.Body.String())
+	}
+	res = f.do(t, http.MethodGet, "/admin/work/api/panels/tasks/requests/0b7e2c4a-1f3d-4c5e-9a8b-7c6d5e4f3a2b?action=plan&submitted_at=2999-01-01T00:00:00Z", consoleWorkflowCapabilities, nil)
+	if res.Code != http.StatusOK || !(<-f.requests).SubmittedAt.IsZero() {
+		t.Fatalf("a future submission time is ignored: %d %s", res.Code, res.Body.String())
+	}
+}
+
+func TestConsoleWatchProjectsDeclarationsForTheAdvertisedClient(t *testing.T) {
+	f := newConsoleWorkflowFixture(t)
+	for _, tc := range []struct {
+		capabilities string
+		want         string
+	}{{"", "plain"}, {consoleWorkflowCapabilities, "plain,plan,reset"}} {
+		ctx, cancel := context.WithCancel(console.WithClientCapabilities(t.Context(), console.ParseClientCapabilities(tc.capabilities)))
+		messages := make(chan any, 4)
+		done := make(chan error, 1)
+		go func() {
+			done <- f.host.Watch(ctx, consoleTestIdentity("work"), []string{"tasks"}, func(value any) error { messages <- value; return nil })
+		}()
+		select {
+		case value := <-messages:
+			snapshot, ok := value.(console.Snapshot)
+			if !ok {
+				t.Fatalf("first live frame %T", value)
+			}
+			got := map[string]console.PanelUIAction{}
+			for _, action := range snapshot.Panels[0].UI.Actions {
+				got[action.ID] = action
+			}
+			if ids := consoleActionIDs(got); ids != tc.want {
+				t.Fatalf("live declarations for %q = %s", tc.capabilities, ids)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("missing live snapshot")
+		}
+		cancel()
+		<-done
+	}
+}
+
+func TestConsoleSnapshotPreparerPreservesEventWatermark(t *testing.T) {
+	var revoked, execute atomic.Bool
+	h := consoleTestHost(t, "data", &revoked, &execute)
+	id := consoleTestIdentity("data")
+	h.config.PrepareSnapshot = func(ctx context.Context, _ console.Identity) (context.Context, error) {
+		_, err := h.Events().Publish(console.Event{Identity: id, PanelID: "records", Record: console.Record{Key: "during-load", Revision: 1}, Kind: console.EventInvalidate})
+		return ctx, err
+	}
+	snap, err := h.Snapshot(t.Context(), id)
+	if err != nil || snap.Watermark != 0 || h.Events().Watermark(id) != 1 {
+		t.Fatal("preparation swallowed concurrent events", snap, err)
 	}
 }
