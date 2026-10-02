@@ -21,6 +21,26 @@ type Claim struct {
 	Operation Operation
 	Replay    bool
 }
+
+// RequestKey identifies the durable request claim without disclosing another
+// actor's work. Lookup is read-only; Claim still decides replay atomically.
+type RequestKey struct {
+	ActorID        string
+	Target         TargetKey
+	Kind           Kind
+	IdempotencyKey string
+}
+
+// ReceiptQuery pages authoritative receipts independently of operation history.
+// Cursor is store-owned and opaque to callers; a page contains at most 100 rows.
+type ReceiptQuery struct {
+	Limit  int
+	Cursor string
+}
+type ReceiptPage struct {
+	Receipts   []PreparationReceipt `json:"receipts"`
+	NextCursor string               `json:"next_cursor,omitempty"`
+}
 type Lease struct {
 	OperationID string
 	Target      TargetKey
@@ -66,6 +86,9 @@ func (c StoreCapabilities) WriteReady() bool {
 type OperationStore interface {
 	Capabilities() StoreCapabilities
 	Claim(context.Context, Operation) (Claim, error)
+	// LookupRequest returns found=true for a live claim, including a tombstone
+	// whose operation was pruned (CodeGone). An expired/absent claim is not found.
+	LookupRequest(context.Context, RequestKey) (Operation, bool, error)
 	GetOperation(context.Context, string) (Operation, error)
 	ListOperations(context.Context, TargetKey, int) ([]Operation, error)
 	Acquire(context.Context, string, TargetKey, time.Duration) (Lease, error)
@@ -79,6 +102,7 @@ type OperationStore interface {
 	RequestCancel(context.Context, string, uint64) (Operation, error)
 	PutReceipt(context.Context, Lease, PreparationReceipt) error
 	GetReceipt(context.Context, string) (PreparationReceipt, error)
+	ListReceipts(context.Context, TargetKey, ReceiptQuery) (ReceiptPage, error)
 	// GetArtifact loads original metadata by provider and opaque ID; caller
 	// claims about requester, scope, expiry or generation are never authoritative.
 	GetArtifact(context.Context, string, string) (ArtifactRef, error)

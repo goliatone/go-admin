@@ -12,6 +12,7 @@ import (
 
 	"github.com/goliatone/go-admin/console"
 	admindata "github.com/goliatone/go-admin/data"
+	gerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -556,5 +557,27 @@ func TestDataPanelActionsFailClosedWithoutChoicesOrBinding(t *testing.T) {
 		if _, ok := DataActionKind(id); ok {
 			t.Fatalf("DataActionKind(%q) accepted", id)
 		}
+	}
+}
+
+func TestDataActionResultRecognizesWrappedSafeErrors(t *testing.T) {
+	for _, code := range []string{admindata.CodeConflict, admindata.CodeBusy, admindata.CodeStale, admindata.CodeUnavailable, admindata.CodeProvider} {
+		cause := admindata.Error(code)
+		wrapped := gerrors.Wrap(cause, gerrors.CategoryInternal, "dispatcher private detail").WithTextCode("HANDLER_EXECUTION_FAILED")
+		result, err := DataActionResult(admindata.Prepare, admindata.Result{}, wrapped)
+		if err != nil || result.OK || result.Message != dataFailureMessages[code] || !result.Refresh {
+			t.Fatal(code, result, err)
+		}
+	}
+	cause := admindata.Error(admindata.CodeDenied)
+	wrapped := gerrors.Wrap(cause, gerrors.CategoryInternal, "dispatcher private detail").WithCode(500).WithTextCode("HANDLER_EXECUTION_FAILED")
+	result, err := DataActionResult(admindata.Prepare, admindata.Result{}, wrapped)
+	var structured *gerrors.Error
+	if result.Message != "" || !errors.Is(err, cause) || !errors.As(err, &structured) || structured.Code != 403 || structured.TextCode != admindata.CodeDenied {
+		t.Fatal("wrapped denial lost HTTP status/compatibility", result, err)
+	}
+	unknown := gerrors.Wrap(errors.New("private foreign error"), gerrors.CategoryInternal, "dispatcher").WithTextCode("HANDLER_EXECUTION_FAILED")
+	if _, err = DataActionResult(admindata.Prepare, admindata.Result{}, unknown); !errors.Is(err, unknown) {
+		t.Fatal("unknown error was converted to a lifecycle failure", err)
 	}
 }

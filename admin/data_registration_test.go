@@ -225,7 +225,7 @@ func TestDataOwnedCommandsShareTypedPayloadAndTrustedContext(t *testing.T) {
 	if r, ok := planned.Result.(data.Result); !ok || r.Phase != "planned" {
 		t.Fatal(planned)
 	}
-	for _, kind := range []data.Kind{data.Validate, data.Prepare, data.Refresh, data.Verify, data.Activate, data.Reset, data.Generate, data.Cancel} {
+	for _, kind := range []data.Kind{data.Validate, data.Prepare, data.Refresh, data.Verify, data.Activate, data.Reset, data.Generate, data.Cancel, data.Recover} {
 		if !bus.CommandRegistration(kind.CommandID()).Registered() {
 			t.Fatal("unregistered", kind)
 		}

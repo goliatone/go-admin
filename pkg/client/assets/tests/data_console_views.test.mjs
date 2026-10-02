@@ -349,7 +349,7 @@ test('an operator runs a server-offered action and sees acceptance without activ
   const picker = root.querySelector('[data-panel-action-picker="overview"]');
   assert.ok(picker, 'the overview offers an action picker');
   const offered = Array.from(picker.options).map((option) => option.textContent.trim());
-  assert.deepEqual(offered, ['Choose an action', 'Prepare dst-week v1 on preview', 'Activate rcpt-empty-1 (empty-history v1) at generation 3']);
+  assert.deepEqual(offered, ['Choose an action', 'Prepare dst-week v1 on preview', 'Activate another empty-history receipt', 'Activate rcpt-empty-1 (empty-history v1) at generation 3']);
   const prepare = Array.from(picker.options).find((option) => option.textContent.includes('Prepare'));
   picker.value = prepare.value;
   picker.dispatchEvent(new win.Event('change', { bubbles: true }));
@@ -379,16 +379,57 @@ test('an operator runs a server-offered action and sees acceptance without activ
   });
 
   next = golden.action_results.stale;
-  const activate = Array.from(picker.options).find((option) => option.textContent.includes('Activate'));
+  const activate = Array.from(picker.options).find((option) => option.textContent.includes('Activate rcpt-empty-1'));
   const activation = root.querySelector(`form[data-panel-action-form][data-action-id="${activate.value}"]`);
   activation.querySelector('[data-action-field="idempotency_key"]').value = 'key-2';
   activation.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
   await waitFor(() => assert.equal(posts.length, 3));
+  assert.deepEqual(posts[2].body, { expected_generation: 3, idempotency_key: 'key-2', dry_run: false }, 'activation forwards the captured generation');
   assert.ok(confirms[0].includes('changes the active dataset on target preview'), 'activation asks for confirmation');
   await waitFor(() => assert.ok(squash(root.querySelector('[data-panel-action-result="overview"]').textContent).includes('The active dataset changed since this page loaded.')));
 
   runtime.selectPanel('operations');
   assert.ok(root.querySelector('[data-panel-action-picker="operations"] option:nth-child(2)').textContent.includes('Cancel op-0003'));
+  runtime.destroy();
+});
+
+test('retained receipt and recovery controls submit only their declared inputs', async () => {
+  const posts = [];
+  const confirmations = [];
+  fetchRoute = (call) => {
+    if (call.method === 'POST') {
+      posts.push(call);
+      return jsonResponse({ ok: true, message: 'Completed.', refresh: false });
+    }
+    return new Response('{}', { status: 404 });
+  };
+  const { root, runtime } = mount(golden.operator_bootstrap, { confirm: (message) => { confirmations.push(message); return true; } });
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  runtime.selectPanel('overview');
+  const picker = root.querySelector('[data-panel-action-picker="overview"]');
+  const retained = Array.from(picker.options).find((option) => option.textContent.includes('Activate another'));
+  picker.value = retained.value;
+  picker.dispatchEvent(new win.Event('change', { bubbles: true }));
+  const form = root.querySelector(`form[data-action-id="${retained.value}"]`);
+  form.querySelector('[data-action-field="idempotency_key"]').value = 'retained-key';
+  form.querySelector('[data-action-field="receipt_id"]').value = 'retained-receipt';
+  form.dispatchEvent(new win.Event('submit', { bubbles: true, cancelable: true }));
+  await waitFor(() => assert.equal(posts.length, 1));
+  assert.deepEqual(posts[0].body, { expected_generation: 3, idempotency_key: 'retained-key', receipt_id: 'retained-receipt', dry_run: false });
+
+  runtime.selectPanel('operations');
+  const operations = root.querySelector('[data-panel-action-picker="operations"]');
+  const recover = Array.from(operations.options).find((option) => option.textContent.includes('Recover'));
+  operations.value = recover.value;
+  operations.dispatchEvent(new win.Event('change', { bubbles: true }));
+  const recovery = root.querySelector(`[data-panel-action][data-action-id="${recover.value}"]`);
+  assert.ok(recovery, 'recovery renders a button without a form');
+  assert.equal(root.querySelector(`[data-panel-action-choice="${recover.value}"] [data-action-field]`), null, 'recovery has no editable lifecycle inputs');
+  recovery.click();
+  await waitFor(() => assert.equal(posts.length, 2));
+  assert.deepEqual(posts[1].body, {});
+  assert.equal(confirmations.length, 2);
+  assert.ok(confirmations[1].includes('op-0007'));
   runtime.destroy();
 });
 

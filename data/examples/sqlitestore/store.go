@@ -8,11 +8,14 @@ package sqlitestore
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/url"
 	"path/filepath"
 	"reflect"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/data"
@@ -186,6 +189,23 @@ func (s *Store) GetOperation(ctx context.Context, id string) (out data.Operation
 	err = s.transact(ctx, false, func(d *document) error {
 		var ok bool
 		out, ok = d.Operations[id]
+		if !ok {
+			return data.Error(data.CodeGone)
+		}
+		return nil
+	})
+	return
+}
+
+func (s *Store) LookupRequest(ctx context.Context, request data.RequestKey) (out data.Operation, found bool, err error) {
+	err = s.transact(ctx, false, func(d *document) error {
+		k := key(claimKey{request.ActorID, request.Target.ScopeKey, request.Target.TargetID, request.Kind.CommandID(), request.IdempotencyKey})
+		claim, ok := d.Claims[k]
+		if !ok || !s.options.Now().Before(claim.ExpiresAt) {
+			return nil
+		}
+		found = true
+		out, ok = d.Operations[claim.OperationID]
 		if !ok {
 			return data.Error(data.CodeGone)
 		}
@@ -408,6 +428,76 @@ func (s *Store) GetReceipt(ctx context.Context, id string) (out data.Preparation
 	})
 	return
 }
+
+type receiptCursor struct {
+	RetainUntil time.Time `json:"retain_until"`
+	ID          string    `json:"id"`
+}
+
+func decodeReceiptCursor(query data.ReceiptQuery) (receiptCursor, error) {
+	var cursor receiptCursor
+	if query.Limit < 1 || query.Limit > 100 || len(query.Cursor) > 2048 {
+		return cursor, data.Error(data.CodeInvalid)
+	}
+	if query.Cursor != "" {
+		encoded, err := base64.RawURLEncoding.DecodeString(query.Cursor)
+		if err != nil || json.Unmarshal(encoded, &cursor) != nil || cursor.ID == "" || cursor.RetainUntil.IsZero() {
+			return cursor, data.Error(data.CodeInvalid)
+		}
+	}
+	return cursor, nil
+}
+
+func receiptPageIDs(d *document, target data.TargetKey, cursor receiptCursor) []string {
+	ids := []string{}
+	for id, receipt := range d.Receipts {
+		if receipt.Target != target {
+			continue
+		}
+		until := d.RetainUntil[id]
+		if cursor.ID != "" && (until.After(cursor.RetainUntil) || until.Equal(cursor.RetainUntil) && id <= cursor.ID) {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	// Newest retained work first, with an ID tie-breaker for equal store times.
+	slices.SortFunc(ids, func(a, b string) int {
+		if compared := d.RetainUntil[b].Compare(d.RetainUntil[a]); compared != 0 {
+			return compared
+		}
+		return strings.Compare(a, b)
+	})
+	return ids
+}
+
+func (s *Store) ListReceipts(ctx context.Context, target data.TargetKey, query data.ReceiptQuery) (out data.ReceiptPage, err error) {
+	out.Receipts = []data.PreparationReceipt{}
+	cursor, err := decodeReceiptCursor(query)
+	if err != nil {
+		return out, err
+	}
+	err = s.transact(ctx, false, func(d *document) error {
+		ids := receiptPageIDs(d, target, cursor)
+		more := len(ids) > query.Limit
+		if more {
+			ids = ids[:query.Limit]
+		}
+		for _, id := range ids {
+			out.Receipts = append(out.Receipts, d.Receipts[id])
+		}
+		if more {
+			id := ids[len(ids)-1]
+			encoded, encodeErr := json.Marshal(receiptCursor{RetainUntil: d.RetainUntil[id], ID: id})
+			if encodeErr != nil {
+				return encodeErr
+			}
+			out.NextCursor = base64.RawURLEncoding.EncodeToString(encoded)
+		}
+		return nil
+	})
+	return
+}
+
 func (s *Store) GetArtifact(ctx context.Context, provider, id string) (out data.ArtifactRef, err error) {
 	err = s.transact(ctx, false, func(d *document) error {
 		var ok bool

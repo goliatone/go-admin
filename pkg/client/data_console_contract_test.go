@@ -282,15 +282,20 @@ func (f dataConsoleFixtures) liveEvents() []console.Event {
 	}
 }
 
-// actions offers prepare, a generation-checked activation and a cancel.
+// actions offers request options, captured generation, retained receipt and
+// operation controls using the same Go declarations as the live module.
 func (f dataConsoleFixtures) actions() *admin.DataPanelActions {
 	generation := uint64(3)
 	prepare := admindata.Input{Dataset: f.corpusA, Scenario: f.dstWeek, TargetID: "preview"}
 	activate := admindata.Input{Dataset: f.corpusA, Scenario: f.emptyHistory, TargetID: "preview", ReceiptID: "rcpt-empty-1", ExpectedGeneration: &generation}
+	retained := activate
+	retained.ReceiptID = ""
 	choices := []admin.DataActionChoice{
 		{Kind: admindata.Prepare, Label: "Prepare dst-week v1 on preview", Input: prepare},
 		{Kind: admindata.Activate, Label: "Activate rcpt-empty-1 (empty-history v1) at generation 3", Input: activate},
+		{Kind: admindata.Activate, Label: "Activate another empty-history receipt", Input: retained, ReceiptInput: true},
 		{Kind: admindata.Cancel, Label: "Cancel op-0003 (refresh ready v1)", Input: admindata.Input{TargetID: "preview", OperationID: "op-0003"}},
+		{Kind: admindata.Recover, Label: "Recover op-0007", Input: admindata.Input{TargetID: "staging", OperationID: "op-0007"}},
 	}
 	return &admin.DataPanelActions{
 		Choices: func(context.Context) ([]admin.DataActionChoice, error) { return choices, nil },

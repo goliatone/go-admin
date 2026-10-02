@@ -25,6 +25,9 @@ type DataModuleConfig struct {
 	Enabled         func() bool
 	ResolveIdentity func(context.Context) (console.Identity, error)
 	MenuParent      string
+	// ReceiptLimit bounds overview/action evidence. Older retained receipts remain
+	// usable through the explicit receipt controls; the active receipt is pinned.
+	ReceiptLimit int
 }
 
 // DataModule owns its console and command registrations, never the provider,
@@ -44,6 +47,12 @@ func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
 		return nil, data.Error(data.CodeInvalid)
 	}
 	m := &DataModule{config: cfg}
+	if m.config.ReceiptLimit == 0 {
+		m.config.ReceiptLimit = 100
+	}
+	if m.config.ReceiptLimit < 1 || m.config.ReceiptLimit > 100 {
+		return nil, data.Error(data.CodeInvalid)
+	}
 	if m.config.BasePath == "" {
 		m.config.BasePath = "/admin"
 	}
@@ -135,7 +144,18 @@ func (m *DataModule) dispatch(ctx context.Context, kind data.Kind, input data.In
 	if m.bus == nil || !m.config.Enabled() || m.host.closed() {
 		return data.Result{}, data.Error(data.CodeDenied)
 	}
-	encoded, err := json.Marshal(input)
+	if kind == data.Activate || kind == data.Reset {
+		resolved, err := m.config.Service.ResolveRequestGeneration(ctx, kind, input)
+		if err != nil {
+			return data.Result{}, err
+		}
+		input = resolved
+	}
+	var message any = input
+	if kind == data.Recover {
+		message = data.RecoverRequest{TargetID: input.TargetID, OperationID: input.OperationID}
+	}
+	encoded, err := json.Marshal(message)
 	if err != nil {
 		return data.Result{}, err
 	}
@@ -181,7 +201,17 @@ func (m *DataModule) readConsole(ctx context.Context, _ console.Identity) error 
 	}
 	return nil
 }
-func (m *DataModule) allowAction(ctx context.Context, _ console.Identity, _, action string) bool {
+func (m *DataModule) allowAction(ctx context.Context, _ console.Identity, panel, action string) bool {
+	kind, valid := DataActionKind(action)
+	if !valid || dataChoicePanel(kind) != panel {
+		return false
+	}
+	// The registry has just resolved exact choices and their record policy.
+	// Recheck target grants without reloading the entire read model per control.
+	// Cancel uses its original operation's grant rather than a separate cancel grant.
+	if kind != data.Cancel {
+		return m.config.Service.AuthorizeAction(ctx, kind, m.config.TargetID) == nil
+	}
 	choices, err := m.choices(ctx)
 	if err != nil {
 		return false
@@ -201,8 +231,9 @@ func (m *DataModule) allowRecord(ctx context.Context, _ console.Identity, panel 
 		op, err := m.config.Service.LookupOperation(ctx, record.Key)
 		return err == nil && op.Target.TargetID == m.config.TargetID
 	}
-	_, err := m.config.Service.Active(ctx, m.config.TargetID)
-	return err == nil
+	// State and evidence were loaded through authorized service reads. Delivery
+	// needs fresh read grants, not another full state-store read for every check.
+	return m.config.Service.AuthorizeView(ctx, m.config.TargetID) == nil
 }
 
 type dataModuleReadModel struct {
@@ -227,17 +258,39 @@ func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error)
 	if err != nil {
 		return model, err
 	}
-	seen := map[string]bool{}
-	for _, op := range model.ops {
-		if r := op.Result.Receipt; r != nil && !seen[r.ID] {
-			model.receipts = append(model.receipts, r)
-			seen[r.ID] = true
+	// A pending handover must remain recoverable even after newer read-only
+	// operations move it out of the history window.
+	if id := model.state.PendingOperationID; id != "" && !slices.ContainsFunc(model.ops, func(op data.Operation) bool { return op.Result.OperationID == id }) {
+		op, lookupErr := m.config.Service.LookupOperation(ctx, id)
+		if lookupErr != nil {
+			return model, lookupErr
 		}
+		model.ops = append(model.ops, op)
+	}
+	page, err := m.config.Service.Receipts(ctx, m.config.TargetID, data.ReceiptQuery{Limit: m.config.ReceiptLimit})
+	if err != nil {
+		return model, err
+	}
+	for _, receipt := range page.Receipts {
+		model.receipts = append(model.receipts, &receipt)
+	}
+	for _, id := range []string{model.state.Activation.ReceiptID, model.state.PendingReceiptID} {
+		if id == "" || slices.ContainsFunc(model.receipts, func(r *data.PreparationReceipt) bool { return r.ID == id }) {
+			continue
+		}
+		receipt, lookupErr := m.config.Service.LookupReceipt(ctx, m.config.TargetID, id)
+		if lookupErr != nil {
+			return model, lookupErr
+		}
+		model.receipts = append(model.receipts, &receipt)
 	}
 	return model, nil
 }
 func (m *DataModule) permittedChoice(ctx context.Context, choice DataActionChoice, capabilities map[data.Kind]data.Capability) bool {
 	capability := capabilities[choice.Kind]
+	if choice.ReceiptInput {
+		return capability.Supported && capability.Permitted
+	}
 	input := choice.Input
 	input.IdempotencyKey = "permission-check"
 	return capability.Supported && capability.Permitted && m.config.Service.AuthorizeInput(ctx, choice.Kind, input) == nil
@@ -256,6 +309,15 @@ func (m *DataModule) choices(ctx context.Context) ([]DataActionChoice, error) {
 			}
 		}
 	}
+	for _, op := range model.ops {
+		if op.Result.State.Terminal() || op.Result.DryRun || !op.Result.Kind.Writes() {
+			continue
+		}
+		input := data.Input{TargetID: m.config.TargetID, OperationID: op.Result.OperationID}
+		if m.config.Service.AuthorizeInput(ctx, data.Recover, input) == nil {
+			out = append(out, DataActionChoice{Kind: data.Recover, Label: "Recover " + op.Result.OperationID, Input: input})
+		}
+	}
 	return out, nil
 }
 func (m *DataModule) datasetChoices(descriptor data.Descriptor, model dataModuleReadModel) []DataActionChoice {
@@ -265,6 +327,12 @@ func (m *DataModule) datasetChoices(descriptor data.Descriptor, model dataModule
 		for _, kind := range []data.Kind{data.Validate, data.Prepare, data.Refresh} {
 			out = append(out, DataActionChoice{Kind: kind, Label: dataKindLabel(kind) + " " + scenario.ID, Input: input})
 		}
+		// Explicit receipt controls keep retained work reachable beyond the bounded
+		// overview. Submitted IDs are selectors, never authorization claims.
+		out = append(out, DataActionChoice{Kind: data.Verify, Label: "Verify another " + scenario.ID + " receipt", Input: input, ReceiptInput: true})
+		generation := model.state.Activation.Generation
+		input.ExpectedGeneration = &generation
+		out = append(out, DataActionChoice{Kind: data.Activate, Label: "Activate another " + scenario.ID + " receipt", Input: input, ReceiptInput: true})
 	}
 	for _, receipt := range model.receipts {
 		if receipt.Dataset != descriptor.Dataset {

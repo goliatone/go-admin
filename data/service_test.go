@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1027,5 +1028,127 @@ func TestHostWriteGateAndReadOnlyCapabilities(t *testing.T) {
 	result, err := service.Run(context.Background(), data.Prepare, input)
 	if err != nil || result.Phase != "planned" || f.provider.effects.Load() != 0 {
 		t.Fatal("safe plan rejected", result, err)
+	}
+}
+
+func TestRequestGenerationBindingCannotCrossActorsOrInputs(t *testing.T) {
+	f := newFixture(t)
+	receipt := verified(t, f, prepared(t, f, "p"), "v")
+	original := activationInput(f, receipt, 0, "a")
+	result := run(t, f, data.Activate, original)
+	successful(t, result)
+	one := uint64(1)
+	refreshed := original
+	refreshed.ExpectedGeneration = &one
+	bound, err := f.service.ResolveRequestGeneration(t.Context(), data.Activate, refreshed)
+	if err != nil || *bound.ExpectedGeneration != 0 {
+		t.Fatal(bound, err)
+	}
+	for _, mutate := range []func(*data.Input){
+		func(in *data.Input) { in.DryRun = true }, func(in *data.Input) { in.BatchLimit = 1 }, func(in *data.Input) { in.ReceiptID = "different" },
+	} {
+		changed := refreshed
+		mutate(&changed)
+		if _, err = f.service.ResolveRequestGeneration(t.Context(), data.Activate, changed); data.ErrorCode(err) != data.CodeConflict {
+			t.Fatal("changed input accepted", changed, err)
+		}
+	}
+	cfg := f.serviceConfig(f.store)
+	other := f.principal
+	other.ActorID = "bob"
+	cfg.Resolve = func(context.Context) (data.Principal, error) { return other, nil }
+	service, err := data.NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound, err = service.ResolveRequestGeneration(t.Context(), data.Activate, refreshed)
+	if err != nil || *bound.ExpectedGeneration != 1 {
+		t.Fatal("other actor restored original request", bound, err)
+	}
+	f.revoked.Store(true)
+	if _, err = f.service.ResolveRequestGeneration(t.Context(), data.Activate, refreshed); data.ErrorCode(err) != data.CodeDenied {
+		t.Fatal("revocation ignored", err)
+	}
+}
+
+type receiptHookStore struct {
+	data.OperationStore
+	after func()
+}
+
+func (s receiptHookStore) ListReceipts(ctx context.Context, key data.TargetKey, query data.ReceiptQuery) (data.ReceiptPage, error) {
+	page, err := s.OperationStore.ListReceipts(ctx, key, query)
+	s.after()
+	return page, err
+}
+func (s receiptHookStore) GetReceipt(ctx context.Context, id string) (data.PreparationReceipt, error) {
+	receipt, err := s.OperationStore.GetReceipt(ctx, id)
+	s.after()
+	return receipt, err
+}
+
+func TestReceiptDeliveryReauthorizesAndFiltersRecords(t *testing.T) {
+	for _, change := range []string{"record-denied", "principal-revoked", "scope-changed"} {
+		t.Run(change, func(t *testing.T) {
+			f := newFixture(t)
+			prepared(t, f, "first")
+			prepared(t, f, "second")
+			checks := 0
+			cfg := f.serviceConfig(f.store)
+			cfg.Policy = policyFunc(func(_ context.Context, _ data.Principal, access data.AccessRequest) error {
+				if access.Receipt != nil {
+					checks++
+					if checks == 2 {
+						switch change {
+						case "principal-revoked":
+							f.revoked.Store(true)
+						case "scope-changed":
+							f.principal.ScopeKey = "other"
+						}
+						return data.Error(data.CodeDenied)
+					}
+				}
+				return nil
+			})
+			service, err := data.NewService(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			page, err := service.Receipts(t.Context(), f.input.TargetID, data.ReceiptQuery{Limit: 100})
+			if change == "record-denied" {
+				if err != nil || len(page.Receipts) != 1 {
+					t.Fatal(page, err)
+				}
+			} else if data.ErrorCode(err) != data.CodeDenied || len(page.Receipts) != 0 {
+				t.Fatal("revoked caller received earlier rows", page, err)
+			}
+		})
+	}
+	for _, lookup := range []bool{false, true} {
+		t.Run(fmt.Sprintf("slow-read-%v", lookup), func(t *testing.T) {
+			f := newFixture(t)
+			receipt := prepared(t, f, "first")
+			cfg := f.serviceConfig(receiptHookStore{OperationStore: f.store, after: func() { f.revoked.Store(true) }})
+			service, err := data.NewService(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if lookup {
+				r, e := service.LookupReceipt(t.Context(), f.input.TargetID, receipt.ID)
+				if data.ErrorCode(e) != data.CodeGone || r.ID != "" {
+					t.Fatal("slow lookup disclosed revoked receipt", r, e)
+				}
+			} else {
+				page, e := service.Receipts(t.Context(), f.input.TargetID, data.ReceiptQuery{Limit: 1})
+				if data.ErrorCode(e) != data.CodeDenied || len(page.Receipts) != 0 {
+					t.Fatal("slow list disclosed revoked receipt", page, e)
+				}
+			}
+		})
+	}
+	f := newFixture(t)
+	receipt := prepared(t, f, "first")
+	if _, err := f.service.LookupReceipt(t.Context(), "other-target", receipt.ID); data.ErrorCode(err) != data.CodeGone {
+		t.Fatal("wrong target returned receipt", err)
 	}
 }

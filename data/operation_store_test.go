@@ -2,6 +2,7 @@ package data_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -318,5 +319,70 @@ func TestStoreRejectsTerminalResolutionOfUnreadyRouting(t *testing.T) {
 	}
 	if err = f.store.Release(t.Context(), lease); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestStoreRequestLookupHonorsScopeAndRetryTombstones(t *testing.T) {
+	f := newFixture(t)
+	result := run(t, f, data.Validate, f.input)
+	key := data.RequestKey{ActorID: f.principal.ActorID, Target: data.TargetKey{ScopeKey: f.principal.ScopeKey, TargetID: f.input.TargetID}, Kind: data.Validate, IdempotencyKey: f.input.IdempotencyKey}
+	op, found, err := f.store.LookupRequest(t.Context(), key)
+	if err != nil || !found || op.Result.OperationID != result.OperationID {
+		t.Fatal(op, found, err)
+	}
+	for _, other := range []data.RequestKey{
+		{ActorID: "other", Target: key.Target, Kind: key.Kind, IdempotencyKey: key.IdempotencyKey},
+		{ActorID: key.ActorID, Target: data.TargetKey{ScopeKey: "other", TargetID: key.Target.TargetID}, Kind: key.Kind, IdempotencyKey: key.IdempotencyKey},
+		{ActorID: key.ActorID, Target: key.Target, Kind: data.Prepare, IdempotencyKey: key.IdempotencyKey},
+	} {
+		if _, found, err = f.store.LookupRequest(t.Context(), other); err != nil || found {
+			t.Fatal("foreign request found", found, err)
+		}
+	}
+	f.now.Add(int64(8 * 24 * time.Hour))
+	if err = f.store.Prune(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, err = f.store.LookupRequest(t.Context(), key); !found || data.ErrorCode(err) != data.CodeGone {
+		t.Fatal("live tombstone treated as new request", found, err)
+	}
+	f.now.Add(int64(23 * 24 * time.Hour))
+	if _, found, err = f.store.LookupRequest(t.Context(), key); err != nil || found {
+		t.Fatal("expired claim remains replayable", found, err)
+	}
+}
+
+func TestStoreReceiptPagesDoNotDependOnOperationHistory(t *testing.T) {
+	f := newFixture(t)
+	want := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		receipt := prepared(t, f, fmt.Sprintf("prepare-%d", i))
+		want[receipt.ID] = true
+		f.now.Add(int64(time.Second))
+	}
+	key := data.TargetKey{ScopeKey: f.principal.ScopeKey, TargetID: f.input.TargetID}
+	query := data.ReceiptQuery{Limit: 1}
+	seen := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		page, err := f.store.ListReceipts(t.Context(), key, query)
+		if err != nil || len(page.Receipts) != 1 {
+			t.Fatal(page, err)
+		}
+		id := page.Receipts[0].ID
+		if !want[id] || seen[id] {
+			t.Fatal("receipt duplicated or foreign", page)
+		}
+		seen[id] = true
+		query.Cursor = page.NextCursor
+		if (i == 2) != (query.Cursor == "") {
+			t.Fatal("incorrect page termination", page)
+		}
+	}
+	page, err := f.store.ListReceipts(t.Context(), data.TargetKey{ScopeKey: "other", TargetID: key.TargetID}, data.ReceiptQuery{Limit: 100})
+	if err != nil || len(page.Receipts) != 0 {
+		t.Fatal("foreign receipts returned", page, err)
+	}
+	if _, err = f.store.ListReceipts(t.Context(), key, data.ReceiptQuery{Limit: 1, Cursor: "invalid"}); data.ErrorCode(err) != data.CodeInvalid {
+		t.Fatal("invalid cursor accepted", err)
 	}
 }

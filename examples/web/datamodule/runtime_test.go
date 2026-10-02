@@ -95,7 +95,7 @@ func TestDurableDemoTypedLifecycleAndScenarioSwitch(t *testing.T) {
 		t.Fatal(plan)
 	}
 	var stages int
-	if err = runtime.db.QueryRow(`SELECT COUNT(*) FROM data_example_stages`).Scan(&stages); err != nil || stages != 0 {
+	if err = runtime.db.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM data_example_stages`).Scan(&stages); err != nil || stages != 0 {
 		t.Fatal("dry run allocated a stage", stages, err)
 	}
 	input.IdempotencyKey, input.DryRun = "prepare", false
@@ -183,7 +183,7 @@ func TestDemoRejectsDatasetVersionCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer runtime.Close()
-	if _, err = runtime.db.Exec(`UPDATE data_example_catalog SET digest=?`, Hash("different-source")); err != nil {
+	if _, err = runtime.db.ExecContext(t.Context(), `UPDATE data_example_catalog SET digest=?`, Hash("different-source")); err != nil {
 		t.Fatal(err)
 	}
 	if reopened, openErr := Open(filename); openErr == nil {
@@ -245,7 +245,7 @@ func TestDemoRecoveryFencingAndImmutableContent(t *testing.T) {
 	if err != nil || !recovered.Active || recovered.Activation.Generation != 1 {
 		t.Fatal(recovered, err)
 	}
-	if _, err = runtime.db.Exec(`UPDATE data_example_records SET amount=999 WHERE stage=? AND id='order-1'`, prepared.Receipt.StageID); err != nil {
+	if _, err = runtime.db.ExecContext(t.Context(), `UPDATE data_example_records SET amount=999 WHERE stage=? AND id='order-1'`, prepared.Receipt.StageID); err != nil {
 		t.Fatal(err)
 	}
 	if err = runtime.InspectReceipt(t.Context(), *prepared.Receipt); data.ErrorCode(err) != data.CodeConflict {

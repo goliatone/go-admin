@@ -244,6 +244,10 @@ func (s *Service) Active(ctx context.Context, targetID string) (ActiveState, err
 		return ActiveState{}, err
 	}
 	out := ActiveState{Target: key, Activation: state.Activation, Transitioning: state.Pending != nil, RecoveryRequired: state.RecoveryRequired}
+	if state.Pending != nil {
+		out.PendingOperationID = state.Pending.OperationID
+		out.PendingReceiptID = state.Pending.Next.ReceiptID
+	}
 	if out.Transitioning || out.RecoveryRequired {
 		out.Activation.Ready = false
 	}
@@ -263,6 +267,60 @@ func (s *Service) LookupOperation(ctx context.Context, id string) (Operation, er
 		return Operation{}, Error(CodeGone)
 	}
 	return op, nil
+}
+
+// LookupReceipt reads the current authoritative receipt, including its latest
+// verification, rather than an immutable historical operation result.
+func (s *Service) LookupReceipt(ctx context.Context, targetID, id string) (PreparationReceipt, error) {
+	p, err := s.principal(ctx)
+	if err != nil {
+		return PreparationReceipt{}, err
+	}
+	key := TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: key}); err != nil {
+		return PreparationReceipt{}, err
+	}
+	r, err := s.config.Store.GetReceipt(ctx, id)
+	if err != nil || r.Target != key {
+		return PreparationReceipt{}, Error(CodeGone)
+	}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: key, Receipt: &r}); err != nil {
+		return PreparationReceipt{}, Error(CodeGone)
+	}
+	return r, nil
+}
+
+// Receipts exposes bounded, current-policy pages independent of operation
+// history. Filtering does not alter the store cursor; denied rows stay omitted.
+func (s *Service) Receipts(ctx context.Context, targetID string, query ReceiptQuery) (ReceiptPage, error) {
+	p, err := s.principal(ctx)
+	if err != nil {
+		return ReceiptPage{}, err
+	}
+	if query.Limit < 1 || query.Limit > 100 || len(query.Cursor) > 2048 {
+		return ReceiptPage{}, Error(CodeInvalid)
+	}
+	key := TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: key}); err != nil {
+		return ReceiptPage{}, err
+	}
+	page, err := s.config.Store.ListReceipts(ctx, key, query)
+	if err != nil {
+		return ReceiptPage{}, Error(ErrorCode(err))
+	}
+	if len(page.Receipts) > query.Limit {
+		return ReceiptPage{}, Error(CodeInvalid)
+	}
+	out := ReceiptPage{Receipts: []PreparationReceipt{}, NextCursor: page.NextCursor}
+	for _, receipt := range page.Receipts {
+		if receipt.Target == key && s.authorize(ctx, p, AccessRequest{Action: "view", Target: key, Receipt: &receipt}) == nil {
+			out.Receipts = append(out.Receipts, receipt)
+		}
+	}
+	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: key}); err != nil {
+		return ReceiptPage{}, err
+	}
+	return out, nil
 }
 func (s *Service) Operations(ctx context.Context, targetID string, limit int) ([]Operation, error) {
 	p, err := s.principal(ctx)
@@ -349,6 +407,12 @@ func (s *Service) Run(ctx context.Context, kind Kind, input Input) (Result, erro
 	if s == nil || ctx == nil {
 		return Result{}, Error(CodeUnavailable)
 	}
+	if kind == Recover {
+		if err := s.AuthorizeInput(ctx, kind, input); err != nil {
+			return Result{}, err
+		}
+		return s.Recover(ctx, input.OperationID)
+	}
 	result, err := s.run(ctx, kind, input)
 	return s.deliverResult(ctx, result, err, "")
 }
@@ -382,6 +446,74 @@ func (s *Service) deliverResult(ctx context.Context, result Result, executionErr
 	return result, executionErr
 }
 
+// ResolveRequestGeneration binds an adapter's generation precondition to the
+// first durable request using the same actor/target/command/key. A refreshed form
+// may observe a newer generation, but a retry must preserve the original one.
+// All other inputs must match. New requests retain their submitted generation;
+// Run's atomic claim and generation CAS remain the final authority.
+// Direct typed Run callers keep strict fingerprint semantics.
+func (s *Service) ResolveRequestGeneration(ctx context.Context, kind Kind, input Input) (Input, error) {
+	if kind != Activate && kind != Reset {
+		return input, Error(CodeInvalid)
+	}
+	if err := input.Validate(kind); err != nil {
+		return Input{}, err
+	}
+	p, err := s.principal(ctx)
+	if err != nil {
+		return Input{}, err
+	}
+	key := TargetKey{ScopeKey: p.ScopeKey, TargetID: input.TargetID}
+	if err = s.authorize(ctx, p, AccessRequest{Action: string(kind), Target: key}); err != nil {
+		return Input{}, err
+	}
+	op, found, err := s.config.Store.LookupRequest(ctx, RequestKey{ActorID: p.ActorID, Target: key, Kind: kind, IdempotencyKey: input.IdempotencyKey})
+	if err != nil {
+		return Input{}, Error(ErrorCode(err))
+	}
+	access := AccessRequest{Action: string(kind), Target: key}
+	if found {
+		if op.Target != key || op.Principal.ActorID != p.ActorID || op.Result.Kind != kind || op.Input.ExpectedGeneration == nil {
+			return Input{}, Error(CodeDenied)
+		}
+		generation := *op.Input.ExpectedGeneration
+		input.ExpectedGeneration = &generation
+		fingerprint, fingerprintErr := input.Fingerprint(kind)
+		if fingerprintErr != nil || fingerprint != op.Fingerprint {
+			return Input{}, Error(CodeConflict)
+		}
+		access.Operation = &op
+	}
+	if err = s.authorize(ctx, p, access); err != nil {
+		return Input{}, err
+	}
+	return input, nil
+}
+
+// AuthorizeView rechecks current target read grants without loading lifecycle
+// state. It is suitable for delivery of projections already loaded by the service.
+func (s *Service) AuthorizeView(ctx context.Context, targetID string) error {
+	p, err := s.principal(ctx)
+	if err != nil {
+		return err
+	}
+	return s.authorize(ctx, p, AccessRequest{Action: "view", Target: TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}})
+}
+
+// AuthorizeAction rechecks current target grants without loading lifecycle
+// records. It filters already declared controls; AuthorizeInput and Run still
+// enforce ownership, selected input and capabilities before dispatch/effects.
+func (s *Service) AuthorizeAction(ctx context.Context, kind Kind, targetID string) error {
+	if !kind.Valid() {
+		return Error(CodeInvalid)
+	}
+	p, err := s.principal(ctx)
+	if err != nil {
+		return err
+	}
+	return s.authorize(ctx, p, AccessRequest{Action: string(kind), Target: TargetKey{ScopeKey: p.ScopeKey, TargetID: targetID}})
+}
+
 // AuthorizeInput performs no effects. Named factories use it before dispatch;
 // typed handlers still enforce policy again at the service boundary.
 func (s *Service) AuthorizeInput(ctx context.Context, kind Kind, input Input) error {
@@ -394,6 +526,23 @@ func (s *Service) AuthorizeInput(ctx context.Context, kind Kind, input Input) er
 	}
 	key := TargetKey{ScopeKey: p.ScopeKey, TargetID: input.TargetID}
 	access := AccessRequest{Action: string(kind), Target: key}
+	if kind == Activate || kind == Verify {
+		r, e := s.config.Store.GetReceipt(ctx, input.ReceiptID)
+		if e != nil || r.Target != key {
+			return Error(CodeGone)
+		}
+		access.Receipt = &r
+	}
+	if kind == Recover {
+		if !s.writeReady() {
+			return Error(CodeUnavailable)
+		}
+		op, e := s.config.Store.GetOperation(ctx, input.OperationID)
+		if e != nil || op.Target != key {
+			return Error(CodeGone)
+		}
+		access.Operation = &op
+	}
 	if kind == Cancel {
 		op, e := s.config.Store.GetOperation(ctx, input.OperationID)
 		if e != nil || op.Target != key || op.Principal.ActorID != p.ActorID {

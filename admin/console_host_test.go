@@ -381,3 +381,26 @@ func TestConsoleCloseCancelsInFlightProvider(t *testing.T) {
 		t.Fatal("Close did not cancel in-flight provider")
 	}
 }
+
+func TestConsoleSnapshotRejectsRevocationDuringProjection(t *testing.T) {
+	for _, cancelRequest := range []bool{false, true} {
+		t.Run(map[bool]string{false: "revoked", true: "canceled"}[cancelRequest], func(t *testing.T) {
+			var revoked, execute atomic.Bool
+			h := consoleTestHost(t, "data", &revoked, &execute)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			h.config.Access.Project = func(_ context.Context, _ console.Identity, _ string, record console.Record) console.Record {
+				if cancelRequest {
+					cancel()
+				} else {
+					revoked.Store(true)
+				}
+				return record
+			}
+			snapshot, err := h.Snapshot(ctx, consoleTestIdentity("data"))
+			if !errors.Is(err, ErrForbidden) || len(snapshot.Panels) != 0 {
+				t.Fatalf("projection disclosed stale snapshot: %+v %v", snapshot, err)
+			}
+		})
+	}
+}

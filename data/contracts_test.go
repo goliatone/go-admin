@@ -138,3 +138,38 @@ func TestErrorCodePreservesDataCodesThroughCommandWrappers(t *testing.T) {
 		t.Fatalf("unknown error code = %s", code)
 	}
 }
+
+func TestRecoveryRequestAcceptsOnlyTargetAndOperation(t *testing.T) {
+	good := RecoverRequest{TargetID: "preview", OperationID: "op-1"}
+	if err := good.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range []Input{
+		{}, {TargetID: "other"}, {OperationID: "op-1"},
+		{TargetID: "preview", OperationID: "op-1", IdempotencyKey: "new-work"},
+		{TargetID: "preview", OperationID: "op-1", DryRun: true},
+		{TargetID: "preview", OperationID: "op-1", BatchLimit: 100},
+	} {
+		if err := input.Validate(Recover); ErrorCode(err) != CodeInvalid {
+			t.Fatalf("accepted recovery payload %+v", input)
+		}
+	}
+}
+
+func TestSafeErrorCodeTraversesDispatcherAndJoinedCauses(t *testing.T) {
+	for _, code := range []string{CodeConflict, CodeBusy, CodeStale, CodeUnavailable, CodeDenied, CodeProvider} {
+		wrapped := gerrors.Wrap(Error(code), gerrors.CategoryInternal, "dispatcher").WithTextCode("HANDLER_EXECUTION_FAILED")
+		got, known := SafeErrorCode(wrapped)
+		if !known || got != code {
+			t.Fatal(code, got, known)
+		}
+	}
+	joined := errors.Join(Error(CodeProvider), gerrors.Wrap(Error(CodeDenied), gerrors.CategoryInternal, "dispatch"))
+	if code, known := SafeErrorCode(joined); !known || code != CodeDenied {
+		t.Fatal("denial hidden by provider error", code, known)
+	}
+	unknown := gerrors.Wrap(errors.New("foreign failure"), gerrors.CategoryInternal, "dispatcher").WithTextCode("HANDLER_EXECUTION_FAILED")
+	if code, known := SafeErrorCode(unknown); known || code != "" {
+		t.Fatal("unknown error became an explicit provider failure", code, known)
+	}
+}

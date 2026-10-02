@@ -43,6 +43,9 @@ func RegisterDataCommands(bus *CommandBus, service *data.Service) (CommandRegist
 	if err = registerDataCommand[data.CancelRequest](set, service); err != nil {
 		return nil, err
 	}
+	if err = registerDataCommand[data.RecoverRequest](set, service); err != nil {
+		return nil, err
+	}
 	return set.Commit()
 }
 func registerDataCommand[T data.Message](set *CommandRegistrationSet, service *data.Service) error {

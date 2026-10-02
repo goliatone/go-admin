@@ -254,6 +254,11 @@ func (h *ConsoleHost) Snapshot(ctx context.Context, identity console.Identity) (
 		}
 		panels = append(panels, console.PanelSnapshot{PanelDefinition: def, Records: records})
 	}
+	// Projection can itself perform slow/current-policy reads. Never deliver a
+	// partial success after its deadline, shutdown or principal revocation.
+	if _, _, err = h.current(currentCtx, identity); err != nil {
+		return console.Snapshot{}, err
+	}
 	snapshot.Panels = panels
 	return snapshot, nil
 }

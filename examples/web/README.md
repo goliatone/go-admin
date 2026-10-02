@@ -102,7 +102,23 @@ In Overview, choose an action, enter a unique request key, and submit:
    sample evidence. `ready` remains active throughout staging and verification.
 6. Activate `quiet` separately. The physical route now selects the empty stage
    and advances generation. Activation checks the generation selected by the
-   server; a stale page is rejected/refreshed rather than silently overwriting it.
+   rendered page; a stale new request is rejected rather than silently overwriting it.
+   Retrying the same key preserves the original generation, including after
+   refresh or restart. Other changed options still conflict.
+
+The overview shows a bounded page of current receipts, independent of the latest
+100 operations, and keeps active/pending receipts visible. For an older retained
+receipt outside that page, choose **Verify another … receipt** or **Activate
+another … receipt** and enter its receipt ID. The same ownership, scenario,
+verification and generation checks apply.
+
+If an interrupted activation leaves writes paused, a custodian or superadmin
+can choose **Recover** for the pending operation in Operations. Recovery checks
+current `admin.data.recover` grants, waits for the previous lease to expire,
+fences old workers and inspects physical routing without repeating provider
+work. If the route is still ambiguous, it remains paused; retry recovery after
+resolving the target health problem. Successful recovery records the supervisor
+separately from the original requester and resumes writes.
 
 The wiring is in `data_module_example.go`: `data.NewService` receives the
 application's provider, managed target, operation store, current policy and

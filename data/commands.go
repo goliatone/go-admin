@@ -68,6 +68,20 @@ func (m CancelRequest) Validate() error       { return m.Input.Validate(Cancel) 
 func (CancelRequest) OperationKind() Kind     { return Cancel }
 func (m CancelRequest) OperationInput() Input { return m.Input }
 
+// RecoverRequest references durable work and has no new-work request key or
+// editable provider inputs. Recovery is authorized and audited as a supervisor.
+type RecoverRequest struct {
+	TargetID    string `json:"target_id"`
+	OperationID string `json:"operation_id"`
+}
+
+func (RecoverRequest) Type() string        { return Recover.CommandID() }
+func (m RecoverRequest) Validate() error   { return m.OperationInput().Validate(Recover) }
+func (RecoverRequest) OperationKind() Kind { return Recover }
+func (m RecoverRequest) OperationInput() Input {
+	return Input{TargetID: m.TargetID, OperationID: m.OperationID}
+}
+
 // Command adapts each distinct typed message to the shared lifecycle service.
 type Command[T Message] struct{ Service *Service }
 

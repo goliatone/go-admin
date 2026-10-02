@@ -389,7 +389,8 @@
                   "Activate",
                   "Reset",
                   "Generate",
-                  "Cancel"
+                  "Cancel",
+                  "Recover"
                 ]
               }
             ]
@@ -1528,7 +1529,8 @@
                   "Activate",
                   "Reset",
                   "Generate",
-                  "Cancel"
+                  "Cancel",
+                  "Recover"
                 ]
               }
             ]
@@ -2356,7 +2358,8 @@
                   "Activate",
                   "Reset",
                   "Generate",
-                  "Cancel"
+                  "Cancel",
+                  "Recover"
                 ]
               }
             ],
@@ -2367,7 +2370,7 @@
             },
             "actions": [
               {
-                "id": "cancel-aeb0f60c9d3cd10cecb3ddac",
+                "id": "cancel-d59deb36ffccf36efa2d58a0",
                 "label": "Cancel op-0003 (refresh ready v1)",
                 "submit_label": "Cancel",
                 "kind": "cancel",
@@ -2384,6 +2387,15 @@
                     "required": true
                   }
                 ]
+              },
+              {
+                "id": "recover-6dfbf1ae071d96918ef97cdb",
+                "label": "Recover op-0007",
+                "submit_label": "Recover",
+                "kind": "recover",
+                "confirm_text": "Recover op-0007? Recovery waits for lease expiry and reconciles existing work without repeating provider effects.",
+                "requires_confirm": true,
+                "refresh": true
               }
             ]
           },
@@ -2801,7 +2813,7 @@
             },
             "actions": [
               {
-                "id": "prepare-3c50fdb143e36a1e750d01e1",
+                "id": "prepare-ffa96cec81bb4160596e709a",
                 "label": "Prepare dst-week v1 on preview",
                 "submit_label": "Prepare",
                 "kind": "prepare",
@@ -2829,13 +2841,50 @@
                 ]
               },
               {
-                "id": "activate-4079fbc67cbebc63b4a0e205",
+                "id": "activate-25588133b2e0757ef1e11c06",
+                "label": "Activate another empty-history receipt",
+                "submit_label": "Activate",
+                "kind": "activate",
+                "confirm_text": "Activate another empty-history receipt? This changes the active dataset on target preview.",
+                "requires_confirm": true,
+                "refresh": true,
+                "payload": {
+                  "expected_generation": 3
+                },
+                "fields": [
+                  {
+                    "name": "idempotency_key",
+                    "label": "Request key",
+                    "kind": "text",
+                    "placeholder": "New key for new work",
+                    "help": "Reuse the same key to retry this request; a new key starts new work.",
+                    "required": true
+                  },
+                  {
+                    "name": "receipt_id",
+                    "label": "Receipt ID",
+                    "kind": "text",
+                    "help": "Use a retained receipt for this scenario and target. Activation requires successful verification.",
+                    "required": true
+                  },
+                  {
+                    "name": "dry_run",
+                    "label": "Dry run (plan only, no changes)",
+                    "kind": "checkbox"
+                  }
+                ]
+              },
+              {
+                "id": "activate-07bc43fb71a31d7754a9564f",
                 "label": "Activate rcpt-empty-1 (empty-history v1) at generation 3",
                 "submit_label": "Activate",
                 "kind": "activate",
                 "confirm_text": "Activate rcpt-empty-1 (empty-history v1) at generation 3? This changes the active dataset on target preview.",
                 "requires_confirm": true,
                 "refresh": true,
+                "payload": {
+                  "expected_generation": 3
+                },
                 "fields": [
                   {
                     "name": "idempotency_key",

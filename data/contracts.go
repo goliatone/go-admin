@@ -28,12 +28,14 @@ const (
 	Reset    Kind = "reset"
 	Generate Kind = "generate"
 	Cancel   Kind = "cancel"
+	// Recover reconciles an existing operation; it never claims new provider work.
+	Recover Kind = "recover"
 )
 
 func (k Kind) CommandID() string { return "admin.data." + string(k) + ".v1" }
 func (k Kind) Valid() bool {
 	switch k {
-	case Validate, Prepare, Refresh, Verify, Activate, Reset, Generate, Cancel:
+	case Validate, Prepare, Refresh, Verify, Activate, Reset, Generate, Cancel, Recover:
 		return true
 	}
 	return false
@@ -89,24 +91,43 @@ func Error(code string) error {
 	return gerrors.New("data operation "+code, category).WithTextCode(code).WithCode(status)
 }
 func ErrorCode(err error) string {
+	if code, ok := SafeErrorCode(err); ok {
+		return code
+	}
+	return CodeProvider
+}
+
+// SafeErrorCode finds a recognized lifecycle error through dispatcher wrappers
+// and joined causes. The boolean distinguishes an explicit safe provider failure
+// from an unknown error, which must retain the host's ordinary error handling.
+func SafeErrorCode(err error) (string, bool) {
+	providerFailure := false
 	for err != nil {
 		if structured, ok := errors.AsType[*gerrors.Error](err); ok {
 			switch structured.TextCode {
 			case CodeInvalid, CodeDenied, CodeConflict, CodeBusy, CodeStale, CodeUnavailable, CodeCanceled, CodeRecovery, CodeLeaseLost, CodeGone:
-				return structured.TextCode
+				return structured.TextCode, true
+			case CodeProvider:
+				providerFailure = true
 			}
 		}
 		if joined, ok := err.(interface{ Unwrap() []error }); ok {
 			for _, cause := range joined.Unwrap() {
-				if code := ErrorCode(cause); code != CodeProvider {
-					return code
+				if code, ok := SafeErrorCode(cause); ok {
+					if code != CodeProvider {
+						return code, true
+					}
+					providerFailure = true
 				}
 			}
-			return CodeProvider
+			break
 		}
 		err = errors.Unwrap(err)
 	}
-	return CodeProvider
+	if providerFailure {
+		return CodeProvider, true
+	}
+	return "", false
 }
 
 type DatasetRef struct {
@@ -280,6 +301,9 @@ func (in Input) Normalize() Input {
 	return in
 }
 func (in Input) Validate(k Kind) error {
+	if k == Recover {
+		return in.validateRecovery()
+	}
 	in = in.Normalize()
 	if in.ExpectedGeneration != nil && *in.ExpectedGeneration > MaxWireCounter {
 		return Error(CodeInvalid)
@@ -297,6 +321,13 @@ func (in Input) Validate(k Kind) error {
 		return Error(CodeInvalid)
 	}
 	return in.validateOperationFields(k)
+}
+
+func (in Input) validateRecovery() error {
+	if !identifier(in.TargetID) || !identifier(in.OperationID) || in != (Input{TargetID: in.TargetID, OperationID: in.OperationID}) {
+		return Error(CodeInvalid)
+	}
+	return nil
 }
 
 func (in Input) validBounds() bool {
@@ -445,8 +476,10 @@ func (r Result) CommandResultFailure() error {
 // ActiveState is the safe read model; physical intent IDs and fence/delegation
 // metadata remain in OperationStore. Transitioning never claims a ready route.
 type ActiveState struct {
-	Target           TargetKey  `json:"target"`
-	Activation       Activation `json:"activation"`
-	Transitioning    bool       `json:"transitioning"`
-	RecoveryRequired bool       `json:"recovery_required"`
+	Target             TargetKey  `json:"target"`
+	Activation         Activation `json:"activation"`
+	Transitioning      bool       `json:"transitioning"`
+	RecoveryRequired   bool       `json:"recovery_required"`
+	PendingOperationID string     `json:"pending_operation_id,omitempty"`
+	PendingReceiptID   string     `json:"pending_receipt_id,omitempty"`
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"maps"
 	"slices"
 	"strconv"
@@ -91,13 +90,16 @@ func RegisterDataPanels(registry *console.PanelRegistry, actions ...DataPanelAct
 
 // DataActionChoice is one lifecycle action the current actor may start. The
 // module derives choices from authorized reads and current capabilities;
-// Input carries everything except the request key, dry-run flag and batch
-// limit, which the operator supplies. Cancel choices appear on the operations
-// panel and every other kind on the overview.
+// Input binds the selected work; the operator supplies request options and an
+// optional receipt selector. Generation is captured in the action payload.
+// Cancel and Recover choices appear on operations; other kinds on overview.
 type DataActionChoice struct {
 	Kind  admindata.Kind
 	Label string
 	Input admindata.Input
+	// ReceiptInput lets an operator select a retained receipt beyond the bounded
+	// overview. Service policy and receipt identity remain authoritative.
+	ReceiptInput bool
 }
 
 // DataPanelActions binds module dispatch to the Data presentation. Choices is
@@ -121,16 +123,14 @@ func DataActionKind(actionID string) (admindata.Kind, bool) {
 
 func dataActionID(choice DataActionChoice) string {
 	in := choice.Input
-	generation := ""
-	if in.ExpectedGeneration != nil {
-		generation = strconv.FormatUint(*in.ExpectedGeneration, 10)
-	}
+	// The action identifies selected work. Generation is a request precondition,
+	// captured in the payload so old pages remain stale and retries stay reachable.
 	return string(choice.Kind) + "-" + strings.TrimPrefix(dataRecordKey("action", in.Dataset.Digest, in.Scenario.ID, in.Scenario.Version,
-		in.Scenario.ProfileHash, in.TargetID, in.ReceiptID, generation, in.OperationID), "action-")
+		in.Scenario.ProfileHash, in.TargetID, in.ReceiptID, in.OperationID), "action-")
 }
 
 func dataChoicePanel(kind admindata.Kind) string {
-	if kind == admindata.Cancel {
+	if kind == admindata.Cancel || kind == admindata.Recover {
 		return DataPanelOperations
 	}
 	return DataPanelOverview
@@ -187,7 +187,13 @@ func dataActionControl(id string, choice DataActionChoice) console.PanelUIAction
 		Placeholder: "New key for new work",
 		Help:        "Reuse the same key to retry this request; a new key starts new work.",
 	}}
-	if choice.Kind != admindata.Cancel {
+	if choice.Kind == admindata.Recover {
+		fields = nil
+	}
+	if choice.ReceiptInput {
+		fields = append(fields, console.PanelUIActionField{Name: "receipt_id", Label: "Receipt ID", Kind: "text", Required: true, Help: "Use a retained receipt for this scenario and target. Activation requires successful verification."})
+	}
+	if choice.Kind != admindata.Cancel && choice.Kind != admindata.Recover {
 		fields = append(fields, console.PanelUIActionField{Name: "dry_run", Label: "Dry run (plan only, no changes)", Kind: "checkbox"})
 	}
 	if choice.Kind == admindata.Prepare || choice.Kind == admindata.Refresh || choice.Kind == admindata.Generate {
@@ -196,11 +202,17 @@ func dataActionControl(id string, choice DataActionChoice) console.PanelUIAction
 	action := console.PanelUIAction{ID: id, Label: label, SubmitLabel: dataKindLabel(choice.Kind), Kind: string(choice.Kind), Fields: fields, Refresh: true}
 	switch choice.Kind {
 	case admindata.Activate, admindata.Reset:
+		if choice.Input.ExpectedGeneration != nil {
+			action.Payload = map[string]any{"expected_generation": *choice.Input.ExpectedGeneration}
+		}
 		action.RequiresConfirm = true
 		action.ConfirmText = label + "? This changes the active dataset on target " + choice.Input.TargetID + "."
 	case admindata.Cancel:
 		action.RequiresConfirm = true
 		action.ConfirmText = label + "? Work stops at the next safe point; a committed activation is not undone."
+	case admindata.Recover:
+		action.RequiresConfirm = true
+		action.ConfirmText = label + "? Recovery waits for lease expiry and reconciles existing work without repeating provider effects."
 	}
 	return action
 }
@@ -227,6 +239,18 @@ func (a DataPanelActions) resolver(panelID string) console.PanelActionHandlerRes
 func dataActionInput(choice DataActionChoice, payload map[string]any) (admindata.Input, map[string]string) {
 	input := choice.Input
 	fields := map[string]string{}
+	if choice.Kind == admindata.Recover {
+		return input, fields
+	}
+	if choice.ReceiptInput {
+		input.ReceiptID = ""
+		if id, ok := payload["receipt_id"].(string); ok {
+			input.ReceiptID = strings.TrimSpace(id)
+		}
+		if input.ReceiptID == "" {
+			fields["receipt_id"] = "Enter a retained receipt ID."
+		}
+	}
 	input.IdempotencyKey = ""
 	if key, ok := payload["idempotency_key"].(string); ok {
 		input.IdempotencyKey = strings.TrimSpace(key)
@@ -234,7 +258,25 @@ func dataActionInput(choice DataActionChoice, payload map[string]any) (admindata
 	if input.IdempotencyKey == "" {
 		fields["idempotency_key"] = "Enter a request key."
 	}
-	if value, present := payload["dry_run"]; present && choice.Kind != admindata.Cancel {
+	if choice.Kind == admindata.Activate || choice.Kind == admindata.Reset {
+		dataActionGeneration(&input, payload, fields)
+	}
+	dataActionOptions(&input, choice.Kind, payload, fields)
+	return input, fields
+}
+
+func dataActionGeneration(input *admindata.Input, payload map[string]any, fields map[string]string) {
+	generation, ok := payload["expected_generation"].(float64)
+	if !ok || generation < 0 || generation > float64(admindata.MaxWireCounter) || generation != float64(uint64(generation)) {
+		fields["expected_generation"] = "Refresh the panels to load the target generation."
+		return
+	}
+	value := uint64(generation)
+	input.ExpectedGeneration = &value
+}
+
+func dataActionOptions(input *admindata.Input, kind admindata.Kind, payload map[string]any, fields map[string]string) {
+	if value, present := payload["dry_run"]; present && kind != admindata.Cancel {
 		dryRun, ok := value.(bool)
 		if !ok {
 			fields["dry_run"] = "Dry run must be on or off."
@@ -249,7 +291,6 @@ func dataActionInput(choice DataActionChoice, payload map[string]any) (admindata
 			input.BatchLimit = int(limit)
 		}
 	}
-	return input, fields
 }
 
 func dataColumn(label, bind string, format ...string) map[string]any {
@@ -571,14 +612,16 @@ func DataCoverageRecord(view DataCoverageView, revision uint64) console.Record {
 // read model. Cancel results describe the target operation, not the request.
 func DataActionResult(kind admindata.Kind, result admindata.Result, err error) (console.PanelActionResult, error) {
 	if err != nil {
-		var structured *gerrors.Error
-		if !errors.As(err, &structured) || structured.TextCode == admindata.CodeDenied {
+		code, known := admindata.SafeErrorCode(err)
+		if !known {
 			return console.PanelActionResult{}, err
 		}
-		if _, ok := dataFailureMessages[structured.TextCode]; !ok {
-			return console.PanelActionResult{}, err
+		if code == admindata.CodeDenied {
+			// Dispatcher wrappers must not turn a revoked action into HTTP 500;
+			// the console clears its cached state on the explicit 403 response.
+			return console.PanelActionResult{}, gerrors.Wrap(err, gerrors.CategoryAuthz, "data operation denied").WithCode(403).WithTextCode(admindata.CodeDenied)
 		}
-		return dataFailureResult(structured.TextCode, nil), nil
+		return dataFailureResult(code, nil), nil
 	}
 	if kind == admindata.Cancel {
 		return console.PanelActionResult{OK: true, Message: dataCancelMessage(result), Refresh: true}, nil
@@ -735,6 +778,7 @@ const (
 var dataKindOrder = []string{
 	string(admindata.Validate), string(admindata.Prepare), string(admindata.Refresh), string(admindata.Verify),
 	string(admindata.Activate), string(admindata.Reset), string(admindata.Generate), string(admindata.Cancel),
+	string(admindata.Recover),
 }
 
 var dataKindLabels = map[string]string{
@@ -746,6 +790,7 @@ var dataKindLabels = map[string]string{
 	string(admindata.Reset):    "Reset",
 	string(admindata.Generate): "Generate",
 	string(admindata.Cancel):   "Cancel",
+	string(admindata.Recover):  "Recover",
 }
 
 var dataScenarioStatusOrder = []string{"active", "verified", "stale_verification", "verification_failed", "prepared", "not_prepared"}
