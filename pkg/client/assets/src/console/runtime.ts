@@ -39,6 +39,8 @@ import {
   ConsoleRequestLedger,
   REQUEST_ID_UNAVAILABLE_REASON,
   canonicalJSON,
+  canReplayRequest,
+  applyRequestStatus,
   decideSubmission,
   displayedRequestID,
   draftKey,
@@ -1203,7 +1205,7 @@ export class ConsoleRuntime {
     let composed = this.composeWorkflowPayload(current, form, mode);
     let decision = decideSubmission(draft, mode, composed.signature);
     if (decision.kind === 'blocked') {
-      this.renderRequestState(draft, decision.reason);
+      await this.handleBlockedRequest(draft, decision.reason, decision.check, mode, composed.signature);
       return;
     }
     if (decision.kind === 'replay') {
@@ -1245,7 +1247,7 @@ export class ConsoleRuntime {
       }
       decision = decideSubmission(draft, mode, composed.signature);
       if (decision.kind === 'blocked') {
-        this.renderRequestState(draft, decision.reason);
+        await this.handleBlockedRequest(draft, decision.reason, decision.check, mode, composed.signature);
         return;
       }
       if (decision.kind === 'replay') {
@@ -1259,6 +1261,11 @@ export class ConsoleRuntime {
     composed.generated.forEach((path) => setPayloadPath(payload, path, id));
     const request = freezeSubmission(draft, id, mode, payload, composed.signature, text(current.request_scope), this.generate);
     await this.sendRequest(draft, request, form);
+  }
+
+  private async handleBlockedRequest(draft: ConsoleRequestDraft, reason: string, check: boolean | undefined, mode: ConsoleRequestMode, signature: string): Promise<void> {
+    this.renderRequestState(draft, reason);
+    if (check && draft.current?.signature === signature && draft.current.mode === mode) await this.checkRequest(draft);
   }
 
   /** Required values and declared numeric bounds for workflow forms. */
@@ -1277,6 +1284,12 @@ export class ConsoleRuntime {
 
   /** Mark a frozen request pending (persisting it first) and send it. */
   private async sendRequest(draft: ConsoleRequestDraft, request: ConsoleSubmittedRequest, form: HTMLFormElement | null): Promise<void> {
+    // New requests start pending. Every replay path passes this same authority
+    // check, including form submits, banners and delayed confirmations.
+    if (request.state !== 'pending' && !canReplayRequest(request)) {
+      await this.checkRequest(draft);
+      return;
+    }
     request.state = 'pending';
     request.message = undefined;
     this.ledger.put(draft, request, this.hasSensitiveInput(draft.panelID, draft.actionID));
@@ -1605,8 +1618,8 @@ export class ConsoleRuntime {
       return;
     }
     const status = text(result.value?.status).toLowerCase();
+    request.state = applyRequestStatus(request, status, result.value?.retry_until);
     if (status === 'claimed') {
-      request.state = 'resolved';
       this.ledger.remove(request.id);
       this.renderRequestState(draft);
       const outcome = isObject(result.value.result) ? result.value.result : { message: text(result.value.message) || 'The request was received.' };
@@ -1614,8 +1627,7 @@ export class ConsoleRuntime {
       return;
     }
     // Unclaimed may be resubmitted unchanged; unknown and expired need an explicit choice.
-    const resumable = status === 'unclaimed' || status === 'unknown';
-    request.state = resumable ? status : 'expired';
+    const resumable = request.state === 'unclaimed' || request.state === 'unknown';
     request.message = text(result.value.message) || undefined;
     if (!this.actionDeclaration(draft.panelID, draft.actionID)) {
       this.settleWithdrawnRequest(draft, request);
@@ -1651,7 +1663,10 @@ export class ConsoleRuntime {
       request.message = 'This request\u2019s status cannot be checked.';
       this.ledger.put(draft, request, true);
     } else {
-      request.state = previous === 'unclaimed' || previous === 'unknown' ? previous : 'uncertain';
+      // A failed refresh cannot extend a stale grant or restore unclaimed
+      // authority. Keep its frozen input and require another successful check.
+      request.state = previous === 'unknown' ? previous : 'uncertain';
+      request.retryUntil = undefined;
       request.message = error.message;
     }
     this.renderRequestState(draft, gone ? '' : 'The status check failed. Try again.');

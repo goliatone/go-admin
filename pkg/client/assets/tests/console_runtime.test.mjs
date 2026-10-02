@@ -1130,6 +1130,7 @@ test('workflow drawers replay unchanged requests and give Preview plan and execu
       posts.push(call);
       return respond(call);
     }
+    if (call.url.includes('/requests/')) return jsonResponse({ status: 'unclaimed', retry_until: new Date(Date.now() + 3600000).toISOString() });
     return jsonResponse({}, 404);
   };
   const { root, runtime } = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
@@ -1185,6 +1186,10 @@ test('workflow drawers replay unchanged requests and give Preview plan and execu
   assert.ok(form.querySelector('[data-request-check]') && form.querySelector('[data-request-resubmit]'));
   assert.deepEqual(ledgerEntries().map((entry) => [entry.request_id, entry.scope, entry.mode, entry.state]), [[WORKFLOW_IDS[1], 'prepare:preview', 'secondary', 'uncertain']]);
 
+  // Unknown delivery needs bounded host authority before it can be replayed.
+  form.querySelector('[data-request-check]').click();
+  await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'unclaimed'));
+
   // Unchanged resubmission replays the submitted ID and frozen payload.
   respond = () => jsonResponse({ ok: true, planned: true, message: 'Planned. Nothing changed.', record: { panel_id: 'work', record_key: 'ready' } });
   form.requestSubmit(form.querySelector('[data-submitter="secondary"]'));
@@ -1227,7 +1232,7 @@ test('unknown delivery reconciles before new work and reload restores the pendin
   resetEnvironment();
   const posts = [];
   const lookups = [];
-  let status = { status: 'unclaimed', retry_until: '2026-10-03T00:00:00Z' };
+  let status = { status: 'unclaimed', retry_until: new Date(Date.now() + 3600000).toISOString() };
   let respond = () => { throw new TypeError('offline'); };
   fetchRoute = (call) => {
     if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
@@ -1326,6 +1331,7 @@ test('confirmation reloads authoritative state, freezes the confirmed generation
       posts.push(call);
       return respond(call);
     }
+    if (call.url.includes('/requests/')) return jsonResponse({ status: 'unclaimed', retry_until: new Date(Date.now() + 3600000).toISOString() });
     return jsonResponse({}, 404);
   };
   const { root, runtime } = mount(workflowBootstrap(), {
@@ -1355,6 +1361,8 @@ test('confirmation reloads authoritative state, freezes the confirmed generation
   await settle();
   assert.equal(posts.length, 1, 'a later generation is new work and waits for reconciliation');
   respond = () => jsonResponse({ ok: false, code: 'stale_generation', tone: 'error', message: 'The active dataset changed since you confirmed.' });
+  form.querySelector('[data-request-check]').click();
+  await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'unclaimed'));
   form.querySelector('[data-request-resubmit]').click();
   await waitFor(() => assert.equal(posts.length, 2));
   assert.deepEqual(posts[1].body, posts[0].body, 'replay keeps the confirmed generation');
@@ -1737,3 +1745,140 @@ test('cards and lists render tones, progress, metadata and slots, and many targe
   assert.match(list, /<time class="console-timestamp" datetime="[^"]+"[^>]*>5 min ago<\/time>/);
   assert.doesNotMatch(list, /Hidden by limit/);
 });
+
+
+for (const submitPath of ['resubmit', 'form', 'reopen']) {
+  test(`replay authority expires before ${submitPath} can send another POST`, async () => {
+    resetEnvironment();
+    const posts = [];
+    const lookups = [];
+    let answer;
+    fetchRoute = (call) => {
+      if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+      if (call.method === 'POST') {
+        posts.push(call);
+        return jsonResponse({ error: { message: 'gateway timeout' } }, 504);
+      }
+      if (call.url.includes('/requests/')) {
+        lookups.push(call);
+        return jsonResponse(answer);
+      }
+      return jsonResponse({}, 404);
+    };
+    const { root, runtime } = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+    try {
+      await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+      runtime.selectPanel('work');
+      rowRef(root, 'prepare').click();
+      let form = drawerForm(root);
+      form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+      await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'uncertain'));
+      const submitted = posts[0].body;
+      answer = { status: 'unclaimed', retry_until: new Date(Date.now() + 250).toISOString() };
+      form.querySelector('[data-request-check]').click();
+      await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'unclaimed'));
+      assert.equal(ledgerEntries()[0].retry_until, answer.retry_until, 'the absolute deadline persists with the frozen request');
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      answer = { status: 'expired' };
+      if (submitPath === 'reopen') {
+        root.querySelector('[data-drawer-close]').click();
+        rowRef(root, 'prepare').click();
+        form = drawerForm(root);
+        assert.equal(form.querySelector('input[data-action-field-generated]').value, submitted.request_id);
+      }
+      if (submitPath === 'form') form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+      else form.querySelector('[data-request-resubmit]').click();
+      await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'expired'));
+      assert.equal(lookups.length, 2, 'expired authority rechecks without silently replaying');
+      assert.equal(posts.length, 1, 'no POST under expired authority');
+      assert.ok(form.querySelector('[data-request-new]'), 'explicit new work remains available');
+    } finally {
+      runtime.destroy();
+    }
+  });
+}
+
+test('reload reconciles expired replay authority without sending the frozen request', async () => {
+  resetEnvironment();
+  const posts = [];
+  const lookups = [];
+  let answer = { status: 'unclaimed', retry_until: new Date(Date.now() + 1000).toISOString() };
+  fetchRoute = (call) => {
+    if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+    if (call.method === 'POST') {
+      posts.push(call);
+      return jsonResponse({ error: { message: 'gateway timeout' } }, 504);
+    }
+    if (call.url.includes('/requests/')) {
+      lookups.push(call);
+      return jsonResponse(answer);
+    }
+    return jsonResponse({}, 404);
+  };
+  const first = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+  let id;
+  try {
+    await waitFor(() => assert.equal(first.runtime.getState(), 'ready'));
+    first.runtime.selectPanel('work');
+    rowRef(first.root, 'prepare').click();
+    const form = drawerForm(first.root);
+    form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+    await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'uncertain'));
+    form.querySelector('[data-request-check]').click();
+    await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'unclaimed'));
+    id = posts[0].body.request_id;
+  } finally {
+    first.runtime.destroy();
+    first.root.remove();
+  }
+  answer = { status: 'expired' };
+  const second = mount(workflowBootstrap(), { generateRequestID: requestIDs(4) });
+  try {
+    await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'expired'));
+    second.runtime.selectPanel('work');
+    rowRef(second.root, 'prepare').click();
+    const form = drawerForm(second.root);
+    assert.equal(form.querySelector('input[data-action-field-generated]').value, id);
+    form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+    await settle();
+    assert.equal(posts.length, 1);
+    assert.equal(lookups.length, 2);
+    form.querySelector('[data-request-new]').click();
+    assert.notEqual(form.querySelector('input[data-action-field-generated]').value, id, 'new work requires an explicit fresh ID');
+  } finally {
+    second.runtime.destroy();
+  }
+});
+
+for (const deadline of [undefined, 'invalid', '2000-01-01T00:00:00Z']) {
+  test(`an unclaimed response with deadline ${deadline} never authorizes replay`, async () => {
+    resetEnvironment();
+    const posts = [];
+    fetchRoute = (call) => {
+      if (call.url.endsWith('/api/snapshot')) return jsonResponse(workflowSnapshot());
+      if (call.method === 'POST') {
+        posts.push(call);
+        return jsonResponse({ error: { message: 'gateway timeout' } }, 504);
+      }
+      if (call.url.includes('/requests/')) return jsonResponse({ status: 'unclaimed', retry_until: deadline });
+      return jsonResponse({}, 404);
+    };
+    const { root, runtime } = mount(workflowBootstrap(), { generateRequestID: requestIDs() });
+    try {
+      await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+      runtime.selectPanel('work');
+      rowRef(root, 'prepare').click();
+      const form = drawerForm(root);
+      form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+      await waitFor(() => assert.equal(ledgerEntries()[0]?.state, 'uncertain'));
+      form.querySelector('[data-request-check]').click();
+      await waitFor(() => assert.equal(ledgerEntries()[0]?.state, deadline?.startsWith('2000') ? 'expired' : 'unknown'));
+      form.requestSubmit(form.querySelector('[data-submitter="primary"]'));
+      await settle();
+      assert.equal(posts.length, 1);
+      assert.equal(form.querySelector('[data-request-resubmit]'), null);
+    } finally {
+      runtime.destroy();
+    }
+  });
+}

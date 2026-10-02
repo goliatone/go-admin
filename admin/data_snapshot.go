@@ -145,6 +145,9 @@ func dataDisplayAccess(err error) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false, err
+	}
 	if code, known := data.SafeErrorCode(err); known && (code == data.CodeDenied || code == data.CodeGone) {
 		return false, nil
 	}

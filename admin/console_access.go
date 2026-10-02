@@ -190,6 +190,9 @@ func (h *ConsoleHost) deliverRecord(ctx context.Context, identity console.Identi
 // as snapshots. No slow masking callback runs after the final record check.
 func (h *ConsoleHost) projectRecord(ctx context.Context, identity console.Identity, panelID string, record console.Record) (console.Record, bool, error) {
 	record, valid := h.prepareRecord(ctx, identity, panelID, record)
+	if ctx.Err() != nil {
+		return console.Record{}, false, ctx.Err()
+	}
 	if !valid {
 		return console.Record{}, false, nil
 	}
@@ -197,7 +200,11 @@ func (h *ConsoleHost) projectRecord(ctx context.Context, identity console.Identi
 	if err != nil {
 		return console.Record{}, false, err
 	}
-	if _, allowed := h.panel(ctx, identity, panelID); !allowed {
+	_, panelAllowed := h.panel(ctx, identity, panelID)
+	if ctx.Err() != nil {
+		return console.Record{}, false, ctx.Err()
+	}
+	if !panelAllowed {
 		return console.Record{}, false, nil
 	}
 	record, allowed, err := h.deliverRecord(ctx, identity, panelID, record)

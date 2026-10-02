@@ -32,6 +32,8 @@ export type ConsoleSubmittedRequest = {
   /** Host-declared reconciliation scope (`request_scope`). */
   scope: string;
   state: ConsoleRequestState;
+  /** Latest host-declared claim deadline; never inferred from submission time. */
+  retryUntil?: string;
   /** Restored without sensitive or oversized input: only reconciliation remains. */
   partial?: boolean;
   /** Safe status text for the drawer and banners. */
@@ -122,6 +124,27 @@ export function requestUnresolved(request: ConsoleSubmittedRequest | null | unde
   return Boolean(request) && request!.state !== 'resolved';
 }
 
+/** A replay needs current, bounded host authority, even after a settled result. */
+export function canReplayRequest(request: ConsoleSubmittedRequest, now: number = Date.now()): boolean {
+  if (request.partial || !['uncertain', 'unclaimed', 'resolved'].includes(request.state)) return false;
+  const deadline = Date.parse(request.retryUntil || '');
+  return Number.isFinite(deadline) && now < deadline;
+}
+
+/** Apply reconciliation without treating an unbounded answer as a replay grant. */
+export function applyRequestStatus(request: ConsoleSubmittedRequest, status: string, retryUntil: unknown, now: number = Date.now()): ConsoleRequestState {
+  const deadline = typeof retryUntil === 'string' ? Date.parse(retryUntil) : NaN;
+  request.retryUntil = Number.isFinite(deadline) ? new Date(deadline).toISOString() : undefined;
+  if (status === 'claimed') {
+    request.state = 'resolved';
+  } else if (status === 'unclaimed' && Number.isFinite(deadline)) {
+    request.state = now < deadline ? 'unclaimed' : 'expired';
+  } else {
+    request.state = status === 'unclaimed' || status === 'unknown' ? 'unknown' : 'expired';
+  }
+  return request.state;
+}
+
 /**
  * Decide what a submission means for a draft:
  * identical mode and input replay the submitted request; anything else is new
@@ -140,6 +163,7 @@ export function decideSubmission(draft: ConsoleRequestDraft, mode: ConsoleReques
     if (current.state === 'expired') return { kind: 'blocked', reason: REQUEST_EXPIRED_REASON };
     if (current.state === 'unknown') return { kind: 'blocked', reason: REQUEST_UNKNOWN_REASON, check: true };
     if (current.partial) return { kind: 'blocked', reason: REQUEST_PARTIAL_REASON, check: true };
+    if (!canReplayRequest(current)) return { kind: 'blocked', reason: REQUEST_UNCERTAIN_REASON, check: true };
     return { kind: 'replay', request: current };
   }
   if (current && current.state === 'uncertain') {
@@ -208,6 +232,7 @@ export type ConsoleLedgerEntry = {
   submitted_at: string;
   signature: string;
   state: ConsoleRequestState;
+  retry_until?: string;
   /** Non-sensitive frozen payload; absent when it was sensitive or oversized. */
   payload?: Record<string, unknown>;
 };
@@ -240,6 +265,7 @@ function parseEntry(value: unknown, now: number): ConsoleLedgerEntry | null {
       ? value.state as ConsoleRequestState
       : 'uncertain',
     payload: isRecord(value.payload) ? value.payload : undefined,
+    retry_until: text(value.retry_until) || undefined,
   };
   const submitted = Date.parse(entry.submitted_at);
   if (!entry.panel_id || !entry.action_id || !validRequestID(entry.request_id) || Number.isNaN(submitted)) return null;
@@ -287,6 +313,7 @@ export class ConsoleRequestLedger {
       submitted_at: request.submittedAt,
       signature: request.signature,
       state: request.state === 'resolved' ? 'uncertain' : request.state,
+      retry_until: request.retryUntil,
     };
     const payload = JSON.stringify(request.payload);
     if (!sensitive && !request.partial && payload.length <= LEDGER_PAYLOAD_LIMIT && entry.signature.length <= LEDGER_PAYLOAD_LIMIT) {
@@ -332,7 +359,10 @@ export function restoreDraft(entry: ConsoleLedgerEntry, generate: () => string =
     signature: entry.signature,
     submittedAt: entry.submitted_at,
     scope: entry.scope,
-    state: entry.state === 'expired' || entry.state === 'unclaimed' || entry.state === 'unknown' ? entry.state : 'uncertain',
+    // Storage preserves evidence, never authority: every resumable reload checks
+    // the host again before a restored request can be replayed.
+    state: entry.state === 'expired' ? 'expired' : 'uncertain',
+    retryUntil: entry.retry_until,
     partial: !entry.payload || !entry.signature,
   };
   return draft;

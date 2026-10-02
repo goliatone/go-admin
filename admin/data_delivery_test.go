@@ -158,6 +158,7 @@ func TestConsoleLookupSourceFailuresOverHTTP(t *testing.T) {
 	}{
 		{"canceled", fmt.Errorf("provider: %w", context.Canceled), 408, "CONSOLE_CANCELED"},
 		{"deadline", fmt.Errorf("provider: %w", context.DeadlineExceeded), 504, "CONSOLE_TIMEOUT"},
+		{"joined deadline", errors.Join(data.Error(data.CodeDenied), context.DeadlineExceeded), 504, "CONSOLE_TIMEOUT"},
 		{"unavailable", data.Error(data.CodeUnavailable), 503, data.CodeUnavailable},
 		{"missing", ErrNotFound, 404, "NOT_FOUND"},
 	} {
@@ -178,8 +179,16 @@ func TestConsoleLookupSourceFailuresOverHTTP(t *testing.T) {
 	}
 }
 
+func TestDataDeliveryJoinedCancellationIsNotDenial(t *testing.T) {
+	err := errors.Join(data.Error(data.CodeDenied), context.Canceled)
+	allowed, cause := dataDisplayAccess(err)
+	if allowed || !errors.Is(cause, context.Canceled) {
+		t.Fatal("joined cancellation became hidden record", allowed, cause)
+	}
+}
+
 func TestConsoleLookupCancellationAtProjectionAndPreparation(t *testing.T) {
-	for _, stage := range []string{"preparation", "projection", "source"} {
+	for _, stage := range []string{"preparation", "projection", "source", "record policy", "panel policy"} {
 		t.Run(stage, func(t *testing.T) {
 			var revoked, execute atomic.Bool
 			h := consoleTestHost(t, "data", &revoked, &execute)
@@ -201,6 +210,16 @@ func TestConsoleLookupCancellationAtProjectionAndPreparation(t *testing.T) {
 				h.config.Lookup = func(context.Context, console.Identity, string, string) (console.Record, bool, error) {
 					cancel()
 					return console.Record{}, false, ErrNotFound
+				}
+			case "record policy":
+				h.config.Access.Record = func(context.Context, console.Identity, string, console.Record) bool {
+					cancel()
+					return false
+				}
+			case "panel policy":
+				h.config.Access.Panel = func(context.Context, console.Identity, console.PanelDefinition) bool {
+					cancel()
+					return false
 				}
 			}
 			start := time.Now()

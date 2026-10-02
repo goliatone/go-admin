@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"time"
 )
@@ -48,23 +49,19 @@ func (s *Service) RequestStatus(ctx context.Context, kind Kind, targetID, key st
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: target}); err != nil {
 		return RequestStatus{}, err
 	}
-	op, found, err := s.config.Store.LookupRequest(ctx, RequestKey{ActorID: p.ActorID, Target: target, Kind: kind, IdempotencyKey: key})
-	var status RequestStatus
-	switch {
-	case err != nil && ErrorCode(err) == CodeGone:
-		// A live tombstone whose operation was pruned: received, no longer retained.
-		status.State = RequestExpired
-	case err != nil:
-		return RequestStatus{}, Error(ErrorCode(err))
-	case found:
-		if status, err = s.claimedRequest(ctx, p, target, kind, op); err != nil {
-			return RequestStatus{}, err
-		}
-	default:
-		status = s.missingRequest(submittedAt)
+	status, err := s.lookupRequestStatus(ctx, p, target, kind, key, submittedAt)
+	if err != nil {
+		return RequestStatus{}, err
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: target}); err != nil {
 		return RequestStatus{}, err
+	}
+	// Target access cannot substitute for permission to receive the exact
+	// operation. The final target check may itself reload or revoke record grants.
+	if status.Operation != nil {
+		if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: target, Operation: status.Operation}); err != nil {
+			return RequestStatus{}, err
+		}
 	}
 	return status, nil
 }
@@ -88,7 +85,8 @@ func (s *Service) claimedRequest(ctx context.Context, p Principal, target Target
 // missingRequest is unclaimed only inside a declared retry window measured
 // from the client's first submission; otherwise authority has expired.
 func (s *Service) missingRequest(submittedAt time.Time) RequestStatus {
-	if s.config.RetryWindow > 0 && !submittedAt.IsZero() && time.Now().Before(submittedAt.Add(s.config.RetryWindow)) {
+	now := time.Now()
+	if s.config.RetryWindow > 0 && !submittedAt.IsZero() && !submittedAt.After(now) && now.Before(submittedAt.Add(s.config.RetryWindow)) {
 		return RequestStatus{State: RequestUnclaimed, RetryUntil: submittedAt.Add(s.config.RetryWindow)}
 	}
 	return RequestStatus{State: RequestExpired}
@@ -133,13 +131,10 @@ func (s *Service) RetryDescriptor(ctx context.Context, operationID string) (Retr
 		return RetryDescriptor{}, err
 	}
 	if err = s.AuthorizeInput(ctx, out.Kind, check); err != nil {
-		if ErrorCode(err) == CodeGone {
-			return RetryDescriptor{}, Error(CodeUnavailable)
-		}
-		return RetryDescriptor{}, Error(CodeDenied)
+		return RetryDescriptor{}, retryInputFailure(err)
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: op.Target, Operation: &op}); err != nil {
-		return RetryDescriptor{}, Error(CodeGone)
+		return RetryDescriptor{}, hiddenReadFailure(err)
 	}
 	return out, nil
 }
@@ -148,11 +143,14 @@ func (s *Service) RetryDescriptor(ctx context.Context, operationID string) (Retr
 // Unreadable or foreign-scope operations are gone; viewing never grants retry.
 func (s *Service) retryOperation(ctx context.Context, p Principal, operationID string) (Operation, error) {
 	op, err := s.config.Store.GetOperation(ctx, operationID)
-	if err != nil || op.Target.ScopeKey != p.ScopeKey {
+	if err != nil {
+		return Operation{}, readFailure(ctx, err)
+	}
+	if op.Target.ScopeKey != p.ScopeKey {
 		return Operation{}, Error(CodeGone)
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: op.Target, Operation: &op}); err != nil {
-		return Operation{}, Error(CodeGone)
+		return Operation{}, hiddenReadFailure(err)
 	}
 	if op.Principal.ActorID != p.ActorID {
 		return Operation{}, Error(CodeDenied)
@@ -196,10 +194,7 @@ func retryDescriptorOf(op Operation) (RetryDescriptor, Input, error) {
 func (s *Service) retryInputAvailable(ctx context.Context, p Principal, kind Kind, input Input) error {
 	descriptor, err := s.Describe(ctx, input.Dataset, input.TargetID)
 	if err != nil {
-		if code := ErrorCode(err); code == CodeDenied {
-			return Error(CodeDenied)
-		}
-		return Error(CodeUnavailable)
+		return retryInputFailure(err)
 	}
 	if !slices.Contains(descriptor.Scenarios, input.Scenario) {
 		return Error(CodeUnavailable)
@@ -214,7 +209,11 @@ func (s *Service) retryInputAvailable(ctx context.Context, p Principal, kind Kin
 			return err
 		}
 	}
-	if current, currentErr := s.principal(ctx); currentErr != nil || current != p {
+	current, err := s.principal(ctx)
+	if err != nil {
+		return err
+	}
+	if current != p {
 		return Error(CodeDenied)
 	}
 	return nil
@@ -223,11 +222,53 @@ func (s *Service) retryInputAvailable(ctx context.Context, p Principal, kind Kin
 // retryReceiptAvailable requires the exact retained receipt, verified for activation.
 func (s *Service) retryReceiptAvailable(ctx context.Context, kind Kind, input Input) error {
 	receipt, err := s.LookupReceipt(ctx, input.TargetID, input.ReceiptID)
-	if err != nil || receipt.Scenario != input.Scenario || receipt.Dataset != input.Dataset {
+	if err != nil {
+		return retryInputFailure(err)
+	}
+	if receipt.Scenario != input.Scenario || receipt.Dataset != input.Dataset {
 		return Error(CodeUnavailable)
 	}
 	if kind == Activate && (receipt.Verification == nil || !receipt.Verification.Passed() || receipt.Verification.ContentRevision != receipt.ContentRevision) {
 		return Error(CodeUnavailable)
 	}
 	return nil
+}
+
+// Missing or changed retained input makes Try again unavailable. Cancellation,
+// policy denial and backend failures keep their classification and causes.
+func retryInputFailure(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	if code, known := SafeErrorCode(err); known && (code == CodeGone || code == CodeConflict || code == CodeInvalid) {
+		return Error(CodeUnavailable)
+	}
+	return err
+}
+
+// lookupRequestStatus resolves retained and missing claims without changing
+// delivery authority; RequestStatus rechecks target and exact operation grants.
+func (s *Service) lookupRequestStatus(ctx context.Context, p Principal, target TargetKey, kind Kind, key string, submittedAt time.Time) (RequestStatus, error) {
+	op, found, err := s.config.Store.LookupRequest(ctx, RequestKey{ActorID: p.ActorID, Target: target, Kind: kind, IdempotencyKey: key})
+	if err != nil {
+		err = readFailure(ctx, err)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return RequestStatus{}, err
+		}
+	}
+	var status RequestStatus
+	switch {
+	case err != nil && ErrorCode(err) == CodeGone:
+		// A live tombstone whose operation was pruned: received, no longer retained.
+		status.State = RequestExpired
+	case err != nil:
+		return RequestStatus{}, err
+	case found:
+		if status, err = s.claimedRequest(ctx, p, target, kind, op); err != nil {
+			return RequestStatus{}, err
+		}
+	default:
+		status = s.missingRequest(submittedAt)
+	}
+	return status, nil
 }

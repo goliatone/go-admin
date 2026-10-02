@@ -149,6 +149,9 @@ func authorizationFailure(ctx context.Context, err error) error {
 // Hidden authoritative records stay indistinguishable from missing records;
 // an authorization backend failure or cancellation is neither of those things.
 func hiddenReadFailure(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
 	if code, known := SafeErrorCode(err); known && (code == CodeDenied || code == CodeGone) {
 		return Error(CodeGone)
 	}
@@ -267,11 +270,11 @@ func (s *Service) projectCapabilities(ctx context.Context, p Principal, key Targ
 			c.Reason = "cancellation_unavailable"
 		}
 		if c.Supported {
-			err := s.authorize(ctx, p, AccessRequest{Action: string(kind), Target: key})
-			if err != nil && ErrorCode(err) != CodeDenied && ErrorCode(err) != CodeGone {
+			permitted, err := capabilityPermission(s.authorize(ctx, p, AccessRequest{Action: string(kind), Target: key}))
+			if err != nil {
 				return nil, err
 			}
-			c.Permitted = err == nil
+			c.Permitted = permitted
 		}
 		capabilities[kind] = c
 	}
@@ -1449,4 +1452,19 @@ func (s *Service) recover(ctx context.Context, operationID string) (result Resul
 	// A persisted prepared receipt is preserved, but absence of a terminal commit
 	// cannot be presented as completed provider work. Never rerun business effects.
 	return run.finish(Error(CodeProvider))
+}
+
+// Only an actual denial withdraws a displayed capability. Cancellation keeps
+// its cause even when an error chain also carries a gone/denied lifecycle code.
+func capabilityPermission(err error) (bool, error) {
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false, err
+	}
+	if code := ErrorCode(err); code == CodeDenied || code == CodeGone {
+		return false, nil
+	}
+	return false, err
 }

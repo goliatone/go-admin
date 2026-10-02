@@ -52,7 +52,7 @@ const workflow = {
   // gateway that lost the upstream response (delivery unknown). Destroying the
   // socket instead lets browsers transparently resend the POST.
   outcomes: [],
-  status: golden.workflow.request_status[1],
+  status: { ...golden.workflow.request_status[1], retry_until: new Date(Date.now() + 3600000).toISOString() },
   snapshots: 0,
 };
 
@@ -487,7 +487,7 @@ async function verifyWorkflow(label, browser, origin) {
     const page = await context.newPage();
     page.fixtureOrigin = origin;
     const harness = await attachHarness(page);
-    Object.assign(workflow, { posts: [], lookups: [], options: [], outcomes: [], snapshots: 0, status: golden.workflow.request_status[1] });
+    Object.assign(workflow, { posts: [], lookups: [], options: [], outcomes: [], snapshots: 0, status: { ...golden.workflow.request_status[1], retry_until: new Date(Date.now() + 3600000).toISOString() } });
     await openWorkflow(page, label);
     const refreshRef = '[data-row-key="ready"] [data-console-action-ref][data-action-id="refresh"]';
     check(await page.locator('[data-console-panel-actions] form').count() === 0, `${label}: drawer layout renders no inline forms`);
@@ -518,6 +518,8 @@ async function verifyWorkflow(label, browser, origin) {
     check(preview.body.dry_run === true && /^[0-9a-f-]{36}$/.test(preview.body.request_id), `${label}: Preview plan request ${JSON.stringify(preview.body)}`);
     check(preview.capabilities === CLIENT_CAPABILITIES, `${label}: action capability header`);
     await settledShot(page, join(evidenceDir, `${label}-workflow-uncertain.png`));
+    await page.click('[data-console-drawer] [data-request-check]');
+    await eventually(async () => /was not received/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: bounded authority enables replay`);
     workflow.outcomes.push(golden.workflow.results[0]);
     await page.click('[data-console-drawer] [data-request-resubmit]');
     await eventually(async () => await page.locator('[data-console-drawer]').count() === 0, `${label}: planned outcome closes the drawer`);
@@ -570,14 +572,35 @@ async function verifyWorkflow(label, browser, origin) {
     await page.click('[data-console-drawer] [data-submitter="primary"]');
     await eventually(async () => /may not have been received/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: second unknown delivery`);
     const dropped = workflow.posts.at(-1).body;
+    const lookupsBeforeReload = workflow.lookups.length;
     await openWorkflow(page, `${label} reload`);
-    await eventually(() => workflow.lookups.length === 1, `${label}: reload reconciles the pending request`);
-    const lookup = workflow.lookups[0];
+    await eventually(() => workflow.lookups.length === lookupsBeforeReload + 1, `${label}: reload reconciles the pending request`);
+    const lookup = workflow.lookups.at(-1);
     check(lookup.path.endsWith(`/requests/${dropped.request_id}`) && lookup.query.action === 'refresh' && lookup.query.scope === 'refresh:preview' && lookup.query.submitted_at, `${label}: reconciliation query ${JSON.stringify(lookup)}`);
     await page.click(refreshRef);
     await eventually(async () => /was not received/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: reopened drawer shows the reconciled state`);
     check(await page.inputValue('[data-console-drawer] input[data-action-field-generated]') === dropped.request_id, `${label}: reopen resumes the submitted ID`);
     await settledShot(page, join(evidenceDir, `${label}-workflow-reconciled.png`));
+    // Expiring authority must remain safe across close/reopen and reload.
+    await page.click('[data-console-drawer] [data-request-new]');
+    workflow.outcomes.push('timeout');
+    await page.click('[data-console-drawer] [data-submitter="primary"]');
+    await eventually(async () => /may not have been received/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: expiry probe uncertain`);
+    workflow.status = { status: 'unclaimed', retry_until: new Date(Date.now() + 800).toISOString() };
+    await page.click('[data-console-drawer] [data-request-check]');
+    await eventually(async () => /was not received/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: expiry probe bounded`);
+    const postsBeforeExpiry = workflow.posts.length;
+    await page.click('[data-console-drawer] [data-drawer-close]');
+    await page.click(refreshRef);
+    await page.waitForTimeout(900);
+    workflow.status = { status: 'expired' };
+    await page.click('[data-console-drawer] [data-request-resubmit]');
+    await eventually(async () => /can no longer be confirmed/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: expired authority requires explicit new work`);
+    check(workflow.posts.length === postsBeforeExpiry, `${label}: expiry never sends another POST`);
+    await openWorkflow(page, `${label} expired reload`);
+    await page.click(refreshRef);
+    await eventually(async () => /can no longer be confirmed/.test(await page.textContent('[data-console-drawer] [data-request-status]')), `${label}: reload preserves expired authority`);
+    check(workflow.posts.length === postsBeforeExpiry, `${label}: reload never replays expired work`);
     assertHealthy(`${label} workflow`, harness);
   } finally {
     await context.close();

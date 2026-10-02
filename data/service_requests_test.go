@@ -2,6 +2,8 @@ package data_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -75,7 +77,7 @@ func TestRequestStatusReconcilesOnlyTheActorsOwnRequests(t *testing.T) {
 	if err != nil || unclaimed.State != data.RequestUnclaimed || !unclaimed.RetryUntil.Equal(submittedAt.Add(24*time.Hour)) {
 		t.Fatalf("unclaimed = %+v, %v", unclaimed, err)
 	}
-	for name, at := range map[string]time.Time{"outside the window": time.Now().Add(-25 * time.Hour), "without a submission time": {}} {
+	for name, at := range map[string]time.Time{"outside the window": time.Now().Add(-25 * time.Hour), "without a submission time": {}, "future submission time": time.Now().Add(time.Hour)} {
 		expired, statusErr := service.RequestStatus(ctx, data.Prepare, "preview", "never-arrived", at)
 		if statusErr != nil || expired.State != data.RequestExpired || expired.Operation != nil {
 			t.Fatalf("%s: %+v, %v", name, expired, statusErr)
@@ -233,4 +235,237 @@ func TestRetryDescriptorRefusesChangedInputsInsteadOfSubstituting(t *testing.T) 
 	f.provider.input.Scenario.Version = "2"
 	_, err = f.service.RetryDescriptor(ctx, result.OperationID)
 	requireCode(t, err, data.CodeUnavailable)
+}
+
+// Each seam preserves cancellation and backend classification instead of
+// presenting a failed read as hidden, missing or denied work.
+type requestReadStore struct {
+	data.OperationStore
+	lookupError, operationError, receiptError error
+	afterLookup                               func()
+}
+
+func (s requestReadStore) LookupRequest(ctx context.Context, key data.RequestKey) (data.Operation, bool, error) {
+	if s.lookupError != nil {
+		return data.Operation{}, false, s.lookupError
+	}
+	op, found, err := s.OperationStore.LookupRequest(ctx, key)
+	if s.afterLookup != nil {
+		s.afterLookup()
+	}
+	return op, found, err
+}
+func (s requestReadStore) GetOperation(ctx context.Context, id string) (data.Operation, error) {
+	if s.operationError != nil {
+		return data.Operation{}, s.operationError
+	}
+	return s.OperationStore.GetOperation(ctx, id)
+}
+func (s requestReadStore) GetReceipt(ctx context.Context, id string) (data.PreparationReceipt, error) {
+	if s.receiptError != nil {
+		return data.PreparationReceipt{}, s.receiptError
+	}
+	return s.OperationStore.GetReceipt(ctx, id)
+}
+
+type requestDescribeProvider struct {
+	data.Provider
+	failure error
+}
+
+func (p requestDescribeProvider) Describe(context.Context, data.Principal, data.DatasetRef) (data.Descriptor, error) {
+	return data.Descriptor{}, p.failure
+}
+
+func requestReadFailures() map[string]error {
+	return map[string]error{
+		"canceled":      fmt.Errorf("repository canceled: %w", context.Canceled),
+		"canceled_gone": errors.Join(data.Error(data.CodeGone), context.Canceled),
+		"deadline_gone": errors.Join(data.Error(data.CodeGone), context.DeadlineExceeded),
+		"deadline":      fmt.Errorf("repository deadline: %w", context.DeadlineExceeded),
+		"unavailable":   data.Error(data.CodeUnavailable),
+		"provider":      data.Error(data.CodeProvider),
+	}
+}
+func assertRequestFailure(t *testing.T, cause, err error) {
+	t.Helper()
+	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+		sentinel := context.Canceled
+		if errors.Is(cause, context.DeadlineExceeded) {
+			sentinel = context.DeadlineExceeded
+		}
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("lost cancellation cause: %v -> %v", cause, err)
+		}
+	} else if err == nil || data.ErrorCode(err) != data.ErrorCode(cause) {
+		t.Fatalf("failure classification: %v -> %v", cause, err)
+	}
+}
+func TestRequestStatusPreservesReadFailures(t *testing.T) {
+	for name, cause := range requestReadFailures() {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			cfg := f.serviceConfig(requestReadStore{OperationStore: f.store, lookupError: cause})
+			service, err := data.NewService(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			status, err := service.RequestStatus(t.Context(), data.Prepare, "preview", "key", time.Now())
+			assertRequestFailure(t, cause, err)
+			if status.Operation != nil || status.State != "" {
+				t.Fatal("failed lookup delivered a status", status)
+			}
+		})
+	}
+}
+func failedRequestForRetry(t *testing.T, f *fixture) data.Result {
+	t.Helper()
+	receipt := verified(t, f, prepared(t, f, "prepare-retry"), "verify-retry")
+	generation := uint64(7)
+	result := run(t, f, data.Activate, activationInput(f, receipt, generation, "failed-activation"))
+	if result.State != data.Failed {
+		t.Fatal("expected terminal failure", result)
+	}
+	return result
+}
+func TestRetryDescriptorPreservesReadFailures(t *testing.T) {
+	for boundary := range 3 {
+		for name, cause := range requestReadFailures() {
+			t.Run(fmt.Sprintf("%d/%s", boundary, name), func(t *testing.T) {
+				f := newFixture(t)
+				failed := failedRequestForRetry(t, f)
+				store := requestReadStore{OperationStore: f.store}
+				cfg := f.serviceConfig(f.store)
+				switch boundary {
+				case 0:
+					store.operationError = cause
+				case 1:
+					store.receiptError = cause
+				case 2:
+					cfg.Providers = map[string]data.Provider{"sample": requestDescribeProvider{Provider: f.provider, failure: cause}}
+				}
+				cfg.Store = store
+				service, err := data.NewService(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				descriptor, err := service.RetryDescriptor(t.Context(), failed.OperationID)
+				assertRequestFailure(t, cause, err)
+				if descriptor.OperationID != "" || descriptor.Input.Dataset.Valid() {
+					t.Fatal("failed read delivered retained input")
+				}
+			})
+		}
+	}
+}
+func TestRequestQueriesPreservePolicyFailures(t *testing.T) {
+	for name, cause := range requestReadFailures() {
+		for _, action := range []string{"view", string(data.Activate)} {
+			t.Run(name+"/"+action, func(t *testing.T) {
+				f := newFixture(t)
+				failed := failedRequestForRetry(t, f)
+				cfg := f.serviceConfig(f.store)
+				cfg.Policy = policyFunc(func(_ context.Context, _ data.Principal, a data.AccessRequest) error {
+					if a.Action == action {
+						return cause
+					}
+					return nil
+				})
+				service, err := data.NewService(cfg)
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, err = service.RetryDescriptor(t.Context(), failed.OperationID)
+				assertRequestFailure(t, cause, err)
+				if action == "view" {
+					_, err = service.RequestStatus(t.Context(), data.Activate, "preview", "failed-activation", time.Now())
+					assertRequestFailure(t, cause, err)
+				}
+			})
+		}
+	}
+}
+func TestRequestStatusRechecksExactRecordAtDelivery(t *testing.T) {
+	f := newFixture(t)
+	successful(t, run(t, f, data.Prepare, f.input))
+	recordChecked, revoked := false, false
+	cfg := f.serviceConfig(f.store)
+	cfg.Policy = policyFunc(func(_ context.Context, _ data.Principal, a data.AccessRequest) error {
+		if a.Operation != nil {
+			if revoked {
+				return data.Error(data.CodeDenied)
+			}
+			recordChecked = true
+		} else if recordChecked {
+			revoked = true
+		}
+		return nil
+	})
+	service, err := data.NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := service.RequestStatus(t.Context(), data.Prepare, "preview", f.input.IdempotencyKey, time.Now())
+	if !revoked || data.ErrorCode(err) != data.CodeDenied || status.Operation != nil {
+		t.Fatal("revoked operation delivered", status, err)
+	}
+}
+func TestRequestStatusPreservesPostLookupCancellation(t *testing.T) {
+	f := newFixture(t)
+	successful(t, run(t, f, data.Prepare, f.input))
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	cfg := f.serviceConfig(requestReadStore{OperationStore: f.store, afterLookup: cancel})
+	service, err := data.NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := service.RequestStatus(ctx, data.Prepare, "preview", f.input.IdempotencyKey, time.Now())
+	if !errors.Is(err, context.Canceled) || status.Operation != nil {
+		t.Fatal("post-lookup cancellation became success", status, err)
+	}
+}
+
+func TestRetryDescriptorPreservesFinalRecordPolicyFailure(t *testing.T) {
+	for name, cause := range requestReadFailures() {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			failed := failedRequestForRetry(t, f)
+			checks := 0
+			cfg := f.serviceConfig(f.store)
+			cfg.Policy = policyFunc(func(_ context.Context, _ data.Principal, a data.AccessRequest) error {
+				if a.Operation != nil {
+					checks++
+					if checks > 1 {
+						return cause
+					}
+				}
+				return nil
+			})
+			service, err := data.NewService(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			descriptor, err := service.RetryDescriptor(t.Context(), failed.OperationID)
+			assertRequestFailure(t, cause, err)
+			if descriptor.OperationID != "" {
+				t.Fatal("final policy failure delivered retained input")
+			}
+		})
+	}
+}
+
+func TestRequestStatusCancellationTakesPrecedenceOverGone(t *testing.T) {
+	f := newFixture(t)
+	cause := errors.Join(data.Error(data.CodeGone), context.Canceled)
+	cfg := f.serviceConfig(requestReadStore{OperationStore: f.store, lookupError: cause})
+	service, err := data.NewService(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := service.RequestStatus(t.Context(), data.Prepare, "preview", "key", time.Now())
+	assertRequestFailure(t, cause, err)
+	if status.State != "" {
+		t.Fatal("cancellation was reported as expired", status)
+	}
 }

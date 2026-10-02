@@ -455,7 +455,10 @@ func (h *ConsoleHost) Lookup(ctx context.Context, identity console.Identity, pan
 		return console.Record{}, err
 	}
 	def, ok := h.panel(ctx, identity, panelID)
-	if !ok || h.config.Lookup == nil {
+	if ctx.Err() != nil {
+		return console.Record{}, ctx.Err()
+	}
+	if !ok {
 		return console.Record{}, ErrNotFound
 	}
 	record, found, err := h.config.Lookup(ctx, identity, def.ID, recordKey)
