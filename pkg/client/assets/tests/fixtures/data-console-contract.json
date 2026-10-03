@@ -238,6 +238,10 @@
                     }
                   ],
                   "key_bind": "key"
+                },
+                "link": {
+                  "label": "Explore datasets",
+                  "panel_id": "explore"
                 }
               }
             },
@@ -302,6 +306,34 @@
               }
             }
           ]
+        },
+        {
+          "id": "explore",
+          "label": "Explore",
+          "icon": "iconoir-compass",
+          "span": 12,
+          "snapshot_key": "explore",
+          "event_types": [
+            "explore"
+          ],
+          "supports_toolbar": false,
+          "category": "data",
+          "order": 65,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "cards",
+                "title": "Explore datasets",
+                "description": "What each dataset contains, what each scenario is for and which application features declare a dependency on it.",
+                "empty": "Open the Data page to explore dataset descriptions, sample records and declared usage."
+              }
+            },
+            "count": {
+              "mode": "none"
+            }
+          },
+          "records": []
         },
         {
           "id": "operations",
@@ -902,6 +934,30 @@
                 },
                 "primary": {
                   "dataset_label": "crm/corpus-a v1",
+                  "explore_active": {
+                    "content_revision": 2,
+                    "context": "active",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "generation": 3,
+                    "receipt_id": "rcpt-ready-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "ready",
+                      "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
                   "generation": 3,
                   "key": "preview",
                   "ready": true,
@@ -914,6 +970,30 @@
                 "targets": [
                   {
                     "dataset_label": "crm/corpus-a v1",
+                    "explore_active": {
+                      "content_revision": 2,
+                      "context": "active",
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "generation": 3,
+                      "receipt_id": "rcpt-ready-1",
+                      "scenario": {
+                        "dataset": {
+                          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "id": "corpus-a",
+                          "provider": "crm",
+                          "version": "1"
+                        },
+                        "id": "ready",
+                        "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                        "version": "1"
+                      },
+                      "target_id": "preview"
+                    },
                     "generation": 3,
                     "key": "preview",
                     "ready": true,
@@ -1011,7 +1091,54 @@
               "data": {
                 "active": true,
                 "content_revision": 2,
+                "dataset_key": "dataset-1a43cf1daf7d308aac185cf0",
                 "dataset_label": "crm/corpus-a v1",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "ready",
+                      "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 2,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "receipt_id": "rcpt-ready-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "ready",
+                      "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-a07a50deab79211fb6f0d78e",
                 "label": "ready v1",
                 "profile": "111111111111",
@@ -1030,7 +1157,54 @@
               "data": {
                 "active": false,
                 "content_revision": 1,
+                "dataset_key": "dataset-1a43cf1daf7d308aac185cf0",
                 "dataset_label": "crm/corpus-a v1",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "empty-history",
+                      "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 1,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "receipt_id": "rcpt-empty-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "empty-history",
+                      "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-067d422cc249b405a9343ebf",
                 "label": "empty-history v1",
                 "profile": "222222222222",
@@ -1049,7 +1223,54 @@
               "data": {
                 "active": false,
                 "content_revision": 1,
+                "dataset_key": "dataset-1a43cf1daf7d308aac185cf0",
                 "dataset_label": "crm/corpus-a v1",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "dst-week",
+                      "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 1,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "receipt_id": "rcpt-dst-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "dst-week",
+                      "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-fc74b4729b75ea2f57862239",
                 "label": "dst-week v1",
                 "profile": "333333333333",
@@ -1068,7 +1289,54 @@
               "data": {
                 "active": false,
                 "content_revision": 3,
+                "dataset_key": "dataset-56abe205e7c8d46f9df99f30",
                 "dataset_label": "crm/corpus-b v2",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "id": "corpus-b",
+                      "provider": "crm",
+                      "version": "2"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "id": "corpus-b",
+                        "provider": "crm",
+                        "version": "2"
+                      },
+                      "id": "reprofiled",
+                      "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+                      "version": "2"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 3,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "id": "corpus-b",
+                      "provider": "crm",
+                      "version": "2"
+                    },
+                    "receipt_id": "rcpt-reprofiled-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "id": "corpus-b",
+                        "provider": "crm",
+                        "version": "2"
+                      },
+                      "id": "reprofiled",
+                      "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+                      "version": "2"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-b4ed0674903bb0d1f729f092",
                 "label": "reprofiled v2",
                 "profile": "444444444444",
@@ -1085,6 +1353,7 @@
               "revision": 1,
               "data": {
                 "active": false,
+                "dataset_key": "dataset-56abe205e7c8d46f9df99f30",
                 "dataset_label": "crm/corpus-b v2",
                 "key": "scenario-cb0046102660d6a65483708c",
                 "label": "backfill v1",
@@ -1425,6 +1694,10 @@
                     }
                   ],
                   "key_bind": "key"
+                },
+                "link": {
+                  "label": "Explore datasets",
+                  "panel_id": "explore"
                 }
               }
             },
@@ -1440,6 +1713,34 @@
                 ]
               }
             ]
+          },
+          "records": []
+        },
+        {
+          "id": "explore",
+          "label": "Explore",
+          "icon": "iconoir-compass",
+          "span": 12,
+          "snapshot_key": "explore",
+          "event_types": [
+            "explore"
+          ],
+          "supports_toolbar": false,
+          "category": "data",
+          "order": 65,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "cards",
+                "title": "Explore datasets",
+                "description": "What each dataset contains, what each scenario is for and which application features declare a dependency on it.",
+                "empty": "Open the Data page to explore dataset descriptions, sample records and declared usage."
+              }
+            },
+            "count": {
+              "mode": "none"
+            }
           },
           "records": []
         },
@@ -2207,6 +2508,10 @@
                     }
                   ],
                   "key_bind": "key"
+                },
+                "link": {
+                  "label": "Explore datasets",
+                  "panel_id": "explore"
                 }
               }
             },
@@ -2271,6 +2576,34 @@
               }
             }
           ]
+        },
+        {
+          "id": "explore",
+          "label": "Explore",
+          "icon": "iconoir-compass",
+          "span": 12,
+          "snapshot_key": "explore",
+          "event_types": [
+            "explore"
+          ],
+          "supports_toolbar": false,
+          "category": "data",
+          "order": 65,
+          "ui": {
+            "schema_version": "1",
+            "views": {
+              "console": {
+                "renderer": "cards",
+                "title": "Explore datasets",
+                "description": "What each dataset contains, what each scenario is for and which application features declare a dependency on it.",
+                "empty": "Open the Data page to explore dataset descriptions, sample records and declared usage."
+              }
+            },
+            "count": {
+              "mode": "none"
+            }
+          },
+          "records": []
         },
         {
           "id": "operations",
@@ -3002,6 +3335,30 @@
                 },
                 "primary": {
                   "dataset_label": "crm/corpus-a v1",
+                  "explore_active": {
+                    "content_revision": 2,
+                    "context": "active",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "generation": 3,
+                    "receipt_id": "rcpt-ready-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "ready",
+                      "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
                   "generation": 3,
                   "key": "preview",
                   "ready": true,
@@ -3014,6 +3371,30 @@
                 "targets": [
                   {
                     "dataset_label": "crm/corpus-a v1",
+                    "explore_active": {
+                      "content_revision": 2,
+                      "context": "active",
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "generation": 3,
+                      "receipt_id": "rcpt-ready-1",
+                      "scenario": {
+                        "dataset": {
+                          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                          "id": "corpus-a",
+                          "provider": "crm",
+                          "version": "1"
+                        },
+                        "id": "ready",
+                        "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                        "version": "1"
+                      },
+                      "target_id": "preview"
+                    },
                     "generation": 3,
                     "key": "preview",
                     "ready": true,
@@ -3111,7 +3492,54 @@
               "data": {
                 "active": true,
                 "content_revision": 2,
+                "dataset_key": "dataset-1a43cf1daf7d308aac185cf0",
                 "dataset_label": "crm/corpus-a v1",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "ready",
+                      "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 2,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "receipt_id": "rcpt-ready-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "ready",
+                      "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-a07a50deab79211fb6f0d78e",
                 "label": "ready v1",
                 "profile": "111111111111",
@@ -3130,7 +3558,54 @@
               "data": {
                 "active": false,
                 "content_revision": 1,
+                "dataset_key": "dataset-1a43cf1daf7d308aac185cf0",
                 "dataset_label": "crm/corpus-a v1",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "empty-history",
+                      "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 1,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "receipt_id": "rcpt-empty-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "empty-history",
+                      "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-067d422cc249b405a9343ebf",
                 "label": "empty-history v1",
                 "profile": "222222222222",
@@ -3149,7 +3624,54 @@
               "data": {
                 "active": false,
                 "content_revision": 1,
+                "dataset_key": "dataset-1a43cf1daf7d308aac185cf0",
                 "dataset_label": "crm/corpus-a v1",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "dst-week",
+                      "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 1,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "receipt_id": "rcpt-dst-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "id": "corpus-a",
+                        "provider": "crm",
+                        "version": "1"
+                      },
+                      "id": "dst-week",
+                      "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                      "version": "1"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-fc74b4729b75ea2f57862239",
                 "label": "dst-week v1",
                 "profile": "333333333333",
@@ -3168,7 +3690,54 @@
               "data": {
                 "active": false,
                 "content_revision": 3,
+                "dataset_key": "dataset-56abe205e7c8d46f9df99f30",
                 "dataset_label": "crm/corpus-b v2",
+                "explore": {
+                  "catalog_example": {
+                    "context": "catalog_example",
+                    "dataset": {
+                      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "id": "corpus-b",
+                      "provider": "crm",
+                      "version": "2"
+                    },
+                    "scenario": {
+                      "dataset": {
+                        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "id": "corpus-b",
+                        "provider": "crm",
+                        "version": "2"
+                      },
+                      "id": "reprofiled",
+                      "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+                      "version": "2"
+                    },
+                    "target_id": "preview"
+                  },
+                  "prepared": {
+                    "content_revision": 3,
+                    "context": "prepared",
+                    "dataset": {
+                      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                      "id": "corpus-b",
+                      "provider": "crm",
+                      "version": "2"
+                    },
+                    "receipt_id": "rcpt-reprofiled-1",
+                    "scenario": {
+                      "dataset": {
+                        "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                        "id": "corpus-b",
+                        "provider": "crm",
+                        "version": "2"
+                      },
+                      "id": "reprofiled",
+                      "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+                      "version": "2"
+                    },
+                    "target_id": "preview"
+                  }
+                },
                 "key": "scenario-b4ed0674903bb0d1f729f092",
                 "label": "reprofiled v2",
                 "profile": "444444444444",
@@ -3185,6 +3754,7 @@
               "revision": 1,
               "data": {
                 "active": false,
+                "dataset_key": "dataset-56abe205e7c8d46f9df99f30",
                 "dataset_label": "crm/corpus-b v2",
                 "key": "scenario-cb0046102660d6a65483708c",
                 "label": "backfill v1",
@@ -3667,6 +4237,30 @@
             },
             "primary": {
               "dataset_label": "crm/corpus-a v1",
+              "explore_active": {
+                "content_revision": 2,
+                "context": "active",
+                "dataset": {
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "id": "corpus-a",
+                  "provider": "crm",
+                  "version": "1"
+                },
+                "generation": 3,
+                "receipt_id": "rcpt-ready-1",
+                "scenario": {
+                  "dataset": {
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "id": "corpus-a",
+                    "provider": "crm",
+                    "version": "1"
+                  },
+                  "id": "ready",
+                  "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                  "version": "1"
+                },
+                "target_id": "preview"
+              },
               "generation": 3,
               "key": "preview",
               "ready": true,
@@ -3679,6 +4273,30 @@
             "targets": [
               {
                 "dataset_label": "crm/corpus-a v1",
+                "explore_active": {
+                  "content_revision": 2,
+                  "context": "active",
+                  "dataset": {
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "id": "corpus-a",
+                    "provider": "crm",
+                    "version": "1"
+                  },
+                  "generation": 3,
+                  "receipt_id": "rcpt-ready-1",
+                  "scenario": {
+                    "dataset": {
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                      "id": "corpus-a",
+                      "provider": "crm",
+                      "version": "1"
+                    },
+                    "id": "ready",
+                    "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+                    "version": "1"
+                  },
+                  "target_id": "preview"
+                },
                 "generation": 3,
                 "key": "preview",
                 "ready": true,

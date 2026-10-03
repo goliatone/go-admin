@@ -1,0 +1,6 @@
+{
+ "selection":{"dataset":{"provider":"kitchen-sink","id":"synthetic-orders","version":"1","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"scenario":{"dataset":{"provider":"kitchen-sink","id":"synthetic-orders","version":"1","digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"id":"ready","version":"1","profile_hash":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"target_id":"kitchen-sink","context":"catalog_example"},
+ "presentation_revision":"1","observed_at":"2026-10-03T12:00:00Z","provenance":"example","completeness":"unknown","state":"available","metric_set_id":"orders",
+ "metrics":[{"id":"orders.count","label":"Orders","kind":"count","unit":"orders","population":"scenario orders","time_scope":{"start":"2026-01-01","end":"2026-01-01","timezone":"UTC"},"value":null,"denominator":null,"status":"unknown","buckets":[],"sampling_method":"unknown"}],
+ "coverage":[{"local_day":"2026-01-01","timezone":"UTC","status":"uncovered","evidence":null,"reason":"expected_only"}],"work":{"queries":0,"records":0}
+}

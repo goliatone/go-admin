@@ -1893,6 +1893,1422 @@
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
 }
 
+/* Data explorer ------------------------------------------------------------
+   Read-only dataset cards and details (Data console Explore panel). Layout
+   only: values reuse the card, key/value, table, badge and callout rules
+   above, so explorer sections never nest bordered tiles. */
+
+:where(.console-root) .console-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-explorer__loading {
+  padding: 24px 20px;
+  color: var(--console-text-muted);
+  text-align: center;
+}
+
+:where(.console-root) .console-explorer__cards {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+
+:where(.console-root) .console-explorer__card {
+  gap: 12px;
+}
+
+:where(.console-root) .console-explorer__card .console-card__title {
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-explorer__version {
+  color: var(--console-text-muted);
+}
+
+:where(.console-root) .console-explorer__card .console-explorer__summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+:where(.console-root) .console-explorer__card-meta {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:where(.console-root) .console-explorer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-explorer__chips > li {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-explorer__more {
+  display: flex;
+  justify-content: center;
+}
+
+:where(.console-root) .console-explorer__crumbs {
+  display: flex;
+  margin-bottom: -8px;
+}
+
+:where(.console-root) .console-explorer__header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+:where(.console-root) .console-explorer__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-explorer__title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-explorer__summary {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-explorer__context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+}
+
+:where(.console-root) .console-explorer__picker {
+  flex: 0 1 320px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-explorer__picker select {
+  width: 100%;
+}
+
+:where(.console-root) .console-explorer__contexts {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+:where(.console-root) .console-explorer__legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-explorer__choices {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--console-control-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+}
+
+:where(.console-root) .console-explorer__choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-explorer__choice + .console-explorer__choice {
+  border-left: 1px solid var(--console-control-border);
+}
+
+:where(.console-root) .console-explorer__choice:has(input:checked) {
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+}
+
+:where(.console-root) .console-explorer__choice:has(input:focus-visible) {
+  outline: 2px solid var(--console-focus);
+  outline-offset: -2px;
+}
+
+:where(.console-root) .console-explorer__choice--unavailable {
+  color: var(--console-text-faint);
+  cursor: not-allowed;
+}
+
+/* The shown context is always visible; an example never reads as observed. */
+:where(.console-root) .console-explorer__note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--console-tone-info-border);
+  border-radius: var(--console-radius);
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+}
+
+:where(.console-root) .console-explorer__note[data-context="catalog_example"] {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+  background: var(--console-surface);
+  color: var(--console-text-muted);
+}
+
+:where(.console-root) .console-explorer__note[data-context="active"] {
+  border-color: var(--console-tone-success-border);
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root) .console-explorer__observed {
+  margin: -8px 0 0;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-explorer__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Same overflow hint as the console tabs: shadows only where more tabs scroll. */
+:where(.console-root) .console-explorer__tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--console-border);
+  background:
+    linear-gradient(to right, var(--console-canvas) 30%, transparent) left center / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--console-canvas) 30%, transparent) right center / 40px 100% no-repeat local,
+    linear-gradient(to right, rgba(17, 24, 39, 0.14), transparent) left center / 14px 100% no-repeat scroll,
+    linear-gradient(to left, rgba(17, 24, 39, 0.14), transparent) right center / 14px 100% no-repeat scroll;
+  scrollbar-width: thin;
+}
+
+:where(.console-root) .console-explorer__tab {
+  flex: 0 0 auto;
+  min-height: 36px;
+  margin-bottom: -1px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--console-text-muted);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-explorer__tab:hover {
+  color: var(--console-text);
+}
+
+:where(.console-root) .console-explorer__tab--active {
+  border-bottom-color: var(--console-accent);
+  color: var(--console-text);
+  font-weight: 600;
+}
+
+:where(.console-root) .console-explorer__section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px 20px 20px;
+}
+
+:where(.console-root) .console-explorer__section-body > .console-kv,
+:where(.console-root) .console-explorer__identity > .console-kv {
+  margin-inline: -20px;
+}
+
+:where(.console-root) .console-explorer__identity > summary {
+  color: var(--console-accent);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+:where(.console-root) .console-explorer__identity[open] > summary {
+  margin-bottom: 8px;
+}
+
+:where(.console-root) :is(.console-explorer__para, .console-explorer__list) {
+  margin: 0;
+}
+
+:where(.console-root) .console-explorer__list {
+  padding-left: 18px;
+  list-style: disc;
+}
+
+/* Inside a key/value row each item is its own line, aligned with peers. */
+:where(.console-root) .console-kv .console-explorer__list {
+  padding-left: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-explorer__label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-explorer__table {
+  min-width: 0;
+}
+
+:where(.console-root) .console-explorer__caption {
+  padding: 0 0 8px;
+  caption-side: top;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+}
+
+:where(.console-root) .console-explorer__number {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.console-root) .console-explorer__entities {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+:where(.console-root) .console-explorer__entity {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--console-divider);
+}
+
+:where(.console-root) .console-explorer__entity-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+:where(.console-root) .console-explorer__entity-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+:where(.console-root) :is(.console-explorer__usages, .console-explorer__scenarios) {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) :is(.console-explorer__usage, .console-explorer__scenario) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--console-divider);
+}
+
+:where(.console-root) :is(.console-explorer__usage, .console-explorer__scenario):first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+:where(.console-root) .console-explorer__usage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+:where(.console-root) .console-explorer__usage-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-explorer__scenario-foot,
+:where(.console-root) .console-explorer__state-actions,
+:where(.console-root) .console-explorer__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+:where(.console-root) .console-explorer__state-actions {
+  margin-top: 8px;
+}
+
+/* Record previews: bounded pages under an entity, related pages in a drawer. */
+:where(.console-root) .console-explorer__preview-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+:where(.console-root) :is(.console-explorer__preview, .console-explorer__related-body) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-explorer__preview-head,
+:where(.console-root) .console-explorer__pager-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+:where(.console-root) .console-explorer__preview-head .console-explorer__label {
+  margin: 0;
+}
+
+:where(.console-root) .console-explorer__pager {
+  display: flex;
+  gap: 8px;
+}
+
+:where(.console-root) .console-explorer__table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+:where(.console-root) .console-explorer__samples td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-explorer__column {
+  display: block;
+}
+
+:where(.console-root) .console-explorer__unit {
+  display: block;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:where(.console-root) .console-explorer__related-cell {
+  white-space: nowrap;
+}
+
+/* Declared cell states never look like ordinary values. */
+:where(.console-root) .console-explorer__cell {
+  color: var(--console-text-muted);
+  font-style: italic;
+}
+
+:where(.console-root) .console-explorer__cell--redacted {
+  display: inline-flex;
+  padding: 0 6px;
+  border: 1px dashed var(--console-text-faint);
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-explorer__effects {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 16px;
+  margin: 0;
+}
+
+:where(.console-root) .console-explorer__effects > dt {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-explorer__effects > dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  :where(.console-root) .console-explorer {
+    gap: 16px;
+  }
+
+  :where(.console-root) .console-explorer__header {
+    padding: 16px;
+  }
+
+  :where(.console-root) .console-explorer__context {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  :where(.console-root) .console-explorer__picker {
+    flex: 0 0 auto;
+  }
+
+  :where(.console-root) .console-explorer__choices {
+    display: flex;
+    flex-direction: column;
+  }
+
+  :where(.console-root) .console-explorer__choice + .console-explorer__choice {
+    border-top: 1px solid var(--console-control-border);
+    border-left: 0;
+  }
+
+  :where(.console-root) .console-explorer__section-body {
+    padding: 12px 16px 16px;
+  }
+
+  :where(.console-root) .console-explorer__section-body > .console-kv,
+  :where(.console-root) .console-explorer__identity > .console-kv {
+    margin-inline: -16px;
+  }
+}
+
+/* Application preview -------------------------------------------------------
+   Launch controls for registered application views over the explorer's
+   pinned prepared receipt. Buttons, badges, key/value rows and callouts reuse
+   the shared rules; these classes add layout only. */
+
+:where(.console-root) .console-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-preview__guarantees {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+:where(.console-root) .console-preview__guarantees > li::before {
+  content: "\2713\00a0";
+}
+
+:where(.console-root) .console-preview__surfaces {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-preview__surface {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--console-divider);
+}
+
+:where(.console-root) .console-preview__surface:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+:where(.console-root) .console-preview__status {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+:where(.console-root) .console-preview__failure {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  :where(.console-root) .console-preview__actions > :is(.console-btn, a.console-btn) {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* Application preview page --------------------------------------------------
+   The chrome the Data module wraps around a host's application view on a
+   preview session page: preview and read-only flags, the pinned identity,
+   expiry and the Close/Return controls stay above the view, which keeps its
+   own layout below. The chrome uses the warning tone so the page never reads
+   as the data a target serves. */
+
+.data-preview-body {
+  margin: 0;
+}
+
+/* Controls the page script has not enabled (or cannot) stay hidden, whatever their button styles. */
+.console-root.data-preview [hidden] {
+  display: none !important;
+}
+
+.data-preview-skip {
+  position: absolute;
+  top: -64px;
+  left: 8px;
+  z-index: 20;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.data-preview-skip:focus {
+  top: 8px;
+}
+
+.console-root.data-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--console-canvas);
+  color: var(--console-text);
+  font-family: var(--console-font);
+}
+
+:where(.console-root) .data-preview__chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--console-tone-warning-border);
+  background: var(--console-tone-warning-surface);
+}
+
+:where(.console-root) .data-preview__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+:where(.console-root) .data-preview__flags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+:where(.console-root) .data-preview__flag-text {
+  margin: 0;
+  color: var(--console-tone-warning-text);
+  font-weight: 500;
+}
+
+:where(.console-root) .data-preview__controls,
+:where(.console-root) .data-preview__views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+:where(.console-root) .data-preview__identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+:where(.console-root) .data-preview__identity > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+}
+
+:where(.console-root) .data-preview__identity dt {
+  color: var(--console-text-muted);
+  font-weight: 500;
+}
+
+:where(.console-root) .data-preview__identity dt::after {
+  content: ":";
+}
+
+:where(.console-root) .data-preview__identity dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .data-preview__value {
+  font-weight: 600;
+}
+
+:where(.console-root) .data-preview__meta {
+  color: var(--console-text-muted);
+}
+
+:where(.console-root) .data-preview__views {
+  font-size: 13px;
+}
+
+:where(.console-root) .data-preview__views a {
+  color: var(--console-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+:where(.console-root) .data-preview__views a[aria-current="page"] {
+  color: var(--console-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+:where(.console-root) .data-preview__status {
+  margin: 0;
+  color: var(--console-tone-warning-text);
+  font-weight: 500;
+}
+
+:where(.console-root) .data-preview__status:empty {
+  display: none;
+}
+
+:where(.console-root) .data-preview__surface {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+:where(.console-root) .data-preview__surface:focus {
+  outline: none;
+}
+
+:where(.console-root) .data-preview__ended {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+@media (min-width: 641px) {
+  /* The slim chrome stays in view while a long application view scrolls. */
+  :where(.console-root) .data-preview__chrome {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+}
+
+@media (max-width: 640px) {
+  :where(.console-root) .data-preview__chrome {
+    padding: 12px 16px;
+  }
+
+  :where(.console-root) .data-preview__controls {
+    width: 100%;
+  }
+
+  :where(.console-root) .data-preview__controls > .console-btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  :where(.console-root) .data-preview__identity {
+    flex-direction: column;
+  }
+
+  :where(.console-root) .data-preview__surface {
+    padding: 16px;
+  }
+}
+
+/* Data insights -------------------------------------------------------------
+   Composition and coverage of the explorer's shown selection, and two-side
+   comparisons. Charts and tables state the same values; every coverage state
+   has its own glyph and pattern, so color is never the only cue. Values reuse
+   the explorer, table, key/value and callout rules above. */
+
+:where(.console-root) .console-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+:where(.console-root) .console-insights__toolbar > .console-explorer__para {
+  flex: 1 1 280px;
+}
+
+:where(.console-root) .console-insights__provenance {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--console-tone-info-border);
+  border-radius: var(--console-radius);
+  background: var(--console-tone-info-surface);
+  color: var(--console-tone-info-text);
+  overflow-wrap: anywhere;
+}
+
+/* Examples are declarations: the same dashed treatment as the explorer's
+   catalog context note. */
+:where(.console-root) .console-insights__provenance[data-provenance="example"] {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+  background: var(--console-surface);
+  color: var(--console-text-muted);
+}
+
+:where(.console-root) .console-insights__provenance[data-provenance="unknown"] {
+  border-color: var(--console-tone-warning-border);
+  background: var(--console-tone-warning-surface);
+  color: var(--console-tone-warning-text);
+}
+
+:where(.console-root) .console-insights__read {
+  margin: -8px 0 0;
+}
+
+:where(.console-root) .console-insights__group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--console-divider);
+}
+
+:where(.console-root) .console-insights__heading {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-insights__tag {
+  display: inline-flex;
+  margin-left: 2px;
+  padding: 0 6px;
+  border: 1px dashed var(--console-text-faint);
+  border-radius: 999px;
+  color: var(--console-text-muted);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  vertical-align: baseline;
+}
+
+:where(.console-root) .console-insights__missing {
+  color: var(--console-text-muted);
+  font-style: italic;
+}
+
+:where(.console-root) .console-insights__number,
+:where(.console-root) .console-insights__numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(.console-root) .console-insights__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__stat-label,
+:where(.console-root) .console-insights__figure-title {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-insights__stat-value {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-insights__unit {
+  color: var(--console-text-muted);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+:where(.console-root) .console-insights__stat[data-status]:not([data-status="known"]) .console-insights__stat-value {
+  font-size: 16px;
+  line-height: 32px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-insights__stat-meta,
+:where(.console-root) .console-insights__scale {
+  margin: 0;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-insights__distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+:where(.console-root) .console-insights__figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+
+:where(.console-root) .console-insights__figcaption .console-insights__figure-title {
+  color: var(--console-text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-insights__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__bar-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 28%) minmax(0, 1fr) minmax(88px, auto);
+  align-items: center;
+  gap: 4px 12px;
+}
+
+:where(.console-root) .console-insights__bar-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-insights__bar-track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid var(--console-border);
+  border-radius: 999px;
+  background: var(--console-surface-muted);
+}
+
+:where(.console-root) .console-insights__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--console-accent);
+}
+
+/* A category without a known value has an empty dashed track, not a bar. */
+:where(.console-root) .console-insights__bar-row:not([data-status="known"]) .console-insights__bar-track {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+  background: transparent;
+}
+
+:where(.console-root) .console-insights__bar-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+:where(.console-root) .console-insights__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__legend > li,
+:where(.console-root) .console-insights__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+:where(.console-root) .console-insights__months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+}
+
+:where(.console-root) .console-insights__month {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__month-title {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+:where(.console-root) .console-insights__weekdays,
+:where(.console-root) .console-insights__days {
+  display: grid;
+  grid-template-columns: repeat(7, 36px);
+  gap: 4px;
+}
+
+:where(.console-root) .console-insights__weekdays {
+  color: var(--console-text-muted);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+:where(.console-root) .console-insights__days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__day--col-1 { grid-column-start: 1; }
+:where(.console-root) .console-insights__day--col-2 { grid-column-start: 2; }
+:where(.console-root) .console-insights__day--col-3 { grid-column-start: 3; }
+:where(.console-root) .console-insights__day--col-4 { grid-column-start: 4; }
+:where(.console-root) .console-insights__day--col-5 { grid-column-start: 5; }
+:where(.console-root) .console-insights__day--col-6 { grid-column-start: 6; }
+:where(.console-root) .console-insights__day--col-7 { grid-column-start: 7; }
+
+:where(.console-root) .console-insights__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--console-border);
+  border-radius: 6px;
+  background: var(--console-surface);
+  color: var(--console-text-muted);
+  line-height: 1;
+}
+
+:where(.console-root) .console-insights__day-number {
+  font-size: 10px;
+}
+
+:where(.console-root) .console-insights__day-glyph {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:where(.console-root) .console-insights__swatch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--console-border);
+  border-radius: 4px;
+  background: var(--console-surface);
+  color: var(--console-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="covered"] {
+  border-color: var(--console-tone-success-border);
+  background: var(--console-tone-success-surface);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="covered_empty"] {
+  border: 2px solid var(--console-tone-success-border);
+  color: var(--console-tone-success-text);
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="partial"] {
+  border-color: var(--console-tone-warning-border);
+  background: linear-gradient(135deg, var(--console-tone-warning-surface) 50%, var(--console-surface) 50%);
+  color: var(--console-tone-warning-text);
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="uncovered"] {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="policy_suppressed"] {
+  border-color: var(--console-tone-neutral-border);
+  background: repeating-linear-gradient(45deg, var(--console-tone-neutral-surface) 0 3px, var(--console-surface) 3px 6px);
+  color: var(--console-tone-neutral-text);
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="unavailable"] {
+  border-style: dotted;
+  border-color: var(--console-text-muted);
+}
+
+:where(.console-root) :is(.console-insights__day, .console-insights__swatch)[data-status="not_reported"] {
+  border-color: transparent;
+  background: var(--console-surface-muted);
+  color: var(--console-text-faint);
+}
+
+:where(.console-root) .console-insights__compare-controls {
+  display: flex;
+  flex: 1 1 360px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__picker {
+  flex: 1 1 280px;
+  min-width: 0;
+  max-width: 480px;
+}
+
+:where(.console-root) .console-insights__picker select {
+  width: 100%;
+}
+
+:where(.console-root) .console-insights__sides,
+:where(.console-root) .console-insights__coverage-pair,
+:where(.console-root) .console-insights__declared-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px 24px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius);
+  background: var(--console-surface);
+}
+
+/* The baseline is marked by its letter and an accent edge, not color alone. */
+:where(.console-root) .console-insights__side[data-side="a"] {
+  border-left: 3px solid var(--console-accent);
+}
+
+:where(.console-root) .console-insights__side-head,
+:where(.console-root) .console-insights__coverage-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__side-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--console-surface-muted);
+  color: var(--console-text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+:where(.console-root) [data-side="a"] > .console-insights__side-head .console-insights__side-badge,
+:where(.console-root) [data-side="a"] > .console-insights__coverage-title .console-insights__side-badge {
+  background: var(--console-accent);
+  color: var(--console-accent-text);
+}
+
+:where(.console-root) .console-insights__side-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) :is(.console-insights__side-context, .console-insights__side-identity, .console-insights__side-evidence) {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) :is(.console-insights__side-identity, .console-insights__side-evidence) {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-insights__pairs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__pair {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--console-divider);
+}
+
+:where(.console-root) .console-insights__pair:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+:where(.console-root) .console-insights__pair-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+}
+
+:where(.console-root) .console-insights__pair-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-insights__pair-bars,
+:where(.console-root) .console-insights__pair-buckets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__pair-buckets {
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--console-divider);
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__pair-bucket {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+:where(.console-root) .console-insights__pair-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) minmax(112px, auto);
+  align-items: center;
+  gap: 8px;
+}
+
+:where(.console-root) .console-insights__pair-side {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* B bars are hatched so the two sides differ by pattern as well as color. */
+:where(.console-root) .console-insights__pair-row[data-side="b"] .console-insights__bar-fill {
+  background: repeating-linear-gradient(135deg, var(--console-text-muted) 0 3px, color-mix(in srgb, var(--console-text-muted) 55%, var(--console-surface)) 3px 6px);
+}
+
+:where(.console-root) .console-insights__pair-row:not([data-status="known"]) .console-insights__bar-track {
+  border-style: dashed;
+  border-color: var(--console-text-faint);
+  background: transparent;
+}
+
+:where(.console-root) .console-insights__delta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+}
+
+:where(.console-root) .console-insights__delta-label {
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+:where(.console-root) .console-insights__delta-note {
+  flex-basis: 100%;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+:where(.console-root) .console-insights__coverage-side,
+:where(.console-root) .console-insights__declared {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+:where(.console-root) .console-insights__coverage-title {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+:where(.console-root) :is(.console-insights__usages, .console-insights__effects) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where(.console-root) .console-insights__effects {
+  gap: 2px;
+  margin-top: 2px;
+}
+
+:where(.console-root) .console-insights__usage-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .console-insights__phase {
+  display: inline-block;
+  min-width: 64px;
+  color: var(--console-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  :where(.console-root) .console-insights__bar-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  :where(.console-root) .console-insights__bar-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  :where(.console-root) .console-insights__stats {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  :where(.console-root) .console-insights__pair-row {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+
+  :where(.console-root) .console-insights__picker {
+    max-width: none;
+  }
+
+  /* Two short choices stay side by side. */
+  :where(.console-root) .console-insights__display .console-explorer__choices {
+    flex-direction: row;
+  }
+
+  :where(.console-root) .console-insights__display .console-explorer__choice + .console-explorer__choice {
+    border-top: 0;
+    border-left: 1px solid var(--console-control-border);
+  }
+}
+
 /* Small screens: stack controls and keep wide tables inside their card. --- */
 
 @media (max-width: 640px) {

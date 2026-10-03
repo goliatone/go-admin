@@ -2,8 +2,15 @@
 {% comment %}
   Data console page. It reuses the neutral console shell and runtime, so it
   loads no Debug assets and mounts from the same bootstrap contract. Panels and
-  records come from the Data module; this template only adds the page header
-  subtitle. Preparation and verification stay distinct from activation.
+  records come from the Data module; this template adds the page header
+  subtitle and loads the Data console entry, which mounts the same runtime with
+  the read-only dataset explorer on the Explore panel. Preparation and
+  verification stay distinct from activation.
 {% endcomment %}
 
 {% block console_subtitle %}<p class="admin-page-header__subtitle console-page-subtitle mt-1 text-sm text-gray-500" data-data-console-intro>Prepare, verify and activate datasets. Preparing or verifying never changes what a target serves.</p>{% endblock %}
+
+{% block scripts %}
+  <script type="module" src="{{ adminURL("assets/dist/console/data.js") }}"></script>
+  {% block console_scripts %}{% endblock %}
+{% endblock %}

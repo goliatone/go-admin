@@ -8,6 +8,10 @@
         "components/modal": { "rawBytes": 21504, "gzipBytes": 8192 },
         "components/permission-pills": { "rawBytes": 5120, "gzipBytes": 3072 },
         "console/index": { "rawBytes": 181248, "gzipBytes": 51200 },
+        "console/data": { "rawBytes": 258048, "gzipBytes": 71680 },
+        "console/data-insights": { "rawBytes": 102400, "gzipBytes": 28672 },
+        "console/data-preview": { "rawBytes": 69632, "gzipBytes": 22528 },
+        "console/data-preview-page": { "rawBytes": 34816, "gzipBytes": 13312 },
         "content-type-builder/index": { "rawBytes": 521216, "gzipBytes": 114688 },
         "content-type-builder/bootstrap": { "rawBytes": 7168, "gzipBytes": 4096 },
         "content-type-builder/content-editor-runtime": { "rawBytes": 373760, "gzipBytes": 82944 },
@@ -76,7 +80,7 @@
         "users/import-adapter": { "rawBytes": 4096, "gzipBytes": 2048 }
       },
       "maxChunk": { "rawBytes": 473088, "gzipBytes": 106496 },
-      "total": { "rawBytes": 3809280, "gzipBytes": 902144 }
+      "total": { "rawBytes": 3824640, "gzipBytes": 911360 }
     },
     "public": {
       "entries": {

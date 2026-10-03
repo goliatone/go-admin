@@ -1,0 +1,575 @@
+{
+  "capabilities": [
+    {
+      "name": "supported",
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "prepared",
+        "receipt_id": "rcpt-ready-1",
+        "content_revision": 2
+      },
+      "response": {
+        "supported": true,
+        "surfaces": [
+          {
+            "id": "synthetic-orders-report",
+            "label": "Synthetic orders report",
+            "kind": "report"
+          },
+          {
+            "id": "orders-screen",
+            "label": "Orders screen",
+            "kind": "screen"
+          }
+        ],
+        "guarantees": {
+          "durable": true,
+          "isolation": true,
+          "read_only": true,
+          "retention": true,
+          "cleanup": true
+        }
+      }
+    },
+    {
+      "name": "quiet_supported",
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "empty-history",
+          "version": "1",
+          "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "target_id": "preview",
+        "context": "prepared",
+        "receipt_id": "rcpt-empty-1",
+        "content_revision": 1
+      },
+      "response": {
+        "supported": true,
+        "surfaces": [
+          {
+            "id": "synthetic-orders-report",
+            "label": "Synthetic orders report",
+            "kind": "report"
+          }
+        ],
+        "guarantees": {
+          "durable": true,
+          "isolation": true,
+          "read_only": true,
+          "retention": true,
+          "cleanup": true
+        }
+      }
+    },
+    {
+      "name": "not_supported",
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "prepared",
+        "receipt_id": "rcpt-ready-1",
+        "content_revision": 2
+      },
+      "response": {
+        "supported": false,
+        "reason": "not_supported",
+        "surfaces": [],
+        "guarantees": {
+          "durable": false,
+          "isolation": false,
+          "read_only": false,
+          "retention": false,
+          "cleanup": false
+        }
+      }
+    },
+    {
+      "name": "runtime_unavailable",
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "prepared",
+        "receipt_id": "rcpt-ready-1",
+        "content_revision": 2
+      },
+      "response": {
+        "supported": false,
+        "reason": "runtime_unavailable",
+        "surfaces": [],
+        "guarantees": {
+          "durable": false,
+          "isolation": false,
+          "read_only": false,
+          "retention": false,
+          "cleanup": false
+        }
+      }
+    },
+    {
+      "name": "no_readable_surfaces",
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "prepared",
+        "receipt_id": "rcpt-ready-1",
+        "content_revision": 2
+      },
+      "response": {
+        "supported": false,
+        "reason": "no_readable_surfaces",
+        "surfaces": [],
+        "guarantees": {
+          "durable": true,
+          "isolation": true,
+          "read_only": true,
+          "retention": true,
+          "cleanup": true
+        }
+      }
+    },
+    {
+      "name": "hostile",
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "prepared",
+        "receipt_id": "rcpt-ready-1",
+        "content_revision": 2
+      },
+      "response": {
+        "supported": true,
+        "surfaces": [
+          {
+            "id": "hostile-report",
+            "label": "\u003cimg src=x onerror=\"window.__previewXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "kind": "report"
+          }
+        ],
+        "guarantees": {
+          "durable": true,
+          "isolation": true,
+          "read_only": true,
+          "retention": true,
+          "cleanup": true
+        }
+      }
+    }
+  ],
+  "limits": {
+    "default_lifetime": "15m0s",
+    "max_lifetime": "30m0s",
+    "sessions": 4,
+    "surfaces": 16
+  },
+  "routes": {
+    "capabilities": "/admin/data/api/preview/capabilities",
+    "open": "/admin/data/api/preview/sessions",
+    "session": "/admin/data/api/preview/sessions/:session",
+    "close": "/admin/data/api/preview/sessions/:session/close",
+    "surface": "/admin/data/preview/:session/surfaces/:surface",
+    "api": "/admin/data/preview/:session/surfaces/:surface/api/report"
+  },
+  "sessions": [
+    {
+      "name": "ready",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "response": {
+        "session_id": "preview-ready-1",
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "state": "ready",
+        "expires_at": "2026-10-03T12:15:00Z",
+        "launch_url": "/admin/data/preview/preview-ready-1/surfaces/synthetic-orders-report",
+        "return_url": "/admin/data?selection=%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22scenario%22%3A%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22id%22%3A%22ready%22%2C%22version%22%3A%221%22%2C%22profile_hash%22%3A%221111111111111111111111111111111111111111111111111111111111111111%22%7D%2C%22target_id%22%3A%22preview%22%2C%22context%22%3A%22prepared%22%2C%22receipt_id%22%3A%22rcpt-ready-1%22%2C%22content_revision%22%3A2%7D",
+        "read_only": true
+      }
+    },
+    {
+      "name": "quiet",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "surface_id": "synthetic-orders-report",
+        "request_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "response": {
+        "session_id": "preview-quiet-1",
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "surface_id": "synthetic-orders-report",
+        "state": "ready",
+        "expires_at": "2026-10-03T12:15:00Z",
+        "launch_url": "/admin/data/preview/preview-quiet-1/surfaces/synthetic-orders-report",
+        "return_url": "/admin/data?selection=%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22scenario%22%3A%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22id%22%3A%22empty-history%22%2C%22version%22%3A%221%22%2C%22profile_hash%22%3A%222222222222222222222222222222222222222222222222222222222222222222%22%7D%2C%22target_id%22%3A%22preview%22%2C%22context%22%3A%22prepared%22%2C%22receipt_id%22%3A%22rcpt-empty-1%22%2C%22content_revision%22%3A1%7D",
+        "read_only": true
+      }
+    },
+    {
+      "name": "closed",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "response": {
+        "session_id": "preview-ready-1",
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "state": "closed",
+        "expires_at": "2026-10-03T12:15:00Z",
+        "return_url": "/admin/data?selection=%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22scenario%22%3A%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22id%22%3A%22ready%22%2C%22version%22%3A%221%22%2C%22profile_hash%22%3A%221111111111111111111111111111111111111111111111111111111111111111%22%7D%2C%22target_id%22%3A%22preview%22%2C%22context%22%3A%22prepared%22%2C%22receipt_id%22%3A%22rcpt-ready-1%22%2C%22content_revision%22%3A2%7D",
+        "read_only": true
+      }
+    },
+    {
+      "name": "expired",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "response": {
+        "session_id": "preview-ready-1",
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "state": "expired",
+        "expires_at": "2026-10-03T12:15:00Z",
+        "return_url": "/admin/data?selection=%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22scenario%22%3A%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22id%22%3A%22ready%22%2C%22version%22%3A%221%22%2C%22profile_hash%22%3A%221111111111111111111111111111111111111111111111111111111111111111%22%7D%2C%22target_id%22%3A%22preview%22%2C%22context%22%3A%22prepared%22%2C%22receipt_id%22%3A%22rcpt-ready-1%22%2C%22content_revision%22%3A2%7D",
+        "read_only": true
+      }
+    },
+    {
+      "name": "unavailable",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "request_id": "00000000-0000-4000-8000-000000000001"
+      },
+      "response": {
+        "session_id": "preview-ready-1",
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "surface_id": "synthetic-orders-report",
+        "state": "unavailable",
+        "expires_at": "2026-10-03T12:15:00Z",
+        "return_url": "/admin/data?selection=%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22scenario%22%3A%7B%22dataset%22%3A%7B%22provider%22%3A%22crm%22%2C%22id%22%3A%22corpus-a%22%2C%22version%22%3A%221%22%2C%22digest%22%3A%22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%22%7D%2C%22id%22%3A%22ready%22%2C%22version%22%3A%221%22%2C%22profile_hash%22%3A%221111111111111111111111111111111111111111111111111111111111111111%22%7D%2C%22target_id%22%3A%22preview%22%2C%22context%22%3A%22prepared%22%2C%22receipt_id%22%3A%22rcpt-ready-1%22%2C%22content_revision%22%3A2%7D",
+        "read_only": true
+      }
+    }
+  ]
+}

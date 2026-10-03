@@ -65,20 +65,15 @@ type dataModuleFixture struct {
 	principal              func(context.Context) (data.Principal, error)
 }
 
-func newDataModuleFixture(t *testing.T, filename string, clock *atomic.Int64) *dataModuleFixture {
+func newDataModuleFixture(t *testing.T, filename string, clock *atomic.Int64, configure ...func(*data.ServiceConfig)) *dataModuleFixture {
 	t.Helper()
-	r, err := demo.Open(filename)
+	options := demo.RuntimeOptions{}
+	if clock != nil {
+		options.Store = sqlitestore.Options{Now: func() time.Time { return time.Unix(0, clock.Load()) }}
+	}
+	r, err := demo.OpenWithOptions(filename, options)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if clock != nil {
-		if err = r.Store.Close(); err != nil {
-			t.Fatal(err)
-		}
-		r.Store, err = sqlitestore.Open(filename, sqlitestore.Options{Now: func() time.Time { return time.Unix(0, clock.Load()) }})
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
 	f := &dataModuleFixture{runtime: r, target: &dataModuleTarget{Runtime: r}}
 	t.Cleanup(func() {
@@ -96,11 +91,17 @@ func newDataModuleFixture(t *testing.T, filename string, clock *atomic.Int64) *d
 		}
 		return data.Principal{ActorID: actorID, ExecutionID: actorID, ScopeKey: "demo", ModuleHash: demo.Hash("module"), PolicyHash: demo.Hash("policy"), PermissionHash: demo.Hash("operator")}, nil
 	}
-	f.service, err = data.NewService(data.ServiceConfig{Providers: map[string]data.Provider{"kitchen-sink": r}, Target: f.target, Store: r.Store, Policy: dataModulePolicy{&f.view, &f.execute, &f.recover}, Resolve: f.principal, WritesEnabled: true})
+	serviceConfig := data.ServiceConfig{Providers: map[string]data.Provider{"kitchen-sink": r}, Target: f.target, Store: r.Store, Policy: dataModulePolicy{&f.view, &f.execute, &f.recover}, Resolve: f.principal, WritesEnabled: true}
+	for _, option := range configure {
+		option(&serviceConfig)
+	}
+	f.service, err = data.NewService(serviceConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.module, err = NewDataModule(DataModuleConfig{Service: f.service, TargetID: demo.TargetID, Enabled: func() bool { return true }, ResolveIdentity: func(ctx context.Context) (console.Identity, error) {
+	f.module, err = NewDataModule(DataModuleConfig{Service: f.service, PreviewSurfaces: map[string]DataPreviewSurface{demo.OrdersReportSurface: {Read: func(ctx context.Context, read data.PreviewReadContext) (any, error) {
+		return r.PreviewOrdersReport(ctx, read)
+	}}}, TargetID: demo.TargetID, Enabled: func() bool { return true }, ResolveIdentity: func(ctx context.Context) (console.Identity, error) {
 		p, e := f.principal(ctx)
 		return console.Identity{ConsoleID: "data", ApplicationID: "test", EnvironmentID: "dev", ActorID: p.ActorID, ScopeKey: p.ScopeKey}, e
 	}})

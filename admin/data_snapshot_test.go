@@ -138,7 +138,7 @@ func TestDataSnapshotProjectionReadBudget(t *testing.T) {
 	start := time.Now()
 	snap, err := m.Console().Snapshot(ctx, id)
 	t.Logf("elapsed=%s catalog=%d describe=%d active=%d operations=%d receipts=%d pinned_operation=%d pinned_receipt=%d", time.Since(start), p.catalogs.Load(), p.describes.Load(), s.targets.Load(), s.operations.Load(), s.receipts.Load(), s.getOps.Load(), s.getReceipts.Load())
-	if err != nil || len(snap.Panels) != 6 {
+	if err != nil || len(snap.Panels) != len(DataPanelIDs()) {
 		t.Fatal(snap, err)
 	}
 	if p.catalogs.Load() != 1 || p.describes.Load() != 1 || s.targets.Load() != 1 || s.operations.Load() != 1 || s.receipts.Load() != 1 {
@@ -176,7 +176,7 @@ func TestDataSnapshotConcurrentIsolationAndCancellation(t *testing.T) {
 	otherID.ActorID = other.ActorID
 	otherID.ScopeKey = other.ScopeKey
 	snap, err := m.Console().Snapshot(otherCtx, otherID)
-	if err != nil || snap.Identity != otherID || len(snap.Panels) != 6 {
+	if err != nil || snap.Identity != otherID || len(snap.Panels) != len(DataPanelIDs()) {
 		t.Fatal("slow snapshot serialized another actor", snap, err)
 	}
 	cancel()
@@ -228,7 +228,7 @@ func TestDataSnapshotFreshGrantsAfterConstruction(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || len(snap.Panels) != 6 {
+			if err != nil || len(snap.Panels) != len(DataPanelIDs()) {
 				t.Fatal("execute denial removed viewer access", snap, err)
 			}
 			for _, panel := range snap.Panels {
@@ -306,7 +306,7 @@ func TestDataSnapshotBoundedWorkAndErrorPresentation(t *testing.T) {
 			start := time.Now()
 			snap, err := m.Console().Snapshot(ctx, id)
 			if mode == "bounded" {
-				if err != nil || len(snap.Panels) != 6 || count.Load() != 1 {
+				if err != nil || len(snap.Panels) != len(DataPanelIDs()) || count.Load() != 1 {
 					t.Fatal("bounded snapshot rebuilt providers", snap, err, count.Load())
 				}
 				return
@@ -523,7 +523,7 @@ func TestDataSnapshotRecordRevocationAfterLoad(t *testing.T) {
 	// On a later request, an inaccessible pinned receipt is omitted. A target
 	// viewer keeps state access, without learning protected receipt details.
 	snap = f.snapshot(t, "operator")
-	if len(snap.Panels) != 6 {
+	if len(snap.Panels) != len(DataPanelIDs()) {
 		t.Fatal("inaccessible pin removed target view")
 	}
 }

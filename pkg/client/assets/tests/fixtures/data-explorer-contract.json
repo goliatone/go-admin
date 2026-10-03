@@ -1,0 +1,1123 @@
+{
+  "metadata": [
+    {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "3",
+      "observed_at": "2026-10-02T12:00:00Z",
+      "provenance": "example",
+      "completeness": "complete",
+      "state": "available",
+      "title": "Customer corpus A",
+      "summary": "Synthetic customers and their orders for sales reporting checks.",
+      "origin": "Generated fixture",
+      "entities": [
+        {
+          "id": "orders",
+          "label": "Orders",
+          "description": "Purchases placed by synthetic customers.",
+          "fields": [
+            {
+              "id": "id",
+              "label": "Order",
+              "type": "string"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "description": "Order total before tax.",
+              "type": "integer",
+              "unit": "USD cents"
+            },
+            {
+              "id": "placed_on",
+              "label": "Placed on",
+              "type": "date"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "customer",
+              "label": "Customer",
+              "entity_id": "people"
+            }
+          ]
+        },
+        {
+          "id": "people",
+          "label": "People",
+          "fields": [
+            {
+              "id": "id",
+              "label": "Person",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "label": "Email",
+              "description": "Contact address; withheld unless permitted.",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "scenarios": [
+        {
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "title": "Ready",
+          "summary": "Three orders on one day.",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        },
+        {
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "title": "Quiet",
+          "summary": "No orders at all.",
+          "expected_outcomes": [
+            "No orders"
+          ]
+        }
+      ],
+      "inventory": [
+        {
+          "entity_id": "orders",
+          "scope": "catalog_inventory",
+          "total": 3
+        },
+        {
+          "entity_id": "orders",
+          "scope": "selected_scenario",
+          "total": 3
+        },
+        {
+          "entity_id": "people",
+          "scope": "selected_scenario",
+          "total": null
+        }
+      ],
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-01-01",
+        "timezone": "UTC"
+      },
+      "prerequisites": [
+        "audience-definitions"
+      ],
+      "attribution": [
+        "Synthetic data generated for go-admin examples"
+      ],
+      "usages": [
+        {
+          "surface_id": "sales-report",
+          "kind": "report",
+          "label": "Daily sales report",
+          "effects": [
+            {
+              "phase": "prepare",
+              "description": "Builds report inputs in the prepared stage."
+            },
+            {
+              "phase": "verify",
+              "description": "Checks the daily total."
+            },
+            {
+              "phase": "activate",
+              "description": "Report shows the scenario's orders."
+            }
+          ],
+          "href": "/admin/reports/sales"
+        },
+        {
+          "surface_id": "customer-search",
+          "kind": "screen",
+          "label": "Customer search",
+          "effects": [
+            {
+              "phase": "activate",
+              "description": "Search lists the scenario's people."
+            }
+          ]
+        }
+      ],
+      "usage_completeness": "partial"
+    },
+    {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "empty-history",
+          "version": "1",
+          "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "3",
+      "observed_at": "2026-10-02T12:00:00Z",
+      "provenance": "example",
+      "completeness": "complete",
+      "state": "available",
+      "title": "Customer corpus A",
+      "summary": "Synthetic customers and their orders for sales reporting checks.",
+      "origin": "Generated fixture",
+      "entities": [
+        {
+          "id": "orders",
+          "label": "Orders",
+          "description": "Purchases placed by synthetic customers.",
+          "fields": [
+            {
+              "id": "id",
+              "label": "Order",
+              "type": "string"
+            },
+            {
+              "id": "amount",
+              "label": "Amount",
+              "description": "Order total before tax.",
+              "type": "integer",
+              "unit": "USD cents"
+            },
+            {
+              "id": "placed_on",
+              "label": "Placed on",
+              "type": "date"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "customer",
+              "label": "Customer",
+              "entity_id": "people"
+            }
+          ]
+        },
+        {
+          "id": "people",
+          "label": "People",
+          "fields": [
+            {
+              "id": "id",
+              "label": "Person",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "label": "Email",
+              "description": "Contact address; withheld unless permitted.",
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "scenarios": [
+        {
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "title": "Ready",
+          "summary": "Three orders on one day.",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        },
+        {
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "title": "Quiet",
+          "summary": "No orders at all.",
+          "expected_outcomes": [
+            "No orders"
+          ]
+        }
+      ],
+      "inventory": [
+        {
+          "entity_id": "orders",
+          "scope": "catalog_inventory",
+          "total": 3
+        },
+        {
+          "entity_id": "orders",
+          "scope": "selected_scenario",
+          "total": 0
+        }
+      ],
+      "period": {
+        "start": "2026-01-01",
+        "end": "2026-01-01",
+        "timezone": "UTC"
+      },
+      "prerequisites": [
+        "audience-definitions"
+      ],
+      "attribution": [
+        "Synthetic data generated for go-admin examples"
+      ],
+      "usages": [],
+      "usage_completeness": "unknown"
+    },
+    {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "dst-week",
+          "version": "1",
+          "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "3",
+      "observed_at": "2026-10-02T12:00:00Z",
+      "provenance": "example",
+      "completeness": "complete",
+      "state": "suppressed",
+      "title": "corpus-a",
+      "summary": "",
+      "origin": "unknown",
+      "entities": [],
+      "scenarios": [],
+      "inventory": [],
+      "period": null,
+      "prerequisites": null,
+      "attribution": null,
+      "usages": [],
+      "usage_completeness": "unknown"
+    },
+    {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-b",
+          "version": "2",
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-b",
+            "version": "2",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "id": "reprofiled",
+          "version": "2",
+          "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "3",
+      "observed_at": "2026-10-02T12:00:00Z",
+      "provenance": "example",
+      "completeness": "complete",
+      "state": "available",
+      "title": "Corpus B \u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+      "summary": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+      "origin": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+      "entities": [
+        {
+          "id": "orders",
+          "label": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+          "description": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+          "fields": [
+            {
+              "id": "id",
+              "label": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+              "description": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+              "type": "string",
+              "unit": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+            }
+          ]
+        }
+      ],
+      "scenarios": [
+        {
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-b",
+              "version": "2",
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "id": "reprofiled",
+            "version": "2",
+            "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "title": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+          "summary": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+          "expected_outcomes": [
+            "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+          ]
+        }
+      ],
+      "inventory": [
+        {
+          "entity_id": "orders",
+          "scope": "catalog_inventory",
+          "total": 7
+        }
+      ],
+      "period": {
+        "start": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+        "end": "",
+        "timezone": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+      },
+      "prerequisites": [
+        "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+      ],
+      "attribution": [
+        "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+      ],
+      "usages": [
+        {
+          "surface_id": "hostile",
+          "kind": "workflow",
+          "label": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+          "effects": [
+            {
+              "phase": "prepare",
+              "description": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+            }
+          ],
+          "href": "javascript:alert(1)"
+        }
+      ],
+      "usage_completeness": "partial"
+    }
+  ],
+  "samples": [
+    {
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "entity_id": "orders",
+        "cursor": ""
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-02T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "available",
+        "entity_id": "orders",
+        "columns": [
+          {
+            "id": "id",
+            "label": "Order",
+            "type": "string"
+          },
+          {
+            "id": "amount",
+            "label": "Amount",
+            "description": "Order total before tax.",
+            "type": "integer",
+            "unit": "USD cents"
+          },
+          {
+            "id": "placed_on",
+            "label": "Placed on",
+            "type": "date"
+          }
+        ],
+        "rows": [
+          {
+            "record_key": "order-1",
+            "cells": {
+              "amount": {
+                "state": "value",
+                "value": 120
+              },
+              "id": {
+                "state": "value",
+                "value": "order-1"
+              },
+              "placed_on": {
+                "state": "value",
+                "value": "2026-01-01"
+              }
+            }
+          },
+          {
+            "record_key": "order-2",
+            "cells": {
+              "amount": {
+                "state": "value",
+                "value": 80
+              },
+              "id": {
+                "state": "value",
+                "value": "order-2"
+              },
+              "placed_on": {
+                "state": "value",
+                "value": "2026-01-01"
+              }
+            }
+          }
+        ],
+        "total": 3,
+        "next_cursor": "cursor-orders-2",
+        "sampling_method": "declared fixture order"
+      }
+    },
+    {
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "entity_id": "orders",
+        "cursor": "cursor-orders-2"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-02T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "available",
+        "entity_id": "orders",
+        "columns": [
+          {
+            "id": "id",
+            "label": "Order",
+            "type": "string"
+          },
+          {
+            "id": "amount",
+            "label": "Amount",
+            "description": "Order total before tax.",
+            "type": "integer",
+            "unit": "USD cents"
+          },
+          {
+            "id": "placed_on",
+            "label": "Placed on",
+            "type": "date"
+          }
+        ],
+        "rows": [
+          {
+            "record_key": "order-3",
+            "cells": {
+              "amount": {
+                "state": "value",
+                "value": 50
+              },
+              "id": {
+                "state": "value",
+                "value": "order-3"
+              },
+              "placed_on": {
+                "state": "value",
+                "value": "2026-01-01"
+              }
+            }
+          }
+        ],
+        "total": 3,
+        "next_cursor": null,
+        "sampling_method": "declared fixture order"
+      }
+    },
+    {
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "entity_id": "people",
+        "cursor": ""
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-02T12:00:00Z",
+        "provenance": "example",
+        "completeness": "partial",
+        "state": "available",
+        "entity_id": "people",
+        "columns": [
+          {
+            "id": "id",
+            "label": "Person",
+            "type": "string"
+          },
+          {
+            "id": "email",
+            "label": "Email",
+            "description": "Contact address; withheld unless permitted.",
+            "type": "string"
+          }
+        ],
+        "rows": [
+          {
+            "record_key": "person-1",
+            "cells": {
+              "email": {
+                "state": "redacted",
+                "value": null
+              },
+              "id": {
+                "state": "value",
+                "value": "person-1"
+              }
+            }
+          },
+          {
+            "record_key": "person-2",
+            "cells": {
+              "email": {
+                "state": "null",
+                "value": null
+              },
+              "id": {
+                "state": "value",
+                "value": "person-2"
+              }
+            }
+          },
+          {
+            "record_key": "person-3",
+            "cells": {
+              "email": {
+                "state": "unknown",
+                "value": null
+              },
+              "id": {
+                "state": "value",
+                "value": "person-3"
+              }
+            }
+          }
+        ],
+        "total": null,
+        "next_cursor": null,
+        "sampling_method": "declared fixture order"
+      }
+    },
+    {
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "entity_id": "orders",
+        "cursor": ""
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-02T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "empty",
+        "entity_id": "orders",
+        "columns": [
+          {
+            "id": "id",
+            "label": "Order",
+            "type": "string"
+          },
+          {
+            "id": "amount",
+            "label": "Amount",
+            "description": "Order total before tax.",
+            "type": "integer",
+            "unit": "USD cents"
+          },
+          {
+            "id": "placed_on",
+            "label": "Placed on",
+            "type": "date"
+          }
+        ],
+        "rows": [],
+        "total": 0,
+        "next_cursor": null,
+        "sampling_method": "declared fixture order"
+      }
+    },
+    {
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "entity_id": "orders",
+        "cursor": "",
+        "record_key": "order-1",
+        "relationship_id": "customer"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-02T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "available",
+        "entity_id": "people",
+        "columns": [
+          {
+            "id": "id",
+            "label": "Person",
+            "type": "string"
+          },
+          {
+            "id": "email",
+            "label": "Email",
+            "description": "Contact address; withheld unless permitted.",
+            "type": "string"
+          }
+        ],
+        "rows": [
+          {
+            "record_key": "person-1",
+            "cells": {
+              "email": {
+                "state": "redacted",
+                "value": null
+              },
+              "id": {
+                "state": "value",
+                "value": "person-1"
+              }
+            }
+          }
+        ],
+        "total": 1,
+        "next_cursor": null,
+        "sampling_method": "declared fixture order"
+      }
+    },
+    {
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-b",
+            "version": "2",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-b",
+              "version": "2",
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "id": "reprofiled",
+            "version": "2",
+            "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "entity_id": "orders",
+        "cursor": ""
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-b",
+            "version": "2",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-b",
+              "version": "2",
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "id": "reprofiled",
+            "version": "2",
+            "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-02T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "available",
+        "entity_id": "orders",
+        "columns": [
+          {
+            "id": "id",
+            "label": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "description": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "type": "string",
+            "unit": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+          }
+        ],
+        "rows": [
+          {
+            "record_key": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "cells": {
+              "id": {
+                "state": "value",
+                "value": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+              }
+            }
+          }
+        ],
+        "total": null,
+        "next_cursor": null,
+        "sampling_method": "\u003cimg src=x onerror=\"window.__explorerXSS=1\"\u003e\"quoted\" \u0026 'single'"
+      }
+    }
+  ],
+  "variants": {
+    "ready_suppressed": {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "3",
+      "observed_at": "2026-10-02T12:00:00Z",
+      "provenance": "example",
+      "completeness": "complete",
+      "state": "suppressed",
+      "title": "corpus-a",
+      "summary": "",
+      "origin": "unknown",
+      "entities": [],
+      "scenarios": [],
+      "inventory": [],
+      "period": null,
+      "prerequisites": null,
+      "attribution": null,
+      "usages": [],
+      "usage_completeness": "unknown"
+    },
+    "ready_unsupported": {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "unknown",
+      "observed_at": "2026-10-02T12:00:00Z",
+      "provenance": "example",
+      "completeness": "unknown",
+      "state": "unsupported",
+      "title": "corpus-a",
+      "summary": "",
+      "origin": "unknown",
+      "entities": [],
+      "scenarios": [],
+      "inventory": [],
+      "period": null,
+      "prerequisites": null,
+      "attribution": null,
+      "usages": [],
+      "usage_completeness": "unknown"
+    }
+  }
+}

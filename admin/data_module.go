@@ -19,6 +19,7 @@ import (
 // Service must use the same trusted actor/scope and independently enforce policy.
 // Enabled is a current Data feature gate, independent of Debug.
 type DataModuleConfig struct {
+	PreviewSurfaces map[string]DataPreviewSurface
 	Service         *data.Service
 	TargetID        string
 	BasePath        string
@@ -35,6 +36,7 @@ type DataModuleConfig struct {
 type DataModule struct {
 	config           DataModuleConfig
 	host             *ConsoleHost
+	queries          CommandRegistrationHandle
 	commands         CommandRegistrationHandle
 	bus              *CommandBus
 	menuCode, locale string
@@ -43,9 +45,14 @@ type DataModule struct {
 }
 
 func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
-	if cfg.Service == nil || cfg.TargetID == "" || cfg.Enabled == nil || cfg.ResolveIdentity == nil {
+	if cfg.Service == nil || cfg.TargetID == "" || cfg.Enabled == nil || cfg.ResolveIdentity == nil || len(cfg.PreviewSurfaces) > data.PreviewMaxSurfaces {
 		return nil, data.Error(data.CodeInvalid)
 	}
+	surfaces := make(map[string]DataPreviewSurface, len(cfg.PreviewSurfaces))
+	for id, surface := range cfg.PreviewSurfaces {
+		surfaces[id] = surface
+	}
+	cfg.PreviewSurfaces = surfaces
 	m := &DataModule{config: cfg}
 	if m.config.ReceiptLimit == 0 {
 		m.config.ReceiptLimit = 100
@@ -92,8 +99,10 @@ func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
 func (m *DataModule) Manifest() ModuleManifest { return m.host.Manifest() }
 
 // Console exposes the instance host for authorized snapshots and dashboard adapters.
-func (m *DataModule) Console() *ConsoleHost                 { return m.host }
-func (m *DataModule) RouteContract() routing.ModuleContract { return m.host.RouteContract() }
+func (m *DataModule) Console() *ConsoleHost { return m.host }
+func (m *DataModule) RouteContract() routing.ModuleContract {
+	return m.previewContract(m.explorationContract(m.host.RouteContract()))
+}
 
 func (m *DataModule) Register(ctx ModuleContext) error {
 	m.mu.Lock()
@@ -105,12 +114,35 @@ func (m *DataModule) Register(ctx ModuleContext) error {
 	if err != nil {
 		return err
 	}
-	m.bus = ctx.Admin.Commands()
-	m.host.config.RenderPage = ConsolePageRenderer(ctx.Admin, DataPageTemplate, AdminPageChrome{})
-	if err = m.host.Register(ctx); err != nil {
-		m.bus = nil
+	urls, err := m.resolveExplorationRoutes(ctx)
+	if err != nil {
 		return errors.Join(err, handle.Close())
 	}
+	queries, err := RegisterDataExplorationQueries(ctx.Admin.Commands(), m.config.Service)
+	if err != nil {
+		return errors.Join(err, handle.Close())
+	}
+	previewURLs, err := m.resolvePreviewRoutes(ctx)
+	if err != nil {
+		return errors.Join(err, handle.Close(), queries.Close())
+	}
+	m.bus = ctx.Admin.Commands()
+	pageRenderer := m.explorationPageRenderer(ctx.Admin, urls)
+	m.host.config.RenderPage = func(c router.Context, bootstrap console.Bootstrap) error {
+		// The explorer renderer merges extensions below.
+		if bootstrap.Extensions == nil {
+			bootstrap.Extensions = map[string]any{}
+		}
+		bootstrap.Extensions["data_preview"] = previewURLs
+		return pageRenderer(c, bootstrap)
+	}
+	if err = m.host.Register(ctx); err != nil {
+		m.bus = nil
+		return errors.Join(err, handle.Close(), queries.Close())
+	}
+	m.registerExplorationRoutes(ctx, urls)
+	m.registerPreviewRoutes(ctx, previewURLs)
+	m.queries = queries
 	m.commands = handle
 	m.menuCode, m.locale = ctx.Admin.config.NavMenuCode, ctx.Locale
 	return nil
@@ -136,6 +168,9 @@ func (m *DataModule) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	err := m.host.Close()
+	if m.queries != nil {
+		err = errors.Join(err, m.queries.Close())
+	}
 	if m.commands != nil {
 		err = errors.Join(err, m.commands.Close())
 	}

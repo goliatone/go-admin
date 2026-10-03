@@ -419,12 +419,16 @@ func TestDataConsolePageExtendsTheNeutralShellWithoutDebug(t *testing.T) {
 		`class="console-root" id="console-data" data-console-root data-console-id="data"`, `data-data-console-intro`,
 		`data-console-page-actions data-console-for="console-data"`,
 		`Preparing or verifying never changes what a target serves.`,
-		`href="/admin/assets/dist/styles/console.css"`, `src="/admin/assets/dist/console/index.js"`,
+		`href="/admin/assets/dist/styles/console.css"`, `src="/admin/assets/dist/console/data.js"`,
 		`<script type="application/json" data-console-bootstrap>`,
 	} {
 		if !strings.Contains(page, fragment) {
 			t.Fatalf("data page omitted %q", fragment)
 		}
+	}
+	// The Data entry mounts the root itself; the generic entry would mount it twice.
+	if strings.Contains(page, "dist/console/index.js") {
+		t.Fatal("data page also loads the generic console entry")
 	}
 	if regexp.MustCompile(`(?i)class="[^"]*\bdebug-|dist/debug/|styles/debug\.css|data-debug-root`).MatchString(page) {
 		t.Fatal("data page loads or styles Debug")
@@ -459,6 +463,14 @@ func TestDataConsoleViewBindsResolveAgainstProjectedRecords(t *testing.T) {
 		view := dataObject(dataPath(panel.UI, "views.console"))
 		if view == nil {
 			t.Fatalf("panel %s has no console view", panel.ID)
+		}
+		if panel.ID == admin.DataPanelExplore {
+			// Explore reads lazily through its controller: no records, no binds,
+			// and its own guidance where no controller renders it.
+			if len(rows) != 0 || dataString(view["renderer"]) != "cards" || dataString(view["empty"]) == "" {
+				t.Fatalf("explore panel = %d records, view %v", len(rows), view)
+			}
+			continue
 		}
 		checkDataViewBinds(t, panel.ID, view, rows)
 		checkDataFilterOptions(t, panel.ID, dataList(panel.UI["filters"]), rows)

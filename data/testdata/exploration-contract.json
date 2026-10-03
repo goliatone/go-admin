@@ -1,0 +1,86 @@
+{
+  "selection": {
+    "dataset": {
+      "provider": "kitchen-sink",
+      "id": "synthetic-orders",
+      "version": "1",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "scenario": {
+      "dataset": {
+        "provider": "kitchen-sink",
+        "id": "synthetic-orders",
+        "version": "1",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "id": "ready",
+      "version": "1",
+      "profile_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "target_id": "kitchen-sink",
+    "context": "catalog_example"
+  },
+  "presentation_revision": "1",
+  "observed_at": "2026-10-02T12:00:00Z",
+  "provenance": "example",
+  "completeness": "complete",
+  "state": "available",
+  "entity_id": "orders",
+  "columns": [
+    {
+      "id": "id",
+      "label": "Order",
+      "type": "string"
+    },
+    {
+      "id": "amount",
+      "label": "Amount",
+      "type": "integer",
+      "unit": "fixture amount"
+    }
+  ],
+  "rows": [
+    {
+      "record_key": "order-1",
+      "cells": {
+        "amount": {
+          "state": "value",
+          "value": 120
+        },
+        "id": {
+          "state": "value",
+          "value": "order-1"
+        }
+      }
+    },
+    {
+      "record_key": "order-2",
+      "cells": {
+        "amount": {
+          "state": "value",
+          "value": 80
+        },
+        "id": {
+          "state": "value",
+          "value": "order-2"
+        }
+      }
+    },
+    {
+      "record_key": "order-3",
+      "cells": {
+        "amount": {
+          "state": "value",
+          "value": 50
+        },
+        "id": {
+          "state": "value",
+          "value": "order-3"
+        }
+      }
+    }
+  ],
+  "total": 3,
+  "next_cursor": null,
+  "sampling_method": "declared fixture order"
+}

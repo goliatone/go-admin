@@ -13,12 +13,17 @@ import (
 )
 
 type ServiceConfig struct {
-	Providers map[string]Provider
-	Target    ManagedTarget
-	Store     OperationStore
-	Policy    Policy
+	Preview         ApplicationPreviewConfig
+	ExploreSurfaces map[string]ExploreSurface
+	Providers       map[string]Provider
+	Target          ManagedTarget
+	Store           OperationStore
+	Policy          Policy
 	// Resolve must consult current trusted state, including revocation, on every
 	// invocation. It must not read actor/scope/delegation from Input.
+	// Current principal hashes must cover every mutable host policy decision.
+	// Policies with independent mutable grants/filters must also implement
+	// InsightAuthorizationRevision before offering coherent aggregate reads.
 	// Use CodeProvider/CodeUnavailable for backend outages, standard context
 	// causes for cancellation, and CodeDenied (or a legacy untyped denial) for
 	// invalid/revoked identities.
@@ -48,6 +53,17 @@ func NewService(cfg ServiceConfig) (*Service, error) {
 		providers[id] = p
 	}
 	cfg.Providers = providers
+	surfaces := make(map[string]ExploreSurface, len(cfg.ExploreSurfaces))
+	for id, surface := range cfg.ExploreSurfaces {
+		if !exploreID(id) || surface.Resolve == nil {
+			return nil, Error(CodeInvalid)
+		}
+		surfaces[id] = surface
+	}
+	cfg.ExploreSurfaces = surfaces
+	if err := normalizePreviewConfig(&cfg.Preview, cfg.Policy); err != nil {
+		return nil, err
+	}
 	var err error
 	cfg, err = normalizeServiceConfig(cfg)
 	if err != nil {
@@ -485,6 +501,13 @@ func (s *Service) Operations(ctx context.Context, targetID string, limit int) ([
 	return out, nil
 }
 func (s *Service) LookupArtifact(ctx context.Context, providerID, artifactID string) (any, error) {
+	if err := RejectPreviewEffects(ctx); err != nil {
+		return nil, err
+	}
+	return s.lookupArtifact(ctx, providerID, artifactID)
+}
+
+func (s *Service) lookupArtifact(ctx context.Context, providerID, artifactID string) (any, error) {
 
 	p, err := s.principal(ctx)
 	if err != nil {
@@ -537,6 +560,9 @@ func artifactGenerationCurrent(state TargetState, ref ArtifactRef) bool {
 // only the latter reports preparation/verification/activation. Queued transports
 // dispatch these same messages; they must propagate a trusted bounded principal.
 func (s *Service) Run(ctx context.Context, kind Kind, input Input) (Result, error) {
+	if err := RejectPreviewEffects(ctx); err != nil {
+		return Result{}, err
+	}
 	if s == nil || ctx == nil {
 		return Result{}, Error(CodeUnavailable)
 	}
@@ -1394,6 +1420,9 @@ func (s *Service) reconcile(run *serviceRun, intent Intent, commitErr error) (Re
 // retry. It waits for lease expiry through the store, fences old workers and
 // inspects routing. Unknown authority retains the intent and blocks new writes.
 func (s *Service) Recover(ctx context.Context, operationID string) (Result, error) {
+	if err := RejectPreviewEffects(ctx); err != nil {
+		return Result{}, err
+	}
 	if s == nil || ctx == nil {
 		return Result{}, Error(CodeUnavailable)
 	}

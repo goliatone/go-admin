@@ -5,6 +5,7 @@ package datamodule
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/goliatone/go-admin/data"
@@ -33,10 +35,15 @@ type Record struct {
 // the same database. CheckLease runs after taking that write lock, so a newer
 // management fence cannot commit between checking authority and writing rows.
 type Runtime struct {
-	db         *sql.DB
-	Store      *sqlitestore.Store
-	descriptor data.Descriptor
-	fixtures   map[string][]Record
+	explorationSecret [32]byte
+	db                *sql.DB
+	Store             *sqlitestore.Store
+	descriptor        data.Descriptor
+	fixtures          map[string][]Record
+	cleanupCancel     context.CancelFunc
+	cleanupDone       chan struct{}
+	closeOnce         sync.Once
+	closeErr          error
 }
 
 func Hash(value string) string {
@@ -45,11 +52,18 @@ func Hash(value string) string {
 }
 
 func Open(filename string) (*Runtime, error) {
+	return OpenWithOptions(filename, RuntimeOptions{})
+}
+
+func OpenWithOptions(filename string, options RuntimeOptions) (*Runtime, error) {
+	if err := options.normalize(); err != nil {
+		return nil, err
+	}
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
 	}
-	store, err := sqlitestore.Open(filename, sqlitestore.Options{RetryWindow: 30 * 24 * time.Hour, ReceiptRetention: 7 * 24 * time.Hour})
+	store, err := sqlitestore.Open(filename, options.Store)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +80,9 @@ func Open(filename string) (*Runtime, error) {
 		"ready": {{ID: "order-1", Amount: 120, LocalDay: "2026-01-01"}, {ID: "order-2", Amount: 80, LocalDay: "2026-01-01"}, {ID: "order-3", Amount: 50, LocalDay: "2026-01-01"}},
 		"quiet": {},
 	}}
+	if _, err = rand.Read(r.explorationSecret[:]); err != nil {
+		return nil, errors.Join(err, r.Close())
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	for _, statement := range []string{
@@ -92,10 +109,23 @@ func Open(filename string) (*Runtime, error) {
 	if registeredDigest != ref.Digest {
 		return nil, errors.Join(data.Error(data.CodeConflict), r.Close())
 	}
+	if err = r.PrunePreviews(ctx, data.PreviewMaxPrune); err != nil {
+		return nil, errors.Join(err, r.Close())
+	}
+	r.startPreviewCleanup(options.PreviewCleanupInterval)
 	return r, nil
 }
 
-func (r *Runtime) Close() error { return errors.Join(r.db.Close(), r.Store.Close()) }
+func (r *Runtime) Close() error {
+	r.closeOnce.Do(func() {
+		if r.cleanupCancel != nil {
+			r.cleanupCancel()
+			<-r.cleanupDone
+		}
+		r.closeErr = errors.Join(r.db.Close(), r.Store.Close())
+	})
+	return r.closeErr
+}
 
 func (r *Runtime) buildDescriptor() error {
 	payload, err := json.Marshal(r.fixtures)
@@ -181,6 +211,9 @@ func (*Runtime) Capabilities() data.TargetCapabilities {
 }
 
 func (r *Runtime) effect(ctx context.Context, work data.Work, apply func(*sql.Conn) error) (err error) {
+	if err = data.RejectPreviewEffects(ctx); err != nil {
+		return err
+	}
 	if work.OperationID != work.Lease.OperationID || work.Lease.Target.ScopeKey != work.Principal.ScopeKey || work.Lease.Target.TargetID != work.Input.TargetID || work.Input.TargetID != TargetID {
 		return data.Error(data.CodeDenied)
 	}
@@ -281,7 +314,7 @@ func (r *Runtime) Refresh(ctx context.Context, work data.Work) (data.Preparation
 func queryRecords(ctx context.Context, db interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }, stage string) ([]Record, error) {
-	result, err := db.QueryContext(ctx, `SELECT id,amount,local_day FROM data_example_records WHERE stage=? ORDER BY id`, stage)
+	result, err := db.QueryContext(ctx, `SELECT id,amount,local_day FROM data_example_records WHERE stage=? ORDER BY id LIMIT 101`, stage)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +340,10 @@ func inspectReceipt(ctx context.Context, db interface {
 }, receipt data.PreparationReceipt) error {
 	var encoded string
 	if err := db.QueryRowContext(ctx, `SELECT receipt FROM data_example_stages WHERE id=? AND scope=? AND target=?`, receipt.StageID, receipt.Target.ScopeKey, receipt.Target.TargetID).Scan(&encoded); err != nil {
-		return data.Error(data.CodeGone)
+		if errors.Is(err, sql.ErrNoRows) {
+			return data.Error(data.CodeGone)
+		}
+		return err
 	}
 	var stored data.PreparationReceipt
 	if err := json.Unmarshal([]byte(encoded), &stored); err != nil {
@@ -441,6 +477,9 @@ func (r *Runtime) DrainCleanup(ctx context.Context, work data.Work, stage string
 // ActiveRecords is an application read of the physical route, useful to prove
 // a scenario switch changes the query result rather than only the console label.
 func (r *Runtime) ActiveRecords(ctx context.Context, target data.TargetKey) ([]Record, error) {
+	if err := data.RejectPreviewEffects(ctx); err != nil {
+		return nil, err
+	}
 	var stage string
 	err := r.db.QueryRowContext(ctx, `SELECT stage FROM data_example_routes WHERE scope=? AND target=?`, target.ScopeKey, target.TargetID).Scan(&stage)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -65,8 +65,9 @@ can be used to verify partial catalog/run visibility.
 The kitchen sink also enables the independent Data module at `/admin/data`.
 Log in as the seeded superadmin, or assign the `data_viewer`, `data_operator`
 or `data_custodian` role through Users/Roles. Those roles grant no Debug access;
-the existing developer/admin role gains no Data access. Viewer can read the six
-panels; operator can validate, prepare, refresh, verify and activate. Reset,
+the existing developer/admin role gains no Data access. Viewer can read the seven
+panels, including the read-only Explore panel; operator can validate, prepare,
+refresh, verify and activate. Reset,
 generation and cancellation are explicitly unsupported by this demo, even for
 custodian. Data grants confer no CMS/user/export permissions.
 
@@ -119,6 +120,33 @@ fences old workers and inspects physical routing without repeating provider
 work. If the route is still ambiguous, it remains paused; retry recovery after
 resolving the target health problem. Successful recovery records the supervisor
 separately from the original requester and resumes writes.
+
+The read-only **Explore** tab explains the catalog. Each dataset card shows the
+provider's declared title and purpose, its scenarios with lifecycle status and the
+catalog inventory. **View details** opens About, Contents, Used by, Scenarios and
+Evidence for one scenario in one context: the catalog example (declared, never
+observed data), or the prepared receipt and the active data at its generation once
+they exist. Contents previews up to 25 records per page: `ready` shows three
+orders totaling 250 on `2026-01-01`, while `quiet` is empty and the catalog
+inventory stays three. Used by lists the declared target with its prepare, verify
+and activate effects; this demo registers no application screen, so no link is
+shown. When a new receipt or activation changes what you are exploring, the view
+marks it stale and reads nothing until you choose **Refresh**. Exploring uses the
+`admin.data.view` grant and never prepares, activates or exports data;
+`datamodule/exploration.go` is the reference exploration adapter.
+
+**Insights** and **Compare** follow Contents in the details. Insights shows the
+composition of the data shown (orders, fixture amount, orders by day) and its day
+coverage as a chart or an equivalent table; catalog examples are labelled as
+declarations, and a day counts as covered only with verification evidence for that
+exact receipt. Compare reads the data shown against another scenario's catalog
+example or prepared receipt, or against the active data pinned at its generation
+(the active data is then the baseline, A). With Ready and Quiet prepared and
+verified, Ready → Quiet is −3 orders and −250 fixture amount; example values are
+shown side by side without a difference. Activating another receipt marks an open
+comparison with the active data stale until you choose **Compare with the current
+data**. These reads are bounded and change nothing; `datamodule/insights.go` is the
+reference insights adapter.
 
 The wiring is in `data_module_example.go`: `data.NewService` receives the
 application's provider, managed target, operation store, current policy and

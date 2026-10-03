@@ -231,6 +231,7 @@ func ClientCapabilitiesFromContext(ctx context.Context) ClientCapabilities {
 }
 
 type Bootstrap struct {
+	Extensions map[string]any `json:"extensions,omitempty"`
 	Identity
 	Title                string   `json:"title"`
 	URLs                 Routes   `json:"urls"`

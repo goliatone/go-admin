@@ -111,7 +111,7 @@ func TestDataModuleBindsRoutesActionsAndIndependentCurrentPolicy(t *testing.T) {
 		t.Fatal("missing panel", id)
 		return console.PanelSnapshot{}
 	}
-	if err != nil || len(snapshot.Panels) != 6 || len(findPanel(snapshot, DataPanelOverview).UI.Actions) != 0 || len(findPanel(snapshot, DataPanelDatasets).Records) != 1 {
+	if err != nil || len(snapshot.Panels) != len(DataPanelIDs()) || len(findPanel(snapshot, DataPanelOverview).UI.Actions) != 0 || len(findPanel(snapshot, DataPanelDatasets).Records) != 1 {
 		t.Fatal("viewer lost read access", snapshot, err)
 	}
 	execute.Store(true)

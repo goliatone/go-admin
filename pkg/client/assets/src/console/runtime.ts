@@ -63,6 +63,17 @@ export type ConsoleRuntimeState = 'loading' | 'ready' | 'denied' | 'error' | 'di
 
 export type ConsoleConnectionState = ConsoleLiveStatus | 'offline';
 
+/**
+ * One rendered change: the panels whose records changed (every authorized
+ * panel after a snapshot, none on denial or disposal), whether a whole
+ * authorized snapshot was applied, and the current state.
+ */
+export type ConsoleRuntimeChange = {
+  state: ConsoleRuntimeState;
+  panels: string[];
+  snapshot: boolean;
+};
+
 export type ConsoleRuntimeOptions = {
   /** Bootstrap payload; defaults to the root's `[data-console-bootstrap]` JSON. */
   bootstrap?: ConsoleBootstrap;
@@ -101,6 +112,12 @@ export type ConsoleRuntimeOptions = {
   notify?: (tone: string, message: string) => void;
   /** Request ID source (tests); defaults to the browser's cryptographic UUIDs. */
   generateRequestID?: () => string;
+  /**
+   * Called after each rendered change, so instance extensions can follow the
+   * records of panels other than the one they render and drop protected state
+   * on denial or disposal. Errors thrown by the callback are contained.
+   */
+  onChange?: (change: ConsoleRuntimeChange) => void;
 };
 
 type ActionResultView = {
@@ -585,6 +602,7 @@ export class ConsoleRuntime {
     this.workingValues.clear();
     if (mounted.get(this.root) === this) mounted.delete(this.root);
     this.root.dataset.consoleState = 'disposed';
+    this.emitChange([], false);
   }
 
   private async start(): Promise<void> {
@@ -2340,6 +2358,7 @@ export class ConsoleRuntime {
       } else {
         this.renderPanel(false);
       }
+      this.emitChange(this.store.panelIds(), this.state === 'ready');
       return;
     }
     const dirty = Array.from(this.dirtyPanels);
@@ -2347,6 +2366,17 @@ export class ConsoleRuntime {
     if (dirty.length === 0) return;
     this.updateCounts();
     if (dirty.includes(this.activePanel)) this.renderPanel(false);
+    this.emitChange(dirty, false);
+  }
+
+  private emitChange(panels: string[], snapshot: boolean): void {
+    const listener = this.options.onChange;
+    if (!listener) return;
+    try {
+      listener({ state: this.state, panels: [...panels], snapshot });
+    } catch {
+      // An extension failure must not break the console it observes.
+    }
   }
 
   private render(): void {
@@ -2505,9 +2535,15 @@ export class ConsoleRuntime {
       const actions = definition.renderActions(this.styles, options);
       panel.innerHTML = `<div class="console-panel__result" data-panel-action-result="${escapeAttribute(panelId)}"></div>${actions.trim() ? `<div class="console-panel__actions" data-console-panel-actions>${actions}</div>` : '<div class="console-panel__actions" data-console-panel-actions hidden></div>'}<div class="console-panel__body" data-console-panel-body>${definition.renderBody(data, this.styles, options)}</div>`;
     } else {
+      // Renderers that own their whole panel (instance overrides, client panels)
+      // re-render for new data or a full render, not for every revalidation
+      // snapshot, so the focus, disclosures and scroll they own survive.
+      const signature = hashString(JSON.stringify(data ?? null));
+      if (!full && this.panelMounted(panelId) && panel.dataset.consoleData === signature) return;
       this.captureWorkingValues(panel);
       const render = definition.renderConsole || definition.render;
       panel.innerHTML = render(data, this.styles, options);
+      panel.dataset.consoleData = signature;
     }
     panel.dataset.consolePanelId = panelId;
     panel.dataset.consoleDefinition = this.definitionSignatures.get(panelId) || '';

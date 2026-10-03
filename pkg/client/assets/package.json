@@ -161,6 +161,8 @@
     "test:activity:browsers": "node ./scripts/test-activity-browsers.mjs",
     "test:modal:browsers": "node ./scripts/test-modal-browsers.mjs",
     "test:console:browsers": "node ./scripts/test-console-browsers.mjs",
+    "test:explorer:browsers": "node ./scripts/test-data-explorer-browsers.mjs",
+    "test:insights:browsers": "node ./scripts/test-data-insights-browsers.mjs",
     "test:import:browsers": "npm run build:public && node ./scripts/test-import-browsers.mjs",
     "test:import:baseline": "node ./scripts/test-import-browsers.mjs --baseline",
     "build:css:prod": "node ./scripts/build-css.mjs",

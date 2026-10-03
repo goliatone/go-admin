@@ -70,6 +70,11 @@ func (a DataConsoleAccess) current(ctx context.Context) (data.Principal, []strin
 			grants = append(grants, action)
 		}
 	}
+	// Preview uses an independent application grant. Bind it to current trusted
+	// identity so changes also invalidate a session's receipt/policy authority.
+	if dataPermissionAllowed(permissions, "admin.reports.synthetic_orders.view") {
+		grants = append(grants, "reports.synthetic_orders.view")
+	}
 	p := data.Principal{ActorID: user.ID.String(), ScopeKey: datamodule.Hash(tenant + ":" + org), ExecutionID: user.ID.String(),
 		ModuleHash: datamodule.Hash("kitchen-sink-data-v1"), PolicyHash: datamodule.Hash("isolated-synthetic-target-v1"), PermissionHash: datamodule.Hash(strings.Join(grants, ","))}
 	return p, permissions, nil
@@ -97,6 +102,13 @@ func (a DataConsoleAccess) Authorize(ctx context.Context, p data.Principal, requ
 	if request.Artifact != nil || request.Action == "artifact" {
 		return data.Error(data.CodeDenied)
 	}
+	if request.Explore != nil {
+		for _, surface := range request.Explore.SurfaceIDs {
+			if surface == datamodule.OrdersReportSurface && !dataPermissionAllowed(permissions, "admin.reports.synthetic_orders.view") {
+				return data.Error(data.CodeDenied)
+			}
+		}
+	}
 	if request.Receipt != nil && request.Action != "view" && request.Receipt.RequesterID != p.ActorID {
 		return data.Error(data.CodeDenied)
 	}
@@ -104,6 +116,17 @@ func (a DataConsoleAccess) Authorize(ctx context.Context, p data.Principal, requ
 		return data.Error(data.CodeDenied)
 	}
 	return nil
+}
+
+func (a DataConsoleAccess) AuthorizeOrdersReport(ctx context.Context) (data.Principal, error) {
+	p, permissions, err := a.current(ctx)
+	if err != nil {
+		return data.Principal{}, err
+	}
+	if !dataPermissionAllowed(permissions, "admin.reports.synthetic_orders.view") {
+		return data.Principal{}, data.Error(data.CodeDenied)
+	}
+	return p, nil
 }
 
 func dataPermissionAllowed(permissions []string, want string) bool {

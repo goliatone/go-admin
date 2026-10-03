@@ -133,6 +133,9 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 	}
 
 	authRepoManager := auth.NewRepositoryManager(client.DB())
+	if err := ensurePreviewAuthorityEpochs(ctx, sqlDB); err != nil {
+		return stores.UserDependencies{}, nil, nil, err
+	}
 
 	activityRepo, err := activity.NewRepository(activity.RepositoryConfig{DB: client.DB()})
 	if err != nil {

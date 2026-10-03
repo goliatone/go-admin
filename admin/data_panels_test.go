@@ -337,7 +337,11 @@ func TestDataPanelsServeProjectedRecordsThroughAConsoleHost(t *testing.T) {
 		served[panel.ID] = len(panel.Records)
 	}
 	for _, id := range DataPanelIDs() {
-		if served[id] != 1 {
+		want := 1
+		if id == DataPanelExplore {
+			want = 0 // Explore reads lazily; it never carries snapshot records.
+		}
+		if served[id] != want {
 			t.Fatalf("panel %q served %d records; host dropped a projected record: %+v", id, served[id], served)
 		}
 	}

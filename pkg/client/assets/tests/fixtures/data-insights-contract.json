@@ -1,0 +1,4040 @@
+{
+  "comparisons": [
+    {
+      "name": "ready_vs_quiet_prepared",
+      "request": {
+        "left": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "right": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "left": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "ready",
+              "version": "1",
+              "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-ready-1",
+            "content_revision": 2
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "available",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "ready",
+                    "version": "1",
+                    "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-ready-1",
+                  "content_revision": 2
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-ready"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 3
+          }
+        },
+        "right": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "empty-history",
+              "version": "1",
+              "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-empty-1",
+            "content_revision": 1
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "empty",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered_empty",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "empty-history",
+                    "version": "1",
+                    "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-empty-1",
+                  "content_revision": 1
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-empty"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 0
+          }
+        },
+        "comparison_id": "comparison-ready-quiet",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "left": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "comparable",
+            "delta": -3,
+            "percent_change": -100
+          },
+          {
+            "id": "orders.amount",
+            "left": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "comparable",
+            "delta": -250,
+            "percent_change": -100
+          },
+          {
+            "id": "orders.status",
+            "left": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "denominator_mismatch"
+          }
+        ],
+        "left_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        },
+        "right_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "No orders"
+          ]
+        }
+      }
+    },
+    {
+      "name": "quiet_prepared_vs_ready_active",
+      "request": {
+        "left": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "right": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "active",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2,
+          "generation": 3
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "left": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "empty-history",
+              "version": "1",
+              "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-empty-1",
+            "content_revision": 1
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "empty",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered_empty",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "empty-history",
+                    "version": "1",
+                    "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-empty-1",
+                  "content_revision": 1
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-empty"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 0
+          }
+        },
+        "right": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "ready",
+              "version": "1",
+              "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            "target_id": "preview",
+            "context": "active",
+            "receipt_id": "rcpt-ready-1",
+            "content_revision": 2,
+            "generation": 3
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "available",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "ready",
+                    "version": "1",
+                    "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                  },
+                  "target_id": "preview",
+                  "context": "active",
+                  "receipt_id": "rcpt-ready-1",
+                  "content_revision": 2,
+                  "generation": 3
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-ready"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 3
+          }
+        },
+        "comparison_id": "comparison-quiet-active",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "left": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "comparable",
+            "delta": 3,
+            "percent_change": null,
+            "reason": "zero_baseline"
+          },
+          {
+            "id": "orders.amount",
+            "left": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "comparable",
+            "delta": 250,
+            "percent_change": null,
+            "reason": "zero_baseline"
+          },
+          {
+            "id": "orders.status",
+            "left": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "denominator_mismatch"
+          }
+        ],
+        "left_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "No orders"
+          ]
+        },
+        "right_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ready_active_vs_quiet_prepared",
+      "request": {
+        "left": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "active",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2,
+          "generation": 3
+        },
+        "right": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "left": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "ready",
+              "version": "1",
+              "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            "target_id": "preview",
+            "context": "active",
+            "receipt_id": "rcpt-ready-1",
+            "content_revision": 2,
+            "generation": 3
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "available",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "ready",
+                    "version": "1",
+                    "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                  },
+                  "target_id": "preview",
+                  "context": "active",
+                  "receipt_id": "rcpt-ready-1",
+                  "content_revision": 2,
+                  "generation": 3
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-ready"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 3
+          }
+        },
+        "right": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "empty-history",
+              "version": "1",
+              "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-empty-1",
+            "content_revision": 1
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "empty",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered_empty",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "empty-history",
+                    "version": "1",
+                    "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-empty-1",
+                  "content_revision": 1
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-empty"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 0
+          }
+        },
+        "comparison_id": "comparison-active-quiet",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "left": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "comparable",
+            "delta": -3,
+            "percent_change": -100
+          },
+          {
+            "id": "orders.amount",
+            "left": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "comparable",
+            "delta": -250,
+            "percent_change": -100
+          },
+          {
+            "id": "orders.status",
+            "left": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "denominator_mismatch"
+          }
+        ],
+        "left_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        },
+        "right_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "No orders"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ready_vs_quiet_catalog",
+      "request": {
+        "left": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "right": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "left": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "ready",
+              "version": "1",
+              "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            "target_id": "preview",
+            "context": "catalog_example"
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "example",
+          "completeness": "complete",
+          "state": "available",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "declared fixture"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "uncovered",
+              "evidence": null,
+              "reason": "expected_only"
+            }
+          ],
+          "work": {
+            "queries": 0,
+            "records": 0
+          }
+        },
+        "right": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "empty-history",
+              "version": "1",
+              "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "target_id": "preview",
+            "context": "catalog_example"
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "example",
+          "completeness": "complete",
+          "state": "empty",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "uncovered",
+              "evidence": null,
+              "reason": "expected_only"
+            }
+          ],
+          "work": {
+            "queries": 0,
+            "records": 0
+          }
+        },
+        "comparison_id": "comparison-ready-quiet-examples",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "left": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            "right": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "not_observed"
+          },
+          {
+            "id": "orders.amount",
+            "left": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            "right": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "not_observed"
+          },
+          {
+            "id": "orders.status",
+            "left": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "declared fixture"
+            },
+            "right": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 0,
+              "value": 0,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "declared fixture"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "not_observed"
+          }
+        ],
+        "left_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        },
+        "right_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "No orders"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ready_vs_dst_prepared",
+      "request": {
+        "left": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "right": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "dst-week",
+            "version": "1",
+            "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-dst-1",
+          "content_revision": 1
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "left": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "ready",
+              "version": "1",
+              "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-ready-1",
+            "content_revision": 2
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "complete",
+          "state": "available",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-01-01",
+              "timezone": "UTC",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "ready",
+                    "version": "1",
+                    "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-ready-1",
+                  "content_revision": 2
+                },
+                "ref": "day-2026-01-01",
+                "verification_id": "ver-ready"
+              }
+            }
+          ],
+          "work": {
+            "queries": 2,
+            "records": 3
+          }
+        },
+        "right": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "dst-week",
+              "version": "1",
+              "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-dst-1",
+            "content_revision": 1
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "partial",
+          "state": "available",
+          "metric_set_id": "orders",
+          "metrics": [
+            {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": 40,
+              "value": 12,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": null,
+              "value": 5400.5,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": 12,
+              "value": 12,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 9,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "pending",
+                  "label": "Pending",
+                  "value": null,
+                  "status": "unknown"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            {
+              "id": "customers.count",
+              "label": "Customers",
+              "kind": "count",
+              "unit": "customers",
+              "population": "scenario customers",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": null,
+              "value": null,
+              "status": "unavailable",
+              "buckets": [],
+              "sampling_method": "unknown"
+            }
+          ],
+          "coverage": [
+            {
+              "local_day": "2026-03-26",
+              "timezone": "Europe/London",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "dst-week",
+                    "version": "1",
+                    "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-dst-1",
+                  "content_revision": 1
+                },
+                "ref": "stage-2026-03-26"
+              }
+            },
+            {
+              "local_day": "2026-03-27",
+              "timezone": "Europe/London",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "dst-week",
+                    "version": "1",
+                    "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-dst-1",
+                  "content_revision": 1
+                },
+                "ref": "stage-2026-03-27"
+              }
+            },
+            {
+              "local_day": "2026-03-28",
+              "timezone": "Europe/London",
+              "status": "partial",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "dst-week",
+                    "version": "1",
+                    "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-dst-1",
+                  "content_revision": 1
+                },
+                "ref": "stage-2026-03-28"
+              }
+            },
+            {
+              "local_day": "2026-03-30",
+              "timezone": "Europe/London",
+              "status": "uncovered",
+              "evidence": null,
+              "reason": "no_evidence"
+            },
+            {
+              "local_day": "2026-03-31",
+              "timezone": "Europe/London",
+              "status": "unavailable",
+              "evidence": null
+            },
+            {
+              "local_day": "2026-04-01",
+              "timezone": "Europe/London",
+              "status": "covered",
+              "evidence": {
+                "selection": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "scenario": {
+                    "dataset": {
+                      "provider": "crm",
+                      "id": "corpus-a",
+                      "version": "1",
+                      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    },
+                    "id": "dst-week",
+                    "version": "1",
+                    "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                  },
+                  "target_id": "preview",
+                  "context": "prepared",
+                  "receipt_id": "rcpt-dst-1",
+                  "content_revision": 1
+                },
+                "ref": "stage-2026-04-01"
+              }
+            }
+          ],
+          "work": {
+            "queries": 3,
+            "records": 12
+          }
+        },
+        "comparison_id": "comparison-ready-dst",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "left": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 3,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.count",
+              "label": "Orders",
+              "kind": "count",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": 40,
+              "value": 12,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "partial_population"
+          },
+          {
+            "id": "orders.amount",
+            "left": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": null,
+              "value": 250,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.amount",
+              "label": "Order amount",
+              "kind": "sum",
+              "unit": "USD cents",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": null,
+              "value": 5400.5,
+              "status": "known",
+              "buckets": [],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "partial_population"
+          },
+          {
+            "id": "orders.status",
+            "left": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-01-01",
+                "end": "2026-01-01",
+                "timezone": "UTC"
+              },
+              "denominator": 3,
+              "value": 3,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 1,
+                  "status": "known"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "right": {
+              "id": "orders.status",
+              "label": "Orders by status",
+              "kind": "distribution",
+              "unit": "orders",
+              "population": "scenario orders",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": 12,
+              "value": 12,
+              "status": "known",
+              "buckets": [
+                {
+                  "id": "paid",
+                  "label": "Paid",
+                  "value": 9,
+                  "status": "known"
+                },
+                {
+                  "id": "refunded",
+                  "label": "Refunded",
+                  "value": 2,
+                  "status": "known"
+                },
+                {
+                  "id": "pending",
+                  "label": "Pending",
+                  "value": null,
+                  "status": "unknown"
+                }
+              ],
+              "sampling_method": "complete count of the immutable stage"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "partial_population"
+          },
+          {
+            "id": "customers.count",
+            "left": null,
+            "right": {
+              "id": "customers.count",
+              "label": "Customers",
+              "kind": "count",
+              "unit": "customers",
+              "population": "scenario customers",
+              "time_scope": {
+                "start": "2026-03-26",
+                "end": "2026-04-01",
+                "timezone": "Europe/London"
+              },
+              "denominator": null,
+              "value": null,
+              "status": "unavailable",
+              "buckets": [],
+              "sampling_method": "unknown"
+            },
+            "compatibility": "incompatible",
+            "delta": null,
+            "percent_change": null,
+            "reason": "missing_metric"
+          }
+        ],
+        "left_declarations": {
+          "usages": [
+            {
+              "surface_id": "sales-report",
+              "kind": "report",
+              "label": "Daily sales report",
+              "effects": [
+                {
+                  "phase": "verify",
+                  "description": "Checks the daily total."
+                },
+                {
+                  "phase": "activate",
+                  "description": "Report shows the scenario's orders."
+                }
+              ],
+              "href": "/admin/reports/sales"
+            }
+          ],
+          "usage_completeness": "partial",
+          "expected_outcomes": [
+            "Three orders totaling 250",
+            "All orders on 2026-01-01 (UTC)"
+          ]
+        },
+        "right_declarations": {
+          "usages": [],
+          "usage_completeness": "unknown",
+          "expected_outcomes": []
+        }
+      }
+    },
+    {
+      "name": "withheld",
+      "request": {
+        "left": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "right": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "left": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "ready",
+              "version": "1",
+              "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-ready-1",
+            "content_revision": 2
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "unknown",
+          "state": "suppressed",
+          "reason": "policy_suppressed",
+          "metric_set_id": "orders",
+          "metrics": [],
+          "coverage": [],
+          "work": {
+            "queries": 0,
+            "records": 0
+          }
+        },
+        "right": {
+          "selection": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "scenario": {
+              "dataset": {
+                "provider": "crm",
+                "id": "corpus-a",
+                "version": "1",
+                "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              },
+              "id": "empty-history",
+              "version": "1",
+              "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "target_id": "preview",
+            "context": "prepared",
+            "receipt_id": "rcpt-empty-1",
+            "content_revision": 1
+          },
+          "presentation_revision": "3",
+          "observed_at": "2026-10-03T12:00:00Z",
+          "provenance": "observed",
+          "completeness": "unknown",
+          "state": "suppressed",
+          "reason": "policy_suppressed",
+          "metric_set_id": "orders",
+          "metrics": [],
+          "coverage": [],
+          "work": {
+            "queries": 0,
+            "records": 0
+          }
+        },
+        "comparison_id": "comparison-withheld",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "metrics": [],
+        "left_declarations": {
+          "usages": [],
+          "usage_completeness": "unknown",
+          "expected_outcomes": []
+        },
+        "right_declarations": {
+          "usages": [],
+          "usage_completeness": "unknown",
+          "expected_outcomes": []
+        }
+      }
+    }
+  ],
+  "insights": [
+    {
+      "name": "ready_catalog",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "available",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "Orders",
+            "kind": "count",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 3,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "declared fixture"
+          },
+          {
+            "id": "orders.amount",
+            "label": "Order amount",
+            "kind": "sum",
+            "unit": "USD cents",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 250,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "declared fixture"
+          },
+          {
+            "id": "orders.status",
+            "label": "Orders by status",
+            "kind": "distribution",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": 3,
+            "value": 3,
+            "status": "known",
+            "buckets": [
+              {
+                "id": "paid",
+                "label": "Paid",
+                "value": 2,
+                "status": "known"
+              },
+              {
+                "id": "refunded",
+                "label": "Refunded",
+                "value": 1,
+                "status": "known"
+              }
+            ],
+            "sampling_method": "declared fixture"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-01-01",
+            "timezone": "UTC",
+            "status": "uncovered",
+            "evidence": null,
+            "reason": "expected_only"
+          }
+        ],
+        "work": {
+          "queries": 0,
+          "records": 0
+        }
+      }
+    },
+    {
+      "name": "ready_prepared",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "observed",
+        "completeness": "complete",
+        "state": "available",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "Orders",
+            "kind": "count",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 3,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.amount",
+            "label": "Order amount",
+            "kind": "sum",
+            "unit": "USD cents",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 250,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.status",
+            "label": "Orders by status",
+            "kind": "distribution",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": 3,
+            "value": 3,
+            "status": "known",
+            "buckets": [
+              {
+                "id": "paid",
+                "label": "Paid",
+                "value": 2,
+                "status": "known"
+              },
+              {
+                "id": "refunded",
+                "label": "Refunded",
+                "value": 1,
+                "status": "known"
+              }
+            ],
+            "sampling_method": "complete count of the immutable stage"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-01-01",
+            "timezone": "UTC",
+            "status": "covered",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "ready",
+                  "version": "1",
+                  "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                },
+                "target_id": "preview",
+                "context": "prepared",
+                "receipt_id": "rcpt-ready-1",
+                "content_revision": 2
+              },
+              "ref": "day-2026-01-01",
+              "verification_id": "ver-ready"
+            }
+          }
+        ],
+        "work": {
+          "queries": 2,
+          "records": 3
+        }
+      }
+    },
+    {
+      "name": "ready_active",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "active",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2,
+          "generation": 3
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "ready",
+            "version": "1",
+            "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "target_id": "preview",
+          "context": "active",
+          "receipt_id": "rcpt-ready-1",
+          "content_revision": 2,
+          "generation": 3
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "observed",
+        "completeness": "complete",
+        "state": "available",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "Orders",
+            "kind": "count",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 3,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.amount",
+            "label": "Order amount",
+            "kind": "sum",
+            "unit": "USD cents",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 250,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.status",
+            "label": "Orders by status",
+            "kind": "distribution",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": 3,
+            "value": 3,
+            "status": "known",
+            "buckets": [
+              {
+                "id": "paid",
+                "label": "Paid",
+                "value": 2,
+                "status": "known"
+              },
+              {
+                "id": "refunded",
+                "label": "Refunded",
+                "value": 1,
+                "status": "known"
+              }
+            ],
+            "sampling_method": "complete count of the immutable stage"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-01-01",
+            "timezone": "UTC",
+            "status": "covered",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "ready",
+                  "version": "1",
+                  "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                },
+                "target_id": "preview",
+                "context": "active",
+                "receipt_id": "rcpt-ready-1",
+                "content_revision": 2,
+                "generation": 3
+              },
+              "ref": "day-2026-01-01",
+              "verification_id": "ver-ready"
+            }
+          }
+        ],
+        "work": {
+          "queries": 2,
+          "records": 3
+        }
+      }
+    },
+    {
+      "name": "quiet_catalog",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "empty",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "Orders",
+            "kind": "count",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 0,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "declared fixture"
+          },
+          {
+            "id": "orders.amount",
+            "label": "Order amount",
+            "kind": "sum",
+            "unit": "USD cents",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 0,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "declared fixture"
+          },
+          {
+            "id": "orders.status",
+            "label": "Orders by status",
+            "kind": "distribution",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": 0,
+            "value": 0,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "declared fixture"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-01-01",
+            "timezone": "UTC",
+            "status": "uncovered",
+            "evidence": null,
+            "reason": "expected_only"
+          }
+        ],
+        "work": {
+          "queries": 0,
+          "records": 0
+        }
+      }
+    },
+    {
+      "name": "quiet_prepared",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "empty-history",
+            "version": "1",
+            "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-empty-1",
+          "content_revision": 1
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "observed",
+        "completeness": "complete",
+        "state": "empty",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "Orders",
+            "kind": "count",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 0,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.amount",
+            "label": "Order amount",
+            "kind": "sum",
+            "unit": "USD cents",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 0,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.status",
+            "label": "Orders by status",
+            "kind": "distribution",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": 0,
+            "value": 0,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-01-01",
+            "timezone": "UTC",
+            "status": "covered_empty",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "empty-history",
+                  "version": "1",
+                  "profile_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+                },
+                "target_id": "preview",
+                "context": "prepared",
+                "receipt_id": "rcpt-empty-1",
+                "content_revision": 1
+              },
+              "ref": "day-2026-01-01",
+              "verification_id": "ver-empty"
+            }
+          }
+        ],
+        "work": {
+          "queries": 2,
+          "records": 0
+        }
+      }
+    },
+    {
+      "name": "dst_prepared",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "dst-week",
+            "version": "1",
+            "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-dst-1",
+          "content_revision": 1
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "dst-week",
+            "version": "1",
+            "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "target_id": "preview",
+          "context": "prepared",
+          "receipt_id": "rcpt-dst-1",
+          "content_revision": 1
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "observed",
+        "completeness": "partial",
+        "state": "available",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "Orders",
+            "kind": "count",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-03-26",
+              "end": "2026-04-01",
+              "timezone": "Europe/London"
+            },
+            "denominator": 40,
+            "value": 12,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.amount",
+            "label": "Order amount",
+            "kind": "sum",
+            "unit": "USD cents",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-03-26",
+              "end": "2026-04-01",
+              "timezone": "Europe/London"
+            },
+            "denominator": null,
+            "value": 5400.5,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "orders.status",
+            "label": "Orders by status",
+            "kind": "distribution",
+            "unit": "orders",
+            "population": "scenario orders",
+            "time_scope": {
+              "start": "2026-03-26",
+              "end": "2026-04-01",
+              "timezone": "Europe/London"
+            },
+            "denominator": 12,
+            "value": 12,
+            "status": "known",
+            "buckets": [
+              {
+                "id": "paid",
+                "label": "Paid",
+                "value": 9,
+                "status": "known"
+              },
+              {
+                "id": "refunded",
+                "label": "Refunded",
+                "value": 2,
+                "status": "known"
+              },
+              {
+                "id": "pending",
+                "label": "Pending",
+                "value": null,
+                "status": "unknown"
+              }
+            ],
+            "sampling_method": "complete count of the immutable stage"
+          },
+          {
+            "id": "customers.count",
+            "label": "Customers",
+            "kind": "count",
+            "unit": "customers",
+            "population": "scenario customers",
+            "time_scope": {
+              "start": "2026-03-26",
+              "end": "2026-04-01",
+              "timezone": "Europe/London"
+            },
+            "denominator": null,
+            "value": null,
+            "status": "unavailable",
+            "buckets": [],
+            "sampling_method": "unknown"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-03-26",
+            "timezone": "Europe/London",
+            "status": "covered",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "dst-week",
+                  "version": "1",
+                  "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                },
+                "target_id": "preview",
+                "context": "prepared",
+                "receipt_id": "rcpt-dst-1",
+                "content_revision": 1
+              },
+              "ref": "stage-2026-03-26"
+            }
+          },
+          {
+            "local_day": "2026-03-27",
+            "timezone": "Europe/London",
+            "status": "covered",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "dst-week",
+                  "version": "1",
+                  "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                },
+                "target_id": "preview",
+                "context": "prepared",
+                "receipt_id": "rcpt-dst-1",
+                "content_revision": 1
+              },
+              "ref": "stage-2026-03-27"
+            }
+          },
+          {
+            "local_day": "2026-03-28",
+            "timezone": "Europe/London",
+            "status": "partial",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "dst-week",
+                  "version": "1",
+                  "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                },
+                "target_id": "preview",
+                "context": "prepared",
+                "receipt_id": "rcpt-dst-1",
+                "content_revision": 1
+              },
+              "ref": "stage-2026-03-28"
+            }
+          },
+          {
+            "local_day": "2026-03-30",
+            "timezone": "Europe/London",
+            "status": "uncovered",
+            "evidence": null,
+            "reason": "no_evidence"
+          },
+          {
+            "local_day": "2026-03-31",
+            "timezone": "Europe/London",
+            "status": "unavailable",
+            "evidence": null
+          },
+          {
+            "local_day": "2026-04-01",
+            "timezone": "Europe/London",
+            "status": "covered",
+            "evidence": {
+              "selection": {
+                "dataset": {
+                  "provider": "crm",
+                  "id": "corpus-a",
+                  "version": "1",
+                  "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "scenario": {
+                  "dataset": {
+                    "provider": "crm",
+                    "id": "corpus-a",
+                    "version": "1",
+                    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  },
+                  "id": "dst-week",
+                  "version": "1",
+                  "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+                },
+                "target_id": "preview",
+                "context": "prepared",
+                "receipt_id": "rcpt-dst-1",
+                "content_revision": 1
+              },
+              "ref": "stage-2026-04-01"
+            }
+          }
+        ],
+        "work": {
+          "queries": 3,
+          "records": 12
+        }
+      }
+    },
+    {
+      "name": "dst_catalog",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "dst-week",
+            "version": "1",
+            "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-a",
+              "version": "1",
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "id": "dst-week",
+            "version": "1",
+            "profile_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "unknown",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "example",
+        "completeness": "unknown",
+        "state": "unsupported",
+        "reason": "not_supported",
+        "metric_set_id": "orders",
+        "metrics": [],
+        "coverage": [],
+        "work": {
+          "queries": 0,
+          "records": 0
+        }
+      }
+    },
+    {
+      "name": "reprofiled_catalog",
+      "request": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-b",
+            "version": "2",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-b",
+              "version": "2",
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "id": "reprofiled",
+            "version": "2",
+            "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "metric_set_id": "orders"
+      },
+      "response": {
+        "selection": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-b",
+            "version": "2",
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "scenario": {
+            "dataset": {
+              "provider": "crm",
+              "id": "corpus-b",
+              "version": "2",
+              "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "id": "reprofiled",
+            "version": "2",
+            "profile_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "target_id": "preview",
+          "context": "catalog_example"
+        },
+        "presentation_revision": "3",
+        "observed_at": "2026-10-03T12:00:00Z",
+        "provenance": "example",
+        "completeness": "complete",
+        "state": "available",
+        "metric_set_id": "orders",
+        "metrics": [
+          {
+            "id": "orders.count",
+            "label": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "kind": "count",
+            "unit": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "population": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": null,
+            "value": 7,
+            "status": "known",
+            "buckets": [],
+            "sampling_method": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'"
+          },
+          {
+            "id": "orders.status",
+            "label": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "kind": "distribution",
+            "unit": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "population": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "time_scope": {
+              "start": "2026-01-01",
+              "end": "2026-01-01",
+              "timezone": "UTC"
+            },
+            "denominator": 7,
+            "value": 7,
+            "status": "known",
+            "buckets": [
+              {
+                "id": "hostile",
+                "label": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+                "value": 7,
+                "status": "known"
+              }
+            ],
+            "sampling_method": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'"
+          }
+        ],
+        "coverage": [
+          {
+            "local_day": "2026-01-01",
+            "timezone": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'",
+            "status": "uncovered",
+            "evidence": null,
+            "reason": "\u003cimg src=x onerror=\"window.__insightsXSS=1\"\u003e\"quoted\" \u0026 'single'"
+          }
+        ],
+        "work": {
+          "queries": 0,
+          "records": 0
+        }
+      }
+    }
+  ],
+  "metric_set_id": "orders",
+  "variants": {
+    "ready_suppressed": {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "3",
+      "observed_at": "2026-10-03T12:00:00Z",
+      "provenance": "example",
+      "completeness": "unknown",
+      "state": "suppressed",
+      "reason": "policy_suppressed",
+      "metric_set_id": "orders",
+      "metrics": [],
+      "coverage": [],
+      "work": {
+        "queries": 0,
+        "records": 0
+      }
+    },
+    "ready_unsupported": {
+      "selection": {
+        "dataset": {
+          "provider": "crm",
+          "id": "corpus-a",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "scenario": {
+          "dataset": {
+            "provider": "crm",
+            "id": "corpus-a",
+            "version": "1",
+            "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "id": "ready",
+          "version": "1",
+          "profile_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "target_id": "preview",
+        "context": "catalog_example"
+      },
+      "presentation_revision": "unknown",
+      "observed_at": "2026-10-03T12:00:00Z",
+      "provenance": "example",
+      "completeness": "unknown",
+      "state": "unsupported",
+      "reason": "not_supported",
+      "metric_set_id": "orders",
+      "metrics": [],
+      "coverage": [],
+      "work": {
+        "queries": 0,
+        "records": 0
+      }
+    }
+  }
+}

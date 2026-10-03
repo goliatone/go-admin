@@ -131,13 +131,23 @@ function filterTo(root, id, value) {
   select.dispatchEvent(new win.Event('change', { bubbles: true }));
 }
 
-test('data console renders all six Go-declared panels from the golden', async () => {
+test('data console renders all seven Go-declared panels from the golden', async () => {
   const { root, runtime } = mount(golden.bootstrap);
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
-  assert.deepEqual([...runtime.getPanels()].sort(), ['coverage', 'datasets', 'operations', 'overview', 'scenarios', 'verification']);
+  assert.deepEqual([...runtime.getPanels()].sort(), ['coverage', 'datasets', 'explore', 'operations', 'overview', 'scenarios', 'verification']);
   const tabs = Array.from(root.querySelectorAll('[data-console-tab] .console-tab__label')).map((tab) => tab.textContent);
-  assert.deepEqual([...tabs].sort(), ['Coverage', 'Datasets', 'Operations', 'Overview', 'Scenarios', 'Verification']);
+  assert.deepEqual([...tabs].sort(), ['Coverage', 'Datasets', 'Explore', 'Operations', 'Overview', 'Scenarios', 'Verification']);
   assert.equal(root.querySelector('[data-panel-degraded]'), null, 'every declared view uses a supported renderer');
+  runtime.destroy();
+});
+
+test('without the explorer controller the Explore panel renders its own guidance', async () => {
+  const { root, runtime } = mount(golden.bootstrap);
+  await waitFor(() => assert.equal(runtime.getState(), 'ready'));
+  const text = panelText(root, runtime, 'explore');
+  assert.ok(text.includes('Open the Data page to explore dataset descriptions'), text);
+  assert.equal(root.querySelector('[data-console-tab-count="explore"]').hidden, true, 'Explore shows no count badge');
+  assert.equal(root.querySelectorAll('[data-console-panel] form, [data-console-panel] [data-panel-action]').length, 0);
   runtime.destroy();
 });
 
@@ -257,7 +267,7 @@ test('live Data events update rows, ignore stale revisions and remove deleted re
   const socket = FakeSocket.instances[0];
   const live = new URL(socket.url);
   assert.equal(live.pathname, '/admin/data/ws');
-  assert.deepEqual(live.searchParams.get('panels').split(',').sort(), ['coverage', 'datasets', 'operations', 'overview', 'scenarios', 'verification'], 'live delivery selects only the authorized Data panels');
+  assert.deepEqual(live.searchParams.get('panels').split(',').sort(), ['coverage', 'datasets', 'explore', 'operations', 'overview', 'scenarios', 'verification'], 'live delivery selects only the authorized Data panels');
   socket.open();
   socket.message(golden.bootstrap.snapshot);
   await waitFor(() => assert.equal(root.dataset.consoleSync, 'current'));
@@ -446,7 +456,7 @@ test('read-only Data consoles declare no action controls', async () => {
 test('data console tabs follow declared panel order', async () => {
   const { runtime } = mount(golden.bootstrap);
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
-  assert.deepEqual(runtime.getPanels(), ['overview', 'datasets', 'scenarios', 'operations', 'verification', 'coverage']);
+  assert.deepEqual(runtime.getPanels(), ['overview', 'datasets', 'scenarios', 'operations', 'verification', 'coverage', 'explore']);
   assert.equal(runtime.getActivePanel(), 'overview');
   runtime.destroy();
 });

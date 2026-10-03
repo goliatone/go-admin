@@ -43,13 +43,15 @@ type leaseState struct {
 	Until       time.Time
 }
 type document struct {
-	Artifacts   map[string]data.ArtifactRef
-	Operations  map[string]data.Operation
-	Claims      map[string]tombstone
-	Leases      map[string]leaseState
-	Targets     map[string]data.TargetState
-	Receipts    map[string]data.PreparationReceipt
-	RetainUntil map[string]time.Time
+	PreviewSessions map[string]data.PreviewRecord
+	PreviewRequests map[string]string
+	Artifacts       map[string]data.ArtifactRef
+	Operations      map[string]data.Operation
+	Claims          map[string]tombstone
+	Leases          map[string]leaseState
+	Targets         map[string]data.TargetState
+	Receipts        map[string]data.PreparationReceipt
+	RetainUntil     map[string]time.Time
 }
 
 func Open(path string, options Options) (*Store, error) {
@@ -304,6 +306,11 @@ func (s *Store) CheckCleanup(ctx context.Context, lease data.Lease, stageID stri
 	return s.transact(ctx, false, func(d *document) error {
 		if err := s.validLease(d, lease); err != nil {
 			return err
+		}
+		for _, preview := range d.PreviewSessions {
+			if preview.Session.State == data.PreviewReady && s.options.Now().Before(preview.Session.ExpiresAt) && preview.Receipt.Target == lease.Target && preview.Receipt.StageID == stageID {
+				return data.Error(data.CodeRecovery)
+			}
 		}
 		state := d.Targets[key(lease.Target)]
 		for id, receipt := range d.Receipts {
@@ -663,7 +670,8 @@ func (s *Store) Prune(ctx context.Context) error {
 				delete(d.Artifacts, id)
 			}
 		}
-		protected, protectedOps := protectedRecords(d)
+		expirePreviewRecords(d, now, data.PreviewMaxPrune)
+		protected, protectedOps := protectedRecords(d, now)
 		for id, r := range d.Receipts {
 			if protected[id] || now.Before(d.RetainUntil[id]) {
 				protected[id] = true
@@ -692,9 +700,14 @@ func (s *Store) Prune(ctx context.Context) error {
 	})
 }
 
-func protectedRecords(d *document) (map[string]bool, map[string]bool) {
+func protectedRecords(d *document, now time.Time) (map[string]bool, map[string]bool) {
 	protected := map[string]bool{}
 	protectedOps := map[string]bool{}
+	for _, preview := range d.PreviewSessions {
+		if preview.Session.State == data.PreviewReady && now.Before(preview.Session.ExpiresAt) {
+			protected[preview.Receipt.ID] = true
+		}
+	}
 	for _, state := range d.Targets {
 		if state.Activation.ReceiptID != "" {
 			protected[state.Activation.ReceiptID] = true

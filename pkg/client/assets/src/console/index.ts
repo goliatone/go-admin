@@ -4,47 +4,15 @@
 // dashboard refresh). Removed roots are disposed. Each root gets its own
 // registry, store, preferences and live stream.
 
-import { disposeConsole, mountConsole, mountConsoles } from './runtime.js';
+import { disposeConsole, mountConsole } from './runtime.js';
+import { autoMountConsoleRoots } from './auto-mount.js';
 
-const ROOT_SELECTOR = '[data-console-root]:not([data-console-manual])';
-
-function consoleRoots(node: Node): HTMLElement[] {
-  if (!(node instanceof HTMLElement)) return [];
-  const roots = Array.from(node.querySelectorAll<HTMLElement>(ROOT_SELECTOR));
-  return node.matches(ROOT_SELECTOR) ? [node, ...roots] : roots;
-}
-
-function observeConsoleRoots(): void {
-  if (typeof MutationObserver === 'undefined' || !document.body) return;
-  const observer = new MutationObserver((records) => {
-    records.forEach((record) => {
-      record.removedNodes.forEach((node) => {
-        consoleRoots(node).forEach((root) => {
-          if (!root.isConnected) disposeConsole(root);
-        });
-      });
-      record.addedNodes.forEach((node) => {
-        consoleRoots(node).forEach((root) => {
-          if (root.isConnected) mountConsole(root);
-        });
-      });
-    });
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-}
-
-const autoMount = (): void => {
-  mountConsoles(document);
-  observeConsoleRoots();
-};
-
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoMount, { once: true });
-  } else {
-    autoMount();
-  }
-}
+autoMountConsoleRoots({
+  mount: (root) => {
+    mountConsole(root);
+  },
+  dispose: disposeConsole,
+});
 
 export {
   ConsoleRuntime,
@@ -55,6 +23,7 @@ export {
   readConsoleBootstrap,
   readConsoleWidgetBootstrap,
   type ConsoleConnectionState,
+  type ConsoleRuntimeChange,
   type ConsoleRuntimeOptions,
   type ConsoleRuntimeState,
 } from './runtime.js';

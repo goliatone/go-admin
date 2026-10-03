@@ -153,6 +153,7 @@ const (
 	DataPageTemplate                               = core.DataPageTemplate
 	DataPanelCoverage                              = core.DataPanelCoverage
 	DataPanelDatasets                              = core.DataPanelDatasets
+	DataPanelExplore                               = core.DataPanelExplore
 	DataPanelOperations                            = core.DataPanelOperations
 	DataPanelOverview                              = core.DataPanelOverview
 	DataPanelScenarios                             = core.DataPanelScenarios
@@ -875,6 +876,7 @@ type (
 	DataActionChoice                                  = core.DataActionChoice
 	DataCheckView                                     = core.DataCheckView
 	DataCoverageView                                  = core.DataCoverageView
+	DataExplorationURLs                               = core.DataExplorationURLs
 	DataModule                                        = core.DataModule
 	DataModuleConfig                                  = core.DataModuleConfig
 	DataOverviewCounts                                = core.DataOverviewCounts
@@ -2899,6 +2901,10 @@ func RegisterDashboardProviderFactory(bus *CommandBus, commandName string, code 
 
 func RegisterDataCommands(bus *CommandBus, service *data.Service) (CommandRegistrationHandle, error) {
 	return core.RegisterDataCommands(bus, service)
+}
+
+func RegisterDataExplorationQueries(bus *CommandBus, service *data.Service) (CommandRegistrationHandle, error) {
+	return core.RegisterDataExplorationQueries(bus, service)
 }
 
 func RegisterDataPanels(registry *console.PanelRegistry, actions ...DataPanelActions) error {

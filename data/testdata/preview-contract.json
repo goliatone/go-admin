@@ -1,0 +1,83 @@
+{
+  "capability": {
+    "supported": true,
+    "surfaces": [
+      {
+        "id": "synthetic-orders-report",
+        "label": "Synthetic orders report",
+        "kind": "report"
+      }
+    ],
+    "guarantees": {
+      "durable": true,
+      "isolation": true,
+      "read_only": true,
+      "retention": true,
+      "cleanup": true
+    }
+  },
+  "open": {
+    "selection": {
+      "dataset": {
+        "provider": "kitchen-sink",
+        "id": "synthetic-orders",
+        "version": "1",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "scenario": {
+        "dataset": {
+          "provider": "kitchen-sink",
+          "id": "synthetic-orders",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "id": "ready",
+        "version": "1",
+        "profile_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "target_id": "kitchen-sink",
+      "context": "prepared",
+      "receipt_id": "ready-receipt",
+      "content_revision": 1
+    },
+    "surface_id": "synthetic-orders-report",
+    "request_id": "launch-1"
+  },
+  "session": {
+    "session_id": "preview-opaque-1",
+    "selection": {
+      "dataset": {
+        "provider": "kitchen-sink",
+        "id": "synthetic-orders",
+        "version": "1",
+        "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "scenario": {
+        "dataset": {
+          "provider": "kitchen-sink",
+          "id": "synthetic-orders",
+          "version": "1",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "id": "ready",
+        "version": "1",
+        "profile_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "target_id": "kitchen-sink",
+      "context": "prepared",
+      "receipt_id": "ready-receipt",
+      "content_revision": 1
+    },
+    "surface_id": "synthetic-orders-report",
+    "state": "ready",
+    "expires_at": "2026-10-03T12:15:00Z",
+    "launch_url": "/admin/data/preview/preview-opaque-1/surfaces/synthetic-orders-report",
+    "return_url": "/admin/data",
+    "read_only": true
+  },
+  "states": [
+    "unavailable",
+    "expired",
+    "closed"
+  ]
+}

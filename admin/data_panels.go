@@ -41,7 +41,7 @@ const DataOverviewRecordKey = "summary"
 
 // DataPanelIDs returns the Data panels in display order.
 func DataPanelIDs() []string {
-	return []string{DataPanelOverview, DataPanelDatasets, DataPanelScenarios, DataPanelOperations, DataPanelVerification, DataPanelCoverage}
+	return []string{DataPanelOverview, DataPanelDatasets, DataPanelScenarios, DataPanelOperations, DataPanelVerification, DataPanelCoverage, DataPanelExplore}
 }
 
 // RegisterDataPanels declares the Data views on a registry owned by the Data
@@ -85,7 +85,8 @@ func RegisterDataPanels(registry *console.PanelRegistry, actions ...DataPanelAct
 			return err
 		}
 	}
-	return nil
+	// Explore is read-only: it declares no lifecycle actions.
+	return registry.Register(DataPanelExplore, dataExplorePanelConfig())
 }
 
 // DataActionChoice is one lifecycle action the current actor may start. The
@@ -361,11 +362,13 @@ func dataOverviewUI() *console.PanelUI {
 }
 
 func dataDatasetsUI() *console.PanelUI {
-	ui := console.NewPanelUI(dataTable("Dataset catalog", "",
+	catalog := dataTable("Dataset catalog", "",
 		dataColumn("Dataset", "label"), dataColumn("Digest", "digest"), dataColumn("Origin", "origin"),
 		dataColumn("Timezone", "timezone"), dataColumn("Scenarios", "scenarios", "number"),
 		dataColumn("Records", "records"), dataColumn("Prerequisites", "prerequisites"),
-		dataColumn("Available actions", "actions"), dataColumn("Unavailable", "unavailable")), nil)
+		dataColumn("Available actions", "actions"), dataColumn("Unavailable", "unavailable"))
+	catalog.Link = &console.PanelUILink{Label: "Explore datasets", PanelID: DataPanelExplore}
+	ui := console.NewPanelUI(catalog, nil)
 	ui.Filters = []console.PanelUIFilter{dataSelectFilter("origin", "Origin", "origin", dataOriginSynthetic, dataOriginSource)}
 	return ui
 }
@@ -499,7 +502,7 @@ func DataOverviewRecord(view DataOverviewView, revision uint64) console.Record {
 // DataDatasetRecord projects one catalog dataset version.
 func DataDatasetRecord(descriptor admindata.Descriptor, revision uint64) console.Record {
 	ref := descriptor.Dataset
-	key := dataRecordKey("dataset", ref.Provider, ref.ID, ref.Version, ref.Digest)
+	key := dataDatasetKey(ref)
 	origin := dataOriginSource
 	if descriptor.Synthetic {
 		origin = dataOriginSynthetic
@@ -551,6 +554,7 @@ func DataScenarioRecord(view DataScenarioView, revision uint64) console.Record {
 		row["receipt_id"] = receipt.ID
 		row["content_revision"] = receipt.ContentRevision
 	}
+	dataExploreRow(row, view, receipt)
 	return console.Record{Key: key, TargetID: view.TargetID, Revision: revision, Data: row}
 }
 
@@ -881,6 +885,7 @@ func dataTargetRow(target DataTargetView) map[string]any {
 		row["dataset_label"] = dataDatasetLabel(receipt.Dataset)
 		row["scenario_label"] = dataScenarioLabel(receipt.Scenario)
 	}
+	dataExploreActive(row, target)
 	return row
 }
 

@@ -42,6 +42,7 @@ type AccessRequest struct {
 	Operation *Operation
 	Receipt   *PreparationReceipt
 	Artifact  *ArtifactRef
+	Explore   *ExploreAccess
 }
 type Policy interface {
 	// Return CodeDenied (or a legacy untyped denial) for denied access.

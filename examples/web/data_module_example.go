@@ -32,6 +32,7 @@ func newExampleDataModule(adm *coreadmin.Admin, cfg coreadmin.Config, options ap
 	service, err := data.NewService(data.ServiceConfig{
 		Providers: map[string]data.Provider{"kitchen-sink": runtime}, Target: runtime, Store: runtime.Store,
 		Policy: access, Resolve: access.Resolve,
+		Preview: data.ApplicationPreviewConfig{Adapter: runtime, Enabled: isDevelopment, ApplicationID: "go-admin-web", EnvironmentID: environment, Surfaces: []data.PreviewSurface{{ID: datamodule.OrdersReportSurface, Label: "Synthetic orders report", Kind: "report", EntityID: "orders", Fields: []string{"id", "amount", "local_day"}}}},
 		// This example's adapter has focused conformance tests. Enabling another
 		// application's adapters requires that application's own evidence.
 		WritesEnabled: options.WritesEnabled && isDevelopment,
@@ -42,10 +43,14 @@ func newExampleDataModule(adm *coreadmin.Admin, cfg coreadmin.Config, options ap
 	module, err := coreadmin.NewDataModule(coreadmin.DataModuleConfig{
 		BasePath: cfg.BasePath,
 		Service:  service, TargetID: datamodule.TargetID, Enabled: enabled, ResolveIdentity: access.Identity,
-		MenuParent: setup.NavigationGroupMain,
+		MenuParent:      setup.NavigationGroupMain,
+		PreviewSurfaces: map[string]coreadmin.DataPreviewSurface{datamodule.OrdersReportSurface: syntheticPreviewSurface(runtime)},
 	})
 	if err != nil {
 		return nil, nil, errors.Join(err, runtime.Close())
+	}
+	if err = adm.RegisterModule(&syntheticOrdersReportModule{runtime: runtime, access: access}); err != nil {
+		return nil, nil, errors.Join(err, module.Close(), runtime.Close())
 	}
 	return module, func() error { return errors.Join(module.Close(), runtime.Close()) }, nil
 }
