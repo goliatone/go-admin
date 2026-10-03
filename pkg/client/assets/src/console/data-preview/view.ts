@@ -29,6 +29,8 @@ export type LaunchView = {
   busy: LaunchBusy;
   /** The last open was sent without a definitive answer: a retry reattaches. */
   uncertain: boolean;
+  /** A session opened earlier in this tab whose state is not known yet. */
+  remembered?: boolean;
   failure: { action: LaunchAction; failure: PreviewFailure } | null;
 };
 
@@ -194,9 +196,12 @@ function clock(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/** Minutes left, rounded: dated answers carry whole seconds, so a ceiling would over-count. */
 function remaining(iso: string, now: number): string {
-  const minutes = Math.ceil((Date.parse(iso) - now) / 60000);
-  if (!Number.isFinite(minutes) || minutes <= 0) return 'now';
+  const ms = Date.parse(iso) - now;
+  if (!Number.isFinite(ms) || ms <= 0) return 'now';
+  if (ms < 60000) return 'in less than a minute';
+  const minutes = Math.round(ms / 60000);
   return minutes === 1 ? 'in 1 minute' : `in ${minutes} minutes`;
 }
 
@@ -247,6 +252,61 @@ function renderFailure(launch: LaunchView): string {
   return `<div class="console-callout console-preview__failure" data-tone="${tone}" role="alert" data-preview-failure="${escapeAttribute(`${launch.failure!.action}:${kind}`)}"><p>${escapeHTML(message)}</p>${actions ? `<div class="console-explorer__state-actions">${actions}</div>` : ''}</div>`;
 }
 
+/** A live session: its launch link (withdrawn while closing), expiry and Close. */
+function renderLiveControls(model: PreviewModel, surface: PreviewSurface, session: PreviewSession, busy: LaunchBusy, now: number): string {
+  const closing = busy === 'closing';
+  // A preview being closed is no longer offered for navigation.
+  const href = closing ? '' : launchHref(session.launch_url, model.base);
+  let link = '';
+  if (href) {
+    link = `<a class="console-btn console-btn--sm console-btn--primary" href="${escapeAttribute(href)}" data-preview-launch data-surface-id="${escapeAttribute(surface.id)}" data-explorer-focus="${escapeAttribute(focusKey('launch', surface.id))}">Open preview<span class="console-sr-only"> of ${escapeHTML(surface.label)}</span></a>`;
+  } else if (!closing) {
+    link = muted('No launch link is available for this preview.');
+  }
+  const checking = busy === 'checking' ? '<span class="console-muted" role="status" aria-busy="true">Checking…</span>' : '';
+  return `
+    <p class="console-preview__status" data-preview-state="ready">Read-only preview of receipt <code class="console-kv__mono">${escapeHTML(session.selection.receipt_id || '')}</code>. Expires at ${expiry(session, now)}.</p>
+    <div class="console-preview__actions">${link}${button(closing ? 'Closing…' : 'Close preview', 'close', surface.id, { busy: closing })}${checking}</div>
+  `;
+}
+
+/** An ended session: why, and a new launch when the view is still offered. */
+function renderEndedControls(model: PreviewModel, surface: PreviewSurface, session: PreviewSession, now: number, offered: boolean): string {
+  const state = session.state === 'ready' ? 'expired' : session.state;
+  const again = offered ? `<div class="console-preview__actions">${button('Start a new preview', 'new', surface.id, { disabled: model.identifiable ? '' : REQUEST_ID_REASON })}</div>` : '';
+  return `
+    <p class="console-preview__status" data-preview-state="${escapeAttribute(state)}">${escapeHTML(endedMessage(session, now))}</p>
+    ${again}
+  `;
+}
+
+/**
+ * A session opened earlier whose state could not be read: it may still be
+ * open (holding the receipt and a quota slot), so checking it again comes
+ * first; starting a new preview stays an explicit choice.
+ */
+function renderRememberedControls(model: PreviewModel, surface: PreviewSurface, offered: boolean): string {
+  const again = offered ? button('Start a new preview', 'new', surface.id, { disabled: model.identifiable ? '' : REQUEST_ID_REASON }) : '';
+  return `
+    <p class="console-preview__status" data-preview-state="unknown">A preview you opened earlier may still be open, but its state could not be read.</p>
+    <div class="console-preview__actions">${button('Check again', 'check', surface.id, { primary: true })}${again}</div>
+  `;
+}
+
+/** No session yet: Start preview, or the retry a failed launch allows. */
+function renderStartControls(model: PreviewModel, surface: PreviewSurface, launch: LaunchView | undefined): string {
+  const failure = launch?.failure;
+  const uncertain = Boolean(launch?.uncertain);
+  // A failure the same launch cannot get past offers only the callout's next step.
+  if (failure?.action === 'open' && BLOCKING_OPEN.has(failure.failure.kind) && !uncertain) return '';
+  const disabled = model.identifiable ? '' : REQUEST_ID_REASON;
+  const reason = disabled ? `<p class="console-preview__status">${muted(disabled)}</p>` : '';
+  let label = 'Start preview';
+  if (uncertain) label = 'Try again';
+  else if (failure?.action === 'open') label = failure.failure.kind === 'conflict' ? 'Start a new preview' : 'Try again';
+  return `${reason}<div class="console-preview__actions">${button(label, 'open', surface.id, { primary: true, disabled })}</div>`;
+}
+
 /**
  * Controls of one surface. `offered` is false for a surface the latest
  * capability no longer lists: its session can still be opened or closed, but
@@ -259,37 +319,12 @@ function renderLaunchControls(model: PreviewModel, surface: PreviewSurface, laun
   if (busy === 'opening') {
     return `<div class="console-preview__actions">${button('Starting preview…', 'open', surface.id, { primary: true, busy: true })}</div>`;
   }
-  if (session && sessionLive(session, now)) {
-    const closing = busy === 'closing';
-    const href = closing ? '' : launchHref(session.launch_url, model.base);
-    // A preview being closed is no longer offered for navigation.
-    const link = href
-      ? `<a class="console-btn console-btn--sm console-btn--primary" href="${escapeAttribute(href)}" data-preview-launch data-surface-id="${escapeAttribute(surface.id)}" data-explorer-focus="${escapeAttribute(focusKey('launch', surface.id))}">Open preview<span class="console-sr-only"> of ${escapeHTML(surface.label)}</span></a>`
-      : closing ? '' : muted('No launch link is available for this preview.');
-    const checking = busy === 'checking' ? `<span class="console-muted" role="status" aria-busy="true">Checking…</span>` : '';
-    return `
-      <p class="console-preview__status" data-preview-state="ready">Read-only preview of receipt <code class="console-kv__mono">${escapeHTML(session.selection.receipt_id || '')}</code>. Expires at ${expiry(session, now)}.</p>
-      <div class="console-preview__actions">${link}${button(closing ? 'Closing…' : 'Close preview', 'close', surface.id, { busy: closing })}${checking}</div>
-    `;
-  }
-  if (session) {
-    const state = session.state === 'ready' ? 'expired' : session.state;
-    const again = offered ? `<div class="console-preview__actions">${button('Start a new preview', 'new', surface.id, { disabled: model.identifiable ? '' : REQUEST_ID_REASON })}</div>` : '';
-    return `
-      <p class="console-preview__status" data-preview-state="${escapeAttribute(state)}">${escapeHTML(endedMessage(session, now))}</p>
-      ${again}
-    `;
-  }
-  if (!offered) return '';
-  // A failure the same launch cannot get past offers only the callout's next step.
-  const failure = launch?.failure;
-  if (failure?.action === 'open' && BLOCKING_OPEN.has(failure.failure.kind) && !launch?.uncertain) return '';
-  const disabled = model.identifiable ? '' : REQUEST_ID_REASON;
-  const reason = disabled ? `<p class="console-preview__status">${muted(disabled)}</p>` : '';
-  let label = 'Start preview';
-  if (launch?.uncertain) label = 'Try again';
-  else if (failure?.action === 'open') label = failure.failure.kind === 'conflict' ? 'Start a new preview' : 'Try again';
-  return `${reason}<div class="console-preview__actions">${button(label, 'open', surface.id, { primary: true, disabled })}</div>`;
+  if (session && sessionLive(session, now)) return renderLiveControls(model, surface, session, busy, now);
+  if (session) return renderEndedControls(model, surface, session, now, offered);
+  // A session remembered from earlier in this tab is shown only once the server answers for it.
+  if (busy === 'checking') return '<p class="console-preview__status" role="status" aria-busy="true">Checking the preview you opened earlier…</p>';
+  if (launch?.remembered) return renderRememberedControls(model, surface, offered);
+  return offered ? renderStartControls(model, surface, launch) : '';
 }
 
 /** Shown when this browser cannot create request IDs (no cryptographic source). */

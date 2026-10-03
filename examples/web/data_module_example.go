@@ -32,7 +32,7 @@ func newExampleDataModule(adm *coreadmin.Admin, cfg coreadmin.Config, options ap
 	service, err := data.NewService(data.ServiceConfig{
 		Providers: map[string]data.Provider{"kitchen-sink": runtime}, Target: runtime, Store: runtime.Store,
 		Policy: access, Resolve: access.Resolve,
-		Preview: data.ApplicationPreviewConfig{Adapter: runtime, Enabled: isDevelopment, ApplicationID: "go-admin-web", EnvironmentID: environment, Surfaces: []data.PreviewSurface{{ID: datamodule.OrdersReportSurface, Label: "Synthetic orders report", Kind: "report", EntityID: "orders", Fields: []string{"id", "amount", "local_day"}}}},
+		Preview: data.ApplicationPreviewConfig{Adapter: runtime, Enabled: isDevelopment, ApplicationID: "go-admin-web", EnvironmentID: environment, Lifetime: options.PreviewLifetime, Surfaces: []data.PreviewSurface{{ID: datamodule.OrdersReportSurface, Label: "Synthetic orders report", Kind: "report", EntityID: "orders", Fields: []string{"id", "amount", "local_day"}}}},
 		// This example's adapter has focused conformance tests. Enabling another
 		// application's adapters requires that application's own evidence.
 		WritesEnabled: options.WritesEnabled && isDevelopment,

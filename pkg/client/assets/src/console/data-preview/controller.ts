@@ -8,12 +8,16 @@
 // definitive answer or an ended session reserves a new ID for explicitly new
 // work. Sessions are kept per exact selection and surface (bounded), so a
 // preview opened here can still be closed after the operator looked
-// elsewhere. Nothing for another selection is ever shown, and the browser
-// never extends a session: the server decides expiry, this page only stops
-// offering the launch link once the expiry passed on its clock.
+// elsewhere, and are remembered in this tab (see store.ts) so an operator who
+// returns from a preview finds it again: a remembered session is shown only
+// after the server answers a status read for it. Nothing for another
+// selection is ever shown, and the browser never extends a session: the
+// server decides expiry, this page only stops offering the launch link once
+// the expiry passed on its clock.
 
 import { selectionKey, type ExploreSelection } from '../data-explorer/contract.js';
 import type { PreviewSession, PreviewSurface } from './contract.js';
+import { LaunchStore, defaultLaunchStorage, type LaunchStorage, type StoredLaunch } from './store.js';
 import {
   createHTTPPreviewTransport,
   unconfiguredPreviewTransport,
@@ -66,6 +70,10 @@ export type DataPreviewOptions = PreviewHost & {
   generate?: () => string;
   /** Clock for expiry decisions. */
   now?: () => number;
+  /** Where launches are remembered across navigations (default: this tab's session storage; null: nowhere). */
+  storage?: LaunchStorage | null;
+  /** Console identity the remembered launches belong to (application, environment, actor, scope). */
+  storageScope?: string;
 };
 
 type Launch = {
@@ -86,6 +94,8 @@ type Launch = {
   stale: boolean;
   /** Server clock minus this page's clock at the latest dated answer (ms). */
   skew: number;
+  /** Session locator, known before the session's state when restored. */
+  sessionId: string;
 };
 
 function launchKey(selection: ExploreSelection, surfaceId: string): string {
@@ -99,6 +109,7 @@ export class DataPreview {
   private readonly now: () => number;
   private readonly identifiable: boolean;
   private readonly launches = new Map<string, Launch>();
+  private readonly store: LaunchStore;
   private shown: ExploreSelection | undefined;
   private capability: CapabilityEntry | undefined;
   private capabilityRead: AbortController | null = null;
@@ -114,6 +125,8 @@ export class DataPreview {
     this.now = options.now || Date.now;
     // A browser without a cryptographic source can never start new work.
     this.identifiable = Boolean(this.generate());
+    this.store = new LaunchStore(options.storage === undefined ? defaultLaunchStorage() : options.storage, options.storageScope || '', this.now);
+    this.restore();
   }
 
   /**
@@ -129,6 +142,7 @@ export class DataPreview {
     this.capability = undefined;
     this.capabilityStale = false;
     this.shown = next;
+    this.revive();
     this.scheduleExpiry();
   }
 
@@ -145,7 +159,7 @@ export class DataPreview {
       capability: this.capability,
       launch: (surfaceId) => this.view(this.launches.get(launchKey(shown, surfaceId))),
       opened: Array.from(this.launches.values())
-        .filter((launch) => launch.session && this.isShown(launch.selection))
+        .filter((launch) => (launch.session || launch.sessionId) && this.isShown(launch.selection))
         .map((launch) => launch.surface),
       identifiable: this.identifiable,
       base: context.base,
@@ -164,7 +178,8 @@ export class DataPreview {
   markStale(): void {
     if (this.capability?.status === 'ready') this.capabilityStale = true;
     this.launches.forEach((launch) => {
-      if (launch.session?.state === 'ready') launch.stale = true;
+      // Open sessions, and remembered ones whose state is still unknown, are read again.
+      if (launch.session?.state === 'ready' || (launch.sessionId && !launch.session)) launch.stale = true;
     });
   }
 
@@ -207,7 +222,7 @@ export class DataPreview {
         return true;
       case 'check': {
         const launch = this.shownLaunch(surfaceId);
-        if (launch?.session && !launch.busy) this.check(launch, true);
+        if (launch && (launch.session || launch.sessionId) && !launch.busy) this.check(launch, true);
         return true;
       }
       default:
@@ -215,13 +230,27 @@ export class DataPreview {
     }
   }
 
-  /** After an explicit Refresh of the same selection: read a failed capability again. */
+  /**
+   * After an explicit Refresh of the same selection: read the capability again
+   * (a failed one in the foreground) and let launches a failure blocked start
+   * again. Unanswered launches keep their request ID for replay.
+   */
   refreshFailed(): void {
+    const shown = this.shown;
+    if (!shown || this.disposed) return;
+    this.launches.forEach((launch) => {
+      if (this.isShown(launch.selection) && launch.failure?.action === 'open' && launch.submitted?.state !== 'uncertain') launch.failure = null;
+    });
     if (this.capability?.status === 'failed') this.load(true);
+    else if (!this.capabilityRead) this.readCapability(shown, true);
   }
 
-  /** Abort every request and forget everything (denial or disposal). */
-  clear(): void {
+  /**
+   * Abort every request and forget everything (denial or disposal). `forget`
+   * also drops what this tab remembers, for a console that lost access.
+   */
+  clear(forget = false): void {
+    if (forget) this.store.wipe();
     this.capabilityRead?.abort();
     this.capabilityRead = null;
     this.capability = undefined;
@@ -244,7 +273,45 @@ export class DataPreview {
 
   private view(launch: Launch | undefined): LaunchView | undefined {
     if (!launch) return undefined;
-    return { session: launch.session, now: this.clock(launch), busy: launch.busy, uncertain: launch.submitted?.state === 'uncertain', failure: launch.failure };
+    return {
+      session: launch.session, now: this.clock(launch), busy: launch.busy, uncertain: launch.submitted?.state === 'uncertain', failure: launch.failure,
+      remembered: !launch.session && Boolean(launch.sessionId),
+    };
+  }
+
+  /** Launches remembered in this tab, before any of them is shown. */
+  private restore(): void {
+    this.store.read().forEach((entry) => {
+      const key = launchKey(entry.selection, entry.surface.id);
+      this.launches.set(key, {
+        key, selection: entry.selection, surfaceId: entry.surface.id, surface: entry.surface, nextID: this.generate(),
+        submitted: entry.request_id ? { id: entry.request_id, state: 'uncertain' } : null,
+        session: null, busy: '', failure: null, controller: null, stale: false, skew: 0, sessionId: entry.session_id || '',
+      });
+    });
+  }
+
+  /** Remember launches with a session or an unanswered request, most recent last. */
+  private persist(): void {
+    const entries: StoredLaunch[] = [];
+    this.launches.forEach((launch) => {
+      const sessionId = launch.session?.session_id || launch.sessionId;
+      const request = launch.submitted && launch.submitted.state !== 'settled' ? launch.submitted.id : '';
+      if (!sessionId && !request) return;
+      const entry: StoredLaunch = { selection: launch.selection, surface: launch.surface, at: this.now() };
+      if (sessionId) entry.session_id = sessionId;
+      if (request) entry.request_id = request;
+      entries.push(entry);
+    });
+    this.store.write(entries);
+  }
+
+  /** Read the state of remembered sessions of the shown selection before showing them. */
+  private revive(): void {
+    if (!this.shown || this.disposed) return;
+    this.launches.forEach((launch) => {
+      if (launch.sessionId && !launch.session && !launch.busy && this.isShown(launch.selection)) this.check(launch, false);
+    });
   }
 
   /** This page's clock, corrected by the server's for the launch's expiry decisions. */
@@ -309,12 +376,13 @@ export class DataPreview {
       this.launches.set(key, launch);
       return launch;
     }
-    launch = { key, selection, surfaceId: surface.id, surface, nextID: this.generate(), submitted: null, session: null, busy: '', failure: null, controller: null, stale: false, skew: 0 };
+    launch = { key, selection, surfaceId: surface.id, surface, nextID: this.generate(), submitted: null, session: null, busy: '', failure: null, controller: null, stale: false, skew: 0, sessionId: '' };
     this.launches.set(key, launch);
     for (const [candidate, entry] of this.launches) {
       if (this.launches.size <= LAUNCH_LIMIT) break;
       if (!entry.busy && candidate !== key) this.launches.delete(candidate);
     }
+    this.persist();
     return launch;
   }
 
@@ -338,11 +406,14 @@ export class DataPreview {
       id = launch.nextID;
       launch.nextID = this.generate();
       launch.session = null;
+      launch.sessionId = '';
     }
     launch.submitted = { id, state: 'pending' };
     launch.busy = 'opening';
     launch.failure = null;
     launch.stale = false;
+    // Remembered before it is sent: leaving the page mid-request must not lose its request ID.
+    this.persist();
     const controller = new AbortController();
     launch.controller = controller;
     this.host.update(`preview:open:${surfaceId}`);
@@ -355,6 +426,8 @@ export class DataPreview {
         if (submitted) submitted.state = 'settled';
         this.dated(launch, result.serverTime);
         launch.session = result.value;
+        launch.sessionId = result.value.session_id;
+        this.persist();
         this.landed(launch, sessionLive(result.value, this.clock(launch)) ? `preview:launch:${surfaceId}` : `preview:new:${surfaceId}`);
         return;
       }
@@ -365,6 +438,7 @@ export class DataPreview {
         launch.submitted = null;
       }
       launch.failure = { action: 'open', failure: result.failure };
+      this.persist();
       this.landed(launch, `preview:open:${surfaceId}`);
     });
   }
@@ -386,6 +460,7 @@ export class DataPreview {
       if (result.ok) {
         this.dated(launch, result.serverTime);
         launch.session = result.value;
+        this.persist();
         this.landed(launch, `preview:new:${surfaceId}`);
         return;
       }
@@ -398,32 +473,50 @@ export class DataPreview {
 
   /** Read the session's current state; `explicit` checks keep focus on the control. */
   private check(launch: Launch, explicit: boolean): void {
-    const session = launch.session;
-    if (!session || launch.busy || this.disposed) return;
+    const sessionId = launch.session?.session_id || launch.sessionId;
+    if (!sessionId || launch.busy || this.disposed) return;
+    const restoring = !launch.session;
     launch.busy = 'checking';
     if (explicit) launch.failure = null;
     const controller = new AbortController();
     launch.controller = controller;
+    // A revived check starts while the explorer renders, which already shows it as checking.
     if (explicit) this.host.update(`preview:check:${launch.surfaceId}`);
-    const locator = { sessionId: session.session_id, selection: launch.selection, surfaceId: launch.surfaceId };
+    const locator = { sessionId, selection: launch.selection, surfaceId: launch.surfaceId };
     void this.transport.session(locator, controller.signal).then((result) => {
       if (this.disposed || launch.controller !== controller) return;
       launch.controller = null;
       launch.busy = '';
+      if (restoring && !result.ok && ENDING_FAILURES.has(result.failure.kind)) {
+        // A remembered session the server no longer grants is forgotten, not shown.
+        this.launches.delete(launch.key);
+        this.persist();
+        this.landed(launch);
+        return;
+      }
       const before = JSON.stringify([launch.session, launch.failure]);
       if (result.ok) {
         this.dated(launch, result.serverTime);
         launch.session = result.value;
+        launch.sessionId = result.value.session_id;
         launch.failure = null;
-      } else if (ENDING_FAILURES.has(result.failure.kind) || explicit) {
+      } else if (ENDING_FAILURES.has(result.failure.kind) || explicit || restoring) {
+        // A remembered session that could not be read stays remembered and asks to be checked again.
         if (ENDING_FAILURES.has(result.failure.kind) && launch.session) launch.session = { ...launch.session, state: 'unavailable', launch_url: '' };
         launch.failure = { action: 'check', failure: result.failure };
       }
+      this.persist();
       // Background checks re-render only when what is shown changed.
-      if (explicit || before !== JSON.stringify([launch.session, launch.failure])) {
-        this.landed(launch, explicit ? (sessionLive(launch.session, this.clock(launch)) ? `preview:launch:${launch.surfaceId}` : `preview:new:${launch.surfaceId}`) : '');
+      if (explicit || restoring || before !== JSON.stringify([launch.session, launch.failure])) {
+        this.landed(launch, explicit ? this.checkFocus(launch) : '');
       }
     });
+  }
+
+  /** Where an explicit status check leaves focus: the link, a new launch, or Check again while still unknown. */
+  private checkFocus(launch: Launch): string {
+    if (sessionLive(launch.session, this.clock(launch))) return `preview:launch:${launch.surfaceId}`;
+    return launch.session ? `preview:new:${launch.surfaceId}` : `preview:check:${launch.surfaceId}`;
   }
 
   private clearExpiry(): void {

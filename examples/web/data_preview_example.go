@@ -20,6 +20,8 @@ import (
 // the authenticated preview surface (datamodule.RenderOrdersReport) over the
 // same OrdersReport model, inside this application's own page; API clients
 // that ask for JSON receive the report model.
+const syntheticOrdersReportRoute = "synthetic-orders.report"
+
 type syntheticOrdersReportModule struct {
 	runtime *datamodule.Runtime
 	access  setup.DataConsoleAccess
@@ -84,10 +86,11 @@ func (*syntheticOrdersReportModule) Manifest() coreadmin.ModuleManifest {
 	return coreadmin.ModuleManifest{ID: "synthetic-orders", NameKey: "Synthetic orders report"}
 }
 func (*syntheticOrdersReportModule) RouteContract() routing.ModuleContract {
-	return routing.ModuleContract{Slug: "synthetic-orders", RouteNamePrefix: "synthetic_orders", UIRouteDeclarations: map[string]routing.RouteDeclaration{"orders.report": {Method: router.GET, Path: "report"}}}
+	// Route keys are owned by the module slug.
+	return routing.ModuleContract{Slug: "synthetic-orders", RouteNamePrefix: "synthetic_orders", UIRouteDeclarations: map[string]routing.RouteDeclaration{syntheticOrdersReportRoute: {Method: router.GET, Path: "report"}}}
 }
 func (m *syntheticOrdersReportModule) Register(mc coreadmin.ModuleContext) error {
-	path := mc.Routing.RoutePath(routing.SurfaceUI, "orders.report")
+	path := mc.Routing.RoutePath(routing.SurfaceUI, syntheticOrdersReportRoute)
 	if path == "" || mc.ProtectedRouter == nil || mc.Admin == nil {
 		return data.Error(data.CodeInvalid)
 	}

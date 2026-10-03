@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -142,6 +143,61 @@ func TestDataPreviewHTTPWrapsRenderedViewInChromeAndKeepsAPIJSON(t *testing.T) {
 		var report demo.OrdersReport
 		if res.Code != http.StatusOK || json.Unmarshal(res.Body.Bytes(), &report) != nil || len(report.Orders) != item.rows {
 			t.Fatal("API read is not the JSON report model", res.Code, res.Body.String())
+		}
+	}
+}
+
+func TestDataPreviewHTTPBrowserNavigationToEndedPreviewIsAnHTMLRefusal(t *testing.T) {
+	f, _ := newPreviewHTTPFixture(t)
+	q := previewHTTPPrepared(t, f, "ready", "refusal")
+	session := previewHTTPOpen(t, f, q, "operator")
+	navigate := func(path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml")
+		req.Header.Set("X-Test-User", "operator")
+		res := httptest.NewRecorder()
+		f.handler.ServeHTTP(res, req)
+		return res
+	}
+	res := f.request(t, http.MethodPost, "/admin/data/api/preview/sessions/"+session.SessionID+"/close", "operator", nil)
+	if res.Code != http.StatusOK {
+		t.Fatal(res.Code, res.Body.String())
+	}
+	for _, path := range []string{session.LaunchURL, strings.Replace(session.LaunchURL, session.SessionID, "forged-session", 1)} {
+		res = navigate(path)
+		body := res.Body.String()
+		if res.Code != http.StatusNotFound || !strings.HasPrefix(res.Header().Get("Content-Type"), "text/html") || res.Header().Get("Cache-Control") != "private, no-store" {
+			t.Fatal(path, res.Code, res.Header(), body)
+		}
+		for _, want := range []string{"data-preview-failure-page", "This preview is no longer available.", `<a class="console-btn console-btn--sm" href="/admin/data">Return to Data</a>`} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("refusal lacks %q:\n%s", want, body)
+			}
+		}
+		for _, leaked := range []string{"order-1", q.Selection.ReceiptID, session.SessionID} {
+			if strings.Contains(body, leaked) {
+				t.Fatalf("refusal discloses %q", leaked)
+			}
+		}
+	}
+	// API reads keep the console error envelope, whatever the client accepts.
+	res = navigate(session.LaunchURL + "/api/report")
+	if res.Code != http.StatusNotFound || !strings.HasPrefix(res.Header().Get("Content-Type"), "application/json") {
+		t.Fatal(res.Code, res.Header(), res.Body.String())
+	}
+}
+
+func TestDataPreviewPageKeepsExpiryPrecision(t *testing.T) {
+	session := previewPageSession("synthetic-orders", "ready")
+	session.ExpiresAt = time.Date(2026, 10, 3, 12, 15, 3, 844000000, time.UTC)
+	page, err := RenderDataPreviewPage(DataPreviewPage{Session: session, Routes: previewPageRoutes(), DataPage: "/admin/data",
+		Now: time.Date(2026, 10, 3, 12, 0, 3, 250000000, time.UTC), Body: []byte("<p>view</p>")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`data-preview-expires="2026-10-03T12:15:03.844Z"`, `data-preview-server-now="2026-10-03T12:00:03.25Z"`} {
+		if !strings.Contains(string(page), want) {
+			t.Fatalf("page lacks %s", want)
 		}
 	}
 }

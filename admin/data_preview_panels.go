@@ -129,14 +129,97 @@ var dataPreviewPageTemplate = htmltemplate.Must(htmltemplate.New("data-preview-p
 </html>
 `))
 
+var dataPreviewFailureTemplate = htmltemplate.Must(htmltemplate.New("data-preview-failure").Parse(`<!doctype html>
+<html lang="en" class="data-preview-document">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="same-origin">
+  <title>Preview unavailable · Application preview</title>
+  {{- range .Styles}}
+  <link rel="stylesheet" href="{{.}}">
+  {{- end}}
+</head>
+<body class="data-preview-body">
+  <div class="console-root data-preview" data-preview-failure-page data-preview-status="{{.Status}}">
+    <header class="data-preview__chrome">
+      <div class="data-preview__bar">
+        <div class="data-preview__flags">
+          <span class="console-badge console-badge--warning">Preview</span>
+          <p class="data-preview__flag-text">This preview cannot be shown.</p>
+        </div>
+        <nav class="data-preview__controls" aria-label="Preview controls">
+          <a class="console-btn console-btn--sm" href="{{.DataPage}}">Return to Data</a>
+        </nav>
+      </div>
+    </header>
+    <main class="data-preview__surface" id="data-preview-main">
+      <div class="console-callout data-preview__ended" data-tone="warning" role="alert"><p>{{.Message}}</p></div>
+    </main>
+  </div>
+</body>
+</html>
+`))
+
+// dataPreviewFailureMessage explains a refused preview page by its HTTP class,
+// never by anything the refused session would have shown.
+func dataPreviewFailureMessage(status int) string {
+	switch status {
+	case 400:
+		return "This preview link is not valid. Start the preview again from Data."
+	case 401:
+		return "Your session expired. Sign in again, then start the preview from Data."
+	case 403:
+		return "You do not have access to this preview."
+	case 404, 410:
+		return "This preview is no longer available. It was closed, it expired or its data changed. Start a new preview from Data."
+	case 409:
+		return "The prepared data changed, so this preview ended. Start a new preview from Data."
+	default:
+		return "This preview cannot be shown right now. Return to Data and try again."
+	}
+}
+
+// renderDataPreviewFailurePage is the HTML answer to a refused preview page
+// navigation: the status class and a way back to Data, nothing else.
+func renderDataPreviewFailurePage(status int, routes dataPreviewChromeRoutes) ([]byte, error) {
+	if !safePreviewURL(routes.page) {
+		return nil, data.Error(data.CodeProvider)
+	}
+	assets := strings.TrimRight(strings.TrimSpace(routes.assets), "/")
+	view := struct {
+		Status   int
+		Message  string
+		DataPage string
+		Styles   []string
+	}{Status: status, Message: dataPreviewFailureMessage(status), DataPage: routes.page, Styles: []string{assets + "/assets/output.css", assets + "/assets/dist/styles/console.css"}}
+	var out bytes.Buffer
+	if err := dataPreviewFailureTemplate.Execute(&out, view); err != nil {
+		return nil, data.Error(data.CodeProvider)
+	}
+	return out.Bytes(), nil
+}
+
+// previewAcceptsHTML is true for browser navigations to a preview page.
+func previewAcceptsHTML(c router.Context) bool {
+	return strings.Contains(strings.ToLower(c.Header("Accept")), "text/html")
+}
+
 // previewCSRFToken is the request's CSRF form token, when the CSRF middleware
 // issued one for this page; the page script sends it with Close.
 func previewCSRFToken(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	helpers, _ := c.Locals(csrfmw.DefaultTemplateHelpersKey).(map[string]any)
-	token, _ := helpers["csrf_token"].(string)
+	helpers, ok := c.Locals(csrfmw.DefaultTemplateHelpersKey).(map[string]any)
+	if !ok {
+		return ""
+	}
+	token, ok := helpers["csrf_token"].(string)
+	if !ok {
+		return ""
+	}
 	return strings.TrimSpace(token)
 }
 
@@ -187,18 +270,19 @@ func RenderDataPreviewPage(in DataPreviewPage) ([]byte, error) {
 		TargetID:        selection.TargetID,
 		ReceiptID:       selection.ReceiptID,
 		ContentRevision: selection.ContentRevision,
-		ExpiresISO:      session.ExpiresAt.UTC().Format(time.RFC3339),
-		ExpiresLabel:    session.ExpiresAt.UTC().Format("15:04") + " UTC",
-		ServerNowISO:    now.UTC().Format(time.RFC3339),
-		SelectionJSON:   string(encoded),
-		ViewURL:         previewLocatorURL(in.Routes.Surface, session),
-		DataURL:         previewLocatorURL(in.Routes.API, session),
-		SessionURL:      previewLocatorURL(in.Routes.Session, session),
-		CloseURL:        previewLocatorURL(in.Routes.Close, session),
-		ReturnURL:       returnURL,
-		Styles:          []string{assets + "/assets/output.css", assets + "/assets/dist/styles/console.css"},
-		Script:          assets + "/assets/dist/console/data-preview-page.js",
-		CSRFToken:       strings.TrimSpace(in.CSRFToken),
+		// Full precision: the page ends the view on the server's expiry instant, not a second early.
+		ExpiresISO:    session.ExpiresAt.UTC().Format(time.RFC3339Nano),
+		ExpiresLabel:  session.ExpiresAt.UTC().Format("15:04") + " UTC",
+		ServerNowISO:  now.UTC().Format(time.RFC3339Nano),
+		SelectionJSON: string(encoded),
+		ViewURL:       previewLocatorURL(in.Routes.Surface, session),
+		DataURL:       previewLocatorURL(in.Routes.API, session),
+		SessionURL:    previewLocatorURL(in.Routes.Session, session),
+		CloseURL:      previewLocatorURL(in.Routes.Close, session),
+		ReturnURL:     returnURL,
+		Styles:        []string{assets + "/assets/output.css", assets + "/assets/dist/styles/console.css"},
+		Script:        assets + "/assets/dist/console/data-preview-page.js",
+		CSRFToken:     strings.TrimSpace(in.CSRFToken),
 		// The host renders its fragment with its own escaping template engine.
 		Body: htmltemplate.HTML(body), //nolint:gosec // trusted server-side host view fragment
 	}

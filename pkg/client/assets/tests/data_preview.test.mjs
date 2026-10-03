@@ -171,9 +171,10 @@ async function waitFor(assertion, timeoutMs = 2000) {
 /** Fixture sessions expire at 12:15Z: the page's clock reads 12:00Z unless a test moves it. */
 const FIXED_NOW = Date.parse('2026-10-03T12:00:00Z');
 
-function mount({ previewRoutes = true, now = () => FIXED_NOW } = {}) {
+function mount({ previewRoutes = true, now = () => FIXED_NOW, keepStorage = false } = {}) {
   win.document.body.innerHTML = '';
-  win.sessionStorage.clear();
+  // A remount with keepStorage is the same tab after navigating back to Data.
+  if (!keepStorage) win.sessionStorage.clear();
   const extensions = { data_explorer: EXPLORE, ...(previewRoutes ? { data_preview: ROUTES } : {}) };
   const bootstrap = { ...golden.bootstrap, extensions };
   const root = win.document.createElement('section');
@@ -724,4 +725,233 @@ test('console denial drops preview state and cancels in-flight requests', async 
   assert.equal(state.deferred[0].request.signal.aborted, true, 'the in-flight open is aborted');
   assert.equal(root.querySelector('.console-preview'), null);
   runtime.destroy();
+});
+
+// ---------------------------------------------------------------------------
+// Live binding: navigation away and back, deep links
+
+const storedLaunches = () => {
+  const key = Object.keys(win.sessionStorage).find((name) => name.startsWith('go-admin:data-preview:v1:'));
+  return key ? JSON.parse(win.sessionStorage.getItem(key)) : [];
+};
+
+test('a session opened before navigating away is found again after returning, without a new launch', async () => {
+  const state = server();
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]')));
+  const [remembered] = storedLaunches();
+  assert.equal(remembered.session_id, 'preview-ready-1');
+  assert.equal(remembered.surface.id, 'synthetic-orders-report');
+  assert.equal(remembered.launch_url, undefined, 'launch URLs are never remembered');
+  mounted.runtime.destroy();
+
+  // The operator followed the link and came back to Data in the same tab.
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]'), sectionText(mounted.root)));
+  assert.equal(requests(state, 'open').length, 1, 'no new launch');
+  assert.deepEqual(requests(state, 'session').map((request) => request.sessionId), ['preview-ready-1'], 'shown only after the server answered for it');
+});
+
+test('a remembered session the server closed is shown closed, and one it no longer grants is forgotten', async () => {
+  const state = server();
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]')));
+  mounted.runtime.destroy();
+
+  // Closed from the preview page's chrome before returning.
+  state.sessions['preview-ready-1'] = sessionNamed('closed');
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-state="closed"]'), sectionText(mounted.root)));
+  assert.ok(action(mounted.root, 'new'));
+  mounted.runtime.destroy();
+
+  // Gone (cleaned up or another actor's): forgotten without a message.
+  server({ session: () => errorResponse(404, 'gone') });
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  await waitFor(() => assert.equal(action(mounted.root, 'open')?.textContent.trim(), 'Start preview', sectionText(mounted.root)));
+  assert.equal(mounted.root.querySelector('[data-preview-failure]'), null);
+  assert.deepEqual(storedLaunches(), []);
+});
+
+test('a remembered launch without a definitive answer is replayed with its request ID', async () => {
+  let attempt = 0;
+  const state = server({ open: () => {
+    attempt += 1;
+    return attempt === 1 ? { reject: () => new TypeError('network down') } : undefined;
+  } });
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-failure="open:network"]')));
+  assert.match(storedLaunches()[0].request_id, UUID);
+  mounted.runtime.destroy();
+
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  assert.equal(action(mounted.root, 'open').textContent.trim(), 'Try again');
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]'), sectionText(mounted.root)));
+  const [first, second] = requests(state, 'open');
+  assert.equal(second.body.request_id, first.body.request_id, 'the replay reattaches after navigation');
+});
+
+test('remembered launches belong to one console identity and are wiped on denial', async () => {
+  server();
+  const mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]')));
+  const [key] = Object.keys(win.sessionStorage).filter((name) => name.startsWith('go-admin:data-preview:v1:'));
+  const { application_id: application, environment_id: environment, actor_id: actor, scope_key: scope } = golden.bootstrap;
+  assert.equal(key, `go-admin:data-preview:v1:${[application, environment, actor, scope].join('\u0000')}`);
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: 'denied' } }), { status: 403, headers: { 'content-type': 'application/json' } });
+  await mounted.runtime.refresh();
+  await waitFor(() => assert.equal(mounted.runtime.getState(), 'denied'));
+  assert.equal(win.sessionStorage.getItem(key), null);
+});
+
+test('a Data URL with an exact prepared selection opens its App preview and leaves the URL', async () => {
+  const state = server();
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]')));
+  mounted.runtime.destroy();
+
+  // The chrome's Return link: /admin/data?selection=<exact selection>.
+  win.history.replaceState(null, '', `/admin/data?selection=${encodeURIComponent(JSON.stringify(readyPrepared))}&tab=keep`);
+  mounted = mount({ keepStorage: true });
+  await waitFor(() => assert.equal(mounted.root.querySelector('.console-explorer__section')?.dataset.explorerSectionPanel, 'app-preview'));
+  assert.equal(mounted.runtime.getActivePanel(), 'explore');
+  assert.equal(mounted.root.querySelector('input[value="prepared"]').checked, true);
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]'), sectionText(mounted.root)));
+  assert.equal(win.location.search, '?tab=keep', 'the selection parameter is dropped, others kept');
+  assert.equal(requests(state, 'open').length, 1);
+  win.history.replaceState(null, '', '/admin/data');
+});
+
+test('a deep link to a receipt the snapshot no longer offers explains the change instead of repinning', async () => {
+  server();
+  const replaced = { ...readyPrepared, receipt_id: 'rcpt-ready-0', content_revision: 1 };
+  win.history.replaceState(null, '', `/admin/data?selection=${encodeURIComponent(JSON.stringify(replaced))}`);
+  const { root } = mount();
+  await waitFor(() => assert.ok(root.querySelector('[data-explorer-state="stale"]'), textOf(explorerRoot(root))));
+  assert.ok(sectionText(root).includes('It is now receipt rcpt-ready-1 (content revision 2).'), sectionText(root));
+  assert.equal(root.querySelector('.console-preview'), null, 'nothing is previewed for a drifted pin');
+  win.history.replaceState(null, '', '/admin/data');
+});
+
+// ---------------------------------------------------------------------------
+// Review fixes (FX): unanswered launches, unreadable remembered sessions
+
+test('an open still in flight when leaving the page is remembered and replays its request ID', async () => {
+  let state = server({ open: () => ({ deferred: () => jsonResponse(sessionNamed('ready')) }) });
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.equal(state.deferred.length, 1));
+  const sent = requests(state, 'open')[0].body.request_id;
+  assert.equal(storedLaunches()[0]?.request_id, sent, 'remembered before any answer');
+  mounted.runtime.destroy();
+
+  // The server may have created the session: back on Data, Try again reattaches.
+  state = server();
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  assert.equal(action(mounted.root, 'open').textContent.trim(), 'Try again');
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]'), sectionText(mounted.root)));
+  assert.equal(requests(state, 'open')[0].body.request_id, sent);
+});
+
+test('a remembered session whose state cannot be read asks to check again before any new launch', async () => {
+  let state = server();
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]')));
+  mounted.runtime.destroy();
+
+  let reads = 0;
+  state = server({ session: () => {
+    reads += 1;
+    return reads === 1 ? errorResponse(503, 'CONSOLE_PROVIDER_FAILED') : undefined;
+  } });
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime).catch(() => {});
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-state="unknown"]'), sectionText(mounted.root)));
+  assert.equal(action(mounted.root, 'open'), null, 'no plain Start preview while the earlier session may be open');
+  assert.ok(action(mounted.root, 'new'), 'a new preview stays an explicit choice');
+  assert.equal(storedLaunches()[0].session_id, 'preview-ready-1', 'the locator is kept');
+  click(action(mounted.root, 'check'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]'), sectionText(mounted.root)));
+  assert.equal(requests(state, 'open').length, 0, 'the earlier session is found, not replaced');
+});
+
+test('a new snapshot reads an unreadable remembered session again', async () => {
+  let state = server();
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  let mounted = mount();
+  await showPreparedPreview(mounted.root, mounted.runtime);
+  click(action(mounted.root, 'open'));
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]')));
+  mounted.runtime.destroy();
+
+  let reads = 0;
+  state = server({ session: () => {
+    reads += 1;
+    return reads === 1 ? { reject: () => new TypeError('offline') } : undefined;
+  } });
+  state.sessions = { 'preview-ready-1': sessionNamed('ready') };
+  mounted = mount({ keepStorage: true });
+  await showPreparedPreview(mounted.root, mounted.runtime).catch(() => {});
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-state="unknown"]'), sectionText(mounted.root)));
+  await mounted.runtime.refresh();
+  await waitFor(() => assert.ok(mounted.root.querySelector('[data-preview-launch]'), sectionText(mounted.root)));
+  assert.equal(reads, 2);
+});
+
+test('a denial before the App preview module loaded still forgets remembered launches', async () => {
+  server();
+  const { application_id: application, environment_id: environment, actor_id: actor, scope_key: scope } = golden.bootstrap;
+  const key = `go-admin:data-preview:v1:${[application, environment, actor, scope].join('\u0000')}`;
+  win.sessionStorage.setItem(key, JSON.stringify([{ selection: readyPrepared, surface: { id: 'synthetic-orders-report', label: 'Synthetic orders report', kind: 'report' }, session_id: 'preview-ready-1', at: FIXED_NOW }]));
+  const mounted = mount({ keepStorage: true });
+  await waitFor(() => assert.equal(mounted.runtime.getState(), 'ready'));
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: 'denied' } }), { status: 403, headers: { 'content-type': 'application/json' } });
+  await mounted.runtime.refresh();
+  await waitFor(() => assert.equal(mounted.runtime.getState(), 'denied'));
+  assert.equal(win.sessionStorage.getItem(key), null);
+});
+
+test('Refresh of the same selection lets a launch blocked by a stale answer start again', async () => {
+  const answers = [errorResponse(409, 'stale_generation')];
+  const state = server({ open: () => answers.shift() });
+  const { root, runtime } = mount();
+  await showPreparedPreview(root, runtime);
+  click(action(root, 'open'));
+  const failure = await waitFor(() => {
+    const found = root.querySelector('[data-preview-failure="open:stale"]');
+    assert.ok(found, sectionText(root));
+    return found;
+  });
+  assert.equal(action(root, 'open'), null);
+  const before = requests(state, 'capabilities').length;
+  click(failure.querySelector('[data-explorer-action="refresh"]'));
+  await waitFor(() => assert.equal(action(root, 'open')?.textContent.trim(), 'Start preview', sectionText(root)));
+  assert.ok(requests(state, 'capabilities').length > before, 'the capability is read again');
+  click(action(root, 'open'));
+  await waitFor(() => assert.ok(root.querySelector('[data-preview-launch]'), sectionText(root)));
 });

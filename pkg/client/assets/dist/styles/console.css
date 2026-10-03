@@ -2653,6 +2653,12 @@
     top: 0;
     z-index: 10;
   }
+
+  /* Skip-link and in-view targets land below the sticky chrome. */
+  :where(.console-root) .data-preview__surface,
+  :where(.console-root) .data-preview__surface :target {
+    scroll-margin-top: 160px;
+  }
 }
 
 @media (max-width: 640px) {

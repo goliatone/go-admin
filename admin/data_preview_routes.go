@@ -11,6 +11,7 @@ import (
 	gocommand "github.com/goliatone/go-command"
 	router "github.com/goliatone/go-router"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -262,33 +263,54 @@ func (m *DataModule) writePreviewSession(c router.Context, ctx context.Context, 
 	return err
 }
 
+// writePreviewSurfaceError refuses a preview read. Browser navigations to a
+// preview page get a small HTML page with the same status; API reads and
+// other clients get the console error envelope.
+func (m *DataModule) writePreviewSurfaceError(c router.Context, err error, api bool, chrome dataPreviewChromeRoutes) error {
+	if api || !previewAcceptsHTML(c) {
+		return writeConsoleError(c, err)
+	}
+	presented, status := DefaultErrorPresenter().PresentWithContext(c, consoleHTTPError(err))
+	if presented == nil {
+		status = http.StatusInternalServerError
+	}
+	body, renderErr := renderDataPreviewFailurePage(status, chrome)
+	if renderErr != nil {
+		return writeConsoleError(c, err)
+	}
+	c.SetHeader("Content-Type", "text/html; charset=utf-8")
+	c.Status(status)
+	return c.Send(body)
+}
+
 func (m *DataModule) handlePreviewSurface(c router.Context, api bool, chrome dataPreviewChromeRoutes) error {
 	c.SetHeader("Cache-Control", "private, no-store")
 	c.SetHeader("X-Content-Type-Options", "nosniff")
+	fail := func(err error) error { return m.writePreviewSurfaceError(c, err, api, chrome) }
 	ctx, identity, err := m.host.request(c)
 	if err != nil {
-		return writeConsoleError(c, err)
+		return fail(err)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err = m.config.Service.ValidatePreviewHost(ctx, identity.ApplicationID, identity.EnvironmentID, identity.ActorID, identity.ScopeKey); err != nil {
-		return writeConsoleError(c, err)
+		return fail(err)
 	}
 	id := c.Param("surface", "")
 	surface, ok := m.config.PreviewSurfaces[id]
 	if !ok || surface.Read == nil {
-		return writeConsoleError(c, data.Error(data.CodeGone))
+		return fail(data.Error(data.CodeGone))
 	}
 	ctx, read, err := m.config.Service.WithApplicationPreview(ctx, data.ApplicationPreviewSessionQuery{SessionID: c.Param("session", "")}, id)
 	if err != nil {
-		return writeConsoleError(c, dataConsoleReadError(err))
+		return fail(dataConsoleReadError(err))
 	}
 	if read.Session.Selection.TargetID != m.config.TargetID {
-		return writeConsoleError(c, data.Error(data.CodeGone))
+		return fail(data.Error(data.CodeGone))
 	}
 	out, err := surface.Read(ctx, read)
 	if err != nil {
-		return writeConsoleError(c, dataConsoleReadError(err))
+		return fail(dataConsoleReadError(err))
 	}
 	var body []byte
 	contentType := "application/json"
@@ -302,10 +324,10 @@ func (m *DataModule) handlePreviewSurface(c router.Context, api bool, chrome dat
 		body, err = json.Marshal(out)
 	}
 	if err != nil || len(body) > data.ExploreMaxResponseBytes {
-		return writeConsoleError(c, data.Error(data.CodeProvider))
+		return fail(data.Error(data.CodeProvider))
 	}
 	if err = m.config.Service.ValidatePreviewDelivery(ctx, read.Session, m.previewHostCheck(identity)); err != nil {
-		return writeConsoleError(c, dataConsoleReadError(err))
+		return fail(dataConsoleReadError(err))
 	}
 	c.SetHeader("Content-Type", contentType)
 	return c.Send(body)

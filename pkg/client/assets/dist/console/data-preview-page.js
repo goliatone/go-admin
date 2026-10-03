@@ -1,61 +1,145 @@
-import { m as w } from "../chunks/transport-DVxB6IT1.js";
-import { d as h, f as o, r as m } from "../chunks/transport-CrXa2Trj.js";
-var S = "[data-preview-page]", x = 3e4, p = {
+import { m as x } from "../chunks/transport-DVxB6IT1.js";
+import { d as h, f as l, r as S } from "../chunks/transport-CrXa2Trj.js";
+var y = "[data-preview-page]", b = 3e4, k = 3e4, E = 5e3, C = {
+  closed: "Preview closed.",
+  expired: "Preview expired.",
+  unavailable: "Preview ended.",
+  "signed-out": "Signed out."
+}, p = {
+  closed: "This preview was closed. Nothing it showed is kept on this page.",
+  expired: "This preview expired. Start a new preview from Data to look again.",
+  unavailable: "This preview ended because the receipt, your access or the application runtime changed.",
+  "signed-out": "Your session expired. Sign in again, then start a new preview from Data."
+}, v = {
   gone: "This preview has already ended.",
   denied: "Your access changed, so this preview has ended.",
   stale: "The prepared data changed, so this preview has ended.",
   expired: "Your session expired. Reload the page to continue.",
   invalid: "This preview could not be closed. Reload the page and try again."
-}, C = /* @__PURE__ */ new Set([
+}, f = /* @__PURE__ */ new Set([
   "gone",
   "denied",
   "stale"
 ]);
-function y(e, i) {
-  const t = e.dataset;
-  let s = null;
+function L(e, t) {
+  const s = e.dataset;
+  let i = null;
   try {
-    s = w(JSON.parse(t.previewSelection || ""));
+    i = x(JSON.parse(s.previewSelection || ""));
   } catch {
-    s = null;
+    i = null;
   }
-  const r = o(t.previewSessionUrl), a = o(t.previewCloseUrl), c = o(t.previewReturnUrl), l = h(t.previewSurface), u = Date.parse(t.previewExpires || ""), n = Date.parse(t.previewServerNow || ""), d = h(t.previewSession);
-  if (!s || s.context !== "prepared" || !r || !a || !c || !l || !d || !Number.isFinite(u)) return null;
-  const v = Number.isFinite(n) && Math.abs(n - i) <= 864e5 ? n - i : 0;
+  const n = l(s.previewSessionUrl), r = l(s.previewCloseUrl), o = l(s.previewReturnUrl), c = h(s.previewSurface), d = Date.parse(s.previewExpires || ""), a = Date.parse(s.previewServerNow || ""), u = h(s.previewSession);
+  if (!i || i.context !== "prepared" || !n || !r || !o || !c || !u || !Number.isFinite(d)) return null;
+  const m = Number.isFinite(a) && Math.abs(a - t) <= 864e5 ? a - t : 0;
   return {
-    sessionId: d,
-    surfaceId: l,
-    selection: s,
-    sessionURL: r,
-    closeURL: a,
-    returnURL: c,
-    expiresAt: u,
-    skew: v
+    sessionId: u,
+    surfaceId: c,
+    selection: i,
+    sessionURL: n,
+    closeURL: r,
+    returnURL: o,
+    expiresAt: d,
+    skew: m
   };
 }
-function k(e) {
+function T(e) {
   if (e <= 0) return "(expired)";
-  const i = Math.ceil(e / 6e4);
-  return i === 1 ? "(in 1 minute)" : `(in ${i} minutes)`;
+  if (e < 6e4) return "(in less than a minute)";
+  const t = Math.round(e / 6e4);
+  return t === 1 ? "(in 1 minute)" : `(in ${t} minutes)`;
 }
-var E = class {
-  constructor(e, i, t = {}) {
-    this.timer = null, this.closing = !1, this.disposed = !1, this.onClick = (s) => {
-      const r = s.target instanceof Element ? s.target.closest("[data-preview-close]") : null;
-      !r || !this.root.contains(r) || (s.preventDefault(), this.close());
-    }, this.root = e, this.config = i, this.now = t.now || Date.now, this.navigate = t.navigate || ((s) => window.location.assign(s)), this.transport = t.transport || m({
+var A = class {
+  constructor(e, t, s = {}) {
+    this.timer = null, this.poller = null, this.expiry = null, this.checking = null, this.lastCheck = 0, this.closing = !1, this.ended = null, this.disposed = !1, this.onVisible = () => {
+      document.visibilityState === "visible" && this.check();
+    }, this.onClick = (i) => {
+      const n = i.target instanceof Element ? i.target.closest("[data-preview-close]") : null;
+      !n || !this.root.contains(n) || (i.preventDefault(), this.close());
+    }, this.root = e, this.config = t, this.now = s.now || Date.now, this.navigate = s.navigate || ((i) => window.location.assign(i)), this.transport = s.transport || S({
       capabilities: "",
       open: "",
-      session: i.sessionURL,
-      close: i.closeURL
+      session: t.sessionURL,
+      close: t.closeURL
     });
   }
   mount() {
     const e = this.closeButton();
-    e && (e.hidden = !1), this.root.addEventListener("click", this.onClick), this.localizeExpiry(), this.tick(), this.timer = setInterval(() => this.tick(), x);
+    e && (e.hidden = !1), this.root.addEventListener("click", this.onClick), this.localizeExpiry(), this.tick(), this.timer = setInterval(() => this.tick(), b), this.poller = setInterval(() => {
+      this.check();
+    }, k), document.addEventListener("visibilitychange", this.onVisible);
+    const t = this.config.expiresAt - this.serverNow();
+    this.expiry = setTimeout(() => {
+      this.end("expired"), this.check(!0);
+    }, Math.min(Math.max(t, 0) + 50, 18e5));
   }
   dispose() {
-    this.disposed || (this.disposed = !0, this.root.removeEventListener("click", this.onClick), this.timer !== null && clearInterval(this.timer), this.timer = null);
+    this.disposed || (this.disposed = !0, this.root.removeEventListener("click", this.onClick), document.removeEventListener("visibilitychange", this.onVisible), this.stopTimers(), this.checking?.abort(), this.checking = null);
+  }
+  endedBy() {
+    return this.ended;
+  }
+  stopTimers() {
+    this.timer !== null && clearInterval(this.timer), this.poller !== null && clearInterval(this.poller), this.expiry !== null && clearTimeout(this.expiry), this.timer = null, this.poller = null, this.expiry = null;
+  }
+  async check(e = !1) {
+    if (this.disposed || this.checking || this.ended && !e) return;
+    const t = this.now();
+    if (!e && t - this.lastCheck < E) return;
+    this.lastCheck = t;
+    const s = new AbortController();
+    this.checking = s;
+    const i = await this.transport.session({
+      sessionId: this.config.sessionId,
+      selection: this.config.selection,
+      surfaceId: this.config.surfaceId
+    }, s.signal);
+    if (this.checking === s && (this.checking = null, !this.disposed)) {
+      if (i.ok) {
+        if (i.value.state === "ready") return;
+        this.end(i.value.state === "closed" ? "closed" : i.value.state === "expired" ? "expired" : "unavailable", !0);
+        return;
+      }
+      f.has(i.failure.kind) ? this.end("unavailable", !0) : i.failure.kind === "expired" && this.end("signed-out", !0);
+    }
+  }
+  end(e, t = !1) {
+    if (this.disposed || this.ended && !t || this.ended === e) return;
+    this.ended = e, this.stopTimers();
+    const s = this.focusWillBeLost(), i = this.showEnded(e);
+    this.withdrawControls(), i && s && document.activeElement !== i && i.focus();
+    const n = this.root.querySelector("[data-preview-remaining]");
+    n && e === "expired" && (n.textContent = "(expired)"), this.status(C[e]);
+  }
+  focusWillBeLost() {
+    const e = document.activeElement;
+    return !e || e === document.body ? !0 : [
+      this.root.querySelector("[data-preview-main]"),
+      this.closeButton(),
+      ...Array.from(this.root.querySelectorAll(".data-preview__views"))
+    ].some((t) => !!t?.contains(e));
+  }
+  showEnded(e) {
+    const t = this.root.querySelector("[data-preview-main]");
+    if (!t) return null;
+    const s = t.querySelector("[data-preview-ended]");
+    if (s) {
+      s.dataset.previewEnded = e;
+      const o = s.querySelector("p");
+      return o && (o.textContent = p[e]), s;
+    }
+    const i = document.createElement("div");
+    i.className = "console-callout data-preview__ended", i.dataset.tone = "warning", i.dataset.previewEnded = e, i.setAttribute("role", "alert"), i.tabIndex = -1;
+    const n = document.createElement("p");
+    n.textContent = p[e];
+    const r = document.createElement("a");
+    return r.className = "console-btn console-btn--sm console-btn--primary", r.href = this.config.returnURL, r.textContent = "Return to Data", i.append(n, r), t.replaceChildren(i), i;
+  }
+  withdrawControls() {
+    const e = this.closeButton();
+    e && (e.hidden = !0), this.root.querySelectorAll(".data-preview__views").forEach((t) => {
+      t.hidden = !0;
+    });
   }
   serverNow() {
     return this.now() + this.config.skew;
@@ -64,59 +148,59 @@ var E = class {
     return this.root.querySelector("[data-preview-close]");
   }
   status(e) {
-    const i = this.root.querySelector("[data-preview-status]");
-    i && (i.textContent = e);
+    const t = this.root.querySelector("[data-preview-status]");
+    t && (t.textContent = e);
   }
   localizeExpiry() {
     const e = this.root.querySelector("[data-preview-expiry]");
     if (!e) return;
-    const i = new Date(this.config.expiresAt);
-    e.textContent = i.toLocaleTimeString([], {
+    const t = new Date(this.config.expiresAt);
+    e.textContent = t.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit"
-    }), e.title = i.toLocaleString();
+    }), e.title = t.toLocaleString();
   }
   tick() {
     if (this.disposed) return;
     const e = this.root.querySelector("[data-preview-remaining]");
-    e && (e.textContent = k(this.config.expiresAt - this.serverNow()));
+    e && (e.textContent = T(this.config.expiresAt - this.serverNow()));
   }
   async close() {
     const e = this.closeButton();
     if (this.closing || this.disposed) return;
     this.closing = !0, e && (e.setAttribute("aria-busy", "true"), e.setAttribute("aria-disabled", "true"), e.textContent = "Closing…"), this.status("Closing the preview…");
-    const i = new AbortController(), t = await this.transport.close({
+    const t = new AbortController(), s = await this.transport.close({
       sessionId: this.config.sessionId,
       selection: this.config.selection,
       surfaceId: this.config.surfaceId
-    }, i.signal);
+    }, t.signal);
     if (!this.disposed) {
-      if (t.ok || C.has(t.failure.kind)) {
-        this.status(t.ok ? "Preview closed. Returning to Data…" : `${p[t.failure.kind]} Returning to Data…`), e && (e.hidden = !0), this.navigate(this.config.returnURL);
+      if (s.ok || f.has(s.failure.kind)) {
+        this.end(s.ok ? "closed" : "unavailable", !0), this.status(s.ok ? "Preview closed. Returning to Data…" : `${v[s.failure.kind]} Returning to Data…`), e && (e.hidden = !0), this.navigate(this.config.returnURL);
         return;
       }
-      this.closing = !1, e && (e.removeAttribute("aria-busy"), e.removeAttribute("aria-disabled"), e.textContent = "Close preview"), this.status(p[t.failure.kind] || "Closing the preview failed. Try again.");
+      this.closing = !1, e && (e.removeAttribute("aria-busy"), e.removeAttribute("aria-disabled"), e.textContent = "Close preview"), this.status(v[s.failure.kind] || "Closing the preview failed. Try again.");
     }
   }
-}, f = /* @__PURE__ */ new WeakMap();
-function b(e, i = {}) {
-  const t = f.get(e);
-  if (t) return t;
-  const s = y(e, (i.now || Date.now)());
-  if (!s) return null;
-  const r = new E(e, s, i);
-  return f.set(e, r), r.mount(), r;
+}, w = /* @__PURE__ */ new WeakMap();
+function I(e, t = {}) {
+  const s = w.get(e);
+  if (s) return s;
+  const i = L(e, (t.now || Date.now)());
+  if (!i) return null;
+  const n = new A(e, i, t);
+  return w.set(e, n), n.mount(), n;
 }
 function g() {
-  document.querySelectorAll(S).forEach((e) => {
-    b(e);
+  document.querySelectorAll(y).forEach((e) => {
+    I(e);
   });
 }
 typeof document < "u" && (document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", g, { once: !0 }) : g());
 export {
-  E as PreviewPage,
-  b as mountPreviewPage,
-  y as readPreviewPageConfig
+  A as PreviewPage,
+  I as mountPreviewPage,
+  L as readPreviewPageConfig
 };
 
 //# sourceMappingURL=data-preview-page.js.map

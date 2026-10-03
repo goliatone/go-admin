@@ -387,3 +387,25 @@ func TestPreviewRequiresExplicitHostRevision(t *testing.T) {
 		t.Fatal("disabled preview changed mandatory policy interface", err)
 	}
 }
+
+// Expiry noticed during final delivery is recorded as expiry, not as withdrawn
+// authority, so clients keep expired and unavailable distinct.
+func TestPreviewServiceExpiryDuringDeliveryEndsExpired(t *testing.T) {
+	f, a, s, q := previewFixture(t)
+	q.RequestID = "expiring"
+	out, err := s.OpenApplicationPreview(t.Context(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.ValidatePreviewDelivery(t.Context(), out, func(ctx context.Context) (context.Context, error) {
+		f.now.Add(int64(16 * time.Minute))
+		return ctx, nil
+	})
+	if data.ErrorCode(err) != data.CodeGone {
+		t.Fatal(err)
+	}
+	record, err := a.LookupPreview(t.Context(), out.SessionID)
+	if err != nil || record.Session.State != data.PreviewExpired {
+		t.Fatal("expiry during delivery was not recorded as expiry", record.Session.State, err)
+	}
+}

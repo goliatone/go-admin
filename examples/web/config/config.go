@@ -96,6 +96,8 @@ type AdminDataConfig struct {
 	Enabled       bool   `koanf:"enabled" json:"enabled" yaml:"enabled"`
 	WritesEnabled bool   `koanf:"writes_enabled" json:"writes_enabled" yaml:"writes_enabled"`
 	StorePath     string `koanf:"store_path" json:"store_path" yaml:"store_path"`
+	// PreviewLifetime bounds application preview sessions (default 15m, at most 30m).
+	PreviewLifetime time.Duration `koanf:"preview_lifetime" json:"preview_lifetime" yaml:"preview_lifetime"`
 }
 
 type AdminErrorsConfig struct {

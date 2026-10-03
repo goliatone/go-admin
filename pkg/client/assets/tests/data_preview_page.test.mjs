@@ -170,3 +170,120 @@ test('an incomplete page is not enhanced', () => {
   assert.equal(mountPreviewPage(root, { now: () => NOW }), null);
   assert.equal(root.querySelector('[data-preview-close]').hidden, true);
 });
+
+// ---------------------------------------------------------------------------
+// Session state while the page is open
+
+const readySession = () => structuredClone(contract.sessions.find((item) => item.name === 'ready').response);
+const named = (name) => structuredClone(contract.sessions.find((item) => item.name === name).response);
+
+test('a session the server reports ended removes the view and leaves only a way back', async () => {
+  for (const [answer, reason, message] of [
+    [() => jsonResponse(named('closed')), 'closed', 'This preview was closed.'],
+    [() => jsonResponse(named('expired')), 'expired', 'This preview expired.'],
+    [() => jsonResponse(named('unavailable')), 'unavailable', 'This preview ended because'],
+    [() => jsonResponse({ error: { text_code: 'gone' } }, 404), 'unavailable', 'This preview ended because'],
+    [() => jsonResponse({ error: { text_code: 'FORBIDDEN' } }, 403), 'unavailable', 'This preview ended because'],
+    [() => jsonResponse({ error: { text_code: 'UNAUTHORIZED' } }, 401), 'signed-out', 'Your session expired.'],
+  ]) {
+    const requests = server(answer);
+    const root = pageRoot();
+    const { page } = mount(root);
+    assert.ok(root.querySelector('[data-orders-report]'));
+    await page.check(true);
+    assert.equal(requests.at(-1).url.pathname, '/admin/data/api/preview/sessions/preview-ready-1');
+    assert.equal(requests.at(-1).method, 'GET');
+    assert.equal(page.endedBy(), reason);
+    assert.equal(root.querySelector('[data-orders-report]'), null, `${reason}: the view is removed`);
+    const notice = root.querySelector('[data-preview-ended]');
+    assert.ok(notice.textContent.includes(message), notice.textContent);
+    assert.equal(notice.querySelector('a').getAttribute('href'), root.dataset.previewReturnUrl);
+    assert.equal(root.querySelector('[data-preview-close]').hidden, true);
+    assert.equal(root.querySelector('.data-preview__views').hidden, true);
+    page.dispose();
+  }
+});
+
+test('a ready answer or a transient failure keeps the view', async () => {
+  for (const answer of [() => jsonResponse(readySession()), () => jsonResponse({ error: {} }, 503), () => { throw new TypeError('offline'); }]) {
+    server(answer);
+    const root = pageRoot();
+    const { page } = mount(root);
+    await page.check(true);
+    assert.equal(page.endedBy(), null);
+    assert.ok(root.querySelector('[data-orders-report]'));
+    page.dispose();
+  }
+});
+
+test('at expiry the view goes at once and the state read confirms it', async () => {
+  const requests = server(() => jsonResponse(named('expired')));
+  const root = pageRoot((node) => node.setAttribute('data-preview-expires', node.dataset.previewServerNow));
+  const { page } = mount(root);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(page.endedBy(), 'expired');
+  assert.equal(root.querySelector('[data-orders-report]'), null);
+  assert.equal(root.querySelector('[data-preview-remaining]').textContent, '(expired)');
+  assert.equal(requests.length, 1, 'one confirming state read');
+});
+
+test('state reads are bounded: a shown tab reads at most once per gap', async () => {
+  const requests = server(() => jsonResponse(readySession()));
+  let clock = NOW;
+  const root = pageRoot();
+  const page = mountPreviewPage(root, { now: () => clock, navigate: () => {} });
+  mounted.push(page);
+  const visible = () => win.document.dispatchEvent(new win.Event('visibilitychange'));
+  visible();
+  visible();
+  await settle();
+  assert.equal(requests.length, 1);
+  clock += 6000;
+  visible();
+  await settle();
+  assert.equal(requests.length, 2);
+  page.dispose();
+  clock += 6000;
+  visible();
+  await settle();
+  assert.equal(requests.length, 2, 'a disposed page reads nothing');
+});
+
+test('at expiry focus stays on the notice through the confirming read, announced once', async () => {
+  let answer;
+  server(() => new Promise((resolve) => { answer = () => resolve(jsonResponse(named('closed'))); }));
+  const root = pageRoot((node) => node.setAttribute('data-preview-expires', node.dataset.previewServerNow));
+  root.querySelector('[data-preview-main]').focus();
+  const { page } = mount(root);
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  const notice = root.querySelector('[data-preview-ended]');
+  assert.equal(notice.dataset.previewEnded, 'expired');
+  assert.equal(win.document.activeElement, notice, 'focus moves from the removed view to the notice');
+  answer();
+  await settle();
+  assert.equal(page.endedBy(), 'closed', 'the confirming read refines the reason');
+  assert.equal(root.querySelectorAll('[data-preview-ended]').length, 1);
+  assert.equal(root.querySelector('[data-preview-ended]'), notice, 'the notice is updated in place');
+  assert.ok(notice.textContent.includes('This preview was closed.'));
+  assert.equal(win.document.activeElement, notice, 'focus stays on the notice');
+});
+
+test('a session that ends while Close has focus moves focus to the notice', async () => {
+  server(() => jsonResponse(named('unavailable')));
+  const root = pageRoot();
+  const { page } = mount(root);
+  root.querySelector('[data-preview-close]').focus();
+  await page.check(true);
+  assert.equal(root.querySelector('[data-preview-close]').hidden, true);
+  assert.equal(win.document.activeElement, root.querySelector('[data-preview-ended]'));
+});
+
+test('a session that ends while Return has focus keeps it there', async () => {
+  server(() => jsonResponse(named('closed')));
+  const root = pageRoot();
+  const { page } = mount(root);
+  const back = root.querySelector('[data-preview-return]');
+  back.focus();
+  await page.check(true);
+  assert.equal(win.document.activeElement, back);
+});

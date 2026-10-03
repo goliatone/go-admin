@@ -148,6 +148,21 @@ comparison with the active data stale until you choose **Compare with the curren
 data**. These reads are bounded and change nothing; `datamodule/insights.go` is the
 reference insights adapter.
 
+**App preview** follows Used by in development, where this example enables
+application previews. For a prepared receipt it lists the registered application
+views you may open: here the Synthetic orders report, which needs
+`admin.reports.synthetic_orders.view` besides Data view. **Start preview** opens a
+bounded, read-only session pinned to that exact receipt, and **Open preview** shows
+the application's own report (`/admin/synthetic-orders/report` renders the same
+view over the active data) under a preview bar with the receipt identity, expiry,
+**Close preview** and **Return to Data**. Ready shows three orders totaling 250;
+Quiet shows the report's empty state. A preview never prepares, verifies or
+activates anything; its mutations, jobs and exports are refused, and a closed,
+expired or revoked session's page is refused without data. Sessions last 15
+minutes unless `admin.data.preview_lifetime` says otherwise (for example
+`APP_ADMIN__DATA__PREVIEW_LIFETIME=2m`; at most 30m). `datamodule/preview.go` is
+the reference preview adapter.
+
 The wiring is in `data_module_example.go`: `data.NewService` receives the
 application's provider, managed target, operation store, current policy and
 principal resolver; `admin.NewDataModule` receives that service, target, current

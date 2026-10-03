@@ -266,7 +266,7 @@ func (s *Service) loadPreview(ctx context.Context, id string) (*previewAuthoriza
 		err = s.previewGrant(ctx, f, record.Session.SurfaceID)
 	}
 	if err != nil {
-		return nil, s.previewReadFailure(ctx, id, err)
+		return nil, s.previewReadFailure(ctx, record.Session, err)
 	}
 	f.record = record
 	if !slices.Equal(record.AuthorizationRevisions, previewRevisionValues(f)) {
@@ -358,7 +358,7 @@ func (s *Service) ValidatePreviewDelivery(ctx context.Context, out ApplicationPr
 	}
 	defer func() {
 		if err != nil && f.record.Session.State == PreviewReady {
-			err = s.previewReadFailure(base, out.SessionID, err)
+			err = s.previewReadFailure(base, out, err)
 		}
 	}()
 	if err = s.previewGrant(ctx, f, out.SurfaceID); err != nil {
@@ -431,20 +431,27 @@ func (s *Service) failedPreviewOpen(ctx context.Context, want, record PreviewRec
 		if record.Session.SessionID == want.Session.SessionID {
 			return errors.Join(err, s.endPreview(ctx, record.Session.SessionID, PreviewUnavailable))
 		}
-		return s.previewReadFailure(ctx, record.Session.SessionID, err)
+		return s.previewReadFailure(ctx, record.Session, err)
 	}
 	return err
 }
 
 // Request failures deny delivery, but do not withdraw a previously live session.
 // Newly allocated launch resources are rolled back separately by their owner.
-func (s *Service) previewReadFailure(ctx context.Context, id string, err error) error {
+func (s *Service) previewReadFailure(ctx context.Context, session ApplicationPreviewSession, err error) error {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
 	switch ErrorCode(err) {
-	case CodeDenied, CodeGone, CodeStale, CodeUnavailable:
-		return errors.Join(err, s.endPreview(ctx, id, PreviewUnavailable))
+	case CodeGone:
+		// A session past its expiry ended by expiring, whichever read noticed it,
+		// so expired stays distinct from withdrawn authority.
+		if !s.config.Preview.Now().Before(session.ExpiresAt) {
+			return errors.Join(err, s.endPreview(ctx, session.SessionID, PreviewExpired))
+		}
+		return errors.Join(err, s.endPreview(ctx, session.SessionID, PreviewUnavailable))
+	case CodeDenied, CodeStale, CodeUnavailable:
+		return errors.Join(err, s.endPreview(ctx, session.SessionID, PreviewUnavailable))
 	default:
 		return err
 	}

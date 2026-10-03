@@ -8,9 +8,11 @@
 // When the page offers insights routes, Insights and Compare sections load the
 // insights module on demand; it reads only the pinned selection. When it
 // offers application preview routes, the App preview section loads the
-// preview module on demand for the pinned prepared receipt.
+// preview module on demand for the pinned prepared receipt. A Data page URL
+// with an exact `selection` (the return link of an application preview) opens
+// that selection's details once the first authorized snapshot arrives.
 
-import type { ConsoleRuntime, ConsoleRuntimeChange } from './runtime.js';
+import { readConsoleBootstrap, type ConsoleRuntime, type ConsoleRuntimeChange } from './runtime.js';
 import type { ServerPanelConsoleRenderer } from './schema/hydrate.js';
 import {
   buildCatalog,
@@ -20,7 +22,7 @@ import {
   type CatalogDataset,
   type CatalogScenario,
 } from './data-explorer/catalog.js';
-import { selectionKey, type ExploreContext, type ExploreSelection } from './data-explorer/contract.js';
+import { parseSelection, selectionKey, type ExploreContext, type ExploreSelection } from './data-explorer/contract.js';
 import { ExplorerPreviews, WITHDRAWING_FAILURES } from './data-explorer/previews.js';
 import {
   createHTTPExplorerTransport,
@@ -48,6 +50,7 @@ import type { InsightsRoutes, InsightsTransport } from './data-insights/transpor
 import type { DataPreview } from './data-preview/controller.js';
 import { generateRequestID } from './requests.js';
 import type { PreviewRoutes, PreviewTransport } from './data-preview/transport.js';
+import { forgetLaunches, launchStoreScope } from './data-preview/keys.js';
 
 /** Panel ID of the explorer in the Data console. */
 export const DATA_EXPLORE_PANEL = 'explore';
@@ -101,6 +104,28 @@ function cssEscape(value: string): string {
 }
 
 type PreviewSource = Exclude<DataExplorerOptions['preview'], false | undefined>;
+
+/** The exact selection in the page URL's `selection` parameter, if any. */
+function readSelectionLink(doc: Document): ExploreSelection | null {
+  try {
+    const raw = new URL(doc.location?.href || '').searchParams.get('selection');
+    return raw ? parseSelection(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remove the `selection` parameter, so a reload or later navigation does not reopen it. */
+function dropSelectionLink(doc: Document): void {
+  try {
+    const url = new URL(doc.location.href);
+    if (!url.searchParams.has('selection')) return;
+    url.searchParams.delete('selection');
+    doc.defaultView?.history.replaceState(doc.defaultView.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    // Without history support the parameter stays; it is applied only once per page.
+  }
+}
 
 /**
  * Where application previews are managed, or null when the page offers none.
@@ -159,6 +184,8 @@ export class DataExplorer {
   private appPreview: DataPreview | null = null;
   private previewLoading = false;
   private previewFailed = false;
+  /** An exact selection the page URL asks to open, until the first ready snapshot. */
+  private deepLink: ExploreSelection | null = null;
 
   constructor(root: HTMLElement, options: DataExplorerOptions = {}) {
     this.root = root;
@@ -182,6 +209,7 @@ export class DataExplorer {
     const source = options.insights ? options.insights : insightsRoutes ? { routes: insightsRoutes } : null;
     this.insightsSource = this.configured && source && (source.routes || source.transport) ? source : null;
     this.previewSource = this.configured ? previewSource(root, options) : null;
+    this.deepLink = this.configured ? readSelectionLink(root.ownerDocument) : null;
   }
 
   /** Bind to the mounted runtime: follow its records and handle explorer controls. */
@@ -197,6 +225,7 @@ export class DataExplorer {
       if (disclosure?.tagName === 'DETAILS') this.identityOpen = (disclosure as HTMLDetailsElement).open;
     }, true);
     this.syncCatalog();
+    this.applyDeepLink();
     this.update();
   }
 
@@ -210,6 +239,12 @@ export class DataExplorer {
   handleRuntimeChange(change: ConsoleRuntimeChange): void {
     if (this.disposed) return;
     if (change.state === 'denied' || change.state === 'disposed') {
+      // A console that lost access also forgets the previews this tab remembers,
+      // even when the preview module was never loaded.
+      if (change.state === 'denied') {
+        this.appPreview?.clear(true);
+        if (this.previewSource) forgetLaunches(launchStoreScope(readConsoleBootstrap(this.root)));
+      }
       this.reset();
       if (change.state === 'disposed') this.destroy();
       return;
@@ -217,6 +252,7 @@ export class DataExplorer {
     if (change.state !== 'ready' || !this.runtime) return;
     if (change.snapshot) {
       const changed = this.syncCatalog();
+      if (this.applyDeepLink()) return;
       this.entries.forEach((entry, key) => {
         if (entry.status !== 'loading' && !this.pending.has(key)) this.stale.add(key);
       });
@@ -308,6 +344,41 @@ export class DataExplorer {
       // Launches stay keyed by their own receipt; nothing of a drifted selection is shown.
       this.appPreview?.show(undefined);
     }
+  }
+
+  /**
+   * Open the details of the exact selection the page URL names (once, on the
+   * first authorized snapshot) and drop it from the URL. The selection is
+   * pinned as given: if the snapshot offers another receipt now, the details
+   * explain the change instead of repinning. Prepared receipts land on App
+   * preview when the page offers it. True when the details were opened.
+   */
+  private applyDeepLink(): boolean {
+    const target = this.deepLink;
+    if (!target || !this.runtime || this.runtime.getState() !== 'ready') return false;
+    this.deepLink = null;
+    dropSelectionLink(this.root.ownerDocument);
+    const dataset = this.catalog.find((candidate) => candidate.provider === target.dataset.provider && candidate.datasetId === target.dataset.id
+      && candidate.version === target.dataset.version && candidate.digest.length > 0 && target.dataset.digest.startsWith(candidate.digest));
+    const scenario = dataset?.scenarios.find((candidate) => scenarioContexts(candidate).some((context) => {
+      const offered = candidate.selections[context];
+      return offered?.scenario.id === target.scenario.id && offered.scenario.version === target.scenario.version
+        && offered.scenario.profile_hash === target.scenario.profile_hash;
+    }));
+    if (!dataset || !scenario) return false;
+    this.view = 'details';
+    this.datasetKey = dataset.key;
+    this.scenarioKey = scenario.key;
+    this.context = target.context;
+    this.pinned = target;
+    this.insights?.show(target);
+    this.appPreview?.show(target);
+    this.section = target.context === 'prepared' && this.previewSource ? 'app-preview' : 'about';
+    this.focusRequest = this.section === 'app-preview' ? 'section-panel' : 'title';
+    // Selecting an already active panel renders nothing: render the details either way.
+    this.runtime.selectPanel(DATA_EXPLORE_PANEL);
+    this.update();
+    return true;
   }
 
   /** How the pinned selection differs from the one the snapshot offers now. */
@@ -538,6 +609,8 @@ export class DataExplorer {
       this.appPreview = module.createDataPreview({
         // The runtime's request ID generator, so the module shares the console's draft rules.
         generate: generateRequestID,
+        // Remembered launches belong to this console identity only.
+        storageScope: launchStoreScope(readConsoleBootstrap(this.root)),
         ...source,
         scope: `${this.scope}-preview`,
         update: (focus) => this.update(focus),
