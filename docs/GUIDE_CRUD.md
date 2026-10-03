@@ -999,6 +999,12 @@ if _, err := admin.RegisterCommand(adm.Commands(), NewArticlePublishCommand(repo
 }
 ```
 
+For repeatable setup, use `errors.Is(err, admin.ErrCommandAlreadyRegistered)`
+to recognize duplicate legacy handlers or factories, and continue registering
+the remaining commands. Repeated handler registration returns this error before
+adding another subscription. Ownership conflicts, invalid registrations, and
+registry lifecycle failures must still be returned. Do not match error messages.
+
 Execution flow:
 
 1. DataGrid renders `schema.actions` and `schema.bulk_actions`.

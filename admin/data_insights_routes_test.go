@@ -341,7 +341,7 @@ func TestDataInsightsSameSelectionUsageGrantUnionHTTP(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for i := 0; i < count; i++ {
+				for i := range count {
 					metadata.Usages = append(metadata.Usages, data.ExploreUsage{SurfaceID: fmt.Sprintf("surface-%d", i), Kind: "report", Label: "Report"})
 				}
 				return metadata

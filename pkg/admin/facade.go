@@ -596,6 +596,7 @@ const (
 
 var (
 	ErrAutosaveConflict                               = core.ErrAutosaveConflict
+	ErrCommandAlreadyRegistered                       = core.ErrCommandAlreadyRegistered
 	ErrCommandRunDeliveryDropped                      = core.ErrCommandRunDeliveryDropped
 	ErrCommandRunEnvelopeRejected                     = core.ErrCommandRunEnvelopeRejected
 	ErrCommandRunHandlerFailed                        = core.ErrCommandRunHandlerFailed
@@ -877,11 +878,15 @@ type (
 	DataCheckView                                     = core.DataCheckView
 	DataCoverageView                                  = core.DataCoverageView
 	DataExplorationURLs                               = core.DataExplorationURLs
+	DataInsightsURLs                                  = core.DataInsightsURLs
 	DataModule                                        = core.DataModule
 	DataModuleConfig                                  = core.DataModuleConfig
 	DataOverviewCounts                                = core.DataOverviewCounts
 	DataOverviewView                                  = core.DataOverviewView
 	DataPanelActions                                  = core.DataPanelActions
+	DataPreviewPage                                   = core.DataPreviewPage
+	DataPreviewSurface                                = core.DataPreviewSurface
+	DataPreviewURLs                                   = core.DataPreviewURLs
 	DataScenarioView                                  = core.DataScenarioView
 	DataTargetView                                    = core.DataTargetView
 	DebugCollector                                    = core.DebugCollector
@@ -2977,6 +2982,10 @@ func RegisterTranslationSuggestionCommandFactories(bus *CommandBus) error {
 
 func RegisterTranslationSuggestionCommands(bus *CommandBus, service TranslationSuggestionService) error {
 	return core.RegisterTranslationSuggestionCommands(bus, service)
+}
+
+func RenderDataPreviewPage(in DataPreviewPage) ([]byte, error) {
+	return core.RenderDataPreviewPage(in)
 }
 
 func RenderFamilyDetailFragments(targets []FamilyDetailFragmentTarget, renderer FamilyDetailFragmentRenderer) ([]EnhancedFragment, error) {

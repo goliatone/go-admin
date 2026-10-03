@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	commandregistry "github.com/goliatone/go-command/registry"
 )
 
 func TestEnsureCoreContentPanelsRegistersMissingPanels(t *testing.T) {
@@ -230,4 +233,60 @@ func findMenuItemByTargetKey(items []admin.MenuItem, key string) *admin.MenuItem
 		}
 	}
 	return nil
+}
+
+type countingPageRepository struct {
+	stubPageRepository
+	calls int
+}
+
+func (r *countingPageRepository) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
+	r.calls++
+	return r.stubPageRepository.Publish(ctx, ids)
+}
+
+func TestCoreContentCommandWiringCompletesPartialRegistrationAndIsIdempotent(t *testing.T) {
+	commandregistry.WithTestRegistry(func() {
+		adm := mustNewWebTestAdmin(t)
+		adm.Commands().Enable(true)
+		defer adm.Commands().Close()
+		pages := &countingPageRepository{}
+		// Simulate a prior setup attempt that only registered the first factory.
+		if err := admin.RegisterMessageFactory(adm.Commands(), "pages.publish", func(_ map[string]any, ids []string) (commands.PagePublishMsg, error) {
+			return commands.PagePublishMsg{IDs: ids}, nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		for range 2 {
+			if err := ensureCoreContentPanelCommandWiring(adm, pages, &stubPostRepository{}); err != nil {
+				t.Fatalf("repeat setup: %v", err)
+			}
+		}
+		for _, name := range []string{"pages.publish", "pages.bulk_publish", "pages.bulk_unpublish", "posts.bulk_publish", "posts.bulk_unpublish", "posts.bulk_schedule", "posts.bulk_archive"} {
+			if !adm.Commands().CommandRegistration(name).CanDispatch() {
+				t.Errorf("command %s was left incomplete", name)
+			}
+		}
+		if err := adm.Commands().DispatchByName(context.Background(), "pages.publish", nil, []string{"page"}); err != nil {
+			t.Fatal(err)
+		}
+		if pages.calls != 1 {
+			t.Fatalf("repeat setup registered %d handlers, want 1", pages.calls)
+		}
+	})
+}
+
+func TestCoreContentCommandWiringPropagatesRegistrationFailures(t *testing.T) {
+	commandregistry.WithTestRegistry(func() {
+		adm := mustNewWebTestAdmin(t)
+		adm.Commands().Enable(true)
+		defer adm.Commands().Close()
+		if err := commandregistry.Start(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		err := ensureCoreContentPanelCommandWiring(adm, &stubPageRepository{}, &stubPostRepository{})
+		if err == nil || errors.Is(err, admin.ErrCommandAlreadyRegistered) {
+			t.Fatalf("registry lifecycle error was ignored: %v", err)
+		}
+	})
 }

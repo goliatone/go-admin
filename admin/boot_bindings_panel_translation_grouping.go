@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/adminkeys"
+	"github.com/goliatone/go-admin/internal/errorutil"
 	"github.com/goliatone/go-admin/internal/primitives"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationservices "github.com/goliatone/go-admin/translations/services"
+	cmscontent "github.com/goliatone/go-cms/content"
+	cmspages "github.com/goliatone/go-cms/pages"
 	router "github.com/goliatone/go-router"
 )
 
@@ -1563,20 +1566,12 @@ func mapCreateTranslationPersistenceError(err error, panel, entityID, sourceLoca
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, ErrPathConflict) {
-		return TranslationAlreadyExistsError{
-			Panel:        strings.TrimSpace(panel),
-			EntityID:     strings.TrimSpace(entityID),
-			SourceLocale: strings.TrimSpace(sourceLocale),
-			Locale:       strings.TrimSpace(locale),
-			FamilyID:     strings.TrimSpace(groupID),
-		}
-	}
-	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	if strings.Contains(message, "slug already exists") ||
-		strings.Contains(message, "path conflict") ||
-		strings.Contains(message, "duplicate key") ||
-		strings.Contains(message, "unique constraint failed") {
+	if errorutil.All(err, func(cause error) bool {
+		return cause == ErrPathConflict || cause == ErrTranslationAlreadyExists || //nolint:errorlint // All owns traversal so mixed joined failures cannot be hidden.
+			cause == cmscontent.ErrSlugExists || cause == cmspages.ErrSlugExists || //nolint:errorlint // Match this node only; All handles wrappers and joins.
+			cause == cmscontent.ErrTranslationAlreadyExists || cause == cmspages.ErrTranslationAlreadyExists || //nolint:errorlint // Match this node only; All handles wrappers and joins.
+			errorutil.UniqueViolation(cause)
+	}) {
 		return TranslationAlreadyExistsError{
 			Panel:        strings.TrimSpace(panel),
 			EntityID:     strings.TrimSpace(entityID),

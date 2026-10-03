@@ -2,37 +2,46 @@ package commands
 
 import (
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 )
 
 func RegisterPageCommandFactories(bus *admin.CommandBus) error {
-	if err := admin.RegisterMessageFactory(bus, pagePublishCommandName, buildPagePublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, pagePublishCommandName, buildPagePublishMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
 		return err
 	}
-	if err := admin.RegisterMessageFactory(bus, pageBulkPublishCommandName, buildPageBulkPublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, pageBulkPublishCommandName, buildPageBulkPublishMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
 		return err
 	}
-	return admin.RegisterMessageFactory(bus, pageBulkUnpublishCommandName, buildPageBulkUnpublishMsg)
+	if err := admin.RegisterMessageFactory(bus, pageBulkUnpublishCommandName, buildPageBulkUnpublishMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
+		return err
+	}
+	return nil
 }
 
 func RegisterPostCommandFactories(bus *admin.CommandBus) error {
-	if err := admin.RegisterMessageFactory(bus, postBulkPublishCommandName, buildPostBulkPublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, postBulkPublishCommandName, buildPostBulkPublishMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
 		return err
 	}
-	if err := admin.RegisterMessageFactory(bus, postBulkUnpublishCommandName, buildPostBulkUnpublishMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, postBulkUnpublishCommandName, buildPostBulkUnpublishMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
 		return err
 	}
-	if err := admin.RegisterMessageFactory(bus, postBulkScheduleCommandName, buildPostBulkScheduleMsg); err != nil {
+	if err := admin.RegisterMessageFactory(bus, postBulkScheduleCommandName, buildPostBulkScheduleMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
 		return err
 	}
-	return admin.RegisterMessageFactory(bus, postBulkArchiveCommandName, buildPostBulkArchiveMsg)
+	if err := admin.RegisterMessageFactory(bus, postBulkArchiveCommandName, buildPostBulkArchiveMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
+		return err
+	}
+	return nil
 }
 
 func RegisterMediaCommandFactories(bus *admin.CommandBus) error {
-	return admin.RegisterMessageFactory(bus, mediaBulkDeleteCommandName, buildMediaBulkDeleteMsg)
+	if err := admin.RegisterMessageFactory(bus, mediaBulkDeleteCommandName, buildMediaBulkDeleteMsg); err != nil && !errors.Is(err, admin.ErrCommandAlreadyRegistered) {
+		return err
+	}
+	return nil
 }
 
 func buildPagePublishMsg(payload map[string]any, ids []string) (PagePublishMsg, error) {

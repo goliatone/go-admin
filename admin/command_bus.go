@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"reflect"
 	"sort"
@@ -12,7 +13,19 @@ import (
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/registry"
 	"github.com/goliatone/go-command/runner"
+	goerrors "github.com/goliatone/go-errors"
 )
+
+// ErrCommandAlreadyRegistered identifies a duplicate legacy command handler or
+// message factory. Ownership conflicts and invalid registrations do not match it.
+var ErrCommandAlreadyRegistered = errors.New("command already registered")
+
+func commandAlreadyRegisteredError(name string) error {
+	return goerrors.Wrap(ErrCommandAlreadyRegistered, goerrors.CategoryConflict, "command already registered").
+		WithCode(goerrors.CodeConflict).
+		WithTextCode("COMMAND_ALREADY_REGISTERED").
+		WithMetadata(map[string]any{"command_name": name})
+}
 
 // MessageFactory builds typed command messages from request data.
 type MessageFactory func(payload map[string]any, ids []string) (command.Message, error)
@@ -225,6 +238,15 @@ func (b *CommandBus) validateLegacyCommandRegistrationLocked(registrations []com
 			})
 		}
 	}
+	for _, registration := range registrations {
+		if registration == nil || registration.Kind() != command.HandlerKindCommand {
+			continue
+		}
+		if b.legacyHandlerIDs[ownedRegistrationKey(registration.Kind(), registration.ID())] ||
+			b.legacyMessageTypes[ownedRegistrationKey(registration.Kind(), registration.MessageType())] {
+			return commandAlreadyRegisteredError(registration.MessageType())
+		}
+	}
 	return nil
 }
 
@@ -273,14 +295,10 @@ func (b *CommandBus) RegisterFactory(name string, factory MessageFactory) error 
 		b.factories = map[string]ContextMessageFactory{}
 	}
 	if _, exists := b.factories[name]; exists || b.dispatchers[name] != nil || b.resultDispatchers[name] != nil {
-		return validationDomainError("command factory already registered", map[string]any{
-			"command_name": name,
-		})
+		return commandAlreadyRegisteredError(name)
 	}
 	if _, exists := b.ownedFactories[name]; exists {
-		return validationDomainError("command factory already registered", map[string]any{
-			"command_name": name,
-		})
+		return conflictDomainError("command factory conflicts with owner", map[string]any{"command_name": name})
 	}
 	b.factories[name] = func(_ context.Context, payload map[string]any, ids []string) (command.Message, error) {
 		return factory(payload, ids)
@@ -313,14 +331,10 @@ func (b *CommandBus) prepareMessageRegistrationLocked(name string) error {
 		b.resultDispatchers = map[string]ResultDispatchFactory{}
 	}
 	if _, exists := b.factories[name]; exists || b.dispatchers[name] != nil || b.resultDispatchers[name] != nil {
-		return validationDomainError("command factory already registered", map[string]any{
-			"command_name": name,
-		})
+		return commandAlreadyRegisteredError(name)
 	}
 	if _, exists := b.ownedFactories[name]; exists {
-		return validationDomainError("command factory already registered", map[string]any{
-			"command_name": name,
-		})
+		return conflictDomainError("command factory conflicts with owner", map[string]any{"command_name": name})
 	}
 	return nil
 }

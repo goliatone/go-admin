@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 	"sync"
 
@@ -49,9 +50,7 @@ func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
 		return nil, data.Error(data.CodeInvalid)
 	}
 	surfaces := make(map[string]DataPreviewSurface, len(cfg.PreviewSurfaces))
-	for id, surface := range cfg.PreviewSurfaces {
-		surfaces[id] = surface
-	}
+	maps.Copy(surfaces, cfg.PreviewSurfaces)
 	cfg.PreviewSurfaces = surfaces
 	m := &DataModule{config: cfg}
 	if m.config.ReceiptLimit == 0 {

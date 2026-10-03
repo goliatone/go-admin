@@ -71,7 +71,8 @@ func newDataInsightsSelections(f dataConsoleFixtures) dataInsightsSelections {
 	}
 }
 
-func dataInsightsValue(value float64) *float64 { return &value }
+//go:fix inline
+func dataInsightsValue(value float64) *float64 { return new(value) }
 
 var (
 	dataInsightsDay  = admindata.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"}
@@ -84,7 +85,7 @@ var (
 )
 
 func dataInsightsKnown(def admindata.InsightMetricDefinition, period admindata.ExplorePeriod, value float64, sampling string) admindata.InsightMetric {
-	return admindata.InsightMetric{InsightMetricDefinition: def, TimeScope: period, Value: dataInsightsValue(value), Status: "known",
+	return admindata.InsightMetric{InsightMetricDefinition: def, TimeScope: period, Value: new(value), Status: "known",
 		Buckets: []admindata.InsightBucket{}, SamplingMethod: sampling}
 }
 
@@ -93,12 +94,12 @@ func dataInsightsMissing(def admindata.InsightMetricDefinition, period admindata
 }
 
 func dataInsightsBucket(id, label string, value float64) admindata.InsightBucket {
-	return admindata.InsightBucket{ID: id, Label: label, Value: dataInsightsValue(value), Status: "known"}
+	return admindata.InsightBucket{ID: id, Label: label, Value: new(value), Status: "known"}
 }
 
 func dataInsightsDistribution(period admindata.ExplorePeriod, total, denominator float64, sampling string, buckets ...admindata.InsightBucket) admindata.InsightMetric {
 	metric := dataInsightsKnown(dataInsightsStatus, period, total, sampling)
-	metric.Denominator = dataInsightsValue(denominator)
+	metric.Denominator = new(denominator)
 	if buckets == nil {
 		buckets = []admindata.InsightBucket{}
 	}
@@ -211,7 +212,7 @@ func dataInsightsDST(selection admindata.ExploreSelection) admindata.ExploreInsi
 	coverage[3].Reason = "no_evidence"
 	out := dataInsightsResult(selection, metrics, coverage, admindata.InsightWork{Queries: 3, Records: 12})
 	out.Completeness = "partial"
-	out.Metrics[0].Denominator = dataInsightsValue(40)
+	out.Metrics[0].Denominator = new(float64(40))
 	return out
 }
 
@@ -225,7 +226,7 @@ func dataInsightsHostile(selection admindata.ExploreSelection) admindata.Explore
 	hostile := `<img src=x onerror="window.__insightsXSS=1">"quoted" & 'single'`
 	def := admindata.InsightMetricDefinition{ID: "orders.status", Label: hostile, Kind: "distribution", Unit: hostile, Population: hostile}
 	metric := dataInsightsKnown(def, dataInsightsDay, 7, hostile)
-	metric.Denominator = dataInsightsValue(7)
+	metric.Denominator = new(float64(7))
 	metric.Buckets = []admindata.InsightBucket{dataInsightsBucket("hostile", hostile, 7)}
 	count := dataInsightsKnown(admindata.InsightMetricDefinition{ID: "orders.count", Label: hostile, Kind: "count", Unit: hostile, Population: hostile}, dataInsightsDay, 7, hostile)
 	coverage := []admindata.InsightCoverage{{LocalDay: "2026-01-01", Timezone: hostile, Status: admindata.Uncovered, Reason: hostile}}

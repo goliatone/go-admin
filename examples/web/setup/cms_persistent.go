@@ -16,10 +16,14 @@ import (
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/internal/errorutil"
 	"github.com/goliatone/go-admin/pkg/admin"
 	cms "github.com/goliatone/go-cms"
+	cmsblocks "github.com/goliatone/go-cms/blocks"
 	"github.com/goliatone/go-cms/pkg/storage"
+	goerrors "github.com/goliatone/go-errors"
 	persistence "github.com/goliatone/go-persistence-bun"
+	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -921,51 +925,37 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 	for _, def := range defs {
 		def.Locale = locale
 		if existing, ok := lookupExisting(def); ok {
-			update := def
-			if existing.ID != "" {
-				update.ID = existing.ID
-			}
-			if existing.Name != "" {
-				// Keep existing canonical name to avoid backend-specific rename side effects.
-				update.Name = existing.Name
-			}
+			update := seedBlockDefinitionUpdate(def, existing)
 			if _, err := svc.UpdateBlockDefinition(ctx, update); err == nil {
 				if refreshErr := rebuildExistingIndex(); refreshErr != nil {
 					return refreshErr
 				}
 				continue
 			} else {
-				lower := strings.ToLower(err.Error())
-				if !strings.Contains(lower, "not found") {
+				if !isMissingSeedBlockDefinition(err) {
 					return err
 				}
 				// Continue with create fallback when update target can't be resolved.
 			}
 		}
 		if _, err := svc.CreateBlockDefinition(ctx, def); err != nil {
-			lower := strings.ToLower(err.Error())
-			if strings.Contains(lower, "already") || strings.Contains(lower, "exists") {
-				if refreshErr := rebuildExistingIndex(); refreshErr != nil {
-					return refreshErr
-				}
-				if existing, ok := lookupExisting(def); ok {
-					update := def
-					if existing.ID != "" {
-						update.ID = existing.ID
-					}
-					if existing.Name != "" {
-						update.Name = existing.Name
-					}
-					if _, updateErr := svc.UpdateBlockDefinition(ctx, update); updateErr == nil {
-						if refreshErr := rebuildExistingIndex(); refreshErr != nil {
-							return refreshErr
-						}
-						continue
-					}
-				}
-				continue
+			if !errorutil.All(err, func(cause error) bool {
+				return cause == cmsblocks.ErrDefinitionExists || cause == cmsblocks.ErrDefinitionSlugExists || //nolint:errorlint // All owns traversal so mixed joined failures cannot be hidden.
+					errorutil.UniqueViolation(cause)
+			}) {
+				return err
 			}
-			return err
+			if refreshErr := rebuildExistingIndex(); refreshErr != nil {
+				return refreshErr
+			}
+			existing, ok := lookupExisting(def)
+			if !ok {
+				return fmt.Errorf("resolve conflicting seed block definition %q: %w", def.ID, err)
+			}
+			update := seedBlockDefinitionUpdate(def, existing)
+			if _, updateErr := svc.UpdateBlockDefinition(ctx, update); updateErr != nil {
+				return fmt.Errorf("update seed block definition %q after conflict: %w", def.ID, updateErr)
+			}
 		}
 		if refreshErr := rebuildExistingIndex(); refreshErr != nil {
 			return refreshErr
@@ -973,6 +963,33 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 	}
 
 	return nil
+}
+
+func seedBlockDefinitionUpdate(def, existing admin.CMSBlockDefinition) admin.CMSBlockDefinition {
+	if existing.ID != "" {
+		def.ID = existing.ID
+	}
+	if existing.Name != "" {
+		// Preserve the canonical name to avoid backend-specific rename side effects.
+		def.Name = existing.Name
+	}
+	return def
+}
+
+func isMissingSeedBlockDefinition(err error) bool {
+	return errorutil.All(err, func(cause error) bool {
+		if cause == admin.ErrNotFound || cause == sql.ErrNoRows { //nolint:errorlint // Match this node only; All handles wrappers and joins.
+			return true
+		}
+		//nolint:errorlint // All traverses the tree; inspect this node only.
+		if typed, ok := cause.(*goerrors.Error); ok {
+			return typed != nil && (typed.Category == goerrors.CategoryNotFound || typed.Category == repository.CategoryDatabaseNotFound)
+		}
+		// go-cms still returns private NotFoundError types for block lookups.
+		// Retain their narrow legacy contract until those identities are public.
+		message := strings.ToLower(cause.Error())
+		return strings.HasPrefix(message, "block_definition ") && strings.HasSuffix(message, " not found")
+	})
 }
 
 func blockDefinitionLookupKeys(environment string, keys ...string) []string {

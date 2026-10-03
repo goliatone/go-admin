@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,7 +14,10 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/data"
 	persistence "github.com/goliatone/go-persistence-bun"
+	"github.com/goliatone/hashid/pkg/hashid"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dbfixture"
 )
 
 // SeedGroup scopes which fixture folder to load.
@@ -54,8 +58,8 @@ func isProductionEnv() bool {
 }
 
 type seedState struct {
-	once sync.Once
-	err  error
+	mu     sync.Mutex
+	loaded bool
 }
 
 var seedOnce sync.Map
@@ -76,16 +80,7 @@ func LoadSeedGroup(ctx context.Context, client *persistence.Client, cfg SeedConf
 
 	load := func() error {
 		RegisterSeedModelsOnDB(client.DB())
-		fixtures := client.RegisterFixtures(fsys)
-		fixtures.AddOptions(persistence.WithTemplateFuncs(seedTemplateFuncs()))
-		if cfg.Truncate {
-			fixtures.AddOptions(persistence.WithTrucateTables())
-		}
-		err := fixtures.Load(ctx)
-		if err != nil && cfg.IgnoreDuplicates && isDuplicateSeedError(err) {
-			return nil
-		}
-		return err
+		return loadSeedFixtures(ctx, client.DB(), fsys, cfg)
 	}
 
 	if cfg.Truncate {
@@ -95,10 +90,48 @@ func LoadSeedGroup(ctx context.Context, client *persistence.Client, cfg SeedConf
 	key := seedKey(client, group)
 	stateAny, _ := seedOnce.LoadOrStore(key, &seedState{})
 	state := stateAny.(*seedState)
-	state.once.Do(func() {
-		state.err = load()
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.loaded {
+		return nil
+	}
+	if err := load(); err != nil {
+		return err
+	}
+	state.loaded = true
+	return nil
+}
+
+// loadSeedFixtures uses Bun's per-row insert hook so duplicates do not abort
+// the remaining fixtures. DO NOTHING preserves existing rows and still rejects
+// foreign-key, check, and not-null violations (unlike SQLite INSERT OR IGNORE).
+func loadSeedFixtures(ctx context.Context, db *bun.DB, fsys fs.FS, cfg SeedConfig) error {
+	opts := []dbfixture.FixtureOption{dbfixture.WithTemplateFuncs(seedTemplateFuncs())}
+	if cfg.Truncate {
+		opts = append(opts, dbfixture.WithTruncateTables())
+	}
+	if cfg.IgnoreDuplicates {
+		opts = append(opts, dbfixture.WithBeforeInsert(func(_ context.Context, data *dbfixture.BeforeInsertData) error {
+			data.Query.On("CONFLICT DO NOTHING")
+			return nil
+		}))
+	}
+	fixtures := dbfixture.New(db, opts...)
+	return fs.WalkDir(fsys, ".", func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		switch strings.ToLower(path.Ext(name)) {
+		case ".yaml", ".yml", ".json":
+			if err := fixtures.Load(ctx, fsys, name); err != nil {
+				return fmt.Errorf("load seed fixture %s: %w", name, err)
+			}
+		}
+		return nil
 	})
-	return state.err
 }
 
 func seedFS(group SeedGroup) (fs.FS, error) {
@@ -128,6 +161,9 @@ func seedKey(client *persistence.Client, group SeedGroup) string {
 
 func seedTemplateFuncs() template.FuncMap {
 	return template.FuncMap{
+		"hashid": func(identifier reflect.Value) (string, error) {
+			return hashid.New(seedValueToString(identifier))
+		},
 		"now": func() string {
 			return time.Now().UTC().Format(time.RFC3339)
 		},
@@ -162,13 +198,4 @@ func seedValueToString(v reflect.Value) string {
 		return strconv.FormatFloat(v.Float(), 'g', -1, 64)
 	}
 	return fmt.Sprintf("%v", v.Interface())
-}
-
-func isDuplicateSeedError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "unique constraint failed") ||
-		strings.Contains(msg, "duplicate key value violates unique constraint")
 }

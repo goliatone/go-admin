@@ -134,7 +134,7 @@ func TestPreviewServiceReplayQuotaExpiryCloseAndIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	q.SurfaceID = "report"
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		q.RequestID = "launch-" + strconv.Itoa(i)
 		if _, err = s.OpenApplicationPreview(t.Context(), q); err != nil {
 			t.Fatal(err)

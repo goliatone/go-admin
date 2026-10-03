@@ -23,7 +23,8 @@ func dataExplorerEnvelope(selection admindata.ExploreSelection, state string) ad
 		Provenance: "example", Completeness: "complete", State: state}
 }
 
-func dataExplorerTotal(value uint64) *uint64 { return &value }
+//go:fix inline
+func dataExplorerTotal(value uint64) *uint64 { return new(value) }
 
 func dataExplorerOrders() admindata.ExploreEntity {
 	return admindata.ExploreEntity{ID: "orders", Label: "Orders", Description: "Purchases placed by synthetic customers.",
@@ -56,8 +57,8 @@ func dataExplorerReady(f dataConsoleFixtures) admindata.ExploreMetadata {
 			{Scenario: f.emptyHistory, Title: "Quiet", Summary: "No orders at all.", ExpectedOutcomes: []string{"No orders"}},
 		},
 		Inventory: []admindata.ExploreCount{
-			{EntityID: "orders", Scope: "catalog_inventory", Total: dataExplorerTotal(3)},
-			{EntityID: "orders", Scope: "selected_scenario", Total: dataExplorerTotal(3)},
+			{EntityID: "orders", Scope: "catalog_inventory", Total: new(uint64(3))},
+			{EntityID: "orders", Scope: "selected_scenario", Total: new(uint64(3))},
 			{EntityID: "people", Scope: "selected_scenario"},
 		},
 		Period:        &admindata.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"},
@@ -81,8 +82,8 @@ func dataExplorerQuiet(f dataConsoleFixtures) admindata.ExploreMetadata {
 	quiet := dataExplorerReady(f)
 	quiet.ExploreEnvelope = dataExplorerEnvelope(dataExplorerSelection(f.emptyHistory), admindata.ExploreAvailable)
 	quiet.Inventory = []admindata.ExploreCount{
-		{EntityID: "orders", Scope: "catalog_inventory", Total: dataExplorerTotal(3)},
-		{EntityID: "orders", Scope: "selected_scenario", Total: dataExplorerTotal(0)},
+		{EntityID: "orders", Scope: "catalog_inventory", Total: new(uint64(3))},
+		{EntityID: "orders", Scope: "selected_scenario", Total: new(uint64(0))},
 	}
 	quiet.Usages = []admindata.ExploreUsage{}
 	quiet.UsageCompleteness = "unknown"
@@ -116,7 +117,7 @@ func dataExplorerHostile(f dataConsoleFixtures) admindata.ExploreMetadata {
 	out.Entities = []admindata.ExploreEntity{{ID: "orders", Label: hostile, Description: hostile,
 		Fields: []admindata.ExploreField{{ID: "id", Label: hostile, Description: hostile, Type: "string", Unit: hostile}}}}
 	out.Scenarios = []admindata.ExploreScenario{{Scenario: f.reprofiled, Title: hostile, Summary: hostile, ExpectedOutcomes: []string{hostile}}}
-	out.Inventory = []admindata.ExploreCount{{EntityID: "orders", Scope: "catalog_inventory", Total: dataExplorerTotal(7)}}
+	out.Inventory = []admindata.ExploreCount{{EntityID: "orders", Scope: "catalog_inventory", Total: new(uint64(7))}}
 	out.Period = &admindata.ExplorePeriod{Start: hostile, Timezone: hostile}
 	out.Prerequisites = []string{hostile}
 	out.Attribution = []string{hostile}
@@ -174,17 +175,17 @@ func dataExplorerSamplePages(f dataConsoleFixtures) []dataExplorerSamplePage {
 	}
 	partial := dataExplorerSamples(ready, people, peopleRows, nil, "")
 	partial.Completeness = "partial"
-	empty := dataExplorerSamples(quiet, orders, []admindata.ExploreRow{}, dataExplorerTotal(0), "")
+	empty := dataExplorerSamples(quiet, orders, []admindata.ExploreRow{}, new(uint64(0)), "")
 	empty.State = admindata.ExploreEmpty
-	related := dataExplorerSamples(ready, people, peopleRows[:1], dataExplorerTotal(1), "")
+	related := dataExplorerSamples(ready, people, peopleRows[:1], new(uint64(1)), "")
 	text := `<img src=x onerror="window.__explorerXSS=1">"quoted" & 'single'`
 	hostileSamples := admindata.ExploreSamples{ExploreEnvelope: dataExplorerEnvelope(hostile, admindata.ExploreAvailable), EntityID: "orders",
 		Columns:        []admindata.ExploreField{{ID: "id", Label: text, Description: text, Type: "string", Unit: text}},
 		Rows:           []admindata.ExploreRow{{RecordKey: text, Cells: map[string]admindata.ExploreCell{"id": dataExplorerCell(text)}}},
 		SamplingMethod: text}
 	return []dataExplorerSamplePage{
-		{Request: request(ready, "orders", ""), Response: dataExplorerSamples(ready, orders, []admindata.ExploreRow{dataExplorerOrderRow("order-1", 120), dataExplorerOrderRow("order-2", 80)}, dataExplorerTotal(3), "cursor-orders-2")},
-		{Request: request(ready, "orders", "cursor-orders-2"), Response: dataExplorerSamples(ready, orders, []admindata.ExploreRow{dataExplorerOrderRow("order-3", 50)}, dataExplorerTotal(3), "")},
+		{Request: request(ready, "orders", ""), Response: dataExplorerSamples(ready, orders, []admindata.ExploreRow{dataExplorerOrderRow("order-1", 120), dataExplorerOrderRow("order-2", 80)}, new(uint64(3)), "cursor-orders-2")},
+		{Request: request(ready, "orders", "cursor-orders-2"), Response: dataExplorerSamples(ready, orders, []admindata.ExploreRow{dataExplorerOrderRow("order-3", 50)}, new(uint64(3)), "")},
 		{Request: request(ready, "people", ""), Response: partial},
 		{Request: request(quiet, "orders", ""), Response: empty},
 		{Request: dataExplorerSampleRequest{Selection: ready, EntityID: "orders", RecordKey: "order-1", RelationshipID: "customer"}, Response: related},

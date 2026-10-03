@@ -32,13 +32,15 @@ func (p *insightTestProvider) InsightMetricSets(context.Context, data.Principal,
 func (p *insightTestProvider) ExploreInsights(ctx context.Context, _ data.Principal, r data.ExploreRead, q data.ExploreInsightsQuery, b data.InsightWork) (data.ExploreInsights, error) {
 	return p.result(ctx, r, q, b)
 }
-func num(n float64) *float64 { return &n }
+
+//go:fix inline
+func num(n float64) *float64 { return new(n) }
 func insightFixture(t *testing.T) (*fixture, *insightTestProvider, *data.Service, data.ExploreInsightsQuery) {
 	t.Helper()
 	f, ep, _ := exploreFixture(t)
 	p := &insightTestProvider{exploreTestProvider: ep, set: data.InsightMetricSet{ID: "orders", Metrics: []data.InsightMetricDefinition{{ID: "orders.count", Label: "Orders", Kind: "count", Unit: "orders", Population: "scenario orders"}}, Period: data.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"}, MaxQueries: 1, MaxRecords: 3, WorkEvidence: "indexed immutable bounded stage"}}
 	p.result = func(_ context.Context, r data.ExploreRead, q data.ExploreInsightsQuery, _ data.InsightWork) (data.ExploreInsights, error) {
-		return data.ExploreInsights{ExploreEnvelope: data.ExploreEnvelope{State: data.ExploreAvailable, PresentationRevision: "1", Completeness: "complete"}, Metrics: []data.InsightMetric{{InsightMetricDefinition: p.set.Metrics[0], TimeScope: data.ExplorePeriod{Start: q.From, End: q.To, Timezone: p.set.Period.Timezone}, Value: num(3), Status: "known", SamplingMethod: "complete stage"}}, Coverage: []data.InsightCoverage{{LocalDay: q.From, Timezone: "UTC", Status: data.Uncovered}}, Work: data.InsightWork{Queries: 1, Records: 3}}, nil
+		return data.ExploreInsights{ExploreEnvelope: data.ExploreEnvelope{State: data.ExploreAvailable, PresentationRevision: "1", Completeness: "complete"}, Metrics: []data.InsightMetric{{InsightMetricDefinition: p.set.Metrics[0], TimeScope: data.ExplorePeriod{Start: q.From, End: q.To, Timezone: p.set.Period.Timezone}, Value: new(float64(3)), Status: "known", SamplingMethod: "complete stage"}}, Coverage: []data.InsightCoverage{{LocalDay: q.From, Timezone: "UTC", Status: data.Uncovered}}, Work: data.InsightWork{Queries: 1, Records: 3}}, nil
 	}
 	cfg := f.serviceConfig(f.store)
 	cfg.Providers = map[string]data.Provider{"sample": p}
@@ -88,7 +90,7 @@ func TestInsightsReadPolicyLegacyUnknownAndNoEffects(t *testing.T) {
 }
 func TestInsightsProviderValidationAndSuppression(t *testing.T) {
 	for _, edit := range []func(*data.ExploreInsights){
-		func(o *data.ExploreInsights) { o.Metrics[0].Value = num(math.NaN()) },
+		func(o *data.ExploreInsights) { o.Metrics[0].Value = new(math.NaN()) },
 		func(o *data.ExploreInsights) { o.Metrics[0].Unit = "USD" },
 		func(o *data.ExploreInsights) { o.Metrics[0].Status = "unknown" },
 		func(o *data.ExploreInsights) { o.Work.Records = 10001 },
@@ -190,7 +192,7 @@ func TestInsightsComparisonObservedDeltaExamplesAndZero(t *testing.T) {
 	old := p.result
 	p.result = func(ctx context.Context, r data.ExploreRead, q data.ExploreInsightsQuery, b data.InsightWork) (data.ExploreInsights, error) {
 		o, e := old(ctx, r, q, b)
-		o.Metrics[0].Value = num(0)
+		o.Metrics[0].Value = new(float64(0))
 		return o, e
 	}
 	out, err = s.CompareSelections(t.Context(), c)
@@ -275,7 +277,7 @@ func TestInsightsAggregateCapsAndMissingCoverage(t *testing.T) {
 			_, p, s, q := insightFixture(t)
 			old := p.result
 			if kind == "metrics" {
-				for i := 0; i < 16; i++ {
+				for i := range 16 {
 					def := p.set.Metrics[0]
 					def.ID = def.ID + string(rune('a'+i))
 					p.set.Metrics = append(p.set.Metrics, def)
@@ -286,7 +288,7 @@ func TestInsightsAggregateCapsAndMissingCoverage(t *testing.T) {
 				switch kind {
 				case "buckets":
 					for range 33 {
-						o.Metrics[0].Buckets = append(o.Metrics[0].Buckets, data.InsightBucket{ID: "x", Status: "known", Value: num(1)})
+						o.Metrics[0].Buckets = append(o.Metrics[0].Buckets, data.InsightBucket{ID: "x", Status: "known", Value: new(float64(1))})
 					}
 				case "days":
 					for range 91 {

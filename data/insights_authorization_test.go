@@ -327,7 +327,7 @@ func TestInsightsSameSelectionUsageGrantUnion(t *testing.T) {
 			old := p.metadata
 			p.metadata = func() data.ExploreMetadata {
 				m := old()
-				for i := 0; i < count; i++ {
+				for i := range count {
 					m.Usages = append(m.Usages, data.ExploreUsage{SurfaceID: "surface-" + strconv.Itoa(i), Kind: "report", Label: "Report"})
 				}
 				return m

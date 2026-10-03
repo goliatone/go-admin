@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -27,10 +28,8 @@ func (p *previewHTTPPolicy) Authorize(ctx context.Context, principal data.Princi
 		return err
 	}
 	if a.Explore != nil && p.hidden.Load() {
-		for _, field := range a.Explore.Fields {
-			if field == "amount" {
-				return data.Error(data.CodeDenied)
-			}
+		if slices.Contains(a.Explore.Fields, "amount") {
+			return data.Error(data.CodeDenied)
 		}
 	}
 	return nil

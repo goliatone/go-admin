@@ -462,3 +462,24 @@ func TestCommandBusDispatchByNameWithOptionsRejectsInvalidMode(t *testing.T) {
 		}
 	})
 }
+
+func TestCommandFactoryDuplicatesHaveStableIdentity(t *testing.T) {
+	bus := NewCommandBus(true)
+	defer bus.Close()
+	factory := func(map[string]any, []string) (command.Message, error) { return nil, nil }
+	if err := bus.RegisterFactory("test.duplicate", factory); err != nil {
+		t.Fatal(err)
+	}
+	err := bus.RegisterFactory("test.duplicate", factory)
+	if !errors.Is(err, ErrCommandAlreadyRegistered) {
+		t.Fatalf("missing duplicate identity: %v", err)
+	}
+	if errors.Is(bus.RegisterFactory("", factory), ErrCommandAlreadyRegistered) {
+		t.Fatal("validation failure classified as duplicate")
+	}
+	if err := RegisterMessageFactory(bus, "test.duplicate", func(map[string]any, []string) (queuedDispatchTestMessage, error) {
+		return queuedDispatchTestMessage{}, nil
+	}); !errors.Is(err, ErrCommandAlreadyRegistered) {
+		t.Fatalf("typed factory duplicate missing identity: %v", err)
+	}
+}

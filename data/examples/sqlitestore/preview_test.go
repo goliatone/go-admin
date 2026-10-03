@@ -38,7 +38,7 @@ func TestPreviewQuotaSpansTargetsAndPreservesReplay(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		r := candidates[i%2]
 		r.RequestID = fmt.Sprintf("open-%d", i)
 		r.Session.SessionID = r.RequestID
@@ -101,7 +101,7 @@ func TestExpiredPreviewStopsCleanupProtectionWithoutLookup(t *testing.T) {
 	}
 	// More expired sessions than one sweep batch cannot keep receipts protected.
 	if err = s.transact(t.Context(), true, func(d *document) error {
-		for i := 0; i < data.PreviewMaxPrune+1; i++ {
+		for i := range data.PreviewMaxPrune + 1 {
 			copy := r
 			copy.Session.SessionID = fmt.Sprintf("expired-%03d", i)
 			d.PreviewSessions[copy.Session.SessionID] = copy
