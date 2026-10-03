@@ -50,6 +50,17 @@ func (s ExploreSelection) Validate() error {
 			return Error(CodeInvalid)
 		}
 	}
+	if err := s.validateContext(); err != nil {
+		return err
+	}
+	b, err := json.Marshal(s)
+	if err != nil || len(b) > ExploreMaxSelectionBytes {
+		return Error(CodeInvalid)
+	}
+	return nil
+}
+
+func (s ExploreSelection) validateContext() error {
 	switch s.Context {
 	case ExploreCatalog:
 		if s.ReceiptID != "" || s.ContentRevision != 0 || s.Generation != nil {
@@ -63,10 +74,6 @@ func (s ExploreSelection) Validate() error {
 			return Error(CodeInvalid)
 		}
 	default:
-		return Error(CodeInvalid)
-	}
-	b, err := json.Marshal(s)
-	if err != nil || len(b) > ExploreMaxSelectionBytes {
 		return Error(CodeInvalid)
 	}
 	return nil

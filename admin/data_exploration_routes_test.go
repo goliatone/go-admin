@@ -81,7 +81,7 @@ func TestDataExplorationRealHTTPRegistrationAndDelivery(t *testing.T) {
 	request := func(path string) *httptest.ResponseRecorder {
 		t.Helper()
 		res := httptest.NewRecorder()
-		server.WrappedRouter().ServeHTTP(res, httptest.NewRequest(http.MethodGet, path, nil))
+		server.WrappedRouter().ServeHTTP(res, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
 		return res
 	}
 	q := url.Values{"selection": {string(encoded)}, "entity_id": {"orders"}}
@@ -147,8 +147,8 @@ func TestDataExplorationOwnedNamedQueriesAndBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := handle.Close(); err != nil {
-			t.Error(err)
+		if closeErr := handle.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
 	selection := data.ExploreSelection{Dataset: p.descriptor.Dataset, Scenario: p.descriptor.Scenarios[0], TargetID: "preview", Context: data.ExploreCatalog}
@@ -179,7 +179,13 @@ func TestDataExplorationOwnedNamedQueriesAndBootstrap(t *testing.T) {
 	c.On("Query", mock.Anything, mock.Anything).Return("").Maybe()
 	c.On("Query", mock.Anything).Return("").Maybe()
 	var view router.ViewContext
-	c.On("Render", mock.Anything, mock.Anything).Run(func(args mock.Arguments) { view = args.Get(1).(router.ViewContext) }).Return(nil)
+	c.On("Render", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		var ok bool
+		view, ok = args.Get(1).(router.ViewContext)
+		if !ok {
+			t.Fatalf("render context = %T", args.Get(1))
+		}
+	}).Return(nil)
 	if err = m.explorationPageRenderer(nil, urls)(c, console.Bootstrap{Identity: console.Identity{ConsoleID: "data"}}); err != nil {
 		t.Fatal(err)
 	}

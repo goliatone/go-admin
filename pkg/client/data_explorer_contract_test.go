@@ -24,7 +24,6 @@ func dataExplorerEnvelope(selection admindata.ExploreSelection, state string) ad
 }
 
 //go:fix inline
-func dataExplorerTotal(value uint64) *uint64 { return new(value) }
 
 func dataExplorerOrders() admindata.ExploreEntity {
 	return admindata.ExploreEntity{ID: "orders", Label: "Orders", Description: "Purchases placed by synthetic customers.",

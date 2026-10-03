@@ -49,8 +49,7 @@ func TestCreateTranslationCloneMapsRaceConflict(t *testing.T) {
 	repo := translationCloneConflictRepository{Repository: NewMemoryRepository(), failure: repository.MapDatabaseError(&pq.Error{Code: "23505"}, "postgres")}
 	binding := &panelBinding{name: "pages", admin: &Admin{config: Config{DefaultLocale: "en"}}, panel: &Panel{name: "pages", repo: repo}}
 	_, err := binding.createTranslationViaPanelClone(AdminContext{Context: context.Background()}, "source", "es", "default", "family", map[string]any{"id": "source", "locale": "en"}, nil)
-	var duplicate TranslationAlreadyExistsError
-	if !errors.As(err, &duplicate) {
+	if _, ok := errors.AsType[TranslationAlreadyExistsError](err); !ok {
 		t.Fatalf("expected typed conflict after precheck, got %v", err)
 	}
 }

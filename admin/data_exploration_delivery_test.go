@@ -70,7 +70,7 @@ func explorationDeliveryHTTP(t *testing.T, policy snapshotPolicy) (*DataModule, 
 	request := func(kind string) *httptest.ResponseRecorder {
 		q := url.Values{"selection": {string(encoded)}, "entity_id": {"orders"}, "record_key": {"opaque"}, "relationship_id": {"customer"}}
 		res := httptest.NewRecorder()
-		server.WrappedRouter().ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/control/data/api/explore/"+kind+"?"+q.Encode(), nil))
+		server.WrappedRouter().ServeHTTP(res, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/control/data/api/explore/"+kind+"?"+q.Encode(), nil))
 		return res
 	}
 	return m, p, request, identity

@@ -51,40 +51,50 @@ func (s *Service) bindExplore(ctx context.Context, selection ExploreSelection) (
 		return b, Error(CodeStale)
 	}
 	b.descriptor = d
-	if selection.Context != ExploreCatalog {
-		receipt, err := s.LookupReceipt(ctx, selection.TargetID, selection.ReceiptID)
-		if err != nil {
-			return b, err
-		}
-		if receipt.Dataset != selection.Dataset || receipt.Scenario != selection.Scenario || receipt.ContentRevision != selection.ContentRevision {
-			return b, Error(CodeStale)
-		}
-		if receipt.ModuleHash != p.ModuleHash || receipt.PolicyHash != p.PolicyHash || receipt.PermissionHash != p.PermissionHash {
-			return b, Error(CodeDenied)
-		}
-		if err = s.config.Target.InspectReceipt(ctx, receipt); err != nil {
-			return b, readFailure(ctx, err)
-		}
-		b.read.Receipt = &receipt
-		if selection.Context == ExploreActive {
-			state, err := s.Active(ctx, selection.TargetID)
-			if err != nil {
-				return b, err
-			}
-			if state.Transitioning || state.RecoveryRequired || !state.Activation.Ready || state.Activation.ReceiptID != selection.ReceiptID || state.Activation.Generation != *selection.Generation {
-				return b, Error(CodeStale)
-			}
-		}
+	if err = s.bindExploreReceipt(ctx, &b); err != nil {
+		return b, err
 	}
-	b.provider, _ = provider.(ExplorationProvider)
-	if nilValue(b.provider) {
-		b.provider = nil
+	if exploration, ok := provider.(ExplorationProvider); ok && !nilValue(exploration) {
+		b.provider = exploration
 	}
 	if err = s.authorize(ctx, p, AccessRequest{Action: "view", Target: b.read.Target, Receipt: b.read.Receipt, Explore: access.Explore}); err != nil {
 		return b, err
 	}
 	return b, nil
 }
+func (s *Service) bindExploreReceipt(ctx context.Context, b *exploreBinding) error {
+	selection := b.read.Selection
+	if selection.Context == ExploreCatalog {
+		return nil
+	}
+	receipt, err := s.LookupReceipt(ctx, selection.TargetID, selection.ReceiptID)
+	if err != nil {
+		return err
+	}
+	if receipt.Dataset != selection.Dataset || receipt.Scenario != selection.Scenario || receipt.ContentRevision != selection.ContentRevision {
+		return Error(CodeStale)
+	}
+	p := b.principal
+	if receipt.ModuleHash != p.ModuleHash || receipt.PolicyHash != p.PolicyHash || receipt.PermissionHash != p.PermissionHash {
+		return Error(CodeDenied)
+	}
+	if err = s.config.Target.InspectReceipt(ctx, receipt); err != nil {
+		return readFailure(ctx, err)
+	}
+	b.read.Receipt = &receipt
+	if selection.Context != ExploreActive {
+		return nil
+	}
+	state, err := s.Active(ctx, selection.TargetID)
+	if err != nil {
+		return err
+	}
+	if state.Transitioning || state.RecoveryRequired || !state.Activation.Ready || state.Activation.ReceiptID != selection.ReceiptID || state.Activation.Generation != *selection.Generation {
+		return Error(CodeStale)
+	}
+	return nil
+}
+
 func (s *Service) authorizeExplore(ctx context.Context, b exploreBinding, a ExploreAccess) error {
 	if err := s.authorizeExploreGrant(ctx, b, a); err != nil {
 		return err

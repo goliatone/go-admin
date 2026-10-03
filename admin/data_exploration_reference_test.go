@@ -48,7 +48,11 @@ func TestDataExplorerReferenceHTTPReadyQuietAndPinnedActive(t *testing.T) {
 	}
 	amount := float64(0)
 	for _, row := range sample.Rows {
-		amount += row.Cells["amount"].Value.(float64)
+		value, ok := row.Cells["amount"].Value.(float64)
+		if !ok {
+			t.Fatalf("amount for %s = %T", row.RecordKey, row.Cells["amount"].Value)
+		}
+		amount += value
 	}
 	if amount != 250 || *sample.Total != 3 || sample.Provenance != "example" {
 		t.Fatal(sample)

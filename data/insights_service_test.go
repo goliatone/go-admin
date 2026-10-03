@@ -34,7 +34,6 @@ func (p *insightTestProvider) ExploreInsights(ctx context.Context, _ data.Princi
 }
 
 //go:fix inline
-func num(n float64) *float64 { return new(n) }
 func insightFixture(t *testing.T) (*fixture, *insightTestProvider, *data.Service, data.ExploreInsightsQuery) {
 	t.Helper()
 	f, ep, _ := exploreFixture(t)

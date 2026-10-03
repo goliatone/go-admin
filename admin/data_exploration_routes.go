@@ -74,21 +74,9 @@ func (m *DataModule) handleExplore(c router.Context, kind string) error {
 	if selection.TargetID != m.config.TargetID {
 		return writeConsoleError(c, data.Error(data.CodeGone))
 	}
-	var query exploreQuery = data.ExploreMetadataQuery{Selection: selection}
-	if kind != "metadata" {
-		limit := 0
-		if value := c.Query("limit"); value != "" {
-			limit, err = strconv.Atoi(value)
-			if err != nil {
-				return writeConsoleError(c, data.Error(data.CodeInvalid))
-			}
-		}
-		samples := data.ExploreSamplesQuery{Selection: selection, EntityID: c.Query("entity_id"), Cursor: c.Query("cursor"), Limit: limit}
-		if kind == "related" {
-			query = data.ExploreRelatedQuery{ExploreSamplesQuery: samples, RecordKey: c.Query("record_key"), RelationshipID: c.Query("relationship_id")}
-		} else {
-			query = samples
-		}
+	query, err := decodeExploreQuery(c, kind, selection)
+	if err != nil {
+		return writeConsoleError(c, err)
 	}
 	if err = query.Validate(); err != nil {
 		return writeConsoleError(c, err)
@@ -125,6 +113,26 @@ func (m *DataModule) handleExplore(c router.Context, kind string) error {
 	}
 	return writeJSON(c, outcome.Result)
 }
+func decodeExploreQuery(c router.Context, kind string, selection data.ExploreSelection) (exploreQuery, error) {
+	if kind == "metadata" {
+		return data.ExploreMetadataQuery{Selection: selection}, nil
+	}
+	var err error
+
+	limit := 0
+	if value := c.Query("limit"); value != "" {
+		limit, err = strconv.Atoi(value)
+		if err != nil {
+			return nil, data.Error(data.CodeInvalid)
+		}
+	}
+	samples := data.ExploreSamplesQuery{Selection: selection, EntityID: c.Query("entity_id"), Cursor: c.Query("cursor"), Limit: limit}
+	if kind == "related" {
+		return data.ExploreRelatedQuery{ExploreSamplesQuery: samples, RecordKey: c.Query("record_key"), RelationshipID: c.Query("relationship_id")}, nil
+	}
+	return samples, nil
+}
+
 func (m *DataModule) explorationPageRenderer(adm *Admin, urls DataExplorationURLs) func(router.Context, console.Bootstrap) error {
 	renderer := ConsolePageRenderer(adm, DataPageTemplate, AdminPageChrome{})
 	return func(c router.Context, bootstrap console.Bootstrap) error {

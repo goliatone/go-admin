@@ -66,7 +66,10 @@ func TestDataScenarioRecordProjectsExactExploreSelections(t *testing.T) {
 	if _, ok := selections[admindata.ExploreActive]; ok {
 		t.Fatal("scenario rows never project an active selection")
 	}
-	row := record.Data.(map[string]any)
+	row, ok := record.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("record data = %T", record.Data)
+	}
 	if row["dataset_key"] != DataDatasetRecord(admindata.Descriptor{Dataset: scenario.Dataset}, 1).Key {
 		t.Fatalf("dataset_key = %v", row["dataset_key"])
 	}
@@ -89,12 +92,23 @@ func TestDataOverviewProjectsActiveSelectionOnlyForShownSettledReceipt(t *testin
 	receipt := &admindata.PreparationReceipt{ID: "rcpt-1", Dataset: scenario.Dataset, Scenario: scenario, ContentRevision: 2}
 	state := admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "org", TargetID: "preview"}, Activation: admindata.Activation{ReceiptID: "rcpt-1", Generation: 3, Ready: true}}
 	active := func(view DataTargetView) (admindata.ExploreSelection, bool) {
-		row := DataOverviewRecord(DataOverviewView{Targets: []DataTargetView{view}}, 1).Data.(map[string]any)["primary"].(map[string]any)
+		record := DataOverviewRecord(DataOverviewView{Targets: []DataTargetView{view}}, 1)
+		fields, ok := record.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("overview data = %T", record.Data)
+		}
+		row, ok := fields["primary"].(map[string]any)
+		if !ok {
+			t.Fatalf("primary data = %T", fields["primary"])
+		}
 		raw, ok := row["explore_active"]
 		if !ok {
 			return admindata.ExploreSelection{}, false
 		}
-		encoded, _ := json.Marshal(raw)
+		encoded, err := json.Marshal(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
 		var selection admindata.ExploreSelection
 		if err := json.Unmarshal(encoded, &selection); err != nil {
 			t.Fatal(err)

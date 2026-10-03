@@ -472,10 +472,10 @@ func TestExploreSampleResponseCapAndMissingStates(t *testing.T) {
 	}
 	columns = columns[:4]
 	p.samples = func(q data.ExploreSamplesQuery) (data.ExploreSamples, error) {
-		out := testSample(q)
-		out.Columns = columns
-		out.Rows[0].Cells = map[string]data.ExploreCell{columns[0].ID: {State: "null"}, columns[1].ID: {State: "unknown"}, columns[2].ID: {State: "redacted"}, columns[3].ID: {State: "value", Value: ""}}
-		return out, nil
+		sample := testSample(q)
+		sample.Columns = columns
+		sample.Rows[0].Cells = map[string]data.ExploreCell{columns[0].ID: {State: "null"}, columns[1].ID: {State: "unknown"}, columns[2].ID: {State: "redacted"}, columns[3].ID: {State: "value", Value: ""}}
+		return sample, nil
 	}
 	out, err = s.ExploreSamples(t.Context(), q)
 	if err != nil || out.Rows[0].Cells[columns[3].ID].Value != "" {

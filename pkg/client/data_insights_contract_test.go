@@ -72,7 +72,6 @@ func newDataInsightsSelections(f dataConsoleFixtures) dataInsightsSelections {
 }
 
 //go:fix inline
-func dataInsightsValue(value float64) *float64 { return new(value) }
 
 var (
 	dataInsightsDay  = admindata.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"}
