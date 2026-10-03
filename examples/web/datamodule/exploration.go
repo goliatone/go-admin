@@ -116,15 +116,18 @@ func (r *Runtime) ExploreMetadata(ctx context.Context, p data.Principal, read da
 // A process-local secret makes cursors opaque, unforgeable and invalid after a
 // restart. Binding covers trusted actor/scope/current policy and exact selection;
 // neither cursor nor record key is a bearer grant.
-func (r *Runtime) explorationBinding(p data.Principal, q data.ExploreSamplesQuery) string {
+func (r *Runtime) explorationBinding(p data.Principal, q data.ExploreSamplesQuery) (string, error) {
 	p.ExecutionID = ""
 	p.CorrelationID = ""
-	payload, _ := json.Marshal(struct {
+	payload, err := json.Marshal(struct {
 		Principal data.Principal
 		Selection data.ExploreSelection
 		Entity    string
 	}{p, q.Selection, q.EntityID})
-	return r.explorationMAC(string(payload))
+	if err != nil {
+		return "", err
+	}
+	return r.explorationMAC(string(payload)), nil
 }
 func (r *Runtime) explorationMAC(payload string) string {
 	mac := hmac.New(sha256.New, r.explorationSecret[:])
@@ -173,7 +176,10 @@ func (r *Runtime) ExploreSamples(ctx context.Context, p data.Principal, read dat
 	if q.Limit == 0 {
 		q.Limit = data.ExploreDefaultLimit
 	}
-	binding := r.explorationBinding(p, q)
+	binding, err := r.explorationBinding(p, q)
+	if err != nil {
+		return data.ExploreSamples{}, err
+	}
 	offset, err := r.decodeExploreCursor(binding, q.Cursor)
 	if err != nil {
 		return data.ExploreSamples{}, err

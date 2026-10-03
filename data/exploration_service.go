@@ -271,55 +271,11 @@ func (s *Service) ExploreMetadata(ctx context.Context, q ExploreMetadataQuery) (
 	if err = s.authorizeExplore(ctx, b, a); err != nil {
 		return ExploreMetadata{}, err
 	}
-	out := ExploreMetadata{ExploreEnvelope: exploreEnvelope(b, ExploreUnsupported, "unknown", "unknown"), Title: q.Selection.Dataset.ID, Origin: "unknown", Entities: []ExploreEntity{}, Scenarios: []ExploreScenario{}, Inventory: []ExploreCount{}, Usages: []ExploreUsage{}, UsageCompleteness: "unknown"}
-	if b.provider != nil {
-		out, err = b.provider.ExploreMetadata(ctx, b.principal, b.providerRead())
-		if err != nil {
-			return ExploreMetadata{}, readFailure(ctx, err)
-		}
-		out.ExploreEnvelope, err = providerEnvelope(b, out.ExploreEnvelope)
-		if err != nil {
-			return ExploreMetadata{}, err
-		}
-		if err = validateExploreMetadata(out, q.Selection, b.descriptor.Scenarios); err != nil {
-			return ExploreMetadata{}, err
-		}
-		if out.State == ExploreSuppressed || out.State == ExploreUnsupported {
-			out = ExploreMetadata{ExploreEnvelope: out.ExploreEnvelope, Title: q.Selection.Dataset.ID, Origin: "unknown", UsageCompleteness: "unknown"}
-		} else {
-			for _, e := range out.Entities {
-				a.EntityID = e.ID
-				a.Fields = nil
-				for _, field := range e.Fields {
-					a.Fields = append(a.Fields, field.ID)
-				}
-				if err = s.authorizeExplore(ctx, b, a); err != nil {
-					return ExploreMetadata{}, err
-				}
-			}
-			a.EntityID = ""
-			a.Fields = nil
-			out.Usages, err = s.resolveExploreUsages(ctx, b, out.Usages)
-			if err != nil {
-				return ExploreMetadata{}, err
-			}
-		}
+	out, err := s.readExploreMetadata(ctx, b, a)
+	if err != nil {
+		return ExploreMetadata{}, err
 	}
-	if strings.TrimSpace(out.Title) == "" {
-		out.Title = q.Selection.Dataset.ID
-	}
-	if out.Entities == nil {
-		out.Entities = []ExploreEntity{}
-	}
-	if out.Scenarios == nil {
-		out.Scenarios = []ExploreScenario{}
-	}
-	if out.Inventory == nil {
-		out.Inventory = []ExploreCount{}
-	}
-	if out.Usages == nil {
-		out.Usages = []ExploreUsage{}
-	}
+	normalizeExploreMetadata(&out, q.Selection.Dataset.ID)
 	if err = boundedExplore(out, ExploreMaxMetadataBytes); err != nil {
 		return ExploreMetadata{}, err
 	}
@@ -341,28 +297,68 @@ func (s *Service) ExploreMetadata(ctx context.Context, q ExploreMetadataQuery) (
 	}
 	return out, nil
 }
+func (s *Service) readExploreMetadata(ctx context.Context, b exploreBinding, a ExploreAccess) (ExploreMetadata, error) {
+	selection := b.read.Selection
+	out := ExploreMetadata{ExploreEnvelope: exploreEnvelope(b, ExploreUnsupported, "unknown", "unknown"), Title: selection.Dataset.ID, Origin: "unknown", UsageCompleteness: "unknown"}
+	if b.provider == nil {
+		return out, nil
+	}
+	out, err := b.provider.ExploreMetadata(ctx, b.principal, b.providerRead())
+	if err != nil {
+		return ExploreMetadata{}, readFailure(ctx, err)
+	}
+	out.ExploreEnvelope, err = providerEnvelope(b, out.ExploreEnvelope)
+	if err != nil {
+		return ExploreMetadata{}, err
+	}
+	if err = validateExploreMetadata(out, selection, b.descriptor.Scenarios); err != nil {
+		return ExploreMetadata{}, err
+	}
+	if out.State == ExploreSuppressed || out.State == ExploreUnsupported {
+		return ExploreMetadata{ExploreEnvelope: out.ExploreEnvelope, Title: selection.Dataset.ID, Origin: "unknown", UsageCompleteness: "unknown"}, nil
+	}
+	for _, entity := range out.Entities {
+		a.EntityID = entity.ID
+		a.Fields = nil
+		for _, field := range entity.Fields {
+			a.Fields = append(a.Fields, field.ID)
+		}
+		if err = s.authorizeExplore(ctx, b, a); err != nil {
+			return ExploreMetadata{}, err
+		}
+	}
+	out.Usages, err = s.resolveExploreUsages(ctx, b, out.Usages)
+	if err != nil {
+		return ExploreMetadata{}, err
+	}
+	return out, nil
+}
+
+func normalizeExploreMetadata(out *ExploreMetadata, datasetID string) {
+	if strings.TrimSpace(out.Title) == "" {
+		out.Title = datasetID
+	}
+	if out.Entities == nil {
+		out.Entities = []ExploreEntity{}
+	}
+	if out.Scenarios == nil {
+		out.Scenarios = []ExploreScenario{}
+	}
+	if out.Inventory == nil {
+		out.Inventory = []ExploreCount{}
+	}
+	if out.Usages == nil {
+		out.Usages = []ExploreUsage{}
+	}
+}
+
 func validateExploreMetadata(m ExploreMetadata, selection ExploreSelection, scenarios []ScenarioRef) error {
 	if len(m.Entities) > 16 || len(m.Usages) > 32 || len(m.Scenarios) > 32 || len(m.Inventory) > 16 || !validCompleteness(m.UsageCompleteness) {
 		return Error(CodeProvider)
 	}
-	ids := map[string]bool{}
-	for _, e := range m.Entities {
-		if !exploreID(e.ID) || ids[e.ID] || len(e.Fields) > 32 || len(e.Relationships) > 16 {
-			return Error(CodeProvider)
-		}
-		ids[e.ID] = true
-		if err := validateExploreColumns(e.Fields); err != nil {
-			return err
-		}
-	}
-	for _, e := range m.Entities {
-		rels := map[string]bool{}
-		for _, r := range e.Relationships {
-			if !exploreID(r.ID) || rels[r.ID] || !ids[r.EntityID] {
-				return Error(CodeProvider)
-			}
-			rels[r.ID] = true
-		}
+	ids, err := validateExploreEntities(m.Entities)
+	if err != nil {
+		return err
 	}
 	for _, sc := range m.Scenarios {
 		if !sc.Scenario.Valid() || sc.Scenario.Dataset != selection.Dataset || !slices.Contains(scenarios, sc.Scenario) {
@@ -374,7 +370,34 @@ func validateExploreMetadata(m ExploreMetadata, selection ExploreSelection, scen
 			return Error(CodeProvider)
 		}
 	}
-	for _, u := range m.Usages {
+	return validateExploreUsages(m.Usages)
+}
+
+func validateExploreEntities(entities []ExploreEntity) (map[string]bool, error) {
+	ids := map[string]bool{}
+	for _, e := range entities {
+		if !exploreID(e.ID) || ids[e.ID] || len(e.Fields) > 32 || len(e.Relationships) > 16 {
+			return nil, Error(CodeProvider)
+		}
+		ids[e.ID] = true
+		if err := validateExploreColumns(e.Fields); err != nil {
+			return nil, err
+		}
+	}
+	for _, e := range entities {
+		rels := map[string]bool{}
+		for _, r := range e.Relationships {
+			if !exploreID(r.ID) || rels[r.ID] || !ids[r.EntityID] {
+				return nil, Error(CodeProvider)
+			}
+			rels[r.ID] = true
+		}
+	}
+	return ids, nil
+}
+
+func validateExploreUsages(usages []ExploreUsage) error {
+	for _, u := range usages {
 		if !exploreID(u.SurfaceID) || !slices.Contains([]string{"screen", "report", "workflow", "target"}, u.Kind) || len(u.Effects) > 3 {
 			return Error(CodeProvider)
 		}

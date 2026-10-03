@@ -3,6 +3,7 @@ package datamodule
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -209,7 +210,7 @@ func TestSyntheticExplorerDeletedStageCancellationAndPresentationIdentity(t *tes
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	out, err := s.ExploreSamples(canceled, data.ExploreSamplesQuery{Selection: selection, EntityID: "orders"})
-	if err != context.Canceled || len(out.Rows) > 0 {
+	if !errors.Is(err, context.Canceled) || len(out.Rows) > 0 {
 		t.Fatal(out, err)
 	}
 	in := scenarioInput(t, r, "ready", "delete-stage-prepare")

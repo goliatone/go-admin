@@ -49,80 +49,9 @@ func (s *Service) exploreSamples(ctx context.Context, q ExploreSamplesQuery, rel
 	}
 	out := ExploreSamples{ExploreEnvelope: exploreEnvelope(b, ExploreUnsupported, "unknown", "unknown"), EntityID: q.EntityID, Columns: []ExploreField{}, Rows: []ExploreRow{}}
 	if b.provider != nil {
-		// Load the authorized declared schema inside this same bounded read. Related
-		// traversal is depth one; arbitrary keys, entities and relationship IDs fail.
-		metadata, err := b.provider.ExploreMetadata(ctx, b.principal, b.providerRead())
+		out, err = s.readExploreSamples(ctx, b, q, related, &a)
 		if err != nil {
-			return ExploreSamples{}, readFailure(ctx, err)
-		}
-		if err = validateExploreMetadata(metadata, q.Selection, b.descriptor.Scenarios); err != nil {
 			return ExploreSamples{}, err
-		}
-		if err = boundedExplore(metadata, ExploreMaxMetadataBytes); err != nil {
-			return ExploreSamples{}, err
-		}
-		if !validExploreState(metadata.State) || !validCompleteness(metadata.Completeness) || !exploreID(metadata.PresentationRevision) {
-			return ExploreSamples{}, Error(CodeProvider)
-		}
-		if metadata.State == ExploreUnsupported || metadata.State == ExploreSuppressed {
-			out.ExploreEnvelope, err = providerEnvelope(b, metadata.ExploreEnvelope)
-			if err != nil {
-				return ExploreSamples{}, err
-			}
-		} else {
-			i := slices.IndexFunc(metadata.Entities, func(e ExploreEntity) bool { return e.ID == q.EntityID })
-			if i < 0 {
-				return ExploreSamples{}, Error(CodeGone)
-			}
-			entity := metadata.Entities[i]
-			for _, field := range entity.Fields {
-				a.Fields = append(a.Fields, field.ID)
-			}
-			if err = s.authorizeExplore(ctx, b, a); err != nil {
-				return ExploreSamples{}, err
-			}
-			a.Fields = nil
-			resultEntity := entity
-			if related != nil {
-				j := slices.IndexFunc(entity.Relationships, func(r ExploreRelationship) bool { return r.ID == related.RelationshipID })
-				if j < 0 {
-					return ExploreSamples{}, Error(CodeGone)
-				}
-				resultEntity = metadata.Entities[slices.IndexFunc(metadata.Entities, func(e ExploreEntity) bool { return e.ID == entity.Relationships[j].EntityID })]
-				destination := a
-				destination.EntityID = resultEntity.ID
-				for _, field := range resultEntity.Fields {
-					destination.Fields = append(destination.Fields, field.ID)
-				}
-				if err = s.authorizeExplore(ctx, b, destination); err != nil {
-					return ExploreSamples{}, err
-				}
-				out, err = b.provider.ExploreRelated(ctx, b.principal, b.providerRead(), *related)
-			} else {
-				providerQuery := q
-				providerQuery.Selection = cloneExploreSelection(q.Selection)
-				out, err = b.provider.ExploreSamples(ctx, b.principal, b.providerRead(), providerQuery)
-			}
-			if err != nil {
-				return ExploreSamples{}, readFailure(ctx, err)
-			}
-			out.ExploreEnvelope, err = providerEnvelope(b, out.ExploreEnvelope)
-			if err != nil {
-				return ExploreSamples{}, err
-			}
-			if out.PresentationRevision != metadata.PresentationRevision {
-				return ExploreSamples{}, Error(CodeStale)
-			}
-			if err = validateExploreSamples(out, resultEntity, q.Limit); err != nil {
-				return ExploreSamples{}, err
-			}
-			a.EntityID = resultEntity.ID
-			for _, column := range out.Columns {
-				a.Fields = append(a.Fields, column.ID)
-			}
-			for _, row := range out.Rows {
-				a.RecordKeys = append(a.RecordKeys, row.RecordKey)
-			}
 		}
 	}
 	if out.Columns == nil {
@@ -139,6 +68,94 @@ func (s *Service) exploreSamples(ctx context.Context, q ExploreSamplesQuery, rel
 	}
 	return out, nil
 }
+
+// Load the authorized declared schema inside this same bounded read. Related
+// traversal is depth one; arbitrary keys, entities and relationship IDs fail.
+func (s *Service) readExploreSamples(ctx context.Context, b exploreBinding, q ExploreSamplesQuery, related *ExploreRelatedQuery, access *ExploreAccess) (ExploreSamples, error) {
+	metadata, err := b.provider.ExploreMetadata(ctx, b.principal, b.providerRead())
+	if err != nil {
+		return ExploreSamples{}, readFailure(ctx, err)
+	}
+	if err = validateExploreMetadata(metadata, q.Selection, b.descriptor.Scenarios); err != nil {
+		return ExploreSamples{}, err
+	}
+	if err = boundedExplore(metadata, ExploreMaxMetadataBytes); err != nil {
+		return ExploreSamples{}, err
+	}
+	envelope, err := providerEnvelope(b, metadata.ExploreEnvelope)
+	if err != nil {
+		return ExploreSamples{}, err
+	}
+	if metadata.State == ExploreUnsupported || metadata.State == ExploreSuppressed {
+		return ExploreSamples{ExploreEnvelope: envelope, EntityID: q.EntityID}, nil
+	}
+	entity, err := s.authorizeExploreSampleEntity(ctx, b, metadata, q.EntityID, related, *access)
+	if err != nil {
+		return ExploreSamples{}, err
+	}
+	var out ExploreSamples
+	if related != nil {
+		out, err = b.provider.ExploreRelated(ctx, b.principal, b.providerRead(), *related)
+	} else {
+		providerQuery := q
+		providerQuery.Selection = cloneExploreSelection(q.Selection)
+		out, err = b.provider.ExploreSamples(ctx, b.principal, b.providerRead(), providerQuery)
+	}
+	if err != nil {
+		return ExploreSamples{}, readFailure(ctx, err)
+	}
+	out.ExploreEnvelope, err = providerEnvelope(b, out.ExploreEnvelope)
+	if err != nil {
+		return ExploreSamples{}, err
+	}
+	if out.PresentationRevision != metadata.PresentationRevision {
+		return ExploreSamples{}, Error(CodeStale)
+	}
+	if err = validateExploreSamples(out, entity, q.Limit); err != nil {
+		return ExploreSamples{}, err
+	}
+	access.EntityID = entity.ID
+	for _, column := range out.Columns {
+		access.Fields = append(access.Fields, column.ID)
+	}
+	for _, row := range out.Rows {
+		access.RecordKeys = append(access.RecordKeys, row.RecordKey)
+	}
+	return out, nil
+}
+
+func (s *Service) authorizeExploreSampleEntity(ctx context.Context, b exploreBinding, metadata ExploreMetadata, entityID string, related *ExploreRelatedQuery, access ExploreAccess) (ExploreEntity, error) {
+	i := slices.IndexFunc(metadata.Entities, func(e ExploreEntity) bool { return e.ID == entityID })
+	if i < 0 {
+		return ExploreEntity{}, Error(CodeGone)
+	}
+	entity := metadata.Entities[i]
+	for _, field := range entity.Fields {
+		access.Fields = append(access.Fields, field.ID)
+	}
+	if err := s.authorizeExplore(ctx, b, access); err != nil {
+		return ExploreEntity{}, err
+	}
+	if related == nil {
+		return entity, nil
+	}
+	j := slices.IndexFunc(entity.Relationships, func(r ExploreRelationship) bool { return r.ID == related.RelationshipID })
+	if j < 0 {
+		return ExploreEntity{}, Error(CodeGone)
+	}
+	// validateExploreMetadata has already checked every relationship destination.
+	entity = metadata.Entities[slices.IndexFunc(metadata.Entities, func(e ExploreEntity) bool { return e.ID == entity.Relationships[j].EntityID })]
+	access.EntityID = entity.ID
+	access.Fields = nil
+	for _, field := range entity.Fields {
+		access.Fields = append(access.Fields, field.ID)
+	}
+	if err := s.authorizeExplore(ctx, b, access); err != nil {
+		return ExploreEntity{}, err
+	}
+	return entity, nil
+}
+
 func validateExploreSamples(out ExploreSamples, entity ExploreEntity, limit int) error {
 	if out.EntityID != entity.ID || len(out.Rows) > limit || out.Total != nil && *out.Total > MaxWireCounter || out.NextCursor != nil && (len(*out.NextCursor) == 0 || len(*out.NextCursor) > 512) {
 		return Error(CodeProvider)
@@ -154,6 +171,13 @@ func validateExploreSamples(out ExploreSamples, entity ExploreEntity, limit int)
 		}
 		fields[c.ID] = c
 	}
+	if err := validateExploreSampleState(out); err != nil {
+		return err
+	}
+	return validateExploreRows(out.Rows, fields)
+}
+
+func validateExploreSampleState(out ExploreSamples) error {
 	if out.State == ExploreUnsupported || out.State == ExploreSuppressed {
 		if len(out.Rows) > 0 || len(out.Columns) > 0 || out.Total != nil || out.NextCursor != nil {
 			return Error(CodeProvider)
@@ -169,8 +193,12 @@ func validateExploreSamples(out ExploreSamples, entity ExploreEntity, limit int)
 	if out.Total != nil && *out.Total < uint64(len(out.Rows)) {
 		return Error(CodeProvider)
 	}
+	return nil
+}
+
+func validateExploreRows(rows []ExploreRow, fields map[string]ExploreField) error {
 	keys := map[string]bool{}
-	for _, row := range out.Rows {
+	for _, row := range rows {
 		if !exploreID(row.RecordKey) || keys[row.RecordKey] || len(row.Cells) != len(fields) {
 			return Error(CodeProvider)
 		}
@@ -180,26 +208,33 @@ func validateExploreSamples(out ExploreSamples, entity ExploreEntity, limit int)
 			if !ok {
 				return Error(CodeProvider)
 			}
-			switch cell.State {
-			case "unknown", "redacted", "null":
-				if cell.Value != nil {
-					return Error(CodeProvider)
-				}
-			case "value":
-				if !exploreScalar(field.Type, cell.Value) {
-					return Error(CodeProvider)
-				}
-			default:
-				return Error(CodeProvider)
-			}
-			value, err := json.Marshal(cell)
-			if err != nil || len(value) > 2<<10 {
-				return Error(CodeProvider)
+			if err := validateExploreCell(cell, field); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
+func validateExploreCell(cell ExploreCell, field ExploreField) error {
+	switch cell.State {
+	case "unknown", "redacted", "null":
+		if cell.Value != nil {
+			return Error(CodeProvider)
+		}
+	case "value":
+		if !exploreScalar(field.Type, cell.Value) {
+			return Error(CodeProvider)
+		}
+	default:
+		return Error(CodeProvider)
+	}
+	value, err := json.Marshal(cell)
+	if err != nil || len(value) > 2<<10 {
+		return Error(CodeProvider)
+	}
+	return nil
+}
+
 func exploreScalar(kind string, v any) bool {
 	switch kind {
 	case "string":
@@ -220,32 +255,36 @@ func exploreScalar(kind string, v any) bool {
 		_, ok := v.(bool)
 		return ok
 	case "integer", "number":
-		var n float64
-		switch value := v.(type) {
-		case int:
-			n = float64(value)
-		case int64:
-			if value > int64(MaxWireCounter) || value < -int64(MaxWireCounter) {
-				return false
-			}
-			n = float64(value)
-		case uint64:
-			if value > MaxWireCounter {
-				return false
-			}
-			n = float64(value)
-		case float64:
-			n = value
-		case json.Number:
-			var err error
-			n, err = value.Float64()
-			if err != nil {
-				return false
-			}
-		default:
-			return false
-		}
-		return !math.IsNaN(n) && !math.IsInf(n, 0) && math.Abs(n) <= float64(MaxWireCounter) && (kind != "integer" || math.Trunc(n) == n)
+		return exploreNumber(kind, v)
 	}
 	return false
+}
+
+func exploreNumber(kind string, v any) bool {
+	var n float64
+	switch value := v.(type) {
+	case int:
+		n = float64(value)
+	case int64:
+		if value > int64(MaxWireCounter) || value < -int64(MaxWireCounter) {
+			return false
+		}
+		n = float64(value)
+	case uint64:
+		if value > MaxWireCounter {
+			return false
+		}
+		n = float64(value)
+	case float64:
+		n = value
+	case json.Number:
+		var err error
+		n, err = value.Float64()
+		if err != nil {
+			return false
+		}
+	default:
+		return false
+	}
+	return !math.IsNaN(n) && !math.IsInf(n, 0) && math.Abs(n) <= float64(MaxWireCounter) && (kind != "integer" || math.Trunc(n) == n)
 }
