@@ -1,6 +1,43 @@
 # Changelog
 
+# [0.139.3](https://github.com/goliatone/go-admin/compare/v0.139.2...v0.139.3) - (2026-10-04)
+
+
+## Data Insights Integration Notes
+
+Aggregate providers must also implement `data.InsightAuthorizationRevision`; providers without a coherent revision guarantee return unsupported insights while explorer/catalog reads remain available. Revisions must cover domain filters and metric/coverage/usage grants, advance atomically with policy changes, and never be reused. Constant revisions are valid only for immutable policy. Host policies with independent mutable grants must implement the same capability; otherwise current principal hashes must cover all host policy decisions.
+
+Custom insight transports must deliver service-loaded results and put their final host/session checks in `Service.ValidateInsightsDelivery` before writing JSON. The private server fence is deliberately lost on JSON serialization; it is not a browser credential. The built-in Data routes and synthetic adapter are updated.
+
+### Optional application previews
+Applications may opt into `ServiceConfig.Preview` and registered `DataModuleConfig.PreviewSurfaces` only after proving durable session/receipt protection, isolated read-only queries, policy revisions, expiry and cleanup. IDs locate authenticated sessions; custom transports must call the final preview delivery validators after application query/render and host authorization work. Existing mandatory lifecycle adapters are unchanged.
+
+The development kitchen-sink reference requires independent `admin.reports.synthetic_orders.view`. That application grant now participates in its trusted permission profile; existing receipts prepared under the old profile may need re-preparation. Preview history is bounded to 1024 durable records and refuses new launches at capacity. HTML controls/report chrome remain separately delivered frontend work.
+
+Enabled application previews now require the host Policy to implement `data.InsightAuthorizationRevision` with durable non-reused account/scope/grant epochs; hashes of current effective grants are insufficient for sessions. The example installs per-user SQLite authorization triggers. Existing preview sessions without the host revision require a fresh launch; prepared receipts keep their current permission profile. Custom transports should use `Service.DiscardPreviewLaunch` when a new launch response cannot be delivered. Existing sessions survive request cancellation/provider failures. The reference runtime now sweeps expiry on startup and every minute, joins cleanup on Close, and enforces the active-session quota across targets.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Shared adapter to data examples ([729d10f](https://github.com/goliatone/go-admin/commit/729d10f837a02a22fc994c03f7ece7d845d23775))  - (goliatone)
+- Code quality ([0af1673](https://github.com/goliatone/go-admin/commit/0af16737ecdd9adfb1a10601b1133a6a399c3a78))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Console application preview ([5769808](https://github.com/goliatone/go-admin/commit/5769808190c6f612c39c6356e8a8530e4a1be003))  - (goliatone)
+- Ocnsole application preview ([bc38cef](https://github.com/goliatone/go-admin/commit/bc38cef15f0ca773c7e099a27e3719283bef751a))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([733ddac](https://github.com/goliatone/go-admin/commit/733ddacc0f550d97cfffcafc66be76077d7ae64e))  - (goliatone)
+
 # [0.139.2](https://github.com/goliatone/go-admin/compare/v0.139.1...v0.139.2) - (2026-10-02)
+
+
+New patch release: v0.139.2
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.139.2 ([9787d8f](https://github.com/goliatone/go-admin/commit/9787d8ff47dd6b8aa1f3a74da4e657f6726357c8))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
