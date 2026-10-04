@@ -79,8 +79,8 @@ function test_module_discovery {
 function test_repository_module_boundaries {
     local forbidden_imports
 
-    if grep -q 'github.com/goliatone/go-admin/quickstart' "${repo_root}/go.mod"; then
-        echo "published root module must not require quickstart" >&2
+    if grep -Eq 'github\.com/goliatone/go-admin/(quickstart|examples)([[:space:]]|$)' "${repo_root}/go.mod"; then
+        echo "published root module must not require quickstart or examples" >&2
         return 1
     fi
     grep -q '^replace github.com/goliatone/go-admin => \.\.$' "${repo_root}/examples/go.mod"
@@ -91,9 +91,7 @@ function test_repository_module_boundaries {
         find "${repo_root}" \
             \( -type d \( \
                 -path "${repo_root}/examples" -o \
-                -name .git -o \
-                -name .ctx -o \
-                -name .tmp -o \
+                -name '.*' -o \
                 -name node_modules \
             \) \) -prune -o \
             -type f -name '*.go' \

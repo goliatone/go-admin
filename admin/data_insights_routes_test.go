@@ -7,7 +7,7 @@ import (
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/console"
 	"github.com/goliatone/go-admin/data"
-	demo "github.com/goliatone/go-admin/examples/web/datamodule"
+	demo "github.com/goliatone/go-admin/data/examples/datamodule"
 	router "github.com/goliatone/go-router"
 	"net/http"
 	"net/http/httptest"

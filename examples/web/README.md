@@ -133,7 +133,7 @@ and activate effects; this demo registers no application screen, so no link is
 shown. When a new receipt or activation changes what you are exploring, the view
 marks it stale and reads nothing until you choose **Refresh**. Exploring uses the
 `admin.data.view` grant and never prepares, activates or exports data;
-`datamodule/exploration.go` is the reference exploration adapter.
+`../../data/examples/datamodule/exploration.go` is the reference exploration adapter.
 
 **Insights** and **Compare** follow Contents in the details. Insights shows the
 composition of the data shown (orders, fixture amount, orders by day) and its day
@@ -145,7 +145,7 @@ example or prepared receipt, or against the active data pinned at its generation
 verified, Ready → Quiet is −3 orders and −250 fixture amount; example values are
 shown side by side without a difference. Activating another receipt marks an open
 comparison with the active data stale until you choose **Compare with the current
-data**. These reads are bounded and change nothing; `datamodule/insights.go` is the
+data**. These reads are bounded and change nothing; `../../data/examples/datamodule/insights.go` is the
 reference insights adapter.
 
 **App preview** follows Used by in development, where this example enables
@@ -160,7 +160,7 @@ Quiet shows the report's empty state. A preview never prepares, verifies or
 activates anything; its mutations, jobs and exports are refused, and a closed,
 expired or revoked session's page is refused without data. Sessions last 15
 minutes unless `admin.data.preview_lifetime` says otherwise (for example
-`APP_ADMIN__DATA__PREVIEW_LIFETIME=2m`; at most 30m). `datamodule/preview.go` is
+`APP_ADMIN__DATA__PREVIEW_LIFETIME=2m`; at most 30m). `../../data/examples/datamodule/preview.go` is
 the reference preview adapter.
 
 The wiring is in `data_module_example.go`: `data.NewService` receives the
@@ -168,7 +168,7 @@ application's provider, managed target, operation store, current policy and
 principal resolver; `admin.NewDataModule` receives that service, target, current
 feature gate and console identity resolver. Its page actions dispatch the same
 registered `admin.data.*.v1` typed commands available to other trusted adapters.
-`datamodule/runtime.go` implements the synthetic provider/target using isolated
+`../../data/examples/datamodule/runtime.go` implements the synthetic provider/target using isolated
 `data_example_*` tables and the opt-in `data/examples/sqlitestore` reference store.
 `setup/data_console.go` rechecks account status, session expiry, scope and current
 role assignments on every boundary, without the main permission cache.

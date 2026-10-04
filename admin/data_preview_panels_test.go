@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/data"
-	demo "github.com/goliatone/go-admin/examples/web/datamodule"
+	demo "github.com/goliatone/go-admin/data/examples/datamodule"
 )
 
 func previewPageRoutes() DataPreviewURLs {

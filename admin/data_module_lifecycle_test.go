@@ -15,8 +15,8 @@ import (
 
 	"github.com/goliatone/go-admin/console"
 	"github.com/goliatone/go-admin/data"
+	demo "github.com/goliatone/go-admin/data/examples/datamodule"
 	"github.com/goliatone/go-admin/data/examples/sqlitestore"
-	demo "github.com/goliatone/go-admin/examples/web/datamodule"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )

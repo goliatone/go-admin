@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/data"
-	demo "github.com/goliatone/go-admin/examples/web/datamodule"
+	demo "github.com/goliatone/go-admin/data/examples/datamodule"
 )
 
 // Real protected routing, trusted browser identity, owned dispatch, lifecycle
