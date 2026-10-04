@@ -1,25 +1,34 @@
 # Changelog
 
+# [0.139.4](https://github.com/goliatone/go-admin/compare/v0.139.3...v0.139.4) - (2026-10-04)
+
+
+## Frontend toolchain migration
+
+The admin stylesheet now uses Tailwind CSS 4 through PostCSS. Building assets
+requires Node 24.21.0 or newer and npm 11.17.0 or newer; CI pins those versions.
+The generated stylesheet supports Safari 16.4+, Chrome 111+ and Firefox 128+.
+Scoped forms and public component classes remain supported. Custom build
+integrations should use the packaged PostCSS configuration or `npm run build:css`
+instead of invoking the removed Tailwind 3 CLI.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- CI/CD setup. add: data module freshness ([a575f6f](https://github.com/goliatone/go-admin/commit/a575f6fa738b7affd8e94313590a16baaec07da0))  - (goliatone)
+
 # [0.139.3](https://github.com/goliatone/go-admin/compare/v0.139.2...v0.139.3) - (2026-10-04)
 
 
-## Data Insights Integration Notes
-
-Aggregate providers must also implement `data.InsightAuthorizationRevision`; providers without a coherent revision guarantee return unsupported insights while explorer/catalog reads remain available. Revisions must cover domain filters and metric/coverage/usage grants, advance atomically with policy changes, and never be reused. Constant revisions are valid only for immutable policy. Host policies with independent mutable grants must implement the same capability; otherwise current principal hashes must cover all host policy decisions.
-
-Custom insight transports must deliver service-loaded results and put their final host/session checks in `Service.ValidateInsightsDelivery` before writing JSON. The private server fence is deliberately lost on JSON serialization; it is not a browser credential. The built-in Data routes and synthetic adapter are updated.
-
-### Optional application previews
-Applications may opt into `ServiceConfig.Preview` and registered `DataModuleConfig.PreviewSurfaces` only after proving durable session/receipt protection, isolated read-only queries, policy revisions, expiry and cleanup. IDs locate authenticated sessions; custom transports must call the final preview delivery validators after application query/render and host authorization work. Existing mandatory lifecycle adapters are unchanged.
-
-The development kitchen-sink reference requires independent `admin.reports.synthetic_orders.view`. That application grant now participates in its trusted permission profile; existing receipts prepared under the old profile may need re-preparation. Preview history is bounded to 1024 durable records and refuses new launches at capacity. HTML controls/report chrome remain separately delivered frontend work.
-
-Enabled application previews now require the host Policy to implement `data.InsightAuthorizationRevision` with durable non-reused account/scope/grant epochs; hashes of current effective grants are insufficient for sessions. The example installs per-user SQLite authorization triggers. Existing preview sessions without the host revision require a fresh launch; prepared receipts keep their current permission profile. Custom transports should use `Service.DiscardPreviewLaunch` when a new launch response cannot be delivered. Existing sessions survive request cancellation/provider failures. The reference runtime now sweeps expiry on startup and every minute, joins cleanup on Close, and enforces the active-session quota across targets.
+New patch release: v0.139.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Shared adapter to data examples ([729d10f](https://github.com/goliatone/go-admin/commit/729d10f837a02a22fc994c03f7ece7d845d23775))  - (goliatone)
 - Code quality ([0af1673](https://github.com/goliatone/go-admin/commit/0af16737ecdd9adfb1a10601b1133a6a399c3a78))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.139.3 ([da1baed](https://github.com/goliatone/go-admin/commit/da1baede9f7eea35da991f0a0b90391b03485bb6))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
