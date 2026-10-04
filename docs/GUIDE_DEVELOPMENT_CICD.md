@@ -257,6 +257,29 @@ Writes or refreshes `ops/quality/baselines/gosec.txt`.
 Use baselines deliberately. Refresh them only after intentional cleanup or
 when you are formally accepting the current backlog.
 
+### Frontend toolchain and productization checks
+
+Use Node 24.21.0 from `.node-version` and npm 11.17.0 from the workspace
+`packageManager` field. Both npm workspaces enforce engine requirements during
+installation. Run `npm ci`, `npm audit --audit-level=high` and `npm test` in
+`pkg/client/assets` and `pkg/go-sync/client`. The productization workflow audits
+both lockfiles in a separate required matrix job, so audit failures do not hide
+unit-test results. The aggregate gate requires audits and all test/build jobs.
+
+The stylesheet uses Tailwind 4 through its official PostCSS plugin. Production,
+CSS-only and watch builds share `scripts/build-css.mjs`; the watcher uses Node's
+filesystem API. Keep `@source` paths and runtime utility declarations in
+`input.css`. Public component selectors remain emitted without a v3 safelist.
+The scoped forms plugin still applies only under `admin-theme-root`, `site-shell`
+and `admin-forms-root`. Components and utilities remain unlayered to preserve
+selector precedence alongside go-formgen’s existing host stylesheet.
+
+The generated stylesheet requires Safari 16.4+, Chrome 111+ or Firefox 128+.
+Run the browser suite (`npm run e2e`, with the example server running) when
+changing the CSS toolchain; it includes computed-style checks for forms scoping,
+public buttons, hidden panels and dynamic modal widths. Review representative
+pages visually as well as testing a clean build.
+
 ### 6.4 Release commands and prerequisites
 
 The coordinated release publishes the root module, quickstart module, and
@@ -266,7 +289,7 @@ assets, run it only when you intend to publish.
 
 Browser-client release preflight requires:
 
-- Node `>=22.12.0`
+- Node `>=24.21.0` (CI pins `.node-version`)
 - npm `>=11.17.0`
 - `tar`
 - an authenticated GitHub CLI (`gh auth status` must succeed)

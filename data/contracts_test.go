@@ -32,8 +32,12 @@ func TestCompositeIdentityBindsContentAndMetadata(t *testing.T) {
 	d.Components[0], d.Components[1] = d.Components[1], d.Components[0]
 	d.Dataset.Digest = want
 	d.Capabilities = map[Kind]Capability{Prepare: {Supported: true, Permitted: true}}
+	d.Presentation = &DescriptorPresentation{Title: "Sample A", Summary: "Renamed later", Scenarios: map[string]ScenarioPresentation{"ready": {Title: "Ready"}}}
 	if got, digestErr := d.CompositeDigest(); digestErr != nil || got != want {
-		t.Fatal("inventory order/discovery changed identity")
+		t.Fatal("inventory order/discovery/presentation changed identity")
+	}
+	if d.Title() != "Sample A" || d.ScenarioTitle("ready") != "Ready" || d.ScenarioTitle("missing") != "" || (Descriptor{}).Title() != "" {
+		t.Fatal("presentation accessors", d.Title(), d.ScenarioTitle("ready"))
 	}
 	if err := d.ValidateIdentity(); err != nil {
 		t.Fatal(err)

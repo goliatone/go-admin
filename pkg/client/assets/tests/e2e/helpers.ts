@@ -177,7 +177,7 @@ export async function navigateToPanel(
     : `/admin/${panelName}`;
   await page.goto(path, { waitUntil: 'domcontentloaded' });
   // Wait for DataGrid to load
-  await page.waitForSelector('[data-testid="data-grid"], .data-grid, table', { timeout: 10000 });
+  await expect(page.locator('table[data-state]').first()).toHaveAttribute('data-state', /^(ready|empty)$/);
   await openTranslationPanel(page);
 }
 
@@ -415,7 +415,7 @@ export async function closeModal(page: Page): Promise<void> {
  */
 export async function getQuickFilters(page: Page): Promise<{ name: string; disabled: boolean }[]> {
   await openTranslationPanel(page);
-  const filters = page.locator('[data-quick-filter], .quick-filter button, .quick-filter-btn');
+  const filters = page.locator('[data-quick-filter-value], [data-quick-filter], .quick-filter button, .quick-filter-btn');
   const result: { name: string; disabled: boolean }[] = [];
   const count = await filters.count();
   for (let i = 0; i < count; i++) {
@@ -433,7 +433,7 @@ export async function getQuickFilters(page: Page): Promise<{ name: string; disab
  * Apply a quick filter
  */
 export async function applyQuickFilter(page: Page, filterName: string): Promise<void> {
-  const filter = page.locator(`[data-quick-filter="${filterName}"], .quick-filter button:has-text("${filterName}")`);
+  const filter = page.locator(`[data-quick-filter-value="${filterName}"], [data-quick-filter="${filterName}"], .quick-filter button:has-text("${filterName}")`);
   await filter.first().click();
   await page.waitForTimeout(150);
 }

@@ -317,7 +317,7 @@ func (m *DataModule) handlePreviewSurface(c router.Context, api bool, chrome dat
 	if surface.Render != nil && !api {
 		body, err = surface.Render(ctx, read, out)
 		if err == nil {
-			body, err = renderDataPreviewPage(c, chrome, read, surface.Label, body, time.Now())
+			body, err = renderDataPreviewPage(c, chrome, read, surface.Label, m.previewNames(ctx, read.Session.Selection), body, time.Now())
 		}
 		contentType = "text/html; charset=utf-8"
 	} else {

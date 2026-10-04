@@ -290,7 +290,7 @@ function test_release_client_preflight_accepts_supported_node_versions {
     local candidate
     local status
 
-    for candidate in 22.12.0 26.5.0 99.0.0; do
+    for candidate in 24.21.0 26.5.0 99.0.0; do
         (
             function command { return 0; }
             function node { printf 'v%s\n' "${candidate}"; }
@@ -303,7 +303,7 @@ function test_release_client_preflight_accepts_supported_node_versions {
         }
     done
 
-    for candidate in 22.11.99 21.99.99 invalid; do
+    for candidate in 24.20.99 22.12.0 21.99.99 invalid; do
         (
             function command { return 0; }
             function node { printf 'v%s\n' "${candidate}"; }
@@ -325,7 +325,7 @@ function test_release_client_preflight_accepts_supported_npm_versions {
     for candidate in 11.17.0 11.18.0 12.0.0; do
         (
             function command { return 0; }
-            function node { printf '%s\n' v22.12.0; }
+            function node { printf '%s\n' v24.21.0; }
             function npm { printf '%s\n' "${candidate}"; }
             function gh { return 0; }
             release:client:preflight
@@ -338,7 +338,7 @@ function test_release_client_preflight_accepts_supported_npm_versions {
     for candidate in 11.16.99 10.99.99 invalid; do
         (
             function command { return 0; }
-            function node { printf '%s\n' v22.12.0; }
+            function node { printf '%s\n' v24.21.0; }
             function npm { printf '%s\n' "${candidate}"; }
             function gh { return 0; }
             release:client:preflight

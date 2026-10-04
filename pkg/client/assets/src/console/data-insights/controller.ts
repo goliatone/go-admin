@@ -76,7 +76,7 @@ export class DataInsights {
     const shown = this.shown;
     if (!shown) return '';
     if (section === 'insights') {
-      return renderInsights({ scope: this.host.scope, selection: shown, entry: this.insights.entry(shown), display: this.display });
+      return renderInsights({ scope: this.host.scope, selection: shown, entry: this.insights.entry(shown), display: this.display, title: this.host.title(shown) });
     }
     return renderCompare({
       scope: this.host.scope,
@@ -251,13 +251,13 @@ export class DataInsights {
     }
     if (pinned.context === 'active') {
       return current
-        ? `The active data on ${pinned.target_id} changed since you chose it: it is now ${this.host.title(current.selection)} at generation ${current.selection.generation} (receipt ${current.selection.receipt_id}). Compare again to use the current active data.`
+        ? `The active data on ${pinned.target_id} changed since you chose it: it now serves ${this.host.title(current.selection)} at generation ${current.selection.generation}. Compare again to use the current active data.`
         : `The active data on ${pinned.target_id} you chose is no longer offered. Choose again to compare.`;
     }
     if (pinned.context === 'prepared') {
       return current
         ? `The prepared receipt ${pinned.receipt_id} of ${title} was replaced by receipt ${current.selection.receipt_id}. Compare again to use the current receipt.`
-        : `The prepared receipt ${pinned.receipt_id} of ${title} is no longer offered. Choose again to compare.`;
+        : `The prepared data of ${title} you chose is no longer offered. Choose again to compare.`;
     }
     return current
       ? `The catalog example of ${title} changed since you chose it. Compare again to use the current example.`

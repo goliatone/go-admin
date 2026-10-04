@@ -407,6 +407,40 @@ The default module list currently includes `users`, `preferences`,
 Duplicate IDs are skipped so host code can register a customized module before
 initialization.
 
+
+### Optional Data maintenance
+
+`admin.NewDataModule` accepts `DataModuleConfig.Maintenance` for a native
+`data.MaintenanceService`. Build it with `data.NewMaintenanceService(backend,
+lifecycle, now)` and your existing Data lifecycle service. Leaving it nil keeps
+maintenance absent. Registration owns these typed messages:
+
+- `admin.data.maintenance.configure.v1`: enabled policy, expected revision,
+  request key and dry-run.
+- `admin.data.maintenance.ensure.v1`: policy revision, expected generation,
+  request key and dry-run.
+- `admin.data.maintenance.status.v1`: read-only current status.
+
+`MaintenanceBackend` supplies scoped durable load/save/CAS, current authorization,
+trusted delegation, immutable profile/recipe, observations and completion
+refresh/expiry deadlines. Its cancellable Acquire must serialize all coordinators
+for the target across processes. Bind policy revision to delegated execution and
+revalidate it at lifecycle effect boundaries. The platform lifecycle remains the
+claim/lease/generation authority. Backend persistence cannot bypass it.
+
+The service retains exact interrupted epoch inputs for recovery, preserves prior
+activation on failure, retries with capped backoff and pauses manual generation
+changes. ReplaceDrift is reserved for host-enforced immutable automatic profiles;
+editable profiles require explicit resume. Status never runs lifecycle effects.
+Public result JSON excludes private coordinator/delegation evidence.
+
+Hosts own `data.RunMaintenance(ctx, dispatch, report)` lifetime and dispatch the
+same typed Ensure request from manual/startup/timer entry points. Registration
+does not start a global scheduler or grant permissions. Use `FreshForServing`
+under the host's delivery/handover gate when automatic live pages must refuse
+expired data. Retained artifacts retain independent authorization and expiry.
+Calendar expiry may require a brief refresh state while next-day data is verified.
+
 ---
 
 ## 3. Panel Module Pattern

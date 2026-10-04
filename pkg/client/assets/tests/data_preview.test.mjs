@@ -213,7 +213,7 @@ const action = (root, name, id = 'synthetic-orders-report') => surface(root, id)
 async function openReady(root, runtime) {
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(textOf(explorerRoot(root)).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(textOf(explorerRoot(root)).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   const card = Array.from(root.querySelectorAll('.console-explorer__card')).find((item) => textOf(item).includes('Customer corpus A'));
   click(card.querySelector('[data-explorer-action="open"]'));
   await waitFor(() => assert.ok(root.querySelector('.console-explorer__title')));
@@ -302,7 +302,7 @@ test('App preview follows Used by only when the page offers preview routes and r
   let mounted = mount();
   await openReady(mounted.root, mounted.runtime);
   assert.deepEqual(Array.from(mounted.root.querySelectorAll('[data-explorer-section]')).map((tab) => tab.dataset.explorerSection),
-    ['about', 'contents', 'usage', 'app-preview', 'scenarios', 'evidence']);
+    ['about', 'contents', 'usage', 'app-preview']);
   await settle();
   assert.equal(requests(state, 'capabilities').length, 0, 'nothing is read before App preview is shown');
   mounted.runtime.destroy();
@@ -447,7 +447,7 @@ test('Start preview sends one CSRF-protected open with a generated request ID an
   assert.equal(link.getAttribute('target'), null, 'explicit same-tab navigation, never a popup');
   assert.equal(textOf(link), 'Open preview of Synthetic orders report');
   assert.equal(win.document.activeElement, link, 'focus moves to the launch link');
-  assert.ok(sectionText(root).includes('Read-only preview of receipt rcpt-ready-1'), sectionText(root));
+  assert.ok(sectionText(root).includes('Read-only preview of the prepared data'), sectionText(root));
   assert.ok(sectionText(root).includes('Expires at') && sectionText(root).includes('(in 15 minutes)'), sectionText(root));
   assert.ok(action(root, 'close'));
   assert.ok(!sectionText(root).includes('preview-ready-1'), 'the session locator is never shown');
@@ -846,7 +846,7 @@ test('a deep link to a receipt the snapshot no longer offers explains the change
   win.history.replaceState(null, '', `/admin/data?selection=${encodeURIComponent(JSON.stringify(replaced))}`);
   const { root } = mount();
   await waitFor(() => assert.ok(root.querySelector('[data-explorer-state="stale"]'), textOf(explorerRoot(root))));
-  assert.ok(sectionText(root).includes('It is now receipt rcpt-ready-1 (content revision 2).'), sectionText(root));
+  assert.ok(sectionText(root).includes('A newer prepared revision (2) exists now.'), sectionText(root));
   assert.equal(root.querySelector('.console-preview'), null, 'nothing is previewed for a drifted pin');
   win.history.replaceState(null, '', '/admin/data');
 });

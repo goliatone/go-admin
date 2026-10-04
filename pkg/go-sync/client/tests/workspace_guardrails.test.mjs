@@ -15,6 +15,10 @@ function sourceFiles(root, files = []) {
     if (entry.isDirectory()) {
       if ([
         ".git",
+        // Agent metadata can contain complete independent worktrees.
+        ".claude",
+        ".codex",
+        ".ctx",
         "node_modules",
         "dist",
         "dist-types",

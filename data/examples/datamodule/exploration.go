@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -33,25 +34,24 @@ func (*Runtime) AuthorizeExplore(ctx context.Context, p data.Principal, a data.E
 	if a.MetricSetID != "" && a.MetricSetID != "orders" {
 		return data.Error(data.CodeDenied)
 	}
-	for _, id := range a.MetricIDs {
-		if id != "orders.count" && id != "orders.amount" && id != "orders.by_day" {
-			return data.Error(data.CodeDenied)
-		}
-	}
-	for _, id := range a.Fields {
-		if id != "id" && id != "amount" && id != "local_day" {
-			return data.Error(data.CodeDenied)
-		}
-	}
-	for _, id := range a.SurfaceIDs {
-		if id != "synthetic-orders-target" && id != OrdersReportSurface {
-			return data.Error(data.CodeDenied)
-		}
+	if !allowedExploreIDs(a.MetricIDs, []string{"orders.count", "orders.amount", "orders.by_day"}) ||
+		!allowedExploreIDs(a.Fields, []string{"id", "amount", "local_day"}) ||
+		!allowedExploreIDs(a.SurfaceIDs, []string{"synthetic-orders-target", OrdersReportSurface}) {
+		return data.Error(data.CodeDenied)
 	}
 	// All demo fields are isolated synthetic values. This is the demo's domain
 	// policy only; the service also requires current authenticated Data/target access.
 	return nil
 }
+func allowedExploreIDs(ids, allowed []string) bool {
+	for _, id := range ids {
+		if !slices.Contains(allowed, id) {
+			return false
+		}
+	}
+	return true
+}
+
 func (r *Runtime) explorationRead(ctx context.Context, p data.Principal, read data.ExploreRead) error {
 	if err := read.Selection.Validate(); err != nil {
 		return err
@@ -62,36 +62,39 @@ func (r *Runtime) explorationRead(ctx context.Context, p data.Principal, read da
 	if read.Target != (data.TargetKey{ScopeKey: p.ScopeKey, TargetID: TargetID}) || read.Selection.Dataset != r.descriptor.Dataset {
 		return data.Error(data.CodeGone)
 	}
-	found := false
-	for _, scenario := range r.descriptor.Scenarios {
-		found = found || scenario == read.Selection.Scenario
-	}
-	if !found {
+	if !slices.Contains(r.descriptor.Scenarios, read.Selection.Scenario) {
 		return data.Error(data.CodeStale)
 	}
-	if read.Selection.Context != data.ExploreCatalog {
-		receipt := read.Receipt
-		if receipt == nil || receipt.Target != read.Target || receipt.Dataset != read.Selection.Dataset || receipt.Scenario != read.Selection.Scenario || receipt.ID != read.Selection.ReceiptID || receipt.ContentRevision != read.Selection.ContentRevision {
-			return data.Error(data.CodeGone)
+	if read.Selection.Context == data.ExploreCatalog {
+		return nil
+	}
+	return r.explorationReceipt(ctx, p, read)
+}
+
+func (r *Runtime) explorationReceipt(ctx context.Context, p data.Principal, read data.ExploreRead) error {
+	receipt := read.Receipt
+	if receipt == nil || receipt.Target != read.Target || receipt.Dataset != read.Selection.Dataset || receipt.Scenario != read.Selection.Scenario || receipt.ID != read.Selection.ReceiptID || receipt.ContentRevision != read.Selection.ContentRevision {
+		return data.Error(data.CodeGone)
+	}
+	if err := r.InspectReceipt(ctx, *receipt); err != nil {
+		return err
+	}
+	if read.Selection.Context != data.ExploreActive {
+		return nil
+	}
+	var stage string
+	if err := r.db.QueryRowContext(ctx, `SELECT stage FROM data_example_routes WHERE scope=? AND target=?`, p.ScopeKey, TargetID).Scan(&stage); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return data.Error(data.CodeStale)
 		}
-		if err := r.InspectReceipt(ctx, *receipt); err != nil {
-			return err
-		}
-		if read.Selection.Context == data.ExploreActive {
-			var stage string
-			if err := r.db.QueryRowContext(ctx, `SELECT stage FROM data_example_routes WHERE scope=? AND target=?`, p.ScopeKey, TargetID).Scan(&stage); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return data.Error(data.CodeStale)
-				}
-				return err
-			}
-			if stage != receipt.StageID {
-				return data.Error(data.CodeStale)
-			}
-		}
+		return err
+	}
+	if stage != receipt.StageID {
+		return data.Error(data.CodeStale)
 	}
 	return nil
 }
+
 func (*Runtime) presentationEnvelope() data.ExploreEnvelope {
 	return data.ExploreEnvelope{PresentationRevision: "1", Completeness: "complete", State: data.ExploreAvailable}
 }
@@ -102,15 +105,14 @@ func (r *Runtime) ExploreMetadata(ctx context.Context, p data.Principal, read da
 	inventory := uint64(3)
 	scenarios := []data.ExploreScenario{}
 	for _, ref := range r.descriptor.Scenarios {
-		title, summary, outcomes := "Ready", "Exercise preparation, verification and activation with synthetic orders", []string{"Three orders totaling 250 fixture amount on 2026-01-01 UTC"}
+		// Titles and summaries come from the descriptor's digest-neutral presentation.
+		outcomes := []string{"Three orders totaling 250 fixture amount on 2026-01-01 UTC"}
 		if ref.ID == "quiet" {
-			title = "Quiet"
-			summary = "Exercise an intentionally empty selected scenario"
 			outcomes = []string{"Zero scenario orders; catalog inventory remains three"}
 		}
-		scenarios = append(scenarios, data.ExploreScenario{Scenario: ref, Title: title, Summary: summary, ExpectedOutcomes: outcomes})
+		scenarios = append(scenarios, data.ExploreScenario{Scenario: ref, Title: r.descriptor.ScenarioTitle(ref.ID), Summary: r.descriptor.ScenarioSummary(ref.ID), ExpectedOutcomes: outcomes})
 	}
-	return data.ExploreMetadata{ExploreEnvelope: r.presentationEnvelope(), Title: "Synthetic orders", Summary: "Small deterministic order fixtures for trying dataset lifecycle operations", Origin: "synthetic", Entities: []data.ExploreEntity{{ID: "orders", Label: "Orders", Description: "Isolated example order records; no production data", Fields: orderFields()}}, Scenarios: scenarios, Inventory: []data.ExploreCount{{EntityID: "orders", Scope: "catalog_inventory", Total: &inventory}}, Period: &data.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"}, Prerequisites: append([]string{}, r.descriptor.Prerequisites...), Attribution: append([]string{}, r.descriptor.Attribution...), Usages: []data.ExploreUsage{{SurfaceID: "synthetic-orders-target", Kind: "target", Label: "Kitchen sink synthetic-order target", Effects: []data.ExploreEffect{{Phase: "prepare", Description: "Write an isolated immutable order stage; active orders stay unchanged"}, {Phase: "verify", Description: "Check stage order count, amount total and declared UTC day"}, {Phase: "activate", Description: "Switch this managed target's order read route to the prepared stage"}}}}, UsageCompleteness: "partial"}, nil
+	return data.ExploreMetadata{ExploreEnvelope: r.presentationEnvelope(), Title: r.descriptor.Title(), Summary: r.descriptor.Summary(), Origin: "synthetic", Entities: []data.ExploreEntity{{ID: "orders", Label: "Orders", Description: "Isolated example order records; no production data", Fields: orderFields()}}, Scenarios: scenarios, Inventory: []data.ExploreCount{{EntityID: "orders", Scope: "catalog_inventory", Total: &inventory}}, Period: &data.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"}, Prerequisites: append([]string{}, r.descriptor.Prerequisites...), Attribution: append([]string{}, r.descriptor.Attribution...), Usages: []data.ExploreUsage{{SurfaceID: "synthetic-orders-target", Kind: "target", Label: "Kitchen sink synthetic-order target", Effects: []data.ExploreEffect{{Phase: "prepare", Description: "Write an isolated immutable order stage; active orders stay unchanged"}, {Phase: "verify", Description: "Check stage order count, amount total and declared UTC day"}, {Phase: "activate", Description: "Switch this managed target's order read route to the prepared stage"}}}}, UsageCompleteness: "partial"}, nil
 }
 
 // A process-local secret makes cursors opaque, unforgeable and invalid after a
@@ -194,6 +196,10 @@ func (r *Runtime) ExploreSamples(ctx context.Context, p data.Principal, read dat
 	if len(records) > 3 || offset >= len(records) && offset > 0 {
 		return data.ExploreSamples{}, data.Error(data.CodeInvalid)
 	}
+	return r.explorationSamplePage(read, q, records, binding, offset), nil
+}
+
+func (r *Runtime) explorationSamplePage(read data.ExploreRead, q data.ExploreSamplesQuery, records []Record, binding string, offset int) data.ExploreSamples {
 	total := uint64(len(records))
 	out := data.ExploreSamples{ExploreEnvelope: r.presentationEnvelope(), EntityID: "orders", Columns: orderFields(), Rows: []data.ExploreRow{}, Total: &total, SamplingMethod: "declared fixture order"}
 	if read.Selection.Context != data.ExploreCatalog {
@@ -201,7 +207,7 @@ func (r *Runtime) ExploreSamples(ctx context.Context, p data.Principal, read dat
 	}
 	if total == 0 {
 		out.State = data.ExploreEmpty
-		return out, nil
+		return out
 	}
 	end := min(offset+q.Limit, len(records))
 	for _, row := range records[offset:end] {
@@ -214,7 +220,7 @@ func (r *Runtime) ExploreSamples(ctx context.Context, p data.Principal, read dat
 	} else if offset > 0 {
 		out.Completeness = "partial"
 	}
-	return out, nil
+	return out
 }
 func (r *Runtime) ExploreRelated(ctx context.Context, p data.Principal, read data.ExploreRead, q data.ExploreRelatedQuery) (data.ExploreSamples, error) {
 	if err := q.Validate(); err != nil {

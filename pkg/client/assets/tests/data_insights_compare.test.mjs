@@ -52,7 +52,7 @@ function textOf(element) {
 
 // The corpus-a catalog exactly as the explorer builds it from the golden rows.
 const panels = Object.fromEntries(golden.bootstrap.snapshot.panels.map((panel) => [panel.id, (panel.records || []).map((record) => record.data)]));
-const datasetRow = panels.datasets.find((row) => row.dataset_id === 'corpus-a');
+const datasetRow = panels.explore.find((row) => row.dataset_id === 'corpus-a');
 const dataset = {
   key: datasetRow.key,
   label: datasetRow.label,
@@ -158,12 +158,12 @@ test('candidates: the active data pinned at its generation and other scenario co
   const shown = scenarioSelection('ready', 'prepared');
   const candidates = compareCandidates(dataset, shown, active, title);
   assert.deepEqual(candidates.map((candidate) => candidate.label), [
-    'Active data on preview: ready v1 at generation 3',
-    'ready v1: catalog example',
-    'empty-history v1: catalog example',
-    'empty-history v1: prepared receipt rcpt-empty-1',
+    'Active data on preview: Ready (generation 3)',
+    'Ready: catalog example',
+    'Quiet: catalog example',
+    'Quiet: prepared data (rcpt-empty-1)',
     'dst-week v1: catalog example',
-    'dst-week v1: prepared receipt rcpt-dst-1',
+    'dst-week v1: prepared data (rcpt-dst-1)',
   ]);
   assert.deepEqual(candidates[0].selection, active, 'the active candidate is the projected selection, unchanged');
   assert.equal(compareCandidates(dataset, active, active, title).some((candidate) => candidate.active), false, 'the shown active data is not its own candidate');
@@ -177,10 +177,10 @@ test('candidates: the active data pinned at its generation and other scenario co
 test('sides name their exact identity, role and baseline', () => {
   const root = render('ready_vs_quiet_prepared', 'chart');
   const sides = Array.from(root.querySelectorAll('.console-insights__side')).map(textOf);
-  assert.equal(sides[0], 'A A, baseline: ready v1 Prepared receipt · Shown selection · Baseline receipt rcpt-ready-1 · content revision 2 · target preview Observed · Complete · Read ' + textOf(root.querySelector('.console-insights__side[data-side="a"] time')));
-  assert.ok(sides[1].startsWith('B B: empty-history v1 Prepared receipt · Compared selection receipt rcpt-empty-1 · content revision 1 · target preview Observed · Complete'), sides[1]);
+  assert.equal(sides[0], 'A A, baseline: Ready Prepared receipt · Shown selection · Baseline receipt rcpt-ready-1 · content revision 2 · target preview Observed · Complete · Read ' + textOf(root.querySelector('.console-insights__side[data-side="a"] time')));
+  assert.ok(sides[1].startsWith('B B: Quiet Prepared receipt · Compared selection receipt rcpt-empty-1 · content revision 1 · target preview Observed · Complete'), sides[1]);
   const activeSide = textOf(render('quiet_prepared_vs_ready_active', 'chart').querySelector('.console-insights__side[data-side="b"]'));
-  assert.ok(activeSide.includes('B: ready v1 Active data receipt rcpt-ready-1 · content revision 2 · generation 3 · target preview'), activeSide);
+  assert.ok(activeSide.includes('B: Ready Active data receipt rcpt-ready-1 · content revision 2 · generation 3 · target preview'), activeSide);
   const activeBaseline = textOf(render('ready_active_vs_quiet_prepared', 'chart', { shown: comparisonCase('ready_active_vs_quiet_prepared').request.right }).querySelector('.console-insights__side[data-side="a"]'));
   assert.ok(activeBaseline.includes('Active data · Baseline receipt rcpt-ready-1'), activeBaseline);
 });

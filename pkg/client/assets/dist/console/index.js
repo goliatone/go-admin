@@ -1,9 +1,9 @@
 import { escapeAttribute as t, escapeHTML as r } from "../shared/html.js";
-import { S as l } from "../chunks/rich-C-60Te1B.js";
-import { a as d, c as p, d as c, i as C, l as f, o as P, r as S, s as u, u as y } from "../chunks/avatar-DIbK-LSg.js";
-import { a, c as g, d as R, f as h, h as A, i as L, m as N, n as E, o as I, p as w, r as o, s as D, t as s } from "../chunks/auto-mount-B7vOjcyv.js";
+import { C as l } from "../chunks/rich-5UU6Sxl8.js";
+import { a as d, c as p, d as c, i as C, l as f, o as P, r as u, s as S, u as y } from "../chunks/avatar-DIbK-LSg.js";
+import { a, c as g, d as R, f as h, h as A, i as L, m as N, n as E, o as I, p as w, r as o, s as D, t as s } from "../chunks/auto-mount-D2gPkwX5.js";
 import { n as M, t as _ } from "../chunks/live-stream-CyiSPucB.js";
-import { _ as V, f as b, g as z, i as B, n as F, r as J, s as K, u as T, v as U } from "../chunks/hydrate-CnDSPe87.js";
+import { _ as V, f as b, g as z, i as B, n as F, r as J, s as K, u as T, v as U } from "../chunks/hydrate-yld76QdH.js";
 import { i as G, n as W, r as j, t as k } from "../chunks/actions-wQfzbd0C.js";
 var q = "1";
 s({
@@ -18,7 +18,7 @@ export {
   w as ConsoleRecordStore,
   E as ConsoleRuntime,
   q as PANEL_UI_SCHEMA_VERSION,
-  S as PanelRegistry,
+  u as PanelRegistry,
   k as applyPanelActionNavigation,
   W as applyPanelActionPayload,
   j as buildPanelActionPayload,
@@ -32,7 +32,7 @@ export {
   r as escapeHTML,
   F as fetchServerPanelDefinitions,
   L as getMountedConsole,
-  u as getPanelCount,
+  S as getPanelCount,
   p as getPanelData,
   f as getSnapshotKey,
   K as isSchemaListRenderer,

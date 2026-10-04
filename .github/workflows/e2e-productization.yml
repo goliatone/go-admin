@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.gitignore'
+      - '.node-version'
       - 'go.mod'
       - 'go.sum'
       - 'go.work'
@@ -19,6 +20,7 @@ on:
     branches: [main]
     paths:
       - '.gitignore'
+      - '.node-version'
       - 'go.mod'
       - 'go.sum'
       - 'go.work'
@@ -31,18 +33,38 @@ on:
       - '.github/workflows/e2e-productization.yml'
   workflow_dispatch:
 
-env:
-  NODE_VERSION: '22.12.0'
+permissions:
+  contents: read
 
 jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [pkg/client/assets, pkg/go-sync/client]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: ${{ matrix.workspace }}/package-lock.json
+      - name: Install pinned npm
+        run: npm install --global "$(node -p 'require("./pkg/client/assets/package.json").packageManager')"
+      - name: Audit locked dependencies
+        working-directory: ${{ matrix.workspace }}
+        run: npm audit --package-lock-only --audit-level=high
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.work
 
@@ -50,21 +72,20 @@ jobs:
         run: go run ./tools/facadegen -verify -out pkg/admin/facade.go
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .node-version
           cache: 'npm'
           cache-dependency-path: |
             pkg/client/assets/package-lock.json
             pkg/go-sync/client/package-lock.json
 
+      - name: Install pinned npm
+        run: npm install --global "$(node -p 'require("./pkg/client/assets/package.json").packageManager')"
+
       - name: Install frontend dependencies
         working-directory: pkg/client/assets
         run: npm ci
-
-      - name: Audit frontend dependencies
-        working-directory: pkg/client/assets
-        run: npm audit --audit-level=high
 
       - name: Run frontend unit tests
         working-directory: pkg/client/assets
@@ -73,10 +94,6 @@ jobs:
       - name: Install sync client dependencies
         working-directory: pkg/go-sync/client
         run: npm ci
-
-      - name: Audit sync client dependencies
-        working-directory: pkg/go-sync/client
-        run: npm audit --audit-level=high
 
       - name: Run sync client tests
         working-directory: pkg/go-sync/client
@@ -89,14 +106,17 @@ jobs:
     name: Frontend Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .node-version
           cache: 'npm'
           cache-dependency-path: pkg/client/assets/package-lock.json
+
+      - name: Install pinned npm
+        run: npm install --global "$(node -p 'require("./pkg/client/assets/package.json").packageManager')"
 
       - name: Install dependencies
         working-directory: pkg/client/assets
@@ -117,12 +137,13 @@ jobs:
           echo "All required dist files present."
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-dist
           path: |
             pkg/client/assets/dist
             pkg/client/assets/dist-types
+            pkg/client/assets/output.css
           retention-days: 1
 
   e2e-tests:
@@ -131,22 +152,25 @@ jobs:
     needs: [unit-tests, frontend-build]
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.work
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .node-version
           cache: 'npm'
           cache-dependency-path: pkg/client/assets/package-lock.json
 
+      - name: Install pinned npm
+        run: npm install --global "$(node -p 'require("./pkg/client/assets/package.json").packageManager')"
+
       - name: Download frontend dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-dist
           path: pkg/client/assets
@@ -177,7 +201,7 @@ jobs:
           ./example-server &
           echo $! > /tmp/server.pid
           server_ready=false
-          for i in {1..30}; do
+          for i in {1..90}; do
             if curl --fail --silent http://localhost:8080/admin/login > /dev/null; then
               echo "Server is ready"
               server_ready=true
@@ -187,11 +211,11 @@ jobs:
               echo "Example server exited before becoming ready" >&2
               exit 1
             fi
-            echo "Waiting for server... ($i/30)"
+            echo "Waiting for server... ($i/90)"
             sleep 2
           done
           if [ "${server_ready}" != true ]; then
-            echo "Example server did not become ready within 60 seconds" >&2
+            echo "Example server did not become ready within 180 seconds" >&2
             exit 1
           fi
 
@@ -210,7 +234,7 @@ jobs:
           fi
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report
@@ -218,7 +242,7 @@ jobs:
           retention-days: 7
 
       - name: Upload test screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: test-screenshots
@@ -230,17 +254,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: frontend-build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .node-version
           cache: 'npm'
           cache-dependency-path: pkg/client/assets/package-lock.json
 
+      - name: Install pinned npm
+        run: npm install --global "$(node -p 'require("./pkg/client/assets/package.json").packageManager')"
+
       - name: Download frontend dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-dist
           path: pkg/client/assets
@@ -257,10 +284,10 @@ jobs:
     name: Translation Contract Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.work
 
@@ -285,11 +312,15 @@ jobs:
   status-check:
     name: Productization Gate
     runs-on: ubuntu-latest
-    needs: [unit-tests, frontend-build, e2e-tests, smoke-test, translation-contracts]
+    needs: [dependency-audit, unit-tests, frontend-build, e2e-tests, smoke-test, translation-contracts]
     if: always()
     steps:
       - name: Check all jobs passed
         run: |
+          if [[ "${{ needs.dependency-audit.result }}" != "success" ]]; then
+            echo "Dependency audit failed"
+            exit 1
+          fi
           if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
             echo "Unit tests failed"
             exit 1

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	htmltemplate "html/template"
 	"net/url"
@@ -39,6 +40,9 @@ type DataPreviewPage struct {
 	Session data.ApplicationPreviewSession
 	// Title names the application view; it defaults to the surface ID.
 	Title string
+	// ScenarioTitle and DatasetTitle are the declared human names of the pinned
+	// selection; they default to its identifiers.
+	ScenarioTitle, DatasetTitle string
 	// Routes are the module's resolved preview route templates.
 	Routes DataPreviewURLs
 	// DataPage is the Data page path; the Return link adds the exact selection.
@@ -56,6 +60,8 @@ type DataPreviewPage struct {
 
 type dataPreviewPage struct {
 	Title           string
+	ScenarioTitle   string
+	DatasetTitle    string
 	SessionID       string
 	Surface         string
 	Dataset         data.DatasetRef
@@ -108,13 +114,16 @@ var dataPreviewPageTemplate = htmltemplate.Must(htmltemplate.New("data-preview-p
           <button type="button" class="console-btn console-btn--sm" data-preview-close hidden>Close preview</button>
         </nav>
       </div>
-      <dl class="data-preview__identity">
-        <div><dt>Dataset</dt><dd><span class="data-preview__value">{{.Dataset.ID}}</span> <span class="data-preview__meta">v{{.Dataset.Version}} · {{.Dataset.Provider}}</span></dd></div>
-        <div><dt>Scenario</dt><dd><span class="data-preview__value">{{.Scenario.ID}}</span> <span class="data-preview__meta">v{{.Scenario.Version}}</span></dd></div>
-        <div><dt>Target</dt><dd><span class="data-preview__value">{{.TargetID}}</span></dd></div>
-        <div><dt>Prepared receipt</dt><dd><code class="data-preview__value">{{.ReceiptID}}</code> <span class="data-preview__meta">content revision {{.ContentRevision}}</span></dd></div>
-        <div><dt>Expires</dt><dd><time class="data-preview__value" datetime="{{.ExpiresISO}}" data-preview-expiry>{{.ExpiresLabel}}</time> <span class="data-preview__meta" data-preview-remaining></span></dd></div>
-      </dl>
+      <p class="data-preview__identity-line">Previewing <strong class="data-preview__value">{{.ScenarioTitle}}</strong> <span class="data-preview__meta">· {{.DatasetTitle}} · prepared for {{.TargetID}}</span> <span class="data-preview__meta">· Expires <time datetime="{{.ExpiresISO}}" data-preview-expiry>{{.ExpiresLabel}}</time> <span data-preview-remaining></span></span></p>
+      <details class="data-preview__identity-details">
+        <summary>Details</summary>
+        <dl class="data-preview__identity">
+          <div><dt>Dataset</dt><dd><span class="data-preview__value">{{.Dataset.ID}}</span> <span class="data-preview__meta">v{{.Dataset.Version}} · {{.Dataset.Provider}}</span></dd></div>
+          <div><dt>Scenario</dt><dd><span class="data-preview__value">{{.Scenario.ID}}</span> <span class="data-preview__meta">v{{.Scenario.Version}}</span></dd></div>
+          <div><dt>Target</dt><dd><span class="data-preview__value">{{.TargetID}}</span></dd></div>
+          <div><dt>Prepared receipt</dt><dd><code class="data-preview__value">{{.ReceiptID}}</code> <span class="data-preview__meta">content revision {{.ContentRevision}}</span></dd></div>
+        </dl>
+      </details>
       <nav class="data-preview__views" aria-label="{{.Title}} views">
         <a href="{{.ViewURL}}" aria-current="page">View</a>
         <a href="{{.DataURL}}">View data (JSON)</a>
@@ -234,9 +243,23 @@ func previewReturnURL(page string, selection data.ExploreSelection) (string, err
 }
 
 // renderDataPreviewPage wraps a host's view fragment in the preview chrome.
-func renderDataPreviewPage(c router.Context, routes dataPreviewChromeRoutes, read data.PreviewReadContext, title string, body []byte, now time.Time) ([]byte, error) {
-	return RenderDataPreviewPage(DataPreviewPage{Session: read.Session, Title: title, Routes: routes.urls, DataPage: routes.page,
+func renderDataPreviewPage(c router.Context, routes dataPreviewChromeRoutes, read data.PreviewReadContext, title string, names dataPreviewNames, body []byte, now time.Time) ([]byte, error) {
+	return RenderDataPreviewPage(DataPreviewPage{Session: read.Session, Title: title, ScenarioTitle: names.scenario, DatasetTitle: names.dataset, Routes: routes.urls, DataPage: routes.page,
 		AssetBase: routes.assets, CSRFToken: previewCSRFToken(c), Now: now, Body: body})
+}
+
+// dataPreviewNames are the declared human names of a pinned selection.
+type dataPreviewNames struct{ scenario, dataset string }
+
+// previewNames resolves the pinned selection's declared titles from the
+// catalog the actor may already read; identifiers remain the fallback and a
+// failed lookup never fails the page.
+func (m *DataModule) previewNames(ctx context.Context, selection data.ExploreSelection) dataPreviewNames {
+	descriptor, err := m.config.Service.Describe(ctx, selection.Dataset, selection.TargetID)
+	if err != nil {
+		return dataPreviewNames{}
+	}
+	return dataPreviewNames{scenario: descriptor.ScenarioTitle(selection.Scenario.ID), dataset: descriptor.Title()}
 }
 
 // RenderDataPreviewPage wraps a host's view fragment in the preview chrome:
@@ -261,9 +284,19 @@ func RenderDataPreviewPage(in DataPreviewPage) ([]byte, error) {
 	if strings.TrimSpace(title) == "" {
 		title = session.SurfaceID
 	}
+	scenarioTitle := strings.TrimSpace(in.ScenarioTitle)
+	if scenarioTitle == "" {
+		scenarioTitle = selection.Scenario.ID + " v" + selection.Scenario.Version
+	}
+	datasetTitle := strings.TrimSpace(in.DatasetTitle)
+	if datasetTitle == "" {
+		datasetTitle = selection.Dataset.Provider + "/" + selection.Dataset.ID + " v" + selection.Dataset.Version
+	}
 	assets := strings.TrimRight(strings.TrimSpace(in.AssetBase), "/")
 	page := dataPreviewPage{
 		Title:           title,
+		ScenarioTitle:   scenarioTitle,
+		DatasetTitle:    datasetTitle,
 		SessionID:       session.SessionID,
 		Surface:         session.SurfaceID,
 		Dataset:         selection.Dataset,

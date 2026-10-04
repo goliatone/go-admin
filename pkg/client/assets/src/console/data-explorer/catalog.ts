@@ -1,5 +1,5 @@
 // Explorer catalog: datasets and their scenarios, built only from rows the
-// actor already received in the authorized Datasets and Scenarios panels. The
+// actor already received in the authorized Explore and Scenarios panels. The
 // server projects each scenario row's exact selections; the browser never
 // assembles lifecycle identity from display text.
 
@@ -15,7 +15,7 @@ import {
 export type CatalogScenario = {
   key: string;
   datasetKey: string;
-  /** Fallback label (`ready v1`) until declared metadata names it. */
+  /** Lifecycle title (the declared scenario title, else `ready v1`) until richer metadata names it. */
   label: string;
   scenarioId: string;
   version: string;
@@ -30,7 +30,7 @@ export type CatalogScenario = {
 
 export type CatalogDataset = {
   key: string;
-  /** Fallback label (`provider/id vN`) until declared metadata names it. */
+  /** Lifecycle title (the declared dataset title, else `provider/id vN`) until richer metadata names it. */
   label: string;
   provider: string;
   datasetId: string;

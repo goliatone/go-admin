@@ -265,7 +265,7 @@ function renderLiveControls(model: PreviewModel, surface: PreviewSurface, sessio
   }
   const checking = busy === 'checking' ? '<span class="console-muted" role="status" aria-busy="true">Checking…</span>' : '';
   return `
-    <p class="console-preview__status" data-preview-state="ready">Read-only preview of receipt <code class="console-kv__mono">${escapeHTML(session.selection.receipt_id || '')}</code>. Expires at ${expiry(session, now)}.</p>
+    <p class="console-preview__status" data-preview-state="ready">Read-only preview of the prepared data. Expires at ${expiry(session, now)}.</p>
     <div class="console-preview__actions">${link}${button(closing ? 'Closing…' : 'Close preview', 'close', surface.id, { busy: closing })}${checking}</div>
   `;
 }

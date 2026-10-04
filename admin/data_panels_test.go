@@ -103,43 +103,43 @@ func TestDataOperationOutcomesKeepAcceptanceCompletionAndActivationDistinct(t *t
 		operation admindata.Operation
 		want      string
 	}{
-		{"accepted", dataPanelTestOperation(admindata.Prepare, admindata.Queued, nil), "Accepted — not started"},
+		{"accepted", dataPanelTestOperation(admindata.Prepare, admindata.Queued, nil), "Queued"},
 		{"running", dataPanelTestOperation(admindata.Prepare, admindata.Running, nil), "Running"},
-		{"running phase", dataPanelTestOperation(admindata.Prepare, admindata.Running, func(o *admindata.Operation) { o.Result.Phase = "preparing" }), "Running — preparing"},
-		{"recovering", dataPanelTestOperation(admindata.Activate, admindata.Running, func(o *admindata.Operation) { o.Result.Phase = "recovering" }), "Recovering — writes paused"},
+		{"running phase", dataPanelTestOperation(admindata.Prepare, admindata.Running, func(o *admindata.Operation) { o.Result.Phase = "preparing" }), "Running · preparing"},
+		{"recovering", dataPanelTestOperation(admindata.Activate, admindata.Running, func(o *admindata.Operation) { o.Result.Phase = "recovering" }), "Recovering, writes paused"},
 		{"cancel requested", dataPanelTestOperation(admindata.Prepare, admindata.Running, func(o *admindata.Operation) { o.CancelRequested = true }), "Cancel requested"},
-		{"prepared", dataPanelTestOperation(admindata.Prepare, admindata.Succeeded, nil), "Prepared — not verified or active"},
-		{"refreshed", dataPanelTestOperation(admindata.Refresh, admindata.Succeeded, nil), "Prepared — not verified or active"},
-		{"verified", dataPanelTestOperation(admindata.Verify, admindata.Succeeded, func(o *admindata.Operation) { o.Result.Verification = passed }), "Verified — not active"},
-		{"verification failed", dataPanelTestOperation(admindata.Verify, admindata.Succeeded, func(o *admindata.Operation) { o.Result.Verification = failed }), "Verification failed — not active"},
-		{"verification without evidence", dataPanelTestOperation(admindata.Verify, admindata.Succeeded, nil), "Verification finished — not active"},
+		{"prepared", dataPanelTestOperation(admindata.Prepare, admindata.Succeeded, nil), "Prepared"},
+		{"refreshed", dataPanelTestOperation(admindata.Refresh, admindata.Succeeded, nil), "Prepared"},
+		{"verified", dataPanelTestOperation(admindata.Verify, admindata.Succeeded, func(o *admindata.Operation) { o.Result.Verification = passed }), "Verified"},
+		{"verification failed", dataPanelTestOperation(admindata.Verify, admindata.Succeeded, func(o *admindata.Operation) { o.Result.Verification = failed }), "Verification failed"},
+		{"verification without evidence", dataPanelTestOperation(admindata.Verify, admindata.Succeeded, nil), "Verification finished"},
 		{"activated", dataPanelTestOperation(admindata.Activate, admindata.Succeeded, func(o *admindata.Operation) {
 			o.Result.Active = true
 			o.Result.Activation = &admindata.Activation{ReceiptID: "rcpt-1", Generation: 4, Ready: true}
-		}), "Active — generation 4"},
+		}), "Active · generation 4"},
 		{"committed not ready", dataPanelTestOperation(admindata.Activate, admindata.Succeeded, func(o *admindata.Operation) {
 			o.Result.Activation = &admindata.Activation{ReceiptID: "rcpt-1", Generation: 4}
-		}), "Activation committed — not ready"},
+		}), "Activation committed, not ready"},
 		{"dry run", dataPanelTestOperation(admindata.Activate, admindata.Succeeded, func(o *admindata.Operation) {
 			o.Result.DryRun = true
 			o.Result.Active = true
-		}), "Dry run planned — nothing changed"},
+		}), "Plan ready, nothing changed"},
 		{"validation problems", dataPanelTestOperation(admindata.Validate, admindata.Succeeded, func(o *admindata.Operation) {
 			o.Result.Checks = []admindata.Check{{ID: "prerequisite.audiences", Status: admindata.CheckFailed}}
 		}), "Validation found problems"},
 		{"stale generation", dataPanelTestOperation(admindata.Activate, admindata.Failed, func(o *admindata.Operation) {
 			o.Result.Failure = &admindata.Failure{Code: admindata.CodeStale}
-		}), "Failed — stale generation"},
+		}), "Failed: active dataset changed"},
 		{"fingerprint conflict", dataPanelTestOperation(admindata.Prepare, admindata.Failed, func(o *admindata.Operation) {
 			o.Result.Failure = &admindata.Failure{Code: admindata.CodeConflict}
-		}), "Failed — key reused with different input"},
+		}), "Failed: request reused with different input"},
 		{"recovery required", dataPanelTestOperation(admindata.Activate, admindata.Failed, func(o *admindata.Operation) {
 			o.Result.Failure = &admindata.Failure{Code: admindata.CodeRecovery}
-		}), "Recovery required — writes blocked"},
+		}), "Recovery required"},
 		{"canceled", dataPanelTestOperation(admindata.Prepare, admindata.Canceled, nil), "Canceled"},
 		{"unknown failure code", dataPanelTestOperation(admindata.Prepare, admindata.Failed, func(o *admindata.Operation) {
 			o.Result.Failure = &admindata.Failure{Code: "driver: connection refused"}
-		}), "Failed — provider error"},
+		}), "Failed: provider error"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -208,7 +208,7 @@ func TestDataTargetAndScenarioStatusesUseOnlyMatchingReceipts(t *testing.T) {
 		}
 		labels = append(labels, dataPanelText(row["status_label"]))
 	}
-	if want := []string{"Active", "Recovery required", "Switch in progress", "Nothing active"}; !slices.Equal(labels, want) {
+	if want := []string{"Active", "Recovery required", "Switching", "No active dataset"}; !slices.Equal(labels, want) {
 		t.Fatalf("target statuses = %v, want %v", labels, want)
 	}
 
@@ -224,9 +224,9 @@ func TestDataTargetAndScenarioStatusesUseOnlyMatchingReceipts(t *testing.T) {
 	}{
 		{DataScenarioView{Scenario: dataPanelTestScenario("ready")}, "Not prepared"},
 		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: &other}, "Not prepared"},
-		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: receipt}, "Prepared — not verified"},
+		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: receipt}, "Prepared"},
 		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: &stale}, "Changed since verification"},
-		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: &verified}, "Verified — not active"},
+		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: &verified}, "Verified"},
 		{DataScenarioView{Scenario: dataPanelTestScenario("ready"), TargetID: "preview", Receipt: &verified, Active: true}, "Active"},
 	} {
 		if got := dataPanelRecordJSON(t, DataScenarioRecord(tc.view, 1))["status_label"]; got != tc.want {
@@ -242,7 +242,7 @@ func TestDataChecksCoverageAndCapabilitiesPresentSafeStates(t *testing.T) {
 	}{
 		{DataCheckView{Origin: admindata.Verify, Check: admindata.Check{ID: "search", Status: admindata.CheckPassed}}, "Passed"},
 		{DataCheckView{Origin: admindata.Validate, Check: admindata.Check{ID: "prerequisite", Status: admindata.CheckFailed}}, "Failed"},
-		{DataCheckView{Origin: admindata.Verify, DryRun: true, Check: admindata.Check{ID: "search", Status: admindata.CheckPassed}}, "Planned — not executed"},
+		{DataCheckView{Origin: admindata.Verify, DryRun: true, Check: admindata.Check{ID: "search", Status: admindata.CheckPassed}}, "Planned, not executed"},
 		{DataCheckView{Origin: admindata.Verify, DryRun: true, Check: admindata.Check{ID: "export", Status: admindata.CheckUnavailable}}, "Unavailable"},
 	} {
 		if got := dataPanelRecordJSON(t, DataCheckRecord(tc.view, 1))["result"]; got != tc.want {
@@ -254,7 +254,7 @@ func TestDataChecksCoverageAndCapabilitiesPresentSafeStates(t *testing.T) {
 	}
 
 	for status, want := range map[string]string{
-		admindata.CoveredEmpty: "Covered — no records", admindata.Uncovered: "Not covered", admindata.Partial: "Partially covered",
+		admindata.CoveredEmpty: "Covered, no records", admindata.Uncovered: "Not covered", admindata.Partial: "Partially covered",
 		admindata.PolicySuppressed: "Suppressed by policy", admindata.Unavailable: "Unavailable", "future_state": "future_state",
 	} {
 		record := DataCoverageRecord(DataCoverageView{VerificationID: "ver-1", Coverage: admindata.Coverage{Status: status, Sample: admindata.SamplePeriod{LocalDay: "2026-03-08", Timezone: "America/Los_Angeles"}}}, 1)
@@ -269,8 +269,28 @@ func TestDataChecksCoverageAndCapabilitiesPresentSafeStates(t *testing.T) {
 		admindata.Verify:  {Supported: true, Permitted: false, Reason: "requires admin.data.verify"},
 	}}
 	data := dataPanelRecordJSON(t, DataDatasetRecord(descriptor, 1))
-	if data["actions"] != "Prepare" || data["unavailable"] != "Verify: not permitted (requires admin.data.verify), Reset: unsupported (target has no safe deactivation)" {
-		t.Fatalf("capability summary = %q / %q", data["actions"], data["unavailable"])
+	if _, ok := data["actions"]; ok || data["unavailable"] != nil || data["digest"] != strings.Repeat("a", 12) {
+		t.Fatalf("dataset row still carries the capability matrix: %v", data)
+	}
+	reasons := map[string]string{}
+	for _, row := range dataCapabilityRows(descriptor.Capabilities) {
+		reasons[row["kind"].(string)] = row["reason"].(string)
+	}
+	if reasons["reset"] != "target has no safe deactivation" || reasons["verify"] != "requires admin.data.verify" || reasons["prepare"] != "" {
+		t.Fatalf("capability reasons = %v", reasons)
+	}
+	// Service codes become sentences; provider sentences pass through; silence gets a default.
+	for code, want := range map[string]string{
+		"safe_reset_unavailable": "This target has no safe reset.", "generation_unavailable": "This provider cannot generate datasets.",
+		"cancellation_unavailable": "This target cannot cancel running work.", "durable_write_gate": "Writes are disabled on this installation.",
+		"Preview target has no safe deactivation": "Preview target has no safe deactivation", "": "Not supported by this provider or target.",
+	} {
+		if got := dataCapabilityReason(admindata.Capability{Reason: code}); got != want {
+			t.Fatalf("reason %q = %q, want %q", code, got, want)
+		}
+	}
+	if got := dataCapabilityReason(admindata.Capability{Supported: true}); got != "You do not have permission to run this action." {
+		t.Fatalf("not permitted reason = %q", got)
 	}
 }
 
@@ -298,7 +318,7 @@ func TestDataPanelsServeProjectedRecordsThroughAConsoleHost(t *testing.T) {
 	}
 	records := map[string][]console.Record{
 		DataPanelOverview:     {DataOverviewRecord(DataOverviewView{Targets: []DataTargetView{{State: admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "org", TargetID: "preview"}}}}}, 1)},
-		DataPanelDatasets:     {DataDatasetRecord(admindata.Descriptor{Dataset: dataPanelTestDataset("corpus-a")}, 1)},
+		DataPanelExplore:      {DataDatasetRecord(admindata.Descriptor{Dataset: dataPanelTestDataset("corpus-a")}, 1)},
 		DataPanelScenarios:    {DataScenarioRecord(DataScenarioView{Scenario: dataPanelTestScenario("ready")}, 1)},
 		DataPanelOperations:   {DataOperationRecord(dataPanelTestOperation(admindata.Prepare, admindata.Queued, nil))},
 		DataPanelVerification: {DataCheckRecord(DataCheckView{Origin: admindata.Verify, VerificationID: "ver-1", Check: admindata.Check{ID: "search", Status: admindata.CheckPassed}}, 1)},
@@ -337,11 +357,7 @@ func TestDataPanelsServeProjectedRecordsThroughAConsoleHost(t *testing.T) {
 		served[panel.ID] = len(panel.Records)
 	}
 	for _, id := range DataPanelIDs() {
-		want := 1
-		if id == DataPanelExplore {
-			want = 0 // Explore reads lazily; it never carries snapshot records.
-		}
-		if served[id] != want {
+		if served[id] != 1 {
 			t.Fatalf("panel %q served %d records; host dropped a projected record: %+v", id, served[id], served)
 		}
 	}
@@ -357,34 +373,39 @@ func TestDataActionResultPresentsTypedOutcomesWithoutOverstatingActivation(t *te
 		t.Fatalf("errors outside the Data contract must propagate: %v", err)
 	}
 	stale, err := DataActionResult(admindata.Activate, admindata.Result{}, fmt.Errorf("activate: %w", admindata.Error(admindata.CodeStale)))
-	if err != nil || stale.OK || !stale.Refresh || !strings.Contains(stale.Message, "active dataset changed") {
+	if err != nil || stale.OK || !stale.Refresh || !strings.Contains(stale.Message, "active dataset changed") || stale.Code != admindata.CodeStale || stale.Tone != console.PanelToneError {
 		t.Fatalf("stale generation = %+v %v", stale, err)
 	}
 	invalid, err := DataActionResult(admindata.Prepare, admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Failed,
 		Failure: &admindata.Failure{Code: admindata.CodeInvalid, Fields: map[string]string{"target_id": "unknown target"}}}, nil)
-	if err != nil || invalid.OK || invalid.Errors["target_id"] != "unknown target" || invalid.Message != "The request is invalid. Check the highlighted fields." {
+	if err != nil || invalid.OK || invalid.Errors["target_id"] != "unknown target" || invalid.Message != "The request is invalid. Check the highlighted fields." || invalid.Record == nil {
 		t.Fatalf("field failure = %+v %v", invalid, err)
 	}
 	for _, tc := range []struct {
 		name   string
 		result admindata.Result
 		want   string
+		tone   string
 	}{
-		{"failed without failure record", admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Failed}, "The provider failed. Check the operation history for its recorded state."},
-		{"canceled", admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Canceled}, "The operation was canceled."},
+		{"failed without failure record", admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Failed}, "The provider failed. Check the operation history for its recorded state.", console.PanelToneError},
+		{"canceled", admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Canceled}, "The operation was canceled.", console.PanelToneNeutral},
 	} {
 		presented, presentErr := DataActionResult(tc.result.Kind, tc.result, nil)
-		if presentErr != nil || presented.OK || presented.Message != tc.want {
+		if presentErr != nil || presented.OK || presented.Message != tc.want || presented.Tone != tc.tone {
 			t.Fatalf("%s = %+v %v", tc.name, presented, presentErr)
 		}
 	}
 	requested, err := DataActionResult(admindata.Cancel, admindata.Result{OperationID: "op-7", Kind: admindata.Activate, State: admindata.Running}, nil)
-	if err != nil || !requested.OK || requested.Message != "Cancellation requested for operation op-7. It stops at the next safe point; a committed activation is not undone." {
+	if err != nil || !requested.OK || requested.Message != "Cancellation requested for the activate operation. It stops at the next safe point; a committed activation is not undone." || requested.Record == nil || requested.Record.RecordKey != "op-7" {
 		t.Fatalf("cancel request = %+v %v", requested, err)
 	}
 	finished, err := DataActionResult(admindata.Cancel, admindata.Result{OperationID: "op-7", Kind: admindata.Activate, State: admindata.Succeeded, Active: true}, nil)
-	if err != nil || !finished.OK || finished.Message != "Operation op-7 already finished as succeeded; nothing was canceled." {
+	if err != nil || !finished.OK || finished.Message != "The activate operation already finished (succeeded); nothing was canceled." {
 		t.Fatalf("cancel after finish = %+v %v", finished, err)
+	}
+	named, err := DataActionResultFor(admindata.Cancel, admindata.Result{OperationID: "op-7", Kind: admindata.Refresh, State: admindata.Running}, nil, DataActionLabels{Scenario: "Ready", Target: "kitchen-sink"})
+	if err != nil || named.Message != "Cancellation requested for Refresh of Ready. It stops at the next safe point; a committed activation is not undone." {
+		t.Fatalf("named cancel = %+v %v", named, err)
 	}
 
 	passed := &admindata.VerificationResult{ID: "ver-1", ContentRevision: 1, Checks: []admindata.Check{{ID: "search", Status: admindata.CheckPassed}}}
@@ -392,16 +413,16 @@ func TestDataActionResultPresentsTypedOutcomesWithoutOverstatingActivation(t *te
 		result admindata.Result
 		want   string
 	}{
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Queued}, "Accepted prepare operation op-1. It has not run yet; the active dataset is unchanged."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Refresh, State: admindata.Running}, "Refresh operation op-1 is running. The active dataset is unchanged until an activation completes."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Succeeded, Receipt: &admindata.PreparationReceipt{ID: "rcpt-1"}}, "Prepared receipt rcpt-1. Verify and activate it to change the active dataset."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Verify, State: admindata.Succeeded, Receipt: &admindata.PreparationReceipt{ID: "rcpt-1"}, Verification: passed}, "Verified receipt rcpt-1. Activate it to change the active dataset."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Succeeded, Active: true, Activation: &admindata.Activation{ReceiptID: "rcpt-1", Generation: 4, Ready: true}}, "Activated receipt rcpt-1 at generation 4."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Succeeded, Activation: &admindata.Activation{ReceiptID: "rcpt-1", Generation: 4}}, "Activation committed at generation 4; the target is not ready yet."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Succeeded, DryRun: true, Checks: []admindata.Check{{ID: "a", Status: admindata.CheckPlanned}, {ID: "b", Status: admindata.CheckPlanned}}}, "Dry run planned for activate op-1. Nothing changed; 2 checks are planned, not executed."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Queued}, "Prepare accepted. It has not run yet; what the target serves is unchanged."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Refresh, State: admindata.Running}, "Refresh is running. What the target serves is unchanged until an activation completes."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Succeeded, Receipt: &admindata.PreparationReceipt{ID: "rcpt-1"}}, "Prepared a new receipt. Verify it, then activate it to change what the target serves."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Verify, State: admindata.Succeeded, Receipt: &admindata.PreparationReceipt{ID: "rcpt-1"}, Verification: passed}, "Verified the receipt. Activate it to change what the target serves."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Succeeded, Active: true, Activation: &admindata.Activation{ReceiptID: "rcpt-1", Generation: 4, Ready: true}}, "Activated the chosen receipt on the target at generation 4."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Succeeded, Activation: &admindata.Activation{ReceiptID: "rcpt-1", Generation: 4}}, "Activation of the chosen receipt committed at generation 4; the target is not ready yet."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Succeeded, DryRun: true, Checks: []admindata.Check{{ID: "a", Status: admindata.CheckPlanned}, {ID: "b", Status: admindata.CheckPlanned}}}, "Plan ready for Activate. Nothing changed; 2 checks are planned, not executed."},
 		// A same-key replay of an in-flight dry run reports its actual state, not a finished plan.
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Queued, DryRun: true}, "Accepted dry run for prepare operation op-1. Planning has not run yet; nothing will change."},
-		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Running, DryRun: true}, "Activate dry run op-1 is planning. Nothing will change."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Queued, DryRun: true}, "Plan for Prepare queued. Planning has not run yet; nothing will change."},
+		{admindata.Result{OperationID: "op-1", Kind: admindata.Activate, State: admindata.Running, DryRun: true}, "Planning Activate. Nothing will change."},
 		{admindata.Result{OperationID: "op-1", Kind: admindata.Validate, State: admindata.Succeeded, Checks: []admindata.Check{{ID: "a", Status: admindata.CheckFailed}, {ID: "b", Status: admindata.CheckPassed}}}, "Validation found problems in 1 of 2 checks."},
 		{admindata.Result{OperationID: "op-1", Kind: admindata.Generate, State: admindata.Succeeded}, "Generated a dataset. Prepare it before use."},
 	} {
@@ -412,6 +433,16 @@ func TestDataActionResultPresentsTypedOutcomesWithoutOverstatingActivation(t *te
 		if tc.result.Kind != admindata.Activate && strings.Contains(presented.Message, "Activated") {
 			t.Fatalf("%s outcome claims activation: %q", tc.result.Kind, presented.Message)
 		}
+		if presented.Planned != tc.result.DryRun || (tc.result.DryRun && presented.Tone != console.PanelTonePlanned) || presented.Record == nil || presented.Record.PanelID != DataPanelOperations || presented.Record.RecordKey != "op-1" {
+			t.Fatalf("%s/%s outcome metadata = %+v", tc.result.Kind, tc.result.State, presented)
+		}
+		if strings.Contains(presented.Message, "op-1") || strings.Contains(presented.Message, "rcpt-1") {
+			t.Fatalf("outcome names an identifier: %q", presented.Message)
+		}
+	}
+	named, err = DataActionResultFor(admindata.Prepare, admindata.Result{OperationID: "op-1", Kind: admindata.Prepare, State: admindata.Succeeded, Receipt: &admindata.PreparationReceipt{ID: "rcpt-1"}}, nil, DataActionLabels{Scenario: "Ready", Target: "kitchen-sink"})
+	if err != nil || named.Message != "Prepared Ready. Verify it, then activate it to change what kitchen-sink serves." {
+		t.Fatalf("named outcome = %+v %v", named, err)
 	}
 }
 
@@ -472,9 +503,10 @@ func TestDataPanelActionsDispatchOnlyAuthorizedServerChoices(t *testing.T) {
 	activate := base
 	activate.ReceiptID, activate.ExpectedGeneration = "rcpt-1", &generation
 	choices := []DataActionChoice{
-		{Kind: admindata.Prepare, Label: "Prepare ready v1 on preview", Input: base},
-		{Kind: admindata.Activate, Label: "Activate rcpt-1 on preview", Input: activate},
-		{Kind: admindata.Cancel, Label: "Cancel op-0003", Input: admindata.Input{TargetID: "preview", OperationID: "op-0003"}},
+		{Kind: admindata.Prepare, Label: "Prepare", Title: "Ready", DatasetTitle: "Customer corpus A", Input: base},
+		{Kind: admindata.Activate, Label: "Activate", Title: "Ready", Input: activate},
+		{Kind: admindata.Cancel, Label: "Cancel", Title: "Ready", Input: admindata.Input{TargetID: "preview", OperationID: "op-0003"}},
+		{Kind: admindata.Refresh, Label: "Refresh", Title: "Ready", Input: base, Availability: console.PanelActionNotPermitted, Reason: "Needs the Data operator role."},
 	}
 	var dispatched []dataPanelDispatch
 	actions := DataPanelActions{
@@ -487,40 +519,64 @@ func TestDataPanelActionsDispatchOnlyAuthorizedServerChoices(t *testing.T) {
 			return admindata.Result{OperationID: "op-9", Kind: kind, State: admindata.Queued}, nil
 		},
 	}
-	host, identity := dataPanelActionHost(t, actions, map[admindata.Kind]bool{admindata.Prepare: true, admindata.Cancel: true})
-	snapshot, err := host.Snapshot(context.Background(), identity)
+	host, identity := dataPanelActionHost(t, actions, map[admindata.Kind]bool{admindata.Prepare: true, admindata.Cancel: true, admindata.Refresh: true})
+	ctx := dataTestClientContext(context.Background())
+	snapshot, err := host.Snapshot(ctx, identity)
 	if err != nil {
 		t.Fatal(err)
 	}
-	overview := dataPanelActions(t, snapshot, DataPanelOverview)
-	if len(overview) != 1 || overview[0].Kind != "prepare" || overview[0].Label != "Prepare ready v1 on preview" || !overview[0].Refresh {
-		t.Fatalf("overview actions = %+v; denied activation must stay hidden", overview)
+	scenarios := dataPanelActions(t, snapshot, DataPanelScenarios)
+	if len(scenarios) != 2 || scenarios[0].Kind != "prepare" || scenarios[0].Label != "Prepare" || !scenarios[0].Refresh || scenarios[1].Kind != "refresh" || scenarios[1].Executable() {
+		t.Fatalf("scenario actions = %+v; denied activation must stay hidden and not-permitted refresh stay disabled", scenarios)
+	}
+	prepare := scenarios[0]
+	if prepare.Drawer == nil || prepare.Drawer.Title != "Prepare Ready" || !strings.Contains(prepare.Drawer.Effect, "does not change") || prepare.Secondary == nil || prepare.Secondary.Label != "Preview plan" || prepare.RequestScope != "prepare:preview" {
+		t.Fatalf("prepare declaration = %+v", prepare)
+	}
+	fieldNames := []string{}
+	var requestField console.PanelUIActionField
+	for _, field := range prepare.Fields {
+		fieldNames = append(fieldNames, field.Name)
+		if field.Name == "idempotency_key" {
+			requestField = field
+		}
+	}
+	if !slices.Equal(fieldNames, []string{"batch_limit", "dry_run", "idempotency_key"}) || requestField.Generate != console.PanelFieldGenerateRequestID || !requestField.Advanced || !requestField.Required {
+		t.Fatalf("prepare fields = %+v", prepare.Fields)
+	}
+	if scenarios[1].Reason != "Needs the Data operator role." || scenarios[1].Availability != console.PanelActionNotPermitted {
+		t.Fatalf("disabled refresh = %+v", scenarios[1])
 	}
 	cancel := dataPanelActions(t, snapshot, DataPanelOperations)
-	if len(cancel) != 1 || !cancel[0].RequiresConfirm || slices.ContainsFunc(cancel[0].Fields, func(f console.PanelUIActionField) bool { return f.Name == "dry_run" }) {
+	if len(cancel) != 1 || !cancel[0].RequiresConfirm || cancel[0].Confirmation == nil || slices.ContainsFunc(cancel[0].Fields, func(f console.PanelUIActionField) bool { return f.Name == "dry_run" }) {
 		t.Fatalf("cancel actions = %+v", cancel)
 	}
-	if prepareKind, ok := DataActionKind(overview[0].ID); !ok || prepareKind != admindata.Prepare {
-		t.Fatalf("action id %q kind = %q", overview[0].ID, prepareKind)
+	if overview := dataPanelActions(t, snapshot, DataPanelOverview); len(overview) != 3 {
+		t.Fatalf("overview declares every offered action for its lists: %+v", overview)
+	}
+	if prepareKind, ok := DataActionKind(prepare.ID); !ok || prepareKind != admindata.Prepare {
+		t.Fatalf("action id %q kind = %q", prepare.ID, prepareKind)
+	}
+	if DataActionID(choices[0]) != prepare.ID {
+		t.Fatal("exported action ID differs from the declared one")
 	}
 
-	result, err := host.RunAction(context.Background(), identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: overview[0].ID, Payload: map[string]any{
-		"idempotency_key": " key-1 ", "dry_run": true, "batch_limit": float64(50),
+	key := dataTestKey("key-1")
+	result, err := host.RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelScenarios, ActionID: prepare.ID, Payload: map[string]any{
+		"idempotency_key": key, "dry_run": true, "batch_limit": float64(50),
 		"target_id": "production", "dataset": map[string]any{"id": "forged"}, "receipt_id": "forged",
 	}})
-	if err != nil || !result.OK || result.Message != "Accepted prepare operation op-9. It has not run yet; the active dataset is unchanged." {
+	if err != nil || !result.OK || result.Message != "Prepare Ready accepted. It has not run yet; what preview serves is unchanged." || result.Record == nil || result.Record.RecordKey != "op-9" {
 		t.Fatalf("prepare = %+v %v", result, err)
 	}
-	want := base
-	want.IdempotencyKey, want.DryRun, want.BatchLimit = "key-1", true, 50
 	if len(dispatched) != 1 || dispatched[0].kind != admindata.Prepare || dispatched[0].input.TargetID != "preview" ||
-		dispatched[0].input.Dataset != want.Dataset || dispatched[0].input.ReceiptID != "" || dispatched[0].input.IdempotencyKey != "key-1" ||
+		dispatched[0].input.Dataset != base.Dataset || dispatched[0].input.ReceiptID != "" || dispatched[0].input.IdempotencyKey != key ||
 		!dispatched[0].input.DryRun || dispatched[0].input.BatchLimit != 50 {
-		t.Fatalf("dispatched %+v, want server choice input %+v", dispatched, want)
+		t.Fatalf("dispatched %+v, want server choice input", dispatched)
 	}
 
-	for _, payload := range []map[string]any{{}, {"idempotency_key": "key-2", "batch_limit": float64(0)}, {"idempotency_key": "key-2", "dry_run": "yes"}} {
-		invalid, runErr := host.RunAction(context.Background(), identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: overview[0].ID, Payload: payload})
+	for _, payload := range []map[string]any{{}, {"idempotency_key": "not-a-request-id"}, {"idempotency_key": dataTestKey("key-2"), "batch_limit": float64(0)}, {"idempotency_key": dataTestKey("key-2"), "dry_run": "yes"}} {
+		invalid, runErr := host.RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelScenarios, ActionID: prepare.ID, Payload: payload})
 		if runErr != nil || invalid.OK || len(invalid.Errors) != 1 {
 			t.Fatalf("payload %v = %+v %v", payload, invalid, runErr)
 		}
@@ -530,15 +586,22 @@ func TestDataPanelActionsDispatchOnlyAuthorizedServerChoices(t *testing.T) {
 	}
 
 	activateID := dataActionID(choices[1])
-	if _, hiddenErr := host.RunAction(context.Background(), identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: activateID, Payload: map[string]any{"idempotency_key": "key-3"}}); !errors.Is(hiddenErr, ErrNotFound) {
+	if _, hiddenErr := host.RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelScenarios, ActionID: activateID, Payload: map[string]any{"idempotency_key": dataTestKey("key-3")}}); !errors.Is(hiddenErr, ErrNotFound) {
 		t.Fatalf("hidden activation ran: %v", hiddenErr)
 	}
-	canceled, err := host.RunAction(context.Background(), identity, console.PanelActionRequest{PanelID: DataPanelOperations, ActionID: cancel[0].ID, Payload: map[string]any{"idempotency_key": "key-4", "dry_run": true}})
-	if err != nil || !canceled.OK || !strings.HasPrefix(canceled.Message, "Cancellation requested for operation op-0003.") || dispatched[1].input.DryRun {
+	if _, disabledErr := host.RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelScenarios, ActionID: scenarios[1].ID, Payload: map[string]any{"idempotency_key": dataTestKey("key-5")}}); !errors.Is(disabledErr, ErrNotFound) {
+		t.Fatalf("disabled refresh ran: %v", disabledErr)
+	}
+	canceled, err := host.RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelOperations, ActionID: cancel[0].ID, Payload: map[string]any{"idempotency_key": dataTestKey("key-4"), "dry_run": true}})
+	if err != nil || !canceled.OK || !strings.HasPrefix(canceled.Message, "Cancellation requested for Refresh of Ready.") || dispatched[1].input.DryRun {
 		t.Fatalf("cancel = %+v %v (%+v)", canceled, err, dispatched)
 	}
+	// Without the capability handshake the generated-ID forms are withheld, never served as typed-key forms.
+	legacy, err := host.Snapshot(context.Background(), identity)
+	if err != nil || len(dataPanelActions(t, legacy, DataPanelScenarios)) != 0 {
+		t.Fatalf("legacy client received capability-dependent actions: %+v %v", dataPanelActions(t, legacy, DataPanelScenarios), err)
+	}
 }
-
 func TestDataPanelActionsFailClosedWithoutChoicesOrBinding(t *testing.T) {
 	failing := DataPanelActions{
 		Choices: func(context.Context) ([]DataActionChoice, error) { return nil, errors.New("catalog unavailable") },
@@ -553,7 +616,7 @@ func TestDataPanelActionsFailClosedWithoutChoicesOrBinding(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := len(dataPanelActions(t, snapshot, DataPanelOverview)) + len(dataPanelActions(t, snapshot, DataPanelOperations)); got != 0 {
+		if got := len(dataPanelActions(t, snapshot, DataPanelOverview)) + len(dataPanelActions(t, snapshot, DataPanelScenarios)) + len(dataPanelActions(t, snapshot, DataPanelOperations)); got != 0 {
 			t.Fatalf("%s declared %d actions", name, got)
 		}
 	}

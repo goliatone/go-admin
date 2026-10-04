@@ -217,7 +217,7 @@ test('chart and table views state the same totals, categories and coverage', () 
 test('Ready: observed values with units, shares of the declared denominator and verified coverage', () => {
   const root = render('ready_prepared', 'chart');
   const text = textOf(root);
-  assert.ok(text.includes('Observed in prepared receipt rcpt-ready-1 (content revision 2) on preview.'), text);
+  assert.ok(text.includes('Observed in the prepared data for this scenario on preview.'), text);
   assert.ok(text.includes('Orders 3 orders scenario orders · 2026-01-01 (UTC) · Sampling: complete count of the immutable stage'), text);
   assert.ok(text.includes('Order amount 250 USD cents'), text);
   assert.deepEqual(chartBuckets(root), [['orders.status', [['Paid', '2 (66.7%)'], ['Refunded', '1 (33.3%)']]]]);
@@ -231,7 +231,7 @@ test('Ready: observed values with units, shares of the declared denominator and 
   assert.ok(text.includes('Local days in UTC.'), text);
 
   const active = textOf(render('ready_active', 'chart'));
-  assert.ok(active.includes('Observed in the active data on preview at generation 3 (receipt rcpt-ready-1).'), active);
+  assert.ok(active.includes('Observed in what preview serves now for this scenario (generation 3).'), active);
 });
 
 test('catalog examples read as declarations, and their expected day is not coverage', () => {

@@ -140,6 +140,12 @@ func (r *Runtime) buildDescriptor() error {
 		Samples: []data.SamplePeriod{{LocalDay: "2026-01-01", Timezone: "UTC", EvidenceRef: "synthetic-orders-v1"}},
 		Counts:  map[string]uint64{"orders": 3}, Prerequisites: []string{"isolated SQLite target"},
 		Capabilities: map[data.Kind]data.Capability{},
+		// Digest-neutral names for people; the explorer and the lifecycle tabs share them.
+		Presentation: &data.DescriptorPresentation{Title: "Synthetic orders", Summary: "Small deterministic order fixtures for trying dataset lifecycle operations",
+			Scenarios: map[string]data.ScenarioPresentation{
+				"ready": {Title: "Ready", Summary: "Exercise preparation, verification and activation with synthetic orders"},
+				"quiet": {Title: "Quiet", Summary: "Exercise an intentionally empty selected scenario"},
+			}},
 	}
 	for _, kind := range []data.Kind{data.Validate, data.Prepare, data.Refresh, data.Verify, data.Activate} {
 		d.Capabilities[kind] = data.Capability{Supported: true}
@@ -194,16 +200,16 @@ func (r *Runtime) Validate(ctx context.Context, _ data.Principal, input data.Inp
 		return nil, data.Error(data.CodeInvalid)
 	}
 	if err := r.db.PingContext(ctx); err != nil {
-		return []data.Check{{ID: "sqlite", Status: data.CheckUnavailable, Expected: "available", Actual: "unavailable"}}, data.Error(data.CodeUnavailable)
+		return []data.Check{{ID: "sqlite", Label: "SQLite available", Status: data.CheckUnavailable, Expected: "available", Actual: "unavailable"}}, data.Error(data.CodeUnavailable)
 	}
-	return []data.Check{{ID: "source-identity", Status: data.CheckPassed, Expected: input.Dataset.Digest, Actual: r.descriptor.Dataset.Digest}, {ID: "sqlite", Status: data.CheckPassed, Expected: "available", Actual: "available"}}, nil
+	return []data.Check{{ID: "source-identity", Label: "Source matches the catalog", Status: data.CheckPassed, Expected: input.Dataset.Digest, Actual: r.descriptor.Dataset.Digest}, {ID: "sqlite", Label: "SQLite available", Status: data.CheckPassed, Expected: "available", Actual: "available"}}, nil
 }
 
 func (r *Runtime) Plan(ctx context.Context, p data.Principal, kind data.Kind, input data.Input) ([]data.Check, error) {
 	if _, err := r.Validate(ctx, p, input); err != nil {
 		return nil, err
 	}
-	return []data.Check{{ID: string(kind) + "-plan", Status: data.CheckPlanned, Expected: strconv.Itoa(len(r.fixtures[input.Scenario.ID])) + " synthetic orders", Actual: "no target effects"}}, nil
+	return []data.Check{{ID: string(kind) + "-plan", Label: "Planned effects", Status: data.CheckPlanned, Expected: strconv.Itoa(len(r.fixtures[input.Scenario.ID])) + " synthetic orders", Actual: "no target effects"}}, nil
 }
 
 func (*Runtime) Capabilities() data.TargetCapabilities {
@@ -301,7 +307,7 @@ func (r *Runtime) Prepare(ctx context.Context, work data.Work) (data.Preparation
 	if err != nil {
 		return data.PreparationReceipt{}, err
 	}
-	if err = work.Progress(ctx, data.Progress{Stage: "synthetic-orders", Completed: uint64(len(rows)), Total: uint64(len(rows))}); err != nil {
+	if err = work.Progress(ctx, data.Progress{Stage: "Writing orders", Completed: uint64(len(rows)), Total: uint64(len(rows))}); err != nil {
 		return data.PreparationReceipt{}, err
 	}
 	return receipt, nil
@@ -313,13 +319,13 @@ func (r *Runtime) Refresh(ctx context.Context, work data.Work) (data.Preparation
 
 func queryRecords(ctx context.Context, db interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-}, stage string) ([]Record, error) {
+}, stage string) (rows []Record, err error) {
 	result, err := db.QueryContext(ctx, `SELECT id,amount,local_day FROM data_example_records WHERE stage=? ORDER BY id LIMIT 101`, stage)
 	if err != nil {
 		return nil, err
 	}
-	defer result.Close()
-	rows := []Record{}
+	defer func() { err = errors.Join(err, result.Close()) }()
+	rows = []Record{}
 	for result.Next() {
 		var row Record
 		if err = result.Scan(&row.ID, &row.Amount, &row.LocalDay); err != nil {
@@ -382,19 +388,19 @@ func (r *Runtime) Verify(ctx context.Context, work data.Work, receipt data.Prepa
 	for _, row := range r.fixtures[receipt.Scenario.ID] {
 		expectedTotal += row.Amount
 	}
-	check := func(id string, expected, actual int) data.Check {
+	check := func(id, label string, expected, actual int) data.Check {
 		status := data.CheckPassed
 		if expected != actual {
 			status = data.CheckFailed
 		}
-		return data.Check{ID: id, Status: status, Expected: strconv.Itoa(expected), Actual: strconv.Itoa(actual), EvidenceRef: "sqlite-stage-query"}
+		return data.Check{ID: id, Label: label, Status: status, Expected: strconv.Itoa(expected), Actual: strconv.Itoa(actual), EvidenceRef: "sqlite-stage-query"}
 	}
 	coverage := "covered"
 	if sampleCount == 0 {
 		coverage = "covered_empty"
 	}
 	return data.VerificationResult{ID: "verification-" + work.OperationID, ContentRevision: receipt.ContentRevision,
-		Checks:   []data.Check{check("order-count", len(r.fixtures[receipt.Scenario.ID]), count), check("order-total", expectedTotal, total), check("sample-count", count, sampleCount)},
+		Checks:   []data.Check{check("order-count", "Order count", len(r.fixtures[receipt.Scenario.ID]), count), check("order-total", "Order total", expectedTotal, total), check("sample-count", "Orders on the sample day", count, sampleCount)},
 		Coverage: []data.Coverage{{Status: coverage, Sample: data.SamplePeriod{LocalDay: "2026-01-01", Timezone: "UTC", EvidenceRef: "sqlite-stage-query"}}}}, nil
 }
 

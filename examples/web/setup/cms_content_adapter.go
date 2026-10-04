@@ -26,6 +26,9 @@ var (
 // shapes that do not expose the production typed admin content/block contracts.
 // Production go-admin adapter paths must use admin.GoCMSContentAdapter instead.
 type goCMSContentBridge struct {
+	// Locale-variant expansion belongs to the maintained typed adapter. Other
+	// reads retain the bridge's page identity and hydration semantics.
+	reader    admin.CMSContentService
 	content   any
 	blocks    any
 	pages     any
@@ -59,6 +62,7 @@ func newGoCMSContentBridge(contentSvc any, blockSvc any, pageSvc any, defaultTem
 		typeNames[id.String()] = name
 	}
 	return &goCMSContentBridge{
+		reader:          admin.NewGoCMSContentAdapter(contentSvc, blockSvc, contentTypes),
 		content:         contentSvc,
 		blocks:          blockSvc,
 		pages:           pageSvc,
@@ -460,6 +464,14 @@ func (b *goCMSContentBridge) ContentsWithOptions(ctx context.Context, locale str
 }
 
 func (b *goCMSContentBridge) listContents(ctx context.Context, locale string, opts ...admin.CMSContentListOption) ([]admin.CMSContent, error) {
+	if reader, ok := b.reader.(interface {
+		ContentsWithOptions(context.Context, string, ...admin.CMSContentListOption) ([]admin.CMSContent, error)
+	}); ok && hasBridgeContentListOption(opts, admin.WithLocaleVariants()) {
+		if env := environmentKeyFromContext(ctx); env != "" {
+			opts = append([]admin.CMSContentListOption{env}, opts...)
+		}
+		return reader.ContentsWithOptions(ctx, locale, opts...)
+	}
 	method := reflect.ValueOf(b.content).MethodByName("List")
 	if !method.IsValid() {
 		return nil, admin.ErrNotFound

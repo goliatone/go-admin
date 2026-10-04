@@ -2912,6 +2912,10 @@ func RegisterDataExplorationQueries(bus *CommandBus, service *data.Service) (Com
 	return core.RegisterDataExplorationQueries(bus, service)
 }
 
+func RegisterDataMaintenanceCommands(bus *CommandBus, service *data.MaintenanceService) (CommandRegistrationHandle, error) {
+	return core.RegisterDataMaintenanceCommands(bus, service)
+}
+
 func RegisterDataPanels(registry *console.PanelRegistry, actions ...DataPanelActions) error {
 	return core.RegisterDataPanels(registry, actions...)
 }

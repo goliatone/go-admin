@@ -35,7 +35,7 @@ func previewPageSession(dataset, scenario string) data.ApplicationPreviewSession
 
 func TestDataPreviewPageChromeShowsExactIdentityAndPreviewRoutes(t *testing.T) {
 	session := previewPageSession("synthetic-orders", "ready")
-	page, err := RenderDataPreviewPage(DataPreviewPage{Session: session, Title: "Synthetic orders report", Routes: previewPageRoutes(), DataPage: "/admin/data",
+	page, err := RenderDataPreviewPage(DataPreviewPage{Session: session, Title: "Synthetic orders report", ScenarioTitle: "Ready", DatasetTitle: "Synthetic orders", Routes: previewPageRoutes(), DataPage: "/admin/data",
 		AssetBase: "/admin", CSRFToken: "csrf-1", Now: time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC), Body: []byte(`<section data-view>view</section>`)})
 	if err != nil {
 		t.Fatal(err)
@@ -58,6 +58,8 @@ func TestDataPreviewPageChromeShowsExactIdentityAndPreviewRoutes(t *testing.T) {
 		`data-preview-server-now="2026-10-03T12:00:00Z"`,
 		`>Preview</span>`, `>Read-only</span>`,
 		`Prepared data, not what kitchen-sink serves.`,
+		`Previewing <strong class="data-preview__value">Ready</strong> <span class="data-preview__meta">· Synthetic orders · prepared for kitchen-sink</span>`,
+		`<details class="data-preview__identity-details">`,
 		`<span class="data-preview__value">synthetic-orders</span>`,
 		`<span class="data-preview__value">ready</span>`,
 		`<code class="data-preview__value">ready-receipt</code> <span class="data-preview__meta">content revision 4</span>`,

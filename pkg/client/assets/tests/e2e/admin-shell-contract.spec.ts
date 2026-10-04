@@ -21,7 +21,8 @@ test.beforeAll(async ({}, testInfo) => {
     server.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
   }
 
-  const deadline = Date.now() + 30_000;
+  // A clean CI Go cache may need longer than 30 seconds to compile the host.
+  const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
     if (server?.exitCode !== null && server?.exitCode !== undefined) {
       throw new Error(`admin shell E2E host exited early (${server.exitCode}):\n${serverOutput}`);

@@ -450,14 +450,20 @@ func TestDataSnapshotRetainedReceiptAndHistoryReadBudget(t *testing.T) {
 	if !strings.Contains(string(raw), input.ReceiptID) {
 		t.Fatal("active receipt outside receipt/history windows was not pinned")
 	}
-	own := dataModuleAction(t, snap, data.Activate, input.ReceiptID)
+	// Receipts are chosen through the picker, so the activation choice binds no
+	// receipt; a foreign actor may see the scenario's work but never the pinned
+	// receipt, neither as a preselected default nor anywhere in its snapshot.
+	if own := dataModuleAction(t, snap, data.Activate, "Ready"); own.RequestScope != "activate:kitchen-sink" {
+		t.Fatal("own activation lost its request scope", own)
+	}
 	foreign := f.snapshot(t, "other")
 	for _, panel := range foreign.Panels {
-		if panel.UI != nil {
-			for _, action := range panel.UI.Actions {
-				if action.ID == own.ID {
-					t.Fatal("foreign actor received active receipt mutation choice")
-				}
+		if panel.UI == nil {
+			continue
+		}
+		for _, action := range panel.UI.Actions {
+			if dataActionNames(action, input.ReceiptID) {
+				t.Fatal("foreign actor received a choice bound to the pinned receipt", action)
 			}
 		}
 	}
@@ -515,8 +521,15 @@ func TestDataSnapshotRecordRevocationAfterLoad(t *testing.T) {
 		}
 		if panel.ID == DataPanelOverview {
 			raw := snapshotJSON(t, panel.Records)
-			if strings.Contains(string(raw), "latest_operation") || strings.Contains(string(raw), "dataset_label") {
-				t.Fatal("overview leaked revoked record details", string(raw))
+			if strings.Contains(string(raw), "latest_operation") || strings.Contains(string(raw), `"recent":[{`) {
+				t.Fatal("overview leaked revoked operation details", string(raw))
+			}
+			summary, _ := panel.Records[0].Data.(map[string]any)
+			targets, _ := summary["targets"].([]map[string]any)
+			for _, target := range targets {
+				if target["dataset_label"] != nil || target["scenario_label"] != nil || target["explore_active"] != nil {
+					t.Fatal("overview leaked revoked receipt details", string(raw))
+				}
 			}
 		}
 	}

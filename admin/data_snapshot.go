@@ -16,6 +16,11 @@ type dataSnapshotProjection struct {
 	owner   *DataModule
 	model   dataModuleReadModel
 	choices []DataActionChoice
+	// authorized caches the policy-filtered choices of this invocation so the
+	// action panels, overview and rows share one authorization pass.
+	authorized    []DataActionChoice
+	authorizedErr error
+	authorizedSet bool
 	// Selectors are derived from canonical inputs, never from mutable outgoing
 	// Data. A masking callback cannot remove receipt_id to bypass record policy.
 	recordRefs map[string]map[string]dataRecordPolicyRefs
@@ -77,11 +82,7 @@ func (m *DataModule) prepareSnapshot(ctx context.Context, _ console.Identity) (c
 	for _, descriptor := range model.catalog {
 		projection.choices = append(projection.choices, m.datasetChoices(descriptor, model)...)
 	}
-	for _, op := range model.ops {
-		if !op.Result.State.Terminal() && !op.Result.DryRun && op.Result.Kind.Writes() {
-			projection.choices = append(projection.choices, DataActionChoice{Kind: data.Recover, Label: "Recover " + op.Result.OperationID, Input: data.Input{TargetID: m.config.TargetID, OperationID: op.Result.OperationID}})
-		}
-	}
+	projection.choices = append(projection.choices, m.operationCandidates(model)...)
 	return context.WithValue(ctx, dataSnapshotKey{}, projection), nil
 }
 
@@ -120,6 +121,10 @@ func (model dataModuleReadModel) operation(id string) *data.Operation {
 func (m *DataModule) authorizeProjectedChoice(ctx context.Context, model dataModuleReadModel, choice DataActionChoice, capabilities map[data.Kind]data.Capability) (bool, error) {
 	if !capabilities[choice.Kind].Supported {
 		return false, nil
+	}
+	if choice.RetryOf != "" {
+		// The service authorized the exact retained input when it issued the descriptor.
+		return true, nil
 	}
 	a := data.AccessRequest{Action: string(choice.Kind), Target: model.state.Target}
 	if !choice.ReceiptInput && (choice.Kind == data.Verify || choice.Kind == data.Activate) {
@@ -242,23 +247,6 @@ func (m *DataModule) projectDataRecordForDelivery(ctx context.Context, _ console
 	if panel == DataPanelOverview {
 		return m.projectDataOverview(ctx, p, record)
 	}
-	if panel == DataPanelDatasets {
-		for _, descriptor := range p.model.catalog {
-			if DataDatasetRecord(descriptor, record.Revision).Key != record.Key {
-				continue
-			}
-			row, ok := record.Data.(map[string]any)
-			if !ok || row == nil {
-				return console.Record{}, validationDomainError("data dataset record has no row", nil)
-			}
-			capabilities, err := m.currentCapabilities(ctx, descriptor.Capabilities)
-			if err != nil {
-				return console.Record{}, err
-			}
-			row["actions"], row["unavailable"] = dataCapabilitySummary(capabilities)
-			break
-		}
-	}
 	return record, nil
 }
 
@@ -279,47 +267,79 @@ func (m *DataModule) currentCapabilities(ctx context.Context, source map[data.Ki
 }
 
 func (m *DataModule) projectedChoices(ctx context.Context, projection *dataSnapshotProjection) ([]DataActionChoice, error) {
+	if projection.authorizedSet {
+		return projection.authorized, projection.authorizedErr
+	}
+	out, err := m.authorizeProjectedChoices(ctx, projection)
+	if err == nil {
+		retries, retryErr := m.retryChoices(ctx, projection.model)
+		if retryErr != nil {
+			err = retryErr
+		} else {
+			out = append(out, retries...)
+		}
+	}
+	if err != nil {
+		out = nil
+	}
+	projection.authorized, projection.authorizedErr, projection.authorizedSet = out, err, true
+	return out, err
+}
+
+func (m *DataModule) authorizeProjectedChoices(ctx context.Context, projection *dataSnapshotProjection) ([]DataActionChoice, error) {
 	out := []DataActionChoice{}
 	for _, choice := range projection.choices {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if choice.Kind == data.Recover {
-			op := projection.model.operation(choice.Input.OperationID)
-			if op == nil {
-				continue
-			}
-			accessErr := m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: string(data.Recover), Target: projection.model.state.Target, Operation: op})
-			// A missing durable recovery capability is display unavailability.
-			// Policy backend outages are categorized as external by the service.
-			var structured *gerrors.Error
-			if data.ErrorCode(accessErr) == data.CodeUnavailable && errors.As(accessErr, &structured) && structured.Category != gerrors.CategoryExternal {
-				continue
-			}
-			allowed, err := dataDisplayAccess(accessErr)
-			if err != nil {
-				return nil, err
-			}
-			if allowed {
-				out = append(out, choice)
-			}
-			continue
+		allowed, err := m.authorizeProjectedCandidate(ctx, projection, choice)
+		if err != nil {
+			return nil, err
 		}
-		for _, descriptor := range projection.model.catalog {
-			if descriptor.Dataset != choice.Input.Dataset {
-				continue
-			}
-			allowed, err := m.authorizeProjectedChoice(ctx, projection.model, choice, descriptor.Capabilities)
-			if err != nil {
-				return nil, err
-			}
-			if allowed {
-				out = append(out, choice)
-				break
-			}
+		if allowed {
+			out = append(out, choice)
 		}
 	}
 	return out, nil
+}
+
+// authorizeProjectedCandidate decides one candidate under current policy:
+// visible unavailable affordances pass through, operation controls use their
+// operation's grant, and scenario work uses capability and input policy.
+func (m *DataModule) authorizeProjectedCandidate(ctx context.Context, projection *dataSnapshotProjection, choice DataActionChoice) (bool, error) {
+	if choice.Availability != "" {
+		// Visible, disabled affordances explain themselves; they never dispatch.
+		return true, nil
+	}
+	model := projection.model
+	switch choice.Kind {
+	case data.Cancel:
+		op := model.operation(choice.Input.OperationID)
+		if op == nil {
+			return false, nil
+		}
+		return dataDisplayAccess(m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: string(op.Result.Kind), Target: model.state.Target, Operation: op}))
+	case data.Recover:
+		op := model.operation(choice.Input.OperationID)
+		if op == nil {
+			return false, nil
+		}
+		accessErr := m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: string(data.Recover), Target: model.state.Target, Operation: op})
+		// A missing durable recovery capability is display unavailability.
+		// Policy backend outages are categorized as external by the service.
+		var structured *gerrors.Error
+		if data.ErrorCode(accessErr) == data.CodeUnavailable && errors.As(accessErr, &structured) && structured.Category != gerrors.CategoryExternal {
+			return false, nil
+		}
+		return dataDisplayAccess(accessErr)
+	}
+	for _, descriptor := range model.catalog {
+		if descriptor.Dataset != choice.Input.Dataset {
+			continue
+		}
+		return m.authorizeProjectedChoice(ctx, model, choice, descriptor.Capabilities)
+	}
+	return false, nil
 }
 
 func dataRecordReference(row map[string]any, key string) string {
@@ -334,32 +354,32 @@ func (m *DataModule) projectDataOverview(ctx context.Context, p *dataSnapshotPro
 	// Definition filters have a legacy no-error callback. Validate their
 	// current choice policy here too, so backend failure cannot be delivered
 	// as an apparently successful console with withdrawn controls.
-	if _, err := m.projectedChoices(ctx, p); err != nil {
+	choices, err := m.projectedChoices(ctx, p)
+	if err != nil {
 		return console.Record{}, err
 	}
 	model := p.model
 	model.ops = nil
 	model.receipts = nil
 	for _, op := range p.model.ops {
-		allowed, err := dataDisplayAccess(m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: "view", Target: model.state.Target, Operation: &op}))
-		if err != nil {
-			return console.Record{}, err
+		allowed, accessErr := dataDisplayAccess(m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: "view", Target: model.state.Target, Operation: &op}))
+		if accessErr != nil {
+			return console.Record{}, accessErr
 		}
 		if allowed {
 			model.ops = append(model.ops, op)
 		}
 	}
 	for _, receipt := range p.model.receipts {
-		allowed, err := dataDisplayAccess(m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: "view", Target: model.state.Target, Receipt: receipt}))
-		if err != nil {
-			return console.Record{}, err
+		allowed, accessErr := dataDisplayAccess(m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{Action: "view", Target: model.state.Target, Receipt: receipt}))
+		if accessErr != nil {
+			return console.Record{}, accessErr
 		}
 		if allowed {
 			model.receipts = append(model.receipts, receipt)
 		}
 	}
-	view := model.overview()
-	var err error
+	view := model.overview(model.dataRefs(choices, DataPanelOverview, m.config.TargetID))
 	view.Capabilities, err = m.currentCapabilities(ctx, view.Capabilities)
 	if err != nil {
 		return console.Record{}, err

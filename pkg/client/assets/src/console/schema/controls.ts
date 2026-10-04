@@ -538,7 +538,11 @@ function consoleFieldControl(field: ServerPanelUIActionField, parts: ConsoleFiel
     const search = source.searchable
       ? `<input type="search" class="${prefix}-field__search" data-option-search aria-label="Search ${escapeAttribute(parts.label)}" placeholder="Search">`
       : '';
-    return `<select ${parts.attrs}><option value="">Loading…</option></select>${search}<button type="button" class="${prefix}-btn ${prefix}-btn--sm ${prefix}-btn--ghost" data-option-more hidden>Load more</button>`;
+    // A declared default is pinned on the first page load, so a preselected
+    // retained receipt is shown even when it sits beyond page one.
+    const preselected = consoleFieldDefault(field);
+    const pending = preselected ? ` data-pending-value="${escapeAttribute(preselected)}"` : '';
+    return `<select ${parts.attrs}${pending}><option value="">Loading…</option></select>${search}<button type="button" class="${prefix}-btn ${prefix}-btn--sm ${prefix}-btn--ghost" data-option-more hidden>Load more</button>`;
   }
   const placeholder = normalizeSchemaText(field.placeholder);
   const control = renderActionFieldControl(field, parts.kind, parts.attrs, placeholder ? ` placeholder="${escapeHTML(placeholder)}"` : '');

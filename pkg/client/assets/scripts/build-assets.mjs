@@ -13,7 +13,6 @@ import {
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  composeAdminStylesheet,
   writeLegacyComponentStylesheet,
 } from './component-styles.mjs';
 
@@ -89,9 +88,8 @@ function stageRuntimeAssets() {
   // Keep declaration artifacts outside dist so Go embed only tracks runtime assets.
   run('tsc', ['--emitDeclarationOnly', '--outDir', distTypesDir, '--declarationDir', distTypesDir]);
 
-  run('tailwindcss', ['-i', './input.css', '-o', './output.css', '--minify']);
-  composeAdminStylesheet(root, resolve(root, 'output.css'));
-  copyFile(resolve(root, 'output.css'), resolve(distStagingDir, 'output.css'));
+  run('node', ['scripts/build-css.mjs', '--output', resolve(distStagingDir, 'output.css')]);
+  copyFile(resolve(distStagingDir, 'output.css'), resolve(root, 'output.css'));
 
   // Keep the legacy DataGrid stylesheet URL as a generated compatibility copy
   // of the single canonical component source.

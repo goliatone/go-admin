@@ -232,14 +232,14 @@ test('Explore cards describe authorized datasets lazily and keep catalog counts 
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   assert.equal(server.requests.length, 0, 'nothing is read before Explore is shown');
   assert.equal(runtime.selectPanel('explore'), true);
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   assert.equal(cards(root).length, 2, 'one card per authorized dataset');
 
   const corpusA = textOf(cardFor(root, 'Customer corpus A'));
   for (const fragment of [
     'Synthetic', 'v1', 'Synthetic customers and their orders for sales reporting checks.',
-    'Ready Active', 'Quiet Verified — not active', 'dst-week v1 Prepared — not verified',
-    'Catalog inventory orders 40, people 120', 'Provider crm', 'View details',
+    'Ready Active', 'Quiet Verified', 'dst-week v1 Prepared',
+    'Catalog inventory 40 orders, 120 people', 'Provider crm', 'View details',
   ]) {
     assert.ok(corpusA.includes(fragment), `corpus A card shows ${fragment}: ${corpusA}`);
   }
@@ -260,7 +260,7 @@ test('provider strings render as text, never markup or links', async () => {
   runtime.selectPanel('explore');
   await waitFor(() => assert.ok(explorerText(root).includes('Corpus B <img')));
   await openDetails(root, 'Corpus B');
-  for (const section of ['about', 'contents', 'usage', 'scenarios', 'evidence']) {
+  for (const section of ['about', 'contents', 'usage']) {
     await showSection(root, section);
     assert.equal(explorerRoot(root).querySelectorAll('img, script, a[href^="javascript"]').length, 0, `${section} renders no provider markup`);
   }
@@ -269,12 +269,12 @@ test('provider strings render as text, never markup or links', async () => {
   runtime.destroy();
 });
 
-test('details compose About, Contents, Used by, Scenarios and Evidence for the exact selection', async () => {
+test('details compose About, Contents and Used by for the exact selection, with identity under a disclosure', async () => {
   exploreServer();
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   const heading = await openDetails(root, 'Customer corpus A');
   await waitFor(() => assert.equal(win.document.activeElement, heading, 'opening details focuses the dataset heading'));
 
@@ -303,21 +303,17 @@ test('details compose About, Contents, Used by, Scenarios and Evidence for the e
     assert.ok(contents.includes(fragment), `Contents shows ${fragment}: ${contents}`);
   }
   key_(win.document.activeElement, 'End');
-  await waitFor(() => assert.equal(win.document.activeElement?.dataset.explorerSection, 'evidence'));
-  const evidence = sectionText(root);
-  for (const fragment of ['Data shown Catalog example', 'Provenance Example — declared by the provider, not observed', 'Receipt None — catalog example', 'Lifecycle status Active']) {
-    assert.ok(evidence.includes(fragment), `Evidence shows ${fragment}: ${evidence}`);
-  }
-  key_(win.document.activeElement, 'Home');
-  await waitFor(() => assert.equal(win.document.activeElement?.dataset.explorerSection, 'about'));
-
-  const usage = await showSection(root, 'usage');
+  await waitFor(() => assert.equal(win.document.activeElement?.dataset.explorerSection, 'usage'));
+  const usage = sectionText(root);
   assert.ok(usage.includes('Daily sales report Report') && usage.includes('Customer search Screen'), usage);
   assert.ok(usage.includes('Other uses may exist'), 'declared usage never claims exhaustive discovery');
+  key_(win.document.activeElement, 'Home');
+  await waitFor(() => assert.equal(win.document.activeElement?.dataset.explorerSection, 'about'));
+  assert.deepEqual(Array.from(root.querySelectorAll('[data-explorer-section]')).map((tab) => tab.textContent), ['About', 'Contents', 'Used by'], 'evidence and scenario lists fold into About and the header');
 
-  const scenarios = await showSection(root, 'scenarios');
-  for (const fragment of ['Ready Active', 'Expected outcomes (declared, not verified) Three orders totaling 250', 'Quiet Verified — not active No orders at all.', 'Explore this scenario']) {
-    assert.ok(scenarios.includes(fragment), `Scenarios shows ${fragment}: ${scenarios}`);
+  const aboutAgain = sectionText(root);
+  for (const fragment of ['Expected outcomes Three orders totaling 250', 'Declared, not verified.', 'Lifecycle status Active', 'Data shown Catalog example', 'Provenance Example — declared by the provider, not observed', 'Receipt None — catalog example', 'Verification evidence', 'Coverage']) {
+    assert.ok(aboutAgain.includes(fragment), `About shows ${fragment}: ${aboutAgain}`);
   }
 
   click(root.querySelector('[data-explorer-action="back"]'));
@@ -331,7 +327,7 @@ test('switching scenario reads the exact selection and discards the superseded a
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   const picker = root.querySelector('select[data-explorer-control="scenario"]');
   const readyKey = picker.value;
@@ -359,12 +355,12 @@ test('Quiet stays empty for its scenario while the catalog inventory stays three
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
-  await showSection(root, 'scenarios');
-  const quiet = Array.from(root.querySelectorAll('.console-explorer__scenario')).find((item) => item.textContent.includes('Quiet'));
-  click(quiet.querySelector('[data-explorer-action="scenario"]'));
-  await waitFor(() => assert.ok(root.querySelector('select[data-explorer-control="scenario"]').selectedOptions[0].textContent.startsWith('Quiet')));
+  const picker = root.querySelector('select[data-explorer-control="scenario"]');
+  picker.value = Array.from(picker.options).find((option) => option.textContent.startsWith('Quiet')).value;
+  picker.dispatchEvent(new win.Event('change', { bubbles: true }));
+  await waitFor(() => assert.ok(root.querySelector('select[data-explorer-control="scenario"]').selectedOptions[0].textContent.startsWith('Quiet · Verified')));
   await showSection(root, 'contents');
   await waitFor(() => assert.ok(sectionText(root).includes('Orders Selected scenario 0'), sectionText(root)));
   assert.ok(sectionText(root).includes('Orders Catalog inventory 3'), 'catalog inventory never masquerades as the scenario count');
@@ -380,12 +376,12 @@ test('unsupported and suppressed replies stay distinct and withhold descriptions
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
   const card = await waitFor(() => {
-    const found = cardFor(root, 'crm/corpus-a v1');
+    const found = cardFor(root, 'Customer corpus A');
     assert.ok(found.textContent.includes('No description provided by this dataset’s provider.'), found.textContent);
     return found;
   });
-  assert.equal(textOf(card.querySelector('.console-card__title')), 'crm/corpus-a v1', 'an unsupported reply never titles the card with the raw dataset ID');
-  await openDetails(root, 'crm/corpus-a v1');
+  assert.equal(textOf(card.querySelector('.console-card__title')), 'Customer corpus A', 'an unsupported reply keeps the lifecycle title, never the raw dataset ID');
+  await openDetails(root, 'Customer corpus A');
   assert.ok(root.querySelector('[data-explorer-state="unsupported"]'), sectionText(root));
   assert.ok(sectionText(root).includes('Prerequisites audience-definitions'), 'lifecycle catalog facts remain');
   const contents = await showSection(root, 'contents');
@@ -408,8 +404,8 @@ async function detailsAfterFailure(status) {
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(cardFor(root, 'crm/corpus-a v1').textContent.includes('Description unavailable.')));
-  await openDetails(root, 'crm/corpus-a v1');
+  await waitFor(() => assert.ok(cardFor(root, 'Customer corpus A').textContent.includes('Description unavailable.')));
+  await openDetails(root, 'Customer corpus A');
   await waitFor(() => assert.ok(root.querySelector('[data-explorer-failure]')));
   return { root, runtime, server, answer, ready };
 }
@@ -446,8 +442,8 @@ test('a reply for any other selection is rejected as malformed', async () => {
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(cardFor(root, 'crm/corpus-a v1').textContent.includes('Description unavailable.')));
-  await openDetails(root, 'crm/corpus-a v1');
+  await waitFor(() => assert.ok(cardFor(root, 'Customer corpus A').textContent.includes('Description unavailable.')));
+  await openDetails(root, 'Customer corpus A');
   await waitFor(() => assert.equal(root.querySelector('[data-explorer-failure]')?.dataset.explorerFailure, 'malformed'));
   runtime.destroy();
 });
@@ -459,8 +455,8 @@ test('without explore routes the explorer shows lifecycle cards and never reads'
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
   await waitFor(() => assert.ok(explorerText(root).includes('not offered on this installation')));
-  assert.ok(cardFor(root, 'crm/corpus-a v1'));
-  await openDetails(root, 'crm/corpus-a v1');
+  assert.ok(cardFor(root, 'Customer corpus A'));
+  await openDetails(root, 'Customer corpus A');
   assert.ok(sectionText(root).includes('Exploration is not available on this installation.'));
   await settle();
   assert.equal(server.requests.length, 0);
@@ -497,7 +493,7 @@ test('a new authorized snapshot re-reads shown descriptions under current policy
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   await waitFor(() => assert.ok(sectionText(root).includes('Declared period 2026-01-01 (UTC)')));
   const reads = server.requests.length;
@@ -508,7 +504,7 @@ test('a new authorized snapshot re-reads shown descriptions under current policy
   await waitFor(() => assert.equal(root.querySelector('[data-explorer-failure]')?.dataset.explorerFailure, 'denied'));
   assert.ok(server.requests.length > reads, 'the shown selection was read again');
   assert.ok(!sectionText(root).includes('Declared period 2026-01-01 (UTC)'), 'previously shown descriptions are gone');
-  assert.equal(textOf(root.querySelector('.console-explorer__title')), 'crm/corpus-a v1', 'the heading falls back to lifecycle identity');
+  assert.equal(textOf(root.querySelector('.console-explorer__title')), 'Customer corpus A', 'the heading falls back to the lifecycle title');
   runtime.destroy();
 });
 
@@ -517,7 +513,7 @@ async function readyContents(server) {
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   await waitFor(() => assert.ok(sectionText(root).includes('Declared period 2026-01-01 (UTC)')));
   await showSection(root, 'contents');
@@ -586,7 +582,7 @@ test('an empty scenario preview says empty, never zero rows of data', async () =
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   const picker = root.querySelector('select[data-explorer-control="scenario"]');
   picker.value = Array.from(picker.options).find((option) => option.textContent.startsWith('Quiet')).value;
@@ -650,7 +646,7 @@ test('declared impact lists per-phase effects and only same-origin links', async
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   await showSection(root, 'usage');
   const usages = Array.from(root.querySelectorAll('.console-explorer__usage')).map((item) => textOf(item));
@@ -718,7 +714,7 @@ test('prepared and active contexts read the exact receipt, revision and generati
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
 
   const prepared = root.querySelector('input[value="prepared"]');
@@ -727,7 +723,7 @@ test('prepared and active contexts read the exact receipt, revision and generati
   await waitFor(() => assert.equal(reads(server, 'metadata').at(-1).selection.context, 'prepared'));
   let selection = reads(server, 'metadata').at(-1).selection;
   assert.deepEqual([selection.receipt_id, selection.content_revision, selection.generation], ['rcpt-ready-1', 2, undefined]);
-  await waitFor(() => assert.ok(root.querySelector('.console-explorer__note').textContent.includes('Prepared receipt rcpt-ready-1 (content revision 2) on preview')));
+  await waitFor(() => assert.ok(root.querySelector('.console-explorer__note').textContent.includes('Prepared data for Ready on preview, observed in its isolated stage. This prepared data is also what the target serves')));
   assert.equal(win.document.activeElement?.value, 'prepared', 'focus stays on the chosen context');
 
   const active = root.querySelector('input[value="active"]');
@@ -737,11 +733,12 @@ test('prepared and active contexts read the exact receipt, revision and generati
   selection = reads(server, 'metadata').at(-1).selection;
   assert.deepEqual([selection.receipt_id, selection.content_revision, selection.generation], ['rcpt-ready-1', 2, 3]);
   await waitFor(() => assert.ok(sectionText(root).includes('Declared period 2026-01-01 (UTC)')));
-  assert.ok(root.querySelector('.console-explorer__note').textContent.includes('Active on preview at generation 3 (receipt rcpt-ready-1)'));
-  const evidence = await showSection(root, 'evidence');
+  assert.ok(root.querySelector('.console-explorer__note').textContent.includes('What preview serves now for Ready (generation 3), observed live.'));
+  const identity = textOf(root.querySelector('.console-explorer__identity'));
   for (const fragment of ['Data shown Active data', 'Provenance Observed', 'Receipt rcpt-ready-1', 'Content revision 2', 'Generation 3']) {
-    assert.ok(evidence.includes(fragment), `Evidence shows ${fragment}: ${evidence}`);
+    assert.ok(identity.includes(fragment), `Technical identity shows ${fragment}: ${identity}`);
   }
+  assert.ok(!root.querySelector('.console-explorer__note').textContent.includes('rcpt-ready-1'), 'the context note names no identifiers');
   runtime.destroy();
 });
 
@@ -751,7 +748,7 @@ test('a generation change marks the active view stale until an explicit refresh'
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   const active = root.querySelector('input[value="active"]');
   active.checked = true;
@@ -769,7 +766,7 @@ test('a generation change marks the active view stale until an explicit refresh'
   const before = reads(server, 'metadata').length;
   await runtime.refresh();
   await waitFor(() => assert.ok(root.querySelector('[data-explorer-state="stale"]'), sectionText(root)));
-  assert.ok(sectionText(root).includes('The active data changed since you opened it. It is now receipt rcpt-ready-1 at generation 4.'), sectionText(root));
+  assert.ok(sectionText(root).includes('The active data changed since you opened it. The target now serves generation 4.'), sectionText(root));
   assert.equal(previewFor(root, 'orders'), null, 'records of the stale generation are gone');
   assert.ok(!sectionText(root).includes('Orders Catalog inventory 3'), 'descriptions of the stale generation are gone');
   await settle();
@@ -789,7 +786,7 @@ test('a scenario that stops being active becomes unavailable, never substituted'
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   const active = root.querySelector('input[value="active"]');
   active.checked = true;
@@ -841,7 +838,7 @@ test('live revalidation keeps the shown page, focus and disclosure, and only wit
   socket.message(golden.bootstrap.snapshot);
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   await waitFor(() => assert.ok(sectionText(root).includes('Declared period 2026-01-01 (UTC)')));
   const identity = root.querySelector('[data-explorer-disclosure="identity"]');
@@ -885,7 +882,7 @@ test('a normalized protocol-relative link stays on the page origin', async () =>
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   await showSection(root, 'usage');
   const href = root.querySelector('[data-explorer-usage-link]')?.getAttribute('href') || '';
@@ -898,7 +895,7 @@ test('a dataset with no explorable scenario says its description is unknown', as
   exploreServer();
   const snapshot = structuredClone(golden.bootstrap.snapshot);
   const scenarios = snapshot.panels.find((panel) => panel.id === 'scenarios');
-  const corpusB = snapshot.panels.find((panel) => panel.id === 'datasets').records.find((record) => record.data.dataset_id === 'corpus-b').record_key;
+  const corpusB = snapshot.panels.find((panel) => panel.id === 'explore').records.find((record) => record.data.dataset_id === 'corpus-b').record_key;
   scenarios.records = scenarios.records.filter((record) => record.data.dataset_key !== corpusB);
   const { root, runtime } = mount(bootstrapWith({ snapshot }));
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
@@ -920,14 +917,14 @@ test('the prepared view of the active receipt says it is the active one', async 
   const { root, runtime } = mount();
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(explorerText(root).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(explorerText(root).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   await openDetails(root, 'Customer corpus A');
   const prepared = root.querySelector('input[value="prepared"]');
   prepared.checked = true;
   prepared.dispatchEvent(new win.Event('change', { bubbles: true }));
   await waitFor(() => assert.equal(root.querySelector('.console-explorer__note').dataset.context, 'prepared'));
   const note = root.querySelector('.console-explorer__note').textContent;
-  assert.ok(note.includes('This receipt is the active one') && !note.includes('It is not active'), note);
+  assert.ok(note.includes('This prepared data is also what the target serves') && !note.includes('It is not what'), note);
   runtime.destroy();
 });
 

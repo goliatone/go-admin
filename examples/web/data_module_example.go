@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/data"
@@ -36,6 +37,9 @@ func newExampleDataModule(adm *coreadmin.Admin, cfg coreadmin.Config, options ap
 		// This example's adapter has focused conformance tests. Enabling another
 		// application's adapters requires that application's own evidence.
 		WritesEnabled: options.WritesEnabled && isDevelopment,
+		// The reference store retains request claims for 30 days; declaring the
+		// same window lets an unchanged resubmission replay instead of duplicating.
+		RetryWindow: 30 * 24 * time.Hour,
 	})
 	if err != nil {
 		return nil, nil, errors.Join(err, runtime.Close())

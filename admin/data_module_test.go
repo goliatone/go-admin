@@ -52,7 +52,7 @@ func TestDataModuleBindsRoutesActionsAndIndependentCurrentPolicy(t *testing.T) {
 	}
 	descriptor.Scenarios[0].Dataset = descriptor.Dataset
 	principal := data.Principal{ActorID: "operator", ExecutionID: "operator", ScopeKey: "org", ModuleHash: hash, PolicyHash: hash, PermissionHash: hash}
-	ctx := context.WithValue(t.Context(), dataRegistrationPrincipalKey{}, principal)
+	ctx := dataTestClientContext(context.WithValue(t.Context(), dataRegistrationPrincipalKey{}, principal))
 	service, err := data.NewService(data.ServiceConfig{Providers: map[string]data.Provider{"sample": &moduleCatalogProvider{dataRegistrationProvider{descriptor: descriptor}}}, Target: dataRegistrationTarget{}, Store: store, Policy: moduleDataPolicy{&view, &execute}, Resolve: func(ctx context.Context) (data.Principal, error) {
 		p, ok := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
 		if !ok {
@@ -111,16 +111,31 @@ func TestDataModuleBindsRoutesActionsAndIndependentCurrentPolicy(t *testing.T) {
 		t.Fatal("missing panel", id)
 		return console.PanelSnapshot{}
 	}
-	if err != nil || len(snapshot.Panels) != len(DataPanelIDs()) || len(findPanel(snapshot, DataPanelOverview).UI.Actions) != 0 || len(findPanel(snapshot, DataPanelDatasets).Records) != 1 {
+	executable := func(panel console.PanelSnapshot) []console.PanelUIAction {
+		out := []console.PanelUIAction{}
+		for _, action := range panel.UI.Actions {
+			if action.Executable() {
+				out = append(out, action)
+			}
+		}
+		return out
+	}
+	// A viewer sees the declared work disabled with its reason, never executable.
+	if err != nil || len(snapshot.Panels) != len(DataPanelIDs()) || len(executable(findPanel(snapshot, DataPanelOverview))) != 0 || len(findPanel(snapshot, DataPanelExplore).Records) != 1 {
 		t.Fatal("viewer lost read access", snapshot, err)
+	}
+	for _, action := range findPanel(snapshot, DataPanelScenarios).UI.Actions {
+		if action.Availability != console.PanelActionNotPermitted || action.Reason == "" {
+			t.Fatal("viewer declaration is not a disabled not-permitted affordance", action)
+		}
 	}
 	execute.Store(true)
 	snapshot, err = module.Console().Snapshot(ctx, identity)
-	if err != nil || len(findPanel(snapshot, DataPanelOverview).UI.Actions) != 1 {
+	if err != nil || len(executable(findPanel(snapshot, DataPanelOverview))) != 1 {
 		t.Fatal("operator actions not bound", snapshot, err)
 	}
-	action := findPanel(snapshot, DataPanelOverview).UI.Actions[0]
-	result, err := module.Console().RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: action.ID, Payload: map[string]any{"idempotency_key": "validate", "actor_id": "forged", "target_id": "other"}})
+	action := executable(findPanel(snapshot, DataPanelOverview))[0]
+	result, err := module.Console().RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: action.ID, Payload: map[string]any{"idempotency_key": dataTestKey("validate"), "actor_id": "forged", "target_id": "other"}})
 	if err != nil || !result.OK {
 		t.Fatal("typed Data action failed", result, err)
 	}
@@ -132,7 +147,7 @@ func TestDataModuleBindsRoutesActionsAndIndependentCurrentPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	execute.Store(false)
-	if _, err = module.Console().RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: action.ID, Payload: map[string]any{"idempotency_key": "forbidden"}}); !errors.Is(err, ErrNotFound) {
+	if _, err = module.Console().RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelOverview, ActionID: action.ID, Payload: map[string]any{"idempotency_key": dataTestKey("forbidden")}}); !errors.Is(err, ErrNotFound) {
 		t.Fatal("revoked action ran", err)
 	}
 	view.Store(false)

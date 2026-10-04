@@ -12,7 +12,7 @@ import { C as Mr, S as Br, T as Fr, _ as zr, a as N, b as qr, c as Hr, d as Ur, 
 import { C as as, E as ns, S as os, T as ls, _ as cs, a as ds, b as us, c as hs, d as ps, h as fs, i as gs, l as bs, m as ms, n as vs, o as ys, p as ws, r as xs, t as Ss, u as $s, v as ks, w as Cs, x as Es, y as Ls } from "../chunks/grouped-mode-C1WBh7ma.js";
 import { t as _s } from "../chunks/filter-builder-BFxjuwFG.js";
 import { n as Is, r as Ds, t as Rs } from "../chunks/schema-actions-BwL4D7OB.js";
-import { n as Ms, r as Bs, t as Fs } from "../chunks/detail-actions-hq1qXn8D.js";
+import { n as Ms, r as Bs, t as Fs } from "../chunks/detail-actions-B0-zTiU6.js";
 import { a as qs, c as Hs, i as Us, l as Os, n as js, o as Ns, r as Vs, s as Gs, t as Ks } from "../chunks/translation-panel-Vmt9ldOV.js";
 import { r as he, t as pe } from "../chunks/translation-contracts-C_O37O2-.js";
 import { t as V } from "../chunks/stateful-controller-BhTsWevz.js";

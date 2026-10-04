@@ -477,7 +477,7 @@ test.describe('Translation UX - Content Panels', () => {
           const filters = await getQuickFilters(page);
           const disabledFilters = filters.filter(f => f.disabled);
 
-          const disabledButtons = page.locator('.quick-filter-btn[aria-disabled="true"]');
+          const disabledButtons = page.locator('[data-quick-filter-value][aria-disabled="true"]');
           const disabledCount = await disabledButtons.count();
           for (let i = 0; i < disabledCount; i++) {
             const title = await disabledButtons.nth(i).getAttribute('title');

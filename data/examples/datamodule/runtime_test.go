@@ -50,8 +50,8 @@ func TestDurableDemoTypedLifecycleAndScenarioSwitch(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := runtime.Close(); err != nil {
-			t.Error(err)
+		if closeErr := runtime.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	})
 	service := demoService(t, runtime, runtime)
@@ -61,23 +61,23 @@ func TestDurableDemoTypedLifecycleAndScenarioSwitch(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := handle.Close(); err != nil {
-			t.Error(err)
+		if closeErr := handle.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	})
 	run := func(kind data.Kind, input data.Input) data.Result {
 		t.Helper()
-		encoded, err := json.Marshal(input)
-		if err != nil {
-			t.Fatal(err)
+		encoded, operationErr := json.Marshal(input)
+		if operationErr != nil {
+			t.Fatal(operationErr)
 		}
 		var payload map[string]any
-		if err = json.Unmarshal(encoded, &payload); err != nil {
-			t.Fatal(err)
+		if operationErr = json.Unmarshal(encoded, &payload); operationErr != nil {
+			t.Fatal(operationErr)
 		}
-		outcome, err := bus.DispatchByNameWithOutcome(t.Context(), kind.CommandID(), payload, nil, gocommand.DispatchOptions{Mode: gocommand.ExecutionModeInline})
-		if err != nil {
-			t.Fatal(kind, err)
+		outcome, operationErr := bus.DispatchByNameWithOutcome(t.Context(), kind.CommandID(), payload, nil, gocommand.DispatchOptions{Mode: gocommand.ExecutionModeInline})
+		if operationErr != nil {
+			t.Fatal(kind, operationErr)
 		}
 		result, ok := outcome.Result.(data.Result)
 		if !ok || result.State != data.Succeeded || result.Failure != nil {
@@ -150,7 +150,11 @@ func TestDurableDemoTypedLifecycleAndScenarioSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reopened.Close()
+	t.Cleanup(func() {
+		if closeErr := reopened.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
 	restarted := demoService(t, reopened, reopened)
 	state, err := restarted.Active(t.Context(), TargetID)
 	if err != nil || state.Activation.Generation != 2 || !state.Activation.Ready {
@@ -182,12 +186,18 @@ func TestDemoRejectsDatasetVersionCollision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer runtime.Close()
+	t.Cleanup(func() {
+		if closeErr := runtime.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
 	if _, err = runtime.db.ExecContext(t.Context(), `UPDATE data_example_catalog SET digest=?`, Hash("different-source")); err != nil {
 		t.Fatal(err)
 	}
 	if reopened, openErr := Open(filename); openErr == nil {
-		reopened.Close()
+		if closeErr := reopened.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
 		t.Fatal("changed content reused the same dataset version")
 	} else if data.ErrorCode(openErr) != data.CodeConflict {
 		t.Fatal(openErr)
@@ -207,7 +217,11 @@ func TestDemoRecoveryFencingAndImmutableContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer runtime.Close()
+	t.Cleanup(func() {
+		if closeErr := runtime.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	})
 	if err = runtime.Store.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +267,10 @@ func TestDemoRecoveryFencingAndImmutableContent(t *testing.T) {
 	}
 	// An expired/released worker cannot allocate or delete stages, even with
 	// a callback that claims effects are allowed.
-	p, _ := demoPrincipal(t.Context())
+	p, principalErr := demoPrincipal(t.Context())
+	if principalErr != nil {
+		t.Fatal(principalErr)
+	}
 	work := data.Work{OperationID: "stale", Principal: p, Input: input, StageID: "forged-stage", Lease: data.Lease{OperationID: "stale", Target: data.TargetKey{ScopeKey: "demo", TargetID: TargetID}, Fence: 1}, BeforeEffects: func(context.Context) error { return nil }}
 	if err = runtime.Allocate(t.Context(), work); data.ErrorCode(err) != data.CodeLeaseLost {
 		t.Fatal("stale worker allocated", err)

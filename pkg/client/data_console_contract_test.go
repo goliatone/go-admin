@@ -39,6 +39,7 @@ func dataConsoleRoutes() console.Routes {
 		Page: "/admin/data", Panels: "/admin/data/api/panels", Snapshot: "/admin/data/api/snapshot",
 		Action: "/admin/data/api/panels/:panel/actions/:action", Preferences: "/admin/data/api/preferences/panel-order",
 		Live: "/admin/data/ws", Lookup: "/admin/data/api/panels/:panel/records/:record",
+		Options: "/admin/data/api/panels/:panel/actions/:action/options/:field", Requests: "/admin/data/api/panels/:panel/requests/:request",
 	}
 }
 
@@ -63,13 +64,32 @@ func newDataConsoleFixtures() dataConsoleFixtures {
 	return f
 }
 
+// presentation names corpus A for people; corpus B keeps identifiers, so the
+// golden covers both the declared-title and the fallback paths.
+func (f dataConsoleFixtures) presentation(ref admindata.DatasetRef) *admindata.DescriptorPresentation {
+	if ref != f.corpusA {
+		return nil
+	}
+	return &admindata.DescriptorPresentation{Title: "Customer corpus A", Summary: "Synthetic customers and their orders for sales reporting checks.",
+		Scenarios: map[string]admindata.ScenarioPresentation{"ready": {Title: "Ready", Summary: "Three orders on one day."}, "empty-history": {Title: "Quiet", Summary: "No orders at all."}}}
+}
+
+// titles are the human names of a scenario and its dataset, as the module projects them.
+func (f dataConsoleFixtures) titles(scenario admindata.ScenarioRef) (datasetTitle, scenarioTitle string) {
+	presentation := f.presentation(scenario.Dataset)
+	if presentation == nil {
+		return "", ""
+	}
+	return presentation.Title, presentation.Scenarios[scenario.ID].Title
+}
+
 func (f dataConsoleFixtures) receipt(id string, scenario admindata.ScenarioRef, revision uint64, verification *admindata.VerificationResult) *admindata.PreparationReceipt {
 	return &admindata.PreparationReceipt{ID: id, Target: admindata.TargetKey{ScopeKey: "synthetic-org", TargetID: "preview"},
 		Dataset: scenario.Dataset, Scenario: scenario, ContentRevision: revision, Verification: verification}
 }
 
 func (f dataConsoleFixtures) verification(id string, revision uint64, status string) *admindata.VerificationResult {
-	return &admindata.VerificationResult{ID: id, ContentRevision: revision, Checks: []admindata.Check{{ID: "customer-search", Status: status}}}
+	return &admindata.VerificationResult{ID: id, ContentRevision: revision, Checks: []admindata.Check{{ID: "customer-search", Label: "Customer search", Status: status}}}
 }
 
 func (f dataConsoleFixtures) capabilities(prepare admindata.Capability) map[admindata.Kind]admindata.Capability {
@@ -77,7 +97,7 @@ func (f dataConsoleFixtures) capabilities(prepare admindata.Capability) map[admi
 	return map[admindata.Kind]admindata.Capability{
 		admindata.Validate: available, admindata.Prepare: prepare, admindata.Refresh: available,
 		admindata.Verify: available, admindata.Activate: available,
-		admindata.Reset:    {Reason: "Preview target has no safe deactivation"},
+		admindata.Reset:    {Reason: "safe_reset_unavailable"},
 		admindata.Generate: {Supported: true, Reason: "Requires the data custodian grant"},
 	}
 }
@@ -104,12 +124,12 @@ func (f dataConsoleFixtures) operations() []admindata.Operation {
 	}
 	return []admindata.Operation{
 		f.operation("op-0001", admindata.Validate, admindata.Succeeded, f.fill, 1, func(op *admindata.Operation) {
-			op.Result.Checks = []admindata.Check{{ID: "prerequisite.holiday-calendar", Status: admindata.CheckFailed}}
+			op.Result.Checks = []admindata.Check{{ID: "prerequisite.holiday-calendar", Label: "Holiday calendar present", Status: admindata.CheckFailed}}
 		}),
 		f.operation("op-0002", admindata.Prepare, admindata.Queued, f.dstWeek, 2, nil),
 		f.operation("op-0003", admindata.Refresh, admindata.Running, f.ready, 3, func(op *admindata.Operation) {
 			op.Result.Phase = "preparing"
-			op.Result.Progress = admindata.Progress{Stage: "seed audiences", Completed: 40, Total: 100}
+			op.Result.Progress = admindata.Progress{Stage: "Seeding audiences", Completed: 40, Total: 100}
 		}),
 		f.operation("op-0004", admindata.Activate, admindata.Failed, f.emptyHistory, 4, failure(admindata.CodeStale)),
 		f.operation("op-0005", admindata.Prepare, admindata.Canceled, f.reprofiled, 5, failure(admindata.CodeCanceled)),
@@ -128,53 +148,216 @@ func (f dataConsoleFixtures) operations() []admindata.Operation {
 	}
 }
 
-func (f dataConsoleFixtures) records() map[string][]console.Record {
-	descriptor := func(ref admindata.DatasetRef, synthetic bool, scenarios []admindata.ScenarioRef, prerequisites []string, prepare admindata.Capability) admindata.Descriptor {
-		return admindata.Descriptor{Dataset: ref, Synthetic: synthetic, Timezone: "America/Los_Angeles", Scenarios: scenarios,
-			Components: []admindata.Component{{Path: "people.json", Digest: ref.Digest}}, Prerequisites: prerequisites,
-			Counts: map[string]uint64{"people": 120, "orders": 40}, Capabilities: f.capabilities(prepare)}
+// dataConsoleChoice is one offered action with the row it belongs to and the
+// emphasis the module would give it.
+type dataConsoleChoice struct {
+	choice   admin.DataActionChoice
+	emphasis string
+}
+
+// choices mirror the module's offer for the representative state: each
+// scenario's applicable work with its next step primary, a disabled
+// not-permitted Prepare on corpus B, and cancel, recover and try again for the
+// operations in the window.
+func (f dataConsoleFixtures) choices() []dataConsoleChoice {
+	generation := uint64(3)
+	current := &admin.DataTargetSummary{TargetID: "preview", ScenarioTitle: "Ready", ReceiptID: "rcpt-ready-1", Generation: 3, Ready: true}
+	steps := func(status string) []console.PanelUIStep {
+		prepared := console.PanelUIStep{Label: "Prepared", State: console.PanelStepDone, Tone: console.PanelToneInfo}
+		verified := console.PanelUIStep{Label: "Verified", State: console.PanelStepPending}
+		active := console.PanelUIStep{Label: "Active", State: console.PanelStepPending}
+		switch status {
+		case "not_prepared":
+			prepared = console.PanelUIStep{Label: "Prepared", State: console.PanelStepCurrent}
+		case "prepared":
+			verified.State = console.PanelStepCurrent
+		case "verified":
+			verified.State, verified.Tone, active.State = console.PanelStepDone, console.PanelToneSuccess, console.PanelStepCurrent
+		case "active":
+			verified.State, verified.Tone, active.State, active.Tone = console.PanelStepDone, console.PanelToneSuccess, console.PanelStepDone, console.PanelToneSuccess
+		case "stale_verification":
+			verified.Label, verified.State, verified.Tone = "Changed since verification", console.PanelStepWarning, console.PanelToneWarning
+		}
+		return []console.PanelUIStep{prepared, verified, active}
 	}
+	scenario := func(kind admindata.Kind, ref admindata.ScenarioRef, status, emphasis string, mutate func(*admin.DataActionChoice)) dataConsoleChoice {
+		datasetTitle, title := f.titles(ref)
+		if title == "" {
+			title = ref.ID + " v" + ref.Version
+		}
+		choice := admin.DataActionChoice{Kind: kind, Label: strings.ToUpper(string(kind)[:1]) + string(kind)[1:], Title: title, DatasetTitle: datasetTitle, Steps: steps(status),
+			Input: admindata.Input{Dataset: ref.Dataset, Scenario: ref, TargetID: "preview"}}
+		if kind == admindata.Verify || kind == admindata.Activate {
+			choice.ReceiptInput = true
+		}
+		if kind == admindata.Activate {
+			choice.Input.ExpectedGeneration = &generation
+			choice.Current = current
+		}
+		if mutate != nil {
+			mutate(&choice)
+		}
+		return dataConsoleChoice{choice: choice, emphasis: emphasis}
+	}
+	receipt := func(id string) func(*admin.DataActionChoice) {
+		return func(choice *admin.DataActionChoice) { choice.DefaultReceiptID = id }
+	}
+	notPermitted := func(choice *admin.DataActionChoice) {
+		choice.Availability, choice.Reason = console.PanelActionNotPermitted, "Requires admin.data.prepare"
+	}
+	return []dataConsoleChoice{
+		// Ready is active: routine work only.
+		scenario(admindata.Refresh, f.ready, "active", "", nil),
+		scenario(admindata.Validate, f.ready, "active", console.PanelActionEmphasisMenu, nil),
+		scenario(admindata.Verify, f.ready, "active", console.PanelActionEmphasisMenu, receipt("rcpt-ready-1")),
+		// Quiet is verified: activation is the next step.
+		scenario(admindata.Activate, f.emptyHistory, "verified", console.PanelActionEmphasisPrimary, receipt("rcpt-empty-1")),
+		scenario(admindata.Verify, f.emptyHistory, "verified", console.PanelActionEmphasisMenu, receipt("rcpt-empty-1")),
+		scenario(admindata.Refresh, f.emptyHistory, "verified", console.PanelActionEmphasisMenu, nil),
+		// dst-week is prepared: verification is next.
+		scenario(admindata.Verify, f.dstWeek, "prepared", console.PanelActionEmphasisPrimary, receipt("rcpt-dst-1")),
+		scenario(admindata.Refresh, f.dstWeek, "prepared", console.PanelActionEmphasisMenu, nil),
+		scenario(admindata.Validate, f.dstWeek, "prepared", console.PanelActionEmphasisMenu, nil),
+		// reprofiled changed since verification: verify again.
+		scenario(admindata.Verify, f.reprofiled, "stale_verification", console.PanelActionEmphasisPrimary, receipt("rcpt-reprofiled-1")),
+		// backfill is not prepared and this actor may not prepare corpus B.
+		scenario(admindata.Prepare, f.fill, "not_prepared", console.PanelActionEmphasisPrimary, notPermitted),
+		scenario(admindata.Validate, f.fill, "not_prepared", console.PanelActionEmphasisMenu, nil),
+		{choice: admin.DataActionChoice{Kind: admindata.Cancel, Label: "Cancel", Title: "Ready", DatasetTitle: "Customer corpus A", Input: admindata.Input{TargetID: "preview", OperationID: "op-0003"}}},
+		{choice: admin.DataActionChoice{Kind: admindata.Recover, Label: "Recover", Title: "Ready", DatasetTitle: "Customer corpus A", Input: admindata.Input{TargetID: "staging", OperationID: "op-0006"}}, emphasis: console.PanelActionEmphasisPrimary},
+		{choice: admin.DataActionChoice{Kind: admindata.Activate, Label: "Try again", Title: "Quiet", DatasetTitle: "Customer corpus A", RetryOf: "op-0004", Current: current, Steps: steps("verified"),
+			Input: admindata.Input{Dataset: f.corpusA, Scenario: f.emptyHistory, TargetID: "preview", ReceiptID: "rcpt-empty-1", ExpectedGeneration: &generation}}, emphasis: console.PanelActionEmphasisPrimary},
+	}
+}
+
+func dataConsoleChoicePanels(choice admin.DataActionChoice) []string {
+	if choice.Kind == admindata.Cancel || choice.Kind == admindata.Recover || choice.RetryOf != "" {
+		return []string{admin.DataPanelOverview, admin.DataPanelOperations}
+	}
+	return []string{admin.DataPanelOverview, admin.DataPanelScenarios}
+}
+
+// scenarioRefs are a scenario row's references to the actions a panel declares.
+func (f dataConsoleFixtures) scenarioRefs(panel string, scenario admindata.ScenarioRef, choices []dataConsoleChoice) []console.PanelUIActionRef {
+	refs := []console.PanelUIActionRef{}
+	for _, item := range choices {
+		choice := item.choice
+		if choice.RetryOf != "" || choice.Input.OperationID != "" || choice.Input.Scenario != scenario || !slices.Contains(dataConsoleChoicePanels(choice), panel) {
+			continue
+		}
+		refs = append(refs, console.PanelUIActionRef{PanelID: panel, ActionID: admin.DataActionID(choice), Emphasis: item.emphasis})
+	}
+	return refs
+}
+
+// operationRefs are an operation row's cancel, recover and try-again references.
+func (f dataConsoleFixtures) operationRefs(panel, operationID string, choices []dataConsoleChoice) []console.PanelUIActionRef {
+	refs := []console.PanelUIActionRef{}
+	for _, item := range choices {
+		choice := item.choice
+		if (choice.Input.OperationID != operationID && choice.RetryOf != operationID) || !slices.Contains(dataConsoleChoicePanels(choice), panel) {
+			continue
+		}
+		refs = append(refs, console.PanelUIActionRef{PanelID: panel, ActionID: admin.DataActionID(choice), Emphasis: item.emphasis})
+	}
+	return refs
+}
+
+func (f dataConsoleFixtures) descriptor(ref admindata.DatasetRef, synthetic bool, scenarios []admindata.ScenarioRef, prerequisites []string, prepare admindata.Capability) admindata.Descriptor {
+	return admindata.Descriptor{Dataset: ref, Synthetic: synthetic, Timezone: "America/Los_Angeles", Scenarios: scenarios,
+		Components: []admindata.Component{{Path: "people.json", Digest: ref.Digest}}, Prerequisites: prerequisites,
+		Counts: map[string]uint64{"people": 120, "orders": 40}, Capabilities: f.capabilities(prepare), Presentation: f.presentation(ref)}
+}
+
+// records project the representative state. With choices, rows carry the
+// action references the operator's panels declare.
+func (f dataConsoleFixtures) records(choices []dataConsoleChoice) map[string][]console.Record {
 	operations := f.operations()
+	operationView := func(panel string, op admindata.Operation) admin.DataOperationView {
+		datasetTitle, scenarioTitle := f.titles(op.Input.Scenario)
+		return admin.DataOperationView{Operation: op, DatasetTitle: datasetTitle, ScenarioTitle: scenarioTitle, Actions: f.operationRefs(panel, op.Result.OperationID, choices)}
+	}
 	opRecords := make([]console.Record, 0, len(operations))
 	for _, op := range operations {
-		opRecords = append(opRecords, admin.DataOperationRecord(op))
+		opRecords = append(opRecords, admin.DataOperationViewRecord(operationView(admin.DataPanelOperations, op)))
 	}
-	check := func(origin admindata.Kind, opID, verID string, dryRun bool, check admindata.Check) console.Record {
-		return admin.DataCheckRecord(admin.DataCheckView{Origin: origin, OperationID: opID, VerificationID: verID, ReceiptID: "rcpt-ready-1", DryRun: dryRun, Check: check}, 1)
+	scenarioView := func(panel string, scenario admindata.ScenarioRef, receipt *admindata.PreparationReceipt, active bool, updated int) admin.DataScenarioView {
+		datasetTitle, title := f.titles(scenario)
+		view := admin.DataScenarioView{Scenario: scenario, Receipt: receipt, Active: active, Title: title, DatasetTitle: datasetTitle}
+		if title != "" {
+			view.Summary = f.presentation(scenario.Dataset).Scenarios[scenario.ID].Summary
+		}
+		if scenario != f.fill {
+			view.TargetID = "preview"
+			view.Actions = f.scenarioRefs(panel, scenario, choices)
+		}
+		if updated > 0 {
+			view.UpdatedAt = time.Date(2026, 10, 1, 9, updated, 0, 0, time.UTC)
+		}
+		return view
+	}
+	scenarios := func(panel string) []admin.DataScenarioView {
+		return []admin.DataScenarioView{
+			scenarioView(panel, f.ready, f.readyReceipt, true, 9),
+			scenarioView(panel, f.emptyHistory, f.receipt("rcpt-empty-1", f.emptyHistory, 1, f.verification("ver-empty", 1, admindata.CheckPassed)), false, 8),
+			scenarioView(panel, f.dstWeek, f.receipt("rcpt-dst-1", f.dstWeek, 1, nil), false, 10),
+			scenarioView(panel, f.reprofiled, f.receipt("rcpt-reprofiled-1", f.reprofiled, 3, f.verification("ver-reprofiled", 2, admindata.CheckPassed)), false, 6),
+			scenarioView(panel, f.fill, nil, false, 2),
+		}
+	}
+	check := func(origin admindata.Kind, opID, verID string, scenario admindata.ScenarioRef, dryRun bool, check admindata.Check) console.Record {
+		_, title := f.titles(scenario)
+		receipt := ""
+		if verID != "" {
+			receipt = "rcpt-ready-1"
+		}
+		return admin.DataCheckRecord(admin.DataCheckView{Origin: origin, OperationID: opID, VerificationID: verID, ReceiptID: receipt, DryRun: dryRun, Check: check, Scenario: scenario, ScenarioTitle: title}, 1)
 	}
 	coverage := func(day, status string) console.Record {
 		sample := admindata.SamplePeriod{LocalDay: day, Timezone: "America/Los_Angeles", EvidenceRef: "evidence/" + day}
-		return admin.DataCoverageRecord(admin.DataCoverageView{VerificationID: "ver-ready", ReceiptID: "rcpt-ready-1", Coverage: admindata.Coverage{Status: status, Sample: sample}}, 1)
+		return admin.DataCoverageRecord(admin.DataCoverageView{VerificationID: "ver-ready", ReceiptID: "rcpt-ready-1", Coverage: admindata.Coverage{Status: status, Sample: sample}, Scenario: f.ready, ScenarioTitle: "Ready"}, 1)
 	}
 	latest := operations[3]
+	recent := []admin.DataOperationView{}
+	for _, op := range []admindata.Operation{operations[3], operations[2], operations[5], operations[1], operations[7]} {
+		recent = append(recent, operationView(admin.DataPanelOverview, op))
+	}
+	upNext := []admin.DataScenarioView{}
+	for _, view := range scenarios(admin.DataPanelOverview) {
+		if !view.Active {
+			upNext = append(upNext, view)
+		}
+	}
+	scenarioRecords := []console.Record{}
+	for _, view := range scenarios(admin.DataPanelScenarios) {
+		scenarioRecords = append(scenarioRecords, admin.DataScenarioRecord(view, 1))
+	}
 	return map[string][]console.Record{
 		admin.DataPanelOverview: {admin.DataOverviewRecord(admin.DataOverviewView{
 			Targets: []admin.DataTargetView{
-				{State: admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "synthetic-org", TargetID: "preview"}, Activation: admindata.Activation{ReceiptID: "rcpt-ready-1", Generation: 3, Ready: true}}, Receipt: f.readyReceipt},
-				{State: admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "synthetic-org", TargetID: "staging"}, RecoveryRequired: true, Activation: admindata.Activation{ReceiptID: "rcpt-ready-0", Generation: 2}}},
+				{State: admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "synthetic-org", TargetID: "preview"}, Activation: admindata.Activation{ReceiptID: "rcpt-ready-1", Generation: 3, Ready: true}}, Receipt: f.readyReceipt, ScenarioTitle: "Ready", DatasetTitle: "Customer corpus A"},
+				{State: admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "synthetic-org", TargetID: "staging"}, RecoveryRequired: true, PendingOperationID: "op-0006", Activation: admindata.Activation{ReceiptID: "rcpt-ready-0", Generation: 2}},
+					Actions: f.operationRefs(admin.DataPanelOverview, "op-0006", choices)},
 			},
 			Capabilities:    f.capabilities(admindata.Capability{Supported: true, Permitted: true}),
 			LatestOperation: &latest,
 			Counts:          admin.DataOverviewCounts{Datasets: 2, Scenarios: 5, Running: 2, Failed: 1},
+			Recent:          recent,
+			UpNext:          upNext,
 		}, 5)},
-		admin.DataPanelDatasets: {
-			admin.DataDatasetRecord(descriptor(f.corpusA, true, []admindata.ScenarioRef{f.ready, f.emptyHistory, f.dstWeek}, []string{"audience-definitions"}, admindata.Capability{Supported: true, Permitted: true}), 1),
-			admin.DataDatasetRecord(descriptor(f.corpusB, false, []admindata.ScenarioRef{f.reprofiled, f.fill}, []string{"holiday-calendar"}, admindata.Capability{Supported: true, Reason: "Requires admin.data.prepare"}), 1),
+		admin.DataPanelExplore: {
+			admin.DataDatasetRecord(f.descriptor(f.corpusA, true, []admindata.ScenarioRef{f.ready, f.emptyHistory, f.dstWeek}, []string{"audience-definitions"}, admindata.Capability{Supported: true, Permitted: true}), 1),
+			admin.DataDatasetRecord(f.descriptor(f.corpusB, false, []admindata.ScenarioRef{f.reprofiled, f.fill}, []string{"holiday-calendar"}, admindata.Capability{Supported: true, Reason: "Requires admin.data.prepare"}), 1),
 		},
-		admin.DataPanelScenarios: {
-			admin.DataScenarioRecord(admin.DataScenarioView{Scenario: f.ready, TargetID: "preview", Receipt: f.readyReceipt, Active: true}, 1),
-			admin.DataScenarioRecord(admin.DataScenarioView{Scenario: f.emptyHistory, TargetID: "preview", Receipt: f.receipt("rcpt-empty-1", f.emptyHistory, 1, f.verification("ver-empty", 1, admindata.CheckPassed))}, 1),
-			admin.DataScenarioRecord(admin.DataScenarioView{Scenario: f.dstWeek, TargetID: "preview", Receipt: f.receipt("rcpt-dst-1", f.dstWeek, 1, nil)}, 1),
-			admin.DataScenarioRecord(admin.DataScenarioView{Scenario: f.reprofiled, TargetID: "preview", Receipt: f.receipt("rcpt-reprofiled-1", f.reprofiled, 3, f.verification("ver-reprofiled", 2, admindata.CheckPassed))}, 1),
-			admin.DataScenarioRecord(admin.DataScenarioView{Scenario: f.fill}, 1),
-		},
+		admin.DataPanelScenarios:  scenarioRecords,
 		admin.DataPanelOperations: opRecords,
 		admin.DataPanelVerification: {
-			check(admindata.Validate, "op-0001", "", false, admindata.Check{ID: "prerequisite.holiday-calendar", Status: admindata.CheckFailed, Expected: "present", Actual: "missing"}),
-			check(admindata.Verify, "", "ver-ready", false, admindata.Check{ID: "customer-search", Status: admindata.CheckPassed, Expected: "42 matches", Actual: "42 matches", EvidenceRef: "evidence/search"}),
-			check(admindata.Verify, "", "ver-ready", false, admindata.Check{ID: "report-export", Status: admindata.CheckFailed, Expected: "120 rows", Actual: "118 rows", EvidenceRef: "evidence/export"}),
-			check(admindata.Verify, "", "ver-ready", false, admindata.Check{ID: "analytics-render", Status: admindata.CheckUnavailable}),
-			check(admindata.Verify, "op-0009", "", true, admindata.Check{ID: "report-export", Status: admindata.CheckPlanned, Expected: "120 rows"}),
+			check(admindata.Validate, "op-0001", "", f.fill, false, admindata.Check{ID: "prerequisite.holiday-calendar", Label: "Holiday calendar present", Status: admindata.CheckFailed, Expected: "present", Actual: "missing"}),
+			check(admindata.Verify, "", "ver-ready", f.ready, false, admindata.Check{ID: "customer-search", Label: "Customer search", Status: admindata.CheckPassed, Expected: "42 matches", Actual: "42 matches", EvidenceRef: "evidence/search"}),
+			check(admindata.Verify, "", "ver-ready", f.ready, false, admindata.Check{ID: "report-export", Label: "Report export", Status: admindata.CheckFailed, Expected: "120 rows", Actual: "118 rows", EvidenceRef: "evidence/export"}),
+			check(admindata.Verify, "", "ver-ready", f.ready, false, admindata.Check{ID: "analytics-render", Status: admindata.CheckUnavailable}),
+			check(admindata.Verify, "", "ver-ready", f.ready, false, admindata.Check{ID: "source-identity", Label: "Source matches the catalog", Status: admindata.CheckPassed, Expected: strings.Repeat("a", 64), Actual: strings.Repeat("a", 64)}),
+			check(admindata.Verify, "op-0009", "", f.dstWeek, true, admindata.Check{ID: "report-export", Label: "Report export", Status: admindata.CheckPlanned, Expected: "120 rows"}),
 		},
 		admin.DataPanelCoverage: {
 			coverage("2026-03-08", admindata.CoveredEmpty),
@@ -192,6 +375,12 @@ func dataConsoleSnapshot(t *testing.T, records map[string][]console.Record) cons
 	t.Helper()
 	snapshot, _ := dataConsoleHostSnapshot(t, records, nil, nil)
 	return snapshot
+}
+
+// dataConsoleClientContext advertises every console workflow capability, as
+// the shipped Data page does, so capability-gated declarations are served.
+func dataConsoleClientContext() context.Context {
+	return console.WithClientCapabilities(context.Background(), console.ParseClientCapabilities(strings.Join(console.ClientCapabilityIDs(), ",")))
 }
 
 // dataConsoleHostSnapshot also publishes live events through the host's own
@@ -240,7 +429,7 @@ func dataConsoleHostSnapshot(t *testing.T, records map[string][]console.Record, 
 			t.Errorf("close data console stream: %v", closeErr)
 		}
 	}()
-	snapshot, err := host.Snapshot(context.Background(), dataConsoleIdentity)
+	snapshot, err := host.Snapshot(dataConsoleClientContext(), dataConsoleIdentity)
 	if err != nil {
 		t.Fatalf("data console snapshot: %v", err)
 	}
@@ -267,35 +456,28 @@ func (f dataConsoleFixtures) liveEvents() []console.Event {
 	running := f.operation("op-0002", admindata.Prepare, admindata.Running, f.dstWeek, 2, func(op *admindata.Operation) {
 		op.Result.Revision = 3
 		op.Result.Phase = "allocating"
-		op.Result.Progress = admindata.Progress{Stage: "allocate stage", Completed: 1, Total: 4}
+		op.Result.Progress = admindata.Progress{Stage: "Allocating stage", Completed: 1, Total: 4}
 	})
 	switching := admin.DataOverviewRecord(admin.DataOverviewView{
 		Targets: []admin.DataTargetView{{State: admindata.ActiveState{Target: admindata.TargetKey{ScopeKey: "synthetic-org", TargetID: "preview"},
-			Transitioning: true, Activation: admindata.Activation{ReceiptID: "rcpt-ready-1", Generation: 3}}, Receipt: f.readyReceipt}},
+			Transitioning: true, Activation: admindata.Activation{ReceiptID: "rcpt-ready-1", Generation: 3}}, Receipt: f.readyReceipt, ScenarioTitle: "Ready", DatasetTitle: "Customer corpus A"}},
 		Counts: admin.DataOverviewCounts{Datasets: 1, Scenarios: 3, Running: 2},
 	}, 6)
 	removed := admin.DataDatasetRecord(admindata.Descriptor{Dataset: f.corpusB}, 2)
 	return []console.Event{
-		{PanelID: admin.DataPanelOperations, Record: admin.DataOperationRecord(running), Kind: console.EventUpsert},
+		{PanelID: admin.DataPanelOperations, Record: admin.DataOperationViewRecord(admin.DataOperationView{Operation: running, DatasetTitle: "Customer corpus A"}), Kind: console.EventUpsert},
 		{PanelID: admin.DataPanelOverview, Record: switching, Kind: console.EventUpsert},
-		{PanelID: admin.DataPanelDatasets, Record: console.Record{Key: removed.Key, Revision: removed.Revision}, Kind: console.EventDelete},
+		{PanelID: admin.DataPanelExplore, Record: console.Record{Key: removed.Key, Revision: removed.Revision}, Kind: console.EventDelete},
 	}
 }
 
-// actions offers request options, captured generation, retained receipt and
-// operation controls using the same Go declarations as the live module.
+// actions offers the fixture choices through the same Go declarations as the
+// live module: generated request IDs under Advanced, receipt pickers, Preview
+// plan, structured confirmations and visible not-permitted work.
 func (f dataConsoleFixtures) actions() *admin.DataPanelActions {
-	generation := uint64(3)
-	prepare := admindata.Input{Dataset: f.corpusA, Scenario: f.dstWeek, TargetID: "preview"}
-	activate := admindata.Input{Dataset: f.corpusA, Scenario: f.emptyHistory, TargetID: "preview", ReceiptID: "rcpt-empty-1", ExpectedGeneration: &generation}
-	retained := activate
-	retained.ReceiptID = ""
-	choices := []admin.DataActionChoice{
-		{Kind: admindata.Prepare, Label: "Prepare dst-week v1 on preview", Input: prepare},
-		{Kind: admindata.Activate, Label: "Activate rcpt-empty-1 (empty-history v1) at generation 3", Input: activate},
-		{Kind: admindata.Activate, Label: "Activate another empty-history receipt", Input: retained, ReceiptInput: true},
-		{Kind: admindata.Cancel, Label: "Cancel op-0003 (refresh ready v1)", Input: admindata.Input{TargetID: "preview", OperationID: "op-0003"}},
-		{Kind: admindata.Recover, Label: "Recover op-0007", Input: admindata.Input{TargetID: "staging", OperationID: "op-0007"}},
+	choices := []admin.DataActionChoice{}
+	for _, item := range f.choices() {
+		choices = append(choices, item.choice)
 	}
 	return &admin.DataPanelActions{
 		Choices: func(context.Context) ([]admin.DataActionChoice, error) { return choices, nil },
@@ -307,18 +489,21 @@ func (f dataConsoleFixtures) actions() *admin.DataPanelActions {
 
 func dataConsoleActionResults(t *testing.T) map[string]console.PanelActionResult {
 	t.Helper()
-	present := func(kind admindata.Kind, result admindata.Result, err error) console.PanelActionResult {
-		presented, presentErr := admin.DataActionResult(kind, result, err)
+	present := func(kind admindata.Kind, result admindata.Result, err error, labels admin.DataActionLabels) console.PanelActionResult {
+		presented, presentErr := admin.DataActionResultFor(kind, result, err, labels)
 		if presentErr != nil {
 			t.Fatalf("present %s: %v", kind, presentErr)
 		}
 		return presented
 	}
+	labels := admin.DataActionLabels{Scenario: "dst-week v1", Target: "preview"}
 	return map[string]console.PanelActionResult{
-		"accepted": present(admindata.Prepare, admindata.Result{OperationID: "op-0010", Kind: admindata.Prepare, State: admindata.Queued, Revision: 1, Phase: "accepted"}, nil),
+		"accepted": present(admindata.Prepare, admindata.Result{OperationID: "op-0010", Kind: admindata.Prepare, State: admindata.Queued, Revision: 1, Phase: "accepted"}, nil, labels),
+		"planned": present(admindata.Prepare, admindata.Result{OperationID: "op-0011", Kind: admindata.Prepare, State: admindata.Succeeded, Revision: 2, DryRun: true,
+			Checks: []admindata.Check{{ID: "prepare-plan", Status: admindata.CheckPlanned}}}, nil, labels),
 		"invalid": present(admindata.Prepare, admindata.Result{OperationID: "op-0010", Kind: admindata.Prepare, State: admindata.Failed,
-			Failure: &admindata.Failure{Code: admindata.CodeInvalid, Fields: map[string]string{"idempotency_key": "Request keys must be unique per request."}}}, nil),
-		"stale": present(admindata.Activate, admindata.Result{}, admindata.Error(admindata.CodeStale)),
+			Failure: &admindata.Failure{Code: admindata.CodeInvalid, Fields: map[string]string{"batch_limit": "Enter a whole number from 1 to 10000."}}}, nil, labels),
+		"stale": present(admindata.Activate, admindata.Result{}, admindata.Error(admindata.CodeStale), admin.DataActionLabels{Scenario: "Quiet", Target: "preview"}),
 	}
 }
 
@@ -326,8 +511,8 @@ func dataConsoleContractDocument(t *testing.T) map[string]any {
 	t.Helper()
 	fixtures := newDataConsoleFixtures()
 	empty := map[string][]console.Record{admin.DataPanelOverview: {admin.DataOverviewRecord(admin.DataOverviewView{}, 1)}}
-	operator, _ := dataConsoleHostSnapshot(t, fixtures.records(), nil, fixtures.actions())
-	snapshot, events := dataConsoleHostSnapshot(t, fixtures.records(), fixtures.liveEvents(), nil)
+	operator, _ := dataConsoleHostSnapshot(t, fixtures.records(fixtures.choices()), nil, fixtures.actions())
+	snapshot, events := dataConsoleHostSnapshot(t, fixtures.records(nil), fixtures.liveEvents(), nil)
 	var overview console.PanelSnapshot
 	for _, panel := range snapshot.Panels {
 		if panel.ID == admin.DataPanelOverview {
@@ -409,7 +594,7 @@ func renderDataConsolePage(t *testing.T, bootstrap console.Bootstrap) string {
 }
 
 func TestDataConsolePageFixtureMatchesPackagedTemplate(t *testing.T) {
-	bootstrap := dataConsoleBootstrap(dataConsoleSnapshot(t, newDataConsoleFixtures().records()))
+	bootstrap := dataConsoleBootstrap(dataConsoleSnapshot(t, newDataConsoleFixtures().records(nil)))
 	assertDataConsoleGolden(t, dataConsolePageFixture, []byte(renderDataConsolePage(t, bootstrap)))
 }
 
@@ -439,7 +624,8 @@ func TestDataConsolePageExtendsTheNeutralShellWithoutDebug(t *testing.T) {
 // projections in step: every declared bind must resolve in at least one
 // representative row, and select filters must offer every projected value.
 func TestDataConsoleViewBindsResolveAgainstProjectedRecords(t *testing.T) {
-	encoded, err := json.Marshal(dataConsoleSnapshot(t, newDataConsoleFixtures().records()))
+	fixtures := newDataConsoleFixtures()
+	encoded, err := json.Marshal(dataConsoleSnapshot(t, fixtures.records(fixtures.choices())))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,14 +649,6 @@ func TestDataConsoleViewBindsResolveAgainstProjectedRecords(t *testing.T) {
 		view := dataObject(dataPath(panel.UI, "views.console"))
 		if view == nil {
 			t.Fatalf("panel %s has no console view", panel.ID)
-		}
-		if panel.ID == admin.DataPanelExplore {
-			// Explore reads lazily through its controller: no records, no binds,
-			// and its own guidance where no controller renders it.
-			if len(rows) != 0 || dataString(view["renderer"]) != "cards" || dataString(view["empty"]) == "" {
-				t.Fatalf("explore panel = %d records, view %v", len(rows), view)
-			}
-			continue
 		}
 		checkDataViewBinds(t, panel.ID, view, rows)
 		checkDataFilterOptions(t, panel.ID, dataList(panel.UI["filters"]), rows)
@@ -528,7 +706,7 @@ func dataPath(value any, bind string) any {
 func checkDataViewBinds(t *testing.T, panelID string, view map[string]any, rows []any) {
 	t.Helper()
 	switch renderer := dataString(view["renderer"]); renderer {
-	case "table", "status_list", "timeline":
+	case "table", "status_list", "timeline", "cards", "list":
 		checkDataRowBinds(t, panelID, view, rows)
 	case "stack":
 		if len(rows) != 1 {
@@ -537,9 +715,10 @@ func checkDataViewBinds(t *testing.T, panelID string, view map[string]any, rows 
 		for _, item := range dataList(view["sections"]) {
 			section := dataObject(item)
 			data := dataPath(rows[0], dataString(section["bind"]))
-			if dataString(section["renderer"]) == "table" {
+			switch dataString(section["renderer"]) {
+			case "table", "cards", "list":
 				checkDataRowBinds(t, panelID, section, dataList(data))
-			} else {
+			default:
 				checkDataRowBinds(t, panelID, section, []any{data})
 			}
 		}

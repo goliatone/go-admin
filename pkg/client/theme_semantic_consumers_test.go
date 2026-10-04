@@ -112,15 +112,15 @@ func TestDatagridPaginationUsesNormalizedFigmaEllipsisAsset(t *testing.T) {
 	}
 }
 
-func TestPublicSelectPrimitiveIsSafelistedForHostTemplates(t *testing.T) {
-	content, err := os.ReadFile("assets/tailwind.config.cjs")
+func TestPublicSelectPrimitiveIsBuiltForHostTemplates(t *testing.T) {
+	content, err := os.ReadFile("assets/output.css")
 	if err != nil {
-		t.Fatalf("read Tailwind config: %v", err)
+		t.Fatalf("read compiled stylesheet: %v", err)
 	}
-	config := string(content)
+	stylesheet := string(content)
 	for _, className := range []string{"admin-select", "admin-select__field", "admin-select__decoration"} {
-		if !strings.Contains(config, `'`+className+`'`) {
-			t.Fatalf("public select class %q is not safelisted", className)
+		if !strings.Contains(stylesheet, "."+className) {
+			t.Fatalf("public select class %q is not present in the compiled stylesheet", className)
 		}
 	}
 }

@@ -31,8 +31,8 @@ func TestApplicationPreviewConcurrentDurableOpenAndLostStage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := r.Close(); err != nil {
-			t.Error(err)
+		if closeErr := r.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
 	other, err := Open(filename)
@@ -40,8 +40,8 @@ func TestApplicationPreviewConcurrentDurableOpenAndLostStage(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := other.Close(); err != nil {
-			t.Error(err)
+		if closeErr := other.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
 	s := previewService(t, r, time.Now)
@@ -58,9 +58,9 @@ func TestApplicationPreviewConcurrentDurableOpenAndLostStage(t *testing.T) {
 			if i%2 == 1 {
 				service = s2
 			}
-			out, err := service.OpenApplicationPreview(t.Context(), q)
-			if err != nil {
-				failures <- err
+			out, operationErr := service.OpenApplicationPreview(t.Context(), q)
+			if operationErr != nil {
+				failures <- operationErr
 			} else {
 				ids <- out.SessionID
 			}
@@ -104,8 +104,8 @@ func TestApplicationPreviewRetainsPinnedReportAcrossActivation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := r.Close(); err != nil {
-			t.Error(err)
+		if closeErr := r.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
 	s := previewService(t, r, time.Now)
@@ -115,9 +115,9 @@ func TestApplicationPreviewRetainsPinnedReportAcrossActivation(t *testing.T) {
 		t.Helper()
 		in := scenarioInput(t, r, q.Selection.Scenario.ID, q.RequestID+"-verify")
 		in.ReceiptID = q.Selection.ReceiptID
-		result, err := s.Run(t.Context(), data.Verify, in)
-		if err != nil || result.Verification == nil || !result.Verification.Passed() {
-			t.Fatal(result, err)
+		result, verifyErr := s.Run(t.Context(), data.Verify, in)
+		if verifyErr != nil || result.Verification == nil || !result.Verification.Passed() {
+			t.Fatal(result, verifyErr)
 		}
 	}
 	verify(ready)
@@ -131,9 +131,9 @@ func TestApplicationPreviewRetainsPinnedReportAcrossActivation(t *testing.T) {
 		in := scenarioInput(t, r, q.Selection.Scenario.ID, q.RequestID+"-activate")
 		in.ReceiptID = q.Selection.ReceiptID
 		in.ExpectedGeneration = &generation
-		result, err := s.Run(t.Context(), data.Activate, in)
-		if err != nil || result.Activation == nil {
-			t.Fatal(result, err)
+		result, activateErr := s.Run(t.Context(), data.Activate, in)
+		if activateErr != nil || result.Activation == nil {
+			t.Fatal(result, activateErr)
 		}
 	}
 	active, err := r.ActiveOrdersReport(t.Context(), data.TargetKey{ScopeKey: "demo", TargetID: TargetID})
@@ -176,8 +176,8 @@ func TestApplicationPreviewReferenceReadyQuietRestartAndNoFallback(t *testing.T)
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := r.Close(); err != nil {
-			t.Error(err)
+		if closeErr := r.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
 	s := previewService(t, r, time.Now)
@@ -197,28 +197,28 @@ func TestApplicationPreviewReferenceReadyQuietRestartAndNoFallback(t *testing.T)
 	}
 	readReport := func(id string, count, total int) {
 		t.Helper()
-		ctx, read, err := s.WithApplicationPreview(t.Context(), data.ApplicationPreviewSessionQuery{SessionID: id}, OrdersReportSurface)
-		if err != nil {
-			t.Fatal(err)
+		ctx, read, operationErr := s.WithApplicationPreview(t.Context(), data.ApplicationPreviewSessionQuery{SessionID: id}, OrdersReportSurface)
+		if operationErr != nil {
+			t.Fatal(operationErr)
 		}
-		report, err := r.PreviewOrdersReport(ctx, read)
-		if err != nil || report.OrderCount != count || report.AmountTotal != total {
-			t.Fatal(report, err)
+		report, operationErr := r.PreviewOrdersReport(ctx, read)
+		if operationErr != nil || report.OrderCount != count || report.AmountTotal != total {
+			t.Fatal(report, operationErr)
 		}
-		if err = s.ValidatePreviewDelivery(ctx, read.Session); err != nil {
-			t.Fatal(err)
+		if operationErr = s.ValidatePreviewDelivery(ctx, read.Session); operationErr != nil {
+			t.Fatal(operationErr)
 		}
-		if _, err = r.PreviewOrdersReport(t.Context(), read); data.ErrorCode(err) != data.CodeDenied {
-			t.Fatal("missing isolation context accepted", err)
+		if _, operationErr = r.PreviewOrdersReport(t.Context(), read); data.ErrorCode(operationErr) != data.CodeDenied {
+			t.Fatal("missing isolation context accepted", operationErr)
 		}
-		if _, err = r.ActiveOrdersReport(ctx, data.TargetKey{ScopeKey: "demo", TargetID: TargetID}); data.ErrorCode(err) != data.CodeDenied {
-			t.Fatal("production fallback", err)
+		if _, operationErr = r.ActiveOrdersReport(ctx, data.TargetKey{ScopeKey: "demo", TargetID: TargetID}); data.ErrorCode(operationErr) != data.CodeDenied {
+			t.Fatal("production fallback", operationErr)
 		}
-		if _, err = s.Run(ctx, data.Prepare, scenarioInput(t, r, "ready", "forged-effect")); data.ErrorCode(err) != data.CodeDenied {
-			t.Fatal("lifecycle dispatched from preview", err)
+		if _, operationErr = s.Run(ctx, data.Prepare, scenarioInput(t, r, "ready", "forged-effect")); data.ErrorCode(operationErr) != data.CodeDenied {
+			t.Fatal("lifecycle dispatched from preview", operationErr)
 		}
-		if _, err = s.LookupArtifact(ctx, "kitchen-sink", "forged-export"); data.ErrorCode(err) != data.CodeDenied {
-			t.Fatal("preview export permitted", err)
+		if _, operationErr = s.LookupArtifact(ctx, "kitchen-sink", "forged-export"); data.ErrorCode(operationErr) != data.CodeDenied {
+			t.Fatal("preview export permitted", operationErr)
 		}
 		if data.RejectPreviewEffects(ctx) == nil || read.CacheKey() == "" {
 			t.Fatal("missing effect/cache boundary")
@@ -267,8 +267,8 @@ func TestApplicationPreviewReferenceProtectedRetentionAndExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() {
-		if err := r.Close(); err != nil {
-			t.Error(err)
+		if closeErr := r.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	}()
 	s := previewService(t, r, now)
@@ -287,8 +287,8 @@ func TestApplicationPreviewReferenceProtectedRetentionAndExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report, err := r.PreviewOrdersReport(ctx, read); err != nil || report.AmountTotal != 250 {
-		t.Fatal(report, err)
+	if report, reportErr := r.PreviewOrdersReport(ctx, read); reportErr != nil || report.AmountTotal != 250 {
+		t.Fatal(report, reportErr)
 	}
 	clock.Add(int64(20 * time.Minute))
 	expired, err := s.ApplicationPreviewSession(t.Context(), data.ApplicationPreviewSessionQuery{SessionID: session.SessionID})
@@ -322,8 +322,8 @@ func TestApplicationPreviewIdleExpirySweepAndStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := r.Close(); err != nil {
-			t.Error(err)
+		if closeErr := r.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	})
 	service := previewService(t, r, now)
@@ -337,9 +337,9 @@ func TestApplicationPreviewIdleExpirySweepAndStartup(t *testing.T) {
 	// pruning may drive expiry. The runtime's worker must end idle authority.
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		record, err := r.Store.LookupPreviewRecord(t.Context(), session.SessionID)
-		if err != nil {
-			t.Fatal(err)
+		record, lookupErr := r.Store.LookupPreviewRecord(t.Context(), session.SessionID)
+		if lookupErr != nil {
+			t.Fatal(lookupErr)
 		}
 		if record.Session.State == data.PreviewExpired {
 			break

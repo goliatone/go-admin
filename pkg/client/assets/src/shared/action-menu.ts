@@ -430,6 +430,7 @@ export function initActionMenus(
   const positionMenu = options.positionMenu;
   const doc = root.nodeType === 9 ? root as Document : (root as Element).ownerDocument || document;
   const disposers: Array<() => void> = [];
+  const openingGeometry = new WeakMap<HTMLElement, { trigger: HTMLElement; rect: DOMRect }>();
 
   const controller: ActionMenuController = {
     closeAll: () => closeActionMenus(root, options),
@@ -469,15 +470,22 @@ export function initActionMenus(
       }
 
       controller.closeAll();
-      elements.menu.classList.remove(hiddenClass);
-      elements.trigger.setAttribute('aria-expanded', 'true');
+      // Move the hidden menu before revealing it. Revealing it in a scrolled
+      // table can change overflow geometry and queue a scroll event that closes
+      // the freshly opened menu.
       if (options.portal) {
         portalActionMenu(elements, root);
       }
+      elements.menu.classList.remove(hiddenClass);
+      elements.trigger.setAttribute('aria-expanded', 'true');
       if (positionMenu) {
         positionMenu({ ...elements, opening: true });
       }
       focusActionMenuItem(actionMenuItems(elements.menu, itemSelector)[0]);
+      openingGeometry.set(elements.menu, {
+        trigger: elements.trigger,
+        rect: elements.trigger.getBoundingClientRect(),
+      });
       return;
     }
 
@@ -563,6 +571,18 @@ export function initActionMenus(
         const targetMenu = (target as Element).closest<HTMLElement>(menuSelector);
         const targetState = targetMenu ? portalStateByMenu.get(targetMenu) : undefined;
         if (targetMenu && (rootContains(root, targetMenu) || targetState?.root === root)) {
+          return;
+        }
+      }
+      // A trigger may have been scrolled into view immediately before opening.
+      // Its queued scroll event must not dismiss a menu positioned afterward.
+      // Actual anchor movement still dismisses the overlay.
+      const menu = openActionMenuForRoot(root, menuSelector, hiddenClass);
+      const opening = menu ? openingGeometry.get(menu) : undefined;
+      if (opening?.trigger.isConnected) {
+        const rect = opening.trigger.getBoundingClientRect();
+        if (rect.x === opening.rect.x && rect.y === opening.rect.y
+          && rect.width === opening.rect.width && rect.height === opening.rect.height) {
           return;
         }
       }

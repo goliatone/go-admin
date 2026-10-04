@@ -515,3 +515,25 @@ test('shared action menu supports legacy DataGrid class-only triggers', async ()
   assert.equal(menu.classList.contains('hidden'), false);
   assert.equal(trigger.getAttribute('aria-expanded'), 'true');
 });
+
+
+test('queued scroll leaves a positioned menu open, while anchor movement closes it', async () => {
+  const { initActionMenus } = await importActionMenuModule();
+  const dom = createDom();
+  setGlobals(dom.window);
+  const root = dom.window.document.getElementById('root');
+  const trigger = root.querySelector('[data-action-menu-trigger]');
+  const menu = root.querySelector('[data-action-menu-content]');
+  let anchorY = 100;
+  trigger.getBoundingClientRect = () => ({ x: 40, y: anchorY, width: 30, height: 30 });
+  const controller = initActionMenus(root, { portal: true, positionMenu: () => {} });
+  trigger.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  root.dispatchEvent(new dom.window.Event('scroll'));
+  assert.equal(menu.classList.contains('hidden'), false);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+  anchorY = 80;
+  root.dispatchEvent(new dom.window.Event('scroll'));
+  assert.equal(menu.classList.contains('hidden'), true);
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+  controller.destroy();
+});

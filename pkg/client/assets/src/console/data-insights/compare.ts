@@ -6,7 +6,7 @@
 // of observed values. This module never derives a difference: it only
 // formats the server's delta and states the server's reason otherwise.
 
-import { escapeAttribute, escapeHTML } from '../format.js';
+import { escapeAttribute, escapeHTML, shortIdentifier } from '../format.js';
 import { renderRelativeTime } from '../schema/rich.js';
 import { consoleStyleConfig } from '../style-config.js';
 import type { CatalogDataset } from '../data-explorer/catalog.js';
@@ -132,7 +132,7 @@ function sameDataset(a: ExploreSelection, b: ExploreSelection): boolean {
 /** Exact identity of one side, in words. */
 export function describeSelection(selection: ExploreSelection, shown: ExploreSelection, title: SelectionTitle): SideDescription {
   const identity = [
-    selection.receipt_id ? `receipt ${selection.receipt_id}` : 'no receipt',
+    selection.receipt_id ? `receipt ${shortIdentifier(selection.receipt_id)}` : 'no receipt',
     selection.content_revision ? `content revision ${selection.content_revision}` : '',
     selection.generation !== undefined ? `generation ${selection.generation}` : '',
     `target ${selection.target_id}`,
@@ -157,14 +157,14 @@ export function compareCandidates(dataset: CatalogDataset, shown: ExploreSelecti
   if (active && active.context === 'active' && active.target_id === shown.target_id && !seen.has(selectionKey(active))) {
     seen.add(selectionKey(active));
     const other = sameDataset(active, shown) ? '' : ` (${datasetLabel(active)})`;
-    out.push({ key: selectionKey(active), selection: active, active: true, label: `Active data on ${active.target_id}: ${title(active)}${other} at generation ${active.generation}` });
+    out.push({ key: selectionKey(active), selection: active, active: true, label: `Active data on ${active.target_id}: ${title(active)}${other} (generation ${active.generation})` });
   }
   for (const scenario of dataset.scenarios) {
     for (const context of ['catalog_example', 'prepared'] as const) {
       const selection = scenario.selections[context];
       if (!selection || selection.target_id !== shown.target_id || seen.has(selectionKey(selection))) continue;
       seen.add(selectionKey(selection));
-      const label = context === 'prepared' ? `${title(selection)}: prepared receipt ${selection.receipt_id}` : `${title(selection)}: catalog example`;
+      const label = context === 'prepared' ? `${title(selection)}: prepared data (${shortIdentifier(selection.receipt_id)})` : `${title(selection)}: catalog example`;
       out.push({ key: selectionKey(selection), selection, active: false, label });
     }
   }

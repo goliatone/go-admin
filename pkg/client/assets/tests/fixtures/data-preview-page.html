@@ -25,13 +25,16 @@
           <button type="button" class="console-btn console-btn--sm" data-preview-close hidden>Close preview</button>
         </nav>
       </div>
-      <dl class="data-preview__identity">
-        <div><dt>Dataset</dt><dd><span class="data-preview__value">corpus-a</span> <span class="data-preview__meta">v1 · crm</span></dd></div>
-        <div><dt>Scenario</dt><dd><span class="data-preview__value">ready</span> <span class="data-preview__meta">v1</span></dd></div>
-        <div><dt>Target</dt><dd><span class="data-preview__value">preview</span></dd></div>
-        <div><dt>Prepared receipt</dt><dd><code class="data-preview__value">rcpt-ready-1</code> <span class="data-preview__meta">content revision 2</span></dd></div>
-        <div><dt>Expires</dt><dd><time class="data-preview__value" datetime="2026-10-03T12:15:00Z" data-preview-expiry>12:15 UTC</time> <span class="data-preview__meta" data-preview-remaining></span></dd></div>
-      </dl>
+      <p class="data-preview__identity-line">Previewing <strong class="data-preview__value">ready v1</strong> <span class="data-preview__meta">· crm/corpus-a v1 · prepared for preview</span> <span class="data-preview__meta">· Expires <time datetime="2026-10-03T12:15:00Z" data-preview-expiry>12:15 UTC</time> <span data-preview-remaining></span></span></p>
+      <details class="data-preview__identity-details">
+        <summary>Details</summary>
+        <dl class="data-preview__identity">
+          <div><dt>Dataset</dt><dd><span class="data-preview__value">corpus-a</span> <span class="data-preview__meta">v1 · crm</span></dd></div>
+          <div><dt>Scenario</dt><dd><span class="data-preview__value">ready</span> <span class="data-preview__meta">v1</span></dd></div>
+          <div><dt>Target</dt><dd><span class="data-preview__value">preview</span></dd></div>
+          <div><dt>Prepared receipt</dt><dd><code class="data-preview__value">rcpt-ready-1</code> <span class="data-preview__meta">content revision 2</span></dd></div>
+        </dl>
+      </details>
       <nav class="data-preview__views" aria-label="Synthetic orders report views">
         <a href="/admin/data/preview/preview-ready-1/surfaces/synthetic-orders-report" aria-current="page">View</a>
         <a href="/admin/data/preview/preview-ready-1/surfaces/synthetic-orders-report/api/report">View data (JSON)</a>

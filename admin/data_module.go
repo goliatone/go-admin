@@ -20,6 +20,8 @@ import (
 // Service must use the same trusted actor/scope and independently enforce policy.
 // Enabled is a current Data feature gate, independent of Debug.
 type DataModuleConfig struct {
+	// Maintenance is opt-in. Hosts retain controller lifetime and domain adapters.
+	Maintenance     *data.MaintenanceService
 	PreviewSurfaces map[string]DataPreviewSurface
 	Service         *data.Service
 	TargetID        string
@@ -35,14 +37,15 @@ type DataModuleConfig struct {
 // DataModule owns its console and command registrations, never the provider,
 // target or operation store. Close it before closing those application resources.
 type DataModule struct {
-	config           DataModuleConfig
-	host             *ConsoleHost
-	queries          CommandRegistrationHandle
-	commands         CommandRegistrationHandle
-	bus              *CommandBus
-	menuCode, locale string
-	mu               sync.Mutex
-	revision         uint64
+	config              DataModuleConfig
+	host                *ConsoleHost
+	queries             CommandRegistrationHandle
+	commands            CommandRegistrationHandle
+	maintenanceCommands CommandRegistrationHandle
+	bus                 *CommandBus
+	menuCode, locale    string
+	mu                  sync.Mutex
+	revision            uint64
 }
 
 func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
@@ -63,7 +66,7 @@ func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
 		m.config.BasePath = "/admin"
 	}
 	registry := console.NewPanelRegistry()
-	if err := RegisterDataPanels(registry, DataPanelActions{Choices: m.choices, Dispatch: m.dispatch}); err != nil {
+	if err := RegisterDataPanels(registry, DataPanelActions{Choices: m.choices, Dispatch: m.dispatch, Options: m.receiptOptions, Requests: m.requestStatus}); err != nil {
 		return nil, err
 	}
 	host, err := NewConsoleHost(ConsoleHostConfig{
@@ -99,6 +102,9 @@ func (m *DataModule) Manifest() ModuleManifest { return m.host.Manifest() }
 
 // Console exposes the instance host for authorized snapshots and dashboard adapters.
 func (m *DataModule) Console() *ConsoleHost { return m.host }
+
+// Maintenance exposes optional native status/commands for application chrome.
+func (m *DataModule) Maintenance() *data.MaintenanceService { return m.config.Maintenance }
 func (m *DataModule) RouteContract() routing.ModuleContract {
 	return m.previewContract(m.explorationContract(m.host.RouteContract()))
 }
@@ -125,6 +131,13 @@ func (m *DataModule) Register(ctx ModuleContext) error {
 	if err != nil {
 		return errors.Join(err, handle.Close(), queries.Close())
 	}
+	if m.config.Maintenance != nil {
+		maintenance, maintenanceErr := RegisterDataMaintenanceCommands(ctx.Admin.Commands(), m.config.Maintenance)
+		if maintenanceErr != nil {
+			return errors.Join(maintenanceErr, handle.Close(), queries.Close())
+		}
+		m.maintenanceCommands = maintenance
+	}
 	m.bus = ctx.Admin.Commands()
 	pageRenderer := m.explorationPageRenderer(ctx.Admin, urls)
 	m.host.config.RenderPage = func(c router.Context, bootstrap console.Bootstrap) error {
@@ -137,7 +150,7 @@ func (m *DataModule) Register(ctx ModuleContext) error {
 	}
 	if err = m.host.Register(ctx); err != nil {
 		m.bus = nil
-		return errors.Join(err, handle.Close(), queries.Close())
+		return errors.Join(err, handle.Close(), queries.Close(), m.closeMaintenance())
 	}
 	m.registerExplorationRoutes(ctx, urls)
 	m.registerPreviewRoutes(ctx, previewURLs)
@@ -166,7 +179,7 @@ func (m *DataModule) MenuItems(locale string) []MenuItem {
 func (m *DataModule) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	err := m.host.Close()
+	err := errors.Join(m.host.Close(), m.closeMaintenance())
 	if m.queries != nil {
 		err = errors.Join(err, m.queries.Close())
 	}
@@ -243,28 +256,6 @@ func (m *DataModule) readConsole(ctx context.Context, _ console.Identity) error 
 	}
 	return nil
 }
-func (m *DataModule) allowAction(ctx context.Context, _ console.Identity, panel, action string) bool {
-	kind, valid := DataActionKind(action)
-	if !valid || dataChoicePanel(kind) != panel {
-		return false
-	}
-	// The registry has just resolved exact choices and their record policy.
-	// Recheck target grants without reloading the entire read model per control.
-	// Cancel uses its original operation's grant rather than a separate cancel grant.
-	if kind != data.Cancel {
-		return m.config.Service.AuthorizeAction(ctx, kind, m.config.TargetID) == nil
-	}
-	choices, err := m.choices(ctx)
-	if err != nil {
-		return false
-	}
-	for _, choice := range choices {
-		if dataActionID(choice) == action {
-			return true
-		}
-	}
-	return false
-}
 func (m *DataModule) allowRecord(ctx context.Context, _ console.Identity, panel string, record console.Record) bool {
 	if m.projection(ctx) == nil {
 		var err error
@@ -325,185 +316,6 @@ func (m *DataModule) readModel(ctx context.Context) (dataModuleReadModel, error)
 	}
 	return model, nil
 }
-func (m *DataModule) permittedChoice(ctx context.Context, choice DataActionChoice, capabilities map[data.Kind]data.Capability) bool {
-	if projection := m.projection(ctx); projection != nil {
-		allowed, err := m.authorizeProjectedChoice(ctx, projection.model, choice, capabilities)
-		return allowed && err == nil
-	}
-	capability := capabilities[choice.Kind]
-	if choice.ReceiptInput {
-		return capability.Supported && capability.Permitted
-	}
-	input := choice.Input
-	input.IdempotencyKey = "permission-check"
-	return capability.Supported && capability.Permitted && m.config.Service.AuthorizeInput(ctx, choice.Kind, input) == nil
-}
-func (m *DataModule) choices(ctx context.Context) ([]DataActionChoice, error) {
-	if projection := m.projection(ctx); projection != nil {
-		return m.projectedChoices(ctx, projection)
-	}
-	model, err := m.readModel(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := []DataActionChoice{}
-	for _, descriptor := range model.catalog {
-		candidates := m.datasetChoices(descriptor, model)
-		for _, choice := range candidates {
-			if m.permittedChoice(ctx, choice, descriptor.Capabilities) {
-				out = append(out, choice)
-			}
-		}
-	}
-	for _, op := range model.ops {
-		if op.Result.State.Terminal() || op.Result.DryRun || !op.Result.Kind.Writes() {
-			continue
-		}
-		input := data.Input{TargetID: m.config.TargetID, OperationID: op.Result.OperationID}
-		if m.permittedRecovery(ctx, model, input) {
-			out = append(out, DataActionChoice{Kind: data.Recover, Label: "Recover " + op.Result.OperationID, Input: input})
-		}
-	}
-	return out, nil
-}
-func (m *DataModule) datasetChoices(descriptor data.Descriptor, model dataModuleReadModel) []DataActionChoice {
-	out := []DataActionChoice{}
-	for _, scenario := range descriptor.Scenarios {
-		input := data.Input{Dataset: descriptor.Dataset, Scenario: scenario, TargetID: m.config.TargetID}
-		for _, kind := range []data.Kind{data.Validate, data.Prepare, data.Refresh} {
-			out = append(out, DataActionChoice{Kind: kind, Label: dataKindLabel(kind) + " " + scenario.ID, Input: input})
-		}
-		// Explicit receipt controls keep retained work reachable beyond the bounded
-		// overview. Submitted IDs are selectors, never authorization claims.
-		out = append(out, DataActionChoice{Kind: data.Verify, Label: "Verify another " + scenario.ID + " receipt", Input: input, ReceiptInput: true})
-		generation := model.state.Activation.Generation
-		input.ExpectedGeneration = &generation
-		out = append(out, DataActionChoice{Kind: data.Activate, Label: "Activate another " + scenario.ID + " receipt", Input: input, ReceiptInput: true})
-	}
-	for _, receipt := range model.receipts {
-		if receipt.Dataset != descriptor.Dataset {
-			continue
-		}
-		input := data.Input{Dataset: receipt.Dataset, Scenario: receipt.Scenario, TargetID: m.config.TargetID, ReceiptID: receipt.ID}
-		label := receipt.Scenario.ID + " (" + receipt.ID + ")"
-		out = append(out, DataActionChoice{Kind: data.Verify, Label: "Verify " + label, Input: input})
-		if receipt.Verification != nil && receipt.Verification.Passed() {
-			generation := model.state.Activation.Generation
-			input.ExpectedGeneration = &generation
-			out = append(out, DataActionChoice{Kind: data.Activate, Label: "Activate " + label, Input: input})
-		}
-	}
-	return out
-}
-
-func (m *DataModule) records(ctx context.Context, _ console.Identity, panel string) ([]console.Record, error) {
-	model, err := m.readModel(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// The host owns presentation revisions; a bounded operation window must
-	// never make summary/catalog/scenario revisions decrease when rows expire.
-	m.mu.Lock()
-	if m.revision == console.MaxWireCounter {
-		m.mu.Unlock()
-		return nil, data.Error(data.CodeUnavailable)
-	}
-	m.revision++
-	revision := m.revision
-	m.mu.Unlock()
-	out := []console.Record{}
-	switch panel {
-	case DataPanelOverview:
-		out = append(out, DataOverviewRecord(model.overview(), revision))
-	case DataPanelDatasets:
-		for _, descriptor := range model.catalog {
-			out = append(out, DataDatasetRecord(descriptor, revision))
-		}
-	case DataPanelScenarios:
-		for _, descriptor := range model.catalog {
-			for _, scenario := range descriptor.Scenarios {
-				out = append(out, DataScenarioRecord(model.scenario(scenario, m.config.TargetID), revision))
-			}
-		}
-	case DataPanelOperations:
-		for _, op := range model.ops {
-			out = append(out, DataOperationRecord(op))
-		}
-	case DataPanelVerification:
-		out = model.checkRecords(revision)
-	case DataPanelCoverage:
-		out = model.coverageRecords(revision)
-	}
-	return out, nil
-}
-func (model dataModuleReadModel) overview() DataOverviewView {
-	view := DataOverviewView{Targets: []DataTargetView{{State: model.state}}, Counts: DataOverviewCounts{Datasets: len(model.catalog)}}
-	for _, receipt := range model.receipts {
-		if receipt.ID == model.state.Activation.ReceiptID {
-			view.Targets[0].Receipt = receipt
-		}
-	}
-	if len(model.catalog) > 0 {
-		view.Capabilities = model.catalog[0].Capabilities
-	}
-	for _, descriptor := range model.catalog {
-		view.Counts.Scenarios += len(descriptor.Scenarios)
-	}
-	if len(model.ops) > 0 {
-		view.LatestOperation = &model.ops[0]
-	}
-	for _, op := range model.ops {
-		if op.Result.State == data.Running || op.Result.State == data.Queued {
-			view.Counts.Running++
-		}
-		if op.Result.State == data.Failed {
-			view.Counts.Failed++
-		}
-	}
-	return view
-}
-func (model dataModuleReadModel) scenario(scenario data.ScenarioRef, target string) DataScenarioView {
-	view := DataScenarioView{Scenario: scenario, TargetID: target}
-	for _, receipt := range model.receipts {
-		if receipt.Scenario == scenario && (view.Receipt == nil || receipt.ID == model.state.Activation.ReceiptID) {
-			view.Receipt = receipt
-			view.Active = receipt.ID == model.state.Activation.ReceiptID
-			if view.Active {
-				break
-			}
-		}
-	}
-	return view
-}
-func (model dataModuleReadModel) checkRecords(revision uint64) []console.Record {
-	out := []console.Record{}
-	for _, op := range model.ops {
-		for _, check := range op.Result.Checks {
-			out = append(out, DataCheckRecord(DataCheckView{Origin: op.Result.Kind, OperationID: op.Result.OperationID, DryRun: op.Result.DryRun, Check: check}, revision))
-		}
-	}
-	for _, receipt := range model.receipts {
-		if receipt.Verification == nil {
-			continue
-		}
-		for _, check := range receipt.Verification.Checks {
-			out = append(out, DataCheckRecord(DataCheckView{Origin: data.Verify, VerificationID: receipt.Verification.ID, ReceiptID: receipt.ID, Check: check}, revision))
-		}
-	}
-	return out
-}
-func (model dataModuleReadModel) coverageRecords(revision uint64) []console.Record {
-	out := []console.Record{}
-	for _, receipt := range model.receipts {
-		if receipt.Verification == nil {
-			continue
-		}
-		for _, coverage := range receipt.Verification.Coverage {
-			out = append(out, DataCoverageRecord(DataCoverageView{VerificationID: receipt.Verification.ID, ReceiptID: receipt.ID, Coverage: coverage}, revision))
-		}
-	}
-	return out
-}
 
 func (m *DataModule) pinModelReceipts(ctx context.Context, model *dataModuleReadModel) error {
 	for _, id := range []string{model.state.Activation.ReceiptID, model.state.PendingReceiptID} {
@@ -518,6 +330,15 @@ func (m *DataModule) pinModelReceipts(ctx context.Context, model *dataModuleRead
 			return lookupErr
 		}
 		model.receipts = append(model.receipts, &receipt)
+	}
+	return nil
+}
+
+func (m *DataModule) closeMaintenance() error {
+	if m.maintenanceCommands != nil {
+		err := m.maintenanceCommands.Close()
+		m.maintenanceCommands = nil
+		return err
 	}
 	return nil
 }

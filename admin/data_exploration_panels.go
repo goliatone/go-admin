@@ -5,21 +5,22 @@ import (
 	admindata "github.com/goliatone/go-admin/data"
 )
 
-// Data explorer presentation. The Explore panel is read-only: the Data page's
-// explorer controller (pkg/client/assets/src/console/data-explorer.ts) loads
-// declared descriptions, bounded record samples and declared usage lazily from
-// the Data module's explore routes. The panel carries no snapshot records;
-// the controller derives exact selections from the already-authorized Datasets
-// and Scenarios rows, and every explore read is authorized again by the
-// service. Without the controller (a dashboard widget or an older client) the
-// declared view renders its own guidance.
+// Data explorer presentation. The Explore panel serves the dataset catalog
+// records and is read-only: the Data page's explorer controller
+// (pkg/client/assets/src/console/data-explorer.ts) renders them as cards and
+// loads declared descriptions, bounded record samples and declared usage
+// lazily from the Data module's explore routes. The controller derives exact
+// selections from the already-authorized catalog and Scenarios rows, and every
+// explore read is authorized again by the service. Without the controller (a
+// dashboard widget or an older client) the declared cards view renders the
+// catalog records themselves.
 
 // DataPanelExplore is the read-only dataset explorer panel.
 const DataPanelExplore = "explore"
 
-// dataExplorePanelOrder places Explore after the lifecycle evidence tabs, so
-// the approved lifecycle tab order stays intact.
-const dataExplorePanelOrder = 65
+// dataExplorePanelOrder places Explore last, where the approved tab order
+// keeps the dataset catalog.
+const dataExplorePanelOrder = 60
 
 func dataExplorePanelConfig() console.PanelConfig {
 	return console.PanelConfig{
@@ -33,13 +34,23 @@ func dataExplorePanelConfig() console.PanelConfig {
 	}
 }
 
+// dataExploreUI is the declared fallback view of the catalog records: one
+// row per dataset version with its declared title, purpose, origin and
+// counts. On the Data page the explorer controller renders the panel itself.
 func dataExploreUI() *console.PanelUI {
-	view := console.PanelView("cards", "")
-	view.Title = "Explore datasets"
+	view := dataReadOnlyTable("Explore datasets", "",
+		dataRichColumn("Dataset", "title", map[string]any{"secondary_bind": "summary"}),
+		dataColumn("Origin", "origin"),
+		dataColumn("Scenarios", "scenarios", console.PanelFormatNumber),
+		dataRichColumn("Records", "records", map[string]any{"empty": "Unknown"}),
+		dataRichColumn("Timezone", "timezone", map[string]any{"empty": "—"}),
+		dataRichColumn("Reference", "dataset_ref", map[string]any{"format": console.PanelFormatMono}),
+	)
 	view.Description = "What each dataset contains, what each scenario is for and which application features declare a dependency on it."
-	view.Empty = "Open the Data page to explore dataset descriptions, sample records and declared usage."
+	view.Empty = "No datasets are available to explore."
 	ui := console.NewPanelUI(view, nil)
-	ui.Count = &console.PanelUICount{Mode: console.PanelCountNone}
+	ui.Count = &console.PanelUICount{Mode: console.PanelCountArrayLength}
+	ui.Filters = []console.PanelUIFilter{dataSelectFilter("origin", "Origin", "origin", dataOriginSynthetic, dataOriginSource)}
 	return ui
 }
 

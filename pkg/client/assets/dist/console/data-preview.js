@@ -1,8 +1,8 @@
 import { escapeAttribute as c, escapeHTML as l } from "../shared/html.js";
-import { S as N, o as L } from "../chunks/rich-C-60Te1B.js";
-import { f as D, g as u, m as O, u as _, v as P } from "../chunks/transport-DVxB6IT1.js";
+import { C as N, o as L } from "../chunks/rich-5UU6Sxl8.js";
+import { f as D, g as u, m as O, u as k, v as P } from "../chunks/transport-DVxB6IT1.js";
 import { n as F } from "../chunks/keys-CcTTWa6z.js";
-import { a as q, c as Se, d as k, f as xe, i as Ie, l as Ee, n as Re, o as M, p as U, r as B, s as Ce, t as Ae, u as Ne } from "../chunks/transport-CrXa2Trj.js";
+import { a as q, c as Se, d as _, f as xe, i as Ie, l as Ee, n as Re, o as M, p as U, r as B, s as Ce, t as Ae, u as Ne } from "../chunks/transport-CrXa2Trj.js";
 var Y = N, G = {
   screen: "Screen",
   report: "Report"
@@ -181,7 +181,7 @@ function ie(e, t, i, s, r) {
   n ? o = `<a class="console-btn console-btn--sm console-btn--primary" href="${c(n)}" data-preview-launch data-surface-id="${c(t.id)}" data-explorer-focus="${c(E("launch", t.id))}">Open preview<span class="console-sr-only"> of ${l(t.label)}</span></a>` : a || (o = I("No launch link is available for this preview."));
   const p = s === "checking" ? '<span class="console-muted" role="status" aria-busy="true">Checking…</span>' : "";
   return `
-    <p class="console-preview__status" data-preview-state="ready">Read-only preview of receipt <code class="console-kv__mono">${l(i.selection.receipt_id || "")}</code>. Expires at ${z(i, r)}.</p>
+    <p class="console-preview__status" data-preview-state="ready">Read-only preview of the prepared data. Expires at ${z(i, r)}.</p>
     <div class="console-preview__actions">${o}${d(a ? "Closing…" : "Close preview", "close", t.id, { busy: a })}${p}</div>
   `;
 }
@@ -289,9 +289,9 @@ function fe() {
   }
 }
 function ve(e, t) {
-  if (!_(e) || !_(e.surface)) return null;
+  if (!k(e) || !k(e.surface)) return null;
   const i = O(e.selection), s = {
-    id: k(e.surface.id),
+    id: _(e.surface.id),
     label: P(e.surface.label),
     kind: D(e.surface.kind, ["screen", "report"])
   }, r = typeof e.at == "number" && Number.isFinite(e.at) ? e.at : NaN;
@@ -300,7 +300,7 @@ function ve(e, t) {
     selection: i,
     surface: s,
     at: r
-  }, n = k(e.session_id), o = typeof e.request_id == "string" && he.test(e.request_id) ? e.request_id : "";
+  }, n = _(e.session_id), o = typeof e.request_id == "string" && he.test(e.request_id) ? e.request_id : "";
   return n && (a.session_id = n), o && (a.request_id = o), n || o ? a : null;
 }
 var we = class {
@@ -668,7 +668,7 @@ export {
   Se as openWire,
   Ee as parseCapability,
   Ne as parseSession,
-  k as previewID,
+  _ as previewID,
   xe as previewPath,
   pe as renderPreview,
   U as safeGuarantees,

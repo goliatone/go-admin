@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin"
 	cms "github.com/goliatone/go-cms"
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
@@ -135,6 +136,26 @@ func TestSetupPersistentCMSExposesPolicyCheckerServices(t *testing.T) {
 	}
 	if opts.Container == nil || opts.Container.ContentService() == nil {
 		t.Fatalf("expected admin CMS bridge container to remain available")
+	}
+	// Grouped list options belong to the admin adapter. A legacy bridge leaks
+	// WithLocaleVariants to go-cms, where it is parsed as an environment key.
+	content := opts.Container.ContentService()
+	listService, ok := content.(interface {
+		ContentsWithOptions(context.Context, string, ...admin.CMSContentListOption) ([]admin.CMSContent, error)
+	})
+	if !ok {
+		t.Fatalf("expected locale-variant list contract, got %T", content)
+	}
+	variants, listErr := listService.ContentsWithOptions(ctx, "all", admin.WithTranslations(), admin.WithLocaleVariants())
+	if listErr != nil {
+		t.Fatalf("load grouped locale variants: %v", listErr)
+	}
+	locales := map[string]bool{}
+	for _, variant := range variants {
+		locales[variant.Locale] = true
+	}
+	if !locales["en"] || !locales["es"] {
+		t.Fatalf("expected complete locale siblings, got locales %v", locales)
 	}
 	provider, ok := opts.GoCMSConfig.(interface {
 		Pages() cms.PageService

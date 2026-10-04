@@ -18,8 +18,8 @@ func explorerRuntime(t *testing.T) (*Runtime, *data.Service) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := r.Close(); err != nil {
-			t.Error(err)
+		if closeErr := r.Close(); closeErr != nil {
+			t.Error(closeErr)
 		}
 	})
 	return r, demoService(t, r, r)
@@ -57,7 +57,11 @@ func TestSyntheticExplorerReadyQuietMetadataAndPagination(t *testing.T) {
 		}
 		total := 0
 		for _, row := range sample.Rows {
-			total += row.Cells["amount"].Value.(int)
+			amount, ok := row.Cells["amount"].Value.(int)
+			if !ok {
+				t.Fatalf("amount has type %T", row.Cells["amount"].Value)
+			}
+			total += amount
 			if row.Cells["local_day"].Value != "2026-01-01" || row.RecordKey == row.Cells["id"].Value {
 				t.Fatal(row)
 			}
@@ -67,7 +71,11 @@ func TestSyntheticExplorerReadyQuietMetadataAndPagination(t *testing.T) {
 		if err != nil || len(next.Rows) != 1 || next.NextCursor != nil {
 			t.Fatal(next, err)
 		}
-		total += next.Rows[0].Cells["amount"].Value.(int)
+		amount, ok := next.Rows[0].Cells["amount"].Value.(int)
+		if !ok {
+			t.Fatalf("amount has type %T", next.Rows[0].Cells["amount"].Value)
+		}
+		total += amount
 		if total != 250 {
 			t.Fatal(total)
 		}
@@ -118,25 +126,25 @@ func TestSyntheticExplorerPreparedAndActiveReadsHaveNoEffects(t *testing.T) {
 	q := data.ExploreSamplesQuery{Selection: selection, EntityID: "orders"}
 	assertRead := func(q data.ExploreSamplesQuery) {
 		t.Helper()
-		before, err := s.Active(ctx, TargetID)
-		if err != nil {
-			t.Fatal(err)
+		before, operationErr := s.Active(ctx, TargetID)
+		if operationErr != nil {
+			t.Fatal(operationErr)
 		}
-		ops, err := s.Operations(ctx, TargetID, 100)
-		if err != nil {
-			t.Fatal(err)
+		ops, operationErr := s.Operations(ctx, TargetID, 100)
+		if operationErr != nil {
+			t.Fatal(operationErr)
 		}
-		sample, err := s.ExploreSamples(ctx, q)
-		if err != nil || len(sample.Rows) != 3 || *sample.Total != 3 || sample.Provenance != "observed" || !sample.Selection.Equal(q.Selection) {
-			t.Fatal(sample, err)
+		sample, operationErr := s.ExploreSamples(ctx, q)
+		if operationErr != nil || len(sample.Rows) != 3 || *sample.Total != 3 || sample.Provenance != "observed" || !sample.Selection.Equal(q.Selection) {
+			t.Fatal(sample, operationErr)
 		}
-		after, err := s.Active(ctx, TargetID)
-		if err != nil || !reflect.DeepEqual(before, after) {
-			t.Fatal("read moved route", before, after, err)
+		after, operationErr := s.Active(ctx, TargetID)
+		if operationErr != nil || !reflect.DeepEqual(before, after) {
+			t.Fatal("read moved route", before, after, operationErr)
 		}
-		afterOps, err := s.Operations(ctx, TargetID, 100)
-		if err != nil || !reflect.DeepEqual(ops, afterOps) {
-			t.Fatal("read claimed work", err)
+		afterOps, operationErr := s.Operations(ctx, TargetID, 100)
+		if operationErr != nil || !reflect.DeepEqual(ops, afterOps) {
+			t.Fatal("read claimed work", operationErr)
 		}
 	}
 	assertRead(q)

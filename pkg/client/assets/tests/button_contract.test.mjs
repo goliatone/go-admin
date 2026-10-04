@@ -6,7 +6,6 @@ const sourceURL = new URL('../src/datatable/actions.ts', import.meta.url);
 const inputCSSURL = new URL('../input.css', import.meta.url);
 const outputCSSURL = new URL('../output.css', import.meta.url);
 const distCSSURL = new URL('../dist/output.css', import.meta.url);
-const tailwindConfigURL = new URL('../tailwind.config.cjs', import.meta.url);
 
 function actionVariantMappings(source) {
   const typeMatch = source.match(/export type ActionVariant\s*=\s*([^;]+);/);
@@ -41,16 +40,14 @@ test('every typed action variant maps to source and built button CSS', async () 
 });
 
 test('button labels default to one line with an explicit multiline opt-out', async () => {
-  const [inputCSS, outputCSS, distCSS, tailwindConfig] = await Promise.all([
+  const [inputCSS, outputCSS, distCSS] = await Promise.all([
     readFile(inputCSSURL, 'utf8'),
     readFile(outputCSSURL, 'utf8'),
     readFile(distCSSURL, 'utf8'),
-    readFile(tailwindConfigURL, 'utf8'),
   ]);
 
   assert.match(inputCSS, /\.btn\s*\{[^}]*whitespace-nowrap/s);
   assert.match(inputCSS, /\.btn-multiline\s*\{[^}]*whitespace-normal/s);
-  assert.match(tailwindConfig, /['"]btn-multiline['"]/);
   for (const css of [outputCSS, distCSS]) {
     assert.match(css, /\.btn\{[^}]*white-space:nowrap/);
     assert.match(css, /\.btn-multiline\{[^}]*white-space:normal/);

@@ -1,6 +1,7 @@
 // Data explorer controller: the read-only Explore panel of the Data console.
-// It renders dataset cards and descriptive details from the Datasets and
-// Scenarios rows the actor already received, and loads declared descriptions,
+// It renders dataset cards and descriptive details from the catalog records
+// of its own panel and the Scenarios rows the actor already received, and
+// loads declared descriptions,
 // record previews and related records lazily through the Data module's
 // explore routes. Reads are bounded and cancellable; switching selection
 // aborts the old reads and a late answer for any other selection is discarded.
@@ -55,7 +56,7 @@ import { forgetLaunches, launchStoreScope } from './data-preview/keys.js';
 /** Panel ID of the explorer in the Data console. */
 export const DATA_EXPLORE_PANEL = 'explore';
 
-const CATALOG_PANELS = new Set(['datasets', 'scenarios', 'overview']);
+const CATALOG_PANELS = new Set([DATA_EXPLORE_PANEL, 'scenarios', 'overview']);
 
 /** Shown content of a description: a read time alone is not a change. */
 function entryContent(entry: MetadataEntry | undefined): string {
@@ -311,7 +312,7 @@ export class DataExplorer {
   /** Rebuild the catalog from the authorized panels; true when it changed. */
   private syncCatalog(): boolean {
     if (!this.runtime || this.runtime.getState() !== 'ready') return false;
-    const catalog = buildCatalog(this.runtime.getPanelData('datasets'), this.runtime.getPanelData('scenarios'), this.runtime.getPanelData('overview'));
+    const catalog = buildCatalog(this.runtime.getPanelData(DATA_EXPLORE_PANEL), this.runtime.getPanelData('scenarios'), this.runtime.getPanelData('overview'));
     const signature = JSON.stringify(catalog);
     if (signature === this.catalogSignature) return false;
     this.catalog = catalog;

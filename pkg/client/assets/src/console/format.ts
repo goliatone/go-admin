@@ -123,3 +123,15 @@ export function pathValue(data: unknown, bind: unknown): unknown {
     return (current as Record<string, unknown>)[part];
   }, data);
 }
+
+/**
+ * Short form of a long identifier for prose: the first run of eight hex
+ * digits (the distinctive part of "receipt-1071a4f9-…" or a UUID), else the
+ * first eight characters. Identifiers of twelve characters or fewer stay whole.
+ */
+export function shortIdentifier(value: unknown): string {
+  const id = textValue(value);
+  if (id.length <= 12) return id;
+  const match = /[0-9a-fA-F]{8}/.exec(id);
+  return `${match ? match[0] : id.slice(0, 8)}…`;
+}

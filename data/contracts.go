@@ -161,6 +161,25 @@ type SamplePeriod struct {
 	Timezone    string `json:"timezone"`
 	EvidenceRef string `json:"evidence_ref"`
 }
+
+// DescriptorPresentation is optional descriptive metadata for people: a human
+// title and summary for the dataset and its scenarios. It is digest-neutral:
+// CompositeDigest excludes it, so editing a label never invalidates a dataset
+// version, a prepared receipt or a request fingerprint. It carries no
+// identity; consoles fall back to identifiers when a title is missing.
+type DescriptorPresentation struct {
+	Title   string `json:"title,omitempty"`
+	Summary string `json:"summary,omitempty"`
+	// Scenarios names scenarios by ID; the versions of one scenario share it.
+	Scenarios map[string]ScenarioPresentation `json:"scenarios,omitempty"`
+}
+
+// ScenarioPresentation is the human title and summary of one scenario ID.
+type ScenarioPresentation struct {
+	Title   string `json:"title,omitempty"`
+	Summary string `json:"summary,omitempty"`
+}
+
 type Descriptor struct {
 	Dataset               DatasetRef          `json:"dataset"`
 	Components            []Component         `json:"components"`
@@ -179,11 +198,46 @@ type Descriptor struct {
 	Prerequisites         []string            `json:"prerequisites"`
 	Scenarios             []ScenarioRef       `json:"scenarios"`
 	Capabilities          map[Kind]Capability `json:"capabilities"`
+	// Presentation is optional and excluded from the composite digest.
+	Presentation *DescriptorPresentation `json:"presentation,omitempty"`
+}
+
+// Title is the declared human title of the dataset, or "" when none is declared.
+func (d Descriptor) Title() string {
+	if d.Presentation == nil {
+		return ""
+	}
+	return strings.TrimSpace(d.Presentation.Title)
+}
+
+// Summary is the declared one-line purpose of the dataset, or "".
+func (d Descriptor) Summary() string {
+	if d.Presentation == nil {
+		return ""
+	}
+	return strings.TrimSpace(d.Presentation.Summary)
+}
+
+// ScenarioTitle is the declared human title of a scenario ID, or "".
+func (d Descriptor) ScenarioTitle(scenarioID string) string {
+	if d.Presentation == nil {
+		return ""
+	}
+	return strings.TrimSpace(d.Presentation.Scenarios[scenarioID].Title)
+}
+
+// ScenarioSummary is the declared one-line purpose of a scenario ID, or "".
+func (d Descriptor) ScenarioSummary(scenarioID string) string {
+	if d.Presentation == nil {
+		return ""
+	}
+	return strings.TrimSpace(d.Presentation.Scenarios[scenarioID].Summary)
 }
 
 // CompositeDigest canonicalizes path order and JSON map keys. Digest, scenario
-// back-references and current permission/capability discovery are excluded.
-// Counts, evidence, samples and source/policy/generator metadata remain bound.
+// back-references, current permission/capability discovery and descriptive
+// presentation are excluded. Counts, evidence, samples and
+// source/policy/generator metadata remain bound.
 func (d Descriptor) CompositeDigest() (string, error) {
 	if !identifier(d.Dataset.Provider) || !identifier(d.Dataset.ID) || !identifier(d.Dataset.Version) || !digestValid(d.SourceContractHash) || !digestValid(d.PolicyHash) || d.SourceContractVersion == "" {
 		return "", Error(CodeInvalid)
@@ -200,6 +254,7 @@ func (d Descriptor) CompositeDigest() (string, error) {
 	d.Components = copyComponents
 	d.Dataset.Digest = ""
 	d.Capabilities = nil
+	d.Presentation = nil
 	d.Scenarios = append([]ScenarioRef(nil), d.Scenarios...)
 	sort.Slice(d.Scenarios, func(i, j int) bool {
 		if d.Scenarios[i].ID == d.Scenarios[j].ID {
@@ -244,8 +299,12 @@ type Capability struct {
 	Permitted bool   `json:"permitted"`
 	Reason    string `json:"reason,omitempty"`
 }
+
+// Check is one validation, verification or planned check. Label is an
+// optional human name; consoles fall back to the ID.
 type Check struct {
 	ID          string `json:"id"`
+	Label       string `json:"label,omitempty"`
 	Status      string `json:"status"`
 	Expected    string `json:"expected,omitempty"`
 	Actual      string `json:"actual,omitempty"`

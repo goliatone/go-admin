@@ -41,6 +41,8 @@ export type InsightsModel = {
   selection: ExploreSelection;
   entry: InsightsEntry | undefined;
   display: InsightsDisplay;
+  /** Scenario title of the shown selection, for prose; identifiers stay in Technical identity. */
+  title?: string;
 };
 
 const styles = consoleStyleConfig;
@@ -105,16 +107,17 @@ export function renderInsightsFailure(reported: ExplorerFailure, retryAction = '
 // Provenance
 
 /** Where the shown values come from, in words; examples are never observations. */
-export function provenanceText(insights: Pick<ExploreInsights, 'provenance' | 'selection'>): string {
+export function provenanceText(insights: Pick<ExploreInsights, 'provenance' | 'selection'>, title = ''): string {
   const selection = insights.selection;
+  const subject = title || 'this scenario';
   if (insights.provenance === 'example') {
     return 'Catalog example: values the provider declares for this scenario. They are not observed and not verified.';
   }
   if (insights.provenance !== 'observed') return 'Provenance unknown: these values may not be observed data.';
   if (selection.context === 'active') {
-    return `Observed in the active data on ${selection.target_id} at generation ${selection.generation} (receipt ${selection.receipt_id}).`;
+    return `Observed in what ${selection.target_id} serves now for ${subject} (generation ${selection.generation}).`;
   }
-  return `Observed in prepared receipt ${selection.receipt_id} (content revision ${selection.content_revision}) on ${selection.target_id}.`;
+  return `Observed in the prepared data for ${subject} on ${selection.target_id}.`;
 }
 
 function completenessNotice(insights: ExploreInsights): string {
@@ -135,9 +138,9 @@ function readDetails(insights: ExploreInsights): string {
   return parts.length > 0 ? `<p class="console-explorer__observed console-insights__read">${parts.join(' · ')}</p>` : '';
 }
 
-export function renderProvenance(insights: ExploreInsights): string {
+export function renderProvenance(insights: ExploreInsights, title = ''): string {
   const provenance = insights.provenance === 'example' || insights.provenance === 'observed' ? insights.provenance : 'unknown';
-  return `<p class="console-insights__provenance" data-provenance="${provenance}">${escapeHTML(provenanceText(insights))}</p>${readDetails(insights)}`;
+  return `<p class="console-insights__provenance" data-provenance="${provenance}">${escapeHTML(provenanceText(insights, title))}</p>${readDetails(insights)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -444,7 +447,7 @@ export function renderInsights(model: InsightsModel): string {
     : '';
   return `<div class="console-insights" data-insights-view="insights">
       ${toolbar}
-      ${renderProvenance(insights)}
+      ${renderProvenance(insights, model.title)}
       ${completenessNotice(insights)}${empty}
       ${renderComposition(model.scope, insights, model.display)}
       ${renderCoverage(model.scope, insights, model.display)}

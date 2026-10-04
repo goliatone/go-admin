@@ -1,4 +1,4 @@
-var T = "[data-action-menu], [data-dropdown]", B = "[data-action-menu-trigger], [data-dropdown-trigger]", I = "[data-action-menu-content], .actions-menu", X = '[role="menuitem"], [data-action-menu-item], .action-item', U = "hidden", P = /* @__PURE__ */ new Set(), v = /* @__PURE__ */ new WeakMap(), _ = /* @__PURE__ */ new WeakMap(), R = /* @__PURE__ */ new WeakMap(), Z = [
+var P = "[data-action-menu], [data-dropdown]", U = "[data-action-menu-trigger], [data-dropdown-trigger]", _ = "[data-action-menu-content], .actions-menu", Z = '[role="menuitem"], [data-action-menu-item], .action-item', q = "hidden", C = /* @__PURE__ */ new Set(), w = /* @__PURE__ */ new WeakMap(), k = /* @__PURE__ */ new WeakMap(), I = /* @__PURE__ */ new WeakMap(), tt = [
   "position",
   "right",
   "bottom",
@@ -8,7 +8,7 @@ var T = "[data-action-menu], [data-dropdown]", B = "[data-action-menu-trigger], 
   "max-height",
   "left",
   "top"
-], tt = [
+], et = [
   "--admin-action-menu-surface",
   "--admin-action-menu-text",
   "--admin-action-menu-border",
@@ -29,7 +29,7 @@ var T = "[data-action-menu], [data-dropdown]", B = "[data-action-menu-trigger], 
   "--datagrid-row-hover",
   "--radius-surface",
   "--shadow-overlay"
-], et = [
+], nt = [
   "background-color",
   "border-top-color",
   "border-right-color",
@@ -55,83 +55,83 @@ var T = "[data-action-menu], [data-dropdown]", B = "[data-action-menu-trigger], 
   "font-weight",
   "line-height"
 ];
-function nt(e) {
+function rt(e) {
   const t = e.target;
   return t && typeof t.closest == "function" ? t : null;
 }
-function M(e, t) {
+function A(e, t) {
   return "contains" in e && typeof e.contains == "function" ? e.contains(t) : !1;
 }
 function ot(e, t) {
   const i = /* @__PURE__ */ new Map();
-  return t.forEach((o) => {
-    i.set(o, {
-      value: e.style.getPropertyValue(o),
-      priority: e.style.getPropertyPriority(o)
+  return t.forEach((r) => {
+    i.set(r, {
+      value: e.style.getPropertyValue(r),
+      priority: e.style.getPropertyPriority(r)
     });
   }), i;
 }
-function rt(e, t) {
-  t.forEach(({ value: i, priority: o }, n) => {
+function it(e, t) {
+  t.forEach(({ value: i, priority: r }, n) => {
     if (i) {
-      e.style.setProperty(n, i, o);
+      e.style.setProperty(n, i, r);
       return;
     }
     e.style.removeProperty(n);
   });
 }
-function q(e) {
-  const t = R.get(e);
-  t && (R.delete(e), rt(e, t));
+function z(e) {
+  const t = I.get(e);
+  t && (I.delete(e), it(e, t));
 }
-function it(e) {
+function st(e) {
   const t = /* @__PURE__ */ new Map(), i = e.ownerDocument.defaultView;
   if (!i) return t;
-  const o = i.getComputedStyle(e), n = new Set(tt);
-  for (let s = 0; s < o.length; s += 1) {
-    const a = o.item(s);
-    a.startsWith("--") && n.add(a);
+  const r = i.getComputedStyle(e), n = new Set(et);
+  for (let s = 0; s < r.length; s += 1) {
+    const c = r.item(s);
+    c.startsWith("--") && n.add(c);
   }
   return n.forEach((s) => {
-    const a = o.getPropertyValue(s).trim();
-    a && t.set(s, a);
-  }), et.forEach((s) => {
-    const a = o.getPropertyValue(s).trim();
-    a && t.set(s, a);
+    const c = r.getPropertyValue(s).trim();
+    c && t.set(s, c);
+  }), nt.forEach((s) => {
+    const c = r.getPropertyValue(s).trim();
+    c && t.set(s, c);
   }), t;
 }
-function st(e, t) {
-  t.forEach((i, o) => {
-    e.style.setProperty(o, i);
+function ct(e, t) {
+  t.forEach((i, r) => {
+    e.style.setProperty(r, i);
   });
 }
 function at(e, t = {}) {
-  const i = t.containerSelector || T, o = t.menuSelector || I, n = e.closest(i), s = _.get(e) ?? n?.querySelector(o) ?? null;
+  const i = t.containerSelector || P, r = t.menuSelector || _, n = e.closest(i), s = k.get(e) ?? n?.querySelector(r) ?? null;
   return !n || !s ? null : {
     container: n,
     trigger: e,
     menu: s
   };
 }
-function ct(e, t) {
-  const { container: i, trigger: o, menu: n } = e;
-  if (v.has(n)) return;
-  const s = n.ownerDocument, a = n.parentNode;
-  if (!s.body || !a) return;
-  const g = it(n);
-  v.set(n, {
+function lt(e, t) {
+  const { container: i, trigger: r, menu: n } = e;
+  if (w.has(n)) return;
+  const s = n.ownerDocument, c = n.parentNode;
+  if (!s.body || !c) return;
+  const m = st(n);
+  w.set(n, {
     container: i,
-    trigger: o,
+    trigger: r,
     root: t,
-    parent: a,
+    parent: c,
     nextSibling: n.nextSibling,
     inlineStyle: n.getAttribute("style")
-  }), P.add(n), _.set(o, n), s.body.appendChild(n), st(n, g);
+  }), C.add(n), k.set(r, n), s.body.appendChild(n), ct(n, m);
 }
-function lt(e) {
-  const t = v.get(e);
+function dt(e) {
+  const t = w.get(e);
   if (t) {
-    if (P.delete(e), v.delete(e), _.delete(t.trigger), t.inlineStyle === null ? e.removeAttribute("style") : e.setAttribute("style", t.inlineStyle), !t.parent.isConnected) {
+    if (C.delete(e), w.delete(e), k.delete(t.trigger), t.inlineStyle === null ? e.removeAttribute("style") : e.setAttribute("style", t.inlineStyle), !t.parent.isConnected) {
       e.remove();
       return;
     }
@@ -142,28 +142,28 @@ function lt(e) {
     t.parent.appendChild(e);
   }
 }
-function L(e, t = {}) {
-  const i = t.hiddenClass || U;
+function T(e, t = {}) {
+  const i = t.hiddenClass || q;
   e.classList.add(i);
-  const o = v.get(e), n = o?.container ?? e.closest(t.containerSelector || T);
-  (o?.trigger ?? n?.querySelector(t.triggerSelector || B))?.setAttribute("aria-expanded", "false"), q(e), lt(e);
+  const r = w.get(e), n = r?.container ?? e.closest(t.containerSelector || P);
+  (r?.trigger ?? n?.querySelector(t.triggerSelector || U))?.setAttribute("aria-expanded", "false"), z(e), dt(e);
 }
-function dt(e = document, t = {}) {
-  const i = t.menuSelector || I, o = new Set(Array.from(e.querySelectorAll(i)));
-  P.forEach((n) => {
-    const s = v.get(n);
-    s && (s.root === e || M(e, s.trigger)) && o.add(n);
-  }), o.forEach((n) => {
-    L(n, t);
+function ut(e = document, t = {}) {
+  const i = t.menuSelector || _, r = new Set(Array.from(e.querySelectorAll(i)));
+  C.forEach((n) => {
+    const s = w.get(n);
+    s && (s.root === e || A(e, s.trigger)) && r.add(n);
+  }), r.forEach((n) => {
+    T(n, t);
   });
 }
-function ut(e) {
+function gt(e) {
   return e.getAttribute("aria-disabled") === "true" || e.dataset.disabled === "true";
 }
-function F(e, t) {
+function N(e, t) {
   return Array.from(e.querySelectorAll(t)).filter((i) => !i.hasAttribute("disabled") && !i.hidden && i.getAttribute("aria-hidden") !== "true");
 }
-function C(e) {
+function R(e) {
   if (e)
     try {
       e.focus({ preventScroll: !0 });
@@ -171,108 +171,116 @@ function C(e) {
       e.focus();
     }
 }
-function ft(e, t, i) {
-  const o = new Set(Array.from(e.querySelectorAll(t)));
-  return P.forEach((n) => {
-    const s = v.get(n);
-    s && (s.root === e || M(e, s.trigger)) && o.add(n);
-  }), Array.from(o).find((n) => !n.classList.contains(i)) ?? null;
+function F(e, t, i) {
+  const r = new Set(Array.from(e.querySelectorAll(t)));
+  return C.forEach((n) => {
+    const s = w.get(n);
+    s && (s.root === e || A(e, s.trigger)) && r.add(n);
+  }), Array.from(r).find((n) => !n.classList.contains(i)) ?? null;
 }
-function gt({ trigger: e, menu: t }) {
-  q(t), R.set(t, ot(t, Z));
-  const i = e.getBoundingClientRect(), o = e.ownerDocument.defaultView ?? window, n = o.visualViewport, s = n?.offsetLeft ?? 0, a = n?.offsetTop ?? 0, g = n?.width ?? o.innerWidth, f = n?.height ?? o.innerHeight, h = 10, S = 8, w = Math.max(0, g - 20), d = Math.max(0, f - 20), r = o.getComputedStyle(t), c = (J, Q) => {
-    const N = Number.parseFloat(J);
-    return Number.isFinite(N) ? N : Q;
-  }, u = c(r.minWidth, 192), m = c(r.maxWidth, w), l = c(r.maxHeight, d), p = Math.min(m, w), b = s + g, A = a + f, E = Math.max(0, A - h - i.bottom - S), x = Math.max(0, i.top - a - h - S), y = Math.min(t.scrollHeight || t.offsetHeight || Math.min(300, d), l, d), k = y > E && x > E, D = Math.min(l, d, k ? x : E);
-  t.style.position = "fixed", t.style.right = "auto", t.style.bottom = "auto", t.style.margin = "0", t.style.minWidth = `${Math.min(u, p)}px`, t.style.maxWidth = `${p}px`, t.style.maxHeight = `${D}px`;
-  const H = Math.min(t.offsetWidth || 224, w), O = Math.min(t.offsetHeight || y, D), z = i.right - H, W = s + h, $ = Math.max(W, b - H - h), G = Math.min(Math.max(W, z), $), K = k ? i.top - O - S : i.bottom + S, V = a + h, Y = Math.max(V, A - O - h), j = Math.min(Math.max(V, K), Y);
-  t.style.left = `${G}px`, t.style.top = `${j}px`;
+function ht({ trigger: e, menu: t }) {
+  z(t), I.set(t, ot(t, tt));
+  const i = e.getBoundingClientRect(), r = e.ownerDocument.defaultView ?? window, n = r.visualViewport, s = n?.offsetLeft ?? 0, c = n?.offsetTop ?? 0, m = n?.width ?? r.innerWidth, h = n?.height ?? r.innerHeight, E = 10, v = 8, x = Math.max(0, m - 20), b = Math.max(0, h - 20), f = r.getComputedStyle(t), o = (Q, X) => {
+    const B = Number.parseFloat(Q);
+    return Number.isFinite(B) ? B : X;
+  }, d = o(f.minWidth, 192), u = o(f.maxWidth, x), y = o(f.maxHeight, b), g = Math.min(u, x), a = s + m, l = c + h, S = Math.max(0, l - E - i.bottom - v), M = Math.max(0, i.top - c - E - v), L = Math.min(t.scrollHeight || t.offsetHeight || Math.min(300, b), y, b), p = L > S && M > S, W = Math.min(y, b, p ? M : S);
+  t.style.position = "fixed", t.style.right = "auto", t.style.bottom = "auto", t.style.margin = "0", t.style.minWidth = `${Math.min(d, g)}px`, t.style.maxWidth = `${g}px`, t.style.maxHeight = `${W}px`;
+  const D = Math.min(t.offsetWidth || 224, x), H = Math.min(t.offsetHeight || L, W), $ = i.right - D, O = s + E, G = Math.max(O, a - D - E), K = Math.min(Math.max(O, $), G), Y = p ? i.top - H - v : i.bottom + v, V = c + E, j = Math.max(V, l - H - E), J = Math.min(Math.max(V, Y), j);
+  t.style.left = `${K}px`, t.style.top = `${J}px`;
 }
-function ht(e = document, t = {}) {
-  const i = t.triggerSelector || B, o = t.itemSelector || X, n = t.hiddenClass || U, s = t.menuSelector || I, a = t.positionMenu, g = e.nodeType === 9 ? e : e.ownerDocument || document, f = [], h = {
-    closeAll: () => dt(e, t),
+function ft(e = document, t = {}) {
+  const i = t.triggerSelector || U, r = t.itemSelector || Z, n = t.hiddenClass || q, s = t.menuSelector || _, c = t.positionMenu, m = e.nodeType === 9 ? e : e.ownerDocument || document, h = [], E = /* @__PURE__ */ new WeakMap(), v = {
+    closeAll: () => ut(e, t),
     destroy: () => {
-      for (h.closeAll(); f.length > 0; ) f.pop()?.();
+      for (v.closeAll(); h.length > 0; ) h.pop()?.();
     }
   };
-  e.querySelectorAll(s).forEach((r) => {
-    r.classList.contains(n) || r.classList.add(n);
+  e.querySelectorAll(s).forEach((o) => {
+    o.classList.contains(n) || o.classList.add(n);
   });
-  const S = (r) => {
-    const c = nt(r);
-    if (!c) return;
-    const u = c.closest(i);
-    if (u && M(e, u)) {
-      const y = at(u, t);
-      if (!y) return;
-      if (r.stopPropagation(), !y.menu.classList.contains(n)) {
-        L(y.menu, t);
+  const x = (o) => {
+    const d = rt(o);
+    if (!d) return;
+    const u = d.closest(i);
+    if (u && A(e, u)) {
+      const p = at(u, t);
+      if (!p) return;
+      if (o.stopPropagation(), !p.menu.classList.contains(n)) {
+        T(p.menu, t);
         return;
       }
-      h.closeAll(), y.menu.classList.remove(n), y.trigger.setAttribute("aria-expanded", "true"), t.portal && ct(y, e), a && a({
-        ...y,
+      v.closeAll(), t.portal && lt(p, e), p.menu.classList.remove(n), p.trigger.setAttribute("aria-expanded", "true"), c && c({
+        ...p,
         opening: !0
-      }), C(F(y.menu, o)[0]);
+      }), R(N(p.menu, r)[0]), E.set(p.menu, {
+        trigger: p.trigger,
+        rect: p.trigger.getBoundingClientRect()
+      });
       return;
     }
-    const m = c.closest(o), l = m?.closest(s) ?? null, p = l ? v.get(l) : void 0, b = !!(l && (M(e, l) || p?.root === e));
-    if (m && b) {
-      if (ut(m)) {
-        r.preventDefault(), r.stopPropagation();
+    const y = d.closest(r), g = y?.closest(s) ?? null, a = g ? w.get(g) : void 0, l = !!(g && (A(e, g) || a?.root === e));
+    if (y && l) {
+      if (gt(y)) {
+        o.preventDefault(), o.stopPropagation();
         return;
       }
-      L(l, t);
+      T(g, t);
       return;
     }
-    const A = t.outsideIgnoreSelector;
-    if (A && c.closest(A)) return;
-    const E = c.closest(s), x = E ? v.get(E) : void 0;
-    E && (M(e, E) || x?.root === e) || h.closeAll();
-  }, w = (r) => {
-    const c = ft(e, s, n);
-    if (!c) return;
-    const u = F(c, o), m = g.activeElement, l = m ? u.indexOf(m) : -1;
-    if (r.key === "Escape") {
-      const b = v.get(c)?.trigger ?? c.closest(t.containerSelector || T)?.querySelector(i) ?? null;
-      r.preventDefault(), r.stopPropagation(), L(c, t), b?.isConnected && C(b);
+    const S = t.outsideIgnoreSelector;
+    if (S && d.closest(S)) return;
+    const M = d.closest(s), L = M ? w.get(M) : void 0;
+    M && (A(e, M) || L?.root === e) || v.closeAll();
+  }, b = (o) => {
+    const d = F(e, s, n);
+    if (!d) return;
+    const u = N(d, r), y = m.activeElement, g = y ? u.indexOf(y) : -1;
+    if (o.key === "Escape") {
+      const l = w.get(d)?.trigger ?? d.closest(t.containerSelector || P)?.querySelector(i) ?? null;
+      o.preventDefault(), o.stopPropagation(), T(d, t), l?.isConnected && R(l);
       return;
     }
-    let p = null;
-    r.key === "ArrowDown" ? p = l < 0 ? 0 : (l + 1) % u.length : r.key === "ArrowUp" ? p = l < 0 ? u.length - 1 : (l - 1 + u.length) % u.length : r.key === "Home" ? p = 0 : r.key === "End" && (p = u.length - 1), p !== null && u.length > 0 && (r.preventDefault(), r.stopPropagation(), C(u[p]));
+    let a = null;
+    o.key === "ArrowDown" ? a = g < 0 ? 0 : (g + 1) % u.length : o.key === "ArrowUp" ? a = g < 0 ? u.length - 1 : (g - 1 + u.length) % u.length : o.key === "Home" ? a = 0 : o.key === "End" && (a = u.length - 1), a !== null && u.length > 0 && (o.preventDefault(), o.stopPropagation(), R(u[a]));
   };
-  g.addEventListener("click", S), g.addEventListener("keydown", w), f.push(() => g.removeEventListener("click", S)), f.push(() => g.removeEventListener("keydown", w));
-  const d = g.defaultView;
-  if (d && (t.portal || a)) {
-    const r = () => h.closeAll(), c = (u) => {
-      const m = u.target;
-      if (m && typeof m.closest == "function") {
-        const l = m.closest(s), p = l ? v.get(l) : void 0;
-        if (l && (M(e, l) || p?.root === e)) return;
+  m.addEventListener("click", x), m.addEventListener("keydown", b), h.push(() => m.removeEventListener("click", x)), h.push(() => m.removeEventListener("keydown", b));
+  const f = m.defaultView;
+  if (f && (t.portal || c)) {
+    const o = () => v.closeAll(), d = (u) => {
+      const y = u.target;
+      if (y && typeof y.closest == "function") {
+        const l = y.closest(s), S = l ? w.get(l) : void 0;
+        if (l && (A(e, l) || S?.root === e)) return;
       }
-      h.closeAll();
+      const g = F(e, s, n), a = g ? E.get(g) : void 0;
+      if (a?.trigger.isConnected) {
+        const l = a.trigger.getBoundingClientRect();
+        if (l.x === a.rect.x && l.y === a.rect.y && l.width === a.rect.width && l.height === a.rect.height) return;
+      }
+      v.closeAll();
     };
-    d.addEventListener("pagehide", r), d.addEventListener("pageshow", r), d.addEventListener("resize", r), d.visualViewport?.addEventListener("resize", r), d.visualViewport?.addEventListener("scroll", r), g.addEventListener("scroll", c, !0), f.push(() => d.removeEventListener("pagehide", r)), f.push(() => d.removeEventListener("pageshow", r)), f.push(() => d.removeEventListener("resize", r)), f.push(() => d.visualViewport?.removeEventListener("resize", r)), f.push(() => d.visualViewport?.removeEventListener("scroll", r)), f.push(() => g.removeEventListener("scroll", c, !0));
+    f.addEventListener("pagehide", o), f.addEventListener("pageshow", o), f.addEventListener("resize", o), f.visualViewport?.addEventListener("resize", o), f.visualViewport?.addEventListener("scroll", o), m.addEventListener("scroll", d, !0), h.push(() => f.removeEventListener("pagehide", o)), h.push(() => f.removeEventListener("pageshow", o)), h.push(() => f.removeEventListener("resize", o)), h.push(() => f.visualViewport?.removeEventListener("resize", o)), h.push(() => f.visualViewport?.removeEventListener("scroll", o)), h.push(() => m.removeEventListener("scroll", d, !0));
   }
   if (t.signal) {
-    const r = () => h.destroy();
-    t.signal.addEventListener("abort", r, { once: !0 }), f.push(() => t.signal?.removeEventListener("abort", r));
+    const o = () => v.destroy();
+    t.signal.addEventListener("abort", o, { once: !0 }), h.push(() => t.signal?.removeEventListener("abort", o));
   }
-  return h;
+  return v;
 }
 function pt(e, t = {}) {
-  return ht(e, {
+  return ft(e, {
     ...t,
-    containerSelector: t.containerSelector || T
+    containerSelector: t.containerSelector || P
   });
 }
 export {
-  L as closeActionMenu,
-  dt as closeActionMenus,
-  gt as defaultActionMenuPositioner,
+  T as closeActionMenu,
+  ut as closeActionMenus,
+  ht as defaultActionMenuPositioner,
   at as findActionMenuElements,
-  ht as initActionMenus,
+  ft as initActionMenus,
   pt as initActionMenusForElement,
-  ut as isActionMenuItemDisabled
+  gt as isActionMenuItemDisabled
 };
 
 //# sourceMappingURL=action-menu.js.map

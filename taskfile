@@ -1974,7 +1974,7 @@ function release:client:enabled {
 
 function release:client:preflight {
     local actual
-    local minimum_node=22.12.0
+    local minimum_node=24.21.0
     local minimum_npm=11.17.0
     command -v node >/dev/null 2>&1 || { echo "node is required to release the browser client" >&2; return 1; }
     command -v npm >/dev/null 2>&1 || { echo "npm is required to release the browser client" >&2; return 1; }

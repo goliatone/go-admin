@@ -42,7 +42,7 @@ func TestDataExplorePanelIsReadOnlyAndLast(t *testing.T) {
 	if !ok || def.Label != "Explore" || def.Order != dataExplorePanelOrder || len(def.UI.Actions) != 0 {
 		t.Fatalf("explore panel = %+v", def)
 	}
-	if def.UI.Count == nil || def.UI.Count.Mode != console.PanelCountNone || def.UI.Views.Console.Empty == "" {
+	if def.UI.Count == nil || def.UI.Count.Mode != console.PanelCountArrayLength || def.UI.Views.Console.Renderer != console.PanelRendererTable || def.UI.Views.Console.Empty == "" {
 		t.Fatalf("explore view = %+v", def.UI)
 	}
 	ids := DataPanelIDs()

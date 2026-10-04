@@ -1,0 +1,266 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - complementary "Admin navigation" [ref=e3]:
+    - generic [ref=e4]:
+      - link "Shell Contract Host" [ref=e5] [cursor=pointer]:
+        - /url: /admin
+        - img "Shell Contract Host" [ref=e7]
+      - button "Collapse sidebar" [expanded] [ref=e8] [cursor=pointer]
+    - generic [ref=e11]:
+      - textbox "Search" [ref=e12]
+      - generic [ref=e14]: ⌘K
+    - navigation [ref=e15]:
+      - link "Dashboard" [ref=e16] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e17]: Dashboard
+      - link "Users" [ref=e18] [cursor=pointer]:
+        - /url: /admin/users
+        - generic [ref=e19]: Users
+      - link "Media" [ref=e20] [cursor=pointer]:
+        - /url: /admin/media
+        - generic [ref=e21]: Media
+      - link "Activity" [ref=e22] [cursor=pointer]:
+        - /url: /admin/activity
+        - generic [ref=e23]: Activity
+      - link "Feature Flags" [ref=e24] [cursor=pointer]:
+        - /url: /admin/feature-flags
+        - generic [ref=e25]: Feature Flags
+      - link "Translations" [ref=e26] [cursor=pointer]:
+        - /url: /admin/translations
+        - generic [ref=e27]: Translations
+      - link "Components" [ref=e28] [cursor=pointer]:
+        - /url: /admin/component-gallery
+        - generic [ref=e29]: Components
+    - button "? Guest Online" [ref=e32] [cursor=pointer]:
+      - generic [ref=e34]: "?"
+      - generic [ref=e36]:
+        - generic [ref=e37]: Guest
+        - generic [ref=e38]: Online
+  - main [ref=e40]:
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - navigation "Breadcrumb" [ref=e44]:
+          - list [ref=e45]:
+            - listitem [ref=e46]:
+              - link "Operations" [ref=e47] [cursor=pointer]:
+                - /url: /admin/dashboard
+            - listitem [ref=e48]: Users
+        - generic [ref=e49]:
+          - heading "Users" [level=1] [ref=e50]
+          - paragraph [ref=e51]: Rendered by the quickstart host view engine
+      - link "+ New User" [ref=e53] [cursor=pointer]:
+        - /url: /admin/users/new
+    - generic [ref=e55]:
+      - generic [ref=e57]:
+        - generic [ref=e59]:
+          - button "Filter" [ref=e60] [cursor=pointer]:
+            - img [ref=e61]
+            - text: Filter
+          - generic [ref=e63]:
+            - generic [ref=e64]: Search
+            - generic [ref=e65]:
+              - generic:
+                - img
+              - textbox "Search" [ref=e66]
+        - generic [ref=e67]:
+          - button "Columns" [ref=e69] [cursor=pointer]:
+            - img [ref=e70]
+            - text: Columns
+          - button "Export" [ref=e74] [cursor=pointer]:
+            - img [ref=e75]
+            - text: Export
+          - button "Refresh table" [ref=e78] [cursor=pointer]:
+            - img [ref=e79]
+      - table [ref=e83]:
+        - rowgroup [ref=e84]:
+          - 'row "Select all Sort by Name (click to cycle: ascending, descending, clear) Sort by Email (click to cycle: ascending, descending, clear) Sort by Status (click to cycle: ascending, descending, clear) Actions" [ref=e85]':
+            - columnheader "Select all" [ref=e86]:
+              - generic [ref=e87]:
+                - checkbox "Select all" [ref=e88]
+                - generic [ref=e89]: Select all
+            - 'columnheader "Sort by Name (click to cycle: ascending, descending, clear)" [ref=e90]':
+              - 'button "Sort by Name (click to cycle: ascending, descending, clear)" [ref=e92] [cursor=pointer]':
+                - generic [ref=e93]: Name
+                - img [ref=e94]
+            - 'columnheader "Sort by Email (click to cycle: ascending, descending, clear)" [ref=e96]':
+              - 'button "Sort by Email (click to cycle: ascending, descending, clear)" [ref=e98] [cursor=pointer]':
+                - generic [ref=e99]: Email
+                - img [ref=e100]
+            - 'columnheader "Sort by Status (click to cycle: ascending, descending, clear)" [ref=e102]':
+              - 'button "Sort by Status (click to cycle: ascending, descending, clear)" [ref=e104] [cursor=pointer]':
+                - generic [ref=e105]: Status
+                - img [ref=e106]
+            - columnheader "Actions" [ref=e108]
+          - row [ref=e109]:
+            - columnheader [ref=e110]
+            - columnheader [ref=e111]
+            - columnheader [ref=e112]
+            - columnheader [ref=e113]
+            - columnheader [ref=e114]
+        - rowgroup [ref=e115]:
+          - row "Select Reviewer 01 reviewer-01@example.test active Actions menu" [ref=e116]:
+            - cell "Select" [ref=e117]:
+              - generic [ref=e118]:
+                - checkbox "Select" [ref=e119]
+                - generic [ref=e120]: Select
+            - cell "Reviewer 01" [ref=e121]
+            - cell "reviewer-01@example.test" [ref=e122]:
+              - link "reviewer-01@example.test" [ref=e123] [cursor=pointer]:
+                - /url: /admin/users/user-01
+            - cell "active" [ref=e124]:
+              - generic [ref=e125]: active
+            - cell "Actions menu" [ref=e126]:
+              - button "Actions menu" [ref=e128] [cursor=pointer]:
+                - img [ref=e129]
+          - row "Select Reviewer 02 reviewer-02@example.test active Actions menu" [ref=e131]:
+            - cell "Select" [ref=e132]:
+              - generic [ref=e133]:
+                - checkbox "Select" [ref=e134]
+                - generic [ref=e135]: Select
+            - cell "Reviewer 02" [ref=e136]
+            - cell "reviewer-02@example.test" [ref=e137]:
+              - link "reviewer-02@example.test" [ref=e138] [cursor=pointer]:
+                - /url: /admin/users/user-02
+            - cell "active" [ref=e139]:
+              - generic [ref=e140]: active
+            - cell "Actions menu" [ref=e141]:
+              - button "Actions menu" [ref=e143] [cursor=pointer]:
+                - img [ref=e144]
+          - row "Select Reviewer 03 reviewer-03@example.test active Actions menu" [ref=e146]:
+            - cell "Select" [ref=e147]:
+              - generic [ref=e148]:
+                - checkbox "Select" [ref=e149]
+                - generic [ref=e150]: Select
+            - cell "Reviewer 03" [ref=e151]
+            - cell "reviewer-03@example.test" [ref=e152]:
+              - link "reviewer-03@example.test" [ref=e153] [cursor=pointer]:
+                - /url: /admin/users/user-03
+            - cell "active" [ref=e154]:
+              - generic [ref=e155]: active
+            - cell "Actions menu" [ref=e156]:
+              - button "Actions menu" [ref=e158] [cursor=pointer]:
+                - img [ref=e159]
+          - row "Select Reviewer 04 reviewer-04@example.test active Actions menu" [ref=e161]:
+            - cell "Select" [ref=e162]:
+              - generic [ref=e163]:
+                - checkbox "Select" [ref=e164]
+                - generic [ref=e165]: Select
+            - cell "Reviewer 04" [ref=e166]
+            - cell "reviewer-04@example.test" [ref=e167]:
+              - link "reviewer-04@example.test" [ref=e168] [cursor=pointer]:
+                - /url: /admin/users/user-04
+            - cell "active" [ref=e169]:
+              - generic [ref=e170]: active
+            - cell "Actions menu" [ref=e171]:
+              - button "Actions menu" [ref=e173] [cursor=pointer]:
+                - img [ref=e174]
+          - row "Select Reviewer 05 reviewer-05@example.test active Actions menu" [ref=e176]:
+            - cell "Select" [ref=e177]:
+              - generic [ref=e178]:
+                - checkbox "Select" [ref=e179]
+                - generic [ref=e180]: Select
+            - cell "Reviewer 05" [ref=e181]
+            - cell "reviewer-05@example.test" [ref=e182]:
+              - link "reviewer-05@example.test" [ref=e183] [cursor=pointer]:
+                - /url: /admin/users/user-05
+            - cell "active" [ref=e184]:
+              - generic [ref=e185]: active
+            - cell "Actions menu" [ref=e186]:
+              - button "Actions menu" [ref=e188] [cursor=pointer]:
+                - img [ref=e189]
+          - row "Select Reviewer 06 reviewer-06@example.test active Actions menu" [ref=e191]:
+            - cell "Select" [ref=e192]:
+              - generic [ref=e193]:
+                - checkbox "Select" [ref=e194]
+                - generic [ref=e195]: Select
+            - cell "Reviewer 06" [ref=e196]
+            - cell "reviewer-06@example.test" [ref=e197]:
+              - link "reviewer-06@example.test" [ref=e198] [cursor=pointer]:
+                - /url: /admin/users/user-06
+            - cell "active" [ref=e199]:
+              - generic [ref=e200]: active
+            - cell "Actions menu" [ref=e201]:
+              - button "Actions menu" [ref=e203] [cursor=pointer]:
+                - img [ref=e204]
+          - row "Select Reviewer 07 reviewer-07@example.test active Actions menu" [ref=e206]:
+            - cell "Select" [ref=e207]:
+              - generic [ref=e208]:
+                - checkbox "Select" [ref=e209]
+                - generic [ref=e210]: Select
+            - cell "Reviewer 07" [ref=e211]
+            - cell "reviewer-07@example.test" [ref=e212]:
+              - link "reviewer-07@example.test" [ref=e213] [cursor=pointer]:
+                - /url: /admin/users/user-07
+            - cell "active" [ref=e214]:
+              - generic [ref=e215]: active
+            - cell "Actions menu" [ref=e216]:
+              - button "Actions menu" [ref=e218] [cursor=pointer]:
+                - img [ref=e219]
+          - row "Select Reviewer 08 reviewer-08@example.test active Actions menu" [ref=e221]:
+            - cell "Select" [ref=e222]:
+              - generic [ref=e223]:
+                - checkbox "Select" [ref=e224]
+                - generic [ref=e225]: Select
+            - cell "Reviewer 08" [ref=e226]
+            - cell "reviewer-08@example.test" [ref=e227]:
+              - link "reviewer-08@example.test" [ref=e228] [cursor=pointer]:
+                - /url: /admin/users/user-08
+            - cell "active" [ref=e229]:
+              - generic [ref=e230]: active
+            - cell "Actions menu" [ref=e231]:
+              - button "Actions menu" [ref=e233] [cursor=pointer]:
+                - img [ref=e234]
+          - row "Select Reviewer 09 reviewer-09@example.test active Actions menu" [ref=e236]:
+            - cell "Select" [ref=e237]:
+              - generic [ref=e238]:
+                - checkbox "Select" [ref=e239]
+                - generic [ref=e240]: Select
+            - cell "Reviewer 09" [ref=e241]
+            - cell "reviewer-09@example.test" [ref=e242]:
+              - link "reviewer-09@example.test" [ref=e243] [cursor=pointer]:
+                - /url: /admin/users/user-09
+            - cell "active" [ref=e244]:
+              - generic [ref=e245]: active
+            - cell "Actions menu" [ref=e246]:
+              - button "Actions menu" [ref=e248] [cursor=pointer]:
+                - img [ref=e249]
+          - row "Select Reviewer 10 reviewer-10@example.test active Actions menu" [ref=e251]:
+            - cell "Select" [ref=e252]:
+              - generic [ref=e253]:
+                - checkbox "Select" [ref=e254]
+                - generic [ref=e255]: Select
+            - cell "Reviewer 10" [ref=e256]
+            - cell "reviewer-10@example.test" [ref=e257]:
+              - link "reviewer-10@example.test" [ref=e258] [cursor=pointer]:
+                - /url: /admin/users/user-10
+            - cell "active" [ref=e259]:
+              - generic [ref=e260]: active
+            - cell "Actions menu" [ref=e261]:
+              - button "Actions menu" [ref=e263] [cursor=pointer]:
+                - img [ref=e264]
+      - generic [ref=e267]:
+        - paragraph [ref=e269]: Showing 1 to 10 of 48 results
+        - navigation [ref=e271]:
+          - button "Previous page" [disabled]:
+            - img
+            - generic: Previous
+          - button "Page 1" [ref=e272] [cursor=pointer]: "1"
+          - button "Page 2" [ref=e273] [cursor=pointer]: "2"
+          - button "Page 3" [ref=e274] [cursor=pointer]: "3"
+          - button "Page 4" [ref=e275] [cursor=pointer]: "4"
+          - button "Page 5" [ref=e276] [cursor=pointer]: "5"
+          - button "Next page" [ref=e277] [cursor=pointer]:
+            - generic [ref=e278]: Next
+            - img [ref=e279]
+        - generic [ref=e281]:
+          - generic [ref=e282]: "Per page:"
+          - combobox [ref=e283]:
+            - option "5"
+            - option "10" [selected]
+            - option "25"
+            - option "50"
+            - option "100"
+    - generic [ref=e284]: Host contract footer
+```

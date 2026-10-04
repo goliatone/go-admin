@@ -274,7 +274,7 @@ export function renderDetailActions(actions: ActionButton[]): string {
           <i class="iconoir-more-horiz text-lg"></i>
         </button>
         <div
-          class="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl border border-gray-200 bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 hidden"
+          class="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl border border-gray-200 bg-white py-1 shadow-lg ring-1 ring-black/5 hidden"
           data-detail-actions-dropdown-menu
           role="menu"
           aria-orientation="vertical"

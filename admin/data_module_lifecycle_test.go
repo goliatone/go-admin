@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -147,6 +148,7 @@ func (f *dataModuleFixture) request(t *testing.T, method, path, actor string, pa
 	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Test-User", actor)
+	req.Header.Set(console.ClientCapabilitiesHeader, strings.Join(console.ClientCapabilityIDs(), ","))
 	res := httptest.NewRecorder()
 	f.handler.ServeHTTP(res, req)
 	return res
@@ -163,6 +165,24 @@ func (f *dataModuleFixture) snapshot(t *testing.T, actor string) console.Snapsho
 	}
 	return snapshot
 }
+
+// dataTestClientContext advertises every console workflow capability, as the
+// shipped Data page does, so capability-gated declarations are served.
+func dataTestClientContext(ctx context.Context) context.Context {
+	return console.WithClientCapabilities(ctx, console.ParseClientCapabilities(strings.Join(console.ClientCapabilityIDs(), ",")))
+}
+
+// dataTestKey is a deterministic request ID in the generated (UUID) shape the
+// console host requires for generated fields; the same seed replays.
+func dataTestKey(seed string) string {
+	sum := sha256.Sum256([]byte("request:" + seed))
+	hex := fmt.Sprintf("%x", sum[:16])
+	return hex[0:8] + "-" + hex[8:12] + "-4" + hex[13:16] + "-a" + hex[17:20] + "-" + hex[20:32]
+}
+
+// dataModuleAction finds a declared action by kind and a text that names its
+// work: the label, the drawer title or eyebrow, a drawer detail or a field
+// default (the preselected receipt).
 func dataModuleAction(t *testing.T, snapshot console.Snapshot, kind data.Kind, contains string) console.PanelUIAction {
 	t.Helper()
 	for _, panel := range snapshot.Panels {
@@ -170,7 +190,7 @@ func dataModuleAction(t *testing.T, snapshot console.Snapshot, kind data.Kind, c
 			continue
 		}
 		for _, action := range panel.UI.Actions {
-			if action.Kind == string(kind) && strings.Contains(action.Label, contains) {
+			if action.Kind == string(kind) && dataActionNames(action, contains) {
 				return action
 			}
 		}
@@ -178,12 +198,48 @@ func dataModuleAction(t *testing.T, snapshot console.Snapshot, kind data.Kind, c
 	t.Fatalf("missing %s action %s", kind, contains)
 	return console.PanelUIAction{}
 }
+
+func dataActionNames(action console.PanelUIAction, contains string) bool {
+	if contains == "" || strings.Contains(action.Label, contains) {
+		return true
+	}
+	if action.Drawer != nil {
+		if strings.Contains(action.Drawer.Title, contains) || strings.Contains(action.Drawer.Eyebrow, contains) {
+			return true
+		}
+		for _, detail := range action.Drawer.Details {
+			if strings.Contains(detail.Value, contains) {
+				return true
+			}
+		}
+	}
+	for _, field := range action.Fields {
+		if value, ok := field.Default.(string); ok && strings.Contains(value, contains) {
+			return true
+		}
+	}
+	return false
+}
 func (f *dataModuleFixture) action(t *testing.T, actor string, kind data.Kind, action console.PanelUIAction, payload map[string]any) console.PanelActionResult {
 	t.Helper()
 	merged := map[string]any{}
 	maps.Copy(merged, action.Payload)
 	maps.Copy(merged, payload)
-	panel := dataChoicePanel(kind)
+	panel := DataPanelScenarios
+	if kind == data.Cancel || kind == data.Recover {
+		panel = DataPanelOperations
+	}
+	// Try again lives on Operations: post to whichever panel declares the action now.
+	for _, declared := range f.snapshot(t, actor).Panels {
+		if declared.UI == nil {
+			continue
+		}
+		for _, candidate := range declared.UI.Actions {
+			if candidate.ID == action.ID {
+				panel = declared.ID
+			}
+		}
+	}
 	res := f.request(t, http.MethodPost, "/admin/data/api/panels/"+panel+"/actions/"+action.ID, actor, merged)
 	if res.Code != http.StatusOK {
 		t.Fatalf("action: %d %s", res.Code, res.Body.String())
@@ -302,26 +358,26 @@ func TestDataModuleHTTPActivationReplayAndStaleGeneration(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "data.db")
 	f := newDataModuleFixture(t, filename, nil)
 	in := f.prepareVerified(t)
-	original := dataModuleAction(t, f.snapshot(t, "operator"), data.Activate, in.ReceiptID)
-	first := f.action(t, "operator", data.Activate, original, map[string]any{"idempotency_key": "activate"})
+	original := dataModuleAction(t, f.snapshot(t, "operator"), data.Activate, "Ready")
+	first := f.action(t, "operator", data.Activate, original, map[string]any{"idempotency_key": dataTestKey("activate"), "receipt_id": in.ReceiptID})
 	if !first.OK {
 		t.Fatal(first)
 	}
-	refreshed := dataModuleAction(t, f.snapshot(t, "operator"), data.Activate, in.ReceiptID)
+	refreshed := dataModuleAction(t, f.snapshot(t, "operator"), data.Activate, "Ready")
 	if original.ID != refreshed.ID || original.Payload["expected_generation"] == refreshed.Payload["expected_generation"] {
 		t.Fatal("action identity or captured precondition is wrong", original, refreshed)
 	}
 	for _, action := range []console.PanelUIAction{original, refreshed} {
-		replay := f.action(t, "operator", data.Activate, action, map[string]any{"idempotency_key": "activate"})
+		replay := f.action(t, "operator", data.Activate, action, map[string]any{"idempotency_key": dataTestKey("activate"), "receipt_id": in.ReceiptID})
 		if !replay.OK {
 			t.Fatal("activation replay failed", replay)
 		}
 	}
-	conflict := f.action(t, "operator", data.Activate, refreshed, map[string]any{"idempotency_key": "activate", "dry_run": true})
+	conflict := f.action(t, "operator", data.Activate, refreshed, map[string]any{"idempotency_key": dataTestKey("activate"), "receipt_id": in.ReceiptID, "dry_run": true})
 	if conflict.OK || !strings.Contains(conflict.Message, "different input") {
 		t.Fatal("changed inputs replayed", conflict)
 	}
-	stale := f.action(t, "operator", data.Activate, original, map[string]any{"idempotency_key": "new-stale-request"})
+	stale := f.action(t, "operator", data.Activate, original, map[string]any{"idempotency_key": dataTestKey("new-stale-request"), "receipt_id": in.ReceiptID})
 	if stale.OK || !strings.Contains(stale.Message, "active dataset changed") {
 		t.Fatal("old page silently changed generation", stale)
 	}
@@ -333,6 +389,7 @@ func TestDataModuleHTTPActivationReplayAndStaleGeneration(t *testing.T) {
 	// request's fingerprint. Only the adapter's explicit binding resolves retries.
 	one := uint64(1)
 	in.ExpectedGeneration = &one
+	in.IdempotencyKey = dataTestKey("activate")
 	if _, err = f.service.Run(t.Context(), data.Activate, in); data.ErrorCode(err) != data.CodeConflict {
 		t.Fatal("typed fingerprint semantics changed", err)
 	}
@@ -343,8 +400,8 @@ func TestDataModuleHTTPActivationReplayAndStaleGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	reopened := newDataModuleFixture(t, filename, nil)
-	afterRestart := dataModuleAction(t, reopened.snapshot(t, "operator"), data.Activate, in.ReceiptID)
-	replay := reopened.action(t, "operator", data.Activate, afterRestart, map[string]any{"idempotency_key": "activate"})
+	afterRestart := dataModuleAction(t, reopened.snapshot(t, "operator"), data.Activate, "Ready")
+	replay := reopened.action(t, "operator", data.Activate, afterRestart, map[string]any{"idempotency_key": dataTestKey("activate"), "receipt_id": in.ReceiptID})
 	if !replay.OK {
 		t.Fatal("restart lost retry identity", replay)
 	}
@@ -353,7 +410,7 @@ func TestDataModuleHTTPActivationReplayAndStaleGeneration(t *testing.T) {
 		t.Fatal("replay advanced generation", state, err)
 	}
 	reopened.execute.Store(false)
-	res := reopened.request(t, http.MethodPost, "/admin/data/api/panels/overview/actions/"+afterRestart.ID, "operator", map[string]any{"idempotency_key": "activate", "expected_generation": 1})
+	res := reopened.request(t, http.MethodPost, "/admin/data/api/panels/overview/actions/"+afterRestart.ID, "operator", map[string]any{"idempotency_key": dataTestKey("activate"), "receipt_id": in.ReceiptID, "expected_generation": 1})
 	if res.Code == http.StatusOK {
 		t.Fatal("revoked actor received replay")
 	}
@@ -409,8 +466,8 @@ func TestDataModuleReceiptsSurviveHistoryAndRemainSelectable(t *testing.T) {
 	if !model.scenario(f.input.Scenario, demo.TargetID).Active {
 		t.Fatal("active receipt was not pinned")
 	}
-	selected := dataModuleAction(t, f.snapshot(t, "operator"), data.Verify, "another ready")
-	verified := f.action(t, "operator", data.Verify, selected, map[string]any{"idempotency_key": "verify-old", "receipt_id": prepared.Receipt.ID})
+	selected := dataModuleAction(t, f.snapshot(t, "operator"), data.Verify, "Ready")
+	verified := f.action(t, "operator", data.Verify, selected, map[string]any{"idempotency_key": dataTestKey("verify-old"), "receipt_id": prepared.Receipt.ID})
 	if !verified.OK {
 		t.Fatal("retained receipt could not be verified", verified)
 	}
@@ -418,8 +475,8 @@ func TestDataModuleReceiptsSurviveHistoryAndRemainSelectable(t *testing.T) {
 	if err != nil || !receipt.Verification.Passed() {
 		t.Fatal(receipt, err)
 	}
-	activation := dataModuleAction(t, f.snapshot(t, "operator"), data.Activate, "another ready")
-	activated := f.action(t, "operator", data.Activate, activation, map[string]any{"idempotency_key": "activate-old", "receipt_id": prepared.Receipt.ID})
+	activation := dataModuleAction(t, f.snapshot(t, "operator"), data.Activate, "Ready")
+	activated := f.action(t, "operator", data.Activate, activation, map[string]any{"idempotency_key": dataTestKey("activate-old"), "receipt_id": prepared.Receipt.ID})
 	if !activated.OK {
 		t.Fatal("retained receipt could not be activated", activated)
 	}
@@ -428,7 +485,7 @@ func TestDataModuleReceiptsSurviveHistoryAndRemainSelectable(t *testing.T) {
 		t.Fatal(state, err)
 	}
 	// A receipt selector does not grant ownership or access to another actor's work.
-	res := f.request(t, http.MethodPost, "/admin/data/api/panels/overview/actions/"+selected.ID, "other", map[string]any{"idempotency_key": "foreign", "receipt_id": prepared.Receipt.ID})
+	res := f.request(t, http.MethodPost, "/admin/data/api/panels/overview/actions/"+selected.ID, "other", map[string]any{"idempotency_key": dataTestKey("foreign"), "receipt_id": prepared.Receipt.ID})
 	if res.Code != http.StatusForbidden {
 		t.Fatalf("foreign receipt accepted: %d %s", res.Code, res.Body.String())
 	}
@@ -440,14 +497,15 @@ func TestDataModuleReceiptsSurviveHistoryAndRemainSelectable(t *testing.T) {
 
 func TestDataModuleHTTPWrappedConflictAndBusyOutcomes(t *testing.T) {
 	f := newDataModuleFixture(t, filepath.Join(t.TempDir(), "data.db"), nil)
-	action := dataModuleAction(t, f.snapshot(t, "operator"), data.Prepare, "ready")
-	result := f.action(t, "operator", data.Prepare, action, map[string]any{"idempotency_key": "prepare"})
-	if !result.OK {
+	action := dataModuleAction(t, f.snapshot(t, "operator"), data.Prepare, "Ready")
+	// A plan creates no receipt, so Prepare stays offered for the same-key probes below.
+	result := f.action(t, "operator", data.Prepare, action, map[string]any{"idempotency_key": dataTestKey("prepare"), "dry_run": true})
+	if !result.OK || !result.Planned {
 		t.Fatal(result)
 	}
 	for _, changed := range []map[string]any{
-		{"idempotency_key": "prepare", "dry_run": true},
-		{"idempotency_key": "prepare", "batch_limit": 1},
+		{"idempotency_key": dataTestKey("prepare")},
+		{"idempotency_key": dataTestKey("prepare"), "dry_run": true, "batch_limit": 1},
 	} {
 		conflict := f.action(t, "operator", data.Prepare, action, changed)
 		if conflict.OK || !conflict.Refresh || !strings.Contains(conflict.Message, "different input") {
@@ -476,7 +534,7 @@ func TestDataModuleHTTPWrappedConflictAndBusyOutcomes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	busy := f.action(t, "operator", data.Prepare, action, map[string]any{"idempotency_key": "busy"})
+	busy := f.action(t, "operator", data.Prepare, action, map[string]any{"idempotency_key": dataTestKey("busy")})
 	if busy.OK || busy.Message != dataFailureMessages[data.CodeBusy] {
 		t.Fatal("busy outcome lost", busy)
 	}

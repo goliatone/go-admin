@@ -89,29 +89,41 @@ for 30 days; receipt retention is 7 days with active/recovery references protect
 Set `writes_enabled=false` for catalog/validation only; this example also disables
 writes outside development. `enabled=false` omits Data without changing Debug.
 
-In Overview, choose an action, enter a unique request key, and submit:
+Every lifecycle action starts from the row it changes. On **Scenarios**, each
+scenario shows its lifecycle steps, status and newest receipt; the next step is
+the row's primary button and routine work sits in its overflow menu. **Overview**
+shows what each target serves, what needs attention, the scenarios waiting on a
+step and the five most recent operations. A drawer states what the action does to
+the target before it runs; request IDs are generated per form and sit read-only
+under **Advanced**, so operators never type a key. Submitting the same form
+again replays the same request instead of duplicating it, and **Preview plan**
+runs a dry run with its own request ID.
 
-1. Validate `ready`. Prepare `ready` with Dry run selected to inspect a plan;
-   the Verification panel labels its checks planned and no stage is created.
-2. Prepare `ready` with Dry run cleared and a new key. Completion creates a
-   receipt; it does not activate anything. Retry with the same key and identical
-   options to get the same operation; changed options conflict.
-3. Verify the new `ready` receipt. Real SQLite queries check 3 orders, a total of
-   250, and the UTC sample day `2026-01-01`.
-4. Activate that receipt with a new key. Overview reports active generation 1.
-5. Refresh `quiet`, then verify its receipt. It has 0 orders and covered-empty
-   sample evidence. `ready` remains active throughout staging and verification.
-6. Activate `quiet` separately. The physical route now selects the empty stage
-   and advances generation. Activation checks the generation selected by the
-   rendered page; a stale new request is rejected rather than silently overwriting it.
-   Retrying the same key preserves the original generation, including after
-   refresh or restart. Other changed options still conflict.
+1. On **Scenarios**, open **Prepare** for Ready and choose **Preview plan**; the
+   Verification panel labels its checks planned and no stage is created.
+2. Open **Prepare** for Ready again and choose **Prepare**. Completion creates a
+   receipt; it does not activate anything. Changing an option after a submission
+   starts new work with a new request ID; a same-ID request with different input
+   is rejected as a conflict.
+3. **Verify** Ready. The receipt picker preselects the newest retained receipt.
+   Real SQLite queries check 3 orders, a total of 250, and the UTC sample day
+   `2026-01-01`.
+4. **Activate** Ready. The confirmation shows the before and after scenario,
+   receipt and generation. Overview reports active generation 1.
+5. **Prepare** Quiet, then verify its receipt. It has 0 orders and covered-empty
+   sample evidence. Ready remains active throughout staging and verification.
+6. **Activate** Quiet separately. The physical route now selects the empty stage
+   and advances generation. Activation checks the generation shown when you
+   confirmed; a stale request is rejected rather than silently overwriting it.
+   Replaying the same request preserves the original generation, including after
+   refresh or restart.
 
-The overview shows a bounded page of current receipts, independent of the latest
-100 operations, and keeps active/pending receipts visible. For an older retained
-receipt outside that page, choose **Verify another … receipt** or **Activate
-another … receipt** and enter its receipt ID. The same ownership, scenario,
-verification and generation checks apply.
+The receipt picker pages through the target's retained receipts independently of
+the latest 100 operations and resolves a preselected receipt exactly, so older
+retained receipts beyond the first page stay selectable. The same ownership,
+scenario, verification and generation checks apply. After a failed or canceled
+operation, **Try again** on its row in **Operations** starts new work with the
+same input.
 
 If an interrupted activation leaves writes paused, a custodian or superadmin
 can choose **Recover** for the pending operation in Operations. Recovery checks
@@ -121,10 +133,11 @@ work. If the route is still ambiguous, it remains paused; retry recovery after
 resolving the target health problem. Successful recovery records the supervisor
 separately from the original requester and resumes writes.
 
-The read-only **Explore** tab explains the catalog. Each dataset card shows the
+The read-only **Explore** tab is the dataset catalog. Each dataset card shows the
 provider's declared title and purpose, its scenarios with lifecycle status and the
-catalog inventory. **View details** opens About, Contents, Used by, Scenarios and
-Evidence for one scenario in one context: the catalog example (declared, never
+catalog inventory. **View details** opens About, Contents and Used by for one
+scenario in one context; identifiers, receipt, revision and generation sit under
+**Technical identity** in About: the catalog example (declared, never
 observed data), or the prepared receipt and the active data at its generation once
 they exist. Contents previews up to 25 records per page: `ready` shows three
 orders totaling 250 on `2026-01-01`, while `quiet` is empty and the catalog

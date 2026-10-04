@@ -193,7 +193,7 @@ const reads = (state, kind) => state.requests.filter((request) => request.kind =
 async function openReady(root, runtime) {
   await waitFor(() => assert.equal(runtime.getState(), 'ready'));
   runtime.selectPanel('explore');
-  await waitFor(() => assert.ok(textOf(explorerRoot(root)).includes('Customer corpus A')));
+  await waitFor(() => assert.ok(textOf(explorerRoot(root)).includes('Synthetic customers and their orders'), 'corpus A description loaded'));
   const card = Array.from(root.querySelectorAll('.console-explorer__card')).find((item) => textOf(item).includes('Customer corpus A'));
   click(card.querySelector('[data-explorer-action="open"]'));
   await waitFor(() => assert.ok(root.querySelector('.console-explorer__title')));
@@ -254,7 +254,7 @@ test('Insights and Compare follow Contents only when the page offers insights ro
   let mounted = mount();
   await openReady(mounted.root, mounted.runtime);
   assert.deepEqual(Array.from(mounted.root.querySelectorAll('[data-explorer-section]')).map((tab) => tab.dataset.explorerSection),
-    ['about', 'contents', 'insights', 'compare', 'usage', 'scenarios', 'evidence']);
+    ['about', 'contents', 'insights', 'compare', 'usage']);
   await settle();
   assert.equal(reads(state, 'insights').length, 0, 'nothing is read before Insights is shown');
   mounted.runtime.destroy();
@@ -263,7 +263,7 @@ test('Insights and Compare follow Contents only when the page offers insights ro
   mounted = mount({ insights: false });
   await openReady(mounted.root, mounted.runtime);
   assert.deepEqual(Array.from(mounted.root.querySelectorAll('[data-explorer-section]')).map((tab) => tab.dataset.explorerSection),
-    ['about', 'contents', 'usage', 'scenarios', 'evidence']);
+    ['about', 'contents', 'usage']);
   await settle();
   assert.equal(reads(state, 'insights').length, 0);
   mounted.runtime.destroy();
@@ -306,7 +306,7 @@ test('a context switch aborts the superseded insights read and never shows its a
   await chooseContext(root, 'prepared');
   await waitFor(() => assert.equal(state.deferred[0].request.signal.aborted, true, 'the superseded read is aborted'));
   state.deferred[0].release();
-  await waitFor(() => assert.ok(sectionText(root).includes('Observed in prepared receipt rcpt-ready-1 (content revision 2) on preview.'), sectionText(root)));
+  await waitFor(() => assert.ok(sectionText(root).includes('Observed in the prepared data for Ready on preview.'), sectionText(root)));
   assert.ok(!sectionText(root).includes('Catalog example: values the provider declares'), 'the late example answer never lands');
   const latest = reads(state, 'insights').at(-1).selection;
   assert.deepEqual([latest.context, latest.receipt_id, latest.content_revision], ['prepared', 'rcpt-ready-1', 2]);
@@ -325,7 +325,7 @@ test('Ready versus Quiet compares both exact sides with the metric set the shown
   await openReady(root, runtime);
   await chooseContext(root, 'prepared');
   await showSection(root, 'compare');
-  await chooseCompare(root, 'Quiet: prepared receipt rcpt-empty-1');
+  await chooseCompare(root, 'Quiet: prepared data (rcpt-empty-1)');
   await waitFor(() => assert.deepEqual(deltas(root), [['orders.count', '−3', '−100%'], ['orders.amount', '−250', '−100%'], ['orders.status', 'Not compared', '']]));
   const [request] = reads(state, 'compare');
   assert.equal(request.metricSet, 'orders', 'the comparison names the metric set learned for the shown selection');
@@ -353,7 +353,7 @@ test('selected versus active pins the active generation and stops when it change
   await chooseScenario(root, 'Quiet');
   await chooseContext(root, 'prepared');
   await showSection(root, 'compare');
-  await chooseCompare(root, 'Active data on preview: Ready at generation 3');
+  await chooseCompare(root, 'Active data on preview: Ready (generation 3)');
   await waitFor(() => assert.deepEqual(deltas(root)[0], ['orders.count', '−3', '−100%']));
   const first = reads(state, 'compare')[0];
   assert.deepEqual([first.left.context, first.left.generation, key(first.right)], ['active', 3, key(quietPrepared)], 'the active data is the baseline, pinned at generation 3');
@@ -370,7 +370,7 @@ test('selected versus active pins the active generation and stops when it change
     assert.ok(found, sectionText(root));
     return found;
   });
-  assert.ok(textOf(stale).includes('it is now Ready at generation 4 (receipt rcpt-ready-1). Compare again to use the current active data.'), textOf(stale));
+  assert.ok(textOf(stale).includes('it now serves Ready at generation 4. Compare again to use the current active data.'), textOf(stale));
   assert.equal(root.querySelectorAll('.console-insights__pair').length, 0, 'values of the old generation are gone');
   await settle();
   assert.equal(reads(state, 'compare').length, before, 'nothing is repinned silently');
@@ -464,7 +464,7 @@ test('a comparison chosen while the shown selection is read waits for its metric
   await chooseContext(root, 'prepared');
   await showSection(root, 'compare');
   await waitFor(() => assert.equal(state.deferred.length, 1, 'the shown selection is read first'));
-  await chooseCompare(root, 'Quiet: prepared receipt rcpt-empty-1');
+  await chooseCompare(root, 'Quiet: prepared data (rcpt-empty-1)');
   await waitFor(() => assert.ok(sectionText(root).includes('Reading the data shown'), sectionText(root)));
   const swap = root.querySelector('[data-insights-action="swap"]');
   assert.equal(swap.getAttribute('aria-disabled'), 'true', 'Swap waits for the metric set');
@@ -508,7 +508,7 @@ test('a second drift names the active data offered now', async () => {
       target.explore_active = { ...target.explore_active, generation };
     });
     await runtime.refresh();
-    await waitFor(() => assert.ok(textOf(root.querySelector('[data-insights-state="stale"]')).includes(`at generation ${generation} (receipt rcpt-ready-1)`), sectionText(root)));
+    await waitFor(() => assert.ok(textOf(root.querySelector('[data-insights-state="stale"]')).includes(`at generation ${generation}.`), sectionText(root)));
   }
   click(root.querySelector('[data-insights-action="compare-current"]'));
   await waitFor(() => assert.equal(reads(state, 'compare').at(-1).left.generation, 5, 'the current generation is pinned on request'));

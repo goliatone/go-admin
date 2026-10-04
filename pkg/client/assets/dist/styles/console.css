@@ -2562,6 +2562,28 @@
   gap: 8px 12px;
 }
 
+:where(.console-root) .data-preview__identity-line {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+:where(.console-root) .data-preview__identity-details {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+:where(.console-root) .data-preview__identity-details > summary {
+  cursor: pointer;
+  color: var(--console-text-muted);
+  font-weight: 500;
+}
+
+:where(.console-root) .data-preview__identity-details[open] > summary {
+  margin-bottom: 4px;
+}
+
 :where(.console-root) .data-preview__identity {
   display: flex;
   flex-wrap: wrap;

@@ -238,6 +238,11 @@ function renderTitle(title: string, styles: StyleConfig, view?: ServerPanelUIVie
   return `<div class="${styles.jsonHeader}">${heading}${link || actions ? `<div class="${styles.jsonActions}">${link}${actions}</div>` : ''}</div>`;
 }
 
+/** A section that declares `hide_empty` disappears instead of explaining it has no rows (an attention list). */
+function hidesWhenEmpty(view: ServerPanelUIView | undefined): boolean {
+  return view?.options?.hide_empty === true;
+}
+
 /** The view's own empty-state copy, else the generic message. */
 function renderEmpty(view: ServerPanelUIView | undefined, fallback: string, styles: StyleConfig): string {
   const declared = text(view?.empty).trim();
@@ -434,6 +439,7 @@ export function renderSchemaTable(
     : Object.keys((rows[0] && typeof rows[0] === 'object' ? rows[0] : {}) as Record<string, unknown>)
         .map((key) => ({ label: key, bind: key }));
   if (rows.length === 0 || effectiveColumns.length === 0) {
+    if (hidesWhenEmpty(view)) return '';
     return renderEmpty(view, `No ${title.toLowerCase()} rows available`, styles);
   }
   const keyBind = view?.options?.key_bind;
@@ -472,6 +478,7 @@ export function renderSchemaCards(
   const rows = dataArray(data);
   const options = view?.options || {};
   if (rows.length === 0) {
+    if (hidesWhenEmpty(view)) return '';
     return renderEmpty(view, `No ${title.toLowerCase()} available`, styles);
   }
   const maxCards = typeof options.max_cards === 'number' && options.max_cards > 0 ? Math.floor(options.max_cards) : 0;
@@ -531,6 +538,7 @@ export function renderSchemaList(
   const all = dataArray(data);
   const rows = limit > 0 ? all.slice(0, limit) : all;
   if (rows.length === 0) {
+    if (hidesWhenEmpty(view)) return '';
     return renderEmpty(view, `No ${title.toLowerCase()} yet`, styles);
   }
   const prefix = blockPrefix(styles);

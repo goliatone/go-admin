@@ -4,7 +4,7 @@
 // (never zero or empty). Reuses the shared console card, key/value, table,
 // badge and callout vocabulary; `console-explorer*` classes add layout only.
 
-import { escapeAttribute, escapeHTML } from '../format.js';
+import { escapeAttribute, escapeHTML, shortIdentifier } from '../format.js';
 import { renderRelativeTime, renderToneBadge } from '../schema/rich.js';
 import { consoleStyleConfig } from '../style-config.js';
 import type { CatalogDataset, CatalogScenario } from './catalog.js';
@@ -24,7 +24,7 @@ export type MetadataEntry =
   | { status: 'ready'; value: ExploreMetadata }
   | { status: 'failed'; failure: ExplorerFailure };
 
-export type ExplorerSection = 'about' | 'contents' | 'insights' | 'compare' | 'usage' | 'app-preview' | 'scenarios' | 'evidence';
+export type ExplorerSection = 'about' | 'contents' | 'insights' | 'compare' | 'usage' | 'app-preview';
 
 /** Sections rendered by the on-demand insights module. */
 export type InsightsSectionID = Extract<ExplorerSection, 'insights' | 'compare'>;
@@ -36,8 +36,6 @@ export const EXPLORER_SECTIONS: ReadonlyArray<{ id: ExplorerSection; label: stri
   { id: 'about', label: 'About' },
   { id: 'contents', label: 'Contents' },
   { id: 'usage', label: 'Used by' },
-  { id: 'scenarios', label: 'Scenarios' },
-  { id: 'evidence', label: 'Evidence' },
 ];
 
 export const INSIGHTS_SECTIONS: ReadonlyArray<{ id: InsightsSectionID; label: string }> = [
@@ -164,7 +162,7 @@ function badge(label: string, tone = ''): string {
 
 function copyValue(raw: string, label: string): string {
   if (!raw) return UNKNOWN;
-  const shown = raw.length > 16 ? `${raw.slice(0, 12)}…` : raw;
+  const shown = raw.length > 16 ? shortIdentifier(raw) : raw;
   const title = shown === raw ? '' : ` title="${escapeAttribute(raw)}"`;
   return `<span class="console-kv__copy" data-copy-content="${escapeAttribute(raw)}"><code class="console-kv__mono"${title}>${escapeHTML(shown)}</code><button type="button" class="${styles.copyBtnSm} console-kv__copy-btn" data-copy-trigger title="${escapeAttribute(`Copy ${label}`)}" aria-label="${escapeAttribute(`Copy ${label}`)}">Copy</button></span>`;
 }
@@ -278,15 +276,17 @@ export function renderCatalog(model: CatalogModel): string {
 // ---------------------------------------------------------------------------
 // Details
 
-function contextNote(selection: ExploreSelection | undefined, context: ExploreContext, scenario: CatalogScenario | undefined): string {
+/** What the shown data is, in words; exact identifiers stay under Technical identity. */
+function contextNote(selection: ExploreSelection | undefined, context: ExploreContext, scenario: CatalogScenario | undefined, title: string): string {
   if (!selection) return 'This scenario cannot be explored in this context.';
+  const subject = title || 'this scenario';
   switch (context) {
     case 'prepared':
       return scenario?.selections.active?.receipt_id === selection.receipt_id
-        ? `Prepared receipt ${selection.receipt_id} (content revision ${selection.content_revision}) on ${selection.target_id}: observed in its immutable prepared stage. This receipt is the active one; choose Active data to read what the target serves.`
-        : `Prepared receipt ${selection.receipt_id} (content revision ${selection.content_revision}) on ${selection.target_id}: observed in the prepared stage. It is not active.`;
+        ? `Prepared data for ${subject} on ${selection.target_id}, observed in its isolated stage. This prepared data is also what the target serves; choose Active data to read it live.`
+        : `Prepared data for ${subject} on ${selection.target_id}, observed in its isolated stage. It is not what ${selection.target_id} serves.`;
     case 'active':
-      return `Active on ${selection.target_id} at generation ${selection.generation} (receipt ${selection.receipt_id}): observed in the data the target serves.`;
+      return `What ${selection.target_id} serves now for ${subject} (generation ${selection.generation}), observed live.`;
     default:
       return 'Catalog example: what the provider declares this scenario contains. It is not observed data and has not been verified.';
   }
@@ -302,7 +302,7 @@ function contextUnavailable(context: ExploreContext, scenario: CatalogScenario |
 function renderScenarioPicker(model: DetailsModel, metadata: ExploreMetadata | undefined): string {
   const options = model.dataset.scenarios.map((scenario) => {
     const selected = scenario.key === model.scenario?.key ? ' selected' : '';
-    const status = scenario.statusLabel ? ` — ${scenario.statusLabel}` : '';
+    const status = scenario.statusLabel ? ` · ${scenario.statusLabel}` : '';
     return `<option value="${escapeAttribute(scenario.key)}"${selected}>${escapeHTML(scenarioTitle(metadata, scenario) + status)}</option>`;
   }).join('');
   // A picked scenario that left the catalog stays named as gone until reselection.
@@ -347,7 +347,7 @@ function renderHeader(model: DetailsModel): string {
         ${renderScenarioPicker(model, metadata)}
         ${renderContextChoices(model)}
       </div>
-      <p class="console-explorer__note" data-context="${model.context}">${escapeHTML(contextNote(model.selection, model.context, model.scenario))}</p>
+      <p class="console-explorer__note" data-context="${model.context}">${escapeHTML(contextNote(model.selection, model.context, model.scenario, model.scenario ? scenarioTitle(metadata, model.scenario) : ''))}</p>
       ${renderObservation(model.entry)}
     </section>
   `;
@@ -382,8 +382,8 @@ function driftMessage(model: DetailsModel): string {
   }
   const current = model.current;
   const detail = current?.context === 'active'
-    ? ` It is now receipt ${current.receipt_id} at generation ${current.generation}.`
-    : current?.context === 'prepared' ? ` It is now receipt ${current.receipt_id} (content revision ${current.content_revision}).` : '';
+    ? ` The target now serves generation ${current.generation}.`
+    : current?.context === 'prepared' ? ` A newer prepared revision (${current.content_revision}) exists now.` : '';
   return `The ${label} changed since you opened it.${detail} Refresh to explore the current data.`;
 }
 
@@ -416,6 +416,7 @@ function periodValue(metadata: ExploreMetadata | undefined): string {
   return escapeHTML(period.timezone ? `${range} (${period.timezone})` : range);
 }
 
+/** Exact pinned identity and read evidence, kept out of the way under one disclosure. */
 function renderTechnicalIdentity(model: DetailsModel, metadata: ExploreMetadata | undefined): string {
   const selection = model.selection;
   const rows: Array<[string, string]> = [
@@ -429,22 +430,45 @@ function renderTechnicalIdentity(model: DetailsModel, metadata: ExploreMetadata 
       ['Scenario', `<code class="console-kv__mono">${escapeHTML(`${selection.scenario.id} v${selection.scenario.version}`)}</code>`],
       ['Profile hash', copyValue(selection.scenario.profile_hash, 'scenario profile hash')],
       ['Target', escapeHTML(selection.target_id)],
+      ['Data shown', escapeHTML(CONTEXT_LABELS[model.context])],
+      ['Receipt', selection.receipt_id ? copyValue(selection.receipt_id, 'receipt ID') : muted('None — catalog example')],
+      ['Content revision', selection.content_revision ? escapeHTML(String(selection.content_revision)) : muted('None')],
+      ['Generation', selection.generation !== undefined ? escapeHTML(String(selection.generation)) : muted('None')],
     );
   }
+  rows.push(['Provenance', provenanceLabel(model.entry)], ['Completeness', completenessLabel(model.entry)]);
   if (metadata?.presentation_revision) rows.push(['Description revision', escapeHTML(metadata.presentation_revision)]);
   return `<details class="console-explorer__identity" data-explorer-disclosure="identity"${model.identityOpen ? ' open' : ''}><summary>Technical identity</summary>${kv(rows)}</details>`;
 }
 
+/** Origin once: the lifecycle origin, plus the provider's word only when it adds something. */
+function originValue(model: DetailsModel, metadata: ExploreMetadata | undefined): string {
+  const lifecycle = model.dataset.origin;
+  const declared = metadata?.origin && metadata.origin !== 'unknown' ? metadata.origin : '';
+  const parts = [lifecycle];
+  if (declared && declared.toLowerCase() !== lifecycle.toLowerCase()) parts.push(declared);
+  return escapeHTML(parts.filter(Boolean).join(' · ') || 'Unknown');
+}
+
 function renderAbout(model: DetailsModel, metadata: ExploreMetadata | undefined): string {
   const prerequisites = metadata ? textList(metadata.prerequisites, 'None declared') : escapeHTML(model.dataset.prerequisites || 'None');
+  const declared = model.scenario ? declaredScenario(metadata, model.scenario) : undefined;
   const rows: Array<[string, string]> = [
-    ['Origin', escapeHTML([model.dataset.origin, metadata?.origin && metadata.origin !== 'unknown' ? metadata.origin : ''].filter(Boolean).join(' · ') || 'Unknown')],
+    ['Origin', originValue(model, metadata)],
     ['Declared period', periodValue(metadata)],
     ['Timezone', escapeHTML(metadata?.period?.timezone || model.dataset.timezone || '') || UNKNOWN],
     ['Prerequisites', prerequisites],
     ['Attribution', metadata ? textList(metadata.attribution, 'None declared') : UNKNOWN],
   ];
-  return `${kv(rows)}${renderTechnicalIdentity(model, metadata)}`;
+  if (model.scenario) {
+    rows.push(
+      ['This scenario', declared?.summary ? escapeHTML(declared.summary) : muted('No description provided.')],
+      ['Expected outcomes', declared && declared.expected_outcomes.length > 0 ? `${textList(declared.expected_outcomes, '')}<span class="console-muted">Declared, not verified.</span>` : muted('None declared')],
+      ['Lifecycle status', model.scenario.statusLabel ? statusBadge(model.scenario) : UNKNOWN],
+    );
+  }
+  const links = '<div class="console-explorer__links"><button type="button" class="console-link" data-console-panel-link="verification">Verification evidence<span aria-hidden="true"> →</span></button><button type="button" class="console-link" data-console-panel-link="coverage">Coverage<span aria-hidden="true"> →</span></button></div>';
+  return `${kv(rows)}${renderTechnicalIdentity(model, metadata)}${links}`;
 }
 
 function entityLabel(metadata: ExploreMetadata, id: string): string {
@@ -550,30 +574,6 @@ function renderUsage(model: DetailsModel, metadata: ExploreMetadata): string {
   return `${note}<ul class="console-explorer__usages">${metadata.usages.map((usage) => renderUsageItem(model, usage)).join('')}</ul>`;
 }
 
-function renderScenarioCard(model: DetailsModel, metadata: ExploreMetadata | undefined, scenario: CatalogScenario): string {
-  const declared = declaredScenario(metadata, scenario);
-  const current = scenario.key === model.scenario?.key;
-  const outcomes = declared && declared.expected_outcomes.length > 0
-    ? `<div class="console-explorer__related"><span class="console-explorer__label">Expected outcomes (declared, not verified)</span>${textList(declared.expected_outcomes, '')}</div>`
-    : '';
-  const action = current
-    ? badge('Selected', 'info')
-    : `<button type="button" class="console-btn console-btn--sm" data-explorer-action="scenario" data-scenario-key="${escapeAttribute(scenario.key)}" data-explorer-focus="${escapeAttribute(`scenario:${scenario.key}`)}">Explore this scenario</button>`;
-  return `
-    <li class="console-explorer__scenario" data-scenario-key="${escapeAttribute(scenario.key)}">
-      <div class="console-explorer__usage-head"><span class="console-explorer__usage-label">${escapeHTML(scenarioTitle(metadata, scenario))}</span>${statusBadge(scenario)}</div>
-      <p class="console-explorer__para">${declared?.summary ? escapeHTML(declared.summary) : muted('No description provided.')}</p>
-      ${outcomes}
-      <div class="console-explorer__scenario-foot">${action}</div>
-    </li>
-  `;
-}
-
-function renderScenarios(model: DetailsModel, metadata: ExploreMetadata | undefined): string {
-  if (model.dataset.scenarios.length === 0) return `<p class="console-explorer__para">${muted('No scenarios are available.')}</p>`;
-  return `<ul class="console-explorer__scenarios">${model.dataset.scenarios.map((scenario) => renderScenarioCard(model, metadata, scenario)).join('')}</ul>`;
-}
-
 function provenanceLabel(entry: MetadataEntry | undefined): string {
   if (entry?.status !== 'ready') return UNKNOWN;
   if (entry.value.provenance === 'example') return escapeHTML('Example — declared by the provider, not observed');
@@ -585,26 +585,6 @@ function completenessLabel(entry: MetadataEntry | undefined): string {
   if (entry?.status !== 'ready') return UNKNOWN;
   const labels = { complete: 'Complete', partial: 'Partial — some details are missing', unknown: 'Unknown' } as const;
   return entry.value.completeness === 'unknown' ? UNKNOWN : escapeHTML(labels[entry.value.completeness]);
-}
-
-function renderEvidence(model: DetailsModel): string {
-  const selection = model.selection;
-  const observed = model.entry?.status === 'ready' && model.entry.value.observed_at
-    ? renderRelativeTime(model.entry.value.observed_at, styles)
-    : UNKNOWN;
-  const rows: Array<[string, string]> = [
-    ['Data shown', escapeHTML(CONTEXT_LABELS[model.context])],
-    ['Provenance', provenanceLabel(model.entry)],
-    ['Completeness', completenessLabel(model.entry)],
-    ['Read', observed],
-    ['Lifecycle status', model.scenario?.statusLabel ? statusBadge(model.scenario) : UNKNOWN],
-    ['Target', selection?.target_id ? escapeHTML(selection.target_id) : UNKNOWN],
-    ['Receipt', selection?.receipt_id ? `<code class="console-kv__mono">${escapeHTML(selection.receipt_id)}</code>` : muted('None — catalog example')],
-    ['Content revision', selection?.content_revision ? escapeHTML(String(selection.content_revision)) : muted('None')],
-    ['Generation', selection?.generation !== undefined ? escapeHTML(String(selection.generation)) : muted('None')],
-  ];
-  const links = '<div class="console-explorer__links"><button type="button" class="console-link" data-console-panel-link="verification">Verification evidence<span aria-hidden="true"> →</span></button><button type="button" class="console-link" data-console-panel-link="coverage">Coverage<span aria-hidden="true"> →</span></button></div>';
-  return `<p class="console-explorer__para console-muted">Expected outcomes and catalog examples are declarations, not executed checks. Verification and coverage come from lifecycle evidence.</p>${kv(rows)}${links}`;
 }
 
 /** Insights read the pinned selection on their own: only selection states replace them. */
@@ -625,8 +605,8 @@ function renderPreviewContext(model: DetailsModel): string {
     ? `Active data is what ${model.selection?.target_id || 'the target'} serves now: open the application itself to see it. Application preview opens a prepared receipt without activating it.`
     : 'A catalog example is not prepared data. Application preview opens a prepared receipt without activating it.';
   const action = prepared
-    ? `<div class="console-explorer__state-actions"><button type="button" class="console-btn console-btn--sm" data-explorer-action="prepared" data-explorer-focus="preview:prepared">Show prepared receipt ${escapeHTML(prepared.receipt_id || '')}</button></div>`
-    : `<p>${escapeHTML('This scenario has no prepared receipt yet. Prepare it to preview it in the application.')}</p>`;
+    ? '<div class="console-explorer__state-actions"><button type="button" class="console-btn console-btn--sm" data-explorer-action="prepared" data-explorer-focus="preview:prepared">Show the prepared data</button></div>'
+    : `<p>${escapeHTML('This scenario has no prepared data yet. Prepare it to preview it in the application.')}</p>`;
   return `<div class="console-callout console-explorer__state" data-tone="info" data-preview-state="context"><p>${escapeHTML(message)}</p>${action}</div>`;
 }
 
@@ -647,10 +627,6 @@ function renderSection(model: DetailsModel): string {
   switch (model.section) {
     case 'about':
       return `${state}${renderAbout(model, metadata)}`;
-    case 'scenarios':
-      return `${state}${renderScenarios(model, metadata)}`;
-    case 'evidence':
-      return `${state}${renderEvidence(model)}`;
     case 'contents':
       return state || (metadata ? renderContents(model, metadata) : '');
     default:

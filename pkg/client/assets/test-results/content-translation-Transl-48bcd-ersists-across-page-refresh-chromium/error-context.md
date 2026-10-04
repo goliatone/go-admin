@@ -1,0 +1,363 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic:
+    - generic [ref=e2]:
+      - generic [ref=e3]:
+        - generic [ref=e4]:
+          - img [ref=e6]
+          - img [ref=e8]
+          - generic [ref=e10]: Error notification
+        - button "Dismiss" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+      - generic [ref=e15]: Failed to load data
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - img [ref=e20]
+          - img [ref=e22]
+          - generic [ref=e24]: Error notification
+        - button "Dismiss" [ref=e25] [cursor=pointer]:
+          - img [ref=e26]
+      - generic [ref=e29]: Failed to load data
+  - generic [ref=e30]:
+    - complementary "Admin navigation" [ref=e31]:
+      - generic [ref=e32]:
+        - link "Enterprise Admin" [ref=e33] [cursor=pointer]:
+          - /url: /admin
+          - img "Enterprise Admin" [ref=e35]
+        - button "Collapse sidebar" [expanded] [ref=e36] [cursor=pointer]
+      - generic [ref=e39]:
+        - textbox "Search" [ref=e40]
+        - generic [ref=e42]: ⌘K
+      - navigation [ref=e43]:
+        - generic [ref=e44]:
+          - button "Navigation" [ref=e45] [cursor=pointer]:
+            - generic [ref=e47]: Navigation
+          - generic [ref=e48]:
+            - generic [ref=e49]:
+              - button "Content" [ref=e50] [cursor=pointer]:
+                - generic [ref=e52]: Content
+              - generic [ref=e54]:
+                - link "Content Types" [ref=e55] [cursor=pointer]:
+                  - /url: /admin/content/types
+                  - generic [ref=e57]: Content Types
+                - link "Block Library" [ref=e58] [cursor=pointer]:
+                  - /url: /admin/content/block-library
+                  - generic [ref=e60]: Block Library
+                - link "Media" [ref=e61] [cursor=pointer]:
+                  - /url: /admin/content/media
+                  - generic [ref=e63]: Media
+                - link "News" [ref=e64] [cursor=pointer]:
+                  - /url: /admin/content/news
+                  - generic [ref=e66]: News
+                - link "Pages" [ref=e67] [cursor=pointer]:
+                  - /url: /admin/content/pages
+                  - generic [ref=e69]: Pages
+                - link "Posts" [ref=e70] [cursor=pointer]:
+                  - /url: /admin/content/posts
+                  - generic [ref=e72]: Posts
+            - link "Dashboard" [ref=e73] [cursor=pointer]:
+              - /url: /admin/dashboard
+              - generic [ref=e75]: Dashboard
+            - link "Users" [ref=e76] [cursor=pointer]:
+              - /url: /admin/users
+              - generic [ref=e78]: Users
+            - link "Roles" [ref=e79] [cursor=pointer]:
+              - /url: /admin/roles
+              - generic [ref=e81]: Roles
+            - link "User Profiles" [ref=e82] [cursor=pointer]:
+              - /url: /admin/user-profiles
+              - generic [ref=e84]: User Profiles
+            - link "Data" [ref=e85] [cursor=pointer]:
+              - /url: /admin/data
+              - generic [ref=e87]: Data
+        - generic [ref=e88]:
+          - button "Translations" [ref=e89] [cursor=pointer]:
+            - generic [ref=e91]: Translations
+          - generic [ref=e92]:
+            - link "Translation Dashboard" [ref=e93] [cursor=pointer]:
+              - /url: /admin/translations/dashboard
+              - generic [ref=e95]: Translation Dashboard
+            - link "Translation Queue" [ref=e96] [cursor=pointer]:
+              - /url: /admin/translations/queue
+              - generic [ref=e98]: Translation Queue
+            - link "Translation Assignments" [ref=e99] [cursor=pointer]:
+              - /url: /admin/content/translations
+              - generic [ref=e101]: Translation Assignments
+            - link "Translation Exchange" [ref=e102] [cursor=pointer]:
+              - /url: /admin/translations/exchange
+              - generic [ref=e104]: Translation Exchange
+        - generic [ref=e105]:
+          - button "Tools" [ref=e106] [cursor=pointer]:
+            - generic [ref=e108]: Tools
+          - generic [ref=e109]:
+            - link "Activity" [ref=e110] [cursor=pointer]:
+              - /url: /admin/activity
+              - generic [ref=e112]: Activity
+            - link "Feature Flags" [ref=e113] [cursor=pointer]:
+              - /url: /admin/feature-flags
+              - generic [ref=e115]: Feature Flags
+            - link "Debug" [ref=e116] [cursor=pointer]:
+              - /url: /admin/debug
+              - generic [ref=e118]: Debug
+      - navigation [ref=e119]:
+        - generic [ref=e120]: Utility
+        - link "Settings" [ref=e121] [cursor=pointer]:
+          - /url: /admin/settings
+          - generic [ref=e123]: Settings
+        - link "Preferences" [ref=e124] [cursor=pointer]:
+          - /url: /admin/preferences
+          - generic [ref=e126]: Preferences
+        - link "Profile" [ref=e127] [cursor=pointer]:
+          - /url: /admin/profile
+          - generic [ref=e129]: Profile
+      - button "admin admin admin@example.com" [ref=e132] [cursor=pointer]:
+        - img "admin" [ref=e134]
+        - generic [ref=e136]:
+          - generic [ref=e137]: admin
+          - generic [ref=e138]: admin@example.com
+    - main [ref=e140]:
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - navigation "Breadcrumb" [ref=e144]:
+            - list [ref=e145]:
+              - listitem [ref=e146]:
+                - link "Dashboard" [ref=e147] [cursor=pointer]:
+                  - /url: /admin
+              - listitem [ref=e148]: /
+              - listitem [ref=e149]: Pages
+          - heading "Pages" [level=1] [ref=e151]
+        - link "+ New Page" [ref=e153] [cursor=pointer]:
+          - /url: /admin/content/pages/new
+      - generic [ref=e155]:
+        - generic [ref=e157]:
+          - generic [ref=e159]:
+            - button "Filter" [ref=e160] [cursor=pointer]:
+              - img [ref=e161]
+              - text: Filter
+            - generic [ref=e163]:
+              - generic [ref=e164]: Search
+              - generic [ref=e165]:
+                - generic:
+                  - img
+                - textbox "Search" [ref=e166]
+          - generic [ref=e167]:
+            - button "Translation" [expanded] [ref=e168] [cursor=pointer]:
+              - img [ref=e169]
+              - text: Translation
+              - img [ref=e173]
+            - button "Columns" [ref=e176] [cursor=pointer]:
+              - img [ref=e177]
+              - text: Columns
+            - button "Export" [ref=e181] [cursor=pointer]:
+              - img [ref=e182]
+              - text: Export
+            - button "Refresh table" [ref=e185] [cursor=pointer]:
+              - img [ref=e186]
+        - generic [ref=e189]:
+          - generic [ref=e190]:
+            - generic [ref=e191]: Status
+            - group "Quick filters" [ref=e193]:
+              - button "All" [ref=e194] [cursor=pointer]:
+                - generic [ref=e195]: ○
+                - generic [ref=e196]: All
+              - button "Ready" [ref=e197] [cursor=pointer]:
+                - generic [ref=e198]: ●
+                - generic [ref=e199]: Ready
+              - button "Missing" [ref=e200] [cursor=pointer]:
+                - generic [ref=e201]: ○
+                - generic [ref=e202]: Missing
+              - button "Incomplete" [ref=e203] [cursor=pointer]:
+                - generic [ref=e204]: ◐
+                - generic [ref=e205]: Incomplete
+              - button "Fallback" [ref=e206] [cursor=pointer]:
+                - generic [ref=e207]: ⚠
+                - generic [ref=e208]: Fallback
+          - generic [ref=e209]:
+            - generic [ref=e210]: View
+            - generic [ref=e211]:
+              - button "Flat" [ref=e212] [cursor=pointer]
+              - button "Grouped" [active] [pressed] [ref=e213] [cursor=pointer]
+              - button "Matrix Summary" [ref=e214] [cursor=pointer]
+            - generic [ref=e215]:
+              - button "Expand All" [disabled] [ref=e216]
+              - button "Collapse All" [disabled] [ref=e217]
+        - table [ref=e220]:
+          - rowgroup [ref=e221]:
+            - row [ref=e222]:
+              - columnheader "Select all" [ref=e223]:
+                - generic [ref=e224]:
+                  - checkbox "Select all" [ref=e225]
+                  - generic [ref=e226]: Select all
+              - columnheader "Blocks" [ref=e227]:
+                - generic [ref=e229]: Blocks
+              - 'columnheader "Sort by Content (click to cycle: ascending, descending, clear)" [ref=e230]':
+                - 'button "Sort by Content (click to cycle: ascending, descending, clear)" [ref=e232] [cursor=pointer]':
+                  - generic [ref=e233]: Content
+                  - img [ref=e234]
+              - 'columnheader "Sort by Featured Image (click to cycle: ascending, descending, clear)" [ref=e236]':
+                - 'button "Sort by Featured Image (click to cycle: ascending, descending, clear)" [ref=e238] [cursor=pointer]':
+                  - generic [ref=e239]: Featured Image
+                  - img [ref=e240]
+              - columnheader "Markdown" [ref=e242]:
+                - generic [ref=e244]: Markdown
+              - columnheader "Meta" [ref=e245]:
+                - generic [ref=e247]: Meta
+              - 'columnheader "Sort by Meta Description (click to cycle: ascending, descending, clear)" [ref=e248]':
+                - 'button "Sort by Meta Description (click to cycle: ascending, descending, clear)" [ref=e250] [cursor=pointer]':
+                  - generic [ref=e251]: Meta Description
+                  - img [ref=e252]
+              - 'columnheader "Sort by Meta Title (click to cycle: ascending, descending, clear)" [ref=e254]':
+                - 'button "Sort by Meta Title (click to cycle: ascending, descending, clear)" [ref=e256] [cursor=pointer]':
+                  - generic [ref=e257]: Meta Title
+                  - img [ref=e258]
+              - 'columnheader "Sort by Parent Id (click to cycle: ascending, descending, clear)" [ref=e260]':
+                - 'button "Sort by Parent Id (click to cycle: ascending, descending, clear)" [ref=e262] [cursor=pointer]':
+                  - generic [ref=e263]: Parent Id
+                  - img [ref=e264]
+              - 'columnheader "Sort by Path (click to cycle: ascending, descending, clear)" [ref=e266]':
+                - 'button "Sort by Path (click to cycle: ascending, descending, clear)" [ref=e268] [cursor=pointer]':
+                  - generic [ref=e269]: Path
+                  - img [ref=e270]
+              - 'columnheader "Sort by Published At (click to cycle: ascending, descending, clear)" [ref=e272]':
+                - 'button "Sort by Published At (click to cycle: ascending, descending, clear)" [ref=e274] [cursor=pointer]':
+                  - generic [ref=e275]: Published At
+                  - img [ref=e276]
+              - columnheader "Seo" [ref=e278]:
+                - generic [ref=e280]: Seo
+              - 'columnheader "Sort by Slug (click to cycle: ascending, descending, clear)" [ref=e281]':
+                - 'button "Sort by Slug (click to cycle: ascending, descending, clear)" [ref=e283] [cursor=pointer]':
+                  - generic [ref=e284]: Slug
+                  - img [ref=e285]
+              - 'columnheader "Sort by Status (click to cycle: ascending, descending, clear)" [ref=e287]':
+                - 'button "Sort by Status (click to cycle: ascending, descending, clear)" [ref=e289] [cursor=pointer]':
+                  - generic [ref=e290]: Status
+                  - img [ref=e291]
+              - 'columnheader "Sort by Summary (click to cycle: ascending, descending, clear)" [ref=e293]':
+                - 'button "Sort by Summary (click to cycle: ascending, descending, clear)" [ref=e295] [cursor=pointer]':
+                  - generic [ref=e296]: Summary
+                  - img [ref=e297]
+              - columnheader "Tags" [ref=e299]:
+                - generic [ref=e301]: Tags
+              - 'columnheader "Sort by Template Id (click to cycle: ascending, descending, clear)" [ref=e302]':
+                - 'button "Sort by Template Id (click to cycle: ascending, descending, clear)" [ref=e304] [cursor=pointer]':
+                  - generic [ref=e305]: Template Id
+                  - img [ref=e306]
+              - 'columnheader "Sort by Title (click to cycle: ascending, descending, clear)" [ref=e308]':
+                - 'button "Sort by Title (click to cycle: ascending, descending, clear)" [ref=e310] [cursor=pointer]':
+                  - generic [ref=e311]: Title
+                  - img [ref=e312]
+              - 'columnheader "Sort by Translation (click to cycle: ascending, descending, clear)" [ref=e314]':
+                - 'button "Sort by Translation (click to cycle: ascending, descending, clear)" [ref=e316] [cursor=pointer]':
+                  - generic [ref=e317]: Translation
+                  - img [ref=e318]
+              - 'columnheader "Sort by Family (click to cycle: ascending, descending, clear)" [ref=e320]':
+                - 'button "Sort by Family (click to cycle: ascending, descending, clear)" [ref=e322] [cursor=pointer]':
+                  - generic [ref=e323]: Family
+                  - img [ref=e324]
+              - 'columnheader "Sort by Locales (click to cycle: ascending, descending, clear)" [ref=e326]':
+                - 'button "Sort by Locales (click to cycle: ascending, descending, clear)" [ref=e328] [cursor=pointer]':
+                  - generic [ref=e329]: Locales
+                  - img [ref=e330]
+              - columnheader "Available Locales" [ref=e332]:
+                - generic [ref=e334]: Available Locales
+              - 'columnheader "Sort by Readiness (click to cycle: ascending, descending, clear)" [ref=e335]':
+                - 'button "Sort by Readiness (click to cycle: ascending, descending, clear)" [ref=e337] [cursor=pointer]':
+                  - generic [ref=e338]: Readiness
+                  - img [ref=e339]
+              - 'columnheader "Sort by Missing (click to cycle: ascending, descending, clear)" [ref=e341]':
+                - 'button "Sort by Missing (click to cycle: ascending, descending, clear)" [ref=e343] [cursor=pointer]':
+                  - generic [ref=e344]: Missing
+                  - img [ref=e345]
+              - 'columnheader "Sort by Assignment (click to cycle: ascending, descending, clear)" [ref=e347]':
+                - 'button "Sort by Assignment (click to cycle: ascending, descending, clear)" [ref=e349] [cursor=pointer]':
+                  - generic [ref=e350]: Assignment
+                  - img [ref=e351]
+              - 'columnheader "Sort by Exchange (click to cycle: ascending, descending, clear)" [ref=e353]':
+                - 'button "Sort by Exchange (click to cycle: ascending, descending, clear)" [ref=e355] [cursor=pointer]':
+                  - generic [ref=e356]: Exchange
+                  - img [ref=e357]
+              - columnheader "Actions" [ref=e359]
+            - row [ref=e360]:
+              - columnheader [ref=e361]
+              - columnheader [ref=e362]:
+                - textbox "Filter..." [ref=e363]
+              - columnheader [ref=e364]:
+                - textbox "Filter..." [ref=e365]
+              - columnheader [ref=e366]:
+                - textbox "Filter..." [ref=e367]
+              - columnheader [ref=e368]
+              - columnheader [ref=e369]
+              - columnheader [ref=e370]:
+                - textbox "Filter..." [ref=e371]
+              - columnheader [ref=e372]:
+                - textbox "Filter..." [ref=e373]
+              - columnheader [ref=e374]:
+                - textbox "Filter..." [ref=e375]
+              - columnheader [ref=e376]:
+                - textbox "Filter..." [ref=e377]
+              - columnheader [ref=e378]:
+                - textbox "Filter..." [ref=e379]
+              - columnheader [ref=e380]
+              - columnheader [ref=e381]:
+                - textbox "Filter..." [ref=e382]
+              - columnheader [ref=e383]:
+                - textbox "Filter..." [ref=e384]
+              - columnheader [ref=e385]:
+                - textbox "Filter..." [ref=e386]
+              - columnheader [ref=e387]
+              - columnheader [ref=e388]:
+                - textbox "Filter..." [ref=e389]
+              - columnheader [ref=e390]:
+                - textbox "Filter..." [ref=e391]
+              - columnheader [ref=e392]
+              - columnheader [ref=e393]
+              - columnheader [ref=e394]
+              - columnheader [ref=e395]
+              - columnheader [ref=e396]
+              - columnheader [ref=e397]
+              - columnheader [ref=e398]
+              - columnheader [ref=e399]
+              - columnheader [ref=e400]
+          - rowgroup [ref=e401]:
+            - row [ref=e402]:
+              - alert [ref=e403]:
+                - generic [ref=e404]:
+                  - img [ref=e405]
+                  - heading "Error loading groups" [level=3] [ref=e407]
+                  - paragraph [ref=e408]: Failed to load data
+        - generic [ref=e410]:
+          - paragraph [ref=e412]: Showing 1 to 10 of 0 results
+          - generic:
+            - navigation
+          - generic [ref=e413]:
+            - generic [ref=e414]: "Per page:"
+            - combobox [ref=e415]:
+              - option "5"
+              - option "10" [selected]
+              - option "25"
+              - option "50"
+              - option "100"
+  - 'button "Open debug toolbar. Environment: development · Instance: brisk-panda · Persona: steady-otter · Version: v0.0.0-20261004171213-da1baede9f7e+dirty · Commit: da1baede9f7e. 0 requests, 200 queries, 500 logs. 6 errors. Debug stream connected" [ref=e417] [cursor=pointer]':
+    - generic [ref=e419]:
+      - img [ref=e421]
+      - generic [ref=e423]:
+        - img "steady-otter deployment persona" [ref=e425]
+        - generic [ref=e428]: DEVELOPMENT
+        - generic [ref=e429]: steady-otter
+    - generic [ref=e430]:
+      - generic [ref=e431]:
+        - generic [ref=e432]: "0"
+        - generic [ref=e433]: Req
+      - generic [ref=e434]:
+        - generic [ref=e435]: "200"
+        - generic [ref=e436]: SQL
+      - generic [ref=e437]:
+        - generic [ref=e438]: "500"
+        - generic [ref=e439]: Logs
+      - generic [ref=e440]:
+        - generic [ref=e441]: "6"
+        - generic [ref=e442]: Err
+```

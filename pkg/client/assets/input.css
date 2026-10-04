@@ -1,6 +1,34 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Keep components and utilities unlayered to preserve specificity against
+   host stylesheets, including go-formgen's Tailwind 3 utilities. */
+@layer theme, base;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@config "./tailwind.config.cjs";
+@source "../templates";
+@source "./src";
+/* Sizes selected at runtime by the public modal component. */
+@source inline("max-w-{sm,md,lg,xl,2xl,3xl,4xl}");
+
+/* Preserve the established v3 geometry while using the maintained v4 engine. */
+@theme {
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --radius-sm: 0.125rem;
+  --radius: 0.25rem;
+  --blur-sm: 4px;
+  --blur: 8px;
+  --default-ring-width: 3px;
+  --default-ring-color: var(--color-blue-500);
+}
+
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
 
 /* =============================================================================
    Translation UI Tokens
@@ -105,7 +133,6 @@
   }
 }
 
-@layer components {
   /* Public modal structure must not depend on runtime-composed Tailwind
      arbitrary classes. Keep dialogs inside both layout and visual viewports;
      consumers can still provide a generated utility to override max-height. */
@@ -1345,13 +1372,13 @@
   }
 
   .sidebar-search-container input[type="text"]:focus {
-    @apply outline-none border-sidebar-text-muted bg-sidebar-bg-hover;
+    @apply outline-hidden border-sidebar-text-muted bg-sidebar-bg-hover;
     box-shadow: none;
   }
 
   /* Sort button styling */
   .sort-btn {
-    @apply inline-flex items-center justify-center rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all;
+    @apply inline-flex items-center justify-center rounded hover:bg-gray-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all;
     padding: 2px;
   }
 
@@ -1522,7 +1549,7 @@
   }
 
   .bulk-role-select:focus {
-    @apply outline-none ring-1 ring-blue-500 border-blue-500;
+    @apply outline-hidden ring-1 ring-blue-500 border-blue-500;
   }
 
   .bulk-role-btn {
@@ -1589,7 +1616,7 @@
       left: 128px;
     }
   }
-}
+@tailwind utilities source(none);
 
 /* ============================================================================
    Toast Notifications
@@ -1816,7 +1843,7 @@
   @apply text-sm text-gray-700;
   @apply border border-gray-200 rounded-md;
   @apply placeholder-gray-400;
-  @apply focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500;
+  @apply focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500;
   @apply transition-colors duration-150;
 }
 
@@ -1868,7 +1895,7 @@
   @apply text-sm text-gray-600;
   @apply rounded-lg;
   @apply hover:bg-gray-100 hover:text-gray-800;
-  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1;
+  @apply focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-1;
   @apply transition-colors duration-150;
 }
 
@@ -1878,12 +1905,12 @@
 
 /* Focus visible states for keyboard navigation - only show on keyboard focus, not click */
 .column-item:focus-within:has(:focus-visible) {
-  @apply outline-none ring-2 ring-blue-500 ring-offset-1 rounded-lg;
+  @apply outline-hidden ring-2 ring-blue-500 ring-offset-1 rounded-lg;
 }
 
 /* Drag handle focus state (for potential keyboard reordering) */
 .drag-handle:focus {
-  @apply outline-none ring-2 ring-blue-500 rounded;
+  @apply outline-hidden ring-2 ring-blue-500 rounded;
 }
 
 /* High contrast focus for switches */
@@ -1959,7 +1986,7 @@
 }
 
 .panel-tab:focus {
-  @apply outline-none;
+  @apply outline-hidden;
 }
 
 .panel-tab:focus-visible {
