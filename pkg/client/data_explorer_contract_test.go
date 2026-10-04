@@ -23,8 +23,6 @@ func dataExplorerEnvelope(selection admindata.ExploreSelection, state string) ad
 		Provenance: "example", Completeness: "complete", State: state}
 }
 
-//go:fix inline
-
 func dataExplorerOrders() admindata.ExploreEntity {
 	return admindata.ExploreEntity{ID: "orders", Label: "Orders", Description: "Purchases placed by synthetic customers.",
 		Fields: []admindata.ExploreField{

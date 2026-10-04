@@ -71,8 +71,6 @@ func newDataInsightsSelections(f dataConsoleFixtures) dataInsightsSelections {
 	}
 }
 
-//go:fix inline
-
 var (
 	dataInsightsDay  = admindata.ExplorePeriod{Start: "2026-01-01", End: "2026-01-01", Timezone: "UTC"}
 	dataInsightsWeek = admindata.ExplorePeriod{Start: "2026-03-26", End: "2026-04-01", Timezone: "Europe/London"}

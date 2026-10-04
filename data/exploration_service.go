@@ -85,6 +85,10 @@ func (s *Service) bindExploreReceipt(ctx context.Context, b *exploreBinding) err
 	if selection.Context != ExploreActive {
 		return nil
 	}
+	return s.validateExploreActive(ctx, selection)
+}
+
+func (s *Service) validateExploreActive(ctx context.Context, selection ExploreSelection) error {
 	state, err := s.Active(ctx, selection.TargetID)
 	if err != nil {
 		return err
@@ -365,12 +369,19 @@ func validateExploreMetadata(m ExploreMetadata, selection ExploreSelection, scen
 			return Error(CodeProvider)
 		}
 	}
-	for _, c := range m.Inventory {
+	if err = validateExploreInventory(m.Inventory, ids); err != nil {
+		return err
+	}
+	return validateExploreUsages(m.Usages)
+}
+
+func validateExploreInventory(inventory []ExploreCount, ids map[string]bool) error {
+	for _, c := range inventory {
 		if !ids[c.EntityID] || !slices.Contains([]string{"catalog_inventory", "selected_scenario"}, c.Scope) || c.Total != nil && *c.Total > MaxWireCounter {
 			return Error(CodeProvider)
 		}
 	}
-	return validateExploreUsages(m.Usages)
+	return nil
 }
 
 func validateExploreEntities(entities []ExploreEntity) (map[string]bool, error) {

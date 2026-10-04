@@ -118,7 +118,6 @@ func decodeExploreQuery(c router.Context, kind string, selection data.ExploreSel
 		return data.ExploreMetadataQuery{Selection: selection}, nil
 	}
 	var err error
-
 	limit := 0
 	if value := c.Query("limit"); value != "" {
 		limit, err = strconv.Atoi(value)

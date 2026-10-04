@@ -179,10 +179,7 @@ func validateExploreSamples(out ExploreSamples, entity ExploreEntity, limit int)
 
 func validateExploreSampleState(out ExploreSamples) error {
 	if out.State == ExploreUnsupported || out.State == ExploreSuppressed {
-		if len(out.Rows) > 0 || len(out.Columns) > 0 || out.Total != nil || out.NextCursor != nil {
-			return Error(CodeProvider)
-		}
-		return nil
+		return validateWithheldExploreSamples(out)
 	}
 	if out.State == ExploreEmpty && (len(out.Rows) > 0 || out.Total == nil || *out.Total != 0 || out.NextCursor != nil) {
 		return Error(CodeProvider)
@@ -191,6 +188,13 @@ func validateExploreSampleState(out ExploreSamples) error {
 		return Error(CodeProvider)
 	}
 	if out.Total != nil && *out.Total < uint64(len(out.Rows)) {
+		return Error(CodeProvider)
+	}
+	return nil
+}
+
+func validateWithheldExploreSamples(out ExploreSamples) error {
+	if len(out.Rows) > 0 || len(out.Columns) > 0 || out.Total != nil || out.NextCursor != nil {
 		return Error(CodeProvider)
 	}
 	return nil

@@ -75,7 +75,7 @@ func (m *syntheticOrdersReportModule) renderPage(report datamodule.OrdersReport)
 		return nil, data.Error(data.CodeProvider)
 	}
 	var out bytes.Buffer
-	view := syntheticOrdersPageView{Assets: m.assets, Home: m.home, TargetID: datamodule.TargetID, Body: template.HTML(fragment)} //nolint:gosec // escaped by the report template
+	view := syntheticOrdersPageView{Assets: m.assets, Home: m.home, TargetID: datamodule.TargetID, Body: template.HTML(fragment)} // #nosec G203 -- RenderOrdersReport escapes model values with html/template before composition.
 	if err = syntheticOrdersPage.Execute(&out, view); err != nil {
 		return nil, data.Error(data.CodeProvider)
 	}

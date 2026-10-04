@@ -49,7 +49,8 @@ type DataPreviewPage struct {
 	CSRFToken string
 	// Now is the server clock, so the page can show expiry on it.
 	Now time.Time
-	// Body is the host's view as an HTML fragment from an escaping template.
+	// Body is trusted host-rendered HTML from an escaping template.
+	// Never pass raw user input or unescaped model values here.
 	Body []byte
 }
 
@@ -284,7 +285,7 @@ func RenderDataPreviewPage(in DataPreviewPage) ([]byte, error) {
 		Script:        assets + "/assets/dist/console/data-preview-page.js",
 		CSRFToken:     strings.TrimSpace(in.CSRFToken),
 		// The host renders its fragment with its own escaping template engine.
-		Body: htmltemplate.HTML(body), //nolint:gosec // trusted server-side host view fragment
+		Body: htmltemplate.HTML(body), // #nosec G203 -- Trusted host template output; the host escapes model values before composition.
 	}
 	for _, path := range []string{page.ViewURL, page.DataURL, page.SessionURL, page.CloseURL, page.ReturnURL} {
 		if !safePreviewURL(path) {
