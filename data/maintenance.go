@@ -379,7 +379,7 @@ func (s *MaintenanceService) Ensure(ctx context.Context, in MaintenanceEnsureReq
 		_ = s.backend.Save(cleanup, r)
 		out = result()
 	}()
-	for pass := 0; pass < 4; pass++ {
+	for range 4 {
 		if e = s.backend.AuthorizePolicy(delegated, r); e != nil {
 			return out, e
 		}

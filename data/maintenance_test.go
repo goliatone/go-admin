@@ -155,7 +155,7 @@ func ensureMaintenance(t *testing.T, s *MaintenanceService) (MaintenanceResult, 
 func TestMaintenanceRetriesBeyondFormerBudgetAndRenewsAcrossDays(t *testing.T) {
 	s, h := newMaintenanceTest(t)
 	h.failures = 8
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		out, e := ensureMaintenance(t, s)
 		if ErrorCode(e) != CodeUnavailable || out.Record.State != MaintenanceFailed {
 			t.Fatalf("attempt %d: %+v %v", i, out, e)
@@ -173,7 +173,7 @@ func TestMaintenanceRetriesBeyondFormerBudgetAndRenewsAcrossDays(t *testing.T) {
 	if e != nil || out.Record.State != MaintenanceReady || out.Target.Activation.Generation != 1 {
 		t.Fatal(out, e)
 	}
-	for day := 0; day < 5; day++ {
+	for range 5 {
 		h.now = h.now.Add(24 * time.Hour)
 		status, e := s.Status(context.Background())
 		if e != nil || status.Record.State == MaintenanceReady {
