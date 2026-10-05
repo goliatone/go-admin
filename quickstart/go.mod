@@ -24,7 +24,7 @@ require (
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-notifications v0.16.1
 	github.com/goliatone/go-persistence-bun v0.17.1
-	github.com/goliatone/go-router v0.62.1
+	github.com/goliatone/go-router v0.62.2
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.5.2

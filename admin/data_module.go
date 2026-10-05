@@ -81,6 +81,7 @@ func NewDataModule(cfg DataModuleConfig) (*DataModule, error) {
 		Snapshot:        m.records,
 		PrepareSnapshot: m.prepareSnapshot,
 		PrepareLookup:   m.prepareSnapshot,
+		PrepareOptions:  m.prepareOptions,
 		Lookup: func(ctx context.Context, identity console.Identity, panel, key string) (console.Record, bool, error) {
 			rows, err := m.records(ctx, identity, panel)
 			for _, row := range rows {

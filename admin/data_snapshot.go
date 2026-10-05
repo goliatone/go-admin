@@ -297,6 +297,10 @@ func (m *DataModule) authorizeProjectedChoices(ctx context.Context, projection *
 			return nil, err
 		}
 		if allowed {
+			choice, err = m.receiptDefault(ctx, projection.model, choice)
+			if err != nil {
+				return nil, err
+			}
 			out = append(out, choice)
 		}
 	}

@@ -24,7 +24,7 @@ export type ConsoleLiveStreamOptions = {
   /** Called for every socket close that was not requested by close(). */
   onClose?: (event: CloseEvent) => void;
   /** Return false to stop reconnecting after a close (for example a policy close). */
-  shouldReconnect?: (event: CloseEvent) => boolean;
+  shouldReconnect?: (event: CloseEvent) => boolean | Promise<boolean>;
 };
 
 const defaultReconnectDelayMs = 1000;
@@ -67,6 +67,7 @@ export class ConsoleLiveStream {
   protected reconnectStabilityTimer: number | null = null;
   protected reconnectAttempts = 0;
   protected manualClose = false;
+  protected connectionEpoch = 0;
   protected pendingCommands: ConsoleLiveCommand[] = [];
   protected status: ConsoleLiveStatus = 'disconnected';
   protected hasConnected = false;
@@ -102,6 +103,7 @@ export class ConsoleLiveStream {
       this.setStatus('error');
       return;
     }
+    const connectionEpoch = ++this.connectionEpoch;
     const socket = new WebSocket(url);
     this.ws = socket;
 
@@ -129,7 +131,7 @@ export class ConsoleLiveStream {
       }
     };
 
-    socket.onclose = (event) => {
+    socket.onclose = async (event) => {
       if (this.ws !== socket) {
         return;
       }
@@ -141,7 +143,16 @@ export class ConsoleLiveStream {
         return;
       }
       this.options.onClose?.(event);
-      if (this.options.shouldReconnect && !this.options.shouldReconnect(event)) {
+      let reconnect = true;
+      try {
+        reconnect = await (this.options.shouldReconnect?.(event) ?? true);
+      } catch {
+        // A failed admission check does not authorize another connection.
+        reconnect = false;
+      }
+      // close(), disposal or an explicit connect may supersede the check.
+      if (this.manualClose || this.ws !== null || this.connectionEpoch !== connectionEpoch) return;
+      if (!reconnect) {
         this.setStatus('disconnected');
         return;
       }
@@ -159,6 +170,7 @@ export class ConsoleLiveStream {
   }
 
   close(): void {
+    this.connectionEpoch += 1;
     this.manualClose = true;
     if (this.reconnectTimer !== null) {
       window.clearTimeout(this.reconnectTimer);

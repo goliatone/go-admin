@@ -812,7 +812,7 @@ export class ConsoleRuntime {
     }
     const panels = this.byDeclaredOrder(this.store.panelIds());
     this.livePanels = panels;
-    const stream = new ConsoleLiveStream({
+    const stream: ConsoleLiveStream = new ConsoleLiveStream({
       ...(this.options.liveOptions || {}),
       url: withQueryParam(withQueryParam(live, 'panels', panels.join(',')), CONSOLE_CAPABILITIES_QUERY, consoleCapabilitiesValue()),
       onMessage: (message) => {
@@ -824,10 +824,37 @@ export class ConsoleRuntime {
       onClose: (event) => {
         if (this.stream === stream && POLICY_CLOSE_CODES.has(event.code)) void this.verifyAccessAfterClose();
       },
-      shouldReconnect: (event) => !POLICY_CLOSE_CODES.has(event.code),
+      shouldReconnect: async (event): Promise<boolean> => {
+        if (POLICY_CLOSE_CODES.has(event.code)) return false;
+        // Browsers hide a rejected handshake's HTTP status behind code 1006.
+        // Resolve current access over HTTP before spending another socket retry.
+        if (event.code === 1006) await this.verifyAccessForReconnect();
+        return this.stream === stream && !this.isClosed();
+      },
     });
     this.stream = stream;
     stream.connect();
+  }
+
+  private async verifyAccessForReconnect(): Promise<void> {
+    if (this.isClosed() || !this.bootstrap.urls.snapshot) return;
+    const controller = new AbortController();
+    this.controllers.add(controller);
+    const result = await consoleRequest<ConsoleSnapshot>(this.bootstrap.urls.snapshot, {
+      method: 'GET', headers: this.requestHeaders(), signal: controller.signal,
+      timeoutMs: this.options.requestTimeoutMs, fallbackError: 'Unable to verify console access.',
+    });
+    this.controllers.delete(controller);
+    if (this.isClosed()) return;
+    if (!result.ok && (result.status === 401 || result.status === 403)) {
+      this.deny(result.error);
+    } else if (result.ok && isConsoleSnapshot(result.value) &&
+      consoleIdentityNamespace(normalizeConsoleIdentity(result.value)) !== consoleIdentityNamespace(this.identity)) {
+      this.deny({ status: 409, code: 'IDENTITY_CHANGED', message: 'Your console session changed. Reload to continue.', fields: {}, action: 'reload' });
+    }
+    // This is admission only. A restarted host may have a lower watermark;
+    // the new socket's first snapshot owns recovery into that sequence space.
+    // Transient HTTP failures retain the transport's existing bounded backoff.
   }
 
   private closeLive(): void {

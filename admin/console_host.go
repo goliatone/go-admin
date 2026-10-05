@@ -30,7 +30,11 @@ type ConsoleHostConfig struct {
 	PrepareSnapshot func(context.Context, console.Identity) (context.Context, error)
 	// PrepareLookup supplies invocation-owned read data for lookup delivery.
 	// Like PrepareSnapshot it must retain cancellation and never cache grants.
-	PrepareLookup        func(context.Context, console.Identity) (context.Context, error)
+	PrepareLookup func(context.Context, console.Identity) (context.Context, error)
+	// PrepareOptions loads and validates option declarations before registry
+	// filtering, so provider/policy failures are not mistaken for missing actions.
+	// It follows the same bounded, invocation-owned contract as PrepareLookup.
+	PrepareOptions       func(context.Context, console.Identity) (context.Context, error)
 	Lookup               console.LookupSource
 	RenderPage           func(router.Context, console.Bootstrap) error
 	PreferencesNamespace string
@@ -365,7 +369,13 @@ func consolePayloadValue(payload map[string]any, path string) any {
 func (h *ConsoleHost) Options(ctx context.Context, identity console.Identity, query console.PanelOptionQuery) (console.PanelOptionPage, error) {
 	ctx, done := h.operationContext(ctx)
 	defer done()
+	ctx, cancel := context.WithTimeout(ctx, h.config.SnapshotTimeout)
+	defer cancel()
 	ctx, identity, err := h.current(ctx, identity)
+	if err != nil {
+		return console.PanelOptionPage{}, err
+	}
+	ctx, err = prepareConsoleRead(ctx, identity, h.config.PrepareOptions, "options")
 	if err != nil {
 		return console.PanelOptionPage{}, err
 	}

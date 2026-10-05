@@ -203,18 +203,24 @@ func (h *ConsoleHost) registerLive(rt AdminRouter, auth router.MiddlewareFunc) {
 	config := router.DefaultWebSocketConfig()
 	config.OnPreUpgrade = func(c router.Context) (router.UpgradeData, error) {
 		if auth == nil {
-			return nil, ErrForbidden
+			if err := writeConsoleError(c, ErrForbidden); err != nil {
+				return nil, err
+			}
+			return nil, router.ErrWebSocketUpgradeHandled
 		}
 		authorized := false
 		if err := auth(func(router.Context) error { authorized = true; return nil })(c); err != nil {
 			return nil, err
 		}
 		if !authorized {
-			return nil, ErrForbidden
+			return nil, router.ErrWebSocketUpgradeHandled
 		}
 		ctx, identity, err := h.request(c)
 		if err != nil {
-			return nil, err
+			if writeErr := writeConsoleError(c, err); writeErr != nil {
+				return nil, writeErr
+			}
+			return nil, router.ErrWebSocketUpgradeHandled
 		}
 		// Browsers cannot set socket headers; the handshake rides the URL.
 		ctx = console.WithClientCapabilities(ctx, console.ParseClientCapabilities(c.Query(console.ClientCapabilitiesQuery)))
@@ -241,17 +247,47 @@ func (h *ConsoleHost) registerLive(rt AdminRouter, auth router.MiddlewareFunc) {
 		defer cancel()
 		stop := context.AfterFunc(c.Context(), cancel)
 		defer stop()
-		err := h.Watch(ctx, identity, panels, func(value any) error {
-			if err := c.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-				return err
-			}
-			return c.WriteJSON(value)
-		})
+		err := h.watchLiveSocket(c, ctx, identity, panels)
 		if errors.Is(err, ErrForbidden) {
 			err = preserveDebugWebSocketPrimaryError(err, c.CloseWithStatus(1008, "console access changed"))
 		}
 		return err
 	})
+}
+
+// watchLiveSocket owns one reader so close/pong control frames are processed.
+// Query parameters own subscriptions; inbound messages cannot authorize work.
+// Teardown interrupts and joins the reader before router connection reuse.
+func (h *ConsoleHost) watchLiveSocket(c router.WebSocketContext, ctx context.Context, identity console.Identity, panels []string) (err error) {
+	reader, err := startDebugWebSocketJSONReader[json.RawMessage](c, 0, true)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	monitorDone := make(chan struct{})
+	go func() {
+		defer close(monitorDone)
+		select {
+		case <-reader.done:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	defer func() {
+		cancel()
+		err = preserveDebugWebSocketPrimaryError(err, reader.Stop())
+		<-monitorDone
+	}()
+	err = h.Watch(ctx, identity, panels, func(value any) error {
+		if err := c.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return err
+		}
+		return c.WriteJSON(value)
+	})
+	if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+		return nil
+	}
+	return err
 }
 
 // Watch is the shared page/dashboard delivery adapter. Subscription precedes

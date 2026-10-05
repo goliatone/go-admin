@@ -1,7 +1,7 @@
 import { escapeHTML as r } from "../shared/html.js";
 import { n as f } from "./avatar-DIbK-LSg.js";
 import { normalizeDebugBasePath as g } from "../debug/shared/path-helpers.js";
-import { n as x, r as v, t as u } from "./browser-state-B2H0HF9F.js";
+import { n as x, r as v, t as u } from "./browser-state-B0YneZLT.js";
 import { i as m, m as w, n as y, o as h, r as b, s as S, u as C } from "./runtime-helpers-BJB2ragE.js";
 import { t as p } from "./deployment-identity-BcRV4akm.js";
 var E = `
@@ -622,7 +622,7 @@ customElements.get("debug-fab") || customElements.define("debug-fab", L);
 function T(t) {
   return x(t).load;
 }
-var P = T(() => import("./debug-toolbar-B-32YiXT.js").then((t) => t.n)), c = class {
+var P = T(() => import("./debug-toolbar-AzlS_ncE.js").then((t) => t.n)), c = class {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.expanded = !1, this.toolbarMountGeneration = 0, this.options = {
       panels: [
@@ -741,4 +741,4 @@ export {
   c as t
 };
 
-//# sourceMappingURL=debug-manager-csJoZTez.js.map
+//# sourceMappingURL=debug-manager-CClWzwgx.js.map

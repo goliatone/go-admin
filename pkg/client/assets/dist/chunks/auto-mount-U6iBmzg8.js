@@ -1,24 +1,24 @@
 import { escapeAttribute as p, escapeHTML as g } from "../shared/html.js";
-import { n as ve, t as we } from "./modal-coordinator-HTtA8-3F.js";
-import { a as Q, r as X } from "./busy-D8dMtGI2.js";
-import { C as Se, d as Z, f as Ae, g as ee, h as ue, l as ke, n as Ee, p as te, t as q, u as _e, v as M, y as Ce } from "./rich-5UU6Sxl8.js";
-import { a as De, i as Re } from "./avatar-DIbK-LSg.js";
-import { r as qe, t as Te } from "./live-stream-CyiSPucB.js";
-import { n as G, t as O } from "./http-B2ojv2Fu.js";
-import { a as h, o as Fe, r as Le } from "./hydrate-yld76QdH.js";
-import { a as x, n as Pe, r as B } from "./actions-wQfzbd0C.js";
-var Ie = 1e3, Oe = 500, $e = /* @__PURE__ */ new Set([
+import { n as Se, t as Ae } from "./modal-coordinator-HTtA8-3F.js";
+import { a as X, r as Z } from "./busy-D8dMtGI2.js";
+import { C as ke, d as ee, f as Ee, g as te, h as fe, l as _e, n as Ce, p as se, t as F, u as De, v as $, y as Re } from "./rich-5UU6Sxl8.js";
+import { a as Te, i as qe } from "./avatar-DIbK-LSg.js";
+import { r as Fe, t as Ie } from "./live-stream-BGAv0d6b.js";
+import { n as K, t as q } from "./http-B2ojv2Fu.js";
+import { a as h, o as Le, r as Pe } from "./hydrate-yld76QdH.js";
+import { a as x, n as Oe, r as H } from "./actions-wQfzbd0C.js";
+var Ne = 1e3, Me = 500, $e = /* @__PURE__ */ new Set([
   "upsert",
   "delete",
   "invalidate"
-]), Ne = [
+]), xe = [
   "console_id",
   "application_id",
   "environment_id",
   "actor_id",
   "scope_key"
 ];
-function T(e) {
+function I(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 function D(e) {
@@ -27,8 +27,8 @@ function D(e) {
 function b(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function L(e) {
-  const t = T(e) ? e : {};
+function R(e) {
+  const t = I(e) ? e : {};
   return {
     console_id: b(t.console_id),
     application_id: b(t.application_id),
@@ -37,12 +37,12 @@ function L(e) {
     scope_key: b(t.scope_key)
   };
 }
-function se(e, t) {
-  const s = L(t);
-  return Ne.every((i) => e[i] === s[i]);
+function ie(e, t) {
+  const s = R(t);
+  return xe.every((i) => e[i] === s[i]);
 }
-function Me(e) {
-  if (!T(e)) return null;
+function He(e) {
+  if (!I(e)) return null;
   const t = b(e.record_key);
   if (!t) return null;
   const s = {
@@ -54,32 +54,32 @@ function Me(e) {
   const n = D(e.generation);
   return n !== null && (s.generation = n), s;
 }
-function he(e, t) {
+function pe(e, t) {
   return `${e}\0${t}`;
 }
-function xe(e, t) {
+function Be(e, t) {
   const s = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map();
   for (const n of e) {
-    const r = T(n) ? b(n.id).toLowerCase() : "";
+    const r = I(n) ? b(n.id).toLowerCase() : "";
     if (!r || s.has(r)) continue;
     const o = /* @__PURE__ */ new Map(), a = Array.isArray(n.records) ? n.records : [];
     for (const l of a) {
-      const c = Me(l);
+      const c = He(l);
       if (c && (o.delete(c.record_key), o.set(c.record_key, c), c.target_id && c.generation !== void 0)) {
-        const u = he(r, c.target_id);
+        const u = pe(r, c.target_id);
         i.set(u, Math.max(i.get(u) ?? c.generation, c.generation));
       }
     }
-    fe(o, t), s.set(r, o);
+    me(o, t), s.set(r, o);
   }
   return {
     panels: s,
     generations: i
   };
 }
-var Be = class {
+var Ue = class {
   constructor(e) {
-    this.panels = /* @__PURE__ */ new Map(), this.generations = /* @__PURE__ */ new Map(), this.lastSequence = null, this.recovering = !0, this.buffer = [], this.bufferOverflowed = !1, this.identity = L(e.identity), this.sequenceMode = e.sequenceMode === "contiguous" ? "contiguous" : "monotonic", this.maxBufferedEvents = Math.max(1, e.maxBufferedEvents ?? Ie), this.maxRecordsPerPanel = Math.max(1, e.maxRecordsPerPanel ?? Oe);
+    this.panels = /* @__PURE__ */ new Map(), this.generations = /* @__PURE__ */ new Map(), this.lastSequence = null, this.recovering = !0, this.buffer = [], this.bufferOverflowed = !1, this.identity = R(e.identity), this.sequenceMode = e.sequenceMode === "contiguous" ? "contiguous" : "monotonic", this.maxBufferedEvents = Math.max(1, e.maxBufferedEvents ?? Ne), this.maxRecordsPerPanel = Math.max(1, e.maxRecordsPerPanel ?? Me);
   }
   watermark() {
     return this.lastSequence;
@@ -107,7 +107,7 @@ var Be = class {
     this.buffer = [], this.bufferOverflowed = !1;
   }
   applySnapshot(e, t = {}) {
-    if (!T(e) || !Array.isArray(e.panels)) return {
+    if (!I(e) || !Array.isArray(e.panels)) return {
       ok: !1,
       reason: "malformed",
       replayed: 0,
@@ -120,7 +120,7 @@ var Be = class {
       replayed: 0,
       needsRecovery: !1
     };
-    if (!se(this.identity, e)) return {
+    if (!ie(this.identity, e)) return {
       ok: !1,
       reason: "foreign",
       replayed: 0,
@@ -132,7 +132,7 @@ var Be = class {
       replayed: 0,
       needsRecovery: this.recovering
     };
-    const { panels: i, generations: n } = xe(e.panels, this.maxRecordsPerPanel);
+    const { panels: i, generations: n } = Be(e.panels, this.maxRecordsPerPanel);
     this.panels = i, this.generations = n, this.lastSequence = s, this.recovering = !1;
     const r = [...this.buffer].sort((c, u) => c.sequence - u.sequence), o = this.bufferOverflowed;
     this.buffer = [], this.bufferOverflowed = !1;
@@ -148,16 +148,16 @@ var Be = class {
     };
   }
   applyEvent(e) {
-    if (!T(e)) return "malformed";
+    if (!I(e)) return "malformed";
     const t = D(e.sequence), s = b(e.kind);
-    return t === null || !$e.has(s) ? "malformed" : se(this.identity, e) ? s === "invalidate" ? (this.recovering = !0, "invalidated") : this.recovering || this.lastSequence === null ? (this.bufferEvent(e), "buffered") : t <= this.lastSequence ? "duplicate" : this.sequenceMode === "contiguous" && t > this.lastSequence + 1 ? (this.recovering = !0, this.bufferEvent(e), "gap") : (this.lastSequence = t, this.applyRecordEvent(e, s)) : "foreign";
+    return t === null || !$e.has(s) ? "malformed" : ie(this.identity, e) ? s === "invalidate" ? (this.recovering = !0, "invalidated") : this.recovering || this.lastSequence === null ? (this.bufferEvent(e), "buffered") : t <= this.lastSequence ? "duplicate" : this.sequenceMode === "contiguous" && t > this.lastSequence + 1 ? (this.recovering = !0, this.bufferEvent(e), "gap") : (this.lastSequence = t, this.applyRecordEvent(e, s)) : "foreign";
   }
   bufferEvent(e) {
     this.buffer.length >= this.maxBufferedEvents && (this.buffer.shift(), this.bufferOverflowed = !0), this.buffer.push(e);
   }
   acceptGeneration(e, t, s) {
     if (!t || s === null) return !0;
-    const i = he(e, t), n = this.generations.get(i);
+    const i = pe(e, t), n = this.generations.get(i);
     return n !== void 0 && s < n ? !1 : (this.generations.set(i, s), !0);
   }
   applyRecordEvent(e, t) {
@@ -175,17 +175,17 @@ var Be = class {
       revision: l ?? (a ? a.revision + 1 : 0),
       data: e.data
     };
-    return r && (c.target_id = r), o !== null && (c.generation = o), i.set(n, c), fe(i, this.maxRecordsPerPanel), "applied";
+    return r && (c.target_id = r), o !== null && (c.generation = o), i.set(n, c), me(i, this.maxRecordsPerPanel), "applied";
   }
 };
-function fe(e, t) {
+function me(e, t) {
   for (; e.size > t; ) {
     const s = e.keys().next().value;
     if (s === void 0) return;
     e.delete(s);
   }
 }
-function He(e) {
+function B(e) {
   return JSON.stringify({
     console_id: e.console_id,
     application_id: e.application_id,
@@ -194,16 +194,16 @@ function He(e) {
     scope_key: e.scope_key
   });
 }
-function Ue(e) {
+function We(e) {
   try {
     return (e === "local" ? globalThis.localStorage : globalThis.sessionStorage) ?? null;
   } catch {
     return null;
   }
 }
-var We = class {
+var Ve = class {
   constructor(e, t = null) {
-    this.prefix = qe(e, ""), this.provider = t;
+    this.prefix = Fe(e, ""), this.provider = t;
   }
   keyFor(e) {
     return `${this.prefix}${e}`;
@@ -250,14 +250,14 @@ var We = class {
     }
   }
   storage(e) {
-    return this.provider ? (e === "local" ? this.provider.local : this.provider.session) ?? null : Ue(e);
+    return this.provider ? (e === "local" ? this.provider.local : this.provider.session) ?? null : We(e);
   }
-}, pe = "This browser cannot create a request ID. Use a current browser to run this action.", Ve = "This request is still being sent.", H = "The earlier request may have been received. Check its status before starting new work.", je = "The earlier request can no longer be confirmed. Start a new request to continue.", Ge = "The earlier request’s state is unknown. Check again, or start a new request.", Ke = "This request was restored without all of its input. Check its status or start a new request.", K = 8192, Je = 864e5, me = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+}, ye = "This browser cannot create a request ID. Use a current browser to run this action.", je = "This request is still being sent.", U = "The earlier request may have been received. Check its status before starting new work.", Ge = "The earlier request can no longer be confirmed. Start a new request to continue.", Ke = "The earlier request’s state is unknown. Check again, or start a new request.", Ye = "This request was restored without all of its input. Check its status or start a new request.", Y = 8192, Je = 864e5, ge = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 function P(e = globalThis.crypto) {
   try {
     if (typeof e?.randomUUID == "function") {
       const t = e.randomUUID().toLowerCase();
-      if (me.test(t)) return t;
+      if (ge.test(t)) return t;
     }
     if (typeof e?.getRandomValues == "function") {
       const t = e.getRandomValues(/* @__PURE__ */ new Uint8Array(16));
@@ -270,8 +270,8 @@ function P(e = globalThis.crypto) {
   }
   return "";
 }
-function F(e) {
-  return typeof e == "string" && me.test(e);
+function L(e) {
+  return typeof e == "string" && ge.test(e);
 }
 function J(e) {
   return Array.isArray(e) ? `[${e.map((t) => J(t)).join(",")}]` : e && typeof e == "object" ? `{${Object.entries(e).filter(([, t]) => t !== void 0).sort(([t], [s]) => t < s ? -1 : t > s ? 1 : 0).map(([t, s]) => `${JSON.stringify(t)}:${J(s)}`).join(",")}}` : JSON.stringify(e ?? null);
@@ -279,7 +279,7 @@ function J(e) {
 function f(e, t) {
   return `${e}\0${t}`;
 }
-function ye(e, t, s = P) {
+function be(e, t, s = P) {
   return {
     panelID: e,
     actionID: t,
@@ -287,10 +287,10 @@ function ye(e, t, s = P) {
     current: null
   };
 }
-function U(e) {
+function W(e) {
   return !!e && e.state !== "resolved";
 }
-function ge(e, t = Date.now()) {
+function ve(e, t = Date.now()) {
   if (e.partial || ![
     "uncertain",
     "unclaimed",
@@ -299,50 +299,50 @@ function ge(e, t = Date.now()) {
   const s = Date.parse(e.retryUntil || "");
   return Number.isFinite(s) && t < s;
 }
-function Ye(e, t, s, i = Date.now()) {
+function ze(e, t, s, i = Date.now()) {
   const n = typeof s == "string" ? Date.parse(s) : NaN;
   return e.retryUntil = Number.isFinite(n) ? new Date(n).toISOString() : void 0, t === "claimed" ? e.state = "resolved" : t === "unclaimed" && Number.isFinite(n) ? e.state = i < n ? "unclaimed" : "expired" : e.state = t === "unclaimed" || t === "unknown" ? "unknown" : "expired", e.state;
 }
-function ie(e, t, s) {
+function ne(e, t, s) {
   const i = e.current;
   return i && i.state === "pending" ? {
     kind: "blocked",
-    reason: Ve
+    reason: je
   } : i && i.state === "checking" ? {
     kind: "blocked",
-    reason: H,
+    reason: U,
     check: !0
   } : i && i.mode === t && i.signature === s ? i.state === "expired" ? {
     kind: "blocked",
-    reason: je
+    reason: Ge
   } : i.state === "unknown" ? {
-    kind: "blocked",
-    reason: Ge,
-    check: !0
-  } : i.partial ? {
     kind: "blocked",
     reason: Ke,
     check: !0
-  } : ge(i) ? {
+  } : i.partial ? {
+    kind: "blocked",
+    reason: Ye,
+    check: !0
+  } : ve(i) ? {
     kind: "replay",
     request: i
   } : {
     kind: "blocked",
-    reason: H,
+    reason: U,
     check: !0
   } : i && i.state === "uncertain" ? {
     kind: "blocked",
-    reason: H,
+    reason: U,
     check: !0
-  } : F(e.nextID) ? {
+  } : L(e.nextID) ? {
     kind: "new",
     id: e.nextID
   } : {
     kind: "blocked",
-    reason: pe
+    reason: ye
   };
 }
-function ze(e, t, s, i, n, r, o = P, a = /* @__PURE__ */ new Date()) {
+function Qe(e, t, s, i, n, r, o = P, a = /* @__PURE__ */ new Date()) {
   const l = {
     id: t,
     mode: s,
@@ -354,21 +354,21 @@ function ze(e, t, s, i, n, r, o = P, a = /* @__PURE__ */ new Date()) {
   };
   return e.current = l, e.nextID === t && (e.nextID = o()), l;
 }
-function Qe(e, t = P) {
+function Xe(e, t = P) {
   const s = e.current;
-  return s && (s.state === "pending" || s.state === "checking" || s.state === "uncertain") ? !1 : (e.current = null, F(e.nextID) || (e.nextID = t()), !0);
+  return s && (s.state === "pending" || s.state === "checking" || s.state === "uncertain") ? !1 : (e.current = null, L(e.nextID) || (e.nextID = t()), !0);
 }
-function Xe(e) {
+function Ze(e) {
   return e.current?.id || e.nextID;
 }
-function ne(e) {
+function re(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 function _(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function Ze(e, t) {
-  if (!ne(e)) return null;
+function et(e, t) {
+  if (!re(e)) return null;
   const s = {
     panel_id: _(e.panel_id).toLowerCase(),
     action_id: _(e.action_id).toLowerCase(),
@@ -376,7 +376,7 @@ function Ze(e, t) {
     mode: e.mode === "secondary" ? "secondary" : "primary",
     scope: _(e.scope).slice(0, 200),
     submitted_at: _(e.submitted_at),
-    signature: typeof e.signature == "string" ? e.signature.slice(0, K) : "",
+    signature: typeof e.signature == "string" ? e.signature.slice(0, Y) : "",
     state: [
       "pending",
       "uncertain",
@@ -385,12 +385,12 @@ function Ze(e, t) {
       "unknown",
       "expired"
     ].includes(e.state) ? e.state : "uncertain",
-    payload: ne(e.payload) ? e.payload : void 0,
+    payload: re(e.payload) ? e.payload : void 0,
     retry_until: _(e.retry_until) || void 0
   }, i = Date.parse(s.submitted_at);
-  return !s.panel_id || !s.action_id || !F(s.request_id) || Number.isNaN(i) || t - i > Je || i - t > 3e5 ? null : s;
+  return !s.panel_id || !s.action_id || !L(s.request_id) || Number.isNaN(i) || t - i > Je || i - t > 3e5 ? null : s;
 }
-var et = class {
+var tt = class {
   constructor(e) {
     this.store = e;
   }
@@ -399,7 +399,7 @@ var et = class {
     if (!t) return [];
     try {
       const s = JSON.parse(t);
-      return Array.isArray(s) ? s.map((i) => Ze(i, e)).filter((i) => i !== null).slice(-16) : [];
+      return Array.isArray(s) ? s.map((i) => et(i, e)).filter((i) => i !== null).slice(-16) : [];
     } catch {
       return [];
     }
@@ -417,7 +417,7 @@ var et = class {
       state: t.state === "resolved" ? "uncertain" : t.state,
       retry_until: t.retryUntil
     }, n = JSON.stringify(t.payload);
-    !s && !t.partial && n.length <= K && i.signature.length <= K ? i.payload = JSON.parse(n) : i.signature = "";
+    !s && !t.partial && n.length <= Y && i.signature.length <= Y ? i.payload = JSON.parse(n) : i.signature = "";
     const r = this.entries().filter((o) => o.request_id !== i.request_id && !(o.panel_id === i.panel_id && o.action_id === i.action_id));
     return r.push(i), this.write(r.slice(-16));
   }
@@ -433,8 +433,8 @@ var et = class {
     return this.store ? e.length === 0 ? (this.store.remove(), !0) : this.store.set(JSON.stringify(e)) : !1;
   }
 };
-function tt(e, t = P) {
-  const s = ye(e.panel_id, e.action_id, t);
+function st(e, t = P) {
+  const s = be(e.panel_id, e.action_id, t);
   return s.current = {
     id: e.request_id,
     mode: e.mode,
@@ -447,7 +447,7 @@ function tt(e, t = P) {
     partial: !e.payload || !e.signature
   }, s;
 }
-var st = 16, it = class {
+var it = 16, nt = class {
   constructor(e) {
     this.layer = null, this.closed = !1, this.releaseListeners = [], this.options = e, this.panelID = e.panelID, this.actionID = e.actionID;
     const t = e.root.ownerDocument, s = `${e.id}-title`, i = t.createElement("div");
@@ -463,7 +463,7 @@ var st = 16, it = class {
         </header>
         ${e.body}
       </aside>
-    `, this.element = i, this.dialog = i.querySelector("[data-console-drawer]"), e.root.appendChild(i), this.layer = ve({
+    `, this.element = i, this.dialog = i.querySelector("[data-console-drawer]"), e.root.appendChild(i), this.layer = Se({
       container: this.dialog,
       zIndexTarget: i,
       initialFocus: null,
@@ -474,7 +474,7 @@ var st = 16, it = class {
     }), this.listen(this.dialog, "keydown", (r) => {
       const o = r;
       if (o.key !== "Tab" || o.defaultPrevented || o.altKey || o.ctrlKey || o.metaKey) return;
-      const a = we(this.dialog);
+      const a = Ae(this.dialog);
       if (a.length === 0) return;
       const l = a.indexOf(t.activeElement), c = a.length - 1, u = o.shiftKey ? l <= 0 ? c : l - 1 : l < 0 || l === c ? 0 : l + 1;
       o.preventDefault(), a[u].focus();
@@ -485,7 +485,7 @@ var st = 16, it = class {
     const n = () => {
       this.closed || (i.dataset.state = "open");
     };
-    typeof requestAnimationFrame == "function" ? requestAnimationFrame(n) : setTimeout(n, st), this.focusInitial();
+    typeof requestAnimationFrame == "function" ? requestAnimationFrame(n) : setTimeout(n, it), this.focusInitial();
   }
   isOpen() {
     return !this.closed;
@@ -510,34 +510,34 @@ var st = 16, it = class {
   listen(e, t, s) {
     e.addEventListener(t, s), this.releaseListeners.push(() => e.removeEventListener(t, s));
   }
-}, y = "[data-console-root]", nt = "[data-console-page-actions][data-console-for]", rt = 'script[type="application/json"][data-console-bootstrap]', ot = 'script[type="application/json"][data-console-widget]', at = /* @__PURE__ */ new Set([
+}, y = "[data-console-root]", rt = "[data-console-page-actions][data-console-for]", ot = 'script[type="application/json"][data-console-bootstrap]', at = 'script[type="application/json"][data-console-widget]', lt = /* @__PURE__ */ new Set([
   "table",
   "status_list",
   "timeline"
-]), re = /* @__PURE__ */ new Set([
+]), oe = /* @__PURE__ */ new Set([
   1008,
   4401,
   4403
-]), lt = [
+]), ct = [
   1e3,
   2e3,
   5e3,
   1e4,
   3e4
-], oe = "active-panel", ct = 16, dt = 5e3, ut = 100, ht = 3, ft = 6e4, W = "requests", pt = /* @__PURE__ */ new Set([
+], ae = "active-panel", dt = 16, ut = 5e3, ht = 100, ft = 3, pt = 6e4, V = "requests", mt = /* @__PURE__ */ new Set([
   0,
   500,
   502,
   503,
   504
-]), mt = 500, yt = 25, gt = 250, C = "This action is no longer available.", ae = "[data-console-action-ref], [data-console-panel-link], [data-console-record-link], [data-console-banner-dismiss], [data-copy-trigger]", bt = "[data-advanced-toggle], [data-copy-request-id], [data-new-request], [data-request-check], [data-request-resubmit], [data-request-new], [data-option-more]", R = /* @__PURE__ */ new WeakMap(), $ = /* @__PURE__ */ new WeakMap(), vt = 0;
+]), yt = 500, gt = 25, bt = 250, C = "This action is no longer available.", le = "[data-console-action-ref], [data-console-panel-link], [data-console-record-link], [data-console-banner-dismiss], [data-copy-trigger]", vt = "[data-advanced-toggle], [data-copy-request-id], [data-new-request], [data-request-check], [data-request-resubmit], [data-request-new], [data-option-more]", T = /* @__PURE__ */ new WeakMap(), N = /* @__PURE__ */ new WeakMap(), wt = 0;
 function m(e) {
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
 function d(e) {
   return typeof e == "string" ? e.trim() : "";
 }
-function wt(e) {
+function St(e) {
   if (!m(e)) return null;
   const t = d(e.snapshot);
   return t ? {
@@ -552,22 +552,22 @@ function wt(e) {
     requests: d(e.requests) || void 0
   } : null;
 }
-function St(e) {
-  const t = Array.from(e.querySelectorAll(rt)).find((s) => s.closest(y) === e);
-  if (!t) return null;
-  try {
-    return be(JSON.parse(t.textContent || ""));
-  } catch {
-    return null;
-  }
-}
 function At(e) {
   const t = Array.from(e.querySelectorAll(ot)).find((s) => s.closest(y) === e);
   if (!t) return null;
   try {
+    return we(JSON.parse(t.textContent || ""));
+  } catch {
+    return null;
+  }
+}
+function kt(e) {
+  const t = Array.from(e.querySelectorAll(at)).find((s) => s.closest(y) === e);
+  if (!t) return null;
+  try {
     const s = JSON.parse(t.textContent || "");
     if (!m(s) || !m(s.panel)) return null;
-    const i = L(s), n = typeof s.watermark == "number" ? s.watermark : 0;
+    const i = R(s), n = typeof s.watermark == "number" ? s.watermark : 0;
     return i.console_id ? {
       ...i,
       title: d(s.panel.label) || void 0,
@@ -582,9 +582,9 @@ function At(e) {
     return null;
   }
 }
-function be(e) {
+function we(e) {
   if (!m(e)) return null;
-  const t = L(e), s = wt(e.urls);
+  const t = R(e), s = St(e.urls);
   return !t.console_id || !s ? null : {
     ...t,
     title: d(e.title) || void 0,
@@ -593,21 +593,21 @@ function be(e) {
     snapshot: m(e.snapshot) ? e.snapshot : void 0
   };
 }
-function kt(e) {
+function ce(e) {
   return typeof e.watermark == "number" && Array.isArray(e.panels) && typeof e.console_id == "string";
 }
 function w(e, t, s) {
   const [i, n] = e.split("#"), r = `${i}${i.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(s)}`;
   return n === void 0 ? r : `${r}#${n}`;
 }
-function le(e) {
+function de(e) {
   return m(e) && typeof e.sequence == "number" && typeof e.kind == "string" && typeof e.console_id == "string";
 }
 function Et(e, t) {
-  let s = w(e, "limit", String(yt));
+  let s = w(e, "limit", String(gt));
   return t.query && (s = w(s, "q", t.query.slice(0, 120))), t.cursor && (s = w(s, "cursor", t.cursor)), t.pinned && (s = w(s, "value", t.pinned)), s;
 }
-function V(e) {
+function j(e) {
   if (!m(e)) return "";
   const t = d(e.value);
   if (!t) return "";
@@ -616,17 +616,17 @@ function V(e) {
 }
 function _t(e, t, s, i) {
   const n = new Set(Array.from(e.options).map((l) => l.value)), r = (Array.isArray(t.items) ? t.items : []).filter((l) => !s || !n.has(d(l?.value))), o = (Array.isArray(t.selected) ? t.selected : []).filter((l) => !r.some((c) => d(c?.value) === d(l?.value)));
-  s ? e.insertAdjacentHTML("beforeend", r.map(V).join("")) : (e.innerHTML = `<option value="">${r.length || o.length ? "Select…" : "No options available"}</option>` + o.map(V).join("") + r.map(V).join(""), i && Array.from(e.options).some((l) => l.value === i) && (e.value = i), delete e.dataset.pendingValue);
+  s ? e.insertAdjacentHTML("beforeend", r.map(j).join("")) : (e.innerHTML = `<option value="">${r.length || o.length ? "Select…" : "No options available"}</option>` + o.map(j).join("") + r.map(j).join(""), i && Array.from(e.options).some((l) => l.value === i) && (e.value = i), delete e.dataset.pendingValue);
   const a = d(t.next_cursor);
   return a ? e.dataset.nextCursor = a : delete e.dataset.nextCursor, a;
 }
-function ce(e, t) {
+function ue(e, t) {
   e.setAttribute("aria-expanded", t ? "true" : "false");
   const s = e.closest("[data-expanded]");
   s && (s.dataset.expanded = t ? "true" : "false");
 }
 function Ct(e, t, s) {
-  let i = G(e, {
+  let i = K(e, {
     panel_id: t.panelID,
     request_id: s.id
   });
@@ -694,14 +694,14 @@ function Rt(e, t) {
       };
   }
 }
-function qt(e) {
-  return e.ok !== !1 || !m(e.errors) ? {} : Object.fromEntries(Object.entries(e.errors).map(([t, s]) => [t, typeof s == "string" ? s : ue(s, { nullAsEmptyObject: !1 })]));
+function Tt(e) {
+  return e.ok !== !1 || !m(e.errors) ? {} : Object.fromEntries(Object.entries(e.errors).map(([t, s]) => [t, typeof s == "string" ? s : fe(s, { nullAsEmptyObject: !1 })]));
 }
-function Tt(e, t, s, i) {
+function qt(e, t, s, i) {
   const n = e.ok === !1, r = n ? "Action failed." : e.planned ? "Planned. Nothing changed." : "Action complete.", o = m(e.record) ? e.record : null, a = d(o?.record_key);
   return {
     status: n ? "error" : "ok",
-    tone: q(e.tone) || (n ? "error" : e.planned ? "planned" : "success"),
+    tone: F(e.tone) || (n ? "error" : e.planned ? "planned" : "success"),
     message: d(e.message) || r,
     actionID: s,
     data: e.data,
@@ -723,31 +723,31 @@ function Ft(e) {
   const r = e.getAttribute("min"), o = e.getAttribute("max");
   return r !== null && n < Number(r) ? `Enter ${r} or more.` : o !== null && n > Number(o) ? `Enter ${o} or less.` : "";
 }
-function j(e) {
+function G(e) {
   const t = globalThis.CSS?.escape;
   return t ? t(e) : e.replace(/["\\]/g, "\\$&");
 }
-function Lt(e) {
+function It(e) {
   if (typeof requestAnimationFrame == "function") {
     const s = requestAnimationFrame(() => e());
     return () => cancelAnimationFrame(s);
   }
-  const t = setTimeout(e, ct);
+  const t = setTimeout(e, dt);
   return () => clearTimeout(t);
 }
-var Pt = class {
+var Lt = class {
   constructor(e, t, s = {}) {
     this.serverDefinitions = /* @__PURE__ */ new Map(), this.filterState = /* @__PURE__ */ new Map(), this.actionResults = /* @__PURE__ */ new Map(), this.drafts = /* @__PURE__ */ new Map(), this.inFlight = /* @__PURE__ */ new Map(), this.workingValues = /* @__PURE__ */ new Map(), this.notified = /* @__PURE__ */ new Set(), this.controllers = /* @__PURE__ */ new Set(), this.cleanup = [], this.state = "loading", this.connection = "offline", this.activePanel = "", this.policyCloses = [], this.stream = null, this.recoveryPromise = null, this.recoveryPending = !1, this.snapshotEpoch = 0, this.freshStreamSnapshot = !1, this.recoveryAttempts = 0, this.recoveryTimer = null, this.cancelFrame = null, this.dirtyPanels = /* @__PURE__ */ new Set(), this.structureDirty = !1, this.livePanels = [], this.snapshotWaitTimer = null, this.definitionSignatures = /* @__PURE__ */ new Map(), this.drawer = null, this.clientOutdated = !1, this.requestsRestored = !1, this.highlight = null, this.notice = {
       kind: "loading",
       message: "Loading console…",
       action: "none"
-    }, this.root = e, this.bootstrap = t, this.options = s, this.styles = s.styles || Se, this.identity = L(t), this.idScope = `console-${vt += 1}`, this.registry = Re(), this.store = new Be({
+    }, this.root = e, this.bootstrap = t, this.options = s, this.styles = s.styles || ke, this.identity = R(t), this.idScope = `console-${wt += 1}`, this.registry = qe(), this.store = new Ue({
       identity: this.identity,
       sequenceMode: "monotonic"
-    }), this.preferences = new We(t.preferences_namespace || He(this.identity), s.storage ?? null), this.generate = s.generateRequestID || (() => P()), this.ledger = new et({
-      get: () => this.preferences.get(W, "session"),
-      set: (i) => this.preferences.set(W, i, "session"),
-      remove: () => this.preferences.remove(W, "session")
+    }), this.preferences = new Ve(t.preferences_namespace || B(this.identity), s.storage ?? null), this.generate = s.generateRequestID || (() => P()), this.ledger = new tt({
+      get: () => this.preferences.get(V, "session"),
+      set: (i) => this.preferences.set(V, i, "session"),
+      remove: () => this.preferences.remove(V, "session")
     }), (s.panels || []).forEach((i) => this.registry.register(i)), this.root.classList.add("console-root"), this.regions = this.ensureRegions(), this.bindEvents(), this.root.dataset.consoleState = "loading", this.root.dataset.consoleSync = "recovering", this.render(), this.start();
   }
   getState() {
@@ -767,7 +767,7 @@ var Pt = class {
   }
   selectPanel(e, t = !1) {
     const s = h(e);
-    return !s || !this.visiblePanels().includes(s) || this.state === "disposed" ? !1 : (s !== this.activePanel && (this.activePanel = s, this.preferences.set(oe, s, "session"), this.renderTabs(), this.renderFilters(), this.renderPanel(!0)), t && this.tabButton(s)?.focus(), !0);
+    return !s || !this.visiblePanels().includes(s) || this.state === "disposed" ? !1 : (s !== this.activePanel && (this.activePanel = s, this.preferences.set(ae, s, "session"), this.renderTabs(), this.renderFilters(), this.renderPanel(!0)), t && this.tabButton(s)?.focus(), !0);
   }
   refresh() {
     this.recoveryAttempts = 0, this.policyCloses = [];
@@ -777,7 +777,7 @@ var Pt = class {
     }), e;
   }
   destroy() {
-    this.state !== "disposed" && (this.state = "disposed", this.closeLive(), this.controllers.forEach((e) => e.abort()), this.controllers.clear(), this.recoveryTimer !== null && clearTimeout(this.recoveryTimer), this.recoveryTimer = null, this.cancelFrame?.(), this.cancelFrame = null, this.cleanup.splice(0).forEach((e) => e()), this.closeDrawer(!1), this.releaseHeaderControls(), this.registry.dispose(), this.store.clear(), this.serverDefinitions.clear(), this.actionResults.clear(), this.filterState.clear(), this.drafts.clear(), this.inFlight.clear(), this.workingValues.clear(), R.get(this.root) === this && R.delete(this.root), this.root.dataset.consoleState = "disposed", this.emitChange([], !1));
+    this.state !== "disposed" && (this.state = "disposed", this.closeLive(), this.controllers.forEach((e) => e.abort()), this.controllers.clear(), this.recoveryTimer !== null && clearTimeout(this.recoveryTimer), this.recoveryTimer = null, this.cancelFrame?.(), this.cancelFrame = null, this.cleanup.splice(0).forEach((e) => e()), this.closeDrawer(!1), this.releaseHeaderControls(), this.registry.dispose(), this.store.clear(), this.serverDefinitions.clear(), this.actionResults.clear(), this.filterState.clear(), this.drafts.clear(), this.inFlight.clear(), this.workingValues.clear(), T.get(this.root) === this && T.delete(this.root), this.root.dataset.consoleState = "disposed", this.emitChange([], !1));
   }
   async start() {
     this.bootstrap.snapshot ? this.acceptSnapshot(this.bootstrap.snapshot) : await this.recover(), !(this.isClosed() || this.options.display) && this.connectLive();
@@ -800,7 +800,7 @@ var Pt = class {
       this.recoveryTimer !== null && (clearTimeout(this.recoveryTimer), this.recoveryTimer = null), this.recoveryPending = !1, this.store.beginRecovery(), this.root.dataset.consoleSync = "recovering";
       const e = this.snapshotEpoch, t = new AbortController();
       this.controllers.add(t);
-      const s = await O(this.bootstrap.urls.snapshot, {
+      const s = await q(this.bootstrap.urls.snapshot, {
         method: "GET",
         headers: this.requestHeaders(),
         signal: t.signal,
@@ -831,7 +831,7 @@ var Pt = class {
     return Math.max(1, this.options.maxRecoveryAttempts ?? 5);
   }
   scheduleRecoveryRetry(e) {
-    const t = this.options.recoveryDelaysMs || lt, s = this.recoveryAttempts;
+    const t = this.options.recoveryDelaysMs || ct, s = this.recoveryAttempts;
     if (this.recoveryAttempts += 1, s >= this.maxRecoveryAttempts() || t.length === 0) {
       this.recoveryAttempts = 0, this.setState(this.state === "loading" ? "error" : this.state), this.setNotice("error", e, "retry");
       return;
@@ -864,10 +864,10 @@ var Pt = class {
           ...o.ui,
           actions: []
         }
-      } : o, l = M(JSON.stringify(a));
+      } : o, l = $(JSON.stringify(a));
       if (this.definitionSignatures.get(n) === l && this.registry.has(n)) return;
       this.definitionSignatures.set(n, l), this.serverDefinitions.set(n, a);
-      const c = Le(a, {
+      const c = Pe(a, {
         consoleRenderer: this.options.renderers?.[n],
         styles: this.styles
       });
@@ -877,7 +877,7 @@ var Pt = class {
     this.syncDrawerAvailability();
     const s = this.visiblePanels();
     if (!s.includes(this.activePanel)) {
-      const i = h(this.preferences.get(oe, "session"));
+      const i = h(this.preferences.get(ae, "session"));
       this.activePanel = s.includes(i) ? i : s[0] || "";
     }
   }
@@ -892,9 +892,9 @@ var Pt = class {
     }
     const t = this.byDeclaredOrder(this.store.panelIds());
     this.livePanels = t;
-    const s = new Te({
+    const s = new Ie({
       ...this.options.liveOptions || {},
-      url: w(w(e, "panels", t.join(",")), _e, te()),
+      url: w(w(e, "panels", t.join(",")), De, se()),
       onMessage: (i) => {
         this.stream === s && this.handleLiveMessage(i);
       },
@@ -902,11 +902,30 @@ var Pt = class {
         this.stream === s && this.handleLiveStatus(i);
       },
       onClose: (i) => {
-        this.stream === s && re.has(i.code) && this.verifyAccessAfterClose();
+        this.stream === s && oe.has(i.code) && this.verifyAccessAfterClose();
       },
-      shouldReconnect: (i) => !re.has(i.code)
+      shouldReconnect: async (i) => oe.has(i.code) ? !1 : (i.code === 1006 && await this.verifyAccessForReconnect(), this.stream === s && !this.isClosed())
     });
     this.stream = s, s.connect();
+  }
+  async verifyAccessForReconnect() {
+    if (this.isClosed() || !this.bootstrap.urls.snapshot) return;
+    const e = new AbortController();
+    this.controllers.add(e);
+    const t = await q(this.bootstrap.urls.snapshot, {
+      method: "GET",
+      headers: this.requestHeaders(),
+      signal: e.signal,
+      timeoutMs: this.options.requestTimeoutMs,
+      fallbackError: "Unable to verify console access."
+    });
+    this.controllers.delete(e), !this.isClosed() && (!t.ok && (t.status === 401 || t.status === 403) ? this.deny(t.error) : t.ok && ce(t.value) && B(R(t.value)) !== B(this.identity) && this.deny({
+      status: 409,
+      code: "IDENTITY_CHANGED",
+      message: "Your console session changed. Reload to continue.",
+      fields: {},
+      action: "reload"
+    }));
   }
   closeLive() {
     const e = this.stream;
@@ -918,7 +937,7 @@ var Pt = class {
   awaitStreamSnapshot() {
     this.store.beginRecovery(), this.root.dataset.consoleSync = "recovering", this.clearSnapshotWait(), this.snapshotWaitTimer = setTimeout(() => {
       this.snapshotWaitTimer = null, this.recover();
-    }, Math.max(0, this.options.snapshotWaitMs ?? dt));
+    }, Math.max(0, this.options.snapshotWaitMs ?? ut));
   }
   clearSnapshotWait() {
     this.snapshotWaitTimer !== null && (clearTimeout(this.snapshotWaitTimer), this.snapshotWaitTimer = null);
@@ -932,8 +951,8 @@ var Pt = class {
     if (this.isClosed()) return;
     this.closeLive();
     const e = Date.now();
-    if (this.policyCloses = this.policyCloses.filter((t) => e - t < ft), this.policyCloses.push(e), await this.recover(), !(this.isClosed() || this.state !== "ready")) {
-      if (this.policyCloses.length > ht) {
+    if (this.policyCloses = this.policyCloses.filter((t) => e - t < pt), this.policyCloses.push(e), await this.recover(), !(this.isClosed() || this.state !== "ready")) {
+      if (this.policyCloses.length > ft) {
         this.setConnection("disconnected"), this.setNotice("error", "Live updates stopped. Refresh to load the latest data.", "retry");
         return;
       }
@@ -942,13 +961,13 @@ var Pt = class {
   }
   handleLiveMessage(e) {
     if (this.isClosed() || !m(e)) return;
-    if (kt(e)) {
+    if (ce(e)) {
       this.clearSnapshotWait();
       const s = this.freshStreamSnapshot;
       this.freshStreamSnapshot = !1, this.acceptSnapshot(e, s) && this.recover();
       return;
     }
-    if (!le(e)) return;
+    if (!de(e)) return;
     const t = this.store.applyEvent(e);
     t === "applied" ? (this.notifyBackground(e), this.markPanelDirty(h(e.panel_id))) : t === "invalidated" ? (this.snapshotEpoch += 1, this.awaitStreamSnapshot()) : t === "gap" && this.recover();
   }
@@ -959,7 +978,7 @@ var Pt = class {
     this.setNotice("denied", t, "reload"), this.structureDirty = !0, this.flush();
   }
   requestHeaders() {
-    return { [ke]: te() };
+    return { [_e]: se() };
   }
   actionDeclaration(e, t) {
     if (!(!e || !t))
@@ -968,7 +987,7 @@ var Pt = class {
   executableAction(e, t) {
     if (this.state !== "ready" || this.options.display || !this.visiblePanels().includes(e)) return null;
     const s = this.actionDeclaration(e, t);
-    return s && s.hidden !== !0 && Ae(s).executable ? s : null;
+    return s && s.hidden !== !0 && Ee(s).executable ? s : null;
   }
   actionTarget(e) {
     return {
@@ -1019,7 +1038,7 @@ var Pt = class {
     });
   }
   composeWorkflowPayload(e, t, s) {
-    const i = e.payload && typeof e.payload == "object" && !Array.isArray(e.payload) ? e.payload : {}, n = B(t, {
+    const i = e.payload && typeof e.payload == "object" && !Array.isArray(e.payload) ? e.payload : {}, n = H(t, {
       base: i,
       skipGenerated: !0
     });
@@ -1037,7 +1056,7 @@ var Pt = class {
   draftFor(e, t) {
     const s = f(e, t);
     let i = this.drafts.get(s);
-    return i || (i = ye(e, t, this.generate), this.drafts.set(s, i)), i;
+    return i || (i = be(e, t, this.generate), this.drafts.set(s, i)), i;
   }
   mountedForms(e, t) {
     const s = [this.regions.panel, this.drawer?.element].filter((n) => !!n), i = [];
@@ -1065,7 +1084,7 @@ var Pt = class {
     n && !await this.confirmWith(n) || this.executableAction(t, s) && await this.dispatch({
       panelId: t,
       actionId: s,
-      payload: B(e),
+      payload: H(e),
       mode: "primary",
       form: null
     });
@@ -1084,7 +1103,7 @@ var Pt = class {
       }, !0);
       return;
     }
-    const n = U(this.drafts.get(f(t, s))?.current);
+    const n = W(this.drafts.get(f(t, s))?.current);
     if (this.actionNeedsForm(i) || n) {
       this.openDrawer(t, s, i, e);
       return;
@@ -1118,7 +1137,7 @@ var Pt = class {
       return;
     }
     if (this.clientOutdated) {
-      this.setFormMessage(e, Z, "warning"), this.showOutdated(s, i);
+      this.setFormMessage(e, ee, "warning"), this.showOutdated(s, i);
       return;
     }
     const r = t?.dataset.submitter === "secondary" && n.secondary_submit ? "secondary" : "primary";
@@ -1128,7 +1147,7 @@ var Pt = class {
     }
     const o = this.confirmationFor(n, e);
     if (o && !await this.confirmWith(o) || !this.executableAction(s, i)) return;
-    const a = B(e);
+    const a = H(e);
     n.secondary_submit && this.applySubmitter(a, n, r), await this.dispatch({
       panelId: s,
       actionId: i,
@@ -1144,11 +1163,11 @@ var Pt = class {
     const a = this.validateWorkflowForm(r);
     if (Object.keys(a).length > 0) {
       this.showFieldErrors(r, a);
-      const A = r.querySelector('[aria-invalid="true"]'), I = A?.closest("[data-expanded]")?.querySelector("[data-advanced-toggle]");
-      I && ce(I, !0), A?.focus();
+      const A = r.querySelector('[aria-invalid="true"]'), O = A?.closest("[data-expanded]")?.querySelector("[data-advanced-toggle]");
+      O && ue(O, !0), A?.focus();
       return;
     }
-    let l = t, c = this.composeWorkflowPayload(l, r, n), u = ie(o, n, c.signature);
+    let l = t, c = this.composeWorkflowPayload(l, r, n), u = ne(o, n, c.signature);
     if (u.kind === "blocked") {
       await this.handleBlockedRequest(o, u.reason, u.check, n, c.signature);
       return;
@@ -1162,24 +1181,24 @@ var Pt = class {
       const A = f(s, i);
       if (l.confirmation) {
         if (this.inFlight.set(A, n), this.syncBusy(), await this.refresh(), this.inFlight.delete(A), this.syncBusy(), this.isClosed()) return;
-        const z = this.executableAction(s, i);
+        const Q = this.executableAction(s, i);
         if (r = this.mountedForm(s, i, r) || r, this.root.dataset.consoleSync !== "current") {
           this.setFormMessage(r, "The current state could not be loaded. Try again.", "warning");
           return;
         }
-        if (!z) {
+        if (!Q) {
           this.setFormMessage(r, C, "warning");
           return;
         }
-        l = z, c = this.composeWorkflowPayload(l, r, n);
+        l = Q, c = this.composeWorkflowPayload(l, r, n);
       }
-      const I = this.confirmationFor(l, r) || E;
-      if (!await this.confirmWith(I) || this.isClosed()) return;
+      const O = this.confirmationFor(l, r) || E;
+      if (!await this.confirmWith(O) || this.isClosed()) return;
       if (!this.executableAction(s, i)) {
         this.setFormMessage(this.mountedForm(s, i, r) || r, C, "warning");
         return;
       }
-      if (u = ie(o, n, c.signature), u.kind === "blocked") {
+      if (u = ne(o, n, c.signature), u.kind === "blocked") {
         await this.handleBlockedRequest(o, u.reason, u.check, n, c.signature);
         return;
       }
@@ -1192,8 +1211,8 @@ var Pt = class {
     if (!S) return;
     const v = c.payload;
     c.generated.forEach((A) => x(v, A, S));
-    const N = ze(o, S, n, v, c.signature, d(l.request_scope), this.generate);
-    await this.sendRequest(o, N, r);
+    const M = Qe(o, S, n, v, c.signature, d(l.request_scope), this.generate);
+    await this.sendRequest(o, M, r);
   }
   async handleBlockedRequest(e, t, s, i, n) {
     this.renderRequestState(e, t), s && e.current?.signature === n && e.current.mode === i && await this.checkRequest(e);
@@ -1209,7 +1228,7 @@ var Pt = class {
     }), t;
   }
   async sendRequest(e, t, s) {
-    if (t.state !== "pending" && !ge(t)) {
+    if (t.state !== "pending" && !ve(t)) {
       await this.checkRequest(e);
       return;
     }
@@ -1224,7 +1243,7 @@ var Pt = class {
     });
   }
   async dispatch(e) {
-    const { panelId: t, actionId: s, payload: i, mode: n } = e, r = f(t, s), o = G(this.bootstrap.urls.actions || "", {
+    const { panelId: t, actionId: s, payload: i, mode: n } = e, r = f(t, s), o = K(this.bootstrap.urls.actions || "", {
       panel_id: t,
       action_id: s
     });
@@ -1232,7 +1251,7 @@ var Pt = class {
     this.inFlight.set(r, n), this.syncBusy(), e.form && this.clearFieldErrors(e.form);
     const a = new AbortController();
     this.controllers.add(a);
-    const l = await O(o, {
+    const l = await q(o, {
       method: "POST",
       json: i,
       headers: this.requestHeaders(),
@@ -1246,7 +1265,7 @@ var Pt = class {
     e.draft && e.request && this.settleRequest(e.draft, e.request, l), l.ok ? this.applyActionResult(c, t, s, l.value, e.request) : this.applyActionFailure(c, t, s, l.status, l.error, e.request);
   }
   settleRequest(e, t, s) {
-    e.current === t && (!s.ok && pt.has(s.status) ? (t.state = "uncertain", t.message = "This request may not have been received.", this.ledger.put(e, t, this.hasSensitiveInput(e.panelID, e.actionID))) : (t.state = "resolved", t.message = void 0, this.ledger.remove(t.id)), this.renderRequestState(e));
+    e.current === t && (!s.ok && mt.has(s.status) ? (t.state = "uncertain", t.message = "This request may not have been received.", this.ledger.put(e, t, this.hasSensitiveInput(e.panelID, e.actionID))) : (t.state = "resolved", t.message = void 0, this.ledger.remove(t.id)), this.renderRequestState(e));
   }
   applyActionFailure(e, t, s, i, n, r) {
     if (i === 401) {
@@ -1286,10 +1305,10 @@ var Pt = class {
     }, !0)), i === 403 && this.refresh();
   }
   applyActionResult(e, t, s, i, n, r = !0) {
-    const o = m(i) ? i : {}, a = qt(o);
+    const o = m(i) ? i : {}, a = Tt(o);
     e && Object.keys(a).length > 0 && this.showFieldErrors(e, a);
-    const l = Tt(o, t, s, n);
-    if (e && Object.keys(a).length > 0 && this.drawerFor(t, s) ? this.setFormMessage(e, l.message, "error") : (this.closeDrawerFor(t, s), this.showActionResult(t, l, r), l.record && l.record.panelId === t && (this.highlight = { ...l.record }, this.applyHighlight(!0))), le(o.event)) {
+    const l = qt(o, t, s, n);
+    if (e && Object.keys(a).length > 0 && this.drawerFor(t, s) ? this.setFormMessage(e, l.message, "error") : (this.closeDrawerFor(t, s), this.showActionResult(t, l, r), l.record && l.record.panelId === t && (this.highlight = { ...l.record }, this.applyHighlight(!0))), de(o.event)) {
       const c = this.notificationOf(h(o.event.panel_id), o.event.data);
       c && this.remember(c.id), this.handleLiveMessage(o.event);
     }
@@ -1299,7 +1318,7 @@ var Pt = class {
     this.showActionResult(e || this.activePanel, {
       status: "error",
       tone: "warning",
-      message: Z,
+      message: ee,
       actionID: t,
       reload: !0
     }, !0);
@@ -1314,7 +1333,7 @@ var Pt = class {
       s.innerHTML = "";
       return;
     }
-    const i = q(t.tone) || (t.status === "error" ? "error" : "success"), n = this.serverDefinitions.get(this.activePanel), r = t.requestID ? `<p class="console-banner__meta">Request <code class="console-kv__mono" title="${p(t.requestID)}">${g(t.requestID.slice(0, 8))}</code></p>` : "", o = t.record && this.visiblePanels().includes(t.record.panelId) ? `<button type="button" class="console-btn console-btn--sm" data-console-record-link data-panel-id="${p(t.record.panelId)}" data-record-key="${p(t.record.recordKey)}">View</button>` : "", a = t.followUp ? Ee(t.followUp, n, this.styles) : "", l = t.checkRequest && t.requestID ? `<button type="button" class="console-btn console-btn--sm" data-request-check data-panel-id="${p(this.activePanel)}" data-action-id="${p(t.actionID)}">Check status</button>` : "", c = t.reload ? '<button type="button" class="console-btn console-btn--sm" data-console-action="reload">Reload</button>' : "", u = t.data === void 0 ? "" : `<details class="console-banner__details"><summary>Details</summary><pre class="${this.styles.jsonPanel}">${g(ue(t.data, { nullAsEmptyObject: !1 }))}</pre></details>`;
+    const i = F(t.tone) || (t.status === "error" ? "error" : "success"), n = this.serverDefinitions.get(this.activePanel), r = t.requestID ? `<p class="console-banner__meta">Request <code class="console-kv__mono" title="${p(t.requestID)}">${g(t.requestID.slice(0, 8))}</code></p>` : "", o = t.record && this.visiblePanels().includes(t.record.panelId) ? `<button type="button" class="console-btn console-btn--sm" data-console-record-link data-panel-id="${p(t.record.panelId)}" data-record-key="${p(t.record.recordKey)}">View</button>` : "", a = t.followUp ? Ce(t.followUp, n, this.styles) : "", l = t.checkRequest && t.requestID ? `<button type="button" class="console-btn console-btn--sm" data-request-check data-panel-id="${p(this.activePanel)}" data-action-id="${p(t.actionID)}">Check status</button>` : "", c = t.reload ? '<button type="button" class="console-btn console-btn--sm" data-console-action="reload">Reload</button>' : "", u = t.data === void 0 ? "" : `<details class="console-banner__details"><summary>Details</summary><pre class="${this.styles.jsonPanel}">${g(fe(t.data, { nullAsEmptyObject: !1 }))}</pre></details>`;
     s.innerHTML = `<div class="console-banner" data-console-banner data-tone="${i}" data-status="${t.status}" role="${t.status === "error" ? "alert" : "status"}" tabindex="-1"><div class="console-banner__body"><p class="console-banner__message">${g(t.message)}</p>${r}${u}</div><div class="console-banner__actions">${o}${l}${a}${c}<button type="button" class="console-btn console-btn--ghost console-btn--sm console-btn--icon" data-console-banner-dismiss aria-label="Dismiss"><span aria-hidden="true">×</span></button></div></div>`, e && s.querySelector("[data-console-banner]")?.focus();
   }
   dismissActionResult() {
@@ -1354,7 +1373,7 @@ var Pt = class {
   setFormMessage(e, t, s) {
     e.querySelector("[data-form-message]")?.remove();
     const i = e.ownerDocument.createElement("p");
-    i.className = "console-form__message", i.setAttribute("data-form-message", ""), i.setAttribute("role", s === "error" ? "alert" : "status"), i.dataset.tone = q(s) || "warning", i.textContent = t;
+    i.className = "console-form__message", i.setAttribute("data-form-message", ""), i.setAttribute("role", s === "error" ? "alert" : "status"), i.dataset.tone = F(s) || "warning", i.textContent = t;
     const n = e.querySelector(".console-form__actions, .console-drawer__footer");
     n?.parentElement ? n.parentElement.insertBefore(i, n) : e.appendChild(i);
   }
@@ -1362,11 +1381,11 @@ var Pt = class {
     this.mountedForms(e.panelID, e.actionID).forEach((s) => this.renderFormRequest(s, e, t)), this.syncBusy();
   }
   renderFormRequest(e, t, s = "") {
-    const i = Xe(t);
+    const i = Ze(t);
     e.querySelectorAll("input[data-action-field-generated]").forEach((u) => {
       u.value = i;
     });
-    const n = !F(i);
+    const n = !L(i);
     e.querySelectorAll("button[data-submitter]").forEach((u) => {
       n ? (u.disabled = !0, u.dataset.requestDisabled = "true") : u.dataset.requestDisabled === "true" && (delete u.dataset.requestDisabled, u.disabled = !1);
     });
@@ -1374,7 +1393,7 @@ var Pt = class {
     if (!r) return;
     const o = t.current;
     let { message: a, actions: l, tone: c } = n ? {
-      message: pe,
+      message: ye,
       actions: "",
       tone: "warning"
     } : Rt(o, !!e.closest("[data-console-drawer]"));
@@ -1392,7 +1411,7 @@ var Pt = class {
     s.state = "checking", this.renderRequestState(e);
     const r = new AbortController();
     this.controllers.add(r);
-    const o = await O(Ct(i, e, s), {
+    const o = await q(Ct(i, e, s), {
       method: "GET",
       headers: this.requestHeaders(),
       signal: r.signal,
@@ -1405,7 +1424,7 @@ var Pt = class {
       return;
     }
     const a = d(o.value?.status).toLowerCase();
-    if (s.state = Ye(s, a, o.value?.retry_until), a === "claimed") {
+    if (s.state = ze(s, a, o.value?.retry_until), a === "claimed") {
       this.ledger.remove(s.id), this.renderRequestState(e);
       const c = m(o.value.result) ? o.value.result : { message: d(o.value.message) || "The request was received." };
       this.applyActionResult(null, e.panelID, e.actionID, c, s, t);
@@ -1449,7 +1468,7 @@ var Pt = class {
   }
   beginNewRequest(e) {
     const t = e.current;
-    if (!Qe(e, this.generate)) {
+    if (!Xe(e, this.generate)) {
       this.renderRequestState(e, "Check the earlier request before starting new work.");
       return;
     }
@@ -1463,7 +1482,7 @@ var Pt = class {
       }
       const t = f(e.panel_id, e.action_id);
       if (this.drafts.get(t)?.current) return;
-      const s = tt(e, this.generate);
+      const s = st(e, this.generate);
       this.drafts.set(t, s), this.renderRequestState(s), s.current?.state !== "expired" && this.checkRequest(s, !1);
     }));
   }
@@ -1476,7 +1495,7 @@ var Pt = class {
     e.querySelectorAll("form[data-panel-action-form]").forEach((t) => {
       if (t.closest(y) !== this.root) return;
       const { panelId: s, actionId: i } = this.actionTarget(t), n = f(s, i), r = t.querySelector("[data-action-field-generated]") ? this.draftFor(s, i) : null, o = this.workingValues.get(n);
-      r?.current && U(r.current) && !r.current.partial ? Pe(t, r.current.payload) : o && this.applyWorkingValues(t, o), r && this.renderFormRequest(t, r), t.querySelectorAll("select[data-option-paginated]").forEach((a) => {
+      r?.current && W(r.current) && !r.current.partial ? Oe(t, r.current.payload) : o && this.applyWorkingValues(t, o), r && this.renderFormRequest(t, r), t.querySelectorAll("select[data-option-paginated]").forEach((a) => {
         this.loadOptions(t, a, !1);
       });
     }), this.syncBusy();
@@ -1503,12 +1522,12 @@ var Pt = class {
     this.mountedForms().forEach((e) => {
       const { panelId: t, actionId: s } = this.actionTarget(e), i = this.inFlight.get(f(t, s));
       if (i === void 0) {
-        e.dataset.busy === "true" && X(e);
+        e.dataset.busy === "true" && Z(e);
         return;
       }
       if (e.dataset.busy === "true") return;
       const n = Array.from(e.querySelectorAll('button[type="submit"]')), r = e.querySelector(`button[data-submitter="${i}"]`) || n[n.length - 1] || null;
-      Q(e, {
+      X(e, {
         controls: n,
         includeDescendantControls: !1,
         submitter: r,
@@ -1519,10 +1538,10 @@ var Pt = class {
     }), this.regions.panel.querySelectorAll("button[data-panel-action]").forEach((e) => {
       if (e.closest(y) !== this.root) return;
       const { panelId: t, actionId: s } = this.actionTarget(e), i = this.inFlight.has(f(t, s));
-      i && e.dataset.busy !== "true" ? Q(e, {
+      i && e.dataset.busy !== "true" ? X(e, {
         label: "Working…",
         generateSpinner: !0
-      }) : !i && e.dataset.busy === "true" && X(e);
+      }) : !i && e.dataset.busy === "true" && Z(e);
     });
   }
   drawerFor(e, t) {
@@ -1531,9 +1550,9 @@ var Pt = class {
   }
   openDrawer(e, t, s, i) {
     this.closeDrawer(!1);
-    const n = Fe(e, t, s, this.styles, this.renderOptions(), "drawer"), r = new it({
+    const n = Le(e, t, s, this.styles, this.renderOptions(), "drawer"), r = new nt({
       root: this.root,
-      id: `${this.idScope}-drawer-${M(`${e}/${t}`)}`,
+      id: `${this.idScope}-drawer-${$(`${e}/${t}`)}`,
       panelID: e,
       actionID: t,
       title: d(s.drawer?.title) || d(s.label) || t,
@@ -1556,7 +1575,7 @@ var Pt = class {
   }
   releaseDraftAfterClose(e, t) {
     const s = f(e, t), i = this.drafts.get(s);
-    i && !U(i.current) && !this.inFlight.has(s) && !this.mountedForms(e, t).length && this.drafts.delete(s), this.workingValues.delete(s);
+    i && !W(i.current) && !this.inFlight.has(s) && !this.mountedForms(e, t).length && this.drafts.delete(s), this.workingValues.delete(s);
   }
   focusFallback(e, t) {
     return Array.from(this.regions.panel.querySelectorAll("[data-console-action-ref], [data-panel-action]")).find((s) => s.closest(y) === this.root && h(s.dataset.panelId) === e && h(s.dataset.actionId) === t && !s.closest("[hidden]")) || this.regions.panel;
@@ -1577,7 +1596,7 @@ var Pt = class {
     }
     const c = String(Number(t.dataset.optionSequence || "0") + 1);
     t.dataset.optionSequence = c;
-    const u = t.dataset.pendingValue ?? (s ? "" : t.value), E = Et(G(r, {
+    const u = t.dataset.pendingValue ?? (s ? "" : t.value), E = Et(K(r, {
       panel_id: i,
       action_id: n,
       field: o
@@ -1589,7 +1608,7 @@ var Pt = class {
     l && (l.disabled = !0), t.setAttribute("aria-busy", "true");
     const S = new AbortController();
     this.controllers.add(S);
-    const v = await O(E, {
+    const v = await q(E, {
       method: "GET",
       headers: this.requestHeaders(),
       signal: S.signal,
@@ -1605,24 +1624,24 @@ var Pt = class {
       s || (t.innerHTML = '<option value="">Options could not be loaded</option>'), this.showFieldErrors(e, { [d(t.dataset.actionFieldPath) || o]: v.error.message });
       return;
     }
-    const N = _t(t, m(v.value) ? v.value : {}, s, u);
-    l && (l.hidden = !N);
+    const M = _t(t, m(v.value) ? v.value : {}, s, u);
+    l && (l.hidden = !M);
   }
   notificationOf(e, t) {
     const s = this.serverDefinitions.get(e)?.ui?.views?.console, i = d(s?.options?.notify_bind);
     if (!i) return null;
-    const n = Ce(t, i);
+    const n = Re(t, i);
     if (!m(n)) return null;
     const r = d(n.id), o = d(n.message);
     return !r || !o || r.length > 200 || o.length > 300 ? null : {
       id: `${e}\0${r}`,
       message: o,
-      tone: q(n.tone) || "info"
+      tone: F(n.tone) || "info"
     };
   }
   remember(e) {
     if (this.notified.has(e)) return !1;
-    if (this.notified.add(e), this.notified.size > mt) {
+    if (this.notified.add(e), this.notified.size > yt) {
       const t = this.notified.values().next().value;
       t !== void 0 && this.notified.delete(t);
     }
@@ -1691,7 +1710,7 @@ var Pt = class {
       };
     this.options.display && (this.root.dataset.consoleControls = "none");
     const n = this.options.display ? null : this.pageControlsGroup();
-    return n ? ($.set(n, this), this.root.dataset.consoleControls = "page", {
+    return n ? (N.set(n, this), this.root.dataset.consoleControls = "page", {
       connection: n.querySelector("[data-console-connection]"),
       status: n.querySelector("[data-console-status]"),
       refresh: n.querySelector('button[data-console-action="refresh"]'),
@@ -1704,8 +1723,8 @@ var Pt = class {
     };
   }
   pageControlsGroup() {
-    const e = this.root.id, t = this.root.ownerDocument, s = e ? Array.from(t.querySelectorAll(nt)).filter((i) => i.getAttribute("data-console-for") === e && !i.closest(y)) : [];
-    return s.length === 0 ? (this.root.dataset.consoleControls = "none", null) : t.querySelectorAll(`[id="${j(e)}"]`).length !== 1 || s.length !== 1 || $.has(s[0]) ? (this.root.dataset.consoleControls = "ambiguous", null) : s[0];
+    const e = this.root.id, t = this.root.ownerDocument, s = e ? Array.from(t.querySelectorAll(rt)).filter((i) => i.getAttribute("data-console-for") === e && !i.closest(y)) : [];
+    return s.length === 0 ? (this.root.dataset.consoleControls = "none", null) : t.querySelectorAll(`[id="${G(e)}"]`).length !== 1 || s.length !== 1 || N.has(s[0]) ? (this.root.dataset.consoleControls = "ambiguous", null) : s[0];
   }
   setRefreshEnabled(e) {
     const t = this.regions.refresh;
@@ -1714,7 +1733,7 @@ var Pt = class {
   releaseHeaderControls() {
     this.connection = "offline", this.renderConnection(), this.setRefreshEnabled(!1);
     const e = this.regions.pageControls;
-    e && $.get(e) === this && $.delete(e);
+    e && N.get(e) === this && N.delete(e);
   }
   listen(e, t, s) {
     e.addEventListener(t, s), this.cleanup.push(() => e.removeEventListener(t, s));
@@ -1745,7 +1764,7 @@ var Pt = class {
       l && clearTimeout(l);
       const c = setTimeout(() => {
         this.loadOptions(o, a, !1);
-      }, gt);
+      }, bt);
       r.dataset.searchTimer = String(c);
     }), this.listen(this.root, "click", (n) => {
       const r = n.target?.closest("[data-console-action]");
@@ -1759,8 +1778,8 @@ var Pt = class {
     }), this.setRefreshEnabled(!0);
   }
   handleControlClick(e) {
-    const t = e.target, s = t?.closest(ae) || t?.closest(bt);
-    !s || !this.ownsControl(s) || (e.preventDefault(), s.matches(ae) ? this.handleNavigationControl(s) : this.handleRequestControl(s));
+    const t = e.target, s = t?.closest(le) || t?.closest(vt);
+    !s || !this.ownsControl(s) || (e.preventDefault(), s.matches(le) ? this.handleNavigationControl(s) : this.handleRequestControl(s));
   }
   handleNavigationControl(e) {
     if (e.matches("[data-console-action-ref]")) this.activateActionRef(e);
@@ -1774,7 +1793,7 @@ var Pt = class {
   }
   handleRequestControl(e) {
     if (e.matches("[data-advanced-toggle]")) {
-      ce(e, e.getAttribute("aria-expanded") !== "true");
+      ue(e, e.getAttribute("aria-expanded") !== "true");
       return;
     }
     const t = e.closest("form[data-panel-action-form]") || e;
@@ -1785,7 +1804,7 @@ var Pt = class {
     }
     if (e.matches("[data-copy-request-id]")) {
       const r = t.querySelector("input[data-action-field-generated]")?.value || "";
-      F(r) && this.copyText(r, e);
+      L(r) && this.copyText(r, e);
       return;
     }
     const { panelId: s, actionId: i } = this.actionTarget(t), n = this.drafts.get(f(s, i));
@@ -1863,7 +1882,7 @@ var Pt = class {
     return this.filterState.get(e);
   }
   markPanelDirty(e) {
-    this.dirtyPanels.add(e), !this.cancelFrame && (this.cancelFrame = Lt(() => {
+    this.dirtyPanels.add(e), !this.cancelFrame && (this.cancelFrame = It(() => {
       this.cancelFrame = null, this.flush();
     }));
   }
@@ -1897,7 +1916,7 @@ var Pt = class {
   byDeclaredOrder(e) {
     const t = (s) => {
       const i = this.serverDefinitions.get(s)?.order ?? this.registry.get(s)?.order;
-      return typeof i == "number" && Number.isFinite(i) ? i : ut;
+      return typeof i == "number" && Number.isFinite(i) ? i : ht;
     };
     return e.map((s, i) => ({
       id: s,
@@ -1906,33 +1925,33 @@ var Pt = class {
     })).sort((s, i) => s.order - i.order || s.index - i.index).map((s) => s.id);
   }
   tabButton(e) {
-    return this.regions.tabs.querySelector(`[data-console-tab="${j(e)}"]`);
+    return this.regions.tabs.querySelector(`[data-console-tab="${G(e)}"]`);
   }
   renderTabs() {
     const e = this.visiblePanels(), t = this.root.ownerDocument.activeElement, s = t instanceof HTMLElement && this.regions.tabs.contains(t) && t.dataset.consoleTab || "";
     this.regions.tabs.hidden = e.length === 0 || !!this.options.display, this.regions.tabs.innerHTML = e.map((i) => {
       const n = this.registry.get(i), r = i === this.activePanel, o = this.panelCount(i, n), a = this.panelCountTone(i, n), l = n?.hideCount ? n.hideCount(o) : !1;
-      return `<button type="button" class="console-tab${r ? " console-tab--active" : ""}" role="tab" id="${p(`${this.idScope}-tab-${i}`)}" aria-selected="${r ? "true" : "false"}" aria-controls="${p(this.regions.panel.id)}" tabindex="${r ? "0" : "-1"}" data-console-tab="${p(i)}"><span class="console-tab__label">${g(n?.label || i)}</span><span class="console-tab__count" data-console-tab-count="${p(i)}"${a ? ` data-tone="${a}"` : ""}${l ? " hidden" : ""}>${g(ee(o))}</span></button>`;
+      return `<button type="button" class="console-tab${r ? " console-tab--active" : ""}" role="tab" id="${p(`${this.idScope}-tab-${i}`)}" aria-selected="${r ? "true" : "false"}" aria-controls="${p(this.regions.panel.id)}" tabindex="${r ? "0" : "-1"}" data-console-tab="${p(i)}"><span class="console-tab__label">${g(n?.label || i)}</span><span class="console-tab__count" data-console-tab-count="${p(i)}"${a ? ` data-tone="${a}"` : ""}${l ? " hidden" : ""}>${g(te(o))}</span></button>`;
     }).join(""), this.activePanel ? this.regions.panel.setAttribute("aria-labelledby", `${this.idScope}-tab-${this.activePanel}`) : this.regions.panel.removeAttribute("aria-labelledby"), s && this.tabButton(e.includes(s) ? s : this.activePanel)?.focus();
   }
   updateCounts() {
     this.visiblePanels().forEach((e) => {
-      const t = this.regions.tabs.querySelector(`[data-console-tab-count="${j(e)}"]`);
+      const t = this.regions.tabs.querySelector(`[data-console-tab-count="${G(e)}"]`);
       if (!t) return;
       const s = this.registry.get(e), i = this.panelCount(e, s), n = this.panelCountTone(e, s);
-      t.textContent = ee(i), t.hidden = s?.hideCount ? s.hideCount(i) : !1, n ? t.dataset.tone = n : delete t.dataset.tone;
+      t.textContent = te(i), t.hidden = s?.hideCount ? s.hideCount(i) : !1, n ? t.dataset.tone = n : delete t.dataset.tone;
     });
   }
   panelCount(e, t) {
     const s = this.panelData(e);
-    return t?.getCount ? t.getCount(s) : De(s);
+    return t?.getCount ? t.getCount(s) : Te(s);
   }
   panelCountTone(e, t) {
-    return t?.getCountTone ? q(t.getCountTone(this.panelData(e))) : "";
+    return t?.getCountTone ? F(t.getCountTone(this.panelData(e))) : "";
   }
   panelData(e) {
     const t = this.store.records(e), s = this.serverDefinitions.get(e), i = s?.ui?.views?.console || s?.ui?.views?.toolbar, n = h(i?.renderer);
-    return t.length === 1 && !at.has(n) ? t[0].data : t.map((r) => r.data);
+    return t.length === 1 && !lt.has(n) ? t[0].data : t.map((r) => r.data);
   }
   renderFilters() {
     const e = this.registry.get(this.activePanel);
@@ -1973,7 +1992,7 @@ var Pt = class {
       const a = i.renderActions(this.styles, r);
       t.innerHTML = `<div class="console-panel__result" data-panel-action-result="${p(s)}"></div>${a.trim() ? `<div class="console-panel__actions" data-console-panel-actions>${a}</div>` : '<div class="console-panel__actions" data-console-panel-actions hidden></div>'}<div class="console-panel__body" data-console-panel-body>${i.renderBody(n, this.styles, r)}</div>`;
     } else {
-      const o = M(JSON.stringify(n ?? null));
+      const o = $(JSON.stringify(n ?? null));
       if (!e && this.panelMounted(s) && t.dataset.consoleData === o) return;
       this.captureWorkingValues(t), t.innerHTML = (i.renderConsole || i.render)(n, this.styles, r), t.dataset.consoleData = o;
     }
@@ -2013,43 +2032,43 @@ var Pt = class {
     i.innerHTML = `<span class="console-notice__message">${g(t)}</span>${n}`;
   }
 };
-function It(e, t = {}) {
-  const s = R.get(e);
+function Pt(e, t = {}) {
+  const s = T.get(e);
   if (s) return s;
-  const i = !!t.display || e.hasAttribute("data-console-display"), n = t.bootstrap ? be(t.bootstrap) : i ? At(e) : St(e);
+  const i = !!t.display || e.hasAttribute("data-console-display"), n = t.bootstrap ? we(t.bootstrap) : i ? kt(e) : At(e);
   if (!n)
     return e.dataset.consoleState = "error", null;
-  const r = new Pt(e, n, i ? {
+  const r = new Lt(e, n, i ? {
     ...t,
     display: !0,
     live: !1
   } : t);
-  return R.set(e, r), r;
+  return T.set(e, r), r;
 }
 function jt(e) {
-  return R.get(e) || null;
+  return T.get(e) || null;
 }
 function Gt(e) {
-  R.get(e)?.destroy();
+  T.get(e)?.destroy();
 }
 function Kt(e = document, t = {}) {
-  return Array.from(e.querySelectorAll(`${y}:not([data-console-manual])`)).map((s) => It(s, t)).filter((s) => s !== null);
+  return Array.from(e.querySelectorAll(`${y}:not([data-console-manual])`)).map((s) => Pt(s, t)).filter((s) => s !== null);
 }
-var Y = "[data-console-root]:not([data-console-manual])";
-function de(e) {
+var z = "[data-console-root]:not([data-console-manual])";
+function he(e) {
   if (!(e instanceof HTMLElement)) return [];
-  const t = Array.from(e.querySelectorAll(Y));
-  return e.matches(Y) ? [e, ...t] : t;
+  const t = Array.from(e.querySelectorAll(z));
+  return e.matches(z) ? [e, ...t] : t;
 }
 function Ot(e) {
   typeof MutationObserver > "u" || !document.body || new MutationObserver((t) => {
     t.forEach((s) => {
       s.removedNodes.forEach((i) => {
-        de(i).forEach((n) => {
+        he(i).forEach((n) => {
           n.isConnected || e.dispose(n);
         });
       }), s.addedNodes.forEach((i) => {
-        de(i).forEach((n) => {
+        he(i).forEach((n) => {
           n.isConnected && e.mount(n);
         });
       });
@@ -2059,29 +2078,29 @@ function Ot(e) {
     subtree: !0
   });
 }
-function Jt(e) {
+function Yt(e) {
   if (typeof document > "u") return;
   const t = () => {
-    document.querySelectorAll(Y).forEach((s) => e.mount(s)), Ot(e);
+    document.querySelectorAll(z).forEach((s) => e.mount(s)), Ot(e);
   };
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
 }
 export {
-  It as a,
-  At as c,
-  We as d,
-  He as f,
-  se as h,
+  Pt as a,
+  kt as c,
+  Ve as d,
+  B as f,
+  ie as h,
   jt as i,
-  it as l,
-  L as m,
-  Pt as n,
+  nt as l,
+  R as m,
+  Lt as n,
   Kt as o,
-  Be as p,
+  Ue as p,
   Gt as r,
-  St as s,
-  Jt as t,
+  At as s,
+  Yt as t,
   P as u
 };
 
-//# sourceMappingURL=auto-mount-D2gPkwX5.js.map
+//# sourceMappingURL=auto-mount-U6iBmzg8.js.map

@@ -2,7 +2,7 @@ import { escapeAttribute as x, escapeHTML as a } from "../shared/html.js";
 import { _ as y, g as b, h as L, m as xe, v as C } from "./rich-5UU6Sxl8.js";
 import { o as O } from "./avatar-DIbK-LSg.js";
 import { _ as $ } from "./hydrate-yld76QdH.js";
-import { n as se } from "./browser-state-B2H0HF9F.js";
+import { n as se } from "./browser-state-B0YneZLT.js";
 import { _ as K, g as G, m as h, t as me, v as ne, x as z, y as ye } from "./runtime-helpers-BJB2ragE.js";
 import { r as m } from "./icons-CAenalpJ.js";
 function ve(e) {
@@ -3679,4 +3679,4 @@ export {
   Te as z
 };
 
-//# sourceMappingURL=builtin-panels-h8ukNlbd.js.map
+//# sourceMappingURL=builtin-panels-By1-29tH.js.map

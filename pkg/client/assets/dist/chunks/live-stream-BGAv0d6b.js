@@ -1,25 +1,25 @@
 var c = "go-admin:console:";
-function m(t, e) {
-  return `${c}${t}:${e}`;
+function m(t, n) {
+  return `${c}${t}:${n}`;
 }
 var r = 1e3, a = 12e3, h = 8, l = 1, u = 1e4;
 function d(t) {
-  const e = (t || "").trim();
-  if (!e) return "";
-  if (/^wss?:\/\//i.test(e)) return e;
+  const n = (t || "").trim();
+  if (!n) return "";
+  if (/^wss?:\/\//i.test(n)) return n;
   if (typeof window > "u" || !window.location) return "";
   try {
-    const n = new URL(e, window.location.href);
-    if (n.protocol === "http:" || n.protocol === "https:")
-      return n.protocol = n.protocol === "https:" ? "wss:" : "ws:", n.toString();
+    const e = new URL(n, window.location.href);
+    if (e.protocol === "http:" || e.protocol === "https:")
+      return e.protocol = e.protocol === "https:" ? "wss:" : "ws:", e.toString();
   } catch {
     return "";
   }
   return "";
 }
-var f = class {
+var p = class {
   constructor(t) {
-    this.ws = null, this.reconnectTimer = null, this.reconnectStabilityTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.pendingCommands = [], this.status = "disconnected", this.hasConnected = !1, this.options = t;
+    this.ws = null, this.reconnectTimer = null, this.reconnectStabilityTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.connectionEpoch = 0, this.pendingCommands = [], this.status = "disconnected", this.hasConnected = !1, this.options = t;
   }
   getWebSocketURL() {
     return d(this.options.url || "");
@@ -37,33 +37,41 @@ var f = class {
       this.setStatus("error");
       return;
     }
-    const e = new WebSocket(t);
+    const n = ++this.connectionEpoch, e = new WebSocket(t);
     this.ws = e, e.onopen = () => {
       this.ws === e && (this.hasConnected = !0, this.scheduleReconnectBudgetReset(e), this.setStatus("connected"), this.flushPending());
-    }, e.onmessage = (n) => {
-      if (this.ws === e && !(!n || typeof n.data != "string"))
+    }, e.onmessage = (s) => {
+      if (this.ws === e && !(!s || typeof s.data != "string"))
         try {
-          this.handleMessage(JSON.parse(n.data));
+          this.handleMessage(JSON.parse(s.data));
         } catch {
         }
-    }, e.onclose = (n) => {
-      if (this.ws === e) {
-        if (this.clearReconnectStabilityTimer(), this.handleSocketClosed(), this.ws = null, this.manualClose) {
-          this.setStatus("disconnected");
-          return;
-        }
-        if (this.options.onClose?.(n), this.options.shouldReconnect && !this.options.shouldReconnect(n)) {
+    }, e.onclose = async (s) => {
+      if (this.ws !== e) return;
+      if (this.clearReconnectStabilityTimer(), this.handleSocketClosed(), this.ws = null, this.manualClose) {
+        this.setStatus("disconnected");
+        return;
+      }
+      this.options.onClose?.(s);
+      let i = !0;
+      try {
+        i = await (this.options.shouldReconnect?.(s) ?? !0);
+      } catch {
+        i = !1;
+      }
+      if (!(this.manualClose || this.ws !== null || this.connectionEpoch !== n)) {
+        if (!i) {
           this.setStatus("disconnected");
           return;
         }
         this.setStatus("reconnecting"), this.scheduleReconnect();
       }
-    }, e.onerror = (n) => {
-      this.ws === e && (this.options.onError?.(n), this.setStatus("error"));
+    }, e.onerror = (s) => {
+      this.ws === e && (this.options.onError?.(s), this.setStatus("error"));
     };
   }
   close() {
-    this.manualClose = !0, this.reconnectTimer !== null && (window.clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.clearReconnectStabilityTimer(), this.ws && this.ws.close();
+    this.connectionEpoch += 1, this.manualClose = !0, this.reconnectTimer !== null && (window.clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.clearReconnectStabilityTimer(), this.ws && this.ws.close();
   }
   sendCommand(t) {
     if (!(!t || !t.type)) {
@@ -87,34 +95,34 @@ var f = class {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this.pendingCommands.length === 0) return;
     const t = [...this.pendingCommands];
     this.pendingCommands = [];
-    for (const e of t) this.ws.send(JSON.stringify(e));
+    for (const n of t) this.ws.send(JSON.stringify(n));
   }
   clearReconnectStabilityTimer() {
     this.reconnectStabilityTimer !== null && (window.clearTimeout(this.reconnectStabilityTimer), this.reconnectStabilityTimer = null);
   }
   scheduleReconnectBudgetReset(t) {
     this.clearReconnectStabilityTimer();
-    const e = Math.max(this.options.reconnectStabilityMs ?? u, 0);
+    const n = Math.max(this.options.reconnectStabilityMs ?? u, 0);
     this.reconnectStabilityTimer = window.setTimeout(() => {
       this.reconnectStabilityTimer = null, this.ws === t && t.readyState === WebSocket.OPEN && (this.reconnectAttempts = 0);
-    }, e);
+    }, n);
   }
   scheduleReconnect() {
-    const t = this.hasConnected ? this.options.maxReconnectAttempts ?? h : this.options.maxInitialReconnectAttempts ?? l, e = this.options.reconnectDelayMs ?? r, n = this.options.maxReconnectDelayMs ?? a;
+    const t = this.hasConnected ? this.options.maxReconnectAttempts ?? h : this.options.maxInitialReconnectAttempts ?? l, n = this.options.reconnectDelayMs ?? r, e = this.options.maxReconnectDelayMs ?? a;
     if (this.reconnectAttempts >= t) {
       this.setStatus("disconnected");
       return;
     }
-    const i = this.reconnectAttempts, s = Math.min(e * Math.pow(2, i), n), o = s * (0.2 + Math.random() * 0.3);
+    const s = this.reconnectAttempts, i = Math.min(n * Math.pow(2, s), e), o = i * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1, this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null, this.connect();
-    }, s + o);
+    }, i + o);
   }
 };
 export {
   d as n,
   m as r,
-  f as t
+  p as t
 };
 
-//# sourceMappingURL=live-stream-CyiSPucB.js.map
+//# sourceMappingURL=live-stream-BGAv0d6b.js.map

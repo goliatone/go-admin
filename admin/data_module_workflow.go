@@ -325,6 +325,10 @@ func (m *DataModule) choices(ctx context.Context) ([]DataActionChoice, error) {
 	out := []DataActionChoice{}
 	for _, descriptor := range model.catalog {
 		for _, choice := range m.datasetChoices(descriptor, model) {
+			choice, err = m.receiptDefault(ctx, model, choice)
+			if err != nil {
+				return nil, err
+			}
 			if choice.Availability != "" || m.permittedChoice(ctx, choice, descriptor.Capabilities) {
 				out = append(out, choice)
 			}
@@ -565,7 +569,10 @@ func (m *DataModule) receiptOptions(ctx context.Context, query console.PanelOpti
 	out := console.PanelOptionPage{Items: []console.PanelUIActionOption{}, NextCursor: page.NextCursor}
 	search := strings.ToLower(query.Search)
 	for _, receipt := range page.Receipts {
-		option, ok := dataReceiptOption(choice, receipt)
+		option, ok, err := m.receiptOption(ctx, choice, receipt)
+		if err != nil {
+			return console.PanelOptionPage{}, dataConsoleReadError(err)
+		}
 		if !ok || (search != "" && !strings.Contains(strings.ToLower(option.Label+" "+option.Value), search)) {
 			continue
 		}
@@ -608,7 +615,11 @@ func (m *DataModule) receiptSelections(ctx context.Context, choice DataActionCho
 			}
 			return nil, dataConsoleReadError(err)
 		}
-		if option, ok := dataReceiptOption(choice, receipt); ok {
+		option, allowed, err := m.receiptOption(ctx, choice, receipt)
+		if err != nil {
+			return nil, dataConsoleReadError(err)
+		}
+		if allowed {
 			selected = append(selected, option)
 		}
 	}
@@ -671,4 +682,53 @@ func (m *DataModule) requestStatus(ctx context.Context, query console.PanelReque
 		out.Message = "This request can no longer be resumed. Start a new request."
 	}
 	return out, nil
+}
+
+// receiptOption checks the requested lifecycle policy as well as read access.
+// Viewing maintenance or another operator's evidence never grants mutation.
+func (m *DataModule) receiptOption(ctx context.Context, choice DataActionChoice, receipt data.PreparationReceipt) (console.PanelUIActionOption, bool, error) {
+	option, matches := dataReceiptOption(choice, receipt)
+	if !matches {
+		return option, false, nil
+	}
+	allowed, err := dataDisplayAccess(m.config.Service.AuthorizeProjection(ctx, data.AccessRequest{
+		Action: string(choice.Kind), Target: receipt.Target, Receipt: &receipt,
+	}))
+	return option, allowed, err
+}
+
+// receiptDefault selects the newest retained, currently permitted candidate.
+// The final command still loads and authorizes the exact submitted receipt.
+func (m *DataModule) receiptDefault(ctx context.Context, model dataModuleReadModel, choice DataActionChoice) (DataActionChoice, error) {
+	if !choice.ReceiptInput {
+		return choice, nil
+	}
+	choice.DefaultReceiptID = ""
+	for _, receipt := range model.receipts {
+		if choice.Kind == data.Activate && receipt.ID == model.state.Activation.ReceiptID {
+			continue
+		}
+		option, allowed, err := m.receiptOption(ctx, choice, *receipt)
+		if err != nil {
+			return choice, err
+		}
+		if allowed && !option.Disabled {
+			choice.DefaultReceiptID = receipt.ID
+			break
+		}
+	}
+	return choice, nil
+}
+
+// prepareOptions resolves declaration failures before the generic registry's
+// boolean action filters. The resulting display projection is request-local.
+func (m *DataModule) prepareOptions(ctx context.Context, identity console.Identity) (context.Context, error) {
+	ctx, err := m.prepareSnapshot(ctx, identity)
+	if err != nil {
+		return ctx, err
+	}
+	if _, err = m.choices(ctx); err != nil {
+		return ctx, dataConsoleReadError(err)
+	}
+	return ctx, nil
 }

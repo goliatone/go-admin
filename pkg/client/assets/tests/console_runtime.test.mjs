@@ -589,7 +589,7 @@ test('a restarted host restarts the sequence: the next connection rewinds the cu
   after.message(snapshot({ watermark: 1 }));
   await settle();
   assert.deepEqual(rowTexts(root), ['Seed <baseline> verified'], 'later frames on the same socket cannot rewind');
-  assert.equal(fetchCalls.length, 0, 'no HTTP recovery loop');
+  assert.equal(fetchCalls.length, 1, 'one access check, with no HTTP recovery loop');
   assert.ok(!/out of sync/i.test(root.textContent));
   runtime.destroy();
 });
@@ -1882,3 +1882,58 @@ for (const deadline of [undefined, 'invalid', '2000-01-01T00:00:00Z']) {
     }
   });
 }
+
+test('failed handshakes verify access before retrying and stop on expired sessions', async () => {
+  for (const status of [401, 403]) {
+    resetEnvironment();
+    const { runtime } = mount(bootstrap(), { live: true, liveOptions: { reconnectDelayMs: 5, maxReconnectDelayMs: 5 } });
+    await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
+    fetchRoute = () => jsonResponse({ error: { message: 'access lost' } }, status);
+    FakeSocket.instances[0].close(1006);
+    await waitFor(() => assert.equal(runtime.getState(), 'denied'));
+    await settle();
+    assert.equal(FakeSocket.instances.length, 1, 'rejected auth cannot create another handshake');
+    assert.deepEqual(runtime.getPanels(), []);
+    runtime.destroy();
+  }
+});
+
+test('handshake access checks wait for admission and honor disposal', async () => {
+  resetEnvironment();
+  const { runtime } = mount(bootstrap(), { live: true, liveOptions: { reconnectDelayMs: 5, maxReconnectDelayMs: 5 } });
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
+  let finish;
+  fetchRoute = () => new Promise((resolve) => { finish = resolve; });
+  FakeSocket.instances[0].close(1006);
+  await waitFor(() => assert.equal(typeof finish, 'function'));
+  await settle();
+  assert.equal(FakeSocket.instances.length, 1, 'no reconnect before the access check finishes');
+  finish(jsonResponse(snapshot()));
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 2));
+  const current = FakeSocket.instances[1];
+  finish = undefined;
+  current.close(1006);
+  await waitFor(() => assert.equal(typeof finish, 'function'));
+  runtime.destroy();
+  finish(jsonResponse(snapshot()));
+  await settle();
+  assert.equal(FakeSocket.instances.length, 2, 'disposed checks cannot resurrect the socket');
+});
+
+
+test('transient handshake admission failures retain a bounded retry budget', async () => {
+  resetEnvironment();
+  const { runtime } = mount(bootstrap(), { live: true, liveOptions: {
+    reconnectDelayMs: 5, maxReconnectDelayMs: 5, maxInitialReconnectAttempts: 1,
+  } });
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 1));
+  fetchRoute = () => jsonResponse({ error: { message: 'temporarily unavailable' } }, 503);
+  FakeSocket.instances[0].close(1006);
+  await waitFor(() => assert.equal(FakeSocket.instances.length, 2));
+  assert.notEqual(runtime.getState(), 'denied', 'an outage is not revocation');
+  FakeSocket.instances[1].close(1006);
+  await settle();
+  await settle();
+  assert.equal(FakeSocket.instances.length, 2, 'admission checks cannot reset the retry budget');
+  runtime.destroy();
+});
