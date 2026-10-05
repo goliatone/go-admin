@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -254,6 +255,14 @@ func dataActionControl(id string, choice DataActionChoice) console.PanelUIAction
 		fields = append(fields, console.PanelUIActionField{Name: "batch_limit", Label: "Batch size", Kind: "integer", Advanced: true, Default: limit,
 			Help: "Records written per batch, from 1 to 10,000.", Min: new(float64(1)), Max: new(float64(10000))})
 	}
+	if choice.Kind != admindata.Recover && choice.Kind != admindata.Cancel {
+		bounds := choice.Input.Normalize()
+		fields = append(fields,
+			console.PanelUIActionField{Name: "page_limit", Label: "Page limit", Kind: "integer", Advanced: true, Default: bounds.PageLimit,
+				Help: "Maximum pages, from 1 to 1,000. Choose the bound required by this dataset.", Min: new(float64(1)), Max: new(float64(1000))},
+			console.PanelUIActionField{Name: "timeout_seconds", Label: "Time limit (seconds)", Kind: "integer", Advanced: true, Default: bounds.TimeoutSeconds,
+				Help: "Maximum operation time, from 1 to 3,600 seconds. Earlier caller deadlines still apply.", Min: new(float64(1)), Max: new(float64(3600))})
+	}
 	if dataSupportsPlan(choice.Kind) {
 		fields = append(fields, console.PanelUIActionField{Name: "dry_run", Label: "Dry run", Kind: console.PanelFieldKindHidden, Default: choice.Input.DryRun})
 		action.Secondary = &console.PanelUIActionSubmit{Label: "Preview plan", Field: "dry_run", Value: true}
@@ -495,6 +504,22 @@ func dataActionOptions(input *admindata.Input, kind admindata.Kind, payload map[
 			fields["dry_run"] = "Dry run must be on or off."
 		}
 		input.DryRun = dryRun
+	}
+	for _, bound := range []struct {
+		name    string
+		maximum int
+		target  *int
+	}{
+		{"page_limit", 1000, &input.PageLimit}, {"timeout_seconds", 3600, &input.TimeoutSeconds},
+	} {
+		if value, present := payload[bound.name]; present {
+			limit, ok := value.(float64)
+			if !ok || limit != float64(int(limit)) || limit < 1 || limit > float64(bound.maximum) {
+				fields[bound.name] = fmt.Sprintf("Enter a whole number from 1 to %d.", bound.maximum)
+			} else {
+				*bound.target = int(limit)
+			}
+		}
 	}
 	if value, present := payload["batch_limit"]; present {
 		limit, ok := value.(float64)

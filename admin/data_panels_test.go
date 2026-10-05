@@ -541,7 +541,7 @@ func TestDataPanelActionsDispatchOnlyAuthorizedServerChoices(t *testing.T) {
 			requestField = field
 		}
 	}
-	if !slices.Equal(fieldNames, []string{"batch_limit", "dry_run", "idempotency_key"}) || requestField.Generate != console.PanelFieldGenerateRequestID || !requestField.Advanced || !requestField.Required {
+	if !slices.Equal(fieldNames, []string{"batch_limit", "page_limit", "timeout_seconds", "dry_run", "idempotency_key"}) || requestField.Generate != console.PanelFieldGenerateRequestID || !requestField.Advanced || !requestField.Required {
 		t.Fatalf("prepare fields = %+v", prepare.Fields)
 	}
 	if scenarios[1].Reason != "Needs the Data operator role." || scenarios[1].Availability != console.PanelActionNotPermitted {
@@ -563,7 +563,7 @@ func TestDataPanelActionsDispatchOnlyAuthorizedServerChoices(t *testing.T) {
 
 	key := dataTestKey("key-1")
 	result, err := host.RunAction(ctx, identity, console.PanelActionRequest{PanelID: DataPanelScenarios, ActionID: prepare.ID, Payload: map[string]any{
-		"idempotency_key": key, "dry_run": true, "batch_limit": float64(50),
+		"idempotency_key": key, "dry_run": true, "batch_limit": float64(50), "page_limit": float64(500), "timeout_seconds": float64(600),
 		"target_id": "production", "dataset": map[string]any{"id": "forged"}, "receipt_id": "forged",
 	}})
 	if err != nil || !result.OK || result.Message != "Prepare Ready accepted. It has not run yet; what preview serves is unchanged." || result.Record == nil || result.Record.RecordKey != "op-9" {
@@ -571,7 +571,7 @@ func TestDataPanelActionsDispatchOnlyAuthorizedServerChoices(t *testing.T) {
 	}
 	if len(dispatched) != 1 || dispatched[0].kind != admindata.Prepare || dispatched[0].input.TargetID != "preview" ||
 		dispatched[0].input.Dataset != base.Dataset || dispatched[0].input.ReceiptID != "" || dispatched[0].input.IdempotencyKey != key ||
-		!dispatched[0].input.DryRun || dispatched[0].input.BatchLimit != 50 {
+		!dispatched[0].input.DryRun || dispatched[0].input.BatchLimit != 50 || dispatched[0].input.PageLimit != 500 || dispatched[0].input.TimeoutSeconds != 600 {
 		t.Fatalf("dispatched %+v, want server choice input", dispatched)
 	}
 
@@ -646,5 +646,30 @@ func TestDataActionResultRecognizesWrappedSafeErrors(t *testing.T) {
 	unknown := gerrors.Wrap(errors.New("private foreign error"), gerrors.CategoryInternal, "dispatcher").WithTextCode("HANDLER_EXECUTION_FAILED")
 	if _, err = DataActionResult(admindata.Prepare, admindata.Result{}, unknown); !errors.Is(err, unknown) {
 		t.Fatal("unknown error was converted to a lifecycle failure", err)
+	}
+}
+
+func TestDataActionOptionsPreserveExplicitPageAndTimeBounds(t *testing.T) {
+	input := admindata.Input{}
+	fields := map[string]string{}
+	dataActionOptions(&input, admindata.Prepare, map[string]any{"page_limit": float64(500), "timeout_seconds": float64(600)}, fields)
+	if len(fields) != 0 || input.PageLimit != 500 || input.TimeoutSeconds != 600 {
+		t.Fatal(input, fields)
+	}
+	for _, name := range []string{"page_limit", "timeout_seconds"} {
+		for _, value := range []any{float64(0), float64(3601), float64(1.5), "500"} {
+			input = admindata.Input{}
+			fields = map[string]string{}
+			dataActionOptions(&input, admindata.Verify, map[string]any{name: value}, fields)
+			if fields[name] == "" || input.PageLimit != 0 || input.TimeoutSeconds != 0 {
+				t.Fatal("invalid bounds reached typed input", name, value, input, fields)
+			}
+		}
+	}
+	input = admindata.Input{}
+	fields = map[string]string{}
+	dataActionOptions(&input, admindata.Prepare, map[string]any{}, fields)
+	if input.Normalize().PageLimit != 10 || input.Normalize().TimeoutSeconds != 60 {
+		t.Fatal("ordinary defaults changed", input)
 	}
 }
