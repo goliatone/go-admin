@@ -333,7 +333,7 @@ test('equal-revision snapshots cannot rewrite terminal phase and can safely comp
   assert.equal(completed[0].outcome.summary, 'Failure details recorded');
 });
 
-test('DebugStream accepts a fresh snapshot before later deltas on initial connect and reconnect', () => {
+test('DebugStream accepts a fresh snapshot before later deltas on initial connect and reconnect', async (t) => {
   const scheduled = [];
   const originalSetTimeout = window.setTimeout;
   const originalClearTimeout = window.clearTimeout;
@@ -355,12 +355,19 @@ test('DebugStream accepts a fresh snapshot before later deltas on initial connec
     send(value) { this.sent.push(JSON.parse(value)); }
     close() {}
   }
+  const originalWebSocket = globalThis.WebSocket;
   globalThis.WebSocket = FakeWebSocket;
   const received = [];
   const stream = new DebugStream({
     url: 'ws://127.0.0.1/debug/ws',
     reconnectDelayMs: 0,
     onEvent: (event) => received.push(`${event.type}:${event.payload?.command_runs?.[0]?.revision ?? event.payload?.revision ?? ''}`),
+  });
+  t.after(() => {
+    stream.close();
+    window.setTimeout = originalSetTimeout;
+    window.clearTimeout = originalClearTimeout;
+    globalThis.WebSocket = originalWebSocket;
   });
   stream.connect();
   const first = FakeWebSocket.instances[0];
@@ -369,7 +376,7 @@ test('DebugStream accepts a fresh snapshot before later deltas on initial connec
   first.onmessage({ data: JSON.stringify({ type: 'snapshot', payload: { command_runs: [row({ revision: 1 })] } }) });
   first.onmessage({ data: JSON.stringify({ type: 'command_run', payload: row({ revision: 2 }) }) });
   first.readyState = 3;
-  first.onclose();
+  await first.onclose();
   const reconnectTimer = scheduled.find((timer) => timer.delay === 0);
   assert.ok(reconnectTimer, 'close schedules a reconnect independently of the stability timer');
   reconnectTimer.callback();
@@ -380,9 +387,6 @@ test('DebugStream accepts a fresh snapshot before later deltas on initial connec
   second.onmessage({ data: JSON.stringify({ type: 'snapshot', payload: { command_runs: [row({ revision: 5 })] } }) });
   second.onmessage({ data: JSON.stringify({ type: 'command_run', payload: row({ revision: 6 }) }) });
   assert.deepEqual(received, ['snapshot:1', 'command_run:2', 'snapshot:5', 'command_run:6']);
-  window.setTimeout = originalSetTimeout;
-  window.clearTimeout = originalClearTimeout;
-  stream.close();
 });
 
 test('DebugPanel restores a correlation deep link and rewrites row selection to stable run URL state', async () => {

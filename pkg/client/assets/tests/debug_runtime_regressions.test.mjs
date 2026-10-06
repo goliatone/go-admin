@@ -2006,7 +2006,7 @@ test('debug stream bounds websocket retries when the initial connection fails', 
   dom.window.clearTimeout = originalClearTimeout;
 });
 
-test('debug stream keeps retry backoff across short-lived successful upgrades', async () => {
+test('debug stream keeps retry backoff across short-lived successful upgrades', async (t) => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
 
@@ -2041,7 +2041,7 @@ test('debug stream keeps retry backoff across short-lived successful upgrades', 
 
     close() {
       this.readyState = ShortLivedWebSocket.CLOSED;
-      this.onclose?.(new dom.window.Event('close'));
+      return this.onclose?.(new dom.window.Event('close'));
     }
 
     send() {}
@@ -2051,6 +2051,7 @@ test('debug stream keeps retry backoff across short-lived successful upgrades', 
   dom.window.WebSocket = ShortLivedWebSocket;
   const originalRandom = Math.random;
   Math.random = () => 0;
+  t.after(() => { Math.random = originalRandom; });
 
   const stream = new debugModule.DebugStream({
     url: 'ws://127.0.0.1:9090/admin/debug/ws',
@@ -2059,12 +2060,13 @@ test('debug stream keeps retry backoff across short-lived successful upgrades', 
     maxReconnectDelayMs: 100,
     reconnectStabilityMs: 1000,
   });
+  t.after(() => stream.close());
   stream.connect();
 
   const reconnectDelays = [];
   for (let index = 0; index < 4; index += 1) {
     sockets[index].open();
-    sockets[index].close();
+    await sockets[index].close();
     const reconnect = [...timers.entries()].sort((a, b) => a[1].delay - b[1].delay)[0];
     if (!reconnect) break;
     const [id, timer] = reconnect;
@@ -2076,10 +2078,9 @@ test('debug stream keeps retry backoff across short-lived successful upgrades', 
   assert.equal(sockets.length, 4, 'three retries should follow the first provisional connection');
   assert.equal(stream.getStatus(), 'disconnected');
   assert.deepEqual(reconnectDelays, [12, 24, 48]);
-  Math.random = originalRandom;
 });
 
-test('debug stream resets retry budget only after the stability window', () => {
+test('debug stream resets retry budget only after the stability window', async (t) => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
 
@@ -2110,7 +2111,7 @@ test('debug stream resets retry budget only after the stability window', () => {
     }
     close() {
       this.readyState = StableWebSocket.CLOSED;
-      this.onclose?.(new dom.window.Event('close'));
+      return this.onclose?.(new dom.window.Event('close'));
     }
     send() {}
   }
@@ -2124,9 +2125,10 @@ test('debug stream resets retry budget only after the stability window', () => {
     maxReconnectDelayMs: 1,
     reconnectStabilityMs: 50,
   });
+  t.after(() => stream.close());
   stream.connect();
   sockets[0].open();
-  sockets[0].close();
+  await sockets[0].close();
 
   let next = [...timers.entries()].sort((a, b) => a[1].delay - b[1].delay)[0];
   timers.delete(next[0]);
@@ -2137,7 +2139,7 @@ test('debug stream resets retry budget only after the stability window', () => {
   assert.ok(stableTimer, 'stable connection should schedule a retry-budget reset');
   timers.delete(stableTimer[0]);
   stableTimer[1].callback();
-  sockets[1].close();
+  await sockets[1].close();
 
   next = [...timers.entries()].sort((a, b) => a[1].delay - b[1].delay)[0];
   assert.ok(next, 'closing after stability should receive a fresh retry budget');

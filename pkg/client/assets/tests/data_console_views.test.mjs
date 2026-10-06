@@ -482,7 +482,7 @@ test('an operator activates from the scenario row: drawer, receipt picker, gener
   assert.deepEqual(confirmations[0].changes.map((change) => [change.label, change.before, change.after]), [['Scenario', 'Ready', 'Quiet'], ['Receipt', 'rcpt-ready-1', 'rcpt-empty-1'], ['Generation', '3', '4']]);
   assert.equal(server.posts[0].path, `/admin/data/api/panels/scenarios/actions/${primary.action_id}`);
   const { idempotency_key: requestID, ...rest } = server.posts[0].body;
-  assert.deepEqual(rest, { expected_generation: 3, receipt_id: 'rcpt-empty-1', dry_run: false });
+  assert.deepEqual(rest, { expected_generation: 3, receipt_id: 'rcpt-empty-1', page_limit: 10, timeout_seconds: 60, dry_run: false });
   assert.equal(requestID, generated.value, 'the generated ID is the submitted request ID');
   await waitFor(() => assert.equal(drawerForm(root), null, 'the outcome closes its drawer'));
   const banner = root.querySelector('[data-console-banner]');
