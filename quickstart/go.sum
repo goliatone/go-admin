@@ -171,8 +171,8 @@ github.com/gofiber/utils v1.2.0/go.mod h1:poZpsnhBykfnY1Mc0KeEa6mSHrS3dV0+oBWyeQ
 github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
 github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 github.com/golang/mock v1.6.0/go.mod h1:p6yTPP+5HYm5mzsMV8JkE6ZKdX+/wYM6Hr+LicevLPs=
-github.com/goliatone/go-admin v0.139.4 h1:TR3PGoJq0IWhTHig2/LkEjXpfN8mT2gUHq74SLX6RoU=
-github.com/goliatone/go-admin v0.139.4/go.mod h1:zgkpvHmlAn308oisNl193vjY/VZ9duyH5P1D0ilMBV0=
+github.com/goliatone/go-admin v0.139.5 h1:o/140kakg1axV1CvQYpPSjDVNf4I7iYszG6mhoppLi8=
+github.com/goliatone/go-admin v0.139.5/go.mod h1:D97rSTyQIELp382tb6XBwD+gQcWHmU/oG8itCMDFRrw=
 github.com/goliatone/go-auth v0.45.1 h1:o34Kizm8VPj2wiAaeeB2dNAVDgw2Vjhu+EtOft0wppo=
 github.com/goliatone/go-auth v0.45.1/go.mod h1:5/J4637CEQ9D15teQWAplnh9KsrlX8WGVhiBwyYqg74=
 github.com/goliatone/go-auth/adapters/featuregate v0.45.1 h1:VKYNaKKK8sXj0f/kXbTUnrJW2VRcXqCaCQXSTCdwR58=

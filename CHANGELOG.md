@@ -1,20 +1,25 @@
 # Changelog
 
+# [0.139.5](https://github.com/goliatone/go-admin/compare/v0.139.4...v0.139.5) - (2026-10-06)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Tests ([651009d](https://github.com/goliatone/go-admin/commit/651009d014838a939fb480f7a3c474a1d1bf0d42))  - (goliatone)
+- Update data snaphost ([467c747](https://github.com/goliatone/go-admin/commit/467c747ee181537a27ad25220e9a30bcdda80846))  - (goliatone)
+- Data panels ([47b1e90](https://github.com/goliatone/go-admin/commit/47b1e902762b3b129fc678a5743a989bf512e5e5))  - (goliatone)
+
 # [0.139.4](https://github.com/goliatone/go-admin/compare/v0.139.3...v0.139.4) - (2026-10-04)
 
 
-## Frontend toolchain migration
-
-The admin stylesheet now uses Tailwind CSS 4 through PostCSS. Building assets
-requires Node 24.21.0 or newer and npm 11.17.0 or newer; CI pins those versions.
-The generated stylesheet supports Safari 16.4+, Chrome 111+ and Firefox 128+.
-Scoped forms and public component classes remain supported. Custom build
-integrations should use the packaged PostCSS configuration or `npm run build:css`
-instead of invoking the removed Tailwind 3 CLI.
+New patch release: v0.139.4
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - CI/CD setup. add: data module freshness ([a575f6f](https://github.com/goliatone/go-admin/commit/a575f6fa738b7affd8e94313590a16baaec07da0))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.139.4 ([7ab3fbe](https://github.com/goliatone/go-admin/commit/7ab3fbe3f4607ddcdc66c510bb026734ecad0c76))  - (goliatone)
 
 # [0.139.3](https://github.com/goliatone/go-admin/compare/v0.139.2...v0.139.3) - (2026-10-04)
 
