@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	repository "github.com/goliatone/go-repository-bun"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
@@ -32,18 +34,39 @@ type SettingRecord struct {
 // BunSettingsAdapter persists settings using go-repository-bun and resolves
 // values through go-options to preserve provenance and validation surface.
 type BunSettingsAdapter struct {
-	mu          sync.RWMutex
-	repo        repository.Repository[*SettingRecord]
-	definitions map[string]SettingDefinition
-	schemaOpts  []opts.Option
+	mu               sync.RWMutex
+	db               *bun.DB
+	documentMaxBytes int
+	repo             repository.Repository[*SettingRecord]
+	definitions      map[string]SettingDefinition
+	schemaOpts       []opts.Option
+}
+
+// BunSettingsAdapterConfig controls legacy startup DDL and document size bounds.
+// Named document schema is always explicitly installed by the host.
+type BunSettingsAdapterConfig struct {
+	SkipSchemaEnsure bool
+	DocumentMaxBytes int
 }
 
 func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
+	return NewBunSettingsAdapterWithConfig(db, BunSettingsAdapterConfig{}, repoOptions...)
+}
+
+func NewBunSettingsAdapterWithConfig(db *bun.DB, config BunSettingsAdapterConfig, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
 	if db == nil {
 		return nil, serviceNotConfiguredDomainError("settings bun db", map[string]any{"component": "settings"})
 	}
-	if err := ensureSettingsSchema(db); err != nil {
-		return nil, err
+	if config.DocumentMaxBytes < 0 {
+		return nil, validationDomainError("invalid settings document size limit", nil)
+	}
+	if config.DocumentMaxBytes == 0 {
+		config.DocumentMaxBytes = defaultSettingsDocumentMaxBytes
+	}
+	if !config.SkipSchemaEnsure {
+		if err := ensureSettingsSchema(db); err != nil {
+			return nil, err
+		}
 	}
 	handlers := repository.ModelHandlers[*SettingRecord]{
 		NewRecord: func() *SettingRecord { return &SettingRecord{} },
@@ -59,9 +82,11 @@ func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSe
 		},
 	}
 	return &BunSettingsAdapter{
-		repo:        newSettingsRepository(db, handlers, repoOptions...),
-		definitions: map[string]SettingDefinition{},
-		schemaOpts:  []opts.Option{opts.WithScopeSchema(true), openapi.Option()},
+		db:               db,
+		documentMaxBytes: config.DocumentMaxBytes,
+		repo:             newSettingsRepository(db, handlers, repoOptions...),
+		definitions:      map[string]SettingDefinition{},
+		schemaOpts:       []opts.Option{opts.WithScopeSchema(true), openapi.Option()},
 	}, nil
 }
 
@@ -112,58 +137,73 @@ func (a *BunSettingsAdapter) Apply(ctx context.Context, bundle SettingsBundle) e
 	defs := cloneSettingDefinitions(a.definitions)
 	a.mu.RUnlock()
 
-	errs := SettingsValidationErrors{Fields: map[string]string{}, Scope: scope}
-	sanitized := map[string]any{}
-	for key, val := range bundle.Values {
-		def, ok := defs[key]
-		if !ok {
-			errs.Fields[key] = "unknown setting"
-			continue
-		}
-		if !scopeAllowed(def, scope) {
-			errs.Fields[key] = "scope not allowed"
-			continue
-		}
-		if err := validateSetting(ctx, def, val); err != nil {
-			errs.Fields[key] = err.Error()
-			continue
-		}
-		sanitized[key] = val
+	sanitized, err := validateSettingsBundle(ctx, defs, scope, bundle.Values)
+	if err != nil {
+		return err
 	}
-	if errs.hasErrors() {
-		return errs
-	}
-	for key, val := range sanitized {
-		if err := a.upsertValue(ctx, key, scope, bundle.UserID, val); err != nil {
-			return err
+	return a.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		keys := make([]string, 0, len(sanitized))
+		for key := range sanitized {
+			keys = append(keys, key)
 		}
-	}
-	return nil
+		slices.Sort(keys)
+		for _, key := range keys {
+			if err := a.upsertValueTx(ctx, tx, key, scope, bundle.UserID, sanitized[key]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // Resolve returns a setting value with provenance.
 func (a *BunSettingsAdapter) Resolve(key, userID string) ResolvedSetting {
-	values, optsStack, err := a.resolveAllOptions(context.Background(), userID)
-	if err != nil || optsStack == nil {
+	value, err := a.ResolveContext(context.Background(), key, userID)
+	if err != nil {
 		return ResolvedSetting{Key: key, Scope: SettingsScopeDefault, Provenance: string(SettingsScopeDefault)}
 	}
-	def := values.definitions[key]
-	val, trace, traceErr := optsStack.ResolveWithTrace(key)
-	return resolvedFromTrace(def, key, val, trace, traceErr)
+	return value
 }
 
-// ResolveAll resolves every definition for the given user.
+func (a *BunSettingsAdapter) ResolveContext(ctx context.Context, key, userID string) (ResolvedSetting, error) {
+	values, err := a.ResolveAllContext(ctx, userID)
+	if err != nil {
+		return ResolvedSetting{}, err
+	}
+	value, ok := values[key]
+	if !ok {
+		return ResolvedSetting{}, validationDomainError("unknown setting", nil)
+	}
+	return value, nil
+}
+
+// ResolveAll retains the legacy error-suppressing contract. Durable callers
+// should use ResolveAllContext or named document snapshots.
 func (a *BunSettingsAdapter) ResolveAll(userID string) map[string]ResolvedSetting {
-	values, optsStack, err := a.resolveAllOptions(context.Background(), userID)
-	if err != nil || optsStack == nil {
+	values, err := a.ResolveAllContext(context.Background(), userID)
+	if err != nil {
 		return map[string]ResolvedSetting{}
+	}
+	return values
+}
+
+func (a *BunSettingsAdapter) ResolveAllContext(ctx context.Context, userID string) (map[string]ResolvedSetting, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	values, stack, err := a.resolveAllOptions(ctx, userID)
+	if err != nil {
+		return nil, err
 	}
 	out := map[string]ResolvedSetting{}
 	for key, def := range values.definitions {
-		val, trace, traceErr := optsStack.ResolveWithTrace(key)
-		out[key] = resolvedFromTrace(def, key, val, trace, traceErr)
+		val, trace, err := stack.ResolveWithTrace(key)
+		if err != nil {
+			return nil, err
+		}
+		out[key] = resolvedFromTrace(def, key, val, trace, nil)
 	}
-	return out
+	return out, nil
 }
 
 // Schema returns the go-options schema document for UI renderers.
@@ -218,7 +258,7 @@ func (a *BunSettingsAdapter) resolveAllOptions(ctx context.Context, userID strin
 	return values, optsStack, err
 }
 
-func (a *BunSettingsAdapter) upsertValue(ctx context.Context, key string, scope SettingsScope, userID string, value any) error {
+func (a *BunSettingsAdapter) upsertValueTx(ctx context.Context, tx bun.Tx, key string, scope SettingsScope, userID string, value any) error {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -226,27 +266,42 @@ func (a *BunSettingsAdapter) upsertValue(ctx context.Context, key string, scope 
 	criteria := []repository.SelectCriteria{
 		repository.SelectBy("key", "=", key),
 		repository.SelectBy("scope", "=", string(scope)),
+		settingsLegacySelectJSON,
 	}
 	targetUser := ""
 	if scope == SettingsScopeUser {
 		targetUser = userID
 	}
-	criteria = append(criteria, repository.SelectBy("user_id", "=", targetUser))
-	record, err := a.repo.Get(ctx, criteria...)
+	if targetUser == "" {
+		criteria = append(criteria, repository.SelectIsNull("user_id"))
+	} else {
+		criteria = append(criteria, repository.SelectBy("user_id", "=", targetUser))
+	}
+	record, err := a.repo.GetTx(ctx, tx, criteria...)
 	switch {
 	case err == nil:
 		record.Value = raw
 		record.Scope = string(scope)
 		record.UserID = targetUser
-		_, err = a.repo.Update(ctx, record)
+		var criteria []repository.UpdateCriteria
+		if a.db.Dialect().Name() == dialect.SQLite {
+			// Store JSON bytes as BLOB to avoid SQLite JSONB numeric affinity. This also
+			// repairs old numeric rows on edit without changing the schema/public type.
+			criteria = append(criteria, func(q *bun.UpdateQuery) *bun.UpdateQuery { return q.Value("value", "?", raw) })
+		}
+		_, err = a.repo.UpdateTx(ctx, tx, record, criteria...)
 		return err
 	case repository.IsRecordNotFound(err):
-		_, err = a.repo.Create(ctx, &SettingRecord{
+		var criteria []repository.InsertCriteria
+		if a.db.Dialect().Name() == dialect.SQLite {
+			criteria = append(criteria, func(q *bun.InsertQuery) *bun.InsertQuery { return q.Value("value", "?", raw) })
+		}
+		_, err = a.repo.CreateTx(ctx, tx, &SettingRecord{
 			Key:    key,
 			Scope:  string(scope),
 			UserID: targetUser,
 			Value:  raw,
-		})
+		}, criteria...)
 		return err
 	default:
 		return err
@@ -284,6 +339,7 @@ func listAllSettingsRecords(ctx context.Context, repo repository.Repository[*Set
 	for {
 		records, total, err := repo.List(
 			ctx,
+			settingsLegacySelectJSON,
 			repository.SelectOrderAsc("id"),
 			repository.SelectPaginate(pageSize, offset),
 		)
@@ -341,4 +397,13 @@ func ensureSettingsSchema(db *bun.DB) error {
 		return err
 	}
 	return nil
+}
+
+// Old SQLite JSONB columns may already contain INTEGER/REAL storage classes.
+// Cast only the read projection, preserving the public json.RawMessage field.
+func settingsLegacySelectJSON(q *bun.SelectQuery) *bun.SelectQuery {
+	if q.DB().Dialect().Name() == dialect.SQLite {
+		return q.Column("id", "key", "scope", "user_id", "created_at", "updated_at").ColumnExpr("CAST(?TableAlias.value AS TEXT) AS value")
+	}
+	return q
 }

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -31,20 +30,22 @@ const (
 
 // SettingDefinition describes a single setting and its defaults.
 type SettingDefinition struct {
-	Key             string                 `json:"key"`
-	Title           string                 `json:"title,omitempty"`
-	Description     string                 `json:"description,omitempty"`
-	Default         any                    `json:"default,omitempty"`
-	Type            string                 `json:"type,omitempty"`
-	Group           string                 `json:"group,omitempty"`
-	AllowedScopes   []SettingsScope        `json:"allowed_scopes,omitempty"`
-	Enum            []any                  `json:"enum,omitempty"`
-	Widget          string                 `json:"widget,omitempty"`
-	VisibilityRule  string                 `json:"visibility_rule,omitempty"`
-	Options         []SettingOption        `json:"options,omitempty"`
-	OptionsProvider SettingOptionsProvider `json:"-"`
-	Enrichers       []SettingFieldEnricher `json:"-"`
-	Validator       SettingValidator       `json:"-"`
+	// ApplicationManaged requires host service/command writes; legacy bundles reject it.
+	ApplicationManaged bool                   `json:"application_managed,omitempty"`
+	Key                string                 `json:"key"`
+	Title              string                 `json:"title,omitempty"`
+	Description        string                 `json:"description,omitempty"`
+	Default            any                    `json:"default,omitempty"`
+	Type               string                 `json:"type,omitempty"`
+	Group              string                 `json:"group,omitempty"`
+	AllowedScopes      []SettingsScope        `json:"allowed_scopes,omitempty"`
+	Enum               []any                  `json:"enum,omitempty"`
+	Widget             string                 `json:"widget,omitempty"`
+	VisibilityRule     string                 `json:"visibility_rule,omitempty"`
+	Options            []SettingOption        `json:"options,omitempty"`
+	OptionsProvider    SettingOptionsProvider `json:"-"`
+	Enrichers          []SettingFieldEnricher `json:"-"`
+	Validator          SettingValidator       `json:"-"`
 }
 
 // SettingOption represents an allowed value for select-like controls.
@@ -246,6 +247,16 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 	}
 
 	if adapter != nil {
+		for _, def := range adapter.Definitions() {
+			if def.ApplicationManaged {
+				definitions[def.Key] = def
+			}
+		}
+		for key := range bundle.Values {
+			if definitions[key].ApplicationManaged {
+				return SettingsValidationErrors{Fields: map[string]string{key: "setting requires application command"}, Scope: scope}
+			}
+		}
 		if err := adapter.Apply(ctx, bundle); err != nil {
 			return err
 		}
@@ -268,12 +279,24 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 }
 
 func validateSettingsBundle(ctx context.Context, definitions map[string]SettingDefinition, scope SettingsScope, values map[string]any) (map[string]any, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	switch scope {
+	case SettingsScopeSystem, SettingsScopeSite, SettingsScopeUser:
+	default:
+		return nil, unsupportedScopeDomainError(string(scope), nil)
+	}
 	errs := SettingsValidationErrors{Fields: map[string]string{}, Scope: scope}
 	sanitized := map[string]any{}
 	for key, val := range values {
 		def, ok := definitions[key]
 		if !ok {
 			errs.Fields[key] = "unknown setting"
+			continue
+		}
+		if def.ApplicationManaged {
+			errs.Fields[key] = "setting requires application command"
 			continue
 		}
 		if !scopeAllowed(def, scope) {
@@ -418,10 +441,7 @@ func validateType(t string, val any) error {
 			return expectedTypeDomainError("boolean", nil)
 		}
 	case "number":
-		switch val.(type) {
-		case int, int64, float32, float64:
-			return nil
-		default:
+		if !validSettingsNumber(val) {
 			return expectedTypeDomainError("number", nil)
 		}
 	}
@@ -450,7 +470,7 @@ func resolveDefinitionOptions(ctx context.Context, def SettingDefinition) ([]Set
 
 func valueAllowedByOptions(val any, options []SettingOption) bool {
 	for _, opt := range options {
-		if reflect.DeepEqual(opt.Value, val) {
+		if equalSettingsOptionValue(opt.Value, val) {
 			return true
 		}
 	}

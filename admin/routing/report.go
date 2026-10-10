@@ -29,6 +29,7 @@ type StartupReport struct {
 
 type RuntimeReport struct {
 	Available          bool                     `json:"available"`
+	Reconciled         bool                     `json:"reconciled"`
 	State              router.RegistrationState `json:"state,omitempty"`
 	Revision           uint64                   `json:"revision,omitempty"`
 	DeclaredRoutes     int                      `json:"declared_routes"`
@@ -53,8 +54,15 @@ func BuildRuntimeReport(manifest Manifest, snapshot router.RegistrationSnapshot)
 		Revision:       snapshot.Revision,
 		DeclaredRoutes: len(snapshot.DeclaredRoutes),
 		MountedRoutes:  len(snapshot.MountedRoutes),
-		Shadows:        router.AnalyzeRouteShadowsWithSemantics(snapshot.MountedRoutes, snapshot.MatchingSemantics),
 	}
+
+	// Physical registration may be deferred or only partially mounted. An
+	// available inspector is not a completed runtime reconciliation.
+	if snapshot.State != router.RegistrationSealed {
+		return report
+	}
+	report.Reconciled = true
+	report.Shadows = router.AnalyzeRouteShadowsWithSemantics(snapshot.MountedRoutes, snapshot.MatchingSemantics)
 
 	mounted := make(map[string]struct{}, len(snapshot.MountedRoutes))
 	mountedPaths := make(map[string]struct{}, len(snapshot.MountedRoutes))
@@ -381,6 +389,13 @@ func appendReportWarnings(lines []string, warnings []string) []string {
 
 func appendRuntimeReport(lines []string, runtimeReport *RuntimeReport) []string {
 	if runtimeReport != nil {
+		if !runtimeReport.Reconciled {
+			return append(lines, "runtime: state="+printablePath(string(runtimeReport.State))+
+				" revision="+strconv.FormatUint(runtimeReport.Revision, 10)+
+				" declared="+strconv.Itoa(runtimeReport.DeclaredRoutes)+
+				" mounted="+strconv.Itoa(runtimeReport.MountedRoutes)+
+				" reconciliation=pending")
+		}
 		lines = append(lines, "runtime: state="+printablePath(string(runtimeReport.State))+
 			" revision="+strconv.FormatUint(runtimeReport.Revision, 10)+
 			" declared="+strconv.Itoa(runtimeReport.DeclaredRoutes)+

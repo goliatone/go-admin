@@ -75,28 +75,9 @@ func (a *GoOptionsSettingsAdapter) Apply(ctx context.Context, bundle SettingsBun
 	definitions := cloneSettingDefinitions(a.definitions)
 	a.mu.RUnlock()
 
-	errs := SettingsValidationErrors{Fields: map[string]string{}, Scope: scope}
-	sanitized := map[string]any{}
-
-	for key, val := range bundle.Values {
-		def, ok := definitions[key]
-		if !ok {
-			errs.Fields[key] = "unknown setting"
-			continue
-		}
-		if !scopeAllowed(def, scope) {
-			errs.Fields[key] = "scope not allowed"
-			continue
-		}
-		if err := validateSetting(ctx, def, val); err != nil {
-			errs.Fields[key] = err.Error()
-			continue
-		}
-		sanitized[key] = val
-	}
-
-	if errs.hasErrors() {
-		return errs
+	sanitized, err := validateSettingsBundle(ctx, definitions, scope, bundle.Values)
+	if err != nil {
+		return err
 	}
 
 	a.mu.Lock()
@@ -197,4 +178,36 @@ func (a *GoOptionsSettingsAdapter) buildOptionsLocked(userID string) (*opts.Opti
 		mergeOpts = nil
 	}
 	return stack.Merge(mergeOpts...)
+}
+
+func (a *GoOptionsSettingsAdapter) ResolveAllContext(ctx context.Context, userID string) (map[string]ResolvedSetting, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	options, err := a.buildOptionsLocked(userID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]ResolvedSetting{}
+	for key, def := range a.definitions {
+		val, trace, err := options.ResolveWithTrace(key)
+		if err != nil {
+			return nil, err
+		}
+		out[key] = resolvedFromTrace(def, key, val, trace, nil)
+	}
+	return out, nil
+}
+func (a *GoOptionsSettingsAdapter) ResolveContext(ctx context.Context, key, userID string) (ResolvedSetting, error) {
+	values, err := a.ResolveAllContext(ctx, userID)
+	if err != nil {
+		return ResolvedSetting{}, err
+	}
+	value, ok := values[key]
+	if !ok {
+		return ResolvedSetting{}, validationDomainError("unknown setting", nil)
+	}
+	return value, nil
 }

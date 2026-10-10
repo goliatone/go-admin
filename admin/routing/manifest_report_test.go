@@ -517,3 +517,38 @@ type capabilityRouterAdapter struct {
 func (a capabilityRouterAdapter) RoutingRouterCapabilities() RouterCapabilities {
 	return a.RouterCapabilities
 }
+
+func TestRuntimeReportDefersVerdictsUntilRegistrationIsSealed(t *testing.T) {
+	manifest := Manifest{Entries: []ManifestEntry{
+		{Owner: "module:typed", Method: "POST", Path: "/typed"},
+		{Owner: "module:legacy", Method: ManifestMethodUnknown, Path: "/legacy"},
+	}}
+	snapshot := router.RegistrationSnapshot{
+		Revision:       12,
+		DeclaredRoutes: []router.RouteDefinition{{Method: router.POST, Path: "/typed"}},
+		MountedRoutes:  []router.RouteDefinition{{Method: router.GET, Path: "/:id"}, {Method: router.GET, Path: "/typed"}},
+	}
+	for _, state := range []router.RegistrationState{"", router.RegistrationCollecting, router.RegistrationFinalizing} {
+		snapshot.State = state
+		report := BuildRuntimeReport(manifest, snapshot)
+		if !report.Available || report.Reconciled || report.State != state || report.Revision != 12 || report.DeclaredRoutes != 1 || report.MountedRoutes != 2 {
+			t.Fatalf("pending snapshot lost lifecycle evidence: %+v", report)
+		}
+		if len(report.MissingRoutes) != 0 || len(report.UnverifiableRoutes) != 0 || len(report.Shadows) != 0 {
+			t.Fatalf("pending snapshot emitted runtime verdicts: %+v", report)
+		}
+		text := FormatStartupReport(StartupReport{Runtime: &report})
+		if !strings.Contains(text, "reconciliation=pending") || strings.Contains(text, "missing=") || strings.Contains(text, "  - missing:") {
+			t.Fatalf("pending formatter claims completed verdicts: %s", text)
+		}
+	}
+	snapshot.State = router.RegistrationSealed
+	report := BuildRuntimeReport(manifest, snapshot)
+	if !report.Reconciled || len(report.MissingRoutes) != 2 || len(report.Shadows) == 0 {
+		t.Fatalf("sealed snapshot suppressed real gaps/shadows: %+v", report)
+	}
+	text := FormatStartupReport(StartupReport{Runtime: &report})
+	if strings.Contains(text, "reconciliation=pending") || !strings.Contains(text, "missing=2") || !strings.Contains(text, "  - missing: POST /typed") {
+		t.Fatalf("sealed formatter lost runtime verdicts: %s", text)
+	}
+}
