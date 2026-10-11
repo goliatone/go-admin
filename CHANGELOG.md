@@ -1,12 +1,25 @@
 # Changelog
 
+# [0.140.0](https://github.com/goliatone/go-admin/compare/v0.139.5...v0.140.0) - (2026-10-11)
+
+## <!-- 16 -->➕ Add
+
+- Settings adapter improvements ([bf8a216](https://github.com/goliatone/go-admin/commit/bf8a216b461efccc15573e452b8072631dd51ab6))  - (goliatone)
+
 # [0.139.5](https://github.com/goliatone/go-admin/compare/v0.139.4...v0.139.5) - (2026-10-06)
+
+
+New patch release: v0.139.5
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Tests ([651009d](https://github.com/goliatone/go-admin/commit/651009d014838a939fb480f7a3c474a1d1bf0d42))  - (goliatone)
 - Update data snaphost ([467c747](https://github.com/goliatone/go-admin/commit/467c747ee181537a27ad25220e9a30bcdda80846))  - (goliatone)
 - Data panels ([47b1e90](https://github.com/goliatone/go-admin/commit/47b1e902762b3b129fc678a5743a989bf512e5e5))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.139.5 ([c277e58](https://github.com/goliatone/go-admin/commit/c277e589963b65eb9cb00476c270203f5e33715f))  - (goliatone)
 
 # [0.139.4](https://github.com/goliatone/go-admin/compare/v0.139.3...v0.139.4) - (2026-10-04)
 
