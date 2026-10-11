@@ -27,7 +27,7 @@ require (
 	github.com/goliatone/go-options v0.7.2
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.1
-	github.com/goliatone/go-router v0.62.2
+	github.com/goliatone/go-router v0.62.3
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.5.2
@@ -107,7 +107,7 @@ require (
 	github.com/goliatone/go-config v0.14.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect
-	github.com/goliatone/go-services v0.9.1
+	github.com/goliatone/go-services v0.10.0
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.30.0 // indirect
