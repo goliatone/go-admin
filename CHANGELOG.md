@@ -1,6 +1,19 @@
 # Changelog
 
+# [0.140.5](https://github.com/goliatone/go-admin/compare/v0.140.4...v0.140.5) - (2026-10-12)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([47a0981](https://github.com/goliatone/go-admin/commit/47a09817b8ffc7b9b7b8663217ba6143fced82aa))  - (goliatone)
+
 # [0.140.4](https://github.com/goliatone/go-admin/compare/v0.140.3...v0.140.4) - (2026-10-11)
+
+
+New patch release: v0.140.4
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.140.4 ([4ed62bf](https://github.com/goliatone/go-admin/commit/4ed62bffe4b61bd71e8c77f194bfac463cb94127))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 

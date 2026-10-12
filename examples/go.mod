@@ -5,8 +5,8 @@ go 1.26.5
 require (
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin v0.140.4
-	github.com/goliatone/go-admin/quickstart v0.140.4
+	github.com/goliatone/go-admin v0.140.5
+	github.com/goliatone/go-admin/quickstart v0.140.5
 	github.com/goliatone/go-auth v0.45.1
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2
@@ -112,7 +112,7 @@ require (
 	github.com/goliatone/go-export/adapters/template/go-template v0.9.0 // indirect
 	github.com/goliatone/go-job v0.19.1 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
-	github.com/goliatone/go-notifications v0.16.1 // indirect
+	github.com/goliatone/go-notifications v0.16.2 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect
