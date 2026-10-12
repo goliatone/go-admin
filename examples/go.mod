@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-auth v0.45.1
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.2
-	github.com/goliatone/go-config v0.14.0
+	github.com/goliatone/go-config v0.15.0
 	github.com/goliatone/go-crud v0.25.0
 	github.com/goliatone/go-dashboard v0.15.8
 	github.com/goliatone/go-errors v0.12.0
