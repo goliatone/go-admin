@@ -87,3 +87,4 @@ pkg/client/assets/test-results/.last-run.json
 **/*.db-wal
 .claude
 .codex
+evidence
