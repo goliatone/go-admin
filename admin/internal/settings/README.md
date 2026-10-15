@@ -11,10 +11,10 @@ Settings bootstrap defaults and form helpers.
 - `form_helpers.go`: Shared helpers for settings form rendering/adapters.
 
 ## Dependencies
-- Pure helpers: should depend only on stdlib and minimal function callbacks.
+- Bootstrap defaults use stdlib and minimal callbacks; form helpers also use
+  the go-options contract for typed settings resolution.
 - Must not import peer feature packages.
 
 ## Where To Change X
 - Default setting keys/values: `bootstrap.go`.
 - Form schema shaping: `form_helpers.go`.
-

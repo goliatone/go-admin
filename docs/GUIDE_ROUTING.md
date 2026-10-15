@@ -423,6 +423,15 @@ those adapters indicate a dependency-version mismatch rather than an expected
 steady state. Representative authenticated HTTP probes remain recommended for
 application-specific authorization and handler behavior.
 
+For in-process `adm.RoutingReport()` consumers, `Runtime.Available` means an
+inspector supplied a snapshot; it does not mean reconciliation completed.
+`Runtime.Reconciled` stays false for zero/collecting/finalizing snapshots, which
+include state/revision/counts but no missing-route, unverifiable-route, or shadow
+verdicts. It becomes true for a sealed snapshot, even when there are zero issues.
+Report reads never mount routes or seal the router. `RoutingReport()` returns
+the cached snapshot; call `adm.RefreshRoutingReport()` after the server's
+initialization boundary before treating mounted-table diagnostics as final.
+
 Release capability changes from the dependency edge inward: `go-router` and
 `go-urlkit`, then route producers such as `go-export`, then `go-admin`, and
 finally the host. Do not publish a `go-admin` version whose declared `go-urlkit`

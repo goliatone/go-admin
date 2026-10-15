@@ -54,6 +54,40 @@ a generated readable name and UUID when those values are absent. See
 configuration, and `docs/GUIDE_DEVELOPMENT.md` for linker, GitHub Actions, and
 container examples.
 
+## Host lifecycle and readiness
+
+Admin initialization registers admin routes; the host owns process startup,
+listener binding, readiness, and shutdown. Reuse the core module's
+`github.com/goliatone/go-admin/pkg/go-lifecycle` runner for phased startup and
+supervised workers. These helpers are opt-in:
+
+- `RegisterLifecycleReadinessRoute(r, routePath, provider)` mounts a readiness
+  handler and returns the resolved path; the default is `/readyz`.
+- `LifecycleReadinessHandler(provider)` returns 503 until the provider's
+  snapshot is ready, then 200. It does not infer readiness from an open socket.
+- `LifecycleStatusPayload(snapshot)` projects serving/ready flags and task state.
+- `LifecycleDoctorCheck(provider)` creates the `quickstart.lifecycle` diagnostic
+  check; register it with the host's doctor configuration.
+
+Register the readiness route while the backing router is collecting:
+
+```go
+// runner is a *lifecycle.Runner, created from the host's lifecycle registry.
+readyPath, err := quickstart.RegisterLifecycleReadinessRoute(
+    host.InternalOps(), "", runner,
+)
+if err != nil {
+    return err
+}
+_ = readyPath
+```
+
+Run pre-bind tasks before initializing/serving the backing router; after the
+listener accepts requests, explicitly mark serving and run post-bind/ready work.
+Consume background failures and finish lifecycle shutdown before closing shared
+resources. See the [host lifecycle guide](../docs/GUIDE_DEVELOPMENT.md#host-lifecycle-and-readiness)
+and [runnable starter](../examples/admin-shell/README.md) for ownership details.
+
 ## Storage-backed uploads
 - `NewStorageBundle(ctx context.Context, cfg StorageBundleConfig) (*StorageBundle, error)` - Inputs: shared `go-uploader` provider config, optional validator/logger/startup validation toggle. Outputs: configured storage provider plus uploader manager for host apps.
 - `StorageBundleConfig` reuses `go-uploader` provider config so host apps can select `fs`, `s3`, or `multi` without embedding backend-specific construction logic into app modules.
@@ -840,7 +874,7 @@ Template function options let you override widget title labels without touching 
 - `WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption` - merges label overrides into defaults.
 - `WithWidgetTitleMap(titles map[string]string) TemplateFuncOption` - replaces the default map entirely.
 - `WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption` - provides a custom resolver.
-- Widget definition constants are available via `admin.Widget...`, for example `admin.WidgetUserProfileOverview`.
+- Widget definition constants are available via constants such as `admin.WidgetUserProfileOverview`.
 - `WithTemplateBasePath(basePath string) TemplateFuncOption` - sets the fallback base path used by the `adminURL` helper.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - configures the URLKit resolver used by `adminURL`.
 - `WithTemplateFeatureGate(gate fggate.FeatureGate, opts ...fgtemplates.HelperOption) TemplateFuncOption` - registers feature gate template helpers (`featureEnabled`, `featureDisabled`, etc.) from go-featuregate.

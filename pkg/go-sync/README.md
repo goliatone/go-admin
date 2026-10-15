@@ -1,6 +1,11 @@
 # go-sync
 
-`github.com/goliatone/go-sync` is the extraction-ready sync module for revision-safe resource reads, compare-and-swap mutations, idempotent action replay, HTTP transport mapping, and embedded browser client distribution.
+`github.com/goliatone/go-admin/pkg/go-sync` is the current import root for the
+extraction-ready sync package: revision-safe resource reads, compare-and-swap
+mutations, idempotent action replay, HTTP transport mapping, and embedded browser
+client distribution. It belongs to the `github.com/goliatone/go-admin` module;
+there is no independent `go.mod` here. `github.com/goliatone/go-sync` is the
+intended future extraction identity.
 
 ## Package Surface
 
@@ -61,7 +66,7 @@ Commands:
 - `./taskfile client:build`
   - builds `sync-core`, copies `dist` into `data/client/sync-core`, and verifies runtime/type outputs against the manifest.
 - `./taskfile client:test`
-  - runs workspace tests and the same manifest/output verification.
+  - runs the client workspace build, manifest/output verification, and tests.
 - `./taskfile client:build:all`
   - current alias for `client:build`, reserved for future multiple sync client packages.
 
@@ -72,4 +77,10 @@ Commands:
 - Keep browser artifacts checked in under `data/client` so Go builds do not require Node.
 - Preserve the package-local workspace, taskfile, and embed pipeline when the package moves to its own repository.
 
-During incubation, go-admin consumes this module through a local `replace`. After repository extraction, consumers should use tagged `github.com/goliatone/go-sync` versions.
+During incubation, consumers import subpackages such as
+`github.com/goliatone/go-admin/pkg/go-sync/core` and
+`github.com/goliatone/go-admin/pkg/go-sync/service` through their go-admin
+dependency. No separate Go module replacement is required. `.version` controls
+the package/client distribution metadata; it does not establish an independent
+Go module release. After extraction, the package can adopt its standalone import
+root and tagged releases.

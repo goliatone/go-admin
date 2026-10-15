@@ -23,7 +23,7 @@ A reusable, pluggable dashboard widget system with drag & drop, resize, and layo
                data-widget="widget-1"
                data-span="12"
                data-resizable="true">
-        <div class="widget__toolbar">
+        <div class="widget__toolbar" data-widget-toolbar>
           <button data-action="toggle-hide">Hide</button>
           <button data-action="toggle-width">Resize</button>
         </div>
@@ -53,22 +53,16 @@ await grid.init();
 
 ### 3. Backend API
 
-The widget grid expects two endpoints:
+`WidgetGrid.init(serverState?)` hydrates existing server-rendered widget DOM;
+it does not fetch the widgets from `apiEndpoint`. Optional server state supplies
+schema/data for hydration validation. `apiEndpoint` is required configuration
+and supplies the default preferences path, but a host still owns initial widget
+rendering/data loading. See `widget-grid.ts` and `types.ts` for the current
+hydration contracts.
 
-**GET /admin/api/dashboard**
-```json
-{
-  "widgets": [
-    {
-      "id": "widget-1",
-      "definition": "admin.widget.stats",
-      "area": "admin.dashboard.main",
-      "span": 12,
-      "data": { ... }
-    }
-  ]
-}
-```
+Layout changes use `DefaultPersistenceBehavior.save`, which posts JSON through
+the shared HTTP client to the configured `preferencesEndpoint`. Derive these
+URLs from the host route configuration; the paths below are an example mount.
 
 **POST /admin/api/dashboard/preferences**
 ```json
@@ -98,8 +92,9 @@ The widget grid expects two endpoints:
 | `maxColumns` | `number` | `12` | Grid column count |
 | `saveDelay` | `number` | `200` | Debounce delay for save (ms) |
 | `behaviors` | `WidgetGridBehaviors` | Default behaviors | Custom behaviors |
+| `selectors` | `WidgetGridSelectors` | Shared data-attribute selectors | Override area/widget/toolbar/button selectors |
 | `onSave` | `(layout) => void` | `noop` | Save callback |
-| `onError` | `(error) => void` | `console.error` | Error handler |
+| `onError` | `(error) => void` | Scoped logger | Error handler; default logging is silent until a host sink is configured |
 
 ## Custom Behaviors
 

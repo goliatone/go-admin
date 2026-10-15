@@ -14,11 +14,12 @@ Boot orchestration for the admin runtime.
 - `route_helpers.go`: Route spec helpers and shared parsing.
 
 ## Dependencies
-- Leaf package: should not import other `admin/internal/*` feature packages.
-- Depends on router abstractions (`go-router`) and the `BootCtx` interfaces only.
+- Uses `BootCtx` feature bindings, go-router, URLKit, go-errors, and
+  `admin/routing` contracts; route helpers also reuse
+  `admin/internal/listquery` and `internal/pathutil`.
+- Concrete feature services are supplied through binding interfaces.
 
 ## Where To Change X
 - Add/modify default startup sequence: `default_steps.go`.
 - Mount a new API route group: create/update a `step_<feature>.go`.
 - Adjust how route paths are built: `route_helpers.go`.
-

@@ -12,10 +12,11 @@ Dashboard-related helpers and CMS-backed widget persistence.
 - `cms_widget_store.go`: Widget instance store backed by CMS widget services.
 
 ## Dependencies
-- May depend on CMS interfaces via `admin/internal/cmsboot` type aliases.
+- Defines local CMS-facing `WidgetService` contracts in `types.go` and adapts
+  them to go-dashboard models; implementation uses go-errors and shared
+  primitives/widget codes.
 - Must not import other peer feature packages (`navigation`, `settings`, etc).
 
 ## Where To Change X
 - Default areas/definitions: `helpers.go`.
 - CMS widget instance persistence behavior: `cms_widget_store.go`.
-

@@ -26,7 +26,7 @@ This guide explains how to create, register, and integrate custom modules into g
 3. [Panel Module Pattern](#3-panel-module-pattern)
 4. [Creating a Module](#4-creating-a-module)
 5. [Module Registration](#5-module-registration)
-6. [Configuration and Feature Flags](#6-configuration-and-feature-flags)
+6. [Configuration and Feature Gates](#6-configuration-and-feature-gates)
 7. [Navigation Menu Integration](#7-navigation-menu-integration)
 8. [Dashboard Widget Integration](#8-dashboard-widget-integration)
 9. [Route Registration](#9-route-registration)
@@ -1213,7 +1213,7 @@ func (m *DebugModule) createPanelHandler(panelID string) WidgetProvider {
 }
 ```
 
-Use canonical widget constants for built-in definitions (`admin.Widget...`), and
+Use canonical widget constants for built-in definitions (for example `admin.WidgetUserProfileOverview`), and
 prefer typed payload structs for handler output. Avoid opaque HTML/script
 payload fields and map-shape branching by render mode.
 

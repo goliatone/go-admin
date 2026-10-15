@@ -2,9 +2,45 @@
 
 `go-admin` is a feature-gated admin orchestration runtime for Go services. It wires modules, panels, commands, navigation, and route surfaces while letting hosts swap dependencies (auth, persistence, CMS container, activity, media, export, settings).
 
-The repo provides two modules:
+The public runtime is split across two modules:
+
 - Core: `github.com/goliatone/go-admin` (dependency-light, framework-agnostic orchestration)
 - Quickstart: `github.com/goliatone/go-admin/quickstart` (opinionated defaults + adapters for faster bootstrap)
+
+Runnable hosts live in the separate `github.com/goliatone/go-admin/examples`
+module. The repository `go.work` includes all three for local development.
+
+## Installation and package map
+
+Use the Go toolchain required by `go.mod` (currently Go 1.26.5). Consumers that
+use quickstart must require both runtime modules at the same released version:
+
+```sh
+go get github.com/goliatone/go-admin@vX.Y.Z github.com/goliatone/go-admin/quickstart@vX.Y.Z
+```
+
+Replace `vX.Y.Z` with the chosen coordinated release. Quickstart keeps its import
+path; its release tag is `quickstart/vX.Y.Z`. For a complete host with auth,
+views, assets, readiness, and shutdown, start with
+[admin-shell](examples/admin-shell/README.md).
+
+| Package | Responsibility |
+| --- | --- |
+| `admin` and `pkg/admin` | Admin runtime and public façade for modules, panels, commands, navigation, permissions, and feature wiring. |
+| `admin/routing` | Host-owned roots, module route contracts, manifests, and startup/runtime diagnostics. |
+| `quickstart` | Optional host bootstrap and auth, view, static asset, dashboard, persistence, and adapter wiring. |
+| `quickstart/site` | Public-site delivery, request/theme/locale state, search, HTML error rendering, and render-cache policy. |
+| `pkg/go-lifecycle` | Framework-neutral phased startup, readiness, supervised background work, and shutdown. |
+| `pkg/go-deployment-identity` | Deterministic display names, monograms, and local PNG identicons for deployment artifacts. |
+| `pkg/go-sync` | Revision-safe mutations, actor-scoped replay, HTTP mapping, and embedded `sync-core` browser assets. |
+| `pkg/go-translation-ai` | Translation provider/prompt contracts and HTTP providers; `adapters/goadmin` integrates suggestion policy. |
+| `translations` | Translation vocabulary, family services, admin adapter, and UI contracts. |
+| `pkg/client` | Embedded admin templates, styles, and browser-client distribution. |
+
+The four `pkg/go-*` packages above are incubating inside the core module.
+Import them through `github.com/goliatone/go-admin/pkg/...`; they do not have
+standalone Go modules in this checkout. The sync package has its own client
+version/build metadata, described in [its README](pkg/go-sync/README.md).
 
 ## When to use core vs quickstart
 
@@ -21,7 +57,7 @@ The repo provides two modules:
 
 `Initialize` runs the boot pipeline (panels, dashboard, search, settings, jobs, notifications, translation routes, etc.), auto-registers built-in modules according to feature gates, and reconciles dynamic CMS panels before alias routes and any later quickstart content-entry UI binding snapshot panel state.
 
-Quickstart follows the same lifecycle, but uses `quickstart.NewAdminConfig(...)` and `quickstart.NewAdmin(...)` to preload defaults and adapter wiring.
+Quickstart follows the same lifecycle, but uses `quickstart.NewAdminConfig(...)` and `quickstart.NewAdmin(...)` to preload defaults and adapter wiring. The snippet uses `client` from `github.com/goliatone/go-admin/pkg/client` for packaged assets.
 
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
@@ -37,6 +73,7 @@ if err != nil {
 
 server := router.NewHTTPServer()
 host := quickstart.NewHostRouter(server.Router(), cfg)
+quickstart.NewStaticAssets(host.Static(), cfg, client.Assets())
 if err := adm.Initialize(host.Admin()); err != nil {
 	panic(err)
 }
@@ -62,6 +99,13 @@ adm.AddCMSBootstrapHook(func(ctx context.Context, adm *admin.Admin) error {
 ```
 
 If you bind quickstart content-entry UI routes, do that after `Initialize(...)` so canonical routes such as `/admin/quotes` are derived from the reconciled registry snapshot.
+
+Finish host, site, and auth route registration before the backing server is
+initialized or served. Router initialization seals declarations;
+`adm.Initialize(...)` alone does not bind a listener or establish process
+readiness. For host task phases, readiness endpoints, background failures, and
+shutdown, see [the lifecycle guide](docs/GUIDE_DEVELOPMENT.md#host-lifecycle-and-readiness)
+and [quickstart helpers](quickstart/README.md#host-lifecycle-and-readiness).
 
 Core-only wiring is the same shape, but you construct directly from `admin.New`:
 
@@ -167,6 +211,13 @@ Operationally, the supported diagnostics are in-process:
 - `adm.RoutingReport()` for effective roots, resolved module mounts, warnings, and conflicts.
 - `adm.RoutingPlanner().Manifest()` for deterministic route-manifest export.
 
+`RoutingReport().Runtime.Available` means a router snapshot exists;
+`Runtime.Reconciled` becomes true only after registration is sealed. Collecting
+and finalizing snapshots retain counts/state and omit missing-route and shadow
+verdicts. Call `adm.RefreshRoutingReport()` after server initialization to inspect the
+complete mounted table; `RoutingReport()` reads the cached snapshot. Neither
+operation seals registration.
+
 A stable HTTP JSON routing report endpoint is not part of the first release of
 the clean-break routing API. Use the in-process report/manifest APIs or
 quickstart doctor output instead.
@@ -181,6 +232,20 @@ bulk actions are documented in `docs/GUIDE_CRUD.md`. Form generation,
 go-formgen integration, UI schema overlays, and custom form components are
 documented in `docs/GUIDE_FORMGEN.md`. RPC command transport and workflow RPC
 methods are documented in `docs/GUIDE_RPC.md`.
+
+## Public-site delivery and translation providers
+
+Use `quickstart/site` for public CMS pages and search with separate public theme
+selection. Its [error-template policy](quickstart/README.md#public-site-error-rendering-policy)
+supports ordered theme-backed fallbacks and isolated render attempts; its
+[render-cache runtime](quickstart/README.md#public-site-render-cache) owns cache
+eligibility, keying, replay, and generation fencing.
+
+Translation memory uses approved/published internal variant history. Optional
+AI suggestions use `pkg/go-translation-ai` through an explicitly configured
+admin suggestion service, eligibility policy, and provider. They return draft
+text without saving or publishing it. See
+[AI translation suggestions](docs/GUIDE_TRANSLATION.md#optional-ai-translation-suggestions).
 
 ## Panel Entry Modes
 

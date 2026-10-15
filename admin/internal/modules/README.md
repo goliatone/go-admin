@@ -11,10 +11,11 @@ Module ordering and loading for admin features.
 - `load.go`: Loader implementation and ordering rules.
 
 ## Dependencies
-- Should depend only on stdlib and small callback interfaces.
-- Must not import other `admin/internal/*` packages.
+- Uses stdlib, go-errors, and the go-featuregate gate contract for loading.
+- Contracts share navigation types and translator helpers through
+  `admin/internal/navigation` and `admin/internal/helpers`; concrete admin
+  feature implementations remain outside the loader.
 
 ## Where To Change X
 - Module ordering rules: `load.go`.
 - Module contracts/manifests: `types.go`.
-

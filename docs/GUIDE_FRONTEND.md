@@ -401,6 +401,12 @@ The package is intentionally split:
 - backend core under `pkg/go-sync`
 - frontend `sync-core` under `pkg/go-sync/client/packages/sync-core`
 
+The current backend import root is
+`github.com/goliatone/go-admin/pkg/go-sync`; it is part of the core go-admin
+module. The standalone `github.com/goliatone/go-sync` identity in older design
+references describes the extraction target. Use the
+[package README](../pkg/go-sync/README.md) for current imports and client builds.
+
 Use it for:
 
 - draft autosave

@@ -16,6 +16,7 @@ Maintainer note:
 - [5. Content DataGrid Integration](#5-content-datagrid-integration)
 - [6. Tutorial: Translate Content From the Content Panels](#6-tutorial-translate-content-from-the-content-panels)
 - [7. Tutorial: Work the Queue](#7-tutorial-work-the-queue)
+- [Optional AI translation suggestions](#optional-ai-translation-suggestions)
 - [8. Tutorial: Run the Exchange Workflow](#8-tutorial-run-the-exchange-workflow)
 - [9. Production Navigation and Verification Checklist](#9-production-navigation-and-verification-checklist)
 - [10. Release-Readiness Artifacts in the Repo](#10-release-readiness-artifacts-in-the-repo)
@@ -569,7 +570,63 @@ The assignment editor assist payload includes:
 
 Translation memory suggestions currently come from internal variant history only. A suggestion is eligible when another family in the same tenant/org, content type, source locale, target locale, and field path has an exact source-field match and an approved or published target variant. The editor reads this through a bounded family-store lookup; stores without that optimized lookup return an empty suggestion list instead of scanning all families. Suggestions include score, source label, locale pair, source/target locale, field path, source text, suggested text, and stale-source metadata.
 
-AI suggestions are not part of this contract.
+Translation-memory suggestions remain an internal-history lookup. External AI
+generation is a separate opt-in command/service contract described below.
+
+### Optional AI translation suggestions
+
+`pkg/go-translation-ai` owns generic prompt/provider contracts and compatible
+HTTP providers. Its root imports no admin runtime; the `adapters/goadmin`
+package composes those providers with `admin.DefaultTranslationSuggestionService`.
+Both belong to the core `github.com/goliatone/go-admin` module today.
+
+Supply the assignment repository, provider, and explicit eligibility policy:
+
+```go
+import (
+    "github.com/goliatone/go-admin/admin"
+    translationai "github.com/goliatone/go-admin/pkg/go-translation-ai"
+    translationadmin "github.com/goliatone/go-admin/pkg/go-translation-ai/adapters/goadmin"
+)
+
+func configureAISuggestions(
+    adm *admin.Admin,
+    assignments admin.TranslationAssignmentRepository,
+    provider translationai.Provider,
+    eligibility admin.TranslationSuggestionEligibilityChecker,
+) error {
+    service := translationadmin.NewService(
+        translationadmin.WithAdminDependencies(adm, assignments),
+        translationadmin.WithProvider(provider),
+        translationadmin.WithEligibility(eligibility),
+    )
+    adm.WithTranslationSuggestionService(service)
+    return admin.RegisterTranslationSuggestionCommands(adm.Commands(), service)
+}
+```
+
+Provider constructors include `NewOpenAIProvider`, `NewOpenAIClientProvider`,
+`NewAnthropicProvider`, and `NewAnthropicClientProvider` in the translation AI
+package. Hosts supply credentials, models, timeouts, and outbound-provider policy.
+The eligibility checker controls tenant opt-out, residency, quota, and rate
+limits; an absent provider or policy leaves generation unavailable.
+
+The editor also requires an explicit RPC rule for
+`translations.suggestions.generate`, an inline result-capable registered command,
+inline execution mode, and `admin.translations.suggest` permission. Follow
+[RPC command rules](GUIDE_RPC.md#command-rules-and-permissions) for transport
+exposure. Configuring a provider alone does not expose a callable browser action.
+
+Generation reloads assignment/source/editor state on the server, checks scope,
+permissions, editable status and field eligibility, then calls the provider.
+Browser `source_text` is not authoritative. The result contains `suggested_text`
+and provider/model/locale metadata; it does not save, approve, or publish a draft.
+The editor applies suggestions through its normal revision-checked save flow.
+`TranslationSuggestionActionEvaluator` reports availability without a provider
+call. Customize `PromptBuilder` and assist-context extraction when needed.
+
+Source: `admin/translation_suggestion*.go`,
+`admin/translation_editor_binding.go`, and `pkg/go-translation-ai/*`.
 
 ## 8. Tutorial: Run the Exchange Workflow
 

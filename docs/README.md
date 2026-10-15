@@ -7,81 +7,90 @@ the closest existing guide when conventions change.
 
 | Need | Read |
 |---|---|
-| Development workflow, testing, logging, and docs hygiene | `GUIDE_DEVELOPMENT.md` |
-| CI/CD, linting, release, and quality commands | `GUIDE_DEVELOPMENT_CICD.md` |
-| Quickstart API and defaults | `../quickstart/README.md` |
-| Runnable project starter and production replacement seams | `../examples/admin-shell/README.md` |
-| Package overview and high-level extension points | `../README.md` |
+| Development workflow, testing, logging, and docs hygiene | [GUIDE_DEVELOPMENT.md](GUIDE_DEVELOPMENT.md) |
+| CI/CD, linting, release, and quality commands | [GUIDE_DEVELOPMENT_CICD.md](GUIDE_DEVELOPMENT_CICD.md) |
+| Quickstart API and defaults | [../quickstart/README.md](../quickstart/README.md) |
+| Runnable project starter and production replacement seams | [../examples/admin-shell/README.md](../examples/admin-shell/README.md) |
+| Package overview and high-level extension points | [../README.md](../README.md) |
+| Current module boundaries and reusable package responsibilities | [../README.md#installation-and-package-map](../README.md#installation-and-package-map) |
 
 ## Frontend, UI, And Actions
 
 | Need | Read |
 |---|---|
-| Frontend reuse map, DataGrid/toast conventions, and server-command boundaries | `GUIDE_FRONTEND.md` |
-| Reusable template partials and selector contracts | `GUIDE_UI_PRIMITIVES.md` |
-| Panel CRUD, DataGrid wiring, list APIs, row actions, and bulk actions | `GUIDE_CRUD.md` |
-| Browser-client version compatibility and coordinated release artifacts | `browser-client-compatibility.md` |
-| Action availability, enhanced SSR actions, fragments, and mutation feedback | `GUIDE_ACTIONS.md` |
-| Canonical admin shell, view-stack precedence, structural partial overrides, and asset pipeline | `GUIDE_VIEW_CUSTOMIZATION.md` |
-| Form generation, go-formgen semantic themes/states, and UI schema overlays | `GUIDE_FORMGEN.md` |
-| Block editor setup and content-type-builder UI | `GUIDE_BLOCK_EDITOR.md` |
-| Tab widgets and tabbed detail surfaces | `GUIDE_TAB_WIDGETS.md` |
-| Cross-package theme selection, semantic tokens, diagnostics, assets, forms, and dashboards | `GUIDE_THEME.md` |
+| Frontend reuse map, DataGrid/toast conventions, and server-command boundaries | [GUIDE_FRONTEND.md](GUIDE_FRONTEND.md) |
+| Reusable template partials and selector contracts | [GUIDE_UI_PRIMITIVES.md](GUIDE_UI_PRIMITIVES.md) |
+| Panel CRUD, DataGrid wiring, list APIs, row actions, and bulk actions | [GUIDE_CRUD.md](GUIDE_CRUD.md) |
+| Browser-client version compatibility and coordinated release artifacts | [browser-client-compatibility.md](browser-client-compatibility.md) |
+| Action availability, enhanced SSR actions, fragments, and mutation feedback | [GUIDE_ACTIONS.md](GUIDE_ACTIONS.md) |
+| Canonical admin shell, view-stack precedence, structural partial overrides, and asset pipeline | [GUIDE_VIEW_CUSTOMIZATION.md](GUIDE_VIEW_CUSTOMIZATION.md) |
+| Form generation, go-formgen semantic themes/states, and UI schema overlays | [GUIDE_FORMGEN.md](GUIDE_FORMGEN.md) |
+| Block editor setup and content-type-builder UI | [GUIDE_BLOCK_EDITOR.md](GUIDE_BLOCK_EDITOR.md) |
+| Tab widgets and tabbed detail surfaces | [GUIDE_TAB_WIDGETS.md](GUIDE_TAB_WIDGETS.md) |
+| Cross-package theme selection, semantic tokens, diagnostics, assets, forms, and dashboards | [GUIDE_THEME.md](GUIDE_THEME.md) |
 
 ## Server Transports, Commands, And Workflow
 
 | Need | Read |
 |---|---|
-| RPC transport, command dispatch, allowlists, and command runtime wiring | `GUIDE_RPC.md` |
-| Workflows, state machines, and panel workflow actions | `GUIDE_WORKFLOW.md` |
-| Background command routing observability | `GUIDE_BKG_CMD_OBSERVABILITY.md` |
-| Transaction hooks and outbox behavior | `GUIDE_TRANSACTION_OUTBOX.md` |
-| Persisted workflow and application persistence | `PERSISTENCE_GUIDE_GO_ADMIN.md` |
-| Error code reference | `ERROR_CODES.md` |
+| RPC transport, command dispatch, allowlists, and command runtime wiring | [GUIDE_RPC.md](GUIDE_RPC.md) |
+| Workflows, state machines, and panel workflow actions | [GUIDE_WORKFLOW.md](GUIDE_WORKFLOW.md) |
+| Background command routing observability | [GUIDE_BKG_CMD_OBSERVABILITY.md](GUIDE_BKG_CMD_OBSERVABILITY.md) |
+| Transaction hooks and outbox behavior | [GUIDE_TRANSACTION_OUTBOX.md](GUIDE_TRANSACTION_OUTBOX.md) |
+| Persisted workflow and application persistence | [PERSISTENCE_GUIDE_GO_ADMIN.md](PERSISTENCE_GUIDE_GO_ADMIN.md) |
+| Error code reference | [ERROR_CODES.md](ERROR_CODES.md) |
+| Host startup phases, readiness, background supervision, and shutdown | [GUIDE_DEVELOPMENT.md#host-lifecycle-and-readiness](GUIDE_DEVELOPMENT.md#host-lifecycle-and-readiness) |
+| Readiness route and lifecycle Doctor helpers | [../quickstart/README.md#host-lifecycle-and-readiness](../quickstart/README.md#host-lifecycle-and-readiness) |
+| Revision-safe sync imports, replay contracts, and client builds | [../pkg/go-sync/README.md](../pkg/go-sync/README.md) |
 
 ## Modules And Features
 
 | Need | Read |
 |---|---|
-| Module creation, registration, routes, menus, and module conventions | `GUIDE_MODULES.md` |
-| Dashboard widgets, typed theme consumers, chart palettes, and provider/renderers | `GUIDE_DASHBOARD_WIDGETS.md` |
-| Feature gates and capability dependencies | `GUIDE_FEATURE_GATES.md` |
-| Routing policy, route ownership, and manifest review | `GUIDE_ROUTING.md` |
-| Search and go-search adapters | `GUIDE_SEARCH.md` |
-| Activity module and activity API | `GUIDE_ACTIVITY.md` |
-| Media module configuration and delivery | `GUIDE_MODULE_MEDIA.md` |
-| Preferences module behavior | `GUIDE_MOD_PREFERENCES.md` |
-| Onboarding workflow | `GUIDE_ONBOARDING.md` |
-| Notification service defaults, storage lifetime, and production injection | `GUIDE_MODULES.md#notification-service-and-storage` |
+| Module creation, registration, routes, menus, and module conventions | [GUIDE_MODULES.md](GUIDE_MODULES.md) |
+| Dashboard widgets, typed theme consumers, chart palettes, and provider/renderers | [GUIDE_DASHBOARD_WIDGETS.md](GUIDE_DASHBOARD_WIDGETS.md) |
+| Feature gates and capability dependencies | [GUIDE_FEATURE_GATES.md](GUIDE_FEATURE_GATES.md) |
+| Routing policy, route ownership, and manifest review | [GUIDE_ROUTING.md](GUIDE_ROUTING.md) |
+| Pending versus sealed runtime route reconciliation | [GUIDE_ROUTING.md#startup-diagnostics-and-release-workflow](GUIDE_ROUTING.md#startup-diagnostics-and-release-workflow) |
+| Search and go-search adapters | [GUIDE_SEARCH.md](GUIDE_SEARCH.md) |
+| Activity module and activity API | [GUIDE_ACTIVITY.md](GUIDE_ACTIVITY.md) |
+| Media module configuration and delivery | [GUIDE_MODULE_MEDIA.md](GUIDE_MODULE_MEDIA.md) |
+| Preferences module behavior | [GUIDE_MOD_PREFERENCES.md](GUIDE_MOD_PREFERENCES.md) |
+| Onboarding workflow | [GUIDE_ONBOARDING.md](GUIDE_ONBOARDING.md) |
+| Notification service defaults, storage lifetime, and production injection | [GUIDE_MODULES.md#notification-service-and-storage](GUIDE_MODULES.md#notification-service-and-storage) |
 
 ## Auth, Roles, And Permissions
 
 | Need | Read |
 |---|---|
-| Authentication, authorization, permission checks, scope, and diagnostics | `GUIDE_AUTH_PERMISSIONS.md` |
-| Auth/authz reference | `AUTH.md` |
-| Roles and role seeding | `GUIDE_ROLES.md` |
-| Permission matrix | `GUIDES_PERMISSION_MATRIX.md` |
-| Temporary admin password behavior | `GUIDE_ADMIN_TEMPORARY_PASSWORD.md` |
+| Authentication, authorization, permission checks, scope, and diagnostics | [GUIDE_AUTH_PERMISSIONS.md](GUIDE_AUTH_PERMISSIONS.md) |
+| Auth/authz reference | [AUTH.md](AUTH.md) |
+| Roles and role seeding | [GUIDE_ROLES.md](GUIDE_ROLES.md) |
+| Permission matrix | [GUIDES_PERMISSION_MATRIX.md](GUIDES_PERMISSION_MATRIX.md) |
+| Temporary admin password behavior | [GUIDE_ADMIN_TEMPORARY_PASSWORD.md](GUIDE_ADMIN_TEMPORARY_PASSWORD.md) |
 
 ## CMS, Translation, And Content
 
 | Need | Read |
 |---|---|
-| CMS module development and content CRUD alignment | `GUIDE_CMS.md` |
-| CMS integration overview | `CMS_INTEGRATION.md` |
-| Translation workflow and UI behavior | `GUIDE_TRANSLATION.md` |
-| Public-site render-cache setup, expiration, handler wrapping, and rollout | `../quickstart/README.md#public-site-render-cache` |
-| CMS mutation invalidation and generation-fence responsibilities | `GUIDE_CMS.md#public-render-cache-invalidation` |
+| CMS module development and content CRUD alignment | [GUIDE_CMS.md](GUIDE_CMS.md) |
+| CMS integration overview | [CMS_INTEGRATION.md](CMS_INTEGRATION.md) |
+| Translation workflow and UI behavior | [GUIDE_TRANSLATION.md](GUIDE_TRANSLATION.md) |
+| Optional AI translation providers, eligibility, and command wiring | [GUIDE_TRANSLATION.md#optional-ai-translation-suggestions](GUIDE_TRANSLATION.md#optional-ai-translation-suggestions) |
+| Public-site theme precedence and template diagnostics | [../quickstart/README.md#public-site-theme-precedence](../quickstart/README.md#public-site-theme-precedence) |
+| Public-site HTML error templates, module context, and fallback behavior | [../quickstart/README.md#public-site-error-rendering-policy](../quickstart/README.md#public-site-error-rendering-policy) |
+| Public-site render-cache setup, expiration, handler wrapping, and rollout | [../quickstart/README.md#public-site-render-cache](../quickstart/README.md#public-site-render-cache) |
+| CMS mutation invalidation and generation-fence responsibilities | [GUIDE_CMS.md#public-render-cache-invalidation](GUIDE_CMS.md#public-render-cache-invalidation) |
 
 ## Debugging And Operations
 
 | Need | Read |
 |---|---|
-| Debug module backend configuration, capture, APIs, and troubleshooting | `GUIDE_DEBUG_MODULE.md` |
-| Debug frontend architecture and panel renderers | `GUIDE_DEBUG_CLIENT.md` |
-| Public HTML cache diagnostics and clear behavior | `GUIDE_DEBUG_MODULE.md#site-render-cache-panel` |
-| Commerce example setup | `COMMERCE_SETUP.md` |
+| Debug module backend configuration, capture, APIs, and troubleshooting | [GUIDE_DEBUG_MODULE.md](GUIDE_DEBUG_MODULE.md) |
+| Debug frontend architecture and panel renderers | [GUIDE_DEBUG_CLIENT.md](GUIDE_DEBUG_CLIENT.md) |
+| Public HTML cache diagnostics and clear behavior | [GUIDE_DEBUG_MODULE.md#site-render-cache-panel](GUIDE_DEBUG_MODULE.md#site-render-cache-panel) |
+| Commerce example setup | [COMMERCE_SETUP.md](COMMERCE_SETUP.md) |
+| Build/deployment metadata and deterministic personas | [GUIDE_DEVELOPMENT.md#5-build-and-deployment-identity](GUIDE_DEVELOPMENT.md#5-build-and-deployment-identity) |
 
 ## Reference And Archive
 

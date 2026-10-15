@@ -35,7 +35,10 @@ High-level areas:
 - `quickstart/`: helpers and defaults used by host apps.
 - `examples/`: integration-style apps demonstrating real wiring.
 - `pkg/client/`: frontend assets and templates.
-- `docs/`: design docs, guides, and task plans.
+- `pkg/go-lifecycle/`, `pkg/go-deployment-identity/`, `pkg/go-sync/`, and
+  `pkg/go-translation-ai/`: reusable packages incubating in the core module.
+- `docs/`: maintained guides plus historical reference/archive material.
+- `.ctx/specs/`: canonical requirements, design, tasks, reviews, and handoffs.
 
 Documentation entry point:
 
@@ -70,6 +73,45 @@ gofmt -w path/to/file.go
 go test ./path/to/package -run TestName
 go test ./examples/web/...
 ```
+
+The root, `quickstart`, and `examples` are separate modules joined by `go.work`.
+The commands above use that workspace. For independent module checks, run
+`GOWORK=off go test -mod=readonly ./...` from each relevant module directory;
+do not add permanent local replacements to make a consumer/release check pass.
+The required Go toolchain is recorded in each `go.mod` and `go.work`.
+
+### Host lifecycle and readiness
+
+`adm.Initialize(...)` prepares the admin runtime and registers routes. Hosts
+still own listener binding, proof that requests can be accepted, readiness, and
+process shutdown. Use `github.com/goliatone/go-admin/pkg/go-lifecycle` when that
+work needs explicit phases and failure policy:
+
+1. Register tasks with `lifecycle.NewRegistry()` and construct a runner with
+   `lifecycle.NewRunner(registry)`; finish registration before constructing it.
+2. Run `RunPreBind(ctx)` for required setup, including route-producing work.
+3. Finalize the backing router and bind the listener in host code. Call
+   `MarkServing()` only after listener availability has been established.
+4. Run `RunPostBind(ctx)` and `RunReady(ctx)`. `RunReady` marks readiness on
+   successful phase completion; serving and ready are separate state flags.
+5. Start supervised workers with `StartBackground(ctx)` and consume
+   `BackgroundFailures()` so terminal failures reach the host's shutdown policy.
+6. Call `Shutdown(ctx)` with a bounded shutdown context. It cancels and waits
+   for background workers before teardown hooks. If it returns
+   `ShutdownIncompleteError`, keep shared resources open and retry shutdown
+   with another context; completed hooks are not rerun.
+
+Tasks declare fatal, degraded, retryable, or ignored error policy. Snapshots are
+bounded diagnostics; `Failures()` retains typed causes for internal handling.
+The runner uses only the standard library and does not mount HTTP routes.
+`quickstart.RegisterLifecycleReadinessRoute` mounts an opt-in `/readyz` handler
+that returns 503 until `Snapshot().Ready` is true; `LifecycleDoctorCheck` reports
+task state separately. See [quickstart wiring](../quickstart/README.md#host-lifecycle-and-readiness).
+
+The [admin-shell starter](../examples/admin-shell/README.md) is the runnable
+host reference. Its admin-contribution runner supplies task diagnostics while
+the starter core owns aggregate readiness and coordinated shutdown; do not infer
+whole-process readiness from a contribution-only snapshot.
 
 ## 5. Build and Deployment Identity
 
@@ -231,7 +273,14 @@ Validation checklist per change:
 When you change behavior:
 
 - Update the closest guide or README.
-- If the work maps to a task doc (`*_TSK.md`), check or update the relevant item.
+- Read `.ctx/README.md` and the affected feature's `REQUIREMENTS.md`, `DESIGN.md`,
+  and `TASKS.md` before material changes. Track work there using `[ ]`, `[~]`,
+  and `[x]`; completed historical task files are not the current backlog.
+- Keep requirements (what), design (how), and task status separate. Record the
+  execution handoff in the feature's `HANDOFFS.md`.
+- Update `docs/README.md` when a current feature needs a new navigation entry,
+  and keep the workspace `../GOLIATONE.md` package description aligned when
+  responsibilities, public APIs, routes, migrations, or versions change.
 - Keep docs precise and operational (commands, paths, config keys).
 
 Use docs for:
