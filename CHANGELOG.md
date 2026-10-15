@@ -1,6 +1,25 @@
 # Changelog
 
+# [0.140.7](https://github.com/goliatone/go-admin/compare/v0.140.6...v0.140.7) - (2026-10-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Do not drop custom operators ([82e2601](https://github.com/goliatone/go-admin/commit/82e2601f74aff00a01939e79744be520161feff7))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([3ea733f](https://github.com/goliatone/go-admin/commit/3ea733ff67eefcd44f8d11b4f42c438eff8828ee))  - (goliatone)
+- Update deps ([0b367ab](https://github.com/goliatone/go-admin/commit/0b367ab505d4785a8fbff4c6b1e279cde2095add))  - (goliatone)
+- Update docs and deps ([5b5efcf](https://github.com/goliatone/go-admin/commit/5b5efcfdf7779328cd0f3c1b50d4a6ebeebd1319))  - (goliatone)
+
 # [0.140.6](https://github.com/goliatone/go-admin/compare/v0.140.5...v0.140.6) - (2026-10-12)
+
+
+New patch release: v0.140.6
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.140.6 ([19fbe3c](https://github.com/goliatone/go-admin/commit/19fbe3c9b14e630cd24e5798a8bbfdb086401274))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
