@@ -464,6 +464,48 @@ Good fits:
 
 Policy hooks run after the rule/permission check and before command dispatch.
 
+For an API host using `NewGoAuthAuthenticator`, configure an authentication error
+handler that writes HTTP 401 JSON if login redirects are unsuitable:
+
+```go
+authn := admin.NewGoAuthAuthenticator(routeAuth, authCfg,
+    admin.WithAuthErrorHandler(func(c router.Context, _ error) error {
+        return c.JSON(http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+    }),
+)
+```
+
+The Fiber RPC transport returns command invocation failures, including permission
+and policy denials, in an HTTP 200 envelope with `error.code = RPC_INVOKE_FAILED`.
+Clients must check the error envelope and the accepted receipt; HTTP status alone
+does not prove that a command ran. Authentication failures happen in middleware
+before RPC invocation. The host-selected authentication handler controls their
+response. These existing transport semantics are distinct from panel CRUD errors.
+
+The raw `CommandBus` registers and dispatches typed messages; it does not
+require an authenticated actor or authorize direct calls. Put current grant,
+Group selection and resource ownership checks in the host service, then call
+that service from the typed handler. Invoke the same policy from
+`RPCCommandPolicyHook` for early transport rejection. A hook alone does not
+protect direct service or bus calls.
+
+For generic Groups A/B, resolve selection from trusted context and compare it
+with the requested Group before checking the current grant and stored resource
+owner. Keep Groups independent of tenant/organization fields. Recheck current
+policy before returning a replayed result. The command dispatch RPC endpoint is
+non-idempotent; receipt acceptance does not establish durable deduplication,
+resource ownership, or endpoint replay protection. Those are host responsibilities.
+
+The SQLite fixture in `admin/guarded_command_integration_test.go` demonstrates
+typed registration, RPC hooks, direct service checks, revoked grants and
+reassigned resources with synthetic Groups A/B. Existing RPC tests cover exact
+permission denial and metadata sanitization.
+`quickstart/rpc_guarded_http_test.go` additionally exercises signed JWT validation,
+registered module startup and HTTP RPC allow/deny paths, with synthetic host Group
+selection, grants and resources. The fixtures do not certify native Group
+persistence or a production identity/freshness/session composition; those still
+require host integration against the corresponding package contracts.
+
 ## Client Command Runtime Wiring
 
 The shared command runtime supports two transports:

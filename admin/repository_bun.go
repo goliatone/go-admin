@@ -287,12 +287,12 @@ func buildRepositoryAdapterQueryPlan(query normalizedRepositoryAdapterListQuery,
 		Search:     query.Search,
 		Predicates: repositoryAdapterQueryBunPredicates(predicates),
 	}
-	return querybun.BuildQueryPlan(opts, querybun.Config{
-		AllowedFields:                repositoryAdapterAllowedFields(query, predicates, searchColumns),
-		SearchColumns:                repositoryAdapterSearchColumns(searchColumns),
-		FallbackUnsupportedOperators: true,
-		DefaultLimit:                 defaultRepositoryAdapterPerPage,
-	})
+	cfg := querybun.DefaultConfig()
+	cfg.Fields.Resolver = querybun.NewMapResolver(repositoryAdapterAllowedFields(query, predicates, searchColumns))
+	cfg.Search.Fields = repositoryAdapterSearchColumns(searchColumns)
+	cfg.Search.Aliases = []string{"_search", "search"}
+	cfg.Pagination.DefaultLimit = defaultRepositoryAdapterPerPage
+	return querybun.BuildQueryPlan(opts, cfg)
 }
 
 func repositoryAdapterQueryBunPredicates(predicates []ListPredicate) []querybun.Predicate {
@@ -301,9 +301,19 @@ func repositoryAdapterQueryBunPredicates(predicates []ListPredicate) []querybun.
 	}
 	out := make([]querybun.Predicate, 0, len(predicates))
 	for _, predicate := range predicates {
+		operator := querybun.OperatorKind(predicate.Operator)
+		switch operator {
+		case querybun.OperatorEq, querybun.OperatorNe, querybun.OperatorGt, querybun.OperatorGte,
+			querybun.OperatorLt, querybun.OperatorLte, querybun.OperatorIn, querybun.OperatorAnd, querybun.OperatorOr:
+		default:
+			// Admin historically treats unknown operators as equality. Keep that
+			// behavior here: the planner now collects and drops unknown operators.
+			// Local pattern/negative operators are handled by splitPredicateCriteria.
+			operator = querybun.OperatorEq
+		}
 		out = append(out, querybun.Predicate{
 			Field:    predicate.Field,
-			Operator: predicate.Operator,
+			Operator: operator,
 			Values:   append([]string{}, predicate.Values...),
 		})
 	}
