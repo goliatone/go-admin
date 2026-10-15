@@ -9,12 +9,12 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-auth v0.45.1
-	github.com/goliatone/go-auth/adapters/featuregate v0.45.1
+	github.com/goliatone/go-auth v0.45.2
+	github.com/goliatone/go-auth/adapters/featuregate v0.45.2
 	github.com/goliatone/go-cms v0.60.7
-	github.com/goliatone/go-command v0.24.2
-	github.com/goliatone/go-crud v0.25.0
-	github.com/goliatone/go-crud/gql v0.25.0
+	github.com/goliatone/go-command v0.24.3
+	github.com/goliatone/go-crud v0.26.0
+	github.com/goliatone/go-crud/gql v0.26.0
 	github.com/goliatone/go-dashboard v0.15.8
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-featuregate v0.6.1
@@ -32,7 +32,7 @@ require (
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.26.2
+	github.com/goliatone/go-users v0.27.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.34
