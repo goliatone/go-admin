@@ -174,7 +174,7 @@ func TestCommandBusRequiresHostAuthorizationAndReplayPolicy(t *testing.T) {
 	if err := RegisterMessageFactory(bus, "resources.operate", func(map[string]any, []string) (guardedResourceCommand, error) { return guardedResourceCommand{}, nil }); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		if _, err := bus.DispatchByNameWithOptions(context.Background(), "resources.operate", nil, nil,
 			command.DispatchOptions{Mode: command.ExecutionModeInline, IdempotencyKey: "same-operation"}); err != nil {
 			t.Fatal(err)
