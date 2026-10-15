@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,36 @@ import (
 
 // Host-owned selection/grants/resources are synthetic; JWT signing and protected
 // HTTP middleware are real go-auth. Native Group persistence is tested upstream.
+type guardedHTTPIdentity struct {
+	protectedAppTestIdentity
+	status auth.UserStatus
+}
+
+func (i guardedHTTPIdentity) Status() auth.UserStatus { return i.status }
+
+type guardedHTTPIdentityProvider struct {
+	identities map[string]guardedHTTPIdentity
+	lookupErr  error
+	lookups    []string
+}
+
+func (p *guardedHTTPIdentityProvider) VerifyIdentity(context.Context, string, string) (auth.Identity, error) {
+	// This fixture authenticates signed tokens, never passwords.
+	return nil, auth.ErrIdentityNotFound
+}
+
+func (p *guardedHTTPIdentityProvider) FindIdentityByIdentifier(_ context.Context, identifier string) (auth.Identity, error) {
+	p.lookups = append(p.lookups, identifier)
+	if p.lookupErr != nil {
+		return nil, p.lookupErr
+	}
+	identity, ok := p.identities[identifier]
+	if !ok {
+		return nil, auth.ErrIdentityNotFound
+	}
+	return identity, nil
+}
+
 type guardedHTTPPolicy struct {
 	groups     map[string]string
 	grants     map[string][]string
@@ -87,7 +118,12 @@ func (m *guardedHTTPModule) Register(ctx admin.ModuleContext) error {
 }
 
 func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
-	for _, scenario := range []string{"authorized A", "authorized B", "missing token", "invalid signature", "missing dispatch permission", "missing exact permission", "cross group resource", "forged group", "revoked grant", "reassigned resource"} {
+	for _, scenario := range []string{
+		"authorized A", "authorized B", "missing token", "invalid signature",
+		"deleted identity", "disabled identity", "mismatched identity", "identity provider unavailable",
+		"missing dispatch permission", "missing exact permission", "cross group resource",
+		"forged group", "revoked grant", "reassigned resource",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			resetCommandRegistryForTest(t)
 			t.Cleanup(func() { resetCommandRegistryForTest(t) })
@@ -96,13 +132,23 @@ func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
 				grants: map[string][]string{"user-a": {"admin.commands.dispatch", "resources.operate"}, "user-b": {"admin.commands.dispatch", "resources.operate"}},
 				owners: map[string]string{"resource-a": "group-a", "resource-b": "group-b"},
 			}
+			actor, resource, group := "user-a", "resource-a", "group-a"
+			if scenario == "authorized B" {
+				actor, resource, group = "user-b", "resource-b", "group-b"
+			}
+			provider := &guardedHTTPIdentityProvider{identities: map[string]guardedHTTPIdentity{
+				"user-a": {protectedAppTestIdentity: protectedAppTestIdentity{id: "user-a", role: "member"}, status: auth.UserStatusActive},
+				"user-b": {protectedAppTestIdentity: protectedAppTestIdentity{id: "user-b", role: "member"}, status: auth.UserStatusActive},
+			}}
 			authCfg := stubAuthConfig{}
-			auther := auth.NewAuthenticator(protectedAppStubIdentityProvider{}, authCfg)
+			auther := auth.NewAuthenticator(provider, authCfg)
 			routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
 			if err != nil {
 				t.Fatal(err)
 			}
-			authn := admin.NewGoAuthAuthenticator(routeAuth, authCfg, admin.WithAuthErrorHandler(func(c router.Context, _ error) error {
+			var authErr error
+			authn := admin.NewGoAuthAuthenticator(routeAuth, authCfg, admin.WithAuthErrorHandler(func(c router.Context, err error) error {
+				authErr = err
 				// The host chooses API authentication failures instead of login redirects.
 				return c.JSON(http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
 			}))
@@ -132,19 +178,34 @@ func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
 				t.Fatal("host module did not register during startup")
 			}
 			t.Cleanup(adm.Commands().Reset)
-			actor, resource, group := "user-a", "resource-a", "group-a"
+			// Mint from an existing active account, then change current provider state
+			// to prove the HTTP boundary rechecks identity after JWT validation.
+			token, err := auther.TokenService().Generate(provider.identities[actor], nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			allowed := scenario == "authorized A" || scenario == "authorized B"
 			// go-router's RPC transport encodes invocation failures in an HTTP 200
 			// error envelope. Authorization is asserted below, including zero writes.
 			wantStatus := http.StatusOK
+			var wantAuthErr error
 			switch scenario {
-			case "authorized A":
-				wantStatus = http.StatusOK
-			case "authorized B":
-				actor, resource, group = "user-b", "resource-b", "group-b"
-				wantStatus = http.StatusOK
 			case "missing token", "invalid signature":
 				wantStatus = http.StatusUnauthorized
+			case "deleted identity":
+				delete(provider.identities, actor)
+				wantAuthErr = auth.ErrIdentityNotFound
+			case "disabled identity":
+				identity := provider.identities[actor]
+				identity.status = auth.UserStatusDisabled
+				provider.identities[actor] = identity
+				wantAuthErr = auth.ErrUserDisabled
+			case "mismatched identity":
+				provider.identities[actor] = provider.identities["user-b"]
+				wantAuthErr = auth.ErrIdentityNotFound
+			case "identity provider unavailable":
+				provider.lookupErr = errors.New("identity store unavailable")
+				wantAuthErr = provider.lookupErr
 			case "missing dispatch permission":
 				policy.grants[actor] = []string{"resources.operate"}
 			case "missing exact permission":
@@ -158,9 +219,8 @@ func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
 			case "reassigned resource":
 				policy.owners[resource] = "group-b"
 			}
-			token, err := auther.TokenService().Generate(protectedAppTestIdentity{id: actor, role: "member"}, nil)
-			if err != nil {
-				t.Fatal(err)
+			if wantAuthErr != nil {
+				wantStatus = http.StatusUnauthorized
 			}
 			if scenario == "invalid signature" {
 				token = token[:strings.LastIndex(token, ".")+1] + "invalid"
@@ -184,7 +244,31 @@ func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
 				t.Fatal(err)
 			}
 			if resp.StatusCode != wantStatus {
-				t.Fatalf("status=%d want=%d body=%s", resp.StatusCode, wantStatus, body)
+				t.Fatalf("status=%d want=%d auth_error=%v body=%s", resp.StatusCode, wantStatus, authErr, body)
+			}
+			if wantAuthErr != nil && !errors.Is(authErr, wantAuthErr) {
+				t.Fatalf("auth_error=%v want=%v", authErr, wantAuthErr)
+			}
+			if wantStatus == http.StatusUnauthorized {
+				if authErr == nil || hookCalls != 0 {
+					t.Fatalf("authentication denial: auth_error=%v hook_calls=%d", authErr, hookCalls)
+				}
+				var envelope map[string]string
+				if err := json.Unmarshal(body, &envelope); err != nil {
+					t.Fatal(err)
+				}
+				if len(envelope) != 1 || envelope["error"] != "unauthorized" {
+					t.Fatalf("expected generic authentication error, body=%s", body)
+				}
+			} else if authErr != nil {
+				t.Fatalf("unexpected authentication failure: %v", authErr)
+			}
+			var wantLookups []string
+			if scenario != "missing token" && scenario != "invalid signature" {
+				wantLookups = []string{actor}
+			}
+			if !slices.Equal(provider.lookups, wantLookups) {
+				t.Fatalf("identity lookups=%v want=%v", provider.lookups, wantLookups)
 			}
 			if resp.Header.Get("Location") != "" {
 				t.Fatalf("unexpected auth redirect: %q", resp.Header.Get("Location"))

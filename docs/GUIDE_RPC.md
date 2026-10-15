@@ -475,6 +475,14 @@ authn := admin.NewGoAuthAuthenticator(routeAuth, authCfg,
 )
 ```
 
+With go-auth's identity provider configured, protected HTTP routes resolve the
+signed user ID after JWT validation and require a matching active account.
+`FindIdentityByIdentifier` must support that ID lookup. A missing or disabled
+account, mismatched identity, or provider error rejects the request before RPC
+policy hooks and dispatch. Test providers must contain the identities used to
+mint tokens. Keep authentication causes in server/test diagnostics while returning
+a generic authentication error to clients.
+
 The Fiber RPC transport returns command invocation failures, including permission
 and policy denials, in an HTTP 200 envelope with `error.code = RPC_INVOKE_FAILED`.
 Clients must check the error envelope and the accepted receipt; HTTP status alone
@@ -501,10 +509,12 @@ typed registration, RPC hooks, direct service checks, revoked grants and
 reassigned resources with synthetic Groups A/B. Existing RPC tests cover exact
 permission denial and metadata sanitization.
 `quickstart/rpc_guarded_http_test.go` additionally exercises signed JWT validation,
-registered module startup and HTTP RPC allow/deny paths, with synthetic host Group
-selection, grants and resources. The fixtures do not certify native Group
-persistence or a production identity/freshness/session composition; those still
-require host integration against the corresponding package contracts.
+current-account lookup failures, registered module startup and HTTP RPC allow/deny
+paths, with synthetic accounts, host Group selection, grants and resources.
+Authentication denials assert zero policy hooks and mutations. The fixtures do
+not certify native Group persistence or a production identity/freshness/session
+composition; those still require host integration against the corresponding
+package contracts.
 
 ## Client Command Runtime Wiring
 
