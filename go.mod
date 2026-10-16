@@ -20,19 +20,19 @@ require (
 	github.com/goliatone/go-featuregate v0.6.1
 	github.com/goliatone/go-formgen v0.33.2
 	github.com/goliatone/go-i18n v0.5.0
-	github.com/goliatone/go-job v0.19.1
+	github.com/goliatone/go-job v0.20.0
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-masker v0.2.0
 	github.com/goliatone/go-notifications v0.16.2
 	github.com/goliatone/go-options v0.7.2
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.62.4
+	github.com/goliatone/go-router v0.62.5
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.1
+	github.com/goliatone/go-users v0.27.2
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.34

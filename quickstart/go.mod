@@ -15,22 +15,22 @@ require (
 	github.com/goliatone/go-command v0.24.3
 	github.com/goliatone/go-dashboard v0.15.8
 	github.com/goliatone/go-errors v0.12.0
-	github.com/goliatone/go-export v0.10.0
-	github.com/goliatone/go-export/adapters/template/go-template v0.10.0
+	github.com/goliatone/go-export v0.11.0
+	github.com/goliatone/go-export/adapters/template/go-template v0.11.0
 	github.com/goliatone/go-featuregate v0.6.1
 	github.com/goliatone/go-formgen v0.33.2
 	github.com/goliatone/go-i18n v0.5.0
-	github.com/goliatone/go-job v0.19.1
+	github.com/goliatone/go-job v0.20.0
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-notifications v0.16.2
 	github.com/goliatone/go-persistence-bun v0.17.1
-	github.com/goliatone/go-router v0.62.4
+	github.com/goliatone/go-router v0.62.5
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.1
+	github.com/goliatone/go-users v0.27.2
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -112,12 +112,12 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.14.0 // indirect
-	github.com/goliatone/go-crud v0.26.0 // indirect
+	github.com/goliatone/go-crud v0.26.1 // indirect
 	github.com/goliatone/go-crud/gql v0.26.0 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-bun v0.16.1 // indirect
+	github.com/goliatone/go-repository-bun v0.16.2 // indirect
 	github.com/goliatone/go-repository-cache v0.7.2 // indirect
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect

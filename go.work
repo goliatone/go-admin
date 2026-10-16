@@ -4,6 +4,9 @@ use (
 	.
 	./examples
 	./quickstart
+	../go-job
+	../go-export
+	../go-export/adapters/template/go-template
 )
 
 // cockroachdb/errors still requires the pre-split genproto module through
