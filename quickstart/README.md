@@ -1828,6 +1828,19 @@ quickstart.RegisterContentTypeBuilderUIRoutes(
 )
 ```
 
+## Durable authenticated exports
+
+`NewDurableExportHost` composes the normal export bundle with go-export's SQL replay/tracker, filesystem artifacts, atomic completion publication, receipt webhooks and go-job's SQL queue, native worker and recurring ledger. The workspace selects sibling go-job and go-export sources while module release pins remain unchanged.
+
+Supply `DurableExportHostConfig` with the host Bun database, artifact directory, current guard/actor provider, trusted namespace, authorized transaction and record policy. `AcceptBackground` must explicitly authorize and persist bounded delegation in the supplied transaction. `ResolveBackground` receives only work kind and export/schedule IDs: recover current authority, safe correlation and scope from trusted durable state. Overwrite message actor hints; never copy browser cookies, bearer tokens or role claims into background authority. Recheck account, membership, exact grant, delegation expiry/revocation, parent delegation and destination policy in guards/transactions. A valid independent delegation can survive browser logout/expiry; account, permission or delegation revocation must stop effects. Child grants must not widen parent lifetime or capabilities.
+
+1. Apply the host-owned native `export_records` migration, including `request_payload`; call `host.Migrate(ctx)` for additive replay/queue/ownership/recurrence and optional webhook schemas. Startup readiness fails closed on missing tables.
+2. Register definitions/row sources/renderers on `host.Bundle.Runner` (or supply `WithExportRunner`). Sources must reuse the authorized transaction. Pass `Bundle.Registry`, `Bundle.Registrar` and `Bundle.Metadata` through the existing admin dependencies and authenticated route wrapper. Durable creation requires CSRF-protected POST and async delivery; sync/GET creation is rejected. History applies trusted ownership/namespace predicates in SQL, with a 200-record limit.
+3. Run `host.Run(applicationContext)` under the host lifecycle. It owns a dedicated native task registry and one queue retry policy; cancel and await it before closing the database. Reserve this queue for the registered export tasks. For shared/fleet consumers, use separate queue storage/tables and the same identity policy. `ExecuteMessage` leaves receipt ACK/NACK to its caller.
+4. Install immutable native schedule definitions through trusted operator configuration with an `ExportRequest` JSON payload and explicit bounded schedule delegation. `TickSchedule` atomically admits occurrence/export/delegation/plan/job/cursor and emits ordinary activity after commit. Optional `RecurringNamespaces` enables bounded polling; `OnPollError` is mandatory and must report failed scopes. Pausing retains backlog and does not cancel already accepted exports.
+
+Optional `Webhooks` requires a receipt sender, immutable destination selector, current destination authorizer and safe download-link policy. External delivery remains at least once; matching transactional receiver inbox receipts prevent duplicate effects for that receiver. Ordinary activity is postcommit and is not a durable outbox. Tracker migration, delegation provisioning/renewal, credentials, legacy-data backfill, coordinated retention/backup/restore and deployment remain application/operator responsibilities. This opt-in composition does not automatically change the legacy demo host.
+
 ## Usage example
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")

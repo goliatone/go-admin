@@ -30,6 +30,7 @@ type ExportBundle struct {
 type ExportBundleOption func(*exportBundleOptions)
 
 type exportBundleOptions struct {
+	runner                *export.Runner
 	basePath              string
 	pathSuffix            string
 	historyPath           string
@@ -43,6 +44,17 @@ type exportBundleOptions struct {
 	requestDecoder        exportapi.RequestDecoder
 	queryRequestDecoder   exportapi.RequestDecoder
 	maxBufferBytes        int64
+}
+
+// WithExportRunner reuses configured definitions, sources, renderers and activity
+// emitters. Bundle store/tracker/guard options still own their runtime bindings.
+// Configure the runner before serving traffic; it must have one lifecycle owner.
+func WithExportRunner(runner *export.Runner) ExportBundleOption {
+	return func(opts *exportBundleOptions) {
+		if opts != nil {
+			opts.runner = runner
+		}
+	}
 }
 
 // WithExportBasePath overrides the default export base path.
@@ -186,7 +198,10 @@ func NewExportBundle(opts ...ExportBundleOption) *ExportBundle {
 		tracker = export.NewMemoryTracker()
 	}
 
-	runner := export.NewRunner()
+	runner := options.runner
+	if runner == nil {
+		runner = export.NewRunner()
+	}
 	runner.Store = store
 	runner.Tracker = tracker
 	runner.Guard = options.guard
