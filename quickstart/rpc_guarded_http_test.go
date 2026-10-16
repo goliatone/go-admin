@@ -89,8 +89,11 @@ type guardedHTTPMessage struct{ Resource, Group string }
 
 func (guardedHTTPMessage) Type() string { return "resources.http.operate" }
 func guardedHTTPPayload(payload map[string]any) guardedHTTPMessage {
-	resource, _ := payload["resource_id"].(string)
-	group, _ := payload["group_id"].(string)
+	resource, resourceOK := payload["resource_id"].(string)
+	group, groupOK := payload["group_id"].(string)
+	if !resourceOK || !groupOK {
+		return guardedHTTPMessage{}
+	}
 	return guardedHTTPMessage{resource, group}
 }
 
@@ -167,12 +170,12 @@ func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
 				t.Fatal(err)
 			}
 			module := &guardedHTTPModule{policy: policy}
-			if err := adm.RegisterModule(module); err != nil {
-				t.Fatal(err)
+			if registerErr := adm.RegisterModule(module); registerErr != nil {
+				t.Fatal(registerErr)
 			}
 			server := router.NewFiberAdapter()
-			if err := adm.Initialize(server.Router()); err != nil {
-				t.Fatal(err)
+			if initErr := adm.Initialize(server.Router()); initErr != nil {
+				t.Fatal(initErr)
 			}
 			if !module.registered {
 				t.Fatal("host module did not register during startup")
@@ -280,7 +283,7 @@ func TestGuardedCommandAuthenticatedHTTPModule(t *testing.T) {
 					} `json:"error"`
 					Data struct {
 						Receipt struct {
-							Accepted bool `json:"Accepted"`
+							Accepted bool `json:"accepted"`
 						} `json:"receipt"`
 					} `json:"data"`
 				}

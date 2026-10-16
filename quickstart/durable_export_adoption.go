@@ -142,6 +142,14 @@ func (h *DurableExportHost) legacyEnabled() error {
 // legacyTransaction reuses the current trusted transaction and invokes policy
 // before metadata access. Result values must be returned only after commit.
 func (h *DurableExportHost) legacyTransaction(ctx context.Context, a export.Actor, id, profile string, fn func(context.Context, bun.Tx) error) error {
+	if h == nil {
+		return durableExportInvalid("legacy host required")
+	}
+	ctx, release, _, gateErr := h.cfg.RecoveryGate.enter(ctx)
+	if gateErr != nil {
+		return gateErr
+	}
+	defer release()
 	if e := h.legacyEnabled(); e != nil {
 		return e
 	}
@@ -290,7 +298,7 @@ func (h *DurableExportHost) legacyReplay(ctx context.Context, tx bun.Tx, a expor
 	if e := json.Unmarshal([]byte(row.ReceiptIDs), &ids); e != nil || len(ids) != len(req.Targets) {
 		return durableExportInvalid("retained legacy receipts invalid")
 	}
-	count, e := tx.NewSelect().Table("export_webhook_targets").Where("export_id=?", rec.ID).Where("id IN (?)", bun.In(ids)).Count(ctx)
+	count, e := tx.NewSelect().Table("export_webhook_targets").Where("export_id=?", rec.ID).Where("id IN (?)", bun.List(ids)).Count(ctx)
 	if e != nil {
 		return e
 	}
@@ -304,130 +312,170 @@ func (h *DurableExportHost) legacyReplay(ctx context.Context, tx bun.Tx, a expor
 // AdoptLegacyExport applies the reviewed pair atomically. Existing plans and
 // delivery identities are never rebound to another profile or credential set.
 func (h *DurableExportHost) AdoptLegacyExport(ctx context.Context, a export.Actor, r LegacyExportAdoptionRequest) (LegacyExportAdoptionResult, error) {
-	if e := r.Validate(); e != nil {
-		return LegacyExportAdoptionResult{}, e
+	if err := r.Validate(); err != nil {
+		return LegacyExportAdoptionResult{}, err
 	}
 	var result LegacyExportAdoptionResult
-	e := h.legacyTransaction(ctx, a, r.ExportID, r.ProfileRef, func(ctx context.Context, tx bun.Tx) error {
-		rec, plan, review, e := h.legacyRead(ctx, tx, a, r.ExportID, r.ProfileRef)
-		if e != nil {
-			return e
-		}
-		ns, e := h.cfg.Namespace(ctx, a)
-		if e != nil {
-			return e
-		}
-		if ns == "" {
-			return durableExportDenied()
-		}
-		row := legacyExportReceipt{ExportID: rec.ID}
-		e = tx.NewSelect().Model(&row).WherePK().Scan(ctx)
-		if e == nil {
-			if row.Namespace != ns || row.ActorID != a.ID || row.TenantID != a.Scope.TenantID || row.WorkspaceID != a.Scope.WorkspaceID || row.ProfileRef != r.ProfileRef || row.RecordSHA256 != r.RecordSHA256 || row.PlanSHA256 != r.PlanSHA256 || review.PlanSHA256 != r.PlanSHA256 {
-				return durableExportInvalid("legacy adoption replay conflict")
-			}
-			if e = h.legacyReplay(ctx, tx, a, rec, plan, row); e != nil {
-				return e
-			}
-			result = LegacyExportAdoptionResult{ExportID: rec.ID, ProfileRef: row.ProfileRef, State: row.State, Replayed: true}
-			return nil
-		}
-		if !errors.Is(e, sql.ErrNoRows) {
-			return e
-		}
-		if review.RecordSHA256 != r.RecordSHA256 || review.PlanSHA256 != r.PlanSHA256 {
-			return durableExportInvalid("legacy adoption review is stale")
-		}
-		if rec.State != export.StateQueued && rec.State != export.StateCompleted {
-			return durableExportInvalid("legacy queued or completed record required")
-		}
-		for _, table := range []string{"export_webhook_completion_plans", "export_webhook_targets"} {
-			count, e := tx.NewSelect().Table(table).Where("export_id=?", rec.ID).Count(ctx)
-			if e != nil {
-				return e
-			}
-			if count != 0 {
-				return durableExportInvalid("existing notification intent cannot be adopted or replaced")
-			}
-		}
-		if rec.State == export.StateQueued {
-			if rec.Request.Definition == "" {
-				return durableExportInvalid("retained queued request required")
-			}
-			def, e := h.Bundle.Runner.Definitions.Resolve(rec.Request)
-			if e != nil {
-				return e
-			}
-			for _, guard := range []export.Guard{h.cfg.Guard, h.Bundle.Runner.Guard} {
-				if guard != nil {
-					if e = guard.AuthorizeExport(ctx, a, rec.Request, def); e != nil {
-						return e
-					}
-				}
-			}
-		} else if e = h.legacyArtifact(ctx, rec); e != nil {
-			return e
-		}
-		owner := durableExportOwner{ExportID: rec.ID, Namespace: ns, ActorID: a.ID, TenantID: a.Scope.TenantID, WorkspaceID: a.Scope.WorkspaceID}
-		if _, e = tx.NewInsert().Model(&owner).On("CONFLICT (export_id) DO NOTHING").Exec(ctx); e != nil {
-			return e
-		}
-		var retained durableExportOwner
-		if e = tx.NewSelect().Model(&retained).Where("export_id=?", rec.ID).Scan(ctx); e != nil {
-			return e
-		}
-		if retained.ExportID != owner.ExportID || retained.Namespace != owner.Namespace || retained.ActorID != owner.ActorID || retained.TenantID != owner.TenantID || retained.WorkspaceID != owner.WorkspaceID {
-			return durableExportDenied()
-		}
-		if e = h.cfg.AcceptBackground(ctx, tx, a, rec); e != nil {
-			return e
-		}
-		if e = h.cfg.AuthorizeRecordTransaction(ctx, tx, a, rec.ID); e != nil {
-			return e
-		}
-		var receiptIDs []string
-		if rec.State == export.StateQueued {
-			publisher, e := deliverybun.NewCompletionPublisher(deliverybun.CompletionConfig{Delivery: h.Webhooks, AuthorizeTransaction: h.cfg.AuthorizeRecordTransaction, Select: func(context.Context, export.Actor, export.ExportRecord) (deliverybun.ScheduleRequest, error) {
-				return plan, nil
-			}})
-			if e != nil {
-				return e
-			}
-			if e = publisher.OnQueued(ctx, tx, a, rec); e != nil {
-				return e
-			}
-			payload, e := json.Marshal(exportjob.Payload{ExportID: rec.ID, Actor: export.Actor{ID: a.ID, Scope: a.Scope}, Request: rec.Request})
-			if e != nil {
-				return e
-			}
-			if _, e = h.Queue.EnqueueTx(ctx, tx.Tx, &job.ExecutionMessage{JobID: exportjob.DefaultGenerateTaskID, ScriptPath: exportjob.DefaultGenerateTaskPath, IdempotencyKey: rec.ID, Parameters: map[string]any{"payload": json.RawMessage(payload)}}, h.cfg.Now()); e != nil {
-				return e
-			}
-		} else {
-			receipts, e := h.legacyDelivery(ctx, tx, a, rec, plan)
-			if e != nil {
-				return e
-			}
-			for _, r := range receipts {
-				receiptIDs = append(receiptIDs, r.ID)
-			}
-		}
-		raw, e := json.Marshal(receiptIDs)
-		if e != nil {
-			return e
-		}
-		row = legacyExportReceipt{ExportID: rec.ID, Namespace: ns, ActorID: a.ID, TenantID: a.Scope.TenantID, WorkspaceID: a.Scope.WorkspaceID, ProfileRef: r.ProfileRef, RecordSHA256: r.RecordSHA256, PlanSHA256: r.PlanSHA256, State: rec.State, ReceiptIDs: string(raw), AdoptedAt: h.cfg.Now()}
-		if row.AdoptedAt.IsZero() {
-			return durableExportInvalid("legacy adoption clock required")
-		}
-		if _, e = tx.NewInsert().Model(&row).Exec(ctx); e != nil {
-			return e
-		}
-		result = LegacyExportAdoptionResult{ExportID: rec.ID, ProfileRef: r.ProfileRef, State: rec.State}
-		return nil
+	err := h.legacyTransaction(ctx, a, r.ExportID, r.ProfileRef, func(ctx context.Context, tx bun.Tx) error {
+		var applyErr error
+		result, applyErr = h.adoptLegacyExportTx(ctx, tx, a, r)
+		return applyErr
 	})
-	if e != nil {
-		return LegacyExportAdoptionResult{}, e
+	if err != nil {
+		return LegacyExportAdoptionResult{}, err
 	}
 	return result, nil
+}
+
+func (h *DurableExportHost) adoptLegacyExportTx(ctx context.Context, tx bun.Tx, a export.Actor, r LegacyExportAdoptionRequest) (LegacyExportAdoptionResult, error) {
+	rec, plan, review, err := h.legacyRead(ctx, tx, a, r.ExportID, r.ProfileRef)
+	if err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	ns, err := h.cfg.Namespace(ctx, a)
+	if err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	if ns == "" {
+		return LegacyExportAdoptionResult{}, durableExportDenied()
+	}
+	row := legacyExportReceipt{ExportID: rec.ID}
+	err = tx.NewSelect().Model(&row).WherePK().Scan(ctx)
+	if err == nil {
+		if !legacyReceiptMatches(row, ns, a, r, review) {
+			return LegacyExportAdoptionResult{}, durableExportInvalid("legacy adoption replay conflict")
+		}
+		if err = h.legacyReplay(ctx, tx, a, rec, plan, row); err != nil {
+			return LegacyExportAdoptionResult{}, err
+		}
+		return LegacyExportAdoptionResult{ExportID: rec.ID, ProfileRef: row.ProfileRef, State: row.State, Replayed: true}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return LegacyExportAdoptionResult{}, err
+	}
+	return h.adoptUnclaimedLegacyExport(ctx, tx, a, r, rec, plan, review, ns)
+}
+
+func legacyReceiptMatches(row legacyExportReceipt, namespace string, actor export.Actor, request LegacyExportAdoptionRequest, review LegacyExportReview) bool {
+	return row.Namespace == namespace && row.ActorID == actor.ID && row.TenantID == actor.Scope.TenantID && row.WorkspaceID == actor.Scope.WorkspaceID && row.ProfileRef == request.ProfileRef && row.RecordSHA256 == request.RecordSHA256 && row.PlanSHA256 == request.PlanSHA256 && review.PlanSHA256 == request.PlanSHA256
+}
+
+func (h *DurableExportHost) adoptUnclaimedLegacyExport(ctx context.Context, tx bun.Tx, a export.Actor, r LegacyExportAdoptionRequest, rec export.ExportRecord, plan deliverybun.ScheduleRequest, review LegacyExportReview, namespace string) (LegacyExportAdoptionResult, error) {
+	if review.RecordSHA256 != r.RecordSHA256 || review.PlanSHA256 != r.PlanSHA256 {
+		return LegacyExportAdoptionResult{}, durableExportInvalid("legacy adoption review is stale")
+	}
+	if rec.State != export.StateQueued && rec.State != export.StateCompleted {
+		return LegacyExportAdoptionResult{}, durableExportInvalid("legacy queued or completed record required")
+	}
+	if err := checkLegacyNotificationIntent(ctx, tx, rec.ID); err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	if err := h.authorizeLegacyAdoption(ctx, a, rec); err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	if err := h.retainLegacyOwner(ctx, tx, a, rec, namespace); err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	receiptIDs, err := h.publishLegacyAdoption(ctx, tx, a, rec, plan)
+	if err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	raw, err := json.Marshal(receiptIDs)
+	if err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	row := legacyExportReceipt{ExportID: rec.ID, Namespace: namespace, ActorID: a.ID, TenantID: a.Scope.TenantID, WorkspaceID: a.Scope.WorkspaceID, ProfileRef: r.ProfileRef, RecordSHA256: r.RecordSHA256, PlanSHA256: r.PlanSHA256, State: rec.State, ReceiptIDs: string(raw), AdoptedAt: h.cfg.Now()}
+	if row.AdoptedAt.IsZero() {
+		return LegacyExportAdoptionResult{}, durableExportInvalid("legacy adoption clock required")
+	}
+	if _, err = tx.NewInsert().Model(&row).Exec(ctx); err != nil {
+		return LegacyExportAdoptionResult{}, err
+	}
+	return LegacyExportAdoptionResult{ExportID: rec.ID, ProfileRef: r.ProfileRef, State: rec.State}, nil
+}
+
+func checkLegacyNotificationIntent(ctx context.Context, tx bun.Tx, exportID string) error {
+	for _, table := range []string{"export_webhook_completion_plans", "export_webhook_targets"} {
+		count, err := tx.NewSelect().Table(table).Where("export_id=?", exportID).Count(ctx)
+		if err != nil {
+			return err
+		}
+		if count != 0 {
+			return durableExportInvalid("existing notification intent cannot be adopted or replaced")
+		}
+	}
+	return nil
+}
+
+func (h *DurableExportHost) authorizeLegacyAdoption(ctx context.Context, a export.Actor, rec export.ExportRecord) error {
+	if rec.State != export.StateQueued {
+		return h.legacyArtifact(ctx, rec)
+	}
+	if rec.Request.Definition == "" {
+		return durableExportInvalid("retained queued request required")
+	}
+	definition, err := h.Bundle.Runner.Definitions.Resolve(rec.Request)
+	if err != nil {
+		return err
+	}
+	for _, guard := range []export.Guard{h.cfg.Guard, h.Bundle.Runner.Guard} {
+		if guard == nil {
+			continue
+		}
+		if err = guard.AuthorizeExport(ctx, a, rec.Request, definition); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *DurableExportHost) retainLegacyOwner(ctx context.Context, tx bun.Tx, a export.Actor, rec export.ExportRecord, namespace string) error {
+	owner := durableExportOwner{ExportID: rec.ID, Namespace: namespace, ActorID: a.ID, TenantID: a.Scope.TenantID, WorkspaceID: a.Scope.WorkspaceID}
+	if _, err := tx.NewInsert().Model(&owner).On("CONFLICT (export_id) DO NOTHING").Exec(ctx); err != nil {
+		return err
+	}
+	var retained durableExportOwner
+	if err := tx.NewSelect().Model(&retained).Where("export_id=?", rec.ID).Scan(ctx); err != nil {
+		return err
+	}
+	if retained.ExportID != owner.ExportID || retained.Namespace != owner.Namespace || retained.ActorID != owner.ActorID || retained.TenantID != owner.TenantID || retained.WorkspaceID != owner.WorkspaceID {
+		return durableExportDenied()
+	}
+	if err := h.cfg.AcceptBackground(ctx, tx, a, rec); err != nil {
+		return err
+	}
+	return h.cfg.AuthorizeRecordTransaction(ctx, tx, a, rec.ID)
+}
+
+func (h *DurableExportHost) publishLegacyAdoption(ctx context.Context, tx bun.Tx, a export.Actor, rec export.ExportRecord, plan deliverybun.ScheduleRequest) ([]string, error) {
+	if rec.State == export.StateQueued {
+		return nil, h.enqueueLegacyAdoption(ctx, tx, a, rec, plan)
+	}
+	receipts, err := h.legacyDelivery(ctx, tx, a, rec, plan)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, receipt := range receipts {
+		ids = append(ids, receipt.ID)
+	}
+	return ids, nil
+}
+
+func (h *DurableExportHost) enqueueLegacyAdoption(ctx context.Context, tx bun.Tx, a export.Actor, rec export.ExportRecord, plan deliverybun.ScheduleRequest) error {
+	publisher, err := deliverybun.NewCompletionPublisher(deliverybun.CompletionConfig{Delivery: h.Webhooks, AuthorizeTransaction: h.cfg.AuthorizeRecordTransaction, Select: func(context.Context, export.Actor, export.ExportRecord) (deliverybun.ScheduleRequest, error) {
+		return plan, nil
+	}})
+	if err != nil {
+		return err
+	}
+	if err = publisher.OnQueued(ctx, tx, a, rec); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(exportjob.Payload{ExportID: rec.ID, Actor: export.Actor{ID: a.ID, Scope: a.Scope}, Request: rec.Request})
+	if err != nil {
+		return err
+	}
+	_, err = h.Queue.EnqueueTx(ctx, tx.Tx, &job.ExecutionMessage{JobID: exportjob.DefaultGenerateTaskID, ScriptPath: exportjob.DefaultGenerateTaskPath, IdempotencyKey: rec.ID, Parameters: map[string]any{"payload": json.RawMessage(payload)}}, h.cfg.Now())
+	return err
 }

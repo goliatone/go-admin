@@ -23,10 +23,11 @@ PATH=$(pwd)/node_modules/.bin:$PATH
 PATH=$(pwd)/src/bin:$PATH
 
 GO_TOOLCHAIN="${GO_TOOLCHAIN:-local}"
-GO_GOLANGCI_LINT_VERSION="${GO_GOLANGCI_LINT_VERSION:-v2.13.2}"
+GO_GOLANGCI_LINT_VERSION="${GO_GOLANGCI_LINT_VERSION:-v2.14.0}"
 GO_GOLANGCI_LINT_VERSION_FILE="${GO_GOLANGCI_LINT_VERSION_FILE:-.golangci-lint-version}"
 GO_GOVULNCHECK_VERSION="${GO_GOVULNCHECK_VERSION:-v1.8.0}"
-GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.29.0}"
+# Go 1.27 export data support (x/tools v0.52.0); replace with the next tagged release.
+GO_GOSEC_VERSION="${GO_GOSEC_VERSION:-v2.29.1-0.20261015133444-707f2271f665}"
 GO_QUALITY_BASELINE_DIR="${GO_QUALITY_BASELINE_DIR:-ops/quality/baselines}"
 GO_QUALITY_BASELINE_SCRIPT="${GO_QUALITY_BASELINE_SCRIPT:-./tools/quality/baseline.sh}"
 GO_QUALITY_GOCACHE="${GO_QUALITY_GOCACHE:-${GOCACHE:-}}"
@@ -256,12 +257,40 @@ function _go:run_in_modules {
     local module
 
     while IFS= read -r module; do
-        if [ "${module}" = "." ]; then
-            "$@" || return 1
-        else
-            (cd "${module}" && "$@") || return 1
-        fi
+        (cd "${module}" && _go:run_in_module "$@") || return 1
     done < <(_go:module_dirs)
+}
+
+function _go:run_in_module {
+    local go_bin
+    local package_dirs
+    local package_dir
+    local module_root="${PWD}"
+    local -a args=("$@")
+    local -a patterns=()
+
+    # Expand the default wildcard so archived, incomplete source snapshots do
+    # not become packages of the containing module. Explicit targets stay intact.
+    if [ "${args[${#args[@]}-1]}" != './...' ]; then
+        "$@"
+        return $?
+    fi
+    go_bin=$(_go:bin) || return 1
+    package_dirs=$("${go_bin}" list -f '{{.Dir}}' ./...) || return 1
+    while IFS= read -r package_dir; do
+        case "${package_dir}" in
+            "${module_root}/evidence"|"${module_root}/evidence/"*) continue ;;
+            */node_modules/*) continue ;;
+            "${module_root}") patterns+=(".") ;;
+            "${module_root}/"*) patterns+=("./${package_dir#"${module_root}/"}") ;;
+        esac
+    done <<< "${package_dirs}"
+    if [ "${#patterns[@]}" -eq 0 ]; then
+        echo "No maintained Go packages found in ${module_root}" >&2
+        return 1
+    fi
+    unset 'args[${#args[@]}-1]'
+    "${args[@]}" "${patterns[@]}"
 }
 
 function _go:packages {
@@ -293,12 +322,12 @@ function _go:package_dirs {
 }
 
 function _go:files {
-    find . -type f -name '*.go' \
-        -not -path './.git/*' \
-        -not -path './.gocache/*' \
-        -not -path './.tmp/*' \
-        -not -path './node_modules/*' \
-        -not -path './pkg/client/assets/node_modules/*' \
+    # Do not format frozen evidence, context snapshots or separate worktrees.
+    find . \( -path './.git' -o -path './.ctx' \
+        -o -path './.claude/worktrees' -o -path './.codex/worktrees' \
+        -o -path './evidence' -o -path './.gocache' -o -path './.tmp' \
+        -o -name node_modules \) -prune \
+        -o -type f -name '*.go' -print \
         | sort
 }
 

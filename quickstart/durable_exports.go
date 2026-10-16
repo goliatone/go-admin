@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,6 +53,9 @@ type DurableExportWebhookConfig struct {
 // browser credentials. AcceptBackground explicitly authorizes/persists that
 // delegation with each new export; errors roll back all acceptance writes.
 type DurableExportHostConfig struct {
+	// RecoveryGate optionally enforces process-local sealed startup and drain.
+	// Construct a new gate on each start; raw handles require separate fencing.
+	RecoveryGate               *DurableExportRecoveryGate
 	LegacyAdoption             *LegacyExportAdoptionConfig
 	DB                         *bun.DB
 	ArtifactRoot               string
@@ -108,38 +112,61 @@ func durableExportDenied() error {
 	return export.NewError(export.KindAuthz, "export background authority unavailable", nil)
 }
 
-func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOption) (*DurableExportHost, error) {
-	if cfg.DB == nil || strings.TrimSpace(cfg.ArtifactRoot) == "" || cfg.Guard == nil || cfg.ActorProvider == nil || cfg.Namespace == nil || cfg.WithTransaction == nil || cfg.AuthorizeRecordTransaction == nil || cfg.AcceptBackground == nil || cfg.ResolveBackground == nil {
-		return nil, durableExportInvalid("durable exports require database, artifact root, guards, transaction and explicit background policies")
+func validateDurableExportAuthority(cfg DurableExportHostConfig) error {
+	if cfg.RecoveryGate != nil {
+		if e := cfg.RecoveryGate.validate(); e != nil {
+			return e
+		}
 	}
+	if cfg.DB == nil || strings.TrimSpace(cfg.ArtifactRoot) == "" || cfg.Guard == nil || cfg.ActorProvider == nil || cfg.Namespace == nil || cfg.WithTransaction == nil || cfg.AuthorizeRecordTransaction == nil || cfg.AcceptBackground == nil || cfg.ResolveBackground == nil {
+		return durableExportInvalid("durable exports require database, artifact root, guards, transaction and explicit background policies")
+	}
+	return nil
+}
+
+func validateDurableExportRuntime(cfg DurableExportHostConfig) error {
 	if cfg.PollInterval < 0 || cfg.ScheduleBatch < 0 || cfg.ScheduleBatch > 1000 || cfg.OccurrenceBatch < 0 || cfg.OccurrenceBatch > 1000 || cfg.WorkerConcurrency < 0 {
-		return nil, durableExportInvalid("invalid durable export runtime bounds")
+		return durableExportInvalid("invalid durable export runtime bounds")
 	}
 	if cfg.RecurringNamespaces != nil && cfg.OnPollError == nil {
-		return nil, durableExportInvalid("recurring polling requires an error observer")
+		return durableExportInvalid("recurring polling requires an error observer")
 	}
 	if cfg.DB.Dialect().Name() != dialect.PG && cfg.DB.Dialect().Name() != dialect.SQLite {
-		return nil, durableExportInvalid("durable exports require PostgreSQL or SQLite")
+		return durableExportInvalid("durable exports require PostgreSQL or SQLite")
+	}
+	return nil
+}
+
+func normalizeDurableExportConfig(cfg DurableExportHostConfig) (DurableExportHostConfig, error) {
+	if err := validateDurableExportAuthority(cfg); err != nil {
+		return cfg, err
+	}
+	if err := validateDurableExportRuntime(cfg); err != nil {
+		return cfg, err
 	}
 	if cfg.Webhooks != nil {
 		copy := *cfg.Webhooks
 		cfg.Webhooks = &copy
 		if copy.Sender == nil || copy.Select == nil || copy.AuthorizeTarget == nil || copy.Link == nil {
-			return nil, durableExportInvalid("durable webhooks require sender, plan and destination/link policies")
+			return cfg, durableExportInvalid("durable webhooks require sender, plan and destination/link policies")
 		}
 	}
 	if cfg.LegacyAdoption != nil {
 		copy := *cfg.LegacyAdoption
 		cfg.LegacyAdoption = &copy
 		if copy.Authorize == nil || copy.Select == nil || cfg.Webhooks == nil {
-			return nil, durableExportInvalid("legacy adoption requires explicit authorization, versioned profiles and webhooks")
+			return cfg, durableExportInvalid("legacy adoption requires explicit authorization, versioned profiles and webhooks")
 		}
 	}
 	root, err := filepath.Abs(cfg.ArtifactRoot)
 	if err != nil {
-		return nil, err
+		return cfg, err
 	}
 	cfg.ArtifactRoot = root
+	return defaultDurableExportConfig(cfg), nil
+}
+
+func defaultDurableExportConfig(cfg DurableExportHostConfig) DurableExportHostConfig {
 	if cfg.Now == nil {
 		cfg.Now = func() time.Time { return time.Now().UTC() }
 	}
@@ -158,9 +185,17 @@ func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOptio
 	if cfg.RetryPolicy == nil {
 		cfg.RetryPolicy = worker.DefaultRetryPolicy{MaxAttempts: 5, Backoff: worker.BackoffConfig{Strategy: worker.BackoffExponential, Interval: time.Second, MaxInterval: time.Minute}}
 	}
+	return cfg
+}
+
+func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOption) (*DurableExportHost, error) {
+	cfg, err := normalizeDurableExportConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
 	tracker := trackerbun.NewTracker(cfg.DB)
 	tracker.Now = cfg.Now
-	store := storefs.NewDurableStore(root)
+	store := storefs.NewDurableStore(cfg.ArtifactRoot)
 	bundleOpts := append([]ExportBundleOption{}, opts...)
 	bundleOpts = append(bundleOpts, WithExportGuard(cfg.Guard), WithExportActorProvider(cfg.ActorProvider), WithExportTracker(tracker), WithExportStore(store), WithExportDeliveryPolicy(export.DeliveryPolicy{Default: export.DeliveryAsync}))
 	bundle := NewExportBundle(bundleOpts...)
@@ -175,36 +210,52 @@ func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOptio
 	}
 	h := &DurableExportHost{Bundle: bundle, Queue: q, Tracker: tracker, Recurring: recurring, cfg: cfg}
 	rc := replaybun.Config{Service: export.ServiceConfig{Runner: bundle.Runner, Tracker: tracker, Store: store, Guard: cfg.Guard, DeliveryPolicy: export.DeliveryPolicy{Default: export.DeliveryAsync}, Now: cfg.Now}, Tracker: tracker, Namespace: cfg.Namespace, WithTransaction: cfg.WithTransaction}
-	if cfg.Webhooks != nil {
-		h.Webhooks, err = deliverybun.NewService(deliverybun.Config{DB: cfg.DB, Queue: q, Sender: cfg.Webhooks.Sender, Namespace: cfg.Namespace, AuthorizeTarget: cfg.Webhooks.AuthorizeTarget, Link: cfg.Webhooks.Link, Now: cfg.Now,
-			Authorize: func(ctx context.Context, a export.Actor, id string) (context.Context, error) {
-				err := cfg.WithTransaction(ctx, a, func(ctx context.Context, tx bun.Tx) error { return cfg.AuthorizeRecordTransaction(ctx, tx, a, id) })
-				return ctx, err
-			},
-			WithAuthorizedTransaction: func(ctx context.Context, a export.Actor, id string, fn func(context.Context, bun.Tx, export.ExportRecord) error) error {
-				return cfg.WithTransaction(ctx, a, func(ctx context.Context, tx bun.Tx) error {
-					if err := cfg.AuthorizeRecordTransaction(ctx, tx, a, id); err != nil {
-						return err
-					}
-					rec, err := tracker.WithTx(tx).Status(ctx, id)
-					if err != nil {
-						return err
-					}
-					return fn(ctx, tx, rec)
-				})
-			}})
-		if err != nil {
-			return nil, err
-		}
-		publisher, err := deliverybun.NewCompletionPublisher(deliverybun.CompletionConfig{Delivery: h.Webhooks, Select: cfg.Webhooks.Select, AuthorizeTransaction: cfg.AuthorizeRecordTransaction})
-		if err != nil {
-			return nil, err
-		}
-		rc, err = publisher.Bind(rc)
-		if err != nil {
-			return nil, err
-		}
+	rc, err = h.bindDurableWebhooks(rc)
+	if err != nil {
+		return nil, err
 	}
+	h.bindDurableQueuedOwner(&rc)
+	if err = h.configureDurableService(rc); err != nil {
+		return nil, err
+	}
+	return h, nil
+}
+
+func (h *DurableExportHost) bindDurableWebhooks(rc replaybun.Config) (replaybun.Config, error) {
+	cfg := h.cfg
+	if cfg.Webhooks == nil {
+		return rc, nil
+	}
+	var webhookErr error
+	h.Webhooks, webhookErr = deliverybun.NewService(deliverybun.Config{DB: cfg.DB, Queue: h.Queue, Sender: cfg.Webhooks.Sender, Namespace: cfg.Namespace, AuthorizeTarget: cfg.Webhooks.AuthorizeTarget, Link: cfg.Webhooks.Link, Now: cfg.Now,
+		Authorize: func(ctx context.Context, a export.Actor, id string) (context.Context, error) {
+			err := cfg.WithTransaction(ctx, a, func(ctx context.Context, tx bun.Tx) error { return cfg.AuthorizeRecordTransaction(ctx, tx, a, id) })
+			return ctx, err
+		},
+		WithAuthorizedTransaction: func(ctx context.Context, a export.Actor, id string, fn func(context.Context, bun.Tx, export.ExportRecord) error) error {
+			return cfg.WithTransaction(ctx, a, func(ctx context.Context, tx bun.Tx) error {
+				if err := cfg.AuthorizeRecordTransaction(ctx, tx, a, id); err != nil {
+					return err
+				}
+				rec, err := h.Tracker.WithTx(tx).Status(ctx, id)
+				if err != nil {
+					return err
+				}
+				return fn(ctx, tx, rec)
+			})
+		}})
+	if webhookErr != nil {
+		return rc, webhookErr
+	}
+	publisher, publisherErr := deliverybun.NewCompletionPublisher(deliverybun.CompletionConfig{Delivery: h.Webhooks, Select: cfg.Webhooks.Select, AuthorizeTransaction: cfg.AuthorizeRecordTransaction})
+	if publisherErr != nil {
+		return rc, publisherErr
+	}
+	return publisher.Bind(rc)
+}
+
+func (h *DurableExportHost) bindDurableQueuedOwner(rc *replaybun.Config) {
+	cfg := h.cfg
 	queued := rc.OnQueued
 	rc.OnQueued = func(ctx context.Context, tx bun.Tx, a export.Actor, rec export.ExportRecord) error {
 		ns, err := cfg.Namespace(ctx, a)
@@ -226,14 +277,23 @@ func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOptio
 		}
 		return nil
 	}
+}
+
+func (h *DurableExportHost) configureDurableService(rc replaybun.Config) error {
 	h.replay = rc
-	scheduler, err := jobbun.NewScheduler(jobbun.Config{Replay: rc, Queue: q})
+	scheduler, err := jobbun.NewScheduler(jobbun.Config{Replay: rc, Queue: h.Queue})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	h.Service = scheduler
-	bundle.Service = h
-	registrar := bundle.Registrar.(*exportHTTPRegistrar)
+	if h.cfg.RecoveryGate != nil {
+		h.Service = &durableGatedExportService{Service: scheduler, gate: h.cfg.RecoveryGate}
+	}
+	h.Bundle.Service = h
+	registrar, ok := h.Bundle.Registrar.(*exportHTTPRegistrar)
+	if !ok {
+		return durableExportInvalid("durable exports require the native HTTP registrar")
+	}
 	registrar.service = h
 	registrar.asyncRequester = h
 	registrar.requestDecoder = durableExportDecoder{registrar.requestDecoder}
@@ -242,24 +302,27 @@ func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOptio
 		queryDecoder = exportapi.QueryRequestDecoder{}
 	}
 	registrar.queryRequestDecoder = durableExportDecoder{queryDecoder}
-	bundle.Registrar = durableExportRegistrar{exportHTTPRegistrar: registrar, host: h}
+	h.Bundle.Registrar = durableExportRegistrar{exportHTTPRegistrar: registrar, host: h}
 	if err = h.configureWorker(); err != nil {
-		return nil, err
+		return err
 	}
-	return h, nil
+	return nil
 }
 
 // Migrate adds native durable schemas and private namespace ownership. The
 // tracker schema (including request_payload) remains a host migration contract.
 // It is checked before any durable schema is changed or traffic is accepted.
 func (h *DurableExportHost) Migrate(ctx context.Context) error {
-	rows, err := h.cfg.DB.NewSelect().Table("export_records").Column("id", "request_payload").Where("1=0").Rows(ctx)
-	if err != nil {
-		return export.NewError(export.KindValidation, "native export tracker migration required", err)
+	ctx, release, e := h.cfg.RecoveryGate.migration(ctx)
+	if e != nil {
+		return e
 	}
-	if err = rows.Close(); err != nil {
+	defer release()
+	query := h.cfg.DB.NewSelect().Table("export_records").Column("id", "request_payload").Where("1=0")
+	if err := checkDurableExportSchema(ctx, query, "native export tracker migration required"); err != nil {
 		return err
 	}
+	var err error
 	for _, migrate := range []func(context.Context) error{func(ctx context.Context) error { return replaybun.Migrate(ctx, h.cfg.DB) }, h.Queue.Migrate, h.Recurring.Migrate} {
 		if err = migrate(ctx); err != nil {
 			return err
@@ -301,21 +364,31 @@ func (h *DurableExportHost) CheckReady(ctx context.Context) error {
 		if table == "export_records" {
 			query = h.cfg.DB.NewSelect().Table(table).Column("id", "request_payload").Where("1=0")
 		}
-		rows, err := query.Rows(ctx)
-		if err != nil {
-			return export.NewError(export.KindValidation, "durable export schema not ready: "+table, err)
-		}
-		if err = rows.Close(); err != nil {
+		if err := checkDurableExportSchema(ctx, query, "durable export schema not ready: "+table); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func checkDurableExportSchema(ctx context.Context, query *bun.SelectQuery, message string) (err error) {
+	rows, err := query.Rows(ctx)
+	if err != nil {
+		return export.NewError(export.KindValidation, message, err)
+	}
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	return rows.Err()
+}
+
 // History authorizes before metadata reads and applies trusted namespace/owner
 // predicates in SQL before a bounded native tracker lookup. Group namespaces do
 // not have to be encoded as tenant/workspace identifiers.
 func (h *DurableExportHost) History(ctx context.Context, a export.Actor, f export.ProgressFilter) ([]export.ExportRecord, error) {
+	ctx, release, _, e := h.cfg.RecoveryGate.enter(ctx)
+	if e != nil {
+		return nil, e
+	}
+	defer release()
 	var records []export.ExportRecord
 	err := h.cfg.WithTransaction(ctx, a, func(ctx context.Context, tx bun.Tx) error {
 		ns, err := h.cfg.Namespace(ctx, a)

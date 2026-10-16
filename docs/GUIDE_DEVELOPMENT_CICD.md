@@ -79,6 +79,10 @@ taskfile pins and install a matching binary when needed. The installer returns
 the binary from `GOBIN` (or `GOPATH/bin`), even when an older copy appears first
 on `PATH`.
 
+Go 1.27 requires `golangci-lint` v2.14.0 and a newer export-data reader than
+the tagged `gosec` v2.29.0 provides. The taskfile pins `gosec` to upstream commit
+`707f2271f665` (with `x/tools` v0.52.0) until a compatible tagged release is available.
+
 If you only need the linter:
 
 ```bash
@@ -181,12 +185,22 @@ This runs:
 
 This runs:
 
+- formatting and `go fix`
 - formatting check
 - tests
 - race tests
-- full `golangci-lint`
+- change-scoped `golangci-lint`
 - `govulncheck`
 - `gosec`
+
+Default quality checks cover maintained packages in the root, quickstart, and
+examples modules. Loose go-admin evidence and replay workspaces live outside the module
+at `../go-admin-evidence/` (relative to the repository root). Historical `evidence/`
+workspace paths resolve there; existing ZIP archives retain their recorded paths.
+Default quality checks exclude archived evidence and npm dependencies; formatting
+also leaves context snapshots and separate agent worktrees untouched.
+Explicit package targets remain available. Run `./taskfile go:lint` for full lint
+validation, including findings outside the current diff.
 
 Use this before major merges, release prep, or when modifying shared
 infrastructure.

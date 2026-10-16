@@ -121,14 +121,17 @@ func newLegacyFixture(t *testing.T) *legacyFixture {
 		}
 		raw.SetMaxOpenConns(1)
 		schema := "int15_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-		if _, e = raw.Exec("CREATE SCHEMA " + schema); e != nil {
+		if _, e = raw.ExecContext(context.Background(), "CREATE SCHEMA "+schema); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = raw.Exec("SET search_path TO " + schema); e != nil {
+		if _, e = raw.ExecContext(context.Background(), "SET search_path TO "+schema); e != nil {
 			t.Fatal(e)
 		}
 		db = bun.NewDB(raw, pgdialect.New())
-		t.Cleanup(func() { _, _ = db.Exec("DROP SCHEMA " + schema + " CASCADE"); _ = db.Close() })
+		t.Cleanup(func() {
+			defer adoptionRecoveryClose(t, db)
+			adoptionRecoveryExec(t, db, "DROP SCHEMA "+schema+" CASCADE")
+		})
 	} else {
 		db = newScopeDriftDoctorBunDB(t)
 	}
@@ -230,10 +233,10 @@ func newLegacyFixture(t *testing.T) *legacyFixture {
 func (f *legacyFixture) newHost() *DurableExportHost {
 	f.t.Helper()
 	runner := export.NewRunner()
-	_ = runner.Definitions.Register(export.ExportDefinition{Name: "resources", RowSourceKey: "resources", Schema: export.Schema{Columns: []export.Column{{Name: "label"}}}, AllowedFormats: []export.Format{export.FormatCSV}, DefaultFilename: "retained.csv"})
-	_ = runner.RowSources.Register("resources", func(export.ExportRequest, export.ResolvedDefinition) (export.RowSource, error) {
+	adoptionRecoveryMust(f.t, runner.Definitions.Register(export.ExportDefinition{Name: "resources", RowSourceKey: "resources", Schema: export.Schema{Columns: []export.Column{{Name: "label"}}}, AllowedFormats: []export.Format{export.FormatCSV}, DefaultFilename: "retained.csv"}))
+	adoptionRecoveryMust(f.t, runner.RowSources.Register("resources", func(export.ExportRequest, export.ResolvedDefinition) (export.RowSource, error) {
 		return legacySource{f}, nil
-	})
+	}))
 	h, e := NewDurableExportHost(f.cfg, WithExportRunner(runner))
 	if e != nil {
 		f.t.Fatal(e)
@@ -299,7 +302,7 @@ func TestLegacyExportAdoptionQueuedWorkerAndRestart(t *testing.T) {
 	f.record("queued", export.StateQueued)
 	r := f.review("queued")
 	f.noAdoption()
-	raw, _ := json.Marshal(AdoptLegacyExport{Actor: f.actor, Request: r})
+	raw := adoptionRecoveryJSON(t, AdoptLegacyExport{Actor: f.actor, Request: r})
 	if strings.Contains(string(raw), "synthetic-credential") || strings.Contains(string(raw), "actor-a") {
 		t.Fatal("command serialized credentials or trusted actor")
 	}
@@ -330,7 +333,7 @@ func TestLegacyExportAdoptionQueuedWorkerAndRestart(t *testing.T) {
 	if m == nil {
 		t.Fatal("generation not queued")
 	}
-	payload, _ := json.Marshal(m)
+	payload := adoptionRecoveryJSON(t, m)
 	if strings.Contains(string(payload), "superadmin") || strings.Contains(string(payload), f.secret) {
 		t.Fatal("queue copied legacy authority or profile credential")
 	}
@@ -370,8 +373,9 @@ func TestLegacyExportAdoptionCompletedPreservesBytes(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	body, _ := io.ReadAll(reader)
-	_ = reader.Close()
+	body, readErr := io.ReadAll(reader)
+	adoptionRecoveryClose(t, reader)
+	adoptionRecoveryMust(t, readErr)
 	if string(body) != "retained bytes\n" || f.sourceCalls.Load() != 0 || f.count("queue_messages") != 1 || f.accepts.Load() != 1 {
 		t.Fatal("completed bytes regenerated or work duplicated")
 	}
@@ -412,7 +416,7 @@ func TestLegacyExportAdoptionRejectsReviewDrift(t *testing.T) {
 			f.record("export", state)
 			if name == "request-precision" {
 				var payload []byte
-				_ = f.db.NewSelect().Table("export_records").Column("request_payload").Scan(context.Background(), &payload)
+				adoptionRecoveryMust(t, f.db.NewSelect().Table("export_records").Column("request_payload").Scan(context.Background(), &payload))
 				payload = []byte(strings.Replace(string(payload), `"Query":null`, `"Query":{"number":9007199254740992}`, 1))
 				if _, e := f.db.Exec("UPDATE export_records SET request_payload=?", payload); e != nil {
 					t.Fatal(e)
@@ -422,12 +426,12 @@ func TestLegacyExportAdoptionRejectsReviewDrift(t *testing.T) {
 			switch name {
 			case "request":
 				var payload []byte
-				_ = f.db.NewSelect().Table("export_records").Column("request_payload").Scan(context.Background(), &payload)
+				adoptionRecoveryMust(t, f.db.NewSelect().Table("export_records").Column("request_payload").Scan(context.Background(), &payload))
 				payload = []byte(strings.Replace(string(payload), `"Query":null`, `"Query":{"number":9007199254740993}`, 1))
-				_, _ = f.db.Exec("UPDATE export_records SET request_payload=?", payload)
+				adoptionRecoveryExec(t, f.db, "UPDATE export_records SET request_payload=?", payload)
 			case "request-precision":
 				var payload []byte
-				_ = f.db.NewSelect().Table("export_records").Column("request_payload").Scan(context.Background(), &payload)
+				adoptionRecoveryMust(t, f.db.NewSelect().Table("export_records").Column("request_payload").Scan(context.Background(), &payload))
 				payload = []byte(strings.Replace(string(payload), "9007199254740992", "9007199254740993", 1))
 				if _, e := f.db.Exec("UPDATE export_records SET request_payload=?", payload); e != nil {
 					t.Fatal(e)
@@ -444,24 +448,24 @@ func TestLegacyExportAdoptionRejectsReviewDrift(t *testing.T) {
 			case "profile":
 				r.ProfileRef = "profile-v3"
 			case "foreign-owner":
-				_, _ = f.db.Exec("UPDATE legacy_test_resources SET actor_id='actor-b'")
+				adoptionRecoveryExec(t, f.db, "UPDATE legacy_test_resources SET actor_id='actor-b'")
 			case "unfenced":
-				_, _ = f.db.Exec("UPDATE legacy_test_resources SET maintenance=0")
+				adoptionRecoveryExec(t, f.db, "UPDATE legacy_test_resources SET maintenance=0")
 			case "account-disabled":
-				_, _ = f.db.Exec("UPDATE legacy_test_principals SET enabled=0")
+				adoptionRecoveryExec(t, f.db, "UPDATE legacy_test_principals SET enabled=0")
 			case "target-revoked":
 				f.allowTarget = false
 			case "unsupported":
-				_, _ = f.db.Exec("UPDATE export_records SET state='running'")
+				adoptionRecoveryExec(t, f.db, "UPDATE export_records SET state='running'")
 			case "no-request":
-				_, _ = f.db.Exec("UPDATE export_records SET request_payload=NULL")
+				adoptionRecoveryExec(t, f.db, "UPDATE export_records SET request_payload=NULL")
 				r = f.review("export")
 			case "existing-plan":
-				_, _ = f.db.Exec("INSERT INTO export_webhook_completion_plans (export_id,namespace,owner,request,digest) VALUES ('export','Group A','old','{}','old')")
+				adoptionRecoveryExec(t, f.db, "INSERT INTO export_webhook_completion_plans (export_id,namespace,owner,request,digest) VALUES ('export','Group A','old','{}','old')")
 			case "artifact-missing":
-				_ = f.h.replay.Service.Store.Delete(context.Background(), "export")
+				adoptionRecoveryMust(t, f.h.replay.Service.Store.Delete(context.Background(), "export"))
 			case "artifact-metadata":
-				_, _ = f.db.Exec("UPDATE export_records SET artifact_meta=?", []byte(`{"filename":"wrong","size":15}`))
+				adoptionRecoveryExec(t, f.db, "UPDATE export_records SET artifact_meta=?", []byte(`{"filename":"wrong","size":15}`))
 				r = f.review("export")
 			}
 			result, e := f.h.AdoptLegacyExport(context.Background(), f.actor, r)
@@ -489,10 +493,10 @@ func TestLegacyExportAdoptionRollbackAndReceiptFault(t *testing.T) {
 					f.rollback = true
 				} else {
 					if f.db.Dialect().Name() == dialect.PG {
-						_, _ = f.db.Exec(`CREATE FUNCTION reject_adoption() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'adoption-fault'; END $$`)
-						_, _ = f.db.Exec(`CREATE TRIGGER reject_adoption BEFORE INSERT ON admin_export_legacy_adoptions FOR EACH ROW EXECUTE FUNCTION reject_adoption()`)
+						adoptionRecoveryExec(t, f.db, `CREATE FUNCTION reject_adoption() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'adoption-fault'; END $$`)
+						adoptionRecoveryExec(t, f.db, `CREATE TRIGGER reject_adoption BEFORE INSERT ON admin_export_legacy_adoptions FOR EACH ROW EXECUTE FUNCTION reject_adoption()`)
 					} else {
-						_, _ = f.db.Exec(`CREATE TRIGGER reject_adoption BEFORE INSERT ON admin_export_legacy_adoptions BEGIN SELECT RAISE(ABORT,'adoption-fault'); END`)
+						adoptionRecoveryExec(t, f.db, `CREATE TRIGGER reject_adoption BEFORE INSERT ON admin_export_legacy_adoptions BEGIN SELECT RAISE(ABORT,'adoption-fault'); END`)
 					}
 				}
 				result, e := f.h.AdoptLegacyExport(context.Background(), f.actor, r)
@@ -525,9 +529,8 @@ func TestLegacyExportAdoptionConcurrentAndRevokedReplay(t *testing.T) {
 	r := f.review("export")
 	var wg sync.WaitGroup
 	errs := make(chan error, 8)
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() { defer wg.Done(); _, e := f.h.AdoptLegacyExport(context.Background(), f.actor, r); errs <- e }()
+	for range 8 {
+		wg.Go(func() { ; _, e := f.h.AdoptLegacyExport(context.Background(), f.actor, r); errs <- e })
 	}
 	wg.Wait()
 	close(errs)
@@ -552,10 +555,10 @@ func TestLegacyExportAdoptionConcurrentAndRevokedReplay(t *testing.T) {
 				f.allowTarget = false
 			case "delegation-revoked":
 				f.allowTarget = true
-				_, _ = f.db.Exec("UPDATE legacy_test_delegations SET enabled=0")
+				adoptionRecoveryExec(t, f.db, "UPDATE legacy_test_delegations SET enabled=0")
 			case "plan-missing":
-				_, _ = f.db.Exec("UPDATE legacy_test_delegations SET enabled=1")
-				_, _ = f.db.Exec("DELETE FROM export_webhook_completion_plans")
+				adoptionRecoveryExec(t, f.db, "UPDATE legacy_test_delegations SET enabled=1")
+				adoptionRecoveryExec(t, f.db, "DELETE FROM export_webhook_completion_plans")
 			}
 			if _, e := f.h.AdoptLegacyExport(context.Background(), f.actor, r); e == nil {
 				t.Fatal("revoked/corrupt replay permitted")
@@ -610,7 +613,7 @@ func TestLegacyExportAdoptionRetainedQueueDelivery(t *testing.T) {
 	}
 	r := f.review("export")
 	f.apply(r)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		m, receipt, e := f.h.Queue.Dequeue(context.Background())
 		if e != nil || m == nil {
 			t.Fatal(e)
@@ -647,7 +650,7 @@ func TestLegacyExportAdoptionStorageReopen(t *testing.T) {
 					t.Fatal(e)
 				}
 				raw.SetMaxOpenConns(1)
-				if _, e = raw.Exec("SET search_path TO " + schema); e != nil {
+				if _, e = raw.ExecContext(context.Background(), "SET search_path TO "+schema); e != nil {
 					t.Fatal(e)
 				}
 				reopened = bun.NewDB(raw, pgdialect.New())
@@ -688,7 +691,7 @@ func TestLegacyExportAdoptionStorageReopen(t *testing.T) {
 				}
 				f.cfg.ArtifactRoot = newRoot
 			}
-			t.Cleanup(func() { _ = reopened.Close() })
+			t.Cleanup(func() { adoptionRecoveryClose(t, reopened) })
 			f.db = reopened
 			f.cfg.DB = reopened
 			f.h = f.newHost()

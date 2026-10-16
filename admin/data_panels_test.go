@@ -274,7 +274,12 @@ func TestDataChecksCoverageAndCapabilitiesPresentSafeStates(t *testing.T) {
 	}
 	reasons := map[string]string{}
 	for _, row := range dataCapabilityRows(descriptor.Capabilities) {
-		reasons[row["kind"].(string)] = row["reason"].(string)
+		kind, kindOK := row["kind"].(string)
+		reason, reasonOK := row["reason"].(string)
+		if !kindOK || !reasonOK {
+			t.Fatalf("invalid capability row: %v", row)
+		}
+		reasons[kind] = reason
 	}
 	if reasons["reset"] != "target has no safe deactivation" || reasons["verify"] != "requires admin.data.verify" || reasons["prepare"] != "" {
 		t.Fatalf("capability reasons = %v", reasons)
@@ -426,9 +431,9 @@ func TestDataActionResultPresentsTypedOutcomesWithoutOverstatingActivation(t *te
 		{admindata.Result{OperationID: "op-1", Kind: admindata.Validate, State: admindata.Succeeded, Checks: []admindata.Check{{ID: "a", Status: admindata.CheckFailed}, {ID: "b", Status: admindata.CheckPassed}}}, "Validation found problems in 1 of 2 checks."},
 		{admindata.Result{OperationID: "op-1", Kind: admindata.Generate, State: admindata.Succeeded}, "Generated a dataset. Prepare it before use."},
 	} {
-		presented, err := DataActionResult(tc.result.Kind, tc.result, nil)
-		if err != nil || !presented.OK || !presented.Refresh || presented.Message != tc.want || presented.Data != nil {
-			t.Fatalf("%s/%s = %+v %v, want %q", tc.result.Kind, tc.result.State, presented, err, tc.want)
+		presented, resultErr := DataActionResult(tc.result.Kind, tc.result, nil)
+		if resultErr != nil || !presented.OK || !presented.Refresh || presented.Message != tc.want || presented.Data != nil {
+			t.Fatalf("%s/%s = %+v %v, want %q", tc.result.Kind, tc.result.State, presented, resultErr, tc.want)
 		}
 		if tc.result.Kind != admindata.Activate && strings.Contains(presented.Message, "Activated") {
 			t.Fatalf("%s outcome claims activation: %q", tc.result.Kind, presented.Message)

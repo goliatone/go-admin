@@ -297,6 +297,21 @@ func TestNewRenderCacheRuntimeUnsupportedBackendIsInvalidConfiguration(t *testin
 	}
 }
 
+func TestBuildRenderCacheValkeyClientOptionVerifiesTLSByDefault(t *testing.T) {
+	for _, cfg := range []RenderCacheValkeyConfig{
+		{URL: "rediss://cache.example.test:6380"},
+		{Address: "cache.example.test:6380", TLSEnabled: true},
+	} {
+		option, err := buildRenderCacheValkeyClientOption(cfg)
+		if err != nil {
+			t.Fatalf("buildRenderCacheValkeyClientOption: %v", err)
+		}
+		if option.TLSConfig == nil || option.TLSConfig.InsecureSkipVerify {
+			t.Fatalf("expected TLS certificate verification by default, got %+v", option.TLSConfig)
+		}
+	}
+}
+
 func TestBuildRenderCacheValkeyClientOptionMapsConfig(t *testing.T) {
 	option, err := buildRenderCacheValkeyClientOption(RenderCacheValkeyConfig{
 		URL:           "rediss://url-user:url-pass@cache.example.test:6380/4",

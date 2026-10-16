@@ -279,8 +279,8 @@ func (h *ConsoleHost) watchLiveSocket(c router.WebSocketContext, ctx context.Con
 		<-monitorDone
 	}()
 	err = h.Watch(ctx, identity, panels, func(value any) error {
-		if err := c.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return err
+		if deadlineErr := c.SetWriteDeadline(time.Now().Add(5 * time.Second)); deadlineErr != nil {
+			return deadlineErr
 		}
 		return c.WriteJSON(value)
 	})

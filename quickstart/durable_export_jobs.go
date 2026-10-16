@@ -11,6 +11,7 @@ import (
 	exportcmd "github.com/goliatone/go-export/command"
 	"github.com/goliatone/go-export/export"
 	job "github.com/goliatone/go-job"
+	"github.com/goliatone/go-job/queue"
 	"github.com/goliatone/go-job/queue/adapters/postgres"
 	"github.com/goliatone/go-job/queue/worker"
 )
@@ -36,6 +37,11 @@ func (h *DurableExportHost) background(ctx context.Context, work ExportBackgroun
 func (h *DurableExportHost) configureWorker() error {
 	h.tasks = map[string]job.Task{}
 	generate := exportjob.NewGenerateTask(exportjob.TaskConfig{Dispatch: func(ctx context.Context, m exportcmd.GenerateExport) error {
+		ctx, release, _, e := h.cfg.RecoveryGate.enter(ctx)
+		if e != nil {
+			return e
+		}
+		defer release()
 		ctx, a, err := h.background(ctx, ExportBackgroundWork{Kind: ExportBackgroundGenerate, ExportID: m.ExportID})
 		if err != nil {
 			return err
@@ -56,6 +62,11 @@ func (h *DurableExportHost) configureWorker() error {
 				return h.background(ctx, ExportBackgroundWork{Kind: ExportBackgroundWebhook, ExportID: payload.ExportID})
 			},
 			Dispatch: func(ctx context.Context, m exportcmd.DeliverWebhook) error {
+				ctx, release, _, e := h.cfg.RecoveryGate.enter(ctx)
+				if e != nil {
+					return e
+				}
+				defer release()
 				return (&exportcmd.DeliverWebhookHandler{Service: h.Webhooks}).Execute(ctx, m)
 			},
 		})
@@ -64,7 +75,11 @@ func (h *DurableExportHost) configureWorker() error {
 		}
 		h.tasks[task.GetID()] = task
 	}
-	h.Worker = worker.NewWorker(postgres.NewAdapter(h.Queue), worker.WithConcurrency(h.cfg.WorkerConcurrency), worker.WithRetryPolicy(h.cfg.RetryPolicy), worker.WithTaskCommanderRetries(false))
+	var dequeuer queue.Dequeuer = postgres.NewAdapter(h.Queue)
+	if h.cfg.RecoveryGate != nil {
+		dequeuer = &durableGatedExportQueue{native: dequeuer, gate: h.cfg.RecoveryGate}
+	}
+	h.Worker = worker.NewWorker(dequeuer, worker.WithConcurrency(h.cfg.WorkerConcurrency), worker.WithRetryPolicy(h.cfg.RetryPolicy), worker.WithTaskCommanderRetries(false))
 	for _, task := range h.tasks {
 		if err := h.Worker.Register(task); err != nil {
 			return err
@@ -76,6 +91,11 @@ func (h *DurableExportHost) configureWorker() error {
 // ExecuteMessage uses the same trusted task dispatch as the native worker. It
 // does not acknowledge a queue receipt; the queue consumer owns ACK/NACK/leases.
 func (h *DurableExportHost) ExecuteMessage(ctx context.Context, m *job.ExecutionMessage) error {
+	ctx, release, _, e := h.cfg.RecoveryGate.enter(ctx)
+	if e != nil {
+		return e
+	}
+	defer release()
 	if m == nil {
 		return durableExportInvalid("export job message required")
 	}
@@ -122,6 +142,11 @@ func decodeDurableExportPayload(m *job.ExecutionMessage, value any) error {
 // Poll admits bounded due work from a trusted namespace catalog. Failed scopes
 // are reported after other scopes are processed; they retain their due cursor.
 func (h *DurableExportHost) Poll(ctx context.Context) error {
+	ctx, release, _, e := h.cfg.RecoveryGate.enter(ctx)
+	if e != nil {
+		return e
+	}
+	defer release()
 	if h.cfg.RecurringNamespaces == nil {
 		return nil
 	}
@@ -168,6 +193,21 @@ func (h *DurableExportHost) Run(ctx context.Context) (err error) {
 	if ctx == nil {
 		return durableExportInvalid("durable export lifecycle context required")
 	}
+	ctx, release, sealed, e := h.cfg.RecoveryGate.enter(ctx)
+	if e != nil {
+		return e
+	}
+	defer release()
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-sealed:
+			cancel()
+		case <-runCtx.Done():
+		}
+	}()
+	ctx = runCtx
 	if err = h.CheckReady(ctx); err != nil {
 		return err
 	}
@@ -175,6 +215,12 @@ func (h *DurableExportHost) Run(ctx context.Context) (err error) {
 		return err
 	}
 	defer func() {
+		if h.cfg.RecoveryGate != nil {
+			// A drain may time out, but must never report quiescence before workers
+			// actually finish. Uncooperative work retains the lifetime lease.
+			err = errors.Join(err, h.Worker.Stop(context.Background()))
+			return
+		}
 		stopCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		err = errors.Join(err, h.Worker.Stop(stopCtx))

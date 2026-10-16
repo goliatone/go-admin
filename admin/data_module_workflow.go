@@ -569,9 +569,9 @@ func (m *DataModule) receiptOptions(ctx context.Context, query console.PanelOpti
 	out := console.PanelOptionPage{Items: []console.PanelUIActionOption{}, NextCursor: page.NextCursor}
 	search := strings.ToLower(query.Search)
 	for _, receipt := range page.Receipts {
-		option, ok, err := m.receiptOption(ctx, choice, receipt)
-		if err != nil {
-			return console.PanelOptionPage{}, dataConsoleReadError(err)
+		option, ok, optionErr := m.receiptOption(ctx, choice, receipt)
+		if optionErr != nil {
+			return console.PanelOptionPage{}, dataConsoleReadError(optionErr)
 		}
 		if !ok || (search != "" && !strings.Contains(strings.ToLower(option.Label+" "+option.Value), search)) {
 			continue

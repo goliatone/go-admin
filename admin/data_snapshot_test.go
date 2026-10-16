@@ -524,9 +524,19 @@ func TestDataSnapshotRecordRevocationAfterLoad(t *testing.T) {
 			if strings.Contains(string(raw), "latest_operation") || strings.Contains(string(raw), `"recent":[{`) {
 				t.Fatal("overview leaked revoked operation details", string(raw))
 			}
-			summary, _ := panel.Records[0].Data.(map[string]any)
-			targets, _ := summary["targets"].([]map[string]any)
-			for _, target := range targets {
+			summary, summaryOK := panel.Records[0].Data.(map[string]any)
+			if !summaryOK {
+				t.Fatalf("invalid overview summary: %T", panel.Records[0].Data)
+			}
+			targets, targetsOK := summary["targets"].([]any)
+			if !targetsOK {
+				t.Fatalf("invalid overview targets: %T", summary["targets"])
+			}
+			for _, rawTarget := range targets {
+				target, targetOK := rawTarget.(map[string]any)
+				if !targetOK {
+					t.Fatalf("invalid overview target: %T", rawTarget)
+				}
 				if target["dataset_label"] != nil || target["scenario_label"] != nil || target["explore_active"] != nil {
 					t.Fatal("overview leaked revoked receipt details", string(raw))
 				}

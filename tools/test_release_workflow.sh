@@ -61,6 +61,50 @@ function test_go_quality_cache_stays_outside_repository {
     )
 }
 
+function test_go_file_discovery_excludes_external_workspaces {
+    local source_fixture="${fixture_root}/source-discovery"
+    local path
+    local files
+
+    for path in admin quickstart examples pkg/client/assets \
+        evidence/frozen .ctx/support .claude/worktrees/other .codex/worktrees/other \
+        .git .gocache .tmp node_modules/pkg pkg/client/assets/node_modules/pkg; do
+        mkdir -p "${source_fixture}/${path}"
+        printf 'package fixture\n' > "${source_fixture}/${path}/fixture.go"
+    done
+
+    files=$(cd "${source_fixture}" && _go:files)
+    if [ "${files}" != $'./admin/fixture.go\n./examples/fixture.go\n./pkg/client/assets/fixture.go\n./quickstart/fixture.go' ]; then
+        echo "unexpected maintained Go file list: ${files}" >&2
+        return 1
+    fi
+}
+
+function test_go_package_discovery_excludes_evidence {
+    local package_fixture="${fixture_root}/package-discovery"
+    local packages
+
+    mkdir -p "${package_fixture}/admin" "${package_fixture}/evidence/frozen" \
+        "${package_fixture}/pkg/client/node_modules/dependency"
+    printf 'module quality.test/fixture\n\ngo 1.26\n' > "${package_fixture}/go.mod"
+    printf 'package fixture\n' > "${package_fixture}/fixture.go"
+    printf 'package admin\n' > "${package_fixture}/admin/admin.go"
+    printf 'package frozen\nvar _ MissingSnapshotType\n' > "${package_fixture}/evidence/frozen/frozen.go"
+    printf 'package dependency\nvar _ MissingDependencyType\n' > "${package_fixture}/pkg/client/node_modules/dependency/dependency.go"
+
+    packages=$(cd "${package_fixture}" && GOWORK=off _go:run_in_module printf '%s\n' ./...)
+    if [ "${packages}" != $'.\n./admin' ]; then
+        echo "unexpected maintained Go packages: ${packages}" >&2
+        return 1
+    fi
+    (cd "${package_fixture}" && GOWORK=off _go:run_in_module "$(_go:bin)" test ./...)
+    packages=$(cd "${package_fixture}" && _go:run_in_module printf '%s\n' ./evidence/frozen)
+    if [ "${packages}" != './evidence/frozen' ]; then
+        echo "explicit package target changed: ${packages}" >&2
+        return 1
+    fi
+}
+
 function test_module_discovery {
     local module_fixture="${fixture_root}/module-discovery"
     local modules
@@ -1115,6 +1159,8 @@ function test_release_success_end_to_end {
 }
 
 test_go_quality_cache_stays_outside_repository
+test_go_file_discovery_excludes_external_workspaces
+test_go_package_discovery_excludes_evidence
 test_module_discovery
 test_repository_module_boundaries
 test_real_quickstart_sync

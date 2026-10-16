@@ -57,7 +57,7 @@ func TestDurableExportHostFailsClosed(t *testing.T) {
 	if err = h.ExecuteMessage(context.Background(), &job.ExecutionMessage{JobID: "unknown"}); err == nil {
 		t.Fatal("unknown task accepted")
 	}
-	if err = h.Run(nil); err == nil {
+	if err = h.Run(nil); err == nil { //nolint:staticcheck // Verify rejection of an invalid nil lifecycle context.
 		t.Fatal("missing lifetime accepted")
 	}
 }

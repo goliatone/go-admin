@@ -24,6 +24,11 @@ func (b *durableExportEvents) Emit(_ context.Context, event export.ChangeEvent) 
 // Occurrence/owner/delegation/record/plan/queue/cursor share one commit. Operators
 // install immutable native definitions with an ExportRequest JSON payload.
 func (h *DurableExportHost) TickSchedule(ctx context.Context, namespace, id string, through time.Time, limit int) ([]postgres.Occurrence, error) {
+	ctx, release, _, e := h.cfg.RecoveryGate.enter(ctx)
+	if e != nil {
+		return nil, e
+	}
+	defer release()
 	ctx, a, err := h.background(ctx, ExportBackgroundWork{Kind: ExportBackgroundSchedule, Namespace: namespace, ScheduleID: id})
 	if err != nil {
 		return nil, err
@@ -41,21 +46,21 @@ func (h *DurableExportHost) TickSchedule(ctx context.Context, namespace, id stri
 			}
 			return fn(ctx, tx)
 		}
-		svc, err := jobbun.NewScheduler(jobbun.Config{Replay: cfg, Queue: h.Queue})
-		if err != nil {
-			return err
+		svc, schedulerErr := jobbun.NewScheduler(jobbun.Config{Replay: cfg, Queue: h.Queue})
+		if schedulerErr != nil {
+			return schedulerErr
 		}
 		items, err = h.Recurring.AdmitTx(ctx, tx.Tx, namespace, id, through, limit, func(ctx context.Context, sqlTx *sql.Tx, occ postgres.Occurrence, m *job.ExecutionMessage) (string, error) {
 			if tx.Tx != sqlTx || occ.Namespace != namespace {
 				return "", durableExportDenied()
 			}
 			var req export.ExportRequest
-			if err := decodeDurableExportPayload(m, &req); err != nil {
-				return "", err
+			if decodeErr := decodeDurableExportPayload(m, &req); decodeErr != nil {
+				return "", decodeErr
 			}
 			req.IdempotencyKey = occ.ID
-			rec, err := svc.RequestExport(ctx, a, req)
-			return rec.ID, err
+			rec, requestErr := svc.RequestExport(ctx, a, req)
+			return rec.ID, requestErr
 		})
 		return err
 	})

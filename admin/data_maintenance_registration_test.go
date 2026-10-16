@@ -55,7 +55,7 @@ func TestMaintenanceNativeRegistrationRejectsAuthorityAndCloses(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer handle.Close()
+	defer mustClose(t, "maintenance registration", handle)
 	payload := map[string]any{"enabled": true, "expected_revision": 0, "request_key": "configure", "dry_run": true}
 	outcome, e := bus.DispatchByNameWithOutcome(context.Background(), data.MaintenanceConfigureCommandID, payload, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
 	result, ok := outcome.Result.(data.MaintenanceResult)
@@ -87,7 +87,10 @@ func TestMaintenanceDataModuleRegistersAndClosesOptionalCommands(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	p := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
+	p, ok := ctx.Value(dataRegistrationPrincipalKey{}).(data.Principal)
+	if !ok {
+		t.Fatal("missing registration principal")
+	}
 	m, e := NewDataModule(DataModuleConfig{Service: lifecycle, Maintenance: service, TargetID: "preview", BasePath: "/control", Enabled: func() bool { return true }, ResolveIdentity: func(context.Context) (console.Identity, error) {
 		return console.Identity{ConsoleID: "data", ApplicationID: "test", EnvironmentID: "dev", ActorID: p.ActorID, ScopeKey: p.ScopeKey}, nil
 	}})
@@ -103,13 +106,14 @@ func TestMaintenanceDataModuleRegistersAndClosesOptionalCommands(t *testing.T) {
 	if e = m.Register(moduleCtx); e != nil {
 		t.Fatal(e)
 	}
-	defer m.Close()
+	defer mustClose(t, "data module", m)
 	if m.Maintenance() != service {
 		t.Fatal("native service not bound")
 	}
 	payload := map[string]any{"enabled": true, "expected_revision": 0, "request_key": "module-dry", "dry_run": true}
 	out, e := adm.Commands().DispatchByNameWithOutcome(ctx, data.MaintenanceConfigureCommandID, payload, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
-	if e != nil || !out.Result.(data.MaintenanceResult).DryRun || host.effects != 0 {
+	result, ok := out.Result.(data.MaintenanceResult)
+	if e != nil || !ok || !result.DryRun || host.effects != 0 {
 		t.Fatal(out, e)
 	}
 	if e = m.Close(); e != nil {

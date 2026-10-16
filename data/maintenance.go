@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"time"
 )
 
@@ -119,22 +120,23 @@ func (s *MaintenanceService) Status(ctx context.Context) (MaintenanceResult, err
 	if err != nil {
 		return MaintenanceResult{}, err
 	}
-	if r.Enabled {
-		if err = s.backend.AuthorizePolicy(ctx, r); err != nil {
-			return MaintenanceResult{}, err
+	if !r.Enabled {
+		return MaintenanceResult{Record: r, Target: t}, nil
+	}
+	if err = s.backend.AuthorizePolicy(ctx, r); err != nil {
+		return MaintenanceResult{}, err
+	}
+	if t.Activation.Generation != r.Generation {
+		r.State = MaintenancePaused
+		r.Reason = "A manual activation paused automatic replacement."
+	} else if r.State == MaintenanceReady {
+		observation, observeErr := s.backend.Observe(ctx, r, t)
+		if observeErr != nil {
+			return MaintenanceResult{}, observeErr
 		}
-		if t.Activation.Generation != r.Generation {
-			r.State = MaintenancePaused
-			r.Reason = "A manual activation paused automatic replacement."
-		} else if r.State == MaintenanceReady {
-			o, e := s.backend.Observe(ctx, r, t)
-			if e != nil {
-				return MaintenanceResult{}, e
-			}
-			if !o.Fresh || o.Changed || !r.Due.After(s.now()) {
-				r.State = MaintenanceDue
-				r.Reason = "The dataset needs renewal."
-			}
+		if !observation.Fresh || observation.Changed || !r.Due.After(s.now()) {
+			r.State = MaintenanceDue
+			r.Reason = "The dataset needs renewal."
 		}
 	}
 	return MaintenanceResult{Record: r, Target: t}, nil
@@ -234,85 +236,86 @@ func (s *MaintenanceService) finish(ctx context.Context, r *MaintenanceRecord, t
 	}
 	return s.backend.Prune(ctx)
 }
-func (s *MaintenanceService) Ensure(ctx context.Context, in MaintenanceEnsureRequest) (out MaintenanceResult, err error) {
-	if e := in.Validate(); e != nil {
-		return out, e
+func (s *MaintenanceService) Ensure(ctx context.Context, in MaintenanceEnsureRequest) (MaintenanceResult, error) {
+	if err := in.Validate(); err != nil {
+		return MaintenanceResult{}, err
 	}
-	caller, e := s.backend.Authorize(ctx, true)
-	if e != nil {
-		return out, e
+	caller, err := s.backend.Authorize(ctx, true)
+	if err != nil {
+		return MaintenanceResult{}, err
 	}
-	release, e := s.backend.Acquire(ctx)
-	if e != nil {
-		return out, e
+	release, err := s.backend.Acquire(ctx)
+	if err != nil {
+		return MaintenanceResult{}, err
 	}
 	defer release()
-	r, t, e := s.backend.Load(ctx)
-	if e != nil {
-		return out, e
+	r, target, err := s.backend.Load(ctx)
+	if err != nil {
+		return MaintenanceResult{}, err
 	}
-	result := func() MaintenanceResult { return MaintenanceResult{r, t, in.DryRun} }
 	if r.Revision != in.PolicyRevision {
-		return out, Error(CodeStale)
+		return MaintenanceResult{}, Error(CodeStale)
 	}
 	if !r.Enabled {
-		return result(), nil
+		return MaintenanceResult{r, target, in.DryRun}, nil
 	}
-	if e = s.backend.AuthorizePolicy(ctx, r); e != nil {
-		return out, e
+	if err = s.backend.AuthorizePolicy(ctx, r); err != nil {
+		return MaintenanceResult{}, err
 	}
-	profile, e := s.backend.Profile(ctx)
-	if e != nil {
-		return out, e
+	profile, err := s.backend.Profile(ctx)
+	if err != nil {
+		return MaintenanceResult{}, err
 	}
+	return s.ensureMaintenanceProfile(ctx, in, caller, profile, r, target)
+}
+
+func (s *MaintenanceService) ensureMaintenanceProfile(ctx context.Context, in MaintenanceEnsureRequest, caller Principal, profile MaintenanceProfile, r MaintenanceRecord, target TargetState) (MaintenanceResult, error) {
+	result := func() MaintenanceResult { return MaintenanceResult{r, target, in.DryRun} }
 	if profile.Digest != r.RecipeDigest {
 		r.State = MaintenancePaused
 		r.Reason = "The installed maintenance profile changed; explicitly resume to authorize it."
-		if !in.DryRun {
-			if e = s.backend.Save(ctx, r); e != nil {
-				return out, e
-			}
+		if err := s.saveMaintenanceUnlessDryRun(ctx, r, in.DryRun); err != nil {
+			return MaintenanceResult{}, err
 		}
 		return result(), Error(CodeStale)
 	}
-	if r.Step == Activate && r.Input.ReceiptID != "" && t.Activation.ReceiptID == r.Input.ReceiptID && t.Activation.Ready {
+	if r.Step == Activate && r.Input.ReceiptID != "" && target.Activation.ReceiptID == r.Input.ReceiptID && target.Activation.Ready {
 		if in.DryRun {
 			return result(), nil
 		}
-		e = s.finish(ctx, &r, t)
-		return result(), e
+		err := s.finish(ctx, &r, target)
+		return result(), err
 	}
-	if t.Activation.Generation != r.Generation {
+	if target.Activation.Generation != r.Generation {
 		r.State = MaintenancePaused
 		r.Reason = "A manual activation paused automatic replacement."
-		if !in.DryRun {
-			e = s.backend.Save(ctx, r)
-		}
-		return result(), e
+		err := s.saveMaintenanceUnlessDryRun(ctx, r, in.DryRun)
+		return result(), err
 	}
-	if in.ExpectedGeneration != t.Activation.Generation {
-		return out, Error(CodeStale)
+	if in.ExpectedGeneration != target.Activation.Generation {
+		return MaintenanceResult{}, Error(CodeStale)
 	}
+	return s.ensureMaintenanceFreshness(ctx, in, caller, profile, r, target)
+}
+
+func (s *MaintenanceService) saveMaintenanceUnlessDryRun(ctx context.Context, r MaintenanceRecord, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	return s.backend.Save(ctx, r)
+}
+
+func (s *MaintenanceService) ensureMaintenanceFreshness(ctx context.Context, in MaintenanceEnsureRequest, caller Principal, profile MaintenanceProfile, r MaintenanceRecord, target TargetState) (MaintenanceResult, error) {
+	result := func() MaintenanceResult { return MaintenanceResult{r, target, in.DryRun} }
 	if r.State == MaintenancePaused && !profile.ReplaceDrift {
 		return result(), nil
 	}
-	if r.Epoch == "" && r.Active != nil && !(r.State == MaintenanceDue && r.Due.IsZero()) {
-		o, e := s.backend.Observe(ctx, r, t)
-		if e != nil {
-			return out, e
-		}
-		if o.Changed && !profile.ReplaceDrift {
-			r.State = MaintenancePaused
-			r.Reason = "The active dataset changed after verification; explicitly resume maintenance to replace it."
-			if !in.DryRun {
-				e = s.backend.Save(ctx, r)
-			}
-			return result(), e
-		}
-		if r.State == MaintenanceReady && o.Fresh && !o.Changed && r.Due.After(s.now()) {
-			r.State = MaintenanceReady
-			return result(), nil
-		}
+	stop, err := s.observeMaintenance(ctx, &r, target, profile, in.DryRun)
+	if stop {
+		return result(), err
+	}
+	if err != nil {
+		return MaintenanceResult{}, err
 	}
 	if r.State == MaintenanceFailed && r.Due.After(s.now()) {
 		return result(), nil
@@ -322,148 +325,193 @@ func (s *MaintenanceService) Ensure(ctx context.Context, in MaintenanceEnsureReq
 		return result(), nil
 	}
 	if r.Epoch == "" {
-		if e = s.backend.Prune(ctx); e != nil {
-			return out, e
-		}
-		input, e := s.backend.Plan(ctx, r)
-		if e != nil {
-			return out, e
-		}
-		var entropy [16]byte
-		if _, e = rand.Read(entropy[:]); e != nil {
-			return out, e
-		}
-		r.Epoch = hex.EncodeToString(entropy[:])
-		r.EpochPrefix = "maintenance-"
-		r.Input = input
-		r.Step = Generate
-		r.OperationID = ""
-		r.State = MaintenancePreparing
-		r.Reason = ""
-		r.OriginActor = caller.ActorID
-		r.TriggerKey = in.RequestKey
-		if caller.ActorID == r.Principal {
-			r.OriginActor = r.Owner
-		}
-		if e = s.backend.Save(ctx, r); e != nil {
-			return out, e
+		if err = s.startMaintenanceEpoch(ctx, &r, caller, in.RequestKey); err != nil {
+			return MaintenanceResult{}, err
 		}
 	}
-	delegated := s.backend.Delegate(ctx, r)
+	err = s.runMaintenance(ctx, &r, &target)
+	return result(), err
+}
+
+func (s *MaintenanceService) observeMaintenance(ctx context.Context, r *MaintenanceRecord, target TargetState, profile MaintenanceProfile, dryRun bool) (bool, error) {
+	if r.Epoch != "" || r.Active == nil || (r.State == MaintenanceDue && r.Due.IsZero()) {
+		return false, nil
+	}
+	observation, err := s.backend.Observe(ctx, *r, target)
+	if err != nil {
+		return false, err
+	}
+	if observation.Changed && !profile.ReplaceDrift {
+		r.State = MaintenancePaused
+		r.Reason = "The active dataset changed after verification; explicitly resume maintenance to replace it."
+		return true, s.saveMaintenanceUnlessDryRun(ctx, *r, dryRun)
+	}
+	return r.State == MaintenanceReady && observation.Fresh && !observation.Changed && r.Due.After(s.now()), nil
+}
+
+func (s *MaintenanceService) startMaintenanceEpoch(ctx context.Context, r *MaintenanceRecord, caller Principal, requestKey string) error {
+	if err := s.backend.Prune(ctx); err != nil {
+		return err
+	}
+	input, err := s.backend.Plan(ctx, *r)
+	if err != nil {
+		return err
+	}
+	var entropy [16]byte
+	if _, err = rand.Read(entropy[:]); err != nil {
+		return err
+	}
+	r.Epoch = hex.EncodeToString(entropy[:])
+	r.EpochPrefix = "maintenance-"
+	r.Input = input
+	r.Step = Generate
+	r.OperationID = ""
+	r.State = MaintenancePreparing
+	r.Reason = ""
+	r.OriginActor = caller.ActorID
+	r.TriggerKey = requestKey
+	if caller.ActorID == r.Principal {
+		r.OriginActor = r.Owner
+	}
+	return s.backend.Save(ctx, *r)
+}
+
+func (s *MaintenanceService) runMaintenance(ctx context.Context, r *MaintenanceRecord, target *TargetState) (err error) {
+	delegated := s.backend.Delegate(ctx, *r)
 	defer func() {
-		if err == nil {
-			return
+		if err != nil {
+			err = s.persistMaintenanceFailure(ctx, r, *target, err)
 		}
-		// Cleanup after a committed completion cannot downgrade freshness or
-		// turn the activation into a failed retry epoch.
-		if r.State == MaintenanceReady && r.Epoch == "" {
-			out = result()
-			return
-		}
-		if r.Epoch == "" && r.Step == "" && r.Input.ReceiptID != "" && r.Input.ReceiptID == t.Activation.ReceiptID && r.Generation == t.Activation.Generation && r.Active == nil {
-			out = result()
-			return
-		}
-		// Preserve resumable input and exact request keys even on cancellation.
-		r.State = MaintenanceFailed
-		r.Reason = "Dataset renewal failed (" + ErrorCode(err) + "); prior activation retained."
-		r.Attempts++
-		r.Failures++
-		r.Due = s.now().Add(maintenanceBackoff(r.Attempts))
-		if ctx.Err() != nil || r.Epoch != "" {
-			r.State = MaintenanceRecoveryRequired
-			r.Reason = "Interrupted renewal will be reconciled on the next attempt."
-		}
-		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cancel()
-		_ = s.backend.Save(cleanup, r)
-		out = result()
 	}()
 	for range 4 {
-		if e = s.backend.AuthorizePolicy(delegated, r); e != nil {
-			return out, e
+		value, stepErr := s.runMaintenanceStep(ctx, delegated, r)
+		if stepErr != nil {
+			return stepErr
 		}
-		current, _, e := s.backend.Load(ctx)
-		if e != nil {
-			return out, e
-		}
-		if current.Revision != r.Revision || !current.Enabled {
-			return out, Error(CodeDenied)
-		}
-		if r.EpochPrefix == "" {
-			r.EpochPrefix = "maintenance-"
-		}
-		r.Input.IdempotencyKey = r.EpochPrefix + r.Epoch + "-" + string(r.Step)
-		if e = s.backend.Save(ctx, r); e != nil {
-			return out, e
-		}
-		value, e := s.lifecycle.Run(delegated, r.Step, r.Input)
-		r.OperationID = value.OperationID
-		if persistErr := s.backend.Save(ctx, r); persistErr != nil {
-			return out, persistErr
-		}
-		if e == nil && !value.State.Terminal() {
-			value, e = s.lifecycle.Recover(delegated, value.OperationID)
-		}
-		if e == nil {
-			e = value.CommandResultFailure()
-		}
-		if e != nil {
-			// Terminal failures need a fresh epoch; nonterminal/ambiguous work retains
-			// exact keys and is recovered, never duplicated after restart.
-			if value.State.Terminal() {
-				r.Epoch = ""
-				r.Step = ""
-				r.OperationID = ""
+		if r.Step == Activate {
+			_, *target, err = s.backend.Load(ctx)
+			if err != nil {
+				return err
 			}
-			return out, e
+			return s.finish(ctx, r, *target)
 		}
-		if value.State != Succeeded {
-			return out, Error(CodeUnavailable)
+		if err = s.advanceMaintenanceStep(ctx, r, value); err != nil {
+			return err
 		}
-		switch r.Step {
-		case Generate:
-			if value.Dataset == nil {
-				return out, Error(CodeUnavailable)
-			}
-			scenario, e := s.backend.Generated(ctx, *value.Dataset)
-			if e != nil {
-				if ErrorCode(e) == CodeStale {
-					r.Epoch = ""
-					r.Step = ""
-					r.OperationID = ""
-				}
-				return out, e
-			}
-			r.Input.Dataset = *value.Dataset
-			r.Input.Scenario = scenario
-			r.Step = Prepare
-		case Prepare:
-			if value.Receipt == nil {
-				return out, Error(CodeUnavailable)
-			}
-			r.Input.ReceiptID = value.Receipt.ID
-			r.Step = Verify
-		case Verify:
-			r.Step = Activate
-			generation := r.Generation
-			r.Input.ExpectedGeneration = &generation
-		case Activate:
-			_, t, e = s.backend.Load(ctx)
-			if e != nil {
-				return out, e
-			}
-			e = s.finish(ctx, &r, t)
-			return result(), e
-		default:
-			return out, Error(CodeInvalid)
-		}
-		if e = s.backend.Save(ctx, r); e != nil {
-			return out, e
+		if err = s.backend.Save(ctx, *r); err != nil {
+			return err
 		}
 	}
-	return out, Error(CodeUnavailable)
+	return Error(CodeUnavailable)
 }
+
+func (s *MaintenanceService) runMaintenanceStep(ctx, delegated context.Context, r *MaintenanceRecord) (Result, error) {
+	if err := s.backend.AuthorizePolicy(delegated, *r); err != nil {
+		return Result{}, err
+	}
+	current, _, err := s.backend.Load(ctx)
+	if err != nil {
+		return Result{}, err
+	}
+	if current.Revision != r.Revision || !current.Enabled {
+		return Result{}, Error(CodeDenied)
+	}
+	if r.EpochPrefix == "" {
+		r.EpochPrefix = "maintenance-"
+	}
+	r.Input.IdempotencyKey = r.EpochPrefix + r.Epoch + "-" + string(r.Step)
+	if err = s.backend.Save(ctx, *r); err != nil {
+		return Result{}, err
+	}
+	value, err := s.lifecycle.Run(delegated, r.Step, r.Input)
+	r.OperationID = value.OperationID
+	if persistErr := s.backend.Save(ctx, *r); persistErr != nil {
+		return Result{}, persistErr
+	}
+	if err == nil && !value.State.Terminal() {
+		value, err = s.lifecycle.Recover(delegated, value.OperationID)
+	}
+	if err == nil {
+		err = value.CommandResultFailure()
+	}
+	if err != nil {
+		// Terminal failures need a fresh epoch; ambiguous work retains exact keys.
+		if value.State.Terminal() {
+			clearMaintenanceEpoch(r)
+		}
+		return Result{}, err
+	}
+	if value.State != Succeeded {
+		return Result{}, Error(CodeUnavailable)
+	}
+	return value, nil
+}
+
+func clearMaintenanceEpoch(r *MaintenanceRecord) {
+	r.Epoch = ""
+	r.Step = ""
+	r.OperationID = ""
+}
+
+func (s *MaintenanceService) advanceMaintenanceStep(ctx context.Context, r *MaintenanceRecord, value Result) error {
+	switch r.Step {
+	case Generate:
+		if value.Dataset == nil {
+			return Error(CodeUnavailable)
+		}
+		scenario, err := s.backend.Generated(ctx, *value.Dataset)
+		if err != nil {
+			if ErrorCode(err) == CodeStale {
+				clearMaintenanceEpoch(r)
+			}
+			return err
+		}
+		r.Input.Dataset = *value.Dataset
+		r.Input.Scenario = scenario
+		r.Step = Prepare
+	case Prepare:
+		if value.Receipt == nil {
+			return Error(CodeUnavailable)
+		}
+		r.Input.ReceiptID = value.Receipt.ID
+		r.Step = Verify
+	case Verify:
+		r.Step = Activate
+		generation := r.Generation
+		r.Input.ExpectedGeneration = &generation
+	default:
+		return Error(CodeInvalid)
+	}
+	return nil
+}
+
+func (s *MaintenanceService) persistMaintenanceFailure(ctx context.Context, r *MaintenanceRecord, target TargetState, cause error) error {
+	// Cleanup after committed completion cannot downgrade freshness or replay an
+	// expired activation that has already been reconciled into a new retry.
+	if r.State == MaintenanceReady && r.Epoch == "" {
+		return cause
+	}
+	if r.Epoch == "" && r.Step == "" && r.Input.ReceiptID != "" && r.Input.ReceiptID == target.Activation.ReceiptID && r.Generation == target.Activation.Generation && r.Active == nil {
+		return cause
+	}
+	// Preserve resumable input and exact request keys even on cancellation.
+	r.State = MaintenanceFailed
+	r.Reason = "Dataset renewal failed (" + ErrorCode(cause) + "); prior activation retained."
+	r.Attempts++
+	r.Failures++
+	r.Due = s.now().Add(maintenanceBackoff(r.Attempts))
+	if ctx.Err() != nil || r.Epoch != "" {
+		r.State = MaintenanceRecoveryRequired
+		r.Reason = "Interrupted renewal will be reconciled on the next attempt."
+	}
+	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if err := s.backend.Save(cleanup, *r); err != nil {
+		return errors.Join(cause, err)
+	}
+	return cause
+}
+
 func maintenanceBackoff(attempt int) time.Duration {
 	delay := time.Minute
 	for i := 1; i < attempt && delay < 15*time.Minute; i++ {

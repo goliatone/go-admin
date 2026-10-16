@@ -389,6 +389,7 @@ func buildRenderCacheValkeyClientOption(cfg RenderCacheValkeyConfig) (vk.ClientO
 		if option.TLSConfig == nil {
 			option.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 		}
+		// #nosec G402 -- Explicit host TLSSkipVerify opt-in; verification stays enabled by default.
 		option.TLSConfig.InsecureSkipVerify = true
 	}
 	option.DisableCache = true

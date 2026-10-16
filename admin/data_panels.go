@@ -237,6 +237,33 @@ func dataActionControl(id string, choice DataActionChoice) console.PanelUIAction
 		return action
 	}
 	action.RequestScope = string(choice.Kind) + ":" + choice.Input.TargetID
+	if dataSupportsPlan(choice.Kind) {
+		action.Secondary = &console.PanelUIActionSubmit{Label: "Preview plan", Field: "dry_run", Value: true}
+	}
+	action.Fields = dataActionFields(choice)
+	switch choice.Kind {
+	case admindata.Activate, admindata.Reset:
+		if choice.Input.ExpectedGeneration != nil {
+			action.Payload = map[string]any{"expected_generation": *choice.Input.ExpectedGeneration}
+		}
+		action.RequiresConfirm = true
+		action.Confirmation = dataActivationConfirmation(choice)
+		action.ConfirmText = action.Confirmation.Title + " " + action.Confirmation.Message
+	case admindata.Cancel:
+		action.RequiresConfirm = true
+		action.Confirmation = &console.PanelUIActionConfirmation{Title: "Cancel " + dataChoiceWork(choice) + "?",
+			Message: "Work stops at the next safe point. A committed activation is not undone.", ConfirmLabel: "Cancel the operation", Tone: console.PanelToneWarning}
+		action.ConfirmText = action.Confirmation.Title + " " + action.Confirmation.Message
+	case admindata.Recover:
+		action.RequiresConfirm = true
+		action.Confirmation = &console.PanelUIActionConfirmation{Title: "Recover " + dataChoiceWork(choice) + "?",
+			Message: "Recovery waits for the previous lease to expire, then reconciles the interrupted work without repeating provider effects.", ConfirmLabel: "Recover", Tone: console.PanelToneWarning}
+		action.ConfirmText = action.Confirmation.Title + " " + action.Confirmation.Message
+	}
+	return action
+}
+
+func dataActionFields(choice DataActionChoice) []console.PanelUIActionField {
 	fields := []console.PanelUIActionField{}
 	if choice.ReceiptInput {
 		field := console.PanelUIActionField{Name: "receipt_id", Label: "Receipt", Kind: "select", Required: true,
@@ -265,33 +292,12 @@ func dataActionControl(id string, choice DataActionChoice) console.PanelUIAction
 	}
 	if dataSupportsPlan(choice.Kind) {
 		fields = append(fields, console.PanelUIActionField{Name: "dry_run", Label: "Dry run", Kind: console.PanelFieldKindHidden, Default: choice.Input.DryRun})
-		action.Secondary = &console.PanelUIActionSubmit{Label: "Preview plan", Field: "dry_run", Value: true}
 	}
 	if choice.Kind != admindata.Recover {
 		fields = append(fields, console.PanelUIActionField{Name: "idempotency_key", Label: "Request ID", Kind: "text", Advanced: true,
 			Generate: console.PanelFieldGenerateRequestID, Help: dataRequestIDHelp})
 	}
-	action.Fields = fields
-	switch choice.Kind {
-	case admindata.Activate, admindata.Reset:
-		if choice.Input.ExpectedGeneration != nil {
-			action.Payload = map[string]any{"expected_generation": *choice.Input.ExpectedGeneration}
-		}
-		action.RequiresConfirm = true
-		action.Confirmation = dataActivationConfirmation(choice)
-		action.ConfirmText = action.Confirmation.Title + " " + action.Confirmation.Message
-	case admindata.Cancel:
-		action.RequiresConfirm = true
-		action.Confirmation = &console.PanelUIActionConfirmation{Title: "Cancel " + dataChoiceWork(choice) + "?",
-			Message: "Work stops at the next safe point. A committed activation is not undone.", ConfirmLabel: "Cancel the operation", Tone: console.PanelToneWarning}
-		action.ConfirmText = action.Confirmation.Title + " " + action.Confirmation.Message
-	case admindata.Recover:
-		action.RequiresConfirm = true
-		action.Confirmation = &console.PanelUIActionConfirmation{Title: "Recover " + dataChoiceWork(choice) + "?",
-			Message: "Recovery waits for the previous lease to expire, then reconciles the interrupted work without repeating provider effects.", ConfirmLabel: "Recover", Tone: console.PanelToneWarning}
-		action.ConfirmText = action.Confirmation.Title + " " + action.Confirmation.Message
-	}
-	return action
+	return fields
 }
 
 // dataSupportsPlan reports whether a kind offers a dry run as Preview plan.

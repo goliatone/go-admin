@@ -22,8 +22,8 @@ type guardedResourceService struct{ db *sql.DB }
 
 func (s guardedResourceService) check(ctx context.Context, msg guardedResourceCommand) error {
 	actor, ok := auth.ActorFromContext(ctx)
-	group, _ := ctx.Value(guardedGroupKey{}).(string)
-	if !ok || actor.ActorID == "" || group == "" || group != msg.GroupID {
+	group, groupOK := ctx.Value(guardedGroupKey{}).(string)
+	if !groupOK || !ok || actor.ActorID == "" || group == "" || group != msg.GroupID {
 		return ErrForbidden
 	}
 	var allowed bool
@@ -86,22 +86,28 @@ func TestGuardedCommandHostBoundaries(t *testing.T) {
 							if scenario == "hook denial" {
 								return ErrForbidden
 							}
-							resource, _ := input.Payload["resource_id"].(string)
-							group, _ := input.Payload["group_id"].(string)
+							resource, resourceOK := input.Payload["resource_id"].(string)
+							group, groupOK := input.Payload["group_id"].(string)
+							if !resourceOK || !groupOK {
+								return ErrForbidden
+							}
 							return service.check(ctx, guardedResourceCommand{resource, group})
 						},
 					})
 					bus := adm.Commands()
 					t.Cleanup(bus.Reset)
-					if _, err := RegisterCommand(bus, guardedResourceHandler{service}); err != nil {
-						t.Fatal(err)
+					if _, registerErr := RegisterCommand(bus, guardedResourceHandler{service}); registerErr != nil {
+						t.Fatal(registerErr)
 					}
-					if err := RegisterMessageFactory(bus, "resources.operate", func(payload map[string]any, _ []string) (guardedResourceCommand, error) {
-						resource, _ := payload["resource_id"].(string)
-						group, _ := payload["group_id"].(string)
+					if factoryErr := RegisterMessageFactory(bus, "resources.operate", func(payload map[string]any, _ []string) (guardedResourceCommand, error) {
+						resource, resourceOK := payload["resource_id"].(string)
+						group, groupOK := payload["group_id"].(string)
+						if !resourceOK || !groupOK {
+							return guardedResourceCommand{}, ErrForbidden
+						}
 						return guardedResourceCommand{resource, group}, nil
-					}); err != nil {
-						t.Fatal(err)
+					}); factoryErr != nil {
+						t.Fatal(factoryErr)
 					}
 					ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "user-a", Subject: "user-a"})
 					ctx = context.WithValue(ctx, guardedGroupKey{}, "group-a")
@@ -171,8 +177,8 @@ func TestCommandBusRequiresHostAuthorizationAndReplayPolicy(t *testing.T) {
 	if _, err := RegisterCommand(bus, command.CommandFunc[guardedResourceCommand](func(context.Context, guardedResourceCommand) error { calls++; return nil })); err != nil {
 		t.Fatal(err)
 	}
-	if err := RegisterMessageFactory(bus, "resources.operate", func(map[string]any, []string) (guardedResourceCommand, error) { return guardedResourceCommand{}, nil }); err != nil {
-		t.Fatal(err)
+	if factoryErr := RegisterMessageFactory(bus, "resources.operate", func(map[string]any, []string) (guardedResourceCommand, error) { return guardedResourceCommand{}, nil }); factoryErr != nil {
+		t.Fatal(factoryErr)
 	}
 	for range 2 {
 		if _, err := bus.DispatchByNameWithOptions(context.Background(), "resources.operate", nil, nil,

@@ -1870,6 +1870,20 @@ Retry the original reviewed request after a lost response. Replays reauthorize c
 
 This is an opt-in code path verified with synthetic records. Live profile provisioning/cutover, rotation or rebinding of already-published identities, receiver endpoint changes, operational fences and deployment signoff remain consuming-host work. No startup scan or automatic adoption occurs.
 
+### Recovery of adopted exports
+
+Retain `admin_export_legacy_adoptions` with the entire host SQL, durable artifact tree, native completion/sender receipts and transactional receiver inbox/effects. Restore them as one quiescent, catalog-anchored set and compare every canonical table and artifact before enabling workers. `CheckReady` checks schema availability; the consuming application must enforce the recovery gate, stop all writers and reconcile post-snapshot revocations before replay.
+
+`durable_export_recovery_test.go` provides the current-host reference gate and SQLite/PostgreSQL full-restore checks for pending adoption, generated exports and uncertain receiver responses. It verifies adoption receipt/owner/delegation/plan closure before capture and rejects pruned or mixed recovery state. This is controlled recovery verification; production distributed fences, catalog custody and deployment RPO/RTO remain application responsibilities.
+
+### Runtime maintenance and recovery interlock
+
+Set `DurableExportHostConfig.RecoveryGate` to a new `NewDurableExportRecoveryGate` for opt-in sealed startup. Supply trusted `Authorize`, `VerifyCatalog` and `Reconcile` policies. `ExportRecoveryCheckpoint` contains reviewed set/catalog/policy references; callbacks must verify the complete restored set against independent catalog custody and reconcile authoritative post-snapshot revocations. A successful callback cannot be replaced by a caller-supplied approval flag. Every process restart needs a new sealed gate and a new successful resume.
+
+Construct and migrate the host while sealed, then call `gate.Resume(ctx, currentOperator, checkpoint)` and start `host.Run` under the application lifecycle. Before backup, call `gate.Seal(ctx, currentOperator)`; only a nil result means admitted facade work, native worker shutdown and outstanding queue operations have drained. Timeout/cancellation leaves admission sealed and unfinished work counted. Resume the gate and explicitly restart `host.Run` after maintenance. Operator adapters may register the typed `admin.export.recovery.seal.v1` and `admin.export.recovery.resume.v1` handlers; no public route/message factory is installed, and actor claims are omitted from command JSON.
+
+Use the host facade for export services, history, legacy adoption, schedules and native `Run`/`ExecuteMessage`. Share one gate across all host instances in this process. Migrations require an idle sealed gate; `CheckReady` remains a schema probe. Raw queue, scheduler, tracker, runner, worker and webhook handles are trusted integration ports and require separate maintenance discipline. The gate does not fence another process, an external receiver, another database client or work escaping trusted callback lifetimes. Fence authentication/session and other application writers separately as well. Stop those writers independently before capturing a recovery set; deployment-wide fencing, catalog custody, revocation-feed availability and recovery objectives remain consuming-host policy.
+
 ## Usage example
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")

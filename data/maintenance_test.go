@@ -235,7 +235,10 @@ func TestMaintenanceCancellationAdmissionDryRunAndDisableFence(t *testing.T) {
 	h.gate <- struct{}{}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	in, _ := s.NextRequest(context.Background(), "cancel")
+	in, requestErr := s.NextRequest(context.Background(), "cancel")
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
 	if _, e := s.Ensure(ctx, in); !errors.Is(e, context.Canceled) {
 		t.Fatal(e)
 	}
@@ -358,5 +361,32 @@ func TestMaintenanceExpiryAfterActivationStartsFreshWork(t *testing.T) {
 	result, e = ensureMaintenance(t, s)
 	if e != nil || result.Record.State != MaintenanceReady || result.Record.Generation != 2 || len(h.generatedKeys) != 2 {
 		t.Fatal("expired receipt replayed forever", result, e)
+	}
+}
+
+type maintenanceFailedSaveHost struct {
+	*maintenanceTestHost
+	failure error
+}
+
+func (h *maintenanceFailedSaveHost) Save(ctx context.Context, r MaintenanceRecord) error {
+	if r.State == MaintenanceFailed || r.State == MaintenanceRecoveryRequired {
+		return h.failure
+	}
+	return h.maintenanceTestHost.Save(ctx, r)
+}
+
+func TestMaintenanceFailureRetainsPersistenceError(t *testing.T) {
+	s, h := newMaintenanceTest(t)
+	h.failures = 1
+	persistErr := errors.New("failure state could not be persisted")
+	s.backend = &maintenanceFailedSaveHost{maintenanceTestHost: h, failure: persistErr}
+
+	out, err := ensureMaintenance(t, s)
+	if ErrorCode(err) != CodeUnavailable || !errors.Is(err, persistErr) {
+		t.Fatalf("expected lifecycle and persistence failures, got %v", err)
+	}
+	if out.Record.State != MaintenanceFailed || out.Record.Attempts != 1 || out.Target.Activation.Generation != 0 {
+		t.Fatalf("unexpected failed renewal result: %+v", out)
 	}
 }
