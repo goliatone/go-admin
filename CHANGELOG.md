@@ -1,10 +1,27 @@
 # Changelog
 
+# [0.141.0](https://github.com/goliatone/go-admin/compare/v0.140.7...v0.141.0) - (2026-10-16)
+
+## <!-- 16 -->➕ Add
+
+- Durable exports ([1abf791](https://github.com/goliatone/go-admin/commit/1abf791f235d9cdb213ac9171993008bf122714d))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([e5f67cd](https://github.com/goliatone/go-admin/commit/e5f67cd29aeda0bebcb5e352b630d56612512958))  - (goliatone)
+
 # [0.140.7](https://github.com/goliatone/go-admin/compare/v0.140.6...v0.140.7) - (2026-10-15)
+
+
+New patch release: v0.140.7
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Do not drop custom operators ([82e2601](https://github.com/goliatone/go-admin/commit/82e2601f74aff00a01939e79744be520161feff7))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.140.7 ([e923ef6](https://github.com/goliatone/go-admin/commit/e923ef6140e93c4b89ce01b7f5148b54a80395d2))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
