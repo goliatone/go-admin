@@ -1,6 +1,23 @@
 # Changelog
 
+# [0.141.1](https://github.com/goliatone/go-admin/compare/v0.141.0...v0.141.1) - (2026-10-16)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Durable exports and code quality ([afdc9fb](https://github.com/goliatone/go-admin/commit/afdc9fbfbfafcf57de86e6ed0b91f59ed33be135))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Legacy durable export ([2208e75](https://github.com/goliatone/go-admin/commit/2208e751b3d94a74e91644a0883e5cc4a36d7018))  - (goliatone)
+
 # [0.141.0](https://github.com/goliatone/go-admin/compare/v0.140.7...v0.141.0) - (2026-10-16)
+
+
+New minor release: v0.141.0
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.141.0 ([bb30870](https://github.com/goliatone/go-admin/commit/bb3087033ce832d81ad57044a368390be3d13353))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
