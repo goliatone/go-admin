@@ -52,6 +52,7 @@ type DurableExportWebhookConfig struct {
 // browser credentials. AcceptBackground explicitly authorizes/persists that
 // delegation with each new export; errors roll back all acceptance writes.
 type DurableExportHostConfig struct {
+	LegacyAdoption             *LegacyExportAdoptionConfig
 	DB                         *bun.DB
 	ArtifactRoot               string
 	Guard                      export.Guard
@@ -125,6 +126,13 @@ func NewDurableExportHost(cfg DurableExportHostConfig, opts ...ExportBundleOptio
 		cfg.Webhooks = &copy
 		if copy.Sender == nil || copy.Select == nil || copy.AuthorizeTarget == nil || copy.Link == nil {
 			return nil, durableExportInvalid("durable webhooks require sender, plan and destination/link policies")
+		}
+	}
+	if cfg.LegacyAdoption != nil {
+		copy := *cfg.LegacyAdoption
+		cfg.LegacyAdoption = &copy
+		if copy.Authorize == nil || copy.Select == nil || cfg.Webhooks == nil {
+			return nil, durableExportInvalid("legacy adoption requires explicit authorization, versioned profiles and webhooks")
 		}
 	}
 	root, err := filepath.Abs(cfg.ArtifactRoot)
@@ -271,6 +279,11 @@ func (h *DurableExportHost) Migrate(ctx context.Context) error {
 			return err
 		}
 	}
+	if h.cfg.LegacyAdoption != nil {
+		if _, err = h.cfg.DB.NewCreateTable().Model((*legacyExportReceipt)(nil)).IfNotExists().Exec(ctx); err != nil {
+			return err
+		}
+	}
 	return h.CheckReady(ctx)
 }
 
@@ -279,6 +292,9 @@ func (h *DurableExportHost) CheckReady(ctx context.Context) error {
 	tables := []string{"export_records", "export_replay_keys", "admin_export_host_owners", "queue_messages", "queue_dispatch_status", "queue_dlq", "queue_messages_schedules", "queue_messages_occurrences"}
 	if h.Webhooks != nil {
 		tables = append(tables, "export_webhook_operations", "export_webhook_targets", "export_webhook_completion_plans")
+	}
+	if h.cfg.LegacyAdoption != nil {
+		tables = append(tables, "admin_export_legacy_adoptions")
 	}
 	for _, table := range tables {
 		query := h.cfg.DB.NewSelect().Table(table).ColumnExpr("1").Where("1=0")

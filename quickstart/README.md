@@ -1841,6 +1841,35 @@ Supply `DurableExportHostConfig` with the host Bun database, artifact directory,
 
 Optional `Webhooks` requires a receipt sender, immutable destination selector, current destination authorizer and safe download-link policy. External delivery remains at least once; matching transactional receiver inbox receipts prevent duplicate effects for that receiver. Ordinary activity is postcommit and is not a durable outbox. Tracker migration, delegation provisioning/renewal, credentials, legacy-data backfill, coordinated retention/backup/restore and deployment remain application/operator responsibilities. This opt-in composition does not automatically change the legacy demo host.
 
+### Reviewed legacy export adoption
+
+Enable `LegacyAdoption` only for a controlled cutover. Its `Authorize` callback must verify current operator identity, authoritative legacy ownership, the versioned profile and a maintenance fence before record reads. Its `Select` callback resolves an immutable reviewed endpoint/credential profile inside the supplied transaction. Both callbacks must reuse that transaction without network I/O, nested transactions or commits. Provision profile versions through host policy; commands carry only a profile reference and digests. Existing native `Webhooks.AuthorizeTarget` must reject revoked destinations and credential versions at acceptance and sending. Keep `Webhooks.Link` stable, as required by native delivery.
+
+Apply native tracker migrations and `host.Migrate(ctx)` before adoption. Fence old admission, pollers and workers for the reviewed records. Preview a queued record with retained executable `request_payload`, or a completed record whose checksummed durable envelope and tracker metadata still match. Arbitrary raw artifact formats and unknown schemas need a separate migration.
+
+```go
+func adoptLegacy(ctx context.Context, host *quickstart.DurableExportHost, operator export.Actor) error {
+    review, err := host.PreviewLegacyExport(ctx, operator, "legacy-export-id", "approved-profile-v2")
+    if err != nil { return err }
+    // Review both digests before applying; persist this request for response-loss retry.
+    request := quickstart.LegacyExportAdoptionRequest{
+        ExportID: review.ExportID, ProfileRef: review.ProfileRef,
+        RecordSHA256: review.RecordSHA256, PlanSHA256: review.PlanSHA256,
+    }
+    handler := quickstart.AdoptLegacyExportHandler{Service: host}
+    _, err = handler.Run(ctx, quickstart.AdoptLegacyExport{Actor: operator, Request: request})
+    return err
+}
+```
+
+The typed command ID is `admin.export.legacy.adopt.v1`. Register its handler on an operator-owned command bus if needed; no public HTTP/RPC factory is installed. Bind operator identity from current authentication, never a decoded actor claim. Preview exposes no endpoints or credential bytes. Review hashes bind exact retained request bytes and the profile version/plan; changed records, profiles or credentials require a new review before first adoption.
+
+First adoption commits private namespace ownership, explicit bounded delegation, native completion/delivery intent, queue acceptance and an `admin_export_legacy_adoptions` receipt together. Queued records retain their export identity; completed records retain artifact bytes and never query the source again. Adoption adds one recoverable generation message; retained old at-least-once messages may also arrive through the new worker. Native generation serializes by export ID and reuses completion, rather than regenerating or repeating publication. Resume only through workers that reconstruct current background authority. Existing notification plans or target receipts are rejected, not rebound to new credentials.
+
+Retry the original reviewed request after a lost response. Replays reauthorize current policy without renewing delegation or adding generation work. Keep versioned profile content stable and retain the receipt with owner/delegation, complete host SQL, native queue, plans, sender/receiver receipts and artifacts through every allowed retry/restore horizon. Missing retained plans/receipts deny. INT13 evidence covers its frozen earlier graph; deployments adopting this additive table must include it in coordinated backup/restore checks. SQLite regressions restore the full SQL snapshot/artifacts; PostgreSQL regressions reopen the same isolated durable state.
+
+This is an opt-in code path verified with synthetic records. Live profile provisioning/cutover, rotation or rebinding of already-published identities, receiver endpoint changes, operational fences and deployment signoff remain consuming-host work. No startup scan or automatic adoption occurs.
+
 ## Usage example
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
