@@ -14,16 +14,15 @@ var currentDocumentation = []string{
 	"docs/GUIDE_FEATURE_GATES.md",
 	"docs/GUIDE_ROUTING.md",
 	"docs/GUIDE_VIEW_CUSTOMIZATION.md",
-}
-
-var repositoryOnlyDocumentation = []string{
+	"docs/browser-client-compatibility.md",
+	"docs/CMS_INTEGRATION.md",
 	"docs/COMMERCE_SETUP.md",
 	"docs/PERSISTENCE_GUIDE_GO_ADMIN.md",
 }
 
 func TestCurrentDocumentationRelativeLinksResolve(t *testing.T) {
 	linkPattern := regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
-	for _, name := range currentDocumentationPaths() {
+	for _, name := range currentDocumentation {
 		content := readDocumentation(t, name)
 		for _, match := range linkPattern.FindAllStringSubmatch(content, -1) {
 			target := strings.TrimSpace(strings.SplitN(match[1], " ", 2)[0])
@@ -75,7 +74,7 @@ func TestCurrentDocumentationHasNoKnownStaleContracts(t *testing.T) {
 		"/opt/homebrew/bin/go",
 		"/Users/goliatone/.g/go/bin/go",
 	}
-	for _, name := range currentDocumentationPaths() {
+	for _, name := range currentDocumentation {
 		content := readDocumentation(t, name)
 		for _, value := range prohibited {
 			if strings.Contains(content, value) {
@@ -209,16 +208,6 @@ func assertDocumentationFragments(t *testing.T, documents map[string][]string) {
 			}
 		}
 	}
-}
-
-func currentDocumentationPaths() []string {
-	paths := append([]string(nil), currentDocumentation...)
-	for _, name := range repositoryOnlyDocumentation {
-		if _, err := os.Stat(name); err == nil {
-			paths = append(paths, name)
-		}
-	}
-	return paths
 }
 
 func readDocumentation(t *testing.T, name string) string {

@@ -72,6 +72,11 @@ docs/*
 !docs/GUIDE_*.md
 !docs/AUTH.md
 !docs/ROUTING_RELEASE_CHECKLIST.md
+# Current guides linked by docs/README.md must ship in isolated releases.
+!docs/browser-client-compatibility.md
+!docs/PERSISTENCE_GUIDE_GO_ADMIN.md
+!docs/CMS_INTEGRATION.md
+!docs/COMMERCE_SETUP.md
 pkg/client/assets/tenant/
 pkg/client/assets/tenant/tenant-bootstrap/
 pkg/client/assets/tenant/tenant-runtime/*
