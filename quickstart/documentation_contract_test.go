@@ -1,3 +1,5 @@
+//go:build doccheck
+
 package quickstart_test
 
 import (
@@ -44,6 +46,19 @@ func TestREADMEHasNoKnownStaleContracts(t *testing.T) {
 	for _, value := range prohibited {
 		if strings.Contains(content, value) {
 			t.Errorf("README.md contains stale contract %q", value)
+		}
+	}
+}
+
+func TestAdminShellCustomizationDocsMatchRuntimeContract(t *testing.T) {
+	content := readQuickstartREADME(t)
+	for _, fragment := range []string{
+		"WithViewAdmin(adm *admin.Admin)",
+		"admin.EnrichLayoutViewContextWithChrome",
+		"`DashboardTemplatesFS()` is the canonical client template set",
+	} {
+		if !strings.Contains(content, fragment) {
+			t.Errorf("README.md is missing runtime contract fragment %q", fragment)
 		}
 	}
 }

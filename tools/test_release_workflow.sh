@@ -54,6 +54,48 @@ function test_track_release_source {
     )
 }
 
+function test_release_tests_do_not_require_documentation {
+    local source_fixture="${fixture_root}/optional-documentation"
+    local error_log="${fixture_root}/optional-documentation.log"
+    mkdir -p "${source_fixture}/quickstart"
+    printf 'module github.com/goliatone/go-admin\n\ngo 1.26.5\n' > "${source_fixture}/go.mod"
+    printf 'package goadmin\n' > "${source_fixture}/root.go"
+    printf 'package quickstart\n' > "${source_fixture}/quickstart/quickstart.go"
+    cp "${repo_root}/documentation_contract_test.go" "${source_fixture}/"
+    cp "${repo_root}/quickstart/documentation_contract_test.go" "${source_fixture}/quickstart/"
+    printf 'package goadmin\nimport "testing"\nfunc TestRuntime(t *testing.T) {}\n' > "${source_fixture}/runtime_test.go"
+
+    (
+        cd "${source_fixture}" || exit 1
+        # Exercise the same default test selection as release preparation,
+        # first without any documentation, then with broken/stale prose.
+        GOWORK=off go test -mod=readonly ./... -count=1 || exit 1
+        mkdir docs
+        printf '[missing](missing.md)\nWithLegacyUserRoleBulkRoutes\n' > README.md
+        cp README.md docs/README.md
+        cp README.md quickstart/README.md
+        GOWORK=off go test -mod=readonly ./... -count=1 || exit 1
+        if GOWORK=off go test -mod=readonly -tags=doccheck . -count=1 > "${error_log}" 2>&1; then
+            echo "explicit documentation check accepted broken documentation" >&2
+            exit 1
+        fi
+        grep -q 'TestCurrentDocumentationRelativeLinksResolve' "${error_log}" || exit 1
+        if GOWORK=off go test -mod=readonly -tags=doccheck ./quickstart -count=1 > "${error_log}" 2>&1; then
+            echo "explicit quickstart documentation check accepted stale documentation" >&2
+            exit 1
+        fi
+        grep -q 'TestREADMEHasNoKnownStaleContracts' "${error_log}" || exit 1
+
+        # Documentation isolation must not hide a failing code test.
+        printf 'package goadmin\nimport "testing"\nfunc TestRuntime(t *testing.T) { t.Fatal("runtime release gate") }\n' > runtime_test.go
+        if GOWORK=off go test -mod=readonly ./... -count=1 > "${error_log}" 2>&1; then
+            echo "default release tests accepted a failing runtime test" >&2
+            exit 1
+        fi
+        grep -q 'runtime release gate' "${error_log}"
+    )
+}
+
 function test_release_source_isolation {
     local source_fixture="${fixture_root}/isolated-source"
     local clean_state="${fixture_root}/isolated-clean"
@@ -1391,6 +1433,7 @@ function test_release_success_end_to_end {
 
 release_tests_run=0
 for release_test in \
+    test_release_tests_do_not_require_documentation \
     test_release_source_isolation \
     test_isolated_release_faults \
     test_go_quality_cache_stays_outside_repository \

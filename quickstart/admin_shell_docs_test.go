@@ -9,28 +9,6 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
-func TestAdminShellCustomizationDocsMatchRuntimeContract(t *testing.T) {
-	documents := map[string][]string{
-		"README.md": {
-			"WithViewAdmin(adm *admin.Admin)",
-			"admin.EnrichLayoutViewContextWithChrome",
-			"`DashboardTemplatesFS()` is the canonical client template set",
-		},
-	}
-
-	for path, fragments := range documents {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		for _, fragment := range fragments {
-			if !strings.Contains(string(content), fragment) {
-				t.Errorf("%s is missing runtime contract fragment %q", path, fragment)
-			}
-		}
-	}
-}
-
 func TestQuickstartContextProviderUsesTypedPageChromeProjection(t *testing.T) {
 	source, err := os.ReadFile("ui_routes.go")
 	if err != nil {

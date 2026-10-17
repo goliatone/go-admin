@@ -44,8 +44,6 @@ func TestGoSyncPackageProvidesExtractionReadyReleaseArtifacts(t *testing.T) {
 	for _, relativePath := range []string{
 		".version",
 		"taskfile",
-		"README.md",
-		"client/packages/sync-core/README.md",
 	} {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(relativePath))); err != nil {
 			t.Fatalf("expected package artifact %s: %v", relativePath, err)

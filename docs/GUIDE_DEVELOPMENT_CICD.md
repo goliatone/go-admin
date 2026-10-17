@@ -308,6 +308,11 @@ Browser-client release preflight requires:
 - `tar`
 - an authenticated GitHub CLI (`gh auth status` must succeed)
 
+Documentation presence, links and prose never gate package releases. Default
+tests validate code and required runtime/build assets. To run optional
+documentation maintenance checks from the workspace root, use
+`go test -tags=doccheck . ./quickstart`; release tasks do not enable this tag.
+
 Before releasing, run the release regression suite and the normal quality gate:
 
 ```bash

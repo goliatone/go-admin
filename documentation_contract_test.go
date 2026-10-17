@@ -1,3 +1,5 @@
+//go:build doccheck
+
 package goadmin_test
 
 import (
