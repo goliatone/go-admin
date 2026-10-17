@@ -17,6 +17,7 @@ Manual release notes are temporary and optional.
 - Use `RELEASE_NOTES_FILE=path` or `./taskfile release --notes path` only for another untracked scratch file.
 - Keep release note text ready to appear verbatim in `CHANGELOG.md`; include headings such as `## Migration Notes` when useful.
 - Release preflight ignores untracked files, rejects tracked working-tree changes, validates coordinated root and quickstart tags, tests the publishable graph, and advances examples development metadata.
+- Release preparation exports tracked inputs outside the checkout before tidy/tests/client version updates; only explicit release metadata is applied back. Current-source `quickstart:sync:check` remains a development diagnostic, distinct from staged artifact validation.
 - Failed releases restore the temporary notes file together with version, changelog, and module metadata; inspect the warning if automatic rollback reports an incomplete restore.
 
 Use this path for migration guidance that should ship with a release but should not depend on remembering a special commit message.

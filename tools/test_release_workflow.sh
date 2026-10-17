@@ -6,6 +6,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture_root=$(mktemp -d "${TMPDIR:-/tmp}/go-admin-release-test.XXXXXX")
+fixture_root=$(cd "${fixture_root}" && pwd -P)
 
 function cleanup {
     if [ -n "${fixture_root}" ] && [ -d "${fixture_root}" ]; then
@@ -16,6 +17,9 @@ trap cleanup EXIT
 
 # shellcheck disable=SC1091
 source "${repo_root}/taskfile"
+
+# Keep the production artifact gate available for the real isolated graph check.
+eval "$(declare -f release:modules:validate | sed '1s/release:modules:validate/test_release_modules_validate_real/')"
 
 # Synthetic release fixtures exercise orchestration and rollback without the
 # repository's full publishable asset tree. The Go releasecheck tests cover the
@@ -36,6 +40,107 @@ function assert_file_content {
         echo "unexpected content in ${path}: expected ${expected}, got ${actual}" >&2
         return 1
     fi
+}
+
+function test_track_release_source {
+    (
+        cd "${1}" || exit 1
+        command git init -q || exit 1
+        # Notes are intentionally untracked, just as in the real checkout.
+        printf '.release-notes.md\nevidence/\nnode_modules/\n' > .gitignore
+        command git add -- . || exit 1
+        command git -c user.name=ReleaseFixture -c user.email=release@example.invalid \
+            -c commit.gpgsign=false commit -qm baseline
+    )
+}
+
+function test_release_source_isolation {
+    local source_fixture="${fixture_root}/isolated-source"
+    local clean_state="${fixture_root}/isolated-clean"
+    local dirty_state="${fixture_root}/isolated-dirty"
+    local escape_state="${fixture_root}/isolated-escape"
+    local state
+    local asset
+    mkdir -p "${source_fixture}" "${clean_state}" "${dirty_state}" "${escape_state}"
+    printf 'module github.com/goliatone/go-admin\n\ngo 1.26.5\n' > "${source_fixture}/go.mod"
+    printf 'package fixture\nconst Good = true\n' > "${source_fixture}/fixture.go"
+    printf 'retained fixture\n' > "${source_fixture}/fixture.txt"
+    printf '0.1.0\n' > "${source_fixture}/.version"
+    for asset in console/index.js styles/console.css debug/index.js debug/toolbar-bootstrap.js \
+        styles/debug.css third-party/iconoir/iconoir.css third-party/iconoir/LICENSE \
+        third-party/simple-datatables/style.css third-party/simple-datatables/LICENSE \
+        third-party/echarts/echarts.min.js third-party/echarts/LICENSE third-party/echarts/NOTICE; do
+        mkdir -p "${source_fixture}/pkg/client/assets/dist/$(dirname "${asset}")"
+        printf 'tracked asset\n' > "${source_fixture}/pkg/client/assets/dist/${asset}"
+    done
+    test_track_release_source "${source_fixture}"
+    (
+        cd "${source_fixture}" || exit 1
+        release:source:capture "${clean_state}"
+        mkdir -p evidence/baseline node_modules/dependency
+        printf 'package broken\nvar _ MissingSnapshotType\n' > evidence/baseline/snapshot.go
+        printf 'package broken\nimport _ "scratch.invalid/dependency"\n' > node_modules/dependency/dependency.go
+        printf 'package fixture\nvar _ MissingScratchType\n' > scratch.go
+        printf 'invalid ambient workspace\n' > go.work
+        mkdir -p examples pkg/client/assets/scripts
+        printf 'invalid untracked examples module\n' > examples/go.mod
+        printf 'invalid untracked client package\n' > pkg/client/assets/package.json
+        printf 'untracked client script\n' > pkg/client/assets/scripts/prepare-release-assets.mjs
+        release:source:capture "${dirty_state}"
+        cmp "${clean_state}/source-hashes" "${dirty_state}/source-hashes"
+        [ ! -e "${dirty_state}/prepared-source/evidence" ]
+        [ ! -e "${dirty_state}/prepared-source/node_modules" ]
+        [ ! -e "${dirty_state}/prepared-source/scratch.go" ]
+        [ ! -e "${dirty_state}/prepared-source/go.work" ]
+        [ ! -e "${dirty_state}/examples-module.present" ]
+        [ ! -e "${dirty_state}/prepared-source/pkg/client/assets/package.json" ]
+        release_source_version_path=.version
+        release_client_enabled=0
+        release:source:prepare 0.1.1 "${clean_state}"
+        release:source:prepare 0.1.1 "${dirty_state}"
+        cmp "${clean_state}/prepared-source/go.mod" "${dirty_state}/prepared-source/go.mod"
+        assert_file_content .version 0.1.0
+        assert_file_content fixture.txt 'retained fixture'
+        (cd "${dirty_state}/prepared-source" && GOWORK=off go list -mod=readonly ./...) > "${dirty_state}/packages"
+        assert_file_content "${dirty_state}/packages" github.com/goliatone/go-admin
+        for state in "${clean_state}" "${dirty_state}"; do
+            (
+                cd "${repo_root}" || exit 1
+                GOWORK=off go run -mod=readonly -buildvcs=false ./cmd/go-admin-release-check \
+                    -module-root "${state}/prepared-source" -version v0.1.1 -module-proxy "${state}/proxy"
+            )
+        done
+        cmp "${clean_state}/proxy/github.com/goliatone/go-admin/@v/v0.1.1.zip" \
+            "${dirty_state}/proxy/github.com/goliatone/go-admin/@v/v0.1.1.zip"
+        rm "${dirty_state}/prepared-source/pkg/client/assets/dist/console/index.js"
+        if (
+            cd "${repo_root}" || exit 1
+            GOWORK=off go run -mod=readonly -buildvcs=false ./cmd/go-admin-release-check \
+                -module-root "${dirty_state}/prepared-source" -version v0.1.1
+        ); then
+            echo "release accepted a missing shipped asset" >&2; exit 1
+        fi
+        cp "${clean_state}/prepared-source/pkg/client/assets/dist/console/index.js" \
+            "${dirty_state}/prepared-source/pkg/client/assets/dist/console/index.js"
+
+        printf 'unexpected mutation\n' > "${dirty_state}/prepared-source/fixture.txt"
+        if release:source:assert_prepared "${dirty_state}"; then
+            echo "release accepted a changed tracked fixture" >&2; exit 1
+        fi
+        rm "${dirty_state}/prepared-source/fixture.txt"
+        if release:source:assert_prepared "${dirty_state}"; then
+            echo "release accepted a missing tracked fixture" >&2; exit 1
+        fi
+        ln -s "${fixture_root}" escaping-link
+        command git add -- escaping-link
+        if release:source:capture "${escape_state}"; then
+            echo "release accepted an escaping tracked symlink" >&2; exit 1
+        fi
+        mkdir tmp
+        state=$(TMPDIR="${source_fixture}/tmp" release:state:create)
+        case "${state}/" in "${source_fixture}/"*) exit 1 ;; esac
+        release:transaction:cleanup "${state}"
+    )
 }
 
 function test_go_quality_cache_stays_outside_repository {
@@ -150,20 +255,116 @@ function test_repository_module_boundaries {
 
 function test_real_quickstart_sync {
     local snapshot_dir="${fixture_root}/real-quickstart-sync"
+    local state_dir="${fixture_root}/real-isolated-release"
     local path
 
-    mkdir -p "${snapshot_dir}/quickstart"
+    mkdir -p "${snapshot_dir}/quickstart" "${state_dir}"
     for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
         cp "${repo_root}/${path}" "${snapshot_dir}/${path}"
     done
 
-    (cd "${repo_root}" && quickstart:sync:check 0.999.0)
+    (
+        cd "${repo_root}" || exit 1
+        release_source_version_path=.version
+        release_client_enabled=0
+        release:source:capture "${state_dir}" || exit 1
+        release:source:prepare 0.999.0 "${state_dir}" || exit 1
+        # Only this disposable tree gets an index. The maintained checkout is
+        # neither staged nor committed, even when its working sources are dirty.
+        cd "${state_dir}/prepared-source" || exit 1
+        command git init -q || exit 1
+        command git add --pathspec-from-file="${state_dir}/source-paths" --pathspec-file-nul || exit 1
+        for path in go.sum quickstart/go.sum examples/go.sum; do
+            [ ! -f "${path}" ] || command git add -- "${path}" || exit 1
+        done
+        test_release_modules_validate_real v0.999.0 "${state_dir}"
+    )
 
     for path in go.mod go.sum quickstart/go.mod quickstart/go.sum; do
         if ! cmp -s "${repo_root}/${path}" "${snapshot_dir}/${path}"; then
             echo "quickstart sync check did not restore ${path}" >&2
             return 1
         fi
+    done
+}
+
+function test_isolated_release_faults {
+    local fault
+    local source_fixture
+    local error_log
+    local status
+    for fault in capture prepare source drift apply proxy interrupt; do
+        source_fixture="${fixture_root}/fault-${fault}"
+        error_log="${fixture_root}/fault-${fault}.log"
+        mkdir -p "${source_fixture}/quickstart"
+        printf '0.1.0\n' > "${source_fixture}/.version"
+        printf 'old changelog\n' > "${source_fixture}/CHANGELOG.md"
+        printf 'manual notes\n' > "${source_fixture}/.release-notes.md"
+        printf 'module github.com/goliatone/go-admin\n\ngo 1.26.5\n' > "${source_fixture}/go.mod"
+        printf 'package fixture\nconst Name = "root"\n' > "${source_fixture}/fixture.go"
+        printf 'retained\n' > "${source_fixture}/fixture.txt"
+        printf 'module github.com/goliatone/go-admin/quickstart\n\ngo 1.26.5\n\nrequire github.com/goliatone/go-admin v0.1.0\n' > "${source_fixture}/quickstart/go.mod"
+        printf 'package quickstart\nimport root "github.com/goliatone/go-admin"\nconst Name = root.Name\n' > "${source_fixture}/quickstart/quickstart.go"
+        test_track_release_source "${source_fixture}"
+        (
+            cd "${source_fixture}" || exit 1
+            VERSION_FILE=.version
+            # Keep remote publication and history generation synthetic.
+            function git {
+                case "${1:-}" in
+                    fetch|pull) return 0 ;;
+                    cliff) printf 'generated\n' > CHANGELOG.md; return 0 ;;
+                    push) echo 'unexpected publication' >&2; return 98 ;;
+                esac
+                command git "$@"
+            }
+            eval "$(declare -f release:source:prepare | sed '1s/release:source:prepare/test_prepare_before_fault/')"
+            function release:source:prepare {
+                case "${fault}" in
+                    prepare) return 1 ;;
+                    interrupt) /bin/sh -c 'kill -TERM "$PPID"'; return 1 ;;
+                esac
+                test_prepare_before_fault "$@" || return 1
+                if [ "${fault}" = source ]; then
+                    printf 'changed\n' > "${2}/prepared-source/fixture.txt"
+                    release:source:assert_prepared "${2}" || return 1
+                fi
+                if [ "${fault}" = drift ]; then
+                    printf 'concurrent edit\n' > "${source_fixture}/fixture.txt"
+                fi
+            }
+            if [ "${fault}" = capture ]; then
+                function release:source:capture { return 1; }
+            fi
+            function cp {
+                case "$*" in
+                    *prepared-source/go.mod*)
+                        if [ "${fault}" = apply ]; then return 1; fi ;;
+                esac
+                command cp "$@"
+            }
+            function release:modules:validate { return 1; }
+            release patch
+        ) > "${error_log}" 2>&1 && status=0 || status=$?
+        if [ "${status}" -eq 0 ]; then
+            echo "isolated release ignored ${fault} failure" >&2; return 1
+        fi
+        if [ "${fault}" = interrupt ] && [ "${status}" -ne 143 ]; then
+            cat "${error_log}" >&2; return 1
+        fi
+        assert_file_content "${source_fixture}/.version" 0.1.0
+        assert_file_content "${source_fixture}/CHANGELOG.md" 'old changelog'
+        assert_file_content "${source_fixture}/.release-notes.md" 'manual notes'
+        grep -q 'go-admin v0.1.0' "${source_fixture}/quickstart/go.mod"
+        if [ "${fault}" = drift ]; then
+            assert_file_content "${source_fixture}/fixture.txt" 'concurrent edit'
+        else
+            assert_file_content "${source_fixture}/fixture.txt" retained
+        fi
+        if [ -n "$(cd "${source_fixture}" && command git diff --cached --name-only)" ]; then
+            echo "${fault} failure left a staged release" >&2; return 1
+        fi
+        [ -f "${source_fixture}/fixture.go" ]
     done
 }
 
@@ -787,6 +988,8 @@ function test_release_failure_end_to_end {
         '' \
         'const Name = root.Name + quickstart.RootName' > "${release_fixture}/examples/example.go"
 
+    test_track_release_source "${release_fixture}"
+
     (
         cd "${release_fixture}" || exit 1
         VERSION_FILE=.version
@@ -797,6 +1000,10 @@ function test_release_failure_end_to_end {
 
             printf '%s\n' "$*" >> "${git_log}"
             case "${1:-}" in
+                checkout-index|hash-object|diff)
+                    command git "$@"
+                    return $?
+                ;;
                 status|fetch|pull|add|commit)
                     return 0
                 ;;
@@ -812,6 +1019,10 @@ function test_release_failure_end_to_end {
                     return 0
                 ;;
                 ls-files)
+                    if [ "${2:-}" = "--stage" ] || [ "${2:-}" = "-z" ] || [ "${2:-}" = "--error-unmatch" ]; then
+                        command git "$@"
+                        return $?
+                    fi
                     if [ "${2:-}" = "--others" ]; then
                         return 0
                     fi
@@ -910,6 +1121,8 @@ function test_release_commit_failure_restores_index {
         'const RootName = root.Name' > "${release_fixture}/quickstart/quickstart.go"
     printf '%s\n' 'clean' > "${index_state}"
 
+    test_track_release_source "${release_fixture}"
+
     (
         cd "${release_fixture}" || exit 1
         VERSION_FILE=.version
@@ -920,6 +1133,10 @@ function test_release_commit_failure_restores_index {
 
             printf '%s\n' "$*" >> "${git_log}"
             case "${1:-}" in
+                checkout-index|hash-object|diff)
+                    command git "$@"
+                    return $?
+                ;;
                 status|fetch|pull)
                     return 0
                 ;;
@@ -928,6 +1145,10 @@ function test_release_commit_failure_restores_index {
                     return 0
                 ;;
                 ls-files)
+                    if [ "${2:-}" = "--stage" ] || [ "${2:-}" = "-z" ] || [ "${2:-}" = "--error-unmatch" ]; then
+                        command git "$@"
+                        return $?
+                    fi
                     if [ "${2:-}" = "--others" ]; then
                         return 0
                     fi
@@ -1049,6 +1270,8 @@ function test_release_success_end_to_end {
     printf '%s\n' '{"name":"@goliatone/go-admin-client","version":"0.121.2","lockfileVersion":3}' > "${release_fixture}/pkg/client/assets/package-lock.json"
     printf '%s\n' 'export {}' > "${release_fixture}/pkg/client/assets/scripts/prepare-release-assets.mjs"
 
+    test_track_release_source "${release_fixture}"
+
     (
         cd "${release_fixture}" || exit 1
         VERSION_FILE=.version
@@ -1073,6 +1296,10 @@ function test_release_success_end_to_end {
 
             printf '%s\n' "$*" >> "${git_log}"
             case "${1:-}" in
+                checkout-index|hash-object|diff)
+                    command git "$@"
+                    return $?
+                ;;
                 status|fetch|pull|add|commit|reset)
                     return 0
                 ;;
@@ -1092,6 +1319,10 @@ function test_release_success_end_to_end {
                     return 0
                 ;;
                 ls-files)
+                    if [ "${2:-}" = "--stage" ] || [ "${2:-}" = "-z" ] || [ "${2:-}" = "--error-unmatch" ]; then
+                        command git "$@"
+                        return $?
+                    fi
                     if [ "${2:-}" = "--others" ]; then
                         return 0
                     fi
@@ -1158,29 +1389,45 @@ function test_release_success_end_to_end {
     fi
 }
 
-test_go_quality_cache_stays_outside_repository
-test_go_file_discovery_excludes_external_workspaces
-test_go_package_discovery_excludes_evidence
-test_module_discovery
-test_repository_module_boundaries
-test_real_quickstart_sync
-test_quickstart_sync_without_published_tag
-test_examples_sync_tracks_coordinated_version
-test_quickstart_sync_runs_tests
-test_quickstart_sync_check_restores_after_interruption
-test_release_client_preflight_accepts_supported_node_versions
-test_release_client_preflight_accepts_supported_npm_versions
-test_transaction_cleanup_removes_readonly_module_cache
-test_transaction_rollback
-test_release_client_prepare_uses_tagged_source
-test_release_client_prepare_rejects_tag_skew
-test_postpush_asset_failure_preserves_release
-test_failed_restore_preserves_snapshot
-test_release_ignores_untracked_input
-test_release_rejects_tracked_input
-test_release_rejects_tag_skew
-test_release_failure_end_to_end
-test_release_commit_failure_restores_index
-test_release_success_end_to_end
+release_tests_run=0
+for release_test in \
+    test_release_source_isolation \
+    test_isolated_release_faults \
+    test_go_quality_cache_stays_outside_repository \
+    test_go_file_discovery_excludes_external_workspaces \
+    test_go_package_discovery_excludes_evidence \
+    test_module_discovery \
+    test_repository_module_boundaries \
+    test_real_quickstart_sync \
+    test_quickstart_sync_without_published_tag \
+    test_examples_sync_tracks_coordinated_version \
+    test_quickstart_sync_runs_tests \
+    test_quickstart_sync_check_restores_after_interruption \
+    test_release_client_preflight_accepts_supported_node_versions \
+    test_release_client_preflight_accepts_supported_npm_versions \
+    test_transaction_cleanup_removes_readonly_module_cache \
+    test_transaction_rollback \
+    test_release_client_prepare_uses_tagged_source \
+    test_release_client_prepare_rejects_tag_skew \
+    test_postpush_asset_failure_preserves_release \
+    test_failed_restore_preserves_snapshot \
+    test_release_ignores_untracked_input \
+    test_release_rejects_tracked_input \
+    test_release_rejects_tag_skew \
+    test_release_failure_end_to_end \
+    test_release_commit_failure_restores_index \
+    test_release_success_end_to_end
+do
+    if [ -n "${RELEASE_TEST_FILTER:-}" ] && ! [[ "${release_test}" =~ ${RELEASE_TEST_FILTER} ]]; then
+        continue
+    fi
+    printf 'Running %s\n' "${release_test}"
+    "${release_test}"
+    release_tests_run=$((release_tests_run + 1))
+done
+if [ "${release_tests_run}" -eq 0 ]; then
+    echo "No release tests matched RELEASE_TEST_FILTER." >&2
+    exit 1
+fi
 
 echo "release workflow tests passed"

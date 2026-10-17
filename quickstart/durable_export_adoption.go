@@ -29,6 +29,9 @@ import (
 type LegacyExportAdoptionConfig struct {
 	Authorize func(context.Context, bun.Tx, export.Actor, string, string) error
 	Select    func(context.Context, bun.Tx, export.Actor, export.ExportRecord, string) (deliverybun.ScheduleRequest, error)
+	// Inventory authorizes current operator/profile/fence before listing trusted ownership IDs.
+	// Return at most limit IDs, strictly increasing after the cursor, using tx only.
+	Inventory func(ctx context.Context, tx bun.Tx, actor export.Actor, profile, after string, limit int) ([]string, error)
 }
 
 type LegacyExportReview struct {

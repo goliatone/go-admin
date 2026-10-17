@@ -332,18 +332,35 @@ Publish with one of:
 Preflight rejects tracked working-tree changes, ignores untracked files, pulls
 with fast-forward-only semantics, and requires the latest `vX.Y.Z` and
 `quickstart/vX.Y.Z` tags to identify the same version and commit. Release
-preparation tests the publishable root and quickstart graph with workspace mode
-disabled, advances examples development metadata, and assigns the same version
-to `@goliatone/go-admin-client`. After release-generated files are finalized,
+preparation exports tracked source to a transaction-owned directory outside the
+checkout before running tidy, tests or client version updates. It tests the
+publishable root and quickstart graph with workspace mode disabled, advances
+examples development metadata, and assigns the same version to
+`@goliatone/go-admin-client`. Ignored/untracked Go files and installed
+node_modules are absent from that copy. Tracked fixtures and shipped assets
+must be sufficient; preparation never fills missing inputs from the checkout.
+Only explicit version/module/client metadata is copied back after source and
+index drift checks. After release-generated files are finalized,
 the task stages the intended commit, constructs a local Go module proxy from
 that exact index, hydrates quickstart's direct root-module checksums through the
 proxy, and runs the staged quickstart module with `GOWORK=off -mod=readonly`.
 The proxy is consumed through an isolated module cache, so an older cached copy
 cannot satisfy the check. This gate catches nested-module metadata defects that
 a temporary local `replace` cannot expose; untracked files do not affect the
-proxy archive.
+proxy archive. The archive checker, dependency download and consumer test all
+run from the fresh staged copy, so preparation-generated files cannot enter the
+archive. A checkout-local TMPDIR is replaced by external temporary storage.
 
-Failures before a successful atomic push restore version, changelog, module
+`./taskfile quickstart:sync:check [version]` retains its development behavior:
+it checks current working sources, permits a dirty tree and restores its four
+root/quickstart metadata files on completion or interruption. This diagnostic
+does not establish that a tracked release artifact passes. The real-graph case
+in `release:test` separately exercises isolated tracked preparation and proxy
+consumption. `RELEASE_TEST_FILTER` can select named shell regression cases;
+omitting it runs the complete suite, and a filter matching nothing fails.
+
+Failures before applying outputs leave the live checkout untouched. After
+application, failures before a successful atomic push restore version, changelog, module
 metadata, the index, temporary notes, release commit, and local tags. If
 automatic restoration is incomplete, the command prints and preserves the
 recovery snapshot path. If tags were pushed but GitHub asset publication failed,

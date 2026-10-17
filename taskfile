@@ -1962,13 +1962,272 @@ function release:transaction:cleanup {
     fi
 }
 
+# Release source and caches must never become packages in the checkout, even
+# when an operator has pointed TMPDIR at a repository-local cache directory.
+function release:state:create {
+    local root
+    local parent
+    root=$(pwd -P) || return 1
+    parent=$(cd "${TMPDIR:-/tmp}" && pwd -P) || return 1
+    case "${parent}/" in
+        "${root}/"*) parent=$(cd /tmp && pwd -P) || return 1 ;;
+    esac
+    case "${parent}/" in
+        "${root}/"*) echo "Release temporary storage must be outside the checkout." >&2; return 1 ;;
+    esac
+    mktemp -d "${parent}/go-admin-release.XXXXXX"
+}
+
+function release:source:assert_external {
+    local state_dir=${1}
+    local root
+    local actual
+    root=$(pwd -P) || return 1
+    actual=$(cd "${state_dir}" && pwd -P) || return 1
+    case "${actual}/" in
+        "${root}/"*) echo "Release source must be outside the checkout." >&2; return 1 ;;
+    esac
+    [ "${actual}" = "${state_dir}" ] || {
+        echo "Release state must use an absolute physical path." >&2
+        return 1
+    }
+}
+
+function release:source:fingerprint {
+    local root=${1}
+    local path=${2}
+    local target="${root}/${path}"
+    local parent
+    local link
+    local count=0
+    local executable=0
+    # Resolve symlinks without following a tracked input outside the copy.
+    while :; do
+        parent=$(cd "$(dirname "${target}")" && pwd -P) || return 1
+        target="${parent}/$(basename "${target}")"
+        case "${target}" in
+            "${root}/"*) ;;
+            *) echo "Release source escapes its isolated tree: ${path}" >&2; return 1 ;;
+        esac
+        [ -L "${target}" ] || break
+        count=$((count + 1))
+        [ "${count}" -le 40 ] || return 1
+        link=$(readlink "${target}") || return 1
+        case "${link}" in
+            /*) target=${link} ;;
+            *) target="${parent}/${link}" ;;
+        esac
+    done
+    [ -e "${target}" ] || return 1
+    if [ -L "${root}/${path}" ]; then
+        link=$(readlink "${root}/${path}") || return 1
+        printf 'link '
+        printf '%s' "${link}" | git hash-object --stdin
+    else
+        [ -f "${target}" ] || return 1
+        [ ! -x "${target}" ] || executable=1
+        printf 'file %s ' "${executable}"
+        git hash-object --no-filters "${target}"
+    fi
+}
+
+function release:source:capture {
+    local state_dir=${1}
+    local source_dir="${state_dir}/prepared-source"
+    local entry
+    local path
+    release:source:assert_external "${state_dir}" || return 1
+    [ ! -e "${source_dir}" ] || return 1
+    mkdir "${source_dir}" || return 1
+    git ls-files --stage -z > "${state_dir}/source-index" || return 1
+    while IFS= read -r -d '' entry; do
+        case "${entry}" in
+            160000\ *) echo "Release source cannot depend on an external submodule." >&2; return 1 ;;
+        esac
+    done < "${state_dir}/source-index"
+    git checkout-index --all --prefix="${source_dir}/" || return 1
+    if [ -f "${source_dir}/quickstart/go.mod" ]; then
+        : > "${state_dir}/quickstart-module.present" || return 1
+    fi
+    if [ -f "${source_dir}/examples/go.mod" ]; then
+        : > "${state_dir}/examples-module.present" || return 1
+    fi
+    git ls-files -z > "${state_dir}/source-paths" || return 1
+    : > "${state_dir}/source-hashes" || return 1
+    while IFS= read -r -d '' path; do
+        release:source:fingerprint "${source_dir}" "${path}" >> "${state_dir}/source-hashes" || return 1
+    done < "${state_dir}/source-paths"
+}
+
+function release:source:mutable {
+    local path=${1}
+    case "${path}" in
+        go.mod|go.sum|quickstart/go.mod|quickstart/go.sum|examples/go.mod|examples/go.sum)
+            return 0 ;;
+        pkg/client/assets/package.json|pkg/client/assets/package-lock.json)
+            [ "${release_client_enabled:-0}" -eq 1 ]; return $? ;;
+    esac
+    [ "${path}" = "${release_source_version_path:-${VERSION_FILE#./}}" ]
+}
+
+function release:source:assert_prepared {
+    local state_dir=${1}
+    local source_dir=${2:-${1}/prepared-source}
+    local allow_changelog=${3:-0}
+    local path
+    local expected
+    local actual
+    while IFS= read -r -d '' path; do
+        IFS= read -r expected <&3 || return 1
+        release:source:mutable "${path}" && continue
+        if [ "${allow_changelog}" -eq 1 ] && [ "${path}" = CHANGELOG.md ]; then
+            continue
+        fi
+        actual=$(release:source:fingerprint "${source_dir}" "${path}") || return 1
+        if [ "${actual}" != "${expected}" ]; then
+            echo "Release preparation changed a source file: ${path}" >&2
+            return 1
+        fi
+    done < "${state_dir}/source-paths" 3< "${state_dir}/source-hashes"
+}
+
+function release:source:assert_current {
+    local state_dir=${1}
+    [ "$(git rev-parse HEAD)" = "${release_original_head}" ] || return 1
+    release:source:assert_index "${state_dir}" || return 1
+    if ! git diff --quiet --; then
+        echo "Tracked release inputs changed during isolated preparation." >&2
+        return 1
+    fi
+}
+
+function release:source:assert_index {
+    local state_dir=${1}
+    git ls-files --stage -z > "${state_dir}/current-index" || return 1
+    if ! cmp -s "${state_dir}/source-index" "${state_dir}/current-index"; then
+        echo "The release index changed during isolated preparation." >&2
+        return 1
+    fi
+}
+
+function release:source:assert_staged {
+    local state_dir=${1}
+    local path
+    git diff --cached --name-only -z > "${state_dir}/staged-paths" || return 1
+    while IFS= read -r -d '' path; do
+        [ "${path}" = CHANGELOG.md ] && continue
+        release:source:mutable "${path}" && continue
+        echo "Unexpected staged release output: ${path}" >&2
+        return 1
+    done < "${state_dir}/staged-paths"
+}
+
+function release:source:tool_path {
+    local root
+    local entry
+    local result=""
+    local entries
+    root=$(pwd -P) || return 1
+    IFS=: read -r -a entries <<< "${PATH}"
+    for entry in "${entries[@]}"; do
+        case "${entry}" in
+            "${root}"|"${root}/"*|""|.*) continue ;;
+        esac
+        result="${result:+${result}:}${entry}"
+    done
+    printf '%s\n' "${result}"
+}
+
+function release:version:next {
+    local level=${1}
+    local state_dir=${2}
+    local VERSION_FILE="${state_dir}/next-version"
+    if [ -f "${state_dir}/version.present" ]; then
+        cp -p "${state_dir}/version.data" "${VERSION_FILE}" || return 1
+    fi
+    version:sync_from_tags || return 1
+    version:bump "${level}"
+}
+
+function release:source:prepare {
+    local tag=${1}
+    local state_dir=${2}
+    local source_dir="${state_dir}/prepared-source"
+    local tool_path
+    tool_path=$(release:source:tool_path) || return 1
+    (
+        export PATH="${tool_path}"
+        export GOWORK=off
+        cd "${source_dir}" || exit 1
+        # Version history is queried in the original checkout; only the result
+        # is written here. Custom VERSION_FILE paths still apply at copy-back.
+        printf '%s\n' "${tag}" > "${state_dir}/prepared-version" || exit 1
+        if [ -n "${release_source_version_path:-}" ] && [ -f "${release_source_version_path}" ]; then
+            [ ! -L "${release_source_version_path}" ] || exit 1
+            printf '%s\n' "${tag}" > "${release_source_version_path}" || exit 1
+        fi
+        if [ "${release_client_enabled:-0}" -eq 1 ]; then
+            release:client:version:set "${tag}" || exit 1
+        fi
+        if [ -f "${state_dir}/quickstart-module.present" ]; then
+            [ -f quickstart/go.mod ] || exit 1
+            quickstart:sync "${tag}" || exit 1
+        else
+            GOWORK=off go mod tidy || exit 1
+            GOWORK=off go test -mod=readonly ./... || exit 1
+        fi
+        if [ -f "${state_dir}/examples-module.present" ]; then
+            [ -f examples/go.mod ] || exit 1
+            examples:sync "${tag}" || exit 1
+        fi
+    ) || return 1
+    release:source:assert_prepared "${state_dir}"
+}
+
+function release:source:apply {
+    local state_dir=${1}
+    local source_dir="${state_dir}/prepared-source"
+    local path
+    local paths=(go.mod go.sum)
+    if [ -f "${state_dir}/quickstart-module.present" ]; then
+        paths+=(quickstart/go.mod quickstart/go.sum)
+    fi
+    if [ -f "${state_dir}/examples-module.present" ]; then
+        paths+=(examples/go.mod examples/go.sum)
+    fi
+    if [ "${release_client_enabled:-0}" -eq 1 ]; then
+        paths+=(pkg/client/assets/package.json pkg/client/assets/package-lock.json)
+    fi
+    # Check every prepared output before the first write. Source changes never
+    # expand this list, and symlink outputs cannot read outside the copy.
+    for path in "${paths[@]}"; do
+        [ ! -L "${source_dir}/${path}" ] && [ ! -L "${path}" ] || return 1
+        if [ -e "${source_dir}/${path}" ]; then
+            [ -f "${source_dir}/${path}" ] || return 1
+            release:source:fingerprint "${source_dir}" "${path}" >/dev/null || return 1
+        elif [ -e "${path}" ] && [[ "${path}" != */go.sum && "${path}" != go.sum ]]; then
+            echo "Prepared release output is missing: ${path}" >&2
+            return 1
+        fi
+    done
+    [ -f "${state_dir}/prepared-version" ] && [ ! -L "${VERSION_FILE}" ] || return 1
+    cp -p "${state_dir}/prepared-version" "${VERSION_FILE}" || return 1
+    for path in "${paths[@]}"; do
+        if [ -f "${source_dir}/${path}" ]; then
+            cp -p "${source_dir}/${path}" "${path}" || return 1
+        elif [ -f "${path}" ]; then
+            rm -f "${path}" || return 1
+        fi
+    done
+}
+
 function release:transaction:finish {
     local status=${1}
     local rollback_failed=0
 
     trap - EXIT HUP INT TERM
 
-    if [ "${status}" -ne 0 ] && [ "${release_remote_published:-0}" -ne 1 ]; then
+    if [ "${status}" -ne 0 ] && [ "${release_remote_published:-0}" -ne 1 ] && [ "${release_inputs_applied:-1}" -eq 1 ]; then
         if [ "${release_quickstart_tag_created:-0}" -eq 1 ]; then
             git tag -d "${quickstart_tag}" >/dev/null 2>&1 || rollback_failed=1
         fi
@@ -1985,10 +2244,12 @@ function release:transaction:finish {
             echo "Release failed and automatic rollback was incomplete; inspect the working tree and local release tags." >&2
             echo "Recovery snapshot preserved at: ${release_state_dir}" >&2
         fi
-    elif [ "${status}" -ne 0 ]; then
+    elif [ "${status}" -ne 0 ] && [ "${release_remote_published:-0}" -eq 1 ]; then
         echo "Release tags were pushed, but GitHub Release asset publication failed." >&2
         echo "The local release commit and tags were preserved. Retry with:" >&2
         echo "  ./taskfile release:client:publish ${release_tag}" >&2
+    elif [ "${status}" -ne 0 ]; then
+        echo "Release preparation failed before applying live release outputs." >&2
     fi
 
     if [ "${status}" -eq 0 ] || [ "${rollback_failed}" -eq 0 ]; then
@@ -2187,27 +2448,40 @@ function release:modules:validate {
     local module_cache="${state_dir}/module-cache"
     local upstream_proxy
     local no_sum_db
+    local tool_path
 
     [ -n "${release_tag}" ] || return 1
     [ -n "${state_dir}" ] || return 1
+    release:source:assert_external "${state_dir}" || return 1
+    [ ! -e "${source_dir}" ] && [ ! -L "${source_dir}" ] || {
+        echo "Staged release source must be materialized into a fresh directory." >&2
+        return 1
+    }
+    tool_path=$(release:source:tool_path) || return 1
     mkdir -p "${source_dir}" "${proxy_dir}" "${module_cache}" || return 1
 
     # Materialize the index, not the working directory, so ignored/untracked
     # release notes and local context cannot alter the module ZIP checksum.
     git checkout-index --all --prefix="${source_dir}/" || return 1
-    GOWORK=off go run ./cmd/go-admin-release-check \
-        -module-root "${source_dir}" \
-        -version "${release_tag}" \
-        -module-proxy "${proxy_dir}" || return 1
+    (
+        export PATH="${tool_path}"
+        cd "${source_dir}" || exit 1
+        GOWORK=off go run ./cmd/go-admin-release-check \
+            -module-root "${source_dir}" \
+            -version "${release_tag}" \
+            -module-proxy "${proxy_dir}"
+    ) || return 1
 
-    upstream_proxy=$(GOWORK=off go env GOPROXY) || return 1
+    upstream_proxy=$(export PATH="${tool_path}"; cd "${source_dir}" && GOWORK=off go env GOPROXY) || return 1
     no_sum_db="github.com/goliatone/go-admin"
     if [ -n "${GONOSUMDB:-}" ]; then
         no_sum_db="${GONOSUMDB},${no_sum_db}"
     fi
 
+    [ -f "${source_dir}/quickstart/go.mod" ] || return 0
     (
-        cd quickstart || exit 1
+        export PATH="${tool_path}"
+        cd "${source_dir}/quickstart" || exit 1
         GOWORK=off \
             GOMODCACHE="${module_cache}" \
             GOPROXY="file://${proxy_dir},${upstream_proxy}" \
@@ -2215,15 +2489,16 @@ function release:modules:validate {
             go mod download "github.com/goliatone/go-admin@${release_tag}" || exit 1
     ) || return 1
 
-    cp quickstart/go.sum "${source_dir}/quickstart/go.sum" || return 1
     (
+        export PATH="${tool_path}"
         cd "${source_dir}/quickstart" || exit 1
         GOWORK=off \
             GOMODCACHE="${module_cache}" \
             GOPROXY="file://${proxy_dir},${upstream_proxy}" \
             GONOSUMDB="${no_sum_db}" \
             go test -mod=readonly ./...
-    )
+    ) || return 1
+    cp "${source_dir}/quickstart/go.sum" quickstart/go.sum
 }
 
 function examples:sync {
@@ -2337,6 +2612,9 @@ function release {
     local release_quickstart_tag_created
     local release_remote_published
     local release_client_enabled
+    local release_inputs_applied=0
+    local release_source_version_path
+    local release_version_parent
 
     level=""
     message=""
@@ -2413,12 +2691,22 @@ function release {
     # Pull hooks or concurrent local changes must not alter release inputs.
     release:worktree:assert_clean || return 1
     release:tags:assert_aligned || return 1
-    if release:client:enabled; then
+    if release:client:enabled && git ls-files --error-unmatch -- \
+        pkg/client/assets/package.json pkg/client/assets/scripts/prepare-release-assets.mjs >/dev/null 2>&1; then
         release_client_enabled=1
         release:client:preflight || return 1
     fi
 
-    release_state_dir=$(mktemp -d "${TMPDIR:-/tmp}/go-admin-release.XXXXXX") || return 1
+    release_state_dir=$(release:state:create) || return 1
+    release_version_parent=$(cd "$(dirname "${VERSION_FILE}")" && pwd -P) || {
+        release:transaction:cleanup "${release_state_dir}"
+        return 1
+    }
+    release_source_version_path="${release_version_parent}/$(basename "${VERSION_FILE}")"
+    case "${release_source_version_path}" in
+        "$(pwd -P)/"*) release_source_version_path=${release_source_version_path#"$(pwd -P)/"} ;;
+        *) release_source_version_path="" ;;
+    esac
     release_original_head=$(git rev-parse HEAD) || {
         release:transaction:cleanup "${release_state_dir}"
         return 1
@@ -2436,12 +2724,9 @@ function release {
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
-    # Tags are the published release source of truth. If a prior release was
-    # tagged outside this task, advance .version before calculating the next tag.
-    version:sync_from_tags || exit 1
-
-    # Bump our version
-    tag=$(version:bump "${level}") || exit 1
+    # Capture tracked inputs before any release Go discovery or metadata writes.
+    release:source:capture "${release_state_dir}" || exit 1
+    tag=$(release:version:next "${level}" "${release_state_dir}") || exit 1
     release_tag="v${tag}"
     quickstart_tag="quickstart/v${tag}"
 
@@ -2458,16 +2743,10 @@ function release {
     # Set message: default to New major|minor|patch release: vx.x.x
     message=${message:-"New ${level} release: v${tag}"}
 
-    # Update version file
-    version:set "${tag}" || exit 1
-    if [ "${release_client_enabled}" -eq 1 ]; then
-        release:client:version:set "${tag}" || exit 1
-    fi
-
-    # Prepare the acyclic published modules for their atomically published tags.
-    quickstart:sync "${tag}" || exit 1
-    # Keep the non-published examples module aligned with the coordinated tags.
-    examples:sync "${tag}" || exit 1
+    release:source:prepare "${tag}" "${release_state_dir}" || exit 1
+    release:source:assert_current "${release_state_dir}" || exit 1
+    release_inputs_applied=1
+    release:source:apply "${release_state_dir}" || exit 1
 
     # Generate changelog before tagging so release tags include their notes.
     if [ "${release_notes_enabled}" -eq 1 ]; then
@@ -2476,20 +2755,26 @@ function release {
         git cliff --tag "${release_tag}" --output CHANGELOG.md || exit 1
     fi
 
+    release:source:assert_prepared "${release_state_dir}" "$(pwd -P)" 1 || exit 1
+    release:source:assert_index "${release_state_dir}" || exit 1
+
     # Stage the exact release tree, then prove quickstart against a local proxy
     # generated from that staged root module before any release tag exists.
     git add "${VERSION_FILE}" CHANGELOG.md go.mod go.sum || exit 1
-    if [ -f "quickstart/go.mod" ]; then
+    if [ -f "${release_state_dir}/quickstart-module.present" ]; then
         git add quickstart/go.mod quickstart/go.sum || exit 1
     fi
-    if [ -f "examples/go.mod" ]; then
+    if [ -f "${release_state_dir}/examples-module.present" ]; then
         git add examples/go.mod examples/go.sum || exit 1
     fi
     if [ "${release_client_enabled}" -eq 1 ]; then
         git add pkg/client/assets/package.json pkg/client/assets/package-lock.json || exit 1
     fi
     release:modules:validate "${release_tag}" "${release_state_dir}" || exit 1
-    git add quickstart/go.sum || exit 1
+    if [ -f "${release_state_dir}/quickstart-module.present" ]; then
+        git add quickstart/go.sum || exit 1
+    fi
+    release:source:assert_staged "${release_state_dir}" || exit 1
     git commit -m "Bump version: v${tag}" || exit 1
 
     # Create a new tag
