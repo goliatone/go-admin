@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+
 	command "github.com/goliatone/go-command"
 	"github.com/goliatone/go-export/export"
 )
@@ -39,11 +40,15 @@ func (h *AdoptLegacyExportHandler) Run(ctx context.Context, m AdoptLegacyExport)
 	return h.Service.AdoptLegacyExport(ctx, m.Actor, m.Request)
 }
 func (h *AdoptLegacyExportHandler) Execute(ctx context.Context, m AdoptLegacyExport) error {
-	result, e := h.Run(ctx, m)
-	if e != nil {
-		return e
+	return executeLegacyExportCommand(ctx, m, h.Run)
+}
+
+func executeLegacyExportCommand[M, R any](ctx context.Context, message M, run func(context.Context, M) (R, error)) error {
+	result, err := run(ctx, message)
+	if err != nil {
+		return err
 	}
-	if out := command.ResultFromContext[LegacyExportAdoptionResult](ctx); out != nil {
+	if out := command.ResultFromContext[R](ctx); out != nil {
 		out.Store(result)
 	}
 	return nil

@@ -2,7 +2,7 @@ package quickstart
 
 import (
 	"context"
-	command "github.com/goliatone/go-command"
+
 	"github.com/goliatone/go-export/export"
 )
 
@@ -37,12 +37,5 @@ func (h *InventoryLegacyExportsHandler) Run(ctx context.Context, m InventoryLega
 	return h.Service.InventoryLegacyExports(ctx, m.Actor, m.Query)
 }
 func (h *InventoryLegacyExportsHandler) Execute(ctx context.Context, m InventoryLegacyExports) error {
-	result, err := h.Run(ctx, m)
-	if err != nil {
-		return err
-	}
-	if out := command.ResultFromContext[LegacyExportInventoryResult](ctx); out != nil {
-		out.Store(result)
-	}
-	return nil
+	return executeLegacyExportCommand(ctx, m, h.Run)
 }

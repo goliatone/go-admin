@@ -199,6 +199,11 @@ func (h *DurableExportHost) legacyRead(ctx context.Context, tx bun.Tx, a export.
 	if e = h.cfg.Guard.AuthorizeDownload(ctx, a, id); e != nil {
 		return rec, deliverybun.ScheduleRequest{}, review, e
 	}
+	if rec.State == export.StateQueued {
+		if e = legacyRequestReplaySafe(locked.RequestPayload, rec.Request); e != nil {
+			return rec, deliverybun.ScheduleRequest{}, review, e
+		}
+	}
 	req, e := h.cfg.LegacyAdoption.Select(ctx, tx, a, rec, profile)
 	if e != nil {
 		return rec, req, review, e
@@ -281,18 +286,7 @@ func (h *DurableExportHost) legacyReplay(ctx context.Context, tx bun.Tx, a expor
 		return e
 	}
 	if row.State == export.StateQueued {
-		var body string
-		if e := tx.NewSelect().Table("export_webhook_completion_plans").Column("request").Where("export_id=?", rec.ID).Scan(ctx, &body); e != nil {
-			return e
-		}
-		storedDigest, e := legacyProfileDigest(row.ProfileRef, delivery.PayloadDigest([]byte(body)))
-		if e != nil {
-			return e
-		}
-		if storedDigest != row.PlanSHA256 {
-			return durableExportInvalid("retained legacy completion plan mismatch")
-		}
-		return nil
+		return h.legacyQueuedReplay(ctx, tx, a, rec, req, row)
 	}
 	if e := h.legacyArtifact(ctx, rec); e != nil {
 		return e
@@ -310,6 +304,70 @@ func (h *DurableExportHost) legacyReplay(ctx context.Context, tx bun.Tx, a expor
 	}
 	_, e = h.legacyDelivery(ctx, tx, a, rec, req)
 	return e
+}
+
+func (h *DurableExportHost) legacyQueuedReplay(ctx context.Context, tx bun.Tx, a export.Actor, rec export.ExportRecord, req deliverybun.ScheduleRequest, row legacyExportReceipt) error {
+	var plan struct {
+		Namespace, Owner, Request, Digest string
+		PublishedAt                       time.Time
+	}
+	if e := tx.NewSelect().Table("export_webhook_completion_plans").Column("namespace", "owner", "request", "digest", "published_at").Where("export_id=?", rec.ID).Scan(ctx, &plan); e != nil {
+		return e
+	}
+	owner, e := legacyDigest(struct {
+		ID    string
+		Scope export.Scope
+	}{a.ID, a.Scope})
+	if e != nil {
+		return e
+	}
+	digest := delivery.PayloadDigest([]byte(plan.Request))
+	storedDigest, e := legacyProfileDigest(row.ProfileRef, digest)
+	if e != nil {
+		return e
+	}
+	if plan.Namespace != row.Namespace || plan.Owner != owner || plan.Digest != digest || storedDigest != row.PlanSHA256 {
+		return durableExportInvalid("retained legacy completion plan mismatch")
+	}
+	if rec.State == export.StateQueued && !plan.PublishedAt.IsZero() {
+		return durableExportInvalid("queued legacy export has a premature publication marker")
+	}
+	if rec.State == export.StateCompleted {
+		if plan.PublishedAt.IsZero() {
+			return durableExportInvalid("retained legacy publication marker required")
+		}
+		if e = h.legacyArtifact(ctx, rec); e != nil {
+			return e
+		}
+		return h.legacyPublishedReplay(ctx, tx, a, rec, req, row.Namespace, owner)
+	}
+	return nil
+}
+
+// A queued adoption has no target IDs in its original receipt. Once completed,
+// require the native operation and full target set before invoking Schedule's
+// idempotent replay; otherwise Schedule could recreate a pruned publication.
+func (h *DurableExportHost) legacyPublishedReplay(ctx context.Context, tx bun.Tx, a export.Actor, rec export.ExportRecord, req deliverybun.ScheduleRequest, namespace, owner string) error {
+	signature, err := legacyDigest(req)
+	if err != nil {
+		return err
+	}
+	ids := make([]string, 0, len(req.Targets))
+	for _, target := range req.Targets {
+		ids = append(ids, target.ID)
+	}
+	count, err := tx.NewSelect().TableExpr("export_webhook_targets AS t").
+		Join("JOIN export_webhook_operations AS o ON o.id=t.operation_id").
+		Where("t.export_id=? AND t.namespace=? AND t.owner=?", rec.ID, namespace, owner).
+		Where("t.target_id IN (?)", bun.List(ids)).Where("o.signature=?", signature).Count(ctx)
+	if err != nil {
+		return err
+	}
+	if count != len(req.Targets) {
+		return durableExportInvalid("retained legacy publication incomplete")
+	}
+	_, err = h.legacyDelivery(ctx, tx, a, rec, req)
+	return err
 }
 
 // AdoptLegacyExport applies the reviewed pair atomically. Existing plans and
@@ -347,6 +405,10 @@ func (h *DurableExportHost) adoptLegacyExportTx(ctx context.Context, tx bun.Tx, 
 	if err == nil {
 		if !legacyReceiptMatches(row, ns, a, r, review) {
 			return LegacyExportAdoptionResult{}, durableExportInvalid("legacy adoption replay conflict")
+		}
+		// A still-queued record must retain the original reviewed input.
+		if row.State == export.StateQueued && rec.State == export.StateQueued && row.RecordSHA256 != review.RecordSHA256 {
+			return LegacyExportAdoptionResult{}, durableExportInvalid("retained queued legacy record changed after adoption")
 		}
 		if err = h.legacyReplay(ctx, tx, a, rec, plan, row); err != nil {
 			return LegacyExportAdoptionResult{}, err
