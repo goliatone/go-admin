@@ -9,8 +9,8 @@ require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-auth v0.45.3
-	github.com/goliatone/go-auth/adapters/featuregate v0.45.3
+	github.com/goliatone/go-auth v0.45.4
+	github.com/goliatone/go-auth/adapters/featuregate v0.45.4
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.3
 	github.com/goliatone/go-crud v0.26.1
@@ -27,12 +27,12 @@ require (
 	github.com/goliatone/go-options v0.7.2
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.62.5
+	github.com/goliatone/go-router v0.62.6
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.2
+	github.com/goliatone/go-users v0.27.3
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -106,7 +106,7 @@ require (
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-config v0.14.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-cache v0.7.2 // indirect
+	github.com/goliatone/go-repository-cache v0.7.3 // indirect
 	github.com/goliatone/go-services v0.11.3
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
