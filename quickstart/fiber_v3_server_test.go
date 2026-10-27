@@ -39,12 +39,10 @@ func TestFiberV3ServerInjectedTransport(t *testing.T) {
 		WithFiberV3ErrorHandler(func(c fiber.Ctx, err error) error {
 			captured = err
 			status := 500
-			var native *fiber.Error
-			var miss *fiberOwnedRouteMissError
-			if errors.As(err, &native) {
+			if native, ok := errors.AsType[*fiber.Error](err); ok {
 				status = native.Code
 			}
-			if errors.As(err, &miss) {
+			if _, ok := errors.AsType[*fiberOwnedRouteMissError](err); ok {
 				status = 404
 			}
 			return c.Status(status).JSON(map[string]any{"handled": true})
@@ -89,8 +87,7 @@ func TestFiberV3ServerInjectedTransport(t *testing.T) {
 				}
 			}
 			if probe.path == "/admin/returned" || probe.path == "/outside" {
-				var miss *fiberOwnedRouteMissError
-				if errors.As(captured, &miss) {
+				if _, ok := errors.AsType[*fiberOwnedRouteMissError](captured); ok {
 					t.Fatal("explicit/native external error reclassified")
 				}
 			}
