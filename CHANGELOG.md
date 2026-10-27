@@ -1,10 +1,37 @@
 # Changelog
 
+# [0.142.0](https://github.com/goliatone/go-admin/compare/v0.141.1...v0.142.0) - (2026-10-27)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Tests ([0b27e91](https://github.com/goliatone/go-admin/commit/0b27e91226bfd2262daeb2b717d32c8881d1fd34))  - (goliatone)
+- Tests and code quality ([7f04bbb](https://github.com/goliatone/go-admin/commit/7f04bbb907afd322b586514ef581926e9ce13651))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Migrate to use fiber v3 ([46f47e8](https://github.com/goliatone/go-admin/commit/46f47e8cfbec6e0f8967bdda8bc4faaf9e79a172))  - (goliatone)
+- Durable export adoption ([914a25c](https://github.com/goliatone/go-admin/commit/914a25c6d184aa8eadd17e7052c787bfcc0403e2))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([9647b1b](https://github.com/goliatone/go-admin/commit/9647b1bce5e54dd9379ee00b659903b8233bbdc2))  - (goliatone)
+- Update gitignore ([ce8b828](https://github.com/goliatone/go-admin/commit/ce8b828ed117db936b2143d15e90f808ff27e7a8))  - (goliatone)
+- Code quality ([2901695](https://github.com/goliatone/go-admin/commit/29016959c3e5ca8a70efa6341363ed6a66e9d3ff))  - (goliatone)
+- Update tests ([25164f0](https://github.com/goliatone/go-admin/commit/25164f0351840440025c13094275d1740e7c9b50))  - (goliatone)
+- Durable exports ([dfea10b](https://github.com/goliatone/go-admin/commit/dfea10bc44d2e8880cbedf5ef0e4da9215e8683a))  - (goliatone)
+
 # [0.141.1](https://github.com/goliatone/go-admin/compare/v0.141.0...v0.141.1) - (2026-10-16)
+
+
+New patch release: v0.141.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Durable exports and code quality ([afdc9fb](https://github.com/goliatone/go-admin/commit/afdc9fbfbfafcf57de86e6ed0b91f59ed33be135))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.141.1 ([e0e1d39](https://github.com/goliatone/go-admin/commit/e0e1d39a08d6a5cacb9887ecf93041072cc21432))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
