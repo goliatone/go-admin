@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"maps"
@@ -24,10 +25,13 @@ func NewFiberV3ViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber3.Views,
 	if err != nil {
 		return nil, err
 	}
+	native, ok := views.(fiberV3Views)
+	if !ok {
+		return nil, fmt.Errorf("fiber v3 view engine %T lacks required extensions", views)
+	}
 	return &fiberV3ViewEngine{
-		Views:                 views,
-		FiberV3ViewExtensions: views.(router.FiberV3ViewExtensions),
-		helpers:               config.GetFiberV3TemplateFunctions(),
+		fiberV3Views: native,
+		helpers:      config.GetFiberV3TemplateFunctions(),
 	}, nil
 }
 
@@ -61,20 +65,21 @@ func (*fiberV3ViewEngineConfig) ConfigureFiberV3Views(ext router.FiberV3ViewExte
 	})
 }
 
-type fiberV3ViewEngine struct {
+type fiberV3Views interface {
 	fiber3.Views
 	router.FiberV3ViewExtensions
-	helpers map[string]any
+	SetAutoEscape(bool)
 }
 
-func (e *fiberV3ViewEngine) SetAutoEscape(enabled bool) {
-	e.Views.(interface{ SetAutoEscape(bool) }).SetAutoEscape(enabled)
+type fiberV3ViewEngine struct {
+	fiberV3Views
+	helpers map[string]any
 }
 
 func (e *fiberV3ViewEngine) Render(out io.Writer, name string, binding any, layouts ...string) error {
 	value := reflect.ValueOf(binding)
 	if !value.IsValid() || value.Kind() != reflect.Map || value.Type().Key().Kind() != reflect.String {
-		return e.Views.Render(out, name, binding, layouts...)
+		return e.fiberV3Views.Render(out, name, binding, layouts...)
 	}
 	metadata := make(map[string]any)
 	for _, key := range value.MapKeys() {
@@ -88,7 +93,7 @@ func (e *fiberV3ViewEngine) Render(out io.Writer, name string, binding any, layo
 		}
 	}
 	if len(metadata) == 0 {
-		return e.Views.Render(out, name, binding, layouts...)
+		return e.fiberV3Views.Render(out, name, binding, layouts...)
 	}
 	// Request context is helper metadata, not a renderable object. Retain it in
 	// per-render closures so the v7 value boundary never exposes its dynamic
@@ -104,7 +109,7 @@ func (e *fiberV3ViewEngine) Render(out io.Writer, name string, binding any, layo
 			data[helperName] = bindFiberV3HelperContext(helper, metadata)
 		}
 	}
-	return e.Views.Render(out, name, data, layouts...)
+	return e.fiberV3Views.Render(out, name, data, layouts...)
 }
 
 func bindFiberV3HelperContext(helper any, metadata map[string]any) any {
@@ -113,7 +118,10 @@ func bindFiberV3HelperContext(helper any, metadata map[string]any) any {
 		return helper
 	}
 	return reflect.MakeFunc(fn.Type(), func(args []reflect.Value) []reflect.Value {
-		ctx := args[0].Interface().(*pongo2.ExecutionContext)
+		ctx, ok := args[0].Interface().(*pongo2.ExecutionContext)
+		if !ok {
+			panic("fiber v3 helper execution context does not match its validated signature")
+		}
 		copy := *ctx
 		copy.Public = maps.Clone(ctx.Public)
 		maps.Copy(copy.Public, metadata)

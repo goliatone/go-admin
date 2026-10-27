@@ -65,7 +65,7 @@ func TestFiberV3ServerInjectedTransport(t *testing.T) {
 	}{{"/admin/view", 200, "&lt;probe&gt;"}, {"/admin/failure", 418, "handled"}, {"/admin/panic", 500, "handled"}, {"/admin/missing", 404, "handled"}, {"/admin/api/missing", 404, "handled"}, {"/admin/explicit", 404, "explicit"}, {"/admin/returned", 404, "handled"}, {"/outside", 404, "handled"}} {
 		t.Run(probe.path, func(t *testing.T) {
 			captured = nil
-			resp, err := srv.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, probe.path, nil))
+			resp, err := srv.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), http.MethodGet, probe.path, nil))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -99,11 +99,15 @@ func TestFiberV3ServerInjectedTransport(t *testing.T) {
 }
 
 func TestFiberV3ServerStartupAndListenOptions(t *testing.T) {
-	occupied, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
+	occupied, listenErr := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if listenErr != nil {
+		t.Fatal(listenErr)
 	}
-	defer occupied.Close()
+	defer func() {
+		if closeErr := occupied.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	}()
 	srv, _ := NewFiberV3Server(nil, admin.Config{}, nil, false, WithFiberV3Logger(false))
 	if err := srv.Serve(occupied.Addr().String()); err == nil {
 		t.Fatal("occupied port error lost")
@@ -145,12 +149,16 @@ func TestFiberV3ServerStartupAndListenOptions(t *testing.T) {
 		t.Fatal("listen address option not called")
 	}
 	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get("http://" + address + "/health")
-	if err != nil {
-		t.Fatal(err)
+	req, requestErr := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+address+"/health", nil)
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
+	resp, requestErr := client.Do(req)
+	if requestErr != nil {
+		t.Fatal(requestErr)
 	}
 	closeResponseBody(t, resp)
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
 }
@@ -186,15 +194,18 @@ func TestFiberV3RPCWrappedHostAndDebugRegistration(t *testing.T) {
 		t.Fatal("v2 router matched v3")
 	}
 	for _, probe := range []struct{ method, path, body string }{{"POST", adm.AdminAPIBasePath() + "/rpc", `{"method":"admin.commands.dispatch","params":{"data":{"name":"missing"}}}`}, {"GET", adm.AdminAPIBasePath() + "/rpc/endpoints", ""}} {
-		req := httptest.NewRequest(probe.method, probe.path, strings.NewReader(probe.body))
+		req := httptest.NewRequestWithContext(t.Context(), probe.method, probe.path, strings.NewReader(probe.body))
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := srv.WrappedRouter().Test(req)
 		if err != nil {
 			t.Fatal(err)
 		}
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		closeResponseBody(t, resp)
-		if resp.StatusCode != 200 {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s: status=%d body=%s", probe.path, resp.StatusCode, body)
 		}
 	}

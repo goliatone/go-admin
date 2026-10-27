@@ -21,7 +21,7 @@ import (
 )
 
 // Each fixture constructs a native app, without quickstart server/default wiring.
-func presentationErrorApp(backend string, adm *admin.Admin, cfg admin.Config, views router.Views, routeError func(string) error, opts ...FiberErrorHandlerOption) func(*http.Request) (*http.Response, error) {
+func presentationErrorApp(t *testing.T, backend string, adm *admin.Admin, cfg admin.Config, views router.Views, routeError func(string) error, opts ...FiberErrorHandlerOption) func(*http.Request) (presentationResponse, string) {
 	if backend == "v2" {
 		app := fiber2.New(fiber2.Config{Views: views, ErrorHandler: NewFiberErrorHandler(adm, cfg, false, opts...)})
 		app.Use(func(c *fiber2.Ctx) error {
@@ -34,7 +34,9 @@ func presentationErrorApp(backend string, adm *admin.Admin, cfg admin.Config, vi
 			app.All(path, func(c *fiber2.Ctx) error { return routeError(c.Path()) })
 		}
 		app.Use(NewFiberRouteMissHandler(cfg))
-		return func(r *http.Request) (*http.Response, error) { return app.Test(r, -1) }
+		return func(r *http.Request) (presentationResponse, string) {
+			return presentationBody(t, func(req *http.Request) (*http.Response, error) { return app.Test(req, -1) }, r)
+		}
 	}
 	app := fiber3.New(fiber3.Config{Views: views, ErrorHandler: NewFiberV3ErrorHandler(adm, cfg, false, opts...)})
 	app.Use(func(c fiber3.Ctx) error {
@@ -47,10 +49,21 @@ func presentationErrorApp(backend string, adm *admin.Admin, cfg admin.Config, vi
 		app.All(path, func(c fiber3.Ctx) error { return routeError(c.Path()) })
 	}
 	app.Use(NewFiberV3RouteMissHandler(cfg))
-	return func(r *http.Request) (*http.Response, error) { return app.Test(r, fiber3.TestConfig{Timeout: 0}) }
+	return func(r *http.Request) (presentationResponse, string) {
+		return presentationBody(t, func(req *http.Request) (*http.Response, error) { return app.Test(req, fiber3.TestConfig{Timeout: 0}) }, r)
+	}
 }
 
-func presentationBody(t *testing.T, request func(*http.Request) (*http.Response, error), req *http.Request) (*http.Response, string) {
+// presentationResponse contains only the metadata needed after the body is closed.
+type presentationResponse struct {
+	StatusCode int
+	Header     http.Header
+	cookies    []*http.Cookie
+}
+
+func (r presentationResponse) Cookies() []*http.Cookie { return r.cookies }
+
+func presentationBody(t *testing.T, request func(*http.Request) (*http.Response, error), req *http.Request) (presentationResponse, string) {
 	t.Helper()
 	res, err := request(req)
 	if err != nil {
@@ -61,7 +74,7 @@ func presentationBody(t *testing.T, request func(*http.Request) (*http.Response,
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res, string(body)
+	return presentationResponse{StatusCode: res.StatusCode, Header: res.Header, cookies: res.Cookies()}, string(body)
 }
 
 func TestFiberPresentationErrorParity(t *testing.T) {
@@ -113,10 +126,10 @@ func TestFiberPresentationErrorParity(t *testing.T) {
 				{"internal", 500, func() error { return errors.New("private-database-password") }},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					request := presentationErrorApp(backend, adm, cfg, views, func(string) error { return tc.err() })
+					request := presentationErrorApp(t, backend, adm, cfg, views, func(string) error { return tc.err() })
 					for _, path := range []string{"/admin/fail?variant=contrast", "/public/fail", "/admin/api/fail"} {
 						for _, method := range []string{"GET", "HEAD"} {
-							res, body := presentationBody(t, request, httptest.NewRequest(method, path, nil))
+							res, body := request(httptest.NewRequestWithContext(t.Context(), method, path, nil))
 							if res.StatusCode != tc.status {
 								t.Fatalf("%s %s status=%d body=%s", method, path, res.StatusCode, body)
 							}
@@ -195,23 +208,23 @@ func TestFiberPresentationDiagnosticsAndMappers(t *testing.T) {
 				t.Fatal(err)
 			}
 			var original error
-			request := presentationErrorApp(backend, nil, cfg, views, func(string) error { return fmt.Errorf("wrapped: %w", sentinel) }, WithFiberErrorMappers(func(err error) *goerrors.Error {
+			request := presentationErrorApp(t, backend, nil, cfg, views, func(string) error { return fmt.Errorf("wrapped: %w", sentinel) }, WithFiberErrorMappers(func(err error) *goerrors.Error {
 				if errors.Is(err, sentinel) {
 					original = err
 					return goerrors.New("Custom", goerrors.CategoryValidation).WithCode(422).WithTextCode("CUSTOM")
 				}
 				return nil
 			}))
-			res, body := presentationBody(t, request, httptest.NewRequest("GET", "/admin/api/fail", nil))
-			if res.StatusCode != 422 || !strings.Contains(body, `"text_code":"CUSTOM"`) || !errors.Is(original, sentinel) {
+			res, body := request(httptest.NewRequestWithContext(t.Context(), "GET", "/admin/api/fail", nil))
+			if res.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(body, `"text_code":"CUSTOM"`) || !errors.Is(original, sentinel) {
 				t.Fatalf("custom mapping: %d %s %v", res.StatusCode, body, original)
 			}
-			req := httptest.NewRequest("POST", "/admin/fail?search=safe", strings.NewReader("username=alice&password=form-secret&csrf_token=csrf-secret"))
+			req := httptest.NewRequestWithContext(t.Context(), "POST", "/admin/fail?search=safe", strings.NewReader("username=alice&password=form-secret&csrf_token=csrf-secret"))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			req.Header.Set("Authorization", "Bearer header-secret")
 			req.Header.Set("Cookie", "session=cookie-secret")
 			req.Header.Set("X-Public", "visible")
-			_, body = presentationBody(t, request, req)
+			_, body = request(req)
 			for _, secret := range []string{"form-secret", "csrf-secret", "header-secret", "cookie-secret"} {
 				if strings.Contains(body, secret) {
 					t.Fatalf("diagnostics exposed %s", secret)
@@ -220,8 +233,8 @@ func TestFiberPresentationDiagnosticsAndMappers(t *testing.T) {
 			if !strings.Contains(body, "alice") || !strings.Contains(body, "visible") {
 				t.Fatalf("safe request diagnostics missing: %s", body)
 			}
-			res, body = presentationBody(t, request, httptest.NewRequest("GET", "/admin/api/missing", nil))
-			if res.StatusCode != 404 || !strings.Contains(body, `"synthetic":true`) || strings.Contains(body, `"stack_trace"`) {
+			res, body = request(httptest.NewRequestWithContext(t.Context(), "GET", "/admin/api/missing", nil))
+			if res.StatusCode != http.StatusNotFound || !strings.Contains(body, `"synthetic":true`) || strings.Contains(body, `"stack_trace"`) {
 				t.Fatalf("terminal miss: %d %s", res.StatusCode, body)
 			}
 		})
@@ -232,15 +245,17 @@ type failingPresentationViews struct{}
 
 func (failingPresentationViews) Load() error { return nil }
 func (failingPresentationViews) Render(out io.Writer, _ string, _ any, _ ...string) error {
-	io.WriteString(out, "private-partial")
+	if _, err := io.WriteString(out, "private-partial"); err != nil {
+		return err
+	}
 	return errors.New("private-render-error")
 }
 func TestFiberPresentationRenderFailure(t *testing.T) {
 	for _, backend := range []string{"v2", "v3"} {
 		t.Run(backend, func(t *testing.T) {
-			request := presentationErrorApp(backend, nil, admin.Config{BasePath: "/admin"}, failingPresentationViews{}, func(string) error { return admin.ErrForbidden })
-			res, body := presentationBody(t, request, httptest.NewRequest("GET", "/admin/fail", nil))
-			if res.StatusCode != 403 || body != "403 - Access denied" {
+			request := presentationErrorApp(t, backend, nil, admin.Config{BasePath: "/admin"}, failingPresentationViews{}, func(string) error { return admin.ErrForbidden })
+			res, body := request(httptest.NewRequestWithContext(t.Context(), "GET", "/admin/fail", nil))
+			if res.StatusCode != http.StatusForbidden || body != "403 - Access denied" {
 				t.Fatalf("fallback: %d %q", res.StatusCode, body)
 			}
 		})
@@ -249,9 +264,9 @@ func TestFiberPresentationRenderFailure(t *testing.T) {
 
 func TestFiberV3PresentationPreservesMatchedNativeMiss(t *testing.T) {
 	cfg := admin.Config{BasePath: "/admin", Errors: admin.ErrorConfig{DevMode: true, IncludeStackTrace: true}}
-	request := presentationErrorApp("v3", nil, cfg, nil, func(path string) error { return fmt.Errorf("explicit: %w", fiber3.NewError(404, "Cannot GET "+path)) })
-	res, body := presentationBody(t, request, httptest.NewRequest("GET", "/admin/api/fail", nil))
-	if res.StatusCode != 404 || strings.Contains(body, `"synthetic":true`) || !strings.Contains(body, "Cannot GET /admin/api/fail") {
+	request := presentationErrorApp(t, "v3", nil, cfg, nil, func(path string) error { return fmt.Errorf("explicit: %w", fiber3.NewError(404, "Cannot GET "+path)) })
+	res, body := request(httptest.NewRequestWithContext(t.Context(), "GET", "/admin/api/fail", nil))
+	if res.StatusCode != http.StatusNotFound || strings.Contains(body, `"synthetic":true`) || !strings.Contains(body, "Cannot GET /admin/api/fail") {
 		t.Fatalf("matched native error changed: %d %s", res.StatusCode, body)
 	}
 }
@@ -269,8 +284,8 @@ func TestFiberPresentationRedirectStatus(t *testing.T) {
 				app.Post("/admin/submit", func(c fiber3.Ctx) error { return c.Redirect().Status(http.StatusSeeOther).To("/admin/done") })
 				request = func(r *http.Request) (*http.Response, error) { return app.Test(r, fiber3.TestConfig{Timeout: 0}) }
 			}
-			res, _ := presentationBody(t, request, httptest.NewRequest("POST", "/admin/submit", nil))
-			if res.StatusCode != 303 || res.Header.Get("Location") != "/admin/done" {
+			res, _ := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), "POST", "/admin/submit", nil))
+			if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/admin/done" {
 				t.Fatalf("redirect: %d %q", res.StatusCode, res.Header.Get("Location"))
 			}
 		})
@@ -299,8 +314,8 @@ func TestFiberV3PresentationRejectsUnsafeLocals(t *testing.T) {
 		return c.Render("page", fiber3.Map{})
 	})
 	request := func(req *http.Request) (*http.Response, error) { return app.Test(req, fiber3.TestConfig{Timeout: 0}) }
-	res, body := presentationBody(t, request, httptest.NewRequest("GET", "/admin/page", nil))
-	if res.StatusCode != 500 || renderErr == nil || calls != 0 || strings.Contains(body, "private-local-secret") || strings.Contains(renderErr.Error(), "private-local-secret") {
+	res, body := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), "GET", "/admin/page", nil))
+	if res.StatusCode != http.StatusInternalServerError || renderErr == nil || calls != 0 || strings.Contains(body, "private-local-secret") || strings.Contains(renderErr.Error(), "private-local-secret") {
 		t.Fatalf("unsafe local: status=%d calls=%d body=%q err=%v", res.StatusCode, calls, body, renderErr)
 	}
 }
@@ -310,8 +325,8 @@ func TestFiberV3PresentationPreservesMiddleware404(t *testing.T) {
 	app := fiber3.New(fiber3.Config{ErrorHandler: NewFiberV3ErrorHandler(nil, cfg, false)})
 	app.Use(func(fiber3.Ctx) error { return fiber3.NewError(404, "hidden by middleware") })
 	request := func(req *http.Request) (*http.Response, error) { return app.Test(req, fiber3.TestConfig{Timeout: 0}) }
-	res, body := presentationBody(t, request, httptest.NewRequest("GET", "/admin/api/fail", nil))
-	if res.StatusCode != 404 || !strings.Contains(body, "hidden by middleware") || strings.Contains(body, `"synthetic":true`) {
+	res, body := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), "GET", "/admin/api/fail", nil))
+	if res.StatusCode != http.StatusNotFound || !strings.Contains(body, "hidden by middleware") || strings.Contains(body, `"synthetic":true`) {
 		t.Fatalf("explicit middleware error changed: %d %s", res.StatusCode, body)
 	}
 }

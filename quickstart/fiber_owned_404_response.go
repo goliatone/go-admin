@@ -53,7 +53,7 @@ func resetFiberOwnedMissRepresentation(response *fasthttp.Response) {
 		// while Del can reorder them. Dropped values move to ordinary headers
 		// and are deleted below before presentation. Retained names are already
 		// validated by fasthttp; normalization stays off to preserve spelling.
-		_ = response.Header.SetTrailer(strings.Join(retainedTrailers, ", "))
+		_ = response.Header.SetTrailer(strings.Join(retainedTrailers, ", ")) //nolint:errcheck // Retained names are a subset of trailers already validated by fasthttp.
 	}
 	for _, key := range keys {
 		response.Header.Del(key)

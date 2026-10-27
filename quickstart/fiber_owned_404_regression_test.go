@@ -45,7 +45,7 @@ func TestFiberV3ServerDefaultErrorStatus(t *testing.T) {
 				{"GET", "/admin/internal", "500 - Something went wrong", 500},
 			} {
 				t.Run(probe.method+probe.path, func(t *testing.T) {
-					res, err := srv.WrappedRouter().Test(httptest.NewRequest(probe.method, probe.path, nil))
+					res, err := srv.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), probe.method, probe.path, nil))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -253,13 +253,13 @@ func testFiberOwnedMissResponseState(t *testing.T, backend string, disableNormal
 		for _, method := range []string{"GET", "HEAD"} {
 			t.Run(method+path, func(t *testing.T) {
 				captured, responseContext, before = nil, nil, nil
-				res, err := request(httptest.NewRequest(method, path, nil))
+				res, err := request(httptest.NewRequestWithContext(t.Context(), method, path, nil))
 				if err != nil {
 					t.Fatal(err)
 				}
 				body, err := io.ReadAll(res.Body)
 				closeResponseBody(t, res)
-				if err != nil || res.StatusCode != 404 {
+				if err != nil || res.StatusCode != http.StatusNotFound {
 					t.Fatalf("status=%d err=%v", res.StatusCode, err)
 				}
 				for key, value := range preserved {
@@ -412,7 +412,7 @@ func TestFiberOwnedMissRepresentationTrailers(t *testing.T) {
 				if _, err := response.WriteTo(&wire); err != nil {
 					t.Fatal(err)
 				}
-				res, err := http.ReadResponse(bufio.NewReader(&wire), httptest.NewRequest("GET", "/admin/plain", nil))
+				res, err := http.ReadResponse(bufio.NewReader(&wire), httptest.NewRequestWithContext(t.Context(), "GET", "/admin/plain", nil))
 				if err != nil {
 					t.Fatal(err)
 				}

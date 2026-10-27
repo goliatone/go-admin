@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -16,7 +17,7 @@ func TestPresentationExampleHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +27,9 @@ func TestPresentationExampleHTTP(t *testing.T) {
 		if err := app.ShutdownWithTimeout(3 * time.Second); err != nil {
 			t.Error(err)
 		}
-		listener.Close()
+		if closeErr := listener.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+			t.Error(closeErr)
+		}
 		select {
 		case err := <-done:
 			if err != nil {
@@ -54,12 +57,18 @@ func TestPresentationExampleHTTP(t *testing.T) {
 		{"/admin/redirect", 303, "", ""},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
-			res, err := client.Get("http://" + listener.Addr().String() + tc.path)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+listener.Addr().String()+tc.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			res, err := client.Do(req)
 			if err != nil {
 				t.Fatal(err)
 			}
 			body, err := io.ReadAll(res.Body)
-			res.Body.Close()
+			if closeErr := res.Body.Close(); closeErr != nil {
+				t.Error(closeErr)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -54,9 +54,9 @@ func TestFiberPresentationAssetParity(t *testing.T) {
 					return server.WrappedRouter().Test(r, fiber3.TestConfig{Timeout: 0})
 				}
 			}
-			res, page := presentationBody(t, request, httptest.NewRequest("GET", "/page", nil))
-			if res.StatusCode != 200 {
-				t.Fatalf("page: %d %s", res.StatusCode, page)
+			pageRes, page := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil))
+			if pageRes.StatusCode != http.StatusOK {
+				t.Fatalf("page: %d %s", pageRes.StatusCode, page)
 			}
 			pages[i] = page
 			for _, tc := range []struct{ name, body, kind string }{{"main.css", ".base {color: red}", "text/css"}, {"extra.css", ".extra {display: block}", "text/css"}, {"app.js", "window.preview = true;", "javascript"}} {
@@ -65,18 +65,18 @@ func TestFiberPresentationAssetParity(t *testing.T) {
 					t.Fatalf("helper omitted asset %s: %s", path, page)
 				}
 				for _, method := range []string{"GET", "HEAD"} {
-					res, body := presentationBody(t, request, httptest.NewRequest(method, path, nil))
+					res, body := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), method, path, nil))
 					want := tc.body
 					if method == "HEAD" {
 						want = ""
 					}
-					if res.StatusCode != 200 || body != want || !strings.Contains(res.Header.Get("Content-Type"), tc.kind) {
+					if res.StatusCode != http.StatusOK || body != want || !strings.Contains(res.Header.Get("Content-Type"), tc.kind) {
 						t.Fatalf("%s %s: %d %q %s", method, path, res.StatusCode, body, res.Header.Get("Content-Type"))
 					}
 				}
 			}
-			res, _ = presentationBody(t, request, httptest.NewRequest("GET", "/admin/assets/missing.css", nil))
-			if res.StatusCode != 404 {
+			res, _ := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), "GET", "/admin/assets/missing.css", nil))
+			if res.StatusCode != http.StatusNotFound {
 				t.Fatalf("missing asset status=%d", res.StatusCode)
 			}
 		})

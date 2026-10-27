@@ -68,7 +68,9 @@ func TestFiberRouteMissProvenance(t *testing.T) {
 								c.Set("X-Request-ID", "sentinel-review")
 								c.Cookie(&fiber2.Cookie{Name: "session", Value: "refreshed", HTTPOnly: true})
 								if source == "middleware-replaces-terminal" {
-									_ = c.Next()
+									if nextErr := c.Next(); nextErr == nil {
+										t.Error("expected terminal routing error before replacement")
+									}
 									return original
 								}
 								if strings.HasPrefix(source, "middleware-") {
@@ -115,7 +117,9 @@ func TestFiberRouteMissProvenance(t *testing.T) {
 								c.Set("X-Request-ID", "sentinel-review")
 								c.Cookie(&fiber3.Cookie{Name: "session", Value: "refreshed", HTTPOnly: true})
 								if source == "middleware-replaces-terminal" {
-									_ = c.Next()
+									if nextErr := c.Next(); nextErr == nil {
+										t.Error("expected terminal routing error before replacement")
+									}
 									return original
 								}
 								if strings.HasPrefix(source, "middleware-") {
@@ -161,8 +165,8 @@ func TestFiberRouteMissProvenance(t *testing.T) {
 							}
 							for _, method := range []string{"GET", "HEAD"} {
 								captured = nil
-								res, body := presentationBody(t, request, httptest.NewRequest(method, path, nil))
-								if res.StatusCode != 404 {
+								res, body := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), method, path, nil))
+								if res.StatusCode != http.StatusNotFound {
 									t.Fatalf("%s %s: status=%d body=%s", method, path, res.StatusCode, body)
 								}
 								if res.Header.Get("X-Request-ID") != "sentinel-review" || len(res.Cookies()) != 1 || res.Cookies()[0].Value != "refreshed" {
@@ -173,7 +177,7 @@ func TestFiberRouteMissProvenance(t *testing.T) {
 								if errors.As(captured, &miss) != wantSynthetic {
 									t.Fatalf("%s %s: wrong provenance: %T %v", method, path, captured, captured)
 								}
-								if source != "terminal" && source != "unmarked" && captured != original {
+								if source != "terminal" && source != "unmarked" && captured != original { //nolint:errorlint // Assert exact identity; even an added wrapper violates the provenance contract.
 									t.Fatalf("middleware/handler error identity lost: got %v want %v", captured, original)
 								}
 								if method == "HEAD" {
@@ -222,8 +226,8 @@ func TestFiberRouteMissPreservesMethodNotAllowed(t *testing.T) {
 					return server.WrappedRouter().Test(r, fiber3.TestConfig{Timeout: 0})
 				}
 			}
-			res, body := presentationBody(t, request, httptest.NewRequest("POST", "/admin/exists", nil))
-			if res.StatusCode != 405 {
+			res, body := presentationBody(t, request, httptest.NewRequestWithContext(t.Context(), "POST", "/admin/exists", nil))
+			if res.StatusCode != http.StatusMethodNotAllowed {
 				t.Fatalf("status=%d body=%s", res.StatusCode, body)
 			}
 			if !strings.Contains(res.Header.Get("Allow"), "GET") {

@@ -30,8 +30,8 @@ func TestFiberV3DashboardRendererParity(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := views.Load(); err != nil {
-			t.Fatal(err)
+		if loadErr := views.Load(); loadErr != nil {
+			t.Fatal(loadErr)
 		}
 		if backend == "v2" {
 			err = WithDefaultDashboardRenderer(adm, views, cfg)

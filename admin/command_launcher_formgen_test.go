@@ -34,7 +34,8 @@ func TestCommandLauncherFormgenRendererProducesFieldsOnlyHTML(t *testing.T) {
 	if !strings.Contains(string(html), `<details data-formgen-section=`) || !strings.Contains(string(html), `Advanced`) {
 		t.Fatalf("advanced section was not rendered as collapsed formgen chrome: %s", html)
 	}
-	if !strings.Contains(string(html), `--fg-span-md: 6`) || !strings.Contains(string(html), `--fg-span-lg: 4`) {
+	// Formgen emits responsive grid attributes so layout works without inline styles.
+	if !strings.Contains(string(html), `data-formgen-span="12" data-formgen-span-md="6" data-formgen-span-lg="4"`) {
 		t.Fatalf("scalar command fields must retain responsive launcher spans: %s", html)
 	}
 }

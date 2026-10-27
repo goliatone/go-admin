@@ -66,9 +66,9 @@ func TestFiberV3ContractBackendInputs(t *testing.T) {
 		return app
 	})
 	server.Router().Get(cfg.BasePath+"/denied", func(router.Context) error { return fiber3.ErrForbidden })
-	response, err := server.WrappedRouter().Test(httptest.NewRequest("GET", "/admin/denied", nil))
+	response, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/admin/denied", nil))
 	require.NoError(t, err)
-	defer response.Body.Close()
+	defer closeResponseBody(t, response)
 	require.Equal(t, 403, response.StatusCode)
 	require.Equal(t, "native-v3", response.Header.Get("X-Bootstrap"))
 	require.Equal(t, "after-first", response.Header.Get("X-Second"))
@@ -93,9 +93,9 @@ func TestFiberV3ContractPresentationInputs(t *testing.T) {
 	})
 	for _, state := range []string{"normal", "empty", "denied", "error"} {
 		t.Run(state, func(t *testing.T) {
-			response, err := app.Test(httptest.NewRequest("GET", "/"+state, nil))
+			response, err := app.Test(httptest.NewRequestWithContext(t.Context(), "GET", "/"+state, nil))
 			require.NoError(t, err)
-			defer response.Body.Close()
+			defer closeResponseBody(t, response)
 			body, err := io.ReadAll(response.Body)
 			require.NoError(t, err)
 			require.Equal(t, 200, response.StatusCode)

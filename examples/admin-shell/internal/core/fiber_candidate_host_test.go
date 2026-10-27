@@ -149,8 +149,8 @@ func newCandidateHost(t *testing.T, backend string) (*candidateHost, *candidateI
 		h.release()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := h.shutdown(ctx); err != nil {
-			t.Error(err)
+		if shutdownErr := h.shutdown(ctx); shutdownErr != nil {
+			t.Error(shutdownErr)
 		}
 		h.join(t)
 		if h.client != nil {
@@ -158,7 +158,7 @@ func newCandidateHost(t *testing.T, backend string) (*candidateHost, *candidateI
 		}
 	})
 	registry := lifecycle.NewRegistry()
-	if err := registry.Register(lifecycle.Task{Name: "release-admin", Phase: lifecycle.PhaseShutdown, Run: func(context.Context) error {
+	if err = registry.Register(lifecycle.Task{Name: "release-admin", Phase: lifecycle.PhaseShutdown, Run: func(context.Context) error {
 		select {
 		case <-h.wsStarted:
 			select {
@@ -184,9 +184,9 @@ func newCandidateHost(t *testing.T, backend string) (*candidateHost, *candidateI
 	}
 	opts := []quickstart.ViewEngineOption{quickstart.WithViewAdmin(adm), quickstart.WithViewBasePath("/admin"), quickstart.WithViewReload(false)}
 	if backend == "v2" {
-		views, err := quickstart.NewViewEngine(client.Templates(), opts...)
-		if err != nil {
-			t.Fatal(err)
+		views, viewErr := quickstart.NewViewEngine(client.Templates(), opts...)
+		if viewErr != nil {
+			t.Fatal(viewErr)
 		}
 		if err = quickstart.WithDefaultDashboardRenderer(adm, views, cfg); err != nil {
 			t.Fatal(err)
@@ -195,9 +195,9 @@ func newCandidateHost(t *testing.T, backend string) (*candidateHost, *candidateI
 		h.server = srv
 		mountCandidate(t, h, r, cfg, ra, authn, root)
 	} else {
-		views, err := quickstart.NewFiberV3ViewEngine(client.Templates(), opts...)
-		if err != nil {
-			t.Fatal(err)
+		views, viewErr := quickstart.NewFiberV3ViewEngine(client.Templates(), opts...)
+		if viewErr != nil {
+			t.Fatal(viewErr)
 		}
 		if err = quickstart.WithDefaultFiberV3DashboardRenderer(adm, views, cfg); err != nil {
 			t.Fatal(err)
@@ -206,7 +206,10 @@ func newCandidateHost(t *testing.T, backend string) (*candidateHost, *candidateI
 		h.server = srv
 		mountCandidate(t, h, r, cfg, ra, authn, root)
 	}
-	jar, _ := cookiejar.New(nil)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	h.client = &http.Client{Jar: jar, Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	return h, provider
 }
@@ -361,7 +364,7 @@ func (h *candidateHost) join(t *testing.T) {
 }
 func (h *candidateHost) start(t *testing.T) {
 	t.Helper()
-	ln, err := net.Listen("tcp4", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -375,17 +378,24 @@ func (h *candidateHost) start(t *testing.T) {
 	go func() { h.serveDone <- h.server.Serve(addr) }()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		res, err := h.client.Get(h.base + "/readyz")
-		if err == nil {
-			io.Copy(io.Discard, res.Body)
-			res.Body.Close()
-			if res.StatusCode != 503 {
+		req, requestErr := http.NewRequestWithContext(t.Context(), http.MethodGet, h.base+"/readyz", nil)
+		if requestErr != nil {
+			t.Fatal(requestErr)
+		}
+		res, requestErr := h.client.Do(req)
+		if requestErr == nil {
+			_, copyErr := io.Copy(io.Discard, res.Body)
+			closeCandidateBody(t, res)
+			if copyErr != nil {
+				t.Fatal(copyErr)
+			}
+			if res.StatusCode != http.StatusServiceUnavailable {
 				t.Fatalf("readiness before Ready=%d", res.StatusCode)
 			}
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal(err)
+			t.Fatal(requestErr)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -397,7 +407,27 @@ func (h *candidateHost) start(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func (h *candidateHost) request(t *testing.T, method, path, body string, headers map[string]string) (*http.Response, string) {
+
+// candidateResponse holds metadata after the request helper has consumed the body.
+type candidateResponse struct {
+	StatusCode int
+	Header     http.Header
+	cookies    []*http.Cookie
+}
+
+func (r candidateResponse) Cookies() []*http.Cookie { return r.cookies }
+
+func closeCandidateBody(t *testing.T, res *http.Response) {
+	t.Helper()
+	if res == nil || res.Body == nil {
+		return
+	}
+	if err := res.Body.Close(); err != nil {
+		t.Errorf("close response body: %v", err)
+	}
+}
+
+func (h *candidateHost) request(t *testing.T, method, path, body string, headers map[string]string) (candidateResponse, string) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), method, h.base+path, strings.NewReader(body))
 	if err != nil {
@@ -411,16 +441,16 @@ func (h *candidateHost) request(t *testing.T, method, path, body string, headers
 		t.Fatal(err)
 	}
 	data, err := io.ReadAll(res.Body)
-	res.Body.Close()
+	closeCandidateBody(t, res)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res, string(data)
+	return candidateResponse{StatusCode: res.StatusCode, Header: res.Header, cookies: res.Cookies()}, string(data)
 }
 func (h *candidateHost) login(t *testing.T, provider *candidateIdentityProvider) {
 	t.Helper()
 	res, body := h.request(t, "GET", "/admin/login", "", nil)
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		t.Fatalf("login page=%d %s", res.StatusCode, body)
 	}
 	match := regexp.MustCompile(`name="_token"[^>]*value="([^"]+)"`).FindStringSubmatch(body)
@@ -444,7 +474,7 @@ func (h *candidateHost) login(t *testing.T, provider *candidateIdentityProvider)
 	}
 	headers["Origin"] = h.base
 	res, body = h.request(t, "POST", "/admin/login", form.Encode(), headers)
-	if res.StatusCode != 302 {
+	if res.StatusCode != http.StatusFound {
 		t.Fatalf("login=%d %s", res.StatusCode, body)
 	}
 	found := false
@@ -467,9 +497,9 @@ func TestFiberCandidateHostIntegration(t *testing.T) {
 			h, provider := newCandidateHost(t, backend)
 			h.start(t)
 			rpcBody := `{"method":"admin.commands.dispatch","params":{"data":{"name":"candidate.host.write"}}}`
-			res, _ := h.request(t, "POST", "/admin/api/rpc", rpcBody, map[string]string{"Content-Type": "application/json"})
-			if res.StatusCode != 401 || h.writes.Load() != 0 {
-				t.Fatalf("anonymous RPC=%d writes=%d", res.StatusCode, h.writes.Load())
+			anonymous, _ := h.request(t, "POST", "/admin/api/rpc", rpcBody, map[string]string{"Content-Type": "application/json"})
+			if anonymous.StatusCode != http.StatusUnauthorized || h.writes.Load() != 0 {
+				t.Fatalf("anonymous RPC=%d writes=%d", anonymous.StatusCode, h.writes.Load())
 			}
 			h.login(t, provider)
 			csrfToken := ""
@@ -497,28 +527,36 @@ func TestFiberCandidateHostIntegration(t *testing.T) {
 				}
 			}
 			denied, _ := h.request(t, "POST", "/admin/api/rpc", rpcBody, map[string]string{"Content-Type": "application/json"})
-			if denied.StatusCode != 400 || h.writes.Load() != 0 {
+			if denied.StatusCode != http.StatusBadRequest || h.writes.Load() != 0 {
 				t.Fatalf("CSRF RPC denial=%d writes=%d", denied.StatusCode, h.writes.Load())
 			}
 			if csrfToken == "" {
 				t.Fatal("dashboard omitted authenticated CSRF token")
 			}
 			res, body := h.request(t, "POST", "/admin/api/rpc", rpcBody, map[string]string{"Content-Type": "application/json", "X-CSRF-Token": csrfToken, "Origin": h.base})
-			if res.StatusCode != 200 || !strings.Contains(body, `"Accepted":true`) || h.writes.Load() != 1 {
+			if res.StatusCode != http.StatusOK || !strings.Contains(body, `"Accepted":true`) || h.writes.Load() != 1 {
 				t.Fatalf("RPC=%d %s writes=%d", res.StatusCode, body, h.writes.Load())
 			}
 			// Both long-lived transports stay open until the host, not the clients, closes them.
-			baseURL, _ := url.Parse(h.base)
+			baseURL, err := url.Parse(h.base)
+			if err != nil {
+				t.Fatal(err)
+			}
 			headers := http.Header{}
 			for _, c := range h.client.Jar.Cookies(baseURL) {
 				headers.Add("Cookie", c.String())
 			}
 			headers.Set("Origin", h.base)
-			ws, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(h.base, "http")+"/candidate-dashboard/dashboard/ws", headers)
+			ws, resp, err := websocket.DefaultDialer.DialContext(t.Context(), "ws"+strings.TrimPrefix(h.base, "http")+"/candidate-dashboard/dashboard/ws", headers)
+			closeCandidateBody(t, resp)
 			if err != nil {
 				t.Fatalf("WS: %v response=%v", err, resp)
 			}
-			defer ws.Close()
+			defer func() {
+				if closeErr := ws.Close(); closeErr != nil {
+					t.Error(closeErr)
+				}
+			}()
 			select {
 			case <-h.wsStarted:
 			case <-time.After(3 * time.Second):
@@ -526,6 +564,10 @@ func TestFiberCandidateHostIntegration(t *testing.T) {
 			}
 			publishCtx, stopPublish := context.WithTimeout(t.Context(), 3*time.Second)
 			publishDone := make(chan struct{})
+			defer func() {
+				stopPublish()
+				<-publishDone
+			}()
 			go func() {
 				defer close(publishDone)
 				tick := time.NewTicker(5 * time.Millisecond)
@@ -535,24 +577,32 @@ func TestFiberCandidateHostIntegration(t *testing.T) {
 					case <-publishCtx.Done():
 						return
 					case <-tick.C:
-						_ = h.broadcast.WidgetUpdated(publishCtx, dashboard.WidgetEvent{})
+						if publishErr := h.broadcast.WidgetUpdated(publishCtx, dashboard.WidgetEvent{}); publishErr != nil && !errors.Is(publishErr, context.Canceled) && !errors.Is(publishErr, context.DeadlineExceeded) {
+							t.Errorf("publish widget: %v", publishErr)
+							return
+						}
 					}
 				}
 			}()
-			ws.SetReadDeadline(time.Now().Add(3 * time.Second))
+			if err = ws.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+				t.Fatal(err)
+			}
 			_, _, err = ws.ReadMessage()
 			stopPublish()
 			<-publishDone
 			if err != nil {
 				t.Fatal(err)
 			}
-			req, _ := http.NewRequestWithContext(t.Context(), "GET", h.base+"/admin/events", nil)
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, h.base+"/admin/events", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			sse, err := h.client.Do(req)
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer sse.Body.Close()
-			if sse.StatusCode != 200 {
+			defer closeCandidateBody(t, sse)
+			if sse.StatusCode != http.StatusOK {
 				t.Fatalf("SSE=%d", sse.StatusCode)
 			}
 			scanner := bufio.NewScanner(sse.Body)
@@ -570,13 +620,16 @@ func TestFiberCandidateHostIntegration(t *testing.T) {
 			if !h.resourcesClosed.Load() || h.stream.SnapshotStats().ActiveSubscribers != 0 {
 				t.Fatal("host cleanup incomplete")
 			}
-			ws.SetReadDeadline(time.Now().Add(time.Second))
+			if err = ws.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
 			for {
 				if _, _, err = ws.ReadMessage(); err != nil {
 					break
 				}
 			}
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
 				t.Fatal("WS remained open after host shutdown")
 			}
 			if _, err = io.Copy(io.Discard, sse.Body); err != nil {
@@ -593,12 +646,16 @@ func TestFiberCandidateHostLifecycle(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/deadline=%t", backend, deadline), func(t *testing.T) {
 				h, _ := newCandidateHost(t, backend)
 				h.start(t)
+				req, requestErr := http.NewRequestWithContext(t.Context(), http.MethodGet, h.base+"/hold", nil)
+				if requestErr != nil {
+					t.Fatal(requestErr)
+				}
 				requestDone := make(chan error, 1)
 				go func() {
-					res, err := h.client.Get(h.base + "/hold")
+					res, err := h.client.Do(req)
 					if err == nil {
 						b, e := io.ReadAll(res.Body)
-						res.Body.Close()
+						closeCandidateBody(t, res)
 						err = e
 						if string(b) != "drained" {
 							err = fmt.Errorf("drain response: %s", b)
@@ -677,16 +734,20 @@ func TestFiberCandidateHostStartupFailure(t *testing.T) {
 	for _, backend := range []string{"v2", "v3"} {
 		t.Run(backend, func(t *testing.T) {
 			h, _ := newCandidateHost(t, backend)
-			listener, err := net.Listen("tcp4", "127.0.0.1:0")
+			listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp4", "127.0.0.1:0")
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer listener.Close()
+			defer func() {
+				if closeErr := listener.Close(); closeErr != nil {
+					t.Error(closeErr)
+				}
+			}()
 			result := make(chan error, 1)
 			go func() { result <- h.server.Serve(listener.Addr().String()) }()
 			select {
-			case err := <-result:
-				if err == nil {
+			case serveErr := <-result:
+				if serveErr == nil {
 					t.Fatal("occupied listener accepted")
 				}
 			case <-time.After(3 * time.Second):

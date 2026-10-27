@@ -29,12 +29,30 @@ func TestFiberV3ViewRequestContextParityAndIsolation(t *testing.T) {
 	fsys := fstest.MapFS{"page.html": {Data: []byte(`{% if feature(actor) %}allowed{% else %}denied{% endif %}|{{ actorName() }}`)}}
 	shared := MergeTemplateFuncs(map[string]any{
 		"actorName": func(ctx *p6.ExecutionContext) string {
-			return ctx.Public["request_ctx"].(context.Context).Value(viewPortContextKey{}).(string)
+			requestCtx, ok := ctx.Public["request_ctx"].(context.Context)
+			if !ok {
+				t.Errorf("request context has type %T", ctx.Public["request_ctx"])
+				return ""
+			}
+			actor, ok := requestCtx.Value(viewPortContextKey{}).(string)
+			if !ok {
+				t.Error("missing actor in request context")
+			}
+			return actor
 		},
 	}, WithTemplateFeatureGate(viewIsolationGate{}, fgtemplates.WithContextKey("request_ctx"), fgtemplates.WithScopeKey("request_scope")))
 	opts := []ViewEngineOption{WithViewReload(false), WithViewTemplateFuncs(shared),
 		WithViewFiberV3TemplateFuncs(map[string]any{"actorName": func(ctx *p7.ExecutionContext) string {
-			return ctx.Public["request_ctx"].(context.Context).Value(viewPortContextKey{}).(string)
+			requestCtx, ok := ctx.Public["request_ctx"].(context.Context)
+			if !ok {
+				t.Errorf("request context has type %T", ctx.Public["request_ctx"])
+				return ""
+			}
+			actor, ok := requestCtx.Value(viewPortContextKey{}).(string)
+			if !ok {
+				t.Error("missing actor in request context")
+			}
+			return actor
 		}})}
 	legacy, err := NewViewEngine(fsys, opts...)
 	if err != nil {

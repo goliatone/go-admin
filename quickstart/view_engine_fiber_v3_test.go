@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
@@ -91,14 +92,18 @@ func TestFiberV3TemplateContextHelperPorts(t *testing.T) {
 	if featureGate.ctx != ctx || featureGate.ctx.Value(viewPortContextKey{}) != "actor" || !reflect.DeepEqual(featureGate.chain, chain) {
 		t.Fatalf("request context/scope lost: ctx=%v chain=%v", featureGate.ctx, featureGate.chain)
 	}
+	feature, ok := modern["feature"].(func(*p7.ExecutionContext, any) bool)
+	if !ok {
+		t.Fatalf("unexpected feature helper type %T", modern["feature"])
+	}
 	before := featureGate.calls
 	newCtx.Public["request_snapshot"] = p7.AsValue(map[string]bool{"snapshot": true})
-	if !modern["feature"].(func(*p7.ExecutionContext, any) bool)(newCtx, "snapshot") || featureGate.calls != before {
+	if !feature(newCtx, "snapshot") || featureGate.calls != before {
 		t.Fatal("v7 snapshot was not used before the gate")
 	}
 	delete(newCtx.Public, "request_snapshot")
 	cancel()
-	if modern["feature"].(func(*p7.ExecutionContext, any) bool)(newCtx, "visible") || featureGate.ctx.Err() != context.Canceled {
+	if feature(newCtx, "visible") || featureGate.ctx.Err() != context.Canceled {
 		t.Fatal("request cancellation was lost")
 	}
 }
@@ -197,16 +202,16 @@ func TestFiberV3ViewHelperOverridesAndHTTPParity(t *testing.T) {
 		return fiber3.New(fiber3.Config{Views: modern, PassLocalsToViews: true})
 	})
 	newServer.Router().Get("/page", handler)
-	oldResp, err := oldServer.WrappedRouter().Test(httptest.NewRequest("GET", "/page", nil))
+	oldResp, err := oldServer.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer oldResp.Body.Close()
-	newResp, err := newServer.WrappedRouter().Test(httptest.NewRequest("GET", "/page", nil))
+	defer closeResponseBody(t, oldResp)
+	newResp, err := newServer.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer newResp.Body.Close()
+	defer closeResponseBody(t, newResp)
 	oldBody, err := io.ReadAll(oldResp.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +220,7 @@ func TestFiberV3ViewHelperOverridesAndHTTPParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if oldResp.StatusCode != 200 || newResp.StatusCode != 200 || oldResp.Header.Get("Content-Type") != newResp.Header.Get("Content-Type") || !bytes.Equal(oldBody, newBody) || !strings.HasPrefix(string(newBody), `&lt;x&gt;|<input name="csrf" value="token">|`) {
+	if oldResp.StatusCode != http.StatusOK || newResp.StatusCode != http.StatusOK || oldResp.Header.Get("Content-Type") != newResp.Header.Get("Content-Type") || !bytes.Equal(oldBody, newBody) || !strings.HasPrefix(string(newBody), `&lt;x&gt;|<input name="csrf" value="token">|`) {
 		t.Fatalf("HTTP parity: v2=%d %q v3=%d %q", oldResp.StatusCode, oldBody, newResp.StatusCode, newBody)
 	}
 }

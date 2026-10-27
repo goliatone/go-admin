@@ -23,7 +23,7 @@ func NewFiberRouteMissHandler(cfg admin.Config) fiber.Handler {
 		if c.Route() != route {
 			return err
 		}
-		if native, ok := err.(*fiber.Error); ok && native.Code == fiber.StatusNotFound {
+		if native, ok := err.(*fiber.Error); ok && native.Code == fiber.StatusNotFound { //nolint:errorlint // Only the direct native terminal error has routing provenance; wrapped errors must remain untouched.
 			return ownedFiberRouteMiss(c.Method(), c.Path(), domains, err)
 		}
 		return err
