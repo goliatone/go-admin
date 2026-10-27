@@ -864,6 +864,105 @@ allowlisted tables; dispatch with `apply: true` to backfill blank tenant/org
 values to the configured single-tenant defaults. Apply mode rejects multi-tenant
 configurations and never updates tables outside the allowlist.
 
+## Explicit Fiber v3 host and presentation
+
+`NewFiberV3ViewEngine`, `DefaultFiberV3TemplateFuncs` and
+`WithViewFiberV3TemplateFuncs` use the published go-router v0.63.0 contracts and
+are available without build tags. Existing `NewViewEngine` and v2 host defaults
+remain unchanged. `NewFiberV3ErrorHandler` shares the v2 HTML/API presentation
+policy and accepts the same `FiberErrorHandlerOption` values, including custom
+error mappers. `WithDefaultFiberV3DashboardRenderer` installs typed dashboard SSR
+on the shared v3 views while preserving an existing renderer.
+
+```go
+views, err := quickstart.NewFiberV3ViewEngine(
+    client.Templates(),
+    quickstart.WithViewBasePath("/admin"),
+    quickstart.WithViewFeatureGate(featureGate),
+    quickstart.WithViewTranslator(translator),
+    quickstart.WithViewReload(false),
+)
+if err != nil { return err }
+// The explicit host installs the shared HTML/API error policy by default.
+server, routes := quickstart.NewFiberV3Server(views, cfg, adm, isDev)
+// Install the renderer before Admin initialization when the host needs dashboard SSR.
+err = quickstart.WithDefaultFiberV3DashboardRenderer(adm, views, cfg)
+```
+
+`WithFiberV3ErrorHandler` and native `WithFiberV3Config` overrides remain authoritative.
+Register authentication, admin routes and assets before initialization, then start
+with `server.Serve(address)`. `WithFiberV3AdapterConfig` forwards native
+`ListenConfig` through `Serve`; callers starting `server.WrappedRouter()` directly
+must supply their native listener/TLS/hook settings themselves.
+
+Hosts own long-lived sessions. Cancel the contexts assigned to dashboard WebSocket
+and SSE requests, wait for their handlers/subscriptions to finish, then call
+`server.Shutdown(ctx)` with the caller's bounded context. The admin-shell shutdown
+coordinator drains the native server before lifecycle hooks and shared-resource
+release; wrap its server shutdown operation with stream cleanup. If the deadline
+expires, retain shared resources and retry cleanup after remaining requests finish.
+Native server shutdown alone does not establish WebSocket cleanup.
+
+The maintained `TestFiberCandidateHostIntegration`, `TestFiberCandidateHostLifecycle`
+and `TestFiberCandidateHostStartupFailure` tests under
+`examples/admin-shell/internal/core` exercise both native hosts on real local
+listeners. They verify candidate package composition; publication and application
+adoption remain separate steps.
+
+The same filesystem, overlay, asset, admin-lookup, translation and ordinary helper
+options work on both constructors. The v3 engine registers `tojson` locally and
+retains its JSON/null fallback and escaping behavior across reloads. Feature and
+CSRF helpers retain their names and policies through native v7 helper signatures.
+Request context stays in render-local helper closures rather than becoming an
+object exposed to templates; configured context keys, scope, cancellation and
+snapshots remain available to the helpers.
+
+Synthetic route-miss diagnostics require an explicit terminal fallback. For a
+standalone native app, register `app.Use(quickstart.NewFiberV3RouteMissHandler(cfg))`
+last, after all application routes and middleware (v2 uses `NewFiberRouteMissHandler`).
+With a go-router adapter, call `server.Init()` first so deferred routes and assets
+are registered, then append the native fallback. `NewFiberServer` and
+`NewFiberV3Server` do this automatically during initialization; configure native
+middleware through their options before `Init`, `WrappedRouter` or `Serve`.
+
+The fallback marks only owned admin misses reached at the end of routing and
+retains native method-not-allowed behavior. Error presentation preserves direct
+and wrapped middleware errors. Without the terminal fallback, a standalone app
+still presents native 404s with their original diagnostics; sentinel identity and
+message text alone never establish a synthetic miss.
+
+Keep `WithViewTemplateFuncs(shared)` for the shared/v2 map. Add
+`WithViewFiberV3TemplateFuncs(v7Overrides)` for application helpers using v7
+`Value` or execution-context types under the same template names. Overrides do
+not modify the shared map or affect v2. Arbitrary v6 tags and boxed values are
+not translated; port their Go implementations explicitly. Additional v7 filters
+and tags can register on the returned `router.FiberV3ViewExtensions` interface.
+
+The current supporting packages form a local candidate set. Use the reviewed
+workspace containing go-admin and go-admin/quickstart, with published router
+v0.63.0; no local router replacement is needed. From quickstart:
+
+```sh
+go test -race . -run '^TestFiberPresentation|^TestFiberV3|^TestDashboard' -count=1
+go run ./examples/fiber-v3-presentation -addr 127.0.0.1:3001
+```
+
+Open `/admin` for the standalone preview; `?state=empty`, `/admin/denied`,
+`/admin/failure`, `/admin/api/denied` and `/admin/redirect` exercise presentation
+states. The example embeds its page overlay and stylesheet and serves packaged
+admin assets through `NewStaticAssets`. It supplies the T00 presentation ports
+without using the quickstart server constructor. It is a local presentation
+sample, not an authenticated production host or evidence of final host acceptance.
+Existing v2 examples are retained.
+
+The parity tests compare the real login, users, translations, activity,
+feature-flags, media and dashboard templates against v2. Native HTTP checks cover
+HTML/API status, correlation, cookies, explicit redirects, theme/partial overlays,
+failed-render fallback, safe locals, CSRF helpers and concurrent request isolation.
+Asset tests verify matching helper output, GET/HEAD bytes, fallback precedence and
+missing files; the example has a real HTTP listener smoke test. Final host defaults,
+authenticated integration, lifecycle validation and publication remain separate.
+
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Prefer `WithViewURLResolver(adm.URLs())` (or `WithTemplateURLResolver(adm.URLs())`) so `adminURL` resolves via URLKit; `WithViewBasePath(cfg.BasePath)` remains as a fallback for legacy setups. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
 The go-router Pongo2 engine treats these helpers as functions (globals), not filters, so call them like `{{ singularize(resource_label|default:resource)|title }}` instead of `{{ resource_label|singularize }}`.

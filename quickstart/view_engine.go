@@ -20,6 +20,7 @@ type viewEngineOptions struct {
 	templateFS           []fs.FS
 	assetsFS             []fs.FS
 	templateFuncs        map[string]any
+	fiberV3TemplateFuncs map[string]any
 	featureGate          fggate.FeatureGate
 	featureHelperOptions []fgtemplates.HelperOption
 	translator           admin.Translator
@@ -187,28 +188,28 @@ func NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error) 
 	if err != nil {
 		return nil, err
 	}
+	registerTemplateFilterAliases()
 	return router.InitializeViewEngine(cfg)
 }
 
 type viewEngineConfig struct {
-	templateFS    []fs.FS
-	assetsFS      fs.FS
-	dirFS         string
-	assetsDir     string
-	templateFuncs map[string]any
-	reload        bool
-	debug         bool
-	embed         bool
-	ext           string
-	urlPrefix     string
+	templateFS           []fs.FS
+	assetsFS             fs.FS
+	dirFS                string
+	assetsDir            string
+	templateFuncs        map[string]any
+	fiberV3TemplateFuncs map[string]any
+	reload               bool
+	debug                bool
+	embed                bool
+	ext                  string
+	urlPrefix            string
 }
 
 func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineConfig, error) {
 	if baseFS == nil {
 		return nil, fmt.Errorf("view engine requires a base filesystem")
 	}
-	registerTemplateFilterAliases()
-
 	options := viewEngineOptions{
 		reload: true,
 		debug:  false,
@@ -256,16 +257,17 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 	}
 
 	config := &viewEngineConfig{
-		templateFS:    templateStack,
-		assetsFS:      fallbackFSList(assetStack),
-		dirFS:         dirFS,
-		assetsDir:     assetsDir,
-		templateFuncs: options.templateFuncs,
-		reload:        options.reload,
-		debug:         options.debug,
-		embed:         options.embed,
-		ext:           options.ext,
-		urlPrefix:     options.urlPrefix,
+		templateFS:           templateStack,
+		assetsFS:             fallbackFSList(assetStack),
+		dirFS:                dirFS,
+		assetsDir:            assetsDir,
+		templateFuncs:        options.templateFuncs,
+		fiberV3TemplateFuncs: options.fiberV3TemplateFuncs,
+		reload:               options.reload,
+		debug:                options.debug,
+		embed:                options.embed,
+		ext:                  options.ext,
+		urlPrefix:            options.urlPrefix,
 	}
 	if options.admin != nil {
 		options.admin.WithAdminTemplateLookup(newViewTemplateLookup(templateStack, options.reload))

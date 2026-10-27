@@ -113,6 +113,9 @@ func mountRPCTransportRouter(adm *admin.Admin, r admin.AdminRouter, rpcServer *c
 	if cfg.RequireAuth && !adm.HasAuthenticator() {
 		return fmt.Errorf("rpc transport requires authenticator")
 	}
+	if rt := resolveRPCFiberV3Router(r); rt != nil {
+		return rpcfiber.Mount(rt, rpcServer, rpcTransportOptions(adm, cfg)...)
+	}
 	rt := resolveRPCFiberRouter(r)
 	if rt == nil {
 		if explicit {
@@ -120,7 +123,7 @@ func mountRPCTransportRouter(adm *admin.Admin, r admin.AdminRouter, rpcServer *c
 		}
 		return nil
 	}
-	return rpcfiber.MountFiber(rt, rpcServer, rpcTransportOptions(adm, cfg)...)
+	return rpcfiber.Mount(rt, rpcServer, rpcTransportOptions(adm, cfg)...)
 }
 
 type rpcUnderlyingRouter interface {

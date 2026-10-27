@@ -312,6 +312,9 @@ Documentation presence, links and prose never gate package releases. Default
 tests validate code and required runtime/build assets. To run optional
 documentation maintenance checks from the workspace root, use
 `go test -tags=doccheck . ./quickstart`; release tasks do not enable this tag.
+Release Go commands override environment and saved `GOFLAGS` with
+`-buildvcs=false` and run code tests with `-count=1`, so local test filters,
+short/list modes and saved documentation tags cannot change the release gate.
 
 Before releasing, run the release regression suite and the normal quality gate:
 
@@ -356,6 +359,15 @@ proxy archive. The archive checker, dependency download and consumer test all
 run from the fresh staged copy, so preparation-generated files cannot enter the
 archive. A checkout-local TMPDIR is replaced by external temporary storage.
 
+Before committing or pushing coordinated tags, staged validation checks the
+browser client in a separate disposable source copy. It installs locked
+development dependencies with `npm ci --ignore-scripts --include=dev`, runs
+`npm test` (lint, build and unit tests) and `npm run test:public` (installed
+package/type/runtime checks), then validates deterministic release packaging.
+Generated frontend assets never modify Go archive inputs or the checkout.
+README prose is excluded from content scans; code, declarations, source maps,
+package paths and export targets remain validated.
+
 `./taskfile quickstart:sync:check [version]` retains its development behavior:
 it checks current working sources, permits a dirty tree and restores its four
 root/quickstart metadata files on completion or interruption. This diagnostic
@@ -375,8 +387,9 @@ the release remains published; retry only asset publication with:
 ./taskfile release:client:publish vX.Y.Z
 ```
 
-The recovery publisher exports the requested tag and refuses publication when
-the root and quickstart tags are not aligned. See
+The recovery publisher exports the requested tag, repeats the same frontend
+checks before creating/uploading assets, and refuses publication when the root
+and quickstart tags are not aligned. See
 `browser-client-compatibility.md` for the consumer version contract.
 
 ## 7. How to Interpret Lint Findings

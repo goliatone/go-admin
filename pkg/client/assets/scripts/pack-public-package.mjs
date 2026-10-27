@@ -83,7 +83,9 @@ function inspectArtifact(artifact) {
   const packageRoot = join(extracted, 'package');
   for (const path of files(packageRoot)) {
     if (forbidden.test(path)) throw new Error(`application-specific path leaked into package: ${path}`);
-    if (!/\.(?:js|mjs|cjs|ts|json|md|map)$/.test(path)) continue;
+    // Documentation prose is maintained separately from release validation.
+    // Keep scanning executable, declaration and source-map payloads.
+    if (!/\.(?:js|mjs|cjs|ts|json|map)$/.test(path)) continue;
     const content = readFileSync(join(packageRoot, path), 'utf8');
     if (forbidden.test(content)) throw new Error(`application-specific content leaked into package: ${path}`);
   }

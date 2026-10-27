@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/gofiber/fiber/v2"
+	fiber3 "github.com/gofiber/fiber/v3"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	dashboardrouter "github.com/goliatone/go-dashboard/components/dashboard/gorouter"
 	router "github.com/goliatone/go-router"
@@ -449,6 +450,9 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller, assetRegistration)
 		},
 		Fiber: func(rt router.Router[*fiber.App]) error {
+			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller, assetRegistration)
+		},
+		FiberV3: func(rt router.Router[*fiber3.App]) error {
 			return registerDebugDashboardRouter(a, rt, basePath, routes, access, authHandler, viewerResolver, controller, assetRegistration)
 		},
 	})

@@ -14,6 +14,7 @@ import (
 	adminrouting "github.com/goliatone/go-admin/admin/routing"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	"github.com/valyala/fasthttp"
 )
 
 // FiberErrorHandlerOption customizes the quickstart Fiber error handler.
@@ -36,6 +37,14 @@ func WithFiberErrorMappers(mappers ...goerrors.ErrorMapper) FiberErrorHandlerOpt
 // NewFiberErrorHandler returns a default error handler that renders JSON for API paths
 // and an HTML error page (with nav + theme) for non-API paths.
 func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiber.ErrorHandler {
+	runtime := newFiberErrorHandlerRuntime(adm, cfg, isDev, opts...)
+	return func(c *fiber.Ctx, err error) error {
+		return runtime.handle(fiberV2ErrorContext{c}, err, resolveFiberError(err))
+	}
+}
+
+// Both native adapters use the same presentation and diagnostic policy.
+func newFiberErrorHandlerRuntime(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiberErrorHandlerRuntime {
 	options := fiberErrorHandlerOptions{
 		errorMappers: append([]goerrors.ErrorMapper{mapFiberOwnedRouteMissError}, goerrors.DefaultErrorMappers()...),
 	}
@@ -55,16 +64,12 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 	if errorCfg.InternalMessage == "" {
 		errorCfg.InternalMessage = "An unexpected error occurred"
 	}
-	runtime := fiberErrorHandlerRuntime{
+	return fiberErrorHandlerRuntime{
 		adm:          adm,
 		cfg:          cfg,
 		errorCfg:     errorCfg,
 		presenter:    errorPresenterWithAdminIdentity(admin.NewErrorPresenter(errorCfg, options.errorMappers...), adm),
 		routeDomains: newHostRouteDomainResolver(cfg),
-	}
-
-	return func(c *fiber.Ctx, err error) error {
-		return runtime.handle(c, err)
 	}
 }
 
@@ -86,56 +91,66 @@ type fiberErrorHandlerRuntime struct {
 type resolvedFiberError struct {
 	code    int
 	message string
-	fiber   *fiber.Error
+	fiber   *fiberHTTPError
 }
 
-func (r fiberErrorHandlerRuntime) handle(c *fiber.Ctx, err error) error {
-	resolved := resolveFiberError(err)
-	resolved, err = r.normalizeSyntheticRouteMiss(c, err, resolved)
+// fiberErrorContext keeps transport-specific response methods at the boundary.
+// Request getters have the same signatures on both supported native backends.
+type fiberErrorContext interface {
+	Path(...string) string
+	Method(...string) string
+	OriginalURL() string
+	IP() string
+	Get(string, ...string) string
+	Query(string, ...string) string
+	Request() *fasthttp.Request
+	Body() []byte
+	Locals(any, ...any) any
+	requestContext() context.Context
+	renderStatus(int, string, router.ViewContext) error
+	jsonStatus(int, any) error
+	textStatus(int, string) error
+}
+
+type fiberHTTPError struct {
+	Code    int
+	Message string
+}
+
+type fiberV2ErrorContext struct{ *fiber.Ctx }
+
+func (c fiberV2ErrorContext) requestContext() context.Context { return c.UserContext() }
+func (c fiberV2ErrorContext) renderStatus(code int, name string, data router.ViewContext) error {
+	return c.Status(code).Render(name, fiber.Map(data))
+}
+func (c fiberV2ErrorContext) jsonStatus(code int, data any) error { return c.Status(code).JSON(data) }
+func (c fiberV2ErrorContext) textStatus(code int, body string) error {
+	return c.Status(code).SendString(body)
+}
+
+func (r fiberErrorHandlerRuntime) handle(c fiberErrorContext, err error, resolved resolvedFiberError) error {
 	if r.routeDomains.classify(c.Path(), hostRouteStandard) == adminrouting.RouteDomainAdminAPI {
 		return r.renderAPIError(c, err, resolved)
 	}
 	return r.renderHTMLError(c, err, resolved)
 }
 
-func (r fiberErrorHandlerRuntime) normalizeSyntheticRouteMiss(c *fiber.Ctx, err error, resolved resolvedFiberError) (resolvedFiberError, error) {
-	if c == nil || resolved.code != fiber.StatusNotFound {
-		return resolved, err
-	}
-	if existing := (*fiberOwnedRouteMissError)(nil); errors.As(err, &existing) {
-		return resolved, err
-	}
-	routeDomain := r.routeDomains.classify(c.Path(), hostRouteStandard)
-	switch routeDomain {
-	case adminrouting.RouteDomainAdminUI, adminrouting.RouteDomainAdminAPI:
-	default:
-		return resolved, err
-	}
-	if resolved.fiber == nil || !looksLikeFiberRouteMiss(resolved.fiber.Message, c.Method(), c.Path()) {
-		return resolved, err
-	}
-	routeMiss := newFiberOwnedRouteMissError(c.Method(), c.Path(), routeDomain)
-	return resolveFiberError(routeMiss), routeMiss
-}
-
-func looksLikeFiberRouteMiss(message, method, path string) bool {
-	message = strings.TrimSpace(message)
-	method = strings.TrimSpace(method)
-	path = strings.TrimSpace(path)
-	if message == "" || method == "" || path == "" {
-		return false
-	}
-	return message == "Cannot "+method+" "+path
-}
-
 func resolveFiberError(err error) resolvedFiberError {
-	resolved := resolvedFiberError{code: fiber.StatusInternalServerError, message: "internal server error"}
+	var native *fiber.Error
+	if errors.As(err, &native) && native != nil {
+		return resolveFiberHTTPError(err, &fiberHTTPError{Code: native.Code, Message: native.Message})
+	}
+	return resolveFiberHTTPError(err, nil)
+}
+
+func resolveFiberHTTPError(err error, native *fiberHTTPError) resolvedFiberError {
+	resolved := resolvedFiberError{code: fiber.StatusInternalServerError, message: "internal server error", fiber: native}
 	var routeMiss *fiberOwnedRouteMissError
 	if errors.As(err, &routeMiss) && routeMiss != nil {
 		resolved.code = fiber.StatusNotFound
 		resolved.message = fiber.ErrNotFound.Message
 	}
-	if errors.As(err, &resolved.fiber) {
+	if resolved.fiber != nil {
 		resolved.code = resolved.fiber.Code
 		resolved.message = resolved.fiber.Message
 	}
@@ -158,7 +173,7 @@ func resolveFiberError(err error) resolvedFiberError {
 	return resolved
 }
 
-func (r fiberErrorHandlerRuntime) renderAPIError(c *fiber.Ctx, err error, resolved resolvedFiberError) error {
+func (r fiberErrorHandlerRuntime) renderAPIError(c fiberErrorContext, err error, resolved resolvedFiberError) error {
 	mapped, status := r.presenter.Present(err)
 	if mapped == nil {
 		mapped = goerrors.New(resolved.message, goerrors.CategoryInternal).
@@ -178,7 +193,7 @@ func (r fiberErrorHandlerRuntime) renderAPIError(c *fiber.Ctx, err error, resolv
 		code = status
 		mapped.Code = code
 	}
-	return c.Status(code).JSON(r.presenter.ErrorResponse(mapped))
+	return c.jsonStatus(code, r.presenter.ErrorResponse(mapped))
 }
 
 func applyFiberErrorOverride(mapped *goerrors.Error, resolved resolvedFiberError, status *int) {
@@ -201,7 +216,7 @@ func applyFiberErrorOverride(mapped *goerrors.Error, resolved resolvedFiberError
 	*status = resolved.fiber.Code
 }
 
-func (r fiberErrorHandlerRuntime) renderHTMLError(c *fiber.Ctx, err error, resolved resolvedFiberError) error {
+func (r fiberErrorHandlerRuntime) renderHTMLError(c fiberErrorContext, err error, resolved resolvedFiberError) error {
 	headline, userMessage := errorContext(resolved.code)
 	viewCtx := r.baseErrorViewContext(c, resolved.code, headline, userMessage)
 	if r.errorCfg.DevMode {
@@ -220,13 +235,13 @@ func (r fiberErrorHandlerRuntime) renderHTMLError(c *fiber.Ctx, err error, resol
 			c.Locals(key, value)
 		}
 	}
-	if renderErr := c.Status(resolved.code).Render(templateName, fiber.Map(viewCtx)); renderErr != nil {
-		return c.SendString(fmt.Sprintf("%d - %s", resolved.code, headline))
+	if renderErr := c.renderStatus(resolved.code, templateName, viewCtx); renderErr != nil {
+		return c.textStatus(resolved.code, fmt.Sprintf("%d - %s", resolved.code, headline))
 	}
 	return nil
 }
 
-func (r fiberErrorHandlerRuntime) baseErrorViewContext(c *fiber.Ctx, code int, headline, message string) router.ViewContext {
+func (r fiberErrorHandlerRuntime) baseErrorViewContext(c fiberErrorContext, code int, headline, message string) router.ViewContext {
 	reqCtx := fiberAdminThemeContext(c)
 	viewCtx := router.ViewContext{}
 	if r.adm != nil {
@@ -249,11 +264,11 @@ func (r fiberErrorHandlerRuntime) baseErrorViewContext(c *fiber.Ctx, code int, h
 	return viewCtx
 }
 
-func fiberAdminThemeContext(c *fiber.Ctx) context.Context {
+func fiberAdminThemeContext(c fiberErrorContext) context.Context {
 	if c == nil {
 		return context.Background()
 	}
-	ctx := c.UserContext()
+	ctx := c.requestContext()
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -273,7 +288,7 @@ func fiberAdminThemeContext(c *fiber.Ctx) context.Context {
 	return ctx
 }
 
-func (r fiberErrorHandlerRuntime) applyDevErrorContext(c *fiber.Ctx, err error, viewCtx router.ViewContext) {
+func (r fiberErrorHandlerRuntime) applyDevErrorContext(c fiberErrorContext, err error, viewCtx router.ViewContext) {
 	viewCtx["error_detail"] = err.Error()
 	devCtx := r.presenter.BuildDevErrorContext(err, buildRequestInfo(c, r.errorCfg))
 	if devCtx == nil {
@@ -424,7 +439,7 @@ func formatStackTrace(trace any) string {
 }
 
 // buildRequestInfo extracts request information from Fiber context.
-func buildRequestInfo(c *fiber.Ctx, cfg admin.ErrorConfig) *admin.RequestInfo {
+func buildRequestInfo(c fiberErrorContext, cfg admin.ErrorConfig) *admin.RequestInfo {
 	info := &admin.RequestInfo{
 		Method:      c.Method(),
 		Path:        c.Path(),
@@ -463,7 +478,7 @@ func methodMayHaveBody(method string) bool {
 	return method == "POST" || method == "PUT" || method == "PATCH"
 }
 
-func applyRequestBodyInfo(c *fiber.Ctx, cfg admin.ErrorConfig, info *admin.RequestInfo) {
+func applyRequestBodyInfo(c fiberErrorContext, cfg admin.ErrorConfig, info *admin.RequestInfo) {
 	contentType := info.ContentType
 	if isFormContentType(contentType) {
 		info.FormData = make(map[string]string)

@@ -163,7 +163,11 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 		return app
 	})
 
-	return adapter, adapter.Router()
+	server := &fiberRouteMissServer[*fiber.App]{
+		Server:  adapter,
+		install: func(app *fiber.App) { app.Use(NewFiberRouteMissHandler(cfg)) },
+	}
+	return server, adapter.Router()
 }
 
 func defaultFiberAdapterConfig(cfg admin.Config, isDev bool) router.FiberAdapterConfig {

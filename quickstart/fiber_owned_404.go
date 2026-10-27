@@ -62,7 +62,7 @@ func newFiberOwned404Middleware(routeDomains hostRouteDomainResolver, errorHandl
 			return nil
 		}
 
-		c.Response().Reset()
+		resetFiberOwnedMissRepresentation(c.Response())
 		c.Status(fiber.StatusOK)
 		routeDomain := routeDomains.classify(c.Path(), hostRouteStandard)
 		return errorHandler(c, newFiberOwnedRouteMissError(c.Method(), c.Path(), routeDomain))

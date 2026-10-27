@@ -133,6 +133,7 @@ func isInternalLocation(file, fn string) bool {
 		"/admin/internal/boot/route_errors.go",
 		"/quickstart/content_entry_routes_errors.go",
 		"/quickstart/error_fiber.go",
+		"/quickstart/error_fiber_v3.go",
 		"/examples/web/setup/auth.go",
 	) {
 		return true

@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+<link rel="stylesheet" href="{{ base_path }}/assets/preview.css">
+<section class="presentation-preview" data-presentation-preview>
+  <p>Standalone presentation sample</p>
+  {% if items %}
+  <ul>{% for item in items %}<li>{{ item }}</li>{% endfor %}</ul>
+  {% else %}<p data-empty-state>No items to display.</p>{% endif %}
+  <nav aria-label="Preview states">
+    <a href="{{ base_path }}">Populated</a>
+    <a href="{{ base_path }}?state=empty">Empty</a>
+    <a href="{{ base_path }}/denied">Denied</a>
+    <a href="{{ base_path }}/failure">Error</a>
+    <a href="{{ base_path }}/api/denied">API error</a>
+  </nav>
+</section>
+{% endblock %}

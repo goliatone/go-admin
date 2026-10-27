@@ -543,6 +543,98 @@ function test_quickstart_sync_runs_tests {
     fi
 }
 
+function test_release_go_selection_is_controlled {
+    local source_fixture="${fixture_root}/controlled-go-selection"
+    local error_log="${fixture_root}/controlled-go-selection.log"
+    local module
+    local flags
+
+    mkdir -p "${source_fixture}/quickstart"
+    printf 'module github.com/goliatone/go-admin\n\ngo 1.26.5\n' > "${source_fixture}/go.mod"
+    printf 'module github.com/goliatone/go-admin/quickstart\n\ngo 1.26.5\n' > "${source_fixture}/quickstart/go.mod"
+    for module in . quickstart; do
+        cat > "${source_fixture}/${module}/runtime_test.go" <<'GO'
+package gate
+import ("os"; "testing")
+func TestReleaseGate(t *testing.T) {
+    if testing.Short() { t.Skip("short mode") }
+    if _, err := os.Stat("fail"); err == nil { t.Fatal("runtime gate failed") }
+}
+GO
+        printf '//go:build doccheck\n\npackage gate\nimport "testing"\nfunc TestDocumentation(t *testing.T) { t.Fatal("documentation selected") }\n' \
+            > "${source_fixture}/${module}/documentation_test.go"
+    done
+    # Cache a success, then change a non-source input: release checks must run
+    # again and must not accept inherited test filtering or documentation tags.
+    (cd "${source_fixture}" && GOFLAGS=-tags=doccheck quickstart:sync 0.999.0)
+    for module in . quickstart; do
+        : > "${source_fixture}/${module}/fail"
+        for flags in '-run=^$' '-skip=TestReleaseGate' '-short' '-count=0' '-list=.' '-tags=doccheck'; do
+            if (cd "${source_fixture}" && GOFLAGS="${flags}" GOWORK=/missing/go.work quickstart:sync 0.999.0) > "${error_log}" 2>&1; then
+                echo "release accepted a failing ${module} test with GOFLAGS=${flags}" >&2
+                return 1
+            fi
+            grep -q 'runtime gate failed' "${error_log}" || return 1
+        done
+        printf 'GOFLAGS=-run=^$\n' > "${source_fixture}/goenv"
+        if (cd "${source_fixture}" && unset GOFLAGS && export GOENV="${source_fixture}/goenv" && quickstart:sync 0.999.0) > "${error_log}" 2>&1; then
+            echo "release accepted persisted GOFLAGS" >&2
+            return 1
+        fi
+        grep -q 'runtime gate failed' "${error_log}" || return 1
+        rm "${source_fixture}/${module}/fail"
+    done
+}
+
+function test_release_root_only_preparation_controls_selection {
+    local state_dir="${fixture_root}/root-only-selection"
+    local error_log="${fixture_root}/root-only-selection.log"
+    mkdir -p "${state_dir}/prepared-source"
+    printf 'module example.com/root\n\ngo 1.26.5\n' > "${state_dir}/prepared-source/go.mod"
+    printf 'package root\nimport "testing"\nfunc TestRuntime(t *testing.T) { t.Fatal("root-only gate") }\n' \
+        > "${state_dir}/prepared-source/runtime_test.go"
+    if (
+        function release:source:assert_prepared { return 0; }
+        GOFLAGS=-run=^$ release:source:prepare 0.999.0 "${state_dir}"
+    ) > "${error_log}" 2>&1; then
+        echo "root-only preparation accepted a failing code test" >&2
+        return 1
+    fi
+    grep -q 'root-only gate' "${error_log}"
+}
+
+function test_release_staged_consumer_controls_selection {
+    local source_fixture="${fixture_root}/staged-selection-source"
+    local state_dir="${fixture_root}/staged-selection-state"
+    local error_log="${fixture_root}/staged-selection.log"
+    mkdir -p "${source_fixture}/quickstart" "${state_dir}"
+    printf 'module example.com/consumer\n\ngo 1.26.5\n' > "${source_fixture}/quickstart/go.mod"
+    printf 'package consumer\nimport "testing"\nfunc TestRuntime(t *testing.T) { t.Fatal("consumer gate") }\n' \
+        > "${source_fixture}/quickstart/runtime_test.go"
+    if (
+        cd "${source_fixture}" || exit 1
+        function git {
+            [ "${1:-}" = checkout-index ] || return 1
+            cp -R "${source_fixture}/." "${3#--prefix=}"
+        }
+        function go {
+            [ "${GOFLAGS:-}" = -buildvcs=false ] && [ "${GOWORK:-}" = off ] || return 1
+            case "${1}" in
+                run) return 0 ;;
+                env) printf 'off\n' ;;
+                mod) return 0 ;;
+                test) command go "$@" ;;
+                *) return 1 ;;
+            esac
+        }
+        GOFLAGS=-run=^$ test_release_modules_validate_real v0.999.0 "${state_dir}"
+    ) > "${error_log}" 2>&1; then
+        echo "staged consumer validation accepted a failing code test" >&2
+        return 1
+    fi
+    grep -q 'consumer gate' "${error_log}"
+}
+
 function test_quickstart_sync_check_restores_after_interruption {
     local sync_fixture="${fixture_root}/quickstart-sync-interrupted"
     local status
@@ -737,6 +829,7 @@ function test_release_client_prepare_uses_tagged_source {
     local destination="${fixture_root}/tagged-client-assets"
     local resolved_destination
     local prepare_log="${fixture_root}/tagged-client-prepare.log"
+    local npm_log="${fixture_root}/tagged-client-npm.log"
     local commit=0123456789abcdef0123456789abcdef01234567
 
     mkdir -p "${tagged_source}/pkg/client/assets/scripts" "${current_source}" "${destination}"
@@ -770,25 +863,188 @@ function test_release_client_prepare_uses_tagged_source {
             return 1
         }
         function npm {
+            [ "${GOFLAGS:-}" = -buildvcs=false ] && [ "${GOWORK:-}" = off ] || return 1
             [ "${PWD}" != "${current_source}/pkg/client/assets" ]
             [ -f "${PWD}/../../../source-marker" ]
             [ "$(cat "${PWD}/../../../source-marker")" = tagged ]
-            [ "$*" = 'ci --ignore-scripts' ]
+            printf '%s\n' "$*" >> "${npm_log}"
+            case "$*" in
+                'ci --ignore-scripts --include=dev'|'test'|'run test:public') return 0 ;;
+                *) return 1 ;;
+            esac
         }
-        function release:client:prepare {
+        function node {
             [ "$(cat source-marker)" = tagged ]
-            [ "${1}" = 1.2.3 ]
-            [ "${2}" = "${destination}" ]
-            [ "${3}" = "${commit}" ]
-            printf '%s\n' "$*" > "${prepare_log}"
+            [ "$*" = "pkg/client/assets/scripts/prepare-release-assets.mjs --version 1.2.3 --destination ${resolved_destination} --commit ${commit}" ]
+            printf '%s\n' "1.2.3 ${resolved_destination} ${commit}" > "${prepare_log}"
             : > "${destination}/client.tgz"
         }
 
         release:client:prepare_tag v1.2.3 "${destination}"
+
+        # Retry publication must fail before packaging or touching GitHub when
+        # tests of the requested tag fail, even if the current checkout works.
+        function release:client:preflight { return 0; }
+        function npm { [ "$*" != test ]; }
+        function node { : > "${prepare_log}.unexpected-pack"; }
+        function gh { : > "${prepare_log}.unexpected-upload"; }
+        if release:client:publish v1.2.3; then
+            echo "tagged-source publication ignored failing frontend tests" >&2
+            exit 1
+        fi
+        [ ! -e "${prepare_log}.unexpected-pack" ] && [ ! -e "${prepare_log}.unexpected-upload" ]
     )
 
     assert_file_content "${prepare_log}" "1.2.3 ${resolved_destination} ${commit}"
+    assert_file_content "${npm_log}" $'ci --ignore-scripts --include=dev\ntest\nrun test:public'
     [ -f "${destination}/client.tgz" ]
+}
+
+function test_release_client_failure_blocks_artifacts {
+    local source_fixture="${fixture_root}/client-test-failure"
+    local failed_command
+    local error_log="${fixture_root}/client-test-failure.log"
+    mkdir -p "${source_fixture}/pkg/client/assets"
+    for failed_command in 'ci --ignore-scripts --include=dev' test 'run test:public'; do
+        if (
+            cd "${source_fixture}" || exit 1
+            function npm { [ "$*" != "${failed_command}" ]; }
+            function node { : > "${source_fixture}/packed"; }
+            release:client:prepare 1.2.3 "${source_fixture}/artifacts"
+        ) > "${error_log}" 2>&1; then
+            echo "client preparation ignored failing ${failed_command}" >&2
+            return 1
+        fi
+        [ ! -e "${source_fixture}/packed" ] || return 1
+    done
+}
+
+function test_release_staged_client_isolated_validation {
+    local source_fixture="${fixture_root}/staged-client-source"
+    local state_dir
+    local expected_status
+    local npm_log="${fixture_root}/staged-client-npm.log"
+    mkdir -p "${source_fixture}/pkg/client/assets/scripts"
+    printf 'tracked\n' > "${source_fixture}/pkg/client/assets/output.css"
+    for expected_status in 0 1; do
+        state_dir="${fixture_root}/staged-client-state-${expected_status}"
+        mkdir "${state_dir}"
+        if (
+            cd "${source_fixture}" || exit 1
+            function git {
+                [ "${1:-}" = checkout-index ] || return 1
+                cp -R "${source_fixture}/." "${3#--prefix=}"
+            }
+            function go {
+                case "${1}" in
+                    run) return 0 ;;
+                    env) printf 'off\n' ;;
+                    *) return 1 ;;
+                esac
+            }
+            function npm {
+                [ "${PWD}" = "${state_dir}/client-source/pkg/client/assets" ] || return 1
+                printf '%s\n' "$*" >> "${npm_log}"
+                printf 'generated\n' > output.css
+                [ "$*" != test ] || return "${expected_status}"
+            }
+            function node {
+                [ "${PWD}" = "${state_dir}/client-source" ] || return 1
+                : > "${state_dir}/client-assets/packed"
+            }
+            release_client_enabled=1 test_release_modules_validate_real v1.2.3 "${state_dir}"
+        ); then
+            [ "${expected_status}" -eq 0 ] || return 1
+            [ -f "${state_dir}/client-assets/packed" ] || return 1
+        else
+            [ "${expected_status}" -eq 1 ] || return 1
+            [ ! -e "${state_dir}/client-assets/packed" ] || return 1
+        fi
+        assert_file_content "${source_fixture}/pkg/client/assets/output.css" tracked
+        assert_file_content "${state_dir}/module-source/pkg/client/assets/output.css" tracked
+    done
+    assert_file_content "${npm_log}" $'ci --ignore-scripts --include=dev\ntest\nrun test:public\nci --ignore-scripts --include=dev\ntest'
+}
+
+function test_release_client_checks_precede_publication {
+    local source_fixture
+    local operation_log
+    local error_log
+    local test_status
+    # Mock Git/source-integrity operations only in this orchestration test.
+    # The production staged validator and client test routine remain active.
+    for test_status in 0 1; do
+        source_fixture="${fixture_root}/client-publication-${test_status}"
+        operation_log="${fixture_root}/client-publication-${test_status}.log"
+        error_log="${fixture_root}/client-publication-${test_status}.error"
+        mkdir -p "${source_fixture}/pkg/client/assets/scripts"
+        printf '1.2.2\n' > "${source_fixture}/.version"
+        printf 'original changelog\n' > "${source_fixture}/CHANGELOG.md"
+        printf 'module example.com/release\n\ngo 1.26.5\n' > "${source_fixture}/go.mod"
+        printf '{}\n' > "${source_fixture}/pkg/client/assets/package.json"
+        printf '{}\n' > "${source_fixture}/pkg/client/assets/package-lock.json"
+        : > "${source_fixture}/pkg/client/assets/scripts/prepare-release-assets.mjs"
+        if (
+            cd "${source_fixture}" || exit 1
+            VERSION_FILE=.version
+            function git {
+                case "${1}" in
+                    status|fetch|pull|add|reset) return 0 ;;
+                    symbolic-ref) printf 'main\n' ;;
+                    rev-list) printf 'original-head\n' ;;
+                    rev-parse) [ "${2}" = HEAD ] && printf 'original-head\n' ;;
+                    ls-files) [ "${4}" != .release-notes.md ] ;;
+                    checkout-index) cp -R "${source_fixture}/." "${3#--prefix=}" ;;
+                    cliff) printf 'new changelog\n' > CHANGELOG.md ;;
+                    tag)
+                        if [ "${2}" = --list ]; then
+                            case "${3}" in quickstart/*) printf 'quickstart/v1.2.2\n' ;; *) printf 'v1.2.2\n' ;; esac
+                        else
+                            printf 'tag\n' >> "${operation_log}"
+                        fi
+                        ;;
+                    commit|push) printf '%s\n' "${1}" >> "${operation_log}" ;;
+                    *) return 1 ;;
+                esac
+            }
+            function release:source:capture {
+                mkdir "${1}/prepared-source" || return 1
+                cp -R "${source_fixture}/." "${1}/prepared-source/"
+            }
+            function release:source:assert_prepared { return 0; }
+            function release:source:assert_current { return 0; }
+            function release:source:assert_index { return 0; }
+            function release:source:assert_staged { return 0; }
+            function release:source:fingerprint { printf 'fixture\n'; }
+            function release:client:preflight { return 0; }
+            function release:client:version:set { return 0; }
+            function release:modules:validate { test_release_modules_validate_real "$@"; }
+            function release:client:publish { printf 'publish\n' >> "${operation_log}"; }
+            function go {
+                case "${1}" in
+                    mod|test|run) return 0 ;;
+                    env) printf 'off\n' ;;
+                    *) return 1 ;;
+                esac
+            }
+            function npm {
+                if [ "$*" = test ]; then
+                    printf 'frontend-test\n' >> "${operation_log}"
+                    return "${test_status}"
+                fi
+            }
+            function node { printf 'pack\n' >> "${operation_log}"; }
+            release patch
+        ) > "${error_log}" 2>&1; then
+            [ "${test_status}" -eq 0 ] || { cat "${error_log}"; return 1; }
+            assert_file_content "${operation_log}" $'frontend-test\npack\ncommit\ntag\ntag\npush\npublish'
+        else
+            [ "${test_status}" -eq 1 ] || { cat "${error_log}"; return 1; }
+            assert_file_content "${operation_log}" frontend-test
+            assert_file_content "${source_fixture}/.version" 1.2.2
+            assert_file_content "${source_fixture}/CHANGELOG.md" 'original changelog'
+        fi
+    done
 }
 
 function test_release_client_prepare_rejects_tag_skew {
@@ -1445,12 +1701,18 @@ for release_test in \
     test_quickstart_sync_without_published_tag \
     test_examples_sync_tracks_coordinated_version \
     test_quickstart_sync_runs_tests \
+    test_release_go_selection_is_controlled \
+    test_release_root_only_preparation_controls_selection \
+    test_release_staged_consumer_controls_selection \
     test_quickstart_sync_check_restores_after_interruption \
     test_release_client_preflight_accepts_supported_node_versions \
     test_release_client_preflight_accepts_supported_npm_versions \
     test_transaction_cleanup_removes_readonly_module_cache \
     test_transaction_rollback \
     test_release_client_prepare_uses_tagged_source \
+    test_release_client_failure_blocks_artifacts \
+    test_release_staged_client_isolated_validation \
+    test_release_client_checks_precede_publication \
     test_release_client_prepare_rejects_tag_skew \
     test_postpush_asset_failure_preserves_release \
     test_failed_restore_preserves_snapshot \

@@ -10,6 +10,7 @@ import (
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/gofiber/fiber/v2"
+	fiber3 "github.com/gofiber/fiber/v3"
 	cmscontent "github.com/goliatone/go-cms/content"
 	cmspages "github.com/goliatone/go-cms/pages"
 	"github.com/goliatone/go-command/flow"
@@ -393,6 +394,7 @@ func mapFeatureConfigValidationErrors(err error) (*goerrors.Error, int, bool) {
 func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 	var permission PermissionDeniedError
 	var fiberErr *fiber.Error
+	var fiberV3Err *fiber3.Error
 
 	switch {
 	case errors.As(err, &permission):
@@ -402,6 +404,11 @@ func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 			WithCode(fiberErr.Code).
 			WithTextCode(goerrors.HTTPStatusToTextCode(fiberErr.Code))
 		return mapped, fiberErr.Code, true
+	case errors.As(err, &fiberV3Err) && fiberV3Err != nil:
+		mapped := goerrors.Wrap(err, goerrors.CategoryRouting, fiberV3Err.Message).
+			WithCode(fiberV3Err.Code).
+			WithTextCode(goerrors.HTTPStatusToTextCode(fiberV3Err.Code))
+		return mapped, fiberV3Err.Code, true
 	case errors.Is(err, ErrForbidden):
 		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, mappedControlFlowMessage(err, ErrForbidden.Error())).
 			WithCode(http.StatusForbidden).
