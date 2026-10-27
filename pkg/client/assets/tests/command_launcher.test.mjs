@@ -374,14 +374,15 @@ test('generated dynamic options adapt formgen requests to the protected panel ac
   assert.equal(adaptedRequests[3].init.body, undefined);
 });
 
-test('shipped formgen runtime rewrites dynamic options before network dispatch', async () => {
-  const { renderCommandLauncherConsole, attachCommandLauncherListeners } = await importLauncher();
+test('shipped formgen runtime rewrites dynamic options before network dispatch', async (t) => {
+  const { renderCommandLauncherConsole, attachCommandLauncherListeners, resetCommandLauncherState } = await importLauncher();
+  const { buildPanelActionPayload } = await importPanelActions();
   const def = generatedDef();
   def.ui.metadata = { option_resolver_action: 'resolve_options' };
   def.ui.actions[0].payload.command_id = 'search.repair';
   def.ui.actions[0].form.html = `
     <div data-formgen-auto-init="true">
-      <select name="indexes" multiple
+      <select id="fg-indexes" name="indexes" multiple
         data-endpoint-url="command-options://resolve"
         data-endpoint-method="POST"
         data-endpoint-results-path="data.option_items"
@@ -399,6 +400,13 @@ test('shipped formgen runtime rewrites dynamic options before network dispatch',
     runScripts: 'dangerously',
   });
   setWindowGlobals(dom.window);
+  t.after(async () => {
+    resetCommandLauncherState();
+    dom.window.document.body.replaceChildren();
+    // Let formgen's removal observer dispose widgets while the document exists.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    dom.window.close();
+  });
   const requests = [];
   dom.window.fetch = async (url, init) => {
     requests.push({ url: String(url), init });
@@ -422,7 +430,15 @@ test('shipped formgen runtime rewrites dynamic options before network dispatch',
   const host = dom.window.document.querySelector('#host');
   attachCommandLauncherListeners(host, { debugPath: '/admin/debug' });
   host.querySelector('[data-cmdl-item]').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  const form = host.querySelector('[data-panel-action-form]');
+  // Formgen moves the submission name to hidden mirrors; the rendered control
+  // keeps its ID and remains the authoritative source for controller values.
+  const indexes = form.querySelector('#fg-indexes');
+  assert.ok(indexes instanceof dom.window.HTMLSelectElement);
+  await t.waitFor(() => {
+    assert.equal(form.dataset.cmdlFormgenReady, 'true');
+    assert.equal(indexes.dataset.state, 'ready');
+  });
 
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, '/admin/debug/api/panels/commands/actions/resolve_options');
@@ -435,9 +451,26 @@ test('shipped formgen runtime rewrites dynamic options before network dispatch',
     payload: { indexes: [] },
   });
   assert.deepEqual(
-    Array.from(host.querySelectorAll('select[name="indexes"] option')).map((option) => option.value).filter(Boolean),
+    Array.from(indexes.options, (option) => option.value).filter(Boolean),
     ['site_content', 'archive_media'],
   );
+
+  for (const option of indexes.options) {
+    option.selected = option.value === 'site_content';
+  }
+  indexes.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+
+  let submittedPayload;
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submittedPayload = buildPanelActionPayload(form);
+  });
+  form.dispatchEvent(new dom.window.SubmitEvent('submit', { bubbles: true, cancelable: true }));
+  assert.deepEqual(submittedPayload, {
+    command_id: 'search.repair',
+    payload: { indexes: ['site_content'] },
+    options: { mode: 'inline' },
+  });
 });
 
 test('browser-selected multi-value options remain arrays in the command dispatch payload', async () => {
