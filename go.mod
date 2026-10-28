@@ -14,8 +14,8 @@ require (
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.6
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.3
-	github.com/goliatone/go-crud v0.27.0
-	github.com/goliatone/go-crud/gql v0.27.0
+	github.com/goliatone/go-crud v0.27.1
+	github.com/goliatone/go-crud/gql v0.27.1
 	github.com/goliatone/go-dashboard v0.15.8
 	github.com/goliatone/go-errors v0.12.0
 	github.com/goliatone/go-featuregate v0.6.1
@@ -111,10 +111,10 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
-	github.com/goliatone/go-config v0.14.0 // indirect
+	github.com/goliatone/go-config v0.15.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.3 // indirect
-	github.com/goliatone/go-services v0.11.3
+	github.com/goliatone/go-services v0.11.4
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.30.0 // indirect
