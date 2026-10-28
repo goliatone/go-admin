@@ -15,7 +15,6 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-command/registry"
-	"github.com/goliatone/go-router"
 )
 
 func TestCommerceExampleHappyPath(t *testing.T) {
@@ -27,7 +26,6 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		cfg := admin.Config{
 			BasePath:      "/admin",
 			DefaultLocale: "en",
-			AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 		}
 		featureDefaults := map[string]bool{
 			"dashboard": true,
@@ -42,8 +40,6 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		}
 		defer adm.Commands().Reset()
 		tokens := setupAuth(adm, dataStores)
-		adm.WithAuth(nil, cfg.AuthConfig)
-		adm.WithAuthorizer(allowAllAuthz{})
 		mod := &commerceModule{
 			stores:        dataStores,
 			basePath:      cfg.BasePath,
@@ -57,9 +53,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("register module: %v", registerErr)
 		}
 
-		server := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
-			return fiber.New()
-		})
+		server := newCommerceServer(cfg)
 		r := server.Router()
 		if initErr := adm.Initialize(r); initErr != nil {
 			t.Fatalf("initialize admin: %v", initErr)
@@ -86,7 +80,9 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("create product status: %d body=%s", createResp.StatusCode, string(createBody))
 		}
 		var created map[string]any
-		_ = json.Unmarshal(createBody, &created) //nolint:errcheck // legacy test fixture decoding is validated by subsequent assertions.
+		if err := json.Unmarshal(createBody, &created); err != nil {
+			t.Fatalf("decode created product: %v; body=%q", err, createBody)
+		}
 		productID := mustAs[string](created["id"])
 		productsAfterCreate, _, _ := dataStores.Products.List(context.Background(), admin.ListOptions{}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
 		if len(productsAfterCreate) < 4 {

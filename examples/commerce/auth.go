@@ -19,7 +19,6 @@ func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]s
 	provider := &commerceIdentityProvider{users: dataStores.Users}
 
 	auther := auth.NewAuthenticator(provider, cfg)
-	tokenService := auther.TokenService()
 	routeAuth, err := auth.NewHTTPAuthenticator(
 		auther,
 		cfg,
@@ -30,21 +29,7 @@ func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]s
 		commerceNamedLogger("examples.commerce.auth").Fatal("failed to initialize go-auth HTTP authenticator", "error", err)
 	}
 
-	authenticator := admin.NewGoAuthAuthenticator(routeAuth, cfg, admin.WithAuthErrorHandler(func(c router.Context, err error) error {
-		raw := strings.TrimSpace(c.Header("Authorization"))
-		raw = strings.TrimPrefix(raw, "Bearer ")
-		if raw != "" {
-			if claims, valErr := tokenService.Validate(raw); valErr == nil {
-				ctxWithClaims := auth.WithClaimsContext(c.Context(), claims)
-				if actor := auth.ActorContextFromClaims(claims); actor != nil {
-					ctxWithClaims = auth.WithActorContext(ctxWithClaims, actor)
-				}
-				c.SetContext(ctxWithClaims)
-				return c.Next()
-			} else {
-				commerceNamedLogger("examples.commerce.auth").Warn("commerce auth validation failed", "error", valErr)
-			}
-		}
+	authenticator := admin.NewGoAuthAuthenticator(routeAuth, cfg, admin.WithAuthErrorHandler(func(_ router.Context, err error) error {
 		return err
 	}))
 
@@ -82,11 +67,16 @@ func (p *commerceIdentityProvider) lookup(ctx context.Context, identifier string
 	if err != nil {
 		return nil, err
 	}
-	target := strings.ToLower(strings.TrimSpace(identifier))
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" {
+		return nil, auth.ErrIdentityNotFound
+	}
+	target := strings.ToLower(identifier)
 	for _, rec := range records {
+		id := primitives.StringFromAny(rec["id"])
 		name := strings.ToLower(primitives.StringFromAny(rec["name"]))
 		email := strings.ToLower(primitives.StringFromAny(rec["email"]))
-		if target != "" && target != name && target != email {
+		if identifier != id && target != name && target != email {
 			continue
 		}
 		return commerceIdentity{

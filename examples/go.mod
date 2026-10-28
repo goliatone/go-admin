@@ -4,10 +4,11 @@ go 1.26.5
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.13
+	github.com/gofiber/fiber/v3 v3.6.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin v0.142.0
 	github.com/goliatone/go-admin/quickstart v0.142.0
-	github.com/goliatone/go-auth v0.45.4
+	github.com/goliatone/go-auth v0.45.6
 	github.com/goliatone/go-cms v0.60.7
 	github.com/goliatone/go-command v0.24.3
 	github.com/goliatone/go-config v0.15.0
@@ -21,10 +22,10 @@ require (
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.0
+	github.com/goliatone/go-router v0.63.2
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.3
+	github.com/goliatone/go-users v0.27.4
 	github.com/goliatone/hashid v0.2.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
@@ -103,21 +104,20 @@ require (
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/gofiber/contrib/v3/websocket v1.2.9 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect
-	github.com/gofiber/fiber/v3 v3.6.1 // indirect
 	github.com/gofiber/schema v1.9.0 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/template/v2 v2.1.4 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/gofiber/utils/v2 v2.6.2 // indirect
-	github.com/goliatone/go-auth/adapters/featuregate v0.45.4 // indirect
+	github.com/goliatone/go-auth/adapters/featuregate v0.45.6 // indirect
 	github.com/goliatone/go-cache v0.3.1 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
 	github.com/goliatone/go-crud/gql v0.27.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.11.1 // indirect
 	github.com/goliatone/go-job v0.20.0 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
-	github.com/goliatone/go-notifications v0.16.2 // indirect
+	github.com/goliatone/go-notifications v0.16.3 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.3 // indirect

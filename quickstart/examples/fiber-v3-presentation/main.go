@@ -3,11 +3,17 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	fiber3 "github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/admin"
@@ -68,7 +74,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := app.Listen(*addr, fiber3.ListenConfig{DisableStartupMessage: true}); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := servePresentation(ctx, app, *addr, 5*time.Second); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func servePresentation(ctx context.Context, app *fiber3.App, address string, shutdownTimeout time.Duration) error {
+	served := make(chan error, 1)
+	go func() { served <- app.Listen(address, fiber3.ListenConfig{DisableStartupMessage: true}) }()
+	select {
+	case err := <-served:
+		return err
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	shutdownErr := app.ShutdownWithContext(shutdownCtx)
+	select {
+	case err := <-served:
+		return errors.Join(shutdownErr, err)
+	case <-shutdownCtx.Done():
+		return errors.Join(shutdownErr, shutdownCtx.Err())
 	}
 }

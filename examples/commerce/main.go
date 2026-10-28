@@ -83,18 +83,7 @@ func main() {
 		logger.Fatal("register module failed", "error", err)
 	}
 
-	var fiberApp *fiber.App
-	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{ListenConfig: fiber.ListenConfig{EnablePrintRoutes: true}}, func(_ *fiber.App) *fiber.App {
-		fiberApp = fiber.New(fiber.Config{
-			UnescapePath:            true,
-			StrictRouting:           false,
-			DisableHeadAutoRegister: true,
-		})
-		fiberApp.Use(fiberlogger.New())
-		return fiberApp
-	})
-	ownedServer := fiberhost.New(server)
-	server = ownedServer
+	server := newCommerceServer(cfg)
 	r := server.Router()
 
 	if err := adm.Initialize(r); err != nil {
@@ -119,4 +108,21 @@ func main() {
 	if err := fiberhost.ServeUntilSignal(server, ":8081", func(ctx context.Context) error { return quickstart.CloseCommandRunUpdates(ctx, adm) }, func(context.Context) error { adm.Commands().Close(); return nil }); err != nil {
 		logger.Fatal("server stopped", "error", err)
 	}
+}
+
+// Keep native error presentation on the same API prefix as the admin routes.
+func newCommerceServer(cfg admin.Config) router.Server[*fiber.App] {
+	errorConfig := router.DefaultFiberErrorHandlerConfig()
+	errorConfig.APIPrefix = path.Join(cfg.BasePath, "api")
+	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{ListenConfig: fiber.ListenConfig{EnablePrintRoutes: true}}, func(_ *fiber.App) *fiber.App {
+		app := fiber.New(fiber.Config{
+			UnescapePath:            true,
+			StrictRouting:           false,
+			DisableHeadAutoRegister: true,
+			ErrorHandler:            router.DefaultFiberV3ErrorHandler(errorConfig),
+		})
+		app.Use(fiberlogger.New())
+		return app
+	})
+	return fiberhost.New(server)
 }
