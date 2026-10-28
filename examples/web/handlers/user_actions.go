@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	goerrors "github.com/goliatone/go-errors"

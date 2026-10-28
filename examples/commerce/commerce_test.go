@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
@@ -57,7 +57,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("register module: %v", registerErr)
 		}
 
-		server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		server := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 			return fiber.New()
 		})
 		r := server.Router()
@@ -76,7 +76,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		createReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/api/panels/products", strings.NewReader(`{"name":"New Bag","sku":"NB-10","price":99,"inventory":3,"status":"active"}`))
 		createReq.Header.Set("Content-Type", "application/json")
 		createReq.Header.Set("Authorization", authHeader)
-		createResp, err := app.Test(createReq, -1)
+		createResp, err := app.Test(createReq, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("create product request failed: %v", err)
 		}
@@ -98,7 +98,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 
 		detailReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/products/"+productID, nil)
 		detailReq.Header.Set("Authorization", authHeader)
-		detailResp, err := app.Test(detailReq, -1)
+		detailResp, err := app.Test(detailReq, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("detail product request failed: %v", err)
 		}
@@ -115,7 +115,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 
 		listReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/panels/products", nil)
 		listReq.Header.Set("Authorization", authHeader)
-		listResp, err := app.Test(listReq, -1)
+		listResp, err := app.Test(listReq, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("list products request failed: %v", err)
 		}
@@ -128,7 +128,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		// Dashboard render
 		dashReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/dashboard", nil)
 		dashReq.Header.Set("Authorization", authHeader)
-		dashResp, err := app.Test(dashReq, -1)
+		dashResp, err := app.Test(dashReq, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("dashboard request failed: %v", err)
 		}
@@ -147,7 +147,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		// Search
 		searchReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/search?query=hoodie", nil)
 		searchReq.Header.Set("Authorization", authHeader)
-		searchResp, err := app.Test(searchReq, -1)
+		searchResp, err := app.Test(searchReq, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("search request failed: %v", err)
 		}
@@ -166,7 +166,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		// Jobs (cron hooks)
 		jobsReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/jobs", nil)
 		jobsReq.Header.Set("Authorization", authHeader)
-		jobsResp, err := app.Test(jobsReq, -1)
+		jobsResp, err := app.Test(jobsReq, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("jobs request failed: %v", err)
 		}

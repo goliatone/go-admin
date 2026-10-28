@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	authlib "github.com/goliatone/go-auth"
@@ -38,7 +38,7 @@ func setupUserProfilesCRUDApp(t *testing.T) userProfilesCRUDHarness {
 	require.NoError(t, err)
 
 	app := fiber.New()
-	authn := func(c *fiber.Ctx) error {
+	authn := func(c fiber.Ctx) error {
 		role := c.Get("X-Role")
 		if strings.TrimSpace(role) == "" {
 			return fiber.ErrUnauthorized
@@ -62,17 +62,17 @@ func setupUserProfilesCRUDApp(t *testing.T) userProfilesCRUDHarness {
 			claims.Resources["admin.users"] = resourceRole
 		}
 
-		reqCtx := authlib.WithClaimsContext(c.UserContext(), claims)
+		reqCtx := authlib.WithClaimsContext(c.Context(), claims)
 		if actor := authlib.ActorContextFromClaims(claims); actor != nil {
 			reqCtx = authlib.WithActorContext(reqCtx, actor)
 		}
-		c.SetUserContext(reqCtx)
+		c.SetContext(reqCtx)
 		return c.Next()
 	}
 
 	crudGroup := app.Group("/admin/crud", authn)
 	encoder := crud.ProblemJSONErrorEncoder(crud.WithProblemJSONStatusResolver(userCRUDStatusResolver))
-	adapter := crud.NewFiberAdapter(crudGroup)
+	adapter := crud.NewFiberV3Adapter(crudGroup)
 
 	controller := crud.NewController(
 		profileStore.Repository(),

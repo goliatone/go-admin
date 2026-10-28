@@ -161,7 +161,7 @@ func TestTranslationSuggestionRPCTransportOptionMountsInvokeRoute(t *testing.T) 
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
-	server := router.NewFiberAdapter()
+	server := router.NewFiberV3Adapter()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize admin: %v", err)
 	}

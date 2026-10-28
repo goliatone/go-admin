@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -66,10 +66,10 @@ func newExamplePhase2TestApp(t *testing.T, mutate func(*appcfg.Config)) *fiber.A
 	}
 	siteCfg := resolveSiteRuntimeConfig(adminCfg, runtimeCfg.Site, true)
 
-	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{FiberAdapterConfig: router.FiberAdapterConfig{
 		PathConflictMode: router.PathConflictModePreferStatic,
 		StrictRoutes:     true,
-	})
+	}})
 	r := server.Router()
 	host := quickstart.NewHostRouter(r, adminCfg)
 	if _, err := registerExampleHostOwnedRoutes(host, runtimeCfg); err != nil {
@@ -171,7 +171,7 @@ func performExampleRequest(t *testing.T, app *fiber.App, method, path string) *h
 	t.Helper()
 	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
 	req.Header.Set("Accept", "application/json")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("%s %s failed: %v", method, path, err)
 	}

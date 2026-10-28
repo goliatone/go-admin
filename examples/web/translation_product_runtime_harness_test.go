@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/setup"
@@ -123,7 +123,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.Positive(t, seededScopedTotal, "expected scoped seeded assignment total")
 	require.NotEmpty(t, seededScopedAssignments, "expected scoped seeded assignments")
 
-	viewEngine, err := quickstart.NewViewEngine(
+	viewEngine, err := quickstart.NewFiberV3ViewEngine(
 		client.FS(),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
 			quickstart.WithTemplateURLResolver(adm.URLs()),
@@ -133,13 +133,13 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	server, r := quickstart.NewFiberServer(
+	server, r := quickstart.NewFiberV3Server(
 		viewEngine,
 		cfg,
 		adm,
 		true,
-		quickstart.WithFiberLogger(false),
-		quickstart.WithFiberAdapterConfig(func(adapterCfg *router.FiberAdapterConfig) {
+		quickstart.WithFiberV3Logger(false),
+		quickstart.WithFiberV3AdapterConfig(func(adapterCfg *router.FiberV3AdapterConfig) {
 			if adapterCfg == nil {
 				return
 			}
@@ -362,7 +362,7 @@ func doAdminJSONRequestWithHeaders(
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	res, err := app.Test(req, -1)
+	res, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	require.NoError(t, err, "execute %s %s", method, path)
 	defer func() {
 		_ = res.Body.Close()
@@ -399,7 +399,7 @@ func doAdminHTMLRequestWithHeaders(
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	res, err := app.Test(req, -1)
+	res, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	require.NoError(t, err, "execute %s %s", method, path)
 	defer func() {
 		_ = res.Body.Close()
@@ -459,7 +459,7 @@ func assertEnhancedFamilyFormRedirects(
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	res, err := app.Test(req, -1)
+	res, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	require.NoError(t, err, "execute fallback family assignment form")
 	defer func() {
 		_ = res.Body.Close()

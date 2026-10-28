@@ -12,7 +12,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
@@ -43,11 +43,12 @@ func TestMountEmbeddedSiteThemeAssetsServesBundles(t *testing.T) {
 		t.Fatalf("load embedded site theme package: %v", err)
 	}
 
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	adapter := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
-			UnescapePath:      true,
-			EnablePrintRoutes: false,
-			StrictRouting:     false,
+			UnescapePath: true,
+
+			DisableHeadAutoRegister: true,
+			StrictRouting:           false,
 		})
 	})
 	r := adapter.Router()
@@ -62,7 +63,7 @@ func TestMountEmbeddedSiteThemeAssetsServesBundles(t *testing.T) {
 		path.Join(pkg.Manifest.Assets.Prefix, "static", "site.css"),
 		path.Join(pkg.Manifest.Assets.Prefix, "static", "site.js"),
 	} {
-		resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, assetPath, nil), -1)
+		resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, assetPath, nil), fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("request %s failed: %v", assetPath, err)
 		}
@@ -320,7 +321,7 @@ func renderEmbeddedSiteTemplate(t *testing.T, pkg *embeddedSiteThemePackage, var
 	}
 	siteCfg := attachEmbeddedSiteThemeTemplateFS(resolveSiteRuntimeConfig(cfg, appcfg.Defaults().Site, true), pkg)
 
-	views, err := quickstart.NewViewEngine(client.FS(), quicksite.ViewEngineOptions(cfg, siteCfg)...)
+	views, err := quickstart.NewFiberV3ViewEngine(client.FS(), quicksite.ViewEngineOptions(cfg, siteCfg)...)
 	if err != nil {
 		t.Fatalf("new view engine: %v", err)
 	}
@@ -331,11 +332,11 @@ func renderEmbeddedSiteTemplate(t *testing.T, pkg *embeddedSiteThemePackage, var
 	}
 
 	app := fiber.New(fiber.Config{Views: views})
-	app.Get("/render/:template", func(c *fiber.Ctx) error {
+	app.Get("/render/:template", func(c fiber.Ctx) error {
 		return c.Render(strings.ReplaceAll(c.Params("template"), "__", "/"), ctx)
 	})
 
-	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/render/"+strings.ReplaceAll(templateName, "/", "__"), nil), -1)
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/render/"+strings.ReplaceAll(templateName, "/", "__"), nil), fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("render %s: %v", templateName, err)
 	}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/pkg/client"
 	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
@@ -24,7 +24,7 @@ func TestExampleTranslationEditorServesAdvertisedSyncClientRuntime(t *testing.T)
 		Queue:    &enabled,
 	})
 
-	viewEngine, err := quickstart.NewViewEngine(
+	viewEngine, err := quickstart.NewFiberV3ViewEngine(
 		client.FS(),
 		quickstart.WithViewBasePath(cfg.BasePath),
 		quickstart.WithViewURLResolver(adm.URLs()),
@@ -33,13 +33,13 @@ func TestExampleTranslationEditorServesAdvertisedSyncClientRuntime(t *testing.T)
 		t.Fatalf("new view engine: %v", err)
 	}
 
-	server, r := quickstart.NewFiberServer(
+	server, r := quickstart.NewFiberV3Server(
 		viewEngine,
 		cfg,
 		adm,
 		true,
-		quickstart.WithFiberLogger(false),
-		quickstart.WithFiberAdapterConfig(func(adapterCfg *router.FiberAdapterConfig) {
+		quickstart.WithFiberV3Logger(false),
+		quickstart.WithFiberV3AdapterConfig(func(adapterCfg *router.FiberV3AdapterConfig) {
 			if adapterCfg == nil {
 				return
 			}
@@ -95,7 +95,7 @@ func exampleRuntimeRequest(t *testing.T, app *fiber.App, target string) (int, st
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, target, nil)
 	req.Header.Set("Accept", "text/html")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("GET %s failed: %v", target, err)
 	}

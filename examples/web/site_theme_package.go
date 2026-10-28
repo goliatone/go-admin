@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	router "github.com/goliatone/go-router"
 	gotheme "github.com/goliatone/go-theme"

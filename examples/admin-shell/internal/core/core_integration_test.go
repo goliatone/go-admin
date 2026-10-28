@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	adminrouting "github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/examples/admin-shell/config"
 	"github.com/goliatone/go-admin/examples/admin-shell/internal/core"
@@ -136,7 +136,7 @@ func TestStarterBuildsAndServesCompleteRouteGraph(t *testing.T) {
 		t.Run(tc.path, func(t *testing.T) {
 			response, err := app.Test(
 				httptest.NewRequestWithContext(context.Background(), http.MethodGet, tc.path, nil),
-				-1,
+				fiber.TestConfig{Timeout: 0},
 			)
 			if err != nil {
 				t.Fatalf("request %s: %v", tc.path, err)
@@ -551,7 +551,7 @@ func TestProductionLoginLoggingRedactsCSRFAndUsesRootAccessLogger(t *testing.T) 
 
 	response, err := appCore.Server.WrappedRouter().Test(
 		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/login", nil),
-		-1,
+		fiber.TestConfig{Timeout: 0},
 	)
 	if err != nil {
 		t.Fatalf("request login: %v", err)
@@ -620,7 +620,7 @@ func TestProductionCompositionRequiresProviderAndNeverExposesDemoSecrets(t *test
 	for _, requestPath := range []string{"/", "/admin/login"} {
 		response, err := app.Test(
 			httptest.NewRequestWithContext(context.Background(), http.MethodGet, requestPath, nil),
-			-1,
+			fiber.TestConfig{Timeout: 0},
 		)
 		if err != nil {
 			t.Fatalf("request production path %s: %v", requestPath, err)

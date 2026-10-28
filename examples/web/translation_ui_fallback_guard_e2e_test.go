@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
@@ -127,20 +127,20 @@ func newTranslationUIFixture(t *testing.T) translationUIFixture {
 	_, err = adm.RegisterPanel("pages", newTranslationUITestPagesPanel(pageStore))
 	require.NoError(t, err, "register pages panel")
 
-	viewEngine, err := quickstart.NewViewEngine(
+	viewEngine, err := quickstart.NewFiberV3ViewEngine(
 		client.FS(),
 		quickstart.WithViewBasePath(cfg.BasePath),
 		quickstart.WithViewURLResolver(adm.URLs()),
 	)
 	require.NoError(t, err, "create view engine")
 
-	server, r := quickstart.NewFiberServer(
+	server, r := quickstart.NewFiberV3Server(
 		viewEngine,
 		cfg,
 		adm,
 		true,
-		quickstart.WithFiberLogger(false),
-		quickstart.WithFiberAdapterConfig(func(adapterCfg *router.FiberAdapterConfig) {
+		quickstart.WithFiberV3Logger(false),
+		quickstart.WithFiberV3AdapterConfig(func(adapterCfg *router.FiberV3AdapterConfig) {
 			if adapterCfg == nil {
 				return
 			}
@@ -261,7 +261,7 @@ func findPageIDBySlugAndLocale(t *testing.T, contentSvc coreadmin.CMSContentServ
 func doUIRequest(t *testing.T, app *fiber.App, method, path string) (int, string) {
 	t.Helper()
 	req := httptest.NewRequestWithContext(context.Background(), method, path, nil)
-	res, err := app.Test(req, -1)
+	res, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	require.NoError(t, err, "execute %s %s", method, path)
 	defer res.Body.Close()
 	body := ""
@@ -279,7 +279,7 @@ func doUIFormRequest(t *testing.T, app *fiber.App, method, path string, values u
 	body := strings.NewReader(values.Encode())
 	req := httptest.NewRequestWithContext(context.Background(), method, path, body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	res, err := app.Test(req, -1)
+	res, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	require.NoError(t, err, "execute %s %s", method, path)
 	defer res.Body.Close()
 

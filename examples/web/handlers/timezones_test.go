@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
@@ -25,15 +25,16 @@ type timezoneResponse struct {
 }
 
 func setupTimezonesTestApp() *fiber.App {
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	adapter := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 		app := fiber.New(fiber.Config{
-			UnescapePath:      true,
-			EnablePrintRoutes: false,
-			StrictRouting:     false,
-			ErrorHandler:      quickstart.NewFiberErrorHandler(nil, admin.Config{BasePath: "/admin"}, true),
+			UnescapePath: true,
+
+			DisableHeadAutoRegister: true,
+			StrictRouting:           false,
+			ErrorHandler:            quickstart.NewFiberV3ErrorHandler(nil, admin.Config{BasePath: "/admin"}, true),
 		})
 
-		app.Use(func(c *fiber.Ctx) error {
+		app.Use(func(c fiber.Ctx) error {
 			role := strings.TrimSpace(c.Get("X-Role"))
 			if role == "" {
 				return c.Next()
@@ -57,11 +58,11 @@ func setupTimezonesTestApp() *fiber.App {
 				claims.Resources["admin.users"] = resourceRole
 			}
 
-			ctx := authlib.WithClaimsContext(c.UserContext(), claims)
+			ctx := authlib.WithClaimsContext(c.Context(), claims)
 			if actor := authlib.ActorContextFromClaims(claims); actor != nil {
 				ctx = authlib.WithActorContext(ctx, actor)
 			}
-			c.SetUserContext(ctx)
+			c.SetContext(ctx)
 			return c.Next()
 		})
 
@@ -78,7 +79,7 @@ func TestListTimezones_Unauthorized(t *testing.T) {
 	app := setupTimezonesTestApp()
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestListTimezones_Forbidden(t *testing.T) {
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/timezones?q=utc&limit=1", nil)
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestListTimezones_OK(t *testing.T) {
 	req = req.WithContext(context.Background())
 	req.Header.Set("X-Role", string(authlib.RoleAdmin))
 	req.Header.Set("X-Allow-Users", "true")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

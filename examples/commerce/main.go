@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/gofiber/fiber/v2"
-	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v3"
+	fiberlogger "github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
+	"github.com/goliatone/go-admin/examples/internal/fiberhost"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
@@ -83,15 +84,17 @@ func main() {
 	}
 
 	var fiberApp *fiber.App
-	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{ListenConfig: fiber.ListenConfig{EnablePrintRoutes: true}}, func(_ *fiber.App) *fiber.App {
 		fiberApp = fiber.New(fiber.Config{
-			UnescapePath:      true,
-			StrictRouting:     false,
-			EnablePrintRoutes: true,
+			UnescapePath:            true,
+			StrictRouting:           false,
+			DisableHeadAutoRegister: true,
 		})
 		fiberApp.Use(fiberlogger.New())
 		return fiberApp
 	})
+	ownedServer := fiberhost.New(server)
+	server = ownedServer
 	r := server.Router()
 
 	if err := adm.Initialize(r); err != nil {
@@ -99,7 +102,7 @@ func main() {
 	}
 
 	// Serve static demo UI (after admin routes so it acts as fallback)
-	fiberApp.Static("/", staticRoot(), fiber.Static{
+	r.Static("/", staticRoot(), router.Static{
 		Index: "index.html",
 	})
 
@@ -113,7 +116,7 @@ func main() {
 	logger.Info("search api", "path", path.Join(cfg.BasePath, "api/search"))
 	logger.Info("jobs api", "path", path.Join(cfg.BasePath, "api/jobs"))
 
-	if err := server.Serve(":8081"); err != nil {
+	if err := fiberhost.ServeUntilSignal(server, ":8081", func(ctx context.Context) error { return quickstart.CloseCommandRunUpdates(ctx, adm) }, func(context.Context) error { adm.Commands().Close(); return nil }); err != nil {
 		logger.Fatal("server stopped", "error", err)
 	}
 }

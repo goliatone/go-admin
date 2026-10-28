@@ -5,7 +5,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	adminrouting "github.com/goliatone/go-admin/admin/routing"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/quickstart"
@@ -71,10 +71,10 @@ func newExamplePhase5TestApp(t *testing.T, order []string, mutate func(*appcfg.C
 	siteCfg := resolveSiteRuntimeConfig(adminCfg, runtimeCfg.Site, true)
 	adminAPIBasePath := quickstart.ResolveAdminAPIBasePath(nil, adminCfg, adminCfg.BasePath)
 
-	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{FiberAdapterConfig: router.FiberAdapterConfig{
 		PathConflictMode: router.PathConflictModePreferStatic,
 		StrictRoutes:     true,
-	})
+	}})
 	host := quickstart.NewHostRouter(server.Router(), adminCfg)
 
 	steps := map[string]func(){

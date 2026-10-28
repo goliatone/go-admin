@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -39,7 +39,7 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 	}
 
 	app := fiber.New()
-	authn := func(c *fiber.Ctx) error {
+	authn := func(c fiber.Ctx) error {
 		role := c.Get("X-Role")
 		if role == "" {
 			return fiber.ErrUnauthorized
@@ -50,18 +50,18 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 				"admin.media": role,
 			},
 		}
-		ctx := authlib.WithClaimsContext(c.UserContext(), claims)
+		ctx := authlib.WithClaimsContext(c.Context(), claims)
 		if actor := authlib.ActorContextFromClaims(claims); actor != nil {
 			ctx = authlib.WithActorContext(ctx, actor)
 		}
-		c.SetUserContext(ctx)
+		c.SetContext(ctx)
 		return c.Next()
 	}
 
 	crudGroup := app.Group("/admin/crud", authn)
 
 	encoder := crud.ProblemJSONErrorEncoder(crud.WithProblemJSONStatusResolver(userCRUDStatusResolver))
-	adapter := crud.NewFiberAdapter(crudGroup)
+	adapter := crud.NewFiberV3Adapter(crudGroup)
 
 	mediaController := crud.NewController(
 		mediaStore.Repository(),
@@ -71,16 +71,16 @@ func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
 	mediaController.RegisterRoutes(adapter)
 
 	apiGroup := app.Group("/admin/api", authn)
-	apiGroup.Get("/navigation", func(c *fiber.Ctx) error {
+	apiGroup.Get("/navigation", func(c fiber.Ctx) error {
 		locale := strings.TrimSpace(c.Query("locale"))
 		menuSvc := cmsOpts.Container.MenuService()
 		if menuSvc == nil {
 			return fiber.ErrNotFound
 		}
-		items, err := menuSvc.Menu(c.UserContext(), setup.NavigationMenuCode, locale)
+		items, err := menuSvc.Menu(c.Context(), setup.NavigationMenuCode, locale)
 		if (err != nil || items == nil || len(items.Items) == 0) && menuSvc != nil {
-			_ = setup.SetupNavigation(c.UserContext(), menuSvc, "/admin", setup.NavigationMenuCode, "en")
-			items, err = menuSvc.Menu(c.UserContext(), setup.NavigationMenuCode, locale)
+			_ = setup.SetupNavigation(c.Context(), menuSvc, "/admin", setup.NavigationMenuCode, "en")
+			items, err = menuSvc.Menu(c.Context(), setup.NavigationMenuCode, locale)
 		}
 		if err != nil || items == nil {
 			return err

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
@@ -49,7 +49,7 @@ func TestCommerceModuleHonorsCustomDashboardPlacements(t *testing.T) {
 	if err := adm.RegisterModule(mod); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
-	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	server := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New()
 	})
 	if err := adm.Initialize(server.Router()); err != nil {

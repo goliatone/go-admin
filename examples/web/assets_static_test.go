@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
@@ -20,11 +20,12 @@ import (
 )
 
 func TestEmbeddedAssetsServed(t *testing.T) {
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	adapter := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
-			UnescapePath:      true,
-			EnablePrintRoutes: false,
-			StrictRouting:     false,
+			UnescapePath: true,
+
+			DisableHeadAutoRegister: true,
+			StrictRouting:           false,
 		})
 	})
 	r := adapter.Router()
@@ -72,7 +73,7 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 
 	for _, tt := range tests {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tt.path, nil)
-		resp, err := app.Test(req, -1)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("request %s failed: %v", tt.path, err)
 		}
@@ -86,11 +87,12 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 }
 
 func TestEmbeddedAssetsServedWithCatchAll(t *testing.T) {
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	adapter := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
-			UnescapePath:      true,
-			EnablePrintRoutes: false,
-			StrictRouting:     false,
+			UnescapePath: true,
+
+			DisableHeadAutoRegister: true,
+			StrictRouting:           false,
 		})
 	})
 	r := adapter.Router()
@@ -104,7 +106,7 @@ func TestEmbeddedAssetsServedWithCatchAll(t *testing.T) {
 	app := adapter.WrappedRouter()
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/assets/output.css", nil)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/admin-shell/config"
 	golifecycle "github.com/goliatone/go-admin/pkg/go-lifecycle"
 	"github.com/goliatone/go-router"

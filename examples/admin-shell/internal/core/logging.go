@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/admin-shell/config"
 	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-logger/glog"
@@ -332,7 +332,7 @@ func routerErrorAttrs(args []any) []any {
 // request-safe structured child of the command-owned provider.
 func newFiberAccessLogger(logger glog.Logger) fiber.Handler {
 	logger = glog.Ensure(logger)
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		startedAt := time.Now()
 		err := ctx.Next()
 		status := ctx.Response().StatusCode()

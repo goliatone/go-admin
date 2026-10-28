@@ -18,9 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/internal/fiberhost"
 	"github.com/goliatone/go-admin/internal/primitives"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	adminrouting "github.com/goliatone/go-admin/admin/routing"
 	debugregistry "github.com/goliatone/go-admin/debug"
@@ -1200,19 +1201,21 @@ func main() {
 		quickstart.WithViewDebug(cfg.Debug.Enabled),
 	}
 	viewEngineOptions = append(viewEngineOptions, quicksite.ViewEngineOptions(cfg, siteCfg)...)
-	viewEngine, err := quickstart.NewViewEngine(client.FS(), viewEngineOptions...)
+	viewEngine, err := quickstart.NewFiberV3ViewEngine(client.FS(), viewEngineOptions...)
 	if err != nil {
 		fatalf("failed to initialize view engine: %v", err)
 	}
 
 	// Initialize Fiber server
-	server, r := quickstart.NewFiberServer(
+	server, r := quickstart.NewFiberV3Server(
 		viewEngine,
 		cfg,
 		adm,
 		isDev,
-		quickstart.WithFiberRuntimeConfig(resolveFiberRuntimeConfig(runtimeConfig.Fiber)),
+		fiberV3RuntimeOption(resolveFiberRuntimeConfig(runtimeConfig.Fiber)),
 	)
+	ownedServer := fiberhost.New(server)
+	server, r = ownedServer, ownedServer.Router()
 	// Register root-level surfaces through the grouped host router so ownership
 	// does not depend on registration order.
 	host := quickstart.NewHostRouter(r, cfg)
@@ -1820,7 +1823,17 @@ func main() {
 		infof("  Status: %s", internalOpsCfg.StatusPath)
 	}
 
-	if err := server.Serve(listenAddr); err != nil {
+	if err := fiberhost.ServeUntilSignal(server, listenAddr, func(ctx context.Context) error { return quickstart.CloseCommandRunUpdates(ctx, adm) }, func(context.Context) error {
+		for _, module := range modules {
+			if closer, ok := module.(interface{ Close() error }); ok {
+				if err := closer.Close(); err != nil {
+					return err
+				}
+			}
+		}
+		adm.Commands().Close()
+		return nil
+	}); err != nil {
 		fatalf("server stopped: %v", err)
 	}
 }
@@ -2565,6 +2578,43 @@ func resolveSiteCanonicalRedirectMode(raw string) quicksite.CanonicalRedirectMod
 		return quicksite.CanonicalRedirectRequestedLocaleSticky
 	default:
 		return quicksite.CanonicalRedirectRequestedLocaleSticky
+	}
+}
+
+func fiberV3RuntimeOption(runtime quickstart.FiberRuntimeConfig) quickstart.FiberV3ServerOption {
+	return func(opts *quickstart.FiberV3ServerConfig) {
+		opts.Config.DisableHeadAutoRegister = true
+		if runtime.ReadBufferSize > 0 {
+			opts.Config.ReadBufferSize = runtime.ReadBufferSize
+		}
+		if runtime.StrictRoutes != nil {
+			opts.AdapterConfig.StrictRoutes = *runtime.StrictRoutes
+			if strings.TrimSpace(runtime.RouteConflictPolicy) == "" {
+				policy := router.HTTPRouterConflictLogAndContinue
+				if *runtime.StrictRoutes {
+					policy = router.HTTPRouterConflictPanic
+				}
+				opts.AdapterConfig.ConflictPolicy = &policy
+			}
+		}
+		switch strings.ToLower(strings.TrimSpace(runtime.PathConflictMode)) {
+		case "strict":
+			opts.AdapterConfig.PathConflictMode = router.PathConflictModeStrict
+		case "prefer_static", "prefer-static", "preferstatic", "static":
+			opts.AdapterConfig.PathConflictMode = router.PathConflictModePreferStatic
+		}
+		var policy router.HTTPRouterConflictPolicy
+		switch strings.ToLower(strings.TrimSpace(runtime.RouteConflictPolicy)) {
+		case "panic":
+			policy = router.HTTPRouterConflictPanic
+		case "log_and_skip", "log-skip", "skip":
+			policy = router.HTTPRouterConflictLogAndSkip
+		case "log_and_continue", "log-continue", "continue":
+			policy = router.HTTPRouterConflictLogAndContinue
+		default:
+			return
+		}
+		opts.AdapterConfig.ConflictPolicy = &policy
 	}
 }
 

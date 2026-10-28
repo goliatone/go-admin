@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/pkg/client"
@@ -122,10 +122,10 @@ func newExamplePhase6SurfaceApp(t *testing.T, mutate func(*appcfg.Config)) *fibe
 	siteCfg := resolveSiteRuntimeConfig(adminCfg, runtimeCfg.Site, true)
 	adminAPIBasePath := quickstart.ResolveAdminAPIBasePath(nil, adminCfg, adminCfg.BasePath)
 
-	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+	server := router.NewFiberV3AdapterWithConfig(router.FiberV3AdapterConfig{FiberAdapterConfig: router.FiberAdapterConfig{
 		PathConflictMode: router.PathConflictModePreferStatic,
 		StrictRoutes:     true,
-	})
+	}})
 	host := quickstart.NewHostRouter(server.Router(), adminCfg)
 	if _, err := registerExampleHostOwnedRoutes(host, runtimeCfg); err != nil {
 		t.Fatalf("register host-owned routes: %v", err)
@@ -234,7 +234,7 @@ func newExamplePhase6HTMLApp(t *testing.T) *fiber.App {
 	})
 	siteCfg = attachEmbeddedSiteThemeTemplateFS(siteCfg, siteThemePackage)
 
-	viewEngine, err := quickstart.NewViewEngine(
+	viewEngine, err := quickstart.NewFiberV3ViewEngine(
 		client.FS(),
 		append([]quickstart.ViewEngineOption{
 			quickstart.WithViewBasePath(cfg.BasePath),
@@ -245,13 +245,13 @@ func newExamplePhase6HTMLApp(t *testing.T) *fiber.App {
 		t.Fatalf("new view engine: %v", err)
 	}
 
-	server, r := quickstart.NewFiberServer(
+	server, r := quickstart.NewFiberV3Server(
 		viewEngine,
 		cfg,
 		adm,
 		true,
-		quickstart.WithFiberLogger(false),
-		quickstart.WithFiberAdapterConfig(func(adapterCfg *router.FiberAdapterConfig) {
+		quickstart.WithFiberV3Logger(false),
+		quickstart.WithFiberV3AdapterConfig(func(adapterCfg *router.FiberV3AdapterConfig) {
 			if adapterCfg == nil {
 				return
 			}
@@ -291,7 +291,7 @@ func performExampleHTMLRequest(t *testing.T, app *fiber.App, method, target stri
 	req := httptest.NewRequestWithContext(context.Background(), method, target, nil)
 	req.Header.Set("Accept", "text/html")
 
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("%s %s failed: %v", method, target, err)
 	}

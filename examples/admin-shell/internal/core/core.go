@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/admin-shell/config"
+	"github.com/goliatone/go-admin/examples/internal/fiberhost"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	golifecycle "github.com/goliatone/go-admin/pkg/go-lifecycle"
@@ -368,17 +369,19 @@ func newAdminServer(
 	viewEngine fiber.Views,
 	loggerProvider glog.LoggerProvider,
 ) (router.Server[*fiber.App], quickstart.HostRouter[*fiber.App]) {
-	server, adminRouter := quickstart.NewFiberServer(
+	server, adminRouter := quickstart.NewFiberV3Server(
 		viewEngine,
 		adminCfg,
 		adm,
 		config.IsDevelopmentEnv(cfg.Env),
 		adminShellFiberConfig(),
-		quickstart.WithFiberLogger(false),
-		quickstart.WithFiberMiddleware(
+		quickstart.WithFiberV3Logger(false),
+		quickstart.WithFiberV3Middleware(
 			newFiberAccessLogger(loggerProvider.GetLogger("http.access")),
 		),
 	)
+	ownedServer := fiberhost.New(server)
+	server, adminRouter = ownedServer, ownedServer.Router()
 	adminRouter = adminRouter.WithLogger(newRouterLogger(
 		loggerProvider.GetLogger("router"),
 		cfg.Server.PrintRoutes,
@@ -581,7 +584,7 @@ func (m *adminModuleLifecycle) Stop(ctx context.Context) error {
 }
 
 func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin) (fiber.Views, error) {
-	return quickstart.NewViewEngine(
+	return quickstart.NewFiberV3ViewEngine(
 		client.FS(),
 		quickstart.WithViewAdmin(adm),
 		quickstart.WithViewTemplatesFS(adminShellTemplatesFS()),
@@ -593,15 +596,12 @@ func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin) (fiber.Vie
 	)
 }
 
-func adminShellFiberConfig() quickstart.FiberServerOption {
-	return quickstart.WithFiberConfig(func(fcfg *fiber.Config) {
-		if fcfg != nil {
-			// Route registration is emitted structurally by routerLogger when
-			// server.print_routes is enabled.
-			fcfg.EnablePrintRoutes = false
-			fcfg.DisableStartupMessage = true
-		}
-	})
+func adminShellFiberConfig() quickstart.FiberV3ServerOption {
+	return func(opts *quickstart.FiberV3ServerConfig) {
+		opts.Config.DisableHeadAutoRegister = true
+		opts.AdapterConfig.ListenConfig.DisableStartupMessage = true
+		opts.AdapterConfig.ListenConfig.EnablePrintRoutes = false
+	}
 }
 
 func registerAdminShellUIRoutes(

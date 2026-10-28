@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -252,14 +252,15 @@ func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDepe
 		ResetRepo:    deps.ResetRepo,
 	}
 
-	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+	adapter := router.NewFiberV3Adapter(func(_ *fiber.App) *fiber.App {
 		app := fiber.New(fiber.Config{
-			UnescapePath:      true,
-			EnablePrintRoutes: false,
-			StrictRouting:     false,
-			ErrorHandler:      quickstart.NewFiberErrorHandler(nil, cfg, true),
+			UnescapePath: true,
+
+			DisableHeadAutoRegister: true,
+			StrictRouting:           false,
+			ErrorHandler:            quickstart.NewFiberV3ErrorHandler(nil, cfg, true),
 		})
-		app.Use(func(c *fiber.Ctx) error {
+		app.Use(func(c fiber.Ctx) error {
 			claims := &authlib.JWTClaims{
 				UID:      uuid.NewString(),
 				UserRole: string(authlib.RoleAdmin),
@@ -267,11 +268,11 @@ func setupOnboardingTestApp(t *testing.T, cfg admin.Config, deps stores.UserDepe
 					"admin.users": string(authlib.RoleOwner),
 				},
 			}
-			ctx := authlib.WithClaimsContext(c.UserContext(), claims)
+			ctx := authlib.WithClaimsContext(c.Context(), claims)
 			if actor := authlib.ActorContextFromClaims(claims); actor != nil {
 				ctx = authlib.WithActorContext(ctx, actor)
 			}
-			c.SetUserContext(ctx)
+			c.SetContext(ctx)
 			return c.Next()
 		})
 		return app
@@ -315,7 +316,7 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 			"/admin/onboarding-csrf",
 			nil,
 		)
-		csrfResponse, err := app.Test(csrfRequest, -1)
+		csrfResponse, err := app.Test(csrfRequest, fiber.TestConfig{Timeout: 0})
 		if err != nil {
 			t.Fatalf("request onboarding csrf token: %v", err)
 		}
@@ -352,7 +353,7 @@ func doOnboardingJSONRequest(t *testing.T, app *fiber.App, method, url string, b
 		req.AddCookie(csrfCookie)
 	}
 
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 0})
 	if err != nil {
 		t.Fatalf("request %s %s: %v", method, url, err)
 	}

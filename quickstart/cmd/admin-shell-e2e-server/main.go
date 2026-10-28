@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"testing/fstest"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
@@ -27,7 +31,7 @@ func main() {
 	adm.WithThemeProvider(e2eThemeProvider)
 
 	hostTemplates := e2eHostTemplates()
-	views, err := quickstart.NewViewEngine(
+	views, err := quickstart.NewFiberV3ViewEngine(
 		client.Templates(),
 		quickstart.WithViewTemplatesFS(hostTemplates),
 		quickstart.WithViewAdmin(adm),
@@ -39,7 +43,7 @@ func main() {
 	}
 	dashboardRenderer := mustDashboardRenderer(hostTemplates)
 
-	server, routes := quickstart.NewFiberServer(views, cfg, adm, false, quickstart.WithFiberLogger(false))
+	server, routes := quickstart.NewFiberV3Server(views, cfg, adm, false, quickstart.WithFiberV3Logger(false))
 	quickstart.NewStaticAssets(routes, cfg, client.Assets(), quickstart.WithExtraAssetsFS(fstest.MapFS{
 		"dist/product/gallery.css": {Data: []byte(`[data-component-gallery]{padding:2rem;overflow:auto}.gallery-section{margin-bottom:1.5rem}`)},
 	}))
@@ -95,7 +99,7 @@ func main() {
 
 	address := listenAddress()
 	log.Printf("admin shell E2E host listening on http://%s", address)
-	if err := server.WrappedRouter().Listen(address); err != nil {
+	if err := serveUntilSignal(server, address); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -322,4 +326,28 @@ func userRows(count int) []map[string]any {
 		})
 	}
 	return rows
+}
+
+func serveUntilSignal(server interface {
+	Serve(string) error
+	Shutdown(context.Context) error
+}, address string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(address) }()
+	select {
+	case err := <-served:
+		return err
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := server.Shutdown(shutdownCtx)
+	select {
+	case serveErr := <-served:
+		return errors.Join(err, serveErr)
+	case <-shutdownCtx.Done():
+		return errors.Join(err, shutdownCtx.Err())
+	}
 }

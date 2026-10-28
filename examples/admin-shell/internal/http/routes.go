@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/examples/admin-shell/internal/core"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-router"

@@ -47,7 +47,7 @@ func TestExampleRoutingDiagnosticsExposeFallbackOwnershipMetadata(t *testing.T) 
 		t.Fatalf("register routing ownership: %v", err)
 	}
 
-	server, r := quickstart.NewFiberServer(nil, cfg, adm, false, quickstart.WithFiberLogger(false))
+	server, r := quickstart.NewFiberV3Server(nil, cfg, adm, false, quickstart.WithFiberV3Logger(false))
 	host := quickstart.NewHostRouter(r, cfg)
 	if err := adm.Initialize(host.Admin()); err != nil {
 		t.Fatalf("initialize admin: %v", err)
