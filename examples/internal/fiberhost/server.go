@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/signal"
 	"sync"
@@ -20,13 +21,18 @@ type Server struct {
 	routes   *ownedRouter
 	mu       sync.Mutex
 	stopping bool
-	sockets  map[router.WebSocketReadInterrupter]context.CancelFunc
+	sockets  map[ownedSocket]context.CancelFunc
 	workers  sync.WaitGroup
 }
 
+type ownedSocket interface {
+	router.WebSocketContext
+	router.WebSocketReadInterrupter
+}
+
 func New(server router.Server[*fiber.App]) *Server {
-	s := &Server{Server: server, sockets: make(map[router.WebSocketReadInterrupter]context.CancelFunc)}
-	s.routes = &ownedRouter{FiberV3Router: server.Router().(*router.FiberV3Router), owner: s}
+	s := &Server{Server: server, sockets: make(map[ownedSocket]context.CancelFunc)}
+	s.routes = newOwnedRouter(server.Router(), s)
 	return s
 }
 
@@ -35,15 +41,13 @@ func (s *Server) Router() router.Router[*fiber.App] { return s.routes }
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.mu.Lock()
 	s.stopping = true
-	sockets := make(map[router.WebSocketReadInterrupter]context.CancelFunc, len(s.sockets))
-	for socket, cancel := range s.sockets {
-		sockets[socket] = cancel
-	}
+	sockets := make(map[ownedSocket]context.CancelFunc, len(s.sockets))
+	maps.Copy(sockets, s.sockets)
 	s.mu.Unlock()
 	var errs []error
 	for socket, cancel := range sockets {
 		cancel()
-		if err := socket.InterruptRead(); err != nil && socket.(router.WebSocketContext).IsWebSocket() {
+		if err := socket.InterruptRead(); err != nil && socket.IsWebSocket() {
 			errs = append(errs, err)
 		}
 	}
@@ -98,11 +102,19 @@ type ownedRouter struct {
 	owner *Server
 }
 
+func newOwnedRouter(routes router.Router[*fiber.App], owner *Server) *ownedRouter {
+	native, ok := routes.(*router.FiberV3Router)
+	if !ok || native == nil {
+		panic(fmt.Sprintf("native example requires a non-nil *router.FiberV3Router, got %T", routes))
+	}
+	return &ownedRouter{FiberV3Router: native, owner: owner}
+}
+
 func (r *ownedRouter) Group(prefix string) router.Router[*fiber.App] {
-	return &ownedRouter{r.FiberV3Router.Group(prefix).(*router.FiberV3Router), r.owner}
+	return newOwnedRouter(r.FiberV3Router.Group(prefix), r.owner)
 }
 func (r *ownedRouter) Mount(prefix string) router.Router[*fiber.App] {
-	return &ownedRouter{r.FiberV3Router.Mount(prefix).(*router.FiberV3Router), r.owner}
+	return newOwnedRouter(r.FiberV3Router.Mount(prefix), r.owner)
 }
 func (r *ownedRouter) WithGroup(prefix string, cb func(router.Router[*fiber.App])) router.Router[*fiber.App] {
 	cb(r.Group(prefix))
@@ -122,7 +134,7 @@ func (r *ownedRouter) Static(prefix, root string, cfg ...router.Static) router.R
 }
 func (r *ownedRouter) WebSocket(path string, cfg router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
 	return r.FiberV3Router.WebSocket(path, cfg, func(ws router.WebSocketContext) (err error) {
-		reader, ok := ws.(router.WebSocketReadInterrupter)
+		reader, ok := ws.(ownedSocket)
 		if !ok {
 			return fmt.Errorf("native example requires websocket read interruption")
 		}
