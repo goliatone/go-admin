@@ -1021,7 +1021,17 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 	if aBinding.admin.activityFeed == nil {
 		return nil, FeatureDisabledError{Feature: "activity"}
 	}
-	filter, err := parseActivityFilter(c, actorRef, authctx.ScopeFromActorContext(actorCtx))
+	scope := authctx.ScopeFromActorContext(actorCtx)
+	if aBinding.admin.activityIngestion != nil {
+		trusted, readCtx, guardErr := aBinding.admin.activityIngestionReader(adminCtx.Context)
+		if guardErr != nil {
+			return nil, guardErr
+		}
+		adminCtx.Context = trusted
+		actorRef = readCtx.Actor
+		scope = readCtx.Scope
+	}
+	filter, err := parseActivityFilter(c, actorRef, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -1038,6 +1048,10 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 	readCtx := ActivityReadContext{
 		Actor: actorRef,
 		Scope: filter.Scope.Clone(),
+	}
+	readCtx, err = aBinding.admin.resolveActivityReadIdentities(adminCtx.Context, readCtx, page)
+	if err != nil {
+		return nil, err
 	}
 	page = aBinding.admin.enrichActivityReadPage(adminCtx.Context, readCtx, page)
 	return map[string]any{

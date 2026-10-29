@@ -430,3 +430,11 @@ Mapping behavior:
 - Background command routing observability: `docs/GUIDE_BKG_CMD_OBSERVABILITY.md`
 - Persisted workflow runtime: `docs/GUIDE_WORKFLOW.md#persisted-workflow-runtime`
 - End-to-end examples: `examples/web/main.go`, `examples/admin-shell/cmd/admin/main.go`
+
+## Durable activity ingestion
+
+Opt-in producer ingestion uses a typed command/service and atomic activity/receipt
+storage, with shared scope settings and a URLKit `activity.ingest` override.
+See the [Activity guide](docs/GUIDE_ACTIVITY.md#durable-producer-ingestion) for
+migration order, producer authentication, replay and feed/widget wiring, including
+the pending go-users dependency adoption required by this source.

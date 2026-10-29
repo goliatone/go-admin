@@ -768,3 +768,13 @@ go test ./admin -run 'TestAdminRPC'
 go test ./quickstart -run 'TestWithRPCTransport'
 (cd pkg/client/assets && node --test tests/command_runtime.test.mjs)
 ```
+
+## Activity ingestion command reuse
+
+`activity.ingest.v1` delegates to the reusable authorized ingestion service.
+Future RPC/WS/broker adapters must verify producer/actor evidence into trusted
+context on every event and call `DispatchActivityIngestion` inline. Queue, delay,
+deduplication and cached-result overrides are rejected before executor selection;
+ordinary RPC/browser identity is insufficient. HTTP is the only supplied producer
+ingress. See [command reuse](GUIDE_ACTIVITY.md#command-reuse-disclosure-and-reads)
+for typed results and the exact-number payload boundary.

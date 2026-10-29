@@ -25,7 +25,7 @@ require (
 	github.com/goliatone/go-router v0.63.3
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.5
+	github.com/goliatone/go-users v0.27.6
 	github.com/goliatone/hashid v0.2.3
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4

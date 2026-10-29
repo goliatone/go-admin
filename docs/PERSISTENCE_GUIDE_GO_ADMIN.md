@@ -397,3 +397,15 @@ Focused verification: `go test ./admin -run 'Test(SettingsDocuments|SettingsDocu
 Set `GOADMIN_SETTINGS_POSTGRES_DSN` to a disposable PostgreSQL database to also
 run the same semantics, host rollback, migration and simultaneous-writer tests.
 Each PostgreSQL test uses and removes its own isolated schema.
+
+## Activity ingestion receipts
+
+The [durable ingestion bundle](GUIDE_ACTIVITY.md#durable-producer-ingestion) uses
+one Bun DB and transaction for `user_activity` plus
+`admin_activity_ingestion_receipts`. Apply the go-users activity/scope migrations
+before the explicit ingestion migration FS or `EnsureActivityIngestionSchema`.
+Readiness checks schema and the producer/event primary key without creating data.
+SQLite and PostgreSQL share acceptance/replay/rollback contracts. Preserve receipts
+after activity deletion, retain old fingerprint/result readers, and back up/restore
+both tables together. Receipt deletion permits event recreation. Canonical
+`json.Number` scanning requires the go-users adoption described in the Activity guide.

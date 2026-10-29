@@ -56,6 +56,15 @@ const (
 	ActivityActorTypeSystem                        = core.ActivityActorTypeSystem
 	ActivityActorTypeTask                          = core.ActivityActorTypeTask
 	ActivityActorTypeUser                          = core.ActivityActorTypeUser
+	ActivityIngestCommandName                      = core.ActivityIngestCommandName
+	ActivityIngestionFingerprintV1                 = core.ActivityIngestionFingerprintV1
+	ActivityIngestionMaxDepth                      = core.ActivityIngestionMaxDepth
+	ActivityIngestionMaxEnvelopeBytes              = core.ActivityIngestionMaxEnvelopeBytes
+	ActivityIngestionMaxFractionDigits             = core.ActivityIngestionMaxFractionDigits
+	ActivityIngestionMaxMetadataBytes              = core.ActivityIngestionMaxMetadataBytes
+	ActivityIngestionMaxStoredBytes                = core.ActivityIngestionMaxStoredBytes
+	ActivityIngestionPurpose                       = core.ActivityIngestionPurpose
+	ActivityIngestionRouteKey                      = core.ActivityIngestionRouteKey
 	ActivityNavigationTargetActor                  = core.ActivityNavigationTargetActor
 	ActivityNavigationTargetObject                 = core.ActivityNavigationTargetObject
 	ActivityNavigationTargetResolver               = core.ActivityNavigationTargetResolver
@@ -595,6 +604,16 @@ const (
 )
 
 var (
+	ErrActivityIngestionConflict                      = core.ErrActivityIngestionConflict
+	ErrActivityIngestionContention                    = core.ErrActivityIngestionContention
+	ErrActivityIngestionForbidden                     = core.ErrActivityIngestionForbidden
+	ErrActivityIngestionInternal                      = core.ErrActivityIngestionInternal
+	ErrActivityIngestionInvalid                       = core.ErrActivityIngestionInvalid
+	ErrActivityIngestionMediaType                     = core.ErrActivityIngestionMediaType
+	ErrActivityIngestionReplayVersion                 = core.ErrActivityIngestionReplayVersion
+	ErrActivityIngestionTooLarge                      = core.ErrActivityIngestionTooLarge
+	ErrActivityIngestionUnauthenticated               = core.ErrActivityIngestionUnauthenticated
+	ErrActivityIngestionUnavailable                   = core.ErrActivityIngestionUnavailable
 	ErrAutosaveConflict                               = core.ErrAutosaveConflict
 	ErrCommandAlreadyRegistered                       = core.ErrCommandAlreadyRegistered
 	ErrCommandRunDeliveryDropped                      = core.ErrCommandRunDeliveryDropped
@@ -659,6 +678,8 @@ type (
 	ActionResponseCollector                           = core.ActionResponseCollector
 	ActionScope                                       = core.ActionScope
 	ActionState                                       = core.ActionState
+	ActivityAttributionEvidence                       = core.ActivityAttributionEvidence
+	ActivityAttributionVerifier                       = core.ActivityAttributionVerifier
 	ActivityDisplayHintPolicy                         = core.ActivityDisplayHintPolicy
 	ActivityDisplayHintPolicyFunc                     = core.ActivityDisplayHintPolicyFunc
 	ActivityEntry                                     = core.ActivityEntry
@@ -675,6 +696,26 @@ type (
 	ActivityFilterOptionsProviderFunc                 = core.ActivityFilterOptionsProviderFunc
 	ActivityFilterOptionsQuery                        = core.ActivityFilterOptionsQuery
 	ActivityFilterSelection                           = core.ActivityFilterSelection
+	ActivityIngestCommand                             = core.ActivityIngestCommand
+	ActivityIngestMsg                                 = core.ActivityIngestMsg
+	ActivityIngestResult                              = core.ActivityIngestResult
+	ActivityIngestionActor                            = core.ActivityIngestionActor
+	ActivityIngestionAuthorization                    = core.ActivityIngestionAuthorization
+	ActivityIngestionConfig                           = core.ActivityIngestionConfig
+	ActivityIngestionDecision                         = core.ActivityIngestionDecision
+	ActivityIngestionDisclosure                       = core.ActivityIngestionDisclosure
+	ActivityIngestionEvent                            = core.ActivityIngestionEvent
+	ActivityIngestionHTTPOptions                      = core.ActivityIngestionHTTPOptions
+	ActivityIngestionObject                           = core.ActivityIngestionObject
+	ActivityIngestionObservation                      = core.ActivityIngestionObservation
+	ActivityIngestionOptions                          = core.ActivityIngestionOptions
+	ActivityIngestionPolicy                           = core.ActivityIngestionPolicy
+	ActivityIngestionReceipt                          = core.ActivityIngestionReceipt
+	ActivityIngestionRuntime                          = core.ActivityIngestionRuntime
+	ActivityIngestionService                          = core.ActivityIngestionService
+	ActivityIngestionStore                            = core.ActivityIngestionStore
+	ActivityIngestionTransaction                      = core.ActivityIngestionTransaction
+	ActivityIngestionValidation                       = core.ActivityIngestionValidation
 	ActivityLogger                                    = core.ActivityLogger
 	ActivityModule                                    = core.ActivityModule
 	ActivityNavigation                                = core.ActivityNavigation
@@ -685,9 +726,14 @@ type (
 	ActivityNavigationTarget                          = core.ActivityNavigationTarget
 	ActivityPageEnricher                              = core.ActivityPageEnricher
 	ActivityPageEnricherFunc                          = core.ActivityPageEnricherFunc
+	ActivityProducerCredential                        = core.ActivityProducerCredential
+	ActivityProducerPrincipal                         = core.ActivityProducerPrincipal
+	ActivityProducerVerifier                          = core.ActivityProducerVerifier
 	ActivityReadContext                               = core.ActivityReadContext
 	ActivityReadEntry                                 = core.ActivityReadEntry
 	ActivityReadErrorHandler                          = core.ActivityReadErrorHandler
+	ActivityReadIdentity                              = core.ActivityReadIdentity
+	ActivityReadIdentityResolver                      = core.ActivityReadIdentityResolver
 	ActivityRecord                                    = core.ActivityRecord
 	ActivityRecordLister                              = core.ActivityRecordLister
 	ActivitySink                                      = core.ActivitySink
@@ -749,6 +795,7 @@ type (
 	BulkRollbacker                                    = core.BulkRollbacker
 	BulkService                                       = core.BulkService
 	BulkStartMsg                                      = core.BulkStartMsg
+	BunActivityIngestionStore                         = core.BunActivityIngestionStore
 	BunRecordMapper[T any]                            = core.BunRecordMapper[T]
 	BunRepositoryAdapter[T any]                       = core.BunRepositoryAdapter[T]
 	BunRepositoryOption[T any]                        = core.BunRepositoryOption[T]
@@ -1656,6 +1703,14 @@ func ActionResponseCollectorFromContext(ctx context.Context) *ActionResponseColl
 	return core.ActionResponseCollectorFromContext(ctx)
 }
 
+func ActivityIngestionFingerprint(event ActivityIngestionEvent, version int) (string, error) {
+	return core.ActivityIngestionFingerprint(event, version)
+}
+
+func ActivityProducerFromContext(ctx context.Context) (ActivityProducerPrincipal, bool) {
+	return core.ActivityProducerFromContext(ctx)
+}
+
 func AdminSemanticProfile() theme.TokenProfile {
 	return core.AdminSemanticProfile()
 }
@@ -1900,6 +1955,10 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 	return core.DebugRequestMiddleware(collector)
 }
 
+func DecodeActivityIngestionEvent(raw []byte) (ActivityIngestionEvent, error) {
+	return core.DecodeActivityIngestionEvent(raw)
+}
+
 func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
 	return core.DecodeWidgetConfig[T](cfg)
 }
@@ -1964,6 +2023,10 @@ func DeliveryGraphQLControllers() []registrar.Controller {
 	return core.DeliveryGraphQLControllers()
 }
 
+func DispatchActivityIngestion(ctx context.Context, bus *CommandBus, msg ActivityIngestMsg) (ActivityIngestResult, error) {
+	return core.DispatchActivityIngestion(ctx, bus, msg)
+}
+
 func DomainErrorCodeFor(code string) (DomainErrorCode, bool) {
 	return core.DomainErrorCodeFor(code)
 }
@@ -2006,6 +2069,10 @@ func EnrichStackFrames(frames []StackFrameInfo, contextLines int, maxFrames int)
 
 func EnrichStackFramesWithConfig(frames []StackFrameInfo, cfg ErrorConfig) []StackFrameInfo {
 	return core.EnrichStackFramesWithConfig(frames, cfg)
+}
+
+func EnsureActivityIngestionSchema(ctx context.Context, db *bun.DB) error {
+	return core.EnsureActivityIngestionSchema(ctx, db)
 }
 
 func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error {
@@ -2058,6 +2125,10 @@ func FamilyDetailFragmentSelector(target FamilyDetailFragmentTarget) (string, bo
 
 func FamilyDetailFragmentTargets() []FamilyDetailFragmentTarget {
 	return core.FamilyDetailFragmentTargets()
+}
+
+func GetActivityIngestionMigrationsFS() fs.FS {
+	return core.GetActivityIngestionMigrationsFS()
 }
 
 func GetSVGFieldTypeMapping() map[string]string {
@@ -2148,6 +2219,10 @@ func NewActivityFeed(opts ...func(*ActivityFeed)) *ActivityFeed {
 	return core.NewActivityFeed(opts...)
 }
 
+func NewActivityIngestionService(cfg ActivityIngestionConfig) (*ActivityIngestionService, error) {
+	return core.NewActivityIngestionService(cfg)
+}
+
 func NewActivityModule() *ActivityModule {
 	return core.NewActivityModule()
 }
@@ -2186,6 +2261,10 @@ func NewAdminContentWriteServiceWithEntryNavigationOptions(content CMSContentSer
 
 func NewAdminObjectResolver(cfg AdminObjectResolverConfig) activity.ObjectResolver {
 	return core.NewAdminObjectResolver(cfg)
+}
+
+func NewBunActivityIngestionStore(db *bun.DB) (*BunActivityIngestionStore, error) {
+	return core.NewBunActivityIngestionStore(db)
 }
 
 func NewBunNotificationRuntime(ctx context.Context, db *bun.DB, opts ...storage.Option) (*NotificationRuntimeOptions, error) {
@@ -2912,6 +2991,14 @@ func RegisterActionDiagnosticsDebugPanel(admin *Admin) {
 	core.RegisterActionDiagnosticsDebugPanel(admin)
 }
 
+func RegisterActivityIngestionCommand(bus *CommandBus, service *ActivityIngestionService) (*ActivityIngestCommand, error) {
+	return core.RegisterActivityIngestionCommand(bus, service)
+}
+
+func RegisterActivityIngestionRoutes[T any](ctx context.Context, r router.Router[T], a *Admin, opts ActivityIngestionHTTPOptions) error {
+	return core.RegisterActivityIngestionRoutes[T](ctx, r, a, opts)
+}
+
 func RegisterBuiltinIconLibraries(svc *IconService) error {
 	return core.RegisterBuiltinIconLibraries(svc)
 }
@@ -3050,6 +3137,10 @@ func RenderOptionsForTemplate() IconRenderOptions {
 
 func RequestIPFromContext(ctx context.Context) string {
 	return core.RequestIPFromContext(ctx)
+}
+
+func ResolveActivityIngestionScope(policy ScopePolicy, requested ScopeInput, binding ScopeInput) (ScopeInput, error) {
+	return core.ResolveActivityIngestionScope(policy, requested, binding)
 }
 
 func ResolveAuthenticatedRequestIdentity(c router.Context, defaults AuthenticatedRequestScopeDefaults) AuthenticatedRequestIdentity {
@@ -3558,6 +3649,14 @@ func WithUserProfilesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserM
 
 func WithUsersPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
 	return core.WithUsersPanelConfigurer(fn)
+}
+
+func WithVerifiedActivityAttribution(ctx context.Context, evidence ActivityAttributionEvidence) context.Context {
+	return core.WithVerifiedActivityAttribution(ctx, evidence)
+}
+
+func WithVerifiedActivityProducer(ctx context.Context, principal ActivityProducerPrincipal) context.Context {
+	return core.WithVerifiedActivityProducer(ctx, principal)
 }
 
 func WithWorkflowExtraCheck(fn func(context.Context, WorkflowApplyEventRequest) bool) RoleWorkflowAuthorizerOption {

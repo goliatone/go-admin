@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
@@ -224,6 +225,7 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		activityFilterOptionsProvider:  deps.ActivityFilterOptionsProvider,
 		activityFilterOptionsPolicy:    deps.ActivityFilterOptionsPolicy,
 		activityPageEnricher:           deps.ActivityPageEnricher,
+		activityReadIdentityResolver:   deps.ActivityReadIdentityResolver,
 		activityNavigationResolver:     deps.ActivityNavigationResolver,
 		activityNavigationErrorHandler: deps.ActivityNavigationErrorHandler,
 		activityReadErrorHandler:       deps.ActivityReadErrorHandler,
@@ -281,6 +283,11 @@ func initializeConstructedAdmin(adm *Admin, state adminConstructorState, deps De
 	configureAdminRuntime(adm, deps, state.settingsForm, state.preferencesSvc, state.commandBus, activitySink, state.translator)
 	if err := bindAdminWorkflowRuntime(adm); err != nil {
 		return err
+	}
+	if deps.ActivityIngestion != nil {
+		if _, err := adm.ConfigureActivityIngestion(context.Background(), *deps.ActivityIngestion); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -23,6 +23,8 @@ import (
 
 // Admin orchestrates CMS-backed admin features and adapters.
 type Admin struct {
+	activityIngestion               *ActivityIngestionRuntime
+	activityReadIdentityResolver    ActivityReadIdentityResolver
 	config                          Config
 	deploymentIdentity              DeploymentIdentity
 	errorPresenter                  ErrorPresenter
@@ -489,6 +491,14 @@ func (a *Admin) HasAuthenticator() bool {
 
 // WithActivitySink injects a shared activity sink (go-users compatible via adapter).
 func (a *Admin) WithActivitySink(sink ActivitySink) *Admin {
+	if a != nil && a.activityIngestion != nil && sink != nil {
+		wrapped := a.activityIngestion.Sink.(*activityIngestionReadSink)
+		if sink != wrapped {
+			wrapped.legacy = sink
+		}
+		a.applyActivitySink(wrapped)
+		return a
+	}
 	a.applyActivitySink(sink)
 	return a
 }

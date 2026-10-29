@@ -374,3 +374,14 @@ For auth-sensitive changes, add focused tests for:
 
 Use allow-all and deny-all authorizer stubs to separate route registration bugs
 from permission policy bugs.
+
+## Activity producer authority
+
+[Activity ingestion](GUIDE_ACTIVITY.md#producer-and-actor-authority) requires a
+producer-specific bearer verifier and current producer/credential/scope grants on
+every attempt, including replay. A browser session or admin permission alone does
+not authorize ingestion. Historical human attribution requires verified actor
+assertion evidence or an explicit producer-attestation policy decision. Mount the
+producer route outside login/cookie groups. Feed and widget reads independently
+require authenticated reader scope and `Config.ActivityPermission`; producer
+credentials do not grant those reads.

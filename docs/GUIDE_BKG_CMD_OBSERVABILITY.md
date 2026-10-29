@@ -62,3 +62,13 @@ outside this bridge must apply an equivalent redaction boundary.
   - `WithCommandQueueRouting(...)`
 - For queued remediation in local/prod worker topologies, keep policy and queue adapter wiring identical between API and worker processes.
 - Quickstart docs now include the routing observability fields and expected alert codes.
+
+## Activity ingestion observations
+
+The [activity ingestion command](GUIDE_ACTIVITY.md#command-reuse-disclosure-and-reads)
+is inline-only. Checked dispatch rejects queue/delay/dedup overrides; the service
+owns a maximum of three contention attempts and emits safe outcome/error-code
+observations after the acceptance decision. Keep bearer credentials, actor proofs,
+raw payloads and foreign provider errors out of logs. Producers own durable
+outboxes and bounded delivery backoff; an enqueue acknowledgement is not central
+acceptance.

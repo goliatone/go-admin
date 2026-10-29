@@ -62,7 +62,7 @@ func NewResolverActivityPageEnricher(cfg ResolverActivityPageEnricherConfig) Act
 
 func (e *resolverActivityPageEnricher) EnrichActivityPage(ctx context.Context, readCtx ActivityReadContext, page userstypes.ActivityPage) (userstypes.ActivityPage, error) {
 	out := cloneActivityPage(page)
-	actorIDs, objectsByType := collectActivityReferences(out.Records)
+	actorIDs, objectsByType := collectActivityReferences(out.Records, readCtx.Identities)
 	resolveCtx := usersactivity.ResolveContext{
 		TenantID:       readCtx.Scope.TenantID,
 		OrganizationID: readCtx.Scope.OrgID,
@@ -107,13 +107,13 @@ func cloneActivityPage(page userstypes.ActivityPage) userstypes.ActivityPage {
 	return out
 }
 
-func collectActivityReferences(records []userstypes.ActivityRecord) ([]uuid.UUID, map[string][]string) {
+func collectActivityReferences(records []userstypes.ActivityRecord, identities ...map[uuid.UUID]ActivityReadIdentity) ([]uuid.UUID, map[string][]string) {
 	actorSeen := make(map[uuid.UUID]struct{})
 	actorIDs := make([]uuid.UUID, 0, len(records))
 	objectSeen := make(map[string]map[string]struct{})
 	objects := make(map[string][]string)
 	for _, record := range records {
-		actorID := canonicalActivityActorID(record)
+		actorID := canonicalActivityActorID(record, identities...)
 		if actorID != uuid.Nil {
 			if _, ok := actorSeen[actorID]; !ok {
 				actorSeen[actorID] = struct{}{}
@@ -168,7 +168,12 @@ func (e *resolverActivityPageEnricher) applyResolvedActorDisplay(
 	if !keepActorHint {
 		delete(record.Data, usersactivity.DataKeyActorDisplay)
 	}
-	actorID := canonicalActivityActorID(*record)
+	if kind := activityReadMachineKind(readCtx.Identities, record.ID); kind != "" {
+		record.Data[usersactivity.DataKeyActorDisplay] = activityReadMachineLabel(kind)
+		record.Data[usersactivity.DataKeyActorType] = kind
+		return
+	}
+	actorID := canonicalActivityActorID(*record, readCtx.Identities)
 	if actorID != uuid.Nil {
 		if info, ok := actors[actorID]; ok && strings.TrimSpace(info.Display) != "" {
 			record.Data[usersactivity.DataKeyActorDisplay] = strings.TrimSpace(info.Display)
@@ -215,7 +220,12 @@ func (e *resolverActivityPageEnricher) allowHint(ctx context.Context, readCtx Ac
 	return e != nil && e.hintPolicy != nil && value != "" && e.hintPolicy.AllowStoredDisplayHint(ctx, readCtx, record, field, value)
 }
 
-func canonicalActivityActorID(record userstypes.ActivityRecord) uuid.UUID {
+func canonicalActivityActorID(record userstypes.ActivityRecord, identities ...map[uuid.UUID]ActivityReadIdentity) uuid.UUID {
+	if len(identities) > 0 {
+		if _, ok := identities[0][record.ID]; ok {
+			return record.ActorID
+		}
+	}
 	if record.ActorID != uuid.Nil {
 		return record.ActorID
 	}

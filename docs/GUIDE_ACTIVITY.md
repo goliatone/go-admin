@@ -1,6 +1,243 @@
-# Activity API Guide
+# Activity API and Ingestion Guide
 
-This guide documents the Activity read API, query parameters, pagination contract, access policy behavior, and quickstart wiring for the activity feed + UI.
+This guide covers producer ingestion, durable receipts, the Activity read API, access policies and shared quickstart feed/widget wiring.
+
+## Durable producer ingestion
+
+The optional ingestion bundle accepts one business event through a typed command
+and service, atomically writing `user_activity` and a producer-wide receipt.
+HTTP is the supplied transport; it does not require an admin browser session.
+Existing `ActivitySink.Record` integrations retain their existing write behavior.
+
+**Dependency adoption pending:** this source requires the go-users corrections in
+`activity-ingestion-prerequisites`: exact `LogEntry.Data` scans, null-safe
+PostgreSQL machine filtering, and `RepositoryConfig.MachineActivityFilter` with
+`ExcludeMachineActivity`. Published v0.27.5 lacks these capabilities. Review and
+release those owning-package changes, then update the consumer pins before using
+the normal module graph. Source integration is tested through an external temporary
+workspace; no permanent module replacement or dependency publication is included.
+
+### Host setup and migrations
+
+1. Use one SQLite or PostgreSQL Bun DB for both canonical activity and receipts.
+   Apply the go-users activity and scope migrations first (`00004_user_activity`
+   and `00011_activity_scopes`, with their dialect-specific migration inputs).
+2. Apply `admin.GetActivityIngestionMigrationsFS()` through the host migration
+   runner, or explicitly call `admin.EnsureActivityIngestionSchema(ctx, db)`.
+   Constructors and registrars perform readiness checks, never startup DDL.
+3. Supply producer verification, current authorization, an admin authorizer and
+   read policy. Enable `commands`, `activity` and, when needed, `dashboard`.
+4. Configure the bundle before `Initialize`, then mount its registrar on the root
+   router outside browser-cookie/login groups. Do not also mount a second ingestion
+   route. Missing dependencies/schema, collisions and unresolved URLs fail startup.
+
+For example, with host-owned `db`, `verifier`, `producerPolicy`, `readerPolicy`,
+`authenticator`, `authorizer` and `discloseApprovedMetadata` already constructed:
+
+```go
+cfg := quickstart.NewAdminConfig("/console", "Admin", "en",
+    quickstart.WithScopeMode(quickstart.ScopeModeSingle),
+    quickstart.WithDefaultScope(tenantID, orgID),
+)
+// Existing hosts can set this key on their effective API group instead.
+cfg.URLs.URLKit = &urlkit.Config{Groups: []urlkit.GroupConfig{{
+    Name: "admin",
+    Groups: []urlkit.GroupConfig{{
+        Name: "api",
+        Routes: map[string]string{admin.ActivityIngestionRouteKey: "/internal/events"},
+    }},
+}}}
+adm, _, err := quickstart.NewAdmin(cfg, quickstart.AdapterHooks{},
+    quickstart.WithFeatureSet(map[string]bool{
+        "commands": true, "activity": true, "dashboard": true,
+    }),
+    quickstart.WithAdminDependencies(admin.Dependencies{Authenticator: authenticator, Authorizer: authorizer}),
+)
+if err != nil { return err }
+_, err = quickstart.ConfigureActivityIngestion(ctx, adm, admin.ActivityIngestionOptions{
+    Enabled: true, DB: db,
+    Verifier: verifier, Policy: producerPolicy,
+    Issuer: "host", Audience: "activity",
+    ReadPolicy: readerPolicy, Disclose: discloseApprovedMetadata,
+})
+if err != nil { return err }
+if err = adm.Initialize(rootRouter); err != nil { return err }
+if err = quickstart.RegisterActivityIngestionRoutes(ctx, rootRouter, adm); err != nil {
+    return err
+}
+endpoint, err := adm.ActivityIngestionURL()
+```
+
+Import `admin` from `github.com/goliatone/go-admin/admin`, `quickstart` from its
+same-named module, and `urlkit` from `github.com/goliatone/go-urlkit`. Core-only
+hosts use `adm.ConfigureActivityIngestion` and `admin.RegisterActivityIngestionRoutes`
+with `adm.ActivityIngestion().HTTP`, or supply `Dependencies.ActivityIngestion` at
+construction. `Enabled: false` adds no endpoint. There is no separate path option:
+`activity.ingest` resolves in the effective admin API group, including API prefix,
+version and routing roots. The default is `/admin/api/activity/ingest`; an override
+is the only registered endpoint, with no default alias.
+
+### Producer and actor authority
+
+`ActivityProducerVerifier.VerifyActivityProducer` authenticates a dedicated bearer
+credential and returns stable `ProducerID`, current `CredentialID`, issuer,
+audience, purpose (`activity.ingest`), validity interval and optional verified
+scope binding. Ordinary cookie/session credentials are insufficient. Never copy
+body fields into a principal or call `WithVerifiedActivityProducer` before
+verification.
+
+`ActivityIngestionPolicy.CheckActivityProducer` checks current producer **and
+credential** revocation and event-namespace grants before any receipt lookup.
+`AuthorizeActivityIngestion` checks the resolved tenant/org relationship, action,
+object, actor and optional subject before receipt disclosure or a new write.
+These checks also run for replay; producer authentication never grants feed reads.
+
+A `user` actor requires an umbrella user UUID. Historical attribution needs either
+verified `X-Activity-Actor-Assertion` evidence via `ActivityAttributionVerifier`, or
+an explicit `AllowProducerAttestation` decision. Supplied but invalid/unverifiable
+proof fails; it cannot fall back to attestation. `system` and `job` carry no actor
+UUID and may identify a distinct human `subject_user_id`. Machine events keep their
+machine labels and omit human actor links even when read policy removes metadata.
+
+### Shared scope and retry identity
+
+Ingestion uses the same `ScopeMode`, `DefaultTenantID`, `DefaultOrgID` and quickstart
+`WithScopeMode` / `WithDefaultScope` / `WithScopeConfig` settings as the host.
+Single mode resolves omissions from trusted bindings or configured defaults;
+conflicting targets fail. Multi mode uses explicit event scope or verified
+bindings, never deployment-wide fallback defaults. A single tenant with multiple
+organizations still needs an unambiguous organization. Effective tenant and org
+must both be nonzero UUIDs; global and arbitrary-label scopes are unsupported.
+
+The case-sensitive identity is `(producer_id, event_id)` across every scope.
+Retries with omitted scope use the receipt's original target even after defaults,
+mode or credential bindings change, and current policy must still authorize it.
+Changing an explicitly selected target cannot create a second record with that ID.
+
+### HTTP contract
+
+Send `Content-Type: application/json` and `Authorization: Bearer <producer-token>`
+to `adm.ActivityIngestionURL()`. Optional `Idempotency-Key` must exactly equal
+`event_id`; query parameters and duplicate/ambiguous headers are rejected.
+
+```json
+{
+  "schema_version": 1,
+  "event_id": "billing-event-00042",
+  "occurred_at": "2026-10-28T12:30:00.123456Z",
+  "scope": {
+    "tenant_id": "11111111-1111-4111-8111-111111111111",
+    "org_id": "22222222-2222-4222-8222-222222222222"
+  },
+  "actor": {"kind": "system"},
+  "subject_user_id": "33333333-3333-4333-8333-333333333333",
+  "action": "billing.invoice.approved",
+  "object": {"type": "billing.invoice", "id": "INV-42"},
+  "channel": "billing",
+  "correlation_id": "request-42",
+  "metadata": {"amount_minor": 12500, "currency": "USD"}
+}
+```
+
+A new commit returns 201; authorized identical replay returns 200 with the original
+IDs, scope and timestamps and `replayed: true`:
+
+```json
+{
+  "activity_id": "44444444-4444-4444-8444-444444444444",
+  "event_id": "billing-event-00042",
+  "scope": {"tenant_id": "11111111-1111-4111-8111-111111111111", "org_id": "22222222-2222-4222-8222-222222222222"},
+  "occurred_at": "2026-10-28T12:30:00.123456Z",
+  "received_at": "2026-10-28T12:30:01Z",
+  "replayed": false
+}
+```
+
+Every response is JSON with `Cache-Control: no-store`. Errors have an `error`
+object with safe `text_code` values prefixed `ACTIVITY_INGEST_`:
+
+| Status | Meaning |
+| --- | --- |
+| 400 | Invalid event/JSON, unsupported authority fields or mismatched idempotency alias. |
+| 401 | Missing, invalid or expired producer/proof; no login redirect. |
+| 403 | Current producer, credential, scope or attribution policy denies acceptance/replay. |
+| 409 | Same producer/event identity already accepted with different normalized content. |
+| 413 | Envelope, metadata, nesting or canonical numeric expansion exceeds bounds. |
+| 415 | Unsupported content type. |
+| 503 | Authority/storage dependency unavailable, contention exhausted, or retained replay version unavailable. |
+| 500 | Safe unexpected failure; no provider error, payload or credential is disclosed. |
+
+Hard limits are 64 KiB encoded event, 32 KiB compact/canonical application metadata,
+36 KiB stored metadata including framework provenance, and depth 16 (event root
+at 0, metadata root at 1). Timestamps require timezone and at most microseconds;
+future skew defaults to five minutes. Options may tighten size/skew. Header
+credentials/assertions are at most 8 KiB each; also bound bodies at the host ingress.
+Unknown/duplicate envelope keys, invalid UTF-8, trailing JSON, null optional fields
+and reserved authority/presentation metadata keys at any nesting level fail.
+
+Numbers remain exact `json.Number`, including large integers and bounded values
+outside float64 such as `1e309`. The normalized fractional scale is at most
+16,383 digits (`ActivityIngestionMaxFractionDigits`), matching PostgreSQL JSONB;
+both adapters reject values beyond that scale with 413 before persistence.
+Trailing zeroes do not consume scale after normalization. Decimal/exponent
+spellings normalize for replay;
+key order and omitted/empty optional metadata do not create different events.
+Do not decode named-command payloads through float64 maps. Stored legacy rows
+are not subjected to the new ingestion size/depth limits.
+
+### Command reuse, disclosure and reads
+
+`ActivityIngestCommand` validates and delegates to `ActivityIngestionService`.
+The service owns current authorization, scope, attribution, fingerprint,
+disclosure and the transaction. The Bun store owns persistence only. Reuse the
+registered inline entry after authenticating a producer in a trusted adapter:
+
+```go
+trusted := admin.WithVerifiedActivityProducer(ctx, verifiedPrincipal)
+result, err := admin.DispatchActivityIngestion(trusted, adm.Commands(),
+    admin.ActivityIngestMsg{Event: event})
+```
+
+`WithVerifiedActivityAttribution` adds already-verified actor evidence when needed.
+The checked helper rejects queue, delay, deduplication and execution overrides
+before selecting an executor. Runner caching/retries are disabled; the service
+retries only recognized transaction contention, at most three attempts. Future
+WS/RPC/job/broker adapters must reconstruct current verified authority for every
+event and use this entry; no such ingress adapter ships here.
+
+`Disclose` defaults to dropping application metadata. Hosts supply a pure, bounded
+allowlist/redaction function; `ValidateEvent` may enforce event-specific vocabulary.
+Callbacks receive detached data, perform no I/O or side effects and may run again
+on contention. Replay compares the original normalized event before disclosure,
+so changed hidden metadata still conflicts. Framework provenance is added only
+by the service. Existing write enrichers do not decorate this canonical writer.
+
+The bundle connects the full feed and Recent Activity widget to the same durable
+policy query. Both require an authenticated reader, `Config.ActivityPermission`
+(default `admin.activity.view`), exact trusted scope and access-policy filters.
+Record scanning preserves exact numbers before sanitization; sanitized fields
+are never reloaded. Receipt-backed actor kind controls machine exclusion before
+pagination/counting, regardless of `system`, `machine`, nested actor types or
+custom aliases in application metadata. Legacy rows keep the host's metadata
+filter behavior. Trusted receipt identity also controls labels/links after masking.
+
+### Delivery, retention and operations
+
+The umbrella host owns producer keys/grants, current revocation, actor mapping,
+reader permissions, migration/readiness, disclosure, backups and retention.
+Downstream producers own truthful business events, stable IDs, credentials and a
+durable local outbox if delivery must survive failure. Persist the event and its
+ID with the business change; retry the identical event after timeouts/503 using
+bounded backoff. A 409 requires reconciliation, not a new ID that conceals a retry.
+
+A receipt proves central acceptance, not atomicity with the downstream business
+transaction or exactly-once transport. Retain receipts after activity deletion:
+replay returns the original result without recreating a deleted row. No receipt
+TTL, cascade or pruning is supplied. Back up/restore activity and receipts together
+and retain fingerprint/result version readers for every retained receipt.
+Observers receive only safe outcome/error codes; never log bearer/proof/body or emit
+success before commit. `admin/txoutbox` post-commit hooks do not replace this
+transactional receipt or a downstream durable outbox.
 
 ## Endpoint and permissions
 
@@ -70,7 +307,9 @@ Notes:
 - `action` contains the presentation label when read enrichment provides one;
   `action_key` retains the canonical go-users verb.
 - `object` joins `object_type` and `object_id` as `type:id`.
-- `actor` uses `actor_id` when present (falls back to `user_id`).
+- `actor` uses `actor_id` when present (legacy rows fall back to `user_id`).
+  Ingested system/job rows use trusted receipt identity and never label/link their
+  human subject as the initiator.
 - `actor_href` and `object_href` are optional host-resolved local navigation
   targets. They are omitted when navigation is not configured or not allowed.
 - `created_at` maps to go-users `occurred_at`.

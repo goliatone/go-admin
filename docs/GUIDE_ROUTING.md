@@ -509,3 +509,12 @@ Practical guidance:
 
 If a PR changes routing and no manifest-oriented assertion changed, that should
 be treated as a review smell.
+
+## Producer activity route
+
+The opt-in `activity.ingest` URLKit key belongs to the effective admin API group.
+Its default POST is `/admin/api/activity/ingest`; host roots, API prefix/version
+and an explicit named override determine the actual route. Register on the root
+router outside browser-cookie groups and use `adm.ActivityIngestionURL()` for
+clients. The registrar mounts only that route and fails on collisions or invalid
+paths. See the [tested setup](GUIDE_ACTIVITY.md#host-setup-and-migrations).

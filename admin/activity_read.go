@@ -31,8 +31,10 @@ type ActivityFeedQuerier interface {
 // Scope is derived from the authenticated request and must never be inferred
 // from activity metadata.
 type ActivityReadContext struct {
-	Actor types.ActorRef
-	Scope types.ScopeFilter
+	// Identities are trusted receipt associations, independent of sanitized metadata.
+	Identities map[uuid.UUID]ActivityReadIdentity
+	Actor      types.ActorRef
+	Scope      types.ScopeFilter
 }
 
 // ActivityPageEnricher enriches one authorized and sanitized activity page.
@@ -283,23 +285,32 @@ func activityQueryError(field, message string) error {
 	return err.WithMetadata(map[string]any{"field": field})
 }
 
-func entriesFromUsersRecords(records []types.ActivityRecord) []ActivityEntry {
+func entriesFromUsersRecords(records []types.ActivityRecord, identities ...map[uuid.UUID]ActivityReadIdentity) []ActivityEntry {
 	if len(records) == 0 {
 		return []ActivityEntry{}
 	}
 	entries := make([]ActivityEntry, 0, len(records))
 	for _, record := range records {
-		entries = append(entries, entryFromUsersRecord(record))
+		entries = append(entries, entryFromUsersRecord(record, identities...))
 	}
 	return entries
 }
 
-func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
+func entryFromUsersRecord(record types.ActivityRecord, identities ...map[uuid.UUID]ActivityReadIdentity) ActivityEntry {
 	metadata := primitives.CloneAnyMap(record.Data)
 	actorDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyActorDisplay]))
 	objectDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyObjectDisplay]))
 	actionDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyActionDisplay]))
-	actorID := primitives.FirstNonEmptyRaw(uuidString(record.ActorID), uuidString(record.UserID))
+	actorID := uuidString(canonicalActivityActorID(record, identities...))
+	if len(identities) > 0 {
+		if kind := activityReadMachineKind(identities[0], record.ID); kind != "" {
+			actorDisplay = activityReadMachineLabel(kind)
+			if metadata == nil {
+				metadata = map[string]any{}
+			}
+			metadata[ActivityActorTypeKey] = kind
+		}
+	}
 	objectRef := joinObject(strings.TrimSpace(record.ObjectType), strings.TrimSpace(record.ObjectID))
 	return ActivityEntry{
 		ID:        uuidString(record.ID),
@@ -314,7 +325,7 @@ func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
 }
 
 func (a *Admin) entriesFromActivityRecords(ctx context.Context, readCtx ActivityReadContext, records []types.ActivityRecord) []ActivityReadEntry {
-	baseEntries := entriesFromUsersRecords(records)
+	baseEntries := entriesFromUsersRecords(records, readCtx.Identities)
 	entries := make([]ActivityReadEntry, len(baseEntries))
 	for index := range baseEntries {
 		entries[index].ActivityEntry = baseEntries[index]
@@ -343,6 +354,9 @@ func (a *Admin) entriesFromActivityRecords(ctx context.Context, readCtx Activity
 	}
 	for index, navigation := range navigations {
 		record := records[index]
+		if activityReadMachineKind(readCtx.Identities, record.ID) != "" {
+			navigation.ActorHref = ""
+		}
 		actorHref, actorErr := safeActivityNavigationHref(navigation.ActorHref)
 		if actorErr != nil {
 			a.reportActivityNavigationError(ctx, readCtx, ActivityNavigationError{

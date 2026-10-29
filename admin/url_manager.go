@@ -467,6 +467,7 @@ func defaultAdminAPIRoutes() map[string]string {
 	routes := map[string]string{
 		"activity":                            "/activity",
 		"activity.filter_options":             "/activity/filter-options",
+		ActivityIngestionRouteKey:             "/activity/ingest",
 		"bulk":                                "/bulk",
 		"bulk.rollback":                       "/bulk/:id/rollback",
 		"dashboard":                           "/dashboard",

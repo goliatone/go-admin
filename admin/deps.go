@@ -21,8 +21,11 @@ import (
 // Dependencies captures host-provided integrations and storage adapters.
 // Optional dependencies fall back to in-memory defaults when omitted.
 type Dependencies struct {
-	Router AdminRouter `json:"router"`
-	Logger Logger      `json:"logger"`
+	// ActivityIngestion is opt-in durable composition; migrate before New.
+	ActivityIngestion            *ActivityIngestionOptions    `json:"-"`
+	ActivityReadIdentityResolver ActivityReadIdentityResolver `json:"-"`
+	Router                       AdminRouter                  `json:"router"`
+	Logger                       Logger                       `json:"logger"`
 
 	LoggerProvider LoggerProvider `json:"logger_provider"`
 

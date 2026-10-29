@@ -2527,3 +2527,16 @@ Set `Apply: true` to converge rows. Keep `AllowDestructive` off unless the host
 has explicitly reviewed the destructive candidates; generated rows are
 update-safe by default, but deleting or replacing rows can affect host-specific
 navigation customizations.
+
+## Durable activity ingestion
+
+Use `ConfigureActivityIngestion(ctx, adm, options)` before `adm.Initialize`, then
+`RegisterActivityIngestionRoutes(ctx, rootRouter, adm)` outside browser auth groups.
+The bundle reuses `NewAdminConfig` scope options and URLKit `activity.ingest`;
+`adm.ActivityIngestionURL()` reports the sole mounted producer URL. Explicitly
+migrate go-users activity/scopes and `admin.EnsureActivityIngestionSchema` first.
+Provide producer/current-policy ports, browser authenticator, reader authorizer
+and access policy. The widget and full feed share durable authorized reads.
+See the [canonical setup and contract](../docs/GUIDE_ACTIVITY.md#durable-producer-ingestion),
+including its pending go-users release/adoption prerequisite. Disabled hosts retain
+legacy behavior; the helper performs no DDL and registers no implicit route alias.

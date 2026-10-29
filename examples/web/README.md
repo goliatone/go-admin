@@ -1323,3 +1323,13 @@ pkg/client/assets/     # Admin client assets (source + dist)
 ## License
 
 See root LICENSE file
+
+## External activity producers
+
+This example's existing hooks and read UI remain unchanged. Hosts needing durable
+external business events can opt into the command/service ingestion bundle after
+explicit migrations and producer policy setup. See the
+[Activity guide](../../docs/GUIDE_ACTIVITY.md#durable-producer-ingestion) for the
+shared scope configuration, named URL override, pending dependency adoption and
+full feed/widget read wiring. Memory or best-effort hooks alone do not provide
+transactional ingestion or persistent replay protection.

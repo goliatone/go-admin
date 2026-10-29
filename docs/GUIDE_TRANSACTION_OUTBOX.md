@@ -97,3 +97,13 @@ type Publisher interface {
 
 1. `admin/txoutbox/tx_hooks_test.go`
 2. `admin/txoutbox/outbox_test.go`
+
+## Producer ingestion and downstream delivery
+
+[Activity ingestion receipts](GUIDE_ACTIVITY.md#delivery-retention-and-operations)
+atomically protect central acceptance by stable producer/event identity. They do
+not make a remote business transaction atomic with delivery. Downstream services
+should persist a local outbox and stable event ID with their business mutation,
+then retry the identical event. Retain central receipts after activity deletion.
+The in-process post-commit hooks described here do not replace either durable
+outbox delivery or the ingestion receipt transaction.

@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.5
+	github.com/goliatone/go-users v0.27.6
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -149,7 +149,7 @@ require (
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.21 // indirect
-	github.com/mattn/go-sqlite3 v1.14.34 // indirect
+	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect

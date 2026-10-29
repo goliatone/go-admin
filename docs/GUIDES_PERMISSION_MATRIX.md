@@ -217,3 +217,13 @@ Without relationship runtime initialization, the select still works as a plain `
 - `GUIDE_AUTH_PERMISSIONS.md`
 - `GUIDE_VIEW_CUSTOMIZATION.md`
 - `GUIDE_FEATURE_GATES.md`
+
+## Activity ingestion authority
+
+| Surface | Required authority |
+| --- | --- |
+| Producer POST / `activity.ingest.v1` | Verified producer credential plus current producer, credential, event, resolved scope and attribution policy; no new admin permission substitutes for these checks. |
+| Bundled full feed / Recent Activity widget | Authenticated reader, trusted exact scope, `Config.ActivityPermission` (default `admin.activity.view`) and ActivityAccessPolicy. |
+
+See the [Activity authority contract](GUIDE_ACTIVITY.md#producer-and-actor-authority)
+for delegation, machine actors, subject identity and replay revocation.

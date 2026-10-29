@@ -80,6 +80,13 @@ func encodeWidgetPayload(payload WidgetPayload) (map[string]any, error) {
 		return nil, fmt.Errorf("decode widget payload trailing data: %w", eofErr)
 	}
 	out = dashinternal.SanitizeWidgetData(out)
+	// Activity metadata has already crossed bounded JSON and disclosure boundaries.
+	// The generic view serializer converts decimal json.Number values to float64;
+	// retain the sanitized JSON tree for exact durable Activity readback.
+	switch value.(type) {
+	case ActivityFeedWidgetPayload, *ActivityFeedWidgetPayload:
+		return out, nil
+	}
 	serialized, err := router.SerializeAsContext(out)
 	if err != nil {
 		return nil, fmt.Errorf("serialize widget payload context: %w", err)

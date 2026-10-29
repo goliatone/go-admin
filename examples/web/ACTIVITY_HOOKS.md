@@ -250,3 +250,13 @@ Now all activity events flow to go-users persistent storage while still being av
 - [EXAMPLE_TDD.md](../../docs/prds/EXAMPLE_TDD.md) - Full enhancement plan
 - [Archived ADMIN_TDD.md](../../docs/archive/prds/current/ADMIN_TDD.md#activity-integration) - Historical architecture reference
 - [pkg/activity/doc.go](pkg/activity/doc.go) - Package documentation
+
+## Durable external events
+
+The hooks above retain their existing best-effort/memory semantics. Use the
+[optional producer ingestion bundle](../../docs/GUIDE_ACTIVITY.md#durable-producer-ingestion)
+when central acceptance needs an atomic canonical activity row and durable receipt.
+It bypasses generic write enrichment, checks current producer/actor/scope policy,
+and shares authorized reads between the Activity API and widget. The host supplies
+migrations, disclosure and downstream retry/outbox policy; this example does not
+enable the endpoint by default.

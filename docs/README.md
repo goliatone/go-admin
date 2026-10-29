@@ -53,7 +53,8 @@ the closest existing guide when conventions change.
 | Routing policy, route ownership, and manifest review | [GUIDE_ROUTING.md](GUIDE_ROUTING.md) |
 | Pending versus sealed runtime route reconciliation | [GUIDE_ROUTING.md#startup-diagnostics-and-release-workflow](GUIDE_ROUTING.md#startup-diagnostics-and-release-workflow) |
 | Search and go-search adapters | [GUIDE_SEARCH.md](GUIDE_SEARCH.md) |
-| Activity module and activity API | [GUIDE_ACTIVITY.md](GUIDE_ACTIVITY.md) |
+| Activity read API, producer ingestion, durable replay and shared feed/widget policy | [GUIDE_ACTIVITY.md](GUIDE_ACTIVITY.md) |
+| Activity ingestion migrations, authority and dependency adoption | [GUIDE_ACTIVITY.md#durable-producer-ingestion](GUIDE_ACTIVITY.md#durable-producer-ingestion) |
 | Media module configuration and delivery | [GUIDE_MODULE_MEDIA.md](GUIDE_MODULE_MEDIA.md) |
 | Preferences module behavior | [GUIDE_MOD_PREFERENCES.md](GUIDE_MOD_PREFERENCES.md) |
 | Onboarding workflow | [GUIDE_ONBOARDING.md](GUIDE_ONBOARDING.md) |

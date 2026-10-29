@@ -271,3 +271,13 @@ composition without copying the dashboard layout.
 
 When changing go-dashboard itself, also run its theme, chart provider, renderer,
 and shell asset tests.
+
+## Durable ingested activity
+
+The [ingestion bundle](GUIDE_ACTIVITY.md#command-reuse-disclosure-and-reads) connects
+Recent Activity and the full feed to one policy-bearing durable query. Widget
+readers must also hold `Config.ActivityPermission`, with exact trusted scope.
+Metadata is sanitized after exact-number scanning; trusted receipt actor kind
+controls machine visibility before pagination and presentation after masking.
+System/job events with human subjects keep machine labels and no human actor link.
+Legacy `ActivitySink.Record` behavior is preserved.
