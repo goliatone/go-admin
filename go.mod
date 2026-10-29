@@ -24,16 +24,16 @@ require (
 	github.com/goliatone/go-job v0.20.0
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-masker v0.2.0
-	github.com/goliatone/go-notifications v0.16.3
+	github.com/goliatone/go-notifications v0.16.4
 	github.com/goliatone/go-options v0.7.2
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.2
+	github.com/goliatone/go-router v0.63.3
 	github.com/goliatone/go-search v0.14.5
 	github.com/goliatone/go-search/adapters/goadmin v0.14.5
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
-	github.com/goliatone/go-users v0.27.4
+	github.com/goliatone/go-users v0.27.5
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.34
@@ -176,7 +176,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.49.0
 	golang.org/x/text v0.43.0
 	golang.org/x/time v0.15.0 // indirect

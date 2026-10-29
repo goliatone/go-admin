@@ -10,6 +10,7 @@ import (
 
 	pongo2 "github.com/flosch/pongo2/v7"
 	fiber3 "github.com/gofiber/fiber/v3"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
 
@@ -88,14 +89,15 @@ func (e *fiberV3ViewEngine) Render(out io.Writer, name string, binding any, layo
 			request = boxed.Interface()
 		}
 		switch request.(type) {
-		case context.Context, interface{ Context() context.Context }:
+		case context.Context, interface{ Context() context.Context }, auth.AuthClaims:
 			metadata[key.String()] = request
 		}
 	}
 	if len(metadata) == 0 {
 		return e.fiberV3Views.Render(out, name, binding, layouts...)
 	}
-	// Request context is helper metadata, not a renderable object. Retain it in
+	// Request context and authentication claims are helper metadata. Templates
+	// consume the plain session_user projection instead of raw claims. Retain them in
 	// per-render closures so the v7 value boundary never exposes its dynamic
 	// Value method to templates. The caller map and concurrent renders are separate.
 	data := make(map[string]any, value.Len()+len(e.helpers))

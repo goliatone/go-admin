@@ -19,6 +19,7 @@ import (
 	fiber3 "github.com/gofiber/fiber/v3"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
+	auth "github.com/goliatone/go-auth"
 	csrf "github.com/goliatone/go-auth/middleware/csrf"
 	"github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
@@ -222,5 +223,45 @@ func TestFiberV3ViewHelperOverridesAndHTTPParity(t *testing.T) {
 	}
 	if oldResp.StatusCode != http.StatusOK || newResp.StatusCode != http.StatusOK || oldResp.Header.Get("Content-Type") != newResp.Header.Get("Content-Type") || !bytes.Equal(oldBody, newBody) || !strings.HasPrefix(string(newBody), `&lt;x&gt;|<input name="csrf" value="token">|`) {
 		t.Fatalf("HTTP parity: v2=%d %q v3=%d %q", oldResp.StatusCode, oldBody, newResp.StatusCode, newBody)
+	}
+}
+
+func TestFiberV3ViewsKeepAuthClaimsInHelperMetadata(t *testing.T) {
+	claims := &auth.JWTClaims{UID: "actor-1", Metadata: map[string]any{"private": "not-template-data"}}
+	fsys := fstest.MapFS{"page.html": {Data: []byte(`{{ session_user.display_name }}|{{ csrf_token }}|{{ actor_id() }}|{% if admin_user %}raw claims leaked{% endif %}`)}}
+	views, err := NewFiberV3ViewEngine(fsys, WithViewReload(false), WithViewFiberV3TemplateFuncs(map[string]any{
+		"actor_id": func(ctx *p7.ExecutionContext) string {
+			bound, ok := ctx.Public["admin_user"].(*auth.JWTClaims)
+			if !ok || bound != claims {
+				return "missing claims"
+			}
+			return bound.UID
+		},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, routes := NewFiberV3Server(views, admin.Config{}, nil, false, WithFiberV3Logger(false))
+	routes.Get("/page", func(c router.Context) error {
+		c.Locals("admin_user", claims)
+		c.Locals("session_user", map[string]any{"display_name": "Ada"})
+		c.Locals("csrf_token", "csrf-value")
+		renderErr := c.Render("page", router.ViewContext{})
+		if c.Locals("admin_user") != claims {
+			return fmt.Errorf("render changed authentication locals")
+		}
+		return renderErr
+	})
+	response, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/page", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeResponseBody(t, response)
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || string(body) != "Ada|csrf-value|actor-1|" {
+		t.Fatalf("status=%d body=%s", response.StatusCode, body)
 	}
 }

@@ -80,8 +80,8 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("create product status: %d body=%s", createResp.StatusCode, string(createBody))
 		}
 		var created map[string]any
-		if err := json.Unmarshal(createBody, &created); err != nil {
-			t.Fatalf("decode created product: %v; body=%q", err, createBody)
+		if decodeErr := json.Unmarshal(createBody, &created); decodeErr != nil {
+			t.Fatalf("decode created product: %v; body=%q", decodeErr, createBody)
 		}
 		productID := mustAs[string](created["id"])
 		productsAfterCreate, _, _ := dataStores.Products.List(context.Background(), admin.ListOptions{}) //nolint:errcheck // legacy test setup intentionally ignores this helper result after scenario assertions.
@@ -208,13 +208,4 @@ func closeResponseBody(t testing.TB, resp *http.Response) {
 	if err := resp.Body.Close(); err != nil {
 		t.Fatalf("close response body: %v", err)
 	}
-}
-
-type allowAllAuthz struct{}
-
-func (allowAllAuthz) Can(ctx context.Context, action string, resource string) bool {
-	_ = ctx
-	_ = action
-	_ = resource
-	return true
 }

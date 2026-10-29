@@ -753,6 +753,7 @@ type (
 	BunRepositoryAdapter[T any]                       = core.BunRepositoryAdapter[T]
 	BunRepositoryOption[T any]                        = core.BunRepositoryOption[T]
 	BunSettingsAdapter                                = core.BunSettingsAdapter
+	BunSettingsAdapterConfig                          = core.BunSettingsAdapterConfig
 	BunTranslationAssignmentRepository                = core.BunTranslationAssignmentRepository
 	BunTranslationExchangeRuntimeStore                = core.BunTranslationExchangeRuntimeStore
 	BunTranslationFamilyStore                         = core.BunTranslationFamilyStore
@@ -855,6 +856,7 @@ type (
 	ContentTypePublishMsg                             = core.ContentTypePublishMsg
 	ContentTypeUpdateMsg                              = core.ContentTypeUpdateMsg
 	ContextMessageFactory                             = core.ContextMessageFactory
+	ContextSettingsAdapter                            = core.ContextSettingsAdapter
 	ConvertedFields                                   = core.ConvertedFields
 	CountTranslator                                   = core.CountTranslator
 	CurrentContextResolver                            = core.CurrentContextResolver
@@ -875,12 +877,14 @@ type (
 	DashboardRendererFunc                             = core.DashboardRendererFunc
 	DashboardWidgetInstance                           = core.DashboardWidgetInstance
 	DataActionChoice                                  = core.DataActionChoice
+	DataActionLabels                                  = core.DataActionLabels
 	DataCheckView                                     = core.DataCheckView
 	DataCoverageView                                  = core.DataCoverageView
 	DataExplorationURLs                               = core.DataExplorationURLs
 	DataInsightsURLs                                  = core.DataInsightsURLs
 	DataModule                                        = core.DataModule
 	DataModuleConfig                                  = core.DataModuleConfig
+	DataOperationView                                 = core.DataOperationView
 	DataOverviewCounts                                = core.DataOverviewCounts
 	DataOverviewView                                  = core.DataOverviewView
 	DataPanelActions                                  = core.DataPanelActions
@@ -888,6 +892,7 @@ type (
 	DataPreviewSurface                                = core.DataPreviewSurface
 	DataPreviewURLs                                   = core.DataPreviewURLs
 	DataScenarioView                                  = core.DataScenarioView
+	DataTargetSummary                                 = core.DataTargetSummary
 	DataTargetView                                    = core.DataTargetView
 	DebugCollector                                    = core.DebugCollector
 	DebugCollectorProvider                            = core.DebugCollectorProvider
@@ -1375,9 +1380,15 @@ type (
 	SettingValidator                                  = core.SettingValidator
 	SettingsAdapter                                   = core.SettingsAdapter
 	SettingsBundle                                    = core.SettingsBundle
+	SettingsDocumentAdapter                           = core.SettingsDocumentAdapter
+	SettingsDocumentMutation                          = core.SettingsDocumentMutation
+	SettingsDocumentRecord                            = core.SettingsDocumentRecord
+	SettingsDocumentSnapshot                          = core.SettingsDocumentSnapshot
+	SettingsDocumentTarget                            = core.SettingsDocumentTarget
 	SettingsForm                                      = core.SettingsForm
 	SettingsFormAdapter                               = core.SettingsFormAdapter
 	SettingsOverviewWidgetPayload                     = core.SettingsOverviewWidgetPayload
+	SettingsRevisionConflict                          = core.SettingsRevisionConflict
 	SettingsScope                                     = core.SettingsScope
 	SettingsService                                   = core.SettingsService
 	SettingsUpdateCommand                             = core.SettingsUpdateCommand
@@ -1416,6 +1427,7 @@ type (
 	ThemeSelection                                    = core.ThemeSelection
 	ThemeSelector                                     = core.ThemeSelector
 	ThemeTokenDiagnostic                              = core.ThemeTokenDiagnostic
+	TransactionalSettingsDocumentAdapter              = core.TransactionalSettingsDocumentAdapter
 	TranslationActorOption                            = core.TranslationActorOption
 	TranslationActorOptionProvider                    = core.TranslationActorOptionProvider
 	TranslationActorOptionPurpose                     = core.TranslationActorOptionPurpose
@@ -1836,12 +1848,20 @@ func DashboardPageWidgetsForAreaCode(page dashboard.Page, areaCode string) []das
 	return core.DashboardPageWidgetsForAreaCode(page, areaCode)
 }
 
+func DataActionID(choice DataActionChoice) string {
+	return core.DataActionID(choice)
+}
+
 func DataActionKind(actionID string) (data.Kind, bool) {
 	return core.DataActionKind(actionID)
 }
 
 func DataActionResult(kind data.Kind, result data.Result, err error) (console.PanelActionResult, error) {
 	return core.DataActionResult(kind, result, err)
+}
+
+func DataActionResultFor(kind data.Kind, result data.Result, err error, labels DataActionLabels) (console.PanelActionResult, error) {
+	return core.DataActionResultFor(kind, result, err, labels)
 }
 
 func DataCheckRecord(view DataCheckView, revision uint64) console.Record {
@@ -1858,6 +1878,10 @@ func DataDatasetRecord(descriptor data.Descriptor, revision uint64) console.Reco
 
 func DataOperationRecord(operation data.Operation) console.Record {
 	return core.DataOperationRecord(operation)
+}
+
+func DataOperationViewRecord(view DataOperationView) console.Record {
+	return core.DataOperationViewRecord(view)
 }
 
 func DataOverviewRecord(view DataOverviewView, revision uint64) console.Record {
@@ -1988,6 +2012,10 @@ func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error
 	return core.EnsureMenuParents(ctx, opts)
 }
 
+func EnsureSettingsDocumentSchema(ctx context.Context, db bun.IDB) error {
+	return core.EnsureSettingsDocumentSchema(ctx, db)
+}
+
 func EnsureWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 	return core.EnsureWorkflowAuthoringCutover(ctx, db)
 }
@@ -2034,6 +2062,10 @@ func FamilyDetailFragmentTargets() []FamilyDetailFragmentTarget {
 
 func GetSVGFieldTypeMapping() map[string]string {
 	return core.GetSVGFieldTypeMapping()
+}
+
+func GetSettingsDocumentMigrationsFS() fs.FS {
+	return core.GetSettingsDocumentMigrationsFS()
 }
 
 func GetTranslationAssignmentMigrationsFS() fs.FS {
@@ -2166,6 +2198,10 @@ func NewBunRepositoryAdapter[T any](repo repository.Repository[T], opts ...BunRe
 
 func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
 	return core.NewBunSettingsAdapter(db, repoOptions...)
+}
+
+func NewBunSettingsAdapterWithConfig(db *bun.DB, config BunSettingsAdapterConfig, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
+	return core.NewBunSettingsAdapterWithConfig(db, config, repoOptions...)
 }
 
 func NewBunTranslationAssignmentRepository(db *bun.DB) *BunTranslationAssignmentRepository {

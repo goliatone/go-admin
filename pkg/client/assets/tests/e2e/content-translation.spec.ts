@@ -373,20 +373,23 @@ test.describe('Translation UX - Content Panels', () => {
           await closeModal(page);
         });
 
-        test('recommended locale is preselected in modal', async ({ page }) => {
+        test('locale selector exposes its selected value in modal', async ({ page }) => {
           await navigateToPanel(page, panel);
           if (!(await openCreateTranslationModal(page, 0))) {
             test.skip();
             return;
           }
 
-          // Check for preselected/recommended option
-          const modal = page.locator('[role="dialog"], .modal, .payload-modal');
-          const selectedOption = modal.locator('input[type="radio"]:checked, select option:checked, [data-selected="true"]');
-
-          if (await selectedOption.count() > 0) {
-            // There should be a selected option
-            await expect(selectedOption).toBeVisible();
+          const modal = page.getByRole('dialog').filter({ visible: true });
+          const select = modal.locator('select');
+          if (await select.count() > 0) {
+            // Native options are not independently visible in a closed select.
+            await expect(select).toBeVisible();
+            const selectedOption = select.locator('option:checked');
+            await expect(selectedOption).toHaveCount(1);
+            await expect(select).toHaveValue(await selectedOption.getAttribute('value') ?? '');
+          } else {
+            await expect(modal.locator('input[type="radio"]:checked, [data-selected="true"]')).toBeVisible();
           }
 
           await closeModal(page);

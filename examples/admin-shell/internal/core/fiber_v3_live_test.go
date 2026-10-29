@@ -25,7 +25,7 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 			name = "deadline-and-retry"
 		}
 		t.Run(name, func(t *testing.T) {
-			listener, err := net.Listen("tcp4", "127.0.0.1:0")
+			listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp4", "127.0.0.1:0")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -49,8 +49,8 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 				r.WebSocket("/ws", router.DefaultWebSocketConfig(), func(ws router.WebSocketContext) error {
 					close(socketEntered)
 					defer close(socketLeft)
-					_, _, err := ws.ReadMessage()
-					return err
+					_, _, readErr := ws.ReadMessage()
+					return readErr
 				})
 			})
 			runCtx, cancel := context.WithCancel(context.Background())
@@ -61,25 +61,27 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 				cancel()
 				ctx, stop := context.WithTimeout(context.Background(), 3*time.Second)
 				defer stop()
-				if err := host.Shutdown(ctx); err != nil {
-					t.Errorf("cleanup: %v", err)
+				if shutdownErr := host.Shutdown(ctx); shutdownErr != nil {
+					t.Errorf("cleanup: %v", shutdownErr)
 				}
 			})
 			client := &http.Client{Timeout: 4 * time.Second, Transport: &http.Transport{DisableKeepAlives: true}}
 			defer client.CloseIdleConnections()
 			readyDeadline := time.Now().Add(5 * time.Second)
 			for {
-				resp, err := client.Get("http://" + address + "/readyz")
-				if err == nil {
-					_, _ = io.Copy(io.Discard, resp.Body)
-					_ = resp.Body.Close()
-					if resp.StatusCode == 200 {
+				resp, readyErr := lifecycleGet(t.Context(), client, "http://"+address+"/readyz")
+				if readyErr == nil {
+					_, copyErr := io.Copy(io.Discard, resp.Body)
+					if cleanupErr := errors.Join(copyErr, resp.Body.Close()); cleanupErr != nil {
+						t.Fatal(cleanupErr)
+					}
+					if resp.StatusCode == http.StatusOK {
 						break
 					}
 				}
 				select {
-				case err := <-served:
-					t.Fatalf("early exit: %v", err)
+				case serveErr := <-served:
+					t.Fatalf("early exit: %v", serveErr)
 				default:
 				}
 				if time.Now().After(readyDeadline) {
@@ -89,12 +91,18 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 			}
 			ws, responseUpgrade, err := websocket.DefaultDialer.Dial("ws://"+address+"/adoption/owned/ws", nil)
 			if responseUpgrade != nil {
-				_ = responseUpgrade.Body.Close()
+				if closeErr := responseUpgrade.Body.Close(); closeErr != nil {
+					t.Fatal(closeErr)
+				}
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer ws.Close()
+			defer func() {
+				if closeErr := ws.Close(); closeErr != nil {
+					t.Error(closeErr)
+				}
+			}()
 			select {
 			case <-socketEntered:
 			case <-time.After(3 * time.Second):
@@ -102,16 +110,16 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 			}
 			response := make(chan error, 1)
 			go func() {
-				resp, err := client.Get("http://" + address + "/adoption-drain")
-				if err == nil {
+				resp, requestErr := lifecycleGet(t.Context(), client, "http://"+address+"/adoption-drain")
+				if requestErr == nil {
 					var body []byte
-					body, err = io.ReadAll(resp.Body)
-					err = errors.Join(err, resp.Body.Close())
-					if resp.StatusCode != 200 || string(body) != "drained" {
-						err = errors.Join(err, errors.New("request did not drain"))
+					body, requestErr = io.ReadAll(resp.Body)
+					requestErr = errors.Join(requestErr, resp.Body.Close())
+					if resp.StatusCode != http.StatusOK || string(body) != "drained" {
+						requestErr = errors.Join(requestErr, errors.New("request did not drain"))
 					}
 				}
-				response <- err
+				response <- requestErr
 			}()
 			select {
 			case <-entered:
@@ -132,8 +140,8 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 			} else {
 				cancel()
 				select {
-				case err := <-served:
-					t.Fatalf("returned before request drained: %v", err)
+				case serveErr := <-served:
+					t.Fatalf("returned before request drained: %v", serveErr)
 				case <-time.After(50 * time.Millisecond):
 				}
 			}
@@ -142,17 +150,17 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 			case <-time.After(3 * time.Second):
 				t.Fatal("owned socket reader did not leave")
 			}
-			if err := ws.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
-				t.Fatal(err)
+			if deadlineErr := ws.SetReadDeadline(time.Now().Add(time.Second)); deadlineErr != nil {
+				t.Fatal(deadlineErr)
 			}
-			if _, _, err := ws.ReadMessage(); err == nil {
+			if _, _, readErr := ws.ReadMessage(); readErr == nil {
 				t.Fatal("owned socket stayed open")
 			}
 			release()
 			select {
-			case err := <-response:
-				if err != nil {
-					t.Fatal(err)
+			case responseErr := <-response:
+				if responseErr != nil {
+					t.Fatal(responseErr)
 				}
 			case <-time.After(5 * time.Second):
 				t.Fatal("response timeout")
@@ -176,4 +184,12 @@ func TestStarterFiberV3LiveLifecycle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func lifecycleGet(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return client.Do(req)
 }

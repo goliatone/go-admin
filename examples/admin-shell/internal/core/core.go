@@ -369,7 +369,7 @@ func newAdminServer(
 	viewEngine fiber.Views,
 	loggerProvider glog.LoggerProvider,
 ) (router.Server[*fiber.App], quickstart.HostRouter[*fiber.App]) {
-	server, adminRouter := quickstart.NewFiberV3Server(
+	server, _ := quickstart.NewFiberV3Server(
 		viewEngine,
 		adminCfg,
 		adm,
@@ -381,7 +381,8 @@ func newAdminServer(
 		),
 	)
 	ownedServer := fiberhost.New(server)
-	server, adminRouter = ownedServer, ownedServer.Router()
+	server = ownedServer
+	adminRouter := ownedServer.Router()
 	adminRouter = adminRouter.WithLogger(newRouterLogger(
 		loggerProvider.GetLogger("router"),
 		cfg.Server.PrintRoutes,

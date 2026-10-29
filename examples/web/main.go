@@ -1207,7 +1207,7 @@ func main() {
 	}
 
 	// Initialize Fiber server
-	server, r := quickstart.NewFiberV3Server(
+	server, _ := quickstart.NewFiberV3Server(
 		viewEngine,
 		cfg,
 		adm,
@@ -1215,7 +1215,8 @@ func main() {
 		fiberV3RuntimeOption(resolveFiberRuntimeConfig(runtimeConfig.Fiber)),
 	)
 	ownedServer := fiberhost.New(server)
-	server, r = ownedServer, ownedServer.Router()
+	server = ownedServer
+	r := ownedServer.Router()
 	// Register root-level surfaces through the grouped host router so ownership
 	// does not depend on registration order.
 	host := quickstart.NewHostRouter(r, cfg)

@@ -27,14 +27,14 @@ func TestCommerceServerPreservesAuthenticationErrorStatus(t *testing.T) {
 		defer adm.Commands().Reset()
 		tokens := setupAuth(adm, dataStores)
 		server := newCommerceServer(cfg)
-		if err := adm.Initialize(server.Router()); err != nil {
-			t.Fatal(err)
+		if initErr := adm.Initialize(server.Router()); initErr != nil {
+			t.Fatal(initErr)
 		}
-		response, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/api/dashboard", nil))
+		response, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/api/dashboard", nil))
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer response.Body.Close()
+		defer closeResponseBody(t, response)
 		body, err := io.ReadAll(response.Body)
 		if err != nil {
 			t.Fatal(err)
@@ -47,18 +47,18 @@ func TestCommerceServerPreservesAuthenticationErrorStatus(t *testing.T) {
 		}
 		request := func() (int, []byte) {
 			t.Helper()
-			req := httptest.NewRequest(http.MethodGet, "/admin/api/dashboard", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/api/dashboard", nil)
 			req.Header.Set("Authorization", "Bearer "+tokens["Ada Lovelace"])
-			resp, err := server.WrappedRouter().Test(req)
-			if err != nil {
-				t.Fatal(err)
+			resp, requestErr := server.WrappedRouter().Test(req)
+			if requestErr != nil {
+				t.Fatal(requestErr)
 			}
-			defer resp.Body.Close()
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				t.Fatal(err)
+			defer closeResponseBody(t, resp)
+			responseBody, requestErr := io.ReadAll(resp.Body)
+			if requestErr != nil {
+				t.Fatal(requestErr)
 			}
-			return resp.StatusCode, body
+			return resp.StatusCode, responseBody
 		}
 		status, body := request()
 		if status != http.StatusOK || len(body) == 0 {

@@ -10,6 +10,9 @@ fixture_root=$(cd "${fixture_root}" && pwd -P)
 
 function cleanup {
     if [ -n "${fixture_root}" ] && [ -d "${fixture_root}" ]; then
+        # Downloaded Go modules have read-only directories. Change only this
+        # fixture's directories, without following its deliberate symlinks.
+        find "${fixture_root}" -type d -exec chmod u+w {} +
         rm -rf "${fixture_root}"
     fi
 }
@@ -315,7 +318,8 @@ function test_real_quickstart_sync {
         # neither staged nor committed, even when its working sources are dirty.
         cd "${state_dir}/prepared-source" || exit 1
         command git init -q || exit 1
-        command git add --pathspec-from-file="${state_dir}/source-paths" --pathspec-file-nul || exit 1
+        # These paths were tracked in the source, even when current ignore rules match.
+        command git add -f --pathspec-from-file="${state_dir}/source-paths" --pathspec-file-nul || exit 1
         for path in go.sum quickstart/go.sum examples/go.sum; do
             [ ! -f "${path}" ] || command git add -- "${path}" || exit 1
         done

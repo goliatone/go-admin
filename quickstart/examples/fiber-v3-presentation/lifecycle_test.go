@@ -19,11 +19,15 @@ import (
 // that Fiber's in-memory request helper cannot observe.
 func TestHostLifecycle(t *testing.T) {
 	t.Run("occupied address", func(t *testing.T) {
-		occupied, err := net.Listen("tcp", "127.0.0.1:0")
+		occupied, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer occupied.Close()
+		t.Cleanup(func() {
+			if err := occupied.Close(); err != nil {
+				t.Error(err)
+			}
+		})
 		_, run, _, _ := lifecycleHost(t, occupied.Addr().String())
 		done := make(chan error, 1)
 		go func() { done <- run(context.Background(), time.Second) }()
@@ -42,12 +46,14 @@ func TestHostLifecycle(t *testing.T) {
 			name = "deadline is bounded and retryable"
 		}
 		t.Run(name, func(t *testing.T) {
-			probe, err := net.Listen("tcp", "127.0.0.1:0")
+			probe, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 			if err != nil {
 				t.Fatal(err)
 			}
 			address := probe.Addr().String()
-			_ = probe.Close()
+			if err := probe.Close(); err != nil {
+				t.Fatal(err)
+			}
 			routes, run, shutdown, healthy := lifecycleHost(t, address)
 			entered, release := make(chan struct{}), make(chan struct{})
 			defer func() {
@@ -78,9 +84,11 @@ func TestHostLifecycle(t *testing.T) {
 			defer client.CloseIdleConnections()
 			deadline := time.Now().Add(5 * time.Second)
 			for {
-				resp, err := client.Get("http://" + address + "/__lifecycle/ready")
+				resp, err := lifecycleGet(t.Context(), client, "http://"+address+"/__lifecycle/ready")
 				if err == nil {
-					_ = resp.Body.Close()
+					if closeErr := resp.Body.Close(); closeErr != nil {
+						t.Fatal(closeErr)
+					}
 					break
 				}
 				if time.Now().After(deadline) {
@@ -90,13 +98,13 @@ func TestHostLifecycle(t *testing.T) {
 			}
 			response := make(chan error, 1)
 			go func() {
-				resp, err := client.Get("http://" + address + "/__lifecycle/slow")
+				resp, err := lifecycleGet(t.Context(), client, "http://"+address+"/__lifecycle/slow")
 				if err != nil {
 					response <- err
 					return
 				}
 				body, err := io.ReadAll(resp.Body)
-				_ = resp.Body.Close()
+				err = errors.Join(err, resp.Body.Close())
 				if err == nil && (resp.StatusCode != http.StatusOK || string(body) != "drained") {
 					err = fmt.Errorf("response %d %q", resp.StatusCode, body)
 				}
@@ -165,10 +173,20 @@ func lifecycleHost(t *testing.T, address string) (router.Router[*fiber.App], fun
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		_ = app.ShutdownWithContext(ctx)
+		if err := app.ShutdownWithContext(ctx); err != nil {
+			t.Error(err)
+		}
 	})
 	return adapter.Router(), func(ctx context.Context, timeout time.Duration) error {
 		adapter.Init()
 		return servePresentation(ctx, app, address, timeout)
 	}, app.ShutdownWithContext, func() error { return nil }
+}
+
+func lifecycleGet(ctx context.Context, client *http.Client, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return client.Do(req)
 }
