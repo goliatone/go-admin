@@ -7,7 +7,7 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin v0.142.0
+	github.com/goliatone/go-admin v0.142.1
 	github.com/goliatone/go-auth v0.45.6
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.6
 	github.com/goliatone/go-cache v0.3.1
@@ -117,9 +117,9 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/gofiber/utils/v2 v2.6.2 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
-	github.com/goliatone/go-config v0.14.0 // indirect
+	github.com/goliatone/go-config v0.15.0 // indirect
 	github.com/goliatone/go-crud v0.27.1 // indirect
-	github.com/goliatone/go-crud/gql v0.27.0 // indirect
+	github.com/goliatone/go-crud/gql v0.27.1 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect
 	github.com/goliatone/go-options v0.7.2 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect

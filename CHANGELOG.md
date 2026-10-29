@@ -1,11 +1,30 @@
 # Changelog
 
+# [0.142.1](https://github.com/goliatone/go-admin/compare/v0.142.0...v0.142.1) - (2026-10-29)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([eea30e3](https://github.com/goliatone/go-admin/commit/eea30e3e544034818d4b73a4c27697c39955cf23))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([689bbc0](https://github.com/goliatone/go-admin/commit/689bbc007c079eafe9f00526bc396a819c171b48))  - (goliatone)
+- Update deps ([8880e59](https://github.com/goliatone/go-admin/commit/8880e5959c6eb8e65fa2876f34ba9365a1d1d9ef))  - (goliatone)
+- Update examples ([2e5ac8c](https://github.com/goliatone/go-admin/commit/2e5ac8cceaffe33229dce82b2b4bec67915fc347))  - (goliatone)
+
 # [0.142.0](https://github.com/goliatone/go-admin/compare/v0.141.1...v0.142.0) - (2026-10-27)
+
+
+New minor release: v0.142.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Tests ([0b27e91](https://github.com/goliatone/go-admin/commit/0b27e91226bfd2262daeb2b717d32c8881d1fd34))  - (goliatone)
 - Tests and code quality ([7f04bbb](https://github.com/goliatone/go-admin/commit/7f04bbb907afd322b586514ef581926e9ce13651))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.142.0 ([66c523a](https://github.com/goliatone/go-admin/commit/66c523a46685fef938a87e96de5ba938985ea21e))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
