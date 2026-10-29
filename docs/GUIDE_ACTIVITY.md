@@ -9,13 +9,12 @@ and service, atomically writing `user_activity` and a producer-wide receipt.
 HTTP is the supplied transport; it does not require an admin browser session.
 Existing `ActivitySink.Record` integrations retain their existing write behavior.
 
-**Dependency adoption pending:** this source requires the go-users corrections in
-`activity-ingestion-prerequisites`: exact `LogEntry.Data` scans, null-safe
-PostgreSQL machine filtering, and `RepositoryConfig.MachineActivityFilter` with
-`ExcludeMachineActivity`. Published v0.27.5 lacks these capabilities. Review and
-release those owning-package changes, then update the consumer pins before using
-the normal module graph. Source integration is tested through an external temporary
-workspace; no permanent module replacement or dependency publication is included.
+The bundle relies on `go-users` for exact `LogEntry.Data` scans,
+null-safe PostgreSQL machine filtering, and `RepositoryConfig.MachineActivityFilter`
+with `ExcludeMachineActivity`. Use the dependencies declared in the
+[core](../go.mod), [quickstart](../quickstart/go.mod), and
+[examples](../examples/go.mod) module files; preserve these capabilities when
+overriding dependencies.
 
 ### Host setup and migrations
 

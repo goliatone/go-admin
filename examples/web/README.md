@@ -24,8 +24,8 @@ This example demonstrates:
 
 ### Prerequisites
 
-- Go 1.21+
-- Node.js 18+ (for Tailwind CSS build)
+- Go toolchain required by the [examples module](../go.mod)
+- Node from [.node-version](../../.node-version) and npm from the frontend [packageManager field](../../pkg/client/assets/package.json) (for the asset build)
 
 ### Running the Example
 
@@ -1330,6 +1330,6 @@ This example's existing hooks and read UI remain unchanged. Hosts needing durabl
 external business events can opt into the command/service ingestion bundle after
 explicit migrations and producer policy setup. See the
 [Activity guide](../../docs/GUIDE_ACTIVITY.md#durable-producer-ingestion) for the
-shared scope configuration, named URL override, pending dependency adoption and
-full feed/widget read wiring. Memory or best-effort hooks alone do not provide
+shared scope configuration, named URL override, released dependency requirements
+and full feed/widget read wiring. Memory or best-effort hooks alone do not provide
 transactional ingestion or persistent replay protection.

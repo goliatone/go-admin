@@ -673,10 +673,11 @@ Theme or host code may replace that leaf through `admin.page.breadcrumbs`; page
 actions remain trusted template-owned block content. The legacy
 `partials/admin-page-header.html`, `header_title`, `header_pretitle`,
 `header_actions`, and `tabs_area` contracts remain compatibility aliases for at
-least one major release, but are not the authoring path for new pages. They may
-not be removed before `v0.133.0`, and only after a downstream-usage audit finds
-no remaining consumers. The same gate applies to legacy DataGrid action class
-aliases and `status-badge` class aliases.
+least one major release, but are not the authoring path for new pages. Removal
+must satisfy the release floor in the
+[executable compatibility inventory](../pkg/client/customization_surface_inventory_test.go)
+and a downstream-usage audit must find no remaining consumers. The same gate
+applies to legacy DataGrid action class aliases and `status-badge` class aliases.
 
 ## Browser Components And Modal Composition
 

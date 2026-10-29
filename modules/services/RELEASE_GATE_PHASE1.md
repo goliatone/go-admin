@@ -105,7 +105,7 @@ Source-stable migration release gate:
 
 Versioning policy:
 
-- `go-services` is pre-`v1.0.0`; intentional breaking changes are allowed and must be documented in changelog and migration notes.
+- Follow `go-services` compatibility policy for intentional breaking changes and document them in changelog and migration notes.
 - `go-admin` should pin and validate against explicit `go-services` revisions before release tagging.
 
 ## Task 1.5 Dependency-Policy Compliance Check

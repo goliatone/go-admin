@@ -359,7 +359,7 @@ paths. Event and message overrides must retain exactly one `:event_id` and
 `:message_id` parameter respectively or startup validation fails. Both POST
 routes use the common cookie-session CSRF contract.
 
-Retention is global in `go-notifications v0.16.1`, so purge requires both its
+Retention is global in `go-notifications`, so purge requires both its
 permission and affirmative trusted system authority. Trusted host middleware
 may call `admin.WithNotificationSystemAuthority(ctx)`, or authentication may
 set the boolean actor metadata key

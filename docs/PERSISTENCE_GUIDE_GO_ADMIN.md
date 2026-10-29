@@ -408,4 +408,5 @@ Readiness checks schema and the producer/event primary key without creating data
 SQLite and PostgreSQL share acceptance/replay/rollback contracts. Preserve receipts
 after activity deletion, retain old fingerprint/result readers, and back up/restore
 both tables together. Receipt deletion permits event recreation. Canonical
-`json.Number` scanning requires the go-users adoption described in the Activity guide.
+`json.Number` scanning depends on the go-users activity reader preserving exact
+numbers, as described in the [Activity guide](GUIDE_ACTIVITY.md#durable-producer-ingestion).

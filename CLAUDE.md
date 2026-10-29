@@ -188,7 +188,7 @@ When extending the library:
 ## Dependencies & Local Development
 
 ### Go Version
-Requires Go 1.26.4. If you have go version mismatch issues, use the repository's configured Go toolchain or `go` when available.
+Use the Go toolchain declared in [go.mod](go.mod). Resolve version mismatches against that file rather than duplicating its requirement here.
 
 ### Module Structure
 The root `go.mod` has local replaces for quickstart and the incubated runtime modules:

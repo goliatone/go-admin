@@ -118,7 +118,7 @@ The adapter is admin-scoped. Public site theme packages must be wired through `q
 
 ## Semantic Projection And Diagnostics
 
-`go-theme` v0.5 adds an opt-in safe projection boundary:
+`go-theme` provides an opt-in safe projection boundary:
 
 ``` go
 profile := theme.PortableSemanticProfile()

@@ -282,6 +282,11 @@ When you change behavior:
   and keep the workspace `../GOLIATONE.md` package description aligned when
   responsibilities, public APIs, routes, migrations, or versions change.
 - Keep docs precise and operational (commands, paths, config keys).
+- Keep concrete package and toolchain versions in changelogs and their
+  authoritative manifests or tool configuration. READMEs and guides should link
+  to those sources, describe required capabilities, and use `X.Y.Z` placeholders
+  for release examples. Preserve API/import-path generations, schema versions,
+  and browser support contracts where the number defines behavior.
 
 Use docs for:
 

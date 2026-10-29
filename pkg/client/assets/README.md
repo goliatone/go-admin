@@ -2,8 +2,10 @@
 
 Public browser contracts for applications built with go-admin.
 
-Build with Node 24.21.0 (repository `.node-version`) and npm 11.17.0.
-The admin stylesheet uses Tailwind 4 through PostCSS and supports Safari 16.4+,
+Build with Node from the repository [.node-version](../../../.node-version) and
+npm from this package's [packageManager field](package.json), satisfying its
+`engines` requirements.
+The admin stylesheet uses Tailwind through PostCSS and supports Safari 16.4+,
 Chrome 111+ and Firefox 128+. `npm run build:css` and `npm run watch:css` share
 the production CSS pipeline; Vite uses the same PostCSS plugin. Source discovery
 and runtime utility classes are declared in `input.css`.

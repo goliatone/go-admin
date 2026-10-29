@@ -867,7 +867,7 @@ configurations and never updates tables outside the allowlist.
 ## Explicit Fiber v3 host and presentation
 
 `NewFiberV3ViewEngine`, `DefaultFiberV3TemplateFuncs` and
-`WithViewFiberV3TemplateFuncs` use the published go-router v0.63.0 contracts and
+`WithViewFiberV3TemplateFuncs` use the go-router Fiber v3 contracts and
 are available without build tags. Existing `NewViewEngine` and v2 host defaults
 remain unchanged. `NewFiberV3ErrorHandler` shares the v2 HTML/API presentation
 policy and accepts the same `FiberErrorHandlerOption` values, including custom
@@ -938,9 +938,8 @@ not modify the shared map or affect v2. Arbitrary v6 tags and boxed values are
 not translated; port their Go implementations explicitly. Additional v7 filters
 and tags can register on the returned `router.FiberV3ViewExtensions` interface.
 
-The current supporting packages form a local candidate set. Use the reviewed
-workspace containing go-admin and go-admin/quickstart, with published router
-v0.63.0; no local router replacement is needed. From quickstart:
+Use the repository [workspace](../go.work) and the published dependencies declared
+in [go.mod](go.mod). From quickstart:
 
 ```sh
 go test -race . -run '^TestFiberPresentation|^TestFiberV3|^TestDashboard' -count=1
@@ -2538,5 +2537,5 @@ migrate go-users activity/scopes and `admin.EnsureActivityIngestionSchema` first
 Provide producer/current-policy ports, browser authenticator, reader authorizer
 and access policy. The widget and full feed share durable authorized reads.
 See the [canonical setup and contract](../docs/GUIDE_ACTIVITY.md#durable-producer-ingestion),
-including its pending go-users release/adoption prerequisite. Disabled hosts retain
-legacy behavior; the helper performs no DDL and registers no implicit route alias.
+including its dependency and persistence contracts. Disabled hosts retain legacy
+behavior; the helper performs no DDL and registers no implicit route alias.

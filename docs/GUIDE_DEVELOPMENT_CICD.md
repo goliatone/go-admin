@@ -79,9 +79,10 @@ taskfile pins and install a matching binary when needed. The installer returns
 the binary from `GOBIN` (or `GOPATH/bin`), even when an older copy appears first
 on `PATH`.
 
-Go 1.27 requires `golangci-lint` v2.14.0 and a newer export-data reader than
-the tagged `gosec` v2.29.0 provides. The taskfile pins `gosec` to upstream commit
-`707f2271f665` (with `x/tools` v0.52.0) until a compatible tagged release is available.
+Use the toolchain declared in [go.mod](../go.mod) and the compatible quality-tool
+pins maintained in [.golangci-lint-version](../.golangci-lint-version) and
+[taskfile](../taskfile). Install through the tasks above to keep scanner and
+export-data support aligned with the repository toolchain.
 
 If you only need the linter:
 
@@ -273,17 +274,19 @@ when you are formally accepting the current backlog.
 
 ### Frontend toolchain and productization checks
 
-Use Node 24.21.0 from `.node-version` and npm 11.17.0 from the workspace
-`packageManager` field. Both npm workspaces enforce engine requirements during
-installation. Run `npm ci`, `npm audit --audit-level=high` and `npm test` in
+Use Node from [.node-version](../.node-version) and npm from each workspace's
+`packageManager` field: [admin assets](../pkg/client/assets/package.json) and
+[sync client](../pkg/go-sync/client/package.json). Both npm workspaces enforce
+engine requirements during installation. Run `npm ci`,
+`npm audit --audit-level=high` and `npm test` in
 `pkg/client/assets` and `pkg/go-sync/client`. The productization workflow audits
 both lockfiles in a separate required matrix job, so audit failures do not hide
 unit-test results. The aggregate gate requires audits and all test/build jobs.
 
-The stylesheet uses Tailwind 4 through its official PostCSS plugin. Production,
+The stylesheet uses Tailwind through its official PostCSS plugin. Production,
 CSS-only and watch builds share `scripts/build-css.mjs`; the watcher uses Node's
 filesystem API. Keep `@source` paths and runtime utility declarations in
-`input.css`. Public component selectors remain emitted without a v3 safelist.
+`input.css`. Public component selectors remain emitted without a legacy safelist.
 The scoped forms plugin still applies only under `admin-theme-root`, `site-shell`
 and `admin-forms-root`. Components and utilities remain unlayered to preserve
 selector precedence alongside go-formgen’s existing host stylesheet.
@@ -303,8 +306,8 @@ assets, run it only when you intend to publish.
 
 Browser-client release preflight requires:
 
-- Node `>=24.21.0` (CI pins `.node-version`)
-- npm `>=11.17.0`
+- Node from [.node-version](../.node-version)
+- npm from the browser client's [packageManager field](../pkg/client/assets/package.json), satisfying its `engines` requirements
 - `tar`
 - an authenticated GitHub CLI (`gh auth status` must succeed)
 

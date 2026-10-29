@@ -6,6 +6,14 @@ Important, the user wants to review all code changes before manually committing 
 
 This repository uses `.ctx/` as the canonical feature context system. For meaningful feature work, read `.ctx/README.md` and the relevant `.ctx/specs/<feature>/` files before making changes. Keep `REQUIREMENTS.md`, `DESIGN.md`, and `TASKS.md` aligned with implementation.
 
+## Documentation
+
+Do not duplicate concrete package or toolchain versions in READMEs, guides or
+other maintained documentation. Link to module manifests, package manifests or
+tool configuration for current requirements; use release placeholders in commands.
+Keep release-specific versions in changelogs. API/import-path generations, schema
+versions and browser support contracts may retain numbers that define behavior.
+
 ## Release Notes
 
 Manual release notes are temporary and optional.

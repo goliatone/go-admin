@@ -268,7 +268,7 @@ development error page:
 cfg.Deployment = admin.DeploymentIdentityConfig{
     AppID:       "orders-admin",
     AppName:     "Orders Admin",
-    AppVersion:  "v2.4.0",
+    AppVersion:  "vX.Y.Z", // Replace with the application's build version.
     Environment: "staging",
     EnvironmentColors: map[string]string{
         "staging": "#f59e0b",

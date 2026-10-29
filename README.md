@@ -12,7 +12,7 @@ module. The repository `go.work` includes all three for local development.
 
 ## Installation and package map
 
-Use the Go toolchain required by `go.mod` (currently Go 1.26.5). Consumers that
+Use the Go toolchain required by [go.mod](go.mod). Consumers that
 use quickstart must require both runtime modules at the same released version:
 
 ```sh
@@ -436,5 +436,4 @@ Mapping behavior:
 Opt-in producer ingestion uses a typed command/service and atomic activity/receipt
 storage, with shared scope settings and a URLKit `activity.ingest` override.
 See the [Activity guide](docs/GUIDE_ACTIVITY.md#durable-producer-ingestion) for
-migration order, producer authentication, replay and feed/widget wiring, including
-the pending go-users dependency adoption required by this source.
+migration order, producer authentication, replay and feed/widget wiring.

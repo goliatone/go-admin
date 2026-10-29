@@ -106,7 +106,7 @@ func TestAdminShellCustomizationDocsMatchRuntimeContract(t *testing.T) {
 			"@goliatone/go-admin-client/components.css",
 			"single self-contained source",
 			"were consolidated and removed",
-			"v0.133.0",
+			"../pkg/client/customization_surface_inventory_test.go",
 		},
 		"docs/GUIDE_THEME.md": {
 			"ThemeSelection.Partials",
