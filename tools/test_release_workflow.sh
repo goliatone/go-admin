@@ -211,6 +211,51 @@ function test_go_quality_cache_stays_outside_repository {
     )
 }
 
+function test_go_quality_all_lints_full_repository {
+    (
+        local lint_fixture="${fixture_root}/quality-full-lint"
+        mkdir -p "${lint_fixture}"
+        export QUALITY_TEST_LINT_LOG="${lint_fixture}/lint.log"
+        export QUALITY_TEST_LINT_EXIT=0
+        local security_log="${lint_fixture}/security.log"
+        cat > "${lint_fixture}/golangci-lint" <<'LINT'
+#!/bin/bash
+printf '%s\n' "$*" >> "${QUALITY_TEST_LINT_LOG}"
+exit "${QUALITY_TEST_LINT_EXIT}"
+LINT
+        chmod +x "${lint_fixture}/golangci-lint"
+
+        function _go:golangci_lint:ensure { printf '%s\n' "${lint_fixture}/golangci-lint"; }
+        function _go:quality:prepare_env { :; }
+        function go:fmt { :; }
+        function go:fix { :; }
+        function go:fmt:check { :; }
+        function go:test { :; }
+        function go:race { :; }
+        function go:security:all { printf 'security\n' >> "${security_log}"; }
+
+        go:quality:all ./... ./quickstart/... ./examples/...
+        assert_file_content "${QUALITY_TEST_LINT_LOG}" 'run ./... ./quickstart/... ./examples/...'
+        assert_file_content "${security_log}" 'security'
+
+        : > "${QUALITY_TEST_LINT_LOG}"
+        : > "${security_log}"
+        QUALITY_TEST_LINT_EXIT=1
+        if go:quality:all ./... ./quickstart/... ./examples/...; then
+            echo "full quality gate ignored lint failure" >&2
+            return 1
+        fi
+        assert_file_content "${QUALITY_TEST_LINT_LOG}" 'run ./... ./quickstart/... ./examples/...'
+        assert_file_content "${security_log}" ''
+
+        : > "${QUALITY_TEST_LINT_LOG}"
+        QUALITY_TEST_LINT_EXIT=0
+        GO_LINT_NEW_FROM_REV=quality-test-base
+        go:quality:pr ./... ./quickstart/... ./examples/...
+        assert_file_content "${QUALITY_TEST_LINT_LOG}" 'run --new-from-rev=quality-test-base --whole-files ./... ./quickstart/... ./examples/...'
+    )
+}
+
 function test_go_file_discovery_excludes_external_workspaces {
     local source_fixture="${fixture_root}/source-discovery"
     local path
@@ -1697,6 +1742,7 @@ for release_test in \
     test_release_source_isolation \
     test_isolated_release_faults \
     test_go_quality_cache_stays_outside_repository \
+    test_go_quality_all_lints_full_repository \
     test_go_file_discovery_excludes_external_workspaces \
     test_go_package_discovery_excludes_evidence \
     test_module_discovery \

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func ingestionTestEvent() ActivityIngestionEvent {
 
 func TestActivityIngestionStrictCodec(t *testing.T) {
 	e := ingestionTestEvent()
-	raw, _ := json.Marshal(e)
+	raw := ingestionTestJSON(t, e)
 	valid := []string{string(raw), strings.Replace(string(raw), `"scope":{"tenant_id":"`+ingestTenant+`","org_id":"`+ingestOrg+`"}`, `"scope":{}`, 1), strings.Replace(string(raw), `"scope":{"tenant_id":"`+ingestTenant+`","org_id":"`+ingestOrg+`"},`, "", 1)}
 	for _, s := range valid {
 		if _, err := DecodeActivityIngestionEvent([]byte(s)); err != nil {
@@ -74,18 +75,27 @@ func TestActivityIngestionFingerprint(t *testing.T) {
 		t.Fatalf("equivalent fingerprints differ %s %s %v", a, b, err)
 	}
 	same.Metadata = json.RawMessage(`{"z":9007199254740992,"a":[1,0.0123,0]}`)
-	b, _ = ActivityIngestionFingerprint(same, 1)
+	b, err = ActivityIngestionFingerprint(same, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if a == b {
 		t.Fatal("large integer rounded")
 	}
 	same = ingestionTestEvent()
-	a, _ = ActivityIngestionFingerprint(same, 1)
+	a, err = ActivityIngestionFingerprint(same, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	same.Metadata = json.RawMessage(`{}`)
-	b, _ = ActivityIngestionFingerprint(same, 1)
+	b, err = ActivityIngestionFingerprint(same, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if a != b {
 		t.Fatal("omitted metadata differs")
 	}
-	if _, err = ActivityIngestionFingerprint(first, 2); err != ErrActivityIngestionReplayVersion {
+	if _, err = ActivityIngestionFingerprint(first, 2); !errors.Is(err, ErrActivityIngestionReplayVersion) {
 		t.Fatal(err)
 	}
 	for _, value := range []any{map[string]any{"x": float64(1)}, map[string]any{"x": float32(1)}, map[string]any{"x": time.Now()}} {
@@ -118,7 +128,7 @@ func TestActivityIngestionScopeResolution(t *testing.T) {
 		t.Fatalf("binding: %+v %v", got, err)
 	}
 	for _, p := range []ScopePolicy{single, multi} {
-		if _, err = ResolveActivityIngestionScope(p, ScopeInput{TenantID: ingestActor, OrgID: ingestOrg}, want); err != ErrActivityIngestionForbidden {
+		if _, err = ResolveActivityIngestionScope(p, ScopeInput{TenantID: ingestActor, OrgID: ingestOrg}, want); !errors.Is(err, ErrActivityIngestionForbidden) {
 			t.Fatal("binding conflict accepted", err)
 		}
 	}
@@ -127,18 +137,18 @@ func TestActivityIngestionScopeResolution(t *testing.T) {
 		t.Fatal("default org treated as fixed org", err)
 	}
 	single.Mode = "unknown"
-	if _, err = ResolveActivityIngestionScope(single, want, ScopeInput{}); err != ErrActivityIngestionUnavailable {
+	if _, err = ResolveActivityIngestionScope(single, want, ScopeInput{}); !errors.Is(err, ErrActivityIngestionUnavailable) {
 		t.Fatal("unknown mode accepted", err)
 	}
 }
 func TestActivityIngestionContextAndDispatchBoundary(t *testing.T) {
-	if _, ok := ActivityProducerFromContext(context.WithValue(context.Background(), "producer_id", "forged")); ok {
+	if _, ok := ActivityProducerFromContext(context.WithValue(t.Context(), "producer_id", "forged")); ok { //nolint:staticcheck // Verify an untrusted string key cannot forge the private producer context.
 		t.Fatal("forged context accepted")
 	}
 	now := time.Now()
 	for _, opts := range []command.DispatchOptions{{Mode: command.ExecutionModeQueued}, {Delay: time.Second}, {RunAt: &now}, {IdempotencyKey: "other"}, {DedupPolicy: command.DedupPolicyDrop}} {
 		ctx := command.ContextWithDispatchOptions(context.Background(), opts)
-		if _, err := DispatchActivityIngestion(ctx, nil, ActivityIngestMsg{Event: ingestionTestEvent()}); err != ErrActivityIngestionInvalid {
+		if _, err := DispatchActivityIngestion(ctx, nil, ActivityIngestMsg{Event: ingestionTestEvent()}); !errors.Is(err, ErrActivityIngestionInvalid) {
 			t.Fatalf("unsafe options reached bus: %+v %v", opts, err)
 		}
 	}
@@ -153,7 +163,7 @@ func TestActivityIngestionVerifiedClaims(t *testing.T) {
 	for _, mutate := range []func(*ActivityProducerPrincipal){func(p *ActivityProducerPrincipal) { p.Purpose = "browser" }, func(p *ActivityProducerPrincipal) { p.Audience = "browser" }, func(p *ActivityProducerPrincipal) { p.Issuer = "foreign" }, func(p *ActivityProducerPrincipal) { p.ExpiresAt = now }, func(p *ActivityProducerPrincipal) { p.NotBefore = now.Add(time.Second) }, func(p *ActivityProducerPrincipal) { p.CredentialID = "" }} {
 		q := p
 		mutate(&q)
-		if validateActivityProducer(q, "host", "activity", now) != ErrActivityIngestionUnauthenticated {
+		if !errors.Is(validateActivityProducer(q, "host", "activity", now), ErrActivityIngestionUnauthenticated) {
 			t.Fatal("invalid principal accepted")
 		}
 	}
@@ -165,8 +175,17 @@ func TestActivityIngestionVerifiedClaims(t *testing.T) {
 	for _, mutate := range []func(*ActivityAttributionEvidence){func(e *ActivityAttributionEvidence) { e.Scope.OrgID = ingestActor }, func(e *ActivityAttributionEvidence) { e.ProducerID = "different" }, func(e *ActivityAttributionEvidence) { e.ActorID = ingestTenant }, func(e *ActivityAttributionEvidence) { e.Purpose = "login" }, func(e *ActivityAttributionEvidence) { e.ExpiresAt = now }} {
 		q := proof
 		mutate(&q)
-		if validateActivityAttribution(q, p, e, now) != ErrActivityIngestionForbidden {
+		if !errors.Is(validateActivityAttribution(q, p, e, now), ErrActivityIngestionForbidden) {
 			t.Fatal("mismatched evidence accepted")
 		}
 	}
+}
+
+func ingestionTestJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }

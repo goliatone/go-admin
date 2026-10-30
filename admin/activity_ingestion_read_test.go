@@ -77,9 +77,9 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 	producer := WithVerifiedActivityProducer(context.Background(), ingestionTestPrincipal())
 	e := ingestionTestEvent()
 	e.Metadata = json.RawMessage(`{"large":9007199254740993,"amount":0.01234567890123456789,"huge":1e309,"secret":"redact","system":true,"machine":true,"actor":{"type":"system"},"batch":true}`)
-	first, err := runtime.Service.Ingest(producer, e)
-	if err != nil {
-		t.Fatal(err)
+	first, ingestErr := runtime.Service.Ingest(producer, e)
+	if ingestErr != nil {
+		t.Fatal(ingestErr)
 	}
 	if replay, err := runtime.Service.Ingest(producer, e); err != nil || !replay.Replayed || replay.ActivityID != first.ActivityID {
 		t.Fatal("exact-number replay", replay, err)
@@ -93,7 +93,7 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 	}
 	ctx := ingestionReaderContext(policy.scope)
 	fetch := func(ctx context.Context) *httptest.ResponseRecorder {
-		req := httptest.NewRequest("GET", "/admin/api/activity", nil).WithContext(ctx)
+		req := httptest.NewRequestWithContext(ctx, "GET", "/admin/api/activity", nil)
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
 		return rr
@@ -159,13 +159,13 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		entries := payload.Value().(ActivityFeedWidgetPayload).Entries
+		entries := ingestionTestWidgetEntries(t, payload.Value())
 		checkEntries(entries)
 		encoded, err := encodeWidgetPayload(payload)
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw, _ := json.Marshal(encoded)
+		raw := ingestionTestJSON(t, encoded)
 		var out ActivityFeedWidgetPayload
 		dec := json.NewDecoder(bytes.NewReader(raw))
 		dec.UseNumber()
@@ -213,19 +213,23 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 			rr := fetch(ctx)
 			dec := json.NewDecoder(rr.Body)
 			dec.UseNumber()
-			if err := dec.Decode(&response); err != nil || rr.Code != 200 || len(response.Entries) != 1 || response.Entries[0].Actor == "System" {
-				t.Fatal("API trusted machine visibility", rr.Code, response, err)
+			if decodeErr := dec.Decode(&response); decodeErr != nil || rr.Code != 200 || len(response.Entries) != 1 || response.Entries[0].Actor == "System" {
+				t.Fatal("API trusted machine visibility", rr.Code, response, decodeErr)
 			}
 			payload, err := widget.Handler(AdminContext{Context: ctx}, map[string]any{"limit": 1})
-			if err != nil || len(payload.Value().(ActivityFeedWidgetPayload).Entries) != 1 || payload.Value().(ActivityFeedWidgetPayload).Entries[0].Actor == "System" {
+			if err != nil {
+				t.Fatal("widget trusted machine visibility", err)
+			}
+			visible := ingestionTestWidgetEntries(t, payload.Value())
+			if len(visible) != 1 || visible[0].Actor == "System" {
 				t.Fatal("widget trusted machine visibility", payload, err)
 			}
 		}
 	}
 	readPolicy.base = usersactivity.NewDefaultAccessPolicy(usersactivity.WithPolicyFilterOptions(usersactivity.WithChannelAllowlist("other")))
-	entries, err := runtime.Sink.List(ctx, 10)
-	if err != nil || len(entries) != 0 {
-		t.Fatal("channel policy", entries, err)
+	entries, listErr := runtime.Sink.List(ctx, 10)
+	if listErr != nil || len(entries) != 0 {
+		t.Fatal("channel policy", entries, listErr)
 	}
 	readPolicy.base = usersactivity.NewDefaultAccessPolicy(usersactivity.WithPolicyFilterOptions(usersactivity.WithMachineActivityEnabled(true)))
 	// Existing rows can exceed ingestion-only byte/depth limits. They must still
@@ -243,11 +247,11 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 	if rr.Code != 200 || bytes.Contains(rr.Body.Bytes(), []byte("legacy_payload")) || !bytes.Contains(rr.Body.Bytes(), []byte("legacy.saved")) {
 		t.Fatal("legacy API read/sanitization", rr.Code, rr.Body.String())
 	}
-	payload, err := widget.Handler(AdminContext{Context: ctx}, map[string]any{"limit": 10})
-	if err != nil {
-		t.Fatal("legacy widget read", err)
+	payload, widgetErr := widget.Handler(AdminContext{Context: ctx}, map[string]any{"limit": 10})
+	if widgetErr != nil {
+		t.Fatal("legacy widget read", widgetErr)
 	}
-	if got := payload.Value().(ActivityFeedWidgetPayload).Entries; len(got) != 3 {
+	if got := ingestionTestWidgetEntries(t, payload.Value()); len(got) != 3 {
 		t.Fatal("legacy missing from widget", got)
 	} else {
 		for _, entry := range got {
@@ -263,9 +267,9 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 		t.Fatal(err)
 	}
 	readPolicy.base = usersactivity.NewDefaultAccessPolicy(usersactivity.WithPolicyFilterOptions(usersactivity.WithMachineActivityEnabled(false), usersactivity.WithMachineDataKeys("batch")))
-	page, err := runtime.Feed.Query(ctx, types.ActivityFilter{Pagination: types.Pagination{Limit: 1}})
-	if err != nil || page.Total != 2 || len(page.Records) != 1 {
-		t.Fatal("legacy/custom alias classification before count and limit", page, err)
+	page, pageErr := runtime.Feed.Query(ctx, types.ActivityFilter{Pagination: types.Pagination{Limit: 1}})
+	if pageErr != nil || page.Total != 2 || len(page.Records) != 1 {
+		t.Fatal("legacy/custom alias classification before count and limit", page, pageErr)
 	}
 	rr = fetch(ctx)
 	var mixed activityListResponse
@@ -274,12 +278,12 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 	if err := dec.Decode(&mixed); err != nil || rr.Code != 200 || mixed.Total != 2 || len(mixed.Entries) != 2 {
 		t.Fatal("mixed legacy/ingested API classification", rr.Code, mixed, err)
 	}
-	payload, err = widget.Handler(AdminContext{Context: ctx}, map[string]any{"limit": 10})
-	if err != nil || len(payload.Value().(ActivityFeedWidgetPayload).Entries) != 2 {
-		t.Fatal("mixed legacy/ingested widget classification", payload, err)
+	payload, widgetErr = widget.Handler(AdminContext{Context: ctx}, map[string]any{"limit": 10})
+	if widgetErr != nil || len(ingestionTestWidgetEntries(t, payload.Value())) != 2 {
+		t.Fatal("mixed legacy/ingested widget classification", payload, widgetErr)
 	}
 	a.activityReadIdentityResolver = ingestionBrokenIdentity{}
-	if _, err = runtime.Sink.List(ctx, 10); err == nil {
+	if _, err := runtime.Sink.List(ctx, 10); err == nil {
 		t.Fatal("identity read failed open")
 	}
 	if rr := fetch(ctx); rr.Code != 503 {
@@ -291,7 +295,7 @@ func runActivityIngestionReadContract(t *testing.T, postgres bool) {
 	if a.ActivityFeed() != runtime.Sink {
 		t.Fatal("host writer replacement split durable reads")
 	}
-	if err = a.ActivityFeed().Record(ctx, ActivityEntry{Action: "legacy"}); err != nil {
+	if err := a.ActivityFeed().Record(ctx, ActivityEntry{Action: "legacy"}); err != nil {
 		t.Fatal(err)
 	}
 	if entries, err := replacement.List(ctx, 10); err != nil || len(entries) != 1 {
@@ -312,4 +316,13 @@ func assertIngestionExactNumber(t *testing.T, value any, expected string) {
 	if !gotOK || !wantOK || got.Cmp(want) != 0 {
 		t.Fatalf("numeric value changed: %s != %s", n, expected)
 	}
+}
+
+func ingestionTestWidgetEntries(t *testing.T, value any) []ActivityEntry {
+	t.Helper()
+	payload, ok := value.(ActivityFeedWidgetPayload)
+	if !ok {
+		t.Fatalf("expected activity widget payload, got %T", value)
+	}
+	return payload.Entries
 }

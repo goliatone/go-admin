@@ -45,7 +45,14 @@ func ingestionTestDatabase(t *testing.T, postgres bool) (*bun.DB, func() *bun.DB
 		if _, err = base.ExecContext(ctx, `CREATE SCHEMA "`+schema+`"`); err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() { _, _ = base.ExecContext(ctx, `DROP SCHEMA "`+schema+`" CASCADE`); _ = base.Close() })
+		t.Cleanup(func() {
+			if _, cleanupErr := base.ExecContext(ctx, `DROP SCHEMA "`+schema+`" CASCADE`); cleanupErr != nil {
+				t.Errorf("drop ingestion schema: %v", cleanupErr)
+			}
+			if closeErr := base.Close(); closeErr != nil {
+				t.Errorf("close ingestion schema connection: %v", closeErr)
+			}
+		})
 		parsed, err := url.Parse(dsn)
 		if err != nil {
 			t.Fatal(err)
@@ -67,11 +74,15 @@ func ingestionTestDatabase(t *testing.T, postgres bool) (*bun.DB, func() *bun.DB
 		} else {
 			db = bun.NewDB(raw, sqlitedialect.New())
 		}
-		t.Cleanup(func() { _ = db.Close() })
+		t.Cleanup(func() {
+			if err := db.Close(); err != nil {
+				t.Errorf("close ingestion database: %v", err)
+			}
+		})
 		return db
 	}
 	db := open()
-	store, _ := NewBunActivityIngestionStore(db)
+	store := ingestionTestStore(t, db)
 	if store.CheckReady(ctx) == nil {
 		t.Fatal("missing schema reported ready")
 	}
@@ -96,6 +107,15 @@ func ingestionTestDatabase(t *testing.T, postgres bool) (*bun.DB, func() *bun.DB
 	}
 	return db, open
 }
+func ingestionTestStore(t *testing.T, db *bun.DB) *BunActivityIngestionStore {
+	t.Helper()
+	store, err := NewBunActivityIngestionStore(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
 func stringsForSchema(s string) string {
 	out := []byte(s)
 	for i, c := range out {
@@ -105,22 +125,26 @@ func stringsForSchema(s string) string {
 	}
 	return string(out)
 }
-func ingestionTestReceipt(id string) (ActivityIngestionReceipt, types.ActivityRecord) {
+func ingestionTestReceipt(t *testing.T, id string) (ActivityIngestionReceipt, types.ActivityRecord) {
+	t.Helper()
 	e := ingestionTestEvent()
 	e.EventID = id
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	aid := uuid.New()
-	fp, _ := ActivityIngestionFingerprint(e, 1)
+	fp, err := ActivityIngestionFingerprint(e, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	r := ActivityIngestionReceipt{ProducerID: "billing", EventID: id, Scope: e.Scope, FingerprintVersion: 1, Fingerprint: fp, ResultVersion: 1, Result: ActivityIngestResult{ActivityID: aid, EventID: id, Scope: e.Scope, OccurredAt: e.OccurredAt, ReceivedAt: now}, ActorKind: "user", Attribution: "producer_attested", ActorID: uuid.MustParse(ingestActor)}
 	record := types.ActivityRecord{ID: aid, ActorID: r.ActorID, TenantID: uuid.MustParse(ingestTenant), OrgID: uuid.MustParse(ingestOrg), Verb: e.Action, ObjectType: e.Object.Type, ObjectID: e.Object.ID, Channel: e.Channel, OccurredAt: e.OccurredAt, Data: map[string]any{"large": json.Number("9007199254740993"), "amount": json.Number("123.000000000000000001")}}
 	return r, record
 }
 func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 	db, reopen := ingestionTestDatabase(t, postgres)
-	s, _ := NewBunActivityIngestionStore(db)
+	s := ingestionTestStore(t, db)
 	ctx := context.Background()
-	receipt, record := ingestionTestReceipt("store-event")
-	err := s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+	receipt, record := ingestionTestReceipt(t, "store-event")
+	storeErr := s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
 		ok, err := tx.Reserve(ctx, receipt)
 		if err != nil {
 			return err
@@ -130,15 +154,15 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 		}
 		return tx.Append(ctx, record)
 	})
-	if err != nil {
-		t.Fatal(err)
+	if storeErr != nil {
+		t.Fatal(storeErr)
 	}
-	second, _ := NewBunActivityIngestionStore(reopen())
-	binding, err := second.Binding(ctx, "billing", "store-event")
-	if err != nil || binding == nil || *binding != receipt.Scope {
-		t.Fatal("restart binding", binding, err)
+	second := ingestionTestStore(t, reopen())
+	binding, bindingErr := second.Binding(ctx, "billing", "store-event")
+	if bindingErr != nil || binding == nil || *binding != receipt.Scope {
+		t.Fatal("restart binding", binding, bindingErr)
 	}
-	err = second.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+	storeErr = second.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
 		ok, err := tx.Reserve(ctx, receipt)
 		if err != nil {
 			return err
@@ -164,13 +188,13 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 		}
 		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
+	if storeErr != nil {
+		t.Fatal(storeErr)
 	}
 	scope := types.ScopeFilter{TenantID: record.TenantID, OrgID: record.OrgID}
-	page, err := s.repository.ListActivity(ctx, types.ActivityFilter{Scope: scope})
-	if err != nil {
-		t.Fatal(err)
+	page, pageErr := s.repository.ListActivity(ctx, types.ActivityFilter{Scope: scope})
+	if pageErr != nil {
+		t.Fatal(pageErr)
 	}
 	if len(page.Records) != 1 {
 		t.Fatalf("want one record, got %d", len(page.Records))
@@ -179,19 +203,19 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 	if data["large"] != json.Number("9007199254740993") || data["amount"] != json.Number("123.000000000000000001") {
 		t.Fatal("numbers rounded", data)
 	}
-	identities, err := s.ResolveActivityReadIdentities(ctx, ActivityReadContext{Scope: scope}, []types.ActivityRecord{record})
-	if err != nil || identities[record.ID].ActorKind != "user" {
-		t.Fatal("identity", identities, err)
+	identities, identityErr := s.ResolveActivityReadIdentities(ctx, ActivityReadContext{Scope: scope}, []types.ActivityRecord{record})
+	if identityErr != nil || identities[record.ID].ActorKind != "user" {
+		t.Fatal("identity", identities, identityErr)
 	}
 	changed := record
 	changed.UserID = uuid.New()
-	if _, err = s.ResolveActivityReadIdentities(ctx, ActivityReadContext{Scope: scope}, []types.ActivityRecord{changed}); err == nil {
+	if _, err := s.ResolveActivityReadIdentities(ctx, ActivityReadContext{Scope: scope}, []types.ActivityRecord{changed}); err == nil {
 		t.Fatal("identity mismatch accepted")
 	}
 	for _, name := range []string{"callback-rollback", "append-rollback", "cancel-rollback"} {
-		r, entry := ingestionTestReceipt(name)
+		r, entry := ingestionTestReceipt(t, name)
 		sentinel := errors.New("rollback")
-		err = s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+		storeErr = s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
 			ok, err := tx.Reserve(ctx, r)
 			if err != nil {
 				return err
@@ -211,42 +235,46 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 			}
 			return sentinel
 		})
-		if err == nil {
+		if storeErr == nil {
 			t.Fatal("rollback returned success")
 		}
-		binding, err = s.Binding(ctx, r.ProducerID, r.EventID)
-		if err != nil || binding != nil {
-			t.Fatal("orphan receipt", binding, err)
+		binding, bindingErr = s.Binding(ctx, r.ProducerID, r.EventID)
+		if bindingErr != nil || binding != nil {
+			t.Fatal("orphan receipt", binding, bindingErr)
 		}
 	}
 	// A deferred database constraint fails at commit after both writes succeed.
-	if _, err = db.ExecContext(ctx, "CREATE TABLE ingestion_commit_parent (id INTEGER PRIMARY KEY); CREATE TABLE ingestion_commit_child (id INTEGER REFERENCES ingestion_commit_parent(id) DEFERRABLE INITIALLY DEFERRED)"); err != nil {
+	if _, err := db.ExecContext(ctx, "CREATE TABLE ingestion_commit_parent (id INTEGER PRIMARY KEY); CREATE TABLE ingestion_commit_child (id INTEGER REFERENCES ingestion_commit_parent(id) DEFERRABLE INITIALLY DEFERRED)"); err != nil {
 		t.Fatal(err)
 	}
-	failedReceipt, failedEntry := ingestionTestReceipt("commit-rollback")
-	err = s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+	failedReceipt, failedEntry := ingestionTestReceipt(t, "commit-rollback")
+	storeErr = s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
 		if _, err := tx.Reserve(ctx, failedReceipt); err != nil {
 			return err
 		}
 		if err := tx.Append(ctx, failedEntry); err != nil {
 			return err
 		}
-		_, err := tx.(*bunActivityIngestionTx).tx.ExecContext(ctx, "INSERT INTO ingestion_commit_child(id) VALUES (123)")
+		bunTx, ok := tx.(*bunActivityIngestionTx)
+		if !ok {
+			t.Fatalf("unexpected transaction type %T", tx)
+		}
+		_, err := bunTx.tx.ExecContext(ctx, "INSERT INTO ingestion_commit_child(id) VALUES (123)")
 		return err
 	})
-	if err == nil {
+	if storeErr == nil {
 		t.Fatal("failed commit returned success")
 	}
-	if binding, err := s.Binding(ctx, failedReceipt.ProducerID, failedReceipt.EventID); err != nil || binding != nil {
-		t.Fatal("commit failure retained receipt", binding, err)
+	if failedBinding, err := s.Binding(ctx, failedReceipt.ProducerID, failedReceipt.EventID); err != nil || failedBinding != nil {
+		t.Fatal("commit failure retained receipt", failedBinding, err)
 	}
 	var failedCount int
 	if err := db.NewSelect().Table("user_activity").ColumnExpr("count(*)").Where("id = ?", failedEntry.ID).Scan(ctx, &failedCount); err != nil || failedCount != 0 {
 		t.Fatal("commit failure retained activity", failedCount, err)
 	}
 	// Different casing remains a distinct opaque producer-wide event identity.
-	r, entry := ingestionTestReceipt("Store-event")
-	if err = s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+	r, entry := ingestionTestReceipt(t, "Store-event")
+	if err := s.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
 		ok, err := tx.Reserve(ctx, r)
 		if err != nil {
 			return err
@@ -261,19 +289,21 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 	var wg sync.WaitGroup
 	var winners atomic.Int32
 	errs := make(chan error, 8)
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			other, _ := NewBunActivityIngestionStore(reopen())
-			r, entry := ingestionTestReceipt("concurrent")
+	for i := range 8 {
+		wg.Go(func() {
+			other, openErr := NewBunActivityIngestionStore(reopen())
+			if openErr != nil {
+				errs <- openErr
+				return
+			}
+			r, entry := ingestionTestReceipt(t, "concurrent")
 			if i%2 == 1 {
 				r.Scope.OrgID = ingestActor
 				r.Result.Scope = r.Scope
 				entry.OrgID = uuid.MustParse(ingestActor)
 			}
-			for attempts := 0; attempts < 3; attempts++ {
-				err := other.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+			for range 3 {
+				attemptErr := other.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
 					ok, err := tx.Reserve(ctx, r)
 					if err != nil {
 						return err
@@ -287,14 +317,14 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 					winners.Add(1)
 					return nil
 				})
-				if errors.Is(err, ErrActivityIngestionContention) {
+				if errors.Is(attemptErr, ErrActivityIngestionContention) {
 					continue
 				}
-				errs <- err
+				errs <- attemptErr
 				return
 			}
 			errs <- ErrActivityIngestionContention
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
@@ -306,16 +336,16 @@ func runActivityIngestionStoreContract(t *testing.T, postgres bool) {
 	if winners.Load() != 1 {
 		t.Fatal("concurrent winners", winners.Load())
 	}
-	if _, err = db.NewDelete().Table("user_activity").Where("id = ?", record.ID).Exec(ctx); err != nil {
+	if _, err := db.NewDelete().Table("user_activity").Where("id = ?", record.ID).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
-	binding, err = s.Binding(ctx, "billing", "store-event")
-	if err != nil || binding == nil {
+	binding, bindingErr = s.Binding(ctx, "billing", "store-event")
+	if bindingErr != nil || binding == nil {
 		t.Fatal("receipt deleted with activity")
 	}
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
-	if err = s.WithinTransaction(canceled, func(ActivityIngestionTransaction) error { return nil }); err == nil {
+	if err := s.WithinTransaction(canceled, func(ActivityIngestionTransaction) error { return nil }); err == nil {
 		t.Fatal("canceled transaction succeeded")
 	}
 }

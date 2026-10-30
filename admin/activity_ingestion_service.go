@@ -93,130 +93,176 @@ func (s *ActivityIngestionService) Ingest(ctx context.Context, input ActivityIng
 	if err = checkActivityIngestionDispatch(ctx); err != nil {
 		return result, err
 	}
-	event, err := normalizeActivityIngestionEvent(input)
+	event, err := s.normalizeEvent(input)
 	if err != nil {
 		return result, err
-	}
-	raw, _ := json.Marshal(event)
-	if len(raw) > s.config.MaxEnvelopeBytes || len(event.Metadata) > s.config.MaxMetadataBytes {
-		return result, ErrActivityIngestionTooLarge
 	}
 	p, ok := ActivityProducerFromContext(ctx)
 	if !ok {
 		return result, ErrActivityIngestionUnauthenticated
 	}
-	for attempt := 0; attempt < 3; attempt++ {
-		if ctx.Err() != nil {
-			return ActivityIngestResult{}, ErrActivityIngestionUnavailable
+	for range 3 {
+		result, err = s.ingestAttempt(ctx, p, event)
+		if !errors.Is(err, ErrActivityIngestionContention) {
+			return result, err
 		}
-		now := s.config.Clock().UTC().Truncate(time.Microsecond)
-		if err = validateActivityProducer(p, s.config.Issuer, s.config.Audience, now); err != nil {
-			return ActivityIngestResult{}, err
-		}
-		if err = s.config.Policy.CheckActivityProducer(ctx, p, cloneActivityIngestionEvent(event)); err != nil {
-			return ActivityIngestResult{}, safeActivityAuthorityError(err)
-		}
-		binding, err := s.config.Store.Binding(ctx, p.ProducerID, event.EventID)
-		if err != nil {
-			return ActivityIngestResult{}, ErrActivityIngestionUnavailable
-		}
-		resolved := event
-		targetConflict := false
-		if binding != nil {
-			// Stored targets are private until current authorization succeeds. Requested
-			// differences never allocate a second identity or reveal the stored target.
-			targetConflict = (event.Scope.TenantID != "" && event.Scope.TenantID != binding.TenantID) || (event.Scope.OrgID != "" && event.Scope.OrgID != binding.OrgID)
-			resolved.Scope = *binding
-		}
-		resolved.Scope, err = ResolveActivityIngestionScope(s.config.ScopePolicy, resolved.Scope, p.Binding)
-		if err != nil {
-			return ActivityIngestResult{}, err
-		}
-		attribution, err := s.authorize(ctx, p, resolved, now)
-		if err != nil {
-			return ActivityIngestResult{}, err
-		}
-		if targetConflict {
-			return ActivityIngestResult{}, ErrActivityIngestionConflict
-		}
-		fingerprint, err := ActivityIngestionFingerprint(resolved, ActivityIngestionFingerprintV1)
-		if err != nil {
-			return ActivityIngestResult{}, err
-		}
-		candidate := ActivityIngestResult{ActivityID: uuid.New(), EventID: resolved.EventID, Scope: resolved.Scope, OccurredAt: resolved.OccurredAt, ReceivedAt: now}
-		receipt := ActivityIngestionReceipt{ProducerID: p.ProducerID, EventID: resolved.EventID, Scope: resolved.Scope, FingerprintVersion: ActivityIngestionFingerprintV1, Fingerprint: fingerprint, ResultVersion: 1, Result: candidate, ActorKind: resolved.Actor.Kind, Attribution: attribution}
-		if resolved.Actor.ID != "" {
-			receipt.ActorID = uuid.MustParse(resolved.Actor.ID)
-		}
-		if resolved.SubjectUserID != "" {
-			receipt.SubjectUserID = uuid.MustParse(resolved.SubjectUserID)
-		}
-		err = s.config.Store.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
-			inserted, err := tx.Reserve(ctx, receipt)
-			if err != nil {
-				return err
-			}
-			if !inserted {
-				// A concurrent winner first discovered inside this transaction requires a
-				// fresh outer binding/authorization pass; never authorize via its full receipt.
-				if binding == nil {
-					return ErrActivityIngestionContention
-				}
-				stored, err := tx.Receipt(ctx, p.ProducerID, resolved.EventID, resolved.Scope)
-				if err != nil {
-					return err
-				}
-				if stored == nil {
-					return ErrActivityIngestionUnavailable
-				}
-				if stored.ResultVersion != 1 {
-					return ErrActivityIngestionReplayVersion
-				}
-				expected, err := ActivityIngestionFingerprint(resolved, stored.FingerprintVersion)
-				if err != nil {
-					return err
-				}
-				if expected != stored.Fingerprint {
-					return ErrActivityIngestionConflict
-				}
-				result = stored.Result
-				result.Replayed = true
-				return nil
-			}
-			// Receipts must not disappear between binding and reserve (unsupported prune).
-			if binding != nil {
-				return ErrActivityIngestionUnavailable
-			}
-			if resolved.OccurredAt.After(now.Add(s.config.MaxFutureSkew)) {
-				return ErrActivityIngestionInvalid
-			}
-			if s.config.ValidateEvent != nil {
-				if err = s.config.ValidateEvent(ctx, cloneActivityIngestionEvent(resolved)); err != nil {
-					return ErrActivityIngestionInvalid
-				}
-			}
-			data, err := s.disclose(ctx, resolved, receipt)
-			if err != nil {
-				return err
-			}
-			record := types.ActivityRecord{ID: candidate.ActivityID, ActorID: receipt.ActorID, UserID: receipt.SubjectUserID, TenantID: uuid.MustParse(resolved.Scope.TenantID), OrgID: uuid.MustParse(resolved.Scope.OrgID), Verb: resolved.Action, ObjectType: resolved.Object.Type, ObjectID: resolved.Object.ID, Channel: resolved.Channel, OccurredAt: resolved.OccurredAt, Data: data}
-			if err = tx.Append(ctx, record); err != nil {
-				return err
-			}
-			result = candidate
-			return nil
-		})
-		if err == nil {
-			return result, nil
-		}
-		result = ActivityIngestResult{}
-		if errors.Is(err, ErrActivityIngestionContention) {
-			continue
-		}
-		return result, safeActivityStorageError(err)
 	}
 	return ActivityIngestResult{}, ErrActivityIngestionUnavailable
 }
+
+func (s *ActivityIngestionService) normalizeEvent(input ActivityIngestionEvent) (ActivityIngestionEvent, error) {
+	event, err := normalizeActivityIngestionEvent(input)
+	if err != nil {
+		return event, err
+	}
+	raw, err := json.Marshal(event)
+	if err != nil {
+		return event, ErrActivityIngestionInvalid
+	}
+	if len(raw) > s.config.MaxEnvelopeBytes || len(event.Metadata) > s.config.MaxMetadataBytes {
+		return event, ErrActivityIngestionTooLarge
+	}
+	return event, nil
+}
+
+func (s *ActivityIngestionService) ingestAttempt(ctx context.Context, p ActivityProducerPrincipal, event ActivityIngestionEvent) (ActivityIngestResult, error) {
+	if ctx.Err() != nil {
+		return ActivityIngestResult{}, ErrActivityIngestionUnavailable
+	}
+	now := s.config.Clock().UTC().Truncate(time.Microsecond)
+	if err := validateActivityProducer(p, s.config.Issuer, s.config.Audience, now); err != nil {
+		return ActivityIngestResult{}, err
+	}
+	if err := s.config.Policy.CheckActivityProducer(ctx, p, cloneActivityIngestionEvent(event)); err != nil {
+		return ActivityIngestResult{}, safeActivityAuthorityError(err)
+	}
+	binding, err := s.config.Store.Binding(ctx, p.ProducerID, event.EventID)
+	if err != nil {
+		return ActivityIngestResult{}, ErrActivityIngestionUnavailable
+	}
+	resolved, attribution, err := s.resolveAuthorizedEvent(ctx, p, event, binding, now)
+	if err != nil {
+		return ActivityIngestResult{}, err
+	}
+	receipt, err := newActivityIngestionReceipt(p, resolved, attribution, now)
+	if err != nil {
+		return ActivityIngestResult{}, err
+	}
+	var result ActivityIngestResult
+	err = s.config.Store.WithinTransaction(ctx, func(tx ActivityIngestionTransaction) error {
+		var writeErr error
+		result, writeErr = s.writeIngestion(ctx, tx, resolved, receipt, binding != nil)
+		return writeErr
+	})
+	if err == nil {
+		return result, nil
+	}
+	// A candidate result is not durable until the transaction commits.
+	if errors.Is(err, ErrActivityIngestionContention) {
+		return ActivityIngestResult{}, ErrActivityIngestionContention
+	}
+	return ActivityIngestResult{}, safeActivityStorageError(err)
+}
+
+func (s *ActivityIngestionService) resolveAuthorizedEvent(ctx context.Context, p ActivityProducerPrincipal, event ActivityIngestionEvent, binding *ScopeInput, now time.Time) (ActivityIngestionEvent, string, error) {
+	resolved := event
+	targetConflict := false
+	if binding != nil {
+		// Stored targets are private until current authorization succeeds. Requested
+		// differences never allocate a second identity or reveal the stored target.
+		targetConflict = (event.Scope.TenantID != "" && event.Scope.TenantID != binding.TenantID) || (event.Scope.OrgID != "" && event.Scope.OrgID != binding.OrgID)
+		resolved.Scope = *binding
+	}
+	var err error
+	resolved.Scope, err = ResolveActivityIngestionScope(s.config.ScopePolicy, resolved.Scope, p.Binding)
+	if err != nil {
+		return resolved, "", err
+	}
+	attribution, err := s.authorize(ctx, p, resolved, now)
+	if err != nil {
+		return resolved, "", err
+	}
+	if targetConflict {
+		return resolved, "", ErrActivityIngestionConflict
+	}
+	return resolved, attribution, nil
+}
+
+func newActivityIngestionReceipt(p ActivityProducerPrincipal, event ActivityIngestionEvent, attribution string, now time.Time) (ActivityIngestionReceipt, error) {
+	fingerprint, err := ActivityIngestionFingerprint(event, ActivityIngestionFingerprintV1)
+	if err != nil {
+		return ActivityIngestionReceipt{}, err
+	}
+	candidate := ActivityIngestResult{ActivityID: uuid.New(), EventID: event.EventID, Scope: event.Scope, OccurredAt: event.OccurredAt, ReceivedAt: now}
+	receipt := ActivityIngestionReceipt{ProducerID: p.ProducerID, EventID: event.EventID, Scope: event.Scope, FingerprintVersion: ActivityIngestionFingerprintV1, Fingerprint: fingerprint, ResultVersion: 1, Result: candidate, ActorKind: event.Actor.Kind, Attribution: attribution}
+	if event.Actor.ID != "" {
+		receipt.ActorID = uuid.MustParse(event.Actor.ID)
+	}
+	if event.SubjectUserID != "" {
+		receipt.SubjectUserID = uuid.MustParse(event.SubjectUserID)
+	}
+	return receipt, nil
+}
+
+func (s *ActivityIngestionService) writeIngestion(ctx context.Context, tx ActivityIngestionTransaction, event ActivityIngestionEvent, receipt ActivityIngestionReceipt, bound bool) (ActivityIngestResult, error) {
+	inserted, err := tx.Reserve(ctx, receipt)
+	if err != nil {
+		return ActivityIngestResult{}, err
+	}
+	if !inserted {
+		return replayActivityIngestion(ctx, tx, event, receipt.ProducerID, bound)
+	}
+	// Receipts must not disappear between binding and reserve (unsupported prune).
+	if bound {
+		return ActivityIngestResult{}, ErrActivityIngestionUnavailable
+	}
+	if event.OccurredAt.After(receipt.Result.ReceivedAt.Add(s.config.MaxFutureSkew)) {
+		return ActivityIngestResult{}, ErrActivityIngestionInvalid
+	}
+	if s.config.ValidateEvent != nil {
+		if err = s.config.ValidateEvent(ctx, cloneActivityIngestionEvent(event)); err != nil {
+			return ActivityIngestResult{}, ErrActivityIngestionInvalid
+		}
+	}
+	data, err := s.disclose(ctx, event, receipt)
+	if err != nil {
+		return ActivityIngestResult{}, err
+	}
+	record := types.ActivityRecord{ID: receipt.Result.ActivityID, ActorID: receipt.ActorID, UserID: receipt.SubjectUserID, TenantID: uuid.MustParse(event.Scope.TenantID), OrgID: uuid.MustParse(event.Scope.OrgID), Verb: event.Action, ObjectType: event.Object.Type, ObjectID: event.Object.ID, Channel: event.Channel, OccurredAt: event.OccurredAt, Data: data}
+	if err = tx.Append(ctx, record); err != nil {
+		return ActivityIngestResult{}, err
+	}
+	return receipt.Result, nil
+}
+
+func replayActivityIngestion(ctx context.Context, tx ActivityIngestionTransaction, event ActivityIngestionEvent, producerID string, bound bool) (ActivityIngestResult, error) {
+	// A concurrent winner first discovered inside this transaction requires a
+	// fresh outer binding/authorization pass; never authorize via its full receipt.
+	if !bound {
+		return ActivityIngestResult{}, ErrActivityIngestionContention
+	}
+	stored, err := tx.Receipt(ctx, producerID, event.EventID, event.Scope)
+	if err != nil {
+		return ActivityIngestResult{}, err
+	}
+	if stored == nil {
+		return ActivityIngestResult{}, ErrActivityIngestionUnavailable
+	}
+	if stored.ResultVersion != 1 {
+		return ActivityIngestResult{}, ErrActivityIngestionReplayVersion
+	}
+	expected, err := ActivityIngestionFingerprint(event, stored.FingerprintVersion)
+	if err != nil {
+		return ActivityIngestResult{}, err
+	}
+	if expected != stored.Fingerprint {
+		return ActivityIngestResult{}, ErrActivityIngestionConflict
+	}
+	result := stored.Result
+	result.Replayed = true
+	return result, nil
+}
+
 func (s *ActivityIngestionService) authorize(ctx context.Context, p ActivityProducerPrincipal, event ActivityIngestionEvent, now time.Time) (string, error) {
 	var evidence *ActivityAttributionEvidence
 	if e, ok := ctx.Value(activityAttributionContextKey{}).(ActivityAttributionEvidence); ok {
@@ -293,7 +339,12 @@ func (s *ActivityIngestionService) observe(ctx context.Context, result ActivityI
 	if s.config.Observe == nil {
 		return
 	}
-	defer func() { _ = recover() }()
+	defer func() {
+		if recover() != nil {
+			// Observation is best effort and cannot change the committed outcome.
+			return
+		}
+	}()
 	observation := ActivityIngestionObservation{Outcome: "accepted"}
 	if err != nil {
 		observation.Outcome = "failed"
@@ -311,26 +362,21 @@ func (s *ActivityIngestionService) observe(ctx context.Context, result ActivityI
 }
 func activityIngestionSafeCode(err error) string {
 	// Codes are selected from local sentinels only.
-	for _, safe := range []error{ErrActivityIngestionInvalid, ErrActivityIngestionUnauthenticated, ErrActivityIngestionForbidden, ErrActivityIngestionConflict, ErrActivityIngestionTooLarge, ErrActivityIngestionMediaType, ErrActivityIngestionUnavailable, ErrActivityIngestionReplayVersion} {
-		if errors.Is(err, safe) {
-			switch safe {
-			case ErrActivityIngestionInvalid:
-				return "ACTIVITY_INGEST_INVALID"
-			case ErrActivityIngestionUnauthenticated:
-				return "ACTIVITY_INGEST_UNAUTHENTICATED"
-			case ErrActivityIngestionForbidden:
-				return "ACTIVITY_INGEST_FORBIDDEN"
-			case ErrActivityIngestionConflict:
-				return "ACTIVITY_INGEST_CONFLICT"
-			case ErrActivityIngestionTooLarge:
-				return "ACTIVITY_INGEST_TOO_LARGE"
-			case ErrActivityIngestionMediaType:
-				return "ACTIVITY_INGEST_MEDIA_TYPE"
-			case ErrActivityIngestionReplayVersion:
-				return "ACTIVITY_INGEST_REPLAY_VERSION_UNAVAILABLE"
-			default:
-				return "ACTIVITY_INGEST_UNAVAILABLE"
-			}
+	for _, entry := range []struct {
+		err  error
+		code string
+	}{
+		{ErrActivityIngestionInvalid, "ACTIVITY_INGEST_INVALID"},
+		{ErrActivityIngestionUnauthenticated, "ACTIVITY_INGEST_UNAUTHENTICATED"},
+		{ErrActivityIngestionForbidden, "ACTIVITY_INGEST_FORBIDDEN"},
+		{ErrActivityIngestionConflict, "ACTIVITY_INGEST_CONFLICT"},
+		{ErrActivityIngestionTooLarge, "ACTIVITY_INGEST_TOO_LARGE"},
+		{ErrActivityIngestionMediaType, "ACTIVITY_INGEST_MEDIA_TYPE"},
+		{ErrActivityIngestionUnavailable, "ACTIVITY_INGEST_UNAVAILABLE"},
+		{ErrActivityIngestionReplayVersion, "ACTIVITY_INGEST_REPLAY_VERSION_UNAVAILABLE"},
+	} {
+		if errors.Is(err, entry.err) {
+			return entry.code
 		}
 	}
 	return "ACTIVITY_INGEST_INTERNAL"

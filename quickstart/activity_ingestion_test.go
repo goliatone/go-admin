@@ -129,7 +129,7 @@ func TestActivityIngestionHost(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				req := httptest.NewRequest("POST", "/internal/events", bytes.NewReader(raw))
+				req := httptest.NewRequestWithContext(t.Context(), "POST", "/internal/events", bytes.NewReader(raw))
 				req.Header.Set("Authorization", "Bearer test-producer")
 				req.Header.Set("Content-Type", "application/json")
 				rr := httptest.NewRecorder()
@@ -179,7 +179,7 @@ func TestActivityIngestionHost(t *testing.T) {
 					t.Fatal("number changed", n)
 				}
 			}
-			request := httptest.NewRequest("GET", "/console/api/activity", nil).WithContext(reader)
+			request := httptest.NewRequestWithContext(reader, "GET", "/console/api/activity", nil)
 			rr := httptest.NewRecorder()
 			handler.ServeHTTP(rr, request)
 			var response struct {
@@ -202,7 +202,11 @@ func TestActivityIngestionHost(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					checkEntries(payload.Value().(admin.ActivityFeedWidgetPayload).Entries)
+					activity, ok := payload.Value().(admin.ActivityFeedWidgetPayload)
+					if !ok {
+						t.Fatalf("expected activity widget payload, got %T", payload.Value())
+					}
+					checkEntries(activity.Entries)
 				}
 			}
 			if !found {
@@ -233,10 +237,20 @@ func ingestionHostDatabase(t *testing.T, postgres bool) func() *bun.DB {
 			t.Fatal(err)
 		}
 		schema := "ingestion_host_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-		if _, err = base.Exec(`CREATE SCHEMA "` + schema + `"`); err != nil {
+		if _, err = base.ExecContext(t.Context(), `CREATE SCHEMA "`+schema+`"`); err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(func() { _, _ = base.Exec(`DROP SCHEMA "` + schema + `" CASCADE`); _ = base.Close() })
+		t.Cleanup(func() {
+			// Test contexts are canceled before cleanup; bound this cleanup separately.
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, cleanupErr := base.ExecContext(cleanupCtx, `DROP SCHEMA "`+schema+`" CASCADE`); cleanupErr != nil {
+				t.Errorf("drop ingestion host schema: %v", cleanupErr)
+			}
+			if closeErr := base.Close(); closeErr != nil {
+				t.Errorf("close ingestion host schema connection: %v", closeErr)
+			}
+		})
 		u, err := url.Parse(dsn)
 		if err != nil {
 			t.Fatal(err)
@@ -257,7 +271,11 @@ func ingestionHostDatabase(t *testing.T, postgres bool) func() *bun.DB {
 		} else {
 			db = bun.NewDB(raw, sqlitedialect.New())
 		}
-		t.Cleanup(func() { _ = db.Close() })
+		t.Cleanup(func() {
+			if err := db.Close(); err != nil {
+				t.Errorf("close ingestion host database: %v", err)
+			}
+		})
 		return db
 	}
 }

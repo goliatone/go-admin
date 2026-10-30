@@ -177,8 +177,7 @@ func activityIngestionIsContention(err error) bool {
 	if err == nil {
 		return false
 	}
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
+	if sqliteErr, ok := errors.AsType[sqlite3.Error](err); ok {
 		return sqliteErr.Code == sqlite3.ErrBusy || sqliteErr.Code == sqlite3.ErrLocked
 	}
 	var code interface{ SQLState() string }
@@ -223,27 +222,33 @@ func (s *BunActivityIngestionStore) ResolveActivityReadIdentities(ctx context.Co
 		ids = append(ids, r.ID)
 		byID[r.ID] = r
 	}
-	var rows []struct {
-		activityIngestionReceiptRow `bun:",extend"`
-		CanonicalActorID            uuid.UUID
-		CanonicalSubjectID          uuid.UUID
-		CanonicalID                 uuid.UUID
-	}
-	err := s.db.NewSelect().Model(&rows).ColumnExpr("receipt.*").ColumnExpr("canonical.id AS canonical_id, canonical.actor_id AS canonical_actor_id, canonical.user_id AS canonical_subject_id").Join("LEFT JOIN user_activity AS canonical ON CAST(canonical.id AS TEXT) = CAST(receipt.activity_id AS TEXT) AND canonical.tenant_id = receipt.tenant_id AND canonical.org_id = receipt.org_id").Where("receipt.tenant_id = ? AND receipt.org_id = ? AND receipt.activity_id IN (?)", readCtx.Scope.TenantID.String(), readCtx.Scope.OrgID.String(), bun.In(ids)).Scan(ctx)
+	var rows []activityIngestionReadIdentityRow
+	err := s.db.NewSelect().Model(&rows).ColumnExpr("receipt.*").ColumnExpr("canonical.id AS canonical_id, canonical.actor_id AS canonical_actor_id, canonical.user_id AS canonical_subject_id").Join("LEFT JOIN user_activity AS canonical ON CAST(canonical.id AS TEXT) = CAST(receipt.activity_id AS TEXT) AND canonical.tenant_id = receipt.tenant_id AND canonical.org_id = receipt.org_id").Where("receipt.tenant_id = ? AND receipt.org_id = ? AND receipt.activity_id IN (?)", readCtx.Scope.TenantID.String(), readCtx.Scope.OrgID.String(), bun.List(ids)).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
 		r, ok := byID[row.ActivityID]
-		if !ok || row.CanonicalID != r.ID || row.CanonicalActorID != r.ActorID || row.CanonicalSubjectID != r.UserID || row.ActorID != r.ActorID || row.SubjectUserID != r.UserID || (row.ActorKind != "user" && row.ActorKind != "system" && row.ActorKind != "job") {
-			return nil, ErrActivityIngestionUnavailable
-		}
-		if (row.ActorKind == "user") != (r.ActorID != uuid.Nil) {
+		if !ok || !row.matchesRecord(r) {
 			return nil, ErrActivityIngestionUnavailable
 		}
 		result[row.ActivityID] = ActivityReadIdentity{ActorKind: row.ActorKind}
 	}
 	return result, nil
+}
+
+type activityIngestionReadIdentityRow struct {
+	activityIngestionReceiptRow `bun:",extend"`
+	CanonicalActorID            uuid.UUID
+	CanonicalSubjectID          uuid.UUID
+	CanonicalID                 uuid.UUID
+}
+
+func (row activityIngestionReadIdentityRow) matchesRecord(r types.ActivityRecord) bool {
+	return row.CanonicalID == r.ID && row.CanonicalActorID == r.ActorID &&
+		row.CanonicalSubjectID == r.UserID && row.ActorID == r.ActorID && row.SubjectUserID == r.UserID &&
+		(row.ActorKind == "user" || row.ActorKind == "system" || row.ActorKind == "job") &&
+		(row.ActorKind == "user") == (r.ActorID != uuid.Nil)
 }
 
 var _ ActivityIngestionStore = (*BunActivityIngestionStore)(nil)

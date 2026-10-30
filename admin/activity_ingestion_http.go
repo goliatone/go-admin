@@ -62,13 +62,10 @@ func RegisterActivityIngestionRoutes[T any](ctx context.Context, r router.Router
 	if !opts.Enabled {
 		return nil
 	}
-	if activityIngestionNil(r) || a == nil || opts.Service == nil || activityIngestionNil(opts.Verifier) || a.Commands() == nil {
+	if activityIngestionNil(r) {
 		return ErrActivityIngestionUnavailable
 	}
-	if !a.Commands().CommandRegistration(ActivityIngestCommandName).SupportsInlineResult() {
-		return ErrActivityIngestionUnavailable
-	}
-	if err = opts.Service.CheckReady(ctx); err != nil {
+	if err = activityIngestionHTTPReady(ctx, a, opts); err != nil {
 		return err
 	}
 	route, err := a.ActivityIngestionURL()
@@ -91,6 +88,16 @@ func RegisterActivityIngestionRoutes[T any](ctx context.Context, r router.Router
 	r.Post(route, activityIngestionHTTPHandler(a.Commands(), opts)).SetName(ActivityIngestionRouteKey)
 	return nil
 }
+func activityIngestionHTTPReady(ctx context.Context, a *Admin, opts ActivityIngestionHTTPOptions) error {
+	if a == nil || opts.Service == nil || activityIngestionNil(opts.Verifier) || a.Commands() == nil {
+		return ErrActivityIngestionUnavailable
+	}
+	if !a.Commands().CommandRegistration(ActivityIngestCommandName).SupportsInlineResult() {
+		return ErrActivityIngestionUnavailable
+	}
+	return opts.Service.CheckReady(ctx)
+}
+
 func activityIngestionRouteMatches(pattern, target string) bool {
 	a := strings.Split(strings.Trim(pattern, "/"), "/")
 	b := strings.Split(strings.Trim(target, "/"), "/")
@@ -115,73 +122,13 @@ func activityIngestionHTTPHandler(bus *CommandBus, opts ActivityIngestionHTTPOpt
 			return activityIngestionHTTPError(c, ErrActivityIngestionUnavailable)
 		}
 		request := hc.Request()
-		authorization, err := activityIngestionHeader(request.Header, "Authorization", 8192, true)
-		if err != nil {
-			return activityIngestionHTTPError(c, ErrActivityIngestionUnauthenticated)
-		}
-		parts := strings.Split(authorization, " ")
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" || strings.ContainsAny(parts[1], ",\t\r\n") {
-			return activityIngestionHTTPError(c, ErrActivityIngestionUnauthenticated)
-		}
-		principal, err := opts.Verifier.VerifyActivityProducer(c.Context(), ActivityProducerCredential{Bearer: parts[1]})
-		if err != nil {
-			return activityIngestionHTTPError(c, safeActivityAuthorityError(err))
-		}
-		if err = validateActivityProducer(principal, opts.Service.config.Issuer, opts.Service.config.Audience, opts.Service.config.Clock()); err != nil {
-			return activityIngestionHTTPError(c, err)
-		}
-		// Never inherit actor evidence from an unrelated browser/middleware context.
-		ctx := context.WithValue(c.Context(), activityAttributionContextKey{}, struct{}{})
-		ctx = WithVerifiedActivityProducer(ctx, principal)
-		proof, err := activityIngestionHeader(request.Header, "X-Activity-Actor-Assertion", 8192, false)
-		if err != nil {
-			return activityIngestionHTTPError(c, ErrActivityIngestionForbidden)
-		}
-		if proof != "" {
-			if activityIngestionNil(opts.AttributionVerifier) {
-				return activityIngestionHTTPError(c, ErrActivityIngestionForbidden)
-			}
-			evidence, err := opts.AttributionVerifier.VerifyActivityAttribution(ctx, principal, proof)
-			if err != nil {
-				if errors.Is(err, ErrActivityIngestionForbidden) || errors.Is(err, ErrActivityIngestionUnauthenticated) {
-					return activityIngestionHTTPError(c, ErrActivityIngestionForbidden)
-				}
-				return activityIngestionHTTPError(c, ErrActivityIngestionUnavailable)
-			}
-			ctx = WithVerifiedActivityAttribution(ctx, evidence)
-		}
-		if request.URL.RawQuery != "" || request.URL.ForceQuery {
-			return activityIngestionHTTPError(c, ErrActivityIngestionInvalid)
-		}
-		media, err := activityIngestionHeader(request.Header, "Content-Type", 256, true)
-		if err != nil {
-			return activityIngestionHTTPError(c, ErrActivityIngestionMediaType)
-		}
-		mediaType, _, err := mime.ParseMediaType(media)
-		if err != nil || mediaType != "application/json" {
-			return activityIngestionHTTPError(c, ErrActivityIngestionMediaType)
-		}
-		limit := int64(opts.Service.config.MaxEnvelopeBytes)
-		if request.ContentLength > limit {
-			return activityIngestionHTTPError(c, ErrActivityIngestionTooLarge)
-		}
-		if request.Body == nil {
-			return activityIngestionHTTPError(c, ErrActivityIngestionInvalid)
-		}
-		raw, err := io.ReadAll(io.LimitReader(request.Body, limit+1))
-		if err != nil {
-			return activityIngestionHTTPError(c, ErrActivityIngestionInvalid)
-		}
-		if int64(len(raw)) > limit {
-			return activityIngestionHTTPError(c, ErrActivityIngestionTooLarge)
-		}
-		event, err := DecodeActivityIngestionEvent(raw)
+		ctx, err := authenticateActivityIngestionRequest(c.Context(), request, opts)
 		if err != nil {
 			return activityIngestionHTTPError(c, err)
 		}
-		key, err := activityIngestionHeader(request.Header, "Idempotency-Key", 128, false)
-		if err != nil || (key != "" && key != event.EventID) {
-			return activityIngestionHTTPError(c, ErrActivityIngestionInvalid)
+		event, err := decodeActivityIngestionRequest(request, opts.Service.config.MaxEnvelopeBytes)
+		if err != nil {
+			return activityIngestionHTTPError(c, err)
 		}
 		result, err := DispatchActivityIngestion(ctx, bus, ActivityIngestMsg{Event: event})
 		if err != nil {
@@ -194,6 +141,87 @@ func activityIngestionHTTPHandler(bus *CommandBus, opts ActivityIngestionHTTPOpt
 		return c.JSON(status, result)
 	}
 }
+
+func authenticateActivityIngestionRequest(ctx context.Context, request *http.Request, opts ActivityIngestionHTTPOptions) (context.Context, error) {
+	authorization, err := activityIngestionHeader(request.Header, "Authorization", 8192, true)
+	if err != nil {
+		return nil, ErrActivityIngestionUnauthenticated
+	}
+	parts := strings.Split(authorization, " ")
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" || strings.ContainsAny(parts[1], ",\t\r\n") {
+		return nil, ErrActivityIngestionUnauthenticated
+	}
+	principal, err := opts.Verifier.VerifyActivityProducer(ctx, ActivityProducerCredential{Bearer: parts[1]})
+	if err != nil {
+		return nil, safeActivityAuthorityError(err)
+	}
+	if err = validateActivityProducer(principal, opts.Service.config.Issuer, opts.Service.config.Audience, opts.Service.config.Clock()); err != nil {
+		return nil, err
+	}
+	// Never inherit actor evidence from an unrelated browser/middleware context.
+	ctx = context.WithValue(ctx, activityAttributionContextKey{}, struct{}{})
+	ctx = WithVerifiedActivityProducer(ctx, principal)
+	return activityIngestionRequestAttribution(ctx, request, opts, principal)
+}
+
+func activityIngestionRequestAttribution(ctx context.Context, request *http.Request, opts ActivityIngestionHTTPOptions, principal ActivityProducerPrincipal) (context.Context, error) {
+	proof, err := activityIngestionHeader(request.Header, "X-Activity-Actor-Assertion", 8192, false)
+	if err != nil {
+		return nil, ErrActivityIngestionForbidden
+	}
+	if proof == "" {
+		return ctx, nil
+	}
+	if activityIngestionNil(opts.AttributionVerifier) {
+		return nil, ErrActivityIngestionForbidden
+	}
+	evidence, err := opts.AttributionVerifier.VerifyActivityAttribution(ctx, principal, proof)
+	if err != nil {
+		if errors.Is(err, ErrActivityIngestionForbidden) || errors.Is(err, ErrActivityIngestionUnauthenticated) {
+			return nil, ErrActivityIngestionForbidden
+		}
+		return nil, ErrActivityIngestionUnavailable
+	}
+	return WithVerifiedActivityAttribution(ctx, evidence), nil
+}
+
+func decodeActivityIngestionRequest(request *http.Request, maxBytes int) (ActivityIngestionEvent, error) {
+	if request.URL.RawQuery != "" || request.URL.ForceQuery {
+		return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
+	}
+	media, err := activityIngestionHeader(request.Header, "Content-Type", 256, true)
+	if err != nil {
+		return ActivityIngestionEvent{}, ErrActivityIngestionMediaType
+	}
+	mediaType, _, err := mime.ParseMediaType(media)
+	if err != nil || mediaType != "application/json" {
+		return ActivityIngestionEvent{}, ErrActivityIngestionMediaType
+	}
+	limit := int64(maxBytes)
+	if request.ContentLength > limit {
+		return ActivityIngestionEvent{}, ErrActivityIngestionTooLarge
+	}
+	if request.Body == nil {
+		return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
+	}
+	raw, err := io.ReadAll(io.LimitReader(request.Body, limit+1))
+	if err != nil {
+		return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
+	}
+	if int64(len(raw)) > limit {
+		return ActivityIngestionEvent{}, ErrActivityIngestionTooLarge
+	}
+	event, err := DecodeActivityIngestionEvent(raw)
+	if err != nil {
+		return ActivityIngestionEvent{}, err
+	}
+	key, err := activityIngestionHeader(request.Header, "Idempotency-Key", 128, false)
+	if err != nil || (key != "" && key != event.EventID) {
+		return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
+	}
+	return event, nil
+}
+
 func activityIngestionHeader(headers http.Header, name string, limit int, required bool) (string, error) {
 	values := []string{}
 	for key, v := range headers {

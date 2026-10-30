@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"reflect"
@@ -37,23 +38,8 @@ func DecodeActivityIngestionEvent(raw []byte) (ActivityIngestionEvent, error) {
 	if err = activityIngestionFields(m, "schema_version event_id occurred_at scope actor subject_user_id action object channel correlation_id metadata"); err != nil {
 		return ActivityIngestionEvent{}, err
 	}
-	for key, fields := range map[string]string{"scope": "tenant_id org_id", "actor": "kind id", "object": "type id"} {
-		if v, exists := m[key]; exists {
-			child, ok := v.(map[string]any)
-			if !ok {
-				return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
-			}
-			for name, value := range child {
-				if name == "tenant_id" || name == "org_id" || name == "id" {
-					if value == "" {
-						return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
-					}
-				}
-			}
-			if err = activityIngestionFields(child, fields); err != nil {
-				return ActivityIngestionEvent{}, err
-			}
-		}
+	if err = activityIngestionEnvelopeObjects(m); err != nil {
+		return ActivityIngestionEvent{}, err
 	}
 	if subject, exists := m["subject_user_id"]; exists && subject == "" {
 		return ActivityIngestionEvent{}, ErrActivityIngestionInvalid
@@ -73,6 +59,32 @@ func DecodeActivityIngestionEvent(raw []byte) (ActivityIngestionEvent, error) {
 	}
 	return validateActivityIngestionEvent(event)
 }
+
+func activityIngestionEnvelopeObjects(m map[string]any) error {
+	for key, fields := range map[string]string{"scope": "tenant_id org_id", "actor": "kind id", "object": "type id"} {
+		value, exists := m[key]
+		if !exists {
+			continue
+		}
+		child, ok := value.(map[string]any)
+		if !ok {
+			return ErrActivityIngestionInvalid
+		}
+		if err := activityIngestionObjectFields(child, fields); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func activityIngestionObjectFields(child map[string]any, fields string) error {
+	for name, value := range child {
+		if (name == "tenant_id" || name == "org_id" || name == "id") && value == "" {
+			return ErrActivityIngestionInvalid
+		}
+	}
+	return activityIngestionFields(child, fields)
+}
 func activityIngestionFields(m map[string]any, allowed string) error {
 	for k, v := range m {
 		if !activityIngestionKnownField(k, allowed) || v == nil {
@@ -82,7 +94,7 @@ func activityIngestionFields(m map[string]any, allowed string) error {
 	return nil
 }
 func activityIngestionKnownField(key, allowed string) bool {
-	for _, field := range strings.Fields(allowed) {
+	for field := range strings.FieldsSeq(allowed) {
 		if key == field {
 			return true
 		}
@@ -105,7 +117,7 @@ func normalizeActivityIngestionEvent(event ActivityIngestionEvent) (ActivityInge
 	return event, nil
 }
 func validateActivityIngestionEvent(e ActivityIngestionEvent) (ActivityIngestionEvent, error) {
-	if e.SchemaVersion != 1 || !validActivityIngestionID(e.EventID, 128) || !validActivityIngestionID(e.Action, 128) || !validActivityIngestionID(e.Channel, 128) || !validActivityIngestionID(e.Object.Type, 128) || !validActivityIngestionID(e.Object.ID, 512) || (e.CorrelationID != "" && !validActivityIngestionID(e.CorrelationID, 128)) {
+	if !validActivityIngestionEventIDs(e) {
 		return e, ErrActivityIngestionInvalid
 	}
 	if e.OccurredAt.IsZero() || e.OccurredAt.Year() < 1 || e.OccurredAt.Year() > 9999 || e.OccurredAt.Nanosecond()%1000 != 0 {
@@ -148,6 +160,13 @@ func validateActivityIngestionEvent(e ActivityIngestionEvent) (ActivityIngestion
 	return e, err
 }
 
+func validActivityIngestionEventIDs(e ActivityIngestionEvent) bool {
+	return e.SchemaVersion == 1 && validActivityIngestionID(e.EventID, 128) &&
+		validActivityIngestionID(e.Action, 128) && validActivityIngestionID(e.Channel, 128) &&
+		validActivityIngestionID(e.Object.Type, 128) && validActivityIngestionID(e.Object.ID, 512) &&
+		(e.CorrelationID == "" || validActivityIngestionID(e.CorrelationID, 128))
+}
+
 // ActivityIngestionFingerprint compares normalized content under a retained
 // algorithm version. Scope must already be resolved; disclosure/provenance are
 // deliberately excluded. Equivalent decimals, UUIDs and UTC instants compare equal.
@@ -162,7 +181,10 @@ func ActivityIngestionFingerprint(event ActivityIngestionEvent, version int) (st
 	if _, err = activityIngestionScope(event.Scope, false); err != nil {
 		return "", err
 	}
-	raw, _ := json.Marshal(event)
+	raw, err := json.Marshal(event)
+	if err != nil {
+		return "", ErrActivityIngestionInvalid
+	}
 	sum := sha256.Sum256(append([]byte("activity.ingest.fingerprint.v1\n"), raw...))
 	return hex.EncodeToString(sum[:]), nil
 }
@@ -191,7 +213,7 @@ func decodeActivityIngestionJSONAtDepth(raw []byte, limit int, reserved bool, de
 	if err != nil {
 		return nil, err
 	}
-	if _, err = d.Token(); err != io.EOF {
+	if _, err = d.Token(); !errors.Is(err, io.EOF) {
 		return nil, ErrActivityIngestionInvalid
 	}
 	return v, nil
@@ -211,73 +233,87 @@ func readActivityIngestionJSON(d *json.Decoder, depth int, budget *int, reserved
 		}
 		switch delim {
 		case '{':
-			m := map[string]any{}
-			for d.More() {
-				keyToken, err := d.Token()
-				if err != nil {
-					return nil, ErrActivityIngestionInvalid
-				}
-				key, ok := keyToken.(string)
-				if !ok {
-					return nil, ErrActivityIngestionInvalid
-				}
-				if _, exists := m[key]; exists || (reserved && activityIngestionReserved[key]) {
-					return nil, ErrActivityIngestionInvalid
-				}
-				keyBytes, _ := json.Marshal(key)
-				*budget -= len(keyBytes) + 1
-				if len(m) > 0 {
-					*budget--
-				}
-				if *budget < 0 {
-					return nil, ErrActivityIngestionTooLarge
-				}
-				child, err := readActivityIngestionJSON(d, depth+1, budget, reserved)
-				if err != nil {
-					return nil, err
-				}
-				m[key] = child
-			}
-			end, err := d.Token()
-			if err != nil || end != json.Delim('}') {
-				return nil, ErrActivityIngestionInvalid
-			}
-			return m, nil
+			return readActivityIngestionObject(d, depth, budget, reserved)
 		case '[':
-			a := []any{}
-			for d.More() {
-				if len(a) > 0 {
-					*budget--
-				}
-				child, err := readActivityIngestionJSON(d, depth+1, budget, reserved)
-				if err != nil {
-					return nil, err
-				}
-				a = append(a, child)
-			}
-			end, err := d.Token()
-			if err != nil || end != json.Delim(']') {
-				return nil, ErrActivityIngestionInvalid
-			}
-			return a, nil
+			return readActivityIngestionArray(d, depth, budget, reserved)
 		default:
 			return nil, ErrActivityIngestionInvalid
 		}
 	}
 	if n, ok := token.(json.Number); ok {
-		normalized, err := canonicalActivityIngestionNumber(n, *budget)
-		if err != nil {
-			return nil, err
+		normalized, numberErr := canonicalActivityIngestionNumber(n, *budget)
+		if numberErr != nil {
+			return nil, numberErr
 		}
 		*budget -= len(normalized)
 		return normalized, nil
 	}
-	raw, _ := json.Marshal(token)
+	raw, err := json.Marshal(token)
+	if err != nil {
+		return nil, ErrActivityIngestionInvalid
+	}
 	*budget -= len(raw)
 	if *budget < 0 {
 		return nil, ErrActivityIngestionTooLarge
 	}
 	return token, nil
+}
+
+func readActivityIngestionObject(d *json.Decoder, depth int, budget *int, reserved bool) (any, error) {
+	m := map[string]any{}
+	for d.More() {
+		keyToken, err := d.Token()
+		if err != nil {
+			return nil, ErrActivityIngestionInvalid
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return nil, ErrActivityIngestionInvalid
+		}
+		if _, exists := m[key]; exists || (reserved && activityIngestionReserved[key]) {
+			return nil, ErrActivityIngestionInvalid
+		}
+		keyBytes, err := json.Marshal(key)
+		if err != nil {
+			return nil, ErrActivityIngestionInvalid
+		}
+		*budget -= len(keyBytes) + 1
+		if len(m) > 0 {
+			*budget--
+		}
+		if *budget < 0 {
+			return nil, ErrActivityIngestionTooLarge
+		}
+		child, err := readActivityIngestionJSON(d, depth+1, budget, reserved)
+		if err != nil {
+			return nil, err
+		}
+		m[key] = child
+	}
+	end, err := d.Token()
+	if err != nil || end != json.Delim('}') {
+		return nil, ErrActivityIngestionInvalid
+	}
+	return m, nil
+}
+
+func readActivityIngestionArray(d *json.Decoder, depth int, budget *int, reserved bool) (any, error) {
+	a := []any{}
+	for d.More() {
+		if len(a) > 0 {
+			*budget--
+		}
+		child, err := readActivityIngestionJSON(d, depth+1, budget, reserved)
+		if err != nil {
+			return nil, err
+		}
+		a = append(a, child)
+	}
+	end, err := d.Token()
+	if err != nil || end != json.Delim(']') {
+		return nil, ErrActivityIngestionInvalid
+	}
+	return a, nil
 }
 
 // canonicalActivityIngestionNumber checks total expanded size before allocation.
@@ -340,111 +376,134 @@ func encodeActivityIngestionJSON(value any, limit int, reserved bool) ([]byte, e
 }
 
 func encodeActivityIngestionJSONAtDepth(value any, limit int, reserved bool, initialDepth int) ([]byte, error) {
-	var b bytes.Buffer
-	var write func(any, int) error
-	put := func(raw []byte) error {
-		if len(raw) > limit-b.Len() {
-			return ErrActivityIngestionTooLarge
-		}
-		_, _ = b.Write(raw)
-		return nil
-	}
-	write = func(v any, depth int) error {
-		if depth > ActivityIngestionMaxDepth {
-			return ErrActivityIngestionTooLarge
-		}
-		switch x := v.(type) {
-		case map[string]any:
-			if len(x) > limit-b.Len() {
-				return ErrActivityIngestionTooLarge
-			}
-			if err := put([]byte("{")); err != nil {
-				return err
-			}
-			keys := make([]string, 0, len(x))
-			for k := range x {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for i, k := range keys {
-				if reserved && activityIngestionReserved[k] {
-					return ErrActivityIngestionInvalid
-				}
-				if i > 0 {
-					if err := put([]byte(",")); err != nil {
-						return err
-					}
-				}
-				if err := write(k, depth+1); err != nil {
-					return err
-				}
-				if err := put([]byte(":")); err != nil {
-					return err
-				}
-				if err := write(x[k], depth+1); err != nil {
-					return err
-				}
-			}
-			return put([]byte("}"))
-		case []any:
-			if len(x) > limit-b.Len() {
-				return ErrActivityIngestionTooLarge
-			}
-			if err := put([]byte("[")); err != nil {
-				return err
-			}
-			for i, v := range x {
-				if i > 0 {
-					if err := put([]byte(",")); err != nil {
-						return err
-					}
-				}
-				if err := write(v, depth+1); err != nil {
-					return err
-				}
-			}
-			return put([]byte("]"))
-		case json.Number:
-			n, err := canonicalActivityIngestionNumber(x, limit-b.Len())
-			if err != nil {
-				return err
-			}
-			return put([]byte(n))
-		case string:
-			if !utf8.ValidString(x) {
-				return ErrActivityIngestionInvalid
-			}
-			if len(x) > limit-b.Len() {
-				return ErrActivityIngestionTooLarge
-			}
-			raw, _ := json.Marshal(x)
-			return put(raw)
-		case nil:
-			return put([]byte("null"))
-		case bool:
-			if x {
-				return put([]byte("true"))
-			}
-			return put([]byte("false"))
-		default:
-			if v == nil {
-				return ErrActivityIngestionInvalid
-			}
-			r := reflect.ValueOf(v)
-			switch r.Kind() {
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				return put([]byte(strconv.FormatInt(r.Int(), 10)))
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				return put([]byte(strconv.FormatUint(r.Uint(), 10)))
-			default:
-				return ErrActivityIngestionInvalid
-			}
-		}
-	}
-	if err := write(value, initialDepth); err != nil {
+	e := activityIngestionJSONEncoder{limit: limit, reserved: reserved}
+	if err := e.write(value, initialDepth); err != nil {
 		return nil, err
 	}
-	return b.Bytes(), nil
+	return e.buffer.Bytes(), nil
+}
+
+type activityIngestionJSONEncoder struct {
+	buffer   bytes.Buffer
+	limit    int
+	reserved bool
+}
+
+func (e *activityIngestionJSONEncoder) put(raw []byte) error {
+	if len(raw) > e.limit-e.buffer.Len() {
+		return ErrActivityIngestionTooLarge
+	}
+	_, err := e.buffer.Write(raw)
+	return err
+}
+
+func (e *activityIngestionJSONEncoder) write(v any, depth int) error {
+	if depth > ActivityIngestionMaxDepth {
+		return ErrActivityIngestionTooLarge
+	}
+	switch x := v.(type) {
+	case map[string]any:
+		return e.object(x, depth)
+	case []any:
+		return e.array(x, depth)
+	case json.Number:
+		n, err := canonicalActivityIngestionNumber(x, e.limit-e.buffer.Len())
+		if err != nil {
+			return err
+		}
+		return e.put([]byte(n))
+	case string:
+		return e.string(x)
+	case nil:
+		return e.put([]byte("null"))
+	case bool:
+		return e.put([]byte(strconv.FormatBool(x)))
+	default:
+		return e.integer(v)
+	}
+}
+
+func (e *activityIngestionJSONEncoder) object(x map[string]any, depth int) error {
+	if len(x) > e.limit-e.buffer.Len() {
+		return ErrActivityIngestionTooLarge
+	}
+	if err := e.put([]byte("{")); err != nil {
+		return err
+	}
+	keys := make([]string, 0, len(x))
+	for k := range x {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		if e.reserved && activityIngestionReserved[k] {
+			return ErrActivityIngestionInvalid
+		}
+		if i > 0 {
+			if err := e.put([]byte(",")); err != nil {
+				return err
+			}
+		}
+		if err := e.write(k, depth+1); err != nil {
+			return err
+		}
+		if err := e.put([]byte(":")); err != nil {
+			return err
+		}
+		if err := e.write(x[k], depth+1); err != nil {
+			return err
+		}
+	}
+	return e.put([]byte("}"))
+}
+
+func (e *activityIngestionJSONEncoder) array(x []any, depth int) error {
+	if len(x) > e.limit-e.buffer.Len() {
+		return ErrActivityIngestionTooLarge
+	}
+	if err := e.put([]byte("[")); err != nil {
+		return err
+	}
+	for i, v := range x {
+		if i > 0 {
+			if err := e.put([]byte(",")); err != nil {
+				return err
+			}
+		}
+		if err := e.write(v, depth+1); err != nil {
+			return err
+		}
+	}
+	return e.put([]byte("]"))
+}
+
+func (e *activityIngestionJSONEncoder) string(x string) error {
+	if !utf8.ValidString(x) {
+		return ErrActivityIngestionInvalid
+	}
+	if len(x) > e.limit-e.buffer.Len() {
+		return ErrActivityIngestionTooLarge
+	}
+	raw, err := json.Marshal(x)
+	if err != nil {
+		return ErrActivityIngestionInvalid
+	}
+	return e.put(raw)
+}
+
+func (e *activityIngestionJSONEncoder) integer(v any) error {
+	if v == nil {
+		return ErrActivityIngestionInvalid
+	}
+	r := reflect.ValueOf(v)
+	switch r.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return e.put([]byte(strconv.FormatInt(r.Int(), 10)))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return e.put([]byte(strconv.FormatUint(r.Uint(), 10)))
+	default:
+		return ErrActivityIngestionInvalid
+	}
 }
 
 func cloneActivityIngestionEvent(e ActivityIngestionEvent) ActivityIngestionEvent {

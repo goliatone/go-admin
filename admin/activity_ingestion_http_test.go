@@ -39,11 +39,11 @@ func TestActivityIngestionNumericPortability(t *testing.T) {
 					}
 					e := ingestionTestEvent()
 					e.Metadata = json.RawMessage(`{"value":` + tc.number + `}`)
-					raw, _ := json.Marshal(e)
+					raw := ingestionTestJSON(t, e)
 					_, decodeErr := DecodeActivityIngestionEvent(raw)
 					first, directErr := svc.Ingest(ctx, e)
 					replay, commandErr := DispatchActivityIngestion(ctx, a.Commands(), ActivityIngestMsg{Event: e})
-					req := httptest.NewRequest("POST", "/admin/api/activity/ingest", bytes.NewReader(raw))
+					req := httptest.NewRequestWithContext(t.Context(), "POST", "/admin/api/activity/ingest", bytes.NewReader(raw))
 					req.Header.Set("Authorization", "Bearer producer-secret")
 					req.Header.Set("Content-Type", "application/json")
 					rr := httptest.NewRecorder()
@@ -129,9 +129,9 @@ func TestActivityIngestionHTTP(t *testing.T) {
 	if err != nil || endpoint != "/control/api/activity/ingest" {
 		t.Fatal(endpoint, err)
 	}
-	raw, _ := json.Marshal(ingestionTestEvent())
+	raw := ingestionTestJSON(t, ingestionTestEvent())
 	post := func(body []byte, edit func(*http.Request)) *httptest.ResponseRecorder {
-		request := httptest.NewRequest("POST", endpoint, bytes.NewReader(body))
+		request := httptest.NewRequestWithContext(t.Context(), "POST", endpoint, bytes.NewReader(body))
 		request.Header.Set("Authorization", "Bearer producer-secret")
 		request.Header.Set("Content-Type", "application/json")
 		if edit != nil {
@@ -223,7 +223,7 @@ func TestActivityIngestionHTTP(t *testing.T) {
 	if rr := post(raw, nil); rr.Code != 403 {
 		t.Fatal(rr.Code)
 	}
-	if err := RegisterActivityIngestionRoutes(context.Background(), server.Router(), a, ActivityIngestionHTTPOptions{Enabled: true, Service: svc, Verifier: verifier}); err != ErrActivityIngestionConflict {
+	if err := RegisterActivityIngestionRoutes(context.Background(), server.Router(), a, ActivityIngestionHTTPOptions{Enabled: true, Service: svc, Verifier: verifier}); !errors.Is(err, ErrActivityIngestionConflict) {
 		t.Fatal("collision accepted", err)
 	}
 }
@@ -258,8 +258,8 @@ func TestActivityIngestionURLKitOverrides(t *testing.T) {
 			}
 			e := ingestionTestEvent()
 			e.EventID = tc.name
-			raw, _ := json.Marshal(e)
-			req := httptest.NewRequest("POST", tc.want, bytes.NewReader(raw))
+			raw := ingestionTestJSON(t, e)
+			req := httptest.NewRequestWithContext(t.Context(), "POST", tc.want, bytes.NewReader(raw))
 			req.Header.Set("Authorization", "Bearer producer-secret")
 			req.Header.Set("Content-Type", "application/json")
 			rr := httptest.NewRecorder()
@@ -280,7 +280,7 @@ func TestActivityIngestionHTTPReadinessAndProof(t *testing.T) {
 	if err := RegisterActivityIngestionRoutes(context.Background(), server.Router(), nil, ActivityIngestionHTTPOptions{}); err != nil || len(server.Router().Routes()) != 0 {
 		t.Fatal("disabled routes changed", err)
 	}
-	if err := RegisterActivityIngestionRoutes(context.Background(), server.Router(), a, ActivityIngestionHTTPOptions{Enabled: true, Service: svc}); err != ErrActivityIngestionUnavailable {
+	if err := RegisterActivityIngestionRoutes(context.Background(), server.Router(), a, ActivityIngestionHTTPOptions{Enabled: true, Service: svc}); !errors.Is(err, ErrActivityIngestionUnavailable) {
 		t.Fatal("missing verifier ready", err)
 	}
 	for _, invalid := range []string{"https://example.org/ingest", "/ingest/:id", "/ingest/{id}", "/ingest?mode=x", "//evil/path", "/a/../ingest", "/ingest%2fother"} {
@@ -295,9 +295,12 @@ func TestActivityIngestionHTTPReadinessAndProof(t *testing.T) {
 	if err := RegisterActivityIngestionRoutes(context.Background(), server.Router(), a, opts); err != nil {
 		t.Fatal(err)
 	}
-	endpoint, _ := a.ActivityIngestionURL()
-	raw, _ := json.Marshal(ingestionTestEvent())
-	req := httptest.NewRequest("POST", endpoint, bytes.NewReader(raw))
+	endpoint, endpointErr := a.ActivityIngestionURL()
+	if endpointErr != nil {
+		t.Fatal(endpointErr)
+	}
+	raw := ingestionTestJSON(t, ingestionTestEvent())
+	req := httptest.NewRequestWithContext(t.Context(), "POST", endpoint, bytes.NewReader(raw))
 	req.Header.Set("Authorization", "Bearer producer-secret")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Activity-Actor-Assertion", "proof")
@@ -322,12 +325,12 @@ func TestActivityIngestionDepthParity(t *testing.T) {
 			if arrays {
 				e.Metadata = json.RawMessage(`{"x":` + strings.Repeat(`[`, depth-1) + `0` + strings.Repeat(`]`, depth-1) + `}`)
 			}
-			raw, _ := json.Marshal(e)
+			raw := ingestionTestJSON(t, e)
 			_, decodeErr := DecodeActivityIngestionEvent(raw)
 			_, directErr := svc.Ingest(ctx, e)
 			_, commandErr := (&ActivityIngestCommand{Service: svc}).Run(ctx, ActivityIngestMsg{Event: e})
 			result, dispatchErr := DispatchActivityIngestion(ctx, a.Commands(), ActivityIngestMsg{Event: e})
-			request := httptest.NewRequest("POST", "/admin/api/activity/ingest", bytes.NewReader(raw))
+			request := httptest.NewRequestWithContext(t.Context(), "POST", "/admin/api/activity/ingest", bytes.NewReader(raw))
 			request.Header.Set("Authorization", "Bearer producer-secret")
 			request.Header.Set("Content-Type", "application/json")
 			response := httptest.NewRecorder()

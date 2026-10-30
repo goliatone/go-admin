@@ -190,7 +190,7 @@ This runs:
 - formatting check
 - tests
 - race tests
-- change-scoped `golangci-lint`
+- full-repository `golangci-lint` across the maintained modules, without a revision filter
 - `govulncheck`
 - `gosec`
 

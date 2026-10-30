@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -42,8 +43,9 @@ func ingestionTestPrincipal() ActivityProducerPrincipal {
 	return ActivityProducerPrincipal{ProducerID: "billing", CredentialID: "key-1", Issuer: "host", Audience: "activity", Purpose: ActivityIngestionPurpose, NotBefore: now.Add(-time.Hour), ExpiresAt: now.Add(time.Hour)}
 }
 func ingestionServiceFixture(t *testing.T, postgres bool) (*ActivityIngestionService, *BunActivityIngestionStore, *ingestionTestPolicy, context.Context) {
+	t.Helper()
 	db, _ := ingestionTestDatabase(t, postgres)
-	store, _ := NewBunActivityIngestionStore(db)
+	store := ingestionTestStore(t, db)
 	policy := &ingestionTestPolicy{attest: true, scope: ScopeInput{TenantID: ingestTenant, OrgID: ingestOrg}}
 	svc, err := NewActivityIngestionService(ActivityIngestionConfig{Store: store, Policy: policy, ScopePolicy: ScopePolicy{Mode: ScopePolicySingle, DefaultTenantID: ingestTenant, DefaultOrgID: ingestOrg}, Issuer: "host", Audience: "activity", Disclose: func(_ context.Context, e ActivityIngestionEvent) (json.RawMessage, error) { return e.Metadata, nil }})
 	if err != nil {
@@ -65,20 +67,20 @@ func runActivityIngestionServiceContract(t *testing.T, postgres bool) {
 	}
 	// Observer failure cannot replace committed acceptance.
 	svc.config.Observe = func(context.Context, ActivityIngestionObservation) { panic("observer failed") }
-	first, err := svc.Ingest(ctx, e)
-	if err != nil || first.Replayed {
-		t.Fatal(first, err)
+	first, firstErr := svc.Ingest(ctx, e)
+	if firstErr != nil || first.Replayed {
+		t.Fatal(first, firstErr)
 	}
 	again := e
 	again.Scope = policy.scope
 	again.Metadata = json.RawMessage(`{"large":9007199254740993.0,"amount":123e-2}`)
-	replay, err := svc.Ingest(ctx, again)
-	if err != nil || !replay.Replayed || replay.ActivityID != first.ActivityID || replay.ReceivedAt != first.ReceivedAt || validated != 1 {
-		t.Fatal("replay", replay, err, validated)
+	replay, replayErr := svc.Ingest(ctx, again)
+	if replayErr != nil || !replay.Replayed || replay.ActivityID != first.ActivityID || replay.ReceivedAt != first.ReceivedAt || validated != 1 {
+		t.Fatal("replay", replay, replayErr, validated)
 	}
 	changed := e
 	changed.Object.ID = "changed"
-	if _, err = svc.Ingest(ctx, changed); err != ErrActivityIngestionConflict {
+	if _, err := svc.Ingest(ctx, changed); !errors.Is(err, ErrActivityIngestionConflict) {
 		t.Fatal("conflict", err)
 	}
 	// Omitted-scope replay stays pinned across org-default and mode changes.
@@ -97,17 +99,17 @@ func runActivityIngestionServiceContract(t *testing.T, postgres bool) {
 		t.Fatal("rotation changed identity", got, err)
 	}
 	principal.Binding = ScopeInput{TenantID: ingestTenant, OrgID: ingestActor}
-	if _, err = svc.Ingest(WithVerifiedActivityProducer(context.Background(), principal), e); err != ErrActivityIngestionForbidden {
+	if _, err := svc.Ingest(WithVerifiedActivityProducer(context.Background(), principal), e); !errors.Is(err, ErrActivityIngestionForbidden) {
 		t.Fatal("binding change retargeted", err)
 	}
 	// Current policy runs before any private lookup, even on identical retries.
 	policy.revoked = true
-	if _, err = svc.Ingest(ctx, e); err != ErrActivityIngestionForbidden {
+	if _, err := svc.Ingest(ctx, e); !errors.Is(err, ErrActivityIngestionForbidden) {
 		t.Fatal("revoked replay", err)
 	}
 	policy.revoked = false
 	policy.credential = "key-1"
-	if _, err = svc.Ingest(ctx, e); err != ErrActivityIngestionForbidden {
+	if _, err := svc.Ingest(ctx, e); !errors.Is(err, ErrActivityIngestionForbidden) {
 		t.Fatal("credential revocation", err)
 	}
 	policy.credential = ""
@@ -115,18 +117,18 @@ func runActivityIngestionServiceContract(t *testing.T, postgres bool) {
 		bad := again
 		bad.EventID = uuid.NewString()
 		mutate(&bad)
-		if _, err = svc.Ingest(ctx, bad); err != ErrActivityIngestionForbidden {
+		if _, err := svc.Ingest(ctx, bad); !errors.Is(err, ErrActivityIngestionForbidden) {
 			t.Fatal("unauthorized event", err)
 		}
 	}
 	// Changed target only exposes conflict after stored-target authorization.
 	target := again
 	target.Scope.OrgID = ingestActor
-	if _, err = svc.Ingest(ctx, target); err != ErrActivityIngestionConflict {
+	if _, err := svc.Ingest(ctx, target); !errors.Is(err, ErrActivityIngestionConflict) {
 		t.Fatal(err)
 	}
 	policy.scope.OrgID = ingestActor
-	if _, err = svc.Ingest(ctx, target); err != ErrActivityIngestionForbidden {
+	if _, err := svc.Ingest(ctx, target); !errors.Is(err, ErrActivityIngestionForbidden) {
 		t.Fatal("unauthorized target disclosure", err)
 	}
 	policy.scope.OrgID = ingestOrg
@@ -135,25 +137,25 @@ func runActivityIngestionServiceContract(t *testing.T, postgres bool) {
 	policy.attest = false
 	user := e
 	user.EventID = "delegated"
-	if _, err = svc.Ingest(ctx, user); err != ErrActivityIngestionForbidden {
+	if _, err := svc.Ingest(ctx, user); !errors.Is(err, ErrActivityIngestionForbidden) {
 		t.Fatal("implicit attestation", err)
 	}
 	p, _ := ActivityProducerFromContext(ctx)
 	proof := ActivityAttributionEvidence{ProducerID: p.ProducerID, ActorID: ingestActor, Scope: policy.scope, Issuer: p.Issuer, Audience: p.Audience, Purpose: p.Purpose, NotBefore: p.NotBefore, ExpiresAt: p.ExpiresAt}
 	delegated := WithVerifiedActivityAttribution(ctx, proof)
-	if _, err = svc.Ingest(delegated, user); err != nil {
+	if _, err := svc.Ingest(delegated, user); err != nil {
 		t.Fatal(err)
 	}
 	machine := e
 	machine.EventID = "job"
 	machine.Actor = ActivityIngestionActor{Kind: "job"}
 	machine.SubjectUserID = ingestActor
-	got, err := svc.Ingest(ctx, machine)
-	if err != nil {
-		t.Fatal(err)
+	got, machineErr := svc.Ingest(ctx, machine)
+	if machineErr != nil {
+		t.Fatal(machineErr)
 	}
 	var receipt activityIngestionReceiptRow
-	if err = store.db.NewSelect().Model(&receipt).Where("activity_id = ?", got.ActivityID).Scan(ctx); err != nil {
+	if err := store.db.NewSelect().Model(&receipt).Where("activity_id = ?", got.ActivityID).Scan(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if receipt.ActorKind != "job" || receipt.ActorID != uuid.Nil || receipt.SubjectUserID != uuid.MustParse(ingestActor) {
@@ -164,13 +166,13 @@ func runActivityIngestionServiceContract(t *testing.T, postgres bool) {
 	future := e
 	future.EventID = "future"
 	future.OccurredAt = time.Now().UTC().Add(time.Hour).Truncate(time.Microsecond)
-	if _, err = svc.Ingest(ctx, future); err != ErrActivityIngestionInvalid {
+	if _, err := svc.Ingest(ctx, future); !errors.Is(err, ErrActivityIngestionInvalid) {
 		t.Fatal("future accepted", err)
 	}
-	if _, err = store.db.NewUpdate().Model((*activityIngestionReceiptRow)(nil)).Set("fingerprint_version = 99").Where("event_id = ?", e.EventID).Exec(ctx); err != nil {
+	if _, err := store.db.NewUpdate().Model((*activityIngestionReceiptRow)(nil)).Set("fingerprint_version = 99").Where("event_id = ?", e.EventID).Exec(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = svc.Ingest(ctx, e); err != ErrActivityIngestionReplayVersion {
+	if _, err := svc.Ingest(ctx, e); !errors.Is(err, ErrActivityIngestionReplayVersion) {
 		t.Fatal("unsupported receipt rewritten", err)
 	}
 }
@@ -213,20 +215,20 @@ func TestActivityIngestionAuthorityBeforeLookupAndBoundedRetry(t *testing.T) {
 	svc, store, policy, ctx := ingestionServiceFixture(t, false)
 	count := &ingestionCountingStore{ActivityIngestionStore: store}
 	svc.config.Store = count
-	if _, err := svc.Ingest(context.Background(), ingestionTestEvent()); err != ErrActivityIngestionUnauthenticated || count.lookups != 0 {
+	if _, err := svc.Ingest(context.Background(), ingestionTestEvent()); !errors.Is(err, ErrActivityIngestionUnauthenticated) || count.lookups != 0 {
 		t.Fatal("absent authority queried receipt", err)
 	}
 	policy.revoked = true
-	if _, err := svc.Ingest(ctx, ingestionTestEvent()); err != ErrActivityIngestionForbidden || count.lookups != 0 {
+	if _, err := svc.Ingest(ctx, ingestionTestEvent()); !errors.Is(err, ErrActivityIngestionForbidden) || count.lookups != 0 {
 		t.Fatal("revoked authority queried receipt", err)
 	}
 	policy.revoked = false
-	if _, err := svc.Ingest(ctx, ingestionTestEvent()); err != ErrActivityIngestionUnavailable || count.attempts != 3 {
+	if _, err := svc.Ingest(ctx, ingestionTestEvent()); !errors.Is(err, ErrActivityIngestionUnavailable) || count.attempts != 3 {
 		t.Fatal("unbounded retries", count.attempts, err)
 	}
 	stale := ingestionTestPrincipal()
 	stale.ExpiresAt = time.Now().Add(-time.Minute)
-	if _, err := svc.Ingest(WithVerifiedActivityProducer(context.Background(), stale), ingestionTestEvent()); err != ErrActivityIngestionUnauthenticated {
+	if _, err := svc.Ingest(WithVerifiedActivityProducer(context.Background(), stale), ingestionTestEvent()); !errors.Is(err, ErrActivityIngestionUnauthenticated) {
 		t.Fatal("stale context", err)
 	}
 }
@@ -245,39 +247,49 @@ func TestActivityIngestionCommandDispatch(t *testing.T) {
 	if err != nil || first.Replayed {
 		t.Fatal("typed", first, err)
 	}
-	raw, _ := json.Marshal(msg.Event)
+	raw := ingestionTestJSON(t, msg.Event)
 	payload, err := decodeActivityIngestionJSON(raw, 65536, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	outcome, err := bus.DispatchByNameWithOutcome(ctx, ActivityIngestCommandName, payload.(map[string]any), nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
-	if err != nil || !outcome.Result.(ActivityIngestResult).Replayed {
+	fields, ok := payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected decoded object, got %T", payload)
+	}
+	outcome, err := bus.DispatchByNameWithOutcome(ctx, ActivityIngestCommandName, fields, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
+	if err != nil {
+		t.Fatal("named dispatch", err)
+	}
+	result, ok := outcome.Result.(ActivityIngestResult)
+	if !ok || !result.Replayed {
 		t.Fatal("named", outcome, err)
 	}
 	policy.revoked = true
-	if _, err := handler.Run(ctx, msg); err != ErrActivityIngestionForbidden {
+	if _, err = handler.Run(ctx, msg); !errors.Is(err, ErrActivityIngestionForbidden) {
 		t.Fatal("direct command bypassed policy", err)
 	}
 	policy.revoked = false
-	if _, err = bus.DispatchByNameWithOutcome(context.Background(), ActivityIngestCommandName, payload.(map[string]any), nil, command.DispatchOptions{Mode: command.ExecutionModeInline}); err != ErrActivityIngestionUnauthenticated {
+	if _, err = bus.DispatchByNameWithOutcome(context.Background(), ActivityIngestCommandName, fields, nil, command.DispatchOptions{Mode: command.ExecutionModeInline}); !errors.Is(err, ErrActivityIngestionUnauthenticated) {
 		t.Fatal("generic admin dispatch bypassed auth", err)
 	}
 	// Factory must reject before dispatcher executor selection. A queued executor
 	// that would accept anything is never called by either supported entry.
 	calls := 0
 	old, had := dispatcher.ExecutorForMode(command.ExecutionModeQueued)
-	if err := dispatcher.RegisterExecutor(command.ExecutionModeQueued, ingestionQueueExecutor{calls: &calls}); err != nil {
+	if err = dispatcher.RegisterExecutor(command.ExecutionModeQueued, ingestionQueueExecutor{calls: &calls}); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
 		if had {
-			_ = dispatcher.RegisterExecutor(command.ExecutionModeQueued, old)
+			if restoreErr := dispatcher.RegisterExecutor(command.ExecutionModeQueued, old); restoreErr != nil {
+				t.Errorf("restore queued executor: %v", restoreErr)
+			}
 		} else {
 			dispatcher.UnregisterExecutor(command.ExecutionModeQueued)
 		}
 	})
 	for _, opts := range []command.DispatchOptions{{Mode: command.ExecutionModeQueued}, {Mode: command.ExecutionModeInline, Delay: time.Second}, {Mode: command.ExecutionModeInline, IdempotencyKey: "cache"}, {Mode: command.ExecutionModeInline, DedupPolicy: command.DedupPolicyReplace}} {
-		_, err = bus.DispatchByNameWithOutcome(ctx, ActivityIngestCommandName, payload.(map[string]any), nil, opts)
+		_, err = bus.DispatchByNameWithOutcome(ctx, ActivityIngestCommandName, fields, nil, opts)
 		if err == nil {
 			t.Fatal("unsafe named options accepted")
 		}

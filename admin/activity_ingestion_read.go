@@ -155,7 +155,7 @@ func (a *Admin) activityIngestionReader(ctx context.Context) (context.Context, A
 		return ctx, ActivityReadContext{}, err
 	}
 	// Actor scope is trusted; request/query/event metadata is never consulted.
-	if _, err := activityIngestionScope(ScopeInput{TenantID: actor.TenantID, OrgID: actor.OrganizationID}, true); err != nil {
+	if _, err = activityIngestionScope(ScopeInput{TenantID: actor.TenantID, OrgID: actor.OrganizationID}, true); err != nil {
 		return ctx, ActivityReadContext{}, ErrActivityIngestionForbidden
 	}
 	original := authctx.ScopeFromActorContext(actor)
@@ -199,8 +199,8 @@ func (s *activityIngestionReadSink) List(ctx context.Context, limit int, filters
 	filter := types.ActivityFilter{Actor: readCtx.Actor, Scope: readCtx.Scope, Pagination: types.Pagination{Limit: limit}}
 	for _, legacy := range filters {
 		if legacy.Actor != "" {
-			id, err := uuid.Parse(legacy.Actor)
-			if err != nil {
+			id, parseErr := uuid.Parse(legacy.Actor)
+			if parseErr != nil {
 				return nil, ErrActivityIngestionInvalid
 			}
 			filter.ActorID = id

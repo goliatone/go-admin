@@ -492,7 +492,10 @@ func (a *Admin) HasAuthenticator() bool {
 // WithActivitySink injects a shared activity sink (go-users compatible via adapter).
 func (a *Admin) WithActivitySink(sink ActivitySink) *Admin {
 	if a != nil && a.activityIngestion != nil && sink != nil {
-		wrapped := a.activityIngestion.Sink.(*activityIngestionReadSink)
+		wrapped, ok := a.activityIngestion.Sink.(*activityIngestionReadSink)
+		if !ok || wrapped == nil {
+			panic("admin: activity ingestion requires its guarded read sink")
+		}
 		if sink != wrapped {
 			wrapped.legacy = sink
 		}

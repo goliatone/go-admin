@@ -315,16 +315,23 @@ func ResolveActivityIngestionScope(policy ScopePolicy, requested, binding ScopeI
 		requested.OrgID = binding.OrgID
 	}
 	if policy.Mode == ScopePolicySingle {
-		tenant, _ := activityIngestionUUID(policy.DefaultTenantID, false)
-		if requested.TenantID != "" && requested.TenantID != tenant {
-			return ScopeInput{}, ErrActivityIngestionForbidden
-		}
-		// Reuse central effective-scope defaulting with no request or browser context.
-		a := &Admin{config: Config{ScopeMode: string(policy.Mode), DefaultTenantID: tenant, DefaultOrgID: policy.DefaultOrgID}}
-		resolved := a.EffectiveScope(context.Background(), requested)
-		requested = ScopeInput{TenantID: resolved.TenantID, OrgID: resolved.OrgID}
+		return resolveActivityIngestionSingleScope(policy, requested)
 	}
 	return activityIngestionScope(requested, false)
+}
+
+func resolveActivityIngestionSingleScope(policy ScopePolicy, requested ScopeInput) (ScopeInput, error) {
+	tenant, err := activityIngestionUUID(policy.DefaultTenantID, false)
+	if err != nil {
+		return ScopeInput{}, ErrActivityIngestionUnavailable
+	}
+	if requested.TenantID != "" && requested.TenantID != tenant {
+		return ScopeInput{}, ErrActivityIngestionForbidden
+	}
+	// Reuse central effective-scope defaulting with no request or browser context.
+	a := &Admin{config: Config{ScopeMode: string(policy.Mode), DefaultTenantID: tenant, DefaultOrgID: policy.DefaultOrgID}}
+	resolved := a.EffectiveScope(context.Background(), requested)
+	return activityIngestionScope(ScopeInput{TenantID: resolved.TenantID, OrgID: resolved.OrgID}, false)
 }
 func validateActivityIngestionScopePolicy(p ScopePolicy) error {
 	if p.Mode == ScopePolicyMulti {
@@ -375,7 +382,11 @@ func DispatchActivityIngestion(ctx context.Context, bus *CommandBus, msg Activit
 	if err != nil {
 		return ActivityIngestResult{}, err
 	}
-	outcome, err := bus.DispatchByNameWithOutcome(ctx, ActivityIngestCommandName, value.(map[string]any), nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
+	payload, ok := value.(map[string]any)
+	if !ok {
+		return ActivityIngestResult{}, ErrActivityIngestionInvalid
+	}
+	outcome, err := bus.DispatchByNameWithOutcome(ctx, ActivityIngestCommandName, payload, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
 	if err != nil {
 		return ActivityIngestResult{}, err
 	}
