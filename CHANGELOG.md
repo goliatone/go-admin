@@ -1,10 +1,29 @@
 # Changelog
 
+# [0.142.2](https://github.com/goliatone/go-admin/compare/v0.142.1...v0.142.2) - (2026-10-30)
+
+## <!-- 16 -->➕ Add
+
+- Activity ingest API ([03ee621](https://github.com/goliatone/go-admin/commit/03ee6217ebc8649839169931d82d52057f27f285))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Fix activity ingestion and tests ([902cd29](https://github.com/goliatone/go-admin/commit/902cd29cb7f6cef877466bada215e66e8624765e))  - (goliatone)
+- Update deps ([a985ab5](https://github.com/goliatone/go-admin/commit/a985ab56cf3a2c835912e983723ffc80d4e549b5))  - (goliatone)
+- Update docs ([e1eb796](https://github.com/goliatone/go-admin/commit/e1eb796c6ea7a09facce83b630f2b14ba5e812cb))  - (goliatone)
+
 # [0.142.1](https://github.com/goliatone/go-admin/compare/v0.142.0...v0.142.1) - (2026-10-29)
+
+
+New patch release: v0.142.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Code quality ([eea30e3](https://github.com/goliatone/go-admin/commit/eea30e3e544034818d4b73a4c27697c39955cf23))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.142.1 ([920e7b8](https://github.com/goliatone/go-admin/commit/920e7b893df443d13db8eb5c49bac086cdd34012))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
