@@ -218,6 +218,8 @@ function test_go_quality_all_lints_full_repository {
         export QUALITY_TEST_LINT_LOG="${lint_fixture}/lint.log"
         export QUALITY_TEST_LINT_EXIT=0
         local security_log="${lint_fixture}/security.log"
+        local gohawk_log="${lint_fixture}/gohawk.log"
+        local gohawk_status=0
         cat > "${lint_fixture}/golangci-lint" <<'LINT'
 #!/bin/bash
 printf '%s\n' "$*" >> "${QUALITY_TEST_LINT_LOG}"
@@ -233,13 +235,16 @@ LINT
         function go:test { :; }
         function go:race { :; }
         function go:security:all { printf 'security\n' >> "${security_log}"; }
+        function go:gohawk { printf '%s\n' "$*" >> "${gohawk_log}"; return "${gohawk_status}"; }
 
         go:quality:all ./... ./quickstart/... ./examples/...
         assert_file_content "${QUALITY_TEST_LINT_LOG}" 'run ./... ./quickstart/... ./examples/...'
         assert_file_content "${security_log}" 'security'
+        assert_file_content "${gohawk_log}" './... ./quickstart/... ./examples/...'
 
         : > "${QUALITY_TEST_LINT_LOG}"
         : > "${security_log}"
+        : > "${gohawk_log}"
         QUALITY_TEST_LINT_EXIT=1
         if go:quality:all ./... ./quickstart/... ./examples/...; then
             echo "full quality gate ignored lint failure" >&2
@@ -247,12 +252,79 @@ LINT
         fi
         assert_file_content "${QUALITY_TEST_LINT_LOG}" 'run ./... ./quickstart/... ./examples/...'
         assert_file_content "${security_log}" ''
+        assert_file_content "${gohawk_log}" ''
+
+        QUALITY_TEST_LINT_EXIT=0
+        gohawk_status=3
+        if go:quality:all ./... ./quickstart/... ./examples/...; then
+            echo "full quality gate ignored GoHawk findings" >&2
+            return 1
+        fi
+        assert_file_content "${gohawk_log}" './... ./quickstart/... ./examples/...'
 
         : > "${QUALITY_TEST_LINT_LOG}"
+        : > "${gohawk_log}"
         QUALITY_TEST_LINT_EXIT=0
         GO_LINT_NEW_FROM_REV=quality-test-base
         go:quality:pr ./... ./quickstart/... ./examples/...
         assert_file_content "${QUALITY_TEST_LINT_LOG}" 'run --new-from-rev=quality-test-base --whole-files ./... ./quickstart/... ./examples/...'
+        assert_file_content "${gohawk_log}" ''
+    )
+}
+
+function test_go_gohawk_scans_all_modules {
+    (
+        local gohawk_fixture="${fixture_root}/gohawk"
+        local scan_status
+        local expected=$'gohawk ./...\nquickstart ./...\nexamples ./...'
+        mkdir -p "${gohawk_fixture}/quickstart" "${gohawk_fixture}/examples"
+        touch "${gohawk_fixture}/quickstart/go.mod" "${gohawk_fixture}/examples/go.mod"
+        export QUALITY_TEST_GOHAWK_LOG="${gohawk_fixture}/scan.log"
+        export QUALITY_TEST_GOHAWK_ROOT_EXIT=3
+        export QUALITY_TEST_GOHAWK_QUICKSTART_EXIT=0
+        export QUALITY_TEST_GOHAWK_EXAMPLES_EXIT=3
+        cat > "${gohawk_fixture}/gohawk" <<'GOHAWK'
+#!/bin/bash
+printf '%s %s\n' "${PWD##*/}" "$*" >> "${QUALITY_TEST_GOHAWK_LOG}"
+case "${PWD##*/}" in
+    gohawk) exit "${QUALITY_TEST_GOHAWK_ROOT_EXIT}" ;;
+    quickstart) exit "${QUALITY_TEST_GOHAWK_QUICKSTART_EXIT}" ;;
+    examples) exit "${QUALITY_TEST_GOHAWK_EXAMPLES_EXIT}" ;;
+esac
+exit 99
+GOHAWK
+        chmod +x "${gohawk_fixture}/gohawk"
+        function _go:tool:ensure {
+            [ "$1" = gohawk ] && [ "$2" = "github.com/kojah/gohawk@${GO_GOHAWK_VERSION}" ] || return 1
+            printf '%s\n' "${gohawk_fixture}/gohawk"
+        }
+        function _go:quality:prepare_env { :; }
+        # Package filtering is covered by the separate discovery regression.
+        function _go:run_in_module { "$@"; }
+        cd "${gohawk_fixture}" || exit 1
+
+        scan_status=0
+        go:gohawk || scan_status=$?
+        [ "${scan_status}" -eq 3 ] || return 1
+        assert_file_content "${QUALITY_TEST_GOHAWK_LOG}" "${expected}"
+
+        : > "${QUALITY_TEST_GOHAWK_LOG}"
+        QUALITY_TEST_GOHAWK_QUICKSTART_EXIT=1
+        scan_status=0
+        go:gohawk || scan_status=$?
+        [ "${scan_status}" -eq 1 ] || return 1
+        assert_file_content "${QUALITY_TEST_GOHAWK_LOG}" "${expected}"
+
+        : > "${QUALITY_TEST_GOHAWK_LOG}"
+        QUALITY_TEST_GOHAWK_ROOT_EXIT=0
+        QUALITY_TEST_GOHAWK_QUICKSTART_EXIT=0
+        QUALITY_TEST_GOHAWK_EXAMPLES_EXIT=0
+        go:gohawk
+        assert_file_content "${QUALITY_TEST_GOHAWK_LOG}" "${expected}"
+
+        : > "${QUALITY_TEST_GOHAWK_LOG}"
+        go:gohawk ./admin/... ./quickstart/...
+        assert_file_content "${QUALITY_TEST_GOHAWK_LOG}" 'gohawk ./admin/... ./quickstart/...'
     )
 }
 
@@ -1743,6 +1815,7 @@ for release_test in \
     test_isolated_release_faults \
     test_go_quality_cache_stays_outside_repository \
     test_go_quality_all_lints_full_repository \
+    test_go_gohawk_scans_all_modules \
     test_go_file_discovery_excludes_external_workspaces \
     test_go_package_discovery_excludes_evidence \
     test_module_discovery \

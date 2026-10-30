@@ -30,6 +30,20 @@ jobs:
       - name: Enforce application ownership boundary
         run: go test . -run 'TestRepositoryApplicationBoundary|TestApplicationBoundaryTokenCanonicalization' -count=1
 
+  race:
+    name: Race Test All Go Modules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.work
+
+      - name: Race test root, quickstart, and examples
+        run: ./taskfile go:race
+
   lint-pr:
     name: Lint New Issues
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'

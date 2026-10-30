@@ -22,7 +22,7 @@ type Server struct {
 	mu       sync.Mutex
 	stopping bool
 	sockets  map[ownedSocket]context.CancelFunc
-	workers  sync.WaitGroup
+	drained  chan struct{}
 }
 
 type ownedSocket interface {
@@ -40,7 +40,14 @@ func (s *Server) Router() router.Router[*fiber.App] { return s.routes }
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	s.mu.Lock()
-	s.stopping = true
+	if !s.stopping {
+		s.stopping = true
+		s.drained = make(chan struct{})
+		if len(s.sockets) == 0 {
+			close(s.drained)
+		}
+	}
+	drained := s.drained
 	sockets := make(map[ownedSocket]context.CancelFunc, len(s.sockets))
 	maps.Copy(sockets, s.sockets)
 	s.mu.Unlock()
@@ -51,10 +58,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 			errs = append(errs, err)
 		}
 	}
-	joined := make(chan struct{})
-	go func() { s.workers.Wait(); close(joined) }()
+	// Worker cleanup closes this shared notification. A timed-out attempt
+	// leaves no waiting goroutine, and later attempts can still observe drain.
 	select {
-	case <-joined:
+	case <-drained:
 	case <-ctx.Done():
 		errs = append(errs, ctx.Err())
 	}
@@ -133,32 +140,37 @@ func (r *ownedRouter) Static(prefix, root string, cfg ...router.Static) router.R
 	return r
 }
 func (r *ownedRouter) WebSocket(path string, cfg router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
-	return r.FiberV3Router.WebSocket(path, cfg, func(ws router.WebSocketContext) (err error) {
-		reader, ok := ws.(ownedSocket)
-		if !ok {
-			return fmt.Errorf("native example requires websocket read interruption")
-		}
-		ctx, cancel := context.WithCancel(ws.Context())
-		r.owner.mu.Lock()
-		if r.owner.stopping {
-			r.owner.mu.Unlock()
-			cancel()
-			return ws.Close()
-		}
-		r.owner.sockets[reader] = cancel
-		r.owner.workers.Add(1)
-		r.owner.mu.Unlock()
-		ws.SetContext(ctx)
-		defer func() {
-			cancel()
-			err = errors.Join(err, ws.Close())
-			r.owner.mu.Lock()
-			delete(r.owner.sockets, reader)
-			r.owner.mu.Unlock()
-			r.owner.workers.Done()
-		}()
-		return handler(ws)
+	return r.FiberV3Router.WebSocket(path, cfg, func(ws router.WebSocketContext) error {
+		return r.owner.handleWebSocket(ws, handler)
 	})
+}
+
+func (s *Server) handleWebSocket(ws router.WebSocketContext, handler func(router.WebSocketContext) error) (err error) {
+	reader, ok := ws.(ownedSocket)
+	if !ok {
+		return fmt.Errorf("native example requires websocket read interruption")
+	}
+	ctx, cancel := context.WithCancel(ws.Context())
+	s.mu.Lock()
+	if s.stopping {
+		s.mu.Unlock()
+		cancel()
+		return ws.Close()
+	}
+	s.sockets[reader] = cancel
+	s.mu.Unlock()
+	ws.SetContext(ctx)
+	defer func() {
+		cancel()
+		err = errors.Join(err, ws.Close())
+		s.mu.Lock()
+		delete(s.sockets, reader)
+		if s.stopping && len(s.sockets) == 0 {
+			close(s.drained)
+		}
+		s.mu.Unlock()
+	}()
+	return handler(ws)
 }
 
 func runBounded(ctx context.Context, operation func(context.Context) error) error {

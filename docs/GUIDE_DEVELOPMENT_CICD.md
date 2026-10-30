@@ -23,8 +23,9 @@ Use this guide to standardize:
 The repository now uses these layers:
 
 - Formatting: `gofmt`
-- Tests: `go test`
+- Tests and race detection: `go test`, `go test -race`
 - Lint and maintainability checks: `golangci-lint`
+- Local resource and concurrency analysis: pinned GoHawk default core checks
 - Security scans: `govulncheck`, `gosec`
 - Example-specific and productization workflows: separate GitHub Actions jobs
 
@@ -48,6 +49,10 @@ Local development should optimize for fast iteration:
 - use `go:quality:pr` before opening or updating a PR
 
 ### 3.2 GitHub workflow
+
+Blocking test and race-test jobs cover root, quickstart and examples on pull
+requests, merge queue, main pushes and manual runs. The race job invokes
+`./taskfile go:race`. GoHawk remains local while its findings are evaluated.
 
 GitHub uses three lint modes:
 
@@ -73,9 +78,10 @@ This installs:
 - `golangci-lint`
 - `govulncheck`
 - `gosec`
+- `gohawk`
 
-Security tasks verify the installed scanner's package and version against the
-taskfile pins and install a matching binary when needed. The installer returns
+Security and GoHawk tasks verify the installed scanner's package and version
+against the taskfile pins and install a matching binary when needed. The installer returns
 the binary from `GOBIN` (or `GOPATH/bin`), even when an older copy appears first
 on `PATH`.
 
@@ -193,6 +199,25 @@ This runs:
 - full-repository `golangci-lint` across the maintained modules, without a revision filter
 - `govulncheck`
 - `gosec`
+- GoHawk default core checks (blocking locally)
+
+GoHawk runs last and fails the full local gate on findings or analysis errors.
+It is excluded from `go:quality:pr` and the baseline-aware gate. To inspect its
+findings directly without running formatting, fixes or the other checks:
+
+```bash
+./taskfile go:gohawk
+```
+
+This analyzes all three maintained modules even when one reports findings.
+Explicit package targets are also supported, for example
+`./taskfile go:gohawk ./admin/... ./quickstart/...`. The standalone task returns
+0 for a clean scan, 3 for findings and 1 for analysis/build failures in the
+default multi-module run. No experimental selection flags or suppression
+baseline are applied. GoHawk's default scan covers production code; retain the
+existing test linters and race tests for test-code coverage. The pinned release
+is maintained in [taskfile](../taskfile); `./taskfile go:tools:gohawk` explicitly
+reinstalls it after a Go toolchain upgrade.
 
 Default quality checks cover maintained packages in the root, quickstart, and
 examples modules. Loose go-admin evidence and replay workspaces live outside the module
