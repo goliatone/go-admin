@@ -18,11 +18,12 @@ import (
 
 type Server struct {
 	router.Server[*fiber.App]
-	routes   *ownedRouter
-	mu       sync.Mutex
-	stopping bool
-	sockets  map[ownedSocket]context.CancelFunc
-	drained  chan struct{}
+	routes       *ownedRouter
+	mu           sync.Mutex
+	stopping     bool
+	sockets      map[ownedSocket]context.CancelFunc
+	drained      chan struct{}
+	shutdownGate chan struct{}
 }
 
 type ownedSocket interface {
@@ -31,7 +32,10 @@ type ownedSocket interface {
 }
 
 func New(server router.Server[*fiber.App]) *Server {
-	s := &Server{Server: server, sockets: make(map[ownedSocket]context.CancelFunc)}
+	s := &Server{
+		Server: server, sockets: make(map[ownedSocket]context.CancelFunc),
+		shutdownGate: make(chan struct{}, 1),
+	}
 	s.routes = newOwnedRouter(server.Router(), s)
 	return s
 }
@@ -65,7 +69,25 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	case <-ctx.Done():
 		errs = append(errs, ctx.Err())
 	}
-	return errors.Join(append(errs, s.Server.Shutdown(ctx))...)
+	return errors.Join(append(errs, s.shutdownHost(ctx))...)
+}
+
+func (s *Server) shutdownHost(ctx context.Context) error {
+	// The native server holds a mutex throughout drain. Serialize calls here
+	// so a concurrent attempt can time out before entering that mutex wait.
+	select {
+	case s.shutdownGate <- struct{}{}:
+		// Even an expired context must reach an available host: after a worker
+		// timeout, native shutdown still needs to close the HTTP listeners.
+	default:
+		select {
+		case s.shutdownGate <- struct{}{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	defer func() { <-s.shutdownGate }()
+	return s.Server.Shutdown(ctx)
 }
 
 func ServeUntilSignal(server interface {
