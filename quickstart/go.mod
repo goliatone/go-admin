@@ -15,9 +15,9 @@ require (
 	github.com/goliatone/go-command v0.24.3
 	github.com/goliatone/go-dashboard v0.15.9
 	github.com/goliatone/go-errors v0.12.0
-	github.com/goliatone/go-export v0.11.2
-	github.com/goliatone/go-export/adapters/template/go-template v0.11.2
-	github.com/goliatone/go-featuregate v0.6.1
+	github.com/goliatone/go-export v0.11.3
+	github.com/goliatone/go-export/adapters/template/go-template v0.11.3
+	github.com/goliatone/go-featuregate v0.6.3
 	github.com/goliatone/go-formgen v0.35.1
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.20.0
@@ -117,7 +117,7 @@ require (
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/gofiber/utils/v2 v2.6.2 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
-	github.com/goliatone/go-config v0.15.0 // indirect
+	github.com/goliatone/go-config v0.15.1 // indirect
 	github.com/goliatone/go-crud v0.27.2 // indirect
 	github.com/goliatone/go-crud/gql v0.27.1 // indirect
 	github.com/goliatone/go-masker v0.2.0 // indirect

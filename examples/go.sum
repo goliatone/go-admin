@@ -194,8 +194,8 @@ github.com/goliatone/go-command v0.24.3 h1:CZvM6xg2J1+e96Wu8uPaKyQmKzwLCypknko5J
 github.com/goliatone/go-command v0.24.3/go.mod h1:PGuCsS9jhVoWUaY+SZ9TAzvVnhzdwq1Tbs57PIv1myE=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
-github.com/goliatone/go-config v0.15.0 h1:m3+2iFVZCIN0xPquyy9/Zd7dVGLbJR9VUW513YOrsR0=
-github.com/goliatone/go-config v0.15.0/go.mod h1:usSyDTEZyFKP//uJJmNmPCoH4XwhQZZmD3dJtgLrh9c=
+github.com/goliatone/go-config v0.15.1 h1:jFgpsvEctaAtcrGdJjKIRSwJJbllFJ3lQClygvjmovg=
+github.com/goliatone/go-config v0.15.1/go.mod h1:e6Ih6utzZGN5lKhNpLjqcqVpdV5pK1UO8zZpPf/hfgA=
 github.com/goliatone/go-crud v0.27.2 h1:wG5witdOClxQcWA6owyutHwQzNnvewcHpxu2kXk6fuM=
 github.com/goliatone/go-crud v0.27.2/go.mod h1:E1e1Wqggp80NsZYVFDzDrc1bAfPORUsZL9xcSKVGzUg=
 github.com/goliatone/go-crud/gql v0.27.2 h1:EN9Sh/oDB7F2CMqMhJpCBTn7TMU92HLlQ+7qX4kOweg=
@@ -204,12 +204,12 @@ github.com/goliatone/go-dashboard v0.15.9 h1:/wh+xLuhoZiuPcXUzPVRu4vnz8fIOeNVzQT
 github.com/goliatone/go-dashboard v0.15.9/go.mod h1:kEJWfQXpuILn58xCYQQ09E0+U+LMgmMUKwNsfZb1Rbg=
 github.com/goliatone/go-errors v0.12.0 h1:FI3FHJe+sogfD+MZJqx8OVGDJqav5PNq1xi1UAXjBwk=
 github.com/goliatone/go-errors v0.12.0/go.mod h1:LvR8nteHvrUTbS6N7Gm/2of9yRyyLoxIB4VFPk+wkVU=
-github.com/goliatone/go-export v0.11.2 h1:+McftEcyU11vfdRxIU3D/YTv+XVGFwokMs65aWSDXag=
-github.com/goliatone/go-export v0.11.2/go.mod h1:UmW5+mdpICbNXl5OvO/j55RdlOYJtV/ygbBW42gR208=
+github.com/goliatone/go-export v0.11.3 h1:x42EL/DSzOVpLvH83mnzjPNpMT5vYrjdwyuDhNtwQkg=
+github.com/goliatone/go-export v0.11.3/go.mod h1:utt6GriejPX+9MnHDxwDuOhnzqZ+E+NS0T294hwdlcs=
 github.com/goliatone/go-export/adapters/template/go-template v0.11.2 h1:jUMa0sWFsuj7PzN38NFBnvOiLFKzEBbMGywpb6yx0i0=
 github.com/goliatone/go-export/adapters/template/go-template v0.11.2/go.mod h1:ToUdgFbpSYyzhS2esFFnSmdPJOWXffDCSOhpyCFfzVA=
-github.com/goliatone/go-featuregate v0.6.1 h1:3fxOcSWTxpC3YxKJMDhM12j8vL/D+CUD7meS/L8b5CM=
-github.com/goliatone/go-featuregate v0.6.1/go.mod h1:7cTSfGckWEdVPRD3NMPrvjQxkEd4/Z0SolKa9aSrBvM=
+github.com/goliatone/go-featuregate v0.6.3 h1:26HQTNn+ATauJJV05+fUhOk0aHvyMr7DfRdv5T3Ezao=
+github.com/goliatone/go-featuregate v0.6.3/go.mod h1:7iWrBPsR1K3dM50Kprdy0vyi1Wrkrobp5c86SGHEEzM=
 github.com/goliatone/go-formgen v0.35.1 h1:P+mhCPzfAuI2VUxHwAN5c3Hre+CgxTR9tOXjPW6agXo=
 github.com/goliatone/go-formgen v0.35.1/go.mod h1:7ehrZ7l0UwL4YYIxpjYl5UqgeVYcLk7r1lL4hWJOm4s=
 github.com/goliatone/go-i18n v0.5.0 h1:xc2mYv0XWoMHpfyDj6JEJS53cUUDCvAtSjieG2OYdBc=

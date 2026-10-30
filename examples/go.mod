@@ -11,12 +11,12 @@ require (
 	github.com/goliatone/go-auth v0.45.7
 	github.com/goliatone/go-cms v0.60.8
 	github.com/goliatone/go-command v0.24.3
-	github.com/goliatone/go-config v0.15.0
+	github.com/goliatone/go-config v0.15.1
 	github.com/goliatone/go-crud v0.27.2
 	github.com/goliatone/go-dashboard v0.15.9
 	github.com/goliatone/go-errors v0.12.0
-	github.com/goliatone/go-export v0.11.2
-	github.com/goliatone/go-featuregate v0.6.1
+	github.com/goliatone/go-export v0.11.3
+	github.com/goliatone/go-featuregate v0.6.3
 	github.com/goliatone/go-formgen v0.35.1
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-logger v0.10.1
