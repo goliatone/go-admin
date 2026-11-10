@@ -532,25 +532,25 @@
     },
     {
       "file": "src/services/command-runtime.ts",
-      "line": 398,
+      "line": 400,
       "column": 1,
       "rule": "complexity"
     },
     {
       "file": "src/services/command-runtime.ts",
-      "line": 644,
+      "line": 662,
       "column": 3,
       "rule": "complexity"
     },
     {
       "file": "src/services/command-runtime.ts",
-      "line": 719,
+      "line": 737,
       "column": 3,
       "rule": "complexity"
     },
     {
       "file": "src/services/command-runtime.ts",
-      "line": 874,
+      "line": 896,
       "column": 3,
       "rule": "complexity"
     },
@@ -748,7 +748,7 @@
     },
     {
       "file": "src/toast/error-helpers.ts",
-      "line": 539,
+      "line": 540,
       "column": 8,
       "rule": "complexity"
     },
