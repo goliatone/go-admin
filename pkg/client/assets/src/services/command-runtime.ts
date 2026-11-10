@@ -79,6 +79,8 @@ export interface InlineStatusEntry {
 export interface InlineStatusChangeEvent {
   entry: InlineStatusEntry;
   previousState: InlineStatusState | null;
+  /** Replace this provisional key with entry.correlationId when a receipt changes it. */
+  previousCorrelationId?: string;
 }
 
 /**
@@ -589,6 +591,22 @@ export class CommandRuntimeController {
     this.emitInlineStatusChange({ entry, previousState });
   }
 
+  private reconcileInlineStatusCorrelation(previousId: string, effectiveId: string): void {
+    if (previousId === effectiveId) {
+      return;
+    }
+    const previous = this.inlineStatus.get(previousId);
+    if (!previous) {
+      return;
+    }
+    // The server's receipt is authoritative. Move the provisional entry before
+    // notifying listeners so snapshots and later feedback share a single key.
+    const entry = { ...previous, correlationId: effectiveId };
+    this.inlineStatus.delete(previousId);
+    this.inlineStatus.set(effectiveId, entry);
+    this.emitInlineStatusChange({ entry, previousState: previous.state, previousCorrelationId: previousId });
+  }
+
   private emitInlineStatusChange(event: InlineStatusChangeEvent): void {
     this.inlineStatusListeners.forEach((listener) => {
       try {
@@ -779,6 +797,7 @@ export class CommandRuntimeController {
       participantId,
     });
 
+    let effectiveCorrelationId = correlationId;
     try {
       const result = spec.transport === 'rpc'
         ? await this.dispatchRPC(spec)
@@ -793,6 +812,8 @@ export class CommandRuntimeController {
         receipt: result.receipt,
         responseMode: result.responseMode,
       };
+      effectiveCorrelationId = detail.correlationId;
+      this.reconcileInlineStatusCorrelation(correlationId, effectiveCorrelationId);
 
       if (!result.success || result.error) {
         const message = formatStructuredErrorForDisplay(
@@ -801,7 +822,7 @@ export class CommandRuntimeController {
         );
         this.notifier.error(message);
         // Update inline status to failed
-        this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'failed', {
+        this.updateInlineStatusFromDispatch(effectiveCorrelationId, spec.commandName, 'failed', {
           message: message || 'Failed',
           section,
           participantId,
@@ -813,7 +834,7 @@ export class CommandRuntimeController {
       this.notifier.success(spec.successMessage);
       if (this.shouldWaitForFeedback(detail)) {
         // Async/queued mode - set to accepted and wait for SSE feedback
-        this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'accepted', {
+        this.updateInlineStatusFromDispatch(effectiveCorrelationId, spec.commandName, 'accepted', {
           message: 'Queued...',
           section,
           participantId,
@@ -831,7 +852,7 @@ export class CommandRuntimeController {
         });
       } else {
         // Sync mode - immediately completed
-        this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'completed', {
+        this.updateInlineStatusFromDispatch(effectiveCorrelationId, spec.commandName, 'completed', {
           message: spec.successMessage || 'Done',
           section,
           participantId,
@@ -846,12 +867,13 @@ export class CommandRuntimeController {
       const structured = normalizeStructuredError(error, spec.fallbackMessage);
       const detail: CommandDispatchDetail = {
         ...pendingDetail,
+        correlationId: effectiveCorrelationId,
         success: false,
         error: structured,
       };
       this.notifier.error(formatStructuredErrorForDisplay(structured, spec.fallbackMessage));
       // Update inline status to failed
-      this.updateInlineStatusFromDispatch(correlationId, spec.commandName, 'failed', {
+      this.updateInlineStatusFromDispatch(effectiveCorrelationId, spec.commandName, 'failed', {
         message: structured.message || 'Failed',
         section,
         participantId,
@@ -974,8 +996,8 @@ export class CommandRuntimeController {
           ids: this.recordId ? [this.recordId] : [],
           payload: spec.payload,
           options: {
-            correlation_id: correlationId,
-            metadata: {
+            CorrelationID: correlationId,
+            Metadata: {
               correlation_id: correlationId,
             },
           },

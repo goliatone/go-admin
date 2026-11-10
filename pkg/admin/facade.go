@@ -14,6 +14,7 @@ import (
 	command "github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/flow"
+	"github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-command/runner"
 	crud "github.com/goliatone/go-crud"
 	"github.com/goliatone/go-crud/gql/registrar"
@@ -2009,6 +2010,10 @@ func DefaultLocalCommandRunTransportCapabilities() CommandRunTransportCapabiliti
 
 func DefaultNavigationPermissionRegistry(cfg Config) *NavigationPermissionRegistry {
 	return core.DefaultNavigationPermissionRegistry(cfg)
+}
+
+func DefaultRPCErrorMapper(ctx context.Context, err error) *rpc.Error {
+	return core.DefaultRPCErrorMapper(ctx, err)
 }
 
 func DefaultSchemaRateLimiter() *RateLimiter {

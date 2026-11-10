@@ -198,8 +198,8 @@ shape is:
         "reason": "ready"
       },
       "options": {
-        "correlation_id": "cmd_123",
-        "metadata": {
+        "CorrelationID": "cmd_123",
+        "Metadata": {
           "correlation_id": "cmd_123"
         }
       }
@@ -210,7 +210,8 @@ shape is:
 
 Dispatch data:
 
-- `name`: command bus dispatch name. Required.
+- `command_id`: canonical command bus dispatch name.
+- `name`: compatibility alias, used when `command_id` is empty. Supply one of them.
 - `payload`: command payload map. Optional, defaults to `{}`.
 - `ids`: selected or target IDs passed to the message factory.
 - `options`: `command.DispatchOptions`, including correlation and metadata.
@@ -219,9 +220,14 @@ The transport sanitizes accepted options before calling the command bus.
 Name-based dispatch then resolves one effective option snapshot before message
 construction and installs it in the factory context. Precedence is:
 
-1. explicit trusted dispatch options;
-2. transport-normalized correlation and idempotency inputs;
-3. server-generated defaults allowed by the transport.
+1. Admin RPC identity comes from authenticated context. Request ID comes from
+   context, then envelope metadata. Correlation comes from context, then envelope
+   metadata, then explicit dispatch options, then the resolved request ID.
+2. The bus merges explicit non-empty options over context options and applies
+   execution policy/defaults. Client options remain untrusted; sanitization does
+   not turn all context metadata into authenticated data.
+3. Transport metadata uses transport-over-envelope merging. Headers can carry
+   tracing values but cannot authenticate an actor or authorize work.
 
 The same snapshot reaches the factory, handler `DispatchRunContext`, receipt,
 observer, and queued executor. Context-aware factories can read it with
@@ -484,7 +490,9 @@ mint tokens. Keep authentication causes in server/test diagnostics while returni
 a generic authentication error to clients.
 
 The Fiber RPC transport returns command invocation failures, including permission
-and policy denials, in an HTTP 200 envelope with `error.code = RPC_INVOKE_FAILED`.
+and policy denials, in an HTTP 200 error envelope. Legacy mode uses
+`error.code = RPC_INVOKE_FAILED`; structured opt-in uses the classifications
+described under [Error And Validation Contract](#error-and-validation-contract).
 Clients must check the error envelope and the accepted receipt; HTTP status alone
 does not prove that a command ran. Authentication failures happen in middleware
 before RPC invocation. The host-selected authentication handler controls their
@@ -574,10 +582,20 @@ The runtime builds the RPC request with:
 - `name` from `data-command-dispatch`
 - `ids` from the mounted `recordId`, when available
 - payload from scope values, form fields, and static payload attributes
-- correlation ID in dispatch options metadata
+- correlation ID in `options.CorrelationID` and `options.Metadata.correlation_id`
 
 By default, the RPC endpoint is `${apiBasePath}/rpc`. Pass `rpcEndpoint` to the
 runtime mount when a screen uses a custom invoke path.
+
+Use the Go DTO field names for dispatch options. In particular,
+`options.correlation_id` does not decode into `DispatchOptions.CorrelationID`;
+putting the ID only in metadata does not populate the receipt correlation field.
+
+Trusted server context or envelope metadata may override the client option. The
+runtime moves its provisional inline status to the effective receipt correlation
+ID and uses that ID for completion and queued feedback. Status subscribers receive
+`previousCorrelationId` on that move and should replace their old key with
+`event.entry.correlationId`; the controller retains one entry, not an alias.
 
 Use panel action routes for canonical row/detail/bulk actions emitted by panel
 schemas. Use RPC runtime commands for custom page interactions, cross-panel
@@ -619,13 +637,16 @@ requires CSRF for those clients.
 
 ## Queued Commands And Feedback
 
-RPC dispatch uses `DispatchByNameWithOptions`, so it participates in the admin
-command execution policy.
+RPC dispatch uses `DispatchByNameWithOutcome`, so it participates in the admin
+command execution policy and preserves optional inline results. A result-reported
+operational failure remains `data.result`; callers must inspect that result as
+well as the transport error and receipt. Receipt-only and result-discarding direct
+bus APIs retain their stricter failure behavior.
 
 When a command returns a queued receipt:
 
 - the client marks the command as accepted
-- the pending state is keyed by correlation ID
+- the pending state is keyed by the effective receipt correlation ID
 - feedback events can move inline status to completed, failed, retry scheduled,
   or stale
 - fragment refresh can wait for feedback instead of running immediately
@@ -719,6 +740,83 @@ not allowed by quickstart exposure validation.
 
 ## Error And Validation Contract
 
+### Opt-in structured errors
+
+Existing mounts retain legacy codes and HTTP statuses. Both modes remove raw
+`details.cause`; keep diagnostic errors in server-side callbacks instead. Enable
+admin classification explicitly on each transport:
+
+```go
+quickstart.WithRPCTransport(quickstart.RPCTransportConfig{
+    Enabled:     true,
+    ErrorMapper: admin.DefaultRPCErrorMapper,
+    CommandRules: map[string]admin.RPCCommandRule{
+        "articles.publish": {
+            Permission: "admin.articles.publish",
+            Resource:   "commands",
+        },
+    },
+})
+```
+
+Keep the authenticator, authorizer and host service checks from the protected
+setup above. `admin.DefaultRPCErrorMapper` is also exported by `pkg/admin`.
+Use the compatible dependencies in the [root module](../go.mod) and
+[quickstart module](../quickstart/go.mod); adopt their coordinated release rather
+than changing only one module.
+
+| Boundary | Legacy mode | Structured opt-in | HTTP status |
+| --- | --- | --- | --- |
+| Parse or payload decode | Existing `RPC_INVALID_REQUEST` / `RPC_INVALID_PARAMS` | Same transport code | 400 |
+| Missing or unknown method | `RPC_METHOD_REQUIRED` / `RPC_METHOD_NOT_FOUND` | Same transport code | 400 / 404 |
+| Returned pre-invoke rejection | `RPC_PREINVOKE_REJECTED` | Safe mapped application code | 400 |
+| Returned invocation failure | `RPC_INVOKE_FAILED` | Safe mapped application code | 200 |
+| Successful invocation | Existing data envelope | Same data envelope | 200 |
+
+The admin mapper reuses domain classification through runner wrappers and emits
+fixed messages for validation, forbidden/not-found, conflict, failed precondition,
+rate limiting, unavailability, cancellation/deadline and internal errors. It
+preserves explicit canonical RPC codes, including `OUTCOME_UNKNOWN` and `INTERNAL`,
+before classifying nested admin causes. Context cancellation/deadline causes still
+take precedence, and known runner wrappers remain transparent. Default output omits diagnostic messages,
+metadata, validation values and retry hints. A custom `cmdrpc.ErrorMapper` may
+project explicitly allowlisted, bounded public details; keep validation details
+field-addressable. Do not copy `ErrorPresenter.Present` metadata into the wire
+error. A custom mapper returning nil declines to the upstream default classifier;
+a nil `ErrorMapper` setting selects legacy mode. Malformed or panicking custom
+projections fall back safely at the router boundary.
+
+Successful responses and explicitly public handler error envelopes pass through.
+A panic reaching the RPC boundary produces a safe internal failure in structured
+mode. Existing command-runner behavior remains independent: a runner-consumed
+panic in a result-producing command can surface as a missing-result/unavailable
+failure. Neither failure contains panic text or proves rollback.
+
+`AfterInvoke` receives the invocation's diagnostic error; it does not cover every
+pre-invocation failure. Custom mounts can use `rpcfiber.WithErrorObserver` for
+private stage diagnostics. Diagnostic callbacks must not write a response or
+copy causes into client-visible fields. Authentication and CSRF middleware errors
+outside the RPC handler keep their existing presenters and statuses.
+
+### Migration and outcome handling
+
+1. Adopt the coordinated root/quickstart release. Verify code that depended on
+   `details.cause` now uses private diagnostics.
+2. Keep legacy mode initially, then opt selected mounts into
+   `admin.DefaultRPCErrorMapper`. Update code-specific UI handling from the legacy
+   invocation code to canonical classifications. Browser consumers must check the
+   HTTP-200 error envelope; the shared runtime preserves its code and safe message.
+3. Keep shared browser transport and CSRF handling enabled. Error mapping does
+   not replace authentication, CSRF, command allowlists or service authorization.
+   Explicit typed endpoints must enforce host permissions; `EndpointSpec.Permissions`
+   is descriptive and does not itself authorize dispatch.
+4. Treat an accepted queued receipt as queue acceptance, not completion. Preserve
+   command/dispatch/correlation IDs and reconcile through the host's status or
+   feedback path. Cancellation, deadline, network failure and `OUTCOME_UNKNOWN`
+   do not prove that a mutation rolled back. Do not automatically replay it.
+   Idempotency/correlation IDs alone do not establish durable deduplication.
+
+
 Common RPC failures:
 
 - missing command name: validation error
@@ -764,9 +862,9 @@ domain validation or ownership checks.
 Focused tests:
 
 ```bash
-go test ./admin -run 'TestAdminRPC'
-go test ./quickstart -run 'TestWithRPCTransport'
-(cd pkg/client/assets && node --test tests/command_runtime.test.mjs)
+GOWORK=off go test ./admin -run 'Test(AdminRPC|DefaultRPCErrorMapper|GuardedCommandHostBoundaries)'
+go test -race ./quickstart -run 'Test(RPCErrorAdoptionProtectedLiveParity|WithRPCTransport|RPCTransportErrorMapper)'
+(cd pkg/client/assets && node --test --test-concurrency=1 tests/command_runtime.test.mjs tests/csrf_transport.test.mjs tests/command_launcher.test.mjs tests/error_helpers.test.mjs)
 ```
 
 ## Activity ingestion command reuse

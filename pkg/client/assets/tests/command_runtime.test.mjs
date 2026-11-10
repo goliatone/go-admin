@@ -200,6 +200,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   const rpcHeaders = new Headers(requests[0].init.headers || {});
   assert.equal(rpcHeaders.get('X-CSRF-Token'), 'command-runtime-csrf');
   assert.equal(rpcRequest.method, 'admin.commands.dispatch');
+  assert.equal(rpcRequest.params.data.options.CorrelationID, rpcRequest.params.data.payload.correlation_id);
   assert.equal(rpcRequest.params.data.name, 'reviews.notify_reviewers');
   assert.deepEqual(rpcRequest.params.data.ids, ['schedule-1']);
   assert.equal(rpcRequest.params.data.payload.participant_id, 'participant-1');
@@ -464,3 +465,68 @@ test('CommandRuntimeController routes duplicate success-body parsing through one
   assert.match(source, /readHTTPJSONValue<unknown>\(response, null\)/);
   assert.equal((source.match(/response\.json\(\)\.catch\(\(\) => null\)/g) || []).length, 0);
 });
+
+for (const mode of ['inline', 'queued']) {
+  for (const serverOverrides of [false, true]) {
+    test(`CommandRuntimeController reconciles ${mode} receipt identity (override=${serverOverrides})`, async () => {
+      setupDom('<main id="mount" data-live-status-section="review"><button id="run">Run</button></main>');
+      const { initCommandRuntime } = await importSourceModule('command-runtime.ts');
+      const browserId = 'browser-correlation';
+      const effectiveId = serverOverrides ? 'server-correlation' : browserId;
+      const events = [];
+      const snapshots = [];
+      const reconciliations = [];
+      let feedback;
+      let requests = 0;
+      const runtime = initCommandRuntime({
+        mount: document.getElementById('mount'),
+        apiBasePath: '/api',
+        notifier: createNotifier(),
+        feedback: {
+          adapter: { subscribe: fn => { feedback = fn; return () => {}; } },
+          onEvent: detail => reconciliations.push(detail),
+        },
+        fetchImpl: async (_input, init) => {
+          requests++;
+          assert.equal(JSON.parse(init.body).params.data.options.CorrelationID, browserId);
+          return new Response(JSON.stringify({ data: { receipt: {
+            Accepted: true, Mode: mode, CommandID: 'fixture', CorrelationID: effectiveId,
+          } } }), { headers: { 'Content-Type': 'application/json' } });
+        },
+      });
+      runtime.subscribeToInlineStatus(event => {
+        events.push(event);
+        snapshots.push(runtime.getAllInlineStatus());
+      });
+      try {
+        const detail = await runtime.dispatch({commandName: 'fixture', transport: 'rpc', trigger: document.getElementById('run'), payload: {correlation_id: browserId, participant_id: 'participant-1'}});
+        assert.equal(detail.correlationId, effectiveId);
+        assert.equal(detail.receipt.correlationId, effectiveId);
+        assert.equal(runtime.getInlineStatus(effectiveId)?.state, mode === 'queued' ? 'accepted' : 'completed');
+        assert.equal(runtime.getAllInlineStatus().length, 1);
+        const rekeys = events.filter(event => event.previousCorrelationId);
+        assert.equal(rekeys.length, serverOverrides ? 1 : 0);
+        if (serverOverrides) {
+          assert.equal(runtime.getInlineStatus(browserId), null);
+          assert.equal(rekeys[0].previousCorrelationId, browserId);
+          assert.equal(rekeys[0].entry.correlationId, effectiveId);
+          assert.equal(rekeys[0].previousState, 'submitting');
+        }
+        assert.ok(snapshots.every(entries => entries.length === 1), 'listeners never see duplicate identities');
+        if (mode === 'queued') {
+          feedback({type: 'command', status: 'completed', correlationId: effectiveId});
+          await nextTick();
+          assert.equal(runtime.getInlineStatus(effectiveId).state, 'completed');
+          assert.equal(reconciliations[0].pending.correlationId, effectiveId);
+          assert.equal(reconciliations[0].pending.receipt.correlationId, effectiveId);
+        }
+        const entry = runtime.getInlineStatus(effectiveId);
+        assert.equal(entry.section, 'review');
+        assert.equal(entry.participantId, 'participant-1');
+        assert.equal(entry.commandName, 'fixture');
+        assert.equal(runtime.getAllInlineStatus().length, 1);
+        assert.equal(requests, 1, 'no replay');
+      } finally { runtime.destroy(); }
+    });
+  }
+}

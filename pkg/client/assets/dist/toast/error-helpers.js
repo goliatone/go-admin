@@ -105,7 +105,7 @@ function _(t) {
   }
   if (e.error && typeof e.error == "object") {
     const s = e.error, i = {
-      textCode: typeof s.text_code == "string" ? s.text_code : null,
+      textCode: typeof s.text_code == "string" ? s.text_code : typeof s.code == "string" ? s.code : null,
       message: typeof s.message == "string" ? s.message : "Unknown error",
       metadata: s.metadata && typeof s.metadata == "object" ? s.metadata : null,
       fields: null,

@@ -50,6 +50,8 @@ export interface InlineStatusEntry {
 export interface InlineStatusChangeEvent {
     entry: InlineStatusEntry;
     previousState: InlineStatusState | null;
+    /** Replace this provisional key with entry.correlationId when a receipt changes it. */
+    previousCorrelationId?: string;
 }
 /**
  * Inline status listener callback
@@ -180,6 +182,7 @@ export declare class CommandRuntimeController {
      */
     markStaleStatuses(): void;
     private setInlineStatus;
+    private reconcileInlineStatusCorrelation;
     private emitInlineStatusChange;
     private updateInlineStatusFromDispatch;
     private resolveSection;

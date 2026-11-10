@@ -26,6 +26,11 @@ type RPCTransportConfig struct {
 	CommandRules map[string]admin.RPCCommandRule `json:"command_rules,omitempty"`
 	Authorize    admin.RPCCommandPolicyHook      `json:"-"`
 
+	// ErrorMapper opts into structured invocation errors. Use
+	// admin.DefaultRPCErrorMapper for safe admin domain classification.
+	// Nil retains legacy RPC codes; raw diagnostic causes are always omitted.
+	ErrorMapper cmdrpc.ErrorMapper `json:"-"`
+
 	MetaExtractor rpcfiber.MetaExtractor    `json:"-"`
 	BeforeInvoke  rpcfiber.BeforeInvokeHook `json:"-"`
 	AfterInvoke   rpcfiber.AfterInvokeHook  `json:"-"`
@@ -171,6 +176,9 @@ func rpcTransportOptions(adm *admin.Admin, cfg RPCTransportConfig) []rpcfiber.Op
 	}
 	if cfg.AfterInvoke != nil {
 		rpcOpts = append(rpcOpts, rpcfiber.WithAfterInvokeHook(cfg.AfterInvoke))
+	}
+	if cfg.ErrorMapper != nil {
+		rpcOpts = append(rpcOpts, rpcfiber.WithErrorMapper(cfg.ErrorMapper))
 	}
 	return rpcOpts
 }

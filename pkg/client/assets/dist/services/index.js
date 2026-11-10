@@ -1,6 +1,6 @@
 import { createLogger as w } from "../shared/logger.js";
 import { escapeHTML as o } from "../shared/html.js";
-import { t as u } from "../chunks/icon-renderer-CRFyVbyB.js";
+import { t as h } from "../chunks/icon-renderer-CRFyVbyB.js";
 import { formatRelativeTimeCompact as Ot } from "../shared/time-formatters.js";
 import { n as Ht } from "../chunks/modal-coordinator-HTtA8-3F.js";
 import { t as Rt } from "../chunks/modal-Cg0_ZVPf.js";
@@ -222,7 +222,7 @@ var Ft = class {
     const s = this.buildUrl(t, e), r = new AbortController(), n = () => r.abort();
     i && (i.aborted ? r.abort() : i.addEventListener("abort", n, { once: !0 })), this.abortControllers.set(t, r);
     try {
-      const c = await this.fetchWithTimeout(s, {
+      const l = await this.fetchWithTimeout(s, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -230,7 +230,7 @@ var Ft = class {
         },
         signal: r.signal
       }, t);
-      return this.handleResponse(c);
+      return this.handleResponse(l);
     } finally {
       i && i.removeEventListener("abort", n), this.abortControllers.delete(t);
     }
@@ -238,17 +238,17 @@ var Ft = class {
   async post(t, e, i, s) {
     const r = this.buildUrl(t), n = new AbortController();
     this.abortControllers.set(t, n);
-    const c = {
+    const l = {
       "Content-Type": "application/json",
       Accept: "application/json",
       ...this.config.headers,
       ...s
     };
-    c["Idempotency-Key"] = i && i.trim() || this.createIdempotencyKey(t);
+    l["Idempotency-Key"] = i && i.trim() || this.createIdempotencyKey(t);
     try {
       const a = await this.fetchWithTimeout(r, {
         method: "POST",
-        headers: c,
+        headers: l,
         body: JSON.stringify(e),
         signal: n.signal
       }, t);
@@ -424,11 +424,11 @@ var J = class {
     }
     const r = e.get("q") || e.get("search");
     r && (this.state.search = r);
-    const n = e.get("sort_field"), c = e.get("sort_order");
-    n && (this.state.sort_field = n, this.state.sort_order = c === "desc" ? "desc" : "asc");
+    const n = e.get("sort_field"), l = e.get("sort_order");
+    n && (this.state.sort_field = n, this.state.sort_order = l === "desc" ? "desc" : "asc");
     for (const a of this.filterFields) {
-      const l = e.get(String(a));
-      l !== null && (this.dateFields.has(a) ? this.state.filters[a] = this.toLocalInput(l) : this.state.filters[a] = l);
+      const d = e.get(String(a));
+      d !== null && (this.dateFields.has(a) ? this.state.filters[a] = this.toLocalInput(d) : this.state.filters[a] = d);
     }
   }
   restoreFromStorage() {
@@ -495,23 +495,23 @@ function bi(t, e) {
 }
 function yi(t, e) {
   if (!("filters" in t)) {
-    const c = t, a = new URLSearchParams();
-    for (const [l, d] of Object.entries(c)) d != null && d !== "" && a.set(l, String(d));
+    const l = t, a = new URLSearchParams();
+    for (const [d, c] of Object.entries(l)) c != null && c !== "" && a.set(d, String(c));
     return a;
   }
   const i = t, s = new URLSearchParams(), { includePage: r = !0, includeDefaults: n = !1 } = e || {};
   r && (i.page > 1 || n) && s.set("page", String(i.page)), (i.per_page !== 25 || n) && s.set("per_page", String(i.per_page)), i.search && s.set("q", i.search), i.sort_field && (s.set("sort_field", i.sort_field), i.sort_order && s.set("sort_order", i.sort_order));
-  for (const [c, a] of Object.entries(i.filters)) a != null && a !== "" && s.set(c, a);
+  for (const [l, a] of Object.entries(i.filters)) a != null && a !== "" && s.set(l, a);
   return s;
 }
 function mi(t, e, i) {
   if (!i) {
-    const l = {};
-    for (const d of e) {
-      const h = t.get(String(d));
-      h !== null && (l[String(d)] = h);
+    const d = {};
+    for (const c of e) {
+      const u = t.get(String(c));
+      u !== null && (d[String(c)] = u);
     }
-    for (const d of [
+    for (const c of [
       "page",
       "per_page",
       "q",
@@ -519,10 +519,10 @@ function mi(t, e, i) {
       "sort_field",
       "sort_order"
     ]) {
-      const h = t.get(d);
-      h !== null && (l[d] = h);
+      const u = t.get(c);
+      u !== null && (d[c] = u);
     }
-    return l;
+    return d;
   }
   const s = {
     page: i?.page ?? 1,
@@ -532,21 +532,21 @@ function mi(t, e, i) {
     ...i
   }, r = t.get("page");
   if (r) {
-    const l = parseInt(r, 10);
-    Number.isNaN(l) || (s.page = Math.max(1, l));
+    const d = parseInt(r, 10);
+    Number.isNaN(d) || (s.page = Math.max(1, d));
   }
   const n = t.get("per_page");
   if (n) {
-    const l = parseInt(n, 10);
-    Number.isNaN(l) || (s.per_page = Math.max(1, l));
+    const d = parseInt(n, 10);
+    Number.isNaN(d) || (s.per_page = Math.max(1, d));
   }
-  const c = t.get("q") || t.get("search");
-  c && (s.search = c);
+  const l = t.get("q") || t.get("search");
+  l && (s.search = l);
   const a = t.get("sort_field");
   a && (s.sort_field = a, s.sort_order = t.get("sort_order") === "desc" ? "desc" : "asc");
-  for (const l of e) {
-    const d = t.get(String(l));
-    d !== null && (s.filters[l] = d);
+  for (const d of e) {
+    const c = t.get(String(d));
+    c !== null && (s.filters[d] = c);
   }
   return s;
 }
@@ -700,9 +700,9 @@ function $i(t, e, i, s) {
   };
 }
 function st(t, e, i) {
-  const s = i || T(), { requires: r = [], requiresAny: n = [], onDenied: c, disableOnDenied: a } = e;
-  let l = !0, d = [];
-  r.length > 0 ? (d = s.getMissing(r), l = d.length === 0) : n.length > 0 && (l = s.hasAny(n), l || (d = n)), l || (a ? ((t instanceof HTMLButtonElement || t instanceof HTMLInputElement) && (t.disabled = !0), t.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), t.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (t.style.display = "none", t.classList.add("permission-hidden")), e.deniedContent && (typeof e.deniedContent == "string" ? t.outerHTML = e.deniedContent : t.replaceWith(e.deniedContent)), c?.(d));
+  const s = i || T(), { requires: r = [], requiresAny: n = [], onDenied: l, disableOnDenied: a } = e;
+  let d = !0, c = [];
+  r.length > 0 ? (c = s.getMissing(r), d = c.length === 0) : n.length > 0 && (d = s.hasAny(n), d || (c = n)), d || (a ? ((t instanceof HTMLButtonElement || t instanceof HTMLInputElement) && (t.disabled = !0), t.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), t.setAttribute("title", `Permission required: ${c.join(", ")}`)) : (t.style.display = "none", t.classList.add("permission-hidden")), e.deniedContent && (typeof e.deniedContent == "string" ? t.outerHTML = e.deniedContent : t.replaceWith(e.deniedContent)), l?.(c));
 }
 function Ci(t = document.body, e) {
   t.querySelectorAll("[data-permission-requires]").forEach((i) => {
@@ -789,26 +789,26 @@ var ee = class {
   }
 };
 async function x(t) {
-  const { mutation: e, notifier: i, successMessage: s, errorMessagePrefix: r = "Operation failed", buttonConfig: n, onSuccess: c, onError: a, showInlineRetry: l = !1, retryContainer: d } = t, h = n ? new ee(n) : null;
+  const { mutation: e, notifier: i, successMessage: s, errorMessagePrefix: r = "Operation failed", buttonConfig: n, onSuccess: l, onError: a, showInlineRetry: d = !1, retryContainer: c } = t, u = n ? new ee(n) : null;
   try {
-    h?.setLoading();
+    u?.setLoading();
     const f = await e();
-    if (h?.setSuccess(), i && s) {
+    if (u?.setSuccess(), i && s) {
       const g = typeof s == "function" ? s(f) : s;
       i.success(g);
     }
-    return d && ot(d), await c?.(f), {
+    return c && ot(c), await l?.(f), {
       success: !0,
       result: f
     };
   } catch (f) {
     const g = f instanceof Error ? f : new Error(String(f));
-    return h?.setError(), i && i.error(`${r}: ${g.message}`), l && d && ie({
-      container: d,
+    return u?.setError(), i && i.error(`${r}: ${g.message}`), d && c && ie({
+      container: c,
       action: () => x(t).then(() => {
       }),
       errorMessage: `${r}: ${g.message}`,
-      onDismiss: () => ot(d)
+      onDismiss: () => ot(c)
     }), a?.(g), {
       success: !1,
       error: g
@@ -831,11 +831,11 @@ async function ki(t) {
   };
 }
 function ie(t) {
-  const { container: e, action: i, errorMessage: s, retryText: r = "Retry", dismissText: n = "Dismiss", onDismiss: c } = t;
+  const { container: e, action: i, errorMessage: s, retryText: r = "Retry", dismissText: n = "Dismiss", onDismiss: l } = t;
   e.innerHTML = `
     <div class="mutation-retry-ui flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
       <div class="flex-shrink-0 text-red-500" aria-hidden="true">
-        ${u("iconoir:warning-triangle", { size: "20px" })}
+        ${h("iconoir:warning-triangle", { size: "20px" })}
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-sm text-red-700">${o(s)}</p>
@@ -852,10 +852,10 @@ function ie(t) {
       </div>
     </div>
   `;
-  const a = e.querySelector(".mutation-retry-btn"), l = e.querySelector(".mutation-dismiss-btn");
+  const a = e.querySelector(".mutation-retry-btn"), d = e.querySelector(".mutation-dismiss-btn");
   a?.addEventListener("click", async () => {
-    const d = a, h = d.textContent;
-    d.disabled = !0, d.innerHTML = `
+    const c = a, u = c.textContent;
+    c.disabled = !0, c.innerHTML = `
       <svg class="animate-spin h-3 w-3 inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -865,10 +865,10 @@ function ie(t) {
     try {
       await i();
     } finally {
-      d.disabled = !1, d.textContent = h;
+      c.disabled = !1, c.textContent = u;
     }
-  }), l?.addEventListener("click", () => {
-    ot(e), c?.();
+  }), d?.addEventListener("click", () => {
+    ot(e), l?.();
   });
 }
 function ot(t) {
@@ -906,7 +906,7 @@ function se(t) {
       noun: "Refresh",
       variant: "primary"
     }
-  }, c = {
+  }, l = {
     connection: "connection",
     installation: "installation",
     subscription: "subscription",
@@ -915,12 +915,12 @@ function se(t) {
     verb: e,
     noun: e,
     variant: "primary"
-  }, l = c[i] || i;
-  let d = `Are you sure you want to ${a.verb} this ${l}`;
-  return s && (d += ` (${s})`), d += "?", r && (d += ` ${r}`), a.variant === "danger" && (d += " This action cannot be undone."), {
-    message: d,
+  }, d = l[i] || i;
+  let c = `Are you sure you want to ${a.verb} this ${d}`;
+  return s && (c += ` (${s})`), c += "?", r && (c += ` ${r}`), a.variant === "danger" && (c += " This action cannot be undone."), {
+    message: c,
     options: {
-      title: `${a.noun} ${l.charAt(0).toUpperCase() + l.slice(1)}`,
+      title: `${a.noun} ${d.charAt(0).toUpperCase() + d.slice(1)}`,
       confirmText: a.noun,
       cancelText: "Cancel",
       variant: a.variant
@@ -1276,7 +1276,7 @@ var he = class {
     let s = `${this.basePath}/${i}`;
     if (e && Object.keys(e).length > 0) {
       const r = new URLSearchParams();
-      for (const [n, c] of Object.entries(e)) c && r.set(n, c);
+      for (const [n, l] of Object.entries(e)) l && r.set(n, l);
       s += `?${r.toString()}`;
     }
     return s;
@@ -1308,7 +1308,7 @@ var he = class {
     if (e?.fromPage) {
       const i = new URLSearchParams();
       if (e.filters)
-        for (const [n, c] of Object.entries(e.filters)) c && i.set(n, c);
+        for (const [n, l] of Object.entries(e.filters)) l && i.set(n, l);
       e.search && i.set("q", e.search), e.page && e.page > 1 && i.set("page", String(e.page)), e.viewMode && i.set("view", e.viewMode);
       const s = i.toString(), r = s ? `${e.fromPage}?${s}` : e.fromPage;
       return t.history.pushState({ restored: !0 }, "", r), t.dispatchEvent(new CustomEvent("services:navigate-back", { detail: {
@@ -1326,19 +1326,19 @@ var he = class {
     const [e, i] = t.split("?"), s = (e.startsWith(this.basePath) ? e.slice(this.basePath.length) : e).split("/").filter(Boolean);
     if (s.length < 2) return null;
     const r = s[0], n = decodeURIComponent(s[1]);
-    let c = null;
-    for (const [l, d] of Object.entries(this.pathMap)) if (d === r) {
-      c = l;
+    let l = null;
+    for (const [d, c] of Object.entries(this.pathMap)) if (c === r) {
+      l = d;
       break;
     }
-    if (!c) return null;
+    if (!l) return null;
     let a;
     if (i) {
-      const l = new URLSearchParams(i).get("ctx");
-      l && (a = this.decodeContext(l));
+      const d = new URLSearchParams(i).get("ctx");
+      d && (a = this.decodeContext(d));
     }
     return {
-      entityType: c,
+      entityType: l,
       entityId: n,
       context: a
     };
@@ -1441,43 +1441,43 @@ function be(t, e) {
   };
 }
 function ye(t) {
-  const { container: e, selector: i, onSelect: s, onFocus: r, onEscape: n, wrap: c = !0, autoFocus: a = !1, keyHandlers: l = {} } = t;
-  function d() {
+  const { container: e, selector: i, onSelect: s, onFocus: r, onEscape: n, wrap: l = !0, autoFocus: a = !1, keyHandlers: d = {} } = t;
+  function c() {
     return Array.from(e.querySelectorAll(i));
   }
-  function h(p) {
-    const y = d();
+  function u(p) {
+    const y = c();
     if (y.length === 0) return;
     let _ = p;
-    c ? _ = (p % y.length + y.length) % y.length : _ = Math.max(0, Math.min(p, y.length - 1)), y.forEach((Dt, Ut) => {
+    l ? _ = (p % y.length + y.length) % y.length : _ = Math.max(0, Math.min(p, y.length - 1)), y.forEach((Dt, Ut) => {
       Dt.setAttribute("tabindex", Ut === _ ? "0" : "-1");
     });
     const L = y[_];
     L.focus(), r?.(L, _);
   }
   function f(p) {
-    const y = d();
+    const y = c();
     if (y.length === 0) return;
     const _ = p.target, L = y.indexOf(_);
     if (L !== -1) {
-      if (l[p.key]) {
-        l[p.key](p, _, L);
+      if (d[p.key]) {
+        d[p.key](p, _, L);
         return;
       }
       switch (p.key) {
         case "ArrowDown":
         case "ArrowRight":
-          p.preventDefault(), h(L + 1);
+          p.preventDefault(), u(L + 1);
           break;
         case "ArrowUp":
         case "ArrowLeft":
-          p.preventDefault(), h(L - 1);
+          p.preventDefault(), u(L - 1);
           break;
         case "Home":
-          p.preventDefault(), h(0);
+          p.preventDefault(), u(0);
           break;
         case "End":
-          p.preventDefault(), h(y.length - 1);
+          p.preventDefault(), u(y.length - 1);
           break;
         case "Enter":
         case " ":
@@ -1488,10 +1488,10 @@ function ye(t) {
       }
     }
   }
-  const g = d();
+  const g = c();
   return g.forEach((p, y) => {
     p.setAttribute("tabindex", y === 0 ? "0" : "-1"), p.hasAttribute("role") || p.setAttribute("role", "option");
-  }), e.hasAttribute("role") || e.setAttribute("role", "listbox"), e.addEventListener("keydown", f), a && g.length > 0 && h(0), () => {
+  }), e.hasAttribute("role") || e.setAttribute("role", "listbox"), e.addEventListener("keydown", f), a && g.length > 0 && u(0), () => {
     e.removeEventListener("keydown", f);
   };
 }
@@ -1514,18 +1514,18 @@ var Oi = [
   '[tabindex]:not([tabindex="-1"])'
 ].join(", ");
 function me(t) {
-  const { container: e, initialFocus: i, returnFocus: s, onEscape: r } = t, n = e.ownerDocument, c = n.activeElement, a = n.defaultView?.HTMLElement, l = a && c instanceof a ? c : null, d = e.getAttribute("role"), h = e.getAttribute("aria-modal");
-  d || e.setAttribute("role", "dialog"), e.setAttribute("aria-modal", "true");
+  const { container: e, initialFocus: i, returnFocus: s, onEscape: r } = t, n = e.ownerDocument, l = n.activeElement, a = n.defaultView?.HTMLElement, d = a && l instanceof a ? l : null, c = e.getAttribute("role"), u = e.getAttribute("aria-modal");
+  c || e.setAttribute("role", "dialog"), e.setAttribute("aria-modal", "true");
   const f = Ht({
     container: e,
     initialFocus: i ?? null,
-    returnFocus: s ?? l,
+    returnFocus: s ?? d,
     dismissOnEscape: !0,
     onEscape: r,
     lockBodyScroll: !1
   });
   return f.focusInitial(), () => {
-    f.release({ restoreFocus: !0 }), d === null ? e.removeAttribute("role") : e.setAttribute("role", d), h === null ? e.removeAttribute("aria-modal") : e.setAttribute("aria-modal", h);
+    f.release({ restoreFocus: !0 }), c === null ? e.removeAttribute("role") : e.setAttribute("role", c), u === null ? e.removeAttribute("aria-modal") : e.setAttribute("aria-modal", u);
   };
 }
 function ve(t) {
@@ -1585,8 +1585,8 @@ function Yi(t, e = "Skip to main content") {
 function Zi(t, e = {}) {
   const { title: i, describedBy: s, onClose: r } = e;
   if (t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), i) {
-    const c = `dialog-title-${Date.now()}`, a = t.querySelector('h1, h2, h3, [role="heading"]');
-    a && (a.id = c, t.setAttribute("aria-labelledby", c));
+    const l = `dialog-title-${Date.now()}`, a = t.querySelector('h1, h2, h3, [role="heading"]');
+    a && (a.id = l, t.setAttribute("aria-labelledby", l));
   }
   s && t.setAttribute("aria-describedby", s);
   const n = me({
@@ -1695,7 +1695,7 @@ var Se = w("ExtensionDiagnostics"), St = {
             </span>
             <button type="button"
                     class="diagnostics-refresh px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5">
-              ${u("iconoir:refresh", { size: "16px" })}
+              ${h("iconoir:refresh", { size: "16px" })}
               Refresh
             </button>
           </div>
@@ -1734,7 +1734,7 @@ var Se = w("ExtensionDiagnostics"), St = {
           <div class="bg-white rounded-lg border border-red-200">
             <div class="px-4 py-3 border-b border-red-200 bg-red-50">
               <h3 class="text-base font-medium text-red-900 flex items-center gap-2">
-                ${u("iconoir:warning-circle", { size: "18px" })}
+                ${h("iconoir:warning-circle", { size: "18px" })}
                 Recent Errors (${this.state.recentErrors.length})
               </h3>
             </div>
@@ -1783,7 +1783,7 @@ var Se = w("ExtensionDiagnostics"), St = {
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-gray-500">Config Health</span>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${h(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </div>
@@ -1826,7 +1826,7 @@ var Se = w("ExtensionDiagnostics"), St = {
               <span class="text-sm font-medium text-gray-900">${o(t.name)}</span>
               <span class="text-xs text-gray-400">v${o(t.version)}</span>
               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${e.bg} ${e.text}">
-                ${u(e.icon, { size: "10px" })}
+                ${h(e.icon, { size: "10px" })}
                 ${e.label}
               </span>
             </div>
@@ -1842,7 +1842,7 @@ var Se = w("ExtensionDiagnostics"), St = {
                 ${o(t.lastError.slice(0, 50))}${t.lastError.length > 50 ? "..." : ""}
               </span>
             ` : ""}
-            ${u("iconoir:nav-arrow-right", {
+            ${h("iconoir:nav-arrow-right", {
       size: "16px",
       extraClass: "text-gray-400"
     })}
@@ -1877,7 +1877,7 @@ var Se = w("ExtensionDiagnostics"), St = {
       <div class="error-row px-4 py-3 hover:bg-red-50 cursor-pointer" data-error-id="${o(t.id)}">
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 mt-0.5">
-            ${u("iconoir:warning-circle", {
+            ${h("iconoir:warning-circle", {
       size: "16px",
       extraClass: "text-red-500"
     })}
@@ -1975,7 +1975,7 @@ function B(t) {
       <span class="state-source-indicator inline-flex items-center"
             title="${o(n.description)}${r ? ` - ${r}` : ""}"
             aria-label="${o(n.description)}">
-        ${u(n.icon, {
+        ${h(n.icon, {
     size: "14px",
     extraClass: n.text
   })}
@@ -1985,7 +1985,7 @@ function B(t) {
           title="${o(n.description)}${r ? ` - ${r}` : ""}"
           role="note"
           aria-label="State source: ${o(n.description)}">
-      ${u(n.icon, { size: "12px" })}
+      ${h(n.icon, { size: "12px" })}
       <span>${o(n.label)}</span>
     </span>
   `;
@@ -2147,15 +2147,15 @@ function Ie(t, e) {
 }
 function Fe(t) {
   if (!t || typeof t != "object") return;
-  const e = t, i = e.accepted ?? e.Accepted, s = typeof i == "boolean" ? i : void 0, r = ct(e.mode ?? e.Mode), n = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, c = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, a = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, l = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, d = l == null ? void 0 : String(l).trim() || void 0;
-  if (!(s === void 0 && !r && !n && !c && !a && !d))
+  const e = t, i = e.accepted ?? e.Accepted, s = typeof i == "boolean" ? i : void 0, r = ct(e.mode ?? e.Mode), n = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, l = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, a = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, d = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, c = d == null ? void 0 : String(d).trim() || void 0;
+  if (!(s === void 0 && !r && !n && !l && !a && !c))
     return {
       accepted: s,
       mode: r,
       commandId: n,
-      dispatchId: c,
+      dispatchId: l,
       correlationId: a,
-      enqueuedAt: d
+      enqueuedAt: c
     };
 }
 var Me = class {
@@ -2216,6 +2216,20 @@ var Me = class {
       previousState: i
     });
   }
+  reconcileInlineStatusCorrelation(t, e) {
+    if (t === e) return;
+    const i = this.inlineStatus.get(t);
+    if (!i) return;
+    const s = {
+      ...i,
+      correlationId: e
+    };
+    this.inlineStatus.delete(t), this.inlineStatus.set(e, s), this.emitInlineStatusChange({
+      entry: s,
+      previousState: i.state,
+      previousCorrelationId: t
+    });
+  }
   emitInlineStatusChange(t) {
     this.inlineStatusListeners.forEach((e) => {
       try {
@@ -2248,22 +2262,22 @@ var Me = class {
     return this.tenantId && (t.tenant_id = this.tenantId), this.orgId && (t.org_id = this.orgId), t;
   }
   buildSpec(t, e, i) {
-    const s = m(t.dataset.commandName || e?.dataset.commandName), r = m(t.dataset.commandTransport || e?.dataset.commandTransport) || "action", n = m(t.dataset.commandDispatch || e?.dataset.commandDispatch) || s, c = Ae(e), a = Ct(t), l = e ? Ct(e) : {}, d = {
+    const s = m(t.dataset.commandName || e?.dataset.commandName), r = m(t.dataset.commandTransport || e?.dataset.commandTransport) || "action", n = m(t.dataset.commandDispatch || e?.dataset.commandDispatch) || s, l = Ae(e), a = Ct(t), d = e ? Ct(e) : {}, c = {
       ...this.scopePayload(),
-      ...c,
       ...l,
+      ...d,
       ...a
-    }, h = wt(t.dataset.commandRefresh || e?.dataset.commandRefresh || "").length > 0 ? wt(t.dataset.commandRefresh || e?.dataset.commandRefresh || "") : this.defaultRefreshSelectors;
+    }, u = wt(t.dataset.commandRefresh || e?.dataset.commandRefresh || "").length > 0 ? wt(t.dataset.commandRefresh || e?.dataset.commandRefresh || "") : this.defaultRefreshSelectors;
     return {
       trigger: t,
       form: e,
       commandName: s,
       dispatchName: n,
       transport: r,
-      payload: d,
+      payload: c,
       successMessage: m(t.dataset.commandSuccess || e?.dataset.commandSuccess) || `${s} completed successfully`,
       fallbackMessage: m(t.dataset.commandFailure || e?.dataset.commandFailure) || `${s} failed`,
-      refreshSelectors: h,
+      refreshSelectors: u,
       confirmMessage: m(t.dataset.commandConfirm || e?.dataset.commandConfirm),
       confirmTitle: m(t.dataset.commandConfirmTitle || e?.dataset.commandConfirmTitle),
       reasonTitle: m(t.dataset.commandReasonTitle || e?.dataset.commandReasonTitle),
@@ -2315,18 +2329,18 @@ var Me = class {
     if (t.submitter && bt(t.submitter) || t.busyTarget && bt(t.busyTarget) || t.confirmMessage && !await this.notifier.confirm(t.confirmMessage, { title: t.confirmTitle || void 0 }))
       return e();
     if (t.reasonTitle) {
-      const a = t.reasonSubject ? `${t.reasonTitle}
+      const d = t.reasonSubject ? `${t.reasonTitle}
 
 ${t.reasonSubject}
 
 Enter a reason:` : `${t.reasonTitle}
 
-Enter a reason:`, l = globalThis.window?.prompt(a, "") ?? null;
-      if (l === null) return e();
-      const d = String(l || "").trim();
-      if (!d)
+Enter a reason:`, c = globalThis.window?.prompt(d, "") ?? null;
+      if (c === null) return e();
+      const u = String(c || "").trim();
+      if (!u)
         return this.notifier.error("A reason is required."), e();
-      t.payload.reason = d;
+      t.payload.reason = u;
     }
     const i = Te(t.payload), s = this.resolveSection(t.trigger), r = this.resolveParticipantId(t.trigger, t.payload), n = {
       trigger: t.trigger,
@@ -2338,62 +2352,64 @@ Enter a reason:`, l = globalThis.window?.prompt(a, "") ?? null;
       success: !1
     };
     this.onBeforeDispatch?.(n);
-    const c = qe(t);
+    const l = qe(t);
     this.updateInlineStatusFromDispatch(i, t.commandName, "submitting", {
       message: "Sending...",
       section: s,
       participantId: r
     });
+    let a = i;
     try {
-      const a = t.transport === "rpc" ? await this.dispatchRPC(t) : await this.dispatchAction(t), l = {
+      const d = t.transport === "rpc" ? await this.dispatchRPC(t) : await this.dispatchAction(t), c = {
         ...n,
-        success: a.success,
-        data: a.data,
-        error: a.error,
-        correlationId: a.correlationId || i,
-        receipt: a.receipt,
-        responseMode: a.responseMode
+        success: d.success,
+        data: d.data,
+        error: d.error,
+        correlationId: d.correlationId || i,
+        receipt: d.receipt,
+        responseMode: d.responseMode
       };
-      if (!a.success || a.error) {
-        const d = ft(a.error || M(null, t.fallbackMessage), t.fallbackMessage);
-        return this.notifier.error(d), this.updateInlineStatusFromDispatch(i, t.commandName, "failed", {
-          message: d || "Failed",
+      if (a = c.correlationId, this.reconcileInlineStatusCorrelation(i, a), !d.success || d.error) {
+        const u = ft(d.error || M(null, t.fallbackMessage), t.fallbackMessage);
+        return this.notifier.error(u), this.updateInlineStatusFromDispatch(a, t.commandName, "failed", {
+          message: u || "Failed",
           section: s,
           participantId: r
-        }), this.onAfterDispatch?.(l), l;
+        }), this.onAfterDispatch?.(c), c;
       }
-      return this.notifier.success(t.successMessage), this.shouldWaitForFeedback(l) ? (this.updateInlineStatusFromDispatch(i, t.commandName, "accepted", {
+      return this.notifier.success(t.successMessage), this.shouldWaitForFeedback(c) ? (this.updateInlineStatusFromDispatch(a, t.commandName, "accepted", {
         message: "Queued...",
         section: s,
         participantId: r
-      }), this.pendingFeedback.set(l.correlationId, {
-        correlationId: l.correlationId,
-        commandName: l.commandName,
-        transport: l.transport,
-        responseMode: l.responseMode,
-        receipt: l.receipt,
+      }), this.pendingFeedback.set(c.correlationId, {
+        correlationId: c.correlationId,
+        commandName: c.commandName,
+        transport: c.transport,
+        responseMode: c.responseMode,
+        receipt: c.receipt,
         refreshSelectors: [...t.refreshSelectors],
         trigger: t.trigger,
         section: s,
         participantId: r
-      })) : (this.updateInlineStatusFromDispatch(i, t.commandName, "completed", {
+      })) : (this.updateInlineStatusFromDispatch(a, t.commandName, "completed", {
         message: t.successMessage || "Done",
         section: s,
         participantId: r
-      }), t.refreshSelectors.length > 0 && await this.refreshSelectors(t.refreshSelectors, t.trigger)), this.onAfterDispatch?.(l), l;
-    } catch (a) {
-      const l = M(a, t.fallbackMessage), d = {
+      }), t.refreshSelectors.length > 0 && await this.refreshSelectors(t.refreshSelectors, t.trigger)), this.onAfterDispatch?.(c), c;
+    } catch (d) {
+      const c = M(d, t.fallbackMessage), u = {
         ...n,
+        correlationId: a,
         success: !1,
-        error: l
+        error: c
       };
-      return this.notifier.error(ft(l, t.fallbackMessage)), this.updateInlineStatusFromDispatch(i, t.commandName, "failed", {
-        message: l.message || "Failed",
+      return this.notifier.error(ft(c, t.fallbackMessage)), this.updateInlineStatusFromDispatch(a, t.commandName, "failed", {
+        message: c.message || "Failed",
         section: s,
         participantId: r
-      }), this.onAfterDispatch?.(d), d;
+      }), this.onAfterDispatch?.(u), u;
     } finally {
-      Pe(c);
+      Pe(l);
     }
   }
   shouldWaitForFeedback(t) {
@@ -2412,23 +2428,23 @@ Enter a reason:`, l = globalThis.window?.prompt(a, "") ?? null;
       return;
     }
     if (e) {
-      const r = String(t.status || "").toLowerCase(), n = (Array.isArray(t.sections) ? t.sections : [])[0] || i?.section, c = i?.participantId, a = i?.commandName || "";
+      const r = String(t.status || "").toLowerCase(), n = (Array.isArray(t.sections) ? t.sections : [])[0] || i?.section, l = i?.participantId, a = i?.commandName || "";
       r === "completed" || r === "success" ? this.updateInlineStatusFromDispatch(e, a, "completed", {
         message: t.message || "Done",
         section: n,
-        participantId: c
+        participantId: l
       }) : r === "failed" || r === "error" ? this.updateInlineStatusFromDispatch(e, a, "failed", {
         message: t.message || "Failed",
         section: n,
-        participantId: c
+        participantId: l
       }) : r === "retry" || r === "retry_scheduled" || r === "retrying" ? this.updateInlineStatusFromDispatch(e, a, "retry_scheduled", {
         message: t.message || "Retry scheduled...",
         section: n,
-        participantId: c
+        participantId: l
       }) : (r === "accepted" || r === "queued" || r === "processing") && this.updateInlineStatusFromDispatch(e, a, "accepted", {
         message: t.message || "Processing...",
         section: n,
-        participantId: c
+        participantId: l
       });
     }
     await this.feedback?.onEvent?.(s);
@@ -2466,8 +2482,8 @@ Enter a reason:`, l = globalThis.window?.prompt(a, "") ?? null;
         ids: this.recordId ? [this.recordId] : [],
         payload: t.payload,
         options: {
-          correlation_id: e,
-          metadata: { correlation_id: e }
+          CorrelationID: e,
+          Metadata: { correlation_id: e }
         }
       } }
     }, s = await tt(this.fetchImpl, this.rpcEndpoint, {
@@ -2490,13 +2506,13 @@ Enter a reason:`, l = globalThis.window?.prompt(a, "") ?? null;
       correlationId: e
     };
     if (r && typeof r == "object" && "data" in r && typeof r.data == "object") {
-      const n = r.data, c = Fe(n.receipt);
+      const n = r.data, l = Fe(n.receipt);
       return {
         success: !0,
         data: n,
-        correlationId: c?.correlationId || e,
-        receipt: c,
-        responseMode: ct(n.response_mode || c?.mode)
+        correlationId: l?.correlationId || e,
+        receipt: l,
+        responseMode: ct(n.response_mode || l?.mode)
       };
     }
     return {
@@ -2720,7 +2736,7 @@ var je = w("ProvidersCatalog"), kt = {
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                ${u(e.icon, {
+                ${h(e.icon, {
       size: "20px",
       extraClass: "text-gray-600"
     })}
@@ -2772,7 +2788,7 @@ var je = w("ProvidersCatalog"), kt = {
     const e = 4, i = t.slice(0, e), s = t.length - e;
     let r = '<div class="flex flex-wrap gap-1">';
     for (const n of i) {
-      const [c, a] = n.name.split(".");
+      const [l, a] = n.name.split(".");
       r += `
         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
               title="${o(n.name)}">
@@ -2973,7 +2989,7 @@ var Oe = w("ConnectionsList"), Tt = {
           <button type="button"
                   class="connections-reset px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   title="Reset filters">
-            ${u("iconoir:refresh", { size: "16px" })}
+            ${h("iconoir:refresh", { size: "16px" })}
           </button>
           ${A()() && this.config.onConnect ? `
             <button type="button"
@@ -3009,7 +3025,7 @@ var Oe = w("ConnectionsList"), Tt = {
         <!-- Empty State -->
         <div class="connections-empty hidden py-12 text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${u("iconoir:link", {
+            ${h("iconoir:link", {
       size: "24px",
       extraClass: "text-gray-400"
     })}
@@ -3122,7 +3138,7 @@ var Oe = w("ConnectionsList"), Tt = {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${h(e.icon, { size: "12px" })}
             ${e.label}
           </span>
           ${t.last_error ? `
@@ -3147,21 +3163,21 @@ var Oe = w("ConnectionsList"), Tt = {
                 class="connection-action-refresh p-1 text-gray-400 hover:text-blue-600"
                 data-action="refresh"
                 title="Refresh credentials">
-          ${u("iconoir:refresh", { size: "16px" })}
+          ${h("iconoir:refresh", { size: "16px" })}
         </button>
       `), t.status === "needs_reconsent" && Mt()() && e.push(`
         <button type="button"
                 class="connection-action-reconsent p-1 text-gray-400 hover:text-orange-600"
                 data-action="reconsent"
                 title="Re-consent">
-          ${u("iconoir:redo", { size: "16px" })}
+          ${h("iconoir:redo", { size: "16px" })}
         </button>
       `), t.status !== "disconnected" && ht()() && e.push(`
         <button type="button"
                 class="connection-action-revoke p-1 text-gray-400 hover:text-red-600"
                 data-action="revoke"
                 title="Revoke connection">
-          ${u("iconoir:cancel", { size: "16px" })}
+          ${h("iconoir:cancel", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -3261,8 +3277,8 @@ var Oe = w("ConnectionsList"), Tt = {
     this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), i?.classList.add("hidden"), t.innerHTML = W(6, { text: "Loading connections..." }));
   }
   updatePagination() {
-    const { page: t, per_page: e } = this.queryState.getState(), { total: i } = this.state, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, c = t > 1, a = this.container?.querySelector(".connections-info"), l = this.container?.querySelector(".connections-prev"), d = this.container?.querySelector(".connections-next");
-    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No connections"), l && (l.disabled = !c), d && (d.disabled = !n);
+    const { page: t, per_page: e } = this.queryState.getState(), { total: i } = this.state, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, l = t > 1, a = this.container?.querySelector(".connections-info"), d = this.container?.querySelector(".connections-prev"), c = this.container?.querySelector(".connections-next");
+    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No connections"), d && (d.disabled = !l), c && (c.disabled = !n);
   }
 };
 async function ns(t) {
@@ -3444,7 +3460,7 @@ var Be = w("InstallationsList"), Et = {
           <button type="button"
                   class="installations-reset px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   title="Reset filters">
-            ${u("iconoir:refresh", { size: "16px" })}
+            ${h("iconoir:refresh", { size: "16px" })}
           </button>
         </div>
 
@@ -3470,7 +3486,7 @@ var Be = w("InstallationsList"), Et = {
         <!-- Empty State -->
         <div class="installations-empty hidden py-12 text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${u("iconoir:download", {
+            ${h("iconoir:download", {
       size: "24px",
       extraClass: "text-gray-400"
     })}
@@ -3536,7 +3552,7 @@ var Be = w("InstallationsList"), Et = {
     }
   }
   renderInstallationRow(t) {
-    const e = Et[t.status] || Et.uninstalled, i = At[t.install_type] || At.standard, s = S(t.provider_id, this.config.getProviderName), r = t.granted_at ? b(t.granted_at) : "—", n = t.revoked_at ? b(t.revoked_at) : "—", c = this.buildRowActions(t);
+    const e = Et[t.status] || Et.uninstalled, i = At[t.install_type] || At.standard, s = S(t.provider_id, this.config.getProviderName), r = t.granted_at ? b(t.granted_at) : "—", n = t.revoked_at ? b(t.revoked_at) : "—", l = this.buildRowActions(t);
     return `
       <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -3557,7 +3573,7 @@ var Be = w("InstallationsList"), Et = {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${h(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
@@ -3568,7 +3584,7 @@ var Be = w("InstallationsList"), Et = {
           ${n}
         </td>
         <td class="px-4 py-3 text-right">
-          ${c}
+          ${l}
         </td>
       </tr>
     `;
@@ -3580,14 +3596,14 @@ var Be = w("InstallationsList"), Et = {
                 class="installation-action-uninstall p-1 text-gray-400 hover:text-red-600"
                 data-action="uninstall"
                 title="Uninstall">
-          ${u("iconoir:trash", { size: "16px" })}
+          ${h("iconoir:trash", { size: "16px" })}
         </button>
       `), t.status === "uninstalled" && A()() && e.push(`
         <button type="button"
                 class="installation-action-reinstall p-1 text-gray-400 hover:text-green-600"
                 data-action="reinstall"
                 title="Reinstall">
-          ${u("iconoir:redo", { size: "16px" })}
+          ${h("iconoir:redo", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -3653,8 +3669,8 @@ var Be = w("InstallationsList"), Et = {
     this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), i?.classList.add("hidden"), t.innerHTML = W(7, { text: "Loading installations..." }));
   }
   updatePagination() {
-    const { page: t, per_page: e } = this.queryState.getState(), { total: i } = this.state, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, c = t > 1, a = this.container?.querySelector(".installations-info"), l = this.container?.querySelector(".installations-prev"), d = this.container?.querySelector(".installations-next");
-    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No installations"), l && (l.disabled = !c), d && (d.disabled = !n);
+    const { page: t, per_page: e } = this.queryState.getState(), { total: i } = this.state, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, l = t > 1, a = this.container?.querySelector(".installations-info"), d = this.container?.querySelector(".installations-prev"), c = this.container?.querySelector(".installations-next");
+    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No installations"), d && (d.disabled = !l), c && (c.disabled = !n);
   }
 };
 async function as(t) {
@@ -3780,13 +3796,13 @@ var Ve = w("ServicesActivity"), O = {
             <button type="button"
                     class="activity-view-timeline px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${this.state.viewMode === "timeline" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}"
                     title="Timeline view">
-              ${u("iconoir:timeline", { size: "16px" })}
+              ${h("iconoir:timeline", { size: "16px" })}
               <span class="ml-1.5">Timeline</span>
             </button>
             <button type="button"
                     class="activity-view-table px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${this.state.viewMode === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}"
                     title="Table view">
-              ${u("iconoir:table-rows", { size: "16px" })}
+              ${h("iconoir:table-rows", { size: "16px" })}
               <span class="ml-1.5">Table</span>
             </button>
           </div>
@@ -3900,7 +3916,7 @@ var Ve = w("ServicesActivity"), O = {
             <button type="button"
                     class="activity-reset flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
                     title="Reset filters">
-              ${u("iconoir:refresh", { size: "16px" })}
+              ${h("iconoir:refresh", { size: "16px" })}
               <span>Reset</span>
             </button>
           </div>
@@ -3940,7 +3956,7 @@ var Ve = w("ServicesActivity"), O = {
           <!-- Empty State -->
           <div class="activity-empty hidden py-12 text-center bg-white rounded-lg border border-gray-200">
             <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-              ${u("iconoir:activity", {
+              ${h("iconoir:activity", {
       size: "24px",
       extraClass: "text-gray-400"
     })}
@@ -4001,11 +4017,11 @@ var Ve = w("ServicesActivity"), O = {
       other: "Other"
     }, i = [];
     for (const [s, r] of Object.entries(t)) {
-      const n = e[s] || V(s), c = r.map((a) => {
-        const l = this.resolveActionLabel(a.action);
-        return `<option value="${o(a.action)}">${o(l)}</option>`;
+      const n = e[s] || V(s), l = r.map((a) => {
+        const d = this.resolveActionLabel(a.action);
+        return `<option value="${o(a.action)}">${o(d)}</option>`;
       }).join("");
-      i.push(`<optgroup label="${o(n)}">${c}</optgroup>`);
+      i.push(`<optgroup label="${o(n)}">${l}</optgroup>`);
     }
     return i.join("");
   }
@@ -4023,17 +4039,17 @@ var Ve = w("ServicesActivity"), O = {
   bindEvents() {
     if (!this.container) return;
     const t = this.container.querySelector(".activity-view-timeline"), e = this.container.querySelector(".activity-view-table");
-    t?.addEventListener("click", () => this.setViewMode("timeline")), e?.addEventListener("click", () => this.setViewMode("table")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (c) => {
-      this.queryState.setSearch(c.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((c) => {
-      c.addEventListener("change", () => {
-        const a = c.dataset.filter;
-        this.queryState.setFilter(a, c.value || void 0);
+    t?.addEventListener("click", () => this.setViewMode("timeline")), e?.addEventListener("click", () => this.setViewMode("table")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (l) => {
+      this.queryState.setSearch(l.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((l) => {
+      l.addEventListener("change", () => {
+        const a = l.dataset.filter;
+        this.queryState.setFilter(a, l.value || void 0);
       });
-    }), this.container.querySelectorAll('input[data-filter]:not([type="text"])').forEach((c) => {
-      c.addEventListener("change", () => {
-        const a = c.dataset.filter;
-        this.queryState.setFilter(a, c.value || void 0);
+    }), this.container.querySelectorAll('input[data-filter]:not([type="text"])').forEach((l) => {
+      l.addEventListener("change", () => {
+        const a = l.dataset.filter;
+        this.queryState.setFilter(a, l.value || void 0);
       });
     });
     const i = this.container.querySelector('[data-filter="object_type"]'), s = this.container.querySelector('[data-filter="object_id"]');
@@ -4074,7 +4090,7 @@ var Ve = w("ServicesActivity"), O = {
         <!-- Status indicator -->
         <div class="flex-shrink-0">
           <div class="w-10 h-10 rounded-full ${e.bg} flex items-center justify-center">
-            ${u(e.icon, {
+            ${h(e.icon, {
       size: "20px",
       extraClass: e.text
     })}
@@ -4164,7 +4180,7 @@ var Ve = w("ServicesActivity"), O = {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${h(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
@@ -4254,8 +4270,8 @@ var Ve = w("ServicesActivity"), O = {
     this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), s?.classList.add("hidden"), t && (t.innerHTML = lt({ text: "Loading activity..." }))) : (s?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = W(7, { text: "Loading activity..." })))));
   }
   updatePagination() {
-    const { page: t, per_page: e } = this.queryState.getState(), { total: i } = this.state, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, c = t > 1, a = this.container?.querySelector(".activity-info"), l = this.container?.querySelector(".activity-prev"), d = this.container?.querySelector(".activity-next");
-    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No activity"), l && (l.disabled = !c), d && (d.disabled = !n);
+    const { page: t, per_page: e } = this.queryState.getState(), { total: i } = this.state, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, l = t > 1, a = this.container?.querySelector(".activity-info"), d = this.container?.querySelector(".activity-prev"), c = this.container?.querySelector(".activity-next");
+    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i}` : "No activity"), d && (d.disabled = !l), c && (c.disabled = !n);
   }
   restoreViewMode() {
     const t = new URLSearchParams(window.location.search).get("view");
@@ -4435,11 +4451,11 @@ var Ge = w("SubscriptionsSync"), rt = {
     this.state.subscriptions = i.subscriptions, this.state.subscriptionsTotal = i.total, this.queryState.updateFromResponse(i.total, i.has_next), this.renderSubscriptions(), this.updatePagination();
   }
   async loadSyncJobs(t) {
-    const e = t.provider_id, i = t.connection_id, s = t.status, r = String(t.q || "").trim().toLowerCase(), n = t.page || 1, c = t.per_page || this.config.perPage || 25, a = await this.loadSyncConnections({
+    const e = t.provider_id, i = t.connection_id, s = t.status, r = String(t.q || "").trim().toLowerCase(), n = t.page || 1, l = t.per_page || this.config.perPage || 25, a = await this.loadSyncConnections({
       providerId: e,
       connectionId: i,
       signal: this.abortController?.signal
-    }), l = (await Promise.all(a.map(async (g) => {
+    }), d = (await Promise.all(a.map(async (g) => {
       try {
         return {
           connection: g,
@@ -4449,8 +4465,8 @@ var Ge = w("SubscriptionsSync"), rt = {
         if (p.name === "AbortError") throw p;
         return null;
       }
-    }))).filter((g) => g !== null).map((g) => this.toSyncJob(g.connection, g.summary)).filter((g) => g !== null).filter((g) => s && g.status !== s ? !1 : r ? this.matchesSyncSearch(g, r) : !0), d = l.length, h = (n - 1) * c, f = l.slice(h, h + c);
-    this.state.syncJobs = f, this.state.syncJobsTotal = d, this.renderSyncJobs(), this.updatePagination();
+    }))).filter((g) => g !== null).map((g) => this.toSyncJob(g.connection, g.summary)).filter((g) => g !== null).filter((g) => s && g.status !== s ? !1 : r ? this.matchesSyncSearch(g, r) : !0), c = d.length, u = (n - 1) * l, f = d.slice(u, u + l);
+    this.state.syncJobs = f, this.state.syncJobsTotal = c, this.renderSyncJobs(), this.updatePagination();
   }
   renderStructure() {
     this.container && (this.container.innerHTML = `
@@ -4459,12 +4475,12 @@ var Ge = w("SubscriptionsSync"), rt = {
         <div class="tabs-header flex items-center gap-4 mb-4 border-b border-gray-200">
           <button type="button"
                   class="tab-subscriptions px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${this.state.activeTab === "subscriptions" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}">
-            ${u("iconoir:bell", { size: "16px" })}
+            ${h("iconoir:bell", { size: "16px" })}
             <span class="ml-1.5">Subscriptions</span>
           </button>
           <button type="button"
                   class="tab-sync px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${this.state.activeTab === "sync" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}">
-            ${u("iconoir:sync", { size: "16px" })}
+            ${h("iconoir:sync", { size: "16px" })}
             <span class="ml-1.5">Sync Jobs</span>
           </button>
         </div>
@@ -4493,7 +4509,7 @@ var Ge = w("SubscriptionsSync"), rt = {
             <button type="button"
                     class="reset-btn px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                     title="Reset filters">
-              ${u("iconoir:refresh", { size: "16px" })}
+              ${h("iconoir:refresh", { size: "16px" })}
             </button>
           </div>
         </div>
@@ -4545,7 +4561,7 @@ var Ge = w("SubscriptionsSync"), rt = {
         <!-- Empty State -->
         <div class="empty-state hidden py-12 text-center bg-white rounded-lg border border-gray-200">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${u("iconoir:bell-off", {
+            ${h("iconoir:bell-off", {
       size: "24px",
       extraClass: "text-gray-400"
     })}
@@ -4626,7 +4642,7 @@ var Ge = w("SubscriptionsSync"), rt = {
     }) : "—", r = t.expires_at ? j(t.expires_at) : "", n = b(t.updated_at, {
       allowFuture: !0,
       futureImmediateLabel: "Soon"
-    }), c = t.expires_at && this.isExpiringSoon(t.expires_at);
+    }), l = t.expires_at && this.isExpiringSoon(t.expires_at);
     return `
       <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -4643,15 +4659,15 @@ var Ge = w("SubscriptionsSync"), rt = {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${h(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="${c ? "text-amber-600 font-medium" : "text-gray-500"}" title="${r}">
+          <span class="${l ? "text-amber-600 font-medium" : "text-gray-500"}" title="${r}">
             ${s}
           </span>
-          ${c ? u("iconoir:warning-triangle", {
+          ${l ? h("iconoir:warning-triangle", {
       size: "12px",
       extraClass: "inline ml-1 text-amber-500"
     }) : ""}
@@ -4672,14 +4688,14 @@ var Ge = w("SubscriptionsSync"), rt = {
                 class="action-renew p-1 text-gray-400 hover:text-blue-600"
                 data-action="renew"
                 title="Renew subscription">
-          ${u("iconoir:refresh", { size: "16px" })}
+          ${h("iconoir:refresh", { size: "16px" })}
         </button>
       `), t.status !== "cancelled" && F()() && e.push(`
         <button type="button"
                 class="action-cancel p-1 text-gray-400 hover:text-red-600"
                 data-action="cancel"
                 title="Cancel subscription">
-          ${u("iconoir:cancel", { size: "16px" })}
+          ${h("iconoir:cancel", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -4719,13 +4735,13 @@ var Ge = w("SubscriptionsSync"), rt = {
     }
   }
   renderSyncJobRow(t) {
-    const e = nt[t.status] || nt.failed, i = qt[t.mode] || qt.incremental, s = S(t.provider_id, this.config.getProviderName), r = t.metadata, n = typeof r.last_synced_at == "string" ? r.last_synced_at : "", c = n ? b(n, {
+    const e = nt[t.status] || nt.failed, i = qt[t.mode] || qt.incremental, s = S(t.provider_id, this.config.getProviderName), r = t.metadata, n = typeof r.last_synced_at == "string" ? r.last_synced_at : "", l = n ? b(n, {
       allowFuture: !0,
       futureImmediateLabel: "Soon"
     }) : b(t.updated_at, {
       allowFuture: !0,
       futureImmediateLabel: "Soon"
-    }), a = typeof r.last_sync_error == "string" ? r.last_sync_error : "", l = t.checkpoint || "";
+    }), a = typeof r.last_sync_error == "string" ? r.last_sync_error : "", d = t.checkpoint || "";
     return `
       <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${o(t.id)}">
         <td class="px-4 py-3">
@@ -4738,19 +4754,19 @@ var Ge = w("SubscriptionsSync"), rt = {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${h(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
-          ${l ? `
-            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${o(l)}">
-              ${o(v(l, 16))}
+          ${d ? `
+            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${o(d)}">
+              ${o(v(d, 16))}
             </code>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-gray-500 text-sm">
-          ${c}
+          ${l}
         </td>
         <td class="px-4 py-3 text-xs">
           ${a ? `<span class="text-red-600" title="${o(a)}">${o(v(a, 48))}</span>` : '<span class="text-gray-400">—</span>'}
@@ -4768,7 +4784,7 @@ var Ge = w("SubscriptionsSync"), rt = {
                 class="action-run p-1 text-gray-400 hover:text-green-600"
                 data-action="run"
                 title="Run sync now">
-          ${u("iconoir:play", { size: "16px" })}
+          ${h("iconoir:play", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -4824,7 +4840,7 @@ var Ge = w("SubscriptionsSync"), rt = {
     }));
   }
   async handleRunSync(t, e) {
-    const i = this.state.syncJobs.find((c) => c.id === t);
+    const i = this.state.syncJobs.find((l) => l.id === t);
     if (!i) return;
     const s = i.metadata, r = typeof s.run_resource_type == "string" && s.run_resource_type ? s.run_resource_type : "default", n = typeof s.run_resource_id == "string" && s.run_resource_id ? s.run_resource_id : "default";
     this.actionQueue.isInFlight(`sync-${t}`) || await this.actionQueue.execute(`sync-${t}`, async () => {
@@ -4927,8 +4943,8 @@ var Ge = w("SubscriptionsSync"), rt = {
     ].join(" ").toLowerCase().includes(e);
   }
   updatePagination() {
-    const { page: t, per_page: e } = this.queryState.getState(), i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, c = t > 1, a = this.container?.querySelector(".info"), l = this.container?.querySelector(".prev-btn"), d = this.container?.querySelector(".next-btn"), h = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
-    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i} ${h}` : `No ${h}`), l && (l.disabled = !c), d && (d.disabled = !n);
+    const { page: t, per_page: e } = this.queryState.getState(), i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, s = i > 0 ? (t - 1) * e + 1 : 0, r = Math.min(t * e, i), n = r < i, l = t > 1, a = this.container?.querySelector(".info"), d = this.container?.querySelector(".prev-btn"), c = this.container?.querySelector(".next-btn"), u = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
+    a && (a.textContent = i > 0 ? `Showing ${s}-${r} of ${i} ${u}` : `No ${u}`), d && (d.disabled = !l), c && (c.disabled = !n);
   }
   restoreTab() {
     const t = new URLSearchParams(window.location.search).get("tab");
@@ -5066,7 +5082,7 @@ var Qe = w("ConnectionDetail"), Pt = {
   }
   render() {
     if (!this.container || !this.state.connection) return;
-    const t = this.state.connection, e = Pt[t.status] || Pt.disconnected, i = S(t.provider_id, this.config.getProviderName), s = this.buildGrantInfoList(), r = s.some((c) => c.status === "capability_required"), n = t.status === "needs_reconsent" || r;
+    const t = this.state.connection, e = Pt[t.status] || Pt.disconnected, i = S(t.provider_id, this.config.getProviderName), s = this.buildGrantInfoList(), r = s.some((l) => l.status === "capability_required"), n = t.status === "needs_reconsent" || r;
     this.container.innerHTML = `
       <div class="connection-detail">
         <!-- Header -->
@@ -5074,7 +5090,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           <div class="flex items-center gap-4">
             ${this.config.onBack ? `
               <button type="button" class="back-btn p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                ${u("iconoir:arrow-left", { size: "20px" })}
+                ${h("iconoir:arrow-left", { size: "20px" })}
               </button>
             ` : ""}
             <div>
@@ -5084,7 +5100,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           </div>
           <div class="flex items-center gap-2">
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${e.bg} ${e.text}">
-              ${u(e.icon, { size: "16px" })}
+              ${h(e.icon, { size: "16px" })}
               ${e.label}
             </span>
           </div>
@@ -5129,7 +5145,7 @@ var Qe = w("ConnectionDetail"), Pt = {
         ${t.last_error ? `
           <div class="error-banner flex items-start gap-3 p-4 mb-6 bg-red-50 border border-red-200 rounded-lg">
             <div class="flex-shrink-0 text-red-500">
-              ${u("iconoir:warning-circle", { size: "20px" })}
+              ${h("iconoir:warning-circle", { size: "20px" })}
             </div>
             <div>
               <h4 class="text-sm font-medium text-red-800">Last Error</h4>
@@ -5142,7 +5158,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           <div class="reconsent-banner flex items-center justify-between p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg">
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0 text-amber-500">
-                ${u("iconoir:warning-triangle", { size: "20px" })}
+                ${h("iconoir:warning-triangle", { size: "20px" })}
               </div>
               <div>
                 <h4 class="text-sm font-medium text-amber-800">Re-consent Required</h4>
@@ -5216,7 +5232,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           ${F()() && t.status === "active" ? `
             <button type="button"
                     class="refresh-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-              ${u("iconoir:refresh", {
+              ${h("iconoir:refresh", {
       size: "16px",
       extraClass: "mr-1.5"
     })}
@@ -5226,7 +5242,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           ${ht()() && t.status !== "disconnected" ? `
             <button type="button"
                     class="revoke-btn px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-              ${u("iconoir:cancel", {
+              ${h("iconoir:cancel", {
       size: "16px",
       extraClass: "mr-1.5"
     })}
@@ -5247,7 +5263,7 @@ var Qe = w("ConnectionDetail"), Pt = {
                 <code class="text-sm font-mono text-gray-700">${o(e.grant)}</code>
                 ${e.isCapabilityRequired ? `
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-600" title="Required by capabilities">
-                    ${u("iconoir:puzzle", {
+                    ${h("iconoir:puzzle", {
         size: "10px",
         extraClass: "mr-0.5"
       })}
@@ -5263,7 +5279,7 @@ var Qe = w("ConnectionDetail"), Pt = {
             </div>
             <div class="flex-shrink-0">
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${i.bg} ${i.text}">
-                ${u(i.icon, { size: "12px" })}
+                ${h(i.icon, { size: "12px" })}
                 ${i.label}
               </span>
             </div>
@@ -5273,9 +5289,9 @@ var Qe = w("ConnectionDetail"), Pt = {
   }
   renderCapabilities() {
     return !this.state.provider || !this.state.grantSnapshot ? "" : this.state.provider.capabilities.map((t) => {
-      const e = new Set(this.state.grantSnapshot.granted_grants), i = t.required_grants.every((h) => e.has(h)), s = t.optional_grants.every((h) => e.has(h)), r = i && s, n = i && !s, c = !i;
-      let a, l, d;
-      return r ? (a = "Fully Enabled", l = "bg-green-100 text-green-700", d = "iconoir:check-circle") : n ? (a = "Partially Enabled", l = "bg-blue-100 text-blue-700", d = "iconoir:half-moon") : (a = t.denied_behavior === "block" ? "Blocked" : "Degraded", l = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", d = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
+      const e = new Set(this.state.grantSnapshot.granted_grants), i = t.required_grants.every((u) => e.has(u)), s = t.optional_grants.every((u) => e.has(u)), r = i && s, n = i && !s, l = !i;
+      let a, d, c;
+      return r ? (a = "Fully Enabled", d = "bg-green-100 text-green-700", c = "iconoir:check-circle") : n ? (a = "Partially Enabled", d = "bg-blue-100 text-blue-700", c = "iconoir:half-moon") : (a = t.denied_behavior === "block" ? "Blocked" : "Degraded", d = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", c = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
           <div class="capability-card border border-gray-200 rounded-lg p-3">
             <div class="flex items-start justify-between">
               <div>
@@ -5284,14 +5300,14 @@ var Qe = w("ConnectionDetail"), Pt = {
                   ${t.required_grants.length} required, ${t.optional_grants.length} optional
                 </p>
               </div>
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${l}">
-                ${u(d, { size: "12px" })}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${d}">
+                ${h(c, { size: "12px" })}
                 ${a}
               </span>
             </div>
-            ${c && t.denied_behavior === "block" ? `
+            ${l && t.denied_behavior === "block" ? `
               <p class="text-xs text-red-600 mt-2">
-                Missing required: ${t.required_grants.filter((h) => !e.has(h)).join(", ")}
+                Missing required: ${t.required_grants.filter((u) => !e.has(u)).join(", ")}
               </p>
             ` : ""}
           </div>
@@ -5307,18 +5323,18 @@ var Qe = w("ConnectionDetail"), Pt = {
     else if (t.last_error)
       e = "error", i = "Credential Error", s = "bg-red-100 text-red-700 border-red-200", r = "iconoir:warning-circle";
     else if (t.expires_at) {
-      const n = new Date(t.expires_at), c = /* @__PURE__ */ new Date(), a = (n.getTime() - c.getTime()) / 36e5;
+      const n = new Date(t.expires_at), l = /* @__PURE__ */ new Date(), a = (n.getTime() - l.getTime()) / 36e5;
       a < 0 ? (e = "error", i = "Expired", s = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : a < 24 && (e = "warning", i = "Expiring Soon", s = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
     }
     return `
       <div class="credential-health-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            ${u("iconoir:key", { size: "20px" })}
+            ${h("iconoir:key", { size: "20px" })}
             Credential Health
           </h3>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${s}">
-            ${u(r, { size: "12px" })}
+            ${h(r, { size: "12px" })}
             ${i}
           </span>
         </div>
@@ -5375,7 +5391,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           ${t.last_error ? `
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
-                ${u("iconoir:warning-circle", {
+                ${h("iconoir:warning-circle", {
       size: "16px",
       extraClass: "text-red-500 mt-0.5 flex-shrink-0"
     })}
@@ -5392,19 +5408,19 @@ var Qe = w("ConnectionDetail"), Pt = {
     if (!t) return "";
     let e = "healthy", i = "Normal", s = "bg-green-100 text-green-700", r = "iconoir:check-circle";
     if (t.exhausted_buckets > 0) {
-      const c = t.exhausted_buckets / Math.max(t.total_buckets, 1);
-      c >= 1 ? (e = "exhausted", i = "All Limits Exhausted", s = "bg-red-100 text-red-700", r = "iconoir:warning-circle") : c >= 0.5 ? (e = "warning", i = "High Usage", s = "bg-amber-100 text-amber-700", r = "iconoir:warning-triangle") : (e = "warning", i = "Some Limits Hit", s = "bg-amber-100 text-amber-700", r = "iconoir:clock");
+      const l = t.exhausted_buckets / Math.max(t.total_buckets, 1);
+      l >= 1 ? (e = "exhausted", i = "All Limits Exhausted", s = "bg-red-100 text-red-700", r = "iconoir:warning-circle") : l >= 0.5 ? (e = "warning", i = "High Usage", s = "bg-amber-100 text-amber-700", r = "iconoir:warning-triangle") : (e = "warning", i = "Some Limits Hit", s = "bg-amber-100 text-amber-700", r = "iconoir:clock");
     }
     const n = t.total_buckets > 0 ? Math.round(t.exhausted_buckets / t.total_buckets * 100) : 0;
     return `
       <div class="rate-limit-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            ${u("iconoir:graph-up", { size: "20px" })}
+            ${h("iconoir:graph-up", { size: "20px" })}
             Rate Limits
           </h3>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${s}">
-            ${u(r, { size: "12px" })}
+            ${h(r, { size: "12px" })}
             ${i}
           </span>
         </div>
@@ -5447,7 +5463,7 @@ var Qe = w("ConnectionDetail"), Pt = {
           ${e === "exhausted" ? `
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
-                ${u("iconoir:warning-circle", {
+                ${h("iconoir:warning-circle", {
       size: "16px",
       extraClass: "text-red-500 mt-0.5 flex-shrink-0"
     })}
@@ -5557,40 +5573,40 @@ var Qe = w("ConnectionDetail"), Pt = {
     const t = this.state.grantSnapshot, e = this.state.provider;
     if (!t) return [];
     const i = new Set(t.requested_grants), s = new Set(t.granted_grants), r = /* @__PURE__ */ new Map(), n = /* @__PURE__ */ new Set();
-    if (e) for (const d of e.capabilities) {
-      for (const h of d.required_grants) {
-        n.add(h);
-        const f = r.get(h) || [];
-        f.push(d.name), r.set(h, f);
+    if (e) for (const c of e.capabilities) {
+      for (const u of c.required_grants) {
+        n.add(u);
+        const f = r.get(u) || [];
+        f.push(c.name), r.set(u, f);
       }
-      for (const h of d.optional_grants) {
-        const f = r.get(h) || [];
-        f.push(d.name), r.set(h, f);
+      for (const u of c.optional_grants) {
+        const f = r.get(u) || [];
+        f.push(c.name), r.set(u, f);
       }
     }
-    const c = /* @__PURE__ */ new Set([
+    const l = /* @__PURE__ */ new Set([
       ...t.requested_grants,
       ...t.granted_grants,
       ...n
     ]), a = [];
-    for (const d of c) {
-      const h = s.has(d), f = i.has(d), g = n.has(d);
+    for (const c of l) {
+      const u = s.has(c), f = i.has(c), g = n.has(c);
       let p;
-      h ? p = "granted" : f ? p = "requested" : g ? p = "capability_required" : p = "missing", a.push({
-        grant: d,
+      u ? p = "granted" : f ? p = "requested" : g ? p = "capability_required" : p = "missing", a.push({
+        grant: c,
         status: p,
         isRequired: f || g,
         isCapabilityRequired: g,
-        capabilities: r.get(d) || []
+        capabilities: r.get(c) || []
       });
     }
-    const l = {
+    const d = {
       capability_required: 0,
       granted: 1,
       requested: 2,
       missing: 3
     };
-    return a.sort((d, h) => l[d.status] - l[h.status]), a;
+    return a.sort((c, u) => d[c.status] - d[u.status]), a;
   }
 };
 async function ls(t) {

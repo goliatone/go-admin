@@ -1297,3 +1297,14 @@ test('exchange error extraction preserves metadata', () => {
   assert.equal(result.metadata.entity_id, 'post_123');
   assert.equal(result.metadata.custom_field, 'custom_value');
 });
+
+test('parseActionResponse preserves HTTP-200 RPC codes without changing panel precedence', () => {
+  const rpc = parseActionResponse({ error: { code: 'OUTCOME_UNKNOWN', message: 'Operation outcome is unknown.' } });
+  assert.equal(rpc.success, false);
+  assert.equal(rpc.error.textCode, 'OUTCOME_UNKNOWN');
+  assert.equal(rpc.error.message, 'Operation outcome is unknown.');
+  const panel = parseActionResponse({ error: { text_code: 'DOMAIN_CONFLICT', code: 'CONFLICT', message: 'Conflict.' } });
+  assert.equal(panel.error.textCode, 'DOMAIN_CONFLICT');
+  const numeric = parseActionResponse({ error: { code: 500, message: 'Unexpected error.' } });
+  assert.equal(numeric.error.textCode, null);
+});

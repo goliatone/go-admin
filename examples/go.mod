@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.142.3
 	github.com/goliatone/go-auth v0.45.7
 	github.com/goliatone/go-cms v0.60.8
-	github.com/goliatone/go-command v0.24.3
+	github.com/goliatone/go-command v0.25.0
 	github.com/goliatone/go-config v0.15.1
 	github.com/goliatone/go-crud v0.27.2
 	github.com/goliatone/go-dashboard v0.15.9
@@ -22,7 +22,7 @@ require (
 	github.com/goliatone/go-logger v0.10.1
 	github.com/goliatone/go-persistence-bun v0.17.1
 	github.com/goliatone/go-repository-bun v0.16.2
-	github.com/goliatone/go-router v0.63.4
+	github.com/goliatone/go-router v0.64.0
 	github.com/goliatone/go-theme v0.5.2
 	github.com/goliatone/go-urlkit v0.7.0
 	github.com/goliatone/go-users v0.27.6

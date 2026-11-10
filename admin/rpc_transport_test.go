@@ -917,3 +917,69 @@ func TestAdminRPCListEndpointReturnsRegisteredCommandNamesWhenEnabled(t *testing
 		t.Fatalf("expected command list to include rpc.list.test, got %+v", resp.Data.Commands)
 	}
 }
+
+func TestAdminRPCDispatchPreservesReportedResultFailure(t *testing.T) {
+	adm := mustNewAdmin(t, Config{Commands: CommandConfig{RPC: RPCCommandConfig{Commands: map[string]RPCCommandRule{
+		"rpc.failed.result": {Permission: "admin.commands.dispatch"},
+	}}}}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands), Authorizer: rpcTestAuthorizer{allow: map[string]bool{"admin.commands.dispatch|commands": true}}})
+	bus := adm.Commands()
+	failure := errors.New("private diagnostic failure")
+	if _, err := RegisterCommand(bus, command.CommandFunc[resultDispatchTestMessage](func(ctx context.Context, msg resultDispatchTestMessage) error {
+		command.ResultFromContext[resultDispatchTestResult](ctx).Store(resultDispatchTestResult{Value: msg.Value, Failure: failure})
+		return nil
+	})); err != nil {
+		t.Fatal(err)
+	}
+	if err := RegisterMessageResultFactory[resultDispatchTestMessage, resultDispatchTestResult](bus, "rpc.failed.result", func(payload map[string]any, _ []string) (resultDispatchTestMessage, error) {
+		return resultDispatchTestMessage{Value: toString(payload["value"])}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user"})
+	response, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{Data: RPCCommandDispatchRequest{
+		CommandID: "rpc.failed.result", Payload: map[string]any{"value": "verification-failed"},
+	}})
+	if err != nil {
+		t.Fatalf("outcome-aware RPC turned result failure into transport error: %v", err)
+	}
+	out, ok := response.(cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse])
+	if !ok || out.Error != nil || !out.Data.Receipt.Accepted || out.Data.Receipt.Mode != command.ExecutionModeInline {
+		t.Fatalf("unexpected RPC outcome: %#v", response)
+	}
+	result, ok := out.Data.Result.(resultDispatchTestResult)
+	if !ok || result.Value != "verification-failed" || !errors.Is(CommandResultFailure(result), failure) {
+		t.Fatalf("lost diagnostic result: %#v", out.Data.Result)
+	}
+	// Callers that discard results still receive the reported operational failure.
+	_, err = bus.DispatchByNameWithOptions(ctx, "rpc.failed.result", map[string]any{"value": "verification-failed"}, nil, command.DispatchOptions{Mode: command.ExecutionModeInline})
+	if !errors.Is(err, failure) {
+		t.Fatalf("receipt-only caller lost reported failure: %v", err)
+	}
+}
+
+func TestAdminRPCMetadataPrecedence(t *testing.T) {
+	for _, tc := range []struct{ name, contextCorrelation, envelopeCorrelation, optionCorrelation, requestID, want string }{
+		{"context", "context", "envelope", "option", "request", "context"},
+		{"envelope", "", "envelope", "option", "request", "envelope"},
+		{"option", "", "", "option", "request", "option"},
+		{"request", "", "", "", "request", "request"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), requestIDContextKey, tc.requestID)
+			ctx = context.WithValue(ctx, correlationIDContextKey, tc.contextCorrelation)
+			ctx = auth.WithActorContext(ctx, &auth.ActorContext{ActorID: "actor", TenantID: "tenant", OrganizationID: "org"})
+			meta := cmdrpc.RequestMeta{ActorID: "forged", Tenant: "forged", CorrelationID: tc.envelopeCorrelation, RequestID: "envelope-request", Roles: []string{"admin"}, Permissions: []string{"*"}}
+			opts := command.DispatchOptions{CorrelationID: tc.optionCorrelation, Metadata: map[string]any{"actor_id": "forged", "tenant_id": "forged", "organization_id": "forged", "roles": []string{"admin"}, "permissions": []string{"*"}}}
+			identity := trustedRPCIdentityFromContext(ctx, meta, opts)
+			got := sanitizeRPCDispatchOptions(identity, opts, []string{"roles", "permissions", "actor_id", "tenant_id", "organization_id"})
+			if got.CorrelationID != tc.want || got.Metadata["request_id"] != tc.requestID || got.Metadata["actor_id"] != "actor" || got.Metadata["tenant_id"] != "tenant" || got.Metadata["organization_id"] != "org" {
+				t.Fatalf("metadata precedence/identity mismatch: %+v", got)
+			}
+			for _, reserved := range []string{"roles", "permissions"} {
+				if _, present := got.Metadata[reserved]; present {
+					t.Fatalf("reserved authority %s survived explicit allowlist", reserved)
+				}
+			}
+		})
+	}
+}

@@ -358,7 +358,8 @@ export function parseActionResponse(data: unknown): {
   if (obj.error && typeof obj.error === 'object') {
     const errObj = obj.error as Record<string, unknown>;
     const error: StructuredError = {
-      textCode: typeof errObj.text_code === 'string' ? errObj.text_code : null,
+      textCode: typeof errObj.text_code === 'string' ? errObj.text_code
+        : typeof errObj.code === 'string' ? errObj.code : null,
       message: typeof errObj.message === 'string' ? errObj.message : 'Unknown error',
       metadata: errObj.metadata && typeof errObj.metadata === 'object'
         ? errObj.metadata as Record<string, unknown>

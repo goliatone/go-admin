@@ -1,10 +1,10 @@
-import { createLogger as k } from "../shared/logger.js";
-import { httpRequestWith as m, readHTTPJSONValue as w } from "../shared/transport/http-client.js";
-import { extractStructuredError as f, formatStructuredErrorForDisplay as p, parseActionResponse as C } from "../toast/error-helpers.js";
+import { createLogger as A } from "../shared/logger.js";
+import { httpRequestWith as h, readHTTPJSONValue as k } from "../shared/transport/http-client.js";
+import { extractStructuredError as p, formatStructuredErrorForDisplay as S, parseActionResponse as w } from "../toast/error-helpers.js";
 import { t as N } from "../chunks/toast-manager-CbwnrqR9.js";
-import { i as S, t as b } from "../chunks/busy-MPizSUwt.js";
-var F = k("CommandRuntime");
-function M() {
+import { i as b, t as g } from "../chunks/busy-MPizSUwt.js";
+var M = A("CommandRuntime");
+function F() {
   const t = globalThis.window;
   return t?.toastManager ? t.toastManager : new N();
 }
@@ -17,10 +17,10 @@ function E(t) {
 function v(t) {
   return E(t).replace(/-/g, "_");
 }
-function g(t) {
+function y(t) {
   return String(t || "").split(",").map((e) => e.trim()).filter(Boolean);
 }
-function h(t) {
+function f(t) {
   return String(t || "").trim().toLowerCase() || void 0;
 }
 function R() {
@@ -33,7 +33,7 @@ function P(t) {
   const a = R();
   return t.correlation_id = a, a;
 }
-function u(t, e) {
+function m(t, e) {
   if (t && typeof t == "object") {
     const a = t;
     if (typeof a.message == "string") return {
@@ -52,22 +52,22 @@ function u(t, e) {
     validationErrors: null
   };
 }
-function y(t, e) {
+function I(t, e) {
   if (!t || typeof t != "object") return {
     success: !1,
-    error: u(null, e)
+    error: m(null, e)
   };
-  const a = C(t);
+  const a = w(t);
   return a.success ? {
     success: !0,
     data: a.data
   } : {
     success: !1,
-    error: a.error || u(null, e)
+    error: a.error || m(null, e)
   };
 }
-async function I(t) {
-  return w(t, null);
+async function C(t) {
+  return k(t, null);
 }
 function T(t) {
   const e = {};
@@ -104,7 +104,7 @@ function j(t) {
     _(e, r, a);
   }), e;
 }
-function A(t) {
+function D(t) {
   const e = d(t.dataset.commandBusyTarget);
   if (e) return document.querySelector(e);
   const a = d(t.dataset.commandBusyClosest);
@@ -112,7 +112,7 @@ function A(t) {
 }
 function B(t) {
   const e = [];
-  return t.submitter && e.push(S(t.submitter)), t.busyTarget && t.busyTarget !== t.submitter && e.push(S(t.busyTarget)), e;
+  return t.submitter && e.push(b(t.submitter)), t.busyTarget && t.busyTarget !== t.submitter && e.push(b(t.busyTarget)), e;
 }
 function L(t) {
   for (const e of [...t].reverse()) e.reset();
@@ -132,20 +132,20 @@ function $(t, e) {
 }
 function q(t) {
   if (!t || typeof t != "object") return;
-  const e = t, a = e.accepted ?? e.Accepted, r = typeof a == "boolean" ? a : void 0, s = h(e.mode ?? e.Mode), n = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, c = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, i = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, o = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, l = o == null ? void 0 : String(o).trim() || void 0;
-  if (!(r === void 0 && !s && !n && !c && !i && !l))
+  const e = t, a = e.accepted ?? e.Accepted, r = typeof a == "boolean" ? a : void 0, s = f(e.mode ?? e.Mode), n = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, l = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, c = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, o = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, i = o == null ? void 0 : String(o).trim() || void 0;
+  if (!(r === void 0 && !s && !n && !l && !c && !i))
     return {
       accepted: r,
       mode: s,
       commandId: n,
-      dispatchId: c,
-      correlationId: i,
-      enqueuedAt: l
+      dispatchId: l,
+      correlationId: c,
+      enqueuedAt: i
     };
 }
 var H = class {
   constructor(t) {
-    this.submitHandler = null, this.clickHandler = null, this.feedbackUnsubscribe = null, this.pendingFeedback = /* @__PURE__ */ new Map(), this.inlineStatus = /* @__PURE__ */ new Map(), this.inlineStatusListeners = /* @__PURE__ */ new Set(), this.mount = t.mount, this.apiBasePath = String(t.apiBasePath || "").trim().replace(/\/$/, ""), this.panelName = String(t.panelName || "").trim(), this.recordId = String(t.recordId || "").trim(), this.rpcEndpoint = String(t.rpcEndpoint || "").trim() || `${this.apiBasePath}/rpc`, this.tenantId = String(t.tenantId || "").trim(), this.orgId = String(t.orgId || "").trim(), this.notifier = t.notifier || M(), this.fetchImpl = t.fetchImpl || fetch.bind(globalThis), this.defaultRefreshSelectors = Array.isArray(t.defaultRefreshSelectors) ? t.defaultRefreshSelectors.filter(Boolean) : [], this.feedback = t.feedback, this.onBeforeDispatch = t.onBeforeDispatch, this.onAfterDispatch = t.onAfterDispatch, this.onAfterRefresh = t.onAfterRefresh;
+    this.submitHandler = null, this.clickHandler = null, this.feedbackUnsubscribe = null, this.pendingFeedback = /* @__PURE__ */ new Map(), this.inlineStatus = /* @__PURE__ */ new Map(), this.inlineStatusListeners = /* @__PURE__ */ new Set(), this.mount = t.mount, this.apiBasePath = String(t.apiBasePath || "").trim().replace(/\/$/, ""), this.panelName = String(t.panelName || "").trim(), this.recordId = String(t.recordId || "").trim(), this.rpcEndpoint = String(t.rpcEndpoint || "").trim() || `${this.apiBasePath}/rpc`, this.tenantId = String(t.tenantId || "").trim(), this.orgId = String(t.orgId || "").trim(), this.notifier = t.notifier || F(), this.fetchImpl = t.fetchImpl || fetch.bind(globalThis), this.defaultRefreshSelectors = Array.isArray(t.defaultRefreshSelectors) ? t.defaultRefreshSelectors.filter(Boolean) : [], this.feedback = t.feedback, this.onBeforeDispatch = t.onBeforeDispatch, this.onAfterDispatch = t.onAfterDispatch, this.onAfterRefresh = t.onAfterRefresh;
   }
   init() {
     this.mount && (this.submitHandler = (t) => {
@@ -201,12 +201,26 @@ var H = class {
       previousState: a
     });
   }
+  reconcileInlineStatusCorrelation(t, e) {
+    if (t === e) return;
+    const a = this.inlineStatus.get(t);
+    if (!a) return;
+    const r = {
+      ...a,
+      correlationId: e
+    };
+    this.inlineStatus.delete(t), this.inlineStatus.set(e, r), this.emitInlineStatusChange({
+      entry: r,
+      previousState: a.state,
+      previousCorrelationId: t
+    });
+  }
   emitInlineStatusChange(t) {
     this.inlineStatusListeners.forEach((e) => {
       try {
         e(t);
       } catch (a) {
-        F.warn("Inline status listener error:", a);
+        M.warn("Inline status listener error:", a);
       }
     });
   }
@@ -233,27 +247,27 @@ var H = class {
     return this.tenantId && (t.tenant_id = this.tenantId), this.orgId && (t.org_id = this.orgId), t;
   }
   buildSpec(t, e, a) {
-    const r = d(t.dataset.commandName || e?.dataset.commandName), s = d(t.dataset.commandTransport || e?.dataset.commandTransport) || "action", n = d(t.dataset.commandDispatch || e?.dataset.commandDispatch) || r, c = j(e), i = T(t), o = e ? T(e) : {}, l = {
+    const r = d(t.dataset.commandName || e?.dataset.commandName), s = d(t.dataset.commandTransport || e?.dataset.commandTransport) || "action", n = d(t.dataset.commandDispatch || e?.dataset.commandDispatch) || r, l = j(e), c = T(t), o = e ? T(e) : {}, i = {
       ...this.scopePayload(),
-      ...c,
+      ...l,
       ...o,
-      ...i
-    }, D = g(t.dataset.commandRefresh || e?.dataset.commandRefresh || "").length > 0 ? g(t.dataset.commandRefresh || e?.dataset.commandRefresh || "") : this.defaultRefreshSelectors;
+      ...c
+    }, u = y(t.dataset.commandRefresh || e?.dataset.commandRefresh || "").length > 0 ? y(t.dataset.commandRefresh || e?.dataset.commandRefresh || "") : this.defaultRefreshSelectors;
     return {
       trigger: t,
       form: e,
       commandName: r,
       dispatchName: n,
       transport: s,
-      payload: l,
+      payload: i,
       successMessage: d(t.dataset.commandSuccess || e?.dataset.commandSuccess) || `${r} completed successfully`,
       fallbackMessage: d(t.dataset.commandFailure || e?.dataset.commandFailure) || `${r} failed`,
-      refreshSelectors: D,
+      refreshSelectors: u,
       confirmMessage: d(t.dataset.commandConfirm || e?.dataset.commandConfirm),
       confirmTitle: d(t.dataset.commandConfirmTitle || e?.dataset.commandConfirmTitle),
       reasonTitle: d(t.dataset.commandReasonTitle || e?.dataset.commandReasonTitle),
       reasonSubject: d(t.dataset.commandReasonSubject || e?.dataset.commandReasonSubject),
-      busyTarget: A(t) || (e ? A(e) : null),
+      busyTarget: D(t) || (e ? D(e) : null),
       submitter: a
     };
   }
@@ -297,21 +311,21 @@ var H = class {
       correlationId: String(t.payload.correlation_id || "").trim(),
       success: !1
     });
-    if (t.submitter && b(t.submitter) || t.busyTarget && b(t.busyTarget) || t.confirmMessage && !await this.notifier.confirm(t.confirmMessage, { title: t.confirmTitle || void 0 }))
+    if (t.submitter && g(t.submitter) || t.busyTarget && g(t.busyTarget) || t.confirmMessage && !await this.notifier.confirm(t.confirmMessage, { title: t.confirmTitle || void 0 }))
       return e();
     if (t.reasonTitle) {
-      const i = t.reasonSubject ? `${t.reasonTitle}
+      const o = t.reasonSubject ? `${t.reasonTitle}
 
 ${t.reasonSubject}
 
 Enter a reason:` : `${t.reasonTitle}
 
-Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
-      if (o === null) return e();
-      const l = String(o || "").trim();
-      if (!l)
+Enter a reason:`, i = globalThis.window?.prompt(o, "") ?? null;
+      if (i === null) return e();
+      const u = String(i || "").trim();
+      if (!u)
         return this.notifier.error("A reason is required."), e();
-      t.payload.reason = l;
+      t.payload.reason = u;
     }
     const a = P(t.payload), r = this.resolveSection(t.trigger), s = this.resolveParticipantId(t.trigger, t.payload), n = {
       trigger: t.trigger,
@@ -323,66 +337,68 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
       success: !1
     };
     this.onBeforeDispatch?.(n);
-    const c = B(t);
+    const l = B(t);
     this.updateInlineStatusFromDispatch(a, t.commandName, "submitting", {
       message: "Sending...",
       section: r,
       participantId: s
     });
+    let c = a;
     try {
-      const i = t.transport === "rpc" ? await this.dispatchRPC(t) : await this.dispatchAction(t), o = {
+      const o = t.transport === "rpc" ? await this.dispatchRPC(t) : await this.dispatchAction(t), i = {
         ...n,
-        success: i.success,
-        data: i.data,
-        error: i.error,
-        correlationId: i.correlationId || a,
-        receipt: i.receipt,
-        responseMode: i.responseMode
+        success: o.success,
+        data: o.data,
+        error: o.error,
+        correlationId: o.correlationId || a,
+        receipt: o.receipt,
+        responseMode: o.responseMode
       };
-      if (!i.success || i.error) {
-        const l = p(i.error || u(null, t.fallbackMessage), t.fallbackMessage);
-        return this.notifier.error(l), this.updateInlineStatusFromDispatch(a, t.commandName, "failed", {
-          message: l || "Failed",
+      if (c = i.correlationId, this.reconcileInlineStatusCorrelation(a, c), !o.success || o.error) {
+        const u = S(o.error || m(null, t.fallbackMessage), t.fallbackMessage);
+        return this.notifier.error(u), this.updateInlineStatusFromDispatch(c, t.commandName, "failed", {
+          message: u || "Failed",
           section: r,
           participantId: s
-        }), this.onAfterDispatch?.(o), o;
+        }), this.onAfterDispatch?.(i), i;
       }
-      return this.notifier.success(t.successMessage), this.shouldWaitForFeedback(o) ? (this.updateInlineStatusFromDispatch(a, t.commandName, "accepted", {
+      return this.notifier.success(t.successMessage), this.shouldWaitForFeedback(i) ? (this.updateInlineStatusFromDispatch(c, t.commandName, "accepted", {
         message: "Queued...",
         section: r,
         participantId: s
-      }), this.pendingFeedback.set(o.correlationId, {
-        correlationId: o.correlationId,
-        commandName: o.commandName,
-        transport: o.transport,
-        responseMode: o.responseMode,
-        receipt: o.receipt,
+      }), this.pendingFeedback.set(i.correlationId, {
+        correlationId: i.correlationId,
+        commandName: i.commandName,
+        transport: i.transport,
+        responseMode: i.responseMode,
+        receipt: i.receipt,
         refreshSelectors: [...t.refreshSelectors],
         trigger: t.trigger,
         section: r,
         participantId: s
-      })) : (this.updateInlineStatusFromDispatch(a, t.commandName, "completed", {
+      })) : (this.updateInlineStatusFromDispatch(c, t.commandName, "completed", {
         message: t.successMessage || "Done",
         section: r,
         participantId: s
-      }), t.refreshSelectors.length > 0 && await this.refreshSelectors(t.refreshSelectors, t.trigger)), this.onAfterDispatch?.(o), o;
-    } catch (i) {
-      const o = u(i, t.fallbackMessage), l = {
+      }), t.refreshSelectors.length > 0 && await this.refreshSelectors(t.refreshSelectors, t.trigger)), this.onAfterDispatch?.(i), i;
+    } catch (o) {
+      const i = m(o, t.fallbackMessage), u = {
         ...n,
+        correlationId: c,
         success: !1,
-        error: o
+        error: i
       };
-      return this.notifier.error(p(o, t.fallbackMessage)), this.updateInlineStatusFromDispatch(a, t.commandName, "failed", {
-        message: o.message || "Failed",
+      return this.notifier.error(S(i, t.fallbackMessage)), this.updateInlineStatusFromDispatch(c, t.commandName, "failed", {
+        message: i.message || "Failed",
         section: r,
         participantId: s
-      }), this.onAfterDispatch?.(l), l;
+      }), this.onAfterDispatch?.(u), u;
     } finally {
-      L(c);
+      L(l);
     }
   }
   shouldWaitForFeedback(t) {
-    return this.feedback?.adapter ? h(t.responseMode || t.receipt?.mode) === "queued" : !1;
+    return this.feedback?.adapter ? f(t.responseMode || t.receipt?.mode) === "queued" : !1;
   }
   async handleFeedbackEvent(t) {
     const e = String(t.correlationId || "").trim(), a = e && this.pendingFeedback.get(e) || null;
@@ -397,23 +413,23 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
       return;
     }
     if (e) {
-      const s = String(t.status || "").toLowerCase(), n = (Array.isArray(t.sections) ? t.sections : [])[0] || a?.section, c = a?.participantId, i = a?.commandName || "";
-      s === "completed" || s === "success" ? this.updateInlineStatusFromDispatch(e, i, "completed", {
+      const s = String(t.status || "").toLowerCase(), n = (Array.isArray(t.sections) ? t.sections : [])[0] || a?.section, l = a?.participantId, c = a?.commandName || "";
+      s === "completed" || s === "success" ? this.updateInlineStatusFromDispatch(e, c, "completed", {
         message: t.message || "Done",
         section: n,
-        participantId: c
-      }) : s === "failed" || s === "error" ? this.updateInlineStatusFromDispatch(e, i, "failed", {
+        participantId: l
+      }) : s === "failed" || s === "error" ? this.updateInlineStatusFromDispatch(e, c, "failed", {
         message: t.message || "Failed",
         section: n,
-        participantId: c
-      }) : s === "retry" || s === "retry_scheduled" || s === "retrying" ? this.updateInlineStatusFromDispatch(e, i, "retry_scheduled", {
+        participantId: l
+      }) : s === "retry" || s === "retry_scheduled" || s === "retrying" ? this.updateInlineStatusFromDispatch(e, c, "retry_scheduled", {
         message: t.message || "Retry scheduled...",
         section: n,
-        participantId: c
-      }) : (s === "accepted" || s === "queued" || s === "processing") && this.updateInlineStatusFromDispatch(e, i, "accepted", {
+        participantId: l
+      }) : (s === "accepted" || s === "queued" || s === "processing") && this.updateInlineStatusFromDispatch(e, c, "accepted", {
         message: t.message || "Processing...",
         section: n,
-        participantId: c
+        participantId: l
       });
     }
     await this.feedback?.onEvent?.(r);
@@ -421,12 +437,12 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
   async dispatchAction(t) {
     if (!this.apiBasePath || !this.panelName) return {
       success: !1,
-      error: u(null, "Action transport is not configured")
+      error: m(null, "Action transport is not configured")
     };
     const e = `${this.apiBasePath}/panels/${encodeURIComponent(this.panelName)}/actions/${encodeURIComponent(t.commandName)}`, a = {
       id: this.recordId,
       ...t.payload
-    }, r = await m(this.fetchImpl, e, {
+    }, r = await h(this.fetchImpl, e, {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -436,11 +452,11 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
       body: JSON.stringify(a)
     });
     return r.ok ? {
-      ...y(await I(r), t.fallbackMessage),
+      ...I(await C(r), t.fallbackMessage),
       correlationId: String(t.payload.correlation_id || "").trim() || void 0
     } : {
       success: !1,
-      error: await f(r)
+      error: await p(r)
     };
   }
   async dispatchRPC(t) {
@@ -451,11 +467,11 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
         ids: this.recordId ? [this.recordId] : [],
         payload: t.payload,
         options: {
-          correlation_id: e,
-          metadata: { correlation_id: e }
+          CorrelationID: e,
+          Metadata: { correlation_id: e }
         }
       } }
-    }, r = await m(this.fetchImpl, this.rpcEndpoint, {
+    }, r = await h(this.fetchImpl, this.rpcEndpoint, {
       method: "POST",
       credentials: "same-origin",
       headers: {
@@ -466,22 +482,22 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
     });
     if (!r.ok) return {
       success: !1,
-      error: await f(r),
+      error: await p(r),
       correlationId: e
     };
-    const s = await I(r);
+    const s = await C(r);
     if (s && typeof s == "object" && "error" in s) return {
-      ...y(s, t.fallbackMessage),
+      ...I(s, t.fallbackMessage),
       correlationId: e
     };
     if (s && typeof s == "object" && "data" in s && typeof s.data == "object") {
-      const n = s.data, c = q(n.receipt);
+      const n = s.data, l = q(n.receipt);
       return {
         success: !0,
         data: n,
-        correlationId: c?.correlationId || e,
-        receipt: c,
-        responseMode: h(n.response_mode || c?.mode)
+        correlationId: l?.correlationId || e,
+        receipt: l,
+        responseMode: f(n.response_mode || l?.mode)
       };
     }
     return {
@@ -500,7 +516,7 @@ Enter a reason:`, o = globalThis.window?.prompt(i, "") ?? null;
     }), a;
   }
   async refreshFragments(t) {
-    const e = await m(this.fetchImpl, globalThis.window?.location?.href || "", {
+    const e = await h(this.fetchImpl, globalThis.window?.location?.href || "", {
       method: "GET",
       credentials: "same-origin",
       headers: {
