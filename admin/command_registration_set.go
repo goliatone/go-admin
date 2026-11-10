@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -48,6 +49,7 @@ type ownedFactoryDeclaration struct {
 	factory     ContextMessageFactory
 	dispatch    func(context.Context, map[string]any, []string, command.DispatchOptions, *dispatcher.Runtime) (DispatchOutcome, error)
 	result      bool
+	rawDispatch func(context.Context, json.RawMessage, []string, command.DispatchOptions, *dispatcher.Runtime) (DispatchOutcome, error)
 }
 
 type ownedFactoryEntry struct {

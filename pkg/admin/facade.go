@@ -1352,6 +1352,7 @@ type (
 	ProtectedSurfaceScope                             = core.ProtectedSurfaceScope
 	QuickActionWidgetPayload                          = core.QuickActionWidgetPayload
 	QuickActionsWidgetPayload                         = core.QuickActionsWidgetPayload
+	RPCCommandBinding[I any, R any]                   = core.RPCCommandBinding[I, R]
 	RPCCommandConfig                                  = core.RPCCommandConfig
 	RPCCommandDispatchRequest                         = core.RPCCommandDispatchRequest
 	RPCCommandDispatchResponse                        = core.RPCCommandDispatchResponse
@@ -2116,6 +2117,10 @@ func EvaluateEntryNavigationVisibility(eligible []string, overrides map[string]s
 	return core.EvaluateEntryNavigationVisibility(eligible, overrides, defaultSet, policy)
 }
 
+func ExportRPCContracts(options rpc.ExportOptions) (*rpc.ContractManifest, error) {
+	return core.ExportRPCContracts(options)
+}
+
 func ExtractContentPath(data map[string]any, metadata map[string]any, fallback string) string {
 	return core.ExtractContentPath(data, metadata, fallback)
 }
@@ -2776,6 +2781,10 @@ func NewProtectedSurfaceAuthenticator(routeAuth *auth.RouteAuthenticator, cfg au
 	return core.NewProtectedSurfaceAuthenticator(routeAuth, cfg, scope, opts...)
 }
 
+func NewRPCCommandBinding[I any, R any](declaration rpc.CommandContract, options rpc.ExportOptions) (*RPCCommandBinding[I, R], error) {
+	return core.NewRPCCommandBinding[I, R](declaration, options)
+}
+
 func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
 	return core.NewRateLimiter(maxRequests, window)
 }
@@ -3082,6 +3091,10 @@ func RegisterQuery[T any, R any](bus *CommandBus, qry command.Querier[T, R], run
 
 func RegisterSetCommand[T any](set *CommandRegistrationSet, handler command.Commander[T], opts ...runner.Option) error {
 	return core.RegisterSetCommand[T](set, handler, opts...)
+}
+
+func RegisterSetTypedRPCCommand[T any, I any, R any](set *CommandRegistrationSet, binding *RPCCommandBinding[I, R], build func(context.Context, I, []string) (T, error)) error {
+	return core.RegisterSetTypedRPCCommand[T, I, R](set, binding, build)
 }
 
 func RegisterTranslationExchangeCommandFactories(bus *CommandBus) error {

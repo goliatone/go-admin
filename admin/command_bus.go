@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"maps"
 	"reflect"
@@ -479,6 +480,10 @@ func (b *CommandBus) DispatchByNameWithOptions(ctx context.Context, name string,
 
 // DispatchByNameWithOutcome routes a named command and returns an optional inline result.
 func (b *CommandBus) DispatchByNameWithOutcome(ctx context.Context, name string, payload map[string]any, ids []string, opts command.DispatchOptions) (DispatchOutcome, error) {
+	return b.dispatchByNameWithRawOutcome(ctx, name, payload, nil, payload, ids, opts)
+}
+
+func (b *CommandBus) dispatchByNameWithRawOutcome(ctx context.Context, name string, payload map[string]any, raw json.RawMessage, original map[string]any, ids []string, opts command.DispatchOptions) (DispatchOutcome, error) {
 	if b == nil {
 		return DispatchOutcome{}, FeatureDisabledError{Feature: string(FeatureCommands)}
 	}
@@ -505,6 +510,15 @@ func (b *CommandBus) DispatchByNameWithOutcome(ctx context.Context, name string,
 	ctx = command.ContextWithDispatchOptions(ctx, effective)
 
 	if ownedFactory.generation != nil {
+		if ownedFactory.declaration.rawDispatch != nil {
+			if raw == nil {
+				raw, err = json.Marshal(original)
+				if err != nil {
+					return DispatchOutcome{}, err
+				}
+			}
+			return ownedFactory.declaration.rawDispatch(ctx, raw, ids, effective, ownedFactory.generation.runtime)
+		}
 		return ownedFactory.declaration.dispatch(ctx, payload, ids, effective, ownedFactory.generation.runtime)
 	}
 	if resultDispatch != nil {

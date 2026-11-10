@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	auth "github.com/goliatone/go-auth"
@@ -86,7 +87,7 @@ func hasRPCEndpoint(server *cmdrpc.Server, method string) bool {
 }
 
 func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
-	return cmdrpc.NewEndpoint[RPCCommandDispatchRequest, RPCCommandDispatchResponse](
+	endpoint := cmdrpc.NewEndpoint[RPCCommandDispatchRequest, RPCCommandDispatchResponse](
 		cmdrpc.EndpointSpec{
 			Method:      RPCMethodCommandDispatch,
 			Kind:        cmdrpc.MethodKindCommand,
@@ -130,6 +131,7 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				payload = map[string]any{}
 			}
 
+			originalPayload := payload
 			identity := trustedRPCIdentityFromContext(ctx, req.Meta, req.Data.Options)
 			payload = enrichRPCDispatchPayload(identity, payload)
 			opts := sanitizeRPCDispatchOptions(identity, req.Data.Options, adm.config.Commands.RPC.MetadataAllowlist)
@@ -154,7 +156,8 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 				}
 			}
 
-			outcome, err := adm.Commands().DispatchByNameWithOutcome(ctx, name, payload, req.Data.IDs, opts)
+			raw, _ := ctx.Value(rpcRawPayloadKey{}).(json.RawMessage)
+			outcome, err := adm.Commands().dispatchByNameWithRawOutcome(ctx, name, payload, raw, originalPayload, req.Data.IDs, opts)
 			if err != nil {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 			}
@@ -166,6 +169,7 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			}, nil
 		},
 	)
+	return &typedDispatchEndpoint{EndpointDefinition: endpoint, admin: adm}
 }
 
 func commandListRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {

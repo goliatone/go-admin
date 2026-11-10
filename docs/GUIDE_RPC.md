@@ -31,6 +31,7 @@ between DataGrid actions, enhanced SSR actions, RPC, and sync, see
 - [RPC Transport Hardening Defaults](#rpc-transport-hardening-defaults)
 - [Core RPC Methods](#core-rpc-methods)
 - [Command Dispatch Contract](#command-dispatch-contract)
+- [Go-first typed commands](#go-first-typed-commands)
 - [Command Rules And Permissions](#command-rules-and-permissions)
 - [Unauthenticated RPC Exposure](#unauthenticated-rpc-exposure)
 - [Trusted Identity And Metadata](#trusted-identity-and-metadata)
@@ -283,6 +284,61 @@ For new modules, stage the handler and factory in an owner-scoped
 validates the complete declaration and publishes an isolated runtime
 atomically; closing it removes only that owner's dispatch names and catalog
 entries. See the owned-set migration example in the root `README.md`.
+
+## Go-first typed commands
+
+Typed named dispatch is opt-in. Existing `RegisterMessageFactory` and owned map
+factories retain their normalization and number types, including on mixed hosts.
+Define a public object input and result independently of the internal command message:
+
+```go
+declaration := cmdrpc.CommandContractFor[PublicInput, PublicResult](commandID)
+binding, err := admin.NewRPCCommandBinding[PublicInput, PublicResult](declaration, wirePolicy)
+if err != nil { return err }
+set, err := adm.Commands().NewRegistrationSet("resource-module")
+if err != nil { return err }
+if err = admin.RegisterSetCommand(set, handler); err != nil { return err }
+if err = admin.RegisterSetTypedRPCCommand(set, binding,
+    func(ctx context.Context, input PublicInput, ids []string) (InternalMessage, error) {
+        // Authorize from trusted context, including before queued acceptance.
+        return buildMessageFromTrustedContext(ctx, input, ids)
+    }); err != nil { return err }
+handle, err := set.Commit() // retain and Close when this owner stops
+```
+
+These APIs are also exposed by `pkg/admin`. The wire policy supplies explicit
+safe integer bounds, enum declarations and necessary custom-wire overrides.
+Export the same declaration and policy using `admin.ExportRPCContracts`; this
+runs without a service or listener. For receipt-only commands, declare `Result:
+nil` and use an `any` result binding. An explicitly declared result is required
+from inline handlers and validated before egress; queued execution returns its
+receipt without claiming that result exists.
+
+Typed input is decoded from original JSON before legacy aliases or identity
+injection can change it. Public camel-case tags remain intact. Context-owned
+actor/user/tenant/org fields and the reserved metadata aliases are rejected at
+binding/export and in typed payloads, including nested unknown objects. Other
+unknown fields retain Go JSON decoding behavior. Wide integers require actual
+string encoding or explicit safe bounds; schema-only conversions cannot make
+lossy JSON safe. Direct canonical envelope callers remain supported, but an
+already-rounded caller map cannot recover its original numeric token.
+
+The existing route, canonical request/response DTOs, allowlist and permission
+checks remain authoritative. A separate legacy-shaped policy-hook view never
+becomes the typed decode source. Handler, builder, decoder and result contract
+belong to one owned generation; close the old handle before committing a
+replacement. No global contract catalog is introduced.
+
+The runnable [protected consumer recipe](../examples/rpc-contract/README.md)
+provides selected offline export, explicit `go:generate`, strict generated TS,
+real authenticated HTTP, direct/service parity and non-writing regeneration
+checks. Generated clients preserve `{data?: T}`; named dispatch returns
+`{data?: CommandDispatchResponse<Result>}` with optional result/status/validation
+fields and canonical receipt casing. Check presence rather than truthiness,
+retain application `data`/`result` fields, and distinguish queued acceptance from
+completion. Keep the existing browser CSRF request preparation and service
+permissions. Network failure after commit is unknown and is never automatically
+replayed. Structural compatibility classification remains deferred.
 
 ## Command Rules And Permissions
 
