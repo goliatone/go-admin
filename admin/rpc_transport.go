@@ -97,79 +97,84 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			Idempotent:  false,
 		},
 		func(ctx context.Context, req cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]) (cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse], error) {
-			if adm == nil || adm.Commands() == nil {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, serviceNotConfiguredDomainError("command bus", map[string]any{
-					"component": "rpc_transport",
-					"method":    RPCMethodCommandDispatch,
-				})
-			}
-			name := strings.TrimSpace(req.Data.ResolvedCommandID())
-			if name == "" {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, requiredFieldDomainError("command_id", map[string]any{
-					"component": "rpc_transport",
-					"method":    RPCMethodCommandDispatch,
-				})
-			}
-
-			rule, ok := adm.config.Commands.RPC.ResolveRule(name)
-			if !ok {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrNotFound
-			}
-			if rpcRequestHasActor(ctx) {
-				if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), RPCMethodCommandDispatch, defaultRPCCommandResource, adm.config.Commands.RPC.PermissionMode); err != nil {
-					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
-				}
-				if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), rule.Permission, rule.Resource, rule.PermissionMode); err != nil {
-					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
-				}
-			} else if !rule.AllowUnauthenticated {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrForbidden
-			}
-
-			payload := req.Data.Payload
-			if payload == nil {
-				payload = map[string]any{}
-			}
-
-			originalPayload := payload
-			identity := trustedRPCIdentityFromContext(ctx, req.Meta, req.Data.Options)
-			payload = enrichRPCDispatchPayload(identity, payload)
-			opts := sanitizeRPCDispatchOptions(identity, req.Data.Options, adm.config.Commands.RPC.MetadataAllowlist)
-			policyInput := RPCCommandPolicyInput{
-				Method:         RPCMethodCommandDispatch,
-				CommandName:    name,
-				Payload:        copyRPCMap(payload),
-				IDs:            append([]string(nil), req.Data.IDs...),
-				Rule:           rule,
-				Dispatch:       cloneRPCDispatchOptions(opts),
-				ActorID:        identity.ActorID,
-				Subject:        identity.Subject,
-				TenantID:       identity.TenantID,
-				OrganizationID: identity.OrganizationID,
-				RequestID:      identity.RequestID,
-				CorrelationID:  identity.CorrelationID,
-				Metadata:       copyRPCMap(opts.Metadata),
-			}
-			if hook := adm.rpcCommandPolicyHook; hook != nil {
-				if err := hook(ctx, policyInput); err != nil {
-					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
-				}
-			}
-
-			raw, _ := ctx.Value(rpcRawPayloadKey{}).(json.RawMessage)
-			outcome, err := adm.Commands().dispatchByNameWithRawOutcome(ctx, name, payload, raw, originalPayload, req.Data.IDs, opts)
-			if err != nil {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
-			}
-			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{
-				Data: RPCCommandDispatchResponse{
-					Receipt: outcome.Receipt,
-					Result:  outcome.Result,
-				},
-			}, nil
+			return adm.dispatchRPCCommand(ctx, req, nil)
 		},
 	)
 	return &typedDispatchEndpoint{EndpointDefinition: endpoint, admin: adm}
+}
+
+// dispatchRPCCommand keeps raw transport input local to this invocation. Context
+// carries trusted identity and cancellation, never another invocation's payload.
+func (adm *Admin) dispatchRPCCommand(ctx context.Context, req cmdrpc.RequestEnvelope[RPCCommandDispatchRequest], raw json.RawMessage) (cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse], error) {
+	if adm == nil || adm.Commands() == nil {
+		return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, serviceNotConfiguredDomainError("command bus", map[string]any{
+			"component": "rpc_transport",
+			"method":    RPCMethodCommandDispatch,
+		})
+	}
+	name := strings.TrimSpace(req.Data.ResolvedCommandID())
+	if name == "" {
+		return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, requiredFieldDomainError("command_id", map[string]any{
+			"component": "rpc_transport",
+			"method":    RPCMethodCommandDispatch,
+		})
+	}
+
+	rule, ok := adm.config.Commands.RPC.ResolveRule(name)
+	if !ok {
+		return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrNotFound
+	}
+	if rpcRequestHasActor(ctx) {
+		if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), RPCMethodCommandDispatch, defaultRPCCommandResource, adm.config.Commands.RPC.PermissionMode); err != nil {
+			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+		}
+		if err := authorizeRPCPermissionWithMode(ctx, adm.Authorizer(), rule.Permission, rule.Resource, rule.PermissionMode); err != nil {
+			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+		}
+	} else if !rule.AllowUnauthenticated {
+		return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrForbidden
+	}
+
+	payload := req.Data.Payload
+	if payload == nil {
+		payload = map[string]any{}
+	}
+
+	originalPayload := payload
+	identity := trustedRPCIdentityFromContext(ctx, req.Meta, req.Data.Options)
+	payload = enrichRPCDispatchPayload(identity, payload)
+	opts := sanitizeRPCDispatchOptions(identity, req.Data.Options, adm.config.Commands.RPC.MetadataAllowlist)
+	policyInput := RPCCommandPolicyInput{
+		Method:         RPCMethodCommandDispatch,
+		CommandName:    name,
+		Payload:        copyRPCMap(payload),
+		IDs:            append([]string(nil), req.Data.IDs...),
+		Rule:           rule,
+		Dispatch:       cloneRPCDispatchOptions(opts),
+		ActorID:        identity.ActorID,
+		Subject:        identity.Subject,
+		TenantID:       identity.TenantID,
+		OrganizationID: identity.OrganizationID,
+		RequestID:      identity.RequestID,
+		CorrelationID:  identity.CorrelationID,
+		Metadata:       copyRPCMap(opts.Metadata),
+	}
+	if hook := adm.rpcCommandPolicyHook; hook != nil {
+		if err := hook(ctx, policyInput); err != nil {
+			return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+		}
+	}
+
+	outcome, err := adm.Commands().dispatchByNameWithRawOutcome(ctx, name, payload, raw, originalPayload, req.Data.IDs, opts)
+	if err != nil {
+		return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+	}
+	return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{
+		Data: RPCCommandDispatchResponse{
+			Receipt: outcome.Receipt,
+			Result:  outcome.Result,
+		},
+	}, nil
 }
 
 func commandListRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {

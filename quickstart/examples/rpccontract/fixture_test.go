@@ -48,6 +48,11 @@ func (f *liveFixture) call(t *testing.T, method string, data any, token string) 
 	t.Helper()
 	body, err := json.Marshal(map[string]any{"method": method, "params": map[string]any{"data": data, "meta": map[string]any{"actorId": "forged", "tenant": "forged", "correlationId": "envelope-correlation", "requestId": "envelope-request"}}})
 	require.NoError(t, err)
+	return f.callRaw(t, body, token)
+}
+
+func (f *liveFixture) callRaw(t *testing.T, body []byte, token string) (int, map[string]any) {
+	t.Helper()
 	req, err := http.NewRequestWithContext(t.Context(), "POST", f.url, bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
@@ -312,4 +317,32 @@ func TestProtectedTypedRejectsUnsafeEgress(t *testing.T) {
 	}
 	writes, _ := f.host.Service.Snapshot()
 	require.Zero(t, writes)
+}
+
+func TestProtectedTypedRepeatedWrappersDoNotMutate(t *testing.T) {
+	f := live(t)
+	for _, params := range []string{
+		`{"data":{"command_id":"resources.update","payload":{"resourceId":"resource-a","dryRun":true},"payload":{"resourceId":"resource-a","count":2,"revision":"2"}}}`,
+		`{"data":{"command_id":"resources.update","payload":{"actor_id":"forged"},"payload":{"resourceId":"resource-a","count":2,"revision":"2"}}}`,
+		`{"data":{"command_id":"resources.update","payload":{"resourceId":"resource-a","dryRun":true},"PAYLOAD":{"resourceId":"resource-a","count":2,"revision":"2"}}}`,
+		`{"data":{"command_id":"resources.update","payload":{"resourceId":"resource-a","dryRun":true}},"data":{"payload":{"resourceId":"resource-a","count":2,"revision":"2"}}}`,
+		`{"data":{"command_id":"resources.update","payload":{"resourceId":"resource-a","dryRun":true}},"DATA":{"payload":{"resourceId":"resource-a","count":2,"revision":"2"}}}`,
+	} {
+		t.Run(params, func(t *testing.T) {
+			body := []byte(`{"method":"admin.commands.dispatch","params":` + params + `}`)
+			status, out := f.callRaw(t, body, f.token)
+			require.Equal(t, http.StatusBadRequest, status)
+			require.Equal(t, "RPC_INVALID_PARAMS", out["error"].(map[string]any)["code"])
+			writes, seen := f.host.Service.Snapshot()
+			require.Zero(t, writes)
+			require.Empty(t, seen)
+		})
+	}
+	// A subsequent normal request still decodes dryRun and uses the same service.
+	_, out := f.call(t, admin.RPCMethodCommandDispatch, map[string]any{"command_id": CommandID, "payload": validInput()}, f.token)
+	require.NotContains(t, out, "error")
+	writes, seen := f.host.Service.Snapshot()
+	require.Zero(t, writes)
+	require.Len(t, seen, 1)
+	require.True(t, seen[0].Input.DryRun)
 }

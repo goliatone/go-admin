@@ -321,7 +321,11 @@ binding/export and in typed payloads, including nested unknown objects. Other
 unknown fields retain Go JSON decoding behavior. Wide integers require actual
 string encoding or explicit safe bounds; schema-only conversions cannot make
 lossy JSON safe. Direct canonical envelope callers remain supported, but an
-already-rounded caller map cannot recover its original numeric token.
+already-rounded caller map cannot recover its original numeric token. Typed named
+requests reject repeated `data` or `payload` wrappers, including case aliases,
+before dispatch. Duplicate fields inside a DTO retain Go JSON semantics; legacy
+commands retain their existing decoder. Raw bytes belong to one invocation, so
+nested canonical calls use their own payload while preserving trusted context.
 
 The existing route, canonical request/response DTOs, allowlist and permission
 checks remain authoritative. A separate legacy-shaped policy-hook view never

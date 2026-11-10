@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
@@ -261,7 +262,6 @@ type typedDispatchEndpoint struct {
 	cmdrpc.EndpointDefinition
 	admin *Admin
 }
-type rpcRawPayloadKey struct{}
 type rpcDispatchCarrier struct {
 	cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]
 	raw json.RawMessage
@@ -293,6 +293,16 @@ func (r *rpcDispatchCarrier) UnmarshalJSON(data []byte) error {
 	if !typed {
 		return json.Unmarshal(data, &r.RequestEnvelope)
 	}
+	// RawMessage replaces repeated objects while the canonical map decoder merges
+	// them. Reject ambiguous wrappers on the typed path before any policy or
+	// command can observe a different request. DTO members retain Go semantics.
+	dataObject, err := uniqueRPCJSONField(data, "data")
+	if err != nil {
+		return err
+	}
+	if _, err := uniqueRPCJSONField(dataObject, "payload"); err != nil {
+		return err
+	}
 	// Policy hooks see ordinary float64 numbers when representable. Preserve
 	// otherwise-unrepresentable unknown JSON numbers as tokens: Go's typed decoder
 	// may ignore them, and they must not prevent valid public DTO decoding.
@@ -304,6 +314,42 @@ func (r *rpcDispatchCarrier) UnmarshalJSON(data []byte) error {
 	r.Data.Payload = rpcPolicyNumbers(r.Data.Payload).(map[string]any)
 	return nil
 }
+
+// uniqueRPCJSONField inspects only one wrapper level, including case aliases
+// accepted by encoding/json. The enclosing UnmarshalJSON already checked syntax.
+func uniqueRPCJSONField(raw json.RawMessage, field string) (json.RawMessage, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token != json.Delim('{') {
+		return nil, nil
+	}
+	var value json.RawMessage
+	found := false
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		var member json.RawMessage
+		if err := decoder.Decode(&member); err != nil {
+			return nil, err
+		}
+		if strings.EqualFold(key.(string), field) {
+			if found {
+				return nil, fmt.Errorf("repeated RPC %q member", field)
+			}
+			value, found = member, true
+		}
+	}
+	return value, nil
+}
+
 func rpcPolicyNumbers(value any) any {
 	switch value := value.(type) {
 	case json.Number:
@@ -340,7 +386,7 @@ func (e *typedDispatchEndpoint) NewRequest() any {
 }
 func (e *typedDispatchEndpoint) Invoke(ctx context.Context, request any) (any, error) {
 	if carrier, ok := request.(*rpcDispatchCarrier); ok && carrier != nil {
-		return e.EndpointDefinition.Invoke(context.WithValue(ctx, rpcRawPayloadKey{}, carrier.raw), &carrier.RequestEnvelope)
+		return e.admin.dispatchRPCCommand(ctx, carrier.RequestEnvelope, carrier.raw)
 	}
 	return e.EndpointDefinition.Invoke(ctx, request)
 }

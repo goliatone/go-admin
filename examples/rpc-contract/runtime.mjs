@@ -47,6 +47,23 @@ await assert.rejects(bind(client(info.deniedToken)).dispatch("resources.update",
 await assert.rejects(bind(client("invalid")).call("resources.get",{resourceId:"resource-a"}),error=>error instanceof RPCClientError&&error.status===401);
 // Explicit dynamic fallback retains canonical aliases and command_id precedence.
 const dynamic=await api.dynamic.call("admin.commands.dispatch",{data:{name:"resources.legacy",payload:input}});assert.deepEqual(dynamic.data.result.input,input);
+// Send ambiguous wrappers as raw wire bytes; ordinary JSON.stringify cannot
+// represent repeated members. The shipped client must report RPC_INVALID_PARAMS,
+// and the shared service must remain unchanged.
+const duplicateBefore=await api.call("resources.get",{resourceId:"resource-a"});
+const safe=JSON.stringify(input);
+const mutating=JSON.stringify({...input,dryRun:false});
+for (const params of [
+  `{"data":{"command_id":"resources.update","payload":${safe},"payload":${mutating}}}`,
+  `{"data":{"command_id":"resources.update","payload":{"actor_id":"forged"},"payload":${mutating}}}`,
+  `{"data":{"command_id":"resources.update","payload":${safe},"PAYLOAD":${mutating}}}`,
+  `{"data":{"command_id":"resources.update","payload":${safe}},"DATA":{"payload":${mutating}}}`,
+]) {
+  const ambiguous=bind(client(info.token,(url,init)=>capture(url,{...init,body:`{"method":"admin.commands.dispatch","params":${params}}`})));
+  await assert.rejects(ambiguous.dispatch("resources.update",input),error=>error instanceof RPCClientError&&error.code==="RPC_INVALID_PARAMS"&&error.status===400);
+}
+const duplicateAfter=await api.call("resources.get",{resourceId:"resource-a"});
+assert.equal(duplicateAfter.data.writes,duplicateBefore.data.writes);
 // Actual response loss after commit: consume and discard the real response,
 // then surface a network failure. The application reports unknown and does not retry.
 const before=await api.call("resources.get",{resourceId:"resource-a"});let attempts=0;

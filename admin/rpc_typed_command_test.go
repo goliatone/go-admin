@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -234,4 +235,110 @@ func TestTypedRPCBindingSnapshotsPolicyAndRejectsScalarInput(t *testing.T) {
 	require.Error(t, err)
 	_, err = NewRPCCommandBinding[string, string](cmdrpc.CommandContractFor[string, string]("scalar"), opts)
 	require.ErrorContains(t, err, "object")
+}
+
+func TestTypedRPCRejectsRepeatedWrappersWithoutExecution(t *testing.T) {
+	a := typedRPCAdmin(t)
+	h := &typedRPCHandler{}
+	registerTypedRPC(t, a, h)
+	policyCalls := 0
+	a.rpcCommandPolicyHook = func(context.Context, RPCCommandPolicyInput) error {
+		policyCalls++
+		return nil
+	}
+	for _, body := range []string{
+		`{"data":{"name":"typed.test","payload":{"dryRun":true},"payload":{"count":2,"wide":"0"}}}`,
+		`{"data":{"name":"typed.test","payload":{"actor_id":"forged"},"payload":{"count":2,"wide":"0"}}}`,
+		`{"data":{"name":"typed.test","payload":{"dryRun":true},"PAYLOAD":{"count":2,"wide":"0"}}}`,
+		`{"data":{"name":"typed.test","payload":{"dryRun":true}},"data":{"payload":{"count":2,"wide":"0"}}}`,
+		`{"data":{"name":"typed.test","payload":{"dryRun":true}},"DATA":{"payload":{"count":2,"wide":"0"}}}`,
+		`{"data":{"name":"typed.test","payload":{"dryRun":true},"payload":null}}`,
+		`{"data":{"name":"typed.test","payload":{"dryRun":true}},"data":null}`,
+	} {
+		t.Run(body, func(t *testing.T) {
+			req, err := a.RPCServer().NewRequestForMethod(RPCMethodCommandDispatch)
+			require.NoError(t, err)
+			err = json.Unmarshal([]byte(body), req)
+			require.ErrorContains(t, err, "repeated")
+			require.Empty(t, h.seen)
+			require.Zero(t, policyCalls)
+		})
+	}
+}
+
+func TestTypedRPCRepeatedDTOFieldsAndLegacyWrappersRemainCompatible(t *testing.T) {
+	a := typedRPCAdmin(t)
+	h := &typedRPCHandler{}
+	registerTypedRPC(t, a, h)
+	_, err := invokeTypedRPC(t, a, `{"DATA":{"name":"typed.test","PAYLOAD":{"dryRun":true,"nested":{"displayName":"kept"},"nested":{},"count":1,"count":2,"wide":"0"}}}`)
+	require.NoError(t, err)
+	require.Len(t, h.seen, 1)
+	require.True(t, h.seen[0].Input.DryRun)
+	require.Equal(t, "kept", h.seen[0].Input.Nested.DisplayName)
+	require.Equal(t, typedRPCCount(2), h.seen[0].Input.Count)
+	body := `{"data":{"name":"legacy.test","payload":{"dryRun":true}},"DATA":{"payload":{"count":2}}}`
+	var canonical cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]
+	require.NoError(t, json.Unmarshal([]byte(body), &canonical))
+	req, err := a.RPCServer().NewRequestForMethod(RPCMethodCommandDispatch)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal([]byte(body), req))
+	require.Equal(t, canonical, req.(*rpcDispatchCarrier).RequestEnvelope)
+}
+
+func TestTypedRPCNestedCanonicalInvocationIsolation(t *testing.T) {
+	for _, origin := range []string{"policy", "builder"} {
+		for _, pointer := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/pointer=%t", origin, pointer), func(t *testing.T) {
+				a := typedRPCAdmin(t)
+				h := &typedRPCHandler{}
+				set, err := a.Commands().NewRegistrationSet("nested")
+				require.NoError(t, err)
+				require.NoError(t, RegisterSetCommand(set, h))
+				var downstream context.Context
+				nested := func(ctx context.Context) {
+					downstream = ctx
+					actor, ok := auth.ActorFromContext(ctx)
+					require.True(t, ok)
+					require.Equal(t, "trusted-operator", actor.ActorID)
+					req := cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{Data: RPCCommandDispatchRequest{Name: "typed.test", Payload: map[string]any{"dryRun": true, "count": 2, "wide": "7"}, IDs: []string{"inner"}}}
+					var payload any = req
+					if pointer {
+						payload = &req
+					}
+					_, err := a.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, payload)
+					require.NoError(t, err)
+				}
+				require.NoError(t, RegisterSetTypedRPCCommand(set, typedRPCBinding(t), func(ctx context.Context, input typedRPCInput, ids []string) (typedRPCMessage, error) {
+					if origin == "builder" && len(ids) > 0 && ids[0] == "outer" {
+						nested(ctx)
+					}
+					actor, _ := auth.ActorFromContext(ctx)
+					return typedRPCMessage{Input: input, IDs: ids, Actor: actor.ActorID}, nil
+				}))
+				handle, err := set.Commit()
+				require.NoError(t, err)
+				t.Cleanup(func() { require.NoError(t, handle.Close()) })
+				a.rpcCommandPolicyHook = func(ctx context.Context, input RPCCommandPolicyInput) error {
+					if origin == "policy" && len(input.IDs) > 0 && input.IDs[0] == "outer" {
+						nested(ctx)
+					}
+					return nil
+				}
+				req, err := a.RPCServer().NewRequestForMethod(RPCMethodCommandDispatch)
+				require.NoError(t, err)
+				require.NoError(t, json.Unmarshal([]byte(`{"data":{"name":"typed.test","ids":["outer"],"payload":{"dryRun":false,"count":1,"wide":"3"}}}`), req))
+				ctx, cancel := context.WithCancel(auth.WithActorContext(t.Context(), &auth.ActorContext{ActorID: "trusted-operator"}))
+				defer cancel()
+				_, err = a.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, req)
+				require.NoError(t, err)
+				require.Len(t, h.seen, 2)
+				require.Equal(t, typedRPCInput{DryRun: true, Count: 2, Wide: 7}, h.seen[0].Input)
+				require.Equal(t, []string{"inner"}, h.seen[0].IDs)
+				require.Equal(t, "trusted-operator", h.seen[0].Actor)
+				require.Equal(t, typedRPCInput{Count: 1, Wide: 3}, h.seen[1].Input)
+				cancel()
+				require.ErrorIs(t, downstream.Err(), context.Canceled)
+			})
+		}
+	}
 }
