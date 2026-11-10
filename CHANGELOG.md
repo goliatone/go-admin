@@ -1,24 +1,41 @@
 # Changelog
 
+# [0.144.0](https://github.com/goliatone/go-admin/compare/v0.143.0...v0.144.0) - (2026-11-10)
+
+
+## Typed RPC command contracts
+
+Add opt-in Go-owned public input/result bindings for named admin RPC dispatch.
+Bindings share their declarations with offline TypeScript export, preserve public
+JSON field names, reject context-owned authority fields, and enforce declared
+numeric bounds before dispatch and result serialization. They follow the
+existing owned registration lifecycle; dynamic map factories remain compatible.
+
+A protected service-backed example demonstrates explicit generation, typed and
+dynamic clients, canonical receipt/outcome handling, browser CSRF preparation,
+and unknown outcomes after response loss. See `docs/GUIDE_RPC.md` and
+`examples/rpc-contract/README.md` for the recipe.
+
+## <!-- 16 -->➕ Add
+
+- Rpc typed commands ([3ceec76](https://github.com/goliatone/go-admin/commit/3ceec767959d91ffbaad812ad913a95e87a97a72))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([0dcd187](https://github.com/goliatone/go-admin/commit/0dcd1870de6f42072579847a439933d52d86cb8d))  - (goliatone)
+
 # [0.143.0](https://github.com/goliatone/go-admin/compare/v0.142.3...v0.143.0) - (2026-11-10)
 
 
-## Migration Notes
-
-- RPC mounts keep legacy codes and HTTP statuses by default, but raw `details.cause` is removed in all modes. Move cause inspection to private diagnostics.
-- Opt into safe admin domain classification with `quickstart.RPCTransportConfig{ErrorMapper: admin.DefaultRPCErrorMapper}`. Adopt the coordinated root and quickstart modules together. The mapper is also available through the public admin facade.
-- Invocation errors still use HTTP 200; inspect the error envelope. The browser runtime now preserves RPC `error.code` as its structured error code while retaining panel `text_code` precedence.
-- Browser RPC dispatch now sends `options.CorrelationID` using the Go DTO field name, preserving correlation through receipts and queued feedback. Custom clients should use the same field; `options.correlation_id` is not a decoding alias.
-- Explicit canonical RPC error codes, including `OUTCOME_UNKNOWN` and `INTERNAL`, survive nested admin causes. Context cancellation/deadline precedence is unchanged.
-- Browser status tracking follows server-overridden receipt correlation IDs for both inline and queued commands. Inline-status subscribers receive an optional `previousCorrelationId` when the provisional key moves; use the new `entry.correlationId` for subsequent updates.
-- Default public errors omit diagnostic metadata and validation values. Host mappers must explicitly allowlist safe details. Authentication, CSRF, allowlists and service authorization remain required.
-- Preserve optional inline results and queued receipts. Queue acceptance is not completion; cancellation, timeout or unknown outcome does not prove rollback and must not trigger automatic mutation replay.
-
-See `docs/GUIDE_RPC.md` for opt-in configuration, compatibility boundaries and metadata precedence.
+New minor release: v0.143.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Eslint baseline ([e1f4103](https://github.com/goliatone/go-admin/commit/e1f4103d495f4838f77a13cf9ec99f9e2bf9f356))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.143.0 ([f766b05](https://github.com/goliatone/go-admin/commit/f766b058676a605fd2e2204f175c60df56c254da))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
