@@ -1,10 +1,41 @@
 # Changelog
 
+# [0.143.0](https://github.com/goliatone/go-admin/compare/v0.142.3...v0.143.0) - (2026-11-10)
+
+
+## Migration Notes
+
+- RPC mounts keep legacy codes and HTTP statuses by default, but raw `details.cause` is removed in all modes. Move cause inspection to private diagnostics.
+- Opt into safe admin domain classification with `quickstart.RPCTransportConfig{ErrorMapper: admin.DefaultRPCErrorMapper}`. Adopt the coordinated root and quickstart modules together. The mapper is also available through the public admin facade.
+- Invocation errors still use HTTP 200; inspect the error envelope. The browser runtime now preserves RPC `error.code` as its structured error code while retaining panel `text_code` precedence.
+- Browser RPC dispatch now sends `options.CorrelationID` using the Go DTO field name, preserving correlation through receipts and queued feedback. Custom clients should use the same field; `options.correlation_id` is not a decoding alias.
+- Explicit canonical RPC error codes, including `OUTCOME_UNKNOWN` and `INTERNAL`, survive nested admin causes. Context cancellation/deadline precedence is unchanged.
+- Browser status tracking follows server-overridden receipt correlation IDs for both inline and queued commands. Inline-status subscribers receive an optional `previousCorrelationId` when the provisional key moves; use the new `entry.correlationId` for subsequent updates.
+- Default public errors omit diagnostic metadata and validation values. Host mappers must explicitly allowlist safe details. Authentication, CSRF, allowlists and service authorization remain required.
+- Preserve optional inline results and queued receipts. Queue acceptance is not completion; cancellation, timeout or unknown outcome does not prove rollback and must not trigger automatic mutation replay.
+
+See `docs/GUIDE_RPC.md` for opt-in configuration, compatibility boundaries and metadata precedence.
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Eslint baseline ([e1f4103](https://github.com/goliatone/go-admin/commit/e1f4103d495f4838f77a13cf9ec99f9e2bf9f356))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Error mapping for RPC ([c47858b](https://github.com/goliatone/go-admin/commit/c47858b8f72a177f2022627541aa9a8c83ca7e56))  - (goliatone)
+
 # [0.142.3](https://github.com/goliatone/go-admin/compare/v0.142.2...v0.142.3) - (2026-10-31)
+
+
+New patch release: v0.142.3
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Example code ([2d31d20](https://github.com/goliatone/go-admin/commit/2d31d20b81e078dcc616092aab352a3c96ae9ed8))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.142.3 ([91099b7](https://github.com/goliatone/go-admin/commit/91099b78e55acd5be1bd63fd75abf764d5ad19f6))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
