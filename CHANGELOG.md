@@ -1,20 +1,19 @@
 # Changelog
 
+# [0.144.1](https://github.com/goliatone/go-admin/compare/v0.144.0...v0.144.1) - (2026-11-10)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Dry run and nested RPC calls ([528361e](https://github.com/goliatone/go-admin/commit/528361e1c939c317b7c0259ef56281433e7000f7))  - (goliatone)
+
 # [0.144.0](https://github.com/goliatone/go-admin/compare/v0.143.0...v0.144.0) - (2026-11-10)
 
 
-## Typed RPC command contracts
+New minor release: v0.144.0
 
-Add opt-in Go-owned public input/result bindings for named admin RPC dispatch.
-Bindings share their declarations with offline TypeScript export, preserve public
-JSON field names, reject context-owned authority fields, and enforce declared
-numeric bounds before dispatch and result serialization. They follow the
-existing owned registration lifecycle; dynamic map factories remain compatible.
+## <!-- 13 -->📦 Bumps
 
-A protected service-backed example demonstrates explicit generation, typed and
-dynamic clients, canonical receipt/outcome handling, browser CSRF preparation,
-and unknown outcomes after response loss. See `docs/GUIDE_RPC.md` and
-`examples/rpc-contract/README.md` for the recipe.
+- Bump version: v0.144.0 ([b419b08](https://github.com/goliatone/go-admin/commit/b419b0876cf766c8341b9cf888abdced54f1bd31))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
