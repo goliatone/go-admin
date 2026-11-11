@@ -342,7 +342,13 @@ fields and canonical receipt casing. Check presence rather than truthiness,
 retain application `data`/`result` fields, and distinguish queued acceptance from
 completion. Keep the existing browser CSRF request preparation and service
 permissions. Network failure after commit is unknown and is never automatically
-replayed. Structural compatibility classification remains deferred.
+replayed. Structural compatibility comparison is available through the published
+[command CLI](https://github.com/goliatone/go-command/blob/main/cmd/rpc-tsgen/README.md)
+using `-mode compare -baseline <baseline.json> -manifest <candidate.json>`.
+Add `-fail-on-breaking` to fail CI on potentially breaking changes while retaining
+the JSON report. Comparison is non-writing and does not establish semantic
+compatibility. The [release matrix](../.ctx/specs/rpc-error-adoption/support/evidence/compatibility-matrix.md)
+distinguishes the comparison proof from the protected admin graph.
 
 ## Command Rules And Permissions
 
@@ -936,6 +942,29 @@ deduplication and cached-result overrides are rejected before executor selection
 ordinary RPC/browser identity is insufficient. HTTP is the only supplied producer
 ingress. See [command reuse](GUIDE_ACTIVITY.md#command-reuse-disclosure-and-reads)
 for typed results and the exact-number payload boundary.
+
+## Compatibility and support boundary
+
+Use the coordinated root and quickstart artifacts and the providers selected by
+[their module manifests](../go.mod) and [quickstart/go.mod](../quickstart/go.mod).
+The [verified release matrix](../.ctx/specs/rpc-error-adoption/support/evidence/compatibility-matrix.md)
+records exact versions, toolchains and proof scope; it is evidence for those
+combinations, not a promise that arbitrary provider mixes work.
+
+- Go minimums come from each module's `go` directive and the selected dependency
+  graph. A newer-toolchain pass does not establish minimum-toolchain coverage.
+- The generated-client proof uses the TypeScript compiler pinned by the
+  [client tool configuration](../pkg/client/assets/package.json), with strict,
+  exact optional property and unchecked index checks. Other compiler versions
+  are unverified unless recorded in the matrix.
+- Native Fiber adapters and quickstart wrappers that forward startup validation
+  support strict readiness. Opaque routers/wrappers without the optional
+  capabilities cannot provide that guarantee; strict startup rejects them.
+- Legacy scaffold/dynamic dispatch remain supported. Full typed export requires
+  explicit declarations; unsupported dynamic/custom JSON shapes need an explicit
+  wire contract and runtime enforcement. Discovery does not substitute for export.
+- Local replacements are development evidence only. A downstream release must
+  repeat the proof against published dependencies with no local replacements.
 
 ## Strict exposure readiness
 

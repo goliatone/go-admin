@@ -10,7 +10,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.145.0
 	github.com/goliatone/go-auth v0.45.7
 	github.com/goliatone/go-cms v0.60.8
-	github.com/goliatone/go-command v0.26.1
+	github.com/goliatone/go-command v0.27.1
 	github.com/goliatone/go-config v0.15.1
 	github.com/goliatone/go-crud v0.27.2
 	github.com/goliatone/go-dashboard v0.15.9

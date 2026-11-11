@@ -18,6 +18,12 @@ GENERATOR = 'github.com/goliatone/go-generators'
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
+def require_published_module(module, path):
+    """Accept the selected release, while excluding workspace and replacement sources."""
+    if (module.get('Path') != path or module.get('Main') or
+            module.get('Replace') is not None or not module.get('Version')):
+        raise RuntimeError('RPC compatibility proof requires published '+path+', without replacement')
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--allow-local-router', action='store_true', help='explicit candidate proof using a local go-router replacement')
@@ -36,18 +42,16 @@ def main():
             raise RuntimeError(result.stdout)
         return result.stdout
     published = json.loads(run(['go','list','-m','-json',COMMAND]))
-    if published.get('Replace') or published.get('Version') != 'v0.26.1':
-        raise RuntimeError('RPC compatibility proof requires published command v0.26.1, without replacement')
+    require_published_module(published, COMMAND)
     router_module = json.loads(run(['go','list','-m','-json','github.com/goliatone/go-router']))
-    if router_module.get('Replace') and not args.allow_local_router:
-        raise RuntimeError('local router replacement requires --allow-local-router; this is not published-provider proof')
+    if not args.allow_local_router:
+        require_published_module(router_module, 'github.com/goliatone/go-router')
     router_dir = Path(router_module['Dir'])
     router_sources = {str(p.relative_to(router_dir)):sha(p) for p in sorted(router_dir.rglob('*.go')) if '.ctx' not in p.parts and '.git' not in p.parts}
     provider_dir = Path(published['Dir'])
     command_artifact=json.loads(run(['go','mod','download','-json',COMMAND+'@'+published['Version']],environment=tool_env))
     generator = json.loads(run(['go','list','-m','-json',GENERATOR],cwd=provider_dir,environment=tool_env))
-    if generator.get('Replace') or generator.get('Version') != 'v0.18.0':
-        raise RuntimeError('RPC compatibility proof requires published generator v0.18.0')
+    require_published_module(generator, GENERATOR)
     generator_artifact=json.loads(run(['go','mod','download','-json',GENERATOR+'@'+generator['Version']],cwd=provider_dir,environment=tool_env))
     with tempfile.TemporaryDirectory(prefix='rpc-admin-proof-') as scratch:
         work=Path(scratch)
@@ -102,7 +106,7 @@ def main():
                 try:process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     process.kill();process.wait();raise RuntimeError('fixture failed to stop')
-        files=[*ROOT.glob('admin/rpc_readiness*.go'),ROOT/'quickstart/rpc_transport.go',ROOT/'quickstart/rpc_readiness_test.go',ROOT/'quickstart/host_router.go',ROOT/'quickstart/fiber_route_miss.go',ROOT/'go.work',*ROOT.glob('admin/rpc_typed_command*.go'),ROOT/'admin/rpc_transport.go',ROOT/'admin/command_bus.go',ROOT/'admin/command_registration_set.go',*ROOT.glob('quickstart/examples/rpccontract/*.go'),*HERE.glob('*'),*HERE.glob('generated/*'),ROOT/'go.mod',ROOT/'quickstart/go.mod',ROOT/'examples/go.mod']
+        files=[*ROOT.glob('admin/rpc_readiness*.go'),ROOT/'quickstart/rpc_transport.go',ROOT/'quickstart/rpc_readiness_test.go',ROOT/'quickstart/host_router.go',ROOT/'quickstart/fiber_route_miss.go',ROOT/'go.work',*ROOT.glob('admin/rpc_typed_command*.go'),ROOT/'admin/rpc_transport.go',ROOT/'admin/command_bus.go',ROOT/'admin/command_registration_set.go',*ROOT.glob('quickstart/examples/rpccontract/*.go'),*HERE.glob('*'),*HERE.glob('generated/*'),*[ROOT/p for p in ['go.mod','go.sum','quickstart/go.mod','quickstart/go.sum','examples/go.mod','examples/go.sum']]]
         record={'status':'PASS','scope':'Local admin/quickstart strict readiness candidate; published command/generator; router identity and replacement recorded; no admin publication claim.',
             'router':router_module,'routerSourceSHA256':router_sources,
             'publishedCommand':command_artifact,'publishedGenerator':generator_artifact,'toolBuild':tool,'commands':commands,'live':live,
