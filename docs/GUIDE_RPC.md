@@ -347,7 +347,7 @@ replayed. Structural compatibility comparison is available through the published
 using `-mode compare -baseline <baseline.json> -manifest <candidate.json>`.
 Add `-fail-on-breaking` to fail CI on potentially breaking changes while retaining
 the JSON report. Comparison is non-writing and does not establish semantic
-compatibility. The [release matrix](../.ctx/specs/rpc-error-adoption/support/evidence/compatibility-matrix.md)
+compatibility. The [release matrix](GUIDE_RPC_COMPATIBILITY.md)
 distinguishes the comparison proof from the protected admin graph.
 
 ## Command Rules And Permissions
@@ -947,7 +947,7 @@ for typed results and the exact-number payload boundary.
 
 Use the coordinated root and quickstart artifacts and the providers selected by
 [their module manifests](../go.mod) and [quickstart/go.mod](../quickstart/go.mod).
-The [verified release matrix](../.ctx/specs/rpc-error-adoption/support/evidence/compatibility-matrix.md)
+The [verified release matrix](GUIDE_RPC_COMPATIBILITY.md)
 records exact versions, toolchains and proof scope; it is evidence for those
 combinations, not a promise that arbitrary provider mixes work.
 

@@ -34,6 +34,7 @@ the closest existing guide when conventions change.
 | Need | Read |
 |---|---|
 | RPC transport, command dispatch, allowlists, and command runtime wiring | [GUIDE_RPC.md](GUIDE_RPC.md) |
+| Verified RPC combinations, support boundaries, and sanitized release evidence | [GUIDE_RPC_COMPATIBILITY.md](GUIDE_RPC_COMPATIBILITY.md) |
 | Workflows, state machines, and panel workflow actions | [GUIDE_WORKFLOW.md](GUIDE_WORKFLOW.md) |
 | Background command routing observability | [GUIDE_BKG_CMD_OBSERVABILITY.md](GUIDE_BKG_CMD_OBSERVABILITY.md) |
 | Transaction hooks and outbox behavior | [GUIDE_TRANSACTION_OUTBOX.md](GUIDE_TRANSACTION_OUTBOX.md) |

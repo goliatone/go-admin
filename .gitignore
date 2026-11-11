@@ -74,6 +74,8 @@ docs/*
 !docs/ROUTING_RELEASE_CHECKLIST.md
 # Maintained guides may be tracked for documentation updates.
 !docs/browser-client-compatibility.md
+# Public, sanitized RPC verification snapshot; raw evidence stays in .ctx.
+!docs/rpc-compatibility-2026-11-10.json
 !docs/PERSISTENCE_GUIDE_GO_ADMIN.md
 !docs/CMS_INTEGRATION.md
 !docs/COMMERCE_SETUP.md
