@@ -1,10 +1,23 @@
 # Changelog
 
+# [0.145.1](https://github.com/goliatone/go-admin/compare/v0.145.0...v0.145.1) - (2026-11-11)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([ccc8bd4](https://github.com/goliatone/go-admin/commit/ccc8bd41ae5a12f7df50dde94b914b02d5ff1e33))  - (goliatone)
+
 # [0.145.0](https://github.com/goliatone/go-admin/compare/v0.144.1...v0.145.0) - (2026-11-11)
+
+
+New minor release: v0.145.0
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Remove temp link ([228fbe1](https://github.com/goliatone/go-admin/commit/228fbe1fa133c8cc897d820f89ec2891a0d31d22))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.145.0 ([0f942d8](https://github.com/goliatone/go-admin/commit/0f942d8eccafd5defa54f9613d29e320fbc06689))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
