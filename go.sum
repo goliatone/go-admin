@@ -158,8 +158,8 @@ github.com/goliatone/go-auth/adapters/featuregate v0.45.7 h1:SvIeWcU4cky+sZj74qW
 github.com/goliatone/go-auth/adapters/featuregate v0.45.7/go.mod h1:EFqBaaIzB2KtKysGiVzw8d7Q/yNqL4IFzKv+258FwHw=
 github.com/goliatone/go-cms v0.60.8 h1:6B414phio1gb3LgK1sWTtHr1uJzLV6Dyhmq7bZEWDqk=
 github.com/goliatone/go-cms v0.60.8/go.mod h1:54t/fmZeqO4TmUcJHjv9DJpHGVlCAyn6xdU76NLNskQ=
-github.com/goliatone/go-command v0.26.0 h1:opNL+VfiLnhDuyUChtvAvW8zGRwMCqf2NeUfsPyMmRg=
-github.com/goliatone/go-command v0.26.0/go.mod h1:r2aKJykCKZqYV7mYov7IlnVKzPRvwvGSMB88SaYEWM0=
+github.com/goliatone/go-command v0.26.1 h1:uPjuGhYqTs5dqv7lTvGDHB/fGqQ+7KjeMp+4UcfKAJw=
+github.com/goliatone/go-command v0.26.1/go.mod h1:r2aKJykCKZqYV7mYov7IlnVKzPRvwvGSMB88SaYEWM0=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-config v0.15.1 h1:jFgpsvEctaAtcrGdJjKIRSwJJbllFJ3lQClygvjmovg=
@@ -196,8 +196,8 @@ github.com/goliatone/go-repository-bun v0.16.2 h1:tZ6NOI7iJoDvgpTCJtUDyG/kwgMPDn
 github.com/goliatone/go-repository-bun v0.16.2/go.mod h1:tCjJI6WF6wgpFMMUT9jxgEtuzXFde3MJ2WCLtBBglRA=
 github.com/goliatone/go-repository-cache v0.7.3 h1:kF/2Cwld6S4C9CUfyL7fCZK/Lb8Jer+mqOqKJimYfLA=
 github.com/goliatone/go-repository-cache v0.7.3/go.mod h1:FDqEzFEYBfRHmAbHYafKEC5VAo4oVCdD6CeZ292giLw=
-github.com/goliatone/go-router v0.64.0 h1:FDrUXO6RlKG61AdlaGK0rBAeF0xhtpe2OhSvM868lI0=
-github.com/goliatone/go-router v0.64.0/go.mod h1:+Z+gRCIVeqLJJidhgdRNOWJrFTHRizv1xqP7MebvdbE=
+github.com/goliatone/go-router v0.65.0 h1:1wdgpRCBnB6/zGX2YguaUFe7LVoWjO1NuPK9R+B+os8=
+github.com/goliatone/go-router v0.65.0/go.mod h1:mjpCLv05I0hvcyZHS8EVzNiMpztCqwHwXhg5WCp9xnU=
 github.com/goliatone/go-search v0.14.5 h1:rTI9QcaEpAFiG+u20Mwc+CoeU3S9KcKUg5sxlDpNXcg=
 github.com/goliatone/go-search v0.14.5/go.mod h1:MhNvJD7TjSbwbPOP7zq08mODM62V9tYFsCcE+MO3Qms=
 github.com/goliatone/go-search/adapters/goadmin v0.14.5 h1:Rvihq31AI31p+3GxDRTAkZSawoX6Pr3be/qFPP9inTs=

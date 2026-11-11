@@ -16,6 +16,9 @@ import (
 type RPCTransportConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 
+	// StrictStartup rejects invalid or unverifiable exposure at router finalization.
+	StrictStartup bool `json:"strict_startup,omitempty"`
+
 	InvokePath string `json:"invoke_path,omitempty"`
 
 	RequireAuth          bool                           `json:"require_auth,omitempty"`
@@ -83,11 +86,16 @@ func applyTranslationSuggestionRPCCommandRule(cfg *admin.Config, opts *adminOpti
 }
 
 func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
-	if adm == nil || !opts.rpcTransportConfigSet {
+	if adm == nil {
+		return nil
+	}
+	admin.RegisterRPCExposureDoctorCheck(adm)
+	if !opts.rpcTransportConfigSet {
 		return nil
 	}
 	config := opts.rpcTransportConfig
 	if !config.Enabled {
+		adm.ConfigureRPCExposure(admin.RPCExposureConfig{})
 		return nil
 	}
 	rpcServer := adm.RPCServer()
@@ -99,8 +107,30 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 		return err
 	}
 
+	exposure := admin.RPCExposureConfig{Enabled: true, RequireAuth: cfg.RequireAuth, DiscoveryEnabled: cfg.DiscoveryEnabled, InvokePath: cfg.InvokePath,
+		Snapshot: func() (router.RegistrationSnapshot, bool) { return rpcRegistrationSnapshot(adm.PublicRouter()) }}
+	adm.ConfigureRPCExposure(exposure)
 	mount := func(r admin.AdminRouter) error {
-		return mountRPCTransportRouter(adm, r, rpcServer, cfg, opts.rpcTransportConfigSet)
+		exposure.Snapshot = func() (router.RegistrationSnapshot, bool) { return rpcRegistrationSnapshot(r) }
+		if snapshot, ok := rpcRegistrationSnapshot(r); ok {
+			for _, route := range snapshot.DeclaredRoutes {
+				if (route.Method == router.POST && route.Path == cfg.InvokePath) || (route.Method == router.GET && route.Path == path.Join(cfg.InvokePath, "endpoints")) {
+					exposure.MountError = "RPC target was already registered before transport mounting."
+				}
+			}
+		}
+		adm.ConfigureRPCExposure(exposure)
+		if err := mountRPCTransportRouter(adm, r, rpcServer, cfg, opts.rpcTransportConfigSet); err != nil {
+			return err
+		}
+		if cfg.StrictStartup {
+			registrar := rpcStartupRegistrar(r)
+			if registrar == nil {
+				return fmt.Errorf("strict RPC startup requires router startup validation capability")
+			}
+			return registrar.RegisterStartupValidator("go-admin.rpc:"+cfg.InvokePath, adm.ValidateRPCExposure)
+		}
+		return nil
 	}
 	if r := adm.PublicRouter(); r != nil {
 		return mount(r)
@@ -272,4 +302,35 @@ func normalizeRPCPath(value, fallback string) string {
 	}
 	value = path.Join("/", value)
 	return value
+}
+
+// A missing router is still initializing; an opaque router is unverifiable.
+func rpcRegistrationSnapshot(value any) (router.RegistrationSnapshot, bool) {
+	if value == nil {
+		return router.RegistrationSnapshot{State: router.RegistrationCollecting}, true
+	}
+	for range 8 {
+		if inspector, ok := value.(router.RegistrationInspector); ok {
+			return inspector.RegistrationSnapshot(), true
+		}
+		underlying, ok := value.(rpcUnderlyingRouter)
+		if !ok {
+			break
+		}
+		value = underlying.UnderlyingRouter()
+	}
+	return router.RegistrationSnapshot{}, false
+}
+func rpcStartupRegistrar(value any) router.StartupValidatorRegistrar {
+	for range 8 {
+		if registrar, ok := value.(router.StartupValidatorRegistrar); ok {
+			return registrar
+		}
+		underlying, ok := value.(rpcUnderlyingRouter)
+		if !ok {
+			break
+		}
+		value = underlying.UnderlyingRouter()
+	}
+	return nil
 }

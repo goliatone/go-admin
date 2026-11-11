@@ -182,6 +182,7 @@ type Host struct {
 	Admin             *admin.Admin
 	Service           *Service
 	binding           *admin.RPCCommandBinding[Input, Result]
+	prepare           func() error
 	registration      admin.CommandRegistrationHandle
 	queries           *dispatcher.Runtime
 	querySubscription dispatcher.Subscription
@@ -200,6 +201,7 @@ func New(signingKey string) (host *Host, err error) {
 		}
 	}()
 	adapter := router.NewFiberAdapter()
+	host.prepare = adapter.(router.StartupInitializer).Initialize
 	host.serve = func(l net.Listener) error { return adapter.WrappedRouter().Listener(l) }
 	host.stop = func(ctx context.Context) error { return adapter.WrappedRouter().ShutdownWithContext(ctx) }
 	cfg := authConfig{key: signingKey}
@@ -212,7 +214,7 @@ func New(signingKey string) (host *Host, err error) {
 	host.Admin, _, err = quickstart.NewAdmin(quickstart.NewAdminConfig("/admin", "RPC example", "en"), quickstart.AdapterHooks{},
 		quickstart.WithFeatureSet(map[string]bool{"commands": true}),
 		quickstart.WithAdminDependencies(admin.Dependencies{Router: adapter.Router(), Authenticator: authn, Authorizer: policy{}}),
-		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{Enabled: true, PermissionMode: admin.RPCCommandPermissionModeExact, ErrorMapper: admin.DefaultRPCErrorMapper,
+		quickstart.WithRPCTransport(quickstart.RPCTransportConfig{Enabled: true, StrictStartup: true, PermissionMode: admin.RPCCommandPermissionModeExact, ErrorMapper: admin.DefaultRPCErrorMapper,
 			CommandRules: map[string]admin.RPCCommandRule{CommandID: {Permission: "resources.write", Resource: "resources"}, LegacyCommandID: {Permission: "resources.write", Resource: "resources"}, ReceiptCommandID: {Permission: "resources.write", Resource: "resources"}},
 			BeforeInvoke: func(c router.Context, _ string, _ any) error {
 				actor, ok := auth.ActorFromContext(c.Context())
@@ -361,4 +363,14 @@ func endpoints(h *Host) []cmdrpc.EndpointDefinition {
 		return cmdrpc.ResponseEnvelope[QueryResult]{Data: out}, err
 	})
 	return []cmdrpc.EndpointDefinition{updateEndpoint{update, h}, query, wireEndpoint(h)}
+}
+
+// ValidateEndpoint attests the raw request adapter's fixed carrier and the live
+// service wiring without allocating requests or invoking application handlers.
+func (e updateEndpoint) ValidateEndpoint() []cmdrpc.ValidationIssue {
+	result := cmdrpc.ValidateEndpoint(e.EndpointDefinition)
+	if e.host == nil || e.host.binding == nil || e.host.Service == nil {
+		result.Issues = append(result.Issues, cmdrpc.ValidationIssue{Method: UpdateMethod, Code: cmdrpc.IssueHandlerRequired, Status: cmdrpc.ValidationInvalid, Message: "live resource service and binding required"})
+	}
+	return result.Issues
 }

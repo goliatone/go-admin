@@ -48,10 +48,22 @@ type fiberRouteMissServer[T any] struct {
 }
 
 func (s *fiberRouteMissServer[T]) Init() {
-	s.once.Do(func() {
+	if err := s.Initialize(); err != nil {
+		panic(err)
+	}
+}
+
+// Initialize preserves error-returning validation through the quickstart wrapper.
+func (s *fiberRouteMissServer[T]) Initialize() error {
+	if initializer, ok := s.Server.(router.StartupInitializer); ok {
+		if err := initializer.Initialize(); err != nil {
+			return err
+		}
+	} else {
 		s.Server.Init()
-		s.install(s.Server.WrappedRouter())
-	})
+	}
+	s.once.Do(func() { s.install(s.Server.WrappedRouter()) })
+	return nil
 }
 
 func (s *fiberRouteMissServer[T]) WrappedRouter() T {
@@ -60,6 +72,8 @@ func (s *fiberRouteMissServer[T]) WrappedRouter() T {
 }
 
 func (s *fiberRouteMissServer[T]) Serve(address string) error {
-	s.Init()
+	if err := s.Initialize(); err != nil {
+		return err
+	}
 	return s.Server.Serve(address)
 }

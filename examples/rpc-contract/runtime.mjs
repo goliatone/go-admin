@@ -3,6 +3,9 @@ import { readFile } from "node:fs/promises";
 import { HTTPRPCClient, RPCClientError } from "./rpc-bundle.mjs";
 import { bind, prepareBrowserFetch, updateResource } from "./js/consumer.js";
 const info = JSON.parse(await readFile(process.argv[2], "utf8"));
+assert.equal(info.readiness.state, "ready");
+assert.equal(info.readiness.ready, true);
+assert.deepEqual(info.readiness.issues ?? [], []);
 const wire = [];
 globalThis.location = new URL(info.endpoint);
 globalThis.window = {location: globalThis.location};
@@ -72,4 +75,4 @@ let state="";try {await updateResource(lost);} catch(error) {assert.ok(error ins
 assert.equal(state,"unknown");assert.equal(attempts,1);
 const after=await api.call("resources.get",{resourceId:"resource-a"});assert.equal(after.data.writes,before.data.writes+1);
 const completed=await updateResource(client());assert.equal(completed.state,"completed");
-console.log(JSON.stringify({status:"PASS",requests:wire.length,lostResponseAttempts:attempts,wire}));
+console.log(JSON.stringify({status:"PASS",readiness:info.readiness,requests:wire.length,lostResponseAttempts:attempts,wire}));

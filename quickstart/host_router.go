@@ -944,3 +944,18 @@ func (r hostAdminRouter[T]) UnderlyingRouter() any {
 	}
 	return r.surface.UnderlyingRouter()
 }
+
+// RegisterStartupValidator forwards validation to the host-owned root lifecycle.
+func (r hostSurfaceRouter[T]) RegisterStartupValidator(name string, validate func() error) error {
+	registrar, ok := any(r.router).(router.StartupValidatorRegistrar)
+	if !ok {
+		return fmt.Errorf("quickstart host router: startup validation unavailable")
+	}
+	return registrar.RegisterStartupValidator(name, validate)
+}
+func (r hostAdminRouter[T]) RegisterStartupValidator(name string, validate func() error) error {
+	if r.surface == nil {
+		return fmt.Errorf("quickstart host router: admin surface unavailable")
+	}
+	return r.surface.RegisterStartupValidator(name, validate)
+}

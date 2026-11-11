@@ -936,3 +936,68 @@ deduplication and cached-result overrides are rejected before executor selection
 ordinary RPC/browser identity is insufficient. HTTP is the only supplied producer
 ingress. See [command reuse](GUIDE_ACTIVITY.md#command-reuse-disclosure-and-reads)
 for typed results and the exact-number payload boundary.
+
+## Strict exposure readiness
+
+Enable finalized startup checks explicitly:
+
+```go
+quickstart.WithRPCTransport(quickstart.RPCTransportConfig{
+    Enabled:       true,
+    StrictStartup: true,
+    // Supply the host's command rules and authentication configuration.
+})
+```
+
+Register commands and modules before starting the router. Native Fiber adapters
+run the check after physical route publication, including host-owned adapters
+started through `WrappedRouter().Listener(...)`. Supported quickstart host surfaces
+forward the lifecycle capability. An unsupported router or wrapper cannot provide
+strict startup assurance and must implement/forward `StartupValidatorRegistrar`.
+
+`adm.RPCExposureReadiness()` returns the same report used by the `rpc_exposure`
+Doctor check and the strict startup validator. Reading it never mounts/seals
+routes, executes handlers/factories, resolves actor permissions or adds rules.
+
+| State | Meaning and action |
+| --- | --- |
+| `disabled` | RPC transport is not configured as enabled. |
+| `pending` | Routes are still collecting/finalizing. Complete host registration and start through the router lifecycle; a diagnostics read does not start it. |
+| `ready` | Declared exposure, endpoint structure, required policy capabilities and configured physical mounts pass. Request authorization still runs normally. |
+| `invalid` | Fix the reported configuration, registration, endpoint or route issue. |
+| `unverifiable` | Supply supported route introspection or explicit structural validation for a custom endpoint. Strict startup rejects this state. |
+
+`command_registration_gaps` requires a usable handler and named dispatcher.
+`rpc_command_rule_gaps` applies to explicit catalog exposure declarations; private
+catalog commands are ignored. Register only intended commands and add explicit
+rules. Diagnostics never expose every registered command automatically.
+
+Exact permission mode checks for a resolved-permission provider, including a
+configured resolver on `GoAuthAuthorizer`; it does not inspect any actor's grants.
+A protected transport with no intended named exposure and discovery disabled can
+remain deny-all without a permission resolver. Endpoint `Permissions` metadata is
+not enforcement: custom endpoints must retain their own authorization guards.
+
+Custom endpoint wrappers must implement go-command's optional `EndpointValidator`
+to attest their actual handler/types/factory without executing them. Forwarding an
+embedded definition alone does not validate a wrapper's changed carrier or service
+wiring. The protected RPC fixture demonstrates explicit adapter validation.
+
+`rpc_mount_mismatch`, `rpc_mount_conflict` and `rpc_mount_shadowed` identify missing,
+unexpected, preoccupied or unreachable invoke/discovery paths. Match the configured
+URL to the host's actual mount prefix. Discovery remains off by default.
+
+Router validation failures are sticky. The optional `router.StartupInitializer`
+provides `Initialize() error` for hosts that need synchronous validation before
+starting a native listener. Quickstart-owned servers forward it. `Serve` returns
+`StartupValidationError`;
+`Init` and `WrappedRouter` panic with that typed error because their existing
+signatures cannot return errors. Correct the configuration and construct a new
+server after rejection. `rpc_startup_rejected` keeps Doctor/readiness from claiming
+that a rejected server can start merely because registrations were repaired later.
+
+For the protected candidate proof, use `python3 examples/rpc-contract/verify.py`.
+When deliberately testing an unreleased router selected through the development
+workspace, pass `--allow-local-router`; evidence records the replacement and source
+hashes. Remove that replacement, update module requirements to the released router,
+and rerun without the flag before preparing the admin release.

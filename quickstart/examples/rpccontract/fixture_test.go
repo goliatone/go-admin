@@ -346,3 +346,55 @@ func TestProtectedTypedRepeatedWrappersDoNotMutate(t *testing.T) {
 	require.Len(t, seen, 1)
 	require.True(t, seen[0].Input.DryRun)
 }
+
+func TestStrictReadinessLifecycle(t *testing.T) {
+	h, err := New("test-ephemeral-signing-key-at-least-32-bytes")
+	require.NoError(t, err)
+	defer h.Close()
+	require.Equal(t, admin.RPCReadinessPending, h.Admin.RPCExposureReadiness().State)
+	writes, observations := h.Service.Snapshot()
+	require.Zero(t, writes)
+	require.Empty(t, observations)
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	stop, done, err := h.Serve(listener)
+	require.NoError(t, err)
+	require.True(t, h.Admin.RPCExposureReadiness().Ready)
+	writes, observations = h.Service.Snapshot()
+	require.Zero(t, writes)
+	require.Empty(t, observations)
+	// Give the server one real request before shutdown so listener startup cannot
+	// race the native server's shutdown initialization.
+	response, err := http.Get("http://" + listener.Addr().String() + h.Admin.AdminAPIBasePath() + "/rpc/endpoints")
+	require.NoError(t, err)
+	response.Body.Close()
+	require.Equal(t, http.StatusNotFound, response.StatusCode)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	require.NoError(t, stop(ctx))
+	require.NoError(t, <-done)
+}
+
+func TestStrictReadinessRejectsClosedRegistrationBeforeServing(t *testing.T) {
+	h, err := New("test-ephemeral-signing-key-at-least-32-bytes")
+	require.NoError(t, err)
+	defer h.Close()
+	require.NoError(t, h.registration.Close())
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	stop, done, err := h.Serve(listener)
+	require.Error(t, err)
+	require.Nil(t, stop)
+	require.Nil(t, done)
+	require.Equal(t, admin.RPCReadinessInvalid, h.Admin.RPCExposureReadiness().State)
+	writes, observations := h.Service.Snapshot()
+	require.Zero(t, writes)
+	require.Empty(t, observations)
+	// Restoring commands cannot bypass a rejected router startup attempt.
+	require.NoError(t, h.Register())
+	require.False(t, h.Admin.RPCExposureReadiness().Ready)
+	_, _, again := h.Serve(listener)
+	require.Same(t, err, again)
+}

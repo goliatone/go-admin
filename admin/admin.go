@@ -51,6 +51,8 @@ type Admin struct {
 	commandRegistryInitialized      bool
 	validatePanelCommandWiring      bool
 	rpcServer                       *cmdrpc.Server
+	rpcExposureMu                   sync.RWMutex
+	rpcExposure                     RPCExposureConfig
 	rpcCommandPolicyHook            RPCCommandPolicyHook
 	dashboard                       *Dashboard
 	debugCollector                  *DebugCollector

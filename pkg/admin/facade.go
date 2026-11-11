@@ -460,6 +460,11 @@ const (
 	RPCMethodWorkflowBindingsList                  = core.RPCMethodWorkflowBindingsList
 	RPCMethodWorkflowBindingsResolve               = core.RPCMethodWorkflowBindingsResolve
 	RPCMethodWorkflowBindingsUpsert                = core.RPCMethodWorkflowBindingsUpsert
+	RPCReadinessDisabled                           = core.RPCReadinessDisabled
+	RPCReadinessInvalid                            = core.RPCReadinessInvalid
+	RPCReadinessPending                            = core.RPCReadinessPending
+	RPCReadinessReady                              = core.RPCReadinessReady
+	RPCReadinessUnverifiable                       = core.RPCReadinessUnverifiable
 	RequiredFieldsValidationError                  = core.RequiredFieldsValidationError
 	RequiredFieldsValidationIgnore                 = core.RequiredFieldsValidationIgnore
 	RequiredFieldsValidationWarn                   = core.RequiredFieldsValidationWarn
@@ -1361,6 +1366,11 @@ type (
 	RPCCommandPolicyHook                              = core.RPCCommandPolicyHook
 	RPCCommandPolicyInput                             = core.RPCCommandPolicyInput
 	RPCCommandRule                                    = core.RPCCommandRule
+	RPCExposureConfig                                 = core.RPCExposureConfig
+	RPCExposureError                                  = core.RPCExposureError
+	RPCExposureReport                                 = core.RPCExposureReport
+	RPCReadinessIssue                                 = core.RPCReadinessIssue
+	RPCReadinessState                                 = core.RPCReadinessState
 	RateLimiter                                       = core.RateLimiter
 	Registry                                          = core.Registry
 	Repository                                        = core.Repository
@@ -3087,6 +3097,10 @@ func RegisterPermissionsDebugPanel(admin *Admin) {
 
 func RegisterQuery[T any, R any](bus *CommandBus, qry command.Querier[T, R], runnerOpts ...runner.Option) (dispatcher.Subscription, error) {
 	return core.RegisterQuery[T, R](bus, qry, runnerOpts...)
+}
+
+func RegisterRPCExposureDoctorCheck(a *Admin) {
+	core.RegisterRPCExposureDoctorCheck(a)
 }
 
 func RegisterSetCommand[T any](set *CommandRegistrationSet, handler command.Commander[T], opts ...runner.Option) error {

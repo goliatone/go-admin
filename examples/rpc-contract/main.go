@@ -81,7 +81,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	info := map[string]string{"endpoint": "http://" + listener.Addr().String() + host.Admin.AdminAPIBasePath() + "/rpc", "token": token, "deniedToken": denied}
+	info := map[string]any{"readiness": host.Admin.RPCExposureReadiness(), "endpoint": "http://" + listener.Addr().String() + host.Admin.AdminAPIBasePath() + "/rpc", "token": token, "deniedToken": denied}
 	data, err := json.Marshal(info)
 	if err != nil {
 		return err

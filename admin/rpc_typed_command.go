@@ -390,3 +390,13 @@ func (e *typedDispatchEndpoint) Invoke(ctx context.Context, request any) (any, e
 	}
 	return e.EndpointDefinition.Invoke(ctx, request)
 }
+
+// ValidateEndpoint attests the private carrier adapter without executing its
+// factory. Both carrier and canonical inputs delegate to the same dispatch path.
+func (e *typedDispatchEndpoint) ValidateEndpoint() []cmdrpc.ValidationIssue {
+	result := cmdrpc.ValidateEndpoint(e.EndpointDefinition)
+	if e.admin == nil || e.admin.Commands() == nil {
+		result.Issues = append(result.Issues, cmdrpc.ValidationIssue{Method: RPCMethodCommandDispatch, Code: cmdrpc.IssueHandlerRequired, Status: cmdrpc.ValidationInvalid, Message: "admin command bus required"})
+	}
+	return result.Issues
+}

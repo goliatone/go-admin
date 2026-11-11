@@ -499,3 +499,52 @@ func testFiberRequest(t *testing.T, app interface {
 	}
 	return resp
 }
+
+// Route diagnostics must not finalize registration: hosts may still add routes
+// after admin initialization, before starting their own Fiber adapter.
+func TestRPCTransportRegistrationSnapshotLifecycle(t *testing.T) {
+	t.Run("fiber2", func(t *testing.T) { assertRPCSnapshotLifecycle(t, router.NewFiberAdapter()) })
+	t.Run("fiber3", func(t *testing.T) { assertRPCSnapshotLifecycle(t, router.NewFiberV3Adapter()) })
+}
+
+func assertRPCSnapshotLifecycle[T any](t *testing.T, server router.Server[T]) {
+	t.Helper()
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{},
+		WithAdminDependencies(admin.Dependencies{Authenticator: &rpcTestAuthenticator{}, Authorizer: rpcTestAuthorizer{}}),
+		WithRPCTransport(RPCTransportConfig{Enabled: true}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatal(err)
+	}
+	inspector := server.Router().(router.RegistrationInspector)
+	before := inspector.RegistrationSnapshot()
+	for range 3 {
+		snapshot := inspector.RegistrationSnapshot()
+		if snapshot.State != router.RegistrationCollecting || snapshot.Revision != before.Revision {
+			t.Fatalf("snapshot read mutated registration: state=%s revision=%d, before=%d", snapshot.State, snapshot.Revision, before.Revision)
+		}
+	}
+	server.Router().Get("/late-rpc-host-route", func(c router.Context) error { return c.SendStatus(204) })
+	server.WrappedRouter()
+	after := inspector.RegistrationSnapshot()
+	if after.State != router.RegistrationSealed {
+		t.Fatalf("state=%s, want sealed", after.State)
+	}
+	invoke := path.Join(adm.AdminAPIBasePath(), "rpc")
+	for _, route := range []struct {
+		method router.HTTPMethod
+		path   string
+	}{{router.GET, "/late-rpc-host-route"}, {router.POST, invoke}} {
+		if !hasRoute(after.MountedRoutes, route.method, route.path) {
+			t.Fatalf("missing physical route %s %s", route.method, route.path)
+		}
+	}
+	if hasRoute(after.MountedRoutes, router.GET, path.Join(invoke, "endpoints")) {
+		t.Fatal("diagnostics enabled RPC discovery")
+	}
+}
