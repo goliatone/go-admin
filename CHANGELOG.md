@@ -1,10 +1,27 @@
 # Changelog
 
+# [0.145.0](https://github.com/goliatone/go-admin/compare/v0.144.1...v0.145.0) - (2026-11-11)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Remove temp link ([228fbe1](https://github.com/goliatone/go-admin/commit/228fbe1fa133c8cc897d820f89ec2891a0d31d22))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Rpc expose and router init ([94411e0](https://github.com/goliatone/go-admin/commit/94411e00585f933388b4d1aac8a9ebd5304ea849))  - (goliatone)
+
 # [0.144.1](https://github.com/goliatone/go-admin/compare/v0.144.0...v0.144.1) - (2026-11-10)
+
+
+New patch release: v0.144.1
 
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Dry run and nested RPC calls ([528361e](https://github.com/goliatone/go-admin/commit/528361e1c939c317b7c0259ef56281433e7000f7))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.144.1 ([2a13f2a](https://github.com/goliatone/go-admin/commit/2a13f2ad733b0ab3d19fb220210ac9cc97b171d2))  - (goliatone)
 
 # [0.144.0](https://github.com/goliatone/go-admin/compare/v0.143.0...v0.144.0) - (2026-11-10)
 
