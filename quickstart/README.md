@@ -895,7 +895,60 @@ with `server.Serve(address)`. `WithFiberV3AdapterConfig` forwards native
 `ListenConfig` through `Serve`; callers starting `server.WrappedRouter()` directly
 must supply their native listener/TLS/hook settings themselves.
 
-Hosts own long-lived sessions. Cancel the contexts assigned to dashboard WebSocket
+### Managed hosting and bounded ingress
+
+Both `NewFiberServer` and `NewFiberV3Server` return servers implementing
+`router.StartupInitializer`, `router.ManagedServer`, `router.BoundedIngressServer`
+and `router.BoundedIngressValidator`. Use the coordinated root/quickstart
+artifacts and provider versions selected by [go.mod](go.mod). Fiber v2 remains
+the existing default; v3 requires the explicit constructor and v3-native options,
+views and middleware.
+
+Configure policy and register all admin, RPC, static and application routes before
+initialization or startup. Quickstart registers its native middleware and terminal
+fallback through adapter-owned APIs; startup validators see the finalized table.
+`Initialize` returns sticky startup errors without selecting raw hosting. Managed
+startup performs initialization itself, so a pre-canceled start runs no validators
+and binds no listener.
+
+```go
+// Register application/admin/RPC routes before starting this lifetime.
+ingress := server.(router.BoundedIngressServer)
+if err := ingress.ConfigureBoundedIngress(router.BoundedIngressOptions{
+    UnknownMethod: router.UnknownMethodOptions{Policy: router.UnknownMethodReject},
+}); err != nil { return err }
+
+run, err := server.(router.ManagedServer).StartManaged(ctx, router.ManagedOptions{
+    Address: address,
+    DrainTimeout: drainTimeout,
+    OnShutdown: stopOwnedStreams, // func(context.Context) error: close and join WS/SSE
+})
+if err != nil { return err }
+return run.Wait(context.Background())
+```
+
+Bounded ingress is optional and remains off unless configured. Its rejection
+policy does not implement route-aware unknown-method 404/405 handling. Keep
+application readiness tied to `Serving`, and handle `Done`/`Wait` for startup
+failure. Cancellation or `Stop` begins draining; a caller's Stop deadline does not
+shorten the configured shared drain budget. If shared drain expires, retain
+resources until remaining handlers/readers join and `Wait` reports completion.
+A managed server has one lifetime. For an intentional restart, construct a new
+server. Inspect errors with `errors.Is`/`errors.As`, including cancellation,
+startup validation and managed drain errors.
+
+Use `WrappedRouter` only for explicit native hosting or native tests on a separate
+server instance. It selects raw hosting and cannot be mixed with managed startup.
+Existing `Serve`/`Shutdown` hosting remains supported. RPC diagnostics are optional
+through `RPCTransportConfig.ErrorObserver`; see the [RPC error contract](../docs/GUIDE_RPC.md#error-and-validation-contract).
+
+For v2-to-v3 migration, preserve services, route declarations, authentication,
+command policy and selected ingress policy while changing only the native
+constructor/options/views. Qualify v2 first, then v3. A rollback must restore the
+coordinated package graph, native options, views, middleware and policies together;
+it must retain the managed/ingress capabilities the application requires.
+
+For existing Serve/Shutdown hosts, applications own long-lived sessions. Cancel the contexts assigned to dashboard WebSocket
 and SSE requests, wait for their handlers/subscriptions to finish, then call
 `server.Shutdown(ctx)` with the caller's bounded context. The admin-shell shutdown
 coordinator drains the native server before lifecycle hooks and shared-resource
@@ -920,10 +973,12 @@ snapshots remain available to the helpers.
 Synthetic route-miss diagnostics require an explicit terminal fallback. For a
 standalone native app, register `app.Use(quickstart.NewFiberV3RouteMissHandler(cfg))`
 last, after all application routes and middleware (v2 uses `NewFiberRouteMissHandler`).
-With a go-router adapter, call `server.Init()` first so deferred routes and assets
-are registered, then append the native fallback. `NewFiberServer` and
-`NewFiberV3Server` do this automatically during initialization; configure native
-middleware through their options before `Init`, `WrappedRouter` or `Serve`.
+With a go-router adapter, queue the fallback before initialization through the
+major-specific `UseNativeTerminal` capability. The adapter installs it after
+routes and caller misses, before sealing and startup validation. `NewFiberServer`
+and `NewFiberV3Server` queue it automatically during construction; configure native
+middleware through their options before `Initialize`, `Init`, `WrappedRouter`,
+`Serve` or `StartManaged`. Do not append native middleware after sealing.
 
 The fallback marks only owned admin misses reached at the end of routing and
 retains native method-not-allowed behavior. Error presentation preserves direct

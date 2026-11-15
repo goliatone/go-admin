@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -16,6 +17,9 @@ import (
 // authoritative, matching the existing v2 composition contract.
 // Serve forwards AdapterConfig.ListenConfig. Callers starting WrappedRouter
 // themselves must initialize the adapter and pass native listen settings.
+// The returned server exposes router.StartupInitializer, router.ManagedServer,
+// router.BoundedIngressServer and router.BoundedIngressValidator. Configure and
+// register routes before initialization; WrappedRouter selects native raw hosting.
 func NewFiberV3Server(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberV3ServerOption) (router.Server[*fiber.App], router.Router[*fiber.App]) {
 	if adm != nil {
 		setQuickstartDefaultLoggerDependencies(adm.LoggerProvider(), adm.Logger())
@@ -35,26 +39,31 @@ func NewFiberV3Server(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin
 	}
 	routeDomains := newHostRouteDomainResolver(cfg)
 	adapter := router.NewFiberV3AdapterWithConfig(options.AdapterConfig, func(_ *fiber.App) *fiber.App {
-		app := fiber.New(options.Config)
-		app.Use(fiberrecover.New())
-		if options.EnableLogger {
-			app.Use(fiberlogger.New())
-		}
-		if debugLogger := debugFiberV3SlogMiddleware(cfg); debugLogger != nil {
-			app.Use(debugLogger)
-		}
-		for _, handler := range options.Middleware {
-			if handler != nil {
-				app.Use(handler)
-			}
-		}
-		app.Use(newFiberV3Owned404Middleware(routeDomains, options.Config.ErrorHandler))
-		return app
+		return fiber.New(options.Config)
 	})
-	server := &fiberRouteMissServer[*fiber.App]{
-		Server:  adapter,
-		install: func(app *fiber.App) { app.Use(NewFiberV3RouteMissHandler(cfg)) },
+	middleware := []fiber.Handler{fiberrecover.New()}
+	if options.EnableLogger {
+		middleware = append(middleware, fiberlogger.New())
 	}
+	if debugLogger := debugFiberV3SlogMiddleware(cfg); debugLogger != nil {
+		middleware = append(middleware, debugLogger)
+	}
+	for _, handler := range options.Middleware {
+		if handler != nil {
+			middleware = append(middleware, handler)
+		}
+	}
+	middleware = append(middleware, newFiberV3Owned404Middleware(routeDomains, options.Config.ErrorHandler))
+	server := newFiberRouteMissServer(adapter, func() error {
+		registrar, ok := adapter.(router.FiberV3NativeMiddlewareRegistrar)
+		if !ok {
+			return fmt.Errorf("quickstart requires owned native middleware registration: %w", router.ErrManagedUnsupported)
+		}
+		if err := registrar.UseNative(middleware...); err != nil {
+			return err
+		}
+		return registrar.UseNativeTerminal(NewFiberV3RouteMissHandler(cfg))
+	})
 	return server, adapter.Router()
 }
 

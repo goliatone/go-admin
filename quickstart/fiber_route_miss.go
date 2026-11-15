@@ -1,7 +1,8 @@
 package quickstart
 
 import (
-	"sync"
+	"context"
+	"fmt"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
@@ -38,13 +39,34 @@ func ownedFiberRouteMiss(method, path string, domains hostRouteDomainResolver, f
 	return fallback
 }
 
-// Install the fallback after the adapter finalizes deferred routes, static
-// assets and caller-supplied miss handlers, on every supported startup path.
-// Embedding preserves the remaining server behavior, including listen options.
+// Native setup is registered during construction. The adapter owns finalization,
+// startup errors and hosting mode; the wrapper never uses a raw getter to initialize.
+type fiberServerCapabilities interface {
+	router.StartupInitializer
+	router.ManagedServer
+	router.BoundedIngressServer
+	router.BoundedIngressValidator
+}
+
 type fiberRouteMissServer[T any] struct {
 	router.Server[T]
-	once    sync.Once
-	install func(T)
+	capabilities fiberServerCapabilities
+	setupErr     error
+}
+
+func newFiberRouteMissServer[T any](server router.Server[T], setup func() error) *fiberRouteMissServer[T] {
+	s := &fiberRouteMissServer[T]{Server: server}
+	var ok bool
+	s.capabilities, ok = server.(fiberServerCapabilities)
+	if !ok {
+		s.setupErr = fmt.Errorf("quickstart server requires native hosting capabilities: %w", router.ErrManagedUnsupported)
+	} else {
+		s.setupErr = setup()
+	}
+	if s.setupErr != nil {
+		s.setupErr = &router.StartupValidationError{Err: s.setupErr}
+	}
+	return s
 }
 
 func (s *fiberRouteMissServer[T]) Init() {
@@ -53,27 +75,49 @@ func (s *fiberRouteMissServer[T]) Init() {
 	}
 }
 
-// Initialize preserves error-returning validation through the quickstart wrapper.
 func (s *fiberRouteMissServer[T]) Initialize() error {
-	if initializer, ok := s.Server.(router.StartupInitializer); ok {
-		if err := initializer.Initialize(); err != nil {
-			return err
-		}
-	} else {
-		s.Server.Init()
+	if s.setupErr != nil {
+		return s.setupErr
 	}
-	s.once.Do(func() { s.install(s.Server.WrappedRouter()) })
-	return nil
+	return s.capabilities.Initialize()
 }
 
 func (s *fiberRouteMissServer[T]) WrappedRouter() T {
-	s.Init()
+	if s.setupErr != nil {
+		panic(s.setupErr)
+	}
 	return s.Server.WrappedRouter()
 }
 
 func (s *fiberRouteMissServer[T]) Serve(address string) error {
-	if err := s.Initialize(); err != nil {
-		return err
+	if s.setupErr != nil {
+		return s.setupErr
 	}
 	return s.Server.Serve(address)
+}
+
+func (s *fiberRouteMissServer[T]) StartManaged(ctx context.Context, options router.ManagedOptions) (router.ManagedRun, error) {
+	// Preserve provider validation/cancellation precedence without initializing
+	// a pre-canceled run, including when construction recorded a setup failure.
+	if s.capabilities != nil && (ctx == nil || ctx.Err() != nil) {
+		return s.capabilities.StartManaged(ctx, options)
+	}
+	if s.setupErr != nil {
+		return nil, s.setupErr
+	}
+	return s.capabilities.StartManaged(ctx, options)
+}
+
+func (s *fiberRouteMissServer[T]) ConfigureBoundedIngress(options router.BoundedIngressOptions) error {
+	if s.setupErr != nil {
+		return s.setupErr
+	}
+	return s.capabilities.ConfigureBoundedIngress(options)
+}
+
+func (s *fiberRouteMissServer[T]) ValidateBoundedIngress(options router.BoundedIngressOptions) error {
+	if s.setupErr != nil {
+		return s.setupErr
+	}
+	return s.capabilities.ValidateBoundedIngress(options)
 }

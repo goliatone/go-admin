@@ -859,10 +859,22 @@ panic in a result-producing command can surface as a missing-result/unavailable
 failure. Neither failure contains panic text or proves rollback.
 
 `AfterInvoke` receives the invocation's diagnostic error; it does not cover every
-pre-invocation failure. Custom mounts can use `rpcfiber.WithErrorObserver` for
-private stage diagnostics. Diagnostic callbacks must not write a response or
-copy causes into client-visible fields. Authentication and CSRF middleware errors
-outside the RPC handler keep their existing presenters and statuses.
+pre-invocation failure. Set `RPCTransportConfig.ErrorObserver` to a
+`rpcfiber.ErrorObserver` for privileged stage diagnostics through either quickstart
+Fiber constructor. It receives the original error/panic and stage, including
+parse/decode, metadata, pre-invoke, invocation and mapper/hook failures. Nil keeps
+observation disabled and does not change error mapping or hook behavior.
+
+The observer runs synchronously and must not write a response or retain the pooled
+router context. Copy only the diagnostic values needed by the host; causes may
+contain private data and the method name is client supplied. With bounded ingress
+enabled, obtain the server-generated ID with
+`router.IngressRequestIDFromContext(ctx.Context())` to correlate internal records.
+Keep raw causes out of public responses and ingress observations. Observer panics
+are contained without recursively reporting them; a failed invocation and a
+separate mapper or hook failure can each produce an event. Authentication and
+CSRF middleware errors outside the RPC handler keep their existing presenters and
+statuses and do not produce RPC diagnostic events.
 
 ### Migration and outcome handling
 

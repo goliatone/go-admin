@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	p6 "github.com/flosch/pongo2/v6"
 	p7 "github.com/flosch/pongo2/v7"
@@ -203,12 +204,14 @@ func TestFiberV3ViewHelperOverridesAndHTTPParity(t *testing.T) {
 		return fiber3.New(fiber3.Config{Views: modern, PassLocalsToViews: true})
 	})
 	newServer.Router().Get("/page", handler)
-	oldResp, err := oldServer.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil))
+	// Template rendering under race detection can exceed the native one-second default.
+	// Keep both requests bounded while testing response parity, not render latency.
+	oldResp, err := oldServer.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil), 10000)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer closeResponseBody(t, oldResp)
-	newResp, err := newServer.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil))
+	newResp, err := newServer.WrappedRouter().Test(httptest.NewRequestWithContext(t.Context(), "GET", "/page", nil), fiber3.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	if err != nil {
 		t.Fatal(err)
 	}

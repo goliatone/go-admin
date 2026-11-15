@@ -34,6 +34,11 @@ type RPCTransportConfig struct {
 	// Nil retains legacy RPC codes; raw diagnostic causes are always omitted.
 	ErrorMapper cmdrpc.ErrorMapper `json:"-"`
 
+	// ErrorObserver receives privileged diagnostic causes without changing public errors.
+	// It must not write a response or retain the pooled router context.
+	// Nil disables observation; observer panics are contained by the transport.
+	ErrorObserver rpcfiber.ErrorObserver `json:"-"`
+
 	MetaExtractor rpcfiber.MetaExtractor    `json:"-"`
 	BeforeInvoke  rpcfiber.BeforeInvokeHook `json:"-"`
 	AfterInvoke   rpcfiber.AfterInvokeHook  `json:"-"`
@@ -209,6 +214,9 @@ func rpcTransportOptions(adm *admin.Admin, cfg RPCTransportConfig) []rpcfiber.Op
 	}
 	if cfg.ErrorMapper != nil {
 		rpcOpts = append(rpcOpts, rpcfiber.WithErrorMapper(cfg.ErrorMapper))
+	}
+	if cfg.ErrorObserver != nil {
+		rpcOpts = append(rpcOpts, rpcfiber.WithErrorObserver(cfg.ErrorObserver))
 	}
 	return rpcOpts
 }

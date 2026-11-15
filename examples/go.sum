@@ -232,8 +232,8 @@ github.com/goliatone/go-repository-bun v0.16.2 h1:tZ6NOI7iJoDvgpTCJtUDyG/kwgMPDn
 github.com/goliatone/go-repository-bun v0.16.2/go.mod h1:tCjJI6WF6wgpFMMUT9jxgEtuzXFde3MJ2WCLtBBglRA=
 github.com/goliatone/go-repository-cache v0.7.3 h1:kF/2Cwld6S4C9CUfyL7fCZK/Lb8Jer+mqOqKJimYfLA=
 github.com/goliatone/go-repository-cache v0.7.3/go.mod h1:FDqEzFEYBfRHmAbHYafKEC5VAo4oVCdD6CeZ292giLw=
-github.com/goliatone/go-router v0.65.0 h1:1wdgpRCBnB6/zGX2YguaUFe7LVoWjO1NuPK9R+B+os8=
-github.com/goliatone/go-router v0.65.0/go.mod h1:mjpCLv05I0hvcyZHS8EVzNiMpztCqwHwXhg5WCp9xnU=
+github.com/goliatone/go-router v0.65.3 h1:VF2kxutK3wsFhn12PelW75DiRjCgqx30jLxBgWK0saU=
+github.com/goliatone/go-router v0.65.3/go.mod h1:mjpCLv05I0hvcyZHS8EVzNiMpztCqwHwXhg5WCp9xnU=
 github.com/goliatone/go-search v0.14.5 h1:rTI9QcaEpAFiG+u20Mwc+CoeU3S9KcKUg5sxlDpNXcg=
 github.com/goliatone/go-search v0.14.5/go.mod h1:MhNvJD7TjSbwbPOP7zq08mODM62V9tYFsCcE+MO3Qms=
 github.com/goliatone/go-search/adapters/goadmin v0.14.5 h1:Rvihq31AI31p+3GxDRTAkZSawoX6Pr3be/qFPP9inTs=
