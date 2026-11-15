@@ -7,7 +7,7 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/goliatone/go-admin v0.145.1
+	github.com/goliatone/go-admin v0.146.0
 	github.com/goliatone/go-auth v0.45.7
 	github.com/goliatone/go-auth/adapters/featuregate v0.45.7
 	github.com/goliatone/go-cache v0.3.1
@@ -131,7 +131,7 @@ require (
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.30.0 // indirect
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect
-	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4 // indirect
+	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jszwec/s3fs/v2 v2.0.0 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect

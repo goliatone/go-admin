@@ -1,6 +1,31 @@
 # Changelog
 
+# [0.146.0](https://github.com/goliatone/go-admin/compare/v0.145.1...v0.146.0) - (2026-11-14)
+
+
+## Migration Notes
+
+- Quickstart Fiber v2 and v3 servers now expose optional managed hosting, startup initialization and bounded ingress capabilities. Middleware and terminal fallbacks finalize through adapter-owned registration before startup validation.
+- Keep native `WrappedRouter` access separate from managed hosting. Configure policy and register routes before startup. Applications must close and join owned WebSocket/SSE work through managed shutdown callbacks.
+- `RPCTransportConfig.ErrorObserver` optionally receives privileged RPC stage diagnostics. Callbacks must not write responses, retain pooled contexts or expose private causes publicly; nil preserves existing behavior.
+- Fiber v2 remains the default. Select v3 explicitly with its native options and views. Bounded ingress remains opt-in; full route-aware unknown-method handling is still a separate delivery.
+
+## <!-- 16 -->➕ Add
+
+- Better error handling ([072c250](https://github.com/goliatone/go-admin/commit/072c250484ce8b72de5b19553ab5f3d22d3d1e43))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([198f4e0](https://github.com/goliatone/go-admin/commit/198f4e06e5f52e2c246b2258889e58fdda830062))  - (goliatone)
+
 # [0.145.1](https://github.com/goliatone/go-admin/compare/v0.145.0...v0.145.1) - (2026-11-11)
+
+
+New patch release: v0.145.1
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.145.1 ([e1558e4](https://github.com/goliatone/go-admin/commit/e1558e44a25d1ef9fc1e7a287b7df12da887d940))  - (goliatone)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
